@@ -1,0 +1,172 @@
+#include "harness.hpp"
+#include "mosa/lexer.hpp"
+
+#include <string_view>
+#include <vector>
+
+namespace {
+
+std::vector<mosa::Token> scan_all(std::string_view source) {
+  mosa::Lexer lexer(source);
+  std::vector<mosa::Token> tokens;
+  for (;;) {
+    const mosa::Scan scan = lexer.next();
+    if (scan.failure) {
+      mosa_test::check(false, "scan failed");
+      return {};
+    }
+    tokens.push_back(scan.token);
+    if (scan.token.kind == mosa::TokenKind::End ||
+        scan.token.kind == mosa::TokenKind::EndFullStop) {
+      return tokens;
+    }
+  }
+}
+
+void test_names_and_columns() {
+  auto atoms = scan_all("foo.");
+  mosa_test::check(atoms.size() == 2 && atoms[0].kind == mosa::TokenKind::Name &&
+                       atoms[0].text == "foo" && atoms[1].kind == mosa::TokenKind::EndFullStop,
+                   "atom and full stop");
+  auto glued = scan_all("0X10.");
+  mosa_test::check(glued.size() == 3 && glued[0].kind == mosa::TokenKind::Integer &&
+                       glued[0].integer == 0 && glued[1].kind == mosa::TokenKind::Variable &&
+                       glued[1].text == "X10",
+                   "0X10 is not hex");
+  auto cols = scan_all("あ.");
+  mosa_test::check(cols.size() == 2 && cols[1].kind == mosa::TokenKind::EndFullStop &&
+                       cols[1].line == 1 && cols[1].column == 2,
+                   "column counts あ as one");
+  mosa::Lexer crlf("a\r\nb");
+  auto first = crlf.next();
+  auto second = crlf.next();
+  mosa_test::check(first.token.text == "a" && second.token.line == 2 && second.token.column == 1,
+                   "crlf is one break");
+  auto mark = mosa::Lexer("\u0301");
+  auto bad_mark = mark.next();
+  mosa_test::check(bad_mark.failure &&
+                       bad_mark.failure->reason == mosa::SyntaxReason::IllegalCharacter,
+                   "combining mark cannot start");
+  auto composed = scan_all("e\u0301.");
+  mosa_test::check(composed.size() == 2 && composed[0].kind == mosa::TokenKind::Name &&
+                       composed[0].text == "e\u0301",
+                   "mark continues a name");
+  auto full = mosa::Lexer("（a）.");
+  auto open = full.next();
+  mosa_test::check(open.token.kind == mosa::TokenKind::Name && open.token.text == "（",
+                   "fullwidth paren is a graphic name");
+}
+
+void test_invalid_utf8() {
+  bool threw = false;
+  try {
+    mosa::Lexer bad("あ\xff");
+    auto failed = bad.next();
+    (void)bad.next();
+    mosa_test::check(failed.token.kind == mosa::TokenKind::Name, "hiragana before bad byte");
+    auto utf = bad.next();
+    mosa_test::check(utf.failure && utf.failure->reason == mosa::SyntaxReason::InvalidUtf8 &&
+                         utf.failure->line == 1 && utf.failure->column == 2 &&
+                         utf.failure->token.empty(),
+                     "invalid utf-8 column");
+  } catch (...) {
+    threw = true;
+  }
+  mosa_test::check(!threw, "invalid utf-8 does not throw");
+}
+
+void test_numbers() {
+  auto hex = scan_all("0xFF.");
+  mosa_test::check(hex[0].kind == mosa::TokenKind::Integer && hex[0].integer == 255, "0xFF");
+  auto under = scan_all("1_000.");
+  mosa_test::check(under[0].integer == 1000, "underscore digits");
+  auto tail = mosa::Lexer("1_.");
+  auto tail_scan = tail.next();
+  mosa_test::check(tail_scan.failure &&
+                       tail_scan.failure->reason == mosa::SyntaxReason::UnexpectedToken &&
+                       tail_scan.failure->token == "1_",
+                   "trailing underscore");
+  auto doubled_under = mosa::Lexer("1__0.");
+  auto doubled_scan = doubled_under.next();
+  mosa_test::check(doubled_scan.failure &&
+                       doubled_scan.failure->reason == mosa::SyntaxReason::UnexpectedToken,
+                   "doubled underscore");
+  auto var_under = scan_all("_1.");
+  mosa_test::check(var_under[0].kind == mosa::TokenKind::Variable && var_under[0].text == "_1",
+                   "underscore variable");
+  auto code = scan_all("0'あ.");
+  mosa_test::check(code[0].kind == mosa::TokenKind::Integer && code[0].integer == 0x3042, "0'");
+  auto code2 = scan_all("0'𠮷.");
+  mosa_test::check(code2[0].integer == 0x20BB7, "0' non-bmp");
+  auto stop = scan_all("1.");
+  mosa_test::check(stop.size() == 2 && stop[0].kind == mosa::TokenKind::Integer &&
+                       stop[0].integer == 1 && stop[1].kind == mosa::TokenKind::EndFullStop,
+                   "1. is integer and full stop");
+  auto real = scan_all("1.5e-2.");
+  mosa_test::check(real[0].kind == mosa::TokenKind::Float && real[0].floating == 1.5e-2, "float");
+  auto big = mosa::Lexer("9223372036854775808.");
+  auto big_scan = big.next();
+  mosa_test::check(big_scan.failure &&
+                       big_scan.failure->reason == mosa::SyntaxReason::IntegerOverflow,
+                   "int64 overflow");
+}
+
+void test_quotes_and_comments() {
+  auto nl = scan_all("'\\n'.");
+  mosa_test::check(nl[0].text == "\n", "symbolic newline");
+  auto hexesc = scan_all("'\\x41\\'.");
+  mosa_test::check(hexesc[0].text == "A", "hex escape");
+  auto uesc = scan_all("'\\u3042'.");
+  mosa_test::check(uesc[0].text == "あ", "u escape");
+  auto cont = scan_all("'ab\\\nc'.");
+  mosa_test::check(cont[0].text == "abc", "line continuation");
+  auto oct = scan_all("'\\141\\'.");
+  mosa_test::check(oct[0].text == "a", "octal escape");
+  auto doubled = scan_all("'a''b'.");
+  mosa_test::check(doubled[0].text == "a'b", "doubled quote");
+  auto grave = mosa::Lexer("`");
+  auto grave_scan = grave.next();
+  mosa_test::check(grave_scan.failure &&
+                       grave_scan.failure->reason == mosa::SyntaxReason::IllegalCharacter,
+                   "grave");
+  auto comment = scan_all("/* /* */ foo.");
+  mosa_test::check(comment[0].kind == mosa::TokenKind::Name && comment[0].text == "foo",
+                   "block comment does not nest");
+  auto line = scan_all("% foo\nbar.");
+  mosa_test::check(line[0].text == "bar", "line comment");
+  auto bom = scan_all("\uFEFFfoo.");
+  mosa_test::check(bom[0].text == "foo", "leading BOM skipped");
+}
+
+void test_radix_and_comment_end() {
+  auto binary = scan_all("0b10.");
+  mosa_test::check(binary[0].kind == mosa::TokenKind::Integer && binary[0].integer == 2, "0b10");
+  auto octal = scan_all("0o10.");
+  mosa_test::check(octal[0].kind == mosa::TokenKind::Integer && octal[0].integer == 8, "0o10");
+  auto upper_bin = scan_all("0B10.");
+  mosa_test::check(upper_bin.size() == 3 && upper_bin[0].kind == mosa::TokenKind::Integer &&
+                       upper_bin[0].integer == 0 && upper_bin[1].kind == mosa::TokenKind::Variable &&
+                       upper_bin[1].text == "B10",
+                   "0B10 is not binary");
+  auto arrow = scan_all("->.");
+  mosa_test::check(arrow.size() == 2 && arrow[0].kind == mosa::TokenKind::Name &&
+                       arrow[0].text == "->",
+                   "graphic arrow");
+  auto open_comment = mosa::Lexer("/* unterminated");
+  auto comment_scan = open_comment.next();
+  mosa_test::check(comment_scan.failure &&
+                       comment_scan.failure->reason == mosa::SyntaxReason::UnterminatedComment &&
+                       comment_scan.failure->token == "/*",
+                   "unterminated comment");
+}
+
+}  // namespace
+
+int main() {
+  test_names_and_columns();
+  test_invalid_utf8();
+  test_numbers();
+  test_quotes_and_comments();
+  test_radix_and_comment_end();
+  return mosa_test::failures();
+}
