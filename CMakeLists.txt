@@ -32,6 +32,7 @@ target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/unify.cpp)
 target_sources(mosa_lib PRIVATE src/read/reader.cpp src/read/reader_bracket.cpp)
 target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/term_equal.cpp)
+target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 
 enable_testing()
 
@@ -76,8 +77,10 @@ target_include_directories(writer_test PRIVATE tests/cpp)
 target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
+add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
+
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
-set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 0\\)\r?\n?$")
+set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 1\\)\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
 add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
 add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
