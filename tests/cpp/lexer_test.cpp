@@ -61,10 +61,12 @@ void test_invalid_utf8() {
   bool threw = false;
   try {
     mosa::Lexer bad("あ\xff");
-    auto failed = bad.next();
-    (void)bad.next();
-    mosa_test::check(failed.token.kind == mosa::TokenKind::Name, "hiragana before bad byte");
-    auto utf = bad.next();
+    const auto name = bad.next();
+    mosa_test::check(!name.failure && name.token.kind == mosa::TokenKind::Name &&
+                         name.token.text == "あ",
+                     "hiragana before bad byte");
+    // 0xFF を読むのはこの next である。後続に残る失敗は見ない。
+    const auto utf = bad.next();
     mosa_test::check(utf.failure && utf.failure->reason == mosa::SyntaxReason::InvalidUtf8 &&
                          utf.failure->line == 1 && utf.failure->column == 2 &&
                          utf.failure->token.empty(),
