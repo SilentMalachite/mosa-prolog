@@ -126,6 +126,8 @@ void check_equality() {
   const std::vector<mosa::VarName> right_names{{"X", first}, {"X", second}};
   mosa_test::check(!mosa::same_term(left_heap, left, left_names, right_heap, right, right_names),
                    "shared name is one ref");
+  mosa_test::check(!mosa::same_term(right_heap, right, right_names, left_heap, left, left_names),
+                   "shared name is one ref reversed");
 }
 
 }  // namespace

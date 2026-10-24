@@ -104,7 +104,7 @@ bool plus_intact(const mosa::OperatorTable& ops) {
 void check_bad_priority_and_comma(mosa::OperatorTable& ops) {
   const auto bogus = static_cast<mosa::Specifier>(99);
   mosa_test::check(ops.define(100, bogus, "q") == mosa::OpResult::BadSpecifier, "bad specifier");
-  mosa_test::check(plus_intact(ops), "bad specifier keeps table");
+  mosa_test::check(ops.lookup("q").empty() && plus_intact(ops), "bad specifier keeps table");
   mosa_test::check(ops.define(-1, mosa::Specifier::Xfx, "+") == mosa::OpResult::BadPriority,
                    "priority -1");
   mosa_test::check(ops.define(1201, mosa::Specifier::Xfx, "+") == mosa::OpResult::BadPriority,
