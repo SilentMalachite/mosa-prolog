@@ -1,0 +1,3 @@
+/build/
+/tests/tmp/*
+!/tests/tmp/README.md
