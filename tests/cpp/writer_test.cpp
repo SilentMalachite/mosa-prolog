@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -108,6 +109,23 @@ void check_equality() {
   const Held named("f(A).");
   const Held anon("f(_).");
   mosa_test::check(!same(named, anon), "name is not underscore");
+  const Held shared_x("f(X, X).");
+  const Held shared_x_again("f(X, X).");
+  mosa_test::check(same(shared_x, shared_x_again), "shared name across heaps");
+  mosa::AtomTable left_atoms;
+  mosa::Heap left_heap(left_atoms);
+  const auto once = left_heap.fresh_ref();
+  const auto left = left_heap.structure(left_atoms.intern("f"), std::array<mosa::Cell, 2>{once, once});
+  const std::vector<mosa::VarName> left_names{{"X", once}};
+  mosa::AtomTable right_atoms;
+  mosa::Heap right_heap(right_atoms);
+  const auto first = right_heap.fresh_ref();
+  const auto second = right_heap.fresh_ref();
+  const auto right =
+      right_heap.structure(right_atoms.intern("f"), std::array<mosa::Cell, 2>{first, second});
+  const std::vector<mosa::VarName> right_names{{"X", first}, {"X", second}};
+  mosa_test::check(!mosa::same_term(left_heap, left, left_names, right_heap, right, right_names),
+                   "shared name is one ref");
 }
 
 }  // namespace

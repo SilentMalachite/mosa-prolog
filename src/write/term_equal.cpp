@@ -62,9 +62,9 @@ bool match_vars(const Heap& left_heap, Cell left, std::span<const VarName> left_
   const auto left_label = var_name(left_names, left);
   const auto right_label = var_name(right_names, right);
   if (left_label || right_label) {
-    if (!left_label || !right_label) return false;
-    return *left_label == *right_label;
+    if (!left_label || !right_label || *left_label != *right_label) return false;
   }
+  // 名前の一致だけでは共有を見ない。同じ REF の再出現は、対応先も同じ REF にする。
   return correspond(left.raw(), right.raw(), pairs);
 }
 
