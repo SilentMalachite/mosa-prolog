@@ -1,0 +1,136 @@
+#include "mosa/reader.hpp"
+
+#include <array>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace mosa {
+namespace {
+
+Cell cons_all(Heap& heap, const std::vector<Cell>& heads, Cell tail) {
+  for (auto head = heads.rbegin(); head != heads.rend(); ++head) tail = heap.list(*head, tail);
+  return tail;
+}
+
+bool solo(const Token& token, std::string_view text) {
+  return token.kind == TokenKind::Solo && token.text == text;
+}
+
+}  // namespace
+
+Reader::Parsed Reader::parse_paren() {
+  consume();
+  Parsed inner = parse_expr(1200);
+  if (inner.failure) return inner;
+  const Scan scan = peek();
+  if (scan.failure) return failure_of(scan);
+  if (!solo(scan.token, ")")) return bad_token(scan.token);
+  consume();
+  // 括弧で包んだ項の優先度は 0。外側の演算子はこの中を割らない。
+  inner.priority = 0;
+  return inner;
+}
+
+Reader::Parsed Reader::parse_curly() {
+  consume();
+  const Scan scan = peek();
+  if (scan.failure) return failure_of(scan);
+  if (solo(scan.token, "}")) {
+    consume();
+    return atom_named("{}");
+  }
+  Parsed inner = parse_expr(1200);
+  if (inner.failure) return inner;
+  const Scan close = peek();
+  if (close.failure) return failure_of(close);
+  if (!solo(close.token, "}")) return bad_token(close.token);
+  consume();
+  Parsed parsed;
+  parsed.term = heap_.structure(heap_.atoms().intern("{}"), std::array<Cell, 1>{inner.term});
+  return parsed;
+}
+
+Reader::Parsed Reader::parse_arguments(std::string functor) {
+  std::vector<Cell> args;
+  while (true) {
+    if (args.size() == 1024) {
+      const Scan extra = peek();
+      if (extra.failure) return failure_of(extra);
+      return max_arity(extra.token);
+    }
+    Parsed arg = parse_expr(999);
+    if (arg.failure) return arg;
+    args.push_back(arg.term);
+    const Scan scan = peek();
+    if (scan.failure) return failure_of(scan);
+    if (solo(scan.token, ",")) {
+      consume();
+      continue;
+    }
+    if (solo(scan.token, ")")) {
+      consume();
+      break;
+    }
+    return bad_token(scan.token);
+  }
+  Parsed parsed;
+  parsed.term = heap_.structure(heap_.atoms().intern(functor), args);
+  return parsed;
+}
+
+Reader::Parsed Reader::take_bar_tail(Cell& tail) {
+  consume();
+  Parsed rest = parse_expr(999);
+  if (rest.failure) return rest;
+  const Scan again = peek();
+  if (again.failure) return failure_of(again);
+  // リストの | は演算子ではない。2 つ目は項の一部にせず不正トークンにする。
+  if (solo(again.token, "|")) return bad_token(again.token);
+  tail = rest.term;
+  Parsed ok;
+  return ok;
+}
+
+Reader::Parsed Reader::parse_list() {
+  consume();
+  const Scan scan = peek();
+  if (scan.failure) return failure_of(scan);
+  if (solo(scan.token, "]")) {
+    consume();
+    return atom_named("[]");
+  }
+  std::vector<Cell> heads;
+  Cell tail;
+  bool barred = false;
+  while (!barred) {
+    Parsed elem = parse_expr(999);
+    if (elem.failure) return elem;
+    heads.push_back(elem.term);
+    const Scan sep = peek();
+    if (sep.failure) return failure_of(sep);
+    if (solo(sep.token, ",")) {
+      consume();
+      continue;
+    }
+    if (solo(sep.token, "|")) {
+      Parsed taken = take_bar_tail(tail);
+      if (taken.failure) return taken;
+      barred = true;
+      break;
+    }
+    if (solo(sep.token, "]")) break;
+    return bad_token(sep.token);
+  }
+  const Scan close = peek();
+  if (close.failure) return failure_of(close);
+  if (!solo(close.token, "]")) return bad_token(close.token);
+  consume();
+  if (!barred) tail = heap_.atom(heap_.atoms().intern("[]"));
+  Parsed parsed;
+  parsed.term = cons_all(heap_, heads, tail);
+  return parsed;
+}
+
+}
