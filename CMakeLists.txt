@@ -26,6 +26,8 @@ target_link_libraries(mosac PRIVATE mosa_lib)
 add_executable(mosatest src/main_mosatest.cpp)
 target_link_libraries(mosatest PRIVATE mosa_lib)
 
+target_sources(mosa_lib PRIVATE src/read/char_class.cpp)
+
 enable_testing()
 
 add_executable(smoke_test tests/cpp/smoke_test.cpp)
@@ -33,6 +35,11 @@ target_include_directories(smoke_test PRIVATE tests/cpp)
 target_link_libraries(smoke_test PRIVATE mosa_warnings)
 
 add_test(NAME smoke COMMAND $<TARGET_FILE:smoke_test>)
+
+add_executable(char_class_test tests/cpp/char_class_test.cpp)
+target_include_directories(char_class_test PRIVATE tests/cpp)
+target_link_libraries(char_class_test PRIVATE mosa_lib)
+add_test(NAME char_class COMMAND $<TARGET_FILE:char_class_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 0\\)\r?\n?$")
