@@ -2,7 +2,7 @@
 
 フェーズ: 0
 進行中: なし
-完了: CMake。macOS で 3 実行ファイルの --version が `mosa 0.0.1 (phase 0)`
-次: harness と 1 + 1 == 2
+完了: harness と CTest 4 件（smoke と --version 3 件）
+次: ci.yml
 未解決: なし
-確認: cmake --preset macos-clang と cmake --build --preset macos-clang が通った。CTest は未登録
+確認: ctest --preset macos-clang が通った
