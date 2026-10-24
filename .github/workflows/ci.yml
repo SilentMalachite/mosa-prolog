@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset macos-clang
+      - name: Build
+        run: cmake --build --preset macos-clang
+      - name: Test
+        run: ctest --preset macos-clang
+      - name: Write conformance summary
+        if: always()
+        shell: bash
+        run: |
+          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+
+  linux-gcc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ ninja-build cmake
+      - name: Configure
+        run: cmake --preset linux-gcc
+      - name: Build
+        run: cmake --build --preset linux-gcc
+      - name: Test
+        run: ctest --preset linux-gcc
+      - name: Write conformance summary
+        if: always()
+        shell: bash
+        run: |
+          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+
+  linux-clang:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build cmake
+      - name: Configure
+        run: cmake --preset linux-clang
+      - name: Build
+        run: cmake --build --preset linux-clang
+      - name: Test
+        run: ctest --preset linux-clang
+      - name: Write conformance summary
+        if: always()
+        shell: bash
+        run: |
+          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset windows-msvc
+      - name: Build
+        run: cmake --build --preset windows-msvc
+      - name: Test
+        run: ctest --preset windows-msvc
+      - name: Write conformance summary
+        if: always()
+        shell: bash
+        run: |
+          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
