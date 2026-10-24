@@ -71,8 +71,8 @@ template <typename Range, std::size_t Count>
   return *it;
 }
 
-// Pc Ps Pe Pi Pf は図形のままにする。全角下線と全角括弧を ASCII の下線・solo と
-// 同じ分類にしない。Nd はここには無く、全角数字は数字にならない。
+// Pc Ps Pe だけ図形にする。全角下線と全角括弧を ASCII の下線・solo と混ぜない。
+// Pi と Pf は計画の図形一覧に無いので不正のままにする。Nd は数字にしない。
 [[nodiscard]] CharClass class_from_category(char major, char minor) {
   switch ((static_cast<unsigned char>(major) << 8) | static_cast<unsigned char>(minor)) {
     case 'L' << 8 | 'l':
@@ -93,8 +93,6 @@ template <typename Range, std::size_t Count>
     case 'P' << 8 | 'c':
     case 'P' << 8 | 's':
     case 'P' << 8 | 'e':
-    case 'P' << 8 | 'i':
-    case 'P' << 8 | 'f':
       return CharClass::Graphic;
     case 'Z' << 8 | 's':
     case 'Z' << 8 | 'l':
