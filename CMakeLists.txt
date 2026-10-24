@@ -29,7 +29,7 @@ target_link_libraries(mosatest PRIVATE mosa_lib)
 target_sources(mosa_lib PRIVATE src/read/char_class.cpp)
 target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
-target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp)
+target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/unify.cpp)
 
 enable_testing()
 
@@ -58,6 +58,11 @@ add_executable(cell_test tests/cpp/cell_test.cpp)
 target_include_directories(cell_test PRIVATE tests/cpp)
 target_link_libraries(cell_test PRIVATE mosa_lib)
 add_test(NAME cell COMMAND $<TARGET_FILE:cell_test>)
+
+add_executable(unify_test tests/cpp/unify_test.cpp)
+target_include_directories(unify_test PRIVATE tests/cpp)
+target_link_libraries(unify_test PRIVATE mosa_lib)
+add_test(NAME unify COMMAND $<TARGET_FILE:unify_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 0\\)\r?\n?$")
