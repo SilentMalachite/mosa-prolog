@@ -31,6 +31,7 @@ target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/unify.cpp)
 target_sources(mosa_lib PRIVATE src/read/reader.cpp src/read/reader_bracket.cpp)
+target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/term_equal.cpp)
 
 enable_testing()
 
@@ -69,6 +70,11 @@ add_executable(reader_test tests/cpp/reader_test.cpp)
 target_include_directories(reader_test PRIVATE tests/cpp)
 target_link_libraries(reader_test PRIVATE mosa_lib)
 add_test(NAME reader COMMAND $<TARGET_FILE:reader_test>)
+
+add_executable(writer_test tests/cpp/writer_test.cpp)
+target_include_directories(writer_test PRIVATE tests/cpp)
+target_link_libraries(writer_test PRIVATE mosa_lib)
+add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 0\\)\r?\n?$")
