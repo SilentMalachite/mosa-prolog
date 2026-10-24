@@ -145,6 +145,10 @@ void check_bar(mosa::OperatorTable& ops) {
 }
 
 void check_mix_and_remove(mosa::OperatorTable& ops) {
+  // 優先度 0 は無い組を消すだけ。中置が残っていても後置の削除は併存にしない。
+  mosa_test::check(ops.define(0, mosa::Specifier::Xf, "+") == mosa::OpResult::Ok,
+                   "remove absent postfix +");
+  mosa_test::check(plus_intact(ops), "absent postfix removal keeps +");
   mosa_test::check(ops.define(100, mosa::Specifier::Xf, "+") == mosa::OpResult::InfixAndPostfix,
                    "postfix on infix +");
   mosa_test::check(plus_intact(ops), "rejected postfix keeps +");

@@ -64,7 +64,7 @@ bool named_kind(const std::vector<OpDef>& ops, std::string_view name, bool (*kin
 }
 
 // 変更より先に拒否を決める。優先度 0 でもコンマ、[]、{}、禁止の | は消さない。
-// 中置の | は優先度が 1000 より大きいときだけ作る。
+// 中置と後置の併存は足すときだけ見る。優先度 0 は無い組を消しても Ok。
 std::optional<OpResult> rejection(const std::vector<OpDef>& ops, int priority, Specifier specifier,
                                   std::string_view name) {
   if (priority < 0 || priority > 1200) return OpResult::BadPriority;
@@ -74,8 +74,11 @@ std::optional<OpResult> rejection(const std::vector<OpDef>& ops, int priority, S
   if (name == "|" && (is_prefix(specifier) || is_postfix(specifier) || priority <= 1000)) {
     return OpResult::CreateBar;
   }
-  if (is_infix(specifier) && named_kind(ops, name, is_postfix)) return OpResult::InfixAndPostfix;
-  if (is_postfix(specifier) && named_kind(ops, name, is_infix)) return OpResult::InfixAndPostfix;
+  if (priority != 0 &&
+      ((is_infix(specifier) && named_kind(ops, name, is_postfix)) ||
+       (is_postfix(specifier) && named_kind(ops, name, is_infix)))) {
+    return OpResult::InfixAndPostfix;
+  }
   return std::nullopt;
 }
 

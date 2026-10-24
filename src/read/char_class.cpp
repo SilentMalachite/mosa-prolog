@@ -71,8 +71,8 @@ template <typename Range, std::size_t Count>
   return *it;
 }
 
-// Pc Ps Pe だけ図形にする。全角下線と全角括弧を ASCII の下線・solo と混ぜない。
-// Pi と Pf は計画の図形一覧に無いので不正のままにする。Nd は数字にしない。
+// 非 ASCII の図形は Sm So Pd Po だけ。Ps Pe Pc は計画の図形一覧に無い。
+// Nd は数字にしない。
 [[nodiscard]] CharClass class_from_category(char major, char minor) {
   switch ((static_cast<unsigned char>(major) << 8) | static_cast<unsigned char>(minor)) {
     case 'L' << 8 | 'l':
@@ -90,9 +90,6 @@ template <typename Range, std::size_t Count>
     case 'S' << 8 | 'o':
     case 'P' << 8 | 'd':
     case 'P' << 8 | 'o':
-    case 'P' << 8 | 'c':
-    case 'P' << 8 | 's':
-    case 'P' << 8 | 'e':
       return CharClass::Graphic;
     case 'Z' << 8 | 's':
     case 'Z' << 8 | 'l':
@@ -104,10 +101,14 @@ template <typename Range, std::size_t Count>
 }
 
 // U+0085 は Cc だがレイアウトに数える。U+FEFF は Cf でも不正にする。
+// 全角括弧と全角下線だけ Ps Pe Pc でも図形にする。ASCII の括弧・下線と混ぜない。
 // 先頭の BOM を読み飛ばすのは lexer の仕事で、分類は変えない。
 [[nodiscard]] CharClass classify_above_ascii(char32_t code_point) {
   if (code_point == U'\u0085') {
     return CharClass::Layout;
+  }
+  if (code_point == U'\uFF08' || code_point == U'\uFF09' || code_point == U'\uFF3F') {
+    return CharClass::Graphic;
   }
   if (code_point == U'\uFEFF' || code_point > U'\U0010FFFF') {
     return CharClass::Illegal;

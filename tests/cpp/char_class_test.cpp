@@ -25,6 +25,7 @@ int main() {
   mosa_test::check(mosa::classify(U'\uff08') == mosa::CharClass::Graphic, "fullwidth paren");
   mosa_test::check(mosa::classify(U'\uff09') == mosa::CharClass::Graphic, "fullwidth close paren");
   mosa_test::check(mosa::classify(U'\uff3f') == mosa::CharClass::Graphic, "fullwidth underline");
+  mosa_test::check(mosa::classify(U'\u3008') == mosa::CharClass::Illegal, "left angle bracket");
   mosa_test::check(mosa::classify(U'\u00ab') == mosa::CharClass::Illegal, "pi guillemet");
   mosa_test::check(mosa::classify(U'\u00bb') == mosa::CharClass::Illegal, "pf guillemet");
   mosa_test::check(mosa::east_asian_wide(U'\u4e00'), "CJK wide");
