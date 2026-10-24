@@ -62,7 +62,8 @@ jobs:
           echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
 
   windows:
-    runs-on: windows-latest
+    # windows-latest は 2026-06 以降 Visual Studio 2026 である。SPEC 第2節の MSVC 2022 と Visual Studio 17 2022 ジェネレータがある windows-2022 を使う。
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - name: Configure
