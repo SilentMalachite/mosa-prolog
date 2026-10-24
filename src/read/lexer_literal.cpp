@@ -86,17 +86,23 @@ bool Lexer::radix_ready(int base) const {
   return digit.valid && digit_value(digit.code, base) >= 0;
 }
 
-bool Lexer::fraction_follows() const {
+std::optional<bool> Lexer::fraction_follows() const {
   const SourceChar dot = peek_char();
   if (!dot.valid || dot.code != U'.') return false;
   const SourceChar after = peek_char_at(index_ + dot.bytes);
+  // `_` は桁と桁の間だけ置く。小数点の隣は別トークンに分けず、数の失敗にする。
+  if (after.valid && after.code == U'_') return std::nullopt;
   return after.valid && digit_value(after.code, 10) >= 0;
 }
 
 Scan Lexer::scan_decimal(Place start) {
   const Digits whole = read_digits(10);
   if (whole.bad_separator) return fail_at(SyntaxReason::UnexpectedToken, whole.spelling, start);
-  if (fraction_follows()) return finish_float(whole.spelling, start);
+  const std::optional<bool> fraction = fraction_follows();
+  if (!fraction.has_value()) {
+    return fail_at(SyntaxReason::UnexpectedToken, whole.spelling + "._", start);
+  }
+  if (*fraction) return finish_float(whole.spelling, start);
   if (whole.overflow) return fail_at(SyntaxReason::IntegerOverflow, whole.spelling, start);
   Scan scan = token_at(TokenKind::Integer, start);
   scan.token.integer = whole.value;
@@ -194,6 +200,13 @@ std::optional<Scan> Lexer::take_exponent(std::string& spelling, Place start) {
     }
   }
   const SourceChar digit = peek_char_at(look);
+  // 指数記号やその符号の隣の `_` も桁の間ではない。指数を捨てて名前にしない。
+  if (digit.valid && digit.code == U'_') {
+    spelling.push_back(static_cast<char>(mark.code));
+    if (sign != 0) spelling.push_back(sign);
+    spelling.push_back('_');
+    return fail_at(SyntaxReason::UnexpectedToken, spelling, start);
+  }
   if (!digit.valid || digit_value(digit.code, 10) < 0) return std::nullopt;
   advance(mark.code, mark.bytes);
   spelling.push_back(static_cast<char>(mark.code));

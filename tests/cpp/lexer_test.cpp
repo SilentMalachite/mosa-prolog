@@ -138,6 +138,24 @@ void test_quotes_and_comments() {
   mosa_test::check(bom[0].text == "foo", "leading BOM skipped");
 }
 
+void test_bad_underscores() {
+  auto beside_dot = mosa::Lexer("1._2.");
+  auto beside_dot_scan = beside_dot.next();
+  mosa_test::check(beside_dot_scan.failure &&
+                       beside_dot_scan.failure->reason == mosa::SyntaxReason::UnexpectedToken,
+                   "underscore beside decimal point");
+  auto beside_exp = mosa::Lexer("1.2e_3.");
+  auto beside_exp_scan = beside_exp.next();
+  mosa_test::check(beside_exp_scan.failure &&
+                       beside_exp_scan.failure->reason == mosa::SyntaxReason::UnexpectedToken,
+                   "underscore beside exponent");
+  auto beside_sign = mosa::Lexer("1.2e+_3.");
+  auto beside_sign_scan = beside_sign.next();
+  mosa_test::check(beside_sign_scan.failure &&
+                       beside_sign_scan.failure->reason == mosa::SyntaxReason::UnexpectedToken,
+                   "underscore beside exponent sign");
+}
+
 void test_radix_and_comment_end() {
   auto binary = scan_all("0b10.");
   mosa_test::check(binary[0].kind == mosa::TokenKind::Integer && binary[0].integer == 2, "0b10");
@@ -166,6 +184,7 @@ int main() {
   test_names_and_columns();
   test_invalid_utf8();
   test_numbers();
+  test_bad_underscores();
   test_quotes_and_comments();
   test_radix_and_comment_end();
   return mosa_test::failures();

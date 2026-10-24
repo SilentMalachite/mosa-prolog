@@ -68,7 +68,8 @@ class Lexer {
   [[nodiscard]] Scan scan_graphic();
   [[nodiscard]] Scan scan_solo();
   [[nodiscard]] Scan scan_number();
-  [[nodiscard]] bool fraction_follows() const;
+  // nullopt は小数点の隣の `_`。false は小数部なし、true は桁が続く。
+  [[nodiscard]] std::optional<bool> fraction_follows() const;
   [[nodiscard]] bool radix_ready(int base) const;
   [[nodiscard]] Scan scan_char_code(Place start);
   [[nodiscard]] Scan scan_radix(int base, char prefix, Place start);
