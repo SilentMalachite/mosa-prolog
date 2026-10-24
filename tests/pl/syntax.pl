@@ -116,6 +116,7 @@ f((a, b)).
 c'.
 
 % case: double_quotes
+% expect: [97, 98]
 "ab".
 
 % case: comment

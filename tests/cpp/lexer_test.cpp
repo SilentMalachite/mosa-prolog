@@ -55,6 +55,16 @@ void test_names_and_columns() {
   auto open = full.next();
   mosa_test::check(open.token.kind == mosa::TokenKind::Name && open.token.text == "（",
                    "fullwidth paren is a graphic name");
+  auto bang = scan_all("!!.");
+  mosa_test::check(bang.size() == 3 && bang[0].kind == mosa::TokenKind::Solo && bang[0].text == "!" &&
+                       bang[1].kind == mosa::TokenKind::Solo && bang[1].text == "!" &&
+                       bang[2].kind == mosa::TokenKind::EndFullStop,
+                   "bang is not a graphic token");
+  auto semi = scan_all(";;.");
+  mosa_test::check(semi.size() == 3 && semi[0].kind == mosa::TokenKind::Solo && semi[0].text == ";" &&
+                       semi[1].kind == mosa::TokenKind::Solo && semi[1].text == ";" &&
+                       semi[2].kind == mosa::TokenKind::EndFullStop,
+                   "semicolon is not a graphic token");
 }
 
 void test_invalid_utf8() {

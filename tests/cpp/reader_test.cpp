@@ -197,6 +197,11 @@ void check_errors_and_operator() {
     threw = true;
   }
   mosa_test::check(!threw, "fullwidth paren does not throw");
+  Fix where;
+  const auto ended = where.read("\nあ");
+  mosa_test::check(ended.failure && ended.failure->reason == mosa::SyntaxReason::IncompleteTerm &&
+                       ended.failure->line == 2 && ended.failure->column == 2 && ended.failure->token.empty(),
+                   "failure column is a code point");
   std::string many = "f(";
   for (int index = 0; index < 1024; ++index) {
     if (index != 0) many += ", ";

@@ -11,6 +11,11 @@
 #include <string_view>
 
 void check_functor_and_atoms() {
+  mosa_test::check(static_cast<unsigned>(mosa::Tag::Ref) == 0 && static_cast<unsigned>(mosa::Tag::Atom) == 1 &&
+                       static_cast<unsigned>(mosa::Tag::Int) == 2 && static_cast<unsigned>(mosa::Tag::Str) == 3 &&
+                       static_cast<unsigned>(mosa::Tag::Lis) == 4 && static_cast<unsigned>(mosa::Tag::Float) == 5 &&
+                       static_cast<unsigned>(mosa::Tag::Big) == 6 && static_cast<unsigned>(mosa::Tag::IntBox) == 7,
+                   "tags 0 through 7");
   mosa_test::check(mosa::pack_functor(1, 2) == ((std::uint64_t{1} << 14) | (std::uint64_t{2} << 3)),
                    "functor word");
   mosa_test::check(mosa::functor_arity(mosa::pack_functor(3, 1024)) == 1024, "arity 1024");
