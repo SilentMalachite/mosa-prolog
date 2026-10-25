@@ -278,6 +278,11 @@ bool collect_indicators(Impl& machine, Cell cell, std::vector<std::pair<std::uin
 }
 
 bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
+  if (is_builtin_procedure(machine, name, arity)) {
+    const Cell formal = formal_permission(machine, "modify", "static_procedure", cell_functor(machine, name, arity));
+    fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
+    return false;
+  }
   Predicate* predicate = find_pred(machine, name, arity);
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
     fail_load(machine, "静的な述語は動的にできない");

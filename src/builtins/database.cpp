@@ -32,6 +32,8 @@ struct ClauseView {
   Cell head{};
   Cell body{};
   bool rule = false;
+  // retractall は頭部だけ。retract(Head) は本体を true と単一化する。
+  bool head_only = false;
 };
 
 bool callable_term(const Impl& machine, Cell cell) {
@@ -100,7 +102,7 @@ ClauseView clause_view(Impl& machine, Cell term) {
   return view;
 }
 
-bool reject_clause(Impl& machine, const Goal& goal, Cell term) {
+bool reject_clause(Impl& machine, const Goal& goal, Cell term, bool allow_body_var) {
   if (machine.heap.unbound(term)) {
     raise_instantiation(machine, goal);
     return true;
@@ -116,6 +118,8 @@ bool reject_clause(Impl& machine, const Goal& goal, Cell term) {
   }
   if (!view.rule) return false;
   if (machine.heap.unbound(view.body)) {
+    // retract((H :- _)) は本体を束縛する。assert の変数本体は具体化エラーのまま。
+    if (allow_body_var) return false;
     raise_instantiation(machine, goal);
     return true;
   }
@@ -181,8 +185,13 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   env.reserve(clause.vars);
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
   if (!do_unify(machine, view.head, materialize(machine, clause.head, env))) return false;
-  if (!view.rule) return true;
-  return do_unify(machine, view.body, materialize(machine, clause.body, env));
+  if (view.head_only) return true;
+  const Cell body = materialize(machine, clause.body, env);
+  if (!view.rule) {
+    // 事実の正規形は本体 true。規則は retract(Head) では消さない。
+    return do_unify(machine, machine.heap.atom(machine.atoms.intern("true")), body);
+  }
+  return do_unify(machine, view.body, body);
 }
 
 std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predicate, const ClauseView& view) {
@@ -241,7 +250,7 @@ bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
 
 void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   const Cell term = machine.heap.deref(goal.arg(machine, 0));
-  if (reject_clause(machine, goal, term)) return;
+  if (reject_clause(machine, goal, term, false)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
@@ -275,7 +284,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
 
 void run_retract(Impl& machine, const Goal& goal) {
   const Cell term = machine.heap.deref(goal.arg(machine, 0));
-  if (reject_clause(machine, goal, term)) return;
+  if (reject_clause(machine, goal, term, true)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
@@ -315,6 +324,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
   }
   ClauseView view;
   view.head = head_cell;
+  view.head_only = true;
   const auto matches = collect_matches(machine, *predicate, view);
   for (std::size_t cursor = matches.size(); cursor > 0; --cursor) {
     const auto index = matches[cursor - 1];

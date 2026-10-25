@@ -132,6 +132,20 @@ void check_consult_flag_rolls_back() {
   mosa_test::check(clause.kind == mosa::StopKind::Exception, "rolled back clause");
 }
 
+void check_dynamic_builtin_rejected() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/dynamic_true.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << ":- dynamic(true/0).\n";
+  file.close();
+  auto machine = mosa::Machine::create();
+  mosa_test::check(!machine->consult(path), "dynamic true fails");
+  mosa_test::check(machine->diagnostic().find("permission_error(modify, static_procedure, true/0)") !=
+                       std::string::npos,
+                   "dynamic true phrase");
+  auto ok = machine->query("true.");
+  mosa_test::check(ok.kind == mosa::StopKind::Success, "builtin true still succeeds");
+}
+
 void check_consult_twice() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/consult_twice.pl";
   std::ofstream file(path, std::ios::binary);
@@ -167,6 +181,7 @@ int main() {
   check_consult_keeps_query();
   check_consult_failure_reports();
   check_consult_flag_rolls_back();
+  check_dynamic_builtin_rejected();
   check_consult_twice();
   check_resource_limit_session();
   check_runner();

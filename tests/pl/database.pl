@@ -27,8 +27,18 @@ seen(1).
 seen(2).
 
 :- dynamic(going/1).
-going(X) :- retract(going(X)), still(X).
+going(X) :- retract((going(X) :- _)), still(X).
 still(1).
+
+:- dynamic(mix/1).
+mix(a).
+mix(X) :- mix_body(X).
+mix_body(b).
+
+:- dynamic(allrule/1).
+allrule(a).
+allrule(X) :- allrule_body(X).
+allrule_body(b).
 
 :- dynamic(keep/1).
 keep(a).
@@ -87,3 +97,11 @@ test(assertz_builtin, assertz(true), error(permission_error(modify, static_proce
 test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
 test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).
 test(assertz_builtin_is, assertz(is(1, 1)), error(permission_error(modify, static_procedure, is/2))).
+test(retract_fact_only, (retract(mix(Y)), \+ retract(mix(_))), solutions([Y = a])).
+test(mix_rule_left, mix(Y), solutions([Y = b])).
+test(retractall_rules, retractall(allrule(_)), true).
+test(allrule_none, allrule(X), fail).
+test(assertz_throw, assertz(throw(1)), error(permission_error(modify, static_procedure, throw/1))).
+test(abolish_catch, abolish(catch/3), error(permission_error(modify, static_procedure, catch/3))).
+test(abolish_comma, abolish((',')/2), error(permission_error(modify, static_procedure, (',')/2))).
+test(assertz_arrow, assertz((a -> b)), error(permission_error(modify, static_procedure, (->)/2))).

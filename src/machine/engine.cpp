@@ -2,6 +2,7 @@
 
 #include "mosa/reader.hpp"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -110,8 +111,8 @@ struct BuiltinPi {
   std::uint16_t arity;
 };
 
-// call/1..8 と halt/0..1 以外はアリティが一つ。幅のある二つは関数側で見る。
-constexpr BuiltinPi kBuiltins[] = {
+// call/1..8 と halt/0..1 以外はアリティが一つ。制御構文は goal と launch が先に取る。
+constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"=", 2},
     {"\\=", 2},
     {"true", 0},
@@ -167,7 +168,13 @@ constexpr BuiltinPi kBuiltins[] = {
     {"retract", 1},
     {"retractall", 1},
     {"abolish", 1},
-};
+    {"catch", 3},
+    {"throw", 1},
+    {",", 2},
+    {";", 2},
+    {"->", 2},
+    {"*->", 2},
+});
 
 }  // namespace
 
