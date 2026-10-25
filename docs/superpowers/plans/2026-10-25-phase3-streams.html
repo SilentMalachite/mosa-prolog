@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>Mosa ストリーム計画</title>
+<link rel="stylesheet" href="htmlplan.css">
+<script src="htmlplan.js" defer></script>
+<body>
+<header>
+  <h1>Mosa のストリーム入出力</h1>
+  <doc-changes new="6" changed="4"></doc-changes>
+  <details class="thread"><summary>理由 · 2 件</summary>
+    <doc-quote via="prompt" from="浩さん">/html-plan ストリームの件もHTMLで計画立ててください。文書は日本語でお願いします</doc-quote>
+    <doc-quote via="doc" from="docs/STATUS.md">次: ストリームのレコードと open/4、open_string/2</doc-quote>
+  </details>
+</header>
+<main>
+<doc-plan>
+
+<doc-claim>
+  <p>ゴールはストリームを開き、文字を読み、閉じることができる。</p>
+  <doc-machine name="life" caption="a.txt は文字 a が一つ。終端の次の読みは主張 2.2。">
+<script type="text/plain">
+machine life initial ready
+state ready # まだ読んでいない。peek は a を示す。
+state atend # a を読んだ。位置は終端にある。
+state past # 終端の印を一度返した。
+state closed final # 閉じた。次の読みは存在エラー。
+
+| ready | atend | past | closed |
+
+ready -get-> atend : a
+atend -get-> past : 終端
+past -close-> closed : 閉じる
+</script>
+    <div data-state="ready"><doc-mock frame="terminal" title="mosa" w="420"><template>?- open('a.txt', read, S, [type(text)]).
+?- peek_char(S, C).
+C = a.</template></doc-mock></div>
+    <div data-state="atend"><doc-mock frame="terminal" title="mosa" w="420"><template>?- get_char(S, C).
+C = a.
+?- at_end_of_stream(S).
+true.</template></doc-mock></div>
+    <div data-state="past"><doc-mock frame="terminal" title="mosa" w="420"><template>?- get_char(S, C).
+C = end_of_file.</template></doc-mock></div>
+    <div data-state="closed"><doc-mock frame="terminal" title="mosa" w="420"><template>?- close(S).
+?- get_char(S, _).
+<span class="r" data-ref="err">error(existence_error(stream, S))</span></template>
+      <doc-pin ref="err" title="項は主張 1.1">S の中身は、そこで選んだ項。</doc-pin>
+    </doc-mock></div>
+  </doc-machine>
+  <doc-note>引数の順は規格どおり。ストリームが先、文字が後。open は源、モード、ストリームの順。</doc-note>
+
+  <doc-claim>
+    <p>開いた項は、常に '$stream'(N) である。</p>
+    <doc-mock frame="terminal" title="mosa" w="420" caption="0 番は起動時の user_input。別名でも同じストリームを指す。">
+<template>?- current_input(X).
+X = '$stream'(0).
+?- current_input(user_input).
+true.</template>
+    </doc-mock>
+    <doc-ask id="term">
+      <p>ストリーム項は、どの形にするか。</p>
+      <label><input type="radio" name="term" value="compound" checked> 常に '$stream'(N) <small>別名はもう一つの名前。</small></label>
+      <label><input type="radio" name="term" value="alias"> 別名があるときは、そのアトム <small>主張 1.1 は成り立たない。</small></label>
+    </doc-ask>
+    <div data-if="term=alias"><doc-note tone="warn">current_input(X) は user_input になる。別名の無いストリームだけ '$stream'(N)。</doc-note></div>
+    <doc-claim at="src/machine/internal.hpp:113">
+      <p><b>internal.hpp:113</b> · operators</p>
+      <doc-code src="src/machine/internal.hpp" lines="110-116" hl="113">
+        <doc-pin line="113" title="ベクタはこの次">番号 N は、このベクタの添字。</doc-pin>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/builtins/streams.cpp:1">
+      <p><b>streams.cpp:1</b> · run_streams()</p>
+      <doc-code title="streams.cpp · 下書き" lang="cpp">
+<script type="text/plain">
+// 8.11 と open_string/2 と with_output_to/2。
+// テスト: tests/pl/streams.pl
+// 宣言は internal.hpp の run_solutions の次。
+// 引数検査、本処理、束縛の順。
+// 選択肢は type, reposition, alias, eof_action, encoding。
+// encoding は utf8 だけ。ほかは domain_error。
+// 閉じた流れは existence_error(stream, S)。
+bool run_streams(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>三つの標準ストリームは、OS の入出力につながる。</p>
+    <doc-mock frame="terminal" title="mosa" w="420" caption="あ は stdout に出る。解答の行は、これとは別。">
+<template>?- put_char(user_output, あ), nl.
+あ
+true.</template>
+    </doc-mock>
+    <doc-ask id="stdio">
+      <p>標準ストリームは、OS につながるか。</p>
+      <label><input type="radio" name="stdio" value="os" checked> stdin、stdout、stderr につながる <small>テストは標準入力を読まない。</small></label>
+      <label><input type="radio" name="stdio" value="mem"> フェーズ3ではメモリのまま <small>主張 1.2 は成り立たない。</small></label>
+    </doc-ask>
+    <div data-if="stdio=mem"><doc-note tone="warn">put_char は端末に出ない。REPL の解答は、今どおり Echo が出す。</doc-note></div>
+    <doc-note>0 が user_input、1 が user_output、2 が user_error。reposition は false。close のあと、現在入出力は同じ別名に戻る。</doc-note>
+    <doc-claim at="src/machine/session.cpp:118">
+      <p><b>session.cpp:118</b> · Echo::say()</p>
+      <doc-code src="src/machine/session.cpp" lines="112-120" hl="118">
+        <doc-pin line="118" title="解答はここ">user_output には足さない。</doc-pin>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>同じカーソルで、文字とバイトを読み書きできる。</p>
+  <doc-mock frame="terminal" title="mosa" w="440" caption="peek のあと、get は同じ文字。テキストへのバイト読みはエラー。">
+<template>?- open_string('あb', S), peek_char(S, C), get_char(S, D).
+C = あ, D = あ.
+?- get_byte(_, S).
+<span class="r">error(permission_error(input, text_stream, S))</span></template>
+  </doc-mock>
+
+  <doc-claim>
+    <p>peek はカーソルを進めない。</p>
+    <doc-calls title="入出力の呼び出し" caption="新しい行を押すと、下書きが開く。">
+<script type="text/plain">
+~ run_builtin(machine, goal)                 @ src/machine/engine.cpp:381
++   **run_streams**(machine, goal)           @ src/builtins/streams.cpp:1
++   **run_char_io**(machine, goal)           @ src/builtins/chars.cpp:1
++   **run_byte_io**(machine, goal)           @ src/builtins/bytes.cpp:1
+</script>
+    </doc-calls>
+    <doc-claim at="src/builtins/chars.cpp:1">
+      <p><b>chars.cpp:1</b> · run_char_io()</p>
+      <doc-code title="chars.cpp · 下書き" lang="cpp">
+<script type="text/plain">
+// 8.12。テスト: tests/pl/chars.pl
+// 文字はコードポイント一つ。peek は進めない。
+// バイナリは permission_error(input, binary_stream, S)。
+// 終端のアトムは end_of_file。nl は U+000A 一つ。
+// 不正な UTF-8 は旗 invalid_utf8 に従う。
+bool run_char_io(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/builtins/bytes.cpp:1">
+      <p><b>bytes.cpp:1</b> · run_byte_io()</p>
+      <doc-code title="bytes.cpp · 下書き" lang="cpp">
+<script type="text/plain">
+// 8.13。テスト: tests/pl/chars.pl
+// と tests/cpp/stream_test.cpp
+// テキストは permission_error(input, text_stream, S)。
+// 終端は整数 -1。
+bool run_byte_io(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/machine/engine.cpp:381">
+      <p><b>engine.cpp:381</b> · run_builtin()</p>
+      <doc-code src="src/machine/engine.cpp" lines="379-384" hl="381">
+        <doc-pin line="381" title="三つの呼び出しはこの次">kBuiltins には二つのアリティも書く。117 行の注釈も直す。</doc-pin>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="CMakeLists.txt:61">
+      <p><b>CMakeLists.txt:61</b> · mosa_lib</p>
+      <doc-code diff file="CMakeLists.txt" title="CMakeLists.txt">
+<script type="text/plain">
+@@ -59,4 +59,7 @@
+   src/builtins/database.cpp
+   src/builtins/clause_term.cpp
+   src/builtins/solutions.cpp
++  src/builtins/streams.cpp
++  src/builtins/chars.cpp
++  src/builtins/bytes.cpp
+ )
+@@ -110,5 +113,11 @@
+ add_executable(session_test tests/cpp/session_test.cpp)
+ target_include_directories(session_test PRIVATE tests/cpp)
+ target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+ target_link_libraries(session_test PRIVATE mosa_lib)
+ add_test(NAME session COMMAND $<TARGET_FILE:session_test>)
++
++add_executable(stream_test tests/cpp/stream_test.cpp)
++target_include_directories(stream_test PRIVATE tests/cpp)
++target_compile_definitions(stream_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
++target_link_libraries(stream_test PRIVATE mosa_lib)
++add_test(NAME stream_test COMMAND $<TARGET_FILE:stream_test>)
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>終端の次の読みは、もう一度 end_of_file を返す。</p>
+    <doc-mock frame="terminal" title="mosa" w="420" caption="一度目の終端のあと。バイナリの印は -1。">
+<template>?- get_char(S, C).
+C = end_of_file.
+?- get_char(S, C).
+C = end_of_file.</template>
+    </doc-mock>
+    <doc-ask id="eof">
+      <p>終端の次の読みは、何を返すか。</p>
+      <label><input type="radio" name="eof" value="code" checked> もう一度、終端の印 <small>既定の eof_action は eof_code。</small></label>
+      <label><input type="radio" name="eof" value="error"> permission_error を投げる <small>主張 2.2 は成り立たない。</small></label>
+    </doc-ask>
+    <div data-if="eof=error"><doc-note tone="warn">二度目は permission_error(input, past_end_of_stream, S)。既定は error。</doc-note></div>
+    <doc-note>eof_action(reset) は、どちらの既定でも選べる。ファイルをもう一度読む。</doc-note>
+  </doc-claim>
+
+  <doc-claim>
+    <p>空の入力を開いた直後、end_of_stream は at である。</p>
+    <doc-mock frame="terminal" title="mosa" w="420" caption="文字がゼロのとき。at_end_of_stream は成功する。">
+<template>?- open('empty.txt', read, S, []).
+?- stream_property(S, end_of_stream(E)).
+E = at.</template>
+    </doc-mock>
+    <doc-ask id="empty">
+      <p>空の入力の終端は、開いた直後は何か。</p>
+      <label><input type="radio" name="empty" value="at" checked> at <small>位置が源の長さと等しい。</small></label>
+      <label><input type="radio" name="empty" value="not"> not <small>主張 2.3 は成り立たない。</small></label>
+    </doc-ask>
+    <div data-if="empty=not"><doc-note>SWI と SICStus は not。at_end_of_stream は、この直後は失敗する。</doc-note></div>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>メモリの文字列を、入力と出力に使える。</p>
+  <doc-mock frame="terminal" title="mosa" w="420" caption="名前は ADR 0005。このページでは聞き直さない。">
+<template>?- open_string('親(太郎).', S), get_char(S, C).
+C = 親.
+?- with_output_to(atom(A), put_char(花)).
+A = 花.</template>
+  </doc-mock>
+  <doc-note>ファイルは開くときに全体を bytes へ読む。flush と close が書き戻す。改行は U+000A 一つ。</doc-note>
+
+  <doc-claim>
+    <p>open_string/2 は、アトムかコード列をテキスト入力にする。</p>
+    <doc-code title="open_string · 下書き" lang="text">
+<script type="text/plain">
+open_string(+Source, -Stream).
+% Source はアトムか、コードのリスト。
+% 文字のリストは受けない。
+% テキスト、読み込み、reposition は true。
+% 別名は付かない。項は主張 1.1。
+</script>
+    </doc-code>
+  </doc-claim>
+
+  <doc-claim>
+    <p>with_output_to/2 は、終わると現在出力を戻す。</p>
+    <doc-code title="with_output_to · 下書き" lang="text">
+<script type="text/plain">
+with_output_to(+Sink, +Goal).
+% 裸のアトムは別名。atom(A) と codes(List) は捕捉。
+% ストリーム項も受け取る。
+% 成功しても、失敗しても、例外でも、現在出力を戻す。
+% ゴールは今の文脈で走る。モジュールでは包まない。
+</script>
+    </doc-code>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>位置を戻し、ストリームの性質を尋ねられる。</p>
+  <doc-mock frame="terminal" title="mosa" w="480" caption="先頭の位置を残し、一文字読んだあとで戻す。">
+<template>?- open_string('ab', S), stream_property(S, position(P)).
+P = stream_position(0, 1, 1).
+?- get_char(S, _), set_stream_position(S, P), get_char(S, C).
+C = a.</template>
+  </doc-mock>
+  <doc-ask id="pos">
+    <p>位置の項は、どの形にするか。</p>
+    <label><input type="radio" name="pos" value="triple" checked> stream_position(文字数, 行, 行内) <small>文字数は 0 から。行は 1 から。</small></label>
+    <label><input type="radio" name="pos" value="byte"> バイト位置の整数 <small>行番号は項に無い。</small></label>
+  </doc-ask>
+  <div data-if="pos=byte"><doc-note tone="warn">上の P は 1。set_stream_position(S, 0) で先頭に戻る。</doc-note></div>
+
+  <doc-claim>
+    <p>stream_property/2 は、九つの性質をこの順で返す。</p>
+    <doc-code title="性質の順 · 下書き" lang="text">
+<script type="text/plain">
+% file_name, mode, alias, position, end_of_stream,
+% eof_action, reposition, type, encoding.
+% end_of_stream は not, at, past。
+% ファイルとメモリの reposition は true。
+% 標準の三つは false。encoding は utf8。
+</script>
+    </doc-code>
+  </doc-claim>
+
+  <doc-claim>
+    <p>開始時の文字数は 0、行と行内位置は 1 である。</p>
+    <doc-code title="数え方 · 下書き" lang="text">
+<script type="text/plain">
+% U+000A で行を 1 増やし、行内位置を 1 に戻す。
+% テキストの文字数はコードポイント。
+% バイナリの文字数はバイト数。行は 1 のまま。
+% cursor は常にバイト位置。
+% 整数の位置を選んでも、行の数は内部に残す。
+</script>
+    </doc-code>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim aux="shared">
+  <p>入出力は、一つの Stream レコードを共有する。</p>
+  <doc-schema id="stream" lang="cpp" title="Stream" caption="operators の直後に置く。mosa.hpp は増やさない。">
+<script type="text/plain">
+struct Stream {
+  enum class Kind { File, Standard, Memory };
+  enum class Data { Text, Binary };
+  enum class Mode { Read, Write, Append };
+  enum class EofAction { Error, EofCode, Reset };
+  Kind kind = Kind::Memory;
+  Data data = Data::Text;
+  Mode mode = Mode::Read;
+  EofAction eof_action = EofAction::EofCode; // 主張 2.2
+  std::string bytes;
+  std::size_t cursor = 0;     // バイト位置
+  std::size_t char_no = 0;    // 開始は 0
+  std::size_t line = 1;       // 開始は 1
+  std::size_t line_pos = 1;   // 開始は 1
+  bool closed = false;
+  bool reposition = true;
+  std::string alias;
+  std::string path;
+};
+// Impl に足す。添字 0, 1, 2 が標準の三つ。
+std::vector<Stream> streams;
+std::size_t current_in = 0;
+std::size_t current_out = 1;
+</script>
+  </doc-schema>
+</doc-claim>
+
+<doc-claim aux="scope">
+  <p>項の読み書きと、済んだ組込と、後のフェーズは変えない。</p>
+  <ul>
+    <li>read_term、write、print、op/3、char_conversion。</li>
+    <li>ディレクティブと、旗の本体。既定は iso-notes にある。</li>
+    <li>モジュール、mosac、GC、Cell、IR、版の文字列。</li>
+    <li>mosa.hpp の公開と、節の改変と、findall。</li>
+    <li>準拠スイート。ライセンスファイルが無いので始めない。</li>
+    <li>REPL の解答表示。Echo::say のまま。</li>
+  </ul>
+</doc-claim>
+
+</doc-plan>
+</main>
+</body>
+</html>
