@@ -116,6 +116,29 @@ void check_consult_failure_reports() {
                    "busy consult phrase");
 }
 
+void check_consult_twice() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/consult_twice.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << "p(1).\np(2).\n";
+  file.close();
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->consult(path), "consult once");
+  mosa_test::check(machine->consult(path), "consult twice");
+  auto first = machine->query("p(X).");
+  mosa_test::check(first.kind == mosa::StopKind::Success && first.more && first.bindings.size() == 1,
+                   "twice first");
+  const auto one = mosa::write_term(machine->heap(), machine->operators(),
+                                    machine->heap().deref(first.bindings[0].variable), mosa::WriteOptions{}, {});
+  mosa_test::check(one == "1", "twice value 1");
+  auto second = machine->next();
+  mosa_test::check(second.kind == mosa::StopKind::Success && !second.more && second.bindings.size() == 1,
+                   "twice second");
+  const auto two = mosa::write_term(machine->heap(), machine->operators(),
+                                    machine->heap().deref(second.bindings[0].variable), mosa::WriteOptions{}, {});
+  mosa_test::check(two == "2", "twice value 2");
+  mosa_test::check(machine->next().kind == mosa::StopKind::Failure, "twice stops");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
@@ -127,6 +150,7 @@ int main() {
   check_errors();
   check_consult_keeps_query();
   check_consult_failure_reports();
+  check_consult_twice();
   check_resource_limit_session();
   check_runner();
   return mosa_test::failures();

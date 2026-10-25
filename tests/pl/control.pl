@@ -25,3 +25,4 @@ test(iso_once_fail, once(fail), fail).
 test(iso_call_true, call(true), true).
 test(iso_call_cut, (call(!), fail ; true), true).
 test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).
+test(throw_keeps_ball, catch((X = a, throw(f(X))), Y, Y == f(a)), true).
