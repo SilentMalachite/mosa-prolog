@@ -53,6 +53,8 @@ test(number_chars_leading_zero, number_chars(1, ['0', '1']), true).
 test(number_chars_exponent, number_chars(1.0e9, ['1', '.', '0', 'E', '9']), true).
 test(number_chars_space, number_chars(N, [' ', '1']), error(syntax_error(_))).
 test(number_chars_newline, number_chars(N, ['\n', '1']), error(syntax_error(_))).
+test(number_chars_iso_layout, number_chars(A, ['\n', ' ', '3']), error(syntax_error(_))).
+test(number_codes_iso_layout, number_codes(A, [10, 32, 51]), error(syntax_error(_))).
 test(number_chars_minus_space, number_chars(N, [-, ' ', '1']), error(syntax_error(_))).
 test(number_chars_plus, number_chars(N, ['+', '1']), error(syntax_error(_))).
 test(number_codes_letter, number_codes(1, [97]), error(syntax_error(_))).
