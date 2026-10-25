@@ -78,6 +78,10 @@ Cell make_evaluation_error(Machine& machine, std::string_view which) {
   return formal_evaluation(engine_impl(machine), which);
 }
 
+Cell make_permission_error(Machine& machine, std::string_view action, std::string_view type, Cell culprit) {
+  return formal_permission(engine_impl(machine), action, type, culprit);
+}
+
 Cell throw_error(Machine& machine, Cell formal, std::uint32_t name, std::uint16_t arity) {
   Impl& impl = engine_impl(machine);
   raise_formal(impl, formal, name, arity);

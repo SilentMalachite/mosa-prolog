@@ -33,9 +33,12 @@ struct Predicate {
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
   bool seen = false;
+  bool dynamic = false;
+  // 読み込みの開始で落とす。この読み込みが dynamic を見たら真。見ていなければ置き換え後は静的。
+  bool dynamic_declared = false;
 };
 
-enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen };
+enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen, Retract };
 
 struct Entry {
   Pick pick = Pick::Clauses;
@@ -224,6 +227,8 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
+[[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);
 [[nodiscard]] int apply_flag_directive(Impl& machine, Cell directive);
 [[nodiscard]] Cell formal_permission(Impl& machine, std::string_view action, std::string_view type,

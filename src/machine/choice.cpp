@@ -77,7 +77,7 @@ void enter_user(Impl& machine, const Goal& goal) {
   for (Predicate& candidate : machine.predicates) {
     if (candidate.name == goal.name && candidate.arity == goal.arity) predicate = &candidate;
   }
-  if (predicate == nullptr || predicate->clauses.empty()) {
+  if (predicate == nullptr) {
     // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
     if (machine.unknown_fail) {
       machine.failed = true;
@@ -85,6 +85,11 @@ void enter_user(Impl& machine, const Goal& goal) {
     }
     const Cell pi = cell_functor(machine, goal.name, goal.arity);
     raise_formal(machine, formal_existence(machine, "procedure", pi), goal.name, goal.arity);
+    return;
+  }
+  if (predicate->clauses.empty()) {
+    // 節を消し切っても動的述語は残る。呼び出しは失敗であり、存在エラーではない。
+    machine.failed = true;
     return;
   }
   const bool has_arg = goal.arity >= 1;
@@ -123,13 +128,17 @@ bool redo_clause(Impl& machine) {
   const auto arity = top.pred_arity;
   const auto goal = top.redo_goal;
   const auto cut = top.cut;
-  if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
-  else machine.stack.back().next += 1;
   const Predicate* predicate = nullptr;
   for (const Predicate& candidate : machine.predicates) {
     if (candidate.name == name && candidate.arity == arity) predicate = &candidate;
   }
-  if (predicate == nullptr) return false;
+  // 述語ごと消えると添字が外れる。枠を残すとやり直しが終わらない。
+  if (predicate == nullptr || index >= predicate->clauses.size()) {
+    machine.stack.pop_back();
+    return false;
+  }
+  if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
+  else machine.stack.back().next += 1;
   enter_clause(machine, predicate->clauses[index], goal, cut);
   return true;
 }
@@ -176,13 +185,14 @@ bool backtrack(Impl& machine) {
       continue;
     }
     if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
+    if (top.pick == Pick::Retract && redo_retract(machine)) return true;
     if (top.pick == Pick::ElseGoal && redo_else(machine)) return true;
     if (top.pick == Pick::Negation && redo_not(machine)) return true;
     if (top.pick == Pick::Repeat && redo_repeat(machine)) return true;
     // アトムの候補は節ではない。やり直しを節の添字に載せると、別の述語を引いてしまう。
     if (top.pick == Pick::AtomGen && redo_atoms(machine)) return true;
-    if (top.pick != Pick::Clauses && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
-        top.pick != Pick::Repeat && top.pick != Pick::AtomGen) {
+    if (top.pick != Pick::Clauses && top.pick != Pick::Retract && top.pick != Pick::ElseGoal &&
+        top.pick != Pick::Negation && top.pick != Pick::Repeat && top.pick != Pick::AtomGen) {
       machine.stack.pop_back();
     }
   }

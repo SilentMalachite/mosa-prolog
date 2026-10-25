@@ -18,6 +18,7 @@ struct Snapshot {
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
   bool created = false;
+  bool dynamic = false;
 };
 
 std::string reason_text(SyntaxReason reason) {
@@ -170,6 +171,8 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last) {
       return false;
     }
     predicate.clauses.clear();
+    // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
+    if (!predicate.dynamic_declared) predicate.dynamic = false;
   }
   predicate.seen = true;
   last = index;
@@ -177,9 +180,7 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last) {
   return true;
 }
 
-void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& clause) {
-  const auto name = head_name(clause);
-  const auto arity = head_arity(clause);
+void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
   const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
     return shot.name == name && shot.arity == arity;
   });
@@ -189,15 +190,25 @@ void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& cla
   shot.name = name;
   shot.arity = arity;
   shot.created = predicate == nullptr;
-  if (predicate != nullptr) shot.clauses = predicate->clauses;
+  if (predicate != nullptr) {
+    shot.clauses = predicate->clauses;
+    shot.dynamic = predicate->dynamic;
+  }
   snapshots.push_back(std::move(shot));
+}
+
+void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& clause) {
+  remember_pred(machine, snapshots, head_name(clause), head_arity(clause));
 }
 
 void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
   for (const Snapshot& shot : snapshots) {
     if (shot.created) continue;
     Predicate* predicate = find_pred(machine, shot.name, shot.arity);
-    if (predicate != nullptr) predicate->clauses = shot.clauses;
+    if (predicate != nullptr) {
+      predicate->clauses = shot.clauses;
+      predicate->dynamic = shot.dynamic;
+    }
   }
   machine.predicates.resize(previous_size);
 }
@@ -233,6 +244,106 @@ LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const Save
   return LoadStatus{false, machine.diagnostic};
 }
 
+bool one_indicator(const Impl& machine, Cell cell, std::uint32_t& name, std::uint16_t& arity) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(cell)) != "/") return false;
+  const Cell left = machine.heap.deref(machine.heap.arg(cell, 0));
+  const Cell right = machine.heap.deref(machine.heap.arg(cell, 1));
+  if (left.tag() != Tag::Atom) return false;
+  if (right.tag() != Tag::Int && right.tag() != Tag::IntBox) return false;
+  const auto value = machine.heap.integer_value(right);
+  if (value < 0 || value > 1024) return false;
+  name = static_cast<std::uint32_t>(left.raw() >> 3);
+  arity = static_cast<std::uint16_t>(value);
+  return true;
+}
+
+bool collect_indicators(Impl& machine, Cell cell, std::vector<std::pair<std::uint32_t, std::uint16_t>>& out) {
+  cell = machine.heap.deref(cell);
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  if (one_indicator(machine, cell, name, arity)) {
+    out.emplace_back(name, arity);
+    return true;
+  }
+  const auto nil = machine.atoms.intern("[]");
+  if (cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil) return true;
+  while (cell.tag() == Tag::Lis) {
+    if (!one_indicator(machine, machine.heap.list_head(cell), name, arity)) return false;
+    out.emplace_back(name, arity);
+    cell = machine.heap.deref(machine.heap.list_tail(cell));
+  }
+  return cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil;
+}
+
+bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
+  Predicate* predicate = find_pred(machine, name, arity);
+  if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
+    fail_load(machine, "静的な述語は動的にできない");
+    return false;
+  }
+  // 失敗した読み込みは、宣言の前の動的フラグへ戻す。
+  remember_pred(machine, snapshots, name, arity);
+  if (predicate == nullptr) {
+    Predicate created;
+    created.name = name;
+    created.arity = arity;
+    created.dynamic = true;
+    created.dynamic_declared = true;
+    machine.predicates.push_back(std::move(created));
+    return true;
+  }
+  predicate->dynamic = true;
+  predicate->dynamic_declared = true;
+  return true;
+}
+
+bool dynamic_argument(Impl& machine, Cell directive, Cell& arg) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != "dynamic") return false;
+  arg = machine.heap.arg(body, 0);
+  return true;
+}
+
+int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
+  Cell arg;
+  if (!dynamic_argument(machine, directive, arg)) return 0;
+  std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
+  if (!collect_indicators(machine, arg, indicators)) {
+    fail_load(machine, "述語指示子ではありません");
+    return -1;
+  }
+  for (const auto& indicator : indicators) {
+    if (!mark_dynamic(machine, snapshots, indicator.first, indicator.second)) return -1;
+  }
+  return 1;
+}
+
+int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots) {
+  if (!is_directive(machine.heap, term)) return 0;
+  const int flag_directive = apply_flag_directive(machine, term);
+  if (flag_directive < 0) return -1;
+  if (flag_directive > 0) {
+    reader.set_quotes(current_double_quotes(machine));
+    return 1;
+  }
+  const int dynamic_directive = apply_dynamic_directive(machine, term, snapshots);
+  if (dynamic_directive < 0) return -1;
+  if (dynamic_directive > 0) return 1;
+  if (!apply_op(machine, machine.heap.deref(term))) {
+    if (machine.diagnostic.empty()) {
+      const auto text = write_term(machine.heap, machine.operators, term, {}, {});
+      fail_load(machine, "この指示はフェーズ2では使えない: " + text);
+    }
+    return -1;
+  }
+  return 1;
+}
+
 }  // namespace
 
 LoadStatus load_source(Impl& machine, std::string_view source) {
@@ -240,7 +351,10 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   const auto heap_base = machine.heap.size();
   machine.diagnostic.clear();
   machine.syntax_diag = false;
-  for (Predicate& predicate : machine.predicates) predicate.seen = false;
+  for (Predicate& predicate : machine.predicates) {
+    predicate.seen = false;
+    predicate.dynamic_declared = false;
+  }
   const auto saved_ops = machine.operators;
   const SavedFlags saved_flags = save_flags(machine);
   std::vector<Snapshot> snapshots;
@@ -263,22 +377,9 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
-    if (is_directive(machine.heap, term)) {
-      const int flag_directive = apply_flag_directive(machine, term);
-      if (flag_directive < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
-      if (flag_directive > 0) {
-        reader.set_quotes(current_double_quotes(machine));
-        continue;
-      }
-      if (!apply_op(machine, machine.heap.deref(term))) {
-        if (machine.diagnostic.empty()) {
-          const auto text = write_term(machine.heap, machine.operators, term, {}, {});
-          fail_load(machine, "この指示はフェーズ2では使えない: " + text);
-        }
-        return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
-      }
-      continue;
-    }
+    const int directed = consume_directive(machine, reader, term, snapshots);
+    if (directed < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+    if (directed > 0) continue;
     Clause clause;
     if (!compile_clause(machine.heap, term, clause)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +

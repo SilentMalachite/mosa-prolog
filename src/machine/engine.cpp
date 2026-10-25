@@ -24,6 +24,7 @@ bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
+    if (entry.pick == Pick::Retract && entry.next < entry.candidates.size()) return true;
     if (entry.pick == Pick::ElseGoal && !(entry.soft_id != 0 && entry.cond_ok)) return true;
   }
   return false;
@@ -286,7 +287,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
-      run_flags(machine, goal)) {
+      run_flags(machine, goal) || run_database(machine, goal)) {
     return true;
   }
   return false;
