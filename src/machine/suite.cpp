@@ -7,9 +7,11 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -73,6 +75,37 @@ bool load_file_text(Machine& machine, std::string source, std::vector<Exam>& exa
 bool atom_named(const Heap& heap, Cell cell, std::string_view name) {
   cell = heap.deref(cell);
   return cell.tag() == Tag::Atom && heap.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3)) == name;
+}
+
+bool numeric_cell(const Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox || cell.tag() == Tag::Float;
+}
+
+Cell negate_number(Machine& machine, Cell cell) {
+  cell = machine.heap().deref(cell);
+  if (cell.tag() == Tag::Float) return machine.heap().floating(-machine.heap().float_value(cell));
+  const auto value = machine.heap().integer_value(cell);
+  if (value == std::numeric_limits<std::int64_t>::min()) return cell;
+  return machine.heap().integer(-value);
+}
+
+// 期待の `-1` は前置演算子で読まれる。エラーの項は整数なので、数の符号だけ畳む。
+Cell fold_minus(Machine& machine, Cell cell) {
+  Heap& heap = machine.heap();
+  cell = heap.deref(cell);
+  if (cell.tag() == Tag::Lis) {
+    return heap.list(fold_minus(machine, heap.list_head(cell)), fold_minus(machine, heap.list_tail(cell)));
+  }
+  if (cell.tag() != Tag::Str) return cell;
+  const auto arity = heap.functor_arity(cell);
+  std::vector<Cell> args;
+  args.reserve(arity);
+  for (std::uint16_t index = 0; index < arity; ++index) args.push_back(fold_minus(machine, heap.arg(cell, index)));
+  if (arity == 1 && machine.atoms().name(heap.functor_atom(cell)) == "-" && numeric_cell(heap, args[0])) {
+    return negate_number(machine, args[0]);
+  }
+  return heap.structure(heap.functor_atom(cell), args);
 }
 
 bool unify_formal(Machine& machine, Cell actual, Cell expected) {
@@ -173,7 +206,7 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
         machine.atoms().name(machine.heap().functor_atom(actual)) == "error") {
       actual = machine.heap().arg(actual, 0);
     }
-    return unify_formal(machine, actual, machine.heap().arg(expect, 0));
+    return unify_formal(machine, actual, fold_minus(machine, machine.heap().arg(expect, 0)));
   }
   if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "solutions") {
     const auto wanted = list_items(machine.heap(), machine.heap().arg(expect, 0));

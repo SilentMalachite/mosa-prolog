@@ -135,6 +135,23 @@ bool reject_clause(Impl& machine, const Goal& goal, Cell term, bool allow_body_v
   return false;
 }
 
+// 数はゴールにならない。変数と匿名は call できるので、ここでは許す。
+bool goal_form(const IrTerm& term) {
+  switch (term.tag) {
+    case IrTag::Int:
+    case IrTag::Float: return false;
+    case IrTag::And:
+    case IrTag::Or:
+    case IrTag::IfThen:
+    case IrTag::SoftIf:
+      return term.args.size() >= 2 && goal_form(term.args[0]) && goal_form(term.args[1]);
+    case IrTag::Catch:
+      return term.args.size() >= 3 && goal_form(term.args[0]) && goal_form(term.args[2]);
+    case IrTag::Call: return term.args.empty() || goal_form(term.args[0]);
+    default: return true;
+  }
+}
+
 // candidates が節の添字である選択点だけ。述語の添字を足すと asserta が別の述語を飛ばす。
 bool scans_clauses(Pick pick) {
   return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
@@ -286,16 +303,21 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   if (reject_clause(machine, goal, term, false)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
-  if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* existing = find_predicate(machine, head.name, head.arity);
-  if (existing != nullptr && !existing->dynamic) {
-    raise_permission(machine, goal, head.name, head.arity);
-    return;
-  }
   Clause clause;
   // 呼び出し後の束縛が節へ漏れないよう、データベースに見える前に IR の変数番号へ切る。
   if (!compile_clause(machine.heap, term, clause)) {
     raise_type(machine, goal, "callable", view.head);
+    return;
+  }
+  // 8.9.1.3 は、非公開より先に本体がゴールへ変換できるかを見る。
+  if (view.rule && !goal_form(clause.body)) {
+    raise_type(machine, goal, "callable", view.body);
+    return;
+  }
+  if (refuse_builtin(machine, goal, head.name, head.arity)) return;
+  Predicate* existing = find_predicate(machine, head.name, head.arity);
+  if (existing != nullptr && !existing->dynamic) {
+    raise_permission(machine, goal, head.name, head.arity);
     return;
   }
   if (existing == nullptr) {
@@ -451,8 +473,8 @@ bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator) {
 
 bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body) {
   std::vector<Cell> slots;
-  const Cell made_head = ir_to_term(machine, clause.head, slots);
-  const Cell made_body = ir_to_term(machine, clause.body, slots);
+  const Cell made_head = ir_to_term(machine, clause.head, slots, false);
+  const Cell made_body = ir_to_term(machine, clause.body, slots, true);
   return do_unify(machine, head, made_head) && do_unify(machine, body, made_body);
 }
 

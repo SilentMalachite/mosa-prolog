@@ -12,3 +12,6 @@ test(flag_float_zero_div, current_prolog_flag(float_zero_div, error), true).
 test(flag_float_undefined, current_prolog_flag(float_undefined, error), true).
 test(unknown_fail, (set_prolog_flag(unknown, fail), no_such_pred_phase3), fail).
 test(unknown_restored, (set_prolog_flag(unknown, error), no_such_pred_phase3), error(existence_error(procedure, no_such_pred_phase3/0))).
+test(flag_bounded_value, set_prolog_flag(bounded, foo), error(domain_error(flag_value, bounded+foo))).
+test(flag_bounded_same, set_prolog_flag(bounded, true), error(permission_error(modify, flag, bounded))).
+test(flag_quotes_bad, set_prolog_flag(double_quotes, foo), error(domain_error(flag_value, double_quotes+foo))).

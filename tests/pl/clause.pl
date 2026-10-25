@@ -12,11 +12,17 @@ frozen(1).
 
 quiet :- false.
 
+meta(X) :- X.
+
+branch(X) :- (X ; true).
+
 test(clause_facts, clause(insect(X), true), solutions([X = ant, X = bee])).
 test(clause_share, (clause(legs(A, 6), B), B == insect(A)), true).
 test(clause_and, (clause(path(A, C), (edge(F, D), edge(E, G))), A == F, C == G, D == E), true).
 test(clause_static, clause(frozen(X), B), solutions([(X = 1, B = true)])).
 test(clause_false, clause(quiet, B), solutions([B = fail])).
+test(clause_call, (clause(meta(Y), B), B == call(Y)), true).
+test(clause_call_or, (clause(branch(Y), B), B == (call(Y) ; true)), true).
 test(clause_var, clause(X, Y), error(instantiation_error)).
 test(clause_number, clause(1, Y), error(type_error(callable, 1))).
 test(clause_body, clause(insect(X), 1), error(type_error(callable, 1))).

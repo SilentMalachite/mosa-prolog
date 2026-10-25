@@ -51,15 +51,16 @@ test(number_chars_letter, number_chars(1, [a]), error(syntax_error(_))).
 test(number_chars_empty, number_chars(1, []), error(syntax_error(_))).
 test(number_chars_leading_zero, number_chars(1, ['0', '1']), true).
 test(number_chars_exponent, number_chars(1.0e9, ['1', '.', '0', 'E', '9']), true).
-test(number_chars_space, number_chars(N, [' ', '1']), error(syntax_error(_))).
-test(number_chars_newline, number_chars(N, ['\n', '1']), error(syntax_error(_))).
-test(number_chars_iso_layout, number_chars(A, ['\n', ' ', '3']), error(syntax_error(_))).
-test(number_codes_iso_layout, number_codes(A, [10, 32, 51]), error(syntax_error(_))).
+test(number_chars_space, number_chars(N, [' ', '1']), solutions([N = 1])).
+test(number_chars_newline, number_chars(N, ['\n', '1']), solutions([N = 1])).
+test(number_chars_iso_layout, number_chars(A, ['\n', ' ', '3']), solutions([A = 3])).
+test(number_codes_iso_layout, number_codes(A, [10, 32, 51]), solutions([A = 3])).
+test(number_chars_comment, number_chars(A, ['/', '*', 'x', '*', '/', ' ', '4']), solutions([A = 4])).
 test(number_chars_minus_space, number_chars(N, [-, ' ', '1']), error(syntax_error(_))).
 test(number_chars_plus, number_chars(N, ['+', '1']), error(syntax_error(_))).
 test(number_codes_letter, number_codes(1, [97]), error(syntax_error(_))).
 test(number_codes_empty, number_codes(1, []), error(syntax_error(_))).
 test(number_codes_leading_zero, number_codes(1, [48, 49]), true).
-test(number_codes_space, number_codes(N, [32, 49]), error(syntax_error(_))).
+test(number_codes_space, number_codes(N, [32, 49]), solutions([N = 1])).
 test(number_codes_plus, number_codes(N, [43, 49]), error(syntax_error(_))).
 test(sub_atom_int_before_sub, sub_atom(abc, foo, _, _, 1), error(type_error(integer, foo))).

@@ -4,6 +4,7 @@
 //   type_error(character), type_error(integer), representation_error(character_code),
 //   syntax_error(読み筋)
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
+// 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
 // テスト: tests/pl/atoms.pl
 
 #include "../machine/internal.hpp"
@@ -113,6 +114,35 @@ bool has_layout(std::string_view text) {
   return false;
 }
 
+// 先頭の空白とコメントだけを落とす。符号と数字の間は残し、後段が拒否する。
+std::string_view skip_layout_text(std::string_view text) {
+  const CodeText codes = decode_codes(text);
+  std::size_t index = 0;
+  const std::size_t count = codes.codes.size();
+  while (index < count) {
+    const char32_t code = codes.codes[index];
+    if (classify(code) == CharClass::Layout) {
+      ++index;
+      continue;
+    }
+    if (code == U'%') {
+      ++index;
+      while (index < count && codes.codes[index] != U'\n') ++index;
+      continue;
+    }
+    if (code == U'/' && index + 1 < count && codes.codes[index + 1] == U'*') {
+      index += 2;
+      while (index + 1 < count && !(codes.codes[index] == U'*' && codes.codes[index + 1] == U'/')) ++index;
+      if (index + 1 >= count) return {};
+      index += 2;
+      continue;
+    }
+    break;
+  }
+  if (index >= count) return {};
+  return text.substr(codes.cuts[index]);
+}
+
 bool min_magnitude(std::string_view body) {
   std::string digits;
   digits.reserve(body.size());
@@ -129,6 +159,7 @@ bool consumed_number(const Scan& first, const Scan& end, std::string_view body) 
 }
 
 std::optional<Cell> parse_number(Impl& machine, std::string_view text) {
+  text = skip_layout_text(text);
   if (has_layout(text)) return std::nullopt;
   const SignedText signed_text = strip_sign(text);
   if (signed_text.body.empty()) return std::nullopt;

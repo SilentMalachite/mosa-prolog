@@ -249,7 +249,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);
 // slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。
-[[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots);
+[[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。
 [[nodiscard]] bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);

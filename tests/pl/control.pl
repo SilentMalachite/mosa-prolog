@@ -25,6 +25,7 @@ test(iso_once_fail, once(fail), fail).
 test(iso_call_true, call(true), true).
 test(iso_call_cut, (call(!), fail ; true), true).
 test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).
+test(error_neg, throw(error(domain_error(not_less_than_zero, -1), _)), error(domain_error(not_less_than_zero, -1))).
 test(throw_keeps_ball, catch((X = a, throw(f(X))), Y, Y == f(a)), true).
 test(catch_after, (catch(true, _, true), throw(x)), error(x)).
 test(if_cut_local, ((!, fail) -> true ; true), true).

@@ -10,6 +10,7 @@
 
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -74,12 +75,37 @@ Cell flag_value(Impl& machine, std::size_t index) {
   }
 }
 
+bool same_atom(const Impl& machine, Cell value, std::string_view name) {
+  return value.tag() == Tag::Atom && machine.atoms.name(atom_id(value)) == name;
+}
+
+bool same_int(const Impl& machine, Cell value, std::int64_t expected) {
+  return (value.tag() == Tag::Int || value.tag() == Tag::IntBox) &&
+         machine.heap.integer_value(value) == expected;
+}
+
 bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
-  if (value.tag() != Tag::Atom) return false;
-  const auto text = machine.atoms.name(atom_id(value));
-  if (index == 5) return text == "codes" || text == "chars" || text == "atom";
-  if (index == 6) return text == "error" || text == "fail";
-  return text == "error";
+  value = machine.heap.deref(value);
+  switch (index) {
+    case 0: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
+    case 1: return same_atom(machine, value, "toward_zero");
+    case 2: return same_int(machine, value, std::numeric_limits<std::int64_t>::max());
+    case 3: return same_int(machine, value, std::numeric_limits<std::int64_t>::min());
+    case 4: return same_int(machine, value, 1024);
+    case 5: {
+      if (value.tag() != Tag::Atom) return false;
+      const auto text = machine.atoms.name(atom_id(value));
+      return text == "codes" || text == "chars" || text == "atom";
+    }
+    case 6: {
+      if (value.tag() != Tag::Atom) return false;
+      const auto text = machine.atoms.name(atom_id(value));
+      return text == "error" || text == "fail";
+    }
+    case 7: return same_atom(machine, value, "utf8");
+    case 8: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
+    default: return same_atom(machine, value, "error");
+  }
 }
 
 void flag_store(Impl& machine, std::size_t index, Cell value) {
@@ -104,11 +130,14 @@ std::optional<Cell> set_problem(Impl& machine, Cell flag, Cell value) {
   if (flag.tag() != Tag::Atom) return formal_type(machine, "atom", flag);
   const int index = find_flag(machine, flag);
   if (index < 0) return formal_domain(machine, "prolog_flag", flag);
+  // 8.17.1.3 は、変更できない旗でも値の領域を先に見る。項は Flag+Value。
+  if (!flag_accepts(value, machine, static_cast<std::size_t>(index))) {
+    const std::array<Cell, 2> args{flag, value};
+    const Cell both = machine.heap.structure(machine.atoms.intern("+"), args);
+    return formal_domain(machine, "flag_value", both);
+  }
   if (!flag_writable(static_cast<std::size_t>(index))) {
     return formal_permission(machine, "modify", "flag", flag);
-  }
-  if (!flag_accepts(value, machine, static_cast<std::size_t>(index))) {
-    return formal_domain(machine, "flag_value", value);
   }
   return std::nullopt;
 }
