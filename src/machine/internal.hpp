@@ -34,7 +34,7 @@ struct Predicate {
   bool seen = false;
 };
 
-enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup };
+enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen };
 
 struct Entry {
   Pick pick = Pick::Clauses;
@@ -57,6 +57,8 @@ struct Entry {
   std::vector<std::uint32_t> live_catches;
   Cell pattern{};
   IrTerm recovery;
+  // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom。next が次の候補。
+  std::uint8_t gen_kind = 0;
 };
 
 enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit };
@@ -182,11 +184,37 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_existence(Impl& machine, std::string_view kind, Cell culprit);
 [[nodiscard]] Cell formal_evaluation(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_representation(Impl& machine, std::string_view which);
+[[nodiscard]] Cell formal_syntax(Impl& machine, Cell detail);
 [[nodiscard]] bool run_types(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_order(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_terms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_control(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_arith(Impl& machine, const Goal& goal);
+struct CodeText {
+  std::string bytes;
+  std::vector<char32_t> codes;
+  std::vector<std::size_t> cuts;
+  [[nodiscard]] std::size_t size() const { return codes.size(); }
+  [[nodiscard]] std::string_view slice(std::size_t from, std::size_t count) const {
+    return std::string_view{bytes}.substr(cuts[from], cuts[from + count] - cuts[from]);
+  }
+};
+
+enum class ListShape { Variable, Proper, Partial, Bad };
+
+struct WalkedList {
+  ListShape shape = ListShape::Bad;
+  std::vector<Cell> items;
+};
+
+[[nodiscard]] CodeText decode_codes(std::string_view text);
+void append_utf8_code(std::string& text, char32_t code);
+[[nodiscard]] WalkedList walk_list(const Impl& machine, Cell list);
+[[nodiscard]] Cell list_from_cells(Impl& machine, const std::vector<Cell>& items);
+[[nodiscard]] bool one_char_atom(const Impl& machine, Cell cell, char32_t& code);
+[[nodiscard]] bool scalar_code(std::int64_t code);
+[[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
 

@@ -10,3 +10,9 @@
 
 決定（2026-10-25）: B。Corrigendum 2 の 8.3.9.3 のとおり、Errors は None で、`callable(3)` と `callable(X)` は失敗する。
 `call/1` はこれまでどおり、変数なら `instantiation_error`、数なら `type_error(callable, 値)` を投げる。
+
+## 8.16 atom_number/2（非 ISO）
+
+未決 2。仕様は名前だけで、モードが無い。
+A: 片側がアトム、もう片側が数で、両方向に変換する。
+B: モードが無いので述語は登録しない。

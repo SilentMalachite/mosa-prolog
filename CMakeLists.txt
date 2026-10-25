@@ -53,6 +53,8 @@ target_sources(mosa_lib PRIVATE
   src/builtins/control.cpp
   src/builtins/arith.cpp
   src/builtins/arith_float.cpp
+  src/builtins/atoms.cpp
+  src/builtins/atoms_number.cpp
 )
 
 enable_testing()
