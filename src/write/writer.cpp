@@ -313,7 +313,17 @@ std::string Printer::render_list(Cell term) {
     if (!first) out += ", ";
     first = false;
     out += render(heap_.list_head(current), 999, true);
-    const Cell tail = heap_.deref(heap_.list_tail(current));
+    const Cell raw_tail = heap_.list_tail(current);
+    // 名前表の REF は束縛より先に書く。先に辿ると X = [a|X] が [a|_] になる。
+    if (raw_tail.tag() == Tag::Ref && var_name(raw_tail) != nullptr) {
+      const std::string rest = render(raw_tail, 999, true);
+      if (glue(out, "|")) out += ' ';
+      out += '|';
+      if (glue("|", rest)) out += ' ';
+      out += rest;
+      break;
+    }
+    const Cell tail = heap_.deref(raw_tail);
     if (is_nil(heap_, tail)) break;
     if (opened(tail.raw())) {
       out += "|_";

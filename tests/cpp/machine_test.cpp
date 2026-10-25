@@ -136,6 +136,10 @@ void check_answer_and_consult() {
   auto machine = mosa::Machine::create();
   auto cycle = machine->query("X = [X].");
   mosa_test::check(mosa::format_answer(*machine, cycle) == "X = [X]", "cyclic answer");
+  auto tail = machine->query("X = [a|X].");
+  mosa_test::check(mosa::format_answer(*machine, tail) == "X = [a|X]", "cyclic tail name");
+  auto named_tail = machine->query("(X = [a|Y], Y = b).");
+  mosa_test::check(mosa::format_answer(*machine, named_tail) == "X = [a|Y], Y = b", "named list tail");
   auto alias = machine->query("X = Y.");
   mosa_test::check(mosa::format_answer(*machine, alias) == "X = Y", "alias once");
   auto both = machine->query("(X = Y, Y = 1).");

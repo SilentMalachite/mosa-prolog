@@ -10,6 +10,8 @@ test(unify_diff_fun, (g(X) = f(f(X))), fail).
 test(unify_arity, (f(X, 1) = f(a(X))), fail).
 test(unify_cycle, (X = f(X)), true).
 test(unify_list_cycle, (X = [X]), true).
+test(cycle_tail, (X = [a|X]), solutions([X = [a|X]])).
+test(named_tail, (X = [a|Y], Y = b), solutions([(X = [a|Y], Y = b)])).
 test(not_unify, (1 \= 2), true).
 test(not_unify_same, (1 \= 1), fail).
 test(occurs_fail, unify_with_occurs_check(Y, f(Y)), fail).
