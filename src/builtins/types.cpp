@@ -25,10 +25,6 @@ bool is_nil(const Impl& machine, Cell cell) {
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-void instantiation(Impl& machine, const Goal& goal) {
-  raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
-}
-
 bool acyclic_term(const Impl& machine, Cell cell, std::vector<std::uint64_t>& seen) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell) || is_atomic(machine, cell)) return true;
@@ -132,13 +128,10 @@ bool run_types(Impl& machine, const Goal& goal) {
     return true;
   }
   if (name == "callable" && goal.arity == 1) {
+    // Cor.2 の 8.3.9 は型検査である。変数も数も失敗し、例外は投げない。
     const Cell value = machine.heap.deref(goal.arg(machine, 0));
-    if (machine.heap.unbound(value)) {
-      instantiation(machine, goal);
-      return true;
-    }
     if (value.tag() == Tag::Atom || is_compound(machine, value)) succeed(machine, goal);
-    else raise_formal(machine, formal_type(machine, "callable", value), goal.name, goal.arity);
+    else machine.failed = true;
     return true;
   }
   if (name == "is_list" && goal.arity == 1) {

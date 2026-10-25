@@ -20,8 +20,9 @@ test(number_float, number(1.0), true).
 test(number_atom, number(a), fail).
 test(callable_atom, callable(a), true).
 test(callable_fun, callable(f(a)), true).
-test(callable_number, callable(1), error(type_error(callable, 1))).
-test(callable_var, callable(X), error(instantiation_error)).
+test(callable_number, callable(1), fail).
+test(callable_var, callable(X), fail).
+test(iso_callable_pair, callable((1, 2)), true).
 test(list_proper, is_list([a]), true).
 test(list_partial, is_list([a|b]), fail).
 test(list_var, is_list(X), fail).

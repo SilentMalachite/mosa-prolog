@@ -90,7 +90,8 @@ void check_types() {
   mosa_test::check(machine->query("atom([]).").kind == mosa::StopKind::Success, "nil atom");
   mosa_test::check(machine->query("integer(1.0).").kind == mosa::StopKind::Failure, "float is not integer");
   mosa_test::check(machine->query("compound([]).").kind == mosa::StopKind::Failure, "nil not compound");
-  mosa_test::check(machine->query("callable(1).").kind == mosa::StopKind::Exception, "callable number");
+  mosa_test::check(machine->query("callable(1).").kind == mosa::StopKind::Failure, "callable number");
+  mosa_test::check(machine->query("callable(X).").kind == mosa::StopKind::Failure, "callable var");
   mosa_test::check(machine->query("is_list([a]).").kind == mosa::StopKind::Success, "proper list");
   mosa_test::check(machine->query("is_list([a|b]).").kind == mosa::StopKind::Failure, "partial list");
   mosa_test::check(machine->query("is_list(X).").kind == mosa::StopKind::Failure, "unbound list");
