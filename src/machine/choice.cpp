@@ -78,8 +78,8 @@ void enter_user(Impl& machine, const Goal& goal) {
     if (candidate.name == goal.name && candidate.arity == goal.arity) predicate = &candidate;
   }
   if (predicate == nullptr || predicate->clauses.empty()) {
-    // 節の無い動的述語は失敗する。unknown=fail も、無い述語を失敗にする。
-    if ((predicate != nullptr && predicate->dynamic) || machine.unknown_fail) {
+    // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
+    if (machine.unknown_fail) {
       machine.failed = true;
       return;
     }

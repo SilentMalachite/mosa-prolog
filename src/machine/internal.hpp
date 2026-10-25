@@ -33,8 +33,6 @@ struct Predicate {
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
   bool seen = false;
-  // :- dynamic が付いた述語だけ、assert と retract の対象になる。
-  bool dynamic = false;
 };
 
 enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen };
@@ -225,9 +223,6 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
-[[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
-[[nodiscard]] bool redo_retract(Impl& machine);
-[[nodiscard]] int apply_dynamic_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);
 [[nodiscard]] int apply_flag_directive(Impl& machine, Cell directive);

@@ -56,7 +56,6 @@ target_sources(mosa_lib PRIVATE
   src/builtins/atoms.cpp
   src/builtins/atoms_number.cpp
   src/builtins/flags.cpp
-  src/builtins/database.cpp
 )
 
 enable_testing()

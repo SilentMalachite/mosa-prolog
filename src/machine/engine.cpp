@@ -286,7 +286,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
-      run_flags(machine, goal) || run_database(machine, goal)) {
+      run_flags(machine, goal)) {
     return true;
   }
   return false;

@@ -235,27 +235,6 @@ LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const Save
 
 }  // namespace
 
-int handle_directive(Impl& machine, Reader& reader, Cell term) {
-  if (!is_directive(machine.heap, term)) return 0;
-  const int dynamic_directive = apply_dynamic_directive(machine, term);
-  if (dynamic_directive < 0) return -1;
-  if (dynamic_directive > 0) return 1;
-  const int flag_directive = apply_flag_directive(machine, term);
-  if (flag_directive < 0) return -1;
-  if (flag_directive > 0) {
-    reader.set_quotes(current_double_quotes(machine));
-    return 1;
-  }
-  if (!apply_op(machine, machine.heap.deref(term))) {
-    if (machine.diagnostic.empty()) {
-      fail_load(machine, "この指示はフェーズ2では使えない: " +
-                             write_term(machine.heap, machine.operators, term, {}, {}));
-    }
-    return -1;
-  }
-  return 1;
-}
-
 LoadStatus load_source(Impl& machine, std::string_view source) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   const auto heap_base = machine.heap.size();
@@ -284,8 +263,20 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
-    if (const int directive = handle_directive(machine, reader, term)) {
-      if (directive < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+    if (is_directive(machine.heap, term)) {
+      const int flag_directive = apply_flag_directive(machine, term);
+      if (flag_directive < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+      if (flag_directive > 0) {
+        reader.set_quotes(current_double_quotes(machine));
+        continue;
+      }
+      if (!apply_op(machine, machine.heap.deref(term))) {
+        if (machine.diagnostic.empty()) {
+          const auto text = write_term(machine.heap, machine.operators, term, {}, {});
+          fail_load(machine, "この指示はフェーズ2では使えない: " + text);
+        }
+        return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+      }
       continue;
     }
     Clause clause;
