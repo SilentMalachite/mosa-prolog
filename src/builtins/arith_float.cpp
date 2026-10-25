@@ -31,8 +31,8 @@ bool to_int(Impl& machine, const Goal& goal, double value, std::int64_t& out) {
     return false;
   }
   const auto lo = static_cast<double>(std::numeric_limits<std::int64_t>::min());
-  const auto hi = static_cast<double>(std::numeric_limits<std::int64_t>::max());
-  if (value < lo || value > hi) {
+  // 2^63-1 を double にすると 2^63 に丸まる。2^63 以上は int64 に入らない。
+  if (value < lo || value >= 0x1p63) {
     fail_eval(machine, goal, "int_overflow");
     return false;
   }

@@ -42,3 +42,16 @@ test(nan_ge, (1 >= nan), fail).
 test(abs_min, (X is abs(-9223372036854775807 - 1)), error(evaluation_error(int_overflow))).
 test(neg_min, (X is -(-9223372036854775807 - 1)), error(evaluation_error(int_overflow))).
 test(mod_edge, (X is (-9223372036854775807 - 1) mod 9223372036854775807), solutions([X = 9223372036854775806])).
+test(int_pow63, (X is integer(2.0 ** 63)), error(evaluation_error(int_overflow))).
+test(floor_pow63, (X is floor(2.0 ** 63)), error(evaluation_error(int_overflow))).
+test(trunc_pow63, (X is truncate(2.0 ** 63)), error(evaluation_error(int_overflow))).
+test(shl_neg1, (X is -1 << 1), solutions([X = -2])).
+test(shl_neg0, (X is -1 << 0), solutions([X = -1])).
+test(shl_neg63, (X is -1 << 63, X =:= -9223372036854775807 - 1), true).
+test(shl_zero63, (X is 0 << 63), solutions([X = 0])).
+test(shr_one63, (X is 1 >> 63), solutions([X = 0])).
+test(shr_big, (X is 8 >> 100), solutions([X = 0])).
+test(shr_neg63, (X is -1 >> 63), solutions([X = -1])).
+test(shl_overflow, (X is 1 << 63), error(evaluation_error(int_overflow))).
+test(neg_pow_neg, (X is (-2) ** (-1)), solutions([X = -0.5])).
+test(neg_pow_half, (X is (-2) ** 0.5), error(evaluation_error(undefined))).

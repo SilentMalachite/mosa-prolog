@@ -150,6 +150,60 @@ bool float_bad(Impl& machine, const Goal& goal, double value, bool inputs_finite
   return false;
 }
 
+bool integer_exponent(Num right, std::int64_t& exp) {
+  if (!right.flt) {
+    exp = right.ival;
+    return true;
+  }
+  if (!std::isfinite(right.fval) || right.fval != std::trunc(right.fval)) return false;
+  if (right.fval < static_cast<double>(std::numeric_limits<std::int64_t>::min()) || right.fval >= 0x1p63) {
+    return false;
+  }
+  exp = static_cast<std::int64_t>(right.fval);
+  return true;
+}
+
+double negative_base_pow(double base, std::int64_t exp) {
+  if (exp == 0) return 1.0;
+  // 負の底の整数乗は、絶対値のべきに符号を付けてから、負の指数は逆数にする。
+  const bool invert = exp < 0;
+  const auto mag = invert ? static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(exp)
+                          : static_cast<std::uint64_t>(exp);
+  const double raised = std::pow(std::fabs(base), static_cast<double>(mag));
+  const double signed_value = (mag % 2U) == 0U ? raised : -raised;
+  if (!invert) return signed_value;
+  if (signed_value == 0) return std::copysign(std::numeric_limits<double>::infinity(), signed_value);
+  return 1.0 / signed_value;
+}
+
+Ev shift_bits(Impl& machine, const Goal& goal, std::string_view name, std::int64_t value, std::int64_t count) {
+  if (count < 0) {
+    fail_eval(machine, goal, "undefined");
+    return {};
+  }
+  if (name == ">>") {
+    if (count >= 64) return from_int(value < 0 ? std::int64_t{-1} : 0);
+    return from_int(value >> static_cast<unsigned>(count));
+  }
+  if (count >= 64) {
+    if (value == 0) return from_int(0);
+    fail_eval(machine, goal, "int_overflow");
+    return {};
+  }
+  const auto shift = static_cast<unsigned>(count);
+  if (shift != 0) {
+    // 結果が int64 に収まらない左シフトだけを落とす。負数は二の補数のまま残す。
+    const bool overflow = value >= 0 ? value > (std::numeric_limits<std::int64_t>::max() >> shift)
+                                     : value < (std::numeric_limits<std::int64_t>::min() >> shift);
+    if (overflow) {
+      fail_eval(machine, goal, "int_overflow");
+      return {};
+    }
+  }
+  const auto bits = static_cast<std::uint64_t>(value) << shift;
+  return from_int(static_cast<std::int64_t>(bits));
+}
+
 Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
   const double a = as_float(left);
   const double b = as_float(right);
@@ -165,11 +219,16 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
     }
     value = a / b;
   } else if (name == "**" || name == "^") {
-    if (a < 0 && !right.flt && right.ival < 0) {
-      fail_eval(machine, goal, "undefined");
-      return {};
+    std::int64_t exp = 0;
+    if (a < 0) {
+      if (!integer_exponent(right, exp)) {
+        fail_eval(machine, goal, "undefined");
+        return {};
+      }
+      value = negative_base_pow(a, exp);
+    } else {
+      value = std::pow(a, b);
     }
-    value = std::pow(a, b);
   } else {
     return {};
   }
@@ -350,19 +409,7 @@ Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const s
     if (name == "/\\") return from_int(args[0].ival & args[1].ival);
     if (name == "\\/") return from_int(args[0].ival | args[1].ival);
     if (name == "xor") return from_int(args[0].ival ^ args[1].ival);
-    if (args[1].ival < 0 || args[1].ival >= 63) {
-      fail_eval(machine, goal, "undefined");
-      return {};
-    }
-    const auto shift = static_cast<unsigned>(args[1].ival);
-    if (name == "<<") {
-      if (args[0].ival < 0 || (shift > 0 && args[0].ival > (std::numeric_limits<std::int64_t>::max() >> shift))) {
-        fail_eval(machine, goal, "int_overflow");
-        return {};
-      }
-      return from_int(args[0].ival << shift);
-    }
-    return from_int(args[0].ival >> shift);
+    if (name == ">>" || name == "<<") return shift_bits(machine, goal, name, args[0].ival, args[1].ival);
   }
   if (name == "\\" && args.size() == 1) {
     if (!one_int(args[0])) return {};

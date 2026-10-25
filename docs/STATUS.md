@@ -1,6 +1,6 @@
 フェーズ: 2 完了
 進行中: なし
-完了: nrev と queens と段階 A と算術の Examples が通る。NaN 比較とリスト尾の名前と mod の端を直した。版は mosa 0.0.1 (phase 2)
+完了: nrev と queens と段階 A と算術の Examples が通る。2^63 の整数化、シフト、負の整数乗を直した。版は mosa 0.0.1 (phase 2)
 次: フェーズ3の組込述語（アトム処理）
 未解決: なし
 計画: docs/superpowers/plans/2026-10-24-phase2-engine.md
