@@ -56,7 +56,7 @@ Examples が通っても、次の入力で壊れる。各行のテストは、�
 - 整数は 64bit のままである。オーバーフローは `evaluation_error(int_overflow)`、ゼロ除算は `evaluation_error(zero_divisor)` である
 - `double_quotes` の値は `codes`、`chars`、`atom` である。既定は `codes`。リーダの `DoubleQuotes` がこの 3 つである
 - `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`max_arity`、`encoding` は `set_prolog_flag/2` で変えない。拒否の Formal は規格 8.17 の、変更できない旗のエラーである
-- アトム処理はコードポイント単位である。アトム表はバイト列で一意化し、正規化しない。`AtomTable::ascii` が真のアトムは、`sub_atom/5` の位置をバイト位置のまま使ってよい。偽のときはコードポイント列にほどく。1 文字のアトムは `intern_char` を使ってよい
+- アトム処理はコードポイント単位である。Unicode のスカラー値 1 個を 1 文字とし、UTF-16 の符号単位では数えない。`𠮷野家` は U+20BB7、U+91CE、U+5BB6 の 3 個なので、`atom_length('𠮷野家', 3)` である。𠮷 1 文字は長さ 1、文字コードは 134071 である。アトム表はバイト列で一意化し、正規化しない。`AtomTable::ascii` が真のアトムは、`sub_atom/5` の位置をバイト位置のまま使ってよい。偽のときはコードポイント列にほどく。1 文字のアトムは `intern_char` を使ってよい
 - 文字コードは Unicode スカラー値である。0〜255 に切らない。サロゲートはコードポイントにしない
 - `char_conversion/2` の写像の初期状態は恒等写像である。全角から半角への変換は入れない
 - ストリームの `encoding` の既定は `utf8` である
@@ -76,7 +76,7 @@ Examples が通っても、次の入力で壊れる。各行のテストは、�
 
 仕様もフェーズ2設計も一つに決めていない。各問いは「A か B か」である。実装者は、そのタスクの最初に、まだ書いていなければ `docs/iso-notes.md` へ条番号付きで問いを 1 つ写す。答えを推測で埋めない。回答まで、その問いが指す述語か旗の本体は書かない。隣の、決まっている述語は実装する。期待値を実装に合わせて書き換えない。
 
-1. 仕様第4節の `atom_length('𠮷野家', 4)`。この文字列表記のスカラー値は U+20BB7、U+91CE、U+5BB6 の 3 個である。UTF-16 では 4 符号単位である。同じ節は、文字をコードポイント単位だと書く。A: コードポイントを優先し、長さは 3。B: 最低セットの字面を優先し、長さは 4。回答まで `tests/pl/japanese.pl` にこの 1 行は置かない。置くときの字面は、回答が B なら `test(atom_length_yoshinoya, atom_length('𠮷野家', 4), true).` である。
+1. 決定済み（2026-10-25）。`𠮷野家` の長さは Unicode のコードポイントで 3 である。決めたことと `docs/iso-notes.md` を見る。実装者は問いをやり直さない。
 2. `atom_number/2`（非 ISO）。仕様は名前だけで、モードが無い。A: 片側がアトム、もう片側が数で、両方向に変換する。B: モードが無いので述語は登録しない。
 3. `findall/4`（非 ISO）。仕様は名前だけで、引数の意味が無い。A: 第4引数を結果リストの末尾にする。B: 意味が無いので述語は登録しない。
 4. `print/1` と `print/2`。仕様は 8.14 の並びに置くが、`portray/1` には触れない。A: `portray/1` が定義されていればそれを使い、無ければ `write/1` と同じ文字列を出す。B: `portray/1` は見ず、`write/1` と同じ文字列を出す。
@@ -179,15 +179,16 @@ target_sources(mosa_lib PRIVATE src/builtins/atoms.cpp)
 - Consumes: `AtomTable::intern`、`AtomTable::intern_char`、`AtomTable::ascii`、`AtomTable::name`、`make_instantiation_error`、`make_type_error`、`make_domain_error`、`throw_error`、既存のリーダ（数の字句）
 - Produces: `bool run_atoms(Impl& machine, const Goal& goal)`。8.16 の、未決 2 を除く述語
 
-最初の実装タスクはこれである。未決 1 を `docs/iso-notes.md` に写す。未決 2 の `atom_number/2` は、回答まで登録しない。`atom_number/2` という名前は、このタスクの対象一覧に残す。
+最初の実装タスクはこれである。未決 2 の `atom_number/2` は、回答まで登録しない。`atom_number/2` という名前は、このタスクの対象一覧に残す。
 
 - [ ] **Step 1: 失敗するテストを書く**
 
-`tests/pl/atoms.pl` には、8.16.1 から 8.16.8 の Examples を 1 行 1 テストで写す。`tests/pl/japanese.pl` には次を書く。未決 1 の `atom_length('𠮷野家', 4)` は、回答までこのファイルに置かない。
+`tests/pl/atoms.pl` には、8.16.1 から 8.16.8 の Examples を 1 行 1 テストで写す。`tests/pl/japanese.pl` には次を書く。
 
 ```prolog
 test(atom_length_hiragana, atom_length('あ', 1), true).
 test(atom_length_scalar, atom_length('𠮷', 1), true).
+test(atom_length_yoshinoya, atom_length('𠮷野家', 3), true).
 test(char_code_scalar, char_code('𠮷', 134071), true).
 test(sub_atom_go_sho, sub_atom('日本語処理系', 2, 2, 2, '語処'), true).
 test(atom_length_arg_order, atom_length(X, foo), error(instantiation_error)).
@@ -214,13 +215,13 @@ Expected: 全部成功。往復、`nrev`、`queens`、段階 A、算術を含む
 ```markdown
 フェーズ: 3
 進行中: なし
-完了: アトム処理がコードポイント単位で動く。atom_length(X, foo) は instantiation_error
+完了: アトム処理がコードポイント単位で動く。𠮷野家の長さは 3。atom_length(X, foo) は instantiation_error
 次: フラグ（set_prolog_flag/2 と current_prolog_flag/2）
-未解決: 未決 1（𠮷野家の長さ）と未決 2（atom_number/2）
+未解決: 未決 2（atom_number/2）
 計画: docs/superpowers/plans/2026-10-25-phase3-builtins.md
 ```
 
-未決 1 と 2 が回答済みなら、未解決は `なし` とする。
+未決 2 が回答済みなら、未解決は `なし` とする。
 
 - [ ] **Step 6: Commit**
 
