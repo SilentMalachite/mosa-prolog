@@ -294,6 +294,52 @@ void check_stream_property(const std::filesystem::path& path) {
   mosa_test::check(flag.kind == mosa::StopKind::Success, "reposition false");
 }
 
+void check_set_output(const std::filesystem::path& path) {
+  write_bytes(path, "xyz");
+  const std::string atom = prolog_atom(path.string());
+  std::ostringstream quiet;
+  auto* old = std::cout.rdbuf(quiet.rdbuf());
+  auto machine = mosa::Machine::create();
+  auto wrote = machine->query(
+      "open(" + atom + ", write, S), set_output(S), put_char(a), set_output(user_output), flush_output(S).");
+  std::cout.rdbuf(old);
+  mosa_test::check(wrote.kind == mosa::StopKind::Success, "set_output writes");
+  mosa_test::check(quiet.str().empty(), "set_output stays off stdout");
+  mosa_test::check(file_bytes(path) == "a", "set_output flushed");
+
+  write_bytes(path, "ab");
+  std::ostringstream still;
+  auto* old_still = std::cout.rdbuf(still.rdbuf());
+  auto appending = mosa::Machine::create();
+  auto added = appending->query(
+      "open(" + atom + ", append, S), set_output(S), put_char(c), set_output(user_output), flush_output(S).");
+  std::cout.rdbuf(old_still);
+  mosa_test::check(added.kind == mosa::StopKind::Success, "set_output append");
+  mosa_test::check(still.str().empty(), "append stays off stdout");
+  mosa_test::check(file_bytes(path) == "abc", "append via current");
+}
+
+void check_at_end(const std::filesystem::path& path) {
+  write_bytes(path, "");
+  const std::string atom = prolog_atom(path.string());
+  auto empty = mosa::Machine::create();
+  auto at = empty->query("open(" + atom + ", read, S, [type(binary)]), at_end_of_stream(S).");
+  mosa_test::check(at.kind == mosa::StopKind::Success, "binary empty is at");
+
+  write_bytes(path, "a");
+  auto mid = mosa::Machine::create();
+  auto not_yet = mid->query("open(" + atom + ", read, S, [type(binary)]), at_end_of_stream(S).");
+  mosa_test::check(not_yet.kind == mosa::StopKind::Failure, "binary has a byte");
+  auto after = mid->query("get_byte('$stream'(3), _), at_end_of_stream('$stream'(3)).");
+  mosa_test::check(after.kind == mosa::StopKind::Success, "binary after the byte");
+
+  auto closed_in = mosa::Machine::create();
+  auto closed = closed_in->query("close(user_input), at_end_of_stream.");
+  mosa_test::check(closed.kind == mosa::StopKind::Exception, "closed current input");
+  mosa_test::check(formal_text(*closed_in, closed) == "existence_error(stream, '$stream'(0))",
+                   "at_end closed formal");
+}
+
 void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
@@ -339,6 +385,8 @@ int main() {
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");
   check_alias_reopen(dir / "phase3-alias-reopen.txt");
   check_stream_property(dir / "phase3-property.txt");
+  check_set_output(dir / "phase3-set-output.txt");
+  check_at_end(dir / "phase3-at-end.txt");
   check_close_standard();
   check_flush_failure(dir / "phase3-flush-fail");
   return mosa_test::failures();

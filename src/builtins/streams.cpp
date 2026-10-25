@@ -568,6 +568,14 @@ bool run_streams(Impl& machine, const Goal& goal) {
     run_set_input(machine, goal);
     return true;
   }
+  if (name == "set_output" && goal.arity == 1) {
+    run_set_output(machine, goal);
+    return true;
+  }
+  if (name == "at_end_of_stream" && goal.arity <= 1) {
+    run_at_end(machine, goal);
+    return true;
+  }
   if (name == "stream_property" && goal.arity == 2) {
     run_stream_property(machine, goal);
     return true;

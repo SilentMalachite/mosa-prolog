@@ -1,11 +1,17 @@
-// 規格 8.11.2 current_input/1。8.11.3 current_output/1。8.11.4 set_input/1。8.11.8 stream_property/2。
+// 規格 8.11.1 current_input/1。8.11.2 current_output/1。8.11.3 set_input/1。
+// 8.11.4 set_output/1。8.11.8 stream_property/2、at_end_of_stream/0,1。
 // current_input(?stream_or_alias) / current_output(?stream_or_alias)
 //   変数は '$stream'(N)。別名は照合だけに使い、項の形は変えない。
 //   domain_error(stream_or_alias), existence_error(stream)
-// set_input(+stream_or_alias)
-//   出力の流れには切り替えない。検査が済むまで current_in は変えない。
+// set_input(+stream_or_alias) / set_output(+stream_or_alias)
+//   検査が済むまで current_in と current_out は変えない。
+//   set_input は read だけ。set_output は write と append。
 //   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
-//   permission_error(input, stream)
+//   permission_error(input または output, stream)
+// at_end_of_stream / at_end_of_stream(+stream_or_alias)
+//   8.11.8.5 は end_of_stream が at か past のとき成功する。
+//   /0 の閉じた現在入力は existence_error(stream, '$stream'(N))。
+//   /1 は instantiation_error, domain_error(stream_or_alias), existence_error(stream)
 // stream_property(?stream_or_alias, ?stream_property)
 //   domain_error(stream_or_alias), domain_error(stream_property), existence_error(stream)
 // 性質の順は file_name, mode, alias, position, end_of_stream, eof_action,
@@ -287,6 +293,51 @@ void run_set_input(Impl& machine, const Goal& goal) {
     return;
   }
   machine.current_in = index;
+  machine.ip = goal.cont;
+}
+
+void run_set_output(Impl& machine, const Goal& goal) {
+  const Cell spec = machine.heap.deref(goal.arg(machine, 0));
+  if (machine.heap.unbound(spec)) {
+    raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
+    return;
+  }
+  std::size_t index = 0;
+  if (resolve_stream(machine, goal, spec, index)) return;
+  if (machine.streams[index].closed) {
+    raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  if (machine.streams[index].mode == Stream::Mode::Read) {
+    raise_formal(machine, formal_permission(machine, "output", "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  machine.current_out = index;
+  machine.ip = goal.cont;
+}
+
+void run_at_end(Impl& machine, const Goal& goal) {
+  std::size_t index = machine.current_in;
+  Cell spec{};
+  if (goal.arity == 1) {
+    spec = machine.heap.deref(goal.arg(machine, 0));
+    if (machine.heap.unbound(spec)) {
+      raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
+      return;
+    }
+    if (resolve_stream(machine, goal, spec, index)) return;
+  }
+  if (machine.streams[index].closed) {
+    // 8.11.8.5 は current_input の項を stream_property に渡す。
+    if (goal.arity == 0) spec = stream_term(machine, index);
+    raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  const auto end = end_name(machine.streams[index]);
+  if (end != "at" && end != "past") {
+    machine.failed = true;
+    return;
+  }
   machine.ip = goal.cont;
 }
 
