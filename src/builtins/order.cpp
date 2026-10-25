@@ -26,8 +26,8 @@ bool seen_pair(std::vector<std::pair<std::uint64_t, std::uint64_t>>& seen, std::
   return false;
 }
 
-int compare_cells(const Impl& machine, Cell left, Cell right,
-                  std::vector<std::pair<std::uint64_t, std::uint64_t>>& seen) {
+int compare_seen(const Impl& machine, Cell left, Cell right,
+                 std::vector<std::pair<std::uint64_t, std::uint64_t>>& seen) {
   left = machine.heap.deref(left);
   right = machine.heap.deref(right);
   if (left.raw() == right.raw() && left.tag() != Tag::Float) return 0;
@@ -76,7 +76,7 @@ int compare_cells(const Impl& machine, Cell left, Cell right,
                              : machine.heap.arg(left, index);
     const Cell b = right_list ? (index == 0 ? machine.heap.list_head(right) : machine.heap.list_tail(right))
                               : machine.heap.arg(right, index);
-    const int order = compare_cells(machine, a, b, seen);
+    const int order = compare_seen(machine, a, b, seen);
     if (order != 0) return order;
   }
   return 0;
@@ -84,7 +84,7 @@ int compare_cells(const Impl& machine, Cell left, Cell right,
 
 int compare_now(const Impl& machine, Cell left, Cell right) {
   std::vector<std::pair<std::uint64_t, std::uint64_t>> seen;
-  return compare_cells(machine, left, right, seen);
+  return compare_seen(machine, left, right, seen);
 }
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
@@ -119,6 +119,11 @@ void run_compare(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+int compare_cells(const Impl& machine, Cell left, Cell right) {
+  std::vector<std::pair<std::uint64_t, std::uint64_t>> seen;
+  return compare_seen(machine, left, right, seen);
+}
 
 bool run_order(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);

@@ -197,6 +197,8 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_syntax(Impl& machine, Cell detail);
 [[nodiscard]] bool run_types(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_order(Impl& machine, const Goal& goal);
+// setof/3 は @</2 と同じ標準順序を使う。アルゴリズムは order.cpp に一つ。
+[[nodiscard]] int compare_cells(const Impl& machine, Cell left, Cell right);
 [[nodiscard]] bool run_terms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_control(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_arith(Impl& machine, const Goal& goal);
@@ -228,6 +230,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。
 [[nodiscard]] bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity);

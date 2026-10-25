@@ -168,6 +168,9 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"retract", 1},
     {"retractall", 1},
     {"abolish", 1},
+    {"findall", 3},
+    {"bagof", 3},
+    {"setof", 3},
     {"catch", 3},
     {"throw", 1},
     {",", 2},
@@ -369,7 +372,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
-      run_flags(machine, goal) || run_database(machine, goal)) {
+      run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal)) {
     return true;
   }
   return false;
