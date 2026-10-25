@@ -1,8 +1,10 @@
 // 8.10.1 findall/3 (+term, +callable_term, ?list)
+// findall/4 (+term, +callable_term, ?list, ?term) は非 ISO の差分リスト
 // 8.10.2 bagof/3 (+term, +callable_term, ?list)
 // 8.10.3 setof/3 (+term, +callable_term, ?list)
-//   instantiation_error、type_error(callable, Goal)、type_error(list, List)
-//   findall/4 は未決 3 のため登録しない
+//   第1〜3引数の誤りは findall/3 と同じ。instantiation_error、
+//   type_error(callable, Goal)、type_error(list, List)
+//   第4引数は検査しない。差分リストの末尾はリストとは限らない
 // テスト: tests/pl/solutions.pl
 
 #include "../machine/internal.hpp"
@@ -100,8 +102,9 @@ struct VarIds {
 };
 
 Which which_solution(std::string_view name, std::uint16_t arity) {
+  // bagof/4 と setof/4 は差分リストではない。開いた末尾は findall だけ。
+  if (name == "findall" && (arity == 3 || arity == 4)) return Which::Findall;
   if (arity != 3) return Which::None;
-  if (name == "findall") return Which::Findall;
   if (name == "bagof") return Which::Bagof;
   if (name == "setof") return Which::Setof;
   return Which::None;
@@ -586,18 +589,29 @@ Answer make_shared(Impl& machine, const Group& group, bool sorting,
   return answer;
 }
 
-Answer make_copied(Impl& machine, const Group& group, bool sorting) {
+// list_from_cells は常に [] で閉じる。他の呼び出しがその閉じに依存するので、開いた末尾はここで付ける。
+Cell list_ending(Impl& machine, const std::vector<Cell>& items, Cell tail) {
+  Cell end = tail;
+  for (auto it = items.rbegin(); it != items.rend(); ++it) end = machine.heap.list(*it, end);
+  return end;
+}
+
+Answer make_copied(Impl& machine, const Group& group, bool sorting, Cell tail) {
   Answer answer;
   std::vector<Cell> templs;
   templs.reserve(group.templs.size());
   for (const ExportedTerm& term : group.templs) templs.push_back(import_term(machine, term));
-  finish_list(machine, answer, templs, sorting);
+  if (sorting) {
+    sort_cells(machine, templs);
+    unique_cells(machine, templs);
+  }
+  answer.list = list_ending(machine, templs, tail);
   return answer;
 }
 
 Answer make_answer(Impl& machine, const Group& group, bool sorting, const std::vector<std::uint64_t>& ext_raw) {
   if (!group.shots.empty()) return make_shared(machine, group, sorting, ext_raw);
-  return make_copied(machine, group, sorting);
+  return make_copied(machine, group, sorting, machine.heap.atom(machine.atoms.intern("[]")));
 }
 
 std::vector<Answer> answers_from(Impl& machine, const std::vector<Group>& groups, bool sorting,
@@ -669,6 +683,26 @@ void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witn
   launch(machine, fold(IrTag::Or, branches), goal.cont, machine.stack.size(), env);
 }
 
+// 空の findall/3 は []。空の findall/4 は List と Tail を同じにし、Tail を [] にしない。
+bool bind_found(Impl& machine, const Goal& goal, const Packet& packet) {
+  if (packet.groups.empty()) {
+    if (goal.arity == 3) {
+      bind_answers(machine, goal, {}, {blank_answer(machine)});
+      return true;
+    }
+    Answer answer;
+    answer.list = goal.arg(machine, 3);
+    bind_answers(machine, goal, {}, {answer});
+    return true;
+  }
+  const Cell tail = goal.arity == 4 ? goal.arg(machine, 3) : machine.heap.atom(machine.atoms.intern("[]"));
+  std::vector<Answer> answers;
+  answers.reserve(packet.groups.size());
+  for (const Group& group : packet.groups) answers.push_back(make_copied(machine, group, false, tail));
+  bind_answers(machine, goal, {}, answers);
+  return true;
+}
+
 }  // namespace
 
 bool run_solutions(Impl& machine, const Goal& goal) {
@@ -696,13 +730,10 @@ bool run_solutions(Impl& machine, const Goal& goal) {
     machine.ip = kNoFrame;
     return true;
   }
+  if (which == Which::Findall) return bind_found(machine, goal, packet);
   const bool sorting = which == Which::Setof;
   if (packet.groups.empty()) {
-    if (which != Which::Findall) {
-      machine.failed = true;
-      return true;
-    }
-    bind_answers(machine, goal, witnesses, {blank_answer(machine)});
+    machine.failed = true;
     return true;
   }
   bind_answers(machine, goal, witnesses, answers_from(machine, packet.groups, sorting, packet.ext_raw));

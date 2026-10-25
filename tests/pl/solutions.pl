@@ -35,3 +35,9 @@ test(scan_asserta, (a(X), findall(_, asserta(a(9)), _)), solutions([X = 1, X = 2
 test(a_now, a(X), solutions([X = 9, X = 9, X = 1, X = 2])).
 test(scan_retract, (r(X), findall(_, (X = 1 -> retract(r(2)) ; true), _)), solutions([X = 1, X = 3])).
 test(r_left, r(X), solutions([X = 1, X = 3])).
+test(findall4_closed, findall(X, (X = 1; X = 2), L, []), solutions([L = [1, 2]])).
+test(findall4_none, (findall(X, fail, L, T), L == T, var(T)), true).
+test(findall4_open, (findall(X, (X = 1; X = 2), L, T), L == [1, 2|T], var(T)), true).
+test(findall4_throw, findall(X, throw(error(instantiation_error, _)), L, T), error(instantiation_error)).
+test(findall4_var_goal, findall(X, Y, L, T), error(instantiation_error)).
+test(findall3_still, findall(X, (X = 1; X = 2), S), solutions([S = [1, 2]])).

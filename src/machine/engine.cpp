@@ -174,6 +174,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"clause", 2},
     {"current_predicate", 1},
     {"findall", 3},
+    {"findall", 4},
     {"bagof", 3},
     {"setof", 3},
     {"catch", 3},
