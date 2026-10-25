@@ -506,6 +506,7 @@ bool scalar_code(std::int64_t code) {
 bool redo_atoms(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::AtomGen) return false;
   if (machine.stack.back().gen_kind == 3) return redo_flag_gen(machine);
+  if (machine.stack.back().gen_kind == 4) return redo_current_op(machine);
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   const Goal goal = read_goal(machine, top.redo_goal);

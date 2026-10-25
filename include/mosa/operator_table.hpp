@@ -32,6 +32,9 @@ class OperatorTable {
   // 優先度の昇順、同じ優先度では Specifier の宣言順。
   [[nodiscard]] std::vector<OpDef> lookup(std::string_view name) const;
 
+  // 表に入っている順。名前を決めない current_op/3 はこの順で返す。
+  [[nodiscard]] std::vector<OpDef> entries() const;
+
  private:
   std::vector<OpDef> ops_;
 };

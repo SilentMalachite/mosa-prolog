@@ -43,3 +43,72 @@ test(op_bar_low, op(1000, xfy, '|'), error(permission_error(create, operator, '|
 test(op_bar_list, op(1000, xfy, ['|']), error(permission_error(create, operator, '|'))).
 test(op_bar_prefix, op(1150, fx, '|'), error(permission_error(create, operator, '|'))).
 test(op_bar, (op(1105, xfy, '|'), open_string('a | b.', S), read(S, T), T == '|'(a, b), op(0, xfy, '|'), open_string('c | d.', S2), read(S2, _)), error(syntax_error(_))).
+
+codes_op(Codes, Op) :- atom_codes(Op, Codes).
+
+test(cop_neck_xfx, (codes_op([58, 45], Op), current_op(1200, xfx, Op)), true).
+test(cop_arrow, (codes_op([45, 45, 62], Op), current_op(1200, xfx, Op)), true).
+test(cop_neck_fx, (codes_op([58, 45], Op), current_op(1200, fx, Op)), true).
+test(cop_query, (codes_op([63, 45], Op), current_op(1200, fx, Op)), true).
+test(cop_semi, (codes_op([59], Op), current_op(1100, xfy, Op)), true).
+test(cop_if, (codes_op([45, 62], Op), current_op(1050, xfy, Op)), true).
+test(cop_comma, (codes_op([44], Op), current_op(1000, xfy, Op)), true).
+test(cop_not, (codes_op([92, 43], Op), current_op(900, fy, Op)), true).
+test(cop_unify, (codes_op([61], Op), current_op(700, xfx, Op)), true).
+test(cop_not_unify, (codes_op([92, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_eq, (codes_op([61, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_neq, (codes_op([92, 61, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_term_lt, (codes_op([64, 60], Op), current_op(700, xfx, Op)), true).
+test(cop_term_le, (codes_op([64, 61, 60], Op), current_op(700, xfx, Op)), true).
+test(cop_term_gt, (codes_op([64, 62], Op), current_op(700, xfx, Op)), true).
+test(cop_term_ge, (codes_op([64, 62, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_univ, (codes_op([61, 46, 46], Op), current_op(700, xfx, Op)), true).
+test(cop_is, (codes_op([105, 115], Op), current_op(700, xfx, Op)), true).
+test(cop_arith_eq, (codes_op([61, 58, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_arith_ne, (codes_op([61, 92, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_lt, (codes_op([60], Op), current_op(700, xfx, Op)), true).
+test(cop_le, (codes_op([61, 60], Op), current_op(700, xfx, Op)), true).
+test(cop_gt, (codes_op([62], Op), current_op(700, xfx, Op)), true).
+test(cop_ge, (codes_op([62, 61], Op), current_op(700, xfx, Op)), true).
+test(cop_plus_infix, (codes_op([43], Op), current_op(500, yfx, Op)), true).
+test(cop_minus_infix, (codes_op([45], Op), current_op(500, yfx, Op)), true).
+test(cop_bit_and, (codes_op([47, 92], Op), current_op(500, yfx, Op)), true).
+test(cop_bit_or, (codes_op([92, 47], Op), current_op(500, yfx, Op)), true).
+test(cop_star, (codes_op([42], Op), current_op(400, yfx, Op)), true).
+test(cop_slash, (codes_op([47], Op), current_op(400, yfx, Op)), true).
+test(cop_div_int, (codes_op([47, 47], Op), current_op(400, yfx, Op)), true).
+test(cop_rem, (codes_op([114, 101, 109], Op), current_op(400, yfx, Op)), true).
+test(cop_mod, (codes_op([109, 111, 100], Op), current_op(400, yfx, Op)), true).
+test(cop_shift_l, (codes_op([60, 60], Op), current_op(400, yfx, Op)), true).
+test(cop_shift_r, (codes_op([62, 62], Op), current_op(400, yfx, Op)), true).
+test(cop_div, (codes_op([100, 105, 118], Op), current_op(400, yfx, Op)), true).
+test(cop_pow, (codes_op([42, 42], Op), current_op(200, xfx, Op)), true).
+test(cop_hat, (codes_op([94], Op), current_op(200, xfy, Op)), true).
+test(cop_plus_prefix, (codes_op([43], Op), current_op(200, fy, Op)), true).
+test(cop_minus_prefix, (codes_op([45], Op), current_op(200, fy, Op)), true).
+test(cop_compl, (codes_op([92], Op), current_op(200, fy, Op)), true).
+test(cop_plus_both, (codes_op([43], Op), findall(P-S, current_op(P, S, Op), L), L == [200-fy, 500-yfx]), true).
+test(cop_minus_both, (codes_op([45], Op), findall(P-S, current_op(P, S, Op), L), L == [200-fy, 500-yfx]), true).
+test(cop_neck_both, (codes_op([58, 45], Op), findall(P-S, current_op(P, S, Op), L), L == [1200-xfx, 1200-fx]), true).
+test(cop_fy200, (findall(Op, current_op(200, fy, Op), L), codes_op([43], A), codes_op([45], B), codes_op([92], C), L == [A, B, C]), true).
+test(cop_miss, (codes_op([43], Op), \+ current_op(100, xfx, Op)), true).
+test(cop_bar_absent, (codes_op([124], Op), \+ current_op(_, _, Op)), true).
+test(cop_user, (op(30, xfy, copp), current_op(30, xfy, copp), op(0, xfy, copp), \+ current_op(_, _, copp)), true).
+test(cop_one_class, (op(30, xfx, copp), op(30, xfy, copp), findall(S, current_op(_, S, copp), L), L == [xfy], op(0, xfy, copp)), true).
+test(cop_note, (op(444, fy, baz), op(444, fy, quux), findall(Op, (current_op(444, fy, Op), op(0, fy, quux)), L), L == [baz, quux], op(0, fy, baz)), true).
+test(cop_note_clear, op(0, fy, [baz, quux]), true).
+test(cop_zero, \+ current_op(0, _, _), true).
+test(cop_zero_gone, (op(30, xfx, copp), op(0, xfx, copp), \+ current_op(0, _, copp)), true).
+test(cop_pri_atom, current_op(a, _, _), error(domain_error(operator_priority, a))).
+test(cop_pri_float, current_op(1.5, _, _), error(domain_error(operator_priority, 1.5))).
+test(cop_pri_hi, current_op(1201, _, _), error(domain_error(operator_priority, 1201))).
+test(cop_pri_neg, (N is -1, current_op(N, _, _)), error(domain_error(operator_priority, -1))).
+test(cop_pri_before_spec, current_op(a, yfy, 1), error(domain_error(operator_priority, a))).
+test(cop_spec_bad, current_op(_, yfy, _), error(domain_error(operator_specifier, yfy))).
+test(cop_spec_int, current_op(_, 0, _), error(domain_error(operator_specifier, 0))).
+test(cop_spec_fun, current_op(_, f(1), _), error(domain_error(operator_specifier, f(1)))).
+test(cop_spec_before_name, current_op(500, yfy, 1), error(domain_error(operator_specifier, yfy))).
+test(cop_name_int, current_op(_, _, 5), error(type_error(atom, 5))).
+test(cop_name_fun, current_op(500, xfx, f(1)), error(type_error(atom, f(1)))).
+test(cop_name_list, current_op(_, _, [a]), error(type_error(atom, [a]))).
+

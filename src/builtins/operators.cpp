@@ -1,8 +1,11 @@
-// 規格 8.14.3 op/3。
+// 規格 8.14.3 op/3、8.14.4 current_op/3。
 // op(+integer, +operator_specifier, +atom_or_atom_list)
-// 具体化、型、ドメイン、許可の順。名前のリストは全部を確かめてから表を替える。
+// current_op(?integer, ?operator_specifier, ?atom)
+// op/3 は具体化、型、ドメイン、許可の順。名前のリストは全部を確かめてから表を替える。
 // 拒否のときは表を変えない。同じ類の指定子は define が置き換える。
 // 優先度 0 はその指定子だけを消す。| の優先度 0 も削除として成功する。
+// current_op/3 は優先度、指定子、名前の順。優先度 0 は領域に入り、該当が無ければ失敗する。
+// 候補は呼び出しのときに写す。やり直しの途中で表が変わっても、写した候補は残る。
 // instantiation_error, type_error(integer), type_error(atom), type_error(list),
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
@@ -154,12 +157,136 @@ void run_op(Impl& machine, const Goal& goal) {
   machine.ip = goal.cont;
 }
 
+constexpr std::uint8_t kOpGen = 4;
+
+std::string_view specifier_name(Specifier specifier) {
+  switch (specifier) {
+    case Specifier::Xf: return "xf";
+    case Specifier::Yf: return "yf";
+    case Specifier::Xfx: return "xfx";
+    case Specifier::Xfy: return "xfy";
+    case Specifier::Yfx: return "yfx";
+    case Specifier::Fx: return "fx";
+    case Specifier::Fy: return "fy";
+  }
+  return "xfx";
+}
+
+bool priority_in_domain(const Impl& machine, Cell cell) {
+  if (!is_int(cell)) return false;
+  const auto value = machine.heap.integer_value(cell);
+  return value >= 0 && value <= 1200;
+}
+
+bool specifier_atom(const Impl& machine, Cell cell) {
+  return cell.tag() == Tag::Atom && specifier_of(atom_text(machine, cell)).has_value();
+}
+
+bool keep_op(const Impl& machine, Cell priority, Cell specifier, Cell name, const OpDef& op) {
+  if (!machine.heap.unbound(priority) && machine.heap.integer_value(priority) != op.priority) return false;
+  if (!machine.heap.unbound(specifier) && atom_text(machine, specifier) != specifier_name(op.specifier)) {
+    return false;
+  }
+  return machine.heap.unbound(name) || atom_text(machine, name) == op.name;
+}
+
+std::vector<Cell> matching_ops(Impl& machine, Cell priority, Cell specifier, Cell name) {
+  const std::vector<OpDef> ops = name.tag() == Tag::Atom ? machine.operators.lookup(atom_text(machine, name))
+                                                          : machine.operators.entries();
+  std::vector<Cell> flat;
+  for (const OpDef& op : ops) {
+    if (!keep_op(machine, priority, specifier, name, op)) continue;
+    flat.push_back(machine.heap.integer(op.priority));
+    flat.push_back(machine.heap.atom(machine.atoms.intern(specifier_name(op.specifier))));
+    flat.push_back(machine.heap.atom(machine.atoms.intern(op.name)));
+  }
+  return flat;
+}
+
+bool bind_op(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std::size_t index) {
+  const auto at = index * 3;
+  return do_unify(machine, goal.arg(machine, 0), flat[at]) &&
+         do_unify(machine, goal.arg(machine, 1), flat[at + 1]) &&
+         do_unify(machine, goal.arg(machine, 2), flat[at + 2]);
+}
+
+void push_op(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std::size_t next,
+             std::size_t heap_mark, std::size_t trail_mark) {
+  Entry entry;
+  entry.pick = Pick::AtomGen;
+  entry.gen_kind = kOpGen;
+  entry.next = next;
+  entry.env = flat;
+  entry.redo_goal = goal.at;
+  entry.heap_mark = heap_mark;
+  entry.trail_mark = trail_mark;
+  push_frame(machine, std::move(entry));
+}
+
+bool prove_ops(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std::size_t begin) {
+  const auto count = flat.size() / 3;
+  for (std::size_t index = begin; index < count; ++index) {
+    const auto heap_mark = machine.heap.size();
+    const auto trail_mark = machine.trail.slots.size();
+    const auto extras_mark = machine.extras.size();
+    const bool more = index + 1 < count;
+    if (more) push_op(machine, goal, flat, index + 1, heap_mark, trail_mark);
+    if (bind_op(machine, goal, flat, index)) {
+      machine.ip = goal.cont;
+      return true;
+    }
+    if (more) machine.stack.pop_back();
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
+  }
+  return false;
+}
+
+void run_current_op(Impl& machine, const Goal& goal) {
+  const Cell priority = machine.heap.deref(goal.arg(machine, 0));
+  const Cell specifier = machine.heap.deref(goal.arg(machine, 1));
+  const Cell name = machine.heap.deref(goal.arg(machine, 2));
+  if (!machine.heap.unbound(priority) && !priority_in_domain(machine, priority)) {
+    raise_domain(machine, goal, "operator_priority", priority);
+    return;
+  }
+  if (!machine.heap.unbound(specifier) && !specifier_atom(machine, specifier)) {
+    raise_domain(machine, goal, "operator_specifier", specifier);
+    return;
+  }
+  if (!machine.heap.unbound(name) && name.tag() != Tag::Atom) {
+    raise_type(machine, goal, "atom", name);
+    return;
+  }
+  if (!prove_ops(machine, goal, matching_ops(machine, priority, specifier, name), 0)) machine.failed = true;
+}
+
 }  // namespace
 
+bool redo_current_op(Impl& machine) {
+  if (machine.stack.empty() || machine.stack.back().pick != Pick::AtomGen ||
+      machine.stack.back().gen_kind != kOpGen) {
+    return false;
+  }
+  apply_catches(machine, machine.stack.back());
+  const Entry top = machine.stack.back();
+  const Goal goal = read_goal(machine, top.redo_goal);
+  const std::vector<Cell> flat = top.env;
+  const auto next = top.next;
+  machine.stack.pop_back();
+  return prove_ops(machine, goal, flat, next);
+}
+
 bool run_operators(Impl& machine, const Goal& goal) {
-  if (machine.atoms.name(goal.name) != "op" || goal.arity != 3) return false;
-  run_op(machine, goal);
-  return true;
+  const auto name = machine.atoms.name(goal.name);
+  if (name == "op" && goal.arity == 3) {
+    run_op(machine, goal);
+    return true;
+  }
+  if (name == "current_op" && goal.arity == 3) {
+    run_current_op(machine, goal);
+    return true;
+  }
+  return false;
 }
 
 }  // namespace mosa

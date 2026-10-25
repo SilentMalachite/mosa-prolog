@@ -16,3 +16,4 @@ test(put_code_oya_type, put_code('親'), error(type_error(integer, '親'))).
 test(read_oya, (open_string('親.', S), read(S, '親'), stream_property(S, position(stream_position(2, 1, 3)))), true).
 test(write_oya, (with_output_to(atom(A), write(親)), A == 親), true).
 test(op_ha, (op(700, xfx, は), open_string('太郎 は 学生.', S), read(S, T), T == は(太郎, 学生), op(0, xfx, は)), true).
+test(cop_ha, (op(700, xfx, は), current_op(700, xfx, は), op(0, xfx, は)), true).

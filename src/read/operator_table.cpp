@@ -135,6 +135,8 @@ OpResult OperatorTable::define(int priority, Specifier specifier, std::string na
   return OpResult::Ok;
 }
 
+std::vector<OpDef> OperatorTable::entries() const { return ops_; }
+
 std::vector<OpDef> OperatorTable::lookup(std::string_view name) const {
   std::vector<OpDef> found;
   for (const OpDef& op : ops_) {
