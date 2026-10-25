@@ -21,6 +21,15 @@ Heap::Heap(AtomTable& atoms, std::size_t limit) : atoms_(atoms), limit_(limit), 
 
 void Heap::truncate(std::size_t size) { used_ = size; }
 
+std::size_t Heap::allocate_words(std::size_t count) {
+  const auto* slot = allocate(count);
+  return static_cast<std::size_t>(slot - words_.data());
+}
+
+std::uint64_t Heap::word_at(std::size_t index) const { return words_[index]; }
+
+void Heap::set_word(std::size_t index, std::uint64_t value) { words_[index] = value; }
+
 std::uint64_t* Heap::allocate(std::size_t count) {
   if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("ヒープの上限を超えました");
   auto* slot = words_.data() + used_;

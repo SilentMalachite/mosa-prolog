@@ -35,6 +35,11 @@ class Heap {
   [[nodiscard]] const std::uint64_t* data() const { return words_.data(); }
   void truncate(std::size_t size);
 
+  // ゴール枠は項のタグを付けない。返る添字から count 語を呼んだ側が埋める。
+  [[nodiscard]] std::size_t allocate_words(std::size_t count);
+  [[nodiscard]] std::uint64_t word_at(std::size_t index) const;
+  void set_word(std::size_t index, std::uint64_t value);
+
   [[nodiscard]] Cell fresh_ref();
   [[nodiscard]] bool unbound(Cell cell) const;
   [[nodiscard]] Cell deref(Cell cell) const;

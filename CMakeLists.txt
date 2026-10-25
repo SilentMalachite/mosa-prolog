@@ -33,6 +33,22 @@ target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/uni
 target_sources(mosa_lib PRIVATE src/read/reader.cpp src/read/reader_bracket.cpp)
 target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/term_equal.cpp)
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
+target_sources(mosa_lib PRIVATE
+  src/machine/engine.cpp
+  src/machine/load.cpp
+  src/machine/compile.cpp
+  src/machine/choice.cpp
+  src/machine/cut.cpp
+  src/machine/catch.cpp
+  src/machine/index.cpp
+  src/builtins/errors.cpp
+  src/builtins/types.cpp
+  src/builtins/order.cpp
+  src/builtins/terms.cpp
+  src/builtins/control.cpp
+  src/builtins/arith.cpp
+  src/builtins/arith_float.cpp
+)
 
 enable_testing()
 
@@ -78,6 +94,11 @@ target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
+
+add_executable(machine_test tests/cpp/machine_test.cpp)
+target_include_directories(machine_test PRIVATE tests/cpp)
+target_link_libraries(machine_test PRIVATE mosa_lib)
+add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 1\\)\r?\n?$")

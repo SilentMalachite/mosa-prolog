@@ -1,0 +1,326 @@
+#include "internal.hpp"
+
+#include "mosa/reader.hpp"
+
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace mosa {
+namespace {
+
+std::uint64_t push_extra(Impl& machine, Extra extra) {
+  machine.extras.push_back(std::move(extra));
+  const auto at = machine.heap.allocate_words(kFrameHead);
+  machine.heap.set_word(at, 0);
+  machine.heap.set_word(at + 1, machine.extras.size() - 1);
+  machine.heap.set_word(at + 2, 0);
+  machine.heap.set_word(at + 3, kNoFrame);
+  return at;
+}
+
+bool has_more(const Impl& machine) {
+  for (const Entry& entry : machine.stack) {
+    if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
+    if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat) return true;
+    if (entry.pick == Pick::ElseGoal && !(entry.soft_id != 0 && entry.cond_ok)) return true;
+  }
+  return false;
+}
+
+void step_control(Impl& machine) {
+  const auto index = static_cast<std::size_t>(machine.heap.word_at(machine.ip + 1));
+  const Extra extra = machine.extras[index];
+  if (extra.ctrl == Ctrl::Interpret) {
+    launch(machine, extra.goal, extra.cont, extra.cut, extra.env);
+    return;
+  }
+  if (extra.ctrl == Ctrl::Commit) {
+    trim_stack(machine, extra.trim_to);
+    launch(machine, extra.then, extra.cont, extra.cut, extra.env);
+    return;
+  }
+  if (extra.ctrl == Ctrl::SoftCommit) {
+    if (extra.soft_id != 0) {
+      for (Entry& entry : machine.stack) {
+        if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
+      }
+    }
+    launch(machine, extra.then, extra.cont, extra.cut, extra.env);
+    return;
+  }
+  if (extra.ctrl == Ctrl::NegDone) {
+    trim_stack(machine, extra.trim_to);
+    machine.failed = true;
+    return;
+  }
+  trim_stack(machine, extra.trim_to);
+  machine.ip = extra.cont;
+}
+
+void reject_callable(Impl& machine, Cell culprit) {
+  const auto name = machine.atoms.intern("call");
+  raise_formal(machine, formal_type(machine, "callable", culprit), name, 1);
+}
+
+void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+                const std::vector<Cell>& env) {
+  const Cell cell = machine.heap.deref(env.at(goal.slot));
+  if (machine.heap.unbound(cell)) {
+    raise_formal(machine, formal_instantiation(machine), machine.atoms.intern("call"), 1);
+    return;
+  }
+  if (cell.tag() != Tag::Atom && cell.tag() != Tag::Str && cell.tag() != Tag::Lis) {
+    reject_callable(machine, cell);
+    return;
+  }
+  const Compiled compiled = compile_goal(machine.heap, cell);
+  launch(machine, compiled.term, cont, cut, compiled.env);
+}
+
+void step(Impl& machine) {
+  if (machine.heap.word_at(machine.ip) == 0) {
+    step_control(machine);
+    return;
+  }
+  const Goal goal = read_goal(machine, machine.ip);
+  if (run_builtin(machine, goal)) return;
+  enter_user(machine, goal);
+}
+
+}  // namespace
+
+Impl& engine_impl(Machine& machine) { return *machine.impl_; }
+
+const Impl& engine_impl(const Machine& machine) { return *machine.impl_; }
+
+Goal read_goal(const Impl& machine, std::uint64_t at) {
+  Goal goal;
+  goal.at = at;
+  goal.name = static_cast<std::uint32_t>(machine.heap.word_at(at));
+  goal.arity = static_cast<std::uint16_t>(machine.heap.word_at(at + 1));
+  goal.cut = static_cast<std::size_t>(machine.heap.word_at(at + 2));
+  goal.cont = machine.heap.word_at(at + 3);
+  return goal;
+}
+
+Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env) {
+  switch (term.tag) {
+    case IrTag::Var: return env.at(term.slot);
+    case IrTag::Anon: return machine.heap.fresh_ref();
+    case IrTag::Atom: return machine.heap.atom(term.atom);
+    case IrTag::Int: return machine.heap.integer(term.integer);
+    case IrTag::Float: return machine.heap.floating(term.floating);
+    case IrTag::List:
+      return machine.heap.list(materialize(machine, term.args[0], env),
+                               materialize(machine, term.args[1], env));
+    case IrTag::True: return machine.heap.atom(machine.atoms.intern("true"));
+    case IrTag::Fail: return machine.heap.atom(machine.atoms.intern("fail"));
+    case IrTag::Cut: return machine.heap.atom(machine.atoms.intern("!"));
+    case IrTag::And:
+    case IrTag::Or:
+    case IrTag::IfThen:
+    case IrTag::SoftIf:
+    case IrTag::Catch:
+    case IrTag::Throw:
+    case IrTag::Halt:
+    case IrTag::Call:
+    case IrTag::Fun: {
+      const char* name = "!";
+      if (term.tag == IrTag::And) name = ",";
+      else if (term.tag == IrTag::Or) name = ";";
+      else if (term.tag == IrTag::IfThen) name = "->";
+      else if (term.tag == IrTag::SoftIf) name = "*->";
+      else if (term.tag == IrTag::Catch) name = "catch";
+      else if (term.tag == IrTag::Throw) name = "throw";
+      else if (term.tag == IrTag::Halt) name = "halt";
+      else if (term.tag == IrTag::Call || term.tag == IrTag::Fun) {
+        std::vector<Cell> args;
+        args.reserve(term.args.size());
+        for (const IrTerm& arg : term.args) args.push_back(materialize(machine, arg, env));
+        return machine.heap.structure(term.atom, args);
+      }
+      std::vector<Cell> args;
+      args.reserve(term.args.size());
+      for (const IrTerm& arg : term.args) args.push_back(materialize(machine, arg, env));
+      return machine.heap.structure(machine.atoms.intern(name), args);
+    }
+  }
+  return machine.heap.atom(machine.atoms.intern("[]"));
+}
+
+std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+                     const std::vector<Cell>& env) {
+  if (goal.tag == IrTag::Atom || goal.tag == IrTag::Fun || goal.tag == IrTag::Call) {
+    std::vector<Cell> args;
+    if (goal.tag != IrTag::Atom) {
+      args.reserve(goal.args.size());
+      for (const IrTerm& arg : goal.args) args.push_back(materialize(machine, arg, env));
+    }
+    const auto at = machine.heap.allocate_words(kFrameHead + args.size());
+    const auto name = goal.tag == IrTag::Atom ? goal.atom : goal.atom;
+    machine.heap.set_word(at, name);
+    machine.heap.set_word(at + 1, args.size());
+    machine.heap.set_word(at + 2, cut);
+    machine.heap.set_word(at + 3, cont);
+    for (std::size_t index = 0; index < args.size(); ++index) {
+      machine.heap.set_word(at + kFrameHead + index, args[index].raw());
+    }
+    return at;
+  }
+  Extra extra;
+  extra.ctrl = Ctrl::Interpret;
+  extra.goal = goal;
+  extra.env = env;
+  extra.cont = cont;
+  extra.cut = cut;
+  return push_extra(machine, std::move(extra));
+}
+
+void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+            const std::vector<Cell>& env) {
+  switch (goal.tag) {
+    case IrTag::True: machine.ip = cont; return;
+    case IrTag::Fail: machine.failed = true; return;
+    case IrTag::Cut: trim_stack(machine, cut); machine.ip = cont; return;
+    case IrTag::And: {
+      const auto right = embody(machine, goal.args[1], cont, cut, env);
+      launch(machine, goal.args[0], right, cut, env);
+      return;
+    }
+    case IrTag::Or: launch_or(machine, goal, cont, cut, env); return;
+    case IrTag::IfThen: launch_if_then(machine, goal, cont, cut, env); return;
+    case IrTag::SoftIf: launch_soft(machine, goal, cont, cut, env); return;
+    case IrTag::Catch: arm_catch(machine, goal, cont, cut, env); return;
+    case IrTag::Throw: arm_throw(machine, goal, env); return;
+    case IrTag::Halt: arm_halt(machine, goal, env); return;
+    case IrTag::Var: launch_var(machine, goal, cont, cut, env); return;
+    case IrTag::Atom:
+    case IrTag::Fun:
+    case IrTag::Call: machine.ip = embody(machine, goal, cont, cut, env); return;
+    case IrTag::Anon:
+    case IrTag::Int:
+    case IrTag::Float:
+    case IrTag::List: reject_callable(machine, materialize(machine, goal, env)); return;
+  }
+}
+
+bool run_builtin(Impl& machine, const Goal& goal) {
+  const auto text = machine.atoms.name(goal.name);
+  if (text == "=" && goal.arity == 2) {
+    if (!do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1))) machine.failed = true;
+    else machine.ip = goal.cont;
+    return true;
+  }
+  if (text == "\\=" && goal.arity == 2) {
+    const auto heap_mark = machine.heap.size();
+    const auto trail_mark = machine.trail.slots.size();
+    if (do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1))) {
+      restore_state(machine, heap_mark, trail_mark);
+      machine.failed = true;
+    } else {
+      machine.ip = goal.cont;
+    }
+    return true;
+  }
+  if (text == "true" && goal.arity == 0) {
+    machine.ip = goal.cont;
+    return true;
+  }
+  if ((text == "fail" || text == "false") && goal.arity == 0) {
+    machine.failed = true;
+    return true;
+  }
+  if (text == "!" && goal.arity == 0) {
+    trim_stack(machine, goal.cut);
+    machine.ip = goal.cont;
+    return true;
+  }
+  if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
+      run_control(machine, goal) || run_arith(machine, goal)) {
+    return true;
+  }
+  return false;
+}
+
+Stop run_loop(Impl& machine) {
+  while (true) {
+    if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+    if (machine.exception) return Stop{StopKind::Exception, 0, machine.ball, {}, false};
+    if (machine.failed) {
+      if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
+      continue;
+    }
+    if (machine.ip == kNoFrame) {
+      return Stop{StopKind::Success, 0, {}, machine.bindings, has_more(machine)};
+    }
+    step(machine);
+  }
+}
+
+Machine::Machine(std::size_t heap_limit) : impl_(std::make_unique<Impl>(heap_limit)) {}
+
+Machine::~Machine() = default;
+
+std::unique_ptr<Machine> Machine::create(std::size_t heap_limit) {
+  return std::make_unique<Machine>(heap_limit);
+}
+
+AtomTable& Machine::atoms() { return impl_->atoms; }
+
+Heap& Machine::heap() { return impl_->heap; }
+
+OperatorTable& Machine::operators() { return impl_->operators; }
+
+std::size_t Machine::choice_depth() const { return impl_->stack.size(); }
+
+std::string_view Machine::diagnostic() const { return impl_->diagnostic; }
+
+void Machine::halt(int code) {
+  impl_->halt_now = true;
+  impl_->halt_code = code;
+}
+
+Stop Machine::query(std::string_view goal_text) {
+  Impl& machine = *impl_;
+  if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+  machine.stack.clear();
+  machine.trail.slots.clear();
+  machine.trail.mark = nullptr;
+  machine.extras.clear();
+  machine.heap.truncate(0);
+  machine.failed = false;
+  machine.exception = false;
+  machine.ip = kNoFrame;
+  machine.bindings.clear();
+  Reader reader(goal_text, machine.heap, machine.operators);
+  const ReadOutcome outcome = reader.next();
+  if (!outcome.term) return Stop{StopKind::Failure, 0, {}, {}, false};
+  for (const VarName& name : outcome.term->names) {
+    machine.bindings.push_back(Binding{name.name, name.cell});
+  }
+  // 失敗したクエリの束縛を、選択点が無くても戻すための水位。解の候補には数えない。
+  Entry cleanup;
+  cleanup.pick = Pick::Cleanup;
+  cleanup.heap_mark = machine.heap.size();
+  cleanup.trail_mark = machine.trail.slots.size();
+  machine.stack.push_back(std::move(cleanup));
+  const Compiled compiled = compile_goal(machine.heap, outcome.term->term);
+  launch(machine, compiled.term, kNoFrame, 0, compiled.env);
+  return run_loop(machine);
+}
+
+Stop Machine::next() {
+  Impl& machine = *impl_;
+  if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+  if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
+  return run_loop(machine);
+}
+
+bool Machine::consult(std::string_view) {
+  impl_->diagnostic.clear();
+  return false;
+}
+
+}
