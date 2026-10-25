@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -103,6 +104,70 @@ void step(Impl& machine) {
   if (run_builtin(machine, goal)) return;
   enter_user(machine, goal);
 }
+
+struct BuiltinPi {
+  std::string_view name;
+  std::uint16_t arity;
+};
+
+// call/1..8 と halt/0..1 以外はアリティが一つ。幅のある二つは関数側で見る。
+constexpr BuiltinPi kBuiltins[] = {
+    {"=", 2},
+    {"\\=", 2},
+    {"true", 0},
+    {"fail", 0},
+    {"false", 0},
+    {"consult", 1},
+    {"!", 0},
+    {"var", 1},
+    {"nonvar", 1},
+    {"atom", 1},
+    {"integer", 1},
+    {"float", 1},
+    {"atomic", 1},
+    {"compound", 1},
+    {"number", 1},
+    {"callable", 1},
+    {"is_list", 1},
+    {"unify_with_occurs_check", 2},
+    {"@<", 2},
+    {"@=<", 2},
+    {"==", 2},
+    {"@>=", 2},
+    {"@>", 2},
+    {"\\==", 2},
+    {"compare", 3},
+    {"functor", 3},
+    {"arg", 3},
+    {"=..", 2},
+    {"copy_term", 2},
+    {"term_variables", 2},
+    {"\\+", 1},
+    {"once", 1},
+    {"repeat", 0},
+    {"is", 2},
+    {"=:=", 2},
+    {"=\\=", 2},
+    {"<", 2},
+    {"=<", 2},
+    {">", 2},
+    {">=", 2},
+    {"atom_length", 2},
+    {"atom_concat", 3},
+    {"sub_atom", 5},
+    {"atom_chars", 2},
+    {"atom_codes", 2},
+    {"char_code", 2},
+    {"number_chars", 2},
+    {"number_codes", 2},
+    {"current_prolog_flag", 2},
+    {"set_prolog_flag", 2},
+    {"asserta", 1},
+    {"assertz", 1},
+    {"retract", 1},
+    {"retractall", 1},
+    {"abolish", 1},
+};
 
 }  // namespace
 
@@ -250,6 +315,16 @@ void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t c
     case IrTag::Int:
     case IrTag::Float: reject_callable(machine, materialize(machine, goal, env)); return;
   }
+}
+
+bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
+  const auto text = machine.atoms.name(name);
+  if (text == "call" && arity >= 1 && arity <= 8) return true;
+  if (text == "halt" && arity <= 1) return true;
+  for (const BuiltinPi& item : kBuiltins) {
+    if (item.arity == arity && item.name == text) return true;
+  }
+  return false;
 }
 
 bool run_builtin(Impl& machine, const Goal& goal) {

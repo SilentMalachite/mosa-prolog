@@ -75,3 +75,15 @@ test(assertz_var, assertz(X), error(instantiation_error)).
 test(assertz_number, assertz(1), error(type_error(callable, 1))).
 test(assertz_head_var, assertz((X :- true)), error(instantiation_error)).
 test(assertz_body_number, assertz((ok :- 1)), error(type_error(callable, 1))).
+
+:- dynamic(later/1).
+later(1).
+later(2).
+later(3).
+
+test(retract_open_later, (later(X), (X = 1 -> retract(later(3)) ; true)), solutions([X = 1, X = 2])).
+test(later_left, later(X), solutions([X = 1, X = 2])).
+test(assertz_builtin, assertz(true), error(permission_error(modify, static_procedure, true/0))).
+test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
+test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).
+test(assertz_builtin_is, assertz(is(1, 1)), error(permission_error(modify, static_procedure, is/2))).

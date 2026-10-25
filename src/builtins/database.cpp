@@ -53,6 +53,13 @@ void raise_permission(Impl& machine, const Goal& goal, std::uint32_t name, std::
                goal.arity);
 }
 
+bool refuse_builtin(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity) {
+  // 組込は述語表に無い。無い述語として足すと、本体に届かない隠れ節になる。
+  if (!is_builtin_procedure(machine, name, arity)) return false;
+  raise_permission(machine, goal, name, arity);
+  return true;
+}
+
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
 Predicate* find_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
@@ -237,6 +244,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   if (reject_clause(machine, goal, term)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
+  if (refuse_builtin(machine, goal, head.name, head.arity)) return;
   Predicate* existing = find_predicate(machine, head.name, head.arity);
   if (existing != nullptr && !existing->dynamic) {
     raise_permission(machine, goal, head.name, head.arity);
@@ -270,6 +278,7 @@ void run_retract(Impl& machine, const Goal& goal) {
   if (reject_clause(machine, goal, term)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
+  if (refuse_builtin(machine, goal, head.name, head.arity)) return;
   Predicate* predicate = find_predicate(machine, head.name, head.arity);
   if (predicate == nullptr) {
     machine.failed = true;
@@ -294,6 +303,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
     return;
   }
   const HeadName head = head_indicator(machine, head_cell);
+  if (refuse_builtin(machine, goal, head.name, head.arity)) return;
   Predicate* predicate = find_predicate(machine, head.name, head.arity);
   if (predicate == nullptr) {
     succeed(machine, goal);
@@ -359,6 +369,7 @@ bool parse_indicator(Impl& machine, const Goal& goal, Cell pred, HeadName& indic
 void run_abolish(Impl& machine, const Goal& goal) {
   HeadName indicator;
   if (!parse_indicator(machine, goal, goal.arg(machine, 0), indicator)) return;
+  if (refuse_builtin(machine, goal, indicator.name, indicator.arity)) return;
   Predicate* predicate = find_predicate(machine, indicator.name, indicator.arity);
   if (predicate != nullptr && !predicate->dynamic) {
     raise_permission(machine, goal, indicator.name, indicator.arity);
