@@ -27,6 +27,20 @@ test(input_index, current_input('$stream'(0)), true).
 test(input_other, current_input(user_output), fail).
 test(input_bad, current_input(1), error(domain_error(stream_or_alias, 1))).
 test(input_missing, current_input('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
+test(output_alias, current_output(user_output), true).
+test(output_term, current_output(S), solutions([S = '$stream'(1)])).
+test(output_index, current_output('$stream'(1)), true).
+test(output_other, current_output(user_input), fail).
+test(output_bad, current_output(1), error(domain_error(stream_or_alias, 1))).
+test(output_missing, current_output('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
+test(set_same, set_input(user_input), true).
+test(set_reads, (open_string(ab, S), set_input(S), get_char(C), C == a, set_input(user_input), current_input(user_input)), true).
+test(set_output_stream, set_input(user_output), error(permission_error(input, stream, user_output))).
+test(set_keeps, (catch(set_input(user_output), _, true), current_input(user_input)), true).
+test(set_var, set_input(S), error(instantiation_error)).
+test(set_bad, set_input(1), error(domain_error(stream_or_alias, 1))).
+test(set_missing, set_input('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
+test(set_closed, (open_string(a, S), close(S), set_input(S)), error(existence_error(stream, S))).
 test(prop_mode, stream_property(user_input, mode(read)), true).
 test(prop_mode_wrong, stream_property(user_input, mode(write)), fail).
 test(prop_no_file, stream_property(user_input, file_name(_)), fail).

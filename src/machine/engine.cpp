@@ -185,6 +185,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"flush_output", 0},
     {"flush_output", 1},
     {"current_input", 1},
+    {"current_output", 1},
+    {"set_input", 1},
     {"stream_property", 2},
     {"get_char", 1},
     {"get_char", 2},

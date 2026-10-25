@@ -279,6 +279,8 @@ void append_utf8_code(std::string& text, char32_t code);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);
 void run_current_input(Impl& machine, const Goal& goal);
+void run_current_output(Impl& machine, const Goal& goal);
+void run_set_input(Impl& machine, const Goal& goal);
 void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_stream_prop(Impl& machine);
 [[nodiscard]] bool run_char_io(Impl& machine, const Goal& goal);

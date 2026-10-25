@@ -1,7 +1,11 @@
-// 規格 8.11.2 current_input/1。8.11.8 stream_property/2。
-// current_input(?stream_or_alias)
+// 規格 8.11.2 current_input/1。8.11.3 current_output/1。8.11.4 set_input/1。8.11.8 stream_property/2。
+// current_input(?stream_or_alias) / current_output(?stream_or_alias)
 //   変数は '$stream'(N)。別名は照合だけに使い、項の形は変えない。
-//   instantiation は無い。domain_error(stream_or_alias), existence_error(stream)
+//   domain_error(stream_or_alias), existence_error(stream)
+// set_input(+stream_or_alias)
+//   出力の流れには切り替えない。検査が済むまで current_in は変えない。
+//   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
+//   permission_error(input, stream)
 // stream_property(?stream_or_alias, ?stream_property)
 //   domain_error(stream_or_alias), domain_error(stream_property), existence_error(stream)
 // 性質の順は file_name, mode, alias, position, end_of_stream, eof_action,
@@ -240,11 +244,8 @@ std::vector<std::size_t> collect_hits(const Impl& machine, bool one, std::size_t
   return hits;
 }
 
-}  // namespace
-
-void run_current_input(Impl& machine, const Goal& goal) {
+void match_current(Impl& machine, const Goal& goal, std::size_t current) {
   const Cell spec = machine.heap.deref(goal.arg(machine, 0));
-  const std::size_t current = machine.current_in;
   if (machine.heap.unbound(spec)) {
     if (!do_unify(machine, goal.arg(machine, 0), stream_term(machine, current))) machine.failed = true;
     else machine.ip = goal.cont;
@@ -260,6 +261,32 @@ void run_current_input(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return;
   }
+  machine.ip = goal.cont;
+}
+
+}  // namespace
+
+void run_current_input(Impl& machine, const Goal& goal) { match_current(machine, goal, machine.current_in); }
+
+void run_current_output(Impl& machine, const Goal& goal) { match_current(machine, goal, machine.current_out); }
+
+void run_set_input(Impl& machine, const Goal& goal) {
+  const Cell spec = machine.heap.deref(goal.arg(machine, 0));
+  if (machine.heap.unbound(spec)) {
+    raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
+    return;
+  }
+  std::size_t index = 0;
+  if (resolve_stream(machine, goal, spec, index)) return;
+  if (machine.streams[index].closed) {
+    raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  if (machine.streams[index].mode != Stream::Mode::Read) {
+    raise_formal(machine, formal_permission(machine, "input", "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  machine.current_in = index;
   machine.ip = goal.cont;
 }
 
