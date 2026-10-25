@@ -60,6 +60,9 @@ void test_names_and_columns() {
                        bang[1].kind == mosa::TokenKind::Solo && bang[1].text == "!" &&
                        bang[2].kind == mosa::TokenKind::EndFullStop,
                    "bang is not a graphic token");
+  auto univ = scan_all("=.. .");
+  mosa_test::check(univ.size() == 2 && univ[0].kind == mosa::TokenKind::Name && univ[0].text == "=..",
+                   "univ is one graphic token");
   auto semi = scan_all(";;.");
   mosa_test::check(semi.size() == 3 && semi[0].kind == mosa::TokenKind::Solo && semi[0].text == ";" &&
                        semi[1].kind == mosa::TokenKind::Solo && semi[1].text == ";" &&

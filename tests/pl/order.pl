@@ -1,0 +1,10 @@
+test(float_before_int, (1.0 @< 1), true).
+test(signed_zero, (0.0 @< -0.0), fail).
+test(signed_zero_eq, (0.0 == -0.0), true).
+test(term_eq_number, (1 == 1.0), fail).
+test(atom_order, (a @< b), true).
+test(compare_same, compare(=, a, a), true).
+test(compare_less, compare(<, a, b), true).
+test(not_term_eq, (a \== b), true).
+test(term_eq, (a == a), true).
+test(ge, (b @>= a), true).

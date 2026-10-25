@@ -41,6 +41,11 @@ target_sources(mosa_lib PRIVATE
   src/machine/cut.cpp
   src/machine/catch.cpp
   src/machine/index.cpp
+  src/machine/answer.cpp
+  src/machine/consult.cpp
+  src/machine/session.cpp
+  src/machine/suite.cpp
+  src/platform/terminal.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -94,6 +99,13 @@ target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
+add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl)
+
+add_executable(session_test tests/cpp/session_test.cpp)
+target_include_directories(session_test PRIVATE tests/cpp)
+target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(session_test PRIVATE mosa_lib)
+add_test(NAME session COMMAND $<TARGET_FILE:session_test>)
 
 add_executable(machine_test tests/cpp/machine_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)

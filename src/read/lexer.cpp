@@ -231,8 +231,10 @@ Scan Lexer::scan_graphic() {
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
     if (!ch.valid || classify(ch.code) != CharClass::Graphic) break;
-    // 直後がレイアウトか末尾のドットは終端であり、図形の連続には入れない。
-    if (ch.code == U'.' && dot_is_full_stop()) break;
+    // 空白の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
+    if (ch.code == U'.' && dot_is_full_stop() && (index_ == start.byte || source_[index_ - 1] != '.')) {
+      break;
+    }
     advance(ch.code, ch.bytes);
   }
   if (index_ == start.byte) {

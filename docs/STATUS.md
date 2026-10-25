@@ -1,6 +1,6 @@
 フェーズ: 2
 進行中: なし
-完了: 第1引数の候補が 1 つのとき選択点を作らない
-次: 型検査と単一化の組込述語
+完了: Examples と nrev と queens が mosatest で通る
+次: 版を phase 2 にする
 未解決: なし
 計画: docs/superpowers/plans/2026-10-24-phase2-engine.md

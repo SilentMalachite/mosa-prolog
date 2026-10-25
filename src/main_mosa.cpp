@@ -1,15 +1,30 @@
-#include "mosa/version.hpp"
+#include "mosa/repl.hpp"
+#include "mosa/terminal.hpp"
 
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <string_view>
+#include <vector>
 
 int main(int argc, char** argv) {
-  for (int index = 1; index < argc; ++index) {
-    if (std::string_view{argv[index]} == "--version") {
-      std::cout << mosa::version_line() << '\n';
-      return 0;
-    }
+  std::vector<std::string> owned;
+  std::vector<std::string_view> args;
+  owned.reserve(static_cast<std::size_t>(argc));
+  args.reserve(static_cast<std::size_t>(argc));
+  for (int index = 0; index < argc; ++index) {
+    owned.emplace_back(argv[index]);
+    args.emplace_back(owned.back());
   }
-  std::cerr << "mosa: このコマンドはフェーズ0では使えません\n";
-  return 1;
+  const bool tty = mosa::standard_input_is_terminal();
+  std::string input;
+  if (!tty) {
+    std::ostringstream buffer;
+    buffer << std::cin.rdbuf();
+    input = buffer.str();
+  }
+  const mosa::SessionResult result = mosa::run_session(args, tty ? std::string_view{} : std::string_view{input}, tty);
+  std::cout << result.out;
+  std::cerr << result.err;
+  return result.code;
 }

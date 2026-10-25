@@ -187,23 +187,36 @@ class Printer {
   std::span<const VarName> names_;
   std::unordered_map<std::uint64_t, int> counts_;
   std::unordered_map<std::uint64_t, int> assigned_;
+  std::vector<std::uint64_t> open_;
   int next_number_ = 1;
+
+  [[nodiscard]] bool opened(std::uint64_t raw) const {
+    for (const auto item : open_) {
+      if (item == raw) return true;
+    }
+    return false;
+  }
 };
 
 void Printer::count(Cell term) {
+  // 名前のある REF は束縛を追わない。答えの X = [X] がここで止まらないようにする。
+  if (term.tag() == Tag::Ref && var_name(term) != nullptr) return;
   term = heap_.deref(term);
   if (heap_.unbound(term)) {
     if (var_name(term) == nullptr) counts_[term.raw()] += 1;
     return;
   }
+  if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return;
+  if (opened(term.raw())) return;
+  open_.push_back(term.raw());
   if (term.tag() == Tag::Lis) {
     count(heap_.list_head(term));
     count(heap_.list_tail(term));
-    return;
+  } else {
+    const auto arity = heap_.functor_arity(term);
+    for (std::uint16_t index = 0; index < arity; ++index) count(heap_.arg(term, index));
   }
-  if (term.tag() != Tag::Str) return;
-  const auto arity = heap_.functor_arity(term);
-  for (std::uint16_t index = 0; index < arity; ++index) count(heap_.arg(term, index));
+  open_.pop_back();
 }
 
 const VarName* Printer::var_name(Cell term) const {
@@ -300,6 +313,10 @@ std::string Printer::render_list(Cell term) {
     out += render(heap_.list_head(current), 999, true);
     const Cell tail = heap_.deref(heap_.list_tail(current));
     if (is_nil(heap_, tail)) break;
+    if (opened(tail.raw())) {
+      out += "|_";
+      break;
+    }
     if (tail.tag() != Tag::Lis) {
       const std::string rest = render(tail, 999, true);
       if (glue(out, "|")) out += ' ';
@@ -327,22 +344,33 @@ std::string Printer::render_functor(Cell term, std::string_view name) {
 }
 
 std::string Printer::render(Cell term, int parent, bool allow_equal) {
+  if (term.tag() == Tag::Ref && var_name(term) != nullptr) return var_name(term)->name;
   term = heap_.deref(term);
   if (heap_.unbound(term)) return var_text(term);
   if (term.tag() == Tag::Atom) return spell(heap_.atoms().name(atom_of(term)));
   if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return std::to_string(heap_.integer_value(term));
   if (term.tag() == Tag::Float) return format_float(heap_.float_value(term));
-  if (term.tag() == Tag::Lis) return render_list(term);
-  if (term.tag() != Tag::Str) return {};
-  if (const std::optional<OpDef> op = as_operator(term)) {
-    if (needs_paren(op->priority, parent, allow_equal)) return "(" + render(term, 1200, true) + ")";
-    return render_op(*op, term);
+  if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return {};
+  if (opened(term.raw())) return "_";
+  open_.push_back(term.raw());
+  std::string text;
+  if (term.tag() == Tag::Lis) text = render_list(term);
+  else if (const std::optional<OpDef> op = as_operator(term)) {
+    if (needs_paren(op->priority, parent, allow_equal)) {
+      open_.pop_back();
+      return "(" + render(term, 1200, true) + ")";
+    }
+    text = render_op(*op, term);
+  } else {
+    const std::string_view name = heap_.atoms().name(heap_.functor_atom(term));
+    if (!options_.ignore_ops && name == "{}" && heap_.functor_arity(term) == 1) {
+      text = "{" + render(heap_.arg(term, 0), 1200, true) + "}";
+    } else {
+      text = render_functor(term, name);
+    }
   }
-  const std::string_view name = heap_.atoms().name(heap_.functor_atom(term));
-  if (!options_.ignore_ops && name == "{}" && heap_.functor_arity(term) == 1) {
-    return "{" + render(heap_.arg(term, 0), 1200, true) + "}";
-  }
-  return render_functor(term, name);
+  open_.pop_back();
+  return text;
 }
 
 }  // namespace

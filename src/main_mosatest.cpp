@@ -1,4 +1,5 @@
 #include "mosa/roundtrip.hpp"
+#include "mosa/suite.hpp"
 #include "mosa/version.hpp"
 
 #include <fstream>
@@ -22,10 +23,13 @@ int main(int argc, char** argv) {
       return 0;
     }
   }
-  if (argc != 3 || std::string_view{argv[1]} != "--roundtrip") return usage();
-  std::ifstream input(argv[2], std::ios::binary);
-  if (!input) return usage();
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  return mosa::run_roundtrip(buffer.str());
+  if (argc == 3 && std::string_view{argv[1]} == "--roundtrip") {
+    std::ifstream input(argv[2], std::ios::binary);
+    if (!input) return usage();
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    return mosa::run_roundtrip(buffer.str());
+  }
+  if (argc == 2) return mosa::run_suite(argv[1]);
+  return usage();
 }

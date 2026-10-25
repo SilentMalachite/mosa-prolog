@@ -161,7 +161,11 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last) {
     return false;
   }
   if (!predicate.seen && !predicate.clauses.empty()) {
-    if (!machine.stack.empty()) {
+    bool busy = false;
+    for (const Entry& entry : machine.stack) {
+      if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch) busy = true;
+    }
+    if (busy) {
       fail_load(machine, "実行中の述語は置き換えられない");
       return false;
     }
@@ -184,8 +188,7 @@ void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t
 
 }  // namespace
 
-LoadStatus Machine::load_program(std::string_view source) {
-  Impl& machine = *impl_;
+LoadStatus load_source(Impl& machine, std::string_view source) {
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   for (Predicate& predicate : machine.predicates) predicate.seen = false;
@@ -263,5 +266,7 @@ LoadStatus Machine::load_program(std::string_view source) {
   machine.diagnostic.clear();
   return LoadStatus{true, {}};
 }
+
+LoadStatus Machine::load_program(std::string_view source) { return load_source(*impl_, source); }
 
 }

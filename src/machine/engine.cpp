@@ -232,6 +232,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return true;
   }
+  if (text == "consult" && goal.arity == 1) return run_consult(machine, goal);
   if (text == "!" && goal.arity == 0) {
     trim_stack(machine, goal.cut);
     machine.ip = goal.cont;
@@ -271,20 +272,28 @@ AtomTable& Machine::atoms() { return impl_->atoms; }
 
 Heap& Machine::heap() { return impl_->heap; }
 
+const Heap& Machine::heap() const { return impl_->heap; }
+
 OperatorTable& Machine::operators() { return impl_->operators; }
+
+const OperatorTable& Machine::operators() const { return impl_->operators; }
 
 std::size_t Machine::choice_depth() const { return impl_->stack.size(); }
 
 std::string_view Machine::diagnostic() const { return impl_->diagnostic; }
 
 void Machine::halt(int code) {
-  impl_->halt_now = true;
+  impl_->halt_pending = true;
   impl_->halt_code = code;
 }
 
 Stop Machine::query(std::string_view goal_text) {
   Impl& machine = *impl_;
-  if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+  if (machine.halt_pending) {
+    machine.halt_pending = false;
+    return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+  }
+  machine.halt_now = false;
   machine.stack.clear();
   machine.trail.slots.clear();
   machine.trail.mark = nullptr;
@@ -316,11 +325,6 @@ Stop Machine::next() {
   if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
   if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
   return run_loop(machine);
-}
-
-bool Machine::consult(std::string_view) {
-  impl_->diagnostic.clear();
-  return false;
 }
 
 }

@@ -48,7 +48,9 @@ class Machine {
 
   [[nodiscard]] AtomTable& atoms();
   [[nodiscard]] Heap& heap();
+  [[nodiscard]] const Heap& heap() const;
   [[nodiscard]] OperatorTable& operators();
+  [[nodiscard]] const OperatorTable& operators() const;
   [[nodiscard]] LoadStatus load_program(std::string_view source);
   [[nodiscard]] Stop query(std::string_view goal_text);
   [[nodiscard]] Stop next();
@@ -65,5 +67,7 @@ class Machine {
 
   std::unique_ptr<Impl> impl_;
 };
+
+[[nodiscard]] std::string format_answer(const Machine& machine, const Stop& stop);
 
 }

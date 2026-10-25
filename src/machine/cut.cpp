@@ -63,7 +63,8 @@ void launch_or(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
     commit.cut = cut;
     commit.soft_id = soft_id;
     const auto frame = push_extra(machine, std::move(commit));
-    launch(machine, left.args[0], frame, cut, env);
+    // 条件のカットは *-> の外と else を捨てない。
+    launch(machine, left.args[0], frame, machine.stack.size(), env);
     return;
   }
   push_else(machine, goal.args[1], cont, cut, env, 0);
@@ -92,7 +93,7 @@ void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::siz
   commit.cont = cont;
   commit.cut = cut;
   const auto frame = push_extra(machine, std::move(commit));
-  launch(machine, goal.args[0], frame, cut, env);
+  launch(machine, goal.args[0], frame, machine.stack.size(), env);
 }
 
 }

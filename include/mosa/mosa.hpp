@@ -1,9 +1,4 @@
 #pragma once
 
-// 署名は Machine が出来るまで書かない。フェーズ0で型を決めると、フェーズ2まで動かせなくなる。
-namespace mosa {
-// Machine::create
-// consult
-// query
-// halt
-}
+// 組込み API は生成、consult、query、next、halt だけにする。
+#include "mosa/machine.hpp"

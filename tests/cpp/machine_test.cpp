@@ -83,6 +83,100 @@ void check_catch() {
   }
 }
 
+void check_types() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("var(X).").kind == mosa::StopKind::Success, "var");
+  mosa_test::check(machine->query("var(a).").kind == mosa::StopKind::Failure, "not var");
+  mosa_test::check(machine->query("atom([]).").kind == mosa::StopKind::Success, "nil atom");
+  mosa_test::check(machine->query("integer(1.0).").kind == mosa::StopKind::Failure, "float is not integer");
+  mosa_test::check(machine->query("compound([]).").kind == mosa::StopKind::Failure, "nil not compound");
+  mosa_test::check(machine->query("callable(1).").kind == mosa::StopKind::Exception, "callable number");
+  mosa_test::check(machine->query("is_list([a]).").kind == mosa::StopKind::Success, "proper list");
+  mosa_test::check(machine->query("is_list([a|b]).").kind == mosa::StopKind::Failure, "partial list");
+  mosa_test::check(machine->query("is_list(X).").kind == mosa::StopKind::Failure, "unbound list");
+  auto cycle = machine->query("(X = [X], is_list(X)).");
+  mosa_test::check(cycle.kind == mosa::StopKind::Failure, "cyclic list");
+  mosa_test::check(machine->query("(X = f(X), unify_with_occurs_check(Y, f(Y))).").kind ==
+                       mosa::StopKind::Failure,
+                   "occurs check fails");
+  mosa_test::check(machine->query("missing(1).").kind == mosa::StopKind::Exception, "unknown predicate");
+  mosa_test::check(machine->query("X = f(X).").kind == mosa::StopKind::Success, "no occurs on equals");
+  mosa_test::check(machine->query("X = [X].").kind == mosa::StopKind::Success, "no occurs on list");
+}
+
+void check_order() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("(1.0 @< 1).").kind == mosa::StopKind::Success, "float before integer");
+  mosa_test::check(machine->query("(1 == 1.0).").kind == mosa::StopKind::Failure, "term equality is not numeric");
+  mosa_test::check(machine->query("(0.0 @< -0.0).").kind == mosa::StopKind::Failure, "signed zero equal");
+  mosa_test::check(machine->query("compare(=, a, a).").kind == mosa::StopKind::Success, "compare same");
+  mosa_test::check(machine->query("(a @< b).").kind == mosa::StopKind::Success, "atom order");
+  mosa_test::check(machine->query("(X = f(X), Y = f(Y), X @< Y).").kind == mosa::StopKind::Failure,
+                   "cyclic order stops");
+}
+
+void check_terms() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("functor(f(a, b), f, 2).").kind == mosa::StopKind::Success, "functor");
+  mosa_test::check(machine->query("arg(1, f(a, b), a).").kind == mosa::StopKind::Success, "arg");
+  mosa_test::check(machine->query("(f(a, b) =.. [f, a, b]).").kind == mosa::StopKind::Success, "univ");
+  mosa_test::check(machine->query("(copy_term(f(A), f(B)), A = 1, var(B)).").kind == mosa::StopKind::Success,
+                   "copy shares no var");
+  mosa_test::check(machine->query("term_variables(f(A, A, B), [A, B]).").kind == mosa::StopKind::Success,
+                   "term variables");
+}
+
+void check_answer_and_consult() {
+  auto machine = mosa::Machine::create();
+  auto cycle = machine->query("X = [X].");
+  mosa_test::check(mosa::format_answer(*machine, cycle) == "X = [X]", "cyclic answer");
+  auto alias = machine->query("X = Y.");
+  mosa_test::check(mosa::format_answer(*machine, alias) == "X = Y", "alias once");
+  auto both = machine->query("(X = Y, Y = 1).");
+  mosa_test::check(mosa::format_answer(*machine, both) == "X = 1, Y = 1", "both ground");
+  mosa_test::check(machine->load_program("p(1).").ok, "first p");
+  mosa_test::check(machine->load_program("p(2).").ok, "replace p");
+  auto replaced = machine->query("p(X).");
+  mosa_test::check(replaced.kind == mosa::StopKind::Success && !replaced.more &&
+                       binding_text(*machine, replaced) == "2",
+                   "not doubled");
+  auto broken = mosa::Machine::create();
+  mosa_test::check(!broken->load_program("q(1). r(1). q(2).").ok, "discontiguous q");
+  mosa_test::check(broken->diagnostic().find("述語 q/1 の節が離れている") != std::string_view::npos,
+                   "discontiguous phrase");
+}
+
+void check_arith() {
+  auto quot_machine = mosa::Machine::create();
+  auto quot = quot_machine->query("X is -5 // 2.");
+  const auto q = binding_text(*quot_machine, quot);
+  mosa_test::check(quot.kind == mosa::StopKind::Success && q == "-2", "toward zero is -2");
+  auto floor_machine = mosa::Machine::create();
+  auto floor = floor_machine->query("X is div(-5, 2).");
+  const auto d = binding_text(*floor_machine, floor);
+  mosa_test::check(floor.kind == mosa::StopKind::Success && d == "-3", "floor div is -3");
+  auto errors = mosa::Machine::create();
+  mosa_test::check(errors->query("X is 1 / 0.").kind == mosa::StopKind::Exception, "zero divisor");
+  mosa_test::check(errors->query("X is 9223372036854775807 + 1.").kind == mosa::StopKind::Exception,
+                   "int overflow");
+  mosa_test::check(errors->query("(1.0 =:= 1).").kind == mosa::StopKind::Success, "numeric equal");
+}
+
+void check_control() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("(call(!), fail ; true).").kind == mosa::StopKind::Success,
+                   "cut stays inside call");
+  mosa_test::check(machine->query("(\\+ fail).").kind == mosa::StopKind::Success, "not fail");
+  mosa_test::check(machine->query("(\\+ true).").kind == mosa::StopKind::Failure, "not true");
+  auto halted = machine->query("halt(3).");
+  mosa_test::check(halted.kind == mosa::StopKind::Halt && halted.halt_code == 3, "halt code");
+  auto again = mosa::Machine::create();
+  mosa_test::check(again->query("call(1).").kind == mosa::StopKind::Exception, "call number");
+  mosa_test::check(again->load_program(":- op(600, xfy, *->). p(1). p(2).").ok, "soft cut data");
+  auto soft = again->query("(p(X) *-> true ; X = 9).");
+  mosa_test::check(soft.kind == mosa::StopKind::Success && soft.more, "soft cut keeps solutions");
+}
+
 void check_index() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->load_program("p(a). p(b).").ok, "index load");
@@ -102,6 +196,12 @@ int main() {
   check_choice_and_nrev();
   check_cut();
   check_catch();
+  check_types();
+  check_order();
+  check_terms();
+  check_answer_and_consult();
+  check_arith();
+  check_control();
   check_index();
   return mosa_test::failures();
 }

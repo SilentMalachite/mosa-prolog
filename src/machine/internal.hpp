@@ -96,6 +96,7 @@ struct Machine::Impl {
   bool exception = false;
   Cell ball{};
   bool halt_now = false;
+  bool halt_pending = false;
   int halt_code = 0;
   std::string diagnostic;
   bool syntax_diag = false;
@@ -170,10 +171,13 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_domain(Impl& machine, std::string_view domain, Cell culprit);
 [[nodiscard]] Cell formal_existence(Impl& machine, std::string_view kind, Cell culprit);
 [[nodiscard]] Cell formal_evaluation(Impl& machine, std::string_view which);
+[[nodiscard]] Cell formal_representation(Impl& machine, std::string_view which);
 [[nodiscard]] bool run_types(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_order(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_terms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_control(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_arith(Impl& machine, const Goal& goal);
+[[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source);
+[[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
 
 }
