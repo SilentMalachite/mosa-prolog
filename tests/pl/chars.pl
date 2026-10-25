@@ -50,3 +50,23 @@ test(code_before_type, get_code(foo, a), error(domain_error(stream_or_alias, foo
 test(code_missing, get_code('$stream'(99), C), error(existence_error(stream, '$stream'(99)))).
 test(code_output, get_code(user_output, C), error(permission_error(input, stream, user_output))).
 test(peek_code_output, peek_code(user_output, C), error(permission_error(input, stream, user_output))).
+test(put_code_var, put_code(C), error(instantiation_error)).
+test(put_code_stream_var, put_code(S, 97), error(instantiation_error)).
+test(put_code_open, put_code(foo, C), error(instantiation_error)).
+test(put_code_type, put_code(a), error(type_error(integer, a))).
+test(put_code_end, put_code(-1), error(representation_error(character_code))).
+test(put_code_big, put_code(1114112), error(representation_error(character_code))).
+test(put_code_surrogate, put_code(55296), error(representation_error(character_code))).
+test(put_code_not_stream, put_code(foo, 97), error(domain_error(stream_or_alias, foo))).
+test(put_code_before_type, put_code(foo, a), error(domain_error(stream_or_alias, foo))).
+test(put_code_user_input, put_code(user_input, 97), error(permission_error(output, stream, user_input))).
+test(put_code_input_type, put_code(user_input, a), error(permission_error(output, stream, user_input))).
+test(put_code_on_input, (open_string(a, S), put_code(S, 98)), error(permission_error(output, stream, S))).
+test(put_code_closed, (open_string(a, S), close(S), put_code(S, 97)), error(existence_error(stream, S))).
+test(nl_var, nl(S), error(instantiation_error)).
+test(nl_bad, nl(1), error(domain_error(stream_or_alias, 1))).
+test(nl_missing, nl('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
+test(nl_input, nl(user_input), error(permission_error(output, stream, user_input))).
+test(nl_index, nl('$stream'(0)), error(permission_error(output, stream, '$stream'(0)))).
+test(nl_on_input, (open_string(a, S), nl(S)), error(permission_error(output, stream, S))).
+test(nl_closed, (open_string(a, S), close(S), nl(S)), error(existence_error(stream, S))).

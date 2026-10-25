@@ -179,6 +179,55 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
                    "code past formal");
 }
 
+void check_put_code(const std::filesystem::path& path) {
+  std::ostringstream caught;
+  auto* old = std::cout.rdbuf(caught.rdbuf());
+  auto machine = mosa::Machine::create();
+  auto stop = machine->query("put_code(97), nl, put_code(10).");
+  std::cout.rdbuf(old);
+  mosa_test::check(stop.kind == mosa::StopKind::Success, "put_code stdout");
+  mosa_test::check(caught.str() == "a\n\n", "put_code stdout bytes");
+
+  write_bytes(path, "xyz");
+  const std::string atom = prolog_atom(path.string());
+  std::ostringstream quiet;
+  auto* old_quiet = std::cout.rdbuf(quiet.rdbuf());
+  auto file_machine = mosa::Machine::create();
+  auto wrote = file_machine->query("open(" + atom + ", write, S), put_code(S, 97), char_code('親', C), put_code(S, C), nl(S).");
+  std::cout.rdbuf(old_quiet);
+  mosa_test::check(wrote.kind == mosa::StopKind::Success, "put_code file");
+  mosa_test::check(quiet.str().empty(), "put_code file stays off stdout");
+  mosa_test::check(file_bytes(path).empty(), "put_code waits for flush");
+  mosa_test::check(file_machine->query("flush_output('$stream'(3)).").kind == mosa::StopKind::Success, "put_code flush");
+  mosa_test::check(file_bytes(path) == "a\xE8\xA6\xAA\n", "put_code flushed bytes");
+
+  auto denied = file_machine->query("put_code('$stream'(3), -1).");
+  mosa_test::check(denied.kind == mosa::StopKind::Exception, "put_code range");
+  mosa_test::check(formal_text(*file_machine, denied) == "representation_error(character_code)", "put_code range formal");
+  mosa_test::check(file_machine->query("flush_output('$stream'(3)).").kind == mosa::StopKind::Success, "range flush");
+  mosa_test::check(file_bytes(path) == "a\xE8\xA6\xAA\n", "range does not write");
+
+  std::ostringstream still;
+  auto* old_still = std::cout.rdbuf(still.rdbuf());
+  auto current = mosa::Machine::create();
+  auto switched = current->query("open(" + atom +
+                                  ", write, S), set_output(S), put_code(98), nl, set_output(user_output), flush_output(S).");
+  std::cout.rdbuf(old_still);
+  mosa_test::check(switched.kind == mosa::StopKind::Success, "nl via current");
+  mosa_test::check(still.str().empty(), "nl stays off stdout");
+  mosa_test::check(file_bytes(path) == "b\n", "current nl bytes");
+
+  auto binary = mosa::Machine::create();
+  auto blocked = binary->query("open(" + atom + ", write, S, [type(binary)]), put_code(S, 97).");
+  mosa_test::check(blocked.kind == mosa::StopKind::Exception, "put_code binary");
+  mosa_test::check(formal_text(*binary, blocked) == "permission_error(output, binary_stream, '$stream'(3))",
+                   "put_code binary formal");
+  mosa_test::check(binary->query("put_byte('$stream'(3), 65), flush_output('$stream'(3)).").kind ==
+                       mosa::StopKind::Success,
+                   "binary put after put_code");
+  mosa_test::check(file_bytes(path) == "A", "put_code wrote no byte");
+}
+
 void check_put_char(const std::filesystem::path& path) {
   std::ostringstream caught;
   auto* old = std::cout.rdbuf(caught.rdbuf());
@@ -448,6 +497,7 @@ int main() {
                     dir / "phase3-bad-utf.txt");
   check_get_code(dir / "phase3-code-binary.txt", dir / "phase3-code-utf.txt", dir / "phase3-code-eof.txt");
   check_put_char(dir / "phase3-put.txt");
+  check_put_code(dir / "phase3-put-code.txt");
   check_get_bytes(dir / "phase3-bytes.txt", dir / "phase3-bytes-empty.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");

@@ -116,7 +116,7 @@ struct BuiltinPi {
 };
 
 // call/1..8、halt/0..1、findall、open、close、at_end_of_stream、get_char、get_code、peek_char、
-// peek_code、put_char、get_byte、put_byte はアリティが二つ以上。
+// peek_code、put_char、put_code、nl、get_byte、put_byte はアリティが二つ以上。
 // 制御構文は goal と launch が先に取る。
 constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"=", 2},
@@ -203,6 +203,10 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"peek_code", 2},
     {"put_char", 1},
     {"put_char", 2},
+    {"put_code", 1},
+    {"put_code", 2},
+    {"nl", 0},
+    {"nl", 1},
     {"get_byte", 1},
     {"get_byte", 2},
     {"put_byte", 1},

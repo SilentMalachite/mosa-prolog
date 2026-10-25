@@ -1,16 +1,21 @@
-// 規格 8.12.1 get_char/1,2、get_code/1,2。8.12.2 peek_char/1,2、peek_code/1,2。8.12.3 put_char/1,2。
+// 規格 8.12.1 get_char/1,2、get_code/1,2。8.12.2 peek_char/1,2、peek_code/1,2。
+// 8.12.3 put_char/1,2、put_code/1,2、nl/0,1。
 // get_char(+stream_or_alias, ?in_character) / get_char(?in_character)
 // peek_char(+stream_or_alias, ?in_character) / peek_char(?in_character)
 // get_code(+stream_or_alias, ?in_character_code) / get_code(?in_character_code)
 // peek_code(+stream_or_alias, ?in_character_code) / peek_code(?in_character_code)
 //   終端は -1。peek は位置を変えない。流れを先に調べ、コードの型は消費の前。
 // put_char(+stream_or_alias, +character) / put_char(+character)
+// put_code(+stream_or_alias, +character_code) / put_code(+character_code)
+// nl(@stream_or_alias) / nl
+//   改行は U+000A 一つ。コードの具体化は流れより先、型は書き込む前。
 //   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
 //   type_error(in_character), type_error(integer), type_error(character),
 //   permission_error(input, stream), permission_error(input, binary_stream),
 //   permission_error(input, past_end_of_stream),
 //   permission_error(output, stream), permission_error(output, binary_stream),
-//   representation_error(character), representation_error(in_character_code)
+//   representation_error(character), representation_error(in_character_code),
+//   representation_error(character_code)
 // 旗 invalid_utf8 は未登録。既定の error と同じく、壊れた UTF-8 は representation_error。
 // テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
@@ -225,6 +230,19 @@ bool reject_in_char(Impl& machine, const Goal& goal, Cell cell) {
   return raise_type(machine, goal, "in_character", cell);
 }
 
+bool reject_put_code(Impl& machine, const Goal& goal, Cell cell, char32_t& code) {
+  cell = machine.heap.deref(cell);
+  if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
+  if (cell.tag() != Tag::Int && cell.tag() != Tag::IntBox) return raise_type(machine, goal, "integer", cell);
+  const auto value = machine.heap.integer_value(cell);
+  if (!scalar_code(value)) {
+    raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
+    return true;
+  }
+  code = static_cast<char32_t>(value);
+  return false;
+}
+
 bool reject_put_char(Impl& machine, const Goal& goal, Cell cell, char32_t& code) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
@@ -315,7 +333,17 @@ void run_get(Impl& machine, const Goal& goal, bool peek, bool as_code) {
   finish_get(machine, goal, slot, eof, code, as_code);
 }
 
-void run_put(Impl& machine, const Goal& goal) {
+void write_char(Impl& machine, const Goal& goal, std::size_t index, char32_t code) {
+  std::string chunk;
+  append_utf8_code(chunk, code);
+  Stream& stream = machine.streams[index];
+  if (stream.kind == Stream::Kind::Standard) emit_os(index, chunk);
+  place_bytes(stream, chunk);
+  advance(stream, code, chunk.size());
+  machine.ip = goal.cont;
+}
+
+void run_put(Impl& machine, const Goal& goal, bool as_code) {
   if (goal.arity == 2 && machine.heap.unbound(machine.heap.deref(goal.arg(machine, 0)))) {
     raise_inst(machine, goal);
     return;
@@ -332,14 +360,25 @@ void run_put(Impl& machine, const Goal& goal) {
     return;
   }
   char32_t code = 0;
-  if (reject_put_char(machine, goal, slot, code)) return;
-  std::string chunk;
-  append_utf8_code(chunk, code);
-  Stream& stream = machine.streams[index];
-  if (stream.kind == Stream::Kind::Standard) emit_os(index, chunk);
-  place_bytes(stream, chunk);
-  advance(stream, code, chunk.size());
-  machine.ip = goal.cont;
+  if (as_code) {
+    if (reject_put_code(machine, goal, slot, code)) return;
+  } else if (reject_put_char(machine, goal, slot, code)) {
+    return;
+  }
+  write_char(machine, goal, index, code);
+}
+
+void run_nl(Impl& machine, const Goal& goal) {
+  std::size_t index = machine.current_out;
+  Cell culprit = stream_culprit(machine, goal, index);
+  if (goal.arity == 1) {
+    culprit = goal.arg(machine, 0);
+    if (resolve_stream(machine, goal, culprit, index)) return;
+  }
+  if (reject_closed(machine, goal, index, culprit) || reject_output(machine, goal, machine.streams[index], culprit)) {
+    return;
+  }
+  write_char(machine, goal, index, U'\n');
 }
 
 }  // namespace
@@ -363,7 +402,15 @@ bool run_char_io(Impl& machine, const Goal& goal) {
     return true;
   }
   if (name == "put_char" && (goal.arity == 1 || goal.arity == 2)) {
-    run_put(machine, goal);
+    run_put(machine, goal, false);
+    return true;
+  }
+  if (name == "put_code" && (goal.arity == 1 || goal.arity == 2)) {
+    run_put(machine, goal, true);
+    return true;
+  }
+  if (name == "nl" && goal.arity <= 1) {
+    run_nl(machine, goal);
     return true;
   }
   return false;

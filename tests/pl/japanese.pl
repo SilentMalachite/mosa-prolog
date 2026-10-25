@@ -12,3 +12,4 @@ test(peek_scalar, (open_string('𠮷', S), peek_char(S, C), get_char(S, D), C ==
 test(seek_oya, (open_string('親あ', S), get_char(S, '親'), set_stream_position(S, stream_position(0, 1, 1)), get_char(S, '親')), true).
 test(get_code_oya, (open_string('親', S), get_code(S, C), char_code('親', C)), true).
 test(peek_code_scalar, (open_string('𠮷', S), peek_code(S, C), get_code(S, D), C == D, char_code('𠮷', C)), true).
+test(put_code_oya_type, put_code('親'), error(type_error(integer, '親'))).
