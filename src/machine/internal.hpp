@@ -282,6 +282,7 @@ void run_current_input(Impl& machine, const Goal& goal);
 void run_current_output(Impl& machine, const Goal& goal);
 void run_set_input(Impl& machine, const Goal& goal);
 void run_set_output(Impl& machine, const Goal& goal);
+void run_set_position(Impl& machine, const Goal& goal);
 void run_at_end(Impl& machine, const Goal& goal);
 void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_stream_prop(Impl& machine);

@@ -192,6 +192,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"stream_property", 2},
     {"at_end_of_stream", 0},
     {"at_end_of_stream", 1},
+    {"set_stream_position", 2},
     {"get_char", 1},
     {"get_char", 2},
     {"peek_char", 1},

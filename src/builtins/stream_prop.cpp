@@ -1,5 +1,6 @@
 // 規格 8.11.1 current_input/1。8.11.2 current_output/1。8.11.3 set_input/1。
 // 8.11.4 set_output/1。8.11.8 stream_property/2、at_end_of_stream/0,1。
+// 8.11.9 set_stream_position/2。
 // current_input(?stream_or_alias) / current_output(?stream_or_alias)
 //   変数は '$stream'(N)。別名は照合だけに使い、項の形は変えない。
 //   domain_error(stream_or_alias), existence_error(stream)
@@ -12,6 +13,11 @@
 //   8.11.8.5 は end_of_stream が at か past のとき成功する。
 //   /0 の閉じた現在入力は existence_error(stream, '$stream'(N))。
 //   /1 は instantiation_error, domain_error(stream_or_alias), existence_error(stream)
+// set_stream_position(+stream_or_alias, +stream_position)
+//   検査の順は具体化、流れの項、開いていること、位置の項、reposition、三つ組が流れの上にあること。
+//   カーソルを動かすのは、その後。past_end は下ろす。
+//   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
+//   domain_error(stream_position), permission_error(reposition, stream)
 // stream_property(?stream_or_alias, ?stream_property)
 //   domain_error(stream_or_alias), domain_error(stream_property), existence_error(stream)
 // 性質の順は file_name, mode, alias, position, end_of_stream, eof_action,
@@ -270,6 +276,80 @@ void match_current(Impl& machine, const Goal& goal, std::size_t current) {
   machine.ip = goal.cont;
 }
 
+struct Triple {
+  std::size_t cursor = 0;
+  std::size_t char_no = 0;
+  std::size_t line = 1;
+  std::size_t line_pos = 1;
+};
+
+enum class PosKind { Ok, Inst, Domain };
+
+// note_end と同じ幅。戻した位置の文字数が、開いたときの数え方とずれない。
+std::size_t text_width(std::string_view bytes, std::size_t index) {
+  if (index >= bytes.size()) return 0;
+  const auto lead = static_cast<unsigned char>(bytes[index]);
+  std::size_t width = 1;
+  if (lead <= 0x7FU) width = 1;
+  else if (lead >= 0xC2U && lead <= 0xDFU) width = 2;
+  else if (lead >= 0xE0U && lead <= 0xEFU) width = 3;
+  else if (lead >= 0xF0U && lead <= 0xF4U) width = 4;
+  else return 1;
+  if (index + width > bytes.size()) return 1;
+  for (std::size_t step = 1; step < width; ++step) {
+    if ((static_cast<unsigned char>(bytes[index + step]) & 0xC0U) != 0x80U) return 1;
+  }
+  return width;
+}
+
+PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 3 ||
+      machine.atoms.name(machine.heap.functor_atom(cell)) != "stream_position") {
+    return PosKind::Domain;
+  }
+  std::array<std::size_t, 3> parts{};
+  for (std::size_t index = 0; index < parts.size(); ++index) {
+    const Cell part = machine.heap.deref(machine.heap.arg(cell, index));
+    if (machine.heap.unbound(part)) return PosKind::Inst;
+    if (!is_integer(part)) return PosKind::Domain;
+    const auto value = machine.heap.integer_value(part);
+    if (value < 0) return PosKind::Domain;
+    parts[index] = static_cast<std::size_t>(value);
+  }
+  if (parts[1] == 0 || parts[2] == 0) return PosKind::Domain;
+  triple.char_no = parts[0];
+  triple.line = parts[1];
+  triple.line_pos = parts[2];
+  return PosKind::Ok;
+}
+
+bool locate(const Stream& stream, const Triple& want, std::size_t& cursor) {
+  Triple spot;
+  while (true) {
+    if (spot.char_no == want.char_no && spot.line == want.line && spot.line_pos == want.line_pos) {
+      cursor = spot.cursor;
+      return true;
+    }
+    if (spot.cursor >= stream.bytes.size()) return false;
+    if (stream.data == Stream::Data::Binary) {
+      spot.cursor += 1;
+      spot.char_no += 1;
+      continue;
+    }
+    const std::size_t width = text_width(stream.bytes, spot.cursor);
+    const bool newline = width == 1 && stream.bytes[spot.cursor] == '\n';
+    spot.cursor += width;
+    spot.char_no += 1;
+    if (newline) {
+      spot.line += 1;
+      spot.line_pos = 1;
+    } else {
+      spot.line_pos += 1;
+    }
+  }
+}
+
 }  // namespace
 
 void run_current_input(Impl& machine, const Goal& goal) { match_current(machine, goal, machine.current_in); }
@@ -313,6 +393,47 @@ void run_set_output(Impl& machine, const Goal& goal) {
     return;
   }
   machine.current_out = index;
+  machine.ip = goal.cont;
+}
+
+void run_set_position(Impl& machine, const Goal& goal) {
+  const Cell spec = machine.heap.deref(goal.arg(machine, 0));
+  const Cell position = machine.heap.deref(goal.arg(machine, 1));
+  if (machine.heap.unbound(spec) || machine.heap.unbound(position)) {
+    raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
+    return;
+  }
+  std::size_t index = 0;
+  if (resolve_stream(machine, goal, spec, index)) return;
+  if (machine.streams[index].closed) {
+    raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  Triple triple;
+  const PosKind kind = read_position(machine, position, triple);
+  if (kind == PosKind::Inst) {
+    raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
+    return;
+  }
+  if (kind == PosKind::Domain) {
+    raise_formal(machine, formal_domain(machine, "stream_position", position), goal.name, goal.arity);
+    return;
+  }
+  if (!machine.streams[index].reposition) {
+    raise_formal(machine, formal_permission(machine, "reposition", "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  std::size_t cursor = 0;
+  if (!locate(machine.streams[index], triple, cursor)) {
+    raise_formal(machine, formal_domain(machine, "stream_position", position), goal.name, goal.arity);
+    return;
+  }
+  Stream& stream = machine.streams[index];
+  stream.cursor = cursor;
+  stream.char_no = triple.char_no;
+  stream.line = triple.line;
+  stream.line_pos = triple.line_pos;
+  stream.past_end = false;
   machine.ip = goal.cont;
 }
 

@@ -340,6 +340,35 @@ void check_at_end(const std::filesystem::path& path) {
                    "at_end closed formal");
 }
 
+void check_set_position(const std::filesystem::path& path) {
+  write_bytes(path, "ab");
+  const std::string atom = prolog_atom(path.string());
+  auto binary = mosa::Machine::create();
+  auto back = binary->query("open(" + atom +
+                             ", read, S, [type(binary)]), get_byte(S, 97), "
+                             "set_stream_position(S, stream_position(0, 1, 1)), get_byte(S, C).");
+  mosa_test::check(back.kind == mosa::StopKind::Success, "binary seek");
+  mosa_test::check(binding_named(*binary, back, "C") == "97", "binary byte again");
+
+  auto fixed = mosa::Machine::create();
+  auto denied = fixed->query("open(" + atom +
+                              ", read, S, [reposition(false)]), get_char(S, a), "
+                              "set_stream_position(S, stream_position(0, 1, 1)).");
+  mosa_test::check(denied.kind == mosa::StopKind::Exception, "reposition false");
+  mosa_test::check(formal_text(*fixed, denied) == "permission_error(reposition, stream, '$stream'(3))",
+                   "reposition formal");
+  auto next = fixed->query("get_char('$stream'(3), C).");
+  mosa_test::check(next.kind == mosa::StopKind::Success, "seek did not move");
+  mosa_test::check(binding_named(*fixed, next, "C") == "b", "next char stays");
+
+  auto writing = mosa::Machine::create();
+  auto wrote = writing->query("open(" + atom +
+                               ", write, S), put_char(S, a), put_char(S, b), "
+                               "set_stream_position(S, stream_position(0, 1, 1)), put_char(S, c), flush_output(S).");
+  mosa_test::check(wrote.kind == mosa::StopKind::Success, "write seek");
+  mosa_test::check(file_bytes(path) == "cb", "overwrite at start");
+}
+
 void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
@@ -386,6 +415,7 @@ int main() {
   check_alias_reopen(dir / "phase3-alias-reopen.txt");
   check_stream_property(dir / "phase3-property.txt");
   check_set_output(dir / "phase3-set-output.txt");
+  check_set_position(dir / "phase3-set-position.txt");
   check_at_end(dir / "phase3-at-end.txt");
   check_close_standard();
   check_flush_failure(dir / "phase3-flush-fail");

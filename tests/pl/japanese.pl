@@ -9,3 +9,4 @@ test(open_string_scalar, (open_string('𠮷', S), functor(S, '$stream', 1)), tru
 test(open_string_scalar_code, (open_string([134071], S), functor(S, '$stream', 1)), true).
 test(get_oya, (open_string('親', S), get_char(S, '親')), true).
 test(peek_scalar, (open_string('𠮷', S), peek_char(S, C), get_char(S, D), C == '𠮷', D == '𠮷'), true).
+test(seek_oya, (open_string('親あ', S), get_char(S, '親'), set_stream_position(S, stream_position(0, 1, 1)), get_char(S, '親')), true).

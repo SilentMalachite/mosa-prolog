@@ -576,6 +576,10 @@ bool run_streams(Impl& machine, const Goal& goal) {
     run_at_end(machine, goal);
     return true;
   }
+  if (name == "set_stream_position" && goal.arity == 2) {
+    run_set_position(machine, goal);
+    return true;
+  }
   if (name == "stream_property" && goal.arity == 2) {
     run_stream_property(machine, goal);
     return true;

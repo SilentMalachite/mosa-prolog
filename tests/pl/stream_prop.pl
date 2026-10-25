@@ -62,6 +62,27 @@ test(end_var, at_end_of_stream(S), error(instantiation_error)).
 test(end_bad, at_end_of_stream(1), error(domain_error(stream_or_alias, 1))).
 test(end_missing, at_end_of_stream('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
 test(end_closed, (open_string(a, S), close(S), at_end_of_stream(S)), error(existence_error(stream, S))).
+test(seek_back, (open_string(ab, S), stream_property(S, position(P)), get_char(S, _), set_stream_position(S, P), get_char(S, C), C == a), true).
+test(seek_start, (open_string(ab, S), get_char(S, _), set_stream_position(S, stream_position(0, 1, 1)), get_char(S, a)), true).
+test(seek_mid, (open_string(ab, S), set_stream_position(S, stream_position(1, 1, 2)), get_char(S, b)), true).
+test(seek_nl, (open_string([10, 97], S), get_char(S, _), set_stream_position(S, stream_position(1, 2, 1)), get_char(S, a)), true).
+test(seek_end, (open_string(a, S), get_char(S, a), get_char(S, end_of_file), set_stream_position(S, stream_position(0, 1, 1)), get_char(S, a)), true).
+test(seek_at, (open_string('', S), get_char(S, end_of_file), set_stream_position(S, stream_position(0, 1, 1)), stream_property(S, end_of_stream(at))), true).
+test(seek_keeps, (open_string(ab, S), get_char(S, a), catch(set_stream_position(S, foo), _, true), get_char(S, b)), true).
+test(seek_var, set_stream_position(S, P), error(instantiation_error)).
+test(seek_pos_var, (open_string(a, S), set_stream_position(S, P)), error(instantiation_error)).
+test(seek_part, (open_string(a, S), set_stream_position(S, stream_position(0, 1, X))), error(instantiation_error)).
+test(seek_bad_stream, set_stream_position(1, stream_position(0, 1, 1)), error(domain_error(stream_or_alias, 1))).
+test(seek_pos_first, set_stream_position(1, P), error(instantiation_error)).
+test(seek_missing, set_stream_position('$stream'(99), stream_position(0, 1, 1)), error(existence_error(stream, '$stream'(99)))).
+test(seek_closed, (open_string(a, S), close(S), set_stream_position(S, stream_position(0, 1, 1))), error(existence_error(stream, S))).
+test(seek_closed_foo, (open_string(a, S), close(S), set_stream_position(S, foo)), error(existence_error(stream, S))).
+test(seek_std, set_stream_position(user_input, stream_position(0, 1, 1)), error(permission_error(reposition, stream, user_input))).
+test(seek_foo, (open_string(a, S), set_stream_position(S, foo)), error(domain_error(stream_position, foo))).
+test(seek_std_foo, set_stream_position(user_input, foo), error(domain_error(stream_position, foo))).
+test(seek_neg, (open_string(a, S), set_stream_position(S, stream_position(-1, 1, 1))), error(domain_error(stream_position, stream_position(-1, 1, 1)))).
+test(seek_line0, (open_string(a, S), set_stream_position(S, stream_position(0, 0, 1))), error(domain_error(stream_position, stream_position(0, 0, 1)))).
+test(seek_nowhere, (open_string(a, S), set_stream_position(S, stream_position(9, 1, 1))), error(domain_error(stream_position, stream_position(9, 1, 1)))).
 test(prop_mode, stream_property(user_input, mode(read)), true).
 test(prop_mode_wrong, stream_property(user_input, mode(write)), fail).
 test(prop_no_file, stream_property(user_input, file_name(_)), fail).
