@@ -193,6 +193,30 @@ Compiled compile_goal(const Heap& heap, Cell cell) {
   return compiled;
 }
 
+bool dot_head(const Heap& heap, Cell head, Cell& left, Cell& right) {
+  head = heap.deref(head);
+  if (head.tag() == Tag::Lis) {
+    left = heap.list_head(head);
+    right = heap.list_tail(head);
+    return true;
+  }
+  if (head.tag() == Tag::Str && heap.functor_arity(head) == 2 && heap.atoms().name(heap.functor_atom(head)) == ".") {
+    left = heap.arg(head, 0);
+    right = heap.arg(head, 1);
+    return true;
+  }
+  return false;
+}
+
+void set_dot_head(Build& build, const Heap& heap, Clause& clause, Cell left, Cell right) {
+  // 頭の '.'/2 はデータとしてのリストではなく、述語 '.'/2 である。
+  clause.head.tag = IrTag::Fun;
+  clause.head.atom = heap.atoms().intern(".");
+  clause.head.arity = 2;
+  clause.head.args.push_back(build.data(left));
+  clause.head.args.push_back(build.data(right));
+}
+
 bool compile_clause(const Heap& heap, Cell cell, Clause& clause) {
   Build build;
   build.heap = &heap;
@@ -203,11 +227,16 @@ bool compile_clause(const Heap& heap, Cell cell, Clause& clause) {
     body = build.goal(heap.arg(head, 1));
     head = heap.deref(heap.arg(head, 0));
   }
-  if (heap.unbound(head) || head.tag() == Tag::Int || head.tag() == Tag::IntBox || head.tag() == Tag::Float ||
-      head.tag() == Tag::Lis) {
+  Cell left;
+  Cell right;
+  if (dot_head(heap, head, left, right)) {
+    set_dot_head(build, heap, clause, left, right);
+  } else if (heap.unbound(head) || head.tag() == Tag::Int || head.tag() == Tag::IntBox ||
+             head.tag() == Tag::Float) {
     return false;
+  } else {
+    clause.head = build.data(head);
   }
-  clause.head = build.data(head);
   clause.body = body.tag == IrTag::True && body.args.empty() ? body : body;
   if (build.is_name(heap.deref(cell), ":-", 2)) clause.body = body;
   clause.vars = static_cast<std::uint16_t>(build.refs.size());

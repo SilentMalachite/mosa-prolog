@@ -93,6 +93,29 @@ void check_resource_limit_session() {
   mosa_test::check(talk.out.find("?- ") != std::string::npos, "resource tty prompt");
 }
 
+void check_consult_failure_reports() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string missing_goal = "consult('/no/such/mosa-live.pl').";
+  std::vector<std::string_view> missing{arg0, arg_g, missing_goal};
+  auto absent = mosa::run_session(missing, "", false);
+  mosa_test::check(absent.code == 1, "missing consult exit");
+  mosa_test::check(absent.out.find("false.") != std::string::npos, "missing consult fails");
+  mosa_test::check(absent.err.find("/no/such/mosa-live.pl: ファイルを開けません") != std::string::npos,
+                   "missing consult phrase");
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/consult_busy.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << "p(1).\n";
+  file.close();
+  const std::string busy_goal = "((true ; fail), consult('" + path + "')).";
+  std::vector<std::string_view> args{arg0, path, arg_g, busy_goal};
+  auto busy = mosa::run_session(args, "", false);
+  mosa_test::check(busy.code == 1, "busy consult exit");
+  mosa_test::check(busy.out.find("false.") != std::string::npos, "busy consult fails");
+  mosa_test::check(busy.err.find(path + ": 実行中の述語は置き換えられない") != std::string::npos,
+                   "busy consult phrase");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
@@ -103,6 +126,7 @@ int main() {
   check_tty_next_then_prompt();
   check_errors();
   check_consult_keeps_query();
+  check_consult_failure_reports();
   check_resource_limit_session();
   check_runner();
   return mosa_test::failures();

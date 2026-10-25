@@ -181,6 +181,17 @@ std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std:
   return push_extra(machine, std::move(extra));
 }
 
+void launch_list(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+                 const std::vector<Cell>& env) {
+  // リストは '.'/2 である。未定義なら existence_error であり、callable の型誤りではない。
+  IrTerm call;
+  call.tag = IrTag::Fun;
+  call.atom = machine.atoms.intern(".");
+  call.arity = 2;
+  call.args = goal.args;
+  machine.ip = embody(machine, call, cont, cut, env);
+}
+
 void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
             const std::vector<Cell>& env) {
   switch (goal.tag) {
@@ -202,10 +213,10 @@ void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t c
     case IrTag::Atom:
     case IrTag::Fun:
     case IrTag::Call: machine.ip = embody(machine, goal, cont, cut, env); return;
+    case IrTag::List: launch_list(machine, goal, cont, cut, env); return;
     case IrTag::Anon:
     case IrTag::Int:
-    case IrTag::Float:
-    case IrTag::List: reject_callable(machine, materialize(machine, goal, env)); return;
+    case IrTag::Float: reject_callable(machine, materialize(machine, goal, env)); return;
   }
 }
 
@@ -304,6 +315,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.heap.truncate(0);
   machine.failed = false;
   machine.exception = false;
+  machine.diagnostic.clear();
   machine.ip = kNoFrame;
   machine.bindings.clear();
   Reader reader(goal_text, machine.heap, machine.operators);

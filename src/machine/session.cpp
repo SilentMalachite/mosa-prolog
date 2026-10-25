@@ -146,6 +146,12 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
         return interactive ? 0 : 2;
       }
       if (stop.kind == StopKind::Failure) {
+        // consult/1 の失敗は、ゴールを失敗させる前にパス付きの理由を出す。
+        const auto diag = machine.diagnostic();
+        if (!diag.empty()) {
+          result.err += std::string{diag};
+          result.err += '\n';
+        }
         result.out += "false.\n";
         return 1;
       }

@@ -195,6 +195,56 @@ void check_index() {
   mosa_test::check(q.kind == mosa::StopKind::Success && q.more, "variable head remains");
 }
 
+bool atom_named(mosa::Machine& machine, mosa::Cell cell, std::string_view name) {
+  cell = machine.heap().deref(cell);
+  if (cell.tag() != mosa::Tag::Atom) return false;
+  return machine.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3)) == name;
+}
+
+bool functor_named(mosa::Machine& machine, mosa::Cell cell, std::string_view name, int arity) {
+  cell = machine.heap().deref(cell);
+  return cell.tag() == mosa::Tag::Str && machine.heap().functor_arity(cell) == static_cast<unsigned>(arity) &&
+         machine.atoms().name(machine.heap().functor_atom(cell)) == name;
+}
+
+bool dot_procedure(mosa::Machine& machine, mosa::Cell pi) {
+  pi = machine.heap().deref(pi);
+  if (!functor_named(machine, pi, "/", 2)) return false;
+  const auto arity = machine.heap().deref(machine.heap().arg(pi, 1));
+  return atom_named(machine, machine.heap().arg(pi, 0), ".") &&
+         (arity.tag() == mosa::Tag::Int || arity.tag() == mosa::Tag::IntBox) &&
+         machine.heap().integer_value(arity) == 2;
+}
+
+bool dot_missing(mosa::Machine& machine, const mosa::Stop& stop) {
+  if (stop.kind != mosa::StopKind::Exception) return false;
+  const mosa::Cell error = machine.heap().deref(stop.exception);
+  if (!functor_named(machine, error, "error", 2)) return false;
+  const mosa::Cell formal = machine.heap().deref(machine.heap().arg(error, 0));
+  if (!functor_named(machine, formal, "existence_error", 2)) return false;
+  if (!atom_named(machine, machine.heap().arg(formal, 0), "procedure")) return false;
+  if (!dot_procedure(machine, machine.heap().arg(formal, 1))) return false;
+  const mosa::Cell context = machine.heap().deref(machine.heap().arg(error, 1));
+  return functor_named(machine, context, "context", 2) && dot_procedure(machine, machine.heap().arg(context, 0));
+}
+
+void check_list_goal() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("callable([a]).").kind == mosa::StopKind::Success, "list is callable");
+  mosa_test::check(dot_missing(*machine, machine->query("'.'(a, []).")), "dot goal is '.'/2");
+  mosa_test::check(dot_missing(*machine, machine->query("[a].")), "list goal is '.'/2");
+  mosa_test::check(dot_missing(*machine, machine->query("call([a]).")), "call list is '.'/2");
+  mosa_test::check(dot_missing(*machine, machine->query("(X = [a], call(X)).")), "bound list is '.'/2");
+  auto listed = mosa::Machine::create();
+  mosa_test::check(listed->load_program("[a].").ok, "list clause");
+  mosa_test::check(listed->query("[a].").kind == mosa::StopKind::Success, "defined list runs");
+  mosa_test::check(listed->query("'.'(a, []).").kind == mosa::StopKind::Success, "list clause via dot");
+  auto dotted = mosa::Machine::create();
+  mosa_test::check(dotted->load_program("'.'(b, []).").ok, "dot clause");
+  mosa_test::check(dotted->query("[b].").kind == mosa::StopKind::Success, "defined dot runs");
+  mosa_test::check(dotted->query("'.'(b, []).").kind == mosa::StopKind::Success, "defined dot syntax");
+}
+
 }  // namespace
 
 int main() {
@@ -209,5 +259,6 @@ int main() {
   check_arith();
   check_control();
   check_index();
+  check_list_goal();
   return mosa_test::failures();
 }
