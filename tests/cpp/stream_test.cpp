@@ -235,6 +235,72 @@ void check_put_bytes(const std::filesystem::path& path, const std::filesystem::p
   mosa_test::check(binding_named(*resetting, again, "C") == "97", "byte reset rereads");
 }
 
+void check_flush_writes(const std::filesystem::path& text_path, const std::filesystem::path& append_path,
+                        const std::filesystem::path& byte_path) {
+  const std::string text = prolog_atom(text_path.string());
+  auto machine = mosa::Machine::create();
+  auto flushed = machine->query("open(" + text + ", write, S), put_char(S, a), put_char(S, '\\n'), flush_output(S).");
+  mosa_test::check(flushed.kind == mosa::StopKind::Success, "flush text");
+  mosa_test::check(file_bytes(text_path) == "a\n", "flush text bytes");
+
+  write_bytes(append_path, "ab");
+  const std::string append = prolog_atom(append_path.string());
+  auto appending = mosa::Machine::create();
+  auto added = appending->query("open(" + append + ", append, S), put_char(S, c), flush_output(S).");
+  mosa_test::check(added.kind == mosa::StopKind::Success, "flush append");
+  mosa_test::check(file_bytes(append_path) == "abc", "flush append bytes");
+
+  const std::string binary = prolog_atom(byte_path.string());
+  auto closing = mosa::Machine::create();
+  auto closed = closing->query("open(" + binary + ", write, S, [type(binary)]), put_byte(S, 65), close(S).");
+  mosa_test::check(closed.kind == mosa::StopKind::Success, "close writes");
+  mosa_test::check(file_bytes(byte_path) == "A", "close bytes");
+  auto again = closing->query("close('$stream'(3)).");
+  mosa_test::check(again.kind == mosa::StopKind::Exception, "close twice");
+  mosa_test::check(formal_text(*closing, again) == "existence_error(stream, '$stream'(3))", "close twice formal");
+}
+
+void check_alias_reopen(const std::filesystem::path& path) {
+  const std::string atom = prolog_atom(path.string());
+  auto machine = mosa::Machine::create();
+  auto first = machine->query("open(" + atom + ", write, S, [alias(mine)]), put_char(S, a), close(mine).");
+  mosa_test::check(first.kind == mosa::StopKind::Success, "close alias");
+  mosa_test::check(file_bytes(path) == "a", "alias wrote a");
+  auto second = machine->query("close(mine).");
+  mosa_test::check(second.kind == mosa::StopKind::Exception, "alias stays closed");
+  mosa_test::check(formal_text(*machine, second) == "existence_error(stream, mine)", "alias formal");
+  auto third = machine->query("open(" + atom + ", write, S, [alias(mine)]), put_char(S, b), close(S).");
+  mosa_test::check(third.kind == mosa::StopKind::Success, "alias reused");
+  mosa_test::check(file_bytes(path) == "b", "alias wrote b");
+}
+
+void check_close_standard() {
+  auto machine = mosa::Machine::create();
+  auto closed = machine->query("close(user_output).");
+  mosa_test::check(closed.kind == mosa::StopKind::Success, "close user_output");
+  auto put = machine->query("put_char(a).");
+  mosa_test::check(put.kind == mosa::StopKind::Exception, "put after close");
+  mosa_test::check(formal_text(*machine, put) == "existence_error(stream, user_output)", "current stays user_output");
+}
+
+void check_flush_failure(const std::filesystem::path& path) {
+  write_bytes(path, "z");
+  const std::string atom = prolog_atom(path.string());
+  auto machine = mosa::Machine::create();
+  auto opened = machine->query("open(" + atom + ", write, S), put_char(S, a).");
+  mosa_test::check(opened.kind == mosa::StopKind::Success, "open before block");
+  std::filesystem::remove(path);
+  std::filesystem::create_directory(path);
+  auto failed = machine->query("flush_output('$stream'(3)).");
+  mosa_test::check(failed.kind == mosa::StopKind::Exception, "flush blocked");
+  mosa_test::check(formal_text(*machine, failed) == "system_error", "flush system_error");
+  auto kept = machine->query("close('$stream'(3)).");
+  mosa_test::check(kept.kind == mosa::StopKind::Exception, "close force false");
+  auto forced = machine->query("close('$stream'(3), [force(true)]).");
+  mosa_test::check(forced.kind == mosa::StopKind::Success, "close force true");
+  std::filesystem::remove_all(path);
+}
+
 }  // namespace
 
 int main() {
@@ -250,5 +316,9 @@ int main() {
   check_put_char(dir / "phase3-put.txt");
   check_get_bytes(dir / "phase3-bytes.txt", dir / "phase3-bytes-empty.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
+  check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");
+  check_alias_reopen(dir / "phase3-alias-reopen.txt");
+  check_close_standard();
+  check_flush_failure(dir / "phase3-flush-fail");
   return mosa_test::failures();
 }

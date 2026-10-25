@@ -18,6 +18,8 @@ Cell formal_instantiation(Impl& machine) {
   return machine.heap.atom(machine.atoms.intern("instantiation_error"));
 }
 
+Cell formal_system(Impl& machine) { return machine.heap.atom(machine.atoms.intern("system_error")); }
+
 Cell formal_uninstantiation(Impl& machine, Cell culprit) {
   return machine.heap.structure(machine.atoms.intern("uninstantiation_error"), std::array<Cell, 1>{culprit});
 }

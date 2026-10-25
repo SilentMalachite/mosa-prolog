@@ -1,4 +1,4 @@
-// 規格 8.11.1 open/3, open/4。open_string/2 は ADR 0005。
+// 規格 8.11.1 open/3,4。8.11.6 close/1,2。8.11.7 flush_output/0,1。open_string/2 は ADR 0005。
 // open(+source_sink, +io_mode, -stream)
 // open(+source_sink, +io_mode, -stream, +stream_options)
 //   instantiation_error, uninstantiation_error, type_error(atom), type_error(list),
@@ -8,11 +8,17 @@
 //   source はアトムかコードのリスト。文字のリストは受けない。
 //   instantiation_error, type_error(atom), type_error(list), type_error(integer),
 //   uninstantiation_error, representation_error(character_code)
-// テスト: tests/pl/streams.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
+// close(+stream_or_alias) / close(+stream_or_alias, +close_options)
+//   選択肢は force(true/false)。無いときは force(false)。
+//   書き戻しに失敗し force が false なら system_error。ストリームは開いたまま。
+// flush_output / flush_output(+stream_or_alias)
+//   入力ストリームは permission_error(output, stream, S)。
+// テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
 
 #include <array>
+#include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -300,7 +306,13 @@ void finish_open(Impl& machine, const Goal& goal, Cell source, Cell slot, const 
   made.eof_action = choice.eof;
   made.reposition = choice.reposition;
   made.path = std::string{atom_text(machine, source)};
-  if (choice.has_alias) made.alias = choice.alias;
+  if (choice.has_alias) {
+    // 閉じた流れが同じ別名を持ったままだと、新しい流れに届かない。
+    for (Stream& old : machine.streams) {
+      if (old.closed && old.alias == choice.alias) old.alias.clear();
+    }
+    made.alias = choice.alias;
+  }
   const auto path = path_from_utf8(made.path);
   if (choice.mode == Stream::Mode::Read) {
     if (fill_read(machine, goal, source, path, made) || take_alias(machine, goal, choice)) return;
@@ -379,6 +391,143 @@ void run_open_string(Impl& machine, const Goal& goal) {
   bind_new(machine, goal, goal.arg(machine, 1), std::move(made));
 }
 
+bool find_alias(const Impl& machine, std::string_view name, std::size_t& index) {
+  for (std::size_t at = 0; at < machine.streams.size(); ++at) {
+    if (machine.streams[at].alias == name) {
+      index = at;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& index) {
+  const Cell cell = machine.heap.deref(term);
+  if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
+  if (cell.tag() == Tag::Atom) {
+    if (!find_alias(machine, atom_text(machine, cell), index)) return raise_domain(machine, goal, "stream_or_alias", cell);
+    return false;
+  }
+  const bool shaped = cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 1 &&
+                      machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
+  if (!shaped) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
+  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const auto number = machine.heap.integer_value(arg);
+  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
+    raise_formal(machine, formal_existence(machine, "stream", cell), goal.name, goal.arity);
+    return true;
+  }
+  index = static_cast<std::size_t>(number);
+  return false;
+}
+
+Cell named_stream(Impl& machine, const Goal& goal, std::size_t index) {
+  if (goal.arity >= 1) return goal.arg(machine, 0);
+  const Stream& stream = machine.streams[index];
+  if (!stream.alias.empty()) return machine.heap.atom(machine.atoms.intern(stream.alias));
+  return machine.heap.structure(machine.atoms.intern("$stream"),
+                                std::array<Cell, 1>{machine.heap.integer(static_cast<std::int64_t>(index))});
+}
+
+bool save_output(std::size_t index, Stream& stream) {
+  if (stream.mode == Stream::Mode::Read) return true;
+  if (stream.kind == Stream::Kind::Standard) {
+    if (index == 1) std::cout.flush();
+    else if (index == 2) std::cerr.flush();
+    return true;
+  }
+  if (stream.kind != Stream::Kind::File) return true;
+  std::ofstream output(path_from_utf8(stream.path), std::ios::binary | std::ios::trunc);
+  if (!output) return false;
+  if (!stream.bytes.empty()) {
+    output.write(stream.bytes.data(), static_cast<std::streamsize>(stream.bytes.size()));
+  }
+  return static_cast<bool>(output);
+}
+
+void mark_closed(Impl& machine, std::size_t index) {
+  machine.streams[index].closed = true;
+  // 閉じた流れが現在入出力なら、標準の別名に戻す。
+  if (machine.current_in == index) machine.current_in = 0;
+  if (machine.current_out == index) machine.current_out = 1;
+}
+
+bool reject_closed(Impl& machine, const Goal& goal, std::size_t index, Cell culprit) {
+  if (!machine.streams[index].closed) return false;
+  raise_formal(machine, formal_existence(machine, "stream", culprit), goal.name, goal.arity);
+  return true;
+}
+
+bool close_force(Impl& machine, const Goal& goal, Cell option, bool& force) {
+  option = machine.heap.deref(option);
+  if (option.tag() != Tag::Str || machine.heap.functor_arity(option) != 1 ||
+      machine.atoms.name(machine.heap.functor_atom(option)) != "force") {
+    return raise_domain(machine, goal, "close_option", option);
+  }
+  const Cell arg = machine.heap.deref(machine.heap.arg(option, 0));
+  if (machine.heap.unbound(arg)) return raise_inst(machine, goal);
+  if (arg.tag() != Tag::Atom) return raise_domain(machine, goal, "close_option", option);
+  const auto text = atom_text(machine, arg);
+  if (text == "true") force = true;
+  else if (text == "false") force = false;
+  else return raise_domain(machine, goal, "close_option", option);
+  return false;
+}
+
+bool reject_close_options(Impl& machine, const Goal& goal, bool& force) {
+  if (goal.arity == 1) return false;
+  const Cell options = machine.heap.deref(goal.arg(machine, 1));
+  if (machine.heap.unbound(options)) return raise_inst(machine, goal);
+  const WalkedList walked = walk_list(machine, options);
+  if (walked.shape == ListShape::Variable || walked.shape == ListShape::Partial || item_unbound(machine, walked)) {
+    return raise_inst(machine, goal);
+  }
+  if (walked.shape != ListShape::Proper) return raise_type(machine, goal, "list", options);
+  for (const Cell item : walked.items) {
+    if (close_force(machine, goal, item, force)) return true;
+  }
+  return false;
+}
+
+void run_flush(Impl& machine, const Goal& goal) {
+  std::size_t index = machine.current_out;
+  if (goal.arity == 1 && resolve_stream(machine, goal, goal.arg(machine, 0), index)) return;
+  const Cell culprit = named_stream(machine, goal, index);
+  if (reject_closed(machine, goal, index, culprit)) return;
+  Stream& stream = machine.streams[index];
+  if (stream.mode == Stream::Mode::Read) {
+    raise_formal(machine, formal_permission(machine, "output", "stream", culprit), goal.name, goal.arity);
+    return;
+  }
+  if (!save_output(index, stream)) {
+    raise_formal(machine, formal_system(machine), goal.name, goal.arity);
+    return;
+  }
+  machine.ip = goal.cont;
+}
+
+void run_close(Impl& machine, const Goal& goal) {
+  bool force = false;
+  if (goal.arity == 2 && machine.heap.unbound(machine.heap.deref(goal.arg(machine, 0)))) {
+    raise_inst(machine, goal);
+    return;
+  }
+  if (reject_close_options(machine, goal, force)) return;
+  std::size_t index = 0;
+  if (resolve_stream(machine, goal, goal.arg(machine, 0), index)) return;
+  const Cell culprit = goal.arg(machine, 0);
+  if (reject_closed(machine, goal, index, culprit)) return;
+  if (!save_output(index, machine.streams[index])) {
+    if (!force) {
+      raise_formal(machine, formal_system(machine), goal.name, goal.arity);
+      return;
+    }
+  }
+  mark_closed(machine, index);
+  machine.ip = goal.cont;
+}
+
 }  // namespace
 
 void init_streams(Impl& machine) {
@@ -397,6 +546,14 @@ bool run_streams(Impl& machine, const Goal& goal) {
   }
   if (name == "open_string" && goal.arity == 2) {
     run_open_string(machine, goal);
+    return true;
+  }
+  if (name == "close" && (goal.arity == 1 || goal.arity == 2)) {
+    run_close(machine, goal);
+    return true;
+  }
+  if (name == "flush_output" && goal.arity <= 1) {
+    run_flush(machine, goal);
     return true;
   }
   return false;

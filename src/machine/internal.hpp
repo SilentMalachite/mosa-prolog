@@ -237,6 +237,7 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_evaluation(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_representation(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_syntax(Impl& machine, Cell detail);
+[[nodiscard]] Cell formal_system(Impl& machine);
 [[nodiscard]] bool run_types(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_order(Impl& machine, const Goal& goal);
 // setof/3 は @</2 と同じ標準順序を使う。アルゴリズムは order.cpp に一つ。
