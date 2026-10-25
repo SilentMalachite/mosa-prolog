@@ -414,8 +414,142 @@ int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>
   return 1;
 }
 
+struct SavedExec {
+  std::vector<Entry> stack;
+  std::vector<Extra> extras;
+  std::vector<std::uint64_t*> trail;
+  const std::uint64_t* trail_mark = nullptr;
+  std::uint64_t ip = kNoFrame;
+  bool failed = false;
+  bool exception = false;
+  bool eval_abort = false;
+  bool halt_now = false;
+  int halt_code = 0;
+  Cell ball{};
+  std::vector<Binding> bindings;
+};
+
+// 実行中の consult の選択点を、初期化ゴールが潰さないように退避する。
+SavedExec park_exec(Impl& machine) {
+  SavedExec saved;
+  saved.stack.swap(machine.stack);
+  saved.extras.swap(machine.extras);
+  saved.trail.swap(machine.trail.slots);
+  saved.trail_mark = machine.trail.mark;
+  machine.trail.mark = nullptr;
+  saved.ip = machine.ip;
+  machine.ip = kNoFrame;
+  saved.failed = machine.failed;
+  machine.failed = false;
+  saved.exception = machine.exception;
+  machine.exception = false;
+  saved.eval_abort = machine.eval_abort;
+  machine.eval_abort = false;
+  saved.halt_now = machine.halt_now;
+  saved.halt_code = machine.halt_code;
+  machine.halt_now = false;
+  saved.ball = machine.ball;
+  machine.ball = Cell{};
+  saved.bindings.swap(machine.bindings);
+  return saved;
+}
+
+void unpark_exec(Impl& machine, SavedExec& saved, bool keep_halt) {
+  const bool halted = machine.halt_now;
+  const int code = machine.halt_code;
+  machine.stack.swap(saved.stack);
+  machine.extras.swap(saved.extras);
+  machine.trail.slots.swap(saved.trail);
+  machine.trail.mark = saved.trail_mark;
+  machine.ip = saved.ip;
+  machine.failed = saved.failed;
+  machine.exception = saved.exception;
+  machine.eval_abort = saved.eval_abort;
+  machine.halt_now = saved.halt_now;
+  machine.halt_code = saved.halt_code;
+  machine.ball = saved.ball;
+  machine.bindings.swap(saved.bindings);
+  if (keep_halt && halted) {
+    machine.halt_now = true;
+    machine.halt_code = code;
+  }
+}
+
+std::string formal_text(Impl& machine, Cell ball) {
+  Cell term = machine.heap.deref(ball);
+  if (term.tag() == Tag::Str && machine.heap.functor_arity(term) == 2 &&
+      machine.atoms.name(machine.heap.functor_atom(term)) == "error") {
+    term = machine.heap.arg(term, 0);
+  }
+  return write_term(machine.heap, machine.operators, term, {}, {});
+}
+
+bool initialization_argument(Impl& machine, Cell directive, Cell& arg) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != "initialization") return false;
+  arg = machine.heap.arg(body, 0);
+  return true;
+}
+
+int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals) {
+  Cell arg;
+  if (!initialization_argument(machine, directive, arg)) return 0;
+  arg = machine.heap.deref(arg);
+  if (machine.heap.unbound(arg)) {
+    fail_load(machine, write_term(machine.heap, machine.operators, formal_instantiation(machine), {}, {}));
+    return -1;
+  }
+  if (arg.tag() != Tag::Atom && arg.tag() != Tag::Str && arg.tag() != Tag::Lis) {
+    const Cell formal = formal_type(machine, "callable", arg);
+    fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
+    return -1;
+  }
+  goals.push_back(arg);
+  return 1;
+}
+
+// 失敗はエラーにしない。例外の Formal だけを診断に残し、節は呼び出し側が戻さない。
+bool run_init_goal(Impl& machine, Cell goal) {
+  SavedExec saved = park_exec(machine);
+  const Compiled compiled = compile_goal(machine.heap, goal);
+  const auto heap_mark = machine.heap.size();
+  Entry cleanup;
+  cleanup.pick = Pick::Cleanup;
+  cleanup.heap_mark = heap_mark;
+  cleanup.trail_mark = 0;
+  cleanup.extras_mark = 0;
+  machine.stack.push_back(std::move(cleanup));
+  launch(machine, compiled.term, kNoFrame, 0, compiled.env);
+  const Stop stop = run_loop(machine);
+  const bool threw = stop.kind == StopKind::Exception;
+  if (threw) fail_load(machine, formal_text(machine, stop.exception));
+  restore_state(machine, heap_mark, 0, 0);
+  unpark_exec(machine, saved, true);
+  return !threw;
+}
+
+bool run_inits(Impl& machine, const std::vector<Cell>& goals) {
+  for (const Cell goal : goals) {
+    if (!run_init_goal(machine, goal)) return false;
+  }
+  return true;
+}
+
+LoadStatus finish_load(Impl& machine, std::size_t heap_base, const std::vector<Cell>& inits) {
+  if (!run_inits(machine, inits)) {
+    machine.heap.truncate(heap_base);
+    return LoadStatus{false, machine.diagnostic};
+  }
+  machine.heap.truncate(heap_base);
+  machine.diagnostic.clear();
+  return LoadStatus{true, {}};
+}
+
 int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
-                      std::vector<Apart>& apart) {
+                      std::vector<Apart>& apart, std::vector<Cell>& inits) {
   if (!is_directive(machine.heap, term)) return 0;
   const int flag_directive = apply_flag_directive(machine, term);
   if (flag_directive < 0) return -1;
@@ -432,6 +566,9 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int shared = apply_multifile_directive(machine, term);
   if (shared < 0) return -1;
   if (shared > 0) return 1;
+  const int init = apply_initialization(machine, term, inits);
+  if (init < 0) return -1;
+  if (init > 0) return 1;
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;
@@ -462,6 +599,8 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   std::vector<Snapshot> snapshots;
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
   std::vector<Apart> apart;
+  // テキストを準備し終えてから、ソースの順に実行する。
+  std::vector<Cell> inits;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine),
@@ -482,7 +621,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     }
-    const int directed = consume_directive(machine, reader, term, snapshots, apart);
+    const int directed = consume_directive(machine, reader, term, snapshots, apart, inits);
     if (directed < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     if (directed > 0) continue;
     Clause clause;
@@ -496,9 +635,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     }
   }
-  machine.heap.truncate(heap_base);
-  machine.diagnostic.clear();
-  return LoadStatus{true, {}};
+  return finish_load(machine, heap_base, inits);
 }
 
 LoadStatus Machine::load_program(std::string_view source) { return load_source(*impl_, source); }

@@ -34,3 +34,8 @@ test(dc_ha, (findall(X, 離(X), L), L == [1, 2]), true).
 複(2).
 
 test(mf_ha, (findall(X, 複(X), L), L == [1, 2]), true).
+
+:- dynamic(初/0).
+:- initialization((retractall(初), assertz(初))).
+
+test(init_ha, 初, true).

@@ -71,3 +71,12 @@ test(mf_rule, (findall(X, mf_rule(X), L), L == [1, 9]), true).
 test(mf_only_absent, current_predicate(mf_only/1), fail).
 test(mf_only_call, mf_only(_), error(existence_error(procedure, mf_only/1))).
 test(mf_static, assertz(mf_p(3)), error(permission_error(modify, static_procedure, mf_p/1))).
+
+% 7.4.2 initialization/1。指示だけ。ゴールはテキストを準備したあとに、ソースの順で一度実行する。
+% 失敗はエラーにしない。捕捉されない例外は読み込みを失敗させ、節は残す。
+
+:- dynamic(init_s/1).
+:- initialization((retractall(init_s(_)), assertz(init_s(1)))).
+
+test(init_ran, (findall(X, init_s(X), L), L == [1]), true).
+test(init_goal, initialization(true), error(existence_error(procedure, initialization/1))).

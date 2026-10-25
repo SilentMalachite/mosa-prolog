@@ -412,6 +412,124 @@ bool dot_missing(mosa::Machine& machine, const mosa::Stop& stop) {
   return functor_named(machine, context, "context", 2) && dot_procedure(machine, machine.heap().arg(context, 0));
 }
 
+void check_initialization_after() {
+  auto machine = mosa::Machine::create();
+  const bool ok = machine
+                      ->load_program(":- dynamic(s/1).\n"
+                                     ":- initialization(assertz(s(1))).\n"
+                                     ":- initialization((p(X), assertz(s(X)))).\n"
+                                     "p(2).\n"
+                                     ":- initialization(assertz(s(3))).\n")
+                      .ok;
+  mosa_test::check(ok, "init after load");
+  auto first = machine->query("s(X).");
+  mosa_test::check(first.kind == mosa::StopKind::Success && first.more && binding_text(*machine, first) == "1",
+                   "init first");
+  auto second = machine->next();
+  mosa_test::check(second.kind == mosa::StopKind::Success && second.more && binding_text(*machine, second) == "2",
+                   "init sees clause");
+  auto third = machine->next();
+  mosa_test::check(third.kind == mosa::StopKind::Success && !third.more && binding_text(*machine, third) == "3",
+                   "init order");
+  auto query_dir = mosa::Machine::create();
+  mosa_test::check(query_dir->load_program(":- dynamic(s/1). ?- initialization(assertz(s(7))).").ok,
+                   "query directive");
+  auto seven = query_dir->query("s(X).");
+  mosa_test::check(seven.kind == mosa::StopKind::Success && binding_text(*query_dir, seven) == "7",
+                   "query directive runs");
+}
+
+void check_initialization_fail() {
+  auto machine = mosa::Machine::create();
+  const bool ok = machine
+                      ->load_program("q(1).\n"
+                                     ":- dynamic(s/1).\n"
+                                     ":- initialization((assertz(s(1)), fail)).\n"
+                                     ":- initialization(assertz(s(2))).\n")
+                      .ok;
+  mosa_test::check(ok, "fail still loads");
+  mosa_test::check(machine->query("q(1).").kind == mosa::StopKind::Success, "fail keeps clause");
+  auto first = machine->query("s(X).");
+  mosa_test::check(first.kind == mosa::StopKind::Success && first.more && binding_text(*machine, first) == "1",
+                   "fail keeps effect");
+  auto second = machine->next();
+  mosa_test::check(second.kind == mosa::StopKind::Success && !second.more && binding_text(*machine, second) == "2",
+                   "fail runs later");
+  auto caught = mosa::Machine::create();
+  const bool caught_ok = caught
+                             ->load_program("kept(1).\n"
+                                            ":- dynamic(s/1).\n"
+                                            ":- initialization(catch(throw(1), _, true)).\n"
+                                            ":- initialization(assertz(s(4))).\n")
+                             .ok;
+  mosa_test::check(caught_ok, "caught loads");
+  mosa_test::check(caught->query("kept(1).").kind == mosa::StopKind::Success, "caught keeps clause");
+  mosa_test::check(caught->query("s(4).").kind == mosa::StopKind::Success, "caught runs later");
+}
+
+void check_initialization_throw() {
+  auto machine = mosa::Machine::create();
+  const auto status = machine->load_program(
+      "kept(1).\n"
+      "also(1).\n"
+      ":- dynamic(s/1).\n"
+      ":- initialization((assertz(s(1)), throw(error(type_error(atom, 1), _)))).\n"
+      ":- initialization(assertz(s(9))).\n");
+  mosa_test::check(!status.ok, "throw fails load");
+  mosa_test::check(machine->diagnostic() == "type_error(atom, 1)", "throw formal");
+  mosa_test::check(machine->query("kept(1).").kind == mosa::StopKind::Success, "throw keeps earlier");
+  mosa_test::check(machine->query("also(1).").kind == mosa::StopKind::Success, "throw keeps later");
+  mosa_test::check(machine->query("s(1).").kind == mosa::StopKind::Success, "throw keeps effect");
+  mosa_test::check(machine->query("s(9).").kind == mosa::StopKind::Failure, "throw skips later");
+  auto bare = mosa::Machine::create();
+  const auto bare_status = bare->load_program("kept(1). :- initialization(throw(1)).");
+  mosa_test::check(!bare_status.ok && bare->diagnostic() == "1", "throw ball");
+  mosa_test::check(bare->query("kept(1).").kind == mosa::StopKind::Success, "ball keeps clause");
+  auto missing = mosa::Machine::create();
+  const auto missing_status = missing->load_program("kept(1). :- initialization(missing).");
+  mosa_test::check(!missing_status.ok, "missing fails load");
+  mosa_test::check(missing->diagnostic() == "existence_error(procedure, missing/0)", "missing formal");
+  mosa_test::check(missing->query("kept(1).").kind == mosa::StopKind::Success, "missing keeps clause");
+}
+
+void check_initialization_args() {
+  auto bad = mosa::Machine::create();
+  const auto bad_status = bad->load_program("q(1). :- initialization(1).");
+  mosa_test::check(!bad_status.ok, "number rejected");
+  mosa_test::check(bad->diagnostic() == "type_error(callable, 1)", "number formal");
+  mosa_test::check(bad->query("current_predicate(q/1).").kind == mosa::StopKind::Failure, "number rolls back");
+  auto open = mosa::Machine::create();
+  const auto open_status = open->load_program(":- initialization(X).");
+  mosa_test::check(!open_status.ok && open->diagnostic() == "instantiation_error", "var formal");
+  auto late = mosa::Machine::create();
+  const auto late_status = late->load_program("kept(1). :- initialization((true, 1)).");
+  mosa_test::check(!late_status.ok, "body number fails");
+  mosa_test::check(late->diagnostic() == "type_error(callable, 1)", "body number formal");
+  mosa_test::check(late->query("kept(1).").kind == mosa::StopKind::Success, "body number keeps clause");
+  auto two = mosa::Machine::create();
+  const auto two_status = two->load_program(":- initialization(true, now).");
+  mosa_test::check(!two_status.ok, "arity two rejected");
+  mosa_test::check(two->diagnostic().find("この指示はフェーズ2では使えない") != std::string_view::npos,
+                   "arity two phrase");
+}
+
+void check_initialization_live() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("p(1). p(2).").ok, "live base");
+  auto first = machine->query("p(X).");
+  mosa_test::check(first.kind == mosa::StopKind::Success && first.more, "live first");
+  const auto depth = machine->choice_depth();
+  mosa_test::check(machine->load_program(":- initialization((true; true)).").ok, "live init");
+  mosa_test::check(machine->choice_depth() == depth, "live depth");
+  auto second = machine->next();
+  mosa_test::check(second.kind == mosa::StopKind::Success && !second.more && binding_text(*machine, second) == "2",
+                   "live next");
+  auto ja = mosa::Machine::create();
+  mosa_test::check(ja->load_program(":- initialization(書く).\n書く :- assertz(印(1)).\n").ok, "ja init");
+  mosa_test::check(ja->query("印(1).").kind == mosa::StopKind::Success, "ja effect");
+  mosa_test::check(machine->query("initialization(true).").kind == mosa::StopKind::Exception, "not a goal");
+}
+
 void check_list_goal() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->query("callable([a]).").kind == mosa::StopKind::Success, "list is callable");
@@ -445,6 +563,11 @@ int main() {
   check_multifile_scope();
   check_multifile_guard();
   check_multifile_forms();
+  check_initialization_after();
+  check_initialization_fail();
+  check_initialization_throw();
+  check_initialization_args();
+  check_initialization_live();
   check_arith();
   check_control();
   check_index();
