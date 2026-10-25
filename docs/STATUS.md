@@ -1,6 +1,6 @@
 フェーズ: 3
 進行中: なし
-完了: 節データベースの ADR を未承認で置いた
-次: ADR の承認を待つ。承認まで節の改変コードは書かない
-未解決: ADR 0004 の承認待ち。未決 2–16 は未回答。準拠スイートはライセンスが無くタスク 13 に進まない
+完了: 動的な節の追加と削除が動く。静的述語への assertz は permission_error
+次: すべての解（findall/3、bagof/3、setof/3）
+未解決: 未決 5（clause/2）と未決 6（current_predicate/1）。ADR 0004 は承認済み
 計画: docs/superpowers/plans/2026-10-25-phase3-builtins.md
