@@ -156,6 +156,18 @@ bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16
   return false;
 }
 
+bool keeps_clauses(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
+  for (const SharedPred& item : machine.multifile) {
+    if (item.name == name && item.arity == arity) return true;
+  }
+  return false;
+}
+
+void note_multifile(Impl& machine, std::uint32_t name, std::uint16_t arity) {
+  if (keeps_clauses(machine, name, arity)) return;
+  machine.multifile.push_back(SharedPred{name, arity});
+}
+
 bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
@@ -184,9 +196,12 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
       fail_load(machine, "実行中の述語は置き換えられない");
       return false;
     }
-    predicate.clauses.clear();
-    // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
-    if (!predicate.dynamic_declared) predicate.dynamic = false;
+    // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
+    if (!keeps_clauses(machine, name, arity)) {
+      predicate.clauses.clear();
+      // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
+      if (!predicate.dynamic_declared) predicate.dynamic = false;
+    }
   }
   predicate.seen = true;
   last = index;
@@ -259,9 +274,10 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
                        const std::vector<Snapshot>& snapshots, std::size_t previous_size,
-                       std::size_t heap_base) {
+                       std::size_t heap_base, const std::vector<SharedPred>& saved_multi) {
   machine.operators = saved_ops;
   restore_flags(machine, saved_flags);
+  machine.multifile = saved_multi;
   rollback(machine, snapshots, previous_size);
   machine.heap.truncate(heap_base);
   return LoadStatus{false, machine.diagnostic};
@@ -347,6 +363,28 @@ bool discontiguous_argument(Impl& machine, Cell directive, Cell& arg) {
   return true;
 }
 
+bool multifile_argument(Impl& machine, Cell directive, Cell& arg) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != "multifile") return false;
+  arg = machine.heap.arg(body, 0);
+  return true;
+}
+
+int apply_multifile_directive(Impl& machine, Cell directive) {
+  Cell arg;
+  if (!multifile_argument(machine, directive, arg)) return 0;
+  std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
+  if (!collect_indicators(machine, arg, indicators)) {
+    fail_load(machine, "述語指示子ではありません");
+    return -1;
+  }
+  for (const auto& indicator : indicators) note_multifile(machine, indicator.first, indicator.second);
+  return 1;
+}
+
 int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apart>& apart) {
   Cell arg;
   if (!discontiguous_argument(machine, directive, arg)) return 0;
@@ -391,6 +429,9 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int apart_directive = apply_discontiguous_directive(machine, term, apart);
   if (apart_directive < 0) return -1;
   if (apart_directive > 0) return 1;
+  const int shared = apply_multifile_directive(machine, term);
+  if (shared < 0) return -1;
+  if (shared > 0) return 1;
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;
@@ -417,6 +458,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   }
   const auto saved_ops = machine.operators;
   const SavedFlags saved_flags = save_flags(machine);
+  const auto saved_multi = machine.multifile;
   std::vector<Snapshot> snapshots;
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
   std::vector<Apart> apart;
@@ -431,27 +473,27 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       machine.diag_line = outcome.failure->line;
       machine.diag_column = outcome.failure->column;
       machine.diagnostic = reason_text(outcome.failure->reason);
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     }
     if (!outcome.term) break;
     const Cell term = outcome.term->term;
     if (is_rule_arrow(machine.heap, term)) {
       const auto text = write_term(machine.heap, machine.operators, term, {}, {});
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     }
     const int directed = consume_directive(machine, reader, term, snapshots, apart);
-    if (directed < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+    if (directed < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     if (directed > 0) continue;
     Clause clause;
     if (!compile_clause(machine.heap, term, clause)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +
                              write_term(machine.heap, machine.operators, term, {}, {}));
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     }
     remember(machine, snapshots, clause);
     if (!add_clause(machine, std::move(clause), last, apart)) {
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
     }
   }
   machine.heap.truncate(heap_base);

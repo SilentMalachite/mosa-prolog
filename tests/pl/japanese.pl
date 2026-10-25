@@ -27,3 +27,10 @@ test(ccc_ha, (\+ current_char_conversion(あ, あ), char_conversion(あ, い), c
 離(2).
 
 test(dc_ha, (findall(X, 離(X), L), L == [1, 2]), true).
+
+:- multifile(複/1).
+
+複(1).
+複(2).
+
+test(mf_ha, (findall(X, 複(X), L), L == [1, 2]), true).

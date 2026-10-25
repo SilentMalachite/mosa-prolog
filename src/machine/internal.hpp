@@ -28,6 +28,12 @@ struct Clause {
   double key_float = 0;
 };
 
+// 複数のテキストに節を足してよい印。述語が無くても残し、宣言だけでは手続きにしない。
+struct SharedPred {
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+};
+
 struct Predicate {
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
@@ -143,6 +149,8 @@ struct Machine::Impl {
   std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
+  // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
+  std::vector<SharedPred> multifile;
   std::vector<Entry> stack;
   std::vector<Extra> extras;
   std::uint64_t ip = kNoFrame;

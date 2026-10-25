@@ -40,3 +40,34 @@ test(dc_rule, (findall(X, dc_rule(X), L), L == [1, 9]), true).
 test(dc_only_absent, current_predicate(dc_only/1), fail).
 test(dc_only_call, dc_only(_), error(existence_error(procedure, dc_only/1))).
 test(dc_after_first, (findall(X, dc_after(X), L), L == [1, 2]), true).
+
+% 7.4.2 multifile/1。指示だけ。引数は述語指示子かそのリスト。
+% 宣言は手続きを定義しない。宣言した述語は次の読み込みが節を足す。
+% 宣言が無い述語は置き換わる。ここでは同じテキストの節だけを見る。
+
+:- multifile(mf_p/1).
+
+mf_p(1).
+mf_p(2).
+
+:- multifile([mf_a/1, mf_b/0]).
+
+mf_a(1).
+mf_a(2).
+mf_b.
+
+:- multifile(mf_rule/1).
+
+mf_rule(1).
+mf_rule(X) :- mf_side(X).
+mf_side(9).
+
+:- multifile(mf_only/1).
+
+test(mf_same, (findall(X, mf_p(X), L), L == [1, 2]), true).
+test(mf_list_a, (findall(X, mf_a(X), L), L == [1, 2]), true).
+test(mf_list_b, (findall(t, mf_b, L), L == [t]), true).
+test(mf_rule, (findall(X, mf_rule(X), L), L == [1, 9]), true).
+test(mf_only_absent, current_predicate(mf_only/1), fail).
+test(mf_only_call, mf_only(_), error(existence_error(procedure, mf_only/1))).
+test(mf_static, assertz(mf_p(3)), error(permission_error(modify, static_procedure, mf_p/1))).
