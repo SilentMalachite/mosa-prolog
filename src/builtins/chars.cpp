@@ -1,13 +1,16 @@
-// 規格 8.12.1 get_char/1,2。8.12.3 peek_char/1,2。8.12.5 put_char/1,2。
+// 規格 8.12.1 get_char/1,2、get_code/1,2。8.12.2 peek_char/1,2、peek_code/1,2。8.12.3 put_char/1,2。
 // get_char(+stream_or_alias, ?in_character) / get_char(?in_character)
 // peek_char(+stream_or_alias, ?in_character) / peek_char(?in_character)
+// get_code(+stream_or_alias, ?in_character_code) / get_code(?in_character_code)
+// peek_code(+stream_or_alias, ?in_character_code) / peek_code(?in_character_code)
+//   終端は -1。peek は位置を変えない。流れを先に調べ、コードの型は消費の前。
 // put_char(+stream_or_alias, +character) / put_char(+character)
 //   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
-//   type_error(in_character), type_error(character),
+//   type_error(in_character), type_error(integer), type_error(character),
 //   permission_error(input, stream), permission_error(input, binary_stream),
 //   permission_error(input, past_end_of_stream),
 //   permission_error(output, stream), permission_error(output, binary_stream),
-//   representation_error(character)
+//   representation_error(character), representation_error(in_character_code)
 // 旗 invalid_utf8 は未登録。既定の error と同じく、壊れた UTF-8 は representation_error。
 // テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
@@ -200,6 +203,18 @@ bool reject_output(Impl& machine, const Goal& goal, const Stream& stream, Cell c
   return false;
 }
 
+bool reject_in_code(Impl& machine, const Goal& goal, Cell cell) {
+  cell = machine.heap.deref(cell);
+  if (machine.heap.unbound(cell)) return false;
+  if (cell.tag() != Tag::Int && cell.tag() != Tag::IntBox) return raise_type(machine, goal, "integer", cell);
+  const auto value = machine.heap.integer_value(cell);
+  if (value != -1 && !scalar_code(value)) {
+    raise_formal(machine, formal_representation(machine, "in_character_code"), goal.name, goal.arity);
+    return true;
+  }
+  return false;
+}
+
 bool reject_in_char(Impl& machine, const Goal& goal, Cell cell) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return false;
@@ -243,9 +258,12 @@ bool take_char(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
   return false;
 }
 
-void finish_get(Impl& machine, const Goal& goal, Cell slot, bool eof, char32_t code) {
-  const Cell value = eof ? machine.heap.atom(machine.atoms.intern("end_of_file"))
-                         : machine.heap.atom(machine.atoms.intern_char(code));
+void finish_get(Impl& machine, const Goal& goal, Cell slot, bool eof, char32_t code, bool as_code) {
+  Cell value = machine.heap.integer(eof ? -1 : static_cast<std::int64_t>(code));
+  if (!as_code) {
+    value = eof ? machine.heap.atom(machine.atoms.intern("end_of_file"))
+                : machine.heap.atom(machine.atoms.intern_char(code));
+  }
   if (!do_unify(machine, slot, value)) machine.failed = true;
   else machine.ip = goal.cont;
 }
@@ -278,7 +296,7 @@ bool select_stream(Impl& machine, const Goal& goal, bool input, std::size_t& ind
   return resolve_stream(machine, goal, goal.arg(machine, 0), index);
 }
 
-void run_get(Impl& machine, const Goal& goal, bool peek) {
+void run_get(Impl& machine, const Goal& goal, bool peek, bool as_code) {
   std::size_t index = 0;
   if (select_stream(machine, goal, true, index)) return;
   const Cell culprit = stream_culprit(machine, goal, index);
@@ -286,11 +304,15 @@ void run_get(Impl& machine, const Goal& goal, bool peek) {
     return;
   }
   const Cell slot = goal.arg(machine, goal.arity == 1 ? 0 : 1);
-  if (reject_in_char(machine, goal, slot)) return;
+  if (as_code) {
+    if (reject_in_code(machine, goal, slot)) return;
+  } else if (reject_in_char(machine, goal, slot)) {
+    return;
+  }
   bool eof = false;
   char32_t code = 0;
   if (take_char(machine, goal, machine.streams[index], culprit, peek, eof, code)) return;
-  finish_get(machine, goal, slot, eof, code);
+  finish_get(machine, goal, slot, eof, code, as_code);
 }
 
 void run_put(Impl& machine, const Goal& goal) {
@@ -325,11 +347,19 @@ void run_put(Impl& machine, const Goal& goal) {
 bool run_char_io(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "get_char" && (goal.arity == 1 || goal.arity == 2)) {
-    run_get(machine, goal, false);
+    run_get(machine, goal, false, false);
     return true;
   }
   if (name == "peek_char" && (goal.arity == 1 || goal.arity == 2)) {
-    run_get(machine, goal, true);
+    run_get(machine, goal, true, false);
+    return true;
+  }
+  if (name == "get_code" && (goal.arity == 1 || goal.arity == 2)) {
+    run_get(machine, goal, false, true);
+    return true;
+  }
+  if (name == "peek_code" && (goal.arity == 1 || goal.arity == 2)) {
+    run_get(machine, goal, true, true);
     return true;
   }
   if (name == "put_char" && (goal.arity == 1 || goal.arity == 2)) {

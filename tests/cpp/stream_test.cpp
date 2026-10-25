@@ -141,6 +141,44 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
   mosa_test::check(formal_text(*broken, utf) == "representation_error(character)", "bad utf formal");
 }
 
+void check_get_code(const std::filesystem::path& binary_path, const std::filesystem::path& bad_path,
+                    const std::filesystem::path& eof_path) {
+  write_bytes(binary_path, "a");
+  auto binary = mosa::Machine::create();
+  const std::string binary_atom = prolog_atom(binary_path.string());
+  mosa_test::check(binary->query("open(" + binary_atom + ", read, S, [type(binary)]).").kind ==
+                       mosa::StopKind::Success,
+                   "code binary open");
+  auto denied = binary->query("get_code('$stream'(3), C).");
+  mosa_test::check(denied.kind == mosa::StopKind::Exception, "code binary throws");
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(input, binary_stream, '$stream'(3))",
+                   "code binary formal");
+  mosa_test::check(binary->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success,
+                   "code binary keeps the byte");
+
+  write_bytes(bad_path, "\xFF");
+  auto broken = mosa::Machine::create();
+  const std::string bad_atom = prolog_atom(bad_path.string());
+  mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "code bad open");
+  auto utf = broken->query("get_code('$stream'(3), C).");
+  mosa_test::check(utf.kind == mosa::StopKind::Exception, "code bad utf throws");
+  mosa_test::check(formal_text(*broken, utf) == "representation_error(character)", "code bad utf formal");
+  auto peeked = broken->query("peek_code('$stream'(3), C).");
+  mosa_test::check(formal_text(*broken, peeked) == "representation_error(character)", "peek code stays on bad utf");
+
+  write_bytes(eof_path, "");
+  auto ending = mosa::Machine::create();
+  const std::string eof_atom = prolog_atom(eof_path.string());
+  mosa_test::check(ending->query("open(" + eof_atom + ", read, S, [eof_action(error)]).").kind ==
+                       mosa::StopKind::Success,
+                   "code eof open");
+  auto once = ending->query("get_code('$stream'(3), C).");
+  mosa_test::check(binding_named(*ending, once, "C") == "-1", "code first eof");
+  auto twice = ending->query("get_code('$stream'(3), C).");
+  mosa_test::check(formal_text(*ending, twice) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+                   "code past formal");
+}
+
 void check_put_char(const std::filesystem::path& path) {
   std::ostringstream caught;
   auto* old = std::cout.rdbuf(caught.rdbuf());
@@ -408,6 +446,7 @@ int main() {
   check_alias_blocks_real_file(dir / "phase3-alias.txt");
   check_eof_actions(dir / "phase3-reset.txt", dir / "phase3-eof-error.txt", dir / "phase3-binary.txt",
                     dir / "phase3-bad-utf.txt");
+  check_get_code(dir / "phase3-code-binary.txt", dir / "phase3-code-utf.txt", dir / "phase3-code-eof.txt");
   check_put_char(dir / "phase3-put.txt");
   check_get_bytes(dir / "phase3-bytes.txt", dir / "phase3-bytes-empty.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
