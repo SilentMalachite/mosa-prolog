@@ -285,7 +285,9 @@ std::string Printer::render_op(const OpDef& op, Cell term) {
     const bool allow = op.specifier == Specifier::Fy || op.specifier == Specifier::Yf;
     const std::string arg = render(heap_.arg(term, 0), op.priority, allow);
     const bool space = is_prefix(op.specifier) ? glue(name, arg) : glue(arg, name);
-    if (is_prefix(op.specifier)) return space ? name + " " + arg : name + arg;
+    // `\+(` は関数表記になる。空白を置くと '(' は括弧であり、前置の引数のまま読み戻せる。
+    const bool call_form = is_prefix(op.specifier) && !arg.empty() && arg.front() == '(';
+    if (is_prefix(op.specifier)) return (space || call_form) ? name + " " + arg : name + arg;
     return space ? arg + " " + name : arg + name;
   }
   const std::string left = render(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yfx);

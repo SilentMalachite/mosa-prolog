@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <span>
 #include <string>
 #include <string_view>
@@ -12,6 +13,7 @@ struct SessionResult {
   std::string err;
 };
 
-[[nodiscard]] SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty);
+[[nodiscard]] SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty,
+                                       std::size_t heap_limit = std::size_t{1} << 20);
 
 }

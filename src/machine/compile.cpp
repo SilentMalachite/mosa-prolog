@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 
 namespace mosa {
@@ -32,7 +33,30 @@ struct Build {
 
   [[nodiscard]] IrTerm data(Cell cell);
   [[nodiscard]] IrTerm goal(Cell cell);
+  // 数の前の単項 + と - を畳む。-0.0 は符号を残す。畳めなければ空。
+  [[nodiscard]] std::optional<IrTerm> fold_signed(Cell cell);
 };
+
+std::optional<IrTerm> Build::fold_signed(Cell cell) {
+  if (heap->functor_arity(cell) != 1) return std::nullopt;
+  const auto op = heap->atoms().name(heap->functor_atom(cell));
+  if (op != "-" && op != "+") return std::nullopt;
+  const IrTerm arg = data(heap->arg(cell, 0));
+  if (arg.tag == IrTag::Int && op == "+") return arg;
+  if (arg.tag == IrTag::Int && op == "-" && arg.integer != INT64_MIN) {
+    IrTerm negated = arg;
+    negated.integer = -arg.integer;
+    return negated;
+  }
+  if (arg.tag == IrTag::Float && op == "+") return arg;
+  if (arg.tag == IrTag::Float && op == "-") {
+    IrTerm negated = arg;
+    if (arg.floating == 0) negated.floating = std::copysign(0.0, -std::copysign(1.0, arg.floating));
+    else negated.floating = -arg.floating;
+    return negated;
+  }
+  return std::nullopt;
+}
 
 IrTerm Build::data(Cell cell) {
   cell = heap->deref(cell);
@@ -64,25 +88,13 @@ IrTerm Build::data(Cell cell) {
     return term;
   }
   if (cell.tag() != Tag::Str) return term;
-  // 数の前の単項 + と - は、比較と型検査が数値として見るように畳む。-0.0 は符号を残す。
-  if (heap->functor_arity(cell) == 1) {
-    const auto op = heap->atoms().name(heap->functor_atom(cell));
-    if (op == "-" || op == "+") {
-      const IrTerm arg = data(heap->arg(cell, 0));
-      if (arg.tag == IrTag::Int && op == "+") return arg;
-      if (arg.tag == IrTag::Int && op == "-" && arg.integer != INT64_MIN) {
-        IrTerm negated = arg;
-        negated.integer = -arg.integer;
-        return negated;
-      }
-      if (arg.tag == IrTag::Float && op == "+") return arg;
-      if (arg.tag == IrTag::Float && op == "-") {
-        IrTerm negated = arg;
-        if (arg.floating == 0) negated.floating = std::copysign(0.0, -std::copysign(1.0, arg.floating));
-        else negated.floating = -arg.floating;
-        return negated;
-      }
-    }
+  if (const std::optional<IrTerm> folded = fold_signed(cell)) return *folded;
+  // '.'/2 はリストそのもの。構造体のままにすると = と == が食い違う。
+  if (heap->functor_arity(cell) == 2 && heap->atoms().name(heap->functor_atom(cell)) == ".") {
+    term.tag = IrTag::List;
+    term.args.push_back(data(heap->arg(cell, 0)));
+    term.args.push_back(data(heap->arg(cell, 1)));
+    return term;
   }
   term.tag = IrTag::Fun;
   term.atom = heap->functor_atom(cell);

@@ -77,6 +77,12 @@ bool comma_arg(Fix& fix, const mosa::ReadTerm& term) {
   return functor(fix, term.term, "f", 1) && functor(fix, arg(fix, term.term, 0), ",", 2);
 }
 
+bool not_of_conj(Fix& fix, const mosa::ReadTerm& term) {
+  return functor(fix, term.term, "\\+", 1) && functor(fix, arg(fix, term.term, 0), ",", 2);
+}
+
+bool not_arity_two(Fix& fix, const mosa::ReadTerm& term) { return functor(fix, term.term, "\\+", 2); }
+
 bool empty_list(Fix& fix, const mosa::ReadTerm& term) {
   const auto cell = fix.heap.deref(term.term);
   return named(fix, cell, "[]") && cell.tag() != mosa::Tag::Lis;
@@ -140,6 +146,8 @@ void check_shapes() {
   check_term("a^b^c.", right_caret, "right assoc");
   check_term("f(a, b).", two_args, "arity 2");
   check_term("f((a, b)).", comma_arg, "comma arg");
+  check_term("\\+ (true, fail).", not_of_conj, "prefix not");
+  check_term("\\+(true, fail).", not_arity_two, "functional not");
 }
 
 void check_lists_and_curlies() {

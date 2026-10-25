@@ -1,5 +1,6 @@
 #include "mosa/repl.hpp"
 
+#include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
@@ -116,6 +117,10 @@ std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
   return text;
 }
 
+void warn_resource(SessionResult& result) { result.err += "警告: ヒープの上限を超えました\n"; }
+
+void recover_heap(Machine& machine) { machine.heap().truncate(0); }
+
 void warn_exception(Machine& machine, const Stop& stop, std::string& err) {
   err += "警告: ゴールは例外を送出しました: ";
   err += write_term(machine.heap(), machine.operators(), stop.exception, {}, {});
@@ -129,33 +134,39 @@ bool directive_text(Machine& machine, std::string_view text) {
 int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& cursor, SessionResult& result,
               bool& halted) {
   halted = false;
-  Stop stop = machine.query(goal);
-  while (true) {
-    if (stop.kind == StopKind::Halt) {
-      halted = true;
-      return stop.halt_code;
-    }
-    if (stop.kind == StopKind::Exception) {
-      warn_exception(machine, stop, result.err);
-      return interactive ? 0 : 2;
-    }
-    if (stop.kind == StopKind::Failure) {
-      result.out += "false.\n";
-      return 1;
-    }
-    if (!interactive || !stop.more) {
-      result.out += answer_line(machine, stop, true);
+  try {
+    Stop stop = machine.query(goal);
+    while (true) {
+      if (stop.kind == StopKind::Halt) {
+        halted = true;
+        return stop.halt_code;
+      }
+      if (stop.kind == StopKind::Exception) {
+        warn_exception(machine, stop, result.err);
+        return interactive ? 0 : 2;
+      }
+      if (stop.kind == StopKind::Failure) {
+        result.out += "false.\n";
+        return 1;
+      }
+      if (!interactive || !stop.more) {
+        result.out += answer_line(machine, stop, true);
+        return 0;
+      }
+      result.out += format_answer(machine, stop);
+      const int ch = cursor.get();
+      if (ch == ';') {
+        result.out += '\n';
+        stop = machine.next();
+        continue;
+      }
+      result.out += ".\n";
       return 0;
     }
-    result.out += format_answer(machine, stop);
-    const int ch = cursor.get();
-    if (ch == ';') {
-      result.out += '\n';
-      stop = machine.next();
-      continue;
-    }
-    result.out += ".\n";
-    return 0;
+  } catch (const ResourceLimit&) {
+    recover_heap(machine);
+    warn_resource(result);
+    return interactive ? 0 : 2;
   }
 }
 
@@ -174,8 +185,17 @@ void prompt_loop(Machine& machine, Cursor& cursor, SessionResult& result) {
     if (!cursor.line(line)) return;
     if (buffer.empty() && blank(line)) continue;
     buffer += line;
-    Reader reader(buffer, machine.heap(), machine.operators());
-    const ReadOutcome outcome = reader.next();
+    ReadOutcome outcome;
+    try {
+      Reader reader(buffer, machine.heap(), machine.operators());
+      outcome = reader.next();
+    } catch (const ResourceLimit&) {
+      recover_heap(machine);
+      warn_resource(result);
+      buffer.clear();
+      result.out += "?- ";
+      continue;
+    }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
     if (outcome.failure) {
       result.err += reason_text(outcome.failure->reason);
@@ -213,7 +233,8 @@ void prompt_loop(Machine& machine, Cursor& cursor, SessionResult& result) {
 
 }  // namespace
 
-SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty) {
+SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty,
+                           std::size_t heap_limit) {
   SessionResult result;
   const Options options = parse_args(args);
   if (options.version) {
@@ -233,12 +254,19 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
   Cursor cursor;
   cursor.data = input;
   cursor.from_cin = tty && input.empty();
-  auto machine = Machine::create();
+  auto machine = Machine::create(heap_limit);
   for (const std::string& file : options.files) {
-    if (!machine->consult(file)) {
-      result.err += std::string{machine->diagnostic()};
-      result.err += '\n';
-      result.code = 1;
+    try {
+      if (!machine->consult(file)) {
+        result.err += std::string{machine->diagnostic()};
+        result.err += '\n';
+        result.code = 1;
+        return result;
+      }
+    } catch (const ResourceLimit&) {
+      recover_heap(*machine);
+      warn_resource(result);
+      result.code = 2;
       return result;
     }
   }

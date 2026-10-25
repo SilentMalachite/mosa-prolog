@@ -16,3 +16,12 @@ test(soft_keeps, (p(X) *-> true ; X = 9), solutions([X = 1, X = 2])).
 test(soft_else, (fail *-> true ; true), true).
 test(soft_fail, (fail *-> true), fail).
 test(soft_cut, ((!, fail) *-> true ; true), true).
+test(iso_conj_fail, (true, fail), fail).
+test(iso_disj, (fail ; true), true).
+test(iso_if_then, (true -> X = 1 ; X = 2), solutions([X = 1])).
+test(iso_if_else, (fail -> X = 1 ; X = 2), solutions([X = 2])).
+test(iso_not_conj, (\+ (true, fail)), true).
+test(iso_once_fail, once(fail), fail).
+test(iso_call_true, call(true), true).
+test(iso_call_cut, (call(!), fail ; true), true).
+test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).

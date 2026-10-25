@@ -40,6 +40,20 @@ bool to_int(Impl& machine, const Goal& goal, double value, std::int64_t& out) {
   return true;
 }
 
+int float_round(Impl& machine, const Goal& goal, std::string_view name, double value, bool& as_int,
+                std::int64_t& iout) {
+  auto integral = [&](double rounded) {
+    if (!to_int(machine, goal, rounded, iout)) return -1;
+    as_int = true;
+    return 1;
+  };
+  if (name == "integer" || name == "truncate") return integral(std::trunc(value));
+  if (name == "floor") return integral(std::floor(value));
+  if (name == "ceiling") return integral(std::ceil(value));
+  if (name == "round") return integral(std::round(value));
+  return 0;
+}
+
 }  // namespace
 
 int float_op(Impl& machine, const Goal& goal, std::string_view name, const double* in, int count, double& out,
@@ -100,15 +114,10 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, const doubl
     out = in[0] - std::trunc(in[0]);
     return 1;
   }
-  auto integral = [&](double value) {
-    if (!to_int(machine, goal, value, iout)) return -1;
-    as_int = true;
-    return 1;
-  };
-  if ((name == "integer" || name == "truncate") && count == 1) return integral(std::trunc(in[0]));
-  if (name == "floor" && count == 1) return integral(std::floor(in[0]));
-  if (name == "ceiling" && count == 1) return integral(std::ceil(in[0]));
-  if (name == "round" && count == 1) return integral(std::round(in[0]));
+  if (count == 1 && (name == "integer" || name == "truncate" || name == "floor" || name == "ceiling" ||
+                     name == "round")) {
+    return float_round(machine, goal, name, in[0], as_int, iout);
+  }
   return 0;
 }
 

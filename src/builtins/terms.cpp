@@ -62,16 +62,25 @@ void decompose_functor(Impl& machine, const Goal& goal, Cell term) {
   succeed(machine, goal);
 }
 
+bool is_dot_name(const Impl& machine, Cell name) {
+  name = machine.heap.deref(name);
+  return name.tag() == Tag::Atom && machine.atoms.name(atom_id(name)) == ".";
+}
+
+Cell make_term(Impl& machine, Cell name, const std::vector<Cell>& args) {
+  if (args.size() == 2 && is_dot_name(machine, name)) return machine.heap.list(args[0], args[1]);
+  return machine.heap.structure(atom_id(name), args);
+}
+
 void construct_functor(Impl& machine, const Goal& goal, Cell name, std::int64_t arity) {
   if (arity == 0) {
-    Cell value = name;
-    if (!do_unify(machine, goal.arg(machine, 0), value)) machine.failed = true;
-  else succeed(machine, goal);
-  return;
+    if (!do_unify(machine, goal.arg(machine, 0), name)) machine.failed = true;
+    else succeed(machine, goal);
+    return;
   }
   std::vector<Cell> args(static_cast<std::size_t>(arity));
   for (auto& arg : args) arg = machine.heap.fresh_ref();
-  const Cell made = machine.heap.structure(atom_id(name), args);
+  const Cell made = make_term(machine, name, args);
   if (!do_unify(machine, goal.arg(machine, 0), made)) machine.failed = true;
   else succeed(machine, goal);
 }
@@ -168,6 +177,26 @@ ListRead proper_items(Impl& machine, Cell list, std::vector<Cell>& items) {
   }
 }
 
+void univ_from_term(Impl& machine, const Goal& goal, Cell term) {
+  std::vector<Cell> items;
+  if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) items.push_back(term);
+  else if (term.tag() == Tag::Lis) {
+    items.push_back(machine.heap.atom(machine.atoms.intern(".")));
+    items.push_back(machine.heap.list_head(term));
+    items.push_back(machine.heap.list_tail(term));
+  } else if (term.tag() == Tag::Str) {
+    items.push_back(machine.heap.atom(machine.heap.functor_atom(term)));
+    for (std::uint16_t index = 0; index < machine.heap.functor_arity(term); ++index) {
+      items.push_back(machine.heap.arg(term, index));
+    }
+  } else {
+    machine.failed = true;
+    return;
+  }
+  if (!do_unify(machine, goal.arg(machine, 1), list_from(machine, items))) machine.failed = true;
+  else succeed(machine, goal);
+}
+
 void run_univ(Impl& machine, const Goal& goal) {
   const Cell term = machine.heap.deref(goal.arg(machine, 0));
   const Cell list = machine.heap.deref(goal.arg(machine, 1));
@@ -176,23 +205,7 @@ void run_univ(Impl& machine, const Goal& goal) {
     return;
   }
   if (!machine.heap.unbound(term)) {
-    std::vector<Cell> items;
-    if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) items.push_back(term);
-    else if (term.tag() == Tag::Lis) {
-      items.push_back(machine.heap.atom(machine.atoms.intern(".")));
-      items.push_back(machine.heap.list_head(term));
-      items.push_back(machine.heap.list_tail(term));
-    } else if (term.tag() == Tag::Str) {
-      items.push_back(machine.heap.atom(machine.heap.functor_atom(term)));
-      for (std::uint16_t index = 0; index < machine.heap.functor_arity(term); ++index) {
-        items.push_back(machine.heap.arg(term, index));
-      }
-    } else {
-      machine.failed = true;
-      return;
-    }
-    if (!do_unify(machine, goal.arg(machine, 1), list_from(machine, items))) machine.failed = true;
-    else succeed(machine, goal);
+    univ_from_term(machine, goal, term);
     return;
   }
   if (is_nil(machine, list)) {
@@ -230,7 +243,7 @@ void run_univ(Impl& machine, const Goal& goal) {
   Cell made = head;
   if (argc > 0) {
     std::vector<Cell> args(items.begin() + 1, items.end());
-    made = machine.heap.structure(atom_id(head), args);
+    made = make_term(machine, head, args);
   }
   if (!do_unify(machine, goal.arg(machine, 0), made)) machine.failed = true;
   else succeed(machine, goal);

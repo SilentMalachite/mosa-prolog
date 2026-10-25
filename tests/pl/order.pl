@@ -8,3 +8,9 @@ test(compare_less, compare(<, a, b), true).
 test(not_term_eq, (a \== b), true).
 test(term_eq, (a == a), true).
 test(ge, (b @>= a), true).
+test(iso_int_after_float, (1 @< 1.0), fail).
+test(iso_atom_le, (a @=< a), true).
+test(iso_compare_gt, compare(>, b, a), true).
+test(iso_fun_order, (f(a) @< f(b)), true).
+test(iso_list_eq, ([a] == [a]), true).
+test(iso_list_lt, ([a] @< [b]), true).

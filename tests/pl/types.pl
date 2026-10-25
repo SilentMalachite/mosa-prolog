@@ -26,3 +26,10 @@ test(list_proper, is_list([a]), true).
 test(list_partial, is_list([a|b]), fail).
 test(list_var, is_list(X), fail).
 test(list_cycle, (X = [X], is_list(X)), fail).
+test(iso_nonvar_compound, nonvar(f(X)), true).
+test(iso_atomic_float, atomic(1.5), true).
+test(iso_compound_fun, compound(f(X)), true).
+test(iso_callable_nil, callable([]), true).
+test(iso_callable_list, callable([a]), true).
+test(iso_number_neg, integer(-3), true).
+test(iso_float_neg_zero, float(-0.0), true).

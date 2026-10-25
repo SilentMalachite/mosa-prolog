@@ -177,6 +177,22 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last) {
   return true;
 }
 
+void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& clause) {
+  const auto name = head_name(clause);
+  const auto arity = head_arity(clause);
+  const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
+    return shot.name == name && shot.arity == arity;
+  });
+  if (known) return;
+  Predicate* predicate = find_pred(machine, name, arity);
+  Snapshot shot;
+  shot.name = name;
+  shot.arity = arity;
+  shot.created = predicate == nullptr;
+  if (predicate != nullptr) shot.clauses = predicate->clauses;
+  snapshots.push_back(std::move(shot));
+}
+
 void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
   for (const Snapshot& shot : snapshots) {
     if (shot.created) continue;
@@ -186,9 +202,19 @@ void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t
   machine.predicates.resize(previous_size);
 }
 
+LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const std::vector<Snapshot>& snapshots,
+                       std::size_t previous_size, std::size_t heap_base) {
+  machine.operators = saved_ops;
+  rollback(machine, snapshots, previous_size);
+  machine.heap.truncate(heap_base);
+  return LoadStatus{false, machine.diagnostic};
+}
+
 }  // namespace
 
 LoadStatus load_source(Impl& machine, std::string_view source) {
+  // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
+  const auto heap_base = machine.heap.size();
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   for (Predicate& predicate : machine.predicates) predicate.seen = false;
@@ -204,20 +230,14 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       machine.diag_line = outcome.failure->line;
       machine.diag_column = outcome.failure->column;
       machine.diagnostic = reason_text(outcome.failure->reason);
-      machine.operators = saved_ops;
-      rollback(machine, snapshots, previous_size);
-      machine.heap.truncate(0);
-      return LoadStatus{false, machine.diagnostic};
+      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
     }
     if (!outcome.term) break;
     const Cell term = outcome.term->term;
     if (is_rule_arrow(machine.heap, term)) {
       const auto text = write_term(machine.heap, machine.operators, term, {}, {});
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
-      machine.operators = saved_ops;
-      rollback(machine, snapshots, previous_size);
-      machine.heap.truncate(0);
-      return LoadStatus{false, machine.diagnostic};
+      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
     }
     if (is_directive(machine.heap, term)) {
       if (!apply_op(machine, machine.heap.deref(term))) {
@@ -225,10 +245,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
           const auto text = write_term(machine.heap, machine.operators, term, {}, {});
           fail_load(machine, "この指示はフェーズ2では使えない: " + text);
         }
-        machine.operators = saved_ops;
-        rollback(machine, snapshots, previous_size);
-        machine.heap.truncate(0);
-        return LoadStatus{false, machine.diagnostic};
+        return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
       }
       continue;
     }
@@ -236,33 +253,14 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
     if (!compile_clause(machine.heap, term, clause)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +
                              write_term(machine.heap, machine.operators, term, {}, {}));
-      machine.operators = saved_ops;
-      rollback(machine, snapshots, previous_size);
-      machine.heap.truncate(0);
-      return LoadStatus{false, machine.diagnostic};
+      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
     }
-    const auto name = head_name(clause);
-    const auto arity = head_arity(clause);
-    const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
-      return shot.name == name && shot.arity == arity;
-    });
-    if (!known) {
-      Predicate* predicate = find_pred(machine, name, arity);
-      Snapshot shot;
-      shot.name = name;
-      shot.arity = arity;
-      shot.created = predicate == nullptr;
-      if (predicate != nullptr) shot.clauses = predicate->clauses;
-      snapshots.push_back(std::move(shot));
-    }
+    remember(machine, snapshots, clause);
     if (!add_clause(machine, std::move(clause), last)) {
-      machine.operators = saved_ops;
-      rollback(machine, snapshots, previous_size);
-      machine.heap.truncate(0);
-      return LoadStatus{false, machine.diagnostic};
+      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
     }
   }
-  machine.heap.truncate(0);
+  machine.heap.truncate(heap_base);
   machine.diagnostic.clear();
   return LoadStatus{true, {}};
 }

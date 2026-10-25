@@ -74,7 +74,10 @@ Scan Lexer::next() {
   // 失敗を残す。不正バイトを消費した次の next も同じ失敗を返すため。
   if (failure_) return *failure_;
   skip_bom();
+  const std::size_t before = index_;
   if (const std::optional<Scan> stopped = skip_ignorable()) return *stopped;
+  // 名前と '(' の間の空白は、関数表記と前置演算子の引数を分ける。
+  layout_before_ = index_ != before;
   if (index_ >= source_.size()) return token_at(TokenKind::End, here());
   const SourceChar ch = peek_char();
   if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
@@ -258,13 +261,14 @@ Scan Lexer::fail_at(SyntaxReason reason, std::string token, Place place) {
   return scan;
 }
 
-Scan Lexer::token_at(TokenKind kind, Place place, std::string text) const {
+Scan Lexer::token_at(TokenKind kind, Place place, std::string text) {
   Scan scan;
   scan.token.kind = kind;
   scan.token.text = std::move(text);
   scan.token.line = place.line;
   scan.token.column = place.column;
   scan.token.byte = place.byte;
+  scan.token.after_layout = layout_before_;
   return scan;
 }
 

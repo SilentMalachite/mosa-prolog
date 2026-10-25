@@ -1,6 +1,8 @@
 #include "harness.hpp"
+#include "mosa/machine.hpp"
 #include "mosa/repl.hpp"
 #include "mosa/suite.hpp"
+#include "mosa/writer.hpp"
 
 #include <fstream>
 #include <string>
@@ -56,6 +58,41 @@ void check_errors() {
   mosa_test::check(absent.err.find("ファイルを開けません") != std::string::npos, "missing phrase");
 }
 
+void check_consult_keeps_query() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/consult_live.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << "p(1).\n";
+  file.close();
+  const std::string query = "consult('" + path + "'), true, p(X).";
+  auto machine = mosa::Machine::create();
+  auto stop = machine->query(query);
+  mosa_test::check(stop.kind == mosa::StopKind::Success && stop.bindings.size() == 1, "consult query lives");
+  const auto text = mosa::write_term(machine->heap(), machine->operators(),
+                                     machine->heap().deref(stop.bindings[0].variable), mosa::WriteOptions{}, {});
+  mosa_test::check(text == "1", "consult value 1");
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  std::vector<std::string_view> args{arg0, arg_g, query};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 0, "consult session exit");
+  mosa_test::check(result.out.find("X = 1.") != std::string::npos, "consult session answer");
+}
+
+void check_resource_limit_session() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "catch(p(a), _, true).";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto batch = mosa::run_session(args, "", false, 8);
+  mosa_test::check(batch.code == 2, "resource batch exit");
+  mosa_test::check(batch.err.find("ヒープの上限を超えました") != std::string::npos, "resource warning");
+  mosa_test::check(batch.out.find("?- ") == std::string::npos, "resource batch no prompt");
+  auto talk = mosa::run_session(args, "\n", true, 8);
+  mosa_test::check(talk.code == 0, "resource tty stays up");
+  mosa_test::check(talk.err.find("ヒープの上限を超えました") != std::string::npos, "resource tty warning");
+  mosa_test::check(talk.out.find("?- ") != std::string::npos, "resource tty prompt");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
@@ -65,6 +102,8 @@ int main() {
   check_batch_without_tty();
   check_tty_next_then_prompt();
   check_errors();
+  check_consult_keeps_query();
+  check_resource_limit_session();
   check_runner();
   return mosa_test::failures();
 }

@@ -20,6 +20,8 @@ struct Token {
   std::size_t line = 1;
   std::size_t column = 1;
   std::size_t byte = 0;
+  // 空白や注釈の直後の '(' は関数表記ではない。
+  bool after_layout = false;
 };
 
 struct Scan {
@@ -88,13 +90,14 @@ class Lexer {
   [[nodiscard]] std::optional<Scan> take_hex_digit(char32_t& value, Place start);
   void emit_code(std::string* text, char32_t* code, char32_t value);
   [[nodiscard]] Scan fail_at(SyntaxReason reason, std::string token, Place place);
-  [[nodiscard]] Scan token_at(TokenKind kind, Place place, std::string text = {}) const;
+  [[nodiscard]] Scan token_at(TokenKind kind, Place place, std::string text = {});
 
   std::string_view source_;
   std::size_t index_ = 0;
   std::size_t line_ = 1;
   std::size_t column_ = 1;
   bool bom_checked_ = false;
+  bool layout_before_ = false;
   std::optional<Scan> failure_;
 };
 

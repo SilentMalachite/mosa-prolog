@@ -1,3 +1,4 @@
+#include "mosa/heap.hpp"
 #include "mosa/repl.hpp"
 #include "mosa/terminal.hpp"
 
@@ -23,8 +24,13 @@ int main(int argc, char** argv) {
     buffer << std::cin.rdbuf();
     input = buffer.str();
   }
-  const mosa::SessionResult result = mosa::run_session(args, tty ? std::string_view{} : std::string_view{input}, tty);
-  std::cout << result.out;
-  std::cerr << result.err;
-  return result.code;
+  try {
+    const mosa::SessionResult result = mosa::run_session(args, tty ? std::string_view{} : std::string_view{input}, tty);
+    std::cout << result.out;
+    std::cerr << result.err;
+    return result.code;
+  } catch (const mosa::ResourceLimit&) {
+    std::cerr << "警告: ヒープの上限を超えました\n";
+    return 2;
+  }
 }

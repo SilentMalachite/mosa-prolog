@@ -139,6 +139,9 @@ Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env
         std::vector<Cell> args;
         args.reserve(term.args.size());
         for (const IrTerm& arg : term.args) args.push_back(materialize(machine, arg, env));
+        if (term.args.size() == 2 && machine.atoms.name(term.atom) == ".") {
+          return machine.heap.list(args[0], args[1]);
+        }
         return machine.heap.structure(term.atom, args);
       }
       std::vector<Cell> args;

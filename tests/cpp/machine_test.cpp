@@ -124,6 +124,12 @@ void check_terms() {
                    "copy shares no var");
   mosa_test::check(machine->query("term_variables(f(A, A, B), [A, B]).").kind == mosa::StopKind::Success,
                    "term variables");
+  mosa_test::check(machine->query("(T =.. ['.', a, []], T = [a], T == [a], is_list(T)).").kind ==
+                       mosa::StopKind::Success,
+                   "dot functor is a list");
+  mosa_test::check(machine->query("(functor(T, '.', 2), arg(1, T, a), arg(2, T, []), T = [a]).").kind ==
+                       mosa::StopKind::Success,
+                   "functor dot builds a list");
 }
 
 void check_answer_and_consult() {

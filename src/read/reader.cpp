@@ -204,8 +204,8 @@ Reader::Parsed Reader::parse_name(int max_priority) {
   const Token token = consume().token;
   const Scan next = peek();
   if (next.failure) return failure_of(next);
-  // 名前の直後の '(' は前置演算子より先に、関数表記である。
-  if (next.token.kind == TokenKind::Solo && next.token.text == "(") {
+  // 空白を挟まない '(' だけが関数表記。`\+ (true, fail)` は前置の引数である。
+  if (next.token.kind == TokenKind::Solo && next.token.text == "(" && !next.token.after_layout) {
     consume();
     return parse_arguments(token.text);
   }
