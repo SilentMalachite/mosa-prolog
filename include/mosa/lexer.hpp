@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mosa/char_conv.hpp"
 #include "mosa/syntax_error.hpp"
 
 #include <cstddef>
@@ -32,7 +33,7 @@ struct Scan {
 // source は最後の next が返るまで有効であればよい。テキストは展開後を所有する。
 class Lexer {
  public:
-  explicit Lexer(std::string_view source);
+  explicit Lexer(std::string_view source, const CharConv* conv = nullptr);
   [[nodiscard]] Scan next();
   // 終止符は、続く空白 1 つまで含めたバイト位置。
   [[nodiscard]] std::size_t offset() const { return index_; }
@@ -59,7 +60,21 @@ class Lexer {
   };
 
   [[nodiscard]] Place here() const;
+  // 引用と注釈の間だけ、写像せずに字を読む。
+  class RawScope {
+   public:
+    explicit RawScope(Lexer& lexer) : lexer_(lexer), previous_(lexer.raw_) { lexer_.raw_ = true; }
+    ~RawScope() { lexer_.raw_ = previous_; }
+    RawScope(const RawScope&) = delete;
+    RawScope& operator=(const RawScope&) = delete;
+
+   private:
+    Lexer& lexer_;
+    bool previous_;
+  };
+
   [[nodiscard]] SourceChar peek_char() const;
+  [[nodiscard]] SourceChar peek_raw_at(std::size_t byte) const;
   [[nodiscard]] SourceChar peek_char_at(std::size_t byte) const;
   void advance(char32_t code, std::size_t bytes);
   void append_code(std::string& text, char32_t code) const;
@@ -100,6 +115,8 @@ class Lexer {
   std::size_t column_ = 1;
   bool bom_checked_ = false;
   bool layout_before_ = false;
+  bool raw_ = false;
+  const CharConv* conv_ = nullptr;
   std::optional<Scan> failure_;
 };
 

@@ -1,4 +1,4 @@
-// 規格 8.14.3 op/3、8.14.4 current_op/3。
+// 規格 8.14.3 op/3、8.14.4 current_op/3、8.14.5 char_conversion/2。
 // op(+integer, +operator_specifier, +atom_or_atom_list)
 // current_op(?integer, ?operator_specifier, ?atom)
 // op/3 は具体化、型、ドメイン、許可の順。名前のリストは全部を確かめてから表を替える。
@@ -6,13 +6,19 @@
 // 優先度 0 はその指定子だけを消す。| の優先度 0 も削除として成功する。
 // current_op/3 は優先度、指定子、名前の順。優先度 0 は領域に入り、該当が無ければ失敗する。
 // 候補は呼び出しのときに写す。やり直しの途中で表が変わっても、写した候補は残る。
+// char_conversion(+character, +character)。来が変数、来の型、先が変数、先の型の順。
+// 同じ文字は写像を消す。旗が off のあいだ、読みは写像を使わない。
 // instantiation_error, type_error(integer), type_error(atom), type_error(list),
+// type_error(character),
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
-// テスト: tests/pl/operators.pl, tests/pl/japanese.pl
+// テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl, tests/pl/japanese.pl
 
 #include "../machine/internal.hpp"
 
+#include "mosa/writer.hpp"
+
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -260,6 +266,34 @@ void run_current_op(Impl& machine, const Goal& goal) {
   if (!prove_ops(machine, goal, matching_ops(machine, priority, specifier, name), 0)) machine.failed = true;
 }
 
+std::optional<Cell> char_conv_problem(Impl& machine, Cell in, Cell out, char32_t& from, char32_t& to) {
+  in = machine.heap.deref(in);
+  out = machine.heap.deref(out);
+  if (machine.heap.unbound(in)) return formal_instantiation(machine);
+  if (!one_char_atom(machine, in, from)) return formal_type(machine, "character", in);
+  if (machine.heap.unbound(out)) return formal_instantiation(machine);
+  if (!one_char_atom(machine, out, to)) return formal_type(machine, "character", out);
+  return std::nullopt;
+}
+
+void store_char_conv(Impl& machine, char32_t from, char32_t to) {
+  auto& map = machine.char_conv.map;
+  std::erase_if(map, [from](const std::pair<char32_t, char32_t>& pair) { return pair.first == from; });
+  if (from != to) map.emplace_back(from, to);
+}
+
+void run_char_conversion(Impl& machine, const Goal& goal) {
+  char32_t from = 0;
+  char32_t to = 0;
+  if (const std::optional<Cell> problem =
+          char_conv_problem(machine, goal.arg(machine, 0), goal.arg(machine, 1), from, to)) {
+    raise_formal(machine, *problem, goal.name, goal.arity);
+    return;
+  }
+  store_char_conv(machine, from, to);
+  machine.ip = goal.cont;
+}
+
 }  // namespace
 
 bool redo_current_op(Impl& machine) {
@@ -276,6 +310,29 @@ bool redo_current_op(Impl& machine) {
   return prove_ops(machine, goal, flat, next);
 }
 
+int apply_char_conv_directive(Impl& machine, Cell directive) {
+  directive = machine.heap.deref(directive);
+  if (!(directive.tag() == Tag::Str && machine.heap.functor_arity(directive) == 1 &&
+        machine.atoms.name(machine.heap.functor_atom(directive)) == ":-")) {
+    return 0;
+  }
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (!(body.tag() == Tag::Str && machine.heap.functor_arity(body) == 2 &&
+        machine.atoms.name(machine.heap.functor_atom(body)) == "char_conversion")) {
+    return 0;
+  }
+  char32_t from = 0;
+  char32_t to = 0;
+  if (const std::optional<Cell> problem =
+          char_conv_problem(machine, machine.heap.arg(body, 0), machine.heap.arg(body, 1), from, to)) {
+    machine.diagnostic = write_term(machine.heap, machine.operators, *problem, {}, {});
+    machine.syntax_diag = false;
+    return -1;
+  }
+  store_char_conv(machine, from, to);
+  return 1;
+}
+
 bool run_operators(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "op" && goal.arity == 3) {
@@ -284,6 +341,10 @@ bool run_operators(Impl& machine, const Goal& goal) {
   }
   if (name == "current_op" && goal.arity == 3) {
     run_current_op(machine, goal);
+    return true;
+  }
+  if (name == "char_conversion" && goal.arity == 2) {
+    run_char_conversion(machine, goal);
     return true;
   }
   return false;

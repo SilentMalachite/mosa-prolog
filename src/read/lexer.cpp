@@ -68,7 +68,7 @@ Decoded decode_utf8(std::string_view source, std::size_t index) {
 
 }  // namespace
 
-Lexer::Lexer(std::string_view source) : source_(source) {}
+Lexer::Lexer(std::string_view source, const CharConv* conv) : source_(source), conv_(conv) {}
 
 Scan Lexer::next() {
   // 失敗を残す。不正バイトを消費した次の next も同じ失敗を返すため。
@@ -107,9 +107,18 @@ Lexer::Place Lexer::here() const { return Place{line_, column_, index_}; }
 
 Lexer::SourceChar Lexer::peek_char() const { return peek_char_at(index_); }
 
-Lexer::SourceChar Lexer::peek_char_at(std::size_t byte) const {
+Lexer::SourceChar Lexer::peek_raw_at(std::size_t byte) const {
   const Decoded decoded = decode_utf8(source_, byte);
   return SourceChar{decoded.code, decoded.bytes, decoded.valid};
+}
+
+Lexer::SourceChar Lexer::peek_char_at(std::size_t byte) const {
+  SourceChar ch = peek_raw_at(byte);
+  // 引用と注釈の中は元の文字。外は写像した符号点で分類する。
+  // バイト数は元の文字のままにして、消費位置をソースに合わせる。
+  if (!ch.valid || raw_ || conv_ == nullptr) return ch;
+  ch.code = conv_->apply(ch.code);
+  return ch;
 }
 
 void Lexer::advance(char32_t code, std::size_t bytes) {
@@ -157,31 +166,38 @@ void Lexer::append_code(std::string& text, char32_t code) const {
 void Lexer::skip_bom() {
   if (bom_checked_) return;
   bom_checked_ = true;
-  const SourceChar ch = peek_char_at(0);
+  const SourceChar ch = peek_raw_at(0);
   // 先頭の BOM だけ捨てる。列 1 は最初の本文の文字に残す。
   if (index_ == 0 && ch.valid && ch.code == U'\uFEFF') index_ = ch.bytes;
 }
 
 std::optional<Scan> Lexer::skip_ignorable() {
   while (index_ < source_.size()) {
-    if (index_ + 1 < source_.size() && source_[index_] == '/' && source_[index_ + 1] == '*') {
-      if (const std::optional<Scan> error = skip_block_comment(here())) return error;
-      continue;
+    const SourceChar ch = peek_char();
+    if (!ch.valid) return std::nullopt;
+    if (ch.code == U'/') {
+      const SourceChar next = peek_char_at(index_ + ch.bytes);
+      if (next.valid && next.code == U'*') {
+        if (const std::optional<Scan> error = skip_block_comment(here())) return error;
+        continue;
+      }
     }
-    if (source_[index_] == '%') {
+    if (ch.code == U'%') {
       if (const std::optional<Scan> error = skip_line_comment()) return error;
       continue;
     }
-    const SourceChar ch = peek_char();
-    if (!ch.valid || classify(ch.code) != CharClass::Layout) return std::nullopt;
+    if (classify(ch.code) != CharClass::Layout) return std::nullopt;
     advance(ch.code, ch.bytes);
   }
   return std::nullopt;
 }
 
 std::optional<Scan> Lexer::skip_block_comment(Place start) {
-  advance(U'/', 1);
-  advance(U'*', 1);
+  const SourceChar slash = peek_char();
+  advance(slash.code, slash.bytes);
+  const SourceChar star = peek_char();
+  advance(star.code, star.bytes);
+  const RawScope raw(*this);
   while (index_ < source_.size()) {
     // ネストしない。最初の */ で閉じ、中の /* は文字のまま捨てる。
     if (source_[index_] == '*' && index_ + 1 < source_.size() && source_[index_ + 1] == '/') {
@@ -197,7 +213,9 @@ std::optional<Scan> Lexer::skip_block_comment(Place start) {
 }
 
 std::optional<Scan> Lexer::skip_line_comment() {
-  advance(U'%', 1);
+  const SourceChar mark = peek_char();
+  advance(mark.code, mark.bytes);
+  const RawScope raw(*this);
   while (index_ < source_.size()) {
     const auto byte = static_cast<unsigned char>(source_[index_]);
     if (byte == '\n' || byte == '\r') return std::nullopt;
@@ -216,6 +234,7 @@ bool Lexer::dot_is_full_stop() const {
 
 Scan Lexer::scan_word(TokenKind kind) {
   const Place start = here();
+  std::string text;
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
     if (!ch.valid) break;
@@ -224,13 +243,15 @@ Scan Lexer::scan_word(TokenKind kind) {
                            cls == CharClass::Underline || cls == CharClass::Digit ||
                            cls == CharClass::Mark;
     if (!continues) break;
+    append_code(text, ch.code);
     advance(ch.code, ch.bytes);
   }
-  return token_at(kind, start, std::string(source_.substr(start.byte, index_ - start.byte)));
+  return token_at(kind, start, std::move(text));
 }
 
 Scan Lexer::scan_graphic() {
   const Place start = here();
+  std::string text;
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
     if (!ch.valid || classify(ch.code) != CharClass::Graphic) break;
@@ -238,6 +259,7 @@ Scan Lexer::scan_graphic() {
     if (ch.code == U'.' && dot_is_full_stop() && (index_ == start.byte || source_[index_ - 1] != '.')) {
       break;
     }
+    append_code(text, ch.code);
     advance(ch.code, ch.bytes);
   }
   if (index_ == start.byte) {
@@ -249,14 +271,16 @@ Scan Lexer::scan_graphic() {
     }
     return token_at(TokenKind::EndFullStop, start);
   }
-  return token_at(TokenKind::Name, start, std::string(source_.substr(start.byte, index_ - start.byte)));
+  return token_at(TokenKind::Name, start, std::move(text));
 }
 
 Scan Lexer::scan_solo() {
   const Place start = here();
   const SourceChar ch = peek_char();
+  std::string text;
+  append_code(text, ch.code);
   advance(ch.code, ch.bytes);
-  return token_at(TokenKind::Solo, start, std::string(source_.substr(start.byte, index_ - start.byte)));
+  return token_at(TokenKind::Solo, start, std::move(text));
 }
 
 Scan Lexer::fail_at(SyntaxReason reason, std::string token, Place place) {

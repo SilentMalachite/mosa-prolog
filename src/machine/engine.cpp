@@ -231,6 +231,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"with_output_to", 2},
     {"op", 3},
     {"current_op", 3},
+    {"char_conversion", 2},
     {"bagof", 3},
     {"setof", 3},
     {"catch", 3},
@@ -504,7 +505,8 @@ Stop Machine::query(std::string_view goal_text) {
   machine.diagnostic.clear();
   machine.ip = kNoFrame;
   machine.bindings.clear();
-  Reader reader(goal_text, machine.heap, machine.operators, current_double_quotes(machine));
+  Reader reader(goal_text, machine.heap, machine.operators, current_double_quotes(machine),
+                &machine.char_conv);
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return Stop{StopKind::Failure, 0, {}, {}, false};
   for (const VarName& name : outcome.term->names) {

@@ -165,6 +165,7 @@ struct Machine::Impl {
   bool float_overflow_error = true;
   bool float_zero_div_error = true;
   bool float_undefined_error = true;
+  CharConv char_conv;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {}
 };
@@ -293,6 +294,7 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_write(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_operators(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_op(Impl& machine);
+int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);

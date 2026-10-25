@@ -3,7 +3,7 @@
 //   domain_error(flag_value), permission_error(modify, flag, Flag)
 // 8.17.2 current_prolog_flag(?atom, ?term)
 //   type_error(atom), domain_error(prolog_flag)
-// 未決 8 から 15 の旗は登録しない。warning と error 以外の浮動小数旗も受け付けない。
+// char_conversion は on と off。既定は off。warning と error 以外の浮動小数旗も受け付けない。
 // テスト: tests/pl/flags.pl
 
 #include "../machine/internal.hpp"
@@ -20,7 +20,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 12;
+constexpr std::size_t kFlagCount = 13;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -43,6 +43,7 @@ std::string_view flag_name(std::size_t index) {
     case 9: return "float_overflow";
     case 10: return "float_zero_div";
     case 11: return "float_undefined";
+    case 12: return "char_conversion";
     default: return {};
   }
 }
@@ -71,6 +72,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
     case 6: return atom_named(machine, machine.unknown_fail ? "fail" : "error");
     case 7: return atom_named(machine, "utf8");
     case 8: return atom_named(machine, "false");
+    case 12: return atom_named(machine, machine.char_conv.enabled ? "on" : "off");
     default: return atom_named(machine, "error");
   }
 }
@@ -104,6 +106,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     }
     case 7: return same_atom(machine, value, "utf8");
     case 8: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
+    case 12: return same_atom(machine, value, "on") || same_atom(machine, value, "off");
     default: return same_atom(machine, value, "error");
   }
 }
@@ -117,6 +120,7 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
     return;
   }
   if (index == 6) machine.unknown_fail = text == "fail";
+  if (index == 12) machine.char_conv.enabled = text == "on";
 }
 
 void type_at(Impl& machine, const Goal& goal, Cell culprit) {

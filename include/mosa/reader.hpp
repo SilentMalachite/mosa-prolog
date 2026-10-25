@@ -37,7 +37,7 @@ struct ReadOutcome {
 class Reader {
  public:
   Reader(std::string_view source, Heap& heap, OperatorTable& operators,
-         DoubleQuotes quotes = DoubleQuotes::Codes);
+         DoubleQuotes quotes = DoubleQuotes::Codes, const CharConv* conv = nullptr);
 
   [[nodiscard]] ReadOutcome next();
   [[nodiscard]] std::size_t consumed() const { return lexer_.offset(); }

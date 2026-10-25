@@ -360,7 +360,8 @@ ReadTerm eof_term(Impl& machine) {
 Intake intake_term(Impl& machine, Stream& stream) {
   while (true) {
     const std::string_view slice = rest(stream);
-    Reader reader(slice, machine.heap, machine.operators, current_double_quotes(machine));
+    Reader reader(slice, machine.heap, machine.operators, current_double_quotes(machine),
+                  &machine.char_conv);
     ReadOutcome outcome = reader.next();
     const std::size_t consumed = reader.consumed();
     // 標準入力は、項が閉じるか本当の終端まで 1 バイトずつ足す。

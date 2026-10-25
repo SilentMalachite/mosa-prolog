@@ -250,6 +250,7 @@ Scan Lexer::scan_quoted() {
   const char32_t quote = opener.code;
   const std::string opener_text(1, static_cast<char>(quote));
   advance(quote, opener.bytes);
+  const RawScope raw(*this);
   std::string text;
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();

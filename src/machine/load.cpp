@@ -219,11 +219,18 @@ struct SavedFlags {
   bool float_overflow_error = true;
   bool float_zero_div_error = true;
   bool float_undefined_error = true;
+  bool char_conv_on = false;
+  std::vector<std::pair<char32_t, char32_t>> char_map;
 };
 
 SavedFlags save_flags(const Impl& machine) {
-  return SavedFlags{machine.quotes, machine.unknown_fail, machine.float_overflow_error,
-                    machine.float_zero_div_error, machine.float_undefined_error};
+  return SavedFlags{machine.quotes,
+                    machine.unknown_fail,
+                    machine.float_overflow_error,
+                    machine.float_zero_div_error,
+                    machine.float_undefined_error,
+                    machine.char_conv.enabled,
+                    machine.char_conv.map};
 }
 
 void restore_flags(Impl& machine, const SavedFlags& saved) {
@@ -232,6 +239,8 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.float_overflow_error = saved.float_overflow_error;
   machine.float_zero_div_error = saved.float_zero_div_error;
   machine.float_undefined_error = saved.float_undefined_error;
+  machine.char_conv.enabled = saved.char_conv_on;
+  machine.char_conv.map = saved.char_map;
 }
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
@@ -339,6 +348,9 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int dynamic_directive = apply_dynamic_directive(machine, term, snapshots);
   if (dynamic_directive < 0) return -1;
   if (dynamic_directive > 0) return 1;
+  const int conversion = apply_char_conv_directive(machine, term);
+  if (conversion < 0) return -1;
+  if (conversion > 0) return 1;
   if (!apply_op(machine, machine.heap.deref(term))) {
     if (machine.diagnostic.empty()) {
       const auto text = write_term(machine.heap, machine.operators, term, {}, {});
@@ -365,7 +377,8 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   std::vector<Snapshot> snapshots;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
-  Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine));
+  Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine),
+                &machine.char_conv);
   while (true) {
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) {

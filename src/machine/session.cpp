@@ -217,7 +217,8 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     buffer += line;
     ReadOutcome outcome;
     try {
-      Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)));
+      Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
+                    &engine_impl(machine).char_conv);
       outcome = reader.next();
     } catch (const ResourceLimit&) {
       recover_heap(machine);
