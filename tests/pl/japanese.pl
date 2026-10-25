@@ -7,3 +7,5 @@ test(atom_length_arg_order, atom_length(X, foo), error(instantiation_error)).
 test(open_string_oya, (open_string('親', S), functor(S, '$stream', 1)), true).
 test(open_string_scalar, (open_string('𠮷', S), functor(S, '$stream', 1)), true).
 test(open_string_scalar_code, (open_string([134071], S), functor(S, '$stream', 1)), true).
+test(get_oya, (open_string('親', S), get_char(S, '親')), true).
+test(peek_scalar, (open_string('𠮷', S), peek_char(S, C), get_char(S, D), C == '𠮷', D == '𠮷'), true).

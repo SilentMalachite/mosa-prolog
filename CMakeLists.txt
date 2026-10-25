@@ -60,6 +60,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/clause_term.cpp
   src/builtins/solutions.cpp
   src/builtins/streams.cpp
+  src/builtins/chars.cpp
 )
 
 enable_testing()
