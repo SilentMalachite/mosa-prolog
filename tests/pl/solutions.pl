@@ -4,7 +4,7 @@ d(3, a).
 
 test(findall_two, findall(X, (X = 1; X = 2), S), solutions([S = [1, 2]])).
 test(findall_none, findall(X, fail, S), solutions([S = []])).
-test(findall_copy, (X = 1, findall(f(X), true, L), X = 2, L == [f(1)]), true).
+test(findall_copy, (findall(f(X), (X = 1; X = 2), L), X = 3, L == [f(1), f(2)]), true).
 test(findall_throw, findall(X, throw(error(instantiation_error, _)), S), error(instantiation_error)).
 test(findall_var_goal, findall(X, Y, S), error(instantiation_error)).
 test(bagof_none, bagof(X, fail, S), fail).
