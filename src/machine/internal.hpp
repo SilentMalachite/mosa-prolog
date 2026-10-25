@@ -77,7 +77,8 @@ struct Entry {
   std::vector<std::uint32_t> live_catches;
   Cell pattern{};
   IrTerm recovery;
-  // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op。
+  // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
+  // 5 は current_char_conversion。
   std::uint8_t gen_kind = 0;
 };
 
@@ -294,6 +295,7 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_write(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_operators(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_op(Impl& machine);
+[[nodiscard]] bool redo_current_char_conversion(Impl& machine);
 int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);

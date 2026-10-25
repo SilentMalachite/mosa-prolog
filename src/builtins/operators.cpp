@@ -1,4 +1,4 @@
-// 規格 8.14.3 op/3、8.14.4 current_op/3、8.14.5 char_conversion/2。
+// 規格 8.14.3 op/3、8.14.4 current_op/3、8.14.5 char_conversion/2、8.14.6 current_char_conversion/2。
 // op(+integer, +operator_specifier, +atom_or_atom_list)
 // current_op(?integer, ?operator_specifier, ?atom)
 // op/3 は具体化、型、ドメイン、許可の順。名前のリストは全部を確かめてから表を替える。
@@ -8,11 +8,14 @@
 // 候補は呼び出しのときに写す。やり直しの途中で表が変わっても、写した候補は残る。
 // char_conversion(+character, +character)。来が変数、来の型、先が変数、先の型の順。
 // 同じ文字は写像を消す。旗が off のあいだ、読みは写像を使わない。
+// current_char_conversion(?character, ?character)。来の型、先の型の順。変数は許す。
+// 恒等でない組だけを、登録順に返す。旗の on と off は問い合わせに影響しない。
 // instantiation_error, type_error(integer), type_error(atom), type_error(list),
 // type_error(character),
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
-// テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl, tests/pl/japanese.pl
+// テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl,
+// tests/pl/curchar.pl, tests/pl/japanese.pl
 
 #include "../machine/internal.hpp"
 
@@ -294,6 +297,81 @@ void run_char_conversion(Impl& machine, const Goal& goal) {
   machine.ip = goal.cont;
 }
 
+constexpr std::uint8_t kCharGen = 5;
+
+bool character_arg(const Impl& machine, Cell cell) {
+  char32_t code = 0;
+  return machine.heap.unbound(cell) || one_char_atom(machine, cell, code);
+}
+
+Cell char_atom(Impl& machine, char32_t code) { return machine.heap.atom(machine.atoms.intern_char(code)); }
+
+std::vector<Cell> matching_chars(Impl& machine, Cell in, Cell out) {
+  char32_t in_code = 0;
+  char32_t out_code = 0;
+  const bool in_bound = one_char_atom(machine, in, in_code);
+  const bool out_bound = one_char_atom(machine, out, out_code);
+  std::vector<Cell> flat;
+  for (const auto& pair : machine.char_conv.map) {
+    if (in_bound && pair.first != in_code) continue;
+    if (out_bound && pair.second != out_code) continue;
+    flat.push_back(char_atom(machine, pair.first));
+    flat.push_back(char_atom(machine, pair.second));
+  }
+  return flat;
+}
+
+bool bind_char(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std::size_t index) {
+  const auto at = index * 2;
+  return do_unify(machine, goal.arg(machine, 0), flat[at]) &&
+         do_unify(machine, goal.arg(machine, 1), flat[at + 1]);
+}
+
+void push_char(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std::size_t next,
+               std::size_t heap_mark, std::size_t trail_mark) {
+  Entry entry;
+  entry.pick = Pick::AtomGen;
+  entry.gen_kind = kCharGen;
+  entry.next = next;
+  entry.env = flat;
+  entry.redo_goal = goal.at;
+  entry.heap_mark = heap_mark;
+  entry.trail_mark = trail_mark;
+  push_frame(machine, std::move(entry));
+}
+
+bool prove_chars(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std::size_t begin) {
+  const auto count = flat.size() / 2;
+  for (std::size_t index = begin; index < count; ++index) {
+    const auto heap_mark = machine.heap.size();
+    const auto trail_mark = machine.trail.slots.size();
+    const auto extras_mark = machine.extras.size();
+    const bool more = index + 1 < count;
+    if (more) push_char(machine, goal, flat, index + 1, heap_mark, trail_mark);
+    if (bind_char(machine, goal, flat, index)) {
+      machine.ip = goal.cont;
+      return true;
+    }
+    if (more) machine.stack.pop_back();
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
+  }
+  return false;
+}
+
+void run_current_char_conversion(Impl& machine, const Goal& goal) {
+  const Cell in = machine.heap.deref(goal.arg(machine, 0));
+  const Cell out = machine.heap.deref(goal.arg(machine, 1));
+  if (!character_arg(machine, in)) {
+    raise_type(machine, goal, "character", in);
+    return;
+  }
+  if (!character_arg(machine, out)) {
+    raise_type(machine, goal, "character", out);
+    return;
+  }
+  if (!prove_chars(machine, goal, matching_chars(machine, in, out), 0)) machine.failed = true;
+}
+
 }  // namespace
 
 bool redo_current_op(Impl& machine) {
@@ -308,6 +386,20 @@ bool redo_current_op(Impl& machine) {
   const auto next = top.next;
   machine.stack.pop_back();
   return prove_ops(machine, goal, flat, next);
+}
+
+bool redo_current_char_conversion(Impl& machine) {
+  if (machine.stack.empty() || machine.stack.back().pick != Pick::AtomGen ||
+      machine.stack.back().gen_kind != kCharGen) {
+    return false;
+  }
+  apply_catches(machine, machine.stack.back());
+  const Entry top = machine.stack.back();
+  const Goal goal = read_goal(machine, top.redo_goal);
+  const std::vector<Cell> flat = top.env;
+  const auto next = top.next;
+  machine.stack.pop_back();
+  return prove_chars(machine, goal, flat, next);
 }
 
 int apply_char_conv_directive(Impl& machine, Cell directive) {
@@ -345,6 +437,10 @@ bool run_operators(Impl& machine, const Goal& goal) {
   }
   if (name == "char_conversion" && goal.arity == 2) {
     run_char_conversion(machine, goal);
+    return true;
+  }
+  if (name == "current_char_conversion" && goal.arity == 2) {
+    run_current_char_conversion(machine, goal);
     return true;
   }
   return false;

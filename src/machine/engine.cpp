@@ -232,6 +232,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"op", 3},
     {"current_op", 3},
     {"char_conversion", 2},
+    {"current_char_conversion", 2},
     {"bagof", 3},
     {"setof", 3},
     {"catch", 3},
