@@ -116,7 +116,8 @@ struct BuiltinPi {
 };
 
 // call/1..8、halt/0..1、findall、open、close、at_end_of_stream、get_char、get_code、peek_char、
-// peek_code、put_char、put_code、nl、get_byte、peek_byte、put_byte、read_term、read はアリティが二つ以上。
+// peek_code、put_char、put_code、nl、get_byte、peek_byte、put_byte、read_term、read、
+// write_term、write、writeq、write_canonical、print はアリティが二つ以上。
 // 制御構文は goal と launch が先に取る。
 constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"=", 2},
@@ -217,6 +218,17 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"read_term", 3},
     {"read", 1},
     {"read", 2},
+    {"write_term", 2},
+    {"write_term", 3},
+    {"write", 1},
+    {"write", 2},
+    {"writeq", 1},
+    {"writeq", 2},
+    {"write_canonical", 1},
+    {"write_canonical", 2},
+    {"print", 1},
+    {"print", 2},
+    {"with_output_to", 2},
     {"bagof", 3},
     {"setof", 3},
     {"catch", 3},
@@ -422,7 +434,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
       run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
-      run_read(machine, goal)) {
+      run_write(machine, goal) || run_read(machine, goal)) {
     return true;
   }
   return false;

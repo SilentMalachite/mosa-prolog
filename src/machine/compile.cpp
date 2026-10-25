@@ -11,6 +11,8 @@ namespace {
 struct Build {
   const Heap* heap = nullptr;
   std::vector<std::uint64_t> refs;
+  // 今たどっている複合項。循環を匿名に切る。with_output_to が束縛済みの項を再び訳す。
+  std::vector<std::uint64_t> open;
   std::vector<Cell> env;
   bool keep = false;
 
@@ -32,7 +34,14 @@ struct Build {
   }
 
   [[nodiscard]] IrTerm data(Cell cell);
+  [[nodiscard]] IrTerm compound_data(Cell cell);
   [[nodiscard]] IrTerm goal(Cell cell);
+  [[nodiscard]] bool building(std::uint64_t raw) const {
+    for (const auto item : open) {
+      if (item == raw) return true;
+    }
+    return false;
+  }
   // 数の前の単項 + と - を畳む。-0.0 は符号を残す。畳めなければ空。
   [[nodiscard]] std::optional<IrTerm> fold_signed(Cell cell);
 };
@@ -81,13 +90,25 @@ IrTerm Build::data(Cell cell) {
     term.floating = heap->float_value(cell);
     return term;
   }
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
+  if (building(cell.raw())) {
+    term.tag = IrTag::Anon;
+    return term;
+  }
+  open.push_back(cell.raw());
+  term = compound_data(cell);
+  open.pop_back();
+  return term;
+}
+
+IrTerm Build::compound_data(Cell cell) {
+  IrTerm term;
   if (cell.tag() == Tag::Lis) {
     term.tag = IrTag::List;
     term.args.push_back(data(heap->list_head(cell)));
     term.args.push_back(data(heap->list_tail(cell)));
     return term;
   }
-  if (cell.tag() != Tag::Str) return term;
   if (const std::optional<IrTerm> folded = fold_signed(cell)) return *folded;
   // '.'/2 はリストそのもの。構造体のままにすると = と == が食い違う。
   if (heap->functor_arity(cell) == 2 && heap->atoms().name(heap->functor_atom(cell)) == ".") {

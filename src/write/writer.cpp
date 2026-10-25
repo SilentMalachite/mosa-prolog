@@ -355,6 +355,20 @@ std::string Printer::render_functor(Cell term, std::string_view name) {
   return out;
 }
 
+std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
+  if (term.tag() != Tag::Str || heap.functor_arity(term) != 1) return std::nullopt;
+  if (heap.atoms().name(heap.functor_atom(term)) != "$VAR") return std::nullopt;
+  const Cell arg = heap.deref(heap.arg(term, 0));
+  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return std::nullopt;
+  const auto value = heap.integer_value(arg);
+  if (value < 0) return std::nullopt;
+  const auto index = static_cast<std::uint64_t>(value);
+  std::string name(1, static_cast<char>('A' + static_cast<int>(index % 26U)));
+  const auto suffix = index / 26U;
+  if (suffix != 0) name += std::to_string(suffix);
+  return name;
+}
+
 std::string Printer::render(Cell term, int parent, bool allow_equal) {
   if (term.tag() == Tag::Ref && var_name(term) != nullptr) return var_name(term)->name;
   term = heap_.deref(term);
@@ -362,6 +376,10 @@ std::string Printer::render(Cell term, int parent, bool allow_equal) {
   if (term.tag() == Tag::Atom) return spell(heap_.atoms().name(atom_of(term)));
   if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return std::to_string(heap_.integer_value(term));
   if (term.tag() == Tag::Float) return format_float(heap_.float_value(term));
+  // '$VAR'(N) は関数表記より先。N は 0 以上の整数だけが変数名になる。
+  if (options_.numbervars) {
+    if (const std::optional<std::string> named = numbervar_text(heap_, term)) return *named;
+  }
   if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return {};
   if (opened(term.raw())) return "_";
   open_.push_back(term.raw());

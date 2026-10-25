@@ -551,6 +551,33 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
   mosa_test::check(formal_text(*broken, stayed) == "representation_error(character)", "read utf stays");
 }
 
+void check_write_stream(const std::filesystem::path& text_path, const std::filesystem::path& binary_path) {
+  write_bytes(text_path, "z");
+  auto text = mosa::Machine::create();
+  const std::string text_atom = prolog_atom(text_path.string());
+  auto wrote = text->query("open(" + text_atom + ", write, S), write(S, 東), flush_output(S).");
+  mosa_test::check(wrote.kind == mosa::StopKind::Success, "write file");
+  mosa_test::check(file_bytes(text_path) == "\xE6\x9D\xB1", "write file bytes");
+
+  write_bytes(binary_path, "a");
+  auto binary = mosa::Machine::create();
+  const std::string binary_atom = prolog_atom(binary_path.string());
+  mosa_test::check(binary->query("open(" + binary_atom + ", write, S, [type(binary)]).").kind == mosa::StopKind::Success,
+                   "write binary open");
+  auto denied = binary->query("write('$stream'(3), a).");
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(output, binary_stream, '$stream'(3))",
+                   "write binary formal");
+  mosa_test::check(binary->query("put_byte('$stream'(3), 97), flush_output('$stream'(3)).").kind ==
+                       mosa::StopKind::Success,
+                   "write binary keeps");
+  mosa_test::check(file_bytes(binary_path) == "a", "write binary put");
+
+  mosa_test::check(text->query("close('$stream'(3)).").kind == mosa::StopKind::Success, "write close");
+  auto again = text->query("write('$stream'(3), a).");
+  mosa_test::check(again.kind == mosa::StopKind::Exception, "write closed");
+  mosa_test::check(formal_text(*text, again) == "existence_error(stream, '$stream'(3))", "write closed formal");
+}
+
 void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
@@ -597,6 +624,7 @@ int main() {
   check_peek_byte(dir / "phase3-peek-byte.txt", dir / "phase3-peek-empty.txt");
   check_read_term(dir / "phase3-read-eof.txt", dir / "phase3-read-reset.txt", dir / "phase3-read-binary.txt",
                   dir / "phase3-read-utf.txt");
+  check_write_stream(dir / "phase3-write.txt", dir / "phase3-write-binary.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");
   check_alias_reopen(dir / "phase3-alias-reopen.txt");

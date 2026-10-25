@@ -15,6 +15,8 @@ namespace mosa {
 struct WriteOptions {
   bool quoted = true;
   bool ignore_ops = false;
+  // 7.10.4。C++ の既定は偽のまま。write/1 が真にして渡す。
+  bool numbervars = false;
 };
 
 [[nodiscard]] std::string write_term(const Heap& heap, const OperatorTable& operators, Cell term,

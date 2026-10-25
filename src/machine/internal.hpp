@@ -290,6 +290,7 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_char_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_byte_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_read(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_write(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);
