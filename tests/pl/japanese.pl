@@ -13,3 +13,4 @@ test(seek_oya, (open_string('親あ', S), get_char(S, '親'), set_stream_positio
 test(get_code_oya, (open_string('親', S), get_code(S, C), char_code('親', C)), true).
 test(peek_code_scalar, (open_string('𠮷', S), peek_code(S, C), get_code(S, D), C == D, char_code('𠮷', C)), true).
 test(put_code_oya_type, put_code('親'), error(type_error(integer, '親'))).
+test(read_oya, (open_string('親.', S), read(S, '親'), stream_property(S, position(stream_position(2, 1, 3)))), true).

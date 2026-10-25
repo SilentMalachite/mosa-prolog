@@ -222,6 +222,7 @@ void enter_user(Impl& machine, const Goal& goal);
 [[nodiscard]] Cell import_term(Impl& machine, const ExportedTerm& term);
 void propagate_throw(Impl& machine, Cell ball);
 void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity);
+void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& predicate,
                                                       bool has_arg, Cell first);
@@ -288,6 +289,7 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_stream_prop(Impl& machine);
 [[nodiscard]] bool run_char_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_byte_io(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_read(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);

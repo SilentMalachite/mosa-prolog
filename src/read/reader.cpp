@@ -113,7 +113,11 @@ Reader::Parsed Reader::atom_named(std::string_view name) {
 
 Cell Reader::intern_variable(std::string name) {
   // `_` だけは出現ごとに別の REF とし、名前表にもシングルトンにも入れない。
-  if (name == "_") return heap_.fresh_ref();
+  if (name == "_") {
+    const Cell cell = heap_.fresh_ref();
+    occurrences_.push_back(cell);
+    return cell;
+  }
   for (VarRec& var : vars_) {
     if (var.name != name) continue;
     var.count += 1;
@@ -122,6 +126,7 @@ Cell Reader::intern_variable(std::string name) {
   VarRec created{std::move(name), heap_.fresh_ref(), 1};
   const Cell cell = created.cell;
   vars_.push_back(std::move(created));
+  occurrences_.push_back(cell);
   return cell;
 }
 
@@ -262,6 +267,7 @@ Reader::Parsed Reader::parse_expr(int max_priority) {
 
 ReadOutcome Reader::next() {
   vars_.clear();
+  occurrences_.clear();
   const Scan first = peek();
   if (first.failure) {
     ReadOutcome outcome;
@@ -297,6 +303,7 @@ ReadOutcome Reader::next() {
     term.names.push_back(VarName{var.name, var.cell});
     if (var.count == 1) term.singletons.push_back(VarName{var.name, var.cell});
   }
+  term.variables = occurrences_;
   ReadOutcome outcome;
   outcome.term = std::move(term);
   return outcome;

@@ -507,6 +507,50 @@ void check_set_position(const std::filesystem::path& path) {
   mosa_test::check(file_bytes(path) == "cb", "overwrite at start");
 }
 
+void check_read_term(const std::filesystem::path& eof_path, const std::filesystem::path& reset_path,
+                     const std::filesystem::path& binary_path, const std::filesystem::path& bad_path) {
+  write_bytes(eof_path, "");
+  auto ending = mosa::Machine::create();
+  const std::string eof_atom = prolog_atom(eof_path.string());
+  mosa_test::check(ending->query("open(" + eof_atom + ", read, S, [eof_action(error)]).").kind ==
+                       mosa::StopKind::Success,
+                   "read eof open");
+  auto once = ending->query("read('$stream'(3), T).");
+  mosa_test::check(binding_named(*ending, once, "T") == "end_of_file", "read first eof");
+  auto twice = ending->query("read('$stream'(3), T).");
+  mosa_test::check(formal_text(*ending, twice) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+                   "read past formal");
+
+  write_bytes(reset_path, "a.");
+  auto resetting = mosa::Machine::create();
+  const std::string reset_atom = prolog_atom(reset_path.string());
+  auto again = resetting->query("open(" + reset_atom + ", read, S, [eof_action(reset)]), read(S, A), read(S, B), read(S, C).");
+  mosa_test::check(again.kind == mosa::StopKind::Success, "read reset");
+  mosa_test::check(binding_named(*resetting, again, "A") == "a", "read reset term");
+  mosa_test::check(binding_named(*resetting, again, "B") == "end_of_file", "read reset eof");
+  mosa_test::check(binding_named(*resetting, again, "C") == "a", "read reset rereads");
+
+  write_bytes(binary_path, "a");
+  auto binary = mosa::Machine::create();
+  const std::string binary_atom = prolog_atom(binary_path.string());
+  mosa_test::check(binary->query("open(" + binary_atom + ", read, S, [type(binary)]).").kind ==
+                       mosa::StopKind::Success,
+                   "read binary open");
+  auto denied = binary->query("read('$stream'(3), T).");
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(input, binary_stream, '$stream'(3))",
+                   "read binary formal");
+  mosa_test::check(binary->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success, "read binary keeps");
+
+  write_bytes(bad_path, "\xFF");
+  auto broken = mosa::Machine::create();
+  const std::string bad_atom = prolog_atom(bad_path.string());
+  mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "read utf open");
+  auto utf = broken->query("read('$stream'(3), T).");
+  mosa_test::check(formal_text(*broken, utf) == "representation_error(character)", "read utf formal");
+  auto stayed = broken->query("read('$stream'(3), T).");
+  mosa_test::check(formal_text(*broken, stayed) == "representation_error(character)", "read utf stays");
+}
+
 void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
@@ -551,6 +595,8 @@ int main() {
   check_put_code(dir / "phase3-put-code.txt");
   check_get_bytes(dir / "phase3-bytes.txt", dir / "phase3-bytes-empty.txt");
   check_peek_byte(dir / "phase3-peek-byte.txt", dir / "phase3-peek-empty.txt");
+  check_read_term(dir / "phase3-read-eof.txt", dir / "phase3-read-reset.txt", dir / "phase3-read-binary.txt",
+                  dir / "phase3-read-utf.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");
   check_alias_reopen(dir / "phase3-alias-reopen.txt");

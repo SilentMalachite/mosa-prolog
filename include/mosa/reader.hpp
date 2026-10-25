@@ -24,6 +24,8 @@ struct ReadTerm {
   Cell term{};
   std::vector<VarName> names;
   std::vector<VarName> singletons;
+  // 匿名を含む、最初の出現順。`_` は出現のたびに別の要素。
+  std::vector<Cell> variables;
 };
 
 struct ReadOutcome {
@@ -38,6 +40,7 @@ class Reader {
          DoubleQuotes quotes = DoubleQuotes::Codes);
 
   [[nodiscard]] ReadOutcome next();
+  [[nodiscard]] std::size_t consumed() const { return lexer_.offset(); }
   void set_quotes(DoubleQuotes quotes) { quotes_ = quotes; }
 
  private:
@@ -85,6 +88,7 @@ class Reader {
   Scan pending_{};
   bool has_pending_ = false;
   std::vector<VarRec> vars_;
+  std::vector<Cell> occurrences_;
 };
 
 }

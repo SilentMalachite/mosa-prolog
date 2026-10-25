@@ -60,10 +60,14 @@ Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity) {
   return pair(machine, "/", machine.heap.atom(name), machine.heap.integer(arity));
 }
 
-void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity) {
+void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra) {
   machine.eval_abort = true;
-  const Cell context = pair(machine, "context", cell_functor(machine, name, arity), machine.heap.fresh_ref());
+  const Cell context = pair(machine, "context", cell_functor(machine, name, arity), extra);
   propagate_throw(machine, pair(machine, "error", formal, context));
+}
+
+void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity) {
+  raise_formal_extra(machine, formal, name, arity, machine.heap.fresh_ref());
 }
 
 Cell make_instantiation_error(Machine& machine) { return formal_instantiation(engine_impl(machine)); }

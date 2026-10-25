@@ -34,6 +34,8 @@ class Lexer {
  public:
   explicit Lexer(std::string_view source);
   [[nodiscard]] Scan next();
+  // 終止符は、続く空白 1 つまで含めたバイト位置。
+  [[nodiscard]] std::size_t offset() const { return index_; }
 
  private:
   struct SourceChar {
