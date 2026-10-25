@@ -31,15 +31,11 @@ B: portray/1 は見ず、write/1 と同じ文字列を出す。
 
 ## 8.8 clause/2
 
-未決 5。仕様に public/1 が無い。
-A: 利用者の述語を公開とみなし、節を返す。
-B: 非公開とみなし、permission_error(access, private_procedure, PI) を投げる。
+決定（2026-10-25）: 未決 5 は A。利用者が定義した述語は公開である。`consult` の静的な節、`:- dynamic`、`assert` で作った述語、`retract` で節を空にした動的述語を含む。`clause/2` は定義順に節を返す。事実の本体はアトム `true` である。同じスロットの変数は同じセルで、匿名変数は出現ごとに新しい参照である。本体の `false/0` はコンパイルが `fail` に畳むので、返る本体はアトム `fail` である。組込と制御は `permission_error(access, private_procedure, PI)` である。無い述語は失敗する。節の無い動的述語は失敗するが、非公開ではない。静的な利用者述語は読める。
 
 ## 8.8 current_predicate/1
 
-未決 6。候補の範囲が決まっていない。
-A: 組込述語も含める。
-B: 利用者が定義した述語だけにする。
+決定（2026-10-25）: 未決 6 は B。`current_predicate/1` は利用者の述語だけを、定義された順に返す。`current_predicate(true/0)` は失敗であり、`permission_error` ではない。空の動的述語は成功する。`abolish` のあとは失敗する。
 
 ## 8 入出力テストのメモリストリーム
 

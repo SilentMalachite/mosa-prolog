@@ -26,7 +26,10 @@ bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
-    if (entry.pick == Pick::Retract && entry.next < entry.candidates.size()) return true;
+    if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen) &&
+        entry.next < entry.candidates.size()) {
+      return true;
+    }
     if (entry.pick == Pick::ElseGoal && !(entry.soft_id != 0 && entry.cond_ok)) return true;
   }
   return false;
@@ -168,6 +171,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"retract", 1},
     {"retractall", 1},
     {"abolish", 1},
+    {"clause", 2},
+    {"current_predicate", 1},
     {"findall", 3},
     {"bagof", 3},
     {"setof", 3},

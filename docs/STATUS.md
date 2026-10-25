@@ -1,6 +1,6 @@
 フェーズ: 3
 進行中: なし
-完了: findall/3 と bagof/3 と setof/3。未決 3、5、6 の計画を置いた。述語は未実装
-次: 計画の確認後に clause/2 と current_predicate/1、続いて findall/4
-未解決: 未決 3、5、6 は計画どおり。確認前に実装しない。準拠スイートはライセンス待ち
+完了: clause/2 は利用者の節を返し、組込は access の permission_error。current_predicate/1 は利用者だけ
+次: findall/4 を差分リストにする
+未解決: 未決 3。ほかの未決と、ライセンスの無い準拠スイートは iso-notes と従前どおり
 計画: docs/superpowers/plans/2026-10-25-clause-findall4.md

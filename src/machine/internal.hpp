@@ -38,7 +38,21 @@ struct Predicate {
   bool dynamic_declared = false;
 };
 
-enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen, Retract, Barrier };
+enum class Pick {
+  Clauses,
+  ElseGoal,
+  Negation,
+  Once,
+  Repeat,
+  Catch,
+  Cleanup,
+  AtomGen,
+  Retract,
+  Barrier,
+  // 節の本体は実行しない。Clauses に載せるとやり直しが節を呼ぶ。
+  ClauseScan,
+  PredGen
+};
 
 struct Entry {
   Pick pick = Pick::Clauses;
@@ -232,6 +246,10 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);
+[[nodiscard]] bool redo_clause_scan(Impl& machine);
+[[nodiscard]] bool redo_pred_gen(Impl& machine);
+// slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。
+[[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。
 [[nodiscard]] bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);
