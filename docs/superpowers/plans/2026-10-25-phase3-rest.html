@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Phase 3 Remainder</title>
+<link rel="stylesheet" href="htmlplan.css">
+<script src="htmlplan.js" defer></script>
+<body>
+<header>
+  <h1>Remaining Phase 3 Work in Mosa</h1>
+  <doc-changes new="15" changed="18"></doc-changes>
+  <details class="thread"><summary>Why · 2 requests</summary>
+    <doc-quote via="prompt" from="the user">フェーズ３の残りの実装計画を立ててください。こちらで判断すべきことがあれば選択肢にいれて提示してください</doc-quote>
+    <doc-quote via="doc" from="docs/STATUS.md">次: ストリームの ADR。未解決: 未決 2、4、7–16。準拠スイートはライセンスが無くタスク 13 に進まない。kBuiltins のコメントは findall の二つのアリティをまだ書いていない</doc-quote>
+  </details>
+</header>
+<main>
+<doc-plan>
+
+<doc-claim>
+  <p>A goal can open a stream and read or write characters.</p>
+  <doc-machine name="stream" caption="The screens show the suggested predicate names.">
+<script type="text/plain">
+machine stream initial ready
+state ready    # The next read returns a.
+state mid      # The next read returns b.
+state eof      # The next read returns end_of_file.
+state closed final  # A read throws existence_error.
+
+| ready | mid | eof    |
+| closed | .   | .     |
+
+ready -get->   mid    : a
+mid   -get->   eof    : b
+eof   -get->   eof    : eof
+ready -close-> closed : close
+mid   -close-> closed : close
+eof   -close-> closed : close
+</script>
+    <div data-state="ready"><doc-mock frame="terminal" title="mosa" w="420"><template>?- open_string(S, 'ab').
+?- peek_char(S, C).
+C = a.</template></doc-mock></div>
+    <div data-state="mid"><doc-mock frame="terminal" title="mosa" w="420"><template>?- get_char(S, C).
+C = a.
+?- peek_char(S, C).
+C = b.</template></doc-mock></div>
+    <div data-state="eof"><doc-mock frame="terminal" title="mosa" w="420"><template>?- get_char(S, C).
+C = b.
+?- get_char(S, C).
+C = end_of_file.</template></doc-mock></div>
+    <div data-state="closed"><doc-mock frame="terminal" title="mosa" w="420"><template>?- close(S).
+?- get_char(S, C).
+<span class="r">error(existence_error(stream, S))</span></template></doc-mock></div>
+  </doc-machine>
+
+  <doc-claim>
+    <p>The two memory predicates use the names in section 8.</p>
+    <doc-code title="Memory predicates · sketch" lang="text">
+<script type="text/plain">
+open_string(+Source, -Stream).
+% Source is an atom or a code list. The stream is text input.
+
+with_output_to(+Sink, +Goal).
+% Sink is atom(A), codes(List), or a stream.
+% Goal runs in the current context. No module wrap.
+</script>
+    </doc-code>
+    <doc-ask id="names">
+      <p>Which names do the memory stream predicates use?</p>
+      <label><input type="radio" name="names" value="spec" checked> open_string/2 and with_output_to/2 <small>These are the names in section 8.</small></label>
+      <label><input type="radio" name="names" value="memory"> open_memory/2 and with_output_to/2 <small>Tests and the ADR use this pair.</small></label>
+    </doc-ask>
+    <doc-claim at="docs/adr/0005-streams.md:1">
+      <p><b>0005-streams.md</b> · decision</p>
+      <doc-code title="0005-streams.md · sketch" lang="text">
+<script type="text/plain">
+状態: 承認済み（2026-10-25）
+
+## 決定
+
+述語名は open_string/2 と with_output_to/2。
+テキストファイルの改行は、どの OS でも U+000A 1 個。
+メモリストリームの改行も U+000A 1 個。
+起動時の別名は user_input、user_output、user_error。
+encoding の既定は utf8。型の既定は text。
+</script>
+      </doc-code>
+      <doc-note>ADR 0005 is approved. Stream code can start.</doc-note>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>A text file writes one U+000A on every OS.</p>
+    <doc-mock frame="terminal" title="mosa" w="420" caption="The same byte on macOS, Linux, and Windows.">
+<template>?- open(S, write, 't.txt', [type(text)]).
+?- nl(S), close(S).
+file bytes: 0A</template>
+    </doc-mock>
+    <doc-ask id="newline">
+      <p>Which newline does a text file write?</p>
+      <label><input type="radio" name="newline" value="lf" checked> One U+000A on every OS <small>Memory streams also write U+000A.</small></label>
+      <label><input type="radio" name="newline" value="text"> The C++ text-mode newline <small>Windows can write CR LF.</small></label>
+    </doc-ask>
+    <doc-note>consult already opens files with ios::binary.</doc-note>
+    <div data-if="newline=text"><doc-note tone="warn">Windows file tests can see CR LF. Memory streams stay U+000A.</doc-note></div>
+  </doc-claim>
+
+  <doc-claim>
+    <p>get_char and put_byte share one stream cursor.</p>
+    <doc-calls title="Stream dispatch" caption="Tap a new row to open its sketch.">
+<script type="text/plain">
+~ step(machine)                                @ src/machine/engine.cpp:381
++   **run_streams**(machine, goal)             @ src/builtins/streams.cpp:1
++   **run_char_io**(machine, goal)             @ src/builtins/chars.cpp:1
++   **run_byte_io**(machine, goal)             @ src/builtins/bytes.cpp:1
+</script>
+    </doc-calls>
+    <doc-claim at="src/machine/engine.cpp:381">
+      <p><b>engine.cpp:381</b> · step()</p>
+      <doc-code src="src/machine/engine.cpp" lines="379-384" hl="381">
+        <doc-pin line="381" title="New calls go after this line">Also fix the kBuiltins comment at line 117 so it names findall/3 and findall/4.</doc-pin>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/builtins/streams.cpp:1">
+      <p><b>streams.cpp:1</b> · run_streams()</p>
+      <doc-code title="streams.cpp · sketch" lang="cpp">
+<script type="text/plain">
+// 8.11 とメモリストリーム。テスト: tests/pl/streams.pl
+// 引数検査、本処理、束縛の順。
+// open/4 の選択肢は規格の列と encoding だけ。
+// 閉じたストリームは existence_error(stream, S)。
+bool run_streams(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/builtins/chars.cpp:1">
+      <p><b>chars.cpp:1</b> · run_char_io()</p>
+      <doc-code title="chars.cpp · sketch" lang="cpp">
+<script type="text/plain">
+// 8.12。テスト: tests/pl/chars.pl
+// 文字はコードポイント 1 個。peek は位置を進めない。
+// バイナリは permission_error(input, binary_stream, S)。
+// 終端はアトム end_of_file。
+bool run_char_io(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/builtins/bytes.cpp:1">
+      <p><b>bytes.cpp:1</b> · run_byte_io()</p>
+      <doc-code title="bytes.cpp · sketch" lang="cpp">
+<script type="text/plain">
+// 8.13。テスト: tests/pl/chars.pl, tests/cpp/stream_test.cpp
+// テキストは permission_error(input, text_stream, S)。
+// 終端は整数 -1。
+bool run_byte_io(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>A goal can read and write a term on a stream.</p>
+  <doc-mock frame="terminal" title="mosa" w="420" caption="atom(A) holds the text that write produced.">
+<template>?- open_string(In, '親(太郎).').
+?- read(In, T).
+T = 親(太郎).
+?- with_output_to(atom(A), write(T)).
+A = '親(太郎)'.</template>
+  </doc-mock>
+
+  <doc-claim>
+    <p>print/1 writes the same text as write/1.</p>
+    <doc-mock frame="terminal" title="mosa" w="420" caption="The two goals write one text.">
+<template>?- write(親(太郎)), nl.
+親(太郎)
+?- print(親(太郎)), nl.
+親(太郎)</template>
+    </doc-mock>
+    <doc-ask id="print">
+      <p>What does print/1 write?</p>
+      <label><input type="radio" name="print" value="write" checked> The same text as write/1 <small>portray/1 is not called.</small></label>
+      <label><input type="radio" name="print" value="portray"> portray/1 when the user defines it <small>Else the text matches write/1.</small></label>
+    </doc-ask>
+    <div data-if="print=portray"><doc-note>portray/1 runs as a user goal with no module wrap.</doc-note></div>
+    <doc-claim at="src/builtins/write_pred.cpp:1">
+      <p><b>write_pred.cpp:1</b> · run_write()</p>
+      <doc-code title="write_pred.cpp · sketch" lang="cpp">
+<script type="text/plain">
+// 8.14 の書き出し。テスト: tests/pl/write.pl
+// 循環と引用は writer.hpp の write_term に任せる。
+// print/1 と print/2 は write/1 と同じ文字列。
+bool run_write(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>op/3 changes the next read_term on that machine.</p>
+    <doc-calls title="Read and operators" caption="define() is the operator table that already exists.">
+<script type="text/plain">
++ **run_read**(machine, goal)                  @ src/builtins/read_pred.cpp:1
++   Reader(text, heap, operators, quotes)      @ include/mosa/reader.hpp:37
+
++ **run_operators**(machine, goal)             @ src/builtins/operators.cpp:1
++   OperatorTable::define(priority, spec, name) @ include/mosa/operator_table.hpp:29
+</script>
+    </doc-calls>
+    <doc-claim at="src/builtins/read_pred.cpp:1">
+      <p><b>read_pred.cpp:1</b> · run_read()</p>
+      <doc-code title="read_pred.cpp · sketch" lang="cpp">
+<script type="text/plain">
+// 8.14 の読み込み。テスト: tests/pl/read.pl
+// 項が閉じるまでコードポイントで読む。
+// Reader には current_double_quotes を渡す。
+// syntax_error の Extra は stream(S, Line, LinePos, CharNo)。
+bool run_read(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/builtins/operators.cpp:1">
+      <p><b>operators.cpp:1</b> · run_operators()</p>
+      <doc-code title="operators.cpp · sketch" lang="cpp">
+<script type="text/plain">
+// テスト: tests/pl/operators.pl
+// op/3, current_op/3, char_conversion/2, current_char_conversion/2。
+// 写像の初期状態は恒等。全角から半角の初期変換は無い。
+// 旗 char_conversion が off のとき、読みは写像を使わない。
+bool run_operators(Impl& machine, const Goal& goal);
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>A source file can mark a predicate and load another file.</p>
+  <doc-mock frame="terminal" title="mosa" w="420" caption="A second consult does not double the clauses.">
+<template><span class="r" data-ref="apart">述語 親/2 の節が離れている</span>
+?- 親(太郎, X).
+X = 花子 ;
+X = 一郎.
+?- findall(X, 親(太郎, X), L).
+L = [一郎].
+?- [parts].
+true.</template>
+    <doc-pin ref="apart" title="No discontiguous/1">This text stays when the directive is absent.</doc-pin>
+  </doc-mock>
+
+  <doc-claim>
+    <p>consume_directive accepts six more directives.</p>
+    <doc-calls title="Load" caption="The phase 2 failure text stays for unknown directives.">
+<script type="text/plain">
+~ consume_directive(machine, reader, term, snaps) @ src/machine/load.cpp:342
++   **discontiguous** / **multifile** / **initialization** @ src/machine/load.cpp:342
++   include / ensure_loaded / [File]            @ src/machine/consult.cpp:33
+</script>
+    </doc-calls>
+    <doc-note>If initialization/1 has no single Formal, that one directive stops for a question.</doc-note>
+    <doc-claim at="src/machine/load.cpp:342">
+      <p><b>load.cpp:342</b> · consume_directive()</p>
+      <doc-code src="src/machine/load.cpp" lines="339-347" hl="345">
+        <doc-pin line="345" title="New arms go above this line">dynamic/1 and op/3 already succeed here.</doc-pin>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/machine/consult.cpp:33">
+      <p><b>consult.cpp:33</b> · run_consult()</p>
+      <doc-code src="src/machine/consult.cpp" lines="33-46" hl="44">
+        <doc-pin line="44" title="Already binary">include/1 and [File] use this open.</doc-pin>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>Each open flag has one fixed default.</p>
+  <doc-schema id="flags" lang="cpp" diff title="Open flags" caption="Edit a green line to change that default.">
+<script type="text/plain">
++// char_conversion default: off. on applies the map.
++// debug default: off. on does not trace in phase 3.
++// unknown accepts error and fail. It rejects warning.
++// float_overflow, float_zero_div, float_undefined: error only.
++// invalid_utf8 default: error. replace inserts U+FFFD.
++// japanese_punctuation: set can store true. The lexer does not change.
++// version: an atom, the text of version_line(). Read only.
++// iso default: true. Read only. No new effect in phase 3.
+</script>
+  </doc-schema>
+
+  <doc-claim>
+    <p>atom_number/2 converts an atom and a number both ways.</p>
+    <doc-code title="atom_number modes · sketch" lang="text">
+<script type="text/plain">
+% Both variables: instantiation_error.
+% Atom to number: the number_chars parse.
+% Bad text: syntax_error(読み筋), the same Formal.
+% Number to atom: write_term text, with no quotes.
+% Both ground: succeed on a match, else fail.
+</script>
+    </doc-code>
+    <doc-ask id="atomnum">
+      <p>Does phase 3 register atom_number/2?</p>
+      <label><input type="radio" name="atomnum" value="yes" checked> Yes. It converts both ways. <small>Both variables cause instantiation_error.</small></label>
+      <label><input type="radio" name="atomnum" value="no"> No. Leave it unregistered. <small>Claim 4.1 goes.</small></label>
+    </doc-ask>
+    <doc-claim at="src/builtins/atoms_number.cpp:255" data-if="atomnum=yes">
+      <p><b>atoms_number.cpp:255</b> · run_number_atoms()</p>
+      <doc-code src="src/builtins/atoms_number.cpp" lines="248-256" hl="255">
+        <doc-pin line="255" title="Insert after this function">Tests go in tests/pl/atoms.pl.</doc-pin>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>flags.cpp lists twelve flags and omits the eight open ones.</p>
+    <doc-code src="src/builtins/flags.cpp" lines="32-48" caption="The eight open flags are absent from this list."></doc-code>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim>
+  <p>mosatest writes the suite result into conformance.md.</p>
+  <doc-mock frame="terminal" title="mosatest" w="420" caption="Exit 0 only when the rate is 90 percent or more.">
+<template>$ mosatest --suite tests/conformance
+conformance: n/m
+<span class="g">docs/conformance.md</span></template>
+  </doc-mock>
+  <doc-ask id="suite">
+    <p>When does the suite task start?</p>
+    <label><input type="radio" name="suite" value="license" checked> When the license file is in the tree <small>The 90 percent line stays.</small></label>
+    <label><input type="radio" name="suite" value="later"> Not in this plan <small>Claim 5.1 goes. Phase 3 stays open.</small></label>
+  </doc-ask>
+  <div data-if="suite=later"><doc-note tone="warn">This plan stops after the directives. SPEC still has the 90 percent line.</doc-note></div>
+
+  <doc-claim data-if="suite=license">
+    <p>run_iso_suite writes the counts and the failures.</p>
+    <doc-code title="conformance.md · sketch" lang="text">
+<script type="text/plain">
+このファイルは自動生成である。手で編集しない。
+
+合格: N
+総数: M
+合格率: N/M
+不合格:
+- …
+</script>
+    </doc-code>
+    <doc-claim at="include/mosa/suite.hpp:7">
+      <p><b>suite.hpp:7</b> · run_suite()</p>
+      <doc-code diff file="include/mosa/suite.hpp" title="suite.hpp" start="1">
+<script type="text/plain">
+ #pragma once
+
+ #include <string_view>
+
+ namespace mosa {
+
+ [[nodiscard]] int run_suite(std::string_view path);
++[[nodiscard]] int run_iso_suite(std::string_view suite_dir,
++                                 std::string_view report_path);
+
+ }
+</script>
+      </doc-code>
+    </doc-claim>
+    <doc-claim at="src/main_mosatest.cpp:33">
+      <p><b>main_mosatest.cpp:33</b> · main()</p>
+      <doc-code src="src/main_mosatest.cpp" lines="12-34" hl="33">
+        <doc-pin line="33" title="Add --suite beside this branch">version_line() changes only after the rate passes.</doc-pin>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+</doc-claim>
+
+<doc-claim aux="shared">
+  <p>Streams, reads, and writes share one stream record.</p>
+  <doc-schema id="stream" lang="cpp" title="Stream" caption="This record goes on Impl, after operators at internal.hpp:113.">
+<script type="text/plain">
+// mosa.hpp does not grow.
+struct Stream {
+  enum class Kind { File, Standard, Memory };
+  enum class Data { Text, Binary };
+  enum class Mode { Read, Write, Append };
+  std::string bytes;
+  std::size_t cursor = 0;
+  bool closed = false;
+  bool reposition = true;
+  Data data = Data::Text;
+  Mode mode = Mode::Read;
+  std::string alias;          // user_input, user_output, user_error
+  // encoding is utf8. A text file newline follows decision 2.
+};
+</script>
+  </doc-schema>
+</doc-claim>
+
+<doc-claim aux="scope">
+  <p>Modules, mosac, GC, and the finished builtins stay out.</p>
+  <ul>
+    <li>module/2 and use_module wait for phase 4.</li>
+    <li>The six library modules wait.</li>
+    <li>mosac, the diff tests, and GC wait.</li>
+    <li>The fullwidth lexer and the message files wait.</li>
+    <li>This plan does not build arithmetic again.</li>
+    <li>The Cell layout and the IR stay.</li>
+    <li>assert, retract, clause/2, and findall stay.</li>
+    <li>Atoms and the twelve flags stay, except where a decision here changes them.</li>
+    <li>version_line() stays on phase 2 until the suite passes.</li>
+  </ul>
+</doc-claim>
+
+</doc-plan>
+</main>
+</body>
+</html>
