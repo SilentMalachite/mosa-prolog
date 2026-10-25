@@ -316,7 +316,10 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] int apply_flag_directive(Impl& machine, Cell directive);
 [[nodiscard]] Cell formal_permission(Impl& machine, std::string_view action, std::string_view type,
                                      Cell culprit);
-[[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source);
+// directory が空でなければ、相対の include はそのディレクトリから開く。
+// origin は循環の検出に使う。空なら、このテキスト自体はファイルではない。
+[[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory = {},
+                                    std::string_view origin = {});
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
 
 }

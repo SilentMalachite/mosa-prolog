@@ -80,3 +80,8 @@ test(mf_static, assertz(mf_p(3)), error(permission_error(modify, static_procedur
 
 test(init_ran, (findall(X, init_s(X), L), L == [1]), true).
 test(init_goal, initialization(true), error(existence_error(procedure, initialization/1))).
+
+% 7.4.2 include/1。指示だけ。節は読み込み中のテキストの途中に入る。
+% ファイルが要る確認は tests/cpp/include_test.cpp。ここはゴールではないことだけ。
+
+test(include_goal, include(missing), error(existence_error(procedure, include/1))).

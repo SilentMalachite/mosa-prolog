@@ -1,5 +1,6 @@
 #include "mosa/suite.hpp"
 
+#include "internal.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
@@ -35,7 +36,8 @@ std::string written(const Heap& heap, const OperatorTable& ops, Cell term, const
   return write_term(heap, ops, term, {}, names);
 }
 
-bool load_file_text(Machine& machine, std::string source, std::vector<Exam>& exams, std::string& error) {
+bool load_file_text(Machine& machine, std::string source, std::string_view directory, std::string_view origin,
+                    std::vector<Exam>& exams, std::string& error) {
   std::string program;
   Reader reader(source, machine.heap(), machine.operators());
   while (true) {
@@ -59,13 +61,14 @@ bool load_file_text(Machine& machine, std::string source, std::vector<Exam>& exa
     if (term.tag() == Tag::Str && machine.heap().functor_arity(term) == 1 &&
         machine.atoms().name(machine.heap().functor_atom(term)) == ":-") {
       // 後続の項を読む前に演算子を表へ入れる。節の蓄積は最後の load に任せる。
-      if (!machine.load_program(text).ok) {
+      // 断片はファイルそのものではない。相対の include だけ、このファイルの隣を見る。
+      if (!load_source(engine_impl(machine), text, directory).ok) {
         error = std::string{machine.diagnostic()};
         return false;
       }
     }
   }
-  if (!program.empty() && !machine.load_program(program).ok) {
+  if (!program.empty() && !load_source(engine_impl(machine), program, directory, origin).ok) {
     error = std::string{machine.diagnostic()};
     return false;
   }
@@ -235,7 +238,7 @@ int run_one(const std::filesystem::path& path) {
   auto machine = Machine::create();
   std::vector<Exam> exams;
   std::string error;
-  if (!load_file_text(*machine, buffer.str(), exams, error)) {
+  if (!load_file_text(*machine, buffer.str(), path.parent_path().string(), path.string(), exams, error)) {
     std::cerr << path.string() << ": " << error << '\n';
     return 1;
   }

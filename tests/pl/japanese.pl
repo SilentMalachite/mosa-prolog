@@ -39,3 +39,5 @@ test(mf_ha, (findall(X, 複(X), L), L == [1, 2]), true).
 :- initialization((retractall(初), assertz(初))).
 
 test(init_ha, 初, true).
+
+test(include_ha, include(含む), error(existence_error(procedure, include/1))).

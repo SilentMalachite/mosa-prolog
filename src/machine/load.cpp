@@ -5,7 +5,10 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -582,9 +585,138 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   return 1;
 }
 
+struct LoadScan {
+  std::vector<Snapshot>& snapshots;
+  std::vector<Apart>& apart;
+  std::vector<Cell>& inits;
+  std::size_t& last;
+  std::vector<std::string>& opening;
+};
+
+struct CycleGuard {
+  std::vector<std::string>* opening = nullptr;
+  ~CycleGuard() {
+    if (opening != nullptr && !opening->empty()) opening->pop_back();
+  }
+};
+
+// 相対パスは、今読んでいるファイルのディレクトリから開く。文字だけの load は、渡されたパスのまま。
+std::filesystem::path resolve_include(std::string_view directory, std::string_view atom) {
+  const std::filesystem::path file{std::string{atom}};
+  if (file.is_absolute() || directory.empty()) return file;
+  return std::filesystem::path{std::string{directory}} / file;
+}
+
+std::filesystem::path canonical_key(const std::filesystem::path& file) {
+  std::error_code error;
+  const auto canonical = std::filesystem::weakly_canonical(file, error);
+  if (!error) return canonical;
+  const auto absolute = std::filesystem::absolute(file, error);
+  if (!error) return absolute.lexically_normal();
+  return file.lexically_normal();
+}
+
+bool include_argument(Impl& machine, Cell directive, Cell& arg) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != "include") return false;
+  arg = machine.heap.arg(body, 0);
+  return true;
+}
+
+bool note_syntax(Impl& machine, std::string_view origin, bool nested, const SyntaxFailure& failure) {
+  const auto reason = reason_text(failure.reason);
+  if (!nested) {
+    machine.syntax_diag = true;
+    machine.diag_line = failure.line;
+    machine.diag_column = failure.column;
+    machine.diagnostic = reason;
+    return false;
+  }
+  // 親の consult は自分のパスを付ける。入れ子の位置は、ここにファイル名を残す。
+  machine.syntax_diag = false;
+  machine.diagnostic = std::string{origin} + ":" + std::to_string(failure.line) + ":" +
+                       std::to_string(failure.column) + ": " + reason;
+  return false;
+}
+
+bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
+                bool nested, LoadScan& scan);
+
+int apply_include(Impl& machine, Cell term, std::string_view directory, LoadScan& scan) {
+  Cell arg;
+  if (!include_argument(machine, term, arg)) return 0;
+  arg = machine.heap.deref(arg);
+  if (machine.heap.unbound(arg)) {
+    fail_load(machine, write_term(machine.heap, machine.operators, formal_instantiation(machine), {}, {}));
+    return -1;
+  }
+  if (arg.tag() != Tag::Atom) {
+    const Cell formal = formal_type(machine, "atom", arg);
+    fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
+    return -1;
+  }
+  const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
+  const auto file = resolve_include(directory, name);
+  std::ifstream input{file, std::ios::binary};
+  if (!input) {
+    fail_load(machine, file.string() + ": ファイルを開けません");
+    return -1;
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
+  if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan)) return -1;
+  return 1;
+}
+
+bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
+                bool nested, LoadScan& scan) {
+  CycleGuard guard;
+  if (!origin.empty()) {
+    // 開き済みのファイルをもう一度開くと、読み込みが終わらない。
+    const auto key = canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
+    if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) {
+      fail_load(machine, std::string{origin} + ": ファイルが循環しています");
+      return false;
+    }
+    scan.opening.push_back(key);
+    guard.opening = &scan.opening;
+  }
+  Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
+  while (true) {
+    const ReadOutcome outcome = reader.next();
+    if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
+    if (!outcome.term) return true;
+    const Cell term = outcome.term->term;
+    if (is_rule_arrow(machine.heap, term)) {
+      fail_load(machine, "この指示はフェーズ2では使えない: " +
+                             write_term(machine.heap, machine.operators, term, {}, {}));
+      return false;
+    }
+    const int included = apply_include(machine, term, directory, scan);
+    if (included < 0) return false;
+    if (included > 0) continue;
+    const int directed = consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits);
+    if (directed < 0) return false;
+    if (directed > 0) continue;
+    Clause clause;
+    if (!compile_clause(machine.heap, term, clause)) {
+      fail_load(machine, "この指示はフェーズ2では使えない: " +
+                             write_term(machine.heap, machine.operators, term, {}, {}));
+      return false;
+    }
+    remember(machine, scan.snapshots, clause);
+    if (!add_clause(machine, std::move(clause), scan.last, scan.apart)) return false;
+  }
+}
+
 }  // namespace
 
-LoadStatus load_source(Impl& machine, std::string_view source) {
+LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
+                       std::string_view origin) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   const auto heap_base = machine.heap.size();
   machine.diagnostic.clear();
@@ -603,37 +735,10 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   std::vector<Cell> inits;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
-  Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine),
-                &machine.char_conv);
-  while (true) {
-    const ReadOutcome outcome = reader.next();
-    if (outcome.failure) {
-      machine.syntax_diag = true;
-      machine.diag_line = outcome.failure->line;
-      machine.diag_column = outcome.failure->column;
-      machine.diagnostic = reason_text(outcome.failure->reason);
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
-    }
-    if (!outcome.term) break;
-    const Cell term = outcome.term->term;
-    if (is_rule_arrow(machine.heap, term)) {
-      const auto text = write_term(machine.heap, machine.operators, term, {}, {});
-      fail_load(machine, "この指示はフェーズ2では使えない: " + text);
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
-    }
-    const int directed = consume_directive(machine, reader, term, snapshots, apart, inits);
-    if (directed < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
-    if (directed > 0) continue;
-    Clause clause;
-    if (!compile_clause(machine.heap, term, clause)) {
-      fail_load(machine, "この指示はフェーズ2では使えない: " +
-                             write_term(machine.heap, machine.operators, term, {}, {}));
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
-    }
-    remember(machine, snapshots, clause);
-    if (!add_clause(machine, std::move(clause), last, apart)) {
-      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
-    }
+  std::vector<std::string> opening;
+  LoadScan scan{snapshots, apart, inits, last, opening};
+  if (!read_terms(machine, source, directory, origin, false, scan)) {
+    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
   }
   return finish_load(machine, heap_base, inits);
 }

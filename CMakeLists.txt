@@ -131,6 +131,12 @@ target_include_directories(machine_test PRIVATE tests/cpp)
 target_link_libraries(machine_test PRIVATE mosa_lib)
 add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)
 
+add_executable(include_test tests/cpp/include_test.cpp)
+target_include_directories(include_test PRIVATE tests/cpp)
+target_compile_definitions(include_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(include_test PRIVATE mosa_lib)
+add_test(NAME include_test COMMAND $<TARGET_FILE:include_test>)
+
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 2\\)\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
