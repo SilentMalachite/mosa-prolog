@@ -1,6 +1,6 @@
-フェーズ: 1 完了
+フェーズ: 2
 進行中: なし
-完了: 往復の共有 REF と、拒否した演算子が表に残らないことを表明した。版は mosa 0.0.1 (phase 1)
-次: フェーズ2の実行の核（IR とトランポリン）
+完了: ADR 0003 を承認済みで置いた
+次: 事実 1 つの実行ループ
 未解決: なし
-計画: docs/superpowers/plans/2026-10-24-phase1-terms-reader.md
+計画: docs/superpowers/plans/2026-10-24-phase2-engine.md
