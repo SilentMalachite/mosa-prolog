@@ -136,6 +136,8 @@ Cell import_term(Impl& machine, const ExportedTerm& term) {
 void propagate_throw(Impl& machine, Cell ball) {
   const ExportedTerm copy = export_term(machine, ball);
   while (!machine.stack.empty()) {
+    // 収集の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。
+    if (machine.stack.back().pick == Pick::Barrier) break;
     const Entry top = machine.stack.back();
     machine.stack.pop_back();
     if (top.pick != Pick::Catch || !top.armed) continue;

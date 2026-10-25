@@ -440,6 +440,18 @@ void restore_exec(Impl& machine, const Saved& saved) {
   machine.ball = saved.ball;
 }
 
+// 床より下はスナップショットで覆さない。asserta が直した節の添字を残すため。
+void unwind_throw(Impl& machine, const Saved& saved, std::size_t floor) {
+  if (machine.stack.size() > floor) machine.stack.resize(floor);
+  restore_state(machine, saved.heap_mark, saved.trail_mark, saved.extras_mark);
+  machine.ip = saved.ip;
+  machine.failed = saved.failed;
+  machine.exception = saved.exception;
+  machine.eval_abort = saved.eval_abort;
+  machine.ball = saved.ball;
+  rearm_below(machine, saved, floor);
+}
+
 // 外側の節走査はスタックに残す。asserta と retract が添字を更新できるようにするため。
 // 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
 Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses,
@@ -458,7 +470,7 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
     if (stop.kind == StopKind::Exception) {
       packet.end = Finish::Threw;
       packet.ball = export_term(machine, machine.ball);
-      restore_exec(machine, saved);
+      unwind_throw(machine, saved, floor);
       return packet;
     }
     if (stop.kind == StopKind::Halt) {

@@ -41,3 +41,15 @@ test(findall4_open, (findall(X, (X = 1; X = 2), L, T), L == [1, 2|T], var(T)), t
 test(findall4_throw, findall(X, throw(error(instantiation_error, _)), L, T), error(instantiation_error)).
 test(findall4_var_goal, findall(X, Y, L, T), error(instantiation_error)).
 test(findall3_still, findall(X, (X = 1; X = 2), S), solutions([S = [1, 2]])).
+
+:- dynamic(scan_p/1).
+scan_p(a).
+scan_p(b).
+scan_p(c).
+
+test(findall_throw_keeps_scan, (
+  clause(scan_p(X), true),
+  catch(findall(_, (asserta(scan_p(z)), throw(error(instantiation_error, _))), _, _),
+        error(instantiation_error, _),
+        true)
+), solutions([X = a, X = b, X = c])).
