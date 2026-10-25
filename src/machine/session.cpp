@@ -1,5 +1,7 @@
 #include "mosa/repl.hpp"
 
+#include "internal.hpp"
+
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
@@ -215,7 +217,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     buffer += line;
     ReadOutcome outcome;
     try {
-      Reader reader(buffer, machine.heap(), machine.operators());
+      Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)));
       outcome = reader.next();
     } catch (const ResourceLimit&) {
       recover_heap(machine);

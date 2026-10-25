@@ -78,6 +78,11 @@ void enter_user(Impl& machine, const Goal& goal) {
     if (candidate.name == goal.name && candidate.arity == goal.arity) predicate = &candidate;
   }
   if (predicate == nullptr || predicate->clauses.empty()) {
+    // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
+    if (machine.unknown_fail) {
+      machine.failed = true;
+      return;
+    }
     const Cell pi = cell_functor(machine, goal.name, goal.arity);
     raise_formal(machine, formal_existence(machine, "procedure", pi), goal.name, goal.arity);
     return;

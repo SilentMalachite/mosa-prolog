@@ -222,7 +222,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   std::vector<Snapshot> snapshots;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
-  Reader reader(source, machine.heap, machine.operators);
+  Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine));
   while (true) {
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) {
@@ -240,6 +240,12 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
     }
     if (is_directive(machine.heap, term)) {
+      const int flag_directive = apply_flag_directive(machine, term);
+      if (flag_directive < 0) return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+      if (flag_directive > 0) {
+        reader.set_quotes(current_double_quotes(machine));
+        continue;
+      }
       if (!apply_op(machine, machine.heap.deref(term))) {
         if (machine.diagnostic.empty()) {
           const auto text = write_term(machine.heap, machine.operators, term, {}, {});

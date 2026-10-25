@@ -39,6 +39,12 @@ Cell formal_syntax(Impl& machine, Cell detail) {
   return machine.heap.structure(machine.atoms.intern("syntax_error"), std::array<Cell, 1>{detail});
 }
 
+Cell formal_permission(Impl& machine, std::string_view action, std::string_view type, Cell culprit) {
+  const std::array<Cell, 3> args{machine.heap.atom(machine.atoms.intern(action)),
+                                 machine.heap.atom(machine.atoms.intern(type)), culprit};
+  return machine.heap.structure(machine.atoms.intern("permission_error"), args);
+}
+
 Cell formal_evaluation(Impl& machine, std::string_view which) {
   return machine.heap.structure(machine.atoms.intern("evaluation_error"),
                                 std::array<Cell, 1>{machine.heap.atom(machine.atoms.intern(which))});

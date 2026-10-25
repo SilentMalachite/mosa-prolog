@@ -285,7 +285,8 @@ bool run_builtin(Impl& machine, const Goal& goal) {
     return true;
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
-      run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal)) {
+      run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
+      run_flags(machine, goal)) {
     return true;
   }
   return false;
@@ -351,7 +352,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.diagnostic.clear();
   machine.ip = kNoFrame;
   machine.bindings.clear();
-  Reader reader(goal_text, machine.heap, machine.operators);
+  Reader reader(goal_text, machine.heap, machine.operators, current_double_quotes(machine));
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return Stop{StopKind::Failure, 0, {}, {}, false};
   for (const VarName& name : outcome.term->names) {

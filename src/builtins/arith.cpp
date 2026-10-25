@@ -142,10 +142,12 @@ Ev from_float(double value) {
 
 bool float_bad(Impl& machine, const Goal& goal, double value, bool inputs_finite) {
   if (std::isnan(value)) {
+    if (!machine.float_undefined_error) return false;
     fail_eval(machine, goal, "undefined");
     return true;
   }
   if (!std::isfinite(value) && inputs_finite) {
+    if (!machine.float_overflow_error) return false;
     fail_eval(machine, goal, "float_overflow");
     return true;
   }
@@ -215,7 +217,7 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
   else if (name == "-") value = a - b;
   else if (name == "*") value = a * b;
   else if (name == "/") {
-    if (b == 0) {
+    if (b == 0 && machine.float_zero_div_error) {
       fail_eval(machine, goal, "zero_divisor");
       return {};
     }
@@ -224,6 +226,7 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
     std::int64_t exp = 0;
     if (a < 0) {
       if (!integer_exponent(right, exp)) {
+        if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());
         fail_eval(machine, goal, "undefined");
         return {};
       }

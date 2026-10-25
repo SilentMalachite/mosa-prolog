@@ -4,6 +4,7 @@
 
 #include "mosa/ir.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/reader.hpp"
 
 #include <cstdint>
 #include <string>
@@ -112,6 +113,12 @@ struct Machine::Impl {
   std::size_t diag_column = 1;
   std::vector<Binding> bindings;
   int next_soft = 1;
+  DoubleQuotes quotes = DoubleQuotes::Codes;
+  // unknown=fail のときだけ真。warning は未決 10 で受け付けない。
+  bool unknown_fail = false;
+  bool float_overflow_error = true;
+  bool float_zero_div_error = true;
+  bool float_undefined_error = true;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {}
 };
@@ -215,6 +222,12 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool scalar_code(std::int64_t code);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_atoms(Impl& machine);
+[[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_flag_gen(Impl& machine);
+[[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);
+[[nodiscard]] int apply_flag_directive(Impl& machine, Cell directive);
+[[nodiscard]] Cell formal_permission(Impl& machine, std::string_view action, std::string_view type,
+                                     Cell culprit);
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
 

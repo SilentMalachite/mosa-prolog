@@ -16,10 +16,12 @@ void fail_eval(Impl& machine, const Goal& goal, std::string_view which) {
 
 bool bad_float(Impl& machine, const Goal& goal, double value, bool finite_in) {
   if (std::isnan(value)) {
+    if (!machine.float_undefined_error) return false;
     fail_eval(machine, goal, "undefined");
     return true;
   }
   if (!std::isfinite(value) && finite_in) {
+    if (!machine.float_overflow_error) return false;
     fail_eval(machine, goal, "float_overflow");
     return true;
   }
@@ -70,6 +72,10 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<c
   if (name == "sqrt") {
     if (count != 1) return 0;
     if (in[0] < 0) {
+      if (!machine.float_undefined_error) {
+        out = std::numeric_limits<double>::quiet_NaN();
+        return 1;
+      }
       fail_eval(machine, goal, "undefined");
       return -1;
     }
@@ -84,6 +90,10 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<c
   if (name == "exp") return unary(std::exp);
   if (name == "log" || name == "log2") {
     if (count == 1 && in[0] <= 0) {
+      if (!machine.float_undefined_error) {
+        out = std::numeric_limits<double>::quiet_NaN();
+        return 1;
+      }
       fail_eval(machine, goal, "undefined");
       return -1;
     }
@@ -92,6 +102,10 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<c
   if (name == "atan2") {
     if (count != 2) return 0;
     if (in[0] == 0 && in[1] == 0) {
+      if (!machine.float_undefined_error) {
+        out = std::numeric_limits<double>::quiet_NaN();
+        return 1;
+      }
       fail_eval(machine, goal, "undefined");
       return -1;
     }

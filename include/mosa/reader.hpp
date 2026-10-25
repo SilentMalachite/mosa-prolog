@@ -38,6 +38,7 @@ class Reader {
          DoubleQuotes quotes = DoubleQuotes::Codes);
 
   [[nodiscard]] ReadOutcome next();
+  void set_quotes(DoubleQuotes quotes) { quotes_ = quotes; }
 
  private:
   struct Parsed {

@@ -1,0 +1,236 @@
+// 8.17.1 set_prolog_flag(+atom, +term)
+//   instantiation_error, type_error(atom), domain_error(prolog_flag),
+//   domain_error(flag_value), permission_error(modify, flag, Flag)
+// 8.17.2 current_prolog_flag(?atom, ?term)
+//   type_error(atom), domain_error(prolog_flag)
+// 未決 8 から 15 の旗は登録しない。warning と error 以外の浮動小数旗も受け付けない。
+// テスト: tests/pl/flags.pl
+
+#include "../machine/internal.hpp"
+
+#include "mosa/writer.hpp"
+
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <string>
+#include <string_view>
+
+namespace mosa {
+namespace {
+
+constexpr std::size_t kFlagCount = 12;
+constexpr std::uint8_t kFlagGen = 3;
+
+std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
+
+Cell atom_named(Impl& machine, std::string_view name) {
+  return machine.heap.atom(machine.atoms.intern(name));
+}
+
+std::string_view flag_name(std::size_t index) {
+  switch (index) {
+    case 0: return "bounded";
+    case 1: return "integer_rounding_function";
+    case 2: return "max_integer";
+    case 3: return "min_integer";
+    case 4: return "max_arity";
+    case 5: return "double_quotes";
+    case 6: return "unknown";
+    case 7: return "encoding";
+    case 8: return "japanese_punctuation";
+    case 9: return "float_overflow";
+    case 10: return "float_zero_div";
+    case 11: return "float_undefined";
+    default: return {};
+  }
+}
+
+bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index >= 9; }
+
+int find_flag(const Impl& machine, Cell flag) {
+  const auto text = machine.atoms.name(atom_id(flag));
+  for (std::size_t index = 0; index < kFlagCount; ++index) {
+    if (flag_name(index) == text) return static_cast<int>(index);
+  }
+  return -1;
+}
+
+Cell flag_value(Impl& machine, std::size_t index) {
+  switch (index) {
+    case 0: return atom_named(machine, "true");
+    case 1: return atom_named(machine, "toward_zero");
+    case 2: return machine.heap.integer(std::numeric_limits<std::int64_t>::max());
+    case 3: return machine.heap.integer(std::numeric_limits<std::int64_t>::min());
+    case 4: return machine.heap.integer(1024);
+    case 5:
+      if (machine.quotes == DoubleQuotes::Chars) return atom_named(machine, "chars");
+      if (machine.quotes == DoubleQuotes::Atom) return atom_named(machine, "atom");
+      return atom_named(machine, "codes");
+    case 6: return atom_named(machine, machine.unknown_fail ? "fail" : "error");
+    case 7: return atom_named(machine, "utf8");
+    case 8: return atom_named(machine, "false");
+    default: return atom_named(machine, "error");
+  }
+}
+
+bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
+  if (value.tag() != Tag::Atom) return false;
+  const auto text = machine.atoms.name(atom_id(value));
+  if (index == 5) return text == "codes" || text == "chars" || text == "atom";
+  if (index == 6) return text == "error" || text == "fail";
+  return text == "error";
+}
+
+void flag_store(Impl& machine, std::size_t index, Cell value) {
+  const auto text = machine.atoms.name(atom_id(value));
+  if (index == 5) {
+    if (text == "chars") machine.quotes = DoubleQuotes::Chars;
+    else if (text == "atom") machine.quotes = DoubleQuotes::Atom;
+    else machine.quotes = DoubleQuotes::Codes;
+    return;
+  }
+  if (index == 6) machine.unknown_fail = text == "fail";
+}
+
+void type_at(Impl& machine, const Goal& goal, Cell culprit) {
+  raise_formal(machine, formal_type(machine, "atom", culprit), goal.name, goal.arity);
+}
+
+void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
+
+std::optional<Cell> set_problem(Impl& machine, Cell flag, Cell value) {
+  if (machine.heap.unbound(flag) || machine.heap.unbound(value)) return formal_instantiation(machine);
+  if (flag.tag() != Tag::Atom) return formal_type(machine, "atom", flag);
+  const int index = find_flag(machine, flag);
+  if (index < 0) return formal_domain(machine, "prolog_flag", flag);
+  if (!flag_writable(static_cast<std::size_t>(index))) {
+    return formal_permission(machine, "modify", "flag", flag);
+  }
+  if (!flag_accepts(value, machine, static_cast<std::size_t>(index))) {
+    return formal_domain(machine, "flag_value", value);
+  }
+  return std::nullopt;
+}
+
+void push_flag(Impl& machine, const Goal& goal, std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
+  Entry entry;
+  entry.pick = Pick::AtomGen;
+  entry.gen_kind = kFlagGen;
+  entry.next = next;
+  entry.redo_goal = goal.at;
+  entry.heap_mark = heap_mark;
+  entry.trail_mark = trail_mark;
+  push_frame(machine, std::move(entry));
+}
+
+bool bind_flag(Impl& machine, const Goal& goal, std::size_t index) {
+  return do_unify(machine, goal.arg(machine, 0), atom_named(machine, flag_name(index))) &&
+         do_unify(machine, goal.arg(machine, 1), flag_value(machine, index));
+}
+
+bool prove_flags(Impl& machine, const Goal& goal, std::size_t begin) {
+  for (std::size_t index = begin; index < kFlagCount; ++index) {
+    const auto heap_mark = machine.heap.size();
+    const auto trail_mark = machine.trail.slots.size();
+    const auto extras_mark = machine.extras.size();
+    const bool more = index + 1 < kFlagCount;
+    if (more) push_flag(machine, goal, index + 1, heap_mark, trail_mark);
+    if (bind_flag(machine, goal, index)) {
+      succeed(machine, goal);
+      return true;
+    }
+    if (more) machine.stack.pop_back();
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
+  }
+  return false;
+}
+
+void run_current(Impl& machine, const Goal& goal) {
+  const Cell flag = machine.heap.deref(goal.arg(machine, 0));
+  if (!machine.heap.unbound(flag) && flag.tag() != Tag::Atom) {
+    type_at(machine, goal, flag);
+    return;
+  }
+  if (machine.heap.unbound(flag)) {
+    if (!prove_flags(machine, goal, 0)) machine.failed = true;
+    return;
+  }
+  const int index = find_flag(machine, flag);
+  if (index < 0) {
+    raise_formal(machine, formal_domain(machine, "prolog_flag", flag), goal.name, goal.arity);
+    return;
+  }
+  if (!do_unify(machine, goal.arg(machine, 1), flag_value(machine, static_cast<std::size_t>(index)))) {
+    machine.failed = true;
+  } else {
+    succeed(machine, goal);
+  }
+}
+
+void run_set(Impl& machine, const Goal& goal) {
+  const Cell flag = machine.heap.deref(goal.arg(machine, 0));
+  const Cell value = machine.heap.deref(goal.arg(machine, 1));
+  if (const std::optional<Cell> problem = set_problem(machine, flag, value)) {
+    raise_formal(machine, *problem, goal.name, goal.arity);
+    return;
+  }
+  flag_store(machine, static_cast<std::size_t>(find_flag(machine, flag)), value);
+  succeed(machine, goal);
+}
+
+bool is_set_flag(const Impl& machine, Cell directive, Cell& flag, Cell& value) {
+  directive = machine.heap.deref(directive);
+  if (!(directive.tag() == Tag::Str && machine.heap.functor_arity(directive) == 1 &&
+        machine.atoms.name(machine.heap.functor_atom(directive)) == ":-")) {
+    return false;
+  }
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (!(body.tag() == Tag::Str && machine.heap.functor_arity(body) == 2 &&
+        machine.atoms.name(machine.heap.functor_atom(body)) == "set_prolog_flag")) {
+    return false;
+  }
+  flag = machine.heap.deref(machine.heap.arg(body, 0));
+  value = machine.heap.deref(machine.heap.arg(body, 1));
+  return true;
+}
+
+}  // namespace
+
+DoubleQuotes current_double_quotes(const Impl& machine) { return machine.quotes; }
+
+bool redo_flag_gen(Impl& machine) {
+  if (machine.stack.empty() || machine.stack.back().pick != Pick::AtomGen) return false;
+  apply_catches(machine, machine.stack.back());
+  const Entry top = machine.stack.back();
+  const Goal goal = read_goal(machine, top.redo_goal);
+  machine.stack.pop_back();
+  return prove_flags(machine, goal, top.next);
+}
+
+int apply_flag_directive(Impl& machine, Cell directive) {
+  Cell flag;
+  Cell value;
+  if (!is_set_flag(machine, directive, flag, value)) return 0;
+  if (const std::optional<Cell> problem = set_problem(machine, flag, value)) {
+    machine.diagnostic = write_term(machine.heap, machine.operators, *problem, {}, {});
+    return -1;
+  }
+  flag_store(machine, static_cast<std::size_t>(find_flag(machine, flag)), value);
+  return 1;
+}
+
+bool run_flags(Impl& machine, const Goal& goal) {
+  const auto name = machine.atoms.name(goal.name);
+  if (name == "current_prolog_flag" && goal.arity == 2) {
+    run_current(machine, goal);
+    return true;
+  }
+  if (name == "set_prolog_flag" && goal.arity == 2) {
+    run_set(machine, goal);
+    return true;
+  }
+  return false;
+}
+
+}  // namespace mosa

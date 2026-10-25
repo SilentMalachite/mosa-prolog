@@ -1,0 +1,14 @@
+test(flag_bounded, current_prolog_flag(bounded, true), true).
+test(flag_rounding, current_prolog_flag(integer_rounding_function, toward_zero), true).
+test(flag_max_integer, current_prolog_flag(max_integer, 9223372036854775807), true).
+test(flag_min_integer, (current_prolog_flag(min_integer, X), Y is -9223372036854775807 - 1, X =:= Y), true).
+test(flag_max_arity, current_prolog_flag(max_arity, 1024), true).
+test(flag_double_quotes, current_prolog_flag(double_quotes, codes), true).
+test(flag_unknown, current_prolog_flag(unknown, error), true).
+test(flag_encoding, current_prolog_flag(encoding, utf8), true).
+test(flag_ja_punct, current_prolog_flag(japanese_punctuation, false), true).
+test(flag_float_overflow, current_prolog_flag(float_overflow, error), true).
+test(flag_float_zero_div, current_prolog_flag(float_zero_div, error), true).
+test(flag_float_undefined, current_prolog_flag(float_undefined, error), true).
+test(unknown_fail, (set_prolog_flag(unknown, fail), no_such_pred_phase3), fail).
+test(unknown_restored, (set_prolog_flag(unknown, error), no_such_pred_phase3), error(existence_error(procedure, no_such_pred_phase3/0))).
