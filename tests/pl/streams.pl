@@ -7,7 +7,7 @@ test(open_string_partial, open_string([97|X], S), error(instantiation_error)).
 test(open_string_chars, open_string([a], S), error(type_error(integer, a))).
 test(open_string_int, open_string(1, S), error(type_error(atom, 1))).
 test(open_string_bad_list, open_string([97|98], S), error(type_error(list, [97|98]))).
-test(open_string_bound, open_string(ab, s), error(type_error(variable, s))).
+test(open_string_bound, open_string(ab, s), error(uninstantiation_error(s))).
 test(open_string_big, open_string([1114112], S), error(representation_error(character_code))).
 test(open_string_neg, open_string([-1], S), error(representation_error(character_code))).
 test(open_source_var, open(F, read, S), error(instantiation_error)).
@@ -19,7 +19,7 @@ test(open_opt_var_before_mode, open(a, 1, S, X), error(instantiation_error)).
 test(open_mode_type, open(a, 1, S), error(type_error(atom, 1))).
 test(open_mode_before_list, open(a, 1, S, foo), error(type_error(atom, 1))).
 test(open_list, open(a, read, S, foo), error(type_error(list, foo))).
-test(open_stream_before_source, open(1, read, s), error(type_error(variable, s))).
+test(open_stream_before_source, open(1, read, s), error(uninstantiation_error(s))).
 test(open_source_int, open(1, read, S), error(domain_error(source_sink, 1))).
 test(open_mode_bad, open(a, foo, S), error(domain_error(io_mode, foo))).
 test(open_mode_before_option, open(a, foo, S, [eof_action(drop)]), error(domain_error(io_mode, foo))).

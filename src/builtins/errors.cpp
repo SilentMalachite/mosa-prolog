@@ -18,6 +18,10 @@ Cell formal_instantiation(Impl& machine) {
   return machine.heap.atom(machine.atoms.intern("instantiation_error"));
 }
 
+Cell formal_uninstantiation(Impl& machine, Cell culprit) {
+  return machine.heap.structure(machine.atoms.intern("uninstantiation_error"), std::array<Cell, 1>{culprit});
+}
+
 Cell formal_type(Impl& machine, std::string_view type, Cell culprit) {
   return pair(machine, "type_error", machine.heap.atom(machine.atoms.intern(type)), culprit);
 }

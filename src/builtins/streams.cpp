@@ -1,13 +1,13 @@
 // 規格 8.11.1 open/3, open/4。open_string/2 は ADR 0005。
 // open(+source_sink, +io_mode, -stream)
 // open(+source_sink, +io_mode, -stream, +stream_options)
-//   instantiation_error, type_error(atom), type_error(variable), type_error(list),
+//   instantiation_error, uninstantiation_error, type_error(atom), type_error(list),
 //   domain_error(source_sink), domain_error(io_mode), domain_error(stream_option),
 //   existence_error(source_sink), permission_error(open, source_sink)
 // open_string(+source, -stream)
 //   source はアトムかコードのリスト。文字のリストは受けない。
 //   instantiation_error, type_error(atom), type_error(list), type_error(integer),
-//   type_error(variable), representation_error(character_code)
+//   uninstantiation_error, representation_error(character_code)
 // テスト: tests/pl/streams.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
@@ -148,8 +148,9 @@ Stream standard_stream(Stream::Mode mode, std::string alias) {
 
 bool output_bound(Impl& machine, const Goal& goal, Cell stream) {
   if (machine.heap.unbound(stream)) return false;
-  // TODO(iso): 8.11.5.3 f。Cor.2 は uninstantiation_error。仕様の Formal 一覧に無いので 1995 の型にする。
-  return raise_type(machine, goal, "variable", stream);
+  // Cor.2 の 8.11.5.3 f。モードが - の引数は、具体値なら型誤りにしない。
+  raise_formal(machine, formal_uninstantiation(machine, stream), goal.name, goal.arity);
+  return true;
 }
 
 bool args_unbound(Impl& machine, const Goal& goal, Cell source, Cell mode, Cell options) {

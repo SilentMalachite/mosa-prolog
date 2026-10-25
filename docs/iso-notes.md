@@ -93,4 +93,4 @@
 
 ## 8.11.5.3 f ストリーム引数が具体値
 
-未決: `open/3`、`open/4`、`open_string/2` の `Stream` が変数でないとき。A: 1995 年の本文どおり `type_error(variable, Stream)`。B: Cor.2 の `uninstantiation_error(Stream)`。仕様第3節の Formal の一覧に `uninstantiation_error` は無い。実装は A にしてある。
+決定（2026-10-25）: B。Cor.2 の 7.12.2 と 8.11.5.3 f のとおり `uninstantiation_error(Stream)`。`open_string/2` の `Stream` もモードが `-` なので同じ Formal。仕様第3節の一覧に `uninstantiation_error/1` を足した。

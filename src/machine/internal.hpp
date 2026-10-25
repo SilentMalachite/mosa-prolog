@@ -228,6 +228,7 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_instantiation(Impl& machine);
+[[nodiscard]] Cell formal_uninstantiation(Impl& machine, Cell culprit);
 [[nodiscard]] Cell formal_type(Impl& machine, std::string_view type, Cell culprit);
 [[nodiscard]] Cell formal_domain(Impl& machine, std::string_view domain, Cell culprit);
 [[nodiscard]] Cell formal_existence(Impl& machine, std::string_view kind, Cell culprit);
