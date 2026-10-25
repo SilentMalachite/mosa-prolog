@@ -216,7 +216,12 @@ Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left
   } else if (name == "//") out = a / b;
   else if (name == "rem") out = a % b;
   else if (name == "div") out = floor_div(a, b);
-  else if (name == "mod") out = a - b * floor_div(a, b);
+  else if (name == "mod") {
+    // b * q は int64 に収まらないことがある。剰余の符号を直すと結果は必ず収まる。
+    auto rem = a % b;
+    if (rem != 0 && ((a < 0) != (b < 0))) rem += b;
+    out = rem;
+  }
   else return {};
   return from_int(out);
 }
@@ -438,6 +443,8 @@ bool cmp_nums(Num left, Num right, int mode) {
   if (left.flt || right.flt) {
     const double a = as_float(left);
     const double b = as_float(right);
+    // NaN との比較は大小も等号も成り立たない。=\= は =:= の否定なので、ここが失敗すれば成立する。
+    if (std::isnan(a) || std::isnan(b)) return false;
     if (a < b) order = -1;
     else if (a > b) order = 1;
   } else if (left.ival < right.ival) order = -1;

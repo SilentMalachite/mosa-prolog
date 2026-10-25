@@ -33,3 +33,12 @@ test(iso_gt, (2 > 1), true).
 test(iso_ne, (1 =\= 2), true).
 test(iso_msb_zero, (X is msb(0)), error(evaluation_error(undefined))).
 test(iso_pow, (X is 2 ** 3), solutions([X = 8])).
+test(nan_eq, (nan =:= nan), fail).
+test(nan_ne, (nan =\= nan), true).
+test(nan_lt, (nan < 1), fail).
+test(nan_le, (nan =< 1), fail).
+test(nan_gt, (1 > nan), fail).
+test(nan_ge, (1 >= nan), fail).
+test(abs_min, (X is abs(-9223372036854775807 - 1)), error(evaluation_error(int_overflow))).
+test(neg_min, (X is -(-9223372036854775807 - 1)), error(evaluation_error(int_overflow))).
+test(mod_edge, (X is (-9223372036854775807 - 1) mod 9223372036854775807), solutions([X = 9223372036854775806])).
