@@ -26,6 +26,7 @@ class OperatorTable {
   [[nodiscard]] static OperatorTable iso_core();
 
   // 拒否は表を変えない。優先度 0 はその名前と指定子の組だけを消す。
+  // 0 以外は、同じ類（前置、中置、後置）の古い指定子を置き換える。
   [[nodiscard]] OpResult define(int priority, Specifier specifier, std::string name);
 
   // 優先度の昇順、同じ優先度では Specifier の宣言順。

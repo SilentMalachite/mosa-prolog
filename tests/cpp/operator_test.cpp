@@ -141,10 +141,9 @@ void check_bar(mosa::OperatorTable& ops) {
   mosa_test::check(bar.size() == 1 && bar[0].priority == 1001 && bar[0].specifier == mosa::Specifier::Xfx &&
                        bar[0].name == "|",
                    "| inserted");
-  // 優先度 0 は削除だが、中置の | は 1000 以下なので拒否し、1001 で足した組は残す。
-  mosa_test::check(ops.define(0, mosa::Specifier::Xfx, "|") == mosa::OpResult::CreateBar, "| priority 0");
-  const auto still = ops.lookup("|");
-  mosa_test::check(still.size() == 1 && still[0].priority == 1001, "| not removed");
+  // 優先度 0 は中置の | を消す。Cor.2 の op(0, xfy, '|') と同じ。
+  mosa_test::check(ops.define(0, mosa::Specifier::Xfx, "|") == mosa::OpResult::Ok, "| priority 0");
+  mosa_test::check(ops.lookup("|").empty(), "| removed");
 }
 
 void check_mix_and_remove(mosa::OperatorTable& ops) {
@@ -178,6 +177,12 @@ void check_replace(mosa::OperatorTable& ops) {
   mosa_test::check(ops.define(0, mosa::Specifier::Xfx, "edge") == mosa::OpResult::Ok, "remove edge");
   mosa_test::check(ops.lookup("edge").empty(), "edge gone");
   mosa_test::check(ops.define(0, mosa::Specifier::Xf, "missing") == mosa::OpResult::Ok, "remove missing");
+  mosa_test::check(ops.define(30, mosa::Specifier::Xfx, "zz") == mosa::OpResult::Ok, "add xfx");
+  mosa_test::check(ops.define(30, mosa::Specifier::Xfy, "zz") == mosa::OpResult::Ok, "replace with xfy");
+  const auto replaced = ops.lookup("zz");
+  mosa_test::check(replaced.size() == 1 && replaced[0].specifier == mosa::Specifier::Xfy &&
+                       replaced[0].priority == 30,
+                   "one infix");
 }
 
 void check_rejections() {

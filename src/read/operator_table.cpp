@@ -63,7 +63,8 @@ bool named_kind(const std::vector<OpDef>& ops, std::string_view name, bool (*kin
   return false;
 }
 
-// 変更より先に拒否を決める。優先度 0 でもコンマ、[]、{}、禁止の | は消さない。
+// 変更より先に拒否を決める。優先度 0 でもコンマと [] と {} は消さない。
+// | の優先度 0 は削除なので拒否しない。中置の 1..1000 と前置と後置だけ拒否する。
 // 中置と後置の併存は足すときだけ見る。優先度 0 は無い組を消しても Ok。
 std::optional<OpResult> rejection(const std::vector<OpDef>& ops, int priority, Specifier specifier,
                                   std::string_view name) {
@@ -71,7 +72,8 @@ std::optional<OpResult> rejection(const std::vector<OpDef>& ops, int priority, S
   if (!known_specifier(specifier)) return OpResult::BadSpecifier;
   if (name == ",") return OpResult::ModifyComma;
   if (name == "[]" || name == "{}") return OpResult::CreateEmpty;
-  if (name == "|" && (is_prefix(specifier) || is_postfix(specifier) || priority <= 1000)) {
+  if (name == "|" && priority != 0 &&
+      (is_prefix(specifier) || is_postfix(specifier) || priority <= 1000)) {
     return OpResult::CreateBar;
   }
   if (priority != 0 &&
@@ -84,6 +86,19 @@ std::optional<OpResult> rejection(const std::vector<OpDef>& ops, int priority, S
 
 void erase_pair(std::vector<OpDef>& ops, std::string_view name, Specifier specifier) {
   std::erase_if(ops, [&](const OpDef& op) { return op.name == name && op.specifier == specifier; });
+}
+
+bool same_class(Specifier left, Specifier right) {
+  if (is_prefix(left)) return is_prefix(right);
+  if (is_infix(left)) return is_infix(right);
+  return is_postfix(left) && is_postfix(right);
+}
+
+// 一つの名前は前置、中置、後置をそれぞれ一つだけ持つ。
+void erase_class(std::vector<OpDef>& ops, std::string_view name, Specifier specifier) {
+  std::erase_if(ops, [&](const OpDef& op) {
+    return op.name == name && same_class(op.specifier, specifier);
+  });
 }
 
 void upsert(std::vector<OpDef>& ops, int priority, Specifier specifier, std::string name) {
@@ -115,6 +130,7 @@ OpResult OperatorTable::define(int priority, Specifier specifier, std::string na
     erase_pair(ops_, name, specifier);
     return OpResult::Ok;
   }
+  erase_class(ops_, name, specifier);
   upsert(ops_, priority, specifier, std::move(name));
   return OpResult::Ok;
 }

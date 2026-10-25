@@ -65,6 +65,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/bytes.cpp
   src/builtins/read_pred.cpp
   src/builtins/write_pred.cpp
+  src/builtins/operators.cpp
 )
 
 enable_testing()
