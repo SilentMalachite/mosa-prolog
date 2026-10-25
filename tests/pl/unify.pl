@@ -22,3 +22,9 @@ test(iso_unify_list, ([a, b] = [a, b]), true).
 test(iso_unify_list_tail, ([a|T] = [a, b]), solutions([T = [b]])).
 test(iso_not_unify_var, (X = 1, X \= 1), fail).
 test(iso_occurs_list, unify_with_occurs_check(X, [X]), fail).
+undo_clause :- X = f(A, b), X \= f(1, c), var(A).
+test(unify_partial_undo, undo_clause, true).
+occurs_local :- unify_with_occurs_check(X, f(X)).
+test(occurs_local, occurs_local, fail).
+occurs_pair :- unify_with_occurs_check(f(X, Y), f(Y, g(X))).
+test(occurs_pair, occurs_pair, fail).

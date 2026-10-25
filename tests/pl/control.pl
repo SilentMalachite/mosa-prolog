@@ -26,3 +26,12 @@ test(iso_call_true, call(true), true).
 test(iso_call_cut, (call(!), fail ; true), true).
 test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).
 test(throw_keeps_ball, catch((X = a, throw(f(X))), Y, Y == f(a)), true).
+test(catch_after, (catch(true, _, true), throw(x)), error(x)).
+test(if_cut_local, ((!, fail) -> true ; true), true).
+test(var_goal_cut, (G = !, (G, fail ; true)), true).
+test(call_conj_num, call((fail, 1)), error(type_error(callable, (fail, 1)))).
+recover_cut :- catch(throw(x), _, !), fail.
+recover_cut.
+test(catch_recover_cut, recover_cut, true).
+local_if :- (X = 1 ; X = 2), (! -> true), X = 2.
+test(if_cut_keeps, local_if, true).

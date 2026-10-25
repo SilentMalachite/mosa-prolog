@@ -107,6 +107,28 @@ std::string reason_text(SyntaxReason reason) {
   return "予期しないトークン";
 }
 
+struct Echo {
+  SessionResult* result = nullptr;
+  std::ostream* out = nullptr;
+  std::ostream* err = nullptr;
+
+  void say(std::string_view text) const {
+    result->out.append(text);
+    if (out != nullptr) {
+      *out << text;
+      out->flush();
+    }
+  }
+
+  void warn(std::string_view text) const {
+    result->err.append(text);
+    if (err != nullptr) {
+      *err << text;
+      err->flush();
+    }
+  }
+};
+
 std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
   std::string text;
   if (stop.kind == StopKind::Success) text = format_answer(machine, stop);
@@ -117,22 +139,21 @@ std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
   return text;
 }
 
-void warn_resource(SessionResult& result) { result.err += "警告: ヒープの上限を超えました\n"; }
+void warn_resource(Echo& echo) { echo.warn("警告: ヒープの上限を超えました\n"); }
 
 void recover_heap(Machine& machine) { machine.heap().truncate(0); }
 
-void warn_exception(Machine& machine, const Stop& stop, std::string& err) {
-  err += "警告: ゴールは例外を送出しました: ";
-  err += write_term(machine.heap(), machine.operators(), stop.exception, {}, {});
-  err += '\n';
+void warn_exception(Machine& machine, const Stop& stop, Echo& echo) {
+  echo.warn("警告: ゴールは例外を送出しました: ");
+  echo.warn(write_term(machine.heap(), machine.operators(), stop.exception, {}, {}));
+  echo.warn("\n");
 }
 
 bool directive_text(Machine& machine, std::string_view text) {
   return machine.load_program(text).ok;
 }
 
-int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& cursor, SessionResult& result,
-              bool& halted) {
+int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& cursor, Echo& echo, bool& halted) {
   halted = false;
   try {
     Stop stop = machine.query(goal);
@@ -142,36 +163,37 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
         return stop.halt_code;
       }
       if (stop.kind == StopKind::Exception) {
-        warn_exception(machine, stop, result.err);
+        warn_exception(machine, stop, echo);
         return interactive ? 0 : 2;
       }
       if (stop.kind == StopKind::Failure) {
         // consult/1 の失敗は、ゴールを失敗させる前にパス付きの理由を出す。
         const auto diag = machine.diagnostic();
         if (!diag.empty()) {
-          result.err += std::string{diag};
-          result.err += '\n';
+          echo.warn(diag);
+          echo.warn("\n");
         }
-        result.out += "false.\n";
+        echo.say("false.\n");
         return 1;
       }
       if (!interactive || !stop.more) {
-        result.out += answer_line(machine, stop, true);
+        echo.say(answer_line(machine, stop, true));
         return 0;
       }
-      result.out += format_answer(machine, stop);
+      // ; を読む前に答えを出す。終了時にまとめて書くと、対話では次の入力を判断できない。
+      echo.say(format_answer(machine, stop));
       const int ch = cursor.get();
       if (ch == ';') {
-        result.out += '\n';
+        echo.say("\n");
         stop = machine.next();
         continue;
       }
-      result.out += ".\n";
+      echo.say(".\n");
       return 0;
     }
   } catch (const ResourceLimit&) {
     recover_heap(machine);
-    warn_resource(result);
+    warn_resource(echo);
     return interactive ? 0 : 2;
   }
 }
@@ -183,9 +205,9 @@ bool blank(std::string_view text) {
   return true;
 }
 
-void prompt_loop(Machine& machine, Cursor& cursor, SessionResult& result) {
+void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   std::string buffer;
-  result.out += "?- ";
+  echo.say("?- ");
   while (true) {
     std::string line;
     if (!cursor.line(line)) return;
@@ -197,22 +219,22 @@ void prompt_loop(Machine& machine, Cursor& cursor, SessionResult& result) {
       outcome = reader.next();
     } catch (const ResourceLimit&) {
       recover_heap(machine);
-      warn_resource(result);
+      warn_resource(echo);
       buffer.clear();
-      result.out += "?- ";
+      echo.say("?- ");
       continue;
     }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
     if (outcome.failure) {
-      result.err += reason_text(outcome.failure->reason);
-      result.err += '\n';
+      echo.warn(reason_text(outcome.failure->reason));
+      echo.warn("\n");
       buffer.clear();
-      result.out += "?- ";
+      echo.say("?- ");
       continue;
     }
     if (!outcome.term) {
       buffer.clear();
-      result.out += "?- ";
+      echo.say("?- ");
       continue;
     }
     const std::string text = buffer;
@@ -222,38 +244,42 @@ void prompt_loop(Machine& machine, Cursor& cursor, SessionResult& result) {
                            (machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == ":-" ||
                             machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == "?-");
     if (directive) {
-      if (!directive_text(machine, text)) result.err += std::string{machine.diagnostic()} + "\n";
+      if (!directive_text(machine, text)) echo.warn(std::string{machine.diagnostic()} + "\n");
     } else {
       const std::string goal =
           write_term(machine.heap(), machine.operators(), term, {}, outcome.term->names) + ".";
       bool halted = false;
-      const int code = play_goal(machine, goal, true, cursor, result, halted);
+      const int code = play_goal(machine, goal, true, cursor, echo, halted);
       if (halted) {
-        result.code = code;
+        echo.result->code = code;
         return;
       }
     }
-    result.out += "?- ";
+    echo.say("?- ");
   }
 }
 
 }  // namespace
 
 SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty,
-                           std::size_t heap_limit) {
+                           std::size_t heap_limit, std::ostream* live_out, std::ostream* live_err) {
   SessionResult result;
+  Echo echo;
+  echo.result = &result;
+  echo.out = live_out;
+  echo.err = live_err;
   const Options options = parse_args(args);
   if (options.version) {
-    result.out = version_line() + "\n";
+    echo.say(version_line() + "\n");
     return result;
   }
   if (options.bad || (options.top_halt && !options.has_goal)) {
-    result.err = usage;
+    echo.warn(usage);
     result.code = 1;
     return result;
   }
   if (!tty && !options.has_goal && options.files.empty()) {
-    result.err = usage;
+    echo.warn(usage);
     result.code = 1;
     return result;
   }
@@ -264,32 +290,31 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
   for (const std::string& file : options.files) {
     try {
       if (!machine->consult(file)) {
-        result.err += std::string{machine->diagnostic()};
-        result.err += '\n';
+        echo.warn(std::string{machine->diagnostic()} + "\n");
         result.code = 1;
         return result;
       }
     } catch (const ResourceLimit&) {
       recover_heap(*machine);
-      warn_resource(result);
+      warn_resource(echo);
       result.code = 2;
       return result;
     }
   }
   if (!tty && !options.has_goal) {
-    result.err = usage;
+    echo.warn(usage);
     result.code = 1;
     return result;
   }
   if (options.has_goal) {
     const bool interactive = tty && !options.top_halt;
     bool halted = false;
-    const int code = play_goal(*machine, options.goal, interactive, cursor, result, halted);
+    const int code = play_goal(*machine, options.goal, interactive, cursor, echo, halted);
     result.code = code;
     if (halted || !interactive || code == 2) return result;
     result.code = 0;
   }
-  if (tty && !options.top_halt) prompt_loop(*machine, cursor, result);
+  if (tty && !options.top_halt) prompt_loop(*machine, cursor, echo);
   return result;
 }
 

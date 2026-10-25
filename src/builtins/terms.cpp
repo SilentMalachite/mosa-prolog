@@ -6,7 +6,8 @@
 namespace mosa {
 namespace {
 
-constexpr std::uint16_t kMaxArity = 2047;
+// SPEC 第3節の max_arity。セルの 11bit は 2047 まで入るが、ここが上限である。
+constexpr std::uint16_t kMaxArity = 1024;
 
 bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
@@ -54,8 +55,9 @@ void decompose_functor(Impl& machine, const Goal& goal, Cell term) {
   }
   const auto heap_mark = machine.heap.size();
   const auto trail_mark = machine.trail.slots.size();
+  const auto extras_mark = machine.extras.size();
   if (!do_unify(machine, goal.arg(machine, 1), name) || !do_unify(machine, goal.arg(machine, 2), arity)) {
-    restore_state(machine, heap_mark, trail_mark);
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
     machine.failed = true;
     return;
   }
@@ -287,9 +289,12 @@ void run_copy(Impl& machine, const Goal& goal) {
 
 void run_variables(Impl& machine, const Goal& goal) {
   const Cell bag = machine.heap.deref(goal.arg(machine, 1));
-  if (!machine.heap.unbound(bag) && bag.tag() != Tag::Lis && !is_nil(machine, bag)) {
-    raise_formal(machine, formal_type(machine, "list", bag), goal.name, goal.arity);
-    return;
+  if (!machine.heap.unbound(bag)) {
+    std::vector<Cell> ignored;
+    if (proper_items(machine, bag, ignored) == ListRead::Bad) {
+      raise_formal(machine, formal_type(machine, "list", bag), goal.name, goal.arity);
+      return;
+    }
   }
   std::vector<Cell> vars;
   std::vector<std::uint64_t> seen;

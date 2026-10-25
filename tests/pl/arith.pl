@@ -32,7 +32,7 @@ test(iso_le, (1 =< 1), true).
 test(iso_gt, (2 > 1), true).
 test(iso_ne, (1 =\= 2), true).
 test(iso_msb_zero, (X is msb(0)), error(evaluation_error(undefined))).
-test(iso_pow, (X is 2 ** 3), solutions([X = 8])).
+test(iso_pow, (X is 2 ** 3), solutions([X = 8.0])).
 test(nan_eq, (nan =:= nan), fail).
 test(nan_ne, (nan =\= nan), true).
 test(nan_lt, (nan < 1), fail).
@@ -55,3 +55,11 @@ test(shr_neg63, (X is -1 >> 63), solutions([X = -1])).
 test(shl_overflow, (X is 1 << 63), error(evaluation_error(int_overflow))).
 test(neg_pow_neg, (X is (-2) ** (-1)), solutions([X = -0.5])).
 test(neg_pow_half, (X is (-2) ** 0.5), error(evaluation_error(undefined))).
+test(sign_float, (X is sign(-2.5)), solutions([X = -1.0])).
+test(int_hat, (X is ^(2, 3)), solutions([X = 8])).
+test(hat_neg, (X is ^(2, -1)), error(evaluation_error(undefined))).
+test(hat_one, (X is ^(1, -1)), solutions([X = 1])).
+test(atan_zero, (X is atan2(0, 0)), error(evaluation_error(undefined))).
+test(div_type, (X is 1.5 // 2), error(type_error(integer, 1.5))).
+test(catch_zero, catch((X is 1 / 0), error(evaluation_error(zero_divisor), _), true), true).
+test(catch_ne, catch((X =\= 1), error(instantiation_error, _), true), true).

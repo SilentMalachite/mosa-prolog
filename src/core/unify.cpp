@@ -9,15 +9,17 @@ namespace {
 
 struct Attempt {
   const std::uint64_t* boundary = nullptr;
-  std::vector<std::uint64_t*> slots;
+  // 失敗時に戻す分。選択点より新しい節の変数も、呼び出し開始より前ならヒープ切り詰めでは消えない。
+  std::vector<std::uint64_t*> undo;
+  std::vector<std::uint64_t*> keep;
 };
 
 bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 void bind_var(Heap& heap, Cell variable, Cell value, Attempt& attempt) {
   auto* slot = const_cast<std::uint64_t*>(heap.word(variable));
-  // 選択点より新しい語は、ヒープ長を戻せば消える。古い語だけ戻せるように積む。
-  if (slot < attempt.boundary) attempt.slots.push_back(slot);
+  attempt.undo.push_back(slot);
+  if (slot < attempt.boundary) attempt.keep.push_back(slot);
   heap.bind(variable, value);
 }
 
@@ -62,7 +64,7 @@ bool unify_cells(Heap& heap, Cell left, Cell right, Attempt& attempt) {
 }
 
 void undo_attempt(Heap& heap, Attempt& attempt, std::size_t heap_mark) {
-  for (auto* slot : attempt.slots) *slot = std::bit_cast<std::uint64_t>(slot);
+  for (auto* slot : attempt.undo) *slot = std::bit_cast<std::uint64_t>(slot);
   heap.truncate(heap_mark);
 }
 
@@ -76,7 +78,7 @@ bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_ma
     return false;
   }
   trail.slots.resize(trail_mark);
-  trail.slots.insert(trail.slots.end(), attempt.slots.begin(), attempt.slots.end());
+  trail.slots.insert(trail.slots.end(), attempt.keep.begin(), attempt.keep.end());
   return true;
 }
 

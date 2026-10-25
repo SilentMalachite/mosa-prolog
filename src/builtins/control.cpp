@@ -58,6 +58,11 @@ bool run_call(Impl& machine, const Goal& goal) {
   }
   const auto boundary = machine.stack.size();
   const Compiled compiled = compile_goal(machine.heap, callable);
+  // (fail, 1) は複合項なので callable だが、ゴールには変換できない（7.8.3、Cor.2）。
+  if (!body_callable(compiled.term)) {
+    not_callable(machine, goal, callable);
+    return true;
+  }
   launch(machine, compiled.term, goal.cont, boundary, compiled.env);
   return true;
 }
@@ -77,7 +82,7 @@ bool run_not(Impl& machine, const Goal& goal) {
   barrier.cont = goal.cont;
   barrier.heap_mark = machine.heap.size();
   barrier.trail_mark = machine.trail.slots.size();
-  machine.stack.push_back(barrier);
+  push_frame(machine, barrier);
   const auto boundary = machine.stack.size();
   Extra done;
   done.ctrl = Ctrl::NegDone;
@@ -107,7 +112,7 @@ bool run_once(Impl& machine, const Goal& goal) {
   barrier.pick = Pick::Once;
   barrier.heap_mark = machine.heap.size();
   barrier.trail_mark = machine.trail.slots.size();
-  machine.stack.push_back(barrier);
+  push_frame(machine, barrier);
   const auto boundary = machine.stack.size();
   Extra done;
   done.ctrl = Ctrl::OnceDone;
@@ -130,7 +135,7 @@ bool run_repeat(Impl& machine, const Goal& goal) {
   again.cont = goal.cont;
   again.heap_mark = machine.heap.size();
   again.trail_mark = machine.trail.slots.size();
-  machine.stack.push_back(again);
+  push_frame(machine, again);
   machine.ip = goal.cont;
   return true;
 }

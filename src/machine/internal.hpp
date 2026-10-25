@@ -51,11 +51,15 @@ struct Entry {
   std::uint64_t cont = kNoFrame;
   int soft_id = 0;
   bool cond_ok = false;
+  bool armed = false;
+  std::size_t extras_mark = 0;
+  // この選択点をやり直すとき、有効に戻す Catch のスタック位置。抜けたあとの選択点は空である。
+  std::vector<std::uint32_t> live_catches;
   Cell pattern{};
   IrTerm recovery;
 };
 
-enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone };
+enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit };
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
@@ -94,6 +98,8 @@ struct Machine::Impl {
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
+  // catch が評価の途中で例外を消しても、呼び出し元がヒープを読み続けないようにする。
+  bool eval_abort = false;
   Cell ball{};
   bool halt_now = false;
   bool halt_pending = false;
@@ -149,7 +155,11 @@ void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] Goal read_goal(const Impl& machine, std::uint64_t at);
 [[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right);
 void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut);
-void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark);
+void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
+void note_catches(const Impl& machine, Entry& entry);
+void apply_catches(Impl& machine, const Entry& entry);
+void push_frame(Impl& machine, Entry entry);
+[[nodiscard]] bool body_callable(const IrTerm& term);
 [[nodiscard]] bool backtrack(Impl& machine);
 [[nodiscard]] bool run_builtin(Impl& machine, const Goal& goal);
 void enter_user(Impl& machine, const Goal& goal);

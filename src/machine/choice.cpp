@@ -13,13 +13,40 @@ const std::uint64_t* watermark(const Impl& machine) {
 
 }  // namespace
 
-void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark) {
+void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark) {
   while (machine.trail.slots.size() > trail_mark) {
     auto* slot = machine.trail.slots.back();
     machine.trail.slots.pop_back();
     *slot = std::bit_cast<std::uint64_t>(slot);
   }
   machine.heap.truncate(heap_mark);
+  if (machine.extras.size() > extras_mark) machine.extras.resize(extras_mark);
+}
+
+void note_catches(const Impl& machine, Entry& entry) {
+  entry.live_catches.clear();
+  for (std::size_t index = 0; index < machine.stack.size(); ++index) {
+    const Entry& frame = machine.stack[index];
+    if (frame.pick == Pick::Catch && frame.armed) {
+      entry.live_catches.push_back(static_cast<std::uint32_t>(index));
+    }
+  }
+}
+
+void apply_catches(Impl& machine, const Entry& entry) {
+  std::vector<char> on(machine.stack.size(), 0);
+  for (const std::uint32_t index : entry.live_catches) {
+    if (index < on.size()) on[index] = 1;
+  }
+  for (std::size_t index = 0; index < machine.stack.size(); ++index) {
+    if (machine.stack[index].pick == Pick::Catch) machine.stack[index].armed = on[index] != 0;
+  }
+}
+
+void push_frame(Impl& machine, Entry entry) {
+  entry.extras_mark = machine.extras.size();
+  note_catches(machine, entry);
+  machine.stack.push_back(std::move(entry));
 }
 
 bool do_unify(Impl& machine, Cell left, Cell right) {
@@ -74,9 +101,63 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.cut = boundary;
     entry.heap_mark = machine.heap.size();
     entry.trail_mark = machine.trail.slots.size();
-    machine.stack.push_back(std::move(entry));
+    push_frame(machine, std::move(entry));
   }
   enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary);
+}
+
+bool redo_clause(Impl& machine) {
+  const Entry top = machine.stack.back();
+  if (top.next >= top.candidates.size()) {
+    machine.stack.pop_back();
+    return false;
+  }
+  apply_catches(machine, top);
+  const auto index = top.candidates[top.next];
+  const auto name = top.pred_name;
+  const auto arity = top.pred_arity;
+  const auto goal = top.redo_goal;
+  const auto cut = top.cut;
+  if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
+  else machine.stack.back().next += 1;
+  const Predicate* predicate = nullptr;
+  for (const Predicate& candidate : machine.predicates) {
+    if (candidate.name == name && candidate.arity == arity) predicate = &candidate;
+  }
+  if (predicate == nullptr) return false;
+  enter_clause(machine, predicate->clauses[index], goal, cut);
+  return true;
+}
+
+bool redo_else(Impl& machine) {
+  const Entry top = machine.stack.back();
+  if (top.soft_id != 0 && top.cond_ok) {
+    machine.stack.pop_back();
+    return false;
+  }
+  apply_catches(machine, top);
+  const IrTerm goal = top.else_goal;
+  const auto env = top.env;
+  const auto cont = top.cont;
+  const auto cut = top.cut;
+  machine.stack.pop_back();
+  launch(machine, goal, cont, cut, env);
+  return true;
+}
+
+bool redo_not(Impl& machine) {
+  const Entry top = machine.stack.back();
+  apply_catches(machine, top);
+  const auto cont = top.cont;
+  machine.stack.pop_back();
+  machine.ip = cont;
+  return true;
+}
+
+bool redo_repeat(Impl& machine) {
+  apply_catches(machine, machine.stack.back());
+  machine.ip = machine.stack.back().cont;
+  return true;
 }
 
 bool backtrack(Impl& machine) {
@@ -84,58 +165,18 @@ bool backtrack(Impl& machine) {
   machine.exception = false;
   while (!machine.stack.empty()) {
     const Entry top = machine.stack.back();
-    if (top.pick == Pick::Catch || top.pick == Pick::Cleanup) {
-      restore_state(machine, top.heap_mark, top.trail_mark);
+    restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
+    if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {
       machine.stack.pop_back();
       continue;
     }
-    restore_state(machine, top.heap_mark, top.trail_mark);
-    if (top.pick == Pick::Clauses) {
-      if (top.next >= top.candidates.size()) {
-        machine.stack.pop_back();
-        continue;
-      }
-      const auto index = top.candidates[top.next];
-      const auto name = top.pred_name;
-      const auto arity = top.pred_arity;
-      const auto goal = top.redo_goal;
-      const auto cut = top.cut;
-      if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
-      else machine.stack.back().next += 1;
-      const Predicate* predicate = nullptr;
-      for (const Predicate& candidate : machine.predicates) {
-        if (candidate.name == name && candidate.arity == arity) predicate = &candidate;
-      }
-      if (predicate == nullptr) continue;
-      enter_clause(machine, predicate->clauses[index], goal, cut);
-      return true;
-    }
-    if (top.pick == Pick::ElseGoal) {
-      if (top.soft_id != 0 && top.cond_ok) {
-        machine.stack.pop_back();
-        continue;
-      }
-      const IrTerm goal = top.else_goal;
-      const auto env = top.env;
-      const auto cont = top.cont;
-      const auto cut = top.cut;
+    if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
+    if (top.pick == Pick::ElseGoal && redo_else(machine)) return true;
+    if (top.pick == Pick::Negation && redo_not(machine)) return true;
+    if (top.pick == Pick::Repeat && redo_repeat(machine)) return true;
+    if (top.pick != Pick::Clauses && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
+        top.pick != Pick::Repeat) {
       machine.stack.pop_back();
-      launch(machine, goal, cont, cut, env);
-      return true;
-    }
-    if (top.pick == Pick::Negation) {
-      const auto cont = top.cont;
-      machine.stack.pop_back();
-      machine.ip = cont;
-      return true;
-    }
-    if (top.pick == Pick::Once) {
-      machine.stack.pop_back();
-      continue;
-    }
-    if (top.pick == Pick::Repeat) {
-      machine.ip = top.cont;
-      return true;
     }
   }
   return false;

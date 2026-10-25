@@ -1,7 +1,5 @@
 #include "../machine/internal.hpp"
 
-#include <bit>
-#include <cstdint>
 #include <string_view>
 #include <vector>
 
@@ -67,41 +65,23 @@ bool proper_list(const Impl& machine, Cell cell) {
   return acyclic_term(machine, cell, seen);
 }
 
-bool occurs_in(const Impl& machine, Cell var, Cell term, std::vector<std::uint64_t>& seen) {
-  if (term.raw() == var.raw()) return true;
-  term = machine.heap.deref(term);
-  if (term.raw() == var.raw()) return true;
-  if (machine.heap.unbound(term) || (term.tag() != Tag::Lis && term.tag() != Tag::Str)) return false;
-  for (const auto raw : seen) {
-    if (raw == term.raw()) return false;
-  }
-  seen.push_back(term.raw());
-  if (term.tag() == Tag::Lis) {
-    return occurs_in(machine, var, machine.heap.list_head(term), seen) ||
-           occurs_in(machine, var, machine.heap.list_tail(term), seen);
-  }
-  const auto arity = machine.heap.functor_arity(term);
-  for (std::uint16_t index = 0; index < arity; ++index) {
-    if (occurs_in(machine, var, machine.heap.arg(term, index), seen)) return true;
-  }
-  return false;
-}
-
 void occurs_unify(Impl& machine, const Goal& goal) {
   const auto heap_mark = machine.heap.size();
   const auto trail_mark = machine.trail.slots.size();
+  const auto extras_mark = machine.extras.size();
   if (!do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1))) {
     machine.failed = true;
     return;
   }
-  for (std::size_t index = trail_mark; index < machine.trail.slots.size(); ++index) {
-    const Cell var{std::bit_cast<std::uint64_t>(machine.trail.slots[index])};
-    std::vector<std::uint64_t> seen;
-    if (occurs_in(machine, var, machine.heap.deref(var), seen)) {
-      restore_state(machine, heap_mark, trail_mark);
-      machine.failed = true;
-      return;
-    }
+  // 選択点より新しい変数はトレイルに残らない。束縛後の項が循環なら失敗させる。
+  std::vector<std::uint64_t> seen_left;
+  std::vector<std::uint64_t> seen_right;
+  const bool cyclic = !acyclic_term(machine, goal.arg(machine, 0), seen_left) ||
+                      !acyclic_term(machine, goal.arg(machine, 1), seen_right);
+  if (cyclic) {
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
+    machine.failed = true;
+    return;
   }
   succeed(machine, goal);
 }

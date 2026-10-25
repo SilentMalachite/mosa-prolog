@@ -31,3 +31,5 @@ test(iso_univ_empty, (X =.. []), error(domain_error(non_empty_list, []))).
 test(iso_univ_number_head, (X =.. [1, 2]), error(type_error(atom, 1))).
 test(iso_copy_ground, copy_term(f(a), X), solutions([X = f(a)])).
 test(iso_vars_empty, term_variables(a, L), solutions([L = []])).
+test(arity_limit, functor(T, foo, 1025), error(representation_error(max_arity))).
+test(vars_improper, term_variables(t, [a|b]), error(type_error(list, [a|b]))).

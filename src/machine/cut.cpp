@@ -26,7 +26,7 @@ void push_else(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   entry.soft_id = soft_id;
   entry.heap_mark = machine.heap.size();
   entry.trail_mark = machine.trail.slots.size();
-  machine.stack.push_back(std::move(entry));
+  push_frame(machine, std::move(entry));
 }
 
 }  // namespace
@@ -49,7 +49,8 @@ void launch_or(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
     commit.cut = cut;
     commit.trim_to = boundary;
     const auto frame = push_extra(machine, std::move(commit));
-    launch(machine, left.args[0], frame, cut, env);
+    // 条件の中のカットは else と外側の選択点を捨てない（7.8.7）。
+    launch(machine, left.args[0], frame, machine.stack.size(), env);
     return;
   }
   if (left.tag == IrTag::SoftIf) {
@@ -81,7 +82,7 @@ void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::
   commit.cut = cut;
   commit.trim_to = machine.stack.size();
   const auto frame = push_extra(machine, std::move(commit));
-  launch(machine, goal.args[0], frame, cut, env);
+  launch(machine, goal.args[0], frame, machine.stack.size(), env);
 }
 
 void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,

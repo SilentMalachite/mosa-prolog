@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string_view>
 
 namespace mosa {
@@ -56,8 +57,9 @@ int float_round(Impl& machine, const Goal& goal, std::string_view name, double v
 
 }  // namespace
 
-int float_op(Impl& machine, const Goal& goal, std::string_view name, const double* in, int count, double& out,
+int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out,
              bool& as_int, std::int64_t& iout) {
+  const int count = static_cast<int>(in.size());
   auto unary = [&](double (*fn)(double)) {
     if (count != 1) return 0;
     const double value = fn(in[0]);
@@ -89,6 +91,10 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, const doubl
   }
   if (name == "atan2") {
     if (count != 2) return 0;
+    if (in[0] == 0 && in[1] == 0) {
+      fail_eval(machine, goal, "undefined");
+      return -1;
+    }
     out = std::atan2(in[0], in[1]);
     if (bad_float(machine, goal, out, true)) return -1;
     return 1;

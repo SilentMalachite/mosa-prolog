@@ -1,14 +1,16 @@
 #include "../machine/internal.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string_view>
 #include <vector>
 
 namespace mosa {
 
-int float_op(Impl& machine, const Goal& goal, std::string_view name, const double* in, int count, double& out,
+int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out,
              bool& as_int, std::int64_t& iout);
 
 namespace {
@@ -77,9 +79,9 @@ bool mul_i(std::int64_t a, std::int64_t b, std::int64_t& out) {
   return true;
 }
 
-bool need_int(Impl& machine, const Goal& goal, Cell cell, Num num) {
+bool need_int(Impl& machine, const Goal& goal, Num num) {
   if (!num.flt) return true;
-  fail_integer(machine, goal, cell);
+  fail_integer(machine, goal, machine.heap.floating(num.fval));
   return false;
 }
 
@@ -243,8 +245,8 @@ std::int64_t floor_div(std::int64_t a, std::int64_t b) {
   return q;
 }
 
-Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right, Cell raw) {
-  if (!need_int(machine, goal, raw, left) || !need_int(machine, goal, raw, right)) return {};
+Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
+  if (!need_int(machine, goal, left) || !need_int(machine, goal, right)) return {};
   const auto a = left.ival;
   const auto b = right.ival;
   if ((name == "//" || name == "rem" || name == "div" || name == "mod") && b == 0) {
@@ -299,26 +301,40 @@ bool pow_int(std::int64_t base, std::int64_t exp, std::int64_t& out) {
   return true;
 }
 
-Ev eval_power(Impl& machine, const Goal& goal, Num left, Num right) {
-  if (!left.flt && !right.flt && right.ival >= 0) {
-    std::int64_t out = 0;
-    if (!pow_int(left.ival, right.ival, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-    return from_int(out);
+Ev negative_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp) {
+  if (base == 0) {
+    fail_eval(machine, goal, "undefined");
+    return {};
   }
-  return eval_float_bin(machine, goal, "**", left, right);
+  if (base == 1) return from_int(1);
+  // Cor.2 の 9.3.10.3 e。指数が -1 より小さいときだけ float の型エラー。2^(-1) は undefined。
+  if (exp < -1) {
+    raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
+    return {};
+  }
+  if (base == -1) return from_int(-1);
+  fail_eval(machine, goal, "undefined");
+  return {};
+}
+
+Ev int_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp) {
+  if (exp < 0) return negative_hat(machine, goal, base, exp);
+  std::int64_t out = 0;
+  if (!pow_int(base, exp, out)) {
+    fail_eval(machine, goal, "int_overflow");
+    return {};
+  }
+  return from_int(out);
 }
 
 Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
-  double inputs[2] = {};
-  if (args.size() > 2) return {};
+  std::array<double, 2> inputs{};
+  if (args.size() > inputs.size()) return {};
   for (std::size_t index = 0; index < args.size(); ++index) inputs[index] = as_float(args[index]);
   double value = 0;
   bool as_int = false;
   std::int64_t ival = 0;
-  const int status = float_op(machine, goal, name, inputs, static_cast<int>(args.size()), value, as_int, ival);
+  const int status = float_op(machine, goal, name, std::span<const double>{inputs.data(), args.size()}, value, as_int, ival);
   if (status == 0) return {};
   if (status < 0) return {};
   if (as_int) return from_int(ival);
@@ -329,12 +345,10 @@ Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const
 
 namespace {
 
-Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args, Cell raw);
+Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args);
 
-Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args, Cell raw) {
-  auto one_int = [&](Num num) {
-    return need_int(machine, goal, raw, num);
-  };
+Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
+  auto one_int = [&](Num num) { return need_int(machine, goal, num); };
   if (name == "abs" && args.size() == 1) {
     if (args[0].flt) return from_float(std::fabs(args[0].fval));
     std::int64_t out = 0;
@@ -346,8 +360,8 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
   }
   if (name == "sign" && args.size() == 1) {
     if (args[0].flt) {
-      if (args[0].fval == 0) return from_int(0);
-      return from_int(args[0].fval < 0 ? -1 : 1);
+      if (args[0].fval == 0) return from_float(std::copysign(0.0, args[0].fval));
+      return from_float(std::copysign(1.0, args[0].fval));
     }
     if (args[0].ival < 0) return from_int(-1);
     if (args[0].ival > 0) return from_int(1);
@@ -375,11 +389,11 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
     }
     return from_int(a);
   }
-  return eval_int_rest(machine, goal, name, args, raw);
+  return eval_int_rest(machine, goal, name, args);
 }
 
-Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args, Cell raw) {
-  auto one_int = [&](Num num) { return need_int(machine, goal, raw, num); };
+Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
+  auto one_int = [&](Num num) { return need_int(machine, goal, num); };
   if (name == "msb" && args.size() == 1) {
     if (!one_int(args[0])) return {};
     if (args[0].ival <= 0) {
@@ -418,7 +432,7 @@ Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const s
   return {};
 }
 
-Ev eval_known(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args, Cell raw) {
+Ev eval_known(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
   if (name == "+" && args.size() == 1) return args[0].flt ? from_float(args[0].fval) : from_int(args[0].ival);
   if (name == "-" && args.size() == 1) {
     if (args[0].flt) return from_float(args[0].fval == 0 ? std::copysign(0.0, -std::copysign(1.0, args[0].fval))
@@ -431,16 +445,26 @@ Ev eval_known(Impl& machine, const Goal& goal, std::string_view name, const std:
     return from_int(out);
   }
   if ((name == "+" || name == "-" || name == "*") && args.size() == 2) {
-    if (both_int(args)) return eval_int_bin(machine, goal, name, args[0], args[1], raw);
+    if (both_int(args)) return eval_int_bin(machine, goal, name, args[0], args[1]);
     return eval_float_bin(machine, goal, name, args[0], args[1]);
   }
   if (name == "/" && args.size() == 2) return eval_float_bin(machine, goal, name, args[0], args[1]);
   if ((name == "//" || name == "rem" || name == "div" || name == "mod") && args.size() == 2) {
-    return eval_int_bin(machine, goal, name, args[0], args[1], raw);
+    return eval_int_bin(machine, goal, name, args[0], args[1]);
   }
-  if ((name == "**" || name == "^") && args.size() == 2) return eval_power(machine, goal, args[0], args[1]);
-  if (const Ev extra = eval_int_fn(machine, goal, name, args, raw); extra.ok || machine.exception) return extra;
-  if (const Ev floated = eval_float_wrap(machine, goal, name, args); floated.ok || machine.exception) return floated;
+  if (name == "^" && args.size() == 2 && !args[0].flt && !args[1].flt) {
+    return int_hat(machine, goal, args[0].ival, args[1].ival);
+  }
+  if ((name == "**" || name == "^") && args.size() == 2) {
+    return eval_float_bin(machine, goal, "**", args[0], args[1]);
+  }
+  if (const Ev extra = eval_int_fn(machine, goal, name, args); extra.ok || machine.exception || machine.eval_abort) {
+    return extra;
+  }
+  if (const Ev floated = eval_float_wrap(machine, goal, name, args);
+      floated.ok || machine.exception || machine.eval_abort) {
+    return floated;
+  }
   return {};
 }
 
@@ -474,8 +498,8 @@ Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {
   const auto name = machine.atoms.name(machine.heap.functor_atom(cell));
   std::vector<Num> args;
   if (!eval_args(machine, goal, cell, args)) return {};
-  Ev known = eval_known(machine, goal, name, args, cell);
-  if (known.ok || machine.exception) return known;
+  Ev known = eval_known(machine, goal, name, args);
+  if (known.ok || machine.exception || machine.eval_abort) return known;
   fail_evaluable(machine, goal, indicator(machine, machine.heap.functor_atom(cell), machine.heap.functor_arity(cell)));
   return {};
 }
@@ -527,7 +551,7 @@ bool run_arith(Impl& machine, const Goal& goal) {
   if (goal.arity != 2) return false;
   if (name == "=:=") return run_cmp(machine, goal, 0);
   if (name == "=\\=") {
-    if (!run_cmp(machine, goal, 0) || machine.exception) return true;
+    if (!run_cmp(machine, goal, 0) || machine.exception || machine.eval_abort) return true;
     if (machine.failed) {
       machine.failed = false;
       machine.ip = goal.cont;

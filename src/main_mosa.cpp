@@ -25,9 +25,13 @@ int main(int argc, char** argv) {
     input = buffer.str();
   }
   try {
-    const mosa::SessionResult result = mosa::run_session(args, tty ? std::string_view{} : std::string_view{input}, tty);
-    std::cout << result.out;
-    std::cerr << result.err;
+    const mosa::SessionResult result =
+        mosa::run_session(args, tty ? std::string_view{} : std::string_view{input}, tty, std::size_t{1} << 20,
+                          tty ? &std::cout : nullptr, tty ? &std::cerr : nullptr);
+    if (!tty) {
+      std::cout << result.out;
+      std::cerr << result.err;
+    }
     return result.code;
   } catch (const mosa::ResourceLimit&) {
     std::cerr << "警告: ヒープの上限を超えました\n";

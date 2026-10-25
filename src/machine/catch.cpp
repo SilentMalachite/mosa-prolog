@@ -108,6 +108,16 @@ class Importer {
   std::vector<char> started_ = std::vector<char>(made_.size(), 0);
 };
 
+std::uint64_t push_extra(Impl& machine, Extra extra) {
+  machine.extras.push_back(std::move(extra));
+  const auto at = machine.heap.allocate_words(kFrameHead);
+  machine.heap.set_word(at, 0);
+  machine.heap.set_word(at + 1, machine.extras.size() - 1);
+  machine.heap.set_word(at + 2, 0);
+  machine.heap.set_word(at + 3, kNoFrame);
+  return at;
+}
+
 }  // namespace
 
 ExportedTerm export_term(Impl& machine, Cell cell) {
@@ -128,13 +138,14 @@ void propagate_throw(Impl& machine, Cell ball) {
   while (!machine.stack.empty()) {
     const Entry top = machine.stack.back();
     machine.stack.pop_back();
-    if (top.pick != Pick::Catch) continue;
-    restore_state(machine, top.heap_mark, top.trail_mark);
+    if (top.pick != Pick::Catch || !top.armed) continue;
+    restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
     const Cell rebuilt = import_term(machine, copy);
     if (do_unify(machine, rebuilt, top.pattern)) {
       machine.failed = false;
       machine.exception = false;
-      launch(machine, top.recovery, top.cont, top.cut, top.env);
+      // 回復ゴールは call と同じで、中のカットは catch の外へ出ない（7.8.9）。
+      launch(machine, top.recovery, top.cont, machine.stack.size(), top.env);
       return;
     }
   }
@@ -152,12 +163,18 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   entry.recovery = goal.args[2];
   entry.env = env;
   entry.cont = cont;
-  // 回復節は catch の外のカット境界を使う。中のゴールは積んだあとの高さを使う。
   entry.cut = cut;
+  entry.armed = true;
   entry.heap_mark = machine.heap.size();
   entry.trail_mark = machine.trail.slots.size();
-  machine.stack.push_back(std::move(entry));
-  launch(machine, goal.args[0], cont, machine.stack.size(), env);
+  push_frame(machine, std::move(entry));
+  // ゴールを抜けたあとは Catch を無効にする。選択点が残る間は枠を残し、戻ったときだけ有効に戻す。
+  Extra exit;
+  exit.ctrl = Ctrl::CatchExit;
+  exit.trim_to = machine.stack.size() - 1;
+  exit.cont = cont;
+  const auto frame = push_extra(machine, std::move(exit));
+  launch(machine, goal.args[0], frame, machine.stack.size(), env);
 }
 
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {

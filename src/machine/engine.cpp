@@ -55,6 +55,14 @@ void step_control(Impl& machine) {
     machine.failed = true;
     return;
   }
+  if (extra.ctrl == Ctrl::CatchExit) {
+    const auto index = extra.trim_to;
+    if (index < machine.stack.size() && machine.stack[index].pick == Pick::Catch) {
+      machine.stack[index].armed = false;
+    }
+    machine.ip = extra.cont;
+    return;
+  }
   trim_stack(machine, extra.trim_to);
   machine.ip = extra.cont;
 }
@@ -64,7 +72,7 @@ void reject_callable(Impl& machine, Cell culprit) {
   raise_formal(machine, formal_type(machine, "callable", culprit), name, 1);
 }
 
-void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t /*cut*/,
                 const std::vector<Cell>& env) {
   const Cell cell = machine.heap.deref(env.at(goal.slot));
   if (machine.heap.unbound(cell)) {
@@ -76,10 +84,16 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size
     return;
   }
   const Compiled compiled = compile_goal(machine.heap, cell);
-  launch(machine, compiled.term, cont, cut, compiled.env);
+  // 変数ゴールは call(G) と同じで、中のカットは局所である（7.8.3）。
+  if (!body_callable(compiled.term)) {
+    reject_callable(machine, cell);
+    return;
+  }
+  launch(machine, compiled.term, cont, machine.stack.size(), compiled.env);
 }
 
 void step(Impl& machine) {
+  machine.eval_abort = false;
   if (machine.heap.word_at(machine.ip) == 0) {
     step_control(machine);
     return;
@@ -90,6 +104,23 @@ void step(Impl& machine) {
 }
 
 }  // namespace
+
+bool body_callable(const IrTerm& term) {
+  switch (term.tag) {
+    case IrTag::Int:
+    case IrTag::Float:
+    case IrTag::Anon: return false;
+    case IrTag::And:
+    case IrTag::Or:
+    case IrTag::IfThen:
+    case IrTag::SoftIf:
+      return term.args.size() >= 2 && body_callable(term.args[0]) && body_callable(term.args[1]);
+    case IrTag::Catch:
+      return term.args.size() >= 3 && body_callable(term.args[0]) && body_callable(term.args[2]);
+    case IrTag::Call: return term.args.empty() || body_callable(term.args[0]);
+    default: return true;
+  }
+}
 
 Impl& engine_impl(Machine& machine) { return *machine.impl_; }
 
@@ -230,8 +261,9 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   if (text == "\\=" && goal.arity == 2) {
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
+    const auto extras_mark = machine.extras.size();
     if (do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1))) {
-      restore_state(machine, heap_mark, trail_mark);
+      restore_state(machine, heap_mark, trail_mark, extras_mark);
       machine.failed = true;
     } else {
       machine.ip = goal.cont;
@@ -315,6 +347,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.heap.truncate(0);
   machine.failed = false;
   machine.exception = false;
+  machine.eval_abort = false;
   machine.diagnostic.clear();
   machine.ip = kNoFrame;
   machine.bindings.clear();
@@ -329,6 +362,7 @@ Stop Machine::query(std::string_view goal_text) {
   cleanup.pick = Pick::Cleanup;
   cleanup.heap_mark = machine.heap.size();
   cleanup.trail_mark = machine.trail.slots.size();
+  cleanup.extras_mark = machine.extras.size();
   machine.stack.push_back(std::move(cleanup));
   const Compiled compiled = compile_goal(machine.heap, outcome.term->term);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env);
