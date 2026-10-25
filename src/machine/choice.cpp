@@ -180,6 +180,8 @@ bool backtrack(Impl& machine) {
   while (!machine.stack.empty()) {
     const Entry top = machine.stack.back();
     restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
+    // 収集の床。束縛は消すが、呼び出し元の節走査はやり直さない。
+    if (top.pick == Pick::Barrier) return false;
     if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {
       machine.stack.pop_back();
       continue;

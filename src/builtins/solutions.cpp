@@ -21,15 +21,35 @@ enum class Which { None, Findall, Bagof, Setof };
 
 enum class Finish { Ready, Threw, Halted };
 
+enum class CopyKind { Ext, Loc, Atom, Int, Float, List, Str };
+
+struct CopyNode {
+  CopyKind kind = CopyKind::Atom;
+  int id = -1;
+  std::uint32_t atom = 0;
+  std::uint16_t arity = 0;
+  std::int64_t integer = 0;
+  double floating = 0;
+  std::vector<int> kids;
+};
+
+// 証人リストとテンプレートを一つの像にする。外部変数の id は解をまたいで共有する。
+struct Image {
+  std::vector<CopyNode> nodes;
+  int witness = -1;
+  int templ = -1;
+};
+
 struct Group {
   ExportedTerm key;
-  ExportedTerm witness;
   std::vector<ExportedTerm> templs;
+  std::vector<Image> shots;
 };
 
 struct Packet {
   Finish end = Finish::Ready;
   std::vector<Group> groups;
+  std::vector<std::uint64_t> ext_raw;
   ExportedTerm ball;
   int halt_code = 0;
 };
@@ -52,23 +72,29 @@ struct Saved {
   std::size_t extras_mark = 0;
 };
 
-// 収集開始より前の自由変数だけ解をまたいで同じ鍵にする。
-// ゴールが後から作った未束縛変数は、後戻りで同じ番地が別物になる。
+// 呼び出し前の変数は解をまたいで同じ番号。ゴールが作った変数は解ごとに 0 から振り直す。
 struct VarIds {
   std::size_t base = 0;
-  int next = 0;
+  int stable_next = 0;
+  int local_next = 0;
   std::vector<std::pair<std::size_t, int>> stable;
   std::vector<std::pair<std::size_t, int>> local;
+  std::vector<std::uint64_t> ext_raw;
 
-  void reset_local() { local.clear(); }
+  void reset_local() {
+    local.clear();
+    local_next = 0;
+  }
 
-  int id_of(std::size_t index) {
+  int id_of(std::size_t index, std::uint64_t raw) {
     std::vector<std::pair<std::size_t, int>>& table = index < base ? stable : local;
+    int& counter = index < base ? stable_next : local_next;
     for (const auto& item : table) {
       if (item.first == index) return item.second;
     }
-    const int id = next++;
+    const int id = counter++;
     table.emplace_back(index, id);
+    if (index < base) ext_raw.push_back(raw);
     return id;
   }
 };
@@ -189,9 +215,13 @@ Cell marker_for(Impl& machine, std::uint32_t name, int id) {
 }
 
 Cell encode(Impl& machine, Cell cell, VarIds& ids, std::vector<std::pair<std::uint64_t, Cell>>& seen,
-            std::uint32_t marker) {
+            std::uint32_t external, std::uint32_t renaming) {
   cell = machine.heap.deref(cell);
-  if (machine.heap.unbound(cell)) return marker_for(machine, marker, ids.id_of(heap_index(machine, cell)));
+  if (machine.heap.unbound(cell)) {
+    const auto index = heap_index(machine, cell);
+    const auto name = index < ids.base ? external : renaming;
+    return marker_for(machine, name, ids.id_of(index, cell.raw()));
+  }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
   for (const auto& item : seen) {
     if (item.first == cell.raw()) return item.second;
@@ -200,15 +230,15 @@ Cell encode(Impl& machine, Cell cell, VarIds& ids, std::vector<std::pair<std::ui
   seen.emplace_back(cell.raw(), hole);
   Cell built;
   if (cell.tag() == Tag::Lis) {
-    const Cell head = encode(machine, machine.heap.list_head(cell), ids, seen, marker);
-    const Cell tail = encode(machine, machine.heap.list_tail(cell), ids, seen, marker);
+    const Cell head = encode(machine, machine.heap.list_head(cell), ids, seen, external, renaming);
+    const Cell tail = encode(machine, machine.heap.list_tail(cell), ids, seen, external, renaming);
     built = machine.heap.list(head, tail);
   } else {
     std::vector<Cell> args;
     const auto arity = machine.heap.functor_arity(cell);
     args.reserve(arity);
     for (std::uint16_t index = 0; index < arity; ++index) {
-      args.push_back(encode(machine, machine.heap.arg(cell, index), ids, seen, marker));
+      args.push_back(encode(machine, machine.heap.arg(cell, index), ids, seen, external, renaming));
     }
     built = machine.heap.structure(machine.heap.functor_atom(cell), args);
   }
@@ -216,26 +246,105 @@ Cell encode(Impl& machine, Cell cell, VarIds& ids, std::vector<std::pair<std::ui
   return hole;
 }
 
-struct Shot {
-  Cell raw{};
-  Cell key{};
-};
-
-Shot shoot(Impl& machine, const std::vector<Cell>& witnesses, VarIds& ids) {
-  ids.reset_local();
-  std::vector<Cell> raw_items;
+Cell coded_key(Impl& machine, const std::vector<Cell>& witnesses, VarIds& ids) {
   std::vector<Cell> key_items;
   std::vector<std::pair<std::uint64_t, Cell>> seen;
-  const auto marker = machine.atoms.intern("$witness");
+  const auto external = machine.atoms.intern("$witness");
+  const auto renaming = machine.atoms.intern("$rename");
   for (const Cell& var : witnesses) {
-    const Cell value = machine.heap.deref(var);
-    raw_items.push_back(value);
-    key_items.push_back(encode(machine, value, ids, seen, marker));
+    key_items.push_back(encode(machine, var, ids, seen, external, renaming));
   }
-  Shot shot;
-  shot.raw = list_from_cells(machine, raw_items);
-  shot.key = list_from_cells(machine, key_items);
-  return shot;
+  return list_from_cells(machine, key_items);
+}
+
+int push_node(Image& image, CopyNode node) {
+  const int at = static_cast<int>(image.nodes.size());
+  image.nodes.push_back(std::move(node));
+  return at;
+}
+
+int image_list(Image& image, std::uint32_t nil, const std::vector<int>& kids) {
+  CopyNode empty;
+  empty.kind = CopyKind::Atom;
+  empty.atom = nil;
+  int tail = push_node(image, std::move(empty));
+  for (std::size_t index = kids.size(); index > 0; --index) {
+    CopyNode node;
+    node.kind = CopyKind::List;
+    node.kids.push_back(kids[index - 1]);
+    node.kids.push_back(tail);
+    tail = push_node(image, std::move(node));
+  }
+  return tail;
+}
+
+int found_node(const std::vector<std::pair<std::uint64_t, int>>& seen, std::uint64_t raw) {
+  for (const auto& item : seen) {
+    if (item.first == raw) return item.second;
+  }
+  return -1;
+}
+
+int copy_scalar(Impl& machine, Cell cell, Image& image) {
+  CopyNode node;
+  if (cell.tag() == Tag::Atom) {
+    node.kind = CopyKind::Atom;
+    node.atom = static_cast<std::uint32_t>(cell.raw() >> 3);
+  } else if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox) {
+    node.kind = CopyKind::Int;
+    node.integer = machine.heap.integer_value(cell);
+  } else {
+    node.kind = CopyKind::Float;
+    node.floating = machine.heap.float_value(cell);
+  }
+  return push_node(image, std::move(node));
+}
+
+int copy_cell(Impl& machine, Cell cell, Image& image, std::vector<std::pair<std::uint64_t, int>>& seen, VarIds& ids) {
+  cell = machine.heap.deref(cell);
+  if (const int prior = found_node(seen, cell.raw()); prior >= 0 &&
+                                                        (machine.heap.unbound(cell) || cell.tag() == Tag::Lis ||
+                                                         cell.tag() == Tag::Str)) {
+    return prior;
+  }
+  if (machine.heap.unbound(cell)) {
+    CopyNode node;
+    const auto index = heap_index(machine, cell);
+    node.kind = index < ids.base ? CopyKind::Ext : CopyKind::Loc;
+    node.id = ids.id_of(index, cell.raw());
+    const int at = push_node(image, std::move(node));
+    seen.emplace_back(cell.raw(), at);
+    return at;
+  }
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return copy_scalar(machine, cell, image);
+  const int at = push_node(image, CopyNode{});
+  seen.emplace_back(cell.raw(), at);
+  CopyNode node;
+  if (cell.tag() == Tag::Lis) {
+    node.kind = CopyKind::List;
+    node.kids.push_back(copy_cell(machine, machine.heap.list_head(cell), image, seen, ids));
+    node.kids.push_back(copy_cell(machine, machine.heap.list_tail(cell), image, seen, ids));
+  } else {
+    node.kind = CopyKind::Str;
+    node.atom = machine.heap.functor_atom(cell);
+    node.arity = machine.heap.functor_arity(cell);
+    for (std::uint16_t index = 0; index < node.arity; ++index) {
+      node.kids.push_back(copy_cell(machine, machine.heap.arg(cell, index), image, seen, ids));
+    }
+  }
+  image.nodes[static_cast<std::size_t>(at)] = std::move(node);
+  return at;
+}
+
+Image snapshot(Impl& machine, const std::vector<Cell>& witnesses, Cell templ, VarIds& ids) {
+  Image image;
+  std::vector<std::pair<std::uint64_t, int>> seen;
+  std::vector<int> kids;
+  kids.reserve(witnesses.size());
+  for (const Cell& var : witnesses) kids.push_back(copy_cell(machine, var, image, seen, ids));
+  image.witness = image_list(image, machine.atoms.intern("[]"), kids);
+  image.templ = copy_cell(machine, templ, image, seen, ids);
+  return image;
 }
 
 bool same_term(Impl& machine, const ExportedTerm& left, const ExportedTerm& right) {
@@ -250,21 +359,58 @@ bool same_term(Impl& machine, const ExportedTerm& left, const ExportedTerm& righ
 }
 
 void remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, VarIds& ids,
-              std::vector<Group>& groups) {
-  const Shot shot = shoot(machine, witnesses, ids);
-  const ExportedTerm raw_copy = export_term(machine, shot.raw);
-  const ExportedTerm key_copy = export_term(machine, shot.key);
-  const ExportedTerm templ_copy = export_term(machine, templ);
+              std::vector<Group>& groups, bool share) {
+  ids.reset_local();
+  const ExportedTerm key_copy = export_term(machine, coded_key(machine, witnesses, ids));
+  ExportedTerm templ_copy;
+  Image image;
+  if (share) image = snapshot(machine, witnesses, templ, ids);
+  else templ_copy = export_term(machine, templ);
   for (Group& group : groups) {
     if (!same_term(machine, group.key, key_copy)) continue;
-    group.templs.push_back(templ_copy);
+    if (share) group.shots.push_back(std::move(image));
+    else group.templs.push_back(templ_copy);
     return;
   }
   Group created;
   created.key = key_copy;
-  created.witness = raw_copy;
-  created.templs.push_back(templ_copy);
+  if (share) created.shots.push_back(std::move(image));
+  else created.templs.push_back(std::move(templ_copy));
   groups.push_back(std::move(created));
+}
+
+void disarm_below(Impl& machine, std::size_t floor) {
+  for (std::size_t index = 0; index < floor; ++index) {
+    if (machine.stack[index].pick == Pick::Catch) machine.stack[index].armed = false;
+  }
+}
+
+void rearm_below(Impl& machine, const Saved& saved, std::size_t floor) {
+  std::size_t limit = floor;
+  if (limit > machine.stack.size()) limit = machine.stack.size();
+  if (limit > saved.stack.size()) limit = saved.stack.size();
+  for (std::size_t index = 0; index < limit; ++index) {
+    if (saved.stack[index].pick == Pick::Catch && saved.stack[index].armed) {
+      machine.stack[index].armed = true;
+    }
+  }
+}
+
+std::size_t park_callers(Impl& machine, const Saved& saved) {
+  const auto floor = machine.stack.size();
+  disarm_below(machine, floor);
+  Entry barrier;
+  barrier.pick = Pick::Barrier;
+  barrier.heap_mark = saved.heap_mark;
+  barrier.trail_mark = saved.trail_mark;
+  push_frame(machine, std::move(barrier));
+  return floor;
+}
+
+void release_callers(Impl& machine, const Saved& saved, std::size_t floor) {
+  restore_state(machine, saved.heap_mark, saved.trail_mark, saved.extras_mark);
+  if (!machine.stack.empty() && machine.stack.back().pick == Pick::Barrier) machine.stack.pop_back();
+  rearm_below(machine, saved, floor);
 }
 
 Saved save_exec(const Impl& machine) {
@@ -291,20 +437,15 @@ void restore_exec(Impl& machine, const Saved& saved) {
   machine.ball = saved.ball;
 }
 
-// 外側の選択点を外す。ゴールの後戻りやカットが、呼び出し元の選択点を消費しないため。
-// 空のスタックは水位がヒープ先頭になり、古い変数への束縛がトレイルに残らない。
-// Once はマークまで戻して捨てるだけなので、最後の解の束縛を消す床に使う。
-Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses) {
+// 外側の節走査はスタックに残す。asserta と retract が添字を更新できるようにするため。
+// 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
+Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses,
+               bool share) {
   const Saved saved = save_exec(machine);
-  machine.stack.clear();
+  const auto floor = park_callers(machine, saved);
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;
-  Entry floor;
-  floor.pick = Pick::Once;
-  floor.heap_mark = saved.heap_mark;
-  floor.trail_mark = saved.trail_mark;
-  push_frame(machine, std::move(floor));
   VarIds ids;
   ids.base = saved.heap_mark;
   launch(machine, compiled.term, kNoFrame, machine.stack.size(), compiled.env);
@@ -314,19 +455,21 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
     if (stop.kind == StopKind::Exception) {
       packet.end = Finish::Threw;
       packet.ball = export_term(machine, machine.ball);
-      break;
+      restore_exec(machine, saved);
+      return packet;
     }
     if (stop.kind == StopKind::Halt) {
       packet.end = Finish::Halted;
       packet.halt_code = machine.halt_code;
-      break;
+      restore_exec(machine, saved);
+      return packet;
     }
     if (stop.kind != StopKind::Success) break;
-    // 解の時点で複製する。あとから変数を束縛しても、集めた項は変わらない。
-    remember(machine, templ, witnesses, ids, packet.groups);
+    remember(machine, templ, witnesses, ids, packet.groups, share);
     if (!backtrack(machine)) break;
   }
-  restore_exec(machine, saved);
+  release_callers(machine, saved, floor);
+  packet.ext_raw = std::move(ids.ext_raw);
   return packet;
 }
 
@@ -363,25 +506,105 @@ void sort_answers(Impl& machine, std::vector<Answer>& answers) {
   }
 }
 
-Answer make_answer(Impl& machine, const Group& group, bool sorting) {
-  Answer answer;
-  answer.witness = import_term(machine, group.witness);
-  answer.values = walk_list(machine, answer.witness).items;
-  std::vector<Cell> templs;
-  templs.reserve(group.templs.size());
-  for (const ExportedTerm& term : group.templs) templs.push_back(import_term(machine, term));
+struct Porter {
+  Impl* machine = nullptr;
+  const Image* image = nullptr;
+  const std::vector<std::uint64_t>* ext_raw = nullptr;
+  std::vector<Cell> loc;
+  std::vector<Cell> made;
+  std::vector<char> started;
+
+  Cell slot(std::vector<Cell>& table, int id) {
+    const auto index = static_cast<std::size_t>(id);
+    if (table.size() <= index) table.resize(index + 1);
+    if (table[index].raw() == 0) table[index] = machine->heap.fresh_ref();
+    return table[index];
+  }
+
+  Cell compound(int index, const CopyNode& node) {
+    const Cell hole = machine->heap.fresh_ref();
+    made[static_cast<std::size_t>(index)] = hole;
+    std::vector<Cell> args;
+    args.reserve(node.kids.size());
+    for (const int kid : node.kids) args.push_back(at(kid));
+    const Cell real = node.kind == CopyKind::List ? machine->heap.list(args[0], args[1])
+                                                   : machine->heap.structure(node.atom, args);
+    machine->heap.bind(hole, real);
+    return hole;
+  }
+
+  Cell at(int index) {
+    const auto slot_at = static_cast<std::size_t>(index);
+    if (started[slot_at]) return made[slot_at];
+    started[slot_at] = 1;
+    const CopyNode& node = image->nodes[slot_at];
+    Cell cell;
+    if (node.kind == CopyKind::Ext) cell = Cell{ext_raw->at(static_cast<std::size_t>(node.id))};
+    else if (node.kind == CopyKind::Loc) cell = slot(loc, node.id);
+    else if (node.kind == CopyKind::Atom) cell = machine->heap.atom(node.atom);
+    else if (node.kind == CopyKind::Int) cell = machine->heap.integer(node.integer);
+    else if (node.kind == CopyKind::Float) cell = machine->heap.floating(node.floating);
+    else cell = compound(index, node);
+    made[slot_at] = cell;
+    return cell;
+  }
+};
+
+Porter porter_for(Impl& machine, const Image& image, const std::vector<std::uint64_t>& ext_raw) {
+  Porter porter;
+  porter.machine = &machine;
+  porter.image = &image;
+  porter.ext_raw = &ext_raw;
+  porter.made.assign(image.nodes.size(), Cell{});
+  porter.started.assign(image.nodes.size(), 0);
+  return porter;
+}
+
+void finish_list(Impl& machine, Answer& answer, std::vector<Cell>& templs, bool sorting) {
   if (sorting) {
     sort_cells(machine, templs);
     unique_cells(machine, templs);
   }
   answer.list = list_from_cells(machine, templs);
+}
+
+Answer make_shared(Impl& machine, const Group& group, bool sorting,
+                   const std::vector<std::uint64_t>& ext_raw) {
+  Answer answer;
+  std::vector<Cell> templs;
+  bool first = true;
+  for (const Image& image : group.shots) {
+    Porter porter = porter_for(machine, image, ext_raw);
+    if (first) {
+      answer.witness = porter.at(image.witness);
+      answer.values = walk_list(machine, answer.witness).items;
+      first = false;
+    }
+    templs.push_back(porter.at(image.templ));
+  }
+  finish_list(machine, answer, templs, sorting);
   return answer;
 }
 
-std::vector<Answer> answers_from(Impl& machine, const std::vector<Group>& groups, bool sorting) {
+Answer make_copied(Impl& machine, const Group& group, bool sorting) {
+  Answer answer;
+  std::vector<Cell> templs;
+  templs.reserve(group.templs.size());
+  for (const ExportedTerm& term : group.templs) templs.push_back(import_term(machine, term));
+  finish_list(machine, answer, templs, sorting);
+  return answer;
+}
+
+Answer make_answer(Impl& machine, const Group& group, bool sorting, const std::vector<std::uint64_t>& ext_raw) {
+  if (!group.shots.empty()) return make_shared(machine, group, sorting, ext_raw);
+  return make_copied(machine, group, sorting);
+}
+
+std::vector<Answer> answers_from(Impl& machine, const std::vector<Group>& groups, bool sorting,
+                                 const std::vector<std::uint64_t>& ext_raw) {
   std::vector<Answer> answers;
   answers.reserve(groups.size());
-  for (const Group& group : groups) answers.push_back(make_answer(machine, group, sorting));
+  for (const Group& group : groups) answers.push_back(make_answer(machine, group, sorting, ext_raw));
   if (sorting) sort_answers(machine, answers);
   return answers;
 }
@@ -461,7 +684,8 @@ bool run_solutions(Impl& machine, const Goal& goal) {
   if (bad_list(machine, goal)) return true;
   std::vector<Cell> witnesses;
   if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, goal.arg(machine, 0), hidden);
-  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses);
+  const bool share = which != Which::Findall;
+  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses, share);
   if (packet.end == Finish::Threw) {
     propagate_throw(machine, import_term(machine, packet.ball));
     return true;
@@ -481,7 +705,7 @@ bool run_solutions(Impl& machine, const Goal& goal) {
     bind_answers(machine, goal, witnesses, {blank_answer(machine)});
     return true;
   }
-  bind_answers(machine, goal, witnesses, answers_from(machine, packet.groups, sorting));
+  bind_answers(machine, goal, witnesses, answers_from(machine, packet.groups, sorting, packet.ext_raw));
   return true;
 }
 

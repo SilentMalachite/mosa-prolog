@@ -38,7 +38,7 @@ struct Predicate {
   bool dynamic_declared = false;
 };
 
-enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen, Retract };
+enum class Pick { Clauses, ElseGoal, Negation, Once, Repeat, Catch, Cleanup, AtomGen, Retract, Barrier };
 
 struct Entry {
   Pick pick = Pick::Clauses;

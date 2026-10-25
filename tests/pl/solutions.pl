@@ -14,3 +14,24 @@ test(bagof_exist, bagof(X, Y^d(X, Y), L), solutions([L = [1, 2, 3]])).
 test(setof_sort, setof(X, (X = b; X = a; X = b), L), solutions([L = [a, b]])).
 test(setof_group, setof(X, d(X, Y), L), solutions([(Y = a, L = [1, 3]), (Y = b, L = [2])])).
 test(setof_exist, setof(X, Y^d(X, Y), L), solutions([L = [1, 2, 3]])).
+
+q(A, _, A).
+q(_, A, A).
+q(A, _, A).
+
+:- dynamic(a/1).
+a(1).
+a(2).
+
+:- dynamic(r/1).
+r(1).
+r(2).
+r(3).
+
+test(bagof_share, (bagof(f(X), (X = Y; X = Z), S), Y = a, S == [f(a), f(Z)]), true).
+test(setof_same_var, (setof(X, (X = Y; X = Y), L), L == [Y]), true).
+test(bagof_rename, bagof(none, q(X, Y, Z), L), solutions([(X = Z, L = [none, none]), (Y = Z, L = [none])])).
+test(scan_asserta, (a(X), findall(_, asserta(a(9)), _)), solutions([X = 1, X = 2])).
+test(a_now, a(X), solutions([X = 9, X = 9, X = 1, X = 2])).
+test(scan_retract, (r(X), findall(_, (X = 1 -> retract(r(2)) ; true), _)), solutions([X = 1, X = 3])).
+test(r_left, r(X), solutions([X = 1, X = 3])).
