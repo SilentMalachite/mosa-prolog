@@ -170,6 +170,71 @@ void check_put_char(const std::filesystem::path& path) {
   mosa_test::check(file_bytes(path).empty(), "put file waits for flush");
 }
 
+void check_get_bytes(const std::filesystem::path& path, const std::filesystem::path& empty_path) {
+  write_bytes(path, "ab");
+  const std::string atom = prolog_atom(path.string());
+  auto machine = mosa::Machine::create();
+  auto read = machine->query("open(" + atom + ", read, S, [type(binary)]), get_byte(S, A), get_byte(S, B).");
+  mosa_test::check(read.kind == mosa::StopKind::Success, "get bytes");
+  mosa_test::check(binding_named(*machine, read, "A") == "97", "byte a");
+  mosa_test::check(binding_named(*machine, read, "B") == "98", "byte b");
+
+  auto consumed = mosa::Machine::create();
+  auto skip = consumed->query("open(" + atom + ", read, S, [type(binary)]), (get_byte(S, 98) ; true), get_byte(S, C).");
+  mosa_test::check(skip.kind == mosa::StopKind::Success, "byte fail consumes");
+  mosa_test::check(binding_named(*consumed, skip, "C") == "98", "byte after fail");
+
+  auto typed = mosa::Machine::create();
+  auto bad = typed->query("open(" + atom + ", read, S, [type(binary)]), get_byte(S, 256).");
+  mosa_test::check(bad.kind == mosa::StopKind::Exception, "in_byte throws");
+  mosa_test::check(formal_text(*typed, bad) == "type_error(in_byte, 256)", "in_byte formal");
+
+  auto text = mosa::Machine::create();
+  auto denied = text->query("open(" + atom + ", read, S), get_byte(S, B).");
+  mosa_test::check(denied.kind == mosa::StopKind::Exception, "text get_byte throws");
+  auto still = text->query("get_char('$stream'(3), C).");
+  mosa_test::check(binding_named(*text, still, "C") == "a", "text byte leaves char");
+
+  write_bytes(empty_path, "");
+  const std::string empty_atom = prolog_atom(empty_path.string());
+  auto ending = mosa::Machine::create();
+  mosa_test::check(ending->query("open(" + empty_atom + ", read, S, [type(binary), eof_action(error)]).").kind ==
+                       mosa::StopKind::Success,
+                   "byte eof open");
+  auto once = ending->query("get_byte('$stream'(3), B).");
+  mosa_test::check(binding_named(*ending, once, "B") == "-1", "byte eof");
+  auto twice = ending->query("get_byte('$stream'(3), B).");
+  mosa_test::check(twice.kind == mosa::StopKind::Exception, "byte past throws");
+  mosa_test::check(formal_text(*ending, twice) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+                   "byte past formal");
+}
+
+void check_put_bytes(const std::filesystem::path& path, const std::filesystem::path& reset_path) {
+  write_bytes(path, "xyz");
+  const std::string atom = prolog_atom(path.string());
+  std::ostringstream quiet;
+  auto* old = std::cout.rdbuf(quiet.rdbuf());
+  auto machine = mosa::Machine::create();
+  auto wrote = machine->query("open(" + atom + ", write, S, [type(binary)]), put_byte(S, 65).");
+  std::cout.rdbuf(old);
+  mosa_test::check(wrote.kind == mosa::StopKind::Success, "put byte");
+  mosa_test::check(quiet.str().empty(), "put byte stays off stdout");
+  mosa_test::check(file_bytes(path).empty(), "put byte waits for flush");
+  auto bad = machine->query("put_byte('$stream'(3), 256).");
+  mosa_test::check(bad.kind == mosa::StopKind::Exception, "byte range throws");
+  mosa_test::check(formal_text(*machine, bad) == "type_error(byte, 256)", "byte range formal");
+
+  write_bytes(reset_path, "ab");
+  const std::string reset_atom = prolog_atom(reset_path.string());
+  auto resetting = mosa::Machine::create();
+  auto goal = "open(" + reset_atom + ", read, S, [type(binary), eof_action(reset)]), get_byte(S, A), get_byte(S, B), get_byte(S, E), get_byte(S, C).";
+  auto again = resetting->query(goal);
+  mosa_test::check(again.kind == mosa::StopKind::Success, "byte reset");
+  mosa_test::check(binding_named(*resetting, again, "A") == "97", "byte reset a");
+  mosa_test::check(binding_named(*resetting, again, "E") == "-1", "byte reset eof");
+  mosa_test::check(binding_named(*resetting, again, "C") == "97", "byte reset rereads");
+}
+
 }  // namespace
 
 int main() {
@@ -183,5 +248,7 @@ int main() {
   check_eof_actions(dir / "phase3-reset.txt", dir / "phase3-eof-error.txt", dir / "phase3-binary.txt",
                     dir / "phase3-bad-utf.txt");
   check_put_char(dir / "phase3-put.txt");
+  check_get_bytes(dir / "phase3-bytes.txt", dir / "phase3-bytes-empty.txt");
+  check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   return mosa_test::failures();
 }

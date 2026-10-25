@@ -114,7 +114,7 @@ struct BuiltinPi {
   std::uint16_t arity;
 };
 
-// call/1..8、halt/0..1、findall、open、get_char、peek_char、put_char はアリティが二つ以上。
+// call/1..8、halt/0..1、findall、open、get_char、peek_char、put_char、get_byte、put_byte はアリティが二つ以上。
 // 制御構文は goal と launch が先に取る。
 constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"=", 2},
@@ -185,6 +185,10 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"peek_char", 2},
     {"put_char", 1},
     {"put_char", 2},
+    {"get_byte", 1},
+    {"get_byte", 2},
+    {"put_byte", 1},
+    {"put_byte", 2},
     {"bagof", 3},
     {"setof", 3},
     {"catch", 3},
@@ -389,7 +393,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
       run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal) ||
-      run_streams(machine, goal) || run_char_io(machine, goal)) {
+      run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal)) {
     return true;
   }
   return false;

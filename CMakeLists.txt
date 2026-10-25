@@ -61,6 +61,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/solutions.cpp
   src/builtins/streams.cpp
   src/builtins/chars.cpp
+  src/builtins/bytes.cpp
 )
 
 enable_testing()

@@ -276,6 +276,7 @@ void append_utf8_code(std::string& text, char32_t code);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_char_io(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_byte_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);
