@@ -51,7 +51,9 @@ enum class Pick {
   Barrier,
   // 節の本体は実行しない。Clauses に載せるとやり直しが節を呼ぶ。
   ClauseScan,
-  PredGen
+  PredGen,
+  // ストリームの性質は節ではない。やり直しを節の添字に載せない。
+  StreamGen
 };
 
 struct Entry {
@@ -276,6 +278,9 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);
+void run_current_input(Impl& machine, const Goal& goal);
+void run_stream_property(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_stream_prop(Impl& machine);
 [[nodiscard]] bool run_char_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_byte_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);

@@ -60,6 +60,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/clause_term.cpp
   src/builtins/solutions.cpp
   src/builtins/streams.cpp
+  src/builtins/stream_prop.cpp
   src/builtins/chars.cpp
   src/builtins/bytes.cpp
 )

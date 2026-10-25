@@ -556,6 +556,14 @@ bool run_streams(Impl& machine, const Goal& goal) {
     run_flush(machine, goal);
     return true;
   }
+  if (name == "current_input" && goal.arity == 1) {
+    run_current_input(machine, goal);
+    return true;
+  }
+  if (name == "stream_property" && goal.arity == 2) {
+    run_stream_property(machine, goal);
+    return true;
+  }
   return false;
 }
 

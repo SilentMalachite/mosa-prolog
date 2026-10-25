@@ -1,0 +1,294 @@
+// 規格 8.11.2 current_input/1。8.11.8 stream_property/2。
+// current_input(?stream_or_alias)
+//   変数は '$stream'(N)。別名は照合だけに使い、項の形は変えない。
+//   instantiation は無い。domain_error(stream_or_alias), existence_error(stream)
+// stream_property(?stream_or_alias, ?stream_property)
+//   domain_error(stream_or_alias), domain_error(stream_property), existence_error(stream)
+// 性質の順は file_name, mode, alias, position, end_of_stream, eof_action,
+// reposition, type, encoding。戻せない流れに position は出さない。
+// テスト: tests/pl/stream_prop.pl, tests/cpp/stream_test.cpp
+
+#include "../machine/internal.hpp"
+
+#include <array>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace mosa {
+namespace {
+
+enum Prop { FileName, Mode, Alias, Position, End, Eof, Reposition, Type, Encoding, Count };
+
+bool raise_domain(Impl& machine, const Goal& goal, std::string_view domain, Cell culprit) {
+  raise_formal(machine, formal_domain(machine, domain, culprit), goal.name, goal.arity);
+  return true;
+}
+
+std::string_view atom_text(const Impl& machine, Cell cell) {
+  return machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
+}
+
+bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+
+bool find_alias(const Impl& machine, std::string_view name, std::size_t& index) {
+  for (std::size_t at = 0; at < machine.streams.size(); ++at) {
+    if (machine.streams[at].alias == name) {
+      index = at;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& index) {
+  const Cell cell = machine.heap.deref(term);
+  if (cell.tag() == Tag::Atom) {
+    if (!find_alias(machine, atom_text(machine, cell), index)) return raise_domain(machine, goal, "stream_or_alias", cell);
+    return false;
+  }
+  const bool shaped = cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 1 &&
+                      machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
+  if (!shaped) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
+  if (!is_integer(arg)) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const auto number = machine.heap.integer_value(arg);
+  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
+    raise_formal(machine, formal_existence(machine, "stream", cell), goal.name, goal.arity);
+    return true;
+  }
+  index = static_cast<std::size_t>(number);
+  return false;
+}
+
+Cell stream_term(Impl& machine, std::size_t index) {
+  return machine.heap.structure(machine.atoms.intern("$stream"),
+                                std::array<Cell, 1>{machine.heap.integer(static_cast<std::int64_t>(index))});
+}
+
+Cell one_arg(Impl& machine, std::string_view name, Cell arg) {
+  return machine.heap.structure(machine.atoms.intern(name), std::array<Cell, 1>{arg});
+}
+
+Cell atom_arg(Impl& machine, std::string_view name, std::string_view text) {
+  return one_arg(machine, name, machine.heap.atom(machine.atoms.intern(text)));
+}
+
+std::string_view mode_name(Stream::Mode mode) {
+  if (mode == Stream::Mode::Read) return "read";
+  if (mode == Stream::Mode::Write) return "write";
+  return "append";
+}
+
+std::string_view end_name(const Stream& stream) {
+  if (stream.past_end) return "past";
+  // 標準入力の長さは、まだ読んでいない先があるのでバッファでは決まらない。
+  if (stream.mode != Stream::Mode::Read || stream.kind == Stream::Kind::Standard) return "not";
+  if (stream.cursor >= stream.bytes.size()) return "at";
+  return "not";
+}
+
+std::string_view eof_name(Stream::EofAction action) {
+  if (action == Stream::EofAction::Error) return "error";
+  if (action == Stream::EofAction::Reset) return "reset";
+  return "eof_code";
+}
+
+bool has_prop(const Stream& stream, int prop) {
+  if (prop == FileName) return stream.kind == Stream::Kind::File && !stream.path.empty();
+  if (prop == Alias) return !stream.alias.empty();
+  if (prop == Position) return stream.reposition;
+  return true;
+}
+
+Cell prop_cell(Impl& machine, const Stream& stream, int prop) {
+  switch (prop) {
+    case FileName: return atom_arg(machine, "file_name", stream.path);
+    case Mode: return atom_arg(machine, "mode", mode_name(stream.mode));
+    case Alias: return atom_arg(machine, "alias", stream.alias);
+    case End: return atom_arg(machine, "end_of_stream", end_name(stream));
+    case Eof: return atom_arg(machine, "eof_action", eof_name(stream.eof_action));
+    case Reposition: return atom_arg(machine, "reposition", stream.reposition ? "true" : "false");
+    case Type: return atom_arg(machine, "type", stream.data == Stream::Data::Text ? "text" : "binary");
+    case Encoding: return atom_arg(machine, "encoding", "utf8");
+    default: break;
+  }
+  const std::array<Cell, 3> args{machine.heap.integer(static_cast<std::int64_t>(stream.char_no)),
+                                 machine.heap.integer(static_cast<std::int64_t>(stream.line)),
+                                 machine.heap.integer(static_cast<std::int64_t>(stream.line_pos))};
+  const Cell position = machine.heap.structure(machine.atoms.intern("stream_position"), args);
+  return one_arg(machine, "position", position);
+}
+
+int prop_kind(std::string_view name) {
+  if (name == "file_name") return FileName;
+  if (name == "mode") return Mode;
+  if (name == "alias") return Alias;
+  if (name == "position") return Position;
+  if (name == "end_of_stream") return End;
+  if (name == "eof_action") return Eof;
+  if (name == "reposition") return Reposition;
+  if (name == "type") return Type;
+  if (name == "encoding") return Encoding;
+  return -1;
+}
+
+bool atom_in(const Impl& machine, Cell cell, std::string_view a, std::string_view b = {}, std::string_view c = {}) {
+  if (machine.heap.unbound(cell)) return true;
+  if (cell.tag() != Tag::Atom) return false;
+  const auto text = atom_text(machine, cell);
+  return text == a || (!b.empty() && text == b) || (!c.empty() && text == c);
+}
+
+bool position_shape(const Impl& machine, Cell cell) {
+  if (machine.heap.unbound(cell)) return true;
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 3) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(cell)) != "stream_position") return false;
+  for (std::size_t index = 0; index < 3; ++index) {
+    const Cell part = machine.heap.deref(machine.heap.arg(cell, index));
+    if (!machine.heap.unbound(part) && !is_integer(part)) return false;
+  }
+  return true;
+}
+
+bool value_ok(const Impl& machine, int prop, Cell arg) {
+  arg = machine.heap.deref(arg);
+  switch (prop) {
+    case FileName:
+    case Alias: return machine.heap.unbound(arg) || arg.tag() == Tag::Atom;
+    case Mode: return atom_in(machine, arg, "read", "write", "append");
+    case End: return atom_in(machine, arg, "not", "at", "past");
+    case Eof: return atom_in(machine, arg, "error", "eof_code", "reset");
+    case Reposition: return atom_in(machine, arg, "true", "false");
+    case Type: return atom_in(machine, arg, "text", "binary");
+    case Encoding: return atom_in(machine, arg, "utf8");
+    case Position: return position_shape(machine, arg);
+    default: return false;
+  }
+}
+
+bool reject_property(Impl& machine, const Goal& goal, Cell prop, int& kind) {
+  if (machine.heap.unbound(prop)) {
+    kind = -1;
+    return false;
+  }
+  if (prop.tag() != Tag::Str || machine.heap.functor_arity(prop) != 1) {
+    return raise_domain(machine, goal, "stream_property", prop);
+  }
+  kind = prop_kind(machine.atoms.name(machine.heap.functor_atom(prop)));
+  if (kind < 0 || !value_ok(machine, kind, machine.heap.arg(prop, 0))) {
+    return raise_domain(machine, goal, "stream_property", prop);
+  }
+  return false;
+}
+
+std::size_t pack_hit(std::size_t stream, int prop) {
+  return stream * static_cast<std::size_t>(Count) + static_cast<std::size_t>(prop);
+}
+
+bool bind_hit(Impl& machine, const Goal& goal, std::size_t packed) {
+  const auto stream = packed / static_cast<std::size_t>(Count);
+  const auto prop = static_cast<int>(packed % static_cast<std::size_t>(Count));
+  const Cell spec = machine.heap.deref(goal.arg(machine, 0));
+  // 別名は照合済み。変数のときだけ '$stream'(N) を束縛する。
+  if (machine.heap.unbound(spec) && !do_unify(machine, goal.arg(machine, 0), stream_term(machine, stream))) {
+    return false;
+  }
+  return do_unify(machine, goal.arg(machine, 1), prop_cell(machine, machine.streams[stream], prop));
+}
+
+void push_gen(Impl& machine, const Goal& goal, const std::vector<std::size_t>& hits, std::size_t next,
+              std::size_t heap_mark, std::size_t trail_mark) {
+  Entry entry;
+  entry.pick = Pick::StreamGen;
+  entry.candidates = hits;
+  entry.next = next;
+  entry.redo_goal = goal.at;
+  entry.heap_mark = heap_mark;
+  entry.trail_mark = trail_mark;
+  push_frame(machine, std::move(entry));
+}
+
+bool prove_props(Impl& machine, const Goal& goal, const std::vector<std::size_t>& hits, std::size_t begin) {
+  for (std::size_t index = begin; index < hits.size(); ++index) {
+    const auto heap_mark = machine.heap.size();
+    const auto trail_mark = machine.trail.slots.size();
+    const auto extras_mark = machine.extras.size();
+    const bool more = index + 1 < hits.size();
+    if (more) push_gen(machine, goal, hits, index + 1, heap_mark, trail_mark);
+    if (bind_hit(machine, goal, hits[index])) {
+      machine.ip = goal.cont;
+      return true;
+    }
+    if (more) machine.stack.pop_back();
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
+  }
+  return false;
+}
+
+std::vector<std::size_t> collect_hits(const Impl& machine, bool one, std::size_t only, int kind) {
+  std::vector<std::size_t> hits;
+  for (std::size_t index = 0; index < machine.streams.size(); ++index) {
+    if (machine.streams[index].closed) continue;
+    if (one && index != only) continue;
+    for (int prop = 0; prop < Count; ++prop) {
+      if (kind >= 0 && prop != kind) continue;
+      if (!has_prop(machine.streams[index], prop)) continue;
+      hits.push_back(pack_hit(index, prop));
+    }
+  }
+  return hits;
+}
+
+}  // namespace
+
+void run_current_input(Impl& machine, const Goal& goal) {
+  const Cell spec = machine.heap.deref(goal.arg(machine, 0));
+  const std::size_t current = machine.current_in;
+  if (machine.heap.unbound(spec)) {
+    if (!do_unify(machine, goal.arg(machine, 0), stream_term(machine, current))) machine.failed = true;
+    else machine.ip = goal.cont;
+    return;
+  }
+  std::size_t index = 0;
+  if (resolve_stream(machine, goal, spec, index)) return;
+  if (index != current && machine.streams[index].closed) {
+    raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+    return;
+  }
+  if (index != current) {
+    machine.failed = true;
+    return;
+  }
+  machine.ip = goal.cont;
+}
+
+void run_stream_property(Impl& machine, const Goal& goal) {
+  const Cell spec = machine.heap.deref(goal.arg(machine, 0));
+  const Cell prop = machine.heap.deref(goal.arg(machine, 1));
+  bool one = false;
+  std::size_t only = 0;
+  if (!machine.heap.unbound(spec)) {
+    if (resolve_stream(machine, goal, spec, only)) return;
+    if (machine.streams[only].closed) {
+      raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+      return;
+    }
+    one = true;
+  }
+  int kind = -1;
+  if (reject_property(machine, goal, prop, kind)) return;
+  const auto hits = collect_hits(machine, one, only, kind);
+  if (!prove_props(machine, goal, hits, 0)) machine.failed = true;
+}
+
+bool redo_stream_prop(Impl& machine) {
+  if (machine.stack.empty() || machine.stack.back().pick != Pick::StreamGen) return false;
+  apply_catches(machine, machine.stack.back());
+  const Entry top = machine.stack.back();
+  const Goal goal = read_goal(machine, top.redo_goal);
+  machine.stack.pop_back();
+  return prove_props(machine, goal, top.candidates, top.next);
+}
+
+}  // namespace mosa

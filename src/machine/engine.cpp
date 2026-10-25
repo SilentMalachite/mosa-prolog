@@ -26,7 +26,8 @@ bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
-    if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen) &&
+    if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen ||
+         entry.pick == Pick::StreamGen) &&
         entry.next < entry.candidates.size()) {
       return true;
     }
@@ -183,6 +184,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"close", 2},
     {"flush_output", 0},
     {"flush_output", 1},
+    {"current_input", 1},
+    {"stream_property", 2},
     {"get_char", 1},
     {"get_char", 2},
     {"peek_char", 1},

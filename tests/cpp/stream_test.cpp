@@ -274,6 +274,26 @@ void check_alias_reopen(const std::filesystem::path& path) {
   mosa_test::check(file_bytes(path) == "b", "alias wrote b");
 }
 
+void check_stream_property(const std::filesystem::path& path) {
+  write_bytes(path, "ab");
+  const std::string atom = prolog_atom(path.string());
+  auto named = mosa::Machine::create();
+  auto found = named->query("open(" + atom + ", read, S), stream_property(S, file_name(" + atom + ")).");
+  mosa_test::check(found.kind == mosa::StopKind::Success, "file_name");
+  auto placed = named->query("get_char('$stream'(3), _), stream_property('$stream'(3), position(stream_position(1, 1, 2))).");
+  mosa_test::check(placed.kind == mosa::StopKind::Success, "file position");
+
+  auto binary = mosa::Machine::create();
+  auto byte = binary->query("open(" + atom + ", read, S, [type(binary)]), get_byte(S, _), stream_property(S, position(stream_position(1, 1, 1))).");
+  mosa_test::check(byte.kind == mosa::StopKind::Success, "binary position");
+
+  auto fixed = mosa::Machine::create();
+  auto still = fixed->query("open(" + atom + ", read, S, [reposition(false)]), stream_property(S, position(_)).");
+  mosa_test::check(still.kind == mosa::StopKind::Failure, "no position");
+  auto flag = fixed->query("stream_property('$stream'(3), reposition(false)).");
+  mosa_test::check(flag.kind == mosa::StopKind::Success, "reposition false");
+}
+
 void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
@@ -318,6 +338,7 @@ int main() {
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");
   check_alias_reopen(dir / "phase3-alias-reopen.txt");
+  check_stream_property(dir / "phase3-property.txt");
   check_close_standard();
   check_flush_failure(dir / "phase3-flush-fail");
   return mosa_test::failures();

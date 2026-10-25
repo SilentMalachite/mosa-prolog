@@ -196,9 +196,10 @@ bool backtrack(Impl& machine) {
     if (top.pick == Pick::Repeat && redo_repeat(machine)) return true;
     // アトムの候補は節ではない。やり直しを節の添字に載せると、別の述語を引いてしまう。
     if (top.pick == Pick::AtomGen && redo_atoms(machine)) return true;
+    if (top.pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
     if (top.pick != Pick::Clauses && top.pick != Pick::Retract && top.pick != Pick::ClauseScan &&
         top.pick != Pick::PredGen && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
-        top.pick != Pick::Repeat && top.pick != Pick::AtomGen) {
+        top.pick != Pick::Repeat && top.pick != Pick::AtomGen && top.pick != Pick::StreamGen) {
       machine.stack.pop_back();
     }
   }
