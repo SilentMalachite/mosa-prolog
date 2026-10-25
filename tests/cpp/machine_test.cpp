@@ -157,6 +157,40 @@ void check_answer_and_consult() {
                    "discontiguous phrase");
 }
 
+void check_discontiguous() {
+  auto joined = mosa::Machine::create();
+  mosa_test::check(joined->load_program(":- discontiguous(p/1). p(1). q(1). p(2).").ok, "gap allowed");
+  auto first = joined->query("p(X).");
+  mosa_test::check(first.kind == mosa::StopKind::Success && first.more && binding_text(*joined, first) == "1",
+                   "first clause");
+  auto second = joined->next();
+  mosa_test::check(second.kind == mosa::StopKind::Success && !second.more && binding_text(*joined, second) == "2",
+                   "second clause");
+  mosa_test::check(joined->load_program("p(9).").ok, "replace after directive");
+  auto only = joined->query("p(X).");
+  mosa_test::check(only.kind == mosa::StopKind::Success && !only.more && binding_text(*joined, only) == "9",
+                   "not kept");
+
+  auto other = mosa::Machine::create();
+  mosa_test::check(!other->load_program(":- discontiguous(p/1). q(1). r(1). q(2).").ok, "other stays apart");
+  mosa_test::check(other->diagnostic().find("述語 q/1 の節が離れている") != std::string_view::npos, "other phrase");
+
+  auto arity = mosa::Machine::create();
+  mosa_test::check(!arity->load_program(":- discontiguous(p/2). p(1). q(1). p(2).").ok, "arity stays apart");
+  mosa_test::check(arity->diagnostic().find("述語 p/1 の節が離れている") != std::string_view::npos, "arity phrase");
+
+  auto late = mosa::Machine::create();
+  mosa_test::check(!late->load_program("p(1). q(1). p(2). :- discontiguous(p/1).").ok, "directive after gap");
+  mosa_test::check(late->diagnostic().find("述語 p/1 の節が離れている") != std::string_view::npos, "late phrase");
+
+  auto bad = mosa::Machine::create();
+  mosa_test::check(!bad->load_program(":- discontiguous(1).").ok, "bad indicator");
+  mosa_test::check(bad->diagnostic().find("述語指示子ではありません") != std::string_view::npos, "indicator phrase");
+
+  auto empty = mosa::Machine::create();
+  mosa_test::check(empty->load_program(":- discontiguous([]).").ok, "empty list");
+}
+
 void check_arith() {
   auto quot_machine = mosa::Machine::create();
   auto quot = quot_machine->query("X is -5 // 2.");
@@ -261,6 +295,7 @@ int main() {
   check_order();
   check_terms();
   check_answer_and_consult();
+  check_discontiguous();
   check_arith();
   check_control();
   check_index();

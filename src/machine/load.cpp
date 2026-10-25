@@ -21,6 +21,12 @@ struct Snapshot {
   bool dynamic = false;
 };
 
+// この読み込みの中だけで隙間を許す。述語ベクタには入れない。宣言は手続きを作らない。
+struct Apart {
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+};
+
 std::string reason_text(SyntaxReason reason) {
   switch (reason) {
     case SyntaxReason::InvalidUtf8: return "不正な UTF-8";
@@ -143,7 +149,14 @@ bool apply_op(Impl& machine, Cell directive) {
   return define_op_names(machine, static_cast<int>(priority64), *specifier, machine.heap.arg(body, 2));
 }
 
-bool add_clause(Impl& machine, Clause clause, std::size_t& last) {
+bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16_t arity) {
+  for (const Apart& item : apart) {
+    if (item.name == name && item.arity == arity) return true;
+  }
+  return false;
+}
+
+bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
   std::size_t index = machine.predicates.size();
@@ -156,7 +169,8 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last) {
     machine.predicates.back().arity = arity;
   }
   Predicate& predicate = machine.predicates[index];
-  if (predicate.seen && last != index) {
+  // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
+  if (predicate.seen && last != index && !allows_gap(apart, name, arity)) {
     fail_load(machine, "述語 " + std::string(machine.atoms.name(name)) + "/" + std::to_string(arity) +
                             " の節が離れている");
     return false;
@@ -323,6 +337,31 @@ bool dynamic_argument(Impl& machine, Cell directive, Cell& arg) {
   return true;
 }
 
+bool discontiguous_argument(Impl& machine, Cell directive, Cell& arg) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != "discontiguous") return false;
+  arg = machine.heap.arg(body, 0);
+  return true;
+}
+
+int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apart>& apart) {
+  Cell arg;
+  if (!discontiguous_argument(machine, directive, arg)) return 0;
+  std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
+  if (!collect_indicators(machine, arg, indicators)) {
+    fail_load(machine, "述語指示子ではありません");
+    return -1;
+  }
+  for (const auto& indicator : indicators) {
+    if (allows_gap(apart, indicator.first, indicator.second)) continue;
+    apart.push_back(Apart{indicator.first, indicator.second});
+  }
+  return 1;
+}
+
 int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
   Cell arg;
   if (!dynamic_argument(machine, directive, arg)) return 0;
@@ -337,7 +376,8 @@ int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>
   return 1;
 }
 
-int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots) {
+int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
+                      std::vector<Apart>& apart) {
   if (!is_directive(machine.heap, term)) return 0;
   const int flag_directive = apply_flag_directive(machine, term);
   if (flag_directive < 0) return -1;
@@ -348,6 +388,9 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int dynamic_directive = apply_dynamic_directive(machine, term, snapshots);
   if (dynamic_directive < 0) return -1;
   if (dynamic_directive > 0) return 1;
+  const int apart_directive = apply_discontiguous_directive(machine, term, apart);
+  if (apart_directive < 0) return -1;
+  if (apart_directive > 0) return 1;
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;
@@ -375,6 +418,8 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   const auto saved_ops = machine.operators;
   const SavedFlags saved_flags = save_flags(machine);
   std::vector<Snapshot> snapshots;
+  // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
+  std::vector<Apart> apart;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine),
@@ -395,7 +440,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
-    const int directed = consume_directive(machine, reader, term, snapshots);
+    const int directed = consume_directive(machine, reader, term, snapshots, apart);
     if (directed < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     if (directed > 0) continue;
     Clause clause;
@@ -405,7 +450,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
     remember(machine, snapshots, clause);
-    if (!add_clause(machine, std::move(clause), last)) {
+    if (!add_clause(machine, std::move(clause), last, apart)) {
       return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
   }
