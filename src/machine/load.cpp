@@ -202,9 +202,32 @@ void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t
   machine.predicates.resize(previous_size);
 }
 
-LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const std::vector<Snapshot>& snapshots,
-                       std::size_t previous_size, std::size_t heap_base) {
+struct SavedFlags {
+  DoubleQuotes quotes = DoubleQuotes::Codes;
+  bool unknown_fail = false;
+  bool float_overflow_error = true;
+  bool float_zero_div_error = true;
+  bool float_undefined_error = true;
+};
+
+SavedFlags save_flags(const Impl& machine) {
+  return SavedFlags{machine.quotes, machine.unknown_fail, machine.float_overflow_error,
+                    machine.float_zero_div_error, machine.float_undefined_error};
+}
+
+void restore_flags(Impl& machine, const SavedFlags& saved) {
+  machine.quotes = saved.quotes;
+  machine.unknown_fail = saved.unknown_fail;
+  machine.float_overflow_error = saved.float_overflow_error;
+  machine.float_zero_div_error = saved.float_zero_div_error;
+  machine.float_undefined_error = saved.float_undefined_error;
+}
+
+LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
+                       const std::vector<Snapshot>& snapshots, std::size_t previous_size,
+                       std::size_t heap_base) {
   machine.operators = saved_ops;
+  restore_flags(machine, saved_flags);
   rollback(machine, snapshots, previous_size);
   machine.heap.truncate(heap_base);
   return LoadStatus{false, machine.diagnostic};
@@ -219,6 +242,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
   machine.syntax_diag = false;
   for (Predicate& predicate : machine.predicates) predicate.seen = false;
   const auto saved_ops = machine.operators;
+  const SavedFlags saved_flags = save_flags(machine);
   std::vector<Snapshot> snapshots;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
@@ -230,18 +254,18 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
       machine.diag_line = outcome.failure->line;
       machine.diag_column = outcome.failure->column;
       machine.diagnostic = reason_text(outcome.failure->reason);
-      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
     if (!outcome.term) break;
     const Cell term = outcome.term->term;
     if (is_rule_arrow(machine.heap, term)) {
       const auto text = write_term(machine.heap, machine.operators, term, {}, {});
       fail_load(machine, "この指示はフェーズ2では使えない: " + text);
-      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
     if (is_directive(machine.heap, term)) {
       const int flag_directive = apply_flag_directive(machine, term);
-      if (flag_directive < 0) return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+      if (flag_directive < 0) return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
       if (flag_directive > 0) {
         reader.set_quotes(current_double_quotes(machine));
         continue;
@@ -251,7 +275,7 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
           const auto text = write_term(machine.heap, machine.operators, term, {}, {});
           fail_load(machine, "この指示はフェーズ2では使えない: " + text);
         }
-        return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+        return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
       }
       continue;
     }
@@ -259,11 +283,11 @@ LoadStatus load_source(Impl& machine, std::string_view source) {
     if (!compile_clause(machine.heap, term, clause)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +
                              write_term(machine.heap, machine.operators, term, {}, {}));
-      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
     remember(machine, snapshots, clause);
     if (!add_clause(machine, std::move(clause), last)) {
-      return reject_load(machine, saved_ops, snapshots, previous_size, heap_base);
+      return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base);
     }
   }
   machine.heap.truncate(heap_base);

@@ -315,17 +315,16 @@ void run_atom_concat(Impl& machine, const Goal& goal) {
   gen_or_fail(machine, goal, kConcat);
 }
 
-bool reject_sub_int(Impl& machine, const Goal& goal, Cell cell) {
-  if (machine.heap.unbound(cell)) return false;
-  if (!is_int_cell(cell)) {
-    type_at(machine, goal, "integer", cell);
-    return true;
-  }
-  if (negative_int(machine, cell)) {
-    domain_at(machine, goal, cell);
-    return true;
-  }
-  return false;
+bool reject_sub_type(Impl& machine, const Goal& goal, Cell cell) {
+  if (machine.heap.unbound(cell) || is_int_cell(cell)) return false;
+  type_at(machine, goal, "integer", cell);
+  return true;
+}
+
+bool reject_sub_domain(Impl& machine, const Goal& goal, Cell cell) {
+  if (!negative_int(machine, cell)) return false;
+  domain_at(machine, goal, cell);
+  return true;
 }
 
 void run_sub_atom(Impl& machine, const Goal& goal) {
@@ -339,13 +338,20 @@ void run_sub_atom(Impl& machine, const Goal& goal) {
     type_at(machine, goal, "atom", atom);
     return;
   }
+  // 8.16.3.3 は整数の型を、部分アトムの型より先に見る。
+  const Cell before = machine.heap.deref(goal.arg(machine, 1));
+  const Cell length = machine.heap.deref(goal.arg(machine, 2));
+  const Cell after = machine.heap.deref(goal.arg(machine, 3));
+  if (reject_sub_type(machine, goal, before)) return;
+  if (reject_sub_type(machine, goal, length)) return;
+  if (reject_sub_type(machine, goal, after)) return;
   if (!machine.heap.unbound(sub) && sub.tag() != Tag::Atom) {
     type_at(machine, goal, "atom", sub);
     return;
   }
-  if (reject_sub_int(machine, goal, machine.heap.deref(goal.arg(machine, 1)))) return;
-  if (reject_sub_int(machine, goal, machine.heap.deref(goal.arg(machine, 2)))) return;
-  if (reject_sub_int(machine, goal, machine.heap.deref(goal.arg(machine, 3)))) return;
+  if (reject_sub_domain(machine, goal, before)) return;
+  if (reject_sub_domain(machine, goal, length)) return;
+  if (reject_sub_domain(machine, goal, after)) return;
   gen_or_fail(machine, goal, kSub);
 }
 

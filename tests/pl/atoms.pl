@@ -47,3 +47,17 @@ test(number_chars_float_in, number_chars(X, ['3', '.', '3']), solutions([X = 3.3
 test(number_codes_int, number_codes(33, L), solutions([L = [51, 51]])).
 test(number_codes_in, number_codes(X, [51, 51]), solutions([X = 33])).
 test(number_codes_neg, number_codes(X, [45, 50, 53]), solutions([X = -25])).
+test(number_chars_letter, number_chars(1, [a]), error(syntax_error(_))).
+test(number_chars_empty, number_chars(1, []), error(syntax_error(_))).
+test(number_chars_leading_zero, number_chars(1, ['0', '1']), true).
+test(number_chars_exponent, number_chars(1.0e9, ['1', '.', '0', 'E', '9']), true).
+test(number_chars_space, number_chars(N, [' ', '1']), error(syntax_error(_))).
+test(number_chars_newline, number_chars(N, ['\n', '1']), error(syntax_error(_))).
+test(number_chars_minus_space, number_chars(N, [-, ' ', '1']), error(syntax_error(_))).
+test(number_chars_plus, number_chars(N, ['+', '1']), error(syntax_error(_))).
+test(number_codes_letter, number_codes(1, [97]), error(syntax_error(_))).
+test(number_codes_empty, number_codes(1, []), error(syntax_error(_))).
+test(number_codes_leading_zero, number_codes(1, [48, 49]), true).
+test(number_codes_space, number_codes(N, [32, 49]), error(syntax_error(_))).
+test(number_codes_plus, number_codes(N, [43, 49]), error(syntax_error(_))).
+test(sub_atom_int_before_sub, sub_atom(abc, foo, _, _, 1), error(type_error(integer, foo))).

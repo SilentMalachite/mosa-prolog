@@ -8,6 +8,7 @@
 
 #include "../machine/internal.hpp"
 
+#include "mosa/char_class.hpp"
 #include "mosa/lexer.hpp"
 #include "mosa/writer.hpp"
 
@@ -94,13 +95,22 @@ struct SignedText {
 };
 
 SignedText strip_sign(std::string_view text) {
+  // 数トークンの前に付く符号は '-' だけ。'+' はフェーズ1の数の字句に無い。
   SignedText out;
   out.body = text;
-  if (!text.empty() && (text.front() == '+' || text.front() == '-')) {
-    out.negative = text.front() == '-';
+  if (!text.empty() && text.front() == '-') {
+    out.negative = true;
     out.body.remove_prefix(1);
   }
   return out;
+}
+
+bool has_layout(std::string_view text) {
+  const CodeText codes = decode_codes(text);
+  for (const char32_t code : codes.codes) {
+    if (classify(code) == CharClass::Layout) return true;
+  }
+  return false;
 }
 
 bool min_magnitude(std::string_view body) {
@@ -119,6 +129,7 @@ bool consumed_number(const Scan& first, const Scan& end, std::string_view body) 
 }
 
 std::optional<Cell> parse_number(Impl& machine, std::string_view text) {
+  if (has_layout(text)) return std::nullopt;
   const SignedText signed_text = strip_sign(text);
   if (signed_text.body.empty()) return std::nullopt;
   Lexer lexer(signed_text.body);
@@ -161,6 +172,18 @@ void bind_spelling(Impl& machine, const Goal& goal, Cell number, bool codes) {
   else succeed(machine, goal);
 }
 
+void bind_ground_number(Impl& machine, const Goal& goal, const WalkedList& walked, bool codes) {
+  // 数が具体でも、リストが別の正当な数の綴りなら成功する。綴りでなければ syntax_error。
+  const std::string text = join_items(machine, walked, codes);
+  const std::optional<Cell> parsed = parse_number(machine, text);
+  if (!parsed) {
+    syntax_at(machine, goal, text);
+    return;
+  }
+  if (!do_unify(machine, goal.arg(machine, 0), *parsed)) machine.failed = true;
+  else succeed(machine, goal);
+}
+
 }  // namespace
 
 void run_number_atoms(Impl& machine, const Goal& goal) {
@@ -189,8 +212,15 @@ void run_number_atoms(Impl& machine, const Goal& goal) {
     }
     if (reject_number_items(machine, goal, walked, codes)) return;
   }
-  if (number_var) bind_parsed(machine, goal, walked, codes);
-  else bind_spelling(machine, goal, number, codes);
+  if (number_var) {
+    bind_parsed(machine, goal, walked, codes);
+    return;
+  }
+  if (machine.heap.unbound(list) || walked.shape == ListShape::Partial || has_var_item(machine, walked)) {
+    bind_spelling(machine, goal, number, codes);
+    return;
+  }
+  bind_ground_number(machine, goal, walked, codes);
 }
 
 }  // namespace mosa

@@ -116,6 +116,22 @@ void check_consult_failure_reports() {
                    "busy consult phrase");
 }
 
+void check_consult_flag_rolls_back() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/flag_rollback.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << "q(1).\n:- set_prolog_flag(unknown, fail).\n:- nope.\n";
+  file.close();
+  auto machine = mosa::Machine::create();
+  mosa_test::check(!machine->consult(path), "bad consult fails");
+  auto flag = machine->query("current_prolog_flag(unknown, X).");
+  mosa_test::check(flag.kind == mosa::StopKind::Success && flag.bindings.size() == 1, "unknown restored");
+  const auto text = mosa::write_term(machine->heap(), machine->operators(),
+                                     machine->heap().deref(flag.bindings[0].variable), mosa::WriteOptions{}, {});
+  mosa_test::check(text == "error", "unknown stays error");
+  auto clause = machine->query("q(X).");
+  mosa_test::check(clause.kind == mosa::StopKind::Exception, "rolled back clause");
+}
+
 void check_consult_twice() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/consult_twice.pl";
   std::ofstream file(path, std::ios::binary);
@@ -150,6 +166,7 @@ int main() {
   check_errors();
   check_consult_keeps_query();
   check_consult_failure_reports();
+  check_consult_flag_rolls_back();
   check_consult_twice();
   check_resource_limit_session();
   check_runner();
