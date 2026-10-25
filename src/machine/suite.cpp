@@ -122,9 +122,23 @@ std::vector<VarName> stop_names(const Stop& stop) {
   return names;
 }
 
-bool solution_matches(const Machine& machine, const Stop& stop, Cell solution, const std::vector<VarName>& names) {
-  std::vector<std::pair<std::string, std::string>> pairs;
-  binding_pairs(machine.heap(), solution, pairs, names, machine.operators());
+// next はヒープを選択点まで戻す。期待項は query のあとで同じヒープに読むので、組は先に文字列にする。
+bool freeze_answers(const Machine& machine, const std::vector<Cell>& items, const std::vector<VarName>& names,
+                    std::vector<std::vector<std::pair<std::string, std::string>>>& rows) {
+  rows.clear();
+  rows.reserve(items.size());
+  for (const Cell item : items) {
+    std::vector<std::pair<std::string, std::string>> pairs;
+    binding_pairs(machine.heap(), item, pairs, names, machine.operators());
+    // 組が無い答えは、切れた項を成功と見なさない。
+    if (pairs.empty()) return false;
+    rows.push_back(std::move(pairs));
+  }
+  return true;
+}
+
+bool saved_matches(const Machine& machine, const Stop& stop,
+                   const std::vector<std::pair<std::string, std::string>>& pairs) {
   for (const auto& pair : pairs) {
     const Binding* found = nullptr;
     for (const Binding& binding : stop.bindings) {
@@ -163,11 +177,13 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
   }
   if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "solutions") {
     const auto wanted = list_items(machine.heap(), machine.heap().arg(expect, 0));
+    std::vector<std::vector<std::pair<std::string, std::string>>> rows;
+    if (!freeze_answers(machine, wanted, outcome.term->names, rows)) return false;
     Stop current = stop;
-    for (std::size_t index = 0; index < wanted.size(); ++index) {
+    for (std::size_t index = 0; index < rows.size(); ++index) {
       if (index > 0) current = machine.next();
       if (current.kind != StopKind::Success) return false;
-      if (!solution_matches(machine, current, wanted[index], outcome.term->names)) return false;
+      if (!saved_matches(machine, current, rows[index])) return false;
     }
     return true;
   }
