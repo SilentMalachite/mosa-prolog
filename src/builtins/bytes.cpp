@@ -1,5 +1,7 @@
-// 規格 8.13.1 get_byte/1,2。8.13.3 put_byte/1,2。
+// 規格 8.13.1 get_byte/1,2。8.13.2 peek_byte/1,2。8.13.3 put_byte/1,2。
 // get_byte(+stream_or_alias, ?in_byte) / get_byte(?in_byte)
+// peek_byte(+stream_or_alias, ?in_byte) / peek_byte(?in_byte)
+//   peek はカーソルも past_end も変えない。
 // put_byte(+stream_or_alias, +byte) / put_byte(+byte)
 //   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
 //   type_error(in_byte), type_error(byte),
@@ -147,7 +149,7 @@ void advance_byte(Stream& stream) {
   stream.past_end = false;
 }
 
-bool take_byte(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, int& value) {
+bool take_byte(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bool peek, int& value) {
   if (stream.past_end && stream.eof_action == Stream::EofAction::Error) {
     return raise_permit(machine, goal, "input", "past_end_of_stream", culprit);
   }
@@ -158,12 +160,13 @@ bool take_byte(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, in
   }
   if (!pull_byte(stream)) {
     value = -1;
-    stream.past_end = true;
+    // peek は終端の印を返すだけで、past にはしない。
+    if (!peek) stream.past_end = true;
     return false;
   }
   value = static_cast<unsigned char>(stream.bytes[stream.cursor]);
-  // 照合が失敗しても、読んだバイトは戻さない。
-  advance_byte(stream);
+  // 照合が失敗しても、get の読んだバイトは戻さない。
+  if (!peek) advance_byte(stream);
   return false;
 }
 
@@ -195,7 +198,7 @@ bool select_stream(Impl& machine, const Goal& goal, bool input, std::size_t& ind
   return resolve_stream(machine, goal, goal.arg(machine, 0), index);
 }
 
-void run_get_byte(Impl& machine, const Goal& goal) {
+void run_get_byte(Impl& machine, const Goal& goal, bool peek) {
   std::size_t index = 0;
   if (select_stream(machine, goal, true, index)) return;
   const Cell culprit = stream_culprit(machine, goal, index);
@@ -206,7 +209,7 @@ void run_get_byte(Impl& machine, const Goal& goal) {
   const Cell slot = goal.arg(machine, goal.arity == 1 ? 0 : 1);
   if (reject_in_byte(machine, goal, slot)) return;
   int value = 0;
-  if (take_byte(machine, goal, machine.streams[index], culprit, value)) return;
+  if (take_byte(machine, goal, machine.streams[index], culprit, peek, value)) return;
   finish_get(machine, goal, slot, value);
 }
 
@@ -240,7 +243,11 @@ void run_put_byte(Impl& machine, const Goal& goal) {
 bool run_byte_io(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "get_byte" && (goal.arity == 1 || goal.arity == 2)) {
-    run_get_byte(machine, goal);
+    run_get_byte(machine, goal, false);
+    return true;
+  }
+  if (name == "peek_byte" && (goal.arity == 1 || goal.arity == 2)) {
+    run_get_byte(machine, goal, true);
     return true;
   }
   if (name == "put_byte" && (goal.arity == 1 || goal.arity == 2)) {

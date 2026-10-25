@@ -296,6 +296,57 @@ void check_get_bytes(const std::filesystem::path& path, const std::filesystem::p
                    "byte past formal");
 }
 
+void check_peek_byte(const std::filesystem::path& path, const std::filesystem::path& empty_path) {
+  write_bytes(path, "ab");
+  const std::string atom = prolog_atom(path.string());
+  auto machine = mosa::Machine::create();
+  auto peeked = machine->query(
+      "open(" + atom + ", read, S, [type(binary)]), peek_byte(S, A), peek_byte(S, B), get_byte(S, C).");
+  mosa_test::check(peeked.kind == mosa::StopKind::Success, "peek byte");
+  mosa_test::check(binding_named(*machine, peeked, "A") == "97", "peek first");
+  mosa_test::check(binding_named(*machine, peeked, "B") == "97", "peek again");
+  mosa_test::check(binding_named(*machine, peeked, "C") == "97", "get after peek");
+
+  auto kept = mosa::Machine::create();
+  auto skip = kept->query("open(" + atom + ", read, S, [type(binary)]), (peek_byte(S, 99) ; true), get_byte(S, C).");
+  mosa_test::check(skip.kind == mosa::StopKind::Success, "peek fail keeps");
+  mosa_test::check(binding_named(*kept, skip, "C") == "97", "byte after peek fail");
+
+  auto typed = mosa::Machine::create();
+  auto bad = typed->query("open(" + atom + ", read, S, [type(binary)]), peek_byte(S, 256).");
+  mosa_test::check(formal_text(*typed, bad) == "type_error(in_byte, 256)", "peek in_byte formal");
+  mosa_test::check(typed->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success, "peek type keeps");
+
+  auto current = mosa::Machine::create();
+  auto once = current->query("open(" + atom +
+                              ", read, S, [type(binary)]), set_input(S), peek_byte(B), set_input(user_input).");
+  mosa_test::check(once.kind == mosa::StopKind::Success, "peek current");
+  mosa_test::check(binding_named(*current, once, "B") == "97", "peek current byte");
+
+  write_bytes(empty_path, "");
+  const std::string empty_atom = prolog_atom(empty_path.string());
+  auto ending = mosa::Machine::create();
+  auto at = ending->query("open(" + empty_atom +
+                           ", read, S, [type(binary)]), peek_byte(S, -1), stream_property(S, end_of_stream(at)).");
+  mosa_test::check(at.kind == mosa::StopKind::Success, "peek eof stays at");
+  auto past = ending->query("get_byte('$stream'(3), -1), stream_property('$stream'(3), end_of_stream(past)).");
+  mosa_test::check(past.kind == mosa::StopKind::Success, "get eof goes past");
+
+  write_bytes(path, "");
+  auto erroring = mosa::Machine::create();
+  const std::string error_atom = prolog_atom(path.string());
+  mosa_test::check(erroring->query("open(" + error_atom + ", read, S, [type(binary), eof_action(error)]).").kind ==
+                       mosa::StopKind::Success,
+                   "peek error open");
+  mosa_test::check(erroring->query("peek_byte('$stream'(3), -1), peek_byte('$stream'(3), -1).").kind ==
+                       mosa::StopKind::Success,
+                   "peek eof does not go past");
+  mosa_test::check(erroring->query("get_byte('$stream'(3), -1).").kind == mosa::StopKind::Success, "get after peek eof");
+  auto blocked = erroring->query("peek_byte('$stream'(3), B).");
+  mosa_test::check(formal_text(*erroring, blocked) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+                   "peek after past");
+}
+
 void check_put_bytes(const std::filesystem::path& path, const std::filesystem::path& reset_path) {
   write_bytes(path, "xyz");
   const std::string atom = prolog_atom(path.string());
@@ -499,6 +550,7 @@ int main() {
   check_put_char(dir / "phase3-put.txt");
   check_put_code(dir / "phase3-put-code.txt");
   check_get_bytes(dir / "phase3-bytes.txt", dir / "phase3-bytes-empty.txt");
+  check_peek_byte(dir / "phase3-peek-byte.txt", dir / "phase3-peek-empty.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");
   check_alias_reopen(dir / "phase3-alias-reopen.txt");
