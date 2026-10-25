@@ -70,3 +70,27 @@
 ## 8.12 テキストの改行
 
 決定（2026-10-25）: 未決 16 は A。テキストファイルもメモリストリームも、どの OS でも改行は U+000A 1 個。C++ のテキストモードには任せない。
+
+## 8.11 ストリーム項
+
+決定（2026-10-25）: ストリーム項は常に `'$stream'(N)`。`N` はストリームのベクタの添字。別名は別の名前であり、項の形を変えない。
+
+## 8.11 標準ストリーム
+
+決定（2026-10-25）: 添字 0 が `user_input` で stdin、1 が `user_output` で stdout、2 が `user_error` で stderr。`reposition` は false。
+
+## 8.11 終端の次の読み
+
+決定（2026-10-25）: 既定の `eof_action` は `eof_code`。終端の次の読みは、テキストが `end_of_file`、バイナリが `-1`。`eof_action(reset)` は別途選べる。
+
+## 8.11 空の入力
+
+決定（2026-10-25）: 位置が源の長さと等しいとき `end_of_stream` は `at`。空の入力を開いた直後は `at`。
+
+## 8.11 位置の項
+
+決定（2026-10-25）: `stream_position(CharNo, Line, LinePos)`。文字数は 0 から、行と行内位置は 1 から。
+
+## 8.11.5.3 f ストリーム引数が具体値
+
+未決: `open/3`、`open/4`、`open_string/2` の `Stream` が変数でないとき。A: 1995 年の本文どおり `type_error(variable, Stream)`。B: Cor.2 の `uninstantiation_error(Stream)`。仕様第3節の Formal の一覧に `uninstantiation_error` は無い。実装は A にしてある。

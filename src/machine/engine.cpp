@@ -114,7 +114,8 @@ struct BuiltinPi {
   std::uint16_t arity;
 };
 
-// call/1..8 と halt/0..1 以外はアリティが一つ。制御構文は goal と launch が先に取る。
+// call/1..8、halt/0..1、findall/3 と findall/4、open/3 と open/4 はアリティが二つ以上。
+// 制御構文は goal と launch が先に取る。
 constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"=", 2},
     {"\\=", 2},
@@ -175,6 +176,9 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"current_predicate", 1},
     {"findall", 3},
     {"findall", 4},
+    {"open", 3},
+    {"open", 4},
+    {"open_string", 2},
     {"bagof", 3},
     {"setof", 3},
     {"catch", 3},
@@ -378,7 +382,8 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
-      run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal)) {
+      run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal) ||
+      run_streams(machine, goal)) {
     return true;
   }
   return false;
@@ -399,7 +404,9 @@ Stop run_loop(Impl& machine) {
   }
 }
 
-Machine::Machine(std::size_t heap_limit) : impl_(std::make_unique<Impl>(heap_limit)) {}
+Machine::Machine(std::size_t heap_limit) : impl_(std::make_unique<Impl>(heap_limit)) {
+  init_streams(*impl_);
+}
 
 Machine::~Machine() = default;
 

@@ -59,6 +59,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/database.cpp
   src/builtins/clause_term.cpp
   src/builtins/solutions.cpp
+  src/builtins/streams.cpp
 )
 
 enable_testing()
@@ -112,6 +113,12 @@ target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(session_test PRIVATE mosa_lib)
 add_test(NAME session COMMAND $<TARGET_FILE:session_test>)
+
+add_executable(stream_test tests/cpp/stream_test.cpp)
+target_include_directories(stream_test PRIVATE tests/cpp)
+target_compile_definitions(stream_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(stream_test PRIVATE mosa_lib)
+add_test(NAME stream_test COMMAND $<TARGET_FILE:stream_test>)
 
 add_executable(machine_test tests/cpp/machine_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)

@@ -1,7 +1,7 @@
 フェーズ: 3
-進行中: ストリーム計画の回答待ち
-完了: 未決 2、4、7–16 を決定し、ADR 0005 を承認した。clause/2 と findall/4 は済
-次: 回答のあと、ストリームのレコードと open/4、open_string/2
-未解決: 準拠スイートはライセンスファイルが無いので始めない。kBuiltins のコメントは findall/3 と findall/4 をまだ書いていない
+進行中: なし
+完了: open/4 と open_string/2。項は '$stream'(N)。標準三つは stdin、stdout、stderr
+次: get_char、peek_char、put_char
+未解決: 準拠スイートはライセンスが無いので始めない。Stream が具体値のとき、type_error(variable) か uninstantiation_error か未決
 計画: docs/superpowers/plans/2026-10-25-phase3-builtins.md
 判断: docs/superpowers/plans/2026-10-25-phase3-streams.html

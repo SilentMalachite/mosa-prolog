@@ -107,10 +107,35 @@ struct ExportedTerm {
   int root = -1;
 };
 
+// 入出力は値のベクタ。抽象クラスにはしない（ADR 0005）。添字が '$stream'(N) の N。
+struct Stream {
+  enum class Kind { File, Standard, Memory };
+  enum class Data { Text, Binary };
+  enum class Mode { Read, Write, Append };
+  enum class EofAction { Error, EofCode, Reset };
+  Kind kind = Kind::Memory;
+  Data data = Data::Text;
+  Mode mode = Mode::Read;
+  EofAction eof_action = EofAction::EofCode;
+  std::string bytes;
+  std::size_t cursor = 0;
+  std::size_t char_no = 0;
+  std::size_t line = 1;
+  std::size_t line_pos = 1;
+  bool closed = false;
+  bool reposition = true;
+  std::string alias;
+  std::string path;
+};
+
 struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
   OperatorTable operators;
+  // 0 が stdin、1 が stdout、2 が stderr。読み書きそのものは get と put が行う。
+  std::vector<Stream> streams;
+  std::size_t current_in = 0;
+  std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
   std::vector<Entry> stack;
@@ -245,6 +270,8 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
+void init_streams(Impl& machine);
+[[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);
