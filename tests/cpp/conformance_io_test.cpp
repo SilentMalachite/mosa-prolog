@@ -641,6 +641,38 @@ void check_read_syntax(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_read_term_3_05") == std::string::npos, "read syntax leaves the space");
 }
 
+// 数の字句が失敗しても、その項の終止符まで進める。確認の空白は残す。
+std::string read_bad_number_text() {
+  return "test(read_bad_number, true(Assertion)) :-\n"
+         "    ^^set_text_input('foo 1_. term2. ...'),\n"
+         "    catch({read(_T)}, error(syntax_error(_), _), true),\n"
+         "    ^^text_input_assertion(' term2. ...', Assertion).\n"
+         "test(read_overflow_number, true(Assertion)) :-\n"
+         "    ^^set_text_input('foo 999999999999999999999. term2. ...'),\n"
+         "    catch({read(_T)}, error(syntax_error(_), _), true),\n"
+         "    ^^text_input_assertion(' term2. ...', Assertion).\n"
+         "test(read_bad_number_open, true) :-\n"
+         "    ^^set_text_input('foo 1_'),\n"
+         "    catch({read(_T)}, error(syntax_error(_), _), true).\n";
+}
+
+void check_read_bad_number(const std::filesystem::path& root) {
+  const auto suite = root / "read-bad-number";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "read-bad-number-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "read_term_3" / "tests.lgt", read_bad_number_text()),
+                   "write read bad number");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("read_bad_number") != std::string::npos) show("read bad number report", body);
+  mosa_test::check(code == 0, "read bad number exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 3"), "read bad number denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 3"), "read bad number passed");
+  mosa_test::check(failed.find("read_bad_number") == std::string::npos, "bad number leaves the space");
+  mosa_test::check(failed.find("read_overflow_number") == std::string::npos, "overflow leaves the space");
+}
+
 void check_caret_curly(const std::filesystem::path& root) {
   const auto suite = root / "caret-curly";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -688,6 +720,7 @@ int main() {
     check_read_rest(root);
     check_read_vars(root);
     check_read_syntax(root);
+    check_read_bad_number(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

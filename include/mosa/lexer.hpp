@@ -37,6 +37,9 @@ class Lexer {
   [[nodiscard]] Scan next();
   // 終止符の位置はドットの直後。確認した空白は含めない。
   [[nodiscard]] std::size_t offset() const { return index_; }
+  // 張り付いた失敗を外す。位置が動いていなければ 1 字捨てる。
+  // 捨てないと次の next が同じ失敗を返し、終止符まで届かない。
+  bool release_failure();
 
  private:
   struct SourceChar {
@@ -108,6 +111,7 @@ class Lexer {
   void emit_code(std::string* text, char32_t* code, char32_t value);
   [[nodiscard]] Scan fail_at(SyntaxReason reason, std::string token, Place place);
   [[nodiscard]] Scan token_at(TokenKind kind, Place place, std::string text = {});
+  [[nodiscard]] bool skip_one();
 
   std::string_view source_;
   std::size_t index_ = 0;
@@ -118,6 +122,8 @@ class Lexer {
   bool raw_ = false;
   const CharConv* conv_ = nullptr;
   std::optional<Scan> failure_;
+  std::size_t attempt_ = 0;
+  bool failure_stuck_ = false;
 };
 
 }

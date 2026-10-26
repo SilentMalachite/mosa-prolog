@@ -74,6 +74,7 @@ Scan Lexer::next() {
   // 失敗を残す。不正バイトを消費した次の next も同じ失敗を返すため。
   if (failure_) return *failure_;
   skip_bom();
+  attempt_ = index_;
   const std::size_t before = index_;
   if (const std::optional<Scan> stopped = skip_ignorable()) return *stopped;
   // 名前と '(' の間の空白は、関数表記と前置演算子の引数を分ける。
@@ -282,8 +283,29 @@ Scan Lexer::scan_solo() {
 Scan Lexer::fail_at(SyntaxReason reason, std::string token, Place place) {
   Scan scan;
   scan.failure = SyntaxFailure{place.line, place.column, std::move(token), reason};
+  // 桁などは失敗の前に進む。1 字も動いていない失敗は、同じ場所で繰り返す。
+  failure_stuck_ = index_ == attempt_;
   failure_ = scan;
   return scan;
+}
+
+bool Lexer::skip_one() {
+  if (index_ >= source_.size()) return false;
+  const SourceChar ch = peek_char();
+  if (!ch.valid || ch.bytes == 0) {
+    ++index_;
+    return true;
+  }
+  advance(ch.code, ch.bytes);
+  return true;
+}
+
+bool Lexer::release_failure() {
+  if (!failure_) return false;
+  const bool stuck = failure_stuck_;
+  failure_.reset();
+  if (!stuck) return true;
+  return skip_one();
 }
 
 Scan Lexer::token_at(TokenKind kind, Place place, std::string text) {

@@ -270,15 +270,21 @@ Reader::Parsed Reader::parse_expr(int max_priority) {
 
 void Reader::absorb_full_stop(const Scan& offending) {
   // 終止符そのものが不正なら、字句はドットだけ消費し確認の空白を残してある。
-  if (offending.failure) return;
-  if (offending.token.kind == TokenKind::End || offending.token.kind == TokenKind::EndFullStop) return;
+  if (!offending.failure &&
+      (offending.token.kind == TokenKind::End || offending.token.kind == TokenKind::EndFullStop)) {
+    return;
+  }
   has_pending_ = false;
+  // 数の失敗はドットの上で張り付く。外さないと、そのドットが次の項に残る。
+  if (offending.failure && !lexer_.release_failure()) return;
   while (true) {
     const std::size_t before = lexer_.offset();
     const Scan scan = lexer_.next();
-    if (scan.failure) return;
+    if (scan.failure) {
+      if (!lexer_.release_failure() || lexer_.offset() == before) return;
+      continue;
+    }
     if (scan.token.kind == TokenKind::End || scan.token.kind == TokenKind::EndFullStop) return;
-    // 幅ゼロだと、失敗した項の先を読み続けて次の項まで食べる。
     if (lexer_.offset() == before) return;
   }
 }
@@ -290,6 +296,7 @@ ReadOutcome Reader::next() {
   if (first.failure) {
     ReadOutcome outcome;
     outcome.failure = first.failure;
+    absorb_full_stop(first);
     return outcome;
   }
   if (first.token.kind == TokenKind::End) {
@@ -308,6 +315,7 @@ ReadOutcome Reader::next() {
   if (end.failure) {
     ReadOutcome outcome;
     outcome.failure = end.failure;
+    absorb_full_stop(end);
     return outcome;
   }
   if (end.token.kind != TokenKind::EndFullStop) {
