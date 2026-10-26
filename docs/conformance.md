@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1662
-合格率: 76.5
+合格数: 1665
+合格率: 76.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -70,8 +70,6 @@ predicates/current_op_3/tests.lgt iso_current_op_3_40 true((Contents==[b, a, z, 
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/current_output_1/tests.lgt sics_current_output_1_04 error(domain_error(stream, S)) existence_error(stream, '$stream'(3))
 predicates/current_output_1/tests.lgt sics_current_output_1_06 true existence_error(procedure, ground/1)
-predicates/current_prolog_flag_2/tests.lgt iso_current_prolog_flag_2_01 true domain_error(prolog_flag, debug)
-predicates/current_prolog_flag_2/tests.lgt iso_current_prolog_flag_2_07 true((Debug==on;Debug==off)) domain_error(prolog_flag, debug)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_12 true domain_error(flag_value, unknown+warning)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 false domain_error(flag_value, unknown+warning)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag, dialect)
@@ -169,7 +167,6 @@ predicates/read_term_3/tests.lgt lgt_read_term_3_37 error(domain_error(read_opti
 predicates/read_term_3/tests.lgt lgt_read_term_3_38 error(syntax_error(_)) syntax_error('行 1 列 3: 項が閉じていません 終端')
 predicates/read_term_3/tests.lgt lgt_read_term_3_39 error(syntax_error(_)) syntax_error('行 1 列 5: 項が閉じていません 終端')
 predicates/retractall_1/tests.lgt iso_retractall_1_01 true({current_predicate(foo/1)}) existence_error(procedure, {}/1)
-predicates/set_prolog_flag_2/tests.lgt iso_set_prolog_flag_2_05 error(domain_error(flag_value, debug+trace)) domain_error(prolog_flag, debug)
 predicates/set_prolog_flag_2/tests.lgt eddbali_set_prolog_flag_2_06 error(permission_error(modify, flag, max_arity)) domain_error(flag_value, max_arity+40)
 predicates/set_prolog_flag_2/tests.lgt lgt_set_prolog_flag_2_13 true flag(Flag)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_01 error(instantiation_error) instantiation_error

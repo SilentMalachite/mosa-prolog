@@ -259,6 +259,7 @@ struct SavedFlags {
   bool float_undefined_error = true;
   bool char_conv_on = false;
   bool utf8_replace = false;  // 失敗した読み込みは、途中の set_prolog_flag を残さない。
+  bool debug_on = false;
   std::vector<std::pair<char32_t, char32_t>> char_map;
 };
 
@@ -270,6 +271,7 @@ SavedFlags save_flags(const Impl& machine) {
                     machine.float_undefined_error,
                     machine.char_conv.enabled,
                     machine.utf8_replace,
+                    machine.debug_on,
                     machine.char_conv.map};
 }
 
@@ -281,6 +283,7 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.float_undefined_error = saved.float_undefined_error;
   machine.char_conv.enabled = saved.char_conv_on;
   machine.utf8_replace = saved.utf8_replace;
+  machine.debug_on = saved.debug_on;
   machine.char_conv.map = saved.char_map;
 }
 

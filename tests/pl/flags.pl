@@ -10,6 +10,9 @@ test(flag_ja_punct, current_prolog_flag(japanese_punctuation, false), true).
 test(flag_float_overflow, current_prolog_flag(float_overflow, error), true).
 test(flag_float_zero_div, current_prolog_flag(float_zero_div, error), true).
 test(flag_float_undefined, current_prolog_flag(float_undefined, error), true).
+test(flag_debug, current_prolog_flag(debug, off), true).
+test(flag_debug_on, (set_prolog_flag(debug, on), current_prolog_flag(debug, on), set_prolog_flag(debug, off), current_prolog_flag(debug, off)), true).
+test(flag_debug_bad, set_prolog_flag(debug, drop), error(domain_error(flag_value, debug+drop))).
 test(unknown_fail, (set_prolog_flag(unknown, fail), no_such_pred_phase3), fail).
 test(unknown_restored, (set_prolog_flag(unknown, error), no_such_pred_phase3), error(existence_error(procedure, no_such_pred_phase3/0))).
 test(flag_bounded_value, set_prolog_flag(bounded, foo), error(domain_error(flag_value, bounded+foo))).

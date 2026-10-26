@@ -181,6 +181,8 @@ struct Machine::Impl {
   bool float_overflow_error = true;
   bool float_zero_div_error = true;
   bool float_undefined_error = true;
+  // 旗 debug は値だけ持つ。on でも追跡しない。既定は off。
+  bool debug_on = false;
   CharConv char_conv;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {}
