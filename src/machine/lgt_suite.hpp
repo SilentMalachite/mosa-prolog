@@ -221,6 +221,8 @@ struct LgtRun {
 [[nodiscard]] LgtRun execute_lgt(const LgtFile& file);
 [[nodiscard]] LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome);
 [[nodiscard]] LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want);
+// 呼び出しの関数子だけを見る。引数の中の (= ~=)/2 という指示子は呼び出しではない。
+[[nodiscard]] bool lgt_text_has_special(Machine& machine, std::string_view text);
 // 包摂は同じ変数セルを同じ項にする。same_term は名前の無い変数を別物にしてしまう。
 [[nodiscard]] bool lgt_same_shape(const Heap& heap, Cell left, Cell right);
 [[nodiscard]] bool lgt_subsumes(const Heap& heap, Cell general, Cell specific);

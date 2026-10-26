@@ -541,6 +541,33 @@ void expect_token(std::string_view text, std::string_view name, bool present) {
   mosa_test::check(token_has(text, name) == present, name);
 }
 
+// 部分文字列 =~= で本体を query しないと assertz が走らず、次の tick/1 が残らない。
+std::string machine_body_text() {
+  return "p(f(_)).\n"
+         "test(ran, true) :- {current_predicate(('=~=')/2), fail ; assertz(tick(1))}.\n"
+         "test(ticked, true) :- {tick(1)}.\n"
+         "test(atom_ok, true) :- {assertion(atom(a))}.\n"
+         "test(mix, true) :- {p(Y)}, variant(Y, f(_)).\n";
+}
+
+void check_machine_body(const std::filesystem::path& root) {
+  const auto suite = root / "body";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "body-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "compound_1" / "tests.lgt", machine_body_text()),
+                   "write machine body");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  mosa_test::check(code == 0, "body exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 4"), "body denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 4"), "body passed");
+  mosa_test::check(!token_has(failed, "ran"), "ran queried");
+  mosa_test::check(!token_has(failed, "ticked"), "tick asserted");
+  mosa_test::check(!token_has(failed, "atom_ok"), "atom ran");
+  mosa_test::check(!token_has(failed, "mix"), "variant after p");
+}
+
 // 食い違う節は別ファイル。解が 1 と 2 の all と、解が 0 の all は同じプログラムに置けない。
 void check_judgments(const std::filesystem::path& root) {
   const auto suite = root / "judge";
@@ -620,6 +647,7 @@ int main() {
     check_outside(root);
     check_shared_var(root);
     check_judgments(root);
+    check_machine_body(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

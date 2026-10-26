@@ -215,17 +215,13 @@ std::string goal_text(const LgtCase& item, const LgtWant& want) {
   return goal;
 }
 
-bool text_has_judge(std::string_view text) {
-  return text.find("assertion(") != std::string_view::npos || text.find("variant(") != std::string_view::npos ||
-         text.find("subsumes_term(") != std::string_view::npos || text.find("=~=") != std::string_view::npos;
-}
-
-bool routes_to_judge(std::string_view body, const LgtWant& want) {
+bool routes_to_judge(Machine& machine, std::string_view body, const LgtWant& want) {
   if (want.kind != LgtKind::True && want.kind != LgtKind::Assert && want.kind != LgtKind::False &&
       want.kind != LgtKind::Error) {
     return true;
   }
-  return text_has_judge(body) || text_has_judge(want.detail);
+  if (lgt_text_has_special(machine, body)) return true;
+  return want.kind == LgtKind::Assert && lgt_text_has_special(machine, want.detail);
 }
 
 bool defined_here(const Machine& machine, std::string_view name) {
@@ -301,7 +297,7 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup)
       end.dead = !call_hook(machine, cleanup, "cleanup.");
       return end;
     }
-    if (routes_to_judge(item.body, want)) {
+    if (routes_to_judge(machine, item.body, want)) {
       const LgtEnd judged = judge_lgt_case(machine, item.body, want);
       end.pass = judged.pass;
       end.dead = judged.dead;

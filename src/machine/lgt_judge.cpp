@@ -2,6 +2,7 @@
 // variant や assertion や =~= は述語にしない。登録すると current_predicate が成功する。
 
 #include "lgt_suite.hpp"
+#include "lgt_priv.hpp"
 
 #include "internal.hpp"
 
@@ -334,10 +335,62 @@ std::string actual_of(const Machine& machine, const Stop& stop) {
   return write_term(heap, machine.operators(), term, {}, {});
 }
 
+bool special_call(const Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  if (cell.tag() != Tag::Str) return false;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  const auto arity = heap.functor_arity(cell);
+  if (name == "assertion" && (arity == 1 || arity == 2)) return true;
+  if (name == "variant" && arity == 2) return true;
+  if ((name == "subsumes" || name == "subsumes_term") && arity == 2) return true;
+  return name == "=~=" && arity == 2;
+}
+
+bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& stack) {
+  cell = heap.deref(cell);
+  if (special_call(heap, cell)) return true;
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return false;
+  if (on_stack(stack, cell.raw())) return false;
+  stack.push_back(cell.raw());
+  bool found = false;
+  if (cell.tag() == Tag::Lis) {
+    found = contains_special(heap, heap.list_head(cell), stack) ||
+            contains_special(heap, heap.list_tail(cell), stack);
+  } else {
+    const auto arity = heap.functor_arity(cell);
+    for (std::uint16_t index = 0; index < arity && !found; ++index) {
+      found = contains_special(heap, heap.arg(cell, index), stack);
+    }
+  }
+  stack.pop_back();
+  return found;
+}
+
+// 開いている query を潰さない。組込の検査は別の機械で、束縛を書き戻してから行う。
+bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
+  const Parsed parsed = parse_term(main, goal);
+  if (!parsed.ok) return false;
+  std::vector<std::uint64_t> stack;
+  const Cell resolved = resolve_term(main.heap(), parsed.term, parsed.names, bindings, stack);
+  const std::string text = write_term(main.heap(), main.operators(), resolved, {}, {}) + ".";
+  auto scratch = Machine::create();
+  for (const OpDef& op : main.operators().entries()) {
+    if (scratch->operators().define(op.priority, op.specifier, op.name) != OpResult::Ok) continue;
+  }
+  try {
+    return scratch->query(text).kind == StopKind::Success;
+  } catch (const ResourceLimit&) {
+    return false;
+  }
+}
+
 bool holds(Machine& machine, const LgtWant& want, const Stop& stop) {
   if (want.kind == LgtKind::Det) return true;
-  std::string note;
-  return check_text(machine, want.detail, stop.bindings, note);
+  if (lgt_text_has_special(machine, want.detail)) {
+    std::string note;
+    return check_text(machine, want.detail, stop.bindings, note);
+  }
+  return scratch_ok(machine, want.detail, stop.bindings);
 }
 
 bool error_formal(const Machine& machine, Cell formal, Cell ball) {
@@ -441,38 +494,6 @@ LgtEnd finish_success(Machine& machine, const LgtWant& want, const Stop& stop) {
   return end;
 }
 
-bool body_is_special(std::string_view body) {
-  return body.find("assertion(") != std::string_view::npos || body.find("variant(") != std::string_view::npos ||
-         body.find("subsumes_term(") != std::string_view::npos || body.find("=~=") != std::string_view::npos;
-}
-
-LgtEnd judge_special(Machine& machine, std::string_view body, const LgtWant& want) {
-  std::string note;
-  const bool ok = check_text(machine, body, {}, note);
-  LgtEnd end;
-  if (want.kind == LgtKind::False) {
-    end.pass = !ok;
-    if (!end.pass) end.actual = "true";
-    return end;
-  }
-  if (want.kind != LgtKind::True && want.kind != LgtKind::Assert) {
-    end.actual = "unsupported";
-    return end;
-  }
-  if (!ok) {
-    end.actual = note.empty() ? "fail" : note;
-    return end;
-  }
-  if (want.kind == LgtKind::True) {
-    end.pass = true;
-    return end;
-  }
-  std::string extra;
-  end.pass = check_text(machine, want.detail, {}, extra);
-  if (!end.pass) end.actual = "fail";
-  return end;
-}
-
 LgtEnd judge_query(Machine& machine, std::string_view body, const LgtWant& want) {
   const Step step = ask(machine, std::string{body} + ".");
   if (step.dead) return aborted();
@@ -534,6 +555,41 @@ LgtKind kind_of_one(std::string_view name) {
 
 }  // namespace
 
+LgtParsed lgt_parse_term(Machine& machine, std::string_view text) {
+  const Parsed parsed = parse_term(machine, text);
+  return LgtParsed{parsed.ok, parsed.term, parsed.names};
+}
+
+bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<Binding>& bindings, std::string& note) {
+  return check_text(machine, text, bindings, note);
+}
+
+bool lgt_scratch_ok(Machine& machine, std::string_view goal, const std::vector<Binding>& bindings) {
+  return scratch_ok(machine, goal, bindings);
+}
+
+LgtStep lgt_ask(Machine& machine, std::string_view goal) {
+  const Step step = ask(machine, goal);
+  return LgtStep{step.dead, step.stop};
+}
+
+LgtStep lgt_again(Machine& machine) {
+  const Step step = again(machine);
+  return LgtStep{step.dead, step.stop};
+}
+
+std::string lgt_actual_of(const Machine& machine, const Stop& stop) { return actual_of(machine, stop); }
+
+LgtEnd lgt_aborted() { return aborted(); }
+
+LgtEnd lgt_failed_step(const Machine& machine, const LgtStep& step) {
+  return failed_step(machine, Step{step.dead, step.stop});
+}
+
+LgtEnd lgt_finish(Machine& machine, const LgtWant& want, const Stop& stop) {
+  return finish_success(machine, want, stop);
+}
+
 LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome) {
   LgtWant want;
   const Parsed parsed = parse_term(machine, outcome);
@@ -568,8 +624,16 @@ LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome) {
 }
 
 LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want) {
-  if (body_is_special(body)) return judge_special(machine, body, want);
+  if (lgt_text_has_special(machine, body)) return lgt_judge_mixed(machine, body, want);
   return judge_query(machine, body, want);
+}
+
+bool lgt_text_has_special(Machine& machine, std::string_view text) {
+  if (text.empty()) return false;
+  const Parsed parsed = parse_term(machine, text);
+  if (!parsed.ok) return false;
+  std::vector<std::uint64_t> stack;
+  return contains_special(machine.heap(), parsed.term, stack);
 }
 
 // (=~=)/2 は演算子だけを、このファイルの表に足す。述語としては登録しない。
