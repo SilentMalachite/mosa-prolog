@@ -45,6 +45,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/consult.cpp
   src/machine/session.cpp
   src/machine/suite.cpp
+  src/machine/iso_suite.cpp
   src/platform/terminal.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
@@ -148,6 +149,12 @@ target_include_directories(files_test PRIVATE tests/cpp)
 target_compile_definitions(files_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(files_test PRIVATE mosa_lib)
 add_test(NAME files_test COMMAND $<TARGET_FILE:files_test>)
+
+add_executable(conformance_report_test tests/cpp/conformance_report_test.cpp)
+target_include_directories(conformance_report_test PRIVATE tests/cpp src/machine)
+target_compile_definitions(conformance_report_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(conformance_report_test PRIVATE mosa_lib)
+add_test(NAME conformance_report_test COMMAND $<TARGET_FILE:conformance_report_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 2\\)\r?\n?$")
