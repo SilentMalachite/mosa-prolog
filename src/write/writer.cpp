@@ -95,19 +95,11 @@ bool is_small_name(std::string_view text) {
   return every_code(text.substr(decoded.bytes), continues_name) || text.size() == decoded.bytes;
 }
 
-bool is_variable_spelling(std::string_view text) {
-  const auto first = first_cp(text);
-  if (!first) return false;
-  const CharClass kind = classify(*first);
-  if (kind != CharClass::Capital && kind != CharClass::Underline) return false;
-  const Decoded decoded = decode_at(text, 0);
-  if (text.size() == decoded.bytes) return true;
-  return every_code(text.substr(decoded.bytes), continues_name);
-}
-
-bool is_solo(std::string_view text) {
-  const Decoded decoded = decode_at(text, 0);
-  return decoded.valid && decoded.bytes == text.size() && classify(decoded.code) == CharClass::Solo;
+// ! と ; 以外の単独文字は、引用しないと括弧や区切りとして読まれる。
+bool bare_atom(std::string_view name) {
+  if (name == "[]" || name == "{}") return true;
+  if (is_small_name(name) || is_graphic_token(name)) return true;
+  return name == "!" || name == ";";
 }
 
 std::uint32_t atom_of(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -175,6 +167,7 @@ class Printer {
   [[nodiscard]] std::string render_functor(Cell term, std::string_view name);
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
   [[nodiscard]] std::string spell(std::string_view name) const;
+  [[nodiscard]] std::string spell_operator(std::string_view name) const;
   [[nodiscard]] std::string spell_functor(std::string_view name) const;
   [[nodiscard]] const VarName* var_name(Cell term) const;
   [[nodiscard]] std::string var_text(Cell term);
@@ -249,11 +242,14 @@ bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
 }
 
 std::string Printer::spell(std::string_view name) const {
-  if (!options_.quoted) return std::string{name};
-  if (name.empty() || is_variable_spelling(name)) return quote_atom(name);
-  if (name == "[]" || name == "{}") return std::string{name};
-  if (is_small_name(name) || is_graphic_token(name) || is_solo(name)) return std::string{name};
+  if (!options_.quoted || bare_atom(name)) return std::string{name};
   return quote_atom(name);
+}
+
+std::string Printer::spell_operator(std::string_view name) const {
+  // アトムの ',' と '|' は引用する。演算子まで引用すると a, b の字面が変わる。
+  if (name == "," || name == "|") return std::string{name};
+  return spell(name);
 }
 
 std::string Printer::spell_functor(std::string_view name) const {
@@ -280,7 +276,7 @@ std::optional<OpDef> Printer::as_operator(Cell term) const {
 }
 
 std::string Printer::render_op(const OpDef& op, Cell term) {
-  const std::string name = spell(op.name);
+  const std::string name = spell_operator(op.name);
   if (is_prefix(op.specifier) || is_postfix(op.specifier)) {
     const bool allow = op.specifier == Specifier::Fy || op.specifier == Specifier::Yf;
     const std::string arg = render(heap_.arg(term, 0), op.priority, allow);

@@ -339,6 +339,28 @@ void check_arg(const std::filesystem::path& root) {
   mosa_test::check(failed.find("lgt_arg_3_20") == std::string::npos, "arg keeps curly term");
 }
 
+// [] はアトム。文字リストは [ と ]。裸の [[, ]] は読み戻すと別の項になる。
+std::string atom_chars_text() {
+  return "test(iso_atom_chars_2_02, true(L == ['[',']'])) :-\n"
+         "    {atom_chars([], L)}.\n";
+}
+
+void check_atom_chars(const std::filesystem::path& root) {
+  const auto suite = root / "atom-chars";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "atom-chars-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_chars_2" / "tests.lgt", atom_chars_text()),
+                   "write atom chars");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_atom_chars_2_02") != std::string::npos) show("atom chars report", body);
+  mosa_test::check(code == 0, "atom chars exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "atom chars denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "atom chars passed");
+  mosa_test::check(failed.find("iso_atom_chars_2_02") == std::string::npos, "atom chars brackets round-trip");
+}
+
 void check_reopen(const std::filesystem::path& root) {
   const auto suite = root / "reopen";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -373,6 +395,7 @@ int main() {
     check_sign(root);
     check_abolish(root);
     check_arg(root);
+    check_atom_chars(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

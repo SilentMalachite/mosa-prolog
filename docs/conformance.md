@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1518
-合格率: 69.9
+合格数: 1523
+合格率: 70.1
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -62,7 +62,6 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
-predicates/atom_chars_2/tests.lgt iso_atom_chars_2_02 true(L==[[, ]]) fail
 predicates/atom_length_2/tests.lgt iso_atom_length_2_02 true(N==17) fail
 predicates/bagof_3/tests.lgt iso_bagof_3_01 true(S==[1, 2]) load
 predicates/bagof_3/tests.lgt iso_bagof_3_02 true(X==[1, 2]) load
@@ -182,7 +181,6 @@ predicates/nl_1/tests.lgt lgt_nl_1_05 error(existence_error(stream, Stream)) exi
 predicates/nl_1/tests.lgt lgt_nl_1_06 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(5))
 predicates/nl_1/tests.lgt lgt_nl_0_02 error(permission_error(output, binary_stream, Stream)) permission_error(output, binary_stream, '$stream'(8))
 predicates/number_chars_2/tests.lgt wg17_number_chars_2_40 true(X==32) syntax_error('0\' ')
-predicates/number_chars_2/tests.lgt lgt_number_chars_2_43 error(syntax_error(_)) fail
 predicates/number_codes_2/tests.lgt wg17_number_codes_2_43 true(X==32) syntax_error('0\' ')
 predicates/op_3/tests.lgt iso_op_3_20 true(Assertion) fail
 predicates/open_4/tests.lgt iso_open_4_01 true fail
@@ -376,7 +374,6 @@ predicates/write_term_3/tests.lgt sics_write_term_3_022 error(permission_error(o
 predicates/write_term_3/tests.lgt lgt_write_term_3_023 error(permission_error(output, stream, s)) permission_error(output, stream, s)
 predicates/write_term_3/tests.lgt lgt_write_term_3_024 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, s)
 predicates/write_term_3/tests.lgt lgt_write_term_3_028 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_029 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_033 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_040 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_041 true(Assertion) fail
@@ -387,8 +384,6 @@ predicates/write_term_3/tests.lgt lgt_write_term_3_045 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_046 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_047 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_048 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_053 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_054 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_055 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_', _|_], Chars) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_', _|_], Chars) text_output_contents/1
