@@ -128,7 +128,7 @@ void run_file(const Pending& item, int& passed, int& failed, std::vector<std::st
       ++failed;
       return;
     }
-    const LgtRun run = execute_lgt(lgt);
+    const LgtRun run = execute_lgt(lgt, item.file.string(), folder_of(item.relative));
     passed += run.passed;
     failed += run.failed;
     for (const std::string& line : run.failures) failures.push_back(item.relative + " " + line);

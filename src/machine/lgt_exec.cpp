@@ -3,6 +3,7 @@
 
 #include "lgt_priv.hpp"
 
+#include "lgt_io.hpp"
 #include "internal.hpp"
 
 #include "mosa/writer.hpp"
@@ -16,7 +17,7 @@
 namespace mosa {
 namespace {
 
-enum class NodeKind { Plain, Conj, Disj, Assert, Variant, Subsumes, Approx, Forall };
+enum class NodeKind { Plain, Conj, Disj, Assert, Variant, Subsumes, Approx, Forall, Super };
 
 struct Node {
   NodeKind kind = NodeKind::Plain;
@@ -38,6 +39,9 @@ struct Env {
   std::vector<Binding> bindings;
   std::string note;
   Stop stop;
+  const LgtIo* io = nullptr;
+  std::string minted_var;
+  std::string minted_term;
 };
 
 int add_node(Prog& prog, Node node) {
@@ -62,6 +66,13 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
       node.kind = NodeKind::Assert;
       if (arity == 2) node.note = write_term(heap, ops, heap.arg(cell, 0), {}, names);
       node.left = build_node(prog, heap, ops, heap.arg(cell, arity == 1 ? 0 : 1), names);
+      return add_node(prog, std::move(node));
+    }
+    if (name == "^^") {
+      Node node;
+      node.kind = NodeKind::Super;
+      if (arity == 1) node.text = write_term(heap, ops, heap.arg(cell, 0), {}, names);
+      else node.note = "^^/" + std::to_string(arity);
       return add_node(prog, std::move(node));
     }
     if (arity == 2 && (name == "variant" || name == "subsumes" || name == "subsumes_term" || name == "=~=")) {
@@ -208,6 +219,39 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
   }
 }
 
+void remember_super(Machine& machine, const LgtSuper& ran, Env& env) {
+  if (ran.binding_name.empty()) return;
+  // 次の query がヒープを捨てても、表明の項を文字列で残す。
+  env.minted_var = ran.binding_name;
+  env.minted_term = write_term(machine.heap(), machine.operators(), ran.binding, {}, {});
+  for (Binding& binding : env.bindings) {
+    if (binding.name != ran.binding_name) continue;
+    binding.variable = ran.binding;
+    return;
+  }
+  env.bindings.push_back(Binding{ran.binding_name, ran.binding});
+}
+
+void exec_super(Machine& machine, const Node& node, Env& env) {
+  if (!node.note.empty() || env.io == nullptr) {
+    env.note = node.note.empty() ? "^^/1" : node.note;
+    env.tri = Tri::Abort;
+    return;
+  }
+  const LgtSuper ran = lgt_run_super(machine, *env.io, node.text);
+  if (ran.kind == LgtSuperKind::Unknown) {
+    env.note = ran.note.empty() ? "^^/1" : ran.note;
+    env.tri = Tri::Abort;
+    return;
+  }
+  if (ran.kind != LgtSuperKind::Ok) {
+    env.tri = Tri::No;
+    return;
+  }
+  remember_super(machine, ran, env);
+  env.tri = Tri::Ok;
+}
+
 void exec_at(Machine& machine, const Prog& prog, int index, Env& env) {
   if (index < 0 || static_cast<std::size_t>(index) >= prog.nodes.size()) {
     env.tri = Tri::No;
@@ -220,6 +264,7 @@ void exec_at(Machine& machine, const Prog& prog, int index, Env& env) {
     case NodeKind::Disj: exec_disj(machine, prog, index, env); return;
     case NodeKind::Assert: exec_assert(machine, prog, index, env); return;
     case NodeKind::Forall: exec_forall(machine, prog, index, env); return;
+    case NodeKind::Super: exec_super(machine, prog.nodes[static_cast<std::size_t>(index)], env); return;
     case NodeKind::Variant:
     case NodeKind::Subsumes:
     case NodeKind::Approx: exec_check(machine, prog.nodes[static_cast<std::size_t>(index)], env); return;
@@ -386,7 +431,19 @@ bool condition_ops(OperatorTable& ops) {
   return ops.define(600, Specifier::Xfy, "::") == OpResult::Ok;
 }
 
-LgtEnd from_env(Machine& machine, const LgtWant& want, const Env& env) {
+void remint(Machine& machine, Env& env) {
+  if (env.minted_var.empty() || env.minted_term.empty()) return;
+  const LgtParsed parsed = lgt_parse_term(machine, env.minted_term);
+  if (!parsed.ok) return;
+  for (Binding& binding : env.bindings) {
+    if (binding.name != env.minted_var) continue;
+    binding.variable = parsed.term;
+    return;
+  }
+  env.bindings.push_back(Binding{env.minted_var, parsed.term});
+}
+
+LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
   LgtEnd end;
   if (env.tri == Tri::Dead) return lgt_aborted();
   if (env.tri == Tri::Abort) {
@@ -405,6 +462,7 @@ LgtEnd from_env(Machine& machine, const LgtWant& want, const Env& env) {
     else end.actual = "fail";
     return end;
   }
+  remint(machine, env);
   if (want.kind == LgtKind::True) {
     end.pass = true;
     return end;
@@ -435,7 +493,7 @@ LgtCond lgt_condition(Machine& machine, std::string_view goal) {
   }
 }
 
-LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& want) {
+LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& want, const LgtIo* io) {
   const LgtParsed parsed = lgt_parse_term(machine, body);
   if (!parsed.ok) {
     LgtEnd end;
@@ -445,6 +503,7 @@ LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& w
   Prog prog;
   const int root = build_node(prog, machine.heap(), machine.operators(), parsed.term, parsed.names);
   Env env;
+  env.io = io;
   exec_at(machine, prog, root, env);
   return from_env(machine, want, env);
 }

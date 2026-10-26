@@ -246,10 +246,12 @@ struct LgtRun {
   std::vector<std::string> outside;
 };
 
+struct LgtIo;
+
 [[nodiscard]] LgtFile read_lgt_file(std::string_view source);
-[[nodiscard]] LgtRun execute_lgt(const LgtFile& file);
+[[nodiscard]] LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir);
 [[nodiscard]] LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome);
-[[nodiscard]] LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want);
+[[nodiscard]] LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want, const LgtIo* io);
 // 呼び出しの関数子だけを見る。引数の中の (= ~=)/2 という指示子は呼び出しではない。
 [[nodiscard]] bool lgt_text_has_special(Machine& machine, std::string_view text);
 // 包摂は同じ変数セルを同じ項にする。same_term は名前の無い変数を別物にしてしまう。

@@ -3,6 +3,7 @@
 
 #include "lgt_suite.hpp"
 
+#include "lgt_io.hpp"
 #include "internal.hpp"
 
 #include "mosa/machine.hpp"
@@ -484,7 +485,7 @@ bool call_hook(Machine& machine, bool enabled, std::string_view goal) {
   return !run_goal(machine, goal).dead;
 }
 
-CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup) {
+CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup, const LgtIo* io) {
   CaseEnd end;
   try {
     if (!call_hook(machine, setup, "setup.")) {
@@ -499,7 +500,7 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup)
       return end;
     }
     if (routes_to_judge(machine, item.body, want)) {
-      const LgtEnd judged = judge_lgt_case(machine, item.body, want);
+      const LgtEnd judged = judge_lgt_case(machine, item.body, want, io);
       end.pass = judged.pass;
       end.dead = judged.dead;
       end.actual = judged.actual;
@@ -559,6 +560,11 @@ LgtFile read_lgt_file(std::string_view source) {
     }
     // os::目標は図形 :: なので、読みの表だけに足す。実行する機械の表には足さない。
     if (operators.define(600, Specifier::Xfy, "::") != OpResult::Ok) {
+      file.error = "演算子を足せません";
+      return file;
+    }
+    // ^^ を実行する機械の表に足すと current_op が変わる。読みのときだけ前置にする。
+    if (operators.define(600, Specifier::Fy, "^^") != OpResult::Ok) {
       file.error = "演算子を足せません";
       return file;
     }
@@ -655,7 +661,7 @@ void apply_condition(Machine& machine, const LgtCase& item, bool& dead, bool& sk
 }
 
 void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& chosen, bool setup, bool cleanup,
-               LgtRun& run) {
+               const LgtIo* io, LgtRun& run) {
   bool dead = false;
   for (const LgtCase& item : file.cases) {
     if (!guard_holds(item.guard, chosen) || item.outside) {
@@ -669,7 +675,7 @@ void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& ch
     bool skip = false;
     apply_condition(machine, item, dead, skip, run);
     if (skip) continue;
-    const CaseEnd end = run_one(machine, item, setup, cleanup);
+    const CaseEnd end = run_one(machine, item, setup, cleanup, io);
     if (end.pass) ++run.passed;
     else note_failure(run, item, end.actual);
     dead = end.dead;
@@ -678,7 +684,11 @@ void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& ch
 
 }  // namespace
 
-LgtRun execute_lgt(const LgtFile& file) {
+LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir) {
+  struct Clean {
+    LgtIo io;
+    ~Clean() { lgt_io_cleanup(io); }
+  } clean{lgt_io_context(tests_path, relative_dir)};
   LgtRun run;
   auto machine = Machine::create();
   std::vector<int> chosen;
@@ -692,10 +702,12 @@ LgtRun execute_lgt(const LgtFile& file) {
   }
   // =~= はこのファイルの機械だけ。読み込みの節には入れない。
   install_lgt_ops(*machine, file.operators);
+  // テストより先に隣の Prolog を載せる。tester.lgt 自体は実行しない。
+  lgt_load_tester(*machine, clean.io);
   // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
   const bool setup = defined_here(*machine, "setup");
   const bool cleanup = defined_here(*machine, "cleanup");
-  run_cases(*machine, file, chosen, setup, cleanup, run);
+  run_cases(*machine, file, chosen, setup, cleanup, &clean.io, run);
   return run;
 }
 

@@ -34,6 +34,8 @@ struct LgtStep {
 [[nodiscard]] LgtEnd lgt_aborted();
 [[nodiscard]] LgtEnd lgt_failed_step(const Machine& machine, const LgtStep& step);
 [[nodiscard]] LgtEnd lgt_finish(Machine& machine, const LgtWant& want, const Stop& stop);
-[[nodiscard]] LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& want);
+struct LgtIo;
+
+[[nodiscard]] LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& want, const LgtIo* io);
 
 }  // namespace mosa

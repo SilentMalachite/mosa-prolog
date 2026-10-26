@@ -49,6 +49,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_file.cpp
   src/machine/lgt_judge.cpp
   src/machine/lgt_exec.cpp
+  src/machine/lgt_io.cpp
   src/platform/terminal.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
@@ -158,6 +159,12 @@ target_include_directories(conformance_report_test PRIVATE tests/cpp src/machine
 target_compile_definitions(conformance_report_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(conformance_report_test PRIVATE mosa_lib)
 add_test(NAME conformance_report_test COMMAND $<TARGET_FILE:conformance_report_test>)
+
+add_executable(conformance_io_test tests/cpp/conformance_io_test.cpp)
+target_include_directories(conformance_io_test PRIVATE tests/cpp)
+target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(conformance_io_test PRIVATE mosa_lib)
+add_test(NAME conformance_io_test COMMAND $<TARGET_FILE:conformance_io_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 2\\)\r?\n?$")

@@ -50,10 +50,29 @@ struct Parsed {
   std::vector<VarName> names;
 };
 
+// 本体の ^^ は利用者の演算子ではない。読むあいだだけ足して、クエリの前に外す。
+struct SuperOp {
+  OperatorTable& ops;
+  bool added = false;
+  explicit SuperOp(OperatorTable& table) : ops(table) {
+    for (const OpDef& op : ops.lookup("^^")) {
+      if (op.specifier == Specifier::Fx || op.specifier == Specifier::Fy) return;
+    }
+    added = ops.define(600, Specifier::Fy, "^^") == OpResult::Ok;
+  }
+  ~SuperOp() {
+    if (!added) return;
+    // 優先度 0 はその演算子だけを消す。拒否は表を変えない。
+    const OpResult dropped = ops.define(0, Specifier::Fy, "^^");
+    if (dropped != OpResult::Ok) return;
+  }
+};
+
 Parsed parse_term(Machine& machine, std::string_view text) {
   Parsed parsed;
   std::string source{text};
   if (source.empty() || source.back() != '.') source.push_back('.');
+  const SuperOp super_op(machine.operators());
   Reader reader(source, machine.heap(), machine.operators());
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return parsed;
@@ -341,6 +360,7 @@ bool special_call(const Heap& heap, Cell cell) {
   const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
   if (name == "assertion" && (arity == 1 || arity == 2)) return true;
+  if (name == "^^") return true;
   if (name == "variant" && arity == 2) return true;
   if ((name == "subsumes" || name == "subsumes_term") && arity == 2) return true;
   return name == "=~=" && arity == 2;
@@ -623,8 +643,8 @@ LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome) {
   return want;
 }
 
-LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want) {
-  if (lgt_text_has_special(machine, body)) return lgt_judge_mixed(machine, body, want);
+LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want, const LgtIo* io) {
+  if (lgt_text_has_special(machine, body)) return lgt_judge_mixed(machine, body, want, io);
   return judge_query(machine, body, want);
 }
 
