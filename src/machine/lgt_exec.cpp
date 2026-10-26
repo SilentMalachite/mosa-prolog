@@ -120,13 +120,35 @@ Cell swap_list(Machine& machine, Cell cell, const std::vector<VarName>& names, c
   return heap.list(head, tail);
 }
 
+struct SavedText {
+  Machine* machine = nullptr;
+  const std::vector<VarName>* names = nullptr;
+  const std::vector<Saved>* saved = nullptr;
+};
+
+// 読み直すと _GN が分かれる。今の演算子で読めない字面は、変数のまま残す。
+WriteCut paste_saved(void* context, Cell term, std::string& out) {
+  const auto* text = static_cast<const SavedText*>(context);
+  if (text == nullptr || text->machine == nullptr || term.tag() != Tag::Ref) return WriteCut::Keep;
+  for (const VarName& var : *text->names) {
+    if (var.cell.raw() != term.raw()) continue;
+    const Saved* slot = find_saved(*text->saved, var.name);
+    if (slot == nullptr) return WriteCut::Keep;
+    bool ok = false;
+    parse_saved(*text->machine, slot->term, ok);
+    if (!ok) return WriteCut::Keep;
+    out = "(" + slot->term + ")";
+    return WriteCut::Swap;
+  }
+  return WriteCut::Keep;
+}
+
 std::string goal_with_saved(Machine& machine, std::string_view goal, const std::vector<Saved>& saved) {
   if (saved.empty()) return std::string{goal};
   const LgtParsed parsed = lgt_parse_term(machine, goal);
   if (!parsed.ok) return std::string{goal};
-  std::vector<std::uint64_t> stack;
-  const Cell term = swap_saved(machine, parsed.term, parsed.names, saved, stack);
-  return write_term(machine.heap(), machine.operators(), term, {}, parsed.names);
+  SavedText text{&machine, &parsed.names, &saved};
+  return write_term(machine.heap(), machine.operators(), parsed.term, {}, parsed.names, paste_saved, &text);
 }
 
 void restore_saved(Machine& machine, Env& env) {
@@ -145,10 +167,24 @@ void restore_saved(Machine& machine, Env& env) {
   }
 }
 
+void snapshot_bundle(Machine& machine, Env& env);
+bool proper_list(const Heap& heap, Cell cell, std::vector<Cell>& args);
+
 void remember_stop(Machine& machine, const Stop& stop, Env& env) {
   env.bindings = stop.bindings;
   // 決定的な成功の次も、同じ機械で入出力を続ける。選択点が残るときだけ別機械で見る。
   env.live = stop.more;
+  // 束縛ごとに書くと、一度しか出ない変数が _ になり、次の == が共有を見ない。
+  snapshot_bundle(machine, env);
+  const LgtParsed parsed = lgt_parse_term(machine, env.bundle);
+  std::vector<Cell> args;
+  if (parsed.ok && proper_list(machine.heap(), parsed.term, args) && args.size() == env.bundle_names.size()) {
+    for (std::size_t index = 0; index < args.size(); ++index) {
+      remember_saved(env.saved, env.bundle_names[index],
+                     write_term(machine.heap(), machine.operators(), args[index], {}, parsed.names));
+    }
+    return;
+  }
   for (const Binding& binding : stop.bindings) {
     remember_saved(env.saved, binding.name, write_term(machine.heap(), machine.operators(), binding.variable, {}, {}));
   }

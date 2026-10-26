@@ -562,6 +562,36 @@ void check_open_empty(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_open_4_01") == std::string::npos, "empty binary is at end");
 }
 
+// 8.14.1.4。束縛をまたぐ変数は、次の == でも同じセルである。
+std::string read_vars_text() {
+  return "test(iso_read_term_3_03, true) :-\n"
+         "    ^^set_text_input(in, ['foo(A+Roger,A+_). ','term2. ...']),\n"
+         "    {read_term(in, T, [variables(VL),variable_names(VN),singletons(VS)])},\n"
+         "    ^^text_input_assertion(in, ' term2. ...', Assertion),\n"
+         "    assertion(variant(T, foo(X1+X2,X1+X3))),\n"
+         "    T = foo(X1+X2,X1+X3),\n"
+         "    assertion(VL == [X1,X2,X3]),\n"
+         "    assertion(VN == ['A'=X1,'Roger'=X2]),\n"
+         "    assertion(VS == ['Roger'=X2]),\n"
+         "    assertion(Assertion).\n";
+}
+
+void check_read_vars(const std::filesystem::path& root) {
+  const auto suite = root / "read-vars";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "read-vars-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "read_term_3" / "tests.lgt", read_vars_text()),
+                   "write read vars");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_read_term_3_03") != std::string::npos) show("read vars report", body);
+  mosa_test::check(code == 0, "read vars exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "read vars denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "read vars passed");
+  mosa_test::check(failed.find("iso_read_term_3_03") == std::string::npos, "read term keeps variable names");
+}
+
 // 8.14.1.4 は term1 のあと、空白から term2 を残す。
 std::string read_rest_text() {
   return "test(iso_read_term_3_01, true(Assertion)) :-\n"
@@ -632,6 +662,7 @@ int main() {
     check_nl_error(root);
     check_open_empty(root);
     check_read_rest(root);
+    check_read_vars(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");
