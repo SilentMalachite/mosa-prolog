@@ -617,6 +617,30 @@ void check_read_rest(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_read_term_3_01") == std::string::npos, "read leaves the space");
 }
 
+// 8.14.1.4。構文エラーの項は終止符まで進み、確認の空白は次の項に残す。
+std::string read_syntax_text() {
+  return "test(iso_read_term_3_05, true(Assertion)) :-\n"
+         "    ^^set_text_input('foo 123. term2. ...'),\n"
+         "    catch({read(_T)}, error(syntax_error(_), _), true),\n"
+         "    ^^text_input_assertion(' term2. ...', Assertion).\n";
+}
+
+void check_read_syntax(const std::filesystem::path& root) {
+  const auto suite = root / "read-syntax";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "read-syntax-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "read_term_3" / "tests.lgt", read_syntax_text()),
+                   "write read syntax");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_read_term_3_05") != std::string::npos) show("read syntax report", body);
+  mosa_test::check(code == 0, "read syntax exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "read syntax denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "read syntax passed");
+  mosa_test::check(failed.find("iso_read_term_3_05") == std::string::npos, "read syntax leaves the space");
+}
+
 void check_caret_curly(const std::filesystem::path& root) {
   const auto suite = root / "caret-curly";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -663,6 +687,7 @@ int main() {
     check_open_empty(root);
     check_read_rest(root);
     check_read_vars(root);
+    check_read_syntax(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

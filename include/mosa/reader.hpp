@@ -76,6 +76,8 @@ class Reader {
   [[nodiscard]] std::optional<OpDef> find_prefix(std::string_view name, int max_priority) const;
   [[nodiscard]] std::optional<OpDef> find_follower(std::string_view name, int left_priority,
                                                    int max_priority) const;
+  // 不正な項の終止符まで進める。確認の空白はトークンに含めない。
+  void absorb_full_stop(const Scan& offending);
   [[nodiscard]] Parsed failure_of(const Scan& scan) const;
   [[nodiscard]] Parsed bad_token(const Token& token) const;
   [[nodiscard]] Parsed max_arity(const Token& token) const;

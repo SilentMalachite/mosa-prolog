@@ -3,6 +3,7 @@
 // read_term(?term, +read_options_list) は現在の入力。
 // read/2, read/1 はオプションが空の read_term。
 //   終端の印は end_of_file。終止符の直後の空白は流れに残す。
+//   構文エラーもその項の終止符まで進める。確認の空白は次の項に残す。
 //   オプションは variables, variable_names, singletons と、仕様の quoted。
 //   quoted(true) も quoted(false) も項は変えない。引用は字句の一部だから。
 //   エラー順は、流れの変数、選択肢の具体化、流れのドメイン、リスト型、
