@@ -53,6 +53,8 @@ bool goal_argument(std::string_view name, std::uint16_t arity, std::uint16_t ind
   // 第1引数は説明。第2引数が、ランナーが実行するゴール。
   if (name == "assertion" && arity == 2) return index == 1;
   if (index != 1) return false;
+  // ^ の左は存在量化した変数。右だけがゴールで、ここに {} を残すと {}/1 になる。
+  if (name == "^" && arity == 2) return true;
   if (name == "findall" && (arity == 3 || arity == 4)) return true;
   return arity == 3 && (name == "bagof" || name == "setof");
 }

@@ -471,6 +471,29 @@ void check_reopen(const std::filesystem::path& root) {
   mosa_test::check(failed.find("existence_error") == std::string::npos, "reopen is not a closed alias");
 }
 
+// ^ の右の {} はゴール。残すと bagof が {}/1 を呼ぶ。左は存在量化した変数なので辿らない。
+std::string caret_curly_text() {
+  return "test(caret_curly, true(L == [t])) :-\n"
+         "    bagof(t, A^B^C^{true}, L).\n";
+}
+
+void check_caret_curly(const std::filesystem::path& root) {
+  const auto suite = root / "caret-curly";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "caret-curly-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "bagof_3" / "tests.lgt", caret_curly_text()),
+                   "write caret curly");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("caret_curly") != std::string::npos) show("caret curly report", body);
+  mosa_test::check(code == 0, "caret curly exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "caret curly denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "caret curly passed");
+  mosa_test::check(failed.find("{}/1") == std::string::npos, "caret curly is not curly one");
+  mosa_test::check(failed.find("caret_curly") == std::string::npos, "caret curly unwraps the right");
+}
+
 }  // namespace
 
 int main() {
@@ -492,6 +515,7 @@ int main() {
     check_atom_chars(root);
     check_list_uses(root);
     check_bagof_free(root);
+    check_caret_curly(root);
     check_share(root);
     check_colon_user(root);
   }
