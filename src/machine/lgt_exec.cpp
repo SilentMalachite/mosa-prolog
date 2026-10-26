@@ -462,7 +462,9 @@ void exec_super(Machine& machine, const Node& node, Env& env) {
     env.tri = Tri::Abort;
     return;
   }
-  const LgtSuper ran = lgt_run_super(machine, *env.io, node.text);
+  // 前のゴールが束縛した変数を渡す。字面の Path のままだと create が失敗する。
+  const std::string text = goal_with_saved(machine, node.text, env.saved);
+  const LgtSuper ran = lgt_run_super(machine, *env.io, text);
   if (ran.kind == LgtSuperKind::Unknown) {
     env.note = ran.note.empty() ? "^^/1" : ran.note;
     env.tri = Tri::Abort;

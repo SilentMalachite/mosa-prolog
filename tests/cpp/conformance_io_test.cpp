@@ -537,6 +537,31 @@ void check_nl_error(const std::filesystem::path& root) {
   mosa_test::check(failed.find("lgt_nl_0_02") == std::string::npos, "nl current output uses Stream");
 }
 
+// 空のバイナリを読みで開くと、まだ読んでいなくても終端。
+std::string open_empty_text() {
+  return "test(iso_open_4_01, true) :-\n"
+         "    ^^file_path('roger_data', Path),\n"
+         "    ^^create_binary_file(Path, []),\n"
+         "    {open(Path, read, D, [type(binary)]),\n"
+         "     at_end_of_stream(D)}.\n";
+}
+
+void check_open_empty(const std::filesystem::path& root) {
+  const auto suite = root / "open-empty";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "open-empty-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "open_4" / "tests.lgt", open_empty_text()),
+                   "write open empty");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_open_4_01") != std::string::npos) show("open empty report", body);
+  mosa_test::check(code == 0, "open empty exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "open empty denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "open empty passed");
+  mosa_test::check(failed.find("iso_open_4_01") == std::string::npos, "empty binary is at end");
+}
+
 void check_caret_curly(const std::filesystem::path& root) {
   const auto suite = root / "caret-curly";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -580,6 +605,7 @@ int main() {
     check_colon_user(root);
     check_flag_value(root);
     check_nl_error(root);
+    check_open_empty(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

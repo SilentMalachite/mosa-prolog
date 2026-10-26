@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1759
-合格率: 81.0
+合格数: 1784
+合格率: 82.1
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -75,8 +75,6 @@ predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 fals
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag, dialect)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major), integer(Minor), integer(Patch))) domain_error(prolog_flag, version_data)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData, Dialect, _)) domain_error(prolog_flag, dialect)
-predicates/open_4/tests.lgt iso_open_4_01 true fail
-predicates/open_4/tests.lgt iso_open_4_03 true fail
 predicates/open_4/tests.lgt lgt_open_4_20 error(domain_error(stream_option, alias(1))) type_error(atom, 1)
 predicates/open_4/tests.lgt lgt_open_4_22 error(domain_error(stream_option, eof_action(1))) type_error(atom, 1)
 predicates/open_4/tests.lgt lgt_open_4_24 error(domain_error(stream_option, reposition(1))) type_error(atom, 1)
@@ -99,8 +97,7 @@ predicates/read_term_3/tests.lgt iso_read_term_3_02 true(Assertion) fail
 predicates/read_term_3/tests.lgt iso_read_term_3_03 true assertion
 predicates/read_term_3/tests.lgt iso_read_term_3_04 true(Assertion) fail
 predicates/read_term_3/tests.lgt iso_read_term_3_05 true(Assertion) fail
-predicates/read_term_3/tests.lgt sics_read_term_3_23 true(X==Integer) fail
-predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) fail
+predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
 predicates/read_term_3/tests.lgt lgt_read_term_3_28 true assertion
 predicates/read_term_3/tests.lgt lgt_read_term_3_30 true assertion
 predicates/read_term_3/tests.lgt lgt_read_term_3_31 true assertion
@@ -133,31 +130,15 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_09a true fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_09c true(Mode==append) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_10a true fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_10c true(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_16 true(File==Path) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_19 true(Mode==read) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_20 false domain_error(stream_property, input)
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_21 false permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_22 true fail
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_22 true domain_error(stream_property, input)
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_23 true permission_error(open, source_sink, alias(out))
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_24 true permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_28 true(Alias==r) fail
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_25 false permission_error(open, source_sink, alias(in))
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_29 true(ground(Position)) permission_error(open, source_sink, alias(out))
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Position)) permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_32 true((EndOfStream==not;EndOfStream==at)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_33 true((EndOfStream==not;EndOfStream==at)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_34 true(EOFAction==error) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_35 true(EOFAction==eof_code) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_36 true(EOFAction==reset) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_37 true((EOFAction==error;EOFAction==eof_code;EOFAction==reset)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_38 true(EOFAction==error) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_39 true(EOFAction==eof_code) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_40 true(EOFAction==reset) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_41 true((EOFAction==error;EOFAction==eof_code;EOFAction==reset)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_46 true(Reposition==true) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_47 true((Reposition==false;Reposition==true)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_52 true(Type==text) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_53 true(Type==binary) fail
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) permission_error(open, source_sink, alias(in))
 predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_08 true assertion
@@ -237,12 +218,6 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1, 2]) l
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2, 3-4]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3, 4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4, 5-6-7-8]) load
-syntax/double_quoted_terms/tests.lgt iso_double_quoted_term_01 true fail
-syntax/double_quoted_terms/tests.lgt iso_double_quoted_term_02 true fail
-syntax/double_quoted_terms/tests.lgt iso_double_quoted_term_03 true fail
-syntax/double_quoted_terms/tests.lgt iso_double_quoted_term_04 true fail
-syntax/double_quoted_terms/tests.lgt iso_double_quoted_term_05 true fail
-syntax/double_quoted_terms/tests.lgt iso_double_quoted_term_06 true fail
 syntax/double_quoted_terms/tests.lgt lgt_double_quoted_term_13 error(syntax_error(_)) fail
 syntax/double_quoted_terms/tests.lgt lgt_double_quoted_term_14 error(syntax_error(_)) fail
 syntax/lists/tests.lgt lgt_list_06 error(syntax_error(_)) fail
