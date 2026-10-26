@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1513
+合格数: 1514
 合格率: 69.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -62,7 +62,6 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
-predicates/arg_3/tests.lgt lgt_arg_3_20 true(Arg==(1, 2, 3)) fail
 predicates/asserta_1/tests.lgt wg17_asserta_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) true
 predicates/asserta_1/tests.lgt wg17_asserta_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) true
 predicates/assertz_1/tests.lgt wg17_assertz_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) true

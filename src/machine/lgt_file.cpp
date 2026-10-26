@@ -46,20 +46,37 @@ bool dropped_directive(const Heap& heap, Cell term) {
   return name == "object" || name == "end_object" || name == "info" || name == "set_logtalk_flag";
 }
 
-// `{ゴール}` は Logtalk の呼び出しなので、クエリする前に中のゴールへ戻す。
+// 連言とメタ呼び出しのゴール引数だけが呼び出し位置。それ以外はデータなので {} を残す。
+bool goal_argument(std::string_view name, std::uint16_t arity, std::uint16_t index) {
+  if (arity == 2 && (name == "," || name == ";" || name == "->" || name == "*->" || name == "forall")) return true;
+  if (arity == 1 && (name == "\\+" || name == "once" || name == "assertion")) return true;
+  if (name == "call" && arity >= 1) return index == 0;
+  if (name == "catch" && arity == 3) return index == 0 || index == 2;
+  // 第1引数は説明。第2引数が、ランナーが実行するゴール。
+  if (name == "assertion" && arity == 2) return index == 1;
+  if (index != 1) return false;
+  if (name == "findall" && (arity == 3 || arity == 4)) return true;
+  return arity == 3 && (name == "bagof" || name == "setof");
+}
+
+// 呼び出し位置の {} だけを外す。arg/3 の {1,2,3} まで外すと項が (1,2,3) になる。
 Cell unwrap_curlies(Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  if (cell.tag() == Tag::Lis) {
-    return heap.list(unwrap_curlies(heap, heap.list_head(cell)), unwrap_curlies(heap, heap.list_tail(cell)));
-  }
+  if (functor_is(heap, cell, "{}", 1)) return unwrap_curlies(heap, heap.arg(cell, 0));
   if (cell.tag() != Tag::Str) return cell;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
+  bool any = false;
+  for (std::uint16_t index = 0; index < arity; ++index) {
+    if (goal_argument(name, arity, index)) any = true;
+  }
+  if (!any) return cell;
   std::vector<Cell> args;
   args.reserve(arity);
   for (std::uint16_t index = 0; index < arity; ++index) {
-    args.push_back(unwrap_curlies(heap, heap.arg(cell, index)));
+    const Cell arg = heap.arg(cell, index);
+    args.push_back(goal_argument(name, arity, index) ? unwrap_curlies(heap, arg) : arg);
   }
-  if (arity == 1 && heap.atoms().name(heap.functor_atom(cell)) == "{}") return args[0];
   return heap.structure(heap.functor_atom(cell), args);
 }
 

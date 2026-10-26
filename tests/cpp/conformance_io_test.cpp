@@ -318,6 +318,27 @@ void check_abolish(const std::filesystem::path& root) {
   mosa_test::check(failed.find("eddbali_abolish_1_10") == std::string::npos, "abolish negative arity");
 }
 
+// {1,2,3} は引数の ISO 項。呼び出しの {} まで外すと Arg は 1 になり、この 1 件は不合格。
+std::string arg_text() {
+  return "test(lgt_arg_3_20, true(Arg == (1,2,3))) :-\n"
+         "    {arg(1, {1,2,3}, Arg)}.\n";
+}
+
+void check_arg(const std::filesystem::path& root) {
+  const auto suite = root / "arg";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "arg-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "arg_3" / "tests.lgt", arg_text()), "write arg");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("lgt_arg_3_20") != std::string::npos) show("arg report", body);
+  mosa_test::check(code == 0, "arg exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "arg denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "arg passed");
+  mosa_test::check(failed.find("lgt_arg_3_20") == std::string::npos, "arg keeps curly term");
+}
+
 void check_reopen(const std::filesystem::path& root) {
   const auto suite = root / "reopen";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -351,6 +372,7 @@ int main() {
     check_power(root);
     check_sign(root);
     check_abolish(root);
+    check_arg(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");
