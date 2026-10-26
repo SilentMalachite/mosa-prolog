@@ -41,3 +41,5 @@ test(mf_ha, (findall(X, 複(X), L), L == [1, 2]), true).
 test(init_ha, 初, true).
 
 test(include_ha, include(含む), error(existence_error(procedure, include/1))).
+
+test(ensure_ha, ensure_loaded(含む), error(existence_error(procedure, ensure_loaded/1))).

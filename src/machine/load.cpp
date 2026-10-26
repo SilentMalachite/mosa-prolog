@@ -277,10 +277,12 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
                        const std::vector<Snapshot>& snapshots, std::size_t previous_size,
-                       std::size_t heap_base, const std::vector<SharedPred>& saved_multi) {
+                       std::size_t heap_base, const std::vector<SharedPred>& saved_multi,
+                       const std::vector<std::string>& saved_prepared) {
   machine.operators = saved_ops;
   restore_flags(machine, saved_flags);
   machine.multifile = saved_multi;
+  machine.prepared = saved_prepared;
   rollback(machine, snapshots, previous_size);
   machine.heap.truncate(heap_base);
   return LoadStatus{false, machine.diagnostic};
@@ -616,14 +618,20 @@ std::filesystem::path canonical_key(const std::filesystem::path& file) {
   return file.lexically_normal();
 }
 
-bool include_argument(Impl& machine, Cell directive, Cell& arg) {
+bool file_argument(Impl& machine, Cell directive, std::string_view functor, Cell& arg) {
   directive = machine.heap.deref(directive);
   if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
   const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
   if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 1) return false;
-  if (machine.atoms.name(machine.heap.functor_atom(body)) != "include") return false;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != functor) return false;
   arg = machine.heap.arg(body, 0);
   return true;
+}
+
+bool file_ready(const Impl& machine, const LoadScan& scan, const std::filesystem::path& file) {
+  const auto key = canonical_key(file).generic_string();
+  if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) return true;
+  return std::find(machine.prepared.begin(), machine.prepared.end(), key) != machine.prepared.end();
 }
 
 bool note_syntax(Impl& machine, std::string_view origin, bool nested, const SyntaxFailure& failure) {
@@ -645,9 +653,23 @@ bool note_syntax(Impl& machine, std::string_view origin, bool nested, const Synt
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
                 bool nested, LoadScan& scan);
 
-int apply_include(Impl& machine, Cell term, std::string_view directory, LoadScan& scan) {
+int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan) {
+  std::ifstream input{file, std::ios::binary};
+  if (!input) {
+    fail_load(machine, file.string() + ": ファイルを開けません");
+    return -1;
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
+  if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan)) return -1;
+  return 1;
+}
+
+int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& scan, std::string_view functor,
+               bool once) {
   Cell arg;
-  if (!include_argument(machine, term, arg)) return 0;
+  if (!file_argument(machine, term, functor, arg)) return 0;
   arg = machine.heap.deref(arg);
   if (machine.heap.unbound(arg)) {
     fail_load(machine, write_term(machine.heap, machine.operators, formal_instantiation(machine), {}, {}));
@@ -660,16 +682,9 @@ int apply_include(Impl& machine, Cell term, std::string_view directory, LoadScan
   }
   const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
   const auto file = resolve_include(directory, name);
-  std::ifstream input{file, std::ios::binary};
-  if (!input) {
-    fail_load(machine, file.string() + ": ファイルを開けません");
-    return -1;
-  }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
-  if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan)) return -1;
-  return 1;
+  // include は毎回足す。ensure_loaded は、準備済みのパスを節も初期化も足さない。
+  if (once && file_ready(machine, scan, file)) return 1;
+  return open_prolog_file(machine, file, scan);
 }
 
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
@@ -684,6 +699,10 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     }
     scan.opening.push_back(key);
     guard.opening = &scan.opening;
+    // 開き始めたパスは準備済みにする。失敗した読み込みは reject_load が戻す。
+    if (std::find(machine.prepared.begin(), machine.prepared.end(), key) == machine.prepared.end()) {
+      machine.prepared.push_back(key);
+    }
   }
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
   while (true) {
@@ -696,9 +715,12 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
                              write_term(machine.heap, machine.operators, term, {}, {}));
       return false;
     }
-    const int included = apply_include(machine, term, directory, scan);
+    const int included = apply_file(machine, term, directory, scan, "include", false);
     if (included < 0) return false;
     if (included > 0) continue;
+    const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);
+    if (ensured < 0) return false;
+    if (ensured > 0) continue;
     const int directed = consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits);
     if (directed < 0) return false;
     if (directed > 0) continue;
@@ -728,6 +750,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   const auto saved_ops = machine.operators;
   const SavedFlags saved_flags = save_flags(machine);
   const auto saved_multi = machine.multifile;
+  const auto saved_prepared = machine.prepared;
   std::vector<Snapshot> snapshots;
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
   std::vector<Apart> apart;
@@ -738,7 +761,8 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   std::vector<std::string> opening;
   LoadScan scan{snapshots, apart, inits, last, opening};
   if (!read_terms(machine, source, directory, origin, false, scan)) {
-    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi);
+    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
+                       saved_prepared);
   }
   return finish_load(machine, heap_base, inits);
 }

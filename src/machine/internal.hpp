@@ -151,6 +151,9 @@ struct Machine::Impl {
   std::vector<Predicate> predicates;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
   std::vector<SharedPred> multifile;
+  // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
+  // include と consult は読み直す。節を戻す失敗では、この一覧も戻す。
+  std::vector<std::string> prepared;
   std::vector<Entry> stack;
   std::vector<Extra> extras;
   std::uint64_t ip = kNoFrame;

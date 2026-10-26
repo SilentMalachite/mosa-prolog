@@ -159,11 +159,6 @@ void check_include_args(const std::filesystem::path& dir) {
   const auto shown = std::filesystem::path{missing.generic_string()}.string();
   mosa_test::check(!status.ok && gone->diagnostic() == shown + ": ファイルを開けません", "missing phrase");
   mosa_test::check(gone->query("current_predicate(q/1).").kind == mosa::StopKind::Failure, "missing rolls back");
-
-  auto ensured = mosa::Machine::create();
-  const auto other = ensured->load_program(":- ensure_loaded(true).");
-  mosa_test::check(!other.ok && ensured->diagnostic().find("この指示はフェーズ2では使えない") != std::string_view::npos,
-                   "ensure_loaded still rejected");
 }
 
 void check_include_operator(const std::filesystem::path& dir) {

@@ -85,3 +85,8 @@ test(init_goal, initialization(true), error(existence_error(procedure, initializ
 % ファイルが要る確認は tests/cpp/include_test.cpp。ここはゴールではないことだけ。
 
 test(include_goal, include(missing), error(existence_error(procedure, include/1))).
+
+% 7.4.2 ensure_loaded/1。指示だけ。同じパスは一度だけ読む。
+% ファイルが要る確認は tests/cpp/ensure_test.cpp。ここはゴールではないことだけ。
+
+test(ensure_goal, ensure_loaded(missing), error(existence_error(procedure, ensure_loaded/1))).
