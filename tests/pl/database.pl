@@ -64,6 +64,15 @@ test(many_none, many(X), fail).
 test(retract_static, retract(frozen(1)), error(permission_error(modify, static_procedure, frozen/1))).
 test(retractall_ok, retractall(allgone(_)), true).
 test(allgone_none, allgone(X), fail).
+
+:- dynamic(wipe_aa/1).
+wipe_aa(1).
+wipe_aa(2).
+wipe_aa(3).
+wipe_aa_all :- retractall(wipe_aa(_)).
+
+test(retractall_in_clause, wipe_aa_all, true).
+test(retractall_in_clause_gone, wipe_aa(X), fail).
 test(retractall_static, retractall(frozen(_)), error(permission_error(modify, static_procedure, frozen/1))).
 test(abolish_ok, abolish(temp/1), true).
 test(temp_gone, temp(X), error(existence_error(procedure, temp/1))).
@@ -90,6 +99,13 @@ test(assertz_body_number, assertz((ok :- 1)), error(type_error(callable, 1))).
 later(1).
 later(2).
 later(3).
+
+:- dynamic(scan_aa/1).
+scan_aa(1).
+scan_aa(2).
+scan_aa(3).
+
+test(logical_update_asserta, (with_output_to(atom(A), ((scan_aa(X), write(X), asserta(scan_aa(4)), asserta(scan_aa(5)), fail) ; true)), A == '123'), true).
 
 test(retract_open_later, (later(X), (X = 1 -> retract(later(3)) ; true)), solutions([X = 1, X = 2])).
 test(later_left, later(X), solutions([X = 1, X = 2])).

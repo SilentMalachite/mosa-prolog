@@ -54,6 +54,15 @@ bool do_unify(Impl& machine, Cell left, Cell right) {
   return unify(machine.heap, machine.trail, machine.trail.slots.size(), machine.heap.size(), left, right);
 }
 
+bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right) {
+  const auto* saved = machine.trail.mark;
+  // 節の中の匿名は Cleanup より新しい。選択点の水位だと、最初の候補の束縛が残る。
+  machine.trail.mark = machine.heap.data() + floor;
+  const bool ok = unify(machine.heap, machine.trail, machine.trail.slots.size(), machine.heap.size(), left, right);
+  machine.trail.mark = saved;
+  return ok;
+}
+
 void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut) {
   std::vector<Cell> env;
   env.reserve(clause.vars);

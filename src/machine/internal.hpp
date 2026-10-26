@@ -226,6 +226,8 @@ void trim_stack(Impl& machine, std::size_t boundary);
                                    const std::vector<Cell>& env);
 [[nodiscard]] Goal read_goal(const Impl& machine, std::uint64_t at);
 [[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right);
+// floor より前の REF を候補ごとに戻す。節の匿名は外側の選択点より新しい。
+[[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
 void note_catches(const Impl& machine, Entry& entry);

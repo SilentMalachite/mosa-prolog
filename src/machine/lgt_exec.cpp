@@ -163,11 +163,68 @@ bool assertion_term(const Heap& heap, Cell cell) {
   return arity == 1 || arity == 2;
 }
 
+enum class GoalMix { Plain, Update, Runner };
+
+bool runner_functor(std::string_view name, std::uint16_t arity) {
+  if (name == "^^") return true;
+  if (name == "assertion" && (arity == 1 || arity == 2)) return true;
+  if (name == "forall" && arity == 2) return true;
+  if (arity != 2) return false;
+  return name == "variant" || name == "subsumes" || name == "subsumes_term" || name == "=~=";
+}
+
+bool update_functor(std::string_view name, std::uint16_t arity) {
+  if (arity != 1) return false;
+  return name == "asserta" || name == "assertz" || name == "retract" || name == "retractall" || name == "abolish";
+}
+
+bool control_goal(std::string_view name, std::uint16_t arity) {
+  if (arity == 2 && (name == "," || name == ";" || name == "->" || name == "*->")) return true;
+  return arity == 1 && (name == "\\+" || name == "once" || name == "call" || name == "{}");
+}
+
+GoalMix mix_of(const Heap& heap, Cell cell, std::vector<std::uint64_t>& seen) {
+  cell = heap.deref(cell);
+  if (cell.tag() != Tag::Str) return GoalMix::Plain;
+  for (const auto raw : seen) {
+    if (raw == cell.raw()) return GoalMix::Plain;
+  }
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  const auto arity = heap.functor_arity(cell);
+  if (runner_functor(name, arity)) return GoalMix::Runner;
+  if (update_functor(name, arity)) return GoalMix::Update;
+  if (!control_goal(name, arity)) return GoalMix::Plain;
+  seen.push_back(cell.raw());
+  GoalMix found = GoalMix::Plain;
+  for (std::uint16_t index = 0; index < arity; ++index) {
+    const GoalMix child = mix_of(heap, heap.arg(cell, index), seen);
+    if (child == GoalMix::Runner) {
+      found = GoalMix::Runner;
+      break;
+    }
+    if (child == GoalMix::Update) found = GoalMix::Update;
+  }
+  seen.pop_back();
+  return found;
+}
+
+// 7.5.4 は、その呼出しが始まったときの節列だけを候補にする。
+// 更新を別の機械へ分けると、開いている走査は追加も削除も見ない。
+bool one_activation(const Heap& heap, Cell cell) {
+  std::vector<std::uint64_t> seen;
+  return mix_of(heap, cell, seen) == GoalMix::Update;
+}
+
 int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
   cell = heap.deref(cell);
   if (cell.tag() == Tag::Str) {
     const auto name = heap.atoms().name(heap.functor_atom(cell));
     const auto arity = heap.functor_arity(cell);
+    if ((name == "," || name == ";") && arity == 2 && one_activation(heap, cell)) {
+      Node plain;
+      plain.text = write_term(heap, ops, cell, {}, names);
+      return add_node(prog, std::move(plain));
+    }
     if ((name == "," || name == ";" || name == "forall") && arity == 2) {
       Node node;
       node.kind = name == "," ? NodeKind::Conj : name == ";" ? NodeKind::Disj : NodeKind::Forall;

@@ -231,17 +231,19 @@ void erase_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
 }
 
 bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
+  // 呼び出し側の変数は、この関数が足す項より前にある。候補ごとに束縛を戻す水位。
+  const auto floor = machine.heap.size();
   std::vector<Cell> env;
   env.reserve(clause.vars);
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
-  if (!do_unify(machine, view.head, materialize(machine, clause.head, env))) return false;
+  if (!unify_visible(machine, floor, view.head, materialize(machine, clause.head, env))) return false;
   if (view.head_only) return true;
   const Cell body = materialize(machine, clause.body, env);
   if (!view.rule) {
     // 事実の正規形は本体 true。規則は retract(Head) では消さない。
-    return do_unify(machine, machine.heap.atom(machine.atoms.intern("true")), body);
+    return unify_visible(machine, floor, machine.heap.atom(machine.atoms.intern("true")), body);
   }
-  return do_unify(machine, view.body, body);
+  return unify_visible(machine, floor, view.body, body);
 }
 
 std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predicate, const ClauseView& view) {

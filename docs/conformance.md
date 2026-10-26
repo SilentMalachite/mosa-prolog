@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1502
-合格率: 69.2
+合格数: 1505
+合格率: 69.3
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -56,11 +56,8 @@ functions/round_1/tests.lgt eclipse_round_1_08 true(X== -4) fail
 functions/round_1/tests.lgt lgt_round_1_13 error(type_error(float, 9)) true
 functions/tan_1/tests.lgt iso_tan_1_01 true(X=~=0.5463) fail
 functions/truncate_1/tests.lgt lgt_truncate_1_06 error(type_error(float, 9)) true
-logical_update_semantics/tests.lgt logical_update_semantics_asserta true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_assertz true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_retract true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_retractall true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_clause_assert true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
