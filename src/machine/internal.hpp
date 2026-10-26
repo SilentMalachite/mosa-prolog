@@ -79,6 +79,8 @@ struct Entry {
   bool cond_ok = false;
   bool armed = false;
   std::size_t extras_mark = 0;
+  // 0 は束縛の水位だけで、選択点ではない。op/3 を戻す対象にしない。
+  std::uint64_t effect_id = 0;
   // この選択点をやり直すとき、有効に戻す Catch のスタック位置。抜けたあとの選択点は空である。
   std::vector<std::uint32_t> live_catches;
   Cell pattern{};
@@ -139,10 +141,18 @@ struct Stream {
   std::string path;
 };
 
+// 選択点より後ろの op/3 だけを失敗で戻す。assert と retract はここへ載せない。
+struct OpUndo {
+  std::uint64_t effect_id = 0;
+  OperatorTable previous;
+};
+
 struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
   OperatorTable operators;
+  std::vector<OpUndo> op_undos;
+  std::uint64_t effect_clock = 0;
   // 0 が stdin、1 が stdout、2 が stderr。読み書きそのものは get と put が行う。
   std::vector<Stream> streams;
   std::size_t current_in = 0;
@@ -232,6 +242,8 @@ void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
+void trail_operators(Impl& machine);
+void restore_operators(Impl& machine, std::uint64_t effect_id);
 void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
 void push_frame(Impl& machine, Entry entry);

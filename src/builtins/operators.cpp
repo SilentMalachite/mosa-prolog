@@ -14,6 +14,7 @@
 // type_error(character),
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
+// 選択点より後ろの変更は失敗で戻す。assert と retract は戻さない。
 // テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl,
 // tests/pl/curchar.pl, tests/pl/japanese.pl
 
@@ -142,6 +143,8 @@ bool commit_ops(Impl& machine, const Goal& goal, int priority, Specifier spec,
     raise_permit(machine, goal, result == OpResult::ModifyComma ? "modify" : "create", name.cell);
     return false;
   }
+  // 検査が通ってから表を替える。選択点より前の宣言は印が 0 なので残る。
+  trail_operators(machine);
   machine.operators = std::move(trial);
   return true;
 }

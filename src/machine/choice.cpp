@@ -45,8 +45,25 @@ void apply_catches(Impl& machine, const Entry& entry) {
 
 void push_frame(Impl& machine, Entry entry) {
   entry.extras_mark = machine.extras.size();
+  // query の Cleanup はここを通さないので印は 0。通った枠より後ろの op/3 だけを戻す。
+  entry.effect_id = ++machine.effect_clock;
   note_catches(machine, entry);
   machine.stack.push_back(std::move(entry));
+}
+
+void trail_operators(Impl& machine) {
+  if (machine.stack.empty()) return;
+  const auto effect_id = machine.stack.back().effect_id;
+  if (effect_id == 0) return;
+  machine.op_undos.push_back(OpUndo{effect_id, machine.operators});
+}
+
+void restore_operators(Impl& machine, std::uint64_t effect_id) {
+  if (effect_id == 0) return;
+  while (!machine.op_undos.empty() && machine.op_undos.back().effect_id >= effect_id) {
+    machine.operators = std::move(machine.op_undos.back().previous);
+    machine.op_undos.pop_back();
+  }
 }
 
 bool do_unify(Impl& machine, Cell left, Cell right) {
@@ -189,6 +206,8 @@ bool backtrack(Impl& machine) {
   while (!machine.stack.empty()) {
     const Entry top = machine.stack.back();
     restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
+    // 節の追加は戻さない。選択点より後ろの演算子表だけを、やり直しの前に戻す。
+    restore_operators(machine, top.effect_id);
     // 収集の床。束縛は消すが、呼び出し元の節走査はやり直さない。
     if (top.pick == Pick::Barrier) return false;
     if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {

@@ -112,3 +112,25 @@ test(cop_name_int, current_op(_, _, 5), error(type_error(atom, 5))).
 test(cop_name_fun, current_op(500, xfx, f(1)), error(type_error(atom, f(1)))).
 test(cop_name_list, current_op(_, _, [a]), error(type_error(atom, [a]))).
 
+o(1).
+o(2).
+o(3).
+
+% 8.14.3.4。fx は o/1 の選択点より前なので 1 回。xf はその後ろなので、次の解では消えている。
+% 前置と後置が両立すると write は前置を選ぶ。出力だけでは xf が残っても三つとも o N になる。
+% with_output_to は失敗したゴールでは原子を束縛しない。失敗のあとに成功する選言を置く。
+test(op_backtrack_prefix, (
+  with_output_to(atom(A), (
+    op(555, fx, o),
+    o(X),
+    (X = 1 -> true ; \+ current_op(555, xf, o)),
+    write(o(X)), nl,
+    op(555, xf, o),
+    fail
+    ; true
+  )),
+  A == 'o 1\no 2\no 3\n',
+  op(0, fx, o),
+  op(0, xf, o)
+), true).
+
