@@ -1,10 +1,10 @@
 // 8.10.1 findall/3 (+term, +callable_term, ?list)
-// findall/4 (+term, +callable_term, ?list, ?term) は非 ISO の差分リスト
+// findall/4 (+term, +callable_term, ?list, ?list) は非 ISO の差分リスト
 // 8.10.2 bagof/3 (+term, +callable_term, ?list)
 // 8.10.3 setof/3 (+term, +callable_term, ?list)
 //   第1〜3引数の誤りは findall/3 と同じ。instantiation_error、
 //   type_error(callable, Goal)、type_error(list, List)
-//   第4引数は検査しない。差分リストの末尾はリストとは限らない
+//   第4引数が部分リストでもリストでもなければ type_error(list, Tail)
 // テスト: tests/pl/solutions.pl
 
 #include "../machine/internal.hpp"
@@ -196,6 +196,15 @@ bool bad_list(Impl& machine, const Goal& goal) {
   const Cell cell = machine.heap.deref(goal.arg(machine, 2));
   const WalkedList walked = walk_list(machine, cell);
   if (walked.shape != ListShape::Bad) return false;
+  raise_formal(machine, formal_type(machine, "list", cell), goal.name, goal.arity);
+  return true;
+}
+
+// 変数の末尾は差分リストの本体である。束縛してから拒むと、収集の副作用が残る。
+bool bad_tail(Impl& machine, const Goal& goal) {
+  if (goal.arity != 4) return false;
+  const Cell cell = machine.heap.deref(goal.arg(machine, 3));
+  if (walk_list(machine, cell).shape != ListShape::Bad) return false;
   raise_formal(machine, formal_type(machine, "list", cell), goal.name, goal.arity);
   return true;
 }
@@ -548,6 +557,7 @@ bool run_solutions(Impl& machine, const Goal& goal) {
   Compiled compiled;
   if (!goal_body_ok(machine, goal, runnable, compiled)) return true;
   if (bad_list(machine, goal)) return true;
+  if (bad_tail(machine, goal)) return true;
   std::vector<Cell> witnesses;
   if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, goal.arg(machine, 0), hidden);
   const bool share = which != Which::Findall;

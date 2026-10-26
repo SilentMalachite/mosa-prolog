@@ -59,6 +59,8 @@ test(findall4_none, (findall(X, fail, L, T), L == T, var(T)), true).
 test(findall4_open, (findall(X, (X = 1; X = 2), L, T), L == [1, 2|T], var(T)), true).
 test(findall4_throw, findall(X, throw(error(instantiation_error, _)), L, T), error(instantiation_error)).
 test(findall4_var_goal, findall(X, Y, L, T), error(instantiation_error)).
+test(findall4_tail_improper, findall(X, X=1, _, [A|1]), error(type_error(list, [A|1]))).
+test(findall4_tail_int, findall(X, (X=2; X=1), _, 12), error(type_error(list, 12))).
 test(findall3_still, findall(X, (X = 1; X = 2), S), solutions([S = [1, 2]])).
 
 :- dynamic(scan_p/1).
