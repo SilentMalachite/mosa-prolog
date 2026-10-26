@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1494
-合格率: 68.8
+合格数: 1502
+合格率: 69.2
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -54,12 +54,6 @@ functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined), 
 functions/round_1/tests.lgt eclipse_round_1_07 true(X== -3) fail
 functions/round_1/tests.lgt eclipse_round_1_08 true(X== -4) fail
 functions/round_1/tests.lgt lgt_round_1_13 error(type_error(float, 9)) true
-functions/sign_1/tests.lgt sign_1_integer_01 true assertion/1
-functions/sign_1/tests.lgt sign_1_integer_02 true assertion/1
-functions/sign_1/tests.lgt sign_1_integer_03 true assertion/1
-functions/sign_1/tests.lgt sign_1_float_01 true assertion/1
-functions/sign_1/tests.lgt sign_1_float_02 true assertion/1
-functions/sign_1/tests.lgt sign_1_float_03 true assertion/1
 functions/tan_1/tests.lgt iso_tan_1_01 true(X=~=0.5463) fail
 functions/truncate_1/tests.lgt lgt_truncate_1_06 error(type_error(float, 9)) true
 logical_update_semantics/tests.lgt logical_update_semantics_asserta true(Assertion) fail
@@ -192,7 +186,6 @@ predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major), integer(Minor), integer(Patch))) domain_error(prolog_flag, version_data)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData, Dialect, _)) domain_error(prolog_flag, dialect)
 predicates/current_prolog_flag_2/tests.lgt lgt_current_prolog_flag_2_20 true flag(Flag)
-predicates/findall_4/tests.lgt commons_findall_4_06 true assertion/2
 predicates/findall_4/tests.lgt commons_findall_4_12 error(type_error(list, [A|1])) true
 predicates/findall_4/tests.lgt commons_findall_4_13 error(type_error(list, 12)) true
 predicates/functor_3/tests.lgt iso_functor_3_18 error(domain_error(not_less_than_zero, -1)) domain_error(not_less_than_zero, -1)
@@ -205,7 +198,6 @@ predicates/number_chars_2/tests.lgt lgt_number_chars_2_43 error(syntax_error(_))
 predicates/number_codes_2/tests.lgt wg17_number_codes_2_43 true(X==32) syntax_error('0\' ')
 predicates/op_3/tests.lgt iso_op_3_04 error(domain_error(operator_priority, -30)) domain_error(operator_priority, -30)
 predicates/op_3/tests.lgt iso_op_3_20 true(Assertion) fail
-predicates/op_3/tests.lgt lgt_op_3_34 true assertion/1
 predicates/open_4/tests.lgt iso_open_4_01 true fail
 predicates/open_4/tests.lgt iso_open_4_03 true fail
 predicates/open_4/tests.lgt sics_open_4_15 error(existence_error(source_sink, Path)) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/open_4/nonexistent')
@@ -388,9 +380,9 @@ predicates/sub_atom_5/tests.lgt sics_sub_atom_5_14 error(domain_error(not_less_t
 predicates/sub_atom_5/tests.lgt sics_sub_atom_5_15 error(domain_error(not_less_than_zero, -3)) domain_error(not_less_than_zero, -3)
 predicates/sub_atom_5/tests.lgt sics_sub_atom_5_16 error(domain_error(not_less_than_zero, -4)) domain_error(not_less_than_zero, -4)
 predicates/sub_atom_5/tests.lgt lgt_sub_atom_5_34 true existence_error(procedure, forall/2)
-predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion/1
-predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion/1
-predicates/term_variables_2/tests.lgt iso_term_variables_2_08 true assertion/1
+predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion
+predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion
+predicates/term_variables_2/tests.lgt iso_term_variables_2_08 true assertion
 predicates/univ_2/tests.lgt iso_univ_2_13 error(type_error(atom, a(b))) type_error(atomic, a(b))
 predicates/write_term_3/tests.lgt iso_write_term_3_001 true(Assertion) fail
 predicates/write_term_3/tests.lgt iso_write_term_3_002 true(Assertion) fail

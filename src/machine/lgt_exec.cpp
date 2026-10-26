@@ -156,6 +156,13 @@ int add_node(Prog& prog, Node node) {
   return static_cast<int>(prog.nodes.size() - 1);
 }
 
+bool assertion_term(const Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  if (cell.tag() != Tag::Str || heap.atoms().name(heap.functor_atom(cell)) != "assertion") return false;
+  const auto arity = heap.functor_arity(cell);
+  return arity == 1 || arity == 2;
+}
+
 int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
   cell = heap.deref(cell);
   if (cell.tag() == Tag::Str) {
@@ -176,6 +183,10 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
       return add_node(prog, std::move(node));
     }
     if (name == "^^") {
+      // 入出力表に渡すと未知の assertion/N になり、前のゴールの束縛が表明に届かない。
+      if (arity == 1 && assertion_term(heap, heap.arg(cell, 0))) {
+        return build_node(prog, heap, ops, heap.arg(cell, 0), names);
+      }
       Node node;
       node.kind = NodeKind::Super;
       if (arity == 1) node.text = write_term(heap, ops, heap.arg(cell, 0), {}, names);

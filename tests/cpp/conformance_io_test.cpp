@@ -257,6 +257,46 @@ void check_power(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_power_2_02") == std::string::npos, "power negative base");
 }
 
+// 束縛は ^^ の前にできる。表明を入出力に渡すと、値が合っていても assertion/1 で落ちる。
+std::string sign_text() {
+  return "test(sign_1_integer_01, true) :-\n"
+         "    {Sign is sign(-17)},\n"
+         "    ^^assertion(Sign == -1).\n"
+         "test(sign_1_float_01, true) :-\n"
+         "    {Sign is sign(-1.7)},\n"
+         "    ^^assertion(float(Sign)),\n"
+         "    ^^assertion(Sign == -1.0).\n"
+         "test(sign_bad, true) :-\n"
+         "    {Sign is sign(-17)},\n"
+         "    ^^assertion(Sign == 0).\n"
+         "test(sign_why, true) :-\n"
+         "    {Sign is sign(-17)},\n"
+         "    ^^assertion(kept, Sign == 0).\n";
+}
+
+void check_sign(const std::filesystem::path& root) {
+  const auto suite = root / "sign";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "sign-report.md";
+  mosa_test::check(write_text(prolog / "functions" / "sign_1" / "tests.lgt", sign_text()), "write sign");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (failed.find("assertion/1") != std::string::npos || failed.find("sign_1_integer_01") != std::string::npos) {
+    show("sign report", body);
+  }
+  // 失敗した表明は false にしない。説明があるときは、その説明が不合格の中身になる。
+  mosa_test::check(code == 1, "sign exits 1");
+  mosa_test::check(has_exact_line(body, "分母: 4"), "sign denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 2"), "sign passed");
+  mosa_test::check(failed.find("sign_1_integer_01") == std::string::npos, "sign integer bound");
+  mosa_test::check(failed.find("sign_1_float_01") == std::string::npos, "sign float bound");
+  mosa_test::check(failed.find("assertion/1") == std::string::npos, "sign is not unknown assertion");
+  mosa_test::check(has_exact_line(failed, "functions/sign_1/tests.lgt sign_bad true assertion"),
+                   "sign failure is not false");
+  mosa_test::check(has_exact_line(failed, "functions/sign_1/tests.lgt sign_why true kept"), "sign explanation");
+}
+
 void check_reopen(const std::filesystem::path& root) {
   const auto suite = root / "reopen";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -288,6 +328,7 @@ int main() {
     check_unknown(root);
     check_reopen(root);
     check_power(root);
+    check_sign(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");
