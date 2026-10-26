@@ -145,12 +145,38 @@ bool integer_cell(const Heap& heap, Cell cell) {
   return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox;
 }
 
+// 一度合わせた項の再出現は、この形と変数セルで見る。名前の無い same_term は別の自由変数を同じにしてしまう。
+bool same_shape(const Heap& heap, Cell left, Cell right) {
+  left = heap.deref(left);
+  right = heap.deref(right);
+  if (heap.unbound(left) || heap.unbound(right)) {
+    return heap.unbound(left) && heap.unbound(right) && left.raw() == right.raw();
+  }
+  if (integer_cell(heap, left) && integer_cell(heap, right)) {
+    return heap.integer_value(left) == heap.integer_value(right);
+  }
+  if (left.tag() != right.tag()) return false;
+  if (left.tag() == Tag::Atom) return atom_text(heap, left) == atom_text(heap, right);
+  if (left.tag() == Tag::Float) return heap.float_value(left) == heap.float_value(right);
+  if (left.tag() == Tag::Lis) {
+    return same_shape(heap, heap.list_head(left), heap.list_head(right)) &&
+           same_shape(heap, heap.list_tail(left), heap.list_tail(right));
+  }
+  if (left.tag() != Tag::Str || heap.functor_arity(left) != heap.functor_arity(right)) return false;
+  if (heap.atoms().name(heap.functor_atom(left)) != heap.atoms().name(heap.functor_atom(right))) return false;
+  const auto arity = heap.functor_arity(left);
+  for (std::uint16_t index = 0; index < arity; ++index) {
+    if (!same_shape(heap, heap.arg(left, index), heap.arg(right, index))) return false;
+  }
+  return true;
+}
+
 bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pair<std::uint64_t, Cell>>& bound) {
   general = heap.deref(general);
   specific = heap.deref(specific);
   if (heap.unbound(general)) {
     for (const auto& [id, value] : bound) {
-      if (id == general.raw()) return same_term(heap, value, {}, heap, specific, {});
+      if (id == general.raw()) return same_shape(heap, value, specific);
     }
     bound.emplace_back(general.raw(), specific);
     return true;

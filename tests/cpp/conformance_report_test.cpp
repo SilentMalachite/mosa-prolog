@@ -464,6 +464,33 @@ void check_zero_rate(const std::filesystem::path& root) {
   mosa_test::check(body.find("bomb") == std::string::npos, "zero not read");
 }
 
+std::string shared_var_text() {
+  return "test(diff, error(f(X,X))) :- {throw(error(f(a,b), c))}.\n"
+         "test(same, error(f(X,X))) :- {throw(error(f(a,a), c))}.\n"
+         "test(cells, error(f(X,X))) :- {throw(error(f(A,B), c))}.\n"
+         "test(share, error(f(X,X))) :- {throw(error(f(A,A), c))}.\n"
+         "test(nest, error(g(X,X))) :- {throw(error(g(f(A),f(B)), c))}.\n";
+}
+
+void check_shared_var(const std::filesystem::path& root) {
+  const auto suite = root / "share";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "share-report.md";
+  mosa_test::check(write_text(prolog / "control" / "throw_1" / "tests.lgt", shared_var_text()), "write share");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  // 同じ形式変数は同じ項。別の変数セル f(A) と f(B)、および A と B は不一致。
+  mosa_test::check(code == 1, "share exits 1");
+  mosa_test::check(has_exact_line(body, "分母: 5"), "share denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 2"), "share passed");
+  mosa_test::check(failed.find("diff") != std::string::npos, "diff does not subsume");
+  mosa_test::check(failed.find("same") == std::string::npos, "same subsumes");
+  mosa_test::check(failed.find("cells") != std::string::npos, "distinct vars do not subsume");
+  mosa_test::check(failed.find("share") == std::string::npos, "shared var cell subsumes");
+  mosa_test::check(failed.find("nest") != std::string::npos, "distinct f(A) f(B) do not subsume");
+}
+
 void check_outside(const std::filesystem::path& root) {
   const auto suite = root / "out";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -494,6 +521,7 @@ int main() {
     check_executes(root);
     check_rate(root);
     check_outside(root);
+    check_shared_var(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();
