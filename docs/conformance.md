@@ -1,26 +1,19 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1408
-合格率: 64.8
+合格数: 1484
+合格率: 68.3
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_09 error(instantiation_error) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_10 errors([type_error(callable, 1), type_error(callable, user:1)]) unsupported
-control/call_1/tests.lgt iso_call_1_12 errors([type_error(callable, 1), type_error(callable, user:1)]) unsupported
+control/call_1/tests.lgt iso_call_1_10 errors([type_error(callable, 1), type_error(callable, user:1)]) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_14 errors([type_error(callable, (write(3), 1)), type_error(callable, 1)]) suppress_text_output/0
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure, fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure, scattered/2)
-control/call_1/tests.lgt lgt_call_1_19 errors([existence_error(procedure, foobar/1), existence_error(procedure, user:foobar/1)]) unsupported
 control/catch_3/tests.lgt iso_catch_3_07 true(C==c) suppress_text_output/0
-control/catch_3/tests.lgt lgt_catch_3_10 true((subsumes_term(error(type_error(callable, 1), _), Y);subsumes_term(error(type_error(callable, user:1), _), Y))) unsupported
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure, ignore/1)
-control/conjunction_2/tests.lgt lgt_conjunction_2_04 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (3, true))]) unsupported
-control/conjunction_2/tests.lgt lgt_conjunction_2_05 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (true, 3))]) unsupported
 control/cut_0/tests.lgt iso_cut_0_10 true(Assertion) fail
 control/cut_0/tests.lgt eclipse_cut_0_19 true(L==[1, 2]) fail
-control/disjunction_2/tests.lgt lgt_disjunction_2_06 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (3;true))]) unsupported
-control/disjunction_2/tests.lgt lgt_disjunction_2_07 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (fail;3))]) unsupported
 control/if_3/tests.lgt if_3_01 true existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_02 true existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_03 false existence_error(procedure, if/3)
@@ -30,17 +23,9 @@ control/if_3/tests.lgt if_3_06 true(L==[7, 8, 9]) existence_error(procedure, if/
 control/if_3/tests.lgt if_3_07 true(L==[7, 8, 9]) existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_08 true existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_09 true(L==[1, 2]) existence_error(procedure, if/3)
-control/if_3/tests.lgt if_3_10 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(3, true, true))]) unsupported
-control/if_3/tests.lgt if_3_11 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(true, 3, true))]) unsupported
-control/if_3/tests.lgt if_3_12 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(fail, true, 3))]) unsupported
-control/if_then_2/tests.lgt lgt_if_then_2_10 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (3->true))]) unsupported
-control/if_then_2/tests.lgt lgt_if_then_2_11 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (true->3))]) unsupported
-control/if_then_else_3/tests.lgt lgt_if_then_else_3_11 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (3->true;fail))]) unsupported
-control/if_then_else_3/tests.lgt lgt_if_then_else_3_12 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (true->3;fail))]) unsupported
-control/if_then_else_3/tests.lgt lgt_if_then_else_3_13 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (fail->true;3))]) unsupported
-control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_18 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (*->(3, true);fail))]) unsupported
-control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_19 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (*->(true, 3);fail))]) unsupported
-control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_20 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, (*->(fail, true);3))]) unsupported
+control/if_3/tests.lgt if_3_10 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(3, true, true))]) existence_error(procedure, if/3)
+control/if_3/tests.lgt if_3_11 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(true, 3, true))]) existence_error(procedure, if/3)
+control/if_3/tests.lgt if_3_12 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(fail, true, 3))]) existence_error(procedure, if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure, :: /2)
 directives/ensure_loaded_1/tests.lgt ensure_loaded_1_01 true(L==[1]) existence_error(procedure, a/1)
 directives/ensure_loaded_1/tests.lgt ensure_loaded_1_02 true(L==[2]) existence_error(procedure, b/1)
@@ -95,42 +80,14 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_assert true(A
 logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
-predicates/abolish_1/tests.lgt iso_abolish_1_03 errors([type_error(predicate_indicator, foo), type_error(predicate_indicator, user:foo)]) unsupported
-predicates/abolish_1/tests.lgt iso_abolish_1_04 errors([type_error(predicate_indicator, foo(X)), type_error(predicate_indicator, user:foo(X))]) unsupported
-predicates/abolish_1/tests.lgt iso_abolish_1_05 errors([permission_error(modify, static_procedure, abolish/1), permission_error(modify, static_procedure, user:abolish/1)]) unsupported
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
-predicates/abolish_1/tests.lgt eddbali_abolish_1_08 errors([permission_error(modify, static_procedure, bar/1), permission_error(modify, static_procedure, user:bar/1)]) unsupported
 predicates/abolish_1/tests.lgt eddbali_abolish_1_10 error(domain_error(not_less_than_zero, -1)) domain_error(not_less_than_zero, -1)
-predicates/abolish_1/tests.lgt eddbali_abolish_1_13 errors([type_error(predicate_indicator, insect), type_error(predicate_indicator, user:insect)]) unsupported
-predicates/abolish_1/tests.lgt lgt_abolish_1_16 errors([existence_error(procedure, baz/2), existence_error(procedure, user:baz/2)]) unsupported
 predicates/arg_3/tests.lgt eddbali_arg_3_13 error(domain_error(not_less_than_zero, -3)) domain_error(not_less_than_zero, -3)
 predicates/arg_3/tests.lgt lgt_arg_3_20 true(Arg==(1, 2, 3)) fail
-predicates/asserta_1/tests.lgt iso_asserta_1_07 errors([permission_error(modify, static_procedure, atom/1), permission_error(modify, static_procedure, user:atom/1)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_13 errors([permission_error(modify, static_procedure, true/0), permission_error(modify, static_procedure, user:true/0)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_14 errors([permission_error(modify, static_procedure, fail/0), permission_error(modify, static_procedure, user:fail/0)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_15 errors([permission_error(modify, static_procedure, false/0), permission_error(modify, static_procedure, user:false/0)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_16 errors([permission_error(modify, static_procedure, call/1), permission_error(modify, static_procedure, user:call/1)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_17 errors([permission_error(modify, static_procedure, !/0), permission_error(modify, static_procedure, user:!/0)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_18 errors([permission_error(modify, static_procedure, ,/2), permission_error(modify, static_procedure, user:,/2)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_19 errors([permission_error(modify, static_procedure, ;/2), permission_error(modify, static_procedure, user:;/2)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_20 errors([permission_error(modify, static_procedure, -> /2), permission_error(modify, static_procedure, user: -> /2)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_21 errors([permission_error(modify, static_procedure, catch/3), permission_error(modify, static_procedure, user:catch/3)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_22 errors([permission_error(modify, static_procedure, throw/1), permission_error(modify, static_procedure, user:throw/1)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) unsupported
-predicates/asserta_1/tests.lgt wg17_asserta_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) unsupported
-predicates/assertz_1/tests.lgt iso_assertz_1_07 errors([permission_error(modify, static_procedure, atom/1), permission_error(modify, static_procedure, user:atom/1)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_13 errors([permission_error(modify, static_procedure, true/0), permission_error(modify, static_procedure, user:true/0)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_14 errors([permission_error(modify, static_procedure, fail/0), permission_error(modify, static_procedure, user:fail/0)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_15 errors([permission_error(modify, static_procedure, false/0), permission_error(modify, static_procedure, user:false/0)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_16 errors([permission_error(modify, static_procedure, call/1), permission_error(modify, static_procedure, user:call/1)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_17 errors([permission_error(modify, static_procedure, !/0), permission_error(modify, static_procedure, user:!/0)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_18 errors([permission_error(modify, static_procedure, ,/2), permission_error(modify, static_procedure, user:,/2)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_19 errors([permission_error(modify, static_procedure, ;/2), permission_error(modify, static_procedure, user:;/2)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_20 errors([permission_error(modify, static_procedure, -> /2), permission_error(modify, static_procedure, user: -> /2)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_21 errors([permission_error(modify, static_procedure, catch/3), permission_error(modify, static_procedure, user:catch/3)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_22 errors([permission_error(modify, static_procedure, throw/1), permission_error(modify, static_procedure, user:throw/1)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) unsupported
-predicates/assertz_1/tests.lgt wg17_assertz_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) unsupported
+predicates/asserta_1/tests.lgt wg17_asserta_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) true
+predicates/asserta_1/tests.lgt wg17_asserta_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) true
+predicates/assertz_1/tests.lgt wg17_assertz_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) true
+predicates/assertz_1/tests.lgt wg17_assertz_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) true
 predicates/atom_chars_2/tests.lgt iso_atom_chars_2_02 true(L==[[, ]]) fail
 predicates/atom_length_2/tests.lgt iso_atom_length_2_02 true(N==17) fail
 predicates/atom_length_2/tests.lgt eddbali_atom_length_2_08 error(domain_error(not_less_than_zero, -4)) domain_error(not_less_than_zero, -4)
@@ -166,20 +123,6 @@ predicates/bagof_3/tests.lgt lgt_bagof_3_30 ball(err) load
 predicates/bagof_3/tests.lgt wg17_bagof_3_31 false load
 predicates/bagof_3/tests.lgt wg17_bagof_3_32 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) load
 predicates/bagof_3/tests.lgt wg17_bagof_3_33 true((L==[A, B, C];L==[C, B, A])) load
-predicates/call_N/tests.lgt lgt_call_N_10 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_12 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_14 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_16 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_18 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_20 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_22 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt lgt_call_N_23 errors([existence_error(procedure, foobar/1), existence_error(procedure, user:foobar/1)]) unsupported
-predicates/call_N/tests.lgt eclipse_call_N_25 errors([type_error(callable, (fail, 3)), type_error(callable, 3), type_error(callable, (user:fail, user:3)), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt eclipse_call_N_26 errors([type_error(callable, (!;3)), type_error(callable, 3), type_error(callable, (user:!;user:3)), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt eclipse_call_N_27 errors([type_error(callable, (fail->3)), type_error(callable, 3), type_error(callable, (user:fail->user:3)), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt eclipse_call_N_29 errors([type_error(callable, (fail, 3)), type_error(callable, 3), type_error(callable, (user:fail, user:3)), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt eclipse_call_N_30 errors([type_error(callable, (!;3)), type_error(callable, 3), type_error(callable, (user:!;user:3)), type_error(callable, user:3)]) unsupported
-predicates/call_N/tests.lgt eclipse_call_N_31 errors([type_error(callable, (fail->3)), type_error(callable, 3), type_error(callable, (user:fail->user:3)), type_error(callable, user:3)]) unsupported
 predicates/char_code_2/tests.lgt iso_char_code_2_01 true(Code==97) load
 predicates/char_code_2/tests.lgt iso_char_code_2_02 true(Char==Atom) load
 predicates/char_code_2/tests.lgt iso_char_code_2_03 true(Char==c) load
@@ -193,7 +136,6 @@ predicates/char_code_2/tests.lgt lgt_char_code_2_10 true load
 predicates/char_code_2/tests.lgt lgt_char_code_2_11 error(type_error(character, 42)) load
 predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char, Code0), char_code(Char, Code), Code0==Code)) load
 predicates/clause_2/tests.lgt iso_clause_2_09 true fail
-predicates/clause_2/tests.lgt iso_clause_2_10 errors([permission_error(access, private_procedure, atom/1), permission_error(access, private_procedure, user:atom/1)]) unsupported
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream, S)) existence_error(stream, '$stream'(3))
 predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure, ground/1)
@@ -260,24 +202,17 @@ predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major), integer(Minor), integer(Patch))) domain_error(prolog_flag, version_data)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData, Dialect, _)) domain_error(prolog_flag, dialect)
 predicates/current_prolog_flag_2/tests.lgt lgt_current_prolog_flag_2_20 true flag(Flag)
-predicates/findall_3/tests.lgt iso_findall_3_08 errors([type_error(callable, 4), type_error(callable, user:4)]) unsupported
-predicates/findall_3/tests.lgt lgt_findall_3_13 errors([existence_error(procedure, foo/1), existence_error(procedure, user:foo/1)]) unsupported
 predicates/findall_4/tests.lgt commons_findall_4_06 true assertion/2
-predicates/findall_4/tests.lgt commons_findall_4_09 errors([type_error(callable, 4), type_error(callable, user:4)]) unsupported
 predicates/findall_4/tests.lgt commons_findall_4_12 error(type_error(list, [A|1])) true
 predicates/findall_4/tests.lgt commons_findall_4_13 error(type_error(list, 12)) true
-predicates/findall_4/tests.lgt commons_findall_4_14 errors([existence_error(procedure, foo/1), existence_error(procedure, user:foo/1)]) unsupported
 predicates/functor_3/tests.lgt iso_functor_3_18 error(domain_error(not_less_than_zero, -1)) domain_error(not_less_than_zero, -1)
 predicates/nl_1/tests.lgt lgt_nl_1_04 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, bin)
 predicates/nl_1/tests.lgt lgt_nl_1_05 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(4))
 predicates/nl_1/tests.lgt lgt_nl_1_06 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(5))
 predicates/nl_1/tests.lgt lgt_nl_0_02 error(permission_error(output, binary_stream, Stream)) permission_error(output, binary_stream, '$stream'(8))
-predicates/not_1/tests.lgt lgt_not_1_10 errors([existence_error(procedure, foobar/1), existence_error(procedure, user:foobar/1)]) unsupported
 predicates/number_chars_2/tests.lgt wg17_number_chars_2_40 true(X==32) syntax_error('0\' ')
 predicates/number_chars_2/tests.lgt lgt_number_chars_2_43 error(syntax_error(_)) fail
 predicates/number_codes_2/tests.lgt wg17_number_codes_2_43 true(X==32) syntax_error('0\' ')
-predicates/once_1/tests.lgt eddbali_once_1_06 errors([type_error(callable, 3), type_error(callable, user:3)]) unsupported
-predicates/once_1/tests.lgt lgt_once_1_08 errors([existence_error(procedure, foobar/1), existence_error(procedure, user:foobar/1)]) unsupported
 predicates/op_3/tests.lgt iso_op_3_04 error(domain_error(operator_priority, -30)) domain_error(operator_priority, -30)
 predicates/op_3/tests.lgt iso_op_3_20 true(Assertion) fail
 predicates/op_3/tests.lgt lgt_op_3_34 true assertion/1
@@ -362,18 +297,7 @@ predicates/read_term_3/tests.lgt lgt_read_term_3_36 error(domain_error(read_opti
 predicates/read_term_3/tests.lgt lgt_read_term_3_37 error(domain_error(read_option, singletons([_|a]))) fail
 predicates/read_term_3/tests.lgt lgt_read_term_3_38 error(syntax_error(_)) syntax_error('行 1 列 3: 項が閉じていません 終端')
 predicates/read_term_3/tests.lgt lgt_read_term_3_39 error(syntax_error(_)) syntax_error('行 1 列 5: 項が閉じていません 終端')
-predicates/retract_1/tests.lgt iso_retract_1_11 errors([permission_error(modify, static_procedure, atom/1), permission_error(modify, static_procedure, user:atom/1)]) unsupported
-predicates/retract_1/tests.lgt lgt_retract_1_13 errors([permission_error(modify, static_procedure, elk/1), permission_error(modify, static_procedure, user:elk/1)]) unsupported
-predicates/retract_1/tests.lgt eclipse_retract_1_15 errors([permission_error(modify, static_procedure, retract/1), permission_error(modify, static_procedure, user:retract/1)]) unsupported
-predicates/retract_1/tests.lgt eclipse_retract_1_16 errors([permission_error(modify, static_procedure, true/0), permission_error(modify, static_procedure, user:true/0)]) unsupported
-predicates/retract_1/tests.lgt eclipse_retract_1_17 errors([permission_error(modify, static_procedure, catch/3), permission_error(modify, static_procedure, user:catch/3)]) unsupported
-predicates/retract_1/tests.lgt eclipse_retract_1_18 errors([permission_error(modify, static_procedure, repeat/0), permission_error(modify, static_procedure, user:repeat/0)]) unsupported
 predicates/retractall_1/tests.lgt iso_retractall_1_01 true({current_predicate(foo/1)}) existence_error(procedure, {}/1)
-predicates/retractall_1/tests.lgt iso_retractall_1_06 errors([permission_error(modify, static_procedure, retractall/1), permission_error(modify, static_procedure, user:retractall/1)]) unsupported
-predicates/retractall_1/tests.lgt eclipse_retractall_1_12 errors([permission_error(modify, static_procedure, elk/1), permission_error(modify, static_procedure, user:elk/1)]) unsupported
-predicates/retractall_1/tests.lgt lgt_retractall_1_13 errors([permission_error(modify, static_procedure, true/0), permission_error(modify, static_procedure, user:true/0)]) unsupported
-predicates/retractall_1/tests.lgt lgt_retractall_1_14 errors([permission_error(modify, static_procedure, catch/3), permission_error(modify, static_procedure, user:catch/3)]) unsupported
-predicates/retractall_1/tests.lgt lgt_retractall_1_15 errors([permission_error(modify, static_procedure, repeat/0), permission_error(modify, static_procedure, user:repeat/0)]) unsupported
 predicates/set_prolog_flag_2/tests.lgt iso_set_prolog_flag_2_05 error(domain_error(flag_value, debug+trace)) domain_error(prolog_flag, debug)
 predicates/set_prolog_flag_2/tests.lgt eddbali_set_prolog_flag_2_06 error(permission_error(modify, flag, max_arity)) domain_error(flag_value, max_arity+40)
 predicates/set_prolog_flag_2/tests.lgt lgt_set_prolog_flag_2_13 true flag(Flag)

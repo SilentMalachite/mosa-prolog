@@ -68,11 +68,32 @@ struct SuperOp {
   }
 };
 
+// 期待の user:項 は読みの表では中置。残すと current_op が変わるので、読んだあと外す。
+struct ColonOp {
+  OperatorTable& ops;
+  bool added = false;
+  explicit ColonOp(OperatorTable& table) : ops(table) {
+    for (const OpDef& op : ops.lookup(":")) {
+      if (op.specifier == Specifier::Xfx || op.specifier == Specifier::Xfy ||
+          op.specifier == Specifier::Yfx) {
+        return;
+      }
+    }
+    added = ops.define(600, Specifier::Xfy, ":") == OpResult::Ok;
+  }
+  ~ColonOp() {
+    if (!added) return;
+    const OpResult dropped = ops.define(0, Specifier::Xfy, ":");
+    if (dropped != OpResult::Ok) return;
+  }
+};
+
 Parsed parse_term(Machine& machine, std::string_view text) {
   Parsed parsed;
   std::string source{text};
   if (source.empty() || source.back() != '.') source.push_back('.');
   const SuperOp super_op(machine.operators());
+  const ColonOp colon_op(machine.operators());
   Reader reader(source, machine.heap(), machine.operators());
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return parsed;

@@ -6,6 +6,8 @@ test(not_fail, (\+ fail), true).
 test(not_true, (\+ true), fail).
 test(once_choice, once((true ; fail)), true).
 test(call_number, call(1), error(type_error(callable, 1))).
+call_one(1).
+test(iso_call_1_12, (call_one(One), call(One)), error(type_error(callable, 1))).
 test(call_var, call(X), error(instantiation_error)).
 test(catch_ball, catch(throw(a), a, true), true).
 test(catch_miss, catch(throw(b), a, true), error(b)).

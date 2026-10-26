@@ -509,6 +509,10 @@ std::string shapes_text() {
 test(all_zero, all(N < 3)) :- {fail}.
 test(err_list, errors([instantiation_error, type_error(atom,1)])) :-
 	{throw(error(instantiation_error, x))}.
+test(err_user, errors([type_error(callable,1), type_error(callable,':'(user,1))])) :-
+	{call(1)}.
+test(err_miss, errors([existence_error(procedure,miss_pi/1), existence_error(procedure,':'(user,miss_pi/1))])) :-
+	{call(miss_pi(_))}.
 test(ball_oops, ball(oops)) :- {throw(oops)}.
 test(var_copy, variant(S, [1+_])) :- {S = [1+A]}.
 test(var_share, variant(S, [1+_,1+_])) :- {S = [1+A,1+A]}.
@@ -581,15 +585,15 @@ void check_judgments(const std::filesystem::path& root) {
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   const std::string body = read_text(report);
   const std::string failed = between_headings(body, "不合格:", "別欄:");
-  // 16/21 は 90% 未満。やり直しが成功するテストと、共有変数と、失敗する表明だけが不合格。
+  // 18/23 は 90% 未満。やり直しが成功するテストと、共有変数と、失敗する表明だけが不合格。
   mosa_test::check(code == 1, "judge exits 1");
-  mosa_test::check(has_exact_line(body, "分母: 21"), "judge denominator");
-  mosa_test::check(has_exact_line(body, "合格数: 16"), "judge passed");
-  mosa_test::check(has_exact_line(body, "合格率: 76.2"), "judge rate");
+  mosa_test::check(has_exact_line(body, "分母: 23"), "judge denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 18"), "judge passed");
+  mosa_test::check(has_exact_line(body, "合格率: 78.3"), "judge rate");
   constexpr auto kPass = std::to_array<std::string_view>({
       "det_one",     "det_one_as", "det_choice", "sol_exists", "sol_all",    "all_zero",
-      "err_list",    "ball_oops",  "var_copy",   "sub_wide",   "approx_ok",  "assert_ok",
-      "assert_or",   "hide_var",   "hide_assert", "hide_approx",
+      "err_list",    "err_user",   "err_miss",   "ball_oops",  "var_copy",   "sub_wide",
+      "approx_ok",   "assert_ok",  "assert_or",  "hide_var",   "hide_assert", "hide_approx",
   });
   constexpr auto kFail = std::to_array<std::string_view>({"det_two", "det_two_as", "sol_later", "var_share", "assert_bad"});
   for (const std::string_view name : kPass) expect_token(failed, name, false);

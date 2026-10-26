@@ -147,6 +147,12 @@
 
 決定（2026-10-26）: A。終端のあと `reset` で読むと、位置を先頭に戻して読み直す。テスト `reset rereads`。7.10.2.11 は、終端を越えた印を下ろして、もう一度読む、とだけ書く。ファイルは開いたときにバイト列へ写すので、印だけ下ろすと位置は末尾のままになり、次も終端で `eof_code` と同じになる。承認済みの計画は「ファイルをもう一度読む」なので、先頭へ戻す。これは 7.10.2.11 からの逸脱として残す。
 
+## 7.8.3 call/1 と節の無い multifile・discontiguous
+
+Logtalk の `lgt_call_1_17` と `lgt_call_1_18` は、節の無い `fenix/1`（multifile）と `scattered/2`（discontiguous）の `call/1` を失敗と期待する。7.4.2 の決定と `tests/pl/directives.pl` は、宣言だけでは手続きを作らず、`unknown=error` では `existence_error(procedure, PI)` である。`dynamic/1` だけが空の手続きを作る、と 7.4.2 では読んだ。
+
+A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手続きがあり、節が無ければ `call/1` は失敗する。確認前に B は実装しない。
+
 ## 8.11.1.3 current_input のドメイン
 
 決定（2026-10-26）: A。`current_input/1`、`current_output/1`、`stream_property/2` に流れでも別名でもない項を渡すと `domain_error(stream_or_alias, S)`。テスト `input_bad`、`output_bad`、`prop_bad_stream`。別名 `user_input` は `current_input(user_input)` で成功する。領域に別名が入るので、Formal は `stream` ではなく `stream_or_alias`。8.11.1.3 a と 8.11.8.3 a の `domain_error(stream, S)` からの逸脱として残す。`set_input/1` など、もとから `stream_or_alias` の述語は変えない。
