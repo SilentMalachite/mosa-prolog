@@ -140,6 +140,8 @@ std::vector<std::string> prolog_files(std::string_view source) {
   AtomTable atoms;
   Heap heap(atoms);
   OperatorTable operators = OperatorTable::iso_core();
+  // tests::run は図形 ::。この読み手だけに足す。ゴール自体は実行しない。
+  if (operators.define(600, Specifier::Xfy, "::") != OpResult::Ok) return files;
   Reader reader(source, heap, operators);
   while (true) {
     const ReadOutcome outcome = reader.next();

@@ -269,9 +269,14 @@ Cell strip_user_scope(Heap& heap, Cell cell) {
   return heap.structure(heap.functor_atom(cell), args);
 }
 
-std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const std::vector<VarName>& names) {
+std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const std::vector<VarName>& names,
+                         bool clause) {
   // 実行する機械の表に :: は無い。中置のまま書くと、節も本体も構文エラーになる。
   if (operators.define(0, Specifier::Xfy, "::") != OpResult::Ok) {
+    return write_term(heap, operators, term, {}, names);
+  }
+  // 節の前置 ^^ は load が読めない。正準形にする。本体は判定が演算子を戻す。
+  if (clause && operators.define(0, Specifier::Fy, "^^") != OpResult::Ok) {
     return write_term(heap, operators, term, {}, names);
   }
   return write_term(heap, operators, term, {}, names);
@@ -288,7 +293,7 @@ bool dropped_user_uses(const Heap& heap, Cell term) {
 void add_piece(Heap& heap, const OperatorTable& operators, Cell term, const std::vector<VarName>& names,
                const Parse& parse, LgtFile& file) {
   const Cell prepared = strip_user_scope(heap, silence_flag(heap, term));
-  std::string text = machine_text(heap, operators, prepared, names);
+  std::string text = machine_text(heap, operators, prepared, names, true);
   text += ".\n";
   if (parse.stack.empty()) file.program += text;
   file.pieces.push_back(LgtPiece{std::move(text), parse.stack});
@@ -300,11 +305,11 @@ void add_case(Heap& heap, const OperatorTable& operators, Cell looked, bool rule
   item.outside = outside;
   item.guard = parse.stack;
   const Cell head = heap.deref(looked);
-  item.name = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 0)), names);
-  item.outcome = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 1)), names);
+  item.name = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 0)), names, false);
+  item.outcome = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 1)), names, false);
   if (arity == 3) item.condition = condition_of(heap, operators, heap.arg(head, 2), names);
   const Cell goal = rule ? unwrap_curlies(heap, body) : heap.atom(heap.atoms().intern("true"));
-  item.body = machine_text(heap, operators, strip_user_scope(heap, goal), names);
+  item.body = machine_text(heap, operators, strip_user_scope(heap, goal), names, false);
   file.cases.push_back(std::move(item));
 }
 

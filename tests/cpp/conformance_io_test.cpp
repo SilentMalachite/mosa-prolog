@@ -131,6 +131,21 @@ std::string nl_text() {
 
 std::string missing_text() { return "test(missing, true) :- ^^file_path(a, P).\n"; }
 
+std::string colon_tester() {
+  return ":- initialization((\n"
+         "\tlogtalk_load_context(directory, Directory),\n"
+         "\tatom_concat(Directory, 'main.pl', File),\n"
+         "\t'$lgt_load_prolog_file'(File),\n"
+         "\tlogtalk_load(missing),\n"
+         "\ttests::run\n"
+         ")).\n";
+}
+
+std::string helper_text() {
+  return "helper :- ^^clean_text_output.\n"
+         "test(ok, true) :- {true}.\n";
+}
+
 void check_pair(const std::filesystem::path& root) {
   const auto suite = root / "io";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -155,6 +170,42 @@ void check_pair(const std::filesystem::path& root) {
   mosa_test::check(failed.find_first_not_of(" \t\r\n") == std::string::npos, "io adds no failure");
   mosa_test::check(regular_files(suite) == before_fixture, "fixture gains no file");
   mosa_test::check(regular_files(conformance) == before_conformance, "conformance gains no file");
+}
+
+void check_colon_run(const std::filesystem::path& root) {
+  const auto suite = root / "colon-run";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "colon-run-report.md";
+  const auto include = prolog / "directives" / "include_1";
+  mosa_test::check(write_text(include / "tester.lgt", colon_tester()), "write colon tester");
+  mosa_test::check(write_text(include / "main.pl", "a(1).\n"), "write colon main");
+  mosa_test::check(write_text(include / "tests.lgt", loaded_text()), "write colon tests");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("a/1") != std::string::npos) show("colon report", body);
+  // tests::run は実行しない。:: を読めて main.pl を consult できれば a/1 がある。
+  mosa_test::check(code == 0, "colon exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "colon denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "colon passed");
+  mosa_test::check(failed.find("a/1") == std::string::npos, "colon consulted main");
+  mosa_test::check(failed.find("run") == std::string::npos, "colon did not run tests");
+}
+
+void check_canonical(const std::filesystem::path& root) {
+  const auto suite = root / "canon";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "canon-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_1" / "tests.lgt", helper_text()), "write helper");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (failed.find("load") != std::string::npos || code != 0) show("canon report", body);
+  // helper は呼ばない。節の ^^ が正準形なら load は落ちず、ok だけ合格する。
+  mosa_test::check(code == 0, "canon exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "canon denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "canon passed");
+  mosa_test::check(failed.find("load") == std::string::npos, "canon is not a load failure");
 }
 
 void check_unknown(const std::filesystem::path& root) {
@@ -184,6 +235,8 @@ int main() {
     std::error_code error;
     std::filesystem::remove_all(scratch, error);
     check_pair(root);
+    check_colon_run(root);
+    check_canonical(root);
     check_unknown(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
