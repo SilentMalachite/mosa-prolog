@@ -496,6 +496,33 @@ void check_flag_value(const std::filesystem::path& root) {
   mosa_test::check(failed.find("flag(Flag)") == std::string::npos, "flag value reaches the assertion");
 }
 
+// 結果の {} は Logtalk のゴール。述語 {}/1 として呼ぶと存在エラーになる。
+std::string retractall_curly_text() {
+  return ":- dynamic(foo/1).\n"
+         "foo(1).\n"
+         "foo(2).\n"
+         "foo(3).\n"
+         "test(iso_retractall_1_01, true({current_predicate(foo/1)})) :-\n"
+         "    {retractall(foo(_))}.\n";
+}
+
+void check_retractall_curly(const std::filesystem::path& root) {
+  const auto suite = root / "retractall-curly";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "retractall-curly-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "retractall_1" / "tests.lgt", retractall_curly_text()),
+                   "write retractall curly");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_retractall_1_01") != std::string::npos) show("retractall curly report", body);
+  mosa_test::check(code == 0, "retractall curly exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "retractall curly denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "retractall curly passed");
+  mosa_test::check(failed.find("{}/1") == std::string::npos, "retractall curly is not curly one");
+  mosa_test::check(failed.find("iso_retractall_1_01") == std::string::npos, "retractall curly keeps the predicate");
+}
+
 // ^ の右の {} はゴール。残すと bagof が {}/1 を呼ぶ。左は存在量化した変数なので辿らない。
 std::string caret_curly_text() {
   return "test(caret_curly, true(L == [t])) :-\n"
@@ -711,6 +738,7 @@ int main() {
     check_atom_chars(root);
     check_list_uses(root);
     check_bagof_free(root);
+    check_retractall_curly(root);
     check_caret_curly(root);
     check_share(root);
     check_colon_user(root);

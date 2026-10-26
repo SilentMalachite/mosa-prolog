@@ -746,7 +746,13 @@ LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome) {
   if (arity != 1) return want;
   want.kind = kind_of_one(name);
   if (want.kind == LgtKind::Other) return want;
-  want.detail = write_term(heap, machine.operators(), heap.arg(term, 0), {}, parsed.names);
+  // 結果の {ゴール} は本体と同じく実行する。述語 {}/1 にすると存在エラーになる。
+  Cell shown = heap.arg(term, 0);
+  if (want.kind == LgtKind::Assert || want.kind == LgtKind::DetAssert || want.kind == LgtKind::Exists ||
+      want.kind == LgtKind::All) {
+    shown = lgt_unwrap_curlies(machine.heap(), shown);
+  }
+  want.detail = write_term(machine.heap(), machine.operators(), shown, {}, parsed.names);
   return want;
 }
 

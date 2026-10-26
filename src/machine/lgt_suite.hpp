@@ -251,6 +251,8 @@ struct LgtIo;
 [[nodiscard]] LgtFile read_lgt_file(std::string_view source);
 [[nodiscard]] LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir);
 [[nodiscard]] LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome);
+// 結果の {ゴール} は本体と同じ呼び出し位置だけ外す。データとしての {} は残す。
+[[nodiscard]] Cell lgt_unwrap_curlies(Heap& heap, Cell cell);
 [[nodiscard]] LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want, const LgtIo* io);
 // 呼び出しの関数子だけを見る。引数の中の (= ~=)/2 という指示子は呼び出しではない。
 [[nodiscard]] bool lgt_text_has_special(Machine& machine, std::string_view text);

@@ -503,6 +503,8 @@ void note_failure(LgtRun& run, const LgtCase& item, std::string_view actual) {
 
 }  // namespace
 
+Cell lgt_unwrap_curlies(Heap& heap, Cell cell) { return unwrap_curlies(heap, cell); }
+
 LgtFile read_lgt_file(std::string_view source) {
   LgtFile file;
   try {
