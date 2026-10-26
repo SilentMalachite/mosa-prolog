@@ -224,6 +224,9 @@ bool take_option(Impl& machine, const Goal& goal, Cell option, OpenChoice& choic
   if (!known) return raise_domain(machine, goal, "stream_option", option);
   const Cell arg = machine.heap.deref(machine.heap.arg(option, 0));
   if (machine.heap.unbound(arg)) return raise_inst(machine, goal);
+  // 8.11.5.3 i と Cor.3 の 5.5.12。具体化した不正な選択肢は、引数の型ではなく項全体が領域外。
+  // encoding は規格外なので、引数の型誤りを残す。
+  if (arg.tag() != Tag::Atom && name != "encoding") return raise_domain(machine, goal, "stream_option", option);
   if (arg.tag() != Tag::Atom) return raise_type(machine, goal, "atom", arg);
   if (name == "alias") {
     if (choice.has_alias) return raise_domain(machine, goal, "stream_option", option);

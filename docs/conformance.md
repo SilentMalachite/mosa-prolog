@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1784
-合格率: 82.1
+合格数: 1788
+合格率: 82.3
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -75,10 +75,6 @@ predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 fals
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag, dialect)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major), integer(Minor), integer(Patch))) domain_error(prolog_flag, version_data)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData, Dialect, _)) domain_error(prolog_flag, dialect)
-predicates/open_4/tests.lgt lgt_open_4_20 error(domain_error(stream_option, alias(1))) type_error(atom, 1)
-predicates/open_4/tests.lgt lgt_open_4_22 error(domain_error(stream_option, eof_action(1))) type_error(atom, 1)
-predicates/open_4/tests.lgt lgt_open_4_24 error(domain_error(stream_option, reposition(1))) type_error(atom, 1)
-predicates/open_4/tests.lgt lgt_open_4_26 error(domain_error(stream_option, type(1))) type_error(atom, 1)
 predicates/open_4/tests.lgt lgt_open_4_31 errors([permission_error(open, source_sink, _), existence_error(source_sink, _)]) unsupported
 predicates/open_4/tests.lgt lgt_open_4_41 true(Action==eof_code) existence_error(procedure, :: /2)
 predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(procedure, :: /2)

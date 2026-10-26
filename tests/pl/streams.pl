@@ -24,7 +24,10 @@ test(open_source_int, open(1, read, S), error(domain_error(source_sink, 1))).
 test(open_mode_bad, open(a, foo, S), error(domain_error(io_mode, foo))).
 test(open_mode_before_option, open(a, foo, S, [eof_action(drop)]), error(domain_error(io_mode, foo))).
 test(open_opt_atom, open(a, read, S, [foo]), error(domain_error(stream_option, foo))).
-test(open_type_int, open(a, read, S, [type(1)]), error(type_error(atom, 1))).
+test(open_alias_int, open(a, read, S, [alias(1)]), error(domain_error(stream_option, alias(1)))).
+test(open_eof_int, open(a, read, S, [eof_action(1)]), error(domain_error(stream_option, eof_action(1)))).
+test(open_reposition_int, open(a, read, S, [reposition(1)]), error(domain_error(stream_option, reposition(1)))).
+test(open_type_int, open(a, read, S, [type(1)]), error(domain_error(stream_option, type(1)))).
 test(open_type_bad, open(a, read, S, [type(foo)]), error(domain_error(stream_option, type(foo)))).
 test(open_encoding_bad, open(a, read, S, [encoding(latin1)]), error(domain_error(stream_option, encoding(latin1)))).
 test(open_eof_bad, open(a, read, S, [eof_action(drop)]), error(domain_error(stream_option, eof_action(drop)))).
