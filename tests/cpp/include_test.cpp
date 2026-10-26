@@ -204,6 +204,12 @@ void check_include_goal() {
   mosa_test::check(machine->query("include(missing).").kind == mosa::StopKind::Exception, "not a goal");
 }
 
+void check_include_fact() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("p(include('nofile.pl')).").ok, "fact is not a directive");
+  mosa_test::check(machine->query("p(include('nofile.pl')).").kind == mosa::StopKind::Success, "fact clause");
+}
+
 }  // namespace
 
 int main() {
@@ -221,5 +227,6 @@ int main() {
   check_include_cycle(dir);
   check_include_japanese(dir);
   check_include_goal();
+  check_include_fact();
   return mosa_test::failures();
 }

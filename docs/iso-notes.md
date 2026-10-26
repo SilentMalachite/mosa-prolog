@@ -142,3 +142,15 @@
 ## 8.11.5.3 f ストリーム引数が具体値
 
 決定（2026-10-25）: B。Cor.2 の 7.12.2 と 8.11.5.3 f のとおり `uninstantiation_error(Stream)`。`open_string/2` の `Stream` もモードが `-` なので同じ Formal。仕様第3節の一覧に `uninstantiation_error/1` を足した。
+
+## 7.10.2.11 eof_action(reset)
+
+未決: 終端のあと `reset` で読むと、今は先頭へ巻き戻す。テスト `reset rereads` がこれを固定している。7.10.2.11 は、終端を越えた印を下ろして、もう一度読む、とだけ書く。A（今のとおり先頭へ戻す）か、B（位置は末尾のまま、印だけ下ろす。源が増えていなければ次も終端）か。
+
+## 8.11.1.3 current_input のドメイン
+
+未決: `current_input/1`、`current_output/1`、`stream_property/2` に流れでない項を渡すと、今は `domain_error(stream_or_alias, S)` である。テスト `input_bad`、`output_bad`、`prop_bad_stream` がこれを固定している。8.11.1.3 a と 8.11.8.3 a は `domain_error(stream, S)` である。A（`stream_or_alias` のまま、逸脱として残す）か、B（この 3 述語だけ `domain_error(stream, S)` にする）か。
+
+## 8 with_output_to のメモリ
+
+未決: `with_output_to/2` が作ったメモリの流れは、終わったあとも開いたまま残る。そのあと `stream_property(S, mode(write))` がこの流れを返し、書き込みもできる。A（終わったら閉じる）か、B（開いたまま残す）か。

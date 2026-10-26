@@ -248,6 +248,42 @@ void check_file_operator(const std::filesystem::path& dir) {
   mosa_test::check(!failed->load_program("a は b.").ok, "op rolled back");
 }
 
+void check_file_syntax_restores(const std::filesystem::path& dir) {
+  const auto child = dir / "syntax_child.pl";
+  mosa_test::check(write_text(child, "p(2).\nr(3).\n"), "write syntax child");
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("p(1).").ok, "prior clause");
+  const auto status = machine->load_program(file_list({child}) + " q(.");
+  mosa_test::check(!status.ok, "syntax after list");
+  mosa_test::check(answers(*machine, "p(X).") == "1", "syntax restores replaced");
+  mosa_test::check(machine->query("current_predicate(r/1).").kind == mosa::StopKind::Failure,
+                   "syntax drops consulted");
+  mosa_test::check(machine->load_program(ensure_of(child)).ok, "ensure reads again");
+  mosa_test::check(answers(*machine, "p(X).") == "2", "rolled path is not prepared");
+  mosa_test::check(answers(*machine, "r(X).") == "3", "consulted predicate returns");
+}
+
+void check_file_kept_does_not_stick(const std::filesystem::path& dir) {
+  const auto inner = dir / "kept_inner.pl";
+  const auto outer = dir / "kept_outer.pl";
+  mosa_test::check(write_text(inner, "k(1).\n:- initialization(throw(x)).\n"), "write kept inner");
+  mosa_test::check(write_text(outer, ":- initialization(consult(" + prolog_path(inner) + ")).\n"),
+                   "write kept outer");
+  auto kept = mosa::Machine::create();
+  mosa_test::check(kept->load_program(file_list({outer})).ok, "nested failure is not an error");
+  mosa_test::check(answers(*kept, "k(X).") == "1", "inner throw still keeps");
+
+  auto rolled = mosa::Machine::create();
+  mosa_test::check(rolled->load_program("old(1).").ok, "prior old");
+  const auto status = rolled->load_program("p(1). " + file_list({outer}) + " q(.");
+  mosa_test::check(!status.ok, "syntax after nested throw");
+  mosa_test::check(answers(*rolled, "old(X).") == "1", "earlier load stays");
+  mosa_test::check(rolled->query("current_predicate(p/1).").kind == mosa::StopKind::Failure,
+                   "parent clause rolls back");
+  mosa_test::check(rolled->query("current_predicate(k/1).").kind == mosa::StopKind::Failure,
+                   "nested clause rolls back");
+}
+
 void check_file_japanese(const std::filesystem::path& dir) {
   const auto ja = dir / "節.pl";
   mosa_test::check(write_text(ja, "親(2).\n連(1).\n"), "write ja");
@@ -274,6 +310,8 @@ int main() {
   check_file_relative(dir);
   check_file_cycle(dir);
   check_file_operator(dir);
+  check_file_syntax_restores(dir);
+  check_file_kept_does_not_stick(dir);
   check_file_japanese(dir);
   return mosa_test::failures();
 }

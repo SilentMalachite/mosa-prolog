@@ -267,6 +267,13 @@ void check_ensure_goal() {
   mosa_test::check(machine->query("ensure_loaded(missing).").kind == mosa::StopKind::Exception, "not a goal");
 }
 
+void check_ensure_fact() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("p(ensure_loaded('nofile.pl')).").ok, "fact is not a directive");
+  mosa_test::check(machine->query("p(ensure_loaded('nofile.pl')).").kind == mosa::StopKind::Success,
+                   "fact clause");
+}
+
 }  // namespace
 
 int main() {
@@ -291,5 +298,6 @@ int main() {
   check_ensure_broken(dir);
   check_ensure_japanese(dir);
   check_ensure_goal();
+  check_ensure_fact();
   return mosa_test::failures();
 }

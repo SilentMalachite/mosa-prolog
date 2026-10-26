@@ -552,6 +552,8 @@ LoadStatus finish_load(Impl& machine, std::size_t heap_base, const std::vector<C
   }
   machine.heap.truncate(heap_base);
   machine.diagnostic.clear();
+  // 成功した読み込みの印を残すと、親の構文エラーが節を戻さなくなる。
+  machine.load_kept = false;
   return LoadStatus{true, {}};
 }
 
@@ -621,6 +623,8 @@ std::filesystem::path canonical_key(const std::filesystem::path& file) {
 }
 
 bool file_argument(Impl& machine, Cell directive, std::string_view functor, Cell& arg) {
+  // 事実 p(include(f)) は指示ではない。関手が :- か ?- のときだけ開く。
+  if (!is_directive(machine.heap, directive)) return false;
   directive = machine.heap.deref(directive);
   if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
   const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
@@ -723,6 +727,16 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);
     if (ensured < 0) return false;
     if (ensured > 0) continue;
+    // [File] は別の読み込みで既存の節を置き換える。親の写しに無いと、親の失敗で戻せない。
+    if (is_directive(machine.heap, term)) {
+      const Cell body = machine.heap.deref(machine.heap.arg(term, 0));
+      if (body.tag() == Tag::Lis || (body.tag() == Tag::Atom &&
+                                     machine.atoms.name(static_cast<std::uint32_t>(body.raw() >> 3)) == "[]")) {
+        for (const Predicate& predicate : machine.predicates) {
+          remember_pred(machine, scan.snapshots, predicate.name, predicate.arity);
+        }
+      }
+    }
     const int listed = apply_file_list(machine, term, directory, scan.opening);
     if (listed < 0) return false;
     if (listed > 0) continue;
