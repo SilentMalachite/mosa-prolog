@@ -88,11 +88,7 @@ test(include_goal, include(missing), error(existence_error(procedure, include/1)
 
 % 7.4.2 ensure_loaded/1。指示だけ。同じパスは一度だけ読む。
 % ファイルが要る確認は tests/cpp/ensure_test.cpp。ここはゴールではないことだけ。
-% 拡張子の無い名前は file.pl を指す。Logtalk の ensure_loaded(file_1) が file_1.pl を開くため。
 
-:- ensure_loaded('../tmp/ensure_a').
-
-test(ensure_loaded_a, (findall(X, a(X), L), L == [1]), true).
 test(ensure_goal, ensure_loaded(missing), error(existence_error(procedure, ensure_loaded/1))).
 
 % 7.4.2 [File]。リストの各アトムを consult と同じ手続きで読む。

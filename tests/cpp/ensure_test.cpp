@@ -262,6 +262,44 @@ void check_ensure_japanese(const std::filesystem::path& dir) {
   mosa_test::check(machine->query("連(1).").kind == mosa::StopKind::Success, "ja clause");
 }
 
+// 拡張子の無い名前だけ file.pl を足す。普通のファイルと、既にある拡張子は変えない。
+// どちらも無いときの診断は、渡された名前のままにする。
+void check_ensure_suffix(const std::filesystem::path& dir) {
+  const auto box = dir / "suffix";
+  std::error_code error;
+  std::filesystem::remove_all(box, error);
+  std::filesystem::create_directories(box);
+  const auto bare = box / "plain";
+  const auto only_pl = box / "extless.pl";
+  const auto typed = box / "kept.txt";
+  const auto missing = box / "absent";
+  mosa_test::check(write_text(bare, "b(1).\n"), "write bare");
+  mosa_test::check(write_text(box / "plain.pl", "b(9).\n"), "write bare trap");
+  mosa_test::check(write_text(only_pl, "a(1).\n"), "write extless");
+  mosa_test::check(write_text(typed, "c(1).\n"), "write typed");
+  mosa_test::check(write_text(box / "kept.txt.pl", "c(9).\n"), "write typed trap");
+  mosa_test::check(write_text(box / "kept.pl", "c(8).\n"), "write replaced trap");
+
+  auto extless = mosa::Machine::create();
+  mosa_test::check(extless->load_program(ensure_of(box / "extless")).ok, "extless load");
+  mosa_test::check(answers(*extless, "a(X).") == "1", "extless reads name.pl");
+
+  auto plain = mosa::Machine::create();
+  mosa_test::check(plain->load_program(ensure_of(bare)).ok, "bare load");
+  mosa_test::check(answers(*plain, "b(X).") == "1", "bare file wins");
+
+  auto kept = mosa::Machine::create();
+  mosa_test::check(kept->load_program(ensure_of(typed)).ok, "typed load");
+  mosa_test::check(answers(*kept, "c(X).") == "1", "extension stays");
+
+  auto gone = mosa::Machine::create();
+  const auto status = gone->load_program(ensure_of(missing));
+  const auto shown = std::filesystem::path{missing.generic_string()}.string();
+  mosa_test::check(!status.ok && gone->diagnostic() == shown + ": ファイルを開けません", "missing keeps name");
+
+  std::filesystem::remove_all(box, error);
+}
+
 void check_ensure_goal() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->query("ensure_loaded(missing).").kind == mosa::StopKind::Exception, "not a goal");
@@ -297,6 +335,7 @@ int main() {
   check_ensure_operator(dir);
   check_ensure_broken(dir);
   check_ensure_japanese(dir);
+  check_ensure_suffix(dir);
   check_ensure_goal();
   check_ensure_fact();
   return mosa_test::failures();
