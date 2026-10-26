@@ -309,14 +309,8 @@ std::optional<Scan> Lexer::append_escape(std::string* text, char32_t* code) {
 
 std::optional<Scan> Lexer::escape_continuation() {
   const SourceChar br = peek_char();
+  // 8.16.1.4 はバックスラッシュと改行だけを消す。直後の空白はアトムに残る。
   advance(br.code, br.bytes);
-  while (index_ < source_.size()) {
-    const SourceChar ch = peek_char();
-    if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
-    // 改行そのものは直前で消費した。続くレイアウトだけ引用テキストから落とす。
-    if (classify(ch.code) != CharClass::Layout) break;
-    advance(ch.code, ch.bytes);
-  }
   return std::nullopt;
 }
 

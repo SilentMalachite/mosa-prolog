@@ -1,5 +1,8 @@
 test(atom_length_evening, atom_length('enchanted evening', N), solutions([N = 17])).
 test(atom_length_evening_n, atom_length('enchanted evening', 17), true).
+% 8.16.1.4。バックスラッシュと改行だけを消し、直後の空白は残す。
+test(atom_length_continued, atom_length('enchanted\
+ evening', N), solutions([N = 17])).
 test(atom_length_empty, atom_length('', N), solutions([N = 0])).
 test(atom_concat_hello, atom_concat('hello', ' world', A), solutions([A = 'hello world'])).
 test(atom_concat_small, atom_concat(A, ' world', 'small world'), solutions([A = small])).
