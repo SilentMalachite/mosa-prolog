@@ -22,6 +22,14 @@ test(bagof_exist_copy, (
   S \== T, S \== U,
   T \== U
 ), true).
+test(bagof_free_alias, (
+  findall(1, bagof(E, bagof(t, (A = E; B = E; C = E), _), _), N),
+  N = [1],
+  bagof(E, bagof(t, (A = E; B = E; C = E), _), L),
+  (L == [A, B, C]; L == [C, B, A]),
+  bagof(X, (Y = X; Z = X), S),
+  S == [Y, Z]
+), true).
 test(setof_sort, setof(X, (X = b; X = a; X = b), L), solutions([L = [a, b]])).
 test(setof_group, setof(X, d(X, Y), L), solutions([(Y = a, L = [1, 3]), (Y = b, L = [2])])).
 test(setof_exist, setof(X, Y^d(X, Y), L), solutions([L = [1, 2, 3]])).

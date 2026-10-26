@@ -8,6 +8,7 @@
 // テスト: tests/pl/solutions.pl
 
 #include "../machine/internal.hpp"
+#include "solutions_internal.hpp"
 
 #include <array>
 #include <cstddef>
@@ -17,50 +18,16 @@
 #include <vector>
 
 namespace mosa {
+using sol::CopyKind;
+using sol::CopyNode;
+using sol::Finish;
+using sol::Group;
+using sol::Image;
+using sol::Packet;
+
 namespace {
 
 enum class Which { None, Findall, Bagof, Setof };
-
-enum class Finish { Ready, Threw, Halted };
-
-enum class CopyKind { Ext, Loc, Atom, Int, Float, List, Str };
-
-struct CopyNode {
-  CopyKind kind = CopyKind::Atom;
-  int id = -1;
-  std::uint32_t atom = 0;
-  std::uint16_t arity = 0;
-  std::int64_t integer = 0;
-  double floating = 0;
-  std::vector<int> kids;
-};
-
-// 証人リストとテンプレートを一つの像にする。外部変数の id は解をまたいで共有する。
-struct Image {
-  std::vector<CopyNode> nodes;
-  int witness = -1;
-  int templ = -1;
-};
-
-struct Group {
-  ExportedTerm key;
-  std::vector<ExportedTerm> templs;
-  std::vector<Image> shots;
-};
-
-struct Packet {
-  Finish end = Finish::Ready;
-  std::vector<Group> groups;
-  std::vector<std::uint64_t> ext_raw;
-  ExportedTerm ball;
-  int halt_code = 0;
-};
-
-struct Answer {
-  Cell witness{};
-  std::vector<Cell> values;
-  Cell list{};
-};
 
 struct Saved {
   std::vector<Entry> stack;
@@ -74,6 +41,13 @@ struct Saved {
   std::size_t extras_mark = 0;
 };
 
+// 呼び出し前に未束縛だった証人。解の途中で別のセルへ結び付いても、この番地が同一性である。
+struct Home {
+  std::size_t index = 0;
+  std::uint64_t raw = 0;
+  bool live = false;
+};
+
 // 呼び出し前の自由変数は解をまたいで同じ番号。存在量化と、ゴールが作った変数は解ごとに 0 から振り直す。
 struct VarIds {
   std::size_t base = 0;
@@ -83,10 +57,20 @@ struct VarIds {
   std::vector<std::pair<std::size_t, int>> stable;
   std::vector<std::pair<std::size_t, int>> local;
   std::vector<std::uint64_t> ext_raw;
+  std::vector<Home> homes;
+  // 証人でない未束縛セルを、最初にそこへ結び付いた証人の番号へ戻す。
+  std::vector<std::pair<std::uint64_t, int>> alias;
 
   void reset_local() {
     local.clear();
     local_next = 0;
+  }
+
+  int outside(std::uint64_t raw) const {
+    for (const auto& item : alias) {
+      if (item.first == raw) return item.second;
+    }
+    return -1;
   }
 
   // 存在量化した変数を外部のまま残すと、自由変数の同じ具体化が解ごとに分かれる。
@@ -225,10 +209,52 @@ Cell marker_for(Impl& machine, std::uint32_t name, int id) {
   return machine.heap.structure(name, args);
 }
 
+int kept_id(VarIds& ids, int home) {
+  const Home& kept = ids.homes[static_cast<std::size_t>(home)];
+  return ids.id_of(kept.index, kept.raw, false);
+}
+
+bool home_cell(const VarIds& ids, std::uint64_t raw) {
+  for (const Home& home : ids.homes) {
+    if (home.live && home.raw == raw) return true;
+  }
+  return false;
+}
+
+void note_homes(const Impl& machine, const std::vector<Cell>& witnesses, VarIds& ids) {
+  ids.homes.clear();
+  for (const Cell& var : witnesses) {
+    Home home;
+    const Cell value = machine.heap.deref(var);
+    if (machine.heap.unbound(value)) {
+      home.live = true;
+      home.index = heap_index(machine, value);
+      home.raw = value.raw();
+    }
+    ids.homes.push_back(home);
+  }
+}
+
+// (=)/2 は対称である。自由変数がテンプレート側へ結び付いても、具体化 W は証人のセルで数える。
+void note_alias(const Impl& machine, VarIds& ids) {
+  ids.alias.clear();
+  for (int index = 0; index < static_cast<int>(ids.homes.size()); ++index) {
+    const Home& home = ids.homes[static_cast<std::size_t>(index)];
+    if (!home.live) continue;
+    const Cell value = machine.heap.deref(Cell{home.raw});
+    if (!machine.heap.unbound(value) || value.raw() == home.raw || home_cell(ids, value.raw())) continue;
+    if (ids.outside(value.raw()) >= 0) continue;
+    ids.alias.emplace_back(value.raw(), index);
+  }
+}
+
 Cell encode(Impl& machine, Cell cell, VarIds& ids, std::vector<std::pair<std::uint64_t, Cell>>& seen,
             std::uint32_t external, std::uint32_t renaming) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) {
+    if (const int home = ids.outside(cell.raw()); home >= 0) {
+      return marker_for(machine, external, kept_id(ids, home));
+    }
     const auto index = heap_index(machine, cell);
     const bool local = as_local(ids, index, cell);
     const auto name = local ? renaming : external;
@@ -320,6 +346,14 @@ int copy_cell(Impl& machine, Cell cell, Image& image, std::vector<std::pair<std:
     return prior;
   }
   if (machine.heap.unbound(cell)) {
+    if (const int home = ids.outside(cell.raw()); home >= 0) {
+      CopyNode node;
+      node.kind = CopyKind::Ext;
+      node.id = kept_id(ids, home);
+      const int at = push_node(image, std::move(node));
+      seen.emplace_back(cell.raw(), at);
+      return at;
+    }
     CopyNode node;
     const auto index = heap_index(machine, cell);
     const bool local = as_local(ids, index, cell);
@@ -374,6 +408,7 @@ bool same_term(Impl& machine, const ExportedTerm& left, const ExportedTerm& righ
 void remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, VarIds& ids,
               std::vector<Group>& groups, bool share) {
   ids.reset_local();
+  note_alias(machine, ids);
   const ExportedTerm key_copy = export_term(machine, coded_key(machine, witnesses, ids));
   ExportedTerm templ_copy;
   Image image;
@@ -474,6 +509,7 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
   VarIds ids;
   ids.base = saved.heap_mark;
   ids.hidden = &hidden;
+  note_homes(machine, witnesses, ids);
   launch(machine, compiled.term, kNoFrame, machine.stack.size(), compiled.env);
   Packet packet;
   while (true) {
@@ -497,261 +533,6 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
   release_callers(machine, saved, floor);
   packet.ext_raw = std::move(ids.ext_raw);
   return packet;
-}
-
-void sort_cells(Impl& machine, std::vector<Cell>& items) {
-  for (std::size_t index = 1; index < items.size(); ++index) {
-    const Cell current = items[index];
-    std::size_t hole = index;
-    while (hole > 0 && compare_cells(machine, items[hole - 1], current) > 0) {
-      items[hole] = items[hole - 1];
-      --hole;
-    }
-    items[hole] = current;
-  }
-}
-
-void unique_cells(Impl& machine, std::vector<Cell>& items) {
-  std::vector<Cell> kept;
-  for (const Cell& item : items) {
-    if (!kept.empty() && compare_cells(machine, kept.back(), item) == 0) continue;
-    kept.push_back(item);
-  }
-  items = std::move(kept);
-}
-
-void sort_answers(Impl& machine, std::vector<Answer>& answers) {
-  for (std::size_t index = 1; index < answers.size(); ++index) {
-    Answer current = std::move(answers[index]);
-    std::size_t hole = index;
-    while (hole > 0 && compare_cells(machine, answers[hole - 1].witness, current.witness) > 0) {
-      answers[hole] = std::move(answers[hole - 1]);
-      --hole;
-    }
-    answers[hole] = std::move(current);
-  }
-}
-
-struct Porter {
-  Impl* machine = nullptr;
-  const Image* image = nullptr;
-  const std::vector<std::uint64_t>* ext_raw = nullptr;
-  std::vector<Cell> loc;
-  std::vector<Cell>* shared = nullptr;
-  std::vector<char>* shared_mark = nullptr;
-  bool marking = false;
-  std::vector<Cell> made;
-  std::vector<char> started;
-
-  Cell slot(std::vector<Cell>& table, int id) {
-    const auto index = static_cast<std::size_t>(id);
-    if (table.size() <= index) table.resize(index + 1);
-    if (table[index].raw() == 0) table[index] = machine->heap.fresh_ref();
-    return table[index];
-  }
-
-  bool marked(int id) const {
-    const auto index = static_cast<std::size_t>(id);
-    return shared_mark != nullptr && index < shared_mark->size() && (*shared_mark)[index] != 0;
-  }
-
-  void mark(int id) {
-    if (shared_mark == nullptr) return;
-    const auto index = static_cast<std::size_t>(id);
-    if (shared_mark->size() <= index) shared_mark->resize(index + 1);
-    (*shared_mark)[index] = 1;
-  }
-
-  // 証人に出た局所変数だけ、袋の中で同じセルにする。存在量化だけの変数は解ごとに新しい。
-  Cell local_cell(int id) {
-    if (marking) mark(id);
-    return slot(marked(id) ? *shared : loc, id);
-  }
-
-  Cell compound(int index, const CopyNode& node) {
-    const Cell hole = machine->heap.fresh_ref();
-    made[static_cast<std::size_t>(index)] = hole;
-    std::vector<Cell> args;
-    args.reserve(node.kids.size());
-    for (const int kid : node.kids) args.push_back(at(kid));
-    const Cell real = node.kind == CopyKind::List ? machine->heap.list(args[0], args[1])
-                                                   : machine->heap.structure(node.atom, args);
-    machine->heap.bind(hole, real);
-    return hole;
-  }
-
-  Cell at(int index) {
-    const auto slot_at = static_cast<std::size_t>(index);
-    if (started[slot_at]) return made[slot_at];
-    started[slot_at] = 1;
-    const CopyNode& node = image->nodes[slot_at];
-    Cell cell;
-    if (node.kind == CopyKind::Ext) cell = Cell{ext_raw->at(static_cast<std::size_t>(node.id))};
-    else if (node.kind == CopyKind::Loc) cell = local_cell(node.id);
-    else if (node.kind == CopyKind::Atom) cell = machine->heap.atom(node.atom);
-    else if (node.kind == CopyKind::Int) cell = machine->heap.integer(node.integer);
-    else if (node.kind == CopyKind::Float) cell = machine->heap.floating(node.floating);
-    else cell = compound(index, node);
-    made[slot_at] = cell;
-    return cell;
-  }
-};
-
-Porter porter_for(Impl& machine, const Image& image, const std::vector<std::uint64_t>& ext_raw) {
-  Porter porter;
-  porter.machine = &machine;
-  porter.image = &image;
-  porter.ext_raw = &ext_raw;
-  porter.made.assign(image.nodes.size(), Cell{});
-  porter.started.assign(image.nodes.size(), 0);
-  return porter;
-}
-
-void finish_list(Impl& machine, Answer& answer, std::vector<Cell>& templs, bool sorting) {
-  if (sorting) {
-    sort_cells(machine, templs);
-    unique_cells(machine, templs);
-  }
-  answer.list = list_from_cells(machine, templs);
-}
-
-Answer make_shared(Impl& machine, const Group& group, bool sorting,
-                   const std::vector<std::uint64_t>& ext_raw) {
-  Answer answer;
-  std::vector<Cell> templs;
-  std::vector<Cell> shared;
-  std::vector<char> shared_mark;
-  bool first = true;
-  for (const Image& image : group.shots) {
-    Porter porter = porter_for(machine, image, ext_raw);
-    porter.shared = &shared;
-    porter.shared_mark = &shared_mark;
-    porter.marking = true;
-    const Cell witness = porter.at(image.witness);
-    porter.marking = false;
-    if (first) {
-      answer.witness = witness;
-      answer.values = walk_list(machine, answer.witness).items;
-      first = false;
-    }
-    templs.push_back(porter.at(image.templ));
-  }
-  finish_list(machine, answer, templs, sorting);
-  return answer;
-}
-
-// list_from_cells は常に [] で閉じる。他の呼び出しがその閉じに依存するので、開いた末尾はここで付ける。
-Cell list_ending(Impl& machine, const std::vector<Cell>& items, Cell tail) {
-  Cell end = tail;
-  for (auto it = items.rbegin(); it != items.rend(); ++it) end = machine.heap.list(*it, end);
-  return end;
-}
-
-Answer make_copied(Impl& machine, const Group& group, bool sorting, Cell tail) {
-  Answer answer;
-  std::vector<Cell> templs;
-  templs.reserve(group.templs.size());
-  for (const ExportedTerm& term : group.templs) templs.push_back(import_term(machine, term));
-  if (sorting) {
-    sort_cells(machine, templs);
-    unique_cells(machine, templs);
-  }
-  answer.list = list_ending(machine, templs, tail);
-  return answer;
-}
-
-Answer make_answer(Impl& machine, const Group& group, bool sorting, const std::vector<std::uint64_t>& ext_raw) {
-  if (!group.shots.empty()) return make_shared(machine, group, sorting, ext_raw);
-  return make_copied(machine, group, sorting, machine.heap.atom(machine.atoms.intern("[]")));
-}
-
-std::vector<Answer> answers_from(Impl& machine, const std::vector<Group>& groups, bool sorting,
-                                 const std::vector<std::uint64_t>& ext_raw) {
-  std::vector<Answer> answers;
-  answers.reserve(groups.size());
-  for (const Group& group : groups) answers.push_back(make_answer(machine, group, sorting, ext_raw));
-  if (sorting) sort_answers(machine, answers);
-  return answers;
-}
-
-Answer blank_answer(Impl& machine) {
-  Answer answer;
-  answer.list = list_from_cells(machine, {});
-  answer.witness = answer.list;
-  return answer;
-}
-
-IrTerm slot_var(std::uint16_t slot) {
-  IrTerm term;
-  term.tag = IrTag::Var;
-  term.slot = slot;
-  return term;
-}
-
-IrTerm eq_term(std::uint32_t name, std::uint16_t left, std::uint16_t right) {
-  IrTerm term;
-  term.tag = IrTag::Fun;
-  term.atom = name;
-  term.arity = 2;
-  term.args.push_back(slot_var(left));
-  term.args.push_back(slot_var(right));
-  return term;
-}
-
-IrTerm fold(IrTag tag, const std::vector<IrTerm>& parts) {
-  IrTerm tree = parts.back();
-  for (std::size_t index = parts.size(); index > 1; --index) {
-    IrTerm parent;
-    parent.tag = tag;
-    parent.args.push_back(parts[index - 2]);
-    parent.args.push_back(std::move(tree));
-    tree = std::move(parent);
-  }
-  return tree;
-}
-
-void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witnesses,
-                  const std::vector<Answer>& answers) {
-  const auto eq = machine.atoms.intern("=");
-  std::vector<Cell> env;
-  env.push_back(goal.arg(machine, 2));
-  for (const Cell& var : witnesses) env.push_back(var);
-  std::vector<IrTerm> branches;
-  branches.reserve(answers.size());
-  for (const Answer& answer : answers) {
-    std::vector<IrTerm> parts;
-    const auto list_slot = static_cast<std::uint16_t>(env.size());
-    env.push_back(answer.list);
-    for (std::size_t index = 0; index < witnesses.size(); ++index) {
-      const auto slot = static_cast<std::uint16_t>(env.size());
-      env.push_back(answer.values[index]);
-      parts.push_back(eq_term(eq, static_cast<std::uint16_t>(index + 1), slot));
-    }
-    parts.push_back(eq_term(eq, 0, list_slot));
-    branches.push_back(fold(IrTag::And, parts));
-  }
-  // 束縛は収集が例外なく終わったあと。残りの証人は選択点で返す。
-  launch(machine, fold(IrTag::Or, branches), goal.cont, machine.stack.size(), env);
-}
-
-// 空の findall/3 は []。空の findall/4 は List と Tail を同じにし、Tail を [] にしない。
-bool bind_found(Impl& machine, const Goal& goal, const Packet& packet) {
-  if (packet.groups.empty()) {
-    if (goal.arity == 3) {
-      bind_answers(machine, goal, {}, {blank_answer(machine)});
-      return true;
-    }
-    Answer answer;
-    answer.list = goal.arg(machine, 3);
-    bind_answers(machine, goal, {}, {answer});
-    return true;
-  }
-  const Cell tail = goal.arity == 4 ? goal.arg(machine, 3) : machine.heap.atom(machine.atoms.intern("[]"));
-  std::vector<Answer> answers;
-  answers.reserve(packet.groups.size());
-  for (const Group& group : packet.groups) answers.push_back(make_copied(machine, group, false, tail));
-  bind_answers(machine, goal, {}, answers);
-  return true;
 }
 
 }  // namespace
@@ -781,13 +562,14 @@ bool run_solutions(Impl& machine, const Goal& goal) {
     machine.ip = kNoFrame;
     return true;
   }
-  if (which == Which::Findall) return bind_found(machine, goal, packet);
+  if (which == Which::Findall) return sol::bind_found(machine, goal, packet);
   const bool sorting = which == Which::Setof;
   if (packet.groups.empty()) {
     machine.failed = true;
     return true;
   }
-  bind_answers(machine, goal, witnesses, answers_from(machine, packet.groups, sorting, packet.ext_raw));
+  sol::bind_answers(machine, goal, witnesses,
+                    sol::answers_from(machine, packet.groups, sorting, packet.ext_raw));
   return true;
 }
 

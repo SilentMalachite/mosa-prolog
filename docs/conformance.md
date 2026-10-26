@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1660
-合格率: 76.4
+合格数: 1662
+合格率: 76.5
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -62,7 +62,6 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
-predicates/bagof_3/tests.lgt wg17_bagof_3_33 true((L==[A, B, C];L==[C, B, A])) fail
 predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char, Code0), char_code(Char, Code), Code0==Code)) existence_error(procedure, between/3)
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream, S)) existence_error(stream, '$stream'(3))
@@ -185,7 +184,6 @@ predicates/setof_3/tests.lgt iso_setof_3_12 true fail
 predicates/setof_3/tests.lgt iso_setof_3_14 true fail
 predicates/setof_3/tests.lgt iso_setof_3_17 true fail
 predicates/setof_3/tests.lgt lgt_setof_3_34 true fail
-predicates/setof_3/tests.lgt wg17_setof_3_47 true((L==[A, B, C];L==[C, B, A])) fail
 predicates/stream_property_2/tests.lgt iso_stream_property_2_01 true((memberchk(S1-FooPath, L), memberchk(S2-BarPath, L))) fail
 predicates/stream_property_2/tests.lgt iso_stream_property_2_02 true((memberchk(FOut, L), memberchk(COut, L))) domain_error(stream_property, output)
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
