@@ -174,3 +174,9 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 `lgt_power_2_14` は `**(0, -1)` を `evaluation_error(undefined)` か `evaluation_error(zero_divisor)` と期待する。ECLiPSe の IsoErrata は、9.3.1.3.d の文面が undefined であり、無限大が定義されるので zero_divisor であるべきだと書く。Corrigendum 2 の 9.3.10.3 d は `(^)/2` の同じ形を undefined のまま残している。今は `std::pow(0, 負)` が無限大なので `evaluation_error(float_overflow)` である。
 
 A か B か: A は 9.3.1.3.d の文面どおり `evaluation_error(undefined)`。B はエラータのとおり `evaluation_error(zero_divisor)`。確認前に `float_overflow` は変えない。
+
+## 7.5.4 開いた走査と retract
+
+`logical_update_semantics_retract` は、走査の途中で `retract` しても、呼んだときの節を最後まで試すことを期待する。`retractall` と `abolish` の同じ形も同じである。ADR 0004 は、retract が以後の候補からその節を外し、今の節の残りは残す、と決めている。`tests/pl/database.pl` の `retract_open_later` は `[X = 1, X = 2]` であり、消した `later(3)` は出てこない。
+
+A か B か: A は ADR 0004 のまま、開いた走査から消した節を外す。B は 7.5.4 のとおり、その呼出しは最初の列を試す。確認前に A のままにする。
