@@ -249,9 +249,45 @@ bool test_arity(const Heap& heap, Cell head, int& arity) {
   return false;
 }
 
+// user::目標は利用者述語。モジュール修飾を残すと、機械は :: を知らないので読めない。
+Cell strip_user_scope(Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  if (cell.tag() == Tag::Lis) {
+    return heap.list(strip_user_scope(heap, heap.list_head(cell)), strip_user_scope(heap, heap.list_tail(cell)));
+  }
+  if (cell.tag() != Tag::Str) return cell;
+  const auto arity = heap.functor_arity(cell);
+  std::vector<Cell> args;
+  args.reserve(arity);
+  for (std::uint16_t index = 0; index < arity; ++index) {
+    args.push_back(strip_user_scope(heap, heap.arg(cell, index)));
+  }
+  if (arity == 2 && heap.atoms().name(heap.functor_atom(cell)) == "::" && atom_is(heap, args[0], "user")) {
+    return args[1];
+  }
+  return heap.structure(heap.functor_atom(cell), args);
+}
+
+std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const std::vector<VarName>& names) {
+  // 実行する機械の表に :: は無い。中置のまま書くと、節も本体も構文エラーになる。
+  if (operators.define(0, Specifier::Xfy, "::") != OpResult::Ok) {
+    return write_term(heap, operators, term, {}, names);
+  }
+  return write_term(heap, operators, term, {}, names);
+}
+
+bool dropped_user_uses(const Heap& heap, Cell term) {
+  if (!functor_is(heap, term, ":-", 1)) return false;
+  const Cell inner = heap.deref(heap.arg(heap.deref(term), 0));
+  if (!functor_is(heap, inner, "uses", 2)) return false;
+  // 印だけ。機械に渡すと未知の指示で load が落ち、ファイルのテストが全部止まる。
+  return atom_is(heap, heap.arg(inner, 0), "user");
+}
+
 void add_piece(Heap& heap, const OperatorTable& operators, Cell term, const std::vector<VarName>& names,
                const Parse& parse, LgtFile& file) {
-  std::string text = write_term(heap, operators, silence_flag(heap, term), {}, names);
+  const Cell prepared = strip_user_scope(heap, silence_flag(heap, term));
+  std::string text = machine_text(heap, operators, prepared, names);
   text += ".\n";
   if (parse.stack.empty()) file.program += text;
   file.pieces.push_back(LgtPiece{std::move(text), parse.stack});
@@ -263,11 +299,11 @@ void add_case(Heap& heap, const OperatorTable& operators, Cell looked, bool rule
   item.outside = outside;
   item.guard = parse.stack;
   const Cell head = heap.deref(looked);
-  item.name = write_term(heap, operators, heap.arg(head, 0), {}, names);
-  item.outcome = write_term(heap, operators, heap.arg(head, 1), {}, names);
+  item.name = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 0)), names);
+  item.outcome = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 1)), names);
   if (arity == 3) item.condition = condition_of(heap, operators, heap.arg(head, 2), names);
   const Cell goal = rule ? unwrap_curlies(heap, body) : heap.atom(heap.atoms().intern("true"));
-  item.body = write_term(heap, operators, goal, {}, names);
+  item.body = machine_text(heap, operators, strip_user_scope(heap, goal), names);
   file.cases.push_back(std::move(item));
 }
 
@@ -275,6 +311,7 @@ void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, st
                Parse& parse, LgtFile& file) {
   const Cell term = heap.deref(read.term);
   if (absorb_lgt_uses(heap, operators, term, file.operators)) return;
+  if (dropped_user_uses(heap, term)) return;
   if (dropped_directive(heap, term)) return;
   if (take_gate(heap, operators, term, read.names, parse, file)) return;
   Cell head;

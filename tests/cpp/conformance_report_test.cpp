@@ -698,6 +698,34 @@ void check_open_if(const std::filesystem::path& root) {
   mosa_test::check(failed.find("later") == std::string::npos, "open if did not run");
 }
 
+std::string qual_text() { return "user::aa(1).\ntest(see, true) :- {aa(1)}.\n"; }
+
+std::string bind_text() {
+  return "test(bound, true, [condition((X = 1, X == 1))]) :- {true}.\n"
+         "test(cutelse, true, [condition((true -> fail ; true))]) :- {true}.\n";
+}
+
+void check_machine_goal(const std::filesystem::path& root) {
+  const auto suite = root / "colon";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "colon-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "unify_2" / "tests.lgt", qual_text()), "write qual");
+  mosa_test::check(write_text(prolog / "predicates" / "callable_1" / "tests.lgt", bind_text()), "write bind");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  const std::string side = after_heading(body, "別欄:");
+  // user:: を外すと aa/1 が載る。束縛は一つの query。true -> fail ; true は失敗なので別欄。
+  mosa_test::check(code == 0, "colon exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 2"), "colon denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 2"), "colon passed");
+  mosa_test::check(!token_has(failed, "see"), "see loaded");
+  mosa_test::check(!token_has(failed, "bound"), "bound keeps X");
+  mosa_test::check(!token_has(side, "bound"), "bound not side");
+  mosa_test::check(token_has(side, "cutelse"), "cutelse side");
+  mosa_test::check(!token_has(failed, "cutelse"), "cutelse not failed");
+}
+
 void check_outside(const std::filesystem::path& root) {
   const auto suite = root / "out";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -733,6 +761,7 @@ int main() {
     check_machine_body(root);
     check_branches(root);
     check_open_if(root);
+    check_machine_goal(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

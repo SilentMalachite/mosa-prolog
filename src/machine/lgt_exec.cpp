@@ -353,6 +353,8 @@ Verdict eval_goal(Machine& machine, const Heap& heap, const OperatorTable& ops, 
   cell = heap.deref(cell);
   if (atom_is(heap, cell, "true")) return Verdict::Yes;
   if (atom_is(heap, cell, "fail") || atom_is(heap, cell, "false")) return Verdict::No;
+  // 旗も :: も無いゴールは一つの query。分けると束縛が消え、(-> ; ) の else が走る。
+  if (!calls_special(heap, cell)) return ask_cell(machine, heap, ops, cell);
   if (cell.tag() != Tag::Str) return ask_cell(machine, heap, ops, cell);
   const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
