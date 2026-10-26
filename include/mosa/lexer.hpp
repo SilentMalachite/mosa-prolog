@@ -35,7 +35,7 @@ class Lexer {
  public:
   explicit Lexer(std::string_view source, const CharConv* conv = nullptr);
   [[nodiscard]] Scan next();
-  // 終止符は、続く空白 1 つまで含めたバイト位置。
+  // 終止符の位置はドットの直後。確認した空白は含めない。
   [[nodiscard]] std::size_t offset() const { return index_; }
 
  private:

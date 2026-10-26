@@ -264,11 +264,7 @@ Scan Lexer::scan_graphic() {
   }
   if (index_ == start.byte) {
     advance(U'.', 1);
-    // 終止符はドットと、その直後の空白 1 つ。次の項の先頭には残さない。
-    if (index_ < source_.size()) {
-      const SourceChar after = peek_char();
-      if (after.valid && classify(after.code) == CharClass::Layout) advance(after.code, after.bytes);
-    }
+    // 8.14.1.4 は終止符の直後の空白を次の項の先頭に残す。確認は先読みだけで足りる。
     return token_at(TokenKind::EndFullStop, start);
   }
   return token_at(TokenKind::Name, start, std::move(text));

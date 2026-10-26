@@ -562,6 +562,31 @@ void check_open_empty(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_open_4_01") == std::string::npos, "empty binary is at end");
 }
 
+// 8.14.1.4 は term1 のあと、空白から term2 を残す。
+std::string read_rest_text() {
+  return "test(iso_read_term_3_01, true(Assertion)) :-\n"
+         "    ^^set_text_input('term1. term2. ...'),\n"
+         "    {read(T)},\n"
+         "    T == term1,\n"
+         "    ^^text_input_assertion(' term2. ...', Assertion).\n";
+}
+
+void check_read_rest(const std::filesystem::path& root) {
+  const auto suite = root / "read-rest";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "read-rest-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "read_term_3" / "tests.lgt", read_rest_text()),
+                   "write read rest");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_read_term_3_01") != std::string::npos) show("read rest report", body);
+  mosa_test::check(code == 0, "read rest exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "read rest denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "read rest passed");
+  mosa_test::check(failed.find("iso_read_term_3_01") == std::string::npos, "read leaves the space");
+}
+
 void check_caret_curly(const std::filesystem::path& root) {
   const auto suite = root / "caret-curly";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -606,6 +631,7 @@ int main() {
     check_flag_value(root);
     check_nl_error(root);
     check_open_empty(root);
+    check_read_rest(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

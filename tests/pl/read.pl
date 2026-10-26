@@ -8,7 +8,9 @@ test(read_end_atom, (open_string('end_of_file. a.', S), read(S, end_of_file), re
 test(read_eof, (open_string('', S), read(S, A), read(S, B), A == end_of_file, B == end_of_file), true).
 test(read_eof_past, (open_string('', S), read(S, end_of_file), stream_property(S, end_of_stream(past))), true).
 test(read_layout_eof, (open_string('  ', S), read(S, end_of_file)), true).
-test(read_position, (open_string([97, 46, 10, 98, 46], S), read(S, a), stream_property(S, position(stream_position(3, 2, 1))), read(S, b)), true).
+% 8.14.1.4 は終止符の直後の改行も残す。位置はドットの次で、次の read は改行を飛ばして b を読む。
+test(read_position, (open_string([97, 46, 10, 98, 46], S), read(S, a), stream_property(S, position(stream_position(2, 1, 3))), read(S, b)), true).
+test(read_keeps_layout, (open_string('term1. term2. ...', S), read(S, T), T == term1, get_char(S, C), C == ' '), true).
 test(read_fail_consumes, (open_string('a. b.', S), (read(S, b) ; true), read(S, T), T == b), true).
 test(read_names, (open_string('foo(A, B, A).', S), read_term(S, T, [variables(L), variable_names(N), singletons(G)]), T = foo(A, B, A), L = [A, B], N = ['A'=A, 'B'=B], G = ['B'=B]), true).
 test(read_anon, (open_string('foo(_, A, _).', S), read_term(S, T, [variables(L), variable_names(N), singletons(G)]), T = foo(X, A, Y), X \== Y, L = [X, A, Y], N = ['A'=A], G = ['A'=A]), true).
