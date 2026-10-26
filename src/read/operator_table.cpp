@@ -137,6 +137,26 @@ OpResult OperatorTable::define(int priority, Specifier specifier, std::string na
 
 std::vector<OpDef> OperatorTable::entries() const { return ops_; }
 
+std::optional<OpDef> OperatorTable::stored(std::string_view name, Specifier specifier) const {
+  for (const OpDef& op : ops_) {
+    if (op.name == name && op.specifier == specifier) return op;
+  }
+  return std::nullopt;
+}
+
+std::optional<OpDef> OperatorTable::stored_class(std::string_view name, Specifier specifier) const {
+  for (const OpDef& op : ops_) {
+    if (op.name == name && same_class(op.specifier, specifier)) return op;
+  }
+  return std::nullopt;
+}
+
+void OperatorTable::erase_stored(std::string_view name, Specifier specifier) { erase_pair(ops_, name, specifier); }
+
+void OperatorTable::put_stored(int priority, Specifier specifier, std::string name) {
+  upsert(ops_, priority, specifier, std::move(name));
+}
+
 std::vector<OpDef> OperatorTable::lookup(std::string_view name) const {
   std::vector<OpDef> found;
   for (const OpDef& op : ops_) {

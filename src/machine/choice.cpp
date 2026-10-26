@@ -11,6 +11,19 @@ const std::uint64_t* watermark(const Impl& machine) {
   return machine.heap.data() + machine.stack.back().heap_mark;
 }
 
+// まだ書いた通りの組だけを戻す。あとから define が優先度を替えていたら、その指示を残す。
+void undo_touch(OperatorTable& table, const OpTouch& touch) {
+  if (touch.priority == 0) {
+    if (!touch.had || table.stored(touch.name, touch.specifier)) return;
+    table.put_stored(touch.old_priority, touch.old_specifier, touch.name);
+    return;
+  }
+  const auto current = table.stored(touch.name, touch.specifier);
+  if (!current || current->priority != touch.priority) return;
+  table.erase_stored(touch.name, touch.specifier);
+  if (touch.had) table.put_stored(touch.old_priority, touch.old_specifier, touch.name);
+}
+
 }  // namespace
 
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark) {
@@ -51,18 +64,35 @@ void push_frame(Impl& machine, Entry entry) {
   machine.stack.push_back(std::move(entry));
 }
 
-void trail_operators(Impl& machine) {
+void trail_operators(Impl& machine, int priority, Specifier specifier, const std::vector<std::string>& names) {
   if (machine.stack.empty()) return;
   const auto effect_id = machine.stack.back().effect_id;
   if (effect_id == 0) return;
-  machine.op_undos.push_back(OpUndo{effect_id, machine.operators});
+  OpUndo undo;
+  undo.effect_id = effect_id;
+  for (const std::string& name : names) {
+    OpTouch touch;
+    touch.name = name;
+    touch.priority = priority;
+    touch.specifier = specifier;
+    const auto old = priority == 0 ? machine.operators.stored(name, specifier)
+                                   : machine.operators.stored_class(name, specifier);
+    if (old) {
+      touch.had = true;
+      touch.old_priority = old->priority;
+      touch.old_specifier = old->specifier;
+    }
+    undo.touches.push_back(std::move(touch));
+  }
+  machine.op_undos.push_back(std::move(undo));
 }
 
 void restore_operators(Impl& machine, std::uint64_t effect_id) {
   if (effect_id == 0) return;
   while (!machine.op_undos.empty() && machine.op_undos.back().effect_id >= effect_id) {
-    machine.operators = std::move(machine.op_undos.back().previous);
+    const OpUndo undo = std::move(machine.op_undos.back());
     machine.op_undos.pop_back();
+    for (auto it = undo.touches.rbegin(); it != undo.touches.rend(); ++it) undo_touch(machine.operators, *it);
   }
 }
 
@@ -206,8 +236,8 @@ bool backtrack(Impl& machine) {
   while (!machine.stack.empty()) {
     const Entry top = machine.stack.back();
     restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
-    // 節の追加は戻さない。選択点より後ろの演算子表だけを、やり直しの前に戻す。
-    restore_operators(machine, top.effect_id);
+    // 成功した catch は選択点ではない。記録は親の選択点まで残す。
+    if (!(top.pick == Pick::Catch && !top.armed)) restore_operators(machine, top.effect_id);
     // 収集の床。束縛は消すが、呼び出し元の節走査はやり直さない。
     if (top.pick == Pick::Barrier) return false;
     if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {

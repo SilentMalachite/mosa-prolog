@@ -141,10 +141,20 @@ struct Stream {
   std::string path;
 };
 
+// この op/3 が変えた名前だけ。表全体を写すと、後の :- op まで消える。
+struct OpTouch {
+  std::string name;
+  int priority = 0;
+  Specifier specifier = Specifier::Xfx;
+  bool had = false;
+  int old_priority = 0;
+  Specifier old_specifier = Specifier::Xfx;
+};
+
 // 選択点より後ろの op/3 だけを失敗で戻す。assert と retract はここへ載せない。
 struct OpUndo {
   std::uint64_t effect_id = 0;
-  OperatorTable previous;
+  std::vector<OpTouch> touches;
 };
 
 struct Machine::Impl {
@@ -242,7 +252,7 @@ void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
-void trail_operators(Impl& machine);
+void trail_operators(Impl& machine, int priority, Specifier specifier, const std::vector<std::string>& names);
 void restore_operators(Impl& machine, std::uint64_t effect_id);
 void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);

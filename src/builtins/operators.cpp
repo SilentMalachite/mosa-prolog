@@ -143,8 +143,11 @@ bool commit_ops(Impl& machine, const Goal& goal, int priority, Specifier spec,
     raise_permit(machine, goal, result == OpResult::ModifyComma ? "modify" : "create", name.cell);
     return false;
   }
-  // 検査が通ってから表を替える。選択点より前の宣言は印が 0 なので残る。
-  trail_operators(machine);
+  // 検査が通ってから表を替える。戻すのはこの呼び出しの名前だけ。
+  std::vector<std::string> touched;
+  touched.reserve(names.size());
+  for (const OpName& name : names) touched.push_back(name.text);
+  trail_operators(machine, priority, spec, touched);
   machine.operators = std::move(trial);
   return true;
 }

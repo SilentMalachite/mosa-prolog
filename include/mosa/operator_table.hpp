@@ -2,6 +2,7 @@
 
 // キーは UTF-8 の文字列である。アトム表より先に置くため、アトム番号にはしない。
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -34,6 +35,12 @@ class OperatorTable {
 
   // 表に入っている順。名前を決めない current_op/3 はこの順で返す。
   [[nodiscard]] std::vector<OpDef> entries() const;
+
+  // op/3 を戻すとき、その名前と指定子だけを見る。他の define は触らない。
+  [[nodiscard]] std::optional<OpDef> stored(std::string_view name, Specifier specifier) const;
+  [[nodiscard]] std::optional<OpDef> stored_class(std::string_view name, Specifier specifier) const;
+  void erase_stored(std::string_view name, Specifier specifier);
+  void put_stored(int priority, Specifier specifier, std::string name);
 
  private:
   std::vector<OpDef> ops_;

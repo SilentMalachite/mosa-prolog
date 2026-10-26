@@ -134,3 +134,32 @@ test(op_backtrack_prefix, (
   op(0, xf, o)
 ), true).
 
+% 選択点が無い失敗は op/3 を残す。Cleanup の印は 0。
+test(op_fail_keeps, (op(100, fx, zz), fail), fail).
+test(op_fail_kept, current_op(100, fx, zz), true).
+test(op_fail_clear, op(0, fx, zz), true).
+
+% 成功した catch は枠を残すが armed を落とす。選択点が無ければ、中の op/3 は残す。
+test(op_catch_keeps, (catch(op(100, fx, yy), _, true), fail), fail).
+test(op_catch_kept, current_op(100, fx, yy), true).
+test(op_catch_clear, op(0, fx, yy), true).
+
+% 守っているゴールが失敗した catch は、その op/3 を戻す。
+test(op_armed_catch_undo, catch((op(100, fx, aa), fail), _, true), fail).
+test(op_armed_catch_gone, \+ current_op(100, fx, aa), true).
+
+% throw を受けた catch も、中の op/3 を戻す。
+test(op_throw_undo, (catch((op(100, fx, cc), throw(1)), _, true), \+ current_op(100, fx, cc)), true).
+
+% ctest は build が作業ディレクトリ。直接実行はリポジトリの根。
+consult_dd :- consult('tests/pl/op_keep_dir.pl').
+consult_dd :- consult('../tests/pl/op_keep_dir.pl').
+
+% op/3 の戻しは、その後の :- op を消さない。zz2 だけが選択点より後ろの op/3。
+test(op_directive_survives, (
+  (op(100, fx, zz2), consult_dd, fail ; current_op(200, xfx, dd), \+ current_op(100, fx, zz2)),
+  op(0, xfx, dd),
+  op(0, fx, zz2)
+), true).
+test(op_directive_clear, (op(0, xfx, dd), op(0, fx, zz2)), true).
+
