@@ -110,28 +110,192 @@ Cell strip_minus(const Heap& heap, Cell head) {
   return heap.deref(heap.arg(heap.deref(head), 0));
 }
 
-void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, std::size_t begin, const ReadTerm& read,
+// 旗を節に残すと存在エラーになる。失敗に替えてから載せると、condition は別欄に入る。
+Cell silence_flag(Heap& heap, Cell cell, bool& found) {
+  cell = heap.deref(cell);
+  if (cell.tag() == Tag::Lis) {
+    bool head_found = false;
+    bool tail_found = false;
+    const Cell head = silence_flag(heap, heap.list_head(cell), head_found);
+    const Cell tail = silence_flag(heap, heap.list_tail(cell), tail_found);
+    found = found || head_found || tail_found;
+    if (!head_found && !tail_found) return cell;
+    return heap.list(head, tail);
+  }
+  if (cell.tag() != Tag::Str) return cell;
+  if (functor_is(heap, cell, "current_logtalk_flag", 2)) {
+    found = true;
+    return heap.atom(heap.atoms().intern("fail"));
+  }
+  bool any = false;
+  std::vector<Cell> args;
+  args.reserve(heap.functor_arity(cell));
+  for (std::uint16_t index = 0; index < heap.functor_arity(cell); ++index) {
+    bool child = false;
+    args.push_back(silence_flag(heap, heap.arg(cell, index), child));
+    any = any || child;
+  }
+  if (!any) return cell;
+  found = true;
+  return heap.structure(heap.functor_atom(cell), args);
+}
+
+Cell silence_flag(Heap& heap, Cell cell) {
+  bool found = false;
+  return silence_flag(heap, cell, found);
+}
+
+enum class GateMark { None, If, Elif, Else, Endif };
+
+struct Parse {
+  std::vector<LgtGuard> stack;
+};
+
+GateMark gate_mark(const Heap& heap, Cell term, Cell& goal) {
+  if (!functor_is(heap, term, ":-", 1)) return GateMark::None;
+  const Cell inner = heap.deref(heap.arg(term, 0));
+  if (atom_is(heap, inner, "else")) return GateMark::Else;
+  if (atom_is(heap, inner, "endif")) return GateMark::Endif;
+  if (functor_is(heap, inner, "if", 1)) {
+    goal = heap.arg(inner, 0);
+    return GateMark::If;
+  }
+  if (functor_is(heap, inner, "elif", 1)) {
+    goal = heap.arg(inner, 0);
+    return GateMark::Elif;
+  }
+  return GateMark::None;
+}
+
+std::string written_goal(Heap& heap, const OperatorTable& operators, Cell goal, const std::vector<VarName>& names) {
+  return write_term(heap, operators, unwrap_curlies(heap, goal), {}, names);
+}
+
+void open_gate(Parse& parse, LgtFile& file, std::string cond) {
+  LgtGate gate;
+  gate.parent = parse.stack;
+  gate.arms.push_back(LgtArm{std::move(cond), false});
+  const int group = static_cast<int>(file.gates.size());
+  file.gates.push_back(std::move(gate));
+  parse.stack.push_back(LgtGuard{group, 0});
+}
+
+void next_arm(Parse& parse, LgtFile& file, std::string cond, bool otherwise) {
+  if (parse.stack.empty()) {
+    file.error = "項が閉じていません";
+    return;
+  }
+  LgtGate& gate = file.gates[static_cast<std::size_t>(parse.stack.back().group)];
+  // else のあとには枝が続かない。endif が無いのと同じで、ファイルは読めない。
+  if (!gate.arms.empty() && gate.arms.back().otherwise) {
+    file.error = "項が閉じていません";
+    return;
+  }
+  parse.stack.back().arm = static_cast<int>(gate.arms.size());
+  gate.arms.push_back(LgtArm{std::move(cond), otherwise});
+}
+
+void close_gate(Parse& parse, LgtFile& file) {
+  if (parse.stack.empty()) {
+    file.error = "項が閉じていません";
+    return;
+  }
+  parse.stack.pop_back();
+}
+
+bool take_gate(Heap& heap, const OperatorTable& operators, Cell term, const std::vector<VarName>& names, Parse& parse,
                LgtFile& file) {
+  Cell goal;
+  const GateMark mark = gate_mark(heap, term, goal);
+  if (mark == GateMark::None) return false;
+  if (mark == GateMark::Endif) {
+    close_gate(parse, file);
+    return true;
+  }
+  if (mark == GateMark::If) {
+    open_gate(parse, file, written_goal(heap, operators, goal, names));
+    return true;
+  }
+  const bool otherwise = mark == GateMark::Else;
+  const std::string cond = otherwise ? std::string{} : written_goal(heap, operators, goal, names);
+  next_arm(parse, file, cond, otherwise);
+  return true;
+}
+
+std::string condition_of(Heap& heap, const OperatorTable& operators, Cell list, const std::vector<VarName>& names) {
+  std::string text;
+  list = heap.deref(list);
+  while (list.tag() == Tag::Lis) {
+    const Cell item = heap.deref(heap.list_head(list));
+    if (functor_is(heap, item, "condition", 1)) {
+      if (!text.empty()) text += ", ";
+      // 連言より弱い演算子が、隣の condition と一続きにならないように括る。
+      text += "(" + written_goal(heap, operators, heap.arg(item, 0), names) + ")";
+    }
+    list = heap.deref(heap.list_tail(list));
+  }
+  return text;
+}
+
+bool test_arity(const Heap& heap, Cell head, int& arity) {
+  if (functor_is(heap, head, "test", 2)) {
+    arity = 2;
+    return true;
+  }
+  if (functor_is(heap, head, "test", 3)) {
+    arity = 3;
+    return true;
+  }
+  return false;
+}
+
+void add_piece(Heap& heap, const OperatorTable& operators, Cell term, const std::vector<VarName>& names,
+               const Parse& parse, LgtFile& file) {
+  std::string text = write_term(heap, operators, silence_flag(heap, term), {}, names);
+  text += ".\n";
+  if (parse.stack.empty()) file.program += text;
+  file.pieces.push_back(LgtPiece{std::move(text), parse.stack});
+}
+
+void add_case(Heap& heap, const OperatorTable& operators, Cell looked, bool rule, Cell body, bool outside, int arity,
+              const std::vector<VarName>& names, const Parse& parse, LgtFile& file) {
+  LgtCase item;
+  item.outside = outside;
+  item.guard = parse.stack;
+  const Cell head = heap.deref(looked);
+  item.name = write_term(heap, operators, heap.arg(head, 0), {}, names);
+  item.outcome = write_term(heap, operators, heap.arg(head, 1), {}, names);
+  if (arity == 3) item.condition = condition_of(heap, operators, heap.arg(head, 2), names);
+  const Cell goal = rule ? unwrap_curlies(heap, body) : heap.atom(heap.atoms().intern("true"));
+  item.body = write_term(heap, operators, goal, {}, names);
+  file.cases.push_back(std::move(item));
+}
+
+void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, std::size_t begin, const ReadTerm& read,
+               Parse& parse, LgtFile& file) {
   const Cell term = heap.deref(read.term);
   if (absorb_lgt_uses(heap, operators, term, file.operators)) return;
   if (dropped_directive(heap, term)) return;
+  if (take_gate(heap, operators, term, read.names, parse, file)) return;
   Cell head;
   Cell body;
   const bool rule = split_clause(heap, term, head, body);
   const bool outside = line_minus(source, begin);
   const Cell looked = outside ? strip_minus(heap, head) : head;
-  if (functor_is(heap, looked, "test", 2)) {
-    LgtCase item;
-    item.outside = outside;
-    item.name = write_term(heap, operators, heap.arg(heap.deref(looked), 0), {}, read.names);
-    item.outcome = write_term(heap, operators, heap.arg(heap.deref(looked), 1), {}, read.names);
-    const Cell goal = rule ? unwrap_curlies(heap, body) : heap.atom(heap.atoms().intern("true"));
-    item.body = write_term(heap, operators, goal, {}, read.names);
-    file.cases.push_back(std::move(item));
+  int arity = 0;
+  if (test_arity(heap, looked, arity)) {
+    add_case(heap, operators, looked, rule, body, outside, arity, read.names, parse, file);
     return;
   }
-  file.program += write_term(heap, operators, term, {}, read.names);
-  file.program += ".\n";
+  add_piece(heap, operators, term, read.names, parse, file);
+}
+
+void wipe_read(LgtFile& file, std::string reason) {
+  file.cases.clear();
+  file.program.clear();
+  file.pieces.clear();
+  file.gates.clear();
+  file.error = std::move(reason);
 }
 
 bool integer_cell(const Heap& heap, Cell cell) {
@@ -356,19 +520,31 @@ LgtFile read_lgt_file(std::string_view source) {
       file.error = "演算子を足せません";
       return file;
     }
+    // os::目標は図形 :: なので、読みの表だけに足す。実行する機械の表には足さない。
+    if (operators.define(600, Specifier::Xfy, "::") != OpResult::Ok) {
+      file.error = "演算子を足せません";
+      return file;
+    }
     Reader reader(source, heap, operators);
+    Parse parse;
     while (true) {
       const auto begin = reader.consumed();
       const ReadOutcome outcome = reader.next();
       if (outcome.failure) {
-        file.cases.clear();
-        file.program.clear();
-        file.error = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "項が閉じていません" : "予期しないトークン";
+        const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "項が閉じていません" : "予期しないトークン";
+        wipe_read(file, reason);
         return file;
       }
-      if (!outcome.term) return file;
-      keep_term(heap, operators, source, begin, *outcome.term, file);
+      if (!outcome.term) break;
+      keep_term(heap, operators, source, begin, *outcome.term, parse, file);
+      if (!file.error.empty()) {
+        wipe_read(file, file.error);
+        return file;
+      }
     }
+    // endif が無いと、選ばなかった枝の終わりが無い。ファイル全体を不合格 1 件にする。
+    if (!parse.stack.empty()) wipe_read(file, "項が閉じていません");
+    return file;
   } catch (const ResourceLimit&) {
     file = {};
     file.error = "ヒープの上限を超えました";
@@ -376,24 +552,76 @@ LgtFile read_lgt_file(std::string_view source) {
   }
 }
 
-LgtRun execute_lgt(const LgtFile& file) {
-  LgtRun run;
-  auto machine = Machine::create();
-  if (!load_ok(*machine, file.program)) {
-    for (const LgtCase& item : file.cases) {
-      if (item.outside) run.outside.push_back(item.name);
-      else note_failure(run, item, "load");
-    }
-    return run;
+namespace {
+
+bool guard_holds(const std::vector<LgtGuard>& guard, const std::vector<int>& chosen) {
+  for (const LgtGuard& item : guard) {
+    if (item.group < 0 || static_cast<std::size_t>(item.group) >= chosen.size()) return false;
+    if (chosen[static_cast<std::size_t>(item.group)] != item.arm) return false;
   }
-  // =~= はこのファイルの機械だけ。読み込みの節には入れない。
-  install_lgt_ops(*machine, file.operators);
-  // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
-  const bool setup = defined_here(*machine, "setup");
-  const bool cleanup = defined_here(*machine, "cleanup");
+  return true;
+}
+
+std::string selected_text(const LgtFile& file, const std::vector<int>& chosen) {
+  std::string text;
+  for (const LgtPiece& piece : file.pieces) {
+    if (guard_holds(piece.guard, chosen)) text += piece.text;
+  }
+  return text;
+}
+
+bool choose_gates(Machine& machine, const LgtFile& file, std::vector<int>& chosen) {
+  chosen.assign(file.gates.size(), -1);
+  for (std::size_t index = 0; index < file.gates.size(); ++index) {
+    const LgtGate& gate = file.gates[index];
+    // 選ばれていない枝の中の条件は実行しない。
+    if (!guard_holds(gate.parent, chosen)) continue;
+    for (std::size_t arm = 0; arm < gate.arms.size(); ++arm) {
+      const LgtArm& item = gate.arms[arm];
+      if (item.otherwise) {
+        chosen[index] = static_cast<int>(arm);
+        break;
+      }
+      const LgtCond cond = lgt_condition(machine, item.cond);
+      if (cond == LgtCond::Dead) return false;
+      if (cond != LgtCond::Yes) continue;
+      chosen[index] = static_cast<int>(arm);
+      break;
+    }
+  }
+  return true;
+}
+
+void mark_load(LgtRun& run, const LgtCase& item, bool held) {
+  if (!held || item.outside) run.outside.push_back(item.name);
+  else note_failure(run, item, "load");
+}
+
+void apply_condition(Machine& machine, const LgtCase& item, bool& dead, bool& skip, LgtRun& run) {
+  if (item.condition.empty()) return;
+  const LgtCond cond = lgt_condition(machine, item.condition);
+  if (cond == LgtCond::Dead) {
+    note_failure(run, item, "aborted");
+    dead = true;
+    skip = true;
+    return;
+  }
+  if (cond == LgtCond::Bad) {
+    note_failure(run, item, "unsupported");
+    skip = true;
+    return;
+  }
+  if (cond != LgtCond::Yes) {
+    run.outside.push_back(item.name);
+    skip = true;
+  }
+}
+
+void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& chosen, bool setup, bool cleanup,
+               LgtRun& run) {
   bool dead = false;
   for (const LgtCase& item : file.cases) {
-    if (item.outside) {
+    if (!guard_holds(item.guard, chosen) || item.outside) {
       run.outside.push_back(item.name);
       continue;
     }
@@ -401,11 +629,36 @@ LgtRun execute_lgt(const LgtFile& file) {
       note_failure(run, item, "aborted");
       continue;
     }
-    const CaseEnd end = run_one(*machine, item, setup, cleanup);
+    bool skip = false;
+    apply_condition(machine, item, dead, skip, run);
+    if (skip) continue;
+    const CaseEnd end = run_one(machine, item, setup, cleanup);
     if (end.pass) ++run.passed;
     else note_failure(run, item, end.actual);
     dead = end.dead;
   }
+}
+
+}  // namespace
+
+LgtRun execute_lgt(const LgtFile& file) {
+  LgtRun run;
+  auto machine = Machine::create();
+  std::vector<int> chosen;
+  if (!choose_gates(*machine, file, chosen)) {
+    for (const LgtCase& item : file.cases) note_failure(run, item, "aborted");
+    return run;
+  }
+  if (!load_ok(*machine, selected_text(file, chosen))) {
+    for (const LgtCase& item : file.cases) mark_load(run, item, guard_holds(item.guard, chosen));
+    return run;
+  }
+  // =~= はこのファイルの機械だけ。読み込みの節には入れない。
+  install_lgt_ops(*machine, file.operators);
+  // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
+  const bool setup = defined_here(*machine, "setup");
+  const bool cleanup = defined_here(*machine, "cleanup");
+  run_cases(*machine, file, chosen, setup, cleanup, run);
   return run;
 }
 

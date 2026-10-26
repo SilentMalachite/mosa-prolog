@@ -615,6 +615,89 @@ void check_shared_var(const std::filesystem::path& root) {
   mosa_test::check(failed.find("nest") != std::string::npos, "distinct f(A) f(B) do not subsume");
 }
 
+int count_exact(std::string_view text, std::string_view expected) {
+  int count = 0;
+  std::size_t start = 0;
+  while (start <= text.size()) {
+    if (line_at(text, start) == expected) ++count;
+    const auto end = text.find('\n', start);
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  return count;
+}
+
+// 各グループは endif で閉じる。閉じないと項の範囲が無く、ファイル全体が不合格 1 件。
+std::string branch_text() {
+  return R"lgt(:- if(catch(1^true, _, fail)).
+test(if_yes, true) :- {fail}.
+:- else.
+test(if_no, true) :- {true}.
+:- endif.
+:- if(current_logtalk_flag(coinduction, supported)).
+test(cyc, true) :- {true}.
+:- else.
+- test(cyc, true).
+:- endif.
+:- if(current_logtalk_flag(prolog_dialect, swi)).
+:- else.
+test(dialect, true) :- {true}.
+:- endif.
+test(depth, true, [condition(max_depth_option_supported)]) :- {true}.
+max_depth_option_supported :- current_logtalk_flag(prolog_dialect, Dialect).
+test(soft, true, [condition(predicate_property('*->'(_,_), built_in))]) :- {true}.
+test(rest, true) :- {true}.
+:- if(os::operating_system_type(windows)).
+test(win, true) :- {fail}.
+:- else.
+test(win, true) :- {true}.
+:- endif.
+)lgt";
+}
+
+void check_branches(const std::filesystem::path& root) {
+  const auto suite = root / "branch";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "branch-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "bagof_3" / "tests.lgt", branch_text()), "write branches");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  const std::string side = after_heading(body, "別欄:");
+  // 選ばなかった枝の fail が走ると不合格が増える。別欄なので分母は 5。
+  mosa_test::check(code == 0, "branch exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 5"), "branch denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 5"), "branch passed");
+  mosa_test::check(non_empty_lines(failed) == 0, "branch adds no failure");
+  mosa_test::check(count_exact(side, "predicates/bagof_3 if_yes") == 1, "if_yes side");
+  mosa_test::check(count_exact(side, "predicates/bagof_3 cyc") == 2, "cyc both side");
+  mosa_test::check(count_exact(side, "predicates/bagof_3 depth") == 1, "depth side");
+  mosa_test::check(count_exact(side, "predicates/bagof_3 win") == 1, "win unselected side");
+  mosa_test::check(!token_has(side, "if_no"), "if_no ran");
+  mosa_test::check(!token_has(side, "dialect"), "dialect ran");
+  mosa_test::check(!token_has(side, "soft"), "soft in denominator");
+  mosa_test::check(!token_has(side, "rest"), "rest ran");
+  mosa_test::check(!token_has(failed, "if_yes"), "if_yes body did not run");
+  mosa_test::check(!token_has(failed, "win"), "win fail did not run");
+}
+
+void check_open_if(const std::filesystem::path& root) {
+  const auto suite = root / "open-if";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "open-if-report.md";
+  mosa_test::check(write_text(prolog / "control" / "true_0" / "tests.lgt",
+                              ":- if(true).\ntest(later, true) :- {true}.\n"),
+                   "write open if");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  mosa_test::check(code == 1, "open if exits 1");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "open if denominator");
+  mosa_test::check(non_empty_lines(failed) == 1, "open if one failure");
+  mosa_test::check(has_exact_line(failed, "control/true_0/tests.lgt"), "open if path");
+  mosa_test::check(failed.find("later") == std::string::npos, "open if did not run");
+}
+
 void check_outside(const std::filesystem::path& root) {
   const auto suite = root / "out";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -648,6 +731,8 @@ int main() {
     check_shared_var(root);
     check_judgments(root);
     check_machine_body(root);
+    check_branches(root);
+    check_open_if(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

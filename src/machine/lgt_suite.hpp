@@ -163,10 +163,17 @@ inline bool suite_in_scope(std::string_view relative_posix) {
   return false;
 }
 
+struct LgtGuard {
+  int group = -1;
+  int arm = 0;
+};
+
 struct LgtCase {
   std::string name;
   std::string outcome;
   std::string body;
+  std::string condition;
+  std::vector<LgtGuard> guard;
   bool outside = false;
 };
 
@@ -176,12 +183,34 @@ struct LgtOp {
   std::string name;
 };
 
+struct LgtArm {
+  std::string cond;
+  bool otherwise = false;
+};
+
+struct LgtGate {
+  std::vector<LgtGuard> parent;
+  std::vector<LgtArm> arms;
+};
+
+struct LgtPiece {
+  std::string text;
+  std::vector<LgtGuard> guard;
+};
+
 struct LgtFile {
   std::string program;
+  std::vector<LgtPiece> pieces;
   std::vector<LgtCase> cases;
   std::vector<LgtOp> operators;
+  std::vector<LgtGate> gates;
   std::string error;
 };
+
+// 成功、失敗、未知の Logtalk ゴール、資源切れ。失敗は別欄。未知は不合格 1 件。
+enum class LgtCond { Yes, No, Bad, Dead };
+
+[[nodiscard]] LgtCond lgt_condition(Machine& machine, std::string_view goal);
 
 enum class LgtKind {
   True,
