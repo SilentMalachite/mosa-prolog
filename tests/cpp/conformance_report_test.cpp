@@ -472,6 +472,103 @@ std::string shared_var_text() {
          "test(nest, error(g(X,X))) :- {throw(error(g(f(A),f(B)), c))}.\n";
 }
 
+// 事実が 1 つならやり直しは失敗する。選択点が残っても、次が失敗すれば合格。
+std::string det_one_text() {
+  return "p(1).\n"
+         "test(det_one, deterministic) :- {p(1)}.\n"
+         "test(det_one_as, deterministic(N == 1)) :- {p(N)}.\n"
+         "test(det_choice, deterministic) :- {(true; fail)}.\n";
+}
+
+// 同じ事実が 2 つあるとやり直しが成功する。最初の表明が通っても不合格。
+std::string det_two_text() {
+  return "p(1).\n"
+         "p(1).\n"
+         "test(det_two, deterministic) :- {p(1)}.\n"
+         "test(det_two_as, deterministic(N == 1)) :- {p(N)}.\n";
+}
+
+std::string sol_text() {
+  return "p(1).\n"
+         "p(2).\n"
+         "test(sol_exists, exists(N == 2)) :- {p(N)}.\n"
+         "test(sol_all, all(N < 3)) :- {p(N)}.\n";
+}
+
+// 最初の解で表明が失敗したら、後の解は見ない。
+std::string later_text() {
+  return "q(1).\n"
+         "q(2).\n"
+         "test(sol_later, deterministic(N == 2)) :- {q(N)}.\n";
+}
+
+std::string shapes_text() {
+  return R"lgt(:- uses(lgtunit, [
+	op(700, xfx, =~=), (=~=)/2
+]).
+test(all_zero, all(N < 3)) :- {fail}.
+test(err_list, errors([instantiation_error, type_error(atom,1)])) :-
+	{throw(error(instantiation_error, x))}.
+test(ball_oops, ball(oops)) :- {throw(oops)}.
+test(var_copy, variant(S, [1+_])) :- {S = [1+A]}.
+test(var_share, variant(S, [1+_,1+_])) :- {S = [1+A,1+A]}.
+test(sub_wide, subsumes(f(_), X)) :- {X = f(a)}.
+test(approx_ok, true(X =~= 1.0)) :- {X is 1.0}.
+test(assert_ok, true) :- assertion(1 == 1).
+test(assert_bad, true) :- assertion(1 == 0).
+test(assert_or, true) :- (assertion(1 == 0); assertion(1 == 1)).
+test(hide_var, false) :- {current_predicate(variant/2)}.
+test(hide_assert, false) :- {current_predicate(assertion/1)}.
+test(hide_approx, false) :- {current_predicate(('=~=')/2)}.
+)lgt";
+}
+
+bool token_has(std::string_view text, std::string_view name) {
+  std::size_t pos = 0;
+  while (pos < text.size()) {
+    const auto found = text.find(name, pos);
+    if (found == std::string_view::npos) return false;
+    const bool left = found == 0 || text[found - 1] == ' ' || text[found - 1] == '\n';
+    const auto after = found + name.size();
+    const bool right = after >= text.size() || text[after] == ' ' || text[after] == '\n';
+    if (left && right) return true;
+    pos = found + name.size();
+  }
+  return false;
+}
+
+void expect_token(std::string_view text, std::string_view name, bool present) {
+  mosa_test::check(token_has(text, name) == present, name);
+}
+
+// 食い違う節は別ファイル。解が 1 と 2 の all と、解が 0 の all は同じプログラムに置けない。
+void check_judgments(const std::filesystem::path& root) {
+  const auto suite = root / "judge";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "judge-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_length_2" / "tests.lgt", det_one_text()), "write det one");
+  mosa_test::check(write_text(prolog / "predicates" / "atom_1" / "tests.lgt", det_two_text()), "write det two");
+  mosa_test::check(write_text(prolog / "predicates" / "atomic_1" / "tests.lgt", sol_text()), "write sols");
+  mosa_test::check(write_text(prolog / "predicates" / "atom_concat_3" / "tests.lgt", later_text()), "write later");
+  mosa_test::check(write_text(prolog / "predicates" / "atom_codes_2" / "tests.lgt", shapes_text()), "write shapes");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  // 16/21 は 90% 未満。やり直しが成功するテストと、共有変数と、失敗する表明だけが不合格。
+  mosa_test::check(code == 1, "judge exits 1");
+  mosa_test::check(has_exact_line(body, "分母: 21"), "judge denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 16"), "judge passed");
+  mosa_test::check(has_exact_line(body, "合格率: 76.2"), "judge rate");
+  constexpr auto kPass = std::to_array<std::string_view>({
+      "det_one",     "det_one_as", "det_choice", "sol_exists", "sol_all",    "all_zero",
+      "err_list",    "ball_oops",  "var_copy",   "sub_wide",   "approx_ok",  "assert_ok",
+      "assert_or",   "hide_var",   "hide_assert", "hide_approx",
+  });
+  constexpr auto kFail = std::to_array<std::string_view>({"det_two", "det_two_as", "sol_later", "var_share", "assert_bad"});
+  for (const std::string_view name : kPass) expect_token(failed, name, false);
+  for (const std::string_view name : kFail) expect_token(failed, name, true);
+}
+
 void check_shared_var(const std::filesystem::path& root) {
   const auto suite = root / "share";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -522,6 +619,7 @@ int main() {
     check_rate(root);
     check_outside(root);
     check_shared_var(root);
+    check_judgments(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

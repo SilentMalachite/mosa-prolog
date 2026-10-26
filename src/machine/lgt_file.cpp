@@ -1,4 +1,4 @@
-// tests.lgt は Logtalk として動かさない。true / false / error だけを、ファイルごとに 1 台の機械で実行する。
+// tests.lgt は Logtalk として動かさない。ファイルごとに 1 台の機械で実行する。
 // halt はプロセスを終えず、印を戻してから次のテストへ進む。
 
 #include "lgt_suite.hpp"
@@ -110,9 +110,10 @@ Cell strip_minus(const Heap& heap, Cell head) {
   return heap.deref(heap.arg(heap.deref(head), 0));
 }
 
-void keep_term(Heap& heap, const OperatorTable& operators, std::string_view source, std::size_t begin,
-               const ReadTerm& read, LgtFile& file) {
+void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, std::size_t begin, const ReadTerm& read,
+               LgtFile& file) {
   const Cell term = heap.deref(read.term);
+  if (absorb_lgt_uses(heap, operators, term, file.operators)) return;
   if (dropped_directive(heap, term)) return;
   Cell head;
   Cell body;
@@ -132,13 +133,6 @@ void keep_term(Heap& heap, const OperatorTable& operators, std::string_view sour
   file.program += write_term(heap, operators, term, {}, read.names);
   file.program += ".\n";
 }
-
-enum class Kind { True, Assert, False, Error, Other };
-
-struct Want {
-  Kind kind = Kind::Other;
-  std::string detail;
-};
 
 bool integer_cell(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
@@ -213,34 +207,25 @@ bool thrown_matches(Machine& machine, Cell ball, std::string_view formal) {
   return subsumes(machine.heap(), read.term->term, heap.arg(ball, 0), bound);
 }
 
-Want classify(Machine& machine, std::string_view outcome) {
-  Want want;
-  const std::string text = std::string{outcome} + ".";
-  Reader reader(text, machine.heap(), machine.operators());
-  const ReadOutcome read = reader.next();
-  if (!read.term) return want;
-  const Heap& heap = machine.heap();
-  const Cell term = heap.deref(read.term->term);
-  if (atom_is(heap, term, "true")) {
-    want.kind = Kind::True;
-    return want;
-  }
-  if (atom_is(heap, term, "false") || atom_is(heap, term, "fail")) {
-    want.kind = Kind::False;
-    return want;
-  }
-  if (!functor_is(heap, term, "true", 1) && !functor_is(heap, term, "error", 1)) return want;
-  want.detail = write_term(heap, machine.operators(), heap.arg(term, 0), {}, read.term->names);
-  want.kind = functor_is(heap, term, "true", 1) ? Kind::Assert : Kind::Error;
-  return want;
-}
-
-std::string goal_text(const LgtCase& item, const Want& want) {
+std::string goal_text(const LgtCase& item, const LgtWant& want) {
   std::string goal = item.body;
   // 表明が失敗しても、本体の次の解は試さない。
-  if (want.kind == Kind::Assert) goal = "(" + item.body + ", !), (" + want.detail + ")";
+  if (want.kind == LgtKind::Assert) goal = "(" + item.body + ", !), (" + want.detail + ")";
   goal.push_back('.');
   return goal;
+}
+
+bool text_has_judge(std::string_view text) {
+  return text.find("assertion(") != std::string_view::npos || text.find("variant(") != std::string_view::npos ||
+         text.find("subsumes_term(") != std::string_view::npos || text.find("=~=") != std::string_view::npos;
+}
+
+bool routes_to_judge(std::string_view body, const LgtWant& want) {
+  if (want.kind != LgtKind::True && want.kind != LgtKind::Assert && want.kind != LgtKind::False &&
+      want.kind != LgtKind::Error) {
+    return true;
+  }
+  return text_has_judge(body) || text_has_judge(want.detail);
 }
 
 bool defined_here(const Machine& machine, std::string_view name) {
@@ -282,12 +267,12 @@ std::string actual_text(const Machine& machine, const Stop& stop) {
   return write_term(heap, machine.operators(), term, {}, {});
 }
 
-bool succeeded(Machine& machine, const Want& want, const Stop& stop) {
+bool succeeded(Machine& machine, const LgtWant& want, const Stop& stop) {
   // halt はそのテストの成功にする。期待の形が違ってもプロセスは終わらせない。
   if (stop.kind == StopKind::Halt) return true;
-  if (want.kind == Kind::True || want.kind == Kind::Assert) return stop.kind == StopKind::Success;
-  if (want.kind == Kind::False) return stop.kind == StopKind::Failure;
-  if (want.kind != Kind::Error || stop.kind != StopKind::Exception) return false;
+  if (want.kind == LgtKind::True || want.kind == LgtKind::Assert) return stop.kind == StopKind::Success;
+  if (want.kind == LgtKind::False) return stop.kind == StopKind::Failure;
+  if (want.kind != LgtKind::Error || stop.kind != StopKind::Exception) return false;
   return thrown_matches(machine, stop.exception, want.detail);
 }
 
@@ -310,10 +295,18 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup)
       end.actual = "aborted";
       return end;
     }
-    const Want want = classify(machine, item.outcome);
-    if (want.kind == Kind::Other) {
+    const LgtWant want = classify_lgt_outcome(machine, item.outcome);
+    if (want.kind == LgtKind::Other) {
       end.actual = "unsupported";
       end.dead = !call_hook(machine, cleanup, "cleanup.");
+      return end;
+    }
+    if (routes_to_judge(item.body, want)) {
+      const LgtEnd judged = judge_lgt_case(machine, item.body, want);
+      end.pass = judged.pass;
+      end.dead = judged.dead;
+      end.actual = judged.actual;
+      if (!call_hook(machine, cleanup, "cleanup.")) end.dead = true;
       return end;
     }
     const Query query = run_goal(machine, goal_text(item, want));
@@ -348,6 +341,13 @@ void note_failure(LgtRun& run, const LgtCase& item, std::string_view actual) {
 }
 
 }  // namespace
+
+bool lgt_same_shape(const Heap& heap, Cell left, Cell right) { return same_shape(heap, left, right); }
+
+bool lgt_subsumes(const Heap& heap, Cell general, Cell specific) {
+  std::vector<std::pair<std::uint64_t, Cell>> bound;
+  return subsumes(heap, general, specific, bound);
+}
 
 LgtFile read_lgt_file(std::string_view source) {
   LgtFile file;
@@ -390,6 +390,8 @@ LgtRun execute_lgt(const LgtFile& file) {
     }
     return run;
   }
+  // =~= はこのファイルの機械だけ。読み込みの節には入れない。
+  install_lgt_ops(*machine, file.operators);
   // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
   const bool setup = defined_here(*machine, "setup");
   const bool cleanup = defined_here(*machine, "cleanup");

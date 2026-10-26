@@ -47,6 +47,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/suite.cpp
   src/machine/iso_suite.cpp
   src/machine/lgt_file.cpp
+  src/machine/lgt_judge.cpp
   src/platform/terminal.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp

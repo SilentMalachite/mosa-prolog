@@ -3,6 +3,10 @@
 // 分母は logtalk/prolog より下だけ。区切りは /。先頭と末尾の / は無い。
 // 一覧に無いパスは別欄。実行しない。
 
+#include "mosa/cell.hpp"
+#include "mosa/heap.hpp"
+#include "mosa/operator_table.hpp"
+
 #include <algorithm>
 #include <array>
 #include <span>
@@ -11,6 +15,9 @@
 #include <vector>
 
 namespace mosa {
+
+class Machine;
+
 namespace iso_scope {
 
 inline bool listed(std::span<const std::string_view> names, std::string_view name) {
@@ -163,10 +170,44 @@ struct LgtCase {
   bool outside = false;
 };
 
+struct LgtOp {
+  int priority = 0;
+  Specifier specifier = Specifier::Xfx;
+  std::string name;
+};
+
 struct LgtFile {
   std::string program;
   std::vector<LgtCase> cases;
+  std::vector<LgtOp> operators;
   std::string error;
+};
+
+enum class LgtKind {
+  True,
+  Assert,
+  False,
+  Error,
+  Other,
+  Det,
+  DetAssert,
+  Errors,
+  Ball,
+  Variant,
+  Subsumes,
+  Exists,
+  All
+};
+
+struct LgtWant {
+  LgtKind kind = LgtKind::Other;
+  std::string detail;
+};
+
+struct LgtEnd {
+  bool pass = false;
+  bool dead = false;
+  std::string actual;
 };
 
 struct LgtRun {
@@ -178,5 +219,12 @@ struct LgtRun {
 
 [[nodiscard]] LgtFile read_lgt_file(std::string_view source);
 [[nodiscard]] LgtRun execute_lgt(const LgtFile& file);
+[[nodiscard]] LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome);
+[[nodiscard]] LgtEnd judge_lgt_case(Machine& machine, std::string_view body, const LgtWant& want);
+// 包摂は同じ変数セルを同じ項にする。same_term は名前の無い変数を別物にしてしまう。
+[[nodiscard]] bool lgt_same_shape(const Heap& heap, Cell left, Cell right);
+[[nodiscard]] bool lgt_subsumes(const Heap& heap, Cell general, Cell specific);
+bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, std::vector<LgtOp>& ops);
+void install_lgt_ops(Machine& machine, const std::vector<LgtOp>& ops);
 
 }  // namespace mosa
