@@ -155,6 +155,13 @@ std::string reopen_text() {
          "    ^^text_output_assertion(st_o, 'a', Assertion).\n";
 }
 
+// 直接の is/2 は -125.0。スイートは表明を書き戻すので、前置の負数のままだと落ちる。
+std::string power_text() {
+  return ":- uses(lgtunit, [op(700, xfx, =~=), (=~=)/2]).\n"
+         "test(iso_power_2_02, true(X =~= -125.0)) :-\n"
+         "    {X is '**'(-5.0, 3)}.\n";
+}
+
 void check_pair(const std::filesystem::path& root) {
   const auto suite = root / "io";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -234,6 +241,22 @@ void check_unknown(const std::filesystem::path& root) {
   mosa_test::check(failed.find("existence_error") == std::string::npos, "unknown is not a user predicate");
 }
 
+void check_power(const std::filesystem::path& root) {
+  const auto suite = root / "power";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "power-report.md";
+  mosa_test::check(write_text(prolog / "functions" / "power_2" / "tests.lgt", power_text()), "write power");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_power_2_02") != std::string::npos) show("power report", body);
+  // 負の底のべきは -125.0。表明の前置マイナスを数として見ないと不合格のまま残る。
+  mosa_test::check(code == 0, "power exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "power denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "power passed");
+  mosa_test::check(failed.find("iso_power_2_02") == std::string::npos, "power negative base");
+}
+
 void check_reopen(const std::filesystem::path& root) {
   const auto suite = root / "reopen";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -264,6 +287,7 @@ int main() {
     check_canonical(root);
     check_unknown(root);
     check_reopen(root);
+    check_power(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

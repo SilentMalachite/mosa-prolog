@@ -232,7 +232,17 @@ std::optional<double> as_number(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
   if (integer_cell(heap, cell)) return static_cast<double>(heap.integer_value(cell));
   if (cell.tag() == Tag::Float) return heap.float_value(cell);
-  return std::nullopt;
+  // 表明の -125.0 は前置のまま残る。=~= は算術なので、数の符号だけ畳む。
+  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return std::nullopt;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  if (name != "-" && name != "+") return std::nullopt;
+  const Cell arg = heap.deref(heap.arg(cell, 0));
+  std::optional<double> inner;
+  if (integer_cell(heap, arg)) inner = static_cast<double>(heap.integer_value(arg));
+  else if (arg.tag() == Tag::Float) inner = heap.float_value(arg);
+  else return std::nullopt;
+  if (name == "+") return inner;
+  return -*inner;
 }
 
 bool ordered(std::string_view name, double left, double right) {

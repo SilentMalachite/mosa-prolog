@@ -168,3 +168,9 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 ## ライセンス
 
 決定（2026-10-26）: リポジトリは Apache-2.0 に揃える。本文は `LICENSE`。Mosa の著作権表示は `Copyright 2026 Mosa Prolog contributors` で、`NOTICE` に置く。Logtalk のテストも同じライセンスで、著作権は Paulo Moura の表示のままである。
+
+## 9.3.1.3 d (**)/2 の 0 の負べき
+
+`lgt_power_2_14` は `**(0, -1)` を `evaluation_error(undefined)` か `evaluation_error(zero_divisor)` と期待する。ECLiPSe の IsoErrata は、9.3.1.3.d の文面が undefined であり、無限大が定義されるので zero_divisor であるべきだと書く。Corrigendum 2 の 9.3.10.3 d は `(^)/2` の同じ形を undefined のまま残している。今は `std::pow(0, 負)` が無限大なので `evaluation_error(float_overflow)` である。
+
+A か B か: A は 9.3.1.3.d の文面どおり `evaluation_error(undefined)`。B はエラータのとおり `evaluation_error(zero_divisor)`。確認前に `float_overflow` は変えない。

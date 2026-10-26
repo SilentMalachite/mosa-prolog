@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1493
-合格率: 68.7
+合格数: 1494
+合格率: 68.8
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -50,7 +50,6 @@ functions/log_2/tests.lgt lgt_log_2_13 error(evaluation_error(_)) type_error(eva
 functions/log_2/tests.lgt lgt_log_2_14 error(evaluation_error(undefined)) type_error(evaluable, log/2)
 functions/log_2/tests.lgt lgt_log_2_15 error(evaluation_error(undefined)) type_error(evaluable, log/2)
 functions/pi_0/tests.lgt iso_pi_0_01 true(X=~=3.1415927) fail
-functions/power_2/tests.lgt iso_power_2_02 true(X=~= -125.0) fail
 functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined), evaluation_error(zero_divisor)]) evaluation_error(float_overflow)
 functions/round_1/tests.lgt eclipse_round_1_07 true(X== -3) fail
 functions/round_1/tests.lgt eclipse_round_1_08 true(X== -4) fail
