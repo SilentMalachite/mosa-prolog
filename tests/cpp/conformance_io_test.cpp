@@ -384,6 +384,28 @@ void check_share(const std::filesystem::path& root) {
   mosa_test::check(failed.find("share_cells") == std::string::npos, "share keeps one variable");
 }
 
+// 実行する機械の表に : は無い。中置の user:elk/1 は読めない。正準形ならこの 1 件は成功する。
+std::string colon_user_text() {
+  return "test(colon_user, true) :-\n"
+         "    {X = ':'(user, elk/1)}.\n";
+}
+
+void check_colon_user(const std::filesystem::path& root) {
+  const auto suite = root / "colon-user";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "colon-user-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "clause_2" / "tests.lgt", colon_user_text()),
+                   "write colon user");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("colon_user") != std::string::npos) show("colon user report", body);
+  mosa_test::check(code == 0, "colon user exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "colon user denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "colon user passed");
+  mosa_test::check(failed.find("colon_user") == std::string::npos, "colon user reads canonical");
+}
+
 // uses(list, [msort/2]) は Logtalk の輸入。プログラムへ渡すと未知の指示でファイル全体が load になる。
 std::string list_uses_text() {
   return ":- uses(list, [msort/2]).\n"
@@ -442,6 +464,7 @@ int main() {
     check_atom_chars(root);
     check_list_uses(root);
     check_share(root);
+    check_colon_user(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

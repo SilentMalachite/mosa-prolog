@@ -1,12 +1,12 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1655
+合格数: 1656
 合格率: 76.2
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_09 error(instantiation_error) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_10 errors([type_error(callable, 1), type_error(callable, user:1)]) suppress_text_output/0
+control/call_1/tests.lgt iso_call_1_10 errors([type_error(callable, 1), type_error(callable, :(user, 1))]) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_14 errors([type_error(callable, (write(3), 1)), type_error(callable, 1)]) suppress_text_output/0
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure, fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure, scattered/2)
@@ -21,9 +21,9 @@ control/if_3/tests.lgt if_3_06 true(L==[7, 8, 9]) existence_error(procedure, if/
 control/if_3/tests.lgt if_3_07 true(L==[7, 8, 9]) existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_08 true existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_09 true(L==[1, 2]) existence_error(procedure, if/3)
-control/if_3/tests.lgt if_3_10 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(3, true, true))]) existence_error(procedure, if/3)
-control/if_3/tests.lgt if_3_11 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(true, 3, true))]) existence_error(procedure, if/3)
-control/if_3/tests.lgt if_3_12 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(fail, true, 3))]) existence_error(procedure, if/3)
+control/if_3/tests.lgt if_3_10 errors([type_error(callable, 3), type_error(callable, :(user, 3)), type_error(callable, if(3, true, true))]) existence_error(procedure, if/3)
+control/if_3/tests.lgt if_3_11 errors([type_error(callable, 3), type_error(callable, :(user, 3)), type_error(callable, if(true, 3, true))]) existence_error(procedure, if/3)
+control/if_3/tests.lgt if_3_12 errors([type_error(callable, 3), type_error(callable, :(user, 3)), type_error(callable, if(fail, true, 3))]) existence_error(procedure, if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure, :: /2)
 functions/acos_1/tests.lgt iso_acos_1_01 true(X=~=3.1415927) fail
 functions/acos_1/tests.lgt iso_acos_1_02 true(X=~=1.0471976) fail
@@ -66,7 +66,6 @@ predicates/bagof_3/tests.lgt iso_bagof_3_17 true fail
 predicates/bagof_3/tests.lgt wg17_bagof_3_32 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) existence_error(procedure, {}/1)
 predicates/bagof_3/tests.lgt wg17_bagof_3_33 true((L==[A, B, C];L==[C, B, A])) fail
 predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char, Code0), char_code(Char, Code), Code0==Code)) existence_error(procedure, between/3)
-predicates/clause_2/tests.lgt iso_clause_2_09 true fail
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream, S)) existence_error(stream, '$stream'(3))
 predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure, ground/1)
