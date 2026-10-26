@@ -546,6 +546,8 @@ bool run_inits(Impl& machine, const std::vector<Cell>& goals) {
 LoadStatus finish_load(Impl& machine, std::size_t heap_base, const std::vector<Cell>& inits) {
   if (!run_inits(machine, inits)) {
     machine.heap.truncate(heap_base);
+    // 節は残す。親の reject が、この例外で読んだ節まで消さないようにする。
+    machine.load_kept = true;
     return LoadStatus{false, machine.diagnostic};
   }
   machine.heap.truncate(heap_base);
@@ -721,6 +723,9 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);
     if (ensured < 0) return false;
     if (ensured > 0) continue;
+    const int listed = apply_file_list(machine, term, directory, scan.opening);
+    if (listed < 0) return false;
+    if (listed > 0) continue;
     const int directed = consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits);
     if (directed < 0) return false;
     if (directed > 0) continue;
@@ -738,11 +743,12 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
 }  // namespace
 
 LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
-                       std::string_view origin) {
+                       std::string_view origin, std::vector<std::string>* shared_opening) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   const auto heap_base = machine.heap.size();
   machine.diagnostic.clear();
   machine.syntax_diag = false;
+  machine.load_kept = false;
   for (Predicate& predicate : machine.predicates) {
     predicate.seen = false;
     predicate.dynamic_declared = false;
@@ -758,9 +764,14 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   std::vector<Cell> inits;
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
-  std::vector<std::string> opening;
+  std::vector<std::string> local_opening;
+  std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening};
   if (!read_terms(machine, source, directory, origin, false, scan)) {
+    if (machine.load_kept) {
+      machine.heap.truncate(heap_base);
+      return LoadStatus{false, machine.diagnostic};
+    }
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
                        saved_prepared);
   }

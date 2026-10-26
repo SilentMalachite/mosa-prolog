@@ -154,6 +154,8 @@ struct Machine::Impl {
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
   // include と consult は読み直す。節を戻す失敗では、この一覧も戻す。
   std::vector<std::string> prepared;
+  // 初期化の例外で節を残す。入れ子の consult がこれで失敗したとき、親は節を戻さない。
+  bool load_kept = false;
   std::vector<Entry> stack;
   std::vector<Extra> extras;
   std::uint64_t ip = kNoFrame;
@@ -321,8 +323,13 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
                                      Cell culprit);
 // directory が空でなければ、相対の include はそのディレクトリから開く。
 // origin は循環の検出に使う。空なら、このテキスト自体はファイルではない。
+// shared_opening は、入れ子の consult が親と同じ循環を見るため。
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory = {},
-                                    std::string_view origin = {});
+                                    std::string_view origin = {},
+                                    std::vector<std::string>* shared_opening = nullptr);
+// 0 はファイルリストではない。1 は読んだ。-1 は失敗。
+[[nodiscard]] int apply_file_list(Impl& machine, Cell term, std::string_view directory,
+                                  std::vector<std::string>& opening);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
 
 }

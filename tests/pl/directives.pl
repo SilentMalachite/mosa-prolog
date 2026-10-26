@@ -90,3 +90,10 @@ test(include_goal, include(missing), error(existence_error(procedure, include/1)
 % ファイルが要る確認は tests/cpp/ensure_test.cpp。ここはゴールではないことだけ。
 
 test(ensure_goal, ensure_loaded(missing), error(existence_error(procedure, ensure_loaded/1))).
+
+% 7.4.2 [File]。リストの各アトムを consult と同じ手続きで読む。
+% ファイルが要る確認は tests/cpp/files_test.cpp。空リストは何も読まない。
+
+:- [].
+
+test(empty_files, true, true).
