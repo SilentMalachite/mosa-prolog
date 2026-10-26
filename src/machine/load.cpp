@@ -14,6 +14,12 @@
 #include <vector>
 
 namespace mosa {
+
+// 定義は load_path.cpp。include と ensure_loaded は同じ経路で開く。
+std::filesystem::path resolve_include(std::string_view directory, std::string_view atom);
+std::filesystem::path canonical_key(const std::filesystem::path& file);
+std::filesystem::path prolog_source_path(const std::filesystem::path& file);
+
 namespace {
 
 struct Snapshot {
@@ -609,22 +615,6 @@ struct CycleGuard {
   }
 };
 
-// 相対パスは、今読んでいるファイルのディレクトリから開く。文字だけの load は、渡されたパスのまま。
-std::filesystem::path resolve_include(std::string_view directory, std::string_view atom) {
-  const std::filesystem::path file{std::string{atom}};
-  if (file.is_absolute() || directory.empty()) return file;
-  return std::filesystem::path{std::string{directory}} / file;
-}
-
-std::filesystem::path canonical_key(const std::filesystem::path& file) {
-  std::error_code error;
-  const auto canonical = std::filesystem::weakly_canonical(file, error);
-  if (!error) return canonical;
-  const auto absolute = std::filesystem::absolute(file, error);
-  if (!error) return absolute.lexically_normal();
-  return file.lexically_normal();
-}
-
 bool file_argument(Impl& machine, Cell directive, std::string_view functor, Cell& arg) {
   // 事実 p(include(f)) は指示ではない。関手が :- か ?- のときだけ開く。
   if (!is_directive(machine.heap, directive)) return false;
@@ -690,7 +680,7 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
     return -1;
   }
   const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
-  const auto file = resolve_include(directory, name);
+  const auto file = prolog_source_path(resolve_include(directory, name));
   // include は毎回足す。ensure_loaded は、準備済みのパスを節も初期化も足さない。
   if (once && file_ready(machine, scan, file)) return 1;
   return open_prolog_file(machine, file, scan);

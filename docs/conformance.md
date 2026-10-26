@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1486
-合格率: 68.4
+合格数: 1493
+合格率: 68.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -25,13 +25,6 @@ control/if_3/tests.lgt if_3_10 errors([type_error(callable, 3), type_error(calla
 control/if_3/tests.lgt if_3_11 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(true, 3, true))]) existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_12 errors([type_error(callable, 3), type_error(callable, user:3), type_error(callable, if(fail, true, 3))]) existence_error(procedure, if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure, :: /2)
-directives/ensure_loaded_1/tests.lgt ensure_loaded_1_01 true(L==[1]) existence_error(procedure, a/1)
-directives/ensure_loaded_1/tests.lgt ensure_loaded_1_02 true(L==[2]) existence_error(procedure, b/1)
-directives/ensure_loaded_1/tests.lgt ensure_loaded_1_03 true(L==[3]) existence_error(procedure, c/1)
-directives/include_1/tests.lgt include_1_01 true(L==[1, 2, 3]) existence_error(procedure, a/1)
-directives/initialization_1/tests.lgt ensure_loaded_1_01 true(L==[1]) existence_error(procedure, a/1)
-directives/initialization_1/tests.lgt ensure_loaded_1_02 true(L==[2]) existence_error(procedure, b/1)
-directives/initialization_1/tests.lgt ensure_loaded_1_03 true(L==[1, 2, 3]) existence_error(procedure, c/1)
 functions/acos_1/tests.lgt iso_acos_1_01 true(X=~=3.1415927) fail
 functions/acos_1/tests.lgt iso_acos_1_02 true(X=~=1.0471976) fail
 functions/asin_1/tests.lgt iso_asin_1_01 true(X=~=0.5235988) fail
