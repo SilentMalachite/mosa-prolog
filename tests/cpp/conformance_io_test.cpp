@@ -502,6 +502,41 @@ std::string caret_curly_text() {
          "    bagof(t, A^B^C^{true}, L).\n";
 }
 
+// ^^ のあと nl は別クエリ。無名変数は犯人を包摂し、束縛した Stream は同じ項になる。
+std::string nl_error_text() {
+  return "test(lgt_nl_1_04, error(permission_error(output, binary_stream, _))) :-\n"
+         "    ^^set_binary_output(bin, []),\n"
+         "    {nl(bin)}.\n"
+         "test(lgt_nl_1_05, error(existence_error(stream, Stream))) :-\n"
+         "    ^^closed_output_stream(Stream, []),\n"
+         "    {nl(Stream)}.\n"
+         "test(lgt_nl_1_06, error(existence_error(stream, Stream))) :-\n"
+         "    ^^closed_input_stream(Stream, []),\n"
+         "    {nl(Stream)}.\n"
+         "test(lgt_nl_0_02, error(permission_error(output, binary_stream, Stream))) :-\n"
+         "    ^^set_binary_output([]),\n"
+         "    current_output(Stream),\n"
+         "    {nl}.\n";
+}
+
+void check_nl_error(const std::filesystem::path& root) {
+  const auto suite = root / "nl-error";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "nl-error-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "nl_1" / "tests.lgt", nl_error_text()), "write nl error");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("lgt_nl_") != std::string::npos) show("nl error report", body);
+  mosa_test::check(code == 0, "nl error exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 4"), "nl error denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 4"), "nl error passed");
+  mosa_test::check(failed.find("lgt_nl_1_04") == std::string::npos, "nl binary alias is subsumed");
+  mosa_test::check(failed.find("lgt_nl_1_05") == std::string::npos, "nl closed output uses Stream");
+  mosa_test::check(failed.find("lgt_nl_1_06") == std::string::npos, "nl closed input uses Stream");
+  mosa_test::check(failed.find("lgt_nl_0_02") == std::string::npos, "nl current output uses Stream");
+}
+
 void check_caret_curly(const std::filesystem::path& root) {
   const auto suite = root / "caret-curly";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -544,6 +579,7 @@ int main() {
     check_share(root);
     check_colon_user(root);
     check_flag_value(root);
+    check_nl_error(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

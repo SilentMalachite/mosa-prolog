@@ -665,6 +665,18 @@ void remint(Machine& machine, Env& env) {
   env.bindings.push_back(Binding{env.minted_var, parsed.term});
 }
 
+// 次の query はヒープを捨てる。自由なままの Stream は別の犯人まで包摂するので、残した字面を戻す。
+bool thrown_error(Machine& machine, const Env& env, std::string_view detail) {
+  const LgtParsed parsed = lgt_parse_term(machine, detail);
+  if (!parsed.ok) return false;
+  std::vector<std::uint64_t> stack;
+  const Cell expected = swap_saved(machine, parsed.term, parsed.names, env.saved, stack);
+  const Heap& heap = machine.heap();
+  const Cell ball = heap.deref(env.stop.exception);
+  if (!functor_is(heap, ball, "error", 2)) return false;
+  return lgt_subsumes(heap, expected, heap.arg(ball, 0));
+}
+
 LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
   LgtEnd end;
   if (env.tri == Tri::Dead) return lgt_aborted();
@@ -678,7 +690,13 @@ LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
     else end.actual = "true";
     return end;
   }
-  if (env.tri == Tri::Throw) return lgt_failed_step(machine, LgtStep{false, env.stop});
+  if (env.tri == Tri::Throw) {
+    if (want.kind == LgtKind::Error && thrown_error(machine, env, want.detail)) {
+      end.pass = true;
+      return end;
+    }
+    return lgt_failed_step(machine, LgtStep{false, env.stop});
+  }
   if (env.tri != Tri::Ok) {
     if (want.kind == LgtKind::All && env.tri == Tri::No) end.pass = true;
     else end.actual = "fail";
