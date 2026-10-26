@@ -38,3 +38,4 @@ recover_cut.
 test(catch_recover_cut, recover_cut, true).
 local_if :- (X = 1 ; X = 2), (! -> true), X = 2.
 test(if_cut_keeps, local_if, true).
+test(cut_not_not, findall(X, ((X=1;X=2), \+ \+ !), L), solutions([L = [1, 2]])).

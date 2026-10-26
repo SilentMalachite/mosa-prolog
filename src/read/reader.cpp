@@ -158,6 +158,8 @@ bool Reader::can_start(const Token& token) const {
       return true;
     case TokenKind::Solo:
       if (token.text == "(" || token.text == "[" || token.text == "{") return true;
+      // カットはアトム（6.3.1.3）。始められないと前置が引数を取らず、\+ ! が項にならない。
+      if (token.text == "!") return true;
       return find_prefix(token.text, 1200).has_value();
     default:
       return false;

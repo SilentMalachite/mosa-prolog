@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1484
-合格率: 68.3
+合格数: 1486
+合格率: 68.4
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -12,8 +12,6 @@ control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure, fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure, scattered/2)
 control/catch_3/tests.lgt iso_catch_3_07 true(C==c) suppress_text_output/0
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure, ignore/1)
-control/cut_0/tests.lgt iso_cut_0_10 true(Assertion) fail
-control/cut_0/tests.lgt eclipse_cut_0_19 true(L==[1, 2]) fail
 control/if_3/tests.lgt if_3_01 true existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_02 true existence_error(procedure, if/3)
 control/if_3/tests.lgt if_3_03 false existence_error(procedure, if/3)
