@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <array>
 #include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace mosa {
 namespace iso_scope {
@@ -153,5 +155,28 @@ inline bool suite_in_scope(std::string_view relative_posix) {
   }
   return false;
 }
+
+struct LgtCase {
+  std::string name;
+  std::string outcome;
+  std::string body;
+  bool outside = false;
+};
+
+struct LgtFile {
+  std::string program;
+  std::vector<LgtCase> cases;
+  std::string error;
+};
+
+struct LgtRun {
+  int passed = 0;
+  int failed = 0;
+  std::vector<std::string> failures;
+  std::vector<std::string> outside;
+};
+
+[[nodiscard]] LgtFile read_lgt_file(std::string_view source);
+[[nodiscard]] LgtRun execute_lgt(const LgtFile& file);
 
 }  // namespace mosa

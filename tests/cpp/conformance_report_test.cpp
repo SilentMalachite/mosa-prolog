@@ -277,6 +277,33 @@ bool report_has(std::string_view text, std::string_view dir, std::string_view co
   return false;
 }
 
+std::string after_heading(std::string_view text, std::string_view heading) {
+  const auto begin = text.find(heading);
+  if (begin == std::string_view::npos) return {};
+  auto start = begin + heading.size();
+  if (start < text.size() && text[start] == '\n') ++start;
+  return std::string{text.substr(start)};
+}
+
+std::string between_headings(std::string_view text, std::string_view from, std::string_view to) {
+  const std::string chunk = after_heading(text, from);
+  const auto stop = chunk.find(to);
+  if (stop == std::string::npos) return chunk;
+  return chunk.substr(0, stop);
+}
+
+int non_empty_lines(std::string_view text) {
+  int count = 0;
+  std::size_t start = 0;
+  while (start < text.size()) {
+    if (!line_at(text, start).empty()) ++count;
+    const auto end = text.find('\n', start);
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  return count;
+}
+
 struct Fixture {
   std::filesystem::path path;
   explicit Fixture(std::filesystem::path root) : path(std::move(root)) {
@@ -326,22 +353,131 @@ void check_side_only(const std::filesystem::path& root) {
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   mosa_test::check(code == 1, "side returns 1");
   const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  const std::string side = after_heading(body, "別欄:");
   mosa_test::check(line_at(body, 0) == kBanner, "banner");
-  mosa_test::check(has_exact_line(body, "分母: 0"), "denominator 0");
-  mosa_test::check(has_exact_line(body, "合格数: 0"), "passed 0");
-  mosa_test::check(has_exact_line(body, "合格率: 合格率なし"), "no rate");
-  mosa_test::check(body.find('%') == std::string::npos, "no percentage");
+  // throw(1) は true に合わない。true は合格。1/2 は 90% 未満なので終了コードは 1。
+  mosa_test::check(has_exact_line(body, "分母: 2"), "denominator 2");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "passed 1");
+  mosa_test::check(has_exact_line(body, "合格率: 50.0"), "rate 50.0");
+  mosa_test::check(body.find('%') == std::string::npos, "no percent sign");
   mosa_test::check(has_exact_line(body, "不合格:"), "failure heading");
   mosa_test::check(has_exact_line(body, "別欄:"), "side heading");
   mosa_test::check(report_has(body, "predicates/format_2", "1"), "format_2 count");
   mosa_test::check(report_has(body, "predicates/sort_2", "2"), "sort_2 count");
   mosa_test::check(report_has(body, "predicates/length_2", "0"), "length_2 count");
-  mosa_test::check(body.find("atom_length_2") == std::string::npos, "in scope not listed");
+  mosa_test::check(failed.find("atom_length_2") != std::string::npos, "in scope executed");
+  mosa_test::check(side.find("atom_length_2") == std::string::npos, "in scope not side");
+  mosa_test::check(failed.find("format_2") == std::string::npos, "format not executed");
   mosa_test::check(body.find("soft_cut") == std::string::npos, "soft cut not listed");
   mosa_test::check(body.find("ground_1") == std::string::npos, "missing tests.lgt");
   mosa_test::check(body.find("unbounded") == std::string::npos, "no tests.lgt name");
   mosa_test::check(body.find("bomb") == std::string::npos, "body not copied");
   mosa_test::check(body.find("OLD") == std::string::npos, "overwritten");
+}
+
+// 指示と {ゴール} を含む。halt のあと、setup、cleanup、演算子が残ることをこの 12 件で見る。
+std::string true_0_text() {
+  return R"lgt(p(1).
+:- object(tests, extends(lgtunit)).
+:- info([version is 1:0:0]).
+:- set_logtalk_flag(report, warnings).
+test(one, true) :- {p(1)}.
+test(two, true(N == 1)) :- {p(N)}.
+test(no, false) :- {p(2)}.
+test(bad, error(instantiation_error)) :- {throw(error(instantiation_error, context(a/0, _)))}.
+test(halted, true) :- {halt(1)}.
+test(after, true) :- {p(1)}.
+setup :- assertz(tick(1)).
+test(tick_a, true) :- {retract(tick(1))}.
+test(tick_b, true) :- {retract(tick(1))}.
+cleanup :- assertz(marker(1)).
+test(mark_a, true) :- {true}.
+test(mark_b, true) :- {marker(1)}.
+test(op_def, true) :- {op(100, xfx, qq)}.
+test(op_see, true) :- {current_op(100, xfx, qq)}.
+:- end_object.
+)lgt";
+}
+
+// 閉じ括弧が無い。項として読めない実行対象は不合格 1 件で、プロセスは戻る。
+std::string unclosed_object() { return ":- object(tests, extends(lgtunit)\n"; }
+
+void check_executes(const std::filesystem::path& root) {
+  const auto suite = root / "run";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "run-report.md";
+  mosa_test::check(write_text(prolog / "control" / "true_0" / "tests.lgt", true_0_text()), "write true_0");
+  mosa_test::check(write_text(prolog / "control" / "cut_0" / "tests.lgt", unclosed_object()), "write cut_0");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  // 12*10 >= 13*9。計画の終了コード 1 は、仕様の整数比較に負ける。
+  mosa_test::check(code == 0, "twelve exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 13"), "denominator 13");
+  mosa_test::check(has_exact_line(body, "合格数: 12"), "passed 12");
+  mosa_test::check(has_exact_line(body, "合格率: 92.3"), "rate 92.3");
+  mosa_test::check(non_empty_lines(failed) == 1, "one failure");
+  mosa_test::check(has_exact_line(failed, "control/cut_0/tests.lgt"), "unreadable path");
+}
+
+std::string eight_one() {
+  std::string text;
+  for (int index = 0; index < 8; ++index) {
+    text += "test(a" + std::to_string(index) + ", true) :- {true}.\n";
+  }
+  text += "test(nope, true) :- {fail}.\n";
+  return text;
+}
+
+void check_rate(const std::filesystem::path& root) {
+  const auto suite = root / "rate";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "rate-report.md";
+  mosa_test::check(write_text(prolog / "control" / "fail_0" / "tests.lgt", eight_one()), "write eight");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  // 8*10 < 9*9。8/9 の表示は 88.9 であり、90 ではない。
+  mosa_test::check(code == 1, "eight exits 1");
+  mosa_test::check(has_exact_line(body, "分母: 9"), "denominator 9");
+  mosa_test::check(has_exact_line(body, "合格数: 8"), "passed 8");
+  mosa_test::check(has_exact_line(body, "合格率: 88.9"), "rate 88.9");
+}
+
+std::string outside_text() {
+  return "test(keep, true) :- {true}.\n- test(skip, true) :- {throw(1)}.\n";
+}
+
+void check_zero_rate(const std::filesystem::path& root) {
+  const auto suite = root / "zero";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "zero-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "format_2" / "tests.lgt",
+                              "test(bomb, true) :- {throw(1)}.\n"),
+                   "write zero bomb");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  mosa_test::check(code == 1, "zero returns 1");
+  mosa_test::check(has_exact_line(body, "分母: 0"), "zero denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 0"), "zero passed");
+  mosa_test::check(has_exact_line(body, "合格率: 合格率なし"), "zero rate");
+  mosa_test::check(body.find("bomb") == std::string::npos, "zero not read");
+}
+
+void check_outside(const std::filesystem::path& root) {
+  const auto suite = root / "out";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "out-report.md";
+  mosa_test::check(write_text(prolog / "control" / "call_1" / "tests.lgt", outside_text()), "write outside");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  // 実行すれば throw で不合格が増える。別欄なので合格数も不合格数も増えない。
+  mosa_test::check(code == 0, "outside exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "outside denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "outside passed");
+  mosa_test::check(non_empty_lines(failed) == 0, "outside adds no failure");
+  mosa_test::check(report_has(body, "control/call_1", "skip"), "outside side");
 }
 
 }  // namespace
@@ -354,6 +490,10 @@ int main() {
     Fixture fixture(root);
     check_absent(root);
     check_side_only(root);
+    check_zero_rate(root);
+    check_executes(root);
+    check_rate(root);
+    check_outside(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();
