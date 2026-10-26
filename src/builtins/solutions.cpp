@@ -74,11 +74,12 @@ struct Saved {
   std::size_t extras_mark = 0;
 };
 
-// 呼び出し前の変数は解をまたいで同じ番号。ゴールが作った変数は解ごとに 0 から振り直す。
+// 呼び出し前の自由変数は解をまたいで同じ番号。存在量化と、ゴールが作った変数は解ごとに 0 から振り直す。
 struct VarIds {
   std::size_t base = 0;
   int stable_next = 0;
   int local_next = 0;
+  const std::vector<Cell>* hidden = nullptr;
   std::vector<std::pair<std::size_t, int>> stable;
   std::vector<std::pair<std::size_t, int>> local;
   std::vector<std::uint64_t> ext_raw;
@@ -88,15 +89,17 @@ struct VarIds {
     local_next = 0;
   }
 
-  int id_of(std::size_t index, std::uint64_t raw) {
-    std::vector<std::pair<std::size_t, int>>& table = index < base ? stable : local;
-    int& counter = index < base ? stable_next : local_next;
+  // 存在量化した変数を外部のまま残すと、自由変数の同じ具体化が解ごとに分かれる。
+  int id_of(std::size_t index, std::uint64_t raw, bool as_local) {
+    const bool stable_cell = !as_local && index < base;
+    std::vector<std::pair<std::size_t, int>>& table = stable_cell ? stable : local;
+    int& counter = stable_cell ? stable_next : local_next;
     for (const auto& item : table) {
       if (item.first == index) return item.second;
     }
     const int id = counter++;
     table.emplace_back(index, id);
-    if (index < base) ext_raw.push_back(raw);
+    if (stable_cell) ext_raw.push_back(raw);
     return id;
   }
 };
@@ -115,6 +118,11 @@ bool listed(const std::vector<Cell>& vars, Cell cell) {
     if (var.raw() == cell.raw()) return true;
   }
   return false;
+}
+
+bool as_local(const VarIds& ids, std::size_t index, Cell cell) {
+  if (index >= ids.base) return true;
+  return ids.hidden != nullptr && listed(*ids.hidden, cell);
 }
 
 void collect_free(const Impl& machine, Cell term, std::vector<Cell>& vars, std::vector<std::uint64_t>& seen) {
@@ -222,8 +230,9 @@ Cell encode(Impl& machine, Cell cell, VarIds& ids, std::vector<std::pair<std::ui
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) {
     const auto index = heap_index(machine, cell);
-    const auto name = index < ids.base ? external : renaming;
-    return marker_for(machine, name, ids.id_of(index, cell.raw()));
+    const bool local = as_local(ids, index, cell);
+    const auto name = local ? renaming : external;
+    return marker_for(machine, name, ids.id_of(index, cell.raw(), local));
   }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
   for (const auto& item : seen) {
@@ -313,8 +322,9 @@ int copy_cell(Impl& machine, Cell cell, Image& image, std::vector<std::pair<std:
   if (machine.heap.unbound(cell)) {
     CopyNode node;
     const auto index = heap_index(machine, cell);
-    node.kind = index < ids.base ? CopyKind::Ext : CopyKind::Loc;
-    node.id = ids.id_of(index, cell.raw());
+    const bool local = as_local(ids, index, cell);
+    node.kind = local ? CopyKind::Loc : CopyKind::Ext;
+    node.id = ids.id_of(index, cell.raw(), local);
     const int at = push_node(image, std::move(node));
     seen.emplace_back(cell.raw(), at);
     return at;
@@ -455,7 +465,7 @@ void unwind_throw(Impl& machine, const Saved& saved, std::size_t floor) {
 // 外側の節走査はスタックに残す。asserta と retract が添字を更新できるようにするため。
 // 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
 Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses,
-               bool share) {
+               const std::vector<Cell>& hidden, bool share) {
   const Saved saved = save_exec(machine);
   const auto floor = park_callers(machine, saved);
   machine.failed = false;
@@ -463,6 +473,7 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
   machine.eval_abort = false;
   VarIds ids;
   ids.base = saved.heap_mark;
+  ids.hidden = &hidden;
   launch(machine, compiled.term, kNoFrame, machine.stack.size(), compiled.env);
   Packet packet;
   while (true) {
@@ -526,6 +537,9 @@ struct Porter {
   const Image* image = nullptr;
   const std::vector<std::uint64_t>* ext_raw = nullptr;
   std::vector<Cell> loc;
+  std::vector<Cell>* shared = nullptr;
+  std::vector<char>* shared_mark = nullptr;
+  bool marking = false;
   std::vector<Cell> made;
   std::vector<char> started;
 
@@ -534,6 +548,24 @@ struct Porter {
     if (table.size() <= index) table.resize(index + 1);
     if (table[index].raw() == 0) table[index] = machine->heap.fresh_ref();
     return table[index];
+  }
+
+  bool marked(int id) const {
+    const auto index = static_cast<std::size_t>(id);
+    return shared_mark != nullptr && index < shared_mark->size() && (*shared_mark)[index] != 0;
+  }
+
+  void mark(int id) {
+    if (shared_mark == nullptr) return;
+    const auto index = static_cast<std::size_t>(id);
+    if (shared_mark->size() <= index) shared_mark->resize(index + 1);
+    (*shared_mark)[index] = 1;
+  }
+
+  // 証人に出た局所変数だけ、袋の中で同じセルにする。存在量化だけの変数は解ごとに新しい。
+  Cell local_cell(int id) {
+    if (marking) mark(id);
+    return slot(marked(id) ? *shared : loc, id);
   }
 
   Cell compound(int index, const CopyNode& node) {
@@ -555,7 +587,7 @@ struct Porter {
     const CopyNode& node = image->nodes[slot_at];
     Cell cell;
     if (node.kind == CopyKind::Ext) cell = Cell{ext_raw->at(static_cast<std::size_t>(node.id))};
-    else if (node.kind == CopyKind::Loc) cell = slot(loc, node.id);
+    else if (node.kind == CopyKind::Loc) cell = local_cell(node.id);
     else if (node.kind == CopyKind::Atom) cell = machine->heap.atom(node.atom);
     else if (node.kind == CopyKind::Int) cell = machine->heap.integer(node.integer);
     else if (node.kind == CopyKind::Float) cell = machine->heap.floating(node.floating);
@@ -587,11 +619,18 @@ Answer make_shared(Impl& machine, const Group& group, bool sorting,
                    const std::vector<std::uint64_t>& ext_raw) {
   Answer answer;
   std::vector<Cell> templs;
+  std::vector<Cell> shared;
+  std::vector<char> shared_mark;
   bool first = true;
   for (const Image& image : group.shots) {
     Porter porter = porter_for(machine, image, ext_raw);
+    porter.shared = &shared;
+    porter.shared_mark = &shared_mark;
+    porter.marking = true;
+    const Cell witness = porter.at(image.witness);
+    porter.marking = false;
     if (first) {
-      answer.witness = porter.at(image.witness);
+      answer.witness = witness;
       answer.values = walk_list(machine, answer.witness).items;
       first = false;
     }
@@ -731,7 +770,7 @@ bool run_solutions(Impl& machine, const Goal& goal) {
   std::vector<Cell> witnesses;
   if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, goal.arg(machine, 0), hidden);
   const bool share = which != Which::Findall;
-  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses, share);
+  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses, hidden, share);
   if (packet.end == Finish::Threw) {
     propagate_throw(machine, import_term(machine, packet.ball));
     return true;

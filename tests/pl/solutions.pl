@@ -11,6 +11,17 @@ test(bagof_none, bagof(X, fail, S), fail).
 test(bagof_dup, bagof(X, (X = b; X = a; X = b), L), solutions([L = [b, a, b]])).
 test(bagof_group, bagof(X, d(X, Y), L), solutions([(Y = a, L = [1, 3]), (Y = b, L = [2])])).
 test(bagof_exist, bagof(X, Y^d(X, Y), L), solutions([L = [1, 2, 3]])).
+test(bagof_exist_copy, (
+  findall(Ls, bagof(L, A^B^C^(L = [A, B, C], bagof(t, (E = A; E = B; E = C), _)), Ls), All),
+  All = [Ls],
+  Ls = [[E, P, Q], [R, E, S], [T, U, E]],
+  P \== E, Q \== E, R \== E, S \== E, T \== E, U \== E,
+  P \== Q, P \== R, P \== S, P \== T, P \== U,
+  Q \== R, Q \== S, Q \== T, Q \== U,
+  R \== S, R \== T, R \== U,
+  S \== T, S \== U,
+  T \== U
+), true).
 test(setof_sort, setof(X, (X = b; X = a; X = b), L), solutions([L = [a, b]])).
 test(setof_group, setof(X, d(X, Y), L), solutions([(Y = a, L = [1, 3]), (Y = b, L = [2])])).
 test(setof_exist, setof(X, Y^d(X, Y), L), solutions([L = [1, 2, 3]])).
