@@ -206,7 +206,7 @@ import は書かない。ネットワークも開かない。
 - ビルド手順は、この 3 コマンドだけを書く。`cmake --preset macos-clang`、`cmake --build --preset macos-clang`、`ctest --preset macos-clang`
 - 日本語の変数: `親(太郎, 一郎).` の `太郎` はアトムである。日本語名の変数は `_太郎` のように下線で始める。詳細は `docs/SPEC.md` 第4節
 - 準拠率の文言は「未計測（フェーズ3で `docs/conformance.md` を自動生成する）」。割合もバッジも置かない
-- ライセンスは MIT で、本文は `LICENSE` を指す
+- ライセンスは MIT で、本文は `LICENSE` を指す。2026-10-26 に Apache-2.0 へ変更した。現行は `LICENSE` と `NOTICE` である
 
 `LICENSE` は MIT の全文とする。著作権表示の行は `Copyright (c) 2026 Mosa Prolog contributors` だけにし、個人名は書かない。
 

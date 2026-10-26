@@ -1,0 +1,12 @@
+Mosa Prolog
+Copyright 2026 Mosa Prolog contributors
+Licensed under the Apache License, Version 2.0
+
+Third-party material in this distribution:
+
+tests/conformance/logtalk/prolog
+    Unmodified copy of Logtalk tests/prolog
+    Copyright 1998-2026 Paulo Moura <pmoura@logtalk.org>
+    https://logtalk.org/
+    Commit 4decb64b598feff542a926a085eef01ec51f5a72
+    See tests/conformance/logtalk/NOTICE.txt

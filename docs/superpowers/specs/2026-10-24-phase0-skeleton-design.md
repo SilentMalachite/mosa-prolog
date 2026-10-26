@@ -103,7 +103,7 @@ ADR 0001 は SPEC 第6節のセル表現を写すだけである。新しい表�
 9. `tests/cpp/harness.hpp` は 50 行以内である。検査は関数で書き、マクロにしない。失敗回数を返し、テストの `main` はその回数をプロセスの終了コードにする。名前空間は `mosa_test` とし、将来の `mosa` と分けておく。
 10. `src/unicode_tables.inc` は、フェーズ1で生成し直すという日本語コメントだけを書く。フェーズ0のどの翻訳単位も include しない。`tools/gen_unicode_tables.py` は、実行すると「表の生成はフェーズ1」という意味の 1 行を出して終了コード 0 で終わる。ネットワークアクセスもしない。Unicode のバージョンはここでは決めない。
 11. README の準拠率は「未計測（フェーズ3で `docs/conformance.md` を自動生成する）」と書く。割合のバッジは置かない。日本語の変数の規則は、SPEC 第4節の要約を 1 段落で書き、詳細は SPEC を指す。要約に必ず入れる事実は、`親(太郎, 一郎).` の `太郎` はアトムであることと、日本語名の変数は `_太郎` のように下線で始めることである。ビルド手順は `cmake --preset macos-clang`、`cmake --build --preset macos-clang`、`ctest --preset macos-clang` の 3 コマンドである。
-12. `LICENSE` は MIT とする。著作権表示は `Copyright (c) 2026 Mosa Prolog contributors` とする。個人名は指示書に無いので書かない。
+12. `LICENSE` は MIT とする。著作権表示は `Copyright (c) 2026 Mosa Prolog contributors` とする。個人名は指示書に無いので書かない。2026-10-26 にライセンスは Apache-2.0 へ変更した。現行は `LICENSE` と `NOTICE` である。
 13. CI の Job Summary には `conformance: n/a (phase 0)` とだけ書く。合格率の計算はしない。
 14. `.gitignore` は `build/` と、`tests/tmp/` の中身（`README.md` を除く）を無視する。`.gitattributes` でテキストは LF に揃える。Windows 上で文書の改行が揺れないようにするためである。
 15. `install()` ルールは置かない。共有ライブラリも作らない。フェーズ6まで利用者向けのインストール形は無い。

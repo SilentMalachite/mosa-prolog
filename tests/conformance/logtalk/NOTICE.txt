@@ -13,4 +13,4 @@ Path: tests/prolog
 Additional test origins are described in prolog/NOTES.md.
 Files in that tree that have no SPDX line are test inputs from the
 same Apache-2.0 distribution.
-This directory is not covered by the MIT license at the repository root.
+The repository license is also Apache-2.0. Copyright in this directory stays with Paulo Moura.

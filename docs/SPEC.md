@@ -314,7 +314,7 @@
 | --- | --- | --- |
 | 1. C++ 単体テスト | Cell・アトム・lexer・ユニフィケーション・UTF-8 変換など、Prolog を起動する前の部品 | 外部フレームワークを入れず、`tests/cpp/` に `assert` ベースの最小ランナー（`tests/cpp/harness.hpp`、50 行以内）。CTest に登録 |
 | 2. Prolog 自前テスト | `tests/pl/<章>.pl`。`test(名前, ゴール, 期待)` の事実として書き、`mosatest` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`solutions([X=1, X=2])` の 4 種 | `mosatest tests/pl/` |
-| 3. ISO 準拠スイート | Logtalk の Prolog 準拠テストを `tests/conformance/logtalk/` に改変せず置く。ライセンスは Apache-2.0 で、Mosa 本体の MIT とは別である。INRIA Suite（`inriasuite.pl`）は再配布の許諾が無いので同梱しない。Ulrich Neumerkel の表はコピーしない。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない |
+| 3. ISO 準拠スイート | Logtalk の Prolog 準拠テストを `tests/conformance/logtalk/` に改変せず置く。リポジトリと同じ Apache-2.0 で、著作権表示はそこの `NOTICE.txt` に残す。INRIA Suite（`inriasuite.pl`）は再配布の許諾が無いので同梱しない。Ulrich Neumerkel の表はコピーしない。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない |
 | 4. 差分テスト | 層 2・3 の全ゴールを `mosac` run で変換・ビルド・実行し、インタプリタの出力（解・エラー項・標準出力）とバイト単位で比較する | `mosatest --diff`。Phase 6 以降は CI 必須 |
 
 **テストの書き方の規則**

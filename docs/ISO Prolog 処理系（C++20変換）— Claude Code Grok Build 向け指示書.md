@@ -398,7 +398,7 @@ mosa-prolog/
 ├── AGENTS.md                 # 第 10・11 節。Grok Build と Claude Code が読む本体
 ├── CLAUDE.md                 # 1 行: @AGENTS.md
 ├── README.md                 # ビルド手順、日本語変数の規則、準拠率バッジ
-├── LICENSE                   # MIT
+├── LICENSE                   # Apache-2.0
 ├── CMakeLists.txt
 ├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / windows-msvc
 ├── .github/workflows/ci.yml  # 3 OS マトリクス、警告をエラー扱い、準拠率を Job Summary に出す
