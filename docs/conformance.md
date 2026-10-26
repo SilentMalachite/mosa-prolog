@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1523
-合格率: 70.1
+合格数: 1653
+合格率: 76.1
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -63,106 +63,15 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
 predicates/atom_length_2/tests.lgt iso_atom_length_2_02 true(N==17) fail
-predicates/bagof_3/tests.lgt iso_bagof_3_01 true(S==[1, 2]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_02 true(X==[1, 2]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_03 true(S==[Y, Z]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_04 false load
-predicates/bagof_3/tests.lgt iso_bagof_3_05 true((LL==[[1]-1, [1]-2];LL==[[1]-2, [1]-1])) load
-predicates/bagof_3/tests.lgt iso_bagof_3_06 variant(L, [f(a, _), f(_, b)]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_07 true(S==[1, 2]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_08 variant(S, [1, _, 2]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_09 true(S==[3]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_10 variant(LL, [[A, _]-A, [_]-1]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_11 variant(Y, f(_)) load
-predicates/bagof_3/tests.lgt iso_bagof_3_12 true(LL==[[1, 1, 2]-1, [1, 2, 2]-2]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_13 error(instantiation_error) load
-predicates/bagof_3/tests.lgt iso_bagof_3_14 errors([type_error(callable, 1), type_error(callable, user:1)]) load
-predicates/bagof_3/tests.lgt iso_bagof_3_15 subsumes([_], LL) load
-predicates/bagof_3/tests.lgt iso_bagof_3_16 true(var(X)) load
-predicates/bagof_3/tests.lgt iso_bagof_3_17 true load
-predicates/bagof_3/tests.lgt eclipse_bagof_3_18 error(type_error(list, 12)) load
-predicates/bagof_3/tests.lgt eclipse_bagof_3_19 error(type_error(list, [1|2])) load
-predicates/bagof_3/tests.lgt lgt_bagof_3_20 true(L==['B', 'A', 'C']) load
-predicates/bagof_3/tests.lgt lgt_bagof_3_21 true(L==['B', 'A', 'C']) load
-predicates/bagof_3/tests.lgt lgt_bagof_3_23 errors([existence_error(procedure, foobar/1), existence_error(procedure, user:foobar/1)]) load
-predicates/bagof_3/tests.lgt lgt_bagof_3_24 variant(LL, [s(_, [1, 1, 1])]) load
-predicates/bagof_3/tests.lgt lgt_bagof_3_25 variant(LL, [s(_, _, [1, 1, 1])]) load
-predicates/bagof_3/tests.lgt lgt_bagof_3_26 true load
-predicates/bagof_3/tests.lgt lgt_bagof_3_27 true load
-predicates/bagof_3/tests.lgt lgt_bagof_3_28 true load
-predicates/bagof_3/tests.lgt lgt_bagof_3_29 true load
-predicates/bagof_3/tests.lgt lgt_bagof_3_30 ball(err) load
-predicates/bagof_3/tests.lgt wg17_bagof_3_31 false load
-predicates/bagof_3/tests.lgt wg17_bagof_3_32 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) load
-predicates/bagof_3/tests.lgt wg17_bagof_3_33 true((L==[A, B, C];L==[C, B, A])) load
-predicates/char_code_2/tests.lgt iso_char_code_2_01 true(Code==97) load
-predicates/char_code_2/tests.lgt iso_char_code_2_02 true(Char==Atom) load
-predicates/char_code_2/tests.lgt iso_char_code_2_03 true(Char==c) load
-predicates/char_code_2/tests.lgt iso_char_code_2_04 true load
-predicates/char_code_2/tests.lgt iso_char_code_2_05 true load
-predicates/char_code_2/tests.lgt iso_char_code_2_06 error(type_error(character, ab)) load
-predicates/char_code_2/tests.lgt iso_char_code_2_07 error(instantiation_error) load
-predicates/char_code_2/tests.lgt eddbali_char_code_2_08 error(type_error(integer, x)) load
-predicates/char_code_2/tests.lgt eddbali_char_code_2_09 error(representation_error(character_code)) load
-predicates/char_code_2/tests.lgt lgt_char_code_2_10 true load
-predicates/char_code_2/tests.lgt lgt_char_code_2_11 error(type_error(character, 42)) load
-predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char, Code0), char_code(Char, Code), Code0==Code)) load
+predicates/bagof_3/tests.lgt iso_bagof_3_17 true fail
+predicates/bagof_3/tests.lgt wg17_bagof_3_32 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) existence_error(procedure, {}/1)
+predicates/bagof_3/tests.lgt wg17_bagof_3_33 true((L==[A, B, C];L==[C, B, A])) fail
+predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char, Code0), char_code(Char, Code), Code0==Code)) existence_error(procedure, between/3)
 predicates/clause_2/tests.lgt iso_clause_2_09 true fail
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream, S)) existence_error(stream, '$stream'(3))
 predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure, ground/1)
-predicates/current_op_3/tests.lgt iso_current_op_3_01 exists(P-T==1200-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_02 exists(P-T==1200-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_03 exists(P-T==1200-fx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_04 exists(P-T==1200-fx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_05 exists(P-T==1100-xfy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_06 exists(P-T==1050-xfy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_07 exists(P-T==1000-xfy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_08 exists(P-T==900-fy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_09 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_10 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_11 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_12 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_13 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_14 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_15 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_16 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_17 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_18 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_19 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_20 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_21 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_22 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_23 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_24 exists(P-T==700-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_25 exists(P-T==500-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_26 exists(P-T==500-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_27 exists(P-T==500-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_28 exists(P-T==500-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_29 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_30 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_31 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_32 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_33 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_34 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_35 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_36 exists(P-T==200-xfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_37 exists(P-T==200-xfy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_38 exists(P-T==200-fy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_39 exists(P-T==200-fy) load
-predicates/current_op_3/tests.lgt iso_current_op_3_40 true((Contents==[b, a, z, q, u, u, x];Contents==[q, u, u, x, b, a, z])) load
-predicates/current_op_3/tests.lgt sics_current_op_3_41 error(domain_error(operator_priority, 1201)) load
-predicates/current_op_3/tests.lgt sics_current_op_3_42 error(domain_error(operator_specifier, yfy)) load
-predicates/current_op_3/tests.lgt sics_current_op_3_43 errors([type_error(atom, 0), domain_error(operator_specifier, 0)]) load
-predicates/current_op_3/tests.lgt sics_current_op_3_44 error(type_error(atom, 5)) load
-predicates/current_op_3/tests.lgt iso_current_op_3_45 true load
-predicates/current_op_3/tests.lgt iso_current_op_3_46 exists(P-T==400-yfx) load
-predicates/current_op_3/tests.lgt iso_current_op_3_47 exists(P-T==200-fy) load
-predicates/current_op_3/tests.lgt lgt_current_op_3_48 true(PTs==[200-fy, 500-yfx]) load
-predicates/current_op_3/tests.lgt lgt_current_op_3_49 errors([type_error(integer, a), domain_error(operator_priority, a)]) load
-predicates/current_op_3/tests.lgt lgt_current_op_3_50 false load
-predicates/current_op_3/tests.lgt lgt_current_op_3_51 false load
-predicates/current_op_3/tests.lgt lgt_current_op_3_52 false load
+predicates/current_op_3/tests.lgt iso_current_op_3_40 true((Contents==[b, a, z, q, u, u, x];Contents==[q, u, u, x, b, a, z])) text_output_contents/1
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/current_output_1/tests.lgt sics_current_output_1_04 error(domain_error(stream, S)) existence_error(stream, '$stream'(3))
 predicates/current_output_1/tests.lgt sics_current_output_1_06 true existence_error(procedure, ground/1)
@@ -276,51 +185,12 @@ predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_05 error(d
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition, stream, Stream)) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/terms.pl')
 predicates/set_stream_position_2/tests.lgt lgt_set_stream_position_2_07 true(Term1==Term3) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/terms.pl')
 predicates/set_stream_position_2/tests.lgt lgt_set_stream_position_2_08 true(Byte1==Byte3) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/bytes.pl')
-predicates/setof_3/tests.lgt iso_setof_3_01 true(S==[1, 2]) load
-predicates/setof_3/tests.lgt iso_setof_3_02 true(X==[1, 2]) load
-predicates/setof_3/tests.lgt iso_setof_3_03 true(S==[1, 2]) load
-predicates/setof_3/tests.lgt iso_setof_3_04 true(S==[2]) load
-predicates/setof_3/tests.lgt iso_setof_3_05 true((S==[Z, Y];S==[Y, Z])) load
-predicates/setof_3/tests.lgt iso_setof_3_06 false load
-predicates/setof_3/tests.lgt iso_setof_3_07 true(LL==[[1]-1, [1]-2]) load
-predicates/setof_3/tests.lgt iso_setof_3_08 variant(L, [f(_, b), f(a, _)]) load
-predicates/setof_3/tests.lgt iso_setof_3_09 true(S==[1, 2]) load
-predicates/setof_3/tests.lgt iso_setof_3_10 variant(S, [_, 1, 2]) load
-predicates/setof_3/tests.lgt iso_setof_3_11 true(S==[3]) load
-predicates/setof_3/tests.lgt iso_setof_3_12 true load
-predicates/setof_3/tests.lgt iso_setof_3_13 variant(Y, f(_)) load
-predicates/setof_3/tests.lgt iso_setof_3_14 true load
-predicates/setof_3/tests.lgt iso_setof_3_15 true load
-predicates/setof_3/tests.lgt iso_setof_3_16 true((U==a, V==a)) load
-predicates/setof_3/tests.lgt iso_setof_3_17 true load
-predicates/setof_3/tests.lgt iso_setof_3_18 true load
-predicates/setof_3/tests.lgt iso_setof_3_19 false load
-predicates/setof_3/tests.lgt iso_setof_3_20 true load
-predicates/setof_3/tests.lgt iso_setof_3_21 true(LL==[[1, 2]-1, [1, 2]-2]) load
-predicates/setof_3/tests.lgt iso_setof_3_22 true(L==[1-[1, 2], 2-[1, 2]]) load
-predicates/setof_3/tests.lgt iso_setof_3_23 true load
-predicates/setof_3/tests.lgt iso_setof_3_24 true load
-predicates/setof_3/tests.lgt eddbali_setof_3_26 errors([type_error(callable, (true;4)), type_error(callable, user:(true;4)), type_error(callable, 4), type_error(callable, user:4)]) load
-predicates/setof_3/tests.lgt sics_setof_3_27 errors([type_error(callable, 1), type_error(callable, user:1)]) load
-predicates/setof_3/tests.lgt sics_setof_3_28 true(A==[]) load
-predicates/setof_3/tests.lgt sics_setof_3_29 error(type_error(list, [A|1])) load
-predicates/setof_3/tests.lgt eclipse_setof_3_30 error(type_error(list, 12)) load
-predicates/setof_3/tests.lgt eclipse_setof_3_31 error(type_error(list, [1|2])) load
-predicates/setof_3/tests.lgt lgt_setof_3_32 true(L==['A', 'B', 'C']) load
-predicates/setof_3/tests.lgt lgt_setof_3_33 true(L==['A', 'B', 'C']) load
-predicates/setof_3/tests.lgt lgt_setof_3_34 true load
-predicates/setof_3/tests.lgt lgt_setof_3_35 error(instantiation_error) load
-predicates/setof_3/tests.lgt lgt_setof_3_37 errors([existence_error(procedure, foobar/1), existence_error(procedure, user:foobar/1)]) load
-predicates/setof_3/tests.lgt lgt_setof_3_38 variant(LL, [s(_, [1])]) load
-predicates/setof_3/tests.lgt lgt_setof_3_39 variant(LL, [s(_, _, [1])]) load
-predicates/setof_3/tests.lgt lgt_setof_3_40 true load
-predicates/setof_3/tests.lgt lgt_setof_3_41 true load
-predicates/setof_3/tests.lgt lgt_setof_3_42 true load
-predicates/setof_3/tests.lgt lgt_setof_3_43 true load
-predicates/setof_3/tests.lgt lgt_bagof_3_44 ball(err) load
-predicates/setof_3/tests.lgt wg17_setof_3_45 false load
-predicates/setof_3/tests.lgt wg17_setof_3_46 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) load
-predicates/setof_3/tests.lgt wg17_setof_3_47 true((L==[A, B, C];L==[C, B, A])) load
+predicates/setof_3/tests.lgt iso_setof_3_12 true fail
+predicates/setof_3/tests.lgt iso_setof_3_14 true fail
+predicates/setof_3/tests.lgt iso_setof_3_17 true fail
+predicates/setof_3/tests.lgt lgt_setof_3_34 true fail
+predicates/setof_3/tests.lgt wg17_setof_3_46 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) existence_error(procedure, {}/1)
+predicates/setof_3/tests.lgt wg17_setof_3_47 true((L==[A, B, C];L==[C, B, A])) fail
 predicates/stream_property_2/tests.lgt iso_stream_property_2_01 true((memberchk(S1-FooPath, L), memberchk(S2-BarPath, L))) fail
 predicates/stream_property_2/tests.lgt iso_stream_property_2_02 true((memberchk(FOut, L), memberchk(COut, L))) domain_error(stream_property, output)
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)

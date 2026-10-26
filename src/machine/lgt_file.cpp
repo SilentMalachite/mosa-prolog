@@ -301,12 +301,12 @@ std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const s
   return write_term(heap, operators, term, {}, names);
 }
 
-bool dropped_user_uses(const Heap& heap, Cell term) {
+bool dropped_import_uses(const Heap& heap, Cell term) {
   if (!functor_is(heap, term, ":-", 1)) return false;
   const Cell inner = heap.deref(heap.arg(heap.deref(term), 0));
   if (!functor_is(heap, inner, "uses", 2)) return false;
-  // 印だけ。機械に渡すと未知の指示で load が落ち、ファイルのテストが全部止まる。
-  return atom_is(heap, heap.arg(inner, 0), "user");
+  // lgtunit は先に吸収する。残りは Logtalk の輸入で、未知の指示として load を落とす。
+  return true;
 }
 
 void add_piece(Heap& heap, const OperatorTable& operators, Cell term, const std::vector<VarName>& names,
@@ -336,7 +336,7 @@ void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, st
                Parse& parse, LgtFile& file) {
   const Cell term = heap.deref(read.term);
   if (absorb_lgt_uses(heap, operators, term, file.operators)) return;
-  if (dropped_user_uses(heap, term)) return;
+  if (dropped_import_uses(heap, term)) return;
   if (dropped_directive(heap, term)) return;
   if (take_gate(heap, operators, term, read.names, parse, file)) return;
   Cell head;

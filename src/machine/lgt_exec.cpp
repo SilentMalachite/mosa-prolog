@@ -266,6 +266,19 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
 
 void exec_at(Machine& machine, const Prog& prog, int index, Env& env);
 
+// query はヒープを先頭から使う。失敗したあとのセルは、保存した字面から置き直す。
+void rehydrate_bindings(Machine& machine, Env& env) {
+  std::vector<Binding> fresh;
+  fresh.reserve(env.saved.size());
+  for (const Saved& slot : env.saved) {
+    bool ok = false;
+    const Cell term = parse_saved(machine, slot.term, ok);
+    if (!ok) continue;
+    fresh.push_back(Binding{slot.name, term});
+  }
+  env.bindings = std::move(fresh);
+}
+
 void exec_plain(Machine& machine, const Node& node, Env& env) {
   // 既に解を開いているときは query しない。選択点が消える。
   if (env.live) {
@@ -286,6 +299,7 @@ void exec_plain(Machine& machine, const Node& node, Env& env) {
   }
   env.live = false;
   env.tri = step.stop.kind == StopKind::Exception ? Tri::Throw : Tri::No;
+  if (env.tri == Tri::No) rehydrate_bindings(machine, env);
 }
 
 void exec_check(Machine& machine, const Node& node, Env& env) {

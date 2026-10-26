@@ -361,6 +361,27 @@ void check_atom_chars(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_atom_chars_2_02") == std::string::npos, "atom chars brackets round-trip");
 }
 
+// uses(list, [msort/2]) は Logtalk の輸入。プログラムへ渡すと未知の指示でファイル全体が load になる。
+std::string list_uses_text() {
+  return ":- uses(list, [msort/2]).\n"
+         "test(list_uses_ok, true) :- {true}.\n";
+}
+
+void check_list_uses(const std::filesystem::path& root) {
+  const auto suite = root / "list-uses";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "list-uses-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "bagof_3" / "tests.lgt", list_uses_text()), "write list uses");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("load") != std::string::npos) show("list uses report", body);
+  mosa_test::check(code == 0, "list uses exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "list uses denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "list uses passed");
+  mosa_test::check(failed.find("load") == std::string::npos, "list uses is not a load failure");
+}
+
 void check_reopen(const std::filesystem::path& root) {
   const auto suite = root / "reopen";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -396,6 +417,7 @@ int main() {
     check_abolish(root);
     check_arg(root);
     check_atom_chars(root);
+    check_list_uses(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");
