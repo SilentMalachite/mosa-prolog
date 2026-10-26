@@ -297,6 +297,27 @@ void check_sign(const std::filesystem::path& root) {
   mosa_test::check(has_exact_line(failed, "functions/sign_1/tests.lgt sign_why true kept"), "sign explanation");
 }
 
+// 期待の -1 は前置の複合項。投げた整数と同じ字面でも、包摂が違う形のままなら不合格。
+std::string abolish_text() {
+  return "test(eddbali_abolish_1_10, error(domain_error(not_less_than_zero,-1))) :-\n"
+         "    {abolish(foo/(-1))}.\n";
+}
+
+void check_abolish(const std::filesystem::path& root) {
+  const auto suite = root / "abolish";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "abolish-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "abolish_1" / "tests.lgt", abolish_text()), "write abolish");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("eddbali_abolish_1_10") != std::string::npos) show("abolish report", body);
+  mosa_test::check(code == 0, "abolish exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "abolish denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "abolish passed");
+  mosa_test::check(failed.find("eddbali_abolish_1_10") == std::string::npos, "abolish negative arity");
+}
+
 void check_reopen(const std::filesystem::path& root) {
   const auto suite = root / "reopen";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -329,6 +350,7 @@ int main() {
     check_reopen(root);
     check_power(root);
     check_sign(root);
+    check_abolish(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

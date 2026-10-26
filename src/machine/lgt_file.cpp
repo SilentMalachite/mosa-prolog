@@ -12,6 +12,8 @@
 #include "mosa/writer.hpp"
 
 #include <cstdint>
+#include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -372,6 +374,57 @@ bool same_shape(const Heap& heap, Cell left, Cell right) {
   return true;
 }
 
+struct NumberValue {
+  bool integer = false;
+  std::int64_t as_int = 0;
+  double as_float = 0.0;
+};
+
+bool fill_number(const Heap& heap, Cell cell, bool negative, NumberValue& out) {
+  cell = heap.deref(cell);
+  if (integer_cell(heap, cell)) {
+    auto value = heap.integer_value(cell);
+    if (negative) {
+      if (value == std::numeric_limits<std::int64_t>::min()) return false;
+      value = -value;
+    }
+    out.integer = true;
+    out.as_int = value;
+    return true;
+  }
+  if (cell.tag() != Tag::Float) return false;
+  out.integer = false;
+  out.as_float = negative ? -heap.float_value(cell) : heap.float_value(cell);
+  return true;
+}
+
+// 数そのものか、その前の + と - だけ。式は評価しない。
+std::optional<NumberValue> signed_number(const Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  NumberValue out;
+  if (fill_number(heap, cell, false, out)) return out;
+  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return std::nullopt;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  if (name != "+" && name != "-") return std::nullopt;
+  if (!fill_number(heap, heap.arg(cell, 0), name == "-", out)) return std::nullopt;
+  return out;
+}
+
+bool sign_of_number(const Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return false;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  if (name != "+" && name != "-") return false;
+  const Cell arg = heap.deref(heap.arg(cell, 0));
+  return integer_cell(heap, arg) || arg.tag() == Tag::Float;
+}
+
+bool same_number(const NumberValue& left, const NumberValue& right) {
+  if (left.integer != right.integer) return false;
+  if (left.integer) return left.as_int == right.as_int;
+  return left.as_float == right.as_float;
+}
+
 bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pair<std::uint64_t, Cell>>& bound) {
   general = heap.deref(general);
   specific = heap.deref(specific);
@@ -385,6 +438,12 @@ bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pa
   if (heap.unbound(specific)) return false;
   if (integer_cell(heap, general) && integer_cell(heap, specific)) {
     return heap.integer_value(general) == heap.integer_value(specific);
+  }
+  // 期待の -1 は前置の複合項。投げた整数とタグが違うので、数の符号だけ揃える。
+  if (sign_of_number(heap, general) || sign_of_number(heap, specific)) {
+    const auto left = signed_number(heap, general);
+    const auto right = signed_number(heap, specific);
+    if (left && right) return same_number(*left, *right);
   }
   if (general.tag() != specific.tag()) return false;
   if (general.tag() == Tag::Atom) return atom_text(heap, general) == atom_text(heap, specific);

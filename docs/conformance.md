@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1505
-合格率: 69.3
+合格数: 1513
+合格率: 69.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -62,8 +62,6 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
-predicates/abolish_1/tests.lgt eddbali_abolish_1_10 error(domain_error(not_less_than_zero, -1)) domain_error(not_less_than_zero, -1)
-predicates/arg_3/tests.lgt eddbali_arg_3_13 error(domain_error(not_less_than_zero, -3)) domain_error(not_less_than_zero, -3)
 predicates/arg_3/tests.lgt lgt_arg_3_20 true(Arg==(1, 2, 3)) fail
 predicates/asserta_1/tests.lgt wg17_asserta_1_23 errors([permission_error(modify, static_procedure, :- /2), permission_error(modify, static_procedure, user: :- /2)]) true
 predicates/asserta_1/tests.lgt wg17_asserta_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) true
@@ -71,7 +69,6 @@ predicates/assertz_1/tests.lgt wg17_assertz_1_23 errors([permission_error(modify
 predicates/assertz_1/tests.lgt wg17_assertz_1_24 errors([permission_error(modify, static_procedure, :- /1), permission_error(modify, static_procedure, user: :- /1)]) true
 predicates/atom_chars_2/tests.lgt iso_atom_chars_2_02 true(L==[[, ]]) fail
 predicates/atom_length_2/tests.lgt iso_atom_length_2_02 true(N==17) fail
-predicates/atom_length_2/tests.lgt eddbali_atom_length_2_08 error(domain_error(not_less_than_zero, -4)) domain_error(not_less_than_zero, -4)
 predicates/bagof_3/tests.lgt iso_bagof_3_01 true(S==[1, 2]) load
 predicates/bagof_3/tests.lgt iso_bagof_3_02 true(X==[1, 2]) load
 predicates/bagof_3/tests.lgt iso_bagof_3_03 true(S==[Y, Z]) load
@@ -185,7 +182,6 @@ predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true
 predicates/current_prolog_flag_2/tests.lgt lgt_current_prolog_flag_2_20 true flag(Flag)
 predicates/findall_4/tests.lgt commons_findall_4_12 error(type_error(list, [A|1])) true
 predicates/findall_4/tests.lgt commons_findall_4_13 error(type_error(list, 12)) true
-predicates/functor_3/tests.lgt iso_functor_3_18 error(domain_error(not_less_than_zero, -1)) domain_error(not_less_than_zero, -1)
 predicates/nl_1/tests.lgt lgt_nl_1_04 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, bin)
 predicates/nl_1/tests.lgt lgt_nl_1_05 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(4))
 predicates/nl_1/tests.lgt lgt_nl_1_06 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(5))
@@ -193,7 +189,6 @@ predicates/nl_1/tests.lgt lgt_nl_0_02 error(permission_error(output, binary_stre
 predicates/number_chars_2/tests.lgt wg17_number_chars_2_40 true(X==32) syntax_error('0\' ')
 predicates/number_chars_2/tests.lgt lgt_number_chars_2_43 error(syntax_error(_)) fail
 predicates/number_codes_2/tests.lgt wg17_number_codes_2_43 true(X==32) syntax_error('0\' ')
-predicates/op_3/tests.lgt iso_op_3_04 error(domain_error(operator_priority, -30)) domain_error(operator_priority, -30)
 predicates/op_3/tests.lgt iso_op_3_20 true(Assertion) fail
 predicates/open_4/tests.lgt iso_open_4_01 true fail
 predicates/open_4/tests.lgt iso_open_4_03 true fail
@@ -373,9 +368,6 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_46 true(Reposition=
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_47 true((Reposition==false;Reposition==true)) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_52 true(Type==text) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_53 true(Type==binary) fail
-predicates/sub_atom_5/tests.lgt sics_sub_atom_5_14 error(domain_error(not_less_than_zero, -2)) domain_error(not_less_than_zero, -2)
-predicates/sub_atom_5/tests.lgt sics_sub_atom_5_15 error(domain_error(not_less_than_zero, -3)) domain_error(not_less_than_zero, -3)
-predicates/sub_atom_5/tests.lgt sics_sub_atom_5_16 error(domain_error(not_less_than_zero, -4)) domain_error(not_less_than_zero, -4)
 predicates/sub_atom_5/tests.lgt lgt_sub_atom_5_34 true existence_error(procedure, forall/2)
 predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion
