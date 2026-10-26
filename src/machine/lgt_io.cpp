@@ -354,6 +354,14 @@ void close_alias(Impl& machine, std::string_view alias) {
   }
 }
 
+void release_closed_alias(Impl& machine, std::string_view alias) {
+  if (alias.empty()) return;
+  // 閉じた流れが同じ別名を持ったままだと、新しい流れに届かない。
+  for (Stream& old : machine.streams) {
+    if (old.closed && old.alias == alias) old.alias.clear();
+  }
+}
+
 std::optional<std::size_t> open_alias(const Impl& machine, std::string_view alias) {
   for (std::size_t index = 0; index < machine.streams.size(); ++index) {
     const Stream& stream = machine.streams[index];
@@ -434,6 +442,7 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
   const std::string key = utf8_of(path);
   close_alias(impl, alias_name);
   close_path(impl, key);
+  release_closed_alias(impl, alias_name);
   Stream made;
   made.kind = Stream::Kind::File;
   made.data = opt.data;

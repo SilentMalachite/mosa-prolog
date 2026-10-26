@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1373
-合格率: 63.2
+合格数: 1408
+合格率: 64.8
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -297,15 +297,15 @@ predicates/print_1/tests.lgt lgt_print_1_02 true(Assertion) fail
 predicates/print_1/tests.lgt lgt_print_1_03 true(Assertion) fail
 predicates/print_1/tests.lgt lgt_print_1_04 true(Assertion) fail
 predicates/print_1/tests.lgt lgt_print_1_05 true(Assertion) fail
-predicates/print_2/tests.lgt lgt_print_2_02 true(Assertion) existence_error(stream, out)
-predicates/print_2/tests.lgt lgt_print_2_03 true(Assertion) existence_error(stream, out)
-predicates/print_2/tests.lgt lgt_print_2_04 true(Assertion) existence_error(stream, out)
-predicates/print_2/tests.lgt lgt_print_2_05 true(Assertion) existence_error(stream, out)
+predicates/print_2/tests.lgt lgt_print_2_02 true(Assertion) fail
+predicates/print_2/tests.lgt lgt_print_2_03 true(Assertion) fail
+predicates/print_2/tests.lgt lgt_print_2_04 true(Assertion) fail
+predicates/print_2/tests.lgt lgt_print_2_05 true(Assertion) fail
 predicates/print_2/tests.lgt lgt_print_2_08 error(existence_error(stream, S)) existence_error(stream, '$stream'(8))
 predicates/print_2/tests.lgt lgt_print_2_09 error(existence_error(stream, S)) existence_error(stream, '$stream'(9))
 predicates/print_2/tests.lgt lgt_print_2_11 error(permission_error(output, binary_stream, S)) permission_error(output, binary_stream, '$stream'(10))
 predicates/print_2/tests.lgt lgt_print_2_12 error(permission_error(output, stream, s)) permission_error(output, stream, s)
-predicates/print_2/tests.lgt lgt_print_2_13 error(permission_error(output, binary_stream, _)) existence_error(stream, s)
+predicates/print_2/tests.lgt lgt_print_2_13 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, s)
 predicates/put_byte_2/tests.lgt iso_put_byte_2_03 error(instantiation_error) instantiation_error
 predicates/put_byte_2/tests.lgt iso_put_byte_2_04 error(type_error(byte, ty)) type_error(byte, ty)
 predicates/put_byte_2/tests.lgt sics_put_byte_2_06 error(instantiation_error) instantiation_error
@@ -315,33 +315,30 @@ predicates/put_byte_2/tests.lgt sics_put_byte_2_09 error(permission_error(output
 predicates/put_byte_2/tests.lgt sics_put_byte_2_10 error(permission_error(output, text_stream, S)) true
 predicates/put_byte_2/tests.lgt sics_put_byte_2_11 error(type_error(byte, -1)) type_error(byte, -1)
 predicates/put_byte_2/tests.lgt lgt_put_byte_2_14 error(permission_error(output, stream, s)) permission_error(output, stream, s)
-predicates/put_byte_2/tests.lgt lgt_put_byte_2_15 error(permission_error(output, text_stream, _)) existence_error(stream, s)
+predicates/put_byte_2/tests.lgt lgt_put_byte_2_15 error(permission_error(output, text_stream, _)) permission_error(output, text_stream, s)
 predicates/put_byte_2/tests.lgt lgt_put_byte_2_16 error(type_error(byte, 256)) type_error(byte, 256)
-predicates/put_byte_2/tests.lgt lgt_put_byte_2_17 error(type_error(byte, 256)) existence_error(stream, st_o)
-predicates/put_byte_2/tests.lgt lgt_put_byte_2_19 true(Assertion) existence_error(stream, st_o)
-predicates/put_byte_2/tests.lgt lgt_put_byte_2_21 true(Assertion) existence_error(stream, st_o)
-predicates/put_char_2/tests.lgt iso_put_char_2_04 true(Assertion) existence_error(stream, st_o)
+predicates/put_byte_2/tests.lgt lgt_put_byte_2_17 error(type_error(byte, 256)) type_error(byte, 256)
 predicates/put_char_2/tests.lgt iso_put_char_2_05 error(instantiation_error) instantiation_error
-predicates/put_char_2/tests.lgt iso_put_char_2_06 error(type_error(character, ty)) existence_error(stream, st_o)
+predicates/put_char_2/tests.lgt iso_put_char_2_06 error(type_error(character, ty)) type_error(character, ty)
 predicates/put_char_2/tests.lgt sics_put_char_2_09 error(existence_error(stream, S)) existence_error(stream, '$stream'(9))
 predicates/put_char_2/tests.lgt sics_put_char_2_10 error(existence_error(stream, S)) existence_error(stream, '$stream'(10))
 predicates/put_char_2/tests.lgt sics_put_char_2_12 error(permission_error(output, binary_stream, S)) permission_error(output, binary_stream, '$stream'(11))
 predicates/put_char_2/tests.lgt lgt_put_char_2_13 error(permission_error(output, stream, s)) permission_error(output, stream, s)
-predicates/put_char_2/tests.lgt lgt_put_char_2_14 error(permission_error(output, binary_stream, _)) existence_error(stream, s)
+predicates/put_char_2/tests.lgt lgt_put_char_2_14 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, s)
 predicates/put_char_2/tests.lgt lgt_put_char_2_15 error(type_error(character, 1)) type_error(character, 1)
-predicates/put_char_2/tests.lgt lgt_put_char_2_16 error(type_error(character, 1)) existence_error(stream, st_o)
+predicates/put_char_2/tests.lgt lgt_put_char_2_16 error(type_error(character, 1)) type_error(character, 1)
 predicates/put_code_2/tests.lgt iso_put_code_2_03 error(instantiation_error) instantiation_error
-predicates/put_code_2/tests.lgt iso_put_code_2_04 error(type_error(integer, ty)) existence_error(stream, st_o)
+predicates/put_code_2/tests.lgt iso_put_code_2_04 error(type_error(integer, ty)) type_error(integer, ty)
 predicates/put_code_2/tests.lgt iso_put_code_2_07 error(existence_error(stream, S)) existence_error(stream, '$stream'(7))
 predicates/put_code_2/tests.lgt iso_put_code_2_08 error(existence_error(stream, S)) existence_error(stream, '$stream'(8))
 predicates/put_code_2/tests.lgt iso_put_code_2_10 error(permission_error(output, binary_stream, S)) permission_error(output, binary_stream, '$stream'(9))
 predicates/put_code_2/tests.lgt lgt_put_code_2_13 error(permission_error(output, stream, s)) permission_error(output, stream, s)
-predicates/put_code_2/tests.lgt lgt_put_code_2_14 error(permission_error(output, binary_stream, _)) existence_error(stream, s)
+predicates/put_code_2/tests.lgt lgt_put_code_2_14 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, s)
 predicates/put_code_2/tests.lgt lgt_put_code_2_15 error(type_error(integer, 65.0)) type_error(integer, 65.0)
-predicates/put_code_2/tests.lgt lgt_put_code_2_16 error(type_error(integer, 65.0)) existence_error(stream, st_o)
+predicates/put_code_2/tests.lgt lgt_put_code_2_16 error(type_error(integer, 65.0)) type_error(integer, 65.0)
 predicates/read_term_3/tests.lgt iso_read_term_3_01 true(Assertion) fail
 predicates/read_term_3/tests.lgt iso_read_term_3_02 true(Assertion) fail
-predicates/read_term_3/tests.lgt iso_read_term_3_03 true existence_error(stream, in)
+predicates/read_term_3/tests.lgt iso_read_term_3_03 true assertion
 predicates/read_term_3/tests.lgt iso_read_term_3_04 true(Assertion) fail
 predicates/read_term_3/tests.lgt iso_read_term_3_05 true(Assertion) fail
 predicates/read_term_3/tests.lgt sics_read_term_3_10 error(instantiation_error) instantiation_error
@@ -350,15 +347,13 @@ predicates/read_term_3/tests.lgt sics_read_term_3_17 error(existence_error(strea
 predicates/read_term_3/tests.lgt sics_read_term_3_18 error(existence_error(stream, S)) existence_error(stream, '$stream'(14))
 predicates/read_term_3/tests.lgt sics_read_term_3_19 error(permission_error(input, binary_stream, S)) permission_error(input, binary_stream, '$stream'(15))
 predicates/read_term_3/tests.lgt sics_read_term_3_20 error(permission_error(input, binary_stream, S)) permission_error(input, binary_stream, '$stream'(16))
-predicates/read_term_3/tests.lgt sics_read_term_3_21 true(Value==past) existence_error(stream, in)
 predicates/read_term_3/tests.lgt sics_read_term_3_23 true(X==Integer) fail
 predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) fail
-predicates/read_term_3/tests.lgt lgt_read_term_3_25 true(Term==end_of_file) existence_error(stream, in)
 predicates/read_term_3/tests.lgt lgt_read_term_3_26 error(permission_error(input, stream, s)) permission_error(input, stream, s)
-predicates/read_term_3/tests.lgt lgt_read_term_3_27 error(permission_error(input, binary_stream, _)) existence_error(stream, s)
+predicates/read_term_3/tests.lgt lgt_read_term_3_27 error(permission_error(input, binary_stream, _)) permission_error(input, binary_stream, s)
 predicates/read_term_3/tests.lgt lgt_read_term_3_28 true assertion
-predicates/read_term_3/tests.lgt lgt_read_term_3_30 true existence_error(stream, in)
-predicates/read_term_3/tests.lgt lgt_read_term_3_31 true existence_error(stream, in)
+predicates/read_term_3/tests.lgt lgt_read_term_3_30 true assertion
+predicates/read_term_3/tests.lgt lgt_read_term_3_31 true assertion
 predicates/read_term_3/tests.lgt lgt_read_term_3_32 error(domain_error(read_option, variables(a))) fail
 predicates/read_term_3/tests.lgt lgt_read_term_3_33 error(domain_error(read_option, variables([_|a]))) fail
 predicates/read_term_3/tests.lgt lgt_read_term_3_34 error(domain_error(read_option, variable_names(a))) fail
@@ -386,7 +381,7 @@ predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_01 error(i
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_02 error(instantiation_error) instantiation_error
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_03 errors([domain_error(stream_or_alias, foo), existence_error(stream, foo)]) domain_error(stream_or_alias, foo)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_04 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(4))
-predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_05 error(domain_error(stream_position, foo)) existence_error(stream, st_i)
+predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_05 error(domain_error(stream_position, foo)) domain_error(stream_position, foo)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition, stream, Stream)) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/terms.pl')
 predicates/set_stream_position_2/tests.lgt lgt_set_stream_position_2_07 true(Term1==Term3) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/terms.pl')
 predicates/set_stream_position_2/tests.lgt lgt_set_stream_position_2_08 true(Byte1==Byte3) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/bytes.pl')
@@ -484,57 +479,27 @@ predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion/1
 predicates/term_variables_2/tests.lgt iso_term_variables_2_08 true assertion/1
 predicates/univ_2/tests.lgt iso_univ_2_13 error(type_error(atom, a(b))) type_error(atomic, a(b))
 predicates/write_term_3/tests.lgt iso_write_term_3_001 true(Assertion) fail
-predicates/write_term_3/tests.lgt iso_write_term_3_002 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt iso_write_term_3_003 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt iso_write_term_3_004 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt iso_write_term_3_005 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt iso_write_term_3_006 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt iso_write_term_3_007 true(Assertion) existence_error(stream, out)
+predicates/write_term_3/tests.lgt iso_write_term_3_002 true(Assertion) fail
 predicates/write_term_3/tests.lgt sics_write_term_3_019 error(existence_error(stream, S)) existence_error(stream, '$stream'(10))
 predicates/write_term_3/tests.lgt sics_write_term_3_020 error(existence_error(stream, S)) existence_error(stream, '$stream'(11))
 predicates/write_term_3/tests.lgt sics_write_term_3_022 error(permission_error(output, binary_stream, S)) permission_error(output, binary_stream, '$stream'(12))
 predicates/write_term_3/tests.lgt lgt_write_term_3_023 error(permission_error(output, stream, s)) permission_error(output, stream, s)
-predicates/write_term_3/tests.lgt lgt_write_term_3_024 error(permission_error(output, binary_stream, _)) existence_error(stream, s)
-predicates/write_term_3/tests.lgt lgt_write_term_3_025 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_026 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_027 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_028 true(Assertion) existence_error(stream, out)
+predicates/write_term_3/tests.lgt lgt_write_term_3_024 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, s)
+predicates/write_term_3/tests.lgt lgt_write_term_3_028 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_029 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_030 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_031 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_032 true(Assertion) existence_error(stream, out)
 predicates/write_term_3/tests.lgt lgt_write_term_3_033 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_034 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_035 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_036 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_037 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_038 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_039 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_040 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_041 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_042 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_', _|_], Chars) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_', _|_], Chars) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_045 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_046 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_047 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_048 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_049 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_050 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_051 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_052 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_053 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_054 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_055 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_056 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_057 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_058 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_059 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_060 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_061 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_062 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_063 true(Assertion) existence_error(stream, out)
-predicates/write_term_3/tests.lgt lgt_write_term_3_064 true(Assertion) existence_error(stream, out)
+predicates/write_term_3/tests.lgt lgt_write_term_3_040 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_041 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_042 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_', _|_], Chars) text_output_contents/2
+predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_', _|_], Chars) text_output_contents/2
+predicates/write_term_3/tests.lgt lgt_write_term_3_045 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_046 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_047 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_048 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_053 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_054 true(Assertion) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_055 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_', _|_], Chars) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_', _|_], Chars) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_067 true(Assertion) fail

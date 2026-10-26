@@ -146,6 +146,15 @@ std::string helper_text() {
          "test(ok, true) :- {true}.\n";
 }
 
+std::string reopen_text() {
+  return "test(reopen, true(Assertion)) :-\n"
+         "    ^^set_text_output(st_o, ''),\n"
+         "    {close(st_o)},\n"
+         "    ^^set_text_output(st_o, ''),\n"
+         "    {put_char(st_o, a)},\n"
+         "    ^^text_output_assertion(st_o, 'a', Assertion).\n";
+}
+
 void check_pair(const std::filesystem::path& root) {
   const auto suite = root / "io";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -225,6 +234,22 @@ void check_unknown(const std::filesystem::path& root) {
   mosa_test::check(failed.find("existence_error") == std::string::npos, "unknown is not a user predicate");
 }
 
+void check_reopen(const std::filesystem::path& root) {
+  const auto suite = root / "reopen";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "reopen-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "put_char_2" / "tests.lgt", reopen_text()), "write reopen");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("existence_error") != std::string::npos) show("reopen report", body);
+  // 閉じた別名が残ると、次の put_char は新しい流れではなく存在エラーになる。
+  mosa_test::check(code == 0, "reopen exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "reopen denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "reopen passed");
+  mosa_test::check(failed.find("existence_error") == std::string::npos, "reopen is not a closed alias");
+}
+
 }  // namespace
 
 int main() {
@@ -238,6 +263,7 @@ int main() {
     check_colon_run(root);
     check_canonical(root);
     check_unknown(root);
+    check_reopen(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");
