@@ -121,5 +121,8 @@ test(assertz_throw, assertz(throw(1)), error(permission_error(modify, static_pro
 test(abolish_catch, abolish(catch/3), error(permission_error(modify, static_procedure, catch/3))).
 test(abolish_comma, abolish((',')/2), error(permission_error(modify, static_procedure, (',')/2))).
 test(assertz_arrow, assertz((a -> b)), error(permission_error(modify, static_procedure, (->)/2))).
+% (:-)/1 は指示、(:-)/2 は節の首。組込表に無くても静的なので asserta は足せない。
+test(asserta_neck_2, asserta(((a :- b) :- true)), error(permission_error(modify, static_procedure, (:-)/2))).
+test(asserta_neck_1, asserta(((:- b) :- true)), error(permission_error(modify, static_procedure, (:-)/1))).
 test(assert_nested, assertz((nest_phase3 :- (true, 4))), error(type_error(callable, (true, 4)))).
 test(assert_builtin_body, assertz((atom(_) :- (true, 4))), error(type_error(callable, (true, 4)))).

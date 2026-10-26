@@ -67,6 +67,13 @@ bool refuse_builtin(Impl& machine, const Goal& goal, std::uint32_t name, std::ui
   return true;
 }
 
+bool neck_static(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
+  // :-/1 は指示、:-/2 は節の首。組込表に無いが assert では静的。
+  // 表へ足すと retract と clause の誤り種別まで変わる。
+  if (machine.atoms.name(name) != ":-") return false;
+  return arity == 1 || arity == 2;
+}
+
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
 Predicate* find_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
@@ -317,6 +324,11 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     return;
   }
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
+  // 無い :- をこの後で動的に作ると、節の首へ足せてしまう。宣言済みでも静的のまま。
+  if (neck_static(machine, head.name, head.arity)) {
+    raise_permission(machine, goal, head.name, head.arity);
+    return;
+  }
   Predicate* existing = find_predicate(machine, head.name, head.arity);
   if (existing != nullptr && !existing->dynamic) {
     raise_permission(machine, goal, head.name, head.arity);
