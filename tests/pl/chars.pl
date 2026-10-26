@@ -70,3 +70,5 @@ test(nl_input, nl(user_input), error(permission_error(output, stream, user_input
 test(nl_index, nl('$stream'(0)), error(permission_error(output, stream, '$stream'(0)))).
 test(nl_on_input, (open_string(a, S), nl(S)), error(permission_error(output, stream, S))).
 test(nl_closed, (open_string(a, S), close(S), nl(S)), error(existence_error(stream, S))).
+test(invalid_utf8_replace, (set_prolog_flag(invalid_utf8, replace), current_prolog_flag(invalid_utf8, replace)), true).
+test(invalid_utf8_error, (set_prolog_flag(invalid_utf8, error), current_prolog_flag(invalid_utf8, error)), true).

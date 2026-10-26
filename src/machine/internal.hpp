@@ -176,6 +176,8 @@ struct Machine::Impl {
   DoubleQuotes quotes = DoubleQuotes::Codes;
   // unknown=fail のときだけ真。warning は未決 10 で受け付けない。
   bool unknown_fail = false;
+  // invalid_utf8=replace のときだけ真。既定の error は壊れたバイトを進めない。
+  bool utf8_replace = false;
   bool float_overflow_error = true;
   bool float_zero_div_error = true;
   bool float_undefined_error = true;

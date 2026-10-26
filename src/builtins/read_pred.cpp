@@ -247,11 +247,34 @@ Cell stream_place(Impl& machine, Cell culprit, const Spot& spot) {
   return machine.heap.structure(machine.atoms.intern("stream"), args);
 }
 
-void note_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFailure& failure,
+std::size_t utf8_fault_at(std::string_view slice, std::size_t line, std::size_t column) {
+  Spot rel{1, 1, 0};
+  std::size_t index = 0;
+  while (rel.line < line || (rel.line == line && rel.line_pos < column)) {
+    char32_t code = 0;
+    std::size_t width = 0;
+    if (!decode_scalar(slice, index, code, width)) break;
+    index += width;
+    step_spot(rel, code);
+  }
+  return index;
+}
+
+bool splice_fffd(Stream& stream, const SyntaxFailure& failure) {
+  const std::string_view slice = rest(stream);
+  const std::size_t index = utf8_fault_at(slice, failure.line, failure.column);
+  if (index >= slice.size()) return false;
+  // 不正な 1 バイトだけを U+FFFD の UTF-8 にし、その位置から読み直す。
+  stream.bytes.replace(stream.cursor + index, 1, "\xEF\xBF\xBD");
+  return true;
+}
+
+bool note_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFailure& failure,
                  std::size_t consumed, Cell culprit) {
   if (failure.reason == SyntaxReason::InvalidUtf8) {
+    if (machine.utf8_replace && splice_fffd(stream, failure)) return true;
     raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
-    return;
+    return false;
   }
   const std::string_view slice = rest(stream);
   const Spot spot = at_token(stream, slice, failure.line, failure.column);
@@ -260,6 +283,7 @@ void note_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFa
   const Cell detail = machine.heap.atom(machine.atoms.intern(detail_text(failure, spot)));
   raise_formal_extra(machine, formal_syntax(machine, detail), goal.name, goal.arity,
                      stream_place(machine, culprit, spot));
+  return false;
 }
 
 Spec spec_of(const Goal& goal, bool term_pred) {
@@ -369,21 +393,26 @@ Intake intake_term(Impl& machine, Stream& stream) {
   }
 }
 
-void deliver(Impl& machine, const Goal& goal, Stream& stream, const Intake& intake, Cell term_cell,
+void deliver(Impl& machine, const Goal& goal, Stream& stream, Intake intake, Cell term_cell,
              const std::vector<Chosen>& chosen, Cell culprit) {
-  const std::string_view slice = rest(stream);
-  if (intake.outcome.failure) {
-    note_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit);
+  while (true) {
+    if (intake.outcome.failure) {
+      // 置換できたときだけ、カーソルを進めずに同じ位置から読み直す。
+      if (!note_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit)) return;
+      intake = intake_term(machine, stream);
+      continue;
+    }
+    const std::string_view slice = rest(stream);
+    const std::size_t take = intake.consumed > slice.size() ? slice.size() : intake.consumed;
+    advance_slice(stream, slice.substr(0, take));
+    if (!intake.outcome.term) {
+      stream.past_end = true;
+      bind_read(machine, goal, term_cell, chosen, eof_term(machine));
+      return;
+    }
+    bind_read(machine, goal, term_cell, chosen, *intake.outcome.term);
     return;
   }
-  const std::size_t take = intake.consumed > slice.size() ? slice.size() : intake.consumed;
-  advance_slice(stream, slice.substr(0, take));
-  if (!intake.outcome.term) {
-    stream.past_end = true;
-    bind_read(machine, goal, term_cell, chosen, eof_term(machine));
-    return;
-  }
-  bind_read(machine, goal, term_cell, chosen, *intake.outcome.term);
 }
 
 bool prepare(Impl& machine, const Goal& goal, const Spec& spec, std::size_t& index, std::vector<Chosen>& chosen,

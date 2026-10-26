@@ -578,6 +578,64 @@ void check_write_stream(const std::filesystem::path& text_path, const std::files
   mosa_test::check(formal_text(*text, again) == "existence_error(stream, '$stream'(3))", "write closed formal");
 }
 
+void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem::path& peek_path,
+                        const std::filesystem::path& read_path, const std::filesystem::path& error_path) {
+  write_bytes(path, "\xFF");
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("open(" + prolog_atom(path.string()) + ", read, _).").kind == mosa::StopKind::Success,
+                   "utf flag open");
+  auto utf = machine->query("get_char('$stream'(3), C).");
+  mosa_test::check(formal_text(*machine, utf) == "representation_error(character)", "utf flag default");
+  auto stayed = machine->query("stream_property('$stream'(3), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, stayed, "N") == "0", "utf flag stays");
+  auto replaced = machine->query("set_prolog_flag(invalid_utf8, replace).");
+  // 旗が無いときは domain_error(prolog_flag) で止まり、後続の置換を誤報にしない。
+  if (replaced.kind != mosa::StopKind::Success) {
+    mosa_test::check(false, formal_text(*machine, replaced));
+    return;
+  }
+  auto got = machine->query("get_char('$stream'(3), C), char_code(C, Code), "
+                             "stream_property('$stream'(3), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, got, "Code") == "65533" && binding_named(*machine, got, "N") == "1",
+                   "utf flag replaces");
+  write_bytes(peek_path, "\xFF");
+  mosa_test::check(machine->query("open(" + prolog_atom(peek_path.string()) + ", read, _).").kind ==
+                       mosa::StopKind::Success,
+                   "utf peek open");
+  auto peeked = machine->query("peek_char('$stream'(4), C), char_code(C, Code), "
+                                "stream_property('$stream'(4), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, peeked, "Code") == "65533" && binding_named(*machine, peeked, "N") == "0",
+                   "utf peek keeps");
+  auto after = machine->query("get_char('$stream'(4), C), char_code(C, Code), "
+                               "stream_property('$stream'(4), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, after, "Code") == "65533" && binding_named(*machine, after, "N") == "1",
+                   "utf peek then get");
+  write_bytes(read_path, "\xFF");
+  mosa_test::check(machine->query("open(" + prolog_atom(read_path.string()) + ", read, _).").kind ==
+                       mosa::StopKind::Success,
+                   "utf read open");
+  auto read = machine->query("read_term('$stream'(5), _, []).");
+  mosa_test::check(read.kind != mosa::StopKind::Exception ||
+                       formal_text(*machine, read) != "representation_error(character)",
+                   "utf read replaces");
+  auto read_at = machine->query("stream_property('$stream'(5), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, read_at, "N") == "1", "utf read char count");
+  write_bytes(error_path, "\xFF");
+  mosa_test::check(machine->query("open(" + prolog_atom(error_path.string()) + ", read, _).").kind ==
+                       mosa::StopKind::Success,
+                   "utf error open");
+  mosa_test::check(machine->query("set_prolog_flag(invalid_utf8, error).").kind == mosa::StopKind::Success,
+                   "utf flag error");
+  auto again = machine->query("get_char('$stream'(6), C).");
+  mosa_test::check(formal_text(*machine, again) == "representation_error(character)", "utf flag restored");
+  auto held = machine->query("stream_property('$stream'(6), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, held, "N") == "0", "utf error stays");
+  auto dropped = machine->query("set_prolog_flag(invalid_utf8, drop).");
+  mosa_test::check(formal_text(*machine, dropped) == "domain_error(flag_value, invalid_utf8+drop)", "utf drop formal");
+  auto current = machine->query("current_prolog_flag(invalid_utf8, error).");
+  mosa_test::check(current.kind == mosa::StopKind::Success, "utf flag stays error");
+}
+
 void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
@@ -624,6 +682,8 @@ int main() {
   check_peek_byte(dir / "phase3-peek-byte.txt", dir / "phase3-peek-empty.txt");
   check_read_term(dir / "phase3-read-eof.txt", dir / "phase3-read-reset.txt", dir / "phase3-read-binary.txt",
                   dir / "phase3-read-utf.txt");
+  check_invalid_utf8(dir / "phase3-invalid-utf8.txt", dir / "phase3-invalid-peek.txt",
+                     dir / "phase3-invalid-read.txt", dir / "phase3-invalid-error.txt");
   check_write_stream(dir / "phase3-write.txt", dir / "phase3-write-binary.txt");
   check_put_bytes(dir / "phase3-put-byte.txt", dir / "phase3-byte-reset.txt");
   check_flush_writes(dir / "phase3-flush.txt", dir / "phase3-flush-append.txt", dir / "phase3-close-byte.txt");

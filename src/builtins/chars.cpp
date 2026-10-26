@@ -16,7 +16,7 @@
 //   permission_error(output, stream), permission_error(output, binary_stream),
 //   representation_error(character), representation_error(in_character_code),
 //   representation_error(character_code)
-// 旗 invalid_utf8 は未登録。既定の error と同じく、壊れた UTF-8 は representation_error。
+// invalid_utf8 が replace のときだけ、壊れた先頭 1 バイトを U+FFFD にする。既定の error は進めない。
 // テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
@@ -261,8 +261,15 @@ bool take_char(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
   }
   const Got got = next_scalar(stream);
   if (got.step == Step::Bad) {
-    raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
-    return true;
+    // replace は壊れた先頭 1 バイトだけを U+FFFD にする。peek は位置を変えない。
+    if (!machine.utf8_replace) {
+      raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
+      return true;
+    }
+    eof = false;
+    code = U'\uFFFD';
+    if (!peek) advance(stream, code, 1);
+    return false;
   }
   if (got.step == Step::Eof) {
     eof = true;

@@ -4,6 +4,7 @@
 // 8.17.2 current_prolog_flag(?atom, ?term)
 //   type_error(atom), domain_error(prolog_flag)
 // char_conversion は on と off。既定は off。warning と error 以外の浮動小数旗も受け付けない。
+// invalid_utf8 は error と replace。既定は error。replace は壊れたバイトを U+FFFD にする。
 // テスト: tests/pl/flags.pl
 
 #include "../machine/internal.hpp"
@@ -20,7 +21,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 13;
+constexpr std::size_t kFlagCount = 14;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -44,6 +45,7 @@ std::string_view flag_name(std::size_t index) {
     case 10: return "float_zero_div";
     case 11: return "float_undefined";
     case 12: return "char_conversion";
+    case 13: return "invalid_utf8";
     default: return {};
   }
 }
@@ -73,6 +75,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
     case 7: return atom_named(machine, "utf8");
     case 8: return atom_named(machine, "false");
     case 12: return atom_named(machine, machine.char_conv.enabled ? "on" : "off");
+    case 13: return atom_named(machine, machine.utf8_replace ? "replace" : "error");
     default: return atom_named(machine, "error");
   }
 }
@@ -107,6 +110,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     case 7: return same_atom(machine, value, "utf8");
     case 8: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
     case 12: return same_atom(machine, value, "on") || same_atom(machine, value, "off");
+    case 13: return same_atom(machine, value, "error") || same_atom(machine, value, "replace");
     default: return same_atom(machine, value, "error");
   }
 }
@@ -121,6 +125,7 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
   }
   if (index == 6) machine.unknown_fail = text == "fail";
   if (index == 12) machine.char_conv.enabled = text == "on";
+  if (index == 13) machine.utf8_replace = text == "replace";
 }
 
 void type_at(Impl& machine, const Goal& goal, Cell culprit) {
