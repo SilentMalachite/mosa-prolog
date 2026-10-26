@@ -27,3 +27,13 @@ test(print_portray_foo, (
   Wrote == foo,
   After == foo
 ), true).
+test(print_portray_alloc, (
+  assertz(burst(0)),
+  assertz((burst(N) :- N > 0, with_output_to(atom(_), true), N1 is N - 1, burst(N1))),
+  assertz((portray(mark) :- burst(40), write(kept))),
+  with_output_to(atom(Out), print(mark)),
+  with_output_to(atom(W), write(foo)),
+  retractall(portray(_)),
+  Out == kept,
+  W == foo
+), true).

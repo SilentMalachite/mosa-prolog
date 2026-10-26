@@ -450,13 +450,14 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out) {
     hook->scratch = push_memory(machine);
     hook->have_scratch = true;
   }
-  Stream& stream = machine.streams[hook->scratch];
-  const StreamSpot spot = spot_of(stream);
+  const StreamSpot spot = spot_of(machine.streams[hook->scratch]);
   const std::size_t saved = machine.current_out;
   // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。
   machine.current_out = hook->scratch;
   const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term});
   machine.current_out = saved;
+  // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
+  Stream& stream = machine.streams[hook->scratch];
   if (ran == Ran::Ok) out = stream.bytes.substr(spot.bytes);
   // ゴール全体が失敗した書き出しを残すと、続く write の字面と重なる。
   rewind_spot(stream, spot);
