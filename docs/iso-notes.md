@@ -37,7 +37,7 @@
 
 ## 8 with_output_to/2
 
-決定（2026-10-25）: 最初の成功だけを取る。成功のとき `atom/1` と `codes/1` を束縛する。失敗と例外では束縛しない。現在出力は成功しても失敗しても例外でも戻す。ゴールは今の文脈で走る。
+決定（2026-10-25）: 最初の成功だけを取る。成功のとき `atom/1` と `codes/1` を束縛する。失敗と例外では束縛しない。現在出力は成功しても失敗しても例外でも戻す。ゴールは今の文脈で走る。作ったメモリの流れは終わったら閉じる（下の「8 with_output_to のメモリ」）。
 
 ## 8.8 clause/2
 
@@ -145,12 +145,12 @@
 
 ## 7.10.2.11 eof_action(reset)
 
-未決: 終端のあと `reset` で読むと、今は先頭へ巻き戻す。テスト `reset rereads` がこれを固定している。7.10.2.11 は、終端を越えた印を下ろして、もう一度読む、とだけ書く。A（今のとおり先頭へ戻す）か、B（位置は末尾のまま、印だけ下ろす。源が増えていなければ次も終端）か。
+決定（2026-10-26）: A。終端のあと `reset` で読むと、位置を先頭に戻して読み直す。テスト `reset rereads`。7.10.2.11 は、終端を越えた印を下ろして、もう一度読む、とだけ書く。ファイルは開いたときにバイト列へ写すので、印だけ下ろすと位置は末尾のままになり、次も終端で `eof_code` と同じになる。承認済みの計画は「ファイルをもう一度読む」なので、先頭へ戻す。これは 7.10.2.11 からの逸脱として残す。
 
 ## 8.11.1.3 current_input のドメイン
 
-未決: `current_input/1`、`current_output/1`、`stream_property/2` に流れでない項を渡すと、今は `domain_error(stream_or_alias, S)` である。テスト `input_bad`、`output_bad`、`prop_bad_stream` がこれを固定している。8.11.1.3 a と 8.11.8.3 a は `domain_error(stream, S)` である。A（`stream_or_alias` のまま、逸脱として残す）か、B（この 3 述語だけ `domain_error(stream, S)` にする）か。
+決定（2026-10-26）: A。`current_input/1`、`current_output/1`、`stream_property/2` に流れでも別名でもない項を渡すと `domain_error(stream_or_alias, S)`。テスト `input_bad`、`output_bad`、`prop_bad_stream`。別名 `user_input` は `current_input(user_input)` で成功する。領域に別名が入るので、Formal は `stream` ではなく `stream_or_alias`。8.11.1.3 a と 8.11.8.3 a の `domain_error(stream, S)` からの逸脱として残す。`set_input/1` など、もとから `stream_or_alias` の述語は変えない。
 
 ## 8 with_output_to のメモリ
 
-未決: `with_output_to/2` が作ったメモリの流れは、終わったあとも開いたまま残る。そのあと `stream_property(S, mode(write))` がこの流れを返し、書き込みもできる。A（終わったら閉じる）か、B（開いたまま残す）か。
+決定（2026-10-26）: A。`atom/1` と `codes/1` のために作ったメモリの流れは、成功でも失敗でも例外でも停止でも閉じる。成功のときはバイトを束縛してから閉じる。閉じたスロットは再利用しない。その後、`stream_property` は列挙で拾わない。その項を渡すと `existence_error(stream, S)`。呼んだ側が渡した流れは閉じない。ゴールの途中は開いたままなので、中の `current_output` と `stream_property` は見える。

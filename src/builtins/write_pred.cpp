@@ -1,6 +1,7 @@
 // 規格 8.14.2 write_term/3,2。8.14.3 write/2,1。8.14.4 writeq/2,1。8.14.5 write_canonical/2,1。
 // print/1,2 は未決 4。portray は呼ばず write と同じ文字列を出す。
 // with_output_to/2 は ADR 0005。最初の成功だけ取り、現在出力は必ず戻す。
+// atom/1 と codes/1 のために作ったメモリは、成功・失敗・例外・停止のあと閉じる。渡された流れは閉じない。
 // write_term(+stream_or_alias, @term, +write_options_list)
 // write_term(@term, +write_options_list) は現在の出力。
 //   write と print は numbervars(true)。writeq は quoted(true) と numbervars(true)。
@@ -542,12 +543,13 @@ void bind_capture(Impl& machine, const Goal& goal, const Sink& sink, std::size_t
 }
 
 void finish_with(Impl& machine, const Goal& goal, const Sink& sink, std::size_t index, Ran ran) {
-  if (ran != Ran::Ok) return;
-  if (sink.kind == SinkKind::Stream) {
-    machine.ip = goal.cont;
-    return;
+  if (ran == Ran::Ok) {
+    if (sink.kind == SinkKind::Stream) machine.ip = goal.cont;
+    else bind_capture(machine, goal, sink, index);
   }
-  bind_capture(machine, goal, sink, index);
+  // 捕獲用のメモリは呼んだ側の流れではない。開いたまま残すと stream_property が拾い、
+  // その後も書き込める。バイトを束縛してから閉じ、スロットは再利用しない。
+  if (sink.kind != SinkKind::Stream) machine.streams[index].closed = true;
 }
 
 void run_with(Impl& machine, const Goal& goal) {
