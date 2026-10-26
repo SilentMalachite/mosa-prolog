@@ -1,5 +1,6 @@
 // 規格 8.14.2 write_term/3,2。8.14.3 write/2,1。8.14.4 writeq/2,1。8.14.5 write_canonical/2,1。
-// print/1,2 は未決 4。portray は呼ばず write と同じ文字列を出す。
+// print/1,2 は portray/1 に節があり成功するときその書き出しを使う。無い、または失敗なら write と同じ。
+// 複合項の引数は再び print する。portray/1 は組込にしない。write は portray を見ない。
 // with_output_to/2 は ADR 0005。最初の成功だけ取り、現在出力は必ず戻す。
 // atom/1 と codes/1 のために作ったメモリは、成功・失敗・例外・停止のあと閉じる。渡された流れは閉じない。
 // write_term(+stream_or_alias, @term, +write_options_list)
@@ -376,6 +377,115 @@ bool prepare_out(Impl& machine, const Goal& goal, const Spec& spec, Kind kind, s
   return reject_closed(machine, goal, index, culprit) || reject_output(machine, goal, machine.streams[index], culprit);
 }
 
+struct StreamSpot {
+  std::size_t bytes = 0;
+  std::size_t cursor = 0;
+  std::size_t char_no = 0;
+  std::size_t line = 1;
+  std::size_t line_pos = 1;
+  bool past_end = false;
+};
+
+struct PortrayHook {
+  Impl* machine = nullptr;
+  std::uint32_t name = 0;
+  std::size_t scratch = 0;
+  bool have_scratch = false;
+  bool stop = false;
+
+  PortrayHook() = default;
+  PortrayHook(const PortrayHook&) = delete;
+  PortrayHook& operator=(const PortrayHook&) = delete;
+
+  ~PortrayHook() {
+    if (have_scratch && machine != nullptr) machine->streams[scratch].closed = true;
+  }
+};
+
+StreamSpot spot_of(const Stream& stream) {
+  return StreamSpot{stream.bytes.size(), stream.cursor, stream.char_no, stream.line, stream.line_pos,
+                    stream.past_end};
+}
+
+void rewind_spot(Stream& stream, const StreamSpot& spot) {
+  stream.bytes.resize(spot.bytes);
+  stream.cursor = spot.cursor;
+  stream.char_no = spot.char_no;
+  stream.line = spot.line;
+  stream.line_pos = spot.line_pos;
+  stream.past_end = spot.past_end;
+}
+
+bool portray_ready(const Impl& machine, std::uint32_t& name) {
+  for (const Predicate& predicate : machine.predicates) {
+    if (predicate.arity != 1 || predicate.clauses.empty()) continue;
+    if (machine.atoms.name(predicate.name) != "portray") continue;
+    name = predicate.name;
+    return true;
+  }
+  return false;
+}
+
+IrTerm portray_call(std::uint32_t name) {
+  // 引数は変数スロットのまま渡す。data に通すと単項のマイナスが数に畳まれる。
+  IrTerm arg;
+  arg.tag = IrTag::Var;
+  arg.slot = 0;
+  IrTerm goal;
+  goal.tag = IrTag::Fun;
+  goal.atom = name;
+  goal.arity = 1;
+  goal.args.push_back(arg);
+  return goal;
+}
+
+std::size_t push_memory(Impl& machine);
+Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
+
+WriteCut apply_portray(void* raw, Cell term, std::string& out) {
+  auto* hook = static_cast<PortrayHook*>(raw);
+  if (hook->stop) return WriteCut::Stop;
+  Impl& machine = *hook->machine;
+  if (!hook->have_scratch) {
+    hook->scratch = push_memory(machine);
+    hook->have_scratch = true;
+  }
+  Stream& stream = machine.streams[hook->scratch];
+  const StreamSpot spot = spot_of(stream);
+  const std::size_t saved = machine.current_out;
+  // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。
+  machine.current_out = hook->scratch;
+  const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term});
+  machine.current_out = saved;
+  if (ran == Ran::Ok) out = stream.bytes.substr(spot.bytes);
+  // ゴール全体が失敗した書き出しを残すと、続く write の字面と重なる。
+  rewind_spot(stream, spot);
+  if (ran == Ran::Ok) return WriteCut::Swap;
+  if (ran == Ran::Fail) {
+    machine.failed = false;
+    return WriteCut::Keep;
+  }
+  hook->stop = true;
+  return WriteCut::Stop;
+}
+
+bool emit_written(Impl& machine, std::size_t index, Cell term, const WriteOptions& options,
+                  const std::vector<VarName>& names, Kind kind) {
+  std::uint32_t name = 0;
+  if (kind == Kind::Print && portray_ready(machine, name)) {
+    PortrayHook hook;
+    hook.machine = &machine;
+    hook.name = name;
+    const std::string text =
+        write_term(machine.heap, machine.operators, term, options, names, apply_portray, &hook);
+    if (hook.stop) return false;
+    emit_text(machine, index, text);
+    return true;
+  }
+  emit_text(machine, index, write_term(machine.heap, machine.operators, term, options, names));
+  return true;
+}
+
 void run_out(Impl& machine, const Goal& goal, Kind kind) {
   const Spec spec = spec_of(goal, kind == Kind::Term);
   std::size_t index = 0;
@@ -385,9 +495,7 @@ void run_out(Impl& machine, const Goal& goal, Kind kind) {
   options.quoted = chosen.quoted;
   options.ignore_ops = chosen.ignore_ops;
   options.numbervars = chosen.numbervars;
-  const std::string text =
-      write_term(machine.heap, machine.operators, goal.arg(machine, spec.term_at), options, chosen.names);
-  emit_text(machine, index, text);
+  if (!emit_written(machine, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
   machine.ip = goal.cont;
 }
 

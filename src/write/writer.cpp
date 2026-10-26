@@ -153,15 +153,17 @@ std::string format_float(double value) {
 class Printer {
  public:
   Printer(const Heap& heap, const OperatorTable& operators, WriteOptions options,
-          std::span<const VarName> names)
-      : heap_(heap), operators_(operators), options_(options), names_(names) {}
+          std::span<const VarName> names, WriteReplace replace, void* context)
+      : heap_(heap), operators_(operators), options_(options), names_(names), replace_(replace),
+        context_(context) {}
 
   void collect(Cell term) { count(term); }
   [[nodiscard]] std::string print(Cell term) { return render(term, 1200, true); }
 
  private:
   void count(Cell term);
-  [[nodiscard]] std::string render(Cell term, int parent, bool allow_equal);
+  // 括弧を足し直す再入では、失敗した portray を繰り返さない。
+  [[nodiscard]] std::string render(Cell term, int parent, bool allow_equal, bool allow_hook = true);
   [[nodiscard]] std::string render_op(const OpDef& op, Cell term);
   [[nodiscard]] std::string render_list(Cell term);
   [[nodiscard]] std::string render_functor(Cell term, std::string_view name);
@@ -182,6 +184,9 @@ class Printer {
   std::unordered_map<std::uint64_t, int> assigned_;
   std::vector<std::uint64_t> open_;
   int next_number_ = 1;
+  WriteReplace replace_ = nullptr;
+  void* context_ = nullptr;
+  bool aborted_ = false;
 
   [[nodiscard]] bool opened(std::uint64_t raw) const {
     for (const auto item : open_) {
@@ -365,7 +370,18 @@ std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
   return name;
 }
 
-std::string Printer::render(Cell term, int parent, bool allow_equal) {
+std::string Printer::render(Cell term, int parent, bool allow_equal, bool allow_hook) {
+  if (aborted_) return {};
+  if (allow_hook && replace_ != nullptr) {
+    std::string swapped;
+    const WriteCut cut = replace_(context_, term, swapped);
+    if (cut == WriteCut::Stop) {
+      aborted_ = true;
+      return {};
+    }
+    // 成功した portray は、変数名や '$VAR' より先にその字面を使う。
+    if (cut == WriteCut::Swap) return swapped;
+  }
   if (term.tag() == Tag::Ref && var_name(term) != nullptr) return var_name(term)->name;
   term = heap_.deref(term);
   if (heap_.unbound(term)) return var_text(term);
@@ -384,7 +400,8 @@ std::string Printer::render(Cell term, int parent, bool allow_equal) {
   else if (const std::optional<OpDef> op = as_operator(term)) {
     if (needs_paren(op->priority, parent, allow_equal)) {
       open_.pop_back();
-      return "(" + render(term, 1200, true) + ")";
+      // この項の portray はもう失敗している。括弧の中でもう一度呼ぶと副作用が二重になる。
+      return "(" + render(term, 1200, true, false) + ")";
     }
     text = render_op(*op, term);
   } else {
@@ -402,8 +419,8 @@ std::string Printer::render(Cell term, int parent, bool allow_equal) {
 }  // namespace
 
 std::string write_term(const Heap& heap, const OperatorTable& operators, Cell term, WriteOptions options,
-                       std::span<const VarName> names) {
-  Printer printer(heap, operators, options, names);
+                       std::span<const VarName> names, WriteReplace replace, void* context) {
+  Printer printer(heap, operators, options, names, replace, context);
   printer.collect(term);
   return printer.print(term);
 }

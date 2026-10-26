@@ -25,6 +25,8 @@
 
 決定（2026-10-25）: 未決 4 は B。`print/1` と `print/2` は `portray/1` を呼ばず、`write/1` と同じ文字列を出す。項の書き出しで登録した。
 
+決定（2026-10-27）: 上の B は取り下げる。`portray/1` に節がありゴールが成功するとき、`print/1` と `print/2` はその書き出しを項の字面にする。節が無いときは `write/1` と同じ手続きである。節はあるが失敗するときは、その項は `write/1` と同じ字面で、複合項の引数だけ再び `print` にかける。`portray/1` は組込にしない。`write/1` は `portray` を見ない。失敗した `portray` の書き出しは残さない。
+
 ## 8.14 書き出しオプション
 
 決定（2026-10-25）: `write/1,2` と `print/1,2` は `numbervars(true)`。`writeq/1,2` は `quoted(true)` と `numbervars(true)`。`write_canonical/1,2` は `quoted(true)` と `ignore_ops(true)`。`write_term` の既定は三つとも偽。同じ論理オプションの値が食い違うときは `domain_error(write_option, 後の項)`。`variable_names` は一回で、名前が変数の綴りでなければ `domain_error(write_option, その対)`。束縛済みの Var は無視する。

@@ -19,8 +19,14 @@ struct WriteOptions {
   bool numbervars = false;
 };
 
+// Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。
+enum class WriteCut { Keep, Swap, Stop };
+
+using WriteReplace = WriteCut (*)(void* context, Cell term, std::string& out);
+
 [[nodiscard]] std::string write_term(const Heap& heap, const OperatorTable& operators, Cell term,
-                                     WriteOptions options, std::span<const VarName> names);
+                                     WriteOptions options, std::span<const VarName> names,
+                                     WriteReplace replace = nullptr, void* context = nullptr);
 
 [[nodiscard]] bool same_term(const Heap& left_heap, Cell left, std::span<const VarName> left_names,
                              const Heap& right_heap, Cell right, std::span<const VarName> right_names);
