@@ -3,6 +3,8 @@ test(put_byte_on_input, (open_string(a, S), put_byte(S, 97)), error(permission_e
 test(get_byte_user_output, get_byte(user_output, B), error(permission_error(input, stream, user_output))).
 test(get_byte_current, get_byte(B), error(permission_error(input, text_stream, user_input))).
 test(put_byte_user_output, put_byte(65), error(permission_error(output, text_stream, user_output))).
+test(put_byte_current_text, (current_output(S), put_byte(99)), error(permission_error(output, text_stream, S))).
+test(put_byte_text_alias, put_byte(user_output, 99), error(permission_error(output, text_stream, user_output))).
 test(put_byte_user_input, put_byte(user_input, 65), error(permission_error(output, stream, user_input))).
 test(get_byte_var, get_byte(S, B), error(instantiation_error)).
 test(put_byte_var, put_byte(B), error(instantiation_error)).

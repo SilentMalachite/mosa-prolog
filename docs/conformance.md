@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1794
+合格数: 1795
 合格率: 82.6
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -81,7 +81,6 @@ predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(pr
 predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(procedure, :: /2)
 predicates/print_1/tests.lgt lgt_print_1_05 true(Assertion) fail
 predicates/print_2/tests.lgt lgt_print_2_05 true(Assertion) fail
-predicates/put_byte_2/tests.lgt sics_put_byte_2_10 error(permission_error(output, text_stream, S)) true
 predicates/read_term_3/tests.lgt iso_read_term_3_01 true(Assertion) fail
 predicates/read_term_3/tests.lgt iso_read_term_3_02 true(Assertion) fail
 predicates/read_term_3/tests.lgt iso_read_term_3_03 true assertion
@@ -121,14 +120,14 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_09c true(Mode==appe
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_10a true fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_10c true(Mode==append) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_20 false domain_error(stream_property, input)
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_21 false permission_error(open, source_sink, alias(out))
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_21 false domain_error(stream_property, input)
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_22 true domain_error(stream_property, input)
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_23 true permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_24 true permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_25 false permission_error(open, source_sink, alias(in))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_29 true(ground(Position)) permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Position)) permission_error(open, source_sink, alias(out))
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) permission_error(open, source_sink, alias(in))
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_23 true domain_error(stream_property, output)
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_24 true domain_error(stream_property, output)
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_25 false domain_error(stream_property, output)
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_29 true(ground(Position)) fail
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Position)) fail
+predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
 predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_08 true assertion

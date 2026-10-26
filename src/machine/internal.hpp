@@ -157,6 +157,11 @@ struct OpUndo {
   std::vector<OpTouch> touches;
 };
 
+struct LgtIo;
+
+// cleanup の ^^ はクエリの中で走る。Skip のときは利用者手続きのままにする。
+enum class SuiteSuper { Skip, Ok, No };
+
 struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
@@ -204,6 +209,10 @@ struct Machine::Impl {
   // 旗 debug は値だけ持つ。on でも追跡しない。既定は off。
   bool debug_on = false;
   CharConv char_conv;
+  // 前のテストのバイナリ出力を閉じる。空のままだと現在の出力がテキストに戻らない。
+  SuiteSuper (*suite_super)(Machine& machine, const LgtIo& io, Cell goal) = nullptr;
+  const LgtIo* suite_io = nullptr;
+  Machine* suite_self = nullptr;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {}
 };

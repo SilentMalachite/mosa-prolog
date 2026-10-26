@@ -663,7 +663,10 @@ LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string
   // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
   const bool setup = defined_here(*machine, "setup");
   const bool cleanup = defined_here(*machine, "cleanup");
+  // 節の中の ^^ は判定器を通らない。腕を付けたままクエリで閉じる。
+  lgt_arm_super(*machine, clean.io);
   run_cases(*machine, file, chosen, setup, cleanup, &clean.io, run);
+  lgt_disarm_super(*machine);
   return run;
 }
 

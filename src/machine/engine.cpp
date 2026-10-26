@@ -243,6 +243,17 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"*->", 2},
 });
 
+// 節の ^^ は判定器を通らない。ここで閉じないと put_byte/1 がバイナリへ書いて成功する。
+bool run_suite_super(Impl& machine, const Goal& goal) {
+  if (machine.suite_super == nullptr || machine.suite_self == nullptr || machine.suite_io == nullptr) return false;
+  if (machine.atoms.name(goal.name) != "^^" || goal.arity != 1) return false;
+  const SuiteSuper code = machine.suite_super(*machine.suite_self, *machine.suite_io, goal.arg(machine, 0));
+  if (code == SuiteSuper::Skip) return false;
+  if (code == SuiteSuper::Ok) machine.ip = goal.cont;
+  else machine.failed = true;
+  return true;
+}
+
 }  // namespace
 
 bool body_callable(const IrTerm& term) {
@@ -402,6 +413,7 @@ bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t
 }
 
 bool run_builtin(Impl& machine, const Goal& goal) {
+  if (run_suite_super(machine, goal)) return true;
   const auto text = machine.atoms.name(goal.name);
   if (text == "=" && goal.arity == 2) {
     if (!do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1))) machine.failed = true;

@@ -8,6 +8,7 @@
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"
+#include "mosa/writer.hpp"
 
 #include <array>
 #include <cstdint>
@@ -698,6 +699,27 @@ void lgt_io_cleanup(const LgtIo& io) {
   if (io.suite.empty()) return;
   const auto start = io.scratch.empty() ? io.suite : io.scratch.parent_path();
   remove_empty_up(start, io.suite);
+}
+
+static SuiteSuper suite_super_call(Machine& machine, const LgtIo& io, Cell goal) {
+  const std::string text = write_term(machine.heap(), machine.operators(), machine.heap().deref(goal), {}, {});
+  const LgtSuper ran = lgt_run_super(machine, io, text);
+  if (ran.kind == LgtSuperKind::Unknown) return SuiteSuper::Skip;
+  return ran.kind == LgtSuperKind::Ok ? SuiteSuper::Ok : SuiteSuper::No;
+}
+
+void lgt_arm_super(Machine& machine, const LgtIo& io) {
+  Impl& impl = engine_impl(machine);
+  impl.suite_super = suite_super_call;
+  impl.suite_io = &io;
+  impl.suite_self = &machine;
+}
+
+void lgt_disarm_super(Machine& machine) {
+  Impl& impl = engine_impl(machine);
+  impl.suite_super = nullptr;
+  impl.suite_io = nullptr;
+  impl.suite_self = nullptr;
 }
 
 void lgt_load_tester(Machine& machine, const LgtIo& io) {

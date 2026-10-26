@@ -27,6 +27,8 @@ struct LgtSuper {
 
 [[nodiscard]] LgtIo lgt_io_context(std::string_view tests_path, std::string_view relative_dir);
 void lgt_io_cleanup(const LgtIo& io);
+void lgt_arm_super(Machine& machine, const LgtIo& io);
+void lgt_disarm_super(Machine& machine);
 void lgt_load_tester(Machine& machine, const LgtIo& io);
 [[nodiscard]] LgtSuper lgt_run_super(Machine& machine, const LgtIo& io, std::string_view goal);
 
