@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1756
-合格率: 80.8
+合格数: 1758
+合格率: 80.9
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -75,8 +75,6 @@ predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 fals
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag, dialect)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major), integer(Minor), integer(Patch))) domain_error(prolog_flag, version_data)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData, Dialect, _)) domain_error(prolog_flag, dialect)
-predicates/number_chars_2/tests.lgt wg17_number_chars_2_40 true(X==32) syntax_error('0\' ')
-predicates/number_codes_2/tests.lgt wg17_number_codes_2_43 true(X==32) syntax_error('0\' ')
 predicates/op_3/tests.lgt iso_op_3_20 true(Assertion) fail
 predicates/open_4/tests.lgt iso_open_4_01 true fail
 predicates/open_4/tests.lgt iso_open_4_03 true fail

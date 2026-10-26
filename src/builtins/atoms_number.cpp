@@ -5,6 +5,7 @@
 //   syntax_error(読み筋)
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
 // 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
+// 0' の直後の空白だけは文字コードの本体なので、レイアウト文に数えない。
 // テスト: tests/pl/atoms.pl
 
 #include "../machine/internal.hpp"
@@ -106,10 +107,20 @@ SignedText strip_sign(std::string_view text) {
   return out;
 }
 
+// 符号は has_layout のあとで外す。0' の本体の空白は、先頭の '-' のうしろでも文字である。
+bool char_code_space(const std::vector<char32_t>& codes, std::size_t index) {
+  std::size_t origin = 0;
+  if (!codes.empty() && codes[0] == U'-') origin = 1;
+  if (index != origin + 2 || origin + 1 >= codes.size()) return false;
+  return codes[origin] == U'0' && codes[origin + 1] == U'\'' && codes[index] == U' ';
+}
+
 bool has_layout(std::string_view text) {
-  const CodeText codes = decode_codes(text);
-  for (const char32_t code : codes.codes) {
-    if (classify(code) == CharClass::Layout) return true;
+  const CodeText decoded = decode_codes(text);
+  for (std::size_t index = 0; index < decoded.size(); ++index) {
+    if (classify(decoded.codes[index]) != CharClass::Layout) continue;
+    if (char_code_space(decoded.codes, index)) continue;
+    return true;
   }
   return false;
 }
