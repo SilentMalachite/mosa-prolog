@@ -132,6 +132,31 @@ void check_consult_flag_rolls_back() {
   mosa_test::check(clause.kind == mosa::StopKind::Exception, "rolled back clause");
 }
 
+void check_consult_invalid_utf8_rolls_back() {
+  const std::string bad = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/invalid_utf8_rollback.pl";
+  std::ofstream failed_file(bad, std::ios::binary);
+  failed_file << "q(1).\n:- set_prolog_flag(invalid_utf8, replace).\n:- nope.\n";
+  failed_file.close();
+  auto failed = mosa::Machine::create();
+  mosa_test::check(!failed->consult(bad), "utf8 consult fails");
+  auto flag = failed->query("current_prolog_flag(invalid_utf8, X).");
+  std::string text = "unbound";
+  if (flag.kind == mosa::StopKind::Success && flag.bindings.size() == 1) {
+    text = mosa::write_term(failed->heap(), failed->operators(), failed->heap().deref(flag.bindings[0].variable),
+                            mosa::WriteOptions{}, {});
+  }
+  mosa_test::check(text == "error", std::string("invalid_utf8 after failed load: ") + text);
+
+  const std::string good = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/invalid_utf8_kept.pl";
+  std::ofstream kept_file(good, std::ios::binary);
+  kept_file << ":- set_prolog_flag(invalid_utf8, replace).\nq(1).\n";
+  kept_file.close();
+  auto kept = mosa::Machine::create();
+  mosa_test::check(kept->consult(good), "utf8 consult succeeds");
+  auto stayed = kept->query("current_prolog_flag(invalid_utf8, replace).");
+  mosa_test::check(stayed.kind == mosa::StopKind::Success, "utf8 replace kept");
+}
+
 void check_dynamic_builtin_rejected() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/dynamic_true.pl";
   std::ofstream file(path, std::ios::binary);
@@ -181,6 +206,7 @@ int main() {
   check_consult_keeps_query();
   check_consult_failure_reports();
   check_consult_flag_rolls_back();
+  check_consult_invalid_utf8_rolls_back();
   check_dynamic_builtin_rejected();
   check_consult_twice();
   check_resource_limit_session();
