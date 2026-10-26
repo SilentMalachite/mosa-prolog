@@ -419,19 +419,93 @@ bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& s
   return found;
 }
 
-// 開いている query を潰さない。組込の検査は別の機械で、束縛を書き戻してから行う。
+const Cell* copied_seen(const std::vector<std::pair<std::uint64_t, Cell>>& seen, std::uint64_t raw) {
+  for (const auto& item : seen) {
+    if (item.first == raw) return &item.second;
+  }
+  return nullptr;
+}
+
+Cell copy_atom(Impl& dst, const Impl& src, Cell cell) {
+  const auto name = src.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
+  return dst.heap.atom(dst.atoms.intern(name));
+}
+
+Cell copy_number(Impl& dst, const Impl& src, Cell cell) {
+  if (cell.tag() == Tag::Float) return dst.heap.floating(src.heap.float_value(cell));
+  return dst.heap.integer(src.heap.integer_value(cell));
+}
+
+Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint64_t, Cell>>& seen);
+
+Cell copy_compound(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint64_t, Cell>>& seen) {
+  const Cell hole = dst.heap.fresh_ref();
+  seen.emplace_back(cell.raw(), hole);
+  Cell real;
+  if (cell.tag() == Tag::Lis) {
+    const Cell head = copy_goal(src, dst, src.heap.list_head(cell), seen);
+    const Cell tail = copy_goal(src, dst, src.heap.list_tail(cell), seen);
+    real = dst.heap.list(head, tail);
+  } else {
+    const auto arity = src.heap.functor_arity(cell);
+    std::vector<Cell> args;
+    args.reserve(arity);
+    for (std::uint16_t index = 0; index < arity; ++index) {
+      args.push_back(copy_goal(src, dst, src.heap.arg(cell, index), seen));
+    }
+    const auto name = src.atoms.name(src.heap.functor_atom(cell));
+    real = dst.heap.structure(dst.atoms.intern(name), args);
+  }
+  dst.heap.bind(hole, real);
+  return hole;
+}
+
+Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint64_t, Cell>>& seen) {
+  cell = src.heap.deref(cell);
+  const bool share = src.heap.unbound(cell) || cell.tag() == Tag::Lis || cell.tag() == Tag::Str;
+  if (share) {
+    if (const Cell* found = copied_seen(seen, cell.raw())) return *found;
+  }
+  if (src.heap.unbound(cell)) {
+    const Cell fresh = dst.heap.fresh_ref();
+    seen.emplace_back(cell.raw(), fresh);
+    return fresh;
+  }
+  if (cell.tag() == Tag::Atom) return copy_atom(dst, src, cell);
+  if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox || cell.tag() == Tag::Float) {
+    return copy_number(dst, src, cell);
+  }
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return {};
+  return copy_compound(src, dst, cell, seen);
+}
+
+bool copied_succeeds(Machine& scratch, Cell goal) {
+  Impl& machine = engine_impl(scratch);
+  Entry cleanup;
+  cleanup.pick = Pick::Cleanup;
+  cleanup.heap_mark = machine.heap.size();
+  cleanup.trail_mark = machine.trail.slots.size();
+  cleanup.extras_mark = machine.extras.size();
+  machine.stack.push_back(std::move(cleanup));
+  const Compiled compiled = compile_goal(machine.heap, goal);
+  launch(machine, compiled.term, kNoFrame, 0, compiled.env);
+  return run_loop(machine).kind == StopKind::Success;
+}
+
+// 開いている query を潰さない。-2^63 は字面にすると正のトークンが溢れて読めず、値が変数になる。
 bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
   const Parsed parsed = parse_term(main, goal);
   if (!parsed.ok) return false;
   std::vector<std::uint64_t> stack;
   const Cell resolved = resolve_term(main.heap(), parsed.term, parsed.names, bindings, stack);
-  const std::string text = write_term(main.heap(), main.operators(), resolved, {}, {}) + ".";
   auto scratch = Machine::create();
   for (const OpDef& op : main.operators().entries()) {
     if (scratch->operators().define(op.priority, op.specifier, op.name) != OpResult::Ok) continue;
   }
   try {
-    return scratch->query(text).kind == StopKind::Success;
+    std::vector<std::pair<std::uint64_t, Cell>> seen;
+    const Cell copied = copy_goal(engine_impl(main), engine_impl(*scratch), resolved, seen);
+    return copied_succeeds(*scratch, copied);
   } catch (const ResourceLimit&) {
     return false;
   }

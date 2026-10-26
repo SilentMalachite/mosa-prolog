@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1667
-合格率: 76.7
+合格数: 1669
+合格率: 76.8
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -75,7 +75,6 @@ predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 fals
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag, dialect)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major), integer(Minor), integer(Patch))) domain_error(prolog_flag, version_data)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData, Dialect, _)) domain_error(prolog_flag, dialect)
-predicates/current_prolog_flag_2/tests.lgt lgt_current_prolog_flag_2_20 true flag(Flag)
 predicates/nl_1/tests.lgt lgt_nl_1_04 error(permission_error(output, binary_stream, _)) permission_error(output, binary_stream, bin)
 predicates/nl_1/tests.lgt lgt_nl_1_05 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(4))
 predicates/nl_1/tests.lgt lgt_nl_1_06 error(existence_error(stream, Stream)) existence_error(stream, '$stream'(5))
@@ -166,7 +165,6 @@ predicates/read_term_3/tests.lgt lgt_read_term_3_38 error(syntax_error(_)) synta
 predicates/read_term_3/tests.lgt lgt_read_term_3_39 error(syntax_error(_)) syntax_error('行 1 列 5: 項が閉じていません 終端')
 predicates/retractall_1/tests.lgt iso_retractall_1_01 true({current_predicate(foo/1)}) existence_error(procedure, {}/1)
 predicates/set_prolog_flag_2/tests.lgt eddbali_set_prolog_flag_2_06 error(permission_error(modify, flag, max_arity)) domain_error(flag_value, max_arity+40)
-predicates/set_prolog_flag_2/tests.lgt lgt_set_prolog_flag_2_13 true flag(Flag)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_01 error(instantiation_error) instantiation_error
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_02 error(instantiation_error) instantiation_error
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_03 errors([domain_error(stream_or_alias, foo), existence_error(stream, foo)]) domain_error(stream_or_alias, foo)

@@ -471,6 +471,31 @@ void check_reopen(const std::filesystem::path& root) {
   mosa_test::check(failed.find("existence_error") == std::string::npos, "reopen is not a closed alias");
 }
 
+// min_integer は -2^63。字面へ戻すと正のトークンが溢れて、表明の Value は変数のままになる。
+std::string flag_value_text() {
+  return "test(lgt_current_prolog_flag_2_20, true) :-\n"
+         "    forall(\n"
+         "        {current_prolog_flag(Flag, Value)},\n"
+         "        assertion(flag(Flag), nonvar(Value))\n"
+         "    ).\n";
+}
+
+void check_flag_value(const std::filesystem::path& root) {
+  const auto suite = root / "flag-value";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "flag-value-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "current_prolog_flag_2" / "tests.lgt", flag_value_text()),
+                   "write flag value");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("lgt_current_prolog_flag_2_20") != std::string::npos) show("flag value report", body);
+  mosa_test::check(code == 0, "flag value exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "flag value denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "flag value passed");
+  mosa_test::check(failed.find("flag(Flag)") == std::string::npos, "flag value reaches the assertion");
+}
+
 // ^ の右の {} はゴール。残すと bagof が {}/1 を呼ぶ。左は存在量化した変数なので辿らない。
 std::string caret_curly_text() {
   return "test(caret_curly, true(L == [t])) :-\n"
@@ -518,6 +543,7 @@ int main() {
     check_caret_curly(root);
     check_share(root);
     check_colon_user(root);
+    check_flag_value(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");
