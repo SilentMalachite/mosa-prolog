@@ -361,6 +361,29 @@ void check_atom_chars(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_atom_chars_2_02") == std::string::npos, "atom chars brackets round-trip");
 }
 
+// 失敗した query はヒープを捨てる。束縛を項ごとに読むと、X と Y の穴は別の変数になる。
+std::string share_text() {
+  return "share_pair(f(A), f(A)).\n"
+         "test(share_cells, true) :-\n"
+         "    {share_pair(X, Y)},\n"
+         "    (fail ; variant(pair(X, Y), pair(f(A), f(A)))).\n";
+}
+
+void check_share(const std::filesystem::path& root) {
+  const auto suite = root / "share";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "share-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "bagof_3" / "tests.lgt", share_text()), "write share");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("share_cells") != std::string::npos) show("share report", body);
+  mosa_test::check(code == 0, "share exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "share denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "share passed");
+  mosa_test::check(failed.find("share_cells") == std::string::npos, "share keeps one variable");
+}
+
 // uses(list, [msort/2]) は Logtalk の輸入。プログラムへ渡すと未知の指示でファイル全体が load になる。
 std::string list_uses_text() {
   return ":- uses(list, [msort/2]).\n"
@@ -418,6 +441,7 @@ int main() {
     check_arg(root);
     check_atom_chars(root);
     check_list_uses(root);
+    check_share(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

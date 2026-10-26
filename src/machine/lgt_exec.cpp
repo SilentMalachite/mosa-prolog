@@ -43,6 +43,9 @@ struct Env {
   bool live = false;
   std::vector<Binding> bindings;
   std::vector<Saved> saved;
+  // 次の query がヒープを捨てる前の束縛全体。項をまたぐ同じ変数を 1 つの _GN で残す。
+  std::string bundle;
+  std::vector<std::string> bundle_names;
   std::string note;
   Stop stop;
   const LgtIo* io = nullptr;
@@ -266,15 +269,43 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
 
 void exec_at(Machine& machine, const Prog& prog, int index, Env& env);
 
-// query はヒープを先頭から使う。失敗したあとのセルは、保存した字面から置き直す。
+// 別々に書くと、束縛をまたぐ同じ自由変数が _ になり、読み戻すと別セルになる。
+void snapshot_bundle(Machine& machine, Env& env) {
+  env.bundle_names.clear();
+  std::vector<Cell> cells;
+  cells.reserve(env.bindings.size());
+  for (const Binding& binding : env.bindings) {
+    env.bundle_names.push_back(binding.name);
+    cells.push_back(binding.variable);
+  }
+  Cell tail = machine.heap().atom(machine.atoms().intern("[]"));
+  for (auto it = cells.rbegin(); it != cells.rend(); ++it) tail = machine.heap().list(*it, tail);
+  env.bundle = write_term(machine.heap(), machine.operators(), tail, {}, {});
+}
+
+bool proper_list(const Heap& heap, Cell cell, std::vector<Cell>& args) {
+  cell = heap.deref(cell);
+  while (cell.tag() == Tag::Lis) {
+    args.push_back(heap.list_head(cell));
+    cell = heap.deref(heap.list_tail(cell));
+  }
+  if (cell.tag() != Tag::Atom) return false;
+  return heap.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "[]";
+}
+
 void rehydrate_bindings(Machine& machine, Env& env) {
+  const LgtParsed parsed = lgt_parse_term(machine, env.bundle);
+  std::vector<Cell> args;
+  if (!parsed.ok || !proper_list(machine.heap(), parsed.term, args) || args.size() != env.bundle_names.size()) {
+    // 読めない束縛は消さない。黙って落とすと、共有を見る判定が偽のまま残る。
+    env.note = "bindings";
+    env.tri = Tri::Dead;
+    return;
+  }
   std::vector<Binding> fresh;
-  fresh.reserve(env.saved.size());
-  for (const Saved& slot : env.saved) {
-    bool ok = false;
-    const Cell term = parse_saved(machine, slot.term, ok);
-    if (!ok) continue;
-    fresh.push_back(Binding{slot.name, term});
+  fresh.reserve(args.size());
+  for (std::size_t index = 0; index < args.size(); ++index) {
+    fresh.push_back(Binding{env.bundle_names[index], args[index]});
   }
   env.bindings = std::move(fresh);
 }
@@ -286,6 +317,7 @@ void exec_plain(Machine& machine, const Node& node, Env& env) {
     return;
   }
   const std::string text = goal_with_saved(machine, node.text, env.saved);
+  snapshot_bundle(machine, env);
   const LgtStep step = lgt_ask(machine, text + ".");
   env.stop = step.stop;
   if (step.dead) {
