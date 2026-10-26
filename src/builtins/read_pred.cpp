@@ -5,6 +5,8 @@
 //   終端の印は end_of_file。終止符の直後の空白は流れに残す。
 //   構文エラーもその項の終止符まで進める。確認の空白は次の項に残す。
 //   オプションは variables, variable_names, singletons と、仕様の quoted。
+//   その三つの引数がリストでも変数でもなければ、読む前に domain_error(read_option, その選択肢)。
+//   変数と真のリスト（空リストを含む）は読んだあとで束縛する。部分リストも同じ。
 //   quoted(true) も quoted(false) も項は変えない。引用は字句の一部だから。
 //   エラー順は、流れの変数、選択肢の具体化、流れのドメイン、リスト型、
 //   read_option、存在、入力許可、past_end、それから構文。
@@ -332,6 +334,8 @@ bool reject_option(Impl& machine, const Goal& goal, Cell item, std::vector<Chose
   Cell arg{};
   if (!compound_one(machine, item, name, arg)) return raise_domain(machine, goal, "read_option", item);
   if (name == "variables" || name == "variable_names" || name == "singletons") {
+    // リストでない引数を単一化の失敗にすると、読む前の domain_error にならない。
+    if (walk_list(machine, arg).shape == ListShape::Bad) return raise_domain(machine, goal, "read_option", item);
     const ReadOpt kind = name == "variables" ? ReadOpt::Vars : name == "variable_names" ? ReadOpt::Names : ReadOpt::Singles;
     chosen.push_back(Chosen{kind, arg});
     return false;

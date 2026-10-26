@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1804
-合格率: 83.1
+合格数: 1810
+合格率: 83.3
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -82,12 +82,6 @@ predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(pr
 predicates/print_1/tests.lgt lgt_print_1_05 true(Assertion) fail
 predicates/print_2/tests.lgt lgt_print_2_05 true(Assertion) fail
 predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
-predicates/read_term_3/tests.lgt lgt_read_term_3_32 error(domain_error(read_option, variables(a))) fail
-predicates/read_term_3/tests.lgt lgt_read_term_3_33 error(domain_error(read_option, variables([_|a]))) fail
-predicates/read_term_3/tests.lgt lgt_read_term_3_34 error(domain_error(read_option, variable_names(a))) fail
-predicates/read_term_3/tests.lgt lgt_read_term_3_35 error(domain_error(read_option, variable_names([_|a]))) fail
-predicates/read_term_3/tests.lgt lgt_read_term_3_36 error(domain_error(read_option, singletons(a))) fail
-predicates/read_term_3/tests.lgt lgt_read_term_3_37 error(domain_error(read_option, singletons([_|a]))) fail
 predicates/retractall_1/tests.lgt iso_retractall_1_01 true({current_predicate(foo/1)}) existence_error(procedure, {}/1)
 predicates/set_prolog_flag_2/tests.lgt eddbali_set_prolog_flag_2_06 error(permission_error(modify, flag, max_arity)) domain_error(flag_value, max_arity+40)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_03 errors([domain_error(stream_or_alias, foo), existence_error(stream, foo)]) domain_error(stream_or_alias, foo)

@@ -14,7 +14,16 @@ test(read_keeps_layout, (open_string('term1. term2. ...', S), read(S, T), T == t
 test(read_fail_consumes, (open_string('a. b.', S), (read(S, b) ; true), read(S, T), T == b), true).
 test(read_names, (open_string('foo(A, B, A).', S), read_term(S, T, [variables(L), variable_names(N), singletons(G)]), T = foo(A, B, A), L = [A, B], N = ['A'=A, 'B'=B], G = ['B'=B]), true).
 test(read_anon, (open_string('foo(_, A, _).', S), read_term(S, T, [variables(L), variable_names(N), singletons(G)]), T = foo(X, A, Y), X \== Y, L = [X, A, Y], N = ['A'=A], G = ['A'=A]), true).
-test(vars_fail_consumes, (open_string('a. b.', S), (read_term(S, _, [variables(1)]) ; true), read(S, T), T == b), true).
+% 真のリストが単一化に失敗するときは、項を消費してから失敗する。1 はリストではない。
+test(vars_fail_consumes, (open_string('a. b.', S), (read_term(S, _, [variables([1])]) ; true), read(S, T), T == b), true).
+% リストでない引数は読む前に domain_error。入力を置くのは、読む実装が標準入力で止まらないため。
+test(vars_atom, (open_string('a.', S), read_term(S, _, [variables(a)])), error(domain_error(read_option, variables(a)))).
+test(vars_improper, (open_string('a.', S), read_term(S, _, [variables([_|a])])), error(domain_error(read_option, variables([_|a])))).
+test(names_atom, (open_string('a.', S), read_term(S, _, [variable_names(a)])), error(domain_error(read_option, variable_names(a)))).
+test(names_improper, (open_string('a.', S), read_term(S, _, [variable_names([_|a])])), error(domain_error(read_option, variable_names([_|a])))).
+test(singles_atom, (open_string('a.', S), read_term(S, _, [singletons(a)])), error(domain_error(read_option, singletons(a)))).
+test(singles_improper, (open_string('a.', S), read_term(S, _, [singletons([_|a])])), error(domain_error(read_option, singletons([_|a])))).
+test(vars_atom_keeps, (open_string('a.', S), catch(read_term(S, _, [variables(a)]), error(domain_error(read_option, variables(a)), _), true), read(S, a)), true).
 test(quoted_true, (open_string('a.', S), read_term(S, a, [quoted(true)])), true).
 test(quoted_false, (open_string('a.', S), read_term(S, a, [quoted(false)])), true).
 test(quotes_codes, (open_string([34, 97, 98, 34, 46], S), read_term(S, T, []), T == [97, 98]), true).
