@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1656
-合格率: 76.2
+合格数: 1658
+合格率: 76.3
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -62,7 +62,6 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2, 4, 6]) existence_error(procedure, :: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant, bee]) fail
-predicates/bagof_3/tests.lgt iso_bagof_3_17 true fail
 predicates/bagof_3/tests.lgt wg17_bagof_3_32 true((variant(Ls, [[E, _, _], [_, E, _], [_, _, E]]);variant(Ls, [[_, _, E], [_, E, _], [E, _, _]]))) existence_error(procedure, {}/1)
 predicates/bagof_3/tests.lgt wg17_bagof_3_33 true((L==[A, B, C];L==[C, B, A])) fail
 predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char, Code0), char_code(Char, Code), Code0==Code)) existence_error(procedure, between/3)
@@ -229,7 +228,6 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_46 true(Reposition=
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_47 true((Reposition==false;Reposition==true)) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_52 true(Type==text) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_53 true(Type==binary) fail
-predicates/sub_atom_5/tests.lgt lgt_sub_atom_5_34 true existence_error(procedure, forall/2)
 predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_08 true assertion

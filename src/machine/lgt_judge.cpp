@@ -1,5 +1,5 @@
 // 結果の形は機械の next で解を辿る。二度目の query はやり直しではない。
-// variant や assertion や =~= は述語にしない。登録すると current_predicate が成功する。
+// variant や assertion や =~= や forall は述語にしない。登録すると current_predicate が成功する。
 
 #include "lgt_suite.hpp"
 #include "lgt_priv.hpp"
@@ -391,6 +391,8 @@ bool special_call(const Heap& heap, Cell cell) {
   const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
   if (name == "assertion" && (arity == 1 || arity == 2)) return true;
+  // forall/2 は組込にしない。表明が無い本体は機械へ落ち、unknown=fail では失敗になる。
+  if (name == "forall" && arity == 2) return true;
   if (name == "^^") return true;
   if (name == "variant" && arity == 2) return true;
   if ((name == "subsumes" || name == "subsumes_term") && arity == 2) return true;

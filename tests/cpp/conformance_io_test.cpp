@@ -406,6 +406,34 @@ void check_colon_user(const std::filesystem::path& root) {
   mosa_test::check(failed.find("colon_user") == std::string::npos, "colon user reads canonical");
 }
 
+// 直接の bagof は X と Y を変数のまま残す。forall/2 は組込ではないので、ランナーが拾わないとこの 1 件は落ちる。
+std::string bagof_free_text() {
+  return "c(2, b, 'B').\n"
+         "c(1, a, 'A').\n"
+         "c(3, c, 'C').\n"
+         "test(iso_bagof_3_17, true) :-\n"
+         "    forall(\n"
+         "        {bagof(X, Y^c(X, Y, _), _)},\n"
+         "        (var(X), var(Y))\n"
+         "    ).\n";
+}
+
+void check_bagof_free(const std::filesystem::path& root) {
+  const auto suite = root / "bagof-free";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "bagof-free-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "bagof_3" / "tests.lgt", bagof_free_text()),
+                   "write bagof free");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("iso_bagof_3_17") != std::string::npos) show("bagof free report", body);
+  mosa_test::check(code == 0, "bagof free exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "bagof free denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "bagof free passed");
+  mosa_test::check(failed.find("iso_bagof_3_17") == std::string::npos, "bagof free keeps template variables");
+}
+
 // uses(list, [msort/2]) は Logtalk の輸入。プログラムへ渡すと未知の指示でファイル全体が load になる。
 std::string list_uses_text() {
   return ":- uses(list, [msort/2]).\n"
@@ -463,6 +491,7 @@ int main() {
     check_arg(root);
     check_atom_chars(root);
     check_list_uses(root);
+    check_bagof_free(root);
     check_share(root);
     check_colon_user(root);
   }
