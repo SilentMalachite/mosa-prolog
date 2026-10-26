@@ -20,4 +20,4 @@ ctest --preset macos-clang
 
 ## ライセンス
 
-MIT です。本文は `LICENSE` にあります。
+Mosa 本体は MIT です。本文は `LICENSE` にあります。`tests/conformance/logtalk/` は Logtalk の準拠テストで、Apache-2.0 です。本文は `tests/conformance/logtalk/LICENSE.txt` にあります。

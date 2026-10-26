@@ -154,3 +154,7 @@
 ## 8 with_output_to のメモリ
 
 決定（2026-10-26）: A。`atom/1` と `codes/1` のために作ったメモリの流れは、成功でも失敗でも例外でも停止でも閉じる。成功のときはバイトを束縛してから閉じる。閉じたスロットは再利用しない。その後、`stream_property` は列挙で拾わない。その項を渡すと `existence_error(stream, S)`。呼んだ側が渡した流れは閉じない。ゴールの途中は開いたままなので、中の `current_output` と `stream_property` は見える。
+
+## 準拠スイート
+
+決定（2026-10-26）: 許可は待たない。`inriasuite.pl` は再配布の許諾が無いので同梱しない。フェーズ3の準拠スイートは Logtalk の `tests/prolog` を、コミット `4decb64b598feff542a926a085eef01ec51f5a72` のまま `tests/conformance/logtalk/prolog` に置く。ライセンスは Apache-2.0 で、Mosa の MIT には含めない。ファイルは改変しない。仕様第9節の 90% はこのスイートで測る。合格率はこの決定では出さない。

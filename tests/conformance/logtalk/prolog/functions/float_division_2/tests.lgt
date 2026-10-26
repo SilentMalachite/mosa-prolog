@@ -1,0 +1,120 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  This file is part of Logtalk <https://logtalk.org/>
+%  SPDX-FileCopyrightText: 1998-2026 Paulo Moura <pmoura@logtalk.org>
+%  SPDX-License-Identifier: Apache-2.0
+%
+%  Licensed under the Apache License, Version 2.0 (the "License");
+%  you may not use this file except in compliance with the License.
+%  You may obtain a copy of the License at
+%
+%      http://www.apache.org/licenses/LICENSE-2.0
+%
+%  Unless required by applicable law or agreed to in writing, software
+%  distributed under the License is distributed on an "AS IS" BASIS,
+%  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%  See the License for the specific language governing permissions and
+%  limitations under the License.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+:- object(tests,
+	extends(lgtunit)).
+
+	:- info([
+		version is 1:1:1,
+		author is 'Paulo Moura',
+		date is 2026-09-08,
+		comment is 'Unit tests for the ISO Prolog standard (/)/2 built-in function.'
+	]).
+
+	:- set_logtalk_flag(suspicious_calls, silent).
+	:- set_logtalk_flag(arithmetic_expressions, silent).
+
+	% tests from the Logtalk portability work
+
+	test(lgt_float_division_2_01, error(instantiation_error)) :-
+		% try to delay the error to runtime
+		variable(N),
+		{_X is 3 / N}.
+
+	test(lgt_float_division_2_02, error(instantiation_error)) :-
+		% try to delay the error to runtime
+		variable(N),
+		{_X is N / 3}.
+
+	test(lgt_float_division_2_03, error(type_error(evaluable,foo/0))) :-
+		% try to delay the error to runtime
+		foo(0, Foo),
+		{_X is 3 / Foo}.
+
+	test(lgt_float_division_2_04, error(type_error(evaluable,foo/0))) :-
+		% try to delay the error to runtime
+		foo(0, Foo),
+		{_X is Foo / 3}.
+
+	test(lgt_float_division_2_05, error(type_error(evaluable,foo/1))) :-
+		% try to delay the error to runtime
+		foo(1, Foo),
+		{_X is 3 / Foo}.
+
+	test(lgt_float_division_2_06, error(type_error(evaluable,foo/1))) :-
+		% try to delay the error to runtime
+		foo(1, Foo),
+		{_X is Foo / 3}.
+
+	test(lgt_float_division_2_07, error(type_error(evaluable,foo/2))) :-
+		% try to delay the error to runtime
+		foo(2, Foo),
+		{_X is 3 / Foo}.
+
+	test(lgt_float_division_2_08, error(type_error(evaluable,foo/2))) :-
+		% try to delay the error to runtime
+		foo(2, Foo),
+		{_X is Foo / 3}.
+
+	test(lgt_float_division_2_09, error(evaluation_error(zero_divisor))) :-
+		% try to delay the error to runtime
+		zero(Zero),
+		{_X is 3 / Zero}.
+
+	test(lgt_float_division_2_10, error(evaluation_error(float_overflow))) :-
+		% try to delay the error to runtime
+		big_float(Big),
+		small_float(Small),
+		{_X is Big / Small}.
+
+	test(lgt_float_division_2_11, true) :-
+		% try to delay the error to runtime
+		small_float(Small),
+		catch({X is Small / 100000}, Error, true),
+		(	var(Error) ->
+			X == 0.0
+		;	subsumes_term(error(evaluation_error(underflow),_), Error)
+		).
+
+	test(lgt_float_division_2_12, true(X == 6.25)) :-
+		{X is 12.5 / 2}.
+
+	test(lgt_float_division_2_13, true(float(X))) :-
+		{X is 4 / 2}.
+
+	test(lgt_float_division_2_14, true(X == 2.0)) :-
+		{X is 4 / 2}.
+
+	% auxiliary predicates used to delay errors to runtime
+
+	variable(_).
+
+	foo(0, foo).
+	foo(1, foo(1)).
+	foo(2, foo(1,2)).
+
+	zero(0).
+
+	big_float(1.0e+300).
+
+	small_float(1.0e-320).
+
+:- end_object.

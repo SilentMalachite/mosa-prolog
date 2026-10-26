@@ -102,7 +102,7 @@ Examples が通っても、次の入力で壊れる。各行のテストは、�
 - 全角記号モード。`japanese_punctuation` を true にしても字句解析は変えない
 - `lib/messages_ja.pl` と `lib/messages_en.pl`
 - Windows コンソール。`src/platform/windows.cpp` は作らない
-- INRIA Suite の 98% と Logtalk のスイート。どちらもフェーズ5
+- 同梱スイートの合格率そのもの。ファイルは置いた。90% と `conformance.md` はランナーのあと
 - 日本語ファイル名の `consult/1` を完了条件にすること
 - 段階 B の算術の再実装
 - Cell（ADR 0001 と ADR 0002）と IR（ADR 0003）の変更
@@ -882,7 +882,7 @@ git commit -m "[phase3] 残りのディレクティブを追加する（離れ�
 
 - [ ] **Step 1: ライセンスを記録してからスイートを置く**
 
-`tests/conformance/` に、INRIA Suite（`inriasuite.pl`）のライセンスファイルを先に置く。ライセンスがリポジトリへ同梱できると確認できるまで、スイートのソースは置かない。確認できなければ `docs/iso-notes.md` にその旨を書き、このタスクを止める。合格率を推測で書かない。Logtalk のスイートはフェーズ5まで置かない。
+決定済み（2026-10-26、`docs/iso-notes.md`）。`inriasuite.pl` は置かない。スイートは `tests/conformance/logtalk/` に Apache-2.0 のまま置いた。合格率はランナーができてから `mosatest --suite` が書く。推測の数値は書かない。
 
 - [ ] **Step 2: 失敗するテストを書く**
 

@@ -314,7 +314,7 @@
 | --- | --- | --- |
 | 1. C++ 単体テスト | Cell・アトム・lexer・ユニフィケーション・UTF-8 変換など、Prolog を起動する前の部品 | 外部フレームワークを入れず、`tests/cpp/` に `assert` ベースの最小ランナー（`tests/cpp/harness.hpp`、50 行以内）。CTest に登録 |
 | 2. Prolog 自前テスト | `tests/pl/<章>.pl`。`test(名前, ゴール, 期待)` の事実として書き、`mosatest` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`solutions([X=1, X=2])` の 4 種 | `mosatest tests/pl/` |
-| 3. ISO 準拠スイート | 外部の公開スイートを `tests/conformance/` にサブモジュールまたはコピーで取り込む（ライセンス確認の上）。候補: INRIA Suite（`inriasuite.pl`）、Logtalk の Prolog 標準準拠テスト、Ulrich Neumerkel の「ISO conformity testing」表。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない |
+| 3. ISO 準拠スイート | Logtalk の Prolog 準拠テストを `tests/conformance/logtalk/` に改変せず置く。ライセンスは Apache-2.0 で、Mosa 本体の MIT とは別である。INRIA Suite（`inriasuite.pl`）は再配布の許諾が無いので同梱しない。Ulrich Neumerkel の表はコピーしない。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない |
 | 4. 差分テスト | 層 2・3 の全ゴールを `mosac` run で変換・ビルド・実行し、インタプリタの出力（解・エラー項・標準出力）とバイト単位で比較する | `mosatest --diff`。Phase 6 以降は CI 必須 |
 
 **テストの書き方の規則**
@@ -339,9 +339,9 @@
 | 0 | 骨組み: CMake、ディレクトリ、CI（3 OS）、`harness.hpp`、`docs/STATUS.md`、`docs/adr/0001-cell-representation.md` | 3 OS で空のテストが通る。`mosa --version` が動く |
 | 1 | 項とリーダ・ライタ: Cell、ヒープ、アトム、ユニフィケーション、Unicode 表の生成、lexer、reader（`op/3` 含む）、`write_term/3` | `tests/pl/syntax.pl`（規格 6 章の例）が読み書き往復で通る。日本語アトムの往復が通る |
 | 2 | 実行の核: IR、節コンパイラ（第 1 引数インデクシング）、トランポリン実行ループ、選択点、カット、`catch/throw`、段階 A の組込述語、最小 REPL、`consult/1` | `nrev` と `queens` が動く。段階 A の規格 Examples が全部通る |
-| 3 | 組込述語の拡充: 段階 B〜E、ストリーム全般、フラグ、ディレクティブ、エラー体系の完成 | INRIA Suite の合格率 90% 以上。`docs/conformance.md` が自動生成される |
+| 3 | 組込述語の拡充: 段階 B〜E、ストリーム全般、フラグ、ディレクティブ、エラー体系の完成 | 同梱した Logtalk 準拠スイートの合格率 90% 以上。`docs/conformance.md` が自動生成される |
 | 4 | モジュール: 第 5 節の全部、`library(*)` の最初の 6 モジュール、`meta_predicate` | `tests/pl/modules.pl` が通る。`library(lists)` を使った既存テストが壊れない |
-| 5 | 準拠率の追い込みと日本語の磨き込み: 不合格項目の潰し込み、全角記号モード、Windows コンソール、メッセージの日本語化 | INRIA Suite 98% 以上。Logtalk スイートの結果を記録。`tests/pl/japanese.pl` 全通過 |
+| 5 | 準拠率の追い込みと日本語の磨き込み: 不合格項目の潰し込み、全角記号モード、Windows コンソール、メッセージの日本語化 | 同梱した Logtalk 準拠スイートの合格率を上げる。`tests/pl/japanese.pl` 全通過 |
 | 6 | `mosac`: IR → C++20 生成、ビルドパイプライン（build / run / emit / toolchain、ツールチェーン検出、ランタイム同梱）、差分テスト | 層 2・3 の全テストで差分ゼロ。3 OS で mosac build hello.pl が作った実行ファイルが、コンパイラも CMake も mosac も入っていないクリーンな環境で動く。`nrev` の変換物がインタプリタの 3 倍以上速い |
 | 7 | 仕上げ: GC、`garbage_collect/0`、`statistics/2`、マニュアル（日本語・英語）、mosac dist、リリース用パッケージ（各 OS のバイナリ、同梱ランタイム） | 長時間ループでメモリが頭打ちになる。README の手順だけで初見の人がビルドできる |
 

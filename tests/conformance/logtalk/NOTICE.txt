@@ -1,0 +1,16 @@
+tests/conformance/logtalk/prolog is an unmodified copy of Logtalk's
+tests/prolog directory.
+
+Logtalk <https://logtalk.org/>
+Copyright 1998-2026 Paulo Moura <pmoura@logtalk.org>
+Licensed under the Apache License 2.0
+
+Upstream: https://github.com/LogtalkDotOrg/logtalk3
+Commit: 4decb64b598feff542a926a085eef01ec51f5a72
+Date: 2026-10-25
+Path: tests/prolog
+
+Additional test origins are described in prolog/NOTES.md.
+Files in that tree that have no SPDX line are test inputs from the
+same Apache-2.0 distribution.
+This directory is not covered by the MIT license at the repository root.
