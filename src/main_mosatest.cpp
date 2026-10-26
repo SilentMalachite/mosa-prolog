@@ -11,6 +11,7 @@ namespace {
 
 int usage() {
   std::cerr << "mosatest: 使い方: mosatest --roundtrip <ファイル>\n";
+  std::cerr << "mosatest --suite <ディレクトリ>\n";
   return 1;
 }
 
@@ -29,6 +30,9 @@ int main(int argc, char** argv) {
     std::ostringstream buffer;
     buffer << input.rdbuf();
     return mosa::run_roundtrip(buffer.str());
+  }
+  if (argc == 3 && std::string_view{argv[1]} == "--suite") {
+    return mosa::run_iso_suite(argv[2], "docs/conformance.md");
   }
   if (argc == 2) return mosa::run_suite(argv[1]);
   return usage();

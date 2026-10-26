@@ -129,7 +129,7 @@ std::string nl_text() {
          "    ^^text_output_assertion('\\n', Assertion).\n";
 }
 
-std::string missing_text() { return "test(missing, true) :- ^^file_path(a, P).\n"; }
+std::string missing_text() { return "test(missing, true) :- ^^not_in_list(a).\n"; }
 
 std::string colon_tester() {
   return ":- initialization((\n"
@@ -216,12 +216,12 @@ void check_unknown(const std::filesystem::path& root) {
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   const std::string body = read_text(report);
   const std::string failed = between_headings(body, "不合格:", "別欄:");
-  if (failed.find("file_path/2") == std::string::npos) show("unknown report", body);
+  if (failed.find("not_in_list/1") == std::string::npos) show("unknown report", body);
   // 未実装の ^^ は利用者述語にしない。存在エラーではなく、名前とアリティを書く。
   mosa_test::check(code == 1, "unknown exits 1");
   mosa_test::check(has_exact_line(body, "分母: 1"), "unknown denominator");
   mosa_test::check(has_exact_line(body, "合格数: 0"), "unknown passed");
-  mosa_test::check(failed.find("file_path/2") != std::string::npos, "unknown names predicate");
+  mosa_test::check(failed.find("not_in_list/1") != std::string::npos, "unknown names predicate");
   mosa_test::check(failed.find("existence_error") == std::string::npos, "unknown is not a user predicate");
 }
 

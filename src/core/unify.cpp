@@ -12,6 +12,9 @@ struct Attempt {
   // 失敗時に戻す分。選択点より新しい節の変数も、呼び出し開始より前ならヒープ切り詰めでは消えない。
   std::vector<std::uint64_t*> undo;
   std::vector<std::uint64_t*> keep;
+  // 循環を辿ると C++ の呼出が尽きる。同じ組を再訪したら、対応は既に付いている。
+  std::vector<std::uint64_t> seen_left;
+  std::vector<std::uint64_t> seen_right;
 };
 
 bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
@@ -33,14 +36,28 @@ bool unify_args(Heap& heap, Cell left, Cell right, Attempt& attempt) {
   return true;
 }
 
-bool unify_compound(Heap& heap, Cell left, Cell right, Attempt& attempt) {
-  if (left.tag() == Tag::Lis) {
-    return unify_cells(heap, heap.list_head(left), heap.list_head(right), attempt) &&
-           unify_cells(heap, heap.list_tail(left), heap.list_tail(right), attempt);
+bool already_seen(const Attempt& attempt, Cell left, Cell right) {
+  for (std::size_t index = 0; index < attempt.seen_left.size(); ++index) {
+    if (attempt.seen_left[index] == left.raw() && attempt.seen_right[index] == right.raw()) return true;
   }
-  if (heap.functor_arity(left) != heap.functor_arity(right)) return false;
-  if (heap.functor_atom(left) != heap.functor_atom(right)) return false;
-  return unify_args(heap, left, right, attempt);
+  return false;
+}
+
+bool unify_compound(Heap& heap, Cell left, Cell right, Attempt& attempt) {
+  if (already_seen(attempt, left, right)) return true;
+  attempt.seen_left.push_back(left.raw());
+  attempt.seen_right.push_back(right.raw());
+  bool ok = false;
+  if (left.tag() == Tag::Lis) {
+    ok = unify_cells(heap, heap.list_head(left), heap.list_head(right), attempt) &&
+         unify_cells(heap, heap.list_tail(left), heap.list_tail(right), attempt);
+  } else if (heap.functor_arity(left) == heap.functor_arity(right) &&
+             heap.functor_atom(left) == heap.functor_atom(right)) {
+    ok = unify_args(heap, left, right, attempt);
+  }
+  attempt.seen_left.pop_back();
+  attempt.seen_right.pop_back();
+  return ok;
 }
 
 bool unify_cells(Heap& heap, Cell left, Cell right, Attempt& attempt) {

@@ -33,16 +33,123 @@ struct Prog {
 
 enum class Tri { Ok, No, Abort, Throw, Dead };
 
+struct Saved {
+  std::string name;
+  std::string term;
+};
+
 struct Env {
   Tri tri = Tri::No;
   bool live = false;
   std::vector<Binding> bindings;
+  std::vector<Saved> saved;
   std::string note;
   Stop stop;
   const LgtIo* io = nullptr;
   std::string minted_var;
   std::string minted_term;
 };
+
+void remember_saved(std::vector<Saved>& saved, std::string name, std::string term) {
+  if (name.empty()) return;
+  for (Saved& slot : saved) {
+    if (slot.name != name) continue;
+    slot.term = std::move(term);
+    return;
+  }
+  saved.push_back(Saved{std::move(name), std::move(term)});
+}
+
+const Saved* find_saved(const std::vector<Saved>& saved, std::string_view name) {
+  for (const Saved& slot : saved) {
+    if (slot.name == name) return &slot;
+  }
+  return nullptr;
+}
+
+Cell parse_saved(Machine& machine, std::string_view text, bool& ok) {
+  const LgtParsed parsed = lgt_parse_term(machine, text);
+  ok = parsed.ok;
+  return parsed.term;
+}
+
+Cell swap_list(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Saved>& saved,
+               std::vector<std::uint64_t>& stack);
+
+Cell swap_saved(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Saved>& saved,
+                std::vector<std::uint64_t>& stack) {
+  Heap& heap = machine.heap();
+  cell = heap.deref(cell);
+  if (heap.unbound(cell)) {
+    for (const VarName& var : names) {
+      if (var.cell.raw() != cell.raw()) continue;
+      const Saved* slot = find_saved(saved, var.name);
+      if (slot == nullptr) return cell;
+      bool ok = false;
+      const Cell term = parse_saved(machine, slot->term, ok);
+      return ok ? term : cell;
+    }
+    return cell;
+  }
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
+  for (const auto seen : stack) {
+    if (seen == cell.raw()) return cell;
+  }
+  stack.push_back(cell.raw());
+  const Cell built = cell.tag() == Tag::Lis ? swap_list(machine, cell, names, saved, stack)
+                                            : [&] {
+                                                std::vector<Cell> args;
+                                                args.reserve(heap.functor_arity(cell));
+                                                for (std::uint16_t index = 0; index < heap.functor_arity(cell); ++index) {
+                                                  args.push_back(swap_saved(machine, heap.arg(cell, index), names, saved, stack));
+                                                }
+                                                return heap.structure(heap.functor_atom(cell), args);
+                                              }();
+  stack.pop_back();
+  return built;
+}
+
+Cell swap_list(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Saved>& saved,
+               std::vector<std::uint64_t>& stack) {
+  Heap& heap = machine.heap();
+  const Cell head = swap_saved(machine, heap.list_head(cell), names, saved, stack);
+  const Cell tail = swap_saved(machine, heap.list_tail(cell), names, saved, stack);
+  return heap.list(head, tail);
+}
+
+std::string goal_with_saved(Machine& machine, std::string_view goal, const std::vector<Saved>& saved) {
+  if (saved.empty()) return std::string{goal};
+  const LgtParsed parsed = lgt_parse_term(machine, goal);
+  if (!parsed.ok) return std::string{goal};
+  std::vector<std::uint64_t> stack;
+  const Cell term = swap_saved(machine, parsed.term, parsed.names, saved, stack);
+  return write_term(machine.heap(), machine.operators(), term, {}, parsed.names);
+}
+
+void restore_saved(Machine& machine, Env& env) {
+  for (const Saved& slot : env.saved) {
+    bool found = false;
+    for (const Binding& binding : env.bindings) {
+      if (binding.name != slot.name) continue;
+      found = true;
+      break;
+    }
+    if (found) continue;
+    bool ok = false;
+    const Cell term = parse_saved(machine, slot.term, ok);
+    if (!ok) continue;
+    env.bindings.push_back(Binding{slot.name, term});
+  }
+}
+
+void remember_stop(Machine& machine, const Stop& stop, Env& env) {
+  env.bindings = stop.bindings;
+  // 決定的な成功の次も、同じ機械で入出力を続ける。選択点が残るときだけ別機械で見る。
+  env.live = stop.more;
+  for (const Binding& binding : stop.bindings) {
+    remember_saved(env.saved, binding.name, write_term(machine.heap(), machine.operators(), binding.variable, {}, {}));
+  }
+}
 
 int add_node(Prog& prog, Node node) {
   prog.nodes.push_back(std::move(node));
@@ -97,15 +204,15 @@ void exec_plain(Machine& machine, const Node& node, Env& env) {
     env.tri = lgt_scratch_ok(machine, node.text, env.bindings) ? Tri::Ok : Tri::No;
     return;
   }
-  const LgtStep step = lgt_ask(machine, node.text + ".");
+  const std::string text = goal_with_saved(machine, node.text, env.saved);
+  const LgtStep step = lgt_ask(machine, text + ".");
   env.stop = step.stop;
   if (step.dead) {
     env.tri = Tri::Dead;
     return;
   }
   if (step.stop.kind == StopKind::Success) {
-    env.live = true;
-    env.bindings = step.stop.bindings;
+    remember_stop(machine, step.stop, env);
     env.tri = Tri::Ok;
     return;
   }
@@ -224,6 +331,7 @@ void remember_super(Machine& machine, const LgtSuper& ran, Env& env) {
   // 次の query がヒープを捨てても、表明の項を文字列で残す。
   env.minted_var = ran.binding_name;
   env.minted_term = write_term(machine.heap(), machine.operators(), ran.binding, {}, {});
+  remember_saved(env.saved, ran.binding_name, env.minted_term);
   for (Binding& binding : env.bindings) {
     if (binding.name != ran.binding_name) continue;
     binding.variable = ran.binding;
@@ -462,6 +570,7 @@ LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
     else end.actual = "fail";
     return end;
   }
+  restore_saved(machine, env);
   remint(machine, env);
   if (want.kind == LgtKind::True) {
     end.pass = true;
