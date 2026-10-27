@@ -1,3 +1,3 @@
-The standard library written in Prolog. `lists.pl` is copied beside the executable as `lib/lists.pl`.
+The standard library written in Prolog. `lists.pl` and `apply.pl` are copied beside the executable as `lib/lists.pl` and `lib/apply.pl`.
 
-Prolog で書いた標準ライブラリ。`lists.pl` は実行ファイルの隣の `lib/lists.pl` へコピーする。
+Prolog で書いた標準ライブラリ。`lists.pl` と `apply.pl` は実行ファイルの隣の `lib/` へコピーする。
