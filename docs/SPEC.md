@@ -105,7 +105,7 @@ A "character" is always one Unicode scalar value, never a byte or a UTF-16 unit.
 | Layout (whitespace) | `Zs`, `Zl`, `Zp` + whitespace control characters | Includes the ideographic space U+3000 |
 
 - Japanese has no letter case, so `太郎` in `親(太郎, 一郎).` is an **atom**. Variables with Japanese names start with an underscore, as in `_太郎`. This rule must be written in both the README and the REPL help
-- The default mapping for `char_conversion/2` is the identity mapping. `charConversion` does not perform full-width → half-width conversion or similar
+- The default mapping for `char_conversion/2` is the identity mapping. `char_conversion` does not perform full-width → half-width conversion or similar
 - Single-kanji atoms can be written without quotes: `write(東)` outputs `東`. `writeq/1` decides whether quoting is needed according to the character classification. That is, `writeq(東京)` gives `東京` and `writeq('東 京')` gives `'東 京'`
 - The Unicode classification tables do not rely on ICU; `tools/gen_unicode_tables.py` generates `src/unicode_tables.inc` from `UnicodeData.txt` (its version is pinned in `docs/unicode-version.md`). The generated file is committed to the repository, and the build does not require Python
 
@@ -129,7 +129,7 @@ When true, the lexer treats the following full-width symbols as identical to the
 - `syntax_error` messages from `read_term/2,3` include the line number, the column number (in code points), and the offending token. Columns count one column per character, including full-width characters
 - `~t~|` column alignment in `format/2,3` takes East Asian width into account (`East_Asian_Width` W/F count as width 2). This is also included in the generated tables
 
-**Minimum set of Japanese tests (`tests/japanese/`)**
+**Minimum set of Japanese tests (`tests/pl/japanese.pl`)**
 
 - Read/write round trip of Japanese atoms and operators (after `:- op(700, xfx, は).`, `太郎 は 学生.` can be read)
 - Extract `語処` from `日本語処理系` with `sub_atom/5`
@@ -307,7 +307,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 **Rules of the error system**
 
 - All errors are thrown in the form `throw(error(Formal, Context))`. `Context` is `context(PI, Extra)`, where `PI` is the predicate indicator and `Extra` is additional information (for `syntax_error`, the form `stream(S, Line, LinePos, CharNo)` rather than `位置(Line, Col)`). ISO permits implementation-defined terms in `Context`
-- The order of argument checks strictly follows each predicate's definition in ISO (the order listed in 8.x.y.3 Errors). For example, `atom_length(X, foo)` does not throw `instantiation_error`; it checks `X` first and throws `instantiation_error`. Order violations are detected by the conformance suite
+- The order of argument checks strictly follows each predicate's definition in ISO (the order listed in 8.x.y.3 Errors). For example, `atom_length(X, foo)` does not throw `type_error(integer, foo)`; it checks `X` first and throws `instantiation_error`. Order violations are detected by the conformance suite
 - On the C++ side, use only the single family of helpers `throw_error(m, Formal, PI)`, and build each kind of `Formal` with functions such as `make_type_error(m, Type, Culprit)`. Writing string literals directly is forbidden (to prevent typos in atom names)
 - Arithmetic errors: division by zero is `evaluation_error(zero_divisor)`, integer overflow is `evaluation_error(int_overflow)`, float overflow is `evaluation_error(float_overflow)`, and `sqrt(-1)` etc. is `evaluation_error(undefined)`. `inf`/`nan` are thrown when the `float_overflow`/`undefined` flag is `error`; otherwise IEEE 754 values are returned (SWI-compatible `float_overflow`, `float_zero_div`, `float_undefined` flags)
 - The top level displays uncaught exceptions in the form `警告: ゴールは例外を送出しました: error(...)` (Warning: goal raised exception: error(...)) in Japanese or English (flag `message_language`, whose default is determined from the environment variable `LANG`). Message strings are placed as Prolog facts in `lib/messages_ja.pl` and `lib/messages_en.pl`, and are not embedded in C++

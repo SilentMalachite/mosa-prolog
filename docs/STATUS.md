@@ -8,5 +8,5 @@ Done: mosa no longer reads non-terminal stdin up front. --version returns on an 
 Done: docs are English-primary with *.ja.md translations (README, AGENTS, SPEC, iso-notes, ADRs, bench); directory READMEs carry both languages
 Next: phase 4, modules
 Open: interpretations left in iso-notes
-Open: SPEC typos found while translating: the section 7 atom_length(X, foo) example contradicts itself; `charConversion` (section 4) vs the char_conversion flag; section 4 says tests/japanese/ but sections 8–9 say tests/pl/japanese.pl
+Done: fixed SPEC typos in both languages: section 7 atom_length(X, foo) example, `char_conversion` in section 4, Japanese tests live in tests/pl/japanese.pl
 Plan: docs/superpowers/plans/2026-10-26-phase3-exit.md

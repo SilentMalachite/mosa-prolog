@@ -106,7 +106,7 @@
 | 空白 | `Zs`、`Zl`、`Zp` + 制御文字の空白 | 全角空白 U+3000 を含む |
 
 - 日本語には大文字小文字がないので、`親(太郎, 一郎).` の `太郎` は**アトム**になる。日本語名の変数は `_太郎` のように下線で始める。この規則を README と REPL のヘルプの両方に書く
-- 写像（`char_conversion/2`）の既定は恒等写像。`charConversion` で全角→半角などを行わない
+- 写像（`char_conversion/2`）の既定は恒等写像。`char_conversion` で全角→半角などを行わない
 - 漢字 1 文字のアトムは引用符なしで書ける: `write(東)` は `東` を出力する。`writeq/1` は文字分類に従って引用の要否を判定する。つまり `writeq(東京)` は `東京`、`writeq('東 京')` は `'東 京'`
 - Unicode の分類表は ICU に頼らず、`tools/gen_unicode_tables.py` が `UnicodeData.txt`（バージョンを `docs/unicode-version.md` に固定）から `src/unicode_tables.inc` を生成する。生成物はリポジトリにコミットし、ビルド時に Python を要求しない
 
@@ -130,7 +130,7 @@
 - `read_term/2,3` の `syntax_error` メッセージは、行番号・列番号（コードポイント単位）・問題のトークンを含む。列は全角文字でも 1 文字 1 列で数える
 - `format/2,3` の `~t~|` 桁揃えは東アジアの幅（`East_Asian_Width` の W/F を幅 2）を考慮する。これも生成テーブルに含める
 
-**日本語テストの最低セット（`tests/japanese/`）**
+**日本語テストの最低セット（`tests/pl/japanese.pl`）**
 
 - 日本語アトム・演算子（`:- op(700, xfx, は).` のあと `太郎 は 学生.` が読める）の読み書き往復
 - `sub_atom/5` で `日本語処理系` から `語処` を切り出す
@@ -304,7 +304,7 @@
 **エラー体系の規則**
 
 - すべてのエラーは `throw(error(Formal, Context))` の形で投げる。`Context` は `context(PI, Extra)` とし、`PI` は述語指示子、`Extra` は追加情報（`syntax_error` なら `位置(Line, Col)` ではなく `stream(S, Line, LinePos, CharNo)` の形）。`Context` に実装定義の項を置けるのは ISO が許している
-- 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `instantiation_error` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
+- 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `type_error(integer, foo)` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
 - C++ 側では `throw_error(m, Formal, PI)` の 1 系統のヘルパだけを使い、`Formal` の各種は `make_type_error(m, Type, Culprit)` のような関数で組む。文字列の直書きは禁止（アトム名のタイポを防ぐ）
 - 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、整数オーバーフローは `evaluation_error(int_overflow)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
 - トップレベルは捕捉されなかった例外を `警告: ゴールは例外を送出しました: error(...)` の形で日本語と英語（フラグ `message_language`、既定は環境変数 `LANG` から判定）で表示する。メッセージ文字列は `lib/messages_ja.pl`、`lib/messages_en.pl` の Prolog 事実として置き、C++ には埋め込まない
