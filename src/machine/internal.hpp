@@ -65,6 +65,20 @@ struct ModuleSource {
   std::string path;
 };
 
+// user 以外の op/3。user の表は operators のまま、全モジュールから見える。
+struct ModuleOps {
+  std::uint32_t home = 0;
+  OperatorTable table;
+};
+
+// module/2 の公開リストにある op(優先度, 指定子, 名前)。
+struct ExportedOp {
+  std::uint32_t module = 0;
+  int priority = 0;
+  Specifier specifier = Specifier::Xfx;
+  std::string name;
+};
+
 // メタ引数の上書き。born 以降を捨てる選択点では、枠の中の古い引数へ戻す。
 struct MetaUndo {
   std::size_t slot = 0;
@@ -202,6 +216,8 @@ struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
   OperatorTable operators;
+  // 宣言したモジュールの演算子。user の op/3 は operators に残す。
+  std::vector<ModuleOps> module_ops;
   std::vector<OpUndo> op_undos;
   std::uint64_t effect_clock = 0;
   // 0 が stdin、1 が stdout、2 が stderr。読み書きそのものは get と put が行う。
@@ -214,6 +230,7 @@ struct Machine::Impl {
   std::vector<std::uint32_t> modules;
   // module/2 が公開した述語。consult は取り込まない。
   std::vector<ExportMark> exports;
+  std::vector<ExportedOp> exported_ops;
   // モジュールを定義したファイル。同じパスの use_module は節を足さない。
   std::vector<ModuleSource> module_sources;
   // 今読んでいるファイルの正規化パス。空はファイルではない。
@@ -496,6 +513,9 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 // origin は循環の検出に使う。空なら、このテキスト自体はファイルではない。
 // shared_opening は、入れ子の consult が親と同じ循環を見るため。
 // そのモジュールの述語が、節を足す宣言を持つか。
+void note_declared_op(Impl& machine, int priority, Specifier specifier, std::string name);
+[[nodiscard]] bool take_exported_op(const Impl& machine, Cell cell, ExportedOp& op);
+[[nodiscard]] bool import_operator_exports(Impl& machine, std::uint32_t source);
 [[nodiscard]] bool multifile_keeps(const Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
 void note_multifile(Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
 // 修飾した頭部を、宣言済みならそのモジュールの節に直す。home は足す先。

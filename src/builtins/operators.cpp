@@ -15,8 +15,9 @@
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
 // 選択点より後ろの変更は失敗で戻す。assert と retract は戻さない。
+// user 以外の op/3 はそのモジュールへ書く。current_op/3 はシステムと user と、その宣言を見る。
 // テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl,
-// tests/pl/curchar.pl, tests/pl/japanese.pl
+// tests/pl/curchar.pl, tests/pl/japanese.pl, tests/pl/modules.pl
 
 #include "../machine/internal.hpp"
 
@@ -134,9 +135,34 @@ std::vector<OpName> op_names(const Impl& machine, Cell names, const WalkedList& 
   return found;
 }
 
+// 書き込む表。user は共有の表、それ以外はモジュール自身の宣言だけ。
+OperatorTable& declared_operators(Impl& machine) {
+  if (machine.calling == machine.user_mod) return machine.operators;
+  for (ModuleOps& item : machine.module_ops) {
+    if (item.home == machine.calling) return item.table;
+  }
+  machine.module_ops.push_back(ModuleOps{machine.calling, OperatorTable{}});
+  return machine.module_ops.back().table;
+}
+
+// 見る表。システムの演算子と user の演算子に、そのモジュールの宣言を足す。
+OperatorTable visible_operators(Impl& machine) {
+  if (machine.calling == machine.user_mod) return machine.operators;
+  OperatorTable seen = machine.operators;
+  for (const ModuleOps& item : machine.module_ops) {
+    if (item.home != machine.calling) continue;
+    for (const OpDef& op : item.table.entries()) {
+      (void)seen.define(op.priority, op.specifier, op.name);
+    }
+  }
+  return seen;
+}
+
 bool commit_ops(Impl& machine, const Goal& goal, int priority, Specifier spec,
                 const std::vector<OpName>& names) {
-  OperatorTable trial = machine.operators;
+  OperatorTable& live = declared_operators(machine);
+  const bool user_table = &live == &machine.operators;
+  OperatorTable trial = live;
   for (const OpName& name : names) {
     const OpResult result = trial.define(priority, spec, name.text);
     if (result == OpResult::Ok) continue;
@@ -147,8 +173,9 @@ bool commit_ops(Impl& machine, const Goal& goal, int priority, Specifier spec,
   std::vector<std::string> touched;
   touched.reserve(names.size());
   for (const OpName& name : names) touched.push_back(name.text);
-  trail_operators(machine, priority, spec, touched);
-  machine.operators = std::move(trial);
+  // trail は machine.operators を戻す。別の表へ書くと user の演算子を消す。
+  if (user_table) trail_operators(machine, priority, spec, touched);
+  live = std::move(trial);
   return true;
 }
 
@@ -206,8 +233,9 @@ bool keep_op(const Impl& machine, Cell priority, Cell specifier, Cell name, cons
 }
 
 std::vector<Cell> matching_ops(Impl& machine, Cell priority, Cell specifier, Cell name) {
-  const std::vector<OpDef> ops = name.tag() == Tag::Atom ? machine.operators.lookup(atom_text(machine, name))
-                                                          : machine.operators.entries();
+  const OperatorTable table = visible_operators(machine);
+  const std::vector<OpDef> ops = name.tag() == Tag::Atom ? table.lookup(atom_text(machine, name))
+                                                          : table.entries();
   std::vector<Cell> flat;
   for (const OpDef& op : ops) {
     if (!keep_op(machine, priority, specifier, name, op)) continue;
@@ -429,6 +457,54 @@ int apply_char_conv_directive(Impl& machine, Cell directive) {
   }
   store_char_conv(machine, from, to);
   return 1;
+}
+
+bool take_exported_op(const Impl& machine, Cell cell, ExportedOp& op) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 3) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(cell)) != "op") return false;
+  const Cell priority = machine.heap.deref(machine.heap.arg(cell, 0));
+  const Cell spec = machine.heap.deref(machine.heap.arg(cell, 1));
+  const Cell name = machine.heap.deref(machine.heap.arg(cell, 2));
+  if (!is_int(priority) || spec.tag() != Tag::Atom || name.tag() != Tag::Atom) return false;
+  const auto value = machine.heap.integer_value(priority);
+  if (value < 0 || value > 1200) return false;
+  const auto parsed = specifier_of(atom_text(machine, spec));
+  if (!parsed) return false;
+  op.priority = static_cast<int>(value);
+  op.specifier = *parsed;
+  op.name = std::string{atom_text(machine, name)};
+  return true;
+}
+
+void define_for_module(Impl& machine, std::uint32_t home, int priority, Specifier specifier, std::string name) {
+  for (ModuleOps& item : machine.module_ops) {
+    if (item.home != home) continue;
+    (void)item.table.define(priority, specifier, std::move(name));
+    return;
+  }
+  ModuleOps created{home, OperatorTable{}};
+  (void)created.table.define(priority, specifier, std::move(name));
+  machine.module_ops.push_back(std::move(created));
+}
+
+// 公開リストの演算子は、取り込んだモジュールの表へ入る。読んでいる最中は共有の表にも足す。
+bool import_operator_exports(Impl& machine, std::uint32_t source) {
+  const auto caller = machine.calling;
+  for (const ExportedOp& op : machine.exported_ops) {
+    if (op.module != source) continue;
+    if (caller == machine.user_mod || caller == machine.load_home) {
+      if (machine.operators.define(op.priority, op.specifier, op.name) != OpResult::Ok) return false;
+    }
+    if (caller != machine.user_mod) {
+      define_for_module(machine, caller, op.priority, op.specifier, op.name);
+    }
+  }
+  return true;
+}
+
+void note_declared_op(Impl& machine, int priority, Specifier specifier, std::string name) {
+  define_for_module(machine, machine.load_home, priority, specifier, std::move(name));
 }
 
 bool run_operators(Impl& machine, const Goal& goal) {

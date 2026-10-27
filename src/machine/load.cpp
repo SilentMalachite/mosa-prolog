@@ -94,10 +94,13 @@ std::string op_failure(OpResult result) {
 }
 
 bool define_name(Impl& machine, int priority, Specifier specifier, std::string name) {
-  const OpResult result = machine.operators.define(priority, specifier, std::move(name));
-  if (result == OpResult::Ok) return true;
-  fail_load(machine, op_failure(result));
-  return false;
+  const OpResult result = machine.operators.define(priority, specifier, name);
+  if (result != OpResult::Ok) {
+    fail_load(machine, op_failure(result));
+    return false;
+  }
+  if (machine.load_home != machine.user_mod) note_declared_op(machine, priority, specifier, std::move(name));
+  return true;
 }
 
 bool define_op_names(Impl& machine, int priority, Specifier specifier, Cell names) {
@@ -787,6 +790,8 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   }
   const LoadStatus done = finish_load(machine, heap_base, inits);
   if (done.ok || machine.load_kept) home_guard.keep();
+  // モジュールの :- op は、続きの項を読むあいだだけ共有の表に載せる。
+  if (done.ok && machine.load_home != machine.user_mod) machine.operators = saved_ops;
   return done;
 }
 

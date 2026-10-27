@@ -122,7 +122,8 @@ bool commit_slots(Impl& machine, const Goal& goal, std::uint32_t source, std::ui
 bool import_exports(Impl& machine, const Goal& goal, std::uint32_t source, std::uint32_t caller) {
   std::vector<SlotPlan> plans;
   collect_exports(machine, source, plans);
-  return commit_slots(machine, goal, source, caller, plans);
+  if (!commit_slots(machine, goal, source, caller, plans)) return false;
+  return import_operator_exports(machine, source);
 }
 
 bool is_export(const Impl& machine, std::uint32_t source, const Wanted& item) {
@@ -158,7 +159,8 @@ bool import_except(Impl& machine, const Goal& goal, std::uint32_t source, std::u
     if (mark.module != source || excluded(wanted, mark.name, mark.arity)) continue;
     plans.push_back(SlotPlan{mark.name, mark.arity, mark.name});
   }
-  return commit_slots(machine, goal, source, caller, plans);
+  if (!commit_slots(machine, goal, source, caller, plans)) return false;
+  return import_operator_exports(machine, source);
 }
 
 bool indicator(const Impl& machine, Cell cell, Wanted& item) {

@@ -260,3 +260,93 @@ test(mod_multifile_local, (
 test(mod_clause_import, clause(parent(a, _), _), error(permission_error(modify, static_procedure, parent/2))).
 % 修飾した clause は、名付けたモジュールの節を読む。
 test(mod_clause_qualified, (clause(kin:parent(a, X), true), X == b), true).
+
+consult_op_box :- consult('tests/pl/modules/op_box.pl').
+consult_op_box :- consult('../tests/pl/modules/op_box.pl').
+
+% op/3 は実行したモジュールの表だけを変える。user の current_op には出ない。
+test(mod_op_local, (
+  consult_op_box,
+  op_box:op(400, xfx, ownop),
+  \+ current_op(400, xfx, ownop),
+  op_box:current_op(400, xfx, ownop),
+  op(0, xfx, ownop)
+), true).
+
+% モジュールから見ても、システムの演算子は残る。op_box は前のテストが読んでいる。
+test(mod_op_sees_system, op_box:current_op(700, xfx, (=)), true).
+
+% user で宣言した演算子は、どのモジュールの current_op からも見える。
+test(mod_op_sees_user, (
+  op(333, xfx, userop),
+  op_box:current_op(333, xfx, userop),
+  op(0, xfx, userop)
+), true).
+
+consult_op_user :- consult('tests/pl/modules/op_user.pl').
+consult_op_user :- consult('../tests/pl/modules/op_user.pl').
+
+% ファイルを読んでいるあいだ、user の演算子はモジュールの項にも効く。
+test(mod_op_user_read, (
+  op(333, xfx, userop),
+  consult_op_user,
+  op_user:seen(userop(a, b)),
+  op(0, xfx, userop)
+), true).
+
+consult_op_file :- consult('tests/pl/modules/op_file.pl').
+consult_op_file :- consult('../tests/pl/modules/op_file.pl').
+
+% ファイルの :- op は、その場の項には効く。読み終わると user の表には残らない。
+test(mod_op_file, (
+  consult_op_file,
+  op_file:seen(fileop(a, b)),
+  \+ current_op(400, xfx, fileop)
+), true).
+
+% 同じ宣言は、宣言したモジュールの current_op には残る。
+test(mod_op_file_keeps, op_file:current_op(400, xfx, fileop), true).
+
+use_op_exp :- use_module('tests/pl/modules/op_exp.pl').
+use_op_exp :- use_module('../tests/pl/modules/op_exp.pl').
+
+% 公開リストの op/3 は、取り込んだモジュールの表に入る。
+test(mod_op_export, (
+  use_op_exp,
+  current_op(400, xfx, expop),
+  open_string('a expop b.', S),
+  read(S, T),
+  T == expop(a, b),
+  op(0, xfx, expop)
+), true).
+
+consult_op_imp :- consult('tests/pl/modules/op_imp.pl').
+consult_op_imp :- consult('../tests/pl/modules/op_imp.pl').
+
+% 読み込み中のモジュールが公開演算子を取り込むと、続きの項とその current_op に効く。
+test(mod_op_imported, (
+  consult_op_imp,
+  op_imp:seen(expop(a, b)),
+  \+ current_op(400, xfx, expop),
+  op_imp:current_op(400, xfx, expop)
+), true).
+
+% except は述語を除いても、公開した演算子は取り込む。
+test(mod_op_except, (
+  use_module(op_exp, except([missing/1])),
+  current_op(400, xfx, expop),
+  op(0, xfx, expop)
+), true).
+
+consult_op_bad :- consult('tests/pl/modules/op_bad.pl').
+consult_op_bad :- consult('../tests/pl/modules/op_bad.pl').
+
+consult_op_retry :- consult('tests/pl/modules/op_retry.pl').
+consult_op_retry :- consult('../tests/pl/modules/op_retry.pl').
+
+% 失敗した読み込みの演算子は、同じ名前を読み直しても残らない。
+test(mod_op_rollback, (
+  \+ consult_op_bad,
+  consult_op_retry,
+  \+ op_bad:current_op(400, xfx, badop)
+), true).

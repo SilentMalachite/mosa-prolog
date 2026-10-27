@@ -40,15 +40,24 @@ bool export_indicator(const Impl& machine, Cell cell, std::uint32_t& name, std::
   return true;
 }
 
-bool read_exports(Impl& machine, std::uint32_t module, Cell list, std::vector<ExportMark>& out) {
+bool read_exports(Impl& machine, std::uint32_t module, Cell list, std::vector<ExportMark>& out,
+                  std::vector<ExportedOp>& ops) {
   list = machine.heap.deref(list);
   const auto nil = machine.atoms.intern("[]");
   if (list.tag() == Tag::Atom && static_cast<std::uint32_t>(list.raw() >> 3) == nil) return true;
   while (list.tag() == Tag::Lis) {
+    const Cell head = machine.heap.list_head(list);
     ExportMark mark;
     mark.module = module;
-    if (!export_indicator(machine, machine.heap.list_head(list), mark.name, mark.arity)) return false;
-    out.push_back(mark);
+    ExportedOp op;
+    if (export_indicator(machine, head, mark.name, mark.arity)) {
+      out.push_back(mark);
+    } else if (take_exported_op(machine, head, op)) {
+      op.module = module;
+      ops.push_back(std::move(op));
+    } else {
+      return false;
+    }
     list = machine.heap.deref(machine.heap.list_tail(list));
   }
   return list.tag() == Tag::Atom && static_cast<std::uint32_t>(list.raw() >> 3) == nil;
@@ -72,6 +81,8 @@ void drop_load_modules(Impl& machine) {
     std::vector<std::uint32_t>& mods = machine.modules;
     mods.erase(std::remove(mods.begin(), mods.end(), name), mods.end());
     std::erase_if(machine.exports, [name](const ExportMark& item) { return item.module == name; });
+    std::erase_if(machine.exported_ops, [name](const ExportedOp& item) { return item.module == name; });
+    std::erase_if(machine.module_ops, [name](const ModuleOps& item) { return item.home == name; });
     std::erase_if(machine.module_sources, [name](const ModuleSource& item) { return item.module == name; });
   }
   machine.module_added.pop_back();
@@ -97,7 +108,8 @@ int apply_module_directive(Impl& machine, Cell term) {
     return -1;
   }
   std::vector<ExportMark> listed_exports;
-  if (!read_exports(machine, name, listed, listed_exports)) {
+  std::vector<ExportedOp> listed_ops;
+  if (!read_exports(machine, name, listed, listed_exports, listed_ops)) {
     machine.diagnostic = "エクスポートが述語指示ではない";
     machine.syntax_diag = false;
     return -1;
@@ -105,6 +117,7 @@ int apply_module_directive(Impl& machine, Cell term) {
   machine.load_home = name;
   remember_module(machine, name);
   machine.exports.insert(machine.exports.end(), listed_exports.begin(), listed_exports.end());
+  machine.exported_ops.insert(machine.exported_ops.end(), listed_ops.begin(), listed_ops.end());
   if (!machine.load_origin.empty()) machine.module_sources.push_back(ModuleSource{name, machine.load_origin});
   return 1;
 }
