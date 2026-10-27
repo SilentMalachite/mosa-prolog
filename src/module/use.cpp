@@ -5,6 +5,7 @@
 //   instantiation_error
 //   type_error(atom, Culprit)
 //   permission_error(modify, module, Module) は module/2 が読み込みを拒んだとき
+//   permission_error(import_into, procedure, PI) は同じ名前を二箇所から取り込むとき
 // テスト: tests/pl/modules.pl
 
 #include "../machine/internal.hpp"
@@ -77,11 +78,47 @@ void import_slot(Impl& machine, std::uint32_t source, std::uint32_t caller, std:
   machine.predicates.push_back(std::move(slot));
 }
 
-void import_exports(Impl& machine, std::uint32_t source, std::uint32_t caller) {
+struct SlotPlan {
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  std::uint32_t local = 0;
+};
+
+void collect_exports(const Impl& machine, std::uint32_t source, std::vector<SlotPlan>& out) {
   for (const ExportMark& item : machine.exports) {
     if (item.module != source) continue;
-    import_slot(machine, source, caller, item.name, item.arity, item.name);
+    out.push_back(SlotPlan{item.name, item.arity, item.name});
   }
+}
+
+// 同じ出所の同じ名前は取り込み直しではない。別の席があるときだけ衝突する。
+bool import_clash(Impl& machine, std::uint32_t source, std::uint32_t caller, const SlotPlan& plan) {
+  const Predicate* slot = predicate_in(machine, caller, plan.local, plan.arity);
+  if (slot == nullptr) return false;
+  if (!slot->imported || slot->origin != source) return true;
+  const auto source_name = slot->origin_name != 0 ? slot->origin_name : slot->name;
+  return source_name != plan.name;
+}
+
+bool commit_slots(Impl& machine, const Goal& goal, std::uint32_t source, std::uint32_t caller,
+                  const std::vector<SlotPlan>& plans) {
+  for (const SlotPlan& plan : plans) {
+    if (!import_clash(machine, source, caller, plan)) continue;
+    // 一つでも衝突したら、この呼び出しが足す席は一つも作らない。
+    const Cell pi = cell_functor(machine, plan.local, plan.arity);
+    raise_formal(machine, formal_permission(machine, "import_into", "procedure", pi), goal.name, goal.arity);
+    return false;
+  }
+  for (const SlotPlan& plan : plans) {
+    import_slot(machine, source, caller, plan.name, plan.arity, plan.local);
+  }
+  return true;
+}
+
+bool import_exports(Impl& machine, const Goal& goal, std::uint32_t source, std::uint32_t caller) {
+  std::vector<SlotPlan> plans;
+  collect_exports(machine, source, plans);
+  return commit_slots(machine, goal, source, caller, plans);
 }
 
 bool is_export(const Impl& machine, std::uint32_t source, const Wanted& item) {
@@ -92,11 +129,14 @@ bool is_export(const Impl& machine, std::uint32_t source, const Wanted& item) {
 }
 
 // リストに無い公開述語は席を作らない。呼び出し側からは見えない。
-void import_listed(Impl& machine, std::uint32_t source, std::uint32_t caller, const std::vector<Wanted>& wanted) {
+bool import_listed(Impl& machine, const Goal& goal, std::uint32_t source, std::uint32_t caller,
+                   const std::vector<Wanted>& wanted) {
+  std::vector<SlotPlan> plans;
   for (const Wanted& item : wanted) {
     if (!is_export(machine, source, item)) continue;
-    import_slot(machine, source, caller, item.name, item.arity, item.local);
+    plans.push_back(SlotPlan{item.name, item.arity, item.local});
   }
+  return commit_slots(machine, goal, source, caller, plans);
 }
 
 bool excluded(const std::vector<Wanted>& wanted, std::uint32_t name, std::uint16_t arity) {
@@ -107,11 +147,14 @@ bool excluded(const std::vector<Wanted>& wanted, std::uint32_t name, std::uint16
 }
 
 // except に書いた公開述語は席を作らない。残りは use_module/1 と同じく取り込む。
-void import_except(Impl& machine, std::uint32_t source, std::uint32_t caller, const std::vector<Wanted>& wanted) {
+bool import_except(Impl& machine, const Goal& goal, std::uint32_t source, std::uint32_t caller,
+                   const std::vector<Wanted>& wanted) {
+  std::vector<SlotPlan> plans;
   for (const ExportMark& mark : machine.exports) {
     if (mark.module != source || excluded(wanted, mark.name, mark.arity)) continue;
-    import_slot(machine, source, caller, mark.name, mark.arity, mark.name);
+    plans.push_back(SlotPlan{mark.name, mark.arity, mark.name});
   }
+  return commit_slots(machine, goal, source, caller, plans);
 }
 
 bool indicator(const Impl& machine, Cell cell, Wanted& item) {
@@ -180,9 +223,9 @@ bool read_ask(const Impl& machine, Cell cell, ImportAsk& ask) {
   return read_wanted(machine, cell, ask.items);
 }
 
-void apply_ask(Impl& machine, std::uint32_t source, std::uint32_t caller, const ImportAsk& ask) {
-  if (ask.how == ImportHow::Except) import_except(machine, source, caller, ask.items);
-  else import_listed(machine, source, caller, ask.items);
+bool apply_ask(Impl& machine, const Goal& goal, std::uint32_t source, std::uint32_t caller, const ImportAsk& ask) {
+  if (ask.how == ImportHow::Except) return import_except(machine, goal, source, caller, ask.items);
+  return import_listed(machine, goal, source, caller, ask.items);
 }
 
 bool raise_module_fault(Impl& machine, const Goal& goal) {
@@ -240,8 +283,9 @@ bool run_use_module(Impl& machine, const Goal& goal) {
   }
   std::uint32_t loaded = 0;
   if (!resolve_module(machine, goal, text, loaded)) return true;
-  if (goal.arity == 2) apply_ask(machine, loaded, machine.calling, ask);
-  else import_exports(machine, loaded, machine.calling);
+  const bool imported = goal.arity == 2 ? apply_ask(machine, goal, loaded, machine.calling, ask)
+                                        : import_exports(machine, goal, loaded, machine.calling);
+  if (!imported) return true;
   machine.diagnostic.clear();
   machine.ip = goal.cont;
   return true;

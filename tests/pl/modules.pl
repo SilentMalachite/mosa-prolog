@@ -73,3 +73,19 @@ use_shade :- use_module('../tests/pl/modules/shade.pl', except([dropped/1])).
 
 % except は書いた公開述語を外し、残りの公開述語を取り込む。
 test(mod_use_except, (use_shade, kept(1), \+ dropped(1)), true).
+
+use_left :- use_module('tests/pl/modules/left.pl').
+use_left :- use_module('../tests/pl/modules/left.pl').
+
+use_right :- use_module('tests/pl/modules/right.pl').
+use_right :- use_module('../tests/pl/modules/right.pl').
+
+test(mod_import_clash, (use_left, use_right), error(permission_error(import_into, procedure, same/1))).
+% 衝突しても先の取り込みは残り、読み込んだモジュールも残る。新しい席は増えない。
+test(mod_import_clash_kept, (
+  catch(use_right, error(permission_error(import_into, procedure, same/1), _), true),
+  current_module(left_side),
+  current_module(right_side),
+  same(left),
+  \+ same(right)
+), true).
