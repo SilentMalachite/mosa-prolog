@@ -106,6 +106,9 @@ Reader::Parsed Reader::parse_arguments(std::string functor) {
 
 Reader::Parsed Reader::take_bar_tail(Cell& tail) {
   consume();
+  // 尾の先頭も槽と同じ。引用した ',' は Name なのでここを通る。
+  Parsed gap = reject_empty_comma();
+  if (gap.failure) return gap;
   Parsed rest = parse_expr(999);
   if (rest.failure) return rest;
   const Scan again = peek();

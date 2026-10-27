@@ -74,3 +74,6 @@ test(read_quote_code_one, (open_string('0\'\'.', S), read(S, T), T == 39), true)
 test(read_empty_arg, (open_string('f(,,a).', S), read(S, _)), error(syntax_error(_))).
 test(read_empty_elem, (open_string('[a,,|v].', S), read(S, _)), error(syntax_error(_))).
 test(read_args_pair, (open_string('f(a,b).', S), read(S, T), T == f(a,b)), true).
+% | の直後の solo コンマは尾の項ではない。引用した ',' は原子のまま。
+test(read_bar_comma, (open_string('[a,b|,].', S), read(S, _)), error(syntax_error(_))).
+test(read_bar_quoted_comma, (open_string('[a,b|\',\'].', S), read(S, T), T == [a,b|',']), true).

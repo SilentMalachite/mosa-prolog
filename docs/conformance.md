@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1889
+合格数: 1890
 合格率: 87.0
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -123,7 +123,6 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
 syntax/operators/tests.lgt lgt_operators_40 true op(600,xfy,:)
-syntax/terms/tests.lgt iso_term_05 error(syntax_error(_)) fail
 unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_01a true(L==['Γ',ε,ι,ά,' ',σ,ο,υ,' ',κ,ό,σ,μ,ε,!]) load
 unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_01b true(A=='Γειά σου κόσμε!') load
 unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_02a true(L==[¡,'H',o,l,a,' ',m,u,n,d,o,!]) load
