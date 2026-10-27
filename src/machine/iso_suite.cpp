@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -165,6 +166,26 @@ void run_file(const Pending& item, int& passed, int& failed, std::vector<std::st
 }
 
 }  // namespace
+
+SuiteArgs parse_suite_args(std::span<const std::string_view> args) {
+  SuiteArgs parsed;
+  if (args.empty() || args.front().empty()) return parsed;
+  parsed.dir = std::string{args.front()};
+  if (args.size() == 3 && args[1] == "--report" && !args[2].empty()) {
+    parsed.report = std::string{args[2]};
+    parsed.ok = true;
+    return parsed;
+  }
+  if (args.size() != 1) return parsed;
+  // 報告先を省けるのは、リポジトリ直下から同梱スイートを渡したときだけ。CI と README の手順がこの形で、
+  // 別のスイートを試して docs の報告書とバッジの JSON を上書きする事故を防ぐ。
+  std::error_code error;
+  const bool bundled = std::filesystem::equivalent(std::filesystem::path{parsed.dir}, "tests/conformance", error);
+  if (error || !bundled) return parsed;
+  parsed.report = "docs/conformance.md";
+  parsed.ok = true;
+  return parsed;
+}
 
 int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
   const std::filesystem::path prolog = std::filesystem::path{std::string{suite_dir}} / "logtalk" / "prolog";

@@ -6,12 +6,14 @@
 #include <iostream>
 #include <sstream>
 #include <string_view>
+#include <vector>
 
 namespace {
 
 int usage() {
   std::cerr << "mosatest: 使い方: mosatest --roundtrip <ファイル>\n";
-  std::cerr << "mosatest --suite <ディレクトリ>\n";
+  std::cerr << "mosatest --suite <ディレクトリ> [--report <ファイル>]\n";
+  std::cerr << "--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです\n";
   return 1;
 }
 
@@ -31,8 +33,11 @@ int main(int argc, char** argv) {
     buffer << input.rdbuf();
     return mosa::run_roundtrip(buffer.str());
   }
-  if (argc == 3 && std::string_view{argv[1]} == "--suite") {
-    return mosa::run_iso_suite(argv[2], "docs/conformance.md");
+  if (argc >= 3 && std::string_view{argv[1]} == "--suite") {
+    const std::vector<std::string_view> rest(argv + 2, argv + argc);
+    const mosa::SuiteArgs parsed = mosa::parse_suite_args(rest);
+    if (!parsed.ok) return usage();
+    return mosa::run_iso_suite(parsed.dir, parsed.report);
   }
   if (argc == 2) return mosa::run_suite(argv[1]);
   return usage();

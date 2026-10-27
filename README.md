@@ -79,8 +79,11 @@ N = 3.
 ```sh
 mosatest tests/pl/                    # 自前テスト（tests/pl/*.pl）
 mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md と .json を書き出す
+mosatest --suite <ディレクトリ> --report tests/tmp/x.md   # 別のスイート。x.md と x.json を書き出す
 mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
 ```
+
+`--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance` を渡したときだけです。別のスイートで `docs/` の報告書とバッジを上書きしないためです。
 
 ## 日本語の変数
 
