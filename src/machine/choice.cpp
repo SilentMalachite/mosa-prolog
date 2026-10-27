@@ -144,10 +144,19 @@ void miss_user(Impl& machine, const Goal& goal) {
 }
 
 void enter_user(Impl& machine, const Goal& goal) {
-  Predicate* predicate = predicate_in(machine, machine.calling, goal.name, goal.arity);
-  if (predicate == nullptr) {
+  Predicate* slot = predicate_in(machine, machine.calling, goal.name, goal.arity);
+  if (slot == nullptr) {
     miss_user(machine, goal);
     return;
+  }
+  // 取り込みの節は定義したモジュールにある。席だけを見ると呼び出しが失敗する。
+  Predicate* predicate = slot;
+  if (slot->imported) {
+    predicate = predicate_in(machine, slot->origin, goal.name, goal.arity);
+    if (predicate == nullptr) {
+      machine.failed = true;
+      return;
+    }
   }
   if (predicate->clauses.empty()) {
     // 節を消し切っても動的述語は残る。呼び出しは失敗であり、存在エラーではない。

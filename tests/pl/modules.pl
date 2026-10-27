@@ -42,3 +42,10 @@ test(mod_other_file_kept, (
   current_module(kin),
   \+ current_predicate(intruder/1)
 ), true).
+
+use_greet :- use_module('tests/pl/modules/greet.pl').
+use_greet :- use_module('../tests/pl/modules/greet.pl').
+
+test(mod_use, (use_greet, hello(world)), true).
+% mod_use が greet を載せた。同じファイルをもう一度 use_module すると、今は module/2 を拒否する。
+test(mod_use_hides, \+ secret(1), true).

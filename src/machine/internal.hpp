@@ -43,6 +43,15 @@ struct Predicate {
   bool dynamic = false;
   // 読み込みの開始で落とす。この読み込みが dynamic を見たら真。見ていなければ置き換え後は静的。
   bool dynamic_declared = false;
+  // 節は origin にある。この枠は呼び出し側の名前空間の席である。
+  bool imported = false;
+  std::uint32_t origin = 0;
+};
+
+struct ExportMark {
+  std::uint32_t module = 0;
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
 };
 
 enum class Pick {
@@ -178,6 +187,8 @@ struct Machine::Impl {
   std::vector<Predicate> predicates;
   // user、system、それから読んだモジュール。current_module/1 はこの順で答える。
   std::vector<std::uint32_t> modules;
+  // module/2 が公開した述語。consult は取り込まない。
+  std::vector<ExportMark> exports;
   std::uint32_t user_mod = 0;
   std::uint32_t system_mod = 0;
   // 今走っている節のモジュール。Cell には入れない（ADR 0006）。
@@ -381,6 +392,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_module_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_modules(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_use_module(Impl& machine, const Goal& goal);
 // 0 はこの指示ではない。1 は記録した。-1 は読み込みの失敗。
 [[nodiscard]] int apply_module_directive(Impl& machine, Cell term);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
