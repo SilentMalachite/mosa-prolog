@@ -260,6 +260,8 @@ struct Machine::Impl {
   Machine* suite_self = nullptr;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {
+    // Module:Goal の : は 13211-1 の表7に無い。モジュール限定の中置として足す。
+    (void)operators.define(600, Specifier::Xfy, ":");
     user_mod = atoms.intern("user");
     system_mod = atoms.intern("system");
     calling = user_mod;
@@ -303,6 +305,7 @@ struct LoadHome {
 [[nodiscard]] Predicate* predicate_in(Impl& machine, std::uint32_t home, std::uint32_t name,
                                       std::uint16_t arity);
 [[nodiscard]] bool defined_anywhere(const Impl& machine, std::uint32_t name, std::uint16_t arity);
+[[nodiscard]] bool module_loaded(const Impl& machine, std::uint32_t name);
 
 struct Goal {
   std::uint64_t at = 0;
@@ -413,12 +416,15 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_length(Impl& machine);
 // 節の成功のあと、呼び出しモジュールを caller に戻して cont へ進む。
 [[nodiscard]] std::uint64_t restore_calling(Impl& machine, std::uint32_t caller, std::uint64_t cont);
+// 失敗では成功の戻りが走らない。バックトラックがこの枠で呼び出し元へ戻す。
+void arm_caller(Impl& machine, std::uint32_t caller);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool redo_module_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_modules(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_use_module(Impl& machine, const Goal& goal);
 // 0 はこの指示ではない。1 は記録した。-1 は読み込みの失敗。
 [[nodiscard]] int apply_module_directive(Impl& machine, Cell term);

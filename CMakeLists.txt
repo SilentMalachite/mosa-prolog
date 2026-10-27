@@ -82,6 +82,7 @@ target_sources(mosa_lib PRIVATE
   src/module/current.cpp
   src/module/directive.cpp
   src/module/lookup.cpp
+  src/module/qualify.cpp
   src/module/use.cpp
 )
 

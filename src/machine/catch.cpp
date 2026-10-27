@@ -140,6 +140,8 @@ void propagate_throw(Impl& machine, Cell ball) {
     if (machine.stack.back().pick == Pick::Barrier) break;
     const Entry top = machine.stack.back();
     machine.stack.pop_back();
+    // 例外は成功の戻りもバックトラックも通らない。枠を捨てるときに呼び出し元へ戻す。
+    if (top.pick == Pick::CallMod) machine.calling = top.return_mod;
     if (top.pick != Pick::Catch || !top.armed) continue;
     // 例外もその catch より後ろの op/3 を戻す。節のデータベースは戻さない。
     restore_operators(machine, top.effect_id);

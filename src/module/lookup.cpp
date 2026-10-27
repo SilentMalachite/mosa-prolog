@@ -9,6 +9,13 @@ Predicate* predicate_in(Impl& machine, std::uint32_t home, std::uint32_t name, s
   return nullptr;
 }
 
+bool module_loaded(const Impl& machine, std::uint32_t name) {
+  for (const std::uint32_t existing : machine.modules) {
+    if (existing == name) return true;
+  }
+  return false;
+}
+
 bool defined_anywhere(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
   for (const Predicate& predicate : machine.predicates) {
     if (predicate.name != name || predicate.arity != arity) continue;

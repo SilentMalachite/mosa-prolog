@@ -106,3 +106,38 @@ use_lists_length :- use_module(library(lists), [length/2]).
 
 % length/2 は system にある。library(lists) が再公開するので、名前を指定して取り込める。
 test(mod_lists_length, (use_lists_length, current_predicate(length/2), length([a, b], 2)), true).
+
+% 公開リストに無い述語も、Module:Goal はそのモジュールで実行する。
+test(mod_qualify_hidden, greet:secret(1), true).
+% 成功したあとは呼び出し元に戻る。裸の名前では、公開していない述語は見えない。
+test(mod_qualify_restores, (greet:secret(1), \+ secret(1)), true).
+% 失敗したときも呼び出し元に戻る。戻らないと secret/1 が greet のまま成功する。
+test(mod_qualify_fail_restores, (\+ greet:secret(2), \+ secret(1)), true).
+% ロードしていないモジュールは手続きの存在エラーではなく、モジュールの存在エラー。
+test(mod_qualify_unknown, phase4_no_such:true, error(existence_error(module, phase4_no_such))).
+% モジュールが変数なら、型を見る前に instantiation_error。
+test(mod_qualify_var, _:true, error(instantiation_error)).
+% アトム以外は type_error。変数は上で先に弾く。
+test(mod_qualify_type, 1:true, error(type_error(atom, 1))).
+% M1:M2:Goal の呼び出し元は M2。user には secret/1 が無い。
+test(mod_qualify_inner, user:greet:secret(1), true).
+test(mod_qualify_outer, \+ greet:user:secret(1), true).
+% モジュールが正しくても、ゴールが callable でなければ type_error。
+test(mod_qualify_goal, greet:1, error(type_error(callable, 1))).
+% 例外で抜けても呼び出し元に戻る。戻らないと回復ゴールが greet の secret/1 を見る。
+test(mod_qualify_throw, (catch(greet:throw(ball), ball, \+ secret(1))), true).
+% user と system もロード済みモジュールである。
+test(mod_qualify_user, user:hello(world), true).
+test(mod_qualify_system, system:true, true).
+% 複合項のモジュールもアトムではない。
+test(mod_qualify_type_fun, f(1):true, error(type_error(atom, f(1)))).
+% ゴールが変数なら instantiation_error。モジュールの検査は先に通る。
+test(mod_qualify_goal_var, greet:G, error(instantiation_error)).
+% 中のカットは外側の選言を消さない。
+test(mod_qualify_cut, (greet:!, fail ; true), true).
+% 節が複数あっても、尽きたあとは呼び出し元に戻る。
+test(mod_qualify_redo, (
+  findall(X, lists:member(X, [a, b]), Xs),
+  Xs == [a, b],
+  hello(world)
+), true).

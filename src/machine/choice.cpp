@@ -209,6 +209,15 @@ void enter_user(Impl& machine, const Goal& goal) {
   enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary, predicate->home, caller);
 }
 
+void arm_caller(Impl& machine, std::uint32_t caller) {
+  Entry guard;
+  guard.pick = Pick::CallMod;
+  guard.return_mod = caller;
+  guard.heap_mark = machine.heap.size();
+  guard.trail_mark = machine.trail.slots.size();
+  push_frame(machine, std::move(guard));
+}
+
 bool redo_clause(Impl& machine) {
   const Entry top = machine.stack.back();
   if (top.next >= top.candidates.size()) {
