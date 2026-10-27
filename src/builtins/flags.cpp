@@ -119,6 +119,15 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
   }
 }
 
+// 8.17.1.3 は領域が先で、変更できないのはその次。整数旗の領域は今の値ではなく整数である。
+bool value_admissible(Cell value, const Impl& machine, std::size_t index) {
+  value = machine.heap.deref(value);
+  if (index == 2 || index == 3 || index == 4) {
+    return value.tag() == Tag::Int || value.tag() == Tag::IntBox;
+  }
+  return flag_accepts(value, machine, index);
+}
+
 void flag_store(Impl& machine, std::size_t index, Cell value) {
   const auto text = machine.atoms.name(atom_id(value));
   if (index == 5) {
@@ -144,15 +153,13 @@ std::optional<Cell> set_problem(Impl& machine, Cell flag, Cell value) {
   if (flag.tag() != Tag::Atom) return formal_type(machine, "atom", flag);
   const int index = find_flag(machine, flag);
   if (index < 0) return formal_domain(machine, "prolog_flag", flag);
-  // eddbali は変更できない旗の不正な値を domain_error にしない。許可を値より先にする。
-  if (!flag_writable(static_cast<std::size_t>(index))) {
-    return formal_permission(machine, "modify", "flag", flag);
-  }
-  if (!flag_accepts(value, machine, static_cast<std::size_t>(index))) {
+  const auto at = static_cast<std::size_t>(index);
+  if (!value_admissible(value, machine, at)) {
     const std::array<Cell, 2> args{flag, value};
     const Cell both = machine.heap.structure(machine.atoms.intern("+"), args);
     return formal_domain(machine, "flag_value", both);
   }
+  if (!flag_writable(at)) return formal_permission(machine, "modify", "flag", flag);
   return std::nullopt;
 }
 
