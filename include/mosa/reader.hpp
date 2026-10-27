@@ -68,6 +68,8 @@ class Reader {
   [[nodiscard]] Parsed parse_list();
   // [|] の | は原子にしない。直後が項なら字句を戻して今の読みに任せる。
   [[nodiscard]] Parsed reject_headless_bar();
+  // 槽の先頭のコンマは原子にしない。区切りのままでは項が無い。
+  [[nodiscard]] Parsed reject_empty_comma();
   [[nodiscard]] Parsed take_bar_tail(Cell& tail);
   [[nodiscard]] Parsed parse_curly();
   [[nodiscard]] Parsed parse_arguments(std::string functor);

@@ -63,6 +63,17 @@ Reader::Parsed Reader::parse_curly() {
   return parsed;
 }
 
+Reader::Parsed Reader::reject_empty_comma() {
+  const Scan scan = peek();
+  if (scan.failure) return failure_of(scan);
+  if (!solo(scan.token, ",")) {
+    Parsed ok;
+    return ok;
+  }
+  // 区切りのコンマは原子ではない。槽の先頭だと、隣のコンマを項にしてしまう。
+  return bad_token(scan.token);
+}
+
 Reader::Parsed Reader::parse_arguments(std::string functor) {
   std::vector<Cell> args;
   while (true) {
@@ -71,6 +82,8 @@ Reader::Parsed Reader::parse_arguments(std::string functor) {
       if (extra.failure) return failure_of(extra);
       return max_arity(extra.token);
     }
+    Parsed gap = reject_empty_comma();
+    if (gap.failure) return gap;
     Parsed arg = parse_expr(999);
     if (arg.failure) return arg;
     args.push_back(arg.term);
@@ -141,6 +154,8 @@ Reader::Parsed Reader::parse_list() {
   Cell tail;
   bool barred = false;
   while (!barred) {
+    Parsed gap = reject_empty_comma();
+    if (gap.failure) return gap;
     Parsed elem = parse_expr(999);
     if (elem.failure) return elem;
     heads.push_back(elem.term);

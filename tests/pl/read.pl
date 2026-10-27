@@ -70,3 +70,7 @@ test(read_escape_s, (open_string('0\'\\s.', S), read(S, T), T == 32), true).
 test(read_quote_code, (open_string('0\'\'\'.', S), read(S, T), T == 39), true).
 % 引用符が一つの 0''. も 39。次が引用符のときだけ二つ消費する。
 test(read_quote_code_one, (open_string('0\'\'.', S), read(S, T), T == 39), true).
+% 槽の先頭のコンマは区切りであり、引用しない原子にはならない。
+test(read_empty_arg, (open_string('f(,,a).', S), read(S, _)), error(syntax_error(_))).
+test(read_empty_elem, (open_string('[a,,|v].', S), read(S, _)), error(syntax_error(_))).
+test(read_args_pair, (open_string('f(a,b).', S), read(S, T), T == f(a,b)), true).
