@@ -10,6 +10,7 @@ test(write_bare_atom, (with_output_to(atom(A), write('1<2')), A == '1<2'), true)
 test(writeq_atom, (with_output_to(atom(A), writeq('1<2')), A == '''1<2'''), true).
 test(writeq_hex_2, (with_output_to(atom(A), writeq('\x2\')), A == '\'\\x2\\\''), true).
 test(writeq_hex_11, (with_output_to(atom(A), writeq('\x11\')), A == '\'\\x11\\\''), true).
+test(writeq_backtick, (with_output_to(atom(A), writeq('`')), A == '\'`\''), true).
 test(write_term_quote, (with_output_to(atom(A), write_term('1<2', [quoted(true)])), A == '''1<2'''), true).
 test(write_term_plain, (with_output_to(atom(A), write_term('1<2', [])), A == '1<2'), true).
 test(write_term_plus, (with_output_to(atom(A), write_term(+1, [])), A == '+1'), true).

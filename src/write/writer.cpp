@@ -120,10 +120,9 @@ bool is_prefix(Specifier specifier) { return specifier == Specifier::Fx || speci
 
 bool is_postfix(Specifier specifier) { return specifier == Specifier::Xf || specifier == Specifier::Yf; }
 
-// 字形の無い符号位置だけを真にする。空白と U+00A0 以降の区切りは印字できる。
+// 十六進は制御文字だけ。引用の外で字句にならない文字でも、字形があれば生のまま。
 bool unprintable(char32_t code) {
-  if (code < 0x20 || code == 0x7F || (code >= 0x80 && code < 0xA0)) return true;
-  return classify(code) == CharClass::Illegal;
+  return code < 0x20 || code == 0x7F || (code >= 0x80 && code < 0xA0);
 }
 
 // スイートは \x2\ と \x11\ の字面を比べる。桁を揃えると不一致になる。
