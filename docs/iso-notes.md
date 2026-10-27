@@ -190,3 +190,9 @@ A か B か: A は ADR 0004 のまま、開いた走査から消した節を外�
 `sics_set_stream_position_2_06` は `reposition(false)` で開いた流れから `stream_property(Stream, position(Position))` を取り、`set_stream_position(Stream, Position)` が `permission_error(reposition, stream, Stream)` になることを期待する。ファイルを写したあとの実際は `fail` である。`stream_property/2` は戻せない流れに `position/1` を出さない（`tests/cpp/stream_test.cpp` の "no position"）。`set_stream_position/2` は、同じ流れに位置の項を渡すとすでに `permission_error(reposition, stream, Stream)` を投げる（同ファイルの "reposition formal"）。
 
 A か B か: A は性質を出さない（今の実装。ゴールは失敗する）。B は `position/1` を出してから `permission_error` にする。確認前は A のまま。B は実装しない。
+
+## memberchk/2 と iso_stream_property_2_01
+
+`iso_stream_property_2_01` の本体は `^^file_path`、`^^create_text_file`、`open/3`、`findall(S-F, stream_property(S, file_name(F)), L)` まで成功する。`L` には `S1-FooPath` と `S2-BarPath` が両方入る。不合格は表明の `memberchk/2` で、実際は `fail` になる。`memberchk/2` は `library(lists)` であり、フェーズ 3 の組込ではない。
+
+A か B か: A は `memberchk/2` を足さない（行は `fail` のまま）。B は足して表明を実行する。確認前は A。B は実装しない。
