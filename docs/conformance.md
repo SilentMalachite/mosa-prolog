@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1870
-合格率: 86.1
+合格数: 1872
+合格率: 86.2
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -111,8 +111,6 @@ predicates/write_term_3/tests.lgt sics_write_term_3_110 error(domain_error(write
 predicates/write_term_3/tests.lgt sics_write_term_3_111 error(instantiation_error) suppress_text_output/0
 predicates/write_term_3/tests.lgt sics_write_term_3_112 error(instantiation_error) suppress_text_output/0
 predicates/write_term_3/tests.lgt lgt_write_term_3_113 error(domain_error(write_option,variable_names(['A'=_|a]))) suppress_text_output/0
-predicates/write_term_3/tests.lgt lgt_write_term_3_114 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_115 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_117 subsumes(['1','.','0'|_],Contents) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_118 true(Assertion) domain_error(write_option,quoted(false))
 predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_error(write_option,quoted(true))

@@ -120,6 +120,27 @@ bool is_prefix(Specifier specifier) { return specifier == Specifier::Fx || speci
 
 bool is_postfix(Specifier specifier) { return specifier == Specifier::Xf || specifier == Specifier::Yf; }
 
+// 字形の無い符号位置だけを真にする。空白と U+00A0 以降の区切りは印字できる。
+bool unprintable(char32_t code) {
+  if (code < 0x20 || code == 0x7F || (code >= 0x80 && code < 0xA0)) return true;
+  return classify(code) == CharClass::Illegal;
+}
+
+// スイートは \x2\ と \x11\ の字面を比べる。桁を揃えると不一致になる。
+std::string hex_escape(char32_t code) {
+  constexpr std::string_view digits = "0123456789abcdef";
+  std::string body;
+  auto value = static_cast<std::uint32_t>(code);
+  do {
+    body.push_back(digits[value & 0xFU]);
+    value >>= 4;
+  } while (value != 0);
+  std::string out = "\\x";
+  for (auto it = body.rbegin(); it != body.rend(); ++it) out.push_back(*it);
+  out.push_back('\\');
+  return out;
+}
+
 std::string quote_atom(std::string_view text) {
   std::string out = "'";
   for (std::size_t index = 0; index < text.size();) {
@@ -129,6 +150,7 @@ std::string quote_atom(std::string_view text) {
     else if (decoded.code == U'\'') out += "\\'";
     else if (decoded.code == U'\n') out += "\\n";
     else if (decoded.code == U'\t') out += "\\t";
+    else if (unprintable(decoded.code)) out += hex_escape(decoded.code);
     else out.append(text.substr(index, decoded.bytes));
     index += decoded.bytes;
   }
