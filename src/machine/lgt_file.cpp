@@ -12,8 +12,10 @@
 #include "mosa/writer.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -651,9 +653,27 @@ void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& ch
 }  // namespace
 
 LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir) {
+  // Logtalk の tester はテストのディレクトリで動くので、{open(d1, write, S)} の相対パスはそこに出来る。
+  // スクラッチをその代わりにし、カレントを移して戻す。消す前に戻すのは、使用中のディレクトリを
+  // Windows が消させないため。
   struct Clean {
     LgtIo io;
-    ~Clean() { lgt_io_cleanup(io); }
+    std::filesystem::path previous;
+    explicit Clean(LgtIo value) : io(std::move(value)) {
+      if (io.scratch.empty()) return;
+      std::error_code error;
+      std::filesystem::create_directories(io.scratch, error);
+      if (!error) previous = std::filesystem::current_path(error);
+      if (!error) std::filesystem::current_path(io.scratch, error);
+      if (error) previous.clear();
+    }
+    Clean(const Clean&) = delete;
+    Clean& operator=(const Clean&) = delete;
+    ~Clean() {
+      std::error_code error;
+      if (!previous.empty()) std::filesystem::current_path(previous, error);
+      lgt_io_cleanup(io);
+    }
   } clean{lgt_io_context(tests_path, relative_dir)};
   LgtRun run;
   auto machine = Machine::create();

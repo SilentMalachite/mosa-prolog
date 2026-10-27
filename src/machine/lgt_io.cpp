@@ -709,7 +709,9 @@ LgtSuper observe(Machine& machine, const LgtIo& io, Cell term, const std::vector
 LgtIo lgt_io_context(std::string_view tests_path, std::string_view relative_dir) {
   LgtIo io;
   if (tests_path.empty()) return io;
-  const std::filesystem::path file{std::string{tests_path}};
+  // 実行中はカレントをスクラッチへ移すので、相対のままだと隣の Prolog とスクラッチを見失う。
+  const std::filesystem::path file = absolute_path(std::filesystem::path{std::string{tests_path}});
+  if (file.empty()) return io;
   io.tests_dir = file.parent_path();
   const auto root = tests_root(file);
   // 同梱ツリーの外。tests.lgt からの相対ディレクトリを、リポジトリの tests の下に置く。
