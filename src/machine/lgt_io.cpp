@@ -311,15 +311,39 @@ std::filesystem::path absolute_path(const std::filesystem::path& path) {
   return full.lexically_normal();
 }
 
-bool inside_suite(const LgtIo& io, const std::filesystem::path& full) {
-  const auto root = absolute_path(io.suite);
-  if (root.empty() || full.empty()) return false;
-  const auto relative = full.lexically_relative(root);
+bool inside_root(const std::filesystem::path& root, const std::filesystem::path& full) {
+  const auto base = absolute_path(root);
+  if (base.empty() || full.empty()) return false;
+  const auto relative = full.lexically_relative(base);
   if (relative.empty() || relative == ".") return false;
   for (const auto& part : relative) {
     if (part == "..") return false;
   }
   return true;
+}
+
+bool inside_suite(const LgtIo& io, const std::filesystem::path& full) { return inside_root(io.suite, full); }
+
+std::filesystem::path sibling_source(const LgtIo& io, std::string_view name) {
+  if (io.tests_dir.empty() || name.empty()) return {};
+  const auto raw = path_from_utf8(name);
+  // 絶対パスや tests.lgt の外は、同梱ディレクトリの正規ファイルではない。
+  if (raw.empty() || raw.is_absolute()) return {};
+  const auto full = absolute_path(io.tests_dir / raw);
+  if (!inside_root(io.tests_dir, full)) return {};
+  std::error_code error;
+  if (!std::filesystem::is_regular_file(full, error) || error) return {};
+  return full;
+}
+
+bool copy_absent_sibling(const LgtIo& io, std::string_view name, const std::filesystem::path& dest) {
+  std::error_code error;
+  // 既にあるスクラッチはテストが書いたものなので、同梱の中身で戻さない。
+  if (std::filesystem::exists(dest, error) || error) return !error;
+  const auto source = sibling_source(io, name);
+  if (source.empty()) return true;
+  std::filesystem::copy_file(source, dest, std::filesystem::copy_options::none, error);
+  return !error;
 }
 
 std::filesystem::path locate_file(const LgtIo& io, std::string_view name) {
@@ -552,11 +576,12 @@ LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal, const std::
   const Heap& heap = machine.heap();
   const Cell file = heap.deref(heap.arg(goal, 0));
   if (file.tag() != Tag::Atom) return bound_no();
-  const auto path = locate_file(io, atom_text(heap, file));
+  const auto name = atom_text(heap, file);
+  const auto path = locate_file(io, name);
   if (path.empty()) return bound_no();
   std::error_code error;
   std::filesystem::create_directories(path.parent_path(), error);
-  if (error) return bound_no();
+  if (error || !copy_absent_sibling(io, name, path)) return bound_no();
   return bind_slot(machine, heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_of(path))), names);
 }
 

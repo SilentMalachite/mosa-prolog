@@ -152,6 +152,12 @@ target_compile_definitions(ensure_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_D
 target_link_libraries(ensure_test PRIVATE mosa_lib)
 add_test(NAME ensure_test COMMAND $<TARGET_FILE:ensure_test>)
 
+add_executable(suite_path_test tests/cpp/suite_path_test.cpp)
+target_include_directories(suite_path_test PRIVATE tests/cpp)
+target_compile_definitions(suite_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_path_test PRIVATE mosa_lib)
+add_test(NAME suite_path_test COMMAND $<TARGET_FILE:suite_path_test>)
+
 add_executable(files_test tests/cpp/files_test.cpp)
 target_include_directories(files_test PRIVATE tests/cpp)
 target_compile_definitions(files_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
