@@ -4,7 +4,7 @@
 完了: mosatest --suite が docs/conformance.json（shields.io endpoint）も書く。README のバッジは main のそれを読み、CI の macOS ジョブが未コミットの差分を落とす
 完了: 準拠スイートは tests.lgt ごとにカレントをスクラッチへ移す。{open(d1, write, S)} がリポジトリ直下に空ファイルを残さない（conformance_cwd_test）
 完了: mosatest --suite は --report を受ける。省けるのはリポジトリ直下の tests/conformance だけ（suite_args_test）
+完了: mosa は非端末の標準入力を先に読まない。閉じない入力でも --version が返り、パイプの入力を read/1 が読める（mosa_stdin）
 次: フェーズ4のモジュール
 未解決: iso-notes に残した解釈
-未解決: mosa は引数より先に非端末の標準入力を EOF まで読むので、閉じない入力だと --version でも止まる
 計画: docs/superpowers/plans/2026-10-26-phase3-exit.md

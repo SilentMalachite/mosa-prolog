@@ -3,7 +3,6 @@
 #include "mosa/terminal.hpp"
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -17,17 +16,12 @@ int main(int argc, char** argv) {
     owned.emplace_back(argv[index]);
     args.emplace_back(owned.back());
   }
+  // 端末でない標準入力は先に読まない。それは Prolog の user_input で、read/1 などが読む。
+  // 先に読み切ると read/1 が end_of_file になり、閉じない入力では --version も返らない。
   const bool tty = mosa::standard_input_is_terminal();
-  std::string input;
-  if (!tty) {
-    std::ostringstream buffer;
-    buffer << std::cin.rdbuf();
-    input = buffer.str();
-  }
   try {
-    const mosa::SessionResult result =
-        mosa::run_session(args, tty ? std::string_view{} : std::string_view{input}, tty, std::size_t{1} << 20,
-                          tty ? &std::cout : nullptr, tty ? &std::cerr : nullptr);
+    const mosa::SessionResult result = mosa::run_session(args, std::string_view{}, tty, std::size_t{1} << 20,
+                                                         tty ? &std::cout : nullptr, tty ? &std::cerr : nullptr);
     if (!tty) {
       std::cout << result.out;
       std::cerr << result.err;

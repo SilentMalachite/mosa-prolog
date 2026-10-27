@@ -226,3 +226,6 @@ add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
 add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
 set_tests_properties(mosa_version mosac_version mosatest_version PROPERTIES
   PASS_REGULAR_EXPRESSION "${version_pass_regex}")
+
+add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
