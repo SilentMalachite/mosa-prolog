@@ -17,10 +17,12 @@ struct CoreOp {
   std::string_view name;
 };
 
-// 13211-1 の表7。`div` は Cor.2 の追加として残す。`:` `|` `*->` `xor` は入れない。
-constexpr std::array<CoreOp, 41> k_iso_core{{
+// 13211-1 の表7。`div` は Cor.2 の追加として残す。`:` `|` `xor` は入れない。
+// `*->` は組込の制御が既にある。書き出しに `->` と同じ中置が要る。
+constexpr std::array<CoreOp, 42> k_iso_core{{
     {1200, Specifier::Xfx, ":-"},  {1200, Specifier::Xfx, "-->"}, {1200, Specifier::Fx, ":-"},
     {1200, Specifier::Fx, "?-"},   {1100, Specifier::Xfy, ";"},   {1050, Specifier::Xfy, "->"},
+    {1050, Specifier::Xfy, "*->"},
     {1000, Specifier::Xfy, ","},   {900, Specifier::Fy, "\\+"},   {700, Specifier::Xfx, "="},
     {700, Specifier::Xfx, "\\="},  {700, Specifier::Xfx, "=="},   {700, Specifier::Xfx, "\\=="},
     {700, Specifier::Xfx, "@<"},   {700, Specifier::Xfx, "@=<"},  {700, Specifier::Xfx, "@>"},

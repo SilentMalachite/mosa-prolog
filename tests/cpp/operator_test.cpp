@@ -14,6 +14,7 @@ void check_high_priority(Has has) {
   mosa_test::check(has(1200, mosa::Specifier::Fx, "?-"), "?-");
   mosa_test::check(has(1100, mosa::Specifier::Xfy, ";"), ";");
   mosa_test::check(has(1050, mosa::Specifier::Xfy, "->"), "->");
+  mosa_test::check(has(1050, mosa::Specifier::Xfy, "*->"), "*->");
   mosa_test::check(has(1000, mosa::Specifier::Xfy, ","), "comma");
   mosa_test::check(has(900, mosa::Specifier::Fy, "\\+"), "\\+");
 }
@@ -62,7 +63,6 @@ void check_arithmetic(Has has) {
 void check_absent_and_order(const mosa::OperatorTable& ops) {
   mosa_test::check(ops.lookup(":").empty(), "no module colon");
   mosa_test::check(ops.lookup("|").empty(), "bar is not predefined");
-  mosa_test::check(ops.lookup("*->").empty(), "no *->");
   mosa_test::check(ops.lookup("xor").empty(), "xor is not an operator");
   const auto defined = ops.lookup(":-");
   mosa_test::check(defined.size() == 2 && defined[0].name == ":-" &&

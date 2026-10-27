@@ -2,6 +2,7 @@ test(write_kanji, (with_output_to(atom(A), write(東)), A == 東), true).
 test(writeq_space, (with_output_to(atom(A), writeq('東 京')), atom_chars(A, ['\'', 東, ' ', 京, '\''])), true).
 test(writeq_bare, (with_output_to(atom(A), writeq(東京)), A == 東京), true).
 test(write_op, (with_output_to(atom(A), write(1 + 2)), A == '1+2'), true).
+test(write_star_arrow, (with_output_to(atom(A), write(a('*->'(b,c)))), A == 'a((b*->c))'), true).
 test(write_list, (with_output_to(atom(A), write([1, 2])), A == '[1,2]'), true).
 test(write_term_list_iso, (with_output_to(atom(A), write_term([1,2,3], [])), A == '[1,2,3]'), true).
 test(write_canonical_list_iso, (with_output_to(atom(A), write_canonical([1,2,3])), A == '\'.\'(1,\'.\'(2,\'.\'(3,[])))'), true).
