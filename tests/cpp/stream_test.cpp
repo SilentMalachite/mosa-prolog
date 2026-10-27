@@ -119,7 +119,7 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
   mosa_test::check(binding_named(*erroring, at_end, "C") == "end_of_file", "error first eof");
   auto past = erroring->query("get_char('$stream'(3), C).");
   mosa_test::check(past.kind == mosa::StopKind::Exception, "error past throws");
-  mosa_test::check(formal_text(*erroring, past) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*erroring, past) == "permission_error(input,past_end_of_stream,'$stream'(3))",
                    "error past formal");
 
   write_bytes(binary_path, "a");
@@ -129,7 +129,7 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
                    "binary open");
   auto denied = binary->query("get_char('$stream'(3), C).");
   mosa_test::check(denied.kind == mosa::StopKind::Exception, "binary get throws");
-  mosa_test::check(formal_text(*binary, denied) == "permission_error(input, binary_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(input,binary_stream,'$stream'(3))",
                    "binary formal");
 
   write_bytes(bad_path, "\xFF");
@@ -151,7 +151,7 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
                    "code binary open");
   auto denied = binary->query("get_code('$stream'(3), C).");
   mosa_test::check(denied.kind == mosa::StopKind::Exception, "code binary throws");
-  mosa_test::check(formal_text(*binary, denied) == "permission_error(input, binary_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(input,binary_stream,'$stream'(3))",
                    "code binary formal");
   mosa_test::check(binary->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success,
                    "code binary keeps the byte");
@@ -175,7 +175,7 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
   auto once = ending->query("get_code('$stream'(3), C).");
   mosa_test::check(binding_named(*ending, once, "C") == "-1", "code first eof");
   auto twice = ending->query("get_code('$stream'(3), C).");
-  mosa_test::check(formal_text(*ending, twice) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*ending, twice) == "permission_error(input,past_end_of_stream,'$stream'(3))",
                    "code past formal");
 }
 
@@ -220,7 +220,7 @@ void check_put_code(const std::filesystem::path& path) {
   auto binary = mosa::Machine::create();
   auto blocked = binary->query("open(" + atom + ", write, S, [type(binary)]), put_code(S, 97).");
   mosa_test::check(blocked.kind == mosa::StopKind::Exception, "put_code binary");
-  mosa_test::check(formal_text(*binary, blocked) == "permission_error(output, binary_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*binary, blocked) == "permission_error(output,binary_stream,'$stream'(3))",
                    "put_code binary formal");
   mosa_test::check(binary->query("put_byte('$stream'(3), 65), flush_output('$stream'(3)).").kind ==
                        mosa::StopKind::Success,
@@ -274,7 +274,7 @@ void check_get_bytes(const std::filesystem::path& path, const std::filesystem::p
   auto typed = mosa::Machine::create();
   auto bad = typed->query("open(" + atom + ", read, S, [type(binary)]), get_byte(S, 256).");
   mosa_test::check(bad.kind == mosa::StopKind::Exception, "in_byte throws");
-  mosa_test::check(formal_text(*typed, bad) == "type_error(in_byte, 256)", "in_byte formal");
+  mosa_test::check(formal_text(*typed, bad) == "type_error(in_byte,256)", "in_byte formal");
 
   auto text = mosa::Machine::create();
   auto denied = text->query("open(" + atom + ", read, S), get_byte(S, B).");
@@ -292,7 +292,7 @@ void check_get_bytes(const std::filesystem::path& path, const std::filesystem::p
   mosa_test::check(binding_named(*ending, once, "B") == "-1", "byte eof");
   auto twice = ending->query("get_byte('$stream'(3), B).");
   mosa_test::check(twice.kind == mosa::StopKind::Exception, "byte past throws");
-  mosa_test::check(formal_text(*ending, twice) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*ending, twice) == "permission_error(input,past_end_of_stream,'$stream'(3))",
                    "byte past formal");
 }
 
@@ -314,7 +314,7 @@ void check_peek_byte(const std::filesystem::path& path, const std::filesystem::p
 
   auto typed = mosa::Machine::create();
   auto bad = typed->query("open(" + atom + ", read, S, [type(binary)]), peek_byte(S, 256).");
-  mosa_test::check(formal_text(*typed, bad) == "type_error(in_byte, 256)", "peek in_byte formal");
+  mosa_test::check(formal_text(*typed, bad) == "type_error(in_byte,256)", "peek in_byte formal");
   mosa_test::check(typed->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success, "peek type keeps");
 
   auto current = mosa::Machine::create();
@@ -343,7 +343,7 @@ void check_peek_byte(const std::filesystem::path& path, const std::filesystem::p
                    "peek eof does not go past");
   mosa_test::check(erroring->query("get_byte('$stream'(3), -1).").kind == mosa::StopKind::Success, "get after peek eof");
   auto blocked = erroring->query("peek_byte('$stream'(3), B).");
-  mosa_test::check(formal_text(*erroring, blocked) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*erroring, blocked) == "permission_error(input,past_end_of_stream,'$stream'(3))",
                    "peek after past");
 }
 
@@ -360,7 +360,7 @@ void check_put_bytes(const std::filesystem::path& path, const std::filesystem::p
   mosa_test::check(file_bytes(path).empty(), "put byte waits for flush");
   auto bad = machine->query("put_byte('$stream'(3), 256).");
   mosa_test::check(bad.kind == mosa::StopKind::Exception, "byte range throws");
-  mosa_test::check(formal_text(*machine, bad) == "type_error(byte, 256)", "byte range formal");
+  mosa_test::check(formal_text(*machine, bad) == "type_error(byte,256)", "byte range formal");
 
   write_bytes(reset_path, "ab");
   const std::string reset_atom = prolog_atom(reset_path.string());
@@ -395,7 +395,7 @@ void check_flush_writes(const std::filesystem::path& text_path, const std::files
   mosa_test::check(file_bytes(byte_path) == "A", "close bytes");
   auto again = closing->query("close('$stream'(3)).");
   mosa_test::check(again.kind == mosa::StopKind::Exception, "close twice");
-  mosa_test::check(formal_text(*closing, again) == "existence_error(stream, '$stream'(3))", "close twice formal");
+  mosa_test::check(formal_text(*closing, again) == "existence_error(stream,'$stream'(3))", "close twice formal");
 }
 
 void check_alias_reopen(const std::filesystem::path& path) {
@@ -406,7 +406,7 @@ void check_alias_reopen(const std::filesystem::path& path) {
   mosa_test::check(file_bytes(path) == "a", "alias wrote a");
   auto second = machine->query("close(mine).");
   mosa_test::check(second.kind == mosa::StopKind::Exception, "alias stays closed");
-  mosa_test::check(formal_text(*machine, second) == "existence_error(stream, mine)", "alias formal");
+  mosa_test::check(formal_text(*machine, second) == "existence_error(stream,mine)", "alias formal");
   auto third = machine->query("open(" + atom + ", write, S, [alias(mine)]), put_char(S, b), close(S).");
   mosa_test::check(third.kind == mosa::StopKind::Success, "alias reused");
   mosa_test::check(file_bytes(path) == "b", "alias wrote b");
@@ -474,7 +474,7 @@ void check_at_end(const std::filesystem::path& path) {
   auto closed_in = mosa::Machine::create();
   auto closed = closed_in->query("close(user_input), at_end_of_stream.");
   mosa_test::check(closed.kind == mosa::StopKind::Exception, "closed current input");
-  mosa_test::check(formal_text(*closed_in, closed) == "existence_error(stream, '$stream'(0))",
+  mosa_test::check(formal_text(*closed_in, closed) == "existence_error(stream,'$stream'(0))",
                    "at_end closed formal");
 }
 
@@ -493,7 +493,7 @@ void check_set_position(const std::filesystem::path& path) {
                               ", read, S, [reposition(false)]), get_char(S, a), "
                               "set_stream_position(S, stream_position(0, 1, 1)).");
   mosa_test::check(denied.kind == mosa::StopKind::Exception, "reposition false");
-  mosa_test::check(formal_text(*fixed, denied) == "permission_error(reposition, stream, '$stream'(3))",
+  mosa_test::check(formal_text(*fixed, denied) == "permission_error(reposition,stream,'$stream'(3))",
                    "reposition formal");
   auto next = fixed->query("get_char('$stream'(3), C).");
   mosa_test::check(next.kind == mosa::StopKind::Success, "seek did not move");
@@ -518,7 +518,7 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
   auto once = ending->query("read('$stream'(3), T).");
   mosa_test::check(binding_named(*ending, once, "T") == "end_of_file", "read first eof");
   auto twice = ending->query("read('$stream'(3), T).");
-  mosa_test::check(formal_text(*ending, twice) == "permission_error(input, past_end_of_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*ending, twice) == "permission_error(input,past_end_of_stream,'$stream'(3))",
                    "read past formal");
 
   write_bytes(reset_path, "a.");
@@ -537,7 +537,7 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
                        mosa::StopKind::Success,
                    "read binary open");
   auto denied = binary->query("read('$stream'(3), T).");
-  mosa_test::check(formal_text(*binary, denied) == "permission_error(input, binary_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(input,binary_stream,'$stream'(3))",
                    "read binary formal");
   mosa_test::check(binary->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success, "read binary keeps");
 
@@ -565,7 +565,7 @@ void check_write_stream(const std::filesystem::path& text_path, const std::files
   mosa_test::check(binary->query("open(" + binary_atom + ", write, S, [type(binary)]).").kind == mosa::StopKind::Success,
                    "write binary open");
   auto denied = binary->query("write('$stream'(3), a).");
-  mosa_test::check(formal_text(*binary, denied) == "permission_error(output, binary_stream, '$stream'(3))",
+  mosa_test::check(formal_text(*binary, denied) == "permission_error(output,binary_stream,'$stream'(3))",
                    "write binary formal");
   mosa_test::check(binary->query("put_byte('$stream'(3), 97), flush_output('$stream'(3)).").kind ==
                        mosa::StopKind::Success,
@@ -575,7 +575,7 @@ void check_write_stream(const std::filesystem::path& text_path, const std::files
   mosa_test::check(text->query("close('$stream'(3)).").kind == mosa::StopKind::Success, "write close");
   auto again = text->query("write('$stream'(3), a).");
   mosa_test::check(again.kind == mosa::StopKind::Exception, "write closed");
-  mosa_test::check(formal_text(*text, again) == "existence_error(stream, '$stream'(3))", "write closed formal");
+  mosa_test::check(formal_text(*text, again) == "existence_error(stream,'$stream'(3))", "write closed formal");
 }
 
 void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem::path& peek_path,
@@ -631,7 +631,7 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
   auto held = machine->query("stream_property('$stream'(6), position(stream_position(N, _, _))).");
   mosa_test::check(binding_named(*machine, held, "N") == "0", "utf error stays");
   auto dropped = machine->query("set_prolog_flag(invalid_utf8, drop).");
-  mosa_test::check(formal_text(*machine, dropped) == "domain_error(flag_value, invalid_utf8+drop)", "utf drop formal");
+  mosa_test::check(formal_text(*machine, dropped) == "domain_error(flag_value,invalid_utf8+drop)", "utf drop formal");
   auto current = machine->query("current_prolog_flag(invalid_utf8, error).");
   mosa_test::check(current.kind == mosa::StopKind::Success, "utf flag stays error");
 }
@@ -642,7 +642,7 @@ void check_close_standard() {
   mosa_test::check(closed.kind == mosa::StopKind::Success, "close user_output");
   auto put = machine->query("put_char(a).");
   mosa_test::check(put.kind == mosa::StopKind::Exception, "put after close");
-  mosa_test::check(formal_text(*machine, put) == "existence_error(stream, user_output)", "current stays user_output");
+  mosa_test::check(formal_text(*machine, put) == "existence_error(stream,user_output)", "current stays user_output");
 }
 
 void check_flush_failure(const std::filesystem::path& path) {

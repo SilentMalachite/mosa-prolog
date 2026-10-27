@@ -133,7 +133,7 @@ void check_include_throw(const std::filesystem::path& dir) {
 void check_include_args(const std::filesystem::path& dir) {
   auto bad = mosa::Machine::create();
   const auto number = bad->load_program("q(1). :- include(1).");
-  mosa_test::check(!number.ok && bad->diagnostic() == "type_error(atom, 1)", "number formal");
+  mosa_test::check(!number.ok && bad->diagnostic() == "type_error(atom,1)", "number formal");
   mosa_test::check(bad->query("current_predicate(q/1).").kind == mosa::StopKind::Failure, "number rolls back");
 
   auto open = mosa::Machine::create();
@@ -142,7 +142,7 @@ void check_include_args(const std::filesystem::path& dir) {
 
   auto listed = mosa::Machine::create();
   const auto list = listed->load_program(":- include([a]).");
-  mosa_test::check(!list.ok && listed->diagnostic() == "type_error(atom, [a])", "list formal");
+  mosa_test::check(!list.ok && listed->diagnostic() == "type_error(atom,[a])", "list formal");
 
   auto two = mosa::Machine::create();
   const auto arity = two->load_program(":- include(true, now).");

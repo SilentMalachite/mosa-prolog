@@ -48,10 +48,10 @@ void check_layout() {
   mosa_test::check(written("(a+b)*c.") == "(a+b)*c", "parens");
   mosa_test::check(written("a-b-c.") == "a-b-c", "left assoc");
   mosa_test::check(written("a^b^c.") == "a^b^c", "right assoc");
-  mosa_test::check(written("f(a, b).") == "f(a, b)", "comma space");
-  mosa_test::check(written("[a, b].") == "[a, b]", "list");
+  mosa_test::check(written("f(a, b).") == "f(a,b)", "tight comma");
+  mosa_test::check(written("[a, b].") == "[a,b]", "list");
   mosa_test::check(written("[H|T].") == "[H|T]", "list bar");
-  mosa_test::check(written("{a, b}.") == "{a, b}", "curly");
+  mosa_test::check(written("{a, b}.") == "{a,b}", "curly");
   mosa_test::check(written("東京.") == "東京", "unquoted japanese");
   mosa_test::check(written("'東 京'.") == "'東 京'", "quoted space");
   mosa_test::check(written("'\\n'.") == "'\\n'", "escape newline on output");
@@ -64,7 +64,7 @@ void check_unnamed_and_numbers() {
   const auto var = heap.fresh_ref();
   const auto shared = heap.structure(atoms.intern("f"), std::array<mosa::Cell, 2>{var, var});
   const auto once = heap.structure(atoms.intern("f"), std::array<mosa::Cell, 1>{heap.fresh_ref()});
-  mosa_test::check(mosa::write_term(heap, ops, shared, {}, {}) == "f(_G1, _G1)", "shared unnamed");
+  mosa_test::check(mosa::write_term(heap, ops, shared, {}, {}) == "f(_G1,_G1)", "shared unnamed");
   mosa_test::check(mosa::write_term(heap, ops, once, {}, {}) == "f(_)", "single unnamed");
   const auto minus = atoms.intern("-");
   const auto inner = heap.structure(minus, std::array<mosa::Cell, 1>{heap.atom(atoms.intern("a"))});
@@ -77,7 +77,7 @@ void check_unnamed_and_numbers() {
   mosa::WriteOptions bare;
   bare.ignore_ops = true;
   const auto list = heap.list(heap.atom(atoms.intern("a")), heap.atom(atoms.intern("[]")));
-  mosa_test::check(mosa::write_term(heap, ops, list, bare, {}) == "'.'(a, [])", "ignore ops");
+  mosa_test::check(mosa::write_term(heap, ops, list, bare, {}) == "'.'(a,[])", "ignore ops");
   const auto negative = mosa::write_term(heap, ops, heap.integer(-42), {}, {});
   mosa_test::check(negative == "-42", "negative integer");
   const auto neg_zero = mosa::write_term(heap, ops, heap.floating(-0.0), {}, {});

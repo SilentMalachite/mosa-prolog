@@ -2,13 +2,15 @@ test(write_kanji, (with_output_to(atom(A), write(東)), A == 東), true).
 test(writeq_space, (with_output_to(atom(A), writeq('東 京')), atom_chars(A, ['\'', 東, ' ', 京, '\''])), true).
 test(writeq_bare, (with_output_to(atom(A), writeq(東京)), A == 東京), true).
 test(write_op, (with_output_to(atom(A), write(1 + 2)), A == '1+2'), true).
-test(write_list, (with_output_to(atom(A), write([1, 2])), A == '[1, 2]'), true).
+test(write_list, (with_output_to(atom(A), write([1, 2])), A == '[1,2]'), true).
+test(write_term_list_iso, (with_output_to(atom(A), write_term([1,2,3], [])), A == '[1,2,3]'), true).
+test(write_canonical_list_iso, (with_output_to(atom(A), write_canonical([1,2,3])), A == '\'.\'(1,\'.\'(2,\'.\'(3,[])))'), true).
 test(write_bare_atom, (with_output_to(atom(A), write('1<2')), A == '1<2'), true).
 test(writeq_atom, (with_output_to(atom(A), writeq('1<2')), A == '''1<2'''), true).
 test(write_term_quote, (with_output_to(atom(A), write_term('1<2', [quoted(true)])), A == '''1<2'''), true).
 test(write_term_plain, (with_output_to(atom(A), write_term('1<2', [])), A == '1<2'), true).
-test(canonical_op, (with_output_to(atom(A), write_canonical(1 + 2)), A == '+(1, 2)'), true).
-test(canonical_list, (with_output_to(atom(A), write_canonical([1, 2, 3])), A == '''.''(1, ''.''(2, ''.''(3, [])))'), true).
+test(canonical_op, (with_output_to(atom(A), write_canonical(1 + 2)), A == '+(1,2)'), true).
+test(canonical_list, (with_output_to(atom(A), write_canonical([1, 2, 3])), A == '''.''(1,''.''(2,''.''(3,[])))'), true).
 test(canonical_brace, (with_output_to(atom(A), write_canonical({a})), A == '''{}''(a)'), true).
 test(numbervar_a, (with_output_to(atom(A), write_term('$VAR'(0), [numbervars(true)])), A == 'A'), true).
 test(numbervar_a1, (with_output_to(atom(A), write_term('$VAR'(26), [numbervars(true)])), A == 'A1'), true).
@@ -17,15 +19,15 @@ test(numbervar_neg, (with_output_to(atom(A), write_term('$VAR'(-1), [numbervars(
 test(write_numbervar, (with_output_to(atom(A), write('$VAR'(0))), A == 'A'), true).
 test(writeq_numbervar, (with_output_to(atom(A), writeq('$VAR'(0))), A == 'A'), true).
 test(canonical_numbervar, (with_output_to(atom(A), write_canonical('$VAR'(0))), A == '''$VAR''(0)'), true).
-test(var_names, (with_output_to(atom(A), write_term(f(X, X), [variable_names(['A'=X])])), A == 'f(A, A)'), true).
+test(var_names, (with_output_to(atom(A), write_term(f(X, X), [variable_names(['A'=X])])), A == 'f(A,A)'), true).
 test(var_names_quoted, (with_output_to(atom(A), write_term(X, [quoted(true), variable_names(['A'=X])])), A == 'A'), true).
 test(var_names_bound, (X = 1, with_output_to(atom(A), write_term(X, [quoted(true), variable_names(['A'=X])])), A == '1'), true).
 test(write_fresh, (with_output_to(atom(A), write(X)), A == '_'), true).
-test(write_share, (with_output_to(atom(A), write(f(X, X))), A == 'f(_G1, _G1)'), true).
+test(write_share, (with_output_to(atom(A), write(f(X, X))), A == 'f(_G1,_G1)'), true).
 test(write_cycle, (X = f(X), with_output_to(atom(A), write(X)), A == 'f(_)'), true).
 test(write_stream, (with_output_to(atom(A), (current_output(S), write(S, 東))), A == 東), true).
 test(writeq_stream, (with_output_to(atom(A), (current_output(S), writeq(S, '東 京'))), atom_chars(A, ['\'', 東, ' ', 京, '\''])), true).
-test(canonical_stream, (with_output_to(atom(A), (current_output(S), write_canonical(S, [1]))), A == '''.''(1, [])'), true).
+test(canonical_stream, (with_output_to(atom(A), (current_output(S), write_canonical(S, [1]))), A == '''.''(1,[])'), true).
 test(write_term_stream, (with_output_to(atom(A), (current_output(S), write_term(S, '1<2', [quoted(true)]))), A == '''1<2'''), true).
 test(print_same, (with_output_to(atom(A), print('東 京')), with_output_to(atom(B), write('東 京')), A == B, A == '東 京'), true).
 test(print_stream, (with_output_to(atom(A), (current_output(S), print(S, 東))), A == 東), true).

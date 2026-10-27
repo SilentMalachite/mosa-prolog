@@ -164,7 +164,7 @@ void check_dynamic_builtin_rejected() {
   file.close();
   auto machine = mosa::Machine::create();
   mosa_test::check(!machine->consult(path), "dynamic true fails");
-  mosa_test::check(machine->diagnostic().find("permission_error(modify, static_procedure, true/0)") !=
+  mosa_test::check(machine->diagnostic().find("permission_error(modify,static_procedure,true/0)") !=
                        std::string::npos,
                    "dynamic true phrase");
   auto ok = machine->query("true.");

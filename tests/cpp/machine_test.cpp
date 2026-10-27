@@ -45,7 +45,7 @@ void check_choice_and_nrev() {
   mosa_test::check(rev.kind == mosa::StopKind::Success && rev.bindings.size() == 1 &&
                        rev.bindings[0].name == "R",
                    "nrev binds");
-  mosa_test::check(binding_text(*machine, rev) == "[3, 2, 1]", "nrev text");
+  mosa_test::check(binding_text(*machine, rev) == "[3,2,1]", "nrev text");
 }
 
 void check_cut() {
@@ -476,7 +476,7 @@ void check_initialization_throw() {
       ":- initialization((assertz(s(1)), throw(error(type_error(atom, 1), _)))).\n"
       ":- initialization(assertz(s(9))).\n");
   mosa_test::check(!status.ok, "throw fails load");
-  mosa_test::check(machine->diagnostic() == "type_error(atom, 1)", "throw formal");
+  mosa_test::check(machine->diagnostic() == "type_error(atom,1)", "throw formal");
   mosa_test::check(machine->query("kept(1).").kind == mosa::StopKind::Success, "throw keeps earlier");
   mosa_test::check(machine->query("also(1).").kind == mosa::StopKind::Success, "throw keeps later");
   mosa_test::check(machine->query("s(1).").kind == mosa::StopKind::Success, "throw keeps effect");
@@ -488,7 +488,7 @@ void check_initialization_throw() {
   auto missing = mosa::Machine::create();
   const auto missing_status = missing->load_program("kept(1). :- initialization(missing).");
   mosa_test::check(!missing_status.ok, "missing fails load");
-  mosa_test::check(missing->diagnostic() == "existence_error(procedure, missing/0)", "missing formal");
+  mosa_test::check(missing->diagnostic() == "existence_error(procedure,missing/0)", "missing formal");
   mosa_test::check(missing->query("kept(1).").kind == mosa::StopKind::Success, "missing keeps clause");
 }
 
@@ -496,7 +496,7 @@ void check_initialization_args() {
   auto bad = mosa::Machine::create();
   const auto bad_status = bad->load_program("q(1). :- initialization(1).");
   mosa_test::check(!bad_status.ok, "number rejected");
-  mosa_test::check(bad->diagnostic() == "type_error(callable, 1)", "number formal");
+  mosa_test::check(bad->diagnostic() == "type_error(callable,1)", "number formal");
   mosa_test::check(bad->query("current_predicate(q/1).").kind == mosa::StopKind::Failure, "number rolls back");
   auto open = mosa::Machine::create();
   const auto open_status = open->load_program(":- initialization(X).");
@@ -504,7 +504,7 @@ void check_initialization_args() {
   auto late = mosa::Machine::create();
   const auto late_status = late->load_program("kept(1). :- initialization((true, 1)).");
   mosa_test::check(!late_status.ok, "body number fails");
-  mosa_test::check(late->diagnostic() == "type_error(callable, 1)", "body number formal");
+  mosa_test::check(late->diagnostic() == "type_error(callable,1)", "body number formal");
   mosa_test::check(late->query("kept(1).").kind == mosa::StopKind::Success, "body number keeps clause");
   auto two = mosa::Machine::create();
   const auto two_status = two->load_program(":- initialization(true, now).");

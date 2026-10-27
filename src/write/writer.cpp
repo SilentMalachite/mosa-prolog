@@ -167,6 +167,7 @@ class Printer {
   [[nodiscard]] std::string render_op(const OpDef& op, Cell term);
   [[nodiscard]] std::string render_list(Cell term);
   [[nodiscard]] std::string render_functor(Cell term, std::string_view name);
+  void append_comma(std::string& out, const std::string& next) const;
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
   [[nodiscard]] std::string spell(std::string_view name) const;
   [[nodiscard]] std::string spell_operator(std::string_view name) const;
@@ -246,6 +247,13 @@ bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
   return priority >= parent;
 }
 
+void Printer::append_comma(std::string& out, const std::string& next) const {
+  // コンマは単独字なので、直後の空白は糊付けが要るときだけ置く。
+  out += ',';
+  if (glue(",", next)) out += ' ';
+  out += next;
+}
+
 std::string Printer::spell(std::string_view name) const {
   if (!options_.quoted || bare_atom(name)) return std::string{name};
   return quote_atom(name);
@@ -296,7 +304,8 @@ std::string Printer::render_op(const OpDef& op, Cell term) {
   std::string out = left;
   if (glue(left, name)) out += ' ';
   out += name;
-  if (name == "," || glue(name, right)) out += ' ';
+  // 中置コンマも他の演算子と同じく、糊付けが要るときだけ空白を置く。
+  if (glue(name, right)) out += ' ';
   out += right;
   return out;
 }
@@ -305,15 +314,24 @@ std::string Printer::render_list(Cell term) {
   if (options_.ignore_ops) {
     const std::string head = render(heap_.list_head(term), 999, true);
     const std::string tail = render(heap_.list_tail(term), 999, true);
-    return spell_functor(".") + "(" + head + ", " + tail + ")";
+    std::string out = spell_functor(".");
+    out += '(';
+    out += head;
+    append_comma(out, tail);
+    out += ')';
+    return out;
   }
   std::string out = "[";
   bool first = true;
   Cell current = term;
   while (true) {
-    if (!first) out += ", ";
-    first = false;
-    out += render(heap_.list_head(current), 999, true);
+    const std::string item = render(heap_.list_head(current), 999, true);
+    if (first) {
+      first = false;
+      out += item;
+    } else {
+      append_comma(out, item);
+    }
     const Cell raw_tail = heap_.list_tail(current);
     // 名前表の REF は束縛より先に書く。先に辿ると X = [a|X] が [a|_] になる。
     if (raw_tail.tag() == Tag::Ref && var_name(raw_tail) != nullptr) {
@@ -349,8 +367,9 @@ std::string Printer::render_functor(Cell term, std::string_view name) {
   out += '(';
   const auto arity = heap_.functor_arity(term);
   for (std::uint16_t index = 0; index < arity; ++index) {
-    if (index != 0) out += ", ";
-    out += render(heap_.arg(term, index), 999, true);
+    const std::string arg = render(heap_.arg(term, index), 999, true);
+    if (index == 0) out += arg;
+    else append_comma(out, arg);
   }
   out += ')';
   return out;

@@ -9,7 +9,7 @@ foo.
 ''.
 
 % case: japanese_atom
-% expect: 親(太郎, 一郎)
+% expect: 親(太郎,一郎)
 親(太郎, 一郎).
 
 % case: non_bmp_atom
@@ -116,7 +116,7 @@ f((a, b)).
 c'.
 
 % case: double_quotes
-% expect: [97, 98]
+% expect: [97,98]
 "ab".
 
 % case: comment

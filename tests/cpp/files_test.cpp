@@ -140,7 +140,7 @@ void check_file_init_early(const std::filesystem::path& dir) {
                                             "\nneeds_later :- assertz(s(1)).\n"
                                             ":- initialization(assertz(s(4))).\n");
   mosa_test::check(!status.ok, "early init fails");
-  mosa_test::check(machine->diagnostic().find("existence_error(procedure, needs_later/0)") != std::string::npos,
+  mosa_test::check(machine->diagnostic().find("existence_error(procedure,needs_later/0)") != std::string::npos,
                    "early calls missing");
   mosa_test::check(machine->query("kept(1).").kind == mosa::StopKind::Success, "early keeps clause");
   mosa_test::check(machine->query("current_predicate(needs_later/1).").kind == mosa::StopKind::Failure,
@@ -172,7 +172,7 @@ void check_file_missing(const std::filesystem::path& dir) {
 void check_file_args(const std::filesystem::path& dir) {
   auto number = mosa::Machine::create();
   const auto bad = number->load_program("q(1). :- [1].");
-  mosa_test::check(!bad.ok && number->diagnostic() == "type_error(atom, 1)", "number formal");
+  mosa_test::check(!bad.ok && number->diagnostic() == "type_error(atom,1)", "number formal");
   mosa_test::check(number->query("current_predicate(q/1).").kind == mosa::StopKind::Failure, "number rolls back");
 
   auto open = mosa::Machine::create();
@@ -189,7 +189,7 @@ void check_file_args(const std::filesystem::path& dir) {
 
   auto improper = mosa::Machine::create();
   const auto tail_atom = improper->load_program(":- [a|1].");
-  mosa_test::check(!tail_atom.ok && improper->diagnostic() == "type_error(list, [a|1])", "improper list");
+  mosa_test::check(!tail_atom.ok && improper->diagnostic() == "type_error(list,[a|1])", "improper list");
 
   auto bare = mosa::Machine::create();
   const auto other = bare->load_program(":- X.");
@@ -208,7 +208,7 @@ void check_file_args(const std::filesystem::path& dir) {
   mosa_test::check(write_text(good, "p(1).\n"), "write typed");
   auto before = mosa::Machine::create();
   const auto mixed_files = before->load_program(":- [" + prolog_path(good) + ", 1].");
-  mosa_test::check(!mixed_files.ok && before->diagnostic() == "type_error(atom, 1)", "type before open");
+  mosa_test::check(!mixed_files.ok && before->diagnostic() == "type_error(atom,1)", "type before open");
   mosa_test::check(before->query("current_predicate(p/1).").kind == mosa::StopKind::Failure, "type does not consult");
 }
 
