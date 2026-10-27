@@ -127,6 +127,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"false", 0},
     {"consult", 1},
     {"use_module", 1},
+    {"use_module", 2},
     {"!", 0},
     {"var", 1},
     {"nonvar", 1},

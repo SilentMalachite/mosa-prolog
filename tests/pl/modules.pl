@@ -54,3 +54,9 @@ use_kin :- use_module('tests/pl/modules/kin.pl').
 use_kin :- use_module('../tests/pl/modules/kin.pl').
 
 test(mod_use_loaded, (use_kin, parent(a, b)), true).
+
+use_pair_one :- use_module('tests/pl/modules/pair.pl', [one/1]).
+use_pair_one :- use_module('../tests/pl/modules/pair.pl', [one/1]).
+
+% リストに書いた公開述語だけを取り込む。two/1 は公開されているが、ここからは見えない。
+test(mod_use_list, (use_pair_one, one(1), \+ two(1)), true).

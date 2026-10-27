@@ -1,5 +1,6 @@
 // docs/SPEC.md 第5節
 // use_module(+atom)
+// use_module(+atom, +list)
 //   instantiation_error
 //   type_error(atom, Culprit)
 //   permission_error(modify, module, Module) は module/2 が読み込みを拒んだとき
@@ -11,12 +12,18 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace mosa {
 
 std::filesystem::path canonical_key(const std::filesystem::path& file);
 
 namespace {
+
+struct Wanted {
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+};
 
 void prefix_diagnostic(Impl& machine, std::string_view path) {
   if (machine.syntax_diag) {
@@ -54,18 +61,71 @@ bool module_at_path(const Impl& machine, std::string_view key, std::uint32_t& mo
   return false;
 }
 
+void import_slot(Impl& machine, std::uint32_t source, std::uint32_t caller, std::uint32_t name,
+                 std::uint16_t arity) {
+  if (predicate_in(machine, caller, name, arity) != nullptr) return;
+  Predicate slot;
+  slot.home = caller;
+  slot.name = name;
+  slot.arity = arity;
+  slot.imported = true;
+  slot.origin = source;
+  machine.predicates.push_back(std::move(slot));
+}
+
 void import_exports(Impl& machine, std::uint32_t source, std::uint32_t caller) {
   for (const ExportMark& item : machine.exports) {
     if (item.module != source) continue;
-    if (predicate_in(machine, caller, item.name, item.arity) != nullptr) continue;
-    Predicate slot;
-    slot.home = caller;
-    slot.name = item.name;
-    slot.arity = item.arity;
-    slot.imported = true;
-    slot.origin = source;
-    machine.predicates.push_back(std::move(slot));
+    import_slot(machine, source, caller, item.name, item.arity);
   }
+}
+
+bool is_export(const Impl& machine, std::uint32_t source, const Wanted& item) {
+  for (const ExportMark& mark : machine.exports) {
+    if (mark.module == source && mark.name == item.name && mark.arity == item.arity) return true;
+  }
+  return false;
+}
+
+// リストに無い公開述語は席を作らない。呼び出し側からは見えない。
+void import_listed(Impl& machine, std::uint32_t source, std::uint32_t caller, const std::vector<Wanted>& wanted) {
+  for (const Wanted& item : wanted) {
+    if (!is_export(machine, source, item)) continue;
+    import_slot(machine, source, caller, item.name, item.arity);
+  }
+}
+
+bool indicator(const Impl& machine, Cell cell, Wanted& item) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(cell)) != "/") return false;
+  const Cell left = machine.heap.deref(machine.heap.arg(cell, 0));
+  const Cell right = machine.heap.deref(machine.heap.arg(cell, 1));
+  if (left.tag() != Tag::Atom) return false;
+  if (right.tag() != Tag::Int && right.tag() != Tag::IntBox) return false;
+  const auto value = machine.heap.integer_value(right);
+  if (value < 0 || value > 1024) return false;
+  item.name = static_cast<std::uint32_t>(left.raw() >> 3);
+  item.arity = static_cast<std::uint16_t>(value);
+  return true;
+}
+
+bool nil_atom(const Impl& machine, Cell cell) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Atom) return false;
+  return machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "[]";
+}
+
+bool read_wanted(const Impl& machine, Cell list, std::vector<Wanted>& out) {
+  list = machine.heap.deref(list);
+  if (nil_atom(machine, list)) return true;
+  while (list.tag() == Tag::Lis) {
+    Wanted item;
+    if (!indicator(machine, machine.heap.list_head(list), item)) return false;
+    out.push_back(item);
+    list = machine.heap.deref(machine.heap.list_tail(list));
+  }
+  return nil_atom(machine, list);
 }
 
 bool raise_module_fault(Impl& machine, const Goal& goal) {
@@ -77,40 +137,54 @@ bool raise_module_fault(Impl& machine, const Goal& goal) {
   return true;
 }
 
-}  // namespace
-
-bool run_use_module(Impl& machine, const Goal& goal) {
-  if (machine.atoms.name(goal.name) != "use_module" || goal.arity != 1) return false;
+bool path_text(Impl& machine, const Goal& goal, std::string& text) {
   const Cell path = machine.heap.deref(goal.arg(machine, 0));
   if (machine.heap.unbound(path)) {
     raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
-    return true;
+    return false;
   }
   if (path.tag() != Tag::Atom) {
     raise_formal(machine, formal_type(machine, "atom", path), goal.name, goal.arity);
-    return true;
+    return false;
   }
-  const auto text = machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3));
+  // intern がアトム表を伸ばすと、名前の string_view は無効になる。
+  text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
+  return true;
+}
+
+bool resolve_module(Impl& machine, const Goal& goal, std::string_view text, std::uint32_t& loaded) {
   const auto key = canonical_key(std::filesystem::path{std::string{text}}).generic_string();
-  std::uint32_t loaded = 0;
   // 定義ファイルは読み直さない。公開リストは最初の module/2 のまま取り込む。
-  if (module_at_path(machine, key, loaded)) {
-    import_exports(machine, loaded, machine.calling);
-    machine.diagnostic.clear();
-    machine.ip = goal.cont;
-    return true;
-  }
+  if (module_at_path(machine, key, loaded)) return true;
   std::size_t before = 0;
   if (!open_module(machine, text, before)) {
     if (!raise_module_fault(machine, goal)) machine.failed = true;
-    return true;
+    return false;
   }
-  // このファイルが足したモジュールの公開述語だけを、呼び出し側の席にする。
   if (machine.modules.size() <= before) {
+    machine.failed = true;
+    return false;
+  }
+  loaded = machine.modules.back();
+  return true;
+}
+
+}  // namespace
+
+bool run_use_module(Impl& machine, const Goal& goal) {
+  if (machine.atoms.name(goal.name) != "use_module" || (goal.arity != 1 && goal.arity != 2)) return false;
+  std::string text;
+  if (!path_text(machine, goal, text)) return true;
+  std::vector<Wanted> wanted;
+  // 名前は読み込みの前に控える。失敗した読み込みはヒープを切り詰める。
+  if (goal.arity == 2 && !read_wanted(machine, goal.arg(machine, 1), wanted)) {
     machine.failed = true;
     return true;
   }
-  import_exports(machine, machine.modules.back(), machine.calling);
+  std::uint32_t loaded = 0;
+  if (!resolve_module(machine, goal, text, loaded)) return true;
+  if (goal.arity == 2) import_listed(machine, loaded, machine.calling, wanted);
+  else import_exports(machine, loaded, machine.calling);
   machine.diagnostic.clear();
   machine.ip = goal.cont;
   return true;
