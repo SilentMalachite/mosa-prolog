@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1861
+合格数: 1862
 合格率: 85.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -93,7 +93,6 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Posi
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars) text_output_contents/2
 predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) text_output_contents/2
-predicates/write_term_3/tests.lgt lgt_write_term_3_055 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_082 true(Assertion) fail
@@ -122,7 +121,7 @@ predicates/write_term_3/tests.lgt sics_write_term_3_112 error(instantiation_erro
 predicates/write_term_3/tests.lgt lgt_write_term_3_113 error(domain_error(write_option,variable_names(['A'=_|a]))) suppress_text_output/0
 predicates/write_term_3/tests.lgt lgt_write_term_3_114 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_115 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_117 subsumes(['1',.,'0'|_],Contents) text_output_contents/1
+predicates/write_term_3/tests.lgt lgt_write_term_3_117 subsumes(['1','.','0'|_],Contents) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_118 true(Assertion) domain_error(write_option,quoted(false))
 predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_error(write_option,quoted(true))
 predicates/write_term_3/tests.lgt lgt_write_term_3_120 true(Assertion) domain_error(write_option,numbervars(false))

@@ -11,6 +11,8 @@ test(write_term_quote, (with_output_to(atom(A), write_term('1<2', [quoted(true)]
 test(write_term_plain, (with_output_to(atom(A), write_term('1<2', [])), A == '1<2'), true).
 test(write_term_block_open, (with_output_to(atom(A), write_term('/*', [quoted(true)])), A == '\'/*\''), true).
 test(write_term_block_close, (with_output_to(atom(A), write_term('*/', [quoted(true)])), A == '*/'), true).
+test(writeq_dot, (with_output_to(atom(A), writeq('.')), A == '\'.\''), true).
+test(write_dot, (with_output_to(atom(A), write('.')), A == '.'), true).
 test(canonical_op, (with_output_to(atom(A), write_canonical(1 + 2)), A == '+(1,2)'), true).
 test(canonical_list, (with_output_to(atom(A), write_canonical([1, 2, 3])), A == '''.''(1,''.''(2,''.''(3,[])))'), true).
 test(canonical_brace, (with_output_to(atom(A), write_canonical({a})), A == '''{}''(a)'), true).

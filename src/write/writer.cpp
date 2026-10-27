@@ -97,10 +97,11 @@ bool is_small_name(std::string_view text) {
 
 // ! と ; 以外の単独文字は、引用しないと括弧や区切りとして読まれる。
 // 図形の先頭の /* は読み戻すとブロック注釈になる。途中の /* と */ は図形のまま読める。
+// 単独の . は終止符なので、図形でも引用しないとアトムとして読めない。
 bool bare_atom(std::string_view name) {
   if (name == "[]" || name == "{}") return true;
   if (is_small_name(name)) return true;
-  if (is_graphic_token(name)) return !name.starts_with("/*");
+  if (is_graphic_token(name)) return name != "." && !name.starts_with("/*");
   return name == "!" || name == ";";
 }
 
@@ -262,8 +263,8 @@ std::string Printer::spell(std::string_view name) const {
 }
 
 std::string Printer::spell_operator(std::string_view name) const {
-  // アトムの ',' と '|' は引用する。演算子まで引用すると a, b の字面が変わる。
-  if (name == "," || name == "|") return std::string{name};
+  // アトムの ',' と '|' と '.' は引用する。演算子の位置まで引用すると字面が変わる。
+  if (name == "," || name == "|" || name == ".") return std::string{name};
   return spell(name);
 }
 
