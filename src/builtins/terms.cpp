@@ -229,17 +229,18 @@ void run_univ(Impl& machine, const Goal& goal) {
     instantiation(machine, goal);
     return;
   }
+  const auto argc = static_cast<std::int64_t>(items.size() - 1);
+  // 8.5.3.3: 要素が 2 個以上なら max_arity より先に atom。1 要素の非原子だけ atomic。
+  if (argc > 0 && head.tag() != Tag::Atom) {
+    raise_formal(machine, formal_type(machine, "atom", head), goal.name, goal.arity);
+    return;
+  }
   if (!is_atomic(head)) {
     raise_formal(machine, formal_type(machine, "atomic", head), goal.name, goal.arity);
     return;
   }
-  const auto argc = static_cast<std::int64_t>(items.size() - 1);
   if (argc > kMaxArity) {
     raise_formal(machine, formal_representation(machine, "max_arity"), goal.name, goal.arity);
-    return;
-  }
-  if (argc > 0 && head.tag() != Tag::Atom) {
-    raise_formal(machine, formal_type(machine, "atom", head), goal.name, goal.arity);
     return;
   }
   Cell made = head;

@@ -29,6 +29,8 @@ test(iso_univ_atom, (foo =.. L), solutions([L = [foo]])).
 test(iso_univ_int, (1 =.. L), solutions([L = [1]])).
 test(iso_univ_empty, (X =.. []), error(domain_error(non_empty_list, []))).
 test(iso_univ_number_head, (X =.. [1, 2]), error(type_error(atom, 1))).
+test(iso_univ_compound_head, (X =.. [a(b), 1]), error(type_error(atom, a(b)))).
+test(iso_univ_compound_one, (X =.. [a(b)]), error(type_error(atomic, a(b)))).
 test(iso_copy_ground, copy_term(f(a), X), solutions([X = f(a)])).
 test(iso_vars_empty, term_variables(a, L), solutions([L = []])).
 test(arity_limit, functor(T, foo, 1025), error(representation_error(max_arity))).

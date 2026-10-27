@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1831
+合格数: 1832
 合格率: 84.3
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -95,7 +95,6 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Posi
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
 predicates/term_variables_2/tests.lgt iso_term_variables_2_06 true assertion
 predicates/term_variables_2/tests.lgt iso_term_variables_2_07 true assertion
-predicates/univ_2/tests.lgt iso_univ_2_13 error(type_error(atom, a(b))) type_error(atomic, a(b))
 predicates/write_term_3/tests.lgt iso_write_term_3_001 true(Assertion) fail
 predicates/write_term_3/tests.lgt iso_write_term_3_002 true(Assertion) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_028 true(Assertion) fail
