@@ -90,7 +90,9 @@ std::string if_text() {
          "test(plain_if, true) :-\n"
          "    (fail -> fail ; true).\n"
          "test(if_skips_else, true) :-\n"
-         "    (variant(a, a) -> true ; fail).\n";
+         "    (variant(a, a) -> true ; fail).\n"
+         "test(if_cuts_else, fail) :-\n"
+         "    (variant([1],[1]) -> fail ; true).\n";
 }
 
 void check_if(const std::filesystem::path& root) {
@@ -103,16 +105,17 @@ void check_if(const std::filesystem::path& root) {
   const std::string failed = between_headings(body, "不合格:", "別欄:");
   if (code != 0 || failed.find("setof_if_order") != std::string::npos ||
       failed.find("setof_if_second") != std::string::npos || failed.find("plain_if") != std::string::npos ||
-      failed.find("if_skips_else") != std::string::npos) {
+      failed.find("if_skips_else") != std::string::npos || failed.find("if_cuts_else") != std::string::npos) {
     show("if report", body);
   }
   mosa_test::check(code == 0, "if exits 0");
-  mosa_test::check(has_exact_line(body, "分母: 4"), "if denominator");
-  mosa_test::check(has_exact_line(body, "合格数: 4"), "if passed");
+  mosa_test::check(has_exact_line(body, "分母: 5"), "if denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 5"), "if passed");
   mosa_test::check(failed.find("setof_if_order") == std::string::npos, "setof if takes the first variant");
   mosa_test::check(failed.find("setof_if_second") == std::string::npos, "setof if falls through to the second");
   mosa_test::check(failed.find("plain_if") == std::string::npos, "plain if stays on the machine");
   mosa_test::check(failed.find("if_skips_else") == std::string::npos, "successful if does not run else");
+  mosa_test::check(failed.find("if_cuts_else") == std::string::npos, "successful if cuts else");
 }
 
 }  // namespace
