@@ -1,5 +1,6 @@
 // docs/SPEC.md 第5節
 // use_module(+atom)
+// use_module(library(+atom))
 // use_module(+atom, +list)
 // use_module(+atom, except(+list))
 //   instantiation_error
@@ -9,6 +10,7 @@
 // テスト: tests/pl/modules.pl
 
 #include "../machine/internal.hpp"
+#include "../platform/executable.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -237,12 +239,25 @@ bool raise_module_fault(Impl& machine, const Goal& goal) {
   return true;
 }
 
+// library(Name) は実行ファイルの隣の lib/Name.pl。無い名前もそのパスのまま開き、consult と同じ失敗にする。
+bool library_file(const Impl& machine, Cell cell, std::string& text) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(cell)) != "library") return false;
+  const Cell name = machine.heap.deref(machine.heap.arg(cell, 0));
+  if (name.tag() != Tag::Atom) return false;
+  const auto leaf = std::string{machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3))} + ".pl";
+  text = (executable_path().parent_path() / "lib" / leaf).string();
+  return true;
+}
+
 bool path_text(Impl& machine, const Goal& goal, std::string& text) {
   const Cell path = machine.heap.deref(goal.arg(machine, 0));
   if (machine.heap.unbound(path)) {
     raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
     return false;
   }
+  if (library_file(machine, path, text)) return true;
   if (path.tag() != Tag::Atom) {
     raise_formal(machine, formal_type(machine, "atom", path), goal.name, goal.arity);
     return false;

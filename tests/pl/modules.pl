@@ -89,3 +89,10 @@ test(mod_import_clash_kept, (
   same(left),
   \+ same(right)
 ), true).
+
+use_shelf :- use_module(library(phase4_shelf)).
+
+% library(Name) は実行ファイルの隣の lib/Name.pl を読み、公開述語を取り込む。
+test(mod_library, (use_shelf, shelf_mark(1)), true).
+% 無いライブラリは、無いファイルを consult したときと同じくゴールが失敗する。
+test(mod_library_missing, use_module(library(phase4_no_such_lib)), fail).

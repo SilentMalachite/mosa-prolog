@@ -55,6 +55,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
   src/platform/terminal.cpp
+  src/platform/executable.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -81,6 +82,16 @@ target_sources(mosa_lib PRIVATE
   src/module/lookup.cpp
   src/module/use.cpp
 )
+
+# library(Name) のテストは、実行ファイルの隣の lib/ に棚を置く。
+foreach(mosa_tool mosa mosatest)
+  add_custom_command(TARGET ${mosa_tool} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${mosa_tool}>/lib"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/tests/pl/modules/libfind/phase4_shelf.pl"
+            "$<TARGET_FILE_DIR:${mosa_tool}>/lib/phase4_shelf.pl"
+    VERBATIM)
+endforeach()
 
 enable_testing()
 
