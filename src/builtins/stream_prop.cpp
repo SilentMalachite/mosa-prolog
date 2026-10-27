@@ -20,8 +20,10 @@
 //   domain_error(stream_position), permission_error(reposition, stream)
 // stream_property(?stream_or_alias, ?stream_property)
 //   domain_error(stream_or_alias), domain_error(stream_property), existence_error(stream)
-// 性質の順は file_name, mode, alias, position, end_of_stream, eof_action,
-// reposition, type, encoding。戻せない流れに position は出さない。
+// 性質の順は file_name, mode, input または output, alias, position,
+// end_of_stream, eof_action, reposition, type, encoding。
+// input と output は項ではなくアトム。read なら input、write と append なら output。
+// 一つの流れはどちらか一つ。戻せない流れに position は出さない。
 // テスト: tests/pl/stream_prop.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
@@ -34,7 +36,7 @@
 namespace mosa {
 namespace {
 
-enum Prop { FileName, Mode, Alias, Position, End, Eof, Reposition, Type, Encoding, Count };
+enum Prop { FileName, Mode, Input, Output, Alias, Position, End, Eof, Reposition, Type, Encoding, Count };
 
 bool raise_domain(Impl& machine, const Goal& goal, std::string_view domain, Cell culprit) {
   raise_formal(machine, formal_domain(machine, domain, culprit), goal.name, goal.arity);
@@ -114,6 +116,9 @@ bool has_prop(const Stream& stream, int prop) {
   if (prop == FileName) return stream.kind == Stream::Kind::File && !stream.path.empty();
   if (prop == Alias) return !stream.alias.empty();
   if (prop == Position) return stream.reposition;
+  // 閉じた流れは collect が除く。開いていればモードで一つだけ持つ。
+  if (prop == Input) return stream.mode == Stream::Mode::Read;
+  if (prop == Output) return stream.mode == Stream::Mode::Write || stream.mode == Stream::Mode::Append;
   return true;
 }
 
@@ -121,6 +126,8 @@ Cell prop_cell(Impl& machine, const Stream& stream, int prop) {
   switch (prop) {
     case FileName: return atom_arg(machine, "file_name", stream.path);
     case Mode: return atom_arg(machine, "mode", mode_name(stream.mode));
+    case Input: return machine.heap.atom(machine.atoms.intern("input"));
+    case Output: return machine.heap.atom(machine.atoms.intern("output"));
     case Alias: return atom_arg(machine, "alias", stream.alias);
     case End: return atom_arg(machine, "end_of_stream", end_name(stream));
     case Eof: return atom_arg(machine, "eof_action", eof_name(stream.eof_action));
@@ -134,6 +141,12 @@ Cell prop_cell(Impl& machine, const Stream& stream, int prop) {
                                  machine.heap.integer(static_cast<std::int64_t>(stream.line_pos))};
   const Cell position = machine.heap.structure(machine.atoms.intern("stream_position"), args);
   return one_arg(machine, "position", position);
+}
+
+int atom_prop(std::string_view text) {
+  if (text == "input") return Input;
+  if (text == "output") return Output;
+  return -1;
 }
 
 int prop_kind(std::string_view name) {
@@ -186,6 +199,12 @@ bool value_ok(const Impl& machine, int prop, Cell arg) {
 bool reject_property(Impl& machine, const Goal& goal, Cell prop, int& kind) {
   if (machine.heap.unbound(prop)) {
     kind = -1;
+    return false;
+  }
+  // foo は項でもアトムでも domain_error。input と output だけアトムを許す。
+  if (prop.tag() == Tag::Atom) {
+    kind = atom_prop(atom_text(machine, prop));
+    if (kind < 0) return raise_domain(machine, goal, "stream_property", prop);
     return false;
   }
   if (prop.tag() != Tag::Str || machine.heap.functor_arity(prop) != 1) {

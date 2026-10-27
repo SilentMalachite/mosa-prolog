@@ -1,5 +1,6 @@
 test(all_std, stream_property(S, P), solutions([
   (S = '$stream'(0), P = mode(read)),
+  (S = '$stream'(0), P = input),
   (S = '$stream'(0), P = alias(user_input)),
   (S = '$stream'(0), P = end_of_stream(not)),
   (S = '$stream'(0), P = eof_action(eof_code)),
@@ -7,6 +8,7 @@ test(all_std, stream_property(S, P), solutions([
   (S = '$stream'(0), P = type(text)),
   (S = '$stream'(0), P = encoding(utf8)),
   (S = '$stream'(1), P = mode(write)),
+  (S = '$stream'(1), P = output),
   (S = '$stream'(1), P = alias(user_output)),
   (S = '$stream'(1), P = end_of_stream(not)),
   (S = '$stream'(1), P = eof_action(eof_code)),
@@ -14,6 +16,7 @@ test(all_std, stream_property(S, P), solutions([
   (S = '$stream'(1), P = type(text)),
   (S = '$stream'(1), P = encoding(utf8)),
   (S = '$stream'(2), P = mode(write)),
+  (S = '$stream'(2), P = output),
   (S = '$stream'(2), P = alias(user_error)),
   (S = '$stream'(2), P = end_of_stream(not)),
   (S = '$stream'(2), P = eof_action(eof_code)),
@@ -85,6 +88,10 @@ test(seek_line0, (open_string(a, S), set_stream_position(S, stream_position(0, 0
 test(seek_nowhere, (open_string(a, S), set_stream_position(S, stream_position(9, 1, 1))), error(domain_error(stream_position, stream_position(9, 1, 1)))).
 test(prop_mode, stream_property(user_input, mode(read)), true).
 test(prop_mode_wrong, stream_property(user_input, mode(write)), fail).
+test(prop_input, stream_property(user_input, input), true).
+test(prop_input_not_output, stream_property(user_input, output), fail).
+test(prop_output, stream_property(user_output, output), true).
+test(prop_output_not_input, stream_property(user_output, input), fail).
 test(prop_no_file, stream_property(user_input, file_name(_)), fail).
 test(prop_no_position, stream_property(user_input, position(_)), fail).
 test(prop_bad_stream, stream_property(1, mode(_)), error(domain_error(stream_or_alias, 1))).
