@@ -30,3 +30,20 @@ test(apply_maplist5, (use_apply, maplist(sum4, [1, 2], [10, 20], [100, 200], [11
 test(apply_maplist_partial, (use_apply, maplist(parent(taro), [jiro, hanako])), true).
 test(apply_maplist3_out, (use_apply, maplist(add1, [1, 2], Ys), Ys = [2, 3]), true).
 test(apply_maplist3_short, (use_apply, maplist(add1, [1, 2], [2])), fail).
+
+push(X, Acc, [X|Acc]).
+
+% foldl/4 は左から累積する。要素、前の値、次の値の順で呼び出し元を呼ぶ。
+test(apply_foldl4, (use_apply, foldl(push, [a, b, c], [], [c, b, a])), true).
+
+push2(X, Y, Acc, [[X, Y]|Acc]).
+
+% foldl/5 は二つのリストを左から組にして畳む。
+test(apply_foldl5, (use_apply, foldl(push2, [a, b], [1, 2], [], [[b, 2], [a, 1]])), true).
+
+push3(X, Y, Z, Acc, [[X, Y, Z]|Acc]).
+
+% foldl/6 は三つのリストを左から組にして畳む。
+test(apply_foldl6, (use_apply, foldl(push3, [a, b], [1, 2], [x, y], [], [[b, 2, y], [a, 1, x]])), true).
+test(apply_foldl4_empty, (use_apply, foldl(push, [], 0, 0)), true).
+test(apply_foldl5_short, (use_apply, foldl(push2, [a, b], [1], [], _)), fail).
