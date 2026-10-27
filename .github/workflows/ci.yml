@@ -15,11 +15,11 @@ jobs:
         run: cmake --build --preset macos-clang
       - name: Test
         run: ctest --preset macos-clang
+      - name: Conformance suite
+        run: ./build/mosatest --suite tests/conformance
       - name: Write conformance summary
-        if: always()
         shell: bash
-        run: |
-          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
 
   linux-gcc:
     runs-on: ubuntu-24.04
@@ -35,11 +35,11 @@ jobs:
         run: cmake --build --preset linux-gcc
       - name: Test
         run: ctest --preset linux-gcc
+      - name: Conformance suite
+        run: ./build/mosatest --suite tests/conformance
       - name: Write conformance summary
-        if: always()
         shell: bash
-        run: |
-          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
 
   linux-clang:
     runs-on: ubuntu-24.04
@@ -55,11 +55,11 @@ jobs:
         run: cmake --build --preset linux-clang
       - name: Test
         run: ctest --preset linux-clang
+      - name: Conformance suite
+        run: ./build/mosatest --suite tests/conformance
       - name: Write conformance summary
-        if: always()
         shell: bash
-        run: |
-          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
 
   windows:
     # windows-latest は 2026-06 以降 Visual Studio 2026 である。SPEC 第2節の MSVC 2022 と Visual Studio 17 2022 ジェネレータがある windows-2022 を使う。
@@ -72,8 +72,10 @@ jobs:
         run: cmake --build --preset windows-msvc
       - name: Test
         run: ctest --preset windows-msvc
-      - name: Write conformance summary
-        if: always()
+      # Visual Studio は構成名のディレクトリへ出す。Ninja の 3 ジョブは ./build/mosatest。
+      - name: Conformance suite
         shell: bash
-        run: |
-          echo 'conformance: n/a (phase 0)' >> "$GITHUB_STEP_SUMMARY"
+        run: build/Release/mosatest.exe --suite tests/conformance
+      - name: Write conformance summary
+        shell: bash
+        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"

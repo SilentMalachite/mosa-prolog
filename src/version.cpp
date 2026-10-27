@@ -5,6 +5,6 @@
 
 namespace mosa {
 std::string version_line() {
-  return "mosa 0.0.1 (phase 2)";
+  return "mosa 0.0.1 (phase 3)";
 }
 }
