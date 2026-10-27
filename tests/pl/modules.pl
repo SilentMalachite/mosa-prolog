@@ -12,3 +12,23 @@ consult_kin :- consult('../tests/pl/modules/kin.pl').
 test(mod_consult_seen, (consult_kin, current_module(kin)), true).
 % 直前の consult が kin を載せた。選択点の中で同じファイルを読み直すと、今の consult は失敗する。
 test(mod_consult_hides, \+ parent(a, b), true).
+
+consult_late :- consult('tests/pl/modules/late.pl').
+consult_late :- consult('../tests/pl/modules/late.pl').
+
+test(mod_not_first, consult_late, error(permission_error(modify, module, late))).
+test(mod_not_first_gone, (
+  catch(consult_late, error(permission_error(modify, module, late), _), true),
+  \+ current_module(late),
+  \+ current_predicate(plain/1)
+), true).
+
+consult_twice :- consult('tests/pl/modules/twice.pl').
+consult_twice :- consult('../tests/pl/modules/twice.pl').
+
+test(mod_second, consult_twice, error(permission_error(modify, module, again))).
+test(mod_second_gone, (
+  catch(consult_twice, error(permission_error(modify, module, again), _), true),
+  \+ current_module(twice),
+  \+ current_module(again)
+), true).

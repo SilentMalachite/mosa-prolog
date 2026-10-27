@@ -1,0 +1,2 @@
+:- module(twice, []).
+:- module(again, []).

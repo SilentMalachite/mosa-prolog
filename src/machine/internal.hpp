@@ -184,6 +184,12 @@ struct Machine::Impl {
   std::uint32_t calling = 0;
   // 今読んでいるファイルの節が属するモジュール。
   std::uint32_t load_home = 0;
+  // このファイルで読んだ項の数。module/2 は 1 のときだけ合法。
+  std::size_t load_terms = 0;
+  // 0 以外は、読み込みが permission_error(modify, module, このアトム) で落ちた。
+  std::uint32_t module_fault = 0;
+  // 入れ子の読み込みごとに、その読み込みが足したモジュール。失敗ではその段だけ消す。
+  std::vector<std::vector<std::uint32_t>> module_added;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
   std::vector<SharedPred> multifile;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
@@ -237,11 +243,25 @@ struct Machine::Impl {
 using Impl = Machine::Impl;
 
 // 読み込みのあいだだけ load_home を変える。抜けたら呼び出し元のモジュールへ戻す。
+void drop_load_modules(Impl& machine);
+
 struct LoadHome {
   Impl& machine;
-  std::uint32_t saved;
-  explicit LoadHome(Impl& machine) : machine(machine), saved(machine.load_home) {}
-  ~LoadHome() { machine.load_home = saved; }
+  std::uint32_t saved_home;
+  std::size_t saved_terms;
+  bool commit = false;
+  explicit LoadHome(Impl& machine)
+      : machine(machine), saved_home(machine.load_home), saved_terms(machine.load_terms) {
+    machine.load_terms = 0;
+    machine.module_added.emplace_back();
+  }
+  ~LoadHome() {
+    machine.load_home = saved_home;
+    machine.load_terms = saved_terms;
+    if (!commit) drop_load_modules(machine);
+    else if (!machine.module_added.empty()) machine.module_added.pop_back();
+  }
+  void keep() { commit = true; }
   LoadHome(const LoadHome&) = delete;
   LoadHome& operator=(const LoadHome&) = delete;
 };

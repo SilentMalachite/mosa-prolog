@@ -708,6 +708,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
     if (!outcome.term) return true;
     const Cell term = outcome.term->term;
+    ++machine.load_terms;
     if (is_rule_arrow(machine.heap, term)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +
                              write_term(machine.heap, machine.operators, term, {}, {}));
@@ -752,7 +753,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
                        std::string_view origin, std::vector<std::string>* shared_opening) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   const auto heap_base = machine.heap.size();
-  const LoadHome home_guard{machine};
+  LoadHome home_guard{machine};
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   machine.load_kept = false;
@@ -776,13 +777,16 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   LoadScan scan{snapshots, apart, inits, last, opening};
   if (!read_terms(machine, source, directory, origin, false, scan)) {
     if (machine.load_kept) {
+      home_guard.keep();
       machine.heap.truncate(heap_base);
       return LoadStatus{false, machine.diagnostic};
     }
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
                        saved_prepared);
   }
-  return finish_load(machine, heap_base, inits);
+  const LoadStatus done = finish_load(machine, heap_base, inits);
+  if (done.ok || machine.load_kept) home_guard.keep();
+  return done;
 }
 
 LoadStatus Machine::load_program(std::string_view source) { return load_source(*impl_, source); }

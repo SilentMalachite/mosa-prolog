@@ -207,6 +207,13 @@ bool run_consult(Impl& machine, const Goal& goal) {
   buffer << input.rdbuf();
   const LoadStatus status = load_consulted(machine, text, buffer.str());
   if (!status.ok) {
+    if (machine.module_fault != 0) {
+      const auto name = machine.module_fault;
+      machine.module_fault = 0;
+      const Cell culprit = machine.heap.atom(name);
+      raise_formal(machine, formal_permission(machine, "modify", "module", culprit), goal.name, goal.arity);
+      return true;
+    }
     prefix_consult_diagnostic(machine, text);
     machine.failed = true;
     return true;

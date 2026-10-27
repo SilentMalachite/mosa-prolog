@@ -510,6 +510,7 @@ Stop Machine::query(std::string_view goal_text) {
   }
   machine.halt_now = false;
   machine.calling = machine.user_mod;
+  machine.module_fault = 0;
   machine.stack.clear();
   // 前のクエリの選択点はもう無い。戻さずに捨てる。成功した op/3 は表に残す。
   machine.op_undos.clear();
