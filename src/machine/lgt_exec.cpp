@@ -17,7 +17,7 @@
 namespace mosa {
 namespace {
 
-enum class NodeKind { Plain, Conj, Disj, Assert, Variant, Subsumes, Approx, Forall, Super };
+enum class NodeKind { Plain, Conj, Disj, If, Assert, Variant, Subsumes, Approx, Forall, Super };
 
 struct Node {
   NodeKind kind = NodeKind::Plain;
@@ -256,11 +256,19 @@ bool one_activation(const Heap& heap, Cell cell) {
   return mix_of(heap, cell, seen) == GoalMix::Update;
 }
 
+// ランナー目標が無い -> は -1。機械の if-then に残し、条件のカットを移さない。
+int build_runner_if(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell,
+                    const std::vector<VarName>& names);
+
 int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
   cell = heap.deref(cell);
   if (cell.tag() == Tag::Str) {
     const auto name = heap.atoms().name(heap.functor_atom(cell));
     const auto arity = heap.functor_arity(cell);
+    if (name == "->" && arity == 2) {
+      const int arrow = build_runner_if(prog, heap, ops, cell, names);
+      if (arrow >= 0) return arrow;
+    }
     if ((name == "," || name == ";") && arity == 2 && one_activation(heap, cell)) {
       Node plain;
       plain.text = write_term(heap, ops, cell, {}, names);
@@ -303,6 +311,18 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
   Node plain;
   plain.text = write_term(heap, ops, cell, {}, names);
   return add_node(prog, std::move(plain));
+}
+
+int build_runner_if(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell,
+                    const std::vector<VarName>& names) {
+  std::vector<std::uint64_t> seen;
+  // 子にランナー目標が無い。条件のカットは機械の if-then に残す。
+  if (mix_of(heap, cell, seen) != GoalMix::Runner) return -1;
+  Node node;
+  node.kind = NodeKind::If;
+  node.left = build_node(prog, heap, ops, heap.arg(cell, 0), names);
+  node.right = build_node(prog, heap, ops, heap.arg(cell, 1), names);
+  return add_node(prog, std::move(node));
 }
 
 void exec_at(Machine& machine, const Prog& prog, int index, Env& env);
@@ -402,6 +422,15 @@ void exec_disj(Machine& machine, const Prog& prog, int index, Env& env) {
     return;
   }
   env.tri = Tri::No;
+}
+
+void exec_if(Machine& machine, const Prog& prog, int index, Env& env) {
+  const Node& node = prog.nodes[static_cast<std::size_t>(index)];
+  exec_at(machine, prog, node.left, env);
+  if (env.tri != Tri::Ok) return;
+  // 選択点を残すと then の失敗で親が条件をやり直す。成功した解だけで then を実行する。
+  env.live = false;
+  exec_at(machine, prog, node.right, env);
 }
 
 void retry_right(Machine& machine, const Prog& prog, int right, Env& env) {
@@ -524,6 +553,7 @@ void exec_at(Machine& machine, const Prog& prog, int index, Env& env) {
     case NodeKind::Plain: exec_plain(machine, prog.nodes[static_cast<std::size_t>(index)], env); return;
     case NodeKind::Conj: exec_conj(machine, prog, index, env); return;
     case NodeKind::Disj: exec_disj(machine, prog, index, env); return;
+    case NodeKind::If: exec_if(machine, prog, index, env); return;
     case NodeKind::Assert: exec_assert(machine, prog, index, env); return;
     case NodeKind::Forall: exec_forall(machine, prog, index, env); return;
     case NodeKind::Super: exec_super(machine, prog.nodes[static_cast<std::size_t>(index)], env); return;
