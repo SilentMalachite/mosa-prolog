@@ -253,9 +253,15 @@ GoalMix mix_of(const Heap& heap, Cell cell, std::vector<std::uint64_t>& seen) {
 
 // 7.5.4 は、その呼出しが始まったときの節列だけを候補にする。
 // 更新を別の機械へ分けると、開いている走査は追加も削除も見ない。
+// 平たい連言を分けると、後の束縛を字面で読み戻して前の項の変数が別セルになる。
 bool one_activation(const Heap& heap, Cell cell) {
   std::vector<std::uint64_t> seen;
-  return mix_of(heap, cell, seen) == GoalMix::Update;
+  const GoalMix mix = mix_of(heap, cell, seen);
+  if (mix == GoalMix::Update) return true;
+  if (mix != GoalMix::Plain) return false;
+  cell = heap.deref(cell);
+  return cell.tag() == Tag::Str && heap.functor_arity(cell) == 2 &&
+         heap.atoms().name(heap.functor_atom(cell)) == ",";
 }
 
 // ランナー目標が無い -> は -1。機械の if-then に残し、条件のカットを移さない。
