@@ -1,3 +1,3 @@
-The standard library written in Prolog (lists.pl, apply.pl, and so on). Built in phase 4, so it is empty for now.
+The standard library written in Prolog. `lists.pl` is copied beside the executable as `lib/lists.pl`.
 
-Prolog で書いた標準ライブラリ（lists.pl、apply.pl など）を置く。フェーズ4で作るので、今は空。
+Prolog で書いた標準ライブラリ。`lists.pl` は実行ファイルの隣の `lib/lists.pl` へコピーする。

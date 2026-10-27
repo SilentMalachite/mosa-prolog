@@ -25,7 +25,10 @@ std::uint64_t push_extra(Impl& machine, Extra extra) {
 bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
-    if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
+    if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen ||
+        entry.pick == Pick::LengthGen) {
+      return true;
+    }
     if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen ||
          entry.pick == Pick::StreamGen) &&
         entry.next < entry.candidates.size()) {
@@ -67,6 +70,13 @@ void step_control(Impl& machine) {
     if (frame < machine.stack.size() && machine.stack[frame].pick == Pick::Catch) {
       machine.stack[frame].armed = false;
     }
+    machine.ip = extra.cont;
+    return;
+  }
+  if (extra.ctrl == Ctrl::RestoreMod) {
+    machine.calling = extra.caller;
+    // 節の選択点が残っているときは、失敗したやり直しが呼び出し元を戻す。
+    if (!machine.stack.empty() && machine.stack.back().pick == Pick::CallMod) machine.stack.pop_back();
     machine.ip = extra.cont;
     return;
   }
@@ -139,6 +149,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"number", 1},
     {"callable", 1},
     {"is_list", 1},
+    {"length", 2},
     {"unify_with_occurs_check", 2},
     {"@<", 2},
     {"@=<", 2},
@@ -258,6 +269,14 @@ bool run_suite_super(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+std::uint64_t restore_calling(Impl& machine, std::uint32_t caller, std::uint64_t cont) {
+  Extra extra;
+  extra.ctrl = Ctrl::RestoreMod;
+  extra.cont = cont;
+  extra.caller = caller;
+  return push_extra(machine, std::move(extra));
+}
 
 bool body_callable(const IrTerm& term) {
   switch (term.tag) {
@@ -454,7 +473,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) ||
-      run_modules(machine, goal) || run_use_module(machine, goal)) {
+      run_modules(machine, goal) || run_use_module(machine, goal) || run_length(machine, goal)) {
     return true;
   }
   return false;

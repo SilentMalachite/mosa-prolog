@@ -96,3 +96,13 @@ use_shelf :- use_module(library(phase4_shelf)).
 test(mod_library, (use_shelf, shelf_mark(1)), true).
 % 無いライブラリは、無いファイルを consult したときと同じくゴールが失敗する。
 test(mod_library_missing, use_module(library(phase4_no_such_lib)), fail).
+
+use_lists :- use_module(library(lists)).
+
+% library(lists) を取り込むと member/2 が成功する。
+test(mod_lists_member, (use_lists, member(花子, [次郎, 花子])), true).
+
+use_lists_length :- use_module(library(lists), [length/2]).
+
+% length/2 は system にある。library(lists) が再公開するので、名前を指定して取り込める。
+test(mod_lists_length, (use_lists_length, current_predicate(length/2), length([a, b], 2)), true).

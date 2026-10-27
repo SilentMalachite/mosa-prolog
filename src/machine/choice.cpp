@@ -110,7 +110,21 @@ bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right) {
   return ok;
 }
 
-void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut) {
+// 定義モジュールと呼び出し元が違うときだけ枠を置く。同じなら今まで通り選択点を増やさない。
+void guard_return(Impl& machine, std::uint32_t home, std::uint32_t caller) {
+  if (home == caller) return;
+  Entry guard;
+  guard.pick = Pick::CallMod;
+  guard.return_mod = caller;
+  guard.heap_mark = machine.heap.size();
+  guard.trail_mark = machine.trail.slots.size();
+  push_frame(machine, std::move(guard));
+}
+
+void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut,
+                  std::uint32_t home, std::uint32_t caller) {
+  // 本体の述語は定義したモジュールで探す。user の節は呼び出し元が同じなので何もしない。
+  if (machine.calling != home) machine.calling = home;
   std::vector<Cell> env;
   env.reserve(clause.vars);
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
@@ -124,7 +138,8 @@ void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::
       }
     }
   }
-  const auto cont = machine.heap.word_at(goal + 3);
+  auto cont = machine.heap.word_at(goal + 3);
+  if (caller != home) cont = restore_calling(machine, caller, cont);
   launch(machine, clause.body, cont, cut, env);
 }
 
@@ -172,6 +187,8 @@ void enter_user(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return;
   }
+  const auto caller = machine.calling;
+  guard_return(machine, predicate->home, caller);
   const auto boundary = machine.stack.size();
   if (candidates.size() > 1) {
     Entry entry;
@@ -183,12 +200,13 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.pred_name = predicate->name;
     entry.pred_arity = goal.arity;
     entry.pred_home = predicate->home;
+    entry.return_mod = caller;
     entry.cut = boundary;
     entry.heap_mark = machine.heap.size();
     entry.trail_mark = machine.trail.slots.size();
     push_frame(machine, std::move(entry));
   }
-  enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary);
+  enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary, predicate->home, caller);
 }
 
 bool redo_clause(Impl& machine) {
@@ -211,7 +229,7 @@ bool redo_clause(Impl& machine) {
   }
   if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
   else machine.stack.back().next += 1;
-  enter_clause(machine, predicate->clauses[index], goal, cut);
+  enter_clause(machine, predicate->clauses[index], goal, cut, predicate->home, top.return_mod);
   return true;
 }
 
@@ -260,6 +278,12 @@ bool backtrack(Impl& machine) {
       machine.stack.pop_back();
       continue;
     }
+    // 節が失敗したときは、成功の戻りが走らない。ここで呼び出し元へ戻す。
+    if (top.pick == Pick::CallMod) {
+      machine.calling = top.return_mod;
+      machine.stack.pop_back();
+      continue;
+    }
     if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
     if (top.pick == Pick::Retract && redo_retract(machine)) return true;
     // Clauses は節の本体を実行する。参照と列挙は項を返すだけで、本体は走らせない。
@@ -271,9 +295,11 @@ bool backtrack(Impl& machine) {
     // アトムの候補は節ではない。やり直しを節の添字に載せると、別の述語を引いてしまう。
     if (top.pick == Pick::AtomGen && redo_atoms(machine)) return true;
     if (top.pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
+    if (top.pick == Pick::LengthGen && redo_length(machine)) return true;
     if (top.pick != Pick::Clauses && top.pick != Pick::Retract && top.pick != Pick::ClauseScan &&
         top.pick != Pick::PredGen && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
-        top.pick != Pick::Repeat && top.pick != Pick::AtomGen && top.pick != Pick::StreamGen) {
+        top.pick != Pick::Repeat && top.pick != Pick::AtomGen && top.pick != Pick::StreamGen &&
+        top.pick != Pick::LengthGen && top.pick != Pick::CallMod) {
       machine.stack.pop_back();
     }
   }

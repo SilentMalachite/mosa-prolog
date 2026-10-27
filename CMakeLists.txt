@@ -65,6 +65,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/arith.cpp
   src/builtins/arith_float.cpp
   src/builtins/atoms.cpp
+  src/builtins/length.cpp
   src/builtins/atoms_number.cpp
   src/builtins/flags.cpp
   src/builtins/database.cpp
@@ -93,6 +94,19 @@ foreach(mosa_tool mosa mosatest)
             "$<TARGET_FILE_DIR:${mosa_tool}>/lib/phase4_shelf.pl"
     VERBATIM)
 endforeach()
+
+# lists.pl はリンクし直さなくても変わる。ビルドのたびに実行ファイルの隣へコピーする。
+add_custom_target(mosa_lists ALL
+  COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:mosa>/lib"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/lib/lists.pl"
+          "$<TARGET_FILE_DIR:mosa>/lib/lists.pl"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:mosatest>/lib"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/lib/lists.pl"
+          "$<TARGET_FILE_DIR:mosatest>/lib/lists.pl"
+  VERBATIM)
+add_dependencies(mosa_lists mosa mosatest)
 
 enable_testing()
 

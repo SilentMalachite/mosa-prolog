@@ -76,7 +76,11 @@ enum class Pick {
   ClauseScan,
   PredGen,
   // ストリームの性質は節ではない。やり直しを節の添字に載せない。
-  StreamGen
+  StreamGen,
+  // length/2 の列挙は無限なので、有限な候補リストには載せない。
+  LengthGen,
+  // 他モジュールの節から戻るとき、呼び出しモジュールを戻す。解は出さない。
+  CallMod
 };
 
 struct Entry {
@@ -89,6 +93,8 @@ struct Entry {
   std::uint32_t pred_name = 0;
   std::uint16_t pred_arity = 0;
   std::uint32_t pred_home = 0;
+  // 節に入る前の呼び出しモジュール。本体が終わったらここへ戻す。
+  std::uint32_t return_mod = 0;
   std::size_t cut = 0;
   IrTerm else_goal;
   std::vector<Cell> env;
@@ -108,7 +114,7 @@ struct Entry {
   std::uint8_t gen_kind = 0;
 };
 
-enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit };
+enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, RestoreMod };
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
@@ -119,6 +125,7 @@ struct Extra {
   std::size_t cut = 0;
   std::size_t trim_to = 0;
   int soft_id = 0;
+  std::uint32_t caller = 0;
 };
 
 struct ExportedTerm {
@@ -402,6 +409,10 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool one_char_atom(const Impl& machine, Cell cell, char32_t& code);
 [[nodiscard]] bool scalar_code(std::int64_t code);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_length(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_length(Impl& machine);
+// 節の成功のあと、呼び出しモジュールを caller に戻して cont へ進む。
+[[nodiscard]] std::uint64_t restore_calling(Impl& machine, std::uint32_t caller, std::uint64_t cont);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
