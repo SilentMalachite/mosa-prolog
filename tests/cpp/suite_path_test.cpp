@@ -4,6 +4,7 @@
 #include "harness.hpp"
 #include "mosa/suite.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
