@@ -1,1 +1,1 @@
-実行ループ、選択点、catch/throw、IR 定義を置く。
+実行ループ、選択点、カット、catch/throw、IR 定義を置く。節コンパイラ（`compile.cpp`）と第 1 引数インデクシング（`index.cpp`）、`consult/1` とロード（`consult.cpp`、`load*.cpp`）、REPL と `mosa` の引数処理（`session.cpp`）もここにある。`suite.cpp` は `tests/pl/` の自前テスト、`iso_suite.cpp` と `lgt_*.cpp` は Logtalk 準拠スイートを動かす `mosatest` の本体である。

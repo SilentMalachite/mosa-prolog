@@ -1,1 +1,1 @@
-節コンパイラを置く。IR の生成とインデクシングを担当する。
+節コンパイラを置く予定の場所。今は空で、節コンパイラとインデクシングは `src/machine/compile.cpp` と `src/machine/index.cpp` にある。
