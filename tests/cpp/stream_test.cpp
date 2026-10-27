@@ -37,6 +37,15 @@ std::string prolog_atom(std::string_view text) {
   return out;
 }
 
+// string() は Windows で \ を含む。引用原子の \a はエスケープなので、UTF-8 の / にする。
+std::string path_atom(const std::filesystem::path& path) {
+  const std::u8string text = path.generic_u8string();
+  std::string bytes;
+  bytes.reserve(text.size());
+  for (char8_t unit : text) bytes.push_back(static_cast<char>(unit));
+  return prolog_atom(bytes);
+}
+
 void write_bytes(const std::filesystem::path& path, std::string_view bytes) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output << bytes;
@@ -52,7 +61,7 @@ void check_memory_index() {
 
 void check_file_modes(const std::filesystem::path& path) {
   write_bytes(path, "abc");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto reading = mosa::Machine::create();
   auto read = reading->query("open(" + atom + ", read, S).");
   mosa_test::check(read.kind == mosa::StopKind::Success, "read opens");
@@ -74,7 +83,7 @@ void check_file_modes(const std::filesystem::path& path) {
 void check_japanese_path(const std::filesystem::path& path) {
   write_bytes(path, "\xE3\x81\x82");
   auto machine = mosa::Machine::create();
-  auto stop = machine->query("open(" + prolog_atom(path.string()) + ", read, S).");
+  auto stop = machine->query("open(" + path_atom(path) + ", read, S).");
   mosa_test::check(stop.kind == mosa::StopKind::Success, "japanese path");
   mosa_test::check(binding_named(*machine, stop, "S") == "'$stream'(3)", "japanese index");
 }
@@ -87,7 +96,7 @@ std::string formal_text(mosa::Machine& machine, const mosa::Stop& stop) {
 void check_alias_blocks_real_file(const std::filesystem::path& path) {
   write_bytes(path, "a");
   auto machine = mosa::Machine::create();
-  auto stop = machine->query("open(" + prolog_atom(path.string()) + ", read, S, [alias(user_output)]).");
+  auto stop = machine->query("open(" + path_atom(path) + ", read, S, [alias(user_output)]).");
   mosa_test::check(stop.kind == mosa::StopKind::Exception, "alias is taken");
   mosa_test::check(file_bytes(path) == "a", "alias error keeps bytes");
 }
@@ -96,7 +105,7 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
                        const std::filesystem::path& binary_path, const std::filesystem::path& bad_path) {
   write_bytes(reset_path, "ab");
   auto resetting = mosa::Machine::create();
-  const std::string reset_atom = prolog_atom(reset_path.string());
+  const std::string reset_atom = path_atom(reset_path);
   mosa_test::check(resetting->query("open(" + reset_atom + ", read, S, [eof_action(reset)]).").kind ==
                        mosa::StopKind::Success,
                    "reset open");
@@ -111,7 +120,7 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
 
   write_bytes(error_path, "");
   auto erroring = mosa::Machine::create();
-  const std::string error_atom = prolog_atom(error_path.string());
+  const std::string error_atom = path_atom(error_path);
   mosa_test::check(erroring->query("open(" + error_atom + ", read, S, [eof_action(error)]).").kind ==
                        mosa::StopKind::Success,
                    "error open");
@@ -124,7 +133,7 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
 
   write_bytes(binary_path, "a");
   auto binary = mosa::Machine::create();
-  const std::string binary_atom = prolog_atom(binary_path.string());
+  const std::string binary_atom = path_atom(binary_path);
   mosa_test::check(binary->query("open(" + binary_atom + ", read, S, [type(binary)]).").kind == mosa::StopKind::Success,
                    "binary open");
   auto denied = binary->query("get_char('$stream'(3), C).");
@@ -134,7 +143,7 @@ void check_eof_actions(const std::filesystem::path& reset_path, const std::files
 
   write_bytes(bad_path, "\xFF");
   auto broken = mosa::Machine::create();
-  const std::string bad_atom = prolog_atom(bad_path.string());
+  const std::string bad_atom = path_atom(bad_path);
   mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "bad open");
   auto utf = broken->query("get_char('$stream'(3), C).");
   mosa_test::check(utf.kind == mosa::StopKind::Exception, "bad utf throws");
@@ -145,7 +154,7 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
                     const std::filesystem::path& eof_path) {
   write_bytes(binary_path, "a");
   auto binary = mosa::Machine::create();
-  const std::string binary_atom = prolog_atom(binary_path.string());
+  const std::string binary_atom = path_atom(binary_path);
   mosa_test::check(binary->query("open(" + binary_atom + ", read, S, [type(binary)]).").kind ==
                        mosa::StopKind::Success,
                    "code binary open");
@@ -158,7 +167,7 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
 
   write_bytes(bad_path, "\xFF");
   auto broken = mosa::Machine::create();
-  const std::string bad_atom = prolog_atom(bad_path.string());
+  const std::string bad_atom = path_atom(bad_path);
   mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "code bad open");
   auto utf = broken->query("get_code('$stream'(3), C).");
   mosa_test::check(utf.kind == mosa::StopKind::Exception, "code bad utf throws");
@@ -168,7 +177,7 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
 
   write_bytes(eof_path, "");
   auto ending = mosa::Machine::create();
-  const std::string eof_atom = prolog_atom(eof_path.string());
+  const std::string eof_atom = path_atom(eof_path);
   mosa_test::check(ending->query("open(" + eof_atom + ", read, S, [eof_action(error)]).").kind ==
                        mosa::StopKind::Success,
                    "code eof open");
@@ -189,7 +198,7 @@ void check_put_code(const std::filesystem::path& path) {
   mosa_test::check(caught.str() == "a\n\n", "put_code stdout bytes");
 
   write_bytes(path, "xyz");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   std::ostringstream quiet;
   auto* old_quiet = std::cout.rdbuf(quiet.rdbuf());
   auto file_machine = mosa::Machine::create();
@@ -249,7 +258,7 @@ void check_put_char(const std::filesystem::path& path) {
   std::ostringstream quiet;
   auto* old_quiet = std::cout.rdbuf(quiet.rdbuf());
   auto file_machine = mosa::Machine::create();
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto opened = file_machine->query("open(" + atom + ", write, S), put_char(S, a).");
   std::cout.rdbuf(old_quiet);
   mosa_test::check(opened.kind == mosa::StopKind::Success, "put file");
@@ -259,7 +268,7 @@ void check_put_char(const std::filesystem::path& path) {
 
 void check_get_bytes(const std::filesystem::path& path, const std::filesystem::path& empty_path) {
   write_bytes(path, "ab");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto machine = mosa::Machine::create();
   auto read = machine->query("open(" + atom + ", read, S, [type(binary)]), get_byte(S, A), get_byte(S, B).");
   mosa_test::check(read.kind == mosa::StopKind::Success, "get bytes");
@@ -283,7 +292,7 @@ void check_get_bytes(const std::filesystem::path& path, const std::filesystem::p
   mosa_test::check(binding_named(*text, still, "C") == "a", "text byte leaves char");
 
   write_bytes(empty_path, "");
-  const std::string empty_atom = prolog_atom(empty_path.string());
+  const std::string empty_atom = path_atom(empty_path);
   auto ending = mosa::Machine::create();
   mosa_test::check(ending->query("open(" + empty_atom + ", read, S, [type(binary), eof_action(error)]).").kind ==
                        mosa::StopKind::Success,
@@ -298,7 +307,7 @@ void check_get_bytes(const std::filesystem::path& path, const std::filesystem::p
 
 void check_peek_byte(const std::filesystem::path& path, const std::filesystem::path& empty_path) {
   write_bytes(path, "ab");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto machine = mosa::Machine::create();
   auto peeked = machine->query(
       "open(" + atom + ", read, S, [type(binary)]), peek_byte(S, A), peek_byte(S, B), get_byte(S, C).");
@@ -324,7 +333,7 @@ void check_peek_byte(const std::filesystem::path& path, const std::filesystem::p
   mosa_test::check(binding_named(*current, once, "B") == "97", "peek current byte");
 
   write_bytes(empty_path, "");
-  const std::string empty_atom = prolog_atom(empty_path.string());
+  const std::string empty_atom = path_atom(empty_path);
   auto ending = mosa::Machine::create();
   auto at = ending->query("open(" + empty_atom +
                            ", read, S, [type(binary)]), peek_byte(S, -1), stream_property(S, end_of_stream(at)).");
@@ -334,7 +343,7 @@ void check_peek_byte(const std::filesystem::path& path, const std::filesystem::p
 
   write_bytes(path, "");
   auto erroring = mosa::Machine::create();
-  const std::string error_atom = prolog_atom(path.string());
+  const std::string error_atom = path_atom(path);
   mosa_test::check(erroring->query("open(" + error_atom + ", read, S, [type(binary), eof_action(error)]).").kind ==
                        mosa::StopKind::Success,
                    "peek error open");
@@ -349,7 +358,7 @@ void check_peek_byte(const std::filesystem::path& path, const std::filesystem::p
 
 void check_put_bytes(const std::filesystem::path& path, const std::filesystem::path& reset_path) {
   write_bytes(path, "xyz");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   std::ostringstream quiet;
   auto* old = std::cout.rdbuf(quiet.rdbuf());
   auto machine = mosa::Machine::create();
@@ -363,7 +372,7 @@ void check_put_bytes(const std::filesystem::path& path, const std::filesystem::p
   mosa_test::check(formal_text(*machine, bad) == "type_error(byte,256)", "byte range formal");
 
   write_bytes(reset_path, "ab");
-  const std::string reset_atom = prolog_atom(reset_path.string());
+  const std::string reset_atom = path_atom(reset_path);
   auto resetting = mosa::Machine::create();
   auto goal = "open(" + reset_atom + ", read, S, [type(binary), eof_action(reset)]), get_byte(S, A), get_byte(S, B), get_byte(S, E), get_byte(S, C).";
   auto again = resetting->query(goal);
@@ -375,20 +384,20 @@ void check_put_bytes(const std::filesystem::path& path, const std::filesystem::p
 
 void check_flush_writes(const std::filesystem::path& text_path, const std::filesystem::path& append_path,
                         const std::filesystem::path& byte_path) {
-  const std::string text = prolog_atom(text_path.string());
+  const std::string text = path_atom(text_path);
   auto machine = mosa::Machine::create();
   auto flushed = machine->query("open(" + text + ", write, S), put_char(S, a), put_char(S, '\\n'), flush_output(S).");
   mosa_test::check(flushed.kind == mosa::StopKind::Success, "flush text");
   mosa_test::check(file_bytes(text_path) == "a\n", "flush text bytes");
 
   write_bytes(append_path, "ab");
-  const std::string append = prolog_atom(append_path.string());
+  const std::string append = path_atom(append_path);
   auto appending = mosa::Machine::create();
   auto added = appending->query("open(" + append + ", append, S), put_char(S, c), flush_output(S).");
   mosa_test::check(added.kind == mosa::StopKind::Success, "flush append");
   mosa_test::check(file_bytes(append_path) == "abc", "flush append bytes");
 
-  const std::string binary = prolog_atom(byte_path.string());
+  const std::string binary = path_atom(byte_path);
   auto closing = mosa::Machine::create();
   auto closed = closing->query("open(" + binary + ", write, S, [type(binary)]), put_byte(S, 65), close(S).");
   mosa_test::check(closed.kind == mosa::StopKind::Success, "close writes");
@@ -399,7 +408,7 @@ void check_flush_writes(const std::filesystem::path& text_path, const std::files
 }
 
 void check_alias_reopen(const std::filesystem::path& path) {
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto machine = mosa::Machine::create();
   auto first = machine->query("open(" + atom + ", write, S, [alias(mine)]), put_char(S, a), close(mine).");
   mosa_test::check(first.kind == mosa::StopKind::Success, "close alias");
@@ -414,7 +423,7 @@ void check_alias_reopen(const std::filesystem::path& path) {
 
 void check_stream_property(const std::filesystem::path& path) {
   write_bytes(path, "ab");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto named = mosa::Machine::create();
   auto found = named->query("open(" + atom + ", read, S), stream_property(S, file_name(" + atom + ")).");
   mosa_test::check(found.kind == mosa::StopKind::Success, "file_name");
@@ -434,7 +443,7 @@ void check_stream_property(const std::filesystem::path& path) {
 
 void check_set_output(const std::filesystem::path& path) {
   write_bytes(path, "xyz");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   std::ostringstream quiet;
   auto* old = std::cout.rdbuf(quiet.rdbuf());
   auto machine = mosa::Machine::create();
@@ -459,7 +468,7 @@ void check_set_output(const std::filesystem::path& path) {
 
 void check_at_end(const std::filesystem::path& path) {
   write_bytes(path, "");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto empty = mosa::Machine::create();
   auto at = empty->query("open(" + atom + ", read, S, [type(binary)]), at_end_of_stream(S).");
   mosa_test::check(at.kind == mosa::StopKind::Success, "binary empty is at");
@@ -480,7 +489,7 @@ void check_at_end(const std::filesystem::path& path) {
 
 void check_set_position(const std::filesystem::path& path) {
   write_bytes(path, "ab");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto binary = mosa::Machine::create();
   auto back = binary->query("open(" + atom +
                              ", read, S, [type(binary)]), get_byte(S, 97), "
@@ -511,7 +520,7 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
                      const std::filesystem::path& binary_path, const std::filesystem::path& bad_path) {
   write_bytes(eof_path, "");
   auto ending = mosa::Machine::create();
-  const std::string eof_atom = prolog_atom(eof_path.string());
+  const std::string eof_atom = path_atom(eof_path);
   mosa_test::check(ending->query("open(" + eof_atom + ", read, S, [eof_action(error)]).").kind ==
                        mosa::StopKind::Success,
                    "read eof open");
@@ -523,7 +532,7 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
 
   write_bytes(reset_path, "a.");
   auto resetting = mosa::Machine::create();
-  const std::string reset_atom = prolog_atom(reset_path.string());
+  const std::string reset_atom = path_atom(reset_path);
   auto again = resetting->query("open(" + reset_atom + ", read, S, [eof_action(reset)]), read(S, A), read(S, B), read(S, C).");
   mosa_test::check(again.kind == mosa::StopKind::Success, "read reset");
   mosa_test::check(binding_named(*resetting, again, "A") == "a", "read reset term");
@@ -532,7 +541,7 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
 
   write_bytes(binary_path, "a");
   auto binary = mosa::Machine::create();
-  const std::string binary_atom = prolog_atom(binary_path.string());
+  const std::string binary_atom = path_atom(binary_path);
   mosa_test::check(binary->query("open(" + binary_atom + ", read, S, [type(binary)]).").kind ==
                        mosa::StopKind::Success,
                    "read binary open");
@@ -543,7 +552,7 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
 
   write_bytes(bad_path, "\xFF");
   auto broken = mosa::Machine::create();
-  const std::string bad_atom = prolog_atom(bad_path.string());
+  const std::string bad_atom = path_atom(bad_path);
   mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "read utf open");
   auto utf = broken->query("read('$stream'(3), T).");
   mosa_test::check(formal_text(*broken, utf) == "representation_error(character)", "read utf formal");
@@ -554,14 +563,14 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
 void check_write_stream(const std::filesystem::path& text_path, const std::filesystem::path& binary_path) {
   write_bytes(text_path, "z");
   auto text = mosa::Machine::create();
-  const std::string text_atom = prolog_atom(text_path.string());
+  const std::string text_atom = path_atom(text_path);
   auto wrote = text->query("open(" + text_atom + ", write, S), write(S, 東), flush_output(S).");
   mosa_test::check(wrote.kind == mosa::StopKind::Success, "write file");
   mosa_test::check(file_bytes(text_path) == "\xE6\x9D\xB1", "write file bytes");
 
   write_bytes(binary_path, "a");
   auto binary = mosa::Machine::create();
-  const std::string binary_atom = prolog_atom(binary_path.string());
+  const std::string binary_atom = path_atom(binary_path);
   mosa_test::check(binary->query("open(" + binary_atom + ", write, S, [type(binary)]).").kind == mosa::StopKind::Success,
                    "write binary open");
   auto denied = binary->query("write('$stream'(3), a).");
@@ -582,7 +591,7 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
                         const std::filesystem::path& read_path, const std::filesystem::path& error_path) {
   write_bytes(path, "\xFF");
   auto machine = mosa::Machine::create();
-  mosa_test::check(machine->query("open(" + prolog_atom(path.string()) + ", read, _).").kind == mosa::StopKind::Success,
+  mosa_test::check(machine->query("open(" + path_atom(path) + ", read, _).").kind == mosa::StopKind::Success,
                    "utf flag open");
   auto utf = machine->query("get_char('$stream'(3), C).");
   mosa_test::check(formal_text(*machine, utf) == "representation_error(character)", "utf flag default");
@@ -599,7 +608,7 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
   mosa_test::check(binding_named(*machine, got, "Code") == "65533" && binding_named(*machine, got, "N") == "1",
                    "utf flag replaces");
   write_bytes(peek_path, "\xFF");
-  mosa_test::check(machine->query("open(" + prolog_atom(peek_path.string()) + ", read, _).").kind ==
+  mosa_test::check(machine->query("open(" + path_atom(peek_path) + ", read, _).").kind ==
                        mosa::StopKind::Success,
                    "utf peek open");
   auto peeked = machine->query("peek_char('$stream'(4), C), char_code(C, Code), "
@@ -611,7 +620,7 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
   mosa_test::check(binding_named(*machine, after, "Code") == "65533" && binding_named(*machine, after, "N") == "1",
                    "utf peek then get");
   write_bytes(read_path, "\xFF");
-  mosa_test::check(machine->query("open(" + prolog_atom(read_path.string()) + ", read, _).").kind ==
+  mosa_test::check(machine->query("open(" + path_atom(read_path) + ", read, _).").kind ==
                        mosa::StopKind::Success,
                    "utf read open");
   auto read = machine->query("read_term('$stream'(5), _, []).");
@@ -621,7 +630,7 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
   auto read_at = machine->query("stream_property('$stream'(5), position(stream_position(N, _, _))).");
   mosa_test::check(binding_named(*machine, read_at, "N") == "1", "utf read char count");
   write_bytes(error_path, "\xFF");
-  mosa_test::check(machine->query("open(" + prolog_atom(error_path.string()) + ", read, _).").kind ==
+  mosa_test::check(machine->query("open(" + path_atom(error_path) + ", read, _).").kind ==
                        mosa::StopKind::Success,
                    "utf error open");
   mosa_test::check(machine->query("set_prolog_flag(invalid_utf8, error).").kind == mosa::StopKind::Success,
@@ -647,7 +656,7 @@ void check_close_standard() {
 
 void check_flush_failure(const std::filesystem::path& path) {
   write_bytes(path, "z");
-  const std::string atom = prolog_atom(path.string());
+  const std::string atom = path_atom(path);
   auto machine = mosa::Machine::create();
   auto opened = machine->query("open(" + atom + ", write, S), put_char(S, a).");
   mosa_test::check(opened.kind == mosa::StopKind::Success, "open before block");
