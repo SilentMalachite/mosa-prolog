@@ -32,3 +32,13 @@ test(mod_second_gone, (
   \+ current_module(twice),
   \+ current_module(again)
 ), true).
+
+consult_kin_again :- consult('tests/pl/modules/kin_again.pl').
+consult_kin_again :- consult('../tests/pl/modules/kin_again.pl').
+
+test(mod_other_file, consult_kin_again, error(permission_error(modify, module, kin))).
+test(mod_other_file_kept, (
+  catch(consult_kin_again, error(permission_error(modify, module, kin), _), true),
+  current_module(kin),
+  \+ current_predicate(intruder/1)
+), true).

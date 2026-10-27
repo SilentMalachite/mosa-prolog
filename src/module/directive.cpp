@@ -24,10 +24,12 @@ bool module_name(Impl& machine, Cell directive, std::uint32_t& name) {
   return true;
 }
 
+bool module_known(const Impl& machine, std::uint32_t name) {
+  return std::find(machine.modules.begin(), machine.modules.end(), name) != machine.modules.end();
+}
+
 void remember_module(Impl& machine, std::uint32_t name) {
-  for (const std::uint32_t existing : machine.modules) {
-    if (existing == name) return;
-  }
+  if (module_known(machine, name)) return;
   machine.modules.push_back(name);
   if (!machine.module_added.empty()) machine.module_added.back().push_back(name);
 }
@@ -55,8 +57,9 @@ void reject_module(Impl& machine, std::uint32_t name) {
 int apply_module_directive(Impl& machine, Cell term) {
   std::uint32_t name = 0;
   if (!module_name(machine, term, name)) return 0;
-  // 第5節は、module/2 をファイルの最初の項に限る。
-  if (machine.load_terms != 1) {
+  // 第5節は1ファイル1モジュール。最初の項でない名前も、既にある名前も残さない。
+  // 同じファイルの読み直しは、まだこの検査と分けていない。
+  if (machine.load_terms != 1 || module_known(machine, name)) {
     reject_module(machine, name);
     return -1;
   }
