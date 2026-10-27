@@ -172,6 +172,7 @@ class Printer {
   [[nodiscard]] std::string render_functor(Cell term, std::string_view name);
   void append_comma(std::string& out, const std::string& next) const;
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
+  [[nodiscard]] bool operator_atom(Cell term) const;
   [[nodiscard]] std::string spell(std::string_view name) const;
   [[nodiscard]] std::string spell_operator(std::string_view name) const;
   [[nodiscard]] std::string spell_functor(std::string_view name) const;
@@ -291,11 +292,19 @@ std::optional<OpDef> Printer::as_operator(Cell term) const {
   return postfix;
 }
 
+bool Printer::operator_atom(Cell term) const {
+  term = heap_.deref(term);
+  if (term.tag() != Tag::Atom) return false;
+  return !operators_.lookup(heap_.atoms().name(atom_of(term))).empty();
+}
+
 std::string Printer::render_op(const OpDef& op, Cell term) {
   const std::string name = spell_operator(op.name);
   if (is_prefix(op.specifier) || is_postfix(op.specifier)) {
     const bool allow = op.specifier == Specifier::Fy || op.specifier == Specifier::Yf;
-    const std::string arg = render(heap_.arg(term, 0), op.priority, allow);
+    std::string arg = render(heap_.arg(term, 0), op.priority, allow);
+    // 空白だけだと次の字が演算子になり、引数のアトムとして読み戻せない。
+    if (is_prefix(op.specifier) && operator_atom(heap_.arg(term, 0))) arg = "(" + arg + ")";
     const bool space = is_prefix(op.specifier) ? glue(name, arg) : glue(arg, name);
     // `\+(` は関数表記になる。空白を置くと '(' は括弧であり、前置の引数のまま読み戻せる。
     const bool call_form = is_prefix(op.specifier) && !arg.empty() && arg.front() == '(';

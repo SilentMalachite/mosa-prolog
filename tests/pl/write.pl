@@ -11,6 +11,8 @@ test(writeq_atom, (with_output_to(atom(A), writeq('1<2')), A == '''1<2'''), true
 test(write_term_quote, (with_output_to(atom(A), write_term('1<2', [quoted(true)])), A == '''1<2'''), true).
 test(write_term_plain, (with_output_to(atom(A), write_term('1<2', [])), A == '1<2'), true).
 test(write_term_plus, (with_output_to(atom(A), write_term(+1, [])), A == '+1'), true).
+test(writeq_minus_atom, (with_output_to(atom(A), writeq(-(-))), A == '- (-)'), true).
+test(write_term_minus_one, (with_output_to(atom(A), write_term(-1, [])), A == '-1'), true).
 test(write_term_block_open, (with_output_to(atom(A), write_term('/*', [quoted(true)])), A == '\'/*\''), true).
 test(write_term_block_close, (with_output_to(atom(A), write_term('*/', [quoted(true)])), A == '*/'), true).
 test(writeq_dot, (with_output_to(atom(A), writeq('.')), A == '\'.\''), true).
