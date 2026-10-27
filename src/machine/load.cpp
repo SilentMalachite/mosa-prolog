@@ -326,22 +326,21 @@ bool collect_indicators(Impl& machine, Cell cell, std::vector<std::pair<std::uin
   return cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil;
 }
 
-bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
+bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t home, std::uint32_t name, std::uint16_t arity) {
   if (is_builtin_procedure(machine, name, arity)) {
     const Cell formal = formal_permission(machine, "modify", "static_procedure", cell_functor(machine, name, arity));
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return false;
   }
-  Predicate* predicate = predicate_in(machine, machine.load_home, name, arity);
+  Predicate* predicate = predicate_in(machine, home, name, arity);
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
     fail_load(machine, "静的な述語は動的にできない");
     return false;
   }
-  // 失敗した読み込みは、宣言の前の動的フラグへ戻す。
   remember_pred(machine, snapshots, name, arity);
   if (predicate == nullptr) {
     Predicate created;
-    created.home = machine.load_home;
+    created.home = home;
     created.name = name;
     created.arity = arity;
     created.dynamic = true;
@@ -353,7 +352,6 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
   predicate->dynamic_declared = true;
   return true;
 }
-
 bool dynamic_argument(Impl& machine, Cell directive, Cell& arg) {
   directive = machine.heap.deref(directive);
   if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return false;
@@ -414,13 +412,15 @@ int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apa
 int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
   Cell arg;
   if (!dynamic_argument(machine, directive, arg)) return 0;
+  std::uint32_t home = machine.load_home;
+  const bool peeled = directive_pi_home(machine, arg, home);
   std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
-  if (!collect_indicators(machine, arg, indicators)) {
+  if (!peeled || !collect_indicators(machine, arg, indicators)) {
     fail_load(machine, "述語指示子ではありません");
     return -1;
   }
   for (const auto& indicator : indicators) {
-    if (!mark_dynamic(machine, snapshots, indicator.first, indicator.second)) return -1;
+    if (!mark_dynamic(machine, snapshots, home, indicator.first, indicator.second)) return -1;
   }
   return 1;
 }

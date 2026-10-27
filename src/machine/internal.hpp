@@ -435,6 +435,10 @@ void arm_caller(Impl& machine, std::uint32_t caller);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool redo_module_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
+// 修飾を剥がす。偽なら誤りを送ってある。home は呼び出し元か、名付けたモジュール。
+[[nodiscard]] bool place_clause(Impl& machine, const Goal& goal, Cell term, std::uint32_t& home, Cell& placed);
+// 偽なら Module:PI のモジュールが使えない。真なら、修飾を剥がしたとき arg は PI 側になる。
+[[nodiscard]] bool directive_pi_home(Impl& machine, Cell& arg, std::uint32_t& home);
 [[nodiscard]] bool run_modules(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_use_module(Impl& machine, const Goal& goal);

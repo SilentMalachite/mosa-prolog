@@ -14,8 +14,9 @@
 //   permission_error(modify, static_procedure, PI)
 // 8.9.5 retractall/1 (@callable)（Cor.2）
 //   instantiation_error, type_error(callable), permission_error(modify, static_procedure, PI)
-// 7.4.2 dynamic/1 は指示だけ。読み込み側で受ける。
-// テスト: tests/pl/database.pl, tests/pl/clause.pl
+// 7.4.2 dynamic/1 は指示であり、ゴールとしても呼べる。修飾は名付けたモジュール。
+// 修飾した頭部は名付けたモジュールのローカル述語。取り込みだけの席は modify/static_procedure。
+// テスト: tests/pl/database.pl, tests/pl/clause.pl, tests/pl/modules.pl
 
 #include "../machine/internal.hpp"
 
@@ -306,8 +307,20 @@ bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
   return false;
 }
 
+// 修飾した操作のあいだだけ呼び出し元を合わせる。戻す前に継続は ip へ入る。
+struct CallAs {
+  Impl& machine;
+  std::uint32_t saved;
+  CallAs(Impl& machine, std::uint32_t home) : machine(machine), saved(machine.calling) { machine.calling = home; }
+  ~CallAs() { machine.calling = saved; }
+  CallAs(const CallAs&) = delete;
+  CallAs& operator=(const CallAs&) = delete;
+};
+
 void run_assert(Impl& machine, const Goal& goal, bool at_front) {
-  const Cell term = machine.heap.deref(goal.arg(machine, 0));
+  std::uint32_t home = 0;
+  Cell term;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, term)) return;
   if (reject_clause(machine, goal, term, false)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
@@ -328,14 +341,14 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     raise_permission(machine, goal, head.name, head.arity);
     return;
   }
-  Predicate* existing = find_predicate(machine, head.name, head.arity);
+  Predicate* existing = predicate_in(machine, home, head.name, head.arity);
   if (existing != nullptr && !existing->dynamic) {
     raise_permission(machine, goal, head.name, head.arity);
     return;
   }
   if (existing == nullptr) {
     Predicate created;
-    created.home = machine.calling;
+    created.home = home;
     created.name = head.name;
     created.arity = head.arity;
     created.dynamic = true;
@@ -352,8 +365,13 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
 }
 
 void run_retract(Impl& machine, const Goal& goal) {
-  const Cell term = machine.heap.deref(goal.arg(machine, 0));
+  std::uint32_t home = 0;
+  Cell term;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, term)) return;
   if (reject_clause(machine, goal, term, true)) return;
+  // やり直しも同じ頭部を照合する。:/2 のままだと節と合わない。
+  machine.heap.set_word(goal.at + kFrameHead, term.raw());
+  [[maybe_unused]] const CallAs as{machine, home};
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
@@ -371,7 +389,10 @@ void run_retract(Impl& machine, const Goal& goal) {
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
-  const Cell head_cell = machine.heap.deref(goal.arg(machine, 0));
+  std::uint32_t home = 0;
+  Cell head_cell;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, head_cell)) return;
+  [[maybe_unused]] const CallAs as{machine, home};
   if (machine.heap.unbound(head_cell)) {
     raise_instantiation(machine, goal);
     return;
@@ -445,9 +466,46 @@ bool parse_indicator(Impl& machine, const Goal& goal, Cell pred, HeadName& indic
   return true;
 }
 
-void run_abolish(Impl& machine, const Goal& goal) {
+void run_dynamic(Impl& machine, const Goal& goal) {
+  std::uint32_t home = 0;
+  Cell pred;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, pred)) return;
   HeadName indicator;
-  if (!parse_indicator(machine, goal, goal.arg(machine, 0), indicator)) return;
+  if (!parse_indicator(machine, goal, pred, indicator)) return;
+  if (refuse_builtin(machine, goal, indicator.name, indicator.arity)) return;
+  Predicate* existing = predicate_in(machine, home, indicator.name, indicator.arity);
+  // 取り込みの席を動的にすると、次の assert が公開した側ではなく席へ書く。
+  if (existing != nullptr && existing->imported) {
+    raise_permission(machine, goal, indicator.name, indicator.arity);
+    return;
+  }
+  // 節のある静的述語は動的にしない。空の席と、まだ無い述語は動的にする。
+  if (existing != nullptr && !existing->dynamic && !existing->clauses.empty()) {
+    raise_permission(machine, goal, indicator.name, indicator.arity);
+    return;
+  }
+  if (existing == nullptr) {
+    Predicate created;
+    created.home = home;
+    created.name = indicator.name;
+    created.arity = indicator.arity;
+    created.dynamic = true;
+    created.dynamic_declared = true;
+    machine.predicates.push_back(std::move(created));
+  } else {
+    existing->dynamic = true;
+    existing->dynamic_declared = true;
+  }
+  succeed(machine, goal);
+}
+
+void run_abolish(Impl& machine, const Goal& goal) {
+  std::uint32_t home = 0;
+  Cell pred;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, pred)) return;
+  HeadName indicator;
+  if (!parse_indicator(machine, goal, pred, indicator)) return;
+  [[maybe_unused]] const CallAs as{machine, home};
   if (refuse_builtin(machine, goal, indicator.name, indicator.arity)) return;
   Predicate* predicate = find_predicate(machine, indicator.name, indicator.arity);
   if (predicate != nullptr && !predicate->dynamic) {
@@ -547,9 +605,19 @@ bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint1
 }
 
 void run_clause(Impl& machine, const Goal& goal) {
+  std::uint32_t home = 0;
+  Cell term;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, term)) return;
+  machine.heap.set_word(goal.at + kFrameHead, term.raw());
+  [[maybe_unused]] const CallAs as{machine, home};
   HeadName indicator;
   if (!clause_head_ok(machine, goal, indicator)) return;
   const Predicate* predicate = find_predicate(machine, indicator.name, indicator.arity);
+  // 席が取り込みだけなら、公開した側の節は見せない。
+  if (predicate != nullptr && predicate->imported) {
+    raise_permission(machine, goal, indicator.name, indicator.arity);
+    return;
+  }
   if (predicate == nullptr || predicate->clauses.empty()) {
     machine.failed = true;
     return;
@@ -705,6 +773,10 @@ bool run_database(Impl& machine, const Goal& goal) {
   }
   if (name == "abolish") {
     run_abolish(machine, goal);
+    return true;
+  }
+  if (name == "dynamic") {
+    run_dynamic(machine, goal);
     return true;
   }
   if (name == "current_predicate") {

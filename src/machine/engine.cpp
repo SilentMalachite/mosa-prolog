@@ -190,6 +190,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"retract", 1},
     {"retractall", 1},
     {"abolish", 1},
+    {"dynamic", 1},
     {"clause", 2},
     {"current_predicate", 1},
     {"findall", 3},

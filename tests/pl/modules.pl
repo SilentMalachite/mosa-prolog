@@ -167,3 +167,47 @@ test(mod_meta_colon, (use_expose, colon_run(meta_seen(1))), true).
 test(mod_meta_findall, (use_expose, expose_items(Xs), Xs == [a]), true).
 % すでに限定したゴールを call/1 に渡しても、呼んだ側で包み直さない。
 test(mod_meta_call_qual, call(greet:secret(1)), true).
+
+% 修飾した assertz は名付けたモジュールへ書く。user には席を作らない。
+test(mod_assert_qualified, (assertz(kin:spare(1)), kin:spare(1), \+ spare(1)), true).
+% 節の頭部に付いた修飾も、同じモジュールの規則になる。
+test(mod_assert_rule, (assertz((kin:ruled(X) :- X = 1)), kin:ruled(1)), true).
+% 修飾した retract は、そのモジュールの節を消し、user の同名述語にはしない。
+test(mod_retract_qualified, (assertz(kin:gone(1)), retract(kin:gone(1)), \+ kin:gone(1)), true).
+% 修飾した retractall は、そのモジュールの合う節をすべて消す。
+test(mod_retractall_qualified, (
+  assertz(kin:bulk(1)), assertz(kin:bulk(2)), retractall(kin:bulk(_)), \+ kin:bulk(_)
+), true).
+% 修飾した abolish は、名付けたモジュールの述語を消す。
+test(mod_abolish_qualified, (
+  assertz(kin:drop(1)), abolish(kin:drop/1), \+ clause(kin:drop(_), _)
+), true).
+% 載っていないモジュールへの assertz は、:/2 の節にはしない。
+test(mod_assert_no_module, assertz(no_such_mod:spare(1)), error(existence_error(module, no_such_mod))).
+% dynamic(Module:PI) は、そのモジュールに節の無い動的述語を作る。
+test(mod_dynamic_qualified, (dynamic(kin:later/1), \+ kin:later(_)), true).
+% 取り込みだけの枠を dynamic にすると、席が動的になり公開した側へ書けてしまう。
+test(mod_dynamic_import, dynamic(parent/2), error(permission_error(modify, static_procedure, parent/2))).
+% モジュールが変数なら、型より先に具体化エラー。:/2 の節にはしない。
+test(mod_assert_var_module, assertz(M:spare(1)), error(instantiation_error)).
+% モジュールがアトムでなければ型エラー。
+test(mod_assert_type_module, assertz(1:spare(1)), error(type_error(atom, 1))).
+% 取り込みだけの assert は公開した側の節を増やさない。
+test(mod_assert_import, assertz(parent(z, z)), error(permission_error(modify, static_procedure, parent/2))).
+test(mod_assert_import_keeps, (kin:parent(a, b), \+ kin:parent(z, z)), true).
+% 節の本体で足す節は、その節を定義したモジュールに入る。
+test(mod_assert_home, (
+  assertz((kin:add_note :- assertz(noted(9)))), kin:add_note, kin:noted(9), \+ noted(9)
+), true).
+% dynamic/1 は組込なので、同名の節は足せない。
+test(mod_assert_dynamic, assertz(dynamic(a)), error(permission_error(modify, static_procedure, dynamic/1))).
+
+consult_dynbox :- consult('tests/pl/modules/dynbox.pl').
+consult_dynbox :- consult('../tests/pl/modules/dynbox.pl').
+
+% ファイル中の dynamic(Module:PI) は、読み込み中のモジュールではなく名付けた側に空の述語を作る。
+test(mod_dynamic_directive, (consult_dynbox, current_predicate(boxnote/1), \+ boxnote(_)), true).
+% 取り込みだけの枠は節を持たない。clause は公開した側を読まず、改変の許可エラーにする。
+test(mod_clause_import, clause(parent(a, _), _), error(permission_error(modify, static_procedure, parent/2))).
+% 修飾した clause は、名付けたモジュールの節を読む。
+test(mod_clause_qualified, (clause(kin:parent(a, X), true), X == b), true).
