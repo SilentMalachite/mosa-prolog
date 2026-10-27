@@ -1,3 +1,5 @@
+English | [日本語](README.ja.md)
+
 # Mosa Prolog
 
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
@@ -12,40 +14,40 @@
 [![Unicode](https://img.shields.io/badge/Unicode-18.0.0-orange)](docs/unicode-version.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-ISO/IEC 13211-1 に沿った Prolog 処理系です。C++20 で書いており、依存は C++20 標準ライブラリと CMake だけです。日本語のアトムと UTF-8 の入出力を最初から扱います。
+Mosa Prolog is a Prolog system that follows ISO/IEC 13211-1. It is written in C++20 and depends only on the C++20 standard library and CMake. Japanese atoms and UTF-8 input/output are supported from the start.
 
-## 名前の由来
+## Name
 
-Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。Mosa Prolog は Modular Optimized Symbolic Architecture Prolog を縮めた名前です。
+Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Prolog is short for Modular Optimized Symbolic Architecture Prolog.
 
-## 現在の状態
+## Status
 
-フェーズ 3（組込述語の拡充）まで終わっています。次はフェーズ 4（モジュール）です。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
+Phases 0–3 are done; phase 4 (modules) is next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
 
-| フェーズ | 内容 | 状態 |
+| Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | 骨組み（CMake、CI、テストハーネス） | 完了 |
-| 1 | 項、リーダ、ライタ | 完了 |
-| 2 | 実行の核（IR、節コンパイラ、選択点、カット、`catch/throw`、REPL、`consult/1`） | 完了 |
-| 3 | 組込述語、ストリーム、フラグ、ディレクティブ、エラー体系 | 完了 |
-| 4 | モジュールと `library(*)` | 未着手 |
-| 5 | 準拠率の追い込み、全角記号モード、メッセージの日本語化 | 未着手 |
-| 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 未着手 |
-| 7 | GC、マニュアル、配布パッケージ | 未着手 |
+| 0 | Skeleton (CMake, CI, test harness) | Done |
+| 1 | Terms, reader, writer | Done |
+| 2 | Execution core (IR, clause compiler, choice points, cut, `catch/throw`, REPL, `consult/1`) | Done |
+| 3 | Built-in predicates, streams, flags, directives, error system | Done |
+| 4 | Modules and `library(*)` | Not started |
+| 5 | Conformance push, full-width symbol mode, Japanese messages | Not started |
+| 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Not started |
+| 7 | GC, manuals, release packages | Not started |
 
-`mosac` は今のところ `--version` だけに応えます。変換器はフェーズ 6 で作ります。そのため「mosac diff」のバッジは未計測です。
+For now `mosac` only answers `--version`. The translator arrives in phase 6, so the "mosac diff" badge reads "not measured".
 
-## 必要なもの
+## Requirements
 
-- CMake 3.25 以上と Ninja（macOS と Linux）
-- 次のどれかのコンパイラ
-  - macOS: Apple Clang 15 以上
-  - Linux: GCC 13 以上、または Clang 17 以上
-  - Windows: Visual Studio 2022（MSVC v17.8 以上）
+- CMake 3.25 or later, and Ninja (macOS and Linux)
+- One of these compilers:
+  - macOS: Apple Clang 15 or later
+  - Linux: GCC 13 or later, or Clang 17 or later
+  - Windows: Visual Studio 2022 (MSVC v17.8 or later)
 
-## ビルドとテスト
+## Build and test
 
-OS に合うプリセットを選びます。プリセットは `macos-clang`、`linux-gcc`、`linux-clang`、`windows-msvc` の 4 つです。
+Pick the preset for your OS: `macos-clang`, `linux-gcc`, `linux-clang`, or `windows-msvc`.
 
 ```sh
 cmake --preset macos-clang
@@ -53,17 +55,17 @@ cmake --build --preset macos-clang
 ctest --preset macos-clang
 ```
 
-実行ファイルは `build/` に出ます。Windows では `build/Release/` です。
+Executables go to `build/` (`build/Release/` on Windows).
 
-## 使い方
+## Usage
 
-### `mosa`（インタプリタ）
+### `mosa` (interpreter)
 
 ```sh
-mosa [ファイル...] [-g ゴール] [-t halt]
+mosa [file...] [-g goal] [-t halt]
 ```
 
-端末から引数なしで起動すると対話モードになります。`-g` のゴールは末尾に `.` を付けます。
+Started from a terminal with no goal, `mosa` enters interactive mode. A `-g` goal must end with `.`.
 
 ```console
 $ ./build/mosa tests/pl/nrev.pl -g "nrev([1,2,3], R)." -t halt
@@ -72,22 +74,29 @@ $ ./build/mosa -g "atom_length('𠮷野家', N)." -t halt
 N = 3.
 ```
 
-文字はすべて Unicode のスカラー値 1 個として数えます。`𠮷` は 1 文字です。
+A character is always one Unicode scalar value, so `𠮷` counts as one character.
 
-### `mosatest`（テストランナー）
+When standard input is not a terminal, it belongs to Prolog's `user_input`, so a goal can read piped data:
 
-```sh
-mosatest tests/pl/                    # 自前テスト（tests/pl/*.pl）
-mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md と .json を書き出す
-mosatest --suite <ディレクトリ> --report tests/tmp/x.md   # 別のスイート。x.md と x.json を書き出す
-mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
+```console
+$ printf 'foo.\n' | ./build/mosa -g "read(X)." -t halt
+X = foo.
 ```
 
-`--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance` を渡したときだけです。別のスイートで `docs/` の報告書とバッジを上書きしないためです。
+### `mosatest` (test runner)
 
-## 日本語の変数
+```sh
+mosatest tests/pl/                    # Own tests (tests/pl/*.pl)
+mosatest --suite tests/conformance    # Conformance suite; writes docs/conformance.md and .json
+mosatest --suite <dir> --report tests/tmp/x.md   # Another suite; writes x.md and x.json
+mosatest --roundtrip tests/pl/syntax.pl   # Read/write round trip
+```
 
-日本語には大文字と小文字の区別がありません。そのため `親(太郎, 一郎).` の `太郎` はアトムです。日本語名の変数は `_太郎` のように下線で始めます。詳しい字句の規則は [`docs/SPEC.md`](docs/SPEC.md) 第 4 節にあります。
+`--report` may be omitted only when you pass the bundled `tests/conformance` from the repository root. This keeps another suite from overwriting the report and badge data in `docs/`.
+
+## Japanese variables
+
+Japanese has no upper and lower case, so `太郎` in `親(太郎, 一郎).` is an atom. A variable with a Japanese name starts with an underscore, as in `_太郎`. The full lexical rules are in section 4 of [`docs/SPEC.md`](docs/SPEC.md).
 
 ```prolog
 親(太郎, 一郎).
@@ -95,51 +104,55 @@ mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
 祖父母(_祖, _孫) :- 親(_祖, _親), 親(_親, _孫).
 ```
 
+(`親` = parent, `祖父母` = grandparent; `_祖` and `_孫` are variables.)
+
 ```console
 $ ./build/mosa 家系.pl -g "祖父母(X, 花子)." -t halt
 X = 太郎.
 ```
 
-## 準拠率
+## Conformance
 
-同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）が通りました。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
+The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logtalk/`) is shown by the badge above. At the end of phase 3, 2028 of 2171 tests (93.4%) passed. The list of failures is in [`docs/conformance.md`](docs/conformance.md). `mosatest --suite` writes that file and the badge data [`docs/conformance.json`](docs/conformance.json) (shields.io endpoint format). Do not edit either by hand.
 
-準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
+The badge reads `docs/conformance.json` on `main`, so it changes with every commit that changes the file. CI runs the suite in all four jobs and puts the pass rate in the Job Summary; the macOS job fails if the generated JSON differs from the committed one. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON with it.
 
-## テストの構成
+## Test layers
 
-| 層 | 置き場所 | 実行方法 |
+| Layer | Location | How to run |
 | --- | --- | --- |
-| C++ 部品テスト | `tests/cpp/` | `ctest` |
-| Prolog 自前テスト | `tests/pl/` | `mosatest tests/pl/`（`ctest` からも動く） |
-| ISO 準拠スイート | `tests/conformance/` | `mosatest --suite tests/conformance` |
-| 差分テスト | フェーズ 6 で追加 | `mosatest --diff` |
+| C++ unit tests | `tests/cpp/` | `ctest` |
+| Prolog tests | `tests/pl/` | `mosatest tests/pl/` (also run by `ctest`) |
+| ISO conformance suite | `tests/conformance/` | `mosatest --suite tests/conformance` |
+| Differential tests | Added in phase 6 | `mosatest --diff` |
 
-## 文書
+## Documents
 
-| 文書 | 中身 |
+Each document below has a Japanese translation next to it as `*.ja.md`. The English version is authoritative.
+
+| Document | Contents |
 | --- | --- |
-| [`docs/SPEC.md`](docs/SPEC.md) | 仕様の本文（目的、ISO の範囲、日本語、モジュール、アーキテクチャ、テスト、フェーズ） |
-| [`docs/STATUS.md`](docs/STATUS.md) | 今のフェーズと次の作業 |
-| [`docs/adr/`](docs/adr/README.md) | 後から変えにくい設計の決定記録 |
-| [`docs/iso-notes.md`](docs/iso-notes.md) | 規格の解釈メモ（条番号付き） |
-| [`docs/conformance.md`](docs/conformance.md) | 準拠スイートの結果（自動生成） |
-| [`docs/conformance.json`](docs/conformance.json) | 準拠率バッジの元データ（自動生成） |
-| [`docs/unicode-version.md`](docs/unicode-version.md) | 文字分類表が使う Unicode の版 |
-| [`docs/bench.md`](docs/bench.md) | ベンチマークの記録 |
-| [`AGENTS.md`](AGENTS.md) | コーディングエージェント向けの作業規則 |
+| [`docs/SPEC.md`](docs/SPEC.md) | The specification (goals, ISO scope, Japanese support, modules, architecture, tests, phases) |
+| [`docs/STATUS.md`](docs/STATUS.md) | Current phase and next task (English only) |
+| [`docs/adr/`](docs/adr/README.md) | Architecture decision records for choices that are hard to change later |
+| [`docs/iso-notes.md`](docs/iso-notes.md) | Interpretation notes on the standard, by clause number |
+| [`docs/conformance.md`](docs/conformance.md) | Conformance suite results (generated, Japanese headings) |
+| [`docs/conformance.json`](docs/conformance.json) | Badge data for the pass rate (generated) |
+| [`docs/unicode-version.md`](docs/unicode-version.md) | Unicode version used by the character tables |
+| [`docs/bench.md`](docs/bench.md) | Benchmark records |
+| [`AGENTS.md`](AGENTS.md) | Working rules for coding agents |
 
-## ディレクトリ
+## Layout
 
 ```text
-include/mosa/   公開ヘッダ
-src/            core, read, write, machine, builtins, platform（module, compile, codegen は後のフェーズ）
-lib/            Prolog 製の標準ライブラリ（フェーズ 4）
+include/mosa/   Public headers
+src/            core, read, write, machine, builtins, platform (module, compile, codegen come later)
+lib/            Standard library written in Prolog (phase 4)
 tests/          cpp, pl, conformance
-tools/          開発者用の生成スクリプト（ビルドには不要）
-docs/           仕様、状態、ADR、解釈メモ
+tools/          Generator scripts for developers (not needed to build)
+docs/           Spec, status, ADRs, interpretation notes
 ```
 
-## ライセンス
+## License
 
-Apache-2.0 です。本文は [`LICENSE`](LICENSE)、著作権表示は [`NOTICE`](NOTICE) にあります。`tests/conformance/logtalk/` も同じライセンスで、Logtalk の著作権表示はそこの `NOTICE.txt` にあります。
+Apache-2.0. The license text is in [`LICENSE`](LICENSE) and the copyright notice in [`NOTICE`](NOTICE). `tests/conformance/logtalk/` uses the same license; its Logtalk copyright notice is in `NOTICE.txt` in that directory.

@@ -1,10 +1,12 @@
-フェーズ: 3 完了
-進行中: なし
-完了: Logtalk スイートの分母が 90% 以上。版は mosa 0.0.1 (phase 3)。往復の読み直しは文字列を残す
-完了: mosatest --suite が docs/conformance.json（shields.io endpoint）も書く。README のバッジは main のそれを読み、CI の macOS ジョブが未コミットの差分を落とす
-完了: 準拠スイートは tests.lgt ごとにカレントをスクラッチへ移す。{open(d1, write, S)} がリポジトリ直下に空ファイルを残さない（conformance_cwd_test）
-完了: mosatest --suite は --report を受ける。省けるのはリポジトリ直下の tests/conformance だけ（suite_args_test）
-完了: mosa は非端末の標準入力を先に読まない。閉じない入力でも --version が返り、パイプの入力を read/1 が読める（mosa_stdin）
-次: フェーズ4のモジュール
-未解決: iso-notes に残した解釈
-計画: docs/superpowers/plans/2026-10-26-phase3-exit.md
+Phase: 3 done
+In progress: none
+Done: Logtalk suite pass rate is 90% or more. Version is mosa 0.0.1 (phase 3). Round-trip re-reading keeps the string
+Done: mosatest --suite also writes docs/conformance.json (shields.io endpoint). The README badge reads it from main; the CI macOS job fails on an uncommitted diff
+Done: the conformance suite moves the cwd to the scratch directory per tests.lgt, so {open(d1, write, S)} leaves no empty file in the repo root (conformance_cwd_test)
+Done: mosatest --suite takes --report; it may be omitted only for tests/conformance from the repo root (suite_args_test)
+Done: mosa no longer reads non-terminal stdin up front. --version returns on an open pipe and read/1 reads piped input (mosa_stdin)
+Done: docs are English-primary with *.ja.md translations (README, AGENTS, SPEC, iso-notes, ADRs, bench); directory READMEs carry both languages
+Next: phase 4, modules
+Open: interpretations left in iso-notes
+Open: SPEC typos found while translating: the section 7 atom_length(X, foo) example contradicts itself; `charConversion` (section 4) vs the char_conversion flag; section 4 says tests/japanese/ but sections 8–9 say tests/pl/japanese.pl
+Plan: docs/superpowers/plans/2026-10-26-phase3-exit.md

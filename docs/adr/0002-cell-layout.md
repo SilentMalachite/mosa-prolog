@@ -1,24 +1,26 @@
-状態: この設計で承認済み
+English | [日本語](0002-cell-layout.ja.md)
 
-## 背景
+Status: Approved with this design
 
-61bit に収まらない整数のタグ番号を、実装の前に固定する。
-関数語のビット配置も、ここで固定する。
-ペイロードが項ではないことも、ここで固定する。
+## Context
 
-## 決定
+Fix the tag number for integers that do not fit in 61 bits before implementation.
+Fix the bit layout of functor words here as well.
+Also fix here that payloads are not terms.
 
-タグ 0 から 7 は Ref、Atom、Int、Str、Lis、Float、Big、IntBox である。
-即値の整数は -2^60 以上 2^60 未満であり、それ以外の int64 は IntBox である。
-関数語は下位 3bit が 0、続く 11bit がアリティ、続く 32bit がアトム番号である。
+## Decision
 
-## 捨てた案
+Tags 0 to 7 are Ref, Atom, Int, Str, Lis, Float, Big, IntBox.
+Immediate integers are at least -2^60 and less than 2^60; every other int64 is an IntBox.
+A functor word has 0 in its low 3 bits, the arity in the next 11 bits, and the atom index in the next 32 bits.
 
-Big を int64 の箱には使わない。
-ヒープの全語を正当な Cell にはしない。
+## Rejected alternatives
 
-## 影響
+Do not use Big as the box for int64.
+Do not make every word in the heap a valid Cell.
 
-Float と IntBox のペイロード、および関数語は項ではない。
-フェーズ7の GC はヒープを線形走査して語を項とみなさない。
-タグ付きポインタを辿る。
+## Consequences
+
+Float and IntBox payloads, and functor words, are not terms.
+The phase 7 GC does not scan the heap linearly and treat words as terms.
+It follows tagged pointers.

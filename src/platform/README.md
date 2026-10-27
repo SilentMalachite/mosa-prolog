@@ -1,1 +1,3 @@
+OS-dependent code. OS branches go nowhere else. For now it only holds `terminal.cpp` (whether standard input is a terminal).
+
 OS 依存コードを置く。ここ以外に OS 分岐を書かない。今は `terminal.cpp`（標準入力が端末かの判定）だけがある。

@@ -1,135 +1,141 @@
+English | [日本語](AGENTS.ja.md)
+
 # AGENTS.md — Mosa Prolog
 
-このファイルは Claude Code と Grok Build が共通で読むエージェント向け指示の本体である。Claude Code は `CLAUDE.md`（中身は `@AGENTS.md` の 1 行）経由で、Grok Build はこのファイルを直接読む。エージェントごとの差分は設けない。
+This file is the body of the agent instructions shared by Claude Code and Grok Build. Claude Code reads it via `CLAUDE.md` (whose content is the single line `@AGENTS.md`), and Grok Build reads `AGENTS.md` directly. There are no per-agent differences. `AGENTS.ja.md` is a Japanese translation for humans and is not loaded by agents.
 
-## プロジェクト概要
+## Project overview
 
-- ISO/IEC 13211 準拠の Prolog 処理系 **Mosa Prolog**（リポジトリ `mosa-prolog`）を C++20 で実装する
-- コマンド: `mosa`（インタプリタ）、`mosac`（Prolog → C++20 変換・ビルド）、`mosatest`（テストランナー）。ランタイムは `libmosa`、ヘッダは `include/mosa/`、名前空間は `mosa`、環境変数の接頭辞は `MOSA_`
-- 依存は C++20 標準ライブラリと CMake 3.25 以上のみ。macOS（Apple Clang 15+）、Linux（GCC 13+ / Clang 17+）、Windows（MSVC 2022 v17.8+）の 3 OS で CI を通す
-- 文字コードはすべて UTF-8（BOM なし）。「文字」は常に Unicode スカラー値 1 個
+- Implement **Mosa Prolog** (repository `mosa-prolog`), a Prolog system conforming to ISO/IEC 13211, in C++20
+- Commands: `mosa` (interpreter), `mosac` (Prolog → C++20 translation and build), `mosatest` (test runner). The runtime is `libmosa`, headers are in `include/mosa/`, the namespace is `mosa`, and the environment variable prefix is `MOSA_`
+- The only dependencies are the C++20 standard library and CMake 3.25 or later. CI must pass on 3 OSes: macOS (Apple Clang 15+), Linux (GCC 13+ / Clang 17+), Windows (MSVC 2022 v17.8+)
+- All text encoding is UTF-8 (no BOM). A "character" is always exactly one Unicode scalar value
 
-## 仕様の参照先
+## Where the specification lives
 
-仕様の本文は `docs/SPEC.md` にある（このファイルと二重管理しない）。作業前に該当節を読むこと。
+The body of the specification is in `docs/SPEC.md` (do not duplicate it in this file). Read the relevant section before starting work.
 
-| 知りたいこと | `docs/SPEC.md` の節 |
+| What you want to know | Section of `docs/SPEC.md` |
 | --- | --- |
-| 目的・非目標 | 第 1 節 |
-| 成果物・ビルド環境・コンパイラ制約 | 第 2 節 |
-| ISO の実装範囲・実装定義事項・意図的な逸脱 | 第 3 節 |
-| 日本語・Unicode（字句分類、全角記号モード、入出力） | 第 4 節 |
-| モジュールシステム | 第 5 節 |
-| アーキテクチャ（Cell、実行モデル、`mosac`、ソース配置） | 第 6 節 |
-| 組込述語の実装順・エラー体系 | 第 7 節 |
-| テスト戦略 | 第 8 節 |
-| フェーズと完了条件 | 第 9 節 |
+| Goals and non-goals | Section 1 |
+| Deliverables, build environment, compiler constraints | Section 2 |
+| ISO coverage, implementation-defined items, intentional deviations | Section 3 |
+| Japanese and Unicode (lexical classification, full-width symbol mode, I/O) | Section 4 |
+| Module system | Section 5 |
+| Architecture (Cell, execution model, `mosac`, source layout) | Section 6 |
+| Built-in predicate implementation order and error system | Section 7 |
+| Test strategy | Section 8 |
+| Phases and exit criteria | Section 9 |
 
-## エージェントの作業ルール
+## Working rules for agents
 
-### セッションの始め方（毎回必ず）
+### Starting a session (always, every time)
 
-1. `docs/STATUS.md` を読む。「今のフェーズ」「進行中のタスク」「前回の未解決事項」が 15 行以内で書いてある
-2. `git log --oneline -10` と `ctest` の結果を確認し、壊れたままのテストがあれば新しい作業より先に直す
-3. 今回扱うタスクを 1 つ選び、`STATUS.md` の「進行中」に書いてから着手する。タスクの大きさは「1 つの述語」「1 つのファイル」「1 つのバグ」のいずれか
+1. Read `docs/STATUS.md`. It states "the current phase", "the task in progress" and "unresolved items from last time" in 15 lines or fewer
+2. Check `git log --oneline -10` and the result of `ctest`. If any test is still broken, fix it before starting new work
+3. Pick one task for this session and write it under "In progress" in `STATUS.md` before starting. A task is one of: "one predicate", "one file", or "one bug"
 
-### セッションの終わり方（毎回必ず）
+### Ending a session (always, every time)
 
-1. `cmake --build build && ctest --test-dir build` を通す。通らない状態で終えるときは `STATUS.md` にその旨と再現手順を書く
-2. `STATUS.md` を更新する: 完了したこと、次にやること 1 つ、迷った点。15 行を超えたら古い記述を削る
-3. 変更を 1 つの論理単位ごとにコミットする。メッセージは `[phase2] functor/3 を実装（8.5.1 の Examples 全通過）` のように、フェーズ・内容・確認方法を日本語で 1 行
+1. Make `cmake --build build && ctest --test-dir build` pass. If you end in a state where it does not pass, write that fact and the reproduction steps in `STATUS.md`
+2. Update `STATUS.md`: what was completed, the one next thing to do, and the points you were unsure about. If it exceeds 15 lines, delete older entries
+3. Commit changes one logical unit at a time. The message is one line in Japanese giving the phase, the content and how it was verified, like `[phase2] functor/3 を実装（8.5.1 の Examples 全通過）` ("implement functor/3 (all Examples in 8.5.1 pass)")
 
-### 設計判断の扱い
+### Handling design decisions
 
-- Cell 表現、IR、モジュール解決、エラーの `Context` 形式など、後から変えにくい決定は `docs/adr/NNNN-題名.md` に「背景・決定・捨てた案・影響」を各 3 行以内で書く。ADR を書く前に実装しない
-- 仕様（`docs/SPEC.md` 第 3〜7 節）と規格が食い違うと気づいたら、その場で直さず `docs/iso-notes.md` に条番号付きで書き、浩さんに確認を求める。確認は「A か B か」の形の質問 1 つにする
-- 判断に迷う箇所で「とりあえず動かす」実装をしたときは、コードに `// TODO(iso): 8.16.3.3 の順序未確認` のように規格の条番号を付ける。条番号のない TODO は書かない
+- Decisions that are hard to change later, such as the Cell representation, the IR, module resolution and the format of error `Context`, must be written in `docs/adr/NNNN-title.md` as "Context, Decision, Rejected alternatives, Consequences", each in 3 lines or fewer. Do not implement before the ADR is written
+- If you notice that the specification (`docs/SPEC.md` sections 3–7) disagrees with the standard, do not fix it on the spot. Write it in `docs/iso-notes.md` with the clause number and ask the project owner to confirm. The confirmation must be a single question of the form "A or B?"
+- When you write a "just make it work for now" implementation at a point where you are unsure, attach the standard's clause number in the code, like `// TODO(iso): 8.16.3.3 の順序未確認` ("ordering in 8.16.3.3 not yet confirmed"). Do not write a TODO without a clause number
 
-### コードの書き方
+### Writing code
 
-- 識別子は英語、コメント・コミット・ドキュメントは日本語。コメントには「何をしているか」ではなく「なぜこの順序・この方法か」を書く
-- 1 関数は 60 行以内、1 ファイルは 800 行以内。超えるなら分割を先にやる
-- 生の `new`/`delete`、`reinterpret_cast`、C 配列、マクロは使わない。`std::span`、`std::string_view`、`std::expected` 相当（`std::optional` + エラー型）を使う。例外は `docs/SPEC.md` 第 6 節の規則に従う（Prolog の `throw/1` に C++ 例外を使わない）
-- 組込述語の C++ 関数は、引数検査 → 本処理 → 束縛、の順に書き、途中で束縛してから失敗する書き方をしない
-- 組込述語のファイル先頭コメントには「規格の条番号・引数のモード・投げうるエラー・テストファイル名」を書く
-- エラーは `throw_error(m, Formal, PI)` と `make_type_error(m, Type, Culprit)` 系のヘルパだけで投げる。アトム名の文字列直書きは禁止
-- `#ifdef _WIN32` などの OS 依存コードは `src/platform/` 以外に書かない
-- コンパイラ拡張（GNU 拡張、`__int128`、`#pragma once` 以外の独自プラグマ）は使わない。警告は `-Wall -Wextra -Wpedantic`（MSVC は `/W4`）でエラー扱い
-- 新しい依存ライブラリは追加しない。必要だと思ったら `STATUS.md` に理由を書いて止まる
+- Identifiers are in English. Code comments and commit messages are in Japanese. Documentation is English-primary: the English file has the canonical name (`README.md`, `docs/SPEC.md`, …) and its Japanese translation sits next to it as `*.ja.md`; when you change one, update the other in the same commit. If they disagree, the English version wins. One-line directory READMEs carry the English sentence first and the Japanese sentence below it in the same file. `docs/STATUS.md` is English only, and `docs/conformance.md` is generated and stays as the tool writes it. In comments, explain why this order or this method, not what the code does
+- A function must be 60 lines or fewer, and a file 800 lines or fewer. If it would exceed that, split first
+- Do not use raw `new`/`delete`, `reinterpret_cast`, C arrays or macros. Use `std::span`, `std::string_view`, and the equivalent of `std::expected` (`std::optional` + an error type). Exceptions follow the rules in `docs/SPEC.md` section 6 (do not use C++ exceptions for Prolog's `throw/1`)
+- Write the C++ function of a built-in predicate in the order argument checks → main processing → binding. Do not write it so that it binds partway and then fails
+- The header comment of a built-in predicate's file must give "the standard's clause number, the argument modes, the errors it can throw, and the test file name"
+- Throw errors only through the `throw_error(m, Formal, PI)` and `make_type_error(m, Type, Culprit)` family of helpers. Writing atom names as string literals is forbidden
+- Do not write OS-dependent code such as `#ifdef _WIN32` anywhere except `src/platform/`
+- Do not use compiler extensions (GNU extensions, `__int128`, vendor pragmas other than `#pragma once`). Warnings are treated as errors with `-Wall -Wextra -Wpedantic` (`/W4` for MSVC)
+- Do not add new dependency libraries. If you think one is needed, write the reason in `STATUS.md` and stop
 
-### テストの書き方
+### Writing tests
 
-- 新しい組込述語は、規格の Examples（8.x.y.4）をそのまま `tests/pl/` に写してから実装する。Examples の各行が 1 テスト
-- エラーのテストは `Formal` 項だけを比較し、`Context` は比較しない
-- 入出力のテストはメモリストリームで行い、一時ファイルは `tests/tmp/` 配下にだけ作る
-- 日本語テストは `tests/pl/japanese.pl` に置き、差分テスト（`mosatest --diff`）にも必ず含める
+- For a new built-in predicate, copy the standard's Examples (8.x.y.4) verbatim into `tests/pl/` before implementing it. Each line of the Examples is one test
+- Error tests compare only the `Formal` term and do not compare `Context`
+- I/O tests use memory streams, and temporary files are created only under `tests/tmp/`
+- Japanese tests go in `tests/pl/japanese.pl` and must always be included in the differential test (`mosatest --diff`)
 
-### フェーズをまたぐ禁止事項
+### Prohibitions across phases
 
-- Phase 1 で決めた Cell 表現と Phase 2 で決めた IR は、ADR を書いて承認を得るまで変えない
-- 先のフェーズの機能を「ついでに」入れない。GC や多倍長整数の下準備も Phase 7 まで書かない
-- 準拠スイートの不合格を「仕様の解釈違い」として `docs/iso-notes.md` に記録せずに放置しない
+- Do not change the Cell representation decided in Phase 1 or the IR decided in Phase 2 until an ADR is written and approved
+- Do not add features of later phases "while you are at it". Do not write groundwork for GC or bignums before Phase 7 either
+- Do not leave a conformance suite failure unattended without recording it in `docs/iso-notes.md` as "a difference in interpreting the specification"
 
-### やってはいけないこと
+### Things you must not do
 
-- テストを通すためにテストを弱める、スキップする、期待値を実装に合わせて書き換える
-- 「ISO ではこうだが SWI では違う」という理由で SWI に寄せる。`iso` フラグが true のときの挙動は常に ISO
-- 1 セッションで複数フェーズに手を出す。フェーズの完了条件を満たさずに次へ進む
-- `STATUS.md` を更新せずに終える。次のセッションの自分（または別のエージェント）が、会話ログなしで続きを始められることが基準
-- 浩さんへの報告で長文の要約を書く。報告は「できたこと 1 行・次 1 行・質問 1 行（あれば）」で足りる
+- Weaken tests, skip them, or rewrite expected values to match the implementation in order to make tests pass
+- Lean toward SWI on the grounds that "ISO says this but SWI differs". When the `iso` flag is true, the behavior is always ISO
+- Touch multiple phases in one session. Move on to the next phase without meeting the phase's exit criteria
+- End without updating `STATUS.md`. The standard is that your next-session self (or another agent) can resume without the conversation log
+- Write a long summary in a report to the project owner. A report needs only "one line on what was done, one line on what is next, one line with a question (if any)"
 
-## リポジトリ構成とファイル配置
+## Repository layout and file placement
 
-Phase 0 で以下をそのまま作る。空のディレクトリには `.gitkeep` ではなく、そこに何を置くかを 1 行書いた `README.md` を置く。
+Create the following exactly as shown in Phase 0. In an empty directory, put a `README.md` with one line saying what goes there, not a `.gitkeep`.
 
 ```text
 mosa-prolog/
-├── AGENTS.md                 # このファイル。Grok Build と Claude Code が読む本体
-├── CLAUDE.md                 # 1 行: @AGENTS.md
-├── README.md                 # ビルド手順、日本語変数の規則、準拠率バッジ
+├── AGENTS.md                 # This file. The body read by Grok Build and Claude Code
+├── AGENTS.ja.md              # Japanese translation for humans. Agents do not load it
+├── CLAUDE.md                 # 1 line: @AGENTS.md
+├── README.md                 # Build steps, rules for Japanese variable names, conformance badge
+├── README.ja.md              # Japanese translation of README.md
 ├── LICENSE                   # Apache-2.0
 ├── CMakeLists.txt
 ├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / windows-msvc
-├── .github/workflows/ci.yml  # 3 OS マトリクス、警告をエラー扱い、準拠率を Job Summary に出す
+├── .github/workflows/ci.yml  # 3-OS matrix, warnings as errors, conformance rate in the Job Summary
 ├── docs/
-│   ├── SPEC.md               # 仕様（指示書の第 1〜9 節）
-│   ├── STATUS.md             # 現在地。15 行以内
-│   ├── adr/                  # 0001-cell-representation.md から連番
-│   ├── iso-notes.md          # 規格の解釈メモ（条番号付き）
-│   ├── conformance.md        # 自動生成。手で編集しない
+│   ├── SPEC.md               # Specification (sections 1–9 of the instructions document)
+│   ├── SPEC.ja.md            # Japanese translation of SPEC.md
+│   ├── STATUS.md             # Current position. 15 lines or fewer. English only
+│   ├── adr/                  # Numbered sequentially from 0001-cell-representation.md
+│   ├── iso-notes.md          # Notes on interpreting the standard (with clause numbers)
+│   ├── iso-notes.ja.md       # Japanese translation of iso-notes.md
+│   ├── conformance.md        # Generated automatically. Do not edit by hand
 │   ├── bench.md
 │   ├── unicode-version.md
-│   └── manual/               # ja/ と en/。Phase 7
+│   └── manual/               # ja/ and en/. Phase 7
 ├── include/mosa/
-│   ├── runtime.hpp           # 生成コードが include する唯一のヘッダ
-│   └── mosa.hpp              # 組込み用 C++ API（Machine の生成、consult、query）
+│   ├── runtime.hpp           # The only header that generated code includes
+│   └── mosa.hpp              # C++ API for embedding (creating a Machine, consult, query)
 ├── src/
 │   ├── core/  read/  write/  machine/  builtins/  module/  compile/  codegen/  platform/
-│   ├── unicode_tables.inc    # 生成物。コミットする
+│   ├── unicode_tables.inc    # Generated. Committed
 │   ├── main_mosa.cpp
 │   ├── main_mosac.cpp
 │   └── main_mosatest.cpp
-├── lib/                      # Prolog 製の標準ライブラリ（lists.pl, apply.pl, format.pl, japanese.pl, messages_ja.pl, messages_en.pl …）
+├── lib/                      # Standard library written in Prolog (lists.pl, apply.pl, format.pl, japanese.pl, messages_ja.pl, messages_en.pl …)
 ├── tests/
-│   ├── cpp/                  # harness.hpp と部品テスト
-│   ├── pl/                   # 章ごとの自前テスト。japanese.pl、modules.pl を含む
-│   ├── conformance/          # 外部スイート（ライセンスファイルを同梱）
+│   ├── cpp/                  # harness.hpp and component tests
+│   ├── pl/                   # Our own tests, per chapter. Includes japanese.pl and modules.pl
+│   ├── conformance/          # External suites (license files bundled)
 │   └── tmp/                  # .gitignore
 ├── bench/
 └── tools/
-    └── gen_unicode_tables.py # 開発者だけが実行。ビルドには不要
+    └── gen_unicode_tables.py # Run by developers only. Not needed for the build
 ```
 
-### 各ファイルの最初の中身
+### Initial contents of each file
 
-- `docs/STATUS.md` の初期内容: `フェーズ: 0 / 進行中: なし / 次: CMake と harness.hpp / 未解決: なし`
-- `docs/adr/0001-cell-representation.md`: `docs/SPEC.md` 第 6 節の Cell 設計を ADR 形式に写す。これが最初の ADR で、Phase 1 着手前に浩さんが承認する
-- `CMakePresets.json` には `configurePresets` と `buildPresets` と `testPresets` を揃え、`cmake --preset macos-clang && cmake --build --preset macos-clang && ctest --preset macos-clang` の 3 コマンドで全部が動くようにする
-- `include/mosa/mosa.hpp` の API は最小に保つ: `Machine::create()`、`consult(path)`、`query(text, callback)`、`halt()`。これ以外は Phase 7 まで追加しない
+- Initial content of `docs/STATUS.md`: `フェーズ: 0 / 進行中: なし / 次: CMake と harness.hpp / 未解決: なし` ("Phase: 0 / In progress: none / Next: CMake and harness.hpp / Unresolved: none")
+- `docs/adr/0001-cell-representation.md`: copy the Cell design in `docs/SPEC.md` section 6 into ADR form. This is the first ADR, and the project owner approves it before Phase 1 starts
+- `CMakePresets.json` must have `configurePresets`, `buildPresets` and `testPresets`, so that everything works with the 3 commands `cmake --preset macos-clang && cmake --build --preset macos-clang && ctest --preset macos-clang`
+- Keep the API of `include/mosa/mosa.hpp` minimal: `Machine::create()`, `consult(path)`, `query(text, callback)`, `halt()`. Add nothing else before Phase 7
 
-### Phase 0 の最初のタスク
+### First tasks of Phase 0
 
-1. 上のツリーを作り、`AGENTS.md`・`CLAUDE.md`・`docs/SPEC.md`・`docs/STATUS.md` を置く
-2. `CMakeLists.txt` と `CMakePresets.json` を書き、`mosa --version` が `mosa 0.0.1 (phase 0)` と出力するだけの実行ファイルを作る
-3. `tests/cpp/harness.hpp` と、`1 + 1 == 2` を確認するだけのテストを 1 つ登録し、`ctest` で通す
-4. `.github/workflows/ci.yml` を書き、3 OS で緑になるのを確認してから `STATUS.md` を更新して終了する
+1. Create the tree above and put `AGENTS.md`, `CLAUDE.md`, `docs/SPEC.md` and `docs/STATUS.md` in place
+2. Write `CMakeLists.txt` and `CMakePresets.json`, and build an executable that does nothing but print `mosa 0.0.1 (phase 0)` for `mosa --version`
+3. Register `tests/cpp/harness.hpp` and one test that only checks `1 + 1 == 2`, and make it pass with `ctest`
+4. Write `.github/workflows/ci.yml`, confirm it is green on 3 OSes, then update `STATUS.md` and finish

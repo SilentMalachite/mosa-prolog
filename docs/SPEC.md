@@ -1,145 +1,147 @@
-# Mosa Prolog 仕様書（SPEC）
+English | [日本語](SPEC.ja.md)
 
-指示書「ISO Prolog 処理系（C++20変換）— Claude Code Grok Build 向け指示書」の第 1〜9 節を写したもの。第 10・11 節（エージェントの作業ルール、リポジトリ構成）は `AGENTS.md` にある。
+# Mosa Prolog Specification (SPEC)
 
-## 1. 目的と非目標
+This document reproduces sections 1–9 of the brief "ISO Prolog implementation (C++20 translation) — instructions for Claude Code and Grok Build" (指示書「ISO Prolog 処理系（C++20変換）— Claude Code Grok Build 向け指示書」). Sections 10 and 11 (agent working rules, repository layout) are in `AGENTS.md`.
 
-この文書は、ISO/IEC 13211 準拠の Prolog 処理系（名称 Mosa Prolog、リポジトリ名 `mosa-prolog`）を Claude Code と Grok Build で実装するための共通仕様である。CLAUDE.md と AGENTS.md の両方からこの文書を参照すること（同じ内容を二重管理しない）。
+## 1. Goals and non-goals
 
-名前の体系: コマンドは `mosa`（インタプリタ）、`mosac`（変換器）、`mosatest`（テストランナー）。ランタイムは `libmosa`、ヘッダは `include/mosa/`、C++ の名前空間は `mosa`、環境変数の接頭辞は `MOSA_`。表記は小文字の `mosa` で統一し、文章中の正式名称だけ Mosa Prolog と書く。
+This document is the shared specification for implementing an ISO/IEC 13211-conformant Prolog system (named Mosa Prolog, repository name `mosa-prolog`) with Claude Code and Grok Build. Both CLAUDE.md and AGENTS.md must refer to this document (do not maintain the same content in two places).
 
-**目的（優先順）**
+Naming scheme: the commands are `mosa` (interpreter), `mosac` (translator), and `mosatest` (test runner). The runtime is `libmosa`, the headers are in `include/mosa/`, the C++ namespace is `mosa`, and the environment variable prefix is `MOSA_`. Always write lowercase `mosa`; use the formal name Mosa Prolog only in prose.
 
-1. ISO/IEC 13211-1（コア）に準拠し、公開されている準拠テストスイートで高い合格率を出す。
-2. 日本語をアトム・文字列・識別子・入出力・ソースファイルのすべてで自然に扱える（Unicode コードポイント単位）。
-3. モジュールシステムを持つ（13211-2 の構文を基本に、SWI-Prolog 互換の実用的な意味論）。
-4. Prolog プログラムをポータブルな C++20 ソースに変換し、ランタイムとリンクして単体実行ファイルを生成できる。変換・コンパイル・リンク・実行は mosac の 1 コマンドで完結し、利用者は C++ ツールチェーンを直接操作しない。
-5. 対話的インタプリタ（REPL、`consult/1`、`assert` 系）も同じランタイム上で動く。変換結果とインタプリタの結果は常に一致する。
+**Goals (in priority order)**
 
-**非目標（今回はやらない）**
+1. Conform to ISO/IEC 13211-1 (core) and achieve a high pass rate on publicly available conformance test suites.
+2. Handle Japanese naturally in atoms, strings, identifiers, input/output, and source files (on a per-Unicode-code-point basis).
+3. Provide a module system (based on the syntax of 13211-2, with practical SWI-Prolog-compatible semantics).
+4. Translate Prolog programs into portable C++20 source, link them with the runtime, and produce standalone executables. Translation, compilation, linking, and execution are all done with a single mosac command; users do not operate the C++ toolchain directly.
+5. The interactive interpreter (REPL, `consult/1`, the `assert` family) also runs on the same runtime. Translated programs and the interpreter must always produce the same results.
 
-- 制約論理プログラミング（CLP(FD) など）、テーブリング、並列実行
-- 多倍長整数（Phase 6 以降に任意機能として検討。それまでは 64bit 整数とオーバーフロー時の `evaluation_error`）
-- GUI、IDE 連携、デバッガ以外のツール
-- C++20 標準ライブラリと CMake 以外への依存（ICU、Boost、GMP は使わない。GMP は将来のオプション）
-- Windows 専用／macOS 専用の API への依存。OS 依存コードは `src/platform/` に隔離し、1 ファイル以内に収める
+**Non-goals (not in scope this time)**
 
-## 2. 成果物と動作環境
+- Constraint logic programming (CLP(FD) etc.), tabling, parallel execution
+- Arbitrary-precision integers (to be considered as an optional feature from Phase 6 onward; until then, 64-bit integers with `evaluation_error` on overflow)
+- GUI, IDE integration, and tools other than a debugger
+- Dependencies other than the C++20 standard library and CMake (no ICU, Boost, or GMP; GMP may become a future option)
+- Dependencies on Windows-only or macOS-only APIs. OS-dependent code is isolated in `src/platform/` and kept within one file
 
-成果物は 3 つの実行物と 1 つのライブラリ。すべて 1 つの CMake プロジェクトから生成する。
+## 2. Deliverables and supported environments
 
-| 成果物 | 内容 | 形式 |
+The deliverables are three executables and one library. All are built from a single CMake project.
+
+| Deliverable | Contents | Form |
 | --- | --- | --- |
-| `libmosa` | 項表現・ユニフィケーション・ソルバ・組込述語・ストリーム・モジュール管理を含むランタイム | 静的ライブラリ（共有ライブラリは任意） |
-| `mosa` | 対話的インタプリタ。REPL、`consult/1`、`-g Goal -t halt` 等のコマンドライン、スクリプト実行 | 実行ファイル |
-| `mosac` | Prolog → C++20 変換器。Prolog ファイルから単体実行ファイルを作るまでを一括で行う（build / run / emit / dist / toolchain の各サブコマンド）。C++ ソースの出力は中間段階 | 実行ファイル |
-| `mosatest` | テストランナー。Prolog で書かれたテストと準拠スイートを実行し、JUnit 形式で結果を出す | 実行ファイル（Prolog スクリプト + 薄いラッパ） |
+| `libmosa` | Runtime containing term representation, unification, the solver, built-in predicates, streams, and module management | Static library (shared library optional) |
+| `mosa` | Interactive interpreter. REPL, `consult/1`, command lines such as `-g Goal -t halt`, script execution | Executable |
+| `mosac` | Prolog → C++20 translator. Goes all the way from a Prolog file to a standalone executable in one step (subcommands build / run / emit / dist / toolchain). C++ source output is an intermediate stage | Executable |
+| `mosatest` | Test runner. Runs tests written in Prolog and the conformance suite, and reports results in JUnit format | Executable (Prolog script + thin wrapper) |
 
-**ビルド環境（3 OS すべてで CI を通すこと）**
+**Build environments (CI must pass on all three OSes)**
 
-| OS | コンパイラ | 備考 |
+| OS | Compiler | Notes |
 | --- | --- | --- |
-| macOS（Apple Silicon） | Apple Clang 15 以上 | 開発の主環境 |
-| Linux（Ubuntu 24.04） | GCC 13 以上、Clang 17 以上 | CI の基準環境 |
-| Windows 11 | MSVC 2022（v17.8 以上） | `/utf-8` `/permissive-` `/Zc:__cplusplus` を必須とする |
+| macOS (Apple Silicon) | Apple Clang 15 or later | Primary development environment |
+| Linux (Ubuntu 24.04) | GCC 13 or later, Clang 17 or later | Reference CI environment |
+| Windows 11 | MSVC 2022 (v17.8 or later) | `/utf-8` `/permissive-` `/Zc:__cplusplus` are required |
 
-- 言語規格は `-std=c++20` / `/std:c++20` 固定。コンパイラ拡張（GNU 拡張、`__int128`、`#pragma once` 以外の独自プラグマ）は使わない。
-- 必須ツールは CMake 3.25 以上と上記コンパイラのみ。Ninja 推奨。
-- 生成される C++ コードも同じ制約に従う。生成コードは `libmosa` のヘッダ（`mosa/runtime.hpp`）だけを include する。
-- 警告は `-Wall -Wextra -Wpedantic`（MSVC は `/W4`）で、CI では警告をエラー扱いにする。
-- 文字コードはソース・テスト・ドキュメントのすべてで UTF-8（BOM なし）。
+- The language standard is fixed at `-std=c++20` / `/std:c++20`. Do not use compiler extensions (GNU extensions, `__int128`, vendor-specific pragmas other than `#pragma once`).
+- The only required tools are CMake 3.25 or later and the compilers above. Ninja is recommended.
+- Generated C++ code follows the same constraints. Generated code includes only the `libmosa` header (`mosa/runtime.hpp`).
+- Warnings are `-Wall -Wextra -Wpedantic` (MSVC: `/W4`), and CI treats warnings as errors.
+- Character encoding is UTF-8 (without BOM) for all sources, tests, and documentation.
 
-## 3. 言語仕様の範囲（ISO/IEC 13211-1, 13211-2）
+## 3. Scope of the language specification (ISO/IEC 13211-1, 13211-2)
 
-13211-1:1995 に Cor.1（2007）、Cor.2（2012）、Cor.3（2017）を加えたものを「コア」とし、矛盾がある場合は Corrigenda を優先する。規格と実装の判断が分かれる箇所は `docs/iso-notes.md` に条番号付きで記録する。
+The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); where they conflict, the Corrigenda take precedence. Where the standard and implementation decisions diverge, record it in `docs/iso-notes.md` with the clause number.
 
-**コアで必ず実装するもの（13211-1 の章立て順）**
+**Must be implemented in the core (in the chapter order of 13211-1)**
 
-1. 構文（第 6 章）: トークン化、演算子優先順位、`op/3`、引用アトム、エスケープ列（`\x...\`、`\uXXXX`、`\UXXXXXXXX` を含む）、`0'c` 文字コード記法、`{}`/`[]` の扱い、`end_of_file`
-2. 項の表現・ユニフィケーション（7.3）。`unify_with_occurs_check/2` を含む。デフォルトのユニフィケーションでは出現検査を行わない
-3. 実行モデル（7.7）: 探索木、カット、`catch/3`・`throw/1`、`call/1..8` のカットの透過性（`call/N` 内のカットはローカル）
-4. エラー体系（7.12）: `error(Formal, Context)` の形式とすべての Formal 項（`instantiation_error`、`uninstantiation_error/1`、`type_error/2`、`domain_error/2`、`existence_error/2`、`permission_error/3`、`representation_error/1`、`evaluation_error/1`、`resource_error/1`、`syntax_error/1`、`system_error`）
-5. 算術（第 9 章）: 整数は 64bit 符号付き、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供し、オーバーフローは `evaluation_error(int_overflow)`。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
-6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
-7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、`version`、`japanese_punctuation`（第 4 節）
-8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
+1. Syntax (chapter 6): tokenization, operator precedence, `op/3`, quoted atoms, escape sequences (including `\x...\`, `\uXXXX`, `\UXXXXXXXX`), `0'c` character code notation, handling of `{}`/`[]`, `end_of_file`
+2. Term representation and unification (7.3), including `unify_with_occurs_check/2`. Default unification does not perform the occurs check
+3. Execution model (7.7): search tree, cut, `catch/3`/`throw/1`, cut transparency of `call/1..8` (a cut inside `call/N` is local)
+4. Error system (7.12): the `error(Formal, Context)` form and all Formal terms (`instantiation_error`, `uninstantiation_error/1`, `type_error/2`, `domain_error/2`, `existence_error/2`, `permission_error/3`, `representation_error/1`, `evaluation_error/1`, `resource_error/1`, `syntax_error/1`, `system_error`)
+5. Arithmetic (chapter 9): integers are 64-bit signed, floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; overflow raises `evaluation_error(int_overflow)`. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
+6. All built-in predicates (chapter 8). The list and stages are given in section 7
+7. Flags (7.11): `bounded`, `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), `version`, and `japanese_punctuation` (section 4)
+8. Directives (7.4.2): `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`, `set_prolog_flag/2`, `include/1`, `ensure_loaded/1`
 
-**実装定義事項の決定**
+**Decisions on implementation-defined matters**
 
-| 事項 | 決定 |
+| Matter | Decision |
 | --- | --- |
 | `max_arity` | 1024 |
-| `double_quotes` の既定値 | `codes`（ISO 既定）。モジュール単位で変更可 |
-| `unknown` の既定値 | `error` |
-| 文字の範囲 | Unicode スカラー値 U+0000〜U+10FFFF（サロゲートは不可） |
-| 文字列型 | 持たない。`"..."` は `double_quotes` フラグに従う（SWI の string 型は非目標） |
-| 浮動小数点の書式 | 最短往復表現（`std::to_chars`）。必ず `.` を含み、指数は `e` |
-| 整数の構文 | `0b`、`0o`、`0x`、`0'c`、`_` 区切り（Cor.3 では未規定だが許可） |
+| Default of `double_quotes` | `codes` (ISO default). Can be changed per module |
+| Default of `unknown` | `error` |
+| Character range | Unicode scalar values U+0000–U+10FFFF (surrogates are not allowed) |
+| String type | None. `"..."` follows the `double_quotes` flag (SWI's string type is a non-goal) |
+| Float format | Shortest round-trip representation (`std::to_chars`). Always contains `.`, exponent written with `e` |
+| Integer syntax | `0b`, `0o`, `0x`, `0'c`, `_` digit separators (not specified in Cor.3, but allowed) |
 
-**ISO からの意図的な逸脱（すべてフラグまたは既定オフで、`iso` フラグ true のとき無効化される）**
+**Intentional deviations from ISO (all are behind a flag or off by default, and are disabled when the `iso` flag is true)**
 
-- モジュール（第 5 節）。13211-2 は実装例が少なく矛盾も指摘されているため、構文のみ採り、意味論は SWI-Prolog を参照する
-- 全角記号の受理（第 4 節、既定オフ）
-- `format/2,3`、`between/3`、`succ/2`、`msort/2`、`forall/2`、`nb_getval/2` 等の広く使われる非 ISO 述語を `library(lists)`、`library(apply)` 等のモジュールに置く。`user` モジュールの既定では見えず、`use_module` で取り込む
+- Modules (section 5). 13211-2 has few implementations and known inconsistencies, so only its syntax is adopted; the semantics follow SWI-Prolog
+- Acceptance of full-width symbols (section 4, off by default)
+- Widely used non-ISO predicates such as `format/2,3`, `between/3`, `succ/2`, `msort/2`, `forall/2`, `nb_getval/2` are placed in modules such as `library(lists)` and `library(apply)`. They are not visible by default in the `user` module and are imported with `use_module`
 
-## 4. 日本語・Unicode 対応の仕様
+## 4. Japanese and Unicode support
 
-「文字」は常に Unicode スカラー値 1 個であり、バイトでも UTF-16 単位でもない。この原則をすべての組込述語と変換器に貫く。
+A "character" is always one Unicode scalar value, never a byte or a UTF-16 unit. This principle applies throughout all built-in predicates and the translator.
 
-**内部表現**
+**Internal representation**
 
-- アトム名は UTF-8（`std::string`）で保持し、アトムテーブルはバイト列で一意化する。正規化（NFC/NFD）は行わないので、`親` と合成列で書いた同形文字は別アトムになる。この点はマニュアルに明記する
-- `atom_length/2`、`sub_atom/5`、`atom_chars/2`、`char_code/2`、`atom_codes/2` はコードポイント単位で動く。`sub_atom/5` の計算量を抑えるため、アトムに「ASCII のみ」フラグを持たせ、ASCII ならバイト位置をそのまま使う
-- 1 文字のアトムは `char32_t` から直接生成できる高速パスを用意する
+- Atom names are stored as UTF-8 (`std::string`), and the atom table deduplicates by byte sequence. No normalization (NFC/NFD) is performed, so `親` and a visually identical character written as a composed sequence are different atoms. The manual must state this explicitly
+- `atom_length/2`, `sub_atom/5`, `atom_chars/2`, `char_code/2`, and `atom_codes/2` operate on code points. To keep the cost of `sub_atom/5` down, atoms carry an "ASCII only" flag, and for ASCII atoms byte positions are used directly
+- Provide a fast path that creates a one-character atom directly from a `char32_t`
 
-**字句解析（13211-1 6.5 の文字分類を Unicode に拡張）**
+**Lexical analysis (the character classification of 13211-1 6.5 extended to Unicode)**
 
-| ISO の分類 | Unicode での定義 | 例 |
+| ISO class | Unicode definition | Examples |
 | --- | --- | --- |
-| 小文字（alpha の先頭になれる） | `Ll`、`Lo`、`Lm`、`Nl` および `Mn`/`Mc`（結合文字、先頭不可） | `親`、`たろう`、`カタカナ`、`ß` |
-| 大文字（変数の先頭） | `Lu`、`Lt` | `X`、`Ä`、`Σ` |
-| 数字 | ASCII の `0-9` のみ（全角数字は不可） | `123` |
-| シンボル文字 | ISO の 12 文字 + `Sm`、`So`、`Pd`、`Po` のうち ASCII 外のもの | `+`、`→`、`≠`、`∧` |
-| 空白 | `Zs`、`Zl`、`Zp` + 制御文字の空白 | 全角空白 U+3000 を含む |
+| Lowercase (can start an alpha token) | `Ll`, `Lo`, `Lm`, `Nl`, and `Mn`/`Mc` (combining characters, cannot be first) | `親`, `たろう`, `カタカナ`, `ß` |
+| Uppercase (starts a variable) | `Lu`, `Lt` | `X`, `Ä`, `Σ` |
+| Digits | ASCII `0-9` only (full-width digits are not allowed) | `123` |
+| Symbol characters | The 12 ISO characters + non-ASCII characters in `Sm`, `So`, `Pd`, `Po` | `+`, `→`, `≠`, `∧` |
+| Layout (whitespace) | `Zs`, `Zl`, `Zp` + whitespace control characters | Includes the ideographic space U+3000 |
 
-- 日本語には大文字小文字がないので、`親(太郎, 一郎).` の `太郎` は**アトム**になる。日本語名の変数は `_太郎` のように下線で始める。この規則を README と REPL のヘルプの両方に書く
-- 写像（`char_conversion/2`）の既定は恒等写像。`charConversion` で全角→半角などを行わない
-- 漢字 1 文字のアトムは引用符なしで書ける: `write(東)` は `東` を出力する。`writeq/1` は文字分類に従って引用の要否を判定する。つまり `writeq(東京)` は `東京`、`writeq('東 京')` は `'東 京'`
-- Unicode の分類表は ICU に頼らず、`tools/gen_unicode_tables.py` が `UnicodeData.txt`（バージョンを `docs/unicode-version.md` に固定）から `src/unicode_tables.inc` を生成する。生成物はリポジトリにコミットし、ビルド時に Python を要求しない
+- Japanese has no letter case, so `太郎` in `親(太郎, 一郎).` is an **atom**. Variables with Japanese names start with an underscore, as in `_太郎`. This rule must be written in both the README and the REPL help
+- The default mapping for `char_conversion/2` is the identity mapping. `charConversion` does not perform full-width → half-width conversion or similar
+- Single-kanji atoms can be written without quotes: `write(東)` outputs `東`. `writeq/1` decides whether quoting is needed according to the character classification. That is, `writeq(東京)` gives `東京` and `writeq('東 京')` gives `'東 京'`
+- The Unicode classification tables do not rely on ICU; `tools/gen_unicode_tables.py` generates `src/unicode_tables.inc` from `UnicodeData.txt` (its version is pinned in `docs/unicode-version.md`). The generated file is committed to the repository, and the build does not require Python
 
-**全角記号モード（フラグ `japanese_punctuation`、既定 false）**
+**Full-width symbol mode (全角記号モード) (flag `japanese_punctuation`, default false)**
 
-真のとき、字句解析器は次の全角記号を半角と同一視する。ソースの可読性のためであり、`writeq/1` は常に半角で出力する。
+When true, the lexer treats the following full-width symbols as identical to their half-width counterparts. This is for source readability; `writeq/1` always outputs the half-width form.
 
-| 全角 | 半角 |
+| Full-width | Half-width |
 | --- | --- |
 | `（` `）` | `(` `)` |
 | `［` `］` | `[` `]` |
 | `，` `、` | `,` |
-| `。` | `.`（節の終端のみ。小数点には使わない） |
+| `。` | `.` (clause terminator only; never used as a decimal point) |
 | `：` | `:` |
-| `「` `」` | `'` `'`（引用アトムの開始・終了。入れ子不可） |
+| `「` `」` | `'` `'` (start and end of a quoted atom; cannot be nested) |
 
-**入出力**
+**Input/output**
 
-- すべてのストリームは `encoding` オプションを持ち、既定は `utf8`。`text` モードのストリームは不正な UTF-8 列に対して `representation_error(character)` を投げるか、フラグ `invalid_utf8` が `replace` なら U+FFFD に置換する
-- 標準入出力は Windows でも UTF-8 で動かす。`src/platform/windows.cpp` で `SetConsoleCP(65001)`、`SetConsoleOutputCP(65001)` を呼び、コンソール入力は `ReadConsoleW` で UTF-16 を受けて UTF-8 に変換する。ファイルは `std::filesystem::path` 経由で開き、日本語のパス名を扱えること
-- `read_term/2,3` の `syntax_error` メッセージは、行番号・列番号（コードポイント単位）・問題のトークンを含む。列は全角文字でも 1 文字 1 列で数える
-- `format/2,3` の `~t~|` 桁揃えは東アジアの幅（`East_Asian_Width` の W/F を幅 2）を考慮する。これも生成テーブルに含める
+- Every stream has an `encoding` option, defaulting to `utf8`. A `text` mode stream throws `representation_error(character)` on an invalid UTF-8 sequence, or replaces it with U+FFFD if the flag `invalid_utf8` is `replace`
+- Standard input/output works in UTF-8 on Windows as well. `src/platform/windows.cpp` calls `SetConsoleCP(65001)` and `SetConsoleOutputCP(65001)`, and console input is received as UTF-16 via `ReadConsoleW` and converted to UTF-8. Files are opened through `std::filesystem::path` and must support Japanese path names
+- `syntax_error` messages from `read_term/2,3` include the line number, the column number (in code points), and the offending token. Columns count one column per character, including full-width characters
+- `~t~|` column alignment in `format/2,3` takes East Asian width into account (`East_Asian_Width` W/F count as width 2). This is also included in the generated tables
 
-**日本語テストの最低セット（`tests/japanese/`）**
+**Minimum set of Japanese tests (`tests/japanese/`)**
 
-- 日本語アトム・演算子（`:- op(700, xfx, は).` のあと `太郎 は 学生.` が読める）の読み書き往復
-- `sub_atom/5` で `日本語処理系` から `語処` を切り出す
-- `atom_length('𠮷野家', 3)`。𠮷は U+20BB7 の 1 コードポイントで、UTF-16 のサロゲートペアとしては数えない
-- 日本語ファイル名の `consult/1`、日本語を含む `syntax_error` のメッセージ表示
-- 全角記号モードの on/off でのパース結果の一致
+- Read/write round trip of Japanese atoms and operators (after `:- op(700, xfx, は).`, `太郎 は 学生.` can be read)
+- Extract `語処` from `日本語処理系` with `sub_atom/5`
+- `atom_length('𠮷野家', 3)`. 𠮷 is the single code point U+20BB7 and is not counted as a UTF-16 surrogate pair
+- `consult/1` of a file with a Japanese file name, and display of `syntax_error` messages containing Japanese
+- Parse results are identical with full-width symbol mode on and off
 
-## 5. モジュールシステムの仕様
+## 5. Module system
 
-構文は ISO/IEC 13211-2 と SWI-Prolog の共通部分を採り、意味論は SWI-Prolog の「述語ベースのモジュール」に従う。ファイル 1 つがモジュール 1 つに対応する。
+The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the semantics follow SWI-Prolog's "predicate-based modules". One file corresponds to one module.
 
-**宣言と参照**
+**Declarations and references**
 
 ```prolog
 :- module(家系, [親/2, 祖父/2, (は)/2]).      % 第 1 節として置く。エクスポートは PI のリスト
@@ -153,200 +155,204 @@
 ?- 家系:祖父(太郎, Z).                         % 明示限定呼び出し
 ```
 
-**解決規則（この順で検索し、最初に見つかった定義を使う）**
+(The comments in the example say, in order: placed as the first clause, the exports are a list of PIs; imports all exports; imports only some and gives an alias; argument 1 is a goal (gets module-qualified); additional export after `module/2`; explicitly qualified call.)
 
-1. 呼び出し元モジュールの自前の定義（ローカル述語とインポート済み述語は同じ名前空間。衝突は読み込み時の `permission_error(import_into, ...)`）
-2. そのモジュールの既定インポート元（通常は `user`、`user` の既定は `system`）
-3. `system` モジュール（すべての組込述語と制御構造。再定義は `permission_error(modify, static_procedure, PI)`）
+**Resolution rules (searched in this order; the first definition found is used)**
 
-- `Module:Goal` は `Goal` を `Module` の文脈で実行する。`Module` が未知なら `existence_error(module, Module)`
-- `dynamic/1`、`assertz/1` 等が作る述語は、宣言・追加したモジュールに属する。`assertz(家系:親(a, b))` のように限定もできる
-- `meta_predicate/1` で `:`、`0`〜`9`、`^`、`//` と指定された引数は、呼び出し時に `呼び出し元モジュール:引数` に包まれる。これにより `maplist/2,3`、`findall/3`、`catch/3`、`forall/2` などがモジュールをまたいで正しく動く
-- `multifile/1` は `モジュール:PI` 形式で、他モジュールから節を追加できる
-- `user` モジュールはトップレベルの既定。`library(...)` は `$MOSA_LIB` と実行ファイル相対の `lib/` から探す
-- `op/3` は宣言したモジュールにローカル。エクスポートリストに `op(P, T, N)` を書くと取り込み先にも効く。`user` で宣言した演算子は全モジュールに見える
-- フラグ `double_quotes` と `japanese_punctuation` はモジュール単位（正確には読み込み中のファイル単位）に保存・復元する
+1. The calling module's own definitions (local predicates and imported predicates share one namespace; a conflict raises `permission_error(import_into, ...)` at load time)
+2. That module's default import source (normally `user`; the default for `user` is `system`)
+3. The `system` module (all built-in predicates and control constructs; redefinition raises `permission_error(modify, static_procedure, PI)`)
 
-**変換器（`mosac`）での扱い**
+- `Module:Goal` runs `Goal` in the context of `Module`. If `Module` is unknown, `existence_error(module, Module)`
+- Predicates created by `dynamic/1`, `assertz/1`, etc. belong to the module that declared or added them. They can also be qualified, as in `assertz(家系:親(a, b))`
+- Arguments specified with `:`, `0`–`9`, `^`, or `//` in `meta_predicate/1` are wrapped as `呼び出し元モジュール:引数` (calling module:argument) at call time. This makes `maplist/2,3`, `findall/3`, `catch/3`, `forall/2`, etc. work correctly across modules
+- `multifile/1` takes the form `モジュール:PI` (Module:PI) and lets other modules add clauses
+- The `user` module is the top-level default. `library(...)` is searched in `$MOSA_LIB` and in `lib/` relative to the executable
+- `op/3` is local to the module that declares it. Writing `op(P, T, N)` in the export list makes it effective in importing modules too. Operators declared in `user` are visible in all modules
+- The flags `double_quotes` and `japanese_punctuation` are saved and restored per module (more precisely, per file being loaded)
 
-- 各モジュールは C++ の名前空間 `mosa::m::<マングルしたモジュール名>` に対応する。モジュール名は UTF-8 のまま C++ 識別子には使えないので、`m_` + 名前のバイト列を `_xx` エスケープした形にマングルする。元の名前は文字列定数として保持し、実行時のモジュールテーブルに登録する
-- インポート解決は変換時に静的に済ませ、生成コードでは直接関数呼び出しにする。`call/N` とメタ述語経由の呼び出しだけが実行時のテーブル検索を通る
-- 変換単位は「モジュールの集合」であり、`use_module` の推移閉包を自動で含める。`library(...)` は事前変換済みのオブジェクトをリンクする
+**Handling in the translator (`mosac`)**
 
-**最初に用意する標準ライブラリ（すべて Prolog で書く。C++ 実装が必要なものだけ `system` に置く）**
+- Each module corresponds to the C++ namespace `mosa::m::<mangled module name>`. Module names in UTF-8 cannot be used as C++ identifiers as-is, so they are mangled as `m_` + the name's bytes escaped as `_xx`. The original name is kept as a string constant and registered in the runtime module table
+- Import resolution is done statically at translation time, and generated code uses direct function calls. Only calls through `call/N` and meta-predicates go through a runtime table lookup
+- The translation unit is a "set of modules", and the transitive closure of `use_module` is included automatically. `library(...)` modules are linked as pre-translated objects
 
-| モジュール | 主な述語 |
+**Standard libraries to provide first (all written in Prolog; only those requiring a C++ implementation are placed in `system`)**
+
+| Module | Main predicates |
 | --- | --- |
-| `library(lists)` | `append/3`、`member/2`、`memberchk/2`、`length/2`（ISO コアなので system に置き re-export）、`nth0/3`、`nth1/3`、`last/2`、`reverse/2`、`msort/2`、`sum_list/2`、`max_list/2`、`list_to_set/2` |
-| `library(apply)` | `maplist/2..5`、`foldl/4..6`、`include/3`、`exclude/3` |
-| `library(between)` | `between/3`、`succ/2`、`plus/3` |
-| `library(format)` | `format/1,2,3`（\`\~w \~q \~a \~d \~f \~e \~s \~c \~n \~t \~ |
-| `library(strings)` | `atomic_list_concat/2,3`、`split_atom/4`、`upcase_atom/2`（Unicode 大文字化は simple case mapping のみ） |
-| `library(japanese)` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2`（表示幅の計算）。生成テーブルで実装 |
+| `library(lists)` | `append/3`, `member/2`, `memberchk/2`, `length/2` (ISO core, so placed in system and re-exported), `nth0/3`, `nth1/3`, `last/2`, `reverse/2`, `msort/2`, `sum_list/2`, `max_list/2`, `list_to_set/2` |
+| `library(apply)` | `maplist/2..5`, `foldl/4..6`, `include/3`, `exclude/3` |
+| `library(between)` | `between/3`, `succ/2`, `plus/3` |
+| `library(format)` | `format/1,2,3` (`~w`, `~q`, `~a`, `~d`, `~f`, `~e`, `~s`, `~c`, `~n`, `~t`, `~\|`) |
+| `library(strings)` | `atomic_list_concat/2,3`, `split_atom/4`, `upcase_atom/2` (Unicode uppercasing uses simple case mapping only) |
+| `library(japanese)` | `ひらがな_カタカナ/2` (hiragana/katakana), `全角_半角/2` (full-width/half-width), `読み幅/2` (display width calculation). Implemented with the generated tables |
 
-## 6. アーキテクチャ（ランタイム・インタプリタ・C++20変換）
+## 6. Architecture (runtime, interpreter, C++20 translation)
 
-インタプリタと変換器は同じランタイム（項・ヒープ・トレイル・組込述語）を共有し、違いは「節をどう実行するか」だけにする。これにより両者の結果の一致を差分テストで保証できる。
+The interpreter and the translator share the same runtime (terms, heap, trail, built-in predicates); the only difference is "how clauses are executed". This lets differential tests guarantee that both produce the same results.
 
-**処理の流れ**
+**Processing pipeline**
 
-1. 字句解析（`lexer`）: UTF-8 → トークン列。第 4 節の文字分類を使う
-2. 構文解析（`reader`）: 演算子優先順位パーサ（Pratt 法）。`read_term/3` のオプション（`variable_names`、`singletons`、`quoted` など）を完全サポート
-3. 読み込み（`loader`）: ディレクティブ処理、モジュール解決、項展開（`term_expansion/2`、`goal_expansion/2` は `user` と読み込み中モジュールで探す）
-4. 節コンパイル（`clause_compiler`）: 節を中間表現（IR）に落とす。IR はインタプリタと `mosac` の共通入力
-5. 実行: インタプリタは IR を直接解釈。`mosac` は IR から C++20 を生成
+1. Lexical analysis (`lexer`): UTF-8 → token stream. Uses the character classification from section 4
+2. Parsing (`reader`): operator precedence parser (Pratt method). Full support for the `read_term/3` options (`variable_names`, `singletons`, `quoted`, etc.)
+3. Loading (`loader`): directive processing, module resolution, term expansion (`term_expansion/2` and `goal_expansion/2` are looked up in `user` and in the module being loaded)
+4. Clause compilation (`clause_compiler`): lowers clauses to the IR (intermediate representation). The IR is the common input to the interpreter and `mosac`
+5. Execution: the interpreter interprets the IR directly. `mosac` generates C++20 from the IR
 
-**ランタイム（`libmosa`）の核**
+**Core of the runtime (`libmosa`)**
 
-| 部品 | 設計 |
+| Component | Design |
 | --- | --- |
-| セル表現 | 64bit タグ付き整数 `Cell`。下位 3bit がタグ: REF、ATOM、INT（61bit 即値）、STR（ヒープ内の関手セルへのポインタ）、LIS（リスト）、FLT（ボックス化 double）、BIG（将来予約）。61bit に収まらない整数は FLT と同様にボックス化し、`max_integer` は 2^63−1 のままにする |
-| ヒープ | 単一の連続配列（`std::vector<Cell>` で確保、再配置を避けるため上限を予約）。バックトラック時にトップを戻すだけで回収する |
-| トレイル | 束縛した REF のアドレスを積む。条件付きトレイル（選択点より古いセルのみ記録） |
-| 選択点スタック | 継続・トレイル位置・ヒープ位置・代替節へのポインタ・カット境界を保持 |
-| GC | Phase 5 まで持たない（バックトラックによる回収のみ）。Phase 7 で マーク＆コンパクト型を追加。`garbage_collect/0` を提供 |
-| アトムテーブル | UTF-8 バイト列 → 32bit アトム番号。スレッド非対応で良い（非目標） |
-| 例外 | Prolog の `throw/1` は C++ 例外を使わず、選択点スタックに `catch` フレームを積んで巻き戻す。C++ 例外はランタイム内部の致命的エラー（`resource_error`）だけに使う |
-| ストリーム | `Stream` 抽象クラス + ファイル／標準入出力／メモリ（`open_string` 相当）の実装。バッファリングとピーク（`peek_char/1`）を内蔵 |
+| Cell representation | 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (reserved for the future). Integers that do not fit in 61 bits are boxed like FLT, and `max_integer` stays 2^63−1 |
+| Heap | A single contiguous array (allocated as `std::vector<Cell>`, with an upper bound reserved to avoid reallocation). Reclaimed on backtracking simply by resetting the top |
+| Trail | Pushes the addresses of bound REFs. Conditional trailing (records only cells older than the choice point) |
+| Choice point stack | Holds the continuation, trail position, heap position, pointer to the alternative clause, and cut barrier |
+| GC | None until Phase 5 (only reclamation by backtracking). A mark-and-compact collector is added in Phase 7. Provide `garbage_collect/0` |
+| Atom table | UTF-8 byte sequence → 32-bit atom number. Does not need to be thread-safe (non-goal) |
+| Exceptions | Prolog's `throw/1` does not use C++ exceptions; it pushes `catch` frames on the choice point stack and unwinds them. C++ exceptions are used only for fatal errors inside the runtime (`resource_error`) |
+| Streams | `Stream` abstract class + implementations for files / standard I/O / memory (equivalent to `open_string`). Buffering and peeking (`peek_char/1`) are built in |
 
-**実行モデル: 二値化 + 明示的継続**
+**Execution model: binarization + explicit continuations**
 
-節 `h :- b1, b2, b3.` を、継続を最後の引数に持つ形 `h(K) :- b1(b2(b3(K)))` に変換（二値化）する。これにより WAM の環境スタックが不要になり、C++ への変換が単純な関数とループになる。
+A clause `h :- b1, b2, b3.` is transformed (binarized) into a form with the continuation as the last argument, `h(K) :- b1(b2(b3(K)))`. This removes the need for the WAM environment stack and makes translation to C++ simple functions and loops.
 
-- 各述語は `bool pred_X_N(Machine& m, Cell* args, Cont k)` 形式の C++ 関数に対応する。`Cont` は「続きの述語とその引数」を表す小さな構造体で、ヒープに置く
-- 実行ループは `while (goal = m.pop()) { dispatch(goal); }` のトランポリン。C++ の再帰は使わないので深い再帰でもスタックオーバーフローしない
-- 選択点は述語本体内の節の切り替えで作る。最初の引数のインデクシング（型タグ＋関手）を節コンパイラで行い、単一候補なら選択点を作らない
-- カットは選択点スタックの高さをカット境界として引数に渡す。`call/N` は呼び出し時の高さを新しい境界にするのでローカルになる
+- Each predicate corresponds to a C++ function of the form `bool pred_X_N(Machine& m, Cell* args, Cont k)`. `Cont` is a small struct representing "the next predicate and its arguments" and is placed on the heap
+- The execution loop is a trampoline: `while (goal = m.pop()) { dispatch(goal); }`. C++ recursion is not used, so deep recursion does not overflow the stack
+- Choice points are created when switching between clauses inside a predicate body. The clause compiler performs first-argument indexing (type tag + functor), and no choice point is created when there is a single candidate
+- Cut passes the height of the choice point stack as the cut barrier in an argument. `call/N` uses the height at call time as the new barrier, which makes cut local
 
-**`mosac` が生成する C++**
+**C++ generated by `mosac`**
 
-- モジュールごとに 1 つの `.cpp` と、エクスポート述語の宣言ヘッダ。述語名は `p_` + マングルした名前 + `_` + アリティ
-- 生成コードは `mosa/runtime.hpp` のみを include し、C++20 標準ライブラリ以外を使わない
-- 節本体は `switch` と `goto` を使った状態機械で、節の各ゴールが 1 状態。マクロは使わず、`inline` 関数と `constexpr` で書く（生成コードの可読性を保ち、デバッガで追えるようにするため）
-- 静的述語だけを変換する。`dynamic` 述語と `assert` で追加される節はインタプリタ経路（IR 解釈）で動き、同じ `Machine` 上で共存する
-- 生成物には `main.cpp`（`initialization(main)` 相当の呼び出し）と `CMakeLists.txt` 断片を含め、`mosac -o out/ app.pl && cmake -S out -B out/build && cmake --build out/build` で実行ファイルができる
-- 生成コードは人間が読んで元の Prolog を追えるように、各述語の先頭に元の節をコメントで入れる（日本語のままで良い）
+- One `.cpp` per module, plus a header declaring the exported predicates. Predicate names are `p_` + the mangled name + `_` + arity
+- Generated code includes only `mosa/runtime.hpp` and uses nothing beyond the C++20 standard library
+- Clause bodies are state machines using `switch` and `goto`, with one state per goal in the clause. No macros; use `inline` functions and `constexpr` (to keep generated code readable and traceable in a debugger)
+- Only static predicates are translated. `dynamic` predicates and clauses added by `assert` run on the interpreter path (IR interpretation) and coexist on the same `Machine`
+- The output includes `main.cpp` (a call equivalent to `initialization(main)`) and a `CMakeLists.txt` fragment, so that `mosac -o out/ app.pl && cmake -S out -B out/build && cmake --build out/build` produces an executable
+- So that a human can read generated code and trace it back to the original Prolog, the original clauses are inserted as comments at the start of each predicate (they may stay in Japanese)
 
-**`mosac` のビルド・実行パイプライン（C++ を吐いて終わりにしない）**
+**`mosac` build and run pipeline (do not stop at emitting C++)**
 
-`mosac` の既定動作は「Prolog ファイルを受け取り、単体で動く実行ファイルを作る」ことである。C++ ソースは中間生成物にすぎず、利用者は CMake もコンパイラも直接触らない。
+The default behavior of `mosac` is "take a Prolog file and produce a standalone executable". C++ source is only an intermediate artifact; users never touch CMake or the compiler directly.
 
-| サブコマンド | 動作 | 出力 |
+| Subcommand | Behavior | Output |
 | --- | --- | --- |
-| `mosac build app.pl -o app` | 変換 → コンパイル → リンクを一括。既定 | 実行ファイル `app`（Windows は `app.exe`） |
-| `mosac run app.pl -- 引数...` | build のあと即実行。一時ディレクトリに作り、終了コードをそのまま返す | 実行結果 |
-| `mosac emit app.pl -o out/` | C++ ソースと `CMakeLists.txt` だけを出す（手で改変したい人向け、デバッグ用） | `out/` |
-| `mosac dist app.pl -o dist/` | build + 配布用パッケージ（実行ファイル、LICENSE、README） | zip / tar.gz |
-| `mosac toolchain` | 検出したコンパイラ・CMake・同梱ランタイムの場所と版を表示。問題があれば対処法を日本語で出す | 診断表示 |
+| `mosac build app.pl -o app` | Translate → compile → link in one step. The default | Executable `app` (`app.exe` on Windows) |
+| `mosac run app.pl -- 引数...` | build, then run immediately. Built in a temporary directory; the exit code is returned as-is | Execution result |
+| `mosac emit app.pl -o out/` | Outputs only C++ source and `CMakeLists.txt` (for people who want to modify it by hand, and for debugging) | `out/` |
+| `mosac dist app.pl -o dist/` | build + distribution package (executable, LICENSE, README) | zip / tar.gz |
+| `mosac toolchain` | Shows the location and version of the detected compiler, CMake, and bundled runtime. If there is a problem, prints remedies in Japanese | Diagnostic output |
 
-**ツールチェーンの扱い**
+(`引数...` in the `run` row means "arguments...".)
 
-- C++ コンパイラは次の順で探す: `--cxx` → 環境変数 `MOSA_CXX` → `CXX` → OS 既定（macOS は `clang++`、Linux は `g++` 次いで `clang++`、Windows は `vswhere` で MSVC を見つけ `vcvarsall` 相当の環境変数を `mosac` 自身が設定する）。見つからなければ `mosac toolchain` と同じ診断を出して止まり、各 OS のインストール手順（Xcode Command Line Tools、`apt install g++`、Visual Studio Build Tools）を表示する
-- CMake は任意。あれば使い、なければコンパイラを直接呼ぶ（生成コードはファイルごとにコンパイルして `mosac` 自身がリンクコマンドを組む）。したがって利用者側の最小要件は「C++20 コンパイラが 1 つ入っていること」
-- ランタイム `libmosa` は、ビルド済みの静的ライブラリとヘッダを `mosac` のインストール先（`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`）に同梱する。利用者のマシンでランタイムを毎回ビルドしない。ABI が合わないときの逃げ道として `--runtime-source` で同梱ソースからビルドする（結果はキャッシュする）
-- `lib/*.pl` の標準ライブラリは事前変換済みのオブジェクトとして同梱し、`use_module` されたものだけをリンクする
-- 既定は静的リンク・`-O2`。Windows は `/MT`。できあがった実行ファイルは配布先に C++ ランタイム DLL も `mosac` も Prolog ファイルも要らない。`--debug` で `-O0 -g` と実行時の節トレースを有効にする
-- 中間ファイルは `.mosac-cache/` に置き、Prolog ソースとランタイムのハッシュで再利用する。`--keep` で生成 C++ を残し、`--clean` で捨てる
-- クロスコンパイルは非目標。実行ファイルは `mosac` を動かした OS・アーキテクチャ向けだけを作る
+**Toolchain handling**
 
-**エラーの扱い（誰の責任かで出し分ける）**
+- The C++ compiler is searched for in this order: `--cxx` → environment variable `MOSA_CXX` → `CXX` → OS default (`clang++` on macOS; `g++` then `clang++` on Linux; on Windows, find MSVC with `vswhere`, and `mosac` itself sets the environment variables equivalent to `vcvarsall`). If none is found, print the same diagnostics as `mosac toolchain` and stop, showing the installation steps for each OS (Xcode Command Line Tools, `apt install g++`, Visual Studio Build Tools)
+- CMake is optional. Use it if present; otherwise invoke the compiler directly (compile the generated code file by file, and `mosac` itself constructs the link command). The minimum requirement on the user side is therefore "one C++20 compiler is installed"
+- The runtime `libmosa` is shipped as a prebuilt static library and headers in the `mosac` installation directory (`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`). The runtime is not rebuilt on the user's machine every time. As a fallback when the ABI does not match, `--runtime-source` builds it from the bundled source (the result is cached)
+- The standard libraries in `lib/*.pl` are shipped as pre-translated objects, and only those loaded with `use_module` are linked
+- The default is static linking with `-O2`. On Windows, `/MT`. The resulting executable needs neither a C++ runtime DLL, nor `mosac`, nor any Prolog files on the target machine. `--debug` enables `-O0 -g` and runtime clause tracing
+- Intermediate files are placed in `.mosac-cache/` and reused based on hashes of the Prolog source and the runtime. `--keep` keeps the generated C++, and `--clean` discards it
+- Cross-compilation is a non-goal. Executables are built only for the OS and architecture on which `mosac` runs
 
-- 利用者の Prolog の問題（構文エラー、エクスポート不整合、未定義述語の静的警告）→ 変換段階で止め、Prolog の行番号付きで報告する。コンパイラは起動しない
-- 生成した C++ がコンパイルできない → `mosac` のバグとして扱う。「内部エラー: 生成コードがコンパイルできません。`.mosac-cache/<hash>/` を添えて報告してください」とだけ出し、コンパイラの生エラーは `--verbose` のときだけ表示する。CI では「生成 C++ は必ずコンパイルできる」を不変条件とし、差分テストの全ケースで確認する
-- コンパイラ未検出、ディスク不足、権限 → 環境の問題として、対処法付きで報告する
+**Error handling (reported differently depending on whose responsibility it is)**
 
-**できあがった実行ファイルの振る舞い**
+- Problems in the user's Prolog (syntax errors, export inconsistencies, static warnings for undefined predicates) → stop at the translation stage and report with Prolog line numbers. The compiler is not started
+- Generated C++ fails to compile → treated as a `mosac` bug. Print only "内部エラー: 生成コードがコンパイルできません。`.mosac-cache/<hash>/` を添えて報告してください" (Internal error: the generated code cannot be compiled. Please report it with `.mosac-cache/<hash>/` attached), and show the raw compiler errors only with `--verbose`. In CI, "generated C++ always compiles" is an invariant, checked across all differential test cases
+- Compiler not found, insufficient disk space, permissions → report as environment problems, with remedies
 
-- `:- initialization(main, main).` があればそれがエントリポイント。`main/0` が成功すれば終了コード 0、失敗なら 1、未捕捉例外ならメッセージを出して 2。`halt/1` の引数はそのまま終了コードになる
-- コマンドライン引数はフラグ `argv`（アトムのリスト）で受け取る
-- `mosac build --interactive` で作ると、変換済みコードを読み込んだ状態で REPL が立ち上がる実行ファイルになる（変換コードとインタプリタの共存は上記の通り）
-- 実行ファイルは起動時に外部ファイルを一切要求しない。必要な Prolog ライブラリはすべてリンク済みで、`lib/` を探しに行かない
+**Behavior of the resulting executable**
 
-**ソースの対応関係**
+- If `:- initialization(main, main).` is present, it is the entry point. If `main/0` succeeds, the exit code is 0; if it fails, 1; on an uncaught exception, print a message and exit with 2. The argument of `halt/1` becomes the exit code as-is
+- Command-line arguments are received through the flag `argv` (a list of atoms)
+- An executable built with `mosac build --interactive` starts a REPL with the translated code already loaded (translated code and the interpreter coexist as described above)
+- The executable requires no external files at startup. All needed Prolog libraries are already linked, and it does not search for `lib/`
 
-| ディレクトリ | 内容 |
+**Source layout**
+
+| Directory | Contents |
 | --- | --- |
-| `src/core/` | Cell、ヒープ、トレイル、アトム、ユニフィケーション |
-| `src/read/` | lexer、reader、演算子テーブル、Unicode 表 |
-| `src/write/` | `write_term/3`、`writeq`、浮動小数点書式、引用判定 |
-| `src/machine/` | 実行ループ、選択点、catch/throw、IR 定義 |
-| `src/builtins/` | 組込述語（ISO の章ごとに 1 ファイル。`control.cpp`、`arith.cpp`、`atoms.cpp`、`streams.cpp` …） |
-| `src/module/` | モジュールテーブル、インポート解決、meta\_predicate |
-| `src/compile/` | 節コンパイラ（IR 生成、インデクシング） |
-| `src/codegen/` | IR → C++20 生成 |
-| `src/platform/` | OS 依存コード（Windows コンソール、パス変換）。ここ以外で `#ifdef _WIN32` を書かない |
-| `lib/` | Prolog で書いた標準ライブラリ |
+| `src/core/` | Cell, heap, trail, atoms, unification |
+| `src/read/` | lexer, reader, operator table, Unicode tables |
+| `src/write/` | `write_term/3`, `writeq`, float formatting, quoting decisions |
+| `src/machine/` | Execution loop, choice points, catch/throw, IR definitions |
+| `src/builtins/` | Built-in predicates (one file per ISO chapter: `control.cpp`, `arith.cpp`, `atoms.cpp`, `streams.cpp`, ...) |
+| `src/module/` | Module table, import resolution, meta\_predicate |
+| `src/compile/` | Clause compiler (IR generation, indexing) |
+| `src/codegen/` | IR → C++20 generation |
+| `src/platform/` | OS-dependent code (Windows console, path conversion). Do not write `#ifdef _WIN32` anywhere else |
+| `lib/` | Standard libraries written in Prolog |
 
-## 7. 組込述語とエラー体系
+## 7. Built-in predicates and the error system
 
-13211-1 第 8 章の組込述語は全部で約 100 個。実装順は依存関係に従い、下の表の上から進める。各述語は「規格の条番号・引数のモード・投げうるエラー・テストファイル名」を `src/builtins/` のコメント先頭に書く。
+13211-1 chapter 8 has about 100 built-in predicates in total. The implementation order follows dependencies, proceeding from the top of the table below. For each predicate, write "the clause number in the standard, the argument modes, the errors it may throw, and the test file name" in the comment at the top of the file in `src/builtins/`.
 
-| 段階 | 規格の節 | 述語 |
+| Stage | Standard clause | Predicates |
 | --- | --- | --- |
-| A（最初） | 8.2 項のユニフィケーション、8.3 型検査、8.4 項比較 | `=/2`、`\=/2`、`unify_with_occurs_check/2`、`var/1`、`atom/1`、`integer/1`、`float/1`、`atomic/1`、`compound/1`、`nonvar/1`、`number/1`、`callable/1`、`is_list/1`（非 ISO、system）、`@</2` 等 6 個、`compare/3`、`==/2`、`\==/2` |
-| A | 8.5 項の生成と分解 | `functor/3`、`arg/3`、`=../2`、`copy_term/2`、`term_variables/2` |
-| A | 7.8 制御構造、8.15 論理と制御 | `true/0`、`fail/0`、`false/0`、`!/0`、`,/2`、`;/2`、`->/2`、`*->/2`（非 ISO）、`catch/3`、`throw/1`、`call/1..8`、`\+/1`、`once/1`、`repeat/0`、`halt/0,1` |
-| B | 9 算術、8.6・8.7 | `is/2`、`=:=/2` 等 6 個、全評価関数（`+ - * / // mod rem div abs sign min max gcd ** ^ sqrt sin cos tan asin acos atan atan2 exp log log2 float integer float_integer_part float_fractional_part truncate round ceiling floor >> << /\ \/ xor \ pi e inf nan epsilon max_tagged_integer msb copysign nexttoward succ_or_zero`） |
-| B | 8.16 アトム処理 | `atom_length/2`、`atom_concat/3`、`sub_atom/5`、`atom_chars/2`、`atom_codes/2`、`char_code/2`、`number_chars/2`、`number_codes/2`、`atom_number/2`（非 ISO） |
-| C | 8.8・8.9 節の検索と生成・破壊 | `clause/2`、`current_predicate/1`、`asserta/1`、`assertz/1`、`retract/1`、`abolish/1`、`retractall/1`（Cor.2） |
-| C | 8.10 すべての解 | `findall/3`、`findall/4`、`bagof/3`、`setof/3`（`^/2` の扱い、変数の標準順序ソート） |
-| D | 8.11 ストリームの選択と制御 | `current_input/1`、`current_output/1`、`set_input/1`、`set_output/1`、`open/3,4`、`close/1,2`、`flush_output/0,1`、`stream_property/2`、`at_end_of_stream/0,1`、`set_stream_position/2` |
-| D | 8.12 文字入出力、8.13 バイト入出力 | `get_char/1,2`、`get_code/1,2`、`peek_char/1,2`、`peek_code/1,2`、`put_char/1,2`、`put_code/1,2`、`nl/0,1`、`get_byte/1,2`、`peek_byte/1,2`、`put_byte/1,2` |
-| D | 8.14 項入出力 | `read_term/2,3`、`read/1,2`、`write_term/2,3`、`write/1,2`、`writeq/1,2`、`print/1,2`、`write_canonical/1,2`、`op/3`、`current_op/3`、`char_conversion/2`、`current_char_conversion/2` |
-| E | 8.17 実装定義フック | `set_prolog_flag/2`、`current_prolog_flag/2`、`halt/0,1`（A で先行） |
-| E | 7.4.2 ディレクティブ、読み込み | `consult/1`、`[File]`、`ensure_loaded/1`、`include/1`、`initialization/1`、`dynamic/1`、`discontiguous/1`、`multifile/1` |
-| F | 第 5 節 | モジュール関連（`module/2`、`use_module/1,2`、`current_module/1`、`predicate_property/2`、`meta_predicate/1`、`export/1`） |
-| G | 非 ISO ユーティリティ（`library(*)`、第 5 節の表） | `format/1,2,3`、`between/3`、`succ/2`、`msort/2`、`sort/4`、`keysort/2`（ISO コアなので system）、`forall/2`、`nb_setval/2`、`nb_getval/2`、`tab/1,2`、`term_to_atom/2`、`number_vars/3`、`setup_call_cleanup/3`、`garbage_collect/0`、`statistics/2` |
+| A (first) | 8.2 term unification, 8.3 type testing, 8.4 term comparison | `=/2`, `\=/2`, `unify_with_occurs_check/2`, `var/1`, `atom/1`, `integer/1`, `float/1`, `atomic/1`, `compound/1`, `nonvar/1`, `number/1`, `callable/1`, `is_list/1` (non-ISO, system), the 6 predicates such as `@</2`, `compare/3`, `==/2`, `\==/2` |
+| A | 8.5 term creation and decomposition | `functor/3`, `arg/3`, `=../2`, `copy_term/2`, `term_variables/2` |
+| A | 7.8 control constructs, 8.15 logic and control | `true/0`, `fail/0`, `false/0`, `!/0`, `,/2`, `;/2`, `->/2`, `*->/2` (non-ISO), `catch/3`, `throw/1`, `call/1..8`, `\+/1`, `once/1`, `repeat/0`, `halt/0,1` |
+| B | 9 arithmetic, 8.6, 8.7 | `is/2`, the 6 predicates such as `=:=/2`, all evaluable functors (`+ - * / // mod rem div abs sign min max gcd ** ^ sqrt sin cos tan asin acos atan atan2 exp log log2 float integer float_integer_part float_fractional_part truncate round ceiling floor >> << /\ \/ xor \ pi e inf nan epsilon max_tagged_integer msb copysign nexttoward succ_or_zero`) |
+| B | 8.16 atomic term processing | `atom_length/2`, `atom_concat/3`, `sub_atom/5`, `atom_chars/2`, `atom_codes/2`, `char_code/2`, `number_chars/2`, `number_codes/2`, `atom_number/2` (non-ISO) |
+| C | 8.8, 8.9 clause retrieval and creation/destruction | `clause/2`, `current_predicate/1`, `asserta/1`, `assertz/1`, `retract/1`, `abolish/1`, `retractall/1` (Cor.2) |
+| C | 8.10 all solutions | `findall/3`, `findall/4`, `bagof/3`, `setof/3` (handling of `^/2`, sorting in the standard order of terms) |
+| D | 8.11 stream selection and control | `current_input/1`, `current_output/1`, `set_input/1`, `set_output/1`, `open/3,4`, `close/1,2`, `flush_output/0,1`, `stream_property/2`, `at_end_of_stream/0,1`, `set_stream_position/2` |
+| D | 8.12 character I/O, 8.13 byte I/O | `get_char/1,2`, `get_code/1,2`, `peek_char/1,2`, `peek_code/1,2`, `put_char/1,2`, `put_code/1,2`, `nl/0,1`, `get_byte/1,2`, `peek_byte/1,2`, `put_byte/1,2` |
+| D | 8.14 term I/O | `read_term/2,3`, `read/1,2`, `write_term/2,3`, `write/1,2`, `writeq/1,2`, `print/1,2`, `write_canonical/1,2`, `op/3`, `current_op/3`, `char_conversion/2`, `current_char_conversion/2` |
+| E | 8.17 implementation-defined hooks | `set_prolog_flag/2`, `current_prolog_flag/2`, `halt/0,1` (done earlier in A) |
+| E | 7.4.2 directives, loading | `consult/1`, `[File]`, `ensure_loaded/1`, `include/1`, `initialization/1`, `dynamic/1`, `discontiguous/1`, `multifile/1` |
+| F | Section 5 | Module-related (`module/2`, `use_module/1,2`, `current_module/1`, `predicate_property/2`, `meta_predicate/1`, `export/1`) |
+| G | Non-ISO utilities (`library(*)`, the table in section 5) | `format/1,2,3`, `between/3`, `succ/2`, `msort/2`, `sort/4`, `keysort/2` (ISO core, so in system), `forall/2`, `nb_setval/2`, `nb_getval/2`, `tab/1,2`, `term_to_atom/2`, `number_vars/3`, `setup_call_cleanup/3`, `garbage_collect/0`, `statistics/2` |
 
-**エラー体系の規則**
+**Rules of the error system**
 
-- すべてのエラーは `throw(error(Formal, Context))` の形で投げる。`Context` は `context(PI, Extra)` とし、`PI` は述語指示子、`Extra` は追加情報（`syntax_error` なら `位置(Line, Col)` ではなく `stream(S, Line, LinePos, CharNo)` の形）。`Context` に実装定義の項を置けるのは ISO が許している
-- 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `instantiation_error` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
-- C++ 側では `throw_error(m, Formal, PI)` の 1 系統のヘルパだけを使い、`Formal` の各種は `make_type_error(m, Type, Culprit)` のような関数で組む。文字列の直書きは禁止（アトム名のタイポを防ぐ）
-- 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、整数オーバーフローは `evaluation_error(int_overflow)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
-- トップレベルは捕捉されなかった例外を `警告: ゴールは例外を送出しました: error(...)` の形で日本語と英語（フラグ `message_language`、既定は環境変数 `LANG` から判定）で表示する。メッセージ文字列は `lib/messages_ja.pl`、`lib/messages_en.pl` の Prolog 事実として置き、C++ には埋め込まない
+- All errors are thrown in the form `throw(error(Formal, Context))`. `Context` is `context(PI, Extra)`, where `PI` is the predicate indicator and `Extra` is additional information (for `syntax_error`, the form `stream(S, Line, LinePos, CharNo)` rather than `位置(Line, Col)`). ISO permits implementation-defined terms in `Context`
+- The order of argument checks strictly follows each predicate's definition in ISO (the order listed in 8.x.y.3 Errors). For example, `atom_length(X, foo)` does not throw `instantiation_error`; it checks `X` first and throws `instantiation_error`. Order violations are detected by the conformance suite
+- On the C++ side, use only the single family of helpers `throw_error(m, Formal, PI)`, and build each kind of `Formal` with functions such as `make_type_error(m, Type, Culprit)`. Writing string literals directly is forbidden (to prevent typos in atom names)
+- Arithmetic errors: division by zero is `evaluation_error(zero_divisor)`, integer overflow is `evaluation_error(int_overflow)`, float overflow is `evaluation_error(float_overflow)`, and `sqrt(-1)` etc. is `evaluation_error(undefined)`. `inf`/`nan` are thrown when the `float_overflow`/`undefined` flag is `error`; otherwise IEEE 754 values are returned (SWI-compatible `float_overflow`, `float_zero_div`, `float_undefined` flags)
+- The top level displays uncaught exceptions in the form `警告: ゴールは例外を送出しました: error(...)` (Warning: goal raised exception: error(...)) in Japanese or English (flag `message_language`, whose default is determined from the environment variable `LANG`). Message strings are placed as Prolog facts in `lib/messages_ja.pl` and `lib/messages_en.pl`, and are not embedded in C++
 
-## 8. テスト戦略
+## 8. Test strategy
 
-テストは 4 層。「準拠スイートの合格率」と「インタプリタと変換器の一致率」の 2 つの数値を README のバッジとして毎コミットで更新する。
+Tests have four layers. Two numbers, "conformance suite pass rate" and "interpreter/translator agreement rate", are updated as README badges on every commit.
 
-| 層 | 中身 | 実行方法 |
+| Layer | Contents | How to run |
 | --- | --- | --- |
-| 1. C++ 単体テスト | Cell・アトム・lexer・ユニフィケーション・UTF-8 変換など、Prolog を起動する前の部品 | 外部フレームワークを入れず、`tests/cpp/` に `assert` ベースの最小ランナー（`tests/cpp/harness.hpp`、50 行以内）。CTest に登録 |
-| 2. Prolog 自前テスト | `tests/pl/<章>.pl`。`test(名前, ゴール, 期待)` の事実として書き、`mosatest` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`solutions([X=1, X=2])` の 4 種 | `mosatest tests/pl/` |
-| 3. ISO 準拠スイート | Logtalk の Prolog 準拠テストを `tests/conformance/logtalk/` に改変せず置く。リポジトリと同じ Apache-2.0 で、著作権表示はそこの `NOTICE.txt` に残す。INRIA Suite（`inriasuite.pl`）は再配布の許諾が無いので同梱しない。Ulrich Neumerkel の表はコピーしない。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない |
-| 4. 差分テスト | 層 2・3 の全ゴールを `mosac` run で変換・ビルド・実行し、インタプリタの出力（解・エラー項・標準出力）とバイト単位で比較する | `mosatest --diff`。Phase 6 以降は CI 必須 |
+| 1. C++ unit tests | Components that exist before Prolog starts: Cell, atoms, lexer, unification, UTF-8 conversion, etc. | No external framework; a minimal `assert`-based runner in `tests/cpp/` (`tests/cpp/harness.hpp`, 50 lines or fewer). Registered with CTest |
+| 2. Own Prolog tests | `tests/pl/<chapter>.pl`. Written as facts `test(名前, ゴール, 期待)` (name, goal, expected), loaded and run by `mosatest`. The expectation is one of 4 kinds: `true`, `fail`, `error(Formal)`, `solutions([X=1, X=2])` | `mosatest tests/pl/` |
+| 3. ISO conformance suite | Logtalk's Prolog conformance tests are placed unmodified in `tests/conformance/logtalk/`. They are Apache-2.0, the same as the repository, and the copyright notices are kept in `NOTICE.txt` there. The INRIA Suite (`inriasuite.pl`) is not bundled because there is no permission to redistribute it. Ulrich Neumerkel's tables are not copied. Run with `mosatest --suite`, writing the pass count / total and the list of failures to `docs/conformance.md` | Every CI run. Changes that lower the pass rate are not merged |
+| 4. Differential tests | All goals from layers 2 and 3 are translated, built, and run with `mosac` run, and compared byte for byte with the interpreter's output (solutions, error terms, standard output) | `mosatest --diff`. Required in CI from Phase 6 onward |
 
-**テストの書き方の規則**
+**Rules for writing tests**
 
-- 新しい組込述語を実装するときは、規格の Examples（8.x.y.4）をそのまま `tests/pl/` に写してから実装する。Examples の各行が 1 テスト
-- エラーのテストは `Formal` 項だけを比較し、`Context` は比較しない（実装定義のため）
-- 日本語テスト（第 4 節）は層 2 に `tests/pl/japanese.pl` として置き、層 4 の差分テストにも必ず含める
-- 入出力のテストはメモリストリーム（`open_string`、`with_output_to/2` 相当の `system` 述語）で行い、一時ファイルは `tests/tmp/` 配下にだけ作る
-- Windows の CI では標準出力を UTF-8 で受けて比較する（`chcp 65001` をワークフローに入れる）
+- When implementing a new built-in predicate, first copy the standard's Examples (8.x.y.4) verbatim into `tests/pl/`, then implement. Each line of the Examples is one test
+- Error tests compare only the `Formal` term, not `Context` (because it is implementation-defined)
+- Japanese tests (section 4) are placed in layer 2 as `tests/pl/japanese.pl` and must always be included in the layer 4 differential tests
+- Input/output tests use memory streams (`open_string`, and a `system` predicate equivalent to `with_output_to/2`), and temporary files are created only under `tests/tmp/`
+- On Windows CI, standard output is captured as UTF-8 for comparison (put `chcp 65001` in the workflow)
 
-**ベンチマーク（合格率より後回しだが、退行の検知には使う）**
+**Benchmarks (lower priority than pass rate, but used to detect regressions)**
 
-- `bench/`: `nrev`（naive reverse、LIPS 計測）、`queens`、`zebra`、`tak`、`deriv`、`crypt`。インタプリタと `mosac` 変換物の両方で計測し、`docs/bench.md` に表で記録する
-- 目標値は置かない。前回比 20% 以上の悪化を CI で警告する
+- `bench/`: `nrev` (naive reverse, LIPS measurement), `queens`, `zebra`, `tak`, `deriv`, `crypt`. Measured with both the interpreter and the `mosac` translation, and recorded as a table in `docs/bench.md`
+- No target values are set. CI warns on a regression of 20% or more compared with the previous run
 
-## 9. 開発フェーズとマイルストーン
+## 9. Development phases and milestones
 
-各フェーズは「完了条件」を満たしたときだけ次へ進む。完了条件は機械的に確認できるものに限る（テストが通る、コマンドが動く）。1 セッションでは 1 フェーズの 1 タスクだけを扱う。
+Move to the next phase only when the current phase's exit criteria are met. Exit criteria are limited to things that can be checked mechanically (tests pass, a command works). One session handles only one task of one phase.
 
-| Phase | 内容 | 完了条件 |
+| Phase | Contents | Exit criteria |
 | --- | --- | --- |
-| 0 | 骨組み: CMake、ディレクトリ、CI（3 OS）、`harness.hpp`、`docs/STATUS.md`、`docs/adr/0001-cell-representation.md` | 3 OS で空のテストが通る。`mosa --version` が動く |
-| 1 | 項とリーダ・ライタ: Cell、ヒープ、アトム、ユニフィケーション、Unicode 表の生成、lexer、reader（`op/3` 含む）、`write_term/3` | `tests/pl/syntax.pl`（規格 6 章の例）が読み書き往復で通る。日本語アトムの往復が通る |
-| 2 | 実行の核: IR、節コンパイラ（第 1 引数インデクシング）、トランポリン実行ループ、選択点、カット、`catch/throw`、段階 A の組込述語、最小 REPL、`consult/1` | `nrev` と `queens` が動く。段階 A の規格 Examples が全部通る |
-| 3 | 組込述語の拡充: 段階 B〜E、ストリーム全般、フラグ、ディレクティブ、エラー体系の完成 | 同梱した Logtalk 準拠スイートの合格率 90% 以上。`docs/conformance.md` が自動生成される |
-| 4 | モジュール: 第 5 節の全部、`library(*)` の最初の 6 モジュール、`meta_predicate` | `tests/pl/modules.pl` が通る。`library(lists)` を使った既存テストが壊れない |
-| 5 | 準拠率の追い込みと日本語の磨き込み: 不合格項目の潰し込み、全角記号モード、Windows コンソール、メッセージの日本語化 | 同梱した Logtalk 準拠スイートの合格率を上げる。`tests/pl/japanese.pl` 全通過 |
-| 6 | `mosac`: IR → C++20 生成、ビルドパイプライン（build / run / emit / toolchain、ツールチェーン検出、ランタイム同梱）、差分テスト | 層 2・3 の全テストで差分ゼロ。3 OS で mosac build hello.pl が作った実行ファイルが、コンパイラも CMake も mosac も入っていないクリーンな環境で動く。`nrev` の変換物がインタプリタの 3 倍以上速い |
-| 7 | 仕上げ: GC、`garbage_collect/0`、`statistics/2`、マニュアル（日本語・英語）、mosac dist、リリース用パッケージ（各 OS のバイナリ、同梱ランタイム） | 長時間ループでメモリが頭打ちになる。README の手順だけで初見の人がビルドできる |
+| 0 | Skeleton: CMake, directories, CI (3 OSes), `harness.hpp`, `docs/STATUS.md`, `docs/adr/0001-cell-representation.md` | An empty test passes on 3 OSes. `mosa --version` works |
+| 1 | Terms and reader/writer: Cell, heap, atoms, unification, Unicode table generation, lexer, reader (including `op/3`), `write_term/3` | `tests/pl/syntax.pl` (examples from chapter 6 of the standard) passes as a read/write round trip. Round trip of Japanese atoms passes |
+| 2 | Execution core: IR, clause compiler (first-argument indexing), trampoline execution loop, choice points, cut, `catch/throw`, stage A built-in predicates, minimal REPL, `consult/1` | `nrev` and `queens` run. All standard Examples for stage A pass |
+| 3 | Expanding built-in predicates: stages B–E, streams in general, flags, directives, completing the error system | Pass rate of 90% or more on the bundled Logtalk conformance suite. `docs/conformance.md` is generated automatically |
+| 4 | Modules: all of section 5, the first 6 modules of `library(*)`, `meta_predicate` | `tests/pl/modules.pl` passes. Existing tests that use `library(lists)` do not break |
+| 5 | Raising the conformance rate and polishing Japanese support: fixing failing items, full-width symbol mode, Windows console, Japanese messages | Raise the pass rate on the bundled Logtalk conformance suite. All of `tests/pl/japanese.pl` passes |
+| 6 | `mosac`: IR → C++20 generation, build pipeline (build / run / emit / toolchain, toolchain detection, bundled runtime), differential tests | Zero differences across all layer 2 and 3 tests. On 3 OSes, the executable built by mosac build hello.pl runs in a clean environment with no compiler, CMake, or mosac installed. The translated `nrev` is at least 3 times faster than the interpreter |
+| 7 | Finishing: GC, `garbage_collect/0`, `statistics/2`, manual (Japanese and English), mosac dist, release packages (binaries for each OS, bundled runtime) | Memory usage plateaus in long-running loops. A newcomer can build using only the steps in the README |
 
-**フェーズをまたぐ禁止事項**
+**Prohibitions across phases**
 
-- Phase 1 で決めた Cell 表現と Phase 2 で決めた IR は、ADR（`docs/adr/`）を書いて承認を得るまで変えない
-- 先のフェーズの機能を「ついでに」入れない。GC や多倍長整数の下準備も Phase 7 まで書かない
-- 準拠スイートの不合格を「仕様の解釈違い」として `docs/iso-notes.md` に記録せずに放置しない
+- Do not change the Cell representation decided in Phase 1 or the IR decided in Phase 2 until an ADR (`docs/adr/`) has been written and approved
+- Do not add features from later phases "while you are at it". Do not write groundwork for GC or arbitrary-precision integers before Phase 7 either
+- Do not leave conformance suite failures unaddressed as "differences in interpreting the spec" without recording them in `docs/iso-notes.md`

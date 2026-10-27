@@ -1,25 +1,27 @@
-状態: 承認済み（2026-10-25）
+English | [日本語](0005-streams.ja.md)
 
-## 背景
+Status: Approved (2026-10-25)
 
-入出力の述語は、ファイルと標準入出力とメモリで同じカーソルを進める。
-置き場を先に決めないと、open と get と write が別の形を持つ。
-仕様第6節は抽象クラスと書く。公開ヘッダ mosa.hpp はフェーズ7まで増やさない。
+## Context
 
-## 決定
+I/O predicates advance the same cursor for files, standard I/O and memory.
+If the location is not decided first, open, get and write will each have their own shape.
+SPEC section 6 says abstract class. The public header mosa.hpp is not extended until phase 7.
 
-Stream は Impl の値のベクタである。抽象クラスにはしない。種別は File、Standard、Memory。データは Text か Binary。モードは Read、Write、Append。
-バイト列とカーソルと閉じた印と reposition と別名を持つ。encoding の既定は utf8。型の既定は text。operators の直後に置く。
-述語名は open_string/2 と with_output_to/2。テキストの改行は、ファイルもメモリも、どの OS でも U+000A 1 個。起動時の別名は user_input、user_output、user_error。
+## Decision
 
-## 捨てた案
+Stream is a vector of values in Impl. It is not an abstract class. The kinds are File, Standard, Memory. The data is Text or Binary. The modes are Read, Write, Append.
+It holds the bytes, the cursor, a closed flag, reposition and aliases. The default encoding is utf8. The default type is text. It is placed right after operators.
+The predicate names are open_string/2 and with_output_to/2. A text newline is a single U+000A for both files and memory, on every OS. The aliases at startup are user_input, user_output, user_error.
 
-open_memory/2 という別名。仕様第8節の名前と揃えない。
-C++ のテキストモードに改行を任せる案。Windows では CR LF になり、テストのバイトが OS で割れる。
-mosa.hpp にストリーム操作を足す案。公開 API は create、consult、query、next、halt のままにする。
+## Rejected alternatives
 
-## 影響
+The alternative name open_memory/2. It would not match the name in SPEC section 8.
+Leaving newlines to C++ text mode. On Windows they become CR LF, and the test bytes would differ by OS.
+Adding stream operations to mosa.hpp. The public API stays create, consult, query, next, halt.
 
-この ADR の承認後に、ストリームのコードを書いてよい。
-ファイルはバイナリで開く。consult は既に ios::binary である。nl は 0x0A を 1 バイト書く。
-with_output_to/2 のゴールは今の文脈で走る。モジュールの包みはフェーズ4まで足さない。
+## Consequences
+
+Stream code may be written once this ADR is approved.
+Files are opened in binary mode. consult already uses ios::binary. nl writes the single byte 0x0A.
+The goal of with_output_to/2 runs in the current context. The module wrapping is not added until phase 4.

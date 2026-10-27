@@ -1,21 +1,23 @@
-状態: 承認済み（2026-10-24）
+English | [日本語](0001-cell-representation.ja.md)
 
-## 背景
+Status: Approved (2026-10-24)
 
-インタプリタと `mosac` は同じランタイムを共有する。
-項の表現がその共有の単位である。
-フェーズ1で実装する前に、表現を文書で固定する。
+## Context
 
-## 決定
+The interpreter and `mosac` share the same runtime.
+The term representation is the unit of that sharing.
+Fix the representation in a document before implementing it in phase 1.
 
-64bit タグ付き整数 `Cell`。下位 3bit がタグ: REF、ATOM、INT（61bit 即値）、STR（ヒープ内の関手セルへのポインタ）、LIS（リスト）、FLT（ボックス化 double）、BIG（将来予約）。61bit に収まらない整数は FLT と同様にボックス化し、`max_integer` は 2^63−1 のままにする
+## Decision
 
-## 捨てた案
+A 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (reserved for future use). Integers that do not fit in 61 bits are boxed in the same way as FLT, and `max_integer` stays 2^63−1
 
-指示書に比較案の記載がない。この ADR では追加しない。
+## Rejected alternatives
 
-## 影響
+The instructions document lists no alternatives for comparison. This ADR does not add any.
 
-フェーズ1はこの表現で Cell を実装する。
-変えるときは新しい ADR を書き、浩さんの承認を得る。
-フェーズ0のコードは Cell を実装しない。
+## Consequences
+
+Phase 1 implements Cell with this representation.
+To change it, write a new ADR and get the project owner's approval.
+Phase 0 code does not implement Cell.

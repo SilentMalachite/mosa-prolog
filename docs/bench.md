@@ -1,4 +1,6 @@
-# ベンチマーク
+English | [日本語](bench.ja.md)
 
-未計測。`bench/` の計測はインタプリタと `mosac` の変換物の両方で行うため、`mosac` ができるフェーズ6以降に表を置く。
-`nrev` と `queens` は今、`tests/pl/` で正しさだけを確かめている。
+# Benchmarks
+
+Not measured yet. The `bench/` programs are measured on both the interpreter and `mosac` output, so the table appears in phase 6 or later, once `mosac` exists.
+For now `nrev` and `queens` are only checked for correctness in `tests/pl/`.

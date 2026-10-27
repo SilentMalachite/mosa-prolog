@@ -1,9 +1,11 @@
-ADR を連番で置く。各 ADR は「背景・決定・捨てた案・影響」を 3 行以内ずつ書き、承認を得てから実装する。
+English | [日本語](README.ja.md)
 
-| 番号 | 題名 | 状態 |
+ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alternatives, Consequences" in 3 lines or fewer each, and is implemented only after approval.
+
+| No. | Title | Status |
 | --- | --- | --- |
-| [0001](0001-cell-representation.md) | Cell の表現（64bit タグ付き整数） | 承認済み（2026-10-24） |
-| [0002](0002-cell-layout.md) | タグ番号、即値整数の範囲、関数語のビット配置 | 承認済み |
-| [0003](0003-execution-ir.md) | 実行の中間表現とトランポリン | 承認済み（2026-10-24） |
-| [0004](0004-clause-database.md) | 動的な節の置き場と選択点の添字 | 承認済み（2026-10-25） |
-| [0005](0005-streams.md) | ストリームの表現、既定値、別名 | 承認済み（2026-10-25） |
+| [0001](0001-cell-representation.md) | Cell representation (64-bit tagged integer) | Approved (2026-10-24) |
+| [0002](0002-cell-layout.md) | Tag numbers, immediate integer range, functor word bit layout | Approved |
+| [0003](0003-execution-ir.md) | Execution IR and trampoline | Approved (2026-10-24) |
+| [0004](0004-clause-database.md) | Location of dynamic clauses and choice point indexes | Approved (2026-10-25) |
+| [0005](0005-streams.md) | Stream representation, defaults, aliases | Approved (2026-10-25) |

@@ -1,24 +1,26 @@
-状態: 承認済み（2026-10-24）。承認はフェーズ2設計の承認である。
+English | [日本語](0003-execution-ir.ja.md)
 
-## 背景
+Status: Approved (2026-10-24). This approval is the approval of the phase 2 design.
 
-インタプリタと mosac は同じ中間表現を実行する。
-フェーズ6まで表現を変えないために、実行の前に固定する。
-ゴール枠は項ではない。
+## Context
 
-## 決定
+The interpreter and mosac execute the same IR.
+To avoid changing the representation until phase 6, fix it before implementing execution.
+Goal frames are not terms.
 
-節は継続を最後に持つ中間表現にし、トランポリンで実行する。
-ゴール枠はヒープ上の非項で、述語、アリティ、カット境界、継続、引数を持つ。
-選択点と catch は一つのスタックに積み、トレイルは成功後も残す。
+## Decision
 
-## 捨てた案
+A clause becomes an IR that holds its continuation last, and is executed on a trampoline.
+A goal frame is a non-term on the heap and holds the predicate, arity, cut barrier, continuation and arguments.
+Choice points and catch frames are pushed onto one stack, and the trail is kept even after success.
 
-節の項を実行のたびに歩く形にはしない。
-WAM の環境スタックと命令列にはしない。
+## Rejected alternatives
 
-## 影響
+Do not walk the clause term on every execution.
+Do not use a WAM environment stack and instruction sequence.
 
-フェーズ7の GC はゴール枠を印の起点に含め、項としては走査しない。
-この表現を変えるときは新しい ADR を書き、浩さんの承認を得る。
-実装の詳細は docs/superpowers/specs/2026-10-24-phase2-engine-design.md に従う。
+## Consequences
+
+The phase 7 GC includes goal frames among the marking roots and does not scan them as terms.
+To change this representation, write a new ADR and get the project owner's approval.
+Implementation details follow docs/superpowers/specs/2026-10-24-phase2-engine-design.md.

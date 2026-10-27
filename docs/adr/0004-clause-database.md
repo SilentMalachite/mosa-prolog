@@ -1,25 +1,27 @@
-状態: 承認済み（2026-10-25）
+English | [日本語](0004-clause-database.ja.md)
 
-## 背景
+Status: Approved (2026-10-25)
 
-フェーズ2の述語は、Predicate::clauses に IR の節を並べている。
-assert と retract は、その並びと、実行中の選択点の添字を同時に触る。
-節の置き場を先に決めないと、改変のコードが形をばらばらに決めてしまう。
+## Context
 
-## 決定
+Phase 2 predicates keep their IR clauses in order in Predicate::clauses.
+assert and retract touch that sequence and the indexes of running choice points at the same time.
+If the location of clauses is not decided first, each piece of modifying code will decide the shape its own way.
 
-動的な節は同じ clauses に置く。asserta は先頭、assertz は末尾。先頭へ入れたとき、挿入位置以降の選択点添字を 1 つずらす。
-retract は以後の候補から外し、今実行中の節の残りのゴールは残す。追加した節は、見えるようにする前に IR にする。
-abolish は述語を消す。同じ指示子は、その後の consult で再び静的に定義できる。未決 5 と未決 6 はここでは決めない。
+## Decision
 
-## 捨てた案
+Dynamic clauses go in the same clauses. asserta adds to the front, assertz to the end. When inserting at the front, shift by one the choice point indexes at or after the insertion position.
+retract removes the clause from later candidates and keeps the remaining goals of the clause now executing. An added clause is converted to IR before it is made visible.
+abolish deletes the predicate. The same indicator can be defined statically again by a later consult. Open items 5 and 6 are not decided here.
 
-動的な節だけ別のベクタに分ける案。選択点の添字が二つの並びを指す。
-retract で、今の節の残りのゴールまで消す案。実行中の継続が途中で無くなる。
-最初に呼ばれたときまで IR 化を遅らせる案。選択点が、まだ機械語になっていない節を掴む。
+## Rejected alternatives
 
-## 影響
+Keeping only dynamic clauses in a separate vector. Choice point indexes would point into two sequences.
+Having retract also remove the remaining goals of the current clause. The running continuation would vanish midway.
+Delaying IR conversion until the first call. A choice point would hold a clause not yet compiled to executable form.
 
-この状態の行が未承認のあいだ、節を改変するコードは書かない。
-Predicate に動的かどうかの印を足す。Clause の形はフェーズ2のままである。
-未決 5 と未決 6 は docs/iso-notes.md の問いのまま残す。
+## Consequences
+
+While this status line is unapproved, do not write code that modifies clauses.
+Add a dynamic flag to Predicate. The shape of Clause stays as in phase 2.
+Open items 5 and 6 remain as questions in docs/iso-notes.md.

@@ -1,1 +1,3 @@
+The execution loop, choice points, cut, catch/throw, and the IR definition. The clause compiler (`compile.cpp`), first-argument indexing (`index.cpp`), `consult/1` and loading (`consult.cpp`, `load*.cpp`), and the REPL and `mosa` argument handling (`session.cpp`) also live here. `suite.cpp` runs the own tests in `tests/pl/`; `iso_suite.cpp` and `lgt_*.cpp` are the `mosatest` code that runs the Logtalk conformance suite.
+
 実行ループ、選択点、カット、catch/throw、IR 定義を置く。節コンパイラ（`compile.cpp`）と第 1 引数インデクシング（`index.cpp`）、`consult/1` とロード（`consult.cpp`、`load*.cpp`）、REPL と `mosa` の引数処理（`session.cpp`）もここにある。`suite.cpp` は `tests/pl/` の自前テスト、`iso_suite.cpp` と `lgt_*.cpp` は Logtalk 準拠スイートを動かす `mosatest` の本体である。
