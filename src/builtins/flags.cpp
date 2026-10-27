@@ -144,14 +144,14 @@ std::optional<Cell> set_problem(Impl& machine, Cell flag, Cell value) {
   if (flag.tag() != Tag::Atom) return formal_type(machine, "atom", flag);
   const int index = find_flag(machine, flag);
   if (index < 0) return formal_domain(machine, "prolog_flag", flag);
-  // 8.17.1.3 は、変更できない旗でも値の領域を先に見る。項は Flag+Value。
+  // eddbali は変更できない旗の不正な値を domain_error にしない。許可を値より先にする。
+  if (!flag_writable(static_cast<std::size_t>(index))) {
+    return formal_permission(machine, "modify", "flag", flag);
+  }
   if (!flag_accepts(value, machine, static_cast<std::size_t>(index))) {
     const std::array<Cell, 2> args{flag, value};
     const Cell both = machine.heap.structure(machine.atoms.intern("+"), args);
     return formal_domain(machine, "flag_value", both);
-  }
-  if (!flag_writable(static_cast<std::size_t>(index))) {
-    return formal_permission(machine, "modify", "flag", flag);
   }
   return std::nullopt;
 }
