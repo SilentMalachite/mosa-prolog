@@ -52,3 +52,9 @@ test(read_incomplete, (open_string(foo, S), read(S, _)), error(syntax_error('行
 test(quoted_raw_nl, (open_string([39, 97, 10, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
 test(quoted_raw_tab, (open_string([39, 97, 9, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
 test(read_syntax_stream, (open_string('foo)', S), catch(read(S, _), error(_, context(_, stream(S, 1, 4, 3))), true)), true).
+% 空白の無い []( と {}( だけが関数表記。空白のあとの ( は括弧である。
+test(read_nil_call, (open_string('[](2,3).', S), read(S, T), functor(T, [], 2)), true).
+test(read_curly_call, (open_string('{}(2,3).', S), read(S, T), functor(T, {}, 2)), true).
+test(read_nil_bare, (open_string('[].', S), read(S, T), T == []), true).
+test(read_nil_space, (open_string('[] (2,3).', S), read(S, _)), error(syntax_error(_))).
+test(read_curly_space, (open_string('{} (2,3).', S), read(S, _)), error(syntax_error(_))).

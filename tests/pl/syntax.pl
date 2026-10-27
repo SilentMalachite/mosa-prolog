@@ -125,3 +125,17 @@ c'.
 % case: japanese_op
 :- op(700, xfx, は).
 太郎 は 学生.
+
+% case: nil_call
+% expect: [](2,3)
+[](2,3).
+
+% case: curly_call
+% expect: '{}'(2,3)
+{}(2,3).
+
+% case: nil_bare
+[].
+
+% case: curly_bare
+{}.

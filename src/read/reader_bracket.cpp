@@ -33,13 +33,24 @@ Reader::Parsed Reader::parse_paren() {
   return inner;
 }
 
+Reader::Parsed Reader::call_or_atom(std::string name) {
+  const Scan next = peek();
+  if (next.failure) return failure_of(next);
+  // 空白を挟まない '(' だけが関数表記。[] (2,3) と {} (2,3) の '(' は括弧である。
+  if (next.token.kind == TokenKind::Solo && next.token.text == "(" && !next.token.after_layout) {
+    consume();
+    return parse_arguments(std::move(name));
+  }
+  return atom_named(name);
+}
+
 Reader::Parsed Reader::parse_curly() {
   consume();
   const Scan scan = peek();
   if (scan.failure) return failure_of(scan);
   if (solo(scan.token, "}")) {
     consume();
-    return atom_named("{}");
+    return call_or_atom("{}");
   }
   Parsed inner = parse_expr(1200);
   if (inner.failure) return inner;
@@ -99,7 +110,7 @@ Reader::Parsed Reader::parse_list() {
   if (scan.failure) return failure_of(scan);
   if (solo(scan.token, "]")) {
     consume();
-    return atom_named("[]");
+    return call_or_atom("[]");
   }
   std::vector<Cell> heads;
   Cell tail;

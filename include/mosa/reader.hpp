@@ -69,6 +69,7 @@ class Reader {
   [[nodiscard]] Parsed take_bar_tail(Cell& tail);
   [[nodiscard]] Parsed parse_curly();
   [[nodiscard]] Parsed parse_arguments(std::string functor);
+  [[nodiscard]] Parsed call_or_atom(std::string name);
   [[nodiscard]] Parsed atom_named(std::string_view name);
   [[nodiscard]] Cell intern_variable(std::string name);
   [[nodiscard]] Cell make_string(std::string_view text);
