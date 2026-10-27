@@ -122,7 +122,7 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) lo
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
-syntax/numbers/tests.lgt lgt_number_29 true(T==39) syntax_error('行 1 列 4: 引用が閉じていない \'')
+syntax/numbers/tests.lgt lgt_number_30 true(T==39) syntax_error('行 1 列 1: 予期しないトークン 0\'')
 syntax/operators/tests.lgt lgt_operators_40 true op(600,xfy,:)
 syntax/terms/tests.lgt iso_term_03 error(syntax_error(_)) fail
 syntax/terms/tests.lgt iso_term_04 error(syntax_error(_)) fail

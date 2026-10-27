@@ -66,3 +66,5 @@ test(read_bar_pair, (open_string('[1|2].', S), read(S, T), T == [1|2]), true).
 test(read_escape_e, (open_string('0\'\\e.', S), read(S, T), T == 27), true).
 test(read_escape_d, (open_string('0\'\\d.', S), read(S, T), T == 127), true).
 test(read_escape_s, (open_string('0\'\\s.', S), read(S, T), T == 32), true).
+% 0' の文字が引用符のときは二つ書いて 1 文字にする。値は 39。
+test(read_quote_code, (open_string('0\'\'\'.', S), read(S, T), T == 39), true).
