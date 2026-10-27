@@ -57,6 +57,7 @@ test(neg_pow_neg, (X is (-2) ** (-1)), solutions([X = -0.5])).
 test(neg_pow_half, (X is (-2) ** 0.5), error(evaluation_error(undefined))).
 test(sign_float, (X is sign(-2.5)), solutions([X = -1.0])).
 test(int_hat, (X is ^(2, 3)), solutions([X = 8])).
+test(unary_plus, (X is +1), solutions([X = 1])).
 test(hat_neg, (X is ^(2, -1)), error(evaluation_error(undefined))).
 test(hat_one, (X is ^(1, -1)), solutions([X = 1])).
 test(atan_zero, (X is atan2(0, 0)), error(evaluation_error(undefined))).
