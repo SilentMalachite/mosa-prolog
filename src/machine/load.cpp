@@ -652,7 +652,8 @@ int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan&
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();
-  // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
+  // 同じ走査に足す。節の区切りは変えず、旗だけこのファイルの終わりで戻す。
+  FileFlags nested{machine};
   if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan)) return -1;
   return 1;
 }
@@ -790,8 +791,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   }
   const LoadStatus done = finish_load(machine, heap_base, inits);
   if (done.ok || machine.load_kept) home_guard.keep();
-  // モジュールの :- op は、続きの項を読むあいだだけ共有の表に載せる。
-  if (done.ok && machine.load_home != machine.user_mod) machine.operators = saved_ops;
+  if (done.ok && machine.load_home != machine.user_mod) machine.operators = saved_ops;  // 続きの項だけ共有の表
   return done;
 }
 

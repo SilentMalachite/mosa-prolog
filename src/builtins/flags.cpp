@@ -6,7 +6,8 @@
 // char_conversion は on と off。既定は off。warning と error 以外の浮動小数旗も受け付けない。
 // invalid_utf8 は error と replace。既定は error。replace は壊れたバイトを U+FFFD にする。
 // debug は on と off。既定は off。値を覚えるだけで、節の追跡はしない。
-// テスト: tests/pl/flags.pl
+// japanese_punctuation は false と true。既定は false。値を覚えるだけで、字句解析は変えない。
+// テスト: tests/pl/flags.pl、tests/pl/modules.pl
 
 #include "../machine/internal.hpp"
 
@@ -52,7 +53,7 @@ std::string_view flag_name(std::size_t index) {
   }
 }
 
-bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index >= 9; }
+bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || index >= 9; }
 
 int find_flag(const Impl& machine, Cell flag) {
   const auto text = machine.atoms.name(atom_id(flag));
@@ -75,7 +76,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
       return atom_named(machine, "codes");
     case 6: return atom_named(machine, machine.unknown_fail ? "fail" : "error");
     case 7: return atom_named(machine, "utf8");
-    case 8: return atom_named(machine, "false");
+    case 8: return atom_named(machine, machine.ja_punct ? "true" : "false");
     case 12: return atom_named(machine, machine.char_conv.enabled ? "on" : "off");
     case 13: return atom_named(machine, machine.utf8_replace ? "replace" : "error");
     case 14: return atom_named(machine, machine.debug_on ? "on" : "off");
@@ -137,6 +138,7 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
     return;
   }
   if (index == 6) machine.unknown_fail = text == "fail";
+  if (index == 8) machine.ja_punct = text == "true";
   if (index == 12) machine.char_conv.enabled = text == "on";
   if (index == 13) machine.utf8_replace = text == "replace";
   if (index == 14) machine.debug_on = text == "on";

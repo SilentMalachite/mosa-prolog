@@ -7,6 +7,8 @@ test(flag_double_quotes, current_prolog_flag(double_quotes, codes), true).
 test(flag_unknown, current_prolog_flag(unknown, error), true).
 test(flag_encoding, current_prolog_flag(encoding, utf8), true).
 test(flag_ja_punct, current_prolog_flag(japanese_punctuation, false), true).
+test(flag_ja_set, (set_prolog_flag(japanese_punctuation, true), current_prolog_flag(japanese_punctuation, true), set_prolog_flag(japanese_punctuation, false), current_prolog_flag(japanese_punctuation, false)), true).
+test(flag_ja_bad, set_prolog_flag(japanese_punctuation, foo), error(domain_error(flag_value, japanese_punctuation+foo))).
 test(flag_float_overflow, current_prolog_flag(float_overflow, error), true).
 test(flag_float_zero_div, current_prolog_flag(float_zero_div, error), true).
 test(flag_float_undefined, current_prolog_flag(float_undefined, error), true).

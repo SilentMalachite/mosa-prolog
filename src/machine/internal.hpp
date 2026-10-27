@@ -279,6 +279,8 @@ struct Machine::Impl {
   std::vector<Binding> bindings;
   int next_soft = 1;
   DoubleQuotes quotes = DoubleQuotes::Codes;
+  // japanese_punctuation。true でも字句解析は変えない。
+  bool ja_punct = false;
   // unknown=fail のときだけ真。warning は未決 10 で受け付けない。
   bool unknown_fail = false;
   // invalid_utf8=replace のときだけ真。既定の error は壊れたバイトを進めない。
@@ -313,7 +315,23 @@ using Impl = Machine::Impl;
 // 読み込みのあいだだけ load_home を変える。抜けたら呼び出し元のモジュールへ戻す。
 void drop_load_modules(Impl& machine);
 
+// ファイルが終わるとき、この二つの旗だけ戻す。他の旗は失敗した読み込みの SavedFlags が戻す。
+struct FileFlags {
+  Impl& machine;
+  DoubleQuotes quotes = DoubleQuotes::Codes;
+  bool ja = false;
+  explicit FileFlags(Impl& machine)
+      : machine(machine), quotes(machine.quotes), ja(machine.ja_punct) {}
+  ~FileFlags() {
+    machine.quotes = quotes;
+    machine.ja_punct = ja;
+  }
+  FileFlags(const FileFlags&) = delete;
+  FileFlags& operator=(const FileFlags&) = delete;
+};
+
 struct LoadHome {
+  FileFlags flags;
   Impl& machine;
   std::uint32_t saved_home;
   std::size_t saved_terms;
@@ -321,7 +339,8 @@ struct LoadHome {
   std::vector<SharedPred> saved_here;
   bool commit = false;
   explicit LoadHome(Impl& machine)
-      : machine(machine),
+      : flags(machine),
+        machine(machine),
         saved_home(machine.load_home),
         saved_terms(machine.load_terms),
         saved_origin(machine.load_origin),

@@ -350,3 +350,103 @@ test(mod_op_rollback, (
   consult_op_retry,
   \+ op_bad:current_op(400, xfx, badop)
 ), true).
+
+consult_flag_dq :- consult('tests/pl/modules/flag_dq.pl').
+consult_flag_dq :- consult('../tests/pl/modules/flag_dq.pl').
+
+% ファイルが変えた double_quotes は、読み終わると戻る。モジュールは旗を持たない。
+test(mod_flag_quotes_restored, (
+  consult_flag_dq,
+  current_prolog_flag(double_quotes, codes),
+  flag_dq:current_prolog_flag(double_quotes, codes)
+), true).
+
+consult_flag_read :- consult('tests/pl/modules/flag_read.pl').
+consult_flag_read :- consult('../tests/pl/modules/flag_read.pl').
+
+% 指示のあとの項は、そのファイルの double_quotes で読む。読み終わると戻る。
+test(mod_flag_quotes_reads, (
+  consult_flag_read,
+  flag_read:seen(ab),
+  current_prolog_flag(double_quotes, codes)
+), true).
+
+consult_flag_from :- consult('tests/pl/modules/flag_from.pl').
+consult_flag_from :- consult('../tests/pl/modules/flag_from.pl').
+
+% 戻す値は既定の codes ではなく、読み始める前の値。
+test(mod_flag_quotes_saved, (
+  set_prolog_flag(double_quotes, chars),
+  consult_flag_from,
+  current_prolog_flag(double_quotes, chars),
+  set_prolog_flag(double_quotes, codes)
+), true).
+
+consult_flag_bad :- consult('tests/pl/modules/flag_bad.pl').
+consult_flag_bad :- consult('../tests/pl/modules/flag_bad.pl').
+
+% 失敗した読み込みも double_quotes を戻す。
+test(mod_flag_quotes_failed, (
+  \+ consult_flag_bad,
+  current_prolog_flag(double_quotes, codes)
+), true).
+
+consult_flag_ja :- consult('tests/pl/modules/flag_ja.pl').
+consult_flag_ja :- consult('../tests/pl/modules/flag_ja.pl').
+
+% ファイルが変えた japanese_punctuation は、読み終わると戻る。モジュールは旗を持たない。
+test(mod_flag_ja_restored, (
+  consult_flag_ja,
+  current_prolog_flag(japanese_punctuation, false),
+  flag_ja:current_prolog_flag(japanese_punctuation, false)
+), true).
+
+consult_flag_outer :- consult('tests/pl/modules/flag_outer.pl').
+consult_flag_outer :- consult('../tests/pl/modules/flag_outer.pl').
+
+% 入れ子の読み込みは、自分の double_quotes だけを戻す。親の続きはその親の値で読む。
+test(mod_flag_quotes_nested, (
+  consult_flag_outer,
+  flag_inner:seen(ab),
+  flag_outer:seen([c, d]),
+  current_prolog_flag(double_quotes, codes),
+  flag_outer:current_prolog_flag(double_quotes, codes)
+), true).
+
+consult_flag_ja_bad :- consult('tests/pl/modules/flag_ja_bad.pl').
+consult_flag_ja_bad :- consult('../tests/pl/modules/flag_ja_bad.pl').
+
+% 失敗した読み込みも japanese_punctuation を戻す。
+test(mod_flag_ja_failed, (
+  \+ consult_flag_ja_bad,
+  current_prolog_flag(japanese_punctuation, false)
+), true).
+
+consult_flag_ja_from :- consult('tests/pl/modules/flag_ja_from.pl').
+consult_flag_ja_from :- consult('../tests/pl/modules/flag_ja_from.pl').
+
+% 戻す値は既定の false ではなく、読み始める前の値。
+test(mod_flag_ja_saved, (
+  set_prolog_flag(japanese_punctuation, true),
+  consult_flag_ja_from,
+  current_prolog_flag(japanese_punctuation, true),
+  set_prolog_flag(japanese_punctuation, false)
+), true).
+
+consult_flag_ja_lex :- consult('tests/pl/modules/flag_ja_lex.pl').
+consult_flag_ja_lex :- consult('../tests/pl/modules/flag_ja_lex.pl').
+
+% true でも全角括弧は括弧にならない。失敗した読み込みのあと、旗は戻る。
+test(mod_flag_ja_lex, (
+  \+ consult_flag_ja_lex,
+  current_prolog_flag(japanese_punctuation, false)
+), true).
+
+consult_flag_inc :- consult('tests/pl/modules/flag_inc.pl').
+consult_flag_inc :- consult('../tests/pl/modules/flag_inc.pl').
+
+% include が変えた double_quotes は、そのファイルの終わりで戻る。親の初期化は親の値を見る。
+test(mod_flag_include, (
+  consult_flag_inc,
+  current_prolog_flag(double_quotes, codes)
+), true).
