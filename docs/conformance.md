@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1886
-合格率: 86.8
+合格数: 1887
+合格率: 86.9
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -122,7 +122,6 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) lo
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
-syntax/numbers/tests.lgt lgt_number_30 true(T==39) syntax_error('行 1 列 1: 予期しないトークン 0\'')
 syntax/operators/tests.lgt lgt_operators_40 true op(600,xfy,:)
 syntax/terms/tests.lgt iso_term_03 error(syntax_error(_)) fail
 syntax/terms/tests.lgt iso_term_04 error(syntax_error(_)) fail

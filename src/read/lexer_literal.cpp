@@ -151,14 +151,11 @@ Scan Lexer::scan_char_code(Place start) {
   } else if (ch.code == U'\n' || ch.code == U'\r') {
     return fail_at(SyntaxReason::UnexpectedToken, "0'", start);
   } else if (ch.code == U'\'') {
-    // 引用符 1 個は文字にならない。二つ重ねたときだけ 39 で、終止符が引用の中に入らない。
+    // 次も引用符なら ISO の二つ。そうでなければ一つ。どちらも 39 で、終止符は引用に入らない。
     advance(ch.code, ch.bytes);
-    if (index_ >= source_.size()) return fail_at(SyntaxReason::UnexpectedToken, "0'", start);
     const SourceChar second = peek_char();
-    if (!second.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
-    if (second.code != U'\'') return fail_at(SyntaxReason::UnexpectedToken, "0'", start);
+    if (second.valid && second.code == U'\'') advance(second.code, second.bytes);
     value = U'\'';
-    advance(second.code, second.bytes);
   } else {
     value = ch.code;
     advance(ch.code, ch.bytes);

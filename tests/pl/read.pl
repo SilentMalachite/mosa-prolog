@@ -68,3 +68,5 @@ test(read_escape_d, (open_string('0\'\\d.', S), read(S, T), T == 127), true).
 test(read_escape_s, (open_string('0\'\\s.', S), read(S, T), T == 32), true).
 % 0' の文字が引用符のときは二つ書いて 1 文字にする。値は 39。
 test(read_quote_code, (open_string('0\'\'\'.', S), read(S, T), T == 39), true).
+% 引用符が一つの 0''. も 39。次が引用符のときだけ二つ消費する。
+test(read_quote_code_one, (open_string('0\'\'.', S), read(S, T), T == 39), true).
