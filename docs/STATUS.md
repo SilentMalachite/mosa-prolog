@@ -1,7 +1,7 @@
 フェーズ: 3
 進行中: なし
-完了: memberchk/2 は足さず iso_stream_property_2_01 を A のまま残した
-次: stream_property/2（iso_stream_property_2_02）
-未解決: 合格率 83.7（1818/2172）は 0.9 未満。iso_stream_property_2_01 は memberchk/2 を足さない A。sics_set_stream_position_2_06 は 8.11.8 の A（position を出さない）。sics_read_term_3_24 は min_integer の字面。lgt_print_1_05 と lgt_print_2_05 はコンマの空白。lgt_call_1_17 と 18 は 7.8.3。lgt_power_2_14 は 9.3.1.3 d。retract の開いた走査は 7.5.4 の未決（ADR 0004）
+完了: 表明がテストの補助節を見える（mosatest --suite）
+次: round/1（eclipse_round_1_07）
+未解決: 合格率 83.7（1819/2172）は 0.9 未満。iso_stream_property_2_01 は組込 memberchk/2 を足さない A。sics_set_stream_position_2_06 は 8.11.8 の A（position を出さない）。sics_read_term_3_24 は min_integer の字面。lgt_print_1_05 と lgt_print_2_05 はコンマの空白。lgt_call_1_17 と 18 は 7.8.3。lgt_power_2_14 は 9.3.1.3 d。retract の開いた走査は 7.5.4 の未決（ADR 0004）
 計画: docs/superpowers/plans/2026-10-26-phase3-exit.md
 設計: docs/superpowers/specs/2026-10-26-phase3-exit-design.md

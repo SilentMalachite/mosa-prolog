@@ -28,6 +28,8 @@ struct LgtStep {
 [[nodiscard]] bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<Binding>& bindings,
                                   std::string& note);
 [[nodiscard]] bool lgt_scratch_ok(Machine& machine, std::string_view goal, const std::vector<Binding>& bindings);
+// 開いている query は潰さない。ゴールも利用者の節もセルのまま写す。
+[[nodiscard]] bool lgt_run_copied_goal(Machine& main, Machine& scratch, Cell goal);
 [[nodiscard]] LgtStep lgt_ask(Machine& machine, std::string_view goal);
 [[nodiscard]] LgtStep lgt_again(Machine& machine);
 [[nodiscard]] std::string lgt_actual_of(const Machine& machine, const Stop& stop);

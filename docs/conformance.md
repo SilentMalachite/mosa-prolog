@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1818
+合格数: 1819
 合格率: 83.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -84,7 +84,6 @@ predicates/print_2/tests.lgt lgt_print_2_05 true(Assertion) fail
 predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition, stream, Stream)) fail
 predicates/setof_3/tests.lgt lgt_setof_3_34 true fail
-predicates/stream_property_2/tests.lgt iso_stream_property_2_01 true((memberchk(S1-FooPath, L), memberchk(S2-BarPath, L))) fail
 predicates/stream_property_2/tests.lgt iso_stream_property_2_02 true((memberchk(FOut, L), memberchk(COut, L))) domain_error(stream_property, output)
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream, foo)) domain_error(stream_or_alias, foo)
 predicates/stream_property_2/tests.lgt sics_stream_property_2_05a deterministic fail

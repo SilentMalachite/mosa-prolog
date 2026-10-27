@@ -50,6 +50,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_file.cpp
   src/machine/lgt_shape.cpp
   src/machine/lgt_judge.cpp
+  src/machine/lgt_copy.cpp
   src/machine/lgt_exec.cpp
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
@@ -151,6 +152,12 @@ target_include_directories(ensure_test PRIVATE tests/cpp)
 target_compile_definitions(ensure_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(ensure_test PRIVATE mosa_lib)
 add_test(NAME ensure_test COMMAND $<TARGET_FILE:ensure_test>)
+
+add_executable(suite_assert_test tests/cpp/suite_assert_test.cpp)
+target_include_directories(suite_assert_test PRIVATE tests/cpp)
+target_compile_definitions(suite_assert_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_assert_test PRIVATE mosa_lib)
+add_test(NAME suite_assert_test COMMAND $<TARGET_FILE:suite_assert_test>)
 
 add_executable(suite_if_test tests/cpp/suite_if_test.cpp)
 target_include_directories(suite_if_test PRIVATE tests/cpp)
