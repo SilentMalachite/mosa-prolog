@@ -1,7 +1,7 @@
 # Mosa Prolog
 
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
-[![ISO conformance](https://img.shields.io/badge/ISO_conformance-93.4%25_(2028%2F2171)-brightgreen)](docs/conformance.md)
+[![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](docs/conformance.md)
 [![mosac diff](https://img.shields.io/badge/mosac_diff-not_measured-lightgrey)](docs/SPEC.md)
 [![Phase](https://img.shields.io/badge/phase-3_done-blue)](docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.0.1-blue)](CMakeLists.txt)
@@ -78,7 +78,7 @@ N = 3.
 
 ```sh
 mosatest tests/pl/                    # 自前テスト（tests/pl/*.pl）
-mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md を書き出す
+mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md と .json を書き出す
 mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
 ```
 
@@ -99,7 +99,9 @@ X = 太郎.
 
 ## 準拠率
 
-同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）で **2171 件中 2028 件、93.4%** が通ります。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。このファイルは `mosatest --suite` が書き出すので、手で編集しません。CI は 4 つのジョブすべてでスイートを実行し、合格率を Job Summary に出します。
+同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）が通りました。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
+
+準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 
 ## テストの構成
 
@@ -119,6 +121,7 @@ X = 太郎.
 | [`docs/adr/`](docs/adr/README.md) | 後から変えにくい設計の決定記録 |
 | [`docs/iso-notes.md`](docs/iso-notes.md) | 規格の解釈メモ（条番号付き） |
 | [`docs/conformance.md`](docs/conformance.md) | 準拠スイートの結果（自動生成） |
+| [`docs/conformance.json`](docs/conformance.json) | 準拠率バッジの元データ（自動生成） |
 | [`docs/unicode-version.md`](docs/unicode-version.md) | 文字分類表が使う Unicode の版 |
 | [`docs/bench.md`](docs/bench.md) | ベンチマークの記録 |
 | [`AGENTS.md`](AGENTS.md) | コーディングエージェント向けの作業規則 |

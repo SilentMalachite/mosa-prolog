@@ -201,6 +201,12 @@ target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_
 target_link_libraries(conformance_io_test PRIVATE mosa_lib)
 add_test(NAME conformance_io_test COMMAND $<TARGET_FILE:conformance_io_test>)
 
+add_executable(conformance_badge_test tests/cpp/conformance_badge_test.cpp)
+target_include_directories(conformance_badge_test PRIVATE tests/cpp)
+target_compile_definitions(conformance_badge_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(conformance_badge_test PRIVATE mosa_lib)
+add_test(NAME conformance_badge_test COMMAND $<TARGET_FILE:conformance_badge_test>)
+
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 3\\)\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)

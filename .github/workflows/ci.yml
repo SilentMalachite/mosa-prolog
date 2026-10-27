@@ -20,6 +20,11 @@ jobs:
       - name: Write conformance summary
         shell: bash
         run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+      # README のバッジは main の conformance.json を読む。照合を macOS だけにするのは、開発者が
+      # 生成してコミットする環境に合わせ、OS ごとの差でバッジの値が揺れないようにするため。
+      - name: Check conformance badge
+        shell: bash
+        run: git diff --exit-code -- docs/conformance.json
 
   linux-gcc:
     runs-on: ubuntu-24.04

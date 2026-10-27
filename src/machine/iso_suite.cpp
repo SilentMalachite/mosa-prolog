@@ -103,6 +103,30 @@ void write_report(const std::filesystem::path& path, int passed, int denominator
   for (const SideNote& note : notes) output << note.path << ' ' << note.detail << '\n';
 }
 
+// README のバッジは shields.io の endpoint 形式でこの JSON を読む。色の閾値 90 は SPEC 第9節の
+// フェーズ3完了条件に合わせ、それ未満を黄と赤に分ける。比較は percentage と同じく整数で行う。
+std::string badge_color(int passed, int denominator) {
+  const auto left = static_cast<long long>(passed) * 100;
+  const auto right = static_cast<long long>(denominator);
+  if (left >= right * 90) return "brightgreen";
+  if (left >= right * 75) return "yellow";
+  return "red";
+}
+
+void write_badge(const std::filesystem::path& path, int passed, int denominator) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  if (!output) return;
+  std::string message = "no tests";
+  std::string color = "lightgrey";
+  if (denominator > 0) {
+    message = percentage(passed, denominator) + "% (" + std::to_string(passed) + "/" + std::to_string(denominator) +
+              ")";
+    color = badge_color(passed, denominator);
+  }
+  output << R"({"schemaVersion":1,"label":"ISO conformance","message":")" << message << R"(","color":")" << color
+         << "\"}\n";
+}
+
 std::string folder_of(std::string relative) {
   constexpr std::string_view suffix = "/tests.lgt";
   if (relative.size() >= suffix.size() && relative.ends_with(suffix)) {
@@ -161,7 +185,9 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
     return left.detail < right.detail;
   });
   const int denominator = passed + failed;
-  write_report(std::filesystem::path{std::string{report_path}}, passed, denominator, failures, notes);
+  const std::filesystem::path report{std::string{report_path}};
+  write_report(report, passed, denominator, failures, notes);
+  write_badge(std::filesystem::path{report}.replace_extension(".json"), passed, denominator);
   return suite_status(passed, denominator);
 }
 
