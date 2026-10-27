@@ -109,4 +109,10 @@ int apply_module_directive(Impl& machine, Cell term) {
   return 1;
 }
 
+int apply_module_load_directive(Impl& machine, Cell term) {
+  const int meta = apply_meta_directive(machine, term);
+  if (meta != 0) return meta;
+  return apply_use_directive(machine, term);
+}
+
 }  // namespace mosa

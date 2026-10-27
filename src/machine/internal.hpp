@@ -441,6 +441,9 @@ void arm_caller(Impl& machine, std::uint32_t caller);
 // 0 はこの指示ではない。1 は記録した。-1 は読み込みの失敗。
 [[nodiscard]] int apply_module_directive(Impl& machine, Cell term);
 [[nodiscard]] int apply_meta_directive(Impl& machine, Cell term);
+[[nodiscard]] int apply_use_directive(Impl& machine, Cell term);
+// meta_predicate と use_module。load.cpp を 800 行に保つため、ここへまとめる。
+[[nodiscard]] int apply_module_load_directive(Impl& machine, Cell term);
 void wrap_meta(Impl& machine, const Goal& goal, const Predicate& predicate);
 void wrap_builtin(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);

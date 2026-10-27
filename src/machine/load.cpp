@@ -589,8 +589,8 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;
-  const int meta = apply_meta_directive(machine, term);
-  if (meta != 0) return meta;
+  const int phase4 = apply_module_load_directive(machine, term);
+  if (phase4 != 0) return phase4;
   if (!apply_op(machine, machine.heap.deref(term))) {
     if (machine.diagnostic.empty()) {
       const auto text = write_term(machine.heap, machine.operators, term, {}, {});

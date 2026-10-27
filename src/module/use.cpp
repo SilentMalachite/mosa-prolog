@@ -7,7 +7,8 @@
 //   type_error(atom, Culprit)
 //   permission_error(modify, module, Module) は module/2 が読み込みを拒んだとき
 //   permission_error(import_into, procedure, PI) は同じ名前を二箇所から取り込むとき
-// テスト: tests/pl/modules.pl
+// :- use_module は読み込み中のモジュールへ席を作る。
+// テスト: tests/pl/modules.pl、tests/pl/morning.pl
 
 #include "../machine/internal.hpp"
 #include "../platform/executable.hpp"
@@ -304,26 +305,81 @@ bool resolve_module(Impl& machine, const Goal& goal, std::string_view text, std:
   return true;
 }
 
-}  // namespace
+// 載っているモジュールの原子は、同じ綴りのファイルより先にそのモジュールを指す。
+bool loaded_module_atom(const Impl& machine, Cell cell, std::uint32_t& module) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() != Tag::Atom) return false;
+  module = static_cast<std::uint32_t>(cell.raw() >> 3);
+  return module_loaded(machine, module);
+}
 
-bool run_use_module(Impl& machine, const Goal& goal) {
-  if (machine.atoms.name(goal.name) != "use_module" || (goal.arity != 1 && goal.arity != 2)) return false;
-  std::string text;
-  if (!path_text(machine, goal, text)) return true;
+bool import_found(Impl& machine, const Goal& goal, std::uint32_t loaded, const ImportAsk& ask, bool listed) {
+  const bool imported = listed ? apply_ask(machine, goal, loaded, machine.calling, ask)
+                               : import_exports(machine, goal, loaded, machine.calling);
+  if (!imported) return false;
+  machine.diagnostic.clear();
+  return true;
+}
+
+// 成功だけ true。失敗は failed か例外を残し、ip は触らない。
+bool perform_use(Impl& machine, const Goal& goal) {
   ImportAsk ask;
   // 名前は読み込みの前に控える。失敗した読み込みはヒープを切り詰める。
   if (goal.arity == 2 && !read_ask(machine, goal.arg(machine, 1), ask)) {
     machine.failed = true;
-    return true;
+    return false;
   }
+  std::uint32_t named = 0;
+  if (loaded_module_atom(machine, goal.arg(machine, 0), named)) {
+    return import_found(machine, goal, named, ask, goal.arity == 2);
+  }
+  std::string text;
+  if (!path_text(machine, goal, text)) return false;
   std::uint32_t loaded = 0;
-  if (!resolve_module(machine, goal, text, loaded)) return true;
-  const bool imported = goal.arity == 2 ? apply_ask(machine, goal, loaded, machine.calling, ask)
-                                        : import_exports(machine, goal, loaded, machine.calling);
-  if (!imported) return true;
-  machine.diagnostic.clear();
-  machine.ip = goal.cont;
+  if (!resolve_module(machine, goal, text, loaded)) return false;
+  return import_found(machine, goal, loaded, ask, goal.arity == 2);
+}
+
+bool use_directive_body(const Impl& machine, Cell term, Cell& body) {
+  if (!is_directive(machine.heap, term)) return false;
+  body = machine.heap.deref(machine.heap.arg(term, 0));
+  if (body.tag() != Tag::Str) return false;
+  const auto arity = machine.heap.functor_arity(body);
+  if (arity != 1 && arity != 2) return false;
+  return machine.atoms.name(machine.heap.functor_atom(body)) == "use_module";
+}
+
+Goal frame_for_use(Impl& machine, Cell body) {
+  const auto arity = machine.heap.functor_arity(body);
+  const auto at = machine.heap.allocate_words(kFrameHead + arity);
+  machine.heap.set_word(at, machine.heap.functor_atom(body));
+  machine.heap.set_word(at + 1, arity);
+  machine.heap.set_word(at + 2, 0);
+  machine.heap.set_word(at + 3, kNoFrame);
+  for (std::uint16_t index = 0; index < arity; ++index) {
+    machine.heap.set_word(at + kFrameHead + index, machine.heap.arg(body, index).raw());
+  }
+  return read_goal(machine, at);
+}
+
+}  // namespace
+
+bool run_use_module(Impl& machine, const Goal& goal) {
+  if (machine.atoms.name(goal.name) != "use_module" || (goal.arity != 1 && goal.arity != 2)) return false;
+  if (perform_use(machine, goal)) machine.ip = goal.cont;
   return true;
+}
+
+int apply_use_directive(Impl& machine, Cell term) {
+  Cell body;
+  if (!use_directive_body(machine, term, body)) return 0;
+  const Goal goal = frame_for_use(machine, body);
+  // 席は読み込み中のモジュールへ作る。calling のままだと user に入る。
+  const auto saved = machine.calling;
+  machine.calling = machine.load_home;
+  const bool ok = perform_use(machine, goal);
+  machine.calling = saved;
+  return ok ? 1 : -1;
 }
 
 }  // namespace mosa

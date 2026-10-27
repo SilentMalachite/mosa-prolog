@@ -1,3 +1,3 @@
-Module names, `current_module/1`, `use_module/1` and `use_module/2`, `Module:Goal`, and `meta_predicate/1`. `library(Name)` searches `$MOSA_LIB`, then `lib/Name.pl` beside the executable.
+Module names, `current_module/1`, `use_module/1` and `use_module/2`, `Module:Goal`, and `meta_predicate/1`. `library(Name)` searches `$MOSA_LIB`, then `lib/Name.pl` beside the executable. A `:- use_module` directive imports into the module being loaded. An atom that names a loaded module selects that module.
 
-モジュール名、`current_module/1`、`use_module/1` と `use_module/2`、`Module:Goal`、`meta_predicate/1`。`library(Name)` は `$MOSA_LIB`、次に実行ファイルの隣の `lib/Name.pl` を探す。
+モジュール名、`current_module/1`、`use_module/1` と `use_module/2`、`Module:Goal`、`meta_predicate/1`。`library(Name)` は `$MOSA_LIB`、次に実行ファイルの隣の `lib/Name.pl` を探す。`:- use_module` は読み込み中のモジュールへ取り込む。載っているモジュールの原子はそのモジュールを指す。
