@@ -1,6 +1,7 @@
 // docs/SPEC.md 第5節
 // use_module(+atom)
 // use_module(+atom, +list)
+// use_module(+atom, except(+list))
 //   instantiation_error
 //   type_error(atom, Culprit)
 //   permission_error(modify, module, Module) は module/2 が読み込みを拒んだとき
@@ -98,6 +99,21 @@ void import_listed(Impl& machine, std::uint32_t source, std::uint32_t caller, co
   }
 }
 
+bool excluded(const std::vector<Wanted>& wanted, std::uint32_t name, std::uint16_t arity) {
+  for (const Wanted& item : wanted) {
+    if (item.name == name && item.arity == arity) return true;
+  }
+  return false;
+}
+
+// except に書いた公開述語は席を作らない。残りは use_module/1 と同じく取り込む。
+void import_except(Impl& machine, std::uint32_t source, std::uint32_t caller, const std::vector<Wanted>& wanted) {
+  for (const ExportMark& mark : machine.exports) {
+    if (mark.module != source || excluded(wanted, mark.name, mark.arity)) continue;
+    import_slot(machine, source, caller, mark.name, mark.arity, mark.name);
+  }
+}
+
 bool indicator(const Impl& machine, Cell cell, Wanted& item) {
   cell = machine.heap.deref(cell);
   if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return false;
@@ -134,6 +150,13 @@ bool wanted_item(const Impl& machine, Cell cell, Wanted& item) {
   return true;
 }
 
+enum class ImportHow { Listed, Except };
+
+struct ImportAsk {
+  ImportHow how = ImportHow::Listed;
+  std::vector<Wanted> items;
+};
+
 bool read_wanted(const Impl& machine, Cell list, std::vector<Wanted>& out) {
   list = machine.heap.deref(list);
   if (nil_atom(machine, list)) return true;
@@ -144,6 +167,22 @@ bool read_wanted(const Impl& machine, Cell list, std::vector<Wanted>& out) {
     list = machine.heap.deref(machine.heap.list_tail(list));
   }
   return nil_atom(machine, list);
+}
+
+bool read_ask(const Impl& machine, Cell cell, ImportAsk& ask) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 1 &&
+      machine.atoms.name(machine.heap.functor_atom(cell)) == "except") {
+    ask.how = ImportHow::Except;
+    return read_wanted(machine, machine.heap.arg(cell, 0), ask.items);
+  }
+  ask.how = ImportHow::Listed;
+  return read_wanted(machine, cell, ask.items);
+}
+
+void apply_ask(Impl& machine, std::uint32_t source, std::uint32_t caller, const ImportAsk& ask) {
+  if (ask.how == ImportHow::Except) import_except(machine, source, caller, ask.items);
+  else import_listed(machine, source, caller, ask.items);
 }
 
 bool raise_module_fault(Impl& machine, const Goal& goal) {
@@ -193,15 +232,15 @@ bool run_use_module(Impl& machine, const Goal& goal) {
   if (machine.atoms.name(goal.name) != "use_module" || (goal.arity != 1 && goal.arity != 2)) return false;
   std::string text;
   if (!path_text(machine, goal, text)) return true;
-  std::vector<Wanted> wanted;
+  ImportAsk ask;
   // 名前は読み込みの前に控える。失敗した読み込みはヒープを切り詰める。
-  if (goal.arity == 2 && !read_wanted(machine, goal.arg(machine, 1), wanted)) {
+  if (goal.arity == 2 && !read_ask(machine, goal.arg(machine, 1), ask)) {
     machine.failed = true;
     return true;
   }
   std::uint32_t loaded = 0;
   if (!resolve_module(machine, goal, text, loaded)) return true;
-  if (goal.arity == 2) import_listed(machine, loaded, machine.calling, wanted);
+  if (goal.arity == 2) apply_ask(machine, loaded, machine.calling, ask);
   else import_exports(machine, loaded, machine.calling);
   machine.diagnostic.clear();
   machine.ip = goal.cont;

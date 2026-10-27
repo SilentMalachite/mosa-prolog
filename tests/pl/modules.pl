@@ -67,3 +67,9 @@ use_alias :- use_module('../tests/pl/modules/alias.pl', [source_name/1 as local_
 % 別名で取り込み、元の名前は呼び出し側に置かない。as は大域の演算子ではない。
 test(mod_use_alias, (use_alias, local_name(ok), \+ source_name(ok)), true).
 test(mod_as_not_op, (open_string('a as b.', S), read(S, _)), error(syntax_error(_))).
+
+use_shade :- use_module('tests/pl/modules/shade.pl', except([dropped/1])).
+use_shade :- use_module('../tests/pl/modules/shade.pl', except([dropped/1])).
+
+% except は書いた公開述語を外し、残りの公開述語を取り込む。
+test(mod_use_except, (use_shade, kept(1), \+ dropped(1)), true).
