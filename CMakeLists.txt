@@ -56,6 +56,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_io.cpp
   src/platform/terminal.cpp
   src/platform/executable.cpp
+  src/platform/environment.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -138,6 +139,12 @@ add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl)
+
+add_executable(library_test tests/cpp/library_test.cpp)
+target_include_directories(library_test PRIVATE tests/cpp src/platform)
+target_link_libraries(library_test PRIVATE mosa_lib)
+target_compile_definitions(library_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME library_test COMMAND $<TARGET_FILE:library_test>)
 
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)

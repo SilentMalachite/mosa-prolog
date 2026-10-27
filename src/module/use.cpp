@@ -1,6 +1,6 @@
 // docs/SPEC.md 第5節
 // use_module(+atom)
-// use_module(library(+atom))
+// use_module(library(+atom)) は $MOSA_LIB、次に実行ファイルの隣の lib/
 // use_module(+atom, +list)
 // use_module(+atom, except(+list))
 //   instantiation_error
@@ -12,6 +12,7 @@
 #include "../machine/internal.hpp"
 #include "../platform/executable.hpp"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -239,14 +240,33 @@ bool raise_module_fault(Impl& machine, const Goal& goal) {
   return true;
 }
 
-// library(Name) は実行ファイルの隣の lib/Name.pl。無い名前もそのパスのまま開き、consult と同じ失敗にする。
+bool regular_file(const std::filesystem::path& file) {
+  std::error_code error;
+  return std::filesystem::is_regular_file(file, error) && !error;
+}
+
+// 空の MOSA_LIB は未設定と同じ。相対の Name.pl を作業ディレクトリから開かない。
+std::filesystem::path library_from_env(const std::filesystem::path& leaf) {
+  const char* root = std::getenv("MOSA_LIB");
+  if (root == nullptr || root[0] == '\0') return {};
+  const auto file = std::filesystem::path{root} / leaf;
+  if (!regular_file(file)) return {};
+  return file;
+}
+
+// 無い名前は実行ファイルの隣のパスのまま開き、consult と同じ失敗にする。
 bool library_file(const Impl& machine, Cell cell, std::string& text) {
   cell = machine.heap.deref(cell);
   if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 1) return false;
   if (machine.atoms.name(machine.heap.functor_atom(cell)) != "library") return false;
   const Cell name = machine.heap.deref(machine.heap.arg(cell, 0));
   if (name.tag() != Tag::Atom) return false;
-  const auto leaf = std::string{machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3))} + ".pl";
+  const auto leaf =
+      std::filesystem::path{std::string{machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3))} + ".pl"};
+  if (const auto from_env = library_from_env(leaf); !from_env.empty()) {
+    text = from_env.string();
+    return true;
+  }
   text = (executable_path().parent_path() / "lib" / leaf).string();
   return true;
 }
