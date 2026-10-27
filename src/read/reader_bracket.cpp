@@ -18,6 +18,25 @@ bool solo(const Token& token, std::string_view text) {
   return token.kind == TokenKind::Solo && token.text == text;
 }
 
+// 取り込みリストを読んでいる間だけ as を中置にする。表に残すと a as b が項になる。
+struct ImportAs {
+  OperatorTable& ops;
+  bool added = false;
+
+  explicit ImportAs(OperatorTable& table) : ops(table) {
+    if (ops.stored("as", Specifier::Xfx)) return;
+    // / は 400。これより弱いので、名前/アリティ as 別名 は as(名前/アリティ, 別名) になる。
+    added = ops.define(700, Specifier::Xfx, "as") == OpResult::Ok;
+  }
+
+  ~ImportAs() {
+    if (added) ops.erase_stored("as", Specifier::Xfx);
+  }
+
+  ImportAs(const ImportAs&) = delete;
+  ImportAs& operator=(const ImportAs&) = delete;
+};
+
 }  // namespace
 
 Reader::Parsed Reader::parse_paren() {
@@ -84,7 +103,13 @@ Reader::Parsed Reader::parse_arguments(std::string functor) {
     }
     Parsed gap = reject_empty_comma();
     if (gap.failure) return gap;
-    Parsed arg = parse_expr(999);
+    Parsed arg;
+    if (functor == "use_module" && args.size() == 1) {
+      const ImportAs as_op{operators_};
+      arg = parse_expr(999);
+    } else {
+      arg = parse_expr(999);
+    }
     if (arg.failure) return arg;
     args.push_back(arg.term);
     const Scan scan = peek();

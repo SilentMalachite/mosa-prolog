@@ -23,6 +23,8 @@ namespace {
 struct Wanted {
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  // 呼び出し側の名前。別名が無いときは name と同じ。
+  std::uint32_t local = 0;
 };
 
 void prefix_diagnostic(Impl& machine, std::string_view path) {
@@ -62,21 +64,22 @@ bool module_at_path(const Impl& machine, std::string_view key, std::uint32_t& mo
 }
 
 void import_slot(Impl& machine, std::uint32_t source, std::uint32_t caller, std::uint32_t name,
-                 std::uint16_t arity) {
-  if (predicate_in(machine, caller, name, arity) != nullptr) return;
+                 std::uint16_t arity, std::uint32_t local) {
+  if (predicate_in(machine, caller, local, arity) != nullptr) return;
   Predicate slot;
   slot.home = caller;
-  slot.name = name;
+  slot.name = local;
   slot.arity = arity;
   slot.imported = true;
   slot.origin = source;
+  slot.origin_name = name;
   machine.predicates.push_back(std::move(slot));
 }
 
 void import_exports(Impl& machine, std::uint32_t source, std::uint32_t caller) {
   for (const ExportMark& item : machine.exports) {
     if (item.module != source) continue;
-    import_slot(machine, source, caller, item.name, item.arity);
+    import_slot(machine, source, caller, item.name, item.arity, item.name);
   }
 }
 
@@ -91,7 +94,7 @@ bool is_export(const Impl& machine, std::uint32_t source, const Wanted& item) {
 void import_listed(Impl& machine, std::uint32_t source, std::uint32_t caller, const std::vector<Wanted>& wanted) {
   for (const Wanted& item : wanted) {
     if (!is_export(machine, source, item)) continue;
-    import_slot(machine, source, caller, item.name, item.arity);
+    import_slot(machine, source, caller, item.name, item.arity, item.local);
   }
 }
 
@@ -116,12 +119,27 @@ bool nil_atom(const Impl& machine, Cell cell) {
   return machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "[]";
 }
 
+bool wanted_item(const Impl& machine, Cell cell, Wanted& item) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
+      machine.atoms.name(machine.heap.functor_atom(cell)) == "as") {
+    const Cell alias = machine.heap.deref(machine.heap.arg(cell, 1));
+    if (alias.tag() != Tag::Atom) return false;
+    if (!indicator(machine, machine.heap.arg(cell, 0), item)) return false;
+    item.local = static_cast<std::uint32_t>(alias.raw() >> 3);
+    return true;
+  }
+  if (!indicator(machine, cell, item)) return false;
+  item.local = item.name;
+  return true;
+}
+
 bool read_wanted(const Impl& machine, Cell list, std::vector<Wanted>& out) {
   list = machine.heap.deref(list);
   if (nil_atom(machine, list)) return true;
   while (list.tag() == Tag::Lis) {
     Wanted item;
-    if (!indicator(machine, machine.heap.list_head(list), item)) return false;
+    if (!wanted_item(machine, machine.heap.list_head(list), item)) return false;
     out.push_back(item);
     list = machine.heap.deref(machine.heap.list_tail(list));
   }

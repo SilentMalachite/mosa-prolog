@@ -60,3 +60,10 @@ use_pair_one :- use_module('../tests/pl/modules/pair.pl', [one/1]).
 
 % リストに書いた公開述語だけを取り込む。two/1 は公開されているが、ここからは見えない。
 test(mod_use_list, (use_pair_one, one(1), \+ two(1)), true).
+
+use_alias :- use_module('tests/pl/modules/alias.pl', [source_name/1 as local_name]).
+use_alias :- use_module('../tests/pl/modules/alias.pl', [source_name/1 as local_name]).
+
+% 別名で取り込み、元の名前は呼び出し側に置かない。as は大域の演算子ではない。
+test(mod_use_alias, (use_alias, local_name(ok), \+ source_name(ok)), true).
+test(mod_as_not_op, (open_string('a as b.', S), read(S, _)), error(syntax_error(_))).

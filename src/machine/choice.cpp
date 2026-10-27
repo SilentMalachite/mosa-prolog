@@ -150,9 +150,11 @@ void enter_user(Impl& machine, const Goal& goal) {
     return;
   }
   // 取り込みの節は定義したモジュールにある。席だけを見ると呼び出しが失敗する。
+  // 別名の席は呼び出し側の名前なので、節は公開したときの名前で探す。
   Predicate* predicate = slot;
   if (slot->imported) {
-    predicate = predicate_in(machine, slot->origin, goal.name, goal.arity);
+    const auto source_name = slot->origin_name != 0 ? slot->origin_name : goal.name;
+    predicate = predicate_in(machine, slot->origin, source_name, goal.arity);
     if (predicate == nullptr) {
       machine.failed = true;
       return;
@@ -177,7 +179,8 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.candidates = candidates;
     entry.next = 1;
     entry.redo_goal = goal.at;
-    entry.pred_name = goal.name;
+    // やり直しは節のある述語を探す。別名だと席の名前と違う。
+    entry.pred_name = predicate->name;
     entry.pred_arity = goal.arity;
     entry.pred_home = predicate->home;
     entry.cut = boundary;

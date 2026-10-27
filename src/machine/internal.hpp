@@ -46,6 +46,8 @@ struct Predicate {
   // 節は origin にある。この枠は呼び出し側の名前空間の席である。
   bool imported = false;
   std::uint32_t origin = 0;
+  // 別名のとき、節を持つ側の名前。0 は席の名前と同じ。
+  std::uint32_t origin_name = 0;
 };
 
 struct ExportMark {
