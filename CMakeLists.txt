@@ -51,6 +51,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_shape.cpp
   src/machine/lgt_judge.cpp
   src/machine/lgt_exec.cpp
+  src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
   src/platform/terminal.cpp
   src/builtins/errors.cpp

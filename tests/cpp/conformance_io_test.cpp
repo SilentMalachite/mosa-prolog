@@ -700,6 +700,29 @@ void check_read_bad_number(const std::filesystem::path& root) {
   mosa_test::check(failed.find("read_overflow_number") == std::string::npos, "overflow leaves the space");
 }
 
+// ^^ があると本体は混合実行になる。列を一つの Formal として見ると、同じ字面でも不合格になる。
+std::string listed_error_text() {
+  return "test(listed_formal, errors([domain_error(stream_or_alias, foo), existence_error(stream, foo)])) :-\n"
+         "    ^^stream_position(Position),\n"
+         "    set_stream_position(foo, Position).\n";
+}
+
+void check_listed_error(const std::filesystem::path& root) {
+  const auto suite = root / "listed-error";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "listed-error-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "set_stream_position_2" / "tests.lgt", listed_error_text()),
+                   "write listed error");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (code != 0 || failed.find("listed_formal") != std::string::npos) show("listed error report", body);
+  mosa_test::check(code == 0, "listed error exits 0");
+  mosa_test::check(has_exact_line(body, "分母: 1"), "listed error denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 1"), "listed error passed");
+  mosa_test::check(failed.find("listed_formal") == std::string::npos, "listed formal passes");
+}
+
 void check_caret_curly(const std::filesystem::path& root) {
   const auto suite = root / "caret-curly";
   const auto prolog = suite / "logtalk" / "prolog";
@@ -749,6 +772,7 @@ int main() {
     check_read_vars(root);
     check_read_syntax(root);
     check_read_bad_number(root);
+    check_listed_error(root);
   }
   mosa_test::check(!path_exists(root), "fixture removed");
   mosa_test::check(directory_empty(scratch), "suite scratch empty");

@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1812
-合格率: 83.4
+合格数: 1813
+合格率: 83.5
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable, (write(3), 3)), type_error(callable, 3)]) suppress_text_output/0
@@ -82,7 +82,6 @@ predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(pr
 predicates/print_1/tests.lgt lgt_print_1_05 true(Assertion) fail
 predicates/print_2/tests.lgt lgt_print_2_05 true(Assertion) fail
 predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
-predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_03 errors([domain_error(stream_or_alias, foo), existence_error(stream, foo)]) domain_error(stream_or_alias, foo)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition, stream, Stream)) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/terms.pl')
 predicates/set_stream_position_2/tests.lgt lgt_set_stream_position_2_07 true(Term1==Term3) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/terms.pl')
 predicates/set_stream_position_2/tests.lgt lgt_set_stream_position_2_08 true(Byte1==Byte3) existence_error(source_sink, '/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/predicates/set_stream_position_2/bytes.pl')
