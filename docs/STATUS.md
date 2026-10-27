@@ -1,7 +1,7 @@
 フェーズ: 3
 進行中: なし
-完了: 尾の solo コンマは構文エラー
-次: unicode/builtins が encoding 指示で load できない（lgt_unicode_atom_chars_2_01a）
-未解決: 合格率 87.0（1890/2172）は 0.9 未満。iso_stream_property_2_01 は組込 memberchk/2 を足さない A。sics_set_stream_position_2_06 は 8.11.8 の A（position を出さない）。sics_read_term_3_24 は min_integer の字面。lgt_call_1_17 と 18 は 7.8.3。lgt_power_2_14 は 9.3.1.3 d。retract の開いた走査は 7.5.4 の未決（ADR 0004）。閉じた current_input/1 は 8.11.1 の A
+完了: UTF-8 の encoding/1 を受け入れる
+次: encoding 旗が utf8 で valid('UTF-8') に合わない（lgt_unicode_current_prolog_flag_2_02）
+未解決: 合格率 93.4（2028/2171）。版はタスク 9 まで phase 2。iso_stream_property_2_01 は組込 memberchk/2 を足さない A。sics_set_stream_position_2_06 は 8.11.8 の A（position を出さない）。sics_read_term_3_24 は min_integer の字面。lgt_call_1_17 と 18 は 7.8.3。lgt_power_2_14 は 9.3.1.3 d。retract の開いた走査は 7.5.4 の未決（ADR 0004）。閉じた current_input/1 は 8.11.1 の A
 計画: docs/superpowers/plans/2026-10-26-phase3-exit.md
 設計: docs/superpowers/specs/2026-10-26-phase3-exit-design.md

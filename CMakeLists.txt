@@ -177,6 +177,12 @@ target_compile_definitions(suite_vars_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(suite_vars_test PRIVATE mosa_lib)
 add_test(NAME suite_vars_test COMMAND $<TARGET_FILE:suite_vars_test>)
 
+add_executable(suite_encoding_test tests/cpp/suite_encoding_test.cpp)
+target_include_directories(suite_encoding_test PRIVATE tests/cpp)
+target_compile_definitions(suite_encoding_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_encoding_test PRIVATE mosa_lib)
+add_test(NAME suite_encoding_test COMMAND $<TARGET_FILE:suite_encoding_test>)
+
 add_executable(files_test tests/cpp/files_test.cpp)
 target_include_directories(files_test PRIVATE tests/cpp)
 target_compile_definitions(files_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

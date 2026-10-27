@@ -35,10 +35,18 @@ bool atom_is(const Heap& heap, Cell cell, std::string_view name) {
   return cell.tag() == Tag::Atom && atom_text(heap, cell) == name;
 }
 
+// 読み込み元は既に UTF-8。lgt_io の utf8_name と同じ三つだけ捨て、latin1 などは未知のまま失敗させる。
+bool dropped_utf8_encoding(const Heap& heap, Cell inner) {
+  if (!functor_is(heap, inner, "encoding", 1)) return false;
+  const Cell name = heap.arg(inner, 0);
+  return atom_is(heap, name, "utf8") || atom_is(heap, name, "UTF-8") || atom_is(heap, name, "utf-8");
+}
+
 bool dropped_directive(const Heap& heap, Cell term) {
   if (!functor_is(heap, term, ":-", 1)) return false;
   const Cell inner = heap.deref(heap.arg(term, 0));
   if (atom_is(heap, inner, "end_object")) return true;
+  if (dropped_utf8_encoding(heap, inner)) return true;
   if (inner.tag() != Tag::Str) return false;
   const auto name = heap.atoms().name(heap.functor_atom(inner));
   return name == "object" || name == "end_object" || name == "info" || name == "set_logtalk_flag";

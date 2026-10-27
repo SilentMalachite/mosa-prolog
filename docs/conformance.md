@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
-分母: 2172
-合格数: 1890
-合格率: 87.0
+分母: 2171
+合格数: 2028
+合格率: 93.4
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -123,168 +123,29 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
 syntax/operators/tests.lgt lgt_operators_40 true op(600,xfy,:)
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_01a true(L==['Γ',ε,ι,ά,' ',σ,ο,υ,' ',κ,ό,σ,μ,ε,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_01b true(A=='Γειά σου κόσμε!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_02a true(L==[¡,'H',o,l,a,' ',m,u,n,d,o,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_02b true(A=='¡Hola mundo!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_03a true(L==[こ,ん,に,ち,は,世,界,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_03b true(A=='こんにちは世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_04a true(L==[여,보,세,요,' ',세,계,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_04b true(A=='여보세요 세계!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_05a true(L==['O',l,á,' ',m,u,n,d,o,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_05b true(A=='Olá mundo!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_06a true(L==['З',д,р,а,в,с,т,в,у,л,т,е,!,' ',м,и,р,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_06b true(A=='Здравствулте! мир!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_07a true(L==[你,好,世,界,!]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_07b true(A=='你好世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_08a true(L==[🀙,🀚,🀛,🀜,🀝,🀞,🀟,🀠]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_08b true(A== 🀙🀚🀛🀜🀝🀞🀟🀠) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_09a true(L==['Á','À','Ã','Â','Ä',á,à,ã,â,ä]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_chars_2_09b true(A=='ÁÀÃÂÄáàãâä') load
-unicode/builtins/tests.lgt sics_unicode_atom_chars_2_14 true(L==['P',é,c,s]) load
-unicode/builtins/tests.lgt sics_unicode_atom_chars_2_15 true(A=='Pécs') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_01a true(L==[915,949,953,940,32,963,959,965,32,954,972,963,956,949,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_01b true(A=='Γειά σου κόσμε!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_02a true(L==[161,72,111,108,97,32,109,117,110,100,111,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_02b true(A=='¡Hola mundo!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_03a true(L==[12371,12435,12395,12385,12399,19990,30028,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_03b true(A=='こんにちは世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_04a true(L==[50668,48372,49464,50836,32,49464,44228,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_04b true(A=='여보세요 세계!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_05a true(L==[79,108,225,32,109,117,110,100,111,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_05b true(A=='Olá mundo!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_06a true(L==[1047,1076,1088,1072,1074,1089,1090,1074,1091,1083,1090,1077,33,32,1084,1080,1088,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_06b true(A=='Здравствулте! мир!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_07a true(L==[20320,22909,19990,30028,33]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_07b true(A=='你好世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_08a true(L==[127001,127002,127003,127004,127005,127006,127007,127008]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_08b true(A== 🀙🀚🀛🀜🀝🀞🀟🀠) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_09a true(L==[193,192,195,194,196,225,224,227,226,228]) load
-unicode/builtins/tests.lgt lgt_unicode_atom_codes_2_09b true(A=='ÁÀÃÂÄáàãâä') load
-unicode/builtins/tests.lgt sics_unicode_atom_codes_2_12 true(C==[80,233,99,115]) load
-unicode/builtins/tests.lgt sics_unicode_atom_codes_2_13 true(A=='Pécs') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_01 true(A=='こんにちは世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_02 true(A=='こんにちは世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_03 true(A=='こんにちは世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_04 true(A=='Здравствулте! мир!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_05 true(A==' мир!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_06 true(A=='Здравствулт') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_07 true(A== 🀙🀚🀛🀜🀝🀞🀟🀠) load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_08 true(A=='ÁÀÃÂÄáàãâä') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_09 true(A=='你好世界!') load
-unicode/builtins/tests.lgt lgt_unicode_atom_concat_3_10 true(A==!) load
-unicode/builtins/tests.lgt sics_unicode_atom_concat_3_11 true(N=='Bartók Béla') load
-unicode/builtins/tests.lgt sics_unicode_atom_concat_3_12 true(N=='Bartók ') load
-unicode/builtins/tests.lgt sics_unicode_atom_concat_3_13 true(N=='Béla') load
-unicode/builtins/tests.lgt sics_unicode_atom_concat_3_14 true(L==[''-'Pécs','P'-écs,'Pé'-cs,'Péc'-s,'Pécs'-'']) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_01 true(N==15) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_02 true(N==12) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_03 true(N==8) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_04 true(N==8) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_05 true(N==10) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_06 true(N==18) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_07 true(N==5) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_08 true(N==8) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_09 true(N==10) load
-unicode/builtins/tests.lgt sics_unicode_atom_length_2_10 true(N==11) load
-unicode/builtins/tests.lgt lgt_unicode_atom_length_2_11 true(N==4) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_01 true(Code==243) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_02 true(Code==233) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_03 true(Char=='Γ') load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_04 true(Char== ¡) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_05 true(Char==こ) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_06 true(Char==여) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_07 true(Char==á) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_08 true(Char=='З') load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_09 true(Char==你) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_10 true(Char== 🀙) load
-unicode/builtins/tests.lgt lgt_unicode_char_code_2_11 true(Char=='Á') load
-unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_01 true(atom(Encoding)) load
-unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) load
-unicode/builtins/tests.lgt lgt_unicode_get_byte_2_01 true(Byte==239) load
-unicode/builtins/tests.lgt lgt_unicode_get_char_2_01a true(Char=='Γ') load
-unicode/builtins/tests.lgt lgt_unicode_get_char_2_01b true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_get_char_2_02a true(Char==你) load
-unicode/builtins/tests.lgt lgt_unicode_get_char_2_02b true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_get_char_2_03 true(Char==a) load
-unicode/builtins/tests.lgt lgt_unicode_get_code_2_01a true(Code==915) load
-unicode/builtins/tests.lgt lgt_unicode_get_code_2_01b true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_get_code_2_02a true(Code==20320) load
-unicode/builtins/tests.lgt lgt_unicode_get_code_2_02b true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_open_4_01 true load
-unicode/builtins/tests.lgt lgt_unicode_open_4_02 true load
-unicode/builtins/tests.lgt lgt_unicode_open_4_03 true load
-unicode/builtins/tests.lgt lgt_unicode_open_4_04 true(Byte==239) load
-unicode/builtins/tests.lgt lgt_unicode_open_4_05 true(Byte==97) load
-unicode/builtins/tests.lgt lgt_unicode_open_4_06 true(Byte==97) load
-unicode/builtins/tests.lgt lgt_unicode_open_4_07 true(Byte1-Byte2==97-98) load
-unicode/builtins/tests.lgt lgt_unicode_open_4_08 true(Encoding==Default) load
-unicode/builtins/tests.lgt lgt_unicode_peek_char_2_01 true(Char=='Γ') load
-unicode/builtins/tests.lgt lgt_unicode_peek_char_2_02 true(Char==你) load
-unicode/builtins/tests.lgt lgt_unicode_peek_code_2_01 true(Code==915) load
-unicode/builtins/tests.lgt lgt_unicode_peek_code_2_02 true(Code==20320) load
-unicode/builtins/tests.lgt lgt_unicode_put_char_2_01 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_put_char_2_02 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_put_code_2_01 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_put_code_2_02 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_read_term_3_01 true(Term=='Γειά σου κόσμε!') load
-unicode/builtins/tests.lgt lgt_unicode_read_term_3_02 true(Term=='你好世界!') load
-unicode/builtins/tests.lgt lgt_unicode_set_prolog_flag_2_01 true load
-unicode/builtins/tests.lgt lgt_unicode_set_stream_position_2_01 true(Term1==Term3) load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_01 true(Encoding-BOM=='UTF-8'-false) load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_02 true(Encoding-BOM=='UTF-8'-false) load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_03 true(Encoding-BOM=='UTF-8'-true) load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_04 true(Encoding=='UTF-8') load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_05 true(BOM==false) load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_06 true(Encoding-BOM=='UTF-8'-true) load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_07 true load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_08 true load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_09 true load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_10 true load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true load
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_01 true(L==[0-13-'Γε',1-12-ει,2-11-ιά,3-10-'ά ',4-9-' σ',5-8-σο,6-7-ου,7-6-'υ ',8-5-' κ',9-4-κό,10-3-όσ,11-2-σμ,12-1-με,13-0-'ε!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_02 true(L==[0-10-'¡H',1-9-'Ho',2-8-ol,3-7-la,4-6-'a ',5-5-' m',6-4-mu,7-3-un,8-2-nd,9-1-do,10-0-'o!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_03 true(L==[0-6-こん,1-5-んに,2-4-にち,3-3-ちは,4-2-は世,5-1-世界,6-0-'界!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_04 true(L==[0-6-여보,1-5-보세,2-4-세요,3-3-'요 ',4-2-' 세',5-1-세계,6-0-'계!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_05 true(L==[0-8-'Ol',1-7-lá,2-6-'á ',3-5-' m',4-4-mu,5-3-un,6-2-nd,7-1-do,8-0-'o!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_06 true(L==[0-16-'Зд',1-15-др,2-14-ра,3-13-ав,4-12-вс,5-11-ст,6-10-тв,7-9-ву,8-8-ул,9-7-лт,10-6-те,11-5-'е!',12-4-'! ',13-3-' м',14-2-ми,15-1-ир,16-0-'р!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_07 true(L==[0-3-你好,1-2-好世,2-1-世界,3-0-'界!']) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_08 true(L==[3-矢量]) load
-unicode/builtins/tests.lgt lgt_unicode_sub_atom_5_09 true(L==[0-3-矢量,1-2-'量 ',2-1-' 空',3-0-空间]) load
-unicode/builtins/tests.lgt sics_unicode_sub_atom_5_31 true(A-S==5-ók) load
-unicode/builtins/tests.lgt sics_unicode_sub_atom_5_32 true(L-S==2-ók) load
-unicode/builtins/tests.lgt sics_unicode_sub_atom_5_33 true(B-S==4-ók) load
-unicode/builtins/tests.lgt sics_unicode_sub_atom_5_34 true(L==[0-2-'Pé',1-1-éc,2-0-cs]) load
-unicode/builtins/tests.lgt sics_unicode_sub_atom_5_35 true(L==[0-4-7,7-4-0]) load
-unicode/builtins/tests.lgt lgt_unicode_write_term_3_01 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_write_term_3_02 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_format_2_01 true(Assertion) load
-unicode/builtins/tests.lgt lgt_unicode_format_3_01 true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_atom_writing_lower_case_start true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_atom_writing_lower_case_start_quoted true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_atom_writing_upper_case_start true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_atom_writing_upper_case_start_quoted true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_atom_reading_lower_case_start true(atom(Term)) load
-unicode/case_variables/tests.lgt lgt_unicode_atom_reading_upper_case_start true(atom(Term)) load
-unicode/case_variables/tests.lgt lgt_unicode_variable_reading true(var(Term)) load
-unicode/case_variables/tests.lgt lgt_unicode_variable_unifying true({Term1=Term2}) load
-unicode/case_variables/tests.lgt lgt_unicode_ground_compound_term_writing true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_ground_compound_term_reading true(Term=..[αβγ,'Γβα']) load
-unicode/case_variables/tests.lgt lgt_unicode_non_ground_compound_term_writing true(Assertion) load
-unicode/case_variables/tests.lgt lgt_unicode_non_ground_compound_term_reading variant(VariableNames,['Γβα'=_]) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_bmp_01 true(L==['Γ',ε,ι,ά,' ',σ,ο,υ,' ',κ,ό,σ,μ,ε,!]) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_bmp_02 true(A=='Γειά σου κόσμε!') load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_bmp_03 true(L==[915,949,953,940,32,963,959,965,32,954,972,963,956,949,33]) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_bmp_04 true(A=='Γειά σου κόσμε!') load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_bmp_05 true(Assertion) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_bmp_06 error(syntax_error(_)) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_01 true(L==[🀙,🀚,🀛,🀜,🀝,🀞,🀟,🀠]) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_02 true(A== 🀙🀚🀛🀜🀝🀞🀟🀠) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_03 true(L==[127001,127002,127003,127004,127005,127006,127007,127008]) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_04 true(A== 🀙🀚🀛🀜🀝🀞🀟🀠) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Assertion) load
-unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_06 error(syntax_error(_)) load
+unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) fail
+unicode/builtins/tests.lgt lgt_unicode_get_char_2_03 true(Char==a) fail
+unicode/builtins/tests.lgt lgt_unicode_open_4_01 true domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_open_4_02 true domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_open_4_03 true domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_open_4_04 true(Byte==239) domain_error(stream_option,bom(true))
+unicode/builtins/tests.lgt lgt_unicode_open_4_05 true(Byte==97) domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_open_4_06 true(Byte==97) domain_error(stream_option,bom(true))
+unicode/builtins/tests.lgt lgt_unicode_open_4_07 true(Byte1-Byte2==97-98) domain_error(stream_option,bom(false))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_01 true(Encoding-BOM=='UTF-8'-false) domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_02 true(Encoding-BOM=='UTF-8'-false) domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_03 true(Encoding-BOM=='UTF-8'-true) domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_04 true(Encoding=='UTF-8') domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_05 true(BOM==false) domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_06 true(Encoding-BOM=='UTF-8'-true) domain_error(stream_option,encoding('UTF-8'))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_07 true fail
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_08 true domain_error(stream_property,bom(_))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_09 true fail
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_10 true domain_error(stream_property,bom(_))
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
+unicode/builtins/tests.lgt lgt_unicode_format_3_01 true(Assertion) existence_error(procedure,format/3)
+unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Assertion) fail
 別欄:
 control/throw_1 lgt_throw_1_03
 control/throw_1 lgt_throw_1_03
@@ -480,5 +341,6 @@ predicates/write_term_3 lgt_write_term_3_145
 syntax/directives/meta_predicate_1 3
 syntax/operators lgt_operators_57
 unbounded 111
+unicode/builtins lgt_unicode_format_2_01
 unicode/directives/encoding_1 3
 unicode/encodings 49
