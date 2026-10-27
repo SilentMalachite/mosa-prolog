@@ -1,5 +1,6 @@
 #include "../machine/internal.hpp"
 
+#include <array>
 #include <vector>
 
 namespace mosa {
@@ -18,8 +19,20 @@ void not_callable(Impl& machine, const Goal& goal, Cell culprit) {
   raise_formal(machine, formal_type(machine, "callable", culprit), goal.name, goal.arity);
 }
 
+bool qualified_goal(const Impl& machine, Cell cell) {
+  cell = machine.heap.deref(cell);
+  return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
+         machine.atoms.name(machine.heap.functor_atom(cell)) == ":";
+}
+
 Cell appended(Impl& machine, Cell goal, const Goal& frame) {
   goal = machine.heap.deref(goal);
+  // call(Module:Goal, Extra) は Module:Goal(Extra)。:/2 の外側に足すと :/3 になる。
+  if (qualified_goal(machine, goal)) {
+    const Cell inner = appended(machine, machine.heap.arg(goal, 1), frame);
+    const std::array<Cell, 2> args{machine.heap.arg(goal, 0), inner};
+    return machine.heap.structure(machine.atoms.intern(":"), args);
+  }
   std::vector<Cell> args;
   std::uint32_t name = 0;
   if (goal.tag() == Tag::Atom) {

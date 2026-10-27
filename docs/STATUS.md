@@ -1,6 +1,6 @@
 Phase: 4
-In progress: meta_predicate/1
-Done: ADR 0006. module/2 and current_module/1. use_module/1 and use_module/2. library(Name) searches $MOSA_LIB, then lib/Name.pl beside the executable. library(lists) re-exports length/2 from system and defines the section 5 list predicates. A clause body runs in the defining module. Module:Goal runs in the named module, including a predicate absent from the export list. An unknown module raises existence_error(module, Module). ctest 31 passed. Version stays mosa 0.0.1 (phase 3)
-Next: meta_predicate/1
+In progress: library(apply)
+Done: ADR 0006. module/2 and current_module/1. use_module/1 and use_module/2. library(Name) searches $MOSA_LIB, then lib/Name.pl beside the executable. library(lists) re-exports length/2 from system and defines the section 5 list predicates. A clause body runs in the defining module. Module:Goal runs in the named module. meta_predicate/1 wraps 0, :, ^, and // with the calling module. call/1-8, findall/3-4, bagof/3, setof/3, catch/3, once/1, and \+/1 use that spec. An argument that is already :/2 is left as it is. ctest 31 passed. Version stays mosa 0.0.1 (phase 3)
+Next: library(apply) maplist/2 through maplist/5
 Open: interpretations left in iso-notes. Reconsult while a choice point exists still fails (session test). A second consult of the same file is still rejected. The design wants that reload to replace the file's clauses
 Plan: docs/superpowers/specs/2026-10-27-phase4-modules-design.md

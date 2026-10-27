@@ -116,6 +116,8 @@ void step(Impl& machine) {
     return;
   }
   const Goal goal = read_goal(machine, machine.ip);
+  // 組込のメタ仕様は、節に入る前と同じ境界で包む。
+  wrap_builtin(machine, goal);
   if (run_builtin(machine, goal)) return;
   enter_user(machine, goal);
 }
@@ -534,6 +536,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.calling = machine.user_mod;
   machine.module_fault = 0;
   machine.stack.clear();
+  machine.meta_undos.clear();
   // 前のクエリの選択点はもう無い。戻さずに捨てる。成功した op/3 は表に残す。
   machine.op_undos.clear();
   machine.trail.slots.clear();

@@ -27,6 +27,12 @@ void undo_touch(OperatorTable& table, const OpTouch& touch) {
 }  // namespace
 
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark) {
+  while (!machine.meta_undos.empty() && machine.meta_undos.back().born >= heap_mark) {
+    const MetaUndo undo = machine.meta_undos.back();
+    machine.meta_undos.pop_back();
+    // 枠ごと捨てる選択点では、消える語へ書き戻さない。
+    if (undo.slot < heap_mark) machine.heap.set_word(undo.slot, undo.old);
+  }
   while (machine.trail.slots.size() > trail_mark) {
     auto* slot = machine.trail.slots.back();
     machine.trail.slots.pop_back();
@@ -180,6 +186,8 @@ void enter_user(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return;
   }
+  // 包みは選択点より前。やり直しがヒープを戻しても、モジュール付きの引数が残る。
+  wrap_meta(machine, goal, *predicate);
   const bool has_arg = goal.arity >= 1;
   const Cell first = has_arg ? machine.heap.deref(goal.arg(machine, 0)) : Cell{};
   const auto candidates = select_clauses(machine, *predicate, has_arg, first);

@@ -48,6 +48,8 @@ struct Predicate {
   std::uint32_t origin = 0;
   // 別名のとき、節を持つ側の名前。0 は席の名前と同じ。
   std::uint32_t origin_name = 0;
+  // 空は宣言なし。長さはアリティ。0 は包まない。1 は呼び出し元:引数。
+  std::vector<std::uint8_t> meta;
 };
 
 struct ExportMark {
@@ -59,6 +61,13 @@ struct ExportMark {
 struct ModuleSource {
   std::uint32_t module = 0;
   std::string path;
+};
+
+// メタ引数の上書き。born 以降を捨てる選択点では、枠の中の古い引数へ戻す。
+struct MetaUndo {
+  std::size_t slot = 0;
+  std::uint64_t old = 0;
+  std::size_t born = 0;
 };
 
 enum class Pick {
@@ -227,6 +236,7 @@ struct Machine::Impl {
   // 初期化の例外で節を残す。入れ子の consult がこれで失敗したとき、親は節を戻さない。
   bool load_kept = false;
   std::vector<Entry> stack;
+  std::vector<MetaUndo> meta_undos;
   std::vector<Extra> extras;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
@@ -262,6 +272,8 @@ struct Machine::Impl {
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {
     // Module:Goal の : は 13211-1 の表7に無い。モジュール限定の中置として足す。
     (void)operators.define(600, Specifier::Xfy, ":");
+    // meta_predicate 頭部は前置。1150 だとコンマの並びが引数に入る。
+    (void)operators.define(1150, Specifier::Fx, "meta_predicate");
     user_mod = atoms.intern("user");
     system_mod = atoms.intern("system");
     calling = user_mod;
@@ -428,6 +440,9 @@ void arm_caller(Impl& machine, std::uint32_t caller);
 [[nodiscard]] bool run_use_module(Impl& machine, const Goal& goal);
 // 0 はこの指示ではない。1 は記録した。-1 は読み込みの失敗。
 [[nodiscard]] int apply_module_directive(Impl& machine, Cell term);
+[[nodiscard]] int apply_meta_directive(Impl& machine, Cell term);
+void wrap_meta(Impl& machine, const Goal& goal, const Predicate& predicate);
+void wrap_builtin(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);

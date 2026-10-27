@@ -141,3 +141,29 @@ test(mod_qualify_redo, (
   Xs == [a, b],
   hello(world)
 ), true).
+
+use_expose :- use_module('tests/pl/modules/expose.pl').
+use_expose :- use_module('../tests/pl/modules/expose.pl').
+
+% 0 は呼び出し元で包む。? は包まない。
+test(mod_meta_wrap, (use_expose, show(seen_meta(1), user:seen_meta(1))), true).
+meta_seen(1).
+% 包んだゴールは定義したモジュールではなく、呼んだ側で実行する。
+test(mod_meta_run, (use_expose, run(meta_seen(1))), true).
+% すでに Module:Goal なら、呼んだ側でもう一度包まない。
+test(mod_meta_kept, (use_expose, show(greet:secret(1), greet:secret(1))), true).
+% 数字は追加する引数の個数。call/N は限定の内側へ足す。
+test(mod_meta_extra, (use_expose, call_one(meta_seen)), true).
+% ^ は Vars^Goal の Goal だけを包む。^ でない項は全体を包む。
+test(mod_meta_caret, (use_expose, take(X^meta_seen(X), X^(user:meta_seen(X)))), true).
+test(mod_meta_caret_whole, (use_expose, take(plain_meta(1), user:plain_meta(1))), true).
+% // は 名前/アリティ を呼び出し元:名前/アリティ にする。
+test(mod_meta_slash, (use_expose, pi(meta_seen/1, user:meta_seen/1)), true).
+% 一つの指示にコンマで並べた仕様は、どちらも包む。
+test(mod_meta_comma, (use_expose, left_goal(meta_seen(1)), right_goal(meta_seen(1))), true).
+% : も 0 と同じく呼び出し元で包む。
+test(mod_meta_colon, (use_expose, colon_run(meta_seen(1))), true).
+% モジュールの中の findall は、そのモジュールの述語を集める。
+test(mod_meta_findall, (use_expose, expose_items(Xs), Xs == [a]), true).
+% すでに限定したゴールを call/1 に渡しても、呼んだ側で包み直さない。
+test(mod_meta_call_qual, call(greet:secret(1)), true).
