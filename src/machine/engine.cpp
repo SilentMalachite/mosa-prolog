@@ -63,9 +63,9 @@ void step_control(Impl& machine) {
     return;
   }
   if (extra.ctrl == Ctrl::CatchExit) {
-    const auto index = extra.trim_to;
-    if (index < machine.stack.size() && machine.stack[index].pick == Pick::Catch) {
-      machine.stack[index].armed = false;
+    const auto frame = extra.trim_to;
+    if (frame < machine.stack.size() && machine.stack[frame].pick == Pick::Catch) {
+      machine.stack[frame].armed = false;
     }
     machine.ip = extra.cont;
     return;

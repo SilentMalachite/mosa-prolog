@@ -135,7 +135,9 @@ int reread(const Example& example, const Heap& heap, const ReadTerm& term, const
   AtomTable atoms;
   Heap again(atoms);
   OperatorTable copy = operators;
-  Reader reader(text + ".", again, copy);
+  // 字句解析は文字列を所有しない。一時オブジェクトだと、短い字面は壊れずに見え、長い字面だけ落ちる。
+  const std::string source = text + ".";
+  Reader reader(source, again, copy);
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return fail(example, "reread");
   const ReadOutcome tail = reader.next();
