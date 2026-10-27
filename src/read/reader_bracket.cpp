@@ -104,6 +104,29 @@ Reader::Parsed Reader::take_bar_tail(Cell& tail) {
   return ok;
 }
 
+Reader::Parsed Reader::reject_headless_bar() {
+  const Scan scan = peek();
+  if (scan.failure) return failure_of(scan);
+  if (!solo(scan.token, "|")) {
+    Parsed ok;
+    return ok;
+  }
+  // 直後が ] のときだけ拒む。|+1 のように項が続く | は要素の先頭へ戻す。
+  const Lexer saved = lexer_;
+  const Scan saved_pending = pending_;
+  const bool saved_has = has_pending_;
+  consume();
+  const Scan after = peek();
+  if (after.failure || !solo(after.token, "]")) {
+    lexer_ = saved;
+    pending_ = saved_pending;
+    has_pending_ = saved_has;
+    Parsed ok;
+    return ok;
+  }
+  return bad_token(after.token);
+}
+
 Reader::Parsed Reader::parse_list() {
   consume();
   const Scan scan = peek();
@@ -112,6 +135,8 @@ Reader::Parsed Reader::parse_list() {
     consume();
     return call_or_atom("[]");
   }
+  Parsed headless = reject_headless_bar();
+  if (headless.failure) return headless;
   std::vector<Cell> heads;
   Cell tail;
   bool barred = false;

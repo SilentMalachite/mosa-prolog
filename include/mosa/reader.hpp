@@ -66,6 +66,8 @@ class Reader {
   [[nodiscard]] Parsed parse_rest(Parsed left, int max_priority);
   [[nodiscard]] Parsed parse_paren();
   [[nodiscard]] Parsed parse_list();
+  // [|] の | は原子にしない。直後が項なら字句を戻して今の読みに任せる。
+  [[nodiscard]] Parsed reject_headless_bar();
   [[nodiscard]] Parsed take_bar_tail(Cell& tail);
   [[nodiscard]] Parsed parse_curly();
   [[nodiscard]] Parsed parse_arguments(std::string functor);

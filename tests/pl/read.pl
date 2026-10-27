@@ -58,3 +58,7 @@ test(read_curly_call, (open_string('{}(2,3).', S), read(S, T), functor(T, {}, 2)
 test(read_nil_bare, (open_string('[].', S), read(S, T), T == []), true).
 test(read_nil_space, (open_string('[] (2,3).', S), read(S, _)), error(syntax_error(_))).
 test(read_curly_space, (open_string('{} (2,3).', S), read(S, _)), error(syntax_error(_))).
+% 頭も尾も無い | は構文エラー。尾が無い [1|] も同じ。尾がある [1|2] は項のまま。
+test(read_bar_none, (open_string('[|].', S), read(S, _)), error(syntax_error(_))).
+test(read_bar_no_tail, (open_string('[1|].', S), read(S, _)), error(syntax_error(_))).
+test(read_bar_pair, (open_string('[1|2].', S), read(S, T), T == [1|2]), true).
