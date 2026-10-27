@@ -48,4 +48,7 @@ test(read_missing, read('$stream'(99), _), error(existence_error(stream, '$strea
 test(read_closed, (open_string('a.', S), close(S), read(S, _)), error(existence_error(stream, S))).
 test(read_syntax, (open_string('foo)', S), read(S, _)), error(syntax_error('行 1 列 4: 予期しないトークン )'))).
 test(read_incomplete, (open_string(foo, S), read(S, _)), error(syntax_error('行 1 列 4: 項が閉じていません 終端'))).
+% 6.5 の quoted char に生の改行とタブは無い。このファイルにその字を書くと、読み込み自体が落ちる。
+test(quoted_raw_nl, (open_string([39, 97, 10, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
+test(quoted_raw_tab, (open_string([39, 97, 9, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
 test(read_syntax_stream, (open_string('foo)', S), catch(read(S, _), error(_, context(_, stream(S, 1, 4, 3))), true)), true).

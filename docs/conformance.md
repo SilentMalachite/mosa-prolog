@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1872
-合格率: 86.2
+合格数: 1876
+合格率: 86.4
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -117,8 +117,6 @@ predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_er
 predicates/write_term_3/tests.lgt lgt_write_term_3_120 true(Assertion) domain_error(write_option,numbervars(false))
 predicates/write_term_3/tests.lgt lgt_write_term_3_121 true(Assertion) domain_error(write_option,numbervars(true))
 predicates/write_term_3/tests.lgt lgt_write_term_3_122 true(Assertion) domain_error(write_option,variable_names(['Used'=_]))
-syntax/atoms/tests.lgt lgt_atom_13 error(syntax_error(_)) fail
-syntax/atoms/tests.lgt lgt_atom_14 error(syntax_error(_)) fail
 syntax/compounds/tests.lgt lgt_compound_01 true(functor(T,[],2)) syntax_error('行 1 列 3: 予期しないトークン (')
 syntax/compounds/tests.lgt lgt_compound_02 true(functor(T,{},2)) syntax_error('行 1 列 3: 予期しないトークン (')
 syntax/curly_terms/tests.lgt lgt_curly_bracketed_term_05 true(T1==T2) syntax_error('行 1 列 8: 予期しないトークン (')
@@ -130,8 +128,6 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) lo
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
-syntax/double_quoted_terms/tests.lgt lgt_double_quoted_term_13 error(syntax_error(_)) fail
-syntax/double_quoted_terms/tests.lgt lgt_double_quoted_term_14 error(syntax_error(_)) fail
 syntax/lists/tests.lgt lgt_list_06 error(syntax_error(_)) fail
 syntax/numbers/tests.lgt lgt_number_26 true(T==27) syntax_error('行 1 列 3: 不正なエスケープ \\')
 syntax/numbers/tests.lgt lgt_number_27 true(T==127) syntax_error('行 1 列 3: 不正なエスケープ \\')

@@ -63,6 +63,12 @@ std::optional<char32_t> symbolic_escape(char32_t code) {
   }
 }
 
+// 拒むのは生の改行とタブだけ。垂直タブや改ページはここではない。
+// CR LF は advance が 1 改行として両方消費する。LF だけ拒むと CR が改行を飲み込む。
+bool raw_quote_break(char32_t code) {
+  return code == U'\n' || code == U'\r' || code == U'\t';
+}
+
 }  // namespace
 
 Scan Lexer::scan_number() {
@@ -270,6 +276,10 @@ Scan Lexer::scan_quoted() {
     if (ch.code == U'\\') {
       if (const std::optional<Scan> error = append_escape(&text, nullptr)) return *error;
       continue;
+    }
+    // 行継続はバックスラッシュ側で消す。ここはバックスラッシュのない改行とタブだけ。
+    if (raw_quote_break(ch.code)) {
+      return fail_at(SyntaxReason::IllegalCharacter, ch.code == U'\t' ? "タブ" : "改行", here());
     }
     append_code(text, ch.code);
     advance(ch.code, ch.bytes);
