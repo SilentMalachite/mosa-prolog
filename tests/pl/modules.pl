@@ -47,5 +47,10 @@ use_greet :- use_module('tests/pl/modules/greet.pl').
 use_greet :- use_module('../tests/pl/modules/greet.pl').
 
 test(mod_use, (use_greet, hello(world)), true).
-% mod_use が greet を載せた。同じファイルをもう一度 use_module すると、今は module/2 を拒否する。
+% mod_use が greet を載せた。公開していない述語は、ここからは見えない。
 test(mod_use_hides, \+ secret(1), true).
+
+use_kin :- use_module('tests/pl/modules/kin.pl').
+use_kin :- use_module('../tests/pl/modules/kin.pl').
+
+test(mod_use_loaded, (use_kin, parent(a, b)), true).

@@ -13,6 +13,9 @@
 #include <string>
 
 namespace mosa {
+
+std::filesystem::path canonical_key(const std::filesystem::path& file);
+
 namespace {
 
 void prefix_diagnostic(Impl& machine, std::string_view path) {
@@ -39,6 +42,15 @@ bool open_module(Impl& machine, std::string_view text, std::size_t& before) {
   const LoadStatus status = load_source(machine, buffer.str(), file.parent_path().string(), file.string());
   if (status.ok) return true;
   prefix_diagnostic(machine, text);
+  return false;
+}
+
+bool module_at_path(const Impl& machine, std::string_view key, std::uint32_t& module) {
+  for (const ModuleSource& item : machine.module_sources) {
+    if (item.path != key) continue;
+    module = item.module;
+    return true;
+  }
   return false;
 }
 
@@ -79,6 +91,15 @@ bool run_use_module(Impl& machine, const Goal& goal) {
     return true;
   }
   const auto text = machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3));
+  const auto key = canonical_key(std::filesystem::path{std::string{text}}).generic_string();
+  std::uint32_t loaded = 0;
+  // 定義ファイルは読み直さない。公開リストは最初の module/2 のまま取り込む。
+  if (module_at_path(machine, key, loaded)) {
+    import_exports(machine, loaded, machine.calling);
+    machine.diagnostic.clear();
+    machine.ip = goal.cont;
+    return true;
+  }
   std::size_t before = 0;
   if (!open_module(machine, text, before)) {
     if (!raise_module_fault(machine, goal)) machine.failed = true;

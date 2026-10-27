@@ -72,6 +72,7 @@ void drop_load_modules(Impl& machine) {
     std::vector<std::uint32_t>& mods = machine.modules;
     mods.erase(std::remove(mods.begin(), mods.end(), name), mods.end());
     std::erase_if(machine.exports, [name](const ExportMark& item) { return item.module == name; });
+    std::erase_if(machine.module_sources, [name](const ModuleSource& item) { return item.module == name; });
   }
   machine.module_added.pop_back();
 }
@@ -104,6 +105,7 @@ int apply_module_directive(Impl& machine, Cell term) {
   machine.load_home = name;
   remember_module(machine, name);
   machine.exports.insert(machine.exports.end(), listed_exports.begin(), listed_exports.end());
+  if (!machine.load_origin.empty()) machine.module_sources.push_back(ModuleSource{name, machine.load_origin});
   return 1;
 }
 

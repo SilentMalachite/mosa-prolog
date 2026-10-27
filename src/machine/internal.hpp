@@ -54,6 +54,11 @@ struct ExportMark {
   std::uint16_t arity = 0;
 };
 
+struct ModuleSource {
+  std::uint32_t module = 0;
+  std::string path;
+};
+
 enum class Pick {
   Clauses,
   ElseGoal,
@@ -189,6 +194,10 @@ struct Machine::Impl {
   std::vector<std::uint32_t> modules;
   // module/2 が公開した述語。consult は取り込まない。
   std::vector<ExportMark> exports;
+  // モジュールを定義したファイル。同じパスの use_module は節を足さない。
+  std::vector<ModuleSource> module_sources;
+  // 今読んでいるファイルの正規化パス。空はファイルではない。
+  std::string load_origin;
   std::uint32_t user_mod = 0;
   std::uint32_t system_mod = 0;
   // 今走っている節のモジュール。Cell には入れない（ADR 0006）。
@@ -260,15 +269,20 @@ struct LoadHome {
   Impl& machine;
   std::uint32_t saved_home;
   std::size_t saved_terms;
+  std::string saved_origin;
   bool commit = false;
   explicit LoadHome(Impl& machine)
-      : machine(machine), saved_home(machine.load_home), saved_terms(machine.load_terms) {
+      : machine(machine),
+        saved_home(machine.load_home),
+        saved_terms(machine.load_terms),
+        saved_origin(machine.load_origin) {
     machine.load_terms = 0;
     machine.module_added.emplace_back();
   }
   ~LoadHome() {
     machine.load_home = saved_home;
     machine.load_terms = saved_terms;
+    machine.load_origin = saved_origin;
     if (!commit) drop_load_modules(machine);
     else if (!machine.module_added.empty()) machine.module_added.pop_back();
   }

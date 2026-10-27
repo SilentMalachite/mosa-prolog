@@ -754,6 +754,10 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   const auto heap_base = machine.heap.size();
   LoadHome home_guard{machine};
+  // 入れ子が終わったら LoadHome が戻す。モジュールの出所はこのパスのまま残す。
+  machine.load_origin = origin.empty()
+                            ? std::string{}
+                            : canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   machine.load_kept = false;
