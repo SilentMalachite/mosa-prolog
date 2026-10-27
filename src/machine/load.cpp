@@ -155,18 +155,6 @@ bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16
   return false;
 }
 
-bool keeps_clauses(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  for (const SharedPred& item : machine.multifile) {
-    if (item.name == name && item.arity == arity) return true;
-  }
-  return false;
-}
-
-void note_multifile(Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  if (keeps_clauses(machine, name, arity)) return;
-  machine.multifile.push_back(SharedPred{name, arity});
-}
-
 bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
@@ -188,7 +176,8 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
                             " の節が離れている");
     return false;
   }
-  if (!predicate.seen && !predicate.clauses.empty()) {
+  if (!predicate.seen && !predicate.clauses.empty() && !multifile_keeps(machine, machine.load_home, name, arity)) {
+    // 足す宣言がある述語は消さない。選択点が残っていても置き換えではない。
     bool busy = false;
     for (const Entry& entry : machine.stack) {
       if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch) busy = true;
@@ -197,12 +186,9 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
       fail_load(machine, "実行中の述語は置き換えられない");
       return false;
     }
-    // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
-    if (!keeps_clauses(machine, name, arity)) {
-      predicate.clauses.clear();
-      // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
-      if (!predicate.dynamic_declared) predicate.dynamic = false;
-    }
+    predicate.clauses.clear();
+    // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
+    if (!predicate.dynamic_declared) predicate.dynamic = false;
   }
   predicate.seen = true;
   last = index;
@@ -385,12 +371,14 @@ bool multifile_argument(Impl& machine, Cell directive, Cell& arg) {
 int apply_multifile_directive(Impl& machine, Cell directive) {
   Cell arg;
   if (!multifile_argument(machine, directive, arg)) return 0;
+  // Module:PI は、モジュールを剥がしてから述語指示子として読む。
+  std::uint32_t home = machine.load_home;
   std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
-  if (!collect_indicators(machine, arg, indicators)) {
+  if (!directive_pi_home(machine, arg, home) || !collect_indicators(machine, arg, indicators)) {
     fail_load(machine, "述語指示子ではありません");
     return -1;
   }
-  for (const auto& indicator : indicators) note_multifile(machine, indicator.first, indicator.second);
+  for (const auto& indicator : indicators) note_multifile(machine, home, indicator.first, indicator.second);
   return 1;
 }
 
@@ -709,7 +697,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
     if (!outcome.term) return true;
-    const Cell term = outcome.term->term;
+    Cell term = outcome.term->term;
     ++machine.load_terms;
     if (is_rule_arrow(machine.heap, term)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +
@@ -738,14 +726,20 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const int directed = consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits);
     if (directed < 0) return false;
     if (directed > 0) continue;
+    std::uint32_t clause_home = machine.load_home;
+    if (!retarget_multifile_clause(machine, term, clause_home)) return false;
     Clause clause;
     if (!compile_clause(machine.heap, term, clause)) {
       fail_load(machine, "この指示はフェーズ2では使えない: " +
                              write_term(machine.heap, machine.operators, term, {}, {}));
       return false;
     }
+    const auto saved_home = machine.load_home;
+    machine.load_home = clause_home;
     remember(machine, scan.snapshots, clause);
-    if (!add_clause(machine, std::move(clause), scan.last, scan.apart)) return false;
+    const bool added = add_clause(machine, std::move(clause), scan.last, scan.apart);
+    machine.load_home = saved_home;
+    if (!added) return false;
   }
 }
 
@@ -763,6 +757,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   machine.load_kept = false;
+  machine.load_perm = false;
   for (Predicate& predicate : machine.predicates) {
     predicate.seen = false;
     predicate.dynamic_declared = false;

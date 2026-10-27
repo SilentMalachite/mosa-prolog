@@ -207,6 +207,55 @@ consult_dynbox :- consult('../tests/pl/modules/dynbox.pl').
 
 % ファイル中の dynamic(Module:PI) は、読み込み中のモジュールではなく名付けた側に空の述語を作る。
 test(mod_dynamic_directive, (consult_dynbox, current_predicate(boxnote/1), \+ boxnote(_)), true).
+
+consult_mf_own :- consult('tests/pl/modules/mf_own.pl').
+consult_mf_own :- consult('../tests/pl/modules/mf_own.pl').
+
+consult_mf_add :- consult('tests/pl/modules/mf_add.pl').
+consult_mf_add :- consult('../tests/pl/modules/mf_add.pl').
+
+% 足す側は自分のモジュールを持ち、multifile(Owner:PI) のあと Owner:Head を書く。
+test(mod_multifile_add, (
+  consult_mf_own, consult_mf_add, findall(X, mf_own:shared(X), L), L == [1, 2]
+), true).
+
+consult_mf_bare :- consult('tests/pl/modules/mf_bare.pl').
+consult_mf_bare :- consult('../tests/pl/modules/mf_bare.pl').
+
+% 足す側の宣言が無い修飾した節は、読み込みを許可エラーで失敗させる。持つ側の節は残る。
+test(mod_multifile_foreign, consult_mf_bare, error(permission_error(modify, static_procedure, shared/1))).
+test(mod_multifile_foreign_keeps, (findall(X, mf_own:shared(X), L), L == [1, 2]), true).
+
+consult_mf_rule_own :- consult('tests/pl/modules/mf_rule_own.pl').
+consult_mf_rule_own :- consult('../tests/pl/modules/mf_rule_own.pl').
+
+consult_mf_rule :- consult('tests/pl/modules/mf_rule.pl').
+consult_mf_rule :- consult('../tests/pl/modules/mf_rule.pl').
+
+% (Owner:Head :- Body) は、Head の節を Owner に足す。
+test(mod_multifile_rule, (
+  consult_mf_rule_own, consult_mf_rule, findall(X, mf_rule_own:ruled(X), L), L == [0, 1]
+), true).
+
+consult_mf_nodec :- consult('tests/pl/modules/mf_nodec.pl').
+consult_mf_nodec :- consult('../tests/pl/modules/mf_nodec.pl').
+
+% 持つ側が宣言していない述語へは、足す側の宣言だけでは節を書けない。
+test(mod_multifile_owner, consult_mf_nodec, error(permission_error(modify, static_procedure, plain/1))).
+test(mod_multifile_owner_absent, (
+  catch(mf_own:plain(_), error(existence_error(procedure, plain/1), _), true)
+), true).
+
+consult_mf_local :- consult('tests/pl/modules/mf_local.pl').
+consult_mf_local :- consult('../tests/pl/modules/mf_local.pl').
+
+% 裸の節は、足す側のファイル自身のモジュールに属する。
+test(mod_multifile_local, (
+  consult_mf_local,
+  findall(X, mf_own:shared(X), L), L == [1, 2, 4],
+  mf_local:mine(7),
+  \+ mf_own:mine(_)
+), true).
 % 取り込みだけの枠は節を持たない。clause は公開した側を読まず、改変の許可エラーにする。
 test(mod_clause_import, clause(parent(a, _), _), error(permission_error(modify, static_procedure, parent/2))).
 % 修飾した clause は、名付けたモジュールの節を読む。

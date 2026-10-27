@@ -82,6 +82,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/operators.cpp
   src/module/current.cpp
   src/module/directive.cpp
+  src/module/multifile.cpp
   src/module/meta.cpp
   src/module/lookup.cpp
   src/module/qualify.cpp

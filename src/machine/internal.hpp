@@ -29,7 +29,9 @@ struct Clause {
 };
 
 // 複数のテキストに節を足してよい印。述語が無くても残し、宣言だけでは手続きにしない。
+// home は宣言したモジュール。Module:PI はそのモジュールであり、読み込み中のモジュールではない。
 struct SharedPred {
+  std::uint32_t home = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
 };
@@ -226,10 +228,16 @@ struct Machine::Impl {
   std::size_t load_terms = 0;
   // 0 以外は、読み込みが permission_error(modify, module, このアトム) で落ちた。
   std::uint32_t module_fault = 0;
+  // 真なら、読み込みは permission_error(modify, static_procedure, この PI) で落ちた。
+  bool load_perm = false;
+  std::uint32_t load_perm_name = 0;
+  std::uint16_t load_perm_arity = 0;
   // 入れ子の読み込みごとに、その読み込みが足したモジュール。失敗ではその段だけ消す。
   std::vector<std::vector<std::uint32_t>> module_added;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
   std::vector<SharedPred> multifile;
+  // 今のファイルが宣言した分。持つ側の宣言とは別で、次のファイルへは残さない。
+  std::vector<SharedPred> multifile_here;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
   // include と consult は読み直す。節を戻す失敗では、この一覧も戻す。
   std::vector<std::string> prepared;
@@ -293,19 +301,23 @@ struct LoadHome {
   std::uint32_t saved_home;
   std::size_t saved_terms;
   std::string saved_origin;
+  std::vector<SharedPred> saved_here;
   bool commit = false;
   explicit LoadHome(Impl& machine)
       : machine(machine),
         saved_home(machine.load_home),
         saved_terms(machine.load_terms),
-        saved_origin(machine.load_origin) {
+        saved_origin(machine.load_origin),
+        saved_here(machine.multifile_here) {
     machine.load_terms = 0;
+    machine.multifile_here.clear();
     machine.module_added.emplace_back();
   }
   ~LoadHome() {
     machine.load_home = saved_home;
     machine.load_terms = saved_terms;
     machine.load_origin = saved_origin;
+    machine.multifile_here = saved_here;
     if (!commit) drop_load_modules(machine);
     else if (!machine.module_added.empty()) machine.module_added.pop_back();
   }
@@ -483,6 +495,11 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 // directory が空でなければ、相対の include はそのディレクトリから開く。
 // origin は循環の検出に使う。空なら、このテキスト自体はファイルではない。
 // shared_opening は、入れ子の consult が親と同じ循環を見るため。
+// そのモジュールの述語が、節を足す宣言を持つか。
+[[nodiscard]] bool multifile_keeps(const Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
+void note_multifile(Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
+// 修飾した頭部を、宣言済みならそのモジュールの節に直す。home は足す先。
+[[nodiscard]] bool retarget_multifile_clause(Impl& machine, Cell& term, std::uint32_t& home);
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory = {},
                                     std::string_view origin = {},
                                     std::vector<std::string>* shared_opening = nullptr);

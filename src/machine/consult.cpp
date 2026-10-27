@@ -214,6 +214,14 @@ bool run_consult(Impl& machine, const Goal& goal) {
       raise_formal(machine, formal_permission(machine, "modify", "module", culprit), goal.name, goal.arity);
       return true;
     }
+    if (machine.load_perm) {
+      const auto pred = machine.load_perm_name;
+      const auto arity = machine.load_perm_arity;
+      machine.load_perm = false;
+      const Cell indicator = cell_functor(machine, pred, arity);
+      raise_formal(machine, formal_permission(machine, "modify", "static_procedure", indicator), goal.name, goal.arity);
+      return true;
+    }
     prefix_consult_diagnostic(machine, text);
     machine.failed = true;
     return true;
