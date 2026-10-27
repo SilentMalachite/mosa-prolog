@@ -47,3 +47,22 @@ push3(X, Y, Z, Acc, [[X, Y, Z]|Acc]).
 test(apply_foldl6, (use_apply, foldl(push3, [a, b], [1, 2], [x, y], [], [[b, 2, y], [a, 1, x]])), true).
 test(apply_foldl4_empty, (use_apply, foldl(push, [], 0, 0)), true).
 test(apply_foldl5_short, (use_apply, foldl(push2, [a, b], [1], [], _)), fail).
+
+% include/3 は呼び出し元の述語が成功する要素を、入力の順で残す。
+test(apply_include, (use_apply, include(ok_item, [a, c, b], [a, b])), true).
+
+both(_).
+both(_).
+
+% 条件が何度成功しても、残すリストは一つである。
+test(apply_include_once, (use_apply, findall(L, include(both, [a], L), Ls), Ls = [[a]]), true).
+test(apply_include_empty, (use_apply, include(ok_item, [], [])), true).
+test(apply_include_partial, (use_apply, include(parent(taro), [jiro, saburo, hanako], [jiro, hanako])), true).
+
+% exclude/3 は呼び出し元の述語が失敗する要素を、入力の順で残す。
+test(apply_exclude, (use_apply, exclude(ok_item, [c, a, d], [c, d])), true).
+
+% 条件が何度成功しても、外したリストは一つである。
+test(apply_exclude_once, (use_apply, findall(L, exclude(both, [a], L), Ls), Ls = [[]]), true).
+test(apply_exclude_empty, (use_apply, exclude(ok_item, [], [])), true).
+test(apply_exclude_partial, (use_apply, exclude(parent(taro), [jiro, saburo, hanako], [saburo])), true).
