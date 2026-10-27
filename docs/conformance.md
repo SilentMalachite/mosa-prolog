@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1880
+合格数: 1882
 合格率: 86.6
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
@@ -117,8 +117,6 @@ predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_er
 predicates/write_term_3/tests.lgt lgt_write_term_3_120 true(Assertion) domain_error(write_option,numbervars(false))
 predicates/write_term_3/tests.lgt lgt_write_term_3_121 true(Assertion) domain_error(write_option,numbervars(true))
 predicates/write_term_3/tests.lgt lgt_write_term_3_122 true(Assertion) domain_error(write_option,variable_names(['Used'=_]))
-syntax/curly_terms/tests.lgt lgt_curly_bracketed_term_07 true(Assertion) fail
-syntax/curly_terms/tests.lgt lgt_curly_bracketed_term_08 true(Assertion) fail
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_01 true(L==[a,a,a]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load

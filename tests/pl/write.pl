@@ -22,7 +22,7 @@ test(writeq_dot, (with_output_to(atom(A), writeq('.')), A == '\'.\''), true).
 test(write_dot, (with_output_to(atom(A), write('.')), A == '.'), true).
 test(canonical_op, (with_output_to(atom(A), write_canonical(1 + 2)), A == '+(1,2)'), true).
 test(canonical_list, (with_output_to(atom(A), write_canonical([1, 2, 3])), A == '''.''(1,''.''(2,''.''(3,[])))'), true).
-test(canonical_brace, (with_output_to(atom(A), write_canonical({a})), A == '''{}''(a)'), true).
+test(canonical_brace, (with_output_to(atom(A), write_canonical({a})), A == '{}(a)'), true).
 test(numbervar_a, (with_output_to(atom(A), write_term('$VAR'(0), [numbervars(true)])), A == 'A'), true).
 test(numbervar_a1, (with_output_to(atom(A), write_term('$VAR'(26), [numbervars(true)])), A == 'A1'), true).
 test(numbervar_z1, (with_output_to(atom(A), write_term('$VAR'(51), [numbervars(true)])), A == 'Z1'), true).

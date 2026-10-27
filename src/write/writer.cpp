@@ -291,8 +291,8 @@ std::string Printer::spell_operator(std::string_view name) const {
 }
 
 std::string Printer::spell_functor(std::string_view name) const {
-  // '.' と '{}' を関数表記のまま書くと、リストや中括弧として読まれる。
-  if (options_.quoted && (name == "." || name == "{}")) return quote_atom(name);
+  // '.'( はリストとして読まれる。{}( は複合項として読み戻せるので引用しない。
+  if (options_.quoted && name == ".") return quote_atom(name);
   return spell(name);
 }
 
