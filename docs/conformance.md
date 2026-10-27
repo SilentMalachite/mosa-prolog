@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2172
-合格数: 1883
-合格率: 86.7
+合格数: 1886
+合格率: 86.8
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -122,9 +122,6 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) lo
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
-syntax/numbers/tests.lgt lgt_number_26 true(T==27) syntax_error('行 1 列 3: 不正なエスケープ \\')
-syntax/numbers/tests.lgt lgt_number_27 true(T==127) syntax_error('行 1 列 3: 不正なエスケープ \\')
-syntax/numbers/tests.lgt lgt_number_28 true(T==32) syntax_error('行 1 列 3: 不正なエスケープ \\')
 syntax/numbers/tests.lgt lgt_number_29 true(T==39) syntax_error('行 1 列 4: 引用が閉じていない \'')
 syntax/operators/tests.lgt lgt_operators_40 true op(600,xfy,:)
 syntax/terms/tests.lgt iso_term_03 error(syntax_error(_)) fail

@@ -40,12 +40,19 @@ std::optional<char32_t> symbolic_escape(char32_t code) {
       return U'\u0007';
     case U'b':
       return U'\u0008';
+    // 0'\e 0'\d 0'\s は Logtalk の名前。\n と \t の符号位置は変えない。
+    case U'd':
+      return U'\u007F';
+    case U'e':
+      return U'\u001B';
     case U'f':
       return U'\u000C';
     case U'n':
       return U'\n';
     case U'r':
       return U'\r';
+    case U's':
+      return U'\u0020';
     case U't':
       return U'\t';
     case U'v':

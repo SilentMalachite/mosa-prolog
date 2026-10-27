@@ -62,3 +62,7 @@ test(read_curly_space, (open_string('{} (2,3).', S), read(S, _)), error(syntax_e
 test(read_bar_none, (open_string('[|].', S), read(S, _)), error(syntax_error(_))).
 test(read_bar_no_tail, (open_string('[1|].', S), read(S, _)), error(syntax_error(_))).
 test(read_bar_pair, (open_string('[1|2].', S), read(S, T), T == [1|2]), true).
+% \e \d \s は名前のエスケープ。\n と \t、および 0' の直後の生の空白とは別である。
+test(read_escape_e, (open_string('0\'\\e.', S), read(S, T), T == 27), true).
+test(read_escape_d, (open_string('0\'\\d.', S), read(S, T), T == 127), true).
+test(read_escape_s, (open_string('0\'\\s.', S), read(S, T), T == 32), true).
