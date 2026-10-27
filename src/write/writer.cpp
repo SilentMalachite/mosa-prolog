@@ -96,9 +96,11 @@ bool is_small_name(std::string_view text) {
 }
 
 // ! と ; 以外の単独文字は、引用しないと括弧や区切りとして読まれる。
+// 図形の先頭の /* は読み戻すとブロック注釈になる。途中の /* と */ は図形のまま読める。
 bool bare_atom(std::string_view name) {
   if (name == "[]" || name == "{}") return true;
-  if (is_small_name(name) || is_graphic_token(name)) return true;
+  if (is_small_name(name)) return true;
+  if (is_graphic_token(name)) return !name.starts_with("/*");
   return name == "!" || name == ";";
 }
 
