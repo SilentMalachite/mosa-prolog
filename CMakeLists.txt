@@ -76,6 +76,9 @@ target_sources(mosa_lib PRIVATE
   src/builtins/read_pred.cpp
   src/builtins/write_pred.cpp
   src/builtins/operators.cpp
+  src/module/current.cpp
+  src/module/directive.cpp
+  src/module/lookup.cpp
 )
 
 enable_testing()

@@ -35,6 +35,7 @@ struct SharedPred {
 };
 
 struct Predicate {
+  std::uint32_t home = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
@@ -71,6 +72,7 @@ struct Entry {
   std::size_t next = 0;
   std::uint32_t pred_name = 0;
   std::uint16_t pred_arity = 0;
+  std::uint32_t pred_home = 0;
   std::size_t cut = 0;
   IrTerm else_goal;
   std::vector<Cell> env;
@@ -86,7 +88,7 @@ struct Entry {
   Cell pattern{};
   IrTerm recovery;
   // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
-  // 5 は current_char_conversion。
+  // 5 は current_char_conversion、6 は current_module。
   std::uint8_t gen_kind = 0;
 };
 
@@ -174,6 +176,14 @@ struct Machine::Impl {
   std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
+  // user、system、それから読んだモジュール。current_module/1 はこの順で答える。
+  std::vector<std::uint32_t> modules;
+  std::uint32_t user_mod = 0;
+  std::uint32_t system_mod = 0;
+  // 今走っている節のモジュール。Cell には入れない（ADR 0006）。
+  std::uint32_t calling = 0;
+  // 今読んでいるファイルの節が属するモジュール。
+  std::uint32_t load_home = 0;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
   std::vector<SharedPred> multifile;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
@@ -214,10 +224,31 @@ struct Machine::Impl {
   const LgtIo* suite_io = nullptr;
   Machine* suite_self = nullptr;
 
-  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {}
+  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {
+    user_mod = atoms.intern("user");
+    system_mod = atoms.intern("system");
+    calling = user_mod;
+    load_home = user_mod;
+    modules.push_back(user_mod);
+    modules.push_back(system_mod);
+  }
 };
 
 using Impl = Machine::Impl;
+
+// 読み込みのあいだだけ load_home を変える。抜けたら呼び出し元のモジュールへ戻す。
+struct LoadHome {
+  Impl& machine;
+  std::uint32_t saved;
+  explicit LoadHome(Impl& machine) : machine(machine), saved(machine.load_home) {}
+  ~LoadHome() { machine.load_home = saved; }
+  LoadHome(const LoadHome&) = delete;
+  LoadHome& operator=(const LoadHome&) = delete;
+};
+
+[[nodiscard]] Predicate* predicate_in(Impl& machine, std::uint32_t home, std::uint32_t name,
+                                      std::uint16_t arity);
+[[nodiscard]] bool defined_anywhere(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 
 struct Goal {
   std::uint64_t at = 0;
@@ -327,7 +358,11 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
+[[nodiscard]] bool redo_module_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_modules(Impl& machine, const Goal& goal);
+// 0 はこの指示ではない。1 は記録した。-1 は読み込みの失敗。
+[[nodiscard]] int apply_module_directive(Impl& machine, Cell term);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);

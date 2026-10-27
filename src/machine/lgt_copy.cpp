@@ -105,6 +105,7 @@ bool compile_copied(Impl& src, Impl& dst, const Clause& clause, Clause& out) {
 
 void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
   Predicate made;
+  made.home = dst.atoms.intern(src.atoms.name(predicate.home));
   made.name = dst.atoms.intern(src.atoms.name(predicate.name));
   made.arity = predicate.arity;
   made.dynamic = predicate.dynamic;

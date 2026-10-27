@@ -241,6 +241,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {";", 2},
     {"->", 2},
     {"*->", 2},
+    {"current_module", 1},
 });
 
 // 節の ^^ は判定器を通らない。ここで閉じないと put_byte/1 がバイナリへ書いて成功する。
@@ -450,7 +451,8 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
       run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
-      run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal)) {
+      run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) ||
+      run_modules(machine, goal)) {
     return true;
   }
   return false;
@@ -507,6 +509,7 @@ Stop Machine::query(std::string_view goal_text) {
     return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
   }
   machine.halt_now = false;
+  machine.calling = machine.user_mod;
   machine.stack.clear();
   // 前のクエリの選択点はもう無い。戻さずに捨てる。成功した op/3 は表に残す。
   machine.op_undos.clear();

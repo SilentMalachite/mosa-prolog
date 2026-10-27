@@ -1,3 +1,3 @@
-The module table, import resolution, and meta_predicate. Built in phase 4, so it is empty for now.
+Module names, `current_module/1`, and which module a loaded clause belongs to.
 
-モジュールテーブル、インポート解決、meta_predicate を置く。フェーズ4で作るので、今は空。
+モジュール名、`current_module/1`、読み込んだ節がどのモジュールに属するか。

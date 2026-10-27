@@ -23,6 +23,7 @@ std::filesystem::path prolog_source_path(const std::filesystem::path& file);
 namespace {
 
 struct Snapshot {
+  std::uint32_t home = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
@@ -54,17 +55,6 @@ std::string reason_text(SyntaxReason reason) {
 void fail_load(Impl& machine, std::string message) {
   machine.diagnostic = std::move(message);
   machine.syntax_diag = false;
-}
-
-bool same_pred(const Predicate& predicate, std::uint32_t name, std::uint16_t arity) {
-  return predicate.name == name && predicate.arity == arity;
-}
-
-Predicate* find_pred(Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  for (Predicate& predicate : machine.predicates) {
-    if (same_pred(predicate, name, arity)) return &predicate;
-  }
-  return nullptr;
 }
 
 std::uint32_t head_name(const Clause& clause) { return clause.head.atom; }
@@ -182,10 +172,12 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
   const auto arity = head_arity(clause);
   std::size_t index = machine.predicates.size();
   for (std::size_t cursor = 0; cursor < machine.predicates.size(); ++cursor) {
-    if (same_pred(machine.predicates[cursor], name, arity)) index = cursor;
+    const Predicate& candidate = machine.predicates[cursor];
+    if (candidate.home == machine.load_home && candidate.name == name && candidate.arity == arity) index = cursor;
   }
   if (index == machine.predicates.size()) {
     machine.predicates.push_back(Predicate{});
+    machine.predicates.back().home = machine.load_home;
     machine.predicates.back().name = name;
     machine.predicates.back().arity = arity;
   }
@@ -223,8 +215,9 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_
     return shot.name == name && shot.arity == arity;
   });
   if (known) return;
-  Predicate* predicate = find_pred(machine, name, arity);
+  Predicate* predicate = predicate_in(machine, machine.load_home, name, arity);
   Snapshot shot;
+  shot.home = machine.load_home;
   shot.name = name;
   shot.arity = arity;
   shot.created = predicate == nullptr;
@@ -242,7 +235,7 @@ void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& cla
 void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
   for (const Snapshot& shot : snapshots) {
     if (shot.created) continue;
-    Predicate* predicate = find_pred(machine, shot.name, shot.arity);
+    Predicate* predicate = predicate_in(machine, shot.home, shot.name, shot.arity);
     if (predicate != nullptr) {
       predicate->clauses = shot.clauses;
       predicate->dynamic = shot.dynamic;
@@ -339,7 +332,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return false;
   }
-  Predicate* predicate = find_pred(machine, name, arity);
+  Predicate* predicate = predicate_in(machine, machine.load_home, name, arity);
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
     fail_load(machine, "静的な述語は動的にできない");
     return false;
@@ -348,6 +341,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
   remember_pred(machine, snapshots, name, arity);
   if (predicate == nullptr) {
     Predicate created;
+    created.home = machine.load_home;
     created.name = name;
     created.arity = arity;
     created.dynamic = true;
@@ -572,6 +566,8 @@ LoadStatus finish_load(Impl& machine, std::size_t heap_base, const std::vector<C
 int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
                       std::vector<Apart>& apart, std::vector<Cell>& inits) {
   if (!is_directive(machine.heap, term)) return 0;
+  const int named = apply_module_directive(machine, term);
+  if (named != 0) return named;
   const int flag_directive = apply_flag_directive(machine, term);
   if (flag_directive < 0) return -1;
   if (flag_directive > 0) {
@@ -756,6 +752,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
                        std::string_view origin, std::vector<std::string>* shared_opening) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   const auto heap_base = machine.heap.size();
+  const LoadHome home_guard{machine};
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   machine.load_kept = false;

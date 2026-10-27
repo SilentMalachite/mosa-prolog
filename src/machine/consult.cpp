@@ -45,6 +45,7 @@ struct SeenMark {
 };
 
 struct ClauseBackup {
+  std::uint32_t home = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
@@ -77,7 +78,8 @@ std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
   std::vector<ClauseBackup> saved;
   saved.reserve(machine.predicates.size());
   for (const Predicate& predicate : machine.predicates) {
-    saved.push_back(ClauseBackup{predicate.name, predicate.arity, predicate.clauses, predicate.dynamic});
+    saved.push_back(
+        ClauseBackup{predicate.home, predicate.name, predicate.arity, predicate.clauses, predicate.dynamic});
   }
   return saved;
 }
@@ -85,7 +87,7 @@ std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
 void restore_clauses(Impl& machine, const std::vector<ClauseBackup>& saved) {
   for (const ClauseBackup& item : saved) {
     for (Predicate& predicate : machine.predicates) {
-      if (predicate.name != item.name || predicate.arity != item.arity) continue;
+      if (predicate.home != item.home || predicate.name != item.name || predicate.arity != item.arity) continue;
       predicate.clauses = item.clauses;
       predicate.dynamic = item.dynamic;
       break;

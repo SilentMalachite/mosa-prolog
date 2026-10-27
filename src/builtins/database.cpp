@@ -77,10 +77,7 @@ bool neck_static(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
 Predicate* find_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  for (Predicate& predicate : machine.predicates) {
-    if (predicate.name == name && predicate.arity == arity) return &predicate;
-  }
-  return nullptr;
+  return predicate_in(machine, machine.calling, name, arity);
 }
 
 HeadName head_indicator(Impl& machine, Cell head) {
@@ -166,7 +163,7 @@ bool scans_clauses(Pick pick) {
 
 void note_removed(Impl& machine, std::uint32_t name, std::uint16_t arity, std::size_t removed) {
   for (Entry& entry : machine.stack) {
-    if (entry.pred_name != name || entry.pred_arity != arity) continue;
+    if (entry.pred_home != machine.calling || entry.pred_name != name || entry.pred_arity != arity) continue;
     if (!scans_clauses(entry.pick)) continue;
     std::vector<std::size_t> kept;
     kept.reserve(entry.candidates.size());
@@ -188,7 +185,7 @@ void note_removed(Impl& machine, std::uint32_t name, std::uint16_t arity, std::s
 
 void note_asserta(Impl& machine, std::uint32_t name, std::uint16_t arity) {
   for (Entry& entry : machine.stack) {
-    if (entry.pred_name != name || entry.pred_arity != arity) continue;
+    if (entry.pred_home != machine.calling || entry.pred_name != name || entry.pred_arity != arity) continue;
     if (!scans_clauses(entry.pick)) continue;
     // 先頭に足しても、開いている走査は新しい節を見ない。古い添字だけ 1 つずれる。
     for (std::size_t& index : entry.candidates) ++index;
@@ -220,12 +217,13 @@ void erase_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
   std::size_t removed = machine.predicates.size();
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
-    if (predicate.name != name || predicate.arity != arity) continue;
+    if (predicate.home != machine.calling || predicate.name != name || predicate.arity != arity) continue;
     removed = index;
     break;
   }
   for (Entry& entry : machine.stack) {
-    if (scans_clauses(entry.pick) && entry.pred_name == name && entry.pred_arity == arity) {
+    if (scans_clauses(entry.pick) && entry.pred_home == machine.calling && entry.pred_name == name &&
+        entry.pred_arity == arity) {
       entry.candidates.clear();
       entry.next = 0;
       continue;
@@ -276,6 +274,7 @@ void push_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
   entry.redo_goal = goal.at;
   entry.pred_name = name;
   entry.pred_arity = arity;
+  entry.pred_home = machine.calling;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
   push_frame(machine, std::move(entry));
@@ -336,6 +335,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   }
   if (existing == nullptr) {
     Predicate created;
+    created.home = machine.calling;
     created.name = head.name;
     created.arity = head.arity;
     created.dynamic = true;
@@ -514,6 +514,7 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, std::uint32_t name, s
   entry.redo_goal = goal.at;
   entry.pred_name = name;
   entry.pred_arity = arity;
+  entry.pred_home = machine.calling;
   // 水位は単一化の前。成功した項を含めると、やり直しで束縛が残る。
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
@@ -613,6 +614,7 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
   if (wanted.arity_high) return found;
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
+    if (predicate.home != machine.calling) continue;
     if (wanted.name_set && predicate.name != wanted.name) continue;
     if (wanted.arity_set && predicate.arity != wanted.arity) continue;
     found.push_back(index);

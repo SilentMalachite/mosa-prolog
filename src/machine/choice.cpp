@@ -128,19 +128,25 @@ void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::
   launch(machine, clause.body, cont, cut, env);
 }
 
-void enter_user(Impl& machine, const Goal& goal) {
-  Predicate* predicate = nullptr;
-  for (Predicate& candidate : machine.predicates) {
-    if (candidate.name == goal.name && candidate.arity == goal.arity) predicate = &candidate;
+void miss_user(Impl& machine, const Goal& goal) {
+  // 他モジュールにあるだけで、user は取り込んでいない。存在エラーにはしない。
+  if (defined_anywhere(machine, goal.name, goal.arity)) {
+    machine.failed = true;
+    return;
   }
+  // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
+  if (machine.unknown_fail) {
+    machine.failed = true;
+    return;
+  }
+  const Cell pi = cell_functor(machine, goal.name, goal.arity);
+  raise_formal(machine, formal_existence(machine, "procedure", pi), goal.name, goal.arity);
+}
+
+void enter_user(Impl& machine, const Goal& goal) {
+  Predicate* predicate = predicate_in(machine, machine.calling, goal.name, goal.arity);
   if (predicate == nullptr) {
-    // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
-    if (machine.unknown_fail) {
-      machine.failed = true;
-      return;
-    }
-    const Cell pi = cell_functor(machine, goal.name, goal.arity);
-    raise_formal(machine, formal_existence(machine, "procedure", pi), goal.name, goal.arity);
+    miss_user(machine, goal);
     return;
   }
   if (predicate->clauses.empty()) {
@@ -164,6 +170,7 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.redo_goal = goal.at;
     entry.pred_name = goal.name;
     entry.pred_arity = goal.arity;
+    entry.pred_home = predicate->home;
     entry.cut = boundary;
     entry.heap_mark = machine.heap.size();
     entry.trail_mark = machine.trail.slots.size();
@@ -184,10 +191,7 @@ bool redo_clause(Impl& machine) {
   const auto arity = top.pred_arity;
   const auto goal = top.redo_goal;
   const auto cut = top.cut;
-  const Predicate* predicate = nullptr;
-  for (const Predicate& candidate : machine.predicates) {
-    if (candidate.name == name && candidate.arity == arity) predicate = &candidate;
-  }
+  const Predicate* predicate = predicate_in(machine, top.pred_home, name, arity);
   // 述語ごと消えると添字が外れる。枠を残すとやり直しが終わらない。
   if (predicate == nullptr || index >= predicate->clauses.size()) {
     machine.stack.pop_back();
