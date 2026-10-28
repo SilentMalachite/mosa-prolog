@@ -1,6 +1,6 @@
 English | [日本語](0003-execution-ir.ja.md)
 
-Status: Approved (2026-10-24). This approval is the approval of the phase 2 design.
+Status: Approved (2026-10-24). This approval is the approval of the phase 2 design. [ADR 0009](0009-native-code.md) adds the `Ctrl::Native` control frame and the generated functions that run on the same trampoline (2026-10-29)
 
 ## Context
 

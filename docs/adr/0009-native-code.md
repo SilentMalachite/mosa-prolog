@@ -1,6 +1,6 @@
 English | [日本語](0009-native-code.ja.md)
 
-Status: Proposed (2026-10-29)
+Status: Approved (2026-10-29)
 
 ## Context
 

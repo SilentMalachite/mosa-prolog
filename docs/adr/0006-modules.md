@@ -1,6 +1,6 @@
 English | [日本語](0006-modules.ja.md)
 
-Status: Approved (2026-10-28)
+Status: Approved (2026-10-28). The sentence on control frames keeping word 1 as the extras index is narrowed by [ADR 0009](0009-native-code.md) to frames whose word 1 has bit 63 clear (2026-10-29)
 
 ## Context
 
