@@ -1,10 +1,8 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2100
-合格率: 96.7
+合格数: 2102
+合格率: 96.8
 不合格:
-control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
-control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/if_3/tests.lgt if_3_01 true existence_error(procedure,if/3)
 control/if_3/tests.lgt if_3_02 true existence_error(procedure,if/3)

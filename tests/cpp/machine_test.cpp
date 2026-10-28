@@ -315,7 +315,16 @@ void check_multifile_guard() {
   auto alone = mosa::Machine::create();
   mosa_test::check(alone->load_program(":- multifile(p/1).").ok, "directive only");
   mosa_test::check(alone->query("current_predicate(p/1).").kind == mosa::StopKind::Failure, "no procedure");
-  mosa_test::check(alone->query("p(1).").kind == mosa::StopKind::Exception, "call missing");
+  // iso-notes 7.8.3 の決定 B。宣言だけで手続きになり、節が無いので失敗する。
+  mosa_test::check(alone->query("p(1).").kind == mosa::StopKind::Failure, "call declared only");
+  auto apart = mosa::Machine::create();
+  mosa_test::check(apart->load_program(":- discontiguous(p/1).").ok, "discontiguous only");
+  mosa_test::check(apart->query("p(1).").kind == mosa::StopKind::Failure, "call discontiguous only");
+  auto undone = mosa::Machine::create();
+  mosa_test::check(!undone->load_program(":- discontiguous(p/1). :- multifile(q/1). :- dynamic(atom/1).").ok,
+                   "failed load");
+  mosa_test::check(undone->query("p(1).").kind == mosa::StopKind::Exception, "failed load drops discontiguous");
+  mosa_test::check(undone->query("q(1).").kind == mosa::StopKind::Exception, "failed load drops multifile");
 }
 
 void check_multifile_forms() {

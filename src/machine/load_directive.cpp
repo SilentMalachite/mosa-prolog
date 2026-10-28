@@ -230,7 +230,7 @@ int apply_multifile_directive(Impl& machine, Cell directive) {
   if (!multifile_argument(machine, directive, arg)) return 0;
   std::vector<PredKey> indicators;
   if (!read_declared(machine, arg, indicators)) return -1;
-  for (const PredKey& indicator : indicators) note_multifile(machine, indicator);
+  for (const PredKey& indicator : indicators) note_declared(machine, indicator, true);
   return 1;
 }
 
@@ -240,6 +240,7 @@ int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apa
   std::vector<PredKey> indicators;
   if (!read_declared(machine, arg, indicators)) return -1;
   for (const PredKey& indicator : indicators) {
+    note_declared(machine, indicator, false);
     if (allows_gap(apart, indicator)) continue;
     apart.push_back(Apart{indicator.module, indicator.name, indicator.arity});
   }

@@ -34,7 +34,7 @@ std::filesystem::path canonical_key(const std::filesystem::path& file);
 
 void fail_load(Impl& machine, std::string message);
 [[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, PredKey key);
-void note_multifile(Impl& machine, PredKey key);
+void note_declared(Impl& machine, PredKey key, bool shared);
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
 // first は、この項がファイルの最初の項であること。module/2 はそこでしか受けない。

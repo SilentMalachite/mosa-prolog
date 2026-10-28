@@ -88,8 +88,8 @@ const Import* import_of(const Impl& machine, std::uint32_t module, std::uint32_t
 }
 
 bool shared(const Impl& machine, const Predicate& predicate) {
-  for (const SharedPred& item : machine.multifile) {
-    if (item.module == predicate.module && item.name == predicate.name && item.arity == predicate.arity) return true;
+  for (const SharedPred& item : machine.declared) {
+    if (item.shared && item.module == predicate.module && item.name == predicate.name && item.arity == predicate.arity) return true;
   }
   return false;
 }

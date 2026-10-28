@@ -175,6 +175,8 @@ Logtalk の `lgt_call_1_17` と `lgt_call_1_18` は、節の無い `fenix/1`（m
 
 A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手続きがあり、節が無ければ `call/1` は失敗する。確認前に B は実装しない。
 
+決定（2026-10-28）: B。`multifile/1` か `discontiguous/1` の指示だけで節の無い手続きになり、`unknown=error` でも呼べば失敗する。変わるのは呼び出しだけである。`current_predicate/1` は今もこの述語を挙げず、`assertz/1` は今も動的な述語として作るので、multifile のフックへ節を足せる。失敗した読み込みは、ほかと一緒にこの宣言も戻す（`src/machine/load.cpp` の `declared_only`、`tests/pl/directives.pl` の `*_only_call*` と `mf_hook_assert`、`tests/cpp/machine_test.cpp`）。
+
 ## 8.11.1.3 current_input のドメイン
 
 決定（2026-10-26）: A。`current_input/1`、`current_output/1`、`stream_property/2` に流れでも別名でもない項を渡すと `domain_error(stream_or_alias, S)`。テスト `input_bad`、`output_bad`、`prop_bad_stream`。別名 `user_input` は `current_input(user_input)` で成功する。領域に別名が入るので、Formal は `stream` ではなく `stream_or_alias`。8.11.1.3 a と 8.11.8.3 a の `domain_error(stream, S)` からの逸脱として残す。`set_input/1` など、もとから `stream_or_alias` の述語は変えない。

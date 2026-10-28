@@ -1,6 +1,6 @@
 Phase: 5 in progress (phase 4 done 2026-10-28: mosa 0.0.1 (phase 4), CI green on 3 OSes in run 40683841050)
-Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2100/2171 = 96.7%
-In progress: phase 5 Task 8, open iso-notes questions one per report (7.8.3 asked first); memberchk/2 question closed (row passes since Task 2)
+Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2102/2171 = 96.7%
+In progress: phase 5 Task 8, open iso-notes questions one per report (7.8.3 decided B: declared-only multifile/discontiguous procedures fail when called, +2; next 9.3.1.3 d); memberchk/2 question closed (row passes since Task 2)
 Done (phase 5 Task 1): triage-table section in the phase 5 plan; iso-notes A/B for the N groups; Section 4 Stream encoding and BOM decided A
 Done (phase 5 Task 2): runner ^^suppress_text_output/0, ^^text_output_contents/1,2,3, per-test restore of current streams (lgt_output.cpp); six libraries imported into the test machine's user except names the file defines (lgt_libs.cpp); mosa's user unchanged
 New Q note: 7.10.5 a Writing a variable that occurs once (lgt_write_term_3_043/044/065/066 now fail only on `_`)

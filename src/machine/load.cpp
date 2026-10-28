@@ -56,8 +56,8 @@ bool is_rule_arrow(const Heap& heap, Cell cell) {
 }
 
 bool keeps_clauses(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
-  for (const SharedPred& item : machine.multifile) {
-    if (item.module == module && item.name == name && item.arity == arity) return true;
+  for (const SharedPred& item : machine.declared) {
+    if (item.shared && item.module == module && item.name == name && item.arity == arity) return true;
   }
   return false;
 }
@@ -76,9 +76,19 @@ bool allows_gap(const std::vector<Apart>& apart, PredKey key) {
   return false;
 }
 
-void note_multifile(Impl& machine, PredKey key) {
-  if (keeps_clauses(machine, key.module, key.name, key.arity)) return;
-  machine.multifile.push_back(SharedPred{key.module, key.name, key.arity});
+void note_declared(Impl& machine, PredKey key, bool shared) {
+  if (shared ? keeps_clauses(machine, key.module, key.name, key.arity)
+             : declared_only(machine, key.module, key.name, key.arity)) {
+    return;
+  }
+  machine.declared.push_back(SharedPred{key.module, key.name, key.arity, shared});
+}
+
+bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
+  for (const SharedPred& item : machine.declared) {
+    if (item.module == module && item.name == name && item.arity == arity) return true;
+  }
+  return false;
 }
 
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
@@ -219,13 +229,13 @@ void restore_file_flags(Impl& machine, const SavedFlags& saved) {
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
                        const std::vector<Snapshot>& snapshots, std::size_t previous_size,
-                       std::size_t heap_base, const std::vector<SharedPred>& saved_multi,
+                       std::size_t heap_base, const std::vector<SharedPred>& saved_declared,
                        const std::vector<std::string>& saved_prepared, const std::vector<Module>& saved_modules) {
   machine.operators = saved_ops;
   // 途中で作ったモジュールと取り込みを残さない。半分だけ登録されたモジュールが見えると解決が変わる。
   machine.modules = saved_modules;
   restore_flags(machine, saved_flags);
-  machine.multifile = saved_multi;
+  machine.declared = saved_declared;
   machine.prepared = saved_prepared;
   rollback(machine, snapshots, previous_size);
   machine.heap.truncate(heap_base);
@@ -547,7 +557,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   }
   const auto saved_ops = machine.operators;
   const SavedFlags saved_flags = save_flags(machine);
-  const auto saved_multi = machine.multifile;
+  const auto saved_declared = machine.declared;
   const auto saved_prepared = machine.prepared;
   const auto saved_modules = machine.modules;
   std::vector<Snapshot> snapshots;
@@ -566,7 +576,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
       machine.heap.truncate(heap_base);
       return LoadStatus{false, machine.diagnostic};
     }
-    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
+    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_declared,
                        saved_prepared, saved_modules);
   }
   // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。

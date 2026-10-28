@@ -38,7 +38,9 @@ test(dc_list_a, (findall(X, dc_a(X), L), L == [1, 2]), true).
 test(dc_list_b, (findall(t, dc_b, L), L == [t, t]), true).
 test(dc_rule, (findall(X, dc_rule(X), L), L == [1, 9]), true).
 test(dc_only_absent, current_predicate(dc_only/1), fail).
-test(dc_only_call, dc_only(_), error(existence_error(procedure, dc_only/1))).
+% iso-notes 7.8.3 の決定 B。宣言だけの述語は呼べば失敗する。current_predicate/1 には出ない。
+test(dc_only_call, dc_only(_), fail).
+test(dc_only_call1, call(dc_only(_)), fail).
 test(dc_after_first, (findall(X, dc_after(X), L), L == [1, 2]), true).
 
 % syntax/directives/discontiguous_1 と同じ、引数 2〜4 の述語が互いに分断する形。宣言はリストで書く。
@@ -97,13 +99,16 @@ mf_rule(X) :- mf_side(X).
 mf_side(9).
 
 :- multifile(mf_only/1).
+:- multifile(mf_hook/1).
 
 test(mf_same, (findall(X, mf_p(X), L), L == [1, 2]), true).
 test(mf_list_a, (findall(X, mf_a(X), L), L == [1, 2]), true).
 test(mf_list_b, (findall(t, mf_b, L), L == [t]), true).
 test(mf_rule, (findall(X, mf_rule(X), L), L == [1, 9]), true).
 test(mf_only_absent, current_predicate(mf_only/1), fail).
-test(mf_only_call, mf_only(_), error(existence_error(procedure, mf_only/1))).
+test(mf_only_call, mf_only(_), fail).
+test(mf_only_call1, call(mf_only(_)), fail).
+test(mf_hook_assert, (assertz(mf_hook(1)), mf_hook(X)), solutions([X = 1])).
 test(mf_static, assertz(mf_p(3)), error(permission_error(modify, static_procedure, mf_p/1))).
 
 % 7.4.2 initialization/1。指示だけ。ゴールはテキストを準備したあとに、ソースの順で一度実行する。

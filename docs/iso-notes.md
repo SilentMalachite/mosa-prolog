@@ -173,6 +173,8 @@ Logtalk's `lgt_call_1_17` and `lgt_call_1_18` expect `call/1` on the clause-less
 
 A or B?: A keeps 7.4.2 as is: `existence_error`. B: the directive alone creates a procedure, and if there are no clauses, `call/1` fails. B is not implemented before confirmation.
 
+Decision (2026-10-28): B. A `multifile/1` or `discontiguous/1` directive alone makes a procedure with no clauses, so calling it fails even with `unknown=error`. Only the call changes: `current_predicate/1` still does not report it, and `assertz/1` still creates it as dynamic, so a multifile hook can be asserted into. A load that fails drops the declaration with the rest (`src/machine/load.cpp` `declared_only`, `tests/pl/directives.pl` `*_only_call*`, `mf_hook_assert`, `tests/cpp/machine_test.cpp`).
+
 ## 8.11.1.3 Domain of current_input
 
 Decision (2026-10-26): A. Passing a term that is neither a stream nor an alias to `current_input/1`, `current_output/1`, or `stream_property/2` gives `domain_error(stream_or_alias, S)`. Tests `input_bad`, `output_bad`, `prop_bad_stream`. The alias `user_input` succeeds with `current_input(user_input)`. Because aliases are in the domain, the Formal is `stream_or_alias`, not `stream`. This is recorded as a deviation from `domain_error(stream, S)` in 8.11.1.3 a and 8.11.8.3 a. Predicates that already use `stream_or_alias`, such as `set_input/1`, are unchanged.

@@ -30,11 +30,13 @@ struct Clause {
   double key_float = 0;
 };
 
-// 複数のテキストに節を足してよい印。述語が無くても残し、宣言だけでは手続きにしない。
+// multifile と discontiguous の宣言。述語が無くても残す。宣言だけで節の無い手続きになる（iso-notes 7.8.3 の決定 B）。
+// shared は multifile。複数のテキストに節を足してよい印でもある。
 struct SharedPred {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  bool shared = true;
 };
 
 struct Predicate {
@@ -194,7 +196,7 @@ struct Machine::Impl {
   // 読んでいるテキストの節が入るモジュール。module/2 が切り替え、そのファイルを読み終えると戻す。
   std::uint32_t load_module = 0;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
-  std::vector<SharedPred> multifile;
+  std::vector<SharedPred> declared;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
   // include と consult は読み直す。節を戻す失敗では、この一覧も戻す。
   std::vector<std::string> prepared;
@@ -274,6 +276,7 @@ void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::
 void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
                  const std::vector<Cell>& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
+[[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 [[nodiscard]] std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
                                    const std::vector<Cell>& env, std::uint32_t module);
