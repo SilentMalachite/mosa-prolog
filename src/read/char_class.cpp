@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 
 namespace mosa {
@@ -18,6 +19,12 @@ struct CategoryRange {
 struct WideRange {
   char32_t first;
   char32_t last;
+};
+
+struct UpperRange {
+  char32_t first;
+  char32_t last;
+  std::int32_t delta;
 };
 
 #include "../unicode_tables.inc"
@@ -134,6 +141,15 @@ bool east_asian_wide(char32_t code_point) {
     return false;
   }
   return find_range(k_wide_ranges, code_point).has_value();
+}
+
+char32_t simple_uppercase(char32_t code_point) {
+  if (code_point > U'\U0010FFFF') return code_point;
+  const auto range = find_range(k_upper_ranges, code_point);
+  if (!range) return code_point;
+  const auto mapped = static_cast<std::int64_t>(code_point) + range->delta;
+  if (mapped < 0 || mapped > 0x10FFFF) return code_point;
+  return static_cast<char32_t>(mapped);
 }
 
 std::string_view unicode_version() { return k_unicode_version; }

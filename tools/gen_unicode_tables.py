@@ -38,6 +38,14 @@ CATEGORY_CHECKS = {
 }
 WIDE_PRESENT = (0x3000, 0x4E00, 0xFF08, 0xFF10, 0x20BB7)
 WIDE_ABSENT = (0x0041, 0x007F)
+# 単純大文字写像。写像の無い符号位置は自分自身。
+UPPER_CHECKS = {
+    0x0061: 0x0041,
+    0x00DF: 0x00DF,
+    0x00E9: 0x00C9,
+    0x03B1: 0x0391,
+    0xFF41: 0xFF21,
+}
 
 
 def fetch(url: str) -> str:
@@ -219,6 +227,43 @@ def ensure_categories(ranges: list[tuple[int, int, str]]) -> None:
             raise RuntimeError(f"U+{code_point:04X} のカテゴリが {actual} です。期待は {expected}")
 
 
+def parse_simple_uppercase(text: str) -> list[tuple[int, int, int]]:
+    # UnicodeData の第13列。空なら単純大文字写像は無い。First/Last は文字ではない。
+    points: list[tuple[int, int]] = []
+    for line_number, raw in enumerate(text.splitlines(), start=1):
+        if not raw or raw.startswith("#"):
+            continue
+        parts = raw.split(";")
+        if len(parts) < 13:
+            raise RuntimeError(f"UnicodeData.txt:{line_number} に単純大文字写像の列がありません")
+        name = parts[1]
+        if name.endswith(", First>") or name.endswith(", Last>"):
+            continue
+        upper = parts[12].strip()
+        if not upper:
+            continue
+        try:
+            code_point = int(parts[0], 16)
+            target = int(upper, 16)
+        except ValueError as exc:
+            raise RuntimeError(f"UnicodeData.txt:{line_number} の単純大文字写像が不正です") from exc
+        if target != code_point:
+            points.append((code_point, target))
+    return merge_upper(points)
+
+
+def merge_upper(points: list[tuple[int, int]]) -> list[tuple[int, int, int]]:
+    # 符号位置が連続し、差が同じ区間だけをまとめる。間の未写像は入れない。
+    ranges: list[tuple[int, int, int]] = []
+    for code_point, target in sorted(points):
+        delta = target - code_point
+        if ranges and ranges[-1][1] + 1 == code_point and ranges[-1][2] == delta:
+            ranges[-1] = (ranges[-1][0], code_point, delta)
+            continue
+        ranges.append((code_point, code_point, delta))
+    return ranges
+
+
 def ensure_wide(ranges: list[tuple[int, int]]) -> None:
     previous_last = -1
     for first, last in ranges:
@@ -233,9 +278,35 @@ def ensure_wide(ranges: list[tuple[int, int]]) -> None:
             raise RuntimeError(f"U+{code_point:04X} は東アジア幅 W/F ではありません")
 
 
-def emit(categories: list[tuple[int, int, str]], wide: list[tuple[int, int]]) -> str:
+def upper_at(ranges: list[tuple[int, int, int]], code_point: int) -> int:
+    index = contains(ranges, code_point)
+    if index is None:
+        return code_point
+    return code_point + ranges[index][2]
+
+
+def ensure_upper(ranges: list[tuple[int, int, int]]) -> None:
+    previous_last = -1
+    for first, last, delta in ranges:
+        if first <= previous_last or last > MAX_CODE_POINT or delta == 0:
+            raise RuntimeError(f"単純大文字写像の区間が不正です: U+{first:04X}")
+        if first + delta < 0 or last + delta > MAX_CODE_POINT:
+            raise RuntimeError(f"単純大文字写像が符号位置の外です: U+{first:04X}")
+        previous_last = last
+    for code_point, expected in UPPER_CHECKS.items():
+        actual = upper_at(ranges, code_point)
+        if actual != expected:
+            raise RuntimeError(f"U+{code_point:04X} の単純大文字写像が U+{actual:04X} です")
+
+
+def emit(
+    categories: list[tuple[int, int, str]],
+    wide: list[tuple[int, int]],
+    upper: list[tuple[int, int, int]],
+) -> str:
     lines = [
-        "// Unicode 18.0.0 の一般カテゴリ区間と、東アジア幅が W または F の区間。",
+        "// Unicode 18.0.0 の一般カテゴリ区間、東アジア幅が W または F の区間、",
+        "// 単純大文字写像の区間。差は符号位置へ足す値。",
         "// tools/gen_unicode_tables.py が生成する。手で編集しない。",
         "// ASCII は ISO 6.5 の固定表で分類するため、カテゴリ区間は U+0080 からにする。",
         f'constexpr std::string_view k_unicode_version{{"{UNICODE_VERSION}"}};',
@@ -251,6 +322,11 @@ def emit(categories: list[tuple[int, int, str]], wide: list[tuple[int, int]]) ->
     lines.append(f"constexpr std::array<WideRange, {len(wide)}> k_wide_ranges{{{{")
     for first, last in wide:
         lines.append(f"    WideRange{{0x{first:04X}, 0x{last:04X}}},")
+    lines.append("}};")
+    lines.append("")
+    lines.append(f"constexpr std::array<UpperRange, {len(upper)}> k_upper_ranges{{{{")
+    for first, last, delta in upper:
+        lines.append(f"    UpperRange{{0x{first:04X}, 0x{last:04X}, {delta}}},")
     lines.append("}};")
     lines.append("")
     return "\n".join(lines)
@@ -273,14 +349,16 @@ def publish(text: str) -> None:
         raise
 
 
-def generate(unicode_dir: str | None) -> tuple[int, int]:
+def generate(unicode_dir: str | None) -> tuple[int, int, int]:
     data_text, width_text = load_texts(unicode_dir)
     categories = drop_ascii(merge_categories(parse_unicode_data(data_text)))
     wide = merge_spans(parse_east_asian_width(width_text))
+    upper = parse_simple_uppercase(data_text)
     ensure_categories(categories)
     ensure_wide(wide)
-    publish(emit(categories, wide))
-    return len(categories), len(wide)
+    ensure_upper(upper)
+    publish(emit(categories, wide, upper))
+    return len(categories), len(wide), len(upper)
 
 
 def main() -> int:
@@ -291,12 +369,13 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        category_count, wide_count = generate(args.unicode_dir)
+        category_count, wide_count, upper_count = generate(args.unicode_dir)
     except Exception as exc:
         print(f"生成に失敗しました: {exc}", file=sys.stderr)
         return 1
     print(f"categories {category_count}")
     print(f"wide {wide_count}")
+    print(f"upper {upper_count}")
     return 0
 
 
