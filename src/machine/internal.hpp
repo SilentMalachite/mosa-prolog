@@ -344,6 +344,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);

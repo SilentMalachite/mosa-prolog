@@ -75,3 +75,25 @@ test(mod_current_predicate_ctx, 家系:current_predicate(内部/1), true).
 test(mod_current_predicate_var_module, findall(M, current_predicate(M:祖父/2), L), solutions([L = [家系]])).
 test(mod_assert_imported_undefined, (assertz(未定義(1)), findall(M, current_predicate(M:未定義/1), L)), solutions([L = [家系]])).
 test(mod_abolish_imported_reassert, (abolish(記録/1), assertz(記録(1)), findall(M, current_predicate(M:記録/1), L)), solutions([L = [家系]])).
+test(cm_known, (current_module(user), current_module(system), current_module(家系)), true).
+test(cm_enum, findall(M, (current_module(M), M == 家系), L), solutions([L = [家系]])).
+test(cm_unknown, current_module(nomod), fail).
+test(cm_type, current_module(1), error(type_error(atom, 1))).
+test(pp_builtin, predicate_property(atom_length(_, _), built_in), true).
+test(pp_builtin_static, predicate_property(atom_length(_, _), static), true).
+test(pp_builtin_not_dynamic, predicate_property(atom_length(_, _), dynamic), fail).
+test(pp_control, predicate_property((_, _), built_in), true).
+test(pp_imported, predicate_property(祖父(_, _), imported_from(家系)), true).
+test(pp_exported, predicate_property(家系:祖父(_, _), exported), true).
+test(pp_private, predicate_property(家系:内部(_), exported), fail).
+test(pp_dynamic, predicate_property(家系:記録(_), dynamic), true).
+test(pp_static, predicate_property(親(_, _), static), true).
+test(pp_clauses, predicate_property(親(_, _), number_of_clauses(N)), solutions([N = 3])).
+test(pp_multifile, predicate_property(家系:複(_), multifile), true).
+test(pp_undefined, predicate_property(無い(_), defined), fail).
+test(pp_enum, findall(P, predicate_property(家系:祖父(_, _), P), L), solutions([L = [defined, static, exported, number_of_clauses(1)]])).
+test(pp_ctx, 家系:predicate_property(内部(_), defined), true).
+test(pp_var, predicate_property(_, _), error(instantiation_error)).
+test(pp_type, predicate_property(1, _), error(type_error(callable, 1))).
+test(pp_domain, predicate_property(atom_chars(_, _), foobar), error(domain_error(predicate_property, foobar))).
+test(pp_unknown_module, predicate_property(nomod:p, _), error(existence_error(module, nomod))).

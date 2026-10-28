@@ -338,3 +338,11 @@ A か B か: A はフェーズ4の Task 12 で `keysort/2` と並べて `sort/2`
 A か B か: A はフェーズ4の Task 9 で `forall/2` を meta 述語として `system` に作る。B はフェーズ4では作らない。確認まで実装しない。
 
 決定（2026-10-28）: A。`forall/2` はフェーズ4の Task 9 で meta 述語として `system` に作り、呼び手の文脈モジュールで `\+ (Cond, \+ Action)` を動かす。6 モジュールの外にある段階 G の述語でフェーズ4が足すのは、これだけである。
+
+## ISO/IEC 13211-2 7.2.2 predicate_property/2
+
+SPEC 第5節は段階 F に `predicate_property/2` を挙げるが、頭部が変数のときと、無いモジュールを指したときを決めていない。
+
+A か B か: A は、頭部が変数なら 13211-2 の DTR と同梱のスイート（`commons_predicate_property_2_16`）のとおり `instantiation_error`、無い `M:` なら `M:G` と同じ `existence_error(module, M)`。B は、SWI-Prolog のように見える述語を列挙し、無いモジュールでは失敗する。
+
+決定（2026-10-28）: どちらも A。組み込み述語の性質は `defined`、`built_in`、`static`。利用者の述語は呼び出しと同じ順で引き、性質はこの順に `defined`、`dynamic` か `static`、`exported`、`imported_from(M)`（文脈モジュールの明示の取り込みのときだけ）、`multifile`、`number_of_clauses(N)`。それ以外の性質の項は `domain_error(predicate_property, P)`。

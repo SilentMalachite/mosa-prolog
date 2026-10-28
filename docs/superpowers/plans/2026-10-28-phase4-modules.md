@@ -199,9 +199,9 @@
 **Interfaces:**
 - Produces: `current_module(?atom)`、`predicate_property(?callable, ?property)`。性質は `built_in`、`dynamic`、`static`、`defined`、`exported`、`imported_from(M)`、`multifile`、`meta_predicate(Head)`、`number_of_clauses(N)` だけ
 
-- [ ] **Step 1:** 失敗するテスト。`cm_enum`: `findall(M, current_module(M), L)` が `user`、`system`、`家系` を含む。`cm_type`: `current_module(1)` → `type_error(atom, 1)`。`pp_builtin`: `predicate_property(atom_length(_, _), built_in)`。`pp_imported`: `predicate_property(祖父(_, _), imported_from(家系))`。`pp_dynamic`、`pp_clauses`: `number_of_clauses(2)`
-- [ ] **Step 2:** 実装する。テストを流す。`mosatest --suite` の `predicate_property_2` が下がっていないことを見る
-- [ ] **Step 3:** コミット `[phase4] current_module/1 と predicate_property/2 を実装（modules.pl 6 件）`
+- [x] **Step 1:** 失敗するテスト。`cm_enum`: `findall(M, current_module(M), L)` が `user`、`system`、`家系` を含む。`cm_type`: `current_module(1)` → `type_error(atom, 1)`。`pp_builtin`: `predicate_property(atom_length(_, _), built_in)`。`pp_imported`: `predicate_property(祖父(_, _), imported_from(家系))`。`pp_dynamic`、`pp_clauses`: `number_of_clauses(2)`
+- [x] **Step 2:** 実装する。テストを流す。`mosatest --suite` の `predicate_property_2` が下がっていないことを見る
+- [x] **Step 3:** コミット `[phase4] current_module/1 と predicate_property/2 を実装（modules.pl 6 件）`
 
 ### Task 9: `meta_predicate/1` と高階の組み込み
 

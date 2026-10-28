@@ -82,6 +82,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/flags.cpp
   src/builtins/database.cpp
   src/builtins/database_scan.cpp
+  src/builtins/module_prop.cpp
   src/builtins/clause_term.cpp
   src/builtins/solutions.cpp
   src/builtins/solutions_answer.cpp

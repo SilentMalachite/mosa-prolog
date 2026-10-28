@@ -336,3 +336,11 @@ Decision (2026-10-28): A. `sort/2` is implemented in `system` in phase 4 Task 12
 A or B?: A: implement `forall/2` in `system` as a meta predicate in phase 4 Task 9. B: do not implement it in phase 4. Not implemented until confirmed.
 
 Decision (2026-10-28): A. `forall/2` is implemented in `system` as a meta predicate in phase 4 Task 9, as `\+ (Cond, \+ Action)` run in the caller's context module. It is the only stage G predicate outside the six modules that phase 4 adds.
+
+## ISO/IEC 13211-2 7.2.2 predicate_property/2
+
+SPEC section 5 lists `predicate_property/2` in stage F but does not say what a variable head or an unknown module gives.
+
+A or B?: A: a variable head gives `instantiation_error`, as in the 13211-2 DTR and the bundled suite (`commons_predicate_property_2_16`); an unknown `M:` gives `existence_error(module, M)`, the same as `M:G`. B: enumerate the visible predicates, as SWI-Prolog does, and fail for an unknown module.
+
+Decision (2026-10-28): A for both. A built-in has `defined`, `built_in` and `static`. A user predicate is looked up as a call would be and has, in this order, `defined`, `dynamic` or `static`, `exported`, `imported_from(M)` (only through an explicit import of the context module), `multifile` and `number_of_clauses(N)`. Any other property term gives `domain_error(predicate_property, P)`.
