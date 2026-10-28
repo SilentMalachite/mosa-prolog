@@ -674,6 +674,23 @@ void check_flush_failure(const std::filesystem::path& path) {
 
 }  // namespace
 
+// iso-notes 8.11 の決定 B。user_input は eof_action(reset)。終わりの後も読み直せ、読んだ分を巻き戻しはしない。
+void check_standard_reset() {
+  std::stringstream feed;
+  feed << "a. ";
+  auto* old = std::cin.rdbuf(feed.rdbuf());
+  auto machine = mosa::Machine::create();
+  auto first = machine->query("read(user_input, X), X == a, read(user_input, Y), Y == end_of_file.");
+  mosa_test::check(first.kind == mosa::StopKind::Success, "standard first read");
+  auto again = machine->query("read(user_input, W), W == end_of_file.");
+  mosa_test::check(again.kind == mosa::StopKind::Success, "standard reset no replay");
+  feed << "b. ";
+  auto more = machine->query("read(user_input, Z), Z == b.");
+  mosa_test::check(more.kind == mosa::StopKind::Success, "standard reset reads on");
+  std::cin.rdbuf(old);
+  std::cin.clear();
+}
+
 int main() {
   const std::filesystem::path root{MOSA_SOURCE_DIR};
   const auto dir = root / "tests" / "tmp";
@@ -702,6 +719,7 @@ int main() {
   check_set_position(dir / "phase3-set-position.txt");
   check_at_end(dir / "phase3-at-end.txt");
   check_close_standard();
+  check_standard_reset();
   check_flush_failure(dir / "phase3-flush-fail");
   return mosa_test::failures();
 }

@@ -151,9 +151,8 @@ test(op_armed_catch_gone, \+ current_op(100, fx, aa), true).
 % throw を受けた catch も、中の op/3 を戻す。
 test(op_throw_undo, (catch((op(100, fx, cc), throw(1)), _, true), \+ current_op(100, fx, cc)), true).
 
-% ctest は build が作業ディレクトリ。直接実行はリポジトリの根。
+% ctest も直接実行も、作業ディレクトリはリポジトリの根。
 consult_dd :- consult('tests/pl/op_keep_dir.pl').
-consult_dd :- consult('../tests/pl/op_keep_dir.pl').
 
 % op/3 の戻しは、その後の :- op を消さない。zz2 だけが選択点より後ろの op/3。
 test(op_directive_survives, (

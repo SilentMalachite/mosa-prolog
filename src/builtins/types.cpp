@@ -1,3 +1,6 @@
+// 型検査（8.3）と unify_with_occurs_check/2（8.2.2）、is_list/1。
+// ground/1 は Cor.2 の 8.3.10。ground(?term)。エラーは投げない。テストは tests/pl/types.pl。
+
 #include "../machine/internal.hpp"
 
 #include <string_view>
@@ -39,6 +42,26 @@ bool acyclic_term(const Impl& machine, Cell cell, std::vector<std::uint64_t>& se
   if (cell.tag() != Tag::Str) return true;
   for (std::uint16_t index = 0; index < machine.heap.functor_arity(cell); ++index) {
     if (!acyclic_term(machine, machine.heap.arg(cell, index), seen)) return false;
+  }
+  return true;
+}
+
+// 深い項で C++ のスタックを使い切らないよう、再帰ではなく明示のスタックで辿る。束縛は一切しない。
+bool ground_term(const Impl& machine, Cell cell) {
+  std::vector<Cell> pending{cell};
+  while (!pending.empty()) {
+    const Cell current = machine.heap.deref(pending.back());
+    pending.pop_back();
+    if (machine.heap.unbound(current)) return false;
+    if (current.tag() == Tag::Lis) {
+      pending.push_back(machine.heap.list_tail(current));
+      pending.push_back(machine.heap.list_head(current));
+      continue;
+    }
+    if (current.tag() != Tag::Str) continue;
+    for (std::uint16_t index = 0; index < machine.heap.functor_arity(current); ++index) {
+      pending.push_back(machine.heap.arg(current, index));
+    }
   }
   return true;
 }
@@ -131,6 +154,11 @@ bool run_types(Impl& machine, const Goal& goal) {
     // Cor.2 の 8.3.9 は型検査である。変数も数も失敗し、例外は投げない。
     const Cell value = machine.heap.deref(goal.arg(machine, 0));
     if (value.tag() == Tag::Atom || is_compound(machine, value)) succeed(machine, goal);
+    else machine.failed = true;
+    return true;
+  }
+  if (name == "ground" && goal.arity == 1) {
+    if (ground_term(machine, goal.arg(machine, 0))) succeed(machine, goal);
     else machine.failed = true;
     return true;
   }

@@ -2,6 +2,7 @@
 // 一時ファイルは tests/tmp/suite だけ。tests.lgt が終わったら消す。
 
 #include "lgt_io.hpp"
+#include "lgt_io_priv.hpp"
 
 #include "lgt_priv.hpp"
 
@@ -21,7 +22,7 @@
 #include <vector>
 
 namespace mosa {
-namespace {
+namespace lgtio {
 
 std::string_view atom_text(const Heap& heap, Cell cell) {
   return heap.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3));
@@ -31,21 +32,6 @@ bool functor_is(const Heap& heap, Cell cell, std::string_view name, std::uint16_
   cell = heap.deref(cell);
   return cell.tag() == Tag::Str && heap.functor_arity(cell) == arity &&
          heap.atoms().name(heap.functor_atom(cell)) == name;
-}
-
-std::filesystem::path path_from_utf8(std::string_view text) {
-  std::u8string bytes;
-  bytes.reserve(text.size());
-  for (unsigned char byte : text) bytes.push_back(static_cast<char8_t>(byte));
-  return std::filesystem::path{bytes};
-}
-
-std::string utf8_of(const std::filesystem::path& path) {
-  const auto text = path.generic_u8string();
-  std::string bytes;
-  bytes.reserve(text.size());
-  for (char8_t unit : text) bytes.push_back(static_cast<char>(unit));
-  return bytes;
 }
 
 bool write_bytes(const std::filesystem::path& path, std::string_view bytes) {
@@ -241,21 +227,6 @@ bool byte_contents(const Heap& heap, Cell cell, std::string& out) {
   return true;
 }
 
-Cell byte_list(Heap& heap, std::string_view bytes) {
-  Cell tail = heap.atom(heap.atoms().intern("[]"));
-  for (std::size_t index = bytes.size(); index > 0; --index) {
-    const auto unit = static_cast<unsigned char>(bytes[index - 1]);
-    tail = heap.list(heap.integer(static_cast<std::int64_t>(unit)), tail);
-  }
-  return tail;
-}
-
-struct IoOpt {
-  bool reposition = true;
-  Stream::Data data = Stream::Data::Text;
-  Stream::EofAction eof = Stream::EofAction::EofCode;
-};
-
 bool utf8_name(std::string_view text) { return text == "utf8" || text == "UTF-8" || text == "utf-8"; }
 
 bool take_opt(const Heap& heap, Cell item, IoOpt& opt) {
@@ -416,11 +387,6 @@ LgtSuper bind_slot(Machine& machine, Cell slot, Cell value, const std::vector<Va
   return result;
 }
 
-Cell eq_cell(Heap& heap, Cell left, Cell right) {
-  const std::array<Cell, 2> args{left, right};
-  return heap.structure(heap.atoms().intern("=="), args);
-}
-
 bool load_place(const Heap& heap, Cell goal, int arity, int& alias, int& contents, int& options, bool& current,
                 IoOpt& opt, Stream::Data data) {
   alias = -1;
@@ -464,7 +430,7 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
   const auto path = locate_file(io, file);
   if (path.empty() || !write_bytes(path, bytes)) return false;
   Impl& impl = engine_impl(machine);
-  const std::string key = utf8_of(path);
+  const std::string key = utf8_from_path(path);
   close_alias(impl, alias_name);
   close_path(impl, key);
   release_closed_alias(impl, alias_name);
@@ -485,73 +451,10 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
   return true;
 }
 
-std::optional<std::size_t> stream_at(Impl& machine, Cell goal, int arity, bool input) {
-  if (arity == 1) return input ? machine.current_in : machine.current_out;
-  const Heap& heap = machine.heap;
-  const Cell alias = heap.deref(heap.arg(goal, 0));
-  if (alias.tag() != Tag::Atom) return std::nullopt;
-  return open_alias(machine, atom_text(heap, alias));
-}
-
-std::string whole_bytes(const Stream& stream) { return stream.bytes; }
-
-std::string rest_bytes(const Stream& stream) {
-  if (stream.cursor >= stream.bytes.size()) return {};
-  return stream.bytes.substr(stream.cursor);
-}
-
 void drop_file(Impl& machine, const std::filesystem::path& path) {
-  close_path(machine, utf8_of(path));
+  close_path(machine, utf8_from_path(path));
   std::error_code error;
   std::filesystem::remove(path, error);
-}
-
-LgtSuper assert_bytes(Machine& machine, Cell expected, Cell slot, std::string bytes, bool as_text,
-                      const std::vector<VarName>& names) {
-  Heap& heap = machine.heap();
-  const Cell right = as_text ? heap.atom(heap.atoms().intern(bytes)) : byte_list(heap, bytes);
-  return bind_slot(machine, slot, eq_cell(heap, heap.deref(expected), right), names);
-}
-
-LgtSuper take_assertion(Machine& machine, const LgtIo& io, Cell goal, int arity, std::string_view file, bool input,
-                        bool as_text, const std::vector<VarName>& names) {
-  Impl& impl = engine_impl(machine);
-  const int stream_arity = arity == 2 ? 1 : arity - 1;
-  const auto index = stream_at(impl, goal, stream_arity, input);
-  if (!index || *index >= impl.streams.size()) return bound_no();
-  Stream& stream = impl.streams[*index];
-  if (stream.closed) return bound_no();
-  if (stream.kind != Stream::Kind::File) return bound_no();
-  const std::string bytes = input ? rest_bytes(stream) : whole_bytes(stream);
-  const int expected_arg = arity == 2 ? 0 : 1;
-  const int slot_arg = arity - 1;
-  if (arity == 4) {
-    IoOpt opt;
-    if (!read_options(machine.heap(), machine.heap().arg(goal, 2), opt)) return bound_no();
-  }
-  const Cell expected = machine.heap().arg(goal, static_cast<std::uint16_t>(expected_arg));
-  const Cell slot = machine.heap().arg(goal, static_cast<std::uint16_t>(slot_arg));
-  const auto path = stream.path.empty() ? locate_file(io, file) : path_from_utf8(stream.path);
-  if (!path.empty()) drop_file(impl, path);
-  return assert_bytes(machine, expected, slot, bytes, as_text, names);
-}
-
-LgtSuper check_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::string_view file, bool input,
-                   bool as_text) {
-  Impl& impl = engine_impl(machine);
-  const auto index = stream_at(impl, goal, arity, input);
-  if (!index || *index >= impl.streams.size()) return bound_no();
-  Stream& stream = impl.streams[*index];
-  if (stream.closed || stream.kind != Stream::Kind::File) return bound_no();
-  const std::string bytes = input ? rest_bytes(stream) : whole_bytes(stream);
-  std::string expect;
-  const Cell expected = machine.heap().arg(goal, static_cast<std::uint16_t>(arity - 1));
-  const bool read = as_text ? text_contents(machine.heap(), expected, expect)
-                            : byte_contents(machine.heap(), expected, expect);
-  const auto path = stream.path.empty() ? locate_file(io, file) : path_from_utf8(stream.path);
-  if (!path.empty()) drop_file(impl, path);
-  if (!read || expect != bytes) return bound_no();
-  return bound_ok();
 }
 
 LgtSuper clean_named(Machine& machine, const LgtIo& io, std::string_view name) {
@@ -566,7 +469,7 @@ LgtSuper clean_dir(Machine& machine, const LgtIo& io, Cell goal) {
   if (name.tag() != Tag::Atom) return bound_no();
   const auto path = locate_file(io, atom_text(machine.heap(), name));
   if (path.empty()) return bound_no();
-  close_path(engine_impl(machine), utf8_of(path));
+  close_path(engine_impl(machine), utf8_from_path(path));
   std::error_code error;
   std::filesystem::remove_all(path, error);
   return bound_ok();
@@ -582,7 +485,7 @@ LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal, const std::
   std::error_code error;
   std::filesystem::create_directories(path.parent_path(), error);
   if (error || !copy_absent_sibling(io, name, path)) return bound_no();
-  return bind_slot(machine, heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_of(path))), names);
+  return bind_slot(machine, heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_from_path(path))), names);
 }
 
 LgtSuper create_obs(Machine& machine, const LgtIo& io, Cell goal, bool binary) {
@@ -610,14 +513,14 @@ LgtSuper closed_obs(Machine& machine, const LgtIo& io, Cell goal, Stream::Mode m
   const auto path = locate_file(io, "temporary_file");
   if (path.empty() || !write_bytes(path, {})) return bound_no();
   Impl& impl = engine_impl(machine);
-  close_path(impl, utf8_of(path));
+  close_path(impl, utf8_from_path(path));
   Stream made;
   made.kind = Stream::Kind::File;
   made.data = opt.data;
   made.mode = mode;
   made.eof_action = opt.eof;
   made.reposition = opt.reposition;
-  made.path = utf8_of(path);
+  made.path = utf8_from_path(path);
   made.closed = true;
   impl.streams.push_back(std::move(made));
   std::error_code error;
@@ -663,24 +566,8 @@ LgtSuper observe(Machine& machine, const LgtIo& io, Cell term, const std::vector
   if (named_goal(heap, term, "set_binary_input", arity) && arity >= 1 && arity <= 3) {
     return open_named(machine, io, term, arity, "test_input.binary", Stream::Mode::Read, Stream::Data::Binary, true);
   }
-  if (named_goal(heap, term, "text_output_assertion", arity) && arity >= 2 && arity <= 4) {
-    return take_assertion(machine, io, term, arity, "test_output.text", false, true, names);
-  }
-  if (named_goal(heap, term, "text_input_assertion", arity) && (arity == 2 || arity == 3)) {
-    return take_assertion(machine, io, term, arity, "test_input.text", true, true, names);
-  }
-  if (named_goal(heap, term, "binary_output_assertion", arity) && (arity == 2 || arity == 3)) {
-    return take_assertion(machine, io, term, arity, "test_output.binary", false, false, names);
-  }
-  if (named_goal(heap, term, "binary_input_assertion", arity) && (arity == 2 || arity == 3)) {
-    return take_assertion(machine, io, term, arity, "test_input.binary", true, false, names);
-  }
-  if (named_goal(heap, term, "check_text_input", arity) && (arity == 1 || arity == 2)) {
-    return check_obs(machine, io, term, arity, "test_input.text", true, true);
-  }
-  if (named_goal(heap, term, "check_binary_input", arity) && (arity == 1 || arity == 2)) {
-    return check_obs(machine, io, term, arity, "test_input.binary", true, false);
-  }
+  const LgtSuper contents = observe_contents(machine, io, term, names);
+  if (contents.kind != LgtSuperKind::Unknown) return contents;
   if (named_goal(heap, term, "file_path", arity) && arity == 2) return file_path_obs(machine, io, term, names);
   if (named_goal(heap, term, "create_text_file", arity) && arity == 2) return create_obs(machine, io, term, false);
   if (named_goal(heap, term, "create_binary_file", arity) && arity == 2) return create_obs(machine, io, term, true);
@@ -704,16 +591,16 @@ LgtSuper observe(Machine& machine, const LgtIo& io, Cell term, const std::vector
   return {};
 }
 
-}  // namespace
+}  // namespace lgtio
 
 LgtIo lgt_io_context(std::string_view tests_path, std::string_view relative_dir) {
   LgtIo io;
   if (tests_path.empty()) return io;
   // 実行中はカレントをスクラッチへ移すので、相対のままだと隣の Prolog とスクラッチを見失う。
-  const std::filesystem::path file = absolute_path(std::filesystem::path{std::string{tests_path}});
+  const std::filesystem::path file = lgtio::absolute_path(path_from_utf8(tests_path));
   if (file.empty()) return io;
   io.tests_dir = file.parent_path();
-  const auto root = tests_root(file);
+  const auto root = lgtio::tests_root(file);
   // 同梱ツリーの外。tests.lgt からの相対ディレクトリを、リポジトリの tests の下に置く。
   io.suite = (root.empty() ? std::filesystem::path{"tests"} : root) / "tmp" / "suite";
   if (!relative_dir.empty()) io.scratch = io.suite / std::string{relative_dir};
@@ -725,11 +612,11 @@ void lgt_io_cleanup(const LgtIo& io) {
   if (!io.scratch.empty()) std::filesystem::remove_all(io.scratch, error);
   if (io.suite.empty()) return;
   const auto start = io.scratch.empty() ? io.suite : io.scratch.parent_path();
-  remove_empty_up(start, io.suite);
+  lgtio::remove_empty_up(start, io.suite);
 }
 
 static SuiteSuper suite_super_call(Machine& machine, const LgtIo& io, Cell goal) {
-  const std::string text = write_term(machine.heap(), machine.operators(), machine.heap().deref(goal), {}, {});
+  const std::string text = write_term(machine.heap(), machine.operators(), machine.heap().deref(goal), lgt_write_options(), {});
   const LgtSuper ran = lgt_run_super(machine, io, text);
   if (ran.kind == LgtSuperKind::Unknown) return SuiteSuper::Skip;
   return ran.kind == LgtSuperKind::Ok ? SuiteSuper::Ok : SuiteSuper::No;
@@ -755,9 +642,9 @@ void lgt_load_tester(Machine& machine, const LgtIo& io) {
   std::error_code error;
   if (!std::filesystem::is_regular_file(tester, error) || error) return;
   // Logtalk としては実行しない。logtalk_load はファイル名を作らないので無視する。
-  for (const std::string& name : prolog_files(file_text(tester))) {
+  for (const std::string& name : lgtio::prolog_files(lgtio::file_text(tester))) {
     // 読めなくてもファイル全体は落とさない。呼ぶテストが存在エラーになる。
-    if (!machine.consult((io.tests_dir / name).string())) continue;
+    if (!machine.consult(utf8_from_path(io.tests_dir / name))) continue;
   }
 }
 
@@ -769,9 +656,9 @@ LgtSuper lgt_run_super(Machine& machine, const LgtIo& io, std::string_view goal)
     return result;
   }
   const Cell term = machine.heap().deref(parsed.term);
-  const LgtSuper ran = observe(machine, io, term, parsed.names);
+  const LgtSuper ran = lgtio::observe(machine, io, term, parsed.names);
   if (ran.kind != LgtSuperKind::Unknown) return ran;
-  result.note = indicator(machine.heap(), term);
+  result.note = lgtio::indicator(machine.heap(), term);
   return result;
 }
 

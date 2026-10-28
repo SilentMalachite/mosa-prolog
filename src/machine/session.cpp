@@ -2,15 +2,19 @@
 
 #include "internal.hpp"
 
+#include "mosa/console.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
 #include "mosa/version.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <cstdio>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,7 +29,13 @@ struct Cursor {
 
   bool line(std::string& out) {
     if (from_cin) {
-      if (!std::getline(std::cin, out)) return false;
+      // read/1 と同じ読み取り口を通す。Windows のコンソールは UTF-16 で読む（SPEC 第4節）。
+      out.clear();
+      for (int ch = standard_input_get(); ch != EOF; ch = standard_input_get()) {
+        out.push_back(static_cast<char>(ch));
+        if (ch == '\n') return true;
+      }
+      if (out.empty()) return false;
       out.push_back('\n');
       return true;
     }
@@ -42,7 +52,7 @@ struct Cursor {
   }
 
   int get() {
-    if (from_cin) return std::cin.get();
+    if (from_cin) return standard_input_get();
     if (at >= data.size()) return EOF;
     return static_cast<unsigned char>(data[at++]);
   }
@@ -92,22 +102,6 @@ Options parse_args(std::span<const std::string_view> args) {
   return options;
 }
 
-const char* usage = "mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt]\n";
-
-std::string reason_text(SyntaxReason reason) {
-  switch (reason) {
-    case SyntaxReason::InvalidUtf8: return "不正な UTF-8";
-    case SyntaxReason::IllegalCharacter: return "使えない文字";
-    case SyntaxReason::UnterminatedQuote: return "引用が閉じていない";
-    case SyntaxReason::UnterminatedComment: return "コメントが閉じていない";
-    case SyntaxReason::BadEscape: return "不正なエスケープ";
-    case SyntaxReason::IntegerOverflow: return "整数が範囲を超えている";
-    case SyntaxReason::UnexpectedToken: return "予期しないトークン";
-    case SyntaxReason::MaxArity: return "引数が多すぎる";
-    case SyntaxReason::IncompleteTerm: return "項が閉じていません";
-  }
-  return "予期しないトークン";
-}
 
 struct Echo {
   SessionResult* result = nullptr;
@@ -141,14 +135,27 @@ std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
   return text;
 }
 
-void warn_resource(Echo& echo) { echo.warn("警告: ヒープの上限を超えました\n"); }
+// 上限に達したマシンのヒープではカタログを読めないので、新しいマシンで文面を作る。
+void warn_resource(Machine& machine, Echo& echo) {
+  echo.warn(render_message_fresh(engine_impl(machine).message_lang, "heap_limit") + "\n");
+}
 
 void recover_heap(Machine& machine) { machine.heap().truncate(0); }
 
 void warn_exception(Machine& machine, const Stop& stop, Echo& echo) {
-  echo.warn("警告: ゴールは例外を送出しました: ");
-  echo.warn(write_term(machine.heap(), machine.operators(), stop.exception, {}, {}));
-  echo.warn("\n");
+  const std::array<Cell, 1> args{stop.exception};
+  echo.warn(render_message(machine, "goal_raised", args) + "\n");
+}
+
+// 理由の鍵の文面を先に作り、それを行と列とトークンの文面に差し込む。入力の終わりでトークンは無い。
+void warn_syntax(Machine& machine, const SyntaxFailure& failure, Echo& echo) {
+  const std::string reason = render_message(machine, syntax_key(failure.reason), {});
+  Heap& heap = machine.heap();
+  std::vector<Cell> args{heap.integer(static_cast<std::int64_t>(failure.line)),
+                         heap.integer(static_cast<std::int64_t>(failure.column)),
+                         heap.atom(machine.atoms().intern(reason))};
+  if (!failure.token.empty()) args.push_back(heap.atom(machine.atoms().intern(failure.token)));
+  echo.warn(render_message(machine, failure.token.empty() ? "syntax_error_at_end" : "syntax_error", args) + "\n");
 }
 
 bool directive_text(Machine& machine, std::string_view text) {
@@ -195,9 +202,37 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
     }
   } catch (const ResourceLimit&) {
     recover_heap(machine);
-    warn_resource(echo);
+    warn_resource(machine, echo);
     return interactive ? 0 : 2;
   }
+}
+
+ReadOutcome read_goal_text(Machine& machine, std::string_view text) {
+  Reader reader(text, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
+                &engine_impl(machine).char_conv);
+  reader.set_fullwidth(engine_impl(machine).japanese_punct);
+  return reader.next();
+}
+
+// -g のゴールは末尾の . を省いてよい（SWI-Prolog と同じ）。終わりが無ければ改行と . を足す。
+// 改行を挟むのは、行末の % 注釈を閉じ、記号の文字と . がつながって一つの原子にならないようにするため。
+// 読めないゴールは構文エラーを出して nullopt。query は読めない文を false にするので、先に読んで見分ける。
+std::optional<std::string> command_goal(Machine& machine, const std::string& goal, Echo& echo) {
+  try {
+    const ReadOutcome outcome = read_goal_text(machine, goal);
+    if (!outcome.failure) return goal;
+    // 足した . でも読めなければ、利用者の書いた文の位置で知らせる。足した 2 行目を見せない。
+    if (outcome.failure->reason == SyntaxReason::IncompleteTerm &&
+        !read_goal_text(machine, goal + "\n.").failure) {
+      return goal + "\n.";
+    }
+    warn_syntax(machine, *outcome.failure, echo);
+    return std::nullopt;
+  } catch (const ResourceLimit&) {
+    // 読むだけで溢れる小さな上限。判定を諦め、play_goal に資源の報告を任せる。
+    recover_heap(machine);
+  }
+  return goal;
 }
 
 bool blank(std::string_view text) {
@@ -219,18 +254,18 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     try {
       Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
                     &engine_impl(machine).char_conv);
+      reader.set_fullwidth(engine_impl(machine).japanese_punct);
       outcome = reader.next();
     } catch (const ResourceLimit&) {
       recover_heap(machine);
-      warn_resource(echo);
+      warn_resource(machine, echo);
       buffer.clear();
       echo.say("?- ");
       continue;
     }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
     if (outcome.failure) {
-      echo.warn(reason_text(outcome.failure->reason));
-      echo.warn("\n");
+      warn_syntax(machine, *outcome.failure, echo);
       buffer.clear();
       echo.say("?- ");
       continue;
@@ -243,6 +278,12 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     const std::string text = buffer;
     buffer.clear();
     const Cell term = outcome.term->term;
+    // help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。
+    if (term.tag() == Tag::Atom && machine.atoms().name(static_cast<std::uint32_t>(term.raw() >> 3)) == "help") {
+      echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
+      echo.say("?- ");
+      continue;
+    }
     const bool directive = term.tag() == Tag::Str && machine.heap().functor_arity(machine.heap().deref(term)) == 1 &&
                            (machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == ":-" ||
                             machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == "?-");
@@ -277,12 +318,12 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     return result;
   }
   if (options.bad || (options.top_halt && !options.has_goal)) {
-    echo.warn(usage);
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;
   }
   if (!tty && !options.has_goal && options.files.empty()) {
-    echo.warn(usage);
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;
   }
@@ -299,20 +340,22 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
       }
     } catch (const ResourceLimit&) {
       recover_heap(*machine);
-      warn_resource(echo);
+      warn_resource(*machine, echo);
       result.code = 2;
       return result;
     }
   }
   if (!tty && !options.has_goal) {
-    echo.warn(usage);
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;
   }
   if (options.has_goal) {
     const bool interactive = tty && !options.top_halt;
     bool halted = false;
-    const int code = play_goal(*machine, options.goal, interactive, cursor, echo, halted);
+    const auto goal = command_goal(*machine, options.goal, echo);
+    // 読めないゴールは例外と同じ扱い。対話ではプロンプトへ進み、一括では 2 で終える。
+    const int code = goal ? play_goal(*machine, *goal, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
     result.code = code;
     if (halted || !interactive || code == 2) return result;
     result.code = 0;

@@ -3,7 +3,7 @@
 // 8.11.9 set_stream_position/2。
 // current_input(?stream_or_alias) / current_output(?stream_or_alias)
 //   変数は '$stream'(N)。別名は照合だけに使い、項の形は変えない。
-//   domain_error(stream_or_alias), existence_error(stream)
+//   domain_error(stream_or_alias), domain_error(stream)（閉じた流れ）, existence_error(stream)
 // set_input(+stream_or_alias) / set_output(+stream_or_alias)
 //   検査が済むまで current_in と current_out は変えない。
 //   set_input は read だけ。set_output は write と append。
@@ -284,8 +284,9 @@ void match_current(Impl& machine, const Goal& goal, std::size_t current) {
   }
   std::size_t index = 0;
   if (resolve_stream(machine, goal, spec, index)) return;
+  // 8.11.1.3 が挙げる誤りは domain_error(stream, S) だけ。閉じた流れもこれにする（iso-notes 8.11.1 の決定 B）。
   if (index != current && machine.streams[index].closed) {
-    raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
+    raise_formal(machine, formal_domain(machine, "stream", spec), goal.name, goal.arity);
     return;
   }
   if (index != current) {

@@ -6,10 +6,15 @@
 // char_conversion は on と off。既定は off。warning と error 以外の浮動小数旗も受け付けない。
 // invalid_utf8 は error と replace。既定は error。replace は壊れたバイトを U+FFFD にする。
 // debug は on と off。既定は off。値を覚えるだけで、節の追跡はしない。
+// japanese_punctuation は true と false。字句解析器は次に読む項から全角記号を半角に読む（iso-notes 第4節）。
+// dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
+// version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
+// message_language は ja と en。既定は LANG から決める（ADR 0007）。
 // テスト: tests/pl/flags.pl
 
 #include "../machine/internal.hpp"
 
+#include "mosa/version.hpp"
 #include "mosa/writer.hpp"
 
 #include <array>
@@ -22,7 +27,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 15;
+constexpr std::size_t kFlagCount = 19;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -48,11 +53,15 @@ std::string_view flag_name(std::size_t index) {
     case 12: return "char_conversion";
     case 13: return "invalid_utf8";
     case 14: return "debug";
+    case 15: return "dialect";
+    case 16: return "version_data";
+    case 17: return "version";
+    case 18: return "message_language";
     default: return {};
   }
 }
 
-bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index >= 9; }
+bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || (index >= 9 && index <= 14) || index == 18; }
 
 int find_flag(const Impl& machine, Cell flag) {
   const auto text = machine.atoms.name(atom_id(flag));
@@ -75,10 +84,18 @@ Cell flag_value(Impl& machine, std::size_t index) {
       return atom_named(machine, "codes");
     case 6: return atom_named(machine, machine.unknown_fail ? "fail" : "error");
     case 7: return atom_named(machine, "utf8");
-    case 8: return atom_named(machine, "false");
+    case 8: return atom_named(machine, machine.japanese_punct ? "true" : "false");
     case 12: return atom_named(machine, machine.char_conv.enabled ? "on" : "off");
     case 13: return atom_named(machine, machine.utf8_replace ? "replace" : "error");
     case 14: return atom_named(machine, machine.debug_on ? "on" : "off");
+    case 15: return atom_named(machine, "mosa");
+    case 16: {
+      const std::array<Cell, 4> args{machine.heap.integer(kVersionMajor), machine.heap.integer(kVersionMinor),
+                                     machine.heap.integer(kVersionPatch), atom_named(machine, "[]")};
+      return machine.heap.structure(machine.atoms.intern("mosa"), args);
+    }
+    case 17: return machine.heap.integer(kVersionMajor * 10000 + kVersionMinor * 100 + kVersionPatch);
+    case 18: return atom_named(machine, machine.message_lang == MessageLanguage::Ja ? "ja" : "en");
     default: return atom_named(machine, "error");
   }
 }
@@ -115,6 +132,10 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     case 12: return same_atom(machine, value, "on") || same_atom(machine, value, "off");
     case 13: return same_atom(machine, value, "error") || same_atom(machine, value, "replace");
     case 14: return same_atom(machine, value, "on") || same_atom(machine, value, "off");
+    // 変えられない旗の領域は値の形。形が合えば、次の permission_error になる。
+    case 15: return value.tag() == Tag::Atom;
+    case 16: return value.tag() == Tag::Str && machine.heap.functor_arity(value) == 4;
+    case 18: return same_atom(machine, value, "ja") || same_atom(machine, value, "en");
     default: return same_atom(machine, value, "error");
   }
 }
@@ -122,7 +143,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
 // 8.17.1.3 は領域が先で、変更できないのはその次。整数旗の領域は今の値ではなく整数である。
 bool value_admissible(Cell value, const Impl& machine, std::size_t index) {
   value = machine.heap.deref(value);
-  if (index == 2 || index == 3 || index == 4) {
+  if (index == 2 || index == 3 || index == 4 || index == 17) {
     return value.tag() == Tag::Int || value.tag() == Tag::IntBox;
   }
   return flag_accepts(value, machine, index);
@@ -137,9 +158,11 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
     return;
   }
   if (index == 6) machine.unknown_fail = text == "fail";
+  if (index == 8) machine.japanese_punct = text == "true";
   if (index == 12) machine.char_conv.enabled = text == "on";
   if (index == 13) machine.utf8_replace = text == "replace";
   if (index == 14) machine.debug_on = text == "on";
+  if (index == 18) machine.message_lang = text == "ja" ? MessageLanguage::Ja : MessageLanguage::En;
 }
 
 void type_at(Impl& machine, const Goal& goal, Cell culprit) {

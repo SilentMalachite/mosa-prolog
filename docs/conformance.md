@@ -1,127 +1,22 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2029
-合格率: 93.5
+合格数: 2135
+合格率: 98.3
 不合格:
-control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_09 error(instantiation_error) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_10 errors([type_error(callable,1),type_error(callable,:(user,1))]) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_14 errors([type_error(callable,(write(3),1)),type_error(callable,1)]) suppress_text_output/0
-control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
-control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
-control/catch_3/tests.lgt iso_catch_3_07 true(C==c) suppress_text_output/0
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
-control/if_3/tests.lgt if_3_01 true existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_02 true existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_03 false existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_04 false existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_05 true(L==[1-4,1-5,1-6,2-4,2-5,2-6,3-4,3-5,3-6]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_06 true(L==[7,8,9]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_07 true(L==[7,8,9]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_08 true existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_09 true(L==[1,2]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_10 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(3,true,true))]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_11 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(true,3,true))]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_12 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(fail,true,3))]) existence_error(procedure,if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
-functions/acos_1/tests.lgt iso_acos_1_01 true(X=~=3.1415927) fail
-functions/acos_1/tests.lgt iso_acos_1_02 true(X=~=1.0471976) fail
-functions/asin_1/tests.lgt iso_asin_1_01 true(X=~=0.5235988) fail
-functions/asin_1/tests.lgt iso_asin_1_02 true(X=~=3.1415927) fail
-functions/atan2_2/tests.lgt iso_atan2_2_01 true(X=~=1.5707963) fail
-functions/atan2_2/tests.lgt iso_atan2_2_02 true(X=~=3.1415927) fail
-functions/atan_1/tests.lgt iso_atan_1_02 true(PI=~=3.1415927) fail
-functions/ceiling_1/tests.lgt lgt_ceiling_1_05 error(type_error(float,9)) true
-functions/cos_1/tests.lgt iso_cos_1_05 true(X=~=0.0) fail
-functions/exp_1/tests.lgt iso_exp_1_02 true(X=~=2.71828) fail
-functions/float_fractional_part_1/tests.lgt lgt_float_fractional_part_1_02 true(X=~=0.9) fail
-functions/float_fractional_part_1/tests.lgt lgt_float_fractional_part_1_04 error(type_error(float,9)) true
-functions/float_integer_part_1/tests.lgt lgt_float_integer_part_1_04 error(type_error(float,9)) true
-functions/floor_1/tests.lgt lgt_floor_1_06 error(type_error(float,9)) true
-functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
-functions/integer_power_2/tests.lgt iso_integer_power_2_09 true(X=~=0.353553) fail
-functions/log_1/tests.lgt iso_log_1_02 true(E=~=1.0) fail
-functions/log_2/tests.lgt lgt_log_2_01 true(X=~=3.0) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_02 true(X=~=1.0) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_03 true(X=~=1.0) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_12 error(evaluation_error(_)) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_13 error(evaluation_error(_)) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_14 error(evaluation_error(undefined)) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_15 error(evaluation_error(undefined)) type_error(evaluable,log/2)
-functions/pi_0/tests.lgt iso_pi_0_01 true(X=~=3.1415927) fail
-functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined),evaluation_error(zero_divisor)]) evaluation_error(float_overflow)
-functions/round_1/tests.lgt eclipse_round_1_07 true(X== -3) fail
-functions/round_1/tests.lgt eclipse_round_1_08 true(X== -4) fail
-functions/round_1/tests.lgt lgt_round_1_13 error(type_error(float,9)) true
-functions/tan_1/tests.lgt iso_tan_1_01 true(X=~=0.5463) fail
-functions/truncate_1/tests.lgt lgt_truncate_1_06 error(type_error(float,9)) true
-logical_update_semantics/tests.lgt logical_update_semantics_retract true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_retractall true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2,4,6]) existence_error(procedure,:: /2)
-predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant,bee]) fail
-predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char,Code0),char_code(Char,Code),Code0==Code)) existence_error(procedure,between/3)
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
-predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
-predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure,ground/1)
-predicates/current_op_3/tests.lgt iso_current_op_3_40 true((Contents==[b,a,z,q,u,u,x];Contents==[q,u,u,x,b,a,z])) text_output_contents/1
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
-predicates/current_output_1/tests.lgt sics_current_output_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
-predicates/current_output_1/tests.lgt sics_current_output_1_06 true existence_error(procedure,ground/1)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_12 true domain_error(flag_value,unknown+warning)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 false domain_error(flag_value,unknown+warning)
-predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag,dialect)
-predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major),integer(Minor),integer(Patch))) domain_error(prolog_flag,version_data)
-predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData,Dialect,_)) domain_error(prolog_flag,dialect)
 predicates/open_4/tests.lgt lgt_open_4_31 errors([permission_error(open,source_sink,_),existence_error(source_sink,_)]) unsupported
 predicates/open_4/tests.lgt lgt_open_4_41 true(Action==eof_code) existence_error(procedure,:: /2)
 predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(procedure,:: /2)
 predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(procedure,:: /2)
-predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
+predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error(integer_overflow)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition,stream,Stream)) fail
-predicates/setof_3/tests.lgt lgt_setof_3_34 true fail
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
-predicates/stream_property_2/tests.lgt sics_stream_property_2_05c deterministic(Action==reset) fail
-predicates/stream_property_2/tests.lgt sics_stream_property_2_06d deterministic(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_08b true(Action==reset) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_09c true(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_10c true(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_29 true(ground(Position)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Position)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars) text_output_contents/2
-predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) text_output_contents/2
-predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) text_output_contents/1
-predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) text_output_contents/1
-predicates/write_term_3/tests.lgt lgt_write_term_3_088 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_089 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_091 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_095 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_096 true(Assertion) fail
-predicates/write_term_3/tests.lgt sics_write_term_3_103 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_104 error(domain_error(write_option,quoted(fail))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_105 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_106 error(domain_error(write_option,ignore_ops(fail))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_107 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_108 error(domain_error(write_option,numbervars(fail))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_109 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_110 error(domain_error(write_option,variable_names(a))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_111 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_112 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt lgt_write_term_3_113 error(domain_error(write_option,variable_names(['A'=_|a]))) suppress_text_output/0
-predicates/write_term_3/tests.lgt lgt_write_term_3_117 subsumes(['1','.','0'|_],Contents) text_output_contents/1
-predicates/write_term_3/tests.lgt lgt_write_term_3_118 true(Assertion) domain_error(write_option,quoted(false))
-predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_error(write_option,quoted(true))
-predicates/write_term_3/tests.lgt lgt_write_term_3_120 true(Assertion) domain_error(write_option,numbervars(false))
-predicates/write_term_3/tests.lgt lgt_write_term_3_121 true(Assertion) domain_error(write_option,numbervars(true))
-predicates/write_term_3/tests.lgt lgt_write_term_3_122 true(Assertion) domain_error(write_option,variable_names(['Used'=_]))
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_01 true(L==[a,a,a]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
 unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) fail
 unicode/builtins/tests.lgt lgt_unicode_get_char_2_03 true(Char==a) fail
 unicode/builtins/tests.lgt lgt_unicode_open_4_01 true domain_error(stream_option,encoding('UTF-8'))
@@ -143,7 +38,6 @@ unicode/builtins/tests.lgt lgt_unicode_stream_property_2_09 true fail
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_10 true domain_error(stream_property,bom(_))
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
-unicode/builtins/tests.lgt lgt_unicode_format_3_01 true(Assertion) existence_error(procedure,format/3)
 unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Assertion) fail
 別欄:
 control/throw_1 lgt_throw_1_03

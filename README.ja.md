@@ -24,7 +24,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 3（組込述語の拡充）まで終わっています。次はフェーズ 4（モジュール）です。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
+フェーズ 5（準拠率の引き上げと日本語の仕上げ）まで終わっています。次はフェーズ 6（`mosac`）です。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -67,7 +67,7 @@ ctest --preset macos-clang
 mosa [ファイル...] [-g ゴール] [-t halt]
 ```
 
-端末から引数なしで起動すると対話モードになります。`-g` のゴールは末尾に `.` を付けます。
+端末から引数なしで起動すると対話モードになります。`-g` のゴールの末尾の `.` は、SWI-Prolog と同じく付けても省いてもかまいません。読めないゴールは構文エラーを表示し、`-t halt` のときは終了コード 2 で終わります。
 
 ```console
 $ ./build/mosa tests/pl/nrev.pl -g "nrev([1,2,3], R)." -t halt
@@ -113,7 +113,7 @@ X = 太郎.
 
 ## 準拠率
 
-同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）が通りました。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
+同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）、フェーズ 5 の完了時点で 2135 件（98.3%）が通りました。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
 
 準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 

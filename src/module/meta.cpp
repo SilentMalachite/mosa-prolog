@@ -77,7 +77,7 @@ struct BuiltinMeta {
 constexpr auto kBuiltinMeta = std::to_array<BuiltinMeta>({
     {",", 2, "00"},     {";", 2, "00"},      {"->", 2, "00"},  {"*->", 2, "00"}, {"\\+", 1, "0"},
     {"once", 1, "0"},   {"catch", 3, "0?0"}, {"findall", 3, "?0-"}, {"findall", 4, "?0-?"},
-    {"bagof", 3, "?^-"}, {"setof", 3, "?^-"}, {"forall", 2, "00"},
+    {"bagof", 3, "?^-"}, {"setof", 3, "?^-"}, {"forall", 2, "00"}, {"if", 3, "000"},
 });
 
 std::vector<MetaArg> parse_specs(Impl& machine, std::string_view specs) {

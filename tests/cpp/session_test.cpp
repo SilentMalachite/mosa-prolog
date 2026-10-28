@@ -1,10 +1,15 @@
 #include "harness.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/repl.hpp"
 #include "mosa/suite.hpp"
 #include "mosa/writer.hpp"
 
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -194,12 +199,171 @@ void check_consult_twice() {
   mosa_test::check(machine->next().kind == mosa::StopKind::Failure, "twice stops");
 }
 
+// SPEC 第4節。対話で旗を真にすると、次に打つ問い合わせから全角記号で読める。
+void check_fullwidth_query() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args, "set_prolog_flag(japanese_punctuation, true).\nX = f（a，b）。\n", true);
+  mosa_test::check(result.out.find("X = f(a,b).") != std::string::npos, "fullwidth query in the repl");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
 }
 
-int main() {
+// ディレクトリを渡したら、落ちたファイルの後ろも流して全部の失敗を出す。先で止めると後ろの失敗が隠れる。
+void check_runner_reports_every_file() {
+  const std::string dir = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_every";
+  std::filesystem::create_directories(dir);
+  for (const char* name : {"a.pl", "b.pl"}) {
+    std::ofstream file(dir + "/" + name, std::ios::binary);
+    file << "test(" << name[0] << "_fails, fail, true).\n";
+  }
+  std::ostringstream captured;
+  auto* saved = std::cerr.rdbuf(captured.rdbuf());
+  const int code = mosa::run_suite(dir);
+  std::cerr.rdbuf(saved);
+  mosa_test::check(code == 1, "runner every file exit");
+  mosa_test::check(captured.str().find("a.pl: fail") != std::string::npos, "runner reports a.pl");
+  mosa_test::check(captured.str().find("b.pl: fail") != std::string::npos, "runner reports b.pl");
+}
+
+// ADR 0007。捕まらなかった例外の文面は、旗で選んだ言語のカタログから引く。
+void check_uncaught_message(std::string_view lang, std::string_view phrase, std::string_view label) {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "set_prolog_flag(message_language, " + std::string{lang} + "), throw(foo).";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 2, std::string{label} + " exit");
+  mosa_test::check(result.err.find(phrase) != std::string::npos, label);
+}
+
+// CMake はこのテストを LANG=ja_JP.UTF-8 で流す。
+void check_message_language_default() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "current_prolog_flag(message_language, X).";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.out.find("X = ja.") != std::string::npos, "message_language default from LANG");
+}
+
+void check_language_from_lang() {
+  using mosa::MessageLanguage;
+  mosa_test::check(mosa::language_from_lang("ja_JP.UTF-8") == MessageLanguage::Ja, "lang ja_JP");
+  mosa_test::check(mosa::language_from_lang("ja") == MessageLanguage::Ja, "lang ja");
+  mosa_test::check(mosa::language_from_lang("en_US.UTF-8") == MessageLanguage::En, "lang en_US");
+  mosa_test::check(mosa::language_from_lang("C") == MessageLanguage::En, "lang C");
+  mosa_test::check(mosa::language_from_lang(std::nullopt) == MessageLanguage::En, "lang unset");
+}
+
+// SPEC 第4節。日本語の変数の書き方を REPL の help で見せる。
+void check_help_japanese_variables() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto ja = mosa::run_session(args, "set_prolog_flag(message_language, ja).\nhelp.\n", true);
+  mosa_test::check(ja.out.find("_太郎") != std::string::npos, "help ja shows _太郎");
+  mosa_test::check(ja.out.find("下線") != std::string::npos, "help ja text");
+  auto en = mosa::run_session(args, "set_prolog_flag(message_language, en).\nhelp.\n", true);
+  mosa_test::check(en.out.find("underscore") != std::string::npos, "help en text");
+}
+
+// SPEC 第4節。REPL の構文エラーは行、列、問題のトークンを旗の言語で見せる。日本語のトークンも崩さない。
+void check_syntax_shown() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto ja = mosa::run_session(args, "set_prolog_flag(message_language, ja).\n子 親.\n", true);
+  mosa_test::check(ja.err.find("行 1 列") != std::string::npos, "syntax_ja_shown place");
+  mosa_test::check(ja.err.find("親") != std::string::npos, "syntax_ja_shown token");
+  auto en = mosa::run_session(args, "set_prolog_flag(message_language, en).\n子 親.\n", true);
+  mosa_test::check(en.err.find("line 1 column") != std::string::npos, "syntax_en_shown place");
+  mosa_test::check(en.err.find("親") != std::string::npos, "syntax_en_shown token");
+}
+
+// SPEC 第7節。読み込みの診断も旗の言語で出す。日本語の文面は ja のカタログが持つ。
+void check_load_diagnostics_en() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "set_prolog_flag(message_language, en), consult('/no/such/mosa-live.pl').";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto absent = mosa::run_session(args, "", false);
+  mosa_test::check(absent.err.find("/no/such/mosa-live.pl: cannot open file") != std::string::npos,
+                   "missing consult en phrase");
+  auto machine = mosa::Machine::create();
+  static_cast<void>(machine->query("set_prolog_flag(message_language, en)."));
+  const auto gap = machine->load_program("p(1).\nq(1).\np(2).\n");
+  mosa_test::check(!gap.ok && machine->diagnostic().find("clauses of p/1 are not together") != std::string_view::npos,
+                   "gap en phrase");
+  static_cast<void>(machine->query("set_prolog_flag(message_language, ja)."));
+  const auto gap_ja = machine->load_program("r(1).\ns(1).\nr(2).\n");
+  mosa_test::check(!gap_ja.ok && machine->diagnostic().find("述語 r/1 の節が離れている") != std::string_view::npos,
+                   "gap ja phrase");
+}
+
+// CMake は LANG=C でこの関数だけを流す。マシンを作る前の使い方の表示も LANG の言語で出す。
+void check_english_default() {
+  const std::string arg0 = "mosa";
+  const std::string bad = "--no-such-option";
+  std::vector<std::string_view> args{arg0, bad};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 1, "english usage exit");
+  mosa_test::check(result.err.find("mosa: usage: mosa") != std::string::npos, "english usage text");
+}
+
+// CMake は MOSA_LIB を鍵の無い messages_en.pl の置き場にして、この関数だけを流す。
+void check_message_missing_key() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "set_prolog_flag(message_language, en), throw(foo).";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 2, "missing key exit");
+  mosa_test::check(result.err.find("goal_raised: foo") != std::string::npos, "missing key fallback");
+}
+
+// -g のゴールは末尾の . を省いてよい（SWI-Prolog と同じ）。読めないゴールは false. ではなく構文エラーを出す。
+mosa::SessionResult run_goal_arg(const std::string& goal) {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string arg_t = "-t";
+  const std::string halt = "halt";
+  std::vector<std::string_view> args{arg0, arg_g, goal, arg_t, halt};
+  return mosa::run_session(args, "", false);
+}
+
+void check_goal_without_period() {
+  // writeq の出力は本物の標準出力へ行くので、答えの行で見る。
+  const auto bare = run_goal_arg("X = abc");
+  mosa_test::check(bare.code == 0 && bare.out.find("X = abc.") != std::string::npos, "goal without period runs");
+  const auto ended = run_goal_arg("X = abc.");
+  mosa_test::check(ended.code == 0 && ended.out.find("X = abc.") != std::string::npos, "goal with period still runs");
+  const auto comment = run_goal_arg("X = abc % 注");
+  mosa_test::check(comment.code == 0 && comment.out.find("X = abc.") != std::string::npos, "goal ending in a comment");
+  const auto broken = run_goal_arg("foo(");
+  mosa_test::check(broken.code == 2, "broken goal exit");
+  mosa_test::check(broken.out.find("false.") == std::string::npos, "broken goal is not false");
+  mosa_test::check(broken.err.find("構文エラー") != std::string::npos, "broken goal shows syntax error");
+  // 対話では、読めないゴールの後もプロンプトへ進む。例外のときと同じ。
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "foo(";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  const auto tty = mosa::run_session(args, "X = 1.\n", true);
+  mosa_test::check(tty.err.find("構文エラー") != std::string::npos, "tty broken goal shows syntax error");
+  mosa_test::check(tty.out.find("X = 1.") != std::string::npos, "tty broken goal reaches prompt");
+}
+
+int main(int argc, char** argv) {
+  if (argc > 1 && std::string_view{argv[1]} == "english") {
+    check_english_default();
+    return mosa_test::failures();
+  }
+  if (argc > 1 && std::string_view{argv[1]} == "missing") {
+    check_message_missing_key();
+    return mosa_test::failures();
+  }
   check_batch_without_tty();
   check_tty_next_then_prompt();
   check_errors();
@@ -210,6 +374,16 @@ int main() {
   check_dynamic_builtin_rejected();
   check_consult_twice();
   check_resource_limit_session();
+  check_fullwidth_query();
   check_runner();
+  check_runner_reports_every_file();
+  check_uncaught_message("ja", "警告: ゴールは例外を送出しました: foo", "uncaught_ja");
+  check_uncaught_message("en", "Warning: goal raised exception: foo", "uncaught_en");
+  check_message_language_default();
+  check_language_from_lang();
+  check_help_japanese_variables();
+  check_syntax_shown();
+  check_load_diagnostics_en();
+  check_goal_without_period();
   return mosa_test::failures();
 }

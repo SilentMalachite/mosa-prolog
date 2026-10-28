@@ -19,6 +19,10 @@
 
 決定（2026-10-25）: 未決 2 は A。`atom_number/2` を登録し、両方向に変換する。両方とも変数なら `instantiation_error`。アトムから数は `number_chars` と同じ構文解析で、合わない字面は `syntax_error(読み筋)`。数からアトムは引用符なしの `write_term` の文字列。両方とも具体値なら、一致すれば成功し、違えば失敗する。
 
+決定（2026-10-29）: 持ち主は A を選んだ。`number_chars/2` と `number_codes/2` と共有する数の構文解析は、字面ではなく ADR 0007 の鍵で `syntax_error(Key)` を投げる。字句の誤りはその理由の鍵（`integer_overflow`、`bad_escape`、`unterminated_comment` など）、それ以外でちょうど 1 つの数でないものは `unexpected_token`。
+
+決定（2026-10-29）: 持ち主は SWI の振る舞いではなく A を選んだ。具体の第一引数がアトムでなければ `type_error(atom, A)`、具体の第二引数が数でなければ `type_error(number, N)`。`number_chars/2` と同じく、どちらもアトムを読む前に調べる。
+
 ## 8.10 findall/4（非 ISO）
 
 決定（2026-10-25）: `findall(Template, Goal, List, Tail)` は差分リストである。解が無ければ List と Tail を単一化し、Tail を `[]` には束縛しない。第4引数はリストとして検査しない。`findall/3` は末尾が `[]` の `findall/4` である。
@@ -34,6 +38,12 @@
 ## 8.14 書き出しオプション
 
 決定（2026-10-25）: `write/1,2` と `print/1,2` は `numbervars(true)`。`writeq/1,2` は `quoted(true)` と `numbervars(true)`。`write_canonical/1,2` は `quoted(true)` と `ignore_ops(true)`。`write_term` の既定は三つとも偽。同じ論理オプションの値が食い違うときは `domain_error(write_option, 後の項)`。`variable_names` は一回で、名前が変数の綴りでなければ `domain_error(write_option, その対)`。束縛済みの Var は無視する。
+
+`lgt_write_term_3_118` から `122` は、同じオプションを 2 度書いたとき後の方が勝つことを期待する。`[quoted(true), quoted(false)]` は `A` を書き、`[numbervars(true), numbervars(false)]` は `$VAR(0)` を書き、2 つ目の `variable_names/1` を使う。`lgt_open_4_41`（今は `os::` で止まっている）は `open/4` のオプション `eof_action/1` にも同じことを期待する。上の決定は `domain_error(write_option, LaterTerm)` である（`tests/pl/write.pl` の `opt_conflict`）。調べた範囲では、規格の文面（書き出しオプションの 7.10.4、ストリームのオプションの 7.10.2.11）は、オプションを繰り返したときのことを言っていない。
+
+A か B か: A は `domain_error(write_option, LaterTerm)` のまま（今の決定。5 行は不合格のまま）。B は後のオプションが勝つ。スイートが `write_term/3` と `open/4` に仮定するとおりにし、`opt_conflict` を決定と同じコミットで直す。
+
+決定（2026-10-28）: B。繰り返した書き出しオプションは後の方が勝つ。どの出現も検査はするので、`[quoted(true), quoted(foo)]` は `domain_error(write_option, quoted(foo))` になる。2 つ目の `variable_names/1` は 1 つ目を置き換える。2026-10-25 の決定のうち「`domain_error(write_option, LaterTerm)`」と「`variable_names` は一回」をこれで置き換える。8.14.2.3 が `domain_error(write_option, E)` にするのは要素が正しい書き出しオプションでないときだけで、繰り返した要素はどれも正しい。`open/4` はすでに後の `type/1`、`reposition/1`、`eof_action/1` を勝たせている。テストは `tests/pl/write.pl` の `opt_repeat_*`。
 
 ## 8.14.3 op/3
 
@@ -75,9 +85,17 @@
 
 決定（2026-10-26）: 指示だけである。引数は述語指示子かそのリストで、`dynamic/1` と同じである。コンマで並べた列は指示子ではない。同じテキストで、隙間より前に宣言した述語だけ、節が離れてよい。宣言が無ければ診断は `述語 名前/アリティ の節が離れている` のまま。宣言は手続きを作らない。節が無ければ `current_predicate/1` は失敗し、呼び出しは `existence_error` である。宣言は次の読み込みへ残さない。次の `consult` はその述語を置き換える。別のアリティや別の述語の隙間は許さない。
 
+`syntax/directives/discontiguous_1`（5 行）は、カンマで区切った並び `:- discontiguous((b/1, c/2)).` を書いており、上の決定がそれを拒むので（「述語指示子ではありません」）読み込みに失敗する。同じファイルの単独とリストの形は読め、`tests/pl/directives.pl` の `dc_arity2` から `dc_arity4` がその形を確かめる。私たちの読みでは、7.4.2 は `dynamic/1`、`multifile/1`、`discontiguous/1` の引数に述語指示子、述語指示子の並び、述語指示子のリストを認める。ただし条文そのものは確かめていない。`dynamic/1` と `multifile/1` も同じく並びを拒む。
+
+A か B か: A は決定のまま（指示子かリストだけ。5 行は不合格のまま）。B は 3 つの指示すべてでカンマの並びも受け付け、各要素は同じ検査をする。確認前は A のまま。
+
+決定（2026-10-28）: B。`dynamic/1`、`multifile/1`、`discontiguous/1` はカンマで区切った並び `(p/1, q/2)` も受け付ける。各要素は述語指示子でなければならず、同じ検査をする。並びの中のリストや誤った要素は、同じ診断で読み込みを失敗させる。2026-10-26 の `discontiguous/1` と `multifile/1` の決定のうち「コンマで並べた列は指示子ではない」をこれで置き換える。テストは `tests/pl/directives.pl` の `dc_seq_*`、`dyn_seq_*`、`mf_seq` と、`tests/cpp/machine_test.cpp` の "comma sequence"。
+
 ## 7.4.2 multifile/1
 
 決定（2026-10-26）: 指示だけである。引数は述語指示子かそのリストで、`dynamic/1` と同じである。コンマで並べた列は指示子ではない。`モジュール:PI` はフェーズ4まで書かない。宣言は手続きを作らない。節が無ければ `current_predicate/1` は失敗し、呼び出しは `existence_error` である。宣言は次の読み込みへ残す。残った述語は、次の読み込みが節を足し、置き換えない。同じテキストを二度読むと節は倍になる。宣言が無い述語は置き換わり、解は倍にならない。この読み込みの最初の節より後の宣言は、その読み込みの置き換えを戻さない。その宣言は残り、その次の読み込みは足す。別のアリティや別の述語は足さない。失敗した読み込みは、足した節と宣言を戻す。動的のままの述語は、足しても動的のままである。隙間は許さず、診断は `述語 名前/アリティ の節が離れている` のまま。
+
+決定（2026-10-28）: カンマの並びを受け付ける。7.4.2 discontiguous/1 を参照。
 
 ## 7.4.2 initialization/1
 
@@ -94,6 +112,8 @@
 ## 7.4.2 [File]
 
 決定（2026-10-26）: 指示だけである。本体がリストのとき、各アトムを `consult` と同じ手続きで左から読む。空リストは何もしない。要素の `[]` はファイル名である。部分リストと、要素の変数は `instantiation_error`。変数が一つでもあれば型より先である。要素がアトムでなければ `type_error(atom, その要素)`。閉じたリストでなければ `type_error(list, その項)`。`:- X.` はリストではない。相対パスは、その指示があるファイルのディレクトリから開く。文字だけの load は、渡されたパスのまま開く。開けないときは `パス: ファイルを開けません` で失敗し、節を戻す。節は親のテキストに継がない。別の述語を読んでも、親の節は離れない。`consult` は述語を置き換え、同じパスをもう一度読むと初期化ももう一度実行する。そのあとの `ensure_loaded` は読み直さない。親がすでに見た述語へは、そのあとの節を足す。親がまだ見ていない述語は、そのあとの節が置き換える。自分自身を開くと `ファイルが循環しています` で失敗し、節は戻す。初期化の例外は節を残し、後の節と初期化は読まない。リストの途中でそれ以外の失敗をしたときは、それより前に置き換えた節も戻す。
+
+決定（2026-10-29）: ADR 0007。上の文面は `ja` のカタログのものである。開けないファイルは鍵 `cannot_open_file`、循環は `file_cycle` で、どちらもパスを引数に取る。英語の文面は `messages_en.pl` が持つ。それ以外の上の決定は変えない。
 
 ## 7.11 旗 debug
 
@@ -114,6 +134,12 @@
 ## 第4節 旗 japanese_punctuation
 
 決定（2026-10-25）: 未決 13 は A。`set_prolog_flag(japanese_punctuation, true)` は値として `true` を保存する。字句解析は変えない。
+
+決定（2026-10-28）: フェーズ5で旗を字句解析に効かせる（SPEC 第4節の表）。引用、注釈、`0'c` の外では `（）［］，、：` を `()[],,:` として読む。`。` は後ろが配置文字か入力の終わりのときだけ終止符で、それ以外は記号文字のまま。だから `1。5` は小数にならない。`「` は引用原子を開き、`」` が閉じる。旗はファイルごと（SPEC 第5節）で、指令の次の節から効く。
+
+## 第7節 旗 message_language
+
+決定（2026-10-28）: ADR 0007（持ち主が承認）。実装定義の旗（7.11.3）で、`ja` か `en` を取り、変えられる。他の原子は `domain_error(flag_value, message_language+V)`。既定は `LANG` が `ja` で始まれば `ja`、それ以外は `en`。最上位の表示のカタログを選ぶだけで、誤りの項は変えない。
 
 ## 7.11 旗 version
 
@@ -139,6 +165,8 @@
 
 決定（2026-10-25）: 既定の `eof_action` は `eof_code`。終端の次の読みは、テキストが `end_of_file`、バイナリが `-1`。`eof_action(reset)` は別途選べる。
 
+2026-10-28 から `user_input` だけは例外で、`eof_action(reset)` を持つ（下の「8.11 標準ストリームの性質」）。
+
 ## 8.11 空の入力
 
 決定（2026-10-25）: 位置が源の長さと等しいとき `end_of_stream` は `at`。空の入力を開いた直後は `at`。
@@ -161,6 +189,8 @@ Logtalk の `lgt_call_1_17` と `lgt_call_1_18` は、節の無い `fenix/1`（m
 
 A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手続きがあり、節が無ければ `call/1` は失敗する。確認前に B は実装しない。
 
+決定（2026-10-28）: B。`multifile/1` か `discontiguous/1` の指示だけで節の無い手続きになり、`unknown=error` でも呼べば失敗する。変わるのは呼び出しだけである。`current_predicate/1` は今もこの述語を挙げず、`assertz/1` は今も動的な述語として作るので、multifile のフックへ節を足せる。失敗した読み込みは、ほかと一緒にこの宣言も戻す（`src/machine/load.cpp` の `declared_only`、`tests/pl/directives.pl` の `*_only_call*` と `mf_hook_assert`、`tests/cpp/machine_test.cpp`）。
+
 ## 8.11.1.3 current_input のドメイン
 
 決定（2026-10-26）: A。`current_input/1`、`current_output/1`、`stream_property/2` に流れでも別名でもない項を渡すと `domain_error(stream_or_alias, S)`。テスト `input_bad`、`output_bad`、`prop_bad_stream`。別名 `user_input` は `current_input(user_input)` で成功する。領域に別名が入るので、Formal は `stream` ではなく `stream_or_alias`。8.11.1.3 a と 8.11.8.3 a の `domain_error(stream, S)` からの逸脱として残す。`set_input/1` など、もとから `stream_or_alias` の述語は変えない。
@@ -173,6 +203,8 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 
 決定（2026-10-26）: 許可は待たない。`inriasuite.pl` は再配布の許諾が無いので同梱しない。フェーズ3の準拠スイートは Logtalk の `tests/prolog` を、コミット `4decb64b598feff542a926a085eef01ec51f5a72` のまま `tests/conformance/logtalk/prolog` に置く。ライセンスはリポジトリと同じ Apache-2.0 で、著作権表示は残す。ファイルは改変しない。仕様第9節の 90% はこのスイートで測る。合格率はこの決定では出さない。
 
+決定（2026-10-28）: A。試験器が 6 ライブラリを取り込むようになったが、別欄のディレクトリ（`between_3`、`succ_2`、`plus_3`、`format_2`、`format_3`、`atomic_list_concat_2`、`atomic_list_concat_3`）はフェーズ5の間は実行しない。分母は 2171 のままにし、フェーズ5の出口は同じ基準値（2041）と比べる。これらの述語は `tests/pl/` のライブラリのテストが確かめる。
+
 ## ライセンス
 
 決定（2026-10-26）: リポジトリは Apache-2.0 に揃える。本文は `LICENSE`。Mosa の著作権表示は `Copyright 2026 Mosa Prolog contributors` で、`NOTICE` に置く。Logtalk のテストも同じライセンスで、著作権は Paulo Moura の表示のままである。
@@ -183,11 +215,15 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 
 A か B か: A は 9.3.1.3.d の文面どおり `evaluation_error(undefined)`。B はエラータのとおり `evaluation_error(zero_divisor)`。確認前に `float_overflow` は変えない。
 
+決定（2026-10-28）: A。0（整数、`0.0`、`-0.0`）の負の冪は、`(**)/2` でも浮動小数点数の `(^)/2` でも `evaluation_error(undefined)` にする。整数の `(^)/2` は以前からそうである。`float_undefined` 旗が `error` でないときは、ほかの undefined と同じく NaN を返す（`src/builtins/arith.cpp` の `eval_float_bin`、`tests/pl/arith.pl` の `pow_zero_*`）。
+
 ## 7.5.4 開いた走査と retract
 
 `logical_update_semantics_retract` は、走査の途中で `retract` しても、呼んだときの節を最後まで試すことを期待する。`retractall` と `abolish` の同じ形も同じである。ADR 0004 は、retract が以後の候補からその節を外し、今の節の残りは残す、と決めている。`tests/pl/database.pl` の `retract_open_later` は `[X = 1, X = 2]` であり、消した `later(3)` は出てこない。
 
 A か B か: A は ADR 0004 のまま、開いた走査から消した節を外す。B は 7.5.4 のとおり、その呼出しは最初の列を試す。確認前に A のままにする。
+
+決定（2026-10-28）: B。設計は ADR 0008 に書き、ADR 0004 の retract と abolish の部分を置き換える。ADR 0008 は 2026-10-28 に承認し、実装した（死んだ節は `src/builtins/database.cpp`。`tests/pl/database.pl` の `lu_*` と `retract_open_later`、`tests/pl/solutions.pl` の `scan_retract` は、呼んだ時点の節をすべて期待する）。
 
 ## 8.11.8 reposition(false) の position
 
@@ -195,17 +231,23 @@ A か B か: A は ADR 0004 のまま、開いた走査から消した節を外�
 
 A か B か: A は性質を出さない（今の実装。ゴールは失敗する）。B は `position/1` を出してから `permission_error` にする。確認前は A のまま。B は実装しない。
 
+決定（2026-10-28）: A。位置を戻せないストリームは `position/1` を返さない。返しても使い道が無い。`sics_set_stream_position_2_06` は解釈の違いとして不合格のまま残し、`tests/cpp/stream_test.cpp` の「no position」も変えない。
+
 ## memberchk/2 と iso_stream_property_2_01
 
 `memberchk/2` は `library(lists)` であり、フェーズ 3 の組込にはしない。`iso_stream_property_2_01` の表明は、テストファイルにある補助節を、その時点の利用者の節として実行する。行を `fail` のままにする、という読みは撤回する。
 
 A か B か: A は組込の `memberchk/2` を足さない。B は組込として足す。確認前は A。B は実装しない。
 
+閉じた（2026-10-28）: フェーズ 5 のタスク 2 からスイートの実行器が `library(lists)` をテスト用の機械へ取り込むので、`iso_stream_property_2_01` は組込の `memberchk/2` 無しで合格する。この問いで決まる行はもう無いので取り下げ、何も足さない。
+
 ## 8.11.1 閉じた流れの current_input と current_output
 
 `sics_current_input_1_04` は、閉じた入力流れ `S` に `current_input(S)` を呼び、`domain_error(stream, S)` を期待する。実際は `existence_error(stream, '$stream'(3))`。`sics_current_output_1_04` は閉じた出力流れへの `current_output(S)` で、同じ食い違いである。8.11.1.3 と 8.11.2.3 が書く `domain_error(stream, Stream)` は、変数でも流れでもない項である。閉じた流れの項は流れの項のままなので、開いていない流れの `existence_error(stream, S)`（`set_input/1` の 8.11.3.3 と同じ Formal）にしている。`tests/pl/stream_prop.pl` の `set_closed` と `out_closed`、読み書きの閉じた流れも同じ Formal である。流れでない項の `stream_or_alias`（上の 8.11.1.3 の決定）は変えない。
 
 A か B か: A は閉じた流れの `current_input/1` と `current_output/1` が `existence_error(stream, S)`（今の実装）。`sics_current_input_1_04` と `sics_current_output_1_04` は残る。B は `domain_error(stream, S)`。確認前は A。B は実装しない。
+
+決定（2026-10-28）: B。`current_input/1` と `current_output/1` は、閉じた流れの項に `domain_error(stream, S)` を投げる。8.11.1.3 と 8.11.2.3 が挙げる誤りはこれだけである。`'$stream'(99)` のように一度も流れでなかった項は今も `existence_error(stream, S)`、変数でも流れでもない項は今も `domain_error(stream_or_alias, S)`（上の 8.11.1.3 の決定）。ほかの組込は、閉じた流れに今も `existence_error(stream, S)` を投げる（`src/builtins/stream_prop.cpp` の `match_current`、`tests/pl/stream_prop.pl` の `input_closed` と `output_closed`）。
 
 ## 第5節 自動取り込み
 
@@ -354,3 +396,143 @@ SPEC 第5節は、`op/3` を宣言したモジュールに閉じ、公開リス�
 A か B か: A は、モジュールの中の `op(0, T, N)` がそのモジュールの中だけ `user` と ISO の核の同じ類の演算子を隠す（SWI-Prolog と同じ）。公開の演算子は `use_module/1`、`except(...)`、consult したモジュールのファイルで入り、取り込みリストでは入らない。B は、`op(0, T, N)` がそのモジュール自身の定義だけを消し、公開の演算子はどの取り込みでも入る。
 
 決定（2026-10-28）: どちらも A。引く順はモジュールの固有層、次に `user` の表（ISO の核を含む）。`op/3`、`current_op/3`、`read_term/2,3` と `write` の仲間は呼び手の文脈モジュールを使う。モジュールのファイルの `:- op` 指令はそのモジュールへ入る。`user` へ取り込んだ演算子は `user` の表に入るので、すべてのモジュールから見える。
+
+## 7.4.2.8 ファイルごとの旗と initialization/1
+
+SPEC 第5節は、`double_quotes` と `japanese_punctuation` を読み込むファイルごとに戻す。7.4.2.8 は `initialization/1` のゴールを Prolog テキストの準備が終わった後に実行するが、そのファイルが設定した旗が見えるかは決めていない。
+
+A か B か: A は、旗を戻す前にゴールを実行し、ファイルの旗のまま見せる。B は、先に旗を戻し、読み込み直後のクエリと同じ旗を見せる。
+
+決定（2026-10-28）: B。ファイル自身の項はすでにその旗で読まれている。違いが出るのは、ゴールが実行中に読むものと `current_prolog_flag/2` だけである。ファイルの書式で読みたいゴールは、自分で旗を設定する。
+
+## 第5節 負の整数を受けた succ/2
+
+`succ/2` は規格に無い。フェーズ4の計画は SWI-Prolog と同じ `type_error(not_less_than_zero, -1)` を期待し、Logtalk のスイート（`lgt_succ_2_09`、`lgt_succ_2_10`）は `domain_error(not_less_than_zero, -1)` を期待する。
+
+A か B か: A は `length/2` と同じ `domain_error(not_less_than_zero, N)`。B は `type_error(not_less_than_zero, N)`。
+
+決定（2026-10-28）: A。`not_less_than_zero` は 7.12.2 c の領域であり、`length/2` もすでに領域の誤りとして投げている。
+
+## 第5節 format/2 の誤り
+
+`format/1,2,3` は規格に無い。Logtalk のスイート（`format_2`）は引数の誤りを ISO の形で決めている。`~c`、`~d`、`~e`、`~f`、`~n` と `~*` の回数や数の引数は `is/2` と同じく評価し、`~d` は整数の結果を要し（`type_error(integer, X)`）、`~a` は原子を要する（`type_error(atom, X)`）。引数の不足と余りには、どの `domain_error(_, _)` でも受ける。
+
+A か B か: A は問題ごとの Formal。引数が尽きたら `domain_error(non_empty_list, [])`、残ったら `domain_error(empty_list, 残り)`、未知の指示の文字 `C` は `domain_error(format_directive, C)`（末尾の単独の `~` は `'~'`）。B は 3 つとも `domain_error(format_control, Format)` で、書式全体を罪人にする。
+
+決定（2026-10-28）: A。`non_empty_list` は 7.12.2 c の領域であり、罪人からどこが悪いかが分かる。負の回数は `length/2` と同じく `domain_error(not_less_than_zero, N)`。
+
+## 第4節 format/2 の埋め草の字を幅で数える
+
+SPEC 第4節は `~t~|` の桁を東アジア幅で数える。幅 2 の埋め草の字（``~`漢t``）では、奇数の桁をちょうど埋められないことがある。``~`漢t~5|`` は `漢` を 2 つ置くと 1 桁余る。
+
+A か B か: A: 入るだけ埋め草の字を置き、余った桁は空白で埋めて桁位置を守る。B: 埋め草の字をもう 1 つ置き、桁位置を 1 つはみ出す。
+
+決定（2026-10-29）: A。`~|` が約束するのは桁位置で、SPEC 第4節はそれを幅で測る。幅 0 の埋め草の字は幅 1 として数え、埋め草が必ず尽きるようにする。
+
+## 7.9.1 関数子と引数のどちらの誤りを先に出すか
+
+`X is foo(bar)` では `foo/1` も `bar/0` も評価できない。7.12.1 は 2 つの誤りの条件のどちらを出すかを処理系に任せる。Mosa は引数を先に評価して `bar/0` を出していた。Logtalk のスイート（`format_2` の `foo(bar)` を渡す `~d` と `~f`）は `foo/1` を期待する。
+
+A か B か: A は今のまま引数を先に評価する（`type_error(evaluable, bar/0)`）。B は引数を評価する前に主関数子を確かめる（`type_error(evaluable, foo/1)`）。
+
+決定（2026-10-28）: B。7.9.1 は主関数子が評価できるかで分かれてから引数を評価する。外側の関数子が悪ければ、引数に手を付ける前に止まる。
+
+## 第5節 結果が数の atomic_list_concat/2,3
+
+`atomic_list_concat/2,3` は規格に無い。Logtalk のスイート（`atomic_list_concat_2`、`atomic_list_concat_3`）は結果の引数が複合項なら `type_error(atom, a(1))` を期待するが、`atomic_list_concat([1, 2], 12)` の `12` のような数の扱いは決めていない。
+
+A か B か: A は `type_error(atom, 12)`。結果の引数は変数か原子に限る。B は文字として比べ、成功させる。
+
+決定（2026-10-28）: A。8.16.2.3 は `atom_concat/3` の第3引数に同じ決まりを置いており、Logtalk の複合項の場合とも揃う。
+
+## 第5節 空の区切りで分ける atomic_list_concat/3
+
+`atomic_list_concat/3` が分けるとき（リストが決まっておらず原子が決まっているとき）、区切りが空の `''` では分け方が 1 つに決まらない。
+
+A か B か: A は `domain_error(non_empty_atom, '')`。B は失敗させるか、1 文字ずつに分ける。
+
+決定（2026-10-28）: A。黙って失敗するより誤りの方が何が悪いかを伝え、1 文字ずつ分けるのは `atom_chars/2` の仕事である。
+
+## 第5節 as の別名を通した節操作
+
+`use_module(別源, [静/1 as 静か])` の後の `assertz(静か(2))` は、別名 `静か/1` を通して静的な手続き `別源:静/1` を変えようとする。8.9.1.3 は `permission_error(modify, static_procedure, PI)` で手続きを示すが、呼び手が別名でたどり着いたときにどちらの名前を使うかは決めていない。
+
+A か B か: A は取り込み元の手続き `別源:静/1`。別名でない取り込み（`家系:親/2`）と同じ形。B は呼び手が書いた別名 `静か/1`。
+
+決定（2026-10-28）: A。誤りは変えられない手続きについてのもので、別名はその手続きの別の名前にすぎない。別名でない取り込みはすでに取り込み元を出しており、罪人のモジュールから、どの宣言を dynamic にすればよいかが分かる。
+
+## 第3節 if/3
+
+`if/3` は規格にも SPEC 第3節にも無い。`control/if_3` の 12 件はこれを呼び、`existence_error(procedure, if/3)` になる。
+
+A か B か: A は SPEC 外なので実装せず、12 行は不合格のまま残す。B は SPEC 第3節に `if/3` を足して実装する。確認前は A のまま。
+
+決定（2026-10-28）: B。`if/3` は `system` の組込とし、SPEC 第7節の段階 A で `*->/2` の隣に挙げる。`if(C, T, E)` は呼び手の文脈モジュールで `(C *-> T ; E)` を走らせる。`call/1` と同じく、どの引数の切断も内に閉じ、呼べない引数があれば何も走らせる前に `type_error(callable, if(C, T, E))` を投げる（`src/builtins/control.cpp` の `run_if`、`tests/pl/control.pl` の `if_*`）。
+
+## 第3節 旗 dialect と version_data
+
+旗 `dialect` と `version_data` は 7.11 にも SPEC 第3節にも無い。`commons_current_prolog_flag_2_16` から `18` は `domain_error(prolog_flag, dialect)` と `domain_error(prolog_flag, version_data)` になる。
+
+A か B か: A は SPEC 外なので実装せず、3 行は不合格のまま残す。B は SPEC 第3節に `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）を足して実装する。確認前は A のまま。
+
+決定（2026-10-28）: B。どちらも変更できない旗とし、SPEC 第3節の 7 に挙げる。`version_data` の番号は `include/mosa/version.hpp` から取り、`mosa --version` も同じ番号を使う。どちらかを設定すると、値の形が合えば（原子、または引数 4 個の複合項）`permission_error(modify, flag, F)`、合わなければ `domain_error(flag_value, F+V)` になる（`src/builtins/flags.cpp`、`tests/pl/flags.pl` の `flag_dialect*` と `flag_version_data*`）。
+
+## 第4節 ストリームの符号化と BOM
+
+`unicode/builtins` の不合格 21 行は、IANA の名前 `'UTF-8'`、BOM、バイナリの流れに符号化が無いことを期待する。SPEC 第4節と第3節の 7 はすでに旗 `encoding` を `utf8` に固定し、すべての流れに既定が `utf8` の `encoding` 選択肢を与えており、Mosa はそれに従う。`current_prolog_flag(encoding, utf8)` であり、`open/4` は `encoding(utf8)` を受け付け、バイナリの流れも `encoding(utf8)` を出す。そのため `open/4` に `encoding('UTF-8')` を渡すと `domain_error(stream_option, encoding('UTF-8'))` になり、`lgt_unicode_current_prolog_flag_2_02` は名前で失敗し、`lgt_unicode_stream_property_2_07` と `09` はバイナリの流れが `encoding/1` を出すので失敗する。`open/4` の選択肢 `bom/1`、流れの性質 `bom/1`、テキストの流れを読むときの BOM の読み飛ばしは、規格（7.10.2）にも SPEC にも無い。
+
+A か B か: A は SPEC のまま（名前は `utf8` だけ、すべての流れが `encoding/1` を出す、BOM は扱わない）で、21 行は不合格のまま残す。B は SPEC 第4節を改め、`'UTF-8'` を別名として受け付け、バイナリの流れから `encoding/1` を外し、選択肢と性質の `bom/1` を足し、テキストの入力で BOM を読み飛ばしてから実装する。確認前は A のまま。
+
+決定（2026-10-28）: A。これらの選択肢、性質、名前は規格の外であり、SPEC はすでにすべての流れの符号化を `utf8` に固定している。21 行は解釈の違いとして不合格のまま残す。テキストの入力での BOM の読み飛ばしは、タスク 15 で別に問うことがある。
+
+## 9.3.10.3 (^)/2 の負の整数の指数
+
+`iso_integer_power_2_06` は `2^(-1)` が `type_error(float, 2)` になることを期待する。`src/builtins/arith.cpp` は Corrigendum 2 の 9.3.10.3 e を、指数が -1 より小さいときだけ float の型エラーと読み、`2^(-1)` は `evaluation_error(undefined)` にしている。
+
+A か B か: A は今の読みのまま（`evaluation_error(undefined)`）。B は 1 と -1 以外の整数の底に負の整数の指数なら `type_error(float, Base)`。確認前は A のまま。
+
+決定（2026-10-28）: B。0、1、-1 以外の整数の底に負の整数の指数なら `type_error(float, 底)` を投げ、`2^(-1)` も同じにする。`1^N` は 1、`(-1)^N` は `N` の偶奇で 1 か -1、`0^N` は今のまま `evaluation_error(undefined)`（9.3.10.3 d。9.3.1.3 d の決定と同じ）。`tests/pl/arith.pl` の `hat_neg` は、同じコミットで `undefined` から型の誤りに変える（`src/builtins/arith.cpp` の `negative_hat`）。
+
+## 8.11 標準ストリームの性質
+
+`sics_stream_property_2_05c` と `lgt_stream_property_2_08b` は、`user_input` が `eof_action(reset)` を出すことを期待する。`sics_stream_property_2_06d`、`lgt_stream_property_2_09c`、`lgt_stream_property_2_10c` は、`user_output` と `user_error` が `mode(append)` を出すことを期待する。Mosa は `eof_action(eof_code)`（「8.11 終端の次の読み」の既定）と `mode(write)` を出す。
+
+A か B か: A は `eof_code` と `write` のまま。B は `user_input` を `eof_action(reset)`、`user_output` と `user_error` を `mode(append)` にする。確認前は A のまま。
+
+決定（2026-10-28）: B。`user_input` は `eof_action(reset)` を返し、そのとおりに動く。終わりの後に読むと、終わりの印を下ろして OS にもう一度尋ねる。読んだ分は繰り返さないので、端末は Ctrl-D の後も読み続けられ、パイプは `end_of_file` を返し続ける。`user_output` と `user_error` は `mode(append)` を返す。`tests/pl/stream_prop.pl` の `all_std` と `tests/pl/write.pl` の `capture_leaves_output` は同じコミットで変える（`src/builtins/streams.cpp` の `standard_stream`、`src/builtins/chars.cpp` の `reset_at_end`、`tests/cpp/stream_test.cpp` の「standard reset」）。
+
+## 仕様第4節 So の文字は記号文字
+
+`lgt_unicode_escape_sequence_full_05` は `writeq('🀙🀚🀛🀜🀝🀞🀟🀠')` が原子を引用することを期待する。SPEC 第4節は `So` の非 ASCII 文字を記号文字にするので、この 8 文字は記号文字の原子（6.4.2）になり、`writeq`（7.10.5）は引用せずに書く。この行は解釈の違いとして不合格のまま残す。承認済みの SPEC に従うので、未決の問いは無い。
+
+## 7.10.5 a 1 度だけ出る変数の書き方
+
+`lgt_write_term_3_043`、`044`、`065`、`066` は、書いた変数が `_` の後に 1 文字以上続くことを期待する。Mosa は項の中に 1 度だけ出る変数を `_` だけで書き、2 度以上出る変数を `_G` と番号で書く（`f(_G1,_G1,_)`）。7.10.5 a は、変数の字面は処理系依存で `_` で始まるとだけ言う。
+
+A か B か: A は 1 度だけ出る変数を `_` のままにする（今のライタ）。B はすべての変数に `_G1` のように `_` の後 1 文字以上の名前を付ける。確認前は A のまま。
+
+決定（2026-10-28）: B。書き手は名前の無い変数すべてに、出てきた順で `_G` と番号を付ける。番号は書き出しごとに 1 から振る（`f(_G1,_G2,_G1)`）。スイートの実行器は項を字面に書き、貼り合わせて読み直す。1 度だけ出る変数は読むたびに新しい変数になることに頼っているので、新しい `WriteOptions::underscore_once` を真にして、その変数を `_` のまま書く。`src/read/roundtrip.cpp` の読み戻しの検査は、書き手が付けた名前を無名として比べる。`tests/pl/write.pl` の `write_fresh` と `tests/cpp/writer_test.cpp` の「single unnamed」は同じコミットで変える（`src/write/writer.cpp` の `var_text`、`src/machine/lgt_suite.hpp` の `lgt_write_options`、`tests/cpp/suite_vars_test.cpp` の `fresh_*`）。
+
+## 9.1.6 丸め関数に整数を渡したとき
+
+`lgt_ceiling_1_05`、`lgt_floor_1_06`、`lgt_round_1_13`、`lgt_truncate_1_06`、`lgt_float_integer_part_1_04`、`lgt_float_fractional_part_1_04` は、`X is floor(9)` などが `type_error(float, 9)` になることを期待する。9.1.6 は `floor`、`ceiling`、`round`、`truncate` の型を F → I、`float_integer_part` と `float_fractional_part` の型を F → F と定めるので、整数の引数は型の誤りになる。Mosa は前の 4 つでは整数をそのまま返し（`floor(9) = 9`）、後の 2 つでは浮動小数点数を返す（`float_integer_part(9) = 9.0`）。SPEC はこれらの評価子を挙げるが、引数の型には触れていない。
+
+A か B か: A は 9.1.6 に従い、6 つすべてで整数の引数に `type_error(float, N)` を投げる。B は今のまま整数を受け付ける。確認前は B のまま。
+
+決定（2026-10-28）: A。この 6 つに整数を渡すと `type_error(float, N)` を投げる。`N` は評価した後の値である（`floor(4 + 5)` は `type_error(float, 9)`）。`integer/1` はこの 6 つに含まれず、今も整数を受け付ける（`src/builtins/arith.cpp` の `float_only`、`tests/pl/arith.pl`）。Mosa にはまだ `iso` 旗が無いので、どのモードでもこの動きになる。
+
+## 9.1.6 round/1 の負の半分
+
+`eclipse_round_1_07` と `08` は、`round(-3.5)` が `-3`、`round(-4.5)` が `-4` になることを期待する。9.1.6 は `round(x)` を `floor(x + 1/2)` と定めるので、ちょうど半分は正の無限大の側へ丸まる。Mosa は `std::round` を使っており、半分を 0 から遠い側へ丸めるので `-4` と `-5` を返す。正の半分はどちらでも同じ結果になる（`round(2.5) = 3`）。
+
+A か B か: A は今のまま半分を 0 から遠い側へ丸める（`round(-2.5) = -3`）。B は 9.1.6 に従い `floor(x + 1/2)` にする（`round(-2.5) = -2`）。確認前は A のまま。
+
+決定（2026-10-28）: B。`round/1` は 9.1.6 に従い、ちょうど半分を正の無限大の側へ丸める。端数は `floor(x)` を引いて取り出す。この引き算は誤差を生まないので、`0.49999999999999994` や 2^52 を超える奇数で丸めが二重に起きない（`src/builtins/arith_float.cpp`、`tests/pl/arith.pl` の `round_*`）。
+
+## 第4節 「…」の引用原子の中
+
+SPEC 第4節は `「` `」` を引用原子の始めと終わりに写し、入れ子にできないとだけ書く。中のどの文字が特別かは決めていない。
+
+A か B か: A: `'…'`（6.4.2）と同じ規則。`\` のエスケープが効き、`」」` は `」` 1 字、生の改行は誤り、`'` は普通の文字。B: エスケープなし。最初の `」` までの文字を書いたとおりに取り、中に `」` は書けない。
+
+決定（2026-10-28）: A。`「…」` は `'…'` のエスケープを使い、引用符の役は `」` が持つ。だから `」」` は `」` 1 字で、`'` は普通の文字。

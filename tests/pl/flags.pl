@@ -20,3 +20,23 @@ test(flag_bounded_same, set_prolog_flag(bounded, true), error(permission_error(m
 test(flag_max_arity_modify, set_prolog_flag(max_arity, 40), error(permission_error(modify, flag, max_arity))).
 test(flag_max_arity_atom, set_prolog_flag(max_arity, foo), error(domain_error(flag_value, max_arity+foo))).
 test(flag_quotes_bad, set_prolog_flag(double_quotes, foo), error(domain_error(flag_value, double_quotes+foo))).
+test(flag_ja_punct_set, (set_prolog_flag(japanese_punctuation, true), current_prolog_flag(japanese_punctuation, V), set_prolog_flag(japanese_punctuation, false)), solutions([V = true])).
+
+% iso-notes「Section 3 Flags dialect and version_data」の決定 B。どちらも変えられない処理系定義の旗。
+test(flag_dialect, current_prolog_flag(dialect, mosa), true).
+test(flag_version_data, current_prolog_flag(version_data, mosa(0, 0, 1, [])), true).
+test(flag_dialect_listed, (current_prolog_flag(F, mosa), F == dialect), true).
+test(flag_dialect_modify, set_prolog_flag(dialect, swi), error(permission_error(modify, flag, dialect))).
+test(flag_dialect_value, set_prolog_flag(dialect, 1), error(domain_error(flag_value, dialect+1))).
+test(flag_version_data_modify, set_prolog_flag(version_data, mosa(9, 9, 9, [])), error(permission_error(modify, flag, version_data))).
+test(flag_version_data_value, set_prolog_flag(version_data, x), error(domain_error(flag_value, version_data+x))).
+
+% SPEC 第3節 7 の旗 version。値は Major*10000 + Minor*100 + Patch の整数で、変えられない（持ち主の決定 A、2026-10-28）。
+test(flag_version, current_prolog_flag(version, 1), true).
+test(flag_version_listed, (current_prolog_flag(F, 1), F == version), true).
+test(flag_version_modify, set_prolog_flag(version, 2), error(permission_error(modify, flag, version))).
+test(flag_version_value, set_prolog_flag(version, x), error(domain_error(flag_value, version+x))).
+% 旗 message_language（ADR 0007）。既定は LANG で決まるので、値は ja か en のどちらか。
+test(ml_current, (current_prolog_flag(message_language, V), (V == ja ; V == en)), true).
+test(ml_set, (current_prolog_flag(message_language, Old), set_prolog_flag(message_language, en), current_prolog_flag(message_language, V), set_prolog_flag(message_language, Old)), solutions([V = en])).
+test(ml_values, set_prolog_flag(message_language, fr), error(domain_error(flag_value, message_language+fr))).

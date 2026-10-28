@@ -31,7 +31,7 @@ std::uint64_t Heap::word_at(std::size_t index) const { return words_[index]; }
 void Heap::set_word(std::size_t index, std::uint64_t value) { words_[index] = value; }
 
 std::uint64_t* Heap::allocate(std::size_t count) {
-  if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("ヒープの上限を超えました");
+  if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("heap_limit");
   auto* slot = words_.data() + used_;
   used_ += count;
   return slot;

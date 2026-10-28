@@ -157,7 +157,7 @@ int collect_files(Impl& machine, Cell term, std::vector<Cell>& items) {
 int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<std::string>& opening) {
   std::ifstream input{file, std::ios::binary};
   if (!input) {
-    note_failure(machine, utf8_from_path(file) + ": ファイルを開けません");
+    note_failure(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
     return -1;
   }
   std::ostringstream buffer;
@@ -194,7 +194,7 @@ bool Machine::consult(std::string_view path) {
   std::ifstream input{path_from_utf8(path), std::ios::binary};
   Impl& impl = engine_impl(*this);
   if (!input) {
-    impl.diagnostic = std::string{path} + ": ファイルを開けません";
+    impl.diagnostic = message_text(impl, "cannot_open_file", {path});
     impl.syntax_diag = false;
     return false;
   }
@@ -222,7 +222,7 @@ bool run_consult(Impl& machine, const Goal& goal) {
   const auto text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
   std::ifstream input{path_from_utf8(text), std::ios::binary};
   if (!input) {
-    machine.diagnostic = text + ": ファイルを開けません";
+    machine.diagnostic = message_text(machine, "cannot_open_file", {text});
     machine.failed = true;
     return true;
   }

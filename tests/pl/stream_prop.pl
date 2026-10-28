@@ -1,13 +1,14 @@
+% iso-notes 8.11 の決定 B。user_input は eof_action(reset)、user_output と user_error は mode(append)。
 test(all_std, stream_property(S, P), solutions([
   (S = '$stream'(0), P = mode(read)),
   (S = '$stream'(0), P = input),
   (S = '$stream'(0), P = alias(user_input)),
   (S = '$stream'(0), P = end_of_stream(not)),
-  (S = '$stream'(0), P = eof_action(eof_code)),
+  (S = '$stream'(0), P = eof_action(reset)),
   (S = '$stream'(0), P = reposition(false)),
   (S = '$stream'(0), P = type(text)),
   (S = '$stream'(0), P = encoding(utf8)),
-  (S = '$stream'(1), P = mode(write)),
+  (S = '$stream'(1), P = mode(append)),
   (S = '$stream'(1), P = output),
   (S = '$stream'(1), P = alias(user_output)),
   (S = '$stream'(1), P = end_of_stream(not)),
@@ -15,7 +16,7 @@ test(all_std, stream_property(S, P), solutions([
   (S = '$stream'(1), P = reposition(false)),
   (S = '$stream'(1), P = type(text)),
   (S = '$stream'(1), P = encoding(utf8)),
-  (S = '$stream'(2), P = mode(write)),
+  (S = '$stream'(2), P = mode(append)),
   (S = '$stream'(2), P = output),
   (S = '$stream'(2), P = alias(user_error)),
   (S = '$stream'(2), P = end_of_stream(not)),
@@ -36,6 +37,9 @@ test(output_index, current_output('$stream'(1)), true).
 test(output_other, current_output(user_input), fail).
 test(output_bad, current_output(1), error(domain_error(stream_or_alias, 1))).
 test(output_missing, current_output('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
+% iso-notes 8.11.1 の決定 B。閉じた流れの項は 8.11.1.3 の domain_error(stream, S)。一度も開いていない項は今のまま。
+test(input_closed, (open_string(a, S), close(S), current_input(S)), error(domain_error(stream, S))).
+test(output_closed, (open_string(a, S), close(S), current_output(S)), error(domain_error(stream, S))).
 test(set_same, set_input(user_input), true).
 test(set_reads, (open_string(ab, S), set_input(S), get_char(C), C == a, set_input(user_input), current_input(user_input)), true).
 test(set_output_stream, set_input(user_output), error(permission_error(input, stream, user_output))).

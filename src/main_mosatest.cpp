@@ -1,3 +1,6 @@
+#include "mosa/command_line.hpp"
+#include "mosa/messages.hpp"
+#include "mosa/path_text.hpp"
 #include "mosa/roundtrip.hpp"
 #include "mosa/suite.hpp"
 #include "mosa/version.hpp"
@@ -11,34 +14,35 @@
 namespace {
 
 int usage() {
-  std::cerr << "mosatest: 使い方: mosatest --roundtrip <ファイル>\n";
-  std::cerr << "mosatest --suite <ディレクトリ> [--report <ファイル>]\n";
-  std::cerr << "--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです\n";
+  std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "mosatest_usage") << '\n';
   return 1;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  for (int index = 1; index < argc; ++index) {
-    if (std::string_view{argv[index]} == "--version") {
+  // パスは UTF-8 で受け、path_from_utf8 で作る。リポジトリの場所に日本語があっても、どの OS でも同じに読む。
+  const std::vector<std::string> owned = mosa::command_line_utf8(argc, argv);
+  const std::vector<std::string_view> args(owned.begin(), owned.end());
+  for (std::size_t index = 1; index < args.size(); ++index) {
+    if (args[index] == "--version") {
       std::cout << mosa::version_line() << '\n';
       return 0;
     }
   }
-  if (argc == 3 && std::string_view{argv[1]} == "--roundtrip") {
-    std::ifstream input(argv[2], std::ios::binary);
+  if (args.size() == 3 && args[1] == "--roundtrip") {
+    std::ifstream input(mosa::path_from_utf8(args[2]), std::ios::binary);
     if (!input) return usage();
     std::ostringstream buffer;
     buffer << input.rdbuf();
     return mosa::run_roundtrip(buffer.str());
   }
-  if (argc >= 3 && std::string_view{argv[1]} == "--suite") {
-    const std::vector<std::string_view> rest(argv + 2, argv + argc);
+  if (args.size() >= 3 && args[1] == "--suite") {
+    const std::vector<std::string_view> rest(args.begin() + 2, args.end());
     const mosa::SuiteArgs parsed = mosa::parse_suite_args(rest);
     if (!parsed.ok) return usage();
     return mosa::run_iso_suite(parsed.dir, parsed.report);
   }
-  if (argc == 2) return mosa::run_suite(argv[1]);
+  if (args.size() == 2) return mosa::run_suite(args[1]);
   return usage();
 }

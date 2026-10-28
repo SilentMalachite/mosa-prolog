@@ -1,6 +1,6 @@
 #include "internal.hpp"
 
-#include <cmath>
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -14,6 +14,8 @@ struct Build {
   // 今たどっている複合項。循環を匿名に切る。with_output_to が束縛済みの項を再び訳す。
   std::vector<std::uint64_t> open;
   std::vector<Cell> env;
+  // 実行時のゴールで巡回の戻り先になった複合項。写さずに元の項を指す。
+  std::vector<std::uint64_t> loops;
   bool keep = false;
 
   [[nodiscard]] std::uint16_t slot_of(Cell cell) {
@@ -42,27 +44,7 @@ struct Build {
     }
     return false;
   }
-  // 単項 + は項の形として残す。畳むのは単項 - だけ。-0.0 は符号を残す。畳めなければ空。
-  [[nodiscard]] std::optional<IrTerm> fold_signed(Cell cell);
 };
-
-std::optional<IrTerm> Build::fold_signed(Cell cell) {
-  if (heap->functor_arity(cell) != 1) return std::nullopt;
-  if (heap->atoms().name(heap->functor_atom(cell)) != "-") return std::nullopt;
-  const IrTerm arg = data(heap->arg(cell, 0));
-  if (arg.tag == IrTag::Int && arg.integer != INT64_MIN) {
-    IrTerm negated = arg;
-    negated.integer = -arg.integer;
-    return negated;
-  }
-  if (arg.tag == IrTag::Float) {
-    IrTerm negated = arg;
-    if (arg.floating == 0) negated.floating = std::copysign(0.0, -std::copysign(1.0, arg.floating));
-    else negated.floating = -arg.floating;
-    return negated;
-  }
-  return std::nullopt;
-}
 
 IrTerm Build::data(Cell cell) {
   cell = heap->deref(cell);
@@ -89,12 +71,26 @@ IrTerm Build::data(Cell cell) {
   }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
   if (building(cell.raw())) {
+    // 実行時のゴールは元の項を指せば巡回が残る。匿名に切ると巡回リストが部分リストになる。
+    // 節は env を持たないので匿名のまま（巡回する節は 7.6.2 の外）。
+    if (keep) {
+      loops.push_back(cell.raw());
+      term.tag = IrTag::Var;
+      term.slot = slot_of(cell);
+      return term;
+    }
     term.tag = IrTag::Anon;
     return term;
   }
   open.push_back(cell.raw());
   term = compound_data(cell);
   open.pop_back();
+  // 巡回の入口まで写すと、元の項より一段長い項になる。入口は元の項そのものを渡す。
+  if (keep && std::find(loops.begin(), loops.end(), cell.raw()) != loops.end()) {
+    term = IrTerm{};
+    term.tag = IrTag::Var;
+    term.slot = slot_of(cell);
+  }
   return term;
 }
 
@@ -106,7 +102,6 @@ IrTerm Build::compound_data(Cell cell) {
     term.args.push_back(data(heap->list_tail(cell)));
     return term;
   }
-  if (const std::optional<IrTerm> folded = fold_signed(cell)) return *folded;
   // '.'/2 はリストそのもの。構造体のままにすると = と == が食い違う。
   if (heap->functor_arity(cell) == 2 && heap->atoms().name(heap->functor_atom(cell)) == ".") {
     term.tag = IrTag::List;

@@ -198,7 +198,7 @@ GateMark gate_mark(const Heap& heap, Cell term, Cell& goal) {
 }
 
 std::string written_goal(Heap& heap, const OperatorTable& operators, Cell goal, const std::vector<VarName>& names) {
-  return write_term(heap, operators, unwrap_curlies(heap, goal), {}, names);
+  return write_term(heap, operators, unwrap_curlies(heap, goal), lgt_write_options(), names);
 }
 
 void open_gate(Parse& parse, LgtFile& file, std::string cond) {
@@ -212,13 +212,13 @@ void open_gate(Parse& parse, LgtFile& file, std::string cond) {
 
 void next_arm(Parse& parse, LgtFile& file, std::string cond, bool otherwise) {
   if (parse.stack.empty()) {
-    file.error = "項が閉じていません";
+    file.error = "incomplete_term";
     return;
   }
   LgtGate& gate = file.gates[static_cast<std::size_t>(parse.stack.back().group)];
   // else のあとには枝が続かない。endif が無いのと同じで、ファイルは読めない。
   if (!gate.arms.empty() && gate.arms.back().otherwise) {
-    file.error = "項が閉じていません";
+    file.error = "incomplete_term";
     return;
   }
   parse.stack.back().arm = static_cast<int>(gate.arms.size());
@@ -227,7 +227,7 @@ void next_arm(Parse& parse, LgtFile& file, std::string cond, bool otherwise) {
 
 void close_gate(Parse& parse, LgtFile& file) {
   if (parse.stack.empty()) {
-    file.error = "項が閉じていません";
+    file.error = "incomplete_term";
     return;
   }
   parse.stack.pop_back();
@@ -303,13 +303,13 @@ std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const s
   // 実行する機械の表に : と :: は無い。中置のまま書くと、節も本体も構文エラーになる。
   if (operators.define(0, Specifier::Xfy, ":") != OpResult::Ok ||
       operators.define(0, Specifier::Xfy, "::") != OpResult::Ok) {
-    return write_term(heap, operators, term, {}, names);
+    return write_term(heap, operators, term, lgt_write_options(), names);
   }
   // 節の前置 ^^ は load が読めない。正準形にする。本体は判定が演算子を戻す。
   if (clause && operators.define(0, Specifier::Fy, "^^") != OpResult::Ok) {
-    return write_term(heap, operators, term, {}, names);
+    return write_term(heap, operators, term, lgt_write_options(), names);
   }
-  return write_term(heap, operators, term, {}, names);
+  return write_term(heap, operators, term, lgt_write_options(), names);
 }
 
 bool dropped_import_uses(const Heap& heap, Cell term) {
@@ -363,6 +363,7 @@ void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, st
   add_piece(heap, operators, term, read.names, parse, file);
 }
 
+// error は空かどうかだけを見て、表示しない。文面ではなく鍵の名前を入れる（ADR 0007）。
 void wipe_read(LgtFile& file, std::string reason) {
   file.cases.clear();
   file.program.clear();
@@ -402,7 +403,10 @@ bool routes_to_judge(Machine& machine, std::string_view body, const LgtWant& wan
 bool defined_here(const Machine& machine, std::string_view name) {
   const Impl& impl = engine_impl(machine);
   for (const Predicate& predicate : impl.predicates) {
-    if (predicate.arity == 0 && !predicate.clauses.empty() && impl.atoms.name(predicate.name) == name) return true;
+    if (predicate.arity == 0 && !predicate.abolished && live_count(predicate) > 0 &&
+        impl.atoms.name(predicate.name) == name) {
+      return true;
+    }
   }
   return false;
 }
@@ -433,9 +437,9 @@ std::string actual_text(const Machine& machine, const Stop& stop) {
   const Heap& heap = machine.heap();
   const Cell term = heap.deref(stop.exception);
   if (functor_is(heap, term, "error", 2)) {
-    return write_term(heap, machine.operators(), heap.arg(term, 0), {}, {});
+    return write_term(heap, machine.operators(), heap.arg(term, 0), lgt_write_options(), {});
   }
-  return write_term(heap, machine.operators(), term, {}, {});
+  return write_term(heap, machine.operators(), term, lgt_write_options(), {});
 }
 
 bool succeeded(Machine& machine, const LgtWant& want, const Stop& stop) {
@@ -523,17 +527,17 @@ LgtFile read_lgt_file(std::string_view source) {
     OperatorTable operators = OperatorTable::iso_core();
     // info の 1:0:0 は、: が演算子でないと項の途中で終わる。実行する機械の表には足さない。
     if (operators.define(600, Specifier::Xfy, ":") != OpResult::Ok) {
-      file.error = "演算子を足せません";
+      file.error = "op_failed";
       return file;
     }
     // os::目標は図形 :: なので、読みの表だけに足す。実行する機械の表には足さない。
     if (operators.define(600, Specifier::Xfy, "::") != OpResult::Ok) {
-      file.error = "演算子を足せません";
+      file.error = "op_failed";
       return file;
     }
     // ^^ を実行する機械の表に足すと current_op が変わる。読みのときだけ前置にする。
     if (operators.define(600, Specifier::Fy, "^^") != OpResult::Ok) {
-      file.error = "演算子を足せません";
+      file.error = "op_failed";
       return file;
     }
     Reader reader(source, heap, operators);
@@ -542,7 +546,7 @@ LgtFile read_lgt_file(std::string_view source) {
       const auto begin = reader.consumed();
       const ReadOutcome outcome = reader.next();
       if (outcome.failure) {
-        const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "項が閉じていません" : "予期しないトークン";
+        const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "incomplete_term" : "unexpected_token";
         wipe_read(file, reason);
         return file;
       }
@@ -554,11 +558,11 @@ LgtFile read_lgt_file(std::string_view source) {
       }
     }
     // endif が無いと、選ばなかった枝の終わりが無い。ファイル全体を不合格 1 件にする。
-    if (!parse.stack.empty()) wipe_read(file, "項が閉じていません");
+    if (!parse.stack.empty()) wipe_read(file, "incomplete_term");
     return file;
   } catch (const ResourceLimit&) {
     file = {};
-    file.error = "ヒープの上限を超えました";
+    file.error = "heap_limit";
     return file;
   }
 }
@@ -628,6 +632,25 @@ void apply_condition(Machine& machine, const LgtCase& item, bool& dead, bool& sk
   }
 }
 
+// lgtunit の run_test/2 は 1 件ごとに現在の入出力を保存して戻す。^^suppress_text_output を次の件へ漏らさない。
+// テストが閉じた流れは戻せないので、その側だけ標準の流れにする。
+struct CurrentStreams {
+  std::size_t input = 0;
+  std::size_t output = 1;
+};
+
+CurrentStreams save_current(Machine& machine) {
+  const Impl& impl = engine_impl(machine);
+  return CurrentStreams{impl.current_in, impl.current_out};
+}
+
+void restore_current(Machine& machine, const CurrentStreams& saved) {
+  Impl& impl = engine_impl(machine);
+  const auto usable = [&impl](std::size_t index) { return index < impl.streams.size() && !impl.streams[index].closed; };
+  impl.current_in = usable(saved.input) ? saved.input : 0;
+  impl.current_out = usable(saved.output) ? saved.output : 1;
+}
+
 void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& chosen, bool setup, bool cleanup,
                const LgtIo* io, LgtRun& run) {
   bool dead = false;
@@ -643,7 +666,9 @@ void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& ch
     bool skip = false;
     apply_condition(machine, item, dead, skip, run);
     if (skip) continue;
+    const CurrentStreams saved = save_current(machine);
     const CaseEnd end = run_one(machine, item, setup, cleanup, io);
+    restore_current(machine, saved);
     if (end.pass) ++run.passed;
     else note_failure(run, item, end.actual);
     dead = end.dead;
@@ -690,6 +715,8 @@ LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string
   install_lgt_ops(*machine, file.operators);
   // テストより先に隣の Prolog を載せる。tester.lgt 自体は実行しない。
   lgt_load_tester(*machine, clean.io);
+  // 隣の Prolog の定義も見てから取り込む。同じ名前はテスト側を残す。
+  lgt_import_libraries(*machine);
   // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
   const bool setup = defined_here(*machine, "setup");
   const bool cleanup = defined_here(*machine, "cleanup");

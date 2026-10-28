@@ -16,6 +16,10 @@ add_library(mosa_lib STATIC src/version.cpp)
 target_include_directories(mosa_lib PUBLIC include)
 set_target_properties(mosa_lib PROPERTIES OUTPUT_NAME mosa)
 target_link_libraries(mosa_lib PUBLIC mosa_warnings)
+# CommandLineToArgvW（src/platform/command_line.cpp）。
+if(WIN32)
+  target_link_libraries(mosa_lib PRIVATE shell32)
+endif()
 
 add_executable(mosa src/main_mosa.cpp)
 target_link_libraries(mosa PRIVATE mosa_lib)
@@ -34,7 +38,7 @@ foreach(command mosa mosac mosatest)
   add_dependencies(${command} mosa_lib_dir)
 endforeach()
 
-target_sources(mosa_lib PRIVATE src/read/char_class.cpp)
+target_sources(mosa_lib PRIVATE src/read/char_class.cpp src/read/fullwidth.cpp)
 target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/unify.cpp)
@@ -61,20 +65,30 @@ target_sources(mosa_lib PRIVATE
   src/machine/answer.cpp
   src/machine/consult.cpp
   src/machine/session.cpp
+  src/machine/messages.cpp
   src/machine/suite.cpp
   src/machine/iso_suite.cpp
   src/machine/lgt_file.cpp
   src/machine/lgt_shape.cpp
   src/machine/lgt_judge.cpp
+  src/machine/lgt_approx.cpp
   src/machine/lgt_copy.cpp
   src/machine/lgt_exec.cpp
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
+  src/machine/lgt_output.cpp
+  src/machine/lgt_libs.cpp
   src/platform/terminal.cpp
   src/platform/exe_path.cpp
+  src/platform/command_line.cpp
+  src/platform/console.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
+  src/builtins/lists.cpp
+  src/builtins/format_float.cpp
+  src/builtins/case.cpp
+  src/builtins/char_width.cpp
   src/builtins/terms.cpp
   src/builtins/control.cpp
   src/builtins/arith.cpp
@@ -141,13 +155,24 @@ target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
-add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl)
+# テストのパスはリポジトリの根から書く。build の場所に左右されない（計画 Task 15）。
+add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(session_test PRIVATE mosa_lib)
 add_test(NAME session COMMAND $<TARGET_FILE:session_test>)
+# 今ある日本語の文面の確認を、流す機械の LANG に左右させない（ADR 0007）。
+set_tests_properties(session PROPERTIES ENVIRONMENT "LANG=ja_JP.UTF-8")
+# MOSA_LIB は実行ファイルの lib/ より先に探す。鍵の無い messages_en.pl で、代わりの表示を確かめる。
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty/messages_en.pl ":- module(messages_en, []).\n")
+add_test(NAME session_messages_missing COMMAND $<TARGET_FILE:session_test> missing)
+set_tests_properties(session_messages_missing PROPERTIES
+  ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty")
+add_test(NAME session_english COMMAND $<TARGET_FILE:session_test> english)
+set_tests_properties(session_english PROPERTIES ENVIRONMENT "LANG=C")
 
 add_executable(stream_test tests/cpp/stream_test.cpp)
 target_include_directories(stream_test PRIVATE tests/cpp)
@@ -159,6 +184,10 @@ add_executable(machine_test tests/cpp/machine_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)
 target_link_libraries(machine_test PRIVATE mosa_lib)
 add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)
+add_executable(evaluable_test tests/cpp/evaluable_test.cpp)
+target_include_directories(evaluable_test PRIVATE tests/cpp src)
+target_link_libraries(evaluable_test PRIVATE mosa_lib)
+add_test(NAME evaluable COMMAND $<TARGET_FILE:evaluable_test>)
 add_executable(module_load_test tests/cpp/module_load_test.cpp)
 target_include_directories(module_load_test PRIVATE tests/cpp)
 target_link_libraries(module_load_test PRIVATE mosa_lib)
@@ -199,6 +228,18 @@ target_compile_definitions(suite_if_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE
 target_link_libraries(suite_if_test PRIVATE mosa_lib)
 add_test(NAME suite_if_test COMMAND $<TARGET_FILE:suite_if_test>)
 
+add_executable(suite_imports_test tests/cpp/suite_imports_test.cpp)
+target_include_directories(suite_imports_test PRIVATE tests/cpp)
+target_compile_definitions(suite_imports_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_imports_test PRIVATE mosa_lib)
+add_test(NAME suite_imports_test COMMAND $<TARGET_FILE:suite_imports_test>)
+
+add_executable(suite_approx_test tests/cpp/suite_approx_test.cpp)
+target_include_directories(suite_approx_test PRIVATE tests/cpp)
+target_compile_definitions(suite_approx_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_approx_test PRIVATE mosa_lib)
+add_test(NAME suite_approx_test COMMAND $<TARGET_FILE:suite_approx_test>)
+
 add_executable(suite_path_test tests/cpp/suite_path_test.cpp)
 target_include_directories(suite_path_test PRIVATE tests/cpp)
 target_compile_definitions(suite_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -235,6 +276,12 @@ target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_
 target_link_libraries(conformance_io_test PRIVATE mosa_lib)
 add_test(NAME conformance_io_test COMMAND $<TARGET_FILE:conformance_io_test>)
 
+add_executable(conformance_output_test tests/cpp/conformance_output_test.cpp)
+target_include_directories(conformance_output_test PRIVATE tests/cpp)
+target_compile_definitions(conformance_output_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(conformance_output_test PRIVATE mosa_lib)
+add_test(NAME conformance_output_test COMMAND $<TARGET_FILE:conformance_output_test>)
+
 add_executable(conformance_badge_test tests/cpp/conformance_badge_test.cpp)
 target_include_directories(conformance_badge_test PRIVATE tests/cpp)
 target_compile_definitions(conformance_badge_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -254,12 +301,27 @@ target_link_libraries(suite_args_test PRIVATE mosa_lib)
 add_test(NAME suite_args_test COMMAND $<TARGET_FILE:suite_args_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
-set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 3\\)\r?\n?$")
+set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 5\\)\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
 add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
 add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
 set_tests_properties(mosa_version mosac_version mosatest_version PROPERTIES
   PASS_REGULAR_EXPRESSION "${version_pass_regex}")
 
+add_executable(console_test tests/cpp/console_test.cpp)
+target_include_directories(console_test PRIVATE tests/cpp)
+target_link_libraries(console_test PRIVATE mosa_lib)
+add_test(NAME console COMMAND $<TARGET_FILE:console_test> plain --flag 42)
+add_test(NAME mosa_utf8_pipe COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_utf8_pipe_test.cmake)
+
+add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_japanese_arg_test.cmake)
+
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
+
+# 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
+get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)
+list(REMOVE_ITEM mosa_all_tests session_english)
+set_property(TEST ${mosa_all_tests} APPEND PROPERTY ENVIRONMENT_MODIFICATION "LANG=set:ja_JP.UTF-8")

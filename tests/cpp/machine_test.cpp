@@ -26,6 +26,16 @@ void check_one_fact() {
   mosa_test::check(binding_text(*machine, bound) == "a", "value a");
 }
 
+// 旗は前のクエリで真にし、次のクエリの読みから効く（SPEC 第4節）。
+void check_fullwidth_query() {
+  auto machine = mosa::Machine::create();
+  auto set = machine->query("set_prolog_flag(japanese_punctuation, true).");
+  mosa_test::check(set.kind == mosa::StopKind::Success, "set fullwidth flag");
+  auto read = machine->query("X = f（a）。");
+  mosa_test::check(read.kind == mosa::StopKind::Success && binding_text(*machine, read) == "f(a)",
+                   "query reads fullwidth punctuation");
+}
+
 void check_choice_and_nrev() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->load_program("p(1). p(2).").ok, "two facts");
@@ -82,6 +92,20 @@ void check_catch() {
   } catch (const mosa::ResourceLimit&) {
     mosa_test::check(true, "resource is not a prolog ball");
   }
+}
+
+// length/2 が作るリストはヒープの上限で止まる。先に vector を確保すると length_error で落ちる。
+void check_length_limit() {
+  auto tiny = mosa::Machine::create(4096);
+  bool limited = false;
+  try {
+    (void)tiny->query("length(_, 9223372036854775807).");
+  } catch (const mosa::ResourceLimit&) {
+    limited = true;
+  } catch (const std::exception&) {
+    limited = false;
+  }
+  mosa_test::check(limited, "length/2 with a huge N hits the heap limit");
 }
 
 void check_types() {
@@ -285,10 +309,15 @@ void check_multifile_guard() {
   mosa_test::check(bad->diagnostic().find("述語指示子ではありません") != std::string_view::npos,
                    "indicator phrase");
 
+  // iso-notes 7.4.2 の決定 B。並びは受け付け、要素ごとに同じ検査をする。
   auto comma = mosa::Machine::create();
-  mosa_test::check(!comma->load_program(":- multifile((p/1, q/1)).").ok, "comma sequence");
-  mosa_test::check(comma->diagnostic().find("述語指示子ではありません") != std::string_view::npos,
-                   "comma phrase");
+  mosa_test::check(comma->load_program(":- multifile((p/1, q/1)).").ok, "comma sequence");
+  auto comma_bad = mosa::Machine::create();
+  mosa_test::check(!comma_bad->load_program(":- multifile((p/1, 1)).").ok, "comma bad element");
+  mosa_test::check(comma_bad->diagnostic().find("述語指示子ではありません") != std::string_view::npos,
+                   "comma bad phrase");
+  auto comma_list = mosa::Machine::create();
+  mosa_test::check(!comma_list->load_program(":- dynamic((p/1, [q/1])).").ok, "comma holds no list");
 
   auto empty = mosa::Machine::create();
   mosa_test::check(empty->load_program(":- multifile([]).").ok, "empty multifile");
@@ -296,7 +325,16 @@ void check_multifile_guard() {
   auto alone = mosa::Machine::create();
   mosa_test::check(alone->load_program(":- multifile(p/1).").ok, "directive only");
   mosa_test::check(alone->query("current_predicate(p/1).").kind == mosa::StopKind::Failure, "no procedure");
-  mosa_test::check(alone->query("p(1).").kind == mosa::StopKind::Exception, "call missing");
+  // iso-notes 7.8.3 の決定 B。宣言だけで手続きになり、節が無いので失敗する。
+  mosa_test::check(alone->query("p(1).").kind == mosa::StopKind::Failure, "call declared only");
+  auto apart = mosa::Machine::create();
+  mosa_test::check(apart->load_program(":- discontiguous(p/1).").ok, "discontiguous only");
+  mosa_test::check(apart->query("p(1).").kind == mosa::StopKind::Failure, "call discontiguous only");
+  auto undone = mosa::Machine::create();
+  mosa_test::check(!undone->load_program(":- discontiguous(p/1). :- multifile(q/1). :- dynamic(atom/1).").ok,
+                   "failed load");
+  mosa_test::check(undone->query("p(1).").kind == mosa::StopKind::Exception, "failed load drops discontiguous");
+  mosa_test::check(undone->query("q(1).").kind == mosa::StopKind::Exception, "failed load drops multifile");
 }
 
 void check_multifile_forms() {
@@ -560,14 +598,32 @@ void check_goal_word() {
 
 }  // namespace
 
+// ADR 0008。走査中の abolish で残った枠を、後の読み込みが新しい静的な定義として使い直す。
+void check_abolished_reload() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(":- dynamic(p/1). p(1). p(2).").ok, "abolish base");
+  mosa_test::check(machine->query("(p(X), abolish(p/1), fail ; true).").kind == mosa::StopKind::Success,
+                   "abolish in scan");
+  mosa_test::check(machine->query("p(_).").kind == mosa::StopKind::Exception, "abolished is absent");
+  mosa_test::check(machine->load_program("p(5).").ok, "reload abolished");
+  mosa_test::check(machine->query("findall(X, p(X), [5]).").kind == mosa::StopKind::Success, "reload clauses");
+  mosa_test::check(machine->query("predicate_property(p(_), static).").kind == mosa::StopKind::Success,
+                   "reload static");
+  mosa_test::check(machine->query("predicate_property(p(_), number_of_clauses(1)).").kind ==
+                       mosa::StopKind::Success,
+                   "reload count");
+}
+
 int main() {
   check_goal_word();
   check_one_fact();
+  check_fullwidth_query();
   check_choice_and_nrev();
   check_cut();
   check_catch();
   check_types();
   check_order();
+  check_length_limit();
   check_terms();
   check_answer_and_consult();
   check_discontiguous();
@@ -584,5 +640,6 @@ int main() {
   check_control();
   check_index();
   check_list_goal();
+  check_abolished_reload();
   return mosa_test::failures();
 }

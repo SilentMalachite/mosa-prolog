@@ -64,6 +64,7 @@ bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body)
 std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predicate, Cell head, Cell body) {
   std::vector<std::size_t> found;
   for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
+    if (predicate.clauses[index].dead) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -94,7 +95,7 @@ bool take_clause(Impl& machine, const Goal& goal, PredKey key, const std::vector
   const Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
   // M: は最初の呼び出しで検査済み。節の頭部と比べるのは内側の項。
-  const Cell head = skip_module(machine, goal.arg(machine, 0));
+  const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const Cell body = goal.arg(machine, 1);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
@@ -125,12 +126,12 @@ void run_clause(Impl& machine, const Goal& goal) {
   std::uint32_t module = 0;
   if (!clause_head_ok(machine, goal, indicator, module)) return;
   const Predicate* predicate = owned_pred(machine, module, indicator.name, indicator.arity);
-  if (predicate == nullptr || predicate->clauses.empty()) {
+  if (predicate == nullptr || predicate->abolished || live_count(*predicate) == 0) {
     machine.failed = true;
     return;
   }
   const PredKey key{predicate->module, indicator.name, indicator.arity};
-  const Cell head = skip_module(machine, goal.arg(machine, 0));
+  const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const auto matches = matching_clauses(machine, *predicate, head, goal.arg(machine, 1));
   if (!take_clause(machine, goal, key, matches, 0)) machine.failed = true;
 }
@@ -203,6 +204,7 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
   if (wanted.arity_high) return found;
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
+    if (predicate.abolished) continue;
     if (!wanted.any_module && predicate.module != wanted.module) continue;
     if (wanted.name_set && predicate.name != wanted.name) continue;
     if (wanted.arity_set && predicate.arity != wanted.arity) continue;

@@ -52,7 +52,8 @@ test(setof_same_var, (setof(X, (X = Y; X = Y), L), L == [Y]), true).
 test(bagof_rename, bagof(none, q(X, Y, Z), L), solutions([(X = Z, L = [none, none]), (Y = Z, L = [none])])).
 test(scan_asserta, (a(X), findall(_, asserta(a(9)), _)), solutions([X = 1, X = 2])).
 test(a_now, a(X), solutions([X = 9, X = 9, X = 1, X = 2])).
-test(scan_retract, (r(X), findall(_, (X = 1 -> retract(r(2)) ; true), _)), solutions([X = 1, X = 3])).
+% ADR 0008。開いた走査は消した r(2) も試す。新しい呼び出しの r_left は見ない。
+test(scan_retract, (r(X), findall(_, (X = 1 -> retract(r(2)) ; true), _)), solutions([X = 1, X = 2, X = 3])).
 test(r_left, r(X), solutions([X = 1, X = 3])).
 test(findall4_closed, findall(X, (X = 1; X = 2), L, []), solutions([L = [1, 2]])).
 test(findall4_none, (findall(X, fail, L, T), L == T, var(T)), true).

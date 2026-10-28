@@ -30,6 +30,8 @@ void lgt_io_cleanup(const LgtIo& io);
 void lgt_arm_super(Machine& machine, const LgtIo& io);
 void lgt_disarm_super(Machine& machine);
 void lgt_load_tester(Machine& machine, const LgtIo& io);
+// テストの機械の user へ lists、apply、between、format、strings、japanese を取り込む。lgt_libs.cpp。
+void lgt_import_libraries(Machine& machine);
 [[nodiscard]] LgtSuper lgt_run_super(Machine& machine, const LgtIo& io, std::string_view goal);
 
 }  // namespace mosa

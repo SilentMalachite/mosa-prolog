@@ -1,3 +1,4 @@
+#include "mosa/messages.hpp"
 #include "mosa/version.hpp"
 
 #include <iostream>
@@ -10,6 +11,6 @@ int main(int argc, char** argv) {
       return 0;
     }
   }
-  std::cerr << "mosac: このコマンドはフェーズ0では使えません\n";
+  std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "mosac_unavailable") << '\n';
   return 1;
 }

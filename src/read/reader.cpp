@@ -217,6 +217,15 @@ Reader::Parsed Reader::parse_name(int max_priority) {
     consume();
     return parse_arguments(token.text);
   }
+  // 6.3.4.1: 名前 - の次の数は、空白を挟んでも負の定数。前置演算子の -(1) は関数表記で上が取る。
+  if (token.kind == TokenKind::Name && token.text == "-" &&
+      (next.token.kind == TokenKind::Integer || next.token.kind == TokenKind::Float)) {
+    const Token number = consume().token;
+    Parsed parsed;
+    if (number.kind == TokenKind::Integer) parsed.term = heap_.integer(-number.integer);
+    else parsed.term = heap_.floating(-number.floating);
+    return parsed;
+  }
   if (const std::optional<OpDef> prefix = find_prefix(token.text, max_priority)) {
     if (can_start(next.token)) return apply_prefix(*prefix);
   }

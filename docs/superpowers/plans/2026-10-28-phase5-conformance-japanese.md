@@ -53,12 +53,12 @@
 | `ground/1` が無い | 2 | `current_input_1_06`、`current_output_1_06`。8.3.10 の述語そのものが未実装 | I | 4 |
 | `write_term/3` の選択肢 | 約 10 | `quoted(false)` などを `domain_error` にする（118〜122）、`lgt_write_term_3_088`〜`096` | I | 5 |
 | `discontiguous` の読み込み | 5 | `syntax/directives/discontiguous_1_01`〜`05` が `load` | I | 6 |
-| 整数を受けた丸め系評価子 | 6 | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
-| `round/1` の負の半分 | 2 | `eclipse_round_1_07`、`08` | Q | 7 |
-| 未決の iso-notes | 約 10 | 7.8.3、9.3.1.3 d、7.5.4（logical update 4 件）、8.11.8、`memberchk/2`、8.11.1 | Q | 8 |
-| `if/3`、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
+| 整数を受けた丸め系評価子 | 0（決定 A で解消、+6） | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
+| `round/1` の負の半分 | 0（決定 B で解消、+2） | `eclipse_round_1_07`、`08` | Q | 7 |
+| 未決の iso-notes | 約 10 | 7.8.3（決定 B、+2）、9.3.1.3 d（決定 A、+1）、7.5.4（決定 B、ADR 0008、+5）、8.11.8（決定 A、解釈の違い）、`memberchk/2`（閉じた）、8.11.1（決定 B、+2） | Q | 8 |
+| `if/3`（決定 B、+12）、`log/2`、旗 `dialect`・`version_data`（決定 B、+3）、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
 | 9223372036854775808 などの多倍長 | 1 と別欄 111 | `sics_read_term_3_24` | X | なし |
-| 残り | 約 25 | `stream_property` の `eof_action(reset)`・`mode(append)`・`position`、`setof_3_34`、`abolish_1_07`、`sub_atom_5`、`univ_2` など | I か Q | 9 |
+| 残り | 0（タスク 2〜8 で解消） | `stream_property` の `eof_action(reset)`・`mode(append)`・`position`、`setof_3_34`、`abolish_1_07`、`sub_atom_5`、`univ_2` など | I か Q | 9 |
 
 ## ファイルの責任
 
@@ -93,10 +93,10 @@
 **Interfaces:**
 - Produces: 「仕分け表」節。1 行 1 件で `パス テスト名 類 タスク番号`。類は S、I、Q、N、X のどれか。以後のタスクはこの表の自分の行だけを直す
 
-- [ ] **Step 1:** `./build/mosatest --suite tests/conformance --report docs/conformance.md` を実行し、分母、合格数、合格率を `docs/STATUS.md` に `Baseline (phase 5 start): N/D = R%` として書く
-- [ ] **Step 2:** 不合格の各行を見取り図の群に当てはめ、仕分け表に書く。群に入らない行は I か Q に分け、Q には iso-notes の見出しを添える
-- [ ] **Step 3:** N の群ごとに 1 つずつ、`docs/iso-notes.md` に「A: SPEC 外なので実装しない（不合格のまま残す） B: SPEC に足して実装する」を書く。持ち主への質問は 1 回に 1 つ
-- [ ] **Step 4:** コミット `[phase5] 準拠スイートの基準値と仕分け表を書く（mosatest --suite で N/D）`
+- [x] **Step 1:** `./build/mosatest --suite tests/conformance --report docs/conformance.md` を実行し、分母、合格数、合格率を `docs/STATUS.md` に `Baseline (phase 5 start): N/D = R%` として書く
+- [x] **Step 2:** 不合格の各行を見取り図の群に当てはめ、仕分け表に書く。群に入らない行は I か Q に分け、Q には iso-notes の見出しを添える
+- [x] **Step 3:** N の群ごとに 1 つずつ、`docs/iso-notes.md` に「A: SPEC 外なので実装しない（不合格のまま残す） B: SPEC に足して実装する」を書く。持ち主への質問は 1 回に 1 つ
+- [x] **Step 4:** コミット `[phase5] 準拠スイートの基準値と仕分け表を書く（mosatest --suite で N/D）`
 
 ### Task 2: lgtunit の出力捕捉述語とライブラリの取り込み
 
@@ -108,13 +108,13 @@
 - Consumes: `lgt_io.cpp` の `^^` 一時ファイルの仕組み
 - Produces: 試験器の中だけで見える `suppress_text_output/0`、`text_output_contents/1`、`text_output_contents/2`。意味は固定コミット `4decb64` の `lgtunit.lgt` に合わせ、`current_predicate/1` には出さない
 
-- [ ] **Step 1:** 小さな `tests.lgt` を 3 つ書いた失敗するテストを足す。`output_suppressed`: `test(a, error(instantiation_error)) :- ^^suppress_text_output, write_term(_, [quoted(_)])` が合格に数えられる。`output_contents`: `test(b, true(Cs == [f,o,o])) :- ^^set_text_output(''), write(foo), ^^text_output_contents(Cs)` が合格。`output_contents_stream`: 2 引数版で同じ
-- [ ] **Step 2:** `ctest --test-dir build -R conformance_io_test` が 3 件失敗することを見る
-- [ ] **Step 3:** 移動だけのコミットを先に作り、次に 3 述語を足す
-- [ ] **Step 4:** テストとスイートを流し、`write_term_3` の 103〜113 が合格に移ったことを報告書で見る
-- [ ] **Step 5:** コミット `[phase5] 試験器に suppress_text_output と text_output_contents を足す（conformance_io_test、合格 +N）`
-- [ ] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
-- [ ] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
+- [x] **Step 1:** 小さな `tests.lgt` を 3 つ書いた失敗するテストを足す。`output_suppressed`: `test(a, error(instantiation_error)) :- ^^suppress_text_output, write_term(_, [quoted(_)])` が合格に数えられる。`output_contents`: `test(b, true(Cs == [f,o,o])) :- ^^set_text_output(''), write(foo), ^^text_output_contents(Cs)` が合格。`output_contents_stream`: 2 引数版で同じ
+- [x] **Step 2:** `ctest --test-dir build -R conformance_io_test` が 3 件失敗することを見る
+- [x] **Step 3:** 移動だけのコミットを先に作り、次に 3 述語を足す
+- [x] **Step 4:** テストとスイートを流し、`write_term_3` の 103〜113 が合格に移ったことを報告書で見る
+- [x] **Step 5:** コミット `[phase5] 試験器に suppress_text_output と text_output_contents を足す（conformance_io_test、合格 +N）`
+- [x] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
+- [x] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
 
 ### Task 3: `=~=` を lgtunit の定義に合わせる
 
@@ -125,10 +125,10 @@
 **Interfaces:**
 - Produces: `bool approx(const Heap& heap, Cell left, Cell right)`（名前と型は今のまま）
 
-- [ ] **Step 1:** 失敗するテスト `approx_pi`: `test(p, true(X =~= 3.1415927)) :- X is pi` と `approx_list`: `true([1.0, 2.0] =~= [1.0000001, 2.0])` が合格、`approx_far`: `true(1.0 =~= 1.1)` が不合格
-- [ ] **Step 2:** 固定コミット `4decb64` の `lgtunit.lgt` にある `=~=` の定義（相対誤差と絶対誤差の閾値、リストと複合項の扱い）をコメントに条項代わりに出典として書き、同じ式で実装する
-- [ ] **Step 3:** テストとスイートを流し、見取り図の `=~=` 群が合格に移ったことを見る。残ったものは評価子の誤差なので仕分け表で I にしてタスク 9 へ回す
-- [ ] **Step 4:** コミット `[phase5] =~= を lgtunit と同じ閾値にする（conformance_report_test、合格 +N）`
+- [x] **Step 1:** 失敗するテスト `approx_pi`: `test(p, true(X =~= 3.1415927)) :- X is pi` と `approx_list`: `true([1.0, 2.0] =~= [1.0000001, 2.0])` が合格、`approx_far`: `true(1.0 =~= 1.1)` が不合格
+- [x] **Step 2:** 固定コミット `4decb64` の `lgtunit.lgt` にある `=~=` の定義（相対誤差と絶対誤差の閾値、リストと複合項の扱い）をコメントに条項代わりに出典として書き、同じ式で実装する
+- [x] **Step 3:** テストとスイートを流し、見取り図の `=~=` 群が合格に移ったことを見る。残ったものは評価子の誤差なので仕分け表で I にしてタスク 9 へ回す
+- [x] **Step 4:** コミット `[phase5] =~= を lgtunit と同じ閾値にする（conformance_report_test、合格 +N）`
 
 ### Task 4: `ground/1`（8.3.10）
 
@@ -136,10 +136,10 @@
 - Modify: `src/builtins/types.cpp`（先頭の注釈に 8.3.10、`ground(?term)`、エラーなし、`tests/pl/types.pl`）
 - Test: `tests/pl/types.pl`
 
-- [ ] **Step 1:** 8.3.10.4 の Examples を `tests/pl/types.pl` に 1 行 1 テストで写す。足りなければ `ground_atom`: `ground(a)` 成功、`ground_var`: `ground(f(_))` 失敗、`ground_nested`: `ground(f(g(a), [b]))` 成功
-- [ ] **Step 2:** `ctest -R prolog_tests` で `existence_error(procedure, ground/1)` を見る
-- [ ] **Step 3:** 束縛しない述語として実装する。深い項で C++ のスタックを使い切らないよう、再帰ではなく明示のスタックで辿る
-- [ ] **Step 4:** テストを流す。コミット `[phase5] ground/1 を実装（8.3.10 の Examples 全通過）`
+- [x] **Step 1:** 8.3.10.4 の Examples を `tests/pl/types.pl` に 1 行 1 テストで写す。足りなければ `ground_atom`: `ground(a)` 成功、`ground_var`: `ground(f(_))` 失敗、`ground_nested`: `ground(f(g(a), [b]))` 成功
+- [x] **Step 2:** `ctest -R prolog_tests` で `existence_error(procedure, ground/1)` を見る
+- [x] **Step 3:** 束縛しない述語として実装する。深い項で C++ のスタックを使い切らないよう、再帰ではなく明示のスタックで辿る
+- [x] **Step 4:** テストを流す。コミット `[phase5] ground/1 を実装（8.3.10 の Examples 全通過）`
 
 ### Task 5: `write_term/3` の選択肢の検査（8.14.2.3）
 
@@ -147,10 +147,10 @@
 - Modify: `src/builtins/write_pred.cpp`
 - Test: `tests/pl/write.pl`
 
-- [ ] **Step 1:** 失敗するテストを足す。`wt_opt_var`: `write_term(a, [_])` → `instantiation_error`。`wt_opt_tail`: `write_term(a, [quoted(true)|_])` → `instantiation_error`。`wt_opt_quoted_fail`: `write_term(a, [quoted(fail)])` → `domain_error(write_option, quoted(fail))`。`wt_opt_vn_bad`: `write_term(a, [variable_names(a)])` → `domain_error(write_option, variable_names(a))`。`wt_opt_vn_tail`: `write_term(a, [variable_names(['A'=_|a])])` → `domain_error(write_option, variable_names(['A'=_|a]))`。`wt_opt_ok`: `write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])` 成功
-- [ ] **Step 2:** 失敗を見る。`lgt_write_term_3_118`〜`122` の入力をスイートから写し、どの組み合わせで正しい選択肢が拒まれるかをテスト名 `wt_opt_lgt_118` などで固定する
-- [ ] **Step 3:** 選択肢リストの検査を、書き出しを始める前に全部終える関数 `std::optional<WriteOptions> parse_write_options(Impl& machine, const Goal& goal, Cell list)` にまとめる
-- [ ] **Step 4:** テストとスイートを流す。コミット `[phase5] write_term/3 の選択肢を書き出す前に検査する（8.14.2.3、write.pl と合格 +N）`
+- [x] **Step 1:** 失敗するテストを足す。`wt_opt_var`: `write_term(a, [_])` → `instantiation_error`。`wt_opt_tail`: `write_term(a, [quoted(true)|_])` → `instantiation_error`。`wt_opt_quoted_fail`: `write_term(a, [quoted(fail)])` → `domain_error(write_option, quoted(fail))`。`wt_opt_vn_bad`: `write_term(a, [variable_names(a)])` → `domain_error(write_option, variable_names(a))`。`wt_opt_vn_tail`: `write_term(a, [variable_names(['A'=_|a])])` → `domain_error(write_option, variable_names(['A'=_|a]))`。`wt_opt_ok`: `write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])` 成功
+- [x] **Step 2:** 失敗を見る。`lgt_write_term_3_118`〜`122` の入力をスイートから写し、どの組み合わせで正しい選択肢が拒まれるかをテスト名 `wt_opt_lgt_118` などで固定する
+- [ ] **Step 3:**（見送り: 検査はすでに書き出しの前に終わっている。`wt_opt_no_partial` で固定） 選択肢リストの検査を、書き出しを始める前に全部終える関数 `std::optional<WriteOptions> parse_write_options(Impl& machine, const Goal& goal, Cell list)` にまとめる
+- [x] **Step 4:** テストとスイートを流す。コミット `[phase5] write_term/3 の選択肢を書き出す前に検査する（8.14.2.3、write.pl と合格 +N）`
 
 ### Task 6: `discontiguous` の読み込み（7.4.2.3）
 
@@ -158,9 +158,9 @@
 - Modify: `src/machine/load.cpp` か `src/machine/consult.cpp`（原因が分かってから決める）
 - Test: `tests/pl/directives.pl`
 
-- [ ] **Step 1:** `syntax/directives/discontiguous_1/tests.lgt` の 01〜05 と同じ形（引数 1〜4 の述語を他の述語の節で分断する）を `tests/pl/directives.pl` に `dc_arity1`〜`dc_arity4` として足し、失敗を見る。失敗しなければ試験器側の原因なので、`tests/cpp/conformance_report_test.cpp` に同じ形の `tests.lgt` を足して S として直す
-- [ ] **Step 2:** 原因を直す。テストとスイートを流す
-- [ ] **Step 3:** コミット `[phase5] discontiguous の述語を読み込めるようにする（directives.pl、合格 +5）`
+- [x] **Step 1:** `syntax/directives/discontiguous_1/tests.lgt` の 01〜05 と同じ形（引数 1〜4 の述語を他の述語の節で分断する）を `tests/pl/directives.pl` に `dc_arity1`〜`dc_arity4` として足し、失敗を見る。失敗しなければ試験器側の原因なので、`tests/cpp/conformance_report_test.cpp` に同じ形の `tests.lgt` を足して S として直す
+- [x] **Step 2:**（原因は並びの形を拒む決定。持ち主の決定 B で並びを受け付けた）原因を直す。テストとスイートを流す
+- [x] **Step 3:** コミット `[phase5] discontiguous の述語を読み込めるようにする（directives.pl、合格 +5）`
 
 ### Task 7: 丸め系評価子（9.1.1、9.1.6）
 
@@ -168,28 +168,30 @@
 - Modify: `docs/iso-notes.md`、`docs/iso-notes.ja.md`、`src/builtins/arith_float.cpp`
 - Test: `tests/pl/arith.pl`
 
-- [ ] **Step 1:** iso-notes に 2 問を書き、持ち主の答えを待つ。問 1「`floor(9)` などで整数を受けたとき A: `type_error(float, 9)`（`iso` 旗が真） B: 整数をそのまま返す」。問 2「`round(-2.5)` は A: -3（0 から遠い方） B: -2（`floor(x + 1/2)`）」。答えが出るまでこのタスクのコードは書かない
-- [ ] **Step 2:** 答えに合わせた失敗するテスト `round_neg_half`、`floor_int`、`ceiling_int`、`truncate_int`、`fip_int`、`ffp_int` を `tests/pl/arith.pl` に書く
-- [ ] **Step 3:** 実装し、テストとスイートを流す。コミット `[phase5] 丸め系評価子を ISO に合わせる（9.1.6、arith.pl と合格 +N）`
+- [x] **Step 1:** iso-notes に 2 問を書き、持ち主の答えを待つ。問 1「`floor(9)` などで整数を受けたとき A: `type_error(float, 9)`（`iso` 旗が真） B: 整数をそのまま返す」。問 2「`round(-2.5)` は A: -3（0 から遠い方） B: -2（`floor(x + 1/2)`）」。答えが出るまでこのタスクのコードは書かない
+- [x] **Step 2:** 答えに合わせた失敗するテスト `round_neg_half`、`floor_int`、`ceiling_int`、`truncate_int`、`fip_int`、`ffp_int` を `tests/pl/arith.pl` に書く
+- [x] **Step 3:** 実装し、テストとスイートを流す。コミット `[phase5] 丸め系評価子を ISO に合わせる（9.1.6、arith.pl と合格 +N）`
 
 ### Task 8: 判断待ちの解消
 
 **Files:**
 - Modify: `docs/iso-notes.md`、`docs/iso-notes.ja.md`、答えが B のときだけ該当コードと ADR
 
-- [ ] **Step 1:** iso-notes の未決 6 問（7.8.3、9.3.1.3 d、7.5.4、8.11.8、`memberchk/2` と `iso_stream_property_2_01`、8.11.1）とタスク 1 の N の問いを、1 回の報告に 1 つずつ持ち主に聞く
-- [ ] **Step 2:** 答えを `Decision (日付): A.` の形で書く。7.5.4 が B なら ADR 0004 を置き換える ADR 0008 を先に書いて承認を得てから実装する。それ以外で B のものは、その述語 1 つを 1 セッションで、タスク 9 と同じ手順で実装する
-- [ ] **Step 3:** A のままの不合格は仕分け表で「解釈の違い（iso-notes の見出し）」と書く
+- [x] **Step 1:** iso-notes の未決 6 問（7.8.3、9.3.1.3 d、7.5.4、8.11.8、`memberchk/2` と `iso_stream_property_2_01`、8.11.1）とタスク 1 の N の問いを、1 回の報告に 1 つずつ持ち主に聞く
+- [x] **Step 2:** 答えを `Decision (日付): A.` の形で書く。7.5.4 が B なら ADR 0004 を置き換える ADR 0008 を先に書いて承認を得てから実装する。それ以外で B のものは、その述語 1 つを 1 セッションで、タスク 9 と同じ手順で実装する
+- [x] **Step 3:** A のままの不合格は仕分け表で「解釈の違い（iso-notes の見出し）」と書く
 
 ### Task 9: 残りの I を 1 述語ずつ
 
 **Files:** 述語ごとに `src/builtins/` の 1 ファイルと `tests/pl/` の対応ファイル
 
-- [ ] **Step 1:** 仕分け表で I のまま残る行のうち、件数が最も多い述語を 1 つ選ぶ
-- [ ] **Step 2:** スイートの入力をそのまま `tests/pl/` に写して失敗を見る
-- [ ] **Step 3:** 直す。テストとスイートを流し、仕分け表から消す
-- [ ] **Step 4:** コミット `[phase5] <述語> の <内容> を直す（<条項>、<テスト>、合格 +N）`
-- [ ] **Step 5:** 仕分け表に I が残る限り、次のセッションでこのタスクを繰り返す
+- [x] **Step 1:** 仕分け表で I のまま残る行のうち、件数が最も多い述語を 1 つ選ぶ
+- [x] **Step 2:** スイートの入力をそのまま `tests/pl/` に写して失敗を見る
+- [x] **Step 3:** 直す。テストとスイートを流し、仕分け表から消す
+- [x] **Step 4:** コミット `[phase5] <述語> の <内容> を直す（<条項>、<テスト>、合格 +N）`
+- [x] **Step 5:** 仕分け表に I が残る限り、次のセッションでこのタスクを繰り返す
+
+2026-10-28: 仕分け表の I は 0 件。残る 36 件は N 21、Q 7、S 7、X 1 で、どれもこのタスクで直すものではない（I の行はタスク 2〜8 で消えた）。
 
 ---
 
@@ -206,7 +208,7 @@
 - Produces: `std::optional<char32_t> halfwidth_punctuation(char32_t c)`。`（）［］，、：` を `()[],,:` に写し、それ以外は `std::nullopt`。`。` と `「」` は文脈が要るので字句解析器が個別に扱う
 - Consumes: 旗 `japanese_punctuation`（`flags.cpp` の case 8）
 
-- [ ] **Step 1:** 失敗するテストを `tests/pl/japanese.pl` に書く。旗の切り替えは各テストの中で行い、最後に `false` に戻す
+- [x] **Step 1:** 失敗するテストを `tests/pl/japanese.pl` に書く。旗の切り替えは各テストの中で行い、最後に `false` に戻す
   - `fw_same_term`: 旗を真にして `親（太郎，一郎）。` を読んだ項が、`親(太郎,一郎).` を読んだ項と `==`
   - `fw_list`: `X = ［1，2］。` が `X == [1,2]`
   - `fw_touten`: `f（a、b）。` が `f(a,b)`
@@ -216,11 +218,11 @@
   - `fw_off_symbol`: 旗が偽のとき `X = 、` が `X == '、'`、`。` は記号原子として今と同じ項になる
   - `fw_quoted_kept`: 旗が真でも `'（）'` と `"，"` の中身は全角のまま
   - `fw_char_code_kept`: 旗が真でも `0'（` は `（` の符号位置
-  - `fw_directive_next_clause`: 一時ファイル `tests/tmp/全角.pl` に `:- set_prolog_flag(japanese_punctuation, true).` と `全（1）。` を書いて `consult` し、`全(1)` が呼べる
-- [ ] **Step 2:** 失敗を見る
-- [ ] **Step 3:** 字句解析器が文字を 1 つ取り出す入口で、引用の外のときだけ `halfwidth_punctuation` を通す。`。` は後ろが配置文字か入力の終わりのときだけ終止符にする。`「` は引用原子の開始とし、終わりは `」`。中の規則（`'` を普通の文字にするか、`\` のエスケープを使うか）は iso-notes に「A: `'…'` と同じエスケープで、`'` は普通の文字 B: エスケープなし」を書いて決めてから実装する
-- [ ] **Step 4:** `ctest` を流す。`fw_off_symbol` と既存の `syntax.pl` の往復が変わっていないことを見る
-- [ ] **Step 5:** コミット `[phase5] 全角記号モードを字句解析に効かせる（SPEC 第4節、japanese.pl の fw_* 10 件）`
+  - `fw_directive_next_clause`: 一時ファイル `tests/tmp/全角.pl` に `:- set_prolog_flag(japanese_punctuation, true).` と `全（1）。` を書いて `consult` し、`全(1)` が呼べる（実施: 一時ファイルではなく `tests/pl/modules/全角.pl` を `japanese.pl` の指令で読む。`modules/旗.pl` と同じ形で、ctest の作業ディレクトリに依らない）
+- [x] **Step 2:** 失敗を見る
+- [x] **Step 3:** 字句解析器が文字を 1 つ取り出す入口で、引用の外のときだけ `halfwidth_punctuation` を通す。`。` は後ろが配置文字か入力の終わりのときだけ終止符にする。`「` は引用原子の開始とし、終わりは `」`。中の規則（`'` を普通の文字にするか、`\` のエスケープを使うか）は iso-notes に「A: `'…'` と同じエスケープで、`'` は普通の文字 B: エスケープなし」を書いて決めてから実装する
+- [x] **Step 4:** `ctest` を流す。`fw_off_symbol` と既存の `syntax.pl` の往復が変わっていないことを見る
+- [x] **Step 5:** コミット `[phase5] 全角記号モードを字句解析に効かせる（SPEC 第4節、japanese.pl の fw_* 10 件）`
 
 ### Task 11: メッセージを Prolog の事実へ移す
 
@@ -233,25 +235,36 @@
 - Produces: 事実 `message(Key, Format)`（モジュール `messages_ja` と `messages_en` がそれぞれ持つ。Format は `format/2` の書式原子）。C++ 側は `std::string render_message(Impl& machine, std::string_view key, Cell args)`。旗 `message_language`（値 `ja` か `en`）
 - Consumes: フェーズ4の `library(...)` の探索（`$MOSA_LIB`、実行ファイルからの `lib/`）、`library(format)`
 
-- [ ] **Step 1:** ADR 0007 を書いて持ち主の承認を得る。決めること: 事実の名前と引数、言語ごとのモジュール、旗の既定値の決め方（`LANG` が `ja` で始まれば `ja`、それ以外は `en`。`LANG` の読み取りは `src/platform/`）、カタログが読めないときの表示（`<Key>: ` の後に引数を `writeq` で並べる）。承認までコードを書かない
-- [ ] **Step 2:** 失敗するテスト。`session_test` に `uncaught_ja`: 旗 `ja` で `throw(foo)` を打つと標準エラーが `警告: ゴールは例外を送出しました: foo` を含む。`uncaught_en`: 旗 `en` で `Warning: goal raised exception: foo` を含む。`message_missing_key`: カタログを読まない設定で落ちず `goal_raised: foo` を含む。`tests/pl/flags.pl` に `ml_values`: `set_prolog_flag(message_language, fr)` → `domain_error(flag_value, message_language+fr)`
-- [ ] **Step 3:** `session.cpp` と `main_mosa.cpp` の `警告: …` の文字列を鍵 `goal_raised`、`heap_limit` に置き換える。REPL のヘルプに「日本語の変数は `_太郎` のように下線で始める」を鍵 `help_japanese_variables` で足す
-- [ ] **Step 4:** 旗を足したので `docs/iso-notes.md` に `Section 7 Flag message_language` を Decision 付きで書く
-- [ ] **Step 5:** テストを流す。コミット `[phase5] 例外の表示を messages_ja.pl と messages_en.pl へ移す（ADR 0007、session_test 3 件）`
+- [x] **Step 1:** ADR 0007 を書いて持ち主の承認を得る。決めること: 事実の名前と引数、言語ごとのモジュール、旗の既定値の決め方（`LANG` が `ja` で始まれば `ja`、それ以外は `en`。`LANG` の読み取りは `src/platform/`）、カタログが読めないときの表示（`<Key>: ` の後に引数を `writeq` で並べる）。承認までコードを書かない
+- [x] **Step 2:** 失敗するテスト。`session_test` に `uncaught_ja`: 旗 `ja` で `throw(foo)` を打つと標準エラーが `警告: ゴールは例外を送出しました: foo` を含む。`uncaught_en`: 旗 `en` で `Warning: goal raised exception: foo` を含む。`message_missing_key`: カタログを読まない設定で落ちず `goal_raised: foo` を含む。`tests/pl/flags.pl` に `ml_values`: `set_prolog_flag(message_language, fr)` → `domain_error(flag_value, message_language+fr)`
+- [x] **Step 3:** `session.cpp` と `main_mosa.cpp` の `警告: …` の文字列を鍵 `goal_raised`、`heap_limit` に置き換える。REPL のヘルプに「日本語の変数は `_太郎` のように下線で始める」を鍵 `help_japanese_variables` で足す
+- [x] **Step 4:** 旗を足したので `docs/iso-notes.md` に `Section 7 Flag message_language` を Decision 付きで書く
+- [x] **Step 5:** テストを流す。コミット `[phase5] 例外の表示を messages_ja.pl と messages_en.pl へ移す（ADR 0007、session_test 3 件）`
 
 ### Task 12: 構文エラーの鍵と位置（SPEC 第4節、第7節）
 
 **Files:**
-- Modify: `src/read/lexer_literal.cpp`、`src/builtins/read_pred.cpp`、`lib/messages_ja.pl`、`lib/messages_en.pl`、`tests/pl/read.pl`
+- Modify: `include/mosa/syntax_error.hpp`、`src/read/lexer_literal.cpp`、`src/builtins/read_pred.cpp`、`src/machine/session.cpp`、`lib/messages_ja.pl`、`lib/messages_en.pl`、`tests/pl/read.pl`
 - Test: `tests/pl/read.pl`、`tests/pl/japanese.pl`、`tests/cpp/session_test.cpp`
 
 **Interfaces:**
-- Consumes: ADR 0007 で決めた Formal（`syntax_error(Key)`、Key は英語の原子）と Context（`context(PI, stream(S, Line, LinePos, CharNo))`、問題のトークンの置き場は ADR 0007 による）
+- Consumes: ADR 0007 で決めた Formal（`syntax_error(Key)`、Key は英語の原子）と Context（`context(PI, syntax(stream(S, Line, LinePos, CharNo), Token))`、入力の終わりでは Token が `''`）
 
-- [ ] **Step 1:** `tests/pl/read.pl` の `read_syntax` と `read_incomplete` の期待値を ADR 0007 の形に直す（期待値の変更はこの ADR のコミットに限る）。`japanese.pl` に `syntax_col_japanese`: `'あいう ).'` と `'abc ).'` を読んだときの `LinePos` が等しい。`syntax_ja_shown`: `session_test` で旗 `ja` のとき `親(.` の表示が `行 1 列` と `親` を含む
-- [ ] **Step 2:** 失敗を見る
-- [ ] **Step 3:** C++ の日本語の理由文（`整数が範囲を超えている`、`予期しないトークン`、`項が閉じていません` など）を鍵に置き換え、文面は `messages_*.pl` に移す。`grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src` が `src/machine/iso_suite.cpp` の報告書の見出しと注釈以外を出さないこと
-- [ ] **Step 4:** テストを流す。コミット `[phase5] 構文エラーを鍵と位置で投げ、文面を messages へ移す（read.pl、japanese.pl、session_test）`
+- [x] **Step 1:** `tests/pl/read.pl` の `read_syntax`、`read_incomplete`、`read_syntax_stream` の期待値を ADR 0007 の形に直す（期待値の変更はこの ADR のコミットに限る）。`japanese.pl` に `syntax_col_japanese`: `'あいう ).'` と `'abc ).'` を読んだときの `LinePos` が等しい。`syntax_ja_shown`: `session_test` で旗 `ja` のとき REPL に打った `子 親.` の表示が `行 1 列` と `親` を含む（`親(.` は問題のトークンが入力の終わりで `親` を含まないので、この入力に替えた）
+- [x] **Step 2:** 失敗を見る
+- [x] **Step 3:** `read_pred.cpp` と `session.cpp` の理由文を鍵に置き換え、文面は `messages_*.pl` に移す。`lexer_literal.cpp` のトークン `タブ`、`改行` はその字そのものにする。門: `grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src/read src/builtins src/machine/session.cpp` が `session.cpp` の `usage` 以外を出さないこと（`load.cpp` などの診断は Task 12b）
+- [x] **Step 4:** テストを流す。コミット `[phase5] 構文エラーを鍵と位置で投げ、文面を messages へ移す（read.pl、japanese.pl、session_test）`
+
+### Task 12b: 残りの診断の文面を messages へ移す（SPEC 第7節）
+
+**Files:**
+- Modify: `src/machine/session.cpp`（`usage`）、`src/machine/load.cpp`、`src/machine/load_directive.cpp`、`src/machine/consult.cpp`、`src/machine/suite.cpp`、`src/machine/lgt_file.cpp`、`src/core/heap.cpp`、`src/main_mosac.cpp`、`src/main_mosatest.cpp`、`lib/messages_ja.pl`、`lib/messages_en.pl`、`docs/iso-notes.md`（7.4.2 の決定文の `ファイルを開けません` を鍵の名前に合わせる。持ち主に確かめる）
+- Test: `tests/cpp/session_test.cpp`
+
+- [x] **Step 1:** 失敗するテスト。旗 `en` で consult できないファイルの表示が英語の文面を含む。旗 `ja` の今の確認（`ファイルを開けません` など）はそのまま通る
+- [x] **Step 2:** 診断を文字列ではなく鍵と引数で持ち、表示のときに `render_message` で文面にする
+- [x] **Step 3:** 門: `grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src` が `src/machine/iso_suite.cpp` の報告書の見出しと注釈以外を出さないこと
+- [x] **Step 4:** テストを流す。コミット `[phase5] 読み込みと使い方の診断を messages へ移す（session_test）`
 
 ### Task 13: `~t~|` の東アジア幅
 
@@ -262,9 +275,9 @@
 **Interfaces:**
 - Consumes: `library(japanese)` の `読み幅/2`（フェーズ4）、`src/unicode_tables.inc` の `k_wide_ranges`
 
-- [ ] **Step 1:** 失敗するテスト。`fmt_wide_pad`: `with_output_to(atom(A), format("~w~t~10|~w", [日本, x]))` が `A == '日本      x'`（`日本` は幅 4、空白 6）。`fmt_ascii_pad`: 同じ書式で `ab` なら空白 8。`fmt_mixed`: `日a` は幅 3
-- [ ] **Step 2:** 桁の計算を `読み幅/2` と同じ表に置き換える。テストを流す
-- [ ] **Step 3:** コミット `[phase5] format の ~t~| を東アジア幅で数える（japanese.pl の fmt_* 3 件）`
+- [x] **Step 1:** 失敗するテスト。`fmt_wide_pad`: `with_output_to(atom(A), format("~w~t~10|~w", [日本, x]))` が `A == '日本      x'`（`日本` は幅 4、空白 6）。`fmt_ascii_pad`: 同じ書式で `ab` なら空白 8。`fmt_mixed`: `日a` は幅 3
+- [x] **Step 2:** 桁の計算を `読み幅/2` と同じ表に置き換える。テストを流す
+- [x] **Step 3:** コミット `[phase5] format の ~t~| を東アジア幅で数える（japanese.pl の fmt_* 3 件）`
 
 ### Task 14: Windows コンソールの UTF-8
 
@@ -276,41 +289,115 @@
 **Interfaces:**
 - Produces: `void prepare_console()`（Windows では `SetConsoleCP(65001)` と `SetConsoleOutputCP(65001)`、他の OS では何もしない）。`std::optional<std::string> read_console_line()`（標準入力が端末の Windows だけ `ReadConsoleW` で UTF-16 を読み UTF-8 にして返す。他は `std::nullopt` で、呼び手は今の読み取りに戻る）
 
-- [ ] **Step 1:** 失敗するテスト `mosa_utf8_pipe`: `親(太郎). ` を含む UTF-8 をパイプで渡し、`read(X), write(X), nl` の出力のバイト列が入力の `親(太郎)` と一致する。3 OS の CI で流す
-- [ ] **Step 2:** `prepare_console` を `main_mosa.cpp` の最初で呼ぶ。`read_console_line` を標準入力の読み取り元に入れる
+- [x] **Step 1:** 失敗するテスト `mosa_utf8_pipe`: `親(太郎). ` を含む UTF-8 をパイプで渡し、`read(X), write(X), nl` の出力のバイト列が入力の `親(太郎)` と一致する。3 OS の CI で流す
+- [x] **Step 2:** `prepare_console` を `main_mosa.cpp` の最初で呼ぶ。`read_console_line` を標準入力の読み取り元に入れる
 - [ ] **Step 3:** 端末からの `ReadConsoleW` は CI で試せないので、手で確かめる手順（`chcp` に関係なく `mosa` で `X = 親.` が読めて表示される）を `docs/STATUS.md` の Open に書き、確かめた日付を残す
-- [ ] **Step 4:** コミット `[phase5] Windows のコンソールを UTF-8 で読み書きする（mosa_utf8_pipe を 3 OS で）`
+- [x] **Step 4:** コミット `[phase5] Windows のコンソールを UTF-8 で読み書きする（mosa_utf8_pipe を 3 OS で）`
 
 ### Task 15: 日本語のパス
 
 **Files:**
-- Create: `src/core/path_utf8.cpp`、`include/mosa/path_utf8.hpp`（`streams.cpp` の `path_from_utf8` を移す）
-- Modify: `src/machine/load_path.cpp:18`、`src/machine/suite.cpp:258`、ほかに `std::filesystem::path{std::string...}` で作っている所すべて
+- Modify: `include/mosa/path_text.hpp`（既にある `path_from_utf8` と `utf8_from_path` に寄せる）、`src/builtins/streams.cpp` と `src/machine/lgt_io.cpp` の写しを消す
+- Modify: `CMakeLists.txt` の `prolog_tests` に `WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}`
 - Test: `tests/pl/japanese.pl`
 
 **Interfaces:**
-- Produces: `std::filesystem::path path_from_utf8(std::string_view text)`、`std::string path_to_utf8(const std::filesystem::path& path)`
+- Produces: なし。`std::filesystem::path path_from_utf8(std::string_view text)` と `std::string utf8_from_path(const std::filesystem::path& path)` は `include/mosa/path_text.hpp` に既にある
 
-- [ ] **Step 1:** 失敗するテスト `consult_japanese_name`: `open('tests/tmp/日本語の読込.pl', write, S)` で `読込済(はい).` を書いて閉じ、`consult('tests/tmp/日本語の読込.pl')` の後で `読込済(はい)` が成功する。`prolog_tests` の作業ディレクトリがリポジトリの根でなければ `add_test` に `WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}` を足す
-- [ ] **Step 2:** macOS と Linux では通り、Windows の CI で失敗することを見る（MSVC の `path(std::string)` は ANSI コードページで解釈するため）
-- [ ] **Step 3:** `grep -rn 'filesystem::path{std::string' src` が 0 件になるまで `path_from_utf8` に置き換える。テストを 3 OS で流す
-- [ ] **Step 4:** コミット `[phase5] パスを UTF-8 から作り、日本語のファイル名を consult できる（japanese.pl、3 OS）`
+着手時の見直し（2026-10-29）: 原子から作るパス（`open/4`、`consult/1`、読込、`^^` の入出力）は既に `path_from_utf8` を通っていた。残る `path{std::string…}` は argv と環境変数から来るもので、Windows ではどちらも ANSI コードページの文字列なので、ANSI で読む `path(std::string)` と食い違わない。そこを `path_from_utf8` に替えると、かえって cp932 で打ったファイル名が化ける。ゲートは原子から来るパスに絞る。argv を UTF-8 で受ける件（`mosa 日本語.pl` と `-g` の日本語）は別の課題として STATUS に残す。
+
+- [x] **Step 1:** 失敗するテスト `consult_japanese_name`: `open('tests/tmp/日本語の読込.pl', write, S)` で `読込済(はい).` を書いて閉じ、`consult('tests/tmp/日本語の読込.pl')` の後で `読込済(はい)` が成功する。ctest の作業ディレクトリが `build` なので落ちた（根からは通る）。`prolog_tests` に `WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}` を足し、`operators.pl` の `../` の逃げ道を消した
+- [x] **Step 2:** Windows でも原子のパスは `path_from_utf8` を通るので、MSVC で落ちる見込みは無い。3 OS の CI で通ることを見る
+- [x] **Step 3:** `streams.cpp` と `lgt_io.cpp` の `path_from_utf8` の写しと `lgtio::utf8_of` を消し、`path_text.hpp` に寄せる。原子から来るパスで `path{std::string…}` を使う所は 0 件
+- [x] **Step 4:** コミット `[phase5] パスを UTF-8 から作り、日本語のファイル名を consult できる（japanese.pl、3 OS）`
+
+### Task 15b: コマンドラインの引数を UTF-8 で受ける
+
+**Files:**
+- Create: `include/mosa/command_line.hpp`、`src/platform/command_line.cpp`
+- Modify: `include/mosa/console.hpp` と `src/platform/console.cpp`（`utf8_from_utf16` を `console_line_text` から分ける）、`src/main_mosa.cpp`、`src/main_mosatest.cpp`、`src/machine/suite.cpp`、`src/machine/iso_suite.cpp`、`src/machine/lgt_io.cpp`
+- Test: `tests/cpp/console_test.cpp`、`tests/cpp/mosa_japanese_arg_test.cmake`
+
+**Interfaces:**
+- Produces: `std::string utf8_from_utf16(std::u16string_view raw)`、`std::vector<std::string> command_line_utf8(int argc, char** argv)`
+
+- [x] **Step 1:** 失敗するテスト: `console_test` に `utf8_from_utf16` の 5 件（BMP、サロゲート対、対の無い低サロゲート、CRLF を残す、Ctrl+Z を残す）。まだ無い関数なのでビルドが落ちる。`console_line_text` から変換を分けて通す
+- [x] **Step 2:** `console_test` に `command_line_utf8` が ASCII の引数で argv と同じ並びを返す検査、`mosa_japanese_arg`（`tests/tmp/日本語の引数.pl` を引数で渡し、`-g "読込済(X), write(X), nl."` で `はい`）。macOS では最初から通る。Windows で落ちるのは CI でしか見えず、直す前の push はしない
+- [x] **Step 3:** Windows は `CommandLineToArgvW(GetCommandLineW())` を `utf8_from_utf16` で UTF-8 に。数が argc と合わなければ argv を写す。`mosa` と `mosatest` が使い、`mosatest` の argv から来るパス（`run_suite`、`--roundtrip`、`--suite` の dir と報告先）と、スイート内の `tests_path` と consult のパスを `path_from_utf8` / `utf8_from_path` に。`mosac` は `--version` を比べるだけなので触らない。環境変数（`exe_path.cpp`）は ANSI のままで `path(std::string)` と食い違わないので触らない
+- [x] **Step 4:** コミットし、push して 3 OS の CI で `mosa_japanese_arg` を見る（run 40761020167、4 ジョブ緑）
 
 ### Task 16: `japanese.pl` を SPEC 第4節の最小集合と照らす
 
 **Files:**
 - Modify: `tests/pl/japanese.pl`
 
-- [ ] **Step 1:** SPEC 第4節「Minimum set of Japanese tests」の 5 項目それぞれに対応するテスト名を `japanese.pl` の先頭のコメントに書く（往復と `は` 演算子は `op_ha`、`語処` は `sub_atom_go_sho`、`𠮷野家` は `atom_length_yoshinoya`、日本語のファイル名と構文エラーは Task 15 と 12、全角記号は Task 10）
-- [ ] **Step 2:** 欠けているものがあれば足す。日本語原子の `writeq` 往復 `wq_tokyo`: `writeq(東京)` が `東京`、`writeq('東 京')` が `'東 京'`
-- [ ] **Step 3:** `mosatest tests/pl/japanese.pl` が全件通ることを見る。コミット `[phase5] japanese.pl を SPEC 第4節の最小集合にそろえる（全件通過）`
+- [x] **Step 1:** SPEC 第4節「Minimum set of Japanese tests」の 5 項目それぞれに対応するテスト名を `japanese.pl` の先頭のコメントに書く（往復と `は` 演算子は `op_ha`、`語処` は `sub_atom_go_sho`、`𠮷野家` は `atom_length_yoshinoya`、日本語のファイル名と構文エラーは Task 15 と 12、全角記号は Task 10）
+- [x] **Step 2:** 欠けているものがあれば足す。日本語原子の `writeq` 往復 `wq_tokyo`: `writeq(東京)` が `東京`、`writeq('東 京')` が `'東 京'`
+- [x] **Step 3:** `mosatest tests/pl/japanese.pl` が全件通ることを見る。コミット `[phase5] japanese.pl を SPEC 第4節の最小集合にそろえる（全件通過）`。足したのは `op_ha_roundtrip`（書いて読み戻す）、`wq_tokyo`、`wq_tokyo_space`、`syntax_token_japanese`。どれも初めから通り、期待値をわざと崩すと落ちることを見た
 
 ### Task 17: 出口
 
 **Files:**
 - Modify: `src/version.cpp`、`CMakeLists.txt` の `version_pass_regex`、`docs/conformance.md`、`docs/conformance.json`、`docs/STATUS.md`
 
-- [ ] **Step 1:** `mosatest --suite` を流し、合格率が Task 1 の基準値より上であることを見る
-- [ ] **Step 2:** `tests/pl/japanese.pl` の全件通過を見る
-- [ ] **Step 3:** 版を `mosa 0.0.1 (phase 5)` にし、`ctest` の `mosa_version` を合わせる。3 OS の CI が緑であることを見る
-- [ ] **Step 4:** `docs/STATUS.md` を `Phase: 5 done`、`Next: phase 6, mosac` にする。コミット `[phase5] フェーズ5を終える（合格率 R%、japanese.pl 全件、3 OS の CI）`
+- [x] **Step 1:** `mosatest --suite` を流し、合格率が Task 1 の基準値より上であることを見る
+- [x] **Step 2:** `tests/pl/japanese.pl` の全件通過を見る
+- [x] **Step 3:** 版を `mosa 0.0.1 (phase 5)` にし、`ctest` の `mosa_version` を合わせる（`tests/cpp/mosa_stdin_test.cmake` の版の期待値も）。3 OS の CI が緑であることを見る
+- [x] **Step 4:** `docs/STATUS.md` を `Phase: 5 done`、`Next: phase 6, mosac` にする。コミット `[phase5] フェーズ5を終える（合格率 R%、japanese.pl 全件、3 OS の CI）`
+
+---
+
+## 仕分け表
+
+2026-10-28、フェーズ4終了時の基準値 2041/2171（94.0%）の不合格 130 件。`docs/conformance.md` の「不合格」節を 1 行 1 件で写した。「別欄」（実行しないディレクトリ）は含めない。Q の備考は `docs/iso-notes.md` の見出しで、「解釈の違い」は決定済みで不合格のまま残すもの。合格に移った行は表から消す。
+
+内訳（Task 1 時点）: S 47、N 36、Q 31、I 15、X 1。
+内訳（Task 2 Step 5 後、残り 111 件）: S 24、N 36、Q 35、I 15、X 1。`lgt_write_term_3_043`、`044`、`065`、`066` は出力の捕捉が出来て、変数を `_` だけで書く件として Q に移った。
+内訳（Task 2 Step 7 後、残り 108 件）: S 21（`=~=` 14 件はタスク 3、試験器の追補 7 件）、N 36、Q 35、I 15、X 1。
+内訳（Task 3 後、残り 94 件）: S 7（試験器の追補）、N 36、Q 35、I 15、X 1。`=~=` の 14 件は全部合格に移り、I に回すものは無かった。
+内訳（Task 4 後、残り 89 件）: S 7、N 36、Q 35、I 10、X 1。`stream_property_2_29`〜`31` は位置の不具合ではなく表明の `ground/1` が無かったためで、`ground/1` と一緒に合格に移った。
+内訳（Task 5 後、残り 89 件）: S 7、N 36、Q 40、I 5、X 1。`lgt_write_term_3_118`〜`122` は検査の不具合ではなく、繰り返した選択肢で後の方が勝つことを期待する件で、iso-notes「8.14 Write options」の決定（`domain_error`）と食い違うので Q に移した。
+内訳（8.14 の決定 B の後、残り 84 件）: S 7、N 36、Q 35、I 5、X 1。持ち主の決定 B（後の選択肢が勝つ）で `lgt_write_term_3_118`〜`122` が合格に移った。
+内訳（Task 6 後、残り 84 件）: S 7、N 36、Q 40、I 0、X 1。`discontiguous_1_01`〜`05` は読み込みの不具合ではなく、並びの形 `discontiguous((b/1, c/2))` を iso-notes 7.4.2 の決定が拒むためで、Q に移した。
+内訳（7.4.2 の決定 B の後、残り 79 件）: S 7、N 36、Q 35、X 1。並びの形を受け付けて `discontiguous_1_01`〜`05` が合格に移った。
+
+見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
+
+| パス | テスト名 | 類 | タスク | 備考 |
+| --- | --- | --- | --- | --- |
+| `control/catch_3` | `lgt_catch_3_13` | S | 2 追補 | 試験器に Logtalk の組込 `ignore/1` が無い |
+| `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `logical_update_semantics` | `logical_update_semantics_negation` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/current_input_1` | `sics_current_input_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
+| `predicates/current_output_1` | `sics_current_output_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
+| `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_12` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
+| `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_13` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
+| `predicates/open_4` | `lgt_open_4_31` | S | 2 追補 | 試験器が `condition(os::operating_system_type(unix))` を扱わない |
+| `predicates/open_4` | `lgt_open_4_41` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_42` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_43` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/read_term_3` | `sics_read_term_3_24` | X | なし | 多倍長整数（フェーズ7） |
+| `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 解釈の違い（iso-notes 8.11.8 position with reposition(false)） |
+| `predicates/stream_property_2` | `sics_stream_property_2_03` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
+| `unicode/builtins` | `lgt_unicode_current_prolog_flag_2_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_get_char_2_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_01` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_04` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_05` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_06` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_07` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_01` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_04` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_05` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_06` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_07` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_08` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_09` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_10` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_11` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_12` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/escape_sequences` | `lgt_unicode_escape_sequence_full_05` | Q | なし | 解釈の違い（Spec Section 4: So characters are symbol characters） |

@@ -5,6 +5,7 @@
 
 namespace mosa {
 std::string version_line() {
-  return "mosa 0.0.1 (phase 3)";
+  return "mosa " + std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." +
+         std::to_string(kVersionPatch) + " (phase 5)";
 }
 }

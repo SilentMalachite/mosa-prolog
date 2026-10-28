@@ -41,14 +41,25 @@ std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& pr
                                         Cell first) {
   std::vector<std::size_t> chosen;
   if (has_arg && machine.heap.unbound(machine.heap.deref(first))) {
-    for (std::size_t index = 0; index < predicate.clauses.size(); ++index) chosen.push_back(index);
+    for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
+      if (!predicate.clauses[index].dead) chosen.push_back(index);
+    }
     return chosen;
   }
   for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
     const Clause& clause = predicate.clauses[index];
+    if (clause.dead) continue;
     if (!has_arg || matches(machine, clause, first)) chosen.push_back(index);
   }
   return chosen;
+}
+
+std::size_t live_count(const Predicate& predicate) {
+  std::size_t count = 0;
+  for (const Clause& clause : predicate.clauses) {
+    if (!clause.dead) ++count;
+  }
+  return count;
 }
 
 }

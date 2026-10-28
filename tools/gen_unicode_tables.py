@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Unicode 18.0.0 の UCD から src/unicode_tables.inc を生成する。
 
+一般カテゴリ区間、東アジア幅が W または F の区間、単純大文字化（UnicodeData.txt の 12 列目）の対を出す。
+
 ビルドからは呼ばない。失敗したときは終了コード 1 で、既存の表を残す。
 ASCII の文字種は ISO 6.5 の固定表で決めるため、カテゴリ区間は U+0080 からにする。
 """
@@ -38,6 +40,16 @@ CATEGORY_CHECKS = {
 }
 WIDE_PRESENT = (0x3000, 0x4E00, 0xFF08, 0xFF10, 0x20BB7)
 WIDE_ABSENT = (0x0041, 0x007F)
+# 単純大文字化は 1 文字を 1 文字へ写す。ß の SS のような特殊な写像は SpecialCasing.txt にあり、ここでは使わない。
+UPPER_CHECKS = {
+    0x0061: 0x0041,
+    0x00FF: 0x0178,
+    0x03C2: 0x03A3,
+    0x03C3: 0x03A3,
+    0xFF41: 0xFF21,
+    0x10428: 0x10400,
+}
+UPPER_ABSENT = (0x0041, 0x00DF, 0x3042)
 
 
 def fetch(url: str) -> str:
@@ -105,6 +117,23 @@ def parse_unicode_data(text: str) -> list[tuple[int, int, str]]:
         ranges.append((code_point, code_point, category))
         index += 1
     return ranges
+
+
+def parse_simple_upper(text: str) -> list[tuple[int, int]]:
+    pairs: list[tuple[int, int]] = []
+    for line_number, raw in enumerate(text.splitlines(), start=1):
+        if not raw or raw.startswith("#"):
+            continue
+        parts = raw.split(";")
+        if len(parts) < 15:
+            raise RuntimeError(f"UnicodeData.txt:{line_number} の列が足りません")
+        if not parts[12]:
+            continue
+        try:
+            pairs.append((int(parts[0], 16), int(parts[12], 16)))
+        except ValueError as exc:
+            raise RuntimeError(f"UnicodeData.txt:{line_number} の大文字が不正です") from exc
+    return sorted(pairs)
 
 
 def parse_east_asian_width(text: str) -> list[tuple[int, int]]:
@@ -233,9 +262,28 @@ def ensure_wide(ranges: list[tuple[int, int]]) -> None:
             raise RuntimeError(f"U+{code_point:04X} は東アジア幅 W/F ではありません")
 
 
-def emit(categories: list[tuple[int, int, str]], wide: list[tuple[int, int]]) -> str:
+def ensure_upper(pairs: list[tuple[int, int]]) -> None:
+    previous = -1
+    for code_point, upper in pairs:
+        if code_point <= previous or upper > MAX_CODE_POINT or upper == code_point:
+            raise RuntimeError(f"大文字の対が不正です: U+{code_point:04X} -> U+{upper:04X}")
+        previous = code_point
+    if len(pairs) < 1000:
+        raise RuntimeError(f"大文字の対 {len(pairs)} が少なすぎます。12 列目を読めていない可能性があります")
+    table = dict(pairs)
+    for code_point, expected in UPPER_CHECKS.items():
+        if table.get(code_point) != expected:
+            raise RuntimeError(f"U+{code_point:04X} の大文字が期待と違います")
+    for code_point in UPPER_ABSENT:
+        if code_point in table:
+            raise RuntimeError(f"U+{code_point:04X} に単純大文字化があってはいけません")
+
+
+def emit(
+    categories: list[tuple[int, int, str]], wide: list[tuple[int, int]], upper: list[tuple[int, int]]
+) -> str:
     lines = [
-        "// Unicode 18.0.0 の一般カテゴリ区間と、東アジア幅が W または F の区間。",
+        "// Unicode 18.0.0 の一般カテゴリ区間、東アジア幅が W または F の区間、単純大文字化の対。",
         "// tools/gen_unicode_tables.py が生成する。手で編集しない。",
         "// ASCII は ISO 6.5 の固定表で分類するため、カテゴリ区間は U+0080 からにする。",
         f'constexpr std::string_view k_unicode_version{{"{UNICODE_VERSION}"}};',
@@ -251,6 +299,11 @@ def emit(categories: list[tuple[int, int, str]], wide: list[tuple[int, int]]) ->
     lines.append(f"constexpr std::array<WideRange, {len(wide)}> k_wide_ranges{{{{")
     for first, last in wide:
         lines.append(f"    WideRange{{0x{first:04X}, 0x{last:04X}}},")
+    lines.append("}};")
+    lines.append("")
+    lines.append(f"constexpr std::array<UpperPair, {len(upper)}> k_upper_pairs{{{{")
+    for code_point, mapped in upper:
+        lines.append(f"    UpperPair{{0x{code_point:04X}, 0x{mapped:04X}}},")
     lines.append("}};")
     lines.append("")
     return "\n".join(lines)
@@ -273,14 +326,16 @@ def publish(text: str) -> None:
         raise
 
 
-def generate(unicode_dir: str | None) -> tuple[int, int]:
+def generate(unicode_dir: str | None) -> tuple[int, int, int]:
     data_text, width_text = load_texts(unicode_dir)
     categories = drop_ascii(merge_categories(parse_unicode_data(data_text)))
     wide = merge_spans(parse_east_asian_width(width_text))
+    upper = parse_simple_upper(data_text)
     ensure_categories(categories)
     ensure_wide(wide)
-    publish(emit(categories, wide))
-    return len(categories), len(wide)
+    ensure_upper(upper)
+    publish(emit(categories, wide, upper))
+    return len(categories), len(wide), len(upper)
 
 
 def main() -> int:
@@ -291,12 +346,13 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        category_count, wide_count = generate(args.unicode_dir)
+        category_count, wide_count, upper_count = generate(args.unicode_dir)
     except Exception as exc:
         print(f"生成に失敗しました: {exc}", file=sys.stderr)
         return 1
     print(f"categories {category_count}")
     print(f"wide {wide_count}")
+    print(f"upper {upper_count}")
     return 0
 
 

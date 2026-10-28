@@ -64,7 +64,7 @@
 4. エラー体系（7.12）: `error(Formal, Context)` の形式とすべての Formal 項（`instantiation_error`、`uninstantiation_error/1`、`type_error/2`、`domain_error/2`、`existence_error/2`、`permission_error/3`、`representation_error/1`、`evaluation_error/1`、`resource_error/1`、`syntax_error/1`、`system_error`）
 5. 算術（第 9 章）: 整数は 64bit 符号付き、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供し、オーバーフローは `evaluation_error(int_overflow)`。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
 6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
-7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、`version`、`japanese_punctuation`（第 4 節）
+7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
 8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
 
 **実装定義事項の決定**
@@ -288,8 +288,8 @@
 | --- | --- | --- |
 | A（最初） | 8.2 項のユニフィケーション、8.3 型検査、8.4 項比較 | `=/2`、`\=/2`、`unify_with_occurs_check/2`、`var/1`、`atom/1`、`integer/1`、`float/1`、`atomic/1`、`compound/1`、`nonvar/1`、`number/1`、`callable/1`、`is_list/1`（非 ISO、system）、`@</2` 等 6 個、`compare/3`、`==/2`、`\==/2` |
 | A | 8.5 項の生成と分解 | `functor/3`、`arg/3`、`=../2`、`copy_term/2`、`term_variables/2` |
-| A | 7.8 制御構造、8.15 論理と制御 | `true/0`、`fail/0`、`false/0`、`!/0`、`,/2`、`;/2`、`->/2`、`*->/2`（非 ISO）、`catch/3`、`throw/1`、`call/1..8`、`\+/1`、`once/1`、`repeat/0`、`halt/0,1` |
-| B | 9 算術、8.6・8.7 | `is/2`、`=:=/2` 等 6 個、全評価関数（`+ - * / // mod rem div abs sign min max gcd ** ^ sqrt sin cos tan asin acos atan atan2 exp log log2 float integer float_integer_part float_fractional_part truncate round ceiling floor >> << /\ \/ xor \ pi e inf nan epsilon max_tagged_integer msb copysign nexttoward succ_or_zero`） |
+| A | 7.8 制御構造、8.15 論理と制御 | `true/0`、`fail/0`、`false/0`、`!/0`、`,/2`、`;/2`、`->/2`、`*->/2`（非 ISO）、`if/3`（非 ISO、切断を内に閉じた `(C *-> T ; E)`）、`catch/3`、`throw/1`、`call/1..8`、`\+/1`、`once/1`、`repeat/0`、`halt/0,1` |
+| B | 9 算術、8.6・8.7 | `is/2`、`=:=/2` 等 6 個、全評価関数（`+ - * / // mod rem div abs sign min max gcd ** ^ sqrt sin cos tan asin acos atan atan2 exp log/1 log/2 log2 float integer float_integer_part float_fractional_part truncate round ceiling floor >> << /\ \/ xor \ pi e inf nan epsilon max_tagged_integer msb copysign nexttoward succ_or_zero`） |
 | B | 8.16 アトム処理 | `atom_length/2`、`atom_concat/3`、`sub_atom/5`、`atom_chars/2`、`atom_codes/2`、`char_code/2`、`number_chars/2`、`number_codes/2`、`atom_number/2`（非 ISO） |
 | C | 8.8・8.9 節の検索と生成・破壊 | `clause/2`、`current_predicate/1`、`asserta/1`、`assertz/1`、`retract/1`、`abolish/1`、`retractall/1`（Cor.2） |
 | C | 8.10 すべての解 | `findall/3`、`findall/4`、`bagof/3`、`setof/3`（`^/2` の扱い、変数の標準順序ソート） |
@@ -303,7 +303,7 @@
 
 **エラー体系の規則**
 
-- すべてのエラーは `throw(error(Formal, Context))` の形で投げる。`Context` は `context(PI, Extra)` とし、`PI` は述語指示子、`Extra` は追加情報（`syntax_error` なら `位置(Line, Col)` ではなく `stream(S, Line, LinePos, CharNo)` の形）。`Context` に実装定義の項を置けるのは ISO が許している
+- すべてのエラーは `throw(error(Formal, Context))` の形で投げる。`Context` は `context(PI, Extra)` とし、`PI` は述語指示子、`Extra` は追加情報（`syntax_error` なら `位置(Line, Col)` ではなく `syntax(stream(S, Line, LinePos, CharNo), Token)` の形。`Token` は問題のトークンの原子。ADR 0007）。`Context` に実装定義の項を置けるのは ISO が許している
 - 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `type_error(integer, foo)` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
 - C++ 側では `throw_error(m, Formal, PI)` の 1 系統のヘルパだけを使い、`Formal` の各種は `make_type_error(m, Type, Culprit)` のような関数で組む。文字列の直書きは禁止（アトム名のタイポを防ぐ）
 - 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、整数オーバーフローは `evaluation_error(int_overflow)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）

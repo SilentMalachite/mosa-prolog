@@ -39,3 +39,39 @@ test(catch_recover_cut, recover_cut, true).
 local_if :- (X = 1 ; X = 2), (! -> true), X = 2.
 test(if_cut_keeps, local_if, true).
 test(cut_not_not, findall(X, ((X=1;X=2), \+ \+ !), L), solutions([L = [1, 2]])).
+% 実行時に項からゴールを組むとき、巡回する引数を切らない。切ると length/2 が部分リストと見て成功する。
+test(cyclic_not, (L = [a, b|L], catch(\+ length(L, _), error(type_error(list, _), _), true)), true).
+test(cyclic_once, (L = [a, b|L], catch(once(length(L, _)), error(type_error(list, _), _), true)), true).
+test(cyclic_call_var, (L = [a, b|L], G = length(L, _), catch(G, error(type_error(list, _), _), true)), true).
+test(cyclic_findall, (L = [a, b|L], catch(findall(N, length(L, N), _), error(type_error(list, _), _), true)), true).
+test(cyclic_forall, (L = [a, b|L], catch(forall(true, length(L, _)), error(type_error(list, _), _), true)), true).
+test(cyclic_catch_goal, (L = [a, b|L], G = catch(length(L, _), error(type_error(list, _), _), true), call(G)), true).
+test(cyclic_not_not_eq, (L = [a|L], \+ \+ (L = [_|T], T == L)), true).
+
+% iso-notes「Section 3 if/3」の決定 B。if(C, T, E) は (C *-> T ; E) と同じで、system の組込。
+if_a(1).
+if_a(2).
+if_b(4).
+if_b(5).
+if_c(7).
+if_c(8).
+if_cut_cond :- if((!, fail), true, fail).
+if_cut_cond.
+if_cut_clause(1) :- if(!, true, fail).
+if_cut_clause(2).
+if_three(3).
+test(if_then, if(true, true, fail), true).
+test(if_else, if(fail, true, true), true).
+test(if_then_fails, if(true, fail, fail), fail).
+test(if_else_fails, if(fail, true, fail), fail).
+test(if_all_cond, findall(X-Y, if(if_a(X), if_b(Y), if_c(_)), L), solutions([L = [1-4, 1-5, 2-4, 2-5]])).
+test(if_all_else, findall(Z, if(fail, if_b(_), if_c(Z)), L), solutions([L = [7, 8]])).
+test(if_cut_in_cond, findall(Z, if((!, fail), if_b(_), if_c(Z)), L), solutions([L = [7, 8]])).
+test(if_cond_opaque, if_cut_cond, true).
+test(if_cond_opaque_clause, findall(X, if_cut_clause(X), L), solutions([L = [1, 2]])).
+test(if_then_cut_local, findall(X, (if_a(X), if(true, !, true)), L), solutions([L = [1, 2]])).
+test(if_bad_cond, (if_three(T), if(T, true, true)), error(type_error(callable, if(3, true, true)))).
+test(if_bad_then, (if_three(T), if(true, T, true)), error(type_error(callable, if(true, 3, true)))).
+test(if_bad_else, (if_three(T), if(fail, true, T)), error(type_error(callable, if(fail, true, 3)))).
+test(if_var_cond, if(_, true, true), error(instantiation_error)).
+test(if_built_in, predicate_property(if(_, _, _), built_in), true).

@@ -46,11 +46,17 @@ void check_term(std::string_view source, bool (*ok)(Fix&, const mosa::ReadTerm&)
 
 bool foo_ok(Fix& fix, const mosa::ReadTerm& term) { return named(fix, term.term, "foo"); }
 
+// 6.3.4.1: 名前 - の次の数は、空白を挟んでも負の定数。関数表記の -(42) だけが複合項である。
+bool negative_ok(Fix& fix, const mosa::ReadTerm& term) {
+  const auto body = fix.heap.deref(term.term);
+  return body.tag() == mosa::Tag::Int && fix.heap.integer_value(body) == -42;
+}
+
 bool minus_ok(Fix& fix, const mosa::ReadTerm& term) {
   const auto body = fix.heap.deref(term.term);
+  if (!functor(fix, body, "-", 1)) return false;
   const auto value = arg(fix, body, 0);
-  return body.tag() != mosa::Tag::Int && functor(fix, body, "-", 1) && value.tag() == mosa::Tag::Int &&
-         fix.heap.integer_value(value) == 42;
+  return value.tag() == mosa::Tag::Int && fix.heap.integer_value(value) == 42;
 }
 
 bool times_under_plus(Fix& fix, const mosa::ReadTerm& term) {
@@ -139,7 +145,9 @@ bool codes_ab(Fix& fix, const mosa::ReadTerm& term) {
 
 void check_shapes() {
   check_term("foo.", foo_ok, "atom");
-  check_term("-42.", minus_ok, "unary minus");
+  check_term("-42.", negative_ok, "negative number");
+  check_term("- 42.", negative_ok, "negative number after layout");
+  check_term("-(42).", minus_ok, "unary minus");
   check_term("a+b*c.", times_under_plus, "priority times");
   check_term("(a+b)*c.", plus_under_times, "priority plus");
   check_term("a-b-c.", left_minus, "left assoc");

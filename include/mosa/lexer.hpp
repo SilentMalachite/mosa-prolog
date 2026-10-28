@@ -40,6 +40,8 @@ class Lexer {
   // 張り付いた失敗を外す。位置が動いていなければ 1 字捨てる。
   // 捨てないと次の next が同じ失敗を返し、終止符まで届かない。
   bool release_failure();
+  // 旗 japanese_punctuation。読み込みでは指令の次の節から効く。
+  void set_fullwidth(bool on) { fullwidth_ = on; }
 
  private:
   struct SourceChar {
@@ -63,16 +65,16 @@ class Lexer {
   };
 
   [[nodiscard]] Place here() const;
-  // 引用と注釈の間だけ、写像せずに字を読む。
-  class RawScope {
+  // 引用と注釈の間は写像せずに字を読む。0'c の間は全角を半角にしない。
+  class FlagScope {
    public:
-    explicit RawScope(Lexer& lexer) : lexer_(lexer), previous_(lexer.raw_) { lexer_.raw_ = true; }
-    ~RawScope() { lexer_.raw_ = previous_; }
-    RawScope(const RawScope&) = delete;
-    RawScope& operator=(const RawScope&) = delete;
+    FlagScope(bool& flag, bool value) : flag_(flag), previous_(flag) { flag_ = value; }
+    ~FlagScope() { flag_ = previous_; }
+    FlagScope(const FlagScope&) = delete;
+    FlagScope& operator=(const FlagScope&) = delete;
 
    private:
-    Lexer& lexer_;
+    bool& flag_;
     bool previous_;
   };
 
@@ -85,7 +87,8 @@ class Lexer {
   [[nodiscard]] std::optional<Scan> skip_ignorable();
   [[nodiscard]] std::optional<Scan> skip_block_comment(Place start);
   [[nodiscard]] std::optional<Scan> skip_line_comment();
-  [[nodiscard]] bool dot_is_full_stop() const;
+  [[nodiscard]] bool layout_follows(std::size_t width) const;
+  [[nodiscard]] bool ends_clause(SourceChar ch, Place start) const;
   [[nodiscard]] Scan scan_word(TokenKind kind);
   [[nodiscard]] Scan scan_graphic();
   [[nodiscard]] Scan scan_solo();
@@ -120,6 +123,7 @@ class Lexer {
   bool bom_checked_ = false;
   bool layout_before_ = false;
   bool raw_ = false;
+  bool fullwidth_ = false;
   const CharConv* conv_ = nullptr;
   std::optional<Scan> failure_;
   std::size_t attempt_ = 0;

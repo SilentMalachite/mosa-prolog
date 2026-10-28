@@ -1,5 +1,9 @@
-% SPEC 第5節の例から use_module と meta_predicate を除いたもの。modules.pl が読む。
+% SPEC 第5節の宣言の例を全部持ち、modules.pl の試験用の述語を足したもの。modules.pl が読む。
 :- module(家系, [親/2, 祖父/2, (は)/2, 記録/1, 未定義/1, 全員/2, 全部秘密/1]).
+:- use_module(library(lists)).
+:- use_module(人名, [姓名分解/3 as 分解]).
+:- use_module(人名, except([読み/2])).
+:- meta_predicate 全員(1, ?).
 :- export(新述語/1).
 
 親(太郎, 一郎).
@@ -26,10 +30,9 @@
 複(0).
 
 % 受けた引数をそのまま返す。meta_predicate が付ける限定を見るため。
-:- meta_predicate 全員(1, ?).
 全員(G, G).
 
-% 非公開の 秘密か/1 を 高階 の述語へ渡す。限定が無ければ 高階 では見えない。
-:- use_module('高階.pl').
-全部秘密(L) :- 仮写像(秘密か, L).
+% 非公開の 秘密か/1 を apply の述語へ渡す。限定が無ければ apply では見えない。
+:- use_module(library(apply)).
+全部秘密(L) :- maplist(秘密か, L).
 秘密か(秘密).

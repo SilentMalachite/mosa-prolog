@@ -4,12 +4,15 @@
 
 #include "mosa/ir.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
 
 #include "../module/module.hpp"
 
 #include <cstdint>
+#include <initializer_list>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mosa {
@@ -28,13 +31,17 @@ struct Clause {
   std::uint16_t key_arity = 0;
   std::int64_t key_int = 0;
   double key_float = 0;
+  // ADR 0008。開いた走査がまだ試していない節を消すと、消さずにこの印を付ける。新しい呼び出しは飛ばす。
+  bool dead = false;
 };
 
-// 複数のテキストに節を足してよい印。述語が無くても残し、宣言だけでは手続きにしない。
+// multifile と discontiguous の宣言。述語が無くても残す。宣言だけで節の無い手続きになる（iso-notes 7.8.3 の決定 B）。
+// shared は multifile。複数のテキストに節を足してよい印でもある。
 struct SharedPred {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  bool shared = true;
 };
 
 struct Predicate {
@@ -50,6 +57,8 @@ struct Predicate {
   // meta_predicate/1 の宣言。空なら限定する引数は無い。meta_declared は dynamic_declared と同じく読み込みごと。
   std::vector<MetaArg> meta;
   bool meta_declared = false;
+  // ADR 0008。開いた走査があるときの abolish。走査のやり直しだけが引き、新しい引き当ては無いものとして扱う。
+  bool abolished = false;
 };
 
 enum class Pick {
@@ -97,7 +106,7 @@ struct Entry {
   Cell pattern{};
   IrTerm recovery;
   // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
-  // 5 は current_char_conversion。
+  // 5 は current_char_conversion、6 は length。
   std::uint8_t gen_kind = 0;
 };
 
@@ -194,7 +203,7 @@ struct Machine::Impl {
   // 読んでいるテキストの節が入るモジュール。module/2 が切り替え、そのファイルを読み終えると戻す。
   std::uint32_t load_module = 0;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
-  std::vector<SharedPred> multifile;
+  std::vector<SharedPred> declared;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
   // include と consult は読み直す。節を戻す失敗では、この一覧も戻す。
   std::vector<std::string> prepared;
@@ -227,6 +236,12 @@ struct Machine::Impl {
   bool float_undefined_error = true;
   // 旗 debug は値だけ持つ。on でも追跡しない。既定は off。
   bool debug_on = false;
+  // 旗 japanese_punctuation。Reader::set_fullwidth で字句解析に渡す。既定は false。
+  bool japanese_punct = false;
+  // 旗 message_language。文面のカタログを選ぶ（ADR 0007）。
+  MessageLanguage message_lang = default_message_language();
+  // 文面を作るためだけのマシン。自分の診断を文面にしに行くと、また新しいマシンを作り続ける。
+  bool render_only = false;
   CharConv char_conv;
   // 前のテストのバイナリ出力を閉じる。空のままだと現在の出力がテキストに戻らない。
   SuiteSuper (*suite_super)(Machine& machine, const LgtIo& io, Cell goal) = nullptr;
@@ -256,6 +271,10 @@ struct Compiled {
   std::vector<Cell> env;
 };
 
+// 読み込み中の診断の文面（ADR 0007）。読み込んでいるマシンでは問い合わせを動かせないので、新しいマシンで作る。
+[[nodiscard]] std::string message_text(const Impl& machine, std::string_view key,
+                                       std::initializer_list<std::string_view> args = {});
+
 [[nodiscard]] Impl& engine_impl(Machine& machine);
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);
 
@@ -272,6 +291,10 @@ void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::
 void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
                  const std::vector<Cell>& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
+[[nodiscard]] std::size_t live_count(const Predicate& predicate);
+void reset_at_end(Stream& stream);
+Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
+[[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 [[nodiscard]] std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
                                    const std::vector<Cell>& env, std::uint32_t module);
@@ -354,6 +377,8 @@ enum class ListShape { Variable, Proper, Partial, Bad };
 struct WalkedList {
   ListShape shape = ListShape::Bad;
   std::vector<Cell> items;
+  // Partial のときだけ、末尾の未束縛の変数。
+  Cell tail{};
 };
 
 [[nodiscard]] CodeText decode_codes(std::string_view text);
@@ -386,6 +411,11 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_operators(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_op(Impl& machine);
 [[nodiscard]] bool redo_current_char_conversion(Impl& machine);
+[[nodiscard]] bool run_lists(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_length_gen(Impl& machine);
+[[nodiscard]] bool run_format_float(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_case(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_char_width(Impl& machine, const Goal& goal);
 int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);

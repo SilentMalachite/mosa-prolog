@@ -33,7 +33,10 @@ test(canonical_numbervar, (with_output_to(atom(A), write_canonical('$VAR'(0))), 
 test(var_names, (with_output_to(atom(A), write_term(f(X, X), [variable_names(['A'=X])])), A == 'f(A,A)'), true).
 test(var_names_quoted, (with_output_to(atom(A), write_term(X, [quoted(true), variable_names(['A'=X])])), A == 'A'), true).
 test(var_names_bound, (X = 1, with_output_to(atom(A), write_term(X, [quoted(true), variable_names(['A'=X])])), A == '1'), true).
-test(write_fresh, (with_output_to(atom(A), write(X)), A == '_'), true).
+% iso-notes 7.10.5 a の決定 B。1 度だけ出る変数も _G と番号で書く。
+test(write_fresh, (with_output_to(atom(A), write(X)), A == '_G1'), true).
+test(write_two_fresh, (with_output_to(atom(A), write(f(X, Y))), A == 'f(_G1,_G2)'), true).
+test(write_named_rest, (with_output_to(atom(A), write_term(f(X, Y), [variable_names(['X' = X])])), A == 'f(X,_G1)'), true).
 test(write_share, (with_output_to(atom(A), write(f(X, X))), A == 'f(_G1,_G1)'), true).
 test(write_cycle, (X = f(X), with_output_to(atom(A), write(X)), A == 'f(_)'), true).
 test(write_stream, (with_output_to(atom(A), (current_output(S), write(S, 東))), A == 東), true).
@@ -56,7 +59,7 @@ test(capture_inner_set, (with_output_to(atom(A), (write(a), set_output(user_erro
 test(capture_closes, (with_output_to(atom(A), (current_output(S), write(a))), open_string(b, T), S \== T, A == a, stream_property(S, mode(write))), error(existence_error(stream, S))).
 test(capture_fail_closes, (findall(S, stream_property(S, mode(write)), Before), (with_output_to(atom(_), fail) ; true), findall(S, stream_property(S, mode(write)), After), Before == After), true).
 test(capture_throw_closes, (catch(with_output_to(codes(_), (current_output(S), throw(kept(S)))), kept(S), true), write(S, c)), error(existence_error(stream, S))).
-test(capture_leaves_output, (with_output_to(user_output, true), stream_property(user_output, mode(write))), true).
+test(capture_leaves_output, (with_output_to(user_output, true), stream_property(user_output, mode(append))), true).
 test(write_var, write(S, a), error(instantiation_error)).
 test(write_term_var, write_term(S, a, []), error(instantiation_error)).
 test(opt_before_domain, write_term(foo, a, [X]), error(instantiation_error)).
@@ -67,7 +70,14 @@ test(opt_bad, write_term(user_output, a, [foo]), error(domain_error(write_option
 test(opt_before_permit, write_term(user_input, a, [foo]), error(domain_error(write_option, foo))).
 test(quoted_bad, write_term(a, [quoted(foo)]), error(domain_error(write_option, quoted(foo)))).
 test(quoted_var, write_term(a, [quoted(Q)]), error(instantiation_error)).
-test(opt_conflict, write_term(a, [quoted(true), quoted(false)]), error(domain_error(write_option, quoted(false)))).
+% iso-notes 8.14 Write options の決定 B（2026-10-28）。繰り返した選択肢は後の方が勝つ。
+test(opt_repeat_last, (with_output_to(atom(A), write_term('A', [quoted(true), quoted(false)])), A == 'A'), true).
+test(opt_repeat_quoted, (with_output_to(atom(A), write_term('A', [quoted(false), quoted(true)])), A == '\'A\''), true).
+test(opt_repeat_numbervars, (with_output_to(atom(A), write_term('$VAR'(0), [numbervars(true), numbervars(false)])), A == '$VAR(0)'), true).
+test(opt_repeat_numbervars_on, (with_output_to(atom(A), write_term('$VAR'(0), [numbervars(false), numbervars(true)])), A == 'A'), true).
+test(opt_repeat_names, (with_output_to(atom(A), write_term(V, [variable_names(['Ignored'=V]), variable_names(['Used'=V])])), A == 'Used'), true).
+test(opt_repeat_still_checked, write_term(a, [quoted(true), quoted(foo)]), error(domain_error(write_option, quoted(foo)))).
+test(opt_repeat_names_checked, write_term(a, [variable_names([]), variable_names(a)]), error(domain_error(write_option, variable_names(a)))).
 test(names_bad, write_term(X, [variable_names([a=X])]), error(domain_error(write_option, a=X))).
 test(write_input, write(user_input, a), error(permission_error(output, stream, user_input))).
 test(write_term_input, write_term(user_input, a, []), error(permission_error(output, stream, user_input))).
@@ -79,3 +89,18 @@ test(capture_goal_type, with_output_to(atom(_), 1), error(type_error(callable, 1
 test(capture_alias, with_output_to(no_such, true), error(domain_error(stream_or_alias, no_such))).
 test(capture_input, with_output_to(user_input, true), error(permission_error(output, stream, user_input))).
 test(capture_atom_type, with_output_to(atom(1), true), error(type_error(atom, 1))).
+% 6.3.4.1: `- 1` も負の数と読まれる。-(1) は数を括弧で包んで前置演算子のまま読み戻す。
+test(writeq_minus_int, (open_string('-(1). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- (1)'), true).
+test(writeq_minus_float, (open_string('-(1.0). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- (1.0)'), true).
+test(writeq_minus_neg, (open_string('-(-1). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- -1'), true).
+test(writeq_minus_name, (with_output_to(atom(A), writeq(-(a))), A == '-a'), true).
+% 8.14.2.3 の選択肢の検査。部分リストと quoted の変数は opt_partial と quoted_var が見る。
+test(wt_opt_var, write_term(a, [_]), error(instantiation_error)).
+test(wt_opt_quoted_fail, write_term(a, [quoted(fail)]), error(domain_error(write_option, quoted(fail)))).
+test(wt_opt_vn_var, write_term(a, [variable_names(_)]), error(instantiation_error)).
+test(wt_opt_vn_bad, write_term(a, [variable_names(a)]), error(domain_error(write_option, variable_names(a)))).
+test(wt_opt_vn_tail, write_term(a, [variable_names(['A'=_|a])]), error(domain_error(write_option, variable_names(['A'=_|a])))).
+test(wt_opt_vn_pair_var, write_term(a, [variable_names([_='A'])]), error(instantiation_error)).
+test(wt_opt_ok, with_output_to(atom(_), write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])), true).
+% 後ろの選択肢が誤りでも、書き出しは一文字も始めない。
+test(wt_opt_no_partial, (with_output_to(atom(A), catch(write_term(f(a, b), [quoted(true), bogus]), _, true)), A == ''), true).

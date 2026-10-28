@@ -42,6 +42,7 @@ class Reader {
   [[nodiscard]] ReadOutcome next();
   [[nodiscard]] std::size_t consumed() const { return lexer_.offset(); }
   void set_quotes(DoubleQuotes quotes) { quotes_ = quotes; }
+  void set_fullwidth(bool on) { lexer_.set_fullwidth(on); }
   // 読み込み中に module/2 で文脈が替わる。次の項から、その見え方で読む。
   void set_operators(OperatorView operators) { operators_ = operators; }
 

@@ -17,6 +17,10 @@ Decision (2026-10-25): B. As in 8.3.9.3 of Corrigendum 2, Errors is None, and `c
 
 Decision (2026-10-25): Open question 2: A. Register `atom_number/2` and convert in both directions. If both arguments are variables, `instantiation_error`. Atom to number uses the same parsing as `number_chars`; text that does not match gives `syntax_error(Reason)`. Number to atom gives the text of unquoted `write_term`. If both are instantiated, succeed if they match and fail otherwise.
 
+Decision (2026-10-29): owner chose A. The number parsing shared with `number_chars/2` and `number_codes/2` gives `syntax_error(Key)` with the ADR 0007 keys instead of the text: a lexical failure gives its reason key (`integer_overflow`, `bad_escape`, `unterminated_comment`, …), anything else that is not exactly one number gives `unexpected_token`.
+
+Decision (2026-10-29): owner chose A over the SWI behaviour. A bound first argument that is not an atom gives `type_error(atom, A)`, and a bound second argument that is not a number gives `type_error(number, N)`. Both are checked before the atom is parsed, as `number_chars/2` does.
+
 ## 8.10 findall/4 (non-ISO)
 
 Decision (2026-10-25): `findall(Template, Goal, List, Tail)` is a difference list. If there are no solutions, List is unified with Tail; Tail is not bound to `[]`. The fourth argument is not checked as a list. `findall/3` is `findall/4` with the tail `[]`.
@@ -32,6 +36,12 @@ Decision (2026-10-27): The B above is withdrawn. When `portray/1` has clauses an
 ## 8.14 Write options
 
 Decision (2026-10-25): `write/1,2` and `print/1,2` use `numbervars(true)`. `writeq/1,2` uses `quoted(true)` and `numbervars(true)`. `write_canonical/1,2` uses `quoted(true)` and `ignore_ops(true)`. In `write_term` all three default to false. When values of the same boolean option conflict, `domain_error(write_option, LaterTerm)`. `variable_names` is taken once; if a name is not a variable spelling, `domain_error(write_option, ThatPair)`. A Var that is already bound is ignored.
+
+`lgt_write_term_3_118` to `122` expect the later of two repeated options to win: `[quoted(true), quoted(false)]` writes `A`, `[numbervars(true), numbervars(false)]` writes `$VAR(0)`, and the second `variable_names/1` is used. `lgt_open_4_41` (now blocked on `os::`) expects the same for the `open/4` option `eof_action/1`. The decision above gives `domain_error(write_option, LaterTerm)` (`opt_conflict` in `tests/pl/write.pl`). As far as we have found, the text of the standard (7.10.4 for write options, 7.10.2.11 for stream options) does not say what repeated options do.
+
+A or B?: A: keep `domain_error(write_option, LaterTerm)` (the current decision; the 5 rows stay failing). B: the later option wins, as the suite assumes for `write_term/3` and `open/4`; `opt_conflict` changes in the same commit as the decision.
+
+Decision (2026-10-28): B. The later of two repeated write options wins; every occurrence is still checked, so `[quoted(true), quoted(foo)]` gives `domain_error(write_option, quoted(foo))`. A second `variable_names/1` replaces the first. This replaces the 2026-10-25 rules "`domain_error(write_option, LaterTerm)`" and "`variable_names` is taken once". 8.14.2.3 gives `domain_error(write_option, E)` only when an element is not a valid write option, and each repeated element is valid. `open/4` already lets the later `type/1`, `reposition/1`, and `eof_action/1` win. Tests `opt_repeat_*` in `tests/pl/write.pl`.
 
 ## 8.14.3 op/3
 
@@ -73,9 +83,17 @@ Decision (2026-10-26): Checks run on In, then Out. Variables are allowed. If an 
 
 Decision (2026-10-26): Directive only. The argument is a predicate indicator or a list of them, as with `dynamic/1`. A comma-separated sequence is not an indicator. Within the same text, only predicates declared before the gap may have discontiguous clauses. Without a declaration, the diagnostic remains `述語 名前/アリティ の節が離れている` ("clauses of predicate Name/Arity are discontiguous"). The declaration does not create a procedure. If there are no clauses, `current_predicate/1` fails and a call gives `existence_error`. The declaration does not carry over to the next load. The next `consult` replaces the predicate. Gaps in a predicate with a different arity or a different name are not allowed.
 
+`syntax/directives/discontiguous_1` (5 rows) fails to load because it writes `:- discontiguous((b/1, c/2)).`, a comma-separated sequence, which the decision above rejects ("述語指示子ではありません"). The single and list forms of the same file load, and `dc_arity2` to `dc_arity4` in `tests/pl/directives.pl` check that shape. As we read 7.4.2, the argument of `dynamic/1`, `multifile/1`, and `discontiguous/1` may be a predicate indicator, a predicate indicator sequence, or a predicate indicator list; we have not checked the clause text itself. `dynamic/1` and `multifile/1` reject the sequence in the same way.
+
+A or B?: A: keep the decision (indicator or list only; the 5 rows stay failing). B: also accept a comma-separated sequence in all three directives, with the same checks on each element. A until confirmed.
+
+Decision (2026-10-28): B. `dynamic/1`, `multifile/1`, and `discontiguous/1` also accept a comma-separated sequence `(p/1, q/2)`. Each element must be a predicate indicator and gets the same checks; a list or a bad element inside a sequence fails the load with the same diagnostic. This replaces "A comma-separated sequence is not an indicator" in the 2026-10-26 decisions for `discontiguous/1` and `multifile/1`. Tests `dc_seq_*`, `dyn_seq_*`, `mf_seq` in `tests/pl/directives.pl` and "comma sequence" in `tests/cpp/machine_test.cpp`.
+
 ## 7.4.2 multifile/1
 
 Decision (2026-10-26): Directive only. The argument is a predicate indicator or a list of them, as with `dynamic/1`. A comma-separated sequence is not an indicator. `Module:PI` is not written until Phase 4. The declaration does not create a procedure. If there are no clauses, `current_predicate/1` fails and a call gives `existence_error`. The declaration carries over to the next load. For a predicate that carried over, the next load adds clauses and does not replace them. Loading the same text twice doubles the clauses. A predicate without the declaration is replaced, and its solutions are not doubled. A declaration that comes after the first clause in this load does not undo the replacement made by this load. That declaration remains, and the load after that adds clauses. Clauses are not added to a different arity or a different predicate. A failed load undoes the clauses and declarations it added. A predicate that is still dynamic stays dynamic after clauses are added. Gaps are not allowed, and the diagnostic remains `述語 名前/アリティ の節が離れている`.
+
+Decision (2026-10-28): the comma-separated sequence is accepted; see 7.4.2 discontiguous/1.
 
 ## 7.4.2 initialization/1
 
@@ -92,6 +110,8 @@ Decision (2026-10-26): Directive only. The argument, the diagnostic when the fil
 ## 7.4.2 [File]
 
 Decision (2026-10-26): Directive only. When the body is a list, each atom is loaded from left to right by the same procedure as `consult`. An empty list does nothing. An element `[]` is a file name. A partial list and a variable element give `instantiation_error`. If there is even one variable, this takes precedence over the type check. If an element is not an atom, `type_error(atom, ThatElement)`. If it is not a closed list, `type_error(list, ThatTerm)`. `:- X.` is not a list. A relative path is opened from the directory of the file that contains the directive. A text-only load opens the path as given. If a file cannot be opened, the load fails with `パス: ファイルを開けません` and the clauses are undone. The clauses do not continue the parent's text. Loading another predicate does not make the parent's clauses discontiguous. `consult` replaces predicates, and loading the same path again runs initialization again. A later `ensure_loaded` does not reload it. For predicates the parent has already seen, later clauses are added. Predicates the parent has not yet seen are replaced by later clauses. Opening the file itself fails with `ファイルが循環しています` and the clauses are undone. An initialization exception keeps the clauses, and later clauses and initializations are not read. If any other failure occurs partway through the list, clauses replaced before that point are also restored.
+
+Decision (2026-10-29): ADR 0007. The texts above are the `ja` catalog's: a file that cannot be opened is the key `cannot_open_file` and a cycle is `file_cycle`, each with the path as argument. `messages_en.pl` gives the English texts. The decision above is otherwise unchanged.
 
 ## 7.11 Flag debug
 
@@ -112,6 +132,12 @@ Decision (2026-10-25): Open question 12: A. The default of `invalid_utf8` is `er
 ## Section 4 Flag japanese_punctuation
 
 Decision (2026-10-25): Open question 13: A. `set_prolog_flag(japanese_punctuation, true)` stores `true` as the value. Lexical analysis is not changed.
+
+Decision (2026-10-28): phase 5 applies the flag to lexical analysis (SPEC Section 4 table). Outside quoted tokens, comments and `0'c`, `（）［］，、：` read as `()[],,:`. `。` is a clause terminator only when a layout character or the end of input follows; otherwise it stays a symbol character, so `1。5` is not a float. `「` opens a quoted atom that `」` closes. The flag is per file (SPEC Section 5) and takes effect from the clause after the directive.
+
+## Section 7 Flag message_language
+
+Decision (2026-10-28): ADR 0007 (owner approved). An implementation-defined flag (7.11.3) taking `ja` or `en`, changeable; any other atom gives `domain_error(flag_value, message_language+V)`. The default is `ja` when `LANG` starts with `ja`, else `en`. It chooses only the catalog of the top-level messages and does not change any error term.
 
 ## 7.11 Flag version
 
@@ -137,6 +163,8 @@ Decision (2026-10-25): Index 0 is `user_input` (stdin), 1 is `user_output` (stdo
 
 Decision (2026-10-25): The default `eof_action` is `eof_code`. Reading past the end gives `end_of_file` for text and `-1` for binary. `eof_action(reset)` can be chosen separately.
 
+Since 2026-10-28, `user_input` is the exception and has `eof_action(reset)` (see "8.11 Properties of the standard streams" below).
+
 ## 8.11 Empty input
 
 Decision (2026-10-25): When the position equals the length of the source, `end_of_stream` is `at`. Immediately after an empty input is opened, it is `at`.
@@ -159,6 +187,8 @@ Logtalk's `lgt_call_1_17` and `lgt_call_1_18` expect `call/1` on the clause-less
 
 A or B?: A keeps 7.4.2 as is: `existence_error`. B: the directive alone creates a procedure, and if there are no clauses, `call/1` fails. B is not implemented before confirmation.
 
+Decision (2026-10-28): B. A `multifile/1` or `discontiguous/1` directive alone makes a procedure with no clauses, so calling it fails even with `unknown=error`. Only the call changes: `current_predicate/1` still does not report it, and `assertz/1` still creates it as dynamic, so a multifile hook can be asserted into. A load that fails drops the declaration with the rest (`src/machine/load.cpp` `declared_only`, `tests/pl/directives.pl` `*_only_call*`, `mf_hook_assert`, `tests/cpp/machine_test.cpp`).
+
 ## 8.11.1.3 Domain of current_input
 
 Decision (2026-10-26): A. Passing a term that is neither a stream nor an alias to `current_input/1`, `current_output/1`, or `stream_property/2` gives `domain_error(stream_or_alias, S)`. Tests `input_bad`, `output_bad`, `prop_bad_stream`. The alias `user_input` succeeds with `current_input(user_input)`. Because aliases are in the domain, the Formal is `stream_or_alias`, not `stream`. This is recorded as a deviation from `domain_error(stream, S)` in 8.11.1.3 a and 8.11.8.3 a. Predicates that already use `stream_or_alias`, such as `set_input/1`, are unchanged.
@@ -171,6 +201,8 @@ Decision (2026-10-26): A. The memory stream created for `atom/1` and `codes/1` i
 
 Decision (2026-10-26): We do not wait for permission. `inriasuite.pl` has no redistribution permission, so it is not bundled. The Phase 3 conformance suite is Logtalk's `tests/prolog`, placed at commit `4decb64b598feff542a926a085eef01ec51f5a72` as is under `tests/conformance/logtalk/prolog`. Its license is Apache-2.0, the same as the repository, and the copyright notices are kept. The files are not modified. The 90% in Spec Section 9 is measured with this suite. This decision does not state a pass rate.
 
+Decision (2026-10-28): A. The side-column directories (`between_3`, `succ_2`, `plus_3`, `format_2`, `format_3`, `atomic_list_concat_2`, `atomic_list_concat_3`) stay out of the run through phase 5, although the runner now imports the six libraries. The denominator stays 2171, so the phase 5 exit compares against the same baseline (2041). Library tests in `tests/pl/` cover these predicates.
+
 ## License
 
 Decision (2026-10-26): The repository is unified under Apache-2.0. The text is in `LICENSE`. Mosa's copyright notice is `Copyright 2026 Mosa Prolog contributors`, placed in `NOTICE`. The Logtalk tests are under the same license, and their copyright stays as Paulo Moura's notice.
@@ -181,11 +213,15 @@ Decision (2026-10-26): The repository is unified under Apache-2.0. The text is i
 
 A or B?: A: `evaluation_error(undefined)`, following the text of 9.3.1.3.d. B: `evaluation_error(zero_divisor)`, following the errata. `float_overflow` is not changed before confirmation.
 
+Decision (2026-10-28): A. Zero (integer, `0.0` or `-0.0`) to any negative power gives `evaluation_error(undefined)` for `(**)/2` and for the float form of `(^)/2`, as the integer form already did. When the `float_undefined` flag is not `error`, the result is NaN like the other undefined cases (`src/builtins/arith.cpp` `eval_float_bin`, `tests/pl/arith.pl` `pow_zero_*`).
+
 ## 7.5.4 Open scans and retract
 
 `logical_update_semantics_retract` expects that even if `retract` runs during a scan, the clauses present at call time are all tried to the end. The same applies to the same pattern with `retractall` and `abolish`. ADR 0004 decided that retract removes the clause from subsequent candidates and keeps the rest of the current clause. `retract_open_later` in `tests/pl/database.pl` is `[X = 1, X = 2]`; the removed `later(3)` does not appear.
 
 A or B?: A keeps ADR 0004: removed clauses are dropped from open scans. B follows 7.5.4: the call tries the initial sequence. Stay with A until confirmed.
+
+Decision (2026-10-28): B. The design is in ADR 0008, which replaces the retract and abolish part of ADR 0004. ADR 0008 was approved and implemented on 2026-10-28 (dead clauses in `src/builtins/database.cpp`; `tests/pl/database.pl` `lu_*`, `retract_open_later`, and `tests/pl/solutions.pl` `scan_retract` now expect every clause present at call time).
 
 ## 8.11.8 position with reposition(false)
 
@@ -193,17 +229,23 @@ A or B?: A keeps ADR 0004: removed clauses are dropped from open scans. B follow
 
 A or B?: A: do not report the property (the current implementation; the goal fails). B: report `position/1`, then give `permission_error`. A until confirmed. B is not implemented.
 
+Decision (2026-10-28): A. A stream that cannot be repositioned does not report `position/1`; the position would have no use. `sics_set_stream_position_2_06` stays failing as a difference in interpretation, and "no position" in `tests/cpp/stream_test.cpp` is unchanged.
+
 ## memberchk/2 and iso_stream_property_2_01
 
 `memberchk/2` belongs to `library(lists)` and is not made a built-in in Phase 3. The assertion of `iso_stream_property_2_01` runs the helper clauses in the test file as the user clauses present at that time. The reading that leaves the row as `fail` is withdrawn.
 
 A or B?: A: do not add a built-in `memberchk/2`. B: add it as a built-in. A until confirmed. B is not implemented.
 
+Closed (2026-10-28): since phase 5 Task 2 the suite runner imports `library(lists)` into the test machine, so `iso_stream_property_2_01` passes without a built-in `memberchk/2`. The question no longer decides any row and is withdrawn; nothing is added.
+
 ## 8.11.1 current_input and current_output on closed streams
 
 `sics_current_input_1_04` calls `current_input(S)` on a closed input stream `S` and expects `domain_error(stream, S)`. The actual result is `existence_error(stream, '$stream'(3))`. `sics_current_output_1_04` is `current_output(S)` on a closed output stream, with the same discrepancy. The `domain_error(stream, Stream)` in 8.11.1.3 and 8.11.2.3 is for a term that is neither a variable nor a stream. The term of a closed stream is still a stream term, so we give `existence_error(stream, S)` for a stream that is not open (the same Formal as `set_input/1` in 8.11.3.3). `set_closed` and `out_closed` in `tests/pl/stream_prop.pl`, and closed streams in reading and writing, use the same Formal. The `stream_or_alias` for non-stream terms (the 8.11.1.3 decision above) is unchanged.
 
 A or B?: A: `current_input/1` and `current_output/1` on a closed stream give `existence_error(stream, S)` (the current implementation). `sics_current_input_1_04` and `sics_current_output_1_04` remain failing. B: `domain_error(stream, S)`. A until confirmed. B is not implemented.
+
+Decision (2026-10-28): B. `current_input/1` and `current_output/1` give `domain_error(stream, S)` for the term of a closed stream, the only error 8.11.1.3 and 8.11.2.3 list. A term that was never a stream, such as `'$stream'(99)`, still gives `existence_error(stream, S)`, and a term that is neither a variable nor a stream still gives `domain_error(stream_or_alias, S)` (the 8.11.1.3 decision above). Other built-ins keep `existence_error(stream, S)` for a closed stream (`src/builtins/stream_prop.cpp` `match_current`, `tests/pl/stream_prop.pl` `input_closed`, `output_closed`).
 
 ## Section 5 Autoload
 
@@ -352,3 +394,143 @@ SPEC section 5 makes `op/3` local to the declaring module, lets `op(P, T, N)` in
 A or B?: A: a local `op(0, T, N)` hides the `user` and ISO core operator of that class inside the module only, as in SWI-Prolog; exported operators come in with `use_module/1`, `except(...)` and a consulted module file, but not with an import list. B: a local `op(0, T, N)` removes only the module's own entry; exported operators come in with every form of import.
 
 Decision (2026-10-28): A for both. Lookup is the module's own layer, then the `user` table (which holds the ISO core). `op/3`, `current_op/3`, `read_term/2,3` and the `write` family use the caller's context module. A `:- op` directive in a module file defines into that module. Importing into `user` puts the operator in the `user` table, so every module sees it.
+
+## 7.4.2.8 Per-file flags and initialization/1
+
+SPEC section 5 restores `double_quotes` and `japanese_punctuation` per file being loaded. 7.4.2.8 runs an `initialization/1` goal after the Prolog text has been prepared, but does not say whether it sees the flags the file set.
+
+A or B?: A: run the goals before restoring, so they see the file's flags. B: restore first, so they see the same flags as a query run right after the load.
+
+Decision (2026-10-28): B. The file's own terms are already read with its flags; only reads made by the goal at run time and `current_prolog_flag/2` see the difference. A goal that wants the file's syntax sets the flag itself.
+
+## Section 5 succ/2 with a negative integer
+
+`succ/2` is not in the standard. The phase 4 plan expected `type_error(not_less_than_zero, -1)` (as in SWI-Prolog), while the Logtalk suite (`lgt_succ_2_09`, `lgt_succ_2_10`) expects `domain_error(not_less_than_zero, -1)`.
+
+A or B?: A: `domain_error(not_less_than_zero, N)`, the same as `length/2`. B: `type_error(not_less_than_zero, N)`.
+
+Decision (2026-10-28): A. `not_less_than_zero` is a domain in 7.12.2 c, and `length/2` already raises it as a domain error.
+
+## Section 5 format/2 errors
+
+`format/1,2,3` is not in the standard. The Logtalk suite (`format_2`) fixes the argument errors in ISO form: count and numeric arguments of `~c`, `~d`, `~e`, `~f`, `~n` and `~*` are evaluated as by `is/2`, `~d` needs an integer result (`type_error(integer, X)`), and `~a` needs an atom (`type_error(atom, X)`). For too few or too many arguments it accepts any `domain_error(_, _)`.
+
+A or B?: A: a Formal per problem: `domain_error(non_empty_list, [])` when the arguments run out, `domain_error(empty_list, Rest)` when some are left, and `domain_error(format_directive, C)` for an unknown directive character `C` (`'~'` for a lone `~` at the end). B: `domain_error(format_control, Format)` for all three, with the whole format as the culprit.
+
+Decision (2026-10-28): A. `non_empty_list` is a domain in 7.12.2 c, and the culprit tells which part is wrong. A negative count is `domain_error(not_less_than_zero, N)`, as for `length/2`.
+
+## Section 4 format/2 fill characters by width
+
+SPEC section 4 counts `~t~|` columns by East Asian width. A fill character of width 2 (``~`漢t``) cannot always fill an odd number of columns exactly: ``~`漢t~5|`` leaves one column after two `漢`.
+
+A or B?: A: fill with as many fill characters as fit and pad the remaining columns with spaces, so the column stop is kept. B: add one more fill character and overshoot the column stop by one.
+
+Decision (2026-10-29): A. The column stop is what `~|` promises, and SPEC section 4 measures it by width. A fill character of width 0 counts as width 1 so the fill always ends.
+
+## 7.9.1 Which error first: the functor or its arguments
+
+In `X is foo(bar)`, both `foo/1` and `bar/0` are not evaluable. 7.12.1 leaves the choice between two error conditions to the implementation. Mosa evaluated the arguments first and reported `bar/0`; the Logtalk suite (`format_2`, `~d` and `~f` with `foo(bar)`) expects `foo/1`.
+
+A or B?: A: keep evaluating the arguments first (`type_error(evaluable, bar/0)`). B: check the principal functor before evaluating its arguments (`type_error(evaluable, foo/1)`).
+
+Decision (2026-10-28): B. 7.9.1 dispatches on whether the principal functor is evaluable before it evaluates the arguments, and a bad outer functor stops evaluation before any work on the arguments.
+
+## Section 5 atomic_list_concat/2,3 with a number as the result
+
+`atomic_list_concat/2,3` is not in the standard. The Logtalk suite (`atomic_list_concat_2`, `atomic_list_concat_3`) expects `type_error(atom, a(1))` when the result argument is a compound, but does not say what a number such as `12` in `atomic_list_concat([1, 2], 12)` should do.
+
+A or B?: A: `type_error(atom, 12)`; the result argument must be a variable or an atom. B: compare the text, so the goal succeeds.
+
+Decision (2026-10-28): A. 8.16.2.3 gives `atom_concat/3` the same rule for its third argument, and it matches the Logtalk compound case.
+
+## Section 5 atomic_list_concat/3 splitting on an empty separator
+
+When `atomic_list_concat/3` splits (the list is open and the atom is bound), an empty separator `''` does not give one way to split.
+
+A or B?: A: `domain_error(non_empty_atom, '')`. B: fail, or split into single characters.
+
+Decision (2026-10-28): A. An error says what is wrong instead of failing quietly, and splitting into characters is the job of `atom_chars/2`.
+
+## Section 5 Clause operations through an `as` alias
+
+After `use_module(別源, [静/1 as 静か])`, `assertz(静か(2))` tries to change the static procedure `別源:静/1` through the alias `静か/1`. 8.9.1.3 names the procedure in `permission_error(modify, static_procedure, PI)` but does not say which name to use when the caller reached it through an alias.
+
+A or B?: A: the source procedure, `別源:静/1`, the same form as for a plain import (`家系:親/2`). B: the alias the caller wrote, `静か/1`.
+
+Decision (2026-10-28): A. The error is about the procedure that cannot be changed, and the alias is only another name for it. A plain import already reports the source, and the module in the culprit says which declaration to make dynamic.
+
+## Section 3 if/3
+
+`if/3` is not in the standard or in SPEC Section 3. The 12 tests in `control/if_3` call it and get `existence_error(procedure, if/3)`.
+
+A or B?: A: outside SPEC, so it is not implemented, and the 12 rows stay failing. B: add `if/3` to SPEC Section 3 and implement it. A until confirmed.
+
+Decision (2026-10-28): B. `if/3` is a built-in in `system`, listed next to `*->/2` in stage A of SPEC Section 7. `if(C, T, E)` runs `(C *-> T ; E)` in the caller's context module; like `call/1`, a cut in any argument is local, and an argument that cannot be called gives `type_error(callable, if(C, T, E))` before anything runs (`src/builtins/control.cpp` `run_if`, `tests/pl/control.pl` `if_*`).
+
+## Section 3 Flags dialect and version_data
+
+The flags `dialect` and `version_data` are not in 7.11 or in SPEC Section 3. `commons_current_prolog_flag_2_16` to `18` get `domain_error(prolog_flag, dialect)` and `domain_error(prolog_flag, version_data)`.
+
+A or B?: A: outside SPEC, so they are not implemented, and the 3 rows stay failing. B: add `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`) to SPEC Section 3 and implement them. A until confirmed.
+
+Decision (2026-10-28): B. Both flags are read-only and listed in SPEC Section 3 item 7. `version_data` takes its numbers from `include/mosa/version.hpp`, which `mosa --version` also uses. Setting either gives `permission_error(modify, flag, F)` when the value has the right shape (an atom, or a compound of arity 4) and `domain_error(flag_value, F+V)` otherwise (`src/builtins/flags.cpp`, `tests/pl/flags.pl` `flag_dialect*`, `flag_version_data*`).
+
+## Section 4 Stream encoding and BOM
+
+The 21 failing rows in `unicode/builtins` expect the IANA name `'UTF-8'`, a BOM, and no encoding on binary streams. SPEC Section 4 and Section 3 item 7 already fix the flag `encoding` to `utf8` and give every stream an `encoding` option that defaults to `utf8`, and Mosa follows that: `current_prolog_flag(encoding, utf8)`, `open/4` accepts `encoding(utf8)`, and binary streams also report `encoding(utf8)`. So `open/4` with `encoding('UTF-8')` gives `domain_error(stream_option, encoding('UTF-8'))`, `lgt_unicode_current_prolog_flag_2_02` fails on the name, and `lgt_unicode_stream_property_2_07` and `09` fail because a binary stream reports `encoding/1`. The `open/4` option `bom/1`, the stream property `bom/1`, and skipping a BOM when a text stream is read are in neither the standard (7.10.2) nor SPEC.
+
+A or B?: A: keep SPEC as it is (the name `utf8` only, every stream reports `encoding/1`, no BOM handling), and the 21 rows stay failing. B: amend SPEC Section 4 to accept `'UTF-8'` as another name, drop `encoding/1` from binary streams, add the `bom/1` option and property, and skip a BOM on text input, then implement them. A until confirmed.
+
+Decision (2026-10-28): A. These options, properties, and names are outside the standard, and SPEC already fixes the encoding to `utf8` on every stream. The 21 rows stay failing as a difference in interpretation. Skipping a BOM on text input may be asked separately in Task 15.
+
+## 9.3.10.3 (^)/2 with a negative integer exponent
+
+`iso_integer_power_2_06` expects `2^(-1)` to give `type_error(float, 2)`. `src/builtins/arith.cpp` reads 9.3.10.3 e of Corrigendum 2 as giving the float type error only when the exponent is less than -1, and gives `evaluation_error(undefined)` for `2^(-1)`.
+
+A or B?: A: keep the current reading (`evaluation_error(undefined)`). B: any integer base other than 1 and -1 with a negative integer exponent gives `type_error(float, Base)`. A until confirmed.
+
+Decision (2026-10-28): B. An integer base other than 0, 1 and -1 with a negative integer exponent gives `type_error(float, Base)`, so `2^(-1)` does too. `1^N` is 1, `(-1)^N` is 1 or -1 by the parity of `N`, and `0^N` stays `evaluation_error(undefined)` (9.3.10.3 d, as in the 9.3.1.3 d decision). `hat_neg` in `tests/pl/arith.pl` changes from `undefined` to the type error in the same commit (`src/builtins/arith.cpp` `negative_hat`).
+
+## 8.11 Properties of the standard streams
+
+`sics_stream_property_2_05c` and `lgt_stream_property_2_08b` expect `user_input` to report `eof_action(reset)`. `sics_stream_property_2_06d`, `lgt_stream_property_2_09c`, and `lgt_stream_property_2_10c` expect `user_output` and `user_error` to report `mode(append)`. Mosa reports `eof_action(eof_code)` (the default in "8.11 Reading past end of stream") and `mode(write)`.
+
+A or B?: A: keep `eof_code` and `write`. B: `user_input` has `eof_action(reset)`, and `user_output` and `user_error` have `mode(append)`. A until confirmed.
+
+Decision (2026-10-28): B. `user_input` reports `eof_action(reset)` and acts on it: after the end, the next read clears the end mark and asks the OS again, without replaying what was already read, so a terminal can read on after Ctrl-D and a pipe keeps giving `end_of_file`. `user_output` and `user_error` report `mode(append)`. `all_std` in `tests/pl/stream_prop.pl` and `capture_leaves_output` in `tests/pl/write.pl` change in the same commit (`src/builtins/streams.cpp` `standard_stream`, `src/builtins/chars.cpp` `reset_at_end`, `tests/cpp/stream_test.cpp` "standard reset").
+
+## Spec Section 4: So characters are symbol characters
+
+`lgt_unicode_escape_sequence_full_05` expects `writeq('🀙🀚🀛🀜🀝🀞🀟🀠')` to quote the atom. SPEC Section 4 makes non-ASCII characters in `So` symbol characters, so these 8 characters form a symbol-character atom (6.4.2), and `writeq` (7.10.5) writes it without quotes. The row stays failing as a difference in interpretation. This follows the approved SPEC, so no question is open.
+
+## 7.10.5 a Writing a variable that occurs once
+
+`lgt_write_term_3_043`, `044`, `065`, and `066` expect a written variable to be `_` followed by at least one more character. Mosa writes a variable that occurs once in the term as `_` alone, and a variable that occurs more than once as `_G` followed by a number (`f(_G1,_G1,_)`). 7.10.5 a says only that the text of a variable is implementation dependent and begins with `_`.
+
+A or B?: A: keep `_` for a variable that occurs once (the current writer). B: give every variable a name with at least one character after `_`, such as `_G1`. A until confirmed.
+
+Decision (2026-10-28): B. The writer names every unnamed variable `_G` and a number in order of appearance, starting at 1 in each call (`f(_G1,_G2,_G1)`). The conformance runner writes terms to text and reads them back pasted together, and relies on a variable that occurs once being fresh on each reading, so it sets the new `WriteOptions::underscore_once` and keeps `_` for those. The roundtrip check in `src/read/roundtrip.cpp` treats names the writer made up as anonymous. `write_fresh` in `tests/pl/write.pl` and "single unnamed" in `tests/cpp/writer_test.cpp` change in the same commit (`src/write/writer.cpp` `var_text`, `src/machine/lgt_suite.hpp` `lgt_write_options`, `tests/cpp/suite_vars_test.cpp` `fresh_*`).
+
+## 9.1.6 Rounding functions given an integer
+
+`lgt_ceiling_1_05`, `lgt_floor_1_06`, `lgt_round_1_13`, `lgt_truncate_1_06`, `lgt_float_integer_part_1_04`, and `lgt_float_fractional_part_1_04` expect `X is floor(9)` and the like to give `type_error(float, 9)`. 9.1.6 gives `floor`, `ceiling`, `round`, and `truncate` the signature F → I, and `float_integer_part` and `float_fractional_part` the signature F → F, so an integer argument is a type error. Mosa returns the integer for the first four (`floor(9) = 9`) and a float for the last two (`float_integer_part(9) = 9.0`). SPEC lists these evaluables but says nothing about their argument types.
+
+A or B?: A: follow 9.1.6 and give `type_error(float, N)` for an integer argument to all six. B: keep accepting integers (the current behaviour). B until confirmed.
+
+Decision (2026-10-28): A. An integer argument to these six gives `type_error(float, N)`, where `N` is the evaluated value (`floor(4 + 5)` gives `type_error(float, 9)`). `integer/1` is not one of them and still accepts integers (`src/builtins/arith.cpp` `float_only`, `tests/pl/arith.pl`). Mosa has no `iso` flag yet, so this holds in every mode.
+
+## 9.1.6 round/1 of a negative half
+
+`eclipse_round_1_07` and `08` expect `round(-3.5)` to be `-3` and `round(-4.5)` to be `-4`. 9.1.6 defines `round(x)` as `floor(x + 1/2)`, which rounds a half towards positive infinity. Mosa uses `std::round`, which rounds a half away from zero, so it gives `-4` and `-5`. Positive halves give the same result either way (`round(2.5) = 3`).
+
+A or B?: A: keep rounding a half away from zero (`round(-2.5) = -3`). B: follow 9.1.6, `floor(x + 1/2)` (`round(-2.5) = -2`). A until confirmed.
+
+Decision (2026-10-28): B. `round/1` follows 9.1.6 and rounds a half towards positive infinity. The fractional part is taken by subtracting `floor(x)`, which is exact, so `0.49999999999999994` and odd integers above 2^52 are not rounded twice (`src/builtins/arith_float.cpp`, `tests/pl/arith.pl` `round_*`).
+
+## Section 4 Inside 「…」 quoted atoms
+
+SPEC Section 4 maps `「` `」` to the start and end of a quoted atom and says they cannot be nested. It does not say which characters inside are special.
+
+A or B?: A: the same rules as `'…'` (6.4.2): `\` escapes work, `」」` is one `」`, a raw newline is an error, and `'` is an ordinary character. B: no escapes; every character up to the first `」` is taken as written, and `」` cannot appear inside.
+
+Decision (2026-10-28): A. `「…」` uses the escapes of `'…'`, with `」` as the quote character, so `」」` is one `」` and `'` is ordinary.

@@ -150,9 +150,11 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
 
 void enter_user(Impl& machine, const Goal& goal) {
   Predicate* predicate = resolve_pred(machine, goal.module, goal.name, goal.arity);
+  if (predicate != nullptr && predicate->abolished) predicate = nullptr;
   if (predicate == nullptr) {
     // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
-    if (machine.unknown_fail) {
+    // multifile と discontiguous の宣言だけの述語は、節の無い手続きとして失敗する（iso-notes 7.8.3 の決定 B）。
+    if (machine.unknown_fail || declared_only(machine, goal.module, goal.name, goal.arity)) {
       machine.failed = true;
       return;
     }

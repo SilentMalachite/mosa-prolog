@@ -99,6 +99,9 @@ struct ImportSpec {
 // 取り込みに当たれば module と name を取り込み元の値にする。nullptr でも、作る先はその値である。
 [[nodiscard]] Predicate* owned_pred(Machine::Impl& machine, std::uint32_t& module, std::uint32_t& name,
                                     std::uint16_t arity);
+// 頭を name の名前で作り直す。節 H :- B は頭だけを作り直し、名前が同じなら同じ項を返す。
+// as で別名を付けて取り込んだ述語の節は、owned_pred が返す取り込み元の名前の頭で持ち、その頭で照合する。
+[[nodiscard]] Cell named_head(Machine::Impl& machine, Cell term, std::uint32_t name);
 // meta_predicate/1 の宣言 1 つ（M: は外した後）。誤りは読み込みの診断にする Formal を返す。
 [[nodiscard]] std::optional<Cell> read_meta_spec(Machine::Impl& machine, Cell head, std::vector<MetaArg>& args);
 // 呼び出しの index 番目の引数。限定する引数で M: が無ければ context:actual にする。

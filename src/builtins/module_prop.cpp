@@ -88,8 +88,8 @@ const Import* import_of(const Impl& machine, std::uint32_t module, std::uint32_t
 }
 
 bool shared(const Impl& machine, const Predicate& predicate) {
-  for (const SharedPred& item : machine.multifile) {
-    if (item.module == predicate.module && item.name == predicate.name && item.arity == predicate.arity) return true;
+  for (const SharedPred& item : machine.declared) {
+    if (item.shared && item.module == predicate.module && item.name == predicate.name && item.arity == predicate.arity) return true;
   }
   return false;
 }
@@ -102,8 +102,11 @@ std::vector<Cell> user_properties(Impl& machine, std::uint32_t module, const Pre
     found.push_back(unary(machine, "imported_from", machine.heap.atom(item->from)));
   }
   if (shared(machine, predicate)) found.push_back(atom_cell(machine, "multifile"));
-  if (const auto head = meta_head(machine, predicate)) found.push_back(unary(machine, "meta_predicate", *head));
-  const auto count = static_cast<std::int64_t>(predicate.clauses.size());
+  // 別名で見ている述語の宣言は、呼び手の書いた名前の頭で返す。
+  if (const auto head = meta_head(machine, predicate)) {
+    found.push_back(unary(machine, "meta_predicate", named_head(machine, *head, name)));
+  }
+  const auto count = static_cast<std::int64_t>(live_count(predicate));
   found.push_back(unary(machine, "number_of_clauses", machine.heap.integer(count)));
   return found;
 }
@@ -142,7 +145,7 @@ bool run_predicate_property(Impl& machine, const Goal& goal) {
     return true;
   }
   const Predicate* predicate = resolve_pred(machine, module, name, arity);
-  if (predicate == nullptr) {
+  if (predicate == nullptr || predicate->abolished) {
     machine.failed = true;
     return true;
   }

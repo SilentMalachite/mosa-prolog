@@ -17,6 +17,9 @@ struct WriteOptions {
   bool ignore_ops = false;
   // 7.10.4。C++ の既定は偽のまま。write/1 が真にして渡す。
   bool numbervars = false;
+  // 1 度だけ出る名前の無い変数を _ と書く。利用者向けの書き出しは偽で、すべての変数を _G1 などと書く
+  // （iso-notes 7.10.5 a の決定 B）。スイートの実行器は、書いた字面を貼り合わせて読み直すので真にする。
+  bool underscore_once = false;
 };
 
 // Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。

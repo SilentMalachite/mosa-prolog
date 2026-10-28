@@ -13,6 +13,8 @@
 
 #include "../machine/internal.hpp"
 
+#include "mosa/console.hpp"
+
 #include <array>
 #include <iostream>
 #include <string>
@@ -125,18 +127,10 @@ bool reject_put_byte(Impl& machine, const Goal& goal, Cell cell, unsigned char& 
   return false;
 }
 
-void rewind_stream(Stream& stream) {
-  stream.cursor = 0;
-  stream.char_no = 0;
-  stream.line = 1;
-  stream.line_pos = 1;
-  stream.past_end = false;
-}
-
 bool pull_byte(Stream& stream) {
   if (stream.cursor < stream.bytes.size()) return true;
   if (stream.kind != Stream::Kind::Standard || stream.mode != Stream::Mode::Read) return false;
-  const int unit = std::cin.get();
+  const int unit = standard_input_get();
   if (unit == std::char_traits<char>::eof()) return false;
   stream.bytes.push_back(static_cast<char>(static_cast<unsigned char>(unit)));
   return true;
@@ -153,7 +147,7 @@ bool take_byte(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
   if (stream.past_end && stream.eof_action == Stream::EofAction::Error) {
     return raise_permit(machine, goal, "input", "past_end_of_stream", culprit);
   }
-  if (stream.past_end && stream.eof_action == Stream::EofAction::Reset) rewind_stream(stream);
+  if (stream.past_end && stream.eof_action == Stream::EofAction::Reset) reset_at_end(stream);
   if (stream.past_end) {
     value = -1;
     return false;

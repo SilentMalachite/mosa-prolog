@@ -28,6 +28,13 @@ test(mod_call_export, 祖父(X, Z), solutions([(X = 太郎, Z = 花子), (X = �
 test(mod_call_export_op, は(X, 太郎), solutions([X = 一郎])).
 test(mod_call_private, 家系:内部(X), solutions([X = 秘密])).
 test(mod_call_private_hidden, 内部(_), error(existence_error(procedure, 内部/1))).
+% SPEC 第5節の宣言の例。家系.pl は例の宣言を全部持つ。
+test(spec_example, 家系:祖父(太郎, Z), solutions([Z = 花子, Z = 次郎])).
+test(spec_alias, 家系:分解(山田太郎, A, B), solutions([(A = 山田, B = 太郎)])).
+test(spec_except, (家系:姓名分解(山田太郎, A, _), 家系:敬称(A, C)), solutions([(A = 山田, C = 山田さん)])).
+test(spec_except_hides, 家系:読み(_, _), error(existence_error(procedure, 家系:読み/2))).
+test(spec_lists, 家系:append([a], [b], L), solutions([L = [a, b]])).
+test(spec_imports_hidden, 分解(_, _, _), error(existence_error(procedure, 分解/3))).
 test(mod_shadow, (影の名前(X), 名前(Y)), solutions([(X = 影, Y = 利用者)])).
 test(mod_ctx_after_throw, (catch(家系:投げる, _, true), 名前(X)), solutions([X = 利用者])).
 test(mod_ctx_after_redo, (家系:親(_, _), fail ; 名前(X)), solutions([X = 利用者])).
@@ -43,6 +50,17 @@ test(use_alias_only, 別名:読み(_, _), error(existence_error(procedure, 別�
 test(use_except, (除外:姓名分解(山田太郎, A, _), 除外:敬称(A, C)), solutions([(A = 山田, C = 山田さん)])).
 test(use_except_hides, 除外:読み(_, _), error(existence_error(procedure, 除外:読み/2))).
 test(use_twice, findall(M, 人名:読込回数(M), L), solutions([L = [人名]])).
+:- use_module('modules/別源.pl', [動/1 as 動き, 静/1 as 静か, 型/2 as 型別]).
+% 別名を通したデータベース操作は取り込み元の述語に効く。罪人は取り込み元の名前（iso-notes 第5節 as の別名を通した節操作の決定 A）。
+test(alias_db_clause, findall(X, clause(動き(X), true), L), solutions([L = [1, 2]])).
+test(alias_db_assert, (assertz(動き(3)), findall(X-B, clause(別源:動(X), B), L)), solutions([L = [1-true, 2-true, 3-true]])).
+test(alias_db_retract, findall(X, retract(動き(X)), L), solutions([L = [1, 2, 3]])).
+test(alias_db_retractall, (assertz(動き(4)), assertz(動き(5)), retractall(動き(4)), findall(X, 別源:動(X), L)), solutions([L = [5]])).
+test(alias_db_rule, (assertz((動き(6) :- true)), clause(別源:動(6), B)), solutions([B = true])).
+test(alias_db_asserta, (asserta(動き(0)), once(別源:動(X))), solutions([X = 0])).
+test(alias_db_static, assertz(静か(2)), error(permission_error(modify, static_procedure, 別源:静/1))).
+test(alias_db_static_retract, retract(静か(1)), error(permission_error(modify, static_procedure, 別源:静/1))).
+test(alias_pp_meta, predicate_property(型別(_, _), meta_predicate(M)), solutions([M = 型別(0, ?)])).
 :- consult('modules/複.pl').
 :- dynamic(家系:動的/1).
 test(mod_assert_qual, (assertz(家系:追加(a)), 家系:追加(X)), solutions([X = a])).
@@ -133,3 +151,17 @@ test(op_writeq_ctx, 演算:with_output_to(atom(S), writeq(内演(a, b))), soluti
 test(op_mask, 演算:current_op(_, xfx, 隠演), fail).
 test(op_mask_user, current_op(700, xfx, 隠演), true).
 test(op_runtime_local, (演算:op(300, xfx, 実演), \+ current_op(_, _, 実演), 演算:current_op(300, xfx, 実演)), true).
+:- consult('modules/旗.pl').
+test(flag_dq_inside_file, 旗の中の文字列(X), solutions([X = ab])).
+test(flag_dq_per_file, current_prolog_flag(double_quotes, codes), true).
+test(flag_jp_per_file, current_prolog_flag(japanese_punctuation, false), true).
+test(flag_other_kept, current_prolog_flag(debug, on), true).
+% iso-notes の Section 5 Autoload の決定 A。このファイルは library(lists) を取り込まない。
+test(lists_needs_use, append([a], [b], _), error(existence_error(procedure, append/3))).
+% 家系 が library(apply) を取り込んでも user には見えない。
+test(apply_needs_use, maplist(integer, [1]), error(existence_error(procedure, maplist/2))).
+test(format_needs_use, format("x", []), error(existence_error(procedure, format/2))).
+test(strings_needs_use, atomic_list_concat([a], _), error(existence_error(procedure, atomic_list_concat/2))).
+test(japanese_needs_use, 読み幅(a, _), error(existence_error(procedure, 読み幅/2))).
+% 試験器はテストのモジュールへ 6 ライブラリを取り込むが、mosa の user は変えない。
+test(between_needs_use, between(1, 2, _), error(existence_error(procedure, between/3))).

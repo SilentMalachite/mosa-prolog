@@ -138,6 +138,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"number", 1},
     {"callable", 1},
     {"is_list", 1},
+    {"ground", 1},
     {"unify_with_occurs_check", 2},
     {"@<", 2},
     {"@=<", 2},
@@ -169,6 +170,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"char_code", 2},
     {"number_chars", 2},
     {"number_codes", 2},
+    {"atom_number", 2},
     {"current_prolog_flag", 2},
     {"set_prolog_flag", 2},
     {"asserta", 1},
@@ -245,7 +247,14 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {":", 2},
     {"current_module", 1},
     {"forall", 2},
+    {"if", 3},
     {"predicate_property", 2},
+    {"length", 2},
+    {"sort", 2},
+    {"keysort", 2},
+    {"$format_float", 4},
+    {"$upcase_atom", 2},
+    {"$char_width", 2},
 });
 
 // 節の ^^ は判定器を通らない。ここで閉じないと put_byte/1 がバイナリへ書いて成功する。
@@ -456,7 +465,8 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_qualify(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
-      run_flags(machine, goal) || run_database(machine, goal) || run_module_prop(machine, goal) || run_solutions(machine, goal) ||
+      run_flags(machine, goal) || run_database(machine, goal) || run_module_prop(machine, goal) ||
+      run_lists(machine, goal) || run_format_float(machine, goal) || run_case(machine, goal) || run_char_width(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal)) {
     return true;
@@ -530,6 +540,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.bindings.clear();
   Reader reader(goal_text, machine.heap, machine.operators, current_double_quotes(machine),
                 &machine.char_conv);
+  reader.set_fullwidth(machine.japanese_punct);
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return Stop{StopKind::Failure, 0, {}, {}, false};
   for (const VarName& name : outcome.term->names) {

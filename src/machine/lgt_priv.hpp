@@ -7,6 +7,7 @@
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,6 +25,9 @@ struct LgtStep {
   Stop stop;
 };
 
+// 整数、浮動小数点数、前置の - と + の付いた数。lgt_approx.cpp。
+[[nodiscard]] std::optional<double> lgt_as_number(const Heap& heap, Cell cell);
+[[nodiscard]] bool approx(const Heap& heap, Cell left, Cell right);
 [[nodiscard]] LgtParsed lgt_parse_term(Machine& machine, std::string_view text);
 [[nodiscard]] bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<Binding>& bindings,
                                   std::string& note);

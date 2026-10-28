@@ -236,9 +236,9 @@
 - Modify: `src/machine/load.cpp`（`SavedFlags` を成功時にも戻す）
 - Test: `tests/pl/modules.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`flag_dq_per_file`: `:- set_prolog_flag(double_quotes, atom).` を書いたファイルを読んだ後、読み手の `double_quotes` は `codes` のまま。`flag_jp_per_file`: `japanese_punctuation` も同じ。`flag_other_kept`: `unknown` などそれ以外の旗は今どおり残る
-- [ ] **Step 2:** 既存の `tests/pl/flags.pl` と `directives.pl` に、ファイルを跨いで `double_quotes` が残ることを前提にしたテストがあれば、iso-notes に書いて止める（期待値を書き換えない）
-- [ ] **Step 3:** 実装する。テストを流す。コミット `[phase4] double_quotes と japanese_punctuation をファイルごとに戻す（SPEC 第5節、modules.pl 3 件）`
+- [x] **Step 1:** 失敗するテスト。`flag_dq_per_file`: `:- set_prolog_flag(double_quotes, atom).` を書いたファイルを読んだ後、読み手の `double_quotes` は `codes` のまま。`flag_jp_per_file`: `japanese_punctuation` も同じ。`flag_other_kept`: `unknown` などそれ以外の旗は今どおり残る
+- [x] **Step 2:** 既存の `tests/pl/flags.pl` と `directives.pl` に、ファイルを跨いで `double_quotes` が残ることを前提にしたテストがあれば、iso-notes に書いて止める（期待値を書き換えない）
+- [x] **Step 3:** 実装する。テストを流す。コミット `[phase4] double_quotes と japanese_punctuation をファイルごとに戻す（SPEC 第5節、modules.pl 3 件）`
 
 ### Task 12: `library(lists)`
 
@@ -249,9 +249,9 @@
 **Interfaces:**
 - Produces: モジュール `lists` が `append/3`、`member/2`、`memberchk/2`、`length/2`、`nth0/3`、`nth1/3`、`last/2`、`reverse/2`、`msort/2`、`sum_list/2`、`max_list/2`、`list_to_set/2` を公開する。`length/2` は `system` にあり、`lists` の公開リストに `system` の述語を書いても衝突にしない
 
-- [ ] **Step 1:** 8.4.4.4（`keysort/2`）と 8.4.3.4（`sort/2`）の Examples を写し、ライブラリの各述語に 1 つ以上のテストを書く。`length_neg`: `length(L, -1)` → `domain_error(not_less_than_zero, -1)`。`length_type`: `length(a, N)` → `type_error(list, a)`。`length_gen`: `length(L, 2)` が `L = [_, _]`。`lists_needs_use`: iso-notes `Section 5 Autoload` の決定 A により、`use_module` 前の `append/3` は `existence_error`
-- [ ] **Step 2:** 失敗を見る。`length/2` と `keysort/2` を C++ で、残りを Prolog で書く。`msort/2` は `keysort/2` に頼らずに書く（安定でなくてよいが重複を残す）
-- [ ] **Step 3:** テストを流す。コミット `[phase4] library(lists) と length/2、keysort/2 を実装（8.4 の Examples と lib_lists.pl）`
+- [x] **Step 1:** 8.4.4.4（`keysort/2`）と 8.4.3.4（`sort/2`）の Examples を写し、ライブラリの各述語に 1 つ以上のテストを書く。`length_neg`: `length(L, -1)` → `domain_error(not_less_than_zero, -1)`。`length_type`: `length(a, N)` → `type_error(list, a)`。`length_gen`: `length(L, 2)` が `L = [_, _]`。`lists_needs_use`: iso-notes `Section 5 Autoload` の決定 A により、`use_module` 前の `append/3` は `existence_error`
+- [x] **Step 2:** 失敗を見る。`length/2` と `keysort/2` を C++ で、残りを Prolog で書く。`msort/2` は `keysort/2` に頼らずに書く（安定でなくてよいが重複を残す）
+- [x] **Step 3:** テストを流す。コミット `[phase4] library(lists) と length/2、keysort/2 を実装（8.4 の Examples と lib_lists.pl）`
 
 ### Task 13: `library(apply)`
 
@@ -260,9 +260,9 @@
 - Modify: Task 9 の仮の `tests/pl/modules/高階.pl` をやめ、`meta_private_closure` を `maplist/2` に戻す
 - Test: `tests/pl/lib_apply.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`maplist/2..5`、`foldl/4..6`、`include/3`、`exclude/3` に各 1 つ以上。`maplist_len_diff`: `maplist(=, [a], [a, b])` が失敗。`foldl_sum`: `foldl(plus3, [1, 2, 3], 0, S)` が `S == 6`（`plus3/3` はテストファイルで定義）
-- [ ] **Step 2:** すべて `meta_predicate` を宣言して Prolog で書く。テストを流す
-- [ ] **Step 3:** コミット `[phase4] library(apply) を実装（lib_apply.pl、modules.pl の meta_private_closure）`
+- [x] **Step 1:** 失敗するテスト。`maplist/2..5`、`foldl/4..6`、`include/3`、`exclude/3` に各 1 つ以上。`maplist_len_diff`: `maplist(=, [a], [a, b])` が失敗。`foldl_sum`: `foldl(plus3, [1, 2, 3], 0, S)` が `S == 6`（`plus3/3` はテストファイルで定義）
+- [x] **Step 2:** すべて `meta_predicate` を宣言して Prolog で書く。テストを流す
+- [x] **Step 3:** コミット `[phase4] library(apply) を実装（lib_apply.pl、modules.pl の meta_private_closure）`
 
 ### Task 14: `library(between)`
 
@@ -270,9 +270,9 @@
 - Create: `lib/between.pl`
 - Test: `tests/pl/lib_between.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`between_enum`: `findall(X, between(1, 3, X), L)` が `[1, 2, 3]`。`between_inf`: `between(1, inf, 5)` が成功。`between_type`: `between(a, 3, _)` → `type_error(integer, a)`。`succ_zero`: `succ(X, 0)` が失敗。`succ_neg`: `succ(X, -1)` → `type_error(not_less_than_zero, -1)`。`succ_inst`: `succ(_, _)` → `instantiation_error`。`plus_modes`: `plus(1, X, 3)` が `X == 2`
-- [ ] **Step 2:** Prolog で書く。テストを流す。`mosatest --suite` の `between_3`、`succ_2`、`plus_3` の件数を見る
-- [ ] **Step 3:** コミット `[phase4] library(between) を実装（lib_between.pl）`
+- [x] **Step 1:** 失敗するテスト。`between_enum`: `findall(X, between(1, 3, X), L)` が `[1, 2, 3]`。`between_inf`: `between(1, inf, 5)` が成功。`between_type`: `between(a, 3, _)` → `type_error(integer, a)`。`succ_zero`: `succ(X, 0)` が失敗。`succ_neg`: `succ(X, -1)` → `domain_error(not_less_than_zero, -1)`（iso-notes `Section 5 succ/2` の決定 A）。`succ_inst`: `succ(_, _)` → `instantiation_error`。`plus_modes`: `plus(1, X, 3)` が `X == 2`
+- [x] **Step 2:** Prolog で書く。テストを流す。`mosatest --suite` の `between_3`、`succ_2`、`plus_3` の件数を見る
+- [x] **Step 3:** コミット `[phase4] library(between) を実装（lib_between.pl）`
 
 ### Task 15: `library(format)`
 
@@ -283,9 +283,9 @@
 **Interfaces:**
 - Produces: `format/1,2,3`。指示は `~w`、`~q`、`~a`、`~d`、`~f`、`~e`、`~s`、`~c`、`~n`、`~t`、`~|`（と `~~`）だけ。`'$format_float'(+Kind, +Digits, +Float, -Atom)`（`Kind` は `f` か `e`、`std::to_chars` で書く）を `system` に置く。`~t~|` の桁は文字数で数える（東アジア幅はフェーズ5の Task 13）
 
-- [ ] **Step 1:** 失敗するテスト。各指示に 1 つ以上。`fmt_f2`: `format("~2f", [3.14159])` → `3.14`。`fmt_e`: `format("~e", [1.0])` → `1.000000e+00`。`fmt_d_type`: `format("~d", [a])` → `format` の Formal（SWI に寄せず、iso-notes に `format/2 errors` を 1 問書いて決める）。`fmt_column`: `format("~w~t~10|~w", [ab, x])` → `ab` と空白 8 と `x`。`fmt_args_short`: 引数が足りないと `format` の Formal。`fmt_stream`: `format(user_error, "x", [])` が成功
-- [ ] **Step 2:** Prolog で書く。出力は `with_output_to/2` で 1 行ずつ組み、桁を数える
-- [ ] **Step 3:** テストを流す。コミット `[phase4] library(format) を実装（lib_format.pl）`
+- [x] **Step 1:** 失敗するテスト。各指示に 1 つ以上。`fmt_f2`: `format("~2f", [3.14159])` → `3.14`。`fmt_e`: `format("~e", [1.0])` → `1.000000e+00`。`fmt_d_type`: `format("~d", [a])` → `type_error(evaluable, a/0)`（iso-notes `Section 5 format/2 errors` の決定 A）。`fmt_column`: `format("~w~t~10|~w", [ab, x])` → `ab` と空白 8 と `x`。`fmt_args_short`: 引数が足りないと `domain_error(non_empty_list, [])`。`fmt_stream`: `format(user_error, "x", [])` が成功
+- [x] **Step 2:** Prolog で書く。出力は `with_output_to/2` で 1 行ずつ組み、桁を数える
+- [x] **Step 3:** テストを流す。コミット `[phase4] library(format) を実装（lib_format.pl）`
 
 ### Task 16: `library(strings)` の `atomic_list_concat/2,3` と `split_atom/4`
 
@@ -293,9 +293,9 @@
 - Create: `lib/strings.pl`
 - Test: `tests/pl/lib_strings.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`alc_join`: `atomic_list_concat([a, 1, 'あ'], X)` が `X == 'a1あ'`。`alc_sep`: `atomic_list_concat([a, b], '、', X)` が `X == 'a、b'`。`alc_split`: `atomic_list_concat(L, ',', 'a,b')` が `L == [a, b]`。`alc_inst`: `atomic_list_concat([a, _], X)` → `instantiation_error`。`split_atom_basic`: `split_atom('a b  c', ' ', '', L)` が `L == [a, b, '', c]`。`split_atom_pad`: `split_atom(' a ', '', ' ', L)` が `L == [a]`
-- [ ] **Step 2:** Prolog で書く。テストを流す
-- [ ] **Step 3:** コミット `[phase4] atomic_list_concat/2,3 と split_atom/4 を実装（lib_strings.pl）`
+- [x] **Step 1:** 失敗するテスト。`alc_join`: `atomic_list_concat([a, 1, 'あ'], X)` が `X == 'a1あ'`。`alc_sep`: `atomic_list_concat([a, b], '、', X)` が `X == 'a、b'`。`alc_split`: `atomic_list_concat(L, ',', 'a,b')` が `L == [a, b]`。`alc_inst`: `atomic_list_concat([a, _], X)` → `instantiation_error`。`split_atom_basic`: `split_atom('a b  c', ' ', '', L)` が `L == [a, b, '', c]`。`split_atom_pad`: `split_atom(' a ', '', ' ', L)` が `L == [a]`
+- [x] **Step 2:** Prolog で書く。テストを流す
+- [x] **Step 3:** コミット `[phase4] atomic_list_concat/2,3 と split_atom/4 を実装（lib_strings.pl）`
 
 ### Task 17: `upcase_atom/2` と大文字の表
 
@@ -304,9 +304,9 @@
 - Create: `src/builtins/case.cpp`（`'$upcase_atom'/2` を `system` に置き、`strings` が `upcase_atom/2` として公開する）
 - Test: `tests/pl/lib_strings.pl`、`tests/cpp/char_class_test.cpp`
 
-- [ ] **Step 1:** 失敗するテスト。`upcase_ascii`: `upcase_atom(abc, 'ABC')`。`upcase_greek`: `upcase_atom('σ', 'Σ')`。`upcase_kana_kept`: `upcase_atom('あa', 'あA')`。`upcase_sharp_s`: `upcase_atom('ß', 'ß')`（単純写像なので 1 文字のまま）。`char_class_test` に `simple_upper(U'a') == U'A'`
-- [ ] **Step 2:** 表を生成し直し、`docs/unicode-version.md` の版と同じ `UnicodeData.txt` を使ったことを見る。実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] upcase_atom/2 を単純大文字化の表で実装（lib_strings.pl、char_class_test）`
+- [x] **Step 1:** 失敗するテスト。`upcase_ascii`: `upcase_atom(abc, 'ABC')`。`upcase_greek`: `upcase_atom('σ', 'Σ')`。`upcase_kana_kept`: `upcase_atom('あa', 'あA')`。`upcase_sharp_s`: `upcase_atom('ß', 'ß')`（単純写像なので 1 文字のまま）。`char_class_test` に `simple_upper(U'a') == U'A'`
+- [x] **Step 2:** 表を生成し直し、`docs/unicode-version.md` の版と同じ `UnicodeData.txt` を使ったことを見る。実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] upcase_atom/2 を単純大文字化の表で実装（lib_strings.pl、char_class_test）`
 
 ### Task 18: `library(japanese)`
 
@@ -315,18 +315,18 @@
 - Test: `tests/pl/japanese.pl`
 
 **Interfaces:**
-- Produces: `ひらがな_カタカナ/2`（U+3041〜U+3096 と U+30A1〜U+30F6 を 0x60 ずらす。どちら向きにも使える）、`全角_半角/2`（U+FF01〜U+FF5E と U+0021〜U+007E、U+3000 と U+0020。半角カタカナは扱わない）、`読み幅/2`（`East_Asian_Width` が W と F なら 2、それ以外 1 の和）。フェーズ5の Task 13 は `読み幅/2` を使う
+- Produces: `ひらがな_カタカナ/2`（U+3041〜U+3096 と U+30A1〜U+30F6 を 0x60 ずらす。どちら向きにも使える）、`全角_半角/2`（U+FF01〜U+FF5E と U+0021〜U+007E、U+3000 と U+0020。半角カタカナは扱わない。どちら向きにも使え、第2引数だけ決まっていれば半角を全角に写す）、`読み幅/2`（`East_Asian_Width` が W と F なら 2、それ以外 1 の和）。フェーズ5の Task 13 は `読み幅/2` を使う
 
-- [ ] **Step 1:** 失敗するテスト。`hk_basic`: `ひらがな_カタカナ(さくら, X)` が `X == サクラ`。`hk_reverse`: `ひらがな_カタカナ(X, サクラ)` が `X == さくら`。`hk_mixed`: `ひらがな_カタカナ('さくらA', X)` が `X == 'サクラA'`。`zh_basic`: `全角_半角('ＡＢ１', X)` が `X == 'AB1'`。`zh_space`: 全角空白が半角空白になる。`width_mixed`: `読み幅('日本a', 5)`。`width_scalar`: `読み幅('𠮷', 2)`
-- [ ] **Step 2:** 実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] library(japanese) を実装（japanese.pl の hk、zh、width 7 件）`
+- [x] **Step 1:** 失敗するテスト。`hk_basic`: `ひらがな_カタカナ(さくら, X)` が `X == サクラ`。`hk_reverse`: `ひらがな_カタカナ(X, サクラ)` が `X == さくら`。`hk_mixed`: `ひらがな_カタカナ('さくらA', X)` が `X == 'サクラA'`。`zh_basic`: `全角_半角('ＡＢ１', X)` が `X == 'AB1'`。`zh_space`: 全角空白が半角空白になる。`width_mixed`: `読み幅('日本a', 5)`。`width_scalar`: `読み幅('𠮷', 2)`
+- [x] **Step 2:** 実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] library(japanese) を実装（japanese.pl の hk、zh、width 7 件）`
 
 ### Task 19: 出口
 
 **Files:**
 - Modify: `tests/pl/modules.pl`、`tests/pl/modules/家系.pl`、`src/version.cpp`、`CMakeLists.txt` の `version_pass_regex`、`docs/conformance.md`、`docs/conformance.json`、`docs/STATUS.md`
 
-- [ ] **Step 1:** SPEC 第5節の宣言の例を `use_module(library(lists))`、`use_module(人名, [姓名分解/3 as 分解])`、`except`、`meta_predicate`、`export`、`家系:祖父(太郎, Z)` まで含めて `家系.pl` に戻し、`modules.pl` の `spec_example` で `祖父(太郎, Z)` の解を確かめる
-- [ ] **Step 2:** `library(lists)` を使う既存テスト（`lib_lists.pl`、`lib_apply.pl`、`modules.pl`）を含めて `ctest` 全件を 3 OS の CI で通す
-- [ ] **Step 3:** `mosatest --suite` を流し、合格数が 2028 以上であることを見て、報告書と JSON を commit する
-- [ ] **Step 4:** 版を `mosa 0.0.1 (phase 4)` にし、`docs/STATUS.md` を `Phase: 4 done`、`Next: phase 5` にする。コミット `[phase4] フェーズ4を終える（modules.pl 全件、合格 N 件、3 OS の CI）`
+- [x] **Step 1:** SPEC 第5節の宣言の例を `use_module(library(lists))`、`use_module(人名, [姓名分解/3 as 分解])`、`except`、`meta_predicate`、`export`、`家系:祖父(太郎, Z)` まで含めて `家系.pl` に戻し、`modules.pl` の `spec_example` で `祖父(太郎, Z)` の解を確かめる
+- [x] **Step 2:** `library(lists)` を使う既存テスト（`lib_lists.pl`、`lib_apply.pl`、`modules.pl`）を含めて `ctest` 全件を 3 OS の CI で通す
+- [x] **Step 3:** `mosatest --suite` を流し、合格数が 2028 以上であることを見て、報告書と JSON を commit する
+- [x] **Step 4:** 版を `mosa 0.0.1 (phase 4)` にし、`docs/STATUS.md` を `Phase: 4 done`、`Next: phase 5` にする。コミット `[phase4] フェーズ4を終える（modules.pl 全件、合格 N 件、3 OS の CI）`

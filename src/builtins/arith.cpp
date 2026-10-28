@@ -1,4 +1,5 @@
 #include "../machine/internal.hpp"
+#include "evaluable.hpp"
 
 #include <array>
 #include <cmath>
@@ -224,6 +225,12 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
     value = a / b;
   } else if (name == "**" || name == "^") {
     std::int64_t exp = 0;
+    // 9.3.1.3 d の本文どおり、0 の負の冪は undefined（iso-notes 9.3.1.3 d の決定 A）。pow は無限大を返すので先に止める。
+    if (a == 0 && b < 0) {
+      if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());
+      fail_eval(machine, goal, "undefined");
+      return {};
+    }
     if (a < 0) {
       if (!integer_exponent(right, exp)) {
         if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());
@@ -310,13 +317,10 @@ Ev negative_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t
     return {};
   }
   if (base == 1) return from_int(1);
-  // Cor.2 の 9.3.10.3 e。指数が -1 より小さいときだけ float の型エラー。2^(-1) は undefined。
-  if (exp < -1) {
-    raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
-    return {};
-  }
-  if (base == -1) return from_int(-1);
-  fail_eval(machine, goal, "undefined");
+  // -1 の負の冪は整数のまま。奇数なら -1、偶数なら 1。
+  if (base == -1) return from_int(exp % 2 == 0 ? 1 : -1);
+  // 結果が整数にならないので float の型エラー（iso-notes 9.3.10.3 の決定 B）。2^(-1) も同じ。
+  raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
   return {};
 }
 
@@ -330,9 +334,19 @@ Ev int_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp)
   return from_int(out);
 }
 
+// 9.1.6 はこの 6 つを F → I または F → F と定める。整数を黙って float に直さず型エラーにする（iso-notes 9.1.6 の決定 A）。
+bool float_only(std::string_view name) {
+  return name == "floor" || name == "ceiling" || name == "round" || name == "truncate" ||
+         name == "float_integer_part" || name == "float_fractional_part";
+}
+
 Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
   std::array<double, 2> inputs{};
   if (args.size() > inputs.size()) return {};
+  if (args.size() == 1 && !args[0].flt && float_only(name)) {
+    raise_formal(machine, formal_type(machine, "float", machine.heap.integer(args[0].ival)), goal.name, goal.arity);
+    return {};
+  }
   for (std::size_t index = 0; index < args.size(); ++index) inputs[index] = as_float(args[index]);
   double value = 0;
   bool as_int = false;
@@ -499,6 +513,11 @@ Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {
     return {};
   }
   const auto name = machine.atoms.name(machine.heap.functor_atom(cell));
+  // 7.12.1 は誤りの条件が重なったときの選択を任せる。外側の関数子を先に見る（iso-notes 7.9.1 の決定 B）。
+  if (!is_evaluable(name, machine.heap.functor_arity(cell))) {
+    fail_evaluable(machine, goal, indicator(machine, machine.heap.functor_atom(cell), machine.heap.functor_arity(cell)));
+    return {};
+  }
   std::vector<Num> args;
   if (!eval_args(machine, goal, cell, args)) return {};
   Ev known = eval_known(machine, goal, name, args);

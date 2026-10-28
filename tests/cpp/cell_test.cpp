@@ -38,7 +38,7 @@ bool second_ref_hits_cap(mosa::Heap& heap) {
   try {
     (void)heap.fresh_ref();
   } catch (const mosa::ResourceLimit& error) {
-    return std::string_view{error.what()} == "ヒープの上限を超えました";
+    return std::string_view{error.what()} == "heap_limit";
   }
   return false;
 }

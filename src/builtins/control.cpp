@@ -213,6 +213,22 @@ bool run_forall(Impl& machine, const Goal& goal) {
   return true;
 }
 
+// if/3 は (Cond *-> Then ; Else) を呼び手の文脈で走らせる（iso-notes「Section 3 if/3」の決定 B）。
+// 述語なので call/1 と同じく切断は内側に閉じる。呼べない引数の誤りは、call/1 と同じく渡された項全体で出す。
+bool run_if(Impl& machine, const Goal& goal) {
+  const std::array<Cell, 3> parts{machine.heap.deref(goal.arg(machine, 0)), machine.heap.deref(goal.arg(machine, 1)),
+                                  machine.heap.deref(goal.arg(machine, 2))};
+  const Cell soft = machine.heap.structure(machine.atoms.intern("*->"), std::array<Cell, 2>{parts[0], parts[1]});
+  const Cell term = machine.heap.structure(machine.atoms.intern(";"), std::array<Cell, 2>{soft, parts[2]});
+  const Compiled compiled = compile_goal(machine.heap, term);
+  if (!body_callable(compiled.term)) {
+    not_callable(machine, goal, machine.heap.structure(goal.name, parts));
+    return true;
+  }
+  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
+  return true;
+}
+
 bool run_control(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "call" && goal.arity >= 1 && goal.arity <= 8) return run_call(machine, goal);
@@ -220,6 +236,7 @@ bool run_control(Impl& machine, const Goal& goal) {
   if (name == "once" && goal.arity == 1) return run_once(machine, goal);
   if (name == "repeat" && goal.arity == 0) return run_repeat(machine, goal);
   if (name == "forall" && goal.arity == 2) return run_forall(machine, goal);
+  if (name == "if" && goal.arity == 3) return run_if(machine, goal);
   if (name == "halt" && goal.arity <= 1) return run_halt(machine, goal);
   return false;
 }
