@@ -77,3 +77,15 @@ test(read_args_pair, (open_string('f(a,b).', S), read(S, T), T == f(a,b)), true)
 % | の直後の solo コンマは尾の項ではない。引用した ',' は原子のまま。
 test(read_bar_comma, (open_string('[a,b|,].', S), read(S, _)), error(syntax_error(_))).
 test(read_bar_quoted_comma, (open_string('[a,b|\',\'].', S), read(S, T), T == [a,b|',']), true).
+% 6.3.4.1: 名前 - の次の数は、間に空白があっても負の数。-(1) と関数表記で書けば複合項である。
+test(read_neg_int, (open_string('-1. ', S), read(S, T), integer(T), T + 1 =:= 0), true).
+test(read_neg_float, (open_string('-1.5. ', S), read(S, T), float(T), T + 1.5 =:= 0), true).
+test(read_neg_layout, (open_string('- 1. ', S), read(S, T), integer(T), T + 1 =:= 0), true).
+test(read_neg_prefix_paren, (open_string('- (1). ', S), read(S, T), T = -(A), A == 1), true).
+test(read_neg_paren, (open_string('-(1). ', S), read(S, T), T = -(A), A == 1), true).
+test(read_neg_twice, (open_string('- -1. ', S), read(S, T), T = -(A), integer(A), A + 1 =:= 0), true).
+test(read_neg_infix, (open_string('a-1. ', S), read(S, T), T = -(a, B), B == 1), true).
+test(read_neg_arg, (open_string('f(-1). ', S), read(S, T), T = f(A), integer(A)), true).
+test(src_neg_layout, (X = - 1, integer(X)), true).
+test(src_neg_paren, (X = -(1), compound(X)), true).
+test(src_neg_int, (X = -1, integer(X)), true).

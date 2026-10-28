@@ -1,7 +1,6 @@
 #include "internal.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -45,27 +44,7 @@ struct Build {
     }
     return false;
   }
-  // 単項 + は項の形として残す。畳むのは単項 - だけ。-0.0 は符号を残す。畳めなければ空。
-  [[nodiscard]] std::optional<IrTerm> fold_signed(Cell cell);
 };
-
-std::optional<IrTerm> Build::fold_signed(Cell cell) {
-  if (heap->functor_arity(cell) != 1) return std::nullopt;
-  if (heap->atoms().name(heap->functor_atom(cell)) != "-") return std::nullopt;
-  const IrTerm arg = data(heap->arg(cell, 0));
-  if (arg.tag == IrTag::Int && arg.integer != INT64_MIN) {
-    IrTerm negated = arg;
-    negated.integer = -arg.integer;
-    return negated;
-  }
-  if (arg.tag == IrTag::Float) {
-    IrTerm negated = arg;
-    if (arg.floating == 0) negated.floating = std::copysign(0.0, -std::copysign(1.0, arg.floating));
-    else negated.floating = -arg.floating;
-    return negated;
-  }
-  return std::nullopt;
-}
 
 IrTerm Build::data(Cell cell) {
   cell = heap->deref(cell);
@@ -123,7 +102,6 @@ IrTerm Build::compound_data(Cell cell) {
     term.args.push_back(data(heap->list_tail(cell)));
     return term;
   }
-  if (const std::optional<IrTerm> folded = fold_signed(cell)) return *folded;
   // '.'/2 はリストそのもの。構造体のままにすると = と == が食い違う。
   if (heap->functor_arity(cell) == 2 && heap->atoms().name(heap->functor_atom(cell)) == ".") {
     term.tag = IrTag::List;

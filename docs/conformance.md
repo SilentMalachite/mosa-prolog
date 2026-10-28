@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2029
-合格率: 93.5
+合格数: 2034
+合格率: 93.7
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -95,11 +95,6 @@ predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars)
 predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) text_output_contents/2
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) text_output_contents/1
 predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) text_output_contents/1
-predicates/write_term_3/tests.lgt lgt_write_term_3_088 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_089 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_091 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_095 true(Assertion) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_096 true(Assertion) fail
 predicates/write_term_3/tests.lgt sics_write_term_3_103 error(instantiation_error) suppress_text_output/0
 predicates/write_term_3/tests.lgt sics_write_term_3_104 error(domain_error(write_option,quoted(fail))) suppress_text_output/0
 predicates/write_term_3/tests.lgt sics_write_term_3_105 error(instantiation_error) suppress_text_output/0

@@ -79,3 +79,8 @@ test(capture_goal_type, with_output_to(atom(_), 1), error(type_error(callable, 1
 test(capture_alias, with_output_to(no_such, true), error(domain_error(stream_or_alias, no_such))).
 test(capture_input, with_output_to(user_input, true), error(permission_error(output, stream, user_input))).
 test(capture_atom_type, with_output_to(atom(1), true), error(type_error(atom, 1))).
+% 6.3.4.1: `- 1` も負の数と読まれる。-(1) は数を括弧で包んで前置演算子のまま読み戻す。
+test(writeq_minus_int, (open_string('-(1). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- (1)'), true).
+test(writeq_minus_float, (open_string('-(1.0). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- (1.0)'), true).
+test(writeq_minus_neg, (open_string('-(-1). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- -1'), true).
+test(writeq_minus_name, (with_output_to(atom(A), writeq(-(a))), A == '-a'), true).
