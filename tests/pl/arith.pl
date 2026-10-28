@@ -48,6 +48,14 @@ test(iso_gt, (2 > 1), true).
 test(iso_ne, (1 =\= 2), true).
 test(iso_msb_zero, (X is msb(0)), error(evaluation_error(undefined))).
 test(iso_pow, (X is 2 ** 3), solutions([X = 8.0])).
+% iso-notes 9.3.1.3 d の決定 A。0 の負の冪は undefined。
+test(pow_zero_neg_int, (X is 0 ** -1), error(evaluation_error(undefined))).
+test(pow_zero_neg_float, (X is 0.0 ** -1.0), error(evaluation_error(undefined))).
+test(pow_negzero_neg, (X is -0.0 ** -2), error(evaluation_error(undefined))).
+test(pow_zero_neg_frac, (X is 0 ** -0.5), error(evaluation_error(undefined))).
+test(hat_zero_neg_float, (X is 0 ^ -1.0), error(evaluation_error(undefined))).
+test(pow_zero_zero, (X is 0 ** 0), solutions([X = 1.0])).
+test(pow_zero_pos, (X is 0.0 ** 2), solutions([X = 0.0])).
 test(nan_eq, (nan =:= nan), fail).
 test(nan_ne, (nan =\= nan), true).
 test(nan_lt, (nan < 1), fail).

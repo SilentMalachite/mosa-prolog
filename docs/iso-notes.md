@@ -199,6 +199,8 @@ Decision (2026-10-26): The repository is unified under Apache-2.0. The text is i
 
 A or B?: A: `evaluation_error(undefined)`, following the text of 9.3.1.3.d. B: `evaluation_error(zero_divisor)`, following the errata. `float_overflow` is not changed before confirmation.
 
+Decision (2026-10-28): A. Zero (integer, `0.0` or `-0.0`) to any negative power gives `evaluation_error(undefined)` for `(**)/2` and for the float form of `(^)/2`, as the integer form already did. When the `float_undefined` flag is not `error`, the result is NaN like the other undefined cases (`src/builtins/arith.cpp` `eval_float_bin`, `tests/pl/arith.pl` `pow_zero_*`).
+
 ## 7.5.4 Open scans and retract
 
 `logical_update_semantics_retract` expects that even if `retract` runs during a scan, the clauses present at call time are all tried to the end. The same applies to the same pattern with `retractall` and `abolish`. ADR 0004 decided that retract removes the clause from subsequent candidates and keeps the rest of the current clause. `retract_open_later` in `tests/pl/database.pl` is `[X = 1, X = 2]`; the removed `later(3)` does not appear.

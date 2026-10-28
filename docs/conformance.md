@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2102
-合格率: 96.8
+合格数: 2103
+合格率: 96.9
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/if_3/tests.lgt if_3_01 true existence_error(procedure,if/3)
@@ -18,7 +18,6 @@ control/if_3/tests.lgt if_3_11 errors([type_error(callable,3),type_error(callabl
 control/if_3/tests.lgt if_3_12 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(fail,true,3))]) existence_error(procedure,if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
 functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
-functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined),evaluation_error(zero_divisor)]) evaluation_error(float_overflow)
 logical_update_semantics/tests.lgt logical_update_semantics_retract true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_retractall true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(Assertion) fail

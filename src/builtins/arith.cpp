@@ -225,6 +225,12 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
     value = a / b;
   } else if (name == "**" || name == "^") {
     std::int64_t exp = 0;
+    // 9.3.1.3 d の本文どおり、0 の負の冪は undefined（iso-notes 9.3.1.3 d の決定 A）。pow は無限大を返すので先に止める。
+    if (a == 0 && b < 0) {
+      if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());
+      fail_eval(machine, goal, "undefined");
+      return {};
+    }
     if (a < 0) {
       if (!integer_exponent(right, exp)) {
         if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());

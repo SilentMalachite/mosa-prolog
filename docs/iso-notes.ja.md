@@ -201,6 +201,8 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 
 A か B か: A は 9.3.1.3.d の文面どおり `evaluation_error(undefined)`。B はエラータのとおり `evaluation_error(zero_divisor)`。確認前に `float_overflow` は変えない。
 
+決定（2026-10-28）: A。0（整数、`0.0`、`-0.0`）の負の冪は、`(**)/2` でも浮動小数点数の `(^)/2` でも `evaluation_error(undefined)` にする。整数の `(^)/2` は以前からそうである。`float_undefined` 旗が `error` でないときは、ほかの undefined と同じく NaN を返す（`src/builtins/arith.cpp` の `eval_float_bin`、`tests/pl/arith.pl` の `pow_zero_*`）。
+
 ## 7.5.4 開いた走査と retract
 
 `logical_update_semantics_retract` は、走査の途中で `retract` しても、呼んだときの節を最後まで試すことを期待する。`retractall` と `abolish` の同じ形も同じである。ADR 0004 は、retract が以後の候補からその節を外し、今の節の残りは残す、と決めている。`tests/pl/database.pl` の `retract_open_later` は `[X = 1, X = 2]` であり、消した `later(3)` は出てこない。
