@@ -370,3 +370,11 @@ A か B か: A は、旗を戻す前にゴールを実行し、ファイルの�
 A か B か: A は `length/2` と同じ `domain_error(not_less_than_zero, N)`。B は `type_error(not_less_than_zero, N)`。
 
 決定（2026-10-28）: A。`not_less_than_zero` は 7.12.2 c の領域であり、`length/2` もすでに領域の誤りとして投げている。
+
+## 第5節 format/2 の誤り
+
+`format/1,2,3` は規格に無い。Logtalk のスイート（`format_2`）は引数の誤りを ISO の形で決めている。`~c`、`~d`、`~e`、`~f`、`~n` と `~*` の回数や数の引数は `is/2` と同じく評価し、`~d` は整数の結果を要し（`type_error(integer, X)`）、`~a` は原子を要する（`type_error(atom, X)`）。引数の不足と余りには、どの `domain_error(_, _)` でも受ける。
+
+A か B か: A は問題ごとの Formal。引数が尽きたら `domain_error(non_empty_list, [])`、残ったら `domain_error(empty_list, 残り)`、未知の指示の文字 `C` は `domain_error(format_directive, C)`（末尾の単独の `~` は `'~'`）。B は 3 つとも `domain_error(format_control, Format)` で、書式全体を罪人にする。
+
+決定（2026-10-28）: A。`non_empty_list` は 7.12.2 c の領域であり、罪人からどこが悪いかが分かる。負の回数は `length/2` と同じく `domain_error(not_less_than_zero, N)`。

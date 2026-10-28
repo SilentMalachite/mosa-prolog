@@ -392,6 +392,7 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_char_conversion(Impl& machine);
 [[nodiscard]] bool run_lists(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_length_gen(Impl& machine);
+[[nodiscard]] bool run_format_float(Impl& machine, const Goal& goal);
 int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);

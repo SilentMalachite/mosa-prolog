@@ -283,9 +283,9 @@
 **Interfaces:**
 - Produces: `format/1,2,3`。指示は `~w`、`~q`、`~a`、`~d`、`~f`、`~e`、`~s`、`~c`、`~n`、`~t`、`~|`（と `~~`）だけ。`'$format_float'(+Kind, +Digits, +Float, -Atom)`（`Kind` は `f` か `e`、`std::to_chars` で書く）を `system` に置く。`~t~|` の桁は文字数で数える（東アジア幅はフェーズ5の Task 13）
 
-- [ ] **Step 1:** 失敗するテスト。各指示に 1 つ以上。`fmt_f2`: `format("~2f", [3.14159])` → `3.14`。`fmt_e`: `format("~e", [1.0])` → `1.000000e+00`。`fmt_d_type`: `format("~d", [a])` → `format` の Formal（SWI に寄せず、iso-notes に `format/2 errors` を 1 問書いて決める）。`fmt_column`: `format("~w~t~10|~w", [ab, x])` → `ab` と空白 8 と `x`。`fmt_args_short`: 引数が足りないと `format` の Formal。`fmt_stream`: `format(user_error, "x", [])` が成功
-- [ ] **Step 2:** Prolog で書く。出力は `with_output_to/2` で 1 行ずつ組み、桁を数える
-- [ ] **Step 3:** テストを流す。コミット `[phase4] library(format) を実装（lib_format.pl）`
+- [x] **Step 1:** 失敗するテスト。各指示に 1 つ以上。`fmt_f2`: `format("~2f", [3.14159])` → `3.14`。`fmt_e`: `format("~e", [1.0])` → `1.000000e+00`。`fmt_d_type`: `format("~d", [a])` → `type_error(evaluable, a/0)`（iso-notes `Section 5 format/2 errors` の決定 A）。`fmt_column`: `format("~w~t~10|~w", [ab, x])` → `ab` と空白 8 と `x`。`fmt_args_short`: 引数が足りないと `domain_error(non_empty_list, [])`。`fmt_stream`: `format(user_error, "x", [])` が成功
+- [x] **Step 2:** Prolog で書く。出力は `with_output_to/2` で 1 行ずつ組み、桁を数える
+- [x] **Step 3:** テストを流す。コミット `[phase4] library(format) を実装（lib_format.pl）`
 
 ### Task 16: `library(strings)` の `atomic_list_concat/2,3` と `split_atom/4`
 

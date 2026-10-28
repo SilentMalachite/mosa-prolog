@@ -368,3 +368,11 @@ Decision (2026-10-28): B. The file's own terms are already read with its flags; 
 A or B?: A: `domain_error(not_less_than_zero, N)`, the same as `length/2`. B: `type_error(not_less_than_zero, N)`.
 
 Decision (2026-10-28): A. `not_less_than_zero` is a domain in 7.12.2 c, and `length/2` already raises it as a domain error.
+
+## Section 5 format/2 errors
+
+`format/1,2,3` is not in the standard. The Logtalk suite (`format_2`) fixes the argument errors in ISO form: count and numeric arguments of `~c`, `~d`, `~e`, `~f`, `~n` and `~*` are evaluated as by `is/2`, `~d` needs an integer result (`type_error(integer, X)`), and `~a` needs an atom (`type_error(atom, X)`). For too few or too many arguments it accepts any `domain_error(_, _)`.
+
+A or B?: A: a Formal per problem: `domain_error(non_empty_list, [])` when the arguments run out, `domain_error(empty_list, Rest)` when some are left, and `domain_error(format_directive, C)` for an unknown directive character `C` (`'~'` for a lone `~` at the end). B: `domain_error(format_control, Format)` for all three, with the whole format as the culprit.
+
+Decision (2026-10-28): A. `non_empty_list` is a domain in 7.12.2 c, and the culprit tells which part is wrong. A negative count is `domain_error(not_less_than_zero, N)`, as for `length/2`.
