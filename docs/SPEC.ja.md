@@ -299,7 +299,7 @@
 | E | 8.17 実装定義フック | `set_prolog_flag/2`、`current_prolog_flag/2`、`halt/0,1`（A で先行） |
 | E | 7.4.2 ディレクティブ、読み込み | `consult/1`、`[File]`、`ensure_loaded/1`、`include/1`、`initialization/1`、`dynamic/1`、`discontiguous/1`、`multifile/1` |
 | F | 第 5 節 | モジュール関連（`module/2`、`use_module/1,2`、`current_module/1`、`predicate_property/2`、`meta_predicate/1`、`export/1`） |
-| G | 非 ISO ユーティリティ（`library(*)`、第 5 節の表） | `format/1,2,3`、`between/3`、`succ/2`、`msort/2`、`sort/4`、`keysort/2`（ISO コアなので system）、`forall/2`、`nb_setval/2`、`nb_getval/2`、`tab/1,2`、`term_to_atom/2`、`number_vars/3`、`setup_call_cleanup/3`、`garbage_collect/0`、`statistics/2` |
+| G | 非 ISO ユーティリティ（`library(*)`、第 5 節の表） | `format/1,2,3`、`between/3`、`succ/2`、`msort/2`、`sort/4`、`sort/2` と `keysort/2`（ISO コアなので system）、`forall/2`、`nb_setval/2`、`nb_getval/2`、`tab/1,2`、`term_to_atom/2`、`number_vars/3`、`setup_call_cleanup/3`、`garbage_collect/0`、`statistics/2` |
 
 **エラー体系の規則**
 

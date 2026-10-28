@@ -302,7 +302,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 | E | 8.17 implementation-defined hooks | `set_prolog_flag/2`, `current_prolog_flag/2`, `halt/0,1` (done earlier in A) |
 | E | 7.4.2 directives, loading | `consult/1`, `[File]`, `ensure_loaded/1`, `include/1`, `initialization/1`, `dynamic/1`, `discontiguous/1`, `multifile/1` |
 | F | Section 5 | Module-related (`module/2`, `use_module/1,2`, `current_module/1`, `predicate_property/2`, `meta_predicate/1`, `export/1`) |
-| G | Non-ISO utilities (`library(*)`, the table in section 5) | `format/1,2,3`, `between/3`, `succ/2`, `msort/2`, `sort/4`, `keysort/2` (ISO core, so in system), `forall/2`, `nb_setval/2`, `nb_getval/2`, `tab/1,2`, `term_to_atom/2`, `number_vars/3`, `setup_call_cleanup/3`, `garbage_collect/0`, `statistics/2` |
+| G | Non-ISO utilities (`library(*)`, the table in section 5) | `format/1,2,3`, `between/3`, `succ/2`, `msort/2`, `sort/4`, `sort/2` and `keysort/2` (ISO core, so in system), `forall/2`, `nb_setval/2`, `nb_getval/2`, `tab/1,2`, `term_to_atom/2`, `number_vars/3`, `setup_call_cleanup/3`, `garbage_collect/0`, `statistics/2` |
 
 **Rules of the error system**
 

@@ -247,6 +247,8 @@ Decision (2026-10-28): A. Both operators are added to the `system` operator tabl
 
 A or B?: A: implement `sort/2` in `system` in phase 4 Task 12, next to `keysort/2`, and add it to stage G of SPEC section 7. B: leave it to phase 5. Not implemented until confirmed.
 
+Decision (2026-10-28): A. `sort/2` is implemented in `system` in phase 4 Task 12 next to `keysort/2`, with the 8.4.3.4 Examples as tests. Stage G of SPEC section 7 now lists it.
+
 ## Section 7 forall/2
 
 `forall/2` is listed in stage G of SPEC section 7 ("Non-ISO utilities (`library(*)`, the table in section 5)"), and section 5 names it among the predicates that must work across modules, but none of the six modules in the section 5 table exports it.

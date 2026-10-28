@@ -249,6 +249,8 @@ A か B か: A は `op(1150, fx, meta_predicate)` と `op(700, xfx, as)` を `sy
 
 A か B か: A はフェーズ4の Task 12 で `keysort/2` と並べて `sort/2` を `system` に作り、SPEC 第7節の段階 G に足す。B はフェーズ5へ回す。確認まで実装しない。
 
+決定（2026-10-28）: A。`sort/2` はフェーズ4の Task 12 で `keysort/2` と並べて `system` に作り、8.4.3.4 の Examples をテストにする。SPEC 第7節の段階 G に載せた。
+
 ## 第7節 forall/2
 
 `forall/2` は SPEC 第7節の段階 G（「非 ISO の便利述語（`library(*)`、第5節の表）」）に載り、第5節もモジュールを跨いで動くべき述語に挙げるが、第5節の表の 6 モジュールのどれも公開していない。

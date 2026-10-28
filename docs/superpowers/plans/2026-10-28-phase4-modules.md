@@ -243,7 +243,7 @@
 ### Task 12: `library(lists)`
 
 **Files:**
-- Create: `lib/lists.pl`、`src/builtins/lists.cpp`（`length/2`、`keysort/2`、Task 1 で A なら `sort/2`）
+- Create: `lib/lists.pl`、`src/builtins/lists.cpp`（`length/2`、`keysort/2`、`sort/2`）
 - Test: `tests/pl/lib_lists.pl`
 
 **Interfaces:**
