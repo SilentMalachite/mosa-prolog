@@ -8,5 +8,5 @@ Change from the plan overview: the 5 `::/2` rows and lgt_open_4_31 call Logtalk 
 Note: Task 2 must also give the runner ignore/1, lgtunit variant/2, and the os::/lgtunit::/integer:: calls the suite uses
 Note: suite dirs between_3, succ_2, plus_3, format_2, atomic_list_concat_2/3 are still in the side column (not run); lib tests cover them
 Next: phase 5 Task 2, runner output capture (suppress_text_output/0, text_output_contents/1,2) then the six library imports
-Open: N question to ask first: Section 4 Stream encoding and BOM (21 rows); other open A/B questions stay in iso-notes for Task 8
+Open: Section 4 Stream encoding and BOM decided A (21 rows stay failing); other A/B questions stay in iso-notes for Task 8
 Plan (phase 5): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md

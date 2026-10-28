@@ -434,26 +434,26 @@
 | `syntax/directives/discontiguous_1` | `discontiguous_1_03` | I | 6 | `discontiguous` の読み込み |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_04` | I | 6 | `discontiguous` の読み込み |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_05` | I | 6 | `discontiguous` の読み込み |
-| `unicode/builtins` | `lgt_unicode_current_prolog_flag_2_02` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_get_char_2_03` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_01` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_02` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_03` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_04` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_05` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_06` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_open_4_07` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_01` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_02` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_03` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_04` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_05` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_06` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_07` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_08` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_09` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_10` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_11` | N | 8 | Section 4 Stream encoding and BOM |
-| `unicode/builtins` | `lgt_unicode_stream_property_2_12` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_current_prolog_flag_2_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_get_char_2_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_01` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_04` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_05` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_06` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_open_4_07` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_01` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_04` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_05` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_06` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_07` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_08` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_09` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_10` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_11` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_12` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_format_3_01` | S | 2 | `format/3` の取り込み（Step 6）。その後 `~Nt` の埋め字はタスク 13 |
 | `unicode/escape_sequences` | `lgt_unicode_escape_sequence_full_05` | Q | なし | 解釈の違い（Spec Section 4: So characters are symbol characters） |

@@ -427,6 +427,7 @@ The 21 failing rows in `unicode/builtins` expect the IANA name `'UTF-8'`, a BOM,
 
 A or B?: A: keep SPEC as it is (the name `utf8` only, every stream reports `encoding/1`, no BOM handling), and the 21 rows stay failing. B: amend SPEC Section 4 to accept `'UTF-8'` as another name, drop `encoding/1` from binary streams, add the `bom/1` option and property, and skip a BOM on text input, then implement them. A until confirmed.
 
+Decision (2026-10-28): A. These options, properties, and names are outside the standard, and SPEC already fixes the encoding to `utf8` on every stream. The 21 rows stay failing as a difference in interpretation. Skipping a BOM on text input may be asked separately in Task 15.
 
 ## 9.3.10.3 (^)/2 with a negative integer exponent
 
