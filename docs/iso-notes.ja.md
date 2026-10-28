@@ -210,3 +210,39 @@ A か B か: A は閉じた流れの `current_input/1` と `current_output/1` �
 ## 第5節 自動取り込み
 
 決定（2026-10-28）: A。`append/3`、`between/3`、`format/2` などのライブラリの述語は、`use_module` した後にだけ見える。起動時に `user` へ何も取り込まず、未定義の述語を呼んだときにライブラリを読むこともしない。SPEC 第5節の解決規則（自モジュール、既定の取り込み元、`system`）を保ち、利用者のプログラムが自分の `append/3` や `member/2` を取り込みの衝突なしに定義でき、フェーズ6の `mosac` が `use_module` の推移閉包だけをリンクする規則とも合う。宣言なしにこれらを呼ぶ準拠テストは、処理系を変えず、試験器がテストのモジュールへ 6 ライブラリを取り込んで扱う。
+
+## 第5節 モジュールの中の手続きの existence_error
+
+SPEC 第5節は、`user` 以外のモジュールで見つからない述語を `existence_error(procedure, PI)` の culprit でどう書くかを決めていない。ISO の例は `user` で動き、限定のない `Name/Arity` を期待する。
+
+A か B か: A は文脈モジュールが `user` なら `Name/Arity`、それ以外なら `Module:Name/Arity`。B は常に `Name/Arity`。確認まで実装しない。
+
+## 第5節 取り込みの衝突
+
+SPEC 第5節は、自モジュールの述語と取り込んだ述語の衝突を読み込み時の `permission_error(import_into, ...)` とするが、残り 2 つの引数を決めていない。
+
+A か B か: A は `permission_error(import_into, procedure, Name/Arity)`。B は `permission_error(import_into, procedure, Module:Name/Arity)`（`Module` は取り込み元）。確認まで実装しない。
+
+## 第5節 原子でないモジュールの Module:Goal
+
+SPEC 第5節は未知のモジュールを `existence_error(module, M)` と決めるが、`M` が変数でも原子でもない場合（`1:true`）を決めていない。変数は `instantiation_error` である。
+
+A か B か: A は `type_error(atom, M)`。B は `type_error(module, M)`。確認まで実装しない。
+
+## 第5節 演算子 meta_predicate と as
+
+SPEC 第5節の例は `:- meta_predicate 全員(1, ?).` と `[姓名分解/3 as 分解]` を書く。これを読むには `meta_predicate` と `as` が演算子でなければならないが、どちらも ISO の演算子表に無い。
+
+A か B か: A は `op(1150, fx, meta_predicate)` と `op(700, xfx, as)` を `system` の演算子表に足し、すべてのモジュールで見えるようにする。B はどちらも足さず、`meta_predicate(...)` と `as(PI, Alias)` の標準形だけを受ける。確認まで実装しない。
+
+## 8.4.3 sort/2
+
+`sort/2` は ISO の組み込み（8.4.3）だが、SPEC 第7節の段階表に無く、実装もされていない。同梱スイートの `sort_2` のテストは `docs/conformance.md` の別欄にある。`keysort/2`（8.4.4）は段階 G に system として載っている。
+
+A か B か: A はフェーズ4の Task 12 で `keysort/2` と並べて `sort/2` を `system` に作り、SPEC 第7節の段階 G に足す。B はフェーズ5へ回す。確認まで実装しない。
+
+## 第7節 forall/2
+
+`forall/2` は SPEC 第7節の段階 G（「非 ISO の便利述語（`library(*)`、第5節の表）」）に載り、第5節もモジュールを跨いで動くべき述語に挙げるが、第5節の表の 6 モジュールのどれも公開していない。
+
+A か B か: A はフェーズ4の Task 9 で `forall/2` を meta 述語として `system` に作る。B はフェーズ4では作らない。確認まで実装しない。

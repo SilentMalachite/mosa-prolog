@@ -208,3 +208,39 @@ A or B?: A: `current_input/1` and `current_output/1` on a closed stream give `ex
 ## Section 5 Autoload
 
 Decision (2026-10-28): A. Library predicates such as `append/3`, `between/3`, and `format/2` are visible only after `use_module`. Nothing is imported into `user` at startup, and undefined predicates are not loaded on demand. This keeps the resolution rules of SPEC section 5 (own module, default import source, `system`), lets user programs define their own `append/3` and `member/2` without an import conflict, and matches the phase 6 rule that `mosac` links only the transitive closure of `use_module`. Conformance tests that call these predicates without a declaration are handled by the suite runner importing the six libraries into the test module, not by changing the system.
+
+## Section 5 existence_error for procedures in modules
+
+SPEC section 5 does not say how the culprit of `existence_error(procedure, PI)` names a predicate that is unknown in a module other than `user`. The ISO examples run in `user` and expect a bare `Name/Arity`.
+
+A or B?: A: `Name/Arity` when the context module is `user`, and `Module:Name/Arity` otherwise. B: always `Name/Arity`. Not implemented until confirmed.
+
+## Section 5 Import conflict
+
+SPEC section 5 says a conflict between a local predicate and an imported one raises `permission_error(import_into, ...)` at load time, but does not fix the other two arguments.
+
+A or B?: A: `permission_error(import_into, procedure, Name/Arity)`. B: `permission_error(import_into, procedure, Module:Name/Arity)`, where `Module` is the module the predicate comes from. Not implemented until confirmed.
+
+## Section 5 Module:Goal with a non-atom module
+
+SPEC section 5 fixes `existence_error(module, M)` for an unknown module and leaves the case where `M` is neither a variable nor an atom (`1:true`). A variable gives `instantiation_error`.
+
+A or B?: A: `type_error(atom, M)`. B: `type_error(module, M)`. Not implemented until confirmed.
+
+## Section 5 Operators meta_predicate and as
+
+The SPEC section 5 example writes `:- meta_predicate 全員(1, ?).` and `[姓名分解/3 as 分解]`, which can be read only if `meta_predicate` and `as` are operators. Neither is in the ISO operator table.
+
+A or B?: A: add `op(1150, fx, meta_predicate)` and `op(700, xfx, as)` to the `system` operator table, so every module sees them. B: add neither; only `meta_predicate(...)` and `as(PI, Alias)` in canonical form are accepted. Not implemented until confirmed.
+
+## 8.4.3 sort/2
+
+`sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.
+
+A or B?: A: implement `sort/2` in `system` in phase 4 Task 12, next to `keysort/2`, and add it to stage G of SPEC section 7. B: leave it to phase 5. Not implemented until confirmed.
+
+## Section 7 forall/2
+
+`forall/2` is listed in stage G of SPEC section 7 ("Non-ISO utilities (`library(*)`, the table in section 5)"), and section 5 names it among the predicates that must work across modules, but none of the six modules in the section 5 table exports it.
+
+A or B?: A: implement `forall/2` in `system` as a meta predicate in phase 4 Task 9. B: do not implement it in phase 4. Not implemented until confirmed.
