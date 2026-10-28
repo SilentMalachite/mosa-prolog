@@ -6,6 +6,7 @@
 #include "mosa/cell.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/operator_table.hpp"
+#include "mosa/writer.hpp"
 
 #include <algorithm>
 #include <array>
@@ -17,6 +18,14 @@
 namespace mosa {
 
 class Machine;
+
+// 実行器は書いた字面を貼り合わせて読み直す。1 度だけ出る変数が _ のままなら、読み直すたびに新しい変数になり、
+// 別々に書いた字面どうしが同じ名前で結び付かない（iso-notes 7.10.5 a の決定 B）。
+[[nodiscard]] inline WriteOptions lgt_write_options() {
+  WriteOptions options;
+  options.underscore_once = true;
+  return options;
+}
 
 namespace iso_scope {
 

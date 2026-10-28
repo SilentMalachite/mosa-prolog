@@ -283,7 +283,7 @@ bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& nam
   if (name == "assertion" && arity == 1) return check_goal(machine, heap.arg(cell, 0), names, bindings, note);
   if (name == "assertion" && arity == 2) {
     if (check_goal(machine, heap.arg(cell, 1), names, bindings, note)) return true;
-    note = write_term(heap, machine.operators(), heap.arg(cell, 0), {}, names);
+    note = write_term(heap, machine.operators(), heap.arg(cell, 0), lgt_write_options(), names);
     return false;
   }
   if (name == "variant" && arity == 2) return check_variant(machine, cell, names, bindings);
@@ -353,9 +353,9 @@ std::string actual_of(const Machine& machine, const Stop& stop) {
   const Heap& heap = machine.heap();
   const Cell term = heap.deref(stop.exception);
   if (functor_is(heap, term, "error", 2)) {
-    return write_term(heap, machine.operators(), heap.arg(term, 0), {}, {});
+    return write_term(heap, machine.operators(), heap.arg(term, 0), lgt_write_options(), {});
   }
-  return write_term(heap, machine.operators(), term, {}, {});
+  return write_term(heap, machine.operators(), term, lgt_write_options(), {});
 }
 
 bool special_call(const Heap& heap, Cell cell) {
@@ -650,7 +650,7 @@ LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome) {
       want.kind == LgtKind::All) {
     shown = lgt_unwrap_curlies(machine.heap(), shown);
   }
-  want.detail = write_term(machine.heap(), machine.operators(), shown, {}, parsed.names);
+  want.detail = write_term(machine.heap(), machine.operators(), shown, lgt_write_options(), parsed.names);
   return want;
 }
 

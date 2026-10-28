@@ -198,7 +198,7 @@ GateMark gate_mark(const Heap& heap, Cell term, Cell& goal) {
 }
 
 std::string written_goal(Heap& heap, const OperatorTable& operators, Cell goal, const std::vector<VarName>& names) {
-  return write_term(heap, operators, unwrap_curlies(heap, goal), {}, names);
+  return write_term(heap, operators, unwrap_curlies(heap, goal), lgt_write_options(), names);
 }
 
 void open_gate(Parse& parse, LgtFile& file, std::string cond) {
@@ -303,13 +303,13 @@ std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const s
   // 実行する機械の表に : と :: は無い。中置のまま書くと、節も本体も構文エラーになる。
   if (operators.define(0, Specifier::Xfy, ":") != OpResult::Ok ||
       operators.define(0, Specifier::Xfy, "::") != OpResult::Ok) {
-    return write_term(heap, operators, term, {}, names);
+    return write_term(heap, operators, term, lgt_write_options(), names);
   }
   // 節の前置 ^^ は load が読めない。正準形にする。本体は判定が演算子を戻す。
   if (clause && operators.define(0, Specifier::Fy, "^^") != OpResult::Ok) {
-    return write_term(heap, operators, term, {}, names);
+    return write_term(heap, operators, term, lgt_write_options(), names);
   }
-  return write_term(heap, operators, term, {}, names);
+  return write_term(heap, operators, term, lgt_write_options(), names);
 }
 
 bool dropped_import_uses(const Heap& heap, Cell term) {
@@ -436,9 +436,9 @@ std::string actual_text(const Machine& machine, const Stop& stop) {
   const Heap& heap = machine.heap();
   const Cell term = heap.deref(stop.exception);
   if (functor_is(heap, term, "error", 2)) {
-    return write_term(heap, machine.operators(), heap.arg(term, 0), {}, {});
+    return write_term(heap, machine.operators(), heap.arg(term, 0), lgt_write_options(), {});
   }
-  return write_term(heap, machine.operators(), term, {}, {});
+  return write_term(heap, machine.operators(), term, lgt_write_options(), {});
 }
 
 bool succeeded(Machine& machine, const LgtWant& want, const Stop& stop) {

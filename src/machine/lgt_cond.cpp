@@ -69,7 +69,7 @@ bool calls_special(const Heap& heap, Cell cell) {
 }
 
 Verdict ask_cell(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  return ask_text(machine, write_term(heap, ops, cell, {}, {}) + ".");
+  return ask_text(machine, write_term(heap, ops, cell, lgt_write_options(), {}) + ".");
 }
 
 Verdict property_cond(Machine& machine, const Heap& heap, Cell cell) {

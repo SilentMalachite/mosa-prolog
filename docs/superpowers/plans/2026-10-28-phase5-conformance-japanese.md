@@ -177,9 +177,9 @@
 **Files:**
 - Modify: `docs/iso-notes.md`、`docs/iso-notes.ja.md`、答えが B のときだけ該当コードと ADR
 
-- [ ] **Step 1:** iso-notes の未決 6 問（7.8.3、9.3.1.3 d、7.5.4、8.11.8、`memberchk/2` と `iso_stream_property_2_01`、8.11.1）とタスク 1 の N の問いを、1 回の報告に 1 つずつ持ち主に聞く
-- [ ] **Step 2:** 答えを `Decision (日付): A.` の形で書く。7.5.4 が B なら ADR 0004 を置き換える ADR 0008 を先に書いて承認を得てから実装する。それ以外で B のものは、その述語 1 つを 1 セッションで、タスク 9 と同じ手順で実装する
-- [ ] **Step 3:** A のままの不合格は仕分け表で「解釈の違い（iso-notes の見出し）」と書く
+- [x] **Step 1:** iso-notes の未決 6 問（7.8.3、9.3.1.3 d、7.5.4、8.11.8、`memberchk/2` と `iso_stream_property_2_01`、8.11.1）とタスク 1 の N の問いを、1 回の報告に 1 つずつ持ち主に聞く
+- [x] **Step 2:** 答えを `Decision (日付): A.` の形で書く。7.5.4 が B なら ADR 0004 を置き換える ADR 0008 を先に書いて承認を得てから実装する。それ以外で B のものは、その述語 1 つを 1 セッションで、タスク 9 と同じ手順で実装する
+- [x] **Step 3:** A のままの不合格は仕分け表で「解釈の違い（iso-notes の見出し）」と書く
 
 ### Task 9: 残りの I を 1 述語ずつ
 
@@ -349,10 +349,6 @@
 | `predicates/read_term_3` | `sics_read_term_3_24` | X | なし | 多倍長整数（フェーズ7） |
 | `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 解釈の違い（iso-notes 8.11.8 position with reposition(false)） |
 | `predicates/stream_property_2` | `sics_stream_property_2_03` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
-| `predicates/write_term_3` | `lgt_write_term_3_043` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
-| `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
-| `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
-| `predicates/write_term_3` | `lgt_write_term_3_066` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `unicode/builtins` | `lgt_unicode_current_prolog_flag_2_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_get_char_2_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_open_4_01` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |

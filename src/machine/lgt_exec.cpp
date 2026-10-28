@@ -150,7 +150,7 @@ std::string goal_with_saved(Machine& machine, std::string_view goal, const std::
   const LgtParsed parsed = lgt_parse_term(machine, goal);
   if (!parsed.ok) return std::string{goal};
   SavedText text{&machine, &parsed.names, &saved};
-  return write_term(machine.heap(), machine.operators(), parsed.term, {}, parsed.names, paste_saved, &text);
+  return write_term(machine.heap(), machine.operators(), parsed.term, lgt_write_options(), parsed.names, paste_saved, &text);
 }
 
 void restore_saved(Machine& machine, Env& env) {
@@ -183,12 +183,12 @@ void remember_stop(Machine& machine, const Stop& stop, Env& env) {
   if (parsed.ok && proper_list(machine.heap(), parsed.term, args) && args.size() == env.bundle_names.size()) {
     for (std::size_t index = 0; index < args.size(); ++index) {
       remember_saved(env.saved, env.bundle_names[index],
-                     write_term(machine.heap(), machine.operators(), args[index], {}, parsed.names));
+                     write_term(machine.heap(), machine.operators(), args[index], lgt_write_options(), parsed.names));
     }
     return;
   }
   for (const Binding& binding : stop.bindings) {
-    remember_saved(env.saved, binding.name, write_term(machine.heap(), machine.operators(), binding.variable, {}, {}));
+    remember_saved(env.saved, binding.name, write_term(machine.heap(), machine.operators(), binding.variable, lgt_write_options(), {}));
   }
 }
 
@@ -286,7 +286,7 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
     }
     if ((name == "," || name == ";") && arity == 2 && one_activation(heap, cell)) {
       Node plain;
-      plain.text = write_term(heap, ops, cell, {}, names);
+      plain.text = write_term(heap, ops, cell, lgt_write_options(), names);
       return add_node(prog, std::move(plain));
     }
     if ((name == "," || name == ";" || name == "forall") && arity == 2) {
@@ -299,7 +299,7 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
     if (name == "assertion" && (arity == 1 || arity == 2)) {
       Node node;
       node.kind = NodeKind::Assert;
-      if (arity == 2) node.note = write_term(heap, ops, heap.arg(cell, 0), {}, names);
+      if (arity == 2) node.note = write_term(heap, ops, heap.arg(cell, 0), lgt_write_options(), names);
       node.left = build_node(prog, heap, ops, heap.arg(cell, arity == 1 ? 0 : 1), names);
       return add_node(prog, std::move(node));
     }
@@ -310,13 +310,13 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
       }
       Node node;
       node.kind = NodeKind::Super;
-      if (arity == 1) node.text = write_term(heap, ops, heap.arg(cell, 0), {}, names);
+      if (arity == 1) node.text = write_term(heap, ops, heap.arg(cell, 0), lgt_write_options(), names);
       else node.note = "^^/" + std::to_string(arity);
       return add_node(prog, std::move(node));
     }
     if (arity == 2 && (name == "variant" || name == "subsumes" || name == "subsumes_term" || name == "=~=")) {
       Node node;
-      node.text = write_term(heap, ops, cell, {}, names);
+      node.text = write_term(heap, ops, cell, lgt_write_options(), names);
       if (name == "variant") node.kind = NodeKind::Variant;
       else if (name == "=~=") node.kind = NodeKind::Approx;
       else node.kind = NodeKind::Subsumes;
@@ -324,7 +324,7 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
     }
   }
   Node plain;
-  plain.text = write_term(heap, ops, cell, {}, names);
+  plain.text = write_term(heap, ops, cell, lgt_write_options(), names);
   return add_node(prog, std::move(plain));
 }
 
@@ -369,7 +369,7 @@ void snapshot_bundle(Machine& machine, Env& env) {
   }
   Cell tail = machine.heap().atom(machine.atoms().intern("[]"));
   for (auto it = cells.rbegin(); it != cells.rend(); ++it) tail = machine.heap().list(*it, tail);
-  env.bundle = write_term(machine.heap(), machine.operators(), tail, {}, {});
+  env.bundle = write_term(machine.heap(), machine.operators(), tail, lgt_write_options(), {});
 }
 
 bool proper_list(const Heap& heap, Cell cell, std::vector<Cell>& args) {
@@ -559,7 +559,7 @@ void remember_super(Machine& machine, const LgtSuper& ran, Env& env) {
   if (ran.binding_name.empty()) return;
   // 次の query がヒープを捨てても、表明の項を文字列で残す。
   env.minted_var = ran.binding_name;
-  env.minted_term = write_term(machine.heap(), machine.operators(), ran.binding, {}, {});
+  env.minted_term = write_term(machine.heap(), machine.operators(), ran.binding, lgt_write_options(), {});
   remember_saved(env.saved, ran.binding_name, env.minted_term);
   for (Binding& binding : env.bindings) {
     if (binding.name != ran.binding_name) continue;

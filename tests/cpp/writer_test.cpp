@@ -65,7 +65,14 @@ void check_unnamed_and_numbers() {
   const auto shared = heap.structure(atoms.intern("f"), std::array<mosa::Cell, 2>{var, var});
   const auto once = heap.structure(atoms.intern("f"), std::array<mosa::Cell, 1>{heap.fresh_ref()});
   mosa_test::check(mosa::write_term(heap, ops, shared, {}, {}) == "f(_G1,_G1)", "shared unnamed");
-  mosa_test::check(mosa::write_term(heap, ops, once, {}, {}) == "f(_)", "single unnamed");
+  // iso-notes 7.10.5 a の決定 B。1 度だけ出る変数にも _ の後に名前を付ける。
+  mosa_test::check(mosa::write_term(heap, ops, once, {}, {}) == "f(_G1)", "single unnamed");
+  const auto mixed = heap.structure(atoms.intern("f"), std::array<mosa::Cell, 3>{var, heap.fresh_ref(), var});
+  mosa_test::check(mosa::write_term(heap, ops, mixed, {}, {}) == "f(_G1,_G2,_G1)", "mixed unnamed");
+  // スイートの実行器は貼り合わせのため、1 度だけ出る変数を _ のまま書く選択肢を使う。
+  mosa::WriteOptions paste;
+  paste.underscore_once = true;
+  mosa_test::check(mosa::write_term(heap, ops, mixed, paste, {}) == "f(_G1,_,_G1)", "underscore once");
   const auto minus = atoms.intern("-");
   const auto inner = heap.structure(minus, std::array<mosa::Cell, 1>{heap.atom(atoms.intern("a"))});
   const auto outer = heap.structure(minus, std::array<mosa::Cell, 1>{inner});

@@ -33,7 +33,10 @@ test(canonical_numbervar, (with_output_to(atom(A), write_canonical('$VAR'(0))), 
 test(var_names, (with_output_to(atom(A), write_term(f(X, X), [variable_names(['A'=X])])), A == 'f(A,A)'), true).
 test(var_names_quoted, (with_output_to(atom(A), write_term(X, [quoted(true), variable_names(['A'=X])])), A == 'A'), true).
 test(var_names_bound, (X = 1, with_output_to(atom(A), write_term(X, [quoted(true), variable_names(['A'=X])])), A == '1'), true).
-test(write_fresh, (with_output_to(atom(A), write(X)), A == '_'), true).
+% iso-notes 7.10.5 a の決定 B。1 度だけ出る変数も _G と番号で書く。
+test(write_fresh, (with_output_to(atom(A), write(X)), A == '_G1'), true).
+test(write_two_fresh, (with_output_to(atom(A), write(f(X, Y))), A == 'f(_G1,_G2)'), true).
+test(write_named_rest, (with_output_to(atom(A), write_term(f(X, Y), [variable_names(['X' = X])])), A == 'f(X,_G1)'), true).
 test(write_share, (with_output_to(atom(A), write(f(X, X))), A == 'f(_G1,_G1)'), true).
 test(write_cycle, (X = f(X), with_output_to(atom(A), write(X)), A == 'f(_)'), true).
 test(write_stream, (with_output_to(atom(A), (current_output(S), write(S, 東))), A == 東), true).

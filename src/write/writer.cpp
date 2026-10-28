@@ -253,7 +253,7 @@ const VarName* Printer::var_name(Cell term) const {
 
 std::string Printer::var_text(Cell term) {
   if (const VarName* var = var_name(term)) return var->name;
-  if (counts_[term.raw()] <= 1) return "_";
+  if (options_.underscore_once && counts_[term.raw()] <= 1) return "_";
   const auto found = assigned_.find(term.raw());
   const int number = found == assigned_.end() ? next_number_++ : found->second;
   if (found == assigned_.end()) assigned_.emplace(term.raw(), number);
@@ -482,7 +482,7 @@ std::string Printer::render(Cell term, int parent, bool allow_equal, bool allow_
 std::string write_term(const Heap& heap, OperatorView operators, Cell term, WriteOptions options,
                        std::span<const VarName> names, WriteReplace replace, void* context) {
   Printer printer(heap, operators, options, names, replace, context);
-  printer.collect(term);
+  if (options.underscore_once) printer.collect(term);
   return printer.print(term);
 }
 

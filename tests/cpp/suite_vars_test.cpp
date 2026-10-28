@@ -125,6 +125,27 @@ void check_vars(const std::filesystem::path& root) {
   mosa_test::check(failed.find("iso_term_variables_2_07") == std::string::npos, "reverse order stays shared");
 }
 
+// 書き手は書くたびに _G1 から番号を振る（iso-notes 7.10.5 a の決定 B）。実行器が束縛と表明を別々に書いて
+// 貼り合わせると、別の変数が同じ名前で一つになる。L の変数と表明の中の新しい変数は別でなければならない。
+std::string fresh_text() {
+  return "test(fresh_apart, true(L \\== f(_, _))) :-\n"
+         "    {L = f(_, _)}.\n"
+         "test(fresh_shared_kept, true(X == Y)) :-\n"
+         "    {L = f(A, A)}, L = f(X, Y).\n";
+}
+
+void check_fresh(const std::filesystem::path& root) {
+  const auto suite = root / "fresh";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "fresh-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "term_variables_2" / "tests.lgt", fresh_text()), "write fresh");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  if (!has_exact_line(body, "合格数: 2")) show("fresh report", body);
+  mosa_test::check(code == 0, "fresh exits 0");
+  mosa_test::check(has_exact_line(body, "合格数: 2"), "fresh variables stay apart");
+}
+
 }  // namespace
 
 int main() {
@@ -132,6 +153,7 @@ int main() {
   {
     Fixture fixture(root);
     check_vars(root);
+    check_fresh(root);
   }
   mosa_test::check(!std::filesystem::exists(root), "fixture removed");
   return mosa_test::failures();

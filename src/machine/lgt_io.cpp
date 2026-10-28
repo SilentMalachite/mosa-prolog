@@ -631,7 +631,7 @@ void lgt_io_cleanup(const LgtIo& io) {
 }
 
 static SuiteSuper suite_super_call(Machine& machine, const LgtIo& io, Cell goal) {
-  const std::string text = write_term(machine.heap(), machine.operators(), machine.heap().deref(goal), {}, {});
+  const std::string text = write_term(machine.heap(), machine.operators(), machine.heap().deref(goal), lgt_write_options(), {});
   const LgtSuper ran = lgt_run_super(machine, io, text);
   if (ran.kind == LgtSuperKind::Unknown) return SuiteSuper::Skip;
   return ran.kind == LgtSuperKind::Ok ? SuiteSuper::Ok : SuiteSuper::No;

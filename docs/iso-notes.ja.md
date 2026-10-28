@@ -491,6 +491,8 @@ A か B か: A は `eof_code` と `write` のまま。B は `user_input` を `eo
 
 A か B か: A は 1 度だけ出る変数を `_` のままにする（今のライタ）。B はすべての変数に `_G1` のように `_` の後 1 文字以上の名前を付ける。確認前は A のまま。
 
+決定（2026-10-28）: B。書き手は名前の無い変数すべてに、出てきた順で `_G` と番号を付ける。番号は書き出しごとに 1 から振る（`f(_G1,_G2,_G1)`）。スイートの実行器は項を字面に書き、貼り合わせて読み直す。1 度だけ出る変数は読むたびに新しい変数になることに頼っているので、新しい `WriteOptions::underscore_once` を真にして、その変数を `_` のまま書く。`src/read/roundtrip.cpp` の読み戻しの検査は、書き手が付けた名前を無名として比べる。`tests/pl/write.pl` の `write_fresh` と `tests/cpp/writer_test.cpp` の「single unnamed」は同じコミットで変える（`src/write/writer.cpp` の `var_text`、`src/machine/lgt_suite.hpp` の `lgt_write_options`、`tests/cpp/suite_vars_test.cpp` の `fresh_*`）。
+
 ## 9.1.6 丸め関数に整数を渡したとき
 
 `lgt_ceiling_1_05`、`lgt_floor_1_06`、`lgt_round_1_13`、`lgt_truncate_1_06`、`lgt_float_integer_part_1_04`、`lgt_float_fractional_part_1_04` は、`X is floor(9)` などが `type_error(float, 9)` になることを期待する。9.1.6 は `floor`、`ceiling`、`round`、`truncate` の型を F → I、`float_integer_part` と `float_fractional_part` の型を F → F と定めるので、整数の引数は型の誤りになる。Mosa は前の 4 つでは整数をそのまま返し（`floor(9) = 9`）、後の 2 つでは浮動小数点数を返す（`float_integer_part(9) = 9.0`）。SPEC はこれらの評価子を挙げるが、引数の型には触れていない。

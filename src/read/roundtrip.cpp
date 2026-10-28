@@ -127,6 +127,21 @@ int read_example(const Example& example, Heap& heap, OperatorTable& operators, R
   return 0;
 }
 
+// 書き手は名前の無い変数に _G1 などを付ける（iso-notes 7.10.5 a の決定 B）。読み戻すと名前付きになるので、
+// 元の項に無い名前は無名として比べる。元の名前はそのまま書かれるので、名前の付き方の検査は残る。
+std::vector<VarName> original_names(const std::vector<VarName>& reread, const std::vector<VarName>& original) {
+  std::vector<VarName> kept;
+  for (const VarName& var : reread) {
+    for (const VarName& source : original) {
+      if (source.name == var.name) {
+        kept.push_back(var);
+        break;
+      }
+    }
+  }
+  return kept;
+}
+
 int reread(const Example& example, const Heap& heap, const ReadTerm& term, const OperatorTable& operators,
            const std::string& text) {
   if (example.has_expect && text != example.expect) {
@@ -142,7 +157,8 @@ int reread(const Example& example, const Heap& heap, const ReadTerm& term, const
   if (!outcome.term) return fail(example, "reread");
   const ReadOutcome tail = reader.next();
   if (!tail.eof || tail.failure) return fail(example, "reread trailing");
-  if (!same_term(heap, term.term, term.names, again, outcome.term->term, outcome.term->names)) {
+  const auto names = original_names(outcome.term->names, term.names);
+  if (!same_term(heap, term.term, term.names, again, outcome.term->term, names)) {
     return fail(example, "mismatch <" + text + ">");
   }
   return 0;

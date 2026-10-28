@@ -489,6 +489,8 @@ Decision (2026-10-28): B. `user_input` reports `eof_action(reset)` and acts on i
 
 A or B?: A: keep `_` for a variable that occurs once (the current writer). B: give every variable a name with at least one character after `_`, such as `_G1`. A until confirmed.
 
+Decision (2026-10-28): B. The writer names every unnamed variable `_G` and a number in order of appearance, starting at 1 in each call (`f(_G1,_G2,_G1)`). The conformance runner writes terms to text and reads them back pasted together, and relies on a variable that occurs once being fresh on each reading, so it sets the new `WriteOptions::underscore_once` and keeps `_` for those. The roundtrip check in `src/read/roundtrip.cpp` treats names the writer made up as anonymous. `write_fresh` in `tests/pl/write.pl` and "single unnamed" in `tests/cpp/writer_test.cpp` change in the same commit (`src/write/writer.cpp` `var_text`, `src/machine/lgt_suite.hpp` `lgt_write_options`, `tests/cpp/suite_vars_test.cpp` `fresh_*`).
+
 ## 9.1.6 Rounding functions given an integer
 
 `lgt_ceiling_1_05`, `lgt_floor_1_06`, `lgt_round_1_13`, `lgt_truncate_1_06`, `lgt_float_integer_part_1_04`, and `lgt_float_fractional_part_1_04` expect `X is floor(9)` and the like to give `type_error(float, 9)`. 9.1.6 gives `floor`, `ceiling`, `round`, and `truncate` the signature F → I, and `float_integer_part` and `float_fractional_part` the signature F → F, so an integer argument is a type error. Mosa returns the integer for the first four (`floor(9) = 9`) and a float for the last two (`float_integer_part(9) = 9.0`). SPEC lists these evaluables but says nothing about their argument types.
