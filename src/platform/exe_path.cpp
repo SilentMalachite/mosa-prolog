@@ -18,7 +18,7 @@ namespace mosa {
 namespace {
 
 // シンボリックリンク越しに起動しても、隣の lib/ は実体の隣を見る。
-std::optional<std::filesystem::path> resolved(const std::filesystem::path& path) {
+[[maybe_unused]] std::optional<std::filesystem::path> resolved(const std::filesystem::path& path) {
   std::error_code error;
   const auto canonical = std::filesystem::weakly_canonical(path, error);
   if (error) return path;
@@ -73,7 +73,7 @@ std::optional<std::filesystem::path> executable_path() {
   std::error_code error;
   const auto path = std::filesystem::read_symlink("/proc/self/exe", error);
   if (error) return std::nullopt;
-  return path;
+  return resolved(path);
 }
 #else
 std::optional<std::filesystem::path> executable_path() { return std::nullopt; }

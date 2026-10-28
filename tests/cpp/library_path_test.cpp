@@ -10,6 +10,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace {
 
@@ -71,10 +72,11 @@ void check_without_env() {
 
 void check_with_env() {
   const auto env_dir = kTmp / "lib_env";
-  const auto value = mosa::environment_path("MOSA_LIB");
-  mosa_test::check(value && std::filesystem::equivalent(*value, env_dir.parent_path() / "lib_env"),
-                   "MOSA_LIB is read");
+  // equivalent は両方が在るときだけ比べられる。先にディレクトリを作る。
   write_file(env_dir / "環境.pl", ":- module(環境, [e/0]).\ne.\n");
+  const auto value = mosa::environment_path("MOSA_LIB");
+  std::error_code error;
+  mosa_test::check(value && std::filesystem::equivalent(*value, env_dir, error) && !error, "MOSA_LIB is read");
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->load_program(":- use_module(library(環境)).").ok, "use_module(library(環境)) loads");
   mosa_test::check(machine->query("e.").kind == mosa::StopKind::Success, "library export is imported");

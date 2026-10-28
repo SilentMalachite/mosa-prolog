@@ -1,5 +1,6 @@
 #include "internal.hpp"
 
+#include <array>
 #include <bit>
 #include <cstdint>
 
