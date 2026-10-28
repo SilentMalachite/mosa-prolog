@@ -1,6 +1,6 @@
 #include "../machine/internal.hpp"
+#include "evaluable.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -480,26 +480,6 @@ Ev constant_of(std::string_view name) {
   if (name == "epsilon") return from_float(std::numeric_limits<double>::epsilon());
   if (name == "max_tagged_integer") return from_int((std::int64_t{1} << 60) - 1);
   return {};
-}
-
-// eval_known と float_op が振り分ける関数子。引数を評価する前に引くため、名前だけここにも持つ。
-// 関数子を足すときは両方を直す。
-constexpr std::array<std::string_view, 25> kUnary{
-    "+",   "-",    "abs", "sign",  "msb",   "succ_or_zero", "\\",       "sqrt",
-    "sin", "cos",  "tan", "asin",  "acos",  "atan",         "exp",      "log",
-    "log2", "float", "float_integer_part", "float_fractional_part", "integer", "truncate",
-    "floor", "ceiling", "round",
-};
-
-constexpr std::array<std::string_view, 22> kBinary{
-    "+",  "-",  "*",  "/",   "//",  "rem",   "div",      "mod",        "^",   "**",  "min",
-    "max", "gcd", ">>", "<<", "/\\", "\\/", "xor", "atan2", "copysign", "nexttoward", "log",
-};
-
-bool is_evaluable(std::string_view name, std::size_t arity) {
-  if (arity == 1) return std::find(kUnary.begin(), kUnary.end(), name) != kUnary.end();
-  if (arity == 2) return std::find(kBinary.begin(), kBinary.end(), name) != kBinary.end();
-  return false;
 }
 
 Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {

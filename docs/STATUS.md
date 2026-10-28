@@ -8,7 +8,7 @@ Done: phase 4 Task 12: library(lists) in lib/lists.pl; length/2, sort/2, keysort
 Done: phase 4 Task 13: library(apply) in lib/apply.pl (maplist/2..5, foldl/4..6, include/3, exclude/3, all meta_predicate). The 高階.pl stand-in is gone; 家系.pl uses maplist/2. Suite 2034/2171
 Done: phase 4 Task 14: library(between) in lib/between.pl (between/3 with inf, succ/2, plus/3). Negative succ/2 is domain_error (iso-notes Section 5 succ/2, decision A). Suite dirs between_3, succ_2, plus_3 (40 tests) are still in the side column (not run). Suite 2034/2171
 Done: phase 4 Task 15: library(format) in lib/format.pl (format/1,2,3; ~w ~q ~a ~d ~f ~e ~s ~c ~n ~t ~| ~~), whole output built first so errors write nothing; '$format_float'/4 in system (src/builtins/format_float.cpp, std::to_chars). Errors: iso-notes Section 5 format/2 errors, decision A
-Done: bug 7.9.1: is/2 checks the principal functor before evaluating its arguments (X is foo(bar) gives foo/1; iso-notes 7.9.1, decision B). log/2 added to SPEC stage B first, so the suite went 2034 -> 2041
+Done: bug 7.9.1: is/2 checks the principal functor before evaluating its arguments (X is foo(bar) gives foo/1; iso-notes 7.9.1, decision B). log/2 added to SPEC stage B first, so the suite went 2034 -> 2041. The evaluable table moved to src/builtins/evaluable.hpp; tests/cpp/evaluable_test.cpp fails if a listed functor is not computed
 Next: phase 4 Task 16, library(strings)
 Open: interpretations left in iso-notes
 Plan (phase 4): docs/superpowers/plans/2026-10-28-phase4-modules.md
