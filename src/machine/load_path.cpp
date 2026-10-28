@@ -1,3 +1,5 @@
+#include "mosa/path_text.hpp"
+
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -15,9 +17,9 @@ bool is_source_file(const std::filesystem::path& path) {
 
 // 相対パスは、今読んでいるファイルのディレクトリから開く。文字だけの load は、渡されたパスのまま。
 std::filesystem::path resolve_include(std::string_view directory, std::string_view atom) {
-  const std::filesystem::path file{std::string{atom}};
+  const std::filesystem::path file = path_from_utf8(atom);
   if (file.is_absolute() || directory.empty()) return file;
-  return std::filesystem::path{std::string{directory}} / file;
+  return path_from_utf8(directory) / file;
 }
 
 std::filesystem::path canonical_key(const std::filesystem::path& file) {

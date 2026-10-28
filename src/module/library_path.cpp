@@ -1,6 +1,7 @@
 // library(Name) の探索（SPEC 第5節、計画の Task 6）。$MOSA_LIB、次に実行ファイルのディレクトリの lib/。
 // テスト: tests/cpp/library_path_test.cpp
 #include "mosa/library_path.hpp"
+#include "mosa/path_text.hpp"
 
 #include "mosa/exe_path.hpp"
 
@@ -12,7 +13,7 @@ namespace mosa {
 namespace {
 
 std::optional<std::filesystem::path> source_in(const std::filesystem::path& dir, std::string_view name) {
-  std::filesystem::path file = dir / std::string{name};
+  std::filesystem::path file = dir / path_from_utf8(name);
   // library(lists) は lists.pl を指す。拡張子を書いた名前はそのまま使う。
   if (file.extension() != ".pl") file += ".pl";
   std::error_code error;

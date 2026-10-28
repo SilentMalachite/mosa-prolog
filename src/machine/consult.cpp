@@ -1,6 +1,7 @@
 #include "internal.hpp"
 
 #include "mosa/writer.hpp"
+#include "mosa/path_text.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -28,15 +29,15 @@ void note_failure(Impl& machine, std::string message) {
 
 // 相対の include は、開いたファイルのディレクトリから探す。
 LoadStatus load_consulted(Impl& machine, std::string_view path, std::string_view source) {
-  const std::filesystem::path file{std::string{path}};
-  return load_source(machine, source, file.parent_path().string(), file.string());
+  const std::filesystem::path file = path_from_utf8(path);
+  return load_source(machine, source, utf8_from_path(file.parent_path()), utf8_from_path(file));
 }
 
 // 相対パスは、今読んでいるファイルのディレクトリから開く。文字だけの load は、渡されたパスのまま。
 std::filesystem::path resolve_file(std::string_view directory, std::string_view atom) {
-  const std::filesystem::path file{std::string{atom}};
+  const std::filesystem::path file = path_from_utf8(atom);
   if (file.is_absolute() || directory.empty()) return file;
-  return std::filesystem::path{std::string{directory}} / file;
+  return path_from_utf8(directory) / file;
 }
 
 struct SeenMark {
@@ -153,17 +154,17 @@ int collect_files(Impl& machine, Cell term, std::vector<Cell>& items) {
 int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<std::string>& opening) {
   std::ifstream input{file, std::ios::binary};
   if (!input) {
-    note_failure(machine, file.string() + ": ファイルを開けません");
+    note_failure(machine, utf8_from_path(file) + ": ファイルを開けません");
     return -1;
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();
   const auto saved = mark_seen(machine);
   const LoadStatus status =
-      load_source(machine, buffer.str(), file.parent_path().string(), file.string(), &opening);
+      load_source(machine, buffer.str(), utf8_from_path(file.parent_path()), utf8_from_path(file), &opening);
   restore_seen(machine, saved);
   if (status.ok) return 1;
-  prefix_consult_diagnostic(machine, file.string());
+  prefix_consult_diagnostic(machine, utf8_from_path(file));
   return -1;
 }
 
@@ -187,7 +188,7 @@ int apply_file_list(Impl& machine, Cell term, std::string_view directory, std::v
 }
 
 bool Machine::consult(std::string_view path) {
-  std::ifstream input{std::string{path}, std::ios::binary};
+  std::ifstream input{path_from_utf8(path), std::ios::binary};
   Impl& impl = engine_impl(*this);
   if (!input) {
     impl.diagnostic = std::string{path} + ": ファイルを開けません";
@@ -216,7 +217,7 @@ bool run_consult(Impl& machine, const Goal& goal) {
     return true;
   }
   const auto text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
-  std::ifstream input{text, std::ios::binary};
+  std::ifstream input{path_from_utf8(text), std::ios::binary};
   if (!input) {
     machine.diagnostic = text + ": ファイルを開けません";
     machine.failed = true;

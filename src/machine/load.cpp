@@ -1,6 +1,7 @@
 #include "load_internal.hpp"
 
 #include "mosa/library_path.hpp"
+#include "mosa/path_text.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
 #include "mosa/writer.hpp"
@@ -268,7 +269,7 @@ bool file_argument(Impl& machine, Cell directive, std::string_view functor, Cell
 }
 
 bool file_ready(const Impl& machine, const LoadScan& scan, const std::filesystem::path& file) {
-  const auto key = canonical_key(file).generic_string();
+  const auto key = utf8_from_path(canonical_key(file));
   if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) return true;
   return std::find(machine.prepared.begin(), machine.prepared.end(), key) != machine.prepared.end();
 }
@@ -296,13 +297,14 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
 int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, bool import_all = true) {
   std::ifstream input{file, std::ios::binary};
   if (!input) {
-    fail_load(machine, file.string() + ": ファイルを開けません");
+    fail_load(machine, utf8_from_path(file) + ": ファイルを開けません");
     return -1;
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();
   // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
-  if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan, import_all)) {
+  if (!read_terms(machine, buffer.str(), utf8_from_path(file.parent_path()), utf8_from_path(file), true, scan,
+                  import_all)) {
     return -1;
   }
   return 1;
@@ -326,7 +328,7 @@ std::optional<Cell> use_body(Impl& machine, Cell term) {
 
 // Module::file は正規化したパスである（declare_module に渡す前に正規化する）。
 const Module* module_of_file(const Impl& machine, const std::filesystem::path& file) {
-  const auto key = canonical_key(file).generic_string();
+  const auto key = utf8_from_path(canonical_key(file));
   for (const Module& module : machine.modules) {
     if (module.file == key) return &module;
   }
@@ -407,7 +409,7 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
 // 開き済みのファイルをもう一度開くと、読み込みが終わらない。
 bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGuard& guard) {
   if (origin.empty()) return true;
-  const auto key = canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
+  const auto key = utf8_from_path(canonical_key(path_from_utf8(origin)));
   if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) {
     fail_load(machine, std::string{origin} + ": ファイルが循環しています");
     return false;

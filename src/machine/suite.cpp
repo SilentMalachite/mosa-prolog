@@ -1,4 +1,5 @@
 #include "mosa/suite.hpp"
+#include "mosa/path_text.hpp"
 
 #include "internal.hpp"
 #include "mosa/machine.hpp"
@@ -230,7 +231,7 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
 int run_one(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) {
-    std::cerr << path.string() << ": ファイルを開けません\n";
+    std::cerr << utf8_from_path(path) << ": ファイルを開けません\n";
     return 1;
   }
   std::ostringstream buffer;
@@ -238,14 +239,14 @@ int run_one(const std::filesystem::path& path) {
   auto machine = Machine::create();
   std::vector<Exam> exams;
   std::string error;
-  if (!load_file_text(*machine, buffer.str(), path.parent_path().string(), path.string(), exams, error)) {
-    std::cerr << path.string() << ": " << error << '\n';
+  if (!load_file_text(*machine, buffer.str(), utf8_from_path(path.parent_path()), utf8_from_path(path), exams, error)) {
+    std::cerr << utf8_from_path(path) << ": " << error << '\n';
     return 1;
   }
   int failures = 0;
   for (const Exam& exam : exams) {
     if (!run_exam(*machine, exam, error)) {
-      std::cerr << path.string() << ": " << exam.goal << '\n';
+      std::cerr << utf8_from_path(path) << ": " << exam.goal << '\n';
       ++failures;
     }
   }

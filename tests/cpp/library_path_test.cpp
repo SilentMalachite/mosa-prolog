@@ -4,6 +4,7 @@
 #include "mosa/exe_path.hpp"
 #include "mosa/library_path.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -18,11 +19,20 @@ const std::filesystem::path kTmp = std::filesystem::path{MOSA_SOURCE_DIR} / "tes
 
 void write_file(const std::filesystem::path& path, std::string_view text) {
   std::filesystem::create_directories(path.parent_path());
+  // 名前に日本語があるので、ファイルは UTF-8 から作ったパスで開く。
   std::ofstream{path, std::ios::binary} << text;
 }
 
 bool mentions(const mosa::Machine& machine, std::string_view text) {
   return std::string{machine.diagnostic()}.find(text) != std::string::npos;
+}
+
+// Atom の名前は UTF-8 である。Windows の std::string からのパスは ANSI コードページで読まれ、日本語が化ける。
+void check_path_text() {
+  const auto path = mosa::path_from_utf8("dir/家系.pl");
+  mosa_test::check(path.filename() == std::filesystem::path{u8"家系.pl"}, "path_from_utf8 reads UTF-8");
+  mosa_test::check(mosa::utf8_from_path(path) == "dir/家系.pl", "utf8_from_path writes UTF-8");
+  mosa_test::check(mosa::utf8_from_path(mosa::path_from_utf8("")).empty(), "empty path");
 }
 
 void check_executable_path() {
@@ -73,7 +83,7 @@ void check_without_env() {
 void check_with_env() {
   const auto env_dir = kTmp / "lib_env";
   // equivalent は両方が在るときだけ比べられる。先にディレクトリを作る。
-  write_file(env_dir / "環境.pl", ":- module(環境, [e/0]).\ne.\n");
+  write_file(env_dir / mosa::path_from_utf8("環境.pl"), ":- module(環境, [e/0]).\ne.\n");
   const auto value = mosa::environment_path("MOSA_LIB");
   std::error_code error;
   mosa_test::check(value && std::filesystem::equivalent(*value, env_dir, error) && !error, "MOSA_LIB is read");
@@ -86,6 +96,7 @@ void check_with_env() {
 
 int main(int argc, char** argv) {
   const std::span<char*> args{argv, static_cast<std::size_t>(argc)};
+  check_path_text();
   check_executable_path();
   if (args.size() > 1 && std::string_view{args[1]} == "env") {
     check_with_env();

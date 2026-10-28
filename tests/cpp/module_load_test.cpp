@@ -1,6 +1,7 @@
 // module/2、export/1、use_module/1,2 の読み込み（SPEC 第5節、計画の Task 4 と 5）。読み込みの失敗は例外ではなく診断なので C++ で見る。
 #include "harness.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -22,9 +23,10 @@ const std::string kModules = std::string{MOSA_SOURCE_DIR} + "/tests/pl/modules/"
 std::string temp_file(std::string_view name, std::string_view text) {
   const std::filesystem::path dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "module_load";
   std::filesystem::create_directories(dir);
-  const auto path = dir / std::string{name};
+  // 名前は UTF-8。Windows で std::string から作ると ANSI コードページで化ける。
+  const auto path = dir / mosa::path_from_utf8(name);
   std::ofstream{path, std::ios::binary} << text;
-  return path.generic_string();
+  return mosa::utf8_from_path(path);
 }
 
 std::string use_text(std::string_view module, std::string_view before, const std::string& file, std::string_view after) {

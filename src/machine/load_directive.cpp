@@ -1,6 +1,7 @@
 #include "load_internal.hpp"
 
 #include "mosa/writer.hpp"
+#include "mosa/path_text.hpp"
 
 #include <array>
 #include <optional>
@@ -348,7 +349,7 @@ int apply_module_directive(Impl& machine, Cell directive, bool first, std::strin
   if (const auto body = directive_body(machine, directive, "module", 2)) {
     // ファイルとモジュールの対応は正規化したパスで持つ。use_module がパスの書き方によらず見つける。
     const auto key = origin.empty() ? std::string{}
-                                    : canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
+                                    : utf8_from_path(canonical_key(path_from_utf8(origin)));
     failure = declare_module(machine, machine.heap.arg(*body, 0), machine.heap.arg(*body, 1), first, key);
   } else if (const auto listed = directive_body(machine, directive, "export", 1)) {
     failure = add_exports(machine, machine.heap.arg(*listed, 0));
