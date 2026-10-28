@@ -351,16 +351,16 @@
 | `control/if_3` | `if_3_11` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_12` | N | 8 | Section 3 if/3 |
 | `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
-| `functions/ceiling_1` | `lgt_ceiling_1_05` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
-| `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_04` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
-| `functions/float_integer_part_1` | `lgt_float_integer_part_1_04` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
-| `functions/floor_1` | `lgt_floor_1_06` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/ceiling_1` | `lgt_ceiling_1_05` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
+| `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_04` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
+| `functions/float_integer_part_1` | `lgt_float_integer_part_1_04` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
+| `functions/floor_1` | `lgt_floor_1_06` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
 | `functions/power_2` | `lgt_power_2_14` | Q | 8 | 9.3.1.3 d (**)/2: negative power of 0 |
-| `functions/round_1` | `eclipse_round_1_07` | Q | 7 | `round/1` の負の半分（タスク 7 で iso-notes に書く） |
-| `functions/round_1` | `eclipse_round_1_08` | Q | 7 | `round/1` の負の半分（タスク 7 で iso-notes に書く） |
-| `functions/round_1` | `lgt_round_1_13` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
-| `functions/truncate_1` | `lgt_truncate_1_06` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/round_1` | `eclipse_round_1_07` | Q | 7 | `round/1` の負の半分（iso-notes 9.1.6 round/1 of a negative half、答え待ち） |
+| `functions/round_1` | `eclipse_round_1_08` | Q | 7 | `round/1` の負の半分（iso-notes 9.1.6 round/1 of a negative half、答え待ち） |
+| `functions/round_1` | `lgt_round_1_13` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
+| `functions/truncate_1` | `lgt_truncate_1_06` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `logical_update_semantics` | `logical_update_semantics_retract` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_retractall` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_clause_retract` | Q | 8 | 7.5.4 Open scans and retract |

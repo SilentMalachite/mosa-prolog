@@ -466,3 +466,15 @@ A or B?: A: keep `eof_code` and `write`. B: `user_input` has `eof_action(reset)`
 `lgt_write_term_3_043`, `044`, `065`, and `066` expect a written variable to be `_` followed by at least one more character. Mosa writes a variable that occurs once in the term as `_` alone, and a variable that occurs more than once as `_G` followed by a number (`f(_G1,_G1,_)`). 7.10.5 a says only that the text of a variable is implementation dependent and begins with `_`.
 
 A or B?: A: keep `_` for a variable that occurs once (the current writer). B: give every variable a name with at least one character after `_`, such as `_G1`. A until confirmed.
+
+## 9.1.6 Rounding functions given an integer
+
+`lgt_ceiling_1_05`, `lgt_floor_1_06`, `lgt_round_1_13`, `lgt_truncate_1_06`, `lgt_float_integer_part_1_04`, and `lgt_float_fractional_part_1_04` expect `X is floor(9)` and the like to give `type_error(float, 9)`. 9.1.6 gives `floor`, `ceiling`, `round`, and `truncate` the signature F → I, and `float_integer_part` and `float_fractional_part` the signature F → F, so an integer argument is a type error. Mosa returns the integer for the first four (`floor(9) = 9`) and a float for the last two (`float_integer_part(9) = 9.0`). SPEC lists these evaluables but says nothing about their argument types.
+
+A or B?: A: follow 9.1.6 and give `type_error(float, N)` for an integer argument to all six. B: keep accepting integers (the current behaviour). B until confirmed.
+
+## 9.1.6 round/1 of a negative half
+
+`eclipse_round_1_07` and `08` expect `round(-3.5)` to be `-3` and `round(-4.5)` to be `-4`. 9.1.6 defines `round(x)` as `floor(x + 1/2)`, which rounds a half towards positive infinity. Mosa uses `std::round`, which rounds a half away from zero, so it gives `-4` and `-5`. Positive halves give the same result either way (`round(2.5) = 3`).
+
+A or B?: A: keep rounding a half away from zero (`round(-2.5) = -3`). B: follow 9.1.6, `floor(x + 1/2)` (`round(-2.5) = -2`). A until confirmed.

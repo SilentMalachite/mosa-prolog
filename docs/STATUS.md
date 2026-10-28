@@ -1,6 +1,6 @@
 Phase: 5 in progress (phase 4 done 2026-10-28: mosa 0.0.1 (phase 4), CI green on 3 OSes in run 40683841050)
 Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2092/2171 = 96.4%
-In progress: none
+In progress: phase 5 Task 7, rounding evaluables (9.1.6)
 Done (phase 5 Task 1): triage-table section in the phase 5 plan; iso-notes A/B for the N groups; Section 4 Stream encoding and BOM decided A
 Done (phase 5 Task 2): runner ^^suppress_text_output/0, ^^text_output_contents/1,2,3, per-test restore of current streams (lgt_output.cpp); six libraries imported into the test machine's user except names the file defines (lgt_libs.cpp); mosa's user unchanged
 New Q note: 7.10.5 a Writing a variable that occurs once (lgt_write_term_3_043/044/065/066 now fail only on `_`)
@@ -10,6 +10,6 @@ Done (phase 5 Task 3): =~= follows lgtunit 4decb64 (absolute 100*1e-12, then rel
 Done (phase 5 Task 4): ground/1 (Cor.2 8.3.10) in src/builtins/types.cpp, explicit stack, no binding; types.pl 8 tests incl. depth 30000 (+5, incl. stream_property_2_29..31)
 Done (phase 5 Task 5): write.pl 8 option tests pass on the existing checker (wt_opt_no_partial: nothing written before an option error). lgt_write_term_3_118..122 expect the later repeated option to win, against the 8.14 Write options decision; owner decided B: the later repeated write option wins, all still checked (write_pred.cpp, write.pl opt_repeat_*, +5)
 Done (phase 5 Task 6): discontiguous_1 failed only on the sequence form discontiguous((b/1, c/2)), which the 7.4.2 decision rejects; directives.pl dc_arity2..4 pin the list form; owner decided B: dynamic/multifile/discontiguous accept PI sequences (load_directive.cpp collect_sequence, +5)
-Next: Task 7, rounding evaluables (9.1.1, 9.1.6). Later: Task 2 follow-up rows marked "2 追補" (ignore/1, os::, lgtunit::, integer::, condition)
+In Task 7: two A/B questions in iso-notes 9.1.6 (integer argument; round of a negative half) await the owner; no code until answered. Later: Task 2 follow-up rows marked "2 追補" (ignore/1, os::, lgtunit::, integer::, condition)
 Open: other A/B questions stay in iso-notes for Task 8
 Plan (phase 5): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md
