@@ -147,10 +147,10 @@
 - Modify: `src/builtins/write_pred.cpp`
 - Test: `tests/pl/write.pl`
 
-- [ ] **Step 1:** 失敗するテストを足す。`wt_opt_var`: `write_term(a, [_])` → `instantiation_error`。`wt_opt_tail`: `write_term(a, [quoted(true)|_])` → `instantiation_error`。`wt_opt_quoted_fail`: `write_term(a, [quoted(fail)])` → `domain_error(write_option, quoted(fail))`。`wt_opt_vn_bad`: `write_term(a, [variable_names(a)])` → `domain_error(write_option, variable_names(a))`。`wt_opt_vn_tail`: `write_term(a, [variable_names(['A'=_|a])])` → `domain_error(write_option, variable_names(['A'=_|a]))`。`wt_opt_ok`: `write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])` 成功
-- [ ] **Step 2:** 失敗を見る。`lgt_write_term_3_118`〜`122` の入力をスイートから写し、どの組み合わせで正しい選択肢が拒まれるかをテスト名 `wt_opt_lgt_118` などで固定する
-- [ ] **Step 3:** 選択肢リストの検査を、書き出しを始める前に全部終える関数 `std::optional<WriteOptions> parse_write_options(Impl& machine, const Goal& goal, Cell list)` にまとめる
-- [ ] **Step 4:** テストとスイートを流す。コミット `[phase5] write_term/3 の選択肢を書き出す前に検査する（8.14.2.3、write.pl と合格 +N）`
+- [x] **Step 1:** 失敗するテストを足す。`wt_opt_var`: `write_term(a, [_])` → `instantiation_error`。`wt_opt_tail`: `write_term(a, [quoted(true)|_])` → `instantiation_error`。`wt_opt_quoted_fail`: `write_term(a, [quoted(fail)])` → `domain_error(write_option, quoted(fail))`。`wt_opt_vn_bad`: `write_term(a, [variable_names(a)])` → `domain_error(write_option, variable_names(a))`。`wt_opt_vn_tail`: `write_term(a, [variable_names(['A'=_|a])])` → `domain_error(write_option, variable_names(['A'=_|a]))`。`wt_opt_ok`: `write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])` 成功
+- [x] **Step 2:** 失敗を見る。`lgt_write_term_3_118`〜`122` の入力をスイートから写し、どの組み合わせで正しい選択肢が拒まれるかをテスト名 `wt_opt_lgt_118` などで固定する
+- [ ] **Step 3:**（見送り: 検査はすでに書き出しの前に終わっている。`wt_opt_no_partial` で固定） 選択肢リストの検査を、書き出しを始める前に全部終える関数 `std::optional<WriteOptions> parse_write_options(Impl& machine, const Goal& goal, Cell list)` にまとめる
+- [x] **Step 4:** テストとスイートを流す。コミット `[phase5] write_term/3 の選択肢を書き出す前に検査する（8.14.2.3、write.pl と合格 +N）`
 
 ### Task 6: `discontiguous` の読み込み（7.4.2.3）
 
@@ -326,6 +326,7 @@
 内訳（Task 2 Step 7 後、残り 108 件）: S 21（`=~=` 14 件はタスク 3、試験器の追補 7 件）、N 36、Q 35、I 15、X 1。
 内訳（Task 3 後、残り 94 件）: S 7（試験器の追補）、N 36、Q 35、I 15、X 1。`=~=` の 14 件は全部合格に移り、I に回すものは無かった。
 内訳（Task 4 後、残り 89 件）: S 7、N 36、Q 35、I 10、X 1。`stream_property_2_29`〜`31` は位置の不具合ではなく表明の `ground/1` が無かったためで、`ground/1` と一緒に合格に移った。
+内訳（Task 5 後、残り 89 件）: S 7、N 36、Q 40、I 5、X 1。`lgt_write_term_3_118`〜`122` は検査の不具合ではなく、繰り返した選択肢で後の方が勝つことを期待する件で、iso-notes「8.14 Write options」の決定（`domain_error`）と食い違うので Q に移した。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
@@ -388,11 +389,11 @@
 | `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_066` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
-| `predicates/write_term_3` | `lgt_write_term_3_118` | I | 5 | 書き出し選択肢の検査 |
-| `predicates/write_term_3` | `lgt_write_term_3_119` | I | 5 | 書き出し選択肢の検査 |
-| `predicates/write_term_3` | `lgt_write_term_3_120` | I | 5 | 書き出し選択肢の検査 |
-| `predicates/write_term_3` | `lgt_write_term_3_121` | I | 5 | 書き出し選択肢の検査 |
-| `predicates/write_term_3` | `lgt_write_term_3_122` | I | 5 | 書き出し選択肢の検査 |
+| `predicates/write_term_3` | `lgt_write_term_3_118` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
+| `predicates/write_term_3` | `lgt_write_term_3_119` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
+| `predicates/write_term_3` | `lgt_write_term_3_120` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
+| `predicates/write_term_3` | `lgt_write_term_3_121` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
+| `predicates/write_term_3` | `lgt_write_term_3_122` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_01` | I | 6 | `discontiguous` の読み込み |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_02` | I | 6 | `discontiguous` の読み込み |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_03` | I | 6 | `discontiguous` の読み込み |

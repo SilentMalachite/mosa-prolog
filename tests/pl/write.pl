@@ -84,3 +84,13 @@ test(writeq_minus_int, (open_string('-(1). ', S), read(S, T), with_output_to(ato
 test(writeq_minus_float, (open_string('-(1.0). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- (1.0)'), true).
 test(writeq_minus_neg, (open_string('-(-1). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- -1'), true).
 test(writeq_minus_name, (with_output_to(atom(A), writeq(-(a))), A == '-a'), true).
+% 8.14.2.3 の選択肢の検査。部分リストと quoted の変数は opt_partial と quoted_var が見る。
+test(wt_opt_var, write_term(a, [_]), error(instantiation_error)).
+test(wt_opt_quoted_fail, write_term(a, [quoted(fail)]), error(domain_error(write_option, quoted(fail)))).
+test(wt_opt_vn_var, write_term(a, [variable_names(_)]), error(instantiation_error)).
+test(wt_opt_vn_bad, write_term(a, [variable_names(a)]), error(domain_error(write_option, variable_names(a)))).
+test(wt_opt_vn_tail, write_term(a, [variable_names(['A'=_|a])]), error(domain_error(write_option, variable_names(['A'=_|a])))).
+test(wt_opt_vn_pair_var, write_term(a, [variable_names([_='A'])]), error(instantiation_error)).
+test(wt_opt_ok, with_output_to(atom(_), write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])), true).
+% 後ろの選択肢が誤りでも、書き出しは一文字も始めない。
+test(wt_opt_no_partial, (with_output_to(atom(A), catch(write_term(f(a, b), [quoted(true), bogus]), _, true)), A == ''), true).

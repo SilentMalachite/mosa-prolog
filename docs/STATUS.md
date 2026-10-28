@@ -9,6 +9,7 @@ Runner limit: after a goal that leaves a choice point (e.g. stream_property/2), 
 Decided A (2026-10-28): side-column dirs (between_3, succ_2, plus_3, format_2, format_3, atomic_list_concat_2/3) stay out through phase 5; denominator stays 2171
 Done (phase 5 Task 3): =~= follows lgtunit 4decb64 (absolute 100*1e-12, then relative 0.00001; lists element by element) in src/machine/lgt_approx.cpp, split from lgt_judge.cpp; suite_approx_test (+14)
 Done (phase 5 Task 4): ground/1 (Cor.2 8.3.10) in src/builtins/types.cpp, explicit stack, no binding; types.pl 8 tests incl. depth 30000 (+5, incl. stream_property_2_29..31)
-Next: Task 5, write_term/3 option checks (8.14.2.3). Later: Task 2 follow-up rows marked "2 追補" (ignore/1, os::, lgtunit::, integer::, condition)
+Done (phase 5 Task 5): no code change; write.pl 8 option tests pass on the existing checker (wt_opt_no_partial: nothing written before an option error). lgt_write_term_3_118..122 expect the later repeated option to win, against the 8.14 Write options decision; question A/B in iso-notes (+0)
+Next: Task 6, discontiguous loading (7.4.2.3, 5 rows). Later: Task 2 follow-up rows marked "2 追補" (ignore/1, os::, lgtunit::, integer::, condition)
 Open: other A/B questions stay in iso-notes for Task 8
 Plan (phase 5): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md

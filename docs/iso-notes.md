@@ -33,6 +33,10 @@ Decision (2026-10-27): The B above is withdrawn. When `portray/1` has clauses an
 
 Decision (2026-10-25): `write/1,2` and `print/1,2` use `numbervars(true)`. `writeq/1,2` uses `quoted(true)` and `numbervars(true)`. `write_canonical/1,2` uses `quoted(true)` and `ignore_ops(true)`. In `write_term` all three default to false. When values of the same boolean option conflict, `domain_error(write_option, LaterTerm)`. `variable_names` is taken once; if a name is not a variable spelling, `domain_error(write_option, ThatPair)`. A Var that is already bound is ignored.
 
+`lgt_write_term_3_118` to `122` expect the later of two repeated options to win: `[quoted(true), quoted(false)]` writes `A`, `[numbervars(true), numbervars(false)]` writes `$VAR(0)`, and the second `variable_names/1` is used. `lgt_open_4_41` (now blocked on `os::`) expects the same for the `open/4` option `eof_action/1`. The decision above gives `domain_error(write_option, LaterTerm)` (`opt_conflict` in `tests/pl/write.pl`). As far as we have found, the text of the standard (7.10.4 for write options, 7.10.2.11 for stream options) does not say what repeated options do.
+
+A or B?: A: keep `domain_error(write_option, LaterTerm)` (the current decision; the 5 rows stay failing). B: the later option wins, as the suite assumes for `write_term/3` and `open/4`; `opt_conflict` changes in the same commit as the decision.
+
 ## 8.14.3 op/3
 
 Decision (2026-10-26): The goal calls `OperatorTable::define`. Checks run in the order instantiation, type, domain, permission; for a list of names, every name is checked before the table is replaced. On rejection the table is not changed. A nonzero declaration replaces the old specifier of the same class (prefix, infix, postfix). Priority 0 removes only that specifier. Priority 0 for `|` succeeds as a removal, as in the Cor.2 example. Infix with priority from 1 to 1000 inclusive, as well as prefix and postfix, give `permission_error(create, operator, '|')`. Comma gives `permission_error(modify, operator, ',')`. `[]` and `{}` give `permission_error(create, operator, ThatAtom)`. The `:- op` directive uses the same `define`.

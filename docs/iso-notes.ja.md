@@ -35,6 +35,10 @@
 
 決定（2026-10-25）: `write/1,2` と `print/1,2` は `numbervars(true)`。`writeq/1,2` は `quoted(true)` と `numbervars(true)`。`write_canonical/1,2` は `quoted(true)` と `ignore_ops(true)`。`write_term` の既定は三つとも偽。同じ論理オプションの値が食い違うときは `domain_error(write_option, 後の項)`。`variable_names` は一回で、名前が変数の綴りでなければ `domain_error(write_option, その対)`。束縛済みの Var は無視する。
 
+`lgt_write_term_3_118` から `122` は、同じオプションを 2 度書いたとき後の方が勝つことを期待する。`[quoted(true), quoted(false)]` は `A` を書き、`[numbervars(true), numbervars(false)]` は `$VAR(0)` を書き、2 つ目の `variable_names/1` を使う。`lgt_open_4_41`（今は `os::` で止まっている）は `open/4` のオプション `eof_action/1` にも同じことを期待する。上の決定は `domain_error(write_option, LaterTerm)` である（`tests/pl/write.pl` の `opt_conflict`）。調べた範囲では、規格の文面（書き出しオプションの 7.10.4、ストリームのオプションの 7.10.2.11）は、オプションを繰り返したときのことを言っていない。
+
+A か B か: A は `domain_error(write_option, LaterTerm)` のまま（今の決定。5 行は不合格のまま）。B は後のオプションが勝つ。スイートが `write_term/3` と `open/4` に仮定するとおりにし、`opt_conflict` を決定と同じコミットで直す。
+
 ## 8.14.3 op/3
 
 決定（2026-10-26）: ゴールは `OperatorTable::define` を呼ぶ。検査は具体化、型、ドメイン、許可の順で、名前のリストは全部を確かめてから表を置き換える。拒否のときは表を変えない。0 以外の宣言は、同じ類（前置、中置、後置）の古い指定子を置き換える。優先度 0 はその指定子だけを消す。`|` の優先度 0 は Cor.2 の例どおり削除として成功する。中置で 1 以上 1000 以下、および前置と後置は `permission_error(create, operator, '|')`。コンマは `permission_error(modify, operator, ',')`。`[]` と `{}` は `permission_error(create, operator, そのアトム)`。指示の `:- op` も同じ `define` を使う。
