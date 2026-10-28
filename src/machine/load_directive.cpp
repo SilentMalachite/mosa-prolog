@@ -166,6 +166,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) 
     created.dynamic = true;
     created.dynamic_declared = true;
     machine.predicates.push_back(std::move(created));
+    adopt_meta(machine, machine.predicates.back());
     return true;
   }
   predicate->dynamic = true;
@@ -347,6 +348,70 @@ std::optional<Cell> directive_body(Impl& machine, Cell directive, std::string_vi
   return body;
 }
 
+// meta_predicate A, B と meta_predicate [A, B] の両方を受ける。
+void collect_heads(Impl& machine, Cell cell, std::vector<Cell>& heads) {
+  cell = machine.heap.deref(cell);
+  if (cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
+      machine.atoms.name(machine.heap.functor_atom(cell)) == ",") {
+    collect_heads(machine, machine.heap.arg(cell, 0), heads);
+    collect_heads(machine, machine.heap.arg(cell, 1), heads);
+    return;
+  }
+  const WalkedList walked = walk_list(machine, cell);
+  if (cell.tag() == Tag::Lis && walked.shape == ListShape::Proper) {
+    for (const Cell item : walked.items) collect_heads(machine, item, heads);
+    return;
+  }
+  heads.push_back(cell);
+}
+
+bool fail_with(Impl& machine, Cell formal) {
+  fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
+  return false;
+}
+
+// 手続きがあればその述語へ、無ければモジュールの保留の表へ置く。節を足すとき adopt_meta が移す。
+bool declare_meta(Impl& machine, std::vector<Snapshot>& snapshots, Cell head) {
+  PredKey key{machine.load_module, 0, 0};
+  std::vector<MetaArg> args;
+  auto formal = strip_module(machine, head, key.module);
+  if (!formal) formal = read_meta_spec(machine, head, args);
+  if (formal) return fail_with(machine, *formal);
+  key.name = head.tag() == Tag::Atom ? static_cast<std::uint32_t>(head.raw() >> 3) : machine.heap.functor_atom(head);
+  key.arity = static_cast<std::uint16_t>(args.size());
+  if (is_builtin_procedure(machine, key.name, key.arity)) {
+    return fail_with(machine, formal_permission(machine, "modify", "static_procedure",
+                                                cell_functor(machine, key.name, key.arity)));
+  }
+  Predicate* predicate = find_pred(machine, key);
+  if (predicate == nullptr) {
+    if (const auto conflict = check_local(machine, key.module, key.name, key.arity)) return fail_with(machine, *conflict);
+    // 宣言は手続きを作らない。読み込みの失敗はモジュール表ごと戻すので、保留の表も戻る。
+    Module* module = find_module(machine, key.module);
+    if (module == nullptr) return true;
+    std::erase_if(module->pending_meta, [&](const PendingMeta& item) {
+      return item.name == key.name && item.arity == key.arity;
+    });
+    module->pending_meta.push_back(PendingMeta{key.name, key.arity, std::move(args)});
+    return true;
+  }
+  remember_pred(machine, snapshots, key);
+  predicate->meta = std::move(args);
+  predicate->meta_declared = true;
+  return true;
+}
+
+int apply_meta_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
+  const auto body = directive_body(machine, directive, "meta_predicate", 1);
+  if (!body) return 0;
+  std::vector<Cell> heads;
+  collect_heads(machine, machine.heap.arg(*body, 0), heads);
+  for (const Cell head : heads) {
+    if (!declare_meta(machine, snapshots, head)) return -1;
+  }
+  return 1;
+}
+
 int apply_module_directive(Impl& machine, Cell directive, bool first, std::string_view origin) {
   std::optional<Cell> failure;
   if (const auto body = directive_body(machine, directive, "module", 2)) {
@@ -408,6 +473,8 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int dynamic_directive = apply_dynamic_directive(machine, term, snapshots);
   if (dynamic_directive < 0) return -1;
   if (dynamic_directive > 0) return 1;
+  const int meta_directive = apply_meta_directive(machine, term, snapshots);
+  if (meta_directive != 0) return meta_directive;
   const int apart_directive = apply_discontiguous_directive(machine, term, apart);
   if (apart_directive < 0) return -1;
   if (apart_directive > 0) return 1;

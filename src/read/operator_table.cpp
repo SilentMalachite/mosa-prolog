@@ -21,10 +21,10 @@ struct CoreOp {
 // `:` は SPEC 第5節の限定ゴール、`as` は use_module/2 の別名に要る。表7からの逸脱である
 // （iso-notes「Section 5 Operator :」と「Section 5 Operators meta_predicate and as」）。
 // `*->` は組込の制御が既にある。書き出しに `->` と同じ中置が要る。
-constexpr std::array<CoreOp, 44> k_iso_core{{
+constexpr std::array<CoreOp, 45> k_iso_core{{
     {1200, Specifier::Xfx, ":-"},  {1200, Specifier::Xfx, "-->"}, {1200, Specifier::Fx, ":-"},
     {1200, Specifier::Fx, "?-"},   {1100, Specifier::Xfy, ";"},   {1050, Specifier::Xfy, "->"},
-    {1050, Specifier::Xfy, "*->"},
+    {1050, Specifier::Xfy, "*->"}, {1150, Specifier::Fx, "meta_predicate"},
     {1000, Specifier::Xfy, ","},   {600, Specifier::Xfy, ":"},   {900, Specifier::Fy, "\\+"},   {700, Specifier::Xfx, "="},    {700, Specifier::Xfx, "as"},
     {700, Specifier::Xfx, "\\="},  {700, Specifier::Xfx, "=="},   {700, Specifier::Xfx, "\\=="},
     {700, Specifier::Xfx, "@<"},   {700, Specifier::Xfx, "@=<"},  {700, Specifier::Xfx, "@>"},

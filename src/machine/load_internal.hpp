@@ -19,6 +19,7 @@ struct Snapshot {
   std::vector<Clause> clauses;
   bool created = false;
   bool dynamic = false;
+  std::vector<MetaArg> meta;
 };
 
 // この読み込みの中だけで隙間を許す。述語ベクタには入れない。宣言は手続きを作らない。

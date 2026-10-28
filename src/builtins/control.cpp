@@ -188,12 +188,38 @@ bool run_halt(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
+// forall/2 は \+ (Cond, \+ Action) を呼び手の文脈で走らせる（iso-notes「Section 7 forall/2」の決定 A）。
+// 前もって調べるのは Cond だけ。Action の誤りは、その \+ に届いたときに出る。
+bool run_forall(Impl& machine, const Goal& goal) {
+  std::array<Cell, 2> parts{machine.heap.deref(goal.arg(machine, 0)), machine.heap.deref(goal.arg(machine, 1))};
+  if (machine.heap.unbound(parts[0])) {
+    instantiation(machine, goal);
+    return true;
+  }
+  if (!is_callable(machine, parts[0])) {
+    not_callable(machine, goal, parts[0]);
+    return true;
+  }
+  const auto negation = machine.atoms.intern("\\+");
+  parts[1] = machine.heap.structure(negation, std::array<Cell, 1>{parts[1]});
+  const Cell both = machine.heap.structure(machine.atoms.intern(","), parts);
+  const Cell term = machine.heap.structure(negation, std::array<Cell, 1>{both});
+  const Compiled compiled = compile_goal(machine.heap, term);
+  if (!body_callable(compiled.term)) {
+    not_callable(machine, goal, both);
+    return true;
+  }
+  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
+  return true;
+}
+
 bool run_control(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "call" && goal.arity >= 1 && goal.arity <= 8) return run_call(machine, goal);
   if (name == "\\+" && goal.arity == 1) return run_not(machine, goal);
   if (name == "once" && goal.arity == 1) return run_once(machine, goal);
   if (name == "repeat" && goal.arity == 0) return run_repeat(machine, goal);
+  if (name == "forall" && goal.arity == 2) return run_forall(machine, goal);
   if (name == "halt" && goal.arity <= 1) return run_halt(machine, goal);
   return false;
 }

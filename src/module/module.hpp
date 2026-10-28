@@ -12,6 +12,15 @@ namespace mosa {
 
 struct Predicate;
 
+// meta_predicate/1 の引数 1 つ。Goal は 0〜9 で、extra は閉包に足す引数の数。
+// None は限定しない引数で、mode に +、-、?、* のアトムを残す。性質 meta_predicate(Head) で書き戻すため。
+struct MetaArg {
+  enum class Kind { None, Goal, Colon, Caret, Dcg };
+  Kind kind = Kind::None;
+  std::uint8_t extra = 0;
+  std::uint32_t mode = 0;
+};
+
 struct PredKey {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
@@ -26,6 +35,13 @@ struct Import {
   std::uint32_t from = 0;
 };
 
+// 手続きがまだ無い名前への meta_predicate/1。宣言は手続きを作らないので、節が来るまでモジュールに置く。
+struct PendingMeta {
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  std::vector<MetaArg> args;
+};
+
 struct Module {
   std::uint32_t name = 0;
   std::uint32_t default_import = 0;
@@ -33,6 +49,7 @@ struct Module {
   std::vector<Import> imports;
   // 正規化したパス。use_module がファイルからモジュールを引く。ファイルでないテキストは空。
   std::string file;
+  std::vector<PendingMeta> pending_meta;
 };
 
 // user と system を作る。system の既定の取り込み元は自分自身で、引く連鎖をそこで止める。
@@ -78,6 +95,19 @@ struct ImportSpec {
 // 取り込みに当たれば module と name を取り込み元の値にする。nullptr でも、作る先はその値である。
 [[nodiscard]] Predicate* owned_pred(Machine::Impl& machine, std::uint32_t& module, std::uint32_t& name,
                                     std::uint16_t arity);
+// meta_predicate/1 の宣言 1 つ（M: は外した後）。誤りは読み込みの診断にする Formal を返す。
+[[nodiscard]] std::optional<Cell> read_meta_spec(Machine::Impl& machine, Cell head, std::vector<MetaArg>& args);
+// 呼び出しの index 番目の引数。限定する引数で M: が無ければ context:actual にする。
+[[nodiscard]] Cell meta_argument(Machine::Impl& machine, const Predicate& predicate, std::uint32_t context,
+                                 std::size_t index, Cell actual);
+// 第1引数を限定するなら真。節の第1引数の索引は、限定の前の値では引けない。
+[[nodiscard]] bool wraps_first(const Predicate& predicate);
+// 述語を作った直後に呼ぶ。保留の宣言があれば述語へ移す。
+void adopt_meta(Machine::Impl& machine, Predicate& predicate);
+// 性質 meta_predicate(Head) の Head。宣言の無い述語は nullopt。組込は表から作る。
+[[nodiscard]] std::optional<Cell> meta_head(Machine::Impl& machine, const Predicate& predicate);
+[[nodiscard]] std::optional<Cell> builtin_meta_head(Machine::Impl& machine, std::uint32_t name, std::uint16_t arity);
+
 // user の述語は N/A、ほかは M:N/A（iso-notes 第5節の決定 A）。
 [[nodiscard]] Cell module_indicator(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
                                     std::uint16_t arity);

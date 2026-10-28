@@ -69,6 +69,9 @@ void check_absent_and_order(const mosa::OperatorTable& ops) {
   const auto alias = ops.lookup("as");
   mosa_test::check(alias.size() == 1 && alias[0].priority == 700 && alias[0].specifier == mosa::Specifier::Xfx,
                    "as 700 xfx");
+  const auto meta = ops.lookup("meta_predicate");
+  mosa_test::check(meta.size() == 1 && meta[0].priority == 1150 && meta[0].specifier == mosa::Specifier::Fx,
+                   "meta_predicate 1150 fx");
   mosa_test::check(ops.lookup("|").empty(), "bar is not predefined");
   mosa_test::check(ops.lookup("xor").empty(), "xor is not an operator");
   const auto defined = ops.lookup(":-");

@@ -47,6 +47,9 @@ struct Predicate {
   bool dynamic = false;
   // 読み込みの開始で落とす。この読み込みが dynamic を見たら真。見ていなければ置き換え後は静的。
   bool dynamic_declared = false;
+  // meta_predicate/1 の宣言。空なら限定する引数は無い。meta_declared は dynamic_declared と同じく読み込みごと。
+  std::vector<MetaArg> meta;
+  bool meta_declared = false;
 };
 
 enum class Pick {
@@ -274,7 +277,7 @@ void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right);
 // floor より前の REF を候補ごとに戻す。節の匿名は外側の選択点より新しい。
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
-void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut, std::uint32_t module);
+void enter_clause(Impl& machine, const Predicate& predicate, std::size_t index, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
 void trail_operators(Impl& machine, int priority, Specifier specifier, const std::vector<std::string>& names);
 void restore_operators(Impl& machine, std::uint64_t effect_id);

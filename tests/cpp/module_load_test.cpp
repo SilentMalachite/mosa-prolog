@@ -229,6 +229,41 @@ void check_qualified_declarations() {
   mosa_test::check(!apart->load_program(text).ok, "discontiguous(m:q/1) does not cover user:q/1");
 }
 
+// meta_predicate/1 の誤りは読み込みの診断。読み直しで宣言が消えたら、限定もやめる（Task 9）。
+void check_meta_declarations() {
+  auto bad = mosa::Machine::create();
+  mosa_test::check(!bad->load_program(":- meta_predicate p(foo).\n").ok, "bad meta spec fails");
+  mosa_test::check(mentions(*bad, "domain_error(meta_argument_specifier,foo)"), "meta: domain_error");
+  auto unbound = mosa::Machine::create();
+  mosa_test::check(!unbound->load_program(":- meta_predicate p(_).\n").ok, "unbound meta spec fails");
+  mosa_test::check(mentions(*unbound, "instantiation_error"), "meta: instantiation_error");
+  auto builtin = mosa::Machine::create();
+  mosa_test::check(!builtin->load_program(":- meta_predicate atom_length(0, ?).\n").ok, "meta of a built-in fails");
+  mosa_test::check(mentions(*builtin, "permission_error(modify,static_procedure,atom_length/2)"), "meta: permission");
+  const auto with = temp_file("限定.pl", ":- meta_predicate m(0, ?).\nm(G, G).\n");
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->consult(with), "consult file with meta_predicate");
+  mosa_test::check(succeeds(*machine, "m(true, user:true)."), "argument wrapped");
+  temp_file("限定.pl", "m(G, G).\n");
+  mosa_test::check(machine->consult(with), "reconsult without meta_predicate");
+  mosa_test::check(succeeds(*machine, "m(true, true)."), "declaration dropped on reconsult");
+  // 宣言だけでは手続きを作らない。節が来たときに述語へ移す。
+  auto alone = mosa::Machine::create();
+  mosa_test::check(alone->load_program(":- meta_predicate p(0).\n:- meta_predicate foo.\n").ok, "declaration only");
+  mosa_test::check(succeeds(*alone, "catch(p(true), error(existence_error(procedure, p/1), _), true)."),
+                   "declared-only p/1 is still unknown");
+  mosa_test::check(succeeds(*alone, "catch(foo, error(existence_error(procedure, foo/0), _), true)."),
+                   "declared-only foo/0 is still unknown");
+  mosa_test::check(!succeeds(*alone, "current_predicate(p/1)."), "declared-only p/1 is not current");
+  mosa_test::check(alone->load_program("p(G) :- G = user:true.\n").ok, "clauses after the declaration");
+  mosa_test::check(succeeds(*alone, "p(true)."), "later clauses get the declaration");
+  auto rolled = mosa::Machine::create();
+  // 前の読み込みで作った述語に宣言を足してから失敗する。新しい述語なら丸ごと消えるので、戻しを見られない。
+  mosa_test::check(rolled->load_program("r(G) :- G.\n").ok, "define r/1");
+  mosa_test::check(!rolled->load_program(":- meta_predicate r(0).\n:- foo bar.\n").ok, "failed load");
+  mosa_test::check(!succeeds(*rolled, "predicate_property(r(_), meta_predicate(_))."), "meta rolled back");
+}
+
 }  // namespace
 
 int main() {
@@ -250,5 +285,6 @@ int main() {
   check_half_read_is_reread();
   check_qualified_clauses();
   check_qualified_declarations();
+  check_meta_declarations();
   return mosa_test::failures();
 }

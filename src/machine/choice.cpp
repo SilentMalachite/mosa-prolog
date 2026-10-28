@@ -111,14 +111,18 @@ bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right) {
   return ok;
 }
 
-void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut, std::uint32_t module) {
+void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, std::uint64_t goal, std::size_t cut) {
+  const Clause& clause = predicate.clauses[which];
+  // meta 引数の限定は呼び手の文脈。枠は書き換えず、節に入るたびに作る。やり直しで枠より新しい項を指さないため。
+  const auto context = predicate.meta.empty() ? 0 : read_goal(machine, goal).module;
   std::vector<Cell> env;
   env.reserve(clause.vars);
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
   if (clause.head.tag == IrTag::Fun) {
     for (std::size_t index = 0; index < clause.head.args.size(); ++index) {
       const Cell expected = materialize(machine, clause.head.args[index], env);
-      const Cell actual = Cell{machine.heap.word_at(goal + kFrameHead + index)};
+      Cell actual = Cell{machine.heap.word_at(goal + kFrameHead + index)};
+      if (!predicate.meta.empty()) actual = meta_argument(machine, predicate, context, index, actual);
       if (!do_unify(machine, expected, actual)) {
         machine.failed = true;
         return;
@@ -127,7 +131,7 @@ void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::
   }
   const auto cont = machine.heap.word_at(goal + 3);
   // 本体のゴールは節の述語のモジュールで動く（ADR 0006）。呼び手の文脈は受け継がない。
-  launch(machine, clause.body, cont, cut, env, module);
+  launch(machine, clause.body, cont, cut, env, predicate.module);
 }
 
 void enter_user(Impl& machine, const Goal& goal) {
@@ -151,7 +155,7 @@ void enter_user(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return;
   }
-  const bool has_arg = goal.arity >= 1;
+  const bool has_arg = goal.arity >= 1 && !wraps_first(*predicate);
   const Cell first = has_arg ? machine.heap.deref(goal.arg(machine, 0)) : Cell{};
   const auto candidates = select_clauses(machine, *predicate, has_arg, first);
   if (candidates.empty()) {
@@ -174,7 +178,7 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.trail_mark = machine.trail.slots.size();
     push_frame(machine, std::move(entry));
   }
-  enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary, predicate->module);
+  enter_clause(machine, *predicate, candidates[0], goal.at, boundary);
 }
 
 bool redo_clause(Impl& machine) {
@@ -197,7 +201,7 @@ bool redo_clause(Impl& machine) {
   }
   if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
   else machine.stack.back().next += 1;
-  enter_clause(machine, predicate->clauses[index], goal, cut, predicate->module);
+  enter_clause(machine, *predicate, index, goal, cut);
   return true;
 }
 

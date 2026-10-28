@@ -3,7 +3,8 @@
 // ISO/IEC 13211-2 7.2.2 predicate_property/2 (+callable, ?property)
 //   instantiation_error, type_error(callable, H), domain_error(predicate_property, P),
 //   type_error(atom, M), existence_error(module, M)
-// 性質は built_in、defined、dynamic、static、exported、imported_from(M)、multifile、number_of_clauses(N)。
+// 性質は built_in、defined、dynamic、static、exported、imported_from(M)、multifile、meta_predicate(H)、
+// number_of_clauses(N)。
 // テスト: tests/pl/modules.pl
 #include "../machine/internal.hpp"
 
@@ -64,7 +65,6 @@ bool known_property(const Impl& machine, Cell property) {
   }
   if (property.tag() != Tag::Str || machine.heap.functor_arity(property) != 1) return false;
   const auto name = machine.atoms.name(machine.heap.functor_atom(property));
-  // TODO(iso): 13211-2 7.2.2 meta_predicate(Head) は形だけ受ける。値は Task 9 の meta_predicate/1 で持たせる。
   return name == "imported_from" || name == "number_of_clauses" || name == "meta_predicate";
 }
 
@@ -102,6 +102,7 @@ std::vector<Cell> user_properties(Impl& machine, std::uint32_t module, const Pre
     found.push_back(unary(machine, "imported_from", machine.heap.atom(item->from)));
   }
   if (shared(machine, predicate)) found.push_back(atom_cell(machine, "multifile"));
+  if (const auto head = meta_head(machine, predicate)) found.push_back(unary(machine, "meta_predicate", *head));
   const auto count = static_cast<std::int64_t>(predicate.clauses.size());
   found.push_back(unary(machine, "number_of_clauses", machine.heap.integer(count)));
   return found;
@@ -133,8 +134,11 @@ bool run_predicate_property(Impl& machine, const Goal& goal) {
   const std::uint16_t arity = head.tag() == Tag::Atom ? 0 : head.tag() == Tag::Lis ? 2 : machine.heap.functor_arity(head);
   // 組込は述語表より先に引かれる。同じ名前の利用者の述語があっても、呼ばれるのは組込である。
   if (is_builtin_procedure(machine, name, arity)) {
-    offer(machine, goal, property,
-          {atom_cell(machine, "defined"), atom_cell(machine, "built_in"), atom_cell(machine, "static")});
+    std::vector<Cell> found{atom_cell(machine, "defined"), atom_cell(machine, "built_in"), atom_cell(machine, "static")};
+    if (const auto meta = builtin_meta_head(machine, name, arity)) {
+      found.push_back(unary(machine, "meta_predicate", *meta));
+    }
+    offer(machine, goal, property, found);
     return true;
   }
   const Predicate* predicate = resolve_pred(machine, module, name, arity);

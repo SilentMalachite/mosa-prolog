@@ -110,6 +110,12 @@ void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
   made.arity = predicate.arity;
   made.dynamic = predicate.dynamic;
   made.dynamic_declared = predicate.dynamic_declared;
+  made.meta_declared = predicate.meta_declared;
+  for (MetaArg arg : predicate.meta) {
+    // None の mode はアトムの番号。複製先の表で引き直す。
+    if (arg.kind == MetaArg::Kind::None) arg.mode = dst.atoms.intern(src.atoms.name(arg.mode));
+    made.meta.push_back(arg);
+  }
   made.seen = predicate.seen;
   for (const Clause& clause : predicate.clauses) {
     Clause copied;

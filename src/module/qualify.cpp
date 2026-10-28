@@ -115,12 +115,13 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   if (!first) return formal_permission(machine, "create", "module", name);
   Module* module = find_module(machine, atom_of(name));
   if (module == nullptr) {
-    machine.modules.push_back(Module{atom_of(name), machine.user_module, {}, {}, {}});
+    machine.modules.push_back(Module{atom_of(name), machine.user_module, {}, {}, {}, {}});
     module = &machine.modules.back();
   }
   // 読み直しは公開と取り込みを作り直す。取り込みはこの後の use_module/1,2 がもう一度足す。
   module->exports.clear();
   module->imports.clear();
+  module->pending_meta.clear();
   module->file = std::string{file};
   // 同じファイルを別の名前で読み直したら、古いモジュールはもうそのファイルのものではない。
   for (Module& other : machine.modules) {

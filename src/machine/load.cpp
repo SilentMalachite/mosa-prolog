@@ -95,6 +95,7 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key)
   if (predicate != nullptr) {
     shot.clauses = predicate->clauses;
     shot.dynamic = predicate->dynamic;
+    shot.meta = predicate->meta;
   }
   snapshots.push_back(std::move(shot));
 }
@@ -120,6 +121,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
     machine.predicates.back().module = module;
     machine.predicates.back().name = name;
     machine.predicates.back().arity = arity;
+    adopt_meta(machine, machine.predicates.back());
   }
   Predicate& predicate = machine.predicates[index];
   // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
@@ -142,6 +144,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
       predicate.clauses.clear();
       // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
       if (!predicate.dynamic_declared) predicate.dynamic = false;
+      // meta_predicate も同じ。読み直したテキストが宣言を消したら、限定もやめる。
+      if (!predicate.meta_declared) predicate.meta.clear();
     }
   }
   predicate.seen = true;
@@ -161,6 +165,7 @@ void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t
     if (predicate != nullptr) {
       predicate->clauses = shot.clauses;
       predicate->dynamic = shot.dynamic;
+      predicate->meta = shot.meta;
     }
   }
   machine.predicates.resize(previous_size);
@@ -526,6 +531,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   for (Predicate& predicate : machine.predicates) {
     predicate.seen = false;
     predicate.dynamic_declared = false;
+    predicate.meta_declared = false;
   }
   const auto saved_ops = machine.operators;
   const SavedFlags saved_flags = save_flags(machine);

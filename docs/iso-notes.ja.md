@@ -345,4 +345,4 @@ SPEC 第5節は段階 F に `predicate_property/2` を挙げるが、頭部が�
 
 A か B か: A は、頭部が変数なら 13211-2 の DTR と同梱のスイート（`commons_predicate_property_2_16`）のとおり `instantiation_error`、無い `M:` なら `M:G` と同じ `existence_error(module, M)`。B は、SWI-Prolog のように見える述語を列挙し、無いモジュールでは失敗する。
 
-決定（2026-10-28）: どちらも A。組み込み述語の性質は `defined`、`built_in`、`static`。利用者の述語は呼び出しと同じ順で引き、性質はこの順に `defined`、`dynamic` か `static`、`exported`、`imported_from(M)`（文脈モジュールの明示の取り込みのときだけ）、`multifile`、`number_of_clauses(N)`。それ以外の性質の項は `domain_error(predicate_property, P)`。
+決定（2026-10-28）: どちらも A。組み込み述語の性質は `defined`、`built_in`、`static` で、制御構文とゴールを受ける組み込み述語には `meta_predicate(Head)`（例: `findall(?, 0, -)`）も付く。利用者の述語は呼び出しと同じ順で引き、性質はこの順に `defined`、`dynamic` か `static`、`exported`、`imported_from(M)`（文脈モジュールの明示の取り込みのときだけ）、`multifile`、`meta_predicate(Head)`（宣言したとき）、`number_of_clauses(N)`。それ以外の性質の項は `domain_error(predicate_property, P)`。

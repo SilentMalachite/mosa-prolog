@@ -97,3 +97,22 @@ test(pp_var, predicate_property(_, _), error(instantiation_error)).
 test(pp_type, predicate_property(1, _), error(type_error(callable, 1))).
 test(pp_domain, predicate_property(atom_chars(_, _), foobar), error(domain_error(predicate_property, foobar))).
 test(pp_unknown_module, predicate_property(nomod:p, _), error(existence_error(module, nomod))).
+test(meta_wrap, 全員(mod_fact, X), solutions([X = user:mod_fact])).
+test(meta_wrap_ctx, 家系:全員(内部, X), solutions([X = 家系:内部])).
+test(meta_already, 全員(家系:内部, X), solutions([X = 家系:内部])).
+test(meta_private_closure, 全部秘密([秘密, 秘密]), true).
+test(meta_findall_ctx, 家系:findall(X, 内部(X), L), solutions([L = [秘密]])).
+test(meta_catch_ctx, 家系:catch(内部(X), _, true), solutions([X = 秘密])).
+test(meta_call_n_ctx, 家系:call(内部, X), solutions([X = 秘密])).
+test(pp_meta, predicate_property(家系:全員(_, _), meta_predicate(M)), solutions([M = 全員(1, ?)])).
+test(pp_meta_imported, predicate_property(全員(_, _), meta_predicate(M)), solutions([M = 全員(1, ?)])).
+test(pp_meta_none, predicate_property(親(_, _), meta_predicate(_)), fail).
+test(pp_meta_builtin, predicate_property(findall(_, _, _), meta_predicate(M)), solutions([M = findall(?, 0, -)])).
+test(forall_basic, forall(mod_fact(X), integer(X)), true).
+test(forall_fail, forall(mod_fact(X), X == 1), fail).
+test(forall_ctx, 家系:forall(内部(X), X == 秘密), true).
+test(forall_meta, predicate_property(forall(_, _), meta_predicate(M)), solutions([M = forall(0, 0)])).
+test(forall_lazy_action, forall(fail, 1), true).
+test(forall_lazy_var, forall(fail, _), true).
+test(forall_action_type, forall(true, 1), error(type_error(callable, 1))).
+test(forall_cond_var, forall(_, true), error(instantiation_error)).

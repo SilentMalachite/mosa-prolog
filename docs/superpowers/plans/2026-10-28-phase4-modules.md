@@ -213,9 +213,9 @@
 **Interfaces:**
 - Produces: `Predicate` に `std::vector<MetaArg> meta`（`enum class MetaArg { None, Goal, Colon, Caret, Dcg }` と閉包の追加引数の数 0〜9）。呼び出し時に、限定の無い meta 引数を `文脈:引数` にする。`forall/2` は `system` に置く（iso-notes `Section 7 forall/2` の決定 A）
 
-- [ ] **Step 1:** 失敗するテスト。`meta_wrap`: `:- meta_predicate 全員(1, ?).` の述語が受けた引数が `user:G` になっている。`meta_private_closure`: 公開述語が自モジュールの非公開述語を `maplist/2` へ渡して成功する（`maplist/2` は Task 13 までは `tests/pl/modules/高階.pl` に書いた仮の meta 述語で代える）。`meta_findall_ctx`: `家系:findall(X, 内部(X), L)` が非公開述語の解を集める。`meta_catch_ctx`、`meta_call_n_ctx` を同じ形で。`meta_already`: すでに `m:G` なら二重に包まない。`pp_meta`: `predicate_property(家系:全員(_, _), meta_predicate(全員(1, ?)))`。`forall_basic`: `forall(member(X, [1, 2]), integer(X))`
-- [ ] **Step 2:** 失敗を見る。実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] meta_predicate/1 と高階の組み込みの文脈を実装（modules.pl 7 件）`
+- [x] **Step 1:** 失敗するテスト。`meta_wrap`: `:- meta_predicate 全員(1, ?).` の述語が受けた引数が `user:G` になっている。`meta_private_closure`: 公開述語が自モジュールの非公開述語を `maplist/2` へ渡して成功する（`maplist/2` は Task 13 までは `tests/pl/modules/高階.pl` に書いた仮の meta 述語で代える）。`meta_findall_ctx`: `家系:findall(X, 内部(X), L)` が非公開述語の解を集める。`meta_catch_ctx`、`meta_call_n_ctx` を同じ形で。`meta_already`: すでに `m:G` なら二重に包まない。`pp_meta`: `predicate_property(家系:全員(_, _), meta_predicate(全員(1, ?)))`。`forall_basic`: `forall(member(X, [1, 2]), integer(X))`
+- [x] **Step 2:** 失敗を見る。実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] meta_predicate/1 と高階の組み込みの文脈を実装（modules.pl 7 件）`
 
 ### Task 10: モジュールごとの演算子
 

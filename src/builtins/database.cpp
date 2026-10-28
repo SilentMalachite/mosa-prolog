@@ -362,6 +362,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     created.dynamic = true;
     machine.predicates.push_back(std::move(created));
     existing = &machine.predicates.back();
+    adopt_meta(machine, *existing);
   }
   if (at_front) {
     existing->clauses.insert(existing->clauses.begin(), std::move(clause));

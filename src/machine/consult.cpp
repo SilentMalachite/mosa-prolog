@@ -43,6 +43,7 @@ std::filesystem::path resolve_file(std::string_view directory, std::string_view 
 struct SeenMark {
   bool seen = false;
   bool declared = false;
+  bool meta = false;
 };
 
 struct ClauseBackup {
@@ -57,7 +58,7 @@ std::vector<SeenMark> mark_seen(const Impl& machine) {
   std::vector<SeenMark> saved;
   saved.reserve(machine.predicates.size());
   for (const Predicate& predicate : machine.predicates) {
-    saved.push_back(SeenMark{predicate.seen, predicate.dynamic_declared});
+    saved.push_back(SeenMark{predicate.seen, predicate.dynamic_declared, predicate.meta_declared});
   }
   return saved;
 }
@@ -67,11 +68,13 @@ void restore_seen(Impl& machine, const std::vector<SeenMark>& saved) {
   for (std::size_t index = 0; index < count && index < machine.predicates.size(); ++index) {
     machine.predicates[index].seen = saved[index].seen;
     machine.predicates[index].dynamic_declared = saved[index].declared;
+    machine.predicates[index].meta_declared = saved[index].meta;
   }
   // 親のテキストは、consult が足した述語をまだ見ていない。次の節は置き換える。
   for (std::size_t index = count; index < machine.predicates.size(); ++index) {
     machine.predicates[index].seen = false;
     machine.predicates[index].dynamic_declared = false;
+    machine.predicates[index].meta_declared = false;
   }
 }
 
