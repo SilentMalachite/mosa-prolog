@@ -37,6 +37,8 @@ Decision (2026-10-25): `write/1,2` and `print/1,2` use `numbervars(true)`. `writ
 
 A or B?: A: keep `domain_error(write_option, LaterTerm)` (the current decision; the 5 rows stay failing). B: the later option wins, as the suite assumes for `write_term/3` and `open/4`; `opt_conflict` changes in the same commit as the decision.
 
+Decision (2026-10-28): B. The later of two repeated write options wins; every occurrence is still checked, so `[quoted(true), quoted(foo)]` gives `domain_error(write_option, quoted(foo))`. A second `variable_names/1` replaces the first. This replaces the 2026-10-25 rules "`domain_error(write_option, LaterTerm)`" and "`variable_names` is taken once". 8.14.2.3 gives `domain_error(write_option, E)` only when an element is not a valid write option, and each repeated element is valid. `open/4` already lets the later `type/1`, `reposition/1`, and `eof_action/1` win. Tests `opt_repeat_*` in `tests/pl/write.pl`.
+
 ## 8.14.3 op/3
 
 Decision (2026-10-26): The goal calls `OperatorTable::define`. Checks run in the order instantiation, type, domain, permission; for a list of names, every name is checked before the table is replaced. On rejection the table is not changed. A nonzero declaration replaces the old specifier of the same class (prefix, infix, postfix). Priority 0 removes only that specifier. Priority 0 for `|` succeeds as a removal, as in the Cor.2 example. Infix with priority from 1 to 1000 inclusive, as well as prefix and postfix, give `permission_error(create, operator, '|')`. Comma gives `permission_error(modify, operator, ',')`. `[]` and `{}` give `permission_error(create, operator, ThatAtom)`. The `:- op` directive uses the same `define`.

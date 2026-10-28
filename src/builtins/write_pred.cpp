@@ -7,7 +7,7 @@
 // write_term(@term, +write_options_list) は現在の出力。
 //   write と print は numbervars(true)。writeq は quoted(true) と numbervars(true)。
 //   write_canonical は quoted(true) と ignore_ops(true)。write_term の既定は三つとも偽。
-//   同じ論理オプションの値が食い違うときは domain_error。variable_names は一回。
+//   同じ選択肢を繰り返したら後の方が勝つ（iso-notes 8.14 Write options の決定 B）。どれも検査はする。
 //   エラー順は、流れの変数、選択肢の具体化、流れのドメイン、リスト型、
 //   write_option、存在、出力許可、それから書き出す。
 //   instantiation_error, domain_error(stream_or_alias), domain_error(write_option),
@@ -24,6 +24,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -45,10 +46,6 @@ struct Chosen {
   bool quoted = false;
   bool ignore_ops = false;
   bool numbervars = false;
-  bool saw_quoted = false;
-  bool saw_ignore = false;
-  bool saw_number = false;
-  bool saw_names = false;
   std::vector<VarName> names;
 };
 
@@ -272,13 +269,6 @@ int flag_bit(const Impl& machine, Cell arg, bool& value) {
   return 1;
 }
 
-bool assign_bool(Impl& machine, const Goal& goal, Cell item, bool& flag, bool& seen, bool value) {
-  if (seen && flag != value) return raise_domain(machine, goal, "write_option", item);
-  flag = value;
-  seen = true;
-  return false;
-}
-
 bool variable_spelling(std::string_view text) {
   const CodeText codes = decode_codes(text);
   if (codes.codes.empty()) return false;
@@ -311,15 +301,16 @@ bool take_pair(Impl& machine, const Goal& goal, Cell item, std::vector<VarName>&
   return false;
 }
 
+// 2 度目の variable_names/1 は 1 度目を置き換える。置き換える前に、その中身を全部確かめる。
 bool take_names(Impl& machine, const Goal& goal, Cell option, Cell arg, Chosen& chosen) {
-  if (chosen.saw_names) return raise_domain(machine, goal, "write_option", option);
   const WalkedList walked = walk_list(machine, arg);
   if (walked.shape == ListShape::Variable || walked.shape == ListShape::Partial) return raise_inst(machine, goal);
   if (walked.shape != ListShape::Proper) return raise_domain(machine, goal, "write_option", option);
+  std::vector<VarName> names;
   for (Cell item : walked.items) {
-    if (take_pair(machine, goal, item, chosen.names)) return true;
+    if (take_pair(machine, goal, item, names)) return true;
   }
-  chosen.saw_names = true;
+  chosen.names = std::move(names);
   return false;
 }
 
@@ -328,9 +319,10 @@ bool apply_flag(Impl& machine, const Goal& goal, Cell item, std::string_view nam
   const int bit = flag_bit(machine, arg, value);
   if (bit < 0) return raise_inst(machine, goal);
   if (bit == 0) return raise_domain(machine, goal, "write_option", item);
-  if (name == "quoted") return assign_bool(machine, goal, item, chosen.quoted, chosen.saw_quoted, value);
-  if (name == "ignore_ops") return assign_bool(machine, goal, item, chosen.ignore_ops, chosen.saw_ignore, value);
-  return assign_bool(machine, goal, item, chosen.numbervars, chosen.saw_number, value);
+  if (name == "quoted") chosen.quoted = value;
+  else if (name == "ignore_ops") chosen.ignore_ops = value;
+  else chosen.numbervars = value;
+  return false;
 }
 
 bool apply_option(Impl& machine, const Goal& goal, Cell item, Chosen& chosen) {

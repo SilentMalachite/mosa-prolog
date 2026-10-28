@@ -39,6 +39,8 @@
 
 A か B か: A は `domain_error(write_option, LaterTerm)` のまま（今の決定。5 行は不合格のまま）。B は後のオプションが勝つ。スイートが `write_term/3` と `open/4` に仮定するとおりにし、`opt_conflict` を決定と同じコミットで直す。
 
+決定（2026-10-28）: B。繰り返した書き出しオプションは後の方が勝つ。どの出現も検査はするので、`[quoted(true), quoted(foo)]` は `domain_error(write_option, quoted(foo))` になる。2 つ目の `variable_names/1` は 1 つ目を置き換える。2026-10-25 の決定のうち「`domain_error(write_option, LaterTerm)`」と「`variable_names` は一回」をこれで置き換える。8.14.2.3 が `domain_error(write_option, E)` にするのは要素が正しい書き出しオプションでないときだけで、繰り返した要素はどれも正しい。`open/4` はすでに後の `type/1`、`reposition/1`、`eof_action/1` を勝たせている。テストは `tests/pl/write.pl` の `opt_repeat_*`。
+
 ## 8.14.3 op/3
 
 決定（2026-10-26）: ゴールは `OperatorTable::define` を呼ぶ。検査は具体化、型、ドメイン、許可の順で、名前のリストは全部を確かめてから表を置き換える。拒否のときは表を変えない。0 以外の宣言は、同じ類（前置、中置、後置）の古い指定子を置き換える。優先度 0 はその指定子だけを消す。`|` の優先度 0 は Cor.2 の例どおり削除として成功する。中置で 1 以上 1000 以下、および前置と後置は `permission_error(create, operator, '|')`。コンマは `permission_error(modify, operator, ',')`。`[]` と `{}` は `permission_error(create, operator, そのアトム)`。指示の `:- op` も同じ `define` を使う。

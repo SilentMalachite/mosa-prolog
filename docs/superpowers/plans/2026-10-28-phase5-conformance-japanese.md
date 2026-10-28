@@ -327,6 +327,7 @@
 内訳（Task 3 後、残り 94 件）: S 7（試験器の追補）、N 36、Q 35、I 15、X 1。`=~=` の 14 件は全部合格に移り、I に回すものは無かった。
 内訳（Task 4 後、残り 89 件）: S 7、N 36、Q 35、I 10、X 1。`stream_property_2_29`〜`31` は位置の不具合ではなく表明の `ground/1` が無かったためで、`ground/1` と一緒に合格に移った。
 内訳（Task 5 後、残り 89 件）: S 7、N 36、Q 40、I 5、X 1。`lgt_write_term_3_118`〜`122` は検査の不具合ではなく、繰り返した選択肢で後の方が勝つことを期待する件で、iso-notes「8.14 Write options」の決定（`domain_error`）と食い違うので Q に移した。
+内訳（8.14 の決定 B の後、残り 84 件）: S 7、N 36、Q 35、I 5、X 1。持ち主の決定 B（後の選択肢が勝つ）で `lgt_write_term_3_118`〜`122` が合格に移った。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
@@ -389,11 +390,6 @@
 | `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_066` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
-| `predicates/write_term_3` | `lgt_write_term_3_118` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
-| `predicates/write_term_3` | `lgt_write_term_3_119` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
-| `predicates/write_term_3` | `lgt_write_term_3_120` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
-| `predicates/write_term_3` | `lgt_write_term_3_121` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
-| `predicates/write_term_3` | `lgt_write_term_3_122` | Q | 8 | 解釈の違い（8.14 Write options）。持ち主に再確認中 |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_01` | I | 6 | `discontiguous` の読み込み |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_02` | I | 6 | `discontiguous` の読み込み |
 | `syntax/directives/discontiguous_1` | `discontiguous_1_03` | I | 6 | `discontiguous` の読み込み |

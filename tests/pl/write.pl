@@ -67,7 +67,14 @@ test(opt_bad, write_term(user_output, a, [foo]), error(domain_error(write_option
 test(opt_before_permit, write_term(user_input, a, [foo]), error(domain_error(write_option, foo))).
 test(quoted_bad, write_term(a, [quoted(foo)]), error(domain_error(write_option, quoted(foo)))).
 test(quoted_var, write_term(a, [quoted(Q)]), error(instantiation_error)).
-test(opt_conflict, write_term(a, [quoted(true), quoted(false)]), error(domain_error(write_option, quoted(false)))).
+% iso-notes 8.14 Write options の決定 B（2026-10-28）。繰り返した選択肢は後の方が勝つ。
+test(opt_repeat_last, (with_output_to(atom(A), write_term('A', [quoted(true), quoted(false)])), A == 'A'), true).
+test(opt_repeat_quoted, (with_output_to(atom(A), write_term('A', [quoted(false), quoted(true)])), A == '\'A\''), true).
+test(opt_repeat_numbervars, (with_output_to(atom(A), write_term('$VAR'(0), [numbervars(true), numbervars(false)])), A == '$VAR(0)'), true).
+test(opt_repeat_numbervars_on, (with_output_to(atom(A), write_term('$VAR'(0), [numbervars(false), numbervars(true)])), A == 'A'), true).
+test(opt_repeat_names, (with_output_to(atom(A), write_term(V, [variable_names(['Ignored'=V]), variable_names(['Used'=V])])), A == 'Used'), true).
+test(opt_repeat_still_checked, write_term(a, [quoted(true), quoted(foo)]), error(domain_error(write_option, quoted(foo)))).
+test(opt_repeat_names_checked, write_term(a, [variable_names([]), variable_names(a)]), error(domain_error(write_option, variable_names(a)))).
 test(names_bad, write_term(X, [variable_names([a=X])]), error(domain_error(write_option, a=X))).
 test(write_input, write(user_input, a), error(permission_error(output, stream, user_input))).
 test(write_term_input, write_term(user_input, a, []), error(permission_error(output, stream, user_input))).

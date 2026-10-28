@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2082
-合格率: 95.9
+合格数: 2087
+合格率: 96.1
 不合格:
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
@@ -60,11 +60,6 @@ predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars)
 predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_118 true(Assertion) domain_error(write_option,quoted(false))
-predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_error(write_option,quoted(true))
-predicates/write_term_3/tests.lgt lgt_write_term_3_120 true(Assertion) domain_error(write_option,numbervars(false))
-predicates/write_term_3/tests.lgt lgt_write_term_3_121 true(Assertion) domain_error(write_option,numbervars(true))
-predicates/write_term_3/tests.lgt lgt_write_term_3_122 true(Assertion) domain_error(write_option,variable_names(['Used'=_]))
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_01 true(L==[a,a,a]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
