@@ -231,6 +231,8 @@ Closed (2026-10-28): since phase 5 Task 2 the suite runner imports `library(list
 
 A or B?: A: `current_input/1` and `current_output/1` on a closed stream give `existence_error(stream, S)` (the current implementation). `sics_current_input_1_04` and `sics_current_output_1_04` remain failing. B: `domain_error(stream, S)`. A until confirmed. B is not implemented.
 
+Decision (2026-10-28): B. `current_input/1` and `current_output/1` give `domain_error(stream, S)` for the term of a closed stream, the only error 8.11.1.3 and 8.11.2.3 list. A term that was never a stream, such as `'$stream'(99)`, still gives `existence_error(stream, S)`, and a term that is neither a variable nor a stream still gives `domain_error(stream_or_alias, S)` (the 8.11.1.3 decision above). Other built-ins keep `existence_error(stream, S)` for a closed stream (`src/builtins/stream_prop.cpp` `match_current`, `tests/pl/stream_prop.pl` `input_closed`, `output_closed`).
+
 ## Section 5 Autoload
 
 Decision (2026-10-28): A. Library predicates such as `append/3`, `between/3`, and `format/2` are visible only after `use_module`. Nothing is imported into `user` at startup, and undefined predicates are not loaded on demand. This keeps the resolution rules of SPEC section 5 (own module, default import source, `system`), lets user programs define their own `append/3` and `member/2` without an import conflict, and matches the phase 6 rule that `mosac` links only the transitive closure of `use_module`. Conformance tests that call these predicates without a declaration are handled by the suite runner importing the six libraries into the test module, not by changing the system.

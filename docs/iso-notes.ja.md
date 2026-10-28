@@ -233,6 +233,8 @@ A か B か: A は組込の `memberchk/2` を足さない。B は組込として
 
 A か B か: A は閉じた流れの `current_input/1` と `current_output/1` が `existence_error(stream, S)`（今の実装）。`sics_current_input_1_04` と `sics_current_output_1_04` は残る。B は `domain_error(stream, S)`。確認前は A。B は実装しない。
 
+決定（2026-10-28）: B。`current_input/1` と `current_output/1` は、閉じた流れの項に `domain_error(stream, S)` を投げる。8.11.1.3 と 8.11.2.3 が挙げる誤りはこれだけである。`'$stream'(99)` のように一度も流れでなかった項は今も `existence_error(stream, S)`、変数でも流れでもない項は今も `domain_error(stream_or_alias, S)`（上の 8.11.1.3 の決定）。ほかの組込は、閉じた流れに今も `existence_error(stream, S)` を投げる（`src/builtins/stream_prop.cpp` の `match_current`、`tests/pl/stream_prop.pl` の `input_closed` と `output_closed`）。
+
 ## 第5節 自動取り込み
 
 決定（2026-10-28）: A。`append/3`、`between/3`、`format/2` などのライブラリの述語は、`use_module` した後にだけ見える。起動時に `user` へ何も取り込まず、未定義の述語を呼んだときにライブラリを読むこともしない。SPEC 第5節の解決規則（自モジュール、既定の取り込み元、`system`）を保ち、利用者のプログラムが自分の `append/3` や `member/2` を取り込みの衝突なしに定義でき、フェーズ6の `mosac` が `use_module` の推移閉包だけをリンクする規則とも合う。宣言なしにこれらを呼ぶ準拠テストは、処理系を変えず、試験器がテストのモジュールへ 6 ライブラリを取り込んで扱う。

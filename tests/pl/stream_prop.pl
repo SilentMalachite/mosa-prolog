@@ -36,6 +36,9 @@ test(output_index, current_output('$stream'(1)), true).
 test(output_other, current_output(user_input), fail).
 test(output_bad, current_output(1), error(domain_error(stream_or_alias, 1))).
 test(output_missing, current_output('$stream'(99)), error(existence_error(stream, '$stream'(99)))).
+% iso-notes 8.11.1 の決定 B。閉じた流れの項は 8.11.1.3 の domain_error(stream, S)。一度も開いていない項は今のまま。
+test(input_closed, (open_string(a, S), close(S), current_input(S)), error(domain_error(stream, S))).
+test(output_closed, (open_string(a, S), close(S), current_output(S)), error(domain_error(stream, S))).
 test(set_same, set_input(user_input), true).
 test(set_reads, (open_string(ab, S), set_input(S), get_char(C), C == a, set_input(user_input), current_input(user_input)), true).
 test(set_output_stream, set_input(user_output), error(permission_error(input, stream, user_output))).
