@@ -323,6 +323,38 @@ void check_message_missing_key() {
   mosa_test::check(result.err.find("goal_raised: foo") != std::string::npos, "missing key fallback");
 }
 
+// -g のゴールは末尾の . を省いてよい（SWI-Prolog と同じ）。読めないゴールは false. ではなく構文エラーを出す。
+mosa::SessionResult run_goal_arg(const std::string& goal) {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string arg_t = "-t";
+  const std::string halt = "halt";
+  std::vector<std::string_view> args{arg0, arg_g, goal, arg_t, halt};
+  return mosa::run_session(args, "", false);
+}
+
+void check_goal_without_period() {
+  // writeq の出力は本物の標準出力へ行くので、答えの行で見る。
+  const auto bare = run_goal_arg("X = abc");
+  mosa_test::check(bare.code == 0 && bare.out.find("X = abc.") != std::string::npos, "goal without period runs");
+  const auto ended = run_goal_arg("X = abc.");
+  mosa_test::check(ended.code == 0 && ended.out.find("X = abc.") != std::string::npos, "goal with period still runs");
+  const auto comment = run_goal_arg("X = abc % 注");
+  mosa_test::check(comment.code == 0 && comment.out.find("X = abc.") != std::string::npos, "goal ending in a comment");
+  const auto broken = run_goal_arg("foo(");
+  mosa_test::check(broken.code == 2, "broken goal exit");
+  mosa_test::check(broken.out.find("false.") == std::string::npos, "broken goal is not false");
+  mosa_test::check(broken.err.find("構文エラー") != std::string::npos, "broken goal shows syntax error");
+  // 対話では、読めないゴールの後もプロンプトへ進む。例外のときと同じ。
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "foo(";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  const auto tty = mosa::run_session(args, "X = 1.\n", true);
+  mosa_test::check(tty.err.find("構文エラー") != std::string::npos, "tty broken goal shows syntax error");
+  mosa_test::check(tty.out.find("X = 1.") != std::string::npos, "tty broken goal reaches prompt");
+}
+
 int main(int argc, char** argv) {
   if (argc > 1 && std::string_view{argv[1]} == "english") {
     check_english_default();
@@ -352,5 +384,6 @@ int main(int argc, char** argv) {
   check_help_japanese_variables();
   check_syntax_shown();
   check_load_diagnostics_en();
+  check_goal_without_period();
   return mosa_test::failures();
 }

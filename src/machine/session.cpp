@@ -14,6 +14,7 @@
 #include <array>
 #include <cstdio>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -206,6 +207,34 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
   }
 }
 
+ReadOutcome read_goal_text(Machine& machine, std::string_view text) {
+  Reader reader(text, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
+                &engine_impl(machine).char_conv);
+  reader.set_fullwidth(engine_impl(machine).japanese_punct);
+  return reader.next();
+}
+
+// -g のゴールは末尾の . を省いてよい（SWI-Prolog と同じ）。終わりが無ければ改行と . を足す。
+// 改行を挟むのは、行末の % 注釈を閉じ、記号の文字と . がつながって一つの原子にならないようにするため。
+// 読めないゴールは構文エラーを出して nullopt。query は読めない文を false にするので、先に読んで見分ける。
+std::optional<std::string> command_goal(Machine& machine, const std::string& goal, Echo& echo) {
+  try {
+    const ReadOutcome outcome = read_goal_text(machine, goal);
+    if (!outcome.failure) return goal;
+    // 足した . でも読めなければ、利用者の書いた文の位置で知らせる。足した 2 行目を見せない。
+    if (outcome.failure->reason == SyntaxReason::IncompleteTerm &&
+        !read_goal_text(machine, goal + "\n.").failure) {
+      return goal + "\n.";
+    }
+    warn_syntax(machine, *outcome.failure, echo);
+    return std::nullopt;
+  } catch (const ResourceLimit&) {
+    // 読むだけで溢れる小さな上限。判定を諦め、play_goal に資源の報告を任せる。
+    recover_heap(machine);
+  }
+  return goal;
+}
+
 bool blank(std::string_view text) {
   for (const char ch : text) {
     if (ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r') return false;
@@ -324,7 +353,9 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
   if (options.has_goal) {
     const bool interactive = tty && !options.top_halt;
     bool halted = false;
-    const int code = play_goal(*machine, options.goal, interactive, cursor, echo, halted);
+    const auto goal = command_goal(*machine, options.goal, echo);
+    // 読めないゴールは例外と同じ扱い。対話ではプロンプトへ進み、一括では 2 で終える。
+    const int code = goal ? play_goal(*machine, *goal, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
     result.code = code;
     if (halted || !interactive || code == 2) return result;
     result.code = 0;

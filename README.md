@@ -65,7 +65,7 @@ Executables go to `build/` (`build/Release/` on Windows).
 mosa [file...] [-g goal] [-t halt]
 ```
 
-Started from a terminal with no goal, `mosa` enters interactive mode. A `-g` goal must end with `.`.
+Started from a terminal with no goal, `mosa` enters interactive mode. A `-g` goal may end with `.` or leave it out, as in SWI-Prolog. A goal that cannot be read prints a syntax error; with `-t halt` the exit status is then 2.
 
 ```console
 $ ./build/mosa tests/pl/nrev.pl -g "nrev([1,2,3], R)." -t halt
