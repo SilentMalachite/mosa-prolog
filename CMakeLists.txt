@@ -26,6 +26,14 @@ target_link_libraries(mosac PRIVATE mosa_lib)
 add_executable(mosatest src/main_mosatest.cpp)
 target_link_libraries(mosatest PRIVATE mosa_lib)
 
+# library(...) は実行ファイルの隣の lib/ を探す（SPEC 第5節）。POST_BUILD は再リンクのときしか動かず、
+# lib/*.pl だけを直したビルドで古い写しが残るので、ビルドのたびに写す目標にする。
+add_custom_target(mosa_lib_dir ALL
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lib $<TARGET_FILE_DIR:mosa>/lib)
+foreach(command mosa mosac mosatest)
+  add_dependencies(${command} mosa_lib_dir)
+endforeach()
+
 target_sources(mosa_lib PRIVATE src/read/char_class.cpp)
 target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
@@ -40,6 +48,7 @@ target_sources(mosa_lib PRIVATE
   src/module/module_table.cpp
   src/module/qualify.cpp
   src/module/import.cpp
+  src/module/library_path.cpp
   src/machine/load_path.cpp
   src/machine/compile.cpp
   src/machine/choice.cpp
@@ -59,6 +68,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
   src/platform/terminal.cpp
+  src/platform/exe_path.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -149,6 +159,16 @@ target_include_directories(module_load_test PRIVATE tests/cpp)
 target_link_libraries(module_load_test PRIVATE mosa_lib)
 target_compile_definitions(module_load_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME module_load COMMAND $<TARGET_FILE:module_load_test>)
+add_executable(library_path_test tests/cpp/library_path_test.cpp)
+target_include_directories(library_path_test PRIVATE tests/cpp)
+target_link_libraries(library_path_test PRIVATE mosa_lib)
+target_compile_definitions(library_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+# 同じテストを MOSA_LIB の無い環境と有る環境で流す。テスト側に環境変数を書き換える OS 分岐を置かない。
+add_test(NAME library_path COMMAND $<TARGET_FILE:library_path_test>)
+set_tests_properties(library_path PROPERTIES ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:")
+add_test(NAME library_path_env COMMAND $<TARGET_FILE:library_path_test> env)
+set_tests_properties(library_path_env PROPERTIES
+  ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/library_path/lib_env")
 
 add_executable(include_test tests/cpp/include_test.cpp)
 target_include_directories(include_test PRIVATE tests/cpp)

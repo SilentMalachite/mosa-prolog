@@ -1,5 +1,6 @@
 #include "load_internal.hpp"
 
+#include "mosa/library_path.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
 #include "mosa/writer.hpp"
@@ -342,21 +343,37 @@ int import_ready(Impl& machine, const std::filesystem::path& file) {
   return 1;
 }
 
+// use_module の第 1 引数。原子は読み込み中のファイルからの相対、library(Name) は library_path の探索。
+std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directory, std::filesystem::path& file) {
+  if (machine.heap.unbound(arg)) return formal_instantiation(machine);
+  if (arg.tag() == Tag::Str && machine.heap.functor_arity(arg) == 1 &&
+      machine.atoms.name(machine.heap.functor_atom(arg)) == "library") {
+    const Cell name = machine.heap.deref(machine.heap.arg(arg, 0));
+    if (machine.heap.unbound(name)) return formal_instantiation(machine);
+    if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
+    const auto found = find_library(machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3)));
+    if (!found) return formal_existence(machine, "source_sink", arg);
+    file = *found;
+    return std::nullopt;
+  }
+  if (arg.tag() != Tag::Atom) return formal_type(machine, "atom", arg);
+  file = prolog_source_path(resolve_include(directory, machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3))));
+  return std::nullopt;
+}
+
 // use_module/1,2。ensure_loaded と同じく読むのは 1 回だけで、取り込みは呼ぶたびに足す。
 int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& scan) {
   const auto body = use_body(machine, term);
   if (!body) return 0;
   const Cell arg = machine.heap.deref(machine.heap.arg(*body, 0));
-  if (machine.heap.unbound(arg)) return fail_formal(machine, formal_instantiation(machine));
-  if (arg.tag() != Tag::Atom) return fail_formal(machine, formal_type(machine, "atom", arg));
+  std::filesystem::path file;
+  if (const auto formal = locate_use(machine, arg, directory, file)) return fail_formal(machine, *formal);
   ImportSpec spec;
   if (machine.heap.functor_arity(*body) == 2) {
     if (const auto formal = parse_imports(machine, machine.heap.arg(*body, 1), spec)) {
       return fail_formal(machine, *formal);
     }
   }
-  const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
-  const auto file = prolog_source_path(resolve_include(directory, name));
   if (!file_ready(machine, scan, file) && open_prolog_file(machine, file, scan, false) < 0) return -1;
   const Module* module = module_of_file(machine, file);
   if (module == nullptr) return fail_formal(machine, formal_permission(machine, "load", "source_sink", arg));
