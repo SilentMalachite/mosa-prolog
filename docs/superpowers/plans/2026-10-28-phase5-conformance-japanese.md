@@ -235,11 +235,11 @@
 - Produces: 事実 `message(Key, Format)`（モジュール `messages_ja` と `messages_en` がそれぞれ持つ。Format は `format/2` の書式原子）。C++ 側は `std::string render_message(Impl& machine, std::string_view key, Cell args)`。旗 `message_language`（値 `ja` か `en`）
 - Consumes: フェーズ4の `library(...)` の探索（`$MOSA_LIB`、実行ファイルからの `lib/`）、`library(format)`
 
-- [ ] **Step 1:** ADR 0007 を書いて持ち主の承認を得る。決めること: 事実の名前と引数、言語ごとのモジュール、旗の既定値の決め方（`LANG` が `ja` で始まれば `ja`、それ以外は `en`。`LANG` の読み取りは `src/platform/`）、カタログが読めないときの表示（`<Key>: ` の後に引数を `writeq` で並べる）。承認までコードを書かない
-- [ ] **Step 2:** 失敗するテスト。`session_test` に `uncaught_ja`: 旗 `ja` で `throw(foo)` を打つと標準エラーが `警告: ゴールは例外を送出しました: foo` を含む。`uncaught_en`: 旗 `en` で `Warning: goal raised exception: foo` を含む。`message_missing_key`: カタログを読まない設定で落ちず `goal_raised: foo` を含む。`tests/pl/flags.pl` に `ml_values`: `set_prolog_flag(message_language, fr)` → `domain_error(flag_value, message_language+fr)`
-- [ ] **Step 3:** `session.cpp` と `main_mosa.cpp` の `警告: …` の文字列を鍵 `goal_raised`、`heap_limit` に置き換える。REPL のヘルプに「日本語の変数は `_太郎` のように下線で始める」を鍵 `help_japanese_variables` で足す
-- [ ] **Step 4:** 旗を足したので `docs/iso-notes.md` に `Section 7 Flag message_language` を Decision 付きで書く
-- [ ] **Step 5:** テストを流す。コミット `[phase5] 例外の表示を messages_ja.pl と messages_en.pl へ移す（ADR 0007、session_test 3 件）`
+- [x] **Step 1:** ADR 0007 を書いて持ち主の承認を得る。決めること: 事実の名前と引数、言語ごとのモジュール、旗の既定値の決め方（`LANG` が `ja` で始まれば `ja`、それ以外は `en`。`LANG` の読み取りは `src/platform/`）、カタログが読めないときの表示（`<Key>: ` の後に引数を `writeq` で並べる）。承認までコードを書かない
+- [x] **Step 2:** 失敗するテスト。`session_test` に `uncaught_ja`: 旗 `ja` で `throw(foo)` を打つと標準エラーが `警告: ゴールは例外を送出しました: foo` を含む。`uncaught_en`: 旗 `en` で `Warning: goal raised exception: foo` を含む。`message_missing_key`: カタログを読まない設定で落ちず `goal_raised: foo` を含む。`tests/pl/flags.pl` に `ml_values`: `set_prolog_flag(message_language, fr)` → `domain_error(flag_value, message_language+fr)`
+- [x] **Step 3:** `session.cpp` と `main_mosa.cpp` の `警告: …` の文字列を鍵 `goal_raised`、`heap_limit` に置き換える。REPL のヘルプに「日本語の変数は `_太郎` のように下線で始める」を鍵 `help_japanese_variables` で足す
+- [x] **Step 4:** 旗を足したので `docs/iso-notes.md` に `Section 7 Flag message_language` を Decision 付きで書く
+- [x] **Step 5:** テストを流す。コミット `[phase5] 例外の表示を messages_ja.pl と messages_en.pl へ移す（ADR 0007、session_test 3 件）`
 
 ### Task 12: 構文エラーの鍵と位置（SPEC 第4節、第7節）
 
@@ -250,10 +250,10 @@
 **Interfaces:**
 - Consumes: ADR 0007 で決めた Formal（`syntax_error(Key)`、Key は英語の原子）と Context（`context(PI, syntax(stream(S, Line, LinePos, CharNo), Token))`、入力の終わりでは Token が `''`）
 
-- [ ] **Step 1:** `tests/pl/read.pl` の `read_syntax`、`read_incomplete`、`read_syntax_stream` の期待値を ADR 0007 の形に直す（期待値の変更はこの ADR のコミットに限る）。`japanese.pl` に `syntax_col_japanese`: `'あいう ).'` と `'abc ).'` を読んだときの `LinePos` が等しい。`syntax_ja_shown`: `session_test` で旗 `ja` のとき REPL に打った `子 親.` の表示が `行 1 列` と `親` を含む（`親(.` は問題のトークンが入力の終わりで `親` を含まないので、この入力に替えた）
-- [ ] **Step 2:** 失敗を見る
-- [ ] **Step 3:** `read_pred.cpp` と `session.cpp` の理由文を鍵に置き換え、文面は `messages_*.pl` に移す。`lexer_literal.cpp` のトークン `タブ`、`改行` はその字そのものにする。門: `grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src/read src/builtins src/machine/session.cpp` が `session.cpp` の `usage` 以外を出さないこと（`load.cpp` などの診断は Task 12b）
-- [ ] **Step 4:** テストを流す。コミット `[phase5] 構文エラーを鍵と位置で投げ、文面を messages へ移す（read.pl、japanese.pl、session_test）`
+- [x] **Step 1:** `tests/pl/read.pl` の `read_syntax`、`read_incomplete`、`read_syntax_stream` の期待値を ADR 0007 の形に直す（期待値の変更はこの ADR のコミットに限る）。`japanese.pl` に `syntax_col_japanese`: `'あいう ).'` と `'abc ).'` を読んだときの `LinePos` が等しい。`syntax_ja_shown`: `session_test` で旗 `ja` のとき REPL に打った `子 親.` の表示が `行 1 列` と `親` を含む（`親(.` は問題のトークンが入力の終わりで `親` を含まないので、この入力に替えた）
+- [x] **Step 2:** 失敗を見る
+- [x] **Step 3:** `read_pred.cpp` と `session.cpp` の理由文を鍵に置き換え、文面は `messages_*.pl` に移す。`lexer_literal.cpp` のトークン `タブ`、`改行` はその字そのものにする。門: `grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src/read src/builtins src/machine/session.cpp` が `session.cpp` の `usage` 以外を出さないこと（`load.cpp` などの診断は Task 12b）
+- [x] **Step 4:** テストを流す。コミット `[phase5] 構文エラーを鍵と位置で投げ、文面を messages へ移す（read.pl、japanese.pl、session_test）`
 
 ### Task 12b: 残りの診断の文面を messages へ移す（SPEC 第7節）
 
