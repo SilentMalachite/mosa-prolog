@@ -473,6 +473,8 @@ A or B?: A: keep `_` for a variable that occurs once (the current writer). B: gi
 
 A or B?: A: follow 9.1.6 and give `type_error(float, N)` for an integer argument to all six. B: keep accepting integers (the current behaviour). B until confirmed.
 
+Decision (2026-10-28): A. An integer argument to these six gives `type_error(float, N)`, where `N` is the evaluated value (`floor(4 + 5)` gives `type_error(float, 9)`). `integer/1` is not one of them and still accepts integers (`src/builtins/arith.cpp` `float_only`, `tests/pl/arith.pl`). Mosa has no `iso` flag yet, so this holds in every mode.
+
 ## 9.1.6 round/1 of a negative half
 
 `eclipse_round_1_07` and `08` expect `round(-3.5)` to be `-3` and `round(-4.5)` to be `-4`. 9.1.6 defines `round(x)` as `floor(x + 1/2)`, which rounds a half towards positive infinity. Mosa uses `std::round`, which rounds a half away from zero, so it gives `-4` and `-5`. Positive halves give the same result either way (`round(2.5) = 3`).

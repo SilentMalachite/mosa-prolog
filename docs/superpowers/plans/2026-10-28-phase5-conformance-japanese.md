@@ -53,7 +53,7 @@
 | `ground/1` が無い | 2 | `current_input_1_06`、`current_output_1_06`。8.3.10 の述語そのものが未実装 | I | 4 |
 | `write_term/3` の選択肢 | 約 10 | `quoted(false)` などを `domain_error` にする（118〜122）、`lgt_write_term_3_088`〜`096` | I | 5 |
 | `discontiguous` の読み込み | 5 | `syntax/directives/discontiguous_1_01`〜`05` が `load` | I | 6 |
-| 整数を受けた丸め系評価子 | 6 | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
+| 整数を受けた丸め系評価子 | 0（決定 A で解消、+6） | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
 | `round/1` の負の半分 | 0（決定 B で解消、+2） | `eclipse_round_1_07`、`08` | Q | 7 |
 | 未決の iso-notes | 約 10 | 7.8.3、9.3.1.3 d、7.5.4（logical update 4 件）、8.11.8、`memberchk/2`、8.11.1 | Q | 8 |
 | `if/3`、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
@@ -168,9 +168,9 @@
 - Modify: `docs/iso-notes.md`、`docs/iso-notes.ja.md`、`src/builtins/arith_float.cpp`
 - Test: `tests/pl/arith.pl`
 
-- [ ] **Step 1:** iso-notes に 2 問を書き、持ち主の答えを待つ。問 1「`floor(9)` などで整数を受けたとき A: `type_error(float, 9)`（`iso` 旗が真） B: 整数をそのまま返す」。問 2「`round(-2.5)` は A: -3（0 から遠い方） B: -2（`floor(x + 1/2)`）」。答えが出るまでこのタスクのコードは書かない
-- [ ] **Step 2:** 答えに合わせた失敗するテスト `round_neg_half`、`floor_int`、`ceiling_int`、`truncate_int`、`fip_int`、`ffp_int` を `tests/pl/arith.pl` に書く
-- [ ] **Step 3:** 実装し、テストとスイートを流す。コミット `[phase5] 丸め系評価子を ISO に合わせる（9.1.6、arith.pl と合格 +N）`
+- [x] **Step 1:** iso-notes に 2 問を書き、持ち主の答えを待つ。問 1「`floor(9)` などで整数を受けたとき A: `type_error(float, 9)`（`iso` 旗が真） B: 整数をそのまま返す」。問 2「`round(-2.5)` は A: -3（0 から遠い方） B: -2（`floor(x + 1/2)`）」。答えが出るまでこのタスクのコードは書かない
+- [x] **Step 2:** 答えに合わせた失敗するテスト `round_neg_half`、`floor_int`、`ceiling_int`、`truncate_int`、`fip_int`、`ffp_int` を `tests/pl/arith.pl` に書く
+- [x] **Step 3:** 実装し、テストとスイートを流す。コミット `[phase5] 丸め系評価子を ISO に合わせる（9.1.6、arith.pl と合格 +N）`
 
 ### Task 8: 判断待ちの解消
 
@@ -351,14 +351,8 @@
 | `control/if_3` | `if_3_11` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_12` | N | 8 | Section 3 if/3 |
 | `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
-| `functions/ceiling_1` | `lgt_ceiling_1_05` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
-| `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_04` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
-| `functions/float_integer_part_1` | `lgt_float_integer_part_1_04` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
-| `functions/floor_1` | `lgt_floor_1_06` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
 | `functions/power_2` | `lgt_power_2_14` | Q | 8 | 9.3.1.3 d (**)/2: negative power of 0 |
-| `functions/round_1` | `lgt_round_1_13` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
-| `functions/truncate_1` | `lgt_truncate_1_06` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `logical_update_semantics` | `logical_update_semantics_retract` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_retractall` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_clause_retract` | Q | 8 | 7.5.4 Open scans and retract |

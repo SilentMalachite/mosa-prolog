@@ -32,6 +32,15 @@ test(round_neg_point5, (X is round(-0.5)), solutions([X = 0])).
 test(round_neg_below_half, (X is round(-2.6)), solutions([X = -3])).
 test(round_just_below_half, (X is round(0.49999999999999994)), solutions([X = 0])).
 test(round_odd_2p52, (X is round(4503599627370497.0)), solutions([X = 4503599627370497])).
+test(floor_int, (X is floor(9)), error(type_error(float, 9))).
+test(ceiling_int, (X is ceiling(9)), error(type_error(float, 9))).
+test(truncate_int, (X is truncate(9)), error(type_error(float, 9))).
+test(round_int, (X is round(9)), error(type_error(float, 9))).
+test(fip_int, (X is float_integer_part(9)), error(type_error(float, 9))).
+test(ffp_int, (X is float_fractional_part(9)), error(type_error(float, 9))).
+test(floor_int_expr, (X is floor(4 + 5)), error(type_error(float, 9))).
+test(floor_float_expr, (X is floor(4 + 5.5)), solutions([X = 9])).
+test(fip_neg_float, (X is float_integer_part(-2.5)), solutions([X = -2.0])).
 test(iso_float_fun, (X is float(1)), solutions([X = 1.0])).
 test(iso_eq_sum, (1 + 2 =:= 3), true).
 test(iso_le, (1 =< 1), true).

@@ -331,9 +331,19 @@ Ev int_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp)
   return from_int(out);
 }
 
+// 9.1.6 はこの 6 つを F → I または F → F と定める。整数を黙って float に直さず型エラーにする（iso-notes 9.1.6 の決定 A）。
+bool float_only(std::string_view name) {
+  return name == "floor" || name == "ceiling" || name == "round" || name == "truncate" ||
+         name == "float_integer_part" || name == "float_fractional_part";
+}
+
 Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
   std::array<double, 2> inputs{};
   if (args.size() > inputs.size()) return {};
+  if (args.size() == 1 && !args[0].flt && float_only(name)) {
+    raise_formal(machine, formal_type(machine, "float", machine.heap.integer(args[0].ival)), goal.name, goal.arity);
+    return {};
+  }
   for (std::size_t index = 0; index < args.size(); ++index) inputs[index] = as_float(args[index]);
   double value = 0;
   bool as_int = false;
