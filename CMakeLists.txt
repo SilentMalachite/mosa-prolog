@@ -61,6 +61,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/answer.cpp
   src/machine/consult.cpp
   src/machine/session.cpp
+  src/machine/messages.cpp
   src/machine/suite.cpp
   src/machine/iso_suite.cpp
   src/machine/lgt_file.cpp
@@ -155,6 +156,13 @@ target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(session_test PRIVATE mosa_lib)
 add_test(NAME session COMMAND $<TARGET_FILE:session_test>)
+# 今ある日本語の文面の確認を、流す機械の LANG に左右させない（ADR 0007）。
+set_tests_properties(session PROPERTIES ENVIRONMENT "LANG=ja_JP.UTF-8")
+# MOSA_LIB は実行ファイルの lib/ より先に探す。鍵の無い messages_en.pl で、代わりの表示を確かめる。
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty/messages_en.pl ":- module(messages_en, []).\n")
+add_test(NAME session_messages_missing COMMAND $<TARGET_FILE:session_test> missing)
+set_tests_properties(session_messages_missing PROPERTIES
+  ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty")
 
 add_executable(stream_test tests/cpp/stream_test.cpp)
 target_include_directories(stream_test PRIVATE tests/cpp)

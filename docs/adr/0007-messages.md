@@ -22,6 +22,6 @@ Keeping the sentence in the Formal. `catch/3` patterns would depend on the langu
 
 ## Consequences
 
-`goal_raised` uses `~q`, so the shown exception is quoted as now (variables written by `numbervars` as `writeq/1` does). `main_mosa.cpp` has no machine when it catches `ResourceLimit`, so it creates a fresh one to render `heap_limit` and falls back as above if that fails.
+`goal_raised` uses `~q`, so the shown exception is quoted as now (variables written by `numbervars` as `writeq/1` does). `main_mosa.cpp` and `warn_resource` in `session.cpp` have no usable heap when they catch `ResourceLimit`, so they create a fresh machine to render `heap_limit` and falls back as above if that fails.
 CMake runs `session_test` with `LANG=ja_JP.UTF-8` so the existing Japanese checks do not depend on the machine, and once more with `MOSA_LIB` at `tests/tmp/messages_empty/`, whose `messages_en.pl` (written at configure time) has no keys; `MOSA_LIB` is searched before the exe `lib/`, so that run checks the fallback.
 `read_syntax`, `read_incomplete` and `read_syntax_stream` in `tests/pl/read.pl` change to the Key and Extra above in the Task 12 commit. SPEC Section 7 names this Extra since approval. No code is written before approval.

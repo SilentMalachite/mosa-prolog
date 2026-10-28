@@ -4,6 +4,7 @@
 
 #include "mosa/ir.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
 
 #include "../module/module.hpp"
@@ -235,6 +236,8 @@ struct Machine::Impl {
   bool debug_on = false;
   // 旗 japanese_punctuation。Reader::set_fullwidth で字句解析に渡す。既定は false。
   bool japanese_punct = false;
+  // 旗 message_language。文面のカタログを選ぶ（ADR 0007）。
+  MessageLanguage message_lang = default_message_language();
   CharConv char_conv;
   // 前のテストのバイナリ出力を閉じる。空のままだと現在の出力がテキストに戻らない。
   SuiteSuper (*suite_super)(Machine& machine, const LgtIo& io, Cell goal) = nullptr;

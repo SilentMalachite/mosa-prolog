@@ -1,4 +1,5 @@
 #include "mosa/heap.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/repl.hpp"
 #include "mosa/terminal.hpp"
 
@@ -28,7 +29,7 @@ int main(int argc, char** argv) {
     }
     return result.code;
   } catch (const mosa::ResourceLimit&) {
-    std::cerr << "警告: ヒープの上限を超えました\n";
+    std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "heap_limit") << "\n";
     return 2;
   }
 }

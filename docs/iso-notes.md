@@ -129,6 +129,10 @@ Decision (2026-10-25): Open question 13: A. `set_prolog_flag(japanese_punctuatio
 
 Decision (2026-10-28): phase 5 applies the flag to lexical analysis (SPEC Section 4 table). Outside quoted tokens, comments and `0'c`, `（）［］，、：` read as `()[],,:`. `。` is a clause terminator only when a layout character or the end of input follows; otherwise it stays a symbol character, so `1。5` is not a float. `「` opens a quoted atom that `」` closes. The flag is per file (SPEC Section 5) and takes effect from the clause after the directive.
 
+## Section 7 Flag message_language
+
+Decision (2026-10-28): ADR 0007 (owner approved). An implementation-defined flag (7.11.3) taking `ja` or `en`, changeable; any other atom gives `domain_error(flag_value, message_language+V)`. The default is `ja` when `LANG` starts with `ja`, else `en`. It chooses only the catalog of the top-level messages and does not change any error term.
+
 ## 7.11 Flag version
 
 Decision (2026-10-25): Open question 14: A. `version` is a read-only atom, and its text is the same as `version_line()`.

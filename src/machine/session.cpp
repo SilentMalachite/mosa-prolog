@@ -4,11 +4,13 @@
 
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
 #include "mosa/version.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -141,14 +143,16 @@ std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
   return text;
 }
 
-void warn_resource(Echo& echo) { echo.warn("警告: ヒープの上限を超えました\n"); }
+// 上限に達したマシンのヒープではカタログを読めないので、新しいマシンで文面を作る。
+void warn_resource(Machine& machine, Echo& echo) {
+  echo.warn(render_message_fresh(engine_impl(machine).message_lang, "heap_limit") + "\n");
+}
 
 void recover_heap(Machine& machine) { machine.heap().truncate(0); }
 
 void warn_exception(Machine& machine, const Stop& stop, Echo& echo) {
-  echo.warn("警告: ゴールは例外を送出しました: ");
-  echo.warn(write_term(machine.heap(), machine.operators(), stop.exception, {}, {}));
-  echo.warn("\n");
+  const std::array<Cell, 1> args{stop.exception};
+  echo.warn(render_message(machine, "goal_raised", args) + "\n");
 }
 
 bool directive_text(Machine& machine, std::string_view text) {
@@ -195,7 +199,7 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
     }
   } catch (const ResourceLimit&) {
     recover_heap(machine);
-    warn_resource(echo);
+    warn_resource(machine, echo);
     return interactive ? 0 : 2;
   }
 }
@@ -223,7 +227,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
       outcome = reader.next();
     } catch (const ResourceLimit&) {
       recover_heap(machine);
-      warn_resource(echo);
+      warn_resource(machine, echo);
       buffer.clear();
       echo.say("?- ");
       continue;
@@ -244,6 +248,12 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     const std::string text = buffer;
     buffer.clear();
     const Cell term = outcome.term->term;
+    // help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。
+    if (term.tag() == Tag::Atom && machine.atoms().name(static_cast<std::uint32_t>(term.raw() >> 3)) == "help") {
+      echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
+      echo.say("?- ");
+      continue;
+    }
     const bool directive = term.tag() == Tag::Str && machine.heap().functor_arity(machine.heap().deref(term)) == 1 &&
                            (machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == ":-" ||
                             machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == "?-");
@@ -300,7 +310,7 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
       }
     } catch (const ResourceLimit&) {
       recover_heap(*machine);
-      warn_resource(echo);
+      warn_resource(*machine, echo);
       result.code = 2;
       return result;
     }

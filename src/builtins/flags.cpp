@@ -9,6 +9,7 @@
 // japanese_punctuation は true と false。字句解析器は次に読む項から全角記号を半角に読む（iso-notes 第4節）。
 // dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
 // version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
+// message_language は ja と en。既定は LANG から決める（ADR 0007）。
 // テスト: tests/pl/flags.pl
 
 #include "../machine/internal.hpp"
@@ -26,7 +27,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 18;
+constexpr std::size_t kFlagCount = 19;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -55,11 +56,12 @@ std::string_view flag_name(std::size_t index) {
     case 15: return "dialect";
     case 16: return "version_data";
     case 17: return "version";
+    case 18: return "message_language";
     default: return {};
   }
 }
 
-bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || (index >= 9 && index <= 14); }
+bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || (index >= 9 && index <= 14) || index == 18; }
 
 int find_flag(const Impl& machine, Cell flag) {
   const auto text = machine.atoms.name(atom_id(flag));
@@ -93,6 +95,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
       return machine.heap.structure(machine.atoms.intern("mosa"), args);
     }
     case 17: return machine.heap.integer(kVersionMajor * 10000 + kVersionMinor * 100 + kVersionPatch);
+    case 18: return atom_named(machine, machine.message_lang == MessageLanguage::Ja ? "ja" : "en");
     default: return atom_named(machine, "error");
   }
 }
@@ -132,6 +135,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     // 変えられない旗の領域は値の形。形が合えば、次の permission_error になる。
     case 15: return value.tag() == Tag::Atom;
     case 16: return value.tag() == Tag::Str && machine.heap.functor_arity(value) == 4;
+    case 18: return same_atom(machine, value, "ja") || same_atom(machine, value, "en");
     default: return same_atom(machine, value, "error");
   }
 }
@@ -158,6 +162,7 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
   if (index == 12) machine.char_conv.enabled = text == "on";
   if (index == 13) machine.utf8_replace = text == "replace";
   if (index == 14) machine.debug_on = text == "on";
+  if (index == 18) machine.message_lang = text == "ja" ? MessageLanguage::Ja : MessageLanguage::En;
 }
 
 void type_at(Impl& machine, const Goal& goal, Cell culprit) {

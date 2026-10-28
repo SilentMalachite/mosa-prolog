@@ -22,6 +22,6 @@ SPEC 第4節は構文エラーの表示に問題のトークンを求め、第7�
 
 ## 結果
 
-`goal_raised` は `~q` を使うので、表示する例外は今と同じく引用付きになる（変数は `writeq/1` と同じく `numbervars` で書く）。`main_mosa.cpp` は `ResourceLimit` を捕まえたときにマシンを持たないので、`heap_limit` の表示用に新しいマシンを作り、それが失敗すれば上の代わりの表示にする。
+`goal_raised` は `~q` を使うので、表示する例外は今と同じく引用付きになる（変数は `writeq/1` と同じく `numbervars` で書く）。`main_mosa.cpp` と `session.cpp` の `warn_resource` は `ResourceLimit` を捕まえたときに使えるヒープを持たないので、`heap_limit` の表示用に新しいマシンを作り、それが失敗すれば上の代わりの表示にする。
 CMake は `session_test` を `LANG=ja_JP.UTF-8` で流し、今ある日本語の確認を機械に左右させない。もう一度、`MOSA_LIB` を `tests/tmp/messages_empty/` にして流す。そこの `messages_en.pl`（構成時に書く）は鍵を持たない。`MOSA_LIB` は実行ファイルの `lib/` より先に探すので、その回が代わりの表示を確かめる。
 `tests/pl/read.pl` の `read_syntax`、`read_incomplete`、`read_syntax_stream` は Task 12 のコミットで上の Key と Extra に変わる。SPEC 第7節は承認から、この Extra を書く。承認までコードを書かない。

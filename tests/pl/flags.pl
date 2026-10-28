@@ -36,3 +36,7 @@ test(flag_version, current_prolog_flag(version, 1), true).
 test(flag_version_listed, (current_prolog_flag(F, 1), F == version), true).
 test(flag_version_modify, set_prolog_flag(version, 2), error(permission_error(modify, flag, version))).
 test(flag_version_value, set_prolog_flag(version, x), error(domain_error(flag_value, version+x))).
+% 旗 message_language（ADR 0007）。既定は LANG で決まるので、値は ja か en のどちらか。
+test(ml_current, (current_prolog_flag(message_language, V), (V == ja ; V == en)), true).
+test(ml_set, (current_prolog_flag(message_language, Old), set_prolog_flag(message_language, en), current_prolog_flag(message_language, V), set_prolog_flag(message_language, Old)), solutions([V = en])).
+test(ml_values, set_prolog_flag(message_language, fr), error(domain_error(flag_value, message_language+fr))).
