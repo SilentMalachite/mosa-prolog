@@ -76,6 +76,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_libs.cpp
   src/platform/terminal.cpp
   src/platform/exe_path.cpp
+  src/platform/console.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -299,6 +300,13 @@ add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
 add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
 set_tests_properties(mosa_version mosac_version mosatest_version PROPERTIES
   PASS_REGULAR_EXPRESSION "${version_pass_regex}")
+
+add_executable(console_test tests/cpp/console_test.cpp)
+target_include_directories(console_test PRIVATE tests/cpp)
+target_link_libraries(console_test PRIVATE mosa_lib)
+add_test(NAME console COMMAND $<TARGET_FILE:console_test>)
+add_test(NAME mosa_utf8_pipe COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_utf8_pipe_test.cmake)
 
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)

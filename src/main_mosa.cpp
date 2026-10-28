@@ -1,3 +1,4 @@
+#include "mosa/console.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/repl.hpp"
@@ -9,6 +10,8 @@
 #include <vector>
 
 int main(int argc, char** argv) {
+  // 何かを読み書きする前に、Windows のコンソールを UTF-8 にする。他の OS では何もしない。
+  mosa::prepare_console();
   std::vector<std::string> owned;
   std::vector<std::string_view> args;
   owned.reserve(static_cast<std::size_t>(argc));

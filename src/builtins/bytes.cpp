@@ -13,6 +13,8 @@
 
 #include "../machine/internal.hpp"
 
+#include "mosa/console.hpp"
+
 #include <array>
 #include <iostream>
 #include <string>
@@ -128,7 +130,7 @@ bool reject_put_byte(Impl& machine, const Goal& goal, Cell cell, unsigned char& 
 bool pull_byte(Stream& stream) {
   if (stream.cursor < stream.bytes.size()) return true;
   if (stream.kind != Stream::Kind::Standard || stream.mode != Stream::Mode::Read) return false;
-  const int unit = std::cin.get();
+  const int unit = standard_input_get();
   if (unit == std::char_traits<char>::eof()) return false;
   stream.bytes.push_back(static_cast<char>(static_cast<unsigned char>(unit)));
   return true;

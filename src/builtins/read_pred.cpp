@@ -20,6 +20,8 @@
 
 #include "../machine/internal.hpp"
 
+#include "mosa/console.hpp"
+
 #include "mosa/reader.hpp"
 
 #include <array>
@@ -139,7 +141,7 @@ bool reject_input(Impl& machine, const Goal& goal, const Stream& stream, Cell cu
 
 bool pull_byte(Stream& stream) {
   if (stream.kind != Stream::Kind::Standard || stream.mode != Stream::Mode::Read) return false;
-  const int byte = std::cin.get();
+  const int byte = standard_input_get();
   if (byte == std::char_traits<char>::eof()) return false;
   stream.bytes.push_back(static_cast<char>(static_cast<unsigned char>(byte)));
   return true;

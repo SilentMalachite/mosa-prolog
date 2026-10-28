@@ -2,6 +2,7 @@
 
 #include "internal.hpp"
 
+#include "mosa/console.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/messages.hpp"
@@ -27,7 +28,13 @@ struct Cursor {
 
   bool line(std::string& out) {
     if (from_cin) {
-      if (!std::getline(std::cin, out)) return false;
+      // read/1 と同じ読み取り口を通す。Windows のコンソールは UTF-16 で読む（SPEC 第4節）。
+      out.clear();
+      for (int ch = standard_input_get(); ch != EOF; ch = standard_input_get()) {
+        out.push_back(static_cast<char>(ch));
+        if (ch == '\n') return true;
+      }
+      if (out.empty()) return false;
       out.push_back('\n');
       return true;
     }
@@ -44,7 +51,7 @@ struct Cursor {
   }
 
   int get() {
-    if (from_cin) return std::cin.get();
+    if (from_cin) return standard_input_get();
     if (at >= data.size()) return EOF;
     return static_cast<unsigned char>(data[at++]);
   }

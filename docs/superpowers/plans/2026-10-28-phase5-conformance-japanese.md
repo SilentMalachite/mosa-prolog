@@ -289,10 +289,10 @@
 **Interfaces:**
 - Produces: `void prepare_console()`（Windows では `SetConsoleCP(65001)` と `SetConsoleOutputCP(65001)`、他の OS では何もしない）。`std::optional<std::string> read_console_line()`（標準入力が端末の Windows だけ `ReadConsoleW` で UTF-16 を読み UTF-8 にして返す。他は `std::nullopt` で、呼び手は今の読み取りに戻る）
 
-- [ ] **Step 1:** 失敗するテスト `mosa_utf8_pipe`: `親(太郎). ` を含む UTF-8 をパイプで渡し、`read(X), write(X), nl` の出力のバイト列が入力の `親(太郎)` と一致する。3 OS の CI で流す
-- [ ] **Step 2:** `prepare_console` を `main_mosa.cpp` の最初で呼ぶ。`read_console_line` を標準入力の読み取り元に入れる
+- [x] **Step 1:** 失敗するテスト `mosa_utf8_pipe`: `親(太郎). ` を含む UTF-8 をパイプで渡し、`read(X), write(X), nl` の出力のバイト列が入力の `親(太郎)` と一致する。3 OS の CI で流す
+- [x] **Step 2:** `prepare_console` を `main_mosa.cpp` の最初で呼ぶ。`read_console_line` を標準入力の読み取り元に入れる
 - [ ] **Step 3:** 端末からの `ReadConsoleW` は CI で試せないので、手で確かめる手順（`chcp` に関係なく `mosa` で `X = 親.` が読めて表示される）を `docs/STATUS.md` の Open に書き、確かめた日付を残す
-- [ ] **Step 4:** コミット `[phase5] Windows のコンソールを UTF-8 で読み書きする（mosa_utf8_pipe を 3 OS で）`
+- [x] **Step 4:** コミット `[phase5] Windows のコンソールを UTF-8 で読み書きする（mosa_utf8_pipe を 3 OS で）`
 
 ### Task 15: 日本語のパス
 
