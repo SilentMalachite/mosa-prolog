@@ -10,4 +10,5 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0004](0004-clause-database.md) | Location of dynamic clauses and choice point indexes | Approved (2026-10-25) |
 | [0005](0005-streams.md) | Stream representation, defaults, aliases | Approved (2026-10-25) |
 | [0006](0006-modules.md) | Module key, context module in the goal frame, operator scope | Approved (2026-10-28) |
+| [0007](0007-messages.md) | Message catalogs, flag message_language, syntax_error Key | Proposed |
 | [0008](0008-logical-update-view.md) | Logical update view: dead clauses kept for open scans | Approved (2026-10-28) |
