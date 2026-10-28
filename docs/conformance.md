@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2077
-合格率: 95.7
+合格数: 2082
+合格率: 95.9
 不合格:
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
@@ -37,10 +37,8 @@ logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2,
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant,bee]) fail
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
-predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure,ground/1)
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_output_1/tests.lgt sics_current_output_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
-predicates/current_output_1/tests.lgt sics_current_output_1_06 true existence_error(procedure,ground/1)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_12 true domain_error(flag_value,unknown+warning)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 false domain_error(flag_value,unknown+warning)
 predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag,dialect)
@@ -58,9 +56,6 @@ predicates/stream_property_2/tests.lgt sics_stream_property_2_06d deterministic(
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_08b true(Action==reset) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_09c true(Mode==append) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_10c true(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_29 true(ground(Position)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Position)) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) fail

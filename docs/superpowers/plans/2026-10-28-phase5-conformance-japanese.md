@@ -136,10 +136,10 @@
 - Modify: `src/builtins/types.cpp`（先頭の注釈に 8.3.10、`ground(?term)`、エラーなし、`tests/pl/types.pl`）
 - Test: `tests/pl/types.pl`
 
-- [ ] **Step 1:** 8.3.10.4 の Examples を `tests/pl/types.pl` に 1 行 1 テストで写す。足りなければ `ground_atom`: `ground(a)` 成功、`ground_var`: `ground(f(_))` 失敗、`ground_nested`: `ground(f(g(a), [b]))` 成功
-- [ ] **Step 2:** `ctest -R prolog_tests` で `existence_error(procedure, ground/1)` を見る
-- [ ] **Step 3:** 束縛しない述語として実装する。深い項で C++ のスタックを使い切らないよう、再帰ではなく明示のスタックで辿る
-- [ ] **Step 4:** テストを流す。コミット `[phase5] ground/1 を実装（8.3.10 の Examples 全通過）`
+- [x] **Step 1:** 8.3.10.4 の Examples を `tests/pl/types.pl` に 1 行 1 テストで写す。足りなければ `ground_atom`: `ground(a)` 成功、`ground_var`: `ground(f(_))` 失敗、`ground_nested`: `ground(f(g(a), [b]))` 成功
+- [x] **Step 2:** `ctest -R prolog_tests` で `existence_error(procedure, ground/1)` を見る
+- [x] **Step 3:** 束縛しない述語として実装する。深い項で C++ のスタックを使い切らないよう、再帰ではなく明示のスタックで辿る
+- [x] **Step 4:** テストを流す。コミット `[phase5] ground/1 を実装（8.3.10 の Examples 全通過）`
 
 ### Task 5: `write_term/3` の選択肢の検査（8.14.2.3）
 
@@ -325,6 +325,7 @@
 内訳（Task 2 Step 5 後、残り 111 件）: S 24、N 36、Q 35、I 15、X 1。`lgt_write_term_3_043`、`044`、`065`、`066` は出力の捕捉が出来て、変数を `_` だけで書く件として Q に移った。
 内訳（Task 2 Step 7 後、残り 108 件）: S 21（`=~=` 14 件はタスク 3、試験器の追補 7 件）、N 36、Q 35、I 15、X 1。
 内訳（Task 3 後、残り 94 件）: S 7（試験器の追補）、N 36、Q 35、I 15、X 1。`=~=` の 14 件は全部合格に移り、I に回すものは無かった。
+内訳（Task 4 後、残り 89 件）: S 7、N 36、Q 35、I 10、X 1。`stream_property_2_29`〜`31` は位置の不具合ではなく表明の `ground/1` が無かったためで、`ground/1` と一緒に合格に移った。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
@@ -364,10 +365,8 @@
 | `predicates/abolish_1` | `eddbali_abolish_1_07` | Q | 8 | 7.5.4 Open scans and retract |
 | `predicates/current_input_1` | `sics_current_input_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_input_1` | `sics_current_input_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
-| `predicates/current_input_1` | `lgt_current_input_1_06` | I | 4 | `ground/1` が無い |
 | `predicates/current_output_1` | `sics_current_output_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_output_1` | `sics_current_output_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
-| `predicates/current_output_1` | `sics_current_output_1_06` | I | 4 | `ground/1` が無い |
 | `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_12` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
 | `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_13` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
 | `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_16` | N | 8 | Section 3 Flags dialect and version_data |
@@ -385,9 +384,6 @@
 | `predicates/stream_property_2` | `lgt_stream_property_2_08b` | Q | 8 | 8.11 Properties of the standard streams |
 | `predicates/stream_property_2` | `lgt_stream_property_2_09c` | Q | 8 | 8.11 Properties of the standard streams |
 | `predicates/stream_property_2` | `lgt_stream_property_2_10c` | Q | 8 | 8.11 Properties of the standard streams |
-| `predicates/stream_property_2` | `lgt_stream_property_2_29` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
-| `predicates/stream_property_2` | `lgt_stream_property_2_30` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
-| `predicates/stream_property_2` | `lgt_stream_property_2_31` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
 | `predicates/write_term_3` | `lgt_write_term_3_043` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |

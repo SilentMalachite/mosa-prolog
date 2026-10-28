@@ -34,3 +34,16 @@ test(iso_callable_nil, callable([]), true).
 test(iso_callable_list, callable([a]), true).
 test(iso_number_neg, integer(-3), true).
 test(iso_float_neg_zero, float(-0.0), true).
+% 8.3.10.4 の Examples（Cor.2）。
+test(iso_ground_int, ground(3), true).
+test(iso_ground_partial, ground(a(1, _)), fail).
+test(ground_atom, ground(a), true).
+test(ground_var, ground(f(_)), fail).
+test(ground_nested, ground(f(g(a), [b])), true).
+test(ground_list_tail, ground([a|_]), fail).
+test(ground_deep, (numlist_deep(30000, T), ground(T)), true).
+test(ground_deep_var, (numlist_deep(30000, T0), T = f(T0, _), ground(T)), fail).
+% ground_deep は既定のヒープで作れる深さ。辿りは明示のスタックで、深さで C++ のスタックを使わない。
+numlist_deep(N, T) :- deep_acc(N, a, T).
+deep_acc(0, T, T) :- !.
+deep_acc(N, Acc, T) :- M is N - 1, deep_acc(M, f(Acc), T).
