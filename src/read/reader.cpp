@@ -64,7 +64,7 @@ bool y_on_left(Specifier specifier) {
 
 }  // namespace
 
-Reader::Reader(std::string_view source, Heap& heap, OperatorTable& operators, DoubleQuotes quotes,
+Reader::Reader(std::string_view source, Heap& heap, OperatorView operators, DoubleQuotes quotes,
                const CharConv* conv)
     : lexer_(source, conv), heap_(heap), operators_(operators), quotes_(quotes) {}
 

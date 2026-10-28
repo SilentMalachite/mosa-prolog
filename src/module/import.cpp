@@ -145,7 +145,9 @@ std::optional<Cell> apply_imports(Impl& machine, std::uint32_t from, std::uint32
     if (spec.kind == ImportSpec::Kind::Except && excluded(spec, key)) continue;
     items.push_back(Import{key.name, key.arity, key.name, from});
   }
-  return add_all(machine, into, items);
+  if (const auto formal = add_all(machine, into, items)) return formal;
+  // 公開の演算子は use_module/1、except、consult で入る。PI のリストでは入らない（iso-notes の決定 A）。
+  return import_ops(machine, from, into);
 }
 
 std::optional<Cell> import_exports(Impl& machine, std::uint32_t from, std::uint32_t into) {

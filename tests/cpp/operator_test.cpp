@@ -206,8 +206,32 @@ void check_rejections() {
 
 }
 
+// 固有層は名前と類の組で下の層を隠す。優先度 0 の印は、その類を見えなくする（ADR 0006、Task 10）。
+void check_view() {
+  const auto global = mosa::OperatorTable::iso_core();
+  mosa::OperatorTable local;
+  local.define_local(0, mosa::Specifier::Xfx, "=");
+  local.define_local(300, mosa::Specifier::Xfy, "は");
+  local.define_local(150, mosa::Specifier::Yfx, "-");
+  const mosa::OperatorView view{global, &local};
+  mosa_test::check(view.lookup("=").empty(), "local priority 0 hides =");
+  mosa_test::check(!global.lookup("=").empty(), "global = untouched");
+  const auto wa = view.lookup("は");
+  mosa_test::check(wa.size() == 1 && wa[0].priority == 300, "local は visible");
+  const auto minus = view.lookup("-");
+  mosa_test::check(minus.size() == 2 && minus[0].specifier == mosa::Specifier::Yfx && minus[0].priority == 150 &&
+                       minus[1].specifier == mosa::Specifier::Fy && minus[1].priority == 200,
+                   "local infix - replaces the global infix only, sorted by priority");
+  mosa_test::check(view.admits(300, mosa::Specifier::Xf, "は") == mosa::OpResult::InfixAndPostfix,
+                   "admits sees the local infix");
+  mosa_test::check(view.admits(300, mosa::Specifier::Xfx, ",") == mosa::OpResult::ModifyComma, "admits comma");
+  const mosa::OperatorView plain{global};
+  mosa_test::check(plain.lookup("は").empty(), "global view has no local ops");
+}
+
 int main() {
   check_core();
   check_rejections();
+  check_view();
   return mosa_test::failures();
 }

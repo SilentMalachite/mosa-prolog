@@ -226,9 +226,9 @@
 **Interfaces:**
 - Produces: `class OperatorView`（固有層、`user` 層、ISO の核を順に引く。`lookup` と `entries` は `OperatorTable` と同じ型を返す）。`Reader` と `Writer` は `const OperatorView&` を受ける
 
-- [ ] **Step 1:** 失敗するテスト。`op_local`: モジュールの中の `:- op(700, xfx, は).` が `user` で効かない。`op_exported`: 公開リストの `op(700, xfx, は)` が取り込み側で効く（`太郎 は 学生` が読める）。`op_user_global`: `user` の `op/3` がモジュールの中でも効く。`op_writeq_view`: `writeq` が文脈モジュールの演算子で書く。`current_op` が文脈の見え方を返す
-- [ ] **Step 2:** 失敗を見る。実装する。`tests/pl/operators.pl` と `syntax.pl` の往復が変わらないことを見る
-- [ ] **Step 3:** コミット `[phase4] 演算子をモジュールごとにし、公開と user を見せる（modules.pl 5 件、operator_test）`
+- [x] **Step 1:** 失敗するテスト。`op_local`: モジュールの中の `:- op(700, xfx, は).` が `user` で効かない。`op_exported`: 公開リストの `op(700, xfx, は)` が取り込み側で効く（`太郎 は 学生` が読める）。`op_user_global`: `user` の `op/3` がモジュールの中でも効く。`op_writeq_view`: `writeq` が文脈モジュールの演算子で書く。`current_op` が文脈の見え方を返す
+- [x] **Step 2:** 失敗を見る。実装する。`tests/pl/operators.pl` と `syntax.pl` の往復が変わらないことを見る
+- [x] **Step 3:** コミット `[phase4] 演算子をモジュールごとにし、公開と user を見せる（modules.pl 5 件、operator_test）`
 
 ### Task 11: ファイルごとの旗
 

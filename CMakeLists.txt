@@ -49,6 +49,7 @@ target_sources(mosa_lib PRIVATE
   src/module/qualify.cpp
   src/module/target.cpp
   src/module/meta.cpp
+  src/module/module_ops.cpp
   src/module/import.cpp
   src/module/library_path.cpp
   src/machine/load_path.cpp

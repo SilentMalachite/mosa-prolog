@@ -471,20 +471,26 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out) {
   return WriteCut::Stop;
 }
 
-bool emit_written(Impl& machine, std::size_t index, Cell term, const WriteOptions& options,
+// 演算子は呼び手の文脈モジュールの見え方で書く（ADR 0006）。
+bool emit_written(Impl& machine, std::uint32_t module, std::size_t index, Cell term, const WriteOptions& options,
                   const std::vector<VarName>& names, Kind kind) {
+  // print は portray/1 で Prolog を走らせ、モジュール表が動くことがある。固有層は写してから見る。
+  // machine.operators は Impl の中にあり、場所が変わらないので写さない。
+  const Module* found = module == machine.user_module ? nullptr : find_module(machine, module);
+  const OperatorTable local = found == nullptr ? OperatorTable{} : found->ops;
+  const OperatorView view = found == nullptr ? OperatorView{machine.operators} : OperatorView{machine.operators, &local};
   std::uint32_t name = 0;
   if (kind == Kind::Print && portray_ready(machine, name)) {
     PortrayHook hook;
     hook.machine = &machine;
     hook.name = name;
     const std::string text =
-        write_term(machine.heap, machine.operators, term, options, names, apply_portray, &hook);
+        write_term(machine.heap, view, term, options, names, apply_portray, &hook);
     if (hook.stop) return false;
     emit_text(machine, index, text);
     return true;
   }
-  emit_text(machine, index, write_term(machine.heap, machine.operators, term, options, names));
+  emit_text(machine, index, write_term(machine.heap, view, term, options, names));
   return true;
 }
 
@@ -497,7 +503,7 @@ void run_out(Impl& machine, const Goal& goal, Kind kind) {
   options.quoted = chosen.quoted;
   options.ignore_ops = chosen.ignore_ops;
   options.numbervars = chosen.numbervars;
-  if (!emit_written(machine, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
+  if (!emit_written(machine, goal.module, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
   machine.ip = goal.cont;
 }
 

@@ -39,7 +39,8 @@ std::string op_failure(OpResult result) {
 }
 
 bool define_name(Impl& machine, int priority, Specifier specifier, std::string name) {
-  const OpResult result = machine.operators.define(priority, specifier, std::move(name));
+  // 読み込み中のモジュールの層へ入れる。module/2 の無いテキストでは user で、全体に効く。
+  const OpResult result = define_op(machine, machine.load_module, priority, specifier, std::move(name));
   if (result == OpResult::Ok) return true;
   fail_load(machine, op_failure(result));
   return false;

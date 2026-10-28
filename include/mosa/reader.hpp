@@ -36,12 +36,14 @@ struct ReadOutcome {
 
 class Reader {
  public:
-  Reader(std::string_view source, Heap& heap, OperatorTable& operators,
+  Reader(std::string_view source, Heap& heap, OperatorView operators,
          DoubleQuotes quotes = DoubleQuotes::Codes, const CharConv* conv = nullptr);
 
   [[nodiscard]] ReadOutcome next();
   [[nodiscard]] std::size_t consumed() const { return lexer_.offset(); }
   void set_quotes(DoubleQuotes quotes) { quotes_ = quotes; }
+  // 読み込み中に module/2 で文脈が替わる。次の項から、その見え方で読む。
+  void set_operators(OperatorView operators) { operators_ = operators; }
 
  private:
   struct Parsed {
@@ -90,7 +92,7 @@ class Reader {
 
   Lexer lexer_;
   Heap& heap_;
-  OperatorTable& operators_;
+  OperatorView operators_;
   DoubleQuotes quotes_;
   Scan pending_{};
   bool has_pending_ = false;

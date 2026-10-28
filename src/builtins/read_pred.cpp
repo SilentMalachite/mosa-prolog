@@ -386,10 +386,11 @@ ReadTerm eof_term(Impl& machine) {
   return term;
 }
 
-Intake intake_term(Impl& machine, Stream& stream) {
+// 演算子は呼び手の文脈モジュールの見え方で読む（ADR 0006）。
+Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
   while (true) {
     const std::string_view slice = rest(stream);
-    Reader reader(slice, machine.heap, machine.operators, current_double_quotes(machine),
+    Reader reader(slice, machine.heap, op_view(machine, module), current_double_quotes(machine),
                   &machine.char_conv);
     ReadOutcome outcome = reader.next();
     const std::size_t consumed = reader.consumed();
@@ -404,7 +405,7 @@ void deliver(Impl& machine, const Goal& goal, Stream& stream, Intake intake, Cel
     if (intake.outcome.failure) {
       // 置換できたときだけ、カーソルを進めずに同じ位置から読み直す。
       if (!note_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit)) return;
-      intake = intake_term(machine, stream);
+      intake = intake_term(machine, stream, goal.module);
       continue;
     }
     const std::string_view slice = rest(stream);
@@ -457,7 +458,7 @@ void run_one(Impl& machine, const Goal& goal, bool term_pred) {
     bind_read(machine, goal, term_cell, chosen, eof_term(machine));
     return;
   }
-  deliver(machine, goal, stream, intake_term(machine, stream), term_cell, chosen, culprit);
+  deliver(machine, goal, stream, intake_term(machine, stream, goal.module), term_cell, chosen, culprit);
 }
 
 }  // namespace

@@ -23,8 +23,14 @@ const Import* find_import(const Module& module, std::uint32_t name, std::uint16_
 void install_modules(Impl& machine) {
   machine.user_module = machine.atoms.intern("user");
   machine.system_module = machine.atoms.intern("system");
-  machine.modules.push_back(Module{machine.system_module, machine.system_module, {}, {}, {}, {}});
-  machine.modules.push_back(Module{machine.user_module, machine.system_module, {}, {}, {}, {}});
+  Module system;
+  system.name = machine.system_module;
+  system.default_import = machine.system_module;
+  machine.modules.push_back(std::move(system));
+  Module user;
+  user.name = machine.user_module;
+  user.default_import = machine.system_module;
+  machine.modules.push_back(std::move(user));
   machine.load_module = machine.user_module;
 }
 

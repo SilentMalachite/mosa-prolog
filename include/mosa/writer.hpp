@@ -24,7 +24,7 @@ enum class WriteCut { Keep, Swap, Stop };
 
 using WriteReplace = WriteCut (*)(void* context, Cell term, std::string& out);
 
-[[nodiscard]] std::string write_term(const Heap& heap, const OperatorTable& operators, Cell term,
+[[nodiscard]] std::string write_term(const Heap& heap, OperatorView operators, Cell term,
                                      WriteOptions options, std::span<const VarName> names,
                                      WriteReplace replace = nullptr, void* context = nullptr);
 

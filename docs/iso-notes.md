@@ -344,3 +344,11 @@ SPEC section 5 lists `predicate_property/2` in stage F but does not say what a v
 A or B?: A: a variable head gives `instantiation_error`, as in the 13211-2 DTR and the bundled suite (`commons_predicate_property_2_16`); an unknown `M:` gives `existence_error(module, M)`, the same as `M:G`. B: enumerate the visible predicates, as SWI-Prolog does, and fail for an unknown module.
 
 Decision (2026-10-28): A for both. A built-in has `defined`, `built_in` and `static`, and a control construct or goal-taking built-in also has `meta_predicate(Head)` (for example `findall(?, 0, -)`). A user predicate is looked up as a call would be and has, in this order, `defined`, `dynamic` or `static`, `exported`, `imported_from(M)` (only through an explicit import of the context module), `multifile`, `meta_predicate(Head)` (when declared) and `number_of_clauses(N)`. Any other property term gives `domain_error(predicate_property, P)`.
+
+## Section 5 Operators in modules
+
+SPEC section 5 makes `op/3` local to the declaring module, lets `op(P, T, N)` in an export list reach importers, and makes `user` operators visible everywhere. It does not say what `op(0, T, N)` does inside a module, or whether an import list `[PI, ...]` brings exported operators.
+
+A or B?: A: a local `op(0, T, N)` hides the `user` and ISO core operator of that class inside the module only, as in SWI-Prolog; exported operators come in with `use_module/1`, `except(...)` and a consulted module file, but not with an import list. B: a local `op(0, T, N)` removes only the module's own entry; exported operators come in with every form of import.
+
+Decision (2026-10-28): A for both. Lookup is the module's own layer, then the `user` table (which holds the ISO core). `op/3`, `current_op/3`, `read_term/2,3` and the `write` family use the caller's context module. A `:- op` directive in a module file defines into that module. Importing into `user` puts the operator in the `user` table, so every module sees it.

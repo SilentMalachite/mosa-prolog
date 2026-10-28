@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mosa/machine.hpp"
+#include "mosa/operator_table.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -50,6 +51,9 @@ struct Module {
   // 正規化したパス。use_module がファイルからモジュールを引く。ファイルでないテキストは空。
   std::string file;
   std::vector<PendingMeta> pending_meta;
+  // 固有層の演算子。優先度 0 は下の層を隠す印。export_ops は公開リストの op(P, T, N) を名前ごとに開いたもの。
+  OperatorTable ops;
+  std::vector<OpDef> export_ops;
 };
 
 // user と system を作る。system の既定の取り込み元は自分自身で、引く連鎖をそこで止める。
@@ -107,6 +111,14 @@ void adopt_meta(Machine::Impl& machine, Predicate& predicate);
 // 性質 meta_predicate(Head) の Head。宣言の無い述語は nullopt。組込は表から作る。
 [[nodiscard]] std::optional<Cell> meta_head(Machine::Impl& machine, const Predicate& predicate);
 [[nodiscard]] std::optional<Cell> builtin_meta_head(Machine::Impl& machine, std::uint32_t name, std::uint16_t arity);
+
+// 文脈モジュールから見える演算子。user と無いモジュールは user の表だけ。使う間、モジュール表を動かさないこと。
+[[nodiscard]] OperatorView op_view(const Machine::Impl& machine, std::uint32_t module);
+// module の層に定義する。user なら全体の表。拒否は表を変えない。
+[[nodiscard]] OpResult define_op(Machine::Impl& machine, std::uint32_t module, int priority, Specifier specifier,
+                                 std::string name);
+// from の公開の演算子を into の層へ入れる。use_module/1、except、consult の取り込みで呼ぶ。
+[[nodiscard]] std::optional<Cell> import_ops(Machine::Impl& machine, std::uint32_t from, std::uint32_t into);
 
 // user の述語は N/A、ほかは M:N/A（iso-notes 第5節の決定 A）。
 [[nodiscard]] Cell module_indicator(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,

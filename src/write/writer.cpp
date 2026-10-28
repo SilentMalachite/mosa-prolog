@@ -176,7 +176,7 @@ std::string format_float(double value) {
 
 class Printer {
  public:
-  Printer(const Heap& heap, const OperatorTable& operators, WriteOptions options,
+  Printer(const Heap& heap, OperatorView operators, WriteOptions options,
           std::span<const VarName> names, WriteReplace replace, void* context)
       : heap_(heap), operators_(operators), options_(options), names_(names), replace_(replace),
         context_(context) {}
@@ -203,7 +203,7 @@ class Printer {
   [[nodiscard]] static bool needs_paren(int priority, int parent, bool allow_equal);
 
   const Heap& heap_;
-  const OperatorTable& operators_;
+  OperatorView operators_;
   WriteOptions options_;
   std::span<const VarName> names_;
   std::unordered_map<std::uint64_t, int> counts_;
@@ -470,7 +470,7 @@ std::string Printer::render(Cell term, int parent, bool allow_equal, bool allow_
 
 }  // namespace
 
-std::string write_term(const Heap& heap, const OperatorTable& operators, Cell term, WriteOptions options,
+std::string write_term(const Heap& heap, OperatorView operators, Cell term, WriteOptions options,
                        std::span<const VarName> names, WriteReplace replace, void* context) {
   Printer printer(heap, operators, options, names, replace, context);
   printer.collect(term);

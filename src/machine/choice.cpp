@@ -13,8 +13,9 @@ const std::uint64_t* watermark(const Impl& machine) {
 }
 
 // まだ書いた通りの組だけを戻す。あとから define が優先度を替えていたら、その指示を残す。
-void undo_touch(OperatorTable& table, const OpTouch& touch) {
-  if (touch.priority == 0) {
+// 固有層の優先度 0 は消去ではなく印なので、0 以外と同じく「書いた値なら戻す」で扱う。
+void undo_touch(OperatorTable& table, const OpTouch& touch, bool local) {
+  if (touch.priority == 0 && !local) {
     if (!touch.had || table.stored(touch.name, touch.specifier)) return;
     table.put_stored(touch.old_priority, touch.old_specifier, touch.name);
     return;
@@ -23,6 +24,12 @@ void undo_touch(OperatorTable& table, const OpTouch& touch) {
   if (!current || current->priority != touch.priority) return;
   table.erase_stored(touch.name, touch.specifier);
   if (touch.had) table.put_stored(touch.old_priority, touch.old_specifier, touch.name);
+}
+
+OperatorTable* op_layer(Impl& machine, std::uint32_t module) {
+  if (module == machine.user_module) return &machine.operators;
+  Module* found = find_module(machine, module);
+  return found == nullptr ? nullptr : &found->ops;
 }
 
 }  // namespace
@@ -65,19 +72,23 @@ void push_frame(Impl& machine, Entry entry) {
   machine.stack.push_back(std::move(entry));
 }
 
-void trail_operators(Impl& machine, int priority, Specifier specifier, const std::vector<std::string>& names) {
+void trail_operators(Impl& machine, std::uint32_t module, int priority, Specifier specifier,
+                     const std::vector<std::string>& names) {
   if (machine.stack.empty()) return;
   const auto effect_id = machine.stack.back().effect_id;
   if (effect_id == 0) return;
+  const OperatorTable* table = op_layer(machine, module);
+  if (table == nullptr) return;
+  const bool local = module != machine.user_module;
   OpUndo undo;
   undo.effect_id = effect_id;
+  undo.module = module;
   for (const std::string& name : names) {
     OpTouch touch;
     touch.name = name;
     touch.priority = priority;
     touch.specifier = specifier;
-    const auto old = priority == 0 ? machine.operators.stored(name, specifier)
-                                   : machine.operators.stored_class(name, specifier);
+    const auto old = priority == 0 && !local ? table->stored(name, specifier) : table->stored_class(name, specifier);
     if (old) {
       touch.had = true;
       touch.old_priority = old->priority;
@@ -93,7 +104,10 @@ void restore_operators(Impl& machine, std::uint64_t effect_id) {
   while (!machine.op_undos.empty() && machine.op_undos.back().effect_id >= effect_id) {
     const OpUndo undo = std::move(machine.op_undos.back());
     machine.op_undos.pop_back();
-    for (auto it = undo.touches.rbegin(); it != undo.touches.rend(); ++it) undo_touch(machine.operators, *it);
+    OperatorTable* table = op_layer(machine, undo.module);
+    if (table == nullptr) continue;
+    const bool local = undo.module != machine.user_module;
+    for (auto it = undo.touches.rbegin(); it != undo.touches.rend(); ++it) undo_touch(*table, *it, local);
   }
 }
 

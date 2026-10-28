@@ -508,6 +508,8 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
   bool first = true;
   while (true) {
+    // module/2 と op/3 が見え方を替える。項ごとに、今のモジュールの見え方で読む。
+    reader.set_operators(op_view(machine, machine.load_module));
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
     if (!outcome.term) {

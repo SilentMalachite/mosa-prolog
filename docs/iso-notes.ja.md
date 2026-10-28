@@ -346,3 +346,11 @@ SPEC 第5節は段階 F に `predicate_property/2` を挙げるが、頭部が�
 A か B か: A は、頭部が変数なら 13211-2 の DTR と同梱のスイート（`commons_predicate_property_2_16`）のとおり `instantiation_error`、無い `M:` なら `M:G` と同じ `existence_error(module, M)`。B は、SWI-Prolog のように見える述語を列挙し、無いモジュールでは失敗する。
 
 決定（2026-10-28）: どちらも A。組み込み述語の性質は `defined`、`built_in`、`static` で、制御構文とゴールを受ける組み込み述語には `meta_predicate(Head)`（例: `findall(?, 0, -)`）も付く。利用者の述語は呼び出しと同じ順で引き、性質はこの順に `defined`、`dynamic` か `static`、`exported`、`imported_from(M)`（文脈モジュールの明示の取り込みのときだけ）、`multifile`、`meta_predicate(Head)`（宣言したとき）、`number_of_clauses(N)`。それ以外の性質の項は `domain_error(predicate_property, P)`。
+
+## 第5節 モジュールの中の演算子
+
+SPEC 第5節は、`op/3` を宣言したモジュールに閉じ、公開リストの `op(P, T, N)` を取り込み側でも効かせ、`user` の演算子をすべてのモジュールに見せると決める。モジュールの中の `op(0, T, N)` の働きと、取り込みリスト `[PI, ...]` が公開の演算子を持ち込むかは決めていない。
+
+A か B か: A は、モジュールの中の `op(0, T, N)` がそのモジュールの中だけ `user` と ISO の核の同じ類の演算子を隠す（SWI-Prolog と同じ）。公開の演算子は `use_module/1`、`except(...)`、consult したモジュールのファイルで入り、取り込みリストでは入らない。B は、`op(0, T, N)` がそのモジュール自身の定義だけを消し、公開の演算子はどの取り込みでも入る。
+
+決定（2026-10-28）: どちらも A。引く順はモジュールの固有層、次に `user` の表（ISO の核を含む）。`op/3`、`current_op/3`、`read_term/2,3` と `write` の仲間は呼び手の文脈モジュールを使う。モジュールのファイルの `:- op` 指令はそのモジュールへ入る。`user` へ取り込んだ演算子は `user` の表に入るので、すべてのモジュールから見える。

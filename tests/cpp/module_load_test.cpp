@@ -264,6 +264,45 @@ void check_meta_declarations() {
   mosa_test::check(!succeeds(*rolled, "predicate_property(r(_), meta_predicate(_))."), "meta rolled back");
 }
 
+// 公開の演算子は use_module/1 と except で取り込み側へ入り、PI のリストでは入らない（Task 10）。
+void check_exported_operators() {
+  const auto file = temp_file("演算公開.pl", ":- module(演算公開, [op(700, xfx, 公演), p/1]).\np(a 公演 b).\n");
+  auto all = mosa::Machine::create();
+  mosa_test::check(all->load_program(":- module(全取込, [q/1]).\n:- use_module('" + file + "').\nq(c 公演 d).\n").ok,
+                   "use_module/1 brings the operator");
+  mosa_test::check(succeeds(*all, "全取込:current_op(700, xfx, 公演)."), "operator in the importer");
+  mosa_test::check(!succeeds(*all, "current_op(_, _, 公演)."), "operator not in user");
+  auto except = mosa::Machine::create();
+  mosa_test::check(except->load_program(use_text("除取込", "", file, ", except([])") + "q(c 公演 d).\n").ok,
+                   "except brings the operator");
+  auto listed = mosa::Machine::create();
+  mosa_test::check(!listed->load_program(use_text("列取込", "", file, ", [p/1]") + "q(c 公演 d).\n").ok,
+                   "an import list does not bring the operator");
+  auto user = mosa::Machine::create();
+  mosa_test::check(user->load_program(":- use_module('" + file + "').\n").ok, "use_module into user");
+  mosa_test::check(succeeds(*user, "current_op(700, xfx, 公演), 演算公開:current_op(700, xfx, 公演)."),
+                   "operator in user and in the exporter");
+  auto bad = mosa::Machine::create();
+  mosa_test::check(!bad->load_program(":- module(悪演, [op(1201, xfx, x)]).\n").ok, "bad exported operator");
+  mosa_test::check(mentions(*bad, "domain_error(operator_priority,1201)"), "exported op: domain_error");
+}
+
+// portray/1 がモジュールを作ると、モジュール表が動く。print の見え方は、その間も固有層を読めること（Task 10）。
+void check_print_while_portray_loads() {
+  std::string loads;
+  for (int index = 1; index <= 8; ++index) {
+    const auto name = "描" + std::to_string(index);
+    loads += "consult('" + temp_file(name + ".pl", ":- module(" + name + ", []).\n") + "'), ";
+  }
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("portray(f(_)) :- " + loads + "fail.\n").ok, "portray that loads modules");
+  mosa_test::check(machine->load_program(":- module(描画, []).\n:- op(700, xfx, ~~>).\n"
+                                         "go :- with_output_to(atom(_), print(a ~~> f(b ~~> c))).\n")
+                       .ok,
+                   "module with a local operator");
+  mosa_test::check(succeeds(*machine, "描画:go."), "print survives modules created by portray");
+}
+
 }  // namespace
 
 int main() {
@@ -286,5 +325,7 @@ int main() {
   check_qualified_clauses();
   check_qualified_declarations();
   check_meta_declarations();
+  check_exported_operators();
+  check_print_while_portray_loads();
   return mosa_test::failures();
 }

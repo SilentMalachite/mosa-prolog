@@ -22,8 +22,16 @@ bool is_callable(Cell cell) { return cell.tag() == Tag::Atom || cell.tag() == Ta
 
 bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
+bool is_op_item(const Impl& machine, Cell cell) {
+  cell = machine.heap.deref(cell);
+  return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 3 &&
+         machine.atoms.name(machine.heap.functor_atom(cell)) == "op";
+}
+
 // 1 つの PI でもリストでもよい。module/2 の第 2 引数は呼び出し側がリストに限る。
-std::optional<Cell> read_indicators(Impl& machine, Cell cell, std::uint32_t module, std::vector<PredKey>& keys) {
+// ops があれば op(P, T, N) も受ける（module/2 の公開リストだけ）。検査は op/3 と同じ順。
+std::optional<Cell> read_indicators(Impl& machine, Cell cell, std::uint32_t module, std::vector<PredKey>& keys,
+                                    std::vector<OpRequest>* ops = nullptr) {
   cell = machine.heap.deref(cell);
   const WalkedList walked = walk_list(machine, cell);
   if (walked.shape == ListShape::Variable || walked.shape == ListShape::Partial) {
@@ -35,6 +43,15 @@ std::optional<Cell> read_indicators(Impl& machine, Cell cell, std::uint32_t modu
     items = {cell};
   }
   for (const Cell item : items) {
+    if (ops != nullptr && is_op_item(machine, item)) {
+      const Cell op = machine.heap.deref(item);
+      OpRequest request;
+      const auto formal =
+          read_op_request(machine, machine.heap.arg(op, 0), machine.heap.arg(op, 1), machine.heap.arg(op, 2), request);
+      if (formal) return formal;
+      ops->push_back(std::move(request));
+      continue;
+    }
     PredKey key{module, 0, 0};
     if (const auto formal = read_indicator(machine, item, key)) return formal;
     keys.push_back(key);
@@ -48,6 +65,24 @@ void add_keys(Module& module, const std::vector<PredKey>& keys) {
     for (const PredKey& old : module.exports) known = known || (old.name == key.name && old.arity == key.arity);
     if (!known) module.exports.push_back(key);
   }
+}
+
+}  // namespace
+
+namespace {
+
+// 公開の演算子はこのモジュールの中でも効く。取り込み側へは import_ops が写す。
+// 失敗した読み込みはモジュール表ごと戻すので、途中まで入った演算子も残らない。
+std::optional<Cell> export_ops(Impl& machine, std::uint32_t name, const std::vector<OpRequest>& ops) {
+  for (const OpRequest& request : ops) {
+    if (const auto formal = commit_op_request(machine, name, request)) return formal;
+    Module* module = find_module(machine, name);
+    if (module == nullptr) continue;
+    for (const OpName& op : request.names) {
+      module->export_ops.push_back(OpDef{request.priority, request.specifier, op.text});
+    }
+  }
+  return std::nullopt;
 }
 
 }  // namespace
@@ -110,18 +145,23 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   const WalkedList walked = walk_list(machine, exports);
   if (walked.shape == ListShape::Bad) return formal_type(machine, "list", exports);
   std::vector<PredKey> keys;
-  // 公開リストの op(P, T, N) はフェーズ4 Task 10 で受ける。それまでは PI の型の誤りになる。
-  if (const auto formal = read_indicators(machine, exports, atom_of(name), keys)) return formal;
+  std::vector<OpRequest> ops;
+  if (const auto formal = read_indicators(machine, exports, atom_of(name), keys, &ops)) return formal;
   if (!first) return formal_permission(machine, "create", "module", name);
   Module* module = find_module(machine, atom_of(name));
   if (module == nullptr) {
-    machine.modules.push_back(Module{atom_of(name), machine.user_module, {}, {}, {}, {}});
+    Module created;
+    created.name = atom_of(name);
+    created.default_import = machine.user_module;
+    machine.modules.push_back(std::move(created));
     module = &machine.modules.back();
   }
   // 読み直しは公開と取り込みを作り直す。取り込みはこの後の use_module/1,2 がもう一度足す。
   module->exports.clear();
   module->imports.clear();
   module->pending_meta.clear();
+  module->ops = OperatorTable{};
+  module->export_ops.clear();
   module->file = std::string{file};
   // 同じファイルを別の名前で読み直したら、古いモジュールはもうそのファイルのものではない。
   for (Module& other : machine.modules) {
@@ -129,7 +169,7 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   }
   add_keys(*module, keys);
   machine.load_module = module->name;
-  return std::nullopt;
+  return export_ops(machine, module->name, ops);
 }
 
 std::optional<Cell> add_exports(Impl& machine, Cell indicators) {

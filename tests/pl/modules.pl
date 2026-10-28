@@ -116,3 +116,20 @@ test(forall_lazy_action, forall(fail, 1), true).
 test(forall_lazy_var, forall(fail, _), true).
 test(forall_action_type, forall(true, 1), error(type_error(callable, 1))).
 test(forall_cond_var, forall(_, true), error(instantiation_error)).
+:- op(200, xfx, 全演).
+:- op(700, xfx, 隠演).
+:- consult('modules/演算.pl').
+test(op_local, current_op(_, _, 内演), fail).
+test(op_local_ctx, 演算:current_op(P, T, 内演), solutions([(P = 200, T = xfy)])).
+test(op_local_read, 内演読み(X), solutions([X = 内演(a, b)])).
+test(op_local_read_user, (open_string('a 内演 b. ', S), catch(read(S, _), error(syntax_error(_), _), true)), true).
+test(op_local_read_ctx, (open_string('a 内演 b. ', S), 演算:read(S, T)), solutions([T = 内演(a, b)])).
+test(op_exported, 所属例(X), solutions([X = 所属(太郎, 学生)])).
+test(op_exported_read, X = (太郎 所属 学生), solutions([X = 所属(太郎, 学生)])).
+test(op_user_global, 全演読み(X), solutions([X = 全演(a, b)])).
+test(op_writeq_view, 内演書き(S), solutions([S = 'a 内演 b'])).
+test(op_writeq_user, with_output_to(atom(S), writeq(内演(a, b))), solutions([S = '内演(a,b)'])).
+test(op_writeq_ctx, 演算:with_output_to(atom(S), writeq(内演(a, b))), solutions([S = 'a 内演 b'])).
+test(op_mask, 演算:current_op(_, xfx, 隠演), fail).
+test(op_mask_user, current_op(700, xfx, 隠演), true).
+test(op_runtime_local, (演算:op(300, xfx, 実演), \+ current_op(_, _, 実演), 演算:current_op(300, xfx, 実演)), true).

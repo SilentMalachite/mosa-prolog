@@ -60,6 +60,14 @@ bool is_prefix(Specifier specifier) {
   return specifier == Specifier::Fx || specifier == Specifier::Fy;
 }
 
+// 優先度の昇順、同じ優先度では Specifier の宣言順。
+void sort_lookup(std::vector<OpDef>& found) {
+  std::sort(found.begin(), found.end(), [](const OpDef& left, const OpDef& right) {
+    if (left.priority != right.priority) return left.priority < right.priority;
+    return specifier_rank(left.specifier) < specifier_rank(right.specifier);
+  });
+}
+
 bool named_kind(const std::vector<OpDef>& ops, std::string_view name, bool (*kind)(Specifier)) {
   for (const OpDef& op : ops) {
     if (op.name == name && kind(op.specifier)) return true;
@@ -166,11 +174,48 @@ std::vector<OpDef> OperatorTable::lookup(std::string_view name) const {
   for (const OpDef& op : ops_) {
     if (op.name == name) found.push_back(op);
   }
-  std::sort(found.begin(), found.end(), [](const OpDef& left, const OpDef& right) {
-    if (left.priority != right.priority) return left.priority < right.priority;
-    return specifier_rank(left.specifier) < specifier_rank(right.specifier);
-  });
+  sort_lookup(found);
   return found;
+}
+
+void OperatorTable::define_local(int priority, Specifier specifier, std::string name) {
+  erase_class(ops_, name, specifier);
+  ops_.push_back(OpDef{priority, specifier, std::move(name)});
+}
+
+bool OperatorView::hidden(const OpDef& op) const {
+  return local_ != nullptr && local_->stored_class(op.name, op.specifier).has_value();
+}
+
+std::vector<OpDef> OperatorView::lookup(std::string_view name) const {
+  std::vector<OpDef> found;
+  for (const OpDef& op : global_->lookup(name)) {
+    if (!hidden(op)) found.push_back(op);
+  }
+  if (local_ != nullptr) {
+    for (const OpDef& op : local_->lookup(name)) {
+      if (op.priority > 0) found.push_back(op);
+    }
+  }
+  sort_lookup(found);
+  return found;
+}
+
+std::vector<OpDef> OperatorView::entries() const {
+  std::vector<OpDef> found;
+  for (const OpDef& op : global_->entries()) {
+    if (!hidden(op)) found.push_back(op);
+  }
+  if (local_ != nullptr) {
+    for (const OpDef& op : local_->entries()) {
+      if (op.priority > 0) found.push_back(op);
+    }
+  }
+  return found;
+}
+
+OpResult OperatorView::admits(int priority, Specifier specifier, std::string_view name) const {
+  return rejection(entries(), priority, specifier, name).value_or(OpResult::Ok);
 }
 
 }

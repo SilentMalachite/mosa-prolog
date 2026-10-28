@@ -33,11 +33,6 @@
 namespace mosa {
 namespace {
 
-struct OpName {
-  Cell cell;
-  std::string text;
-};
-
 bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 std::string_view atom_text(const Impl& machine, Cell cell) {
@@ -55,20 +50,12 @@ std::optional<Specifier> specifier_of(std::string_view text) {
   return std::nullopt;
 }
 
-void raise_inst(Impl& machine, const Goal& goal) {
-  raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
-}
-
 void raise_type(Impl& machine, const Goal& goal, std::string_view type, Cell culprit) {
   raise_formal(machine, formal_type(machine, type, culprit), goal.name, goal.arity);
 }
 
 void raise_domain(Impl& machine, const Goal& goal, std::string_view domain, Cell culprit) {
   raise_formal(machine, formal_domain(machine, domain, culprit), goal.name, goal.arity);
-}
-
-void raise_permit(Impl& machine, const Goal& goal, std::string_view action, Cell culprit) {
-  raise_formal(machine, formal_permission(machine, action, "operator", culprit), goal.name, goal.arity);
 }
 
 bool name_list_unbound(const Impl& machine, Cell names) {
@@ -82,44 +69,25 @@ bool name_list_unbound(const Impl& machine, Cell names) {
   return false;
 }
 
-bool reject_types(Impl& machine, const Goal& goal, Cell priority, Cell specifier, Cell names,
-                  WalkedList& walked) {
-  if (!is_int(priority)) {
-    raise_type(machine, goal, "integer", priority);
-    return true;
-  }
-  if (specifier.tag() != Tag::Atom) {
-    raise_type(machine, goal, "atom", specifier);
-    return true;
-  }
-  if (names.tag() == Tag::Atom) return false;
+std::optional<Cell> op_types(Impl& machine, Cell priority, Cell specifier, Cell names, WalkedList& walked) {
+  if (!is_int(priority)) return formal_type(machine, "integer", priority);
+  if (specifier.tag() != Tag::Atom) return formal_type(machine, "atom", specifier);
+  if (names.tag() == Tag::Atom) return std::nullopt;
   walked = walk_list(machine, names);
-  if (walked.shape != ListShape::Proper) {
-    raise_type(machine, goal, "list", names);
-    return true;
-  }
+  if (walked.shape != ListShape::Proper) return formal_type(machine, "list", names);
   for (const Cell item : walked.items) {
-    if (item.tag() != Tag::Atom) {
-      raise_type(machine, goal, "atom", item);
-      return true;
-    }
+    if (item.tag() != Tag::Atom) return formal_type(machine, "atom", item);
   }
-  return false;
+  return std::nullopt;
 }
 
-bool reject_domain(Impl& machine, const Goal& goal, Cell priority, Cell specifier, Specifier& spec) {
+std::optional<Cell> op_domain(Impl& machine, Cell priority, Cell specifier, Specifier& spec) {
   const auto value = machine.heap.integer_value(priority);
-  if (value < 0 || value > 1200) {
-    raise_domain(machine, goal, "operator_priority", priority);
-    return true;
-  }
+  if (value < 0 || value > 1200) return formal_domain(machine, "operator_priority", priority);
   const std::optional<Specifier> parsed = specifier_of(atom_text(machine, specifier));
-  if (!parsed) {
-    raise_domain(machine, goal, "operator_specifier", specifier);
-    return true;
-  }
+  if (!parsed) return formal_domain(machine, "operator_specifier", specifier);
   spec = *parsed;
-  return false;
+  return std::nullopt;
 }
 
 std::vector<OpName> op_names(const Impl& machine, Cell names, const WalkedList& walked) {
@@ -134,39 +102,22 @@ std::vector<OpName> op_names(const Impl& machine, Cell names, const WalkedList& 
   return found;
 }
 
-bool commit_ops(Impl& machine, const Goal& goal, int priority, Specifier spec,
-                const std::vector<OpName>& names) {
-  OperatorTable trial = machine.operators;
-  for (const OpName& name : names) {
-    const OpResult result = trial.define(priority, spec, name.text);
-    if (result == OpResult::Ok) continue;
-    raise_permit(machine, goal, result == OpResult::ModifyComma ? "modify" : "create", name.cell);
-    return false;
-  }
-  // 検査が通ってから表を替える。戻すのはこの呼び出しの名前だけ。
-  std::vector<std::string> touched;
-  touched.reserve(names.size());
-  for (const OpName& name : names) touched.push_back(name.text);
-  trail_operators(machine, priority, spec, touched);
-  machine.operators = std::move(trial);
-  return true;
+// 局所の層では優先度 0 も印として残す。拒否は user の表と重ねた見え方で決める。
+OpResult define_in(const Impl& machine, OperatorTable& trial, bool local, const OpRequest& request,
+                   const std::string& name) {
+  if (!local) return trial.define(request.priority, request.specifier, name);
+  const OpResult result = OperatorView{machine.operators, &trial}.admits(request.priority, request.specifier, name);
+  if (result == OpResult::Ok) trial.define_local(request.priority, request.specifier, name);
+  return result;
 }
 
 void run_op(Impl& machine, const Goal& goal) {
-  const Cell priority = machine.heap.deref(goal.arg(machine, 0));
-  const Cell specifier = machine.heap.deref(goal.arg(machine, 1));
-  const Cell names = machine.heap.deref(goal.arg(machine, 2));
-  if (machine.heap.unbound(priority) || machine.heap.unbound(specifier) || machine.heap.unbound(names) ||
-      name_list_unbound(machine, names)) {
-    raise_inst(machine, goal);
-    return;
-  }
-  WalkedList walked;
-  if (reject_types(machine, goal, priority, specifier, names, walked)) return;
-  Specifier spec = Specifier::Xfx;
-  if (reject_domain(machine, goal, priority, specifier, spec)) return;
-  const auto priority_value = machine.heap.integer_value(priority);
-  if (!commit_ops(machine, goal, static_cast<int>(priority_value), spec, op_names(machine, names, walked))) {
+  OpRequest request;
+  auto formal = read_op_request(machine, goal.arg(machine, 0), goal.arg(machine, 1), goal.arg(machine, 2), request);
+  // 文脈モジュールの層へ入れる。user なら全体の表で、どのモジュールからも見える。
+  if (!formal) formal = commit_op_request(machine, goal.module, request);
+  if (formal) {
+    raise_formal(machine, *formal, goal.name, goal.arity);
     return;
   }
   machine.ip = goal.cont;
@@ -205,9 +156,10 @@ bool keep_op(const Impl& machine, Cell priority, Cell specifier, Cell name, cons
   return machine.heap.unbound(name) || atom_text(machine, name) == op.name;
 }
 
-std::vector<Cell> matching_ops(Impl& machine, Cell priority, Cell specifier, Cell name) {
-  const std::vector<OpDef> ops = name.tag() == Tag::Atom ? machine.operators.lookup(atom_text(machine, name))
-                                                          : machine.operators.entries();
+// 文脈モジュールの見え方で返す。固有層の印で隠した演算子は出さない。
+std::vector<Cell> matching_ops(Impl& machine, std::uint32_t module, Cell priority, Cell specifier, Cell name) {
+  const OperatorView view = op_view(machine, module);
+  const std::vector<OpDef> ops = name.tag() == Tag::Atom ? view.lookup(atom_text(machine, name)) : view.entries();
   std::vector<Cell> flat;
   for (const OpDef& op : ops) {
     if (!keep_op(machine, priority, specifier, name, op)) continue;
@@ -272,7 +224,7 @@ void run_current_op(Impl& machine, const Goal& goal) {
     raise_type(machine, goal, "atom", name);
     return;
   }
-  if (!prove_ops(machine, goal, matching_ops(machine, priority, specifier, name), 0)) machine.failed = true;
+  if (!prove_ops(machine, goal, matching_ops(machine, goal.module, priority, specifier, name), 0)) machine.failed = true;
 }
 
 std::optional<Cell> char_conv_problem(Impl& machine, Cell in, Cell out, char32_t& from, char32_t& to) {
@@ -379,6 +331,43 @@ void run_current_char_conversion(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+std::optional<Cell> read_op_request(Impl& machine, Cell priority, Cell specifier, Cell names, OpRequest& request) {
+  priority = machine.heap.deref(priority);
+  specifier = machine.heap.deref(specifier);
+  names = machine.heap.deref(names);
+  if (machine.heap.unbound(priority) || machine.heap.unbound(specifier) || machine.heap.unbound(names) ||
+      name_list_unbound(machine, names)) {
+    return formal_instantiation(machine);
+  }
+  WalkedList walked;
+  if (const auto formal = op_types(machine, priority, specifier, names, walked)) return formal;
+  Specifier spec = Specifier::Xfx;
+  if (const auto formal = op_domain(machine, priority, specifier, spec)) return formal;
+  request.priority = static_cast<int>(machine.heap.integer_value(priority));
+  request.specifier = spec;
+  request.names = op_names(machine, names, walked);
+  return std::nullopt;
+}
+
+std::optional<Cell> commit_op_request(Impl& machine, std::uint32_t module, const OpRequest& request) {
+  Module* local = module == machine.user_module ? nullptr : find_module(machine, module);
+  OperatorTable trial = local == nullptr ? machine.operators : local->ops;
+  for (const OpName& name : request.names) {
+    const OpResult result = define_in(machine, trial, local != nullptr, request, name.text);
+    if (result == OpResult::Ok) continue;
+    return formal_permission(machine, result == OpResult::ModifyComma ? "modify" : "create", "operator", name.cell);
+  }
+  // 検査が通ってから表を替える。戻すのはこの呼び出しの名前だけ。
+  std::vector<std::string> touched;
+  touched.reserve(request.names.size());
+  for (const OpName& name : request.names) touched.push_back(name.text);
+  trail_operators(machine, local == nullptr ? machine.user_module : module, request.priority, request.specifier,
+                  touched);
+  if (local == nullptr) machine.operators = std::move(trial);
+  else local->ops = std::move(trial);
+  return std::nullopt;
+}
 
 bool redo_current_op(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::AtomGen ||

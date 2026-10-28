@@ -166,6 +166,8 @@ struct OpTouch {
 // 選択点より後ろの op/3 だけを失敗で戻す。assert と retract はここへ載せない。
 struct OpUndo {
   std::uint64_t effect_id = 0;
+  // どの層の変更か。user なら全体の表、ほかはそのモジュールの固有層。
+  std::uint32_t module = 0;
   std::vector<OpTouch> touches;
 };
 
@@ -279,7 +281,25 @@ void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Predicate& predicate, std::size_t index, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
-void trail_operators(Impl& machine, int priority, Specifier specifier, const std::vector<std::string>& names);
+void trail_operators(Impl& machine, std::uint32_t module, int priority, Specifier specifier,
+                     const std::vector<std::string>& names);
+
+struct OpName {
+  Cell cell;
+  std::string text;
+};
+
+// op/3 と公開リストの op(P, T, N) の引数。read_op_request が 8.14.3 の順で確かめる。
+struct OpRequest {
+  int priority = 0;
+  Specifier specifier = Specifier::Xfx;
+  std::vector<OpName> names;
+};
+
+[[nodiscard]] std::optional<Cell> read_op_request(Impl& machine, Cell priority, Cell specifier, Cell names,
+                                                  OpRequest& request);
+// module の層へ全部の名前を入れる。拒否は permission_error の Formal で、表は変えない。
+[[nodiscard]] std::optional<Cell> commit_op_request(Impl& machine, std::uint32_t module, const OpRequest& request);
 void restore_operators(Impl& machine, std::uint64_t effect_id);
 void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
