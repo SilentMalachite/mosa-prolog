@@ -340,9 +340,9 @@
 **Files:**
 - Modify: `src/version.cpp`、`CMakeLists.txt` の `version_pass_regex`、`docs/conformance.md`、`docs/conformance.json`、`docs/STATUS.md`
 
-- [ ] **Step 1:** `mosatest --suite` を流し、合格率が Task 1 の基準値より上であることを見る
-- [ ] **Step 2:** `tests/pl/japanese.pl` の全件通過を見る
-- [ ] **Step 3:** 版を `mosa 0.0.1 (phase 5)` にし、`ctest` の `mosa_version` を合わせる。3 OS の CI が緑であることを見る
+- [x] **Step 1:** `mosatest --suite` を流し、合格率が Task 1 の基準値より上であることを見る
+- [x] **Step 2:** `tests/pl/japanese.pl` の全件通過を見る
+- [ ] **Step 3:** 版を `mosa 0.0.1 (phase 5)` にし、`ctest` の `mosa_version` を合わせる（`tests/cpp/mosa_stdin_test.cmake` の版の期待値も）。3 OS の CI が緑であることを見る
 - [ ] **Step 4:** `docs/STATUS.md` を `Phase: 5 done`、`Next: phase 6, mosac` にする。コミット `[phase5] フェーズ5を終える（合格率 R%、japanese.pl 全件、3 OS の CI）`
 
 ---

@@ -22,7 +22,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–3 are done; phase 4 (modules) is next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
+Phases 0–5 are done; phase 6 (`mosac`) is next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ X = 太郎.
 
 ## Conformance
 
-The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logtalk/`) is shown by the badge above. At the end of phase 3, 2028 of 2171 tests (93.4%) passed; at the end of phase 4, 2041 (94.0%). The list of failures is in [`docs/conformance.md`](docs/conformance.md). `mosatest --suite` writes that file and the badge data [`docs/conformance.json`](docs/conformance.json) (shields.io endpoint format). Do not edit either by hand.
+The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logtalk/`) is shown by the badge above. At the end of phase 3, 2028 of 2171 tests (93.4%) passed; at the end of phase 4, 2041 (94.0%); at the end of phase 5, 2135 (98.3%). The list of failures is in [`docs/conformance.md`](docs/conformance.md). `mosatest --suite` writes that file and the badge data [`docs/conformance.json`](docs/conformance.json) (shields.io endpoint format). Do not edit either by hand.
 
 The badge reads `docs/conformance.json` on `main`, so it changes with every commit that changes the file. CI runs the suite in all four jobs and puts the pass rate in the Job Summary; the macOS job fails if the generated JSON differs from the committed one. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON with it.
 
