@@ -192,6 +192,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) 
   }
   predicate->dynamic = true;
   predicate->dynamic_declared = true;
+  predicate->abolished = false;
   return true;
 }
 

@@ -87,8 +87,8 @@ bool copied_succeeds(Machine& scratch, Cell goal) {
 
 bool keep_predicate(const Impl& src, const Predicate& predicate) {
   // 組込は Machine::create の分岐のまま。述語表へ重ねると二重になる。
-  if (is_builtin_procedure(src, predicate.name, predicate.arity)) return false;
-  return predicate.dynamic || !predicate.clauses.empty();
+  if (is_builtin_procedure(src, predicate.name, predicate.arity) || predicate.abolished) return false;
+  return predicate.dynamic || live_count(predicate) > 0;
 }
 
 bool compile_copied(Impl& src, Impl& dst, const Clause& clause, Clause& out) {
@@ -118,6 +118,8 @@ void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
   }
   made.seen = predicate.seen;
   for (const Clause& clause : predicate.clauses) {
+    // 死んだ節は元の機械の開いた走査のためだけにある。写した先には走査が無い。
+    if (clause.dead) continue;
     Clause copied;
     if (!compile_copied(src, dst, clause, copied)) continue;
     made.clauses.push_back(std::move(copied));

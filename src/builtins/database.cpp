@@ -253,6 +253,64 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
   machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
 }
 
+// ADR 0008。開いた走査がまだ試していない候補にこの節があるか。試し終えた節と今動いている節は消してよい。
+bool held_by_scan(const Impl& machine, PredKey key, std::size_t index) {
+  for (const Entry& entry : machine.stack) {
+    if (!scans_pred(entry, key.module, key.name, key.arity)) continue;
+    for (std::size_t cursor = entry.next; cursor < entry.candidates.size(); ++cursor) {
+      if (entry.candidates[cursor] == index) return true;
+    }
+  }
+  return false;
+}
+
+void kill_clause(Impl& machine, Predicate& predicate, PredKey key, std::size_t index) {
+  if (held_by_scan(machine, key, index)) {
+    predicate.clauses[index].dead = true;
+    return;
+  }
+  erase_clause(predicate, index);
+  note_removed(machine, key.module, key.name, key.arity, index);
+}
+
+// 死んだ節は、それを持つ走査が閉じた後の最初の変更で消す。節が尽きた abolish 済みの述語は表からも消す。
+// 添字をずらすので、候補を集める前に呼ぶ。
+Predicate* purge_dead(Impl& machine, Predicate* predicate) {
+  if (predicate == nullptr) return nullptr;
+  const PredKey key{predicate->module, predicate->name, predicate->arity};
+  for (std::size_t index = predicate->clauses.size(); index > 0; --index) {
+    if (predicate->clauses[index - 1].dead && !held_by_scan(machine, key, index - 1)) {
+      erase_clause(*predicate, index - 1);
+      note_removed(machine, key.module, key.name, key.arity, index - 1);
+    }
+  }
+  if (!predicate->abolished || !predicate->clauses.empty()) return predicate;
+  erase_predicate(machine, key.module, key.name, key.arity);
+  return nullptr;
+}
+
+// abolish 済みの述語へ足すときは、同じ枠を新しい動的な述語として使い直す。走査の添字が二つの述語を指さない。
+void revive(Impl& machine, Predicate& predicate) {
+  if (!predicate.abolished) return;
+  predicate.abolished = false;
+  predicate.dynamic = true;
+  predicate.dynamic_declared = false;
+  predicate.meta.clear();
+  adopt_meta(machine, predicate);
+}
+
+void abolish_open(Impl& machine, Predicate& predicate) {
+  const PredKey key{predicate.module, predicate.name, predicate.arity};
+  for (std::size_t index = predicate.clauses.size(); index > 0; --index) {
+    kill_clause(machine, predicate, key, index - 1);
+  }
+  if (predicate.clauses.empty()) {
+    erase_predicate(machine, key.module, key.name, key.arity);
+    return;
+  }
+  predicate.abolished = true;
+}
+
 bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   // 呼び出し側の変数は、この関数が足す項より前にある。候補ごとに束縛を戻す水位。
   const auto floor = machine.heap.size();
@@ -272,6 +330,7 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
 std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predicate, const ClauseView& view) {
   std::vector<std::size_t> found;
   for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
+    if (predicate.clauses[index].dead) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -306,7 +365,8 @@ bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vecto
   view.head = named_head(machine, skip_module(machine, view.head), key.name);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
-    if (index >= predicate->clauses.size()) continue;
+    // 別の retract が先に消した節は、もう無い節である。
+    if (index >= predicate->clauses.size() || predicate->clauses[index].dead) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -317,8 +377,7 @@ bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vecto
     if (cursor + 1 < matches.size()) {
       push_retract(machine, goal, key, matches, cursor + 1, heap_mark, trail_mark);
     }
-    erase_clause(*predicate, index);
-    note_removed(machine, key.module, key.name, key.arity, index);
+    kill_clause(machine, *predicate, key, index);
     succeed(machine, goal);
     return true;
   }
@@ -334,7 +393,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   const HeadName head = head_indicator(machine, view.head);
   // 別名で取り込んだ述語へ足す節は、取り込み元の名前の頭で持つ。検査と誤りは呼び手の書いた名前で出す。
   std::uint32_t source_name = head.name;
-  Predicate* existing = owned_pred(machine, module, source_name, head.arity);
+  Predicate* existing = purge_dead(machine, owned_pred(machine, module, source_name, head.arity));
   term = named_head(machine, term, source_name);
   Clause clause;
   // 呼び出し後の束縛が節へ漏れないよう、データベースに見える前に IR の変数番号へ切る。
@@ -357,6 +416,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     raise_permission(machine, goal, existing->module, source_name, head.arity);
     return;
   }
+  if (existing != nullptr) revive(machine, *existing);
   if (existing == nullptr) {
     Predicate created;
     created.module = module;
@@ -384,8 +444,8 @@ void run_retract(Impl& machine, const Goal& goal) {
   const ClauseView view = clause_view(machine, term);
   HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = owned_pred(machine, module, head.name, head.arity);
-  if (predicate == nullptr) {
+  Predicate* predicate = purge_dead(machine, owned_pred(machine, module, head.name, head.arity));
+  if (predicate == nullptr || predicate->abolished) {
     machine.failed = true;
     return;
   }
@@ -414,8 +474,8 @@ void run_retractall(Impl& machine, const Goal& goal) {
   }
   HeadName head = head_indicator(machine, head_cell);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = owned_pred(machine, module, head.name, head.arity);
-  if (predicate == nullptr) {
+  Predicate* predicate = purge_dead(machine, owned_pred(machine, module, head.name, head.arity));
+  if (predicate == nullptr || predicate->abolished) {
     succeed(machine, goal);
     return;
   }
@@ -432,8 +492,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
     const auto index = matches[cursor - 1];
     Predicate* current = find_pred(machine, key);
     if (current == nullptr || index >= current->clauses.size()) continue;
-    erase_clause(*current, index);
-    note_removed(machine, key.module, key.name, key.arity, index);
+    kill_clause(machine, *current, key, index);
   }
   succeed(machine, goal);
 }
@@ -485,17 +544,21 @@ void run_abolish(Impl& machine, const Goal& goal) {
   HeadName indicator;
   if (!parse_indicator(machine, goal, pred, indicator)) return;
   if (refuse_builtin(machine, goal, indicator.name, indicator.arity)) return;
-  Predicate* predicate = owned_pred(machine, module, indicator.name, indicator.arity);
+  Predicate* predicate = purge_dead(machine, owned_pred(machine, module, indicator.name, indicator.arity));
+  if (predicate != nullptr && predicate->abolished) predicate = nullptr;
   if (predicate != nullptr && !predicate->dynamic) {
     raise_permission(machine, goal, predicate->module, indicator.name, indicator.arity);
     return;
   }
-  if (predicate != nullptr) erase_predicate(machine, predicate->module, indicator.name, indicator.arity);
+  if (predicate != nullptr) abolish_open(machine, *predicate);
   succeed(machine, goal);
 }
 
 
 }  // namespace
+
+// 読み込みが abolish 済みの枠を使い直すときにも、同じ片付けをする（ADR 0008）。
+Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate) { return purge_dead(machine, predicate); }
 
 bool redo_retract(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::Retract) return false;

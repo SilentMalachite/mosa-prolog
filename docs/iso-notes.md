@@ -207,7 +207,7 @@ Decision (2026-10-28): A. Zero (integer, `0.0` or `-0.0`) to any negative power 
 
 A or B?: A keeps ADR 0004: removed clauses are dropped from open scans. B follows 7.5.4: the call tries the initial sequence. Stay with A until confirmed.
 
-Decision (2026-10-28): B. The design is in ADR 0008, which replaces the retract and abolish part of ADR 0004; it is implemented after the ADR is approved.
+Decision (2026-10-28): B. The design is in ADR 0008, which replaces the retract and abolish part of ADR 0004. ADR 0008 was approved and implemented on 2026-10-28 (dead clauses in `src/builtins/database.cpp`; `tests/pl/database.pl` `lu_*`, `retract_open_later`, and `tests/pl/solutions.pl` `scan_retract` now expect every clause present at call time).
 
 ## 8.11.8 position with reposition(false)
 

@@ -107,8 +107,68 @@ scan_aa(3).
 
 test(logical_update_asserta, (with_output_to(atom(A), ((scan_aa(X), write(X), asserta(scan_aa(4)), asserta(scan_aa(5)), fail) ; true)), A == '123'), true).
 
-test(retract_open_later, (later(X), (X = 1 -> retract(later(3)) ; true)), solutions([X = 1, X = 2])).
+% iso-notes 7.5.4 の決定 B（ADR 0008）。開いた走査は、呼んだ時点の節を最後まで試す。新しい呼び出しは消した節を見ない。
+test(retract_open_later, (later(X), (X = 1 -> retract(later(3)) ; true)), solutions([X = 1, X = 2, X = 3])).
 test(later_left, later(X), solutions([X = 1, X = 2])).
+
+:- dynamic(lu_r/1).
+lu_r(1).
+lu_r(2).
+lu_r(3).
+:- dynamic(lu_ra/1).
+lu_ra(1).
+lu_ra(2).
+lu_ra(3).
+:- dynamic(lu_cr/1).
+lu_cr(1).
+lu_cr(2).
+lu_cr(3).
+:- dynamic(lu_rr/1).
+lu_rr(1).
+lu_rr(2).
+lu_rr(3).
+:- dynamic(lu_ab/1).
+lu_ab(1).
+lu_ab(2).
+:- dynamic(lu_dr/1).
+lu_dr(1).
+lu_dr(2).
+lu_dr(3).
+:- dynamic(lu_ca/1).
+lu_ca(1).
+lu_ca(2).
+lu_ca(3).
+:- dynamic(lu_rt/1).
+lu_rt(1).
+lu_rt(2).
+lu_rt(3).
+:- dynamic(lu_nc/1).
+lu_nc(1).
+lu_nc(2).
+lu_nc(3).
+
+test(lu_retract, (with_output_to(atom(A), ((lu_r(X), write(X), retract(lu_r(_)), fail) ; true)), A == '123'), true).
+test(lu_retract_left, lu_r(_), fail).
+test(lu_retractall, (with_output_to(atom(A), ((lu_ra(X), write(X), retractall(lu_ra(_)), fail) ; true)), A == '123'), true).
+test(lu_retractall_left, lu_ra(_), fail).
+test(lu_clause_retract, (with_output_to(atom(A), ((clause(lu_cr(X), true), write(X), retract(lu_cr(_)), fail) ; true)), A == '123'), true).
+test(lu_clause_left, clause(lu_cr(_), _), fail).
+test(lu_abolish, (with_output_to(atom(A), ((lu_rr(X), write(X), abolish(lu_rr/1), fail) ; true)), A == '123'), true).
+test(lu_abolish_gone, current_predicate(lu_rr/1), fail).
+test(lu_abolish_clause, clause(lu_rr(_), _), fail).
+test(lu_abolish_call, lu_rr(_), error(existence_error(procedure, lu_rr/1))).
+test(lu_abolish_reassert, (assertz(lu_rr(9)), findall(X, lu_rr(X), L), L == [9]), true).
+test(lu_abolish_assert_open, (with_output_to(atom(A), ((lu_ab(X), write(X), (X == 1 -> abolish(lu_ab/1), assertz(lu_ab(7)) ; true), fail) ; true)), A == '12'), true).
+test(lu_abolish_assert_left, (findall(X, lu_ab(X), L), L == [7]), true).
+% 開いた走査が持つ節を別の retract が先に消したら、やり直した retract はその節を二度は消さない。
+test(lu_double_retract, findall(Y, (lu_dr(Z), Z == 1, retract(lu_dr(Y)), (Y == 1 -> retract(lu_dr(2)) ; true)), L), solutions([L = [1, 3]])).
+test(lu_double_left, lu_dr(_), fail).
+test(lu_count_live, (lu_nc(X), X == 1, retract(lu_nc(3)), predicate_property(lu_nc(_), number_of_clauses(N))), solutions([(X = 1, N = 2)])).
+test(lu_clause_abolish, (with_output_to(atom(A), ((clause(lu_ca(X), true), write(X), abolish(lu_ca/1), fail) ; true)), A == '123'), true).
+test(lu_clause_abolish_gone, current_predicate(lu_ca/1), fail).
+% retract の選択点が残ったまま述語が abolish されたら、やり直した retract は死んだ節を消さずに終わる。
+test(lu_retract_abolish, findall(X, (retract(lu_rt(X)), (X == 1 -> abolish(lu_rt/1) ; true)), L), solutions([L = [1]])).
+test(lu_retract_abolish_gone, current_predicate(lu_rt/1), fail).
 test(assertz_builtin, assertz(true), error(permission_error(modify, static_procedure, true/0))).
 test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
 test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).

@@ -106,7 +106,7 @@ std::vector<Cell> user_properties(Impl& machine, std::uint32_t module, const Pre
   if (const auto head = meta_head(machine, predicate)) {
     found.push_back(unary(machine, "meta_predicate", named_head(machine, *head, name)));
   }
-  const auto count = static_cast<std::int64_t>(predicate.clauses.size());
+  const auto count = static_cast<std::int64_t>(live_count(predicate));
   found.push_back(unary(machine, "number_of_clauses", machine.heap.integer(count)));
   return found;
 }
@@ -145,7 +145,7 @@ bool run_predicate_property(Impl& machine, const Goal& goal) {
     return true;
   }
   const Predicate* predicate = resolve_pred(machine, module, name, arity);
-  if (predicate == nullptr) {
+  if (predicate == nullptr || predicate->abolished) {
     machine.failed = true;
     return true;
   }

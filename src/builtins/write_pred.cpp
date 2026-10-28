@@ -410,7 +410,7 @@ void rewind_spot(Stream& stream, const StreamSpot& spot) {
 
 bool portray_ready(const Impl& machine, std::uint32_t& name) {
   for (const Predicate& predicate : machine.predicates) {
-    if (predicate.arity != 1 || predicate.clauses.empty()) continue;
+    if (predicate.arity != 1 || predicate.abolished || live_count(predicate) == 0) continue;
     if (machine.atoms.name(predicate.name) != "portray") continue;
     name = predicate.name;
     return true;

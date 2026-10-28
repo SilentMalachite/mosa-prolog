@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2103
-合格率: 96.9
+合格数: 2108
+合格率: 97.1
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/if_3/tests.lgt if_3_01 true existence_error(procedure,if/3)
@@ -18,12 +18,7 @@ control/if_3/tests.lgt if_3_11 errors([type_error(callable,3),type_error(callabl
 control/if_3/tests.lgt if_3_12 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(fail,true,3))]) existence_error(procedure,if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
 functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
-logical_update_semantics/tests.lgt logical_update_semantics_retract true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_retractall true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(Assertion) fail
-logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2,4,6]) existence_error(procedure,:: /2)
-predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant,bee]) fail
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)

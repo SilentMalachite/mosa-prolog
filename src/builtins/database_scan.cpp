@@ -64,6 +64,7 @@ bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body)
 std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predicate, Cell head, Cell body) {
   std::vector<std::size_t> found;
   for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
+    if (predicate.clauses[index].dead) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -125,7 +126,7 @@ void run_clause(Impl& machine, const Goal& goal) {
   std::uint32_t module = 0;
   if (!clause_head_ok(machine, goal, indicator, module)) return;
   const Predicate* predicate = owned_pred(machine, module, indicator.name, indicator.arity);
-  if (predicate == nullptr || predicate->clauses.empty()) {
+  if (predicate == nullptr || predicate->abolished || live_count(*predicate) == 0) {
     machine.failed = true;
     return;
   }
@@ -203,6 +204,7 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
   if (wanted.arity_high) return found;
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
+    if (predicate.abolished) continue;
     if (!wanted.any_module && predicate.module != wanted.module) continue;
     if (wanted.name_set && predicate.name != wanted.name) continue;
     if (wanted.arity_set && predicate.arity != wanted.arity) continue;

@@ -588,6 +588,22 @@ void check_goal_word() {
 
 }  // namespace
 
+// ADR 0008。走査中の abolish で残った枠を、後の読み込みが新しい静的な定義として使い直す。
+void check_abolished_reload() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(":- dynamic(p/1). p(1). p(2).").ok, "abolish base");
+  mosa_test::check(machine->query("(p(X), abolish(p/1), fail ; true).").kind == mosa::StopKind::Success,
+                   "abolish in scan");
+  mosa_test::check(machine->query("p(_).").kind == mosa::StopKind::Exception, "abolished is absent");
+  mosa_test::check(machine->load_program("p(5).").ok, "reload abolished");
+  mosa_test::check(machine->query("findall(X, p(X), [5]).").kind == mosa::StopKind::Success, "reload clauses");
+  mosa_test::check(machine->query("predicate_property(p(_), static).").kind == mosa::StopKind::Success,
+                   "reload static");
+  mosa_test::check(machine->query("predicate_property(p(_), number_of_clauses(1)).").kind ==
+                       mosa::StopKind::Success,
+                   "reload count");
+}
+
 int main() {
   check_goal_word();
   check_one_fact();
@@ -613,5 +629,6 @@ int main() {
   check_control();
   check_index();
   check_list_goal();
+  check_abolished_reload();
   return mosa_test::failures();
 }

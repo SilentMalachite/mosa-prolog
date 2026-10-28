@@ -19,6 +19,7 @@ struct Snapshot {
   std::vector<Clause> clauses;
   bool created = false;
   bool dynamic = false;
+  bool abolished = false;
   std::vector<MetaArg> meta;
 };
 

@@ -209,7 +209,7 @@ A か B か: A は 9.3.1.3.d の文面どおり `evaluation_error(undefined)`。
 
 A か B か: A は ADR 0004 のまま、開いた走査から消した節を外す。B は 7.5.4 のとおり、その呼出しは最初の列を試す。確認前に A のままにする。
 
-決定（2026-10-28）: B。設計は ADR 0008 に書き、ADR 0004 の retract と abolish の部分を置き換える。ADR の承認後に実装する。
+決定（2026-10-28）: B。設計は ADR 0008 に書き、ADR 0004 の retract と abolish の部分を置き換える。ADR 0008 は 2026-10-28 に承認し、実装した（死んだ節は `src/builtins/database.cpp`。`tests/pl/database.pl` の `lu_*` と `retract_open_later`、`tests/pl/solutions.pl` の `scan_retract` は、呼んだ時点の節をすべて期待する）。
 
 ## 8.11.8 reposition(false) の position
 

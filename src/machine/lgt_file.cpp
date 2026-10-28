@@ -402,7 +402,10 @@ bool routes_to_judge(Machine& machine, std::string_view body, const LgtWant& wan
 bool defined_here(const Machine& machine, std::string_view name) {
   const Impl& impl = engine_impl(machine);
   for (const Predicate& predicate : impl.predicates) {
-    if (predicate.arity == 0 && !predicate.clauses.empty() && impl.atoms.name(predicate.name) == name) return true;
+    if (predicate.arity == 0 && !predicate.abolished && live_count(predicate) > 0 &&
+        impl.atoms.name(predicate.name) == name) {
+      return true;
+    }
   }
   return false;
 }

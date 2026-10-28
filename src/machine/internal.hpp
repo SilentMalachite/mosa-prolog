@@ -28,6 +28,8 @@ struct Clause {
   std::uint16_t key_arity = 0;
   std::int64_t key_int = 0;
   double key_float = 0;
+  // ADR 0008。開いた走査がまだ試していない節を消すと、消さずにこの印を付ける。新しい呼び出しは飛ばす。
+  bool dead = false;
 };
 
 // multifile と discontiguous の宣言。述語が無くても残す。宣言だけで節の無い手続きになる（iso-notes 7.8.3 の決定 B）。
@@ -52,6 +54,8 @@ struct Predicate {
   // meta_predicate/1 の宣言。空なら限定する引数は無い。meta_declared は dynamic_declared と同じく読み込みごと。
   std::vector<MetaArg> meta;
   bool meta_declared = false;
+  // ADR 0008。開いた走査があるときの abolish。走査のやり直しだけが引き、新しい引き当ては無いものとして扱う。
+  bool abolished = false;
 };
 
 enum class Pick {
@@ -276,6 +280,8 @@ void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::
 void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
                  const std::vector<Cell>& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
+[[nodiscard]] std::size_t live_count(const Predicate& predicate);
+Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 [[nodiscard]] std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,

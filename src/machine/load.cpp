@@ -105,6 +105,7 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key)
   if (predicate != nullptr) {
     shot.clauses = predicate->clauses;
     shot.dynamic = predicate->dynamic;
+    shot.abolished = predicate->abolished;
     shot.meta = predicate->meta;
   }
   snapshots.push_back(std::move(shot));
@@ -140,7 +141,14 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
                             " の節が離れている");
     return false;
   }
-  if (!predicate.seen && !predicate.clauses.empty()) {
+  if (predicate.abolished) {
+    // ADR 0008。abolish 済みの枠を新しい定義に使い直す。死んだ節は開いた走査のために残す。
+    predicate.abolished = false;
+    predicate.dynamic = predicate.dynamic_declared;
+    if (!predicate.meta_declared) predicate.meta.clear();
+    // 印を外してから片付けるので、述語ごと消えて index が外れることは無い。
+    static_cast<void>(purge_dead_clauses(machine, &predicate));
+  } else if (!predicate.seen && !predicate.clauses.empty()) {
     bool busy = false;
     for (const Entry& entry : machine.stack) {
       if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch) busy = true;
@@ -175,6 +183,7 @@ void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t
     if (predicate != nullptr) {
       predicate->clauses = shot.clauses;
       predicate->dynamic = shot.dynamic;
+      predicate->abolished = shot.abolished;
       predicate->meta = shot.meta;
     }
   }
