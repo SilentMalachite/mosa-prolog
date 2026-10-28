@@ -78,4 +78,17 @@ test(number_key_inner_space, number_chars(N, [-, ' ', '1']), error(syntax_error(
 test(number_key_overflow, number_chars(N, ['9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9']), error(syntax_error(integer_overflow))).
 test(number_key_bad_escape, number_chars(N, ['0', '''', '\\', z]), error(syntax_error(bad_escape))).
 test(number_key_open_comment, number_codes(N, [47, 42, 32, 49]), error(syntax_error(unterminated_comment))).
+% atom_number/2（非 ISO、iso-notes 8.16 の決定 A）。規格の Examples は無いので、決定文の振る舞いを 1 行ずつ。
+test(atom_number_to_number, atom_number('12', N), solutions([N = 12])).
+test(atom_number_to_float, atom_number('1.5', N), solutions([N = 1.5])).
+test(atom_number_to_negative, atom_number('-3', N), solutions([N = -3])).
+test(atom_number_to_atom, atom_number(A, 12), solutions([A = '12'])).
+test(atom_number_float_to_atom, atom_number(A, 1.5), solutions([A = '1.5'])).
+test(atom_number_negative_to_atom, atom_number(A, -3), solutions([A = '-3'])).
+test(atom_number_both_var, atom_number(_, _), error(instantiation_error)).
+test(atom_number_not_number, atom_number(foo, _), error(syntax_error(unexpected_token))).
+test(atom_number_match, atom_number('12', 12), true).
+test(atom_number_mismatch, atom_number('12', 13), fail).
+test(atom_number_type_atom, atom_number(12, _), error(type_error(atom, 12))).
+test(atom_number_type_number, atom_number(_, foo), error(type_error(number, foo))).
 test(sub_atom_int_before_sub, sub_atom(abc, foo, _, _, 1), error(type_error(integer, foo))).

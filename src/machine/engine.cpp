@@ -170,6 +170,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"char_code", 2},
     {"number_chars", 2},
     {"number_codes", 2},
+    {"atom_number", 2},
     {"current_prolog_flag", 2},
     {"set_prolog_flag", 2},
     {"asserta", 1},

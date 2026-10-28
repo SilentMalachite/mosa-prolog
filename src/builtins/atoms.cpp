@@ -1,4 +1,4 @@
-// 8.16 アトム処理。未決 2 の atom_number/2 は登録しない。
+// 8.16 アトム処理。atom_number/2（未決 2 の決定 A）は number_chars と同じく atoms_number.cpp に置く。
 // atom_length(+atom, ?integer)
 //   instantiation_error, type_error(atom), type_error(integer), domain_error(not_less_than_zero)
 // atom_concat(?atom, ?atom, ?atom)
@@ -405,6 +405,7 @@ void run_char_code(Impl& machine, const Goal& goal) {
 }  // namespace
 
 void run_number_atoms(Impl& machine, const Goal& goal);
+void run_atom_number(Impl& machine, const Goal& goal);
 
 CodeText decode_codes(std::string_view text) {
   CodeText out;
@@ -548,6 +549,10 @@ bool run_atoms(Impl& machine, const Goal& goal) {
   }
   if ((name == "number_chars" || name == "number_codes") && goal.arity == 2) {
     run_number_atoms(machine, goal);
+    return true;
+  }
+  if (name == "atom_number" && goal.arity == 2) {
+    run_atom_number(machine, goal);
     return true;
   }
   return false;

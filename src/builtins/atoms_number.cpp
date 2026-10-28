@@ -1,5 +1,7 @@
 // 8.16.7 number_chars(?number, ?character_list)
 // 8.16.8 number_codes(?number, ?character_code_list)
+// atom_number(?atom, ?number)（非 ISO、iso-notes 8.16 の決定 A）。アトムから数は number_chars と同じ構文解析、
+//   数からアトムは write_term の字面。両方とも具体値なら、読んだ数と単一化する
 // エラー: instantiation_error, type_error(number), type_error(list),
 //   type_error(character), type_error(integer), representation_error(character_code),
 //   syntax_error(Key)。Key は ADR 0007 の鍵で、字句の誤りは字句の理由、数でない並びと余りは unexpected_token
@@ -7,7 +9,7 @@
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
 // 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
 // 0' の直後の空白だけは文字コードの本体なので、レイアウト文に数えない。
-// テスト: tests/pl/atoms.pl
+// テスト: tests/pl/atoms.pl（atom_number は atom_number_*）
 
 #include "../machine/internal.hpp"
 
@@ -274,6 +276,38 @@ void run_number_atoms(Impl& machine, const Goal& goal) {
     return;
   }
   bind_ground_number(machine, goal, walked, codes);
+}
+
+void run_atom_number(Impl& machine, const Goal& goal) {
+  const Cell atom = machine.heap.deref(goal.arg(machine, 0));
+  const Cell number = machine.heap.deref(goal.arg(machine, 1));
+  const bool atom_var = machine.heap.unbound(atom);
+  if (atom_var && machine.heap.unbound(number)) {
+    instantiation(machine, goal);
+    return;
+  }
+  // TODO(iso): 8.16 atom_number/2 の型の誤りとその順は未決 2 の決定文に無い。number_chars/2 に倣い、型をすべて調べてから読む。
+  if (!atom_var && atom.tag() != Tag::Atom) {
+    type_at(machine, goal, "atom", atom);
+    return;
+  }
+  if (!machine.heap.unbound(number) && !is_number_cell(number)) {
+    type_at(machine, goal, "number", number);
+    return;
+  }
+  if (atom_var) {
+    const std::string spelling = write_term(machine.heap, machine.operators, number, {}, {});
+    if (!do_unify(machine, atom, machine.heap.atom(machine.atoms.intern(spelling)))) machine.failed = true;
+    else succeed(machine, goal);
+    return;
+  }
+  const Parsed parsed = parse_number(machine, machine.atoms.name(atom_id(atom)));
+  if (!parsed.number) {
+    syntax_at(machine, goal, parsed.reason);
+    return;
+  }
+  if (!do_unify(machine, number, *parsed.number)) machine.failed = true;
+  else succeed(machine, goal);
 }
 
 }  // namespace mosa
