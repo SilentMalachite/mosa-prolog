@@ -78,6 +78,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/lists.cpp
   src/builtins/format_float.cpp
   src/builtins/case.cpp
+  src/builtins/char_width.cpp
   src/builtins/terms.cpp
   src/builtins/control.cpp
   src/builtins/arith.cpp

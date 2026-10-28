@@ -317,9 +317,9 @@
 **Interfaces:**
 - Produces: `ひらがな_カタカナ/2`（U+3041〜U+3096 と U+30A1〜U+30F6 を 0x60 ずらす。どちら向きにも使える）、`全角_半角/2`（U+FF01〜U+FF5E と U+0021〜U+007E、U+3000 と U+0020。半角カタカナは扱わない）、`読み幅/2`（`East_Asian_Width` が W と F なら 2、それ以外 1 の和）。フェーズ5の Task 13 は `読み幅/2` を使う
 
-- [ ] **Step 1:** 失敗するテスト。`hk_basic`: `ひらがな_カタカナ(さくら, X)` が `X == サクラ`。`hk_reverse`: `ひらがな_カタカナ(X, サクラ)` が `X == さくら`。`hk_mixed`: `ひらがな_カタカナ('さくらA', X)` が `X == 'サクラA'`。`zh_basic`: `全角_半角('ＡＢ１', X)` が `X == 'AB1'`。`zh_space`: 全角空白が半角空白になる。`width_mixed`: `読み幅('日本a', 5)`。`width_scalar`: `読み幅('𠮷', 2)`
-- [ ] **Step 2:** 実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] library(japanese) を実装（japanese.pl の hk、zh、width 7 件）`
+- [x] **Step 1:** 失敗するテスト。`hk_basic`: `ひらがな_カタカナ(さくら, X)` が `X == サクラ`。`hk_reverse`: `ひらがな_カタカナ(X, サクラ)` が `X == さくら`。`hk_mixed`: `ひらがな_カタカナ('さくらA', X)` が `X == 'サクラA'`。`zh_basic`: `全角_半角('ＡＢ１', X)` が `X == 'AB1'`。`zh_space`: 全角空白が半角空白になる。`width_mixed`: `読み幅('日本a', 5)`。`width_scalar`: `読み幅('𠮷', 2)`
+- [x] **Step 2:** 実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] library(japanese) を実装（japanese.pl の hk、zh、width 7 件）`
 
 ### Task 19: 出口
 
