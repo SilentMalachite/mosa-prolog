@@ -569,10 +569,10 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
                        saved_prepared, saved_modules);
   }
-  const LoadStatus status = finish_load(machine, heap_base, inits);
   // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
+  // initialization のゴールより先に戻す（iso-notes 7.4.2.8 の決定 B）。
   if (!origin.empty()) restore_file_flags(machine, saved_flags);
-  return status;
+  return finish_load(machine, heap_base, inits);
 }
 
 LoadStatus Machine::load_program(std::string_view source) { return load_source(*impl_, source); }

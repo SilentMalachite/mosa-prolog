@@ -318,6 +318,18 @@ void check_flags_per_file() {
   mosa_test::check(succeeds(*runtime, "current_prolog_flag(double_quotes, codes)."), "runtime consult restores");
 }
 
+// iso-notes 7.4.2.8 の決定 B。initialization のゴールは、旗を戻した後に走る。
+void check_init_after_flag_restore() {
+  auto machine = mosa::Machine::create();
+  const auto file = temp_file("旗と初期化.pl",
+                              ":- set_prolog_flag(double_quotes, atom).\n"
+                              ":- set_prolog_flag(japanese_punctuation, true).\n"
+                              ":- initialization((current_prolog_flag(double_quotes, Q), "
+                              "current_prolog_flag(japanese_punctuation, J), assertz(初期化の旗(Q, J)))).\n");
+  mosa_test::check(succeeds(*machine, "consult('" + file + "')."), "file with initialization loads");
+  mosa_test::check(succeeds(*machine, "初期化の旗(codes, false)."), "initialization sees restored flags");
+}
+
 }  // namespace
 
 int main() {
@@ -343,5 +355,6 @@ int main() {
   check_exported_operators();
   check_print_while_portray_loads();
   check_flags_per_file();
+  check_init_after_flag_restore();
   return mosa_test::failures();
 }

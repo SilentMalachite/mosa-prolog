@@ -8,7 +8,7 @@ Done: phase 4 Task 7: assert/retract/retractall/clause/abolish/current_predicate
 Done: phase 4 Task 8: current_module/1, predicate_property/2 (src/builtins/module_prop.cpp)
 Done: phase 4 Task 9: meta_predicate/1 (op 1150 fx), meta args wrapped as Context:Arg on clause entry (src/module/meta.cpp), forall/2. maplist is a stand-in in tests/pl/modules/高階.pl until Task 13
 Done: phase 4 Task 10: operators per module via OperatorView (local layer over user+core, op(0) masks), export-list op/3 (src/module/module_ops.cpp)
-Done: phase 4 Task 11: double_quotes and japanese_punctuation restored after each file load (origin non-empty; text-only loads keep them). japanese_punctuation is now writable (iso-notes decision A, value only). Parent-reads-codes check is in module_load_test because mosatest pre-reads without flags. Initialization goals still see the file's flags (untested choice)
+Done: phase 4 Task 11: double_quotes and japanese_punctuation restored after each file load (origin non-empty; text-only loads keep them). japanese_punctuation is now writable (iso-notes decision A, value only). Parent-reads-codes check is in module_load_test because mosatest pre-reads without flags. Initialization goals run after the restore (iso-notes 7.4.2.8, decision B)
 Next: phase 4 Task 12, library(lists)
 Open: interpretations left in iso-notes
 Plan (phase 4): docs/superpowers/plans/2026-10-28-phase4-modules.md

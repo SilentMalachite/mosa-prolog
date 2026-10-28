@@ -352,3 +352,11 @@ SPEC section 5 makes `op/3` local to the declaring module, lets `op(P, T, N)` in
 A or B?: A: a local `op(0, T, N)` hides the `user` and ISO core operator of that class inside the module only, as in SWI-Prolog; exported operators come in with `use_module/1`, `except(...)` and a consulted module file, but not with an import list. B: a local `op(0, T, N)` removes only the module's own entry; exported operators come in with every form of import.
 
 Decision (2026-10-28): A for both. Lookup is the module's own layer, then the `user` table (which holds the ISO core). `op/3`, `current_op/3`, `read_term/2,3` and the `write` family use the caller's context module. A `:- op` directive in a module file defines into that module. Importing into `user` puts the operator in the `user` table, so every module sees it.
+
+## 7.4.2.8 Per-file flags and initialization/1
+
+SPEC section 5 restores `double_quotes` and `japanese_punctuation` per file being loaded. 7.4.2.8 runs an `initialization/1` goal after the Prolog text has been prepared, but does not say whether it sees the flags the file set.
+
+A or B?: A: run the goals before restoring, so they see the file's flags. B: restore first, so they see the same flags as a query run right after the load.
+
+Decision (2026-10-28): B. The file's own terms are already read with its flags; only reads made by the goal at run time and `current_prolog_flag/2` see the difference. A goal that wants the file's syntax sets the flag itself.
