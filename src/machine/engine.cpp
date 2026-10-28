@@ -477,7 +477,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) ||
       run_modules(machine, goal) || run_use_module(machine, goal) || run_qualify(machine, goal) ||
-      run_length(machine, goal)) {
+      run_length(machine, goal) || run_display_width(machine, goal)) {
     return true;
   }
   return false;

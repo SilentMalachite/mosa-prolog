@@ -473,6 +473,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool scalar_code(std::int64_t code);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_length(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_display_width(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_length(Impl& machine);
 // 節の成功のあと、呼び出しモジュールを caller に戻して cont へ進む。
 [[nodiscard]] std::uint64_t restore_calling(Impl& machine, std::uint32_t caller, std::uint64_t cont);

@@ -66,6 +66,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/arith_float.cpp
   src/builtins/atoms.cpp
   src/builtins/length.cpp
+  src/builtins/width.cpp
   src/builtins/atoms_number.cpp
   src/builtins/flags.cpp
   src/builtins/database.cpp
@@ -111,6 +112,9 @@ add_custom_target(mosa_lists ALL
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_SOURCE_DIR}/lib/between.pl"
           "$<TARGET_FILE_DIR:mosa>/lib/between.pl"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/lib/format.pl"
+          "$<TARGET_FILE_DIR:mosa>/lib/format.pl"
   COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:mosatest>/lib"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_SOURCE_DIR}/lib/lists.pl"
@@ -121,6 +125,9 @@ add_custom_target(mosa_lists ALL
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_SOURCE_DIR}/lib/between.pl"
           "$<TARGET_FILE_DIR:mosatest>/lib/between.pl"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/lib/format.pl"
+          "$<TARGET_FILE_DIR:mosatest>/lib/format.pl"
   VERBATIM)
 add_dependencies(mosa_lists mosa mosatest)
 
