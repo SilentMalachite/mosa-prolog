@@ -150,7 +150,9 @@ target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
-add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl)
+# テストのパスはリポジトリの根から書く。build の場所に左右されない（計画 Task 15）。
+add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)

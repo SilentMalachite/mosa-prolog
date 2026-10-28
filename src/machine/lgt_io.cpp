@@ -34,21 +34,6 @@ bool functor_is(const Heap& heap, Cell cell, std::string_view name, std::uint16_
          heap.atoms().name(heap.functor_atom(cell)) == name;
 }
 
-std::filesystem::path path_from_utf8(std::string_view text) {
-  std::u8string bytes;
-  bytes.reserve(text.size());
-  for (unsigned char byte : text) bytes.push_back(static_cast<char8_t>(byte));
-  return std::filesystem::path{bytes};
-}
-
-std::string utf8_of(const std::filesystem::path& path) {
-  const auto text = path.generic_u8string();
-  std::string bytes;
-  bytes.reserve(text.size());
-  for (char8_t unit : text) bytes.push_back(static_cast<char>(unit));
-  return bytes;
-}
-
 bool write_bytes(const std::filesystem::path& path, std::string_view bytes) {
   std::error_code error;
   std::filesystem::create_directories(path.parent_path(), error);
@@ -445,7 +430,7 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
   const auto path = locate_file(io, file);
   if (path.empty() || !write_bytes(path, bytes)) return false;
   Impl& impl = engine_impl(machine);
-  const std::string key = utf8_of(path);
+  const std::string key = utf8_from_path(path);
   close_alias(impl, alias_name);
   close_path(impl, key);
   release_closed_alias(impl, alias_name);
@@ -467,7 +452,7 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
 }
 
 void drop_file(Impl& machine, const std::filesystem::path& path) {
-  close_path(machine, utf8_of(path));
+  close_path(machine, utf8_from_path(path));
   std::error_code error;
   std::filesystem::remove(path, error);
 }
@@ -484,7 +469,7 @@ LgtSuper clean_dir(Machine& machine, const LgtIo& io, Cell goal) {
   if (name.tag() != Tag::Atom) return bound_no();
   const auto path = locate_file(io, atom_text(machine.heap(), name));
   if (path.empty()) return bound_no();
-  close_path(engine_impl(machine), utf8_of(path));
+  close_path(engine_impl(machine), utf8_from_path(path));
   std::error_code error;
   std::filesystem::remove_all(path, error);
   return bound_ok();
@@ -500,7 +485,7 @@ LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal, const std::
   std::error_code error;
   std::filesystem::create_directories(path.parent_path(), error);
   if (error || !copy_absent_sibling(io, name, path)) return bound_no();
-  return bind_slot(machine, heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_of(path))), names);
+  return bind_slot(machine, heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_from_path(path))), names);
 }
 
 LgtSuper create_obs(Machine& machine, const LgtIo& io, Cell goal, bool binary) {
@@ -528,14 +513,14 @@ LgtSuper closed_obs(Machine& machine, const LgtIo& io, Cell goal, Stream::Mode m
   const auto path = locate_file(io, "temporary_file");
   if (path.empty() || !write_bytes(path, {})) return bound_no();
   Impl& impl = engine_impl(machine);
-  close_path(impl, utf8_of(path));
+  close_path(impl, utf8_from_path(path));
   Stream made;
   made.kind = Stream::Kind::File;
   made.data = opt.data;
   made.mode = mode;
   made.eof_action = opt.eof;
   made.reposition = opt.reposition;
-  made.path = utf8_of(path);
+  made.path = utf8_from_path(path);
   made.closed = true;
   impl.streams.push_back(std::move(made));
   std::error_code error;

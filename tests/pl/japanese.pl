@@ -117,3 +117,5 @@ test(syntax_col_japanese, (open_string('あいう ).', S1), catch(read(S1, _), e
 test(fmt_wide_pad, with_output_to(atom(A), format("~w~t~10|~w", [日本, x])), solutions([A = '日本      x'])).
 test(fmt_ascii_pad, with_output_to(atom(A), format("~w~t~10|~w", [ab, x])), solutions([A = 'ab        x'])).
 test(fmt_mixed, with_output_to(atom(A), format("~w~t~10|~w", [日a, x])), solutions([A = '日a       x'])).
+% SPEC 第4節。日本語のファイル名を書いて consult できる（計画 Task 15）。パスはリポジトリの根から。
+test(consult_japanese_name, (open('tests/tmp/日本語の読込.pl', write, S), write(S, '読込済(はい).'), nl(S), close(S), consult('tests/tmp/日本語の読込.pl'), 読込済(はい)), true).

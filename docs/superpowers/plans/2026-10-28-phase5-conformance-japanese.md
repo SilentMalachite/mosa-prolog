@@ -297,17 +297,19 @@
 ### Task 15: 日本語のパス
 
 **Files:**
-- Create: `src/core/path_utf8.cpp`、`include/mosa/path_utf8.hpp`（`streams.cpp` の `path_from_utf8` を移す）
-- Modify: `src/machine/load_path.cpp:18`、`src/machine/suite.cpp:258`、ほかに `std::filesystem::path{std::string...}` で作っている所すべて
+- Modify: `include/mosa/path_text.hpp`（既にある `path_from_utf8` と `utf8_from_path` に寄せる）、`src/builtins/streams.cpp` と `src/machine/lgt_io.cpp` の写しを消す
+- Modify: `CMakeLists.txt` の `prolog_tests` に `WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}`
 - Test: `tests/pl/japanese.pl`
 
 **Interfaces:**
-- Produces: `std::filesystem::path path_from_utf8(std::string_view text)`、`std::string path_to_utf8(const std::filesystem::path& path)`
+- Produces: なし。`std::filesystem::path path_from_utf8(std::string_view text)` と `std::string utf8_from_path(const std::filesystem::path& path)` は `include/mosa/path_text.hpp` に既にある
 
-- [ ] **Step 1:** 失敗するテスト `consult_japanese_name`: `open('tests/tmp/日本語の読込.pl', write, S)` で `読込済(はい).` を書いて閉じ、`consult('tests/tmp/日本語の読込.pl')` の後で `読込済(はい)` が成功する。`prolog_tests` の作業ディレクトリがリポジトリの根でなければ `add_test` に `WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}` を足す
-- [ ] **Step 2:** macOS と Linux では通り、Windows の CI で失敗することを見る（MSVC の `path(std::string)` は ANSI コードページで解釈するため）
-- [ ] **Step 3:** `grep -rn 'filesystem::path{std::string' src` が 0 件になるまで `path_from_utf8` に置き換える。テストを 3 OS で流す
-- [ ] **Step 4:** コミット `[phase5] パスを UTF-8 から作り、日本語のファイル名を consult できる（japanese.pl、3 OS）`
+着手時の見直し（2026-10-29）: 原子から作るパス（`open/4`、`consult/1`、読込、`^^` の入出力）は既に `path_from_utf8` を通っていた。残る `path{std::string…}` は argv と環境変数から来るもので、Windows ではどちらも ANSI コードページの文字列なので、ANSI で読む `path(std::string)` と食い違わない。そこを `path_from_utf8` に替えると、かえって cp932 で打ったファイル名が化ける。ゲートは原子から来るパスに絞る。argv を UTF-8 で受ける件（`mosa 日本語.pl` と `-g` の日本語）は別の課題として STATUS に残す。
+
+- [x] **Step 1:** 失敗するテスト `consult_japanese_name`: `open('tests/tmp/日本語の読込.pl', write, S)` で `読込済(はい).` を書いて閉じ、`consult('tests/tmp/日本語の読込.pl')` の後で `読込済(はい)` が成功する。ctest の作業ディレクトリが `build` なので落ちた（根からは通る）。`prolog_tests` に `WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}` を足し、`operators.pl` の `../` の逃げ道を消した
+- [x] **Step 2:** Windows でも原子のパスは `path_from_utf8` を通るので、MSVC で落ちる見込みは無い。3 OS の CI で通ることを見る
+- [x] **Step 3:** `streams.cpp` と `lgt_io.cpp` の `path_from_utf8` の写しと `lgtio::utf8_of` を消し、`path_text.hpp` に寄せる。原子から来るパスで `path{std::string…}` を使う所は 0 件
+- [x] **Step 4:** コミット `[phase5] パスを UTF-8 から作り、日本語のファイル名を consult できる（japanese.pl、3 OS）`
 
 ### Task 16: `japanese.pl` を SPEC 第4節の最小集合と照らす
 

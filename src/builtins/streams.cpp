@@ -16,6 +16,7 @@
 // テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
+#include "mosa/path_text.hpp"
 
 #include <array>
 #include <iostream>
@@ -74,14 +75,6 @@ bool item_unbound(const Impl& machine, const WalkedList& walked) {
     if (machine.heap.unbound(item)) return true;
   }
   return false;
-}
-
-// パスは UTF-8。OS のワイド文字への変換は filesystem に任せ、分岐を書かない。
-std::filesystem::path path_from_utf8(std::string_view text) {
-  std::u8string bytes;
-  bytes.reserve(text.size());
-  for (unsigned char byte : text) bytes.push_back(static_cast<char8_t>(byte));
-  return std::filesystem::path{bytes};
 }
 
 FileLoadResult load_bytes(const std::filesystem::path& path) {

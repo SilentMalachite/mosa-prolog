@@ -5,6 +5,7 @@
 #include "lgt_io.hpp"
 
 #include "internal.hpp"
+#include "mosa/path_text.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -22,8 +23,6 @@ struct IoOpt {
 };
 
 [[nodiscard]] std::string_view atom_text(const Heap& heap, Cell cell);
-[[nodiscard]] std::filesystem::path path_from_utf8(std::string_view text);
-[[nodiscard]] std::string utf8_of(const std::filesystem::path& path);
 // UTF-8 の 1 文字のバイト数。壊れた並びは 1 として先へ進める。
 [[nodiscard]] std::size_t scalar_width(std::string_view bytes, std::size_t index);
 [[nodiscard]] bool text_contents(const Heap& heap, Cell cell, std::string& out);
