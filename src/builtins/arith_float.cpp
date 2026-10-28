@@ -43,6 +43,13 @@ bool to_int(Impl& machine, const Goal& goal, double value, std::int64_t& out) {
   return true;
 }
 
+// 9.1.6 の round(x) = floor(x + 1/2)。x + 0.5 を浮動小数点で足すと 0.49999999999999994 や
+// 2^52 を超える奇数で丸めが起きるので、端数を引き算（誤差が出ない）で取り出して比べる。
+double round_half_up(double value) {
+  const double base = std::floor(value);
+  return value - base >= 0.5 ? base + 1.0 : base;
+}
+
 int float_round(Impl& machine, const Goal& goal, std::string_view name, double value, bool& as_int,
                 std::int64_t& iout) {
   auto integral = [&](double rounded) {
@@ -53,7 +60,7 @@ int float_round(Impl& machine, const Goal& goal, std::string_view name, double v
   if (name == "integer" || name == "truncate") return integral(std::trunc(value));
   if (name == "floor") return integral(std::floor(value));
   if (name == "ceiling") return integral(std::ceil(value));
-  if (name == "round") return integral(std::round(value));
+  if (name == "round") return integral(round_half_up(value));
   return 0;
 }
 

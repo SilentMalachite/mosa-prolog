@@ -478,3 +478,5 @@ A or B?: A: follow 9.1.6 and give `type_error(float, N)` for an integer argument
 `eclipse_round_1_07` and `08` expect `round(-3.5)` to be `-3` and `round(-4.5)` to be `-4`. 9.1.6 defines `round(x)` as `floor(x + 1/2)`, which rounds a half towards positive infinity. Mosa uses `std::round`, which rounds a half away from zero, so it gives `-4` and `-5`. Positive halves give the same result either way (`round(2.5) = 3`).
 
 A or B?: A: keep rounding a half away from zero (`round(-2.5) = -3`). B: follow 9.1.6, `floor(x + 1/2)` (`round(-2.5) = -2`). A until confirmed.
+
+Decision (2026-10-28): B. `round/1` follows 9.1.6 and rounds a half towards positive infinity. The fractional part is taken by subtracting `floor(x)`, which is exact, so `0.49999999999999994` and odd integers above 2^52 are not rounded twice (`src/builtins/arith_float.cpp`, `tests/pl/arith.pl` `round_*`).

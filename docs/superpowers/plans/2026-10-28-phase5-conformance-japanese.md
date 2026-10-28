@@ -54,7 +54,7 @@
 | `write_term/3` の選択肢 | 約 10 | `quoted(false)` などを `domain_error` にする（118〜122）、`lgt_write_term_3_088`〜`096` | I | 5 |
 | `discontiguous` の読み込み | 5 | `syntax/directives/discontiguous_1_01`〜`05` が `load` | I | 6 |
 | 整数を受けた丸め系評価子 | 6 | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
-| `round/1` の負の半分 | 2 | `eclipse_round_1_07`、`08` | Q | 7 |
+| `round/1` の負の半分 | 0（決定 B で解消、+2） | `eclipse_round_1_07`、`08` | Q | 7 |
 | 未決の iso-notes | 約 10 | 7.8.3、9.3.1.3 d、7.5.4（logical update 4 件）、8.11.8、`memberchk/2`、8.11.1 | Q | 8 |
 | `if/3`、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
 | 9223372036854775808 などの多倍長 | 1 と別欄 111 | `sics_read_term_3_24` | X | なし |
@@ -357,8 +357,6 @@
 | `functions/floor_1` | `lgt_floor_1_06` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
 | `functions/power_2` | `lgt_power_2_14` | Q | 8 | 9.3.1.3 d (**)/2: negative power of 0 |
-| `functions/round_1` | `eclipse_round_1_07` | Q | 7 | `round/1` の負の半分（iso-notes 9.1.6 round/1 of a negative half、答え待ち） |
-| `functions/round_1` | `eclipse_round_1_08` | Q | 7 | `round/1` の負の半分（iso-notes 9.1.6 round/1 of a negative half、答え待ち） |
 | `functions/round_1` | `lgt_round_1_13` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `functions/truncate_1` | `lgt_truncate_1_06` | Q | 7 | 丸め系評価子に整数（iso-notes 9.1.6 Rounding functions given an integer、答え待ち） |
 | `logical_update_semantics` | `logical_update_semantics_retract` | Q | 8 | 7.5.4 Open scans and retract |

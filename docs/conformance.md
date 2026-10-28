@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2092
-合格率: 96.4
+合格数: 2094
+合格率: 96.5
 不合格:
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
@@ -25,8 +25,6 @@ functions/float_integer_part_1/tests.lgt lgt_float_integer_part_1_04 error(type_
 functions/floor_1/tests.lgt lgt_floor_1_06 error(type_error(float,9)) true
 functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
 functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined),evaluation_error(zero_divisor)]) evaluation_error(float_overflow)
-functions/round_1/tests.lgt eclipse_round_1_07 true(X== -3) fail
-functions/round_1/tests.lgt eclipse_round_1_08 true(X== -4) fail
 functions/round_1/tests.lgt lgt_round_1_13 error(type_error(float,9)) true
 functions/truncate_1/tests.lgt lgt_truncate_1_06 error(type_error(float,9)) true
 logical_update_semantics/tests.lgt logical_update_semantics_retract true(Assertion) fail

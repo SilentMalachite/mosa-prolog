@@ -26,6 +26,12 @@ test(iso_floor_neg, (X is floor(-1.1)), solutions([X = -2])).
 test(iso_ceiling, (X is ceiling(1.1)), solutions([X = 2])).
 test(iso_truncate, (X is truncate(1.9)), solutions([X = 1])).
 test(iso_round, (X is round(1.5)), solutions([X = 2])).
+test(round_neg_half, (X is round(-2.5)), solutions([X = -2])).
+test(round_neg_half_odd, (X is round(-3.5)), solutions([X = -3])).
+test(round_neg_point5, (X is round(-0.5)), solutions([X = 0])).
+test(round_neg_below_half, (X is round(-2.6)), solutions([X = -3])).
+test(round_just_below_half, (X is round(0.49999999999999994)), solutions([X = 0])).
+test(round_odd_2p52, (X is round(4503599627370497.0)), solutions([X = 4503599627370497])).
 test(iso_float_fun, (X is float(1)), solutions([X = 1.0])).
 test(iso_eq_sum, (1 + 2 =:= 3), true).
 test(iso_le, (1 =< 1), true).
