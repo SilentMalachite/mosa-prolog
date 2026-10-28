@@ -266,10 +266,12 @@ int run_suite(std::string_view path) {
       files.push_back(entry.path());
     }
     std::sort(files.begin(), files.end());
+    // 落ちたファイルで止めない。後ろのファイルの失敗が隠れ、直す前に失敗を見られなくなる。
+    int code = 0;
     for (const auto& item : files) {
-      if (run_one(item) != 0) return 1;
+      if (run_one(item) != 0) code = 1;
     }
-    return 0;
+    return code;
   }
   return run_one(file);
 }

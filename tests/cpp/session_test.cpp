@@ -5,8 +5,11 @@
 #include "mosa/suite.hpp"
 #include "mosa/writer.hpp"
 
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -209,6 +212,23 @@ void check_runner() {
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
 }
 
+// ディレクトリを渡したら、落ちたファイルの後ろも流して全部の失敗を出す。先で止めると後ろの失敗が隠れる。
+void check_runner_reports_every_file() {
+  const std::string dir = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_every";
+  std::filesystem::create_directories(dir);
+  for (const char* name : {"a.pl", "b.pl"}) {
+    std::ofstream file(dir + "/" + name, std::ios::binary);
+    file << "test(" << name[0] << "_fails, fail, true).\n";
+  }
+  std::ostringstream captured;
+  auto* saved = std::cerr.rdbuf(captured.rdbuf());
+  const int code = mosa::run_suite(dir);
+  std::cerr.rdbuf(saved);
+  mosa_test::check(code == 1, "runner every file exit");
+  mosa_test::check(captured.str().find("a.pl: fail") != std::string::npos, "runner reports a.pl");
+  mosa_test::check(captured.str().find("b.pl: fail") != std::string::npos, "runner reports b.pl");
+}
+
 // ADR 0007。捕まらなかった例外の文面は、旗で選んだ言語のカタログから引く。
 void check_uncaught_message(std::string_view lang, std::string_view phrase, std::string_view label) {
   const std::string arg0 = "mosa";
@@ -290,6 +310,7 @@ int main(int argc, char** argv) {
   check_resource_limit_session();
   check_fullwidth_query();
   check_runner();
+  check_runner_reports_every_file();
   check_uncaught_message("ja", "警告: ゴールは例外を送出しました: foo", "uncaught_ja");
   check_uncaught_message("en", "Warning: goal raised exception: foo", "uncaught_en");
   check_message_language_default();
