@@ -149,11 +149,11 @@ A か B か: A は決定のまま（指示子かリストだけ。5 行は不合
 
 決定（2026-10-25）: 添字 0 が `user_input` で stdin、1 が `user_output` で stdout、2 が `user_error` で stderr。`reposition` は false。
 
-決定（2026-10-28）: B。`user_input` は `eof_action(reset)` を返し、そのとおりに動く。終わりの後に読むと、終わりの印を下ろして OS にもう一度尋ねる。読んだ分は繰り返さないので、端末は Ctrl-D の後も読み続けられ、パイプは `end_of_file` を返し続ける。`user_output` と `user_error` は `mode(append)` を返す。`tests/pl/stream_prop.pl` の `all_std` と `tests/pl/write.pl` の `capture_leaves_output` は同じコミットで変える（`src/builtins/streams.cpp` の `standard_stream`、`src/builtins/chars.cpp` の `reset_at_end`、`tests/cpp/stream_test.cpp` の「standard reset」）。
-
 ## 8.11 終端の次の読み
 
 決定（2026-10-25）: 既定の `eof_action` は `eof_code`。終端の次の読みは、テキストが `end_of_file`、バイナリが `-1`。`eof_action(reset)` は別途選べる。
+
+2026-10-28 から `user_input` だけは例外で、`eof_action(reset)` を持つ（下の「8.11 標準ストリームの性質」）。
 
 ## 8.11 空の入力
 
@@ -478,6 +478,8 @@ A か B か: A は今の読みのまま（`evaluation_error(undefined)`）。B �
 `sics_stream_property_2_05c` と `lgt_stream_property_2_08b` は、`user_input` が `eof_action(reset)` を出すことを期待する。`sics_stream_property_2_06d`、`lgt_stream_property_2_09c`、`lgt_stream_property_2_10c` は、`user_output` と `user_error` が `mode(append)` を出すことを期待する。Mosa は `eof_action(eof_code)`（「8.11 終端の次の読み」の既定）と `mode(write)` を出す。
 
 A か B か: A は `eof_code` と `write` のまま。B は `user_input` を `eof_action(reset)`、`user_output` と `user_error` を `mode(append)` にする。確認前は A のまま。
+
+決定（2026-10-28）: B。`user_input` は `eof_action(reset)` を返し、そのとおりに動く。終わりの後に読むと、終わりの印を下ろして OS にもう一度尋ねる。読んだ分は繰り返さないので、端末は Ctrl-D の後も読み続けられ、パイプは `end_of_file` を返し続ける。`user_output` と `user_error` は `mode(append)` を返す。`tests/pl/stream_prop.pl` の `all_std` と `tests/pl/write.pl` の `capture_leaves_output` は同じコミットで変える（`src/builtins/streams.cpp` の `standard_stream`、`src/builtins/chars.cpp` の `reset_at_end`、`tests/cpp/stream_test.cpp` の「standard reset」）。
 
 ## 仕様第4節 So の文字は記号文字
 

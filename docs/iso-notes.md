@@ -151,6 +151,8 @@ Decision (2026-10-25): Index 0 is `user_input` (stdin), 1 is `user_output` (stdo
 
 Decision (2026-10-25): The default `eof_action` is `eof_code`. Reading past the end gives `end_of_file` for text and `-1` for binary. `eof_action(reset)` can be chosen separately.
 
+Since 2026-10-28, `user_input` is the exception and has `eof_action(reset)` (see "8.11 Properties of the standard streams" below).
+
 ## 8.11 Empty input
 
 Decision (2026-10-25): When the position equals the length of the source, `end_of_stream` is `at`. Immediately after an empty input is opened, it is `at`.
