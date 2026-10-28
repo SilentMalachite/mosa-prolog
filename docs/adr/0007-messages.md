@@ -1,6 +1,6 @@
 English | [日本語](0007-messages.ja.md)
 
-Status: Proposed
+Status: Approved (2026-10-28)
 
 ## Context
 
@@ -12,7 +12,7 @@ SPEC Section 4 wants the offending token in the syntax error message, Section 7 
 
 Modules `messages_ja` and `messages_en` each define `message(Key, Format)` (Format a `format/2` atom; keys `goal_raised`, `heap_limit`, `help_japanese_variables` now); `render_message` loads `library(messages_<lang>)` on first use, not imported into `user`, and runs `format/3` on the same machine inside a catch.
 Flag `message_language` takes `ja` or `en`, other atoms give `domain_error(flag_value, message_language+V)`; the default is `ja` when `LANG` (read in `src/platform/`) starts with `ja`, else `en`. A missing catalog, missing key or failing render prints `Key: ` then each argument by `writeq`, separated by spaces.
-`syntax_error(Key)` with one English atom per reason (`invalid_utf8`, `illegal_character`, `unterminated_quoted`, `unterminated_comment`, `bad_escape`, `integer_overflow`, `unexpected_token`, `max_arity`, `incomplete_term`); the token goes in Extra as owner's question A or B (A: `syntax(stream(S, Line, LinePos, CharNo), Token)`, B: `stream(S, Line, LinePos, CharNo, Token)`; `''` at end of input).
+`syntax_error(Key)` with one English atom per reason (`invalid_utf8`, `illegal_character`, `unterminated_quoted`, `unterminated_comment`, `bad_escape`, `integer_overflow`, `unexpected_token`, `max_arity`, `incomplete_term`); Extra is `syntax(stream(S, Line, LinePos, CharNo), Token)`, Token the offending token as an atom, `''` at end of input (owner chose A over `stream/5`).
 
 ## Rejected alternatives
 
@@ -24,4 +24,4 @@ Keeping the sentence in the Formal. `catch/3` patterns would depend on the langu
 
 `goal_raised` uses `~q`, so the shown exception is quoted as now (variables written by `numbervars` as `writeq/1` does). `main_mosa.cpp` has no machine when it catches `ResourceLimit`, so it creates a fresh one to render `heap_limit` and falls back as above if that fails.
 CMake runs `session_test` with `LANG=ja_JP.UTF-8` so the existing Japanese checks do not depend on the machine, and once more with `MOSA_LIB` at `tests/tmp/messages_empty/`, whose `messages_en.pl` (written at configure time) has no keys; `MOSA_LIB` is searched before the exe `lib/`, so that run checks the fallback.
-`read_syntax`, `read_incomplete` and `read_syntax_stream` in `tests/pl/read.pl` change to the Key and Extra above in the Task 12 commit. SPEC Section 7 names the chosen Extra in the same commit as approval. No code is written before approval.
+`read_syntax`, `read_incomplete` and `read_syntax_stream` in `tests/pl/read.pl` change to the Key and Extra above in the Task 12 commit. SPEC Section 7 names this Extra since approval. No code is written before approval.
