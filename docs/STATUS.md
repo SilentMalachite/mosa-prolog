@@ -1,5 +1,5 @@
 Phase: 4 in progress (phase 3 done)
-In progress: none. This work is on branch phase4-session; origin/main has a separate phase 4 implementation (34 commits from d3fe167). The owner chooses which to keep
+In progress: phase 4 Task 7, M:-qualified clause operations and declarations (branch phase4-session, kept by the owner)
 Done: Logtalk suite pass rate is 90% or more. Version is mosa 0.0.1 (phase 3). Round-trip re-reading keeps the string
 Done: mosatest --suite also writes docs/conformance.json (shields.io endpoint). The README badge reads it from main; the CI macOS job fails on an uncommitted diff
 Done: mosatest --suite takes --report; it may be omitted only for tests/conformance from the repo root (suite_args_test)

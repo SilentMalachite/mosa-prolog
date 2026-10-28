@@ -297,6 +297,30 @@ A or B?: A: remove the mark of every file that was not read to the end, so the n
 
 Decision (2026-10-28): A.
 
+## Section 5 Clause operations on an unknown module
+
+SPEC section 5 allows `assertz(家系:親(a, b))` but does not say what happens when the module does not exist yet.
+
+A or B?: A: `existence_error(module, M)`, the same as `M:G`. B: create the module and add the clause, as SWI-Prolog does.
+
+Decision (2026-10-28): A. Only `module/2` creates a module. `asserta/1`, `assertz/1`, `retract/1`, `retractall/1`, `clause/2` and `abolish/1` with an unknown `M:` give `existence_error(module, M)`.
+
+## Section 5 Clause operations on an imported name
+
+SPEC section 5 says a predicate created by `assertz/1` belongs to the module that added it, but not what happens when the context module imports that name.
+
+A or B?: A: follow the import, as a call does, and act on the definition in the source module. B: look only at the context module's own predicates; `assertz/1` then conflicts with the import.
+
+Decision (2026-10-28): A. The database built-ins look at the module's own predicates, then its explicit imports (`use_module/1,2` and the exports of a consulted module file). They do not follow the default import source, so `assertz(p(1))` inside a module never adds to `user:p/1`.
+
+## 8.8.2 current_predicate/1 in modules
+
+SPEC section 5 does not say which predicates `current_predicate(N/A)` and `current_predicate(M:N/A)` enumerate.
+
+A or B?: A: the module's own predicates only; with a variable `M`, every module is enumerated and `M` is bound. B: own and imported predicates.
+
+Decision (2026-10-28): A. An unqualified `current_predicate/1` enumerates the context module's own predicates, so the result in `user` is the same as before modules.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.
