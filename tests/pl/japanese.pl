@@ -1,3 +1,10 @@
+% SPEC 第4節「Minimum set of Japanese tests」と、それを確かめるテスト（計画 Task 16）。
+% - 日本語の原子と演算子の読み書きの往復: wq_tokyo、op_ha、op_ha_roundtrip、read_oya、write_oya
+% - sub_atom/5 で 日本語処理系 から 語処: sub_atom_go_sho
+% - atom_length('𠮷野家', 3): atom_length_yoshinoya
+% - 日本語のファイル名の consult/1 と、日本語を含む syntax_error: consult_japanese_name、syntax_token_japanese、
+%   syntax_col_japanese（表示の文面は tests/cpp/session_test.cpp の syntax_ja_shown と syntax_en_shown）
+% - 全角記号の旗の有無で読みの結果が同じ: fw_same_term
 :- use_module(library(japanese)).
 :- use_module(library(format)).
 test(atom_length_hiragana, atom_length('あ', 1), true).
@@ -18,6 +25,9 @@ test(put_code_oya_type, put_code('親'), error(type_error(integer, '親'))).
 test(read_oya, (open_string('親.', S), read(S, '親'), stream_property(S, position(stream_position(2, 1, 3)))), true).
 test(write_oya, (with_output_to(atom(A), write(親)), A == 親), true).
 test(op_ha, (op(700, xfx, は), open_string('太郎 は 学生.', S), read(S, T), T == は(太郎, 学生), op(0, xfx, は)), true).
+test(op_ha_roundtrip, (op(700, xfx, は), with_output_to(atom(A), writeq(は(太郎, 学生))), A == '太郎 は 学生', atom_concat(A, '.', Text), open_string(Text, S), read(S, T), T == は(太郎, 学生), op(0, xfx, は)), true).
+test(wq_tokyo, (with_output_to(atom(A), writeq(東京)), A == '東京'), true).
+test(wq_tokyo_space, (with_output_to(atom(A), writeq('東 京')), A == '''東 京'''), true).
 test(cop_ha, (op(700, xfx, は), current_op(700, xfx, は), op(0, xfx, は)), true).
 test(conv_ha, (set_prolog_flag(char_conversion, on), char_conversion(あ, い), open_string('あ.', S), read(S, T), T == い, char_conversion(あ, あ), set_prolog_flag(char_conversion, off)), true).
 test(ccc_ha, (\+ current_char_conversion(あ, あ), char_conversion(あ, い), current_char_conversion(あ, い), current_char_conversion(X, い), X == あ, findall(P-Q, current_char_conversion(P, Q), L), L == [あ-い], char_conversion(あ, あ)), true).
@@ -112,6 +122,7 @@ test(fw_comment_kept, (全角で読む('X = a /* （ */。', T), T = (_ = A), A 
 test(fw_directive_next_clause, 全(1), true).
 test(fw_directive_per_file, current_prolog_flag(japanese_punctuation, false), true).
 % SPEC 第4節。構文エラーの列は文字で数える。全角の字も 1 列。
+test(syntax_token_japanese, (open_string('子 親.', S), catch(read(S, _), error(syntax_error(_), context(_, syntax(_, Token))), true), Token == '親'), true).
 test(syntax_col_japanese, (open_string('あいう ).', S1), catch(read(S1, _), error(_, context(_, syntax(stream(_, _, P1, _), _))), true), open_string('abc ).', S2), catch(read(S2, _), error(_, context(_, syntax(stream(_, _, P2, _), _))), true), P1 == P2), true).
 % ~t~| の桁は東アジア幅で数える（計画 Task 13）。日本 は幅 4、日a は幅 3。
 test(fmt_wide_pad, with_output_to(atom(A), format("~w~t~10|~w", [日本, x])), solutions([A = '日本      x'])).

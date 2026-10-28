@@ -331,9 +331,9 @@
 **Files:**
 - Modify: `tests/pl/japanese.pl`
 
-- [ ] **Step 1:** SPEC 第4節「Minimum set of Japanese tests」の 5 項目それぞれに対応するテスト名を `japanese.pl` の先頭のコメントに書く（往復と `は` 演算子は `op_ha`、`語処` は `sub_atom_go_sho`、`𠮷野家` は `atom_length_yoshinoya`、日本語のファイル名と構文エラーは Task 15 と 12、全角記号は Task 10）
-- [ ] **Step 2:** 欠けているものがあれば足す。日本語原子の `writeq` 往復 `wq_tokyo`: `writeq(東京)` が `東京`、`writeq('東 京')` が `'東 京'`
-- [ ] **Step 3:** `mosatest tests/pl/japanese.pl` が全件通ることを見る。コミット `[phase5] japanese.pl を SPEC 第4節の最小集合にそろえる（全件通過）`
+- [x] **Step 1:** SPEC 第4節「Minimum set of Japanese tests」の 5 項目それぞれに対応するテスト名を `japanese.pl` の先頭のコメントに書く（往復と `は` 演算子は `op_ha`、`語処` は `sub_atom_go_sho`、`𠮷野家` は `atom_length_yoshinoya`、日本語のファイル名と構文エラーは Task 15 と 12、全角記号は Task 10）
+- [x] **Step 2:** 欠けているものがあれば足す。日本語原子の `writeq` 往復 `wq_tokyo`: `writeq(東京)` が `東京`、`writeq('東 京')` が `'東 京'`
+- [x] **Step 3:** `mosatest tests/pl/japanese.pl` が全件通ることを見る。コミット `[phase5] japanese.pl を SPEC 第4節の最小集合にそろえる（全件通過）`。足したのは `op_ha_roundtrip`（書いて読み戻す）、`wq_tokyo`、`wq_tokyo_space`、`syntax_token_japanese`。どれも初めから通り、期待値をわざと崩すと落ちることを見た
 
 ### Task 17: 出口
 
