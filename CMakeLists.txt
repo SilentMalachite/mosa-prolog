@@ -37,6 +37,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
   src/machine/load.cpp
   src/machine/load_path.cpp
+  src/machine/reload.cpp
   src/machine/compile.cpp
   src/machine/choice.cpp
   src/machine/cut.cpp
@@ -192,6 +193,13 @@ add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl)
+
+add_executable(module_reload_test tests/cpp/module_reload_test.cpp)
+target_include_directories(module_reload_test PRIVATE tests/cpp)
+target_compile_definitions(module_reload_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(module_reload_test PRIVATE mosa_lib)
+add_dependencies(module_reload_test mosa_lists)
+add_test(NAME module_reload COMMAND $<TARGET_FILE:module_reload_test>)
 
 add_executable(library_test tests/cpp/library_test.cpp)
 target_include_directories(library_test PRIVATE tests/cpp src/platform)

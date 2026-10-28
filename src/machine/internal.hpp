@@ -26,6 +26,8 @@ struct Clause {
   std::uint16_t key_arity = 0;
   std::int64_t key_int = 0;
   double key_float = 0;
+  // この節を足したファイル。空はファイル以外。再読みはそのファイルの節だけを落とす。
+  std::string origin;
 };
 
 // 複数のテキストに節を足してよい印。述語が無くても残し、宣言だけでは手続きにしない。
@@ -70,6 +72,16 @@ struct ExportMark {
   std::uint16_t arity = 0;
 };
 
+// 読み込みが失敗したとき、触る前の節へ戻す。作った述語は resize では消さない。
+struct Snapshot {
+  std::uint32_t home = 0;
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  std::vector<Clause> clauses;
+  bool created = false;
+  bool dynamic = false;
+};
+
 struct ModuleSource {
   std::uint32_t module = 0;
   std::string path;
@@ -87,6 +99,16 @@ struct ExportedOp {
   int priority = 0;
   Specifier specifier = Specifier::Xfx;
   std::string name;
+};
+
+// 同じファイルの再読みが失敗したとき、そのモジュールの公開と演算子だけを戻す。
+struct ReloadPicture {
+  bool on = false;
+  std::uint32_t module = 0;
+  std::vector<ExportMark> exports;
+  std::vector<ExportedOp> exported_ops;
+  bool had_ops = false;
+  ModuleOps ops{};
 };
 
 // メタ引数の上書き。born 以降を捨てる選択点では、枠の中の古い引数へ戻す。
@@ -245,6 +267,8 @@ struct Machine::Impl {
   std::vector<ModuleSource> module_sources;
   // 今読んでいるファイルの正規化パス。空はファイルではない。
   std::string load_origin;
+  // 再読みの直前の公開と演算子。入れ子の読み込みは、自分の分だけを載せる。
+  ReloadPicture reload_picture;
   std::uint32_t user_mod = 0;
   std::uint32_t system_mod = 0;
   // 今走っている節のモジュール。Cell には入れない（ADR 0006）。
@@ -558,6 +582,22 @@ void note_declared_op(Impl& machine, int priority, Specifier specifier, std::str
 void note_multifile(Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
 // 修飾した頭部を、宣言済みならそのモジュールの節に直す。home は足す先。
 [[nodiscard]] bool retarget_multifile_clause(Impl& machine, Cell& term, std::uint32_t& home);
+// 入れ子は親の写しを退避する。失敗で公開を戻したあとに、親の写しへ戻す。
+struct ReloadFrame {
+  Impl& machine;
+  ReloadPicture saved;
+  explicit ReloadFrame(Impl& machine);
+  ~ReloadFrame();
+  ReloadFrame(const ReloadFrame&) = delete;
+  ReloadFrame& operator=(const ReloadFrame&) = delete;
+};
+
+// 同じパスのモジュールファイルなら、そのファイルの節を外して写す。選択点があれば失敗。
+[[nodiscard]] bool begin_file_reload(Impl& machine, std::vector<Snapshot>& snapshots);
+void restore_reload_picture(Impl& machine);
+void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity);
+void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size);
+
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory = {},
                                     std::string_view origin = {},
                                     std::vector<std::string>* shared_opening = nullptr);

@@ -1,6 +1,8 @@
 // docs/SPEC.md 第5節
 // use_module(+atom)
 // use_module(library(+atom)) は $MOSA_LIB、次に実行ファイルの隣の lib/
+// その他の原子は、読んでいるファイルの隣か、トップレベルでは作業ディレクトリ。
+// パスそのものを試し、無ければ .pl を足す。載っているモジュールの原子が先。
 // use_module(+atom, +list)
 // use_module(+atom, except(+list))
 //   instantiation_error
@@ -23,6 +25,8 @@
 namespace mosa {
 
 std::filesystem::path canonical_key(const std::filesystem::path& file);
+std::filesystem::path resolve_include(std::string_view directory, std::string_view atom);
+std::filesystem::path prolog_source_path(const std::filesystem::path& file);
 
 namespace {
 
@@ -274,13 +278,17 @@ bool library_file(const Impl& machine, Cell cell, std::string& text) {
   return true;
 }
 
-bool path_text(Impl& machine, const Goal& goal, std::string& text) {
+bool path_text(Impl& machine, const Goal& goal, std::string& text, bool& library) {
+  library = false;
   const Cell path = machine.heap.deref(goal.arg(machine, 0));
   if (machine.heap.unbound(path)) {
     raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
     return false;
   }
-  if (library_file(machine, path, text)) return true;
+  if (library_file(machine, path, text)) {
+    library = true;
+    return true;
+  }
   if (path.tag() != Tag::Atom) {
     raise_formal(machine, formal_type(machine, "atom", path), goal.name, goal.arity);
     return false;
@@ -288,6 +296,15 @@ bool path_text(Impl& machine, const Goal& goal, std::string& text) {
   // intern がアトム表を伸ばすと、名前の string_view は無効になる。
   text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
   return true;
+}
+
+// library/1 はここでは足さない。相対は読み込み中のファイルから。無ければ .pl。
+std::string resolve_use_path(const Impl& machine, std::string_view text) {
+  std::string directory;
+  if (!machine.load_origin.empty()) {
+    directory = std::filesystem::path{machine.load_origin}.parent_path().string();
+  }
+  return prolog_source_path(resolve_include(directory, text)).string();
 }
 
 bool resolve_module(Impl& machine, const Goal& goal, std::string_view text, std::uint32_t& loaded) {
@@ -336,7 +353,9 @@ bool perform_use(Impl& machine, const Goal& goal) {
     return import_found(machine, goal, named, ask, goal.arity == 2);
   }
   std::string text;
-  if (!path_text(machine, goal, text)) return false;
+  bool library = false;
+  if (!path_text(machine, goal, text, library)) return false;
+  if (!library) text = resolve_use_path(machine, text);
   std::uint32_t loaded = 0;
   if (!resolve_module(machine, goal, text, loaded)) return false;
   return import_found(machine, goal, loaded, ask, goal.arity == 2);

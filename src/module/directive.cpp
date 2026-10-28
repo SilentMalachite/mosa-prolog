@@ -67,6 +67,40 @@ bool module_known(const Impl& machine, std::uint32_t name) {
   return std::find(machine.modules.begin(), machine.modules.end(), name) != machine.modules.end();
 }
 
+bool source_matches(const Impl& machine, std::uint32_t name) {
+  if (machine.load_origin.empty()) return false;
+  for (const ModuleSource& item : machine.module_sources) {
+    if (item.module == name && item.path == machine.load_origin) return true;
+  }
+  return false;
+}
+
+// このパスは別のモジュールの定義ファイルである。名前を変えた再読みは残さない。
+bool path_defines_other(const Impl& machine, std::uint32_t name) {
+  if (machine.load_origin.empty()) return false;
+  for (const ModuleSource& item : machine.module_sources) {
+    if (item.path == machine.load_origin && item.module != name) return true;
+  }
+  return false;
+}
+
+bool accept_module_name(const Impl& machine, std::uint32_t name) {
+  if (machine.load_terms != 1 || path_defines_other(machine, name)) return false;
+  if (!module_known(machine, name)) return true;
+  // 既にある名前は、同じファイルの再読みのときだけ受け付ける。
+  return source_matches(machine, name);
+}
+
+void note_exported_op(Impl& machine, const ExportedOp& op) {
+  for (const ExportedOp& item : machine.exported_ops) {
+    if (item.module == op.module && item.name == op.name && item.priority == op.priority &&
+        item.specifier == op.specifier) {
+      return;
+    }
+  }
+  machine.exported_ops.push_back(op);
+}
+
 void remember_module(Impl& machine, std::uint32_t name) {
   if (module_known(machine, name)) return;
   machine.modules.push_back(name);
@@ -126,9 +160,8 @@ int apply_module_directive(Impl& machine, Cell term) {
   std::uint32_t name = 0;
   Cell listed{};
   if (!module_name(machine, term, name, listed)) return 0;
-  // 第5節は1ファイル1モジュール。最初の項でない名前も、既にある名前も残さない。
-  // 同じファイルの読み直しは、まだこの検査と分けていない。
-  if (machine.load_terms != 1 || module_known(machine, name)) {
+  // 同じパスの再読みだけ既にあるモジュールを受け付ける。別ファイルと、ファイル内の2つ目は拒む。
+  if (!accept_module_name(machine, name)) {
     reject_module(machine, name);
     return -1;
   }
@@ -141,9 +174,12 @@ int apply_module_directive(Impl& machine, Cell term) {
   }
   machine.load_home = name;
   remember_module(machine, name);
-  machine.exports.insert(machine.exports.end(), listed_exports.begin(), listed_exports.end());
-  machine.exported_ops.insert(machine.exported_ops.end(), listed_ops.begin(), listed_ops.end());
-  if (!machine.load_origin.empty()) machine.module_sources.push_back(ModuleSource{name, machine.load_origin});
+  for (const ExportMark& mark : listed_exports) note_export(machine, mark.module, mark.name, mark.arity);
+  for (const ExportedOp& op : listed_ops) note_exported_op(machine, op);
+  // 再読みは出所を足さない。同じパスが二度入ると、定義ファイルが分からなくなる。
+  if (!source_matches(machine, name) && !machine.load_origin.empty()) {
+    machine.module_sources.push_back(ModuleSource{name, machine.load_origin});
+  }
   return 1;
 }
 

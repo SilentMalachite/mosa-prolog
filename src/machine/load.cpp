@@ -22,15 +22,6 @@ std::filesystem::path prolog_source_path(const std::filesystem::path& file);
 
 namespace {
 
-struct Snapshot {
-  std::uint32_t home = 0;
-  std::uint32_t name = 0;
-  std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
-  bool created = false;
-  bool dynamic = false;
-};
-
 // この読み込みの中だけで隙間を許す。述語ベクタには入れない。宣言は手続きを作らない。
 struct Apart {
   std::uint32_t name = 0;
@@ -195,42 +186,14 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
   }
   predicate.seen = true;
   last = index;
+  // 再読みは、このパスの節だけを落とす。空はテキストだけの節で、ファイルの再読みには乗らない。
+  clause.origin = machine.load_origin;
   predicate.clauses.push_back(std::move(clause));
   return true;
 }
 
-void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
-  const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
-    return shot.name == name && shot.arity == arity;
-  });
-  if (known) return;
-  Predicate* predicate = predicate_in(machine, machine.load_home, name, arity);
-  Snapshot shot;
-  shot.home = machine.load_home;
-  shot.name = name;
-  shot.arity = arity;
-  shot.created = predicate == nullptr;
-  if (predicate != nullptr) {
-    shot.clauses = predicate->clauses;
-    shot.dynamic = predicate->dynamic;
-  }
-  snapshots.push_back(std::move(shot));
-}
-
 void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& clause) {
   remember_pred(machine, snapshots, head_name(clause), head_arity(clause));
-}
-
-void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
-  for (const Snapshot& shot : snapshots) {
-    if (shot.created) continue;
-    Predicate* predicate = predicate_in(machine, shot.home, shot.name, shot.arity);
-    if (predicate != nullptr) {
-      predicate->clauses = shot.clauses;
-      predicate->dynamic = shot.dynamic;
-    }
-  }
-  machine.predicates.resize(previous_size);
 }
 
 struct SavedFlags {
@@ -273,6 +236,7 @@ LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const Save
                        const std::vector<Snapshot>& snapshots, std::size_t previous_size,
                        std::size_t heap_base, const std::vector<SharedPred>& saved_multi,
                        const std::vector<std::string>& saved_prepared) {
+  restore_reload_picture(machine);
   machine.operators = saved_ops;
   restore_flags(machine, saved_flags);
   machine.multifile = saved_multi;
@@ -780,8 +744,10 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening};
-  if (!read_terms(machine, source, directory, origin, false, scan)) {
-    if (machine.load_kept) {
+  // 入れ子が親の再読みの写しを消さない。この読み込みの分だけを載せる。
+  ReloadFrame reload_frame{machine};
+  if (!begin_file_reload(machine, snapshots) || !read_terms(machine, source, directory, origin, false, scan)) {
+    if (machine.load_kept && !machine.reload_picture.on) {
       home_guard.keep();
       machine.heap.truncate(heap_base);
       return LoadStatus{false, machine.diagnostic};
@@ -790,6 +756,12 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
                        saved_prepared);
   }
   const LoadStatus done = finish_load(machine, heap_base, inits);
+  // 初期化の例外は、モジュールでないファイルでは節を残す。再読みは触る前へ戻す。
+  if (!done.ok && machine.reload_picture.on) {
+    machine.load_kept = false;
+    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
+                       saved_prepared);
+  }
   if (done.ok || machine.load_kept) home_guard.keep();
   if (done.ok && machine.load_home != machine.user_mod) machine.operators = saved_ops;  // 続きの項だけ共有の表
   return done;
