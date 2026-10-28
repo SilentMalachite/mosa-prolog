@@ -241,6 +241,22 @@ A or B?: A: add `op(1150, fx, meta_predicate)` and `op(700, xfx, as)` to the `sy
 
 Decision (2026-10-28): A. Both operators are added to the `system` operator table, so the SPEC section 5 example reads as written in every module. This is a deviation from the ISO operator table (6.3.4.4): a program that uses `as` as a plain atom in an operator position reads differently.
 
+## Section 5 Operator :
+
+SPEC section 5 writes `?- 家系:祖父(太郎, Z).`, which can be read only if `:` is an infix operator. `:` is not in the ISO operator table (6.3.4.4), and `src/read/operator_table.cpp` leaves it out on purpose.
+
+A or B?: A: add `op(600, xfy, :)` to the `system` operator table, the same as SWI-Prolog and as the operator the Logtalk judge adds for a moment. B: add nothing; only `:(M, G)` in canonical form is accepted.
+
+Decision (2026-10-28): A. `op(600, xfy, :)` is in the `system` operator table. This is a deviation from the ISO operator table (6.3.4.4), like `meta_predicate` and `as` above.
+
+## Section 5 Cut inside Module:Goal
+
+SPEC section 5 says `Module:Goal` runs `Goal` in the context of `Module`, but not how far a cut inside `Goal` reaches. ISO 13211-1 7.8 makes `call/1` opaque to cut and `,/2`, `;/2`, `->/2` transparent.
+
+A or B?: A: transparent; the `!` in `p :- member(X, L), user:!.` cuts the clause of `p`, as SWI-Prolog compiles a qualified body goal. B: opaque, like `call/1`; the cut is local to `Module:Goal`.
+
+Decision (2026-10-28): A. `:/2` is transparent to cut. A goal reached through `call/N` stays opaque, because `call/N` itself sets the cut barrier.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.
