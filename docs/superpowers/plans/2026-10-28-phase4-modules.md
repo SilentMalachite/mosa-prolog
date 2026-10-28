@@ -260,9 +260,9 @@
 - Modify: Task 9 の仮の `tests/pl/modules/高階.pl` をやめ、`meta_private_closure` を `maplist/2` に戻す
 - Test: `tests/pl/lib_apply.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`maplist/2..5`、`foldl/4..6`、`include/3`、`exclude/3` に各 1 つ以上。`maplist_len_diff`: `maplist(=, [a], [a, b])` が失敗。`foldl_sum`: `foldl(plus3, [1, 2, 3], 0, S)` が `S == 6`（`plus3/3` はテストファイルで定義）
-- [ ] **Step 2:** すべて `meta_predicate` を宣言して Prolog で書く。テストを流す
-- [ ] **Step 3:** コミット `[phase4] library(apply) を実装（lib_apply.pl、modules.pl の meta_private_closure）`
+- [x] **Step 1:** 失敗するテスト。`maplist/2..5`、`foldl/4..6`、`include/3`、`exclude/3` に各 1 つ以上。`maplist_len_diff`: `maplist(=, [a], [a, b])` が失敗。`foldl_sum`: `foldl(plus3, [1, 2, 3], 0, S)` が `S == 6`（`plus3/3` はテストファイルで定義）
+- [x] **Step 2:** すべて `meta_predicate` を宣言して Prolog で書く。テストを流す
+- [x] **Step 3:** コミット `[phase4] library(apply) を実装（lib_apply.pl、modules.pl の meta_private_closure）`
 
 ### Task 14: `library(between)`
 

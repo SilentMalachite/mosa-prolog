@@ -140,3 +140,5 @@ test(flag_jp_per_file, current_prolog_flag(japanese_punctuation, false), true).
 test(flag_other_kept, current_prolog_flag(debug, on), true).
 % iso-notes の Section 5 Autoload の決定 A。このファイルは library(lists) を取り込まない。
 test(lists_needs_use, append([a], [b], _), error(existence_error(procedure, append/3))).
+% 家系 が library(apply) を取り込んでも user には見えない。
+test(apply_needs_use, maplist(integer, [1]), error(existence_error(procedure, maplist/2))).
