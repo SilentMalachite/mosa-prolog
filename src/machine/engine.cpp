@@ -140,6 +140,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"consult", 1},
     {"use_module", 1},
     {"use_module", 2},
+    {"export", 1},
+    {"predicate_property", 2},
     {"!", 0},
     {"var", 1},
     {"nonvar", 1},
@@ -477,6 +479,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) ||
       run_modules(machine, goal) || run_use_module(machine, goal) || run_qualify(machine, goal) ||
+      run_export(machine, goal) || run_property(machine, goal) ||
       run_length(machine, goal) || run_display_width(machine, goal) ||
       run_upcase_atom(machine, goal) || run_kana(machine, goal) ||
       run_yomi_width(machine, goal) || run_zen_han(machine, goal)) {

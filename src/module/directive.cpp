@@ -73,6 +73,31 @@ void remember_module(Impl& machine, std::uint32_t name) {
   if (!machine.module_added.empty()) machine.module_added.back().push_back(name);
 }
 
+bool export_body(const Impl& machine, Cell term, Cell& spec) {
+  term = machine.heap.deref(term);
+  if (!is_directive(machine.heap, term)) return false;
+  const Cell head = machine.heap.deref(machine.heap.arg(term, 0));
+  if (head.tag() != Tag::Str || machine.heap.functor_arity(head) != 1) return false;
+  if (machine.atoms.name(machine.heap.functor_atom(head)) != "export") return false;
+  spec = machine.heap.deref(machine.heap.arg(head, 0));
+  return true;
+}
+
+int apply_export_directive(Impl& machine, Cell term) {
+  Cell spec{};
+  if (!export_body(machine, term, spec)) return 0;
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  if (!export_indicator(machine, spec, name, arity)) {
+    machine.diagnostic = "述語指示子ではありません";
+    machine.syntax_diag = false;
+    return -1;
+  }
+  // 読み込み中のモジュールの公開リストへ足す。呼び出し元ではない。
+  note_export(machine, machine.load_home, name, arity);
+  return 1;
+}
+
 }  // namespace
 
 void drop_load_modules(Impl& machine) {
@@ -125,6 +150,8 @@ int apply_module_directive(Impl& machine, Cell term) {
 int apply_module_load_directive(Impl& machine, Cell term) {
   const int meta = apply_meta_directive(machine, term);
   if (meta != 0) return meta;
+  const int exported = apply_export_directive(machine, term);
+  if (exported != 0) return exported;
   return apply_use_directive(machine, term);
 }
 

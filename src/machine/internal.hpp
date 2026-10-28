@@ -50,9 +50,19 @@ struct Predicate {
   std::uint32_t origin = 0;
   // 別名のとき、節を持つ側の名前。0 は席の名前と同じ。
   std::uint32_t origin_name = 0;
-  // 空は宣言なし。長さはアリティ。0 は包まない。1 は呼び出し元:引数。
+  // 空は宣言なし。長さはアリティ。バイトは kMeta*。0 から 3 は包まない。
   std::vector<std::uint8_t> meta;
 };
+
+// predicate_property が宣言した頭部を戻す。0 と : と数字を同じバイトに潰さない。
+inline constexpr std::uint8_t kMetaAsk = 0;
+inline constexpr std::uint8_t kMetaPlus = 1;
+inline constexpr std::uint8_t kMetaMinus = 2;
+inline constexpr std::uint8_t kMetaStar = 3;
+inline constexpr std::uint8_t kMetaColon = 4;
+inline constexpr std::uint8_t kMetaCaret = 5;
+inline constexpr std::uint8_t kMetaSlash = 6;
+inline constexpr std::uint8_t kMetaDigit = 16;
 
 struct ExportMark {
   std::uint32_t module = 0;
@@ -135,7 +145,7 @@ struct Entry {
   Cell pattern{};
   IrTerm recovery;
   // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
-  // 5 は current_char_conversion、6 は current_module。
+  // 5 は current_char_conversion、6 は current_module、7 は predicate_property。
   std::uint8_t gen_kind = 0;
 };
 
@@ -495,6 +505,10 @@ void arm_caller(Impl& machine, std::uint32_t caller);
 [[nodiscard]] bool run_modules(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_use_module(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_export(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_property(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_property(Impl& machine);
+void note_export(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 // 0 はこの指示ではない。1 は記録した。-1 は読み込みの失敗。
 [[nodiscard]] int apply_module_directive(Impl& machine, Cell term);
 [[nodiscard]] int apply_meta_directive(Impl& machine, Cell term);

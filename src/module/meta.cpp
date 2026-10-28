@@ -15,11 +15,6 @@
 namespace mosa {
 namespace {
 
-constexpr std::uint8_t kPlain = 0;
-constexpr std::uint8_t kGoal = 1;
-constexpr std::uint8_t kCaret = 2;
-constexpr std::uint8_t kSlash = 3;
-
 bool directive_body(const Impl& machine, Cell term, std::string_view name, Cell& body) {
   term = machine.heap.deref(term);
   if (!is_directive(machine.heap, term)) return false;
@@ -30,30 +25,38 @@ bool directive_body(const Impl& machine, Cell term, std::string_view name, Cell&
   return true;
 }
 
-bool goal_mode(const Impl& machine, Cell cell) {
+bool digit_mode(const Impl& machine, Cell cell, std::uint8_t& mode) {
   cell = machine.heap.deref(cell);
-  if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox) {
-    const auto value = machine.heap.integer_value(cell);
-    return value >= 0 && value <= 9;
+  if (cell.tag() != Tag::Int && cell.tag() != Tag::IntBox) return false;
+  const auto value = machine.heap.integer_value(cell);
+  if (value < 0 || value > 9) return false;
+  mode = static_cast<std::uint8_t>(kMetaDigit + value);
+  return true;
+}
+
+bool atom_mode(const Impl& machine, Cell cell, std::string_view text) {
+  cell = machine.heap.deref(cell);
+  return cell.tag() == Tag::Atom && machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3)) == text;
+}
+
+bool plain_mode(const Impl& machine, Cell cell, std::uint8_t& mode) {
+  if (atom_mode(machine, cell, "?")) {
+    mode = kMetaAsk;
+    return true;
   }
-  return cell.tag() == Tag::Atom && machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3)) == ":";
-}
-
-bool slash_mode(const Impl& machine, Cell cell) {
-  cell = machine.heap.deref(cell);
-  return cell.tag() == Tag::Atom && machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "//";
-}
-
-bool caret_mode(const Impl& machine, Cell cell) {
-  cell = machine.heap.deref(cell);
-  return cell.tag() == Tag::Atom && machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "^";
-}
-
-bool plain_mode(const Impl& machine, Cell cell) {
-  cell = machine.heap.deref(cell);
-  if (cell.tag() != Tag::Atom) return false;
-  const auto text = machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
-  return text == "?" || text == "+" || text == "-" || text == "*";
+  if (atom_mode(machine, cell, "+")) {
+    mode = kMetaPlus;
+    return true;
+  }
+  if (atom_mode(machine, cell, "-")) {
+    mode = kMetaMinus;
+    return true;
+  }
+  if (atom_mode(machine, cell, "*")) {
+    mode = kMetaStar;
+    return true;
+  }
+  return false;
 }
 
 bool read_modes(Impl& machine, Cell head, std::uint32_t& name, std::vector<std::uint8_t>& modes) {
@@ -65,10 +68,11 @@ bool read_modes(Impl& machine, Cell head, std::uint32_t& name, std::vector<std::
   modes.reserve(arity);
   for (std::uint16_t index = 0; index < arity; ++index) {
     const Cell arg = machine.heap.arg(head, index);
-    if (goal_mode(machine, arg)) modes.push_back(kGoal);
-    else if (caret_mode(machine, arg)) modes.push_back(kCaret);
-    else if (slash_mode(machine, arg)) modes.push_back(kSlash);
-    else if (plain_mode(machine, arg)) modes.push_back(kPlain);
+    std::uint8_t mode = 0;
+    if (digit_mode(machine, arg, mode) || plain_mode(machine, arg, mode)) modes.push_back(mode);
+    else if (atom_mode(machine, arg, ":")) modes.push_back(kMetaColon);
+    else if (atom_mode(machine, arg, "^")) modes.push_back(kMetaCaret);
+    else if (atom_mode(machine, arg, "//")) modes.push_back(kMetaSlash);
     else return false;
   }
   return true;
@@ -147,26 +151,26 @@ int apply_meta_directive(Impl& machine, Cell term) {
 }
 
 bool builtin_meta(std::string_view name, std::uint16_t arity, std::vector<std::uint8_t>& modes) {
-  modes.assign(arity, kPlain);
+  modes.assign(arity, kMetaAsk);
   if (name == "call" && arity >= 1 && arity <= 8) {
-    modes[0] = kGoal;
+    modes[0] = kMetaColon;
     return true;
   }
   if (name == "findall" && (arity == 3 || arity == 4)) {
-    modes[1] = kGoal;
+    modes[1] = kMetaColon;
     return true;
   }
   if ((name == "bagof" || name == "setof") && arity == 3) {
-    modes[1] = kCaret;
+    modes[1] = kMetaCaret;
     return true;
   }
   if (name == "catch" && arity == 3) {
-    modes[0] = kGoal;
-    modes[2] = kGoal;
+    modes[0] = kMetaColon;
+    modes[2] = kMetaColon;
     return true;
   }
   if ((name == "once" || name == "\\+") && arity == 1) {
-    modes[0] = kGoal;
+    modes[0] = kMetaColon;
     return true;
   }
   return false;
@@ -185,14 +189,14 @@ void wrap_meta(Impl& machine, const Goal& goal, const Predicate& predicate) {
   const auto colon = machine.atoms.intern(":");
   for (std::uint16_t index = 0; index < goal.arity; ++index) {
     const auto mode = predicate.meta[index];
-    if (mode == kPlain) continue;
+    // ? + - * は包まない。^ と // は内側だけ。: と 0 から 9 は項全体。
+    if (mode <= kMetaStar) continue;
     const auto slot = goal.at + kFrameHead + index;
     const auto born = machine.heap.size();
     const Cell arg = machine.heap.deref(goal.arg(machine, index));
     Cell wrapped = arg;
-    // ^ は目標だけ、// は名前/アリティだけ。0 と : は項全体を包む。
-    if (mode == kCaret) wrapped = wrap_caret(machine, colon, arg);
-    else if (mode == kSlash) wrapped = wrap_slash(machine, colon, arg);
+    if (mode == kMetaCaret) wrapped = wrap_caret(machine, colon, arg);
+    else if (mode == kMetaSlash) wrapped = wrap_slash(machine, colon, arg);
     else wrapped = qualify_cell(machine, colon, arg);
     if (wrapped.raw() == machine.heap.word_at(slot)) continue;
     machine.meta_undos.push_back(MetaUndo{slot, machine.heap.word_at(slot), born});

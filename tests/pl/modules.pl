@@ -450,3 +450,108 @@ test(mod_flag_include, (
   consult_flag_inc,
   current_prolog_flag(double_quotes, codes)
 ), true).
+
+use_late_exp :- use_module('tests/pl/modules/late_exp.pl').
+use_late_exp :- use_module('../tests/pl/modules/late_exp.pl').
+
+% module/2 のあとで公開した述語は、そのあとの取り込みから見える。
+test(export_later, (use_late_exp, late_added(2)), true).
+% 指示に書いた述語だけが増える。書いていない述語は見えない。
+test(export_later_hides, \+ late_private(3), true).
+
+use_exp_box :- use_module('tests/pl/modules/exp_box.pl').
+use_exp_box :- use_module('../tests/pl/modules/exp_box.pl').
+
+use_exp_later :- use_module('tests/pl/modules/exp_later.pl').
+use_exp_later :- use_module('../tests/pl/modules/exp_later.pl').
+
+% 呼び出しとしての export/1 は、そのあとの取り込みから見える。
+test(export_goal, (
+  use_exp_box,
+  exp_box:export(fresh_box/1),
+  use_exp_later,
+  exp_later:see_box(2)
+), true).
+% すでに取り込んだ user は、あとから足した公開を受け取らない。先の公開は残る。
+test(export_goal_keeps, (old_box(1), \+ fresh_box(2)), true).
+test(export_var, export(_), error(instantiation_error)).
+test(export_type, export(1), error(type_error(predicate_indicator, 1))).
+test(export_name_var, export(_/1), error(instantiation_error)).
+test(export_name_type, export(1/1), error(type_error(atom, 1))).
+test(export_arity_type, export(a/b), error(type_error(integer, b))).
+test(export_arity_neg, export(a/(-1)), error(domain_error(not_less_than_zero, -1))).
+test(export_arity_big, export(a/1025), error(representation_error(max_arity))).
+
+% 取り込んだ述語の定義モジュールは、公開した側である。
+test(prop_defined, predicate_property(hello(_), defined_in(greet)), true).
+prop_local_fact(1).
+test(prop_local, predicate_property(prop_local_fact(_), defined_in(user)), true).
+test(prop_imported, predicate_property(hello(_), imported_from(greet)), true).
+test(prop_exported, predicate_property(hello(_), exported), true).
+% 修飾したゴールは、そのモジュールの述語を見る。公開していない述語も対象になる。
+test(prop_qualified, predicate_property(greet:secret(_), defined_in(greet)), true).
+test(prop_private, (
+  \+ predicate_property(greet:secret(_), exported),
+  \+ predicate_property(greet:secret(_), imported_from(_))
+), true).
+test(prop_alias, (
+  predicate_property(local_name(_), defined_in(aliased)),
+  predicate_property(local_name(_), exported),
+  predicate_property(local_name(_), imported_from(aliased))
+), true).
+test(prop_export_mark, predicate_property(late_added(_), exported), true).
+test(prop_hidden, \+ predicate_property(secret(_), defined_in(_)), true).
+test(prop_missing, \+ predicate_property(prop_no_such(_), _), true).
+test(prop_no_builtin, \+ predicate_property(true, built_in), true).
+test(prop_dynamic, (dynamic(prop_dyn/1), predicate_property(prop_dyn(_), dynamic)), true).
+test(prop_not_dynamic, \+ predicate_property(prop_local_fact(_), dynamic), true).
+test(prop_multifile, predicate_property(mf_own:shared(_), multifile), true).
+test(prop_not_multifile, \+ predicate_property(prop_local_fact(_), multifile), true).
+test(prop_meta, predicate_property(show(_, _), meta_predicate(show(0, ?))), true).
+test(prop_meta_colon, predicate_property(colon_run(_), meta_predicate(colon_run(:))), true).
+test(prop_meta_digit, predicate_property(call_one(_), meta_predicate(call_one(1))), true).
+test(prop_meta_caret, predicate_property(take(_, _), meta_predicate(take(^, ?))), true).
+test(prop_meta_slash, predicate_property(pi(_, _), meta_predicate(pi(//, ?))), true).
+% 当てはまる性質は、定義、公開、取り込み、メタ、動的、multifile の順に1回ずつ。
+test(prop_hello_all, (
+  findall(P, predicate_property(hello(_), P), Ps),
+  Ps == [defined_in(greet), exported, imported_from(greet)]
+), true).
+test(prop_show_all, (
+  findall(P, predicate_property(show(_, _), P), Ps),
+  Ps == [defined_in(expose), exported, imported_from(expose), meta_predicate(show(0, ?))]
+), true).
+test(prop_dyn_all, (
+  findall(P, predicate_property(prop_dyn(_), P), Ps),
+  Ps == [defined_in(user), dynamic]
+), true).
+test(prop_secret_all, (
+  findall(P, predicate_property(greet:secret(_), P), Ps),
+  Ps == [defined_in(greet)]
+), true).
+test(prop_shared_all, (
+  findall(P, predicate_property(mf_own:shared(_), P), Ps),
+  Ps == [defined_in(mf_own), multifile]
+), true).
+% M1:M2:Goal は、いちばん内側のモジュールで解決する。
+test(prop_nested, predicate_property(user:greet:secret(_), defined_in(greet)), true).
+test(prop_var, predicate_property(_, _), error(instantiation_error)).
+test(prop_goal_var, predicate_property(greet:_, _), error(instantiation_error)).
+test(prop_type, predicate_property(1, _), error(type_error(callable, 1))).
+test(prop_mod_type, predicate_property(1:true, _), error(type_error(atom, 1))).
+test(prop_mod_missing, predicate_property(prop_no_mod:true, _), error(existence_error(module, prop_no_mod))).
+
+use_dyn_exp :- use_module('tests/pl/modules/dyn_exp.pl').
+use_dyn_exp :- use_module('../tests/pl/modules/dyn_exp.pl').
+
+% 取り込んだ動的述語の dynamic は、席ではなく定義した側を見る。
+test(prop_imported_dynamic, (
+  use_dyn_exp,
+  predicate_property(dyn_note(_), dynamic),
+  predicate_property(dyn_note(_), defined_in(dyn_exp))
+), true).
+% 修飾しない export/1 は、呼び出し中のモジュールへ足す。
+test(export_user, (
+  export(prop_local_fact/1),
+  predicate_property(prop_local_fact(_), exported)
+), true).
