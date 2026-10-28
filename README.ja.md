@@ -113,7 +113,7 @@ X = 太郎.
 
 ## 準拠率
 
-同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）が通りました。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
+同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）が通りました。不合格の一覧は [`docs/conformance.md`](docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
 
 準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 
