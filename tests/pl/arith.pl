@@ -64,3 +64,13 @@ test(atan_zero, (X is atan2(0, 0)), error(evaluation_error(undefined))).
 test(div_type, (X is 1.5 // 2), error(type_error(integer, 1.5))).
 test(catch_zero, catch((X is 1 / 0), error(evaluation_error(zero_divisor), _), true), true).
 test(catch_ne, catch((X =\= 1), error(instantiation_error, _), true), true).
+% log/2。log(B, X) は底 B の対数（SPEC 第7節の段階 B）。
+test(log2_base, (X is log(2, 8), abs(X - 3.0) < 1.0e-12), true).
+test(log2_same, (X is log(10, 10), abs(X - 1.0) < 1.0e-12), true).
+test(log2_int_result_float, (X is log(2, 4), float(X)), true).
+test(log2_zero_base, (X is log(0, 10)), error(evaluation_error(undefined))).
+test(log2_zero_x, (X is log(10, 0)), error(evaluation_error(undefined))).
+test(log2_neg_base, (X is log(-1, 10)), error(evaluation_error(undefined))).
+test(log2_neg_x, (X is log(10, -1)), error(evaluation_error(undefined))).
+test(log2_base_one, (X is log(1, 10)), error(evaluation_error(undefined))).
+test(log2_inst, (X is log(_, 10)), error(instantiation_error)).

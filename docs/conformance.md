@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2034
-合格率: 93.7
+合格数: 2041
+合格率: 94.0
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -42,13 +42,6 @@ functions/floor_1/tests.lgt lgt_floor_1_06 error(type_error(float,9)) true
 functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
 functions/integer_power_2/tests.lgt iso_integer_power_2_09 true(X=~=0.353553) fail
 functions/log_1/tests.lgt iso_log_1_02 true(E=~=1.0) fail
-functions/log_2/tests.lgt lgt_log_2_01 true(X=~=3.0) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_02 true(X=~=1.0) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_03 true(X=~=1.0) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_12 error(evaluation_error(_)) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_13 error(evaluation_error(_)) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_14 error(evaluation_error(undefined)) type_error(evaluable,log/2)
-functions/log_2/tests.lgt lgt_log_2_15 error(evaluation_error(undefined)) type_error(evaluable,log/2)
 functions/pi_0/tests.lgt iso_pi_0_01 true(X=~=3.1415927) fail
 functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined),evaluation_error(zero_divisor)]) evaluation_error(float_overflow)
 functions/round_1/tests.lgt eclipse_round_1_07 true(X== -3) fail

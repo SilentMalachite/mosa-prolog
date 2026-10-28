@@ -89,13 +89,19 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<c
   if (name == "atan") return unary(std::atan);
   if (name == "exp") return unary(std::exp);
   if (name == "log" || name == "log2") {
-    if (count == 1 && in[0] <= 0) {
+    // log(B, X) の底 1 は ln B = 0 で割ることになる。底として意味が無いので、0 以下と同じく undefined。
+    const bool with_base = name == "log" && count == 2;
+    if ((count == 1 && in[0] <= 0) || (with_base && (in[0] <= 0 || in[0] == 1 || in[1] <= 0))) {
       if (!machine.float_undefined_error) {
         out = std::numeric_limits<double>::quiet_NaN();
         return 1;
       }
       fail_eval(machine, goal, "undefined");
       return -1;
+    }
+    if (with_base) {
+      out = std::log(in[1]) / std::log(in[0]);
+      return bad_float(machine, goal, out, std::isfinite(in[0]) && std::isfinite(in[1])) ? -1 : 1;
     }
     return name == "log" ? unary(std::log) : unary(std::log2);
   }
