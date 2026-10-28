@@ -257,6 +257,14 @@ A or B?: A: transparent; the `!` in `p :- member(X, L), user:!.` cuts the clause
 
 Decision (2026-10-28): A. `:/2` is transparent to cut. A goal reached through `call/N` stays opaque, because `call/N` itself sets the cut barrier.
 
+## Section 5 Module:Goal with a non-callable goal
+
+SPEC section 5 does not fix the culprit of `type_error(callable, ...)` when `Goal` in `Module:Goal` cannot be called, as in `user:(fail, 1)`. ISO 13211-1 7.8.3.3 gives the argument of `call/1` as the culprit.
+
+A or B?: A: the whole `Module:Goal`, so `call(user:(fail, 1))` reports the term that was passed to `call/1`, and `call(user:1, a)` already reports `user:1`. B: only `Goal`, as in `(fail, 1)`.
+
+Decision (2026-10-28): A. The culprit is the whole `Module:Goal`.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.

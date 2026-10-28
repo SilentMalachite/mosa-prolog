@@ -6,6 +6,8 @@
 
 #include "../machine/internal.hpp"
 
+#include <array>
+
 namespace mosa {
 
 namespace {
@@ -32,14 +34,12 @@ bool run_qualify(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_existence(machine, "module", module), goal.name, goal.arity);
     return true;
   }
-  // TODO(iso): 7.8.3.3 の culprit は call/1 にならって G とした。M:G 全体にするかは未確認
-  if (!is_callable(inner)) {
-    raise_formal(machine, formal_type(machine, "callable", inner), goal.name, goal.arity);
-    return true;
-  }
-  const Compiled compiled = compile_goal(machine.heap, inner);
-  if (!body_callable(compiled.term)) {
-    raise_formal(machine, formal_type(machine, "callable", inner), goal.name, goal.arity);
+  const Compiled compiled = is_callable(inner) ? compile_goal(machine.heap, inner) : Compiled{};
+  if (!is_callable(inner) || !body_callable(compiled.term)) {
+    // culprit は利用者が書いた M:G 全体。call(M:G) の引数と同じ項になる（iso-notes の決定 A）。
+    const std::array<Cell, 2> parts{module, inner};
+    const Cell culprit = machine.heap.structure(goal.name, parts);
+    raise_formal(machine, formal_type(machine, "callable", culprit), goal.name, goal.arity);
     return true;
   }
   // 枠のカットの境界をそのまま渡す。M:G はカットに透明である（iso-notes の決定 A）。

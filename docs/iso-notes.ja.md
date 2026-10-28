@@ -259,6 +259,14 @@ A か B か: A は透明。`p :- member(X, L), user:!.` の `!` は `p` の節�
 
 決定（2026-10-28）: A。`:/2` はカットに透明とする。`call/N` を通したゴールは、`call/N` 自身がカットの境界を置くので不透明のままである。
 
+## 第5節 呼び出せないゴールの Module:Goal
+
+SPEC 第5節は、`user:(fail, 1)` のように `Module:Goal` の `Goal` を呼び出せないときの `type_error(callable, ...)` の culprit を決めていない。ISO 13211-1 の 7.8.3.3 は `call/1` の引数を culprit とする。
+
+A か B か: A は `Module:Goal` 全体。`call(user:(fail, 1))` は `call/1` に渡した項をそのまま示し、`call(user:1, a)` が `user:1` を示すのともそろう。B は `(fail, 1)` のように `Goal` だけ。
+
+決定（2026-10-28）: A。culprit は `Module:Goal` 全体とする。
+
 ## 8.4.3 sort/2
 
 `sort/2` は ISO の組み込み（8.4.3）だが、SPEC 第7節の段階表に無く、実装もされていない。同梱スイートの `sort_2` のテストは `docs/conformance.md` の別欄にある。`keysort/2`（8.4.4）は段階 G に system として載っている。

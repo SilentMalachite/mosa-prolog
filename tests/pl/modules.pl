@@ -18,3 +18,6 @@ test(mod_qual_call_n_nested, call(user:user:mod_pair(K), V), solutions([(K = a, 
 test(mod_qual_call_n_var, call(user:_, a), error(instantiation_error)).
 test(mod_qual_call_n_type, call(user:1, a), error(type_error(callable, user:1))).
 test(mod_qual_call_n_module, call(nomod:mod_pair, _, _), error(existence_error(module, nomod))).
+test(mod_qual_not_callable, user:1, error(type_error(callable, user:1))).
+test(mod_qual_bad_body, user:(fail, 1), error(type_error(callable, user:(fail, 1)))).
+test(mod_qual_bad_body_call, call(user:(fail, 1)), error(type_error(callable, user:(fail, 1)))).
