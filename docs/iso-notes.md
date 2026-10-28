@@ -376,3 +376,11 @@ Decision (2026-10-28): A. `not_less_than_zero` is a domain in 7.12.2 c, and `len
 A or B?: A: a Formal per problem: `domain_error(non_empty_list, [])` when the arguments run out, `domain_error(empty_list, Rest)` when some are left, and `domain_error(format_directive, C)` for an unknown directive character `C` (`'~'` for a lone `~` at the end). B: `domain_error(format_control, Format)` for all three, with the whole format as the culprit.
 
 Decision (2026-10-28): A. `non_empty_list` is a domain in 7.12.2 c, and the culprit tells which part is wrong. A negative count is `domain_error(not_less_than_zero, N)`, as for `length/2`.
+
+## 7.9.1 Which error first: the functor or its arguments
+
+In `X is foo(bar)`, both `foo/1` and `bar/0` are not evaluable. 7.12.1 leaves the choice between two error conditions to the implementation. Mosa evaluated the arguments first and reported `bar/0`; the Logtalk suite (`format_2`, `~d` and `~f` with `foo(bar)`) expects `foo/1`.
+
+A or B?: A: keep evaluating the arguments first (`type_error(evaluable, bar/0)`). B: check the principal functor before evaluating its arguments (`type_error(evaluable, foo/1)`).
+
+Decision (2026-10-28): B. 7.9.1 dispatches on whether the principal functor is evaluable before it evaluates the arguments, and a bad outer functor stops evaluation before any work on the arguments.

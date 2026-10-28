@@ -26,6 +26,7 @@ test(fmt_d_star, with_output_to(atom(A), format("~*d", [2, 1234])), solutions([A
 test(fmt_d_inst, format("~d", [_]), error(instantiation_error)).
 test(fmt_d_type, format("~d", [a]), error(type_error(evaluable, a/0))).
 test(fmt_d_float, format("~d", [123.0]), error(type_error(integer, 123.0))).
+test(fmt_d_type_nested, format("~d", [foo(bar)]), error(type_error(evaluable, foo/1))).
 test(fmt_d_neg_count, format("~*d", [-1, 123]), error(domain_error(not_less_than_zero, -1))).
 test(fmt_star_inst, format("~*d", [_, 123]), error(instantiation_error)).
 % ~f、~e。

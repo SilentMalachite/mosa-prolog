@@ -378,3 +378,11 @@ A か B か: A は `length/2` と同じ `domain_error(not_less_than_zero, N)`。
 A か B か: A は問題ごとの Formal。引数が尽きたら `domain_error(non_empty_list, [])`、残ったら `domain_error(empty_list, 残り)`、未知の指示の文字 `C` は `domain_error(format_directive, C)`（末尾の単独の `~` は `'~'`）。B は 3 つとも `domain_error(format_control, Format)` で、書式全体を罪人にする。
 
 決定（2026-10-28）: A。`non_empty_list` は 7.12.2 c の領域であり、罪人からどこが悪いかが分かる。負の回数は `length/2` と同じく `domain_error(not_less_than_zero, N)`。
+
+## 7.9.1 関数子と引数のどちらの誤りを先に出すか
+
+`X is foo(bar)` では `foo/1` も `bar/0` も評価できない。7.12.1 は 2 つの誤りの条件のどちらを出すかを処理系に任せる。Mosa は引数を先に評価して `bar/0` を出していた。Logtalk のスイート（`format_2` の `foo(bar)` を渡す `~d` と `~f`）は `foo/1` を期待する。
+
+A か B か: A は今のまま引数を先に評価する（`type_error(evaluable, bar/0)`）。B は引数を評価する前に主関数子を確かめる（`type_error(evaluable, foo/1)`）。
+
+決定（2026-10-28）: B。7.9.1 は主関数子が評価できるかで分かれてから引数を評価する。外側の関数子が悪ければ、引数に手を付ける前に止まる。

@@ -74,3 +74,11 @@ test(log2_neg_base, (X is log(-1, 10)), error(evaluation_error(undefined))).
 test(log2_neg_x, (X is log(10, -1)), error(evaluation_error(undefined))).
 test(log2_base_one, (X is log(1, 10)), error(evaluation_error(undefined))).
 test(log2_inst, (X is log(_, 10)), error(instantiation_error)).
+% 7.9.1。主関数子を引数より先に確かめる（iso-notes 7.9.1 の決定 B）。
+test(eval_functor_first, (X is foo(bar)), error(type_error(evaluable, foo/1))).
+test(eval_functor_before_var, (X is foo(_)), error(type_error(evaluable, foo/1))).
+test(eval_functor_nested, (X is 1 + foo(bar)), error(type_error(evaluable, foo/1))).
+test(eval_functor_cmp, (foo(bar) =:= 1), error(type_error(evaluable, foo/1))).
+test(eval_functor_arity, (X is sqrt(bar, 1)), error(type_error(evaluable, sqrt/2))).
+test(eval_arg_atom, (X is 1 + bar), error(type_error(evaluable, bar/0))).
+test(eval_known_functor_arg, (X is log(foo, 2)), error(type_error(evaluable, foo/0))).
