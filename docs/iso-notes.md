@@ -254,3 +254,5 @@ Decision (2026-10-28): A. `sort/2` is implemented in `system` in phase 4 Task 12
 `forall/2` is listed in stage G of SPEC section 7 ("Non-ISO utilities (`library(*)`, the table in section 5)"), and section 5 names it among the predicates that must work across modules, but none of the six modules in the section 5 table exports it.
 
 A or B?: A: implement `forall/2` in `system` as a meta predicate in phase 4 Task 9. B: do not implement it in phase 4. Not implemented until confirmed.
+
+Decision (2026-10-28): A. `forall/2` is implemented in `system` as a meta predicate in phase 4 Task 9, as `\+ (Cond, \+ Action)` run in the caller's context module. It is the only stage G predicate outside the six modules that phase 4 adds.

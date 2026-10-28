@@ -70,14 +70,14 @@
 - Create: `docs/adr/0006-modules.md`、`docs/adr/0006-modules.ja.md`
 - Modify: `docs/iso-notes.md`、`docs/iso-notes.ja.md`、`docs/adr/README.md`、`docs/adr/README.ja.md`
 
-- [ ] **Step 1:** ADR 0006 を「Context、Decision、Rejected alternatives、Consequences」を各 3 行以内で書く。Decision の案:
+- [x] **Step 1:** ADR 0006 を「Context、Decision、Rejected alternatives、Consequences」を各 3 行以内で書く。Decision の案:
   - `Predicate` に `std::uint32_t module`（モジュール名の原子番号）を足し、鍵を `(module, name, arity)` にする。`system` は C++ の組み込みと制御構文、`user` は既定のモジュール
   - ゴールフレームの 1 語目は、下位 16 ビットがアリティ、ビット 16〜47 が文脈モジュールの原子番号。`kFrameHead` は 4 のまま。本体のゴールのフレームには、その節の述語の `module` を書く
   - 解決は「文脈モジュールの定義と取り込み → 既定の取り込み元（`user` の取り込み元は `system`）」。`system` は今どおり最初に引く。`system` の名前を定義すると `permission_error(modify, static_procedure, PI)`
   - 演算子は 3 層（モジュール固有 → `user` → ISO の核）。公開リストの `op(P, T, N)` は取り込み側の固有層に入る
   - 退けた案: フレームに 5 語目を足す（全フレームが 1 語太る）、読み込み時に述語の番号へ解決してフレームに入れる（後から定義した述語と `assert` が見えない）
   - Consequences: フェーズ6の `mosac` は同じ位置に文脈モジュールを書く。フェーズ7の GC はこの語を項として走査しない
-- [ ] **Step 2:** iso-notes に次の問いを 1 見出し 1 問で書く（推奨は A）
+- [x] **Step 2:** iso-notes に次の問いを 1 見出し 1 問で書く（推奨は A）
   - `Section 5 Autoload`: 決定済み（2026-10-28、A: ライブラリの述語は `use_module` しないと見えない）。ここでは書かない
   - `Section 5 existence_error PI`: A: 文脈が `user` なら `N/A`、それ以外は `M:N/A` B: 常に `N/A`
   - `Section 5 import conflict`: A: `permission_error(import_into, procedure, N/A)` B: `permission_error(import, procedure, M:N/A)`
@@ -85,8 +85,8 @@
   - `Section 5 Operators`: A: `meta_predicate` を `op(1150, fx)`、`as` を `op(700, xfx)` として `system` の演算子表に足す B: 足さず、宣言は `meta_predicate(...)` の形だけ受ける
   - `8.4.3 sort/2`: SPEC 第7節の段階表に ISO の `sort/2` が無い。A: 段階 G の `keysort/2` と同じく Task 12 で `system` に作る B: フェーズ5へ回す
   - `Section 7 forall/2`: 段階 G にあるが第5節の 6 モジュールの表に無い。A: `system` に作る B: 作らない
-- [ ] **Step 3:** 持ち主の承認と回答を待つ。ADR の Status 行が Approved になり、6 問の Decision が書かれるまで Task 2 以降のコードを書かない
-- [ ] **Step 4:** コミット `[phase4] ADR 0006 モジュールの表現と解釈の問いを書く（承認済み）`
+- [x] **Step 3:** 持ち主の承認と回答を待つ。ADR の Status 行が Approved になり、6 問の Decision が書かれるまで Task 2 以降のコードを書かない
+- [x] **Step 4:** コミット `[phase4] ADR 0006 モジュールの表現と解釈の問いを書く（承認済み）`
 
 ### Task 2: 述語の鍵とフレームに文脈モジュールを足す（振る舞いは変えない）
 
@@ -211,7 +211,7 @@
 - Test: `tests/pl/modules.pl`
 
 **Interfaces:**
-- Produces: `Predicate` に `std::vector<MetaArg> meta`（`enum class MetaArg { None, Goal, Colon, Caret, Dcg }` と閉包の追加引数の数 0〜9）。呼び出し時に、限定の無い meta 引数を `文脈:引数` にする。`forall/2`（Task 1 で A のとき）は `system` に置く
+- Produces: `Predicate` に `std::vector<MetaArg> meta`（`enum class MetaArg { None, Goal, Colon, Caret, Dcg }` と閉包の追加引数の数 0〜9）。呼び出し時に、限定の無い meta 引数を `文脈:引数` にする。`forall/2` は `system` に置く（iso-notes `Section 7 forall/2` の決定 A）
 
 - [ ] **Step 1:** 失敗するテスト。`meta_wrap`: `:- meta_predicate 全員(1, ?).` の述語が受けた引数が `user:G` になっている。`meta_private_closure`: 公開述語が自モジュールの非公開述語を `maplist/2` へ渡して成功する（`maplist/2` は Task 13 までは `tests/pl/modules/高階.pl` に書いた仮の meta 述語で代える）。`meta_findall_ctx`: `家系:findall(X, 内部(X), L)` が非公開述語の解を集める。`meta_catch_ctx`、`meta_call_n_ctx` を同じ形で。`meta_already`: すでに `m:G` なら二重に包まない。`pp_meta`: `predicate_property(家系:全員(_, _), meta_predicate(全員(1, ?)))`。`forall_basic`: `forall(member(X, [1, 2]), integer(X))`
 - [ ] **Step 2:** 失敗を見る。実装する。テストを流す
