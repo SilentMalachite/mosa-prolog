@@ -286,7 +286,7 @@ void run_atom_number(Impl& machine, const Goal& goal) {
     instantiation(machine, goal);
     return;
   }
-  // TODO(iso): 8.16 atom_number/2 の型の誤りとその順は未決 2 の決定文に無い。number_chars/2 に倣い、型をすべて調べてから読む。
+  // 型をすべて調べてから読む。number_chars/2 と同じ順（iso-notes 8.16 の 2026-10-29 の決定 A）。
   if (!atom_var && atom.tag() != Tag::Atom) {
     type_at(machine, goal, "atom", atom);
     return;

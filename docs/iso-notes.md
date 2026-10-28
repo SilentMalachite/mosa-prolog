@@ -19,6 +19,8 @@ Decision (2026-10-25): Open question 2: A. Register `atom_number/2` and convert 
 
 Decision (2026-10-29): owner chose A. The number parsing shared with `number_chars/2` and `number_codes/2` gives `syntax_error(Key)` with the ADR 0007 keys instead of the text: a lexical failure gives its reason key (`integer_overflow`, `bad_escape`, `unterminated_comment`, …), anything else that is not exactly one number gives `unexpected_token`.
 
+Decision (2026-10-29): owner chose A over the SWI behaviour. A bound first argument that is not an atom gives `type_error(atom, A)`, and a bound second argument that is not a number gives `type_error(number, N)`. Both are checked before the atom is parsed, as `number_chars/2` does.
+
 ## 8.10 findall/4 (non-ISO)
 
 Decision (2026-10-25): `findall(Template, Goal, List, Tail)` is a difference list. If there are no solutions, List is unified with Tail; Tail is not bound to `[]`. The fourth argument is not checked as a list. `findall/3` is `findall/4` with the tail `[]`.

@@ -21,6 +21,8 @@
 
 決定（2026-10-29）: 持ち主は A を選んだ。`number_chars/2` と `number_codes/2` と共有する数の構文解析は、字面ではなく ADR 0007 の鍵で `syntax_error(Key)` を投げる。字句の誤りはその理由の鍵（`integer_overflow`、`bad_escape`、`unterminated_comment` など）、それ以外でちょうど 1 つの数でないものは `unexpected_token`。
 
+決定（2026-10-29）: 持ち主は SWI の振る舞いではなく A を選んだ。具体の第一引数がアトムでなければ `type_error(atom, A)`、具体の第二引数が数でなければ `type_error(number, N)`。`number_chars/2` と同じく、どちらもアトムを読む前に調べる。
+
 ## 8.10 findall/4（非 ISO）
 
 決定（2026-10-25）: `findall(Template, Goal, List, Tail)` は差分リストである。解が無ければ List と Tail を単一化し、Tail を `[]` には束縛しない。第4引数はリストとして検査しない。`findall/3` は末尾が `[]` の `findall/4` である。
