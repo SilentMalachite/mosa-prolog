@@ -209,6 +209,8 @@ A か B か: A は 9.3.1.3.d の文面どおり `evaluation_error(undefined)`。
 
 A か B か: A は ADR 0004 のまま、開いた走査から消した節を外す。B は 7.5.4 のとおり、その呼出しは最初の列を試す。確認前に A のままにする。
 
+決定（2026-10-28）: B。設計は ADR 0008 に書き、ADR 0004 の retract と abolish の部分を置き換える。ADR の承認後に実装する。
+
 ## 8.11.8 reposition(false) の position
 
 `sics_set_stream_position_2_06` は `reposition(false)` で開いた流れから `stream_property(Stream, position(Position))` を取り、`set_stream_position(Stream, Position)` が `permission_error(reposition, stream, Stream)` になることを期待する。ファイルを写したあとの実際は `fail` である。`stream_property/2` は戻せない流れに `position/1` を出さない（`tests/cpp/stream_test.cpp` の "no position"）。`set_stream_position/2` は、同じ流れに位置の項を渡すとすでに `permission_error(reposition, stream, Stream)` を投げる（同ファイルの "reposition formal"）。

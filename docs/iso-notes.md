@@ -207,6 +207,8 @@ Decision (2026-10-28): A. Zero (integer, `0.0` or `-0.0`) to any negative power 
 
 A or B?: A keeps ADR 0004: removed clauses are dropped from open scans. B follows 7.5.4: the call tries the initial sequence. Stay with A until confirmed.
 
+Decision (2026-10-28): B. The design is in ADR 0008, which replaces the retract and abolish part of ADR 0004; it is implemented after the ADR is approved.
+
 ## 8.11.8 position with reposition(false)
 
 `sics_set_stream_position_2_06` takes `stream_property(Stream, position(Position))` from a stream opened with `reposition(false)` and expects `set_stream_position(Stream, Position)` to give `permission_error(reposition, stream, Stream)`. With the file copied in, the actual result is `fail`. `stream_property/2` does not report `position/1` for a stream that cannot be repositioned ("no position" in `tests/cpp/stream_test.cpp`). `set_stream_position/2` already throws `permission_error(reposition, stream, Stream)` when given a position term for such a stream ("reposition formal" in the same file).
