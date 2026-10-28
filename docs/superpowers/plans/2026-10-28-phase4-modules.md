@@ -326,7 +326,7 @@
 **Files:**
 - Modify: `tests/pl/modules.pl`、`tests/pl/modules/家系.pl`、`src/version.cpp`、`CMakeLists.txt` の `version_pass_regex`、`docs/conformance.md`、`docs/conformance.json`、`docs/STATUS.md`
 
-- [ ] **Step 1:** SPEC 第5節の宣言の例を `use_module(library(lists))`、`use_module(人名, [姓名分解/3 as 分解])`、`except`、`meta_predicate`、`export`、`家系:祖父(太郎, Z)` まで含めて `家系.pl` に戻し、`modules.pl` の `spec_example` で `祖父(太郎, Z)` の解を確かめる
-- [ ] **Step 2:** `library(lists)` を使う既存テスト（`lib_lists.pl`、`lib_apply.pl`、`modules.pl`）を含めて `ctest` 全件を 3 OS の CI で通す
-- [ ] **Step 3:** `mosatest --suite` を流し、合格数が 2028 以上であることを見て、報告書と JSON を commit する
-- [ ] **Step 4:** 版を `mosa 0.0.1 (phase 4)` にし、`docs/STATUS.md` を `Phase: 4 done`、`Next: phase 5` にする。コミット `[phase4] フェーズ4を終える（modules.pl 全件、合格 N 件、3 OS の CI）`
+- [x] **Step 1:** SPEC 第5節の宣言の例を `use_module(library(lists))`、`use_module(人名, [姓名分解/3 as 分解])`、`except`、`meta_predicate`、`export`、`家系:祖父(太郎, Z)` まで含めて `家系.pl` に戻し、`modules.pl` の `spec_example` で `祖父(太郎, Z)` の解を確かめる
+- [x] **Step 2:** `library(lists)` を使う既存テスト（`lib_lists.pl`、`lib_apply.pl`、`modules.pl`）を含めて `ctest` 全件を 3 OS の CI で通す
+- [x] **Step 3:** `mosatest --suite` を流し、合格数が 2028 以上であることを見て、報告書と JSON を commit する
+- [x] **Step 4:** 版を `mosa 0.0.1 (phase 4)` にし、`docs/STATUS.md` を `Phase: 4 done`、`Next: phase 5` にする。コミット `[phase4] フェーズ4を終える（modules.pl 全件、合格 N 件、3 OS の CI）`
