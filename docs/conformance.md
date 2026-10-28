@@ -1,21 +1,9 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2110
-合格率: 97.2
+合格数: 2122
+合格率: 97.7
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
-control/if_3/tests.lgt if_3_01 true existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_02 true existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_03 false existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_04 false existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_05 true(L==[1-4,1-5,1-6,2-4,2-5,2-6,3-4,3-5,3-6]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_06 true(L==[7,8,9]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_07 true(L==[7,8,9]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_08 true existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_09 true(L==[1,2]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_10 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(3,true,true))]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_11 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(true,3,true))]) existence_error(procedure,if/3)
-control/if_3/tests.lgt if_3_12 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(fail,true,3))]) existence_error(procedure,if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
 functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2,4,6]) existence_error(procedure,:: /2)

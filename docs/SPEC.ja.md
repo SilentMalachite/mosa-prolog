@@ -288,7 +288,7 @@
 | --- | --- | --- |
 | A（最初） | 8.2 項のユニフィケーション、8.3 型検査、8.4 項比較 | `=/2`、`\=/2`、`unify_with_occurs_check/2`、`var/1`、`atom/1`、`integer/1`、`float/1`、`atomic/1`、`compound/1`、`nonvar/1`、`number/1`、`callable/1`、`is_list/1`（非 ISO、system）、`@</2` 等 6 個、`compare/3`、`==/2`、`\==/2` |
 | A | 8.5 項の生成と分解 | `functor/3`、`arg/3`、`=../2`、`copy_term/2`、`term_variables/2` |
-| A | 7.8 制御構造、8.15 論理と制御 | `true/0`、`fail/0`、`false/0`、`!/0`、`,/2`、`;/2`、`->/2`、`*->/2`（非 ISO）、`catch/3`、`throw/1`、`call/1..8`、`\+/1`、`once/1`、`repeat/0`、`halt/0,1` |
+| A | 7.8 制御構造、8.15 論理と制御 | `true/0`、`fail/0`、`false/0`、`!/0`、`,/2`、`;/2`、`->/2`、`*->/2`（非 ISO）、`if/3`（非 ISO、切断を内に閉じた `(C *-> T ; E)`）、`catch/3`、`throw/1`、`call/1..8`、`\+/1`、`once/1`、`repeat/0`、`halt/0,1` |
 | B | 9 算術、8.6・8.7 | `is/2`、`=:=/2` 等 6 個、全評価関数（`+ - * / // mod rem div abs sign min max gcd ** ^ sqrt sin cos tan asin acos atan atan2 exp log/1 log/2 log2 float integer float_integer_part float_fractional_part truncate round ceiling floor >> << /\ \/ xor \ pi e inf nan epsilon max_tagged_integer msb copysign nexttoward succ_or_zero`） |
 | B | 8.16 アトム処理 | `atom_length/2`、`atom_concat/3`、`sub_atom/5`、`atom_chars/2`、`atom_codes/2`、`char_code/2`、`number_chars/2`、`number_codes/2`、`atom_number/2`（非 ISO） |
 | C | 8.8・8.9 節の検索と生成・破壊 | `clause/2`、`current_predicate/1`、`asserta/1`、`assertz/1`、`retract/1`、`abolish/1`、`retractall/1`（Cor.2） |

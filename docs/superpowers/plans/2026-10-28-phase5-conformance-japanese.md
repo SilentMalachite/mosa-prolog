@@ -56,7 +56,7 @@
 | 整数を受けた丸め系評価子 | 0（決定 A で解消、+6） | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
 | `round/1` の負の半分 | 0（決定 B で解消、+2） | `eclipse_round_1_07`、`08` | Q | 7 |
 | 未決の iso-notes | 約 10 | 7.8.3（決定 B、+2）、9.3.1.3 d（決定 A、+1）、7.5.4（決定 B、ADR 0008、+5）、8.11.8（決定 A、解釈の違い）、`memberchk/2`（閉じた）、8.11.1（決定 B、+2） | Q | 8 |
-| `if/3`、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
+| `if/3`（決定 B、+12）、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
 | 9223372036854775808 などの多倍長 | 1 と別欄 111 | `sics_read_term_3_24` | X | なし |
 | 残り | 約 25 | `stream_property` の `eof_action(reset)`・`mode(append)`・`position`、`setof_3_34`、`abolish_1_07`、`sub_atom_5`、`univ_2` など | I か Q | 9 |
 
@@ -336,18 +336,6 @@
 | パス | テスト名 | 類 | タスク | 備考 |
 | --- | --- | --- | --- | --- |
 | `control/catch_3` | `lgt_catch_3_13` | S | 2 追補 | 試験器に Logtalk の組込 `ignore/1` が無い |
-| `control/if_3` | `if_3_01` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_02` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_03` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_04` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_05` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_06` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_07` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_08` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_09` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_10` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_11` | N | 8 | Section 3 if/3 |
-| `control/if_3` | `if_3_12` | N | 8 | Section 3 if/3 |
 | `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
 | `logical_update_semantics` | `logical_update_semantics_negation` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |

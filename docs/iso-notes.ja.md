@@ -445,6 +445,8 @@ A か B か: A は取り込み元の手続き `別源:静/1`。別名でない�
 
 A か B か: A は SPEC 外なので実装せず、12 行は不合格のまま残す。B は SPEC 第3節に `if/3` を足して実装する。確認前は A のまま。
 
+決定（2026-10-28）: B。`if/3` は `system` の組込とし、SPEC 第7節の段階 A で `*->/2` の隣に挙げる。`if(C, T, E)` は呼び手の文脈モジュールで `(C *-> T ; E)` を走らせる。`call/1` と同じく、どの引数の切断も内に閉じ、呼べない引数があれば何も走らせる前に `type_error(callable, if(C, T, E))` を投げる（`src/builtins/control.cpp` の `run_if`、`tests/pl/control.pl` の `if_*`）。
+
 ## 第3節 旗 dialect と version_data
 
 旗 `dialect` と `version_data` は 7.11 にも SPEC 第3節にも無い。`commons_current_prolog_flag_2_16` から `18` は `domain_error(prolog_flag, dialect)` と `domain_error(prolog_flag, version_data)` になる。

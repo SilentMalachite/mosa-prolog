@@ -443,6 +443,8 @@ Decision (2026-10-28): A. The error is about the procedure that cannot be change
 
 A or B?: A: outside SPEC, so it is not implemented, and the 12 rows stay failing. B: add `if/3` to SPEC Section 3 and implement it. A until confirmed.
 
+Decision (2026-10-28): B. `if/3` is a built-in in `system`, listed next to `*->/2` in stage A of SPEC Section 7. `if(C, T, E)` runs `(C *-> T ; E)` in the caller's context module; like `call/1`, a cut in any argument is local, and an argument that cannot be called gives `type_error(callable, if(C, T, E))` before anything runs (`src/builtins/control.cpp` `run_if`, `tests/pl/control.pl` `if_*`).
+
 ## Section 3 Flags dialect and version_data
 
 The flags `dialect` and `version_data` are not in 7.11 or in SPEC Section 3. `commons_current_prolog_flag_2_16` to `18` get `domain_error(prolog_flag, dialect)` and `domain_error(prolog_flag, version_data)`.
