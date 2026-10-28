@@ -116,7 +116,7 @@
 - [x] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
 - [x] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
 
- `=~=` を lgtunit の定義に合わせる
+### Task 3: `=~=` を lgtunit の定義に合わせる
 
 **Files:**
 - Create: `src/machine/lgt_approx.cpp`（`lgt_judge.cpp` の `approx` を移す）
@@ -125,10 +125,10 @@
 **Interfaces:**
 - Produces: `bool approx(const Heap& heap, Cell left, Cell right)`（名前と型は今のまま）
 
-- [ ] **Step 1:** 失敗するテスト `approx_pi`: `test(p, true(X =~= 3.1415927)) :- X is pi` と `approx_list`: `true([1.0, 2.0] =~= [1.0000001, 2.0])` が合格、`approx_far`: `true(1.0 =~= 1.1)` が不合格
-- [ ] **Step 2:** 固定コミット `4decb64` の `lgtunit.lgt` にある `=~=` の定義（相対誤差と絶対誤差の閾値、リストと複合項の扱い）をコメントに条項代わりに出典として書き、同じ式で実装する
-- [ ] **Step 3:** テストとスイートを流し、見取り図の `=~=` 群が合格に移ったことを見る。残ったものは評価子の誤差なので仕分け表で I にしてタスク 9 へ回す
-- [ ] **Step 4:** コミット `[phase5] =~= を lgtunit と同じ閾値にする（conformance_report_test、合格 +N）`
+- [x] **Step 1:** 失敗するテスト `approx_pi`: `test(p, true(X =~= 3.1415927)) :- X is pi` と `approx_list`: `true([1.0, 2.0] =~= [1.0000001, 2.0])` が合格、`approx_far`: `true(1.0 =~= 1.1)` が不合格
+- [x] **Step 2:** 固定コミット `4decb64` の `lgtunit.lgt` にある `=~=` の定義（相対誤差と絶対誤差の閾値、リストと複合項の扱い）をコメントに条項代わりに出典として書き、同じ式で実装する
+- [x] **Step 3:** テストとスイートを流し、見取り図の `=~=` 群が合格に移ったことを見る。残ったものは評価子の誤差なので仕分け表で I にしてタスク 9 へ回す
+- [x] **Step 4:** コミット `[phase5] =~= を lgtunit と同じ閾値にする（conformance_report_test、合格 +N）`
 
 ### Task 4: `ground/1`（8.3.10）
 
@@ -324,6 +324,7 @@
 内訳（Task 1 時点）: S 47、N 36、Q 31、I 15、X 1。
 内訳（Task 2 Step 5 後、残り 111 件）: S 24、N 36、Q 35、I 15、X 1。`lgt_write_term_3_043`、`044`、`065`、`066` は出力の捕捉が出来て、変数を `_` だけで書く件として Q に移った。
 内訳（Task 2 Step 7 後、残り 108 件）: S 21（`=~=` 14 件はタスク 3、試験器の追補 7 件）、N 36、Q 35、I 15、X 1。
+内訳（Task 3 後、残り 94 件）: S 7（試験器の追補）、N 36、Q 35、I 15、X 1。`=~=` の 14 件は全部合格に移り、I に回すものは無かった。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
@@ -345,29 +346,15 @@
 | `control/if_3` | `if_3_11` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_12` | N | 8 | Section 3 if/3 |
 | `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
-| `functions/acos_1` | `iso_acos_1_01` | S | 3 | `=~=` の閾値 |
-| `functions/acos_1` | `iso_acos_1_02` | S | 3 | `=~=` の閾値 |
-| `functions/asin_1` | `iso_asin_1_01` | S | 3 | `=~=` の閾値 |
-| `functions/asin_1` | `iso_asin_1_02` | S | 3 | `=~=` の閾値 |
-| `functions/atan2_2` | `iso_atan2_2_01` | S | 3 | `=~=` の閾値 |
-| `functions/atan2_2` | `iso_atan2_2_02` | S | 3 | `=~=` の閾値 |
-| `functions/atan_1` | `iso_atan_1_02` | S | 3 | `=~=` の閾値 |
 | `functions/ceiling_1` | `lgt_ceiling_1_05` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
-| `functions/cos_1` | `iso_cos_1_05` | S | 3 | `=~=` の閾値 |
-| `functions/exp_1` | `iso_exp_1_02` | S | 3 | `=~=` の閾値 |
-| `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_02` | S | 3 | `=~=` の閾値 |
 | `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_04` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
 | `functions/float_integer_part_1` | `lgt_float_integer_part_1_04` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
 | `functions/floor_1` | `lgt_floor_1_06` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
 | `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
-| `functions/integer_power_2` | `iso_integer_power_2_09` | S | 3 | `=~=` の閾値 |
-| `functions/log_1` | `iso_log_1_02` | S | 3 | `=~=` の閾値 |
-| `functions/pi_0` | `iso_pi_0_01` | S | 3 | `=~=` の閾値 |
 | `functions/power_2` | `lgt_power_2_14` | Q | 8 | 9.3.1.3 d (**)/2: negative power of 0 |
 | `functions/round_1` | `eclipse_round_1_07` | Q | 7 | `round/1` の負の半分（タスク 7 で iso-notes に書く） |
 | `functions/round_1` | `eclipse_round_1_08` | Q | 7 | `round/1` の負の半分（タスク 7 で iso-notes に書く） |
 | `functions/round_1` | `lgt_round_1_13` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
-| `functions/tan_1` | `iso_tan_1_01` | S | 3 | `=~=` の閾値 |
 | `functions/truncate_1` | `lgt_truncate_1_06` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
 | `logical_update_semantics` | `logical_update_semantics_retract` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_retractall` | Q | 8 | 7.5.4 Open scans and retract |

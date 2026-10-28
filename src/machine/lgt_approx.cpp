@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
+#include <cstdint>
 #include <optional>
 
 namespace mosa {
@@ -26,14 +26,41 @@ std::optional<double> lgt_as_number(const Heap& heap, Cell cell) {
   return -*inner;
 }
 
-// epsilon/0 と同じ定数。ここで query すると、本体の選択点が消える。
+namespace {
+
+// 出典は固定コミット 4decb64 の tools/lgtunit/lgtunit.lgt。Mosa は epsilon/1 の方言の一覧に無いので、
+// else の枝の 0.000000000001 になる。
+constexpr double lgtunit_epsilon = 0.000000000001;
+
+// まず絶対誤差 100*epsilon を見る。0 に近い数はこちらでしか意味のある比較にならない。
+// だめなら相対誤差（99.999% の精度）を見る。どちらも lgtunit と同じく厳密な < で比べる。
+bool approx_number(double first, double second) {
+  const double gap = std::fabs(first - second);
+  if (gap < 100 * lgtunit_epsilon) return true;
+  return gap < 0.00001 * std::max(std::fabs(first), std::fabs(second));
+}
+
+bool is_nil(const Heap& heap, Cell cell) {
+  return cell.tag() == Tag::Atom && heap.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "[]";
+}
+
+}  // namespace
+
+// lgtunit の (=~=)/2 は数どうしか、同じ長さの数のリストどうしを要素ごとに比べる。
+// 変数と数でないものは lgtunit では誤りを投げるが、表明としてはどちらも不成立なので偽を返す。
 bool approx(const Heap& heap, Cell left, Cell right) {
+  left = heap.deref(left);
+  right = heap.deref(right);
+  while (left.tag() == Tag::Lis && right.tag() == Tag::Lis) {
+    if (!approx(heap, heap.list_head(left), heap.list_head(right))) return false;
+    left = heap.deref(heap.list_tail(left));
+    right = heap.deref(heap.list_tail(right));
+  }
+  if (is_nil(heap, left) || is_nil(heap, right)) return is_nil(heap, left) && is_nil(heap, right);
   const auto first = lgt_as_number(heap, left);
   const auto second = lgt_as_number(heap, right);
   if (!first || !second) return false;
-  const double epsilon = std::numeric_limits<double>::epsilon();
-  const double scale = std::max(std::fabs(*first), std::fabs(*second));
-  return std::fabs(*first - *second) <= scale * epsilon;
+  return approx_number(*first, *second);
 }
 
 }  // namespace mosa

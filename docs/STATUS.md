@@ -1,5 +1,5 @@
 Phase: 5 in progress (phase 4 done 2026-10-28: mosa 0.0.1 (phase 4), CI green on 3 OSes in run 40683841050)
-Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2063/2171 = 95.0%
+Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2077/2171 = 95.7%
 In progress: none
 Done (phase 5 Task 1): triage-table section in the phase 5 plan; iso-notes A/B for the N groups; Section 4 Stream encoding and BOM decided A
 Done (phase 5 Task 2): runner ^^suppress_text_output/0 and ^^text_output_contents/1,2,3 (src/machine/lgt_output.cpp, split from lgt_io.cpp); current input/output saved and restored per test like lgtunit run_test/2 (+19)
@@ -7,6 +7,7 @@ Done (phase 5 Task 2): runner imports lists, apply, between, format, strings, ja
 New Q note: 7.10.5 a Writing a variable that occurs once (lgt_write_term_3_043/044/065/066 now fail only on `_`)
 Runner limit: after a goal that leaves a choice point (e.g. stream_property/2), later plain goals run in a scratch machine (exec_plain), so their side effects on streams do not reach ^^ observers. No suite target has this shape yet
 Decided A (2026-10-28): side-column dirs (between_3, succ_2, plus_3, format_2, format_3, atomic_list_concat_2/3) stay out through phase 5; denominator stays 2171
-Next: Task 2 follow-up (rows marked "2 追補": ignore/1, os::ensure_file/1, lgtunit::deterministic/2, integer::between/3, condition os::operating_system_type) or Task 3 (=~=, 14 rows)
+Done (phase 5 Task 3): =~= follows lgtunit 4decb64 (absolute 100*1e-12, then relative 0.00001; lists element by element) in src/machine/lgt_approx.cpp, split from lgt_judge.cpp; suite_approx_test (+14)
+Next: Task 4, ground/1 (8.3.10). Later: Task 2 follow-up rows marked "2 追補" (ignore/1, os::, lgtunit::, integer::, condition)
 Open: other A/B questions stay in iso-notes for Task 8
 Plan (phase 5): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md

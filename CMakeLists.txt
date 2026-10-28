@@ -216,6 +216,12 @@ target_compile_definitions(suite_imports_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_S
 target_link_libraries(suite_imports_test PRIVATE mosa_lib)
 add_test(NAME suite_imports_test COMMAND $<TARGET_FILE:suite_imports_test>)
 
+add_executable(suite_approx_test tests/cpp/suite_approx_test.cpp)
+target_include_directories(suite_approx_test PRIVATE tests/cpp)
+target_compile_definitions(suite_approx_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_approx_test PRIVATE mosa_lib)
+add_test(NAME suite_approx_test COMMAND $<TARGET_FILE:suite_approx_test>)
+
 add_executable(suite_path_test tests/cpp/suite_path_test.cpp)
 target_include_directories(suite_path_test PRIVATE tests/cpp)
 target_compile_definitions(suite_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

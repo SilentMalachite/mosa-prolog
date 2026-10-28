@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2063
-合格率: 95.0
+合格数: 2077
+合格率: 95.7
 不合格:
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
@@ -19,29 +19,15 @@ control/if_3/tests.lgt if_3_10 errors([type_error(callable,3),type_error(callabl
 control/if_3/tests.lgt if_3_11 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(true,3,true))]) existence_error(procedure,if/3)
 control/if_3/tests.lgt if_3_12 errors([type_error(callable,3),type_error(callable,:(user,3)),type_error(callable,if(fail,true,3))]) existence_error(procedure,if/3)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
-functions/acos_1/tests.lgt iso_acos_1_01 true(X=~=3.1415927) fail
-functions/acos_1/tests.lgt iso_acos_1_02 true(X=~=1.0471976) fail
-functions/asin_1/tests.lgt iso_asin_1_01 true(X=~=0.5235988) fail
-functions/asin_1/tests.lgt iso_asin_1_02 true(X=~=3.1415927) fail
-functions/atan2_2/tests.lgt iso_atan2_2_01 true(X=~=1.5707963) fail
-functions/atan2_2/tests.lgt iso_atan2_2_02 true(X=~=3.1415927) fail
-functions/atan_1/tests.lgt iso_atan_1_02 true(PI=~=3.1415927) fail
 functions/ceiling_1/tests.lgt lgt_ceiling_1_05 error(type_error(float,9)) true
-functions/cos_1/tests.lgt iso_cos_1_05 true(X=~=0.0) fail
-functions/exp_1/tests.lgt iso_exp_1_02 true(X=~=2.71828) fail
-functions/float_fractional_part_1/tests.lgt lgt_float_fractional_part_1_02 true(X=~=0.9) fail
 functions/float_fractional_part_1/tests.lgt lgt_float_fractional_part_1_04 error(type_error(float,9)) true
 functions/float_integer_part_1/tests.lgt lgt_float_integer_part_1_04 error(type_error(float,9)) true
 functions/floor_1/tests.lgt lgt_floor_1_06 error(type_error(float,9)) true
 functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
-functions/integer_power_2/tests.lgt iso_integer_power_2_09 true(X=~=0.353553) fail
-functions/log_1/tests.lgt iso_log_1_02 true(E=~=1.0) fail
-functions/pi_0/tests.lgt iso_pi_0_01 true(X=~=3.1415927) fail
 functions/power_2/tests.lgt lgt_power_2_14 errors([evaluation_error(undefined),evaluation_error(zero_divisor)]) evaluation_error(float_overflow)
 functions/round_1/tests.lgt eclipse_round_1_07 true(X== -3) fail
 functions/round_1/tests.lgt eclipse_round_1_08 true(X== -4) fail
 functions/round_1/tests.lgt lgt_round_1_13 error(type_error(float,9)) true
-functions/tan_1/tests.lgt iso_tan_1_01 true(X=~=0.5463) fail
 functions/truncate_1/tests.lgt lgt_truncate_1_06 error(type_error(float,9)) true
 logical_update_semantics/tests.lgt logical_update_semantics_retract true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_retractall true(Assertion) fail
