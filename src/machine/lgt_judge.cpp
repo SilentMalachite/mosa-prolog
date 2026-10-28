@@ -228,23 +228,6 @@ bool terms_variant(Heap& heap, Cell left, Cell right) {
   return lgt_same_shape(heap, stamped_left, stamped_right);
 }
 
-std::optional<double> as_number(const Heap& heap, Cell cell) {
-  cell = heap.deref(cell);
-  if (integer_cell(heap, cell)) return static_cast<double>(heap.integer_value(cell));
-  if (cell.tag() == Tag::Float) return heap.float_value(cell);
-  // 表明の -125.0 は前置のまま残る。=~= は算術なので、数の符号だけ畳む。
-  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return std::nullopt;
-  const auto name = heap.atoms().name(heap.functor_atom(cell));
-  if (name != "-" && name != "+") return std::nullopt;
-  const Cell arg = heap.deref(heap.arg(cell, 0));
-  std::optional<double> inner;
-  if (integer_cell(heap, arg)) inner = static_cast<double>(heap.integer_value(arg));
-  else if (arg.tag() == Tag::Float) inner = heap.float_value(arg);
-  else return std::nullopt;
-  if (name == "+") return inner;
-  return -*inner;
-}
-
 bool ordered(std::string_view name, double left, double right) {
   if (name == "<") return left < right;
   if (name == "=<") return left <= right;
@@ -253,24 +236,14 @@ bool ordered(std::string_view name, double left, double right) {
   return false;
 }
 
-// epsilon/0 と同じ定数。ここで query すると、本体の選択点が消える。
-bool approx(const Heap& heap, Cell left, Cell right) {
-  const auto first = as_number(heap, left);
-  const auto second = as_number(heap, right);
-  if (!first || !second) return false;
-  const double epsilon = std::numeric_limits<double>::epsilon();
-  const double scale = std::max(std::fabs(*first), std::fabs(*second));
-  return std::fabs(*first - *second) <= scale * epsilon;
-}
-
 bool compare_args(Machine& machine, std::string_view name, Cell cell, const std::vector<VarName>& names,
                   const std::vector<Binding>& bindings) {
   const Cell left = resolved_arg(machine, cell, 0, names, bindings);
   const Cell right = resolved_arg(machine, cell, 1, names, bindings);
   if (name == "==") return lgt_same_shape(machine.heap(), left, right);
   if (name == "=~=") return approx(machine.heap(), left, right);
-  const auto first = as_number(machine.heap(), left);
-  const auto second = as_number(machine.heap(), right);
+  const auto first = lgt_as_number(machine.heap(), left);
+  const auto second = lgt_as_number(machine.heap(), right);
   if (!first || !second) return false;
   return ordered(name, *first, *second);
 }
