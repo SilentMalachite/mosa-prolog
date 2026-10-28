@@ -355,7 +355,7 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
   cursor.data = input;
   cursor.from_cin = tty && input.empty();
   auto machine = Machine::create(heap_limit);
-  machine->set_program_argv(options.program_args);
+  engine_impl(*machine).program_argv = options.program_args;
   for (const std::string& file : options.files) {
     try {
       if (!machine->consult(file)) {
@@ -371,8 +371,8 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     }
   }
   // main は入口で、終わったらプロセスも終わる。REPL にも -g にも進まない。
-  if (machine->main_goal()) {
-    result.code = play_main(*machine, *machine->main_goal(), echo);
+  if (const auto& main_goal = engine_impl(*machine).main_goal) {
+    result.code = play_main(*machine, *main_goal, echo);
     return result;
   }
   if (!tty && !options.has_goal) {

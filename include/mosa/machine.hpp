@@ -10,7 +10,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -59,9 +58,6 @@ class Machine {
   [[nodiscard]] std::size_t choice_depth() const;
   [[nodiscard]] std::string_view diagnostic() const;
   [[nodiscard]] bool consult(std::string_view path);
-  // 旗 argv の値（起動前に一度）と、initialization(G, main) が指すゴールの文面（最後の一つ）。
-  void set_program_argv(std::vector<std::string> arguments);
-  [[nodiscard]] const std::optional<std::string>& main_goal() const;
 
   explicit Machine(std::size_t heap_limit);
 
