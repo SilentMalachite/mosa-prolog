@@ -135,7 +135,7 @@
 **Interfaces:**
 - Produces: 指令 `module/2`（ファイルの最初の節でなければ `permission_error(create, module, M)`）、`export/1`。モジュールのファイルを読むと、公開述語は読み込んだ側の文脈モジュールへ取り込まれる
 
-- [ ] **Step 1:** 失敗するテスト（`modules.pl` は `:- consult('modules/家系.pl')` のように自分のディレクトリからの相対で読む。相対の基準は読み込み中のファイルのディレクトリ）
+- [x] **Step 1:** 失敗するテスト（`modules.pl` は `:- consult('modules/家系.pl')` のように自分のディレクトリからの相対で読む。相対の基準は読み込み中のファイルのディレクトリ）
   - `mod_call_export`: `祖父(X, Z)` の解が `家系.pl` の事実どおり
   - `mod_call_private`: 非公開の `家系:内部(X)` は成功し、限定なしの `内部(X)` は `existence_error`
   - `mod_shadow`: `影.pl` の中の非公開 `名前/1` と `modules.pl` の `名前/1` が別々に呼ばれる
@@ -143,8 +143,8 @@
   - `mod_ctx_after_redo`: `(家系:親(_, _), fail ; 名前(X))` が `user` の `名前/1` を呼ぶ
   - `mod_export_late`: `:- export(新述語/1).` で足した述語が取り込まれる
   - `mod_not_first`: 2 節目の `module/2` → `permission_error(create, module, M)`（一時ファイルは `tests/tmp/`）
-- [ ] **Step 2:** 失敗を見る。実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] module/2 と export/1 とモジュールのファイルの読み込みを実装（modules.pl 7 件）`
+- [x] **Step 2:** 失敗を見る。実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] module/2 と export/1 とモジュールのファイルの読み込みを実装（modules.pl 7 件）`
 
 ### Task 5: `use_module/1,2`
 

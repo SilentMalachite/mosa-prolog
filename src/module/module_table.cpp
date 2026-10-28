@@ -25,10 +25,18 @@ void install_modules(Impl& machine) {
   machine.system_module = machine.atoms.intern("system");
   machine.modules.push_back(Module{machine.system_module, machine.system_module, {}, {}, {}});
   machine.modules.push_back(Module{machine.user_module, machine.system_module, {}, {}, {}});
+  machine.load_module = machine.user_module;
 }
 
 const Module* find_module(const Impl& machine, std::uint32_t name) {
   for (const Module& module : machine.modules) {
+    if (module.name == name) return &module;
+  }
+  return nullptr;
+}
+
+Module* find_module(Impl& machine, std::uint32_t name) {
+  for (Module& module : machine.modules) {
     if (module.name == name) return &module;
   }
   return nullptr;
@@ -62,6 +70,23 @@ Predicate* resolve_pred(Impl& machine, std::uint32_t context, std::uint32_t name
     current = module->default_import;
   }
   return nullptr;
+}
+
+void import_exports(Impl& machine, std::uint32_t from, std::uint32_t into) {
+  if (from == into) return;
+  const Module* source = find_module(machine, from);
+  Module* target = find_module(machine, into);
+  if (source == nullptr || target == nullptr) return;
+  for (const PredKey& key : source->exports) {
+    const Import item{key.name, key.arity, key.name, from};
+    bool replaced = false;
+    for (Import& old : target->imports) {
+      if (old.alias != item.alias || old.arity != item.arity) continue;
+      old = item;
+      replaced = true;
+    }
+    if (!replaced) target->imports.push_back(item);
+  }
 }
 
 }

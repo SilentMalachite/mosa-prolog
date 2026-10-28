@@ -45,6 +45,7 @@ struct SeenMark {
 };
 
 struct ClauseBackup {
+  std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
@@ -77,7 +78,8 @@ std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
   std::vector<ClauseBackup> saved;
   saved.reserve(machine.predicates.size());
   for (const Predicate& predicate : machine.predicates) {
-    saved.push_back(ClauseBackup{predicate.name, predicate.arity, predicate.clauses, predicate.dynamic});
+    saved.push_back(
+        ClauseBackup{predicate.module, predicate.name, predicate.arity, predicate.clauses, predicate.dynamic});
   }
   return saved;
 }
@@ -85,7 +87,7 @@ std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
 void restore_clauses(Impl& machine, const std::vector<ClauseBackup>& saved) {
   for (const ClauseBackup& item : saved) {
     for (Predicate& predicate : machine.predicates) {
-      if (predicate.name != item.name || predicate.arity != item.arity) continue;
+      if (predicate.module != item.module || predicate.name != item.name || predicate.arity != item.arity) continue;
       predicate.clauses = item.clauses;
       predicate.dynamic = item.dynamic;
       break;
@@ -104,11 +106,30 @@ std::string formal_message(Impl& machine, Cell formal) {
   return write_term(machine.heap, machine.operators, formal, {}, {});
 }
 
+// :- consult(File) は :- [File] と同じ。相対パスは、読み込み中のファイルのディレクトリから開く。
+int collect_consulted(Impl& machine, Cell body, std::vector<Cell>& items) {
+  const Cell file = machine.heap.deref(machine.heap.arg(body, 0));
+  if (machine.heap.unbound(file)) {
+    note_failure(machine, formal_message(machine, formal_instantiation(machine)));
+    return -1;
+  }
+  if (file.tag() != Tag::Atom) {
+    note_failure(machine, formal_message(machine, formal_type(machine, "atom", file)));
+    return -1;
+  }
+  items = {file};
+  return 1;
+}
+
 // 1 はファイルのリスト。0 はリストではない。-1 はこの指示のエラー。
 int collect_files(Impl& machine, Cell term, std::vector<Cell>& items) {
   term = machine.heap.deref(term);
   if (!is_directive(machine.heap, term)) return 0;
   const Cell body = machine.heap.deref(machine.heap.arg(term, 0));
+  if (body.tag() == Tag::Str && machine.heap.functor_arity(body) == 1 &&
+      machine.atoms.name(machine.heap.functor_atom(body)) == "consult") {
+    return collect_consulted(machine, body, items);
+  }
   const WalkedList walked = walk_list(machine, body);
   if (walked.shape == ListShape::Variable) return 0;
   if (walked.shape == ListShape::Partial || unbound_item(machine, walked)) {
@@ -203,7 +224,11 @@ bool run_consult(Impl& machine, const Goal& goal) {
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();
+  // 公開述語は consult を呼んだ文脈モジュールへ取り込む。
+  const auto outer = machine.load_module;
+  machine.load_module = goal.module;
   const LoadStatus status = load_consulted(machine, text, buffer.str());
+  machine.load_module = outer;
   if (!status.ok) {
     prefix_consult_diagnostic(machine, text);
     machine.failed = true;

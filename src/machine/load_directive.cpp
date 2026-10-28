@@ -2,6 +2,7 @@
 
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <optional>
 #include <string>
 #include <utility>
@@ -130,16 +131,16 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return false;
   }
-  Predicate* predicate = find_pred(machine, PredKey{machine.user_module, name, arity});
+  Predicate* predicate = find_pred(machine, PredKey{machine.load_module, name, arity});
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
     fail_load(machine, "静的な述語は動的にできない");
     return false;
   }
   // 失敗した読み込みは、宣言の前の動的フラグへ戻す。
-  remember_pred(machine, snapshots, name, arity);
+  remember_pred(machine, snapshots, PredKey{machine.load_module, name, arity});
   if (predicate == nullptr) {
     Predicate created;
-    created.module = machine.user_module;
+    created.module = machine.load_module;
     created.name = name;
     created.arity = arity;
     created.dynamic = true;
@@ -316,8 +317,37 @@ int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return -1;
   }
+  // モジュールのファイルの初期化は、そのモジュールの文脈で動かす。
+  if (machine.load_module != machine.user_module) {
+    const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), arg};
+    arg = machine.heap.structure(machine.atoms.intern(":"), parts);
+  }
   goals.push_back(arg);
   return 1;
+}
+
+// 関手 name/arity の指令なら、その本体を返す。
+std::optional<Cell> directive_body(Impl& machine, Cell directive, std::string_view name, std::uint16_t arity) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return std::nullopt;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != arity) return std::nullopt;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != name) return std::nullopt;
+  return body;
+}
+
+int apply_module_directive(Impl& machine, Cell directive, bool first, std::string_view origin) {
+  std::optional<Cell> failure;
+  if (const auto body = directive_body(machine, directive, "module", 2)) {
+    failure = declare_module(machine, machine.heap.arg(*body, 0), machine.heap.arg(*body, 1), first, origin);
+  } else if (const auto listed = directive_body(machine, directive, "export", 1)) {
+    failure = add_exports(machine, machine.heap.arg(*listed, 0));
+  } else {
+    return 0;
+  }
+  if (!failure) return 1;
+  fail_load(machine, write_term(machine.heap, machine.operators, *failure, {}, {}));
+  return -1;
 }
 
 
@@ -351,8 +381,10 @@ bool run_inits(Impl& machine, const std::vector<Cell>& goals) {
 }
 
 int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
-                      std::vector<Apart>& apart, std::vector<Cell>& inits) {
+                      std::vector<Apart>& apart, std::vector<Cell>& inits, bool first, std::string_view origin) {
   if (!is_directive(machine.heap, term)) return 0;
+  const int module_directive = apply_module_directive(machine, term, first, origin);
+  if (module_directive != 0) return module_directive;
   const int flag_directive = apply_flag_directive(machine, term);
   if (flag_directive < 0) return -1;
   if (flag_directive > 0) {

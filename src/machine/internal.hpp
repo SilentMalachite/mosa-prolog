@@ -185,6 +185,8 @@ struct Machine::Impl {
   std::vector<Module> modules;
   std::uint32_t user_module = 0;
   std::uint32_t system_module = 0;
+  // 読んでいるテキストの節が入るモジュール。module/2 が切り替え、そのファイルを読み終えると戻す。
+  std::uint32_t load_module = 0;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
   std::vector<SharedPred> multifile;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。

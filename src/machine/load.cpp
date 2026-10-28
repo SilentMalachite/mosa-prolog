@@ -37,9 +37,9 @@ std::string reason_text(SyntaxReason reason) {
   return "予期しないトークン";
 }
 
-// 読み込みの節はまだ user にだけ入る。モジュールのファイルはフェーズ4 Task 4 で受ける。
+// 節は読み込み中のモジュールに入る。module/2 の無いテキストでは user である。
 bool same_pred(const Impl& machine, const Predicate& predicate, std::uint32_t name, std::uint16_t arity) {
-  return predicate.module == machine.user_module && predicate.name == name && predicate.arity == arity;
+  return predicate.module == machine.load_module && predicate.name == name && predicate.arity == arity;
 }
 
 std::uint32_t head_name(const Clause& clause) { return clause.head.atom; }
@@ -80,15 +80,16 @@ void note_multifile(Impl& machine, std::uint32_t name, std::uint16_t arity) {
   machine.multifile.push_back(SharedPred{name, arity});
 }
 
-void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
+void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
   const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
-    return shot.name == name && shot.arity == arity;
+    return shot.module == key.module && shot.name == key.name && shot.arity == key.arity;
   });
   if (known) return;
-  Predicate* predicate = find_pred(machine, PredKey{machine.user_module, name, arity});
+  Predicate* predicate = find_pred(machine, key);
   Snapshot shot;
-  shot.name = name;
-  shot.arity = arity;
+  shot.module = key.module;
+  shot.name = key.name;
+  shot.arity = key.arity;
   shot.created = predicate == nullptr;
   if (predicate != nullptr) {
     shot.clauses = predicate->clauses;
@@ -108,7 +109,7 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
   }
   if (index == machine.predicates.size()) {
     machine.predicates.push_back(Predicate{});
-    machine.predicates.back().module = machine.user_module;
+    machine.predicates.back().module = machine.load_module;
     machine.predicates.back().name = name;
     machine.predicates.back().arity = arity;
   }
@@ -142,13 +143,13 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
 }
 
 void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& clause) {
-  remember_pred(machine, snapshots, head_name(clause), head_arity(clause));
+  remember_pred(machine, snapshots, PredKey{machine.load_module, head_name(clause), head_arity(clause)});
 }
 
 void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
   for (const Snapshot& shot : snapshots) {
     if (shot.created) continue;
-    Predicate* predicate = find_pred(machine, PredKey{machine.user_module, shot.name, shot.arity});
+    Predicate* predicate = find_pred(machine, PredKey{shot.module, shot.name, shot.arity});
     if (predicate != nullptr) {
       predicate->clauses = shot.clauses;
       predicate->dynamic = shot.dynamic;
@@ -196,8 +197,10 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
                        const std::vector<Snapshot>& snapshots, std::size_t previous_size,
                        std::size_t heap_base, const std::vector<SharedPred>& saved_multi,
-                       const std::vector<std::string>& saved_prepared) {
+                       const std::vector<std::string>& saved_prepared, const std::vector<Module>& saved_modules) {
   machine.operators = saved_ops;
+  // 途中で作ったモジュールと取り込みを残さない。半分だけ登録されたモジュールが見えると解決が変わる。
+  machine.modules = saved_modules;
   restore_flags(machine, saved_flags);
   machine.multifile = saved_multi;
   machine.prepared = saved_prepared;
@@ -306,64 +309,94 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
   return open_prolog_file(machine, file, scan);
 }
 
+// 開き済みのファイルをもう一度開くと、読み込みが終わらない。
+bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGuard& guard) {
+  if (origin.empty()) return true;
+  const auto key = canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
+  if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) {
+    fail_load(machine, std::string{origin} + ": ファイルが循環しています");
+    return false;
+  }
+  scan.opening.push_back(key);
+  guard.opening = &scan.opening;
+  // 開き始めたパスは準備済みにする。失敗した読み込みは reject_load が戻す。
+  if (std::find(machine.prepared.begin(), machine.prepared.end(), key) == machine.prepared.end()) {
+    machine.prepared.push_back(key);
+  }
+  return true;
+}
+
+// [File] と consult(File) は別の読み込みで既存の節を置き換える。親の写しに無いと、親の失敗で戻せない。
+bool replaces_files(Impl& machine, Cell term) {
+  if (!is_directive(machine.heap, term)) return false;
+  const Cell body = machine.heap.deref(machine.heap.arg(term, 0));
+  if (body.tag() == Tag::Lis) return true;
+  if (body.tag() == Tag::Atom) return machine.atoms.name(static_cast<std::uint32_t>(body.raw() >> 3)) == "[]";
+  return body.tag() == Tag::Str && machine.heap.functor_arity(body) == 1 &&
+         machine.atoms.name(machine.heap.functor_atom(body)) == "consult";
+}
+
+bool take_term(Impl& machine, Reader& reader, Cell term, std::string_view directory, std::string_view origin,
+               bool first, LoadScan& scan) {
+  if (is_rule_arrow(machine.heap, term)) {
+    fail_load(machine, "この指示はフェーズ2では使えない: " +
+                           write_term(machine.heap, machine.operators, term, {}, {}));
+    return false;
+  }
+  const int included = apply_file(machine, term, directory, scan, "include", false);
+  if (included != 0) return included > 0;
+  const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);
+  if (ensured != 0) return ensured > 0;
+  if (replaces_files(machine, term)) {
+    for (const Predicate& predicate : machine.predicates) {
+      remember_pred(machine, scan.snapshots, PredKey{predicate.module, predicate.name, predicate.arity});
+    }
+  }
+  const int listed = apply_file_list(machine, term, directory, scan.opening);
+  if (listed != 0) return listed > 0;
+  const int directed =
+      consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits, first, origin);
+  if (directed != 0) return directed > 0;
+  Clause clause;
+  if (!compile_clause(machine.heap, term, clause)) {
+    fail_load(machine, "この指示はフェーズ2では使えない: " +
+                           write_term(machine.heap, machine.operators, term, {}, {}));
+    return false;
+  }
+  remember(machine, scan.snapshots, clause);
+  return add_clause(machine, std::move(clause), scan.last, scan.apart);
+}
+
+// module/2 はこのテキストの中だけ節の行き先を変える。読み終えたら、読み込んだ側へ戻す。
+struct ModuleScope {
+  Impl& machine;
+  std::uint32_t outer;
+  explicit ModuleScope(Impl& owner) : machine(owner), outer(owner.load_module) {}
+  ModuleScope(const ModuleScope&) = delete;
+  ModuleScope& operator=(const ModuleScope&) = delete;
+  ~ModuleScope() { machine.load_module = outer; }
+  // 公開は読み終えてから見せる。途中の export/1 で足した述語も取り込む。
+  void close() {
+    if (machine.load_module != outer) import_exports(machine, machine.load_module, outer);
+  }
+};
+
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
                 bool nested, LoadScan& scan) {
   CycleGuard guard;
-  if (!origin.empty()) {
-    // 開き済みのファイルをもう一度開くと、読み込みが終わらない。
-    const auto key = canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
-    if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) {
-      fail_load(machine, std::string{origin} + ": ファイルが循環しています");
-      return false;
-    }
-    scan.opening.push_back(key);
-    guard.opening = &scan.opening;
-    // 開き始めたパスは準備済みにする。失敗した読み込みは reject_load が戻す。
-    if (std::find(machine.prepared.begin(), machine.prepared.end(), key) == machine.prepared.end()) {
-      machine.prepared.push_back(key);
-    }
-  }
+  if (!enter_file(machine, origin, scan, guard)) return false;
+  ModuleScope scope{machine};
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
+  bool first = true;
   while (true) {
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
-    if (!outcome.term) return true;
-    const Cell term = outcome.term->term;
-    if (is_rule_arrow(machine.heap, term)) {
-      fail_load(machine, "この指示はフェーズ2では使えない: " +
-                             write_term(machine.heap, machine.operators, term, {}, {}));
-      return false;
+    if (!outcome.term) {
+      scope.close();
+      return true;
     }
-    const int included = apply_file(machine, term, directory, scan, "include", false);
-    if (included < 0) return false;
-    if (included > 0) continue;
-    const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);
-    if (ensured < 0) return false;
-    if (ensured > 0) continue;
-    // [File] は別の読み込みで既存の節を置き換える。親の写しに無いと、親の失敗で戻せない。
-    if (is_directive(machine.heap, term)) {
-      const Cell body = machine.heap.deref(machine.heap.arg(term, 0));
-      if (body.tag() == Tag::Lis || (body.tag() == Tag::Atom &&
-                                     machine.atoms.name(static_cast<std::uint32_t>(body.raw() >> 3)) == "[]")) {
-        for (const Predicate& predicate : machine.predicates) {
-          remember_pred(machine, scan.snapshots, predicate.name, predicate.arity);
-        }
-      }
-    }
-    const int listed = apply_file_list(machine, term, directory, scan.opening);
-    if (listed < 0) return false;
-    if (listed > 0) continue;
-    const int directed = consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits);
-    if (directed < 0) return false;
-    if (directed > 0) continue;
-    Clause clause;
-    if (!compile_clause(machine.heap, term, clause)) {
-      fail_load(machine, "この指示はフェーズ2では使えない: " +
-                             write_term(machine.heap, machine.operators, term, {}, {}));
-      return false;
-    }
-    remember(machine, scan.snapshots, clause);
-    if (!add_clause(machine, std::move(clause), scan.last, scan.apart)) return false;
+    if (!take_term(machine, reader, outcome.term->term, directory, origin, first, scan)) return false;
+    first = false;
   }
 }
 
@@ -384,6 +417,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   const SavedFlags saved_flags = save_flags(machine);
   const auto saved_multi = machine.multifile;
   const auto saved_prepared = machine.prepared;
+  const auto saved_modules = machine.modules;
   std::vector<Snapshot> snapshots;
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
   std::vector<Apart> apart;
@@ -400,7 +434,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
       return LoadStatus{false, machine.diagnostic};
     }
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
-                       saved_prepared);
+                       saved_prepared, saved_modules);
   }
   return finish_load(machine, heap_base, inits);
 }

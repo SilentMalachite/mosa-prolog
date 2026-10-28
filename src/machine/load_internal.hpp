@@ -12,6 +12,7 @@
 namespace mosa {
 
 struct Snapshot {
+  std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
@@ -28,9 +29,11 @@ struct Apart {
 void fail_load(Impl& machine, std::string message);
 [[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16_t arity);
 void note_multifile(Impl& machine, std::uint32_t name, std::uint16_t arity);
-void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity);
+void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
+// first は、この項がファイルの最初の項であること。module/2 はそこでしか受けない。
 [[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
-                                    std::vector<Apart>& apart, std::vector<Cell>& inits);
+                                    std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,
+                                    std::string_view origin);
 
 }

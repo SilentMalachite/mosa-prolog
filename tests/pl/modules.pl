@@ -21,3 +21,14 @@ test(mod_qual_call_n_module, call(nomod:mod_pair, _, _), error(existence_error(m
 test(mod_qual_not_callable, user:1, error(type_error(callable, user:1))).
 test(mod_qual_bad_body, user:(fail, 1), error(type_error(callable, user:(fail, 1)))).
 test(mod_qual_bad_body_call, call(user:(fail, 1)), error(type_error(callable, user:(fail, 1)))).
+:- consult('modules/家系.pl').
+:- consult('modules/影.pl').
+名前(利用者).
+test(mod_call_export, 祖父(X, Z), solutions([(X = 太郎, Z = 花子), (X = 太郎, Z = 次郎)])).
+test(mod_call_export_op, は(X, 太郎), solutions([X = 一郎])).
+test(mod_call_private, 家系:内部(X), solutions([X = 秘密])).
+test(mod_call_private_hidden, 内部(_), error(existence_error(procedure, 内部/1))).
+test(mod_shadow, (影の名前(X), 名前(Y)), solutions([(X = 影, Y = 利用者)])).
+test(mod_ctx_after_throw, (catch(家系:投げる, _, true), 名前(X)), solutions([X = 利用者])).
+test(mod_ctx_after_redo, (家系:親(_, _), fail ; 名前(X)), solutions([X = 利用者])).
+test(mod_export_late, 新述語(X), solutions([X = 1])).
