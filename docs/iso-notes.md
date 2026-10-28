@@ -360,3 +360,11 @@ SPEC section 5 restores `double_quotes` and `japanese_punctuation` per file bein
 A or B?: A: run the goals before restoring, so they see the file's flags. B: restore first, so they see the same flags as a query run right after the load.
 
 Decision (2026-10-28): B. The file's own terms are already read with its flags; only reads made by the goal at run time and `current_prolog_flag/2` see the difference. A goal that wants the file's syntax sets the flag itself.
+
+## Section 5 succ/2 with a negative integer
+
+`succ/2` is not in the standard. The phase 4 plan expected `type_error(not_less_than_zero, -1)` (as in SWI-Prolog), while the Logtalk suite (`lgt_succ_2_09`, `lgt_succ_2_10`) expects `domain_error(not_less_than_zero, -1)`.
+
+A or B?: A: `domain_error(not_less_than_zero, N)`, the same as `length/2`. B: `type_error(not_less_than_zero, N)`.
+
+Decision (2026-10-28): A. `not_less_than_zero` is a domain in 7.12.2 c, and `length/2` already raises it as a domain error.

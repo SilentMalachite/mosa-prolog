@@ -362,3 +362,11 @@ SPEC 第5節は、`double_quotes` と `japanese_punctuation` を読み込むフ�
 A か B か: A は、旗を戻す前にゴールを実行し、ファイルの旗のまま見せる。B は、先に旗を戻し、読み込み直後のクエリと同じ旗を見せる。
 
 決定（2026-10-28）: B。ファイル自身の項はすでにその旗で読まれている。違いが出るのは、ゴールが実行中に読むものと `current_prolog_flag/2` だけである。ファイルの書式で読みたいゴールは、自分で旗を設定する。
+
+## 第5節 負の整数を受けた succ/2
+
+`succ/2` は規格に無い。フェーズ4の計画は SWI-Prolog と同じ `type_error(not_less_than_zero, -1)` を期待し、Logtalk のスイート（`lgt_succ_2_09`、`lgt_succ_2_10`）は `domain_error(not_less_than_zero, -1)` を期待する。
+
+A か B か: A は `length/2` と同じ `domain_error(not_less_than_zero, N)`。B は `type_error(not_less_than_zero, N)`。
+
+決定（2026-10-28）: A。`not_less_than_zero` は 7.12.2 c の領域であり、`length/2` もすでに領域の誤りとして投げている。

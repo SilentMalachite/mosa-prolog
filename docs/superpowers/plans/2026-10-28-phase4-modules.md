@@ -270,9 +270,9 @@
 - Create: `lib/between.pl`
 - Test: `tests/pl/lib_between.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`between_enum`: `findall(X, between(1, 3, X), L)` が `[1, 2, 3]`。`between_inf`: `between(1, inf, 5)` が成功。`between_type`: `between(a, 3, _)` → `type_error(integer, a)`。`succ_zero`: `succ(X, 0)` が失敗。`succ_neg`: `succ(X, -1)` → `type_error(not_less_than_zero, -1)`。`succ_inst`: `succ(_, _)` → `instantiation_error`。`plus_modes`: `plus(1, X, 3)` が `X == 2`
-- [ ] **Step 2:** Prolog で書く。テストを流す。`mosatest --suite` の `between_3`、`succ_2`、`plus_3` の件数を見る
-- [ ] **Step 3:** コミット `[phase4] library(between) を実装（lib_between.pl）`
+- [x] **Step 1:** 失敗するテスト。`between_enum`: `findall(X, between(1, 3, X), L)` が `[1, 2, 3]`。`between_inf`: `between(1, inf, 5)` が成功。`between_type`: `between(a, 3, _)` → `type_error(integer, a)`。`succ_zero`: `succ(X, 0)` が失敗。`succ_neg`: `succ(X, -1)` → `domain_error(not_less_than_zero, -1)`（iso-notes `Section 5 succ/2` の決定 A）。`succ_inst`: `succ(_, _)` → `instantiation_error`。`plus_modes`: `plus(1, X, 3)` が `X == 2`
+- [x] **Step 2:** Prolog で書く。テストを流す。`mosatest --suite` の `between_3`、`succ_2`、`plus_3` の件数を見る
+- [x] **Step 3:** コミット `[phase4] library(between) を実装（lib_between.pl）`
 
 ### Task 15: `library(format)`
 
