@@ -127,6 +127,8 @@ Decision (2026-10-25): Open question 12: A. The default of `invalid_utf8` is `er
 
 Decision (2026-10-25): Open question 13: A. `set_prolog_flag(japanese_punctuation, true)` stores `true` as the value. Lexical analysis is not changed.
 
+Decision (2026-10-28): phase 5 applies the flag to lexical analysis (SPEC Section 4 table). Outside quoted tokens, comments and `0'c`, `（）［］，、：` read as `()[],,:`. `。` is a clause terminator only when a layout character or the end of input follows; otherwise it stays a symbol character, so `1。5` is not a float. `「` opens a quoted atom that `」` closes. The flag is per file (SPEC Section 5) and takes effect from the clause after the directive.
+
 ## 7.11 Flag version
 
 Decision (2026-10-25): Open question 14: A. `version` is a read-only atom, and its text is the same as `version_line()`.
@@ -506,3 +508,11 @@ Decision (2026-10-28): A. An integer argument to these six gives `type_error(flo
 A or B?: A: keep rounding a half away from zero (`round(-2.5) = -3`). B: follow 9.1.6, `floor(x + 1/2)` (`round(-2.5) = -2`). A until confirmed.
 
 Decision (2026-10-28): B. `round/1` follows 9.1.6 and rounds a half towards positive infinity. The fractional part is taken by subtracting `floor(x)`, which is exact, so `0.49999999999999994` and odd integers above 2^52 are not rounded twice (`src/builtins/arith_float.cpp`, `tests/pl/arith.pl` `round_*`).
+
+## Section 4 Inside 「…」 quoted atoms
+
+SPEC Section 4 maps `「` `」` to the start and end of a quoted atom and says they cannot be nested. It does not say which characters inside are special.
+
+A or B?: A: the same rules as `'…'` (6.4.2): `\` escapes work, `」」` is one `」`, a raw newline is an error, and `'` is an ordinary character. B: no escapes; every character up to the first `」` is taken as written, and `」` cannot appear inside.
+
+Decision (2026-10-28): A. `「…」` uses the escapes of `'…'`, with `」` as the quote character, so `」」` is one `」` and `'` is ordinary.

@@ -86,3 +86,27 @@ test(char_width_narrow, '$char_width'(0'a, W), solutions([W = 1])).
 test(char_width_inst, '$char_width'(_, _), error(instantiation_error)).
 test(char_width_type, '$char_width'(a, _), error(type_error(integer, a))).
 test(char_width_repr, '$char_width'(-1, _), error(representation_error(character_code))).
+% 全角記号モード（SPEC 第4節、iso-notes 第4節）。旗は読む間だけ真にし、例外のときも偽に戻す。
+全角で読む(Text, T) :-
+    set_prolog_flag(japanese_punctuation, true),
+    catch((open_string(Text, S), read(S, T0)), E, true),
+    set_prolog_flag(japanese_punctuation, false),
+    ( nonvar(E) -> throw(E) ; T = T0 ).
+test(fw_same_term, (全角で読む('親（太郎，一郎）。', T1), open_string('親(太郎,一郎).', S), read(S, T2), T1 == T2), true).
+test(fw_list, (全角で読む('X = ［1，2］。', T), T = (_ = L), L == [1, 2]), true).
+test(fw_touten, (全角で読む('f（a、b）。', T), T == f(a, b)), true).
+test(fw_colon, (全角で読む('a：b。', T), T == (a:b)), true).
+test(fw_kagi, (全角で読む('X = 「東 京」。', T), T = (_ = A), A == '東 京', with_output_to(atom(W), writeq(A)), W == '''東 京'''), true).
+test(fw_kagi_escape, (全角で読む('X = 「a\\nb」。', T), T = (_ = A), atom_codes(A, [0'a, 10, 0'b])), true).
+test(fw_kagi_doubled, (全角で読む('X = 「a」」b」。', T), T = (_ = A), A == 'a」b'), true).
+test(fw_kagi_apostrophe, (全角で読む('X = 「it''s」。', T), T = (_ = A), A == 'it''s'), true).
+test(fw_kagi_newline, 全角で読む([0'X, 0' , 0'=, 0' , 0'「, 0'a, 10, 0'b, 0'」, 0'。], _), error(syntax_error(_))).
+test(fw_kuten_not_decimal, (全角で読む('X = 1。', T), T = (_ = N), N == 1), true).
+test(fw_kuten_no_float, 全角で読む('X = 1。5。', _), error(syntax_error(_))).
+test(fw_off_symbol, (open_string('X = 、.', S), read(S, T), T = (_ = A), A == '、', open_string('X = 。.', S2), read(S2, T2), T2 = (_ = B), B == '。'), true).
+test(fw_quoted_kept, (全角で読む('X = f（''（）''，"，"）。', T), T = (_ = f(A, C)), A == '（）', atom_codes('，', C)), true).
+test(fw_char_code_kept, (全角で読む('X = 0''（。', T), T = (_ = N), char_code('（', N)), true).
+test(fw_comment_kept, (全角で読む('X = a /* （ */。', T), T = (_ = A), A == a), true).
+:- consult('modules/全角.pl').
+test(fw_directive_next_clause, 全(1), true).
+test(fw_directive_per_file, current_prolog_flag(japanese_punctuation, false), true).

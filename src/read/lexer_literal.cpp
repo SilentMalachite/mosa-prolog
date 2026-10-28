@@ -142,6 +142,8 @@ Scan Lexer::scan_radix(int base, char prefix, Place start) {
 Scan Lexer::scan_char_code(Place start) {
   advance(U'0', 1);
   advance(U'\'', 1);
+  // 0'（ は（の符号位置。引用の一種なので全角記号モードでも半角にしない。
+  const FlagScope literal(fullwidth_, false);
   if (index_ >= source_.size()) return fail_at(SyntaxReason::UnexpectedToken, "0'", start);
   const SourceChar ch = peek_char();
   if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
@@ -266,10 +268,12 @@ Scan Lexer::make_float(const std::string& spelling, Place start) {
 Scan Lexer::scan_quoted() {
   const Place start = here();
   const SourceChar opener = peek_char();
-  const char32_t quote = opener.code;
-  const std::string opener_text(1, static_cast<char>(quote));
-  advance(quote, opener.bytes);
-  const RawScope raw(*this);
+  // 「 は 」で閉じ、中は ' と同じ規則（iso-notes 第4節「…」の決定 A）。
+  const char32_t quote = opener.code == U'「' ? U'」' : opener.code;
+  std::string opener_text;
+  append_code(opener_text, opener.code);
+  advance(opener.code, opener.bytes);
+  const FlagScope raw(raw_, true);
   std::string text;
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
@@ -283,7 +287,7 @@ Scan Lexer::scan_quoted() {
         continue;
       }
       advance(ch.code, ch.bytes);
-      const TokenKind kind = quote == U'\'' ? TokenKind::Name : TokenKind::String;
+      const TokenKind kind = quote == U'\'' || quote == U'」' ? TokenKind::Name : TokenKind::String;
       return token_at(kind, start, std::move(text));
     }
     if (ch.code == U'\\') {

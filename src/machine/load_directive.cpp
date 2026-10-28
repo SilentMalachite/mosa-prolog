@@ -491,6 +491,7 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   if (flag_directive < 0) return -1;
   if (flag_directive > 0) {
     reader.set_quotes(current_double_quotes(machine));
+    reader.set_fullwidth(machine.japanese_punct);
     return 1;
   }
   const int dynamic_directive = apply_dynamic_directive(machine, term, snapshots);

@@ -34,7 +34,7 @@ foreach(command mosa mosac mosatest)
   add_dependencies(${command} mosa_lib_dir)
 endforeach()
 
-target_sources(mosa_lib PRIVATE src/read/char_class.cpp)
+target_sources(mosa_lib PRIVATE src/read/char_class.cpp src/read/fullwidth.cpp)
 target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/unify.cpp)

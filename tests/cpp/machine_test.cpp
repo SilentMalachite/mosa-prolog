@@ -26,6 +26,16 @@ void check_one_fact() {
   mosa_test::check(binding_text(*machine, bound) == "a", "value a");
 }
 
+// 旗は前のクエリで真にし、次のクエリの読みから効く（SPEC 第4節）。
+void check_fullwidth_query() {
+  auto machine = mosa::Machine::create();
+  auto set = machine->query("set_prolog_flag(japanese_punctuation, true).");
+  mosa_test::check(set.kind == mosa::StopKind::Success, "set fullwidth flag");
+  auto read = machine->query("X = f（a）。");
+  mosa_test::check(read.kind == mosa::StopKind::Success && binding_text(*machine, read) == "f(a)",
+                   "query reads fullwidth punctuation");
+}
+
 void check_choice_and_nrev() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->load_program("p(1). p(2).").ok, "two facts");
@@ -607,6 +617,7 @@ void check_abolished_reload() {
 int main() {
   check_goal_word();
   check_one_fact();
+  check_fullwidth_query();
   check_choice_and_nrev();
   check_cut();
   check_catch();

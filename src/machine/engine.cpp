@@ -539,6 +539,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.bindings.clear();
   Reader reader(goal_text, machine.heap, machine.operators, current_double_quotes(machine),
                 &machine.char_conv);
+  reader.set_fullwidth(machine.japanese_punct);
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return Stop{StopKind::Failure, 0, {}, {}, false};
   for (const VarName& name : outcome.term->names) {

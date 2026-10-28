@@ -233,7 +233,7 @@ struct Machine::Impl {
   bool float_undefined_error = true;
   // 旗 debug は値だけ持つ。on でも追跡しない。既定は off。
   bool debug_on = false;
-  // 旗 japanese_punctuation は値だけ持つ。字句解析に効かせるのはフェーズ5。既定は false。
+  // 旗 japanese_punctuation。Reader::set_fullwidth で字句解析に渡す。既定は false。
   bool japanese_punct = false;
   CharConv char_conv;
   // 前のテストのバイナリ出力を閉じる。空のままだと現在の出力がテキストに戻らない。

@@ -1,4 +1,5 @@
 #include "harness.hpp"
+#include "mosa/char_class.hpp"
 #include "mosa/lexer.hpp"
 
 #include <string_view>
@@ -6,8 +7,9 @@
 
 namespace {
 
-std::vector<mosa::Token> scan_all(std::string_view source) {
+std::vector<mosa::Token> scan_all(std::string_view source, bool fullwidth = false) {
   mosa::Lexer lexer(source);
+  lexer.set_fullwidth(fullwidth);
   std::vector<mosa::Token> tokens;
   for (;;) {
     const mosa::Scan scan = lexer.next();
@@ -193,6 +195,47 @@ void test_radix_and_comment_end() {
                    "unterminated comment");
 }
 
+void test_fullwidth() {
+  mosa_test::check(mosa::halfwidth_punctuation(U'（') == U'(' && mosa::halfwidth_punctuation(U'）') == U')' &&
+                       mosa::halfwidth_punctuation(U'［') == U'[' && mosa::halfwidth_punctuation(U'］') == U']' &&
+                       mosa::halfwidth_punctuation(U'，') == U',' && mosa::halfwidth_punctuation(U'、') == U',' &&
+                       mosa::halfwidth_punctuation(U'：') == U':',
+                   "seven fullwidth marks map to ascii");
+  mosa_test::check(!mosa::halfwidth_punctuation(U'。') && !mosa::halfwidth_punctuation(U'「') &&
+                       !mosa::halfwidth_punctuation(U'」') && !mosa::halfwidth_punctuation(U'a'),
+                   "kuten and kagi need context");
+  auto call = scan_all("親（a）。", true);
+  mosa_test::check(call.size() == 5 && call[1].kind == mosa::TokenKind::Solo && call[1].text == "(" &&
+                       !call[1].after_layout && call[3].text == ")" &&
+                       call[4].kind == mosa::TokenKind::EndFullStop && call[4].column == 5,
+                   "fullwidth call reads as ascii");
+  mosa::Lexer stop("a。 b", nullptr);
+  stop.set_fullwidth(true);
+  (void)stop.next();
+  const auto kuten = stop.next();
+  mosa_test::check(kuten.token.kind == mosa::TokenKind::EndFullStop && stop.offset() == 4,
+                   "kuten consumes its three bytes");
+  auto glued = scan_all("1。5。", true);
+  mosa_test::check(glued.size() == 4 && glued[0].kind == mosa::TokenKind::Integer && glued[0].integer == 1 &&
+                       glued[1].kind == mosa::TokenKind::Name && glued[1].text == "。" &&
+                       glued[2].kind == mosa::TokenKind::Integer,
+                   "kuten before a digit is a symbol, not a decimal point");
+  auto kagi = scan_all("「a」」b」。", true);
+  mosa_test::check(kagi.size() == 2 && kagi[0].kind == mosa::TokenKind::Name && kagi[0].text == "a」b",
+                   "kagi quotes an atom and doubles its closer");
+  mosa::Lexer open("「ab", nullptr);
+  open.set_fullwidth(true);
+  const auto unterminated = open.next();
+  mosa_test::check(unterminated.failure &&
+                       unterminated.failure->reason == mosa::SyntaxReason::UnterminatedQuote &&
+                       unterminated.failure->token == "「",
+                   "unterminated kagi names its opener");
+  mosa::Lexer off("「a」.", nullptr);
+  const auto off_scan = off.next();
+  mosa_test::check(off_scan.failure && off_scan.failure->reason == mosa::SyntaxReason::IllegalCharacter,
+                   "kagi stays illegal when the flag is off");
+}
+
 }  // namespace
 
 int main() {
@@ -202,5 +245,6 @@ int main() {
   test_bad_underscores();
   test_quotes_and_comments();
   test_radix_and_comment_end();
+  test_fullwidth();
   return mosa_test::failures();
 }

@@ -6,7 +6,7 @@
 // char_conversion は on と off。既定は off。warning と error 以外の浮動小数旗も受け付けない。
 // invalid_utf8 は error と replace。既定は error。replace は壊れたバイトを U+FFFD にする。
 // debug は on と off。既定は off。値を覚えるだけで、節の追跡はしない。
-// japanese_punctuation は true と false。値を覚えるだけで、字句解析は変えない（iso-notes 第4節）。
+// japanese_punctuation は true と false。字句解析器は次に読む項から全角記号を半角に読む（iso-notes 第4節）。
 // dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
 // version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
 // テスト: tests/pl/flags.pl

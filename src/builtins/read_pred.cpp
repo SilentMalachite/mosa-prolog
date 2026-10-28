@@ -384,6 +384,7 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
     const std::string_view slice = rest(stream);
     Reader reader(slice, machine.heap, op_view(machine, module), current_double_quotes(machine),
                   &machine.char_conv);
+    reader.set_fullwidth(machine.japanese_punct);
     ReadOutcome outcome = reader.next();
     const std::size_t consumed = reader.consumed();
     // 標準入力は、項が閉じるか本当の終端まで 1 バイトずつ足す。

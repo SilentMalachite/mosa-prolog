@@ -194,6 +194,14 @@ void check_consult_twice() {
   mosa_test::check(machine->next().kind == mosa::StopKind::Failure, "twice stops");
 }
 
+// SPEC 第4節。対話で旗を真にすると、次に打つ問い合わせから全角記号で読める。
+void check_fullwidth_query() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args, "set_prolog_flag(japanese_punctuation, true).\nX = f（a，b）。\n", true);
+  mosa_test::check(result.out.find("X = f(a,b).") != std::string::npos, "fullwidth query in the repl");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
@@ -210,6 +218,7 @@ int main() {
   check_dynamic_builtin_rejected();
   check_consult_twice();
   check_resource_limit_session();
+  check_fullwidth_query();
   check_runner();
   return mosa_test::failures();
 }

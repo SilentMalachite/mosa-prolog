@@ -535,6 +535,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   if (!enter_file(machine, origin, scan, guard)) return false;
   ModuleScope scope{machine};
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
+  reader.set_fullwidth(machine.japanese_punct);
   bool first = true;
   while (true) {
     // module/2 と op/3 が見え方を替える。項ごとに、今のモジュールの見え方で読む。

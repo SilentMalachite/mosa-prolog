@@ -2,6 +2,7 @@
 
 #include "mosa/char_class.hpp"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -82,6 +83,7 @@ Scan Lexer::next() {
   if (index_ >= source_.size()) return token_at(TokenKind::End, here());
   const SourceChar ch = peek_char();
   if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
+  if (fullwidth_ && ch.code == U'「') return scan_quoted();
   switch (classify(ch.code)) {
     case CharClass::Small:
       return scan_word(TokenKind::Name);
@@ -117,8 +119,10 @@ Lexer::SourceChar Lexer::peek_char_at(std::size_t byte) const {
   SourceChar ch = peek_raw_at(byte);
   // 引用と注釈の中は元の文字。外は写像した符号点で分類する。
   // バイト数は元の文字のままにして、消費位置をソースに合わせる。
-  if (!ch.valid || raw_ || conv_ == nullptr) return ch;
-  ch.code = conv_->apply(ch.code);
+  if (!ch.valid || raw_) return ch;
+  if (conv_ != nullptr) ch.code = conv_->apply(ch.code);
+  if (!fullwidth_) return ch;
+  if (const std::optional<char32_t> half = halfwidth_punctuation(ch.code)) ch.code = *half;
   return ch;
 }
 
@@ -198,7 +202,7 @@ std::optional<Scan> Lexer::skip_block_comment(Place start) {
   advance(slash.code, slash.bytes);
   const SourceChar star = peek_char();
   advance(star.code, star.bytes);
-  const RawScope raw(*this);
+  const FlagScope raw(raw_, true);
   while (index_ < source_.size()) {
     // ネストしない。最初の */ で閉じ、中の /* は文字のまま捨てる。
     if (source_[index_] == '*' && index_ + 1 < source_.size() && source_[index_ + 1] == '/') {
@@ -216,7 +220,7 @@ std::optional<Scan> Lexer::skip_block_comment(Place start) {
 std::optional<Scan> Lexer::skip_line_comment() {
   const SourceChar mark = peek_char();
   advance(mark.code, mark.bytes);
-  const RawScope raw(*this);
+  const FlagScope raw(raw_, true);
   while (index_ < source_.size()) {
     const auto byte = static_cast<unsigned char>(source_[index_]);
     if (byte == '\n' || byte == '\r') return std::nullopt;
@@ -227,10 +231,19 @@ std::optional<Scan> Lexer::skip_line_comment() {
   return std::nullopt;
 }
 
-bool Lexer::dot_is_full_stop() const {
-  if (index_ + 1 >= source_.size()) return true;
-  const SourceChar after = peek_char_at(index_ + 1);
+bool Lexer::layout_follows(std::size_t width) const {
+  if (index_ + width >= source_.size()) return true;
+  const SourceChar after = peek_char_at(index_ + width);
   return after.valid && classify(after.code) == CharClass::Layout;
+}
+
+bool Lexer::ends_clause(SourceChar ch, Place start) const {
+  // 空白の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
+  if (ch.code == U'.') {
+    return layout_follows(ch.bytes) && (index_ == start.byte || source_[index_ - 1] != '.');
+  }
+  // 。は小数点にしないので半角に写さない。後ろが空白か終わりのときだけ終止符で、他は記号文字。
+  return fullwidth_ && ch.code == U'。' && layout_follows(ch.bytes);
 }
 
 Scan Lexer::scan_word(TokenKind kind) {
@@ -255,16 +268,13 @@ Scan Lexer::scan_graphic() {
   std::string text;
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
-    if (!ch.valid || classify(ch.code) != CharClass::Graphic) break;
-    // 空白の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
-    if (ch.code == U'.' && dot_is_full_stop() && (index_ == start.byte || source_[index_ - 1] != '.')) {
-      break;
-    }
+    if (!ch.valid || classify(ch.code) != CharClass::Graphic || ends_clause(ch, start)) break;
     append_code(text, ch.code);
     advance(ch.code, ch.bytes);
   }
   if (index_ == start.byte) {
-    advance(U'.', 1);
+    const SourceChar stop = peek_char();
+    advance(stop.code, stop.bytes);
     // 8.14.1.4 は終止符の直後の空白を次の項の先頭に残す。確認は先読みだけで足りる。
     return token_at(TokenKind::EndFullStop, start);
   }

@@ -208,7 +208,7 @@
 - Produces: `std::optional<char32_t> halfwidth_punctuation(char32_t c)`。`（）［］，、：` を `()[],,:` に写し、それ以外は `std::nullopt`。`。` と `「」` は文脈が要るので字句解析器が個別に扱う
 - Consumes: 旗 `japanese_punctuation`（`flags.cpp` の case 8）
 
-- [ ] **Step 1:** 失敗するテストを `tests/pl/japanese.pl` に書く。旗の切り替えは各テストの中で行い、最後に `false` に戻す
+- [x] **Step 1:** 失敗するテストを `tests/pl/japanese.pl` に書く。旗の切り替えは各テストの中で行い、最後に `false` に戻す
   - `fw_same_term`: 旗を真にして `親（太郎，一郎）。` を読んだ項が、`親(太郎,一郎).` を読んだ項と `==`
   - `fw_list`: `X = ［1，2］。` が `X == [1,2]`
   - `fw_touten`: `f（a、b）。` が `f(a,b)`
@@ -218,11 +218,11 @@
   - `fw_off_symbol`: 旗が偽のとき `X = 、` が `X == '、'`、`。` は記号原子として今と同じ項になる
   - `fw_quoted_kept`: 旗が真でも `'（）'` と `"，"` の中身は全角のまま
   - `fw_char_code_kept`: 旗が真でも `0'（` は `（` の符号位置
-  - `fw_directive_next_clause`: 一時ファイル `tests/tmp/全角.pl` に `:- set_prolog_flag(japanese_punctuation, true).` と `全（1）。` を書いて `consult` し、`全(1)` が呼べる
-- [ ] **Step 2:** 失敗を見る
-- [ ] **Step 3:** 字句解析器が文字を 1 つ取り出す入口で、引用の外のときだけ `halfwidth_punctuation` を通す。`。` は後ろが配置文字か入力の終わりのときだけ終止符にする。`「` は引用原子の開始とし、終わりは `」`。中の規則（`'` を普通の文字にするか、`\` のエスケープを使うか）は iso-notes に「A: `'…'` と同じエスケープで、`'` は普通の文字 B: エスケープなし」を書いて決めてから実装する
-- [ ] **Step 4:** `ctest` を流す。`fw_off_symbol` と既存の `syntax.pl` の往復が変わっていないことを見る
-- [ ] **Step 5:** コミット `[phase5] 全角記号モードを字句解析に効かせる（SPEC 第4節、japanese.pl の fw_* 10 件）`
+  - `fw_directive_next_clause`: 一時ファイル `tests/tmp/全角.pl` に `:- set_prolog_flag(japanese_punctuation, true).` と `全（1）。` を書いて `consult` し、`全(1)` が呼べる（実施: 一時ファイルではなく `tests/pl/modules/全角.pl` を `japanese.pl` の指令で読む。`modules/旗.pl` と同じ形で、ctest の作業ディレクトリに依らない）
+- [x] **Step 2:** 失敗を見る
+- [x] **Step 3:** 字句解析器が文字を 1 つ取り出す入口で、引用の外のときだけ `halfwidth_punctuation` を通す。`。` は後ろが配置文字か入力の終わりのときだけ終止符にする。`「` は引用原子の開始とし、終わりは `」`。中の規則（`'` を普通の文字にするか、`\` のエスケープを使うか）は iso-notes に「A: `'…'` と同じエスケープで、`'` は普通の文字 B: エスケープなし」を書いて決めてから実装する
+- [x] **Step 4:** `ctest` を流す。`fw_off_symbol` と既存の `syntax.pl` の往復が変わっていないことを見る
+- [x] **Step 5:** コミット `[phase5] 全角記号モードを字句解析に効かせる（SPEC 第4節、japanese.pl の fw_* 10 件）`
 
 ### Task 11: メッセージを Prolog の事実へ移す
 
