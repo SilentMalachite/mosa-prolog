@@ -283,6 +283,14 @@ A か B か: A は、読み込みを `existence_error(procedure, Module:Name/Ari
 
 決定（2026-10-28）: A。取り込めるのは公開された述語だけで、無いものは `existence_error(procedure, Module:Name/Arity)` で読み込みを失敗させる。
 
+## 第5節 モジュールでないファイルの use_module
+
+SPEC 第5節は 1 ファイルが 1 モジュールに対応すると書くが、最初の項が `module/2` でないファイルを `use_module/1,2` がどう扱うかを決めていない。
+
+A か B か: A は、読み込みを `permission_error(load, source_sink, File)` で失敗させ、読んだ節も戻す。SWI-Prolog もモジュールでないファイルを拒む。B は、`consult/1` と同じく文脈モジュールに読み、取り込むものは無い。
+
+決定（2026-10-28）: A。`use_module/1,2` はモジュールのファイルだけを受ける。
+
 ## 8.4.3 sort/2
 
 `sort/2` は ISO の組み込み（8.4.3）だが、SPEC 第7節の段階表に無く、実装もされていない。同梱スイートの `sort_2` のテストは `docs/conformance.md` の別欄にある。`keysort/2`（8.4.4）は段階 G に system として載っている。

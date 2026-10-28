@@ -281,6 +281,14 @@ A or B?: A: the load fails with `existence_error(procedure, Module:Name/Arity)`.
 
 Decision (2026-10-28): A. Only exported predicates can be imported; a missing one fails the load with `existence_error(procedure, Module:Name/Arity)`.
 
+## Section 5 use_module of a file that is not a module
+
+SPEC section 5 says one file corresponds to one module, but not what `use_module/1,2` does with a file whose first term is not `module/2`.
+
+A or B?: A: the load fails with `permission_error(load, source_sink, File)` and the clauses it read are rolled back, as SWI-Prolog rejects a non-module file. B: read it like `consult/1` into the context module, with nothing to import.
+
+Decision (2026-10-28): A. `use_module/1,2` accepts module files only.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.
