@@ -56,7 +56,7 @@ test(capture_inner_set, (with_output_to(atom(A), (write(a), set_output(user_erro
 test(capture_closes, (with_output_to(atom(A), (current_output(S), write(a))), open_string(b, T), S \== T, A == a, stream_property(S, mode(write))), error(existence_error(stream, S))).
 test(capture_fail_closes, (findall(S, stream_property(S, mode(write)), Before), (with_output_to(atom(_), fail) ; true), findall(S, stream_property(S, mode(write)), After), Before == After), true).
 test(capture_throw_closes, (catch(with_output_to(codes(_), (current_output(S), throw(kept(S)))), kept(S), true), write(S, c)), error(existence_error(stream, S))).
-test(capture_leaves_output, (with_output_to(user_output, true), stream_property(user_output, mode(write))), true).
+test(capture_leaves_output, (with_output_to(user_output, true), stream_property(user_output, mode(append))), true).
 test(write_var, write(S, a), error(instantiation_error)).
 test(write_term_var, write_term(S, a, []), error(instantiation_error)).
 test(opt_before_domain, write_term(foo, a, [X]), error(instantiation_error)).

@@ -137,14 +137,6 @@ bool reject_input(Impl& machine, const Goal& goal, const Stream& stream, Cell cu
   return false;
 }
 
-void rewind_stream(Stream& stream) {
-  stream.cursor = 0;
-  stream.char_no = 0;
-  stream.line = 1;
-  stream.line_pos = 1;
-  stream.past_end = false;
-}
-
 bool pull_byte(Stream& stream) {
   if (stream.kind != Stream::Kind::Standard || stream.mode != Stream::Mode::Read) return false;
   const int byte = std::cin.get();
@@ -452,7 +444,7 @@ void run_one(Impl& machine, const Goal& goal, bool term_pred) {
     raise_permit(machine, goal, "past_end_of_stream", culprit);
     return;
   }
-  if (stream.past_end && stream.eof_action == Stream::EofAction::Reset) rewind_stream(stream);
+  if (stream.past_end && stream.eof_action == Stream::EofAction::Reset) reset_at_end(stream);
   const Cell term_cell = goal.arg(machine, spec.term_at);
   if (stream.past_end) {
     bind_read(machine, goal, term_cell, chosen, eof_term(machine));

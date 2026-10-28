@@ -281,6 +281,7 @@ void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::siz
                  const std::vector<Cell>& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
+void reset_at_end(Stream& stream);
 Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);

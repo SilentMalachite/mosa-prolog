@@ -475,6 +475,8 @@ Decision (2026-10-28): B. An integer base other than 0, 1 and -1 with a negative
 
 A or B?: A: keep `eof_code` and `write`. B: `user_input` has `eof_action(reset)`, and `user_output` and `user_error` have `mode(append)`. A until confirmed.
 
+Decision (2026-10-28): B. `user_input` reports `eof_action(reset)` and acts on it: after the end, the next read clears the end mark and asks the OS again, without replaying what was already read, so a terminal can read on after Ctrl-D and a pipe keeps giving `end_of_file`. `user_output` and `user_error` report `mode(append)`. `all_std` in `tests/pl/stream_prop.pl` and `capture_leaves_output` in `tests/pl/write.pl` change in the same commit (`src/builtins/streams.cpp` `standard_stream`, `src/builtins/chars.cpp` `reset_at_end`, `tests/cpp/stream_test.cpp` "standard reset").
+
 ## Spec Section 4: So characters are symbol characters
 
 `lgt_unicode_escape_sequence_full_05` expects `writeq('🀙🀚🀛🀜🀝🀞🀟🀠')` to quote the atom. SPEC Section 4 makes non-ASCII characters in `So` symbol characters, so these 8 characters form a symbol-character atom (6.4.2), and `writeq` (7.10.5) writes it without quotes. The row stays failing as a difference in interpretation. This follows the approved SPEC, so no question is open.

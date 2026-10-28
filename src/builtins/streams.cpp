@@ -148,6 +148,8 @@ Stream standard_stream(Stream::Mode mode, std::string alias) {
   stream.kind = Stream::Kind::Standard;
   stream.mode = mode;
   stream.reposition = false;
+  // iso-notes 8.11 の決定 B。標準入力は終わりの後も読み直せる。
+  if (mode == Stream::Mode::Read) stream.eof_action = Stream::EofAction::Reset;
   stream.alias = std::move(alias);
   return stream;
 }
@@ -535,8 +537,9 @@ void run_close(Impl& machine, const Goal& goal) {
 
 void init_streams(Impl& machine) {
   machine.streams.push_back(standard_stream(Stream::Mode::Read, "user_input"));
-  machine.streams.push_back(standard_stream(Stream::Mode::Write, "user_output"));
-  machine.streams.push_back(standard_stream(Stream::Mode::Write, "user_error"));
+  // 標準の出力は他のプロセスと共有して末尾へ足していくので append（iso-notes 8.11 の決定 B）。
+  machine.streams.push_back(standard_stream(Stream::Mode::Append, "user_output"));
+  machine.streams.push_back(standard_stream(Stream::Mode::Append, "user_error"));
   machine.current_in = 0;
   machine.current_out = 1;
 }

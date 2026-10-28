@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2126
-合格率: 97.9
+合格数: 2131
+合格率: 98.2
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
@@ -17,11 +17,6 @@ predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(pr
 predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition,stream,Stream)) fail
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
-predicates/stream_property_2/tests.lgt sics_stream_property_2_05c deterministic(Action==reset) fail
-predicates/stream_property_2/tests.lgt sics_stream_property_2_06d deterministic(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_08b true(Action==reset) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_09c true(Mode==append) fail
-predicates/stream_property_2/tests.lgt lgt_stream_property_2_10c true(Mode==append) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) fail

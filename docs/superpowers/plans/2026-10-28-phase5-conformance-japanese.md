@@ -349,11 +349,6 @@
 | `predicates/read_term_3` | `sics_read_term_3_24` | X | なし | 多倍長整数（フェーズ7） |
 | `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 解釈の違い（iso-notes 8.11.8 position with reposition(false)） |
 | `predicates/stream_property_2` | `sics_stream_property_2_03` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
-| `predicates/stream_property_2` | `sics_stream_property_2_05c` | Q | 8 | 8.11 Properties of the standard streams |
-| `predicates/stream_property_2` | `sics_stream_property_2_06d` | Q | 8 | 8.11 Properties of the standard streams |
-| `predicates/stream_property_2` | `lgt_stream_property_2_08b` | Q | 8 | 8.11 Properties of the standard streams |
-| `predicates/stream_property_2` | `lgt_stream_property_2_09c` | Q | 8 | 8.11 Properties of the standard streams |
-| `predicates/stream_property_2` | `lgt_stream_property_2_10c` | Q | 8 | 8.11 Properties of the standard streams |
 | `predicates/write_term_3` | `lgt_write_term_3_043` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |

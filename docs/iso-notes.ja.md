@@ -149,6 +149,8 @@ A か B か: A は決定のまま（指示子かリストだけ。5 行は不合
 
 決定（2026-10-25）: 添字 0 が `user_input` で stdin、1 が `user_output` で stdout、2 が `user_error` で stderr。`reposition` は false。
 
+決定（2026-10-28）: B。`user_input` は `eof_action(reset)` を返し、そのとおりに動く。終わりの後に読むと、終わりの印を下ろして OS にもう一度尋ねる。読んだ分は繰り返さないので、端末は Ctrl-D の後も読み続けられ、パイプは `end_of_file` を返し続ける。`user_output` と `user_error` は `mode(append)` を返す。`tests/pl/stream_prop.pl` の `all_std` と `tests/pl/write.pl` の `capture_leaves_output` は同じコミットで変える（`src/builtins/streams.cpp` の `standard_stream`、`src/builtins/chars.cpp` の `reset_at_end`、`tests/cpp/stream_test.cpp` の「standard reset」）。
+
 ## 8.11 終端の次の読み
 
 決定（2026-10-25）: 既定の `eof_action` は `eof_code`。終端の次の読みは、テキストが `end_of_file`、バイナリが `-1`。`eof_action(reset)` は別途選べる。

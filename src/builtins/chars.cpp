@@ -144,14 +144,6 @@ void advance(Stream& stream, char32_t code, std::size_t width) {
   }
 }
 
-void rewind_stream(Stream& stream) {
-  stream.cursor = 0;
-  stream.char_no = 0;
-  stream.line = 1;
-  stream.line_pos = 1;
-  stream.past_end = false;
-}
-
 bool find_alias(const Impl& machine, std::string_view name, std::size_t& index) {
   for (std::size_t at = 0; at < machine.streams.size(); ++at) {
     if (machine.streams[at].alias == name) {
@@ -254,7 +246,7 @@ bool take_char(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
   if (stream.past_end && stream.eof_action == Stream::EofAction::Error) {
     return raise_permit(machine, goal, "input", "past_end_of_stream", culprit);
   }
-  if (stream.past_end && stream.eof_action == Stream::EofAction::Reset) rewind_stream(stream);
+  if (stream.past_end && stream.eof_action == Stream::EofAction::Reset) reset_at_end(stream);
   if (stream.past_end) {
     eof = true;
     return false;
@@ -389,6 +381,20 @@ void run_nl(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+// eof_action(reset)。ファイルと記憶の流れは先頭へ戻す。標準入力は読んだ分を巻き戻さず、
+// 終わりの印を下ろして OS からの続きを待つ（iso-notes 8.11 の決定 B）。端末は Ctrl-D の後も読める。
+void reset_at_end(Stream& stream) {
+  stream.past_end = false;
+  if (stream.kind == Stream::Kind::Standard) {
+    std::cin.clear();
+    return;
+  }
+  stream.cursor = 0;
+  stream.char_no = 0;
+  stream.line = 1;
+  stream.line_pos = 1;
+}
 
 bool run_char_io(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
