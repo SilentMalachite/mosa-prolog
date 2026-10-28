@@ -194,6 +194,41 @@ void check_half_read_is_reread() {
   mosa_test::check(succeeds(*machine, "p."), "the half-read file is read again");
 }
 
+// 節の頭部と宣言の M:（Task 7）。無いモジュールは module/2 で作らないかぎり誤りになる。
+void check_qualified_clauses() {
+  auto machine = mosa::Machine::create();
+  const auto status = machine->load_program(
+      ":- module(m, []).\n:- dynamic(user:d/1).\nuser:u(1).\n(user:r(X) :- X = 2).\nuser:(s(X) :- t(X)).\nt(3).\n");
+  mosa_test::check(status.ok, "qualified heads load");
+  mosa_test::check(succeeds(*machine, "u(1), r(2)."), "qualified heads go to user");
+  // 本体は節の述語のモジュールで動く（ADR 0006）。m の t/1 は user からは見えない。
+  mosa_test::check(machine->query("s(3).").kind == mosa::StopKind::Exception, "body runs in user, not m");
+  mosa_test::check(succeeds(*machine, "assertz(d(1)), d(1)."), "dynamic(user:d/1)");
+  auto unknown = mosa::Machine::create();
+  mosa_test::check(!unknown->load_program("nomod:p(1).\n").ok, "clause for an unknown module fails");
+  mosa_test::check(mentions(*unknown, "existence_error(module,nomod)"), "existence_error(module, nomod)");
+  auto unbound = mosa::Machine::create();
+  mosa_test::check(!unbound->load_program("_:p(1).\n").ok, "clause for an unbound module fails");
+  mosa_test::check(mentions(*unbound, "instantiation_error"), "unbound module: instantiation_error");
+  // M: を外しても指示と文法規則は節にしない。外す前と同じく読み込みの誤りにする。
+  auto rule = mosa::Machine::create();
+  mosa_test::check(!rule->load_program("user:(a --> b).\n").ok, "qualified --> is rejected");
+  auto directive = mosa::Machine::create();
+  mosa_test::check(!directive->load_program("user:(:- true).\n").ok, "qualified directive is not a fact");
+}
+
+void check_qualified_declarations() {
+  auto unknown = mosa::Machine::create();
+  mosa_test::check(!unknown->load_program(":- dynamic(nomod:p/1).\n").ok, "dynamic of an unknown module fails");
+  mosa_test::check(mentions(*unknown, "existence_error(module,nomod)"), "dynamic: existence_error(module, nomod)");
+  auto unbound = mosa::Machine::create();
+  mosa_test::check(!unbound->load_program(":- dynamic(_:p/1).\n").ok, "dynamic of an unbound module fails");
+  mosa_test::check(mentions(*unbound, "instantiation_error"), "dynamic: instantiation_error");
+  auto apart = mosa::Machine::create();
+  const auto text = ":- module(m, []).\n:- discontiguous(m:q/1).\nuser:q(1).\nuser:r(1).\nuser:q(2).\n";
+  mosa_test::check(!apart->load_program(text).ok, "discontiguous(m:q/1) does not cover user:q/1");
+}
+
 }  // namespace
 
 int main() {
@@ -213,5 +248,7 @@ int main() {
   check_renamed_module_file();
   check_dynamic_after_import();
   check_half_read_is_reread();
+  check_qualified_clauses();
+  check_qualified_declarations();
   return mosa_test::failures();
 }

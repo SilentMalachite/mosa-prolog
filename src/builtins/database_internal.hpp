@@ -18,7 +18,8 @@ void raise_instantiation(Impl& machine, const Goal& goal);
 void raise_type(Impl& machine, const Goal& goal, std::string_view type, Cell culprit);
 void succeed(Impl& machine, const Goal& goal);
 [[nodiscard]] HeadName head_indicator(Impl& machine, Cell head);
-[[nodiscard]] PredKey user_key(const Impl& machine, std::uint32_t name, std::uint16_t arity);
+// 引数の M: を外し、行き先のモジュールを返す。偽なら誤りを投げ済み。M: が無ければ文脈モジュール。
+[[nodiscard]] bool strip_target(Impl& machine, const Goal& goal, Cell& term, std::uint32_t& module, bool clause);
 void run_clause(Impl& machine, const Goal& goal);
 void run_current_predicate(Impl& machine, const Goal& goal);
 

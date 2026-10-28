@@ -57,15 +57,18 @@ HeadName head_indicator(Impl& machine, Cell head) {
   return indicator;
 }
 
-// M: 付きの節操作はフェーズ4 Task 7 で受ける。それまでは user の述語だけを触る。
-PredKey user_key(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  return PredKey{machine.user_module, name, arity};
+bool strip_target(Impl& machine, const Goal& goal, Cell& term, std::uint32_t& module, bool clause) {
+  module = goal.module;
+  const auto formal = clause ? strip_clause(machine, term, module) : strip_module(machine, term, module);
+  if (!formal) return true;
+  raise_formal(machine, *formal, goal.name, goal.arity);
+  return false;
 }
 
 }  // namespace database
 
 using database::HeadName;
-using database::user_key;
+using database::strip_target;
 using database::run_clause;
 using database::run_current_predicate;
 using database::callable_term;
@@ -85,8 +88,9 @@ struct ClauseView {
 };
 
 
-void raise_permission(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity) {
-  const Cell indicator = cell_functor(machine, name, arity);
+void raise_permission(Impl& machine, const Goal& goal, std::uint32_t module, std::uint32_t name,
+                      std::uint16_t arity) {
+  const Cell indicator = module_indicator(machine, module, name, arity);
   raise_formal(machine, formal_permission(machine, "modify", "static_procedure", indicator), goal.name,
                goal.arity);
 }
@@ -94,7 +98,7 @@ void raise_permission(Impl& machine, const Goal& goal, std::uint32_t name, std::
 bool refuse_builtin(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity) {
   // 組込は述語表に無い。無い述語として足すと、本体に届かない隠れ節になる。
   if (!is_builtin_procedure(machine, name, arity)) return false;
-  raise_permission(machine, goal, name, arity);
+  raise_permission(machine, goal, machine.user_module, name, arity);
   return true;
 }
 
@@ -171,10 +175,16 @@ bool scans_clauses(Pick pick) {
   return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
 }
 
-void note_removed(Impl& machine, std::uint32_t name, std::uint16_t arity, std::size_t removed) {
+// 同じ名前の述語はモジュールごとにある。名前だけで比べると、別のモジュールの走査をずらす。
+bool scans_pred(const Entry& entry, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
+  return scans_clauses(entry.pick) && entry.pred_module == module && entry.pred_name == name &&
+         entry.pred_arity == arity;
+}
+
+void note_removed(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity,
+                  std::size_t removed) {
   for (Entry& entry : machine.stack) {
-    if (entry.pred_name != name || entry.pred_arity != arity) continue;
-    if (!scans_clauses(entry.pick)) continue;
+    if (!scans_pred(entry, module, name, arity)) continue;
     std::vector<std::size_t> kept;
     kept.reserve(entry.candidates.size());
     std::size_t next = entry.next;
@@ -193,10 +203,9 @@ void note_removed(Impl& machine, std::uint32_t name, std::uint16_t arity, std::s
   }
 }
 
-void note_asserta(Impl& machine, std::uint32_t name, std::uint16_t arity) {
+void note_asserta(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
   for (Entry& entry : machine.stack) {
-    if (entry.pred_name != name || entry.pred_arity != arity) continue;
-    if (!scans_clauses(entry.pick)) continue;
+    if (!scans_pred(entry, module, name, arity)) continue;
     // 先頭に足しても、開いている走査は新しい節を見ない。古い添字だけ 1 つずれる。
     for (std::size_t& index : entry.candidates) ++index;
   }
@@ -223,16 +232,16 @@ void shift_pred_index(Entry& entry, std::size_t removed) {
   entry.next = next;
 }
 
-void erase_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
+void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
   std::size_t removed = machine.predicates.size();
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
-    if (predicate.name != name || predicate.arity != arity) continue;
+    if (predicate.module != module || predicate.name != name || predicate.arity != arity) continue;
     removed = index;
     break;
   }
   for (Entry& entry : machine.stack) {
-    if (scans_clauses(entry.pick) && entry.pred_name == name && entry.pred_arity == arity) {
+    if (scans_pred(entry, module, name, arity)) {
       entry.candidates.clear();
       entry.next = 0;
       continue;
@@ -273,26 +282,28 @@ std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predica
   return found;
 }
 
-void push_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
-                  const std::vector<std::size_t>& matches, std::size_t next, std::size_t heap_mark,
-                  std::size_t trail_mark) {
+void push_retract(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+                  std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = Pick::Retract;
   entry.candidates = matches;
   entry.next = next;
   entry.redo_goal = goal.at;
-  entry.pred_name = name;
-  entry.pred_arity = arity;
+  entry.pred_module = key.module;
+  entry.pred_name = key.name;
+  entry.pred_arity = key.arity;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
   push_frame(machine, std::move(entry));
 }
 
-bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
-                  const std::vector<std::size_t>& matches, std::size_t begin) {
-  Predicate* predicate = find_pred(machine, user_key(machine, name, arity));
+bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+                  std::size_t begin) {
+  Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
-  const ClauseView view = clause_view(machine, goal.arg(machine, 0));
+  // 引数は最初の呼び出しで検査済み。M: は外すだけにし、節を作り直してヒープを使わない。
+  ClauseView view = clause_view(machine, skip_module(machine, goal.arg(machine, 0)));
+  view.head = skip_module(machine, view.head);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
     if (index >= predicate->clauses.size()) continue;
@@ -304,10 +315,10 @@ bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_retract(machine, goal, name, arity, matches, cursor + 1, heap_mark, trail_mark);
+      push_retract(machine, goal, key, matches, cursor + 1, heap_mark, trail_mark);
     }
     erase_clause(*predicate, index);
-    note_removed(machine, name, arity, index);
+    note_removed(machine, key.module, key.name, key.arity, index);
     succeed(machine, goal);
     return true;
   }
@@ -315,10 +326,12 @@ bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
 }
 
 void run_assert(Impl& machine, const Goal& goal, bool at_front) {
-  const Cell term = machine.heap.deref(goal.arg(machine, 0));
+  Cell term = goal.arg(machine, 0);
+  std::uint32_t module = 0;
+  if (!strip_target(machine, goal, term, module, true)) return;
   if (reject_clause(machine, goal, term, false)) return;
   const ClauseView view = clause_view(machine, term);
-  const HeadName head = head_indicator(machine, view.head);
+  HeadName head = head_indicator(machine, view.head);
   Clause clause;
   // 呼び出し後の束縛が節へ漏れないよう、データベースに見える前に IR の変数番号へ切る。
   if (!compile_clause(machine.heap, term, clause)) {
@@ -333,17 +346,17 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
   // 無い :- をこの後で動的に作ると、節の首へ足せてしまう。宣言済みでも静的のまま。
   if (neck_static(machine, head.name, head.arity)) {
-    raise_permission(machine, goal, head.name, head.arity);
+    raise_permission(machine, goal, machine.user_module, head.name, head.arity);
     return;
   }
-  Predicate* existing = find_pred(machine, user_key(machine, head.name, head.arity));
+  Predicate* existing = owned_pred(machine, module, head.name, head.arity);
   if (existing != nullptr && !existing->dynamic) {
-    raise_permission(machine, goal, head.name, head.arity);
+    raise_permission(machine, goal, existing->module, head.name, head.arity);
     return;
   }
   if (existing == nullptr) {
     Predicate created;
-    created.module = machine.user_module;
+    created.module = module;
     created.name = head.name;
     created.arity = head.arity;
     created.dynamic = true;
@@ -352,7 +365,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   }
   if (at_front) {
     existing->clauses.insert(existing->clauses.begin(), std::move(clause));
-    note_asserta(machine, head.name, head.arity);
+    note_asserta(machine, existing->module, head.name, head.arity);
   } else {
     existing->clauses.push_back(std::move(clause));
   }
@@ -360,26 +373,31 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
 }
 
 void run_retract(Impl& machine, const Goal& goal) {
-  const Cell term = machine.heap.deref(goal.arg(machine, 0));
+  Cell term = goal.arg(machine, 0);
+  std::uint32_t module = 0;
+  if (!strip_target(machine, goal, term, module, true)) return;
   if (reject_clause(machine, goal, term, true)) return;
   const ClauseView view = clause_view(machine, term);
-  const HeadName head = head_indicator(machine, view.head);
+  HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = find_pred(machine, user_key(machine, head.name, head.arity));
+  Predicate* predicate = owned_pred(machine, module, head.name, head.arity);
   if (predicate == nullptr) {
     machine.failed = true;
     return;
   }
   if (!predicate->dynamic) {
-    raise_permission(machine, goal, head.name, head.arity);
+    raise_permission(machine, goal, predicate->module, head.name, head.arity);
     return;
   }
+  const PredKey key{predicate->module, head.name, head.arity};
   const auto matches = collect_matches(machine, *predicate, view);
-  if (!take_retract(machine, goal, head.name, head.arity, matches, 0)) machine.failed = true;
+  if (!take_retract(machine, goal, key, matches, 0)) machine.failed = true;
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
-  const Cell head_cell = machine.heap.deref(goal.arg(machine, 0));
+  Cell head_cell = goal.arg(machine, 0);
+  std::uint32_t module = 0;
+  if (!strip_target(machine, goal, head_cell, module, false)) return;
   if (machine.heap.unbound(head_cell)) {
     raise_instantiation(machine, goal);
     return;
@@ -388,27 +406,28 @@ void run_retractall(Impl& machine, const Goal& goal) {
     raise_type(machine, goal, "callable", head_cell);
     return;
   }
-  const HeadName head = head_indicator(machine, head_cell);
+  HeadName head = head_indicator(machine, head_cell);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = find_pred(machine, user_key(machine, head.name, head.arity));
+  Predicate* predicate = owned_pred(machine, module, head.name, head.arity);
   if (predicate == nullptr) {
     succeed(machine, goal);
     return;
   }
   if (!predicate->dynamic) {
-    raise_permission(machine, goal, head.name, head.arity);
+    raise_permission(machine, goal, predicate->module, head.name, head.arity);
     return;
   }
+  const PredKey key{predicate->module, head.name, head.arity};
   ClauseView view;
   view.head = head_cell;
   view.head_only = true;
   const auto matches = collect_matches(machine, *predicate, view);
   for (std::size_t cursor = matches.size(); cursor > 0; --cursor) {
     const auto index = matches[cursor - 1];
-    Predicate* current = find_pred(machine, user_key(machine, head.name, head.arity));
+    Predicate* current = find_pred(machine, key);
     if (current == nullptr || index >= current->clauses.size()) continue;
     erase_clause(*current, index);
-    note_removed(machine, head.name, head.arity, index);
+    note_removed(machine, key.module, key.name, key.arity, index);
   }
   succeed(machine, goal);
 }
@@ -454,15 +473,18 @@ bool parse_indicator(Impl& machine, const Goal& goal, Cell pred, HeadName& indic
 }
 
 void run_abolish(Impl& machine, const Goal& goal) {
+  Cell pred = goal.arg(machine, 0);
+  std::uint32_t module = 0;
+  if (!strip_target(machine, goal, pred, module, false)) return;
   HeadName indicator;
-  if (!parse_indicator(machine, goal, goal.arg(machine, 0), indicator)) return;
+  if (!parse_indicator(machine, goal, pred, indicator)) return;
   if (refuse_builtin(machine, goal, indicator.name, indicator.arity)) return;
-  Predicate* predicate = find_pred(machine, user_key(machine, indicator.name, indicator.arity));
+  Predicate* predicate = owned_pred(machine, module, indicator.name, indicator.arity);
   if (predicate != nullptr && !predicate->dynamic) {
-    raise_permission(machine, goal, indicator.name, indicator.arity);
+    raise_permission(machine, goal, predicate->module, indicator.name, indicator.arity);
     return;
   }
-  if (predicate != nullptr) erase_predicate(machine, indicator.name, indicator.arity);
+  if (predicate != nullptr) erase_predicate(machine, predicate->module, indicator.name, indicator.arity);
   succeed(machine, goal);
 }
 
@@ -474,8 +496,8 @@ bool redo_retract(Impl& machine) {
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   machine.stack.pop_back();
-  return take_retract(machine, read_goal(machine, top.redo_goal), top.pred_name, top.pred_arity, top.candidates,
-                       top.next);
+  return take_retract(machine, read_goal(machine, top.redo_goal), PredKey{top.pred_module, top.pred_name, top.pred_arity},
+                      top.candidates, top.next);
 }
 
 

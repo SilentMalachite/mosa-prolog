@@ -186,9 +186,9 @@
 - Modify: `src/builtins/database.cpp`、`src/builtins/clause_term.cpp`、`src/machine/load_directive.cpp`
 - Test: `tests/pl/modules.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`mod_assert_qual`: `assertz(家系:親(a, b)), 家系:親(a, b)` が成功し、`user` の `親/2` は増えない。`mod_assert_ctx`: `家系:assertz(足した(1))` が `家系` に入る。`mod_retract_qual`、`mod_clause_qual`、`mod_abolish_qual` を同じ形で。`mod_dynamic_qual`: `:- dynamic(家系:動的/1).`。`mod_multifile`: `:- multifile(家系:複/1).` を書いた別のファイルの節が `家系:複/1` に足される。`mod_current_predicate`: `current_predicate(家系:祖父/2)` が成功
-- [ ] **Step 2:** 失敗を見る。実装する。節のない述語の扱いは iso-notes 7.8.3 の決定に従う
-- [ ] **Step 3:** テストを流す。コミット `[phase4] 節操作と宣言を M: 付きで受ける（modules.pl 8 件）`
+- [x] **Step 1:** 失敗するテスト。`mod_assert_qual`: `assertz(家系:親(a, b)), 家系:親(a, b)` が成功し、`user` の `親/2` は増えない。`mod_assert_ctx`: `家系:assertz(足した(1))` が `家系` に入る。`mod_retract_qual`、`mod_clause_qual`、`mod_abolish_qual` を同じ形で。`mod_dynamic_qual`: `:- dynamic(家系:動的/1).`。`mod_multifile`: `:- multifile(家系:複/1).` を書いた別のファイルの節が `家系:複/1` に足される。`mod_current_predicate`: `current_predicate(家系:祖父/2)` が成功
+- [x] **Step 2:** 失敗を見る。実装する。節のない述語の扱いは iso-notes 7.8.3 の決定に従う
+- [x] **Step 3:** テストを流す。コミット `[phase4] 節操作と宣言を M: 付きで受ける（modules.pl 8 件）`
 
 ### Task 8: `current_module/1`、`predicate_property/2`
 

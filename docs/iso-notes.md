@@ -311,7 +311,7 @@ SPEC section 5 says a predicate created by `assertz/1` belongs to the module tha
 
 A or B?: A: follow the import, as a call does, and act on the definition in the source module. B: look only at the context module's own predicates; `assertz/1` then conflicts with the import.
 
-Decision (2026-10-28): A. The database built-ins look at the module's own predicates, then its explicit imports (`use_module/1,2` and the exports of a consulted module file). They do not follow the default import source, so `assertz(p(1))` inside a module never adds to `user:p/1`.
+Decision (2026-10-28): A. The database built-ins look at the module's own predicates, then its explicit imports (`use_module/1,2` and the exports of a consulted module file). They do not follow the default import source, so `assertz(p(1))` inside a module never adds to `user:p/1`. As with the existence error, `permission_error(modify, static_procedure, PI)` names a predicate outside `user` as `M:N/A`.
 
 ## 8.8.2 current_predicate/1 in modules
 

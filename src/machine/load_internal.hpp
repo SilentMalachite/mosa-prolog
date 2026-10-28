@@ -23,6 +23,7 @@ struct Snapshot {
 
 // この読み込みの中だけで隙間を許す。述語ベクタには入れない。宣言は手続きを作らない。
 struct Apart {
+  std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
 };
@@ -31,8 +32,8 @@ struct Apart {
 std::filesystem::path canonical_key(const std::filesystem::path& file);
 
 void fail_load(Impl& machine, std::string message);
-[[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16_t arity);
-void note_multifile(Impl& machine, std::uint32_t name, std::uint16_t arity);
+[[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, PredKey key);
+void note_multifile(Impl& machine, PredKey key);
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
 // first は、この項がファイルの最初の項であること。module/2 はそこでしか受けない。

@@ -8,6 +8,7 @@
 
 #include "database_internal.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -21,7 +22,7 @@ using database::head_indicator;
 using database::raise_instantiation;
 using database::raise_type;
 using database::succeed;
-using database::user_key;
+using database::strip_target;
 
 namespace {
 
@@ -31,8 +32,9 @@ void raise_private(Impl& machine, const Goal& goal, std::uint32_t name, std::uin
   raise_formal(machine, formal_permission(machine, "access", "private_procedure", indicator), goal.name, goal.arity);
 }
 
-bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator) {
-  const Cell head = machine.heap.deref(goal.arg(machine, 0));
+bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator, std::uint32_t& module) {
+  Cell head = goal.arg(machine, 0);
+  if (!strip_target(machine, goal, head, module, false)) return false;
   if (machine.heap.unbound(head)) {
     raise_instantiation(machine, goal);
     return false;
@@ -71,27 +73,28 @@ std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predic
   return found;
 }
 
-void push_scan(Impl& machine, Pick pick, const Goal& goal, std::uint32_t name, std::uint16_t arity,
-               const std::vector<std::size_t>& matches, std::size_t next, std::size_t heap_mark,
-               std::size_t trail_mark) {
+void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+               std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = pick;
   entry.candidates = matches;
   entry.next = next;
   entry.redo_goal = goal.at;
-  entry.pred_name = name;
-  entry.pred_arity = arity;
+  entry.pred_module = key.module;
+  entry.pred_name = key.name;
+  entry.pred_arity = key.arity;
   // 水位は単一化の前。成功した項を含めると、やり直しで束縛が残る。
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
   push_frame(machine, std::move(entry));
 }
 
-bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
-                 const std::vector<std::size_t>& matches, std::size_t begin) {
-  const Predicate* predicate = find_pred(machine, user_key(machine, name, arity));
+bool take_clause(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+                 std::size_t begin) {
+  const Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
-  const Cell head = goal.arg(machine, 0);
+  // M: は最初の呼び出しで検査済み。節の頭部と比べるのは内側の項。
+  const Cell head = skip_module(machine, goal.arg(machine, 0));
   const Cell body = goal.arg(machine, 1);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
@@ -104,7 +107,7 @@ bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint1
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::ClauseScan, goal, name, arity, matches, cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::ClauseScan, goal, key, matches, cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -119,15 +122,17 @@ namespace database {
 
 void run_clause(Impl& machine, const Goal& goal) {
   HeadName indicator;
-  if (!clause_head_ok(machine, goal, indicator)) return;
-  const Predicate* predicate = find_pred(machine, user_key(machine, indicator.name, indicator.arity));
+  std::uint32_t module = 0;
+  if (!clause_head_ok(machine, goal, indicator, module)) return;
+  const Predicate* predicate = owned_pred(machine, module, indicator.name, indicator.arity);
   if (predicate == nullptr || predicate->clauses.empty()) {
     machine.failed = true;
     return;
   }
-  const auto matches =
-      matching_clauses(machine, *predicate, goal.arg(machine, 0), goal.arg(machine, 1));
-  if (!take_clause(machine, goal, indicator.name, indicator.arity, matches, 0)) machine.failed = true;
+  const PredKey key{predicate->module, indicator.name, indicator.arity};
+  const Cell head = skip_module(machine, goal.arg(machine, 0));
+  const auto matches = matching_clauses(machine, *predicate, head, goal.arg(machine, 1));
+  if (!take_clause(machine, goal, key, matches, 0)) machine.failed = true;
 }
 
 }  // namespace database
@@ -140,7 +145,16 @@ struct WantedPred {
   bool arity_high = false;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  // M:PI の M が変数なら、どのモジュールの述語も候補にする。
+  bool any_module = false;
+  std::uint32_t module = 0;
 };
+
+bool qualified_term(const Impl& machine, Cell cell) {
+  cell = machine.heap.deref(cell);
+  return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
+         machine.atoms.name(machine.heap.functor_atom(cell)) == ":";
+}
 
 bool slash_indicator(const Impl& machine, Cell pred) {
   return pred.tag() == Tag::Str && machine.heap.functor_arity(pred) == 2 &&
@@ -189,6 +203,7 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
   if (wanted.arity_high) return found;
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
+    if (!wanted.any_module && predicate.module != wanted.module) continue;
     if (wanted.name_set && predicate.name != wanted.name) continue;
     if (wanted.arity_set && predicate.arity != wanted.arity) continue;
     found.push_back(index);
@@ -198,6 +213,8 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
 
 bool take_pred(Impl& machine, const Goal& goal, const std::vector<std::size_t>& matches, std::size_t begin) {
   const Cell wanted = goal.arg(machine, 0);
+  // やり直しでも引数の形は同じ。M:PI には M も束縛する。
+  const bool qualified = qualified_term(machine, wanted);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
     if (index >= machine.predicates.size()) continue;
@@ -205,13 +222,17 @@ bool take_pred(Impl& machine, const Goal& goal, const std::vector<std::size_t>& 
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
     const Predicate& predicate = machine.predicates[index];
-    const Cell indicator = cell_functor(machine, predicate.name, predicate.arity);
+    Cell indicator = cell_functor(machine, predicate.name, predicate.arity);
+    if (qualified) {
+      const std::array<Cell, 2> parts{machine.heap.atom(predicate.module), indicator};
+      indicator = machine.heap.structure(machine.atoms.intern(":"), parts);
+    }
     if (!do_unify(machine, wanted, indicator)) {
       restore_state(machine, heap_mark, trail_mark, extras_mark);
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::PredGen, goal, 0, 0, matches, cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::PredGen, goal, PredKey{}, matches, cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -226,7 +247,20 @@ namespace database {
 
 void run_current_predicate(Impl& machine, const Goal& goal) {
   WantedPred wanted;
-  if (!accept_indicator(machine, goal, goal.arg(machine, 0), wanted)) return;
+  wanted.module = goal.module;
+  Cell pred = machine.heap.deref(goal.arg(machine, 0));
+  if (qualified_term(machine, pred)) {
+    const Cell module = machine.heap.deref(machine.heap.arg(pred, 0));
+    wanted.any_module = machine.heap.unbound(module);
+    if (!wanted.any_module && module.tag() != Tag::Atom) {
+      raise_type(machine, goal, "atom", module);
+      return;
+    }
+    // 無いモジュールには述語も無い。列挙は失敗で、存在エラーにはしない。
+    if (!wanted.any_module) wanted.module = static_cast<std::uint32_t>(module.raw() >> 3);
+    pred = machine.heap.arg(pred, 1);
+  }
+  if (!accept_indicator(machine, goal, pred, wanted)) return;
   const auto matches = pred_matches(machine, wanted);
   if (!take_pred(machine, goal, matches, 0)) machine.failed = true;
 }
@@ -238,8 +272,8 @@ bool redo_clause_scan(Impl& machine) {
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   machine.stack.pop_back();
-  return take_clause(machine, read_goal(machine, top.redo_goal), top.pred_name, top.pred_arity, top.candidates,
-                      top.next);
+  return take_clause(machine, read_goal(machine, top.redo_goal), PredKey{top.pred_module, top.pred_name, top.pred_arity},
+                     top.candidates, top.next);
 }
 
 bool redo_pred_gen(Impl& machine) {

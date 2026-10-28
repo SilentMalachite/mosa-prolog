@@ -43,3 +43,35 @@ test(use_alias_only, 別名:読み(_, _), error(existence_error(procedure, 別�
 test(use_except, (除外:姓名分解(山田太郎, A, _), 除外:敬称(A, C)), solutions([(A = 山田, C = 山田さん)])).
 test(use_except_hides, 除外:読み(_, _), error(existence_error(procedure, 除外:読み/2))).
 test(use_twice, findall(M, 人名:読込回数(M), L), solutions([L = [人名]])).
+:- consult('modules/複.pl').
+:- dynamic(家系:動的/1).
+test(mod_assert_qual, (assertz(家系:追加(a)), 家系:追加(X)), solutions([X = a])).
+test(mod_assert_qual_hidden, (assertz(家系:隠す(a)), 隠す(_)), error(existence_error(procedure, 隠す/1))).
+test(mod_assert_ctx, (家系:assertz(文脈(1)), 家系:文脈(X)), solutions([X = 1])).
+test(mod_assert_ctx_hidden, (家系:assertz(文脈2(1)), 文脈2(_)), error(existence_error(procedure, 文脈2/1))).
+test(mod_assert_rule_head, (assertz((家系:規則(X) :- X = 1)), 家系:規則(Y)), solutions([Y = 1])).
+test(mod_assert_rule_body_ctx, (assertz(家系:(規則2(X) :- 内部(X))), 家系:規則2(Y)), solutions([Y = 秘密])).
+test(mod_assert_unknown, assertz(nomod:p(1)), error(existence_error(module, nomod))).
+test(mod_assert_var_module, assertz(_:p(1)), error(instantiation_error)).
+test(mod_assert_static, assertz(家系:親(a, b)), error(permission_error(modify, static_procedure, 家系:親/2))).
+test(mod_assert_imported_static, assertz(親(x, y)), error(permission_error(modify, static_procedure, 家系:親/2))).
+test(mod_assert_imported_dynamic, (assertz(記録(1)), 家系:記録(X)), solutions([X = 1])).
+test(mod_retract_qual, (assertz(家系:消す(1)), assertz(家系:消す(2)), retract(家系:消す(1)), findall(X, 家系:消す(X), L)), solutions([L = [2]])).
+test(mod_retract_ctx, (家系:assertz(消す2(1)), 家系:retract(消す2(1)), findall(X, 家系:消す2(X), L)), solutions([L = []])).
+test(mod_retract_imported, (assertz(記録(9)), retract(記録(9)), \+ 家系:記録(9)), true).
+test(mod_retractall_qual, (assertz(家系:全消し(1)), retractall(家系:全消し(_)), findall(X, 家系:全消し(X), L)), solutions([L = []])).
+test(mod_clause_qual, (assertz((家系:節本体(X) :- X = 2)), clause(家系:節本体(3), B)), solutions([B = (3 = 2)])).
+test(mod_clause_qual_static, (clause(家系:祖父(_, _), B), B = (親(_, _), 親(_, _))), true).
+test(mod_clause_unknown, clause(nomod:p(_), _), error(existence_error(module, nomod))).
+test(mod_abolish_qual, (assertz(家系:捨てる(1)), abolish(家系:捨てる/1), 家系:捨てる(_)), error(existence_error(procedure, 家系:捨てる/1))).
+test(mod_abolish_unknown, abolish(nomod:p/1), error(existence_error(module, nomod))).
+test(mod_dynamic_qual, 家系:動的(_), fail).
+test(mod_dynamic_qual_hidden, 動的(_), error(existence_error(procedure, 動的/1))).
+test(mod_multifile, (家系:複(0), 家系:複(1)), true).
+test(mod_current_predicate, current_predicate(家系:祖父/2), true).
+test(mod_current_predicate_private, current_predicate(家系:内部/1), true).
+test(mod_current_predicate_import, current_predicate(祖父/2), fail).
+test(mod_current_predicate_ctx, 家系:current_predicate(内部/1), true).
+test(mod_current_predicate_var_module, findall(M, current_predicate(M:祖父/2), L), solutions([L = [家系]])).
+test(mod_assert_imported_undefined, (assertz(未定義(1)), findall(M, current_predicate(M:未定義/1), L)), solutions([L = [家系]])).
+test(mod_abolish_imported_reassert, (abolish(記録/1), assertz(記録(1)), findall(M, current_predicate(M:記録/1), L)), solutions([L = [家系]])).

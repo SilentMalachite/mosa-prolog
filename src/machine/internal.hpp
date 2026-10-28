@@ -32,6 +32,7 @@ struct Clause {
 
 // 複数のテキストに節を足してよい印。述語が無くても残し、宣言だけでは手続きにしない。
 struct SharedPred {
+  std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
 };

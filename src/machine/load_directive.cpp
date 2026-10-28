@@ -93,8 +93,11 @@ bool apply_op(Impl& machine, Cell directive) {
   return define_op_names(machine, static_cast<int>(priority64), *specifier, machine.heap.arg(body, 2));
 }
 
-bool one_indicator(const Impl& machine, Cell cell, std::uint32_t& name, std::uint16_t& arity) {
-  cell = machine.heap.deref(cell);
+// M:N/A は M の述語を指す。M の誤りは節操作と同じ Formal を formal に入れる。
+bool one_indicator(Impl& machine, Cell cell, PredKey& key, std::optional<Cell>& formal) {
+  key.module = machine.load_module;
+  formal = strip_module(machine, cell, key.module);
+  if (formal) return false;
   if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return false;
   if (machine.atoms.name(machine.heap.functor_atom(cell)) != "/") return false;
   const Cell left = machine.heap.deref(machine.heap.arg(cell, 0));
@@ -103,39 +106,48 @@ bool one_indicator(const Impl& machine, Cell cell, std::uint32_t& name, std::uin
   if (right.tag() != Tag::Int && right.tag() != Tag::IntBox) return false;
   const auto value = machine.heap.integer_value(right);
   if (value < 0 || value > 1024) return false;
-  name = static_cast<std::uint32_t>(left.raw() >> 3);
-  arity = static_cast<std::uint16_t>(value);
+  key.name = static_cast<std::uint32_t>(left.raw() >> 3);
+  key.arity = static_cast<std::uint16_t>(value);
   return true;
 }
 
-bool collect_indicators(Impl& machine, Cell cell, std::vector<std::pair<std::uint32_t, std::uint16_t>>& out) {
+bool collect_indicators(Impl& machine, Cell cell, std::vector<PredKey>& out, std::optional<Cell>& formal) {
   cell = machine.heap.deref(cell);
-  std::uint32_t name = 0;
-  std::uint16_t arity = 0;
-  if (one_indicator(machine, cell, name, arity)) {
-    out.emplace_back(name, arity);
+  PredKey key;
+  if (one_indicator(machine, cell, key, formal)) {
+    out.push_back(key);
     return true;
   }
+  if (formal) return false;
   const auto nil = machine.atoms.intern("[]");
   if (cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil) return true;
   while (cell.tag() == Tag::Lis) {
-    if (!one_indicator(machine, machine.heap.list_head(cell), name, arity)) return false;
-    out.emplace_back(name, arity);
+    if (!one_indicator(machine, machine.heap.list_head(cell), key, formal)) return false;
+    out.push_back(key);
     cell = machine.heap.deref(machine.heap.list_tail(cell));
   }
   return cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil;
 }
 
-bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity) {
+bool read_declared(Impl& machine, Cell arg, std::vector<PredKey>& indicators) {
+  std::optional<Cell> formal;
+  if (collect_indicators(machine, arg, indicators, formal)) return true;
+  fail_load(machine, formal ? write_term(machine.heap, machine.operators, *formal, {}, {}) : "述語指示子ではありません");
+  return false;
+}
+
+bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
+  const auto name = key.name;
+  const auto arity = key.arity;
   if (is_builtin_procedure(machine, name, arity)) {
     const Cell formal = formal_permission(machine, "modify", "static_procedure", cell_functor(machine, name, arity));
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return false;
   }
-  Predicate* predicate = find_pred(machine, PredKey{machine.load_module, name, arity});
+  Predicate* predicate = find_pred(machine, key);
   // 宣言で作る述語も局所の述語である。取り込みとぶつかる順序によらず同じエラーにする。
   if (predicate == nullptr) {
-    if (const auto formal = check_local(machine, machine.load_module, name, arity)) {
+    if (const auto formal = check_local(machine, key.module, name, arity)) {
       fail_load(machine, write_term(machine.heap, machine.operators, *formal, {}, {}));
       return false;
     }
@@ -145,10 +157,10 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
     return false;
   }
   // 失敗した読み込みは、宣言の前の動的フラグへ戻す。
-  remember_pred(machine, snapshots, PredKey{machine.load_module, name, arity});
+  remember_pred(machine, snapshots, key);
   if (predicate == nullptr) {
     Predicate created;
-    created.module = machine.load_module;
+    created.module = key.module;
     created.name = name;
     created.arity = arity;
     created.dynamic = true;
@@ -194,26 +206,20 @@ bool multifile_argument(Impl& machine, Cell directive, Cell& arg) {
 int apply_multifile_directive(Impl& machine, Cell directive) {
   Cell arg;
   if (!multifile_argument(machine, directive, arg)) return 0;
-  std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
-  if (!collect_indicators(machine, arg, indicators)) {
-    fail_load(machine, "述語指示子ではありません");
-    return -1;
-  }
-  for (const auto& indicator : indicators) note_multifile(machine, indicator.first, indicator.second);
+  std::vector<PredKey> indicators;
+  if (!read_declared(machine, arg, indicators)) return -1;
+  for (const PredKey& indicator : indicators) note_multifile(machine, indicator);
   return 1;
 }
 
 int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apart>& apart) {
   Cell arg;
   if (!discontiguous_argument(machine, directive, arg)) return 0;
-  std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
-  if (!collect_indicators(machine, arg, indicators)) {
-    fail_load(machine, "述語指示子ではありません");
-    return -1;
-  }
-  for (const auto& indicator : indicators) {
-    if (allows_gap(apart, indicator.first, indicator.second)) continue;
-    apart.push_back(Apart{indicator.first, indicator.second});
+  std::vector<PredKey> indicators;
+  if (!read_declared(machine, arg, indicators)) return -1;
+  for (const PredKey& indicator : indicators) {
+    if (allows_gap(apart, indicator)) continue;
+    apart.push_back(Apart{indicator.module, indicator.name, indicator.arity});
   }
   return 1;
 }
@@ -221,13 +227,10 @@ int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apa
 int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
   Cell arg;
   if (!dynamic_argument(machine, directive, arg)) return 0;
-  std::vector<std::pair<std::uint32_t, std::uint16_t>> indicators;
-  if (!collect_indicators(machine, arg, indicators)) {
-    fail_load(machine, "述語指示子ではありません");
-    return -1;
-  }
-  for (const auto& indicator : indicators) {
-    if (!mark_dynamic(machine, snapshots, indicator.first, indicator.second)) return -1;
+  std::vector<PredKey> indicators;
+  if (!read_declared(machine, arg, indicators)) return -1;
+  for (const PredKey& indicator : indicators) {
+    if (!mark_dynamic(machine, snapshots, indicator)) return -1;
   }
   return 1;
 }

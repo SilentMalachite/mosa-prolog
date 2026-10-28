@@ -68,4 +68,18 @@ struct ImportSpec {
 [[nodiscard]] std::optional<Cell> check_local(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
                                               std::uint16_t arity);
 
+// 節操作の M:Term。term と module を内側の値に置き換える。M: が無ければどちらも変えない。
+[[nodiscard]] std::optional<Cell> strip_module(Machine::Impl& machine, Cell& term, std::uint32_t& module);
+// M:(H :- B) と (M:H :- B) の両方を、修飾の無い節とそのモジュールにする。
+[[nodiscard]] std::optional<Cell> strip_clause(Machine::Impl& machine, Cell& term, std::uint32_t& module);
+// 検査済みの項の M: を外す。やり直しで引数を読み直すときに使う。
+[[nodiscard]] Cell skip_module(const Machine::Impl& machine, Cell term);
+// 節操作が触る述語。自分の述語、次に明示の取り込み。既定の取り込み元は見ない。
+// 取り込みに当たれば module と name を取り込み元の値にする。nullptr でも、作る先はその値である。
+[[nodiscard]] Predicate* owned_pred(Machine::Impl& machine, std::uint32_t& module, std::uint32_t& name,
+                                    std::uint16_t arity);
+// user の述語は N/A、ほかは M:N/A（iso-notes 第5節の決定 A）。
+[[nodiscard]] Cell module_indicator(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
+                                    std::uint16_t arity);
+
 }
