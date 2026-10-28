@@ -239,6 +239,8 @@ The SPEC section 5 example writes `:- meta_predicate 全員(1, ?).` and `[姓名
 
 A or B?: A: add `op(1150, fx, meta_predicate)` and `op(700, xfx, as)` to the `system` operator table, so every module sees them. B: add neither; only `meta_predicate(...)` and `as(PI, Alias)` in canonical form are accepted. Not implemented until confirmed.
 
+Decision (2026-10-28): A. Both operators are added to the `system` operator table, so the SPEC section 5 example reads as written in every module. This is a deviation from the ISO operator table (6.3.4.4): a program that uses `as` as a plain atom in an operator position reads differently.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.
