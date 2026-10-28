@@ -1,0 +1,42 @@
+#pragma once
+
+// lgt_io と lgt_output が分け合う ^^ の下回り。テストランナーの外には出さない。
+
+#include "lgt_io.hpp"
+
+#include "internal.hpp"
+
+#include <cstddef>
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace mosa::lgtio {
+
+struct IoOpt {
+  bool reposition = true;
+  Stream::Data data = Stream::Data::Text;
+  Stream::EofAction eof = Stream::EofAction::EofCode;
+};
+
+[[nodiscard]] std::string_view atom_text(const Heap& heap, Cell cell);
+[[nodiscard]] std::filesystem::path path_from_utf8(std::string_view text);
+[[nodiscard]] std::string utf8_of(const std::filesystem::path& path);
+[[nodiscard]] bool text_contents(const Heap& heap, Cell cell, std::string& out);
+[[nodiscard]] bool byte_contents(const Heap& heap, Cell cell, std::string& out);
+[[nodiscard]] bool read_options(const Heap& heap, Cell list, IoOpt& opt);
+[[nodiscard]] std::filesystem::path locate_file(const LgtIo& io, std::string_view name);
+[[nodiscard]] std::optional<std::size_t> open_alias(const Impl& machine, std::string_view alias);
+void close_path(Impl& machine, std::string_view path);
+void drop_file(Impl& machine, const std::filesystem::path& path);
+[[nodiscard]] LgtSuper bound_ok();
+[[nodiscard]] LgtSuper bound_no();
+[[nodiscard]] LgtSuper bind_slot(Machine& machine, Cell slot, Cell value, const std::vector<VarName>& names);
+[[nodiscard]] bool named_goal(const Heap& heap, Cell cell, std::string_view name, int& arity);
+// 読み書きした中身の表明。扱わない名前は Unknown を返す。lgt_output.cpp。
+[[nodiscard]] LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term,
+                                        const std::vector<VarName>& names);
+
+}  // namespace mosa::lgtio

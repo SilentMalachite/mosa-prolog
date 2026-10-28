@@ -70,6 +70,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_exec.cpp
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
+  src/machine/lgt_output.cpp
   src/platform/terminal.cpp
   src/platform/exe_path.cpp
   src/builtins/errors.cpp
