@@ -212,13 +212,13 @@ void open_gate(Parse& parse, LgtFile& file, std::string cond) {
 
 void next_arm(Parse& parse, LgtFile& file, std::string cond, bool otherwise) {
   if (parse.stack.empty()) {
-    file.error = "項が閉じていません";
+    file.error = "incomplete_term";
     return;
   }
   LgtGate& gate = file.gates[static_cast<std::size_t>(parse.stack.back().group)];
   // else のあとには枝が続かない。endif が無いのと同じで、ファイルは読めない。
   if (!gate.arms.empty() && gate.arms.back().otherwise) {
-    file.error = "項が閉じていません";
+    file.error = "incomplete_term";
     return;
   }
   parse.stack.back().arm = static_cast<int>(gate.arms.size());
@@ -227,7 +227,7 @@ void next_arm(Parse& parse, LgtFile& file, std::string cond, bool otherwise) {
 
 void close_gate(Parse& parse, LgtFile& file) {
   if (parse.stack.empty()) {
-    file.error = "項が閉じていません";
+    file.error = "incomplete_term";
     return;
   }
   parse.stack.pop_back();
@@ -363,6 +363,7 @@ void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, st
   add_piece(heap, operators, term, read.names, parse, file);
 }
 
+// error は空かどうかだけを見て、表示しない。文面ではなく鍵の名前を入れる（ADR 0007）。
 void wipe_read(LgtFile& file, std::string reason) {
   file.cases.clear();
   file.program.clear();
@@ -526,17 +527,17 @@ LgtFile read_lgt_file(std::string_view source) {
     OperatorTable operators = OperatorTable::iso_core();
     // info の 1:0:0 は、: が演算子でないと項の途中で終わる。実行する機械の表には足さない。
     if (operators.define(600, Specifier::Xfy, ":") != OpResult::Ok) {
-      file.error = "演算子を足せません";
+      file.error = "op_failed";
       return file;
     }
     // os::目標は図形 :: なので、読みの表だけに足す。実行する機械の表には足さない。
     if (operators.define(600, Specifier::Xfy, "::") != OpResult::Ok) {
-      file.error = "演算子を足せません";
+      file.error = "op_failed";
       return file;
     }
     // ^^ を実行する機械の表に足すと current_op が変わる。読みのときだけ前置にする。
     if (operators.define(600, Specifier::Fy, "^^") != OpResult::Ok) {
-      file.error = "演算子を足せません";
+      file.error = "op_failed";
       return file;
     }
     Reader reader(source, heap, operators);
@@ -545,7 +546,7 @@ LgtFile read_lgt_file(std::string_view source) {
       const auto begin = reader.consumed();
       const ReadOutcome outcome = reader.next();
       if (outcome.failure) {
-        const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "項が閉じていません" : "予期しないトークン";
+        const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "incomplete_term" : "unexpected_token";
         wipe_read(file, reason);
         return file;
       }
@@ -557,11 +558,11 @@ LgtFile read_lgt_file(std::string_view source) {
       }
     }
     // endif が無いと、選ばなかった枝の終わりが無い。ファイル全体を不合格 1 件にする。
-    if (!parse.stack.empty()) wipe_read(file, "項が閉じていません");
+    if (!parse.stack.empty()) wipe_read(file, "incomplete_term");
     return file;
   } catch (const ResourceLimit&) {
     file = {};
-    file.error = "ヒープの上限を超えました";
+    file.error = "heap_limit";
     return file;
   }
 }

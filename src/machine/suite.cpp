@@ -9,6 +9,7 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -44,8 +45,9 @@ bool load_file_text(Machine& machine, std::string source, std::string_view direc
   while (true) {
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) {
-      error = "項が閉じていません";
-      if (outcome.failure->reason != SyntaxReason::IncompleteTerm) error = "予期しないトークン";
+      const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? SyntaxReason::IncompleteTerm
+                                                                                   : SyntaxReason::UnexpectedToken;
+      error = message_text(engine_impl(machine), syntax_key(reason));
       return false;
     }
     if (!outcome.term) break;
@@ -231,7 +233,8 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
 int run_one(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) {
-    std::cerr << utf8_from_path(path) << ": ファイルを開けません\n";
+    std::cerr << render_message_fresh(default_message_language(), "cannot_open_file", std::array{utf8_from_path(path)})
+              << '\n';
     return 1;
   }
   std::ostringstream buffer;

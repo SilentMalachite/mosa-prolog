@@ -261,10 +261,10 @@
 - Modify: `src/machine/session.cpp`（`usage`）、`src/machine/load.cpp`、`src/machine/load_directive.cpp`、`src/machine/consult.cpp`、`src/machine/suite.cpp`、`src/machine/lgt_file.cpp`、`src/core/heap.cpp`、`src/main_mosac.cpp`、`src/main_mosatest.cpp`、`lib/messages_ja.pl`、`lib/messages_en.pl`、`docs/iso-notes.md`（7.4.2 の決定文の `ファイルを開けません` を鍵の名前に合わせる。持ち主に確かめる）
 - Test: `tests/cpp/session_test.cpp`
 
-- [ ] **Step 1:** 失敗するテスト。旗 `en` で consult できないファイルの表示が英語の文面を含む。旗 `ja` の今の確認（`ファイルを開けません` など）はそのまま通る
-- [ ] **Step 2:** 診断を文字列ではなく鍵と引数で持ち、表示のときに `render_message` で文面にする
-- [ ] **Step 3:** 門: `grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src` が `src/machine/iso_suite.cpp` の報告書の見出しと注釈以外を出さないこと
-- [ ] **Step 4:** テストを流す。コミット `[phase5] 読み込みと使い方の診断を messages へ移す（session_test）`
+- [x] **Step 1:** 失敗するテスト。旗 `en` で consult できないファイルの表示が英語の文面を含む。旗 `ja` の今の確認（`ファイルを開けません` など）はそのまま通る
+- [x] **Step 2:** 診断を文字列ではなく鍵と引数で持ち、表示のときに `render_message` で文面にする
+- [x] **Step 3:** 門: `grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src` が `src/machine/iso_suite.cpp` の報告書の見出しと注釈以外を出さないこと
+- [x] **Step 4:** テストを流す。コミット `[phase5] 読み込みと使い方の診断を messages へ移す（session_test）`
 
 ### Task 13: `~t~|` の東アジア幅
 

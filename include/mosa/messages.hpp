@@ -20,7 +20,8 @@ enum class MessageLanguage { Ja, En };
 [[nodiscard]] MessageLanguage default_message_language();
 // 旗の言語のカタログで Key を書式にする。改行は付けない。machine のヒープと束縛は捨てる。
 [[nodiscard]] std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args);
-// 使えるマシンが無いときの表示。新しいマシンを作ってカタログを読む。
-[[nodiscard]] std::string render_message_fresh(MessageLanguage language, std::string_view key);
+// 使えるマシンが無いときの表示。新しいマシンを作ってカタログを読む。引数は原子として ~w に渡す。
+[[nodiscard]] std::string render_message_fresh(MessageLanguage language, std::string_view key,
+                                               std::span<const std::string> args = {});
 
 }

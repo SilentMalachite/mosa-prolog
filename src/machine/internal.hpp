@@ -10,7 +10,9 @@
 #include "../module/module.hpp"
 
 #include <cstdint>
+#include <initializer_list>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mosa {
@@ -238,6 +240,8 @@ struct Machine::Impl {
   bool japanese_punct = false;
   // 旗 message_language。文面のカタログを選ぶ（ADR 0007）。
   MessageLanguage message_lang = default_message_language();
+  // 文面を作るためだけのマシン。自分の診断を文面にしに行くと、また新しいマシンを作り続ける。
+  bool render_only = false;
   CharConv char_conv;
   // 前のテストのバイナリ出力を閉じる。空のままだと現在の出力がテキストに戻らない。
   SuiteSuper (*suite_super)(Machine& machine, const LgtIo& io, Cell goal) = nullptr;
@@ -266,6 +270,10 @@ struct Compiled {
   IrTerm term;
   std::vector<Cell> env;
 };
+
+// 読み込み中の診断の文面（ADR 0007）。読み込んでいるマシンでは問い合わせを動かせないので、新しいマシンで作る。
+[[nodiscard]] std::string message_text(const Impl& machine, std::string_view key,
+                                       std::initializer_list<std::string_view> args = {});
 
 [[nodiscard]] Impl& engine_impl(Machine& machine);
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);

@@ -94,7 +94,6 @@ Options parse_args(std::span<const std::string_view> args) {
   return options;
 }
 
-const char* usage = "mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt]\n";
 
 struct Echo {
   SessionResult* result = nullptr;
@@ -283,12 +282,12 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     return result;
   }
   if (options.bad || (options.top_halt && !options.has_goal)) {
-    echo.warn(usage);
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;
   }
   if (!tty && !options.has_goal && options.files.empty()) {
-    echo.warn(usage);
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;
   }
@@ -311,7 +310,7 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     }
   }
   if (!tty && !options.has_goal) {
-    echo.warn(usage);
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;
   }

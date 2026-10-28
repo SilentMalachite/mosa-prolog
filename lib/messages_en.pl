@@ -19,3 +19,23 @@ message(integer_overflow, 'integer out of range').
 message(unexpected_token, 'unexpected token').
 message(max_arity, 'too many arguments').
 message(incomplete_term, 'incomplete term').
+
+% 読み込みと使い方の診断（ADR 0007、Task 12b）。
+message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt]').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~n--report may be omitted only when tests/conformance is given from the repository root').
+message(mosac_unavailable, 'mosac: this command is not available in phase 0').
+message(cannot_open_file, '~w: cannot open file').
+message(file_cycle, '~w: files load each other in a cycle').
+message(clauses_apart, 'clauses of ~w are not together').
+message(predicate_running, 'cannot replace a predicate that is running').
+message(directive_unsupported, 'directive not supported: ~w').
+message(not_predicate_indicator, 'not a predicate indicator').
+message(static_to_dynamic, 'a static predicate cannot become dynamic').
+message(op_bad_priority, 'operator priority out of range').
+message(op_bad_specifier, 'invalid operator specifier').
+message(op_modify_comma, 'the comma operator cannot be changed').
+message(op_create_empty, '[] and {} cannot be operators').
+message(op_infix_and_postfix, 'an operator cannot be both infix and postfix').
+message(op_create_bar, 'this bar cannot be an operator').
+message(op_name_not_atom, 'operator name is not an atom').
+message(op_failed, 'cannot declare the operator').

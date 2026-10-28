@@ -18,4 +18,24 @@ message(bad_escape, '不正なエスケープ').
 message(integer_overflow, '整数が範囲を超えている').
 message(unexpected_token, '予期しないトークン').
 message(max_arity, '引数が多すぎる').
-message(incomplete_term, '項が閉じていない').
+message(incomplete_term, '項が閉じていません').
+
+% 読み込みと使い方の診断（ADR 0007、Task 12b）。
+message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt]').
+message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
+message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
+message(cannot_open_file, '~w: ファイルを開けません').
+message(file_cycle, '~w: ファイルが循環しています').
+message(clauses_apart, '述語 ~w の節が離れている').
+message(predicate_running, '実行中の述語は置き換えられない').
+message(directive_unsupported, 'この指示はフェーズ2では使えない: ~w').
+message(not_predicate_indicator, '述語指示子ではありません').
+message(static_to_dynamic, '静的な述語は動的にできない').
+message(op_bad_priority, '優先度が範囲外です').
+message(op_bad_specifier, '演算子の指定子が不正です').
+message(op_modify_comma, 'コンマの演算子は変更できません').
+message(op_create_empty, '空リストや空の中括弧は演算子にできません').
+message(op_infix_and_postfix, '中置と後置は同時に宣言できません').
+message(op_create_bar, 'この縦棒は演算子にできません').
+message(op_name_not_atom, '演算子名がアトムではありません').
+message(op_failed, '演算子を宣言できません').

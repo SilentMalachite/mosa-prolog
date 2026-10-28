@@ -25,24 +25,24 @@ std::optional<Specifier> specifier_of(std::string_view text) {
   return std::nullopt;
 }
 
-std::string op_failure(OpResult result) {
+std::string_view op_failure_key(OpResult result) {
   switch (result) {
-    case OpResult::BadPriority: return "優先度が範囲外です";
-    case OpResult::BadSpecifier: return "演算子の指定子が不正です";
-    case OpResult::ModifyComma: return "コンマの演算子は変更できません";
-    case OpResult::CreateEmpty: return "空リストや空の中括弧は演算子にできません";
-    case OpResult::InfixAndPostfix: return "中置と後置は同時に宣言できません";
-    case OpResult::CreateBar: return "この縦棒は演算子にできません";
-    case OpResult::Ok: return {};
+    case OpResult::BadPriority: return "op_bad_priority";
+    case OpResult::BadSpecifier: return "op_bad_specifier";
+    case OpResult::ModifyComma: return "op_modify_comma";
+    case OpResult::CreateEmpty: return "op_create_empty";
+    case OpResult::InfixAndPostfix: return "op_infix_and_postfix";
+    case OpResult::CreateBar: return "op_create_bar";
+    case OpResult::Ok: break;
   }
-  return "演算子を宣言できません";
+  return "op_failed";
 }
 
 bool define_name(Impl& machine, int priority, Specifier specifier, std::string name) {
   // 読み込み中のモジュールの層へ入れる。module/2 の無いテキストでは user で、全体に効く。
   const OpResult result = define_op(machine, machine.load_module, priority, specifier, std::move(name));
   if (result == OpResult::Ok) return true;
-  fail_load(machine, op_failure(result));
+  fail_load(machine, message_text(machine, op_failure_key(result)));
   return false;
 }
 
@@ -55,7 +55,7 @@ bool define_op_names(Impl& machine, int priority, Specifier specifier, Cell name
   while (names.tag() == Tag::Lis) {
     const Cell head = machine.heap.deref(machine.heap.list_head(names));
     if (head.tag() != Tag::Atom) {
-      fail_load(machine, "演算子名がアトムではありません");
+      fail_load(machine, message_text(machine, "op_name_not_atom"));
       return false;
     }
     if (!define_name(machine, priority, specifier,
@@ -65,7 +65,7 @@ bool define_op_names(Impl& machine, int priority, Specifier specifier, Cell name
     names = machine.heap.deref(machine.heap.list_tail(names));
   }
   if (!(names.tag() == Tag::Atom && static_cast<std::uint32_t>(names.raw() >> 3) == nil)) {
-    fail_load(machine, "演算子名がアトムではありません");
+    fail_load(machine, message_text(machine, "op_name_not_atom"));
     return false;
   }
   return true;
@@ -83,12 +83,12 @@ bool apply_op(Impl& machine, Cell directive) {
   if (spec_cell.tag() != Tag::Atom) return false;
   const auto specifier = specifier_of(machine.atoms.name(static_cast<std::uint32_t>(spec_cell.raw() >> 3)));
   if (!specifier) {
-    fail_load(machine, op_failure(OpResult::BadSpecifier));
+    fail_load(machine, message_text(machine, op_failure_key(OpResult::BadSpecifier)));
     return false;
   }
   const auto priority64 = machine.heap.integer_value(priority_cell);
   if (priority64 < 0 || priority64 > 1200) {
-    fail_load(machine, op_failure(OpResult::BadPriority));
+    fail_load(machine, message_text(machine, op_failure_key(OpResult::BadPriority)));
     return false;
   }
   return define_op_names(machine, static_cast<int>(priority64), *specifier, machine.heap.arg(body, 2));
@@ -153,7 +153,7 @@ bool collect_indicators(Impl& machine, Cell cell, std::vector<PredKey>& out, std
 bool read_declared(Impl& machine, Cell arg, std::vector<PredKey>& indicators) {
   std::optional<Cell> formal;
   if (collect_indicators(machine, arg, indicators, formal)) return true;
-  fail_load(machine, formal ? write_term(machine.heap, machine.operators, *formal, {}, {}) : "述語指示子ではありません");
+  fail_load(machine, formal ? write_term(machine.heap, machine.operators, *formal, {}, {}) : message_text(machine, "not_predicate_indicator"));
   return false;
 }
 
@@ -174,7 +174,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) 
     }
   }
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
-    fail_load(machine, "静的な述語は動的にできない");
+    fail_load(machine, message_text(machine, "static_to_dynamic"));
     return false;
   }
   // 失敗した読み込みは、宣言の前の動的フラグへ戻す。
@@ -514,7 +514,7 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   if (!apply_op(machine, machine.heap.deref(term))) {
     if (machine.diagnostic.empty()) {
       const auto text = write_term(machine.heap, machine.operators, term, {}, {});
-      fail_load(machine, "この指示はフェーズ2では使えない: " + text);
+      fail_load(machine, message_text(machine, "directive_unsupported", {text}));
     }
     return -1;
   }

@@ -163,6 +163,8 @@ file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty/messages_en.pl ":- modul
 add_test(NAME session_messages_missing COMMAND $<TARGET_FILE:session_test> missing)
 set_tests_properties(session_messages_missing PROPERTIES
   ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty")
+add_test(NAME session_english COMMAND $<TARGET_FILE:session_test> english)
+set_tests_properties(session_english PROPERTIES ENVIRONMENT "LANG=C")
 
 add_executable(stream_test tests/cpp/stream_test.cpp)
 target_include_directories(stream_test PRIVATE tests/cpp)
@@ -300,3 +302,8 @@ set_tests_properties(mosa_version mosac_version mosatest_version PROPERTIES
 
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
+
+# 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
+get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)
+list(REMOVE_ITEM mosa_all_tests session_english)
+set_property(TEST ${mosa_all_tests} APPEND PROPERTY ENVIRONMENT_MODIFICATION "LANG=set:ja_JP.UTF-8")

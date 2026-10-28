@@ -24,21 +24,6 @@ std::filesystem::path prolog_source_path(const std::filesystem::path& file);
 
 namespace {
 
-std::string reason_text(SyntaxReason reason) {
-  switch (reason) {
-    case SyntaxReason::InvalidUtf8: return "不正な UTF-8";
-    case SyntaxReason::IllegalCharacter: return "使えない文字";
-    case SyntaxReason::UnterminatedQuote: return "引用が閉じていない";
-    case SyntaxReason::UnterminatedComment: return "コメントが閉じていない";
-    case SyntaxReason::BadEscape: return "不正なエスケープ";
-    case SyntaxReason::IntegerOverflow: return "整数が範囲を超えている";
-    case SyntaxReason::UnexpectedToken: return "予期しないトークン";
-    case SyntaxReason::MaxArity: return "引数が多すぎる";
-    case SyntaxReason::IncompleteTerm: return "項が閉じていません";
-  }
-  return "予期しないトークン";
-}
-
 bool same_pred(const Predicate& predicate, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
   return predicate.module == module && predicate.name == name && predicate.arity == arity;
 }
@@ -137,8 +122,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   Predicate& predicate = machine.predicates[index];
   // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
   if (predicate.seen && last != index && !allows_gap(apart, PredKey{module, name, arity})) {
-    fail_load(machine, "述語 " + std::string(machine.atoms.name(name)) + "/" + std::to_string(arity) +
-                            " の節が離れている");
+    const std::string indicator = std::string(machine.atoms.name(name)) + "/" + std::to_string(arity);
+    fail_load(machine, message_text(machine, "clauses_apart", {indicator}));
     return false;
   }
   if (predicate.abolished) {
@@ -154,7 +139,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
       if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch) busy = true;
     }
     if (busy) {
-      fail_load(machine, "実行中の述語は置き換えられない");
+      fail_load(machine, message_text(machine, "predicate_running"));
       return false;
     }
     // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
@@ -310,7 +295,7 @@ bool file_ready(const Impl& machine, const LoadScan& scan, const std::filesystem
 }
 
 bool note_syntax(Impl& machine, std::string_view origin, bool nested, const SyntaxFailure& failure) {
-  const auto reason = reason_text(failure.reason);
+  const auto reason = message_text(machine, syntax_key(failure.reason));
   if (!nested) {
     machine.syntax_diag = true;
     machine.diag_line = failure.line;
@@ -332,7 +317,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
 int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, bool import_all = true) {
   std::ifstream input{file, std::ios::binary};
   if (!input) {
-    fail_load(machine, utf8_from_path(file) + ": ファイルを開けません");
+    fail_load(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
     return -1;
   }
   std::ostringstream buffer;
@@ -446,7 +431,7 @@ bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGua
   if (origin.empty()) return true;
   const auto key = utf8_from_path(canonical_key(path_from_utf8(origin)));
   if (std::find(scan.opening.begin(), scan.opening.end(), key) != scan.opening.end()) {
-    fail_load(machine, std::string{origin} + ": ファイルが循環しています");
+    fail_load(machine, message_text(machine, "file_cycle", {origin}));
     return false;
   }
   scan.opening.push_back(key);
@@ -473,8 +458,8 @@ bool replaces_files(Impl& machine, Cell term) {
 bool take_term(Impl& machine, Reader& reader, Cell term, std::string_view directory, std::string_view origin,
                bool first, LoadScan& scan) {
   if (is_rule_arrow(machine.heap, term)) {
-    fail_load(machine, "この指示はフェーズ2では使えない: " +
-                           write_term(machine.heap, machine.operators, term, {}, {}));
+    fail_load(machine, message_text(machine, "directive_unsupported",
+                                    {write_term(machine.heap, machine.operators, term, {}, {})}));
     return false;
   }
   const int included = apply_file(machine, term, directory, scan, "include", false);
@@ -497,14 +482,14 @@ bool take_term(Impl& machine, Reader& reader, Cell term, std::string_view direct
   if (const auto formal = strip_clause(machine, term, module)) return fail_formal(machine, *formal) > 0;
   // M:(:- G) と M:(H --> B) は節ではない。外す前と同じく受けない。
   if (is_rule_arrow(machine.heap, term) || is_directive(machine.heap, term)) {
-    fail_load(machine, "この指示はフェーズ2では使えない: " +
-                           write_term(machine.heap, machine.operators, term, {}, {}));
+    fail_load(machine, message_text(machine, "directive_unsupported",
+                                    {write_term(machine.heap, machine.operators, term, {}, {})}));
     return false;
   }
   Clause clause;
   if (!compile_clause(machine.heap, term, clause)) {
-    fail_load(machine, "この指示はフェーズ2では使えない: " +
-                           write_term(machine.heap, machine.operators, term, {}, {}));
+    fail_load(machine, message_text(machine, "directive_unsupported",
+                                    {write_term(machine.heap, machine.operators, term, {}, {})}));
     return false;
   }
   remember(machine, scan.snapshots, module, clause);

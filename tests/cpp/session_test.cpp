@@ -282,6 +282,36 @@ void check_syntax_shown() {
   mosa_test::check(en.err.find("親") != std::string::npos, "syntax_en_shown token");
 }
 
+// SPEC 第7節。読み込みの診断も旗の言語で出す。日本語の文面は ja のカタログが持つ。
+void check_load_diagnostics_en() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "set_prolog_flag(message_language, en), consult('/no/such/mosa-live.pl').";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto absent = mosa::run_session(args, "", false);
+  mosa_test::check(absent.err.find("/no/such/mosa-live.pl: cannot open file") != std::string::npos,
+                   "missing consult en phrase");
+  auto machine = mosa::Machine::create();
+  static_cast<void>(machine->query("set_prolog_flag(message_language, en)."));
+  const auto gap = machine->load_program("p(1).\nq(1).\np(2).\n");
+  mosa_test::check(!gap.ok && machine->diagnostic().find("clauses of p/1 are not together") != std::string_view::npos,
+                   "gap en phrase");
+  static_cast<void>(machine->query("set_prolog_flag(message_language, ja)."));
+  const auto gap_ja = machine->load_program("r(1).\ns(1).\nr(2).\n");
+  mosa_test::check(!gap_ja.ok && machine->diagnostic().find("述語 r/1 の節が離れている") != std::string_view::npos,
+                   "gap ja phrase");
+}
+
+// CMake は LANG=C でこの関数だけを流す。マシンを作る前の使い方の表示も LANG の言語で出す。
+void check_english_default() {
+  const std::string arg0 = "mosa";
+  const std::string bad = "--no-such-option";
+  std::vector<std::string_view> args{arg0, bad};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 1, "english usage exit");
+  mosa_test::check(result.err.find("mosa: usage: mosa") != std::string::npos, "english usage text");
+}
+
 // CMake は MOSA_LIB を鍵の無い messages_en.pl の置き場にして、この関数だけを流す。
 void check_message_missing_key() {
   const std::string arg0 = "mosa";
@@ -294,6 +324,10 @@ void check_message_missing_key() {
 }
 
 int main(int argc, char** argv) {
+  if (argc > 1 && std::string_view{argv[1]} == "english") {
+    check_english_default();
+    return mosa_test::failures();
+  }
   if (argc > 1 && std::string_view{argv[1]} == "missing") {
     check_message_missing_key();
     return mosa_test::failures();
@@ -317,5 +351,6 @@ int main(int argc, char** argv) {
   check_language_from_lang();
   check_help_japanese_variables();
   check_syntax_shown();
+  check_load_diagnostics_en();
   return mosa_test::failures();
 }

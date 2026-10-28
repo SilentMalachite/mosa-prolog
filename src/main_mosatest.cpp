@@ -1,3 +1,4 @@
+#include "mosa/messages.hpp"
 #include "mosa/roundtrip.hpp"
 #include "mosa/suite.hpp"
 #include "mosa/version.hpp"
@@ -11,9 +12,7 @@
 namespace {
 
 int usage() {
-  std::cerr << "mosatest: 使い方: mosatest --roundtrip <ファイル>\n";
-  std::cerr << "mosatest --suite <ディレクトリ> [--report <ファイル>]\n";
-  std::cerr << "--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです\n";
+  std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "mosatest_usage") << '\n';
   return 1;
 }
 

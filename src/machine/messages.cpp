@@ -10,6 +10,7 @@
 #include "mosa/writer.hpp"
 
 #include <string>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -23,6 +24,17 @@ std::string fallback_text(Machine& machine, std::string_view key, std::span<cons
   for (const Cell arg : args) {
     text += ' ';
     text += write_term(machine.heap(), machine.operators(), arg, options, {});
+  }
+  return text;
+}
+
+// 原子の引数の代わりの表示。fallback_text と同じ形で、引数は書いたまま並べる。
+std::string plain_text(std::string_view key, std::span<const std::string> args) {
+  std::string text{key};
+  text += ':';
+  for (const std::string& arg : args) {
+    text += ' ';
+    text += arg;
   }
   return text;
 }
@@ -80,14 +92,24 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
   return fallback;
 }
 
-std::string render_message_fresh(MessageLanguage language, std::string_view key) {
+std::string render_message_fresh(MessageLanguage language, std::string_view key, std::span<const std::string> args) {
   try {
     auto machine = Machine::create();
-    engine_impl(*machine).message_lang = language;
-    return render_message(*machine, key, {});
+    Impl& impl = engine_impl(*machine);
+    impl.message_lang = language;
+    impl.render_only = true;
+    std::vector<Cell> cells;
+    for (const std::string& arg : args) cells.push_back(impl.heap.atom(impl.atoms.intern(arg)));
+    return render_message(*machine, key, cells);
   } catch (const ResourceLimit&) {
-    return std::string{key} + ':';
+    return plain_text(key, args);
   }
+}
+
+std::string message_text(const Impl& machine, std::string_view key, std::initializer_list<std::string_view> args) {
+  const std::vector<std::string> texts(args.begin(), args.end());
+  if (machine.render_only) return plain_text(key, texts);
+  return render_message_fresh(machine.message_lang, key, texts);
 }
 
 }
