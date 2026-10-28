@@ -419,6 +419,14 @@ A or B?: A: a Formal per problem: `domain_error(non_empty_list, [])` when the ar
 
 Decision (2026-10-28): A. `non_empty_list` is a domain in 7.12.2 c, and the culprit tells which part is wrong. A negative count is `domain_error(not_less_than_zero, N)`, as for `length/2`.
 
+## Section 4 format/2 fill characters by width
+
+SPEC section 4 counts `~t~|` columns by East Asian width. A fill character of width 2 (``~`漢t``) cannot always fill an odd number of columns exactly: ``~`漢t~5|`` leaves one column after two `漢`.
+
+A or B?: A: fill with as many fill characters as fit and pad the remaining columns with spaces, so the column stop is kept. B: add one more fill character and overshoot the column stop by one.
+
+Decision (2026-10-29): A. The column stop is what `~|` promises, and SPEC section 4 measures it by width. A fill character of width 0 counts as width 1 so the fill always ends.
+
 ## 7.9.1 Which error first: the functor or its arguments
 
 In `X is foo(bar)`, both `foo/1` and `bar/0` are not evaluable. 7.12.1 leaves the choice between two error conditions to the implementation. Mosa evaluated the arguments first and reported `bar/0`; the Logtalk suite (`format_2`, `~d` and `~f` with `foo(bar)`) expects `foo/1`.

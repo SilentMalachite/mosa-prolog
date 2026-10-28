@@ -310,10 +310,22 @@ expand([fill(C)|Items], I, First, Base, Chars) :-
     ->  N is Base + 1
     ;   N = Base
     ),
-    repeat_char(N, C, Pad),
+    fill_chars(N, C, Pad),
     append(Pad, Rest, Chars),
     I1 is I + 1,
     expand(Items, I1, First, Base, Rest).
+
+% N は埋める桁の数。字の幅で割り、余りの桁は空白で埋めて桁位置をそろえる（iso-notes の決定 A）。
+% 幅 0 の字は 1 として数え、埋め草が尽きないようにする。
+fill_chars(N, C, Chars) :-
+    char_code(C, Code),
+    '$char_width'(Code, W0),
+    W is max(1, W0),
+    Count is N // W,
+    Rest is N mod W,
+    repeat_char(Count, C, Fill),
+    repeat_char(Rest, ' ', Spaces),
+    append(Fill, Spaces, Chars).
 
 items_text([], []).
 items_text([text(Text)|Items], Chars) :-
