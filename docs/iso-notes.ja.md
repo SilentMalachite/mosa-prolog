@@ -217,6 +217,8 @@ A か B か: A は性質を出さない（今の実装。ゴールは失敗す�
 
 A か B か: A は組込の `memberchk/2` を足さない。B は組込として足す。確認前は A。B は実装しない。
 
+閉じた（2026-10-28）: フェーズ 5 のタスク 2 からスイートの実行器が `library(lists)` をテスト用の機械へ取り込むので、`iso_stream_property_2_01` は組込の `memberchk/2` 無しで合格する。この問いで決まる行はもう無いので取り下げ、何も足さない。
+
 ## 8.11.1 閉じた流れの current_input と current_output
 
 `sics_current_input_1_04` は、閉じた入力流れ `S` に `current_input(S)` を呼び、`domain_error(stream, S)` を期待する。実際は `existence_error(stream, '$stream'(3))`。`sics_current_output_1_04` は閉じた出力流れへの `current_output(S)` で、同じ食い違いである。8.11.1.3 と 8.11.2.3 が書く `domain_error(stream, Stream)` は、変数でも流れでもない項である。閉じた流れの項は流れの項のままなので、開いていない流れの `existence_error(stream, S)`（`set_input/1` の 8.11.3.3 と同じ Formal）にしている。`tests/pl/stream_prop.pl` の `set_closed` と `out_closed`、読み書きの閉じた流れも同じ Formal である。流れでない項の `stream_or_alias`（上の 8.11.1.3 の決定）は変えない。

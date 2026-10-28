@@ -215,6 +215,8 @@ A or B?: A: do not report the property (the current implementation; the goal fai
 
 A or B?: A: do not add a built-in `memberchk/2`. B: add it as a built-in. A until confirmed. B is not implemented.
 
+Closed (2026-10-28): since phase 5 Task 2 the suite runner imports `library(lists)` into the test machine, so `iso_stream_property_2_01` passes without a built-in `memberchk/2`. The question no longer decides any row and is withdrawn; nothing is added.
+
 ## 8.11.1 current_input and current_output on closed streams
 
 `sics_current_input_1_04` calls `current_input(S)` on a closed input stream `S` and expects `domain_error(stream, S)`. The actual result is `existence_error(stream, '$stream'(3))`. `sics_current_output_1_04` is `current_output(S)` on a closed output stream, with the same discrepancy. The `domain_error(stream, Stream)` in 8.11.1.3 and 8.11.2.3 is for a term that is neither a variable nor a stream. The term of a closed stream is still a stream term, so we give `existence_error(stream, S)` for a stream that is not open (the same Formal as `set_input/1` in 8.11.3.3). `set_closed` and `out_closed` in `tests/pl/stream_prop.pl`, and closed streams in reading and writing, use the same Formal. The `stream_or_alias` for non-stream terms (the 8.11.1.3 decision above) is unchanged.
