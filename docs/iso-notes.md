@@ -467,6 +467,8 @@ Decision (2026-10-28): A. These options, properties, and names are outside the s
 
 A or B?: A: keep the current reading (`evaluation_error(undefined)`). B: any integer base other than 1 and -1 with a negative integer exponent gives `type_error(float, Base)`. A until confirmed.
 
+Decision (2026-10-28): B. An integer base other than 0, 1 and -1 with a negative integer exponent gives `type_error(float, Base)`, so `2^(-1)` does too. `1^N` is 1, `(-1)^N` is 1 or -1 by the parity of `N`, and `0^N` stays `evaluation_error(undefined)` (9.3.10.3 d, as in the 9.3.1.3 d decision). `hat_neg` in `tests/pl/arith.pl` changes from `undefined` to the type error in the same commit (`src/builtins/arith.cpp` `negative_hat`).
+
 ## 8.11 Properties of the standard streams
 
 `sics_stream_property_2_05c` and `lgt_stream_property_2_08b` expect `user_input` to report `eof_action(reset)`. `sics_stream_property_2_06d`, `lgt_stream_property_2_09c`, and `lgt_stream_property_2_10c` expect `user_output` and `user_error` to report `mode(append)`. Mosa reports `eof_action(eof_code)` (the default in "8.11 Reading past end of stream") and `mode(write)`.

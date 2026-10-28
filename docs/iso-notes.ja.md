@@ -469,6 +469,8 @@ A か B か: A は SPEC のまま（名前は `utf8` だけ、すべての流れ
 
 A か B か: A は今の読みのまま（`evaluation_error(undefined)`）。B は 1 と -1 以外の整数の底に負の整数の指数なら `type_error(float, Base)`。確認前は A のまま。
 
+決定（2026-10-28）: B。0、1、-1 以外の整数の底に負の整数の指数なら `type_error(float, 底)` を投げ、`2^(-1)` も同じにする。`1^N` は 1、`(-1)^N` は `N` の偶奇で 1 か -1、`0^N` は今のまま `evaluation_error(undefined)`（9.3.10.3 d。9.3.1.3 d の決定と同じ）。`tests/pl/arith.pl` の `hat_neg` は、同じコミットで `undefined` から型の誤りに変える（`src/builtins/arith.cpp` の `negative_hat`）。
+
 ## 8.11 標準ストリームの性質
 
 `sics_stream_property_2_05c` と `lgt_stream_property_2_08b` は、`user_input` が `eof_action(reset)` を出すことを期待する。`sics_stream_property_2_06d`、`lgt_stream_property_2_09c`、`lgt_stream_property_2_10c` は、`user_output` と `user_error` が `mode(append)` を出すことを期待する。Mosa は `eof_action(eof_code)`（「8.11 終端の次の読み」の既定）と `mode(write)` を出す。

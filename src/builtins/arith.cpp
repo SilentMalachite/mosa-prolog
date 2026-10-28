@@ -317,13 +317,10 @@ Ev negative_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t
     return {};
   }
   if (base == 1) return from_int(1);
-  // Cor.2 の 9.3.10.3 e。指数が -1 より小さいときだけ float の型エラー。2^(-1) は undefined。
-  if (exp < -1) {
-    raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
-    return {};
-  }
-  if (base == -1) return from_int(-1);
-  fail_eval(machine, goal, "undefined");
+  // -1 の負の冪は整数のまま。奇数なら -1、偶数なら 1。
+  if (base == -1) return from_int(exp % 2 == 0 ? 1 : -1);
+  // 結果が整数にならないので float の型エラー（iso-notes 9.3.10.3 の決定 B）。2^(-1) も同じ。
+  raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
   return {};
 }
 

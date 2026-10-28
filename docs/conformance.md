@@ -1,11 +1,10 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2125
+合格数: 2126
 合格率: 97.9
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
-functions/integer_power_2/tests.lgt iso_integer_power_2_06 error(type_error(float,2)) evaluation_error(undefined)
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2,4,6]) existence_error(procedure,:: /2)
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)

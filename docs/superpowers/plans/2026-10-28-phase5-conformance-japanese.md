@@ -337,7 +337,6 @@
 | --- | --- | --- | --- | --- |
 | `control/catch_3` | `lgt_catch_3_13` | S | 2 追補 | 試験器に Logtalk の組込 `ignore/1` が無い |
 | `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
-| `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
 | `logical_update_semantics` | `logical_update_semantics_negation` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `predicates/current_input_1` | `sics_current_input_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_output_1` | `sics_current_output_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |

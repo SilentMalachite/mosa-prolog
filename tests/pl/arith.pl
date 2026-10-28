@@ -81,7 +81,14 @@ test(neg_pow_half, (X is (-2) ** 0.5), error(evaluation_error(undefined))).
 test(sign_float, (X is sign(-2.5)), solutions([X = -1.0])).
 test(int_hat, (X is ^(2, 3)), solutions([X = 8])).
 test(unary_plus, (X is +1), solutions([X = 1])).
-test(hat_neg, (X is ^(2, -1)), error(evaluation_error(undefined))).
+% iso-notes 9.3.10.3 の決定 B。底が 0、1、-1 以外の整数で指数が負の整数なら type_error(float, 底)。
+test(hat_neg, (X is ^(2, -1)), error(type_error(float, 2))).
+test(hat_neg2, (X is ^(2, -2)), error(type_error(float, 2))).
+test(hat_neg_base, (X is ^(-3, -1)), error(type_error(float, -3))).
+test(hat_minus_one_odd, (X is ^(-1, -3)), solutions([X = -1])).
+test(hat_minus_one_even, (X is ^(-1, -2)), solutions([X = 1])).
+test(hat_zero_neg1, (X is ^(0, -1)), error(evaluation_error(undefined))).
+test(hat_zero_neg2, (X is ^(0, -2)), error(evaluation_error(undefined))).
 test(hat_one, (X is ^(1, -1)), solutions([X = 1])).
 test(atan_zero, (X is atan2(0, 0)), error(evaluation_error(undefined))).
 test(div_type, (X is 1.5 // 2), error(type_error(integer, 1.5))).
