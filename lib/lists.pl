@@ -58,12 +58,9 @@ must_be_list(List, PI) :-
     must_be_list_or_partial(List, PI),
     throw(error(instantiation_error, context(PI, _))).
 
-% \+ と once/1 はゴールを項から組み直すので、巡回する項が切れる。節とカットで束縛を戻す。
+% 部分リストなら length/2 は成功する。\+ \+ で末尾の束縛を戻す。
 must_be_list_or_partial(List, PI) :-
-    catch(probe_length(List), error(Formal, _), throw(error(Formal, context(PI, _)))).
-must_be_list_or_partial(_, _).
-
-probe_length(List) :- length(List, _), !, fail.
+    catch(\+ \+ length(List, _), error(Formal, _), throw(error(Formal, context(PI, _)))).
 
 merge_sort([], []) :- !.
 merge_sort([X], [X]) :- !.

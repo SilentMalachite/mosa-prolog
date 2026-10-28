@@ -8,8 +8,8 @@ Done: phase 4 Task 7: assert/retract/retractall/clause/abolish/current_predicate
 Done: phase 4 Task 9: meta_predicate/1 (op 1150 fx), meta args wrapped as Context:Arg on clause entry (src/module/meta.cpp), forall/2. maplist is a stand-in in tests/pl/modules/高階.pl until Task 13
 Done: phase 4 Task 10: operators per module via OperatorView (local layer over user+core, op(0) masks), export-list op/3 (src/module/module_ops.cpp)
 Done: phase 4 Task 11: double_quotes and japanese_punctuation restored after each file load (origin non-empty; text-only loads keep them). japanese_punctuation is now writable (iso-notes decision A, value only). Parent-reads-codes check is in module_load_test because mosatest pre-reads without flags. Initialization goals run after the restore (iso-notes 7.4.2.8, decision B)
-Done: phase 4 Task 12: library(lists) in lib/lists.pl; length/2, sort/2, keysort/2 in system (src/builtins/lists.cpp, length enumerates via AtomGen kind 6); walk_list uses Brent's cycle check (linear)
+Done: phase 4 Task 12: library(lists) in lib/lists.pl; length/2, sort/2, keysort/2 in system (src/builtins/lists.cpp, length enumerates via AtomGen kind 6); walk_list uses Brent's cycle check (linear). Bug: runtime goals (\+, once, call, findall, forall) no longer cut cyclic args; the cycle entry is passed as the original cell (src/machine/compile.cpp)
 Next: phase 4 Task 13, library(apply)
-Open: interpretations left in iso-notes. \+ and once/1 rebuild the goal from the term, so a cyclic argument is cut (pre-existing; lib/lists.pl avoids them)
+Open: interpretations left in iso-notes. Bug found: read/1 of '-1' gives -(1), not the integer -1 (6.3.4.1); only compile_goal's fold_signed folds it, so source code works but read terms do not
 Plan (phase 4): docs/superpowers/plans/2026-10-28-phase4-modules.md
 Plan (phase 5, starts after phase 4 exit): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md
