@@ -223,6 +223,8 @@ SPEC section 5 says a conflict between a local predicate and an imported one rai
 
 A or B?: A: `permission_error(import_into, procedure, Name/Arity)`. B: `permission_error(import_into, procedure, Module:Name/Arity)`, where `Module` is the module the predicate comes from. Not implemented until confirmed.
 
+Decision (2026-10-28): B. The culprit is `Module:Name/Arity` with the module the import comes from, so the error shows which import collided. This matches the module-qualified culprit chosen for `existence_error` above.
+
 ## Section 5 Module:Goal with a non-atom module
 
 SPEC section 5 fixes `existence_error(module, M)` for an unknown module and leaves the case where `M` is neither a variable nor an atom (`1:true`). A variable gives `instantiation_error`.

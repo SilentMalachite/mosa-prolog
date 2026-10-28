@@ -225,6 +225,8 @@ SPEC 第5節は、自モジュールの述語と取り込んだ述語の衝突�
 
 A か B か: A は `permission_error(import_into, procedure, Name/Arity)`。B は `permission_error(import_into, procedure, Module:Name/Arity)`（`Module` は取り込み元）。確認まで実装しない。
 
+決定（2026-10-28）: B。culprit は取り込み元のモジュールを付けた `Module:Name/Arity` とし、どの取り込みがぶつかったかを示す。上の `existence_error` で選んだモジュール付きの culprit とそろえる。
+
 ## 第5節 原子でないモジュールの Module:Goal
 
 SPEC 第5節は未知のモジュールを `existence_error(module, M)` と決めるが、`M` が変数でも原子でもない場合（`1:true`）を決めていない。変数は `instantiation_error` である。
