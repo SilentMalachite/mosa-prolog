@@ -8,6 +8,7 @@
 // debug は on と off。既定は off。値を覚えるだけで、節の追跡はしない。
 // japanese_punctuation は true と false。値を覚えるだけで、字句解析は変えない（iso-notes 第4節）。
 // dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
+// version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
 // テスト: tests/pl/flags.pl
 
 #include "../machine/internal.hpp"
@@ -25,7 +26,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 17;
+constexpr std::size_t kFlagCount = 18;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -53,6 +54,7 @@ std::string_view flag_name(std::size_t index) {
     case 14: return "debug";
     case 15: return "dialect";
     case 16: return "version_data";
+    case 17: return "version";
     default: return {};
   }
 }
@@ -90,6 +92,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
                                      machine.heap.integer(kVersionPatch), atom_named(machine, "[]")};
       return machine.heap.structure(machine.atoms.intern("mosa"), args);
     }
+    case 17: return machine.heap.integer(kVersionMajor * 10000 + kVersionMinor * 100 + kVersionPatch);
     default: return atom_named(machine, "error");
   }
 }
@@ -136,7 +139,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
 // 8.17.1.3 は領域が先で、変更できないのはその次。整数旗の領域は今の値ではなく整数である。
 bool value_admissible(Cell value, const Impl& machine, std::size_t index) {
   value = machine.heap.deref(value);
-  if (index == 2 || index == 3 || index == 4) {
+  if (index == 2 || index == 3 || index == 4 || index == 17) {
     return value.tag() == Tag::Int || value.tag() == Tag::IntBox;
   }
   return flag_accepts(value, machine, index);

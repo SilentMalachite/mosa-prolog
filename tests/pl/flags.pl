@@ -30,3 +30,9 @@ test(flag_dialect_modify, set_prolog_flag(dialect, swi), error(permission_error(
 test(flag_dialect_value, set_prolog_flag(dialect, 1), error(domain_error(flag_value, dialect+1))).
 test(flag_version_data_modify, set_prolog_flag(version_data, mosa(9, 9, 9, [])), error(permission_error(modify, flag, version_data))).
 test(flag_version_data_value, set_prolog_flag(version_data, x), error(domain_error(flag_value, version_data+x))).
+
+% SPEC 第3節 7 の旗 version。値は Major*10000 + Minor*100 + Patch の整数で、変えられない（持ち主の決定 A、2026-10-28）。
+test(flag_version, current_prolog_flag(version, 1), true).
+test(flag_version_listed, (current_prolog_flag(F, 1), F == version), true).
+test(flag_version_modify, set_prolog_flag(version, 2), error(permission_error(modify, flag, version))).
+test(flag_version_value, set_prolog_flag(version, x), error(domain_error(flag_value, version+x))).
