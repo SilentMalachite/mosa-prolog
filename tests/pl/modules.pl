@@ -51,7 +51,7 @@ test(use_except, (除外:姓名分解(山田太郎, A, _), 除外:敬称(A, C)),
 test(use_except_hides, 除外:読み(_, _), error(existence_error(procedure, 除外:読み/2))).
 test(use_twice, findall(M, 人名:読込回数(M), L), solutions([L = [人名]])).
 :- use_module('modules/別源.pl', [動/1 as 動き, 静/1 as 静か, 型/2 as 型別]).
-% 別名を通したデータベース操作は取り込み元の述語に効く。罪人は取り込み元の名前（mod_assert_imported_static と同じ）。
+% 別名を通したデータベース操作は取り込み元の述語に効く。罪人は取り込み元の名前（iso-notes 第5節 as の別名を通した節操作の決定 A）。
 test(alias_db_clause, findall(X, clause(動き(X), true), L), solutions([L = [1, 2]])).
 test(alias_db_assert, (assertz(動き(3)), findall(X-B, clause(別源:動(X), B), L)), solutions([L = [1-true, 2-true, 3-true]])).
 test(alias_db_retract, findall(X, retract(動き(X)), L), solutions([L = [1, 2, 3]])).

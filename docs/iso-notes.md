@@ -400,3 +400,11 @@ When `atomic_list_concat/3` splits (the list is open and the atom is bound), an 
 A or B?: A: `domain_error(non_empty_atom, '')`. B: fail, or split into single characters.
 
 Decision (2026-10-28): A. An error says what is wrong instead of failing quietly, and splitting into characters is the job of `atom_chars/2`.
+
+## Section 5 Clause operations through an `as` alias
+
+After `use_module(別源, [静/1 as 静か])`, `assertz(静か(2))` tries to change the static procedure `別源:静/1` through the alias `静か/1`. 8.9.1.3 names the procedure in `permission_error(modify, static_procedure, PI)` but does not say which name to use when the caller reached it through an alias.
+
+A or B?: A: the source procedure, `別源:静/1`, the same form as for a plain import (`家系:親/2`). B: the alias the caller wrote, `静か/1`.
+
+Decision (2026-10-28): A. The error is about the procedure that cannot be changed, and the alias is only another name for it. A plain import already reports the source, and the module in the culprit says which declaration to make dynamic.
