@@ -289,6 +289,14 @@ A or B?: A: the load fails with `permission_error(load, source_sink, File)` and 
 
 Decision (2026-10-28): A. `use_module/1,2` accepts module files only.
 
+## Section 5 A file left half-read by an initialization exception
+
+When a nested load's `initialization/1` goal throws, the clauses read so far are kept and the outer file stops at that directive. The outer file stayed marked as loaded, so a later `use_module/1,2` or `ensure_loaded/1` did not read the rest and saw a half-built module.
+
+A or B?: A: remove the mark of every file that was not read to the end, so the next `use_module/1,2` or `ensure_loaded/1` reads it again; clauses and modules stay as now. B: keep the mark.
+
+Decision (2026-10-28): A.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.

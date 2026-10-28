@@ -181,6 +181,17 @@ void check_dynamic_after_import() {
                    "dynamic after import: permission_error(import_into, procedure, 人名:読み/2)");
 }
 
+// 入れ子の初期化の例外で途中までしか読んでいないファイルは、次の use_module で読み直す。
+void check_half_read_is_reread() {
+  const auto init = temp_file("初期化.pl", ":- initialization(throw(初期化の例外)).\n");
+  const auto half = temp_file("途中.pl", ":- module(途中, [p/0]).\n:- ['初期化.pl'].\np.\n");
+  auto machine = mosa::Machine::create();
+  mosa_test::check(!machine->consult(half), "nested initialization exception fails the consult");
+  temp_file("初期化.pl", "% 例外を投げない版。\n");
+  mosa_test::check(machine->load_program(":- use_module('" + half + "').\n").ok, "use_module after the failure");
+  mosa_test::check(succeeds(*machine, "p."), "the half-read file is read again");
+}
+
 }  // namespace
 
 int main() {
@@ -199,5 +210,6 @@ int main() {
   check_reload_keeps_ensure_loaded();
   check_renamed_module_file();
   check_dynamic_after_import();
+  check_half_read_is_reread();
   return mosa_test::failures();
 }

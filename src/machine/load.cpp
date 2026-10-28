@@ -238,8 +238,19 @@ struct LoadScan {
 
 struct CycleGuard {
   std::vector<std::string>* opening = nullptr;
+  Impl* machine = nullptr;
+  std::string key;
+  bool finished = false;
+  CycleGuard() = default;
+  CycleGuard(const CycleGuard&) = delete;
+  CycleGuard& operator=(const CycleGuard&) = delete;
   ~CycleGuard() {
     if (opening != nullptr && !opening->empty()) opening->pop_back();
+    // 入れ子の初期化の例外では節を戻さないので、reject_load も prepared を戻さない。
+    // 途中までしか読んでいないファイルの印だけを外し、次の use_module と ensure_loaded で読み直す。
+    if (machine == nullptr || finished || !machine->load_kept) return;
+    auto& prepared = machine->prepared;
+    prepared.erase(std::remove(prepared.begin(), prepared.end(), key), prepared.end());
   }
 };
 
@@ -386,6 +397,8 @@ bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGua
   }
   scan.opening.push_back(key);
   guard.opening = &scan.opening;
+  guard.machine = &machine;
+  guard.key = key;
   // 開き始めたパスは準備済みにする。失敗した読み込みは reject_load が戻す。
   if (std::find(machine.prepared.begin(), machine.prepared.end(), key) == machine.prepared.end()) {
     machine.prepared.push_back(key);
@@ -464,7 +477,10 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   while (true) {
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
-    if (!outcome.term) return scope.close(import_all);
+    if (!outcome.term) {
+      guard.finished = true;
+      return scope.close(import_all);
+    }
     if (!take_term(machine, reader, outcome.term->term, directory, origin, first, scan)) return false;
     first = false;
   }
