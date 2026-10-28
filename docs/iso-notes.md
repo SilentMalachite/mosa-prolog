@@ -215,6 +215,8 @@ Decision (2026-10-28): B. The design is in ADR 0008, which replaces the retract 
 
 A or B?: A: do not report the property (the current implementation; the goal fails). B: report `position/1`, then give `permission_error`. A until confirmed. B is not implemented.
 
+Decision (2026-10-28): A. A stream that cannot be repositioned does not report `position/1`; the position would have no use. `sics_set_stream_position_2_06` stays failing as a difference in interpretation, and "no position" in `tests/cpp/stream_test.cpp` is unchanged.
+
 ## memberchk/2 and iso_stream_property_2_01
 
 `memberchk/2` belongs to `library(lists)` and is not made a built-in in Phase 3. The assertion of `iso_stream_property_2_01` runs the helper clauses in the test file as the user clauses present at that time. The reading that leaves the row as `fail` is withdrawn.

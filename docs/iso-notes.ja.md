@@ -217,6 +217,8 @@ A か B か: A は ADR 0004 のまま、開いた走査から消した節を外�
 
 A か B か: A は性質を出さない（今の実装。ゴールは失敗する）。B は `position/1` を出してから `permission_error` にする。確認前は A のまま。B は実装しない。
 
+決定（2026-10-28）: A。位置を戻せないストリームは `position/1` を返さない。返しても使い道が無い。`sics_set_stream_position_2_06` は解釈の違いとして不合格のまま残し、`tests/cpp/stream_test.cpp` の「no position」も変えない。
+
 ## memberchk/2 と iso_stream_property_2_01
 
 `memberchk/2` は `library(lists)` であり、フェーズ 3 の組込にはしない。`iso_stream_property_2_01` の表明は、テストファイルにある補助節を、その時点の利用者の節として実行する。行を `fail` のままにする、という読みは撤回する。

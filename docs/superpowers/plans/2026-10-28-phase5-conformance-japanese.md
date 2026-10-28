@@ -55,7 +55,7 @@
 | `discontiguous` の読み込み | 5 | `syntax/directives/discontiguous_1_01`〜`05` が `load` | I | 6 |
 | 整数を受けた丸め系評価子 | 0（決定 A で解消、+6） | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
 | `round/1` の負の半分 | 0（決定 B で解消、+2） | `eclipse_round_1_07`、`08` | Q | 7 |
-| 未決の iso-notes | 約 10 | 7.8.3（決定 B、+2）、9.3.1.3 d（決定 A、+1）、7.5.4（決定 B、ADR 0008、+5）、8.11.8、`memberchk/2`（閉じた）、8.11.1 | Q | 8 |
+| 未決の iso-notes | 約 10 | 7.8.3（決定 B、+2）、9.3.1.3 d（決定 A、+1）、7.5.4（決定 B、ADR 0008、+5）、8.11.8（決定 A、解釈の違い）、`memberchk/2`（閉じた）、8.11.1 | Q | 8 |
 | `if/3`、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
 | 9223372036854775808 などの多倍長 | 1 と別欄 111 | `sics_read_term_3_24` | X | なし |
 | 残り | 約 25 | `stream_property` の `eof_action(reset)`・`mode(append)`・`position`、`setof_3_34`、`abolish_1_07`、`sub_atom_5`、`univ_2` など | I か Q | 9 |
@@ -365,7 +365,7 @@
 | `predicates/open_4` | `lgt_open_4_42` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `predicates/open_4` | `lgt_open_4_43` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `predicates/read_term_3` | `sics_read_term_3_24` | X | なし | 多倍長整数（フェーズ7） |
-| `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 8.11.8 position with reposition(false) |
+| `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 解釈の違い（iso-notes 8.11.8 position with reposition(false)） |
 | `predicates/stream_property_2` | `sics_stream_property_2_03` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/stream_property_2` | `sics_stream_property_2_05c` | Q | 8 | 8.11 Properties of the standard streams |
 | `predicates/stream_property_2` | `sics_stream_property_2_06d` | Q | 8 | 8.11 Properties of the standard streams |
