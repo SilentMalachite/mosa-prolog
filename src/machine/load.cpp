@@ -758,8 +758,9 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     return reject_load(machine, saved_ops, saved_flags, snapshots, heap_base, saved_multi, saved_prepared);
   }
   const LoadStatus done = finish_load(machine, heap_base, inits);
-  // 初期化の例外は、モジュールでないファイルでは節を残す。再読みは触る前へ戻す。
-  if (!done.ok && machine.reload_picture.on) {
+  // 初期化の例外は、モジュールでないファイルでは節を残す。モジュールファイルと再読みは戻す。
+  const bool born_module = !machine.module_added.empty() && !machine.module_added.back().empty();
+  if (!done.ok && (machine.reload_picture.on || born_module)) {
     machine.load_kept = false;
     return reject_load(machine, saved_ops, saved_flags, snapshots, heap_base, saved_multi, saved_prepared);
   }

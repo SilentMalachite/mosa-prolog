@@ -153,6 +153,10 @@ bool begin_file_reload(Impl& machine, std::vector<Snapshot>& snapshots) {
   if (machine.load_origin.empty()) return true;
   std::uint32_t module = 0;
   if (!module_at(machine, machine.load_origin, module)) return true;
+  // 落とす前に写す。初期化の assert は、この写しで戻す。
+  for (const Predicate& predicate : machine.predicates) {
+    if (predicate.home == module) remember_existing(snapshots, predicate);
+  }
   if (!replace_file_clauses(machine, snapshots, machine.load_origin)) return false;
   take_picture(machine, module);
   drop_imports(machine, snapshots, module);
@@ -221,7 +225,10 @@ void stamp_load(Impl& machine, Predicate& predicate) { predicate.load_id = machi
 void release_load_id(Impl& machine, std::uint32_t parent) {
   // モジュールを新しく載せていない読み込みは、親が失敗したら一緒に消す。
   const bool added_module = !machine.module_added.empty() && !machine.module_added.back().empty();
-  if (added_module || machine.current_load == 0 || machine.current_load == parent) return;
+  // 成功した再読みの節は、親の失敗で消さない。モジュールは残るので、節が無いと読み直されない。
+  if (added_module || machine.reload_picture.on || machine.current_load == 0 || machine.current_load == parent) {
+    return;
+  }
   const auto from = machine.current_load;
   for (Predicate& predicate : machine.predicates) {
     if (predicate.load_id == from) predicate.load_id = parent;

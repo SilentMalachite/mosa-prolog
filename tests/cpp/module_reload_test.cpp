@@ -221,6 +221,50 @@ void check_failed_dependency() {
   expect_success(*machine, "(use_module(library(apply)), maplist(true, [])).", "first apply reimport");
 }
 
+void check_reconsult_in_failed_text() {
+  const fs::path file = review_dir() / "rebox.pl";
+  mosa_test::check(write_text(file, ":- module(rebox, [item/1]).\nitem(1).\n"), "write rebox");
+  auto machine = mosa::Machine::create();
+  if (!consult_ok(*machine, file, "rebox first")) return;
+  const auto text = ":- ['" + file.string() + "'].\n q(.";
+  const auto status = machine->load_program(text);
+  mosa_test::check(!status.ok, "rebox text fails");
+  expect_success(*machine, "current_module(rebox).", "rebox stays");
+  expect_success(*machine, "rebox:item(1).", "rebox clause stays");
+  expect_success(*machine, "(use_module(rebox), item(1)).", "rebox import still calls");
+}
+
+void check_reload_assert_undone() {
+  const fs::path file = review_dir() / "dynkeep.pl";
+  mosa_test::check(write_text(file, ":- module(dynkeep, []).\n:- dynamic(item/1).\n"), "write dynkeep");
+  auto machine = mosa::Machine::create();
+  if (!consult_ok(*machine, file, "dynkeep first")) return;
+  expect_success(*machine, "assertz(dynkeep:item(old)).", "assert old");
+  const char* again =
+      ":- module(dynkeep, []).\n"
+      ":- dynamic(item/1).\n"
+      ":- initialization((assertz(dynkeep:item(new)), throw(1))).\n";
+  mosa_test::check(write_text(file, again), "rewrite dynkeep");
+  mosa_test::check(!machine->consult(file.string()), "dynkeep reload fails");
+  expect_values(*machine, "dynkeep:item(X).", {"old"}, "assert new undone");
+}
+
+void check_init_throw_drops_module() {
+  const fs::path file = review_dir() / "born.pl";
+  const char* body =
+      ":- module(born, [fact/1]).\n"
+      ":- use_module(library(apply)).\n"
+      "fact(1).\n"
+      ":- initialization(throw(1)).\n";
+  mosa_test::check(write_text(file, body), "write born");
+  auto machine = mosa::Machine::create();
+  mosa_test::check(!machine->consult(file.string()), "born consult fails");
+  expect_failure(*machine, "current_module(born).", "born gone");
+  expect_no_success(*machine, "born:fact(1).", "born fact gone");
+  expect_success(*machine, "current_module(apply).", "born apply stays");
+  expect_success(*machine, "apply:maplist(true, []).", "born apply clauses");
+}
+
 void check_second_directive() {
   const fs::path file = review_dir() / "two_mod.pl";
   mosa_test::check(write_text(file, ":- module(once_name, []).\n:- module(again_name, []).\n"), "write two");
@@ -314,6 +358,9 @@ int main() {
   check_import_becomes_local();
   check_import_restored();
   check_failed_dependency();
+  check_reconsult_in_failed_text();
+  check_reload_assert_undone();
+  check_init_throw_drops_module();
   check_failed_restore();
   check_second_directive();
   check_other_file();
