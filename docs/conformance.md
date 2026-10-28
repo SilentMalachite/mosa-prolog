@@ -14,7 +14,7 @@ predicates/open_4/tests.lgt lgt_open_4_31 errors([permission_error(open,source_s
 predicates/open_4/tests.lgt lgt_open_4_41 true(Action==eof_code) existence_error(procedure,:: /2)
 predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(procedure,:: /2)
 predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(procedure,:: /2)
-predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
+predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error(integer_overflow)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition,stream,Stream)) fail
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) fail

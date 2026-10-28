@@ -14,8 +14,8 @@
 //   type_error(list), existence_error(stream),
 //   permission_error(input, stream), permission_error(input, binary_stream),
 //   permission_error(input, past_end_of_stream),
-//   representation_error(character), syntax_error(読み筋)
-// 構文エラーの Extra は stream(S, Line, LinePos, CharNo)。テストは Formal を比べる。
+//   representation_error(character), syntax_error(Key)
+// 構文エラーの Key と Extra syntax(stream(S, Line, LinePos, CharNo), Token) は ADR 0007。テストは Formal を比べる。
 // テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
@@ -214,32 +214,14 @@ Spot at_token(const Stream& stream, std::string_view slice, std::size_t line, st
   return abs;
 }
 
-std::string reason_text(SyntaxReason reason) {
-  switch (reason) {
-    case SyntaxReason::InvalidUtf8: return "不正な UTF-8";
-    case SyntaxReason::IllegalCharacter: return "使えない文字";
-    case SyntaxReason::UnterminatedQuote: return "引用が閉じていない";
-    case SyntaxReason::UnterminatedComment: return "コメントが閉じていない";
-    case SyntaxReason::BadEscape: return "不正なエスケープ";
-    case SyntaxReason::IntegerOverflow: return "整数が範囲を超えている";
-    case SyntaxReason::UnexpectedToken: return "予期しないトークン";
-    case SyntaxReason::MaxArity: return "引数が多すぎる";
-    case SyntaxReason::IncompleteTerm: return "項が閉じていません";
-  }
-  return "予期しないトークン";
-}
-
-std::string detail_text(const SyntaxFailure& failure, const Spot& spot) {
-  const std::string token = failure.token.empty() ? "終端" : failure.token;
-  return "行 " + std::to_string(spot.line) + " 列 " + std::to_string(spot.line_pos) + ": " +
-         reason_text(failure.reason) + " " + token;
-}
-
-Cell stream_place(Impl& machine, Cell culprit, const Spot& spot) {
+// ADR 0007 の syntax(stream(S, Line, LinePos, CharNo), Token)。入力の終わりでは Token が ''。
+Cell syntax_place(Impl& machine, Cell culprit, const Spot& spot, std::string_view token) {
   const std::array<Cell, 4> args{culprit, machine.heap.integer(static_cast<std::int64_t>(spot.line)),
                                  machine.heap.integer(static_cast<std::int64_t>(spot.line_pos)),
                                  machine.heap.integer(static_cast<std::int64_t>(spot.char_no))};
-  return machine.heap.structure(machine.atoms.intern("stream"), args);
+  const std::array<Cell, 2> both{machine.heap.structure(machine.atoms.intern("stream"), args),
+                                 machine.heap.atom(machine.atoms.intern(token))};
+  return machine.heap.structure(machine.atoms.intern("syntax"), both);
 }
 
 std::size_t utf8_fault_at(std::string_view slice, std::size_t line, std::size_t column) {
@@ -275,9 +257,9 @@ bool note_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFa
   const Spot spot = at_token(stream, slice, failure.line, failure.column);
   const std::size_t take = consumed > slice.size() ? slice.size() : consumed;
   advance_slice(stream, slice.substr(0, take));
-  const Cell detail = machine.heap.atom(machine.atoms.intern(detail_text(failure, spot)));
-  raise_formal_extra(machine, formal_syntax(machine, detail), goal.name, goal.arity,
-                     stream_place(machine, culprit, spot));
+  const Cell key = machine.heap.atom(machine.atoms.intern(syntax_key(failure.reason)));
+  raise_formal_extra(machine, formal_syntax(machine, key), goal.name, goal.arity,
+                     syntax_place(machine, culprit, spot, failure.token));
   return false;
 }
 

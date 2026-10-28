@@ -110,3 +110,5 @@ test(fw_comment_kept, (全角で読む('X = a /* （ */。', T), T = (_ = A), A 
 :- consult('modules/全角.pl').
 test(fw_directive_next_clause, 全(1), true).
 test(fw_directive_per_file, current_prolog_flag(japanese_punctuation, false), true).
+% SPEC 第4節。構文エラーの列は文字で数える。全角の字も 1 列。
+test(syntax_col_japanese, (open_string('あいう ).', S1), catch(read(S1, _), error(_, context(_, syntax(stream(_, _, P1, _), _))), true), open_string('abc ).', S2), catch(read(S2, _), error(_, context(_, syntax(stream(_, _, P2, _), _))), true), P1 == P2), true).

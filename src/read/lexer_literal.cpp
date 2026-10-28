@@ -296,7 +296,8 @@ Scan Lexer::scan_quoted() {
     }
     // 行継続はバックスラッシュ側で消す。ここはバックスラッシュのない改行とタブだけ。
     if (raw_quote_break(ch.code)) {
-      return fail_at(SyntaxReason::IllegalCharacter, ch.code == U'\t' ? "タブ" : "改行", here());
+      // トークンはその字そのもの。名前を付けるのは表示の側（messages_*.pl）。
+      return fail_at(SyntaxReason::IllegalCharacter, ch.code == U'\t' ? "\t" : "\n", here());
     }
     append_code(text, ch.code);
     advance(ch.code, ch.bytes);

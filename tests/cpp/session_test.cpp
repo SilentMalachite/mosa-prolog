@@ -250,6 +250,18 @@ void check_help_japanese_variables() {
   mosa_test::check(en.out.find("underscore") != std::string::npos, "help en text");
 }
 
+// SPEC 第4節。REPL の構文エラーは行、列、問題のトークンを旗の言語で見せる。日本語のトークンも崩さない。
+void check_syntax_shown() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto ja = mosa::run_session(args, "set_prolog_flag(message_language, ja).\n子 親.\n", true);
+  mosa_test::check(ja.err.find("行 1 列") != std::string::npos, "syntax_ja_shown place");
+  mosa_test::check(ja.err.find("親") != std::string::npos, "syntax_ja_shown token");
+  auto en = mosa::run_session(args, "set_prolog_flag(message_language, en).\n子 親.\n", true);
+  mosa_test::check(en.err.find("line 1 column") != std::string::npos, "syntax_en_shown place");
+  mosa_test::check(en.err.find("親") != std::string::npos, "syntax_en_shown token");
+}
+
 // CMake は MOSA_LIB を鍵の無い messages_en.pl の置き場にして、この関数だけを流す。
 void check_message_missing_key() {
   const std::string arg0 = "mosa";
@@ -283,5 +295,6 @@ int main(int argc, char** argv) {
   check_message_language_default();
   check_language_from_lang();
   check_help_japanese_variables();
+  check_syntax_shown();
   return mosa_test::failures();
 }

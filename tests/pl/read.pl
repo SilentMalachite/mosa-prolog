@@ -46,12 +46,15 @@ test(read_output, read(user_output, _), error(permission_error(input, stream, us
 test(read_term_output, read_term(user_output, _, []), error(permission_error(input, stream, user_output))).
 test(read_missing, read('$stream'(99), _), error(existence_error(stream, '$stream'(99)))).
 test(read_closed, (open_string('a.', S), close(S), read(S, _)), error(existence_error(stream, S))).
-test(read_syntax, (open_string('foo)', S), read(S, _)), error(syntax_error('行 1 列 4: 予期しないトークン )'))).
-test(read_incomplete, (open_string(foo, S), read(S, _)), error(syntax_error('行 1 列 4: 項が閉じていません 終端'))).
+% ADR 0007。Formal は言語に依らない鍵。行、列、問題のトークンは Context の syntax(stream(...), Token) に置く。
+test(read_syntax, (open_string('foo)', S), read(S, _)), error(syntax_error(unexpected_token))).
+test(read_incomplete, (open_string(foo, S), read(S, _)), error(syntax_error(incomplete_term))).
 % 6.5 の quoted char に生の改行とタブは無い。このファイルにその字を書くと、読み込み自体が落ちる。
 test(quoted_raw_nl, (open_string([39, 97, 10, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
 test(quoted_raw_tab, (open_string([39, 97, 9, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
-test(read_syntax_stream, (open_string('foo)', S), catch(read(S, _), error(_, context(_, stream(S, 1, 4, 3))), true)), true).
+test(read_syntax_stream, (open_string('foo)', S), catch(read(S, _), error(_, context(_, syntax(stream(S, 1, 4, 3), ')'))), true)), true).
+test(read_syntax_end_token, (open_string(foo, S), catch(read(S, _), error(_, context(_, syntax(_, T))), true)), solutions([T = ''])).
+test(quoted_raw_tab_token, (open_string([39, 97, 9, 98, 39, 46], S), catch(read(S, _), error(syntax_error(K), context(_, syntax(_, T))), true), K == illegal_character, T == '\t'), true).
 % 空白の無い []( と {}( だけが関数表記。空白のあとの ( は括弧である。
 test(read_nil_call, (open_string('[](2,3).', S), read(S, T), functor(T, [], 2)), true).
 test(read_curly_call, (open_string('{}(2,3).', S), read(S, T), functor(T, {}, 2)), true).

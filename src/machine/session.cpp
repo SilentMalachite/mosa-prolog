@@ -96,21 +96,6 @@ Options parse_args(std::span<const std::string_view> args) {
 
 const char* usage = "mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt]\n";
 
-std::string reason_text(SyntaxReason reason) {
-  switch (reason) {
-    case SyntaxReason::InvalidUtf8: return "不正な UTF-8";
-    case SyntaxReason::IllegalCharacter: return "使えない文字";
-    case SyntaxReason::UnterminatedQuote: return "引用が閉じていない";
-    case SyntaxReason::UnterminatedComment: return "コメントが閉じていない";
-    case SyntaxReason::BadEscape: return "不正なエスケープ";
-    case SyntaxReason::IntegerOverflow: return "整数が範囲を超えている";
-    case SyntaxReason::UnexpectedToken: return "予期しないトークン";
-    case SyntaxReason::MaxArity: return "引数が多すぎる";
-    case SyntaxReason::IncompleteTerm: return "項が閉じていません";
-  }
-  return "予期しないトークン";
-}
-
 struct Echo {
   SessionResult* result = nullptr;
   std::ostream* out = nullptr;
@@ -153,6 +138,17 @@ void recover_heap(Machine& machine) { machine.heap().truncate(0); }
 void warn_exception(Machine& machine, const Stop& stop, Echo& echo) {
   const std::array<Cell, 1> args{stop.exception};
   echo.warn(render_message(machine, "goal_raised", args) + "\n");
+}
+
+// 理由の鍵の文面を先に作り、それを行と列とトークンの文面に差し込む。入力の終わりでトークンは無い。
+void warn_syntax(Machine& machine, const SyntaxFailure& failure, Echo& echo) {
+  const std::string reason = render_message(machine, syntax_key(failure.reason), {});
+  Heap& heap = machine.heap();
+  std::vector<Cell> args{heap.integer(static_cast<std::int64_t>(failure.line)),
+                         heap.integer(static_cast<std::int64_t>(failure.column)),
+                         heap.atom(machine.atoms().intern(reason))};
+  if (!failure.token.empty()) args.push_back(heap.atom(machine.atoms().intern(failure.token)));
+  echo.warn(render_message(machine, failure.token.empty() ? "syntax_error_at_end" : "syntax_error", args) + "\n");
 }
 
 bool directive_text(Machine& machine, std::string_view text) {
@@ -234,8 +230,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
     if (outcome.failure) {
-      echo.warn(reason_text(outcome.failure->reason));
-      echo.warn("\n");
+      warn_syntax(machine, *outcome.failure, echo);
       buffer.clear();
       echo.say("?- ");
       continue;
