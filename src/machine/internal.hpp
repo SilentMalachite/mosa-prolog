@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -37,6 +38,9 @@ struct Clause {
   double key_float = 0;
   // ADR 0008。開いた走査がまだ試していない節を消すと、消さずにこの印を付ける。新しい呼び出しは飛ばす。
   bool dead = false;
+  // スロットごとの原文の変数名（名前の無い変数は空）。読み込んだ節だけが持ち、mosac のコメントだけが読む。
+  // 意味は持たないので指紋には数えない。
+  std::vector<std::string> names;
 };
 
 // multifile と discontiguous の宣言。述語が無くても残す。宣言だけで節の無い手続きになる（iso-notes 7.8.3 の決定 B）。
@@ -322,7 +326,7 @@ struct Compiled {
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);
 
 [[nodiscard]] Compiled compile_goal(const Heap& heap, Cell cell);
-[[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause);
+[[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
 [[nodiscard]] bool is_directive(const Heap& heap, Cell cell);
 
 void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
@@ -483,6 +487,8 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
 // 定義は native.cpp。翻訳器（Task 4）も同じ関数で指紋を出す。
 [[nodiscard]] std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate);
+// install_unit が生成関数を付けてよい述語か（指紋は見ない）。翻訳器も同じ関数で出す述語を選ぶ。
+[[nodiscard]] bool native_eligible(const Impl& machine, const Predicate& predicate);
 // 付けたあとの節か meta への書き込みのたびに呼ぶ。述語と全単位の同じ鍵の calls を一度に空にする。
 void detach_native(Impl& machine, Predicate& predicate);
 // 定義は native_redo.cpp。

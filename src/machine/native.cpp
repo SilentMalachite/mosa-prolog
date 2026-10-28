@@ -74,15 +74,8 @@ rt::UnitState build_unit(Impl& machine, const rt::NativeUnit& unit) {
   return state;
 }
 
-// 組込と同じ名前の利用者述語は、インタプリタでは run_builtin が先に取るので決して呼ばれない。
-// 付けると call_goal の近道だけがそれを呼んでしまうので付けない。
-// meta_predicate の述語も付けない。enter_clause は限定する引数を呼び手の文脈で M: に包むが、
-// enter_user の生成関数の道はそれを飛ばし、rt:: にも限定の手段が無い。生成コードで meta 引数を扱う Task 7 で外す。
-// 死んだ節を持つ述語も付けない。指紋は死んだ節を数えないが、interpret_clause は節のベクタをそのまま引く。
 bool attachable(const Impl& machine, const Predicate* predicate, std::uint64_t fingerprint) {
-  if (predicate == nullptr || predicate->dynamic || predicate->abolished || predicate->clauses.empty()) return false;
-  if (!predicate->meta.empty() || live_count(*predicate) != predicate->clauses.size()) return false;
-  if (is_builtin_procedure(machine, predicate->name, predicate->arity)) return false;
+  if (predicate == nullptr || !native_eligible(machine, *predicate)) return false;
   return clause_fingerprint(machine.atoms, *predicate) == fingerprint;
 }
 
@@ -140,6 +133,18 @@ std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predic
     hash_term(hash, atoms, clause.body);
   }
   return hash.value;
+}
+
+// 組込と同じ名前の利用者述語は、インタプリタでは run_builtin が先に取るので決して呼ばれない。
+// 付けると call_goal の近道だけがそれを呼んでしまうので付けない。
+// meta_predicate の述語も付けない。enter_clause は限定する引数を呼び手の文脈で M: に包むが、
+// enter_user の生成関数の道はそれを飛ばし、rt:: にも限定の手段が無い。生成コードで meta 引数を扱う Task 7 で外す。
+// 死んだ節を持つ述語も付けない。指紋は死んだ節を数えないが、interpret_clause は節のベクタをそのまま引く。
+// 翻訳器（src/codegen）もこの関数で生成関数を出す述語を選ぶ。出したのに付かない述語を作らない。
+bool native_eligible(const Impl& machine, const Predicate& predicate) {
+  if (predicate.dynamic || predicate.abolished || predicate.clauses.empty()) return false;
+  if (!predicate.meta.empty() || live_count(predicate) != predicate.clauses.size()) return false;
+  return !is_builtin_procedure(machine, predicate.name, predicate.arity);
 }
 
 void detach_native(Impl& machine, Predicate& predicate) {

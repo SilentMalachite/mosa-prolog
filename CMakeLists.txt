@@ -113,6 +113,13 @@ target_sources(mosa_lib PRIVATE
   src/builtins/write_pred.cpp
   src/builtins/operators.cpp
 )
+# mosac の翻訳器（計画 Task 4）。Machine の IR を読むので libmosa の中に置く。
+target_sources(mosa_lib PRIVATE
+  src/codegen/emit.cpp
+  src/codegen/emit_head.cpp
+  src/codegen/emit_body.cpp
+  src/codegen/mangle.cpp
+)
 
 enable_testing()
 
@@ -330,6 +337,11 @@ target_include_directories(native_test PRIVATE tests/cpp src)
 target_compile_definitions(native_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(native_test PRIVATE mosa_lib)
 add_test(NAME native COMMAND $<TARGET_FILE:native_test>)
+
+add_executable(codegen_test tests/cpp/codegen_test.cpp)
+target_include_directories(codegen_test PRIVATE tests/cpp src)
+target_link_libraries(codegen_test PRIVATE mosa_lib)
+add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)

@@ -7,6 +7,8 @@
 #include "mosa/cell.hpp"
 #include "mosa/machine.hpp"
 
+// array は生成コードが引数とセルの並びに使う。生成コードは標準ヘッダもこのヘッダからだけ得る。
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>

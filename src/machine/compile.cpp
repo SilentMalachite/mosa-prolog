@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <span>
+#include <string>
 #include <string_view>
 
 namespace mosa {
@@ -194,6 +196,18 @@ void set_key(Clause& clause) {
   }
 }
 
+// 名前はスロットに写すだけで、IR には入れない。読み込みの変数名が節の意味を変えないため。
+void name_slots(const Heap& heap, const Build& build, std::span<const VarName> names, Clause& clause) {
+  if (names.empty()) return;
+  clause.names.assign(build.refs.size(), std::string{});
+  for (const VarName& name : names) {
+    const auto raw = heap.deref(name.cell).raw();
+    for (std::size_t index = 0; index < build.refs.size(); ++index) {
+      if (build.refs[index] == raw) clause.names[index] = name.name;
+    }
+  }
+}
+
 }  // namespace
 
 Compiled compile_goal(const Heap& heap, Cell cell) {
@@ -230,7 +244,7 @@ void set_dot_head(Build& build, const Heap& heap, Clause& clause, Cell left, Cel
   clause.head.args.push_back(build.data(right));
 }
 
-bool compile_clause(const Heap& heap, Cell cell, Clause& clause) {
+bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
   Build build;
   build.heap = &heap;
   Cell head = heap.deref(cell);
@@ -253,6 +267,7 @@ bool compile_clause(const Heap& heap, Cell cell, Clause& clause) {
   clause.body = body.tag == IrTag::True && body.args.empty() ? body : body;
   if (build.is_name(heap.deref(cell), ":-", 2)) clause.body = body;
   clause.vars = static_cast<std::uint16_t>(build.refs.size());
+  name_slots(heap, build, names, clause);
   if (clause.head.tag == IrTag::Atom) {
     clause.head.arity = 0;
   }

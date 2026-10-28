@@ -309,8 +309,9 @@ bool replaces_files(Impl& machine, Cell term) {
          machine.atoms.name(machine.heap.functor_atom(body)) == "consult";
 }
 
-bool take_term(Impl& machine, Reader& reader, Cell term, std::string_view directory, std::string_view origin,
-               bool first, LoadScan& scan) {
+bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_view directory,
+               std::string_view origin, bool first, LoadScan& scan) {
+  Cell term = read.term;
   if (is_rule_arrow(machine.heap, term)) {
     fail_load(machine, message_text(machine, "directive_unsupported",
                                     {write_term(machine.heap, machine.operators, term, {}, {})}));
@@ -341,7 +342,7 @@ bool take_term(Impl& machine, Reader& reader, Cell term, std::string_view direct
     return false;
   }
   Clause clause;
-  if (!compile_clause(machine.heap, term, clause)) {
+  if (!compile_clause(machine.heap, term, clause, read.names)) {
     fail_load(machine, message_text(machine, "directive_unsupported",
                                     {write_term(machine.heap, machine.operators, term, {}, {})}));
     return false;
@@ -385,7 +386,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
       guard.finished = true;
       return scope.close(import_all);
     }
-    if (!take_term(machine, reader, outcome.term->term, directory, origin, first, scan)) return false;
+    if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan)) return false;
     first = false;
   }
 }

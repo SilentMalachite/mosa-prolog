@@ -276,7 +276,7 @@ bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
 void Printer::append_comma(std::string& out, const std::string& next) const {
   // コンマは単独字なので、直後の空白は糊付けが要るときだけ置く。
   out += ',';
-  if (glue(",", next)) out += ' ';
+  if (options_.space_args || glue(",", next)) out += ' ';
   out += next;
 }
 
