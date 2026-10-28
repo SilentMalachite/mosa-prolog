@@ -217,6 +217,8 @@ SPEC 第5節は、`user` 以外のモジュールで見つからない述語を 
 
 A か B か: A は文脈モジュールが `user` なら `Name/Arity`、それ以外なら `Module:Name/Arity`。B は常に `Name/Arity`。確認まで実装しない。
 
+決定（2026-10-28）: A。`user` の中では ISO の例どおり culprit を `Name/Arity` のままにし、それ以外のモジュールでは `Module:Name/Arity` にして、どこで見つからなかったかを示す。
+
 ## 第5節 取り込みの衝突
 
 SPEC 第5節は、自モジュールの述語と取り込んだ述語の衝突を読み込み時の `permission_error(import_into, ...)` とするが、残り 2 つの引数を決めていない。

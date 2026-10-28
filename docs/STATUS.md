@@ -1,5 +1,5 @@
 Phase: 3 done
-In progress: phase 4 Task 1. ADR 0006 approved (2026-10-28). Waiting for answers to 6 iso-notes questions (section 5 x4, 8.4.3 sort/2, section 7 forall/2), one per report. No phase 4 code until then
+In progress: phase 4 Task 1. ADR 0006 approved (2026-10-28). Waiting for answers to 5 iso-notes questions (section 5 x3, 8.4.3 sort/2, section 7 forall/2), one per report. No phase 4 code until then
 Done: Logtalk suite pass rate is 90% or more. Version is mosa 0.0.1 (phase 3). Round-trip re-reading keeps the string
 Done: mosatest --suite also writes docs/conformance.json (shields.io endpoint). The README badge reads it from main; the CI macOS job fails on an uncommitted diff
 Done: the conformance suite moves the cwd to the scratch directory per tests.lgt, so {open(d1, write, S)} leaves no empty file in the repo root (conformance_cwd_test)

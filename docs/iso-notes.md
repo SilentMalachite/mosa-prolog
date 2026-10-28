@@ -215,6 +215,8 @@ SPEC section 5 does not say how the culprit of `existence_error(procedure, PI)` 
 
 A or B?: A: `Name/Arity` when the context module is `user`, and `Module:Name/Arity` otherwise. B: always `Name/Arity`. Not implemented until confirmed.
 
+Decision (2026-10-28): A. Inside `user` the culprit stays `Name/Arity`, as the ISO examples expect; in any other module it is `Module:Name/Arity`, so the error shows where the lookup failed.
+
 ## Section 5 Import conflict
 
 SPEC section 5 says a conflict between a local predicate and an imported one raises `permission_error(import_into, ...)` at load time, but does not fix the other two arguments.
