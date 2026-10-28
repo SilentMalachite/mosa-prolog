@@ -46,6 +46,16 @@ UPPER_CHECKS = {
     0x03B1: 0x0391,
     0xFF41: 0xFF21,
 }
+# 半角カタカナブロックの互換分解。半角から全角への一対一。
+HALF_FIRST = 0xFF61
+HALF_LAST = 0xFF9F
+NARROW_CHECKS = {
+    0xFF61: 0x3002,
+    0xFF71: 0x30A2,
+    0xFF76: 0x30AB,
+    0xFF9E: 0x3099,
+    0xFF9F: 0x309A,
+}
 
 
 def fetch(url: str) -> str:
@@ -299,14 +309,67 @@ def ensure_upper(ranges: list[tuple[int, int, int]]) -> None:
             raise RuntimeError(f"U+{code_point:04X} の単純大文字写像が U+{actual:04X} です")
 
 
+def decomposition_scalar(field: str) -> int | None:
+    # 互換分解のタグを除き、符号位置が一つだけならそれを返す。
+    tokens = field.split()
+    if tokens and tokens[0].startswith("<"):
+        tokens = tokens[1:]
+    if len(tokens) != 1:
+        return None
+    return int(tokens[0], 16)
+
+
+def parse_narrow(text: str) -> list[tuple[int, int]]:
+    # 半角カタカナは UnicodeData の互換分解。一対一でない行は表に入れない。
+    pairs: list[tuple[int, int]] = []
+    for line_number, raw in enumerate(text.splitlines(), start=1):
+        if not raw or raw.startswith("#"):
+            continue
+        parts = raw.split(";")
+        if len(parts) < 6:
+            raise RuntimeError(f"UnicodeData.txt:{line_number} に互換分解の列がありません")
+        try:
+            code_point = int(parts[0], 16)
+        except ValueError as exc:
+            raise RuntimeError(f"UnicodeData.txt:{line_number} の符号位置が不正です") from exc
+        if code_point < HALF_FIRST or code_point > HALF_LAST:
+            continue
+        target = decomposition_scalar(parts[5].strip())
+        if target is None:
+            raise RuntimeError(f"U+{code_point:04X} の半角カタカナに一対一の互換分解がありません")
+        pairs.append((code_point, target))
+    return pairs
+
+
+def ensure_narrow(pairs: list[tuple[int, int]]) -> None:
+    expected = HALF_LAST - HALF_FIRST + 1
+    if len(pairs) != expected:
+        raise RuntimeError(f"半角カタカナの対が {len(pairs)} 件です。期待は {expected}")
+    seen_full: set[int] = set()
+    previous = HALF_FIRST - 1
+    for half, full in pairs:
+        if half != previous + 1 or full > MAX_CODE_POINT:
+            raise RuntimeError(f"半角カタカナの対が連続していません: U+{half:04X}")
+        if full in seen_full:
+            raise RuntimeError(f"U+{full:04X} が半角の対を二つ持ちます")
+        seen_full.add(full)
+        previous = half
+    for half, expected_full in NARROW_CHECKS.items():
+        actual = next(full for code, full in pairs if code == half)
+        if actual != expected_full:
+            raise RuntimeError(f"U+{half:04X} の互換分解が U+{actual:04X} です")
+
+
 def emit(
     categories: list[tuple[int, int, str]],
     wide: list[tuple[int, int]],
     upper: list[tuple[int, int, int]],
+    narrow: list[tuple[int, int]],
 ) -> str:
     lines = [
         "// Unicode 18.0.0 の一般カテゴリ区間、東アジア幅が W または F の区間、",
-        "// 単純大文字写像の区間。差は符号位置へ足す値。",
+        "// 単純大文字写像の区間、半角カタカナの互換分解。",
+        "// 大文字の差は符号位置へ足す値。半角の対は半角、全角の順。",
         "// tools/gen_unicode_tables.py が生成する。手で編集しない。",
         "// ASCII は ISO 6.5 の固定表で分類するため、カテゴリ区間は U+0080 からにする。",
         f'constexpr std::string_view k_unicode_version{{"{UNICODE_VERSION}"}};',
@@ -329,6 +392,11 @@ def emit(
         lines.append(f"    UpperRange{{0x{first:04X}, 0x{last:04X}, {delta}}},")
     lines.append("}};")
     lines.append("")
+    lines.append(f"constexpr std::array<NarrowPair, {len(narrow)}> k_narrow_pairs{{{{")
+    for half, full in narrow:
+        lines.append(f"    NarrowPair{{0x{half:04X}, 0x{full:04X}}},")
+    lines.append("}};")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -349,16 +417,18 @@ def publish(text: str) -> None:
         raise
 
 
-def generate(unicode_dir: str | None) -> tuple[int, int, int]:
+def generate(unicode_dir: str | None) -> tuple[int, int, int, int]:
     data_text, width_text = load_texts(unicode_dir)
     categories = drop_ascii(merge_categories(parse_unicode_data(data_text)))
     wide = merge_spans(parse_east_asian_width(width_text))
     upper = parse_simple_uppercase(data_text)
+    narrow = parse_narrow(data_text)
     ensure_categories(categories)
     ensure_wide(wide)
     ensure_upper(upper)
-    publish(emit(categories, wide, upper))
-    return len(categories), len(wide), len(upper)
+    ensure_narrow(narrow)
+    publish(emit(categories, wide, upper, narrow))
+    return len(categories), len(wide), len(upper), len(narrow)
 
 
 def main() -> int:
@@ -369,13 +439,14 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        category_count, wide_count, upper_count = generate(args.unicode_dir)
+        category_count, wide_count, upper_count, narrow_count = generate(args.unicode_dir)
     except Exception as exc:
         print(f"生成に失敗しました: {exc}", file=sys.stderr)
         return 1
     print(f"categories {category_count}")
     print(f"wide {wide_count}")
     print(f"upper {upper_count}")
+    print(f"narrow {narrow_count}")
     return 0
 
 

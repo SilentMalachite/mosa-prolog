@@ -478,7 +478,8 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) ||
       run_modules(machine, goal) || run_use_module(machine, goal) || run_qualify(machine, goal) ||
       run_length(machine, goal) || run_display_width(machine, goal) ||
-      run_upcase_atom(machine, goal)) {
+      run_upcase_atom(machine, goal) || run_kana(machine, goal) ||
+      run_yomi_width(machine, goal) || run_zen_han(machine, goal)) {
     return true;
   }
   return false;

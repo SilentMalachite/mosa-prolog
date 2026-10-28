@@ -27,6 +27,11 @@ struct UpperRange {
   std::int32_t delta;
 };
 
+struct NarrowPair {
+  char32_t half;
+  char32_t full;
+};
+
 #include "../unicode_tables.inc"
 
 // 6.5 の ASCII 分類は一般カテゴリと違う。`;` は Po だが solo、`_` は Pc だが下線、
@@ -150,6 +155,15 @@ char32_t simple_uppercase(char32_t code_point) {
   const auto mapped = static_cast<std::int64_t>(code_point) + range->delta;
   if (mapped < 0 || mapped > 0x10FFFF) return code_point;
   return static_cast<char32_t>(mapped);
+}
+
+char32_t halfwidth_partner(char32_t code_point, bool to_full) {
+  if (code_point > U'\U0010FFFF') return code_point;
+  for (const NarrowPair& pair : k_narrow_pairs) {
+    if (to_full && pair.half == code_point) return pair.full;
+    if (!to_full && pair.full == code_point) return pair.half;
+  }
+  return code_point;
 }
 
 std::string_view unicode_version() { return k_unicode_version; }

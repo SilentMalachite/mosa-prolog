@@ -15,6 +15,8 @@ enum class CharClass {
 [[nodiscard]] bool east_asian_wide(char32_t code_point);
 // 単純大文字写像。写像が無ければ符号位置をそのまま返す。
 [[nodiscard]] char32_t simple_uppercase(char32_t code_point);
+// 半角カタカナの互換分解。to_full なら半角から全角、そうでなければ逆。対が無ければそのまま。
+[[nodiscard]] char32_t halfwidth_partner(char32_t code_point, bool to_full);
 [[nodiscard]] std::string_view unicode_version();
 
 }
