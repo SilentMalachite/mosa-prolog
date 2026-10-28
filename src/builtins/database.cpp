@@ -303,7 +303,7 @@ bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vecto
   if (predicate == nullptr) return false;
   // 引数は最初の呼び出しで検査済み。M: は外すだけにし、節を作り直してヒープを使わない。
   ClauseView view = clause_view(machine, skip_module(machine, goal.arg(machine, 0)));
-  view.head = skip_module(machine, view.head);
+  view.head = named_head(machine, skip_module(machine, view.head), key.name);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
     if (index >= predicate->clauses.size()) continue;
@@ -331,7 +331,11 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   if (!strip_target(machine, goal, term, module, true)) return;
   if (reject_clause(machine, goal, term, false)) return;
   const ClauseView view = clause_view(machine, term);
-  HeadName head = head_indicator(machine, view.head);
+  const HeadName head = head_indicator(machine, view.head);
+  // 別名で取り込んだ述語へ足す節は、取り込み元の名前の頭で持つ。検査と誤りは呼び手の書いた名前で出す。
+  std::uint32_t source_name = head.name;
+  Predicate* existing = owned_pred(machine, module, source_name, head.arity);
+  term = named_head(machine, term, source_name);
   Clause clause;
   // 呼び出し後の束縛が節へ漏れないよう、データベースに見える前に IR の変数番号へ切る。
   if (!compile_clause(machine.heap, term, clause)) {
@@ -349,15 +353,14 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     raise_permission(machine, goal, machine.user_module, head.name, head.arity);
     return;
   }
-  Predicate* existing = owned_pred(machine, module, head.name, head.arity);
   if (existing != nullptr && !existing->dynamic) {
-    raise_permission(machine, goal, existing->module, head.name, head.arity);
+    raise_permission(machine, goal, existing->module, source_name, head.arity);
     return;
   }
   if (existing == nullptr) {
     Predicate created;
     created.module = module;
-    created.name = head.name;
+    created.name = source_name;
     created.arity = head.arity;
     created.dynamic = true;
     machine.predicates.push_back(std::move(created));
@@ -366,7 +369,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   }
   if (at_front) {
     existing->clauses.insert(existing->clauses.begin(), std::move(clause));
-    note_asserta(machine, existing->module, head.name, head.arity);
+    note_asserta(machine, existing->module, source_name, head.arity);
   } else {
     existing->clauses.push_back(std::move(clause));
   }
@@ -391,7 +394,9 @@ void run_retract(Impl& machine, const Goal& goal) {
     return;
   }
   const PredKey key{predicate->module, head.name, head.arity};
-  const auto matches = collect_matches(machine, *predicate, view);
+  ClauseView source = view;
+  source.head = named_head(machine, view.head, head.name);
+  const auto matches = collect_matches(machine, *predicate, source);
   if (!take_retract(machine, goal, key, matches, 0)) machine.failed = true;
 }
 
@@ -420,7 +425,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
   }
   const PredKey key{predicate->module, head.name, head.arity};
   ClauseView view;
-  view.head = head_cell;
+  view.head = named_head(machine, head_cell, head.name);
   view.head_only = true;
   const auto matches = collect_matches(machine, *predicate, view);
   for (std::size_t cursor = matches.size(); cursor > 0; --cursor) {

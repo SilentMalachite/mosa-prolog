@@ -7,6 +7,7 @@
 #include "../machine/internal.hpp"
 
 #include <array>
+#include <vector>
 
 namespace mosa {
 
@@ -20,6 +21,20 @@ bool qualified(const Impl& machine, Cell cell) {
 bool neck(const Impl& machine, Cell cell) {
   return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
          machine.atoms.name(machine.heap.functor_atom(cell)) == ":-";
+}
+
+// 名前が同じならヒープを使わずに同じ項を返す。別名でない普通の呼び出しはここで何も作らない。
+Cell rename_head(Impl& machine, Cell head, std::uint32_t name) {
+  head = machine.heap.deref(head);
+  if (head.tag() == Tag::Atom) {
+    return static_cast<std::uint32_t>(head.raw() >> 3) == name ? head : machine.heap.atom(name);
+  }
+  if (head.tag() != Tag::Str || machine.heap.functor_atom(head) == name) return head;
+  const std::uint16_t arity = machine.heap.functor_arity(head);
+  std::vector<Cell> args;
+  args.reserve(arity);
+  for (std::uint16_t index = 0; index < arity; ++index) args.push_back(machine.heap.arg(head, index));
+  return machine.heap.structure(name, args);
 }
 
 }  // namespace
@@ -71,6 +86,16 @@ Predicate* owned_pred(Impl& machine, std::uint32_t& module, std::uint32_t& name,
     return find_pred(machine, PredKey{item.from, item.name, arity});
   }
   return nullptr;
+}
+
+Cell named_head(Impl& machine, Cell term, std::uint32_t name) {
+  term = machine.heap.deref(term);
+  if (!neck(machine, term)) return rename_head(machine, term, name);
+  const Cell head = machine.heap.deref(machine.heap.arg(term, 0));
+  const Cell renamed = rename_head(machine, head, name);
+  if (renamed.raw() == head.raw()) return term;
+  const std::array<Cell, 2> parts{renamed, machine.heap.arg(term, 1)};
+  return machine.heap.structure(machine.heap.functor_atom(term), parts);
 }
 
 Cell module_indicator(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {

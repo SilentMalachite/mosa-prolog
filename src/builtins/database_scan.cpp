@@ -94,7 +94,7 @@ bool take_clause(Impl& machine, const Goal& goal, PredKey key, const std::vector
   const Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
   // M: は最初の呼び出しで検査済み。節の頭部と比べるのは内側の項。
-  const Cell head = skip_module(machine, goal.arg(machine, 0));
+  const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const Cell body = goal.arg(machine, 1);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
@@ -130,7 +130,7 @@ void run_clause(Impl& machine, const Goal& goal) {
     return;
   }
   const PredKey key{predicate->module, indicator.name, indicator.arity};
-  const Cell head = skip_module(machine, goal.arg(machine, 0));
+  const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const auto matches = matching_clauses(machine, *predicate, head, goal.arg(machine, 1));
   if (!take_clause(machine, goal, key, matches, 0)) machine.failed = true;
 }

@@ -50,6 +50,17 @@ test(use_alias_only, 別名:読み(_, _), error(existence_error(procedure, 別�
 test(use_except, (除外:姓名分解(山田太郎, A, _), 除外:敬称(A, C)), solutions([(A = 山田, C = 山田さん)])).
 test(use_except_hides, 除外:読み(_, _), error(existence_error(procedure, 除外:読み/2))).
 test(use_twice, findall(M, 人名:読込回数(M), L), solutions([L = [人名]])).
+:- use_module('modules/別源.pl', [動/1 as 動き, 静/1 as 静か, 型/2 as 型別]).
+% 別名を通したデータベース操作は取り込み元の述語に効く。罪人は取り込み元の名前（mod_assert_imported_static と同じ）。
+test(alias_db_clause, findall(X, clause(動き(X), true), L), solutions([L = [1, 2]])).
+test(alias_db_assert, (assertz(動き(3)), findall(X-B, clause(別源:動(X), B), L)), solutions([L = [1-true, 2-true, 3-true]])).
+test(alias_db_retract, findall(X, retract(動き(X)), L), solutions([L = [1, 2, 3]])).
+test(alias_db_retractall, (assertz(動き(4)), assertz(動き(5)), retractall(動き(4)), findall(X, 別源:動(X), L)), solutions([L = [5]])).
+test(alias_db_rule, (assertz((動き(6) :- true)), clause(別源:動(6), B)), solutions([B = true])).
+test(alias_db_asserta, (asserta(動き(0)), once(別源:動(X))), solutions([X = 0])).
+test(alias_db_static, assertz(静か(2)), error(permission_error(modify, static_procedure, 別源:静/1))).
+test(alias_db_static_retract, retract(静か(1)), error(permission_error(modify, static_procedure, 別源:静/1))).
+test(alias_pp_meta, predicate_property(型別(_, _), meta_predicate(M)), solutions([M = 型別(0, ?)])).
 :- consult('modules/複.pl').
 :- dynamic(家系:動的/1).
 test(mod_assert_qual, (assertz(家系:追加(a)), 家系:追加(X)), solutions([X = a])).
