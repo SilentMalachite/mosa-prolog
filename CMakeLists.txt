@@ -36,6 +36,7 @@ target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
   src/machine/load.cpp
+  src/machine/load_directive.cpp
   src/machine/load_path.cpp
   src/machine/compile.cpp
   src/machine/choice.cpp
