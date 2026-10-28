@@ -275,9 +275,9 @@
 **Interfaces:**
 - Consumes: `library(japanese)` の `読み幅/2`（フェーズ4）、`src/unicode_tables.inc` の `k_wide_ranges`
 
-- [ ] **Step 1:** 失敗するテスト。`fmt_wide_pad`: `with_output_to(atom(A), format("~w~t~10|~w", [日本, x]))` が `A == '日本      x'`（`日本` は幅 4、空白 6）。`fmt_ascii_pad`: 同じ書式で `ab` なら空白 8。`fmt_mixed`: `日a` は幅 3
-- [ ] **Step 2:** 桁の計算を `読み幅/2` と同じ表に置き換える。テストを流す
-- [ ] **Step 3:** コミット `[phase5] format の ~t~| を東アジア幅で数える（japanese.pl の fmt_* 3 件）`
+- [x] **Step 1:** 失敗するテスト。`fmt_wide_pad`: `with_output_to(atom(A), format("~w~t~10|~w", [日本, x]))` が `A == '日本      x'`（`日本` は幅 4、空白 6）。`fmt_ascii_pad`: 同じ書式で `ab` なら空白 8。`fmt_mixed`: `日a` は幅 3
+- [x] **Step 2:** 桁の計算を `読み幅/2` と同じ表に置き換える。テストを流す
+- [x] **Step 3:** コミット `[phase5] format の ~t~| を東アジア幅で数える（japanese.pl の fmt_* 3 件）`
 
 ### Task 14: Windows コンソールの UTF-8
 

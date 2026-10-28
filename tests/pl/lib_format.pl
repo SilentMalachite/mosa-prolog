@@ -72,7 +72,8 @@ test(fmt_col_past, with_output_to(atom(A), format("abcdef~t~3|x", [])), solution
 test(fmt_col_here, with_output_to(atom(A), format("left~tright~|", [])), solutions([A = leftright])).
 test(fmt_col_second, with_output_to(atom(A), format("~w~t~4|~t~w~8|", [a, b])), solutions([A = 'a      b'])).
 test(fmt_col_after_nl, with_output_to(atom(A), format("abc~nx~t~3|y", [])), solutions([A = 'abc\nx  y'])).
-test(fmt_col_kanji, with_output_to(atom(A), format("~w~t~4|x", [漢字])), solutions([A = '漢字  x'])).
+% SPEC 第4節。漢字 は幅 4 なので桁 4 で埋め草は無い。フェーズ4の文字数で数えた期待値 '漢字  x' を Task 13 で直した。
+test(fmt_col_kanji, with_output_to(atom(A), format("~w~t~4|x", [漢字])), solutions([A = '漢字x'])).
 % 引数の誤り。
 test(fmt_args_short, format("~a", []), error(domain_error(non_empty_list, []))).
 test(fmt_args_extra, format("abc", [def]), error(domain_error(empty_list, [def]))).

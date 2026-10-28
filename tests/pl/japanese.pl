@@ -1,4 +1,5 @@
 :- use_module(library(japanese)).
+:- use_module(library(format)).
 test(atom_length_hiragana, atom_length('あ', 1), true).
 test(atom_length_scalar, atom_length('𠮷', 1), true).
 test(atom_length_yoshinoya, atom_length('𠮷野家', 3), true).
@@ -112,3 +113,7 @@ test(fw_directive_next_clause, 全(1), true).
 test(fw_directive_per_file, current_prolog_flag(japanese_punctuation, false), true).
 % SPEC 第4節。構文エラーの列は文字で数える。全角の字も 1 列。
 test(syntax_col_japanese, (open_string('あいう ).', S1), catch(read(S1, _), error(_, context(_, syntax(stream(_, _, P1, _), _))), true), open_string('abc ).', S2), catch(read(S2, _), error(_, context(_, syntax(stream(_, _, P2, _), _))), true), P1 == P2), true).
+% ~t~| の桁は東アジア幅で数える（計画 Task 13）。日本 は幅 4、日a は幅 3。
+test(fmt_wide_pad, with_output_to(atom(A), format("~w~t~10|~w", [日本, x])), solutions([A = '日本      x'])).
+test(fmt_ascii_pad, with_output_to(atom(A), format("~w~t~10|~w", [ab, x])), solutions([A = 'ab        x'])).
+test(fmt_mixed, with_output_to(atom(A), format("~w~t~10|~w", [日a, x])), solutions([A = '日a       x'])).

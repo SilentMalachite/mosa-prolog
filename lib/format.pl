@@ -265,7 +265,7 @@ flush(st(Col, Seg, Out), St) :-
     reverse(Seg, Items),
     place(Items, 0, Col, Out, St).
 
-% 桁は文字数で数える。東アジア幅はフェーズ5で入れる。
+% 桁は東アジア幅で数える。幅の表は 読み幅/2 と同じ '$char_width'/2（src/unicode_tables.inc）。
 column_stop(Count, st(Col, Seg, Out), St) :-
     reverse(Seg, Items0),
     items_text(Items0, Text),
@@ -327,6 +327,8 @@ column_after([], Col, Col).
 column_after([C|Cs], Col0, Col) :-
     (   C == '\n'
     ->  Col1 = 0
-    ;   Col1 is Col0 + 1
+    ;   char_code(C, Code),
+        '$char_width'(Code, W),
+        Col1 is Col0 + W
     ),
     column_after(Cs, Col1, Col).
