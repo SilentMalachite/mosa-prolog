@@ -19,6 +19,7 @@ struct Hits {
   std::size_t cutc = 0;
   std::size_t rel = 0;
   std::size_t same = 0;
+  std::size_t twice = 0;
 };
 
 Hits& hits();
@@ -60,5 +61,13 @@ void rel_1(mosa::Machine::Impl& m, std::uint64_t frame, std::uint32_t state);
 void same_1(mosa::Machine::Impl& m, std::uint64_t frame, std::uint32_t state);
 const mosa::rt::UnitTag& op_tag();
 std::span<const std::string_view> op_atoms();
+
+// 単位 3: meta_predicate の述語。付いたら節をそのまま IR で動かすだけの関数で、走れば数が増える。
+inline constexpr std::string_view kMetaSource =
+    ":- meta_predicate(twice(0)).\n"
+    "twice(G) :- call(G), call(G).\n";
+
+void twice_1(mosa::Machine::Impl& m, std::uint64_t frame, std::uint32_t state);
+const mosa::rt::UnitTag& meta_tag();
 
 }

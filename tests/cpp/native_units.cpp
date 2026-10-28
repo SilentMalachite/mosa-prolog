@@ -300,4 +300,17 @@ void same_1(Machine::Impl& m, std::uint64_t frame, std::uint32_t state) {
 const rt::UnitTag& op_tag() { return kOpUnit; }
 std::span<const std::string_view> op_atoms() { return kOpAtoms; }
 
+namespace {
+constinit rt::UnitTag kMetaUnit{};
+}  // namespace
+
+void twice_1(Machine::Impl& m, std::uint64_t frame, std::uint32_t state) {
+  hits().twice += 1;
+  const rt::Regs r = rt::regs(m, kMetaUnit);
+  if (state != rt::kCall) return rt::fail(m);
+  rt::interpret_clause(m, r, 0, frame, 1);
+}
+
+const rt::UnitTag& meta_tag() { return kMetaUnit; }
+
 }

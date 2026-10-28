@@ -187,13 +187,12 @@ void check_multifile_detaches() {
   constexpr std::string_view kMore = ":- multifile(app/3).\napp(extra, x, y).\n";
   auto native = native_list_machine();
   auto interp = interp_machine(native_units::kListSource);
-  const auto loaded = native->load_program(kMore).ok;
-  check(loaded == interp->load_program(kMore).ok, "multifile load agrees");
+  check(native->load_program(kMore).ok, "multifile load (native)");
+  check(interp->load_program(kMore).ok, "multifile load (interp)");
   const auto before = hits().app;
-  same_answers(*native, *interp, "predicate_property(app(_, _, _), number_of_clauses(N)).",
-               loaded ? "N = 3." : "N = 2.");
-  same_answers(*native, *interp, "findall(A-B, app(extra, A, B), L).", loaded ? "A = A, B = B, L = [x-y]." : "A = A, B = B, L = [].");
-  if (loaded) check(hits().app == before, "multifile addition detaches app/3");
+  same_answers(*native, *interp, "predicate_property(app(_, _, _), number_of_clauses(N)).", "N = 3.");
+  same_answers(*native, *interp, "findall(A-B, app(extra, A, B), L).", "A = A, B = B, L = [x-y].");
+  check(hits().app == before, "multifile addition detaches app/3");
 }
 
 // 読み込みが失敗して述語を写しへ戻しても、その述語は付け直さない（ADR 0009）。答えは元の節のまま。
@@ -231,6 +230,23 @@ void check_fingerprint_mismatch() {
   check(hits().same > same_before, "fingerprint_mismatch_falls_back: same/1 attached");
 }
 
+// meta_predicate を宣言した述語は、指紋が合っても付けない。限定は enter_clause の道だけが行う。
+void check_meta_not_attached() {
+  const auto source = native_units::kMetaSource;
+  const std::vector<NativeEntry> entries{entry_of(source, "twice", 1, &native_units::twice_1)};
+  check(entries[0].fingerprint != 0, "twice/1 fingerprint computed");
+  auto native = Machine::create();
+  const mosa::rt::NativeUnit unit{"native_meta", source, &native_units::meta_tag(), entries, {}, {}};
+  check(mosa::rt::install_unit(*native, unit), "install_unit meta");
+  auto interp = interp_machine(source);
+  const auto before = hits().twice;
+  same_answers(*native, *interp, "findall(x, twice(true), L).", "L = [x].");
+  same_answers(*native, *interp, "twice(fail).", "false");
+  same_answers(*native, *interp, "findall(X, twice((X = a ; X = b)), L).", "X = X, L = [a,b].");
+  same_answers(*native, *interp, "predicate_property(twice(_), meta_predicate(M)).", "M = twice(0) ; false");
+  check(hits().twice == before, "meta_predicate twice/1 not attached");
+}
+
 }  // namespace
 
 int main() {
@@ -247,5 +263,6 @@ int main() {
   check_multifile_detaches();
   check_rollback_detaches();
   check_fingerprint_mismatch();
+  check_meta_not_attached();
   return mosa_test::failures() == 0 ? 0 : 1;
 }
