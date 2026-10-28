@@ -143,3 +143,4 @@ test(lists_needs_use, append([a], [b], _), error(existence_error(procedure, appe
 % 家系 が library(apply) を取り込んでも user には見えない。
 test(apply_needs_use, maplist(integer, [1]), error(existence_error(procedure, maplist/2))).
 test(format_needs_use, format("x", []), error(existence_error(procedure, format/2))).
+test(strings_needs_use, atomic_list_concat([a], _), error(existence_error(procedure, atomic_list_concat/2))).

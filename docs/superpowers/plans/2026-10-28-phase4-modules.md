@@ -293,9 +293,9 @@
 - Create: `lib/strings.pl`
 - Test: `tests/pl/lib_strings.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`alc_join`: `atomic_list_concat([a, 1, 'あ'], X)` が `X == 'a1あ'`。`alc_sep`: `atomic_list_concat([a, b], '、', X)` が `X == 'a、b'`。`alc_split`: `atomic_list_concat(L, ',', 'a,b')` が `L == [a, b]`。`alc_inst`: `atomic_list_concat([a, _], X)` → `instantiation_error`。`split_atom_basic`: `split_atom('a b  c', ' ', '', L)` が `L == [a, b, '', c]`。`split_atom_pad`: `split_atom(' a ', '', ' ', L)` が `L == [a]`
-- [ ] **Step 2:** Prolog で書く。テストを流す
-- [ ] **Step 3:** コミット `[phase4] atomic_list_concat/2,3 と split_atom/4 を実装（lib_strings.pl）`
+- [x] **Step 1:** 失敗するテスト。`alc_join`: `atomic_list_concat([a, 1, 'あ'], X)` が `X == 'a1あ'`。`alc_sep`: `atomic_list_concat([a, b], '、', X)` が `X == 'a、b'`。`alc_split`: `atomic_list_concat(L, ',', 'a,b')` が `L == [a, b]`。`alc_inst`: `atomic_list_concat([a, _], X)` → `instantiation_error`。`split_atom_basic`: `split_atom('a b  c', ' ', '', L)` が `L == [a, b, '', c]`。`split_atom_pad`: `split_atom(' a ', '', ' ', L)` が `L == [a]`
+- [x] **Step 2:** Prolog で書く。テストを流す
+- [x] **Step 3:** コミット `[phase4] atomic_list_concat/2,3 と split_atom/4 を実装（lib_strings.pl）`
 
 ### Task 17: `upcase_atom/2` と大文字の表
 
