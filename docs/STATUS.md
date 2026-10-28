@@ -1,7 +1,7 @@
 Phase: 5 in progress (phase 4 done 2026-10-28: mosa 0.0.1 (phase 4), CI green on 3 OSes in run 40683841050)
 Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2135/2171 = 98.3%
+Done (phase 5 Task 9): no I rows left in the triage table (36 left: N 21, Q 7, S 7, X 1)
 Done (phase 5 Task 8): open iso-notes questions answered one per report (7.8.3 decided B: declared-only multifile/discontiguous procedures fail when called, +2; 9.3.1.3 d decided A: 0 ** negative is undefined, +1; 7.5.4 decided B, ADR 0008 logical update view implemented, +5; 8.11.8 A; 8.11.1 B: closed stream gives domain_error(stream, S), +2; if/3 B: system built-in as (C *-> T ; E), SPEC stage A, +12; flags dialect/version_data B, +3; 9.3.10.3 B: int^negative is type_error(float, Base), +1; 8.11 std streams B, +5; 7.10.5 a B: every variable written as _Gn, runner keeps _ via WriteOptions::underscore_once, +4. Task 8 done); memberchk/2 question closed (row passes since Task 2)
-Done (phase 5 Task 1): triage-table section in the phase 5 plan; iso-notes A/B for the N groups; Section 4 Stream encoding and BOM decided A
 Done (phase 5 Task 2): runner ^^suppress_text_output/0, ^^text_output_contents/1,2,3, per-test restore of current streams (lgt_output.cpp); six libraries imported into the test machine's user except names the file defines (lgt_libs.cpp); mosa's user unchanged
 Runner limit: after a goal that leaves a choice point (e.g. stream_property/2), later plain goals run in a scratch machine (exec_plain), so their side effects on streams do not reach ^^ observers. No suite target has this shape yet
 Decided A (2026-10-28): side-column dirs (between_3, succ_2, plus_3, format_2, format_3, atomic_list_concat_2/3) stay out through phase 5; denominator stays 2171
