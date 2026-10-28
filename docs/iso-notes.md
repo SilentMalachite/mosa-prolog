@@ -206,3 +206,15 @@ A or B?: A: do not add a built-in `memberchk/2`. B: add it as a built-in. A unti
 `sics_current_input_1_04` calls `current_input(S)` on a closed input stream `S` and expects `domain_error(stream, S)`. The actual result is `existence_error(stream, '$stream'(3))`. `sics_current_output_1_04` is `current_output(S)` on a closed output stream, with the same discrepancy. The `domain_error(stream, Stream)` in 8.11.1.3 and 8.11.2.3 is for a term that is neither a variable nor a stream. The term of a closed stream is still a stream term, so we give `existence_error(stream, S)` for a stream that is not open (the same Formal as `set_input/1` in 8.11.3.3). `set_closed` and `out_closed` in `tests/pl/stream_prop.pl`, and closed streams in reading and writing, use the same Formal. The `stream_or_alias` for non-stream terms (the 8.11.1.3 decision above) is unchanged.
 
 A or B?: A: `current_input/1` and `current_output/1` on a closed stream give `existence_error(stream, S)` (the current implementation). `sics_current_input_1_04` and `sics_current_output_1_04` remain failing. B: `domain_error(stream, S)`. A until confirmed. B is not implemented.
+
+## 7.7.7 b A procedure defined only in another module
+
+13211-1 7.7.7 b with `unknown=error` gives `existence_error(procedure, PI)` when no procedure exists. The phase 4 design says that a bare call to `読み/2`, exported by `人名` but not imported into `user`, fails. `miss_user` in `src/machine/choice.cpp` fails whenever any module defines that name and arity. 13211-2 is the module part, and the current reading is that the procedure exists, but not in the caller's namespace.
+
+A or B?: A: fail (the current implementation and the design document). B: `existence_error(procedure, PI)` whenever the caller's resolution order finds nothing. A until confirmed. B is not implemented.
+
+## SPEC section 5: length/2 as "ISO core"
+
+The `library(lists)` row in `docs/SPEC.md` section 5 calls `length/2` "ISO core". 13211-1 (including Cor.1 to Cor.3) does not define `length/2`. The header of `src/builtins/length.cpp` does not claim a clause number. The SPEC text is not changed here.
+
+A or B?: A: keep `length/2` in `system` as an implementation built-in, and change the SPEC wording to "built-in". B: keep the wording because the project counts it as de facto core. A until confirmed. The implementation is the same either way.

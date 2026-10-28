@@ -9,6 +9,11 @@ test(call_number, call(1), error(type_error(callable, 1))).
 call_one(1).
 test(iso_call_1_12, (call_one(One), call(One)), error(type_error(callable, 1))).
 test(call_var, call(X), error(instantiation_error)).
+% call/N はメタ引数を包んでから足す。包んだ内側が変数や数でもプロセスを落とさない。
+test(call_n_var, call(_, a), error(instantiation_error)).
+test(call_n_number, call(3, a), error(type_error(callable, 3))).
+test(call_n_qualified_var, call(user:_, a), error(instantiation_error)).
+test(call_n_findall_var, findall(Y, call(_, Y), _), error(instantiation_error)).
 test(catch_ball, catch(throw(a), a, true), true).
 test(catch_miss, catch(throw(b), a, true), error(b)).
 :- op(600, xfy, *->).

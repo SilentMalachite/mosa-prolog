@@ -158,6 +158,8 @@ struct Entry {
   std::uint32_t pred_home = 0;
   // 節に入る前の呼び出しモジュール。本体が終わったらここへ戻す。
   std::uint32_t return_mod = 0;
+  // 選択点を作ったときの呼び出しモジュール。成功の戻りで calling が変わっても、やり直しはここから続ける。
+  std::uint32_t resume_mod = 0;
   std::size_t cut = 0;
   IrTerm else_goal;
   std::vector<Cell> env;
@@ -271,6 +273,8 @@ struct Machine::Impl {
   std::vector<ExportedOp> exported_ops;
   // モジュールを定義したファイル。同じパスの use_module は節を足さない。
   std::vector<ModuleSource> module_sources;
+  // use_module が今開いているパス。module/2 の無いファイルは module_sources に載らず、循環を止められない。
+  std::vector<std::string> using_files;
   // 今読んでいるファイルの正規化パス。空はファイルではない。
   std::string load_origin;
   // 再読みの直前の公開と演算子。入れ子の読み込みは、自分の分だけを載せる。
@@ -288,8 +292,10 @@ struct Machine::Impl {
   std::size_t load_terms = 0;
   // 0 以外は、読み込みが permission_error(modify, module, このアトム) で落ちた。
   std::uint32_t module_fault = 0;
-  // 真なら、読み込みは permission_error(modify, static_procedure, この PI) で落ちた。
+  // 真なら、読み込みは permission_error(load_perm_action, load_perm_type, この PI) で落ちた。
   bool load_perm = false;
+  std::string_view load_perm_action = "modify";
+  std::string_view load_perm_type = "static_procedure";
   std::uint32_t load_perm_name = 0;
   std::uint16_t load_perm_arity = 0;
   // 入れ子の読み込みごとに、その読み込みが足したモジュール。失敗ではその段だけ消す。
@@ -587,6 +593,9 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 void note_declared_op(Impl& machine, int priority, Specifier specifier, std::string name);
 [[nodiscard]] bool take_exported_op(const Impl& machine, Cell cell, ExportedOp& op);
 [[nodiscard]] bool import_operator_exports(Impl& machine, std::uint32_t source);
+// 読み込みを permission_error で止める印と診断を残す。常に false。
+[[nodiscard]] bool refuse_load(Impl& machine, std::string_view action, std::string_view type, std::uint32_t name,
+                               std::uint16_t arity);
 [[nodiscard]] bool multifile_keeps(const Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
 void note_multifile(Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity);
 // 修飾した頭部を、宣言済みならそのモジュールの節に直す。home は足す先。
@@ -618,6 +627,17 @@ struct LoadClock {
   LoadClock(const LoadClock&) = delete;
   LoadClock& operator=(const LoadClock&) = delete;
 };
+
+// 入れ子の読み込みの前後で、親のテキストが見た述語の印を残す。再読みは述語表を詰め直すので鍵で引く。
+struct SeenMark {
+  std::uint32_t home = 0;
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  bool seen = false;
+  bool declared = false;
+};
+[[nodiscard]] std::vector<SeenMark> mark_seen(const Impl& machine);
+void restore_seen(Impl& machine, const std::vector<SeenMark>& saved);
 
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory = {},
                                     std::string_view origin = {},

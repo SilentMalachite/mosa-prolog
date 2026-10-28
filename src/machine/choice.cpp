@@ -66,6 +66,7 @@ void push_frame(Impl& machine, Entry entry) {
   entry.extras_mark = machine.extras.size();
   // query の Cleanup はここを通さないので印は 0。通った枠より後ろの op/3 だけを戻す。
   entry.effect_id = ++machine.effect_clock;
+  entry.resume_mod = machine.calling;
   note_catches(machine, entry);
   machine.stack.push_back(std::move(entry));
 }
@@ -166,6 +167,10 @@ void miss_user(Impl& machine, const Goal& goal) {
 
 void enter_user(Impl& machine, const Goal& goal) {
   Predicate* slot = predicate_in(machine, machine.calling, goal.name, goal.arity);
+  // 第5節の解決順の 2。user 以外は既定の取り込み元 user を見る。user の取り込みもここに含む。
+  if (slot == nullptr && machine.calling != machine.user_mod) {
+    slot = predicate_in(machine, machine.user_mod, goal.name, goal.arity);
+  }
   if (slot == nullptr) {
     miss_user(machine, goal);
     return;
@@ -301,6 +306,8 @@ bool backtrack(Impl& machine) {
       machine.stack.pop_back();
       continue;
     }
+    // 節の成功は RestoreMod で呼び出し元へ戻している。本体の ; や repeat は作った節のモジュールで続ける。
+    machine.calling = top.resume_mod;
     if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
     if (top.pick == Pick::Retract && redo_retract(machine)) return true;
     // Clauses は節の本体を実行する。参照と列挙は項を返すだけで、本体は走らせない。

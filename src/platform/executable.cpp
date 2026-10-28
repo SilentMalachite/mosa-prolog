@@ -1,6 +1,7 @@
 #include "executable.hpp"
 
 #include <string>
+#include <system_error>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -65,6 +66,14 @@ std::filesystem::path executable_path_os() {
 
 }  // namespace
 
-std::filesystem::path executable_path() { return executable_path_os(); }
+// macOS の _NSGetExecutablePath はシンボリックリンクのパスを返す。lib/ は実体の隣にあるので解決する。
+std::filesystem::path executable_path() {
+  const auto path = executable_path_os();
+  if (path.empty()) return path;
+  std::error_code error;
+  auto resolved = std::filesystem::weakly_canonical(path, error);
+  if (error) return path;
+  return resolved;
+}
 
 }  // namespace mosa

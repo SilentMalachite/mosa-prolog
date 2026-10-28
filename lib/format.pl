@@ -169,6 +169,8 @@ put_codes([Item | Rest]) :- one_code(Item, Code), put_code(Code), put_codes(Rest
 one_code(Item, Item) :- integer(Item), !.
 one_code(Item, Code) :- atom(Item), atom_codes(Item, [Code]), !.
 
+% 変数を素通しすると put_codes が [] に束縛して成功する。
+text_codes(Text, _) :- var(Text), !, throw(error(instantiation_error, _)).
 text_codes(Text, Codes) :- atom(Text), !, atom_codes(Text, Codes).
 text_codes(Text, Text).
 

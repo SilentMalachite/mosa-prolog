@@ -30,13 +30,7 @@ bool declared_here(const Impl& machine, std::uint32_t home, std::uint32_t name, 
 }
 
 bool refuse_static(Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  machine.load_perm = true;
-  machine.load_perm_name = name;
-  machine.load_perm_arity = arity;
-  const Cell formal = formal_permission(machine, "modify", "static_procedure", cell_functor(machine, name, arity));
-  machine.diagnostic = write_term(machine.heap, machine.operators, formal, {}, {});
-  machine.syntax_diag = false;
-  return false;
+  return refuse_load(machine, "modify", "static_procedure", name, arity);
 }
 
 bool colon_term(const Impl& machine, Cell term) {
@@ -77,6 +71,20 @@ bool qualified_head(Impl& machine, Cell looked, std::uint32_t& named, Cell& inne
 
 }  // namespace
 
+// consult と use_module は、この記録を permission_error(action, type, PI) として投げ直す。
+bool refuse_load(Impl& machine, std::string_view action, std::string_view type, std::uint32_t name,
+                 std::uint16_t arity) {
+  machine.load_perm = true;
+  machine.load_perm_action = action;
+  machine.load_perm_type = type;
+  machine.load_perm_name = name;
+  machine.load_perm_arity = arity;
+  const Cell formal = formal_permission(machine, action, type, cell_functor(machine, name, arity));
+  machine.diagnostic = write_term(machine.heap, machine.operators, formal, {}, {});
+  machine.syntax_diag = false;
+  return false;
+}
+
 bool multifile_keeps(const Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity) {
   return keeps(machine, home, name, arity);
 }
@@ -103,14 +111,18 @@ bool retarget_multifile_clause(Impl& machine, Cell& term, std::uint32_t& home) {
   std::uint32_t pred = 0;
   std::uint16_t arity = 0;
   Cell inner;
-  if (!qualified_head(machine, looked, named, inner, pred, arity)) return true;
-  // 外部の節は、持つ側の宣言と、このファイルの宣言が両方いる。
-  if (named != machine.load_home &&
-      (!keeps(machine, named, pred, arity) || !declared_here(machine, named, pred, arity))) {
-    return refuse_static(machine, pred, arity);
+  if (!colon_term(machine, looked)) return true;
+  // 載っていないモジュールや頭部でない右辺のまま足すと、:/2 の節になる。:/2 は system の述語。
+  if (!qualified_head(machine, looked, named, inner, pred, arity)) {
+    return refuse_static(machine, machine.atoms.intern(":"), 2);
   }
-  if (!keeps(machine, named, pred, arity)) return true;
-  home = named;
+  // 外部の節は、持つ側の宣言と、このファイルの宣言が両方いる。自分のモジュールは限定を剥がすだけ。
+  if (named != machine.load_home) {
+    if (!keeps(machine, named, pred, arity) || !declared_here(machine, named, pred, arity)) {
+      return refuse_static(machine, pred, arity);
+    }
+    home = named;
+  }
   if (!rule) {
     term = inner;
     return true;

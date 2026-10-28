@@ -39,11 +39,6 @@ std::filesystem::path resolve_file(std::string_view directory, std::string_view 
   return std::filesystem::path{std::string{directory}} / file;
 }
 
-struct SeenMark {
-  bool seen = false;
-  bool declared = false;
-};
-
 struct ClauseBackup {
   std::uint32_t home = 0;
   std::uint32_t name = 0;
@@ -51,28 +46,6 @@ struct ClauseBackup {
   std::vector<Clause> clauses;
   bool dynamic = false;
 };
-
-std::vector<SeenMark> mark_seen(const Impl& machine) {
-  std::vector<SeenMark> saved;
-  saved.reserve(machine.predicates.size());
-  for (const Predicate& predicate : machine.predicates) {
-    saved.push_back(SeenMark{predicate.seen, predicate.dynamic_declared});
-  }
-  return saved;
-}
-
-void restore_seen(Impl& machine, const std::vector<SeenMark>& saved) {
-  const auto count = saved.size();
-  for (std::size_t index = 0; index < count && index < machine.predicates.size(); ++index) {
-    machine.predicates[index].seen = saved[index].seen;
-    machine.predicates[index].dynamic_declared = saved[index].declared;
-  }
-  // 親のテキストは、consult が足した述語をまだ見ていない。次の節は置き換える。
-  for (std::size_t index = count; index < machine.predicates.size(); ++index) {
-    machine.predicates[index].seen = false;
-    machine.predicates[index].dynamic_declared = false;
-  }
-}
 
 std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
   std::vector<ClauseBackup> saved;
@@ -150,6 +123,30 @@ int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<st
 
 }  // namespace
 
+std::vector<SeenMark> mark_seen(const Impl& machine) {
+  std::vector<SeenMark> saved;
+  saved.reserve(machine.predicates.size());
+  for (const Predicate& predicate : machine.predicates) {
+    saved.push_back(SeenMark{predicate.home, predicate.name, predicate.arity, predicate.seen,
+                             predicate.dynamic_declared});
+  }
+  return saved;
+}
+
+void restore_seen(Impl& machine, const std::vector<SeenMark>& saved) {
+  for (Predicate& predicate : machine.predicates) {
+    // 親のテキストは、入れ子が足した述語をまだ見ていない。次の節は置き換える。
+    predicate.seen = false;
+    predicate.dynamic_declared = false;
+    for (const SeenMark& mark : saved) {
+      if (mark.home != predicate.home || mark.name != predicate.name || mark.arity != predicate.arity) continue;
+      predicate.seen = mark.seen;
+      predicate.dynamic_declared = mark.declared;
+      break;
+    }
+  }
+}
+
 int apply_file_list(Impl& machine, Cell term, std::string_view directory, std::vector<std::string>& opening) {
   std::vector<Cell> items;
   const int collected = collect_files(machine, term, items);
@@ -219,7 +216,9 @@ bool run_consult(Impl& machine, const Goal& goal) {
       const auto arity = machine.load_perm_arity;
       machine.load_perm = false;
       const Cell indicator = cell_functor(machine, pred, arity);
-      raise_formal(machine, formal_permission(machine, "modify", "static_procedure", indicator), goal.name, goal.arity);
+      const Cell formal =
+          formal_permission(machine, machine.load_perm_action, machine.load_perm_type, indicator);
+      raise_formal(machine, formal, goal.name, goal.arity);
       return true;
     }
     prefix_consult_diagnostic(machine, text);

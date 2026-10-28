@@ -24,7 +24,10 @@ struct ImportAs {
   bool added = false;
 
   explicit ImportAs(OperatorTable& table) : ops(table) {
-    if (ops.stored("as", Specifier::Xfx)) return;
+    // 中置は一種類だけ。利用者の xfy や yfx を xfx で置き換えると、抜けるときに消してしまう。
+    if (ops.stored("as", Specifier::Xfx) || ops.stored("as", Specifier::Xfy) || ops.stored("as", Specifier::Yfx)) {
+      return;
+    }
     // / は 400。これより弱いので、名前/アリティ as 別名 は as(名前/アリティ, 別名) になる。
     added = ops.define(700, Specifier::Xfx, "as") == OpResult::Ok;
   }

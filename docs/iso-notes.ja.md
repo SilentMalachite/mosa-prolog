@@ -208,3 +208,15 @@ A か B か: A は組込の `memberchk/2` を足さない。B は組込として
 `sics_current_input_1_04` は、閉じた入力流れ `S` に `current_input(S)` を呼び、`domain_error(stream, S)` を期待する。実際は `existence_error(stream, '$stream'(3))`。`sics_current_output_1_04` は閉じた出力流れへの `current_output(S)` で、同じ食い違いである。8.11.1.3 と 8.11.2.3 が書く `domain_error(stream, Stream)` は、変数でも流れでもない項である。閉じた流れの項は流れの項のままなので、開いていない流れの `existence_error(stream, S)`（`set_input/1` の 8.11.3.3 と同じ Formal）にしている。`tests/pl/stream_prop.pl` の `set_closed` と `out_closed`、読み書きの閉じた流れも同じ Formal である。流れでない項の `stream_or_alias`（上の 8.11.1.3 の決定）は変えない。
 
 A か B か: A は閉じた流れの `current_input/1` と `current_output/1` が `existence_error(stream, S)`（今の実装）。`sics_current_input_1_04` と `sics_current_output_1_04` は残る。B は `domain_error(stream, S)`。確認前は A。B は実装しない。
+
+## 7.7.7 b 別のモジュールにだけある手続き
+
+13211-1 の 7.7.7 b は、`unknown=error` で手続きが無いとき `existence_error(procedure, PI)` にする。phase 4 の設計は、`人名` が公開し `user` が取り込んでいない `読み/2` を限定なしで呼ぶと失敗する、としている。`src/machine/choice.cpp` の `miss_user` は、どこかのモジュールがその名前と引数の数を定義していれば失敗にする。13211-2 はモジュールの部で、今の読みは、手続きは存在するが呼び出し側の名前空間には無い、である。
+
+A か B か: A は失敗（今の実装と設計文書）。B は呼び出し側の解決順で何も見つからなければ `existence_error(procedure, PI)`。確認前は A。B は実装しない。
+
+## SPEC 第5節: length/2 を「ISO core」と書いている
+
+`docs/SPEC.md` 第5節の `library(lists)` の行は `length/2` を「ISO core」と書く。13211-1（Cor.1 から Cor.3 を含む）は `length/2` を定義していない。`src/builtins/length.cpp` の見出しも条項番号を書いていない。SPEC の文面はここでは変えない。
+
+A か B か: A は `length/2` を処理系の組込として `system` に置いたまま、SPEC の文面を「組込」に直す。B は事実上の core として文面を残す。確認前は A。どちらでも実装は同じ。

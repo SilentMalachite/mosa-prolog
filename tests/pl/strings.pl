@@ -92,3 +92,9 @@ test(strings_result_type, (use_strings, atomic_list_concat([foo, bar], '_', a(1)
 
 % リストでなければ type_error(list)。
 test(strings_list_type, (use_strings, atomic_list_concat(foo, _)), error(type_error(list, foo))).
+
+% レビューで直した不具合の回帰。結果が合わないときと、やり直しでは失敗する。例外は投げない。
+test(strings_concat_mismatch, (use_strings, atomic_list_concat([a, b], '-', foo)), fail).
+test(strings_concat_empty_mismatch, (use_strings, atomic_list_concat([], '-', foo)), fail).
+test(strings_concat_redo, (use_strings, atomic_list_concat([a, b], '-', _), fail), fail).
+test(strings_concat2_redo, (use_strings, findall(A, ((X = a ; X = b), atomic_list_concat([X, y], A)), L), L == [ay, by]), true).

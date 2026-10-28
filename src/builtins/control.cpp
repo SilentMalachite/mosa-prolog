@@ -59,8 +59,15 @@ bool run_call(Impl& machine, const Goal& goal) {
   }
   Cell callable = head;
   if (goal.arity > 1) {
-    if (head.tag() != Tag::Atom && head.tag() != Tag::Str && head.tag() != Tag::Lis) {
-      not_callable(machine, goal, head);
+    // メタ引数の包みで M:_ や M:3 になっている。内側を見ないと関数子の無い項に引数を足してしまう。
+    Cell core = head;
+    while (qualified_goal(machine, core)) core = machine.heap.deref(machine.heap.arg(core, 1));
+    if (machine.heap.unbound(core)) {
+      instantiation(machine, goal);
+      return true;
+    }
+    if (core.tag() != Tag::Atom && core.tag() != Tag::Str && core.tag() != Tag::Lis) {
+      not_callable(machine, goal, core);
       return true;
     }
     callable = appended(machine, head, goal);

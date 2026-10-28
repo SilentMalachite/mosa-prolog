@@ -99,3 +99,6 @@ test(format_tab_wide, (use_format, with_output_to(atom(A), format('~t~a~4|', [�
 test(format_tab_fill, (use_format, with_output_to(atom(A), format('~8594t~8|', [])), A == '→→→→→→→→'), true).
 % 埋め文字が幅 2 のとき、桁数で数える。26481 は東。
 test(format_tab_wide_fill, (use_format, with_output_to(atom(A), format('~26481t~4|', [])), A == '東東'), true).
+
+% レビューで直した不具合の回帰。~s の引数が変数なら具体化エラー。
+test(format_string_var, (use_format, format('~s', [_])), error(instantiation_error)).

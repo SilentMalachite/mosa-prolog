@@ -13,9 +13,10 @@
 // テスト: tests/pl/modules.pl、tests/pl/morning.pl
 
 #include "../machine/internal.hpp"
+#include "../platform/environment.hpp"
 #include "../platform/executable.hpp"
 
-#include <cstdlib>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -47,7 +48,12 @@ void prefix_diagnostic(Impl& machine, std::string_view path) {
   machine.diagnostic = std::string{path} + ": " + machine.diagnostic;
 }
 
-bool open_module(Impl& machine, std::string_view text, std::size_t& before) {
+bool open_module(Impl& machine, std::string_view text, const std::string& key) {
+  if (std::find(machine.using_files.begin(), machine.using_files.end(), key) != machine.using_files.end()) {
+    machine.diagnostic = std::string{text} + ": ファイルが循環しています";
+    machine.syntax_diag = false;
+    return false;
+  }
   std::ifstream input{std::string{text}, std::ios::binary};
   if (!input) {
     machine.diagnostic = std::string{text} + ": ファイルを開けません";
@@ -56,9 +62,13 @@ bool open_module(Impl& machine, std::string_view text, std::size_t& before) {
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();
-  before = machine.modules.size();
   const std::filesystem::path file{std::string{text}};
+  // load_source は全述語の印を消す。親のファイルの前半の節と dynamic 宣言を残すために戻す。
+  const auto seen = mark_seen(machine);
+  machine.using_files.push_back(key);
   const LoadStatus status = load_source(machine, buffer.str(), file.parent_path().string(), file.string());
+  machine.using_files.pop_back();
+  restore_seen(machine, seen);
   if (status.ok) return true;
   prefix_diagnostic(machine, text);
   return false;
@@ -240,6 +250,14 @@ bool apply_ask(Impl& machine, const Goal& goal, std::uint32_t source, std::uint3
 }
 
 bool raise_module_fault(Impl& machine, const Goal& goal) {
+  // consult と同じく、読み込みが記録した permission_error を use_module の例外にする。
+  if (machine.module_fault == 0 && machine.load_perm) {
+    machine.load_perm = false;
+    const Cell indicator = cell_functor(machine, machine.load_perm_name, machine.load_perm_arity);
+    const Cell formal = formal_permission(machine, machine.load_perm_action, machine.load_perm_type, indicator);
+    raise_formal(machine, formal, goal.name, goal.arity);
+    return true;
+  }
   if (machine.module_fault == 0) return false;
   const auto name = machine.module_fault;
   machine.module_fault = 0;
@@ -255,8 +273,9 @@ bool regular_file(const std::filesystem::path& file) {
 
 // 空の MOSA_LIB は未設定と同じ。相対の Name.pl を作業ディレクトリから開かない。
 std::filesystem::path library_from_env(const std::filesystem::path& leaf) {
-  const char* root = std::getenv("MOSA_LIB");
-  if (root == nullptr || root[0] == '\0') return {};
+  // std::getenv は MSVC の /W4 /WX で C4996 になる。platform の getenv_s 版を使う。
+  const std::string root = environment_value("MOSA_LIB");
+  if (root.empty()) return {};
   const auto file = std::filesystem::path{root} / leaf;
   if (!regular_file(file)) return {};
   return file;
@@ -312,17 +331,14 @@ bool resolve_module(Impl& machine, const Goal& goal, std::string_view text, std:
   const auto key = canonical_key(std::filesystem::path{std::string{text}}).generic_string();
   // 定義ファイルは読み直さない。公開リストは最初の module/2 のまま取り込む。
   if (module_at_path(machine, key, loaded)) return true;
-  std::size_t before = 0;
-  if (!open_module(machine, text, before)) {
+  if (!open_module(machine, text, key)) {
     if (!raise_module_fault(machine, goal)) machine.failed = true;
     return false;
   }
-  if (machine.modules.size() <= before) {
-    machine.failed = true;
-    return false;
-  }
-  loaded = machine.modules.back();
-  return true;
+  // 読んだファイルが別のモジュールを use_module すると、modules の末尾はそちらになる。パスで引く。
+  if (module_at_path(machine, key, loaded)) return true;
+  machine.failed = true;
+  return false;
 }
 
 // 載っているモジュールの原子は、同じ綴りのファイルより先にそのモジュールを指す。

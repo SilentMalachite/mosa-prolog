@@ -162,9 +162,10 @@ bool scans_clauses(Pick pick) {
   return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
 }
 
-void note_removed(Impl& machine, std::uint32_t name, std::uint16_t arity, std::size_t removed) {
+// home は消した節の述語のモジュール。やり直しでは calling が呼び出し元に戻っている。
+void note_removed(Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity, std::size_t removed) {
   for (Entry& entry : machine.stack) {
-    if (entry.pred_home != machine.calling || entry.pred_name != name || entry.pred_arity != arity) continue;
+    if (entry.pred_home != home || entry.pred_name != name || entry.pred_arity != arity) continue;
     if (!scans_clauses(entry.pick)) continue;
     std::vector<std::size_t> kept;
     kept.reserve(entry.candidates.size());
@@ -184,9 +185,10 @@ void note_removed(Impl& machine, std::uint32_t name, std::uint16_t arity, std::s
   }
 }
 
-void note_asserta(Impl& machine, std::uint32_t name, std::uint16_t arity) {
+// asserta(M:C) は calling を M にしない。足した述語のモジュールで走査を探す。
+void note_asserta(Impl& machine, std::uint32_t home, std::uint32_t name, std::uint16_t arity) {
   for (Entry& entry : machine.stack) {
-    if (entry.pred_home != machine.calling || entry.pred_name != name || entry.pred_arity != arity) continue;
+    if (entry.pred_home != home || entry.pred_name != name || entry.pred_arity != arity) continue;
     if (!scans_clauses(entry.pick)) continue;
     // 先頭に足しても、開いている走査は新しい節を見ない。古い添字だけ 1 つずれる。
     for (std::size_t& index : entry.candidates) ++index;
@@ -265,7 +267,7 @@ std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predica
   return found;
 }
 
-void push_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
+void push_retract(Impl& machine, const Goal& goal, std::uint32_t home, std::uint32_t name, std::uint16_t arity,
                   const std::vector<std::size_t>& matches, std::size_t next, std::size_t heap_mark,
                   std::size_t trail_mark) {
   Entry entry;
@@ -275,17 +277,22 @@ void push_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
   entry.redo_goal = goal.at;
   entry.pred_name = name;
   entry.pred_arity = arity;
-  entry.pred_home = machine.calling;
+  entry.pred_home = home;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
   push_frame(machine, std::move(entry));
 }
 
-bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
+// 走査の述語は home で引く。やり直しの calling は M:Clause の M ではなく呼び出し元。
+bool take_retract(Impl& machine, const Goal& goal, std::uint32_t home, std::uint32_t name, std::uint16_t arity,
                   const std::vector<std::size_t>& matches, std::size_t begin) {
-  Predicate* predicate = find_predicate(machine, name, arity);
+  Predicate* predicate = predicate_in(machine, home, name, arity);
   if (predicate == nullptr) return false;
-  const ClauseView view = clause_view(machine, goal.arg(machine, 0));
+  // 限定は毎回剥がす。枠を書き換えると、選択点より古い継続の枠に M の無い項が残る。
+  std::uint32_t placed_home = 0;
+  Cell placed;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), placed_home, placed)) return false;
+  const ClauseView view = clause_view(machine, placed);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
     if (index >= predicate->clauses.size()) continue;
@@ -297,10 +304,10 @@ bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_retract(machine, goal, name, arity, matches, cursor + 1, heap_mark, trail_mark);
+      push_retract(machine, goal, home, name, arity, matches, cursor + 1, heap_mark, trail_mark);
     }
     erase_clause(*predicate, index);
-    note_removed(machine, name, arity, index);
+    note_removed(machine, home, name, arity, index);
     succeed(machine, goal);
     return true;
   }
@@ -358,7 +365,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   }
   if (at_front) {
     existing->clauses.insert(existing->clauses.begin(), std::move(clause));
-    note_asserta(machine, head.name, head.arity);
+    note_asserta(machine, home, head.name, head.arity);
   } else {
     existing->clauses.push_back(std::move(clause));
   }
@@ -370,13 +377,11 @@ void run_retract(Impl& machine, const Goal& goal) {
   Cell term;
   if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, term)) return;
   if (reject_clause(machine, goal, term, true)) return;
-  // やり直しも同じ頭部を照合する。:/2 のままだと節と合わない。
-  machine.heap.set_word(goal.at + kFrameHead, term.raw());
-  [[maybe_unused]] const CallAs as{machine, home};
+  // CallAs は使わない。選択点は呼び出し元のモジュールを控え、やり直し後の継続もそこで走る。
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = find_predicate(machine, head.name, head.arity);
+  Predicate* predicate = predicate_in(machine, home, head.name, head.arity);
   if (predicate == nullptr) {
     machine.failed = true;
     return;
@@ -386,7 +391,7 @@ void run_retract(Impl& machine, const Goal& goal) {
     return;
   }
   const auto matches = collect_matches(machine, *predicate, view);
-  if (!take_retract(machine, goal, head.name, head.arity, matches, 0)) machine.failed = true;
+  if (!take_retract(machine, goal, home, head.name, head.arity, matches, 0)) machine.failed = true;
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
@@ -422,7 +427,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
     Predicate* current = find_predicate(machine, head.name, head.arity);
     if (current == nullptr || index >= current->clauses.size()) continue;
     erase_clause(*current, index);
-    note_removed(machine, head.name, head.arity, index);
+    note_removed(machine, home, head.name, head.arity, index);
   }
   succeed(machine, goal);
 }
@@ -524,8 +529,8 @@ void raise_private(Impl& machine, const Goal& goal, std::uint32_t name, std::uin
   raise_formal(machine, formal_permission(machine, "access", "private_procedure", indicator), goal.name, goal.arity);
 }
 
-bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator) {
-  const Cell head = machine.heap.deref(goal.arg(machine, 0));
+bool clause_head_ok(Impl& machine, const Goal& goal, Cell placed, HeadName& indicator) {
+  const Cell head = machine.heap.deref(placed);
   if (machine.heap.unbound(head)) {
     raise_instantiation(machine, goal);
     return false;
@@ -564,7 +569,8 @@ std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predic
   return found;
 }
 
-void push_scan(Impl& machine, Pick pick, const Goal& goal, std::uint32_t name, std::uint16_t arity,
+void push_scan(Impl& machine, Pick pick, const Goal& goal, std::uint32_t home, std::uint32_t name,
+               std::uint16_t arity,
                const std::vector<std::size_t>& matches, std::size_t next, std::size_t heap_mark,
                std::size_t trail_mark) {
   Entry entry;
@@ -574,18 +580,21 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, std::uint32_t name, s
   entry.redo_goal = goal.at;
   entry.pred_name = name;
   entry.pred_arity = arity;
-  entry.pred_home = machine.calling;
+  entry.pred_home = home;
   // 水位は単一化の前。成功した項を含めると、やり直しで束縛が残る。
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
   push_frame(machine, std::move(entry));
 }
 
-bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
+bool take_clause(Impl& machine, const Goal& goal, std::uint32_t home, std::uint32_t name, std::uint16_t arity,
                  const std::vector<std::size_t>& matches, std::size_t begin) {
-  const Predicate* predicate = find_predicate(machine, name, arity);
+  const Predicate* predicate = predicate_in(machine, home, name, arity);
   if (predicate == nullptr) return false;
-  const Cell head = goal.arg(machine, 0);
+  // retract/1 と同じく、枠は書き換えずに限定を毎回剥がす。
+  std::uint32_t placed_home = 0;
+  Cell head;
+  if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), placed_home, head)) return false;
   const Cell body = goal.arg(machine, 1);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
     const auto index = matches[cursor];
@@ -598,7 +607,7 @@ bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint1
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::ClauseScan, goal, name, arity, matches, cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::ClauseScan, goal, home, name, arity, matches, cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -610,11 +619,10 @@ void run_clause(Impl& machine, const Goal& goal) {
   std::uint32_t home = 0;
   Cell term;
   if (!place_clause(machine, goal, machine.heap.deref(goal.arg(machine, 0)), home, term)) return;
-  machine.heap.set_word(goal.at + kFrameHead, term.raw());
-  [[maybe_unused]] const CallAs as{machine, home};
+  // retract/1 と同じく CallAs は使わない。選択点に呼び出し元のモジュールを残す。
   HeadName indicator;
-  if (!clause_head_ok(machine, goal, indicator)) return;
-  const Predicate* predicate = find_predicate(machine, indicator.name, indicator.arity);
+  if (!clause_head_ok(machine, goal, term, indicator)) return;
+  const Predicate* predicate = predicate_in(machine, home, indicator.name, indicator.arity);
   // 席が取り込みだけなら、公開した側の節は見せない。
   if (predicate != nullptr && predicate->imported) {
     raise_permission(machine, goal, indicator.name, indicator.arity);
@@ -625,8 +633,8 @@ void run_clause(Impl& machine, const Goal& goal) {
     return;
   }
   const auto matches =
-      matching_clauses(machine, *predicate, goal.arg(machine, 0), goal.arg(machine, 1));
-  if (!take_clause(machine, goal, indicator.name, indicator.arity, matches, 0)) machine.failed = true;
+      matching_clauses(machine, *predicate, term, goal.arg(machine, 1));
+  if (!take_clause(machine, goal, home, indicator.name, indicator.arity, matches, 0)) machine.failed = true;
 }
 
 struct WantedPred {
@@ -707,7 +715,7 @@ bool take_pred(Impl& machine, const Goal& goal, const std::vector<std::size_t>& 
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::PredGen, goal, 0, 0, matches, cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::PredGen, goal, machine.calling, 0, 0, matches, cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -729,8 +737,8 @@ bool redo_retract(Impl& machine) {
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   machine.stack.pop_back();
-  return take_retract(machine, read_goal(machine, top.redo_goal), top.pred_name, top.pred_arity, top.candidates,
-                       top.next);
+  return take_retract(machine, read_goal(machine, top.redo_goal), top.pred_home, top.pred_name, top.pred_arity,
+                      top.candidates, top.next);
 }
 
 bool redo_clause_scan(Impl& machine) {
@@ -738,8 +746,8 @@ bool redo_clause_scan(Impl& machine) {
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   machine.stack.pop_back();
-  return take_clause(machine, read_goal(machine, top.redo_goal), top.pred_name, top.pred_arity, top.candidates,
-                      top.next);
+  return take_clause(machine, read_goal(machine, top.redo_goal), top.pred_home, top.pred_name, top.pred_arity,
+                     top.candidates, top.next);
 }
 
 bool redo_pred_gen(Impl& machine) {

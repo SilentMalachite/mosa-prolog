@@ -5,6 +5,7 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -149,13 +150,25 @@ bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16
   return false;
 }
 
-bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vector<Apart>& apart) {
+// 入れ子の読み込みは述語表を詰め直す。添字ではなく (モジュール, 名前, 引数の数) で直前の述語を覚える。
+struct LastPred {
+  bool set = false;
+  std::uint32_t home = 0;
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+};
+
+bool add_clause(Impl& machine, Clause clause, LastPred& last, const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
   std::size_t index = machine.predicates.size();
   for (std::size_t cursor = 0; cursor < machine.predicates.size(); ++cursor) {
     const Predicate& candidate = machine.predicates[cursor];
     if (candidate.home == machine.load_home && candidate.name == name && candidate.arity == arity) index = cursor;
+  }
+  // 第5節: 取り込みと自前の定義は同じ名前空間。取り込んだ席へ節を足すと、呼び出しは出所の節しか見ない。
+  if (index < machine.predicates.size() && machine.predicates[index].imported) {
+    return refuse_load(machine, "import_into", "procedure", name, arity);
   }
   if (index == machine.predicates.size()) {
     machine.predicates.push_back(Predicate{});
@@ -166,7 +179,8 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
   }
   Predicate& predicate = machine.predicates[index];
   // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
-  if (predicate.seen && last != index && !allows_gap(apart, name, arity)) {
+  const bool follows = last.set && last.home == machine.load_home && last.name == name && last.arity == arity;
+  if (predicate.seen && !follows && !allows_gap(apart, name, arity)) {
     fail_load(machine, "述語 " + std::string(machine.atoms.name(name)) + "/" + std::to_string(arity) +
                             " の節が離れている");
     return false;
@@ -186,7 +200,7 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
     if (!predicate.dynamic_declared) predicate.dynamic = false;
   }
   predicate.seen = true;
-  last = index;
+  last = LastPred{true, machine.load_home, name, arity};
   // 再読みは、このパスの節だけを落とす。空はテキストだけの節で、ファイルの再読みには乗らない。
   clause.origin = machine.load_origin;
   predicate.clauses.push_back(std::move(clause));
@@ -474,6 +488,11 @@ int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return -1;
   }
+  // 初期化は読み終えてから、読み込みを始めた側の calling で走る。ファイルのモジュールで限定する。
+  if (machine.load_home != machine.user_mod) {
+    const std::array<Cell, 2> args{machine.heap.atom(machine.load_home), arg};
+    arg = machine.heap.structure(machine.atoms.intern(":"), args);
+  }
   goals.push_back(arg);
   return 1;
 }
@@ -561,7 +580,7 @@ struct LoadScan {
   std::vector<Snapshot>& snapshots;
   std::vector<Apart>& apart;
   std::vector<Cell>& inits;
-  std::size_t& last;
+  LastPred& last;
   std::vector<std::string>& opening;
 };
 
@@ -644,6 +663,24 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
   return open_prolog_file(machine, file, scan);
 }
 
+bool add_read_clause(Impl& machine, Cell term, LoadScan& scan) {
+  std::uint32_t clause_home = machine.load_home;
+  if (!retarget_multifile_clause(machine, term, clause_home)) return false;
+  Clause clause;
+  if (!compile_clause(machine.heap, term, clause)) {
+    fail_load(machine, "この指示はフェーズ2では使えない: " +
+                           write_term(machine.heap, machine.operators, term, {}, {}));
+    return false;
+  }
+  // Module:Head の multifile 節だけは、読み込み中のモジュールでなく宣言側へ足す。
+  const auto saved_home = machine.load_home;
+  machine.load_home = clause_home;
+  remember(machine, scan.snapshots, clause);
+  const bool added = add_clause(machine, std::move(clause), scan.last, scan.apart);
+  machine.load_home = saved_home;
+  return added;
+}
+
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
                 bool nested, LoadScan& scan) {
   CycleGuard guard;
@@ -695,20 +732,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const int directed = consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits);
     if (directed < 0) return false;
     if (directed > 0) continue;
-    std::uint32_t clause_home = machine.load_home;
-    if (!retarget_multifile_clause(machine, term, clause_home)) return false;
-    Clause clause;
-    if (!compile_clause(machine.heap, term, clause)) {
-      fail_load(machine, "この指示はフェーズ2では使えない: " +
-                             write_term(machine.heap, machine.operators, term, {}, {}));
-      return false;
-    }
-    const auto saved_home = machine.load_home;
-    machine.load_home = clause_home;
-    remember(machine, scan.snapshots, clause);
-    const bool added = add_clause(machine, std::move(clause), scan.last, scan.apart);
-    machine.load_home = saved_home;
-    if (!added) return false;
+    if (!add_read_clause(machine, term, scan)) return false;
   }
 }
 
@@ -740,7 +764,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   std::vector<Apart> apart;
   // テキストを準備し終えてから、ソースの順に実行する。
   std::vector<Cell> inits;
-  std::size_t last = static_cast<std::size_t>(-1);
+  LastPred last;
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening};

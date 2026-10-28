@@ -20,9 +20,11 @@ atomic_list_concat(List, Sep, Atom) :-
 join_list(List, _, _) :-
     var(List), !,
     throw(error(instantiation_error, _)).
-join_list([], Sep, '') :-
-    separator_text(Sep, _).
-join_list([Head|Tail], Sep, Atom) :-
+% 型の節と排他にする。結果が合わないときや、やり直しで type_error(list, []) を投げない。
+join_list([], Sep, Atom) :- !,
+    separator_text(Sep, _),
+    Atom = ''.
+join_list([Head|Tail], Sep, Atom) :- !,
     piece_atom(Head, Text),
     join_list(Tail, Sep, Rest),
     join_piece(Text, Sep, Rest, Atom).

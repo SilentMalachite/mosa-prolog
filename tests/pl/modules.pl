@@ -588,3 +588,66 @@ test(decl_wa, (
   predicate_property(は(_, _), exported),
   predicate_property(は(_, _), imported_from(家系))
 ), true).
+
+% レビューで直した不具合の回帰。fixture は tests/pl/modules/rv_*.pl。
+rv_use(Name) :- atom_concat('tests/pl/modules/', Name, Path), use_module(Path).
+rv_use(Name) :- atom_concat('../tests/pl/modules/', Name, Path), use_module(Path).
+rv_consult(Name) :- atom_concat('tests/pl/modules/', Name, Path), exists_rv(Path), !, consult(Path).
+rv_consult(Name) :- atom_concat('../tests/pl/modules/', Name, Path), consult(Path).
+exists_rv(Path) :- catch((open(Path, read, S), close(S)), _, fail).
+
+% 節の本体の選択点は、呼び出し元へ戻ったあとでも定義したモジュールでやり直す。
+test(rv_redo_module, (rv_use('rv_back.pl'), findall(X, (rv_pick(X), X >= 2), L), L == [2]), true).
+
+% retract/1 と clause/2 のやり直しは M:Clause の M を見る。user の同名の節は消さない。
+:- dynamic(rv_f/1).
+:- dynamic(rv_h/1).
+test(rv_retract_redo, (
+  rv_use('rv_dyn.pl'),
+  assertz(rv_f(9)),
+  findall(Y-X, ((Y = a ; Y = b), retract(rv_dyn:rv_f(X))), L),
+  L == [a-1, a-2],
+  rv_f(9)
+), true).
+test(rv_clause_redo, (
+  assertz(rv_h(9)),
+  findall(Y-X, ((Y = a ; Y = b), clause(rv_dyn:rv_h(X), true)), L),
+  L == [a-1, a-2, b-1, b-2]
+), true).
+% asserta(M:C) も開いている走査の添字をずらす（7.5.4 の論理更新）。
+test(rv_asserta_view, (
+  findall(X, (rv_dyn:rv_g(X), (X == 1 -> asserta(rv_dyn:rv_g(0)) ; true)), L),
+  L == [1, 2]
+), true).
+
+% 第5節の解決順の 2。モジュールに無い述語は user で探す。
+rv_helper(42).
+test(rv_user_default, (rv_use('rv_up.pl'), rv_ask(X), X == 42), true).
+
+% 読んだモジュールが別のモジュールを読んでも、取り込むのは指したファイルのモジュール。
+test(rv_use_nested, (
+  rv_use('rv_outer.pl'),
+  rv_outer_p(X), X == 1,
+  \+ predicate_property(rv_inner_p(_), imported_from(rv_inner))
+), true).
+
+% 入れ子の use_module は、親のファイルの前半の節と dynamic 宣言を消さない。
+test(rv_nested_keeps, (
+  rv_consult('rv_parent.pl'),
+  findall(X, rv_pd(X), L), L == [1, 2],
+  assertz(rv_pd(3)), retract(rv_pd(3))
+), true).
+
+% module/2 の無いファイルが自分を use_module しても、読み込みは終わる。
+test(rv_self_use, rv_consult('rv_self.pl'), fail).
+
+% 取り込んだ席へ自前の節を足すのは、取り込みとの衝突（第5節）。
+test(rv_import_clause, rv_consult('rv_imp.pl'), error(permission_error(import_into, procedure, rv_child_p/1))).
+
+% 自分のモジュールの限定は剥がす。:/2 の節にはしない。
+test(rv_own_qualified, (rv_consult('rv_qual.pl'), rv_q(X), X == 1), true).
+% 載っていないモジュールの限定は :/2 への節で、system の述語は変えられない。
+test(rv_unknown_qualified, rv_consult('rv_unknown.pl'), error(permission_error(modify, static_procedure, (:)/2))).
+
+% モジュールファイルの初期化は、そのモジュールで走る。
+test(rv_init_module, (rv_consult('rv_init.pl'), rv_init:rv_ran), true).
