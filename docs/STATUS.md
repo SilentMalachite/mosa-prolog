@@ -10,3 +10,4 @@ Next: phase 4, modules
 Open: interpretations left in iso-notes
 Done: fixed SPEC typos in both languages: section 7 atom_length(X, foo) example, `char_conversion` in section 4, Japanese tests live in tests/pl/japanese.pl
 Plan: docs/superpowers/plans/2026-10-26-phase3-exit.md
+Plan (phase 5, starts after phase 4 exit): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md
