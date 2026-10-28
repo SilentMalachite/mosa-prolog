@@ -108,6 +108,9 @@ add_custom_target(mosa_lists ALL
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_SOURCE_DIR}/lib/apply.pl"
           "$<TARGET_FILE_DIR:mosa>/lib/apply.pl"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/lib/between.pl"
+          "$<TARGET_FILE_DIR:mosa>/lib/between.pl"
   COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:mosatest>/lib"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_SOURCE_DIR}/lib/lists.pl"
@@ -115,6 +118,9 @@ add_custom_target(mosa_lists ALL
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_SOURCE_DIR}/lib/apply.pl"
           "$<TARGET_FILE_DIR:mosatest>/lib/apply.pl"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/lib/between.pl"
+          "$<TARGET_FILE_DIR:mosatest>/lib/between.pl"
   VERBATIM)
 add_dependencies(mosa_lists mosa mosatest)
 
