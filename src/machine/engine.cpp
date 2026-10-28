@@ -1,5 +1,6 @@
 #include "internal.hpp"
 
+#include "mosa/goal_word.hpp"
 #include "mosa/reader.hpp"
 
 #include <array>
@@ -40,12 +41,12 @@ void step_control(Impl& machine) {
   const auto index = static_cast<std::size_t>(machine.heap.word_at(machine.ip + 1));
   const Extra extra = machine.extras[index];
   if (extra.ctrl == Ctrl::Interpret) {
-    launch(machine, extra.goal, extra.cont, extra.cut, extra.env);
+    launch(machine, extra.goal, extra.cont, extra.cut, extra.env, extra.module);
     return;
   }
   if (extra.ctrl == Ctrl::Commit) {
     trim_stack(machine, extra.trim_to);
-    launch(machine, extra.then, extra.cont, extra.cut, extra.env);
+    launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
     return;
   }
   if (extra.ctrl == Ctrl::SoftCommit) {
@@ -54,7 +55,7 @@ void step_control(Impl& machine) {
         if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
       }
     }
-    launch(machine, extra.then, extra.cont, extra.cut, extra.env);
+    launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
     return;
   }
   if (extra.ctrl == Ctrl::NegDone) {
@@ -80,7 +81,7 @@ void reject_callable(Impl& machine, Cell culprit) {
 }
 
 void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t /*cut*/,
-                const std::vector<Cell>& env) {
+                const std::vector<Cell>& env, std::uint32_t module) {
   const Cell cell = machine.heap.deref(env.at(goal.slot));
   if (machine.heap.unbound(cell)) {
     raise_formal(machine, formal_instantiation(machine), machine.atoms.intern("call"), 1);
@@ -96,7 +97,7 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size
     reject_callable(machine, cell);
     return;
   }
-  launch(machine, compiled.term, cont, machine.stack.size(), compiled.env);
+  launch(machine, compiled.term, cont, machine.stack.size(), compiled.env, module);
 }
 
 void step(Impl& machine) {
@@ -281,7 +282,9 @@ Goal read_goal(const Impl& machine, std::uint64_t at) {
   Goal goal;
   goal.at = at;
   goal.name = static_cast<std::uint32_t>(machine.heap.word_at(at));
-  goal.arity = static_cast<std::uint16_t>(machine.heap.word_at(at + 1));
+  const auto word = machine.heap.word_at(at + 1);
+  goal.arity = goal_word_arity(word);
+  goal.module = goal_word_module(word);
   goal.cut = static_cast<std::size_t>(machine.heap.word_at(at + 2));
   goal.cont = machine.heap.word_at(at + 3);
   return goal;
@@ -336,7 +339,7 @@ Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env
 }
 
 std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                     const std::vector<Cell>& env) {
+                     const std::vector<Cell>& env, std::uint32_t module) {
   if (goal.tag == IrTag::Atom || goal.tag == IrTag::Fun || goal.tag == IrTag::Call) {
     std::vector<Cell> args;
     if (goal.tag != IrTag::Atom) {
@@ -346,7 +349,7 @@ std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std:
     const auto at = machine.heap.allocate_words(kFrameHead + args.size());
     const auto name = goal.tag == IrTag::Atom ? goal.atom : goal.atom;
     machine.heap.set_word(at, name);
-    machine.heap.set_word(at + 1, args.size());
+    machine.heap.set_word(at + 1, pack_goal_word(static_cast<std::uint16_t>(args.size()), module));
     machine.heap.set_word(at + 2, cut);
     machine.heap.set_word(at + 3, cont);
     for (std::size_t index = 0; index < args.size(); ++index) {
@@ -360,42 +363,43 @@ std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std:
   extra.env = env;
   extra.cont = cont;
   extra.cut = cut;
+  extra.module = module;
   return push_extra(machine, std::move(extra));
 }
 
 void launch_list(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                 const std::vector<Cell>& env) {
+                 const std::vector<Cell>& env, std::uint32_t module) {
   // リストは '.'/2 である。未定義なら existence_error であり、callable の型誤りではない。
   IrTerm call;
   call.tag = IrTag::Fun;
   call.atom = machine.atoms.intern(".");
   call.arity = 2;
   call.args = goal.args;
-  machine.ip = embody(machine, call, cont, cut, env);
+  machine.ip = embody(machine, call, cont, cut, env, module);
 }
 
 void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-            const std::vector<Cell>& env) {
+            const std::vector<Cell>& env, std::uint32_t module) {
   switch (goal.tag) {
     case IrTag::True: machine.ip = cont; return;
     case IrTag::Fail: machine.failed = true; return;
     case IrTag::Cut: trim_stack(machine, cut); machine.ip = cont; return;
     case IrTag::And: {
-      const auto right = embody(machine, goal.args[1], cont, cut, env);
-      launch(machine, goal.args[0], right, cut, env);
+      const auto right = embody(machine, goal.args[1], cont, cut, env, module);
+      launch(machine, goal.args[0], right, cut, env, module);
       return;
     }
-    case IrTag::Or: launch_or(machine, goal, cont, cut, env); return;
-    case IrTag::IfThen: launch_if_then(machine, goal, cont, cut, env); return;
-    case IrTag::SoftIf: launch_soft(machine, goal, cont, cut, env); return;
-    case IrTag::Catch: arm_catch(machine, goal, cont, cut, env); return;
+    case IrTag::Or: launch_or(machine, goal, cont, cut, env, module); return;
+    case IrTag::IfThen: launch_if_then(machine, goal, cont, cut, env, module); return;
+    case IrTag::SoftIf: launch_soft(machine, goal, cont, cut, env, module); return;
+    case IrTag::Catch: arm_catch(machine, goal, cont, cut, env, module); return;
     case IrTag::Throw: arm_throw(machine, goal, env); return;
     case IrTag::Halt: arm_halt(machine, goal, env); return;
-    case IrTag::Var: launch_var(machine, goal, cont, cut, env); return;
+    case IrTag::Var: launch_var(machine, goal, cont, cut, env, module); return;
     case IrTag::Atom:
     case IrTag::Fun:
-    case IrTag::Call: machine.ip = embody(machine, goal, cont, cut, env); return;
-    case IrTag::List: launch_list(machine, goal, cont, cut, env); return;
+    case IrTag::Call: machine.ip = embody(machine, goal, cont, cut, env, module); return;
+    case IrTag::List: launch_list(machine, goal, cont, cut, env, module); return;
     case IrTag::Anon:
     case IrTag::Int:
     case IrTag::Float: reject_callable(machine, materialize(machine, goal, env)); return;
@@ -535,7 +539,7 @@ Stop Machine::query(std::string_view goal_text) {
   cleanup.extras_mark = machine.extras.size();
   machine.stack.push_back(std::move(cleanup));
   const Compiled compiled = compile_goal(machine.heap, outcome.term->term);
-  launch(machine, compiled.term, kNoFrame, 0, compiled.env);
+  launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   return run_loop(machine);
 }
 

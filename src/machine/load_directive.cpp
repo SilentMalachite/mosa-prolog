@@ -130,7 +130,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return false;
   }
-  Predicate* predicate = find_pred(machine, name, arity);
+  Predicate* predicate = find_pred(machine, PredKey{machine.user_module, name, arity});
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
     fail_load(machine, "静的な述語は動的にできない");
     return false;
@@ -139,6 +139,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
   remember_pred(machine, snapshots, name, arity);
   if (predicate == nullptr) {
     Predicate created;
+    created.module = machine.user_module;
     created.name = name;
     created.arity = arity;
     created.dynamic = true;
@@ -331,7 +332,7 @@ bool run_init_goal(Impl& machine, Cell goal) {
   cleanup.trail_mark = 0;
   cleanup.extras_mark = 0;
   machine.stack.push_back(std::move(cleanup));
-  launch(machine, compiled.term, kNoFrame, 0, compiled.env);
+  launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   const Stop stop = run_loop(machine);
   const bool threw = stop.kind == StopKind::Exception;
   if (threw) fail_load(machine, formal_text(machine, stop.exception));

@@ -1,4 +1,5 @@
 #include "harness.hpp"
+#include "mosa/goal_word.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/writer.hpp"
 
@@ -547,9 +548,20 @@ void check_list_goal() {
   mosa_test::check(dotted->query("'.'(b, []).").kind == mosa::StopKind::Success, "defined dot syntax");
 }
 
+void check_goal_word() {
+  const auto word = mosa::pack_goal_word(3, 17);
+  mosa_test::check(mosa::goal_word_arity(word) == 3, "frame_module_roundtrip arity");
+  mosa_test::check(mosa::goal_word_module(word) == 17, "frame_module_roundtrip module");
+  const auto edge = mosa::pack_goal_word(65535, 0xFFFFFFFFU);
+  mosa_test::check(mosa::goal_word_arity(edge) == 65535, "frame_arity_max arity");
+  mosa_test::check(mosa::goal_word_module(edge) == 0xFFFFFFFFU, "frame_arity_max module");
+  mosa_test::check((edge >> 48) == 0, "frame_arity_max high bits stay clear");
+}
+
 }  // namespace
 
 int main() {
+  check_goal_word();
   check_one_fact();
   check_choice_and_nrev();
   check_cut();

@@ -81,7 +81,7 @@ bool copied_succeeds(Machine& scratch, Cell goal) {
   cleanup.extras_mark = machine.extras.size();
   machine.stack.push_back(std::move(cleanup));
   const Compiled compiled = compile_goal(machine.heap, goal);
-  launch(machine, compiled.term, kNoFrame, 0, compiled.env);
+  launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   return run_loop(machine).kind == StopKind::Success;
 }
 
@@ -105,6 +105,7 @@ bool compile_copied(Impl& src, Impl& dst, const Clause& clause, Clause& out) {
 
 void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
   Predicate made;
+  made.module = dst.atoms.intern(src.atoms.name(predicate.module));
   made.name = dst.atoms.intern(src.atoms.name(predicate.name));
   made.arity = predicate.arity;
   made.dynamic = predicate.dynamic;

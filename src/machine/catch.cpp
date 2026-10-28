@@ -149,7 +149,7 @@ void propagate_throw(Impl& machine, Cell ball) {
       machine.failed = false;
       machine.exception = false;
       // 回復ゴールは call と同じで、中のカットは catch の外へ出ない（7.8.9）。
-      launch(machine, top.recovery, top.cont, machine.stack.size(), top.env);
+      launch(machine, top.recovery, top.cont, machine.stack.size(), top.env, top.module);
       return;
     }
   }
@@ -160,7 +160,7 @@ void propagate_throw(Impl& machine, Cell ball) {
 }
 
 void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env) {
+               const std::vector<Cell>& env, std::uint32_t module) {
   Entry entry;
   entry.pick = Pick::Catch;
   entry.pattern = materialize(machine, goal.args[1], env);
@@ -169,6 +169,7 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   entry.cont = cont;
   entry.cut = cut;
   entry.armed = true;
+  entry.module = module;
   entry.heap_mark = machine.heap.size();
   entry.trail_mark = machine.trail.slots.size();
   push_frame(machine, std::move(entry));
@@ -178,7 +179,7 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   exit.trim_to = machine.stack.size() - 1;
   exit.cont = cont;
   const auto frame = push_extra(machine, std::move(exit));
-  launch(machine, goal.args[0], frame, machine.stack.size(), env);
+  launch(machine, goal.args[0], frame, machine.stack.size(), env, module);
 }
 
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {

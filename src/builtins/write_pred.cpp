@@ -440,7 +440,7 @@ IrTerm portray_call(std::uint32_t name) {
 }
 
 std::size_t push_memory(Impl& machine);
-Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
+Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module);
 
 WriteCut apply_portray(void* raw, Cell term, std::string& out) {
   auto* hook = static_cast<PortrayHook*>(raw);
@@ -454,7 +454,8 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out) {
   const std::size_t saved = machine.current_out;
   // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。
   machine.current_out = hook->scratch;
-  const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term});
+  // portray/1 は user の述語を探して呼ぶ（portray_ready）。
+  const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term}, machine.user_module);
   machine.current_out = saved;
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
@@ -581,7 +582,7 @@ void trim_extras(Impl& machine, std::size_t mark) {
   if (machine.extras.size() > mark) machine.extras.resize(mark);
 }
 
-Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {
+Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module) {
   const Snap saved = take_snap(machine);
   disarm(machine, machine.stack.size());
   Entry barrier;
@@ -593,7 +594,7 @@ Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;
-  launch(machine, goal, kNoFrame, machine.stack.size(), env);
+  launch(machine, goal, kNoFrame, machine.stack.size(), env, module);
   const Stop stop = run_loop(machine);
   machine.stack = saved.stack;
   trim_extras(machine, saved.extras_mark);
@@ -669,7 +670,7 @@ void run_with(Impl& machine, const Goal& goal) {
   if (sink.kind != SinkKind::Stream) index = push_memory(machine);
   machine.current_out = index;
   const Compiled compiled = compile_goal(machine.heap, machine.heap.deref(goal.arg(machine, 1)));
-  const Ran ran = run_goal(machine, compiled.term, compiled.env);
+  const Ran ran = run_goal(machine, compiled.term, compiled.env, goal.module);
   machine.current_out = saved_out;
   finish_with(machine, goal, sink, index, ran);
 }

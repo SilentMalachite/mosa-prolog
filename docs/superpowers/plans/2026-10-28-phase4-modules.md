@@ -105,11 +105,11 @@
   - `Goal` に `std::uint32_t module`。`read_goal` と `write_goal` が ADR 0006 のビット位置で詰める
   - `Impl` に `std::vector<Module> modules`、`std::uint32_t user_module`、`std::uint32_t system_module`
 
-- [ ] **Step 1:** `load.cpp` から指令の処理を `load_directive.cpp` へ移すだけのコミットを作る（`ctest` 30 件が通る）
-- [ ] **Step 2:** 失敗するテスト `frame_module_roundtrip`: 文脈 `user`、アリティ 3 のフレームを書いて読むと両方が戻る。`frame_arity_max`: アリティ 65535 と文脈の原子番号 `0xFFFFFFFF` が互いを壊さない
-- [ ] **Step 3:** 鍵とフレームを実装する。今あるすべての述語は `user` に置く。トップレベル、`consult/1`、`mosatest` の文脈は `user`
-- [ ] **Step 4:** `ctest` 全件と `mosatest --suite`（合格 2028 以上）を流す
-- [ ] **Step 5:** コミット `[phase4] 述語の鍵とゴールフレームに文脈モジュールを足す（ADR 0006、machine_test と ctest 全件）`
+- [x] **Step 1:** `load.cpp` から指令の処理を `load_directive.cpp` へ移すだけのコミットを作る（`ctest` 30 件が通る）
+- [x] **Step 2:** 失敗するテスト `frame_module_roundtrip`: 文脈 `user`、アリティ 3 のフレームを書いて読むと両方が戻る。`frame_arity_max`: アリティ 65535 と文脈の原子番号 `0xFFFFFFFF` が互いを壊さない
+- [x] **Step 3:** 鍵とフレームを実装する。今あるすべての述語は `user` に置く。トップレベル、`consult/1`、`mosatest` の文脈は `user`
+- [x] **Step 4:** `ctest` 全件と `mosatest --suite`（合格 2028 以上）を流す
+- [x] **Step 5:** コミット `[phase4] 述語の鍵とゴールフレームに文脈モジュールを足す（ADR 0006、machine_test と ctest 全件）`
 
 ### Task 3: `Module:Goal`
 

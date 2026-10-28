@@ -26,7 +26,6 @@ struct Apart {
 };
 
 void fail_load(Impl& machine, std::string message);
-[[nodiscard]] Predicate* find_pred(Impl& machine, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16_t arity);
 void note_multifile(Impl& machine, std::uint32_t name, std::uint16_t arity);
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity);

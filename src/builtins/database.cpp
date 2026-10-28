@@ -76,11 +76,9 @@ bool neck_static(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-Predicate* find_predicate(Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  for (Predicate& predicate : machine.predicates) {
-    if (predicate.name == name && predicate.arity == arity) return &predicate;
-  }
-  return nullptr;
+// M: 付きの節操作はフェーズ4 Task 7 で受ける。それまでは user の述語だけを触る。
+PredKey user_key(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
+  return PredKey{machine.user_module, name, arity};
 }
 
 HeadName head_indicator(Impl& machine, Cell head) {
@@ -283,7 +281,7 @@ void push_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint
 
 bool take_retract(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
                   const std::vector<std::size_t>& matches, std::size_t begin) {
-  Predicate* predicate = find_predicate(machine, name, arity);
+  Predicate* predicate = find_pred(machine, user_key(machine, name, arity));
   if (predicate == nullptr) return false;
   const ClauseView view = clause_view(machine, goal.arg(machine, 0));
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
@@ -329,13 +327,14 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     raise_permission(machine, goal, head.name, head.arity);
     return;
   }
-  Predicate* existing = find_predicate(machine, head.name, head.arity);
+  Predicate* existing = find_pred(machine, user_key(machine, head.name, head.arity));
   if (existing != nullptr && !existing->dynamic) {
     raise_permission(machine, goal, head.name, head.arity);
     return;
   }
   if (existing == nullptr) {
     Predicate created;
+    created.module = machine.user_module;
     created.name = head.name;
     created.arity = head.arity;
     created.dynamic = true;
@@ -357,7 +356,7 @@ void run_retract(Impl& machine, const Goal& goal) {
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = find_predicate(machine, head.name, head.arity);
+  Predicate* predicate = find_pred(machine, user_key(machine, head.name, head.arity));
   if (predicate == nullptr) {
     machine.failed = true;
     return;
@@ -382,7 +381,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
   }
   const HeadName head = head_indicator(machine, head_cell);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
-  Predicate* predicate = find_predicate(machine, head.name, head.arity);
+  Predicate* predicate = find_pred(machine, user_key(machine, head.name, head.arity));
   if (predicate == nullptr) {
     succeed(machine, goal);
     return;
@@ -397,7 +396,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
   const auto matches = collect_matches(machine, *predicate, view);
   for (std::size_t cursor = matches.size(); cursor > 0; --cursor) {
     const auto index = matches[cursor - 1];
-    Predicate* current = find_predicate(machine, head.name, head.arity);
+    Predicate* current = find_pred(machine, user_key(machine, head.name, head.arity));
     if (current == nullptr || index >= current->clauses.size()) continue;
     erase_clause(*current, index);
     note_removed(machine, head.name, head.arity, index);
@@ -449,7 +448,7 @@ void run_abolish(Impl& machine, const Goal& goal) {
   HeadName indicator;
   if (!parse_indicator(machine, goal, goal.arg(machine, 0), indicator)) return;
   if (refuse_builtin(machine, goal, indicator.name, indicator.arity)) return;
-  Predicate* predicate = find_predicate(machine, indicator.name, indicator.arity);
+  Predicate* predicate = find_pred(machine, user_key(machine, indicator.name, indicator.arity));
   if (predicate != nullptr && !predicate->dynamic) {
     raise_permission(machine, goal, indicator.name, indicator.arity);
     return;
@@ -522,7 +521,7 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, std::uint32_t name, s
 
 bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint16_t arity,
                  const std::vector<std::size_t>& matches, std::size_t begin) {
-  const Predicate* predicate = find_predicate(machine, name, arity);
+  const Predicate* predicate = find_pred(machine, user_key(machine, name, arity));
   if (predicate == nullptr) return false;
   const Cell head = goal.arg(machine, 0);
   const Cell body = goal.arg(machine, 1);
@@ -548,7 +547,7 @@ bool take_clause(Impl& machine, const Goal& goal, std::uint32_t name, std::uint1
 void run_clause(Impl& machine, const Goal& goal) {
   HeadName indicator;
   if (!clause_head_ok(machine, goal, indicator)) return;
-  const Predicate* predicate = find_predicate(machine, indicator.name, indicator.arity);
+  const Predicate* predicate = find_pred(machine, user_key(machine, indicator.name, indicator.arity));
   if (predicate == nullptr || predicate->clauses.empty()) {
     machine.failed = true;
     return;

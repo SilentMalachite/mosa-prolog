@@ -37,8 +37,9 @@ std::string reason_text(SyntaxReason reason) {
   return "予期しないトークン";
 }
 
-bool same_pred(const Predicate& predicate, std::uint32_t name, std::uint16_t arity) {
-  return predicate.name == name && predicate.arity == arity;
+// 読み込みの節はまだ user にだけ入る。モジュールのファイルはフェーズ4 Task 4 で受ける。
+bool same_pred(const Impl& machine, const Predicate& predicate, std::uint32_t name, std::uint16_t arity) {
+  return predicate.module == machine.user_module && predicate.name == name && predicate.arity == arity;
 }
 
 std::uint32_t head_name(const Clause& clause) { return clause.head.atom; }
@@ -67,13 +68,6 @@ void fail_load(Impl& machine, std::string message) {
   machine.syntax_diag = false;
 }
 
-Predicate* find_pred(Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  for (Predicate& predicate : machine.predicates) {
-    if (same_pred(predicate, name, arity)) return &predicate;
-  }
-  return nullptr;
-}
-
 bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16_t arity) {
   for (const Apart& item : apart) {
     if (item.name == name && item.arity == arity) return true;
@@ -91,7 +85,7 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_
     return shot.name == name && shot.arity == arity;
   });
   if (known) return;
-  Predicate* predicate = find_pred(machine, name, arity);
+  Predicate* predicate = find_pred(machine, PredKey{machine.user_module, name, arity});
   Snapshot shot;
   shot.name = name;
   shot.arity = arity;
@@ -110,10 +104,11 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
   const auto arity = head_arity(clause);
   std::size_t index = machine.predicates.size();
   for (std::size_t cursor = 0; cursor < machine.predicates.size(); ++cursor) {
-    if (same_pred(machine.predicates[cursor], name, arity)) index = cursor;
+    if (same_pred(machine, machine.predicates[cursor], name, arity)) index = cursor;
   }
   if (index == machine.predicates.size()) {
     machine.predicates.push_back(Predicate{});
+    machine.predicates.back().module = machine.user_module;
     machine.predicates.back().name = name;
     machine.predicates.back().arity = arity;
   }
@@ -153,7 +148,7 @@ void remember(Impl& machine, std::vector<Snapshot>& snapshots, const Clause& cla
 void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
   for (const Snapshot& shot : snapshots) {
     if (shot.created) continue;
-    Predicate* predicate = find_pred(machine, shot.name, shot.arity);
+    Predicate* predicate = find_pred(machine, PredKey{machine.user_module, shot.name, shot.arity});
     if (predicate != nullptr) {
       predicate->clauses = shot.clauses;
       predicate->dynamic = shot.dynamic;

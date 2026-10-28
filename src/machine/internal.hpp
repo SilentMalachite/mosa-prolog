@@ -6,6 +6,8 @@
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
 
+#include "../module/module.hpp"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -35,6 +37,8 @@ struct SharedPred {
 };
 
 struct Predicate {
+  // 既定値の 0 は user ではない。述語を作る所で必ず入れる。
+  std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   std::vector<Clause> clauses;
@@ -69,8 +73,11 @@ struct Entry {
   std::uint64_t redo_goal = kNoFrame;
   std::vector<std::size_t> candidates;
   std::size_t next = 0;
+  std::uint32_t pred_module = 0;
   std::uint32_t pred_name = 0;
   std::uint16_t pred_arity = 0;
+  // else_goal と recovery を動かす文脈モジュール。
+  std::uint32_t module = 0;
   std::size_t cut = 0;
   IrTerm else_goal;
   std::vector<Cell> env;
@@ -101,6 +108,7 @@ struct Extra {
   std::size_t cut = 0;
   std::size_t trim_to = 0;
   int soft_id = 0;
+  std::uint32_t module = 0;
 };
 
 struct ExportedTerm {
@@ -174,6 +182,9 @@ struct Machine::Impl {
   std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
+  std::vector<Module> modules;
+  std::uint32_t user_module = 0;
+  std::uint32_t system_module = 0;
   // 読み込みが失敗したときは戻す。成功した宣言は次のテキストへ残す。
   std::vector<SharedPred> multifile;
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
@@ -214,7 +225,7 @@ struct Machine::Impl {
   const LgtIo* suite_io = nullptr;
   Machine* suite_self = nullptr;
 
-  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {}
+  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }
 };
 
 using Impl = Machine::Impl;
@@ -223,6 +234,7 @@ struct Goal {
   std::uint64_t at = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  std::uint32_t module = 0;
   std::size_t cut = 0;
   std::uint64_t cont = kNoFrame;
 
@@ -244,22 +256,22 @@ struct Compiled {
 [[nodiscard]] bool is_directive(const Heap& heap, Cell cell);
 
 void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-            const std::vector<Cell>& env);
+            const std::vector<Cell>& env, std::uint32_t module);
 void launch_or(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env);
+               const std::vector<Cell>& env, std::uint32_t module);
 void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                    const std::vector<Cell>& env);
+                    const std::vector<Cell>& env, std::uint32_t module);
 void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                 const std::vector<Cell>& env);
+                 const std::vector<Cell>& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 [[nodiscard]] std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                                   const std::vector<Cell>& env);
+                                   const std::vector<Cell>& env, std::uint32_t module);
 [[nodiscard]] Goal read_goal(const Impl& machine, std::uint64_t at);
 [[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right);
 // floor より前の REF を候補ごとに戻す。節の匿名は外側の選択点より新しい。
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
-void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut);
+void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut, std::uint32_t module);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
 void trail_operators(Impl& machine, int priority, Specifier specifier, const std::vector<std::string>& names);
 void restore_operators(Impl& machine, std::uint64_t effect_id);
@@ -281,7 +293,7 @@ void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uin
 
 [[nodiscard]] Stop run_loop(Impl& machine);
 void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env);
+               const std::vector<Cell>& env, std::uint32_t module);
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_instantiation(Impl& machine);

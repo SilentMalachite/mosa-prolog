@@ -6,8 +6,8 @@ Done: the conformance suite moves the cwd to the scratch directory per tests.lgt
 Done: mosatest --suite takes --report; it may be omitted only for tests/conformance from the repo root (suite_args_test)
 Done: mosa no longer reads non-terminal stdin up front. --version returns on an open pipe and read/1 reads piped input (mosa_stdin)
 Done: docs are English-primary with *.ja.md translations (README, AGENTS, SPEC, iso-notes, ADRs, bench); directory READMEs carry both languages
-Done: phase 4 Task 1. ADR 0006 approved; 6 section 5/7 questions answered in iso-notes (2026-10-28)
-Next: phase 4 Task 2, module in the predicate key and goal frame (split load.cpp first)
+Done: phase 4 Task 1 (ADR 0006, 6 iso-notes answers) and Task 2: predicates keyed by (module, name, arity), goal frame word 1 carries the context module; all predicates still live in user. Suite 2028/2171 unchanged
+Next: phase 4 Task 3, Module:Goal (src/module/qualify.cpp, tests/pl/modules.pl)
 Open: interpretations left in iso-notes
 Done: fixed SPEC typos in both languages: section 7 atom_length(X, foo) example, `char_conversion` in section 4, Japanese tests live in tests/pl/japanese.pl
 Plan (phase 4): docs/superpowers/plans/2026-10-28-phase4-modules.md

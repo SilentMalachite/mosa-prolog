@@ -509,7 +509,7 @@ void unwind_throw(Impl& machine, const Saved& saved, std::size_t floor) {
 // 外側の節走査はスタックに残す。asserta と retract が添字を更新できるようにするため。
 // 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
 Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses,
-               const std::vector<Cell>& hidden, bool share) {
+               const std::vector<Cell>& hidden, bool share, std::uint32_t module) {
   const Saved saved = save_exec(machine);
   const auto floor = park_callers(machine, saved);
   machine.failed = false;
@@ -519,7 +519,7 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
   ids.base = saved.heap_mark;
   ids.hidden = &hidden;
   note_homes(machine, witnesses, ids);
-  launch(machine, compiled.term, kNoFrame, machine.stack.size(), compiled.env);
+  launch(machine, compiled.term, kNoFrame, machine.stack.size(), compiled.env, module);
   Packet packet;
   while (true) {
     const Stop stop = run_loop(machine);
@@ -561,7 +561,7 @@ bool run_solutions(Impl& machine, const Goal& goal) {
   std::vector<Cell> witnesses;
   if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, goal.arg(machine, 0), hidden);
   const bool share = which != Which::Findall;
-  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses, hidden, share);
+  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses, hidden, share, goal.module);
   if (packet.end == Finish::Threw) {
     propagate_throw(machine, import_term(machine, packet.ball));
     return true;

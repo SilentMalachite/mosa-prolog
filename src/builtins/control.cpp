@@ -63,7 +63,7 @@ bool run_call(Impl& machine, const Goal& goal) {
     not_callable(machine, goal, callable);
     return true;
   }
-  launch(machine, compiled.term, goal.cont, boundary, compiled.env);
+  launch(machine, compiled.term, goal.cont, boundary, compiled.env, goal.module);
   return true;
 }
 
@@ -94,7 +94,7 @@ bool run_not(Impl& machine, const Goal& goal) {
   machine.heap.set_word(at + 2, 0);
   machine.heap.set_word(at + 3, kNoFrame);
   const Compiled compiled = compile_goal(machine.heap, inner);
-  launch(machine, compiled.term, at, boundary, compiled.env);
+  launch(machine, compiled.term, at, boundary, compiled.env, goal.module);
   return true;
 }
 
@@ -125,7 +125,7 @@ bool run_once(Impl& machine, const Goal& goal) {
   machine.heap.set_word(at + 2, 0);
   machine.heap.set_word(at + 3, kNoFrame);
   const Compiled compiled = compile_goal(machine.heap, inner);
-  launch(machine, compiled.term, at, boundary, compiled.env);
+  launch(machine, compiled.term, at, boundary, compiled.env, goal.module);
   return true;
 }
 

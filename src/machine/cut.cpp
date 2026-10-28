@@ -16,7 +16,7 @@ std::uint64_t push_extra(Impl& machine, Extra extra) {
 }
 
 void push_else(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env, int soft_id) {
+               const std::vector<Cell>& env, int soft_id, std::uint32_t module) {
   Entry entry;
   entry.pick = Pick::ElseGoal;
   entry.else_goal = goal;
@@ -24,6 +24,7 @@ void push_else(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   entry.cont = cont;
   entry.cut = cut;
   entry.soft_id = soft_id;
+  entry.module = module;
   entry.heap_mark = machine.heap.size();
   entry.trail_mark = machine.trail.slots.size();
   push_frame(machine, std::move(entry));
@@ -36,65 +37,69 @@ void trim_stack(Impl& machine, std::size_t boundary) {
 }
 
 void launch_or(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env) {
+               const std::vector<Cell>& env, std::uint32_t module) {
   const IrTerm& left = goal.args[0];
   if (left.tag == IrTag::IfThen) {
     const auto boundary = machine.stack.size();
-    push_else(machine, goal.args[1], cont, cut, env, 0);
+    push_else(machine, goal.args[1], cont, cut, env, 0, module);
     Extra commit;
     commit.ctrl = Ctrl::Commit;
     commit.then = left.args[1];
     commit.env = env;
     commit.cont = cont;
     commit.cut = cut;
+    commit.module = module;
     commit.trim_to = boundary;
     const auto frame = push_extra(machine, std::move(commit));
     // 条件の中のカットは else と外側の選択点を捨てない（7.8.7）。
-    launch(machine, left.args[0], frame, machine.stack.size(), env);
+    launch(machine, left.args[0], frame, machine.stack.size(), env, module);
     return;
   }
   if (left.tag == IrTag::SoftIf) {
     const int soft_id = machine.next_soft++;
-    push_else(machine, goal.args[1], cont, cut, env, soft_id);
+    push_else(machine, goal.args[1], cont, cut, env, soft_id, module);
     Extra commit;
     commit.ctrl = Ctrl::SoftCommit;
     commit.then = left.args[1];
     commit.env = env;
     commit.cont = cont;
     commit.cut = cut;
+    commit.module = module;
     commit.soft_id = soft_id;
     const auto frame = push_extra(machine, std::move(commit));
     // 条件のカットは *-> の外と else を捨てない。
-    launch(machine, left.args[0], frame, machine.stack.size(), env);
+    launch(machine, left.args[0], frame, machine.stack.size(), env, module);
     return;
   }
-  push_else(machine, goal.args[1], cont, cut, env, 0);
-  launch(machine, left, cont, cut, env);
+  push_else(machine, goal.args[1], cont, cut, env, 0, module);
+  launch(machine, left, cont, cut, env, module);
 }
 
 void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                    const std::vector<Cell>& env) {
+                    const std::vector<Cell>& env, std::uint32_t module) {
   Extra commit;
   commit.ctrl = Ctrl::Commit;
   commit.then = goal.args[1];
   commit.env = env;
   commit.cont = cont;
   commit.cut = cut;
+  commit.module = module;
   commit.trim_to = machine.stack.size();
   const auto frame = push_extra(machine, std::move(commit));
-  launch(machine, goal.args[0], frame, machine.stack.size(), env);
+  launch(machine, goal.args[0], frame, machine.stack.size(), env, module);
 }
 
 void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                 const std::vector<Cell>& env) {
+                 const std::vector<Cell>& env, std::uint32_t module) {
   Extra commit;
   commit.ctrl = Ctrl::SoftCommit;
   commit.then = goal.args[1];
   commit.env = env;
   commit.cont = cont;
   commit.cut = cut;
+  commit.module = module;
   const auto frame = push_extra(machine, std::move(commit));
-  launch(machine, goal.args[0], frame, machine.stack.size(), env);
+  launch(machine, goal.args[0], frame, machine.stack.size(), env, module);
 }
 
 }

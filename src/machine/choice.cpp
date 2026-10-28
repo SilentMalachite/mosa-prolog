@@ -110,7 +110,7 @@ bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right) {
   return ok;
 }
 
-void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut) {
+void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::size_t cut, std::uint32_t module) {
   std::vector<Cell> env;
   env.reserve(clause.vars);
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
@@ -125,14 +125,12 @@ void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::
     }
   }
   const auto cont = machine.heap.word_at(goal + 3);
-  launch(machine, clause.body, cont, cut, env);
+  // 本体のゴールは節の述語のモジュールで動く（ADR 0006）。呼び手の文脈は受け継がない。
+  launch(machine, clause.body, cont, cut, env, module);
 }
 
 void enter_user(Impl& machine, const Goal& goal) {
-  Predicate* predicate = nullptr;
-  for (Predicate& candidate : machine.predicates) {
-    if (candidate.name == goal.name && candidate.arity == goal.arity) predicate = &candidate;
-  }
+  Predicate* predicate = resolve_pred(machine, goal.module, goal.name, goal.arity);
   if (predicate == nullptr) {
     // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
     if (machine.unknown_fail) {
@@ -162,14 +160,16 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.candidates = candidates;
     entry.next = 1;
     entry.redo_goal = goal.at;
-    entry.pred_name = goal.name;
-    entry.pred_arity = goal.arity;
+    // 別名で呼んでも、やり直しは定義の名前で引き直す。
+    entry.pred_module = predicate->module;
+    entry.pred_name = predicate->name;
+    entry.pred_arity = predicate->arity;
     entry.cut = boundary;
     entry.heap_mark = machine.heap.size();
     entry.trail_mark = machine.trail.slots.size();
     push_frame(machine, std::move(entry));
   }
-  enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary);
+  enter_clause(machine, predicate->clauses[candidates[0]], goal.at, boundary, predicate->module);
 }
 
 bool redo_clause(Impl& machine) {
@@ -184,10 +184,7 @@ bool redo_clause(Impl& machine) {
   const auto arity = top.pred_arity;
   const auto goal = top.redo_goal;
   const auto cut = top.cut;
-  const Predicate* predicate = nullptr;
-  for (const Predicate& candidate : machine.predicates) {
-    if (candidate.name == name && candidate.arity == arity) predicate = &candidate;
-  }
+  const Predicate* predicate = find_pred(machine, PredKey{top.pred_module, name, arity});
   // 述語ごと消えると添字が外れる。枠を残すとやり直しが終わらない。
   if (predicate == nullptr || index >= predicate->clauses.size()) {
     machine.stack.pop_back();
@@ -195,7 +192,7 @@ bool redo_clause(Impl& machine) {
   }
   if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
   else machine.stack.back().next += 1;
-  enter_clause(machine, predicate->clauses[index], goal, cut);
+  enter_clause(machine, predicate->clauses[index], goal, cut, predicate->module);
   return true;
 }
 
@@ -210,8 +207,9 @@ bool redo_else(Impl& machine) {
   const auto env = top.env;
   const auto cont = top.cont;
   const auto cut = top.cut;
+  const auto module = top.module;
   machine.stack.pop_back();
-  launch(machine, goal, cont, cut, env);
+  launch(machine, goal, cont, cut, env, module);
   return true;
 }
 
