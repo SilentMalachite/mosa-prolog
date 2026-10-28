@@ -22,27 +22,6 @@ bool is_callable(Cell cell) { return cell.tag() == Tag::Atom || cell.tag() == Ta
 
 bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
-// abolish/1 と同じ順で PI を確かめる（8.9.4.3）。
-std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
-  cell = machine.heap.deref(cell);
-  if (machine.heap.unbound(cell)) return formal_instantiation(machine);
-  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2 ||
-      machine.atoms.name(machine.heap.functor_atom(cell)) != "/") {
-    return formal_type(machine, "predicate_indicator", cell);
-  }
-  const Cell name = machine.heap.deref(machine.heap.arg(cell, 0));
-  const Cell arity = machine.heap.deref(machine.heap.arg(cell, 1));
-  if (machine.heap.unbound(name) || machine.heap.unbound(arity)) return formal_instantiation(machine);
-  if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
-  if (!is_integer(arity)) return formal_type(machine, "integer", arity);
-  const auto value = machine.heap.integer_value(arity);
-  if (value < 0) return formal_domain(machine, "not_less_than_zero", arity);
-  if (value > 1024) return formal_representation(machine, "max_arity");
-  key.name = atom_of(name);
-  key.arity = static_cast<std::uint16_t>(value);
-  return std::nullopt;
-}
-
 // 1 つの PI でもリストでもよい。module/2 の第 2 引数は呼び出し側がリストに限る。
 std::optional<Cell> read_indicators(Impl& machine, Cell cell, std::uint32_t module, std::vector<PredKey>& keys) {
   cell = machine.heap.deref(cell);
@@ -102,6 +81,27 @@ bool run_qualify(Impl& machine, const Goal& goal) {
   return true;
 }
 
+// abolish/1 と同じ順で PI を確かめる（8.9.4.3）。
+std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
+  cell = machine.heap.deref(cell);
+  if (machine.heap.unbound(cell)) return formal_instantiation(machine);
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2 ||
+      machine.atoms.name(machine.heap.functor_atom(cell)) != "/") {
+    return formal_type(machine, "predicate_indicator", cell);
+  }
+  const Cell name = machine.heap.deref(machine.heap.arg(cell, 0));
+  const Cell arity = machine.heap.deref(machine.heap.arg(cell, 1));
+  if (machine.heap.unbound(name) || machine.heap.unbound(arity)) return formal_instantiation(machine);
+  if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
+  if (!is_integer(arity)) return formal_type(machine, "integer", arity);
+  const auto value = machine.heap.integer_value(arity);
+  if (value < 0) return formal_domain(machine, "not_less_than_zero", arity);
+  if (value > 1024) return formal_representation(machine, "max_arity");
+  key.name = atom_of(name);
+  key.arity = static_cast<std::uint16_t>(value);
+  return std::nullopt;
+}
+
 std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool first, std::string_view file) {
   name = machine.heap.deref(name);
   exports = machine.heap.deref(exports);
@@ -113,14 +113,19 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   // 公開リストの op(P, T, N) はフェーズ4 Task 10 で受ける。それまでは PI の型の誤りになる。
   if (const auto formal = read_indicators(machine, exports, atom_of(name), keys)) return formal;
   if (!first) return formal_permission(machine, "create", "module", name);
-  // 読み直しは公開を作り直す。取り込み先に残った古い取り込みは、同じ名前なら import_exports が置き換える。
   Module* module = find_module(machine, atom_of(name));
   if (module == nullptr) {
     machine.modules.push_back(Module{atom_of(name), machine.user_module, {}, {}, {}});
     module = &machine.modules.back();
   }
+  // 読み直しは公開と取り込みを作り直す。取り込みはこの後の use_module/1,2 がもう一度足す。
   module->exports.clear();
+  module->imports.clear();
   module->file = std::string{file};
+  // 同じファイルを別の名前で読み直したら、古いモジュールはもうそのファイルのものではない。
+  for (Module& other : machine.modules) {
+    if (!file.empty() && other.name != module->name && other.file == file) other.file.clear();
+  }
   add_keys(*module, keys);
   machine.load_module = module->name;
   return std::nullopt;

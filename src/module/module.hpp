@@ -31,6 +31,7 @@ struct Module {
   std::uint32_t default_import = 0;
   std::vector<PredKey> exports;
   std::vector<Import> imports;
+  // 正規化したパス。use_module がファイルからモジュールを引く。ファイルでないテキストは空。
   std::string file;
 };
 
@@ -48,7 +49,23 @@ void install_modules(Machine::Impl& machine);
 [[nodiscard]] std::optional<Cell> declare_module(Machine::Impl& machine, Cell name, Cell exports, bool first,
                                                  std::string_view file);
 [[nodiscard]] std::optional<Cell> add_exports(Machine::Impl& machine, Cell indicators);
-// from の公開述語を into から見えるようにする。同じ名前の取り込みは新しい方に置き換える。
-void import_exports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into);
+[[nodiscard]] std::optional<Cell> read_indicator(Machine::Impl& machine, Cell cell, PredKey& key);
+
+// use_module/2 の第 2 引数。All は use_module/1、Only は [PI, PI as Alias]、Except は except([PI])。
+struct ImportSpec {
+  enum class Kind { All, Only, Except };
+  Kind kind = Kind::All;
+  std::vector<Import> only;
+  std::vector<PredKey> except;
+};
+
+[[nodiscard]] std::optional<Cell> parse_imports(Machine::Impl& machine, Cell imports, ImportSpec& spec);
+// from の公開述語を spec のとおり into から見えるようにする。衝突と未公開は読み込みの診断にする Formal を返す。
+[[nodiscard]] std::optional<Cell> apply_imports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into,
+                                                const ImportSpec& spec);
+[[nodiscard]] std::optional<Cell> import_exports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into);
+// 局所の述語を作る前に呼ぶ。同じ名前を取り込み済みなら permission_error(import_into, ...) を返す。
+[[nodiscard]] std::optional<Cell> check_local(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
+                                              std::uint16_t arity);
 
 }

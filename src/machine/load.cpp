@@ -108,6 +108,11 @@ bool add_clause(Impl& machine, Clause clause, std::size_t& last, const std::vect
     if (same_pred(machine, machine.predicates[cursor], name, arity)) index = cursor;
   }
   if (index == machine.predicates.size()) {
+    // 取り込んだ名前と同じ局所の述語は作らない（iso-notes 第5節の取り込みの衝突）。
+    if (const auto formal = check_local(machine, machine.load_module, name, arity)) {
+      fail_load(machine, write_term(machine.heap, machine.operators, *formal, {}, {}));
+      return false;
+    }
     machine.predicates.push_back(Predicate{});
     machine.predicates.back().module = machine.load_module;
     machine.predicates.back().name = name;
@@ -272,10 +277,11 @@ bool note_syntax(Impl& machine, std::string_view origin, bool nested, const Synt
   return false;
 }
 
+// import_all は、モジュールのファイルを読み終えたとき公開述語を全部取り込むこと。use_module は自分で取り込む。
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
-                bool nested, LoadScan& scan);
+                bool nested, LoadScan& scan, bool import_all = true);
 
-int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan) {
+int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, bool import_all = true) {
   std::ifstream input{file, std::ios::binary};
   if (!input) {
     fail_load(machine, file.string() + ": ファイルを開けません");
@@ -284,7 +290,68 @@ int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan&
   std::ostringstream buffer;
   buffer << input.rdbuf();
   // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
-  if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan)) return -1;
+  if (!read_terms(machine, buffer.str(), file.parent_path().string(), file.string(), true, scan, import_all)) {
+    return -1;
+  }
+  return 1;
+}
+
+int fail_formal(Impl& machine, Cell formal) {
+  fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
+  return -1;
+}
+
+std::optional<Cell> use_body(Impl& machine, Cell term) {
+  if (!is_directive(machine.heap, term)) return std::nullopt;
+  const Cell body = machine.heap.deref(machine.heap.arg(machine.heap.deref(term), 0));
+  if (body.tag() != Tag::Str || machine.atoms.name(machine.heap.functor_atom(body)) != "use_module") {
+    return std::nullopt;
+  }
+  const auto arity = machine.heap.functor_arity(body);
+  if (arity != 1 && arity != 2) return std::nullopt;
+  return body;
+}
+
+// Module::file は正規化したパスである（declare_module に渡す前に正規化する）。
+const Module* module_of_file(const Impl& machine, const std::filesystem::path& file) {
+  const auto key = canonical_key(file).generic_string();
+  for (const Module& module : machine.modules) {
+    if (module.file == key) return &module;
+  }
+  return nullptr;
+}
+
+// 読み込み済みのモジュールのファイルを ensure_loaded したとき。読み直しで消えた取り込みを足し直す。
+int import_ready(Impl& machine, const std::filesystem::path& file) {
+  const Module* module = module_of_file(machine, file);
+  if (module == nullptr) return 1;
+  if (const auto formal = import_exports(machine, module->name, machine.load_module)) {
+    return fail_formal(machine, *formal);
+  }
+  return 1;
+}
+
+// use_module/1,2。ensure_loaded と同じく読むのは 1 回だけで、取り込みは呼ぶたびに足す。
+int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& scan) {
+  const auto body = use_body(machine, term);
+  if (!body) return 0;
+  const Cell arg = machine.heap.deref(machine.heap.arg(*body, 0));
+  if (machine.heap.unbound(arg)) return fail_formal(machine, formal_instantiation(machine));
+  if (arg.tag() != Tag::Atom) return fail_formal(machine, formal_type(machine, "atom", arg));
+  ImportSpec spec;
+  if (machine.heap.functor_arity(*body) == 2) {
+    if (const auto formal = parse_imports(machine, machine.heap.arg(*body, 1), spec)) {
+      return fail_formal(machine, *formal);
+    }
+  }
+  const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
+  const auto file = prolog_source_path(resolve_include(directory, name));
+  if (!file_ready(machine, scan, file) && open_prolog_file(machine, file, scan, false) < 0) return -1;
+  const Module* module = module_of_file(machine, file);
+  if (module == nullptr) return fail_formal(machine, formal_permission(machine, "load", "source_sink", arg));
+  if (const auto formal = apply_imports(machine, module->name, machine.load_module, spec)) {
+    return fail_formal(machine, *formal);
+  }
   return 1;
 }
 
@@ -305,7 +372,7 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
   const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
   const auto file = prolog_source_path(resolve_include(directory, name));
   // include は毎回足す。ensure_loaded は、準備済みのパスを節も初期化も足さない。
-  if (once && file_ready(machine, scan, file)) return 1;
+  if (once && file_ready(machine, scan, file)) return import_ready(machine, file);
   return open_prolog_file(machine, file, scan);
 }
 
@@ -347,6 +414,8 @@ bool take_term(Impl& machine, Reader& reader, Cell term, std::string_view direct
   if (included != 0) return included > 0;
   const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);
   if (ensured != 0) return ensured > 0;
+  const int used = apply_use(machine, term, directory, scan);
+  if (used != 0) return used > 0;
   if (replaces_files(machine, term)) {
     for (const Predicate& predicate : machine.predicates) {
       remember_pred(machine, scan.snapshots, PredKey{predicate.module, predicate.name, predicate.arity});
@@ -376,13 +445,17 @@ struct ModuleScope {
   ModuleScope& operator=(const ModuleScope&) = delete;
   ~ModuleScope() { machine.load_module = outer; }
   // 公開は読み終えてから見せる。途中の export/1 で足した述語も取り込む。
-  void close() {
-    if (machine.load_module != outer) import_exports(machine, machine.load_module, outer);
+  bool close(bool import_all) {
+    if (!import_all || machine.load_module == outer) return true;
+    const auto formal = import_exports(machine, machine.load_module, outer);
+    if (!formal) return true;
+    fail_load(machine, write_term(machine.heap, machine.operators, *formal, {}, {}));
+    return false;
   }
 };
 
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
-                bool nested, LoadScan& scan) {
+                bool nested, LoadScan& scan, bool import_all) {
   CycleGuard guard;
   if (!enter_file(machine, origin, scan, guard)) return false;
   ModuleScope scope{machine};
@@ -391,10 +464,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   while (true) {
     const ReadOutcome outcome = reader.next();
     if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
-    if (!outcome.term) {
-      scope.close();
-      return true;
-    }
+    if (!outcome.term) return scope.close(import_all);
     if (!take_term(machine, reader, outcome.term->term, directory, origin, first, scan)) return false;
     first = false;
   }

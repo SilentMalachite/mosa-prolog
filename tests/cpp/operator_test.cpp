@@ -65,6 +65,10 @@ void check_absent_and_order(const mosa::OperatorTable& ops) {
   const auto colon = ops.lookup(":");
   mosa_test::check(colon.size() == 1 && colon[0].priority == 600 && colon[0].specifier == mosa::Specifier::Xfy,
                    "module colon 600 xfy");
+  // as は use_module/2 の別名に要る（iso-notes「Section 5 Operators meta_predicate and as」の決定 A）。
+  const auto alias = ops.lookup("as");
+  mosa_test::check(alias.size() == 1 && alias[0].priority == 700 && alias[0].specifier == mosa::Specifier::Xfx,
+                   "as 700 xfx");
   mosa_test::check(ops.lookup("|").empty(), "bar is not predefined");
   mosa_test::check(ops.lookup("xor").empty(), "xor is not an operator");
   const auto defined = ops.lookup(":-");

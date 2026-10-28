@@ -132,6 +132,13 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t
     return false;
   }
   Predicate* predicate = find_pred(machine, PredKey{machine.load_module, name, arity});
+  // 宣言で作る述語も局所の述語である。取り込みとぶつかる順序によらず同じエラーにする。
+  if (predicate == nullptr) {
+    if (const auto formal = check_local(machine, machine.load_module, name, arity)) {
+      fail_load(machine, write_term(machine.heap, machine.operators, *formal, {}, {}));
+      return false;
+    }
+  }
   if (predicate != nullptr && !predicate->dynamic && !predicate->clauses.empty()) {
     fail_load(machine, "静的な述語は動的にできない");
     return false;
@@ -339,7 +346,10 @@ std::optional<Cell> directive_body(Impl& machine, Cell directive, std::string_vi
 int apply_module_directive(Impl& machine, Cell directive, bool first, std::string_view origin) {
   std::optional<Cell> failure;
   if (const auto body = directive_body(machine, directive, "module", 2)) {
-    failure = declare_module(machine, machine.heap.arg(*body, 0), machine.heap.arg(*body, 1), first, origin);
+    // ファイルとモジュールの対応は正規化したパスで持つ。use_module がパスの書き方によらず見つける。
+    const auto key = origin.empty() ? std::string{}
+                                    : canonical_key(std::filesystem::path{std::string{origin}}).generic_string();
+    failure = declare_module(machine, machine.heap.arg(*body, 0), machine.heap.arg(*body, 1), first, key);
   } else if (const auto listed = directive_body(machine, directive, "export", 1)) {
     failure = add_exports(machine, machine.heap.arg(*listed, 0));
   } else {

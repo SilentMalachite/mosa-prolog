@@ -39,6 +39,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/load_directive.cpp
   src/module/module_table.cpp
   src/module/qualify.cpp
+  src/module/import.cpp
   src/machine/load_path.cpp
   src/machine/compile.cpp
   src/machine/choice.cpp
@@ -146,6 +147,7 @@ add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)
 add_executable(module_load_test tests/cpp/module_load_test.cpp)
 target_include_directories(module_load_test PRIVATE tests/cpp)
 target_link_libraries(module_load_test PRIVATE mosa_lib)
+target_compile_definitions(module_load_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME module_load COMMAND $<TARGET_FILE:module_load_test>)
 
 add_executable(include_test tests/cpp/include_test.cpp)

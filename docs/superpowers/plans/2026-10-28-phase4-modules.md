@@ -155,7 +155,7 @@
 **Interfaces:**
 - Produces: `use_module(File)`、`use_module(File, Imports)`。`Imports` は `[PI, PI as Alias, ...]` か `except([PI, ...])`。読み込みは `ensure_loaded/1` と同じく 1 回だけ（`Impl::prepared` を使う）
 
-- [ ] **Step 1:** 失敗するテスト
+- [x] **Step 1:** 失敗するテスト
   - `use_all`: `use_module('modules/人名.pl')` 後に公開述語がすべて呼べる
   - `use_alias`: `use_module('modules/人名.pl', [姓名分解/3 as 分解])` 後に `分解/3` が呼べ、`姓名分解/3` は呼べない
   - `use_except`: `except([読み/2])` で `読み/2` だけ見えない
@@ -163,8 +163,8 @@
   - `use_twice`: 2 つのモジュールから同じファイルを `use_module` しても読み込みは 1 回（ファイルの `initialization` で数える）
   - `reconsult_module`: 同じモジュールのファイルを 2 回 `consult` しても `findall` の解の数が変わらない
   - `use_failed_rollback`: 構文エラーを含むモジュールのファイルの読み込み後、`current_module/1` にそのモジュールが無く、取り込みも残らない（`current_module/1` は Task 8 なので、ここは C++ の `machine_test` で `Impl::modules` を見る）
-- [ ] **Step 2:** 失敗を見る。実装する。読み込みの失敗では `predicates` と同じく `modules` と取り込みを戻す
-- [ ] **Step 3:** テストを流す。コミット `[phase4] use_module/1,2 を実装（as と except、衝突、二重読み込み、modules.pl 7 件）`
+- [x] **Step 2:** 失敗を見る。実装する。読み込みの失敗では `predicates` と同じく `modules` と取り込みを戻す
+- [x] **Step 3:** テストを流す。コミット `[phase4] use_module/1,2 を実装（as と except、衝突、二重読み込み、modules.pl 7 件）`
 
 ### Task 6: `library(...)` の探索
 

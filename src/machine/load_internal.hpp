@@ -6,6 +6,7 @@
 #include "mosa/reader.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,9 @@ struct Apart {
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
 };
+
+// 定義は load_path.cpp。
+std::filesystem::path canonical_key(const std::filesystem::path& file);
 
 void fail_load(Impl& machine, std::string message);
 [[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, std::uint32_t name, std::uint16_t arity);

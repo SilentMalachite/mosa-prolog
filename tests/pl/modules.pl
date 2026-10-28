@@ -32,3 +32,14 @@ test(mod_shadow, (影の名前(X), 名前(Y)), solutions([(X = 影, Y = 利用�
 test(mod_ctx_after_throw, (catch(家系:投げる, _, true), 名前(X)), solutions([X = 利用者])).
 test(mod_ctx_after_redo, (家系:親(_, _), fail ; 名前(X)), solutions([X = 利用者])).
 test(mod_export_late, 新述語(X), solutions([X = 1])).
+:- consult('modules/全部.pl').
+:- consult('modules/別名.pl').
+:- consult('modules/除外.pl').
+test(use_all, (全部:姓名分解(山田太郎, A, B), 全部:読み(A, R), 全部:敬称(A, C)), solutions([(A = 山田, B = 太郎, R = やまだ, C = 山田さん)])).
+test(use_all_private, 全部:内緒(_), error(existence_error(procedure, 全部:内緒/1))).
+test(use_alias, 別名:分解(山田太郎, A, B), solutions([(A = 山田, B = 太郎)])).
+test(use_alias_hides, 別名:姓名分解(_, _, _), error(existence_error(procedure, 別名:姓名分解/3))).
+test(use_alias_only, 別名:読み(_, _), error(existence_error(procedure, 別名:読み/2))).
+test(use_except, (除外:姓名分解(山田太郎, A, _), 除外:敬称(A, C)), solutions([(A = 山田, C = 山田さん)])).
+test(use_except_hides, 除外:読み(_, _), error(existence_error(procedure, 除外:読み/2))).
+test(use_twice, findall(M, 人名:読込回数(M), L), solutions([L = [人名]])).
