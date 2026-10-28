@@ -13,6 +13,8 @@ enum class CharClass {
 
 [[nodiscard]] CharClass classify(char32_t code_point);
 [[nodiscard]] bool east_asian_wide(char32_t code_point);
+// UnicodeData.txt の単純大文字化。写像の無い文字は自身を返す。1 文字が複数になる写像は扱わない。
+[[nodiscard]] char32_t simple_upper(char32_t code_point);
 [[nodiscard]] std::string_view unicode_version();
 
 }

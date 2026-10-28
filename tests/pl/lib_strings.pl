@@ -62,3 +62,24 @@ test(split_atom_inst_sep, split_atom(a, _, '', _), error(instantiation_error)).
 test(split_atom_inst_pad, split_atom(a, ' ', _, _), error(instantiation_error)).
 test(split_atom_type, split_atom(f(x), ' ', '', _), error(type_error(atomic, f(x)))).
 test(split_atom_type_sep, split_atom(a, [x], '', _), error(type_error(atomic, [x]))).
+% upcase_atom/2。単純大文字化なので 1 文字は 1 文字のまま。入力は原子か数、結果は変数か原子（atomic_list_concat と同じ）。
+test(upcase_ascii, upcase_atom(abc, X), solutions([X = 'ABC'])).
+test(upcase_check, upcase_atom(abc, 'ABC'), true).
+test(upcase_check_fail, upcase_atom(abc, abc), fail).
+test(upcase_greek, upcase_atom('σ', X), solutions([X = 'Σ'])).
+test(upcase_kana_kept, upcase_atom('あa', X), solutions([X = 'あA'])).
+test(upcase_sharp_s, upcase_atom('ß', X), solutions([X = 'ß'])).
+test(upcase_fullwidth, upcase_atom('ａｂ', X), solutions([X = 'ＡＢ'])).
+test(upcase_astral, upcase_atom('𐐨', X), solutions([X = '𐐀'])).
+test(upcase_empty, upcase_atom('', X), solutions([X = ''])).
+test(upcase_mixed, upcase_atom('Hello World', X), solutions([X = 'HELLO WORLD'])).
+test(upcase_number, upcase_atom(1.0e10, X), solutions([X = '1.0E+10'])).
+test(upcase_det, findall(X, upcase_atom(ab, X), L), solutions([L = ['AB']])).
+test(upcase_inst, upcase_atom(_, _), error(instantiation_error)).
+test(upcase_type, upcase_atom(f(x), _), error(type_error(atomic, f(x)))).
+test(upcase_type_out, upcase_atom(a, f(x)), error(type_error(atom, f(x)))).
+test(upcase_type_out_num, upcase_atom(a, 1), error(type_error(atom, 1))).
+% '$upcase_atom'/2 は system にある。
+test(upcase_raw, '$upcase_atom'(xyz, X), solutions([X = 'XYZ'])).
+test(upcase_raw_inst, '$upcase_atom'(_, _), error(instantiation_error)).
+test(upcase_raw_type, '$upcase_atom'(1, _), error(type_error(atom, 1))).

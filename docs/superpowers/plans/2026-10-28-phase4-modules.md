@@ -304,9 +304,9 @@
 - Create: `src/builtins/case.cpp`（`'$upcase_atom'/2` を `system` に置き、`strings` が `upcase_atom/2` として公開する）
 - Test: `tests/pl/lib_strings.pl`、`tests/cpp/char_class_test.cpp`
 
-- [ ] **Step 1:** 失敗するテスト。`upcase_ascii`: `upcase_atom(abc, 'ABC')`。`upcase_greek`: `upcase_atom('σ', 'Σ')`。`upcase_kana_kept`: `upcase_atom('あa', 'あA')`。`upcase_sharp_s`: `upcase_atom('ß', 'ß')`（単純写像なので 1 文字のまま）。`char_class_test` に `simple_upper(U'a') == U'A'`
-- [ ] **Step 2:** 表を生成し直し、`docs/unicode-version.md` の版と同じ `UnicodeData.txt` を使ったことを見る。実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] upcase_atom/2 を単純大文字化の表で実装（lib_strings.pl、char_class_test）`
+- [x] **Step 1:** 失敗するテスト。`upcase_ascii`: `upcase_atom(abc, 'ABC')`。`upcase_greek`: `upcase_atom('σ', 'Σ')`。`upcase_kana_kept`: `upcase_atom('あa', 'あA')`。`upcase_sharp_s`: `upcase_atom('ß', 'ß')`（単純写像なので 1 文字のまま）。`char_class_test` に `simple_upper(U'a') == U'A'`
+- [x] **Step 2:** 表を生成し直し、`docs/unicode-version.md` の版と同じ `UnicodeData.txt` を使ったことを見る。実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] upcase_atom/2 を単純大文字化の表で実装（lib_strings.pl、char_class_test）`
 
 ### Task 18: `library(japanese)`
 

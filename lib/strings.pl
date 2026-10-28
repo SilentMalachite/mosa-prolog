@@ -1,7 +1,7 @@
 % library(strings)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_strings.pl。
 % 誤りの形は Logtalk の atomic_list_concat_2、atomic_list_concat_3 と同じ。結果が数のときと空の区切りは iso-notes の決定 A。結果の引数は atom_concat/3（8.16.2）に
 % 合わせて変数か原子に限る。split_atom/4 は SWI の split_string/4 と同じ切り方で、結果は原子のリスト。
-:- module(strings, [atomic_list_concat/2, atomic_list_concat/3, split_atom/4]).
+:- module(strings, [atomic_list_concat/2, atomic_list_concat/3, split_atom/4, upcase_atom/2]).
 :- use_module(library(lists)).
 
 
@@ -120,6 +120,14 @@ chars_atoms([], []).
 chars_atoms([Cs|Css], [A|As]) :-
     atom_chars(A, Cs),
     chars_atoms(Css, As).
+
+% 入力は原子か数、結果は変数か原子（atomic_list_concat と同じ）。写すのは system の '$upcase_atom'/2。
+upcase_atom(Text, Upper) :-
+    must_be_atomic(Text, upcase_atom/2),
+    must_be_atom_or_var(Upper, upcase_atom/2),
+    atomic_chars(Text, Chars),
+    atom_chars(Atom, Chars),
+    '$upcase_atom'(Atom, Upper).
 
 atomic_chars(X, Chars) :-
     (   atom(X)

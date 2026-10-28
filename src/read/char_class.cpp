@@ -20,6 +20,11 @@ struct WideRange {
   char32_t last;
 };
 
+struct UpperPair {
+  char32_t from;
+  char32_t to;
+};
+
 #include "../unicode_tables.inc"
 
 // 6.5 の ASCII 分類は一般カテゴリと違う。`;` は Po だが solo、`_` は Pc だが下線、
@@ -134,6 +139,15 @@ bool east_asian_wide(char32_t code_point) {
     return false;
   }
   return find_range(k_wide_ranges, code_point).has_value();
+}
+
+char32_t simple_upper(char32_t code_point) {
+  const auto it = std::lower_bound(k_upper_pairs.begin(), k_upper_pairs.end(), code_point,
+                                   [](const UpperPair& pair, char32_t point) { return pair.from < point; });
+  if (it == k_upper_pairs.end() || it->from != code_point) {
+    return code_point;
+  }
+  return it->to;
 }
 
 std::string_view unicode_version() { return k_unicode_version; }
