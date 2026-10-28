@@ -171,6 +171,8 @@ Decision (2026-10-26): A. The memory stream created for `atom/1` and `codes/1` i
 
 Decision (2026-10-26): We do not wait for permission. `inriasuite.pl` has no redistribution permission, so it is not bundled. The Phase 3 conformance suite is Logtalk's `tests/prolog`, placed at commit `4decb64b598feff542a926a085eef01ec51f5a72` as is under `tests/conformance/logtalk/prolog`. Its license is Apache-2.0, the same as the repository, and the copyright notices are kept. The files are not modified. The 90% in Spec Section 9 is measured with this suite. This decision does not state a pass rate.
 
+Decision (2026-10-28): A. The side-column directories (`between_3`, `succ_2`, `plus_3`, `format_2`, `format_3`, `atomic_list_concat_2`, `atomic_list_concat_3`) stay out of the run through phase 5, although the runner now imports the six libraries. The denominator stays 2171, so the phase 5 exit compares against the same baseline (2041). Library tests in `tests/pl/` cover these predicates.
+
 ## License
 
 Decision (2026-10-26): The repository is unified under Apache-2.0. The text is in `LICENSE`. Mosa's copyright notice is `Copyright 2026 Mosa Prolog contributors`, placed in `NOTICE`. The Logtalk tests are under the same license, and their copyright stays as Paulo Moura's notice.

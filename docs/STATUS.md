@@ -6,7 +6,7 @@ Done (phase 5 Task 2): runner ^^suppress_text_output/0 and ^^text_output_content
 Done (phase 5 Task 2): runner imports lists, apply, between, format, strings, japanese into the test machine's user, except names the test file defines (src/machine/lgt_libs.cpp); mosa's user is unchanged (modules.pl between_needs_use) (+3)
 New Q note: 7.10.5 a Writing a variable that occurs once (lgt_write_term_3_043/044/065/066 now fail only on `_`)
 Runner limit: after a goal that leaves a choice point (e.g. stream_property/2), later plain goals run in a scratch machine (exec_plain), so their side effects on streams do not reach ^^ observers. No suite target has this shape yet
-Note: suite dirs between_3, succ_2, plus_3, format_2, atomic_list_concat_2/3 are still in the side column (not run); with the imports they could now be run (owner decision)
+Decided A (2026-10-28): side-column dirs (between_3, succ_2, plus_3, format_2, format_3, atomic_list_concat_2/3) stay out through phase 5; denominator stays 2171
 Next: Task 2 follow-up (rows marked "2 追補": ignore/1, os::ensure_file/1, lgtunit::deterministic/2, integer::between/3, condition os::operating_system_type) or Task 3 (=~=, 14 rows)
 Open: other A/B questions stay in iso-notes for Task 8
 Plan (phase 5): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md

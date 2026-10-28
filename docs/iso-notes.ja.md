@@ -173,6 +173,8 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 
 決定（2026-10-26）: 許可は待たない。`inriasuite.pl` は再配布の許諾が無いので同梱しない。フェーズ3の準拠スイートは Logtalk の `tests/prolog` を、コミット `4decb64b598feff542a926a085eef01ec51f5a72` のまま `tests/conformance/logtalk/prolog` に置く。ライセンスはリポジトリと同じ Apache-2.0 で、著作権表示は残す。ファイルは改変しない。仕様第9節の 90% はこのスイートで測る。合格率はこの決定では出さない。
 
+決定（2026-10-28）: A。試験器が 6 ライブラリを取り込むようになったが、別欄のディレクトリ（`between_3`、`succ_2`、`plus_3`、`format_2`、`format_3`、`atomic_list_concat_2`、`atomic_list_concat_3`）はフェーズ5の間は実行しない。分母は 2171 のままにし、フェーズ5の出口は同じ基準値（2041）と比べる。これらの述語は `tests/pl/` のライブラリのテストが確かめる。
+
 ## ライセンス
 
 決定（2026-10-26）: リポジトリは Apache-2.0 に揃える。本文は `LICENSE`。Mosa の著作権表示は `Copyright 2026 Mosa Prolog contributors` で、`NOTICE` に置く。Logtalk のテストも同じライセンスで、著作権は Paulo Moura の表示のままである。
