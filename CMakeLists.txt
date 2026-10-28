@@ -48,6 +48,7 @@ target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
   src/machine/load.cpp
+  src/machine/load_clauses.cpp
   src/machine/load_directive.cpp
   src/module/module_table.cpp
   src/module/qualify.cpp

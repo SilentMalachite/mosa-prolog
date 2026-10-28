@@ -38,6 +38,12 @@ void fail_load(Impl& machine, std::string message);
 void note_declared(Impl& machine, PredKey key, bool shared);
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
+// 定義は load_clauses.cpp。節は module に入る。last は直前に節を足した述語の添字。
+[[nodiscard]] bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t& last,
+                              const std::vector<Apart>& apart);
+void remember_clause(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t module, const Clause& clause);
+// 失敗した読み込みの述語を写しへ戻し、この読み込みで作った述語を捨てる。
+void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size);
 // first は、この項がファイルの最初の項であること。module/2 はそこでしか受けない。
 [[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
                                     std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,
