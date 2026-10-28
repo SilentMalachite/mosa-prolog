@@ -132,6 +132,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
       if (!predicate.meta_declared) predicate.meta.clear();
     }
   }
+  // 置き換え、multifile の追加、abolish 済みの枠の使い直しのどれでも、付けた生成関数の知らない節になる。
+  detach_native(machine, predicate);
   predicate.seen = true;
   last = index;
   predicate.clauses.push_back(std::move(clause));
@@ -147,6 +149,8 @@ void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::
     if (shot.created) continue;
     Predicate* predicate = find_pred(machine, PredKey{shot.module, shot.name, shot.arity});
     if (predicate != nullptr) {
+      // 写しへ戻した節にも生成関数は付け直さない（ADR 0009）。外したら、その述語はインタプリタで動き続ける。
+      detach_native(machine, *predicate);
       predicate->clauses = shot.clauses;
       predicate->dynamic = shot.dynamic;
       predicate->abolished = shot.abolished;

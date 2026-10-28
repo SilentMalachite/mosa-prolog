@@ -166,6 +166,11 @@ void enter_user(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_existence(machine, "procedure", pi), goal.name, goal.arity);
     return;
   }
+  // 取り込みで引いた呼び出しも、付いていれば生成関数で動く。call_goal の近道は同じモジュールの呼び先だけ。
+  if (predicate->native != nullptr) {
+    call_native(machine, predicate->native, goal.at);
+    return;
+  }
   if (predicate->clauses.empty()) {
     // 節を消し切っても動的述語は残る。呼び出しは失敗であり、存在エラーではない。
     machine.failed = true;
@@ -254,6 +259,8 @@ bool redo_repeat(Impl& machine) {
 }
 
 bool backtrack(Impl& machine) {
+  // 生成関数の呼び先は、次の step が消費しなければ失敗で無効になる。
+  machine.native_next = nullptr;
   machine.failed = false;
   machine.exception = false;
   while (!machine.stack.empty()) {
@@ -268,6 +275,7 @@ bool backtrack(Impl& machine) {
       continue;
     }
     if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
+    if (top.pick == Pick::Native && redo_native(machine)) return true;
     if (top.pick == Pick::Retract && redo_retract(machine)) return true;
     // Clauses は節の本体を実行する。参照と列挙は項を返すだけで、本体は走らせない。
     if (top.pick == Pick::ClauseScan && redo_clause_scan(machine)) return true;
@@ -278,7 +286,8 @@ bool backtrack(Impl& machine) {
     // アトムの候補は節ではない。やり直しを節の添字に載せると、別の述語を引いてしまう。
     if (top.pick == Pick::AtomGen && redo_atoms(machine)) return true;
     if (top.pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
-    if (top.pick != Pick::Clauses && top.pick != Pick::Retract && top.pick != Pick::ClauseScan &&
+    if (top.pick != Pick::Clauses && top.pick != Pick::Native && top.pick != Pick::Retract &&
+        top.pick != Pick::ClauseScan &&
         top.pick != Pick::PredGen && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
         top.pick != Pick::Repeat && top.pick != Pick::AtomGen && top.pick != Pick::StreamGen) {
       machine.stack.pop_back();

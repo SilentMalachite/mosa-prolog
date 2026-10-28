@@ -134,6 +134,8 @@ Cell import_term(Impl& machine, const ExportedTerm& term) {
 }
 
 void propagate_throw(Impl& machine, Cell ball) {
+  // 例外は call_goal が設定した呼び先を無効にする。回復ゴールの枠を生成関数で始めない。
+  machine.native_next = nullptr;
   const ExportedTerm copy = export_term(machine, ball);
   while (!machine.stack.empty()) {
     // 収集の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。

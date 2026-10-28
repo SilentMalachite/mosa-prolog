@@ -92,6 +92,8 @@ void restore_clauses(Impl& machine, const std::vector<ClauseBackup>& saved) {
   for (const ClauseBackup& item : saved) {
     for (Predicate& predicate : machine.predicates) {
       if (predicate.module != item.module || predicate.name != item.name || predicate.arity != item.arity) continue;
+      // 戻した節にも生成関数は付け直さない（ADR 0009）。
+      detach_native(machine, predicate);
       predicate.clauses = item.clauses;
       predicate.dynamic = item.dynamic;
       break;

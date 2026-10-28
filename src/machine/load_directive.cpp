@@ -446,6 +446,8 @@ bool declare_meta(Impl& machine, std::vector<Snapshot>& snapshots, Cell head) {
     return true;
   }
   remember_pred(machine, snapshots, key);
+  // meta は指紋に入る。付けたあとの宣言は、生成関数が知らない限定になる。
+  detach_native(machine, *predicate);
   predicate->meta = std::move(args);
   predicate->meta_declared = true;
   return true;

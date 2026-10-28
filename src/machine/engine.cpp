@@ -28,7 +28,7 @@ bool has_more(const Impl& machine) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
     if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen ||
-         entry.pick == Pick::StreamGen) &&
+         entry.pick == Pick::StreamGen || entry.pick == Pick::Native) &&
         entry.next < entry.candidates.size()) {
       return true;
     }
@@ -102,7 +102,19 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size
 
 void step(Impl& machine) {
   machine.eval_abort = false;
+  // 生成関数どうしの呼び出し（ADR 0009）。枠は普通のゴール枠のまま、run_builtin と述語の引き当てを飛ばす。
+  if (machine.native_next != nullptr) {
+    const rt::NativeProc proc = machine.native_next;
+    machine.native_next = nullptr;
+    call_native(machine, proc, machine.ip);
+    return;
+  }
   if (machine.heap.word_at(machine.ip) == 0) {
+    // 第 63 ビットが立った語 1 は extras の添字ではない。step_control より先に見る。
+    if ((machine.heap.word_at(machine.ip + 1) & rt::kNativeBit) != 0) {
+      resume_native(machine);
+      return;
+    }
     step_control(machine);
     return;
   }
@@ -535,6 +547,7 @@ Stop Machine::query(std::string_view goal_text) {
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;
+  machine.native_next = nullptr;
   machine.diagnostic.clear();
   machine.ip = kNoFrame;
   machine.bindings.clear();

@@ -49,6 +49,8 @@ target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
   src/machine/load.cpp
   src/machine/load_clauses.cpp
+  src/machine/native.cpp
+  src/machine/native_redo.cpp
   src/machine/load_directive.cpp
   src/module/module_table.cpp
   src/module/qualify.cpp
@@ -321,6 +323,13 @@ add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mo
 
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
+
+# 手書きの生成関数は runtime.hpp だけを見る。internal.hpp を見るのは指紋を出す側の native_test.cpp だけ。
+add_executable(native_test tests/cpp/native_test.cpp tests/cpp/native_units.cpp)
+target_include_directories(native_test PRIVATE tests/cpp src)
+target_compile_definitions(native_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(native_test PRIVATE mosa_lib)
+add_test(NAME native COMMAND $<TARGET_FILE:native_test>)
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)

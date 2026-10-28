@@ -6,6 +6,7 @@
 #include "mosa/machine.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
+#include "mosa/runtime.hpp"
 
 #include "../module/module.hpp"
 
@@ -20,6 +21,8 @@ namespace mosa {
 
 inline constexpr std::uint64_t kNoFrame = UINT64_MAX;
 inline constexpr std::size_t kFrameHead = 4;
+// 生成コードは rt::kFrameHead でゴール枠の引数を読む。2 つは同じ枠の同じ頭である。
+static_assert(rt::kFrameHead == kFrameHead);
 
 enum class KeyKind { Any, None, Var, Atom, Int, Float, List, Fun };
 
@@ -60,6 +63,8 @@ struct Predicate {
   bool meta_declared = false;
   // ADR 0008。開いた走査があるときの abolish。走査のやり直しだけが引き、新しい引き当ては無いものとして扱う。
   bool abolished = false;
+  // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
+  rt::NativeProc native = nullptr;
 };
 
 enum class Pick {
@@ -77,7 +82,9 @@ enum class Pick {
   ClauseScan,
   PredGen,
   // ストリームの性質は節ではない。やり直しを節の添字に載せない。
-  StreamGen
+  StreamGen,
+  // 生成関数の節の候補。candidates は節の添字ではなく状態なので、pred_* を入れず節の走査に数えさせない。
+  Native
 };
 
 struct Entry {
@@ -109,9 +116,12 @@ struct Entry {
   // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
   // 5 は current_char_conversion、6 は length。
   std::uint8_t gen_kind = 0;
+  // Pick::Native のやり直しで呼ぶ生成関数。
+  rt::NativeProc native = nullptr;
 };
 
-enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit };
+// Native は extras に載せない。語 1 の第 63 ビットが立った制御枠で、ヒープに関数と節の変数を持つ（ADR 0009）。
+enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native };
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
@@ -124,6 +134,30 @@ struct Extra {
   int soft_id = 0;
   std::uint32_t module = 0;
 };
+
+}  // namespace mosa
+
+namespace mosa::rt {
+
+// 呼び先の番号ごとの表。proc は呼び先がそのモジュールで付いているときだけ入る。
+struct NativeCall {
+  std::uint32_t module = 0;
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  NativeProc proc = nullptr;
+};
+
+// Machine ごとの単位の表。番号は単位の中だけで振るので、tag の番地で単位を引く。
+struct UnitState {
+  const UnitTag* tag = nullptr;
+  std::vector<std::uint32_t> atoms;
+  std::vector<NativeCall> calls;
+  std::vector<PredKey> entries;
+};
+
+}  // namespace mosa::rt
+
+namespace mosa {
 
 struct ExportedTerm {
   enum class Kind { Var, Atom, Int, Float, List, Str, Share };
@@ -252,6 +286,10 @@ struct Machine::Impl {
   SuiteSuper (*suite_super)(Machine& machine, const LgtIo& io, Cell goal) = nullptr;
   const LgtIo* suite_io = nullptr;
   Machine* suite_self = nullptr;
+  // ADR 0009。単位の表、次の step が run_builtin より先に呼ぶ生成関数、呼び出しとやり直しのカット境界。
+  std::vector<rt::UnitState> native_units;
+  rt::NativeProc native_next = nullptr;
+  std::size_t native_cut = 0;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }
 };
@@ -443,5 +481,13 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] int apply_file_list(Impl& machine, Cell term, std::string_view directory,
                                   std::vector<std::string>& opening);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
+// 定義は native.cpp。翻訳器（Task 4）も同じ関数で指紋を出す。
+[[nodiscard]] std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate);
+// 付けたあとの節か meta への書き込みのたびに呼ぶ。述語と全単位の同じ鍵の calls を一度に空にする。
+void detach_native(Impl& machine, Predicate& predicate);
+// 定義は native_redo.cpp。
+void call_native(Impl& machine, rt::NativeProc proc, std::uint64_t frame);
+void resume_native(Impl& machine);
+[[nodiscard]] bool redo_native(Impl& machine);
 
 }
