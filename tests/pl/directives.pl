@@ -41,6 +41,20 @@ test(dc_only_absent, current_predicate(dc_only/1), fail).
 test(dc_only_call, dc_only(_), error(existence_error(procedure, dc_only/1))).
 test(dc_after_first, (findall(X, dc_after(X), L), L == [1, 2]), true).
 
+% syntax/directives/discontiguous_1 と同じ、引数 2〜4 の述語が互いに分断する形。宣言はリストで書く。
+:- discontiguous([dc_c/2, dc_d/3, dc_e/4]).
+
+dc_c(1, 2).
+dc_d(1, 2, 3).
+dc_c(3, 4).
+dc_e(1, 2, 3, 4).
+dc_d(4, 5, 6).
+dc_e(5, 6, 7, 8).
+
+test(dc_arity2, (findall(X-Y, dc_c(X, Y), L), L == [1-2, 3-4]), true).
+test(dc_arity3, (findall(X-Y-Z, dc_d(X, Y, Z), L), L == [1-2-3, 4-5-6]), true).
+test(dc_arity4, (findall(X-Y-Z-W, dc_e(X, Y, Z, W), L), L == [1-2-3-4, 5-6-7-8]), true).
+
 % 7.4.2 multifile/1。指示だけ。引数は述語指示子かそのリスト。
 % 宣言は手続きを定義しない。宣言した述語は次の読み込みが節を足す。
 % 宣言が無い述語は置き換わる。ここでは同じテキストの節だけを見る。

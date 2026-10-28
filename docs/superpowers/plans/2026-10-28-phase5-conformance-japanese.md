@@ -158,9 +158,9 @@
 - Modify: `src/machine/load.cpp` か `src/machine/consult.cpp`（原因が分かってから決める）
 - Test: `tests/pl/directives.pl`
 
-- [ ] **Step 1:** `syntax/directives/discontiguous_1/tests.lgt` の 01〜05 と同じ形（引数 1〜4 の述語を他の述語の節で分断する）を `tests/pl/directives.pl` に `dc_arity1`〜`dc_arity4` として足し、失敗を見る。失敗しなければ試験器側の原因なので、`tests/cpp/conformance_report_test.cpp` に同じ形の `tests.lgt` を足して S として直す
-- [ ] **Step 2:** 原因を直す。テストとスイートを流す
-- [ ] **Step 3:** コミット `[phase5] discontiguous の述語を読み込めるようにする（directives.pl、合格 +5）`
+- [x] **Step 1:** `syntax/directives/discontiguous_1/tests.lgt` の 01〜05 と同じ形（引数 1〜4 の述語を他の述語の節で分断する）を `tests/pl/directives.pl` に `dc_arity1`〜`dc_arity4` として足し、失敗を見る。失敗しなければ試験器側の原因なので、`tests/cpp/conformance_report_test.cpp` に同じ形の `tests.lgt` を足して S として直す
+- [ ] **Step 2:**（保留: 原因は並びの形を拒む既存の決定。iso-notes 7.4.2 discontiguous/1 の A/B 待ち）原因を直す。テストとスイートを流す
+- [ ] **Step 3:**（B のときだけ） コミット `[phase5] discontiguous の述語を読み込めるようにする（directives.pl、合格 +5）`
 
 ### Task 7: 丸め系評価子（9.1.1、9.1.6）
 
@@ -328,6 +328,7 @@
 内訳（Task 4 後、残り 89 件）: S 7、N 36、Q 35、I 10、X 1。`stream_property_2_29`〜`31` は位置の不具合ではなく表明の `ground/1` が無かったためで、`ground/1` と一緒に合格に移った。
 内訳（Task 5 後、残り 89 件）: S 7、N 36、Q 40、I 5、X 1。`lgt_write_term_3_118`〜`122` は検査の不具合ではなく、繰り返した選択肢で後の方が勝つことを期待する件で、iso-notes「8.14 Write options」の決定（`domain_error`）と食い違うので Q に移した。
 内訳（8.14 の決定 B の後、残り 84 件）: S 7、N 36、Q 35、I 5、X 1。持ち主の決定 B（後の選択肢が勝つ）で `lgt_write_term_3_118`〜`122` が合格に移った。
+内訳（Task 6 後、残り 84 件）: S 7、N 36、Q 40、I 0、X 1。`discontiguous_1_01`〜`05` は読み込みの不具合ではなく、並びの形 `discontiguous((b/1, c/2))` を iso-notes 7.4.2 の決定が拒むためで、Q に移した。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
@@ -390,11 +391,11 @@
 | `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_066` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
-| `syntax/directives/discontiguous_1` | `discontiguous_1_01` | I | 6 | `discontiguous` の読み込み |
-| `syntax/directives/discontiguous_1` | `discontiguous_1_02` | I | 6 | `discontiguous` の読み込み |
-| `syntax/directives/discontiguous_1` | `discontiguous_1_03` | I | 6 | `discontiguous` の読み込み |
-| `syntax/directives/discontiguous_1` | `discontiguous_1_04` | I | 6 | `discontiguous` の読み込み |
-| `syntax/directives/discontiguous_1` | `discontiguous_1_05` | I | 6 | `discontiguous` の読み込み |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_01` | Q | 8 | 7.4.2 discontiguous/1（並びの形。持ち主に確認中） |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_02` | Q | 8 | 7.4.2 discontiguous/1（並びの形。持ち主に確認中） |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_03` | Q | 8 | 7.4.2 discontiguous/1（並びの形。持ち主に確認中） |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_04` | Q | 8 | 7.4.2 discontiguous/1（並びの形。持ち主に確認中） |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_05` | Q | 8 | 7.4.2 discontiguous/1（並びの形。持ち主に確認中） |
 | `unicode/builtins` | `lgt_unicode_current_prolog_flag_2_02` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_get_char_2_03` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_open_4_01` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
