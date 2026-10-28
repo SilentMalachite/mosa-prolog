@@ -28,6 +28,13 @@ test(mod_call_export, 祖父(X, Z), solutions([(X = 太郎, Z = 花子), (X = �
 test(mod_call_export_op, は(X, 太郎), solutions([X = 一郎])).
 test(mod_call_private, 家系:内部(X), solutions([X = 秘密])).
 test(mod_call_private_hidden, 内部(_), error(existence_error(procedure, 内部/1))).
+% SPEC 第5節の宣言の例。家系.pl は例の宣言を全部持つ。
+test(spec_example, 家系:祖父(太郎, Z), solutions([Z = 花子, Z = 次郎])).
+test(spec_alias, 家系:分解(山田太郎, A, B), solutions([(A = 山田, B = 太郎)])).
+test(spec_except, (家系:姓名分解(山田太郎, A, _), 家系:敬称(A, C)), solutions([(A = 山田, C = 山田さん)])).
+test(spec_except_hides, 家系:読み(_, _), error(existence_error(procedure, 家系:読み/2))).
+test(spec_lists, 家系:append([a], [b], L), solutions([L = [a, b]])).
+test(spec_imports_hidden, 分解(_, _, _), error(existence_error(procedure, 分解/3))).
 test(mod_shadow, (影の名前(X), 名前(Y)), solutions([(X = 影, Y = 利用者)])).
 test(mod_ctx_after_throw, (catch(家系:投げる, _, true), 名前(X)), solutions([X = 利用者])).
 test(mod_ctx_after_redo, (家系:親(_, _), fail ; 名前(X)), solutions([X = 利用者])).
