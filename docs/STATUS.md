@@ -1,5 +1,5 @@
 Phase: 4 in progress (phase 3 done)
-In progress: none (branch phase4-session, kept by the owner)
+In progress: none (origin/main replaced by phase4-session at d729c99; old main kept as main-backup-2026-10-28)
 Done: Logtalk suite pass rate is 90% or more. Version is mosa 0.0.1 (phase 3). Round-trip re-reading keeps the string
 Done: mosatest --suite also writes docs/conformance.json (shields.io endpoint). The README badge reads it from main; the CI macOS job fails on an uncommitted diff
 Done: docs are English-primary with *.ja.md translations (README, AGENTS, SPEC, iso-notes, ADRs, bench); directory READMEs carry both languages
@@ -9,7 +9,7 @@ Done: phase 4 Task 5: use_module/1,2 directive (as, except), loaded once, import
 Done: phase 4 Task 6 (CI green on 3 OSes, run 40650654198): use_module(library(N)) searches $MOSA_LIB then lib/ next to the executable (copied every build). Tests are in tests/cpp/library_path_test.cpp (run with and without MOSA_LIB), not modules.pl, since load errors are diagnostics and lib/ has no modules yet
 Done: loader paths go through mosa::path_from_utf8/utf8_from_path, so Windows opens Japanese file names
 Done: phase 4 Task 7: assert/retract/retractall/clause/abolish/current_predicate and dynamic/multifile take M:, clause heads M:H in files; ops follow own then explicit imports (src/module/target.cpp)
-Next: phase 4 Task 8, current_module/1 and predicate_property/2; ask the owner whether phase4-session replaces origin/main
+Next: phase 4 Task 8, current_module/1 and predicate_property/2
 Open: interpretations left in iso-notes
 Plan (phase 4): docs/superpowers/plans/2026-10-28-phase4-modules.md
 Plan (phase 5, starts after phase 4 exit): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md
