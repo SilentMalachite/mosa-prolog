@@ -1,6 +1,6 @@
 English | [日本語](0006-modules.ja.md)
 
-Status: Proposed (2026-10-28)
+Status: Approved (2026-10-28)
 
 ## Context
 

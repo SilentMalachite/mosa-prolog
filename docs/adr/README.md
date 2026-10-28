@@ -9,4 +9,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0003](0003-execution-ir.md) | Execution IR and trampoline | Approved (2026-10-24) |
 | [0004](0004-clause-database.md) | Location of dynamic clauses and choice point indexes | Approved (2026-10-25) |
 | [0005](0005-streams.md) | Stream representation, defaults, aliases | Approved (2026-10-25) |
-| [0006](0006-modules.md) | Module key, context module in the goal frame, operator scope | Proposed (2026-10-28) |
+| [0006](0006-modules.md) | Module key, context module in the goal frame, operator scope | Approved (2026-10-28) |
