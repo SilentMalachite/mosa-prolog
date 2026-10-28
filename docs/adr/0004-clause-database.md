@@ -1,6 +1,6 @@
 English | [日本語](0004-clause-database.ja.md)
 
-Status: Approved (2026-10-25)
+Status: Approved (2026-10-25). The retract and abolish sentences are replaced by [ADR 0008](0008-logical-update-view.md) (2026-10-28)
 
 ## Context
 
