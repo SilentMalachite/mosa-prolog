@@ -151,12 +151,8 @@ void enter_clause(Impl& machine, const Clause& clause, std::uint64_t goal, std::
 }
 
 void miss_user(Impl& machine, const Goal& goal) {
-  // 他モジュールにあるだけで、user は取り込んでいない。存在エラーにはしない。
-  if (defined_anywhere(machine, goal.name, goal.arity)) {
-    machine.failed = true;
-    return;
-  }
-  // 旗 unknown=fail は、無い述語を失敗にする。error のときは従来の存在エラー。
+  // 7.7.7 b。解決順に無い手続きは、他モジュールにあっても呼び出し側には無い。
+  // unknown=fail のときだけ失敗にし、error では存在エラーにする。
   if (machine.unknown_fail) {
     machine.failed = true;
     return;

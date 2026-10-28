@@ -163,6 +163,7 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 2. That module's default import source (normally `user`; the default for `user` is `system`)
 3. The `system` module (all built-in predicates and control constructs; redefinition raises `permission_error(modify, static_procedure, PI)`)
 
+- If that search finds nothing, the flag `unknown` applies (7.7.7 b). `error` raises `existence_error(procedure, PI)` even when another module defines that name and arity. `fail` makes the call fail. An empty dynamic predicate that the search did find still fails
 - `Module:Goal` runs `Goal` in the context of `Module`. If `Module` is unknown, `existence_error(module, Module)`
 - Predicates created by `dynamic/1`, `assertz/1`, etc. belong to the module that declared or added them. They can also be qualified, as in `assertz(家系:親(a, b))`
 - Arguments specified with `:`, `0`–`9`, `^`, or `//` in `meta_predicate/1` are wrapped as `呼び出し元モジュール:引数` (calling module:argument) at call time. This makes `maplist/2,3`, `findall/3`, `catch/3`, `forall/2`, etc. work correctly across modules

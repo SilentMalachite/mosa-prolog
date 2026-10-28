@@ -12,7 +12,8 @@ test(morning_confirm, (consult_names, consult_family, use_module(家系), 確認
 test(morning_grand, 祖父(太郎, 三郎), true).
 test(morning_lists, (use_module(library(lists)), member(花子, [次郎, 花子])), true).
 test(morning_qualified, 家系:祖父(太郎, 三郎), true).
-test(morning_hidden, \+ 読み(太郎, たろう), true).
+% 人名が公開していても user は取り込んでいない。unknown=error では存在エラー。
+test(morning_hidden, 読み(太郎, たろう), error(existence_error(procedure, 読み/2))).
 test(morning_qualified_read, 人名:読み(太郎, たろう), true).
-% maplist は家系へ入る。user に席が無いと、定義が別モジュールにあっても失敗する。
-test(morning_maplist_stays, \+ maplist(親(太郎), [次郎]), true).
+% maplist は家系へ入る。user の解決順に無い。
+test(morning_maplist_stays, maplist(親(太郎), [次郎]), error(existence_error(procedure, maplist/2))).

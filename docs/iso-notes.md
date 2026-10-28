@@ -209,9 +209,7 @@ A or B?: A: `current_input/1` and `current_output/1` on a closed stream give `ex
 
 ## 7.7.7 b A procedure defined only in another module
 
-13211-1 7.7.7 b with `unknown=error` gives `existence_error(procedure, PI)` when no procedure exists. The phase 4 design says that a bare call to `読み/2`, exported by `人名` but not imported into `user`, fails. `miss_user` in `src/machine/choice.cpp` fails whenever any module defines that name and arity. 13211-2 is the module part, and the current reading is that the procedure exists, but not in the caller's namespace.
-
-A or B?: A: fail (the current implementation and the design document). B: `existence_error(procedure, PI)` whenever the caller's resolution order finds nothing. A until confirmed. B is not implemented.
+Decision (2026-10-28): B. The caller's resolution order is the calling module, its default import, then `system`. When that search finds nothing, the procedure does not exist for the call. With `unknown=error`, the result is `existence_error(procedure, PI)`, including when another module defines that name and arity. With `unknown=fail`, the call fails. An empty dynamic predicate that the search found still fails, because the procedure exists. `Module:Goal` looks up in the named module, so a qualified call still reaches a predicate that is absent from the export list.
 
 ## SPEC section 5: length/2 as "ISO core"
 

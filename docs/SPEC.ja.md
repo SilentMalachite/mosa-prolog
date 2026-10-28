@@ -162,6 +162,7 @@
 2. そのモジュールの既定インポート元（通常は `user`、`user` の既定は `system`）
 3. `system` モジュール（すべての組込述語と制御構造。再定義は `permission_error(modify, static_procedure, PI)`）
 
+- この検索で何も見つからなければ、旗 `unknown` に従う（7.7.7 b）。`error` では、他のモジュールがその名前とアリティを定義していても `existence_error(procedure, PI)` である。`fail` では呼び出しは失敗する。検索で見つかった、節の無い動的述語は、これまでどおり失敗する
 - `Module:Goal` は `Goal` を `Module` の文脈で実行する。`Module` が未知なら `existence_error(module, Module)`
 - `dynamic/1`、`assertz/1` 等が作る述語は、宣言・追加したモジュールに属する。`assertz(家系:親(a, b))` のように限定もできる
 - `meta_predicate/1` で `:`、`0`〜`9`、`^`、`//` と指定された引数は、呼び出し時に `呼び出し元モジュール:引数` に包まれる。これにより `maplist/2,3`、`findall/3`、`catch/3`、`forall/2` などがモジュールをまたいで正しく動く

@@ -10,8 +10,16 @@ consult_kin :- consult('tests/pl/modules/kin.pl').
 consult_kin :- consult('../tests/pl/modules/kin.pl').
 
 test(mod_consult_seen, (consult_kin, current_module(kin)), true).
-% 直前の consult が kin を載せた。選択点の中で同じファイルを読み直すと、今の consult は失敗する。
-test(mod_consult_hides, \+ parent(a, b), true).
+% consult は kin の parent/2 を user の解決順に入れない。unknown=error では存在エラー。
+test(mod_consult_hides, parent(a, b), error(existence_error(procedure, parent/2))).
+% unknown=fail のときは、他モジュールにあっても失敗のまま。旗はテストのあとで戻す。
+test(mod_hidden_unknown_fail, (
+  set_prolog_flag(unknown, fail),
+  catch((parent(a, b) -> R = yes ; R = no), E,
+        (set_prolog_flag(unknown, error), throw(E))),
+  set_prolog_flag(unknown, error),
+  R == no
+), true).
 
 consult_late :- consult('tests/pl/modules/late.pl').
 consult_late :- consult('../tests/pl/modules/late.pl').
@@ -47,8 +55,8 @@ use_greet :- use_module('tests/pl/modules/greet.pl').
 use_greet :- use_module('../tests/pl/modules/greet.pl').
 
 test(mod_use, (use_greet, hello(world)), true).
-% mod_use が greet を載せた。公開していない述語は、ここからは見えない。
-test(mod_use_hides, \+ secret(1), true).
+% mod_use が greet を載せた。公開していない述語は解決順に無く、存在エラーになる。
+test(mod_use_hides, secret(1), error(existence_error(procedure, secret/1))).
 
 use_kin :- use_module('tests/pl/modules/kin.pl').
 use_kin :- use_module('../tests/pl/modules/kin.pl').
@@ -58,21 +66,21 @@ test(mod_use_loaded, (use_kin, parent(a, b)), true).
 use_pair_one :- use_module('tests/pl/modules/pair.pl', [one/1]).
 use_pair_one :- use_module('../tests/pl/modules/pair.pl', [one/1]).
 
-% リストに書いた公開述語だけを取り込む。two/1 は公開されているが、ここからは見えない。
-test(mod_use_list, (use_pair_one, one(1), \+ two(1)), true).
+% リストに書いた公開述語だけを取り込む。two/1 は公開されているが、解決順には無い。
+test(mod_use_list, (use_pair_one, one(1), two(1)), error(existence_error(procedure, two/1))).
 
 use_alias :- use_module('tests/pl/modules/alias.pl', [source_name/1 as local_name]).
 use_alias :- use_module('../tests/pl/modules/alias.pl', [source_name/1 as local_name]).
 
-% 別名で取り込み、元の名前は呼び出し側に置かない。as は大域の演算子ではない。
-test(mod_use_alias, (use_alias, local_name(ok), \+ source_name(ok)), true).
+% 別名で取り込み、元の名前は呼び出し側の解決順に置かない。as は大域の演算子ではない。
+test(mod_use_alias, (use_alias, local_name(ok), source_name(ok)), error(existence_error(procedure, source_name/1))).
 test(mod_as_not_op, (open_string('a as b.', S), read(S, _)), error(syntax_error(_))).
 
 use_shade :- use_module('tests/pl/modules/shade.pl', except([dropped/1])).
 use_shade :- use_module('../tests/pl/modules/shade.pl', except([dropped/1])).
 
-% except は書いた公開述語を外し、残りの公開述語を取り込む。
-test(mod_use_except, (use_shade, kept(1), \+ dropped(1)), true).
+% except は書いた公開述語を外し、残りの公開述語を取り込む。外した名前は存在エラー。
+test(mod_use_except, (use_shade, kept(1), dropped(1)), error(existence_error(procedure, dropped/1))).
 
 use_left :- use_module('tests/pl/modules/left.pl').
 use_left :- use_module('../tests/pl/modules/left.pl').
@@ -109,10 +117,10 @@ test(mod_lists_length, (use_lists_length, current_predicate(length/2), length([a
 
 % 公開リストに無い述語も、Module:Goal はそのモジュールで実行する。
 test(mod_qualify_hidden, greet:secret(1), true).
-% 成功したあとは呼び出し元に戻る。裸の名前では、公開していない述語は見えない。
-test(mod_qualify_restores, (greet:secret(1), \+ secret(1)), true).
+% 成功したあとは呼び出し元に戻る。裸の名前は解決順に無く、存在エラーになる。
+test(mod_qualify_restores, (greet:secret(1), secret(1)), error(existence_error(procedure, secret/1))).
 % 失敗したときも呼び出し元に戻る。戻らないと secret/1 が greet のまま成功する。
-test(mod_qualify_fail_restores, (\+ greet:secret(2), \+ secret(1)), true).
+test(mod_qualify_fail_restores, (\+ greet:secret(2), secret(1)), error(existence_error(procedure, secret/1))).
 % ロードしていないモジュールは手続きの存在エラーではなく、モジュールの存在エラー。
 test(mod_qualify_unknown, phase4_no_such:true, error(existence_error(module, phase4_no_such))).
 % モジュールが変数なら、型を見る前に instantiation_error。
@@ -121,11 +129,11 @@ test(mod_qualify_var, _:true, error(instantiation_error)).
 test(mod_qualify_type, 1:true, error(type_error(atom, 1))).
 % M1:M2:Goal の呼び出し元は M2。user には secret/1 が無い。
 test(mod_qualify_inner, user:greet:secret(1), true).
-test(mod_qualify_outer, \+ greet:user:secret(1), true).
+test(mod_qualify_outer, greet:user:secret(1), error(existence_error(procedure, secret/1))).
 % モジュールが正しくても、ゴールが callable でなければ type_error。
 test(mod_qualify_goal, greet:1, error(type_error(callable, 1))).
-% 例外で抜けても呼び出し元に戻る。戻らないと回復ゴールが greet の secret/1 を見る。
-test(mod_qualify_throw, (catch(greet:throw(ball), ball, \+ secret(1))), true).
+% 例外で抜けても呼び出し元に戻る。戻らないと回復ゴールが greet の secret/1 を見て成功する。
+test(mod_qualify_throw, (catch(greet:throw(ball), ball, secret(1))), error(existence_error(procedure, secret/1))).
 % user と system もロード済みモジュールである。
 test(mod_qualify_user, user:hello(world), true).
 test(mod_qualify_system, system:true, true).
@@ -168,8 +176,8 @@ test(mod_meta_findall, (use_expose, expose_items(Xs), Xs == [a]), true).
 % すでに限定したゴールを call/1 に渡しても、呼んだ側で包み直さない。
 test(mod_meta_call_qual, call(greet:secret(1)), true).
 
-% 修飾した assertz は名付けたモジュールへ書く。user には席を作らない。
-test(mod_assert_qualified, (assertz(kin:spare(1)), kin:spare(1), \+ spare(1)), true).
+% 修飾した assertz は名付けたモジュールへ書く。user の解決順には入らない。
+test(mod_assert_qualified, (assertz(kin:spare(1)), kin:spare(1), spare(1)), error(existence_error(procedure, spare/1))).
 % 節の頭部に付いた修飾も、同じモジュールの規則になる。
 test(mod_assert_rule, (assertz((kin:ruled(X) :- X = 1)), kin:ruled(1)), true).
 % 修飾した retract は、そのモジュールの節を消し、user の同名述語にはしない。
@@ -197,8 +205,8 @@ test(mod_assert_import, assertz(parent(z, z)), error(permission_error(modify, st
 test(mod_assert_import_keeps, (kin:parent(a, b), \+ kin:parent(z, z)), true).
 % 節の本体で足す節は、その節を定義したモジュールに入る。
 test(mod_assert_home, (
-  assertz((kin:add_note :- assertz(noted(9)))), kin:add_note, kin:noted(9), \+ noted(9)
-), true).
+  assertz((kin:add_note :- assertz(noted(9)))), kin:add_note, kin:noted(9), noted(9)
+), error(existence_error(procedure, noted/1))).
 % dynamic/1 は組込なので、同名の節は足せない。
 test(mod_assert_dynamic, assertz(dynamic(a)), error(permission_error(modify, static_procedure, dynamic/1))).
 
@@ -249,13 +257,13 @@ test(mod_multifile_owner_absent, (
 consult_mf_local :- consult('tests/pl/modules/mf_local.pl').
 consult_mf_local :- consult('../tests/pl/modules/mf_local.pl').
 
-% 裸の節は、足す側のファイル自身のモジュールに属する。
+% 裸の節は、足す側のファイル自身のモジュールに属する。持つ側の解決順には無い。
 test(mod_multifile_local, (
   consult_mf_local,
   findall(X, mf_own:shared(X), L), L == [1, 2, 4],
   mf_local:mine(7),
-  \+ mf_own:mine(_)
-), true).
+  mf_own:mine(_)
+), error(existence_error(procedure, mine/1))).
 % 取り込みだけの枠は節を持たない。clause は公開した側を読まず、改変の許可エラーにする。
 test(mod_clause_import, clause(parent(a, _), _), error(permission_error(modify, static_procedure, parent/2))).
 % 修飾した clause は、名付けたモジュールの節を読む。
@@ -456,8 +464,8 @@ use_late_exp :- use_module('../tests/pl/modules/late_exp.pl').
 
 % module/2 のあとで公開した述語は、そのあとの取り込みから見える。
 test(export_later, (use_late_exp, late_added(2)), true).
-% 指示に書いた述語だけが増える。書いていない述語は見えない。
-test(export_later_hides, \+ late_private(3), true).
+% 指示に書いた述語だけが増える。書いていない述語は解決順に無く、存在エラーになる。
+test(export_later_hides, late_private(3), error(existence_error(procedure, late_private/1))).
 
 use_exp_box :- use_module('tests/pl/modules/exp_box.pl').
 use_exp_box :- use_module('../tests/pl/modules/exp_box.pl').
@@ -473,7 +481,7 @@ test(export_goal, (
   exp_later:see_box(2)
 ), true).
 % すでに取り込んだ user は、あとから足した公開を受け取らない。先の公開は残る。
-test(export_goal_keeps, (old_box(1), \+ fresh_box(2)), true).
+test(export_goal_keeps, (old_box(1), fresh_box(2)), error(existence_error(procedure, fresh_box/1))).
 test(export_var, export(_), error(instantiation_error)).
 test(export_type, export(1), error(type_error(predicate_indicator, 1))).
 test(export_name_var, export(_/1), error(instantiation_error)).
@@ -573,8 +581,8 @@ test(decl_grand, (
 test(decl_lists, 家系:member(三郎, [次郎, 三郎]), true).
 % 別名は家系の中だけ。元の名前は、except が別の席を作る。
 test(decl_alias, 家系:分解(太郎, 太, 郎), true).
-% except は読みを外し、残った公開述語は元の名前で入る。
-test(decl_except, (家系:姓名分解(太郎, 太, 郎), \+ 家系:読み(太郎, たろう)), true).
+% except は読みを外し、残った公開述語は元の名前で入る。外した呼び出しは存在エラー。
+test(decl_except, (家系:姓名分解(太郎, 太, 郎), 家系:読み(太郎, たろう)), error(existence_error(procedure, 読み/2))).
 % 節が無くても、宣言した頭部がメタ性質になる。1 は : でも 0 でもない。
 test(decl_meta, predicate_property(家系:全員(_, _), meta_predicate(全員(1, ?))), true).
 % module/2 の後の export は、あとから use_module した側に届く。節はまだ無い。

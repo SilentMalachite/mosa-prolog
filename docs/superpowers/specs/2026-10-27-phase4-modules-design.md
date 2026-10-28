@@ -9,7 +9,7 @@ English is the canonical text. The Japanese translation is `2026-10-27-phase4-mo
 
 Phase 4 adds the module system of `docs/SPEC.md` section 5 to the interpreter. The reader is the agent who implements one session at a time, and the owner who approves ADR 0006 before the lookup code changes.
 
-The picture of done is one terminal session. `consult` loads a module file and leaves the toplevel namespace untouched. `use_module` brings the exported predicates in. A goal inside the module calls `maplist` and an imported alias, and those calls reach the module that wrote them. `Module:Goal` runs in the named module. A predicate that was not imported is invisible under its bare name. Importing the same predicate from two modules aborts that load.
+The picture of done is one terminal session. `consult` loads a module file and leaves the toplevel namespace untouched. `use_module` brings the exported predicates in. A goal inside the module calls `maplist` and an imported alias, and those calls reach the module that wrote them. `Module:Goal` runs in the named module. A predicate that was not imported is absent from the caller's resolution order, so with `unknown=error` the bare call raises `existence_error(procedure, PI)`. Importing the same predicate from two modules aborts that load.
 
 ## Scale
 
@@ -96,14 +96,14 @@ true.
 ?- 家系:祖父(太郎, Z).
 Z = 三郎.
 ?- 読み(太郎, Y).
-false.
+警告: ゴールは例外を送出しました: error(existence_error(procedure,読み/2),context(読み/2,_))
 ?- 人名:読み(太郎, Y).
 Y = たろう.
 ```
 
 A third module that imports `親/2` from two modules fails while loading. The Formal term is `permission_error(import_into, procedure, 親/2)`. That module's clauses are absent afterwards, and `current_module/1` does not answer that module.
 
-`読み/2` is exported by `人名`. The bare call fails because `user` did not import it.
+`読み/2` is exported by `人名`. The bare call raises `existence_error(procedure, 読み/2)` because `user` did not import it and `unknown` is `error`.
 
 ## Decisions from the conversation
 

@@ -413,7 +413,6 @@ struct LoadHome {
 
 [[nodiscard]] Predicate* predicate_in(Impl& machine, std::uint32_t home, std::uint32_t name,
                                       std::uint16_t arity);
-[[nodiscard]] bool defined_anywhere(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] bool module_loaded(const Impl& machine, std::uint32_t name);
 
 struct Goal {
