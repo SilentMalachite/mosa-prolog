@@ -628,6 +628,25 @@ void apply_condition(Machine& machine, const LgtCase& item, bool& dead, bool& sk
   }
 }
 
+// lgtunit の run_test/2 は 1 件ごとに現在の入出力を保存して戻す。^^suppress_text_output を次の件へ漏らさない。
+// テストが閉じた流れは戻せないので、その側だけ標準の流れにする。
+struct CurrentStreams {
+  std::size_t input = 0;
+  std::size_t output = 1;
+};
+
+CurrentStreams save_current(Machine& machine) {
+  const Impl& impl = engine_impl(machine);
+  return CurrentStreams{impl.current_in, impl.current_out};
+}
+
+void restore_current(Machine& machine, const CurrentStreams& saved) {
+  Impl& impl = engine_impl(machine);
+  const auto usable = [&impl](std::size_t index) { return index < impl.streams.size() && !impl.streams[index].closed; };
+  impl.current_in = usable(saved.input) ? saved.input : 0;
+  impl.current_out = usable(saved.output) ? saved.output : 1;
+}
+
 void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& chosen, bool setup, bool cleanup,
                const LgtIo* io, LgtRun& run) {
   bool dead = false;
@@ -643,7 +662,9 @@ void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& ch
     bool skip = false;
     apply_condition(machine, item, dead, skip, run);
     if (skip) continue;
+    const CurrentStreams saved = save_current(machine);
     const CaseEnd end = run_one(machine, item, setup, cleanup, io);
+    restore_current(machine, saved);
     if (end.pass) ++run.passed;
     else note_failure(run, item, end.actual);
     dead = end.dead;

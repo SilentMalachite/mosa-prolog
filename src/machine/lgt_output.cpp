@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace mosa::lgtio {
@@ -88,6 +90,51 @@ LgtSuper check_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std:
   return bound_ok();
 }
 
+// lgtunit は null デバイスを開いて set_output する。ここではどこにも書き出さないメモリの流れで代える。
+LgtSuper suppress_obs(Machine& machine) {
+  Impl& impl = engine_impl(machine);
+  Stream made;
+  made.kind = Stream::Kind::Memory;
+  made.mode = Stream::Mode::Write;
+  impl.streams.push_back(std::move(made));
+  impl.current_out = impl.streams.size() - 1;
+  return bound_ok();
+}
+
+Cell char_list(Heap& heap, std::string_view bytes) {
+  std::vector<Cell> chars;
+  std::size_t index = 0;
+  while (index < bytes.size()) {
+    const std::size_t width = scalar_width(bytes, index);
+    chars.push_back(heap.atom(heap.atoms().intern(std::string{bytes.substr(index, width)})));
+    index += width;
+  }
+  Cell tail = heap.atom(heap.atoms().intern("[]"));
+  for (auto item = chars.rbegin(); item != chars.rend(); ++item) tail = heap.list(*item, tail);
+  return tail;
+}
+
+// lgtunit と同じく、流れを閉じてから中身を文字のリストで返す。閉じれば現在の出力は user_output へ戻る。
+LgtSuper contents_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, const std::vector<VarName>& names) {
+  Impl& impl = engine_impl(machine);
+  const auto index = stream_at(impl, goal, arity == 1 ? 1 : 2, false);
+  if (!index || *index >= impl.streams.size()) return bound_no();
+  const Stream& stream = impl.streams[*index];
+  if (stream.closed || stream.kind != Stream::Kind::File) return bound_no();
+  if (arity == 3) {
+    IoOpt opt;
+    if (!read_options(machine.heap(), machine.heap().arg(goal, 2), opt)) return bound_no();
+  }
+  const std::string bytes = whole_bytes(stream);
+  const auto path = stream.path.empty() ? locate_file(io, "test_output.text") : path_from_utf8(stream.path);
+  if (!path.empty()) drop_file(impl, path);
+  Heap& heap = machine.heap();
+  const Cell slot = heap.arg(goal, arity == 1 ? 0 : 1);
+  // text_output_contents(_) は中身を捨てるだけ。名前の無い変数には束縛を返さない。
+  if (heap.unbound(heap.deref(slot)) && var_name(heap, slot, names).empty()) return bound_ok();
+  return bind_slot(machine, slot, char_list(heap, bytes), names);
+}
+
 }  // namespace
 
 LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term, const std::vector<VarName>& names) {
@@ -110,6 +157,10 @@ LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term, const st
   }
   if (named_goal(heap, term, "check_binary_input", arity) && (arity == 1 || arity == 2)) {
     return check_obs(machine, io, term, arity, "test_input.binary", true, false);
+  }
+  if (named_goal(heap, term, "suppress_text_output", arity) && arity == 0) return suppress_obs(machine);
+  if (named_goal(heap, term, "text_output_contents", arity) && arity >= 1 && arity <= 3) {
+    return contents_obs(machine, io, term, arity, names);
   }
   return {};
 }

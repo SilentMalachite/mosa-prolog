@@ -108,11 +108,11 @@
 - Consumes: `lgt_io.cpp` の `^^` 一時ファイルの仕組み
 - Produces: 試験器の中だけで見える `suppress_text_output/0`、`text_output_contents/1`、`text_output_contents/2`。意味は固定コミット `4decb64` の `lgtunit.lgt` に合わせ、`current_predicate/1` には出さない
 
-- [ ] **Step 1:** 小さな `tests.lgt` を 3 つ書いた失敗するテストを足す。`output_suppressed`: `test(a, error(instantiation_error)) :- ^^suppress_text_output, write_term(_, [quoted(_)])` が合格に数えられる。`output_contents`: `test(b, true(Cs == [f,o,o])) :- ^^set_text_output(''), write(foo), ^^text_output_contents(Cs)` が合格。`output_contents_stream`: 2 引数版で同じ
-- [ ] **Step 2:** `ctest --test-dir build -R conformance_io_test` が 3 件失敗することを見る
-- [ ] **Step 3:** 移動だけのコミットを先に作り、次に 3 述語を足す
-- [ ] **Step 4:** テストとスイートを流し、`write_term_3` の 103〜113 が合格に移ったことを報告書で見る
-- [ ] **Step 5:** コミット `[phase5] 試験器に suppress_text_output と text_output_contents を足す（conformance_io_test、合格 +N）`
+- [x] **Step 1:** 小さな `tests.lgt` を 3 つ書いた失敗するテストを足す。`output_suppressed`: `test(a, error(instantiation_error)) :- ^^suppress_text_output, write_term(_, [quoted(_)])` が合格に数えられる。`output_contents`: `test(b, true(Cs == [f,o,o])) :- ^^set_text_output(''), write(foo), ^^text_output_contents(Cs)` が合格。`output_contents_stream`: 2 引数版で同じ
+- [x] **Step 2:** `ctest --test-dir build -R conformance_io_test` が 3 件失敗することを見る
+- [x] **Step 3:** 移動だけのコミットを先に作り、次に 3 述語を足す
+- [x] **Step 4:** テストとスイートを流し、`write_term_3` の 103〜113 が合格に移ったことを報告書で見る
+- [x] **Step 5:** コミット `[phase5] 試験器に suppress_text_output と text_output_contents を足す（conformance_io_test、合格 +N）`
 - [ ] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
 - [ ] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
 
@@ -319,22 +319,17 @@
 
 ## 仕分け表
 
-2026-10-28、フェーズ4終了時の基準値 2041/2171（94.0%）の不合格 130 件。`docs/conformance.md` の「不合格」節を 1 行 1 件で写した。「別欄」（実行しないディレクトリ）は含めない。Q の備考は `docs/iso-notes.md` の見出しで、「解釈の違い」は決定済みで不合格のまま残すもの。
+2026-10-28、フェーズ4終了時の基準値 2041/2171（94.0%）の不合格 130 件。`docs/conformance.md` の「不合格」節を 1 行 1 件で写した。「別欄」（実行しないディレクトリ）は含めない。Q の備考は `docs/iso-notes.md` の見出しで、「解釈の違い」は決定済みで不合格のまま残すもの。合格に移った行は表から消す。
 
-内訳: S 47、N 36、Q 31、I 15、X 1。
+内訳（Task 1 時点）: S 47、N 36、Q 31、I 15、X 1。
+内訳（Task 2 Step 5 後、残り 111 件）: S 24、N 36、Q 35、I 15、X 1。`lgt_write_term_3_043`、`044`、`065`、`066` は出力の捕捉が出来て、変数を `_` だけで書く件として Q に移った。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
 | パス | テスト名 | 類 | タスク | 備考 |
 | --- | --- | --- | --- | --- |
-| `control/call_1` | `iso_call_1_05` | S | 2 | 出力捕捉述語が無い |
-| `control/call_1` | `iso_call_1_06` | S | 2 | 出力捕捉述語が無い |
-| `control/call_1` | `iso_call_1_09` | S | 2 | 出力捕捉述語が無い |
-| `control/call_1` | `iso_call_1_10` | S | 2 | 出力捕捉述語が無い |
-| `control/call_1` | `iso_call_1_14` | S | 2 | 出力捕捉述語が無い |
 | `control/call_1` | `lgt_call_1_17` | Q | 8 | 7.8.3 call/1 and multifile/discontiguous predicates with no clauses |
 | `control/call_1` | `lgt_call_1_18` | Q | 8 | 7.8.3 call/1 and multifile/discontiguous predicates with no clauses |
-| `control/catch_3` | `iso_catch_3_07` | S | 2 | 出力捕捉述語が無い |
 | `control/catch_3` | `lgt_catch_3_13` | S | 2 | 試験器に `ignore/1` と出力捕捉が無い |
 | `control/if_3` | `if_3_01` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_02` | N | 8 | Section 3 if/3 |
@@ -383,7 +378,6 @@
 | `predicates/current_input_1` | `sics_current_input_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_input_1` | `sics_current_input_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
 | `predicates/current_input_1` | `lgt_current_input_1_06` | I | 4 | `ground/1` が無い |
-| `predicates/current_op_3` | `iso_current_op_3_40` | S | 2 | 出力捕捉述語が無い |
 | `predicates/current_output_1` | `sics_current_output_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_output_1` | `sics_current_output_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
 | `predicates/current_output_1` | `sics_current_output_1_06` | I | 4 | `ground/1` が無い |
@@ -408,22 +402,10 @@
 | `predicates/stream_property_2` | `lgt_stream_property_2_29` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
 | `predicates/stream_property_2` | `lgt_stream_property_2_30` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
 | `predicates/stream_property_2` | `lgt_stream_property_2_31` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
-| `predicates/write_term_3` | `lgt_write_term_3_043` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `lgt_write_term_3_044` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `lgt_write_term_3_065` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `lgt_write_term_3_066` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_103` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_104` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_105` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_106` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_107` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_108` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_109` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_110` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_111` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `sics_write_term_3_112` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `lgt_write_term_3_113` | S | 2 | 出力捕捉述語が無い |
-| `predicates/write_term_3` | `lgt_write_term_3_117` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_043` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
+| `predicates/write_term_3` | `lgt_write_term_3_044` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
+| `predicates/write_term_3` | `lgt_write_term_3_065` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
+| `predicates/write_term_3` | `lgt_write_term_3_066` | Q | 8 | 7.10.5 a Writing a variable that occurs once |
 | `predicates/write_term_3` | `lgt_write_term_3_118` | I | 5 | 書き出し選択肢の検査 |
 | `predicates/write_term_3` | `lgt_write_term_3_119` | I | 5 | 書き出し選択肢の検査 |
 | `predicates/write_term_3` | `lgt_write_term_3_120` | I | 5 | 書き出し選択肢の検査 |

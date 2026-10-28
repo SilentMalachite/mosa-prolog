@@ -444,3 +444,9 @@ A or B?: A: keep `eof_code` and `write`. B: `user_input` has `eof_action(reset)`
 ## Spec Section 4: So characters are symbol characters
 
 `lgt_unicode_escape_sequence_full_05` expects `writeq('🀙🀚🀛🀜🀝🀞🀟🀠')` to quote the atom. SPEC Section 4 makes non-ASCII characters in `So` symbol characters, so these 8 characters form a symbol-character atom (6.4.2), and `writeq` (7.10.5) writes it without quotes. The row stays failing as a difference in interpretation. This follows the approved SPEC, so no question is open.
+
+## 7.10.5 a Writing a variable that occurs once
+
+`lgt_write_term_3_043`, `044`, `065`, and `066` expect a written variable to be `_` followed by at least one more character. Mosa writes a variable that occurs once in the term as `_` alone, and a variable that occurs more than once as `_G` followed by a number (`f(_G1,_G1,_)`). 7.10.5 a says only that the text of a variable is implementation dependent and begins with `_`.
+
+A or B?: A: keep `_` for a variable that occurs once (the current writer). B: give every variable a name with at least one character after `_`, such as `_G1`. A until confirmed.

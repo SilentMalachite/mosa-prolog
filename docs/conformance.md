@@ -1,16 +1,10 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2041
-合格率: 94.0
+合格数: 2060
+合格率: 94.9
 不合格:
-control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_09 error(instantiation_error) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_10 errors([type_error(callable,1),type_error(callable,:(user,1))]) suppress_text_output/0
-control/call_1/tests.lgt iso_call_1_14 errors([type_error(callable,(write(3),1)),type_error(callable,1)]) suppress_text_output/0
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
-control/catch_3/tests.lgt iso_catch_3_07 true(C==c) suppress_text_output/0
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/if_3/tests.lgt if_3_01 true existence_error(procedure,if/3)
 control/if_3/tests.lgt if_3_02 true existence_error(procedure,if/3)
@@ -59,7 +53,6 @@ predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char,Code0),c
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
 predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure,ground/1)
-predicates/current_op_3/tests.lgt iso_current_op_3_40 true((Contents==[b,a,z,q,u,u,x];Contents==[q,u,u,x,b,a,z])) text_output_contents/1
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_output_1/tests.lgt sics_current_output_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
 predicates/current_output_1/tests.lgt sics_current_output_1_06 true existence_error(procedure,ground/1)
@@ -84,22 +77,10 @@ predicates/stream_property_2/tests.lgt lgt_stream_property_2_10c true(Mode==appe
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_29 true(ground(Position)) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_30 true(ground(Position)) fail
 predicates/stream_property_2/tests.lgt lgt_stream_property_2_31 true(ground(Position)) fail
-predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars) text_output_contents/2
-predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) text_output_contents/2
-predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) text_output_contents/1
-predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) text_output_contents/1
-predicates/write_term_3/tests.lgt sics_write_term_3_103 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_104 error(domain_error(write_option,quoted(fail))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_105 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_106 error(domain_error(write_option,ignore_ops(fail))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_107 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_108 error(domain_error(write_option,numbervars(fail))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_109 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_110 error(domain_error(write_option,variable_names(a))) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_111 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt sics_write_term_3_112 error(instantiation_error) suppress_text_output/0
-predicates/write_term_3/tests.lgt lgt_write_term_3_113 error(domain_error(write_option,variable_names(['A'=_|a]))) suppress_text_output/0
-predicates/write_term_3/tests.lgt lgt_write_term_3_117 subsumes(['1','.','0'|_],Contents) text_output_contents/1
+predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) fail
+predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_118 true(Assertion) domain_error(write_option,quoted(false))
 predicates/write_term_3/tests.lgt lgt_write_term_3_119 true(Assertion) domain_error(write_option,quoted(true))
 predicates/write_term_3/tests.lgt lgt_write_term_3_120 true(Assertion) domain_error(write_option,numbervars(false))
