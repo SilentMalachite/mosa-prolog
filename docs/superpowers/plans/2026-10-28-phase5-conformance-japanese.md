@@ -98,7 +98,7 @@
 - [ ] **Step 3:** N の群ごとに 1 つずつ、`docs/iso-notes.md` に「A: SPEC 外なので実装しない（不合格のまま残す） B: SPEC に足して実装する」を書く。持ち主への質問は 1 回に 1 つ
 - [ ] **Step 4:** コミット `[phase5] 準拠スイートの基準値と仕分け表を書く（mosatest --suite で N/D）`
 
-### Task 2: lgtunit の出力捕捉述語
+### Task 2: lgtunit の出力捕捉述語とライブラリの取り込み
 
 **Files:**
 - Create: `src/machine/lgt_output.cpp`（`lgt_io.cpp` から出力まわりを先に移す）
@@ -113,6 +113,8 @@
 - [ ] **Step 3:** 移動だけのコミットを先に作り、次に 3 述語を足す
 - [ ] **Step 4:** テストとスイートを流し、`write_term_3` の 103〜113 が合格に移ったことを報告書で見る
 - [ ] **Step 5:** コミット `[phase5] 試験器に suppress_text_output と text_output_contents を足す（conformance_io_test、合格 +N）`
+- [ ] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
+- [ ] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
 
 ### Task 3: `=~=` を lgtunit の定義に合わせる
 

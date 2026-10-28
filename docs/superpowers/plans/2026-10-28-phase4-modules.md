@@ -78,14 +78,14 @@
   - 退けた案: フレームに 5 語目を足す（全フレームが 1 語太る）、読み込み時に述語の番号へ解決してフレームに入れる（後から定義した述語と `assert` が見えない）
   - Consequences: フェーズ6の `mosac` は同じ位置に文脈モジュールを書く。フェーズ7の GC はこの語を項として走査しない
 - [ ] **Step 2:** iso-notes に次の問いを 1 見出し 1 問で書く（推奨は A）
-  - `Section 5 Autoload`: A: ライブラリの述語は `use_module` しないと見えない B: 起動時に 6 モジュールを `user` へ取り込む
+  - `Section 5 Autoload`: 決定済み（2026-10-28、A: ライブラリの述語は `use_module` しないと見えない）。ここでは書かない
   - `Section 5 existence_error PI`: A: 文脈が `user` なら `N/A`、それ以外は `M:N/A` B: 常に `N/A`
   - `Section 5 import conflict`: A: `permission_error(import_into, procedure, N/A)` B: `permission_error(import, procedure, M:N/A)`
   - `Section 5 Module:Goal type`: A: `M` が原子でなければ `type_error(atom, M)` B: `type_error(module, M)`
   - `Section 5 Operators`: A: `meta_predicate` を `op(1150, fx)`、`as` を `op(700, xfx)` として `system` の演算子表に足す B: 足さず、宣言は `meta_predicate(...)` の形だけ受ける
   - `8.4.3 sort/2`: SPEC 第7節の段階表に ISO の `sort/2` が無い。A: 段階 G の `keysort/2` と同じく Task 12 で `system` に作る B: フェーズ5へ回す
   - `Section 7 forall/2`: 段階 G にあるが第5節の 6 モジュールの表に無い。A: `system` に作る B: 作らない
-- [ ] **Step 3:** 持ち主の承認と回答を待つ。ADR の Status 行が Approved になり、7 問の Decision が書かれるまで Task 2 以降のコードを書かない
+- [ ] **Step 3:** 持ち主の承認と回答を待つ。ADR の Status 行が Approved になり、6 問の Decision が書かれるまで Task 2 以降のコードを書かない
 - [ ] **Step 4:** コミット `[phase4] ADR 0006 モジュールの表現と解釈の問いを書く（承認済み）`
 
 ### Task 2: 述語の鍵とフレームに文脈モジュールを足す（振る舞いは変えない）
@@ -249,7 +249,7 @@
 **Interfaces:**
 - Produces: モジュール `lists` が `append/3`、`member/2`、`memberchk/2`、`length/2`、`nth0/3`、`nth1/3`、`last/2`、`reverse/2`、`msort/2`、`sum_list/2`、`max_list/2`、`list_to_set/2` を公開する。`length/2` は `system` にあり、`lists` の公開リストに `system` の述語を書いても衝突にしない
 
-- [ ] **Step 1:** 8.4.4.4（`keysort/2`）と 8.4.3.4（`sort/2`）の Examples を写し、ライブラリの各述語に 1 つ以上のテストを書く。`length_neg`: `length(L, -1)` → `domain_error(not_less_than_zero, -1)`。`length_type`: `length(a, N)` → `type_error(list, a)`。`length_gen`: `length(L, 2)` が `L = [_, _]`。`lists_needs_use`: Task 1 の Autoload が A なら、`use_module` 前の `append/3` は `existence_error`
+- [ ] **Step 1:** 8.4.4.4（`keysort/2`）と 8.4.3.4（`sort/2`）の Examples を写し、ライブラリの各述語に 1 つ以上のテストを書く。`length_neg`: `length(L, -1)` → `domain_error(not_less_than_zero, -1)`。`length_type`: `length(a, N)` → `type_error(list, a)`。`length_gen`: `length(L, 2)` が `L = [_, _]`。`lists_needs_use`: iso-notes `Section 5 Autoload` の決定 A により、`use_module` 前の `append/3` は `existence_error`
 - [ ] **Step 2:** 失敗を見る。`length/2` と `keysort/2` を C++ で、残りを Prolog で書く。`msort/2` は `keysort/2` に頼らずに書く（安定でなくてよいが重複を残す）
 - [ ] **Step 3:** テストを流す。コミット `[phase4] library(lists) と length/2、keysort/2 を実装（8.4 の Examples と lib_lists.pl）`
 

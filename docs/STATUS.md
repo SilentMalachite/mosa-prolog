@@ -9,5 +9,5 @@ Done: docs are English-primary with *.ja.md translations (README, AGENTS, SPEC, 
 Next: phase 4, modules
 Open: interpretations left in iso-notes
 Done: fixed SPEC typos in both languages: section 7 atom_length(X, foo) example, `char_conversion` in section 4, Japanese tests live in tests/pl/japanese.pl
-Plan (phase 4, next): docs/superpowers/plans/2026-10-28-phase4-modules.md. Task 1 (ADR 0006 and 7 iso-notes questions) needs owner approval before any code
+Plan (phase 4, next): docs/superpowers/plans/2026-10-28-phase4-modules.md. Task 1 (ADR 0006 and 6 iso-notes questions) needs owner approval before any code
 Plan (phase 5, starts after phase 4 exit): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md
