@@ -46,7 +46,20 @@ void remember_existing(std::vector<Snapshot>& snapshots, const Predicate& predic
   shot.arity = predicate.arity;
   shot.clauses = predicate.clauses;
   shot.dynamic = predicate.dynamic;
+  shot.imported = predicate.imported;
+  shot.origin = predicate.origin;
+  shot.origin_name = predicate.origin_name;
+  shot.meta = predicate.meta;
   snapshots.push_back(std::move(shot));
+}
+
+void copy_shot(Predicate& predicate, const Snapshot& shot) {
+  predicate.clauses = shot.clauses;
+  predicate.dynamic = shot.dynamic;
+  predicate.imported = shot.imported;
+  predicate.origin = shot.origin;
+  predicate.origin_name = shot.origin_name;
+  predicate.meta = shot.meta;
 }
 
 void drop_origin(Predicate& predicate, std::string_view origin) {
@@ -91,6 +104,42 @@ bool replace_file_clauses(Impl& machine, std::vector<Snapshot>& snapshots, std::
   return true;
 }
 
+// 節を落としたあとの空席は、同じ名前の取り込みを衝突にする。動的な空席は定義なので残す。
+void drop_empty_locals(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t module) {
+  std::vector<Predicate> kept;
+  kept.reserve(machine.predicates.size());
+  for (Predicate& predicate : machine.predicates) {
+    const bool hole = predicate.home == module && !predicate.imported && !predicate.dynamic &&
+                      predicate.clauses.empty();
+    if (!hole) {
+      kept.push_back(std::move(predicate));
+      continue;
+    }
+    remember_existing(snapshots, predicate);
+  }
+  machine.predicates = std::move(kept);
+}
+
+// ファイルの use_module はやり直す。残った席は、新しい局所節より先に古い出所を呼ぶ。
+void drop_imports(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t module) {
+  std::vector<Predicate> kept;
+  kept.reserve(machine.predicates.size());
+  for (Predicate& predicate : machine.predicates) {
+    if (predicate.home == module && predicate.imported) {
+      remember_existing(snapshots, predicate);
+      continue;
+    }
+    kept.push_back(std::move(predicate));
+  }
+  machine.predicates = std::move(kept);
+}
+
+void release_surface(Impl& machine, std::uint32_t module) {
+  std::erase_if(machine.exports, [module](const ExportMark& item) { return item.module == module; });
+  std::erase_if(machine.exported_ops, [module](const ExportedOp& item) { return item.module == module; });
+  std::erase_if(machine.module_ops, [module](const ModuleOps& item) { return item.home == module; });
+}
+
 }  // namespace
 
 ReloadFrame::ReloadFrame(Impl& machine) : machine(machine), saved(machine.reload_picture) {
@@ -106,6 +155,10 @@ bool begin_file_reload(Impl& machine, std::vector<Snapshot>& snapshots) {
   if (!module_at(machine, machine.load_origin, module)) return true;
   if (!replace_file_clauses(machine, snapshots, machine.load_origin)) return false;
   take_picture(machine, module);
+  drop_imports(machine, snapshots, module);
+  drop_empty_locals(machine, snapshots, module);
+  // 写しは失敗で戻す。成功したファイルの公開と演算子は、読み直した宣言だけにする。
+  release_surface(machine, module);
   return true;
 }
 
@@ -134,22 +187,51 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_
   shot.name = name;
   shot.arity = arity;
   shot.created = predicate == nullptr;
-  if (predicate != nullptr) {
-    shot.clauses = predicate->clauses;
-    shot.dynamic = predicate->dynamic;
-  }
-  snapshots.push_back(std::move(shot));
+  if (predicate != nullptr) remember_existing(snapshots, *predicate);
+  else snapshots.push_back(std::move(shot));
 }
 
-void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
-  for (const Snapshot& shot : snapshots) {
-    if (shot.created) continue;
-    Predicate* predicate = predicate_in(machine, shot.home, shot.name, shot.arity);
-    if (predicate == nullptr) continue;
-    predicate->clauses = shot.clauses;
-    predicate->dynamic = shot.dynamic;
+void restore_one(Impl& machine, const Snapshot& shot) {
+  Predicate* predicate = predicate_in(machine, shot.home, shot.name, shot.arity);
+  if (predicate == nullptr) {
+    Predicate made;
+    made.home = shot.home;
+    made.name = shot.name;
+    made.arity = shot.arity;
+    copy_shot(made, shot);
+    machine.predicates.push_back(std::move(made));
+    return;
   }
-  machine.predicates.resize(previous_size);
+  copy_shot(*predicate, shot);
 }
+
+void rollback(Impl& machine, const std::vector<Snapshot>& snapshots) {
+  // この読み込みが足した述語だけ消す。入れ子が確定したモジュールの節は別の番号なので残る。
+  const auto failed = machine.current_load;
+  if (failed != 0) {
+    std::erase_if(machine.predicates, [failed](const Predicate& predicate) { return predicate.load_id == failed; });
+  }
+  for (const Snapshot& shot : snapshots) {
+    if (!shot.created) restore_one(machine, shot);
+  }
+}
+
+void stamp_load(Impl& machine, Predicate& predicate) { predicate.load_id = machine.current_load; }
+
+void release_load_id(Impl& machine, std::uint32_t parent) {
+  // モジュールを新しく載せていない読み込みは、親が失敗したら一緒に消す。
+  const bool added_module = !machine.module_added.empty() && !machine.module_added.back().empty();
+  if (added_module || machine.current_load == 0 || machine.current_load == parent) return;
+  const auto from = machine.current_load;
+  for (Predicate& predicate : machine.predicates) {
+    if (predicate.load_id == from) predicate.load_id = parent;
+  }
+}
+
+LoadClock::LoadClock(Impl& machine) : machine(machine), saved(machine.current_load) {
+  machine.current_load = ++machine.load_clock;
+}
+
+LoadClock::~LoadClock() { machine.current_load = saved; }
 
 }  // namespace mosa

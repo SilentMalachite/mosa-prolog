@@ -54,6 +54,8 @@ struct Predicate {
   std::uint32_t origin_name = 0;
   // 空は宣言なし。長さはアリティ。バイトは kMeta*。0 から 3 は包まない。
   std::vector<std::uint8_t> meta;
+  // この読み込みが作った述語。0 はそれより前。失敗では同じ番号だけ消す。
+  std::uint32_t load_id = 0;
 };
 
 // predicate_property が宣言した頭部を戻す。0 と : と数字を同じバイトに潰さない。
@@ -80,6 +82,10 @@ struct Snapshot {
   std::vector<Clause> clauses;
   bool created = false;
   bool dynamic = false;
+  bool imported = false;
+  std::uint32_t origin = 0;
+  std::uint32_t origin_name = 0;
+  std::vector<std::uint8_t> meta;
 };
 
 struct ModuleSource {
@@ -269,6 +275,9 @@ struct Machine::Impl {
   std::string load_origin;
   // 再読みの直前の公開と演算子。入れ子の読み込みは、自分の分だけを載せる。
   ReloadPicture reload_picture;
+  // 読み込みごとに増やす。作った述語の load_id と突き合わせ、入れ子の確定分は消さない。
+  std::uint32_t load_clock = 0;
+  std::uint32_t current_load = 0;
   std::uint32_t user_mod = 0;
   std::uint32_t system_mod = 0;
   // 今走っている節のモジュール。Cell には入れない（ADR 0006）。
@@ -596,7 +605,19 @@ struct ReloadFrame {
 [[nodiscard]] bool begin_file_reload(Impl& machine, std::vector<Snapshot>& snapshots);
 void restore_reload_picture(Impl& machine);
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t name, std::uint16_t arity);
-void rollback(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size);
+void rollback(Impl& machine, const std::vector<Snapshot>& snapshots);
+void stamp_load(Impl& machine, Predicate& predicate);
+void release_load_id(Impl& machine, std::uint32_t parent);
+
+// この読み込みの番号を進める。抜けると親の番号へ戻す。
+struct LoadClock {
+  Impl& machine;
+  std::uint32_t saved = 0;
+  explicit LoadClock(Impl& machine);
+  ~LoadClock();
+  LoadClock(const LoadClock&) = delete;
+  LoadClock& operator=(const LoadClock&) = delete;
+};
 
 [[nodiscard]] LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory = {},
                                     std::string_view origin = {},

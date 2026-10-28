@@ -160,6 +160,9 @@ void check_failed_restore() {
   expect_failure(*machine, "keep:current_op(500, xfx, newop).", "new op absent");
   expect_success(*machine, "keep:member(a, [a]).", "keep import restored");
   expect_no_success(*machine, "keep:maplist(true, []).", "apply import absent");
+  expect_success(*machine, "current_module(apply).", "apply stays loaded");
+  expect_success(*machine, "apply:maplist(true, []).", "apply clauses stay");
+  expect_success(*machine, "(use_module(library(apply)), maplist(true, [])).", "apply imports again");
   const std::string imported = "use_module('" + file.string() + "').";
   if (machine->query(imported).kind != mosa::StopKind::Success) {
     mosa_test::check(false, "reimport keep");
@@ -167,6 +170,55 @@ void check_failed_restore() {
   }
   expect_success(*machine, "current_predicate(item/1).", "item still exported");
   expect_failure(*machine, "current_predicate(extra/1).", "extra export absent");
+}
+
+void check_local_becomes_import() {
+  const fs::path file = review_dir() / "swap_in.pl";
+  mosa_test::check(write_text(file, ":- module(swap_in, []).\nmember(a, [a]).\n"), "write swap in");
+  auto machine = mosa::Machine::create();
+  if (!consult_ok(*machine, file, "swap in first")) return;
+  expect_no_success(*machine, "swap_in:member(b, [a, b]).", "local member is not lists");
+  mosa_test::check(write_text(file, ":- module(swap_in, []).\n:- use_module(library(lists)).\n"), "rewrite swap in");
+  if (!consult_ok(*machine, file, "swap in reload")) return;
+  expect_success(*machine, "swap_in:member(b, [a, b]).", "lists member imported");
+}
+
+void check_import_becomes_local() {
+  const fs::path file = review_dir() / "swap_out.pl";
+  const char* first = ":- module(swap_out, []).\n:- use_module(library(lists)).\n";
+  mosa_test::check(write_text(file, first), "write swap out");
+  auto machine = mosa::Machine::create();
+  if (!consult_ok(*machine, file, "swap out first")) return;
+  expect_success(*machine, "swap_out:member(b, [a, b]).", "lists member before");
+  mosa_test::check(write_text(file, ":- module(swap_out, []).\nmember(zzz, []).\n"), "rewrite swap out");
+  if (!consult_ok(*machine, file, "swap out reload")) return;
+  expect_success(*machine, "swap_out:member(zzz, []).", "local member fact");
+  expect_no_success(*machine, "swap_out:member(b, [a, b]).", "lists member dropped");
+}
+
+void check_import_restored() {
+  const fs::path file = review_dir() / "swap_keep.pl";
+  const char* first = ":- module(swap_keep, []).\n:- use_module(library(lists)).\n";
+  mosa_test::check(write_text(file, first), "write swap keep");
+  auto machine = mosa::Machine::create();
+  if (!consult_ok(*machine, file, "swap keep first")) return;
+  const char* broken = ":- module(swap_keep, []).\nmember(zzz, []).\n:- phase4_bad_directive.\n";
+  mosa_test::check(write_text(file, broken), "rewrite swap keep");
+  if (!consult_denies(*machine, file, "この指示はフェーズ2では使えない", "swap keep rejected")) return;
+  expect_success(*machine, "swap_keep:member(b, [a, b]).", "import restored");
+  expect_no_success(*machine, "swap_keep:member(zzz, []).", "local fact absent");
+}
+
+void check_failed_dependency() {
+  const fs::path file = review_dir() / "need_apply.pl";
+  const char* body = ":- module(need_apply, []).\n:- use_module(library(apply)).\n:- phase4_bad_directive.\n";
+  mosa_test::check(write_text(file, body), "write need apply");
+  auto machine = mosa::Machine::create();
+  if (!consult_denies(*machine, file, "この指示はフェーズ2では使えない", "need apply rejected")) return;
+  expect_failure(*machine, "current_module(need_apply).", "need apply gone");
+  expect_success(*machine, "current_module(apply).", "first apply stays");
+  expect_success(*machine, "apply:maplist(true, []).", "first apply clauses");
+  expect_success(*machine, "(use_module(library(apply)), maplist(true, [])).", "first apply reimport");
 }
 
 void check_second_directive() {
@@ -258,6 +310,10 @@ int main() {
   check_replace();
   check_multifile_order();
   check_imports_again();
+  check_local_becomes_import();
+  check_import_becomes_local();
+  check_import_restored();
+  check_failed_dependency();
   check_failed_restore();
   check_second_directive();
   check_other_file();

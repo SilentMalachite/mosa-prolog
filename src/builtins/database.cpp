@@ -352,6 +352,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     created.name = head.name;
     created.arity = head.arity;
     created.dynamic = true;
+    stamp_load(machine, created);
     machine.predicates.push_back(std::move(created));
     existing = &machine.predicates.back();
   }
@@ -491,6 +492,7 @@ void run_dynamic(Impl& machine, const Goal& goal) {
     created.arity = indicator.arity;
     created.dynamic = true;
     created.dynamic_declared = true;
+    stamp_load(machine, created);
     machine.predicates.push_back(std::move(created));
   } else {
     existing->dynamic = true;

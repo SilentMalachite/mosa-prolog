@@ -87,6 +87,7 @@ void keep_meta(Impl& machine, std::uint32_t name, const std::vector<std::uint8_t
     created.name = name;
     created.arity = arity;
     created.meta = modes;
+    stamp_load(machine, created);
     machine.predicates.push_back(std::move(created));
     return;
   }

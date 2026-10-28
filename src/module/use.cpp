@@ -83,6 +83,7 @@ void import_slot(Impl& machine, std::uint32_t source, std::uint32_t caller, std:
   slot.imported = true;
   slot.origin = source;
   slot.origin_name = name;
+  stamp_load(machine, slot);
   machine.predicates.push_back(std::move(slot));
 }
 
