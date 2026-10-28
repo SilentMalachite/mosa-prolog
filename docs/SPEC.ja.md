@@ -64,7 +64,7 @@
 4. エラー体系（7.12）: `error(Formal, Context)` の形式とすべての Formal 項（`instantiation_error`、`uninstantiation_error/1`、`type_error/2`、`domain_error/2`、`existence_error/2`、`permission_error/3`、`representation_error/1`、`evaluation_error/1`、`resource_error/1`、`syntax_error/1`、`system_error`）
 5. 算術（第 9 章）: 整数は 64bit 符号付き、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供し、オーバーフローは `evaluation_error(int_overflow)`。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
 6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
-7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、`version`、`japanese_punctuation`（第 4 節）
+7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、`version`、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
 8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
 
 **実装定義事項の決定**

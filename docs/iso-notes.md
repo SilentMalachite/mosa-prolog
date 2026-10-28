@@ -451,6 +451,8 @@ The flags `dialect` and `version_data` are not in 7.11 or in SPEC Section 3. `co
 
 A or B?: A: outside SPEC, so they are not implemented, and the 3 rows stay failing. B: add `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`) to SPEC Section 3 and implement them. A until confirmed.
 
+Decision (2026-10-28): B. Both flags are read-only and listed in SPEC Section 3 item 7. `version_data` takes its numbers from `include/mosa/version.hpp`, which `mosa --version` also uses. Setting either gives `permission_error(modify, flag, F)` when the value has the right shape (an atom, or a compound of arity 4) and `domain_error(flag_value, F+V)` otherwise (`src/builtins/flags.cpp`, `tests/pl/flags.pl` `flag_dialect*`, `flag_version_data*`).
+
 ## Section 4 Stream encoding and BOM
 
 The 21 failing rows in `unicode/builtins` expect the IANA name `'UTF-8'`, a BOM, and no encoding on binary streams. SPEC Section 4 and Section 3 item 7 already fix the flag `encoding` to `utf8` and give every stream an `encoding` option that defaults to `utf8`, and Mosa follows that: `current_prolog_flag(encoding, utf8)`, `open/4` accepts `encoding(utf8)`, and binary streams also report `encoding(utf8)`. So `open/4` with `encoding('UTF-8')` gives `domain_error(stream_option, encoding('UTF-8'))`, `lgt_unicode_current_prolog_flag_2_02` fails on the name, and `lgt_unicode_stream_property_2_07` and `09` fail because a binary stream reports `encoding/1`. The `open/4` option `bom/1`, the stream property `bom/1`, and skipping a BOM when a text stream is read are in neither the standard (7.10.2) nor SPEC.

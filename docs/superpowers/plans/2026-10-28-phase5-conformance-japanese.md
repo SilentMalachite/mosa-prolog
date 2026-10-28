@@ -56,7 +56,7 @@
 | 整数を受けた丸め系評価子 | 0（決定 A で解消、+6） | `ceiling`、`floor`、`round`、`truncate`、`float_integer_part`、`float_fractional_part` に整数 → `type_error(float, 9)` の期待 | Q | 7 |
 | `round/1` の負の半分 | 0（決定 B で解消、+2） | `eclipse_round_1_07`、`08` | Q | 7 |
 | 未決の iso-notes | 約 10 | 7.8.3（決定 B、+2）、9.3.1.3 d（決定 A、+1）、7.5.4（決定 B、ADR 0008、+5）、8.11.8（決定 A、解釈の違い）、`memberchk/2`（閉じた）、8.11.1（決定 B、+2） | Q | 8 |
-| `if/3`（決定 B、+12）、`log/2`、旗 `dialect`・`version_data`、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
+| `if/3`（決定 B、+12）、`log/2`、旗 `dialect`・`version_data`（決定 B、+3）、`encoding('UTF-8')`・`bom/1`、`::/2` | 約 45 | SPEC に無い非 ISO | N | 8 |
 | 9223372036854775808 などの多倍長 | 1 と別欄 111 | `sics_read_term_3_24` | X | なし |
 | 残り | 約 25 | `stream_property` の `eof_action(reset)`・`mode(append)`・`position`、`setof_3_34`、`abolish_1_07`、`sub_atom_5`、`univ_2` など | I か Q | 9 |
 
@@ -343,9 +343,6 @@
 | `predicates/current_output_1` | `sics_current_output_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_12` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
 | `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_13` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
-| `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_16` | N | 8 | Section 3 Flags dialect and version_data |
-| `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_17` | N | 8 | Section 3 Flags dialect and version_data |
-| `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_18` | N | 8 | Section 3 Flags dialect and version_data |
 | `predicates/open_4` | `lgt_open_4_31` | S | 2 追補 | 試験器が `condition(os::operating_system_type(unix))` を扱わない |
 | `predicates/open_4` | `lgt_open_4_41` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `predicates/open_4` | `lgt_open_4_42` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |

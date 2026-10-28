@@ -21,3 +21,12 @@ test(flag_max_arity_modify, set_prolog_flag(max_arity, 40), error(permission_err
 test(flag_max_arity_atom, set_prolog_flag(max_arity, foo), error(domain_error(flag_value, max_arity+foo))).
 test(flag_quotes_bad, set_prolog_flag(double_quotes, foo), error(domain_error(flag_value, double_quotes+foo))).
 test(flag_ja_punct_set, (set_prolog_flag(japanese_punctuation, true), current_prolog_flag(japanese_punctuation, V), set_prolog_flag(japanese_punctuation, false)), solutions([V = true])).
+
+% iso-notes「Section 3 Flags dialect and version_data」の決定 B。どちらも変えられない処理系定義の旗。
+test(flag_dialect, current_prolog_flag(dialect, mosa), true).
+test(flag_version_data, current_prolog_flag(version_data, mosa(0, 0, 1, [])), true).
+test(flag_dialect_listed, (current_prolog_flag(F, mosa), F == dialect), true).
+test(flag_dialect_modify, set_prolog_flag(dialect, swi), error(permission_error(modify, flag, dialect))).
+test(flag_dialect_value, set_prolog_flag(dialect, 1), error(domain_error(flag_value, dialect+1))).
+test(flag_version_data_modify, set_prolog_flag(version_data, mosa(9, 9, 9, [])), error(permission_error(modify, flag, version_data))).
+test(flag_version_data_value, set_prolog_flag(version_data, x), error(domain_error(flag_value, version_data+x))).

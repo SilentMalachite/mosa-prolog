@@ -7,10 +7,12 @@
 // invalid_utf8 は error と replace。既定は error。replace は壊れたバイトを U+FFFD にする。
 // debug は on と off。既定は off。値を覚えるだけで、節の追跡はしない。
 // japanese_punctuation は true と false。値を覚えるだけで、字句解析は変えない（iso-notes 第4節）。
+// dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
 // テスト: tests/pl/flags.pl
 
 #include "../machine/internal.hpp"
 
+#include "mosa/version.hpp"
 #include "mosa/writer.hpp"
 
 #include <array>
@@ -23,7 +25,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 15;
+constexpr std::size_t kFlagCount = 17;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -49,11 +51,13 @@ std::string_view flag_name(std::size_t index) {
     case 12: return "char_conversion";
     case 13: return "invalid_utf8";
     case 14: return "debug";
+    case 15: return "dialect";
+    case 16: return "version_data";
     default: return {};
   }
 }
 
-bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || index >= 9; }
+bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || (index >= 9 && index <= 14); }
 
 int find_flag(const Impl& machine, Cell flag) {
   const auto text = machine.atoms.name(atom_id(flag));
@@ -80,6 +84,12 @@ Cell flag_value(Impl& machine, std::size_t index) {
     case 12: return atom_named(machine, machine.char_conv.enabled ? "on" : "off");
     case 13: return atom_named(machine, machine.utf8_replace ? "replace" : "error");
     case 14: return atom_named(machine, machine.debug_on ? "on" : "off");
+    case 15: return atom_named(machine, "mosa");
+    case 16: {
+      const std::array<Cell, 4> args{machine.heap.integer(kVersionMajor), machine.heap.integer(kVersionMinor),
+                                     machine.heap.integer(kVersionPatch), atom_named(machine, "[]")};
+      return machine.heap.structure(machine.atoms.intern("mosa"), args);
+    }
     default: return atom_named(machine, "error");
   }
 }
@@ -116,6 +126,9 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     case 12: return same_atom(machine, value, "on") || same_atom(machine, value, "off");
     case 13: return same_atom(machine, value, "error") || same_atom(machine, value, "replace");
     case 14: return same_atom(machine, value, "on") || same_atom(machine, value, "off");
+    // 変えられない旗の領域は値の形。形が合えば、次の permission_error になる。
+    case 15: return value.tag() == Tag::Atom;
+    case 16: return value.tag() == Tag::Str && machine.heap.functor_arity(value) == 4;
     default: return same_atom(machine, value, "error");
   }
 }

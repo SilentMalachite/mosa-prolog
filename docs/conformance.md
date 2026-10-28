@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2122
-合格率: 97.7
+合格数: 2125
+合格率: 97.9
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
@@ -11,9 +11,6 @@ predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(
 predicates/current_output_1/tests.lgt sics_current_output_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_12 true domain_error(flag_value,unknown+warning)
 predicates/current_prolog_flag_2/tests.lgt eddbali_current_prolog_flag_2_13 false domain_error(flag_value,unknown+warning)
-predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_16 true(atom(Dialect)) domain_error(prolog_flag,dialect)
-predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_17 true((integer(Major),integer(Minor),integer(Patch))) domain_error(prolog_flag,version_data)
-predicates/current_prolog_flag_2/tests.lgt commons_current_prolog_flag_2_18 true(functor(VersionData,Dialect,_)) domain_error(prolog_flag,dialect)
 predicates/open_4/tests.lgt lgt_open_4_31 errors([permission_error(open,source_sink,_),existence_error(source_sink,_)]) unsupported
 predicates/open_4/tests.lgt lgt_open_4_41 true(Action==eof_code) existence_error(procedure,:: /2)
 predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(procedure,:: /2)

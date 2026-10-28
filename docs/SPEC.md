@@ -63,7 +63,7 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 4. Error system (7.12): the `error(Formal, Context)` form and all Formal terms (`instantiation_error`, `uninstantiation_error/1`, `type_error/2`, `domain_error/2`, `existence_error/2`, `permission_error/3`, `representation_error/1`, `evaluation_error/1`, `resource_error/1`, `syntax_error/1`, `system_error`)
 5. Arithmetic (chapter 9): integers are 64-bit signed, floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; overflow raises `evaluation_error(int_overflow)`. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
 6. All built-in predicates (chapter 8). The list and stages are given in section 7
-7. Flags (7.11): `bounded`, `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), `version`, and `japanese_punctuation` (section 4)
+7. Flags (7.11): `bounded`, `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), `version`, `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
 8. Directives (7.4.2): `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`, `set_prolog_flag/2`, `include/1`, `ensure_loaded/1`
 
 **Decisions on implementation-defined matters**

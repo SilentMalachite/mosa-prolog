@@ -453,6 +453,8 @@ A か B か: A は SPEC 外なので実装せず、12 行は不合格のまま�
 
 A か B か: A は SPEC 外なので実装せず、3 行は不合格のまま残す。B は SPEC 第3節に `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）を足して実装する。確認前は A のまま。
 
+決定（2026-10-28）: B。どちらも変更できない旗とし、SPEC 第3節の 7 に挙げる。`version_data` の番号は `include/mosa/version.hpp` から取り、`mosa --version` も同じ番号を使う。どちらかを設定すると、値の形が合えば（原子、または引数 4 個の複合項）`permission_error(modify, flag, F)`、合わなければ `domain_error(flag_value, F+V)` になる（`src/builtins/flags.cpp`、`tests/pl/flags.pl` の `flag_dialect*` と `flag_version_data*`）。
+
 ## 第4節 ストリームの符号化と BOM
 
 `unicode/builtins` の不合格 21 行は、IANA の名前 `'UTF-8'`、BOM、バイナリの流れに符号化が無いことを期待する。SPEC 第4節と第3節の 7 はすでに旗 `encoding` を `utf8` に固定し、すべての流れに既定が `utf8` の `encoding` 選択肢を与えており、Mosa はそれに従う。`current_prolog_flag(encoding, utf8)` であり、`open/4` は `encoding(utf8)` を受け付け、バイナリの流れも `encoding(utf8)` を出す。そのため `open/4` に `encoding('UTF-8')` を渡すと `domain_error(stream_option, encoding('UTF-8'))` になり、`lgt_unicode_current_prolog_flag_2_02` は名前で失敗し、`lgt_unicode_stream_property_2_07` と `09` はバイナリの流れが `encoding/1` を出すので失敗する。`open/4` の選択肢 `bom/1`、流れの性質 `bom/1`、テキストの流れを読むときの BOM の読み飛ばしは、規格（7.10.2）にも SPEC にも無い。
