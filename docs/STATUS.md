@@ -1,12 +1,12 @@
 Phase: 5 in progress (phase 4 done 2026-10-28: mosa 0.0.1 (phase 4), CI green on 3 OSes in run 40683841050)
-Baseline (phase 5 start): 2041/2171 = 94.0%
+Baseline (phase 5 start): 2041/2171 = 94.0%. Now: 2063/2171 = 95.0%
 In progress: none
-Done (phase 5 Task 1): triage table of the 130 failing rows in the phase 5 plan (triage-table section): S 47, N 36, Q 31, I 15, X 1
-Done (phase 5 Task 1): iso-notes A/B for the N groups (Section 3 if/3; Section 3 Flags dialect and version_data; Section 4 Stream encoding and BOM)
-Done (phase 5 Task 1): new Q notes 9.3.10.3 (^)/2 and 8.11 Properties of the standard streams; So characters recorded as a SPEC difference
-Change from the plan overview: the 5 `::/2` rows and lgt_open_4_31 call Logtalk library objects (os::, lgtunit::, integer::), so they are S (runner), not N
-Note: Task 2 must also give the runner ignore/1, lgtunit variant/2, and the os::/lgtunit::/integer:: calls the suite uses
-Note: suite dirs between_3, succ_2, plus_3, format_2, atomic_list_concat_2/3 are still in the side column (not run); lib tests cover them
-Next: phase 5 Task 2, runner output capture (suppress_text_output/0, text_output_contents/1,2) then the six library imports
-Open: Section 4 Stream encoding and BOM decided A (21 rows stay failing); other A/B questions stay in iso-notes for Task 8
+Done (phase 5 Task 1): triage-table section in the phase 5 plan; iso-notes A/B for the N groups; Section 4 Stream encoding and BOM decided A
+Done (phase 5 Task 2): runner ^^suppress_text_output/0 and ^^text_output_contents/1,2,3 (src/machine/lgt_output.cpp, split from lgt_io.cpp); current input/output saved and restored per test like lgtunit run_test/2 (+19)
+Done (phase 5 Task 2): runner imports lists, apply, between, format, strings, japanese into the test machine's user, except names the test file defines (src/machine/lgt_libs.cpp); mosa's user is unchanged (modules.pl between_needs_use) (+3)
+New Q note: 7.10.5 a Writing a variable that occurs once (lgt_write_term_3_043/044/065/066 now fail only on `_`)
+Runner limit: after a goal that leaves a choice point (e.g. stream_property/2), later plain goals run in a scratch machine (exec_plain), so their side effects on streams do not reach ^^ observers. No suite target has this shape yet
+Note: suite dirs between_3, succ_2, plus_3, format_2, atomic_list_concat_2/3 are still in the side column (not run); with the imports they could now be run (owner decision)
+Next: Task 2 follow-up (rows marked "2 追補": ignore/1, os::ensure_file/1, lgtunit::deterministic/2, integer::between/3, condition os::operating_system_type) or Task 3 (=~=, 14 rows)
+Open: other A/B questions stay in iso-notes for Task 8
 Plan (phase 5): docs/superpowers/plans/2026-10-28-phase5-conformance-japanese.md

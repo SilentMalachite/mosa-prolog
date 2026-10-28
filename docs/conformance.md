@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2060
-合格率: 94.9
+合格数: 2063
+合格率: 95.0
 不合格:
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
@@ -49,7 +49,6 @@ logical_update_semantics/tests.lgt logical_update_semantics_clause_retract true(
 logical_update_semantics/tests.lgt logical_update_semantics_clause_abolish true(Assertion) fail
 logical_update_semantics/tests.lgt logical_update_semantics_negation true(L==[2,4,6]) existence_error(procedure,:: /2)
 predicates/abolish_1/tests.lgt eddbali_abolish_1_07 true(L==[ant,bee]) fail
-predicates/char_code_2/tests.lgt lgt_char_code_2_12 all((char_code(Char,Code0),char_code(Char,Code),Code0==Code)) existence_error(procedure,between/3)
 predicates/current_input_1/tests.lgt sics_current_input_1_02 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/current_input_1/tests.lgt sics_current_input_1_04 error(domain_error(stream,S)) existence_error(stream,'$stream'(3))
 predicates/current_input_1/tests.lgt lgt_current_input_1_06 true existence_error(procedure,ground/1)
@@ -67,7 +66,6 @@ predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(pr
 predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(procedure,:: /2)
 predicates/read_term_3/tests.lgt sics_read_term_3_24 true(X==Integer) syntax_error('行 1 列 2: 整数が範囲を超えている 9223372036854775808')
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition,stream,Stream)) fail
-predicates/setof_3/tests.lgt lgt_setof_3_34 true fail
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
 predicates/stream_property_2/tests.lgt sics_stream_property_2_05c deterministic(Action==reset) fail
 predicates/stream_property_2/tests.lgt sics_stream_property_2_06d deterministic(Mode==append) fail
@@ -112,7 +110,6 @@ unicode/builtins/tests.lgt lgt_unicode_stream_property_2_09 true fail
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_10 true domain_error(stream_property,bom(_))
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
-unicode/builtins/tests.lgt lgt_unicode_format_3_01 true(Assertion) existence_error(procedure,format/3)
 unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Assertion) fail
 別欄:
 control/throw_1 lgt_throw_1_03

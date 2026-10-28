@@ -113,10 +113,10 @@
 - [x] **Step 3:** 移動だけのコミットを先に作り、次に 3 述語を足す
 - [x] **Step 4:** テストとスイートを流し、`write_term_3` の 103〜113 が合格に移ったことを報告書で見る
 - [x] **Step 5:** コミット `[phase5] 試験器に suppress_text_output と text_output_contents を足す（conformance_io_test、合格 +N）`
-- [ ] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
-- [ ] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
+- [x] **Step 6:** iso-notes `Section 5 Autoload`（決定 A）に従い、処理系は変えず、試験器が各 `tests.lgt` の読み込み前にテストのモジュールへ `lists`、`apply`、`between`、`format`、`strings`、`japanese` を取り込む。失敗するテスト `suite_imports_libs`: `test(b, true) :- between(1, 2, _)` が合格に数えられる。`mosa` の `user` では `between/3` が `existence_error` のまま（`lists_needs_use` と同じ形）
+- [x] **Step 7:** コミット `[phase5] 試験器がテストのモジュールへ 6 ライブラリを取り込む（conformance_io_test、合格 +N）`
 
-### Task 3: `=~=` を lgtunit の定義に合わせる
+ `=~=` を lgtunit の定義に合わせる
 
 **Files:**
 - Create: `src/machine/lgt_approx.cpp`（`lgt_judge.cpp` の `approx` を移す）
@@ -323,6 +323,7 @@
 
 内訳（Task 1 時点）: S 47、N 36、Q 31、I 15、X 1。
 内訳（Task 2 Step 5 後、残り 111 件）: S 24、N 36、Q 35、I 15、X 1。`lgt_write_term_3_043`、`044`、`065`、`066` は出力の捕捉が出来て、変数を `_` だけで書く件として Q に移った。
+内訳（Task 2 Step 7 後、残り 108 件）: S 21（`=~=` 14 件はタスク 3、試験器の追補 7 件）、N 36、Q 35、I 15、X 1。
 
 見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
 
@@ -330,7 +331,7 @@
 | --- | --- | --- | --- | --- |
 | `control/call_1` | `lgt_call_1_17` | Q | 8 | 7.8.3 call/1 and multifile/discontiguous predicates with no clauses |
 | `control/call_1` | `lgt_call_1_18` | Q | 8 | 7.8.3 call/1 and multifile/discontiguous predicates with no clauses |
-| `control/catch_3` | `lgt_catch_3_13` | S | 2 | 試験器に `ignore/1` と出力捕捉が無い |
+| `control/catch_3` | `lgt_catch_3_13` | S | 2 追補 | 試験器に Logtalk の組込 `ignore/1` が無い |
 | `control/if_3` | `if_3_01` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_02` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_03` | N | 8 | Section 3 if/3 |
@@ -343,7 +344,7 @@
 | `control/if_3` | `if_3_10` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_11` | N | 8 | Section 3 if/3 |
 | `control/if_3` | `if_3_12` | N | 8 | Section 3 if/3 |
-| `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `functions/acos_1` | `iso_acos_1_01` | S | 3 | `=~=` の閾値 |
 | `functions/acos_1` | `iso_acos_1_02` | S | 3 | `=~=` の閾値 |
 | `functions/asin_1` | `iso_asin_1_01` | S | 3 | `=~=` の閾値 |
@@ -372,9 +373,8 @@
 | `logical_update_semantics` | `logical_update_semantics_retractall` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_clause_retract` | Q | 8 | 7.5.4 Open scans and retract |
 | `logical_update_semantics` | `logical_update_semantics_clause_abolish` | Q | 8 | 7.5.4 Open scans and retract |
-| `logical_update_semantics` | `logical_update_semantics_negation` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `logical_update_semantics` | `logical_update_semantics_negation` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `predicates/abolish_1` | `eddbali_abolish_1_07` | Q | 8 | 7.5.4 Open scans and retract |
-| `predicates/char_code_2` | `lgt_char_code_2_12` | S | 2 | `between/3` の取り込み（Step 6） |
 | `predicates/current_input_1` | `sics_current_input_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/current_input_1` | `sics_current_input_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
 | `predicates/current_input_1` | `lgt_current_input_1_06` | I | 4 | `ground/1` が無い |
@@ -386,13 +386,12 @@
 | `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_16` | N | 8 | Section 3 Flags dialect and version_data |
 | `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_17` | N | 8 | Section 3 Flags dialect and version_data |
 | `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_18` | N | 8 | Section 3 Flags dialect and version_data |
-| `predicates/open_4` | `lgt_open_4_31` | S | 2 | 試験器が `condition(os::operating_system_type(unix))` を扱わない |
-| `predicates/open_4` | `lgt_open_4_41` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
-| `predicates/open_4` | `lgt_open_4_42` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
-| `predicates/open_4` | `lgt_open_4_43` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_31` | S | 2 追補 | 試験器が `condition(os::operating_system_type(unix))` を扱わない |
+| `predicates/open_4` | `lgt_open_4_41` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_42` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_43` | S | 2 追補 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
 | `predicates/read_term_3` | `sics_read_term_3_24` | X | なし | 多倍長整数（フェーズ7） |
 | `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 8.11.8 position with reposition(false) |
-| `predicates/setof_3` | `lgt_setof_3_34` | S | 2 | `msort/2` の取り込み（Step 6）と lgtunit の `variant/2` |
 | `predicates/stream_property_2` | `sics_stream_property_2_03` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
 | `predicates/stream_property_2` | `sics_stream_property_2_05c` | Q | 8 | 8.11 Properties of the standard streams |
 | `predicates/stream_property_2` | `sics_stream_property_2_06d` | Q | 8 | 8.11 Properties of the standard streams |
@@ -437,5 +436,4 @@
 | `unicode/builtins` | `lgt_unicode_stream_property_2_10` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_stream_property_2_11` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
 | `unicode/builtins` | `lgt_unicode_stream_property_2_12` | N | なし | 解釈の違い（Section 4 Stream encoding and BOM） |
-| `unicode/builtins` | `lgt_unicode_format_3_01` | S | 2 | `format/3` の取り込み（Step 6）。その後 `~Nt` の埋め字はタスク 13 |
 | `unicode/escape_sequences` | `lgt_unicode_escape_sequence_full_05` | Q | なし | 解釈の違い（Spec Section 4: So characters are symbol characters） |

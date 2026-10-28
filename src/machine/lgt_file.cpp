@@ -711,6 +711,8 @@ LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string
   install_lgt_ops(*machine, file.operators);
   // テストより先に隣の Prolog を載せる。tester.lgt 自体は実行しない。
   lgt_load_tester(*machine, clean.io);
+  // 隣の Prolog の定義も見てから取り込む。同じ名前はテスト側を残す。
+  lgt_import_libraries(*machine);
   // 定義の無い setup は存在エラーにしない。テストの assert で後から足した節は、ここには入らない。
   const bool setup = defined_here(*machine, "setup");
   const bool cleanup = defined_here(*machine, "cleanup");

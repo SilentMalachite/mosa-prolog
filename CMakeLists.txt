@@ -71,6 +71,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
   src/machine/lgt_output.cpp
+  src/machine/lgt_libs.cpp
   src/platform/terminal.cpp
   src/platform/exe_path.cpp
   src/builtins/errors.cpp
@@ -207,6 +208,12 @@ target_include_directories(suite_if_test PRIVATE tests/cpp)
 target_compile_definitions(suite_if_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(suite_if_test PRIVATE mosa_lib)
 add_test(NAME suite_if_test COMMAND $<TARGET_FILE:suite_if_test>)
+
+add_executable(suite_imports_test tests/cpp/suite_imports_test.cpp)
+target_include_directories(suite_imports_test PRIVATE tests/cpp)
+target_compile_definitions(suite_imports_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_imports_test PRIVATE mosa_lib)
+add_test(NAME suite_imports_test COMMAND $<TARGET_FILE:suite_imports_test>)
 
 add_executable(suite_path_test tests/cpp/suite_path_test.cpp)
 target_include_directories(suite_path_test PRIVATE tests/cpp)
