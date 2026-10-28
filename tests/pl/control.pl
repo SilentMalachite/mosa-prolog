@@ -39,3 +39,11 @@ test(catch_recover_cut, recover_cut, true).
 local_if :- (X = 1 ; X = 2), (! -> true), X = 2.
 test(if_cut_keeps, local_if, true).
 test(cut_not_not, findall(X, ((X=1;X=2), \+ \+ !), L), solutions([L = [1, 2]])).
+% 実行時に項からゴールを組むとき、巡回する引数を切らない。切ると length/2 が部分リストと見て成功する。
+test(cyclic_not, (L = [a, b|L], catch(\+ length(L, _), error(type_error(list, _), _), true)), true).
+test(cyclic_once, (L = [a, b|L], catch(once(length(L, _)), error(type_error(list, _), _), true)), true).
+test(cyclic_call_var, (L = [a, b|L], G = length(L, _), catch(G, error(type_error(list, _), _), true)), true).
+test(cyclic_findall, (L = [a, b|L], catch(findall(N, length(L, N), _), error(type_error(list, _), _), true)), true).
+test(cyclic_forall, (L = [a, b|L], catch(forall(true, length(L, _)), error(type_error(list, _), _), true)), true).
+test(cyclic_catch_goal, (L = [a, b|L], G = catch(length(L, _), error(type_error(list, _), _), true), call(G)), true).
+test(cyclic_not_not_eq, (L = [a|L], \+ \+ (L = [_|T], T == L)), true).
