@@ -61,7 +61,10 @@ void check_arithmetic(Has has) {
 }
 
 void check_absent_and_order(const mosa::OperatorTable& ops) {
-  mosa_test::check(ops.lookup(":").empty(), "no module colon");
+  // : は SPEC 第5節の限定ゴールのため表7に足した（iso-notes「Section 5 Operator :」の決定 A）。
+  const auto colon = ops.lookup(":");
+  mosa_test::check(colon.size() == 1 && colon[0].priority == 600 && colon[0].specifier == mosa::Specifier::Xfy,
+                   "module colon 600 xfy");
   mosa_test::check(ops.lookup("|").empty(), "bar is not predefined");
   mosa_test::check(ops.lookup("xor").empty(), "xor is not an operator");
   const auto defined = ops.lookup(":-");

@@ -38,6 +38,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/load.cpp
   src/machine/load_directive.cpp
   src/module/module_table.cpp
+  src/module/qualify.cpp
   src/machine/load_path.cpp
   src/machine/compile.cpp
   src/machine/choice.cpp

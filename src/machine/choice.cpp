@@ -137,7 +137,11 @@ void enter_user(Impl& machine, const Goal& goal) {
       machine.failed = true;
       return;
     }
-    const Cell pi = cell_functor(machine, goal.name, goal.arity);
+    Cell pi = cell_functor(machine, goal.name, goal.arity);
+    // user の外では、どこで引けなかったかを示す（iso-notes 第5節の決定 A）。
+    if (goal.module != machine.user_module) {
+      pi = machine.heap.structure(machine.atoms.intern(":"), std::array<Cell, 2>{machine.heap.atom(goal.module), pi});
+    }
     raise_formal(machine, formal_existence(machine, "procedure", pi), goal.name, goal.arity);
     return;
   }

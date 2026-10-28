@@ -121,9 +121,9 @@
 - Consumes: `resolve_pred`、`Goal::module`
 - Produces: 組み込み `:/2`。`M:G` は `G` のフレームの文脈を `M` にして積む。`M:(A, B)` などの制御構文は中の各ゴールに `M` が届く
 
-- [ ] **Step 1:** 失敗するテスト。`mod_qual_user`: `user:true` が成功。`mod_qual_unknown`: `nomod:true` → `existence_error(module, nomod)`。`mod_qual_var`: `_:true` → `instantiation_error`。`mod_qual_type`: `1:true` → Task 1 の Decision の Formal。`mod_qual_nested`: `user:(user:true, true)` が成功
-- [ ] **Step 2:** 失敗を見る。実装する。テストを流す
-- [ ] **Step 3:** コミット `[phase4] Module:Goal を文脈モジュールの切り替えとして実装（modules.pl 5 件）`
+- [x] **Step 1:** 失敗するテスト。`mod_qual_user`: `user:true` が成功。`mod_qual_unknown`: `nomod:true` → `existence_error(module, nomod)`。`mod_qual_var`: `_:true` → `instantiation_error`。`mod_qual_type`: `1:true` → Task 1 の Decision の Formal。`mod_qual_nested`: `user:(user:true, true)` が成功
+- [x] **Step 2:** 失敗を見る。実装する。テストを流す
+- [x] **Step 3:** コミット `[phase4] Module:Goal を文脈モジュールの切り替えとして実装（modules.pl 5 件）`
 
 ### Task 4: `module/2`、`export/1`、モジュールのファイルの `consult`
 

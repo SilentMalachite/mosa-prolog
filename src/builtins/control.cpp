@@ -1,5 +1,6 @@
 #include "../machine/internal.hpp"
 
+#include <array>
 #include <vector>
 
 namespace mosa {
@@ -18,8 +19,26 @@ void not_callable(Impl& machine, const Goal& goal, Cell culprit) {
   raise_formal(machine, formal_type(machine, "callable", culprit), goal.name, goal.arity);
 }
 
+bool is_qualified(const Impl& machine, Cell cell) {
+  return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
+         machine.atoms.name(machine.heap.functor_atom(cell)) == ":";
+}
+
+// M:G の G。引数を足す相手であり、callable かどうかもこれで決まる。
+Cell unqualified(const Impl& machine, Cell goal) {
+  goal = machine.heap.deref(goal);
+  while (is_qualified(machine, goal)) goal = machine.heap.deref(machine.heap.arg(goal, 1));
+  return goal;
+}
+
 Cell appended(Impl& machine, Cell goal, const Goal& frame) {
   goal = machine.heap.deref(goal);
+  // call(user:p, X) は user:p(X) である。文脈の切り替えは :/2 に任せ、ここでは G にだけ足す。
+  if (is_qualified(machine, goal)) {
+    const Cell inner = appended(machine, machine.heap.arg(goal, 1), frame);
+    const std::array<Cell, 2> parts{machine.heap.arg(goal, 0), inner};
+    return machine.heap.structure(machine.heap.functor_atom(goal), parts);
+  }
   std::vector<Cell> args;
   std::uint32_t name = 0;
   if (goal.tag() == Tag::Atom) {
@@ -46,7 +65,12 @@ bool run_call(Impl& machine, const Goal& goal) {
   }
   Cell callable = head;
   if (goal.arity > 1) {
-    if (head.tag() != Tag::Atom && head.tag() != Tag::Str && head.tag() != Tag::Lis) {
+    const Cell target = unqualified(machine, head);
+    if (machine.heap.unbound(target)) {
+      instantiation(machine, goal);
+      return true;
+    }
+    if (target.tag() != Tag::Atom && target.tag() != Tag::Str && target.tag() != Tag::Lis) {
       not_callable(machine, goal, head);
       return true;
     }

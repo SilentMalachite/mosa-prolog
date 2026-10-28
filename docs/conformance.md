@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2028
-合格率: 93.4
+合格数: 2029
+合格率: 93.5
 不合格:
 control/call_1/tests.lgt iso_call_1_05 error(instantiation_error) suppress_text_output/0
 control/call_1/tests.lgt iso_call_1_06 errors([type_error(callable,(write(3),3)),type_error(callable,3)]) suppress_text_output/0
@@ -122,7 +122,6 @@ syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) lo
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
 syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
-syntax/operators/tests.lgt lgt_operators_40 true op(600,xfy,:)
 unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) fail
 unicode/builtins/tests.lgt lgt_unicode_get_char_2_03 true(Char==a) fail
 unicode/builtins/tests.lgt lgt_unicode_open_4_01 true domain_error(stream_option,encoding('UTF-8'))
@@ -142,8 +141,8 @@ unicode/builtins/tests.lgt lgt_unicode_stream_property_2_07 true fail
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_08 true domain_error(stream_property,bom(_))
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_09 true fail
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_10 true domain_error(stream_property,bom(_))
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'/Users/anchu/projects/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
 unicode/builtins/tests.lgt lgt_unicode_format_3_01 true(Assertion) existence_error(procedure,format/3)
 unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Assertion) fail
 別欄:

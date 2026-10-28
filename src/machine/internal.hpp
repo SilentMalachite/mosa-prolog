@@ -311,6 +311,7 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] int compare_cells(const Impl& machine, Cell left, Cell right);
 [[nodiscard]] bool run_terms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_control(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_arith(Impl& machine, const Goal& goal);
 struct CodeText {
   std::string bytes;

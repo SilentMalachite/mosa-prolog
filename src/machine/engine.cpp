@@ -242,6 +242,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {";", 2},
     {"->", 2},
     {"*->", 2},
+    {":", 2},
 });
 
 // 節の ^^ は判定器を通らない。ここで閉じないと put_byte/1 がバイナリへ書いて成功する。
@@ -451,7 +452,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
     return true;
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
-      run_control(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
+      run_control(machine, goal) || run_qualify(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
       run_flags(machine, goal) || run_database(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal)) {
