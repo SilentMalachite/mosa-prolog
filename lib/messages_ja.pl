@@ -21,7 +21,7 @@ message(max_arity, '引数が多すぎる').
 message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
-message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt]').
+message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
 message(cannot_open_file, '~w: ファイルを開けません').

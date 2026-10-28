@@ -361,6 +361,33 @@ int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals
   return 1;
 }
 
+// initialization(G, main)。ゴールは読み込みの後に実行ファイルの入口として 1 回だけ呼ぶので、
+// ここでは文面を覚えるだけにする。複数あれば最後のものが勝つ（main は ISO 7.4.2.8 に無く、この実装の規則）。
+int apply_initialization_main(Impl& machine, Cell directive) {
+  directive = machine.heap.deref(directive);
+  if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return 0;
+  const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
+  if (body.tag() != Tag::Str || machine.heap.functor_arity(body) != 2) return 0;
+  if (machine.atoms.name(machine.heap.functor_atom(body)) != "initialization") return 0;
+  const Cell when = machine.heap.deref(machine.heap.arg(body, 1));
+  if (when.tag() != Tag::Atom || machine.atoms.name(static_cast<std::uint32_t>(when.raw() >> 3)) != "main") return 0;
+  Cell goal = machine.heap.deref(machine.heap.arg(body, 0));
+  if (machine.heap.unbound(goal)) {
+    fail_load(machine, write_term(machine.heap, machine.operators, formal_instantiation(machine), {}, {}));
+    return -1;
+  }
+  if (goal.tag() != Tag::Atom && goal.tag() != Tag::Str && goal.tag() != Tag::Lis) {
+    fail_load(machine, write_term(machine.heap, machine.operators, formal_type(machine, "callable", goal), {}, {}));
+    return -1;
+  }
+  if (machine.load_module != machine.user_module) {
+    const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
+    goal = machine.heap.structure(machine.atoms.intern(":"), parts);
+  }
+  machine.main_goal = write_term(machine.heap, machine.operators, goal, {}, {}) + ".";
+  return 1;
+}
+
 // 関手 name/arity の指令なら、その本体を返す。
 std::optional<Cell> directive_body(Impl& machine, Cell directive, std::string_view name, std::uint16_t arity) {
   directive = machine.heap.deref(directive);
@@ -508,6 +535,8 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int init = apply_initialization(machine, term, inits);
   if (init < 0) return -1;
   if (init > 0) return 1;
+  const int main_init = apply_initialization_main(machine, term);
+  if (main_init != 0) return main_init;
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;

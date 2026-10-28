@@ -136,3 +136,7 @@ test(ensure_goal, ensure_loaded(missing), error(existence_error(procedure, ensur
 :- [].
 
 test(empty_files, true, true).
+
+% 旗 argv は読み取り専用（initialization(_, main) と対。値は mosa の -- より後ろの引数）。
+
+test(argv_readonly, set_prolog_flag(argv, []), error(permission_error(modify, flag, argv))).

@@ -240,6 +240,10 @@ struct Machine::Impl {
   bool japanese_punct = false;
   // 旗 message_language。文面のカタログを選ぶ（ADR 0007）。
   MessageLanguage message_lang = default_message_language();
+  // 旗 argv。プログラムに渡す引数（mosa では -- より後ろ）。読み取り専用で、起動前に一度だけ決まる。
+  std::vector<std::string> program_argv;
+  // initialization(G, main) で決まったゴールの文面。読み込み後にヒープを切るので、項ではなく文で持つ。
+  std::optional<std::string> main_goal;
   // 文面を作るためだけのマシン。自分の診断を文面にしに行くと、また新しいマシンを作り続ける。
   bool render_only = false;
   CharConv char_conv;

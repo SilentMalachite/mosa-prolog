@@ -21,7 +21,7 @@ message(max_arity, 'too many arguments').
 message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
-message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt]').
+message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~n--report may be omitted only when tests/conformance is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
 message(cannot_open_file, '~w: cannot open file').

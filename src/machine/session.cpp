@@ -61,6 +61,7 @@ struct Cursor {
 struct Options {
   std::vector<std::string> files;
   std::string goal;
+  std::vector<std::string> program_args;
   bool has_goal = false;
   bool top_halt = false;
   bool version = false;
@@ -71,6 +72,11 @@ Options parse_args(std::span<const std::string_view> args) {
   Options options;
   for (std::size_t index = 1; index < args.size(); ++index) {
     const auto arg = args[index];
+    // -- より後ろは全部プログラムの引数（旗 argv）。mosa のオプションとして読まない。
+    if (arg == "--") {
+      options.program_args.assign(args.begin() + static_cast<std::ptrdiff_t>(index) + 1, args.end());
+      return options;
+    }
     if (arg == "--version") {
       options.version = true;
       continue;
@@ -207,6 +213,24 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
   }
 }
 
+// initialization(G, main) の入口。成功は 0、失敗は 1、例外は文面を出して 2、halt/1 の値はそのまま。
+// 答えの行は出さない。実行ファイルと同じ出力にするため。
+int play_main(Machine& machine, const std::string& goal, Echo& echo) {
+  try {
+    const Stop stop = machine.query(goal);
+    if (stop.kind == StopKind::Halt) return stop.halt_code;
+    if (stop.kind == StopKind::Exception) {
+      warn_exception(machine, stop, echo);
+      return 2;
+    }
+    return stop.kind == StopKind::Failure ? 1 : 0;
+  } catch (const ResourceLimit&) {
+    recover_heap(machine);
+    warn_resource(machine, echo);
+    return 2;
+  }
+}
+
 ReadOutcome read_goal_text(Machine& machine, std::string_view text) {
   Reader reader(text, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
                 &engine_impl(machine).char_conv);
@@ -331,6 +355,7 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
   cursor.data = input;
   cursor.from_cin = tty && input.empty();
   auto machine = Machine::create(heap_limit);
+  machine->set_program_argv(options.program_args);
   for (const std::string& file : options.files) {
     try {
       if (!machine->consult(file)) {
@@ -344,6 +369,11 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
       result.code = 2;
       return result;
     }
+  }
+  // main は入口で、終わったらプロセスも終わる。REPL にも -g にも進まない。
+  if (machine->main_goal()) {
+    result.code = play_main(*machine, *machine->main_goal(), echo);
+    return result;
   }
   if (!tty && !options.has_goal) {
     echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");

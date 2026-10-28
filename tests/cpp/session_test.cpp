@@ -355,6 +355,57 @@ void check_goal_without_period() {
   mosa_test::check(tty.out.find("X = 1.") != std::string::npos, "tty broken goal reaches prompt");
 }
 
+// initialization(G, main) は、ファイルを読み終えたあとに G を 1 回だけ呼ぶ。終了コードは G の結果で決まる。
+mosa::SessionResult run_main_program(const std::string& name, const std::string& body, bool with_goal = false) {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/" + name + ".pl";
+  std::ofstream file(path, std::ios::binary);
+  file << ":- initialization(main, main).\n" << body;
+  file.close();
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "write(goal_ran).";
+  std::vector<std::string_view> args{arg0, path};
+  if (with_goal) {
+    args.push_back(arg_g);
+    args.push_back(goal);
+  }
+  return mosa::run_session(args, "", false);
+}
+
+void check_init_main() {
+  const auto ok = run_main_program("session_main_ok", "main.\n", true);
+  mosa_test::check(ok.code == 0, "init_main_success exit");
+  mosa_test::check(ok.out.empty() && ok.err.empty(), "init_main_success prints nothing");
+  mosa_test::check(ok.out.find("goal_ran") == std::string::npos, "main exit skips -g");
+  const auto failed = run_main_program("session_main_fail", "main :- fail.\n");
+  mosa_test::check(failed.code == 1, "init_main_fail exit");
+  const auto thrown = run_main_program("session_main_throw", "main :- throw(foo).\n");
+  mosa_test::check(thrown.code == 2, "init_main_throw exit");
+  mosa_test::check(thrown.err.find("警告: ゴールは例外を送出しました: foo") != std::string::npos,
+                   "init_main_throw message");
+  const auto halted = run_main_program("session_main_halt3", "main :- halt(3).\n");
+  mosa_test::check(halted.code == 3, "init_main_halt3 exit");
+}
+
+void check_argv_after_dashes() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_p.pl";
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "current_prolog_flag(argv, X).";
+  const std::string arg_t = "-t";
+  const std::string halt = "halt";
+  const std::string dashes = "--";
+  const std::string first = "a";
+  const std::string second = "漢字";
+  std::vector<std::string_view> args{arg0, path, arg_g, goal, arg_t, halt, dashes, first, second};
+  const auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 0 && result.out.find("X = [a,漢字].") != std::string::npos,
+                   "argv_after_dashes list");
+  std::vector<std::string_view> bare{arg0, path, arg_g, goal, arg_t, halt};
+  const auto none = mosa::run_session(bare, "", false);
+  mosa_test::check(none.out.find("X = [].") != std::string::npos, "argv without dashes is empty");
+}
+
 int main(int argc, char** argv) {
   if (argc > 1 && std::string_view{argv[1]} == "english") {
     check_english_default();
@@ -385,5 +436,7 @@ int main(int argc, char** argv) {
   check_syntax_shown();
   check_load_diagnostics_en();
   check_goal_without_period();
+  check_init_main();
+  check_argv_after_dashes();
   return mosa_test::failures();
 }

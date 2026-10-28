@@ -27,7 +27,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 19;
+constexpr std::size_t kFlagCount = 20;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -57,6 +57,7 @@ std::string_view flag_name(std::size_t index) {
     case 16: return "version_data";
     case 17: return "version";
     case 18: return "message_language";
+    case 19: return "argv";
     default: return {};
   }
 }
@@ -69,6 +70,15 @@ int find_flag(const Impl& machine, Cell flag) {
     if (flag_name(index) == text) return static_cast<int>(index);
   }
   return -1;
+}
+
+// 旗 argv。引数のアトムのリスト。後ろから積むので、先頭が最初の引数になる。
+Cell argv_list(Impl& machine) {
+  Cell list = atom_named(machine, "[]");
+  for (auto it = machine.program_argv.rbegin(); it != machine.program_argv.rend(); ++it) {
+    list = machine.heap.list(atom_named(machine, *it), list);
+  }
+  return list;
 }
 
 Cell flag_value(Impl& machine, std::size_t index) {
@@ -96,6 +106,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
     }
     case 17: return machine.heap.integer(kVersionMajor * 10000 + kVersionMinor * 100 + kVersionPatch);
     case 18: return atom_named(machine, machine.message_lang == MessageLanguage::Ja ? "ja" : "en");
+    case 19: return argv_list(machine);
     default: return atom_named(machine, "error");
   }
 }
@@ -136,6 +147,8 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     case 15: return value.tag() == Tag::Atom;
     case 16: return value.tag() == Tag::Str && machine.heap.functor_arity(value) == 4;
     case 18: return same_atom(machine, value, "ja") || same_atom(machine, value, "en");
+    // 読み取り専用。領域は形だけ見て、次の permission_error に回す。
+    case 19: return true;
     default: return same_atom(machine, value, "error");
   }
 }

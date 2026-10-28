@@ -513,6 +513,10 @@ std::size_t Machine::choice_depth() const { return impl_->stack.size(); }
 
 std::string_view Machine::diagnostic() const { return impl_->diagnostic; }
 
+void Machine::set_program_argv(std::vector<std::string> arguments) { impl_->program_argv = std::move(arguments); }
+
+const std::optional<std::string>& Machine::main_goal() const { return impl_->main_goal; }
+
 void Machine::halt(int code) {
   impl_->halt_pending = true;
   impl_->halt_code = code;
