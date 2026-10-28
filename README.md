@@ -5,7 +5,7 @@ English | [日本語](README.ja.md)
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](docs/conformance.md)
 [![mosac diff](https://img.shields.io/badge/mosac_diff-not_measured-lightgrey)](docs/SPEC.md)
-[![Phase](https://img.shields.io/badge/phase-3_done-blue)](docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-4_done-blue)](docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.0.1-blue)](CMakeLists.txt)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](CMakeLists.txt)
@@ -22,7 +22,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–3 are done; phase 4 (modules) is next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
+Phases 0–4 are done; phase 5 (conformance and Japanese) is next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ Phases 0–3 are done; phase 4 (modules) is next. Current progress is in [`docs/
 | 1 | Terms, reader, writer | Done |
 | 2 | Execution core (IR, clause compiler, choice points, cut, `catch/throw`, REPL, `consult/1`) | Done |
 | 3 | Built-in predicates, streams, flags, directives, error system | Done |
-| 4 | Modules and `library(*)` | Not started |
+| 4 | Modules and `library(*)` | Done |
 | 5 | Conformance push, full-width symbol mode, Japanese messages | Not started |
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Not started |
 | 7 | GC, manuals, release packages | Not started |

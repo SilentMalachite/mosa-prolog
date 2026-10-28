@@ -555,3 +555,36 @@ test(export_user, (
   export(prop_local_fact/1),
   predicate_property(prop_local_fact(_), exported)
 ), true).
+
+consult_decl_names :- consult('tests/pl/modules/decl/人名.pl').
+consult_decl_names :- consult('../tests/pl/modules/decl/人名.pl').
+
+consult_decl_family :- consult('tests/pl/modules/decl/家系.pl').
+consult_decl_family :- consult('../tests/pl/modules/decl/家系.pl').
+
+% 第5節の宣言例。親が2つあると、修飾した祖父は三郎を一度返す。
+test(decl_grand, (
+  consult_decl_names,
+  consult_decl_family,
+  findall(Z, 家系:祖父(太郎, Z), Zs),
+  Zs == [三郎]
+), true).
+% library(lists) の取り込みは、家系の中で member が見えること。
+test(decl_lists, 家系:member(三郎, [次郎, 三郎]), true).
+% 別名は家系の中だけ。元の名前は、except が別の席を作る。
+test(decl_alias, 家系:分解(太郎, 太, 郎), true).
+% except は読みを外し、残った公開述語は元の名前で入る。
+test(decl_except, (家系:姓名分解(太郎, 太, 郎), \+ 家系:読み(太郎, たろう)), true).
+% 節が無くても、宣言した頭部がメタ性質になる。1 は : でも 0 でもない。
+test(decl_meta, predicate_property(家系:全員(_, _), meta_predicate(全員(1, ?))), true).
+% module/2 の後の export は、あとから use_module した側に届く。節はまだ無い。
+test(decl_export, (
+  use_module(家系),
+  predicate_property(新述語(_), exported),
+  predicate_property(新述語(_), imported_from(家系))
+), true).
+% (は)/2 は module/2 の公開リスト。節が無くても取り込み先から公開と見える。
+test(decl_wa, (
+  predicate_property(は(_, _), exported),
+  predicate_property(は(_, _), imported_from(家系))
+), true).

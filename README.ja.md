@@ -5,7 +5,7 @@
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](docs/conformance.md)
 [![mosac diff](https://img.shields.io/badge/mosac_diff-not_measured-lightgrey)](docs/SPEC.md)
-[![Phase](https://img.shields.io/badge/phase-3_done-blue)](docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-4_done-blue)](docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.0.1-blue)](CMakeLists.txt)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](CMakeLists.txt)
@@ -24,7 +24,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 3（組込述語の拡充）まで終わっています。次はフェーズ 4（モジュール）です。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
+フェーズ 4（モジュール）まで終わっています。次はフェーズ 5（準拠率と日本語）です。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 1 | 項、リーダ、ライタ | 完了 |
 | 2 | 実行の核（IR、節コンパイラ、選択点、カット、`catch/throw`、REPL、`consult/1`） | 完了 |
 | 3 | 組込述語、ストリーム、フラグ、ディレクティブ、エラー体系 | 完了 |
-| 4 | モジュールと `library(*)` | 未着手 |
+| 4 | モジュールと `library(*)` | 完了 |
 | 5 | 準拠率の追い込み、全角記号モード、メッセージの日本語化 | 未着手 |
 | 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 未着手 |
 | 7 | GC、マニュアル、配布パッケージ | 未着手 |
