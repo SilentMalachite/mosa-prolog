@@ -14,7 +14,7 @@
 
 - フェーズ4の完了条件（`tests/pl/modules.pl` が通る、`library(lists)` を使う既存テストが壊れない）を満たしていること。2026-10-28 時点ではフェーズ4は未着手であり、この計画はフェーズ4の終了後に着手する
 - 完了条件の「合格率を上げる」は、Task 1 で測るフェーズ4終了時の基準値より上であることとする。固定の目標値は置かない（2026-10-28 持ち主の決定: A）
-- 下の「現時点の不合格の見取り図」は 2026-10-28 の `docs/conformance.md`（分母 2171、合格 2028、93.4%）から作った。`between/3`、`format/3`、`atomic_list_concat/2,3`、`forall/2` などはフェーズ4の `library(*)` で消える見込みなので、数はタスク 1 で取り直す
+- 下の「現時点の不合格の見取り図」は 2026-10-28 の `docs/conformance.md`（分母 2171、合格 2028、93.4%）から作った。`between/3`、`format/3`、`atomic_list_concat/2,3`、`forall/2` などはフェーズ4の ADR 0006 と iso-notes `Section 5 Autoload` の決定しだいで消えるので、数はタスク 1 で取り直す
 
 ## Global Constraints
 
@@ -72,7 +72,7 @@
 | `src/machine/load.cpp`、`src/machine/consult.cpp` | `discontiguous` の読み込み | 6 |
 | `src/builtins/arith_float.cpp` | 丸め系評価子 | 7 |
 | `src/read/fullwidth.cpp`（新規）、`src/read/lexer.cpp`、`src/read/lexer_literal.cpp` | 全角記号の置き換え | 10 |
-| `docs/adr/0006-messages.md`（新規、`.ja.md` も） | メッセージの置き場と `syntax_error` の Formal | 11 |
+| `docs/adr/0007-messages.md`（新規、`.ja.md` も） | メッセージの置き場と `syntax_error` の Formal | 11 |
 | `lib/messages_ja.pl`、`lib/messages_en.pl`（新規）、`src/machine/messages.cpp`（新規）、`src/machine/session.cpp`、`src/main_mosa.cpp`、`src/builtins/flags.cpp` | 旗 `message_language` と表示 | 11 |
 | `src/read/lexer_literal.cpp`、`src/builtins/read_pred.cpp`、`tests/pl/read.pl` | 構文エラーの鍵と位置 | 12 |
 | `lib/format.pl` かフェーズ4で決まる `format` の実装 | `~t~|` の東アジア幅 | 13 |
@@ -176,7 +176,7 @@
 - Modify: `docs/iso-notes.md`、`docs/iso-notes.ja.md`、答えが B のときだけ該当コードと ADR
 
 - [ ] **Step 1:** iso-notes の未決 6 問（7.8.3、9.3.1.3 d、7.5.4、8.11.8、`memberchk/2` と `iso_stream_property_2_01`、8.11.1）とタスク 1 の N の問いを、1 回の報告に 1 つずつ持ち主に聞く
-- [ ] **Step 2:** 答えを `Decision (日付): A.` の形で書く。7.5.4 が B なら ADR 0004 を置き換える ADR 0007 を先に書いて承認を得てから実装する。それ以外で B のものは、その述語 1 つを 1 セッションで、タスク 9 と同じ手順で実装する
+- [ ] **Step 2:** 答えを `Decision (日付): A.` の形で書く。7.5.4 が B なら ADR 0004 を置き換える ADR 0008 を先に書いて承認を得てから実装する。それ以外で B のものは、その述語 1 つを 1 セッションで、タスク 9 と同じ手順で実装する
 - [ ] **Step 3:** A のままの不合格は仕分け表で「解釈の違い（iso-notes の見出し）」と書く
 
 ### Task 9: 残りの I を 1 述語ずつ
@@ -223,7 +223,7 @@
 ### Task 11: メッセージを Prolog の事実へ移す
 
 **Files:**
-- Create: `docs/adr/0006-messages.md`、`docs/adr/0006-messages.ja.md`、`lib/messages_ja.pl`、`lib/messages_en.pl`、`src/machine/messages.cpp`
+- Create: `docs/adr/0007-messages.md`、`docs/adr/0007-messages.ja.md`、`lib/messages_ja.pl`、`lib/messages_en.pl`、`src/machine/messages.cpp`
 - Modify: `src/machine/session.cpp`、`src/main_mosa.cpp`、`src/builtins/flags.cpp`
 - Test: `tests/cpp/session_test.cpp`、`tests/pl/flags.pl`
 
@@ -231,11 +231,11 @@
 - Produces: 事実 `message(Key, Format)`（モジュール `messages_ja` と `messages_en` がそれぞれ持つ。Format は `format/2` の書式原子）。C++ 側は `std::string render_message(Impl& machine, std::string_view key, Cell args)`。旗 `message_language`（値 `ja` か `en`）
 - Consumes: フェーズ4の `library(...)` の探索（`$MOSA_LIB`、実行ファイルからの `lib/`）、`library(format)`
 
-- [ ] **Step 1:** ADR 0006 を書いて持ち主の承認を得る。決めること: 事実の名前と引数、言語ごとのモジュール、旗の既定値の決め方（`LANG` が `ja` で始まれば `ja`、それ以外は `en`。`LANG` の読み取りは `src/platform/`）、カタログが読めないときの表示（`<Key>: ` の後に引数を `writeq` で並べる）。承認までコードを書かない
+- [ ] **Step 1:** ADR 0007 を書いて持ち主の承認を得る。決めること: 事実の名前と引数、言語ごとのモジュール、旗の既定値の決め方（`LANG` が `ja` で始まれば `ja`、それ以外は `en`。`LANG` の読み取りは `src/platform/`）、カタログが読めないときの表示（`<Key>: ` の後に引数を `writeq` で並べる）。承認までコードを書かない
 - [ ] **Step 2:** 失敗するテスト。`session_test` に `uncaught_ja`: 旗 `ja` で `throw(foo)` を打つと標準エラーが `警告: ゴールは例外を送出しました: foo` を含む。`uncaught_en`: 旗 `en` で `Warning: goal raised exception: foo` を含む。`message_missing_key`: カタログを読まない設定で落ちず `goal_raised: foo` を含む。`tests/pl/flags.pl` に `ml_values`: `set_prolog_flag(message_language, fr)` → `domain_error(flag_value, message_language+fr)`
 - [ ] **Step 3:** `session.cpp` と `main_mosa.cpp` の `警告: …` の文字列を鍵 `goal_raised`、`heap_limit` に置き換える。REPL のヘルプに「日本語の変数は `_太郎` のように下線で始める」を鍵 `help_japanese_variables` で足す
 - [ ] **Step 4:** 旗を足したので `docs/iso-notes.md` に `Section 7 Flag message_language` を Decision 付きで書く
-- [ ] **Step 5:** テストを流す。コミット `[phase5] 例外の表示を messages_ja.pl と messages_en.pl へ移す（ADR 0006、session_test 3 件）`
+- [ ] **Step 5:** テストを流す。コミット `[phase5] 例外の表示を messages_ja.pl と messages_en.pl へ移す（ADR 0007、session_test 3 件）`
 
 ### Task 12: 構文エラーの鍵と位置（SPEC 第4節、第7節）
 
@@ -244,9 +244,9 @@
 - Test: `tests/pl/read.pl`、`tests/pl/japanese.pl`、`tests/cpp/session_test.cpp`
 
 **Interfaces:**
-- Consumes: ADR 0006 で決めた Formal（`syntax_error(Key)`、Key は英語の原子）と Context（`context(PI, stream(S, Line, LinePos, CharNo))`、問題のトークンの置き場は ADR 0006 による）
+- Consumes: ADR 0007 で決めた Formal（`syntax_error(Key)`、Key は英語の原子）と Context（`context(PI, stream(S, Line, LinePos, CharNo))`、問題のトークンの置き場は ADR 0007 による）
 
-- [ ] **Step 1:** `tests/pl/read.pl` の `read_syntax` と `read_incomplete` の期待値を ADR 0006 の形に直す（期待値の変更はこの ADR のコミットに限る）。`japanese.pl` に `syntax_col_japanese`: `'あいう ).'` と `'abc ).'` を読んだときの `LinePos` が等しい。`syntax_ja_shown`: `session_test` で旗 `ja` のとき `親(.` の表示が `行 1 列` と `親` を含む
+- [ ] **Step 1:** `tests/pl/read.pl` の `read_syntax` と `read_incomplete` の期待値を ADR 0007 の形に直す（期待値の変更はこの ADR のコミットに限る）。`japanese.pl` に `syntax_col_japanese`: `'あいう ).'` と `'abc ).'` を読んだときの `LinePos` が等しい。`syntax_ja_shown`: `session_test` で旗 `ja` のとき `親(.` の表示が `行 1 列` と `親` を含む
 - [ ] **Step 2:** 失敗を見る
 - [ ] **Step 3:** C++ の日本語の理由文（`整数が範囲を超えている`、`予期しないトークン`、`項が閉じていません` など）を鍵に置き換え、文面は `messages_*.pl` に移す。`grep -rnP '"[^"]*[\x{3040}-\x{30ff}\x{4e00}-\x{9fff}]' src` が `src/machine/iso_suite.cpp` の報告書の見出しと注釈以外を出さないこと
 - [ ] **Step 4:** テストを流す。コミット `[phase5] 構文エラーを鍵と位置で投げ、文面を messages へ移す（read.pl、japanese.pl、session_test）`
