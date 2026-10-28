@@ -386,3 +386,19 @@ A か B か: A は問題ごとの Formal。引数が尽きたら `domain_error(n
 A か B か: A は今のまま引数を先に評価する（`type_error(evaluable, bar/0)`）。B は引数を評価する前に主関数子を確かめる（`type_error(evaluable, foo/1)`）。
 
 決定（2026-10-28）: B。7.9.1 は主関数子が評価できるかで分かれてから引数を評価する。外側の関数子が悪ければ、引数に手を付ける前に止まる。
+
+## 第5節 結果が数の atomic_list_concat/2,3
+
+`atomic_list_concat/2,3` は規格に無い。Logtalk のスイート（`atomic_list_concat_2`、`atomic_list_concat_3`）は結果の引数が複合項なら `type_error(atom, a(1))` を期待するが、`atomic_list_concat([1, 2], 12)` の `12` のような数の扱いは決めていない。
+
+A か B か: A は `type_error(atom, 12)`。結果の引数は変数か原子に限る。B は文字として比べ、成功させる。
+
+決定（2026-10-28）: A。8.16.2.3 は `atom_concat/3` の第3引数に同じ決まりを置いており、Logtalk の複合項の場合とも揃う。
+
+## 第5節 空の区切りで分ける atomic_list_concat/3
+
+`atomic_list_concat/3` が分けるとき（リストが決まっておらず原子が決まっているとき）、区切りが空の `''` では分け方が 1 つに決まらない。
+
+A か B か: A は `domain_error(non_empty_atom, '')`。B は失敗させるか、1 文字ずつに分ける。
+
+決定（2026-10-28）: A。黙って失敗するより誤りの方が何が悪いかを伝え、1 文字ずつ分けるのは `atom_chars/2` の仕事である。

@@ -1,5 +1,5 @@
 % library(strings)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_strings.pl。
-% 誤りの形は Logtalk の atomic_list_concat_2、atomic_list_concat_3 と同じ。結果の引数は atom_concat/3（8.16.2）に
+% 誤りの形は Logtalk の atomic_list_concat_2、atomic_list_concat_3 と同じ。結果が数のときと空の区切りは iso-notes の決定 A。結果の引数は atom_concat/3（8.16.2）に
 % 合わせて変数か原子に限る。split_atom/4 は SWI の split_string/4 と同じ切り方で、結果は原子のリスト。
 :- module(strings, [atomic_list_concat/2, atomic_list_concat/3, split_atom/4]).
 :- use_module(library(lists)).

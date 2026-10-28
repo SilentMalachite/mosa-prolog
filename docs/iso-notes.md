@@ -384,3 +384,19 @@ In `X is foo(bar)`, both `foo/1` and `bar/0` are not evaluable. 7.12.1 leaves th
 A or B?: A: keep evaluating the arguments first (`type_error(evaluable, bar/0)`). B: check the principal functor before evaluating its arguments (`type_error(evaluable, foo/1)`).
 
 Decision (2026-10-28): B. 7.9.1 dispatches on whether the principal functor is evaluable before it evaluates the arguments, and a bad outer functor stops evaluation before any work on the arguments.
+
+## Section 5 atomic_list_concat/2,3 with a number as the result
+
+`atomic_list_concat/2,3` is not in the standard. The Logtalk suite (`atomic_list_concat_2`, `atomic_list_concat_3`) expects `type_error(atom, a(1))` when the result argument is a compound, but does not say what a number such as `12` in `atomic_list_concat([1, 2], 12)` should do.
+
+A or B?: A: `type_error(atom, 12)`; the result argument must be a variable or an atom. B: compare the text, so the goal succeeds.
+
+Decision (2026-10-28): A. 8.16.2.3 gives `atom_concat/3` the same rule for its third argument, and it matches the Logtalk compound case.
+
+## Section 5 atomic_list_concat/3 splitting on an empty separator
+
+When `atomic_list_concat/3` splits (the list is open and the atom is bound), an empty separator `''` does not give one way to split.
+
+A or B?: A: `domain_error(non_empty_atom, '')`. B: fail, or split into single characters.
+
+Decision (2026-10-28): A. An error says what is wrong instead of failing quietly, and splitting into characters is the job of `atom_chars/2`.
