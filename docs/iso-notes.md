@@ -265,6 +265,22 @@ A or B?: A: the whole `Module:Goal`, so `call(user:(fail, 1))` reports the term 
 
 Decision (2026-10-28): A. The culprit is the whole `Module:Goal`.
 
+## Section 5 Conflict between two imports
+
+SPEC section 5 says local and imported predicates share one namespace, and fixes the error for a local definition that meets an import. It does not say what happens when one module imports the same `Name/Arity` from two different modules.
+
+A or B?: A: the second import fails the load with `permission_error(import_into, procedure, From:Name/Arity)`, where `From` is the module of the second import; importing again from the same module is allowed. B: the later import silently replaces the earlier one.
+
+Decision (2026-10-28): A. Two sources for one name are a conflict, with the same Formal as a local definition that meets an import.
+
+## Section 5 Importing a predicate that is not exported
+
+SPEC section 5 lets `use_module(File, Imports)` name the predicates to import, but does not say what happens when a named predicate is not in the export list of the loaded module.
+
+A or B?: A: the load fails with `existence_error(procedure, Module:Name/Arity)`. B: import it anyway, as SWI-Prolog does with a warning. In both, an entry of `except([...])` that is not exported is ignored.
+
+Decision (2026-10-28): A. Only exported predicates can be imported; a missing one fails the load with `existence_error(procedure, Module:Name/Arity)`.
+
 ## 8.4.3 sort/2
 
 `sort/2` is an ISO built-in (8.4.3), but the stage table in SPEC section 7 does not list it, and it is not implemented. The `sort_2` tests of the bundled suite are in the separate section of `docs/conformance.md`. `keysort/2` (8.4.4) is listed in stage G as system.
