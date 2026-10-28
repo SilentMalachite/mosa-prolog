@@ -133,3 +133,8 @@ test(op_writeq_ctx, 演算:with_output_to(atom(S), writeq(内演(a, b))), soluti
 test(op_mask, 演算:current_op(_, xfx, 隠演), fail).
 test(op_mask_user, current_op(700, xfx, 隠演), true).
 test(op_runtime_local, (演算:op(300, xfx, 実演), \+ current_op(_, _, 実演), 演算:current_op(300, xfx, 実演)), true).
+:- consult('modules/旗.pl').
+test(flag_dq_inside_file, 旗の中の文字列(X), solutions([X = ab])).
+test(flag_dq_per_file, current_prolog_flag(double_quotes, codes), true).
+test(flag_jp_per_file, current_prolog_flag(japanese_punctuation, false), true).
+test(flag_other_kept, current_prolog_flag(debug, on), true).

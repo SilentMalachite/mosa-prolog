@@ -20,3 +20,4 @@ test(flag_bounded_same, set_prolog_flag(bounded, true), error(permission_error(m
 test(flag_max_arity_modify, set_prolog_flag(max_arity, 40), error(permission_error(modify, flag, max_arity))).
 test(flag_max_arity_atom, set_prolog_flag(max_arity, foo), error(domain_error(flag_value, max_arity+foo))).
 test(flag_quotes_bad, set_prolog_flag(double_quotes, foo), error(domain_error(flag_value, double_quotes+foo))).
+test(flag_ja_punct_set, (set_prolog_flag(japanese_punctuation, true), current_prolog_flag(japanese_punctuation, V), set_prolog_flag(japanese_punctuation, false)), solutions([V = true])).

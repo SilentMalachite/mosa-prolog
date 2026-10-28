@@ -180,6 +180,7 @@ struct SavedFlags {
   bool char_conv_on = false;
   bool utf8_replace = false;  // 失敗した読み込みは、途中の set_prolog_flag を残さない。
   bool debug_on = false;
+  bool japanese_punct = false;
   std::vector<std::pair<char32_t, char32_t>> char_map;
 };
 
@@ -192,6 +193,7 @@ SavedFlags save_flags(const Impl& machine) {
                     machine.char_conv.enabled,
                     machine.utf8_replace,
                     machine.debug_on,
+                    machine.japanese_punct,
                     machine.char_conv.map};
 }
 
@@ -204,7 +206,15 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.char_conv.enabled = saved.char_conv_on;
   machine.utf8_replace = saved.utf8_replace;
   machine.debug_on = saved.debug_on;
+  machine.japanese_punct = saved.japanese_punct;
   machine.char_conv.map = saved.char_map;
+}
+
+// SPEC 第5節。この 2 つは字句の旗なので、ファイルの書き手の選択を読み手のファイルへ持ち出さない。
+// 他の旗は実行の旗なので、成功した読み込みの後も残す。
+void restore_file_flags(Impl& machine, const SavedFlags& saved) {
+  machine.quotes = saved.quotes;
+  machine.japanese_punct = saved.japanese_punct;
 }
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
@@ -552,13 +562,17 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   LoadScan scan{snapshots, apart, inits, last, opening};
   if (!read_terms(machine, source, directory, origin, false, scan)) {
     if (machine.load_kept) {
+      if (!origin.empty()) restore_file_flags(machine, saved_flags);
       machine.heap.truncate(heap_base);
       return LoadStatus{false, machine.diagnostic};
     }
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_multi,
                        saved_prepared, saved_modules);
   }
-  return finish_load(machine, heap_base, inits);
+  const LoadStatus status = finish_load(machine, heap_base, inits);
+  // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
+  if (!origin.empty()) restore_file_flags(machine, saved_flags);
+  return status;
 }
 
 LoadStatus Machine::load_program(std::string_view source) { return load_source(*impl_, source); }

@@ -303,6 +303,21 @@ void check_print_while_portray_loads() {
   mosa_test::check(succeeds(*machine, "描画:go."), "print survives modules created by portray");
 }
 
+// SPEC 第5節。mosatest は旗を見ずに先読みするので、読み手の後続の節は load_program で見る。
+void check_flags_per_file() {
+  auto machine = mosa::Machine::create();
+  const std::string parent = ":- consult('" + kModules + "旗.pl').\n後(\"ab\").\n";
+  mosa_test::check(machine->load_program(parent).ok, "parent consults a file that sets flags");
+  mosa_test::check(succeeds(*machine, "旗の中の文字列(X), X == ab."), "double_quotes applies inside the file");
+  mosa_test::check(succeeds(*machine, "後(X), X == [97, 98]."), "parent reads codes after the file");
+  mosa_test::check(succeeds(*machine, "current_prolog_flag(japanese_punctuation, false)."),
+                   "japanese_punctuation restored");
+  mosa_test::check(succeeds(*machine, "current_prolog_flag(debug, on)."), "other flags are kept");
+  auto runtime = mosa::Machine::create();
+  mosa_test::check(succeeds(*runtime, "consult('" + kModules + "旗.pl')."), "runtime consult loads");
+  mosa_test::check(succeeds(*runtime, "current_prolog_flag(double_quotes, codes)."), "runtime consult restores");
+}
+
 }  // namespace
 
 int main() {
@@ -327,5 +342,6 @@ int main() {
   check_meta_declarations();
   check_exported_operators();
   check_print_while_portray_loads();
+  check_flags_per_file();
   return mosa_test::failures();
 }

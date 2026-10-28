@@ -236,9 +236,9 @@
 - Modify: `src/machine/load.cpp`（`SavedFlags` を成功時にも戻す）
 - Test: `tests/pl/modules.pl`
 
-- [ ] **Step 1:** 失敗するテスト。`flag_dq_per_file`: `:- set_prolog_flag(double_quotes, atom).` を書いたファイルを読んだ後、読み手の `double_quotes` は `codes` のまま。`flag_jp_per_file`: `japanese_punctuation` も同じ。`flag_other_kept`: `unknown` などそれ以外の旗は今どおり残る
-- [ ] **Step 2:** 既存の `tests/pl/flags.pl` と `directives.pl` に、ファイルを跨いで `double_quotes` が残ることを前提にしたテストがあれば、iso-notes に書いて止める（期待値を書き換えない）
-- [ ] **Step 3:** 実装する。テストを流す。コミット `[phase4] double_quotes と japanese_punctuation をファイルごとに戻す（SPEC 第5節、modules.pl 3 件）`
+- [x] **Step 1:** 失敗するテスト。`flag_dq_per_file`: `:- set_prolog_flag(double_quotes, atom).` を書いたファイルを読んだ後、読み手の `double_quotes` は `codes` のまま。`flag_jp_per_file`: `japanese_punctuation` も同じ。`flag_other_kept`: `unknown` などそれ以外の旗は今どおり残る
+- [x] **Step 2:** 既存の `tests/pl/flags.pl` と `directives.pl` に、ファイルを跨いで `double_quotes` が残ることを前提にしたテストがあれば、iso-notes に書いて止める（期待値を書き換えない）
+- [x] **Step 3:** 実装する。テストを流す。コミット `[phase4] double_quotes と japanese_punctuation をファイルごとに戻す（SPEC 第5節、modules.pl 3 件）`
 
 ### Task 12: `library(lists)`
 
