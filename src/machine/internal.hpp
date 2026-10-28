@@ -97,7 +97,7 @@ struct Entry {
   Cell pattern{};
   IrTerm recovery;
   // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
-  // 5 は current_char_conversion。
+  // 5 は current_char_conversion、6 は length。
   std::uint8_t gen_kind = 0;
 };
 
@@ -356,6 +356,8 @@ enum class ListShape { Variable, Proper, Partial, Bad };
 struct WalkedList {
   ListShape shape = ListShape::Bad;
   std::vector<Cell> items;
+  // Partial のときだけ、末尾の未束縛の変数。
+  Cell tail{};
 };
 
 [[nodiscard]] CodeText decode_codes(std::string_view text);
@@ -388,6 +390,8 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_operators(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_op(Impl& machine);
 [[nodiscard]] bool redo_current_char_conversion(Impl& machine);
+[[nodiscard]] bool run_lists(Impl& machine, const Goal& goal);
+[[nodiscard]] bool redo_length_gen(Impl& machine);
 int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_retract(Impl& machine);
 [[nodiscard]] bool redo_clause_scan(Impl& machine);

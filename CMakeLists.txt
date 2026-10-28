@@ -75,6 +75,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
+  src/builtins/lists.cpp
   src/builtins/terms.cpp
   src/builtins/control.cpp
   src/builtins/arith.cpp

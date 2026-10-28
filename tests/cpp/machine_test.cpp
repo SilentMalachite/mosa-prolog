@@ -84,6 +84,20 @@ void check_catch() {
   }
 }
 
+// length/2 が作るリストはヒープの上限で止まる。先に vector を確保すると length_error で落ちる。
+void check_length_limit() {
+  auto tiny = mosa::Machine::create(4096);
+  bool limited = false;
+  try {
+    (void)tiny->query("length(_, 9223372036854775807).");
+  } catch (const mosa::ResourceLimit&) {
+    limited = true;
+  } catch (const std::exception&) {
+    limited = false;
+  }
+  mosa_test::check(limited, "length/2 with a huge N hits the heap limit");
+}
+
 void check_types() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->query("var(X).").kind == mosa::StopKind::Success, "var");
@@ -568,6 +582,7 @@ int main() {
   check_catch();
   check_types();
   check_order();
+  check_length_limit();
   check_terms();
   check_answer_and_consult();
   check_discontiguous();

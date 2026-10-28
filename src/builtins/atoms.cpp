@@ -82,13 +82,6 @@ void domain_at(Impl& machine, const Goal& goal, Cell culprit) {
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-bool seen_before(const std::vector<std::uint64_t>& seen, std::uint64_t raw) {
-  for (const auto item : seen) {
-    if (item == raw) return true;
-  }
-  return false;
-}
-
 struct Slice {
   std::size_t before = 0;
   std::size_t length = 0;
@@ -459,27 +452,38 @@ void append_utf8_code(std::string& text, char32_t code) {
 
 WalkedList walk_list(const Impl& machine, Cell list) {
   WalkedList walked;
-  std::vector<std::uint64_t> seen;
   Cell cursor = machine.heap.deref(list);
   if (machine.heap.unbound(cursor)) {
     walked.shape = ListShape::Variable;
     return walked;
   }
+  // Brent の方法で巡回を見る。辿った節を全部覚えると、長いリストの sort/2 や length/2 が二乗になる。
+  std::uint64_t mark = 0;
+  bool marked = false;
+  std::size_t power = 1;
+  std::size_t steps = 1;
   while (true) {
     cursor = machine.heap.deref(cursor);
     if (machine.heap.unbound(cursor)) {
       walked.shape = ListShape::Partial;
+      walked.tail = cursor;
       return walked;
     }
     if (cursor.tag() == Tag::Atom && machine.atoms.name(atom_id(cursor)) == "[]") {
       walked.shape = ListShape::Proper;
       return walked;
     }
-    if (cursor.tag() != Tag::Lis || seen_before(seen, cursor.raw())) {
+    if (cursor.tag() != Tag::Lis || (marked && cursor.raw() == mark)) {
       walked.shape = ListShape::Bad;
       return walked;
     }
-    seen.push_back(cursor.raw());
+    if (steps == power) {
+      mark = cursor.raw();
+      marked = true;
+      power *= 2;
+      steps = 0;
+    }
+    ++steps;
     walked.items.push_back(machine.heap.deref(machine.heap.list_head(cursor)));
     cursor = machine.heap.list_tail(cursor);
   }
@@ -508,6 +512,7 @@ bool redo_atoms(Impl& machine) {
   if (machine.stack.back().gen_kind == 3) return redo_flag_gen(machine);
   if (machine.stack.back().gen_kind == 4) return redo_current_op(machine);
   if (machine.stack.back().gen_kind == 5) return redo_current_char_conversion(machine);
+  if (machine.stack.back().gen_kind == 6) return redo_length_gen(machine);
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   const Goal goal = read_goal(machine, top.redo_goal);

@@ -138,3 +138,5 @@ test(flag_dq_inside_file, 旗の中の文字列(X), solutions([X = ab])).
 test(flag_dq_per_file, current_prolog_flag(double_quotes, codes), true).
 test(flag_jp_per_file, current_prolog_flag(japanese_punctuation, false), true).
 test(flag_other_kept, current_prolog_flag(debug, on), true).
+% iso-notes の Section 5 Autoload の決定 A。このファイルは library(lists) を取り込まない。
+test(lists_needs_use, append([a], [b], _), error(existence_error(procedure, append/3))).

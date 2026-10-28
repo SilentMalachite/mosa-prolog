@@ -249,9 +249,9 @@
 **Interfaces:**
 - Produces: モジュール `lists` が `append/3`、`member/2`、`memberchk/2`、`length/2`、`nth0/3`、`nth1/3`、`last/2`、`reverse/2`、`msort/2`、`sum_list/2`、`max_list/2`、`list_to_set/2` を公開する。`length/2` は `system` にあり、`lists` の公開リストに `system` の述語を書いても衝突にしない
 
-- [ ] **Step 1:** 8.4.4.4（`keysort/2`）と 8.4.3.4（`sort/2`）の Examples を写し、ライブラリの各述語に 1 つ以上のテストを書く。`length_neg`: `length(L, -1)` → `domain_error(not_less_than_zero, -1)`。`length_type`: `length(a, N)` → `type_error(list, a)`。`length_gen`: `length(L, 2)` が `L = [_, _]`。`lists_needs_use`: iso-notes `Section 5 Autoload` の決定 A により、`use_module` 前の `append/3` は `existence_error`
-- [ ] **Step 2:** 失敗を見る。`length/2` と `keysort/2` を C++ で、残りを Prolog で書く。`msort/2` は `keysort/2` に頼らずに書く（安定でなくてよいが重複を残す）
-- [ ] **Step 3:** テストを流す。コミット `[phase4] library(lists) と length/2、keysort/2 を実装（8.4 の Examples と lib_lists.pl）`
+- [x] **Step 1:** 8.4.4.4（`keysort/2`）と 8.4.3.4（`sort/2`）の Examples を写し、ライブラリの各述語に 1 つ以上のテストを書く。`length_neg`: `length(L, -1)` → `domain_error(not_less_than_zero, -1)`。`length_type`: `length(a, N)` → `type_error(list, a)`。`length_gen`: `length(L, 2)` が `L = [_, _]`。`lists_needs_use`: iso-notes `Section 5 Autoload` の決定 A により、`use_module` 前の `append/3` は `existence_error`
+- [x] **Step 2:** 失敗を見る。`length/2` と `keysort/2` を C++ で、残りを Prolog で書く。`msort/2` は `keysort/2` に頼らずに書く（安定でなくてよいが重複を残す）
+- [x] **Step 3:** テストを流す。コミット `[phase4] library(lists) と length/2、keysort/2 を実装（8.4 の Examples と lib_lists.pl）`
 
 ### Task 13: `library(apply)`
 
