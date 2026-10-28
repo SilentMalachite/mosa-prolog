@@ -231,6 +231,8 @@ SPEC section 5 fixes `existence_error(module, M)` for an unknown module and leav
 
 A or B?: A: `type_error(atom, M)`. B: `type_error(module, M)`. Not implemented until confirmed.
 
+Decision (2026-10-28): A. `1:true` gives `type_error(atom, 1)`. ISO 13211-1 has no `module` type, so the error stays within the existing type names.
+
 ## Section 5 Operators meta_predicate and as
 
 The SPEC section 5 example writes `:- meta_predicate 全員(1, ?).` and `[姓名分解/3 as 分解]`, which can be read only if `meta_predicate` and `as` are operators. Neither is in the ISO operator table.

@@ -233,6 +233,8 @@ SPEC 第5節は未知のモジュールを `existence_error(module, M)` と決�
 
 A か B か: A は `type_error(atom, M)`。B は `type_error(module, M)`。確認まで実装しない。
 
+決定（2026-10-28）: A。`1:true` は `type_error(atom, 1)` とする。ISO 13211-1 に `module` という型は無いので、既存の型名の範囲に収める。
+
 ## 第5節 演算子 meta_predicate と as
 
 SPEC 第5節の例は `:- meta_predicate 全員(1, ?).` と `[姓名分解/3 as 分解]` を書く。これを読むには `meta_predicate` と `as` が演算子でなければならないが、どちらも ISO の演算子表に無い。
