@@ -410,3 +410,38 @@ A か B か: A は `domain_error(non_empty_atom, '')`。B は失敗させるか�
 A か B か: A は取り込み元の手続き `別源:静/1`。別名でない取り込み（`家系:親/2`）と同じ形。B は呼び手が書いた別名 `静か/1`。
 
 決定（2026-10-28）: A。誤りは変えられない手続きについてのもので、別名はその手続きの別の名前にすぎない。別名でない取り込みはすでに取り込み元を出しており、罪人のモジュールから、どの宣言を dynamic にすればよいかが分かる。
+
+## 第3節 if/3
+
+`if/3` は規格にも SPEC 第3節にも無い。`control/if_3` の 12 件はこれを呼び、`existence_error(procedure, if/3)` になる。
+
+A か B か: A は SPEC 外なので実装せず、12 行は不合格のまま残す。B は SPEC 第3節に `if/3` を足して実装する。確認前は A のまま。
+
+## 第3節 旗 dialect と version_data
+
+旗 `dialect` と `version_data` は 7.11 にも SPEC 第3節にも無い。`commons_current_prolog_flag_2_16` から `18` は `domain_error(prolog_flag, dialect)` と `domain_error(prolog_flag, version_data)` になる。
+
+A か B か: A は SPEC 外なので実装せず、3 行は不合格のまま残す。B は SPEC 第3節に `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）を足して実装する。確認前は A のまま。
+
+## 第4節 ストリームの符号化と BOM
+
+`unicode/builtins` の不合格 21 行は、IANA の名前 `'UTF-8'`、BOM、バイナリの流れに符号化が無いことを期待する。SPEC 第4節と第3節の 7 はすでに旗 `encoding` を `utf8` に固定し、すべての流れに既定が `utf8` の `encoding` 選択肢を与えており、Mosa はそれに従う。`current_prolog_flag(encoding, utf8)` であり、`open/4` は `encoding(utf8)` を受け付け、バイナリの流れも `encoding(utf8)` を出す。そのため `open/4` に `encoding('UTF-8')` を渡すと `domain_error(stream_option, encoding('UTF-8'))` になり、`lgt_unicode_current_prolog_flag_2_02` は名前で失敗し、`lgt_unicode_stream_property_2_07` と `09` はバイナリの流れが `encoding/1` を出すので失敗する。`open/4` の選択肢 `bom/1`、流れの性質 `bom/1`、テキストの流れを読むときの BOM の読み飛ばしは、規格（7.10.2）にも SPEC にも無い。
+
+A か B か: A は SPEC のまま（名前は `utf8` だけ、すべての流れが `encoding/1` を出す、BOM は扱わない）で、21 行は不合格のまま残す。B は SPEC 第4節を改め、`'UTF-8'` を別名として受け付け、バイナリの流れから `encoding/1` を外し、選択肢と性質の `bom/1` を足し、テキストの入力で BOM を読み飛ばしてから実装する。確認前は A のまま。
+
+
+## 9.3.10.3 (^)/2 の負の整数の指数
+
+`iso_integer_power_2_06` は `2^(-1)` が `type_error(float, 2)` になることを期待する。`src/builtins/arith.cpp` は Corrigendum 2 の 9.3.10.3 e を、指数が -1 より小さいときだけ float の型エラーと読み、`2^(-1)` は `evaluation_error(undefined)` にしている。
+
+A か B か: A は今の読みのまま（`evaluation_error(undefined)`）。B は 1 と -1 以外の整数の底に負の整数の指数なら `type_error(float, Base)`。確認前は A のまま。
+
+## 8.11 標準ストリームの性質
+
+`sics_stream_property_2_05c` と `lgt_stream_property_2_08b` は、`user_input` が `eof_action(reset)` を出すことを期待する。`sics_stream_property_2_06d`、`lgt_stream_property_2_09c`、`lgt_stream_property_2_10c` は、`user_output` と `user_error` が `mode(append)` を出すことを期待する。Mosa は `eof_action(eof_code)`（「8.11 終端の次の読み」の既定）と `mode(write)` を出す。
+
+A か B か: A は `eof_code` と `write` のまま。B は `user_input` を `eof_action(reset)`、`user_output` と `user_error` を `mode(append)` にする。確認前は A のまま。
+
+## 仕様第4節 So の文字は記号文字
+
+`lgt_unicode_escape_sequence_full_05` は `writeq('🀙🀚🀛🀜🀝🀞🀟🀠')` が原子を引用することを期待する。SPEC 第4節は `So` の非 ASCII 文字を記号文字にするので、この 8 文字は記号文字の原子（6.4.2）になり、`writeq`（7.10.5）は引用せずに書く。この行は解釈の違いとして不合格のまま残す。承認済みの SPEC に従うので、未決の問いは無い。

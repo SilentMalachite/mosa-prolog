@@ -93,10 +93,10 @@
 **Interfaces:**
 - Produces: 「仕分け表」節。1 行 1 件で `パス テスト名 類 タスク番号`。類は S、I、Q、N、X のどれか。以後のタスクはこの表の自分の行だけを直す
 
-- [ ] **Step 1:** `./build/mosatest --suite tests/conformance --report docs/conformance.md` を実行し、分母、合格数、合格率を `docs/STATUS.md` に `Baseline (phase 5 start): N/D = R%` として書く
-- [ ] **Step 2:** 不合格の各行を見取り図の群に当てはめ、仕分け表に書く。群に入らない行は I か Q に分け、Q には iso-notes の見出しを添える
-- [ ] **Step 3:** N の群ごとに 1 つずつ、`docs/iso-notes.md` に「A: SPEC 外なので実装しない（不合格のまま残す） B: SPEC に足して実装する」を書く。持ち主への質問は 1 回に 1 つ
-- [ ] **Step 4:** コミット `[phase5] 準拠スイートの基準値と仕分け表を書く（mosatest --suite で N/D）`
+- [x] **Step 1:** `./build/mosatest --suite tests/conformance --report docs/conformance.md` を実行し、分母、合格数、合格率を `docs/STATUS.md` に `Baseline (phase 5 start): N/D = R%` として書く
+- [x] **Step 2:** 不合格の各行を見取り図の群に当てはめ、仕分け表に書く。群に入らない行は I か Q に分け、Q には iso-notes の見出しを添える
+- [x] **Step 3:** N の群ごとに 1 つずつ、`docs/iso-notes.md` に「A: SPEC 外なので実装しない（不合格のまま残す） B: SPEC に足して実装する」を書く。持ち主への質問は 1 回に 1 つ
+- [x] **Step 4:** コミット `[phase5] 準拠スイートの基準値と仕分け表を書く（mosatest --suite で N/D）`
 
 ### Task 2: lgtunit の出力捕捉述語とライブラリの取り込み
 
@@ -314,3 +314,146 @@
 - [ ] **Step 2:** `tests/pl/japanese.pl` の全件通過を見る
 - [ ] **Step 3:** 版を `mosa 0.0.1 (phase 5)` にし、`ctest` の `mosa_version` を合わせる。3 OS の CI が緑であることを見る
 - [ ] **Step 4:** `docs/STATUS.md` を `Phase: 5 done`、`Next: phase 6, mosac` にする。コミット `[phase5] フェーズ5を終える（合格率 R%、japanese.pl 全件、3 OS の CI）`
+
+---
+
+## 仕分け表
+
+2026-10-28、フェーズ4終了時の基準値 2041/2171（94.0%）の不合格 130 件。`docs/conformance.md` の「不合格」節を 1 行 1 件で写した。「別欄」（実行しないディレクトリ）は含めない。Q の備考は `docs/iso-notes.md` の見出しで、「解釈の違い」は決定済みで不合格のまま残すもの。
+
+内訳: S 47、N 36、Q 31、I 15、X 1。
+
+見取り図との違い: `::/2` の 5 件はテストのコードが Logtalk のライブラリ（`os::ensure_file/1`、`lgtunit::deterministic/2`、`integer::between/3`）を呼ぶものなので、N ではなく S にした。`lgt_open_4_31` も同じ理由で S。`log/2` はフェーズ4で足したので N に残らない。
+
+| パス | テスト名 | 類 | タスク | 備考 |
+| --- | --- | --- | --- | --- |
+| `control/call_1` | `iso_call_1_05` | S | 2 | 出力捕捉述語が無い |
+| `control/call_1` | `iso_call_1_06` | S | 2 | 出力捕捉述語が無い |
+| `control/call_1` | `iso_call_1_09` | S | 2 | 出力捕捉述語が無い |
+| `control/call_1` | `iso_call_1_10` | S | 2 | 出力捕捉述語が無い |
+| `control/call_1` | `iso_call_1_14` | S | 2 | 出力捕捉述語が無い |
+| `control/call_1` | `lgt_call_1_17` | Q | 8 | 7.8.3 call/1 and multifile/discontiguous predicates with no clauses |
+| `control/call_1` | `lgt_call_1_18` | Q | 8 | 7.8.3 call/1 and multifile/discontiguous predicates with no clauses |
+| `control/catch_3` | `iso_catch_3_07` | S | 2 | 出力捕捉述語が無い |
+| `control/catch_3` | `lgt_catch_3_13` | S | 2 | 試験器に `ignore/1` と出力捕捉が無い |
+| `control/if_3` | `if_3_01` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_02` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_03` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_04` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_05` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_06` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_07` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_08` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_09` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_10` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_11` | N | 8 | Section 3 if/3 |
+| `control/if_3` | `if_3_12` | N | 8 | Section 3 if/3 |
+| `control/soft_cut_2_3` | `lgt_soft_cut_2_3_22` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `functions/acos_1` | `iso_acos_1_01` | S | 3 | `=~=` の閾値 |
+| `functions/acos_1` | `iso_acos_1_02` | S | 3 | `=~=` の閾値 |
+| `functions/asin_1` | `iso_asin_1_01` | S | 3 | `=~=` の閾値 |
+| `functions/asin_1` | `iso_asin_1_02` | S | 3 | `=~=` の閾値 |
+| `functions/atan2_2` | `iso_atan2_2_01` | S | 3 | `=~=` の閾値 |
+| `functions/atan2_2` | `iso_atan2_2_02` | S | 3 | `=~=` の閾値 |
+| `functions/atan_1` | `iso_atan_1_02` | S | 3 | `=~=` の閾値 |
+| `functions/ceiling_1` | `lgt_ceiling_1_05` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/cos_1` | `iso_cos_1_05` | S | 3 | `=~=` の閾値 |
+| `functions/exp_1` | `iso_exp_1_02` | S | 3 | `=~=` の閾値 |
+| `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_02` | S | 3 | `=~=` の閾値 |
+| `functions/float_fractional_part_1` | `lgt_float_fractional_part_1_04` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/float_integer_part_1` | `lgt_float_integer_part_1_04` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/floor_1` | `lgt_floor_1_06` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/integer_power_2` | `iso_integer_power_2_06` | Q | 8 | 9.3.10.3 (^)/2 with a negative integer exponent |
+| `functions/integer_power_2` | `iso_integer_power_2_09` | S | 3 | `=~=` の閾値 |
+| `functions/log_1` | `iso_log_1_02` | S | 3 | `=~=` の閾値 |
+| `functions/pi_0` | `iso_pi_0_01` | S | 3 | `=~=` の閾値 |
+| `functions/power_2` | `lgt_power_2_14` | Q | 8 | 9.3.1.3 d (**)/2: negative power of 0 |
+| `functions/round_1` | `eclipse_round_1_07` | Q | 7 | `round/1` の負の半分（タスク 7 で iso-notes に書く） |
+| `functions/round_1` | `eclipse_round_1_08` | Q | 7 | `round/1` の負の半分（タスク 7 で iso-notes に書く） |
+| `functions/round_1` | `lgt_round_1_13` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `functions/tan_1` | `iso_tan_1_01` | S | 3 | `=~=` の閾値 |
+| `functions/truncate_1` | `lgt_truncate_1_06` | Q | 7 | 丸め系評価子に整数（タスク 7 で iso-notes に書く） |
+| `logical_update_semantics` | `logical_update_semantics_retract` | Q | 8 | 7.5.4 Open scans and retract |
+| `logical_update_semantics` | `logical_update_semantics_retractall` | Q | 8 | 7.5.4 Open scans and retract |
+| `logical_update_semantics` | `logical_update_semantics_clause_retract` | Q | 8 | 7.5.4 Open scans and retract |
+| `logical_update_semantics` | `logical_update_semantics_clause_abolish` | Q | 8 | 7.5.4 Open scans and retract |
+| `logical_update_semantics` | `logical_update_semantics_negation` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/abolish_1` | `eddbali_abolish_1_07` | Q | 8 | 7.5.4 Open scans and retract |
+| `predicates/char_code_2` | `lgt_char_code_2_12` | S | 2 | `between/3` の取り込み（Step 6） |
+| `predicates/current_input_1` | `sics_current_input_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
+| `predicates/current_input_1` | `sics_current_input_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
+| `predicates/current_input_1` | `lgt_current_input_1_06` | I | 4 | `ground/1` が無い |
+| `predicates/current_op_3` | `iso_current_op_3_40` | S | 2 | 出力捕捉述語が無い |
+| `predicates/current_output_1` | `sics_current_output_1_02` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
+| `predicates/current_output_1` | `sics_current_output_1_04` | Q | 8 | 8.11.1 current_input and current_output on closed streams |
+| `predicates/current_output_1` | `sics_current_output_1_06` | I | 4 | `ground/1` が無い |
+| `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_12` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
+| `predicates/current_prolog_flag_2` | `eddbali_current_prolog_flag_2_13` | Q | なし | 解釈の違い（7.11 Flag unknown: warning） |
+| `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_16` | N | 8 | Section 3 Flags dialect and version_data |
+| `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_17` | N | 8 | Section 3 Flags dialect and version_data |
+| `predicates/current_prolog_flag_2` | `commons_current_prolog_flag_2_18` | N | 8 | Section 3 Flags dialect and version_data |
+| `predicates/open_4` | `lgt_open_4_31` | S | 2 | 試験器が `condition(os::operating_system_type(unix))` を扱わない |
+| `predicates/open_4` | `lgt_open_4_41` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_42` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/open_4` | `lgt_open_4_43` | S | 2 | 試験器が Logtalk のライブラリ（`os::`、`lgtunit::`、`integer::`）を持たない |
+| `predicates/read_term_3` | `sics_read_term_3_24` | X | なし | 多倍長整数（フェーズ7） |
+| `predicates/set_stream_position_2` | `sics_set_stream_position_2_06` | Q | 8 | 8.11.8 position with reposition(false) |
+| `predicates/setof_3` | `lgt_setof_3_34` | S | 2 | `msort/2` の取り込み（Step 6）と lgtunit の `variant/2` |
+| `predicates/stream_property_2` | `sics_stream_property_2_03` | Q | なし | 解釈の違い（8.11.1.3 Domain of current_input） |
+| `predicates/stream_property_2` | `sics_stream_property_2_05c` | Q | 8 | 8.11 Properties of the standard streams |
+| `predicates/stream_property_2` | `sics_stream_property_2_06d` | Q | 8 | 8.11 Properties of the standard streams |
+| `predicates/stream_property_2` | `lgt_stream_property_2_08b` | Q | 8 | 8.11 Properties of the standard streams |
+| `predicates/stream_property_2` | `lgt_stream_property_2_09c` | Q | 8 | 8.11 Properties of the standard streams |
+| `predicates/stream_property_2` | `lgt_stream_property_2_10c` | Q | 8 | 8.11 Properties of the standard streams |
+| `predicates/stream_property_2` | `lgt_stream_property_2_29` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
+| `predicates/stream_property_2` | `lgt_stream_property_2_30` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
+| `predicates/stream_property_2` | `lgt_stream_property_2_31` | I | 9 | `reposition(true)` の流れに `position/1` が出ない |
+| `predicates/write_term_3` | `lgt_write_term_3_043` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_044` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_065` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_066` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_103` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_104` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_105` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_106` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_107` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_108` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_109` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_110` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_111` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `sics_write_term_3_112` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_113` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_117` | S | 2 | 出力捕捉述語が無い |
+| `predicates/write_term_3` | `lgt_write_term_3_118` | I | 5 | 書き出し選択肢の検査 |
+| `predicates/write_term_3` | `lgt_write_term_3_119` | I | 5 | 書き出し選択肢の検査 |
+| `predicates/write_term_3` | `lgt_write_term_3_120` | I | 5 | 書き出し選択肢の検査 |
+| `predicates/write_term_3` | `lgt_write_term_3_121` | I | 5 | 書き出し選択肢の検査 |
+| `predicates/write_term_3` | `lgt_write_term_3_122` | I | 5 | 書き出し選択肢の検査 |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_01` | I | 6 | `discontiguous` の読み込み |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_02` | I | 6 | `discontiguous` の読み込み |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_03` | I | 6 | `discontiguous` の読み込み |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_04` | I | 6 | `discontiguous` の読み込み |
+| `syntax/directives/discontiguous_1` | `discontiguous_1_05` | I | 6 | `discontiguous` の読み込み |
+| `unicode/builtins` | `lgt_unicode_current_prolog_flag_2_02` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_get_char_2_03` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_01` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_02` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_03` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_04` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_05` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_06` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_open_4_07` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_01` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_02` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_03` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_04` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_05` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_06` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_07` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_08` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_09` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_10` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_11` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_stream_property_2_12` | N | 8 | Section 4 Stream encoding and BOM |
+| `unicode/builtins` | `lgt_unicode_format_3_01` | S | 2 | `format/3` の取り込み（Step 6）。その後 `~Nt` の埋め字はタスク 13 |
+| `unicode/escape_sequences` | `lgt_unicode_escape_sequence_full_05` | Q | なし | 解釈の違い（Spec Section 4: So characters are symbol characters） |

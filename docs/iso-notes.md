@@ -408,3 +408,38 @@ After `use_module(別源, [静/1 as 静か])`, `assertz(静か(2))` tries to cha
 A or B?: A: the source procedure, `別源:静/1`, the same form as for a plain import (`家系:親/2`). B: the alias the caller wrote, `静か/1`.
 
 Decision (2026-10-28): A. The error is about the procedure that cannot be changed, and the alias is only another name for it. A plain import already reports the source, and the module in the culprit says which declaration to make dynamic.
+
+## Section 3 if/3
+
+`if/3` is not in the standard or in SPEC Section 3. The 12 tests in `control/if_3` call it and get `existence_error(procedure, if/3)`.
+
+A or B?: A: outside SPEC, so it is not implemented, and the 12 rows stay failing. B: add `if/3` to SPEC Section 3 and implement it. A until confirmed.
+
+## Section 3 Flags dialect and version_data
+
+The flags `dialect` and `version_data` are not in 7.11 or in SPEC Section 3. `commons_current_prolog_flag_2_16` to `18` get `domain_error(prolog_flag, dialect)` and `domain_error(prolog_flag, version_data)`.
+
+A or B?: A: outside SPEC, so they are not implemented, and the 3 rows stay failing. B: add `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`) to SPEC Section 3 and implement them. A until confirmed.
+
+## Section 4 Stream encoding and BOM
+
+The 21 failing rows in `unicode/builtins` expect the IANA name `'UTF-8'`, a BOM, and no encoding on binary streams. SPEC Section 4 and Section 3 item 7 already fix the flag `encoding` to `utf8` and give every stream an `encoding` option that defaults to `utf8`, and Mosa follows that: `current_prolog_flag(encoding, utf8)`, `open/4` accepts `encoding(utf8)`, and binary streams also report `encoding(utf8)`. So `open/4` with `encoding('UTF-8')` gives `domain_error(stream_option, encoding('UTF-8'))`, `lgt_unicode_current_prolog_flag_2_02` fails on the name, and `lgt_unicode_stream_property_2_07` and `09` fail because a binary stream reports `encoding/1`. The `open/4` option `bom/1`, the stream property `bom/1`, and skipping a BOM when a text stream is read are in neither the standard (7.10.2) nor SPEC.
+
+A or B?: A: keep SPEC as it is (the name `utf8` only, every stream reports `encoding/1`, no BOM handling), and the 21 rows stay failing. B: amend SPEC Section 4 to accept `'UTF-8'` as another name, drop `encoding/1` from binary streams, add the `bom/1` option and property, and skip a BOM on text input, then implement them. A until confirmed.
+
+
+## 9.3.10.3 (^)/2 with a negative integer exponent
+
+`iso_integer_power_2_06` expects `2^(-1)` to give `type_error(float, 2)`. `src/builtins/arith.cpp` reads 9.3.10.3 e of Corrigendum 2 as giving the float type error only when the exponent is less than -1, and gives `evaluation_error(undefined)` for `2^(-1)`.
+
+A or B?: A: keep the current reading (`evaluation_error(undefined)`). B: any integer base other than 1 and -1 with a negative integer exponent gives `type_error(float, Base)`. A until confirmed.
+
+## 8.11 Properties of the standard streams
+
+`sics_stream_property_2_05c` and `lgt_stream_property_2_08b` expect `user_input` to report `eof_action(reset)`. `sics_stream_property_2_06d`, `lgt_stream_property_2_09c`, and `lgt_stream_property_2_10c` expect `user_output` and `user_error` to report `mode(append)`. Mosa reports `eof_action(eof_code)` (the default in "8.11 Reading past end of stream") and `mode(write)`.
+
+A or B?: A: keep `eof_code` and `write`. B: `user_input` has `eof_action(reset)`, and `user_output` and `user_error` have `mode(append)`. A until confirmed.
+
+## Spec Section 4: So characters are symbol characters
+
+`lgt_unicode_escape_sequence_full_05` expects `writeq('🀙🀚🀛🀜🀝🀞🀟🀠')` to quote the atom. SPEC Section 4 makes non-ASCII characters in `So` symbol characters, so these 8 characters form a symbol-character atom (6.4.2), and `writeq` (7.10.5) writes it without quotes. The row stays failing as a difference in interpretation. This follows the approved SPEC, so no question is open.
