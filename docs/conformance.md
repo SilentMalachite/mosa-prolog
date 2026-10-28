@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
 分母: 2171
-合格数: 2087
-合格率: 96.1
+合格数: 2092
+合格率: 96.4
 不合格:
 control/call_1/tests.lgt lgt_call_1_17 false existence_error(procedure,fenix/1)
 control/call_1/tests.lgt lgt_call_1_18 false existence_error(procedure,scattered/2)
@@ -60,11 +60,6 @@ predicates/write_term_3/tests.lgt lgt_write_term_3_043 subsumes(['_',_|_],Chars)
 predicates/write_term_3/tests.lgt lgt_write_term_3_044 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_065 subsumes(['_',_|_],Chars) fail
 predicates/write_term_3/tests.lgt lgt_write_term_3_066 subsumes(['_',_|_],Chars) fail
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_01 true(L==[a,a,a]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_02 true(L==[1,2]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_03 true(L==[1-2,3-4]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_04 true(L==[1-2-3,4-5-6]) load
-syntax/directives/discontiguous_1/tests.lgt discontiguous_1_05 true(L==[1-2-3-4,5-6-7-8]) load
 unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) fail
 unicode/builtins/tests.lgt lgt_unicode_get_char_2_03 true(Char==a) fail
 unicode/builtins/tests.lgt lgt_unicode_open_4_01 true domain_error(stream_option,encoding('UTF-8'))

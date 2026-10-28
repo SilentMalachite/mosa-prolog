@@ -83,9 +83,13 @@ Decision (2026-10-26): Directive only. The argument is a predicate indicator or 
 
 A or B?: A: keep the decision (indicator or list only; the 5 rows stay failing). B: also accept a comma-separated sequence in all three directives, with the same checks on each element. A until confirmed.
 
+Decision (2026-10-28): B. `dynamic/1`, `multifile/1`, and `discontiguous/1` also accept a comma-separated sequence `(p/1, q/2)`. Each element must be a predicate indicator and gets the same checks; a list or a bad element inside a sequence fails the load with the same diagnostic. This replaces "A comma-separated sequence is not an indicator" in the 2026-10-26 decisions for `discontiguous/1` and `multifile/1`. Tests `dc_seq_*`, `dyn_seq_*`, `mf_seq` in `tests/pl/directives.pl` and "comma sequence" in `tests/cpp/machine_test.cpp`.
+
 ## 7.4.2 multifile/1
 
 Decision (2026-10-26): Directive only. The argument is a predicate indicator or a list of them, as with `dynamic/1`. A comma-separated sequence is not an indicator. `Module:PI` is not written until Phase 4. The declaration does not create a procedure. If there are no clauses, `current_predicate/1` fails and a call gives `existence_error`. The declaration carries over to the next load. For a predicate that carried over, the next load adds clauses and does not replace them. Loading the same text twice doubles the clauses. A predicate without the declaration is replaced, and its solutions are not doubled. A declaration that comes after the first clause in this load does not undo the replacement made by this load. That declaration remains, and the load after that adds clauses. Clauses are not added to a different arity or a different predicate. A failed load undoes the clauses and declarations it added. A predicate that is still dynamic stays dynamic after clauses are added. Gaps are not allowed, and the diagnostic remains `述語 名前/アリティ の節が離れている`.
+
+Decision (2026-10-28): the comma-separated sequence is accepted; see 7.4.2 discontiguous/1.
 
 ## 7.4.2 initialization/1
 

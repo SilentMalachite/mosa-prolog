@@ -299,10 +299,15 @@ void check_multifile_guard() {
   mosa_test::check(bad->diagnostic().find("述語指示子ではありません") != std::string_view::npos,
                    "indicator phrase");
 
+  // iso-notes 7.4.2 の決定 B。並びは受け付け、要素ごとに同じ検査をする。
   auto comma = mosa::Machine::create();
-  mosa_test::check(!comma->load_program(":- multifile((p/1, q/1)).").ok, "comma sequence");
-  mosa_test::check(comma->diagnostic().find("述語指示子ではありません") != std::string_view::npos,
-                   "comma phrase");
+  mosa_test::check(comma->load_program(":- multifile((p/1, q/1)).").ok, "comma sequence");
+  auto comma_bad = mosa::Machine::create();
+  mosa_test::check(!comma_bad->load_program(":- multifile((p/1, 1)).").ok, "comma bad element");
+  mosa_test::check(comma_bad->diagnostic().find("述語指示子ではありません") != std::string_view::npos,
+                   "comma bad phrase");
+  auto comma_list = mosa::Machine::create();
+  mosa_test::check(!comma_list->load_program(":- dynamic((p/1, [q/1])).").ok, "comma holds no list");
 
   auto empty = mosa::Machine::create();
   mosa_test::check(empty->load_program(":- multifile([]).").ok, "empty multifile");

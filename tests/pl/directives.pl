@@ -55,6 +55,26 @@ test(dc_arity2, (findall(X-Y, dc_c(X, Y), L), L == [1-2, 3-4]), true).
 test(dc_arity3, (findall(X-Y-Z, dc_d(X, Y, Z), L), L == [1-2-3, 4-5-6]), true).
 test(dc_arity4, (findall(X-Y-Z-W, dc_e(X, Y, Z, W), L), L == [1-2-3-4, 5-6-7-8]), true).
 
+% iso-notes 7.4.2 discontiguous/1 の決定 B（2026-10-28）。3 つの指示はカンマの並びも受け付ける。
+:- discontiguous((dc_s/1, dc_t/2)).
+
+dc_s(1).
+dc_t(1, 2).
+dc_s(2).
+dc_t(3, 4).
+
+:- dynamic((dyn_s/1, dyn_t/2)).
+:- multifile((mf_s/1, mf_t/0)).
+
+mf_s(1).
+mf_t.
+
+test(dc_seq_first, (findall(X, dc_s(X), L), L == [1, 2]), true).
+test(dc_seq_second, (findall(X-Y, dc_t(X, Y), L), L == [1-2, 3-4]), true).
+test(dyn_seq_first, dyn_s(_), fail).
+test(dyn_seq_second, dyn_t(_, _), fail).
+test(mf_seq, (mf_s(1), mf_t), true).
+
 % 7.4.2 multifile/1。指示だけ。引数は述語指示子かそのリスト。
 % 宣言は手続きを定義しない。宣言した述語は次の読み込みが節を足す。
 % 宣言が無い述語は置き換わる。ここでは同じテキストの節だけを見る。

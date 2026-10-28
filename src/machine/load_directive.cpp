@@ -112,6 +112,25 @@ bool one_indicator(Impl& machine, Cell cell, PredKey& key, std::optional<Cell>& 
   return true;
 }
 
+bool comma_pair(const Impl& machine, Cell cell) {
+  return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
+         machine.atoms.name(machine.heap.functor_atom(cell)) == ",";
+}
+
+// 7.4.2 の述語指示子の並び (p/1, q/2)。iso-notes 7.4.2 discontiguous/1 の決定 B。
+// 要素は指示子だけで、リストや入れ子の並びは右端の続きとしてしか読まない。
+bool collect_sequence(Impl& machine, Cell cell, std::vector<PredKey>& out, std::optional<Cell>& formal) {
+  PredKey key;
+  while (comma_pair(machine, cell)) {
+    if (!one_indicator(machine, machine.heap.deref(machine.heap.arg(cell, 0)), key, formal)) return false;
+    out.push_back(key);
+    cell = machine.heap.deref(machine.heap.arg(cell, 1));
+  }
+  if (!one_indicator(machine, cell, key, formal)) return false;
+  out.push_back(key);
+  return true;
+}
+
 bool collect_indicators(Impl& machine, Cell cell, std::vector<PredKey>& out, std::optional<Cell>& formal) {
   cell = machine.heap.deref(cell);
   PredKey key;
@@ -120,6 +139,7 @@ bool collect_indicators(Impl& machine, Cell cell, std::vector<PredKey>& out, std
     return true;
   }
   if (formal) return false;
+  if (comma_pair(machine, cell)) return collect_sequence(machine, cell, out, formal);
   const auto nil = machine.atoms.intern("[]");
   if (cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil) return true;
   while (cell.tag() == Tag::Lis) {
