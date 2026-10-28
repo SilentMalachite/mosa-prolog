@@ -115,13 +115,73 @@
 
 **Interfaces:**
 - Consumes: ADR 0009 の 7 点
-- Produces（`runtime.hpp`、名前空間 `mosa::rt`）:
-  - `using NativeProc = void (*)(Machine::Impl& machine, std::uint64_t frame, std::uint32_t state);`
-  - `struct NativeEntry { std::string_view module; std::string_view name; std::uint16_t arity; std::uint64_t fingerprint; NativeProc proc; };`
-  - `struct NativeUnit { std::string_view name; std::string_view source; std::span<const NativeEntry> entries; std::span<const std::string_view> atoms; };`
-  - `[[nodiscard]] bool install_unit(Machine& machine, const NativeUnit& unit);` 生成関数を登録してから `source` を読む。`atoms` は単位が使うアトムで、起動時に番号へ引き直す
-  - 生成関数が使う関数: `arg`、`deref`、`unify`、`bind_atom`、`bind_int`、`fresh`、`make_atom`、`make_int`、`make_float`、`make_list`、`make_struct`、`call_goal`（述語の番号、引数、継続、カット境界から枠を作る）、`resume_frame`（`Ctrl::Native` の継続枠）、`push_alternative`、`cut_to`、`proceed`、`fail`、`interpret_clause`（その節の本体を IR のまま動かす）。型は ADR に合わせる
-  - 内部: `std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate);`（`src/machine/native.cpp`、Task 4 の翻訳器も同じ関数を呼ぶ）
+- Produces: 次の宣言をこのとおりに書く（ADR 0009 が引く正の置き場）。これは以前のこの欄の関数の並び（`bind_atom`、`bind_int`、`fresh`、`make_atom`、`make_int`、`make_float`、`make_list`、`make_struct`）を置き換える。項は `alloc` で節ごとに 1 塊を取り、inline の `put_*` で書く。番号（呼び先とアトム）はすべて単位の中だけで振る
+
+```cpp
+// include/mosa/runtime.hpp（生成コードが include する唯一のヘッダ）
+namespace mosa::rt {
+using NativeProc = void (*)(Machine::Impl& machine, std::uint64_t frame, std::uint32_t state);
+struct UnitTag { char unused = 0; };  // 翻訳単位ごとに constinit で 1 つ置く。番地だけを使う
+struct UnitState;                     // Machine ごとの単位の表。internal.hpp で定義する
+struct NativeEntry { std::string_view module; std::string_view name; std::uint16_t arity;
+                     std::uint64_t fingerprint; NativeProc proc; };
+struct NativeCallee { std::string_view module; std::string_view name; std::uint16_t arity; };
+struct NativeUnit { std::string_view name; std::string_view source; const UnitTag* tag;
+                    std::span<const NativeEntry> entries;      // 添字 = interpret_clause の entry
+                    std::span<const std::string_view> atoms;    // 添字 = regs.atoms の添字
+                    std::span<const NativeCallee> calls; };     // 添字 = call_goal の number
+struct Regs { const std::uint64_t* words; const std::uint32_t* atoms; const UnitState* unit; std::size_t cut; };
+
+inline constexpr std::size_t kFrameHead = 4;    // ゴール枠の頭。引数は frame + 4 + i
+inline constexpr std::size_t kNativeVars = 5;   // Ctrl::Native の変数は frame + 5 + i
+inline constexpr std::uint64_t kNativeBit = std::uint64_t{1} << 63;
+inline constexpr std::uint32_t kCall = 0;
+[[nodiscard]] constexpr std::uint32_t state_of(std::uint32_t clause, std::uint32_t goal);  // clause << 16 | goal。節は 1 から
+
+// inline（libmosa を呼ばない）
+[[nodiscard]] inline const std::uint64_t* cell_words(Cell cell);
+[[nodiscard]] inline Cell deref(Cell cell);
+[[nodiscard]] inline bool unbound(Cell cell);
+[[nodiscard]] inline Cell head(Cell list);
+[[nodiscard]] inline Cell tail(Cell list);
+[[nodiscard]] inline std::uint64_t functor_word(Cell structure);       // pack_functor と比べる
+[[nodiscard]] inline Cell struct_arg(Cell structure, std::size_t index);
+[[nodiscard]] inline Cell atom_cell(std::uint32_t atom);
+[[nodiscard]] inline Cell small_int(std::int64_t value);               // 即値の範囲だけ。外は put_int_box
+[[nodiscard]] inline Cell arg(const Regs& regs, std::uint64_t frame, std::size_t index);
+[[nodiscard]] inline Cell var(const Regs& regs, std::uint64_t frame, std::size_t index);
+[[nodiscard]] inline std::uint64_t frame_cut(const Regs& regs, std::uint64_t frame);   // 語 2
+[[nodiscard]] inline std::uint64_t frame_cont(const Regs& regs, std::uint64_t frame);  // 語 3
+[[nodiscard]] inline Cell put_ref(std::uint64_t* slot);                                  // 1 語
+[[nodiscard]] inline Cell put_list(std::uint64_t* slot, Cell first, Cell rest);          // 2 語
+[[nodiscard]] inline Cell put_struct(std::uint64_t* slot, std::uint32_t atom, std::span<const Cell> args);  // 1 + n 語
+[[nodiscard]] inline Cell put_int_box(std::uint64_t* slot, std::int64_t value);          // 1 語
+[[nodiscard]] inline Cell put_float(std::uint64_t* slot, double value);                  // 1 語
+
+// libmosa の外の呼び出しはこれだけ
+[[nodiscard]] bool install_unit(Machine& machine, const NativeUnit& unit);  // 表を作ってから source を読み、読み終えたら付ける
+[[nodiscard]] Regs regs(Machine::Impl& machine, const UnitTag& unit);       // 1 回の起動に 1 回。tag の番地で単位を引く
+[[nodiscard]] std::uint64_t* alloc(Machine::Impl& machine, std::size_t count);  // 節ごとに 1 塊
+void bind(Machine::Impl& machine, Cell variable, Cell value);                 // 最新の選択点より古ければトレイル
+[[nodiscard]] bool unify(Machine::Impl& machine, Cell left, Cell right);     // 変数と同じセルの近道のあと do_unify
+void call_goal(Machine::Impl& machine, const Regs& regs, std::uint32_t number, std::span<const Cell> args,
+               std::uint64_t cont, std::size_t cut);
+[[nodiscard]] std::uint64_t resume_frame(Machine::Impl& machine, NativeProc proc, std::uint32_t state, std::size_t cut,
+                                         std::uint64_t cont, std::span<const Cell> vars);
+void push_alternative(Machine::Impl& machine, const Regs& regs, std::uint64_t frame, NativeProc proc,
+                      std::span<const std::uint32_t> states);  // cut = regs.cut
+void cut_to(Machine::Impl& machine, std::size_t barrier);
+void proceed(Machine::Impl& machine, std::uint64_t cont);
+void fail(Machine::Impl& machine);
+void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t entry, std::uint64_t frame,
+                      std::uint32_t clause);
+}
+```
+
+  - `interpret_clause` は節全体（頭部と本体）を IR のまま動かす。`entry` はその単位の `entries` の添字（今動いている述語）、`clause` は `state_of` と同じく 1 から数える節の番号、`frame` はゴール枠で、カットの境界は `regs.cut`。状態 0 か節の入口の状態から、その節の生成した頭部と本体の代わりに呼び、中で `enter_clause(machine, predicate, clause - 1, frame, regs.cut)` を呼ぶ
+  - 再開の状態（goal が 1 以上）では、カットの境界は `Ctrl::Native` の枠の語 2（`frame_cut`）で、`regs.cut` は状態 0 と節の入口の状態でだけ正しい
+  - 内部（`internal.hpp`）: `namespace mosa::rt { struct UnitState { const UnitTag* tag; std::vector<std::uint32_t> atoms; std::vector<NativeCall> calls; std::vector<PredKey> entries; }; }`、`struct NativeCall { std::uint32_t module; std::uint32_t name; std::uint16_t arity; rt::NativeProc proc; };`。足すメンバは `Predicate::native`、`Pick::Native`、`Ctrl::Native`、`Entry::native`、`Impl::native_units`、`Impl::native_next`、`Impl::native_cut` だけ
+  - 内部: `std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate);`（`src/machine/native.cpp`、Task 4 の翻訳器も同じ関数を呼ぶ）。`meta` の引数を先に、次に節の IR を数える。`void detach_native(Machine::Impl& machine, Predicate& predicate);` は付けたあとの節か `meta` への書き込みのたびに呼び、`Predicate::native` と全単位の同じ鍵の `calls` を一度に空にする
 - [ ] **Step 1:** `native_test` を書く。手書きの `app/3` を登録した機械と、登録しない機械で、`app(X, Y, [1,2])` の全解、`app([1], [2], L)`、カットの境界（`once(app(X, _, [1,2]))`）、本体の例外が外の `catch/3` に届くことが同じになる。加えて Review Focus 2 と 3 の `native_reconsult_replaces`、`native_assert_static`、`fingerprint_mismatch_falls_back`（原文に `:- op(700, xfx, ===>).` を指示のゴールの中で呼び、IR が変わる形）
 - [ ] **Step 2:** `ctest --test-dir build -R native` が失敗することを見る
 - [ ] **Step 3:** `load.cpp` を分けるコミットを先に作り、次に実装する。`predicate_property/2` は翻訳した述語にも `static` を返し、`number_of_clauses` は残した IR の節の数を返す
