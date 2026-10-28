@@ -178,7 +178,7 @@
 
 - [x] **Step 1:** 失敗するテスト。`library_env`: `MOSA_LIB` を `tests/tmp/lib_a` にすると、そこの `x.pl` が `library(x)` で見つかる。`library_exe`: 環境変数が無いとき、実行ファイルの隣の `lib/` から見つかる。`library_missing`: `use_module(library(nosuch))` → `existence_error(source_sink, library(nosuch))`
 - [x] **Step 2:** 実装する。環境変数の読み取りも `src/platform/` に置く
-- [ ] **Step 3:** 3 OS の CI で流す。コミット `[phase4] library(...) を MOSA_LIB と実行ファイルの lib/ から探す（library_path_test、3 OS）`
+- [x] **Step 3:** 3 OS の CI で流す。コミット `[phase4] library(...) を MOSA_LIB と実行ファイルの lib/ から探す（library_path_test、3 OS）`
 
 ### Task 7: `M:` 付きの節操作と宣言
 
