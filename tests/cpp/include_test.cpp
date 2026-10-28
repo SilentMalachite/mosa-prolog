@@ -3,6 +3,7 @@
 
 #include "harness.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
 #include "mosa/writer.hpp"
 
 #include <filesystem>
@@ -25,7 +26,8 @@ bool write_text(const std::filesystem::path& path, std::string_view text) {
 
 std::string prolog_path(const std::filesystem::path& path) {
   std::string out = "'";
-  for (char unit : path.generic_string()) {
+  // 原子は UTF-8 で書く。Windows の generic_string は ANSI コードページで、日本語の名前が化ける。
+  for (char unit : mosa::utf8_from_path(path)) {
     if (unit == '\'') out += "''";
     else if (unit == '\\') out += "\\\\";
     else out.push_back(unit);
@@ -190,7 +192,7 @@ void check_include_cycle(const std::filesystem::path& dir) {
 }
 
 void check_include_japanese(const std::filesystem::path& dir) {
-  const auto ja = dir / "節.pl";
+  const auto ja = dir / mosa::path_from_utf8("節.pl");
   // 連は親のうしろに置く。間に入ると、宣言の無い親は離れた節になる。
   mosa_test::check(write_text(ja, "親(2).\n連(1).\n"), "write ja");
   auto machine = mosa::Machine::create();
