@@ -259,7 +259,7 @@ int run_one(const std::filesystem::path& path) {
 }  // namespace
 
 int run_suite(std::string_view path) {
-  const std::filesystem::path file{std::string{path}};
+  const std::filesystem::path file = path_from_utf8(path);
   if (std::filesystem::is_directory(file)) {
     std::vector<std::filesystem::path> files;
     for (const auto& entry : std::filesystem::directory_iterator(file)) {

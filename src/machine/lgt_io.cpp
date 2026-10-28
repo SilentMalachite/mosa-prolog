@@ -597,7 +597,7 @@ LgtIo lgt_io_context(std::string_view tests_path, std::string_view relative_dir)
   LgtIo io;
   if (tests_path.empty()) return io;
   // 実行中はカレントをスクラッチへ移すので、相対のままだと隣の Prolog とスクラッチを見失う。
-  const std::filesystem::path file = lgtio::absolute_path(std::filesystem::path{std::string{tests_path}});
+  const std::filesystem::path file = lgtio::absolute_path(path_from_utf8(tests_path));
   if (file.empty()) return io;
   io.tests_dir = file.parent_path();
   const auto root = lgtio::tests_root(file);
@@ -644,7 +644,7 @@ void lgt_load_tester(Machine& machine, const LgtIo& io) {
   // Logtalk としては実行しない。logtalk_load はファイル名を作らないので無視する。
   for (const std::string& name : lgtio::prolog_files(lgtio::file_text(tester))) {
     // 読めなくてもファイル全体は落とさない。呼ぶテストが存在エラーになる。
-    if (!machine.consult((io.tests_dir / name).string())) continue;
+    if (!machine.consult(utf8_from_path(io.tests_dir / name))) continue;
   }
 }
 

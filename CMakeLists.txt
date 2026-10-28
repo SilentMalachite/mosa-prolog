@@ -16,6 +16,10 @@ add_library(mosa_lib STATIC src/version.cpp)
 target_include_directories(mosa_lib PUBLIC include)
 set_target_properties(mosa_lib PROPERTIES OUTPUT_NAME mosa)
 target_link_libraries(mosa_lib PUBLIC mosa_warnings)
+# CommandLineToArgvW（src/platform/command_line.cpp）。
+if(WIN32)
+  target_link_libraries(mosa_lib PRIVATE shell32)
+endif()
 
 add_executable(mosa src/main_mosa.cpp)
 target_link_libraries(mosa PRIVATE mosa_lib)
@@ -76,6 +80,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_libs.cpp
   src/platform/terminal.cpp
   src/platform/exe_path.cpp
+  src/platform/command_line.cpp
   src/platform/console.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
@@ -306,9 +311,12 @@ set_tests_properties(mosa_version mosac_version mosatest_version PROPERTIES
 add_executable(console_test tests/cpp/console_test.cpp)
 target_include_directories(console_test PRIVATE tests/cpp)
 target_link_libraries(console_test PRIVATE mosa_lib)
-add_test(NAME console COMMAND $<TARGET_FILE:console_test>)
+add_test(NAME console COMMAND $<TARGET_FILE:console_test> plain --flag 42)
 add_test(NAME mosa_utf8_pipe COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_utf8_pipe_test.cmake)
+
+add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_japanese_arg_test.cmake)
 
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)

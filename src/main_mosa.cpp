@@ -1,3 +1,4 @@
+#include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/messages.hpp"
@@ -12,14 +13,9 @@
 int main(int argc, char** argv) {
   // 何かを読み書きする前に、Windows のコンソールを UTF-8 にする。他の OS では何もしない。
   mosa::prepare_console();
-  std::vector<std::string> owned;
-  std::vector<std::string_view> args;
-  owned.reserve(static_cast<std::size_t>(argc));
-  args.reserve(static_cast<std::size_t>(argc));
-  for (int index = 0; index < argc; ++index) {
-    owned.emplace_back(argv[index]);
-    args.emplace_back(owned.back());
-  }
+  // ファイル名も -g のゴールも原子になるので、UTF-8 で受ける。
+  const std::vector<std::string> owned = mosa::command_line_utf8(argc, argv);
+  const std::vector<std::string_view> args(owned.begin(), owned.end());
   // 端末でない標準入力は先に読まない。それは Prolog の user_input で、read/1 などが読む。
   // 先に読み切ると read/1 が end_of_file になり、閉じない入力では --version も返らない。
   const bool tty = mosa::standard_input_is_terminal();

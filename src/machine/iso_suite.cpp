@@ -3,6 +3,7 @@
 #include "lgt_suite.hpp"
 
 #include "mosa/heap.hpp"
+#include "mosa/path_text.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -153,7 +154,7 @@ void run_file(const Pending& item, int& passed, int& failed, std::vector<std::st
       ++failed;
       return;
     }
-    const LgtRun run = execute_lgt(lgt, item.file.string(), folder_of(item.relative));
+    const LgtRun run = execute_lgt(lgt, utf8_from_path(item.file), folder_of(item.relative));
     passed += run.passed;
     failed += run.failed;
     for (const std::string& line : run.failures) failures.push_back(item.relative + " " + line);
@@ -180,7 +181,7 @@ SuiteArgs parse_suite_args(std::span<const std::string_view> args) {
   // 報告先を省けるのは、リポジトリ直下から同梱スイートを渡したときだけ。CI と README の手順がこの形で、
   // 別のスイートを試して docs の報告書とバッジの JSON を上書きする事故を防ぐ。
   std::error_code error;
-  const bool bundled = std::filesystem::equivalent(std::filesystem::path{parsed.dir}, "tests/conformance", error);
+  const bool bundled = std::filesystem::equivalent(path_from_utf8(parsed.dir), "tests/conformance", error);
   if (error || !bundled) return parsed;
   parsed.report = "docs/conformance.md";
   parsed.ok = true;
@@ -188,7 +189,7 @@ SuiteArgs parse_suite_args(std::span<const std::string_view> args) {
 }
 
 int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
-  const std::filesystem::path prolog = std::filesystem::path{std::string{suite_dir}} / "logtalk" / "prolog";
+  const std::filesystem::path prolog = path_from_utf8(suite_dir) / "logtalk" / "prolog";
   std::error_code error;
   if (!std::filesystem::is_directory(prolog, error) || error) return 1;
   std::vector<SideNote> notes;
@@ -206,7 +207,7 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
     return left.detail < right.detail;
   });
   const int denominator = passed + failed;
-  const std::filesystem::path report{std::string{report_path}};
+  const std::filesystem::path report = path_from_utf8(report_path);
   write_report(report, passed, denominator, failures, notes);
   write_badge(std::filesystem::path{report}.replace_extension(".json"), passed, denominator);
   return suite_status(passed, denominator);

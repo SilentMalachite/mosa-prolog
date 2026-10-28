@@ -86,12 +86,10 @@ std::optional<std::string> read_console_line() {
   return std::move(read.text);
 }
 
-std::optional<std::string> console_line_text(std::u16string_view raw) {
-  if (!raw.empty() && raw.front() == char16_t{0x1A}) return std::nullopt;
+std::string utf8_from_utf16(std::u16string_view raw) {
   std::string text;
   for (std::size_t index = 0; index < raw.size(); ++index) {
     const char16_t unit = raw[index];
-    if (unit == u'\r' && index + 1 < raw.size() && raw[index + 1] == u'\n') continue;
     if (high_surrogate(unit) && index + 1 < raw.size() && low_surrogate(raw[index + 1])) {
       const char32_t code = 0x10000 + ((static_cast<char32_t>(unit) - 0xD800) << 10) +
                             (static_cast<char32_t>(raw[index + 1]) - 0xDC00);
@@ -100,12 +98,24 @@ std::optional<std::string> console_line_text(std::u16string_view raw) {
       continue;
     }
     if (high_surrogate(unit) || low_surrogate(unit)) {
-      append_utf8_code(text, U'�');
+      append_utf8_code(text, U'\uFFFD');
       continue;
     }
     append_utf8_code(text, static_cast<char32_t>(unit));
   }
   return text;
+}
+
+std::optional<std::string> console_line_text(std::u16string_view raw) {
+  if (!raw.empty() && raw.front() == char16_t{0x1A}) return std::nullopt;
+  // CRLF の CR だけ落とす。サロゲートは CR を挟まないので、落としてから変換しても対は崩れない。
+  std::u16string line;
+  line.reserve(raw.size());
+  for (std::size_t index = 0; index < raw.size(); ++index) {
+    if (raw[index] == u'\r' && index + 1 < raw.size() && raw[index + 1] == u'\n') continue;
+    line.push_back(raw[index]);
+  }
+  return utf8_from_utf16(line);
 }
 
 int standard_input_get() {

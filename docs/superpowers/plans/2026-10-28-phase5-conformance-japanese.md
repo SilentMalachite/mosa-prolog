@@ -311,6 +311,21 @@
 - [x] **Step 3:** `streams.cpp` と `lgt_io.cpp` の `path_from_utf8` の写しと `lgtio::utf8_of` を消し、`path_text.hpp` に寄せる。原子から来るパスで `path{std::string…}` を使う所は 0 件
 - [x] **Step 4:** コミット `[phase5] パスを UTF-8 から作り、日本語のファイル名を consult できる（japanese.pl、3 OS）`
 
+### Task 15b: コマンドラインの引数を UTF-8 で受ける
+
+**Files:**
+- Create: `include/mosa/command_line.hpp`、`src/platform/command_line.cpp`
+- Modify: `include/mosa/console.hpp` と `src/platform/console.cpp`（`utf8_from_utf16` を `console_line_text` から分ける）、`src/main_mosa.cpp`、`src/main_mosatest.cpp`、`src/machine/suite.cpp`、`src/machine/iso_suite.cpp`、`src/machine/lgt_io.cpp`
+- Test: `tests/cpp/console_test.cpp`、`tests/cpp/mosa_japanese_arg_test.cmake`
+
+**Interfaces:**
+- Produces: `std::string utf8_from_utf16(std::u16string_view raw)`、`std::vector<std::string> command_line_utf8(int argc, char** argv)`
+
+- [x] **Step 1:** 失敗するテスト: `console_test` に `utf8_from_utf16` の 5 件（BMP、サロゲート対、対の無い低サロゲート、CRLF を残す、Ctrl+Z を残す）。まだ無い関数なのでビルドが落ちる。`console_line_text` から変換を分けて通す
+- [x] **Step 2:** `console_test` に `command_line_utf8` が ASCII の引数で argv と同じ並びを返す検査、`mosa_japanese_arg`（`tests/tmp/日本語の引数.pl` を引数で渡し、`-g "読込済(X), write(X), nl."` で `はい`）。macOS では最初から通る。Windows で落ちるのは CI でしか見えず、直す前の push はしない
+- [x] **Step 3:** Windows は `CommandLineToArgvW(GetCommandLineW())` を `utf8_from_utf16` で UTF-8 に。数が argc と合わなければ argv を写す。`mosa` と `mosatest` が使い、`mosatest` の argv から来るパス（`run_suite`、`--roundtrip`、`--suite` の dir と報告先）と、スイート内の `tests_path` と consult のパスを `path_from_utf8` / `utf8_from_path` に。`mosac` は `--version` を比べるだけなので触らない。環境変数（`exe_path.cpp`）は ANSI のままで `path(std::string)` と食い違わないので触らない
+- [ ] **Step 4:** コミットし、push して 3 OS の CI で `mosa_japanese_arg` を見る
+
 ### Task 16: `japanese.pl` を SPEC 第4節の最小集合と照らす
 
 **Files:**
