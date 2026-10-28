@@ -19,6 +19,8 @@
 
 決定（2026-10-25）: 未決 2 は A。`atom_number/2` を登録し、両方向に変換する。両方とも変数なら `instantiation_error`。アトムから数は `number_chars` と同じ構文解析で、合わない字面は `syntax_error(読み筋)`。数からアトムは引用符なしの `write_term` の文字列。両方とも具体値なら、一致すれば成功し、違えば失敗する。
 
+決定（2026-10-29）: 持ち主は A を選んだ。`number_chars/2` と `number_codes/2` と共有する数の構文解析は、字面ではなく ADR 0007 の鍵で `syntax_error(Key)` を投げる。字句の誤りはその理由の鍵（`integer_overflow`、`bad_escape`、`unterminated_comment` など）、それ以外でちょうど 1 つの数でないものは `unexpected_token`。
+
 ## 8.10 findall/4（非 ISO）
 
 決定（2026-10-25）: `findall(Template, Goal, List, Tail)` は差分リストである。解が無ければ List と Tail を単一化し、Tail を `[]` には束縛しない。第4引数はリストとして検査しない。`findall/3` は末尾が `[]` の `findall/4` である。

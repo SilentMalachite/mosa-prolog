@@ -17,6 +17,8 @@ Decision (2026-10-25): B. As in 8.3.9.3 of Corrigendum 2, Errors is None, and `c
 
 Decision (2026-10-25): Open question 2: A. Register `atom_number/2` and convert in both directions. If both arguments are variables, `instantiation_error`. Atom to number uses the same parsing as `number_chars`; text that does not match gives `syntax_error(Reason)`. Number to atom gives the text of unquoted `write_term`. If both are instantiated, succeed if they match and fail otherwise.
 
+Decision (2026-10-29): owner chose A. The number parsing shared with `number_chars/2` and `number_codes/2` gives `syntax_error(Key)` with the ADR 0007 keys instead of the text: a lexical failure gives its reason key (`integer_overflow`, `bad_escape`, `unterminated_comment`, …), anything else that is not exactly one number gives `unexpected_token`.
+
 ## 8.10 findall/4 (non-ISO)
 
 Decision (2026-10-25): `findall(Template, Goal, List, Tail)` is a difference list. If there are no solutions, List is unified with Tail; Tail is not bound to `[]`. The fourth argument is not checked as a list. `findall/3` is `findall/4` with the tail `[]`.

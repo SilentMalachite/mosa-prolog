@@ -70,4 +70,12 @@ test(number_codes_leading_zero, number_codes(1, [48, 49]), true).
 test(number_codes_space, number_codes(N, [32, 49]), solutions([N = 1])).
 test(number_codes_char_code_space, number_codes(X, [48, 39, 32]), solutions([X = 32])).
 test(number_codes_plus, number_codes(N, [43, 49]), error(syntax_error(_))).
+% ADR 0007 の鍵（iso-notes 8.16 の決定 A）。字句の誤りは字句の理由、数でない並びと余りは unexpected_token。
+test(number_key_letter, number_chars(N, [a]), error(syntax_error(unexpected_token))).
+test(number_key_empty, number_chars(N, []), error(syntax_error(unexpected_token))).
+test(number_key_trailing, number_chars(N, ['1', a]), error(syntax_error(unexpected_token))).
+test(number_key_inner_space, number_chars(N, [-, ' ', '1']), error(syntax_error(unexpected_token))).
+test(number_key_overflow, number_chars(N, ['9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9']), error(syntax_error(integer_overflow))).
+test(number_key_bad_escape, number_chars(N, ['0', '''', '\\', z]), error(syntax_error(bad_escape))).
+test(number_key_open_comment, number_codes(N, [47, 42, 32, 49]), error(syntax_error(unterminated_comment))).
 test(sub_atom_int_before_sub, sub_atom(abc, foo, _, _, 1), error(type_error(integer, foo))).
