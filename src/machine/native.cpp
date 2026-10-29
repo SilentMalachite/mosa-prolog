@@ -3,6 +3,8 @@
 
 #include "internal.hpp"
 
+#include "../core/fnv.hpp"
+
 #include "mosa/goal_word.hpp"
 #include "mosa/path_text.hpp"
 
@@ -16,14 +18,11 @@
 namespace mosa {
 namespace {
 
-// 64 ビットの FNV-1a。翻訳器と読み込み器が別のプロセスで同じ値を出すよう、語は下位のバイトから入れる。
+// 64 ビットの FNV-1a（core/fnv.hpp）。翻訳器と読み込み器が別のプロセスで同じ値を出すよう、語は下位のバイトから入れる。
 struct Fnv {
-  std::uint64_t value = 14695981039346656037ULL;
+  std::uint64_t value = kFnvBasis;
 
-  void byte(std::uint8_t data) {
-    value ^= data;
-    value *= 1099511628211ULL;
-  }
+  void byte(std::uint8_t data) { value = fnv1a_byte(value, data); }
   void word(std::uint64_t data) {
     for (unsigned shift = 0; shift < 64; shift += 8) byte(static_cast<std::uint8_t>(data >> shift));
   }

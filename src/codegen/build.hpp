@@ -10,6 +10,8 @@
 
 #include "mosa/toolchain.hpp"
 
+#include "../core/fnv.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -69,9 +71,7 @@ void report_write_error(const std::filesystem::path& path, std::error_code error
 void report_missing_toolchain(const ToolchainQuery& query);
 
 // 以下は cache.cpp。
-// FNV-1a 64 の種。鍵を作る側はみなここから始める（cache.cpp と runtime_layout.cpp）。
-inline constexpr std::uint64_t kFnvBasis = 0xcbf29ce484222325ULL;
-[[nodiscard]] std::uint64_t fnv1a(std::string_view bytes, std::uint64_t seed);
+// 鍵の FNV-1a（kFnvBasis と fnv1a）は節の指紋と同じ ../core/fnv.hpp。
 [[nodiscard]] std::string hex16(std::uint64_t value);
 // ファイルの中身の FNV-1a。読めなければ nullopt。
 [[nodiscard]] std::optional<std::uint64_t> file_digest(const std::filesystem::path& path);

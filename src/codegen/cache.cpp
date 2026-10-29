@@ -20,8 +20,6 @@
 namespace mosa::codegen {
 namespace {
 
-constexpr std::uint64_t kFnvPrime = 0x100000001b3ULL;
-
 // 実行時ライブラリは大きさと更新時刻ではなく中身のバイトで鍵にする。同じ秒の中の作り直しや、時刻を保って
 // 写したライブラリを取り違えないためである。数 MB を読む手間はコンパイル 1 回に比べて小さい。
 std::optional<std::uint64_t> file_digest_from(const std::filesystem::path& path, std::uint64_t seed) {
@@ -70,15 +68,6 @@ bool plain(const std::filesystem::path& path, std::filesystem::file_type type) {
 std::string read_text(const std::filesystem::path& path) {
   std::ifstream in{path, std::ios::binary};
   return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-}
-
-std::uint64_t fnv1a(std::string_view bytes, std::uint64_t seed) {
-  std::uint64_t hash = seed;
-  for (const char unit : bytes) {
-    hash ^= static_cast<unsigned char>(unit);
-    hash *= kFnvPrime;
-  }
-  return hash;
 }
 
 std::string hex16(std::uint64_t value) {
