@@ -156,6 +156,11 @@ enum class Compare : std::uint8_t { Eq, Ne, Lt, Le, Gt, Ge };
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。
 void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする
 void embed(Machine& machine, std::string_view path, std::string_view source);  // include/1 などがファイルより先に引く
+// 同梱ライブラリ（計画 Task 10）。use_module(library(Name)) は SPEC 第5節の探索（$MOSA_LIB、実行ファイルの横の lib/）
+// より先にこの一覧を引く。一覧はプロセスで 1 つで、文面のために作る新しいマシンも同じカタログを読む。
+// unit は mosac が lib/Name.pl から出した単位で、unit.source がその原文。原文だけなら IR のまま動く。
+void bundle_library(std::string_view name, std::string_view source);
+void bundle_library(std::string_view name, const NativeUnit& unit);
 [[nodiscard]] int finish(Machine& machine, bool loaded);  // 読めなければ診断を出して 1。main は Task 2 の終了コード
 // mosac build --debug の節の追跡（計画 Task 9）。生成コードは kTrace が真のときだけ、節に入るたびに呼ぶ
 void trace_clause(std::string_view text);  // text と改行を標準エラーに書く

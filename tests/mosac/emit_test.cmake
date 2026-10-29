@@ -80,8 +80,8 @@ set(exe "${out_dir}/build/${CONFIG}/${CASE}${EXE_SUFFIX}")
 if(NOT EXISTS "${exe}")
   set(exe "${out_dir}/build/${CASE}${EXE_SUFFIX}")
 endif()
-# 単独の実行ファイルが lib/ を探さないのは Task 10。それまでは文面の表を MOSA_LIB から読む。
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${exe}"
+# 単独の実行ファイルは lib/ を探さない（計画 Task 10）。MOSA_LIB を外して、文面の表も同梱の単位から読ませる。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB "${exe}"
   OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err RESULT_VARIABLE run_code TIMEOUT 60)
 
 # newop.pl は翻訳のときに飛ばした指示のゴールが op/3 を定義する。翻訳器は後の項を読めないが誤りにせず、

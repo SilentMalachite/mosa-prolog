@@ -38,20 +38,26 @@ struct ProjectFile {
 };
 
 struct ProjectOptions {
-  std::string runtime_dir;  // 生成する CMakeLists.txt の MOSA_RUNTIME_DIR の既定（emit した mosac のビルド木）
+  // mosac の在るディレクトリ。生成する CMakeLists.txt の MOSA_RUNTIME_DIR の既定の元で、同梱ライブラリの原文
+  // lib/<名前>.pl を比べる場所でもある（計画 Task 10）
+  std::string runtime_dir;
   bool check_calls = true;  // --units（Task 11）は偽にする。存在エラーを確かめるテストも翻訳するため
   bool trace = false;       // mosac build --debug。生成コードの kTrace を真にする
+  bool library = false;     // mosac emit --library。lib/<名前>.pl の単位 <名前>.cpp だけを出す（計画 Task 10）
 };
 
 // ok が偽なら files は空で、diagnostic に Prolog の行で書いた診断を改行で区切って入れる。
+// libraries は結ぶ翻訳済みの同梱ライブラリの名前（pl/libmosa_pl_<名前>）。main.cpp と CMakeLists.txt が同じ並びで見る。
 struct Project {
   bool ok = false;
   std::string diagnostic;
   std::vector<ProjectFile> files;
+  std::vector<std::string> libraries;
 };
 
 // path はコマンド行に書いたままのパスで、根のファイルの診断の頭になる。宣言だけを実行して読み（計画 Task 5）、
-// 根のファイルのモジュールと、読んだファイルのモジュールごとに単位を 1 つ出す。library(_) のモジュールは Task 10。
+// 根のファイルのモジュールと、読んだファイルのモジュールごとに単位を 1 つ出す。library(_) のモジュールは
+// 同梱ライブラリとして main.cpp が bundle_library に渡す（計画 Task 10）。
 [[nodiscard]] Project translate_program(std::string_view path, const ProjectOptions& options);
 
 // emit の CMake の目標（実行ファイル）の名前。根のファイルの語幹が CMake の名前に使える文字だけならそれ、ほかは app。

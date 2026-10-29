@@ -68,7 +68,11 @@ std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& lo
     if (!file || log.files[*file].library || log.files[*file].opaque) continue;
     for (const PredKey& exported : module.exports) {
       const PredKey key{module.name, exported.name, exported.arity};
-      if (find_pred(machine, key) != nullptr || declared_only(machine, key.module, key.name, key.arity)) continue;
+      // 組込を公開し直す export（library(lists) の length/2。SPEC 第5節の表）は定義がある物とみなす。
+      if (find_pred(machine, key) != nullptr || declared_only(machine, key.module, key.name, key.arity) ||
+          is_builtin_procedure(machine, key.name, key.arity)) {
+        continue;
+      }
       const auto& place = log.files[*file];
       lines.push_back(names[*file] + ":" + std::to_string(place.line) + ":" + std::to_string(place.column) + ": " +
                       message_text(machine, "mosac_export_undefined", {indicator(machine, key)}));

@@ -13,6 +13,7 @@
 #include <cerrno>
 #include <chrono>
 #include <fstream>
+#include <iostream>
 #include <iterator>
 #include <random>
 
@@ -24,7 +25,7 @@ constexpr std::uint64_t kFnvPrime = 0x100000001b3ULL;
 
 // 実行時ライブラリは大きさと更新時刻ではなく中身のバイトで鍵にする。同じ秒の中の作り直しや、時刻を保って
 // 写したライブラリを取り違えないためである。数 MB を読む手間はコンパイル 1 回に比べて小さい。
-std::optional<std::uint64_t> file_digest(const std::filesystem::path& path, std::uint64_t seed) {
+std::optional<std::uint64_t> file_digest_from(const std::filesystem::path& path, std::uint64_t seed) {
   std::ifstream in{path, std::ios::binary};
   if (!in) return std::nullopt;
   std::array<char, 1 << 16> buffer{};
@@ -34,27 +35,6 @@ std::optional<std::uint64_t> file_digest(const std::filesystem::path& path, std:
     hash = fnv1a(std::string_view{buffer.data(), static_cast<std::size_t>(in.gcount())}, hash);
   }
   if (in.bad()) return std::nullopt;
-  return hash;
-}
-
-// 生成コードが include する見出しも鍵に入れる。inline の関数だけを変えた版はライブラリのバイトが同じでありうる。
-std::optional<std::uint64_t> headers_digest(const std::filesystem::path& include_dir) {
-  std::error_code error;
-  std::vector<std::filesystem::path> files;
-  for (std::filesystem::recursive_directory_iterator it{include_dir, error}, end; !error && it != end;
-       it.increment(error)) {
-    if (it->is_regular_file(error)) files.push_back(it->path());
-  }
-  if (error) return std::nullopt;
-  // 並びは辿る順に依らせない。
-  std::sort(files.begin(), files.end());
-  std::uint64_t hash = kFnvBasis;
-  for (const std::filesystem::path& file : files) {
-    hash = fnv1a(utf8_from_path(file.lexically_relative(include_dir)), hash);
-    const auto digest = file_digest(file, hash);
-    if (!digest) return std::nullopt;
-    hash = *digest;
-  }
   return hash;
 }
 
@@ -88,17 +68,46 @@ std::string hex16(std::uint64_t value) {
   return out;
 }
 
+std::optional<std::uint64_t> file_digest(const std::filesystem::path& path) { return file_digest_from(path, kFnvBasis); }
+
+// 生成コードが include する見出しも鍵に入れる。inline の関数だけを変えた版はライブラリのバイトが同じでありうる。
+// --runtime-source は同梱の源の木を同じ関数で鍵にする。
+std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir) {
+  std::error_code error;
+  std::vector<std::filesystem::path> files;
+  for (std::filesystem::recursive_directory_iterator it{dir, error}, end; !error && it != end; it.increment(error)) {
+    if (it->is_regular_file(error)) files.push_back(it->path());
+  }
+  if (error) return std::nullopt;
+  // 並びは辿る順に依らせない。
+  std::sort(files.begin(), files.end());
+  std::uint64_t hash = kFnvBasis;
+  for (const std::filesystem::path& file : files) {
+    hash = fnv1a(utf8_from_path(file.lexically_relative(dir)), hash);
+    const auto digest = file_digest_from(file, hash);
+    if (!digest) return std::nullopt;
+    hash = *digest;
+  }
+  return hash;
+}
+
 // 目録の全文を鍵にする。main.cpp が読んだファイルの原文を埋め込むので原文の変化を拾い、翻訳器が変わって
 // 出すコードが変わったときも拾う。--debug（旗と kTrace）と --cxx（パスと版）も鍵に入り、別の物を使い回さない。
+// 結ぶ翻訳済みのライブラリも中身で鍵にする（計画 Task 10）。
 std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs) {
-  const auto library = file_digest(inputs.runtime->library, kFnvBasis);
-  const auto headers = headers_digest(inputs.runtime->include_dir);
+  const auto library = file_digest(inputs.runtime->library);
+  const auto headers = tree_digest(inputs.runtime->include_dir);
   if (!library || !headers) return std::nullopt;
-  std::string text = "mosac-cache 1\nmode " + inputs.mode + "\n";
+  std::string text = "mosac-cache 2\nmode " + inputs.mode + "\n";
   text += "cxx " + utf8_from_path(inputs.toolchain->cxx) + "\nversion " + inputs.toolchain->cxx_version + "\n";
   for (const std::string& flag : inputs.flags) text += "flag " + flag + "\n";
   text += "runtime " + utf8_from_path(inputs.runtime->library) + " " + hex16(*library) + "\n";
   text += "include " + utf8_from_path(inputs.runtime->include_dir) + " " + hex16(*headers) + "\n";
+  for (const std::filesystem::path& unit : inputs.units) {
+    const auto digest = file_digest(unit);
+    if (!digest) return std::nullopt;
+    text += "unit " + utf8_from_path(unit) + " " + hex16(*digest) + "\n";
+  }
   text += "target " + inputs.target + "\n";
   for (const ProjectFile& file : inputs.files) text += "file " + file.name + " " + hex16(fnv1a(file.text, kFnvBasis)) + "\n";
   return CacheKey{text, hex16(fnv1a(text, kFnvBasis))};
@@ -110,6 +119,13 @@ std::filesystem::path cache_root() {
   std::error_code error;
   const std::filesystem::path cwd = std::filesystem::current_path(error);
   return error ? std::filesystem::path{".mosac-cache"} : cwd / ".mosac-cache";
+}
+
+bool cache_root_usable() {
+  std::error_code error;
+  if (!std::filesystem::is_symlink(std::filesystem::symlink_status(cache_root(), error))) return true;
+  std::cerr << mosac_message("mosac_cache_symlink", {utf8_from_path(cache_root())}) << '\n';
+  return false;
 }
 
 // どれかが記号リンクなら外れにする。外れの後の stage がハッシュのディレクトリを作り直す。

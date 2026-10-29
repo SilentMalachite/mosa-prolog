@@ -24,7 +24,7 @@ message(incomplete_term, '項が閉じていません').
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
-message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
+message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_undefined_call, '~w を呼んでいるが、どこにも定義が無い').
 message(mosac_export_undefined, '~w を export したが定義が無い').
@@ -53,6 +53,16 @@ message(mosac_cache_hit, 'mosac: キャッシュを使います: ~w').
 message(mosac_kept, 'mosac: 一時ディレクトリを残しました: ~w').
 message(mosac_cmake_configure_failed, 'mosac: CMake の構成に失敗しました（ログ: ~w）~nCMake とコンパイラを確かめるか、MOSA_NO_CMAKE=1 を設定して mosac にコンパイラを直接呼ばせてください').
 message(mosac_cache_symlink, 'mosac: ~w が記号リンクなので使いません~n消してからもう一度動かしてください').
+
+% 同梱の実行時ライブラリと翻訳済みの lib/*.pl（SPEC 第6節、計画 Task 10）。
+message(mosac_library_not_module, 'mosac: ~w は module/2 で始まっていないので、ライブラリの単位にできません').
+message(mosac_catalog_missing, 'mosac: 文面の表 messages_ja と messages_en が読めません（~w）~nmosac の隣の lib/ か、環境変数 MOSA_LIB の場所を確かめてください').
+message(mosac_runtime_abi_missing, 'mosac: このコンパイラ用の実行時ライブラリがありません: ~w~nmosac と同じコンパイラを使うか、mosac build --runtime-source で同梱の源から作ってください（結果は .mosac-cache に残ります）').
+message(mosac_unit_missing, 'mosac: 翻訳済みのライブラリ ~w が見つかりません~nmosac toolchain で実行時ライブラリの場所を確かめてください').
+message(mosac_runtime_source_missing, 'mosac: 同梱の実行時ライブラリの源が見つかりません: ~w').
+message(mosac_runtime_source_needs_cmake, 'mosac: --runtime-source には CMake 3.25 以上が要ります（mosac toolchain で確かめてください）').
+message(mosac_runtime_building, 'mosac: 実行時ライブラリを同梱の源から作ります: ~w').
+message(mosac_runtime_build_failed, 'mosac: 実行時ライブラリを源から作れませんでした（ログ: ~w）~nコンパイラと CMake を確かめてください').
 
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').

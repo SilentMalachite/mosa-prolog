@@ -1,8 +1,8 @@
 // ADR 0009 の差し替え。手書きの生成関数（native_units.cpp）を install_unit で登録した機械と、
 // 登録しない機械（load_program だけ）で同じ問い合わせが同じ答えを返すことを確かめる。
 // 生成関数が走ったかは Hits で別に数える（答えが同じでも、外れていれば数が増えない）。
-// Review Focus 2 は native_reconsult_replaces と native_assert_static、3 は fingerprint_mismatch_falls_back。
-// 一時ファイルは tests/tmp/native1。
+// Review Focus 2 は native_reconsult_replaces と native_assert_static、3 は fingerprint_mismatch_falls_back、
+// 5（同梱ライブラリの一覧。計画 Task 10）は check_bundled_library。一時ファイルは tests/tmp/native1。
 
 #include "harness.hpp"
 #include "native_units.hpp"
@@ -285,6 +285,41 @@ void check_embedded_first() {
         "module read once");
 }
 
+// 計画 Task 10。実行ファイルに同梱したライブラリは use_module(library(Name)) が SPEC 第5節の探索より先に引く。
+// 一覧はプロセスで 1 つなので、後から作ったマシンも同じ物を読む。単位は原文を読み終えてから指紋の合う述語に付く。
+// bx/1 の proc は付いたことだけを見るので呼ばない（same_1 は別の述語の生成関数で、番地が要るだけ）。
+constinit mosa::rt::UnitTag kBundledTag{};
+
+void check_bundled_library() {
+  const std::string_view source = ":- module(bundled_x, [bx/1, by/1]).\nbx(1).\nby(2).\n";
+  auto scratch = Machine::create();
+  check(scratch->load_program(source).ok, "bundled source loads as text");
+  auto& scratch_impl = mosa::engine_impl(*scratch);
+  const auto module = scratch_impl.atoms.intern("bundled_x");
+  const auto* bx = mosa::find_pred(scratch_impl, mosa::PredKey{module, scratch_impl.atoms.intern("bx"), 1});
+  check(bx != nullptr, "bx/1 in bundled_x");
+  const std::vector<NativeEntry> entries{
+      NativeEntry{"bundled_x", "bx", 1, bx == nullptr ? 0 : mosa::clause_fingerprint(scratch_impl.atoms, *bx),
+                  &native_units::same_1},
+      NativeEntry{"bundled_x", "by", 1, 0x1234, &native_units::same_1}};
+  mosa::rt::bundle_library("bundled_x", mosa::rt::NativeUnit{"library(bundled_x)", source, &kBundledTag, entries, {}, {}});
+  mosa::rt::bundle_library("bundled_y", ":- module(bundled_y, [yy/0]).\nyy.\n");
+  auto machine = Machine::create();
+  check(machine->load_program(":- use_module(library(bundled_x)).\n:- use_module(library('bundled_y.pl')).\n").ok,
+        "use_module finds the bundled libraries before any file: " + std::string{machine->diagnostic()});
+  check(machine->query("by(2).").kind == mosa::StopKind::Success, "the interpreted clause of a bundled unit runs");
+  check(machine->query("yy.").kind == mosa::StopKind::Success, "a bundled source without a unit is consulted");
+  auto& impl = mosa::engine_impl(*machine);
+  const auto* attached = mosa::find_pred(impl, mosa::PredKey{impl.atoms.intern("bundled_x"), impl.atoms.intern("bx"), 1});
+  const auto* skipped = mosa::find_pred(impl, mosa::PredKey{impl.atoms.intern("bundled_x"), impl.atoms.intern("by"), 1});
+  check(attached != nullptr && attached->native == &native_units::same_1, "the bundled unit attaches by fingerprint");
+  check(skipped != nullptr && skipped->native == nullptr, "a mismatched fingerprint stays interpreted");
+  check(!std::filesystem::exists(mosa::bundled_library_path("bundled_x")), "no library/ file is written");
+  auto second = Machine::create();
+  check(second->load_program(":- use_module(library(bundled_y)).").ok && second->query("yy.").kind == mosa::StopKind::Success,
+        "a later machine sees the same bundled list");
+}
+
 int main() {
   auto native = native_list_machine();
   auto interp = interp_machine(native_units::kListSource);
@@ -301,5 +336,6 @@ int main() {
   check_fingerprint_mismatch();
   check_meta_attached();
   check_embedded_first();
+  check_bundled_library();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

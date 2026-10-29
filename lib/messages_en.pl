@@ -24,7 +24,7 @@ message(incomplete_term, 'incomplete term').
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~n--report may be omitted only when tests/conformance is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
-message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--debug] [--verbose] [--clean] [--cxx <compiler>]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac toolchain [--cxx <compiler>]').
+message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_undefined_call, 'call to undefined procedure ~w').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').
@@ -53,6 +53,16 @@ message(mosac_cache_hit, 'mosac: using the cache: ~w').
 message(mosac_kept, 'mosac: kept the temporary directory: ~w').
 message(mosac_cmake_configure_failed, 'mosac: CMake could not configure the build (log: ~w)~nCheck CMake and the compiler, or set MOSA_NO_CMAKE=1 to let mosac call the compiler directly').
 message(mosac_cache_symlink, 'mosac: ~w is a symbolic link, so mosac does not use it~nRemove it and run mosac again').
+
+% 同梱の実行時ライブラリと翻訳済みの lib/*.pl（SPEC 第6節、計画 Task 10）。
+message(mosac_library_not_module, 'mosac: ~w does not start with module/2, so it cannot become a library unit').
+message(mosac_catalog_missing, 'mosac: the message catalogs messages_ja and messages_en cannot be read (~w)~nCheck the lib/ next to mosac or the directory in the MOSA_LIB environment variable').
+message(mosac_runtime_abi_missing, 'mosac: there is no runtime library for this compiler: ~w~nUse the compiler mosac was built with, or run mosac build --runtime-source to build it from the bundled source (the result stays in .mosac-cache)').
+message(mosac_unit_missing, 'mosac: the translated library ~w was not found~nCheck the runtime location with mosac toolchain').
+message(mosac_runtime_source_missing, 'mosac: the bundled runtime source was not found: ~w').
+message(mosac_runtime_source_needs_cmake, 'mosac: --runtime-source needs CMake 3.25 or later (check with mosac toolchain)').
+message(mosac_runtime_building, 'mosac: building the runtime library from the bundled source: ~w').
+message(mosac_runtime_build_failed, 'mosac: the runtime library could not be built from source (log: ~w)~nCheck the compiler and CMake').
 
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').

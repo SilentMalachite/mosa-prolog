@@ -26,6 +26,16 @@ HostOs host_os() { return HostOs::macos; }
 HostOs host_os() { return HostOs::linux; }
 #endif
 
+// 実行時ライブラリの置き場所 <OS>-<arch>-<compiler> の arch（計画 Task 10）。綴りは本体の CMakeLists.txt が
+// CMAKE_SYSTEM_PROCESSOR から作る物と同じにする。交差コンパイルは目標外なので、mosac 自身の arch でよい。
+#if defined(__aarch64__) || defined(_M_ARM64)
+std::string_view host_arch() { return "arm64"; }
+#elif defined(__x86_64__) || defined(_M_X64)
+std::string_view host_arch() { return "x86_64"; }
+#else
+std::string_view host_arch() { return "unknown"; }
+#endif
+
 namespace {
 
 using Environment = std::vector<std::pair<std::string, std::string>>;

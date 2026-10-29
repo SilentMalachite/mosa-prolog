@@ -167,7 +167,7 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 - Predicates created by `dynamic/1`, `assertz/1`, etc. belong to the module that declared or added them. They can also be qualified, as in `assertz(家系:親(a, b))`
 - Arguments specified with `:`, `0`–`9`, `^`, or `//` in `meta_predicate/1` are wrapped as `呼び出し元モジュール:引数` (calling module:argument) at call time. This makes `maplist/2,3`, `findall/3`, `catch/3`, `forall/2`, etc. work correctly across modules
 - `multifile/1` takes the form `モジュール:PI` (Module:PI) and lets other modules add clauses
-- The `user` module is the top-level default. `library(...)` is searched in `$MOSA_LIB` and in `lib/` relative to the executable
+- The `user` module is the top-level default. `library(...)` is searched in `$MOSA_LIB` and in `lib/` relative to the executable. An executable built by `mosac` first looks in the list of libraries bundled into it (Section 6) and searches those two places only for a library that is not bundled
 - `op/3` is local to the module that declares it. Writing `op(P, T, N)` in the export list makes it effective in importing modules too. Operators declared in `user` are visible in all modules
 - The flags `double_quotes` and `japanese_punctuation` are saved and restored per module (more precisely, per file being loaded)
 
@@ -249,8 +249,8 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 
 - The C++ compiler is searched for in this order: `--cxx` → environment variable `MOSA_CXX` → `CXX` → OS default (`clang++` on macOS; `g++` then `clang++` on Linux; on Windows, find MSVC with `vswhere`, and `mosac` itself sets the environment variables equivalent to `vcvarsall`). If none is found, print the same diagnostics as `mosac toolchain` and stop, showing the installation steps for each OS (Xcode Command Line Tools, `apt install g++`, Visual Studio Build Tools)
 - CMake is optional. Use it if present; otherwise invoke the compiler directly (compile the generated code file by file, and `mosac` itself constructs the link command). The minimum requirement on the user side is therefore "one C++20 compiler is installed"
-- The runtime `libmosa` is shipped as a prebuilt static library and headers in the `mosac` installation directory (`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`). The runtime is not rebuilt on the user's machine every time. As a fallback when the ABI does not match, `--runtime-source` builds it from the bundled source (the result is cached)
-- The standard libraries in `lib/*.pl` are shipped as pre-translated objects, and only those loaded with `use_module` are linked
+- The runtime `libmosa` is shipped as a prebuilt static library and headers in the `mosac` installation directory (`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`, with `<OS>` one of `macos`, `linux`, `windows`, `<arch>` one of `arm64`, `x86_64`, and `<compiler>` the family `clang`, `gcc` or `msvc`). `mosac` finds that directory from its own location: `<prefix>/bin/mosac` looks in `<prefix>/lib/mosa/<key>/`, and in the build tree the directory of `mosac` itself holds `libmosa`, `include/` and `pl/`. Only the Release build is installed, so `mosac build --debug` links the Release runtime. The runtime is not rebuilt on the user's machine every time. As a fallback when the ABI does not match, `--runtime-source` builds it from the bundled source `<prefix>/lib/mosa/source/` with CMake (the result is cached in `.mosac-cache/runtime/<hash>/`)
+- The standard libraries in `lib/*.pl` are shipped as pre-translated objects, one per library (`pl/libmosa_pl_<name>.a`, `pl/mosa_pl_<name>.lib` on Windows, next to `libmosa`), and only those loaded transitively with `use_module` are linked, plus `messages_ja` and `messages_en` for the text of uncaught errors. The source text of each linked library is embedded in the executable as well, so the library is consulted from the executable and its unit attaches to it, never from a file. The interpreter's copies stay in `<prefix>/bin/lib/*.pl`
 - The default is static linking with `-O2`. On Windows, `/MT`. The resulting executable needs neither a C++ runtime DLL, nor `mosac`, nor any Prolog files on the target machine. `--debug` enables `-O0 -g` and runtime clause tracing
 - Intermediate files are placed in `.mosac-cache/` and reused based on hashes of the Prolog source and the runtime. `--keep` keeps the generated C++, and `--clean` discards it
 - Cross-compilation is a non-goal. Executables are built only for the OS and architecture on which `mosac` runs
@@ -266,7 +266,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 - If `:- initialization(main, main).` is present, it is the entry point. If `main/0` succeeds, the exit code is 0; if it fails, 1; on an uncaught exception, print a message and exit with 2. The argument of `halt/1` becomes the exit code as-is
 - Command-line arguments are received through the flag `argv` (a list of atoms)
 - An executable built with `mosac build --interactive` starts a REPL with the translated code already loaded (translated code and the interpreter coexist as described above)
-- The executable requires no external files at startup. All needed Prolog libraries are already linked, and it does not search for `lib/`
+- The executable requires no external files at startup. All needed Prolog libraries are already linked, `use_module(library(X))` resolves against the bundled list before the search of Section 5, and it does not search for `lib/`
 
 **Source layout**
 

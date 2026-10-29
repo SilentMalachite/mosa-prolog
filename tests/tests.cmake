@@ -303,6 +303,28 @@ set_tests_properties(mosatest_bench PROPERTIES
   ENVIRONMENT "${mosatest_bench_env}"
   PASS_REGULAR_EXPRESSION ": [0-9]+ ms\r?\n[^\n]*: [0-9]+ ms\r?\n[^\n]*: [0-9]+\\.[0-9]\r?\n$")
 
+# 単独の実行ファイル（計画 Task 10、ADR 0009 Review Focus 5）。build した物を lib/ も原文も無いディレクトリで、
+# MOSA_LIB を外して動かす。翻訳のとき mosac は自分の隣の lib/ を読むので、build にも MOSA_LIB は要らない。
+foreach(standalone_case uncaught_message use_lists include)
+  add_test(NAME standalone_${standalone_case} COMMAND ${CMAKE_COMMAND}
+    -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${standalone_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+    -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/standalone_${standalone_case} "-DCXX=${mosac_build_cxx}"
+    "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+    -P ${CMAKE_SOURCE_DIR}/tests/mosac/standalone_test.cmake)
+  set_tests_properties(standalone_${standalone_case} PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
+    ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
+endforeach()
+
+# cmake --install を一時の prefix に行い、SPEC 第6節の形と、インストールした mosac での build を確かめる。
+add_test(NAME mosac_installed_layout COMMAND ${CMAKE_COMMAND}
+  -DBUILD_DIR=${CMAKE_BINARY_DIR} "-DCONFIG=$<CONFIG>" "-DABI=${mosa_abi}" -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_installed_layout "-DCXX=${mosac_build_cxx}"
+  "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" "-DLIB_PREFIX=${CMAKE_STATIC_LIBRARY_PREFIX}"
+  "-DLIB_SUFFIX=${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/installed_layout_test.cmake)
+set_tests_properties(mosac_installed_layout PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
+  ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)
 list(REMOVE_ITEM mosa_all_tests session_english)

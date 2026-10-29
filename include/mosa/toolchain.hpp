@@ -49,7 +49,10 @@ struct NamedCompiler {
 
 // 動いている OS。
 [[nodiscard]] HostOs host_os();
-// 同梱の実行時ライブラリと include/ の場所。今は mosac の隣（ビルド木の形。インストールの形は計画 Task 10）。
+// mosac 自身の CPU の名前（arm64、x86_64）。実行時ライブラリの置き場所 <OS>-<arch>-<compiler> の arch（計画 Task 10）。
+[[nodiscard]] std::string_view host_arch();
+// mosac の在るディレクトリ。ビルド木ではここに libmosa と include/ と pl/ があり、インストールの形では
+// ../lib/mosa/<OS>-<arch>-<compiler>/ にある（codegen/runtime_layout.cpp が両方を見る。計画 Task 10）。
 [[nodiscard]] std::filesystem::path default_runtime_dir();
 
 // cxx_flag → mosa_cxx → cxx_env のうち最初に与えられたもの。どれも無ければ nullopt（OS の既定で探す）。

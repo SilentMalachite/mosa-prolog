@@ -34,7 +34,8 @@ int finish(Machine& machine, bool loaded) {
   if (impl.halt_now) return impl.halt_code;
   if (!loaded) {
     std::cerr << impl.diagnostic << '\n';
-    return 1;
+    // ヒープの上限は mosa の consult と同じ 2、ほかの読み込みの失敗は 1（計画 Task 10 の持ち越し）。
+    return impl.load_heap_limit ? 2 : 1;
   }
   if (!impl.main_goal) return 0;
   std::string warning;

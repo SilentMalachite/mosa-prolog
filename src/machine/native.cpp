@@ -126,6 +126,7 @@ bool load_unit(Impl& machine, const rt::NativeUnit& unit) {
     // 上限に達したヒープではカタログを読めない。message_text は新しいマシンで文面を作る。
     machine.heap.truncate(0);
     machine.diagnostic = message_text(machine, "heap_limit");
+    machine.load_heap_limit = true;
     return false;
   }
   prefix_consult_diagnostic(machine, unit.name);
@@ -179,15 +180,22 @@ void detach_native(Impl& machine, Predicate& predicate) {
   }
 }
 
+std::size_t prepare_native_unit(Impl& machine, const rt::NativeUnit& unit) {
+  const auto slot = unit_slot(machine, unit.tag);
+  machine.native_units[slot] = build_unit(machine, unit);
+  return slot;
+}
+
+void attach_native_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& unit) { attach_unit(machine, slot, unit); }
+
 namespace rt {
 
 bool install_unit(Machine& machine, const NativeUnit& unit) {
   Impl& impl = engine_impl(machine);
-  const auto slot = unit_slot(impl, unit.tag);
-  impl.native_units[slot] = build_unit(impl, unit);
-  // 埋め込みの原文は今の読み込み器で読む。library(_) を単位で引くのは Task 10（ADR 0009）。
+  const auto slot = prepare_native_unit(impl, unit);
+  // 埋め込みの原文は今の読み込み器で読む。library(_) の単位は use_module が引く（native_library.cpp、ADR 0009）。
   if (!load_unit(impl, unit)) return false;
-  attach_unit(impl, slot, unit);
+  attach_native_unit(impl, slot, unit);
   return true;
 }
 

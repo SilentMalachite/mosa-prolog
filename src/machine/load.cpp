@@ -216,15 +216,23 @@ int import_ready(Impl& machine, const std::filesystem::path& file) {
   return 1;
 }
 
-// use_module の第 1 引数。原子は読み込み中のファイルからの相対、library(Name) は library_path の探索。
-std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directory, std::filesystem::path& file) {
+// use_module の第 1 引数。原子は読み込み中のファイルからの相対、library(Name) は、実行ファイルに同梱した一覧
+// （bundled に名前が入る。計画 Task 10）を先に引き、無ければ library_path の探索（SPEC 第5節）。
+std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directory, std::filesystem::path& file,
+                               std::optional<std::string>& bundled) {
   if (machine.heap.unbound(arg)) return formal_instantiation(machine);
   if (arg.tag() == Tag::Str && machine.heap.functor_arity(arg) == 1 &&
       machine.atoms.name(machine.heap.functor_atom(arg)) == "library") {
     const Cell name = machine.heap.deref(machine.heap.arg(arg, 0));
     if (machine.heap.unbound(name)) return formal_instantiation(machine);
     if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
-    const auto found = find_library(machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3)));
+    const std::string_view text = machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3));
+    if (const auto embedded = locate_bundled_library(machine, text)) {
+      file = *embedded;
+      bundled = std::string{text};
+      return std::nullopt;
+    }
+    const auto found = find_library(text);
     if (!found) return formal_existence(machine, "source_sink", arg);
     file = *found;
     if (machine.translation != nullptr) machine.translation->library_keys.push_back(utf8_from_path(canonical_key(file)));
@@ -241,14 +249,19 @@ int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& sc
   if (!body) return 0;
   const Cell arg = machine.heap.deref(machine.heap.arg(*body, 0));
   std::filesystem::path file;
-  if (const auto formal = locate_use(machine, arg, directory, file)) return fail_formal(machine, *formal);
+  std::optional<std::string> bundled;
+  if (const auto formal = locate_use(machine, arg, directory, file, bundled)) return fail_formal(machine, *formal);
   ImportSpec spec;
   if (machine.heap.functor_arity(*body) == 2) {
     if (const auto formal = parse_imports(machine, machine.heap.arg(*body, 1), spec)) {
       return fail_formal(machine, *formal);
     }
   }
-  if (!file_ready(machine, scan, file) && open_prolog_file(machine, file, scan, false) < 0) return -1;
+  if (!file_ready(machine, scan, file)) {
+    if (open_prolog_file(machine, file, scan, false) < 0) return -1;
+    // 同梱ライブラリの翻訳済みの単位は、原文を読み終えてから付ける（ADR 0009）。
+    if (bundled) attach_bundled_library(machine, *bundled);
+  }
   const Module* module = module_of_file(machine, file);
   if (module == nullptr) return fail_formal(machine, formal_permission(machine, "load", "source_sink", arg));
   if (const auto formal = apply_imports(machine, module->name, machine.load_module, spec)) {
@@ -332,7 +345,9 @@ struct FileNote {
     if (log->current != outer) return;
     const bool library = std::find(log->library_keys.begin(), log->library_keys.end(), key) != log->library_keys.end() ||
                          (outer < log->files.size() && log->files[outer].library);
-    log->files.push_back(TranslationLog::File{key, std::string{source}, 0, 0, library});
+    TranslationLog::File file{key, std::string{source}, 0, 0, library};
+    file.parent = outer;
+    log->files.push_back(std::move(file));
     log->current = log->files.size() - 1;
   }
   FileNote(const FileNote&) = delete;

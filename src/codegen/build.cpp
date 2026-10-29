@@ -2,6 +2,7 @@
 // CMake があればそれで、無いか MOSA_NO_CMAKE=1 なら生成コードを 1 ファイルずつコンパイルして mosac がリンクの命令を組む。
 // 既定は -O2 と静的リンク（Windows は /MT）、--debug は -O0 -g と節の追跡。子プロセスは run_process だけで起こし、
 // Toolchain::env（Windows の vcvarsall の環境）を渡す。中間物は .mosac-cache/<hash>/（cache.cpp）に置く。
+// 実行時ライブラリと翻訳済みの lib/*.pl の単位の場所は runtime_layout.cpp（計画 Task 10）。
 // 生成コードがコンパイルできなければ mosac の誤りとして内部エラーの鍵だけを出し、生の誤りは --verbose のときだけ出す。
 // テスト: tests/mosac/build_test.cmake
 
@@ -25,12 +26,6 @@ using Args = std::vector<std::string>;
 
 // これより空きが少なければ、コンパイルの失敗を生成コードの誤りでなくディスクの問題として出す。
 constexpr std::uintmax_t kLowSpace = std::uintmax_t{64} << 20;
-
-bool is_msvc(const std::filesystem::path& cxx) {
-  std::string stem = utf8_from_path(cxx.stem());
-  for (char& unit : stem) unit = (unit >= 'A' && unit <= 'Z') ? static_cast<char>(unit - 'A' + 'a') : unit;
-  return stem == "cl";
-}
 
 void append(Args& out, const Args& items) { out.insert(out.end(), items.begin(), items.end()); }
 
@@ -68,13 +63,22 @@ Args compile_flags(const Toolchain& toolchain, const RuntimeLayout& runtime, boo
   return flags;
 }
 
+// 結ぶ翻訳済みのライブラリ（計画 Task 10）。use_module された物と文面の表だけで、libmosa の記号を引くので libmosa より前に置く。
+Args unit_archives(const Toolchain& toolchain, const RuntimeLayout& runtime, std::span<const std::string> libraries) {
+  Args out;
+  for (const std::string& name : libraries) out.push_back(utf8_from_path(unit_archive(toolchain, runtime, name)));
+  return out;
+}
+
 // オブジェクトの後ろに置く旗。libmosa は静的ライブラリなので、それ自身はいつも静的に入る。Linux は C++ の
 // 実行時ライブラリも静的にする。macOS の libc++ は OS の一部で、静的にはできない。
-Args link_flags(const Toolchain& toolchain, const RuntimeLayout& runtime) {
-  const std::string library = utf8_from_path(runtime.library);
-  if (is_msvc(toolchain.cxx)) return Args{"/nologo", library, "shell32.lib"};
-  if (host_os() == HostOs::linux) return Args{library, "-static-libstdc++", "-static-libgcc"};
-  return Args{library};
+Args link_flags(const Toolchain& toolchain, const RuntimeLayout& runtime, std::span<const std::string> libraries) {
+  Args flags = is_msvc(toolchain.cxx) ? Args{"/nologo"} : Args{};
+  append(flags, unit_archives(toolchain, runtime, libraries));
+  flags.push_back(utf8_from_path(runtime.library));
+  if (is_msvc(toolchain.cxx)) flags.emplace_back("shell32.lib");
+  if (!is_msvc(toolchain.cxx) && host_os() == HostOs::linux) append(flags, Args{"-static-libstdc++", "-static-libgcc"});
+  return flags;
 }
 
 // CMake の構成の旗。libmosa は Release の /MT なので、--debug でも実行時ライブラリは /MT に固める。
@@ -90,25 +94,10 @@ Args cmake_defines(const Toolchain& toolchain, const RuntimeLayout& runtime, boo
                "-DCMAKE_CXX_FLAGS_RELEASE=" + release_flags(msvc),
                "-DCMAKE_CXX_FLAGS_DEBUG=" + debug_flags(msvc),
                std::string{"-DMOSA_WARNINGS_AS_ERRORS="} + (warnings_as_errors() ? "ON" : "OFF"),
-               "-DMOSA_RUNTIME_DIR=" + utf8_from_path(runtime.library.parent_path())};
+               "-DMOSA_RUNTIME_DIR=" + utf8_from_path(runtime.root)};
   // 既定の Visual Studio の生成器はコンパイラを自分で選び、vcvarsall の環境も -DCMAKE_CXX_COMPILER も使わない。
   if (msvc) append(defines, Args{"-G", "NMake Makefiles", "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"});
   return defines;
-}
-
-// `cmake version 3.31.2` の版が 3.25 以上か。emit の CMakeLists.txt は cmake_minimum_required(VERSION 3.25) なので、
-// それより古い CMake では configure が必ず失敗する。そのときは直接の道で作る。
-bool cmake_new_enough(std::string_view line) {
-  const auto at = line.find("version ");
-  if (at == std::string_view::npos) return false;
-  const std::string_view text = line.substr(at + 8);
-  int major = 0;
-  int minor = 0;
-  const auto first = std::from_chars(text.data(), text.data() + text.size(), major);
-  if (first.ec != std::errc{} || first.ptr == text.data() + text.size() || *first.ptr != '.') return false;
-  const auto second = std::from_chars(first.ptr + 1, text.data() + text.size(), minor);
-  if (second.ec != std::errc{}) return false;
-  return major > 3 || (major == 3 && minor >= 25);
 }
 
 // Windows で cl 以外のコンパイラを CMake に渡すと、既定の Visual Studio の生成器はそれを無視して MSVC で作る。
@@ -137,6 +126,7 @@ struct Job {
   const BuildRequest& request;
   const Toolchain& toolchain;
   const RuntimeLayout& runtime;
+  std::span<const std::string> libraries;  // 結ぶ翻訳済みのライブラリの名前（Project::libraries）
   std::filesystem::path dir;
   std::string hash;
   std::filesystem::path exe_name;
@@ -193,7 +183,7 @@ std::optional<std::filesystem::path> build_direct(const Job& job, std::span<cons
     link.push_back(object);
   }
   const std::filesystem::path exe = job.dir / "build" / job.exe_name;
-  append(link, link_flags(job.toolchain, job.runtime));
+  append(link, link_flags(job.toolchain, job.runtime, job.libraries));
   append(link, msvc ? Args{"/Fe" + utf8_from_path(exe)} : Args{"-o", utf8_from_path(exe)});
   if (msvc && job.request.debug) append(link, Args{"/link", "/DEBUG"});
   if (!run_step(job, link, "link")) return std::nullopt;
@@ -220,11 +210,7 @@ std::optional<std::filesystem::path> build_cmake(const Job& job) {
 // 目録と key.txt を書く。外れのときはハッシュのディレクトリを消して作り直し、前に失敗した中間物も、
 // 中に置かれた記号リンクも辿らない。.mosac-cache そのものが記号リンクなら使わない。
 bool stage(const Job& job, const CacheKey& key, std::span<const ProjectFile> files) {
-  std::error_code status_error;
-  if (std::filesystem::is_symlink(std::filesystem::symlink_status(cache_root(), status_error))) {
-    std::cerr << mosac_message("mosac_cache_symlink", {utf8_from_path(cache_root())}) << '\n';
-    return false;
-  }
+  if (!cache_root_usable()) return false;
   std::error_code removed;
   std::filesystem::remove_all(job.dir, removed);
   if (removed) {
@@ -265,16 +251,30 @@ bool publish(const Job& job, const std::filesystem::path& built) {
   return !error;
 }
 
+// 結ぶ翻訳済みのライブラリが全部あるか。無い物は名前を出す（実行時ライブラリの置き場所が欠けている）。
+bool units_present(const Toolchain& toolchain, const RuntimeLayout& runtime, std::span<const std::string> libraries) {
+  for (const std::string& name : libraries) {
+    std::error_code error;
+    const std::filesystem::path archive = unit_archive(toolchain, runtime, name);
+    if (std::filesystem::is_regular_file(archive, error)) continue;
+    std::cerr << mosac_message("mosac_unit_missing", {utf8_from_path(archive)}) << '\n';
+    return false;
+  }
+  return true;
+}
+
 Built build_translated(const BuildRequest& request, const Project& project, const Toolchain& toolchain,
                        const RuntimeLayout& runtime) {
   const bool cmake = use_cmake(toolchain);
   const std::string target = target_name(request.source);
   const std::string mode = cmake ? "cmake " + utf8_from_path(*toolchain.cmake) + " " + toolchain.cmake_version : "direct";
-  CacheKeyInputs inputs{project.files, &toolchain, &runtime, mode,
+  if (!units_present(toolchain, runtime, project.libraries)) return {};
+  CacheKeyInputs inputs{project.files, &toolchain, &runtime, {}, mode,
                         cmake ? cmake_defines(toolchain, runtime, request.debug)
                               : compile_flags(toolchain, runtime, request.debug),
                         target};
-  if (!cmake) append(inputs.flags, link_flags(toolchain, runtime));
+  for (const std::string& name : project.libraries) inputs.units.push_back(unit_archive(toolchain, runtime, name));
+  if (!cmake) append(inputs.flags, link_flags(toolchain, runtime, project.libraries));
   const auto key = cache_key(inputs);
   if (!key) {
     std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(runtime.library)}) << '\n';
@@ -288,7 +288,8 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
       return {};
     }
   }
-  const Job job{request, toolchain, runtime, cache_root() / key->hash, key->hash, path_from_utf8(target + exe_suffix())};
+  const Job job{request, toolchain, runtime, project.libraries, cache_root() / key->hash, key->hash,
+                path_from_utf8(target + exe_suffix())};
   if (cache_hit(job.dir, *key, job.exe_name)) {
     if (request.verbose) std::cerr << mosac_message("mosac_cache_hit", {utf8_from_path(job.dir)}) << '\n';
     return Built{0, job.dir / job.exe_name};
@@ -313,6 +314,27 @@ std::string_view install_hint(HostOs os) {
 
 }  // namespace
 
+bool is_msvc(const std::filesystem::path& cxx) {
+  std::string stem = utf8_from_path(cxx.stem());
+  for (char& unit : stem) unit = (unit >= 'A' && unit <= 'Z') ? static_cast<char>(unit - 'A' + 'a') : unit;
+  return stem == "cl";
+}
+
+// emit の CMakeLists.txt は cmake_minimum_required(VERSION 3.25) なので、それより古い CMake では configure が
+// 必ず失敗する。そのときは直接の道で作る。
+bool cmake_new_enough(std::string_view line) {
+  const auto at = line.find("version ");
+  if (at == std::string_view::npos) return false;
+  const std::string_view text = line.substr(at + 8);
+  int major = 0;
+  int minor = 0;
+  const auto first = std::from_chars(text.data(), text.data() + text.size(), major);
+  if (first.ec != std::errc{} || first.ptr == text.data() + text.size() || *first.ptr != '.') return false;
+  const auto second = std::from_chars(first.ptr + 1, text.data() + text.size(), minor);
+  if (second.ec != std::errc{}) return false;
+  return major > 3 || (major == 3 && minor >= 25);
+}
+
 std::string mosac_message(std::string_view key, std::vector<std::string> args) {
   return render_message_fresh(default_message_language(), key, args);
 }
@@ -335,16 +357,6 @@ void report_missing_toolchain(const ToolchainQuery& query) {
   } else {
     std::cerr << mosac_message("toolchain_not_found") << '\n' << mosac_message(install_hint(host_os())) << '\n';
   }
-}
-
-std::optional<RuntimeLayout> runtime_layout(const Toolchain& toolchain) {
-  // libmosa の名前は本体の CMakeLists.txt の OUTPUT_NAME mosa による（MSVC は mosa.lib、ほかは libmosa.a）。
-  const std::filesystem::path library = is_msvc(toolchain.cxx) ? "mosa.lib" : "libmosa.a";
-  RuntimeLayout layout{toolchain.runtime_dir / "include", toolchain.runtime_dir / library};
-  std::error_code error;
-  if (!std::filesystem::is_regular_file(layout.library, error)) return std::nullopt;
-  if (!std::filesystem::is_regular_file(layout.include_dir / "mosa" / "runtime.hpp", error)) return std::nullopt;
-  return layout;
 }
 
 std::string exe_suffix() { return host_os() == HostOs::windows ? ".exe" : ""; }
@@ -374,11 +386,9 @@ Built build_cached(const BuildRequest& request) {
     report_missing_toolchain(query);
     return {};
   }
-  const auto runtime = runtime_layout(*toolchain);
-  if (!runtime) {
-    std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(toolchain->runtime_dir)}) << '\n';
-    return {};
-  }
+  // 見つからない理由（置き場所が無い、ABI が合わない、源から作れない）は runtime_layout が出し終えている。
+  const auto runtime = runtime_layout(request, *toolchain);
+  if (!runtime) return {};
   return build_translated(request, project, *toolchain, *runtime);
 }
 

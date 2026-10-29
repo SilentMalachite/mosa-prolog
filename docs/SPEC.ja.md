@@ -166,7 +166,7 @@
 - `dynamic/1`、`assertz/1` 等が作る述語は、宣言・追加したモジュールに属する。`assertz(家系:親(a, b))` のように限定もできる
 - `meta_predicate/1` で `:`、`0`〜`9`、`^`、`//` と指定された引数は、呼び出し時に `呼び出し元モジュール:引数` に包まれる。これにより `maplist/2,3`、`findall/3`、`catch/3`、`forall/2` などがモジュールをまたいで正しく動く
 - `multifile/1` は `モジュール:PI` 形式で、他モジュールから節を追加できる
-- `user` モジュールはトップレベルの既定。`library(...)` は `$MOSA_LIB` と実行ファイル相対の `lib/` から探す
+- `user` モジュールはトップレベルの既定。`library(...)` は `$MOSA_LIB` と実行ファイル相対の `lib/` から探す。`mosac` が作った実行ファイルは、まず自分に同梱したライブラリの一覧（第6節）を引き、同梱していないライブラリだけをこの 2 か所から探す
 - `op/3` は宣言したモジュールにローカル。エクスポートリストに `op(P, T, N)` を書くと取り込み先にも効く。`user` で宣言した演算子は全モジュールに見える
 - フラグ `double_quotes` と `japanese_punctuation` はモジュール単位（正確には読み込み中のファイル単位）に保存・復元する
 
@@ -246,8 +246,8 @@
 
 - C++ コンパイラは次の順で探す: `--cxx` → 環境変数 `MOSA_CXX` → `CXX` → OS 既定（macOS は `clang++`、Linux は `g++` 次いで `clang++`、Windows は `vswhere` で MSVC を見つけ `vcvarsall` 相当の環境変数を `mosac` 自身が設定する）。見つからなければ `mosac toolchain` と同じ診断を出して止まり、各 OS のインストール手順（Xcode Command Line Tools、`apt install g++`、Visual Studio Build Tools）を表示する
 - CMake は任意。あれば使い、なければコンパイラを直接呼ぶ（生成コードはファイルごとにコンパイルして `mosac` 自身がリンクコマンドを組む）。したがって利用者側の最小要件は「C++20 コンパイラが 1 つ入っていること」
-- ランタイム `libmosa` は、ビルド済みの静的ライブラリとヘッダを `mosac` のインストール先（`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`）に同梱する。利用者のマシンでランタイムを毎回ビルドしない。ABI が合わないときの逃げ道として `--runtime-source` で同梱ソースからビルドする（結果はキャッシュする）
-- `lib/*.pl` の標準ライブラリは事前変換済みのオブジェクトとして同梱し、`use_module` されたものだけをリンクする
+- ランタイム `libmosa` は、ビルド済みの静的ライブラリとヘッダを `mosac` のインストール先（`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`。`<OS>` は `macos`、`linux`、`windows`、`<arch>` は `arm64`、`x86_64`、`<compiler>` は族 `clang`、`gcc`、`msvc`）に同梱する。`mosac` はそのディレクトリを自分の場所から見つける。`<prefix>/bin/mosac` は `<prefix>/lib/mosa/<鍵>/` を見、ビルド木では `mosac` 自身のディレクトリに `libmosa`、`include/`、`pl/` がある。インストールするのは Release だけなので、`mosac build --debug` も Release のランタイムを結ぶ。利用者のマシンでランタイムを毎回ビルドしない。ABI が合わないときの逃げ道として `--runtime-source` で同梱ソース `<prefix>/lib/mosa/source/` から CMake でビルドする（結果は `.mosac-cache/runtime/<hash>/` にキャッシュする）
+- `lib/*.pl` の標準ライブラリは事前変換済みのオブジェクトとして、ライブラリごとに 1 つ（`libmosa` の隣の `pl/libmosa_pl_<名前>.a`、Windows は `pl/mosa_pl_<名前>.lib`）同梱し、`use_module` で推移的に読まれたものと、未捕捉エラーの文面のための `messages_ja`・`messages_en` だけをリンクする。リンクしたライブラリの原文も実行ファイルに埋め込むので、ライブラリは実行ファイルから consult され、単位はそれに付く。ファイルからは読まない。インタプリタ用の写しは `<prefix>/bin/lib/*.pl` に置く
 - 既定は静的リンク・`-O2`。Windows は `/MT`。できあがった実行ファイルは配布先に C++ ランタイム DLL も `mosac` も Prolog ファイルも要らない。`--debug` で `-O0 -g` と実行時の節トレースを有効にする
 - 中間ファイルは `.mosac-cache/` に置き、Prolog ソースとランタイムのハッシュで再利用する。`--keep` で生成 C++ を残し、`--clean` で捨てる
 - クロスコンパイルは非目標。実行ファイルは `mosac` を動かした OS・アーキテクチャ向けだけを作る
@@ -263,7 +263,7 @@
 - `:- initialization(main, main).` があればそれがエントリポイント。`main/0` が成功すれば終了コード 0、失敗なら 1、未捕捉例外ならメッセージを出して 2。`halt/1` の引数はそのまま終了コードになる
 - コマンドライン引数はフラグ `argv`（アトムのリスト）で受け取る
 - `mosac build --interactive` で作ると、変換済みコードを読み込んだ状態で REPL が立ち上がる実行ファイルになる（変換コードとインタプリタの共存は上記の通り）
-- 実行ファイルは起動時に外部ファイルを一切要求しない。必要な Prolog ライブラリはすべてリンク済みで、`lib/` を探しに行かない
+- 実行ファイルは起動時に外部ファイルを一切要求しない。必要な Prolog ライブラリはすべてリンク済みで、`use_module(library(X))` は第5節の探索より先に同梱の一覧で解決し、`lib/` を探しに行かない
 
 **ソースの対応関係**
 

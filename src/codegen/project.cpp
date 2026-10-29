@@ -1,6 +1,14 @@
-// 計画 Task 5。mosac emit の目録を作る。翻訳のときの読み込みは宣言だけを実行し（TranslationLog）、
+// 計画 Task 5、Task 10。mosac emit の目録を作る。翻訳のときの読み込みは宣言だけを実行し（TranslationLog）、
 // 開いたファイルの原文を main.cpp に埋め込む。単位はモジュールごとに 1 つで、名前は C++ の名前空間
 // mosa_gen::m<モジュール> になる。同じモジュールの単位は 1 つしか出さないので、unit() の名前はぶつからない。
+//
+// 単位の名前の決め方（Task 5 と Task 10 の持ち越し。すべて単射）
+//  - C++ の名前空間: mosa_gen::m<mangle(モジュール名)>。mangle は _ を _5f、ほかの非英数字を _xx にするので __ を作らない
+//  - プログラムの単位の NativeUnit::name と埋め込みの鍵: 根のファイルのディレクトリからの相対パス（embed_keys）
+//  - 同梱ライブラリ: library(Name) の Name はファイルの語幹。NativeUnit::name は library(Name)、埋め込みの鍵は
+//    library/Name.pl（bundled_library_path。実行時の use_module も同じ鍵を引く）、翻訳済みの単位のファイルは
+//    pl/libmosa_pl_<Name>.a（MSVC は mosa_pl_<Name>.lib）。モジュール名ではなく語幹で結ぶのは、use_module(library(X)) の
+//    X がファイル名だからである
 
 #include "codegen.hpp"
 #include "emit_state.hpp"
@@ -13,6 +21,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -20,14 +30,6 @@
 
 namespace mosa::codegen {
 namespace {
-
-// MSVC は 1 つの文字列の字面の長さに上限がある。原文はこの大きさで切り、起動時につなぐ。
-constexpr std::size_t kChunk = 2048;
-
-struct UnitPlan {
-  std::uint32_t module = 0;
-  std::size_t file = 0;
-};
 
 DisplayNames display_names(const TranslationLog& log, std::string_view root) {
   std::error_code error;
@@ -60,84 +62,69 @@ std::vector<UnitPlan> plan_units(const Impl& machine, const TranslationLog& log)
   return units;
 }
 
-std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
-
-std::string source_array(std::size_t index, std::string_view text) {
-  std::string items;
-  std::size_t count = 0;
-  for (std::size_t at = 0; at < text.size(); at += kChunk, ++count) {
-    items += "    " + string_literal(text.substr(at, kChunk)) + ",\n";
+std::optional<std::uint32_t> module_of_key(const Impl& machine, std::string_view key) {
+  for (const Module& module : machine.modules) {
+    if (module.file == key) return module.name;
   }
-  return "constexpr std::array<std::string_view, " + std::to_string(count) + "> kFile" + std::to_string(index) +
-         "{\n" + items + "};\n";
+  return std::nullopt;
 }
 
-std::string main_body(const Impl& machine, const TranslationLog& log, const std::vector<UnitPlan>& units) {
-  std::string out = "int main(int argc, char** argv) {\n  auto machine = mosa::Machine::create(std::size_t{1} << 20);\n";
-  out += "  mosa::rt::start(*machine, argc, argv);\n";
+std::string relative_or_same(const std::filesystem::path& file, const std::filesystem::path& base) {
+  const std::filesystem::path relative = file.lexically_relative(base);
+  return relative.empty() ? utf8_from_path(file) : utf8_from_path(relative);
+}
+
+// 埋め込みの鍵。翻訳した機械の絶対パスを実行ファイルに残さない（利用者名が漏れ、同じ原文から同じ物ができなくなる）。
+// プログラムのファイルは根のディレクトリからの相対、ライブラリのモジュールのファイルは library/<語幹>.pl、ライブラリが
+// include したファイルは、その親の擬似ディレクトリからの相対にする（親は必ず先に開かれているので添字が小さい）。
+// 相対にできないパス（Windows の別のドライブなど）だけは絶対のまま残す。
+std::vector<std::string> embed_keys(const Impl& machine, const TranslationLog& log) {
+  const std::filesystem::path root_dir = path_from_utf8(log.files.front().key).parent_path();
+  std::vector<std::string> keys;
   for (std::size_t index = 0; index < log.files.size(); ++index) {
-    if (log.files[index].library) continue;
-    const std::string name = "file" + std::to_string(index);
-    out += "  const std::string " + name + " = joined(kFile" + std::to_string(index) + ");\n";
-    out += "  mosa::rt::embed(*machine, " + string_literal(log.files[index].key) + ", " + name + ");\n";
+    const TranslationLog::File& file = log.files[index];
+    const std::filesystem::path path = path_from_utf8(file.key);
+    if (!file.library) {
+      keys.push_back(relative_or_same(path, root_dir));
+    } else if (module_of_key(machine, file.key)) {
+      keys.push_back(utf8_from_path(bundled_library_path(utf8_from_path(path.stem()))));
+    } else if (file.parent < index) {
+      const std::filesystem::path pseudo_dir = path_from_utf8(keys[file.parent]).parent_path();
+      const std::filesystem::path real_dir = path_from_utf8(log.files[file.parent].key).parent_path();
+      const std::filesystem::path relative = path.lexically_relative(real_dir);
+      keys.push_back(relative.empty() ? file.key : utf8_from_path(pseudo_dir / relative));
+    } else {
+      keys.push_back(file.key);
+    }
   }
-  out += "  bool loaded = true;\n";
-  for (const UnitPlan& unit : units) {
-    out += "  loaded = loaded && mosa::rt::install_unit(*machine, mosa_gen::" + unit_stem(machine, unit.module) +
-           "::unit(file" + std::to_string(unit.file) + "));\n";
-  }
-  return out + "  return mosa::rt::finish(*machine, loaded);\n}\n";
+  return keys;
 }
 
-// 起動の順は rt::start、embed、install_unit、finish（runtime.hpp）。標準ヘッダも runtime.hpp から得る。
-std::string main_text(const Impl& machine, const TranslationLog& log, const std::vector<UnitPlan>& units) {
-  std::string out = "// mosac が出した実行ファイルの入口（計画 Task 5）。手で直さない。\n\n";
-  for (const UnitPlan& unit : units) out += "#include \"" + unit_stem(machine, unit.module) + ".hpp\"\n";
-  out += "\n#include \"mosa/runtime.hpp\"\n\nnamespace {\n\n// 読み込んだファイルの原文。鍵は翻訳のときに正規化したパスである。\n";
+// 翻訳済みの単位を結ぶのは、翻訳のときに読んだ原文が mosac の隣の lib/<語幹>.pl と同じバイトのときだけ。
+// $MOSA_LIB の別の版を読んだときは、単位の名前空間（モジュール名）も指紋も合わないので原文だけを同梱する。
+bool shipped_identical(const ProjectOptions& options, std::string_view name, std::string_view text) {
+  if (options.runtime_dir.empty()) return false;
+  const std::filesystem::path shipped = path_from_utf8(options.runtime_dir) / "lib" / path_from_utf8(std::string{name} + ".pl");
+  std::ifstream in{shipped, std::ios::binary};
+  if (!in) return false;
+  const std::string bytes{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+  return bytes == text;
+}
+
+// library(_) で開いたモジュールのファイルが同梱ライブラリ。文面の表（messages_ja、messages_en）も translate_program が
+// 読んでいるのでここに入る。名前の順に並べ、同じプログラムからいつも同じ目録を出す（キャッシュの鍵）。
+std::vector<LibraryPlan> plan_libraries(const Impl& machine, const TranslationLog& log, const ProjectOptions& options) {
+  std::vector<LibraryPlan> libraries;
   for (std::size_t index = 0; index < log.files.size(); ++index) {
-    if (!log.files[index].library) out += source_array(index, log.files[index].text);
+    const TranslationLog::File& file = log.files[index];
+    const auto module = module_of_key(machine, file.key);
+    if (!file.library || !module) continue;
+    const std::string name = utf8_from_path(path_from_utf8(file.key).stem());
+    libraries.push_back(LibraryPlan{name, index, *module, shipped_identical(options, name, file.text)});
   }
-  out += "\nstd::string joined(std::span<const std::string_view> parts) {\n  std::string text;\n";
-  out += "  for (const std::string_view part : parts) text += part;\n  return text;\n}\n\n}  // namespace\n\n";
-  return out + main_body(machine, log, units);
-}
-
-// 角括弧の引数は \ も " も $ も展開しない。Windows のパスもそのまま書ける。
-std::string cmake_path(std::string_view path) {
-  return "[==[" + utf8_from_path(path_from_utf8(path)) + "]==]";
-}
-
-std::string cmake_text(const Impl& machine, const std::vector<UnitPlan>& units, std::string_view target,
-                       std::string_view runtime_dir) {
-  const std::string name{target};
-  std::string sources = "main.cpp";
-  for (const UnitPlan& unit : units) sources += " " + unit_stem(machine, unit.module) + ".cpp";
-  std::string out = "# mosac が出した（計画 Task 5）。手で直さない。\ncmake_minimum_required(VERSION 3.25)\n";
-  out += "project(" + name + " LANGUAGES CXX)\n\nset(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
-  out += "set(CMAKE_CXX_EXTENSIONS OFF)\n";
-  out += "# libmosa と同じ静的な MSVC の実行時ライブラリ（/MT）。mosac build は構成によらず /MT を渡す。\n";
-  out += "if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)\n";
-  out += "  set(CMAKE_MSVC_RUNTIME_LIBRARY \"MultiThreaded$<$<CONFIG:Debug>:Debug>\")\nendif()\n";
-  out += "\n# libmosa と include/ の場所。既定は emit した mosac のビルド木である。\n";
-  out += "if(DEFINED ENV{MOSA_RUNTIME_DIR})\n  set(mosa_runtime_default \"$ENV{MOSA_RUNTIME_DIR}\")\nelse()\n";
-  out += "  set(mosa_runtime_default " + cmake_path(runtime_dir) + ")\nendif()\n";
-  out += "set(MOSA_RUNTIME_DIR \"${mosa_runtime_default}\" CACHE PATH \"libmosa and include/\")\n";
-  out += "find_library(MOSA_RUNTIME_LIBRARY NAMES mosa PATHS \"${MOSA_RUNTIME_DIR}\" NO_DEFAULT_PATH REQUIRED)\n\n";
-  out += "add_executable(" + name + " " + sources + ")\n";
-  out += "target_include_directories(" + name + " PRIVATE \"${MOSA_RUNTIME_DIR}/include\")\n";
-  out += "target_link_libraries(" + name + " PRIVATE \"${MOSA_RUNTIME_LIBRARY}\")\n";
-  out += "# libmosa の CommandLineToArgvW（src/platform/command_line.cpp）。静的ライブラリからは伝わらない。\n";
-  out += "if(WIN32)\n  target_link_libraries(" + name + " PRIVATE shell32)\nendif()\n";
-  out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。/EHsc は mosac build が\n";
-  out += "# CMAKE_CXX_FLAGS を空にしても残るよう、ここに置く（直接の道の旗と同じ）。\n";
-  out += "target_compile_options(" + name + " PRIVATE\n";
-  out += "  $<$<CXX_COMPILER_ID:MSVC>:/EHsc;/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";
-  out += "  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>)\n";
-  out += "# 警告を誤りにするのは頼まれたときだけ。新しいコンパイラの警告で利用者のビルドを止めない。\n";
-  out += "option(MOSA_WARNINGS_AS_ERRORS \"Treat warnings as errors\" OFF)\n";
-  out += "if(\"$ENV{MOSA_WERROR}\" STREQUAL \"1\")\n  set(MOSA_WARNINGS_AS_ERRORS ON)\nendif()\n";
-  out += "if(MOSA_WARNINGS_AS_ERRORS)\n";
-  return out + "  target_compile_options(" + name + " PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/WX,-Werror>)\nendif()\n";
+  std::sort(libraries.begin(), libraries.end(),
+            [](const LibraryPlan& left, const LibraryPlan& right) { return left.name < right.name; });
+  return libraries;
 }
 
 Project fail_with(std::string diagnostic) {
@@ -173,19 +160,45 @@ std::vector<std::string> warnings(Impl& machine, const TranslationLog& log, std:
 Project build_project(Machine& machine, const TranslationLog& log, std::string_view path,
                       const ProjectOptions& options) {
   const Impl& impl = engine_impl(machine);
-  const std::vector<UnitPlan> units = plan_units(impl, log);
+  ProjectPlan plan{plan_units(impl, log), plan_libraries(impl, log, options), embed_keys(impl, log)};
   const std::vector<PredKey> interpreted = opaque_preds(log);
   Project project;
   project.ok = true;
-  for (const UnitPlan& unit : units) {
-    const EmitResult emitted = emit_module(machine, unit.module, log.files[unit.file].key, interpreted, options.trace);
+  for (const UnitPlan& unit : plan.units) {
+    const EmitResult emitted = emit_module(machine, unit.module, plan.keys[unit.file], interpreted, options.trace);
     const std::string stem = unit_stem(impl, unit.module);
     project.files.push_back(ProjectFile{stem + ".cpp", emitted.source});
     project.files.push_back(ProjectFile{stem + ".hpp", emitted.header});
   }
-  project.files.push_back(ProjectFile{"main.cpp", main_text(impl, log, units)});
-  project.files.push_back(ProjectFile{"CMakeLists.txt", cmake_text(impl, units, target_name(path), options.runtime_dir)});
+  for (const LibraryPlan& library : plan.libraries) {
+    if (library.prebuilt) project.libraries.push_back(library.name);
+  }
+  project.files.push_back(ProjectFile{"main.cpp", main_text(impl, log, plan)});
+  project.files.push_back(ProjectFile{"CMakeLists.txt", cmake_text(impl, plan, target_name(path), options.runtime_dir)});
   return project;
+}
+
+// mosac emit --library lib/<名前>.pl。根のモジュールの単位 <名前>.cpp だけを出す。原文は実行ファイルの main.cpp が
+// 持つので、単位は今までどおり unit(source) の形で受ける。use_module した先（library(_)）は別の単位なので出さない。
+Project build_library(Machine& machine, const TranslationLog& log, std::string_view path) {
+  const Impl& impl = engine_impl(machine);
+  const auto module = module_of_key(impl, log.files.front().key);
+  if (!module) return fail_with(message_text(impl, "mosac_library_not_module", {path}));
+  const std::string name = utf8_from_path(path_from_utf8(path).stem());
+  const EmitResult emitted = emit_module(machine, *module, "library(" + name + ")", opaque_preds(log), false);
+  Project project;
+  project.ok = true;
+  project.files.push_back(ProjectFile{name + ".cpp", emitted.source});
+  return project;
+}
+
+// 文面の表（ADR 0007）は、捕まえなかった例外の文面にどの実行ファイルも読む。翻訳のときにも読んで同梱の一覧に
+// 入れる（推移的に library(format)、library(lists) も入る）。読めなければ mosac の隣の lib/ が無い。
+bool load_catalogs(Machine& machine) {
+  for (const std::string_view catalog : {"messages_ja", "messages_en"}) {
+    if (!machine.load_program(":- use_module(library(" + std::string{catalog} + ")).\n").ok) return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -198,8 +211,11 @@ std::string target_name(std::string_view root) {
     const bool alnum = (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z') || (unit >= '0' && unit <= '9');
     plain = plain && (alnum || unit == '_' || unit == '-');
   }
-  // CMake が予約する目標の名前は configure で通らない。
-  constexpr std::array<std::string_view, 5> reserved{"all", "clean", "install", "help", "test"};
+  // CMake が予約する目標の名前は configure で通らない（生成器が作る目標と、CMake 自身の目標）。
+  constexpr std::array<std::string_view, 13> reserved{"all",          "clean",   "install",      "help",
+                                                      "test",         "package", "package_source", "edit_cache",
+                                                      "rebuild_cache", "ALL_BUILD", "ZERO_CHECK", "RUN_TESTS",
+                                                      "INSTALL"};
   const bool taken = std::find(reserved.begin(), reserved.end(), stem) != reserved.end();
   return plain && !taken ? stem : "app";
 }
@@ -219,6 +235,9 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   impl.translation = &log;
   try {
     if (!machine->consult(path)) return fail_with(std::string{machine->diagnostic()});
+    if (!options.library && !load_catalogs(*machine)) {
+      return fail_with(message_text(impl, "mosac_catalog_missing", {std::string{machine->diagnostic()}}));
+    }
   } catch (const ResourceLimit&) {
     return fail_with(message_text(impl, "heap_limit"));
   }
@@ -227,6 +246,7 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   std::string diagnostic;
   for (const std::string& line : warnings(impl, log, path, options)) diagnostic += (diagnostic.empty() ? "" : "\n") + line;
   if (!diagnostic.empty()) return fail_with(std::move(diagnostic));
+  if (options.library) return build_library(*machine, log, path);
   return build_project(*machine, log, path, options);
 }
 

@@ -29,14 +29,17 @@ namespace {
 struct EmitArgs {
   std::string source;
   std::string out;
+  bool library = false;  // --library: lib/<名前>.pl の単位 <名前>.cpp だけを出す（計画 Task 10。本体の CMake が使う）
 };
 
-// mosac emit app.pl -o out/ の形だけを受ける。
+// mosac emit [--library] app.pl -o out/ の形だけを受ける。
 std::optional<EmitArgs> parse_emit(const std::vector<std::string>& args) {
   EmitArgs parsed;
   for (std::size_t index = 2; index < args.size(); ++index) {
     if (args[index] == "-o" && index + 1 < args.size()) {
       parsed.out = args[++index];
+    } else if (args[index] == "--library") {
+      parsed.library = true;
     } else if (parsed.source.empty() && !args[index].empty() && args[index].front() != '-') {
       parsed.source = args[index];
     } else {
@@ -65,7 +68,8 @@ std::optional<std::string> write_files(const std::filesystem::path& out, const s
   return std::nullopt;
 }
 
-// libmosa と include/ の場所は mosac toolchain と同じ一つの決め方による（計画 Task 10 でインストールの形に変わる）。
+// mosac の在るディレクトリ。生成する CMakeLists.txt が実行時ライブラリの既定の場所をここから決め、翻訳器が
+// 同梱ライブラリの原文 lib/<名前>.pl を比べる（計画 Task 10）。
 std::string runtime_dir() { return mosa::utf8_from_path(mosa::default_runtime_dir()); }
 
 int run_emit(const std::vector<std::string>& args) {
@@ -76,6 +80,7 @@ int run_emit(const std::vector<std::string>& args) {
   }
   mosa::codegen::ProjectOptions options;
   options.runtime_dir = runtime_dir();
+  options.library = parsed->library;
   const mosa::codegen::Project project = mosa::codegen::translate_program(parsed->source, options);
   // Prolog の誤りは翻訳の段で止め、何も書かずコンパイラも起こさない（SPEC 第6節のエラーの扱い）。
   if (!project.ok) {
@@ -142,10 +147,12 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
       parsed.out = args[++index];
     } else if (arg == "--cxx" && has_value) {
       parsed.request.cxx = args[++index];
-    } else if (arg == "--debug" || arg == "--verbose" || arg == "--clean" || (run && arg == "--keep")) {
+    } else if (arg == "--debug" || arg == "--verbose" || arg == "--clean" || arg == "--runtime-source" ||
+               (run && arg == "--keep")) {
       parsed.request.debug = parsed.request.debug || arg == "--debug";
       parsed.request.verbose = parsed.request.verbose || arg == "--verbose";
       parsed.request.clean = parsed.request.clean || arg == "--clean";
+      parsed.request.runtime_source = parsed.request.runtime_source || arg == "--runtime-source";
       parsed.keep = parsed.keep || arg == "--keep";
     } else if (parsed.request.source.empty() && !arg.empty() && arg.front() != '-') {
       parsed.request.source = arg;

@@ -172,9 +172,12 @@ struct TranslationLog {
     std::string text;
     std::size_t line = 0;  // 最初の項の位置。module/2 の診断に使う
     std::size_t column = 0;
-    bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（Task 10 まで翻訳しない）
+    bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（同梱の単位として結ぶ。Task 10）
     bool skipped_goal = false;  // 飛ばした指示のゴールがある。そのゴールの op/3 が後の項の読みを変えうる
     bool opaque = false;        // 飛ばしたゴールの後で構文エラーがあった。このファイルの述語は IR のまま動かす
+    // このファイルを開いたファイルの files の添字（根は -1）。ライブラリが include したファイルの埋め込みの鍵を、
+    // そのライブラリの擬似ディレクトリからの相対で作るのに使う。
+    std::size_t parent = static_cast<std::size_t>(-1);
   };
   struct Site {
     PredKey pred;
@@ -329,6 +332,8 @@ struct Machine::Impl {
   // mosatest の断片の読み込み（suite.cpp）。断片のテキスト自身の指示のゴールは、最後の load だけが呼ぶ。
   bool fragment_pass = false;
   std::vector<EmbeddedSource> embedded;
+  // 実行ファイルの起動の読み込みがヒープの上限で止まった。rt::finish は mosa の consult と同じ 2 で終わる。
+  bool load_heap_limit = false;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }
 };
@@ -540,6 +545,15 @@ void prefix_consult_diagnostic(Impl& machine, std::string_view path);
 [[nodiscard]] bool native_eligible(const Impl& machine, const Predicate& predicate);
 // 付けたあとの節か meta への書き込みのたびに呼ぶ。述語と全単位の同じ鍵の calls を一度に空にする。
 void detach_native(Impl& machine, Predicate& predicate);
+// 単位の表を作って（番号は単位の中だけ）その slot を返す。付けるのは原文を読み終えた後（ADR 0009）。
+[[nodiscard]] std::size_t prepare_native_unit(Impl& machine, const rt::NativeUnit& unit);
+void attach_native_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& unit);
+// 定義は native_library.cpp。同梱ライブラリの擬似パス library/<Name>.pl。mosac（project.cpp）も同じ関数で鍵を作る。
+[[nodiscard]] std::filesystem::path bundled_library_path(std::string_view name);
+// use_module(library(Name)) が SPEC 第5節の探索より先に引く。同梱にあれば原文を擬似パスで埋め込み、そのパスを返す。
+[[nodiscard]] std::optional<std::filesystem::path> locate_bundled_library(Impl& machine, std::string_view name);
+// 同梱ライブラリの原文を読み終えた後に、その翻訳済みの単位を付ける（原文だけの同梱なら何もしない）。
+void attach_bundled_library(Impl& machine, std::string_view name);
 // 定義は native_redo.cpp。
 void call_native(Impl& machine, rt::NativeProc proc, std::uint64_t frame);
 void resume_native(Impl& machine);
