@@ -552,3 +552,17 @@ Decision (2026-10-28): A. `「…」` uses the escapes of `'…'`, with `」` as
 ISO has no translation step: calling a procedure that is defined nowhere is an `existence_error(procedure, PI)` when the goal runs (7.7.7, flag `unknown` 7.11.2.4, 7.12.2 c), and SPEC Section 5 gives `existence_error(module, M)` at run time for `M:G` with an unknown `M`. `mosac emit` (phase 6 Tasks 5 and 7) instead rejects the program at translation time when a clause body names, literally, a predicate with no definition anywhere, including `nomod:foo(X)` with a module that is never loaded (`mosac_undefined_call`, src/codegen/check.cpp), and writes nothing.
 
 Decision (2026-10-29): this is a deliberate deviation of the translator only. The interpreter and the generated executable keep the ISO behaviour at run time: the error is raised when the goal is reached (`tests/pl/modules.pl` `mod_qual_unknown`; `tests/pl/native.pl` `native_qualified_missing`, which reaches the unknown module through a variable `M` so that the translation is accepted). `mosatest --diff` (`--units`, Task 11) skips the check so that tests of existence errors can be translated.
+
+Decision (2026-10-30): A. The diagnostic suggests `:- dynamic(Name/Arity).` for a program that creates the procedure at run time with `assertz/1`. The suggestion is written as `dynamic(Name/Arity)` and not as the prefix form `dynamic Name/Arity`, because Table 7 (6.3.4.4) has no `dynamic` operator, and 7.4.2.1 `dynamic/1` takes the predicate indicator as an ordinary argument. The name is written as `writeq` writes it, in brackets when it is an operator or a symbol-character atom (ctest `mosac_emit_undefined_quoted`).
+
+## 7.10.5 A prefix operator as an operand is written without brackets
+
+`writeq((-)/1)` writes `- /1` and `writeq((:-)/2)` writes `:- /2`. 7.10.5 requires the output of `writeq` to be read back as the same term, and 6.3.4.2 requires an atom that is an operator and an operand to be bracketed; the reader rejects `- /1`.
+
+Decision (2026-10-30): this is a known defect, not an intended deviation. The interpreter is unchanged in phase 6, and `mosac emit` brackets the name in its own `dynamic` suggestion. The writer is fixed in phase 7. TODO(iso): 7.10.5 round trip of an operator atom as an operand.
+
+## 7.1 Nesting depth of terms (implementation limit)
+
+The writer, the reader and the loader recurse once per nesting level, so a term nested very deeply overflows the C stack. Printing a term nested about 30000 deep overflows the stack, `mosa` overflows on loading a 50000-element list literal on macOS, and on Windows (1 MiB stack) a 20000-element list literal cannot be loaded. The owner treats this as an implementation limit (ISO 7.1, implementation defined) and not as a deviation from a requirement. The translator (`mosac`) walks terms iteratively and handles a 20000-element list (ctest `mosac_long_list`).
+
+Decision (2026-10-30): A. Make the writer, the reader and the loader iterative in phase 7 or later. Until then the limit stands, and the test `mosac_long_list` steps down to a shorter list on Windows.
