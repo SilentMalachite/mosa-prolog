@@ -392,9 +392,12 @@ std::string float_literal(double value) {
 }
 
 // UTF-8 のバイトは 3 桁の 8 進にする。MSVC の既定のコードページでも字面が変わらない。長さは明示する（NUL を含みうる）。
+// 8 進の直後に 10 進の数字が続くと MSVC が /W4 で C4125 を出す（警告は誤りにしている）ので、そこで字面を一度閉じて
+// 隣の字面としてつなぐ。テスト: tests/cpp/codegen_test.cpp の octal_before_digit。
 std::string string_literal(std::string_view text) {
   std::string out = "std::string_view{\"";
-  for (const char unit : text) {
+  for (std::size_t at = 0; at < text.size(); ++at) {
+    const char unit = text[at];
     const auto byte = static_cast<unsigned char>(unit);
     if (unit == '"' || unit == '\\') {
       out += '\\';
@@ -406,6 +409,7 @@ std::string string_literal(std::string_view text) {
       out += static_cast<char>('0' + (byte >> 6));
       out += static_cast<char>('0' + ((byte >> 3) & 7));
       out += static_cast<char>('0' + (byte & 7));
+      if (at + 1 < text.size() && text[at + 1] >= '0' && text[at + 1] <= '9') out += "\" \"";
     }
   }
   return out + "\", " + std::to_string(text.size()) + "}";

@@ -294,7 +294,10 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
     if (end->tag == IrTag::Throw) return out.push_back(GoalRef{end, module});
     if (term.tag == IrTag::Or) return flatten(ctx, term.args[1], module, out);
     if (term.tag == IrTag::Fun) return;
-    ctx.owned.push_back(IrTerm{.tag = IrTag::Fail});
+    // 指示付き初期化は GCC 13 と Clang 17 が -Wmissing-field-initializers を出すので、既定で作ってから tag を替える。
+    IrTerm fail;
+    fail.tag = IrTag::Fail;
+    ctx.owned.push_back(std::move(fail));
     out.push_back(GoalRef{&ctx.owned.back(), module});
     return;
   }

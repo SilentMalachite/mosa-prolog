@@ -260,6 +260,13 @@ void japanese_unit() {
   check(result.translated == 1, "japanese translated == 1");
 }
 
+// 8 進の直後に 10 進の数字が続く字面は MSVC の /W4 で C4125 になる。そこで字面を閉じ、隣の字面としてつなぐこと。
+void octal_before_digit() {
+  const EmitResult result = emit_user("p('あ1').\n");
+  check(has(result.source, "\"\\343\\201\\202\" \"1\", 4}"), "octal escape closed before a digit");
+  check(!has(result.source, "\\2021"), "no digit directly after an octal escape");
+}
+
 }  // namespace
 
 // 計画 Task 5。読んだファイルのモジュールごとに単位を 1 つ出し、根の単位を先に入れる。
@@ -343,6 +350,7 @@ int main() {
   meta_translated();
   dynamic_skipped();
   japanese_unit();
+  octal_before_digit();
   project_modules();
   project_opaque();
   return mosa_test::failures() == 0 ? 0 : 1;
