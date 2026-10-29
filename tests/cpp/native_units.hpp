@@ -20,6 +20,7 @@ struct Hits {
   std::size_t rel = 0;
   std::size_t same = 0;
   std::size_t twice = 0;
+  std::size_t keep = 0;
 };
 
 Hits& hits();
@@ -60,12 +61,17 @@ void same_1(mosa::Machine::Impl& m, std::uint64_t frame, std::uint32_t state);
 const mosa::rt::UnitTag& op_tag();
 std::span<const std::string_view> op_atoms();
 
-// 単位 3: meta_predicate の述語。付いたら節をそのまま IR で動かすだけの関数で、走れば数が増える。
+// 単位 3: meta_predicate の述語。限定する引数は rt::qualify で呼び手の文脈に包む（生成コードと同じ、計画 Task 7）。
+// keep/2 は包んだ項をそのまま返すので、文脈モジュールが答えに出る。
 inline constexpr std::string_view kMetaSource =
     ":- meta_predicate(twice(0)).\n"
-    "twice(G) :- call(G), call(G).\n";
+    "twice(G) :- call(G), call(G).\n"
+    ":- meta_predicate(keep(0, -)).\n"
+    "keep(G, G).\n";
 
 void twice_1(mosa::Machine::Impl& m, std::uint64_t frame, std::uint32_t state);
+void keep_2(mosa::Machine::Impl& m, std::uint64_t frame, std::uint32_t state);
 const mosa::rt::UnitTag& meta_tag();
+std::span<const mosa::rt::NativeCallee> meta_calls();
 
 }

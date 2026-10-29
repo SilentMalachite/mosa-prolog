@@ -5,6 +5,7 @@
 // 宣言の形は計画 Task 3 の Interfaces が正で、翻訳器（Task 4）はこの名前をそのまま出す。
 
 #include "mosa/cell.hpp"
+#include "mosa/goal_word.hpp"
 #include "mosa/machine.hpp"
 
 // array は生成コードが引数とセルの並びに使う。生成コードは標準ヘッダもこのヘッダからだけ得る。
@@ -80,6 +81,10 @@ inline constexpr std::uint32_t kCall = 0;
 }
 [[nodiscard]] inline std::uint64_t frame_cut(const Regs& regs, std::uint64_t frame) { return regs.words[frame + 2]; }
 [[nodiscard]] inline std::uint64_t frame_cont(const Regs& regs, std::uint64_t frame) { return regs.words[frame + 3]; }
+// 呼び手の文脈モジュール（ADR 0006）。節の入口とやり直しで渡る枠はゴール枠なので、語 1 から読める。
+[[nodiscard]] inline std::uint32_t frame_module(const Regs& regs, std::uint64_t frame) {
+  return goal_word_module(regs.words[frame + 1]);
+}
 
 // small_int の逆。制御構文は選択点の高さを継続枠の変数（整数セル）で運ぶ。符号付きの右シフトは C++20 で算術。
 [[nodiscard]] inline std::int64_t small_value(Cell cell) { return static_cast<std::int64_t>(cell.raw()) >> 3; }
@@ -137,6 +142,8 @@ void throw_term(Machine::Impl& machine, Cell ball);  // throw/1。捕まえる c
 // catch/3。recovery は回復ゴールの継続枠。ボールが pattern と単一化できればそこへ進む
 void push_catch(Machine::Impl& machine, Cell pattern, std::uint64_t recovery, std::size_t cut);
 void catch_exit(Machine::Impl& machine, std::size_t index);  // ゴールを抜けた。index の Catch を無効にする
+// meta_predicate で限定する引数。M: が無ければ context:actual にする（enter_clause の meta_argument）
+[[nodiscard]] Cell qualify(Machine::Impl& machine, Cell actual, std::uint32_t context);
 
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。

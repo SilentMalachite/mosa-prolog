@@ -4,6 +4,8 @@
 
 #include "internal.hpp"
 
+#include "../module/module.hpp"
+
 #include <bit>
 #include <cstdint>
 #include <utility>
@@ -69,5 +71,10 @@ void push_catch(Machine::Impl& machine, Cell pattern, std::uint64_t recovery, st
 }
 
 void catch_exit(Machine::Impl& machine, std::size_t index) { disarm_catch(machine, index); }
+
+// meta_predicate の引数（enter_clause の meta_argument と同じ包み方）。どの引数を包むかは翻訳のときに決まっている。
+Cell qualify(Machine::Impl& machine, Cell actual, std::uint32_t context) {
+  return qualify_goal(machine, context, actual);
+}
 
 }  // namespace mosa::rt

@@ -192,6 +192,15 @@ test(native_qualified_var, qualified_var(native_mod, hidden(X)), solutions([X = 
 test(native_qualified_var_inst, qualified_var(_, true), error(instantiation_error)).
 test(native_qualified_missing, qualified_missing(_), error(existence_error(module, no_such_module))).
 
+% meta_predicate。限定する引数は呼び手の文脈モジュールで M: に包んでから頭部に渡す（enter_clause と同じ）
+:- use_module('modules/native_meta.pl').
+
+test(native_meta_user, keep_goal(foo, Q), solutions([Q = user:foo])).
+test(native_meta_inside, kept_inside(Q), solutions([Q = native_meta:foo])).
+test(native_meta_already, keep_goal(other:foo, Q), solutions([Q = other:foo])).
+test(native_meta_qualified_call, native_meta:keep_goal(foo, Q), solutions([Q = native_meta:foo])).
+test(native_meta_call, call_kept(color(C)), solutions([C = red, C = green, C = blue])).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

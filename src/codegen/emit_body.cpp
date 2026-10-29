@@ -376,7 +376,7 @@ ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate&
   ClauseEmit emit{machine, tables, {}, {}, 0, 1};
   plan_slots(clause, counts, emit);
   emit_slot_cells(emit);
-  emit_head(emit, clause.head);
+  emit_head(emit, clause.head, predicate);
   emit_seq(ctx, emit, goals, BodyEnv{"r.cut", "rt::frame_cont(r, frame)"});
   const std::string entry = name.proc + "_c" + std::to_string(name.clause);
   code.functions += function_text(entry, emit.out);

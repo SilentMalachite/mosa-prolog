@@ -112,14 +112,18 @@ std::optional<Cell> read_meta_spec(Impl& machine, Cell head, std::vector<MetaArg
   return std::nullopt;
 }
 
-Cell meta_argument(Impl& machine, const Predicate& predicate, std::uint32_t context, std::size_t index,
-                   Cell actual) {
-  if (index >= predicate.meta.size() || predicate.meta[index].kind == MetaArg::Kind::None) return actual;
+Cell qualify_goal(Impl& machine, std::uint32_t context, Cell actual) {
   const Cell value = machine.heap.deref(actual);
   // 呼び手がもう M: を付けていれば、その M を使う。二重に包むと、行き先が呼び手の文脈に戻る。
   if (qualified(machine, value)) return actual;
   const std::array<Cell, 2> parts{machine.heap.atom(context), actual};
   return machine.heap.structure(machine.atoms.intern(":"), parts);
+}
+
+Cell meta_argument(Impl& machine, const Predicate& predicate, std::uint32_t context, std::size_t index,
+                   Cell actual) {
+  if (index >= predicate.meta.size() || predicate.meta[index].kind == MetaArg::Kind::None) return actual;
+  return qualify_goal(machine, context, actual);
 }
 
 void adopt_meta(Impl& machine, Predicate& predicate) {

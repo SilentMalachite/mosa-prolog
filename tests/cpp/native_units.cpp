@@ -301,16 +301,51 @@ const rt::UnitTag& op_tag() { return kOpUnit; }
 std::span<const std::string_view> op_atoms() { return kOpAtoms; }
 
 namespace {
+
+// 単位 3 の番号。呼び先は call/1 だけ。
+constexpr std::uint32_t kMetaCall = 0;
+
 constinit rt::UnitTag kMetaUnit{};
+constexpr std::array<rt::NativeCallee, 1> kMetaCalls{rt::NativeCallee{"user", "call", 1}};
+
+// twice(G) :- call(G), call(G)。meta_predicate twice(0) なので、G は呼び手の文脈で M: に包んでから使う
+// （enter_clause の meta_argument と同じ）。1 つ目の call の継続は再開の状態 (1, 1) で、枠の変数は G だけ。
+void twice_call(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame) {
+  const Cell g = rt::qualify(m, rt::arg(r, frame, 0), rt::frame_module(r, frame));
+  const std::array<Cell, 1> vars{g};
+  const auto next = rt::resume_frame(m, &twice_1, rt::state_of(1, 1), r.cut, rt::frame_cont(r, frame), vars);
+  const std::array<Cell, 1> args{g};
+  rt::call_goal(m, r, kMetaCall, args, next, r.cut);
+}
+
+void twice_resume(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame) {
+  const std::array<Cell, 1> args{rt::var(r, frame, 0)};
+  rt::call_goal(m, r, kMetaCall, args, rt::frame_cont(r, frame), rt::frame_cut(r, frame));
+}
+
 }  // namespace
 
 void twice_1(Machine::Impl& m, std::uint64_t frame, std::uint32_t state) {
   hits().twice += 1;
   const rt::Regs r = rt::regs(m, kMetaUnit);
+  switch (state) {
+    case rt::kCall: return twice_call(m, r, frame);
+    case rt::state_of(1, 1): return twice_resume(m, r, frame);
+    default: return rt::fail(m);
+  }
+}
+
+// keep(G, G)。meta_predicate keep(0, -) の第1引数を包んだ項を、第2引数と単一化する（節の側が左）。
+void keep_2(Machine::Impl& m, std::uint64_t frame, std::uint32_t state) {
+  hits().keep += 1;
+  const rt::Regs r = rt::regs(m, kMetaUnit);
   if (state != rt::kCall) return rt::fail(m);
-  rt::interpret_clause(m, r, 0, frame, 1);
+  const Cell g = rt::qualify(m, rt::arg(r, frame, 0), rt::frame_module(r, frame));
+  if (!rt::unify(m, g, rt::arg(r, frame, 1))) return rt::fail(m);
+  rt::proceed(m, rt::frame_cont(r, frame));
 }
 
 const rt::UnitTag& meta_tag() { return kMetaUnit; }
+std::span<const rt::NativeCallee> meta_calls() { return kMetaCalls; }
 
 }

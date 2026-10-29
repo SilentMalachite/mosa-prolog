@@ -189,12 +189,16 @@ void qualified_translated() {
   check(has(var.source, "std::string_view{\":\", 1}, 2}"), "variable or unknown module calls :/2");
 }
 
-// install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
-void meta_skipped() {
+// 計画 Task 7。meta_predicate の述語も訳す。限定する引数だけを、呼び手の文脈（枠の語 1）で M: に包んでから頭部に渡す。
+void meta_translated() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
-  check(result.translated == 0, "twice translated == 0");
-  check(result.interpreted == 1, "twice interpreted == 1");
-  check(!has(result.source, "void ptwice_1("), "twice has no function");
+  check(result.translated == 1, "meta translated == 1");
+  check(result.interpreted == 0, "meta interpreted == 0");
+  check(has(result.source, "void ptwice_1("), "twice has a function");
+  check(has(result.source, "rt::qualify(m, rt::arg(r, frame, 0), rt::frame_module(r, frame))"), "twice qualifies G");
+  const EmitResult plain = emit_user(":- meta_predicate plain(+, 0).\nplain(X, G) :- call(G), X = 1.\n");
+  check(has(plain.source, "rt::qualify(m, rt::arg(r, frame, 1), rt::frame_module(r, frame))"), "plain qualifies G");
+  check(!has(plain.source, "rt::qualify(m, rt::arg(r, frame, 0)"), "plain leaves X unqualified");
 }
 
 // 動的述語は翻訳の対象ではない。
@@ -321,7 +325,7 @@ int main() {
   throw_translated();
   catch_translated();
   qualified_translated();
-  meta_skipped();
+  meta_translated();
   dynamic_skipped();
   japanese_unit();
   project_modules();

@@ -223,10 +223,16 @@ void emit_slot_cells(ClauseEmit& emit) {
   }
 }
 
-void emit_head(ClauseEmit& emit, const IrTerm& head) {
+// meta_predicate で限定する引数は、呼び手の文脈（ゴール枠の語 1 のモジュール）で M: に包んでから照合する
+// （enter_clause の meta_argument）。包んだ項が節の変数の値になるので、本体はそれを呼ぶ。
+void emit_head(ClauseEmit& emit, const IrTerm& head, const Predicate& predicate) {
   if (head.tag != IrTag::Fun) return;
   for (std::size_t index = 0; index < head.args.size(); ++index) {
-    match(emit, head.args[index], "rt::arg(r, frame, " + std::to_string(index) + ")", 0);
+    std::string actual = "rt::arg(r, frame, " + std::to_string(index) + ")";
+    if (index < predicate.meta.size() && predicate.meta[index].kind != MetaArg::Kind::None) {
+      actual = "rt::qualify(m, " + actual + ", rt::frame_module(r, frame))";
+    }
+    match(emit, head.args[index], actual, 0);
   }
 }
 

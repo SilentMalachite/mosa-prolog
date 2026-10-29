@@ -230,21 +230,28 @@ void check_fingerprint_mismatch() {
   check(hits().same > same_before, "fingerprint_mismatch_falls_back: same/1 attached");
 }
 
-// meta_predicate を宣言した述語は、指紋が合っても付けない。限定は enter_clause の道だけが行う。
-void check_meta_not_attached() {
+// meta_predicate を宣言した述語も、指紋が合えば付く（計画 Task 7）。限定は生成関数が rt::qualify で行い、
+// 呼び手の文脈モジュールが M: に出る。もう M: が付いた引数は包み直さない。
+void check_meta_attached() {
   const auto source = native_units::kMetaSource;
-  const std::vector<NativeEntry> entries{entry_of(source, "twice", 1, &native_units::twice_1)};
+  const std::vector<NativeEntry> entries{entry_of(source, "twice", 1, &native_units::twice_1),
+                                         entry_of(source, "keep", 2, &native_units::keep_2)};
   check(entries[0].fingerprint != 0, "twice/1 fingerprint computed");
   auto native = Machine::create();
-  const mosa::rt::NativeUnit unit{"native_meta", source, &native_units::meta_tag(), entries, {}, {}};
+  const mosa::rt::NativeUnit unit{"native_meta", source, &native_units::meta_tag(), entries, {},
+                                  native_units::meta_calls()};
   check(mosa::rt::install_unit(*native, unit), "install_unit meta");
   auto interp = interp_machine(source);
   const auto before = hits().twice;
+  const auto kept = hits().keep;
   same_answers(*native, *interp, "findall(x, twice(true), L).", "L = [x].");
   same_answers(*native, *interp, "twice(fail).", "false");
   same_answers(*native, *interp, "findall(X, twice((X = a ; X = b)), L).", "X = X, L = [a,b].");
   same_answers(*native, *interp, "predicate_property(twice(_), meta_predicate(M)).", "M = twice(0) ; false");
-  check(hits().twice == before, "meta_predicate twice/1 not attached");
+  same_answers(*native, *interp, "keep(foo, Q).", "Q = user:foo.");
+  same_answers(*native, *interp, "keep(m:foo, Q).", "Q = m:foo.");
+  check(hits().twice > before, "meta_predicate twice/1 attached");
+  check(hits().keep > kept, "meta_predicate keep/2 attached");
 }
 
 }  // namespace
@@ -292,7 +299,7 @@ int main() {
   check_multifile_detaches();
   check_rollback_detaches();
   check_fingerprint_mismatch();
-  check_meta_not_attached();
+  check_meta_attached();
   check_embedded_first();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

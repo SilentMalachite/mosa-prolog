@@ -118,7 +118,7 @@ struct ClauseCtx {
 // emit_head.cpp。body_counts[slot] は本体に出る回数。
 void plan_slots(const Clause& clause, const std::vector<int>& body_counts, ClauseEmit& emit);
 void emit_slot_cells(ClauseEmit& emit);
-void emit_head(ClauseEmit& emit, const IrTerm& head);
+void emit_head(ClauseEmit& emit, const IrTerm& head, const Predicate& predicate);
 [[nodiscard]] std::string emit_build(ClauseEmit& emit, const IrTerm& term);
 [[nodiscard]] std::string var_name(std::uint16_t slot);
 
