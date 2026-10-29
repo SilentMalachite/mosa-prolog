@@ -88,6 +88,8 @@ target_sources(mosa_lib PRIVATE
   src/platform/exe_path.cpp
   src/platform/command_line.cpp
   src/platform/console.cpp
+  src/platform/process.cpp
+  src/machine/bench.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -359,6 +361,15 @@ foreach(emit_case hello broken undefined silent newop halt)
     "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
     -P ${CMAKE_SOURCE_DIR}/tests/mosac/emit_test.cmake)
 endforeach()
+
+# mosatest --bench の出力の形だけを確かめる（計画 Task 6）。N が小さいので時間は見ない。翻訳側の configure は
+# 本体と同じコンパイラと旗で行う。CMake は最初の configure で CXX、CXXFLAGS、LDFLAGS を読む。
+add_test(NAME mosatest_bench COMMAND $<TARGET_FILE:mosatest> --bench bench/nrev.pl --count 10
+  --work ${CMAKE_SOURCE_DIR}/tests/tmp/bench --cmake ${CMAKE_COMMAND}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+set_tests_properties(mosatest_bench PROPERTIES
+  ENVIRONMENT "CXX=${CMAKE_CXX_COMPILER};CXXFLAGS=${CMAKE_CXX_FLAGS};LDFLAGS=${CMAKE_EXE_LINKER_FLAGS}"
+  PASS_REGULAR_EXPRESSION ": [0-9]+ ms\r?\n[^\n]*: [0-9]+ ms\r?\n[^\n]*: [0-9]+\\.[0-9]\r?\n$")
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)

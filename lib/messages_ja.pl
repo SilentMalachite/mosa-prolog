@@ -22,7 +22,7 @@ message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
-message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
+message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
 message(mosac_usage, 'mosac: 使い方: mosac emit <ファイル> -o <ディレクトリ>').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
@@ -44,3 +44,13 @@ message(op_infix_and_postfix, '中置と後置は同時に宣言できません'
 message(op_create_bar, 'この縦棒は演算子にできません').
 message(op_name_not_atom, '演算子名がアトムではありません').
 message(op_failed, '演算子を宣言できません').
+
+% mosatest --bench（計画 Task 6）。時間はミリ秒、比はインタプリタの時間を翻訳の時間で割った値。
+message(bench_header, '~w: bench(~w)、~w 回の中央値').
+message(bench_interpreter, 'インタプリタ: ~w ms').
+message(bench_translated, '翻訳: ~w ms').
+message(bench_ratio, '比: ~w').
+message(bench_cannot_start, 'mosatest: ~w を起こせません').
+message(bench_run_failed, 'mosatest: ~w が終了コード ~w で終わりました').
+message(bench_step_failed, 'mosatest: ~w が終了コード ~w で失敗しました（出力は ~w）').
+message(bench_cannot_write, 'mosatest: ~w に書けません').

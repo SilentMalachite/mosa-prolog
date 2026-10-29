@@ -62,20 +62,6 @@ std::vector<UnitPlan> plan_units(const Impl& machine, const TranslationLog& log)
 
 std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
 
-// CMake の名前に使える文字だけなら原文の名前、ほかは app にする。
-std::string target_name(std::string_view root) {
-  const std::string stem = utf8_from_path(path_from_utf8(root).stem());
-  bool plain = !stem.empty();
-  for (const char unit : stem) {
-    const bool alnum = (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z') || (unit >= '0' && unit <= '9');
-    plain = plain && (alnum || unit == '_' || unit == '-');
-  }
-  // CMake が予約する目標の名前は configure で通らない。
-  constexpr std::array<std::string_view, 5> reserved{"all", "clean", "install", "help", "test"};
-  const bool taken = std::find(reserved.begin(), reserved.end(), stem) != reserved.end();
-  return plain && !taken ? stem : "app";
-}
-
 std::string source_array(std::size_t index, std::string_view text) {
   std::string items;
   std::size_t count = 0;
@@ -193,6 +179,20 @@ Project build_project(Machine& machine, const TranslationLog& log, std::string_v
 }
 
 }  // namespace
+
+// CMake の名前に使える文字だけなら原文の名前、ほかは app にする。
+std::string target_name(std::string_view root) {
+  const std::string stem = utf8_from_path(path_from_utf8(root).stem());
+  bool plain = !stem.empty();
+  for (const char unit : stem) {
+    const bool alnum = (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z') || (unit >= '0' && unit <= '9');
+    plain = plain && (alnum || unit == '_' || unit == '-');
+  }
+  // CMake が予約する目標の名前は configure で通らない。
+  constexpr std::array<std::string_view, 5> reserved{"all", "clean", "install", "help", "test"};
+  const bool taken = std::find(reserved.begin(), reserved.end(), stem) != reserved.end();
+  return plain && !taken ? stem : "app";
+}
 
 std::optional<std::size_t> log_file(const TranslationLog& log, std::string_view key) {
   if (key.empty()) return std::nullopt;

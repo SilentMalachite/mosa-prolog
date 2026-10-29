@@ -22,7 +22,7 @@ message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
-message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~n--report may be omitted only when tests/conformance is given from the repository root').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~n--report may be omitted only when tests/conformance is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
 message(mosac_usage, 'mosac: usage: mosac emit <file> -o <directory>').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
@@ -44,3 +44,13 @@ message(op_infix_and_postfix, 'an operator cannot be both infix and postfix').
 message(op_create_bar, 'this bar cannot be an operator').
 message(op_name_not_atom, 'operator name is not an atom').
 message(op_failed, 'cannot declare the operator').
+
+% mosatest --bench（計画 Task 6）。時間はミリ秒、比はインタプリタの時間を翻訳の時間で割った値。
+message(bench_header, '~w: bench(~w), median of ~w runs').
+message(bench_interpreter, 'interpreter: ~w ms').
+message(bench_translated, 'translated: ~w ms').
+message(bench_ratio, 'ratio: ~w').
+message(bench_cannot_start, 'mosatest: cannot start ~w').
+message(bench_run_failed, 'mosatest: ~w exited with code ~w').
+message(bench_step_failed, 'mosatest: ~w failed with code ~w (output in ~w)').
+message(bench_cannot_write, 'mosatest: cannot write ~w').

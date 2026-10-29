@@ -2,5 +2,14 @@ English | [日本語](bench.ja.md)
 
 # Benchmarks
 
-Not measured yet. The `bench/` programs are measured on both the interpreter and `mosac` output, so the table appears in phase 6 or later, once `mosac` exists.
-For now `nrev` and `queens` are only checked for correctness in `tests/pl/`.
+`mosatest --bench <file> [--count <N>] [--work <directory>] [--cmake <path>]` runs `bench(N)` five times in the interpreter (`mosa <file> -- N`) and five times in the executable that `mosac emit` + CMake (Release) builds from the same file, then prints the wall-clock median of each side and the ratio (interpreter time divided by translated time). Each run is one whole process, from start to exit, so both sides include process start-up and the loading of the source in the same way. `N` is the same on both sides (default 20000). The programs in `bench/` define `bench(N)` as a failure-driven loop, check their first solution before running it, and read `N` from the flag `argv`; `statistics/2` is not used (phase 7).
+
+## nrev
+
+`bench/nrev.pl`: naive reverse of a 30-element list (`nrev/2` and `app/3`), repeated `N` times by failure-driven backtracking. One `nrev` of 30 elements is 496 logical inferences. The run checks first that the first solution equals the reversed list.
+
+| Date | Machine / OS | Build | N | Interpreter (ms) | Translated (ms) | Ratio |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-29 | Apple M1 Max, macOS 27.2, Apple clang 21.0 | Release | 20000 | 3147 | not yet measured | - |
+
+Command, from the repository root: `LANG=C build/mosatest --bench bench/nrev.pl --work tests/tmp/bench`.

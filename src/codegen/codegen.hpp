@@ -52,6 +52,10 @@ struct Project {
 // 根のファイルのモジュールと、読んだファイルのモジュールごとに単位を 1 つ出す。library(_) のモジュールは Task 10。
 [[nodiscard]] Project translate_program(std::string_view path, const ProjectOptions& options);
 
+// emit の CMake の目標（実行ファイル）の名前。根のファイルの語幹が CMake の名前に使える文字だけならそれ、ほかは app。
+// mosatest --bench はこれで作った実行ファイルを探す。
+[[nodiscard]] std::string target_name(std::string_view root);
+
 // 英数字はそのまま、_ は _5f、ほかの UTF-8 のバイトは _ と 2 桁の 16 進（小文字）。
 [[nodiscard]] std::string mangle(std::string_view name);
 

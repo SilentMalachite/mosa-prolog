@@ -1,3 +1,4 @@
+#include "mosa/bench.hpp"
 #include "mosa/command_line.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
@@ -42,6 +43,12 @@ int main(int argc, char** argv) {
     const mosa::SuiteArgs parsed = mosa::parse_suite_args(rest);
     if (!parsed.ok) return usage();
     return mosa::run_iso_suite(parsed.dir, parsed.report);
+  }
+  if (args.size() >= 2 && args[1] == "--bench") {
+    const std::vector<std::string_view> rest(args.begin() + 2, args.end());
+    const mosa::BenchArgs parsed = mosa::parse_bench_args(rest);
+    if (!parsed.ok) return usage();
+    return mosa::run_bench(parsed);
   }
   if (args.size() == 2) return mosa::run_suite(args[1]);
   return usage();
