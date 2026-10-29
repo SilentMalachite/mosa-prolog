@@ -99,7 +99,9 @@ mosac build app.pl --interactive   # app.pl を読み込んだ状態で REPL が
 mosac toolchain                    # コンパイラ、CMake、同梱の実行時ライブラリを調べ、困ったら対処を示す
 ```
 
-コンパイラは `--cxx`、`MOSA_CXX`、`CXX`、OS の既定の順に探します（macOS は `clang++`、Linux は `g++` の次に `clang++`、Windows は `vswhere` で見つけた MSVC）。`:- initialization(main, main).` があれば、実行ファイルは `mosa` と同じく `main` を実行して終わります。`--interactive` ではそれを実行せず REPL を立ち上げます。途中のファイルは `.mosac-cache/` に置きます。詳しくは `docs/SPEC.ja.md` の第 6 節です。
+そのほかの旗: `--debug` は `-O0 -g` でビルドし、プログラム自身の節を追跡します（同梱ライブラリの単位は追跡しません）。`--verbose` はコンパイラの命令を表示し、`--clean` はビルドの前に `.mosac-cache/` を消します。`mosac run --keep` は実行ファイルの写しを置いた一時ディレクトリを残し、`--runtime-source` は同梱の静的ライブラリではなくソースから実行時ライブラリをビルドします。`mosac emit --library` と `mosac emit --units` は同梱ライブラリのビルドと `mosatest --diff` のためにあり、普通は使いません。
+
+コンパイラは `--cxx`、`MOSA_CXX`、`CXX`、OS の既定の順に探します（macOS は `clang++`、Linux は `g++` の次に `clang++`、Windows は `vswhere` で見つけた MSVC）。CMake が無いとき、または `MOSA_NO_CMAKE=1` のときは、`mosac` が生成したファイルを 1 つずつ直接コンパイルします。`MOSA_WERROR=1` は生成した C++ を警告をエラーにしてコンパイルします（テストと CI が立てます）。`:- initialization(main, main).` があれば、実行ファイルは `mosa` と同じく `main` を実行して終わります。`--interactive` ではそれを実行せず REPL を立ち上げます。どこにも定義の無い述語を呼んでいると、`mosac emit` と `mosac build` は止まり、`:- dynamic(名前/アリティ).` を案内します。途中のファイルは `.mosac-cache/` に置きます。詳しくは `docs/SPEC.ja.md` の第 6 節です。
 
 ### `mosatest`（テストランナー）
 
@@ -108,9 +110,11 @@ mosatest tests/pl/                    # 自前テスト（tests/pl/*.pl）
 mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md と .json を書き出す
 mosatest --suite <ディレクトリ> --report tests/tmp/x.md   # 別のスイート。x.md と x.json を書き出す
 mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
+mosatest --diff tests/pl              # インタプリタと mosac の出力を比べる。docs/agreement.md と .json を書き出す
+mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # インタプリタと mosac の時間（5 回の中央値）
 ```
 
-`--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance` を渡したときだけです。別のスイートで `docs/` の報告書とバッジを上書きしないためです。
+`--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance`（`--diff` では `tests/pl` も）を渡したときだけです。`--diff` は `--work`、`--cmake`、`--config` も取ります。`--bench` は [`docs/bench.ja.md`](docs/bench.ja.md) を見てください。別のスイートで `docs/` の報告書とバッジを上書きしないためです。
 
 ## 日本語の変数
 
@@ -167,9 +171,10 @@ X = 太郎.
 
 ```text
 include/mosa/   公開ヘッダ
-src/            core, read, write, machine, builtins, platform（module, compile, codegen は後のフェーズ）
-lib/            Prolog 製の標準ライブラリ（フェーズ 4）
-tests/          cpp, pl, conformance
+src/            core, read, write, machine, builtins, module, codegen, platform（compile は予約で空）
+lib/            Prolog 製の標準ライブラリとメッセージカタログ
+bench/          mosatest --bench 用のベンチマークのプログラム
+tests/          cpp, pl, mosac, conformance, tmp
 tools/          開発者用の生成スクリプト（ビルドには不要）
 docs/           仕様、状態、ADR、解釈メモ
 ```

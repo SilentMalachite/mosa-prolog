@@ -97,7 +97,9 @@ mosac build app.pl --interactive   # the executable starts a REPL with app.pl lo
 mosac toolchain                    # show the compiler, CMake and bundled runtime, with remedies
 ```
 
-The compiler is taken from `--cxx`, then `MOSA_CXX`, then `CXX`, then the OS default (`clang++` on macOS, `g++` then `clang++` on Linux, MSVC found with `vswhere` on Windows). With `:- initialization(main, main).` the executable runs `main` and exits like `mosa` does; `--interactive` skips it and starts the REPL. Intermediate files go to `.mosac-cache/`. See `docs/SPEC.md` section 6.
+Other options: `--debug` builds with `-O0 -g` and traces the program's own clauses (the bundled library units are not traced), `--verbose` shows the compiler commands, `--clean` deletes `.mosac-cache/` before building, `mosac run --keep` keeps the temporary directory that holds the copy of the executable, and `--runtime-source` builds the runtime from source instead of using the bundled static library. `mosac emit --library` and `mosac emit --units` exist for the bundled-library build and for `mosatest --diff`; you do not need them.
+
+The compiler is taken from `--cxx`, then `MOSA_CXX`, then `CXX`, then the OS default (`clang++` on macOS, `g++` then `clang++` on Linux, MSVC found with `vswhere` on Windows). With CMake missing, or with `MOSA_NO_CMAKE=1`, `mosac` calls the compiler directly, one generated file at a time. `MOSA_WERROR=1` compiles the generated C++ with warnings as errors (the tests and CI set it). With `:- initialization(main, main).` the executable runs `main` and exits like `mosa` does; `--interactive` skips it and starts the REPL. A call to a predicate that is defined nowhere makes `mosac emit` and `mosac build` stop and suggest `:- dynamic(Name/Arity).`. Intermediate files go to `.mosac-cache/`. See `docs/SPEC.md` section 6.
 
 ### `mosatest` (test runner)
 
@@ -106,9 +108,11 @@ mosatest tests/pl/                    # Own tests (tests/pl/*.pl)
 mosatest --suite tests/conformance    # Conformance suite; writes docs/conformance.md and .json
 mosatest --suite <dir> --report tests/tmp/x.md   # Another suite; writes x.md and x.json
 mosatest --roundtrip tests/pl/syntax.pl   # Read/write round trip
+mosatest --diff tests/pl              # Interpreter against mosac output; writes docs/agreement.md and .json
+mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # Interpreter and mosac timings, median of 5
 ```
 
-`--report` may be omitted only when you pass the bundled `tests/conformance` from the repository root. This keeps another suite from overwriting the report and badge data in `docs/`.
+`--report` may be omitted only when you pass the bundled `tests/conformance` (for `--diff`, also `tests/pl`) from the repository root. `--diff` also takes `--work`, `--cmake` and `--config`; see [`docs/bench.md`](docs/bench.md) for `--bench`. This keeps another suite from overwriting the report and badge data in `docs/`.
 
 ## Japanese variables
 
@@ -159,7 +163,7 @@ Each document below has a Japanese translation next to it as `*.ja.md`. The Engl
 | [`docs/agreement.md`](docs/agreement.md) | Interpreter / translated agreement measured by `mosatest --diff` (generated) |
 | [`docs/agreement.json`](docs/agreement.json) | Badge data for the agreement (generated) |
 | [`docs/unicode-version.md`](docs/unicode-version.md) | Unicode version used by the character tables |
-| [`docs/bench.md`](docs/bench.md) | Benchmark records |
+| [`docs/bench.md`](docs/bench.md) | Benchmark records (interpreter against translated code) |
 | [`docs/bench.json`](docs/bench.json) | Benchmark results the macOS CI job compares against (generated) |
 | [`AGENTS.md`](AGENTS.md) | Working rules for coding agents |
 
@@ -167,9 +171,10 @@ Each document below has a Japanese translation next to it as `*.ja.md`. The Engl
 
 ```text
 include/mosa/   Public headers
-src/            core, read, write, machine, builtins, platform (module, compile, codegen come later)
-lib/            Standard library written in Prolog (phase 4)
-tests/          cpp, pl, conformance
+src/            core, read, write, machine, builtins, module, codegen, platform (compile is reserved and empty)
+lib/            Standard library written in Prolog, and the message catalogs
+bench/          Benchmark programs for mosatest --bench
+tests/          cpp, pl, mosac, conformance, tmp
 tools/          Generator scripts for developers (not needed to build)
 docs/           Spec, status, ADRs, interpretation notes
 ```
