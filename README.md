@@ -119,6 +119,8 @@ The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logta
 
 The badge reads `docs/conformance.json` on `main`, so it changes with every commit that changes the file. CI runs the suite in all four jobs and puts the pass rate in the Job Summary; the macOS job fails if the generated JSON differs from the committed one. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON with it.
 
+The "mosac diff" badge reads [`docs/agreement.json`](docs/agreement.json) on `main` in the same way. CI runs the differential tests on all three OSes (`ctest -L diff`, that is `mosatest --diff tests/pl` and `mosatest --diff tests/conformance`, with the generated C++ compiled with warnings as errors), puts the agreement in the Job Summary, and the macOS job fails if the generated JSON differs from the committed one. Each OS job also runs `mosac toolchain` and `mosac build tests/mosac/hello.pl`, and separate jobs download that executable and run it in a bare `ubuntu:24.04` container, check with `otool -L` on macOS that it depends only on `/usr/lib/` and `/System/`, and check with `dumpbin /dependents` on Windows that it depends only on OS DLLs. When a change alters the agreement, run `mosatest --diff tests/pl` and `mosatest --diff tests/conformance` and commit the JSON with it.
+
 ## Test layers
 
 | Layer | Location | How to run |
@@ -126,7 +128,7 @@ The badge reads `docs/conformance.json` on `main`, so it changes with every comm
 | C++ unit tests | `tests/cpp/` | `ctest` |
 | Prolog tests | `tests/pl/` | `mosatest tests/pl/` (also run by `ctest`) |
 | ISO conformance suite | `tests/conformance/` | `mosatest --suite tests/conformance` |
-| Differential tests | Added in phase 6 | `mosatest --diff` |
+| Differential tests | `tests/pl/`, `tests/conformance/` | `mosatest --diff tests/pl` (also run by `ctest`, label `diff`) |
 
 ## Documents
 
@@ -140,6 +142,8 @@ Each document below has a Japanese translation next to it as `*.ja.md`. The Engl
 | [`docs/iso-notes.md`](docs/iso-notes.md) | Interpretation notes on the standard, by clause number |
 | [`docs/conformance.md`](docs/conformance.md) | Conformance suite results (generated, Japanese headings) |
 | [`docs/conformance.json`](docs/conformance.json) | Badge data for the pass rate (generated) |
+| [`docs/agreement.md`](docs/agreement.md) | Interpreter / translated agreement measured by `mosatest --diff` (generated) |
+| [`docs/agreement.json`](docs/agreement.json) | Badge data for the agreement (generated) |
 | [`docs/unicode-version.md`](docs/unicode-version.md) | Unicode version used by the character tables |
 | [`docs/bench.md`](docs/bench.md) | Benchmark records |
 | [`AGENTS.md`](AGENTS.md) | Working rules for coding agents |

@@ -119,6 +119,8 @@ X = 太郎.
 
 準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 
+「mosac diff」のバッジも同じ仕組みで `main` の [`docs/agreement.json`](docs/agreement.json) を読みます。CI は 3 つの OS で差分テスト（`ctest -L diff`、つまり `mosatest --diff tests/pl` と `mosatest --diff tests/conformance`。生成した C++ は警告を誤りにしてコンパイルします）を流して一致率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。各 OS のジョブは `mosac toolchain` と `mosac build tests/mosac/hello.pl` も実行し、別のジョブがその実行ファイルを落として、素の `ubuntu:24.04` コンテナで動かし、macOS では `otool -L` の依存が `/usr/lib/` と `/System/` だけ、Windows では `dumpbin /dependents` の依存が OS の DLL だけであることを確かめます。一致率が変わる変更では、`mosatest --diff tests/pl` と `mosatest --diff tests/conformance` を実行して JSON も一緒にコミットしてください。
+
 ## テストの構成
 
 | 層 | 置き場所 | 実行方法 |
@@ -126,7 +128,7 @@ X = 太郎.
 | C++ 部品テスト | `tests/cpp/` | `ctest` |
 | Prolog 自前テスト | `tests/pl/` | `mosatest tests/pl/`（`ctest` からも動く） |
 | ISO 準拠スイート | `tests/conformance/` | `mosatest --suite tests/conformance` |
-| 差分テスト | フェーズ 6 で追加 | `mosatest --diff` |
+| 差分テスト | `tests/pl/`、`tests/conformance/` | `mosatest --diff tests/pl`（`ctest` からも動く。ラベル `diff`） |
 
 ## 文書
 
@@ -140,6 +142,8 @@ X = 太郎.
 | [`docs/iso-notes.ja.md`](docs/iso-notes.ja.md) | 規格の解釈メモ（条番号付き） |
 | [`docs/conformance.md`](docs/conformance.md) | 準拠スイートの結果（自動生成、日本語のみ） |
 | [`docs/conformance.json`](docs/conformance.json) | 準拠率バッジの元データ（自動生成） |
+| [`docs/agreement.md`](docs/agreement.md) | `mosatest --diff` が測ったインタプリタと翻訳の一致（自動生成） |
+| [`docs/agreement.json`](docs/agreement.json) | 一致率バッジの元データ（自動生成） |
 | [`docs/unicode-version.md`](docs/unicode-version.md) | 文字分類表が使う Unicode の版 |
 | [`docs/bench.ja.md`](docs/bench.ja.md) | ベンチマークの記録 |
 | [`AGENTS.ja.md`](AGENTS.ja.md) | コーディングエージェント向けの作業規則 |

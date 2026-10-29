@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# 3 OS で ctest（差分テスト diff_tests_pl と diff_conformance を含む）、準拠スイート、mosac toolchain、mosac build を流す。
+# 差分テストは -LE diff / -L diff の 2 段に分け、全テストを 1 回ずつ流しつつ、一致率の行をログに出す（-V）。
+# 生成コードは diff_test.cmake と MOSA_WERROR=1 で警告を誤りにしてコンパイルする（「生成した C++ は常にコンパイルできる」）。
+# 持ち主の決定 3: mosac build した hello を成果物に上げ、別のジョブで落として動かす（ADR 0009 Review Focus 5）。
 jobs:
   macos:
     runs-on: macos-latest
@@ -14,17 +18,32 @@ jobs:
       - name: Build
         run: cmake --build --preset macos-clang
       - name: Test
-        run: ctest --preset macos-clang
+        run: ctest --preset macos-clang -LE diff
+      - name: Differential tests
+        run: ctest --preset macos-clang -L diff -V
       - name: Conformance suite
         run: ./build/mosatest --suite tests/conformance
-      - name: Write conformance summary
+      - name: Toolchain
+        run: ./build/mosac toolchain
+      - name: Build standalone hello
+        env:
+          MOSA_WERROR: 1
+        run: ./build/mosac build tests/mosac/hello.pl -o hello --cxx clang++
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello-macos
+          path: hello
+          if-no-files-found: error
+      - name: Write summary
         shell: bash
-        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
-      # README のバッジは main の conformance.json を読む。照合を macOS だけにするのは、開発者が
+        run: |
+          grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
+      # README のバッジは main の conformance.json と agreement.json を読む。照合を macOS だけにするのは、開発者が
       # 生成してコミットする環境に合わせ、OS ごとの差でバッジの値が揺れないようにするため。
-      - name: Check conformance badge
+      - name: Check badges
         shell: bash
-        run: git diff --exit-code -- docs/conformance.json
+        run: git diff --exit-code -- docs/conformance.json docs/agreement.json
 
   linux-gcc:
     runs-on: ubuntu-24.04
@@ -34,17 +53,33 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y g++ ninja-build cmake
+      # 遅いテスト（mosac build --runtime-source が同梱の源から libmosa を作る）はこのジョブだけで流す。
       - name: Configure
-        run: cmake --preset linux-gcc
+        run: cmake --preset linux-gcc -DMOSA_SLOW_TESTS=ON
       - name: Build
         run: cmake --build --preset linux-gcc
       - name: Test
-        run: ctest --preset linux-gcc
+        run: ctest --preset linux-gcc -LE diff
+      - name: Differential tests
+        run: ctest --preset linux-gcc -L diff -V
       - name: Conformance suite
         run: ./build/mosatest --suite tests/conformance
-      - name: Write conformance summary
+      - name: Toolchain
+        run: ./build/mosac toolchain
+      - name: Build standalone hello
+        env:
+          MOSA_WERROR: 1
+        run: ./build/mosac build tests/mosac/hello.pl -o hello --cxx g++
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello-linux-gcc
+          path: hello
+          if-no-files-found: error
+      - name: Write summary
         shell: bash
-        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
   linux-clang:
     runs-on: ubuntu-24.04
@@ -59,12 +94,27 @@ jobs:
       - name: Build
         run: cmake --build --preset linux-clang
       - name: Test
-        run: ctest --preset linux-clang
+        run: ctest --preset linux-clang -LE diff
+      - name: Differential tests
+        run: ctest --preset linux-clang -L diff -V
       - name: Conformance suite
         run: ./build/mosatest --suite tests/conformance
-      - name: Write conformance summary
+      - name: Toolchain
+        run: ./build/mosac toolchain
+      - name: Build standalone hello
+        env:
+          MOSA_WERROR: 1
+        run: ./build/mosac build tests/mosac/hello.pl -o hello --cxx clang++
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello-linux-clang
+          path: hello
+          if-no-files-found: error
+      - name: Write summary
         shell: bash
-        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
   windows:
     # windows-latest は 2026-06 以降 Visual Studio 2026 である。SPEC 第2節の MSVC 2022 と Visual Studio 17 2022 ジェネレータがある windows-2022 を使う。
@@ -76,11 +126,105 @@ jobs:
       - name: Build
         run: cmake --build --preset windows-msvc
       - name: Test
-        run: ctest --preset windows-msvc
+        run: ctest --preset windows-msvc -LE diff
+      # mosatest --diff の日本語の文面を UTF-8 のまま取るため、コードページを 65001 にしてから流す。
+      - name: Differential tests
+        shell: cmd
+        run: chcp 65001 && ctest --preset windows-msvc -L diff -V
       # Visual Studio は構成名のディレクトリへ出す。Ninja の 3 ジョブは ./build/mosatest。
       - name: Conformance suite
         shell: bash
         run: build/Release/mosatest.exe --suite tests/conformance
-      - name: Write conformance summary
+      # 既定の探索（vswhere → vcvarsall）を通す。mosac build もその環境で cl.exe と NMake を使う。
+      - name: Toolchain
+        shell: cmd
+        run: chcp 65001 && build\Release\mosac.exe toolchain
+      - name: Build standalone hello
+        shell: cmd
+        env:
+          MOSA_WERROR: 1
+        run: chcp 65001 && build\Release\mosac.exe build tests\mosac\hello.pl -o hello
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello-windows
+          path: hello.exe
+          if-no-files-found: error
+      - name: Write summary
         shell: bash
-        run: grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
+
+  # 単独の実行ファイル（持ち主の決定 3）。素の ubuntu:24.04 には libmosa も lib/*.pl も無い。成果物は実行権限を失うので付け直す。
+  hello-linux:
+    needs: [linux-gcc, linux-clang]
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hello-linux-*
+      - name: Run in a bare container
+        shell: bash
+        run: |
+          for dir in hello-linux-gcc hello-linux-clang; do
+            chmod +x "$dir/hello"
+            ldd "$dir/hello" || true
+            out=$("$dir/hello")
+            echo "$dir: $out"
+            test "$out" = "こんにちは"
+          done
+
+  # macOS の libc++ は OS の一部で静的にできないので、依存が /usr/lib/ と /System/ の物だけであることを見る。
+  hello-macos:
+    needs: macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hello-macos
+      - name: Check dependencies and run
+        shell: bash
+        run: |
+          chmod +x hello
+          otool -L hello
+          bad=$(otool -L hello | tail -n +2 | awk '{print $1}' | grep -v -E '^(/usr/lib/|/System/)' || true)
+          if [ -n "$bad" ]; then
+            echo "non-OS libraries: $bad"
+            exit 1
+          fi
+          out=$(./hello)
+          echo "$out"
+          test "$out" = "こんにちは"
+
+  # /MT で作るので、dumpbin /dependents に出るのは OS の DLL だけであること（VCRUNTIME や MSVCP があれば単独でない）。
+  hello-windows:
+    needs: windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hello-windows
+      - name: Check dependencies
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe') | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin.exe not found" }
+          $lines = & $dumpbin /dependents hello.exe
+          $lines
+          $dlls = @()
+          foreach ($line in $lines) {
+            if ($line -match '^\s+(\S+\.dll)\s*$') { $dlls += $Matches[1].ToLowerInvariant() }
+          }
+          if ($dlls.Count -eq 0) { throw "no dependents parsed" }
+          $allowed = @('kernel32.dll', 'advapi32.dll', 'shell32.dll', 'user32.dll', 'ole32.dll', 'oleaut32.dll', 'ntdll.dll', 'bcrypt.dll', 'ws2_32.dll')
+          $bad = @($dlls | Where-Object { $allowed -notcontains $_ })
+          if ($bad.Count -gt 0) { throw "non-OS DLLs: $($bad -join ', ')" }
+          "dependents: $($dlls -join ', ')"
+      - name: Run
+        shell: bash
+        run: |
+          out=$(./hello.exe | tr -d '\r')
+          echo "$out"
+          test "$out" = "こんにちは"
