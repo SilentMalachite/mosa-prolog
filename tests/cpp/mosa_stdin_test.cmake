@@ -20,5 +20,5 @@ function(expect_output label regex)
 endfunction()
 
 expect_output("read from stdin" "X = foo, Y = bar\\." -g "read(X), read(Y)." -t halt)
-expect_output("version ignores stdin" "^mosa 0\\.0\\.1 \\(phase 5\\)" --version)
+expect_output("version ignores stdin" "^mosa 0\\.0\\.1 \\(phase 6\\)" --version)
 file(REMOVE "${input}")

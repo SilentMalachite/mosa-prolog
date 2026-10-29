@@ -5,7 +5,7 @@
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-3_done-blue)](docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-6_done-blue)](docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.0.1-blue)](CMakeLists.txt)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](CMakeLists.txt)
@@ -24,7 +24,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 5（準拠率の引き上げと日本語の仕上げ）まで終わっています。次はフェーズ 6（`mosac`）です。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
+フェーズ 6（`mosac`）まで終わっています。フェーズ 7（GC、マニュアル、配布パッケージ）はオーナーの合図を待っています。進み具合は [`docs/STATUS.md`](docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -32,9 +32,9 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 1 | 項、リーダ、ライタ | 完了 |
 | 2 | 実行の核（IR、節コンパイラ、選択点、カット、`catch/throw`、REPL、`consult/1`） | 完了 |
 | 3 | 組込述語、ストリーム、フラグ、ディレクティブ、エラー体系 | 完了 |
-| 4 | モジュールと `library(*)` | 未着手 |
-| 5 | 準拠率の追い込み、全角記号モード、メッセージの日本語化 | 未着手 |
-| 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 未着手 |
+| 4 | モジュールと `library(*)` | 完了 |
+| 5 | 準拠率の追い込み、全角記号モード、メッセージの日本語化 | 完了 |
+| 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 完了 |
 | 7 | GC、マニュアル、配布パッケージ | 未着手 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
@@ -86,6 +86,20 @@ N = 3.
 $ printf 'foo.\n' | ./build/mosa -g "read(X)." -t halt
 X = foo.
 ```
+
+### `mosac`（Prolog から C++20 への変換とビルド）
+
+`mosac` は Prolog のファイルを単独で動く実行ファイルにします。必要なのは C++20 のコンパイラ 1 つだけです（CMake は有っても無くても構いません）。できた実行ファイルはコンパイラも `mosac` も Prolog のファイルも要りません。
+
+```sh
+mosac build app.pl -o app          # 変換、コンパイル、リンク（Windows では app.exe）
+mosac run app.pl -- 引数...         # 一時ディレクトリで作って実行し、終了コードをそのまま返す
+mosac emit app.pl -o out/          # C++ のソースと CMakeLists.txt だけを出す
+mosac build app.pl --interactive   # app.pl を読み込んだ状態で REPL が立ち上がる実行ファイルにする
+mosac toolchain                    # コンパイラ、CMake、同梱の実行時ライブラリを調べ、困ったら対処を示す
+```
+
+コンパイラは `--cxx`、`MOSA_CXX`、`CXX`、OS の既定の順に探します（macOS は `clang++`、Linux は `g++` の次に `clang++`、Windows は `vswhere` で見つけた MSVC）。`:- initialization(main, main).` があれば、実行ファイルは `mosa` と同じく `main` を実行して終わります。`--interactive` ではそれを実行せず REPL を立ち上げます。途中のファイルは `.mosac-cache/` に置きます。詳しくは `docs/SPEC.ja.md` の第 6 節です。
 
 ### `mosatest`（テストランナー）
 

@@ -265,7 +265,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 
 - If `:- initialization(main, main).` is present, it is the entry point. If `main/0` succeeds, the exit code is 0; if it fails, 1; on an uncaught exception, print a message and exit with 2. The argument of `halt/1` becomes the exit code as-is
 - Command-line arguments are received through the flag `argv` (a list of atoms)
-- An executable built with `mosac build --interactive` starts a REPL with the translated code already loaded (translated code and the interpreter coexist as described above). `--interactive` is accepted by `build` only (`-o` works as usual; `mosac run` rejects it)
+- An executable built with `mosac build --interactive` starts a REPL with the translated code already loaded (translated code and the interpreter coexist as described above). `--interactive` is accepted by `build` only (`-o` works as usual; `mosac run` rejects it). It skips `:- initialization(main, main).` and starts the REPL (owner decision, 2026-10-30)
 - The executable requires no external files at startup. All needed Prolog libraries are already linked, `use_module(library(X))` resolves against the bundled list before the search of Section 5, and it does not search for `lib/`
 
 **Source layout**

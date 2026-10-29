@@ -5,7 +5,7 @@ English | [日本語](README.ja.md)
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-3_done-blue)](docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-6_done-blue)](docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.0.1-blue)](CMakeLists.txt)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](CMakeLists.txt)
@@ -22,7 +22,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–5 are done; phase 6 (`mosac`) is next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
+Phases 0–6 are done; phase 7 (GC, manuals, release packages) waits for the owner's go. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -30,9 +30,9 @@ Phases 0–5 are done; phase 6 (`mosac`) is next. Current progress is in [`docs/
 | 1 | Terms, reader, writer | Done |
 | 2 | Execution core (IR, clause compiler, choice points, cut, `catch/throw`, REPL, `consult/1`) | Done |
 | 3 | Built-in predicates, streams, flags, directives, error system | Done |
-| 4 | Modules and `library(*)` | Not started |
-| 5 | Conformance push, full-width symbol mode, Japanese messages | Not started |
-| 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Not started |
+| 4 | Modules and `library(*)` | Done |
+| 5 | Conformance push, full-width symbol mode, Japanese messages | Done |
+| 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Done |
 | 7 | GC, manuals, release packages | Not started |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
@@ -84,6 +84,20 @@ When standard input is not a terminal, it belongs to Prolog's `user_input`, so a
 $ printf 'foo.\n' | ./build/mosa -g "read(X)." -t halt
 X = foo.
 ```
+
+### `mosac` (Prolog to C++20 translation and build)
+
+`mosac` turns a Prolog file into a standalone executable. It needs one C++20 compiler (CMake is optional) and nothing else; the executable needs no compiler, no `mosac` and no Prolog files.
+
+```sh
+mosac build app.pl -o app          # translate, compile, link (app.exe on Windows)
+mosac run app.pl -- arg...         # build in a temporary directory, run, return the exit code
+mosac emit app.pl -o out/          # only the C++ source and CMakeLists.txt
+mosac build app.pl --interactive   # the executable starts a REPL with app.pl loaded
+mosac toolchain                    # show the compiler, CMake and bundled runtime, with remedies
+```
+
+The compiler is taken from `--cxx`, then `MOSA_CXX`, then `CXX`, then the OS default (`clang++` on macOS, `g++` then `clang++` on Linux, MSVC found with `vswhere` on Windows). With `:- initialization(main, main).` the executable runs `main` and exits like `mosa` does; `--interactive` skips it and starts the REPL. Intermediate files go to `.mosac-cache/`. See `docs/SPEC.md` section 6.
 
 ### `mosatest` (test runner)
 
