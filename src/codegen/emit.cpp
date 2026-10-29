@@ -401,14 +401,30 @@ bool is_dot(const Impl& machine, const IrTerm& term) {
   return term.tag == IrTag::Fun && term.args.size() == 2 && machine.atoms.name(term.atom) == ".";
 }
 
-EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name) {
+namespace {
+
+bool listed(std::span<const PredKey> keys, const Predicate& predicate) {
+  return std::any_of(keys.begin(), keys.end(), [&](const PredKey& key) {
+    return key.module == predicate.module && key.name == predicate.name && key.arity == predicate.arity;
+  });
+}
+
+}  // namespace
+
+EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name,
+                       std::span<const PredKey> interpreted_only) {
   const Impl& impl = engine_impl(machine);
   EmitResult result;
   UnitTables tables;
   UnitText text;
   ClauseText writer{impl, module, scratch_limit(impl, module)};
   for (const Predicate& predicate : impl.predicates) {
-    if (translatable(predicate, module)) emit_predicate(impl, tables, writer, predicate, text, result);
+    if (!translatable(predicate, module)) continue;
+    if (listed(interpreted_only, predicate)) {
+      result.interpreted += live_count(predicate);
+      continue;
+    }
+    emit_predicate(impl, tables, writer, predicate, text, result);
   }
   result.source = source_text(impl, module, unit_name, tables, text);
   result.header = header_text(impl, module, unit_name, text);

@@ -502,8 +502,11 @@ StopKind run_parked(Impl& machine, Cell goal) {
   return stop.kind;
 }
 
-// 失敗はエラーにしない。節は呼び出し側が戻さない。
-bool run_init_goal(Impl& machine, Cell goal) { return run_parked(machine, goal) != StopKind::Exception; }
+// 失敗はエラーにしない。節は呼び出し側が戻さない。halt/0,1 は残りの初期化を呼ばずに止める。
+bool run_init_goal(Impl& machine, Cell goal) {
+  const StopKind kind = run_parked(machine, goal);
+  return kind != StopKind::Exception && kind != StopKind::Halt;
+}
 
 // 読み込みの指示の名前。ここまで来たものは形が合わない（include(a, b) など）ので、ゴールとして呼ばず今までどおり受けない。
 bool reserved_directive(std::string_view name) {
@@ -515,7 +518,7 @@ bool reserved_directive(std::string_view name) {
 
 // 7.4.2 に無い指示 :- G は、その位置で 1 回呼ぶ（iso-notes 7.4.2 の一般の指示）。失敗と例外は、
 // 受けない指示と同じく読み込みを失敗させて戻す。変数と数は呼べないので今までどおり受けない。
-int run_directive_goal(Impl& machine, Cell term) {
+int run_directive_goal(Impl& machine, Cell term, std::string_view origin) {
   Cell goal = machine.heap.deref(machine.heap.arg(machine.heap.deref(term), 0));
   std::string_view name;
   if (goal.tag() == Tag::Atom) name = machine.atoms.name(static_cast<std::uint32_t>(goal.raw() >> 3));
@@ -525,14 +528,23 @@ int run_directive_goal(Impl& machine, Cell term) {
     fail_load(machine, message_text(machine, "directive_unsupported", {text}));
     return -1;
   }
+  if (machine.fragment_pass && origin.empty()) return 1;
   // 翻訳のときは宣言だけを実行する（計画 Task 5）。ゴールは起動時の読み込みが呼ぶ。
-  if (machine.translation != nullptr) return 1;
+  if (TranslationLog* log = machine.translation) {
+    if (log->current < log->files.size()) log->files[log->current].skipped_goal = true;
+    return 1;
+  }
   if (machine.load_module != machine.user_module) {
     const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
     goal = machine.heap.structure(machine.atoms.intern(":"), parts);
   }
   const StopKind kind = run_parked(machine, goal);
   if (kind == StopKind::Exception) return -1;
+  // halt/0,1 は読み込みをその場で止める。halt_now は残り、mosa と実行ファイルがその値で終わる。
+  if (kind == StopKind::Halt) {
+    machine.load_kept = true;
+    return -1;
+  }
   if (kind != StopKind::Failure) return 1;
   fail_load(machine, message_text(machine, "directive_failed", {text}));
   return -1;
@@ -570,9 +582,14 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int shared = apply_multifile_directive(machine, term);
   if (shared < 0) return -1;
   if (shared > 0) return 1;
+  const auto inits_before = inits.size();
   const int init = apply_initialization(machine, term, inits);
   if (init < 0) return -1;
-  if (init > 0) return 1;
+  if (init > 0) {
+    // mosatest の断片のゴールは、このテキストを読み直す最後の load が呼ぶ。
+    if (machine.fragment_pass && origin.empty()) inits.resize(inits_before);
+    return 1;
+  }
   const int main_init = apply_initialization_main(machine, term);
   if (main_init != 0) return main_init;
   const int conversion = apply_char_conv_directive(machine, term);
@@ -580,7 +597,7 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   if (conversion > 0) return 1;
   if (apply_op(machine, machine.heap.deref(term))) return 1;
   if (!machine.diagnostic.empty()) return -1;
-  return run_directive_goal(machine, term);
+  return run_directive_goal(machine, term, origin);
 }
 
 }

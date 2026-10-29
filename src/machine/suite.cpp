@@ -65,7 +65,12 @@ bool load_file_text(Machine& machine, std::string source, std::string_view direc
         machine.atoms().name(machine.heap().functor_atom(term)) == ":-") {
       // 後続の項を読む前に演算子を表へ入れる。節の蓄積は最後の load に任せる。
       // 断片はファイルそのものではない。相対の include だけ、このファイルの隣を見る。
-      if (!load_source(engine_impl(machine), text, directory).ok) {
+      // 断片の中の一般の指示と initialization/1 のゴールは呼ばない。最後の load がこのテキストを読み直し、
+      // 上の節がそろったところで 1 回だけ呼ぶ。断片が開いたファイルは読み直されないので、そちらは今呼ぶ。
+      engine_impl(machine).fragment_pass = true;
+      const bool loaded = load_source(engine_impl(machine), text, directory).ok;
+      engine_impl(machine).fragment_pass = false;
+      if (!loaded) {
         error = std::string{machine.diagnostic()};
         return false;
       }

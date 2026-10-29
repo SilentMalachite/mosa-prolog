@@ -58,7 +58,8 @@ std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& lo
   std::vector<std::string> lines;
   for (const Module& module : machine.modules) {
     const auto file = log_file(log, module.file);
-    if (!file || log.files[*file].library) continue;
+    // 読めなかったファイルのモジュールは、定義が翻訳器に見えないので確かめない。
+    if (!file || log.files[*file].library || log.files[*file].opaque) continue;
     for (const PredKey& exported : module.exports) {
       const PredKey key{module.name, exported.name, exported.arity};
       if (find_pred(machine, key) != nullptr || declared_only(machine, key.module, key.name, key.arity)) continue;

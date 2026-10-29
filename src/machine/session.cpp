@@ -317,6 +317,23 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   }
 }
 
+// 読めなければ終了コードを返す。指示の halt/0,1 は読み込みを止め、その値で終わる。後のファイル、main、-g は動かさない。
+std::optional<int> consult_files(Machine& machine, const std::vector<std::string>& files, Echo& echo) {
+  for (const std::string& file : files) {
+    try {
+      if (machine.consult(file)) continue;
+      if (engine_impl(machine).halt_now) return engine_impl(machine).halt_code;
+      echo.warn(std::string{machine.diagnostic()} + "\n");
+      return 1;
+    } catch (const ResourceLimit&) {
+      recover_heap(machine);
+      warn_resource(machine, echo);
+      return 2;
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 // initialization(G, main) の入口。成功は 0、失敗は 1、例外は文面を出して 2、halt/1 の値はそのまま。
@@ -365,19 +382,9 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
   cursor.from_cin = tty && input.empty();
   auto machine = Machine::create(heap_limit);
   engine_impl(*machine).program_argv = options.program_args;
-  for (const std::string& file : options.files) {
-    try {
-      if (!machine->consult(file)) {
-        echo.warn(std::string{machine->diagnostic()} + "\n");
-        result.code = 1;
-        return result;
-      }
-    } catch (const ResourceLimit&) {
-      recover_heap(*machine);
-      warn_resource(*machine, echo);
-      result.code = 2;
-      return result;
-    }
+  if (const auto code = consult_files(*machine, options.files, echo)) {
+    result.code = *code;
+    return result;
   }
   // main は入口で、終わったらプロセスも終わる。REPL にも -g にも進まない。
   if (const auto& main_goal = engine_impl(*machine).main_goal) {

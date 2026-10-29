@@ -152,6 +152,31 @@ void project_modules() {
   check(mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), units).ok, "units do not stop on calls");
 }
 
+// 翻訳のときに飛ばした指示のゴールが op/3 を定義すると、後の項は翻訳器に読めない。誤りにせず、
+// そのファイルの述語は生成関数を出さずに IR のまま動かす（計画 Task 5）。飛ばしたゴールが無ければ誤りのまま。
+void project_opaque() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_project";
+  std::filesystem::create_directories(dir);
+  write_file(dir / "newop.pl", "fast(1).\n:- true, op(700, xfx, ===>).\nr(a ===> b).\n");
+  const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "newop.pl"), {});
+  check(project.ok, "opaque ok: " + project.diagnostic);
+  const auto* unit = find_file(project, "m_user.cpp");
+  check(unit != nullptr && !has(unit->text, "p_fast_1") && !has(unit->text, "NativeEntry{"), "opaque has no entries");
+  write_file(dir / "plain_broken.pl", "r(a ===> b).\n:- true, op(700, xfx, ===>).\n");
+  const auto broken = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "plain_broken.pl"), {});
+  check(!broken.ok && has(broken.diagnostic, "plain_broken.pl:1:"), "syntax error before skip stays an error");
+  auto machine = Machine::create();
+  check(machine->load_program(kApp).ok, "load app");
+  const auto& impl = mosa::engine_impl(*machine);
+  const std::vector<mosa::PredKey> only{mosa::PredKey{impl.user_module, machine->atoms().intern("app"), 3}};
+  const EmitResult kept = emit_module(*machine, impl.user_module, "t", only);
+  check(kept.translated == 0 && kept.interpreted == 2 && !has(kept.source, "p_app_3"), "interpreted_only counts");
+  write_file(dir / "all.pl", "a.\n");
+  const auto reserved = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "all.pl"), {});
+  const auto* cmake = find_file(reserved, "CMakeLists.txt");
+  check(cmake != nullptr && has(cmake->text, "project(app "), "reserved target name");
+}
+
 int main() {
   mangle_names();
   app_unit();
@@ -162,5 +187,6 @@ int main() {
   dynamic_skipped();
   japanese_unit();
   project_modules();
+  project_opaque();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

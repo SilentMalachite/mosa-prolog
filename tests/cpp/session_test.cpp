@@ -387,6 +387,29 @@ void check_init_main() {
   mosa_test::check(halted.code == 3, "init_main_halt3 exit");
 }
 
+// 指示の halt/0,1 は読み込みを止め、その値で終わる。後の指示、initialization(_, main)、-g は動かない。
+// -g が動けば答えの行 true. が out に出、main が動けば 0 で終わる。
+void check_directive_halt() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_directive_halt.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << ":- initialization(main, main).\nmain.\n:- halt(4).\n:- throw(after_halt).\n";
+  file.close();
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "true.";
+  std::vector<std::string_view> args{arg0, path, arg_g, goal};
+  const auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.code == 4, "directive_halt exit " + std::to_string(result.code));
+  mosa_test::check(result.out.empty() && result.err.empty(), "directive_halt stops load, main and -g");
+  const std::string bare = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_directive_halt0.pl";
+  std::ofstream zero(bare, std::ios::binary);
+  zero << ":- halt.\n:- throw(after_halt).\n";
+  zero.close();
+  std::vector<std::string_view> zero_args{arg0, bare, arg_g, goal};
+  const auto stopped = mosa::run_session(zero_args, "", false);
+  mosa_test::check(stopped.code == 0 && stopped.out.empty() && stopped.err.empty(), "directive_halt0 stops load");
+}
+
 void check_argv_after_dashes() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_p.pl";
   const std::string arg0 = "mosa";
@@ -437,6 +460,7 @@ int main(int argc, char** argv) {
   check_load_diagnostics_en();
   check_goal_without_period();
   check_init_main();
+  check_directive_halt();
   check_argv_after_dashes();
   return mosa_test::failures();
 }

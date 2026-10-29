@@ -337,8 +337,20 @@ struct FileNote {
   }
   FileNote(const FileNote&) = delete;
   FileNote& operator=(const FileNote&) = delete;
+  // include した先で飛ばしたゴールの op/3 は、読み込んだ側のテキストにも効く。
   ~FileNote() {
-    if (log != nullptr) log->current = outer;
+    if (log == nullptr) return;
+    if (log->current < log->files.size() && outer < log->files.size() && log->files[log->current].skipped_goal) {
+      log->files[outer].skipped_goal = true;
+    }
+    log->current = outer;
+  }
+  // 飛ばしたゴールの後の構文エラーは、起動時には読める形かもしれない（計画 Task 5）。誤りにせず、
+  // このファイルの述語を IR のまま動かす印を付けて読み進める。飛ばしたゴールが無ければ誤りのまま。
+  [[nodiscard]] bool tolerate_syntax() const {
+    if (log == nullptr || log->current >= log->files.size() || !log->files[log->current].skipped_goal) return false;
+    log->files[log->current].opaque = true;
+    return true;
   }
   void first_term(const ReadTerm& read) const {
     if (log == nullptr || log->current >= log->files.size() || log->files[log->current].line != 0) return;
@@ -421,8 +433,11 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   while (true) {
     // module/2 と op/3 が見え方を替える。項ごとに、今のモジュールの見え方で読む。
     reader.set_operators(op_view(machine, machine.load_module));
+    const std::size_t before = reader.consumed();
     const ReadOutcome outcome = reader.next();
-    if (outcome.failure) return note_syntax(machine, origin, nested, *outcome.failure);
+    if (outcome.failure && !note.tolerate_syntax()) return note_syntax(machine, origin, nested, *outcome.failure);
+    // 読み飛ばしが進まなければ、そこで終わりにする。同じ誤りを読み続けない。
+    if (outcome.failure && reader.consumed() > before) continue;
     if (!outcome.term) {
       guard.finished = true;
       return scope.close(import_all);

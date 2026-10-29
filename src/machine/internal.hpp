@@ -173,6 +173,8 @@ struct TranslationLog {
     std::size_t line = 0;  // 最初の項の位置。module/2 の診断に使う
     std::size_t column = 0;
     bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（Task 10 まで翻訳しない）
+    bool skipped_goal = false;  // 飛ばした指示のゴールがある。そのゴールの op/3 が後の項の読みを変えうる
+    bool opaque = false;        // 飛ばしたゴールの後で構文エラーがあった。このファイルの述語は IR のまま動かす
   };
   struct Site {
     PredKey pred;
@@ -324,6 +326,8 @@ struct Machine::Impl {
   rt::NativeProc native_next = nullptr;
   std::size_t native_cut = 0;
   TranslationLog* translation = nullptr;
+  // mosatest の断片の読み込み（suite.cpp）。断片のテキスト自身の指示のゴールは、最後の load だけが呼ぶ。
+  bool fragment_pass = false;
   std::vector<EmbeddedSource> embedded;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }

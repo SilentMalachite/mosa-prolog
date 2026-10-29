@@ -7,8 +7,11 @@
 
 #include "mosa/machine.hpp"
 
+#include "../module/module.hpp"
+
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,7 +26,9 @@ struct EmitResult {
 };
 
 // module はモジュール名のアトム番号。unit_name は NativeUnit::name に入れる。
-[[nodiscard]] EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name);
+// interpreted_only の述語は生成関数を出さず、節を interpreted に数える（翻訳のときに読めなかったファイルの述語）。
+[[nodiscard]] EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name,
+                                     std::span<const PredKey> interpreted_only = {});
 
 // 計画 Task 5。mosac emit が out/ に書く目録。name は out/ からの相対の名前である。
 struct ProjectFile {

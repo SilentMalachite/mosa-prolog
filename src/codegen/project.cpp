@@ -8,6 +8,8 @@
 
 #include "mosa/path_text.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -68,7 +70,10 @@ std::string target_name(std::string_view root) {
     const bool alnum = (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z') || (unit >= '0' && unit <= '9');
     plain = plain && (alnum || unit == '_' || unit == '-');
   }
-  return plain ? stem : "app";
+  // CMake が予約する目標の名前は configure で通らない。
+  constexpr std::array<std::string_view, 5> reserved{"all", "clean", "install", "help", "test"};
+  const bool taken = std::find(reserved.begin(), reserved.end(), stem) != reserved.end();
+  return plain && !taken ? stem : "app";
 }
 
 std::string source_array(std::size_t index, std::string_view text) {
@@ -145,11 +150,25 @@ Project fail_with(std::string diagnostic) {
   return project;
 }
 
+bool any_opaque(const TranslationLog& log) {
+  return std::any_of(log.files.begin(), log.files.end(), [](const TranslationLog::File& file) { return file.opaque; });
+}
+
+// 読めなかったファイルに節がある述語。生成関数を出さず、起動時の読み込みが IR のまま動かす。
+std::vector<PredKey> opaque_preds(const TranslationLog& log) {
+  std::vector<PredKey> keys;
+  for (const TranslationLog::Site& site : log.sites) {
+    if (log.files[site.file].opaque) keys.push_back(site.pred);
+  }
+  return keys;
+}
+
 std::vector<std::string> warnings(Impl& machine, const TranslationLog& log, std::string_view path,
                                   const ProjectOptions& options) {
   const DisplayNames names = display_names(log, path);
   std::vector<std::string> lines = export_warnings(machine, log, names);
-  if (options.check_calls) {
+  // 読めなかった項の定義は翻訳器に見えない。呼び出しの警告はそれを未定義と取り違えるので出さない。
+  if (options.check_calls && !any_opaque(log)) {
     for (std::string& line : call_warnings(machine, log, names)) lines.push_back(std::move(line));
   }
   return lines;
@@ -159,10 +178,11 @@ Project build_project(Machine& machine, const TranslationLog& log, std::string_v
                       const ProjectOptions& options) {
   const Impl& impl = engine_impl(machine);
   const std::vector<UnitPlan> units = plan_units(impl, log);
+  const std::vector<PredKey> interpreted = opaque_preds(log);
   Project project;
   project.ok = true;
   for (const UnitPlan& unit : units) {
-    const EmitResult emitted = emit_module(machine, unit.module, log.files[unit.file].key);
+    const EmitResult emitted = emit_module(machine, unit.module, log.files[unit.file].key, interpreted);
     const std::string stem = unit_stem(impl, unit.module);
     project.files.push_back(ProjectFile{stem + ".cpp", emitted.source});
     project.files.push_back(ProjectFile{stem + ".hpp", emitted.header});

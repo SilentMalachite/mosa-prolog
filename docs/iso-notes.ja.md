@@ -119,9 +119,13 @@ A か B か: A は決定のまま（指示子かリストだけ。5 行は不合
 
 7.4.2 は規格に合うテキストが使う指示を挙げ、SPEC 第3節の 8 も同じ組を挙げる。これまで、それ以外の `:- G` は `directive_unsupported` で読み込みを失敗させていた。フェーズ6の計画 Task 5 は、実行ファイルの起動時に `:- write(x).` が動くこと（テスト `mosac_emit_silent`）と、翻訳器がそのゴールを飛ばすことを求める。
 
-決定（2026-10-29、フェーズ6 Task 5、確認まで）: A。ゴールがアトムか複合項の指示は、読み込み器が受け持つ名前（`include`、`ensure_loaded`、`use_module`、`module`、`export`、`dynamic`、`discontiguous`、`multifile`、`meta_predicate`、`initialization`、`char_conversion`、`set_prolog_flag`、`op`、`consult`。形が合わないときは `directive_unsupported` のまま）を除き、テキストのその位置で、読み込み中のモジュールの文脈で、それまでに読んだ節のもとで 1 回呼ぶ。成功なら読み込みを続ける。失敗は鍵 `directive_failed` で、捕捉されない例外はその Formal で読み込みを失敗させ、どちらも受けない指示と同じく節と旗を戻す。変数と数は今までどおり `directive_unsupported`。テストは `tests/pl/directives.pl` の `general_directive_order` と `tests/cpp/machine_test.cpp` の `check_general_directive`。
+ISO（5.5）は 7.4.2 のほかの指示を処理系固有の機能として扱う。厳密に規格に合う動作の切り替えを設けるなら、それは受けてはならない。その切り替えは作らない。
 
-A か B か: A: 失敗と例外は読み込みを戻す（上のとおり）。B: SWI-Prolog と同じく警告を出して残りのテキストを読み続ける。
+決定（2026-10-29、フェーズ6 Task 5、持ち主が 2026-10-29 に A と決定）: ゴールがアトムか複合項の指示は、読み込み器が受け持つ名前（`include`、`ensure_loaded`、`use_module`、`module`、`export`、`dynamic`、`discontiguous`、`multifile`、`meta_predicate`、`initialization`、`char_conversion`、`set_prolog_flag`、`op`、`consult`。形が合わないときは `directive_unsupported` のまま）を除き、テキストのその位置で、読み込み中のモジュールの文脈で、それまでに読んだ節のもとで 1 回呼ぶ。成功なら読み込みを続ける。失敗は鍵 `directive_failed` で、捕捉されない例外はその Formal で読み込みを失敗させ、どちらも受けない指示と同じく節と旗を戻す。変数と数は今までどおり `directive_unsupported`。テストは `tests/pl/directives.pl` の `general_directive_order` と `tests/cpp/machine_test.cpp` の `check_general_directive`。
+
+指示（この指示か `initialization/1`）の中の `halt/0` と `halt/1` は読み込みをその場で止め、`mosa` も `mosac` の実行ファイルもその値で終わる。後の指示、`initialization(_, main)`、`-g` は動かない（`tests/cpp/session_test.cpp` の `check_directive_halt`、`mosac_emit_halt`）。mosatest が指示ごとに先に読む断片ではこれらのゴールを呼ばず、ファイルの最後の読み込みが 1 回だけ呼ぶ。
+
+尋ねた問い: A（失敗と例外は読み込みを戻す。上のとおり）か B（SWI-Prolog と同じく警告を出して読み続ける）か。持ち主は 2026-10-29 に A を選んだ。
 
 ## 7.11 旗 debug
 

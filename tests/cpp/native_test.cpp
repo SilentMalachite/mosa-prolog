@@ -249,6 +249,35 @@ void check_meta_not_attached() {
 
 }  // namespace
 
+// 計画 Task 5。ファイルの無いパスで embed した原文を install_unit で読む。include/1 と use_module/1 は
+// ファイルシステムより先に埋め込みを引く。後の単位（m）は根の use_module が読み終えているので付けるだけになる。
+constinit mosa::rt::UnitTag kEmbedRoot{};
+constinit mosa::rt::UnitTag kEmbedModule{};
+
+void check_embedded_first() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "native_embed_absent";
+  std::filesystem::remove_all(dir);
+  const std::string root = mosa::utf8_from_path(dir / "app.pl");
+  const std::string module = mosa::utf8_from_path(dir / "m.pl");
+  const std::string root_text = ":- include(inc).\n:- use_module(m).\nboth(X, Y) :- inc_fact(X), twice(X, Y).\n";
+  const std::string module_text = ":- module(m, [twice/2]).\ntwice(X, Y) :- Y is X * 2.\n";
+  auto machine = Machine::create();
+  mosa::rt::embed(*machine, root, root_text);
+  mosa::rt::embed(*machine, mosa::utf8_from_path(dir / "inc.pl"), "inc_fact(21).\n");
+  mosa::rt::embed(*machine, module, module_text);
+  const mosa::rt::NativeUnit root_unit{root, root_text, &kEmbedRoot, {}, {}, {}};
+  const mosa::rt::NativeUnit module_unit{module, module_text, &kEmbedModule, {}, {}, {}};
+  check(mosa::rt::install_unit(*machine, root_unit), "embedded root loads: " + std::string{machine->diagnostic()});
+  check(mosa::rt::install_unit(*machine, module_unit), "embedded module attaches");
+  check(!std::filesystem::exists(dir), "embedded sources are not on disk");
+  check(machine->query("inc_fact(21).").kind == mosa::StopKind::Success, "included predicate");
+  check(machine->query("twice(3, 6).").kind == mosa::StopKind::Success, "used predicate");
+  check(machine->query("both(21, 42).").kind == mosa::StopKind::Success, "root predicate");
+  check(machine->query("findall(c, predicate_property(m:twice(_, _), number_of_clauses(1)), [c]).").kind ==
+            mosa::StopKind::Success,
+        "module read once");
+}
+
 int main() {
   auto native = native_list_machine();
   auto interp = interp_machine(native_units::kListSource);
@@ -264,5 +293,6 @@ int main() {
   check_rollback_detaches();
   check_fingerprint_mismatch();
   check_meta_not_attached();
+  check_embedded_first();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

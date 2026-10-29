@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|silent> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -81,12 +81,20 @@ endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${exe}"
   OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err RESULT_VARIABLE run_code TIMEOUT 60)
 
+# newop.pl は翻訳のときに飛ばした指示のゴールが op/3 を定義する。翻訳器は後の項を読めないが誤りにせず、
+# その述語は起動時に IR のまま動く。halt.pl は指示の halt(3) で読み込みを止め、後の指示も main も動かさない。
+set(expected_code 0)
 if(CASE STREQUAL "hello")
   set(expected "こんにちは\n")
+elseif(CASE STREQUAL "newop")
+  set(expected "a-b\n")
+elseif(CASE STREQUAL "halt")
+  set(expected "a\n")
+  set(expected_code 3)
 else()
   set(expected "x")
 endif()
 string(REPLACE "\r\n" "\n" run_out "${run_out}")
-if(NOT run_code EQUAL 0 OR NOT run_out STREQUAL expected)
+if(NOT run_code EQUAL expected_code OR NOT run_out STREQUAL expected)
   message(FATAL_ERROR "${CASE}: run code=${run_code} out=[${run_out}] err=[${run_err}]")
 endif()

@@ -30,12 +30,12 @@ void embed(Machine& machine, std::string_view path, std::string_view source) {
 
 int finish(Machine& machine, bool loaded) {
   Impl& impl = engine_impl(machine);
+  // 指示の halt/0,1 は読み込みをその場で止め、その値で終わる（mosa と同じ。SPEC 第6節の実行ファイルの振る舞い）。
+  if (impl.halt_now) return impl.halt_code;
   if (!loaded) {
     std::cerr << impl.diagnostic << '\n';
     return 1;
   }
-  // 読み込みの中の halt/1 も、その値で終わる（SPEC 第6節の実行ファイルの振る舞い）。
-  if (impl.halt_now) return impl.halt_code;
   if (!impl.main_goal) return 0;
   std::string warning;
   const int code = run_main_goal(machine, *impl.main_goal, warning);

@@ -121,11 +121,12 @@ test(init_ran, (findall(X, init_s(X), L), L == [1]), true).
 test(init_goal, initialization(true), error(existence_error(procedure, initialization/1))).
 
 % 7.4.2 に無い指示 :- G（iso-notes 7.4.2 の一般の指示）。その位置で一度呼ぶので、後の指示は前の指示の効果を見る。
-% mosatest は指示を 2 回読む（演算子のためと節のため）ので、先頭で retractall する。
+% gd_base/1 は指示より上の節で、指示はそれを呼べる。retractall をしないので、2 回動けば L は 4 要素になる。
 % 失敗と例外が読み込みを戻すことは tests/cpp/machine_test.cpp の check_general_directive。
 
 :- dynamic(gd_seen/1).
-:- retractall(gd_seen(_)), assertz(gd_seen(first)).
+gd_base(first).
+:- gd_base(X), assertz(gd_seen(X)).
 :- (gd_seen(first) -> assertz(gd_seen(second)) ; true).
 
 test(general_directive_order, (findall(X, gd_seen(X), L), L == [first, second]), true).

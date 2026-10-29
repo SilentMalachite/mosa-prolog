@@ -117,9 +117,13 @@ Decision (2026-10-29): ADR 0007. The texts above are the `ja` catalog's: a file 
 
 7.4.2 lists the directives a standard-conforming text uses and SPEC section 3 item 8 lists the same set; until now any other `:- G` failed the load with `directive_unsupported`. Plan phase 6 Task 5 needs `:- write(x).` to run when the executable starts (test `mosac_emit_silent`), and the translator to skip such goals.
 
-Decision (2026-10-29, phase 6 Task 5, until confirmed): A. A directive whose goal is an atom or compound term, other than the names the loader handles (`include`, `ensure_loaded`, `use_module`, `module`, `export`, `dynamic`, `discontiguous`, `multifile`, `meta_predicate`, `initialization`, `char_conversion`, `set_prolog_flag`, `op`, `consult`, which keep `directive_unsupported` when their shape does not match), is called once at its position in the text, in the module being loaded, with the clauses read so far. Success continues the load. Failure fails the load with the key `directive_failed` and an uncaught exception fails it with the Formal, and in both cases the clauses and flags are undone like any other rejected directive. A variable or a number is still `directive_unsupported`. Tests: `general_directive_order` in `tests/pl/directives.pl`, `check_general_directive` in `tests/cpp/machine_test.cpp`.
+ISO (5.5) treats directives beyond 7.4.2 as an implementation-specific feature; a strictly conforming mode would have to reject them. No such mode is implemented.
 
-A or B?: A: failure and exception undo the load (as above). B: as SWI-Prolog, print a warning and continue loading the rest of the text.
+Decision (2026-10-29, phase 6 Task 5, owner decided A on 2026-10-29): A directive whose goal is an atom or compound term, other than the names the loader handles (`include`, `ensure_loaded`, `use_module`, `module`, `export`, `dynamic`, `discontiguous`, `multifile`, `meta_predicate`, `initialization`, `char_conversion`, `set_prolog_flag`, `op`, `consult`, which keep `directive_unsupported` when their shape does not match), is called once at its position in the text, in the module being loaded, with the clauses read so far. Success continues the load. Failure fails the load with the key `directive_failed` and an uncaught exception fails it with the Formal, and in both cases the clauses and flags are undone like any other rejected directive. A variable or a number is still `directive_unsupported`. Tests: `general_directive_order` in `tests/pl/directives.pl`, `check_general_directive` in `tests/cpp/machine_test.cpp`.
+
+`halt/0` and `halt/1` in a directive (this one or `initialization/1`) stop the load at once, and `mosa` and the `mosac` executable exit with that code; later directives, `initialization(_, main)` and `-g` do not run (`check_directive_halt` in `tests/cpp/session_test.cpp`, `mosac_emit_halt`). mosatest's per-directive fragment pass does not call these goals; the final load of the file calls them once.
+
+Question asked: A (failure and exception undo the load, as above) or B (as SWI-Prolog, warn and continue)? The owner chose A on 2026-10-29.
 
 ## 7.11 Flag debug
 
