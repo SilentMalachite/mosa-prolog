@@ -256,7 +256,7 @@ foreach(emit_case hello broken undefined duplicate silent newop halt)
   set_tests_properties(mosac_emit_${emit_case} PROPERTIES ENVIRONMENT "MOSA_WERROR=1")
 endforeach()
 
-# mosac の使い方の誤り、--help、dist（コンパイラを起こさない）。
+# mosac の使い方の誤り、--help、dist、原文を上書きする build の拒否（コンパイラを起こさない）。
 add_test(NAME mosac_cli COMMAND ${CMAKE_COMMAND}
   -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_cli
   "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib

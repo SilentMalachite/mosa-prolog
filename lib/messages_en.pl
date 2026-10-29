@@ -26,6 +26,7 @@ message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest 
 message(mosac_dist_unavailable, 'mosac: mosac dist is not available until phase 7').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
+message(mosac_output_is_source, 'mosac: the output ~w is the source file itself, and building would overwrite it~nGive another output name with -o').
 message(mosac_undefined_call, 'call to undefined procedure ~w').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').
 

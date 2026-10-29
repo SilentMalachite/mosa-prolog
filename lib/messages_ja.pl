@@ -26,6 +26,7 @@ message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル
 message(mosac_dist_unavailable, 'mosac: mosac dist はフェーズ7まで使えません').
 message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
+message(mosac_output_is_source, 'mosac: 出力 ~w は原文のファイルそのもので、ビルドすると原文を上書きします~n-o で別の出力名を与えてください').
 message(mosac_undefined_call, '~w を呼んでいるが、どこにも定義が無い').
 message(mosac_export_undefined, '~w を export したが定義が無い').
 

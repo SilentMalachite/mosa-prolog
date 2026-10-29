@@ -169,6 +169,14 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
   return parsed;
 }
 
+// 2 つのパスが同じファイルを指すか。片方でも無ければ違うとみなす（equivalent は両方が無いときだけ誤りを返す）。
+// 記号リンクや ./hello と hello の違いも、ファイルそのもので比べる。
+bool same_file(const std::filesystem::path& left, const std::filesystem::path& right) {
+  std::error_code error;
+  const bool same = std::filesystem::equivalent(left, right, error);
+  return !error && same;
+}
+
 // mosac build app.pl [-o app] [--interactive]。-o が無ければ原文の語幹を今の場所に作る。中間物はいつも .mosac-cache に
 // 残すので --keep は run だけが受ける。--interactive は build だけが受け（作った物を利用者が動かす）、run は受けない。
 int run_build(const std::vector<std::string>& args) {
@@ -177,11 +185,16 @@ int run_build(const std::vector<std::string>& args) {
     std::cerr << message("mosac_usage") << '\n';
     return 1;
   }
-  const mosa::codegen::Built built = mosa::codegen::build_cached(parsed->request);
-  if (built.code != 0) return built.code;
   const std::string out = parsed->out.empty() ? mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem())
                                               : parsed->out;
   const std::filesystem::path target = mosa::codegen::with_exe_suffix(mosa::path_from_utf8(out));
+  // 翻訳とコンパイルの前に止める。拡張子の無い原文 hello の語幹は hello そのもので、写すと原文が消える。
+  if (same_file(target, mosa::path_from_utf8(parsed->request.source))) {
+    std::cerr << message("mosac_output_is_source", {mosa::utf8_from_path(target)}) << '\n';
+    return 1;
+  }
+  const mosa::codegen::Built built = mosa::codegen::build_cached(parsed->request);
+  if (built.code != 0) return built.code;
   std::error_code error;
   std::filesystem::copy_file(built.exe, target, std::filesystem::copy_options::overwrite_existing, error);
   if (error) {
