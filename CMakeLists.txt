@@ -80,6 +80,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/suite.cpp
   src/machine/iso_suite.cpp
   src/machine/lgt_file.cpp
+  src/machine/lgt_load.cpp
   src/machine/lgt_shape.cpp
   src/machine/lgt_judge.cpp
   src/machine/lgt_approx.cpp

@@ -27,6 +27,13 @@ class Machine;
   return options;
 }
 
+// 読む側（lgt_load.cpp）と実行する側（lgt_file.cpp）が同じ形で関数子を見る。
+[[nodiscard]] inline bool lgt_functor_is(const Heap& heap, Cell cell, std::string_view name, std::uint16_t arity) {
+  cell = heap.deref(cell);
+  return cell.tag() == Tag::Str && heap.functor_arity(cell) == arity &&
+         heap.atoms().name(heap.functor_atom(cell)) == name;
+}
+
 namespace iso_scope {
 
 inline bool listed(std::span<const std::string_view> names, std::string_view name) {
