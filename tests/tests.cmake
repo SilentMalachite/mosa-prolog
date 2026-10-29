@@ -256,6 +256,12 @@ foreach(emit_case hello broken undefined duplicate silent newop halt)
   set_tests_properties(mosac_emit_${emit_case} PROPERTIES ENVIRONMENT "MOSA_WERROR=1")
 endforeach()
 
+# mosac の使い方の誤り、--help、dist（コンパイラを起こさない）。
+add_test(NAME mosac_cli COMMAND ${CMAKE_COMMAND}
+  -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_cli
+  "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/cli_test.cmake)
+
 # mosac build と run（計画 Task 9）。同じ確かめを CMake の道と、MOSA_NO_CMAKE=1 で固めた直接の道（_direct）で流す。
 # 作業場所は tests/tmp の下にし、.mosac-cache をリポジトリの根に作らない。偽のコンパイラはここで作る（作り置きを入れない）。
 # Windows の既定は vswhere で探す。名指しの cl は vcvarsall を通らない（Task 8 の持ち越し）ので、そこでは渡さない。

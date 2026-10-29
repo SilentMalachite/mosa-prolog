@@ -1,4 +1,4 @@
-// mosac（SPEC 第6節）。--version、emit、toolchain、build、run を受ける。dist は計画 Task 11 以降。
+// mosac（SPEC 第6節）。--version、--help、emit、toolchain、build、run を受ける。dist はフェーズ7（SPEC 第9節）。
 // 文面は lib/messages_*.pl の鍵（ADR 0007）。翻訳と目録の組み立ては src/codegen/project.cpp、
 // build と run のコンパイルとキャッシュは src/codegen/build.cpp と cache.cpp。
 
@@ -243,6 +243,15 @@ int main(int argc, char** argv) {
   if (args.size() >= 2 && args[1] == "toolchain") return run_toolchain(args);
   if (args.size() >= 2 && args[1] == "build") return run_build(args);
   if (args.size() >= 2 && args[1] == "run") return run_run(args);
-  std::cerr << message("mosac_unavailable") << '\n';
+  // --help は頼まれた出力なので標準出力へ出して 0。引数無しと知らない副命令は mosa、mosatest と同じく使い方の誤り。
+  if (args.size() >= 2 && args[1] == "--help") {
+    std::cout << message("mosac_usage") << '\n';
+    return 0;
+  }
+  if (args.size() >= 2 && args[1] == "dist") {
+    std::cerr << message("mosac_dist_unavailable") << '\n';
+    return 1;
+  }
+  std::cerr << message("mosac_usage") << '\n';
   return 1;
 }
