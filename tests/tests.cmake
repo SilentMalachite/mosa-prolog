@@ -268,6 +268,12 @@ foreach(fake mosac_fake_cxx mosac_fake_cxx_forward)
   add_executable(${fake} tests/mosac/fake_cxx.cpp)
   target_include_directories(${fake} PRIVATE ${CMAKE_BINARY_DIR}/generated/${fake})
   target_link_libraries(${fake} PRIVATE mosa_warnings)
+  # Windows では偽物も cl.exe の名にする。mosac は cl 以外の名を MSVC のビルド木と族が違う（libmosa.a が無い）として
+  # 止めるので、偽物が生成コードのコンパイルまで届かない（CI run 40892878978）。名前がぶつからないよう目標ごとの
+  # ディレクトリに置く。Windows では mosac_build_cxx が空なので、転送する版もいつも失敗する版と同じに振る舞う。
+  if(WIN32)
+    set_target_properties(${fake} PROPERTIES OUTPUT_NAME cl RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${fake})
+  endif()
 endforeach()
 get_filename_component(mosac_cmake_dir "${CMAKE_COMMAND}" DIRECTORY)
 foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error debug_trace)

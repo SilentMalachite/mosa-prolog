@@ -96,17 +96,26 @@ elseif(CASE STREQUAL "cache_reuse")
 elseif(CASE STREQUAL "internal_error")
   set(compiler_env "MOSA_CXX=${FAKE_CXX}")
   set(internal "^内部エラー: 生成コードがコンパイルできません。\\.mosac-cache/[0-9a-f]+/ を添えて報告してください\n$")
-  mosac(build "${SRC}/hello.pl" -o hello)
-  if(NOT code EQUAL 1 OR NOT err MATCHES "${internal}" OR NOT out STREQUAL "")
-    fail("internal error without --verbose")
+  # Windows の偽物は cl.exe の名（tests.cmake）なので、MOSA_NO_CMAKE=0 なら CMake の道を通る。偽の cl では CMake の
+  # configure（コンパイラの確かめ）が通らず、それは内部エラーでなく環境の問題として出ること。生成コードの段の
+  # 内部エラーは直接の道（mosac_internal_error_direct）で確かめる。
+  if(PATH_KIND STREQUAL "cmake" AND CMAKE_HOST_WIN32)
+    mosac(build "${SRC}/hello.pl" -o hello)
+    if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: CMake の構成に失敗しました" OR err MATCHES "内部エラー")
+      fail("configure failure with a fake cl")
+    endif()
+  else()
+    mosac(build "${SRC}/hello.pl" -o hello)
+    if(NOT code EQUAL 1 OR NOT err MATCHES "${internal}" OR NOT out STREQUAL "")
+      fail("internal error without --verbose")
+    endif()
+    mosac(build "${SRC}/hello.pl" -o hello --verbose)
+    if(NOT code EQUAL 1 OR NOT err MATCHES "fake-cxx: always fails"
+       OR NOT err MATCHES "内部エラー: 生成コードがコンパイルできません。\\.mosac-cache/[0-9a-f]+/ を添えて報告してください")
+      fail("internal error with --verbose")
+    endif()
   endif()
-  mosac(build "${SRC}/hello.pl" -o hello --verbose)
-  if(NOT code EQUAL 1 OR NOT err MATCHES "fake-cxx: always fails"
-     OR NOT err MATCHES "内部エラー: 生成コードがコンパイルできません。\\.mosac-cache/[0-9a-f]+/ を添えて報告してください")
-    fail("internal error with --verbose")
-  endif()
-  # CMake の道で configure が通らないのは環境の問題で、内部エラーではない。Windows では cl 以外のコンパイラは
-  # 直接の道を通るので、この確かめは要らない。
+  # CMake の道で configure が通らないのは環境の問題で、内部エラーではない（Windows は上の偽の cl で見た）。
   if(PATH_KIND STREQUAL "cmake" AND NOT CMAKE_HOST_WIN32)
     set(compiler_env "MOSA_CXX=${FAILING_CXX}")
     mosac(build "${SRC}/hello.pl" -o hello)
