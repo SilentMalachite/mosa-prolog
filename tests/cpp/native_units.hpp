@@ -43,13 +43,11 @@ const mosa::rt::UnitTag& list_tag();
 std::span<const std::string_view> list_atoms();
 std::span<const mosa::rt::NativeCallee> list_calls();
 
-// 単位 2: 指示のゴールの中の op/3（原文では `:- true, op(700, xfx, ===>).`）が rel/1 の IR を変える。
-// same/1 は変わらない。翻訳のときの読み込みは指示のゴールを飛ばすので、翻訳器の見え方は 2 行目の無い原文である。
-// 今の読み込み器は一般の指示のゴールを受けない（directive_unsupported）ので、起動時に読む原文では
-// そのゴールが実行し終えた形、つまり裸の op/3 で 2 行目を置き換える。指紋の食い違いは同じである。
+// 単位 2: 指示のゴールの中の op/3 が rel/1 の IR を変える。same/1 は変わらない。
+// 翻訳のときの読み込みは指示のゴールを飛ばすので、翻訳器の見え方は 2 行目の無い原文である。
 inline constexpr std::string_view kOpSource =
     ":- op(200, xfx, ===>).\n"
-    ":- op(700, xfx, ===>).\n"
+    ":- true, op(700, xfx, ===>).\n"
     "rel(a ===> b - c).\n"
     "same(f(a, 2.5, -3)).\n";
 inline constexpr std::string_view kOpTranslatedView =

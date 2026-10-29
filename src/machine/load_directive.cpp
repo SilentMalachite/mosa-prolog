@@ -3,6 +3,7 @@
 #include "mosa/writer.hpp"
 #include "mosa/path_text.hpp"
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <string>
@@ -482,8 +483,8 @@ int apply_module_directive(Impl& machine, Cell directive, bool first, std::strin
 }
 
 
-// 失敗はエラーにしない。例外の Formal だけを診断に残し、節は呼び出し側が戻さない。
-bool run_init_goal(Impl& machine, Cell goal) {
+// 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。
+StopKind run_parked(Impl& machine, Cell goal) {
   SavedExec saved = park_exec(machine);
   const Compiled compiled = compile_goal(machine.heap, goal);
   const auto heap_mark = machine.heap.size();
@@ -495,11 +496,44 @@ bool run_init_goal(Impl& machine, Cell goal) {
   machine.stack.push_back(std::move(cleanup));
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   const Stop stop = run_loop(machine);
-  const bool threw = stop.kind == StopKind::Exception;
-  if (threw) fail_load(machine, formal_text(machine, stop.exception));
+  if (stop.kind == StopKind::Exception) fail_load(machine, formal_text(machine, stop.exception));
   restore_state(machine, heap_mark, 0, 0);
   unpark_exec(machine, saved, true);
-  return !threw;
+  return stop.kind;
+}
+
+// 失敗はエラーにしない。節は呼び出し側が戻さない。
+bool run_init_goal(Impl& machine, Cell goal) { return run_parked(machine, goal) != StopKind::Exception; }
+
+// 読み込みの指示の名前。ここまで来たものは形が合わない（include(a, b) など）ので、ゴールとして呼ばず今までどおり受けない。
+bool reserved_directive(std::string_view name) {
+  static constexpr std::array<std::string_view, 14> names{
+      "include", "ensure_loaded", "use_module", "module", "export", "dynamic", "discontiguous", "multifile",
+      "meta_predicate", "initialization", "char_conversion", "set_prolog_flag", "op", "consult"};
+  return std::find(names.begin(), names.end(), name) != names.end();
+}
+
+// 7.4.2 に無い指示 :- G は、その位置で 1 回呼ぶ（iso-notes 7.4.2 の一般の指示）。失敗と例外は、
+// 受けない指示と同じく読み込みを失敗させて戻す。変数と数は呼べないので今までどおり受けない。
+int run_directive_goal(Impl& machine, Cell term) {
+  Cell goal = machine.heap.deref(machine.heap.arg(machine.heap.deref(term), 0));
+  std::string_view name;
+  if (goal.tag() == Tag::Atom) name = machine.atoms.name(static_cast<std::uint32_t>(goal.raw() >> 3));
+  if (goal.tag() == Tag::Str) name = machine.atoms.name(machine.heap.functor_atom(goal));
+  const auto text = write_term(machine.heap, machine.operators, term, {}, {});
+  if (name.empty() || reserved_directive(name)) {
+    fail_load(machine, message_text(machine, "directive_unsupported", {text}));
+    return -1;
+  }
+  if (machine.load_module != machine.user_module) {
+    const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
+    goal = machine.heap.structure(machine.atoms.intern(":"), parts);
+  }
+  const StopKind kind = run_parked(machine, goal);
+  if (kind == StopKind::Exception) return -1;
+  if (kind != StopKind::Failure) return 1;
+  fail_load(machine, message_text(machine, "directive_failed", {text}));
+  return -1;
 }
 
 }  // namespace
@@ -542,14 +576,9 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;
-  if (!apply_op(machine, machine.heap.deref(term))) {
-    if (machine.diagnostic.empty()) {
-      const auto text = write_term(machine.heap, machine.operators, term, {}, {});
-      fail_load(machine, message_text(machine, "directive_unsupported", {text}));
-    }
-    return -1;
-  }
-  return 1;
+  if (apply_op(machine, machine.heap.deref(term))) return 1;
+  if (!machine.diagnostic.empty()) return -1;
+  return run_directive_goal(machine, term);
 }
 
 }

@@ -569,6 +569,23 @@ void check_initialization_live() {
   mosa_test::check(machine->query("initialization(true).").kind == mosa::StopKind::Exception, "not a goal");
 }
 
+// iso-notes 7.4.2 の一般の指示。その位置で呼び、失敗と例外は読み込みを失敗させて節を戻す。
+void check_general_directive() {
+  auto ran = mosa::Machine::create();
+  mosa_test::check(ran->load_program("q(1).\n:- q(X), assertz(seen(X)).\nq(2).\n").ok, "general runs");
+  mosa_test::check(ran->query("findall(X, seen(X), [1]).").kind == mosa::StopKind::Success, "general sees earlier");
+  auto failed = mosa::Machine::create();
+  mosa_test::check(!failed->load_program("q(1).\n:- fail.\n").ok, "general fail rejects");
+  mosa_test::check(failed->diagnostic().find("この指示のゴールは失敗した") != std::string_view::npos, "general fail phrase");
+  mosa_test::check(failed->query("q(1).").kind == mosa::StopKind::Exception, "general fail rolls back");
+  auto threw = mosa::Machine::create();
+  mosa_test::check(!threw->load_program("q(1).\n:- throw(oops).\n").ok, "general throw rejects");
+  mosa_test::check(threw->diagnostic() == "oops", "general throw formal");
+  mosa_test::check(threw->query("q(1).").kind == mosa::StopKind::Exception, "general throw rolls back");
+  auto module = mosa::Machine::create();
+  mosa_test::check(module->load_program(":- module(gm, []).\nr(1).\n:- r(1).\n").ok, "general module context");
+}
+
 void check_list_goal() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->query("callable([a]).").kind == mosa::StopKind::Success, "list is callable");
@@ -636,6 +653,7 @@ int main() {
   check_initialization_throw();
   check_initialization_args();
   check_initialization_live();
+  check_general_directive();
   check_arith();
   check_control();
   check_index();

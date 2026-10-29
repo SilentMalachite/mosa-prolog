@@ -29,6 +29,7 @@ message(file_cycle, '~w: files load each other in a cycle').
 message(clauses_apart, 'clauses of ~w are not together').
 message(predicate_running, 'cannot replace a predicate that is running').
 message(directive_unsupported, 'directive not supported: ~w').
+message(directive_failed, 'directive goal failed: ~w').
 message(not_predicate_indicator, 'not a predicate indicator').
 message(static_to_dynamic, 'a static predicate cannot become dynamic').
 message(op_bad_priority, 'operator priority out of range').

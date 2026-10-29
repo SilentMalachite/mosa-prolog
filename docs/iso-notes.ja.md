@@ -115,6 +115,14 @@ A か B か: A は決定のまま（指示子かリストだけ。5 行は不合
 
 決定（2026-10-29）: ADR 0007。上の文面は `ja` のカタログのものである。開けないファイルは鍵 `cannot_open_file`、循環は `file_cycle` で、どちらもパスを引数に取る。英語の文面は `messages_en.pl` が持つ。それ以外の上の決定は変えない。
 
+## 7.4.2 そのほかの指示（`:- G`）
+
+7.4.2 は規格に合うテキストが使う指示を挙げ、SPEC 第3節の 8 も同じ組を挙げる。これまで、それ以外の `:- G` は `directive_unsupported` で読み込みを失敗させていた。フェーズ6の計画 Task 5 は、実行ファイルの起動時に `:- write(x).` が動くこと（テスト `mosac_emit_silent`）と、翻訳器がそのゴールを飛ばすことを求める。
+
+決定（2026-10-29、フェーズ6 Task 5、確認まで）: A。ゴールがアトムか複合項の指示は、読み込み器が受け持つ名前（`include`、`ensure_loaded`、`use_module`、`module`、`export`、`dynamic`、`discontiguous`、`multifile`、`meta_predicate`、`initialization`、`char_conversion`、`set_prolog_flag`、`op`、`consult`。形が合わないときは `directive_unsupported` のまま）を除き、テキストのその位置で、読み込み中のモジュールの文脈で、それまでに読んだ節のもとで 1 回呼ぶ。成功なら読み込みを続ける。失敗は鍵 `directive_failed` で、捕捉されない例外はその Formal で読み込みを失敗させ、どちらも受けない指示と同じく節と旗を戻す。変数と数は今までどおり `directive_unsupported`。テストは `tests/pl/directives.pl` の `general_directive_order` と `tests/cpp/machine_test.cpp` の `check_general_directive`。
+
+A か B か: A: 失敗と例外は読み込みを戻す（上のとおり）。B: SWI-Prolog と同じく警告を出して残りのテキストを読み続ける。
+
 ## 7.11 旗 debug
 
 決定（2026-10-25）: 未決 9 は A。既定は `off`。`on` にしてもフェーズ3ではトレースしない。
