@@ -288,14 +288,6 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
     std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(runtime.library)}) << '\n';
     return {};
   }
-  if (request.clean) {
-    std::error_code error;
-    std::filesystem::remove_all(cache_root(), error);
-    if (error) {
-      report_write_error(cache_root(), error);
-      return {};
-    }
-  }
   const Job job{request, toolchain, runtime, project.libraries, cache_root() / key->hash, key->hash,
                 path_from_utf8(target + exe_suffix())};
   if (cache_hit(job.dir, *key, job.exe_name)) {
@@ -394,6 +386,16 @@ Built build_cached(const BuildRequest& request) {
   if (!toolchain) {
     report_missing_toolchain(query);
     return {};
+  }
+  // --clean は実行時ライブラリより先に消す。--runtime-source はそれを .mosac-cache/runtime/ に作るので、後で消すと
+  // 作ったばかりの物を消し、結ぶときに無くなる（最終レビュー）。
+  if (request.clean) {
+    std::error_code error;
+    std::filesystem::remove_all(cache_root(), error);
+    if (error) {
+      report_write_error(cache_root(), error);
+      return {};
+    }
   }
   // 見つからない理由（置き場所が無い、ABI が合わない、源から作れない）は runtime_layout が出し終えている。
   const auto runtime = runtime_layout(request, *toolchain);

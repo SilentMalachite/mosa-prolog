@@ -360,8 +360,9 @@ set_tests_properties(mosac_installed_layout PROPERTIES ENVIRONMENT "MOSA_WERROR=
   SKIP_REGULAR_EXPRESSION "skipped: the runtime component is installed only for Release"
   ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
 
-# mosac build --runtime-source は同梱の源から libmosa を 1 回作る（1 分以上）。ふだんの ctest には重いので、
-# MOSA_SLOW_TESTS=ON のときだけ登録する（ラベル slow）。2 回目がキャッシュの物を使うことまで見る。
+# mosac build --runtime-source は同梱の源から libmosa を 2 回作る（M1 Max で 35 秒、CI の Linux ではもっと長い）。
+# ふだんの ctest には重いので、MOSA_SLOW_TESTS=ON のときだけ登録する（ラベル slow）。2 回目がキャッシュの物を使い、
+# 3 回目の --clean が作り直した物で結べることまで見る。
 option(MOSA_SLOW_TESTS "Also register the slow tests (a libmosa build for mosac build --runtime-source)" OFF)
 if(MOSA_SLOW_TESTS)
   add_test(NAME mosac_runtime_source_cache COMMAND ${CMAKE_COMMAND}
