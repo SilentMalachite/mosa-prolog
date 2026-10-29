@@ -24,10 +24,22 @@ message(incomplete_term, '項が閉じていません').
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
-message(mosac_usage, 'mosac: 使い方: mosac emit <ファイル> -o <ディレクトリ>').
+message(mosac_usage, 'mosac: 使い方: mosac emit <ファイル> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_undefined_call, '~w を呼んでいるが、どこにも定義が無い').
 message(mosac_export_undefined, '~w を export したが定義が無い').
+
+% mosac toolchain（SPEC 第6節、計画 Task 8）。見つからないときの導入手順は OS ごとに 1 つ。
+message(toolchain_compiler, 'コンパイラ: ~w').
+message(toolchain_version, '版: ~w').
+message(toolchain_cmake, 'CMake: ~w').
+message(toolchain_cmake_missing, 'CMake: 見つかりません（mosac がコンパイラを直接呼びます）').
+message(toolchain_runtime, '実行時ライブラリ: ~w').
+message(toolchain_msvc_env, '環境: vcvarsall.bat から ~w 個の変数').
+message(toolchain_not_found, 'mosac: C++20 のコンパイラが見つかりません').
+message(toolchain_hint_macos, 'Xcode Command Line Tools を入れてください: xcode-select --install').
+message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt install g++').
+message(toolchain_hint_windows, 'Visual Studio Build Tools を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://visualstudio.microsoft.com/ja/downloads/').
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').
 message(clauses_apart, '述語 ~w の節が離れている').

@@ -90,6 +90,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/command_line.cpp
   src/platform/console.cpp
   src/platform/process.cpp
+  src/platform/toolchain.cpp
   src/machine/bench.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
@@ -220,6 +221,12 @@ target_compile_definitions(library_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SO
 add_test(NAME library_path COMMAND $<TARGET_FILE:library_path_test>)
 set_tests_properties(library_path PROPERTIES ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:")
 add_test(NAME library_path_env COMMAND $<TARGET_FILE:library_path_test> env)
+# 探索は偽の PATH（tests/tmp/toolchain）を引数で渡して引く。子プロセスは起こさない。
+add_executable(toolchain_test tests/cpp/toolchain_test.cpp)
+target_include_directories(toolchain_test PRIVATE tests/cpp)
+target_link_libraries(toolchain_test PRIVATE mosa_lib)
+target_compile_definitions(toolchain_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME toolchain COMMAND $<TARGET_FILE:toolchain_test>)
 set_tests_properties(library_path_env PROPERTIES
   ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/library_path/lib_env")
 

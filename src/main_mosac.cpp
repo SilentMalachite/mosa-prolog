@@ -1,13 +1,13 @@
-// mosac（SPEC 第6節）。この段では --version と emit だけを受ける。build と run は計画 Task 9。
+// mosac（SPEC 第6節）。この段では --version と emit と toolchain だけを受ける。build と run は計画 Task 9。
 // 文面は lib/messages_*.pl の鍵（ADR 0007）。翻訳と目録の組み立ては src/codegen/project.cpp。
 
 #include "codegen/codegen.hpp"
 
 #include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
-#include "mosa/exe_path.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
+#include "mosa/toolchain.hpp"
 #include "mosa/version.hpp"
 
 #include <filesystem>
@@ -60,11 +60,8 @@ std::optional<std::string> write_files(const std::filesystem::path& out, const s
   return std::nullopt;
 }
 
-// libmosa と include/ は mosac の隣にある（ビルド木の形。インストールの形は計画 Task 10）。
-std::string runtime_dir() {
-  const auto self = mosa::executable_path();
-  return self ? mosa::utf8_from_path(self->parent_path()) : std::string{};
-}
+// libmosa と include/ の場所は mosac toolchain と同じ一つの決め方による（計画 Task 10 でインストールの形に変わる）。
+std::string runtime_dir() { return mosa::utf8_from_path(mosa::default_runtime_dir()); }
 
 int run_emit(const std::vector<std::string>& args) {
   const auto parsed = parse_emit(args);
@@ -87,6 +84,50 @@ int run_emit(const std::vector<std::string>& args) {
   return 0;
 }
 
+// mosac toolchain [--cxx X] の形だけを受ける。
+std::optional<mosa::ToolchainQuery> parse_toolchain(const std::vector<std::string>& args) {
+  mosa::ToolchainQuery query;
+  for (std::size_t index = 2; index < args.size(); ++index) {
+    if (args[index] != "--cxx" || index + 1 >= args.size()) return std::nullopt;
+    query.cxx = args[++index];
+  }
+  return query;
+}
+
+std::string_view install_hint(mosa::HostOs os) {
+  switch (os) {
+    case mosa::HostOs::macos:
+      return "toolchain_hint_macos";
+    case mosa::HostOs::linux:
+      return "toolchain_hint_linux";
+    case mosa::HostOs::windows:
+      return "toolchain_hint_windows";
+  }
+  return "toolchain_hint_linux";
+}
+
+// 見つかれば場所と版を標準出力へ、見つからなければ導入手順を標準エラーへ出して 1（SPEC 第6節の環境の問題）。
+int run_toolchain(const std::vector<std::string>& args) {
+  const auto query = parse_toolchain(args);
+  if (!query) {
+    std::cerr << message("mosac_usage") << '\n';
+    return 1;
+  }
+  const auto found = mosa::find_toolchain(*query);
+  if (!found) {
+    std::cerr << message("toolchain_not_found") << '\n' << message(install_hint(mosa::host_os())) << '\n';
+    return 1;
+  }
+  std::cout << message("toolchain_compiler", {mosa::utf8_from_path(found->cxx)}) << '\n'
+            << message("toolchain_version", {found->cxx_version}) << '\n'
+            << (found->cmake ? message("toolchain_cmake", {mosa::utf8_from_path(*found->cmake)})
+                             : message("toolchain_cmake_missing"))
+            << '\n'
+            << message("toolchain_runtime", {mosa::utf8_from_path(found->runtime_dir)}) << '\n';
+  if (!found->env.empty()) std::cout << message("toolchain_msvc_env", {std::to_string(found->env.size())}) << '\n';
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -99,6 +140,7 @@ int main(int argc, char** argv) {
     }
   }
   if (args.size() >= 2 && args[1] == "emit") return run_emit(args);
+  if (args.size() >= 2 && args[1] == "toolchain") return run_toolchain(args);
   std::cerr << message("mosac_unavailable") << '\n';
   return 1;
 }

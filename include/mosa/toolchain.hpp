@@ -1,0 +1,60 @@
+#pragma once
+
+// C++ コンパイラと CMake の検出（SPEC 第6節「Toolchain handling」、計画 Task 8）。定義は src/platform/toolchain.cpp。
+// テスト: tests/cpp/toolchain_test.cpp
+#include <filesystem>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+namespace mosa {
+
+enum class HostOs { macos, linux, windows };
+
+struct Toolchain {
+  std::filesystem::path cxx;
+  std::string cxx_version;
+  std::optional<std::filesystem::path> cmake;
+  std::filesystem::path runtime_dir;
+  // 空なら親の環境を継ぐ。Windows で vswhere から MSVC を見つけたときは、vcvarsall を通した後の環境全体を入れる。
+  std::vector<std::pair<std::string, std::string>> env;
+};
+
+struct ToolchainQuery {
+  // mosac の --cxx。
+  std::optional<std::string> cxx;
+};
+
+// 探索の入力をすべて引数で受ける版（find_library_in と同じ形）。子プロセスを起こさず、ファイルの有無だけを見る。
+struct ToolchainSearch {
+  std::optional<std::string> cxx_flag;
+  std::optional<std::string> mosa_cxx;
+  std::optional<std::string> cxx_env;
+  // PATH を区切りで分けたもの。区切り（: か ;）の判断は呼び手が持つ。
+  std::vector<std::filesystem::path> path;
+  HostOs os = HostOs::linux;
+  std::filesystem::path runtime_dir;
+};
+
+// 動いている OS。
+[[nodiscard]] HostOs host_os();
+// 同梱の実行時ライブラリと include/ の場所。今は mosac の隣（ビルド木の形。インストールの形は計画 Task 10）。
+[[nodiscard]] std::filesystem::path default_runtime_dir();
+
+// 順は cxx_flag → mosa_cxx → cxx_env → OS の既定。名前の付いたものが見つからなければ既定へは落ちず nullopt。
+// cxx_version は空のまま返す（版は起動して取るので find_toolchain が埋める）。
+[[nodiscard]] std::optional<Toolchain> find_toolchain_in(const ToolchainSearch& search);
+// 環境変数と PATH を読み、版を `<cxx> --version`（MSVC は cl の見出し）から取る。Windows の既定は vswhere。
+[[nodiscard]] std::optional<Toolchain> find_toolchain(const ToolchainQuery& query);
+
+// 以下は Windows の道の文字列処理。macOS でも単体で試せるよう、起動から切り離して出す。
+[[nodiscard]] std::vector<std::filesystem::path> split_path_list(std::string_view text, HostOs os);
+// vswhere -property installationPath の出力の最初の空でない行。
+[[nodiscard]] std::optional<std::filesystem::path> parse_vswhere_output(std::string_view text);
+// cmd の set の出力（NAME=VALUE の行）。= で始まる行（=C: など）は飛ばす。
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> parse_set_dump(std::string_view text);
+
+}

@@ -24,10 +24,22 @@ message(incomplete_term, 'incomplete term').
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~n--report may be omitted only when tests/conformance is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
-message(mosac_usage, 'mosac: usage: mosac emit <file> -o <directory>').
+message(mosac_usage, 'mosac: usage: mosac emit <file> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_undefined_call, 'call to undefined procedure ~w').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').
+
+% mosac toolchain（SPEC 第6節、計画 Task 8）。見つからないときの導入手順は OS ごとに 1 つ。
+message(toolchain_compiler, 'compiler: ~w').
+message(toolchain_version, 'version: ~w').
+message(toolchain_cmake, 'CMake: ~w').
+message(toolchain_cmake_missing, 'CMake: not found (mosac calls the compiler directly)').
+message(toolchain_runtime, 'runtime: ~w').
+message(toolchain_msvc_env, 'environment: ~w variables from vcvarsall.bat').
+message(toolchain_not_found, 'mosac: no C++20 compiler was found').
+message(toolchain_hint_macos, 'Install the Xcode Command Line Tools: xcode-select --install').
+message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt install g++').
+message(toolchain_hint_windows, 'Install Visual Studio Build Tools with the "Desktop development with C++" workload: https://visualstudio.microsoft.com/downloads/').
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').
 message(clauses_apart, 'clauses of ~w are not together').
