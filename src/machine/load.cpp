@@ -8,9 +8,7 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -91,7 +89,8 @@ LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const Save
 }
 
 LoadStatus finish_load(Impl& machine, std::size_t heap_base, const std::vector<Cell>& inits) {
-  if (!run_inits(machine, inits)) {
+  // 翻訳のときは initialization/1 のゴールを書き留めるだけで呼ばない。起動時の読み込みが呼ぶ。
+  if (machine.translation == nullptr && !run_inits(machine, inits)) {
     machine.heap.truncate(heap_base);
     // 節は残す。親の reject が、この例外で読んだ節まで消さないようにする。
     machine.load_kept = true;
@@ -169,15 +168,13 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
                 bool nested, LoadScan& scan, bool import_all = true);
 
 int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, bool import_all = true) {
-  std::ifstream input{file, std::ios::binary};
-  if (!input) {
+  const auto text = read_source(machine, file);
+  if (!text) {
     fail_load(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
     return -1;
   }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
   // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
-  if (!read_terms(machine, buffer.str(), utf8_from_path(file.parent_path()), utf8_from_path(file), true, scan,
+  if (!read_terms(machine, *text, utf8_from_path(file.parent_path()), utf8_from_path(file), true, scan,
                   import_all)) {
     return -1;
   }
@@ -230,10 +227,11 @@ std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directo
     const auto found = find_library(machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3)));
     if (!found) return formal_existence(machine, "source_sink", arg);
     file = *found;
+    if (machine.translation != nullptr) machine.translation->library_keys.push_back(utf8_from_path(canonical_key(file)));
     return std::nullopt;
   }
   if (arg.tag() != Tag::Atom) return formal_type(machine, "atom", arg);
-  file = prolog_source_path(resolve_include(directory, machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3))));
+  file = source_path(machine, resolve_include(directory, machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3))));
   return std::nullopt;
 }
 
@@ -274,7 +272,7 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
     return -1;
   }
   const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
-  const auto file = prolog_source_path(resolve_include(directory, name));
+  const auto file = source_path(machine, resolve_include(directory, name));
   // include は毎回足す。ensure_loaded は、準備済みのパスを節も初期化も足さない。
   if (once && file_ready(machine, scan, file)) return import_ready(machine, file);
   return open_prolog_file(machine, file, scan);
@@ -308,6 +306,46 @@ bool replaces_files(Impl& machine, Cell term) {
   return body.tag() == Tag::Str && machine.heap.functor_arity(body) == 1 &&
          machine.atoms.name(machine.heap.functor_atom(body)) == "consult";
 }
+
+// 翻訳のときだけ、足した節の位置を書き留める。どこにも定義の無い述語を呼ぶ警告がこの行を出す。
+void note_site(Impl& machine, std::size_t pred, std::size_t line) {
+  TranslationLog* log = machine.translation;
+  if (log == nullptr || log->current >= log->files.size() || pred >= machine.predicates.size()) return;
+  const Predicate& predicate = machine.predicates[pred];
+  log->sites.push_back(TranslationLog::Site{PredKey{predicate.module, predicate.name, predicate.arity},
+                                            predicate.clauses.size() - 1, log->current, line});
+}
+
+// 翻訳のときに開いたファイルの原文を書き留め、読み終えるまで節の行き先にする。include を 2 回読んでも 1 つ。
+// library(_) で開いたファイルと、そこから開いたファイルはライブラリとして印を付ける（翻訳は Task 10）。
+struct FileNote {
+  TranslationLog* log = nullptr;
+  std::size_t outer = 0;
+  FileNote(Impl& machine, std::string_view origin, std::string_view source) : log(machine.translation) {
+    if (log == nullptr) return;
+    outer = log->current;
+    if (origin.empty()) return;
+    const auto key = utf8_from_path(canonical_key(path_from_utf8(origin)));
+    for (std::size_t index = 0; index < log->files.size(); ++index) {
+      if (log->files[index].key == key) log->current = index;
+    }
+    if (log->current != outer) return;
+    const bool library = std::find(log->library_keys.begin(), log->library_keys.end(), key) != log->library_keys.end() ||
+                         (outer < log->files.size() && log->files[outer].library);
+    log->files.push_back(TranslationLog::File{key, std::string{source}, 0, 0, library});
+    log->current = log->files.size() - 1;
+  }
+  FileNote(const FileNote&) = delete;
+  FileNote& operator=(const FileNote&) = delete;
+  ~FileNote() {
+    if (log != nullptr) log->current = outer;
+  }
+  void first_term(const ReadTerm& read) const {
+    if (log == nullptr || log->current >= log->files.size() || log->files[log->current].line != 0) return;
+    log->files[log->current].line = read.line;
+    log->files[log->current].column = read.column;
+  }
+};
 
 bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_view directory,
                std::string_view origin, bool first, LoadScan& scan) {
@@ -348,7 +386,9 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
     return false;
   }
   remember_clause(machine, scan.snapshots, module, clause);
-  return add_clause(machine, module, std::move(clause), scan.last, scan.apart);
+  if (!add_clause(machine, module, std::move(clause), scan.last, scan.apart)) return false;
+  note_site(machine, scan.last, read.line);
+  return true;
 }
 
 // module/2 はこのテキストの中だけ節の行き先を変える。読み終えたら、読み込んだ側へ戻す。
@@ -373,6 +413,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
                 bool nested, LoadScan& scan, bool import_all) {
   CycleGuard guard;
   if (!enter_file(machine, origin, scan, guard)) return false;
+  const FileNote note{machine, origin, source};
   ModuleScope scope{machine};
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
   reader.set_fullwidth(machine.japanese_punct);
@@ -386,6 +427,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
       guard.finished = true;
       return scope.close(import_all);
     }
+    note.first_term(*outcome.term);
     if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan)) return false;
     first = false;
   }

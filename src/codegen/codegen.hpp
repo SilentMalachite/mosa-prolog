@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace mosa::codegen {
 
@@ -23,6 +24,28 @@ struct EmitResult {
 
 // module はモジュール名のアトム番号。unit_name は NativeUnit::name に入れる。
 [[nodiscard]] EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name);
+
+// 計画 Task 5。mosac emit が out/ に書く目録。name は out/ からの相対の名前である。
+struct ProjectFile {
+  std::string name;
+  std::string text;
+};
+
+struct ProjectOptions {
+  std::string runtime_dir;  // 生成する CMakeLists.txt の MOSA_RUNTIME_DIR の既定（emit した mosac のビルド木）
+  bool check_calls = true;  // --units（Task 11）は偽にする。存在エラーを確かめるテストも翻訳するため
+};
+
+// ok が偽なら files は空で、diagnostic に Prolog の行で書いた診断を改行で区切って入れる。
+struct Project {
+  bool ok = false;
+  std::string diagnostic;
+  std::vector<ProjectFile> files;
+};
+
+// path はコマンド行に書いたままのパスで、根のファイルの診断の頭になる。宣言だけを実行して読み（計画 Task 5）、
+// 根のファイルのモジュールと、読んだファイルのモジュールごとに単位を 1 つ出す。library(_) のモジュールは Task 10。
+[[nodiscard]] Project translate_program(std::string_view path, const ProjectOptions& options);
 
 // 英数字はそのまま、_ は __、ほかの UTF-8 のバイトは _ と 2 桁の 16 進（小文字）。
 [[nodiscard]] std::string mangle(std::string_view name);

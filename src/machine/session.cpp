@@ -213,22 +213,12 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
   }
 }
 
-// initialization(G, main) の入口。成功は 0、失敗は 1、例外は文面を出して 2、halt/1 の値はそのまま。
-// 答えの行は出さない。実行ファイルと同じ出力にするため。
+// 文面は run_main_goal が作る。mosac の実行ファイルも同じ関数で終わる（計画 Task 5）。
 int play_main(Machine& machine, const std::string& goal, Echo& echo) {
-  try {
-    const Stop stop = machine.query(goal);
-    if (stop.kind == StopKind::Halt) return stop.halt_code;
-    if (stop.kind == StopKind::Exception) {
-      warn_exception(machine, stop, echo);
-      return 2;
-    }
-    return stop.kind == StopKind::Failure ? 1 : 0;
-  } catch (const ResourceLimit&) {
-    recover_heap(machine);
-    warn_resource(machine, echo);
-    return 2;
-  }
+  std::string warning;
+  const int code = run_main_goal(machine, goal, warning);
+  if (!warning.empty()) echo.warn(warning);
+  return code;
 }
 
 ReadOutcome read_goal_text(Machine& machine, std::string_view text) {
@@ -328,6 +318,25 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
 }
 
 }  // namespace
+
+// initialization(G, main) の入口。成功は 0、失敗は 1、例外は文面を出して 2、halt/1 の値はそのまま。
+// 答えの行は出さない。実行ファイルと同じ出力にするため。
+int run_main_goal(Machine& machine, const std::string& goal, std::string& warning) {
+  try {
+    const Stop stop = machine.query(goal);
+    if (stop.kind == StopKind::Halt) return stop.halt_code;
+    if (stop.kind == StopKind::Exception) {
+      const std::array<Cell, 1> args{stop.exception};
+      warning += render_message(machine, "goal_raised", args) + "\n";
+      return 2;
+    }
+    return stop.kind == StopKind::Failure ? 1 : 0;
+  } catch (const ResourceLimit&) {
+    recover_heap(machine);
+    warning += render_message_fresh(engine_impl(machine).message_lang, "heap_limit") + "\n";
+    return 2;
+  }
+}
 
 SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty,
                            std::size_t heap_limit, std::ostream* live_out, std::ostream* live_err) {

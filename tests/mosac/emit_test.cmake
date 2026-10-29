@@ -1,0 +1,92 @@
+# 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
+# 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|silent> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+#   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
+#   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
+#   -DMOSA_LIB=<lib/> -P emit_test.cmake
+
+# 前回の out/ が残ると、.cpp が無いことの確かめが意味を持たない。
+file(REMOVE_RECURSE "${WORK}")
+file(MAKE_DIRECTORY "${WORK}")
+set(out_dir "${WORK}/out")
+
+# 診断の頭はコマンド行に書いたパスのままなので、ファイル名だけを渡す。
+execute_process(COMMAND "${MOSAC}" emit "${CASE}.pl" -o "${out_dir}"
+  WORKING_DIRECTORY "${SRC}"
+  OUTPUT_VARIABLE emit_out
+  ERROR_VARIABLE emit_err
+  RESULT_VARIABLE emit_code
+  TIMEOUT 60)
+
+function(expect_no_cpp)
+  file(GLOB written "${out_dir}/*.cpp")
+  if(written)
+    message(FATAL_ERROR "${CASE}: .cpp written on error: ${written}")
+  endif()
+endfunction()
+
+if(CASE STREQUAL "broken")
+  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^broken\\.pl:2:[0-9]+: ")
+    message(FATAL_ERROR "broken: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+  endif()
+  expect_no_cpp()
+  return()
+endif()
+
+if(CASE STREQUAL "undefined")
+  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1")
+    message(FATAL_ERROR "undefined: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+  endif()
+  expect_no_cpp()
+  return()
+endif()
+
+# 翻訳のときの読み込みは宣言だけを実行する。silent.pl の :- write(x). はここでは何も書かない。
+if(NOT emit_code EQUAL 0 OR NOT emit_out STREQUAL "")
+  message(FATAL_ERROR "${CASE}: emit code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+endif()
+
+# 旗（ASan など）も本体に合わせる。libmosa の記号を引く側が同じ旗でないとリンクできない。
+set(configure_args -S "${out_dir}" -B "${out_dir}/build" -G "${GENERATOR}" "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}"
+  "-DCMAKE_CXX_FLAGS=${CXX_FLAGS}" "-DCMAKE_EXE_LINKER_FLAGS=${LINKER_FLAGS}")
+# Visual Studio の生成器はコンパイラを -A と構成から選ぶ。
+if(NOT GENERATOR MATCHES "^Visual Studio")
+  list(APPEND configure_args "-DCMAKE_CXX_COMPILER=${CXX}")
+endif()
+if(PLATFORM)
+  list(APPEND configure_args -A "${PLATFORM}")
+endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" ${configure_args}
+  OUTPUT_VARIABLE configure_out ERROR_VARIABLE configure_err RESULT_VARIABLE configure_code TIMEOUT 300)
+if(NOT configure_code EQUAL 0)
+  message(FATAL_ERROR "${CASE}: configure code=${configure_code} out=[${configure_out}] err=[${configure_err}]")
+endif()
+
+set(build_args --build "${out_dir}/build")
+if(CONFIG)
+  list(APPEND build_args --config "${CONFIG}")
+endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" ${build_args}
+  OUTPUT_VARIABLE build_out ERROR_VARIABLE build_err RESULT_VARIABLE build_code TIMEOUT 600)
+if(NOT build_code EQUAL 0)
+  message(FATAL_ERROR "${CASE}: build code=${build_code} out=[${build_out}] err=[${build_err}]")
+endif()
+
+# 複数構成の生成器（Visual Studio）は構成名のディレクトリへ出す。
+set(exe "${out_dir}/build/${CONFIG}/${CASE}${EXE_SUFFIX}")
+if(NOT EXISTS "${exe}")
+  set(exe "${out_dir}/build/${CASE}${EXE_SUFFIX}")
+endif()
+# 単独の実行ファイルが lib/ を探さないのは Task 10。それまでは文面の表を MOSA_LIB から読む。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${exe}"
+  OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err RESULT_VARIABLE run_code TIMEOUT 60)
+
+if(CASE STREQUAL "hello")
+  set(expected "こんにちは\n")
+else()
+  set(expected "x")
+endif()
+string(REPLACE "\r\n" "\n" run_out "${run_out}")
+if(NOT run_code EQUAL 0 OR NOT run_out STREQUAL expected)
+  message(FATAL_ERROR "${CASE}: run code=${run_code} out=[${run_out}] err=[${run_err}]")
+endif()

@@ -1,6 +1,11 @@
+#include "internal.hpp"
+
 #include "mosa/path_text.hpp"
 
 #include <filesystem>
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -39,6 +44,38 @@ std::filesystem::path prolog_source_path(const std::filesystem::path& file) {
   with_pl.replace_extension(".pl");
   if (is_source_file(with_pl)) return with_pl;
   return file;
+}
+
+namespace {
+
+const EmbeddedSource* embedded_of(const Impl& machine, const std::filesystem::path& file) {
+  if (machine.embedded.empty()) return nullptr;
+  const auto key = utf8_from_path(canonical_key(file));
+  for (const EmbeddedSource& source : machine.embedded) {
+    if (source.key == key) return &source;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+// 実行ファイルは埋め込んだ原文を先に引く（計画 Task 5）。埋め込みが無ければ今までどおりファイルを読む。
+std::optional<std::string> read_source(const Impl& machine, const std::filesystem::path& file) {
+  if (const EmbeddedSource* source = embedded_of(machine, file)) return source->text;
+  std::ifstream input{file, std::ios::binary};
+  if (!input) return std::nullopt;
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+// 翻訳のときに .pl を足して開いた名前は、起動した場所にファイルが無くても同じパスにする。
+std::filesystem::path source_path(const Impl& machine, const std::filesystem::path& file) {
+  if (embedded_of(machine, file) != nullptr || !file.extension().empty()) return file;
+  auto with_pl = file;
+  with_pl.replace_extension(".pl");
+  if (embedded_of(machine, with_pl) != nullptr) return with_pl;
+  return prolog_source_path(file);
 }
 
 }  // namespace mosa

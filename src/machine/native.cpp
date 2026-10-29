@@ -4,7 +4,9 @@
 #include "internal.hpp"
 
 #include "mosa/goal_word.hpp"
+#include "mosa/path_text.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <span>
@@ -110,6 +112,26 @@ void attach_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& unit) {
   }
 }
 
+// 埋め込んだファイルの単位は、そのパスのファイルとして読む（計画 Task 5）。根の単位の include/1 や
+// use_module/1 が先に読んでいれば読み直さず、付けるだけにする。埋め込みの無い単位は今までどおり文字だけで読む。
+bool load_unit(Impl& machine, const rt::NativeUnit& unit) {
+  const auto key = utf8_from_path(canonical_key(path_from_utf8(unit.name)));
+  const bool embedded = std::any_of(machine.embedded.begin(), machine.embedded.end(),
+                                    [&](const EmbeddedSource& source) { return source.key == key; });
+  if (!embedded) return load_source(machine, unit.source).ok;
+  if (std::find(machine.prepared.begin(), machine.prepared.end(), key) != machine.prepared.end()) return true;
+  try {
+    if (load_source(machine, unit.source, utf8_from_path(path_from_utf8(key).parent_path()), key).ok) return true;
+  } catch (const ResourceLimit&) {
+    // 上限に達したヒープではカタログを読めない。message_text は新しいマシンで文面を作る。
+    machine.heap.truncate(0);
+    machine.diagnostic = message_text(machine, "heap_limit");
+    return false;
+  }
+  prefix_consult_diagnostic(machine, unit.name);
+  return false;
+}
+
 std::uint64_t* writable(Impl& machine, std::size_t at) {
   // 語はヒープそのもの。data() は読み出し用の const なので、書く番地へ戻す。
   return const_cast<std::uint64_t*>(machine.heap.data()) + at;
@@ -163,8 +185,8 @@ bool install_unit(Machine& machine, const NativeUnit& unit) {
   Impl& impl = engine_impl(machine);
   const auto slot = unit_slot(impl, unit.tag);
   impl.native_units[slot] = build_unit(impl, unit);
-  // 埋め込みの原文は今の読み込み器で読む。include/1 などを単位の名前で引くのは後の段（ADR 0009）。
-  if (!load_source(impl, unit.source).ok) return false;
+  // 埋め込みの原文は今の読み込み器で読む。library(_) を単位で引くのは Task 10（ADR 0009）。
+  if (!load_unit(impl, unit)) return false;
   attach_unit(impl, slot, unit);
   return true;
 }

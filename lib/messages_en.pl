@@ -24,6 +24,10 @@ message(incomplete_term, 'incomplete term').
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~n--report may be omitted only when tests/conformance is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
+message(mosac_usage, 'mosac: usage: mosac emit <file> -o <directory>').
+message(mosac_cannot_write, 'mosac: cannot write: ~w').
+message(mosac_undefined_call, 'call to undefined procedure ~w').
+message(mosac_export_undefined, 'exported procedure ~w is not defined').
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').
 message(clauses_apart, 'clauses of ~w are not together').

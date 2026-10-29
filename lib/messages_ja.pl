@@ -24,6 +24,10 @@ message(incomplete_term, '項が閉じていません').
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
+message(mosac_usage, 'mosac: 使い方: mosac emit <ファイル> -o <ディレクトリ>').
+message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
+message(mosac_undefined_call, '~w を呼んでいるが、どこにも定義が無い').
+message(mosac_export_undefined, '~w を export したが定義が無い').
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').
 message(clauses_apart, '述語 ~w の節が離れている').

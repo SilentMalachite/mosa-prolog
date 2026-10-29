@@ -123,4 +123,10 @@ void proceed(Machine::Impl& machine, std::uint64_t cont);
 void fail(Machine::Impl& machine);
 void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t entry, std::uint64_t frame,
                       std::uint32_t clause);
+
+// mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
+// 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。
+void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする
+void embed(Machine& machine, std::string_view path, std::string_view source);  // include/1 などがファイルより先に引く
+[[nodiscard]] int finish(Machine& machine, bool loaded);  // 読めなければ診断を出して 1。main は Task 2 の終了コード
 }

@@ -11,6 +11,7 @@
 #include "../module/module.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <initializer_list>
 #include <optional>
 #include <span>
@@ -163,6 +164,34 @@ struct UnitState {
 
 namespace mosa {
 
+// mosac の翻訳の読み込み（計画 Task 5）。Impl::translation が在る間、読み込み器は宣言だけを実行し
+// （一般の指示のゴールと initialization/1 は呼ばない）、開いたファイルの原文と節の位置を書き留める。
+struct TranslationLog {
+  struct File {
+    std::string key;  // 正規化したパス。実行ファイルの埋め込みの鍵になる
+    std::string text;
+    std::size_t line = 0;  // 最初の項の位置。module/2 の診断に使う
+    std::size_t column = 0;
+    bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（Task 10 まで翻訳しない）
+  };
+  struct Site {
+    PredKey pred;
+    std::size_t clause = 0;
+    std::size_t file = 0;
+    std::size_t line = 0;
+  };
+  std::vector<File> files;
+  std::vector<Site> sites;
+  std::vector<std::string> library_keys;
+  std::size_t current = static_cast<std::size_t>(-1);  // 読んでいるファイルの files の添字
+};
+
+// 実行ファイルに埋め込んだ原文。include/1 などはファイルシステムより先にこれを正規化したパスで引く。
+struct EmbeddedSource {
+  std::string key;
+  std::string text;
+};
+
 struct ExportedTerm {
   enum class Kind { Var, Atom, Int, Float, List, Str, Share };
   struct Node {
@@ -294,6 +323,8 @@ struct Machine::Impl {
   std::vector<rt::UnitState> native_units;
   rt::NativeProc native_next = nullptr;
   std::size_t native_cut = 0;
+  TranslationLog* translation = nullptr;
+  std::vector<EmbeddedSource> embedded;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }
 };
@@ -485,6 +516,16 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] int apply_file_list(Impl& machine, Cell term, std::string_view directory,
                                   std::vector<std::string>& opening);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
+// 定義は load_path.cpp。読み込みのファイルの鍵（Module::file、prepared、埋め込み）にする正規化したパス。
+[[nodiscard]] std::filesystem::path canonical_key(const std::filesystem::path& file);
+// 埋め込みの原文を先に引き、無ければファイルを読む。開けなければ nullopt。
+[[nodiscard]] std::optional<std::string> read_source(const Impl& machine, const std::filesystem::path& file);
+// 拡張子の無い名前に .pl を足すかを、埋め込みの原文も見て決める。
+[[nodiscard]] std::filesystem::path source_path(const Impl& machine, const std::filesystem::path& file);
+// 定義は consult.cpp。読み込みの診断にパスと、構文エラーなら行と列を付ける。
+void prefix_consult_diagnostic(Impl& machine, std::string_view path);
+// 定義は session.cpp。initialization(G, main) を Task 2 の規則で動かし、終了コードを返す。文面は warning に足す。
+[[nodiscard]] int run_main_goal(Machine& machine, const std::string& goal, std::string& warning);
 // 定義は native.cpp。翻訳器（Task 4）も同じ関数で指紋を出す。
 [[nodiscard]] std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate);
 // install_unit が生成関数を付けてよい述語か（指紋は見ない）。翻訳器も同じ関数で出す述語を選ぶ。

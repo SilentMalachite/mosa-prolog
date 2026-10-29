@@ -525,6 +525,8 @@ int run_directive_goal(Impl& machine, Cell term) {
     fail_load(machine, message_text(machine, "directive_unsupported", {text}));
     return -1;
   }
+  // 翻訳のときは宣言だけを実行する（計画 Task 5）。ゴールは起動時の読み込みが呼ぶ。
+  if (machine.translation != nullptr) return 1;
   if (machine.load_module != machine.user_module) {
     const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
     goal = machine.heap.structure(machine.atoms.intern(":"), parts);

@@ -26,6 +26,9 @@ struct ReadTerm {
   std::vector<VarName> singletons;
   // 匿名を含む、最初の出現順。`_` は出現のたびに別の要素。
   std::vector<Cell> variables;
+  // 項の最初のトークンの位置。mosac の診断が Prolog の行で知らせる（計画 Task 5）。
+  std::size_t line = 1;
+  std::size_t column = 1;
 };
 
 struct ReadOutcome {

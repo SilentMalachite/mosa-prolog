@@ -336,6 +336,8 @@ ReadOutcome Reader::next() {
   consume();
   ReadTerm term;
   term.term = parsed.term;
+  term.line = first.token.line;
+  term.column = first.token.column;
   for (const VarRec& var : vars_) {
     term.names.push_back(VarName{var.name, var.cell});
     if (var.count == 1) term.singletons.push_back(VarName{var.name, var.cell});

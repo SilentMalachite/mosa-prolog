@@ -6,7 +6,10 @@
 
 #include "codegen/codegen.hpp"
 #include "machine/internal.hpp"
+#include "mosa/path_text.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -112,6 +115,43 @@ void japanese_unit() {
 
 }  // namespace
 
+// 計画 Task 5。読んだファイルのモジュールごとに単位を 1 つ出し、根の単位を先に入れる。
+// 翻訳のときの読み込みは宣言だけを実行するので、:- assertz の指示は節を足さない（足せば seen/1 の呼び出しは
+// 定義があることになり、下の未定義の警告が出なくなる）。
+void write_file(const std::filesystem::path& path, std::string_view text) {
+  std::ofstream out{path, std::ios::binary};
+  out << text;
+}
+
+const mosa::codegen::ProjectFile* find_file(const mosa::codegen::Project& project, std::string_view name) {
+  for (const auto& file : project.files) {
+    if (file.name == name) return &file;
+  }
+  return nullptr;
+}
+
+void project_modules() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_project";
+  std::filesystem::create_directories(dir);
+  write_file(dir / "app.pl", ":- use_module(two).\n:- include(part).\nmain :- twice(1, X), part(X).\n");
+  write_file(dir / "part.pl", "part(_).\n");
+  write_file(dir / "two.pl", ":- module(two, [twice/2]).\ntwice(X, Y) :- Y is X * 2.\n");
+  const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "app.pl"), {});
+  check(project.ok, "project ok: " + project.diagnostic);
+  check(find_file(project, "m_user.cpp") != nullptr && find_file(project, "m_two.cpp") != nullptr, "unit per module");
+  const auto* main_file = find_file(project, "main.cpp");
+  check(main_file != nullptr && has(main_file->text, "part.pl"), "include embedded");
+  const auto user_at = main_file == nullptr ? std::string::npos : main_file->text.find("m_user::unit(");
+  const auto two_at = main_file == nullptr ? std::string::npos : main_file->text.find("m_two::unit(");
+  check(user_at != std::string::npos && two_at != std::string::npos && user_at < two_at, "root unit first");
+  write_file(dir / "skip.pl", ":- assertz(seen(1)).\nmain :- seen(1).\n");
+  const auto skipped = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), {});
+  check(!skipped.ok && has(skipped.diagnostic, ":2: ") && has(skipped.diagnostic, "seen/1"), "directive skipped");
+  mosa::codegen::ProjectOptions units;
+  units.check_calls = false;
+  check(mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), units).ok, "units do not stop on calls");
+}
+
 int main() {
   mangle_names();
   app_unit();
@@ -121,5 +161,6 @@ int main() {
   meta_skipped();
   dynamic_skipped();
   japanese_unit();
+  project_modules();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

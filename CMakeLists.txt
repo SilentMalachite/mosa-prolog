@@ -32,8 +32,10 @@ target_link_libraries(mosatest PRIVATE mosa_lib)
 
 # library(...) は実行ファイルの隣の lib/ を探す（SPEC 第5節）。POST_BUILD は再リンクのときしか動かず、
 # lib/*.pl だけを直したビルドで古い写しが残るので、ビルドのたびに写す目標にする。
+# include/ も写す。mosac emit の CMakeLists.txt は mosac の隣で libmosa と include/ を引く（計画 Task 5）。
 add_custom_target(mosa_lib_dir ALL
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lib $<TARGET_FILE_DIR:mosa>/lib)
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lib $<TARGET_FILE_DIR:mosa>/lib
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/include $<TARGET_FILE_DIR:mosac>/include)
 foreach(command mosa mosac mosatest)
   add_dependencies(${command} mosa_lib_dir)
 endforeach()
@@ -51,6 +53,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/load_clauses.cpp
   src/machine/native.cpp
   src/machine/native_redo.cpp
+  src/machine/native_main.cpp
   src/machine/load_directive.cpp
   src/module/module_table.cpp
   src/module/qualify.cpp
@@ -119,6 +122,8 @@ target_sources(mosa_lib PRIVATE
   src/codegen/emit_head.cpp
   src/codegen/emit_body.cpp
   src/codegen/mangle.cpp
+  src/codegen/project.cpp
+  src/codegen/check.cpp
 )
 
 enable_testing()
@@ -340,8 +345,20 @@ add_test(NAME native COMMAND $<TARGET_FILE:native_test>)
 
 add_executable(codegen_test tests/cpp/codegen_test.cpp)
 target_include_directories(codegen_test PRIVATE tests/cpp src)
+target_compile_definitions(codegen_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(codegen_test PRIVATE mosa_lib)
 add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
+
+# mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
+foreach(emit_case hello broken undefined silent)
+  add_test(NAME mosac_emit_${emit_case} COMMAND ${CMAKE_COMMAND}
+    -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${emit_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+    -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_${emit_case} "-DGENERATOR=${CMAKE_GENERATOR}"
+    "-DPLATFORM=${CMAKE_GENERATOR_PLATFORM}" "-DCXX=${CMAKE_CXX_COMPILER}" "-DBUILD_TYPE=${CMAKE_BUILD_TYPE}"
+    "-DCONFIG=$<CONFIG>" "-DCXX_FLAGS=${CMAKE_CXX_FLAGS}" "-DLINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}"
+    "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+    -P ${CMAKE_SOURCE_DIR}/tests/mosac/emit_test.cmake)
+endforeach()
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)

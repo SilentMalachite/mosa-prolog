@@ -4,14 +4,11 @@
 #include "mosa/path_text.hpp"
 
 #include <filesystem>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace mosa {
-namespace {
 
 void prefix_consult_diagnostic(Impl& machine, std::string_view path) {
   if (machine.syntax_diag) {
@@ -21,6 +18,8 @@ void prefix_consult_diagnostic(Impl& machine, std::string_view path) {
   }
   machine.diagnostic = std::string{path} + ": " + machine.diagnostic;
 }
+
+namespace {
 
 void note_failure(Impl& machine, std::string message) {
   machine.diagnostic = std::move(message);
@@ -157,16 +156,14 @@ int collect_files(Impl& machine, Cell term, std::vector<Cell>& items) {
 }
 
 int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<std::string>& opening) {
-  std::ifstream input{file, std::ios::binary};
-  if (!input) {
+  const auto text = read_source(machine, file);
+  if (!text) {
     note_failure(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
     return -1;
   }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
   const auto saved = mark_seen(machine);
   const LoadStatus status =
-      load_source(machine, buffer.str(), utf8_from_path(file.parent_path()), utf8_from_path(file), &opening);
+      load_source(machine, *text, utf8_from_path(file.parent_path()), utf8_from_path(file), &opening);
   restore_seen(machine, saved);
   if (status.ok) return 1;
   prefix_consult_diagnostic(machine, utf8_from_path(file));
@@ -193,16 +190,14 @@ int apply_file_list(Impl& machine, Cell term, std::string_view directory, std::v
 }
 
 bool Machine::consult(std::string_view path) {
-  std::ifstream input{path_from_utf8(path), std::ios::binary};
   Impl& impl = engine_impl(*this);
-  if (!input) {
+  const auto text = read_source(impl, path_from_utf8(path));
+  if (!text) {
     impl.diagnostic = message_text(impl, "cannot_open_file", {path});
     impl.syntax_diag = false;
     return false;
   }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  const LoadStatus status = load_consulted(impl, path, buffer.str());
+  const LoadStatus status = load_consulted(impl, path, *text);
   if (status.ok) {
     impl.diagnostic.clear();
     return true;
@@ -222,18 +217,16 @@ bool run_consult(Impl& machine, const Goal& goal) {
     return true;
   }
   const auto text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
-  std::ifstream input{path_from_utf8(text), std::ios::binary};
-  if (!input) {
+  const auto source = read_source(machine, path_from_utf8(text));
+  if (!source) {
     machine.diagnostic = message_text(machine, "cannot_open_file", {text});
     machine.failed = true;
     return true;
   }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
   // 公開述語は consult を呼んだ文脈モジュールへ取り込む。
   const auto outer = machine.load_module;
   machine.load_module = goal.module;
-  const LoadStatus status = load_consulted(machine, text, buffer.str());
+  const LoadStatus status = load_consulted(machine, text, *source);
   machine.load_module = outer;
   if (!status.ok) {
     prefix_consult_diagnostic(machine, text);
