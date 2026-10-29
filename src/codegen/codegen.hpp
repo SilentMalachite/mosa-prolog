@@ -78,5 +78,7 @@ struct Project {
 
 // 英数字はそのまま、_ は _5f、ほかの UTF-8 のバイトは _ と 2 桁の 16 進（小文字）。
 [[nodiscard]] std::string mangle(std::string_view name);
+// 生成コードの // のコメントに置く断片。制御文字は空白にし、行末の \ が次の行をつながないよう . を足す。
+[[nodiscard]] std::string comment_safe(std::string_view text);
 
 }  // namespace mosa::codegen

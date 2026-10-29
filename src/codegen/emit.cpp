@@ -46,14 +46,24 @@ void first_of(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, rt::Nati
 
 constexpr std::string_view kUsings = "using mosa::Cell;\nusing mosa::Machine;\nusing mosa::Tag;\nnamespace rt = mosa::rt;\n\n";
 
-// 単位とモジュールの名前は引用したアトムなら改行を含みうる。1 行のコメントを壊さない。
+}  // namespace
+
+// 単位とモジュールの名前は引用したアトムなら改行を含みうる。1 行のコメントを壊さない。縦タブと改頁も、
+// // のコメントの中では後ろに空白しか置けない（[lex.comment]）ので、制御文字はまとめて空白にする。
+// 行末の \ は次の行をコメントにつなぎ（[lex.phases] の 2）、生成コードが黙って消える。\ の後に空白を置いても
+// GCC と Clang はつなぐので、空白でない . を足す。どこに置いても行末になりうるよう、断片ごとにここで直す。
 std::string comment_safe(std::string_view text) {
   std::string out{text};
   for (char& unit : out) {
-    if (unit == '\n' || unit == '\r') unit = ' ';
+    const auto byte = static_cast<unsigned char>(unit);
+    if (byte < 0x20 || byte == 0x7F) unit = ' ';
   }
+  const auto last = out.find_last_not_of(' ');
+  if (last != std::string::npos && out[last] == '\\') out += '.';
   return out;
 }
+
+namespace {
 
 bool same_float_value(double left, double right) {
   if (std::isnan(left) || std::isnan(right)) return std::isnan(left) && std::isnan(right);
@@ -265,7 +275,7 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   std::string comments;
   for (const Clause& clause : predicate.clauses) {
     texts.push_back(writer.text(clause));
-    comments += "// % " + texts.back() + "\n";
+    comments += "// % " + comment_safe(texts.back()) + "\n";
   }
   const std::string label = pred_label(machine, predicate);
   if (!native_eligible(machine, predicate)) {

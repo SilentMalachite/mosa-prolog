@@ -267,6 +267,32 @@ void octal_before_digit() {
   check(!has(result.source, "\\2021"), "no digit directly after an octal escape");
 }
 
+// 行末が \ の // コメントは次の行をつなぎ、生成コードが黙って消える。\ の後に空白を置いても GCC と Clang はつなぐ。
+bool line_ends_in_backslash(const std::string& text) {
+  std::istringstream lines{text};
+  for (std::string line; std::getline(lines, line);) {
+    const auto last = line.find_last_not_of(" \t\r");
+    if (last != std::string::npos && line[last] == '\\') return true;
+  }
+  return false;
+}
+
+// 単位とモジュールと述語の名前、節の文面が \ で終わっても、コメントの行は \ で終わらない。
+void comment_backslash() {
+  check(mosa::codegen::comment_safe("dir\\") == "dir\\.", "comment_safe closes a trailing backslash");
+  check(mosa::codegen::comment_safe("a\\ \n") == "a\\  .", "comment_safe closes a backslash before blanks");
+  check(mosa::codegen::comment_safe("a\vb\fc") == "a b c", "comment_safe blanks vertical tab and form feed");
+  check(mosa::codegen::comment_safe("a\\b") == "a\\b", "comment_safe keeps an inner backslash");
+  auto machine = Machine::create();
+  check(machine->load_program(":- module('m\\\\', []).\n'p\\\\'(\\).\n(\\).\n").ok, "load a module named m\\");
+  const EmitResult result = emit_module(*machine, machine->atoms().intern("m\\"), "dir\\");
+  check(has(result.source, "// mosac が単位 dir\\. のモジュール m\\. から"), "banner closes backslash names");
+  check(has(result.source, "% 'p\\\\'(\\)."), "clause comment keeps the quoted name");
+  check(has(result.source, "% \\."), "clause comment for the atom \\");
+  check(!line_ends_in_backslash(result.source), "no source line ends in a backslash");
+  check(!line_ends_in_backslash(result.header), "no header line ends in a backslash");
+}
+
 }  // namespace
 
 // 計画 Task 5。読んだファイルのモジュールごとに単位を 1 つ出し、根の単位を先に入れる。
@@ -351,6 +377,7 @@ int main() {
   dynamic_skipped();
   japanese_unit();
   octal_before_digit();
+  comment_backslash();
   project_modules();
   project_opaque();
   return mosa_test::failures() == 0 ? 0 : 1;
