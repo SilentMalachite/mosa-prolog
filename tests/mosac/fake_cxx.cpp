@@ -1,10 +1,13 @@
 // mosac_internal_error の偽のコンパイラ（計画 Task 9）。find_toolchain は `<cxx> --version` が 0 で終わるものだけを
 // コンパイラと認めるので、--version にだけは答える。生成コード（.mosac-cache の .cpp）のコンパイルは必ず失敗し、
 // 生の誤りを標準エラーに書く。その文面が --verbose のときだけ mosac の出力に出ることを、テストが確かめる。
-// MOSA_FAKE_REAL_CXX が空でなければ（目標 mosac_fake_cxx_forward）、ほかの呼び出しは本物のコンパイラに渡す。
+// kRealCxx（configure_file が作る fake_cxx_config.hpp）が空でなければ（目標 mosac_fake_cxx_forward）、
+// ほかの呼び出しは本物のコンパイラに渡す。
 // CMake の configure が試すコンパイルを通し、CMake の道でも生成コードの段で失敗させるためである。転送は POSIX の
 // sh の引用で書く。Windows では cl 以外のコンパイラは直接の道を通るので、転送する版は使わない。
 // 空なら（目標 mosac_fake_cxx）どの呼び出しも失敗し、CMake の道では configure の段で失敗する。
+#include "fake_cxx_config.hpp"
+
 #include <cstdio>
 #include <cstdlib>
 #include <span>
@@ -13,7 +16,7 @@
 
 namespace {
 
-constexpr std::string_view kReal = MOSA_FAKE_REAL_CXX;
+constexpr std::string_view kReal = kRealCxx;
 
 std::string sh_quoted(std::string_view arg) {
   std::string out = "'";

@@ -128,9 +128,10 @@ std::string cmake_text(const Impl& machine, const std::vector<UnitPlan>& units, 
   out += "target_link_libraries(" + name + " PRIVATE \"${MOSA_RUNTIME_LIBRARY}\")\n";
   out += "# libmosa の CommandLineToArgvW（src/platform/command_line.cpp）。静的ライブラリからは伝わらない。\n";
   out += "if(WIN32)\n  target_link_libraries(" + name + " PRIVATE shell32)\nendif()\n";
-  out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。\n";
+  out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。/EHsc は mosac build が\n";
+  out += "# CMAKE_CXX_FLAGS を空にしても残るよう、ここに置く（直接の道の旗と同じ）。\n";
   out += "target_compile_options(" + name + " PRIVATE\n";
-  out += "  $<$<CXX_COMPILER_ID:MSVC>:/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";
+  out += "  $<$<CXX_COMPILER_ID:MSVC>:/EHsc;/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";
   out += "  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>)\n";
   out += "# 警告を誤りにするのは頼まれたときだけ。新しいコンパイラの警告で利用者のビルドを止めない。\n";
   out += "option(MOSA_WARNINGS_AS_ERRORS \"Treat warnings as errors\" OFF)\n";

@@ -1,0 +1,7 @@
+#pragma once
+
+// configure_file が tests/mosac/fake_cxx_config.hpp.in から作る（計画 Task 9）。手で直さない。
+// 偽のコンパイラが生成コード以外の呼び出しを渡す本物のコンパイラ。空ならどの呼び出しも失敗させる。
+#include <string_view>
+
+inline constexpr std::string_view kRealCxx = "@fake_real_cxx@";

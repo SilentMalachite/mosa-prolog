@@ -269,8 +269,10 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
                        const RuntimeLayout& runtime) {
   const bool cmake = use_cmake(toolchain);
   const std::string target = target_name(request.source);
-  CacheKeyInputs inputs{project.files, &toolchain, &runtime, cmake ? "cmake " + utf8_from_path(*toolchain.cmake) + " " + toolchain.cmake_version : "direct",
-                        cmake ? cmake_defines(toolchain, runtime, request.debug) : compile_flags(toolchain, runtime, request.debug),
+  const std::string mode = cmake ? "cmake " + utf8_from_path(*toolchain.cmake) + " " + toolchain.cmake_version : "direct";
+  CacheKeyInputs inputs{project.files, &toolchain, &runtime, mode,
+                        cmake ? cmake_defines(toolchain, runtime, request.debug)
+                              : compile_flags(toolchain, runtime, request.debug),
                         target};
   if (!cmake) append(inputs.flags, link_flags(toolchain, runtime));
   const auto key = cache_key(inputs);
