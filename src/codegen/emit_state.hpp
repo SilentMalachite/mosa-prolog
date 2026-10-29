@@ -141,6 +141,8 @@ void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>
                                      const std::vector<std::string>& prefix);
 // 整数セルの式。選択点の高さなどを枠の変数として運ぶ。
 [[nodiscard]] std::string mark_cell(std::string_view value);
+// 生成した文面が識別子 ident を使うか。使わない局所変数や引数を出さないために見る（警告を誤りにしてある）。
+[[nodiscard]] bool uses_identifier(std::string_view text, std::string_view ident);
 void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, const BodyEnv& env);
 [[nodiscard]] ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate& predicate,
                                      const ClauseName& name);
@@ -150,5 +152,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
 void count_branch(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module, std::vector<int>& counts);
 void emit_or(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
              const BodyEnv& env);
+void emit_if_then(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
+                  const BodyEnv& env);
 
 }  // namespace mosa::codegen

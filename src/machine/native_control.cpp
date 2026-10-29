@@ -10,6 +10,8 @@
 
 namespace mosa::rt {
 
+std::size_t choice_mark(Machine::Impl& machine) { return machine.stack.size(); }
+
 // 継続枠の語 1 の下位 32 ビットが状態、語 4 が生成関数（resume_frame の置き方）。枠から読めば、生成コードが
 // 状態と関数を二度書かずに済む。
 void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {

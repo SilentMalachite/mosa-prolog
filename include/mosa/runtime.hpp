@@ -81,6 +81,9 @@ inline constexpr std::uint32_t kCall = 0;
 [[nodiscard]] inline std::uint64_t frame_cut(const Regs& regs, std::uint64_t frame) { return regs.words[frame + 2]; }
 [[nodiscard]] inline std::uint64_t frame_cont(const Regs& regs, std::uint64_t frame) { return regs.words[frame + 3]; }
 
+// small_int の逆。制御構文は選択点の高さを継続枠の変数（整数セル）で運ぶ。符号付きの右シフトは C++20 で算術。
+[[nodiscard]] inline std::int64_t small_value(Cell cell) { return static_cast<std::int64_t>(cell.raw()) >> 3; }
+
 // alloc で取った塊に項を書く。番地はヒープの語そのもので、未束縛の変数は自分を指す。
 [[nodiscard]] inline Cell put_ref(std::uint64_t* slot) {
   const auto address = std::bit_cast<std::uint64_t>(slot);
@@ -125,6 +128,7 @@ void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t en
                       std::uint32_t clause);
 
 // 制御構文（計画 Task 7）。枠は resume_frame で作った継続枠で、その状態から生成関数を呼び直す。
+[[nodiscard]] std::size_t choice_mark(Machine::Impl& machine);  // 選択点の高さ。条件のカット境界と、切り戻す先
 void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut);  // (A ; B) の B。やり直しで枠の状態へ
 
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。

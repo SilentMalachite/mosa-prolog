@@ -48,22 +48,7 @@ bool identifier_unit(char unit) {
   return unit == '_' || (unit >= '0' && unit <= '9') || (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z');
 }
 
-// 本文が識別子 ident を使うか。fail や throw だけの状態は r や frame を読まないので、使わない引数は名前を伏せる
-// （-Wunused-parameter を誤りにしてある）。
-bool uses_identifier(const std::string& body, std::string_view ident) {
-  std::size_t at = 0;
-  while (at < body.size()) {
-    if (!identifier_unit(body[at])) {
-      at += 1;
-      continue;
-    }
-    const std::size_t start = at;
-    while (at < body.size() && identifier_unit(body[at])) at += 1;
-    if (std::string_view{body}.substr(start, at - start) == ident) return true;
-  }
-  return false;
-}
-
+// fail や throw だけの状態は r や frame を読まないので、使わない引数は名前を伏せる（-Wunused-parameter を誤りにしてある）。
 std::string function_text(const std::string& name, const std::string& body) {
   const std::string regs = uses_identifier(body, "r") ? "const rt::Regs& r" : "const rt::Regs& /*r*/";
   const std::string frame = uses_identifier(body, "frame") ? "std::uint64_t frame" : "std::uint64_t /*frame*/";
@@ -118,6 +103,20 @@ void emit_call(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& ref, std::span<c
 
 }  // namespace
 
+bool uses_identifier(std::string_view text, std::string_view ident) {
+  std::size_t at = 0;
+  while (at < text.size()) {
+    if (!identifier_unit(text[at])) {
+      at += 1;
+      continue;
+    }
+    const std::size_t start = at;
+    while (at < text.size() && identifier_unit(text[at])) at += 1;
+    if (text.substr(start, at - start) == ident) return true;
+  }
+  return false;
+}
+
 bool translatable_body(const Impl& machine, const IrTerm& body) {
   switch (body.tag) {
     case IrTag::True:
@@ -130,8 +129,11 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
              translatable_body(machine, body.args[1]);
     case IrTag::Or:
-      return body.args.size() == 2 && body.args[0].tag != IrTag::IfThen && body.args[0].tag != IrTag::SoftIf &&
-             translatable_body(machine, body.args[0]) && translatable_body(machine, body.args[1]);
+      return body.args.size() == 2 && body.args[0].tag != IrTag::SoftIf && translatable_body(machine, body.args[0]) &&
+             translatable_body(machine, body.args[1]);
+    case IrTag::IfThen:
+      return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
+             translatable_body(machine, body.args[1]);
     default: return false;
   }
 }
@@ -192,7 +194,20 @@ void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>
     switch (goal.tag) {
       case IrTag::Fail:
       case IrTag::Cut: continue;
-      case IrTag::Or:
+      case IrTag::Or: {
+        // (A -> B ; C) と (A *-> B ; C) は 3 つの枝。then と else の枠は構文の入口で作るので、全部を数える。
+        const IrTerm& left = goal.args[0];
+        if (left.tag == IrTag::IfThen || left.tag == IrTag::SoftIf) {
+          count_branch(ctx, left.args[0], ref.module, counts);
+          count_branch(ctx, left.args[1], ref.module, counts);
+        } else {
+          count_branch(ctx, left, ref.module, counts);
+        }
+        count_branch(ctx, goal.args[1], ref.module, counts);
+        continue;
+      }
+      case IrTag::IfThen:
+      case IrTag::SoftIf:
         count_branch(ctx, goal.args[0], ref.module, counts);
         count_branch(ctx, goal.args[1], ref.module, counts);
         continue;
@@ -233,6 +248,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
       case IrTag::Fail: emit.line("return rt::fail(m);"); return;
       case IrTag::Cut: emit.line("rt::cut_to(m, " + env.cut + ");"); continue;
       case IrTag::Or: emit_or(ctx, emit, ref, rest, env); return;
+      case IrTag::IfThen: emit_if_then(ctx, emit, ref, rest, env); return;
       default: break;
     }
     emit_call(ctx, emit, ref, rest, env);

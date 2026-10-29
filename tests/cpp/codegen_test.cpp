@@ -101,6 +101,18 @@ void disjunction_translated() {
   check(has(mixed.source, "rt::interpret_clause(m, r, 0, frame, 3)"), "r clause 3 interpreted");
 }
 
+// 計画 Task 7。(A -> B ; C) は積む前の選択点の高さを then の枠の整数セルで運び、A の成功でそこまで切る。
+void if_then_else_translated() {
+  const EmitResult result =
+      emit_user("sign(X, S) :- (X > 0 -> S = positive ; S = other).\nonly(X) :- (X = 1 -> true).\n");
+  check(result.translated == 2, "if-then-else translated == 2");
+  check(result.interpreted == 0, "if-then-else interpreted == 0");
+  check(has(result.source, "rt::choice_mark(m);"), "condition takes the choice mark");
+  check(has(result.source, "rt::cut_to(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));"),
+        "then cuts back to the mark");
+  check(has(result.source, "rt::push_branch("), "else branch pushed");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -226,6 +238,7 @@ int main() {
   nrev_resume();
   cut_translated();
   disjunction_translated();
+  if_then_else_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

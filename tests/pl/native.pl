@@ -75,6 +75,27 @@ test(native_or, either(X, Y), solutions([(X = a, Y = a), (X = b, Y = b)])).
 test(native_or_cut, or_cut(X), solutions([X = 1])).
 test(native_or_true, or_true(X), solutions([X = 2])).
 
+% if-then-else。入れ子の else も 1 つの状態の列になる
+sign(X, S) :- (X > 0 -> S = positive ; X < 0 -> S = negative ; S = zero).
+% 条件は最初の解で確定し、条件の選択点は捨てる
+pick_first(X) :- (color(X) -> true ; X = none).
+% 条件の中のカットは条件に閉じる。外の選択点（X の選言）は残る
+ite_local(X, Y) :- (X = 1 ; X = 2), ((Y = a, ! ; Y = b) -> true ; true).
+% then の中のカットは節の境界まで切る。2 つ目の節を捨てる
+then_cut(X) :- (true -> X = 1, ! ; true).
+then_cut(2).
+% else の無い -> は条件が失敗すれば失敗する
+only_then(X, Y) :- (X = 1 -> Y = one).
+
+test(native_ite, sign(5, S), solutions([S = positive])).
+test(native_ite_nested, sign(-5, S), solutions([S = negative])).
+test(native_ite_else, sign(0, S), solutions([S = zero])).
+test(native_ite_commit, findall(X, pick_first(X), L), solutions([L = [red]])).
+test(native_ite_cond_cut, findall(X-Y, ite_local(X, Y), L), solutions([L = [1-a, 2-a]])).
+test(native_ite_then_cut, findall(X, then_cut(X), L), solutions([L = [1]])).
+test(native_if_then, only_then(1, Y), solutions([Y = one])).
+test(native_if_then_fail, only_then(2, _), fail).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。
