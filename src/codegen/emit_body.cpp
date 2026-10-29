@@ -177,14 +177,31 @@ IrTerm goal_view(const Impl& machine, const IrTerm& data) {
 
 namespace {
 
-// -> か *-> の条件が、呼び出しを 1 つも経ずに失敗するか（fail、または ! だけを挟んだ fail）。term は構文そのものか、
-// それを左に持つ選言。そのような条件には then の枠を作っても使われず、生成コードが未使用の警告になる。
-bool dead_condition(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module) {
+// \+ の中がアトムか複合項なら、ゴールの形に直した項を ctx.owned に置いて返す。変数や数の中身は呼び出しのときに
+// 決まる（instantiation_error、type_error）ので、組み込みの \+/1 に任せる。
+const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term) {
+  if (!is_name(ctx.machine, term, "\\+", 1)) return nullptr;
+  const IrTerm& data = term.args[0];
+  if (data.tag != IrTag::Atom && data.tag != IrTag::Fun) return nullptr;
+  ctx.owned.push_back(goal_view(ctx.machine, data));
+  return &ctx.owned.back();
+}
+
+// 構文の「条件」。-> と *-> の左、それを左に持つ選言の左の左、\+ の中。他は nullptr。
+const IrTerm* condition_of(ClauseCtx& ctx, const IrTerm& term) {
   const IrTerm* construct = &term;
   if (term.tag == IrTag::Or && term.args.size() == 2) construct = &term.args[0];
-  if ((construct->tag != IrTag::IfThen && construct->tag != IrTag::SoftIf) || construct->args.size() != 2) return false;
+  if ((construct->tag == IrTag::IfThen || construct->tag == IrTag::SoftIf) && construct->args.size() == 2) {
+    return &construct->args[0];
+  }
+  return negated_goal(ctx, term);
+}
+
+// body が呼び出しを 1 つも経ずに失敗するか（fail、または ! だけを挟んだ fail）。そのような条件の構文は、成功の側の
+// 継続枠を作っても使われず、生成コードが未使用の警告になる。
+bool fails_without_call(ClauseCtx& ctx, const IrTerm& body, std::uint32_t module) {
   std::vector<GoalRef> goals;
-  flatten(ctx, construct->args[0], module, goals);
+  flatten(ctx, body, module, goals);
   for (const GoalRef& ref : goals) {
     if (ref.term->tag == IrTag::Fail) return true;
     if (ref.term->tag != IrTag::Cut) return false;
@@ -203,10 +220,12 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
     flatten(ctx, term.args[1], module, out);
     return;
   }
-  // 条件が呼び出し無しに失敗する構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8）、else があればその枝、
-  // 無ければ fail と同じ。数える側と発出が同じ並びを見るように、ここで置き換える。
-  if (dead_condition(ctx, term, module)) {
+  // 条件が呼び出し無しに失敗する構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8、8.15.1）、else があれば
+  // その枝、\+ なら true、他は fail と同じ。数える側と発出が同じ並びを見るように、ここで置き換える。
+  const IrTerm* condition = condition_of(ctx, term);
+  if (condition != nullptr && fails_without_call(ctx, *condition, module)) {
     if (term.tag == IrTag::Or) return flatten(ctx, term.args[1], module, out);
+    if (term.tag == IrTag::Fun) return;
     ctx.owned.push_back(IrTerm{.tag = IrTag::Fail});
     out.push_back(GoalRef{&ctx.owned.back(), module});
     return;
@@ -237,7 +256,12 @@ void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>
         count_branch(ctx, goal.args[0], ref.module, counts);
         count_branch(ctx, goal.args[1], ref.module, counts);
         continue;
-      default: mark_slots(goal, counts);
+      default:
+        if (const IrTerm* inner = negated_goal(ctx, goal); inner != nullptr) {
+          count_branch(ctx, *inner, ref.module, counts);
+        } else {
+          mark_slots(goal, counts);
+        }
     }
   }
 }
@@ -277,6 +301,10 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
       case IrTag::IfThen: emit_if_then(ctx, emit, ref, rest, env); return;
       case IrTag::SoftIf: emit_soft(ctx, emit, ref, rest, env); return;
       default: break;
+    }
+    if (const IrTerm* inner = negated_goal(ctx, *ref.term); inner != nullptr) {
+      emit_not(ctx, emit, *inner, ref.module, rest, env);
+      return;
     }
     emit_call(ctx, emit, ref, rest, env);
     return;

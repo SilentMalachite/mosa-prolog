@@ -106,6 +106,25 @@ test(native_soft, findall(X, soft_all(X), L), solutions([L = [red, green, blue]]
 test(native_soft_else, soft_none(X), solutions([X = none])).
 test(native_soft_bare, findall(X, soft_only(X), L), solutions([L = [red, blue]])).
 
+% 否定。中のゴールが成功すれば失敗し、失敗すれば束縛を残さず続く
+not_color(X) :- \+ color(X).
+not_bound(Y) :- \+ (X = 1, X = 2), Y = ok.
+% 中のカットは否定に閉じる。外の選択点（X の選言）は残る
+not_cut(X) :- (X = 1 ; X = 2), \+ (color(_), !, fail).
+% 二重否定は束縛を残さない
+not_twice(X) :- \+ \+ color(X).
+% 中が変数なら呼び出しのときに決まる。組み込みの \+/1 に任せる
+not_var(G) :- \+ G.
+
+test(native_not, not_color(black), true).
+test(native_not_fail, not_color(red), fail).
+test(native_not_unbind, not_bound(Y), solutions([Y = ok])).
+test(native_not_cut, findall(X, not_cut(X), L), solutions([L = [1, 2]])).
+test(native_not_twice, (not_twice(X), var(X)), true).
+test(native_not_var, not_var(color(black)), true).
+test(native_not_var_fail, not_var(color(red)), fail).
+test(native_not_var_inst, not_var(_), error(instantiation_error)).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

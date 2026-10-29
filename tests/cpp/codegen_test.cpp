@@ -127,6 +127,19 @@ void soft_cut_translated() {
   check(!has(result.source, "pdead_1_c1_s1("), "dead condition leaves only the else branch");
 }
 
+// 計画 Task 7。\+ A は床（Pick::Negation）を積み、A が成功すれば床まで切って失敗する。中が変数なら組み込みに任せる。
+void negation_translated() {
+  const EmitResult result = emit_user("nc(X) :- \\+ color(X).\nnv(G) :- \\+ G.\ncolor(a).\n");
+  check(result.translated == 3, "negation translated == 3");
+  check(result.interpreted == 0, "negation interpreted == 0");
+  check(has(result.source, "rt::push_negation("), "negation floor pushed");
+  check(has(result.source, "std::string_view{\"\\\\+\", 2}"), "variable inner calls the builtin");
+  // 中が呼び出し無しに失敗する \+ は true と同じ。床を積むと done の枠が使われず、生成コードが通らない。
+  const EmitResult dead = emit_user("nd(X) :- \\+ fail, X = 1.\n");
+  check(dead.translated == 1, "dead negation translated == 1");
+  check(!has(dead.source, "rt::push_negation("), "dead negation leaves no floor");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -254,6 +267,7 @@ int main() {
   disjunction_translated();
   if_then_else_translated();
   soft_cut_translated();
+  negation_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

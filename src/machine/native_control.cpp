@@ -40,4 +40,15 @@ void soft_commit(Machine::Impl& machine, std::size_t soft_id) {
   }
 }
 
+// \+ A の床（run_not の Pick::Negation）。A が成功したら生成コードが床まで切って失敗し、A が失敗して床へ戻れば
+// redo_not が cont へ進む。
+void push_negation(Machine::Impl& machine, std::uint64_t cont) {
+  Entry entry;
+  entry.pick = Pick::Negation;
+  entry.cont = cont;
+  entry.heap_mark = machine.heap.size();
+  entry.trail_mark = machine.trail.slots.size();
+  push_frame(machine, std::move(entry));
+}
+
 }  // namespace mosa::rt

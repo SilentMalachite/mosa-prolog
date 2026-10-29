@@ -2,6 +2,7 @@
 // Prolog の行で知らせる（SPEC 第6節のエラーの扱い）。差分用の --units（Task 11）は存在エラーを確かめる
 // テストを翻訳するので、呼び出しの警告は export の警告と別の関数にして、呼ぶかどうかを選ばせる。
 
+#include "emit_state.hpp"
 #include "project.hpp"
 
 #include <algorithm>
@@ -19,7 +20,8 @@ std::string indicator(const Impl& machine, const PredKey& key) {
 }
 
 // 本体の中で、その場で呼ぶゴールだけを集める。meta 引数（findall/3 のゴールなど）と変数のゴールは、
-// 何を呼ぶか読み込みの時点では決まらないので見ない。M:G は M で引く。
+// 何を呼ぶか読み込みの時点では決まらないので見ない。M:G は M で引く。\+ の中は翻訳器（emit_body.cpp）が
+// 生成コードに展開するので、同じようにゴールの形に直して見る。
 void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module, std::vector<PredKey>& out) {
   switch (goal.tag) {
     case IrTag::And:
@@ -37,6 +39,10 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
     case IrTag::Fun:
       if (machine.atoms.name(goal.atom) == ":" && goal.args.size() == 2 && goal.args[0].tag == IrTag::Atom) {
         collect_goals(machine, goal.args[1], goal.args[0].atom, out);
+        return;
+      }
+      if (is_name(machine, goal, "\\+", 1) && (goal.args[0].tag == IrTag::Atom || goal.args[0].tag == IrTag::Fun)) {
+        collect_goals(machine, goal_view(machine, goal.args[0]), module, out);
         return;
       }
       out.push_back(PredKey{module, goal.atom, static_cast<std::uint16_t>(goal.args.size())});

@@ -132,6 +132,7 @@ void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t en
 void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut);  // (A ; B) の B。やり直しで枠の状態へ
 [[nodiscard]] std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t cut);  // (A *-> B ; C) の C。印の番号を返す
 void soft_commit(Machine::Impl& machine, std::size_t soft_id);  // 条件の成功。印の付いた else はやり直しで飛ぶ
+void push_negation(Machine::Impl& machine, std::uint64_t cont);  // \+ A の床。A が失敗してここへ戻れば cont へ
 
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。

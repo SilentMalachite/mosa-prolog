@@ -116,4 +116,20 @@ void emit_soft(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<
   emit_condition(ctx, emit, goal.term->args[0], goal.module, then);
 }
 
+// \+ A。床（Pick::Negation）を積み、A を局所のカット境界で動かす。A が成功すれば床ごと切って失敗し（Ctrl::NegDone）、
+// A が失敗して床へ戻れば続きへ進む（run_not、redo_not）。床は続きの枠より新しいので、戻っても枠は残る。
+void emit_not(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& inner, std::uint32_t module,
+              std::span<const GoalRef> rest, const BodyEnv& env) {
+  const std::string cont = make_rest(ctx, emit, rest, env);
+  const std::string mark = emit.fresh("mark");
+  emit.line("const std::size_t " + mark + " = rt::choice_mark(m);");
+  emit.line("rt::push_negation(m, " + cont + ");");
+  StateSpec spec;
+  spec.skip = 1;
+  spec.prologue = "rt::cut_to(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));";
+  spec.fails = true;
+  const std::string done = make_frame(ctx, emit, "done", spec, env.cut, cont, {mark_cell(mark)});
+  emit_condition(ctx, emit, inner, module, done);
+}
+
 }  // namespace mosa::codegen
