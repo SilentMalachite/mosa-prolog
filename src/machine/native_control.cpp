@@ -26,4 +26,18 @@ void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
   push_frame(machine, std::move(entry));
 }
 
+// (A *-> B ; C) の C。条件が成功したら soft_commit が印を付け、やり直しは C を飛ばす（Pick::ElseGoal の soft_id と同じ）。
+std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
+  const int soft_id = machine.next_soft++;
+  push_branch(machine, frame, cut);
+  machine.stack.back().soft_id = soft_id;
+  return static_cast<std::size_t>(soft_id);
+}
+
+void soft_commit(Machine::Impl& machine, std::size_t soft_id) {
+  for (Entry& entry : machine.stack) {
+    if (entry.soft_id == static_cast<int>(soft_id)) entry.cond_ok = true;
+  }
+}
+
 }  // namespace mosa::rt

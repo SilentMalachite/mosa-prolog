@@ -154,5 +154,7 @@ void emit_or(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<co
              const BodyEnv& env);
 void emit_if_then(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
                   const BodyEnv& env);
+void emit_soft(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
+               const BodyEnv& env);
 
 }  // namespace mosa::codegen

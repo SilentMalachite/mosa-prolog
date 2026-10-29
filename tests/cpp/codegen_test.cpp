@@ -113,6 +113,20 @@ void if_then_else_translated() {
   check(has(result.source, "rt::push_branch("), "else branch pushed");
 }
 
+// 計画 Task 7。(A *-> B ; C) は印の付く選択点に else を積み、A の成功で印を付ける。印の付いた else はやり直しで飛ぶ。
+void soft_cut_translated() {
+  const EmitResult result = emit_user(
+      "soft(X) :- (color(X) *-> true ; X = none).\nbare(X) :- (color(X) *-> X \\== b).\n"
+      "dead(X) :- (fail *-> X = yes ; X = none).\ncolor(a).\ncolor(b).\n");
+  check(result.translated == 4, "soft cut translated == 4");
+  check(result.interpreted == 0, "soft cut interpreted == 0");
+  check(has(result.source, "rt::push_soft("), "soft else pushed");
+  check(has(result.source, "rt::soft_commit(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));"),
+        "then commits the soft cut");
+  // 条件が fail で始まれば then の枠は使われない。作ると未使用の変数で生成コードが通らないので、else だけになる。
+  check(!has(result.source, "pdead_1_c1_s1("), "dead condition leaves only the else branch");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -239,6 +253,7 @@ int main() {
   cut_translated();
   disjunction_translated();
   if_then_else_translated();
+  soft_cut_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

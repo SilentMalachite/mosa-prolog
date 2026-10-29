@@ -28,7 +28,8 @@ void resume_native(Impl& machine) {
 
 bool redo_native(Impl& machine) {
   const Entry& top = machine.stack.back();
-  if (top.next >= top.candidates.size()) {
+  // *-> の条件が一度成功した else は飛ばす（redo_else と同じ）。
+  if (top.next >= top.candidates.size() || (top.soft_id != 0 && top.cond_ok)) {
     machine.stack.pop_back();
     return false;
   }

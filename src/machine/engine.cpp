@@ -28,8 +28,12 @@ bool has_more(const Impl& machine) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
     if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen ||
-         entry.pick == Pick::StreamGen || entry.pick == Pick::Native) &&
+         entry.pick == Pick::StreamGen) &&
         entry.next < entry.candidates.size()) {
+      return true;
+    }
+    // 生成コードの *-> の else も、条件が成功していれば解ではない（ElseGoal と同じ）。
+    if (entry.pick == Pick::Native && entry.next < entry.candidates.size() && !(entry.soft_id != 0 && entry.cond_ok)) {
       return true;
     }
     if (entry.pick == Pick::ElseGoal && !(entry.soft_id != 0 && entry.cond_ok)) return true;

@@ -129,9 +129,8 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
              translatable_body(machine, body.args[1]);
     case IrTag::Or:
-      return body.args.size() == 2 && body.args[0].tag != IrTag::SoftIf && translatable_body(machine, body.args[0]) &&
-             translatable_body(machine, body.args[1]);
     case IrTag::IfThen:
+    case IrTag::SoftIf:
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
              translatable_body(machine, body.args[1]);
     default: return false;
@@ -176,6 +175,25 @@ IrTerm goal_view(const Impl& machine, const IrTerm& data) {
   return goal;
 }
 
+namespace {
+
+// -> か *-> の条件が、呼び出しを 1 つも経ずに失敗するか（fail、または ! だけを挟んだ fail）。term は構文そのものか、
+// それを左に持つ選言。そのような条件には then の枠を作っても使われず、生成コードが未使用の警告になる。
+bool dead_condition(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module) {
+  const IrTerm* construct = &term;
+  if (term.tag == IrTag::Or && term.args.size() == 2) construct = &term.args[0];
+  if ((construct->tag != IrTag::IfThen && construct->tag != IrTag::SoftIf) || construct->args.size() != 2) return false;
+  std::vector<GoalRef> goals;
+  flatten(ctx, construct->args[0], module, goals);
+  for (const GoalRef& ref : goals) {
+    if (ref.term->tag == IrTag::Fail) return true;
+    if (ref.term->tag != IrTag::Cut) return false;
+  }
+  return false;
+}
+
+}  // namespace
+
 void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vector<GoalRef>& out) {
   // fail と throw のあとに届かないゴールは、変数を数える側も発出も見ない。見ると使わない変数を宣言してしまう。
   if (!out.empty() && (out.back().term->tag == IrTag::Fail || out.back().term->tag == IrTag::Throw)) return;
@@ -183,6 +201,14 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
   if (term.tag == IrTag::And && term.args.size() == 2) {
     flatten(ctx, term.args[0], module, out);
     flatten(ctx, term.args[1], module, out);
+    return;
+  }
+  // 条件が呼び出し無しに失敗する構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8）、else があればその枝、
+  // 無ければ fail と同じ。数える側と発出が同じ並びを見るように、ここで置き換える。
+  if (dead_condition(ctx, term, module)) {
+    if (term.tag == IrTag::Or) return flatten(ctx, term.args[1], module, out);
+    ctx.owned.push_back(IrTerm{.tag = IrTag::Fail});
+    out.push_back(GoalRef{&ctx.owned.back(), module});
     return;
   }
   out.push_back(GoalRef{&term, module});
@@ -249,6 +275,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
       case IrTag::Cut: emit.line("rt::cut_to(m, " + env.cut + ");"); continue;
       case IrTag::Or: emit_or(ctx, emit, ref, rest, env); return;
       case IrTag::IfThen: emit_if_then(ctx, emit, ref, rest, env); return;
+      case IrTag::SoftIf: emit_soft(ctx, emit, ref, rest, env); return;
       default: break;
     }
     emit_call(ctx, emit, ref, rest, env);

@@ -63,6 +63,21 @@ void emit_if_then_else(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& ite, cons
   emit_condition(ctx, emit, ite.args[0], module, then);
 }
 
+// (A *-> B ; C)。else を印の付く選択点で積み、A の成功で印を付けて B へ。A の選択点は残る（launch_or の SoftIf）。
+void emit_soft_else(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& soft, const IrTerm& other_branch,
+                    std::uint32_t module, std::span<const GoalRef> rest, const BodyEnv& env) {
+  const std::string cont = make_rest(ctx, emit, rest, env);
+  const std::string other = branch_frame(ctx, emit, "else", other_branch, module, env.cut, cont);
+  const std::string id = emit.fresh("soft");
+  emit.line("const std::size_t " + id + " = rt::push_soft(m, " + other + ", " + env.cut + ");");
+  StateSpec spec;
+  spec.goals = branch_goals(ctx, soft.args[1], module);
+  spec.skip = 1;
+  spec.prologue = "rt::soft_commit(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));";
+  const std::string then = make_frame(ctx, emit, "then", spec, env.cut, cont, {mark_cell(id)});
+  emit_condition(ctx, emit, soft.args[0], module, then);
+}
+
 }  // namespace
 
 void count_branch(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module, std::vector<int>& counts) {
@@ -75,6 +90,7 @@ void emit_or(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<co
              const BodyEnv& env) {
   const IrTerm& left = goal.term->args[0];
   if (left.tag == IrTag::IfThen) return emit_if_then_else(ctx, emit, left, goal.term->args[1], goal.module, rest, env);
+  if (left.tag == IrTag::SoftIf) return emit_soft_else(ctx, emit, left, goal.term->args[1], goal.module, rest, env);
   const std::string cont = make_rest(ctx, emit, rest, env);
   const std::string other = branch_frame(ctx, emit, "else", goal.term->args[1], goal.module, env.cut, cont);
   emit.line("rt::push_branch(m, " + other + ", " + env.cut + ");");
@@ -89,6 +105,14 @@ void emit_if_then(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::sp
   const std::string mark = emit.fresh("mark");
   emit.line("const std::size_t " + mark + " = rt::choice_mark(m);");
   const std::string then = then_frame(ctx, emit, goal.term->args[1], goal.module, env.cut, cont, mark);
+  emit_condition(ctx, emit, goal.term->args[0], goal.module, then);
+}
+
+// (A *-> B)。else が無いので印は要らない。A を局所のカット境界で動かし、成功のたびに B へ（launch_soft）。
+void emit_soft(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
+               const BodyEnv& env) {
+  const std::string cont = make_rest(ctx, emit, rest, env);
+  const std::string then = branch_frame(ctx, emit, "then", goal.term->args[1], goal.module, env.cut, cont);
   emit_condition(ctx, emit, goal.term->args[0], goal.module, then);
 }
 

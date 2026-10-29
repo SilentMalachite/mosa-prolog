@@ -96,6 +96,16 @@ test(native_ite_then_cut, findall(X, then_cut(X), L), solutions([L = [1]])).
 test(native_if_then, only_then(1, Y), solutions([Y = one])).
 test(native_if_then_fail, only_then(2, _), fail).
 
+% ソフトカット。条件の解をすべて残し、else は条件が一度も成功しなかったときだけ動く
+soft_all(X) :- (color(X) *-> true ; X = none).
+soft_none(X) :- (fail *-> X = yes ; X = none).
+% else の無い *->
+soft_only(X) :- (color(X) *-> X \== green).
+
+test(native_soft, findall(X, soft_all(X), L), solutions([L = [red, green, blue]])).
+test(native_soft_else, soft_none(X), solutions([X = none])).
+test(native_soft_bare, findall(X, soft_only(X), L), solutions([L = [red, blue]])).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。
