@@ -5,8 +5,10 @@
 
 #include "lgt_io.hpp"
 #include "internal.hpp"
+#include "std_capture.hpp"
 
 #include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
 #include "mosa/writer.hpp"
@@ -135,7 +137,9 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup,
       if (!call_hook(machine, cleanup, "cleanup.")) end.dead = true;
       return end;
     }
-    const Query query = run_goal(machine, goal_text(item, want));
+    // 差分テストは本体を節 '$mosa_diff_goal'(K, ...) にしてあるので、その問い合わせを流す（計画 Task 11）。
+    const Query query =
+        run_goal(machine, item.diff_goal.empty() ? goal_text(item, want) : item.diff_goal + ".");
     if (query.dead) {
       end.dead = true;
       end.actual = "aborted";
@@ -252,6 +256,25 @@ void restore_current(Machine& machine, const CurrentStreams& saved) {
   impl.current_out = usable(saved.output) ? saved.output : 1;
 }
 
+// 1 件を流し、結果の字面を run.results に残す。標準出力と標準エラーはその間だけ受けて字面に付ける
+// （差分テストが両側で比べる。スイートの実行では件の出力が端末に出なくなるだけで、合否は変わらない）。
+void run_case(Machine& machine, const LgtCase& item, bool setup, bool cleanup, const LgtIo* io, LgtRun& run,
+              bool& dead) {
+  const CurrentStreams saved = save_current(machine);
+  CaseEnd end;
+  std::string output;
+  {
+    StdCapture capture;
+    end = run_one(machine, item, setup, cleanup, io);
+    output = capture.text();
+  }
+  restore_current(machine, saved);
+  if (end.pass) ++run.passed;
+  else note_failure(run, item, end.actual);
+  run.results.push_back(item.name + " " + (end.pass ? "pass" : end.actual) + output);
+  dead = end.dead;
+}
+
 void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& chosen, bool setup, bool cleanup,
                const LgtIo* io, LgtRun& run) {
   bool dead = false;
@@ -267,18 +290,30 @@ void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& ch
     bool skip = false;
     apply_condition(machine, item, dead, skip, run);
     if (skip) continue;
-    const CurrentStreams saved = save_current(machine);
-    const CaseEnd end = run_one(machine, item, setup, cleanup, io);
-    restore_current(machine, saved);
-    if (end.pass) ++run.passed;
-    else note_failure(run, item, end.actual);
-    dead = end.dead;
+    run_case(machine, item, setup, cleanup, io, run, dead);
   }
 }
 
 }  // namespace
 
-LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir) {
+bool lgt_guard_holds(const std::vector<LgtGuard>& guard, const std::vector<int>& chosen) {
+  return guard_holds(guard, chosen);
+}
+
+bool lgt_choose_gates(Machine& machine, const LgtFile& file, std::vector<int>& chosen) {
+  return choose_gates(machine, file, chosen);
+}
+
+std::string lgt_selected_text(const LgtFile& file, const std::vector<int>& chosen) { return selected_text(file, chosen); }
+
+std::string lgt_goal_text(const LgtCase& item, const LgtWant& want) { return goal_text(item, want); }
+
+bool lgt_routes_to_judge(Machine& machine, std::string_view body, const LgtWant& want) {
+  return routes_to_judge(machine, body, want);
+}
+
+LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir,
+                   const TestLoader& loader) {
   // Logtalk の tester はテストのディレクトリで動くので、{open(d1, write, S)} の相対パスはそこに出来る。
   // スクラッチをその代わりにし、カレントを移して戻す。消す前に戻すのは、使用中のディレクトリを
   // Windows が消させないため。
@@ -308,8 +343,11 @@ LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string
     for (const LgtCase& item : file.cases) note_failure(run, item, "aborted");
     return run;
   }
-  if (!load_ok(*machine, selected_text(file, chosen))) {
+  // 読み方は呼び手が選ぶ（計画 Task 11）。差分テストはインタプリタと翻訳で同じ原文を別の読み方で読む。
+  const bool loaded = loader ? loader(*machine, path_from_utf8(tests_path)) : load_ok(*machine, selected_text(file, chosen));
+  if (!loaded) {
     for (const LgtCase& item : file.cases) mark_load(run, item, guard_holds(item.guard, chosen));
+    run.results.push_back("load failed " + std::string{machine->diagnostic()});
     return run;
   }
   // =~= はこのファイルの機械だけ。読み込みの節には入れない。

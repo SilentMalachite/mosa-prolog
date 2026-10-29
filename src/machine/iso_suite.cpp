@@ -154,7 +154,7 @@ void run_file(const Pending& item, int& passed, int& failed, std::vector<std::st
       ++failed;
       return;
     }
-    const LgtRun run = execute_lgt(lgt, utf8_from_path(item.file), folder_of(item.relative));
+    const LgtRun run = execute_lgt(lgt, utf8_from_path(item.file), folder_of(item.relative), {});
     passed += run.passed;
     failed += run.failed;
     for (const std::string& line : run.failures) failures.push_back(item.relative + " " + line);
@@ -166,7 +166,23 @@ void run_file(const Pending& item, int& passed, int& failed, std::vector<std::st
   }
 }
 
+std::vector<Pending> sorted_pending(const std::filesystem::path& prolog, std::vector<SideNote>& notes) {
+  std::vector<Pending> pending;
+  walk_suite(prolog, notes, pending);
+  std::sort(pending.begin(), pending.end(), [](const Pending& left, const Pending& right) {
+    return left.relative < right.relative;
+  });
+  return pending;
+}
+
 }  // namespace
+
+std::vector<std::filesystem::path> lgt_suite_files(const std::filesystem::path& prolog_root) {
+  std::vector<SideNote> notes;
+  std::vector<std::filesystem::path> files;
+  for (const Pending& item : sorted_pending(prolog_root, notes)) files.push_back(item.file);
+  return files;
+}
 
 SuiteArgs parse_suite_args(std::span<const std::string_view> args) {
   SuiteArgs parsed;
@@ -193,11 +209,7 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
   std::error_code error;
   if (!std::filesystem::is_directory(prolog, error) || error) return 1;
   std::vector<SideNote> notes;
-  std::vector<Pending> pending;
-  walk_suite(prolog, notes, pending);
-  std::sort(pending.begin(), pending.end(), [](const Pending& left, const Pending& right) {
-    return left.relative < right.relative;
-  });
+  const std::vector<Pending> pending = sorted_pending(prolog, notes);
   int passed = 0;
   int failed = 0;
   std::vector<std::string> failures;

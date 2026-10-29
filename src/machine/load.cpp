@@ -392,6 +392,8 @@ struct FileNote {
 
 bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_view directory,
                std::string_view origin, bool first, LoadScan& scan) {
+  // mosatest の test/3 は節にせず横取りする（suite.cpp）。指示より先に見るので、横取りした項は何も変えない。
+  if (machine.term_hook && machine.term_hook(read, origin)) return true;
   Cell term = read.term;
   if (is_rule_arrow(machine.heap, term)) {
     fail_load(machine, message_text(machine, "directive_unsupported",

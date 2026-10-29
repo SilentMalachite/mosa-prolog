@@ -112,8 +112,11 @@ void attach_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& unit) {
   }
 }
 
+}  // namespace
+
 // 埋め込んだファイルの単位は、そのパスのファイルとして読む（計画 Task 5）。根の単位の include/1 や
 // use_module/1 が先に読んでいれば読み直さず、付けるだけにする。埋め込みの無い単位は今までどおり文字だけで読む。
+// 差分テスト（計画 Task 11）のインタプリタ側は空の単位でこれを呼び、翻訳側と同じ読み方で付ける物の無い読み込みをする。
 bool load_unit(Impl& machine, const rt::NativeUnit& unit) {
   const auto key = utf8_from_path(canonical_key(path_from_utf8(unit.name)));
   const bool embedded = std::any_of(machine.embedded.begin(), machine.embedded.end(),
@@ -132,6 +135,8 @@ bool load_unit(Impl& machine, const rt::NativeUnit& unit) {
   prefix_consult_diagnostic(machine, unit.name);
   return false;
 }
+
+namespace {
 
 std::uint64_t* writable(Impl& machine, std::size_t at) {
   // 語はヒープそのもの。data() は読み出し用の const なので、書く番地へ戻す。

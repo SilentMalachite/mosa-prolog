@@ -5,7 +5,7 @@ Prolog tests, one file per chapter. Each file lists `test(Name, Goal, Expected)`
 - `nrev.pl` and `queens.pl` are the programs in the phase 2 exit criteria
 - `syntax.pl` holds round-trip examples and is not run as goals; `mosatest --roundtrip` uses it
 - `*_dir.pl` check loading files that contain directives
-- `modules/` holds the files that `modules.pl` and `japanese.pl` load; `mosatest tests/pl` does not run them as tests
+- `modules/` holds the files that `modules.pl`, `japanese.pl` and `include_goal_dir.pl` load; `mosatest tests/pl` does not run them as tests
 
 章ごとの Prolog 自前テストを置く。各ファイルは `test(名前, ゴール, 期待)` の事実を並べ、`mosatest tests/pl/` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`solutions([X = 1, X = 2])` の 4 種で、エラーは Formal 項だけを比べる。
 
@@ -14,4 +14,4 @@ Prolog tests, one file per chapter. Each file lists `test(Name, Goal, Expected)`
 - `nrev.pl` と `queens.pl` はフェーズ2の完了条件のプログラムである
 - `syntax.pl` は読み書き往復の例であり、ゴールとしては実行しない。`mosatest --roundtrip` が使う
 - `*_dir.pl` はディレクティブを含むファイルの読み込みを確かめる
-- `modules/` は `modules.pl` と `japanese.pl` が読むファイルを置く。`mosatest tests/pl` はこれをテストとしては実行しない
+- `modules/` は `modules.pl`、`japanese.pl`、`include_goal_dir.pl` が読むファイルを置く。`mosatest tests/pl` はこれをテストとしては実行しない

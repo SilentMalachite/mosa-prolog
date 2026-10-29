@@ -3,6 +3,8 @@
 // 分母は logtalk/prolog より下だけ。区切りは /。先頭と末尾の / は無い。
 // 一覧に無いパスは別欄。実行しない。
 
+#include "test_loader.hpp"
+
 #include "mosa/cell.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/operator_table.hpp"
@@ -10,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <span>
 #include <string>
 #include <string_view>
@@ -191,6 +194,9 @@ struct LgtCase {
   std::string condition;
   std::vector<LgtGuard> guard;
   bool outside = false;
+  // 差分テスト（計画 Task 11）の問い合わせ '$mosa_diff_goal'(K, ...)。diff.cpp が本体を節にしたときだけ埋め、
+  // 実行器は本体の代わりにこれを流す。空なら本体をそのまま流す。
+  std::string diff_goal;
 };
 
 struct LgtOp {
@@ -260,12 +266,24 @@ struct LgtRun {
   int failed = 0;
   std::vector<std::string> failures;
   std::vector<std::string> outside;
+  // 流した件ごとの字面（名前、合否か実際の結果、その間の標準出力と標準エラー）。差分テストが両側で 1 行ずつ比べる。
+  std::vector<std::string> results;
 };
 
 struct LgtIo;
 
 [[nodiscard]] LgtFile read_lgt_file(std::string_view source);
-[[nodiscard]] LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir);
+// loader は組み立てた原文の読み方（計画 Task 11）。空なら今までどおり lgt_selected_text を load_program する。
+[[nodiscard]] LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string_view relative_dir,
+                                 const TestLoader& loader);
+// 差分テストの組み立て（diff.cpp）が実行器と同じ手順で原文と問い合わせを作るための入口。
+[[nodiscard]] bool lgt_guard_holds(const std::vector<LgtGuard>& guard, const std::vector<int>& chosen);
+[[nodiscard]] bool lgt_choose_gates(Machine& machine, const LgtFile& file, std::vector<int>& chosen);
+[[nodiscard]] std::string lgt_selected_text(const LgtFile& file, const std::vector<int>& chosen);
+[[nodiscard]] std::string lgt_goal_text(const LgtCase& item, const LgtWant& want);
+[[nodiscard]] bool lgt_routes_to_judge(Machine& machine, std::string_view body, const LgtWant& want);
+// 定義は iso_suite.cpp。logtalk/prolog の下で対象（suite_in_scope）の tests.lgt を相対パスの順に並べる。
+[[nodiscard]] std::vector<std::filesystem::path> lgt_suite_files(const std::filesystem::path& prolog_root);
 [[nodiscard]] LgtWant classify_lgt_outcome(Machine& machine, std::string_view outcome);
 // 結果の {ゴール} は本体と同じ呼び出し位置だけ外す。データとしての {} は残す。
 [[nodiscard]] Cell lgt_unwrap_curlies(Heap& heap, Cell cell);

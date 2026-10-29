@@ -518,7 +518,7 @@ bool reserved_directive(std::string_view name) {
 
 // 7.4.2 に無い指示 :- G は、その位置で 1 回呼ぶ（iso-notes 7.4.2 の一般の指示）。失敗と例外は、
 // 受けない指示と同じく読み込みを失敗させて戻す。変数と数は呼べないので今までどおり受けない。
-int run_directive_goal(Impl& machine, Cell term, std::string_view origin) {
+int run_directive_goal(Impl& machine, Cell term) {
   Cell goal = machine.heap.deref(machine.heap.arg(machine.heap.deref(term), 0));
   std::string_view name;
   if (goal.tag() == Tag::Atom) name = machine.atoms.name(static_cast<std::uint32_t>(goal.raw() >> 3));
@@ -528,7 +528,6 @@ int run_directive_goal(Impl& machine, Cell term, std::string_view origin) {
     fail_load(machine, message_text(machine, "directive_unsupported", {text}));
     return -1;
   }
-  if (machine.fragment_pass && origin.empty()) return 1;
   // 翻訳のときは宣言だけを実行する（計画 Task 5）。ゴールは起動時の読み込みが呼ぶ。
   if (TranslationLog* log = machine.translation) {
     if (log->current < log->files.size()) log->files[log->current].skipped_goal = true;
@@ -582,14 +581,8 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   const int shared = apply_multifile_directive(machine, term);
   if (shared < 0) return -1;
   if (shared > 0) return 1;
-  const auto inits_before = inits.size();
   const int init = apply_initialization(machine, term, inits);
-  if (init < 0) return -1;
-  if (init > 0) {
-    // mosatest の断片のゴールは、このテキストを読み直す最後の load が呼ぶ。
-    if (machine.fragment_pass && origin.empty()) inits.resize(inits_before);
-    return 1;
-  }
+  if (init != 0) return init;
   const int main_init = apply_initialization_main(machine, term);
   if (main_init != 0) return main_init;
   const int conversion = apply_char_conv_directive(machine, term);
@@ -597,7 +590,7 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snap
   if (conversion > 0) return 1;
   if (apply_op(machine, machine.heap.deref(term))) return 1;
   if (!machine.diagnostic.empty()) return -1;
-  return run_directive_goal(machine, term, origin);
+  return run_directive_goal(machine, term);
 }
 
 }

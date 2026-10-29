@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <span>
@@ -334,8 +335,10 @@ struct Machine::Impl {
   rt::NativeProc native_next = nullptr;
   std::size_t native_cut = 0;
   TranslationLog* translation = nullptr;
-  // mosatest の断片の読み込み（suite.cpp）。断片のテキスト自身の指示のゴールは、最後の load だけが呼ぶ。
-  bool fragment_pass = false;
+  // mosatest の test/3 の横取り（suite.cpp）。読み込み器が項を節にする前に呼び、真を返した項は節にしない。
+  // 指示はこの読み込みの中で順に 1 回ずつ動くので、:- true, op(...) の op も後の項の読みに効き、include した
+  // ファイルのゴールも 1 回だけ、前の節がそろった所で動く。origin は読んでいるファイルで、include の先は別の値。
+  std::function<bool(const ReadTerm& read, std::string_view origin)> term_hook;
   std::vector<EmbeddedSource> embedded;
   // 実行ファイルの起動の読み込みがヒープの上限で止まった。rt::finish は mosa の consult と同じ 2 で終わる。
   bool load_heap_limit = false;
@@ -542,6 +545,9 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] std::filesystem::path source_path(const Impl& machine, const std::filesystem::path& file);
 // 定義は consult.cpp。読み込みの診断にパスと、構文エラーなら行と列を付ける。
 void prefix_consult_diagnostic(Impl& machine, std::string_view path);
+// 定義は native.cpp。単位の name が埋め込んだパスならそのファイルとして、ほかは文字だけで source を読む。
+// 差分テスト（計画 Task 11）のインタプリタ側は、表の無い単位でこれを呼んで翻訳側と同じ読み方をする。
+[[nodiscard]] bool load_unit(Impl& machine, const rt::NativeUnit& unit);
 // 定義は session.cpp。initialization(G, main) を Task 2 の規則で動かし、終了コードを返す。文面は warning に足す。
 [[nodiscard]] int run_main_goal(Machine& machine, const std::string& goal, std::string& warning);
 // 定義は native.cpp。翻訳器（Task 4）も同じ関数で指紋を出す。

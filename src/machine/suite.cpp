@@ -2,9 +2,9 @@
 #include "mosa/path_text.hpp"
 
 #include "internal.hpp"
+#include "test_file.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
-#include "mosa/syntax_error.hpp"
 #include "mosa/unify.hpp"
 #include "mosa/writer.hpp"
 
@@ -23,10 +23,7 @@
 namespace mosa {
 namespace {
 
-struct Exam {
-  std::string goal;
-  std::string expect;
-};
+}  // namespace
 
 bool is_test_fact(const Heap& heap, Cell term) {
   term = heap.deref(term);
@@ -34,54 +31,99 @@ bool is_test_fact(const Heap& heap, Cell term) {
          heap.atoms().name(heap.functor_atom(term)) == "test";
 }
 
+namespace {
+
 std::string written(const Heap& heap, const OperatorTable& ops, Cell term, const std::vector<VarName>& names) {
   return write_term(heap, ops, term, {}, names);
 }
 
-bool load_file_text(Machine& machine, std::string source, std::string_view directory, std::string_view origin,
-                    std::vector<Exam>& exams, std::string& error) {
-  std::string program;
-  Reader reader(source, machine.heap(), machine.operators());
+std::vector<Cell> list_items(const Heap& heap, Cell list) {
+  std::vector<Cell> items;
   while (true) {
-    const ReadOutcome outcome = reader.next();
-    if (outcome.failure) {
-      const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? SyntaxReason::IncompleteTerm
-                                                                                   : SyntaxReason::UnexpectedToken;
-      error = message_text(engine_impl(machine), syntax_key(reason));
-      return false;
-    }
-    if (!outcome.term) break;
-    const Cell term = machine.heap().deref(outcome.term->term);
-    if (is_test_fact(machine.heap(), term)) {
-      Exam exam;
-      exam.goal = written(machine.heap(), machine.operators(), machine.heap().arg(term, 1), outcome.term->names);
-      exam.expect = written(machine.heap(), machine.operators(), machine.heap().arg(term, 2), outcome.term->names);
-      exams.push_back(std::move(exam));
-      continue;
-    }
-    const std::string text = written(machine.heap(), machine.operators(), term, outcome.term->names) + ".\n";
-    program += text;
-    if (term.tag() == Tag::Str && machine.heap().functor_arity(term) == 1 &&
-        machine.atoms().name(machine.heap().functor_atom(term)) == ":-") {
-      // 後続の項を読む前に演算子を表へ入れる。節の蓄積は最後の load に任せる。
-      // 断片はファイルそのものではない。相対の include だけ、このファイルの隣を見る。
-      // 断片の中の一般の指示と initialization/1 のゴールは呼ばない。最後の load がこのテキストを読み直し、
-      // 上の節がそろったところで 1 回だけ呼ぶ。断片が開いたファイルは読み直されないので、そちらは今呼ぶ。
-      engine_impl(machine).fragment_pass = true;
-      const bool loaded = load_source(engine_impl(machine), text, directory).ok;
-      engine_impl(machine).fragment_pass = false;
-      if (!loaded) {
-        error = std::string{machine.diagnostic()};
-        return false;
-      }
-    }
+    list = heap.deref(list);
+    if (list.tag() != Tag::Lis) break;
+    items.push_back(heap.list_head(list));
+    list = heap.list_tail(list);
   }
-  if (!program.empty() && !load_source(engine_impl(machine), program, directory, origin).ok) {
-    error = std::string{machine.diagnostic()};
-    return false;
-  }
-  return true;
+  return items;
 }
+
+bool occurs(const Heap& heap, Cell term, Cell variable) {
+  term = heap.deref(term);
+  if (term.tag() == Tag::Ref) return term.raw() == heap.deref(variable).raw();
+  if (term.tag() == Tag::Lis) {
+    return occurs(heap, heap.list_head(term), variable) || occurs(heap, heap.list_tail(term), variable);
+  }
+  if (term.tag() != Tag::Str) return false;
+  for (std::uint16_t index = 0; index < heap.functor_arity(term); ++index) {
+    if (occurs(heap, heap.arg(term, index), variable)) return true;
+  }
+  return false;
+}
+
+// 差分の節の本体は演算子に頼らず書く。読む側の表が op/3 で変わっていても、同じ項に読み戻せる。
+// 1 度だけ出る名前の無い変数は _ にする。_G1 と書くと節の中で 1 度しか出ない名前の付いた変数になる。
+WriteOptions canonical_options() {
+  WriteOptions options;
+  options.ignore_ops = true;
+  options.underscore_once = true;
+  return options;
+}
+
+Exam make_exam(const Machine& machine, Cell term, const std::vector<VarName>& names) {
+  const Heap& heap = machine.heap();
+  const Cell goal = heap.arg(term, 1);
+  const Cell expect = heap.deref(heap.arg(term, 2));
+  Exam exam;
+  exam.name = written(heap, machine.operators(), heap.arg(term, 0), names);
+  exam.goal = written(heap, machine.operators(), goal, names);
+  exam.expect = written(heap, machine.operators(), expect, names);
+  exam.canonical = write_term(heap, machine.operators(), goal, canonical_options(), names);
+  for (const VarName& name : names) {
+    if (occurs(heap, goal, name.cell)) exam.names.push_back(name.name);
+  }
+  if (expect.tag() == Tag::Str && heap.functor_arity(expect) == 1 &&
+      heap.atoms().name(heap.functor_atom(expect)) == "solutions") {
+    exam.solutions = std::max<std::size_t>(1, list_items(heap, heap.arg(expect, 0)).size());
+  }
+  return exam;
+}
+
+}  // namespace
+
+bool read_test_file(Machine& machine, std::string_view source, std::string_view directory, std::string_view origin,
+                    std::vector<Exam>& exams, std::string& error) {
+  Impl& impl = engine_impl(machine);
+  struct Unhook {
+    Impl& impl;
+    ~Unhook() { impl.term_hook = nullptr; }
+  } unhook{impl};
+  // test/3 だけを横取りし、ほかの項は読み込み器がその場で処理する。include した先の test/3 は節のまま残す。
+  impl.term_hook = [&](const ReadTerm& read, std::string_view at) {
+    if (at != origin) return false;
+    const Cell term = machine.heap().deref(read.term);
+    if (!is_test_fact(machine.heap(), term)) return false;
+    exams.push_back(make_exam(machine, term, read.names));
+    return true;
+  };
+  if (load_source(impl, source, directory, origin).ok) return true;
+  error = std::string{machine.diagnostic()};
+  return false;
+}
+
+std::vector<std::filesystem::path> test_files(const std::filesystem::path& dir) {
+  std::vector<std::filesystem::path> files;
+  for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+    if (!entry.is_regular_file()) continue;
+    if (entry.path().extension() != ".pl") continue;
+    if (entry.path().filename() == "syntax.pl") continue;
+    files.push_back(entry.path());
+  }
+  std::sort(files.begin(), files.end());
+  return files;
+}
+
+namespace {
 
 bool atom_named(const Heap& heap, Cell cell, std::string_view name) {
   cell = heap.deref(cell);
@@ -126,17 +168,6 @@ bool unify_formal(Machine& machine, Cell actual, Cell expected) {
   const bool ok = unify(machine.heap(), trail, trail.slots.size(), machine.heap().size(), actual, expected);
   if (!ok) machine.heap().truncate(saved);
   return ok;
-}
-
-std::vector<Cell> list_items(const Heap& heap, Cell list) {
-  std::vector<Cell> items;
-  while (true) {
-    list = heap.deref(list);
-    if (list.tag() != Tag::Lis) break;
-    items.push_back(heap.list_head(list));
-    list = heap.list_tail(list);
-  }
-  return items;
 }
 
 void binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::string, std::string>>& pairs,
@@ -247,7 +278,8 @@ int run_one(const std::filesystem::path& path) {
   auto machine = Machine::create();
   std::vector<Exam> exams;
   std::string error;
-  if (!load_file_text(*machine, buffer.str(), utf8_from_path(path.parent_path()), utf8_from_path(path), exams, error)) {
+  const std::string source = buffer.str();
+  if (!read_test_file(*machine, source, utf8_from_path(path.parent_path()), utf8_from_path(path), exams, error)) {
     std::cerr << utf8_from_path(path) << ": " << error << '\n';
     return 1;
   }
@@ -266,17 +298,9 @@ int run_one(const std::filesystem::path& path) {
 int run_suite(std::string_view path) {
   const std::filesystem::path file = path_from_utf8(path);
   if (std::filesystem::is_directory(file)) {
-    std::vector<std::filesystem::path> files;
-    for (const auto& entry : std::filesystem::directory_iterator(file)) {
-      if (!entry.is_regular_file()) continue;
-      if (entry.path().extension() != ".pl") continue;
-      if (entry.path().filename() == "syntax.pl") continue;
-      files.push_back(entry.path());
-    }
-    std::sort(files.begin(), files.end());
     // 落ちたファイルで止めない。後ろのファイルの失敗が隠れ、直す前に失敗を見られなくなる。
     int code = 0;
-    for (const auto& item : files) {
+    for (const auto& item : test_files(file)) {
       if (run_one(item) != 0) code = 1;
     }
     return code;
