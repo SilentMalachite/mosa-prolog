@@ -52,7 +52,7 @@ struct Project {
 // 根のファイルのモジュールと、読んだファイルのモジュールごとに単位を 1 つ出す。library(_) のモジュールは Task 10。
 [[nodiscard]] Project translate_program(std::string_view path, const ProjectOptions& options);
 
-// 英数字はそのまま、_ は __、ほかの UTF-8 のバイトは _ と 2 桁の 16 進（小文字）。
+// 英数字はそのまま、_ は _5f、ほかの UTF-8 のバイトは _ と 2 桁の 16 進（小文字）。
 [[nodiscard]] std::string mangle(std::string_view name);
 
 }  // namespace mosa::codegen

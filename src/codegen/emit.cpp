@@ -254,7 +254,7 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   }
   result.translated += 1;
   result.interpreted += predicate.clauses.size() - native;
-  const std::string proc = "p_" + mangle(machine.atoms.name(predicate.name)) + "_" + std::to_string(predicate.arity);
+  const std::string proc = "p" + mangle(machine.atoms.name(predicate.name)) + "_" + std::to_string(predicate.arity);
   const std::string entry = std::to_string(text.entry_count++);
   std::vector<std::pair<std::uint32_t, std::string>> cases;
   text.helpers += comments;
@@ -302,7 +302,7 @@ std::string banner(const Impl& machine, std::uint32_t module, std::string_view u
 
 std::string source_text(const Impl& machine, std::uint32_t module, std::string_view unit_name,
                         const UnitTables& tables, const UnitText& text) {
-  const std::string space = "mosa_gen::m_" + mangle(machine.atoms.name(module));
+  const std::string space = "mosa_gen::m" + mangle(machine.atoms.name(module));
   std::string out = banner(machine, module, unit_name) + "\n#include \"mosa/runtime.hpp\"\n\nnamespace " + space + " {\n\n";
   out += text.forward + "\nnamespace {\n\n" + std::string{kUsings} + unit_tables(machine, tables);
   if (text.entry_count > 0) out += std::string{kHelpers};
@@ -314,7 +314,7 @@ std::string source_text(const Impl& machine, std::uint32_t module, std::string_v
 }
 
 std::string header_text(const Impl& machine, std::uint32_t module, std::string_view unit_name, const UnitText& text) {
-  const std::string space = "mosa_gen::m_" + mangle(machine.atoms.name(module));
+  const std::string space = "mosa_gen::m" + mangle(machine.atoms.name(module));
   std::string out = "#pragma once\n\n" + banner(machine, module, unit_name) + "\n#include \"mosa/runtime.hpp\"\n\n";
   out += "namespace " + space + " {\n\n// 埋め込む原文を受け取り、rt::install_unit に渡す単位を返す。\n";
   out += "[[nodiscard]] mosa::rt::NativeUnit unit(std::string_view source);\n" + text.forward;

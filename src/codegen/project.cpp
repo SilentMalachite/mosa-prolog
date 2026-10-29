@@ -1,6 +1,6 @@
 // 計画 Task 5。mosac emit の目録を作る。翻訳のときの読み込みは宣言だけを実行し（TranslationLog）、
 // 開いたファイルの原文を main.cpp に埋め込む。単位はモジュールごとに 1 つで、名前は C++ の名前空間
-// mosa_gen::m_<モジュール> になる。同じモジュールの単位は 1 つしか出さないので、unit() の名前はぶつからない。
+// mosa_gen::m<モジュール> になる。同じモジュールの単位は 1 つしか出さないので、unit() の名前はぶつからない。
 
 #include "codegen.hpp"
 #include "emit_state.hpp"
@@ -60,7 +60,7 @@ std::vector<UnitPlan> plan_units(const Impl& machine, const TranslationLog& log)
   return units;
 }
 
-std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m_" + mangle(machine.atoms.name(module)); }
+std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
 
 // CMake の名前に使える文字だけなら原文の名前、ほかは app にする。
 std::string target_name(std::string_view root) {

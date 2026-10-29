@@ -33,7 +33,7 @@ EmitResult emit_user(std::string_view source) {
 
 void mangle_names() {
   check(mangle("親") == "_e8_a6_aa", "mangle 親");
-  check(mangle("a_b") == "a__b", "mangle a_b");
+  check(mangle("a_b") == "a_5fb", "mangle a_b");
   check(mangle("app") == "app", "mangle app");
   check(mangle("=..") == "_3d_2e_2e", "mangle =..");
 }
@@ -44,10 +44,10 @@ void app_unit() {
   const EmitResult result = emit_user(kApp);
   check(has(result.source, "% app([], L, L)."), "app comment fact");
   check(has(result.source, "% app([H|T], L, [H|R]) :- app(T, L, R)."), "app comment rule");
-  check(has(result.source, "void p_app_3("), "app function");
-  check(has(result.source, "namespace mosa_gen::m_user"), "app namespace");
+  check(has(result.source, "void papp_3("), "app function");
+  check(has(result.source, "namespace mosa_gen::muser"), "app namespace");
   check(has(result.source, "#include \"mosa/runtime.hpp\""), "app include");
-  check(has(result.header, "p_app_3"), "app header declares the function");
+  check(has(result.header, "papp_3"), "app header declares the function");
   check(result.translated == 1, "app translated == 1");
   check(result.interpreted == 0, "app interpreted == 0");
 }
@@ -82,7 +82,7 @@ void disjunction_interpreted() {
   const EmitResult only = emit_user("q(X) :- (X = a ; X = b).\n");
   check(only.translated == 0, "q translated == 0");
   check(only.interpreted == 1, "q interpreted == 1");
-  check(!has(only.source, "void p_q_1("), "q has no function");
+  check(!has(only.source, "void pq_1("), "q has no function");
   const EmitResult mixed = emit_user("r(a).\nr(X) :- (X = b ; X = c).\n");
   check(mixed.translated == 1, "r translated == 1");
   check(mixed.interpreted == 1, "r interpreted == 1");
@@ -94,7 +94,7 @@ void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
   check(result.translated == 0, "twice translated == 0");
   check(result.interpreted == 1, "twice interpreted == 1");
-  check(!has(result.source, "void p_twice_1("), "twice has no function");
+  check(!has(result.source, "void ptwice_1("), "twice has no function");
 }
 
 // 動的述語は翻訳の対象ではない。
@@ -104,11 +104,40 @@ void dynamic_skipped() {
   check(result.interpreted == 0, "dynamic interpreted == 0");
 }
 
+// コメントと文字列を除いた識別子に __ が無いか見る（C++ は __ を含む識別子を予約する）。
+bool has_double_underscore(std::string_view text) {
+  std::string word;
+  for (std::size_t at = 0; at < text.size(); ++at) {
+    const char unit = text[at];
+    if (unit == '/' && at + 1 < text.size() && text[at + 1] == '/') {
+      while (at < text.size() && text[at] != '\n') ++at;
+    } else if (unit == '"') {
+      for (++at; at < text.size() && text[at] != '"'; ++at) {
+        if (text[at] == '\\') ++at;
+      }
+    } else if (unit == '_' || (unit >= '0' && unit <= '9') || (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z')) {
+      word += unit;
+      continue;
+    }
+    if (word.find("__") != std::string::npos) return true;
+    word.clear();
+  }
+  return word.find("__") != std::string::npos;
+}
+
+void no_double_underscore() {
+  const EmitResult result = emit_user("a_b(1).\n親_子(太郎, _).\nx_(1).\n" + std::string{kApp});
+  check(has(result.source, "void pa_5fb_1("), "underscore function");
+  check(has(result.source, "void p_e8_a6_aa_5f_e5_ad_90_2("), "japanese underscore function");
+  check(!has_double_underscore(result.source), "no double underscore in source");
+  check(!has_double_underscore(result.header), "no double underscore in header");
+}
+
 // 日本語の名前は関数名を mangle し、アトムの字面は 8 進のエスケープにする。コメントは原文のまま。
 void japanese_unit() {
   const EmitResult result = emit_user("親(太郎, 花子).\n");
   check(has(result.source, "% 親(太郎, 花子)."), "japanese comment");
-  check(has(result.source, "void p__e8_a6_aa_2("), "japanese function");
+  check(has(result.source, "void p_e8_a6_aa_2("), "japanese function");
   check(has(result.source, "\"\\345\\244\\252\\351\\203\\216\""), "japanese atom literal");
   check(result.translated == 1, "japanese translated == 1");
 }
@@ -138,11 +167,11 @@ void project_modules() {
   write_file(dir / "two.pl", ":- module(two, [twice/2]).\ntwice(X, Y) :- Y is X * 2.\n");
   const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "app.pl"), {});
   check(project.ok, "project ok: " + project.diagnostic);
-  check(find_file(project, "m_user.cpp") != nullptr && find_file(project, "m_two.cpp") != nullptr, "unit per module");
+  check(find_file(project, "muser.cpp") != nullptr && find_file(project, "mtwo.cpp") != nullptr, "unit per module");
   const auto* main_file = find_file(project, "main.cpp");
   check(main_file != nullptr && has(main_file->text, "part.pl"), "include embedded");
-  const auto user_at = main_file == nullptr ? std::string::npos : main_file->text.find("m_user::unit(");
-  const auto two_at = main_file == nullptr ? std::string::npos : main_file->text.find("m_two::unit(");
+  const auto user_at = main_file == nullptr ? std::string::npos : main_file->text.find("muser::unit(");
+  const auto two_at = main_file == nullptr ? std::string::npos : main_file->text.find("mtwo::unit(");
   check(user_at != std::string::npos && two_at != std::string::npos && user_at < two_at, "root unit first");
   write_file(dir / "skip.pl", ":- assertz(seen(1)).\nmain :- seen(1).\n");
   const auto skipped = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), {});
@@ -160,8 +189,8 @@ void project_opaque() {
   write_file(dir / "newop.pl", "fast(1).\n:- true, op(700, xfx, ===>).\nr(a ===> b).\n");
   const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "newop.pl"), {});
   check(project.ok, "opaque ok: " + project.diagnostic);
-  const auto* unit = find_file(project, "m_user.cpp");
-  check(unit != nullptr && !has(unit->text, "p_fast_1") && !has(unit->text, "NativeEntry{"), "opaque has no entries");
+  const auto* unit = find_file(project, "muser.cpp");
+  check(unit != nullptr && !has(unit->text, "pfast_1") && !has(unit->text, "NativeEntry{"), "opaque has no entries");
   write_file(dir / "plain_broken.pl", "r(a ===> b).\n:- true, op(700, xfx, ===>).\n");
   const auto broken = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "plain_broken.pl"), {});
   check(!broken.ok && has(broken.diagnostic, "plain_broken.pl:1:"), "syntax error before skip stays an error");
@@ -170,7 +199,7 @@ void project_opaque() {
   const auto& impl = mosa::engine_impl(*machine);
   const std::vector<mosa::PredKey> only{mosa::PredKey{impl.user_module, machine->atoms().intern("app"), 3}};
   const EmitResult kept = emit_module(*machine, impl.user_module, "t", only);
-  check(kept.translated == 0 && kept.interpreted == 2 && !has(kept.source, "p_app_3"), "interpreted_only counts");
+  check(kept.translated == 0 && kept.interpreted == 2 && !has(kept.source, "papp_3"), "interpreted_only counts");
   write_file(dir / "all.pl", "a.\n");
   const auto reserved = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "all.pl"), {});
   const auto* cmake = find_file(reserved, "CMakeLists.txt");
@@ -179,6 +208,7 @@ void project_opaque() {
 
 int main() {
   mangle_names();
+  no_double_underscore();
   app_unit();
   app_fingerprint();
   nrev_resume();

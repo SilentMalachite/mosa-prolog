@@ -198,11 +198,11 @@ void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t en
 - Produces:
   - `struct EmitResult { std::string source; std::string header; std::size_t translated = 0; std::size_t interpreted = 0; };`
   - `[[nodiscard]] EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name);`
-  - `[[nodiscard]] std::string mangle(std::string_view name);` 英数字はそのまま、`_` は `__`、ほかの UTF-8 のバイトは `_` と 2 桁の 16 進。関数名は `p_` + `mangle(name)` + `_` + アリティ、モジュールは C++ の名前空間 `mosa_gen::m_` + `mangle(module)`
+  - `[[nodiscard]] std::string mangle(std::string_view name);` 英数字はそのまま、`_` は `_5f`、ほかの UTF-8 のバイトは `_` と 2 桁の 16 進（`__` を出さない。持ち主の決定 B、2026-10-29）。関数名は `p` + `mangle(name)` + `_` + アリティ、モジュールは C++ の名前空間 `mosa_gen::m` + `mangle(module)`
   - 各述語の前に元の節を `writeq` の形でコメントに入れる（日本語のままでよい）
 - 頭部は `Var`、`Anon`、`Atom`、`Int`、`Float`、`List`、`Fun` を全部その場の C++ で単一化する。本体は `Atom`、`Fun`、`Call` の連言を Task 3 の継続枠で動かす。それ以外の構文（`Or`、`IfThen`、`SoftIf`、`Catch`、`Throw`、`Halt`、`Var`、`List`）を含む節は、その節だけ `interpret_clause` に渡す（Task 7 で減らす）
 - 節の変数のセルは、`enter_clause` と同じくスロットの順にすべて節に入った時点で作る（Review Focus 1）
-- [ ] **Step 1:** `codegen_test` を書く。`mangle("親")` が `_e8_a6_aa`、`mangle("a_b")` が `a__b`。`app/3` の出力にコメント `% app([], L, L).` と関数 `p_app_3` があり、`translated == 1`。`;` を含む節は `interpreted` に数えられる
+- [ ] **Step 1:** `codegen_test` を書く。`mangle("親")` が `_e8_a6_aa`、`mangle("a_b")` が `a_5fb`（持ち主の決定 B、2026-10-29）。`app/3` の出力にコメント `% app([], L, L).` と関数 `papp_3` があり、`translated == 1`。`;` を含む節は `interpreted` に数えられる
 - [ ] **Step 2:** `tests/pl/native.pl` に `native_var_order`（`mk(L) :- L = [B, A], g(A), g(B).` と `g(_).` のもとで `test(native_var_order, (mk(L), msort(L, S), S == L), true)`。スロットの順に作れば `B` が古い）と、事実、規則、深さのある構造、浮動小数、負の整数、日本語の原子の頭部を 1 件ずつ書く。この時点ではインタプリタで通るだけでよい
 - [ ] **Step 3:** 実装し、`codegen_test` を通す。コミット `[phase6] IR から頭部と連言の C++ を出す（codegen_test N 件）`
 
