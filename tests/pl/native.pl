@@ -125,6 +125,23 @@ test(native_not_var, not_var(color(black)), true).
 test(native_not_var_fail, not_var(color(red)), fail).
 test(native_not_var_inst, not_var(_), error(instantiation_error)).
 
+% 変数のゴール。call/1 と同じで、中のカットは呼び出しに閉じ、外の選択点は残る（7.8.3）
+apply_goal(G) :- G.
+apply_cut(X, G) :- (X = 1 ; X = 2), G.
+apply_then(G, Y) :- G, Y = done.
+% call/N は余分の引数を足して呼ぶ組み込み
+call_extra(X) :- call(color, X).
+% リストのゴールは '.'/2。定義が無いので存在エラー
+load_list(F) :- [F].
+
+test(native_var_goal, apply_goal(color(C)), solutions([C = red, C = green, C = blue])).
+test(native_var_goal_cut, findall(X, apply_cut(X, !), L), solutions([L = [1, 2]])).
+test(native_var_goal_then, apply_then(true, Y), solutions([Y = done])).
+test(native_var_goal_inst, apply_goal(_), error(instantiation_error)).
+test(native_var_goal_type, apply_goal(3), error(type_error(callable, 3))).
+test(native_call_extra, call_extra(X), solutions([X = red, X = green, X = blue])).
+test(native_list_goal, load_list(x), error(existence_error(procedure, '.'/2))).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

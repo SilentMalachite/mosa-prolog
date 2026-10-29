@@ -91,10 +91,18 @@ void emit_call(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& ref, std::span<c
                const BodyEnv& env) {
   const IrTerm& goal = *ref.term;
   std::vector<std::string> parts;
-  if (goal.tag != IrTag::Atom) {
-    for (const IrTerm& arg : goal.args) parts.push_back(emit_build(emit, arg));
+  std::string name;
+  if (goal.tag == IrTag::Var) {
+    // 変数のゴールは call(G) と同じで、中のカットは呼び出しに閉じる（7.8.3、launch_var）。組み込みの call/1 に渡す。
+    name = "call";
+    parts.push_back(emit_build(emit, goal));
+  } else {
+    // リストのゴールは '.'/2 である（launch_list）。
+    name = goal.tag == IrTag::List ? std::string{"."} : std::string{ctx.machine.atoms.name(goal.atom)};
+    if (goal.tag != IrTag::Atom) {
+      for (const IrTerm& arg : goal.args) parts.push_back(emit_build(emit, arg));
+    }
   }
-  const std::string name{ctx.machine.atoms.name(goal.atom)};
   const std::string args = cell_list(emit, "g", parts);
   const std::string cont = make_rest(ctx, emit, rest, env);
   const std::size_t callee = emit.tables.call(ref.module, name, static_cast<std::uint16_t>(parts.size()));
@@ -124,6 +132,8 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
     case IrTag::Cut:
     case IrTag::Atom:
     case IrTag::Fun:
+    case IrTag::Var:
+    case IrTag::List:
     case IrTag::Call: return true;
     case IrTag::And:
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&

@@ -140,6 +140,18 @@ void negation_translated() {
   check(!has(dead.source, "rt::push_negation("), "dead negation leaves no floor");
 }
 
+// 計画 Task 7。変数のゴールは call/1、リストのゴールは '.'/2 の呼び出しとして出す（launch_var、launch_list）。
+// call/N は組み込みなので、他の組み込みと同じく call_goal で呼ぶ。
+void var_goal_translated() {
+  const EmitResult result =
+      emit_user("ag(G) :- G.\nat(G, Y) :- G, Y = done.\nce(X) :- call(color, X).\nlg(F) :- [F].\ncolor(a).\n");
+  check(result.translated == 5, "var goal translated == 5");
+  check(result.interpreted == 0, "var goal interpreted == 0");
+  check(has(result.source, "std::string_view{\"call\", 4}, 1}"), "var goal calls call/1");
+  check(has(result.source, "std::string_view{\"call\", 4}, 2}"), "call/2 is an ordinary callee");
+  check(has(result.source, "std::string_view{\".\", 1}, 2}"), "list goal calls ./2");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -268,6 +280,7 @@ int main() {
   if_then_else_translated();
   soft_cut_translated();
   negation_translated();
+  var_goal_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();
