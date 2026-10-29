@@ -175,7 +175,7 @@ void windows_msvc_env() {
   mosa_test::check(mosa::native_path_text(slashed) == native, "native separators for a path written with /");
   const std::string script = mosa::vcvars_script(mosa::path_from_utf8("vc/vcvarsall.bat"));
   const std::string call = mosa::host_os() == mosa::HostOs::windows ? "vc\\vcvarsall.bat" : "vc/vcvarsall.bat";
-  mosa_test::check(script == "@echo off\r\ncall \"" + call + "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n",
+  mosa_test::check(script == "@echo off\r\ncall \"" + call + "\" x64 >nul 2>&1\r\nif errorlevel 1 exit /b 1\r\nset\r\n",
                    "vcvarsall script text");
   // (x86) の & ( ) は引用の中で文字のまま渡るので通し、cmd が展開する % と引用を閉じる " だけを拒む。
   const auto x86 = mosa::path_from_utf8("C:/Program Files (x86)/Microsoft Visual Studio/A&B/vcvarsall.bat");

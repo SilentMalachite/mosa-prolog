@@ -302,8 +302,11 @@ bool cmd_quotable_path(const std::filesystem::path& path) {
 
 // cmd は .bat を OEM の符号ページで読むが、中身は ASCII の命令と vcvarsall のパスだけである。set の出力は
 // cmd /u で UTF-16LE にさせて読む（vcvars_environment）。OEM のままだと日本語の TEMP や USERPROFILE が化ける。
+// run_process は stdout と stderr を同じ記録に書く。vcvarsall が起こす道具の stderr は自分の符号ページで出るので、
+// 奇数のバイトが混じると後の UTF-16 の単位がすべてずれる。2>&1 で捨て、失敗は if errorlevel 1 で見る。
 std::string vcvars_script(const std::filesystem::path& vcvarsall) {
-  return "@echo off\r\ncall \"" + native_path_text(vcvarsall) + "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
+  return "@echo off\r\ncall \"" + native_path_text(vcvarsall) +
+         "\" x64 >nul 2>&1\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
 }
 
 // 対になっていないサロゲートは U+FFFD にする。奇数の長さの最後の 1 バイトは捨てる。
