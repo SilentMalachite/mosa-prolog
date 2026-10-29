@@ -142,7 +142,7 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
       parsed.out = args[++index];
     } else if (arg == "--cxx" && has_value) {
       parsed.request.cxx = args[++index];
-    } else if (arg == "--debug" || arg == "--verbose" || arg == "--clean" || arg == "--keep") {
+    } else if (arg == "--debug" || arg == "--verbose" || arg == "--clean" || (run && arg == "--keep")) {
       parsed.request.debug = parsed.request.debug || arg == "--debug";
       parsed.request.verbose = parsed.request.verbose || arg == "--verbose";
       parsed.request.clean = parsed.request.clean || arg == "--clean";
@@ -158,7 +158,7 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
 }
 
 // mosac build app.pl [-o app]。-o が無ければ原文の語幹を今の場所に作る。中間物はいつも .mosac-cache に残すので
-// --keep は run のためだけにある。
+// --keep は run だけが受ける。
 int run_build(const std::vector<std::string>& args) {
   const auto parsed = parse_build(args, false);
   if (!parsed) {
@@ -222,11 +222,10 @@ int run_run(const std::vector<std::string>& args) {
 int main(int argc, char** argv) {
   mosa::prepare_console();
   const std::vector<std::string> args = mosa::command_line_utf8(argc, argv);
-  for (std::size_t index = 1; index < args.size(); ++index) {
-    if (args[index] == "--version") {
-      std::cout << mosa::version_line() << '\n';
-      return 0;
-    }
+  // --version は副命令の位置だけで見る。mosac run app.pl -- --version の --version はプログラムの引数である。
+  if (args.size() >= 2 && args[1] == "--version") {
+    std::cout << mosa::version_line() << '\n';
+    return 0;
   }
   if (args.size() >= 2 && args[1] == "emit") return run_emit(args);
   if (args.size() >= 2 && args[1] == "toolchain") return run_toolchain(args);

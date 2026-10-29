@@ -328,6 +328,12 @@ std::optional<Toolchain> find_toolchain(const ToolchainQuery& query) {
   if (!version) return std::nullopt;
   found->cxx_version = std::move(*version);
   found->env = std::move(env);
+  // mosac build が CMake の版で道を選ぶ（3.25 未満は直接の道、計画 Task 9）。
+  if (found->cmake) {
+    const std::vector<std::string> argv{utf8_from_path(*found->cmake), "--version"};
+    const auto captured = capture(argv);
+    if (captured && captured->code == 0) found->cmake_version = first_nonempty_line(captured->text);
+  }
   return found;
 }
 

@@ -12,6 +12,8 @@
 #include "mosa/path_text.hpp"
 #include "mosa/process.hpp"
 
+#include <algorithm>
+#include <charconv>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -32,18 +34,37 @@ bool is_msvc(const std::filesystem::path& cxx) {
 
 void append(Args& out, const Args& items) { out.insert(out.end(), items.begin(), items.end()); }
 
-// 警告の旗は emit の CMakeLists.txt と同じにし、どちらの道でも同じコードが通るかを揃える。
+bool env_is_one(std::string_view name) {
+  const auto value = environment_path(name);
+  return value && utf8_from_path(*value) == "1";
+}
+
+// 警告を誤りにするのは MOSA_WERROR=1 のときだけ（このリポジトリのテストが立てる）。利用者のビルドでは、
+// 新しいコンパイラが増やした警告を「内部エラー」にしない。emit の CMakeLists.txt の MOSA_WARNINGS_AS_ERRORS と同じ。
+bool warnings_as_errors() { return env_is_one("MOSA_WERROR"); }
+
+// 最適化の旗。NDEBUG は Release の libmosa と揃える。
+std::string release_flags(bool msvc) { return msvc ? "/O2 /DNDEBUG" : "-O2 -DNDEBUG"; }
+std::string debug_flags(bool msvc) { return msvc ? "/Od /Z7" : "-O0 -g"; }
+
+Args words(std::string_view text) {
+  Args out;
+  for (std::size_t at = 0; at < text.size();) {
+    const auto end = std::min(text.find(' ', at), text.size());
+    if (end > at) out.emplace_back(text.substr(at, end - at));
+    at = end + 1;
+  }
+  return out;
+}
+
 Args compile_flags(const Toolchain& toolchain, const RuntimeLayout& runtime, bool debug) {
   const std::string include = utf8_from_path(runtime.include_dir);
-  if (is_msvc(toolchain.cxx)) {
-    Args flags{"/nologo", "/std:c++20", "/EHsc", "/utf-8", "/permissive-", "/Zc:__cplusplus", "/W4", "/WX", "/MT"};
-    append(flags, debug ? Args{"/Od", "/Z7"} : Args{"/O2"});
-    flags.push_back("/I" + include);
-    return flags;
-  }
-  Args flags{"-std=c++20", "-Wall", "-Wextra", "-Wpedantic", "-Werror"};
-  append(flags, debug ? Args{"-O0", "-g"} : Args{"-O2"});
-  flags.push_back("-I" + include);
+  const bool msvc = is_msvc(toolchain.cxx);
+  Args flags = msvc ? Args{"/nologo", "/std:c++20", "/EHsc", "/utf-8", "/permissive-", "/Zc:__cplusplus", "/W4", "/MT"}
+                    : Args{"-std=c++20", "-Wall", "-Wextra", "-Wpedantic"};
+  if (warnings_as_errors()) flags.emplace_back(msvc ? "/WX" : "-Werror");
+  append(flags, words(debug ? debug_flags(msvc) : release_flags(msvc)));
+  flags.push_back((msvc ? "/I" : "-I") + include);
   return flags;
 }
 
@@ -59,26 +80,43 @@ Args link_flags(const Toolchain& toolchain, const RuntimeLayout& runtime) {
 // CMake の構成の旗。libmosa は Release の /MT なので、--debug でも実行時ライブラリは /MT に固める。
 Args cmake_defines(const Toolchain& toolchain, const RuntimeLayout& runtime, bool debug) {
   const bool msvc = is_msvc(toolchain.cxx);
+  const bool static_cxx = !msvc && host_os() == HostOs::linux;
+  // CMAKE_CXX_FLAGS と CMAKE_EXE_LINKER_FLAGS は明示する。最初の configure が利用者の CXXFLAGS や LDFLAGS を
+  // 読むと、キャッシュの鍵に入らない旗でビルドが変わる。
   Args defines{std::string{"-DCMAKE_BUILD_TYPE="} + (debug ? "Debug" : "Release"),
                "-DCMAKE_CXX_COMPILER=" + utf8_from_path(toolchain.cxx),
-               std::string{"-DCMAKE_CXX_FLAGS_RELEASE="} + (msvc ? "/O2" : "-O2"),
-               std::string{"-DCMAKE_CXX_FLAGS_DEBUG="} + (msvc ? "/Od /Z7" : "-O0 -g"),
+               "-DCMAKE_CXX_FLAGS=",
+               std::string{"-DCMAKE_EXE_LINKER_FLAGS="} + (static_cxx ? "-static-libstdc++ -static-libgcc" : ""),
+               "-DCMAKE_CXX_FLAGS_RELEASE=" + release_flags(msvc),
+               "-DCMAKE_CXX_FLAGS_DEBUG=" + debug_flags(msvc),
+               std::string{"-DMOSA_WARNINGS_AS_ERRORS="} + (warnings_as_errors() ? "ON" : "OFF"),
                "-DMOSA_RUNTIME_DIR=" + utf8_from_path(runtime.library.parent_path())};
   // 既定の Visual Studio の生成器はコンパイラを自分で選び、vcvarsall の環境も -DCMAKE_CXX_COMPILER も使わない。
   if (msvc) append(defines, Args{"-G", "NMake Makefiles", "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"});
-  if (!msvc && host_os() == HostOs::linux) {
-    defines.emplace_back("-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc");
-  }
   return defines;
+}
+
+// `cmake version 3.31.2` の版が 3.25 以上か。emit の CMakeLists.txt は cmake_minimum_required(VERSION 3.25) なので、
+// それより古い CMake では configure が必ず失敗する。そのときは直接の道で作る。
+bool cmake_new_enough(std::string_view line) {
+  const auto at = line.find("version ");
+  if (at == std::string_view::npos) return false;
+  const std::string_view text = line.substr(at + 8);
+  int major = 0;
+  int minor = 0;
+  const auto first = std::from_chars(text.data(), text.data() + text.size(), major);
+  if (first.ec != std::errc{} || first.ptr == text.data() + text.size() || *first.ptr != '.') return false;
+  const auto second = std::from_chars(first.ptr + 1, text.data() + text.size(), minor);
+  if (second.ec != std::errc{}) return false;
+  return major > 3 || (major == 3 && minor >= 25);
 }
 
 // Windows で cl 以外のコンパイラを CMake に渡すと、既定の Visual Studio の生成器はそれを無視して MSVC で作る。
 // 頼まれたコンパイラで作るため、その組み合わせは直接の道にする。
 bool use_cmake(const Toolchain& toolchain) {
-  const auto no_cmake = environment_path("MOSA_NO_CMAKE");
-  if (no_cmake && utf8_from_path(*no_cmake) == "1") return false;
+  if (env_is_one("MOSA_NO_CMAKE")) return false;
   if (host_os() == HostOs::windows && !is_msvc(toolchain.cxx)) return false;
-  return toolchain.cmake.has_value();
+  return toolchain.cmake.has_value() && cmake_new_enough(toolchain.cmake_version);
 }
 
 std::string command_text(const Args& argv) {
@@ -115,8 +153,12 @@ void report_build_failure(const Job& job) {
   std::cerr << mosac_message("mosac_internal_error", {".mosac-cache/" + job.hash + "/"}) << '\n';
 }
 
+// configure の失敗は生成コードでなく CMake か環境の問題（古い生成器、壊れたコンパイラなど）。ログの場所と、
+// CMake を使わない道（MOSA_NO_CMAKE=1）を案内する。
+enum class Stage { generated, configure };
+
 // 出力は logs/<名前>.log に書き、失敗したときだけ --verbose で見せる。
-bool run_step(const Job& job, const Args& argv, std::string_view log_name) {
+bool run_step(const Job& job, const Args& argv, std::string_view log_name, Stage stage = Stage::generated) {
   if (job.request.verbose) std::cerr << mosac_message("mosac_verbose_run", {command_text(argv)}) << '\n';
   const std::filesystem::path log = job.dir / "logs" / path_from_utf8(std::string{log_name} + ".log");
   const std::optional<int> code = run_process(argv, log, job.toolchain.env);
@@ -126,7 +168,11 @@ bool run_step(const Job& job, const Args& argv, std::string_view log_name) {
   }
   if (*code == 0) return true;
   if (job.request.verbose) std::cerr << read_text(log);
-  report_build_failure(job);
+  if (stage == Stage::configure) {
+    std::cerr << mosac_message("mosac_cmake_configure_failed", {utf8_from_path(log)}) << '\n';
+  } else {
+    report_build_failure(job);
+  }
   return false;
 }
 
@@ -159,7 +205,7 @@ std::optional<std::filesystem::path> build_cmake(const Job& job) {
   const std::string build = utf8_from_path(job.dir / "build");
   Args configure{cmake, "-S", utf8_from_path(job.dir / "src"), "-B", build};
   append(configure, cmake_defines(job.toolchain, job.runtime, job.request.debug));
-  if (!run_step(job, configure, "configure")) return std::nullopt;
+  if (!run_step(job, configure, "configure", Stage::configure)) return std::nullopt;
   const std::string config = job.request.debug ? "Debug" : "Release";
   if (!run_step(job, Args{cmake, "--build", build, "--config", config}, "build")) return std::nullopt;
   // 多構成の生成器（環境変数 CMAKE_GENERATOR で Visual Studio を選んだときなど）は構成名のディレクトリへ出す。
@@ -171,8 +217,20 @@ std::optional<std::filesystem::path> build_cmake(const Job& job) {
   return std::nullopt;
 }
 
-// 目録と key.txt を書く。前に失敗した同じ鍵の中間物は上書きする。
+// 目録と key.txt を書く。外れのときはハッシュのディレクトリを消して作り直し、前に失敗した中間物も、
+// 中に置かれた記号リンクも辿らない。.mosac-cache そのものが記号リンクなら使わない。
 bool stage(const Job& job, const CacheKey& key, std::span<const ProjectFile> files) {
+  std::error_code status_error;
+  if (std::filesystem::is_symlink(std::filesystem::symlink_status(cache_root(), status_error))) {
+    std::cerr << mosac_message("mosac_cache_symlink", {utf8_from_path(cache_root())}) << '\n';
+    return false;
+  }
+  std::error_code removed;
+  std::filesystem::remove_all(job.dir, removed);
+  if (removed) {
+    report_write_error(job.dir, removed);
+    return false;
+  }
   for (const char* sub : {"src", "logs", "obj", "build"}) {
     std::error_code error;
     std::filesystem::create_directories(job.dir / sub, error);
@@ -211,7 +269,7 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
                        const RuntimeLayout& runtime) {
   const bool cmake = use_cmake(toolchain);
   const std::string target = target_name(request.source);
-  CacheKeyInputs inputs{project.files, &toolchain, &runtime, cmake ? "cmake " + utf8_from_path(*toolchain.cmake) : "direct",
+  CacheKeyInputs inputs{project.files, &toolchain, &runtime, cmake ? "cmake " + utf8_from_path(*toolchain.cmake) + " " + toolchain.cmake_version : "direct",
                         cmake ? cmake_defines(toolchain, runtime, request.debug) : compile_flags(toolchain, runtime, request.debug),
                         target};
   if (!cmake) append(inputs.flags, link_flags(toolchain, runtime));

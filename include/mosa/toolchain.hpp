@@ -18,6 +18,8 @@ struct Toolchain {
   std::filesystem::path cxx;
   std::string cxx_version;
   std::optional<std::filesystem::path> cmake;
+  // `cmake --version` の 1 行目（find_toolchain が埋める）。起こせなければ空で、mosac build は CMake を使わない。
+  std::string cmake_version;
   std::filesystem::path runtime_dir;
   // 空なら親の環境を継ぐ。Windows で vswhere から MSVC を見つけたときは、vcvarsall を通した後の環境全体を入れる。
   std::vector<std::pair<std::string, std::string>> env;

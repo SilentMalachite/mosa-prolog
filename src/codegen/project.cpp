@@ -130,8 +130,13 @@ std::string cmake_text(const Impl& machine, const std::vector<UnitPlan>& units, 
   out += "if(WIN32)\n  target_link_libraries(" + name + " PRIVATE shell32)\nendif()\n";
   out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。\n";
   out += "target_compile_options(" + name + " PRIVATE\n";
-  out += "  $<$<CXX_COMPILER_ID:MSVC>:/W4;/WX;/utf-8;/permissive-;/Zc:__cplusplus>\n";
-  return out + "  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic;-Werror>)\n";
+  out += "  $<$<CXX_COMPILER_ID:MSVC>:/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";
+  out += "  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>)\n";
+  out += "# 警告を誤りにするのは頼まれたときだけ。新しいコンパイラの警告で利用者のビルドを止めない。\n";
+  out += "option(MOSA_WARNINGS_AS_ERRORS \"Treat warnings as errors\" OFF)\n";
+  out += "if(\"$ENV{MOSA_WERROR}\" STREQUAL \"1\")\n  set(MOSA_WARNINGS_AS_ERRORS ON)\nendif()\n";
+  out += "if(MOSA_WARNINGS_AS_ERRORS)\n";
+  return out + "  target_compile_options(" + name + " PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/WX,-Werror>)\nendif()\n";
 }
 
 Project fail_with(std::string diagnostic) {

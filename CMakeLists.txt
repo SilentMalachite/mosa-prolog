@@ -374,17 +374,25 @@ foreach(emit_case hello broken undefined silent newop halt)
     "-DCONFIG=$<CONFIG>" "-DCXX_FLAGS=${CMAKE_CXX_FLAGS}" "-DLINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}"
     "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
     -P ${CMAKE_SOURCE_DIR}/tests/mosac/emit_test.cmake)
+  # このリポジトリのテストでは、生成コードが警告なしで通ることも確かめる（MOSA_WARNINGS_AS_ERRORS）。
+  set_tests_properties(mosac_emit_${emit_case} PROPERTIES ENVIRONMENT "MOSA_WERROR=1")
 endforeach()
 
 # mosac build と run（計画 Task 9）。同じ確かめを CMake の道と、MOSA_NO_CMAKE=1 で固めた直接の道（_direct）で流す。
 # 作業場所は tests/tmp の下にし、.mosac-cache をリポジトリの根に作らない。偽のコンパイラはここで作る（作り置きを入れない）。
-add_executable(mosac_fake_cxx tests/mosac/fake_cxx.cpp)
-target_link_libraries(mosac_fake_cxx PRIVATE mosa_warnings)
 # Windows の既定は vswhere で探す。名指しの cl は vcvarsall を通らない（Task 8 の持ち越し）ので、そこでは渡さない。
 set(mosac_build_cxx "")
 if(NOT MSVC)
   set(mosac_build_cxx "${CMAKE_CXX_COMPILER}")
 endif()
+# mosac_fake_cxx はいつも失敗し、mosac_fake_cxx_forward は生成コード以外を本物のコンパイラに渡す（fake_cxx.cpp）。
+add_executable(mosac_fake_cxx tests/mosac/fake_cxx.cpp)
+target_compile_definitions(mosac_fake_cxx PRIVATE "MOSA_FAKE_REAL_CXX=\"\"")
+add_executable(mosac_fake_cxx_forward tests/mosac/fake_cxx.cpp)
+target_compile_definitions(mosac_fake_cxx_forward PRIVATE "MOSA_FAKE_REAL_CXX=\"${mosac_build_cxx}\"")
+foreach(fake mosac_fake_cxx mosac_fake_cxx_forward)
+  target_link_libraries(${fake} PRIVATE mosa_warnings)
+endforeach()
 get_filename_component(mosac_cmake_dir "${CMAKE_COMMAND}" DIRECTORY)
 foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error debug_trace)
   foreach(path_kind cmake direct)
@@ -395,7 +403,8 @@ foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error
     add_test(NAME ${build_test} COMMAND ${CMAKE_COMMAND}
       -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${build_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
       -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/${build_test} "-DCXX=${mosac_build_cxx}"
-      -DFAKE_CXX=$<TARGET_FILE:mosac_fake_cxx> "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+      -DFAKE_CXX=$<TARGET_FILE:mosac_fake_cxx_forward> -DFAILING_CXX=$<TARGET_FILE:mosac_fake_cxx>
+      "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
       -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -DPATH_KIND=${path_kind}
       -P ${CMAKE_SOURCE_DIR}/tests/mosac/build_test.cmake)
     if(path_kind STREQUAL "direct")
@@ -415,7 +424,7 @@ add_test(NAME mosatest_bench COMMAND $<TARGET_FILE:mosatest> --bench bench/nrev.
   --work ${CMAKE_SOURCE_DIR}/tests/tmp/bench --cmake ${CMAKE_COMMAND}
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 set(mosatest_bench_env "CXX=${CMAKE_CXX_COMPILER}" "CXXFLAGS=${CMAKE_CXX_FLAGS}" "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS}"
-  "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
+  "CMAKE_GENERATOR=${CMAKE_GENERATOR}" "MOSA_WERROR=1")
 if(CMAKE_GENERATOR_PLATFORM)
   list(APPEND mosatest_bench_env "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
 endif()

@@ -5,6 +5,9 @@
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
 
+# 生成コードは警告なしで通ること（生成した CMakeLists.txt の MOSA_WARNINGS_AS_ERRORS を立てる。計画 Task 9）。
+set(ENV{MOSA_WERROR} 1)
+
 # 前回の out/ が残ると、.cpp が無いことの確かめが意味を持たない。
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")

@@ -51,6 +51,8 @@ message(mosac_cannot_start, 'mosac: 起動できません: ~w').
 message(mosac_verbose_run, 'mosac: 実行: ~w').
 message(mosac_cache_hit, 'mosac: キャッシュを使います: ~w').
 message(mosac_kept, 'mosac: 一時ディレクトリを残しました: ~w').
+message(mosac_cmake_configure_failed, 'mosac: CMake の構成に失敗しました（ログ: ~w）~nCMake とコンパイラを確かめるか、MOSA_NO_CMAKE=1 を設定して mosac にコンパイラを直接呼ばせてください').
+message(mosac_cache_symlink, 'mosac: ~w が記号リンクなので使いません~n消してからもう一度動かしてください').
 
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').

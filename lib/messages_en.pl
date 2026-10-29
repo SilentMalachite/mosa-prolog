@@ -51,6 +51,8 @@ message(mosac_cannot_start, 'mosac: cannot start ~w').
 message(mosac_verbose_run, 'mosac: running: ~w').
 message(mosac_cache_hit, 'mosac: using the cache: ~w').
 message(mosac_kept, 'mosac: kept the temporary directory: ~w').
+message(mosac_cmake_configure_failed, 'mosac: CMake could not configure the build (log: ~w)~nCheck CMake and the compiler, or set MOSA_NO_CMAKE=1 to let mosac call the compiler directly').
+message(mosac_cache_symlink, 'mosac: ~w is a symbolic link, so mosac does not use it~nRemove it and run mosac again').
 
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').

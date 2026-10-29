@@ -58,6 +58,13 @@ std::optional<std::uint64_t> headers_digest(const std::filesystem::path& include
   return hash;
 }
 
+// 記号リンクを辿らずに見た種類が type か。
+bool plain(const std::filesystem::path& path, std::filesystem::file_type type) {
+  std::error_code error;
+  const std::filesystem::file_status status = std::filesystem::symlink_status(path, error);
+  return !error && status.type() == type;
+}
+
 std::string read_text(const std::filesystem::path& path) {
   std::ifstream in{path, std::ios::binary};
   return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
@@ -97,21 +104,29 @@ std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs) {
   return CacheKey{text, hex16(fnv1a(text, kFnvBasis))};
 }
 
-// 作業場所の隣に置く（SPEC 第6節）。読めなければ相対の名前のまま使う。
+// 作業場所の隣に置く（SPEC 第6節）。読めなければ相対の名前のまま使う。.mosac-cache はほかの利用者と共有する
+// ディレクトリ（/tmp など）に置いてはならない。中身の入れ替えを防げるのは、そこへ書けるのが自分だけのときだけである。
 std::filesystem::path cache_root() {
   std::error_code error;
   const std::filesystem::path cwd = std::filesystem::current_path(error);
   return error ? std::filesystem::path{".mosac-cache"} : cwd / ".mosac-cache";
 }
 
+// どれかが記号リンクなら外れにする。外れの後の stage がハッシュのディレクトリを作り直す。
 bool cache_hit(const std::filesystem::path& dir, const CacheKey& key, const std::filesystem::path& exe_name) {
-  std::error_code error;
-  if (!std::filesystem::is_regular_file(dir / exe_name, error)) return false;
+  using Type = std::filesystem::file_type;
+  if (!plain(dir.parent_path(), Type::directory) || !plain(dir, Type::directory)) return false;
+  if (!plain(dir / exe_name, Type::regular) || !plain(dir / "key.txt", Type::regular)) return false;
   return read_text(dir / "key.txt") == key.text;
 }
 
 // ofstream は理由を返さない。開くか書くかに失敗した直後の errno を理由にする（POSIX も MSVC の CRT も設定する）。
 std::optional<std::error_code> write_text(const std::filesystem::path& path, std::string_view text) {
+  // 記号リンクの先へは書かない。
+  std::error_code status_error;
+  if (std::filesystem::is_symlink(std::filesystem::symlink_status(path, status_error))) {
+    return std::make_error_code(std::errc::file_exists);
+  }
   errno = 0;
   std::ofstream out{path, std::ios::binary};
   if (out) out.write(text.data(), static_cast<std::streamsize>(text.size()));
