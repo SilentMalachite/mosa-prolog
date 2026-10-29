@@ -152,6 +152,17 @@ void var_goal_translated() {
   check(has(result.source, "std::string_view{\".\", 1}, 2}"), "list goal calls ./2");
 }
 
+// 計画 Task 7。throw/1 はボールを組み立てて rt::throw_term に渡す。C++ の例外ではなく propagate_throw で巻き戻す。
+void throw_translated() {
+  const EmitResult result =
+      emit_user("tb(B) :- throw(B).\nta(X) :- X = 1, throw(got(X)).\ntc(X) :- (throw(cond) -> X = 1 ; X = 2).\n");
+  check(result.translated == 3, "throw translated == 3");
+  check(result.interpreted == 0, "throw interpreted == 0");
+  check(has(result.source, "return rt::throw_term(m, "), "throw passes the ball");
+  // 条件が呼び出し無しに throw で終わる構文は、その throw と同じ。then と else の枠を作ると使われない。
+  check(!has(result.source, "ptc_1_c1_s1("), "throwing condition leaves no branch frames");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -281,6 +292,7 @@ int main() {
   soft_cut_translated();
   negation_translated();
   var_goal_translated();
+  throw_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

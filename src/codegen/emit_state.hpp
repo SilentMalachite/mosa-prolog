@@ -129,6 +129,9 @@ void emit_head(ClauseEmit& emit, const IrTerm& head);
 [[nodiscard]] IrTerm goal_view(const Impl& machine, const IrTerm& data);
 // 連言を呼ぶ順に並べる。true は飛ばし、fail と throw のあとは届かないので切る。
 void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vector<GoalRef>& out);
+// body が呼び出しを 1 つも経ずに終わるなら、その fail か throw のゴール（! だけを挟んでよい）。他は nullptr。
+// そのような並びは継続を使わないので、成功の側の継続枠を作ると未使用の変数で生成コードが通らない。
+[[nodiscard]] const IrTerm* dead_end(ClauseCtx& ctx, const IrTerm& body, std::uint32_t module);
 // goals が使う変数を、発出と同じ順に数える。
 void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>& counts);
 // goals のあとに動くものを置く状態の継続の式。goals が空なら env.cont をそのまま返す。

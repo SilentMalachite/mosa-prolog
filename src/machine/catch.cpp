@@ -184,14 +184,17 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   launch(machine, goal.args[0], frame, machine.stack.size(), env, module);
 }
 
-void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {
-  Cell ball = machine.heap.deref(materialize(machine, goal.args[0], env));
-  const auto name = machine.atoms.intern("throw");
+void throw_ball(Impl& machine, Cell ball) {
+  ball = machine.heap.deref(ball);
   if (machine.heap.unbound(ball)) {
-    raise_formal(machine, formal_instantiation(machine), name, 1);
+    raise_formal(machine, formal_instantiation(machine), machine.atoms.intern("throw"), 1);
     return;
   }
   propagate_throw(machine, ball);
+}
+
+void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {
+  throw_ball(machine, materialize(machine, goal.args[0], env));
 }
 
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {

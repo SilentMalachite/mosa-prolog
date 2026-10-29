@@ -51,4 +51,7 @@ void push_negation(Machine::Impl& machine, std::uint64_t cont) {
   push_frame(machine, std::move(entry));
 }
 
+// throw/1（arm_throw と同じ本体）。回復ゴールは propagate_throw が ip に置くので、生成コードは戻るだけでよい。
+void throw_term(Machine::Impl& machine, Cell ball) { throw_ball(machine, ball); }
+
 }  // namespace mosa::rt

@@ -426,6 +426,8 @@ void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uin
 void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
                const std::vector<Cell>& env, std::uint32_t module);
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
+// throw/1 の本体。ball が変数なら instantiation_error、他は捕まえる catch まで巻き戻す。生成コードも通る。
+void throw_ball(Impl& machine, Cell ball);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_instantiation(Impl& machine);
 [[nodiscard]] Cell formal_uninstantiation(Impl& machine, Cell culprit);

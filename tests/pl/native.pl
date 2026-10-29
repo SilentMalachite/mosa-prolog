@@ -142,6 +142,17 @@ test(native_var_goal_type, apply_goal(3), error(type_error(callable, 3))).
 test(native_call_extra, call_extra(X), solutions([X = red, X = green, X = blue])).
 test(native_list_goal, load_list(x), error(existence_error(procedure, '.'/2))).
 
+% throw/1。ボールは投げるときの項。変数なら instantiation_error
+throw_ball(B) :- throw(B).
+throw_after(X) :- X = 1, throw(got(X)).
+% 条件が呼び出し無しに throw で終わる構文は、その throw と同じ
+throw_cond(X) :- (throw(cond) -> X = 1 ; X = 2).
+
+test(native_throw, throw_ball(oops), error(oops)).
+test(native_throw_inst, throw_ball(_), error(instantiation_error)).
+test(native_throw_after, throw_after(_), error(got(1))).
+test(native_throw_cond, throw_cond(_), error(cond)).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

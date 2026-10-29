@@ -134,6 +134,7 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
     case IrTag::Fun:
     case IrTag::Var:
     case IrTag::List:
+    case IrTag::Throw:
     case IrTag::Call: return true;
     case IrTag::And:
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
@@ -207,19 +208,17 @@ const IrTerm* condition_of(ClauseCtx& ctx, const IrTerm& term) {
   return negated_goal(ctx, term);
 }
 
-// body が呼び出しを 1 つも経ずに失敗するか（fail、または ! だけを挟んだ fail）。そのような条件の構文は、成功の側の
-// 継続枠を作っても使われず、生成コードが未使用の警告になる。
-bool fails_without_call(ClauseCtx& ctx, const IrTerm& body, std::uint32_t module) {
+}  // namespace
+
+const IrTerm* dead_end(ClauseCtx& ctx, const IrTerm& body, std::uint32_t module) {
   std::vector<GoalRef> goals;
   flatten(ctx, body, module, goals);
   for (const GoalRef& ref : goals) {
-    if (ref.term->tag == IrTag::Fail) return true;
-    if (ref.term->tag != IrTag::Cut) return false;
+    if (ref.term->tag == IrTag::Fail || ref.term->tag == IrTag::Throw) return ref.term;
+    if (ref.term->tag != IrTag::Cut) return nullptr;
   }
-  return false;
+  return nullptr;
 }
-
-}  // namespace
 
 void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vector<GoalRef>& out) {
   // fail と throw のあとに届かないゴールは、変数を数える側も発出も見ない。見ると使わない変数を宣言してしまう。
@@ -230,10 +229,13 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
     flatten(ctx, term.args[1], module, out);
     return;
   }
-  // 条件が呼び出し無しに失敗する構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8、8.15.1）、else があれば
-  // その枝、\+ なら true、他は fail と同じ。数える側と発出が同じ並びを見るように、ここで置き換える。
+  // 条件が呼び出し無しに終わる構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8、8.15.1）、throw で終われば
+  // その throw、fail で終われば else があればその枝、\+ なら true、他は fail と同じ。数える側と発出が同じ並びを
+  // 見るように、ここで置き換える。
   const IrTerm* condition = condition_of(ctx, term);
-  if (condition != nullptr && fails_without_call(ctx, *condition, module)) {
+  const IrTerm* end = condition != nullptr ? dead_end(ctx, *condition, module) : nullptr;
+  if (end != nullptr) {
+    if (end->tag == IrTag::Throw) return out.push_back(GoalRef{end, module});
     if (term.tag == IrTag::Or) return flatten(ctx, term.args[1], module, out);
     if (term.tag == IrTag::Fun) return;
     ctx.owned.push_back(IrTerm{.tag = IrTag::Fail});
@@ -306,6 +308,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
     const auto rest = goals.subspan(index + 1);
     switch (ref.term->tag) {
       case IrTag::Fail: emit.line("return rt::fail(m);"); return;
+      case IrTag::Throw: emit.line("return rt::throw_term(m, " + emit_build(emit, ref.term->args[0]) + ");"); return;
       case IrTag::Cut: emit.line("rt::cut_to(m, " + env.cut + ");"); continue;
       case IrTag::Or: emit_or(ctx, emit, ref, rest, env); return;
       case IrTag::IfThen: emit_if_then(ctx, emit, ref, rest, env); return;
