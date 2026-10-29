@@ -176,6 +176,19 @@ void catch_translated() {
   check(has(result.source, "rt::cut_to(m, cut0);"), "recovery cut is local");
 }
 
+// 計画 Task 7。M:G は、M が翻訳のときに読み込み済みなら G の並びを M の文脈で置く。変数の M や G は組み込みの :/2 へ。
+void qualified_translated() {
+  const EmitResult result = emit_user("q(X) :- user:color(X).\nqc(X) :- (user:(color(X), !) ; X = other).\ncolor(a).\n");
+  check(result.translated == 3, "qualified translated == 3");
+  check(result.interpreted == 0, "qualified interpreted == 0");
+  check(!has(result.source, "std::string_view{\":\", 1}"), "known module is inlined, not called through :/2");
+  // color(X) のあとの ! は再開の状態にあり、境界は継続枠の語 2（節の境界）。局所なら cutN になる。
+  check(has(result.source, "rt::cut_to(m, rt::frame_cut(r, frame));"), "cut inside M:G is transparent");
+  const EmitResult var = emit_user("qv(M, G) :- M:G.\nqm(X) :- no_such_module:color(X).\ncolor(a).\n");
+  check(var.translated == 3, "qualified var translated == 3");
+  check(has(var.source, "std::string_view{\":\", 1}, 2}"), "variable or unknown module calls :/2");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -307,6 +320,7 @@ int main() {
   var_goal_translated();
   throw_translated();
   catch_translated();
+  qualified_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

@@ -175,6 +175,23 @@ test(native_catch_recover_cut, findall(X, catch_recover_cut(X), L), solutions([L
 test(native_catch_copy, (catch_copy(X, Z), var(X)), solutions([Z = 1])).
 test(native_catch_goal_cut, findall(X, catch_goal_cut(X), L), solutions([L = [1, 2]])).
 
+% M:G。M が読み込み済みなら G をその文脈で並べる。公開していない述語も呼べ、カットは透明
+:- consult('modules/native_mod.pl').
+qualified(X) :- native_mod:hidden(X).
+qualified_export(X) :- native_mod:exported_color(X).
+qualified_cut(X) :- (native_mod:(hidden(X), !) ; X = other).
+% M か G が変数なら呼び出しのときに決まる。組み込みの :/2 に任せる
+qualified_var(M, G) :- M:G.
+% 無いモジュールは呼び出しのときの存在エラー。M を字面で書くと mosac が未定義の呼び出しとして止めるので、変数で渡す
+qualified_missing(X) :- M = no_such_module, M:hidden(X).
+
+test(native_qualified, qualified(X), solutions([X = secret])).
+test(native_qualified_export, qualified_export(X), solutions([X = red, X = green, X = blue])).
+test(native_qualified_cut, findall(X, qualified_cut(X), L), solutions([L = [secret]])).
+test(native_qualified_var, qualified_var(native_mod, hidden(X)), solutions([X = secret])).
+test(native_qualified_var_inst, qualified_var(_, true), error(instantiation_error)).
+test(native_qualified_missing, qualified_missing(_), error(existence_error(module, no_such_module))).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

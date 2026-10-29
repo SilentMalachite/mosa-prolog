@@ -6,6 +6,8 @@
 
 #include "emit_state.hpp"
 
+#include "../module/module.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -195,14 +197,27 @@ IrTerm goal_view(const Impl& machine, const IrTerm& data) {
 
 namespace {
 
-// \+ の中がアトムか複合項なら、ゴールの形に直した項を ctx.owned に置いて返す。変数や数の中身は呼び出しのときに
-// 決まる（instantiation_error、type_error）ので、組み込みの \+/1 に任せる。
-const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term) {
-  if (!is_name(ctx.machine, term, "\\+", 1)) return nullptr;
-  const IrTerm& data = term.args[0];
+// データの形で持つゴール（\+ の中、M:G の G）をゴールの形に直して ctx.owned に置く。変数や数や、(true, 1) のように
+// 動かせないゴールを含む形は、呼び出しのときに組み込みが確かめる（instantiation_error、type_error）ので nullptr。
+const IrTerm* owned_goal(ClauseCtx& ctx, const IrTerm& data) {
   if (data.tag != IrTag::Atom && data.tag != IrTag::Fun) return nullptr;
-  ctx.owned.push_back(goal_view(ctx.machine, data));
+  IrTerm goal = goal_view(ctx.machine, data);
+  if (!translatable_body(ctx.machine, goal)) return nullptr;
+  ctx.owned.push_back(std::move(goal));
   return &ctx.owned.back();
+}
+
+// \+ の中。組み込みの \+/1 に任せる形は nullptr。
+const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term) {
+  return is_name(ctx.machine, term, "\\+", 1) ? owned_goal(ctx, term.args[0]) : nullptr;
+}
+
+// M:G の G。M が翻訳のときに読み込み済みのモジュールのときだけ。無いモジュールや変数の M は、組み込みの :/2 が
+// 呼び出しのときに確かめる（existence_error(module, M) など）。
+const IrTerm* qualified_goal(ClauseCtx& ctx, const IrTerm& term) {
+  if (!is_name(ctx.machine, term, ":", 2) || term.args[0].tag != IrTag::Atom) return nullptr;
+  if (find_module(ctx.machine, term.args[0].atom) == nullptr) return nullptr;
+  return owned_goal(ctx, term.args[1]);
 }
 
 // 構文の「条件」。-> と *-> の左、それを左に持つ選言の左の左、\+ の中、catch のゴール。他は nullptr。
@@ -236,6 +251,10 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
     flatten(ctx, term.args[0], module, out);
     flatten(ctx, term.args[1], module, out);
     return;
+  }
+  // M:G は G の並びを M の文脈で置く（run_qualify、ADR 0006）。カットに透明なので境界はそのまま。
+  if (const IrTerm* inner = qualified_goal(ctx, term); inner != nullptr) {
+    return flatten(ctx, *inner, term.args[0].atom, out);
   }
   // 条件が呼び出し無しに終わる構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8、8.15.1）、throw で終われば
   // その throw、fail で終われば else があればその枝、\+ なら true、他は fail と同じ。数える側と発出が同じ並びを
