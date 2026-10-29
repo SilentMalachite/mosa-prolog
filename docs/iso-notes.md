@@ -546,3 +546,9 @@ SPEC Section 4 maps `「` `」` to the start and end of a quoted atom and says t
 A or B?: A: the same rules as `'…'` (6.4.2): `\` escapes work, `」」` is one `」`, a raw newline is an error, and `'` is an ordinary character. B: no escapes; every character up to the first `」` is taken as written, and `」` cannot appear inside.
 
 Decision (2026-10-28): A. `「…」` uses the escapes of `'…'`, with `」` as the quote character, so `」」` is one `」` and `'` is ordinary.
+
+## 7.7.7 and SPEC Section 5: statically undefined calls in `mosac emit`
+
+ISO has no translation step: calling a procedure that is defined nowhere is an `existence_error(procedure, PI)` when the goal runs (7.7.7, flag `unknown` 7.11.2.4, 7.12.2 c), and SPEC Section 5 gives `existence_error(module, M)` at run time for `M:G` with an unknown `M`. `mosac emit` (phase 6 Tasks 5 and 7) instead rejects the program at translation time when a clause body names, literally, a predicate with no definition anywhere, including `nomod:foo(X)` with a module that is never loaded (`mosac_undefined_call`, src/codegen/check.cpp), and writes nothing.
+
+Decision (2026-10-29): this is a deliberate deviation of the translator only. The interpreter and the generated executable keep the ISO behaviour at run time: the error is raised when the goal is reached (`tests/pl/modules.pl` `mod_qual_unknown`; `tests/pl/native.pl` `native_qualified_missing`, which reaches the unknown module through a variable `M` so that the translation is accepted). `mosatest --diff` (`--units`, Task 11) skips the check so that tests of existence errors can be translated.
