@@ -5,6 +5,9 @@ project(mosa VERSION 0.0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# 既定の静的リンク（SPEC 第6節）。MSVC の C++ 実行時ライブラリも静的（/MT）にし、mosac build の実行ファイルが
+# DLL を要らないようにする。libmosa と生成コードの /MT と /MD がずれると LNK2038 でリンクできない。
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_library(mosa_warnings INTERFACE)
 target_compile_options(mosa_warnings INTERFACE
@@ -129,6 +132,8 @@ target_sources(mosa_lib PRIVATE
   src/codegen/mangle.cpp
   src/codegen/project.cpp
   src/codegen/check.cpp
+  src/codegen/build.cpp
+  src/codegen/cache.cpp
 )
 
 enable_testing()
@@ -369,6 +374,38 @@ foreach(emit_case hello broken undefined silent newop halt)
     "-DCONFIG=$<CONFIG>" "-DCXX_FLAGS=${CMAKE_CXX_FLAGS}" "-DLINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}"
     "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
     -P ${CMAKE_SOURCE_DIR}/tests/mosac/emit_test.cmake)
+endforeach()
+
+# mosac build と run（計画 Task 9）。同じ確かめを CMake の道と、MOSA_NO_CMAKE=1 で固めた直接の道（_direct）で流す。
+# 作業場所は tests/tmp の下にし、.mosac-cache をリポジトリの根に作らない。偽のコンパイラはここで作る（作り置きを入れない）。
+add_executable(mosac_fake_cxx tests/mosac/fake_cxx.cpp)
+target_link_libraries(mosac_fake_cxx PRIVATE mosa_warnings)
+# Windows の既定は vswhere で探す。名指しの cl は vcvarsall を通らない（Task 8 の持ち越し）ので、そこでは渡さない。
+set(mosac_build_cxx "")
+if(NOT MSVC)
+  set(mosac_build_cxx "${CMAKE_CXX_COMPILER}")
+endif()
+get_filename_component(mosac_cmake_dir "${CMAKE_COMMAND}" DIRECTORY)
+foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error debug_trace)
+  foreach(path_kind cmake direct)
+    set(build_test mosac_${build_case})
+    if(path_kind STREQUAL "direct")
+      set(build_test mosac_${build_case}_direct)
+    endif()
+    add_test(NAME ${build_test} COMMAND ${CMAKE_COMMAND}
+      -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${build_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+      -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/${build_test} "-DCXX=${mosac_build_cxx}"
+      -DFAKE_CXX=$<TARGET_FILE:mosac_fake_cxx> "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+      -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -DPATH_KIND=${path_kind}
+      -P ${CMAKE_SOURCE_DIR}/tests/mosac/build_test.cmake)
+    if(path_kind STREQUAL "direct")
+      set_tests_properties(${build_test} PROPERTIES ENVIRONMENT "MOSA_NO_CMAKE=1")
+    else()
+      # mosac は PATH から cmake を探す。このビルドの cmake を先に置き、CMake の道を必ず通す。
+      set_tests_properties(${build_test} PROPERTIES ENVIRONMENT "MOSA_NO_CMAKE=0"
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+    endif()
+  endforeach()
 endforeach()
 
 # mosatest --bench の出力の形だけを確かめる（計画 Task 6）。N が小さいので時間は見ない。翻訳側の configure は

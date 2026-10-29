@@ -114,7 +114,11 @@ std::string cmake_text(const Impl& machine, const std::vector<UnitPlan>& units, 
   for (const UnitPlan& unit : units) sources += " " + unit_stem(machine, unit.module) + ".cpp";
   std::string out = "# mosac が出した（計画 Task 5）。手で直さない。\ncmake_minimum_required(VERSION 3.25)\n";
   out += "project(" + name + " LANGUAGES CXX)\n\nset(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
-  out += "set(CMAKE_CXX_EXTENSIONS OFF)\n\n# libmosa と include/ の場所。既定は emit した mosac のビルド木である。\n";
+  out += "set(CMAKE_CXX_EXTENSIONS OFF)\n";
+  out += "# libmosa と同じ静的な MSVC の実行時ライブラリ（/MT）。mosac build は構成によらず /MT を渡す。\n";
+  out += "if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)\n";
+  out += "  set(CMAKE_MSVC_RUNTIME_LIBRARY \"MultiThreaded$<$<CONFIG:Debug>:Debug>\")\nendif()\n";
+  out += "\n# libmosa と include/ の場所。既定は emit した mosac のビルド木である。\n";
   out += "if(DEFINED ENV{MOSA_RUNTIME_DIR})\n  set(mosa_runtime_default \"$ENV{MOSA_RUNTIME_DIR}\")\nelse()\n";
   out += "  set(mosa_runtime_default " + cmake_path(runtime_dir) + ")\nendif()\n";
   out += "set(MOSA_RUNTIME_DIR \"${mosa_runtime_default}\" CACHE PATH \"libmosa and include/\")\n";
@@ -168,7 +172,7 @@ Project build_project(Machine& machine, const TranslationLog& log, std::string_v
   Project project;
   project.ok = true;
   for (const UnitPlan& unit : units) {
-    const EmitResult emitted = emit_module(machine, unit.module, log.files[unit.file].key, interpreted);
+    const EmitResult emitted = emit_module(machine, unit.module, log.files[unit.file].key, interpreted, options.trace);
     const std::string stem = unit_stem(impl, unit.module);
     project.files.push_back(ProjectFile{stem + ".cpp", emitted.source});
     project.files.push_back(ProjectFile{stem + ".hpp", emitted.header});

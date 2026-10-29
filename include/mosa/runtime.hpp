@@ -157,4 +157,6 @@ enum class Compare : std::uint8_t { Eq, Ne, Lt, Le, Gt, Ge };
 void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする
 void embed(Machine& machine, std::string_view path, std::string_view source);  // include/1 などがファイルより先に引く
 [[nodiscard]] int finish(Machine& machine, bool loaded);  // 読めなければ診断を出して 1。main は Task 2 の終了コード
+// mosac build --debug の節の追跡（計画 Task 9）。生成コードは kTrace が真のときだけ、節に入るたびに呼ぶ
+void trace_clause(std::string_view text);  // text と改行を標準エラーに書く
 }

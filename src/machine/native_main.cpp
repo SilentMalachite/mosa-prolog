@@ -44,4 +44,7 @@ int finish(Machine& machine, bool loaded) {
   return code;
 }
 
+// 標準エラーは Prolog の user_error と同じ先なので、プログラムの出力と追跡の前後が保たれる。
+void trace_clause(std::string_view text) { std::cerr << text << '\n'; }
+
 }  // namespace mosa::rt

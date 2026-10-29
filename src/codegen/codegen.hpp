@@ -27,8 +27,9 @@ struct EmitResult {
 
 // module はモジュール名のアトム番号。unit_name は NativeUnit::name に入れる。
 // interpreted_only の述語は生成関数を出さず、節を interpreted に数える（翻訳のときに読めなかったファイルの述語）。
+// trace が真なら、生成関数が節に入るたびにその節の文を標準エラーに書く（mosac build --debug、計画 Task 9）。
 [[nodiscard]] EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name,
-                                     std::span<const PredKey> interpreted_only = {});
+                                     std::span<const PredKey> interpreted_only = {}, bool trace = false);
 
 // 計画 Task 5。mosac emit が out/ に書く目録。name は out/ からの相対の名前である。
 struct ProjectFile {
@@ -39,6 +40,7 @@ struct ProjectFile {
 struct ProjectOptions {
   std::string runtime_dir;  // 生成する CMakeLists.txt の MOSA_RUNTIME_DIR の既定（emit した mosac のビルド木）
   bool check_calls = true;  // --units（Task 11）は偽にする。存在エラーを確かめるテストも翻訳するため
+  bool trace = false;       // mosac build --debug。生成コードの kTrace を真にする
 };
 
 // ok が偽なら files は空で、diagnostic に Prolog の行で書いた診断を改行で区切って入れる。

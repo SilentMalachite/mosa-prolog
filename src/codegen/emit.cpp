@@ -80,7 +80,8 @@ class ClauseText {
     scratch_->atoms = source.atoms;
   }
 
-  [[nodiscard]] std::string line(const Clause& clause) {
+  // 節を writeq の形で書いた文（終わりの . を含む）。コメントと --debug の追跡が同じ文を使う。
+  [[nodiscard]] std::string text(const Clause& clause) {
     const auto mark = scratch_->heap.size();
     std::vector<Cell> slots;
     const Cell head = ir_to_term(*scratch_, clause.head, slots, false);
@@ -93,7 +94,7 @@ class ClauseText {
     std::string text = write_term(scratch_->heap, operators, head, options, names);
     if (clause.body.tag != IrTag::True) text += " :- " + write_term(scratch_->heap, operators, body, options, names);
     scratch_->heap.truncate(mark);
-    return "// % " + text + ".\n";
+    return text + ".";
   }
 
  private:
@@ -213,6 +214,16 @@ std::string run_text(const std::string& proc, const std::vector<std::pair<std::u
   return out + "    default: return rt::fail(m);\n  }\n}\n\n";
 }
 
+// 節に入る状態（goal 0）の case の前に追跡を置く。kTrace は単位の constexpr bool で、偽なら if constexpr が
+// 文字列ごと捨てる。追跡の文はコメントと同じ文にする（生成コードを読む人が対応を目で引ける）。
+void add_trace(std::vector<std::pair<std::uint32_t, std::string>>& cases, const std::vector<std::string>& texts) {
+  for (auto& [state, statement] : cases) {
+    const std::uint32_t clause = state >> 16;
+    if ((state & 0xFFFFU) != 0 || clause == 0 || clause > texts.size()) continue;
+    statement = "if constexpr (kTrace) rt::trace_clause(" + string_literal(texts[clause - 1]) + "); " + statement;
+  }
+}
+
 // 単位の中の文面。helpers は無名の名前空間、procs はその外に置く。
 struct UnitText {
   std::string forward;
@@ -233,8 +244,12 @@ std::string pred_label(const Impl& machine, const Predicate& predicate) {
 // 生成関数を 1 つ出す。どの節も IR のままなら出さない（出しても interpret_clause を呼ぶだけになる）。
 void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer, const Predicate& predicate,
                     UnitText& text, EmitResult& result) {
+  std::vector<std::string> texts;
   std::string comments;
-  for (const Clause& clause : predicate.clauses) comments += writer.line(clause);
+  for (const Clause& clause : predicate.clauses) {
+    texts.push_back(writer.text(clause));
+    comments += "// % " + texts.back() + "\n";
+  }
   const std::string label = pred_label(machine, predicate);
   if (!native_eligible(machine, predicate)) {
     result.interpreted += live_count(predicate);
@@ -269,6 +284,7 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
     text.helpers += code.functions;
     for (auto& item : code.cases) cases.push_back(std::move(item));
   }
+  add_trace(cases, texts);
   text.helpers += "void " + proc + "_run(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, std::uint32_t state);\n\n";
   text.helpers += dispatch_text(tables, predicate, proc) + run_text(proc, cases);
   text.forward += proc_signature(proc) + ";\n";
@@ -301,11 +317,14 @@ std::string banner(const Impl& machine, std::uint32_t module, std::string_view u
 }
 
 std::string source_text(const Impl& machine, std::uint32_t module, std::string_view unit_name,
-                        const UnitTables& tables, const UnitText& text) {
+                        const UnitTables& tables, const UnitText& text, bool trace) {
   const std::string space = "mosa_gen::m" + mangle(machine.atoms.name(module));
   std::string out = banner(machine, module, unit_name) + "\n#include \"mosa/runtime.hpp\"\n\nnamespace " + space + " {\n\n";
   out += text.forward + "\nnamespace {\n\n" + std::string{kUsings} + unit_tables(machine, tables);
-  if (text.entry_count > 0) out += std::string{kHelpers};
+  if (text.entry_count > 0) {
+    // mosac build --debug の節の追跡（計画 Task 9）。マクロを使わず、この値で生成コードが切り替わる。
+    out += std::string{"constexpr bool kTrace = "} + (trace ? "true" : "false") + ";\n\n" + std::string{kHelpers};
+  }
   out += text.helpers + "}  // namespace\n\n" + text.procs + "namespace {\n\n";
   out += table_text("rt::NativeEntry", "kEntries", text.entry_count, text.entries) + "\n}  // namespace\n\n";
   out += "mosa::rt::NativeUnit unit(std::string_view source) {\n";
@@ -414,7 +433,7 @@ bool listed(std::span<const PredKey> keys, const Predicate& predicate) {
 }  // namespace
 
 EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name,
-                       std::span<const PredKey> interpreted_only) {
+                       std::span<const PredKey> interpreted_only, bool trace) {
   const Impl& impl = engine_impl(machine);
   EmitResult result;
   UnitTables tables;
@@ -428,7 +447,7 @@ EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string
     }
     emit_predicate(impl, tables, writer, predicate, text, result);
   }
-  result.source = source_text(impl, module, unit_name, tables, text);
+  result.source = source_text(impl, module, unit_name, tables, text, trace);
   result.header = header_text(impl, module, unit_name, text);
   return result;
 }

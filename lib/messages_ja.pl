@@ -24,7 +24,7 @@ message(incomplete_term, '項が閉じていません').
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
-message(mosac_usage, 'mosac: 使い方: mosac emit <ファイル> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
+message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_undefined_call, '~w を呼んでいるが、どこにも定義が無い').
 message(mosac_export_undefined, '~w を export したが定義が無い').
@@ -41,6 +41,17 @@ message(toolchain_named_not_found, 'mosac: コンパイラ ~w（~w で指定）�
 message(toolchain_hint_macos, 'Xcode Command Line Tools を入れてください: xcode-select --install').
 message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt install g++').
 message(toolchain_hint_windows, 'Visual Studio Build Tools を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://visualstudio.microsoft.com/ja/downloads/').
+
+% mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。
+message(mosac_internal_error, '内部エラー: 生成コードがコンパイルできません。~w を添えて報告してください').
+message(mosac_disk_full, 'mosac: ディスクの空きが足りず ~w に書けません~n空きを作ってからもう一度動かしてください。.mosac-cache の古い中間物は mosac build --clean で消せます').
+message(mosac_no_permission, 'mosac: ~w に書く権限がありません~n書き込めるディレクトリで動かすか、-o で書き込める場所を指してください').
+message(mosac_runtime_missing, 'mosac: 実行時ライブラリが見つかりません: ~w~nmosac toolchain で場所を確かめてください').
+message(mosac_cannot_start, 'mosac: 起動できません: ~w').
+message(mosac_verbose_run, 'mosac: 実行: ~w').
+message(mosac_cache_hit, 'mosac: キャッシュを使います: ~w').
+message(mosac_kept, 'mosac: 一時ディレクトリを残しました: ~w').
+
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').
 message(clauses_apart, '述語 ~w の節が離れている').

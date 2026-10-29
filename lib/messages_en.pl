@@ -24,7 +24,7 @@ message(incomplete_term, 'incomplete term').
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~n--report may be omitted only when tests/conformance is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
-message(mosac_usage, 'mosac: usage: mosac emit <file> -o <directory>~nmosac toolchain [--cxx <compiler>]').
+message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--debug] [--verbose] [--clean] [--cxx <compiler>]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_undefined_call, 'call to undefined procedure ~w').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').
@@ -41,6 +41,17 @@ message(toolchain_named_not_found, 'mosac: the compiler ~w given by ~w was not f
 message(toolchain_hint_macos, 'Install the Xcode Command Line Tools: xcode-select --install').
 message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt install g++').
 message(toolchain_hint_windows, 'Install Visual Studio Build Tools with the "Desktop development with C++" workload: https://visualstudio.microsoft.com/downloads/').
+
+% mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。
+message(mosac_internal_error, 'internal error: the generated code cannot be compiled. Please report it with ~w attached').
+message(mosac_disk_full, 'mosac: not enough disk space to write ~w~nFree some space and try again. mosac build --clean removes old intermediate files in .mosac-cache').
+message(mosac_no_permission, 'mosac: no permission to write ~w~nRun mosac in a directory you can write to, or give a writable place with -o').
+message(mosac_runtime_missing, 'mosac: the runtime library was not found: ~w~nCheck its location with mosac toolchain').
+message(mosac_cannot_start, 'mosac: cannot start ~w').
+message(mosac_verbose_run, 'mosac: running: ~w').
+message(mosac_cache_hit, 'mosac: using the cache: ~w').
+message(mosac_kept, 'mosac: kept the temporary directory: ~w').
+
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').
 message(clauses_apart, 'clauses of ~w are not together').
