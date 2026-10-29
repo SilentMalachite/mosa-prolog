@@ -146,6 +146,7 @@ X = 太郎.
 | [`docs/agreement.json`](docs/agreement.json) | 一致率バッジの元データ（自動生成） |
 | [`docs/unicode-version.md`](docs/unicode-version.md) | 文字分類表が使う Unicode の版 |
 | [`docs/bench.ja.md`](docs/bench.ja.md) | ベンチマークの記録 |
+| [`docs/bench.json`](docs/bench.json) | macOS の CI が比べるベンチマークの結果（自動生成） |
 | [`AGENTS.ja.md`](AGENTS.ja.md) | コーディングエージェント向けの作業規則 |
 
 ## ディレクトリ

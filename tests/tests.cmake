@@ -203,6 +203,12 @@ target_compile_definitions(suite_args_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(suite_args_test PRIVATE mosa_lib)
 add_test(NAME suite_args_test COMMAND $<TARGET_FILE:suite_args_test>)
 
+add_executable(bench_report_test tests/cpp/bench_report_test.cpp)
+target_include_directories(bench_report_test PRIVATE tests/cpp src/machine)
+target_compile_definitions(bench_report_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(bench_report_test PRIVATE mosa_lib)
+add_test(NAME bench_report_test COMMAND $<TARGET_FILE:bench_report_test>)
+
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
 set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 5\\)\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
@@ -358,10 +364,13 @@ endif()
 # （翻訳側の configure を本体と同じ生成器、コンパイラ、旗で行う）。報告 docs/agreement.{json,md} は 2 つのテストが
 # 同じファイルに書くので、RESOURCE_LOCK で同時に走らせない。japanese.pl と native.pl が含まれることと、native.pl に
 # 生成関数が 1 つ以上付いたこと（ATTACHED）も確かめる。
+# bench/ の 6 本は tests/pl/bench_<名前>.pl が include し、最初の解の確かめと短い bench(N) を両方の側で比べる
+# （計画 Task 13）。どれも比べた一覧に出て、生成関数が付いたこと。
+set(diff_bench_files bench_nrev.pl bench_queens.pl bench_zebra.pl bench_tak.pl bench_deriv.pl bench_crypt.pl)
 add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/pl -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_tests_pl
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
-  "-DREQUIRE=japanese.pl;native.pl" "-DATTACHED=native.pl" -DROOT=${CMAKE_SOURCE_DIR}
+  "-DREQUIRE=japanese.pl;native.pl;${diff_bench_files}" "-DATTACHED=native.pl;${diff_bench_files}" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
 set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
   TIMEOUT 3000)

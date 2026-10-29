@@ -8,6 +8,7 @@ on:
 # 差分テストは -LE diff / -L diff の 2 段に分け、全テストを 1 回ずつ流しつつ、一致率の行をログに出す（-V）。
 # 生成コードは diff_test.cmake と MOSA_WERROR=1 で警告を誤りにしてコンパイルする（「生成した C++ は常にコンパイルできる」）。
 # 持ち主の決定 3: mosac build した hello を成果物に上げ、別のジョブで落として動かす（ADR 0009 Review Focus 5）。
+# macOS では bench/ の 6 本を流し、docs/bench.json より 20% 以上遅ければ警告にする（失敗にはしない、計画 Task 13）。
 jobs:
   macos:
     runs-on: macos-latest
@@ -44,6 +45,48 @@ jobs:
       - name: Check badges
         shell: bash
         run: git diff --exit-code -- docs/conformance.json docs/agreement.json
+      # 計画 Task 13。bench/ の 6 本を docs/bench.json と同じ N で測り、どちらかの側がコミット済みの値より 20% 以上
+      # 遅ければ警告にする。ランナーは表を測った機械（docs/bench.md）と違うので、退行の粗い目安であり、失敗にはしない。
+      # docs/bench.json は 1 行 1 プログラムなので、値は行から sed で抜く。Actions の bash は -e と pipefail で動くので
+      # set +e で外し、測れなかったプログラムも警告にして次へ進む。
+      - name: Benchmarks
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          now=tests/tmp/bench-ci.json
+          rm -f "$now"
+          field() { sed -n "s/.*\"$1\":\([^,}]*\).*/\1/p"; }
+          {
+            echo "### Benchmarks (macOS runner vs committed docs/bench.json, ms)"
+            echo ""
+            echo "| Program | N | Interpreter | Committed | Translated | Committed | Note |"
+            echo "| --- | ---: | ---: | ---: | ---: | ---: | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep '^  {"file":' docs/bench.json | while IFS= read -r base; do
+            file=$(printf '%s\n' "$base" | sed -n 's/.*"file":"\([^"]*\)".*/\1/p')
+            count=$(printf '%s\n' "$base" | field count)
+            if ! LANG=C ./build/mosatest --bench "$file" --count "$count" --work tests/tmp/bench-ci --report "$now" < /dev/null; then
+              echo "::warning title=Benchmark::$file: mosatest --bench failed"
+              echo "| $file | $count | | | | | mosatest --bench failed |" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            got=$(grep -F "{\"file\":\"$file\"," "$now")
+            note=""
+            for side in interpreter translated; do
+              old=$(printf '%s\n' "$base" | field "${side}_ms")
+              new=$(printf '%s\n' "$got" | field "${side}_ms")
+              if [ $((new * 100)) -ge $((old * 120)) ]; then
+                slower=$(( (new - old) * 100 / (old > 0 ? old : 1) ))
+                echo "::warning title=Benchmark::$file: $side ${new} ms is ${slower}% slower than docs/bench.json (${old} ms)"
+                note="$note $side ${slower}% slower;"
+              fi
+            done
+            row="| $file | $count | $(printf '%s\n' "$got" | field interpreter_ms) | $(printf '%s\n' "$base" | field interpreter_ms)"
+            row="$row | $(printf '%s\n' "$got" | field translated_ms) | $(printf '%s\n' "$base" | field translated_ms) |$note |"
+            echo "$row" >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit 0
 
   linux-gcc:
     runs-on: ubuntu-24.04

@@ -146,6 +146,7 @@ Each document below has a Japanese translation next to it as `*.ja.md`. The Engl
 | [`docs/agreement.json`](docs/agreement.json) | Badge data for the agreement (generated) |
 | [`docs/unicode-version.md`](docs/unicode-version.md) | Unicode version used by the character tables |
 | [`docs/bench.md`](docs/bench.md) | Benchmark records |
+| [`docs/bench.json`](docs/bench.json) | Benchmark results the macOS CI job compares against (generated) |
 | [`AGENTS.md`](AGENTS.md) | Working rules for coding agents |
 
 ## Layout

@@ -3,8 +3,11 @@
 // 両側とも同じ入口（initialization(main, main)）と同じ N で、起動と原文の読み込みの時間を同じに含める。
 // 時間はこのプロセスの steady_clock で測る。statistics/2 はフェーズ7。文面は lib/messages_*.pl の鍵（ADR 0007）。
 // 翻訳側は常に Release で作る（比の分子を最適化の有無で動かさない）。libmosa は mosatest の隣のビルド木のもの。
+// --report を渡すと結果を docs/bench.json の形の JSON に書き足す（計画 Task 13、bench_report.cpp）。
 
 #include "mosa/bench.hpp"
+
+#include "bench_report.hpp"
 
 #include "../codegen/codegen.hpp"
 #include "mosa/exe_path.hpp"
@@ -116,7 +119,8 @@ std::optional<std::filesystem::path> built_exe(const std::filesystem::path& buil
   return std::nullopt;
 }
 
-std::string millis(std::int64_t micros) { return std::to_string((micros + 500) / 1000); }
+std::int64_t round_ms(std::int64_t micros) { return (micros + 500) / 1000; }
+std::string millis(std::int64_t micros) { return std::to_string(round_ms(micros)); }
 
 // 小数 1 桁。小さな N では訳した側が 1 マイクロ秒を切りうるので、0 で割らない。
 std::string ratio_text(std::int64_t interpreter, std::int64_t translated) {
@@ -130,6 +134,15 @@ std::optional<std::int64_t> parse_count(std::string_view text) {
   const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
   if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || value < 1) return std::nullopt;
   return value;
+}
+
+// 表の ms は画面と同じ丸め。CI はこの値をコミット済みの docs/bench.json と比べる。
+bool write_report(const BenchArgs& args, std::int64_t interpreter, std::int64_t translated, const std::string& ratio) {
+  if (args.report.empty()) return true;
+  const BenchResult result{args.file, args.count, round_ms(interpreter), round_ms(translated), ratio};
+  if (write_bench_report(path_from_utf8(args.report), result)) return true;
+  std::cerr << message("bench_cannot_write", {args.report}) << '\n';
+  return false;
 }
 
 }  // namespace
@@ -150,6 +163,8 @@ BenchArgs parse_bench_args(std::span<const std::string_view> args) {
       parsed.work = std::string{value};
     } else if (args[index] == "--cmake") {
       parsed.cmake = std::string{value};
+    } else if (args[index] == "--report") {
+      parsed.report = std::string{value};
     } else {
       return parsed;
     }
@@ -183,8 +198,9 @@ int run_bench(const BenchArgs& args) {
   const auto translated = median_of_runs({utf8_from_path(*exe), count});
   if (!translated) return 1;
   say(message("bench_translated", {millis(*translated)}));
-  say(message("bench_ratio", {ratio_text(*interpreter, *translated)}));
-  return 0;
+  const std::string ratio = ratio_text(*interpreter, *translated);
+  say(message("bench_ratio", {ratio}));
+  return write_report(args, *interpreter, *translated, ratio) ? 0 : 1;
 }
 
 }

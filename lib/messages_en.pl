@@ -22,7 +22,7 @@ message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
-message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
