@@ -67,7 +67,7 @@ std::string main_body(const Impl& machine, const TranslationLog& log, const Proj
            "::unit(file" + std::to_string(unit.file) + "));\n";
   }
   // --interactive は読み込みのあと REPL に入る（計画 Task 14）。initialization(main, main) の main は動かさない。
-  // 暫定の選び（owner 未決。docs/STATUS.md の問い）: A main を飛ばして REPL、B main を動かしてから REPL。
+  // 持ち主の決定 A（2026-10-30、SPEC 第6節）: main を飛ばして REPL に入る（B の「main を動かしてから REPL」は採らない）。
   return out + "  return mosa::rt::" + (interactive ? "finish_interactive" : "finish") + "(*machine, loaded);\n}\n";
 }
 
