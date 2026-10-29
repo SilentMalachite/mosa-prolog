@@ -2,7 +2,7 @@ English | [日本語](bench.ja.md)
 
 # Benchmarks
 
-`mosatest --bench <file> [--count <N>] [--work <directory>] [--cmake <path>]` runs `bench(N)` five times in the interpreter (`mosa <file> -- N`) and five times in the executable that `mosac emit` + CMake (Release) builds from the same file, then prints the wall-clock median of each side and the ratio (interpreter time divided by translated time). Each run is one whole process, from start to exit, so both sides include process start-up and the loading of the source in the same way. `N` is the same on both sides (default 20000). The programs in `bench/` define `bench(N)` as a failure-driven loop, check their first solution before running it, and read `N` from the flag `argv`; `statistics/2` is not used (phase 7).
+`mosatest --bench <file> [--count <N>] [--work <directory>] [--cmake <path>]` runs `bench(N)` five times in the interpreter (`mosa <file> -- N`) and five times in the executable that `mosac emit` + CMake (Release) builds from the same file, then prints the wall-clock median of each side and the ratio (interpreter time divided by translated time). Each run is one whole process, from start to exit, so both sides include process start-up and the loading of the source in the same way. `N` is the same on both sides (default 20000). The emitted project, its build and the logs go under `--work` (default: `mosatest-bench` next to the `mosatest` executable, in the build tree); only the child directory `mosatest-bench-out` is removed and recreated. The programs in `bench/` define `bench(N)` as a failure-driven loop, check their first solution before running it, and read `N` from the flag `argv`; `statistics/2` is not used (phase 7).
 
 ## nrev
 

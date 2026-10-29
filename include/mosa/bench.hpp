@@ -10,7 +10,8 @@ namespace mosa {
 
 struct BenchArgs {
   std::string file;             // bench(N) と initialization(main, main) を持つ Prolog のファイル
-  std::string work;             // 目録とビルドとログの置き場。既定は一時ディレクトリの mosatest-bench
+  std::string work;             // 目録とビルドとログの置き場。空なら mosatest の隣（ビルド木）の mosatest-bench。
+                                // 共有の /tmp の決まった名前は、ほかの利用者が先に作って中身を差し替えられるので使わない
   std::string cmake = "cmake";  // 翻訳側を作る CMake。既定は PATH から引く
   std::int64_t count = 20000;   // N。インタプリタが 1〜4 秒になる値（ADR 0009 の下見と同じ 20000）
   bool ok = false;

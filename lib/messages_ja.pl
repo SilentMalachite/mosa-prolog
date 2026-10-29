@@ -51,6 +51,7 @@ message(bench_interpreter, 'インタプリタ: ~w ms').
 message(bench_translated, '翻訳: ~w ms').
 message(bench_ratio, '比: ~w').
 message(bench_cannot_start, 'mosatest: ~w を起こせません').
+message(bench_not_found, 'mosatest: ~w が見つかりません').
 message(bench_run_failed, 'mosatest: ~w が終了コード ~w で終わりました').
 message(bench_step_failed, 'mosatest: ~w が終了コード ~w で失敗しました（出力は ~w）').
 message(bench_cannot_write, 'mosatest: ~w に書けません').

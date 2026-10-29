@@ -51,6 +51,7 @@ message(bench_interpreter, 'interpreter: ~w ms').
 message(bench_translated, 'translated: ~w ms').
 message(bench_ratio, 'ratio: ~w').
 message(bench_cannot_start, 'mosatest: cannot start ~w').
+message(bench_not_found, 'mosatest: ~w not found').
 message(bench_run_failed, 'mosatest: ~w exited with code ~w').
 message(bench_step_failed, 'mosatest: ~w failed with code ~w (output in ~w)').
 message(bench_cannot_write, 'mosatest: cannot write ~w').

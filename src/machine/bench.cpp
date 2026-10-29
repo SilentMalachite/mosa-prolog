@@ -28,6 +28,8 @@ namespace mosa {
 namespace {
 
 constexpr int kRuns = 5;
+// 作業場所の中で消して作り直す唯一の名前。--work に ~ などを渡されても、この道具が作ったもの以外は消さない。
+constexpr std::string_view kOutDir = "mosatest-bench-out";
 
 std::string message(std::string_view key, std::vector<std::string> args = {}) {
   return render_message_fresh(default_message_language(), key, args);
@@ -87,18 +89,18 @@ bool step(const std::vector<std::string>& argv, const std::filesystem::path& log
   return true;
 }
 
-// mosac emit、configure、build。前回の out/ が残ると失敗した emit が見えないので、out/ を消してから作る。
+// mosac emit、configure、build。前回の目録が残ると失敗した emit が見えないので、kOutDir を消してから作る。
 bool build_translated(const BenchArgs& args, const std::filesystem::path& work, const std::filesystem::path& mosac) {
   std::error_code error;
-  std::filesystem::remove_all(work / "out", error);
+  std::filesystem::remove_all(work / kOutDir, error);
   error.clear();
   std::filesystem::create_directories(work, error);
   if (error) {
     std::cerr << message("bench_cannot_write", {utf8_from_path(work)}) << '\n';
     return false;
   }
-  const std::string out = utf8_from_path(work / "out");
-  const std::string build = utf8_from_path(work / "out" / "build");
+  const std::string out = utf8_from_path(work / kOutDir);
+  const std::string build = utf8_from_path(work / kOutDir / "build");
   return step({utf8_from_path(mosac), "emit", args.file, "-o", out}, work / "emit.log", "mosac emit") &&
          step({args.cmake, "-S", out, "-B", build, "-DCMAKE_BUILD_TYPE=Release"}, work / "configure.log",
               "cmake configure") &&
@@ -136,8 +138,6 @@ BenchArgs parse_bench_args(std::span<const std::string_view> args) {
   BenchArgs parsed;
   if (args.empty() || args.front().empty() || args.front().front() == '-') return parsed;
   parsed.file = std::string{args.front()};
-  std::error_code error;
-  parsed.work = utf8_from_path(std::filesystem::temp_directory_path(error) / "mosatest-bench");
   if (args.size() % 2 != 1) return parsed;
   for (std::size_t index = 1; index < args.size(); index += 2) {
     const std::string_view value = args[index + 1];
@@ -161,7 +161,7 @@ BenchArgs parse_bench_args(std::span<const std::string_view> args) {
 int run_bench(const BenchArgs& args) {
   const auto self = executable_path();
   if (!self) {
-    std::cerr << message("bench_cannot_start", {"mosa"}) << '\n';
+    std::cerr << message("bench_not_found", {"mosa"}) << '\n';
     return 1;
   }
   const std::string count = std::to_string(args.count);
@@ -169,12 +169,15 @@ int run_bench(const BenchArgs& args) {
   const auto interpreter = median_of_runs({utf8_from_path(sibling(*self, "mosa")), args.file, "--", count});
   if (!interpreter) return 1;
   say(message("bench_interpreter", {millis(*interpreter)}));
-  const std::filesystem::path work = path_from_utf8(args.work);
+  // 既定の作業場所は自分の隣（ビルド木）。共有の /tmp の決まった名前は、ほかの利用者が先に作って目録や
+  // 実行ファイルを差し替えられるので使わない。
+  const std::filesystem::path work =
+      args.work.empty() ? self->parent_path() / "mosatest-bench" : path_from_utf8(args.work);
   if (!build_translated(args, work, sibling(*self, "mosac"))) return 1;
   const std::string exe_name = codegen::target_name(args.file) + utf8_from_path(self->extension());
-  const auto exe = built_exe(work / "out" / "build", path_from_utf8(exe_name));
+  const auto exe = built_exe(work / kOutDir / "build", path_from_utf8(exe_name));
   if (!exe) {
-    std::cerr << message("bench_cannot_start", {exe_name}) << '\n';
+    std::cerr << message("bench_not_found", {exe_name}) << '\n';
     return 1;
   }
   const auto translated = median_of_runs({utf8_from_path(*exe), count});

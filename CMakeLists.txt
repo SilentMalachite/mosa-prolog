@@ -363,12 +363,19 @@ foreach(emit_case hello broken undefined silent newop halt)
 endforeach()
 
 # mosatest --bench の出力の形だけを確かめる（計画 Task 6）。N が小さいので時間は見ない。翻訳側の configure は
-# 本体と同じコンパイラと旗で行う。CMake は最初の configure で CXX、CXXFLAGS、LDFLAGS を読む。
+# 本体と同じ生成器、コンパイラ、旗で行う（emit_test.cmake の -G と -A に相当）。CMake は最初の configure で
+# 環境変数 CMAKE_GENERATOR、CMAKE_GENERATOR_PLATFORM、CXX、CXXFLAGS、LDFLAGS を読む。
 add_test(NAME mosatest_bench COMMAND $<TARGET_FILE:mosatest> --bench bench/nrev.pl --count 10
   --work ${CMAKE_SOURCE_DIR}/tests/tmp/bench --cmake ${CMAKE_COMMAND}
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+set(mosatest_bench_env "CXX=${CMAKE_CXX_COMPILER}" "CXXFLAGS=${CMAKE_CXX_FLAGS}" "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS}"
+  "CMAKE_GENERATOR=${CMAKE_GENERATOR}")
+if(CMAKE_GENERATOR_PLATFORM)
+  list(APPEND mosatest_bench_env "CMAKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}")
+endif()
+# PASS_REGULAR_EXPRESSION は終了コードを見ない。比の行は両側が成功したときだけ出るので、形が合えば成功である。
 set_tests_properties(mosatest_bench PROPERTIES
-  ENVIRONMENT "CXX=${CMAKE_CXX_COMPILER};CXXFLAGS=${CMAKE_CXX_FLAGS};LDFLAGS=${CMAKE_EXE_LINKER_FLAGS}"
+  ENVIRONMENT "${mosatest_bench_env}"
   PASS_REGULAR_EXPRESSION ": [0-9]+ ms\r?\n[^\n]*: [0-9]+ ms\r?\n[^\n]*: [0-9]+\\.[0-9]\r?\n$")
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
