@@ -294,6 +294,12 @@ bool needs_developer_prompt(const std::filesystem::path& cxx, bool has_vcvars_en
   return is_msvc(cxx) && !has_vcvars_env && !include_set;
 }
 
+// cmd は引用の中でも %NAME% を展開し、" は引用を閉じるので、この 2 つを含むパスは .bat に書けない。
+// ( ) & は call の行の引用の中なら文字のまま渡り、実際の VS は Program Files (x86) の下にあるので拒まない。
+bool cmd_quotable_path(const std::filesystem::path& path) {
+  return native_path_text(path).find_first_of("%\"") == std::string::npos;
+}
+
 // cmd は .bat を OEM の符号ページで読むが、中身は ASCII の命令と vcvarsall のパスだけである。set の出力は
 // cmd /u で UTF-16LE にさせて読む（vcvars_environment）。OEM のままだと日本語の TEMP や USERPROFILE が化ける。
 std::string vcvars_script(const std::filesystem::path& vcvarsall) {
@@ -351,7 +357,8 @@ std::optional<std::filesystem::path> command_shell() {
 // cmd に見せるパスは native_path_text（\ のまま）。/ にそろえた形だと cmd が C: で切って命令と読む。
 // set の出力は cmd /u で UTF-16LE にし、utf8_from_utf16le で読む。x64 は固定である。
 std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvarsall) {
-  if (!is_file(vcvarsall)) return std::nullopt;
+  // 書けないパスなら一時のパスと同じく諦め、呼び手は今の PATH を見る。
+  if (!is_file(vcvarsall) || !cmd_quotable_path(vcvarsall)) return std::nullopt;
   const auto scratch = scratch_file(".bat");
   // cmd /c は引数の中の & ^ ( ) % ! < > | を命令として読む。そういうパスなら諦め、呼び手は今の PATH を見る。
   if (!scratch || utf8_from_path(*scratch).find_first_of("&^()%!<>|") != std::string::npos) return std::nullopt;

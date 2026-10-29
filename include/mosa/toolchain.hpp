@@ -80,6 +80,8 @@ struct NamedCompiler {
 // cl を vcvarsall の環境無しで（名指しの cl は vcvarsall を通さない）、INCLUDE も無いまま動かそうとしているか。
 // そのとき mosac build はコンパイルの前に開発者用のプロンプトを案内して止まる。
 [[nodiscard]] bool needs_developer_prompt(const std::filesystem::path& cxx, bool has_vcvars_env, bool include_set);
+// .bat の call の行で "..." に入れて書けるパスか（% と " を含まない）。書けない vcvarsall は使わず PATH を見る。
+[[nodiscard]] bool cmd_quotable_path(const std::filesystem::path& path);
 // vcvarsall.bat を x64 で呼んでから set を出す .bat の中身（行末は \r\n）。
 [[nodiscard]] std::string vcvars_script(const std::filesystem::path& vcvarsall);
 // cmd /u が書く UTF-16LE を UTF-8 にする。対になっていないサロゲートは U+FFFD、奇数の最後の 1 バイトは捨てる。

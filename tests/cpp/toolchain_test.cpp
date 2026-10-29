@@ -177,6 +177,13 @@ void windows_msvc_env() {
   const std::string call = mosa::host_os() == mosa::HostOs::windows ? "vc\\vcvarsall.bat" : "vc/vcvarsall.bat";
   mosa_test::check(script == "@echo off\r\ncall \"" + call + "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n",
                    "vcvarsall script text");
+  // (x86) の & ( ) は引用の中で文字のまま渡るので通し、cmd が展開する % と引用を閉じる " だけを拒む。
+  const auto x86 = mosa::path_from_utf8("C:/Program Files (x86)/Microsoft Visual Studio/A&B/vcvarsall.bat");
+  mosa_test::check(mosa::cmd_quotable_path(x86), "a vcvarsall path with ( ) & can be quoted for cmd");
+  mosa_test::check(!mosa::cmd_quotable_path(mosa::path_from_utf8("C:/VS/%USERNAME%/vcvarsall.bat")),
+                   "a vcvarsall path with % is refused");
+  mosa_test::check(!mosa::cmd_quotable_path(mosa::path_from_utf8("C:/VS/a\"b/vcvarsall.bat")),
+                   "a vcvarsall path with a double quote is refused");
   // 「TEMP=C:\テスト」と 𠀋（サロゲート対）の UTF-16LE。
   const std::string utf16{"T\0=\0C\0:\0\\\0\xc6\x30\xb9\x30\xc8\x30\x40\xd8\x0b\xdc\r\0\n\0", 24};
   mosa_test::check(mosa::utf8_from_utf16le(utf16) == "T=C:\\テスト\xf0\xa0\x80\x8b\r\n", "UTF-16LE to UTF-8");
