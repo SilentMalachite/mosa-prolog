@@ -1,7 +1,7 @@
 # 計画 Task 10。mosac build で作った実行ファイルが、lib/ も原文も無いディレクトリで、MOSA_LIB 無しに動くことを確かめる
 # （SPEC 第6節「実行ファイルは起動時に外部ファイルを一切要求しない」、ADR 0009 Review Focus 5）。
 # 原文は WORK/src に写してから build し、動かす前に消す。実行ファイルに翻訳した機械のパスが残らないことも見る。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<uncaught_message|use_lists|include|plain_use> -DSRC=<tests/mosac>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<uncaught_message|use_lists|include|plain_use|subdir> -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
 
@@ -30,6 +30,11 @@ elseif(CASE STREQUAL "include")
 elseif(CASE STREQUAL "plain_use")
   set(sources uses_foo.pl)
   set(program uses_foo)
+  file(COPY "${SRC}/mylib" DESTINATION "${WORK}/src")
+  set(library_env "MOSA_LIB=${WORK}/src/mylib")
+elseif(CASE STREQUAL "subdir")
+  set(sources uses_bar.pl)
+  set(program uses_bar)
   file(COPY "${SRC}/mylib" DESTINATION "${WORK}/src")
   set(library_env "MOSA_LIB=${WORK}/src/mylib")
 else()
@@ -61,6 +66,10 @@ endif()
 # 利用者のライブラリは同梱の lib/ に無いので、原文だけを同梱する。その旨を --verbose で出す。
 if(CASE STREQUAL "plain_use" AND NOT err MATCHES "mosac: 原文だけを同梱するライブラリ[^\n]*: [^\n]*foo[^\n]*util")
   fail("foo and util must be reported as bundled source only")
+endif()
+# 下のディレクトリのライブラリの名前は根からの相対（sub/deep）。library('sub/deep') もこの名前で引く。
+if(CASE STREQUAL "subdir" AND NOT err MATCHES "mosac: 原文だけを同梱するライブラリ[^\n]*: [^\n]*bar[^\n]*sub/deep")
+  fail("bar and sub/deep must be reported as bundled source only")
 endif()
 
 # 原文を消し、実行ファイルだけのディレクトリで動かす。隣に lib/ も .pl も library/ も無い。
@@ -106,9 +115,14 @@ elseif(CASE STREQUAL "include")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "1-2\n")
     fail("include/1 and ensure_loaded/1 from the embedded units")
   endif()
-else()
+elseif(CASE STREQUAL "plain_use")
   # foo の中の素のパスの use_module(util) も、ディスクに library/ が無いまま埋め込みから引く。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "42\n")
     fail("a plain-path use_module inside a bundled library")
+  endif()
+else()
+  # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "7-7\n")
+    fail("a plain-path use_module into a subdirectory of a bundled library")
   endif()
 endif()

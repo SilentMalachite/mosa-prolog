@@ -66,6 +66,7 @@ message(mosac_runtime_build_failed, 'mosac: the runtime library could not be bui
 message(mosac_runtime_cached, 'mosac: reusing the runtime library built from source: ~w').
 message(mosac_verbose_units, 'mosac: linked translated libraries: ~w').
 message(mosac_verbose_source_only, 'mosac: libraries bundled as source only (they differ from the lib/ next to mosac and run interpreted): ~w').
+message(mosac_duplicate_key, 'mosac: ~w and ~w would both be embedded as ~w. The executable cannot tell them apart, so rename one of the files').
 
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').

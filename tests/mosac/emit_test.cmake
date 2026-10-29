@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -13,8 +13,14 @@ file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
 set(out_dir "${WORK}/out")
 
+# duplicate.pl は MOSA_LIB=mylib の library(x) と include した library/x.pl が同じ鍵 library/x.pl になる（計画 Task 10）。
+set(emit_env)
+if(CASE STREQUAL "duplicate")
+  set(emit_env "${CMAKE_COMMAND}" -E env "MOSA_LIB=${SRC}/mylib")
+endif()
+
 # 診断の頭はコマンド行に書いたパスのままなので、ファイル名だけを渡す。
-execute_process(COMMAND "${MOSAC}" emit "${CASE}.pl" -o "${out_dir}"
+execute_process(COMMAND ${emit_env} "${MOSAC}" emit "${CASE}.pl" -o "${out_dir}"
   WORKING_DIRECTORY "${SRC}"
   OUTPUT_VARIABLE emit_out
   ERROR_VARIABLE emit_err
@@ -39,6 +45,15 @@ endif()
 if(CASE STREQUAL "undefined")
   if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1")
     message(FATAL_ERROR "undefined: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+  endif()
+  expect_no_cpp()
+  return()
+endif()
+
+# 同じ鍵で 2 つのファイルを埋め込めない。翻訳の段で両方のファイルと鍵を挙げて止まり、.cpp は書かない。
+if(CASE STREQUAL "duplicate")
+  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^mosac: [^\n]*library/x\\.pl[^\n]*mylib/x\\.pl[^\n]*library/x\\.pl")
+    message(FATAL_ERROR "duplicate: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
   endif()
   expect_no_cpp()
   return()

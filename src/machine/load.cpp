@@ -216,6 +216,13 @@ int import_ready(Impl& machine, const std::filesystem::path& file) {
   return 1;
 }
 
+// library(Name) で見つけたファイルから Name の分だけ親に戻ると、探索したディレクトリ（$MOSA_LIB か lib/）。
+// 翻訳はそこからの相対を埋め込みの鍵にする（library/sub/util.pl）。Name は sub/util や util.pl の形でもよい。
+std::filesystem::path library_root(std::filesystem::path found, std::string_view name) {
+  for ([[maybe_unused]] const auto& part : path_from_utf8(name).lexically_normal()) found = found.parent_path();
+  return canonical_key(found);
+}
+
 // use_module の第 1 引数。原子は読み込み中のファイルからの相対、library(Name) は、実行ファイルに同梱した一覧
 // （bundled に名前が入る。計画 Task 10）を先に引き、無ければ library_path の探索（SPEC 第5節）。同梱ライブラリの中の
 // 素のパスは擬似ディレクトリ library/ に解決するので、それも同じ一覧で引く。
@@ -236,7 +243,10 @@ std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directo
     const auto found = find_library(text);
     if (!found) return formal_existence(machine, "source_sink", arg);
     file = *found;
-    if (machine.translation != nullptr) machine.translation->library_keys.push_back(utf8_from_path(canonical_key(file)));
+    if (machine.translation != nullptr) {
+      machine.translation->library_opens.push_back(
+          TranslationLog::LibraryOpen{utf8_from_path(canonical_key(file)), utf8_from_path(library_root(file, text))});
+    }
     return std::nullopt;
   }
   if (arg.tag() != Tag::Atom) return formal_type(machine, "atom", arg);
@@ -345,10 +355,14 @@ struct FileNote {
       if (log->files[index].key == key) log->current = index;
     }
     if (log->current != outer) return;
-    const bool library = std::find(log->library_keys.begin(), log->library_keys.end(), key) != log->library_keys.end() ||
-                         (outer < log->files.size() && log->files[outer].library);
-    TranslationLog::File file{key, std::string{source}, 0, 0, library};
-    file.parent = outer;
+    // library(Name) で開いた物はその探索の根、ライブラリから素のパスや include で開いた物は親と同じ根。
+    std::string root;
+    for (const TranslationLog::LibraryOpen& open : log->library_opens) {
+      if (open.key == key) root = open.root;
+    }
+    if (root.empty() && outer < log->files.size()) root = log->files[outer].library_root;
+    TranslationLog::File file{key, std::string{source}, 0, 0, !root.empty()};
+    file.library_root = std::move(root);
     log->files.push_back(std::move(file));
     log->current = log->files.size() - 1;
   }

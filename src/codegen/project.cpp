@@ -5,10 +5,13 @@
 // 単位の名前の決め方（Task 5 と Task 10 の持ち越し。すべて単射）
 //  - C++ の名前空間: mosa_gen::m<mangle(モジュール名)>。mangle は _ を _5f、ほかの非英数字を _xx にするので __ を作らない
 //  - プログラムの単位の NativeUnit::name と埋め込みの鍵: 根のファイルのディレクトリからの相対パス（embed_keys）
-//  - 同梱ライブラリ: library(Name) の Name はファイルの語幹。NativeUnit::name は library(Name)、埋め込みの鍵は
-//    library/Name.pl（bundled_library_path。実行時の use_module も同じ鍵を引く）、翻訳済みの単位のファイルは
-//    pl/libmosa_pl_<Name>.a（MSVC は mosa_pl_<Name>.lib）。モジュール名ではなく語幹で結ぶのは、use_module(library(X)) の
-//    X がファイル名だからである
+//  - 同梱ライブラリ: 埋め込みの鍵は、そのライブラリの根（library(Name) を見つけた $MOSA_LIB か lib/）からの相対パスを
+//    擬似ディレクトリ library/ の下に置いた物（library/Name.pl、library/sub/util.pl。モジュールも include した物も同じ）。
+//    ライブラリの名前はその鍵から library/ と .pl を除いた物（Name、sub/util）で、use_module(library(X)) の X と同じ綴り。
+//    実行時は library(X) も、ライブラリの中の素のパス 'sub/util' も、この鍵に解決する（bundled_library_path、
+//    locate_bundled_plain）。NativeUnit::name は library(Name)、翻訳済みの単位のファイルは pl/libmosa_pl_<Name>.a
+//    （MSVC は mosa_pl_<Name>.lib）。モジュール名ではなく名前で結ぶのは、use_module(library(X)) の X がファイル名だからである
+//  - 同じ鍵に 2 つのファイルが来たら（プログラムの library/x.pl と同梱の x など）翻訳の段で断る（mosac_duplicate_key）
 
 #include "codegen.hpp"
 #include "emit_state.hpp"
@@ -23,6 +26,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -75,29 +80,51 @@ std::string relative_or_same(const std::filesystem::path& file, const std::files
 }
 
 // 埋め込みの鍵。翻訳した機械の絶対パスを実行ファイルに残さない（利用者名が漏れ、同じ原文から同じ物ができなくなる）。
-// プログラムのファイルは根のディレクトリからの相対、ライブラリのモジュールのファイルは library/<語幹>.pl、ライブラリが
-// include したファイルは、その親の擬似ディレクトリからの相対にする（親は必ず先に開かれているので添字が小さい）。
-// 相対にできないパス（Windows の別のドライブなど）だけは絶対のまま残す。
-std::vector<std::string> embed_keys(const Impl& machine, const TranslationLog& log) {
+// プログラムのファイルは根のディレクトリからの相対、ライブラリのファイル（モジュールも include した物も）はそのライブラリの
+// 根からの相対を擬似ディレクトリ library/ の下に置く。下のディレクトリも残すので、ライブラリの中の素のパス 'sub/util' が
+// 実行時に library/sub/util.pl に解決して同じ鍵を引く。相対にできないパス（Windows の別のドライブなど）だけは絶対のまま残す。
+std::vector<std::string> embed_keys(const TranslationLog& log) {
   const std::filesystem::path root_dir = path_from_utf8(log.files.front().key).parent_path();
   std::vector<std::string> keys;
-  for (std::size_t index = 0; index < log.files.size(); ++index) {
-    const TranslationLog::File& file = log.files[index];
+  for (const TranslationLog::File& file : log.files) {
     const std::filesystem::path path = path_from_utf8(file.key);
     if (!file.library) {
       keys.push_back(relative_or_same(path, root_dir));
-    } else if (module_of_key(machine, file.key)) {
-      keys.push_back(utf8_from_path(bundled_library_path(utf8_from_path(path.stem()))));
-    } else if (file.parent < index) {
-      const std::filesystem::path pseudo_dir = path_from_utf8(keys[file.parent]).parent_path();
-      const std::filesystem::path real_dir = path_from_utf8(log.files[file.parent].key).parent_path();
-      const std::filesystem::path relative = path.lexically_relative(real_dir);
-      keys.push_back(relative.empty() ? file.key : utf8_from_path(pseudo_dir / relative));
-    } else {
-      keys.push_back(file.key);
+      continue;
     }
+    const std::filesystem::path relative = path.lexically_relative(path_from_utf8(file.library_root));
+    keys.push_back(relative.empty() ? file.key : utf8_from_path(path_from_utf8("library") / relative));
   }
   return keys;
+}
+
+// 鍵 library/<名前>.pl の <名前>。鍵が library/ の下に無い（絶対のまま残した）ときだけ語幹で代える。
+std::string library_name(std::string_view key) {
+  std::filesystem::path relative = path_from_utf8(key).lexically_relative(path_from_utf8("library"));
+  if (relative.empty() || *relative.begin() == std::filesystem::path{".."}) relative = path_from_utf8(key).filename();
+  relative.replace_extension();
+  return utf8_from_path(relative);
+}
+
+// 同じ鍵で 2 つのファイルは埋め込めない（実行ファイルの中で区別できない）。先に入れた方が黙って勝つのではなく、翻訳の段で
+// 両方のファイルを挙げて断る。鍵は正規化して比べる。同梱ライブラリの名前は鍵から作るので、名前の重なりも同じ比べ方で分かる。
+std::optional<std::string> duplicate_diagnostic(const Impl& machine, const ProjectPlan& plan, const DisplayNames& names) {
+  std::vector<std::string> canonical;
+  for (const std::string& key : plan.keys) canonical.push_back(utf8_from_path(canonical_key(path_from_utf8(key))));
+  for (std::size_t first = 0; first < canonical.size(); ++first) {
+    for (std::size_t second = first + 1; second < canonical.size(); ++second) {
+      if (canonical[first] != canonical[second]) continue;
+      return message_text(machine, "mosac_duplicate_key", {names[first], names[second], plan.keys[second]});
+    }
+  }
+  for (std::size_t first = 0; first < plan.libraries.size(); ++first) {
+    for (std::size_t second = first + 1; second < plan.libraries.size(); ++second) {
+      if (plan.libraries[first].name != plan.libraries[second].name) continue;
+      const std::size_t file = plan.libraries[second].file;
+      return message_text(machine, "mosac_duplicate_key", {names[plan.libraries[first].file], names[file], plan.keys[file]});
+    }
+  }
+  return std::nullopt;
 }
 
 // 翻訳済みの単位を結ぶのは、翻訳のときに読んだ原文が mosac の隣の lib/<語幹>.pl と同じバイトのときだけ。
@@ -111,15 +138,17 @@ bool shipped_identical(const ProjectOptions& options, std::string_view name, std
   return bytes == text;
 }
 
-// library(_) で開いたモジュールのファイルが同梱ライブラリ。文面の表（messages_ja、messages_en）も translate_program が
-// 読んでいるのでここに入る。名前の順に並べ、同じプログラムからいつも同じ目録を出す（キャッシュの鍵）。
-std::vector<LibraryPlan> plan_libraries(const Impl& machine, const TranslationLog& log, const ProjectOptions& options) {
+// ライブラリとして開いたモジュールのファイル（library(_) の物と、そこから素のパスで開いた物）が同梱ライブラリ。名前は
+// 鍵から（library_name）。文面の表（messages_ja、messages_en）も translate_program が読んでいるのでここに入る。
+// 名前の順に並べ、同じプログラムからいつも同じ目録を出す（キャッシュの鍵）。
+std::vector<LibraryPlan> plan_libraries(const Impl& machine, const TranslationLog& log, const ProjectOptions& options,
+                                        std::span<const std::string> keys) {
   std::vector<LibraryPlan> libraries;
   for (std::size_t index = 0; index < log.files.size(); ++index) {
     const TranslationLog::File& file = log.files[index];
     const auto module = module_of_key(machine, file.key);
     if (!file.library || !module) continue;
-    const std::string name = utf8_from_path(path_from_utf8(file.key).stem());
+    const std::string name = library_name(keys[index]);
     libraries.push_back(LibraryPlan{name, index, *module, shipped_identical(options, name, file.text)});
   }
   std::sort(libraries.begin(), libraries.end(),
@@ -160,7 +189,9 @@ std::vector<std::string> warnings(Impl& machine, const TranslationLog& log, std:
 Project build_project(Machine& machine, const TranslationLog& log, std::string_view path,
                       const ProjectOptions& options) {
   const Impl& impl = engine_impl(machine);
-  ProjectPlan plan{plan_units(impl, log), plan_libraries(impl, log, options), embed_keys(impl, log)};
+  ProjectPlan plan{plan_units(impl, log), {}, embed_keys(log)};
+  plan.libraries = plan_libraries(impl, log, options, plan.keys);
+  if (const auto duplicate = duplicate_diagnostic(impl, plan, display_names(log, path))) return fail_with(*duplicate);
   const std::vector<PredKey> interpreted = opaque_preds(log);
   Project project;
   project.ok = true;

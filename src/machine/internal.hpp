@@ -175,9 +175,14 @@ struct TranslationLog {
     bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（同梱の単位として結ぶ。Task 10）
     bool skipped_goal = false;  // 飛ばした指示のゴールがある。そのゴールの op/3 が後の項の読みを変えうる
     bool opaque = false;        // 飛ばしたゴールの後で構文エラーがあった。このファイルの述語は IR のまま動かす
-    // このファイルを開いたファイルの files の添字（根は -1）。ライブラリが include したファイルの埋め込みの鍵を、
-    // そのライブラリの擬似ディレクトリからの相対で作るのに使う。
-    std::size_t parent = static_cast<std::size_t>(-1);
+    // ライブラリなら、その根（library(Name) を見つけた $MOSA_LIB か lib/）の正規化したパス。埋め込みの鍵は
+    // この根からの相対を擬似ディレクトリ library/ の下に置いた物（library/sub/util.pl）。プログラムのファイルは空。
+    std::string library_root{};
+  };
+  // library(Name) で開いたファイルと、その探索の根。FileNote が開いたファイルを library と印を付けるのに使う。
+  struct LibraryOpen {
+    std::string key;
+    std::string root;
   };
   struct Site {
     PredKey pred;
@@ -187,7 +192,7 @@ struct TranslationLog {
   };
   std::vector<File> files;
   std::vector<Site> sites;
-  std::vector<std::string> library_keys;
+  std::vector<LibraryOpen> library_opens;
   std::size_t current = static_cast<std::size_t>(-1);  // 読んでいるファイルの files の添字
 };
 

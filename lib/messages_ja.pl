@@ -66,6 +66,7 @@ message(mosac_runtime_build_failed, 'mosac: 実行時ライブラリを源から
 message(mosac_runtime_cached, 'mosac: 源から作った実行時ライブラリを使い回します: ~w').
 message(mosac_verbose_units, 'mosac: 結ぶ翻訳済みライブラリ: ~w').
 message(mosac_verbose_source_only, 'mosac: 原文だけを同梱するライブラリ（mosac の隣の lib/ と違う版なので IR のまま動く）: ~w').
+message(mosac_duplicate_key, 'mosac: ~w と ~w は同じ名前 ~w で埋め込まれます。実行ファイルの中で区別できないので、どちらかのファイル名を変えてください').
 
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').

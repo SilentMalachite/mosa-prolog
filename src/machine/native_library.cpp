@@ -40,10 +40,14 @@ std::string library_stem(std::string_view name) {
   return std::string{name};
 }
 
+// 名前はパスとして比べる。library('sub/util') と鍵から作った名前 sub/util が同じ物を指し、Windows の \ も同じになる。
+bool same_name(std::string_view left, std::string_view right) {
+  return path_from_utf8(library_stem(left)).lexically_normal() == path_from_utf8(library_stem(right)).lexically_normal();
+}
+
 const BundledLibrary* find_bundled(std::string_view name) {
-  const std::string stem = library_stem(name);
   for (const BundledLibrary& library : bundled_libraries()) {
-    if (library.name == stem) return &library;
+    if (same_name(library.name, name)) return &library;
   }
   return nullptr;
 }
@@ -76,16 +80,18 @@ std::optional<std::filesystem::path> locate_bundled_library(Impl& machine, std::
   return file;
 }
 
-// source_path は埋め込みに無い名前に .pl を足さない（ディスクにも無いので）。ここで足してから擬似パスと比べる。
+// 擬似ディレクトリ library/ からの相対（.pl を除く）が名前。下のディレクトリの 'sub/util' も sub/util として引く。
+// source_path は埋め込みに無い名前に .pl を足さない（ディスクにも無いので）ので、ここで足してから比べる。
 std::optional<std::string> locate_bundled_plain(Impl& machine, std::filesystem::path& file) {
   std::filesystem::path with_pl = file;
   if (with_pl.extension().empty()) with_pl.replace_extension(".pl");
-  const std::string stem = utf8_from_path(with_pl.stem());
-  if (find_bundled(stem) == nullptr || canonical_key(with_pl) != canonical_key(bundled_library_path(stem))) {
-    return std::nullopt;
-  }
-  file = *locate_bundled_library(machine, stem);
-  return stem;
+  std::filesystem::path relative = canonical_key(with_pl).lexically_relative(canonical_key(path_from_utf8("library")));
+  if (relative.empty() || *relative.begin() == std::filesystem::path{".."}) return std::nullopt;
+  relative.replace_extension();
+  const std::string name = utf8_from_path(relative);
+  if (find_bundled(name) == nullptr) return std::nullopt;
+  file = *locate_bundled_library(machine, name);
+  return name;
 }
 
 void attach_bundled_library(Impl& machine, std::string_view name) {

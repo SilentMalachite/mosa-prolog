@@ -232,7 +232,7 @@ target_link_libraries(codegen_test PRIVATE mosa_lib)
 add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
 
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
-foreach(emit_case hello broken undefined silent newop halt)
+foreach(emit_case hello broken undefined duplicate silent newop halt)
   add_test(NAME mosac_emit_${emit_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${emit_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_${emit_case} "-DGENERATOR=${CMAKE_GENERATOR}"
@@ -306,7 +306,7 @@ set_tests_properties(mosatest_bench PROPERTIES
 # 単独の実行ファイル（計画 Task 10、ADR 0009 Review Focus 5）。build した物を lib/ も原文も無いディレクトリで、
 # MOSA_LIB を外して動かす。翻訳のとき mosac は自分の隣の lib/ を読むので、build にも MOSA_LIB は要らない
 # （plain_use だけは台本が利用者のライブラリのディレクトリを MOSA_LIB で渡す）。
-foreach(standalone_case uncaught_message use_lists include plain_use)
+foreach(standalone_case uncaught_message use_lists include plain_use subdir)
   add_test(NAME standalone_${standalone_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${standalone_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/standalone_${standalone_case} "-DCXX=${mosac_build_cxx}"
@@ -317,6 +317,7 @@ foreach(standalone_case uncaught_message use_lists include plain_use)
 endforeach()
 
 # cmake --install を一時の prefix に行い、SPEC 第6節の形と、インストールした mosac での build を確かめる。
+# runtime の部品は Release だけ入れるので、ほかの構成では台本が「skipped: 」を出し、CTest はそれを skip と数える。
 add_test(NAME mosac_installed_layout COMMAND ${CMAKE_COMMAND}
   -DBUILD_DIR=${CMAKE_BINARY_DIR} "-DCONFIG=$<CONFIG>" "-DABI=${mosa_abi}" -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_installed_layout "-DCXX=${mosac_build_cxx}"
@@ -324,6 +325,7 @@ add_test(NAME mosac_installed_layout COMMAND ${CMAKE_COMMAND}
   "-DLIB_SUFFIX=${CMAKE_STATIC_LIBRARY_SUFFIX}"
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/installed_layout_test.cmake)
 set_tests_properties(mosac_installed_layout PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
+  SKIP_REGULAR_EXPRESSION "skipped: the runtime component is installed only for Release"
   ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
 
 # mosac build --runtime-source は同梱の源から libmosa を 1 回作る（1 分以上）。ふだんの ctest には重いので、
