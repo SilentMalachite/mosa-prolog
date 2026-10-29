@@ -169,7 +169,11 @@ void windows_msvc_env() {
   mosa_test::check(!mosa::needs_developer_prompt("cl", true, false), "the vcvarsall environment is enough");
   mosa_test::check(!mosa::needs_developer_prompt("cl.exe", false, true), "a Developer Command Prompt sets INCLUDE");
   mosa_test::check(!mosa::needs_developer_prompt("g++", false, false), "other compilers never need it");
-  const std::string script = mosa::vcvars_script(std::filesystem::path{"vc"} / "vcvarsall.bat");
+  // TMP=C:/Temp のように / で書いたパスも、cmd には OS の区切りで渡す（POSIX では / のまま）。
+  const std::filesystem::path slashed = mosa::path_from_utf8("dir/x.bat");
+  const std::string native = mosa::host_os() == mosa::HostOs::windows ? "dir\\x.bat" : "dir/x.bat";
+  mosa_test::check(mosa::native_path_text(slashed) == native, "native separators for a path written with /");
+  const std::string script = mosa::vcvars_script(mosa::path_from_utf8("vc/vcvarsall.bat"));
   const std::string call = mosa::host_os() == mosa::HostOs::windows ? "vc\\vcvarsall.bat" : "vc/vcvarsall.bat";
   mosa_test::check(script == "@echo off\r\ncall \"" + call + "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n",
                    "vcvarsall script text");

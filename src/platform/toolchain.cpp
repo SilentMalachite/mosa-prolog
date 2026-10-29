@@ -180,8 +180,11 @@ std::vector<std::pair<std::string, std::string>> parse_set_dump(std::string_view
 
 // cmd は / を切り替えの印と読み、C:/a/b.bat を命令 C: と引数に分ける（CI run 40890625972 の Windows で vcvarsall の
 // set が空になり cl が見つからなかった）。cmd に渡すパスだけは OS の区切りのまま出す。
+// 環境変数から作ったパス（TMP=C:/Temp など）は / を含みうるので、写しを make_preferred で OS の区切りにする。
 std::string native_path_text(const std::filesystem::path& path) {
-  const std::u8string bytes = path.u8string();
+  std::filesystem::path native = path;
+  native.make_preferred();
+  const std::u8string bytes = native.u8string();
   std::string text;
   text.reserve(bytes.size());
   for (const char8_t byte : bytes) text.push_back(static_cast<char>(byte));
