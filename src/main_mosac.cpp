@@ -152,12 +152,13 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
     } else if (arg == "--cxx" && has_value) {
       parsed.request.cxx = args[++index];
     } else if (arg == "--debug" || arg == "--verbose" || arg == "--clean" || arg == "--runtime-source" ||
-               (run && arg == "--keep")) {
+               (run && arg == "--keep") || (!run && arg == "--interactive")) {
       parsed.request.debug = parsed.request.debug || arg == "--debug";
       parsed.request.verbose = parsed.request.verbose || arg == "--verbose";
       parsed.request.clean = parsed.request.clean || arg == "--clean";
       parsed.request.runtime_source = parsed.request.runtime_source || arg == "--runtime-source";
       parsed.keep = parsed.keep || arg == "--keep";
+      parsed.request.interactive = parsed.request.interactive || arg == "--interactive";
     } else if (parsed.request.source.empty() && !arg.empty() && arg.front() != '-') {
       parsed.request.source = arg;
     } else {
@@ -168,8 +169,8 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
   return parsed;
 }
 
-// mosac build app.pl [-o app]。-o が無ければ原文の語幹を今の場所に作る。中間物はいつも .mosac-cache に残すので
-// --keep は run だけが受ける。
+// mosac build app.pl [-o app] [--interactive]。-o が無ければ原文の語幹を今の場所に作る。中間物はいつも .mosac-cache に
+// 残すので --keep は run だけが受ける。--interactive は build だけが受け（作った物を利用者が動かす）、run は受けない。
 int run_build(const std::vector<std::string>& args) {
   const auto parsed = parse_build(args, false);
   if (!parsed) {

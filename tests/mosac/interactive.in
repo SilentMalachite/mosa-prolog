@@ -1,0 +1,6 @@
+app(X, Y, [1]).
+;
+assertz(extra(2)).
+findall(E, extra(E), L).
+assertz(app([z], [], [z])).
+app([a], [b], Z).

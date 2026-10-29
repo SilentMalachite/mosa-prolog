@@ -59,14 +59,15 @@ std::string file_lines(const Impl& machine, const TranslationLog& log, const Pro
   return out;
 }
 
-std::string main_body(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan) {
+std::string main_body(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan, bool interactive) {
   std::string out = "int main(int argc, char** argv) {\n  auto machine = mosa::Machine::create(std::size_t{1} << 20);\n";
   out += "  mosa::rt::start(*machine, argc, argv);\n" + file_lines(machine, log, plan) + "  bool loaded = true;\n";
   for (const UnitPlan& unit : plan.units) {
     out += "  loaded = loaded && mosa::rt::install_unit(*machine, mosa_gen::" + unit_stem(machine, unit.module) +
            "::unit(file" + std::to_string(unit.file) + "));\n";
   }
-  return out + "  return mosa::rt::finish(*machine, loaded);\n}\n";
+  // --interactive は読み込みのあと REPL に入る（計画 Task 14）。main 述語は動かさない。
+  return out + "  return mosa::rt::" + (interactive ? "finish_interactive" : "finish") + "(*machine, loaded);\n}\n";
 }
 
 std::string library_declarations(const Impl& machine, const ProjectPlan& plan) {
@@ -153,7 +154,7 @@ std::string cmake_tail(const std::string& name) {
 
 std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
 
-std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan) {
+std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan, bool interactive) {
   std::string out = "// mosac が出した実行ファイルの入口（計画 Task 5、Task 10）。手で直さない。\n\n";
   for (const UnitPlan& unit : plan.units) out += "#include \"" + unit_stem(machine, unit.module) + ".hpp\"\n";
   out += "\n#include \"mosa/runtime.hpp\"\n\n" + library_declarations(machine, plan);
@@ -161,7 +162,7 @@ std::string main_text(const Impl& machine, const TranslationLog& log, const Proj
   for (std::size_t index = 0; index < log.files.size(); ++index) out += source_array(index, log.files[index].text);
   out += "\nstd::string joined(std::span<const std::string_view> parts) {\n  std::string text;\n";
   out += "  for (const std::string_view part : parts) text += part;\n  return text;\n}\n\n}  // namespace\n\n";
-  return out + main_body(machine, log, plan);
+  return out + main_body(machine, log, plan, interactive);
 }
 
 std::string cmake_text(const Impl& machine, const ProjectPlan& plan, std::string_view target,

@@ -355,6 +355,18 @@ int run_main_goal(Machine& machine, const std::string& goal, std::string& warnin
   }
 }
 
+SessionResult run_prepared_session(Machine& machine, std::ostream* live_out, std::ostream* live_err) {
+  SessionResult result;
+  Echo echo;
+  echo.result = &result;
+  echo.out = live_out;
+  echo.err = live_err;
+  Cursor cursor;
+  cursor.from_cin = true;
+  prompt_loop(machine, cursor, echo);
+  return result;
+}
+
 SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty,
                            std::size_t heap_limit, std::ostream* live_out, std::ostream* live_err) {
   SessionResult result;

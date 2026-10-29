@@ -162,6 +162,9 @@ void embed(Machine& machine, std::string_view path, std::string_view source);  /
 void bundle_library(std::string_view name, std::string_view source);
 void bundle_library(std::string_view name, const NativeUnit& unit);
 [[nodiscard]] int finish(Machine& machine, bool loaded);  // 読めなければ診断を出して 1。main は Task 2 の終了コード
+// mosac build --interactive（計画 Task 14）。finish と同じ読み込みの後始末のあと、mosa と同じ REPL（run_prepared_session）
+// を標準入力から動かす。initialization(main, main) は動かさない。終了コードは halt/1 の値、なければ 0。
+[[nodiscard]] int finish_interactive(Machine& machine, bool loaded);
 // mosac build --debug の節の追跡（計画 Task 9）。生成コードは kTrace が真のときだけ、節に入るたびに呼ぶ
 void trace_clause(std::string_view text);  // text と改行を標準エラーに書く
 

@@ -27,6 +27,7 @@ struct BuildRequest {
   bool debug = false;              // -O0 -g と節の追跡
   bool verbose = false;            // 起こす命令と、失敗したコンパイラの生の出力を出す
   bool clean = false;              // 作る前に .mosac-cache を消す
+  bool interactive = false;        // --interactive。読み込んだあと mosa と同じ REPL を起こす実行ファイルにする
   bool runtime_source = false;     // --runtime-source。同梱の源から libmosa を作って使う（ABI が合わないとき）
 };
 

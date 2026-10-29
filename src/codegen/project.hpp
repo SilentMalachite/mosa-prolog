@@ -59,7 +59,8 @@ struct ProjectPlan {
 [[nodiscard]] std::string source_array(std::size_t index, std::string_view text);
 // 同梱ライブラリの単位を結ばない CMakeLists.txt。sources は空白で区切った原文の名前（mosac emit --units、Task 11）。
 [[nodiscard]] std::string cmake_plain_text(std::string_view target, std::string_view sources, std::string_view runtime_dir);
-[[nodiscard]] std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan);
+[[nodiscard]] std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan,
+                                        bool interactive = false);
 [[nodiscard]] std::string cmake_text(const Impl& machine, const ProjectPlan& plan, std::string_view target,
                                      std::string_view runtime_dir);
 

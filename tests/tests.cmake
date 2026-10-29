@@ -388,3 +388,15 @@ set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_e
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)
 list(REMOVE_ITEM mosa_all_tests session_english)
 set_property(TEST ${mosa_all_tests} APPEND PROPERTY ENVIRONMENT_MODIFICATION "LANG=set:ja_JP.UTF-8")
+
+# mosac build --interactive（計画 Task 14）。翻訳した実行ファイルの REPL が、mosa と同じ run_session の出力と一致するか。
+# repl_ref は main_mosa.cpp と同じ呼び出しで、標準入力が端末でなくても REPL にする（試験の基準）。
+add_executable(repl_ref tests/mosac/repl_ref.cpp)
+target_link_libraries(repl_ref PRIVATE mosa_lib)
+add_test(NAME mosac_interactive COMMAND ${CMAKE_COMMAND}
+  -DMOSAC=$<TARGET_FILE:mosac> -DREF=$<TARGET_FILE:repl_ref> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_interactive "-DCXX=${mosac_build_cxx}"
+  "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/interactive_test.cmake)
+set_tests_properties(mosac_interactive PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")

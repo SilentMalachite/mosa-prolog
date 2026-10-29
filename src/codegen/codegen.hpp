@@ -47,6 +47,7 @@ struct ProjectOptions {
   std::string runtime_dir;
   bool check_calls = true;  // 未定義の述語の呼び出しの警告で translate_program を止めるか。translate_units は警告を出さず見ない
   bool trace = false;       // mosac build --debug。生成コードの kTrace を真にする
+  bool interactive = false;  // mosac build --interactive。main.cpp が rt::finish_interactive で終わる（REPL を起こす。計画 Task 14）
   bool library = false;     // mosac emit --library。lib/<名前>.pl の単位 <名前>.cpp だけを出す（計画 Task 10）
 };
 

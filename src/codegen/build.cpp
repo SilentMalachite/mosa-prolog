@@ -382,6 +382,7 @@ Built build_cached(const BuildRequest& request) {
   ProjectOptions options;
   options.runtime_dir = utf8_from_path(default_runtime_dir());
   options.trace = request.debug;
+  options.interactive = request.interactive;
   // Prolog の誤りは翻訳の段で止め、コンパイラを探しにも行かない（SPEC 第6節のエラーの扱い）。
   const Project project = translate_program(request.source, options);
   if (!project.ok) {
