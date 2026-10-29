@@ -2,7 +2,9 @@
 // Prolog の行で知らせる（SPEC 第6節のエラーの扱い）。差分用の --units（Task 11）は存在エラーを確かめる
 // テストを翻訳するので、呼び出しの警告は export の警告と別の関数にして、呼ぶかどうかを選ばせる。
 
+#include "../module/module.hpp"
 #include "emit_state.hpp"
+#include "mosa/writer.hpp"
 #include "project.hpp"
 
 #include <algorithm>
@@ -49,6 +51,19 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
       return;
     default: return;
   }
+}
+
+// :- dynamic(~w). の案内は貼ればそのまま読める形にする。'Foo' や 'a b' は引用が要るので、名前は writeq の形
+// （write_term の quoted）で書く。演算子の名前は被演算子にするとき括弧に入れる（6.3.1.3）。書き手は (-)/1 を
+// - /1 と書き、読み手はそれを読めないので、名前/アリティの項ではなく名前だけを書いてここで括弧を付ける。
+// 記号文字で終わる名前（+++ など）も、続く / と 1 つのトークンになるので括弧に入れる（6.4.2）。
+std::string dynamic_indicator(const Impl& machine, const PredKey& key) {
+  const OperatorView operators = op_view(machine, key.module);
+  std::string name = write_term(machine.heap, operators, machine.heap.atom(key.name), WriteOptions{}, {});
+  constexpr std::string_view kSymbolChars = "+-*/\\^<>=~:.?@#&$";
+  const bool glues = !name.empty() && kSymbolChars.find(name.back()) != std::string_view::npos;
+  if (glues || !operators.lookup(machine.atoms.name(key.name)).empty()) name = "(" + name + ")";
+  return name + "/" + std::to_string(key.arity);
 }
 
 // 組込、モジュールと取り込みの連鎖で引ける述語、宣言だけの手続き（iso-notes 7.4.2）を定義とみなす。
@@ -98,9 +113,8 @@ std::vector<std::string> call_warnings(Impl& machine, const TranslationLog& log,
       // assertz だけで作る述語もここに来る（持ち主の決定 A で拒み続ける）。直し方として、定義する側のファイルに
       // 書く :- dynamic(Name/Arity). を示す（ISO の演算子表に dynamic は無いので括弧の形）。モジュールの中では
       // モジュールを付けずに書くので、名前とアリティだけにする。
-      const std::string bare = std::string{machine.atoms.name(goal.name)} + "/" + std::to_string(goal.arity);
       lines.push_back(names[site.file] + ":" + std::to_string(site.line) + ": " +
-                      message_text(machine, "mosac_undefined_call", {text, bare}));
+                      message_text(machine, "mosac_undefined_call", {text, dynamic_indicator(machine, goal)}));
     }
   }
   return lines;

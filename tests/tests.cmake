@@ -244,7 +244,7 @@ target_link_libraries(codegen_test PRIVATE mosa_lib)
 add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
 
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
-foreach(emit_case hello broken undefined duplicate silent newop halt)
+foreach(emit_case hello broken undefined undefined_quoted duplicate silent newop halt)
   add_test(NAME mosac_emit_${emit_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${emit_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_${emit_case} "-DGENERATOR=${CMAKE_GENERATOR}"

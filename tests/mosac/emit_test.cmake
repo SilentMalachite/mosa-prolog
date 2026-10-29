@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_quoted|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -45,6 +45,20 @@ endif()
 if(CASE STREQUAL "undefined")
   if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1[^\n]*:- dynamic\\(nosuch/1\\)\\.")
     message(FATAL_ERROR "undefined: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+  endif()
+  expect_no_cpp()
+  return()
+endif()
+
+# :- dynamic(~w). の案内は貼れば読める形で書く。引用の要る名前は writeq の形、演算子と記号文字の名前は括弧に入れる。
+if(CASE STREQUAL "undefined_quoted")
+  foreach(hint "'Foo'/1" "'a b'/0" "\\(-\\)/1" "'it\\\\'s'/2" "\\(\\+\\+\\+\\)/1")
+    if(NOT emit_err MATCHES "undefined_quoted\\.pl:3: [^\n]*:- dynamic\\(${hint}\\)\\.")
+      message(FATAL_ERROR "undefined_quoted: ${hint}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+    endif()
+  endforeach()
+  if(NOT emit_code EQUAL 1)
+    message(FATAL_ERROR "undefined_quoted: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
   endif()
   expect_no_cpp()
   return()
