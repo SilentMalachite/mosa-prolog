@@ -43,7 +43,7 @@ if(CASE STREQUAL "broken")
 endif()
 
 if(CASE STREQUAL "undefined")
-  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1")
+  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1[^\n]*:- dynamic\\(nosuch/1\\)\\.")
     message(FATAL_ERROR "undefined: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
   endif()
   expect_no_cpp()

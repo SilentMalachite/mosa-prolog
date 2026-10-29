@@ -95,8 +95,12 @@ std::vector<std::string> call_warnings(Impl& machine, const TranslationLog& log,
       const std::string text = indicator(machine, goal);
       if (std::find(seen.begin(), seen.end(), text) != seen.end()) continue;
       seen.push_back(text);
+      // assertz だけで作る述語もここに来る（持ち主の決定 A で拒み続ける）。直し方として、定義する側のファイルに
+      // 書く :- dynamic(Name/Arity). を示す（ISO の演算子表に dynamic は無いので括弧の形）。モジュールの中では
+      // モジュールを付けずに書くので、名前とアリティだけにする。
+      const std::string bare = std::string{machine.atoms.name(goal.name)} + "/" + std::to_string(goal.arity);
       lines.push_back(names[site.file] + ":" + std::to_string(site.line) + ": " +
-                      message_text(machine, "mosac_undefined_call", {text}));
+                      message_text(machine, "mosac_undefined_call", {text, bare}));
     }
   }
   return lines;
