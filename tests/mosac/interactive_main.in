@@ -1,0 +1,3 @@
+app([a], [b], Z).
+current_prolog_flag(argv, A).
+halt(3).

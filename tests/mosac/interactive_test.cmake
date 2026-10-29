@@ -7,7 +7,8 @@
 
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
-file(COPY "${SRC}/interactive.pl" "${SRC}/interactive.in" DESTINATION "${WORK}")
+file(COPY "${SRC}/interactive.pl" "${SRC}/interactive.in" "${SRC}/interactive_main.pl" "${SRC}/interactive_main.in"
+  "${SRC}/interactive_redef.pl" "${SRC}/interactive_redef.in" DESTINATION "${WORK}")
 
 set(ENV{MOSA_WERROR} 1)
 set(compiler_env)
@@ -42,4 +43,36 @@ endif()
 replay("${WORK}/interactive${EXE_SUFFIX}")
 if(NOT code EQUAL 0 OR NOT out STREQUAL want_out OR NOT err STREQUAL want_err)
   message(FATAL_ERROR "interactive: output differs from mosa\n--- want ---\n${want_out}\n--- got ---\n${out}\n--- want err ---\n${want_err}\n--- got err ---\n${err}\ncode=[${code}]")
+endif()
+
+# 以下は実行ファイル側だけを見る（基準と一致するとは限らない）。
+# 1. initialization(main, main) の main は動かさない（暫定。owner 未決。docs/STATUS.md）。argv は引数、halt(3) の値が終了コード。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "${MOSAC}" build --interactive interactive_main.pl -o imain
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+if(NOT code EQUAL 0)
+  fail("build interactive_main")
+endif()
+execute_process(COMMAND "${WORK}/imain${EXE_SUFFIX}" arg1 INPUT_FILE "${WORK}/interactive_main.in" WORKING_DIRECTORY "${WORK}"
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+if(NOT code EQUAL 3 OR out MATCHES "MARKER-MAIN" OR NOT out MATCHES "Z = \\[a, ?b\\]" OR NOT out MATCHES "A = \\[arg1\\]")
+  fail("main skipped, argv and halt(3)")
+endif()
+
+# 2. --debug の実行ファイルでは app/3 の節の追跡が標準エラーに出る。翻訳済みの節が実際に動いている印である。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "${MOSAC}" build --interactive --debug interactive_main.pl -o idebug
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+if(NOT code EQUAL 0)
+  fail("build --debug")
+endif()
+execute_process(COMMAND "${WORK}/idebug${EXE_SUFFIX}" INPUT_FILE "${WORK}/interactive_main.in" WORKING_DIRECTORY "${WORK}"
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+if(NOT err MATCHES "app\\(")
+  fail("translated app/3 must run natively (trace)")
+endif()
+
+# 3. consult/1 で app/3 を定義し直すと翻訳済みの単位が外れ（ADR 0009）、インタプリタの定義で答える。
+execute_process(COMMAND "${WORK}/idebug${EXE_SUFFIX}" INPUT_FILE "${WORK}/interactive_redef.in" WORKING_DIRECTORY "${WORK}"
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+if(NOT out MATCHES "X = redefined")
+  fail("consult must detach the translated app/3")
 endif()

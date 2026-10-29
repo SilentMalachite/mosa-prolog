@@ -66,7 +66,8 @@ std::string main_body(const Impl& machine, const TranslationLog& log, const Proj
     out += "  loaded = loaded && mosa::rt::install_unit(*machine, mosa_gen::" + unit_stem(machine, unit.module) +
            "::unit(file" + std::to_string(unit.file) + "));\n";
   }
-  // --interactive は読み込みのあと REPL に入る（計画 Task 14）。main 述語は動かさない。
+  // --interactive は読み込みのあと REPL に入る（計画 Task 14）。initialization(main, main) の main は動かさない。
+  // 暫定の選び（owner 未決。docs/STATUS.md の問い）: A main を飛ばして REPL、B main を動かしてから REPL。
   return out + "  return mosa::rt::" + (interactive ? "finish_interactive" : "finish") + "(*machine, loaded);\n}\n";
 }
 

@@ -1,0 +1,2 @@
+consult('interactive_redef.pl').
+app(X, Y, Z).

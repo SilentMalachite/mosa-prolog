@@ -399,4 +399,4 @@ add_test(NAME mosac_interactive COMMAND ${CMAKE_COMMAND}
   "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/interactive_test.cmake)
 set_tests_properties(mosac_interactive PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
-  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir};LANG=set:ja_JP.UTF-8")
