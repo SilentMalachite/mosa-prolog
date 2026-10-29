@@ -77,6 +77,17 @@ void nrev_resume() {
   check(result.interpreted == 0, "nrev interpreted == 0");
 }
 
+// 計画 Task 7。カットは節の境界まで切る。入口では r.cut、呼び出しのあとの再開では継続枠の語 2 が境界。
+void cut_translated() {
+  const EmitResult result = emit_user("cutc(first).\ncutc(X) :- !, X = second.\ncutc(third).\n");
+  check(result.translated == 1, "cutc translated == 1");
+  check(result.interpreted == 0, "cutc interpreted == 0");
+  check(has(result.source, "rt::cut_to(m, r.cut);"), "cutc cut at entry");
+  const EmitResult later = emit_user("first_color(C) :- color(C), !.\ncolor(red).\ncolor(green).\n");
+  check(later.translated == 2, "first_color translated == 2");
+  check(has(later.source, "rt::cut_to(m, rt::frame_cut(r, frame));"), "cut after a call uses the frame barrier");
+}
+
 // ; を含む節は IR のまま動かす。節がすべてそうなら生成関数を出さない。
 void disjunction_interpreted() {
   const EmitResult only = emit_user("q(X) :- (X = a ; X = b).\n");
@@ -212,6 +223,7 @@ int main() {
   app_unit();
   app_fingerprint();
   nrev_resume();
+  cut_translated();
   disjunction_interpreted();
   meta_skipped();
   dynamic_skipped();

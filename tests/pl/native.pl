@@ -51,6 +51,18 @@ test(native_negative, offset(left, V), solutions([V = -3])).
 test(native_negative_box, offset(D, -1152921504606846977), solutions([D = far])).
 test(native_japanese, 親(太郎, Who), solutions([Who = 花子])).
 test(native_japanese_rule, 祖父母(G, 次郎), solutions([G = 太郎])).
+% フェーズ6 Task 7。制御構文を生成コードで動かす。構文ごとに 1 件。
+% カット。節の境界まで切るので、2 つ目の節の ! は 3 つ目の節の候補を捨てる
+cutc(first).
+cutc(X) :- !, X = second.
+cutc(third).
+% 呼び出しのあとのカット。再開の状態では境界が継続枠から来る
+first_color(C) :- color(C), !.
+
+test(native_cut, cutc(X), solutions([X = first, X = second])).
+test(native_cut_third, cutc(third), fail).
+test(native_cut_after_call, first_color(C), solutions([C = red])).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

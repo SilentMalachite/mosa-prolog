@@ -241,11 +241,11 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
     text.helpers += "// " + label + " は install_unit が付けない述語なので IR のまま動かす。\n" + comments + "\n";
     return;
   }
-  std::vector<std::optional<BodyPlan>> plans;
+  std::vector<bool> plans;
   std::size_t native = 0;
   for (const Clause& clause : predicate.clauses) {
-    plans.push_back(plan_body(clause.body));
-    native += plans.back().has_value() ? 1 : 0;
+    plans.push_back(translatable_body(machine, clause.body));
+    native += plans.back() ? 1 : 0;
   }
   if (native == 0) {
     result.interpreted += predicate.clauses.size();
@@ -265,7 +265,7 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
                          "return rt::interpret_clause(m, r, " + entry + ", frame, " + std::to_string(clause) + ");");
       continue;
     }
-    ClauseCode code = emit_clause(machine, tables, predicate, ClauseName{proc, clause}, *plans[index]);
+    ClauseCode code = emit_clause(machine, tables, predicate, ClauseName{proc, clause});
     text.helpers += code.functions;
     for (auto& item : code.cases) cases.push_back(std::move(item));
   }
@@ -287,9 +287,9 @@ std::string unit_tables(const Impl& machine, const UnitTables& tables) {
   std::string atoms;
   for (const std::uint32_t atom : tables.atoms) atoms += "    " + string_literal(machine.atoms.name(atom)) + ",\n";
   std::string calls;
-  for (const PredKey& key : tables.calls) {
+  for (const CalleeRef& key : tables.calls) {
     calls += "    rt::NativeCallee{" + string_literal(machine.atoms.name(key.module)) + ", " +
-             string_literal(machine.atoms.name(key.name)) + ", " + std::to_string(key.arity) + "},\n";
+             string_literal(key.name) + ", " + std::to_string(key.arity) + "},\n";
   }
   return "constinit rt::UnitTag kUnit{};\n" + table_text("std::string_view", "kAtoms", tables.atoms.size(), atoms) +
          table_text("rt::NativeCallee", "kCalls", tables.calls.size(), calls) + "\n";
@@ -331,13 +331,11 @@ std::size_t UnitTables::atom(std::uint32_t id) {
   return atoms.size() - 1;
 }
 
-std::size_t UnitTables::call(const PredKey& key) {
+std::size_t UnitTables::call(std::uint32_t module, std::string_view name, std::uint16_t arity) {
   for (std::size_t index = 0; index < calls.size(); ++index) {
-    if (calls[index].module == key.module && calls[index].name == key.name && calls[index].arity == key.arity) {
-      return index;
-    }
+    if (calls[index].module == module && calls[index].name == name && calls[index].arity == arity) return index;
   }
-  calls.push_back(key);
+  calls.push_back(CalleeRef{module, std::string{name}, arity});
   return calls.size() - 1;
 }
 
@@ -399,6 +397,10 @@ bool is_small_int(std::int64_t value) {
 // materialize は名前 '.' の 2 引数の構造をリストにする。翻訳でも同じ形を作る。
 bool is_dot(const Impl& machine, const IrTerm& term) {
   return term.tag == IrTag::Fun && term.args.size() == 2 && machine.atoms.name(term.atom) == ".";
+}
+
+bool is_name(const Impl& machine, const IrTerm& term, std::string_view name, std::size_t arity) {
+  return term.tag == IrTag::Fun && term.args.size() == arity && machine.atoms.name(term.atom) == name;
 }
 
 namespace {

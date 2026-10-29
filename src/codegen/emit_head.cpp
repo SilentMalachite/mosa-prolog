@@ -194,10 +194,13 @@ void match(ClauseEmit& emit, const IrTerm& term, const std::string& expr, int de
 std::string var_name(std::uint16_t slot) { return "v" + std::to_string(slot); }
 
 // 未束縛のまま残りうる変数のセルを、enter_clause と同じくスロットの順に作る（Review Focus 1）。
-void plan_slots(const Clause& clause, const BodyPlan& body, ClauseEmit& emit) {
+// 本体の回数は emit_body.cpp が届くゴールだけを数えたもの。fail のあとの変数を作ると使われない宣言になる。
+void plan_slots(const Clause& clause, const std::vector<int>& body_counts, ClauseEmit& emit) {
   emit.slots.assign(clause.vars, SlotState{});
   count_slots(clause.head, emit.slots);
-  for (const IrTerm* goal : body.goals) count_slots(*goal, emit.slots);
+  for (std::size_t slot = 0; slot < emit.slots.size() && slot < body_counts.size(); ++slot) {
+    emit.slots[slot].left += body_counts[slot];
+  }
   std::vector<int> firsts(clause.vars, -1);
   if (clause.head.tag == IrTag::Fun) {
     for (const IrTerm& arg : clause.head.args) first_depths(arg, 0, firsts);
