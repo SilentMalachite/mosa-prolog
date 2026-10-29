@@ -74,11 +74,15 @@ std::vector<std::uint16_t> emit_state(ClauseCtx& ctx, const StateSpec& spec, std
     fn.line("return rt::fail(m);");
   } else {
     BodyEnv env{"rt::frame_cut(r, frame)", "rt::frame_cont(r, frame)"};
+    const std::size_t at = fn.out.size();
     if (spec.local_cut) {
-      fn.line("const std::size_t cut = rt::choice_mark(m);");
-      env.cut = "cut";
+      env.cut = fn.fresh("cut");
+      fn.line("const std::size_t " + env.cut + " = rt::choice_mark(m);");
     }
+    const std::size_t after = fn.out.size();
     emit_seq(ctx, fn, spec.goals, env);
+    // 回復ゴールがカットも呼び出しも持たなければ境界を読まない。宣言だけ残すと未使用の警告になる。
+    if (spec.local_cut && !uses_identifier(std::string_view{fn.out}.substr(after), env.cut)) fn.out.erase(at, after - at);
   }
   const std::string function = state_function(ctx, state);
   ctx.code.functions += function_text(function, fn.out);
@@ -144,6 +148,9 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
     case IrTag::SoftIf:
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
              translatable_body(machine, body.args[1]);
+    case IrTag::Catch:
+      return body.args.size() == 3 && translatable_body(machine, body.args[0]) &&
+             translatable_body(machine, body.args[2]);
     default: return false;
   }
 }
@@ -198,13 +205,14 @@ const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term) {
   return &ctx.owned.back();
 }
 
-// 構文の「条件」。-> と *-> の左、それを左に持つ選言の左の左、\+ の中。他は nullptr。
+// 構文の「条件」。-> と *-> の左、それを左に持つ選言の左の左、\+ の中、catch のゴール。他は nullptr。
 const IrTerm* condition_of(ClauseCtx& ctx, const IrTerm& term) {
   const IrTerm* construct = &term;
   if (term.tag == IrTag::Or && term.args.size() == 2) construct = &term.args[0];
   if ((construct->tag == IrTag::IfThen || construct->tag == IrTag::SoftIf) && construct->args.size() == 2) {
     return &construct->args[0];
   }
+  if (term.tag == IrTag::Catch && term.args.size() == 3) return &term.args[0];
   return negated_goal(ctx, term);
 }
 
@@ -234,7 +242,8 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
   // 見るように、ここで置き換える。
   const IrTerm* condition = condition_of(ctx, term);
   const IrTerm* end = condition != nullptr ? dead_end(ctx, *condition, module) : nullptr;
-  if (end != nullptr) {
+  // catch のゴールが throw で終わるのは例外を捕らえる普通の形。構文を残し、emit_catch が抜ける枠を作らない。
+  if (end != nullptr && !(term.tag == IrTag::Catch && end->tag == IrTag::Throw)) {
     if (end->tag == IrTag::Throw) return out.push_back(GoalRef{end, module});
     if (term.tag == IrTag::Or) return flatten(ctx, term.args[1], module, out);
     if (term.tag == IrTag::Fun) return;
@@ -267,6 +276,11 @@ void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>
       case IrTag::SoftIf:
         count_branch(ctx, goal.args[0], ref.module, counts);
         count_branch(ctx, goal.args[1], ref.module, counts);
+        continue;
+      case IrTag::Catch:
+        count_branch(ctx, goal.args[0], ref.module, counts);
+        mark_slots(goal.args[1], counts);
+        count_branch(ctx, goal.args[2], ref.module, counts);
         continue;
       default:
         if (const IrTerm* inner = negated_goal(ctx, goal); inner != nullptr) {
@@ -313,6 +327,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
       case IrTag::Or: emit_or(ctx, emit, ref, rest, env); return;
       case IrTag::IfThen: emit_if_then(ctx, emit, ref, rest, env); return;
       case IrTag::SoftIf: emit_soft(ctx, emit, ref, rest, env); return;
+      case IrTag::Catch: emit_catch(ctx, emit, ref, rest, env); return;
       default: break;
     }
     if (const IrTerm* inner = negated_goal(ctx, *ref.term); inner != nullptr) {

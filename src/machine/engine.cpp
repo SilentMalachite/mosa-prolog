@@ -68,10 +68,7 @@ void step_control(Impl& machine) {
     return;
   }
   if (extra.ctrl == Ctrl::CatchExit) {
-    const auto frame = extra.trim_to;
-    if (frame < machine.stack.size() && machine.stack[frame].pick == Pick::Catch) {
-      machine.stack[frame].armed = false;
-    }
+    disarm_catch(machine, extra.trim_to);
     machine.ip = extra.cont;
     return;
   }

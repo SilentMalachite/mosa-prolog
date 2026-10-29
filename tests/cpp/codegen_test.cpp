@@ -163,6 +163,19 @@ void throw_translated() {
   check(!has(result.source, "ptc_1_c1_s1("), "throwing condition leaves no branch frames");
 }
 
+// 計画 Task 7。catch/3 は回復ゴールの枠と抜けたあとの枠を先に作り、Catch を積んでからゴールを局所の境界で動かす。
+void catch_translated() {
+  const EmitResult result = emit_user(
+      "ci(G, R) :- catch(G, E, R = caught(E)).\ncc(X) :- (X = 1 ; X = 2), catch(throw(t), t, !), X = 2.\n");
+  check(result.translated == 2, "catch translated == 2");
+  check(result.interpreted == 0, "catch interpreted == 0");
+  check(has(result.source, "rt::push_catch("), "catch pushed");
+  check(has(result.source, "rt::catch_exit(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));"),
+        "exit disarms the catch");
+  // 回復ゴールのカットは回復ゴールに閉じる。境界は枠に入った時点の選択点の高さ。
+  check(has(result.source, "rt::cut_to(m, cut0);"), "recovery cut is local");
+}
+
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
 void meta_skipped() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -293,6 +306,7 @@ int main() {
   negation_translated();
   var_goal_translated();
   throw_translated();
+  catch_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

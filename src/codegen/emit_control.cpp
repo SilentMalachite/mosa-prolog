@@ -132,4 +132,30 @@ void emit_not(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& inner, std::uint32
   emit_condition(ctx, emit, inner, module, done);
 }
 
+// catch(G, C, R)。R の継続枠と、G を抜けたあと Catch を無効にする枠を先に作り、Catch を積んでから G を局所のカット境界で
+// 動かす（arm_catch）。例外は propagate_throw が Catch まで巻き戻し、ボールが C と単一化できれば R の枠へ進む。枠は
+// Catch より古いので巻き戻しても残る。R の中のカットは R に閉じる（7.8.9）ので、R の状態は入口で境界を取る。
+void emit_catch(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
+                const BodyEnv& env) {
+  const IrTerm& term = *goal.term;
+  const std::string cont = make_rest(ctx, emit, rest, env);
+  StateSpec recover;
+  recover.goals = branch_goals(ctx, term.args[2], goal.module);
+  recover.local_cut = true;
+  const std::string recovery = make_frame(ctx, emit, "recover", recover, env.cut, cont, {});
+  std::string exit = cont;
+  // G が呼び出し無しに throw で終われば（catch(throw(x), ...)）抜けることがなく、枠を作っても使われない。
+  if (dead_end(ctx, term.args[0], goal.module) == nullptr) {
+    const std::string mark = emit.fresh("mark");
+    emit.line("const std::size_t " + mark + " = rt::choice_mark(m);");
+    StateSpec spec;
+    spec.skip = 1;
+    spec.prologue = "rt::catch_exit(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));";
+    exit = make_frame(ctx, emit, "exit", spec, env.cut, cont, {mark_cell(mark)});
+  }
+  const std::string pattern = emit_build(emit, term.args[1]);
+  emit.line("rt::push_catch(m, " + pattern + ", " + recovery + ", " + env.cut + ");");
+  emit_condition(ctx, emit, term.args[0], goal.module, exit);
+}
+
 }  // namespace mosa::codegen

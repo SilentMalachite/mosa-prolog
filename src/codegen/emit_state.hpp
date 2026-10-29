@@ -162,5 +162,7 @@ void emit_soft(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<
 // \+ A。inner はゴールの形に直した A。
 void emit_not(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& inner, std::uint32_t module,
               std::span<const GoalRef> rest, const BodyEnv& env);
+void emit_catch(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
+                const BodyEnv& env);
 
 }  // namespace mosa::codegen

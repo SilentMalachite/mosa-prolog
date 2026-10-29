@@ -150,6 +150,11 @@ void propagate_throw(Impl& machine, Cell ball) {
     if (do_unify(machine, rebuilt, top.pattern)) {
       machine.failed = false;
       machine.exception = false;
+      // 生成コードの catch（push_catch）は回復ゴールを継続枠で持つ。枠の状態の関数が入口で局所の境界を取る。
+      if (top.redo_goal != kNoFrame) {
+        machine.ip = top.redo_goal;
+        return;
+      }
       // 回復ゴールは call と同じで、中のカットは catch の外へ出ない（7.8.9）。
       launch(machine, top.recovery, top.cont, machine.stack.size(), top.env, top.module);
       return;
@@ -182,6 +187,10 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   exit.cont = cont;
   const auto frame = push_extra(machine, std::move(exit));
   launch(machine, goal.args[0], frame, machine.stack.size(), env, module);
+}
+
+void disarm_catch(Impl& machine, std::size_t index) {
+  if (index < machine.stack.size() && machine.stack[index].pick == Pick::Catch) machine.stack[index].armed = false;
 }
 
 void throw_ball(Impl& machine, Cell ball) {

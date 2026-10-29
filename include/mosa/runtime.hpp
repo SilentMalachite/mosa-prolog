@@ -134,6 +134,9 @@ void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut); 
 void soft_commit(Machine::Impl& machine, std::size_t soft_id);  // 条件の成功。印の付いた else はやり直しで飛ぶ
 void push_negation(Machine::Impl& machine, std::uint64_t cont);  // \+ A の床。A が失敗してここへ戻れば cont へ
 void throw_term(Machine::Impl& machine, Cell ball);  // throw/1。捕まえる catch まで巻き戻す（C++ の例外は使わない）
+// catch/3。recovery は回復ゴールの継続枠。ボールが pattern と単一化できればそこへ進む
+void push_catch(Machine::Impl& machine, Cell pattern, std::uint64_t recovery, std::size_t cut);
+void catch_exit(Machine::Impl& machine, std::size_t index);  // ゴールを抜けた。index の Catch を無効にする
 
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。

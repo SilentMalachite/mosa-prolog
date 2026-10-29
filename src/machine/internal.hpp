@@ -428,6 +428,8 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 // throw/1 の本体。ball が変数なら instantiation_error、他は捕まえる catch まで巻き戻す。生成コードも通る。
 void throw_ball(Impl& machine, Cell ball);
+// ゴールを抜けた catch を無効にする。選択点が残る間は枠を残し、戻ったときだけ apply_catches が有効に戻す。
+void disarm_catch(Impl& machine, std::size_t index);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_instantiation(Impl& machine);
 [[nodiscard]] Cell formal_uninstantiation(Impl& machine, Cell culprit);

@@ -54,4 +54,20 @@ void push_negation(Machine::Impl& machine, std::uint64_t cont) {
 // throw/1（arm_throw と同じ本体）。回復ゴールは propagate_throw が ip に置くので、生成コードは戻るだけでよい。
 void throw_term(Machine::Impl& machine, Cell ball) { throw_ball(machine, ball); }
 
+// catch/3（arm_catch の Entry）。回復ゴールは IR ではなく継続枠なので redo_goal に置き、propagate_throw はそれが
+// あれば launch の代わりに ip に置く。枠の状態の関数が入口で局所のカット境界を取る（7.8.9）。
+void push_catch(Machine::Impl& machine, Cell pattern, std::uint64_t recovery, std::size_t cut) {
+  Entry entry;
+  entry.pick = Pick::Catch;
+  entry.pattern = pattern;
+  entry.redo_goal = recovery;
+  entry.cut = cut;
+  entry.armed = true;
+  entry.heap_mark = machine.heap.size();
+  entry.trail_mark = machine.trail.slots.size();
+  push_frame(machine, std::move(entry));
+}
+
+void catch_exit(Machine::Impl& machine, std::size_t index) { disarm_catch(machine, index); }
+
 }  // namespace mosa::rt

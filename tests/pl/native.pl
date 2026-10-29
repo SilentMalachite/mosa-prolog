@@ -153,6 +153,28 @@ test(native_throw_inst, throw_ball(_), error(instantiation_error)).
 test(native_throw_after, throw_after(_), error(got(1))).
 test(native_throw_cond, throw_cond(_), error(cond)).
 
+% catch/3。ゴールの例外を捕らえ、ボールが合えば回復ゴールへ、合わなければ外へ
+catch_it(G, R) :- catch(G, E, R = caught(E)).
+catch_pass(X) :- catch(throw(inner), outer, X = no).
+% 抜けた catch は例外を捕らえない。ゴールの選択点へ戻ればまた有効になる
+catch_after(X) :- catch(color(X), _, X = recovered), throw(late).
+catch_rearm(X) :- catch((color(X) ; throw(exhausted)), exhausted, X = none), X \== red, X \== green, X \== blue.
+% 回復ゴールの中のカットは回復ゴールに閉じる。外の選択点（X の選言）は残る
+catch_recover_cut(X) :- (X = 1 ; X = 2), catch(throw(t), t, !), X = 2.
+% ボールは投げるときに写され、ゴールの束縛は戻る
+catch_copy(X, Z) :- catch((X = 1, throw(b(X))), b(Z), true).
+% ゴールの中のカットは catch に閉じる
+catch_goal_cut(X) :- (X = 1 ; X = 2), catch(!, _, true).
+
+test(native_catch, catch_it(throw(oops), R), solutions([R = caught(oops)])).
+test(native_catch_ok, findall(C, catch_it(color(C), _), L), solutions([L = [red, green, blue]])).
+test(native_catch_pass, catch_pass(_), error(inner)).
+test(native_catch_after, catch_after(_), error(late)).
+test(native_catch_rearm, catch_rearm(X), solutions([X = none])).
+test(native_catch_recover_cut, findall(X, catch_recover_cut(X), L), solutions([L = [2]])).
+test(native_catch_copy, (catch_copy(X, Z), var(X)), solutions([Z = 1])).
+test(native_catch_goal_cut, findall(X, catch_goal_cut(X), L), solutions([L = [1, 2]])).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。
