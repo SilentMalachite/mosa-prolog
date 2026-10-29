@@ -1,5 +1,6 @@
 #include "mosa/bench.hpp"
 #include "mosa/command_line.hpp"
+#include "mosa/diff.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/roundtrip.hpp"
@@ -49,6 +50,12 @@ int main(int argc, char** argv) {
     const mosa::BenchArgs parsed = mosa::parse_bench_args(rest);
     if (!parsed.ok) return usage();
     return mosa::run_bench(parsed);
+  }
+  if (args.size() >= 2 && args[1] == "--diff") {
+    const std::vector<std::string_view> rest(args.begin() + 2, args.end());
+    const mosa::DiffArgs parsed = mosa::parse_diff_args(rest);
+    if (!parsed.ok) return usage();
+    return mosa::run_diff(parsed);
   }
   if (args.size() == 2) return mosa::run_suite(args[1]);
   return usage();

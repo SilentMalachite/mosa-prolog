@@ -51,6 +51,8 @@ DisplayNames display_names(const TranslationLog& log, std::string_view root) {
   return names;
 }
 
+}  // namespace
+
 // 根のファイルのモジュール（module/2 が無ければ user）を先に、読んだほかのモジュールのファイルを後に並べる。
 // 起動時は根を読むと include/1 や use_module/1 がほかのファイルを埋め込みから読むので、後の単位は付けるだけになる。
 std::vector<UnitPlan> plan_units(const Impl& machine, const TranslationLog& log) {
@@ -67,6 +69,8 @@ std::vector<UnitPlan> plan_units(const Impl& machine, const TranslationLog& log)
   return units;
 }
 
+namespace {
+
 std::optional<std::uint32_t> module_of_key(const Impl& machine, std::string_view key) {
   for (const Module& module : machine.modules) {
     if (module.file == key) return module.name;
@@ -78,6 +82,8 @@ std::string relative_or_same(const std::filesystem::path& file, const std::files
   const std::filesystem::path relative = file.lexically_relative(base);
   return relative.empty() ? utf8_from_path(file) : utf8_from_path(relative);
 }
+
+}  // namespace
 
 // 埋め込みの鍵。翻訳した機械の絶対パスを実行ファイルに残さない（利用者名が漏れ、同じ原文から同じ物ができなくなる）。
 // プログラムのファイルは根のディレクトリからの相対、ライブラリのファイル（モジュールも include した物も）はそのライブラリの
@@ -105,6 +111,8 @@ std::string library_name(std::string_view key) {
   relative.replace_extension();
   return utf8_from_path(relative);
 }
+
+namespace {
 
 // 同じ鍵で 2 つのファイルは埋め込めない（実行ファイルの中で区別できない）。先に入れた方が黙って勝つのではなく、翻訳の段で
 // 両方のファイルを挙げて断る。鍵は正規化して比べる。同梱ライブラリの名前は鍵から作るので、名前の重なりも同じ比べ方で分かる。
@@ -166,6 +174,8 @@ bool any_opaque(const TranslationLog& log) {
   return std::any_of(log.files.begin(), log.files.end(), [](const TranslationLog::File& file) { return file.opaque; });
 }
 
+}  // namespace
+
 // 読めなかったファイルに節がある述語。生成関数を出さず、起動時の読み込みが IR のまま動かす。
 std::vector<PredKey> opaque_preds(const TranslationLog& log) {
   std::vector<PredKey> keys;
@@ -174,6 +184,8 @@ std::vector<PredKey> opaque_preds(const TranslationLog& log) {
   }
   return keys;
 }
+
+namespace {
 
 std::vector<std::string> warnings(Impl& machine, const TranslationLog& log, std::string_view path,
                                   const ProjectOptions& options) {
@@ -223,6 +235,8 @@ Project build_library(Machine& machine, const TranslationLog& log, std::string_v
   return project;
 }
 
+}  // namespace
+
 // 文面の表（ADR 0007）は、捕まえなかった例外の文面にどの実行ファイルも読む。翻訳のときにも読んで同梱の一覧に
 // 入れる（推移的に library(format)、library(lists) も入る）。読めなければ mosac の隣の lib/ が無い。
 bool load_catalogs(Machine& machine) {
@@ -231,8 +245,6 @@ bool load_catalogs(Machine& machine) {
   }
   return true;
 }
-
-}  // namespace
 
 // CMake の名前に使える文字だけなら原文の名前、ほかは app にする。
 std::string target_name(std::string_view root) {

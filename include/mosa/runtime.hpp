@@ -164,4 +164,13 @@ void bundle_library(std::string_view name, const NativeUnit& unit);
 [[nodiscard]] int finish(Machine& machine, bool loaded);  // 読めなければ診断を出して 1。main は Task 2 の終了コード
 // mosac build --debug の節の追跡（計画 Task 9）。生成コードは kTrace が真のときだけ、節に入るたびに呼ぶ
 void trace_clause(std::string_view text);  // text と改行を標準エラーに書く
+
+// mosatest --diff の実行ファイル（計画 Task 11）。mosac emit --units が main.cpp にこの表を出し、diff_main が同じ原文を
+// インタプリタ（IR）と翻訳（install_unit）で読んで、試験のゴールごとの出力を比べる。原文は MSVC の字面の上限のために
+// 切った断片で、diff_main がつなぐ。files[0] が試験のファイルで、unit が空なら翻訳の単位は無い（組み立てられなかった）。
+struct DiffFile { std::string_view key; std::span<const std::string_view> source; NativeUnit (*unit)(std::string_view); };
+struct DiffEntry { std::span<const DiffFile> files; std::size_t predicates; std::size_t translated; };
+struct DiffLibrary { std::string_view name; std::span<const std::string_view> source; };  // 原文だけを同梱する
+[[nodiscard]] int diff_main(int argc, char** argv, std::span<const DiffLibrary> libraries,
+                            std::span<const DiffEntry> entries);
 }

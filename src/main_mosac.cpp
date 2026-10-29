@@ -30,16 +30,19 @@ struct EmitArgs {
   std::string source;
   std::string out;
   bool library = false;  // --library: lib/<名前>.pl の単位 <名前>.cpp だけを出す（計画 Task 10。本体の CMake が使う）
+  bool units = false;    // --units: 試験のディレクトリをファイルごとの単位にし、差分の実行ファイルを出す（Task 11。mosatest --diff が使う）
 };
 
-// mosac emit [--library] app.pl -o out/ の形だけを受ける。
+// mosac emit [--library | --units] app.pl -o out/ の形だけを受ける。
 std::optional<EmitArgs> parse_emit(const std::vector<std::string>& args) {
   EmitArgs parsed;
   for (std::size_t index = 2; index < args.size(); ++index) {
     if (args[index] == "-o" && index + 1 < args.size()) {
       parsed.out = args[++index];
-    } else if (args[index] == "--library") {
+    } else if (args[index] == "--library" && !parsed.units) {
       parsed.library = true;
+    } else if (args[index] == "--units" && !parsed.library) {
+      parsed.units = true;
     } else if (parsed.source.empty() && !args[index].empty() && args[index].front() != '-') {
       parsed.source = args[index];
     } else {
@@ -81,7 +84,10 @@ int run_emit(const std::vector<std::string>& args) {
   mosa::codegen::ProjectOptions options;
   options.runtime_dir = runtime_dir();
   options.library = parsed->library;
-  const mosa::codegen::Project project = mosa::codegen::translate_program(parsed->source, options);
+  // --units は存在エラーを確かめる試験も翻訳するので、呼び出しの警告で止めない（ProjectOptions の注）。
+  options.check_calls = !parsed->units;
+  const mosa::codegen::Project project = parsed->units ? mosa::codegen::translate_units(parsed->source, options)
+                                                       : mosa::codegen::translate_program(parsed->source, options);
   // Prolog の誤りは翻訳の段で止め、何も書かずコンパイラも起こさない（SPEC 第6節のエラーの扱い）。
   if (!project.ok) {
     std::cerr << project.diagnostic << '\n';

@@ -1,0 +1,6 @@
+{"schemaVersion":1,"label":"interpreter = translated","message":"1817/1817 (100.0%)","color":"brightgreen",
+ "generated":"mosatest --diff writes this file. Do not edit by hand.",
+ "directories":{
+  "tests/pl":{"files":38,"compared":1817,"agreed":1817,"differences":0,"translatedGoals":1779,"predicates":292,"translatedPredicates":290,"untranslated":{}}
+ }
+}

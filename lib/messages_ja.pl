@@ -22,9 +22,9 @@ message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
-message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>]~n--report を省けるのは、リポジトリ直下で tests/conformance を渡したときだけです').
+message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
 message(mosac_unavailable, 'mosac: このコマンドはフェーズ0では使えません').
-message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
+message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_undefined_call, '~w を呼んでいるが、どこにも定義が無い').
 message(mosac_export_undefined, '~w を export したが定義が無い').
@@ -95,3 +95,14 @@ message(bench_not_found, 'mosatest: ~w が見つかりません').
 message(bench_run_failed, 'mosatest: ~w が終了コード ~w で終わりました').
 message(bench_step_failed, 'mosatest: ~w が終了コード ~w で失敗しました（出力は ~w）').
 message(bench_cannot_write, 'mosatest: ~w に書けません').
+message(diff_usage, '使い方: ~w <ディレクトリ> [--report <ファイル>]').
+message(diff_no_files, 'mosatest: ~w に試験のファイルがありません').
+message(diff_not_emitted, '~w: この実行ファイルには翻訳が入っていません').
+message(diff_cannot_read, '~w: 組み立てられません: ~w').
+message(diff_source_changed, '~w: mosac emit --units のあとで原文が変わりました').
+message(diff_mismatch, '~w ~w: 出力が違います').
+message(diff_interpreter, '  インタプリタ: ~w').
+message(diff_translated, '  翻訳:         ~w').
+message(diff_file, '~w: 比較 ~w 件、一致 ~w 件、翻訳したゴール ~w 件').
+message(diff_total, '一致 ~w/~w、翻訳した述語 ~w/~w（~w%）、違い ~w 件').
+message(mosac_units_skipped, 'mosac: ~w は翻訳しません: ~w').

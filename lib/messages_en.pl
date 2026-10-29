@@ -22,9 +22,9 @@ message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
-message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~n--report may be omitted only when tests/conformance is given from the repository root').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
 message(mosac_unavailable, 'mosac: this command is not available in phase 0').
-message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac toolchain [--cxx <compiler>]').
+message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_undefined_call, 'call to undefined procedure ~w').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').
@@ -95,3 +95,14 @@ message(bench_not_found, 'mosatest: ~w not found').
 message(bench_run_failed, 'mosatest: ~w exited with code ~w').
 message(bench_step_failed, 'mosatest: ~w failed with code ~w (output in ~w)').
 message(bench_cannot_write, 'mosatest: cannot write ~w').
+message(diff_usage, 'usage: ~w <directory> [--report <file>]').
+message(diff_no_files, 'mosatest: no test files in ~w').
+message(diff_not_emitted, '~w: not translated into this executable').
+message(diff_cannot_read, '~w: cannot assemble: ~w').
+message(diff_source_changed, '~w: source changed since mosac emit --units').
+message(diff_mismatch, '~w ~w: outputs differ').
+message(diff_interpreter, '  interpreter: ~w').
+message(diff_translated, '  translated:  ~w').
+message(diff_file, '~w: ~w compared, ~w agree, ~w translated goals').
+message(diff_total, 'agreement ~w/~w, translated predicates ~w/~w (~w%), differences ~w').
+message(mosac_units_skipped, 'mosac: ~w is not translated: ~w').

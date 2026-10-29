@@ -20,6 +20,8 @@ namespace {
 // MSVC は 1 つの文字列の字面の長さに上限がある。原文はこの大きさで切り、起動時につなぐ。
 constexpr std::size_t kChunk = 2048;
 
+}  // namespace
+
 std::string source_array(std::size_t index, std::string_view text) {
   std::string items;
   std::size_t count = 0;
@@ -29,6 +31,8 @@ std::string source_array(std::size_t index, std::string_view text) {
   return "constexpr std::array<std::string_view, " + std::to_string(count) + "> kFile" + std::to_string(index) +
          "{\n" + items + "};\n";
 }
+
+namespace {
 
 const LibraryPlan* library_of(const ProjectPlan& plan, std::size_t file) {
   for (const LibraryPlan& library : plan.libraries) {
@@ -114,6 +118,37 @@ std::string cmake_units(const ProjectPlan& plan, const std::string& name) {
   return out + "target_link_libraries(" + name + " PRIVATE ${mosa_units} \"${MOSA_RUNTIME_LIBRARY}\")\n";
 }
 
+// add_executable まで。目標の名前と原文の一覧だけが違い、同梱ライブラリの結び方は呼び手が足す。
+std::string cmake_head(const std::string& name, const std::string& sources, std::string_view runtime_dir) {
+  std::string out = "# mosac が出した（計画 Task 5）。手で直さない。\ncmake_minimum_required(VERSION 3.25)\n";
+  out += "project(" + name + " LANGUAGES CXX)\n\nset(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
+  out += "set(CMAKE_CXX_EXTENSIONS OFF)\n";
+  out += "# libmosa と同じ静的な MSVC の実行時ライブラリ（/MT）。mosac build は構成によらず /MT を渡す。\n";
+  out += "if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)\n";
+  out += "  set(CMAKE_MSVC_RUNTIME_LIBRARY \"MultiThreaded$<$<CONFIG:Debug>:Debug>\")\nendif()\n";
+  out += "\n# libmosa と include/ と pl/ の場所。既定は emit した mosac の形（ビルド木かインストール）で決める。\n";
+  out += cmake_runtime_default(runtime_dir);
+  out += "set(MOSA_RUNTIME_DIR \"${mosa_runtime_default}\" CACHE PATH \"libmosa, include/ and pl/\")\n";
+  out += "find_library(MOSA_RUNTIME_LIBRARY NAMES mosa PATHS \"${MOSA_RUNTIME_DIR}\" NO_DEFAULT_PATH REQUIRED)\n\n";
+  out += "add_executable(" + name + " " + sources + ")\n";
+  return out + "target_include_directories(" + name + " PRIVATE \"${MOSA_RUNTIME_DIR}/include\")\n";
+}
+
+std::string cmake_tail(const std::string& name) {
+  std::string out = "# libmosa の CommandLineToArgvW（src/platform/command_line.cpp）。静的ライブラリからは伝わらない。\n";
+  out += "if(WIN32)\n  target_link_libraries(" + name + " PRIVATE shell32)\nendif()\n";
+  out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。/EHsc は mosac build が\n";
+  out += "# CMAKE_CXX_FLAGS を空にしても残るよう、ここに置く（直接の道の旗と同じ）。\n";
+  out += "target_compile_options(" + name + " PRIVATE\n";
+  out += "  $<$<CXX_COMPILER_ID:MSVC>:/EHsc;/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";
+  out += "  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>)\n";
+  out += "# 警告を誤りにするのは頼まれたときだけ。新しいコンパイラの警告で利用者のビルドを止めない。\n";
+  out += "option(MOSA_WARNINGS_AS_ERRORS \"Treat warnings as errors\" OFF)\n";
+  out += "if(\"$ENV{MOSA_WERROR}\" STREQUAL \"1\")\n  set(MOSA_WARNINGS_AS_ERRORS ON)\nendif()\n";
+  out += "if(MOSA_WARNINGS_AS_ERRORS)\n";
+  return out + "  target_compile_options(" + name + " PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/WX,-Werror>)\nendif()\n";
+}
+
 }  // namespace
 
 std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
@@ -134,31 +169,13 @@ std::string cmake_text(const Impl& machine, const ProjectPlan& plan, std::string
   const std::string name{target};
   std::string sources = "main.cpp";
   for (const UnitPlan& unit : plan.units) sources += " " + unit_stem(machine, unit.module) + ".cpp";
-  std::string out = "# mosac が出した（計画 Task 5）。手で直さない。\ncmake_minimum_required(VERSION 3.25)\n";
-  out += "project(" + name + " LANGUAGES CXX)\n\nset(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\n";
-  out += "set(CMAKE_CXX_EXTENSIONS OFF)\n";
-  out += "# libmosa と同じ静的な MSVC の実行時ライブラリ（/MT）。mosac build は構成によらず /MT を渡す。\n";
-  out += "if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)\n";
-  out += "  set(CMAKE_MSVC_RUNTIME_LIBRARY \"MultiThreaded$<$<CONFIG:Debug>:Debug>\")\nendif()\n";
-  out += "\n# libmosa と include/ と pl/ の場所。既定は emit した mosac の形（ビルド木かインストール）で決める。\n";
-  out += cmake_runtime_default(runtime_dir);
-  out += "set(MOSA_RUNTIME_DIR \"${mosa_runtime_default}\" CACHE PATH \"libmosa, include/ and pl/\")\n";
-  out += "find_library(MOSA_RUNTIME_LIBRARY NAMES mosa PATHS \"${MOSA_RUNTIME_DIR}\" NO_DEFAULT_PATH REQUIRED)\n\n";
-  out += "add_executable(" + name + " " + sources + ")\n";
-  out += "target_include_directories(" + name + " PRIVATE \"${MOSA_RUNTIME_DIR}/include\")\n";
-  out += cmake_units(plan, name);
-  out += "# libmosa の CommandLineToArgvW（src/platform/command_line.cpp）。静的ライブラリからは伝わらない。\n";
-  out += "if(WIN32)\n  target_link_libraries(" + name + " PRIVATE shell32)\nendif()\n";
-  out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。/EHsc は mosac build が\n";
-  out += "# CMAKE_CXX_FLAGS を空にしても残るよう、ここに置く（直接の道の旗と同じ）。\n";
-  out += "target_compile_options(" + name + " PRIVATE\n";
-  out += "  $<$<CXX_COMPILER_ID:MSVC>:/EHsc;/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";
-  out += "  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>)\n";
-  out += "# 警告を誤りにするのは頼まれたときだけ。新しいコンパイラの警告で利用者のビルドを止めない。\n";
-  out += "option(MOSA_WARNINGS_AS_ERRORS \"Treat warnings as errors\" OFF)\n";
-  out += "if(\"$ENV{MOSA_WERROR}\" STREQUAL \"1\")\n  set(MOSA_WARNINGS_AS_ERRORS ON)\nendif()\n";
-  out += "if(MOSA_WARNINGS_AS_ERRORS)\n";
-  return out + "  target_compile_options(" + name + " PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/WX,-Werror>)\nendif()\n";
+  return cmake_head(name, sources, runtime_dir) + cmake_units(plan, name) + cmake_tail(name);
+}
+
+std::string cmake_plain_text(std::string_view target, std::string_view sources, std::string_view runtime_dir) {
+  const std::string name{target};
+  return cmake_head(name, std::string{sources}, runtime_dir) +
+         "target_link_libraries(" + name + " PRIVATE \"${MOSA_RUNTIME_LIBRARY}\")\n" + cmake_tail(name);
 }
 
 }  // namespace mosa::codegen

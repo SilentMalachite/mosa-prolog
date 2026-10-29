@@ -46,8 +46,19 @@ struct ProjectPlan {
 [[nodiscard]] std::vector<std::string> call_warnings(Impl& machine, const TranslationLog& log,
                                                      const DisplayNames& names);
 
+// 定義は project.cpp。mosac emit --units（units.cpp、Task 11）が同じ選び方で単位と同梱ライブラリを決める。
+[[nodiscard]] std::vector<UnitPlan> plan_units(const Impl& machine, const TranslationLog& log);
+[[nodiscard]] std::vector<std::string> embed_keys(const TranslationLog& log);
+[[nodiscard]] std::string library_name(std::string_view key);
+[[nodiscard]] std::vector<PredKey> opaque_preds(const TranslationLog& log);
+[[nodiscard]] bool load_catalogs(Machine& machine);
+
 // 定義は project_main.cpp。
 [[nodiscard]] std::string unit_stem(const Impl& machine, std::uint32_t module);
+// 原文 text を constexpr std::array<std::string_view, N> kFile<index> の断片の並びにする（MSVC の字面の上限のため）。
+[[nodiscard]] std::string source_array(std::size_t index, std::string_view text);
+// 同梱ライブラリの単位を結ばない CMakeLists.txt。sources は空白で区切った原文の名前（mosac emit --units、Task 11）。
+[[nodiscard]] std::string cmake_plain_text(std::string_view target, std::string_view sources, std::string_view runtime_dir);
 [[nodiscard]] std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan);
 [[nodiscard]] std::string cmake_text(const Impl& machine, const ProjectPlan& plan, std::string_view target,
                                      std::string_view runtime_dir);

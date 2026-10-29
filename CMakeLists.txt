@@ -97,6 +97,10 @@ target_sources(mosa_lib PRIVATE
   src/platform/process.cpp
   src/platform/toolchain.cpp
   src/machine/bench.cpp
+  src/machine/diff.cpp
+  src/machine/diff_main.cpp
+  src/machine/diff_report.cpp
+  src/machine/diff_tool.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -134,6 +138,7 @@ target_sources(mosa_lib PRIVATE
   src/codegen/mangle.cpp
   src/codegen/project.cpp
   src/codegen/project_main.cpp
+  src/codegen/units.cpp
   src/codegen/check.cpp
   src/codegen/build.cpp
   src/codegen/cache.cpp

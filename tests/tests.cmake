@@ -341,6 +341,18 @@ if(MOSA_SLOW_TESTS)
     ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
 endif()
 
+# 差分テスト（計画 Task 11、持ち主の決定 1 の B）。ディレクトリごとに 1 つの実行ファイルを mosac emit --units と
+# CMake で作り、インタプリタと翻訳の答え、エラー項、標準出力を 1 バイトずつ比べる。環境は mosatest_bench と同じ
+# （翻訳側の configure を本体と同じ生成器、コンパイラ、旗で行う）。報告 docs/agreement.{json,md} は 2 つのテストが
+# 同じファイルに書くので、RESOURCE_LOCK で同時に走らせない。japanese.pl と native.pl が含まれることも確かめる。
+add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
+  -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/pl -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_tests_pl
+  "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
+  "-DREQUIRE=japanese.pl;native.pl" -DROOT=${CMAKE_SOURCE_DIR}
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
+set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
+  TIMEOUT 3000)
+
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)
 list(REMOVE_ITEM mosa_all_tests session_english)

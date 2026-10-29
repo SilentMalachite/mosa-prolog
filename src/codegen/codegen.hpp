@@ -23,13 +23,17 @@ struct EmitResult {
   std::string header;
   std::size_t translated = 0;
   std::size_t interpreted = 0;
+  std::size_t predicates = 0;  // 翻訳の候補だった述語（モジュールの静的な述語）。差分テストの翻訳の比率の分母（Task 11）
 };
 
 // module はモジュール名のアトム番号。unit_name は NativeUnit::name に入れる。
 // interpreted_only の述語は生成関数を出さず、節を interpreted に数える（翻訳のときに読めなかったファイルの述語）。
 // trace が真なら、生成関数が節に入るたびにその節の文を標準エラーに書く（mosac build --debug、計画 Task 9）。
+// space は C++ の名前空間 mosa_gen::<space>。空なら m<mangle(モジュール)>。mosac emit --units（Task 11）は同じモジュール
+// user の単位をファイルごとに出すので、u<N>_m<モジュール> を渡して unit() をぶつけない。
 [[nodiscard]] EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name,
-                                     std::span<const PredKey> interpreted_only = {}, bool trace = false);
+                                     std::span<const PredKey> interpreted_only = {}, bool trace = false,
+                                     std::string_view space = {});
 
 // 計画 Task 5。mosac emit が out/ に書く目録。name は out/ からの相対の名前である。
 struct ProjectFile {
@@ -61,6 +65,11 @@ struct Project {
 // 根のファイルのモジュールと、読んだファイルのモジュールごとに単位を 1 つ出す。library(_) のモジュールは
 // 同梱ライブラリとして main.cpp が bundle_library に渡す（計画 Task 10）。
 [[nodiscard]] Project translate_program(std::string_view path, const ProjectOptions& options);
+
+// mosac emit --units <ディレクトリ>（計画 Task 11）。試験のファイルごとに差分の原文（src/machine/diff.hpp）を組み立てて
+// 翻訳し、単位 u<N>_m<モジュール>.cpp と、rt::diff_main を呼ぶ main.cpp、目標 mosa_diff の CMakeLists.txt を出す。
+// 組み立てられないファイルは単位の無い欄にして標準エラーに知らせる（実行ファイルが違いとして数える）。
+[[nodiscard]] Project translate_units(std::string_view dir, const ProjectOptions& options);
 
 // emit の CMake の目標（実行ファイル）の名前。根のファイルの語幹が CMake の名前に使える文字だけならそれ、ほかは app。
 // mosatest --bench はこれで作った実行ファイルを探す。

@@ -316,9 +316,15 @@ std::string banner(const Impl& machine, std::uint32_t module, std::string_view u
          " から出した（ADR 0009）。手で直さない。\n";
 }
 
+// 名前空間。既定はモジュールから。mosac emit --units（Task 11）はファイルごとの名前を渡す。
+std::string unit_space(const Impl& machine, std::uint32_t module, std::string_view space) {
+  if (!space.empty()) return "mosa_gen::" + std::string{space};
+  return "mosa_gen::m" + mangle(machine.atoms.name(module));
+}
+
 std::string source_text(const Impl& machine, std::uint32_t module, std::string_view unit_name,
-                        const UnitTables& tables, const UnitText& text, bool trace) {
-  const std::string space = "mosa_gen::m" + mangle(machine.atoms.name(module));
+                        const UnitTables& tables, const UnitText& text, bool trace, std::string_view space_name) {
+  const std::string space = unit_space(machine, module, space_name);
   std::string out = banner(machine, module, unit_name) + "\n#include \"mosa/runtime.hpp\"\n\nnamespace " + space + " {\n\n";
   out += text.forward + "\nnamespace {\n\n" + std::string{kUsings} + unit_tables(machine, tables);
   if (text.entry_count > 0) {
@@ -332,8 +338,9 @@ std::string source_text(const Impl& machine, std::uint32_t module, std::string_v
   return out + "}  // namespace " + space + "\n";
 }
 
-std::string header_text(const Impl& machine, std::uint32_t module, std::string_view unit_name, const UnitText& text) {
-  const std::string space = "mosa_gen::m" + mangle(machine.atoms.name(module));
+std::string header_text(const Impl& machine, std::uint32_t module, std::string_view unit_name, const UnitText& text,
+                        std::string_view space_name) {
+  const std::string space = unit_space(machine, module, space_name);
   std::string out = "#pragma once\n\n" + banner(machine, module, unit_name) + "\n#include \"mosa/runtime.hpp\"\n\n";
   out += "namespace " + space + " {\n\n// 埋め込む原文を受け取り、rt::install_unit に渡す単位を返す。\n";
   out += "[[nodiscard]] mosa::rt::NativeUnit unit(std::string_view source);\n" + text.forward;
@@ -433,7 +440,7 @@ bool listed(std::span<const PredKey> keys, const Predicate& predicate) {
 }  // namespace
 
 EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string_view unit_name,
-                       std::span<const PredKey> interpreted_only, bool trace) {
+                       std::span<const PredKey> interpreted_only, bool trace, std::string_view space) {
   const Impl& impl = engine_impl(machine);
   EmitResult result;
   UnitTables tables;
@@ -441,14 +448,15 @@ EmitResult emit_module(const Machine& machine, std::uint32_t module, std::string
   ClauseText writer{impl, module, scratch_limit(impl, module)};
   for (const Predicate& predicate : impl.predicates) {
     if (!translatable(predicate, module)) continue;
+    result.predicates += 1;
     if (listed(interpreted_only, predicate)) {
       result.interpreted += live_count(predicate);
       continue;
     }
     emit_predicate(impl, tables, writer, predicate, text, result);
   }
-  result.source = source_text(impl, module, unit_name, tables, text, trace);
-  result.header = header_text(impl, module, unit_name, text);
+  result.source = source_text(impl, module, unit_name, tables, text, trace, space);
+  result.header = header_text(impl, module, unit_name, text, space);
   return result;
 }
 
