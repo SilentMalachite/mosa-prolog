@@ -24,4 +24,4 @@ SPEC 第6節の形 `bool pred_X_N(Machine& m, Cell* args, Cont k)` にする案�
 
 ADR 0003 に 3 つ目の枠の種類が加わる。語 1 のビット 63 が立った制御枠が `Ctrl::Native` で、ADR 0006 の「語 1 は extras の添字」はビット 63 が落ちているときだけ成り立つ。フェーズ7の GC はこの枠の語 5 から先をセルとして印を付け（制御語は即値整数のセルなので、この規則はそのまま成り立つ）、語 4 は項として読まない。
 Task 3 は計画の Task 3 の **Interfaces** の宣言を書く。これはその計画の以前の並び（`fresh`、`make_*`、`bind_atom`、`bind_int`）を置き換える。足すのは `Predicate::native`、`Pick::Native`、`Ctrl::Native`、`Entry::native`、`Impl::native_units`、`native_next`、`native_cut` だけである。生成コードは、未束縛のまま残す節の変数をスロットの順に作り、`enter_clause` と同じ向き（節の側が `do_unify` の左）で束縛する。これは Task 4 の `native_var_order` で固定する。
-承認したら、SPEC 第6節（英語と日本語）をこの関数の形とカットの境界に直す。埋め込んだ単位の `include/1`、`ensure_loaded/1`、`library(_)` をファイルを探さずに解くことは Task 5 と Task 10 に回す（Review Focus 5）。承認まで、この ADR にもとづくコードは書かない。
+承認したら、SPEC 第6節（英語と日本語）をこの関数の形とカットの境界に直す。埋め込んだ単位の `include/1`、`ensure_loaded/1`、`library(_)` をファイルを探さずに解くことは Task 5 と Task 10 に回す（Review Focus 5）。承認まで、この ADR にもとづくコードは書かない。 SPEC 第5節と第6節（英語と日本語）は、持ち主の決定により 2026-10-30 にこの ADR に合わせて直した。呼び出しはトランポリンを通って実行時に解決し、名前空間は `mosa_gen::m<マングルした名前>`、再開点は `goto` を使わず `state_of(clause, point)` で番号を振り、生成 C++ はいつも `.mosac-cache/<hash>/` に残る。

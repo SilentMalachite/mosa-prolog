@@ -172,8 +172,8 @@
 
 **変換器（`mosac`）での扱い**
 
-- 各モジュールは C++ の名前空間 `mosa::m::<マングルしたモジュール名>` に対応する。モジュール名は UTF-8 のまま C++ 識別子には使えないので、`m` + 名前から作る。ASCII の英数字はそのまま、`_` は `_5f`、ほかのバイトは `_xx`（小文字 16 進 2 桁）にする。C++ は `__` を含む識別子を予約している（[lex.name]）が、この方式は `__` を出さない（持ち主の決定 B、2026-10-29）。元の名前は文字列定数として保持し、実行時のモジュールテーブルに登録する
-- インポート解決は変換時に静的に済ませ、生成コードでは直接関数呼び出しにする。`call/N` とメタ述語経由の呼び出しだけが実行時のテーブル検索を通る
+- 各モジュールは C++ の名前空間 `mosa_gen::m<マングルしたモジュール名>`（例: `mosa_gen::muser`）に対応する。モジュール名は UTF-8 のまま C++ 識別子には使えないので、`m` + 名前から作る。ASCII の英数字はそのまま、`_` は `_5f`、ほかのバイトは `_xx`（小文字 16 進 2 桁）にする。C++ は `__` を含む識別子を予約している（[lex.name]）が、この方式は `__` を出さない（持ち主の決定 B、2026-10-29）。元の名前は文字列定数として保持し、実行時のモジュールテーブルに登録する
+- 生成コードはほかの述語の C++ 関数を直接は呼ばない。呼び出しはどれも `rt::call_goal` でゴール枠を書いてトランポリンへ戻り、呼び先は上の規則で実行時に解決する。呼び先が C++ 関数で動くのは、その述語に翻訳単位が付いているときだけである（ADR 0009）
 - 変換単位は「モジュールの集合」であり、`use_module` の推移閉包を自動で含める。`library(...)` は事前変換済みのオブジェクトをリンクする
 
 **最初に用意する標準ライブラリ（すべて Prolog で書く。C++ 実装が必要なものだけ `system` に置く）**
@@ -223,11 +223,11 @@
 
 **`mosac` が生成する C++**
 
-- モジュールごとに 1 つの `.cpp` と、エクスポート述語の宣言ヘッダ。述語名は `p` + マングルした名前 + `_` + アリティ（例: `app/3` は `papp_3`）
+- モジュールごとに 1 つの `.cpp` と、そのモジュールの単位の関数と述語の関数を宣言するヘッダ。述語名は `p` + マングルした名前 + `_` + アリティ（例: `app/3` は `papp_3`）
 - 生成コードは `mosa/runtime.hpp` のみを include し、C++20 標準ライブラリ以外を使わない
-- 節本体は `switch` と `goto` を使った状態機械で、節の各ゴールが 1 状態。マクロは使わず、`inline` 関数と `constexpr` で書く（生成コードの可読性を保ち、デバッガで追えるようにするため）
+- 節は 1 つの関数で、本体の再開点（呼び出しのあとの続きと、制御構文の枝、then、else、done、回復、抜ける点）はそれぞれ別の関数になる。述語ごとの関数が `state` を `state_of(clause, point)` の `switch` で振り分け、再開点は翻訳器が作った順に番号を振る（ADR 0009）。`goto` もマクロも使わず、`inline` 関数と `constexpr` で書く（生成コードの可読性を保ち、デバッガで追えるようにするため）
 - 静的述語だけを変換する。`dynamic` 述語と `assert` で追加される節はインタプリタ経路（IR 解釈）で動き、同じ `Machine` 上で共存する
-- 生成物には `main.cpp`（`initialization(main)` 相当の呼び出し）と `CMakeLists.txt` 断片を含め、`mosac -o out/ app.pl && cmake -S out -B out/build && cmake --build out/build` で実行ファイルができる
+- 生成物には `main.cpp`（`initialization(main)` 相当の呼び出し）と `CMakeLists.txt` を含め、`mosac emit app.pl -o out/ && cmake -S out -B out/build && cmake --build out/build` で実行ファイルができる
 - 生成コードは人間が読んで元の Prolog を追えるように、各述語の先頭に元の節をコメントで入れる（日本語のままで良い）
 
 **`mosac` のビルド・実行パイプライン（C++ を吐いて終わりにしない）**
@@ -237,19 +237,19 @@
 | サブコマンド | 動作 | 出力 |
 | --- | --- | --- |
 | `mosac build app.pl -o app` | 変換 → コンパイル → リンクを一括。既定 | 実行ファイル `app`（Windows は `app.exe`） |
-| `mosac run app.pl -- 引数...` | build のあと即実行。一時ディレクトリに作り、終了コードをそのまま返す | 実行結果 |
+| `mosac run app.pl -- 引数...` | build のあと即実行。`build` と同じく `./.mosac-cache` で作り、実行ファイルの写しを一時ディレクトリから動かして（`--keep` で残す）、終了コードをそのまま返す | 実行結果 |
 | `mosac emit app.pl -o out/` | C++ ソースと `CMakeLists.txt` だけを出す（手で改変したい人向け、デバッグ用） | `out/` |
 | `mosac dist app.pl -o dist/` | build + 配布用パッケージ（実行ファイル、LICENSE、README） | zip / tar.gz |
 | `mosac toolchain` | 検出したコンパイラ・CMake・同梱ランタイムの場所と版を表示。問題があれば対処法を日本語で出す | 診断表示 |
 
 **ツールチェーンの扱い**
 
-- C++ コンパイラは次の順で探す: `--cxx` → 環境変数 `MOSA_CXX` → `CXX` → OS 既定（macOS は `clang++`、Linux は `g++` 次いで `clang++`、Windows は `vswhere` で MSVC を見つけ `vcvarsall` 相当の環境変数を `mosac` 自身が設定する）。見つからなければ `mosac toolchain` と同じ診断を出して止まり、各 OS のインストール手順（Xcode Command Line Tools、`apt install g++`、Visual Studio Build Tools）を表示する
+- C++ コンパイラは次の順で探す: `--cxx` → 環境変数 `MOSA_CXX` → `CXX` → OS 既定（macOS は `clang++`、Linux は `g++` 次いで `clang++`、Windows は `vswhere` で MSVC を見つけ `vcvarsall` 相当の環境変数を `mosac` 自身が設定する）。見つからなければ `mosac toolchain` と同じ診断を出して止まり、各 OS のインストール手順（Xcode Command Line Tools、`apt install g++`、Visual Studio Build Tools）を表示する。`--cxx`、`MOSA_CXX`、`CXX` で名指ししたコンパイラは `vcvarsall` を通さず今の環境で動かすので、名指しの `cl` には開発者用のコマンドプロンプトが要る（持ち主の決定、2026-10-30）
 - CMake は任意。あれば使い、なければコンパイラを直接呼ぶ（生成コードはファイルごとにコンパイルして `mosac` 自身がリンクコマンドを組む）。したがって利用者側の最小要件は「C++20 コンパイラが 1 つ入っていること」
 - ランタイム `libmosa` は、ビルド済みの静的ライブラリとヘッダを `mosac` のインストール先（`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`。`<OS>` は `macos`、`linux`、`windows`、`<arch>` は `arm64`、`x86_64`、`<compiler>` は族 `clang`、`gcc`、`msvc`）に同梱する。`mosac` はそのディレクトリを自分の場所から見つける。`<prefix>/bin/mosac` は `<prefix>/lib/mosa/<鍵>/` を見、ビルド木では `mosac` 自身のディレクトリに `libmosa`、`include/`、`pl/` がある。インストールするのは Release だけなので、`mosac build --debug` も Release のランタイムを結ぶ。利用者のマシンでランタイムを毎回ビルドしない。ABI が合わないときの逃げ道として `--runtime-source` で同梱ソース `<prefix>/lib/mosa/source/` から CMake でビルドする（結果は `.mosac-cache/runtime/<hash>/` にキャッシュする）
 - `lib/*.pl` の標準ライブラリは事前変換済みのオブジェクトとして、ライブラリごとに 1 つ（`libmosa` の隣の `pl/libmosa_pl_<名前>.a`、Windows は `pl/mosa_pl_<名前>.lib`）同梱し、`use_module` で推移的に読まれたものと、未捕捉エラーの文面のための `messages_ja`・`messages_en` だけをリンクする。リンクしたライブラリの原文も実行ファイルに埋め込むので、ライブラリは実行ファイルから consult され、単位はそれに付く。ファイルからは読まない。インタプリタ用の写しは `<prefix>/bin/lib/*.pl` に置く
 - 既定は静的リンク・`-O2`。Windows は `/MT`。できあがった実行ファイルは配布先に C++ ランタイム DLL も `mosac` も Prolog ファイルも要らない。`--debug` で `-O0 -g` と実行時の節トレースを有効にする。同梱ライブラリの単位はトレース無しで作ってあるので、`--debug` がトレースするのはプログラム自身の単位だけである
-- 中間ファイルは `.mosac-cache/` に置き、Prolog ソースとランタイムのハッシュで再利用する。`--keep` で生成 C++ を残し、`--clean` で捨てる
+- 中間ファイルは今のディレクトリの `.mosac-cache/<hash>/` に置き、Prolog ソースとランタイムのハッシュで再利用する。生成 C++ はいつもそこに残る。`--clean` はビルドの前に `.mosac-cache/` を消し、`mosac run --keep` は実行ファイルの写しを置いた一時ディレクトリを残す
 - クロスコンパイルは非目標。実行ファイルは `mosac` を動かした OS・アーキテクチャ向けだけを作る
 
 **エラーの扱い（誰の責任かで出し分ける）**

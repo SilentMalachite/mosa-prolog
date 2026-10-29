@@ -93,7 +93,7 @@ X = foo.
 
 ```sh
 mosac build app.pl -o app          # 変換、コンパイル、リンク（Windows では app.exe）
-mosac run app.pl -- 引数...         # 一時ディレクトリで作って実行し、終了コードをそのまま返す
+mosac run app.pl -- 引数...         # ./.mosac-cache で作り、写しを一時ディレクトリで実行し、終了コードをそのまま返す
 mosac emit app.pl -o out/          # C++ のソースと CMakeLists.txt だけを出す
 mosac build app.pl --interactive   # app.pl を読み込んだ状態で REPL が立ち上がる実行ファイルにする
 mosac toolchain                    # コンパイラ、CMake、同梱の実行時ライブラリを調べ、困ったら対処を示す
