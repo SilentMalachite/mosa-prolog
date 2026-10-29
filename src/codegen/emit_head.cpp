@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -16,38 +17,40 @@ namespace {
 // 照合の入れ子の深さの上限。これより深い部分項は組み立ててから rt::unify に渡す。enter_clause と同じ
 // 意味のままで、長いリストの頭部でも生成コードの括弧の入れ子がコンパイラの上限に届かない。
 constexpr int kMatchDepth = 6;
+// 照合する部分項の語の数の上限。照合の枝は未束縛の側で部分項を丸ごと組み立てるので、深さごとに組み立てが重なる。
+// 長いリストの事実（2 万要素）では生成コードが深さの倍だけ膨れ、コンパイルに何分もかかった。大きい項は 1 回だけ
+// 組み立てて rt::unify に渡す（kMatchDepth と同じく意味は変わらない）。
+constexpr std::size_t kMatchWords = 256;
 
 void count_slots(const IrTerm& term, std::vector<SlotState>& slots) {
-  if (term.tag == IrTag::Var) {
-    if (term.slot < slots.size()) slots[term.slot].left += 1;
-    return;
-  }
-  for (const IrTerm& arg : term.args) count_slots(arg, slots);
+  walk_term(term, [&](const IrTerm& sub, int) {
+    if (sub.tag == IrTag::Var && sub.slot < slots.size()) slots[sub.slot].left += 1;
+    return true;
+  });
 }
 
 // 頭部を前順にたどり、各スロットが最初に出た深さを記す。-1 は頭部に出ない（本体だけの変数）。
-void first_depths(const IrTerm& term, int depth, std::vector<int>& firsts) {
-  if (term.tag == IrTag::Var) {
-    if (term.slot < firsts.size() && firsts[term.slot] < 0) firsts[term.slot] = depth;
-    return;
-  }
-  for (const IrTerm& arg : term.args) first_depths(arg, depth + 1, firsts);
+void first_depths(const IrTerm& term, std::vector<int>& firsts) {
+  walk_term(term, [&](const IrTerm& sub, int depth) {
+    if (sub.tag == IrTag::Var && sub.slot < firsts.size() && firsts[sub.slot] < 0) firsts[sub.slot] = depth;
+    return true;
+  });
 }
 
 // 組み立てに要るヒープの語の数。即値のアトムと整数と変数は語を取らない。
 std::size_t build_words(const Impl& machine, const IrTerm& term) {
-  switch (term.tag) {
-    case IrTag::Anon:
-    case IrTag::Float: return 1;
-    case IrTag::Int: return is_small_int(term.integer) ? 0 : 1;
-    case IrTag::List:
-    case IrTag::Fun: {
-      std::size_t words = term.tag == IrTag::List || is_dot(machine, term) ? 2 : 1 + term.args.size();
-      for (const IrTerm& arg : term.args) words += build_words(machine, arg);
-      return words;
+  std::size_t words = 0;
+  walk_term(term, [&](const IrTerm& sub, int) {
+    switch (sub.tag) {
+      case IrTag::Anon:
+      case IrTag::Float: words += 1; return false;
+      case IrTag::Int: words += is_small_int(sub.integer) ? 0 : 1; return false;
+      case IrTag::List:
+      case IrTag::Fun: words += sub.tag == IrTag::List || is_dot(machine, sub) ? 2 : 1 + sub.args.size(); return true;
+      default: return false;
     }
-    default: return 0;
-  }
+  });
+  return words;
 }
 
 std::string atom_expr(ClauseEmit& emit, std::uint32_t atom) {
@@ -72,8 +75,16 @@ std::string at(std::string_view block, std::size_t offset) {
   return offset == 0 ? std::string{block} : std::string{block} + " + " + std::to_string(offset);
 }
 
-// 塊の語を前順に割り当てる。複合項は親を先に置き、子の式は親の文より前に出す。
-std::string place(ClauseEmit& emit, const IrTerm& term, std::string_view block, std::size_t& offset) {
+// 組み立て途中の複合項。子の式を集め終えたら親の文を出す。
+struct PlaceFrame {
+  const IrTerm* term;
+  std::string here;
+  bool list;
+  std::vector<std::string> parts;
+};
+
+// 複合項でない項の式。語を取る項は塊の次の語に置く。複合項は nullopt で、呼び手が枠を積む。
+std::optional<std::string> place_leaf(ClauseEmit& emit, const IrTerm& term, std::string_view block, std::size_t& offset) {
   if (term.tag == IrTag::Var) return use_var(emit, term.slot);
   if (const auto atomic = atomic_expr(emit, term)) return *atomic;
   const std::string here = at(block, offset);
@@ -81,24 +92,50 @@ std::string place(ClauseEmit& emit, const IrTerm& term, std::string_view block, 
     case IrTag::Anon: offset += 1; return "rt::put_ref(" + here + ")";
     case IrTag::Int: offset += 1; return "rt::put_int_box(" + here + ", " + int_literal(term.integer) + ")";
     case IrTag::Float: offset += 1; return "rt::put_float(" + here + ", " + float_literal(term.floating) + ")";
-    default: break;
+    default: return std::nullopt;
   }
-  const bool list = term.tag == IrTag::List || is_dot(emit.machine, term);
-  offset += list ? 2 : 1 + term.args.size();
-  std::vector<std::string> parts;
-  for (const IrTerm& arg : term.args) parts.push_back(place(emit, arg, block, offset));
+}
+
+std::string finish_compound(ClauseEmit& emit, const PlaceFrame& frame) {
   const std::string name = emit.fresh("t");
-  if (list) {
-    emit.line("const Cell " + name + " = rt::put_list(" + here + ", " + parts[0] + ", " + parts[1] + ");");
+  if (frame.list) {
+    emit.line("const Cell " + name + " = rt::put_list(" + frame.here + ", " + frame.parts[0] + ", " + frame.parts[1] + ");");
     return name;
   }
   std::string items;
-  for (const std::string& part : parts) items += (items.empty() ? "" : ", ") + part;
+  for (const std::string& part : frame.parts) items += (items.empty() ? "" : ", ") + part;
   const std::string args = emit.fresh("a");
-  emit.line("const std::array<Cell, " + std::to_string(parts.size()) + "> " + args + "{" + items + "};");
-  emit.line("const Cell " + name + " = rt::put_struct(" + here + ", r.atoms[" +
-            std::to_string(emit.tables.atom(term.atom)) + "], " + args + ");");
+  emit.line("const std::array<Cell, " + std::to_string(frame.parts.size()) + "> " + args + "{" + items + "};");
+  emit.line("const Cell " + name + " = rt::put_struct(" + frame.here + ", r.atoms[" +
+            std::to_string(emit.tables.atom(frame.term->atom)) + "], " + args + ");");
   return name;
+}
+
+// 塊の語を前順に割り当てる。複合項は親を先に置き、子の式は親の文より前に出す。長いリストでも C++ の呼び出しを
+// 積まないよう、組み立て途中の複合項を手で積む（walk_term と同じ理由）。
+std::string place(ClauseEmit& emit, const IrTerm& root, std::string_view block, std::size_t& offset) {
+  std::vector<PlaceFrame> stack;
+  const auto open = [&](const IrTerm& term) -> std::optional<std::string> {
+    if (auto leaf = place_leaf(emit, term, block, offset)) return leaf;
+    const bool list = term.tag == IrTag::List || is_dot(emit.machine, term);
+    stack.push_back(PlaceFrame{&term, at(block, offset), list, {}});
+    offset += list ? 2 : 1 + term.args.size();
+    return std::nullopt;
+  };
+  if (auto leaf = open(root)) return *leaf;
+  while (true) {
+    PlaceFrame& top = stack.back();
+    if (top.parts.size() < top.term->args.size()) {
+      const IrTerm& next = top.term->args[top.parts.size()];
+      // open が枠を積むと top は無効になるので、積まなかったときだけ書く。
+      if (auto leaf = open(next)) stack.back().parts.push_back(std::move(*leaf));
+      continue;
+    }
+    std::string done = finish_compound(emit, top);
+    stack.pop_back();
+    if (stack.empty()) return done;
+    stack.back().parts.push_back(std::move(done));
+  }
 }
 
 void match(ClauseEmit& emit, const IrTerm& term, const std::string& expr, int depth);
@@ -183,7 +220,7 @@ void match(ClauseEmit& emit, const IrTerm& term, const std::string& expr, int de
     case IrTag::Float: return match_built(emit, term, expr);
     case IrTag::List:
     case IrTag::Fun:
-      if (depth >= kMatchDepth) return match_built(emit, term, expr);
+      if (depth >= kMatchDepth || build_words(emit.machine, term) > kMatchWords) return match_built(emit, term, expr);
       return match_compound(emit, term, expr, depth);
     default: return match_built(emit, term, expr);
   }
@@ -203,7 +240,7 @@ void plan_slots(const Clause& clause, const std::vector<int>& body_counts, Claus
   }
   std::vector<int> firsts(clause.vars, -1);
   if (clause.head.tag == IrTag::Fun) {
-    for (const IrTerm& arg : clause.head.args) first_depths(arg, 0, firsts);
+    for (const IrTerm& arg : clause.head.args) first_depths(arg, firsts);
   }
   for (std::size_t slot = 0; slot < emit.slots.size(); ++slot) {
     emit.slots[slot].allocated = emit.slots[slot].left > 0 && firsts[slot] != 0;

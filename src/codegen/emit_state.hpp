@@ -12,6 +12,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace mosa::codegen {
@@ -114,6 +115,19 @@ struct ClauseCtx {
 [[nodiscard]] bool is_small_int(std::int64_t value);
 [[nodiscard]] bool is_dot(const Impl& machine, const IrTerm& term);
 [[nodiscard]] bool is_name(const Impl& machine, const IrTerm& term, std::string_view name, std::size_t arity);
+
+// 項を前順にたどり、visit(項, 深さ) が true を返した項だけ引数へ進む。深さは根を 0 とする。長いリストの原文は
+// '.'/2 の尾が何万段も入れ子になるので、C++ の呼び出しを積まず手で積む（native.cpp の hash_term と同じ理由）。
+template <typename Visit>
+void walk_term(const IrTerm& root, Visit&& visit) {
+  std::vector<std::pair<const IrTerm*, int>> pending{{&root, 0}};
+  while (!pending.empty()) {
+    const auto [term, depth] = pending.back();
+    pending.pop_back();
+    if (!visit(*term, depth)) continue;
+    for (auto it = term->args.rbegin(); it != term->args.rend(); ++it) pending.emplace_back(&*it, depth + 1);
+  }
+}
 
 // emit_head.cpp。body_counts[slot] は本体に出る回数。
 void plan_slots(const Clause& clause, const std::vector<int>& body_counts, ClauseEmit& emit);

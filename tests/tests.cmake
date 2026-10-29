@@ -334,6 +334,14 @@ foreach(standalone_case uncaught_message use_lists include plain_use subdir)
     ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
 endforeach()
 
+# 2 万要素のリストの原文を mosa と mosac run の両方で動かし、出力を比べる（翻訳器の再帰の深さ）。
+add_test(NAME mosac_long_list COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_long_list
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/long_list_test.cmake)
+set_tests_properties(mosac_long_list PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # cmake --install を一時の prefix に行い、SPEC 第6節の形と、インストールした mosac での build を確かめる。
 # runtime の部品は Release だけ入れるので、ほかの構成では台本が「skipped: 」を出し、CTest はそれを skip と数える。
 add_test(NAME mosac_installed_layout COMMAND ${CMAKE_COMMAND}

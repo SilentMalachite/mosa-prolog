@@ -61,14 +61,19 @@ bool same_float_value(double left, double right) {
 }
 
 std::size_t node_count(const IrTerm& term) {
-  std::size_t count = 1;
-  for (const IrTerm& arg : term.args) count += node_count(arg);
+  std::size_t count = 0;
+  walk_term(term, [&](const IrTerm&, int) {
+    count += 1;
+    return true;
+  });
   return count;
 }
 
 void count_uses(const IrTerm& term, std::vector<int>& uses) {
-  if (term.tag == IrTag::Var && term.slot < uses.size()) uses[term.slot] += 1;
-  for (const IrTerm& arg : term.args) count_uses(arg, uses);
+  walk_term(term, [&](const IrTerm& sub, int) {
+    if (sub.tag == IrTag::Var && sub.slot < uses.size()) uses[sub.slot] += 1;
+    return true;
+  });
 }
 
 // コメント用に節を writeq の形で書く。IR を項に戻すのは clause/2 と同じ ir_to_term で、
@@ -214,13 +219,25 @@ std::string run_text(const std::string& proc, const std::vector<std::pair<std::u
   return out + "    default: return rt::fail(m);\n  }\n}\n\n";
 }
 
+// 追跡の文の式。MSVC は 1 つの字面に長さの上限があり、つないだ後も 64 KiB を超えると Clang が
+// -Woverlength-strings を出す（2 万要素のリストの節で 128 KB になった）。長い文は切った字面を実行時につなぐ。
+std::string trace_text(std::string_view text) {
+  constexpr std::size_t kTraceChunk = 2048;
+  if (text.size() <= kTraceChunk) return string_literal(text);
+  std::string out = "std::string{" + string_literal(text.substr(0, kTraceChunk)) + "}";
+  for (std::size_t at = kTraceChunk; at < text.size(); at += kTraceChunk) {
+    out += ".append(" + string_literal(text.substr(at, kTraceChunk)) + ")";
+  }
+  return out;
+}
+
 // 節に入る状態（goal 0）の case の前に追跡を置く。kTrace は単位の constexpr bool で、偽なら if constexpr が
 // 文字列ごと捨てる。追跡の文はコメントと同じ文にする（生成コードを読む人が対応を目で引ける）。
 void add_trace(std::vector<std::pair<std::uint32_t, std::string>>& cases, const std::vector<std::string>& texts) {
   for (auto& [state, statement] : cases) {
     const std::uint32_t clause = state >> 16;
     if ((state & 0xFFFFU) != 0 || clause == 0 || clause > texts.size()) continue;
-    statement = "if constexpr (kTrace) rt::trace_clause(" + string_literal(texts[clause - 1]) + "); " + statement;
+    statement = "if constexpr (kTrace) rt::trace_clause(" + trace_text(texts[clause - 1]) + "); " + statement;
   }
 }
 

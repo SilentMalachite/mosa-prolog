@@ -22,11 +22,10 @@ namespace mosa::codegen {
 namespace {
 
 void mark_slots(const IrTerm& term, std::vector<int>& counts) {
-  if (term.tag == IrTag::Var) {
-    if (term.slot < counts.size()) counts[term.slot] += 1;
-    return;
-  }
-  for (const IrTerm& arg : term.args) mark_slots(arg, counts);
+  walk_term(term, [&](const IrTerm& sub, int) {
+    if (sub.tag == IrTag::Var && sub.slot < counts.size()) counts[sub.slot] += 1;
+    return true;
+  });
 }
 
 // goals が使う変数をスロットの順に。継続枠の語 5 から先にこの順で置き、状態の関数も同じ順で読む。
