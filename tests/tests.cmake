@@ -352,6 +352,15 @@ add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
 set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
   TIMEOUT 3000)
+# 同梱スイート（tests/conformance）の tests.lgt も同じ形で比べる。1 ファイル 1 単位なので翻訳側のビルドが長く、
+# ラベル diff で外せる（ctest -LE diff）。
+add_test(NAME diff_conformance COMMAND ${CMAKE_COMMAND}
+  -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/conformance -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_conformance
+  "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
+  "-DREQUIRE=" -DROOT=${CMAKE_SOURCE_DIR}
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
+set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
+  TIMEOUT 3000)
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)

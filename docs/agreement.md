@@ -6,6 +6,7 @@ Each test file is loaded twice from the same bytes: as IR by the interpreter, an
 
 | Directory | Files | Compared | Agree | Differences | Translated goals | Translated predicates |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| tests/conformance | 154 | 2366 | 2366 | 0 | 1377 | 581/582 (99.8%) |
 | tests/pl | 38 | 1817 | 1817 | 0 | 1779 | 290/292 (99.3%) |
 
 ## Goals not given the clause shape
@@ -14,6 +15,7 @@ Goals that cannot take the shape `'$mosa_diff_goal'(K, Vars) :- Goal.` run as pl
 
 | Directory | Shape | Count |
 | --- | --- | ---: |
+| tests/conformance | judge | 832 |
 
 - `judge`: the expected outcome is not one of true/false/error/assertion (deterministic, variant, subsumes, ball, exists, all), or the body uses Logtalk-only calls; the Logtalk runner judges these with its own machinery on both sides, so the goal text is not rewritten (the file's own predicates still run natively on the translated side).
 - `unsupported`: an outcome kind the Logtalk runner does not handle.

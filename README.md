@@ -4,7 +4,7 @@ English | [日本語](README.ja.md)
 
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](docs/conformance.md)
-[![mosac diff](https://img.shields.io/badge/mosac_diff-not_measured-lightgrey)](docs/SPEC.md)
+[![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](docs/agreement.md)
 [![Phase](https://img.shields.io/badge/phase-3_done-blue)](docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.0.1-blue)](CMakeLists.txt)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](docs/SPEC.md)
@@ -35,7 +35,7 @@ Phases 0–5 are done; phase 6 (`mosac`) is next. Current progress is in [`docs/
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Not started |
 | 7 | GC, manuals, release packages | Not started |
 
-For now `mosac` only answers `--version`. The translator arrives in phase 6, so the "mosac diff" badge reads "not measured".
+The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 
 ## Requirements
 
