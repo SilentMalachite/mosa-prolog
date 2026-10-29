@@ -130,14 +130,17 @@ std::optional<std::string_view> arith_op(const Impl& machine, const IrTerm& goal
 
 // is/2 と算術比較は組み込みの C++ を直に呼び、同じ関数で続きを進める（計画 Task 7）。失敗と例外は機械に記してあるので、
 // false なら戻るだけ。組み込みは run_builtin が先に取るので、どのモジュールでも利用者の同名の述語には行かない。
+// 述語のアトムは誤りの文脈のために単位の表から渡す（呼び出しのたびに名前を引かない）。
 void emit_arith(ClauseEmit& emit, const IrTerm& goal, std::string_view op) {
   const std::string left = emit_build(emit, goal.args[0]);
   const std::string right = emit_build(emit, goal.args[1]);
+  const std::string name = "r.atoms[" + std::to_string(emit.tables.atom(goal.atom)) + "]";
   if (op == "is") {
-    emit.line("if (!rt::arith_is(m, " + left + ", " + right + ")) return;");
+    emit.line("if (!rt::arith_is(m, " + name + ", " + left + ", " + right + ")) return;");
     return;
   }
-  emit.line("if (!rt::arith_compare(m, rt::Compare::" + std::string{op} + ", " + left + ", " + right + ")) return;");
+  emit.line("if (!rt::arith_compare(m, rt::Compare::" + std::string{op} + ", " + name + ", " + left + ", " + right +
+            ")) return;");
 }
 
 }  // namespace

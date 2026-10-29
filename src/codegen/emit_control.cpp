@@ -58,8 +58,8 @@ void emit_if_then_else(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& ite, cons
   const std::string mark = emit.fresh("mark");
   emit.line("const std::size_t " + mark + " = rt::choice_mark(m);");
   const std::string other = branch_frame(ctx, emit, "else", other_branch, module, env.cut, cont);
-  emit.line("rt::push_branch(m, " + other + ", " + env.cut + ");");
   const std::string then = then_frame(ctx, emit, ite.args[1], module, env.cut, cont, mark);
+  emit.line("rt::push_branch(m, " + other + ", " + env.cut + ");");
   emit_condition(ctx, emit, ite.args[0], module, then);
 }
 
@@ -70,6 +70,8 @@ void emit_soft_else(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& soft, const 
   const std::string other = branch_frame(ctx, emit, "else", other_branch, module, env.cut, cont);
   const std::string id = emit.fresh("soft");
   emit.line("const std::size_t " + id + " = rt::push_soft(m, " + other + ", " + env.cut + ");");
+  // then の枠だけは選択点のあとに作る。push_soft が返す印を運ぶからで、else の選択点が生きている間しか届かないので、
+  // 戻って枠が消えても困らない。
   StateSpec spec;
   spec.goals = branch_goals(ctx, soft.args[1], module);
   spec.skip = 1;
@@ -123,12 +125,12 @@ void emit_not(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& inner, std::uint32
   const std::string cont = make_rest(ctx, emit, rest, env);
   const std::string mark = emit.fresh("mark");
   emit.line("const std::size_t " + mark + " = rt::choice_mark(m);");
-  emit.line("rt::push_negation(m, " + cont + ");");
   StateSpec spec;
   spec.skip = 1;
   spec.prologue = "rt::cut_to(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));";
   spec.fails = true;
   const std::string done = make_frame(ctx, emit, "done", spec, env.cut, cont, {mark_cell(mark)});
+  emit.line("rt::push_negation(m, " + cont + ");");
   emit_condition(ctx, emit, inner, module, done);
 }
 

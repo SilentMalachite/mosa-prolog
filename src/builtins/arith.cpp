@@ -594,35 +594,35 @@ namespace rt {
 
 namespace {
 
-// 生成コードから直に呼ぶときの誤りの文脈（context(is/2, _) など）。run_arith は枠から名前を読むが、ここには枠が無い。
-Goal arith_goal(Impl& machine, std::string_view name) {
+// 生成コードから直に呼ぶときの誤りの文脈（context(is/2, _) など）。run_arith は枠から名前を読むが、ここには枠が無いので、
+// 生成コードが単位の表から渡す述語のアトムを置く。
+Goal arith_goal(std::uint32_t name) {
   Goal goal;
-  goal.name = machine.atoms.intern(name);
+  goal.name = name;
   goal.arity = 2;
   return goal;
 }
 
 }  // namespace
 
-bool arith_is(Machine::Impl& machine, Cell left, Cell right) {
-  const Ev value = eval_expr(machine, arith_goal(machine, "is"), right);
+bool arith_is(Machine::Impl& machine, std::uint32_t name, Cell left, Cell right) {
+  const Ev value = eval_expr(machine, arith_goal(name), right);
   if (!value.ok) return false;
   if (do_unify(machine, left, num_cell(machine, value.num))) return true;
   machine.failed = true;
   return false;
 }
 
-bool arith_compare(Machine::Impl& machine, Compare op, Cell left, Cell right) {
-  static constexpr std::array<std::string_view, 6> kNames{"=:=", "=\\=", "<", "=<", ">", ">="};
+bool arith_compare(Machine::Impl& machine, Compare op, std::uint32_t name, Cell left, Cell right) {
+  // Compare の順（Eq、Ne、Lt、Le、Gt、Ge）に run_cmp の mode を並べる。
   static constexpr std::array<int, 6> kModes{0, 0, -2, -1, 2, 1};
-  const auto index = static_cast<std::size_t>(op);
-  const Goal goal = arith_goal(machine, kNames[index]);
+  const Goal goal = arith_goal(name);
   const Ev lhs = eval_expr(machine, goal, left);
   if (!lhs.ok) return false;
   const Ev rhs = eval_expr(machine, goal, right);
   if (!rhs.ok) return false;
   // =\= は =:= の否定（run_arith）。NaN はどちらとも比べられないので =\= だけが成り立つ（cmp_nums）。
-  const bool holds = cmp_nums(lhs.num, rhs.num, kModes[index]) != (op == Compare::Ne);
+  const bool holds = cmp_nums(lhs.num, rhs.num, kModes[static_cast<std::size_t>(op)]) != (op == Compare::Ne);
   if (!holds) machine.failed = true;
   return holds;
 }
