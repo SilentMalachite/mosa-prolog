@@ -72,5 +72,11 @@ struct NamedCompiler {
 [[nodiscard]] std::optional<std::filesystem::path> parse_vswhere_output(std::string_view text);
 // cmd の set の出力（NAME=VALUE の行）。= で始まる行（=C: など）は飛ばす。
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> parse_set_dump(std::string_view text);
+// cmd に渡すパスは OS の区切りのまま出す（cmd は / を切り替えの印と読み、C:/a/b.bat を命令 C: と引数に分ける）。
+// utf8_from_path が / にそろえるのと対になる。
+[[nodiscard]] std::string native_path_text(const std::filesystem::path& path);
+// cl を引数なしで起こした出力の見出し「Microsoft (R) C/C++ Optimizing Compiler Version …」の行。ファイルに向けると
+// 使い方の行が先に出るので、Microsoft で始まる最初の行を取り、無ければ最初の空でない行。
+[[nodiscard]] std::string msvc_banner_line(std::string_view text);
 
 }

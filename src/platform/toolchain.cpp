@@ -178,6 +178,26 @@ std::vector<std::pair<std::string, std::string>> parse_set_dump(std::string_view
   return env;
 }
 
+// cmd は / を切り替えの印と読み、C:/a/b.bat を命令 C: と引数に分ける（CI run 40890625972 の Windows で vcvarsall の
+// set が空になり cl が見つからなかった）。cmd に渡すパスだけは OS の区切りのまま出す。
+std::string native_path_text(const std::filesystem::path& path) {
+  const std::u8string bytes = path.u8string();
+  std::string text;
+  text.reserve(bytes.size());
+  for (const char8_t byte : bytes) text.push_back(static_cast<char>(byte));
+  return text;
+}
+
+// cl を引数なしで起こしてファイルに向けると、使い方の行が見出しより先に出る。Microsoft で始まる最初の行を見出しとし、
+// 無ければ最初の空でない行。
+std::string msvc_banner_line(std::string_view text) {
+  std::string banner;
+  each_line(text, [&](std::string_view line) {
+    if (banner.empty() && trimmed(line).starts_with("Microsoft")) banner = trimmed(line);
+  });
+  return banner.empty() ? first_nonempty_line(text) : banner;
+}
+
 namespace {
 
 struct Captured {
@@ -230,16 +250,16 @@ bool same_name(std::string_view left, std::string_view right) {
 
 bool is_msvc(const std::filesystem::path& cxx) { return same_name(utf8_from_path(cxx.stem()), "cl"); }
 
-// gcc と clang は --version の 1 行目。cl は --version を知らず、引数なしで標準エラーに見出しを出して 0 以外で終わるので、
-// 終了コードを見ずに見出しの 1 行目を取る。起こせないか 0 以外で終わる gcc/clang は使えないものとして扱う
-// （macOS の /usr/bin/clang++ は Command Line Tools が無いと案内を出して失敗するだけの殻）。
+// gcc と clang は --version の 1 行目。cl は --version を知らず、引数なしで標準エラーに使い方と見出しを出して 0 以外で
+// 終わるので、終了コードを見ずに見出しの行（msvc_banner_line）を取る。起こせないか 0 以外で終わる gcc/clang は
+// 使えないものとして扱う（macOS の /usr/bin/clang++ は Command Line Tools が無いと案内を出して失敗するだけの殻）。
 std::optional<std::string> probe_version(const std::filesystem::path& cxx) {
   const bool msvc = is_msvc(cxx);
   std::vector<std::string> argv{utf8_from_path(cxx)};
   if (!msvc) argv.emplace_back("--version");
   const auto captured = capture(argv);
   if (!captured || (!msvc && captured->code != 0)) return std::nullopt;
-  std::string line = first_nonempty_line(captured->text);
+  std::string line = msvc ? msvc_banner_line(captured->text) : first_nonempty_line(captured->text);
   if (line.empty()) return std::nullopt;
   return line;
 }
@@ -268,7 +288,8 @@ std::optional<std::filesystem::path> command_shell() {
 
 // vcvarsall.bat を呼んだ後の set を取る。cmd の引用の規則は run_process の引用（CommandLineToArgvW の逆）と違い、
 // "..." を含む 1 つの命令を渡すと \" に化ける。そこで命令は一時の .bat に書き、cmd にはそのパスだけを渡す。
-// Windows の CI（計画 Task 12）でまだ確かめていない。x64 の固定と、日本語を含むパスの符号ページも同じ。
+// cmd に見せるパスは native_path_text（\ のまま）。/ にそろえた形だと cmd が C: で切って命令と読む。
+// x64 の固定と、日本語を含むパスの符号ページは Windows の CI ではまだ確かめていない（計画 Task 12 は ASCII のパス）。
 std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvarsall) {
   if (!is_file(vcvarsall)) return std::nullopt;
   const auto scratch = scratch_file(".bat");
@@ -279,10 +300,10 @@ std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvar
   if (!shell) return std::nullopt;
   {
     std::ofstream out{script, std::ios::binary};
-    out << "@echo off\r\ncall \"" << utf8_from_path(vcvarsall) << "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
+    out << "@echo off\r\ncall \"" << native_path_text(vcvarsall) << "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
     if (!out) return std::nullopt;
   }
-  const std::vector<std::string> argv{utf8_from_path(*shell), "/d", "/c", utf8_from_path(script)};
+  const std::vector<std::string> argv{native_path_text(*shell), "/d", "/c", native_path_text(script)};
   const auto dumped = capture(argv);
   std::error_code error;
   std::filesystem::remove(script, error);

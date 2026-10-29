@@ -146,6 +146,20 @@ void windows_text() {
   mosa_test::check(env.size() == 2 && env[0] == std::pair<std::string, std::string>{"INCLUDE", "C:\\a;C:\\b"},
                    "set dump NAME=VALUE");
   mosa_test::check(env.size() == 2 && env[1].second == "C:\\x=y", "set dump splits at the first =");
+  // cmd に渡すパスは OS の区切りのまま（Windows では \）。utf8_from_path は / にそろえる。
+  const std::filesystem::path script = std::filesystem::path{"dir"} / "x.bat";
+  const std::string expected = mosa::host_os() == mosa::HostOs::windows ? "dir\\x.bat" : "dir/x.bat";
+  mosa_test::check(mosa::native_path_text(script) == expected, "native separators for cmd");
+  mosa_test::check(mosa::utf8_from_path(script) == "dir/x.bat", "utf8_from_path keeps /");
+  // cl の見出しは、ファイルに向けた出力では使い方の行の後ろに来る。
+  const std::string_view cl_output =
+      "usage: cl [ option... ] filename... [ /link linkoption... ]\r\n"
+      "Microsoft (R) C/C++ Optimizing Compiler Version 19.44.35229 for x64\r\n"
+      "Copyright (C) Microsoft Corporation.  All rights reserved.\r\n";
+  mosa_test::check(mosa::msvc_banner_line(cl_output) == "Microsoft (R) C/C++ Optimizing Compiler Version 19.44.35229 for x64",
+                   "cl banner after the usage line");
+  mosa_test::check(mosa::msvc_banner_line("\r\nsomething else\r\n") == "something else",
+                   "cl banner falls back to the first non-empty line");
 }
 
 }  // namespace
