@@ -12,6 +12,8 @@
 
 | 日付 | 機械 / OS | ビルド | N | インタプリタ (ms) | 翻訳 (ms) | 比 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-10-29 | Apple M1 Max、macOS 27.2、Apple clang 21.0 | Release | 20000 | 3147 | 未計測 | - |
+| 2026-10-29 | Apple M1 Max、macOS 27.2、Apple clang 21.0 | Release | 20000 | 3147 | 149 | 21.2 |
 
 コマンド（リポジトリ直下から）: `LANG=C build/mosatest --bench bench/nrev.pl --work tests/tmp/bench`。
+
+翻訳側はフェーズ6 Task 6 の時点で `mosac emit` が出すコードをこの計測のために変えずに使った。第1引数で節を選ぶ分岐（`select_clauses` と同じ規則）、呼び先の番号で生成関数どうしを直に呼ぶこと、枠の引数を直接読む頭部の単一化（ADR 0009）は Task 4 の時点で入っていた。フェーズ6の完了条件（SPEC 第9節、3 倍以上）を満たす。

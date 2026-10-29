@@ -10,6 +10,8 @@ English | [日本語](bench.ja.md)
 
 | Date | Machine / OS | Build | N | Interpreter (ms) | Translated (ms) | Ratio |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-10-29 | Apple M1 Max, macOS 27.2, Apple clang 21.0 | Release | 20000 | 3147 | not yet measured | - |
+| 2026-10-29 | Apple M1 Max, macOS 27.2, Apple clang 21.0 | Release | 20000 | 3147 | 149 | 21.2 |
 
 Command, from the repository root: `LANG=C build/mosatest --bench bench/nrev.pl --work tests/tmp/bench`.
+
+The translated side used the code `mosac emit` produces as of phase 6 Task 6 without any change for this measurement: the first-argument dispatch (`select_clauses` rule), native-to-native calls by callee number, and head unification that reads the frame arguments directly (ADR 0009) were already in place from Task 4. The phase 6 exit criterion (SPEC section 9, at least 3 times) is met.
