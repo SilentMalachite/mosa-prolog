@@ -115,7 +115,12 @@ int run_toolchain(const std::vector<std::string>& args) {
   }
   const auto found = mosa::find_toolchain(*query);
   if (!found) {
-    std::cerr << message("toolchain_not_found") << '\n' << message(install_hint(mosa::host_os())) << '\n';
+    // 名指しのコンパイラが無いのは綴りか設定の誤りで、導入手順は答えにならない。
+    if (const auto named = mosa::named_compiler(mosa::host_toolchain_search(*query))) {
+      std::cerr << message("toolchain_named_not_found", {named->program, std::string{named->source}}) << '\n';
+    } else {
+      std::cerr << message("toolchain_not_found") << '\n' << message(install_hint(mosa::host_os())) << '\n';
+    }
     return 1;
   }
   std::cout << message("toolchain_compiler", {mosa::utf8_from_path(found->cxx)}) << '\n'

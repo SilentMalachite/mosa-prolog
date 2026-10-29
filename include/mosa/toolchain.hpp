@@ -39,10 +39,21 @@ struct ToolchainSearch {
   std::filesystem::path runtime_dir;
 };
 
+// 名前を与えられたコンパイラと、どこで与えられたか（"--cxx"、"MOSA_CXX"、"CXX" のどれか）。
+struct NamedCompiler {
+  std::string program;
+  std::string_view source;
+};
+
 // 動いている OS。
 [[nodiscard]] HostOs host_os();
 // 同梱の実行時ライブラリと include/ の場所。今は mosac の隣（ビルド木の形。インストールの形は計画 Task 10）。
 [[nodiscard]] std::filesystem::path default_runtime_dir();
+
+// cxx_flag → mosa_cxx → cxx_env のうち最初に与えられたもの。どれも無ければ nullopt（OS の既定で探す）。
+[[nodiscard]] std::optional<NamedCompiler> named_compiler(const ToolchainSearch& search);
+// --cxx と環境変数 MOSA_CXX、CXX、PATH を読んで探索の入力を作る。find_toolchain もこれを使う。
+[[nodiscard]] ToolchainSearch host_toolchain_search(const ToolchainQuery& query);
 
 // 順は cxx_flag → mosa_cxx → cxx_env → OS の既定。名前の付いたものが見つからなければ既定へは落ちず nullopt。
 // cxx_version は空のまま返す（版は起動して取るので find_toolchain が埋める）。

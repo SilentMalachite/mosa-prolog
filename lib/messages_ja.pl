@@ -37,6 +37,7 @@ message(toolchain_cmake_missing, 'CMake: 見つかりません（mosac がコン
 message(toolchain_runtime, '実行時ライブラリ: ~w').
 message(toolchain_msvc_env, '環境: vcvarsall.bat から ~w 個の変数').
 message(toolchain_not_found, 'mosac: C++20 のコンパイラが見つかりません').
+message(toolchain_named_not_found, 'mosac: コンパイラ ~w（~w で指定）が見つからないか、起動できません').
 message(toolchain_hint_macos, 'Xcode Command Line Tools を入れてください: xcode-select --install').
 message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt install g++').
 message(toolchain_hint_windows, 'Visual Studio Build Tools を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://visualstudio.microsoft.com/ja/downloads/').

@@ -48,6 +48,18 @@ void cxx_flag_wins() {
   search.cxx_flag = "no-such-c++";
   search.path = {bin};
   mosa_test::check(!mosa::find_toolchain_in(search), "cxx_flag_wins: a missing --cxx does not fall through");
+  // 見つからないときの文面は、名指しされたものとその出どころを named_compiler から取る。
+  const auto named = mosa::named_compiler(search);
+  mosa_test::check(named && named->program == "no-such-c++" && named->source == "--cxx", "cxx_flag_wins: named --cxx");
+  search.cxx_flag.reset();
+  mosa_test::check(mosa::named_compiler(search) && mosa::named_compiler(search)->source == "MOSA_CXX",
+                   "cxx_flag_wins: named MOSA_CXX next");
+  search.mosa_cxx.reset();
+  mosa_test::check(mosa::named_compiler(search) && mosa::named_compiler(search)->program == "env-c++" &&
+                       mosa::named_compiler(search)->source == "CXX",
+                   "cxx_flag_wins: named CXX last");
+  search.cxx_env.reset();
+  mosa_test::check(!mosa::named_compiler(search), "cxx_flag_wins: nothing named");
 }
 
 void mosa_cxx_before_cxx() {
@@ -119,8 +131,11 @@ void nothing_found() {
 
 // Windows の道の文字列処理。ここでは起動せず、vswhere と set の出力の形だけを確かめる。
 void windows_text() {
-  const auto dirs = mosa::split_path_list("C:\\a;;C:\\Program Files\\b;", mosa::HostOs::windows);
-  mosa_test::check(dirs.size() == 2 && dirs[1] == std::filesystem::path{"C:\\Program Files\\b"}, "split ; on Windows");
+  const auto dirs =
+      mosa::split_path_list("C:\\a;;C:\\Program Files\\b;\"C:\\Program Files\\c\";", mosa::HostOs::windows);
+  mosa_test::check(dirs.size() == 3 && dirs[1] == std::filesystem::path{"C:\\Program Files\\b"}, "split ; on Windows");
+  mosa_test::check(dirs.size() == 3 && dirs[2] == std::filesystem::path{"C:\\Program Files\\c"},
+                   "split strips the quotes around a Windows entry");
   const auto posix = mosa::split_path_list("/usr/bin::/bin", mosa::HostOs::linux);
   mosa_test::check(posix.size() == 2 && posix[0] == std::filesystem::path{"/usr/bin"}, "split : elsewhere");
   const auto install = mosa::parse_vswhere_output("\r\nC:\\VS\\2022\\BuildTools\r\nC:\\VS\\2019\r\n");

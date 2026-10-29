@@ -38,14 +38,13 @@ bool is_file(const std::filesystem::path& path) {
 // Windows は拡張子の無い名前に .exe を補う（cl と書いても cl.exe を見つける）。CreateProcessW と同じく、
 // 拡張子の無いファイルそのものは起こせないので選ばない。PATHEXT の他の拡張子はコンパイラに要らない。
 std::optional<std::filesystem::path> existing(const std::filesystem::path& path, HostOs os) {
-  if (os == HostOs::windows && !path.has_extension()) {
-    std::filesystem::path exe = path;
-    exe += ".exe";
-    if (is_file(exe)) return exe;
-    return std::nullopt;
-  }
-  if (is_file(path)) return path;
-  return std::nullopt;
+  std::filesystem::path found = path;
+  if (os == HostOs::windows && !path.has_extension()) found += ".exe";
+  if (!is_file(found)) return std::nullopt;
+  // 相対の PATH の項目や --cxx bin/g++ で見つけたものも、作業場所を移して起こすビルドで同じものを指すよう絶対にする。
+  std::error_code error;
+  const std::filesystem::path absolute = std::filesystem::absolute(found, error);
+  return error ? found : absolute;
 }
 
 // ディレクトリを含む名前はそのパスだけを見る。素の名前だけを PATH の前から順に探す（シェルと同じ）。
@@ -108,19 +107,19 @@ std::filesystem::path default_runtime_dir() {
   return self ? self->parent_path() : std::filesystem::path{};
 }
 
+std::optional<NamedCompiler> named_compiler(const ToolchainSearch& search) {
+  if (search.cxx_flag) return NamedCompiler{*search.cxx_flag, "--cxx"};
+  if (search.mosa_cxx) return NamedCompiler{*search.mosa_cxx, "MOSA_CXX"};
+  if (search.cxx_env) return NamedCompiler{*search.cxx_env, "CXX"};
+  return std::nullopt;
+}
+
 std::optional<Toolchain> find_toolchain_in(const ToolchainSearch& search) {
   Toolchain toolchain;
   // 名前を与えられた最初のものだけを見る。見つからないときに既定へ落ちると、頼んでいないコンパイラでビルドしてしまう。
-  const std::optional<std::string>* named = nullptr;
-  for (const std::optional<std::string>* given : {&search.cxx_flag, &search.mosa_cxx, &search.cxx_env}) {
-    if (given->has_value()) {
-      named = given;
-      break;
-    }
-  }
   std::optional<std::filesystem::path> cxx;
-  if (named != nullptr) {
-    cxx = resolve_program(**named, search.path, search.os);
+  if (const auto named = named_compiler(search)) {
+    cxx = resolve_program(named->program, search.path, search.os);
   } else {
     for (const std::string_view name : default_compilers(search.os)) {
       if ((cxx = resolve_program(name, search.path, search.os))) break;
@@ -143,6 +142,7 @@ std::vector<std::filesystem::path> split_path_list(std::string_view text, HostOs
     if (os == HostOs::windows && entry.size() >= 2 && entry.front() == '"' && entry.back() == '"') {
       entry = entry.substr(1, entry.size() - 2);
     }
+    // 空の項目（POSIX では作業場所の意味）はわざと捨てる。どこで動かしたかでコンパイラが変わらないように。
     if (!entry.empty()) dirs.push_back(path_from_utf8(entry));
     if (end == std::string_view::npos) break;
     text.remove_prefix(end + 1);
@@ -176,19 +176,23 @@ struct Captured {
 };
 
 // 同時に動く mosac どうしで名前がぶつからないよう、時刻と乱数と回数を混ぜる。
-std::filesystem::path scratch_file(std::string_view extension) {
+// 一時の場所が取れなければ nullopt。作業場所に相対の名前で書き散らさない。
+std::optional<std::filesystem::path> scratch_file(std::string_view extension) {
   static std::atomic<std::uint32_t> counter{0};
   std::error_code error;
   const std::filesystem::path dir = std::filesystem::temp_directory_path(error);
+  if (error || dir.empty()) return std::nullopt;
   const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
   const std::string name = "mosac-" + std::to_string(ticks) + "-" + std::to_string(std::random_device{}()) + "-" +
                            std::to_string(counter++) + std::string{extension};
-  return (error ? std::filesystem::path{} : dir) / name;
+  return dir / name;
 }
 
 // run_process は出力をファイルにしか向けられない。そこへ書かせて読み、消す。
 std::optional<Captured> capture(std::span<const std::string> argv) {
-  const std::filesystem::path log = scratch_file(".log");
+  const auto scratch = scratch_file(".log");
+  if (!scratch) return std::nullopt;
+  const std::filesystem::path& log = *scratch;
   const std::optional<int> code = run_process(argv, log);
   Captured captured;
   {
@@ -244,19 +248,31 @@ std::string lookup(const Environment& env, std::string_view name) {
   return {};
 }
 
+// 素の "cmd" は作業場所の cmd.exe を先に拾いうる。ComSpec、無ければ SystemRoot の下の決まった場所だけを使う。
+std::optional<std::filesystem::path> command_shell() {
+  if (const auto comspec = environment_path("ComSpec")) return comspec;
+  const auto root = environment_path("SystemRoot");
+  if (!root) return std::nullopt;
+  return *root / "System32" / "cmd.exe";
+}
+
 // vcvarsall.bat を呼んだ後の set を取る。cmd の引用の規則は run_process の引用（CommandLineToArgvW の逆）と違い、
 // "..." を含む 1 つの命令を渡すと \" に化ける。そこで命令は一時の .bat に書き、cmd にはそのパスだけを渡す。
 // Windows の CI（計画 Task 12）でまだ確かめていない。x64 の固定と、日本語を含むパスの符号ページも同じ。
 std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvarsall) {
   if (!is_file(vcvarsall)) return std::nullopt;
-  const std::filesystem::path script = scratch_file(".bat");
+  const auto scratch = scratch_file(".bat");
+  // cmd /c は引数の中の & ^ ( ) % ! < > | を命令として読む。そういうパスなら諦め、呼び手は今の PATH を見る。
+  if (!scratch || utf8_from_path(*scratch).find_first_of("&^()%!<>|") != std::string::npos) return std::nullopt;
+  const std::filesystem::path& script = *scratch;
+  const auto shell = command_shell();
+  if (!shell) return std::nullopt;
   {
     std::ofstream out{script, std::ios::binary};
     out << "@echo off\r\ncall \"" << utf8_from_path(vcvarsall) << "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
     if (!out) return std::nullopt;
   }
-  const std::string shell = environment_text("ComSpec").value_or("cmd");
-  const std::vector<std::string> argv{shell, "/d", "/c", utf8_from_path(script)};
+  const std::vector<std::string> argv{utf8_from_path(*shell), "/d", "/c", utf8_from_path(script)};
   const auto dumped = capture(argv);
   std::error_code error;
   std::filesystem::remove(script, error);
@@ -274,7 +290,7 @@ std::optional<Environment> msvc_environment() {
   if (!is_file(vswhere)) return std::nullopt;
   const std::vector<std::string> argv{utf8_from_path(vswhere), "-latest", "-products", "*", "-requires",
                                       "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property",
-                                      "installationPath"};
+                                      "installationPath", "-utf8"};
   const auto listed = capture(argv);
   if (!listed || listed->code != 0) return std::nullopt;
   const auto install = parse_vswhere_output(listed->text);
@@ -282,7 +298,9 @@ std::optional<Environment> msvc_environment() {
   return vcvars_environment(*install / "VC" / "Auxiliary" / "Build" / "vcvarsall.bat");
 }
 
-ToolchainSearch host_search(const ToolchainQuery& query) {
+}  // namespace
+
+ToolchainSearch host_toolchain_search(const ToolchainQuery& query) {
   ToolchainSearch search;
   search.cxx_flag = query.cxx;
   search.mosa_cxx = environment_text("MOSA_CXX");
@@ -293,15 +311,12 @@ ToolchainSearch host_search(const ToolchainQuery& query) {
   return search;
 }
 
-}  // namespace
-
 std::optional<Toolchain> find_toolchain(const ToolchainQuery& query) {
-  ToolchainSearch search = host_search(query);
+  ToolchainSearch search = host_toolchain_search(query);
   Environment env;
   // Windows の既定だけは vswhere で探し、cl.exe と cmake.exe は vcvarsall を通した後の PATH から引く。
   // vswhere が何も返さなければ今の PATH を見る（開発者用のプロンプトから動かしたとき）。
-  const bool named = search.cxx_flag || search.mosa_cxx || search.cxx_env;
-  if (search.os == HostOs::windows && !named) {
+  if (search.os == HostOs::windows && !named_compiler(search)) {
     if (auto msvc = msvc_environment()) {
       env = std::move(*msvc);
       search.path = split_path_list(lookup(env, "PATH"), search.os);
