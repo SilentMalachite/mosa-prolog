@@ -125,6 +125,32 @@ jobs:
         run: cmake --preset windows-msvc
       - name: Build
         run: cmake --build --preset windows-msvc
+      # 一時的な診断（run 40888626758 で mosac が cl を見つけられなかった）。mosac toolchain の探索と同じ手順を手で踏む。
+      - name: Diagnose toolchain detection
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          "ProgramFiles(x86)=[${env:ProgramFiles(x86)}] TEMP=[$env:TEMP] TMP=[$env:TMP] ComSpec=[$env:ComSpec] CXX=[$env:CXX]"
+          chcp 65001
+          build\Release\mosac.exe toolchain
+          "mosac toolchain exit: $LASTEXITCODE"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          "vswhere exists: $(Test-Path $vswhere)"
+          Start-Process -FilePath $vswhere -ArgumentList '-latest','-products','*','-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-property','installationPath','-utf8' -RedirectStandardOutput vswhere.txt -NoNewWindow -Wait
+          Format-Hex vswhere.txt | Select-Object -First 4
+          $install = (Get-Content vswhere.txt | Select-Object -First 1).Trim()
+          "install: [$install] vcvarsall exists: $(Test-Path "$install\VC\Auxiliary\Build\vcvarsall.bat")"
+          $bat = "$env:TEMP\mosac-diag.bat"
+          "@echo off`r`ncall `"$install\VC\Auxiliary\Build\vcvarsall.bat`" x64 >nul`r`nif errorlevel 1 exit /b 1`r`nset`r`n" | Set-Content -NoNewline -Encoding ascii $bat
+          $sw = [Diagnostics.Stopwatch]::StartNew()
+          Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/c',$bat -RedirectStandardOutput set.txt -NoNewWindow -Wait -PassThru | ForEach-Object { "cmd exit: $($_.ExitCode) in $($sw.ElapsedMilliseconds) ms" }
+          "set lines: $((Get-Content set.txt).Count)"
+          Select-String -Path set.txt -Pattern '^INCLUDE=' | Select-Object -First 1
+          $dirs = (Select-String -Path set.txt -Pattern '^Path=' | ForEach-Object { $_.Line.Substring(5) }).Split(';')
+          $cl = $dirs | ForEach-Object { Join-Path $_ 'cl.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1
+          "cl: [$cl]"
+          Start-Process -FilePath $cl -RedirectStandardError cl.txt -NoNewWindow -Wait -PassThru | ForEach-Object { "cl exit: $($_.ExitCode)" }
+          Get-Content cl.txt | Select-Object -First 2
       - name: Test
         run: ctest --preset windows-msvc -LE diff
       # mosatest --diff の日本語の文面を UTF-8 のまま取るため、コードページを 65001 にしてから流す。
