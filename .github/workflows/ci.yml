@@ -175,6 +175,22 @@ jobs:
       - name: Toolchain
         shell: cmd
         run: chcp 65001 && build\Release\mosac.exe toolchain
+      # vcvarsall の set は cmd /u の UTF-16LE で読む。日本語のディレクトリを TEMP にしても vcvarsall の環境が取れ
+      # （取れなければ素の PATH に cl が無く toolchain が 1 で終わる）、その環境で作った実行ファイルが動くこと。
+      - name: Toolchain with a non-ASCII TEMP
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'テスト'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $env:TEMP = $dir
+          $env:TMP = $dir
+          $env:MOSA_WERROR = '1'
+          & build\Release\mosac.exe toolchain
+          if ($LASTEXITCODE -ne 0) { throw "mosac toolchain failed with a non-ASCII TEMP" }
+          & build\Release\mosac.exe build tests\mosac\hello.pl -o hello-temp
+          if ($LASTEXITCODE -ne 0) { throw "mosac build failed with a non-ASCII TEMP" }
+          & .\hello-temp.exe
+          if ($LASTEXITCODE -ne 0) { throw "hello-temp.exe failed" }
       - name: Test
         run: ctest --preset windows-msvc -LE diff
       # mosatest --diff の日本語の文面を UTF-8 のまま取るため、コードページを 65001 にしてから流す。

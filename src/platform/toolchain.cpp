@@ -205,6 +205,25 @@ struct Captured {
   std::string text;
 };
 
+void append_utf8(std::string& out, std::uint32_t code) {
+  const auto unit = [&](std::uint32_t value) { out.push_back(static_cast<char>(value)); };
+  if (code < 0x80) {
+    unit(code);
+  } else if (code < 0x800) {
+    unit(0xC0 | code >> 6);
+    unit(0x80 | (code & 0x3F));
+  } else if (code < 0x10000) {
+    unit(0xE0 | code >> 12);
+    unit(0x80 | (code >> 6 & 0x3F));
+    unit(0x80 | (code & 0x3F));
+  } else {
+    unit(0xF0 | code >> 18);
+    unit(0x80 | (code >> 12 & 0x3F));
+    unit(0x80 | (code >> 6 & 0x3F));
+    unit(0x80 | (code & 0x3F));
+  }
+}
+
 // 同時に動く mosac どうしで名前がぶつからないよう、時刻と乱数と回数を混ぜる。
 // 一時の場所が取れなければ nullopt。作業場所に相対の名前で書き散らさない。
 std::optional<std::filesystem::path> scratch_file(std::string_view extension) {
@@ -272,6 +291,34 @@ bool needs_developer_prompt(const std::filesystem::path& cxx, bool has_vcvars_en
   return is_msvc(cxx) && !has_vcvars_env && !include_set;
 }
 
+// cmd は .bat を OEM の符号ページで読むが、中身は ASCII の命令と vcvarsall のパスだけである。set の出力は
+// cmd /u で UTF-16LE にさせて読む（vcvars_environment）。OEM のままだと日本語の TEMP や USERPROFILE が化ける。
+std::string vcvars_script(const std::filesystem::path& vcvarsall) {
+  return "@echo off\r\ncall \"" + native_path_text(vcvarsall) + "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
+}
+
+// 対になっていないサロゲートは U+FFFD にする。奇数の長さの最後の 1 バイトは捨てる。
+std::string utf8_from_utf16le(std::string_view bytes) {
+  std::string out;
+  const auto unit_at = [&](std::size_t index) {
+    return static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[index])) |
+           static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[index + 1])) << 8;
+  };
+  for (std::size_t at = 0; at + 1 < bytes.size(); at += 2) {
+    std::uint32_t code = unit_at(at);
+    const bool high = code >= 0xD800 && code < 0xDC00;
+    const std::uint32_t next = at + 3 < bytes.size() ? unit_at(at + 2) : 0;
+    if (high && next >= 0xDC00 && next < 0xE000) {
+      code = 0x10000 + ((code - 0xD800) << 10) + (next - 0xDC00);
+      at += 2;
+    } else if (code >= 0xD800 && code < 0xE000) {
+      code = 0xFFFD;
+    }
+    append_utf8(out, code);
+  }
+  return out;
+}
+
 namespace {
 
 std::optional<std::string> environment_text(std::string_view name) {
@@ -299,7 +346,7 @@ std::optional<std::filesystem::path> command_shell() {
 // vcvarsall.bat を呼んだ後の set を取る。cmd の引用の規則は run_process の引用（CommandLineToArgvW の逆）と違い、
 // "..." を含む 1 つの命令を渡すと \" に化ける。そこで命令は一時の .bat に書き、cmd にはそのパスだけを渡す。
 // cmd に見せるパスは native_path_text（\ のまま）。/ にそろえた形だと cmd が C: で切って命令と読む。
-// x64 の固定と、日本語を含むパスの符号ページは Windows の CI ではまだ確かめていない（計画 Task 12 は ASCII のパス）。
+// set の出力は cmd /u で UTF-16LE にし、utf8_from_utf16le で読む。x64 は固定である。
 std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvarsall) {
   if (!is_file(vcvarsall)) return std::nullopt;
   const auto scratch = scratch_file(".bat");
@@ -310,15 +357,15 @@ std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvar
   if (!shell) return std::nullopt;
   {
     std::ofstream out{script, std::ios::binary};
-    out << "@echo off\r\ncall \"" << native_path_text(vcvarsall) << "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n";
+    out << vcvars_script(vcvarsall);
     if (!out) return std::nullopt;
   }
-  const std::vector<std::string> argv{native_path_text(*shell), "/d", "/c", native_path_text(script)};
+  const std::vector<std::string> argv{native_path_text(*shell), "/d", "/u", "/c", native_path_text(script)};
   const auto dumped = capture(argv);
   std::error_code error;
   std::filesystem::remove(script, error);
   if (!dumped || dumped->code != 0) return std::nullopt;
-  Environment env = parse_set_dump(dumped->text);
+  Environment env = parse_set_dump(utf8_from_utf16le(dumped->text));
   if (lookup(env, "INCLUDE").empty()) return std::nullopt;
   return env;
 }

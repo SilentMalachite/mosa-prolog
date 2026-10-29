@@ -162,13 +162,24 @@ void windows_text() {
                    "cl banner falls back to the first non-empty line");
 }
 
-// 名指しの cl の案内（持ち主の決定 A）。
-void windows_named_cl() {
+// 名指しの cl の案内（持ち主の決定 A）と、vcvarsall の .bat、cmd /u の UTF-16LE の読み方。
+void windows_msvc_env() {
   mosa_test::check(mosa::is_msvc("cl") && mosa::is_msvc("C:/VS/bin/CL.EXE") && !mosa::is_msvc("clang-cl"), "is_msvc");
   mosa_test::check(mosa::needs_developer_prompt("cl", false, false), "a named cl without INCLUDE needs the prompt");
   mosa_test::check(!mosa::needs_developer_prompt("cl", true, false), "the vcvarsall environment is enough");
   mosa_test::check(!mosa::needs_developer_prompt("cl.exe", false, true), "a Developer Command Prompt sets INCLUDE");
   mosa_test::check(!mosa::needs_developer_prompt("g++", false, false), "other compilers never need it");
+  const std::string script = mosa::vcvars_script(std::filesystem::path{"vc"} / "vcvarsall.bat");
+  const std::string call = mosa::host_os() == mosa::HostOs::windows ? "vc\\vcvarsall.bat" : "vc/vcvarsall.bat";
+  mosa_test::check(script == "@echo off\r\ncall \"" + call + "\" x64 >nul\r\nif errorlevel 1 exit /b 1\r\nset\r\n",
+                   "vcvarsall script text");
+  // 「TEMP=C:\テスト」と 𠀋（サロゲート対）の UTF-16LE。
+  const std::string utf16{"T\0=\0C\0:\0\\\0\xc6\x30\xb9\x30\xc8\x30\x40\xd8\x0b\xdc\r\0\n\0", 24};
+  mosa_test::check(mosa::utf8_from_utf16le(utf16) == "T=C:\\テスト\xf0\xa0\x80\x8b\r\n", "UTF-16LE to UTF-8");
+  mosa_test::check(mosa::utf8_from_utf16le(std::string{"\x00\xd8" "A\0", 4}) == "\xef\xbf\xbd" "A", "lone surrogate");
+  mosa_test::check(mosa::utf8_from_utf16le(std::string{"A\0B", 3}) == "A", "odd trailing byte");
+  const auto env = mosa::parse_set_dump(mosa::utf8_from_utf16le(utf16));
+  mosa_test::check(env.size() == 1 && env[0].second == "C:\\テスト\xf0\xa0\x80\x8b", "set dump from cmd /u");
 }
 
 }  // namespace
@@ -179,6 +190,6 @@ int main() {
   default_order_linux();
   nothing_found();
   windows_text();
-  windows_named_cl();
+  windows_msvc_env();
   return mosa_test::failures();
 }

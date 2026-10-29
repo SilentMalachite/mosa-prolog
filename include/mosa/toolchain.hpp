@@ -80,6 +80,10 @@ struct NamedCompiler {
 // cl を vcvarsall の環境無しで（名指しの cl は vcvarsall を通さない）、INCLUDE も無いまま動かそうとしているか。
 // そのとき mosac build はコンパイルの前に開発者用のプロンプトを案内して止まる。
 [[nodiscard]] bool needs_developer_prompt(const std::filesystem::path& cxx, bool has_vcvars_env, bool include_set);
+// vcvarsall.bat を x64 で呼んでから set を出す .bat の中身（行末は \r\n）。
+[[nodiscard]] std::string vcvars_script(const std::filesystem::path& vcvarsall);
+// cmd /u が書く UTF-16LE を UTF-8 にする。対になっていないサロゲートは U+FFFD、奇数の最後の 1 バイトは捨てる。
+[[nodiscard]] std::string utf8_from_utf16le(std::string_view bytes);
 // cl を引数なしで起こした出力の見出し「Microsoft (R) C/C++ Optimizing Compiler Version …」の行。ファイルに向けると
 // 使い方の行が先に出るので、Microsoft で始まる最初の行を取り、無ければ最初の空でない行。
 [[nodiscard]] std::string msvc_banner_line(std::string_view text);
