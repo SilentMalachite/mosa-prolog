@@ -31,7 +31,7 @@ Every program is also included by `tests/pl/bench_<name>.pl`, which runs its fir
 
 ## CI
 
-The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new and committed times to the Job Summary. When either side of a program is 20% or more slower than the committed value, the step prints a `::warning::` annotation and marks the row. The step never fails the job: the GitHub macOS runner is not the machine above, so the comparison is a coarse regression alarm, not a measurement.
+The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.
 
 ## Interpreter limits seen while choosing N
 

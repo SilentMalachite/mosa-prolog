@@ -8,7 +8,7 @@ on:
 # 差分テストは -LE diff / -L diff の 2 段に分け、全テストを 1 回ずつ流しつつ、一致率の行をログに出す（-V）。
 # 生成コードは diff_test.cmake と MOSA_WERROR=1 で警告を誤りにしてコンパイルする（「生成した C++ は常にコンパイルできる」）。
 # 持ち主の決定 3: mosac build した hello を成果物に上げ、別のジョブで落として動かす（ADR 0009 Review Focus 5）。
-# macOS では bench/ の 6 本を流し、docs/bench.json より 20% 以上遅ければ警告にする（失敗にはしない、計画 Task 13）。
+# macOS では bench/ の 6 本を流し、比が docs/bench.json より 20% 以上下がれば警告にする（失敗にはしない、計画 Task 13）。
 jobs:
   macos:
     runs-on: macos-latest
@@ -23,7 +23,7 @@ jobs:
       - name: Test
         run: ctest --preset macos-clang -LE diff
       - name: Differential tests
-        run: ctest --preset macos-clang -L diff -V
+        run: ctest --preset macos-clang -L diff -V --no-tests=error
       - name: Conformance suite
         run: ./build/mosatest --suite tests/conformance
       - name: Build standalone hello
@@ -45,22 +45,25 @@ jobs:
       - name: Check badges
         shell: bash
         run: git diff --exit-code -- docs/conformance.json docs/agreement.json
-      # 計画 Task 13。bench/ の 6 本を docs/bench.json と同じ N で測り、どちらかの側がコミット済みの値より 20% 以上
-      # 遅ければ警告にする。ランナーは表を測った機械（docs/bench.md）と違うので、退行の粗い目安であり、失敗にはしない。
-      # docs/bench.json は 1 行 1 プログラムなので、値は行から sed で抜く。Actions の bash は -e と pipefail で動くので
-      # set +e で外し、測れなかったプログラムも警告にして次へ進む。
+      # 計画 Task 13。bench/ の 6 本を docs/bench.json と同じ N で測り、プログラムごとの比（インタプリタ / 翻訳）が
+      # コミット済みの比より 20% 以上下がれば警告にする。ランナーは表を測った機械（docs/bench.md）と違い、ミリ秒の
+      # 絶対値どうしを比べると毎回 22-78% 遅いと出た（最終レビュー）。比は両側が同じ機械で測るので機械の速さが消える。
+      # docs/bench.json は 1 行 1 プログラムなので、値は行から sed で抜く。比は小数 1 桁なので、awk で 10 倍の整数にして比べる。Actions の bash は
+      # -e と pipefail で動くので set +e で外し、測れなかったプログラムや比べられない値も警告にして次へ進む。
       - name: Benchmarks
         continue-on-error: true
+        timeout-minutes: 20
         shell: bash
         run: |
           set +e
           now=tests/tmp/bench-ci.json
           rm -f "$now"
           field() { sed -n "s/.*\"$1\":\([^,}]*\).*/\1/p"; }
+          positive() { awk -v v="$1" 'BEGIN { exit !(v ~ /^[0-9]+(\.[0-9]+)?$/ && v + 0 > 0) }'; }
           {
-            echo "### Benchmarks (macOS runner vs committed docs/bench.json, ms)"
+            echo "### Benchmarks (macOS runner vs committed docs/bench.json; ratio = interpreter / translated)"
             echo ""
-            echo "| Program | N | Interpreter | Committed | Translated | Committed | Note |"
+            echo "| Program | N | Interpreter ms | Translated ms | Ratio | Committed ratio | Note |"
             echo "| --- | ---: | ---: | ---: | ---: | ---: | --- |"
           } >> "$GITHUB_STEP_SUMMARY"
           grep '^  {"file":' docs/bench.json | while IFS= read -r base; do
@@ -72,19 +75,19 @@ jobs:
               continue
             fi
             got=$(grep -F "{\"file\":\"$file\"," "$now")
+            old=$(printf '%s\n' "$base" | field ratio)
+            new=$(printf '%s\n' "$got" | field ratio)
             note=""
-            for side in interpreter translated; do
-              old=$(printf '%s\n' "$base" | field "${side}_ms")
-              new=$(printf '%s\n' "$got" | field "${side}_ms")
-              if [ $((new * 100)) -ge $((old * 120)) ]; then
-                slower=$(( (new - old) * 100 / (old > 0 ? old : 1) ))
-                echo "::warning title=Benchmark::$file: $side ${new} ms is ${slower}% slower than docs/bench.json (${old} ms)"
-                note="$note $side ${slower}% slower;"
-              fi
-            done
-            row="| $file | $count | $(printf '%s\n' "$got" | field interpreter_ms) | $(printf '%s\n' "$base" | field interpreter_ms)"
-            row="$row | $(printf '%s\n' "$got" | field translated_ms) | $(printf '%s\n' "$base" | field translated_ms) |$note |"
-            echo "$row" >> "$GITHUB_STEP_SUMMARY"
+            if ! positive "$old" || ! positive "$new"; then
+              echo "::warning title=Benchmark::$file: comparison skipped (measured ratio '${new}', committed ratio '${old}')"
+              note=" comparison skipped;"
+            elif awk -v new="$new" -v old="$old" 'BEGIN { exit !(int(new * 10 + 0.5) * 100 <= int(old * 10 + 0.5) * 80) }'; then
+              drop=$(awk -v new="$new" -v old="$old" 'BEGIN { printf "%d", (old - new) * 100 / old }')
+              echo "::warning title=Benchmark::$file: ratio ${new} is ${drop}% below docs/bench.json (${old})"
+              note=" ratio ${drop}% lower;"
+            fi
+            row="| $file | $count | $(printf '%s\n' "$got" | field interpreter_ms) | $(printf '%s\n' "$got" | field translated_ms)"
+            echo "$row | $new | $old |$note |" >> "$GITHUB_STEP_SUMMARY"
           done
           exit 0
 
@@ -106,7 +109,7 @@ jobs:
       - name: Test
         run: ctest --preset linux-gcc -LE diff
       - name: Differential tests
-        run: ctest --preset linux-gcc -L diff -V
+        run: ctest --preset linux-gcc -L diff -V --no-tests=error
       - name: Conformance suite
         run: ./build/mosatest --suite tests/conformance
       - name: Build standalone hello
@@ -141,7 +144,7 @@ jobs:
       - name: Test
         run: ctest --preset linux-clang -LE diff
       - name: Differential tests
-        run: ctest --preset linux-clang -L diff -V
+        run: ctest --preset linux-clang -L diff -V --no-tests=error
       - name: Conformance suite
         run: ./build/mosatest --suite tests/conformance
       - name: Build standalone hello
@@ -177,7 +180,7 @@ jobs:
       # mosatest --diff の日本語の文面を UTF-8 のまま取るため、コードページを 65001 にしてから流す。
       - name: Differential tests
         shell: cmd
-        run: chcp 65001 && ctest --preset windows-msvc -L diff -V
+        run: chcp 65001 && ctest --preset windows-msvc -L diff -V --no-tests=error
       # Visual Studio は構成名のディレクトリへ出す。Ninja の 3 ジョブは ./build/mosatest。
       - name: Conformance suite
         shell: bash
