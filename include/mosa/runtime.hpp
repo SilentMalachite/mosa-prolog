@@ -124,6 +124,9 @@ void fail(Machine::Impl& machine);
 void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t entry, std::uint64_t frame,
                       std::uint32_t clause);
 
+// 制御構文（計画 Task 7）。枠は resume_frame で作った継続枠で、その状態から生成関数を呼び直す。
+void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut);  // (A ; B) の B。やり直しで枠の状態へ
+
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。
 void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする

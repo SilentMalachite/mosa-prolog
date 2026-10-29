@@ -63,6 +63,18 @@ test(native_cut, cutc(X), solutions([X = first, X = second])).
 test(native_cut_third, cutc(third), fail).
 test(native_cut_after_call, first_color(C), solutions([C = red])).
 
+% 選言。両方の枝が節の変数を使い、枝のあとのゴールへ続く
+either(X, Y) :- (X = a ; X = b), Y = X.
+% 枝の中のカットは節の境界まで切る（透明）。else の枝も 2 つ目の節も捨てる
+or_cut(X) :- (X = 1, ! ; X = 2).
+or_cut(3).
+% 呼び出しで終わらない枝（true）は、構文のあとのゴールへ直に続く
+or_true(X) :- (X = 1 ; true), X = 2.
+
+test(native_or, either(X, Y), solutions([(X = a, Y = a), (X = b, Y = b)])).
+test(native_or_cut, or_cut(X), solutions([X = 1])).
+test(native_or_true, or_true(X), solutions([X = 2])).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

@@ -88,16 +88,17 @@ void cut_translated() {
   check(has(later.source, "rt::cut_to(m, rt::frame_cut(r, frame));"), "cut after a call uses the frame barrier");
 }
 
-// ; を含む節は IR のまま動かす。節がすべてそうなら生成関数を出さない。
-void disjunction_interpreted() {
+// 計画 Task 7。; は else の枝を Pick::Native の選択点に積んでから左の枝を続ける。節はすべて生成コードで動く。
+// 動かせない形（halt）を含む節だけが IR のまま残る。
+void disjunction_translated() {
   const EmitResult only = emit_user("q(X) :- (X = a ; X = b).\n");
-  check(only.translated == 0, "q translated == 0");
-  check(only.interpreted == 1, "q interpreted == 1");
-  check(!has(only.source, "void pq_1("), "q has no function");
-  const EmitResult mixed = emit_user("r(a).\nr(X) :- (X = b ; X = c).\n");
-  check(mixed.translated == 1, "r translated == 1");
-  check(mixed.interpreted == 1, "r interpreted == 1");
-  check(has(mixed.source, "rt::interpret_clause(m, r, 0, frame, 2)"), "r clause 2 interpreted");
+  check(only.translated == 1, "q translated == 1");
+  check(only.interpreted == 0, "q interpreted == 0");
+  check(has(only.source, "rt::push_branch("), "q pushes the else branch");
+  const EmitResult mixed = emit_user("r(a).\nr(X) :- (X = b ; X = c), s(X).\nr(_) :- halt.\ns(_).\n");
+  check(mixed.translated == 2, "r and s translated");
+  check(mixed.interpreted == 1, "halt clause interpreted");
+  check(has(mixed.source, "rt::interpret_clause(m, r, 0, frame, 3)"), "r clause 3 interpreted");
 }
 
 // install_unit が付けない述語（meta_predicate の宣言あり）は生成関数を出さず、節を interpreted に数える。
@@ -224,7 +225,7 @@ int main() {
   app_fingerprint();
   nrev_resume();
   cut_translated();
-  disjunction_interpreted();
+  disjunction_translated();
   meta_skipped();
   dynamic_skipped();
   japanese_unit();

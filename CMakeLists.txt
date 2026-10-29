@@ -53,6 +53,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/load_clauses.cpp
   src/machine/native.cpp
   src/machine/native_redo.cpp
+  src/machine/native_control.cpp
   src/machine/native_main.cpp
   src/machine/load_directive.cpp
   src/module/module_table.cpp
@@ -123,6 +124,7 @@ target_sources(mosa_lib PRIVATE
   src/codegen/emit.cpp
   src/codegen/emit_head.cpp
   src/codegen/emit_body.cpp
+  src/codegen/emit_control.cpp
   src/codegen/mangle.cpp
   src/codegen/project.cpp
   src/codegen/check.cpp

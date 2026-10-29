@@ -129,6 +129,9 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
     case IrTag::And:
       return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
              translatable_body(machine, body.args[1]);
+    case IrTag::Or:
+      return body.args.size() == 2 && body.args[0].tag != IrTag::IfThen && body.args[0].tag != IrTag::SoftIf &&
+             translatable_body(machine, body.args[0]) && translatable_body(machine, body.args[1]);
     default: return false;
   }
 }
@@ -183,12 +186,16 @@ void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vect
   out.push_back(GoalRef{&term, module});
 }
 
-void count_body(ClauseCtx& /*ctx*/, std::span<const GoalRef> goals, std::vector<int>& counts) {
+void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>& counts) {
   for (const GoalRef& ref : goals) {
     const IrTerm& goal = *ref.term;
     switch (goal.tag) {
       case IrTag::Fail:
       case IrTag::Cut: continue;
+      case IrTag::Or:
+        count_branch(ctx, goal.args[0], ref.module, counts);
+        count_branch(ctx, goal.args[1], ref.module, counts);
+        continue;
       default: mark_slots(goal, counts);
     }
   }
@@ -225,6 +232,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
     switch (ref.term->tag) {
       case IrTag::Fail: emit.line("return rt::fail(m);"); return;
       case IrTag::Cut: emit.line("rt::cut_to(m, " + env.cut + ");"); continue;
+      case IrTag::Or: emit_or(ctx, emit, ref, rest, env); return;
       default: break;
     }
     emit_call(ctx, emit, ref, rest, env);

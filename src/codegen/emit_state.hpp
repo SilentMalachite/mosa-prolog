@@ -145,4 +145,10 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
 [[nodiscard]] ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate& predicate,
                                      const ClauseName& name);
 
+// emit_control.cpp。どれも rest（構文のあとのゴール）まで出し切り、呼び手は戻るだけ。
+// 構文の枝（連言）が使う変数を数える。
+void count_branch(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module, std::vector<int>& counts);
+void emit_or(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
+             const BodyEnv& env);
+
 }  // namespace mosa::codegen
