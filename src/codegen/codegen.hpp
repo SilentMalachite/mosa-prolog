@@ -48,11 +48,13 @@ struct ProjectOptions {
 
 // ok が偽なら files は空で、diagnostic に Prolog の行で書いた診断を改行で区切って入れる。
 // libraries は結ぶ翻訳済みの同梱ライブラリの名前（pl/libmosa_pl_<名前>）。main.cpp と CMakeLists.txt が同じ並びで見る。
+// source_only は原文だけを同梱したライブラリ（mosac の隣の lib/ と違う版）。build --verbose が出すだけで、結ぶ物は無い。
 struct Project {
   bool ok = false;
   std::string diagnostic;
   std::vector<ProjectFile> files;
   std::vector<std::string> libraries;
+  std::vector<std::string> source_only;
 };
 
 // path はコマンド行に書いたままのパスで、根のファイルの診断の頭になる。宣言だけを実行して読み（計画 Task 5）、

@@ -4,17 +4,19 @@
 // 単独の実行ファイルの heap_limit や cannot_open_file の文面が鍵のままになる。
 // 原文は擬似パス library/<Name>.pl で埋め込み、読み込み器のファイルの仕組み（prepared、Module::file、include/1 の
 // 相対パス）をそのまま使う。読み終えたら単位を付ける（ADR 0009「load_source が返った後」）。
-// テスト: tests/mosac/standalone_test.cmake（standalone_use_lists、standalone_uncaught_message）
+// ライブラリの中の素のパスの use_module(util) も、同じ擬似ディレクトリ library/ に解決するので同じ一覧で引く。
+// テスト: tests/mosac/standalone_test.cmake（standalone_use_lists、standalone_uncaught_message、standalone_plain_use）、
+// tests/cpp/native_test.cpp（check_bundled_library）
 
 #include "internal.hpp"
 
 #include "mosa/path_text.hpp"
 
 #include <algorithm>
+#include <deque>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <vector>
 
 namespace mosa {
 namespace {
@@ -25,8 +27,10 @@ struct BundledLibrary {
   std::optional<rt::NativeUnit> unit;
 };
 
-std::vector<BundledLibrary>& bundled_libraries() {
-  static std::vector<BundledLibrary> libraries;
+// deque にするのは、unit->source が自分の source を指す string_view だからである。vector は伸びるときに要素を
+// 移すので、先に入れたライブラリの unit->source が宙に浮く。deque は push_back で要素の番地を変えない。
+std::deque<BundledLibrary>& bundled_libraries() {
+  static std::deque<BundledLibrary> libraries;
   return libraries;
 }
 
@@ -70,6 +74,18 @@ std::optional<std::filesystem::path> locate_bundled_library(Impl& machine, std::
                                     [&](const EmbeddedSource& source) { return source.key == key; });
   if (!embedded) machine.embedded.push_back(EmbeddedSource{key, library->source});
   return file;
+}
+
+// source_path は埋め込みに無い名前に .pl を足さない（ディスクにも無いので）。ここで足してから擬似パスと比べる。
+std::optional<std::string> locate_bundled_plain(Impl& machine, std::filesystem::path& file) {
+  std::filesystem::path with_pl = file;
+  if (with_pl.extension().empty()) with_pl.replace_extension(".pl");
+  const std::string stem = utf8_from_path(with_pl.stem());
+  if (find_bundled(stem) == nullptr || canonical_key(with_pl) != canonical_key(bundled_library_path(stem))) {
+    return std::nullopt;
+  }
+  file = *locate_bundled_library(machine, stem);
+  return stem;
 }
 
 void attach_bundled_library(Impl& machine, std::string_view name) {

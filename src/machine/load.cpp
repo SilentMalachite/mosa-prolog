@@ -217,7 +217,8 @@ int import_ready(Impl& machine, const std::filesystem::path& file) {
 }
 
 // use_module の第 1 引数。原子は読み込み中のファイルからの相対、library(Name) は、実行ファイルに同梱した一覧
-// （bundled に名前が入る。計画 Task 10）を先に引き、無ければ library_path の探索（SPEC 第5節）。
+// （bundled に名前が入る。計画 Task 10）を先に引き、無ければ library_path の探索（SPEC 第5節）。同梱ライブラリの中の
+// 素のパスは擬似ディレクトリ library/ に解決するので、それも同じ一覧で引く。
 std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directory, std::filesystem::path& file,
                                std::optional<std::string>& bundled) {
   if (machine.heap.unbound(arg)) return formal_instantiation(machine);
@@ -240,6 +241,7 @@ std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directo
   }
   if (arg.tag() != Tag::Atom) return formal_type(machine, "atom", arg);
   file = source_path(machine, resolve_include(directory, machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3))));
+  bundled = locate_bundled_plain(machine, file);
   return std::nullopt;
 }
 

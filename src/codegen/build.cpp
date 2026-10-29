@@ -15,9 +15,7 @@
 
 #include <algorithm>
 #include <charconv>
-#include <fstream>
 #include <iostream>
-#include <iterator>
 
 namespace mosa::codegen {
 namespace {
@@ -115,11 +113,6 @@ std::string command_text(const Args& argv) {
     text += arg.find(' ') == std::string::npos ? arg : "\"" + arg + "\"";
   }
   return text;
-}
-
-std::string read_text(const std::filesystem::path& path) {
-  std::ifstream in{path, std::ios::binary};
-  return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
 }
 
 struct Job {
@@ -263,12 +256,27 @@ bool units_present(const Toolchain& toolchain, const RuntimeLayout& runtime, std
   return true;
 }
 
+// --verbose のとき、結ぶ翻訳済みのライブラリの書庫と、原文だけを同梱したライブラリ（mosac の隣の lib/ と違う版で、
+// IR のまま動く）を出す。遅い理由と結び忘れを利用者が見られるようにする。テスト: standalone_use_lists、standalone_plain_use。
+void report_libraries(const Toolchain& toolchain, const RuntimeLayout& runtime, const Project& project) {
+  std::string archives;
+  for (const std::string& name : project.libraries) {
+    archives += (archives.empty() ? "" : " ") + utf8_from_path(unit_archive(toolchain, runtime, name));
+  }
+  std::cerr << mosac_message("mosac_verbose_units", {archives}) << '\n';
+  if (project.source_only.empty()) return;
+  std::string names;
+  for (const std::string& name : project.source_only) names += (names.empty() ? "" : " ") + name;
+  std::cerr << mosac_message("mosac_verbose_source_only", {names}) << '\n';
+}
+
 Built build_translated(const BuildRequest& request, const Project& project, const Toolchain& toolchain,
                        const RuntimeLayout& runtime) {
   const bool cmake = use_cmake(toolchain);
   const std::string target = target_name(request.source);
   const std::string mode = cmake ? "cmake " + utf8_from_path(*toolchain.cmake) + " " + toolchain.cmake_version : "direct";
   if (!units_present(toolchain, runtime, project.libraries)) return {};
+  if (request.verbose) report_libraries(toolchain, runtime, project);
   CacheKeyInputs inputs{project.files, &toolchain, &runtime, {}, mode,
                         cmake ? cmake_defines(toolchain, runtime, request.debug)
                               : compile_flags(toolchain, runtime, request.debug),

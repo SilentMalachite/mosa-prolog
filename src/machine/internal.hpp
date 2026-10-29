@@ -554,6 +554,9 @@ void attach_native_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& u
 [[nodiscard]] std::optional<std::filesystem::path> locate_bundled_library(Impl& machine, std::string_view name);
 // 同梱ライブラリの原文を読み終えた後に、その翻訳済みの単位を付ける（原文だけの同梱なら何もしない）。
 void attach_bundled_library(Impl& machine, std::string_view name);
+// 同梱ライブラリの中の素のパスの use_module(util) が擬似パス library/util.pl に解決したら、原文を埋め込み（まだなら）、
+// file を .pl 付きに直して名前を返す。ほかのパスなら nullopt。
+[[nodiscard]] std::optional<std::string> locate_bundled_plain(Impl& machine, std::filesystem::path& file);
 // 定義は native_redo.cpp。
 void call_native(Impl& machine, rt::NativeProc proc, std::uint64_t frame);
 void resume_native(Impl& machine);

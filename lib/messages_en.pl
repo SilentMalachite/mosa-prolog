@@ -63,6 +63,9 @@ message(mosac_runtime_source_missing, 'mosac: the bundled runtime source was not
 message(mosac_runtime_source_needs_cmake, 'mosac: --runtime-source needs CMake 3.25 or later (check with mosac toolchain)').
 message(mosac_runtime_building, 'mosac: building the runtime library from the bundled source: ~w').
 message(mosac_runtime_build_failed, 'mosac: the runtime library could not be built from source (log: ~w)~nCheck the compiler and CMake').
+message(mosac_runtime_cached, 'mosac: reusing the runtime library built from source: ~w').
+message(mosac_verbose_units, 'mosac: linked translated libraries: ~w').
+message(mosac_verbose_source_only, 'mosac: libraries bundled as source only (they differ from the lib/ next to mosac and run interpreted): ~w').
 
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').

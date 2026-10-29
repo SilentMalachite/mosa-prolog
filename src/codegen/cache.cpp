@@ -20,7 +20,6 @@
 namespace mosa::codegen {
 namespace {
 
-constexpr std::uint64_t kFnvBasis = 0xcbf29ce484222325ULL;
 constexpr std::uint64_t kFnvPrime = 0x100000001b3ULL;
 
 // 実行時ライブラリは大きさと更新時刻ではなく中身のバイトで鍵にする。同じ秒の中の作り直しや、時刻を保って
@@ -38,7 +37,30 @@ std::optional<std::uint64_t> file_digest_from(const std::filesystem::path& path,
   return hash;
 }
 
-// 記号リンクを辿らずに見た種類が type か。
+// 生成コードが include する見出しも鍵に入れる。inline の関数だけを変えた版はライブラリのバイトが同じでありうる。
+// 隠しファイル（.DS_Store、編集器の退避ファイル）は入れない。install は .DS_Store を除くので、同梱の源の鍵が
+// ビルド木（リポジトリの根）とインストールの lib/mosa/source/ で同じになる。
+std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, std::uint64_t seed) {
+  std::error_code error;
+  std::vector<std::filesystem::path> files;
+  for (std::filesystem::recursive_directory_iterator it{dir, error}, end; !error && it != end; it.increment(error)) {
+    if (it->is_regular_file(error) && !utf8_from_path(it->path().filename()).starts_with('.')) files.push_back(it->path());
+  }
+  if (error) return std::nullopt;
+  // 並びは辿る順に依らせない。
+  std::sort(files.begin(), files.end());
+  std::uint64_t hash = seed;
+  for (const std::filesystem::path& file : files) {
+    hash = fnv1a(utf8_from_path(file.lexically_relative(dir)), hash);
+    const auto digest = file_digest_from(file, hash);
+    if (!digest) return std::nullopt;
+    hash = *digest;
+  }
+  return hash;
+}
+
+}  // namespace
+
 bool plain(const std::filesystem::path& path, std::filesystem::file_type type) {
   std::error_code error;
   const std::filesystem::file_status status = std::filesystem::symlink_status(path, error);
@@ -49,8 +71,6 @@ std::string read_text(const std::filesystem::path& path) {
   std::ifstream in{path, std::ios::binary};
   return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
 }
-
-}  // namespace
 
 std::uint64_t fnv1a(std::string_view bytes, std::uint64_t seed) {
   std::uint64_t hash = seed;
@@ -70,21 +90,17 @@ std::string hex16(std::uint64_t value) {
 
 std::optional<std::uint64_t> file_digest(const std::filesystem::path& path) { return file_digest_from(path, kFnvBasis); }
 
-// 生成コードが include する見出しも鍵に入れる。inline の関数だけを変えた版はライブラリのバイトが同じでありうる。
-// --runtime-source は同梱の源の木を同じ関数で鍵にする。
-std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir) {
-  std::error_code error;
-  std::vector<std::filesystem::path> files;
-  for (std::filesystem::recursive_directory_iterator it{dir, error}, end; !error && it != end; it.increment(error)) {
-    if (it->is_regular_file(error)) files.push_back(it->path());
-  }
-  if (error) return std::nullopt;
-  // 並びは辿る順に依らせない。
-  std::sort(files.begin(), files.end());
+std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir) { return tree_digest_from(dir, kFnvBasis); }
+
+// --runtime-source の鍵（計画 Task 10）。源の 4 か所だけを見る。ビルド木の形では dir がリポジトリの根なので、木ごと
+// 読むと .git、build/、tests/tmp/ と .mosac-cache 自身（作るたびに変わる）が入り、いつまでも当たらない。
+std::optional<std::uint64_t> source_digest(const std::filesystem::path& dir) {
   std::uint64_t hash = kFnvBasis;
-  for (const std::filesystem::path& file : files) {
-    hash = fnv1a(utf8_from_path(file.lexically_relative(dir)), hash);
-    const auto digest = file_digest_from(file, hash);
+  const auto top = file_digest_from(dir / "CMakeLists.txt", hash);
+  if (!top) return std::nullopt;
+  hash = *top;
+  for (const char* part : {"src", "include", "lib"}) {
+    const auto digest = tree_digest_from(dir / part, fnv1a(part, hash));
     if (!digest) return std::nullopt;
     hash = *digest;
   }

@@ -171,7 +171,7 @@ Project build_project(Machine& machine, const TranslationLog& log, std::string_v
     project.files.push_back(ProjectFile{stem + ".hpp", emitted.header});
   }
   for (const LibraryPlan& library : plan.libraries) {
-    if (library.prebuilt) project.libraries.push_back(library.name);
+    (library.prebuilt ? project.libraries : project.source_only).push_back(library.name);
   }
   project.files.push_back(ProjectFile{"main.cpp", main_text(impl, log, plan)});
   project.files.push_back(ProjectFile{"CMakeLists.txt", cmake_text(impl, plan, target_name(path), options.runtime_dir)});

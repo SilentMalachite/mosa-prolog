@@ -188,11 +188,13 @@ add_custom_target(mosa_pl_units ALL DEPENDS ${mosa_pl_targets})
 # インストールの形（SPEC 第6節）。bin/ に 3 コマンドと lib/*.pl（library(_) は実行ファイルの隣の lib/ を探す。SPEC 第5節）、
 # lib/mosa/<OS>-<arch>-<compiler>/ に libmosa と include/mosa/ と翻訳済みの単位 pl/、lib/mosa/source/ に
 # mosac build --runtime-source が ABI の合わないコンパイラで作り直すための源（tests/ は要らない。MOSA_BUILD_TESTS=OFF）。
+# runtime は Release だけ入れる。鍵 <OS>-<arch>-<compiler> に構成が無いので、Debug の libmosa を同じ場所に入れると
+# mosac build が取り違える（MSVC の /MTd は結べない）。
 install(TARGETS mosa mosac mosatest RUNTIME DESTINATION bin COMPONENT tools)
 install(DIRECTORY lib/ DESTINATION bin/lib COMPONENT tools FILES_MATCHING PATTERN "*.pl" PATTERN "README.md")
-install(TARGETS mosa_lib ARCHIVE DESTINATION ${mosa_runtime_dest} COMPONENT runtime)
-install(DIRECTORY include/mosa DESTINATION ${mosa_runtime_dest}/include COMPONENT runtime)
-install(TARGETS ${mosa_pl_targets} ARCHIVE DESTINATION ${mosa_runtime_dest}/pl COMPONENT runtime)
+install(TARGETS mosa_lib ARCHIVE DESTINATION ${mosa_runtime_dest} COMPONENT runtime CONFIGURATIONS Release)
+install(DIRECTORY include/mosa DESTINATION ${mosa_runtime_dest}/include COMPONENT runtime CONFIGURATIONS Release)
+install(TARGETS ${mosa_pl_targets} ARCHIVE DESTINATION ${mosa_runtime_dest}/pl COMPONENT runtime CONFIGURATIONS Release)
 install(FILES CMakeLists.txt DESTINATION lib/mosa/source COMPONENT source)
 install(DIRECTORY src include lib DESTINATION lib/mosa/source COMPONENT source PATTERN ".DS_Store" EXCLUDE)
 

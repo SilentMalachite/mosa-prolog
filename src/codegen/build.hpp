@@ -70,12 +70,20 @@ void report_write_error(const std::filesystem::path& path, std::error_code error
 void report_missing_toolchain(const ToolchainQuery& query);
 
 // 以下は cache.cpp。
+// FNV-1a 64 の種。鍵を作る側はみなここから始める（cache.cpp と runtime_layout.cpp）。
+inline constexpr std::uint64_t kFnvBasis = 0xcbf29ce484222325ULL;
 [[nodiscard]] std::uint64_t fnv1a(std::string_view bytes, std::uint64_t seed);
 [[nodiscard]] std::string hex16(std::uint64_t value);
 // ファイルの中身の FNV-1a。読めなければ nullopt。
 [[nodiscard]] std::optional<std::uint64_t> file_digest(const std::filesystem::path& path);
-// ディレクトリの下の全ファイルの相対名と中身の FNV-1a（並びは名前順）。読めなければ nullopt。
+// ディレクトリの下の全ファイル（隠しファイルを除く）の相対名と中身の FNV-1a（並びは名前順）。読めなければ nullopt。
 [[nodiscard]] std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir);
+// 同梱の源の鍵。dir の CMakeLists.txt、src/、include/、lib/（install の source の部品）だけを見る。
+[[nodiscard]] std::optional<std::uint64_t> source_digest(const std::filesystem::path& dir);
+// ファイルの全文（読めなければ空）。鍵の比較と、失敗したログの表示に使う。
+[[nodiscard]] std::string read_text(const std::filesystem::path& path);
+// 記号リンクを辿らずに見た種類が type か。キャッシュの当たりの判定は、どの段も記号リンクを当たりにしない。
+[[nodiscard]] bool plain(const std::filesystem::path& path, std::filesystem::file_type type);
 
 struct CacheKeyInputs {
   std::span<const ProjectFile> files;

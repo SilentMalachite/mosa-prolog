@@ -304,8 +304,9 @@ set_tests_properties(mosatest_bench PROPERTIES
   PASS_REGULAR_EXPRESSION ": [0-9]+ ms\r?\n[^\n]*: [0-9]+ ms\r?\n[^\n]*: [0-9]+\\.[0-9]\r?\n$")
 
 # 単独の実行ファイル（計画 Task 10、ADR 0009 Review Focus 5）。build した物を lib/ も原文も無いディレクトリで、
-# MOSA_LIB を外して動かす。翻訳のとき mosac は自分の隣の lib/ を読むので、build にも MOSA_LIB は要らない。
-foreach(standalone_case uncaught_message use_lists include)
+# MOSA_LIB を外して動かす。翻訳のとき mosac は自分の隣の lib/ を読むので、build にも MOSA_LIB は要らない
+# （plain_use だけは台本が利用者のライブラリのディレクトリを MOSA_LIB で渡す）。
+foreach(standalone_case uncaught_message use_lists include plain_use)
   add_test(NAME standalone_${standalone_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${standalone_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/standalone_${standalone_case} "-DCXX=${mosac_build_cxx}"
@@ -324,6 +325,19 @@ add_test(NAME mosac_installed_layout COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/installed_layout_test.cmake)
 set_tests_properties(mosac_installed_layout PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
   ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# mosac build --runtime-source は同梱の源から libmosa を 1 回作る（1 分以上）。ふだんの ctest には重いので、
+# MOSA_SLOW_TESTS=ON のときだけ登録する（ラベル slow）。2 回目がキャッシュの物を使うことまで見る。
+option(MOSA_SLOW_TESTS "Also register the slow tests (a libmosa build for mosac build --runtime-source)" OFF)
+if(MOSA_SLOW_TESTS)
+  add_test(NAME mosac_runtime_source_cache COMMAND ${CMAKE_COMMAND}
+    -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+    -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_runtime_source_cache "-DCXX=${mosac_build_cxx}"
+    "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+    -P ${CMAKE_SOURCE_DIR}/tests/mosac/runtime_source_test.cmake)
+  set_tests_properties(mosac_runtime_source_cache PROPERTIES ENVIRONMENT "MOSA_WERROR=1" LABELS slow TIMEOUT 1800
+    ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
+endif()
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
 get_property(mosa_all_tests DIRECTORY PROPERTY TESTS)

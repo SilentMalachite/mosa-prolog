@@ -248,7 +248,7 @@
 - CMake は任意。あれば使い、なければコンパイラを直接呼ぶ（生成コードはファイルごとにコンパイルして `mosac` 自身がリンクコマンドを組む）。したがって利用者側の最小要件は「C++20 コンパイラが 1 つ入っていること」
 - ランタイム `libmosa` は、ビルド済みの静的ライブラリとヘッダを `mosac` のインストール先（`<prefix>/lib/mosa/<OS>-<arch>-<compiler>/`。`<OS>` は `macos`、`linux`、`windows`、`<arch>` は `arm64`、`x86_64`、`<compiler>` は族 `clang`、`gcc`、`msvc`）に同梱する。`mosac` はそのディレクトリを自分の場所から見つける。`<prefix>/bin/mosac` は `<prefix>/lib/mosa/<鍵>/` を見、ビルド木では `mosac` 自身のディレクトリに `libmosa`、`include/`、`pl/` がある。インストールするのは Release だけなので、`mosac build --debug` も Release のランタイムを結ぶ。利用者のマシンでランタイムを毎回ビルドしない。ABI が合わないときの逃げ道として `--runtime-source` で同梱ソース `<prefix>/lib/mosa/source/` から CMake でビルドする（結果は `.mosac-cache/runtime/<hash>/` にキャッシュする）
 - `lib/*.pl` の標準ライブラリは事前変換済みのオブジェクトとして、ライブラリごとに 1 つ（`libmosa` の隣の `pl/libmosa_pl_<名前>.a`、Windows は `pl/mosa_pl_<名前>.lib`）同梱し、`use_module` で推移的に読まれたものと、未捕捉エラーの文面のための `messages_ja`・`messages_en` だけをリンクする。リンクしたライブラリの原文も実行ファイルに埋め込むので、ライブラリは実行ファイルから consult され、単位はそれに付く。ファイルからは読まない。インタプリタ用の写しは `<prefix>/bin/lib/*.pl` に置く
-- 既定は静的リンク・`-O2`。Windows は `/MT`。できあがった実行ファイルは配布先に C++ ランタイム DLL も `mosac` も Prolog ファイルも要らない。`--debug` で `-O0 -g` と実行時の節トレースを有効にする
+- 既定は静的リンク・`-O2`。Windows は `/MT`。できあがった実行ファイルは配布先に C++ ランタイム DLL も `mosac` も Prolog ファイルも要らない。`--debug` で `-O0 -g` と実行時の節トレースを有効にする。同梱ライブラリの単位はトレース無しで作ってあるので、`--debug` がトレースするのはプログラム自身の単位だけである
 - 中間ファイルは `.mosac-cache/` に置き、Prolog ソースとランタイムのハッシュで再利用する。`--keep` で生成 C++ を残し、`--clean` で捨てる
 - クロスコンパイルは非目標。実行ファイルは `mosac` を動かした OS・アーキテクチャ向けだけを作る
 

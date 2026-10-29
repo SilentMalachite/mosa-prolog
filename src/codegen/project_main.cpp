@@ -37,19 +37,20 @@ const LibraryPlan* library_of(const ProjectPlan& plan, std::size_t file) {
   return nullptr;
 }
 
-// ファイルごとに、原文の std::string を作ってから、ライブラリは bundle_library、ほかは embed に渡す。
+// ファイルごとに、原文の std::string を作ってから embed し、ライブラリは bundle_library にも渡す。ライブラリも
+// embed するのは、ライブラリの中の素のパスの use_module(util) が library/util.pl をこの機械の埋め込みから引くため
+// （一覧は library(Name) の形と、そこへ解決した素のパスが引く。どちらも鍵は同じ library/<語幹>.pl）。
 std::string file_lines(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan) {
   std::string out;
   for (std::size_t index = 0; index < log.files.size(); ++index) {
     const std::string name = "file" + std::to_string(index);
     out += "  const std::string " + name + " = joined(kFile" + std::to_string(index) + ");\n";
+    out += "  mosa::rt::embed(*machine, " + string_literal(plan.keys[index]) + ", " + name + ");\n";
     if (const LibraryPlan* library = library_of(plan, index)) {
       const std::string unit = library->prebuilt ? "mosa_gen::" + unit_stem(machine, library->module) + "::unit(" + name + ")"
                                                  : name;
       out += "  mosa::rt::bundle_library(" + string_literal(library->name) + ", " + unit + ");\n";
-      continue;
     }
-    out += "  mosa::rt::embed(*machine, " + string_literal(plan.keys[index]) + ", " + name + ");\n";
   }
   return out;
 }

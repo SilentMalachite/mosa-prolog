@@ -63,6 +63,9 @@ message(mosac_runtime_source_missing, 'mosac: 同梱の実行時ライブラリ�
 message(mosac_runtime_source_needs_cmake, 'mosac: --runtime-source には CMake 3.25 以上が要ります（mosac toolchain で確かめてください）').
 message(mosac_runtime_building, 'mosac: 実行時ライブラリを同梱の源から作ります: ~w').
 message(mosac_runtime_build_failed, 'mosac: 実行時ライブラリを源から作れませんでした（ログ: ~w）~nコンパイラと CMake を確かめてください').
+message(mosac_runtime_cached, 'mosac: 源から作った実行時ライブラリを使い回します: ~w').
+message(mosac_verbose_units, 'mosac: 結ぶ翻訳済みライブラリ: ~w').
+message(mosac_verbose_source_only, 'mosac: 原文だけを同梱するライブラリ（mosac の隣の lib/ と違う版なので IR のまま動く）: ~w').
 
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').
