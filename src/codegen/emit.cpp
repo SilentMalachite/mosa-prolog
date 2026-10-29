@@ -1,5 +1,5 @@
 // 計画 Task 4、ADR 0009。モジュールの静的述語から翻訳単位の C++ を組み立てる。
-// 述語ごとに、節の関数（emit_head.cpp と emit_body.cpp）、第1引数で節を選ぶ関数、状態の switch、
+// 述語ごとに、節の関数（emit_head.cpp、emit_body.cpp、emit_control.cpp）、第1引数で節を選ぶ関数、状態の switch、
 // 生成関数 p_名前_アリティを出し、最後にアトムと呼び先と NativeEntry の表と unit() を置く。
 // 生成関数を出す述語は install_unit と同じ native_eligible で選び、指紋も同じ clause_fingerprint で出す。
 

@@ -201,6 +201,34 @@ test(native_meta_already, keep_goal(other:foo, Q), solutions([Q = other:foo])).
 test(native_meta_qualified_call, native_meta:keep_goal(foo, Q), solutions([Q = native_meta:foo])).
 test(native_meta_call, call_kept(color(C)), solutions([C = red, C = green, C = blue])).
 
+% is/2 と算術比較。組み込みの C++ を直に呼び、同じ関数で続きを進める。誤りは組み込みと同じ文脈で投げる
+inc(X, Y) :- Y is X + 1.
+between3(X) :- X >= 1, X =< 3, X =\= 2.
+cmp(lt, X, Y) :- X < Y.
+cmp(le, X, Y) :- X =< Y.
+cmp(gt, X, Y) :- X > Y.
+cmp(ge, X, Y) :- X >= Y.
+cmp(eq, X, Y) :- X =:= Y.
+cmp(ne, X, Y) :- X =\= Y.
+% 非末尾の再帰。1 段は節の変数のセル（3 語）、継続枠（5 + 変数 2 語）、len の呼び出し枠（4 + 2 語）、M + 1 の項（3 語）
+% で 19 語、length/2 のリストが要素ごとに 3 語。深さ 1<<15 なら 22 * 32768 = 720896 語で、ヒープの上限 1<<20 語に収まる
+len([], 0).
+len([_|T], N) :- len(T, M), N is M + 1.
+deep_len(N) :- length(L, 32768), len(L, N).
+
+test(native_is, inc(1, Y), solutions([Y = 2])).
+test(native_is_float, inc(1.5, Y), solutions([Y = 2.5])).
+test(native_is_inst, inc(_, _), error(instantiation_error)).
+test(native_is_evaluable, inc(foo, _), error(type_error(evaluable, foo/0))).
+test(native_is_mismatch, inc(1, 3), fail).
+test(native_compare, between3(3), true).
+test(native_compare_ne, between3(2), fail).
+test(native_compare_lt, between3(0), fail).
+test(native_compare_inst, between3(_), error(instantiation_error)).
+test(native_compare_ops, findall(Op, cmp(Op, 1, 2), L), solutions([L = [lt, le, ne]])).
+test(native_compare_ops_eq, findall(Op, cmp(Op, 2, 2.0), L), solutions([L = [le, ge, eq]])).
+test(native_deep_recursion, deep_len(N), solutions([N = 32768])).
+
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。

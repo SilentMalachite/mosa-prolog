@@ -145,6 +145,12 @@ void catch_exit(Machine::Impl& machine, std::size_t index);  // ゴールを抜�
 // meta_predicate で限定する引数。M: が無ければ context:actual にする（enter_clause の meta_argument）
 [[nodiscard]] Cell qualify(Machine::Impl& machine, Cell actual, std::uint32_t context);
 
+// is/2 と算術比較（8.6.1、8.7.1）。生成コードが call_goal を通さず直に呼び、true なら同じ関数で続きを進める。
+// 失敗と例外は機械に記してあるので、false なら生成コードは戻るだけでよい。
+enum class Compare : std::uint8_t { Eq, Ne, Lt, Le, Gt, Ge };
+[[nodiscard]] bool arith_is(Machine::Impl& machine, Cell left, Cell right);
+[[nodiscard]] bool arith_compare(Machine::Impl& machine, Compare op, Cell left, Cell right);
+
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。
 void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする

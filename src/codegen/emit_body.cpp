@@ -8,11 +8,14 @@
 
 #include "../module/module.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace mosa::codegen {
@@ -113,6 +116,28 @@ void emit_call(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& ref, std::span<c
   const std::string cont = make_rest(ctx, emit, rest, env);
   const std::size_t callee = emit.tables.call(ref.module, name, static_cast<std::uint16_t>(parts.size()));
   emit.line("rt::call_goal(m, r, " + std::to_string(callee) + ", " + args + ", " + cont + ", " + env.cut + ");");
+}
+
+// is/2 と算術比較なら rt::Compare の名前（is は "is"）。他は nullopt。
+std::optional<std::string_view> arith_op(const Impl& machine, const IrTerm& goal) {
+  static constexpr std::array<std::pair<std::string_view, std::string_view>, 7> kOps{
+      {{"is", "is"}, {"=:=", "Eq"}, {"=\\=", "Ne"}, {"<", "Lt"}, {"=<", "Le"}, {">", "Gt"}, {">=", "Ge"}}};
+  for (const auto& [name, op] : kOps) {
+    if (is_name(machine, goal, name, 2)) return op;
+  }
+  return std::nullopt;
+}
+
+// is/2 と算術比較は組み込みの C++ を直に呼び、同じ関数で続きを進める（計画 Task 7）。失敗と例外は機械に記してあるので、
+// false なら戻るだけ。組み込みは run_builtin が先に取るので、どのモジュールでも利用者の同名の述語には行かない。
+void emit_arith(ClauseEmit& emit, const IrTerm& goal, std::string_view op) {
+  const std::string left = emit_build(emit, goal.args[0]);
+  const std::string right = emit_build(emit, goal.args[1]);
+  if (op == "is") {
+    emit.line("if (!rt::arith_is(m, " + left + ", " + right + ")) return;");
+    return;
+  }
+  emit.line("if (!rt::arith_compare(m, rt::Compare::" + std::string{op} + ", " + left + ", " + right + ")) return;");
 }
 
 }  // namespace
@@ -348,6 +373,10 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
       case IrTag::SoftIf: emit_soft(ctx, emit, ref, rest, env); return;
       case IrTag::Catch: emit_catch(ctx, emit, ref, rest, env); return;
       default: break;
+    }
+    if (const auto op = arith_op(ctx.machine, *ref.term); op.has_value()) {
+      emit_arith(emit, *ref.term, *op);
+      continue;
     }
     if (const IrTerm* inner = negated_goal(ctx, *ref.term); inner != nullptr) {
       emit_not(ctx, emit, *inner, ref.module, rest, env);

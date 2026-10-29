@@ -189,6 +189,19 @@ void qualified_translated() {
   check(has(var.source, "std::string_view{\":\", 1}, 2}"), "variable or unknown module calls :/2");
 }
 
+// 計画 Task 7。is/2 と算術比較は call_goal を通さず組み込みの C++ を直に呼び、同じ関数で続きを進める。
+void arith_translated() {
+  const EmitResult result = emit_user(
+      "inc(X, Y) :- Y is X + 1.\nsign(X, S) :- (X > 0 -> S = positive ; X =:= 0 -> S = zero ; S = negative).\n");
+  check(result.translated == 2, "arith translated == 2");
+  check(result.interpreted == 0, "arith interpreted == 0");
+  check(has(result.source, "if (!rt::arith_is(m, "), "is/2 is a direct call");
+  check(has(result.source, "if (!rt::arith_compare(m, rt::Compare::Gt, "), "> is a direct call");
+  check(has(result.source, "if (!rt::arith_compare(m, rt::Compare::Eq, "), "=:= is a direct call");
+  check(!has(result.source, "std::string_view{\"is\", 2}"), "is/2 is not a callee");
+  check(!has(result.source, "std::string_view{\">\", 1}"), ">/2 is not a callee");
+}
+
 // 計画 Task 7。meta_predicate の述語も訳す。限定する引数だけを、呼び手の文脈（枠の語 1）で M: に包んでから頭部に渡す。
 void meta_translated() {
   const EmitResult result = emit_user(":- meta_predicate twice(0).\ntwice(G) :- call(G), call(G).\n");
@@ -325,6 +338,7 @@ int main() {
   throw_translated();
   catch_translated();
   qualified_translated();
+  arith_translated();
   meta_translated();
   dynamic_skipped();
   japanese_unit();
