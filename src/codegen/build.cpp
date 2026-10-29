@@ -314,12 +314,6 @@ std::string_view install_hint(HostOs os) {
 
 }  // namespace
 
-bool is_msvc(const std::filesystem::path& cxx) {
-  std::string stem = utf8_from_path(cxx.stem());
-  for (char& unit : stem) unit = (unit >= 'A' && unit <= 'Z') ? static_cast<char>(unit - 'A' + 'a') : unit;
-  return stem == "cl";
-}
-
 // emit の CMakeLists.txt は cmake_minimum_required(VERSION 3.25) なので、それより古い CMake では configure が
 // 必ず失敗する。そのときは直接の道で作る。
 bool cmake_new_enough(std::string_view line) {
@@ -351,9 +345,11 @@ void report_write_error(const std::filesystem::path& path, std::error_code error
 }
 
 void report_missing_toolchain(const ToolchainQuery& query) {
-  // 名指しのコンパイラが無いのは綴りか設定の誤りで、導入手順は答えにならない。
+  // 名指しのコンパイラが無いのは綴りか設定の誤りで、導入手順は答えにならない。名指しの cl は vcvarsall を
+  // 通さないので、開発者用のプロンプトの外では PATH に無いのが普通である。その道を案内する。
   if (const auto named = named_compiler(host_toolchain_search(query))) {
     std::cerr << mosac_message("toolchain_named_not_found", {named->program, std::string{named->source}}) << '\n';
+    if (is_msvc(path_from_utf8(named->program))) std::cerr << mosac_message("toolchain_msvc_needs_prompt") << '\n';
   } else {
     std::cerr << mosac_message("toolchain_not_found") << '\n' << mosac_message(install_hint(host_os())) << '\n';
   }
@@ -385,6 +381,10 @@ Built build_cached(const BuildRequest& request) {
   const auto toolchain = find_toolchain(query);
   if (!toolchain) {
     report_missing_toolchain(query);
+    return {};
+  }
+  if (needs_developer_prompt(toolchain->cxx, !toolchain->env.empty(), environment_path("INCLUDE").has_value())) {
+    std::cerr << mosac_message("toolchain_msvc_needs_prompt") << '\n';
     return {};
   }
   // --clean は実行時ライブラリより先に消す。--runtime-source はそれを .mosac-cache/runtime/ に作るので、後で消すと

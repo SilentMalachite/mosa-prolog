@@ -162,6 +162,15 @@ void windows_text() {
                    "cl banner falls back to the first non-empty line");
 }
 
+// 名指しの cl の案内（持ち主の決定 A）。
+void windows_named_cl() {
+  mosa_test::check(mosa::is_msvc("cl") && mosa::is_msvc("C:/VS/bin/CL.EXE") && !mosa::is_msvc("clang-cl"), "is_msvc");
+  mosa_test::check(mosa::needs_developer_prompt("cl", false, false), "a named cl without INCLUDE needs the prompt");
+  mosa_test::check(!mosa::needs_developer_prompt("cl", true, false), "the vcvarsall environment is enough");
+  mosa_test::check(!mosa::needs_developer_prompt("cl.exe", false, true), "a Developer Command Prompt sets INCLUDE");
+  mosa_test::check(!mosa::needs_developer_prompt("g++", false, false), "other compilers never need it");
+}
+
 }  // namespace
 
 int main() {
@@ -170,5 +179,6 @@ int main() {
   default_order_linux();
   nothing_found();
   windows_text();
+  windows_named_cl();
   return mosa_test::failures();
 }

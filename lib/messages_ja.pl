@@ -41,6 +41,7 @@ message(toolchain_not_found, 'mosac: C++20 のコンパイラが見つかりま�
 message(toolchain_named_not_found, 'mosac: コンパイラ ~w（~w で指定）が見つからないか、起動できません').
 message(toolchain_hint_macos, 'Xcode Command Line Tools を入れてください: xcode-select --install').
 message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt install g++').
+message(toolchain_msvc_needs_prompt, 'mosac: cl が Visual Studio の環境無し（INCLUDE が未設定）で動きます。mosac が vcvarsall.bat を呼ぶのはコンパイラを名指ししないときだけです~nVisual Studio の開発者用コマンドプロンプトを開くか、--cxx（と MOSA_CXX、CXX）を外して mosac に vcvarsall.bat を呼ばせてください').
 message(toolchain_hint_windows, 'Visual Studio Build Tools を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://visualstudio.microsoft.com/ja/downloads/').
 
 % mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。

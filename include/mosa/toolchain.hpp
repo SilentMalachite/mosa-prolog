@@ -75,6 +75,11 @@ struct NamedCompiler {
 // cmd に渡すパスは OS の区切りのまま出す（cmd は / を切り替えの印と読み、C:/a/b.bat を命令 C: と引数に分ける）。
 // utf8_from_path が / にそろえるのと対になる。
 [[nodiscard]] std::string native_path_text(const std::filesystem::path& path);
+// cl（MSVC）か。パスの語幹を大文字小文字を区別せずに見る（cl、CL.EXE、C:\VS\cl.exe）。
+[[nodiscard]] bool is_msvc(const std::filesystem::path& cxx);
+// cl を vcvarsall の環境無しで（名指しの cl は vcvarsall を通さない）、INCLUDE も無いまま動かそうとしているか。
+// そのとき mosac build はコンパイルの前に開発者用のプロンプトを案内して止まる。
+[[nodiscard]] bool needs_developer_prompt(const std::filesystem::path& cxx, bool has_vcvars_env, bool include_set);
 // cl を引数なしで起こした出力の見出し「Microsoft (R) C/C++ Optimizing Compiler Version …」の行。ファイルに向けると
 // 使い方の行が先に出るので、Microsoft で始まる最初の行を取り、無ければ最初の空でない行。
 [[nodiscard]] std::string msvc_banner_line(std::string_view text);

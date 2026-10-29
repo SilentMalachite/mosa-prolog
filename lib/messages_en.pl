@@ -41,6 +41,7 @@ message(toolchain_not_found, 'mosac: no C++20 compiler was found').
 message(toolchain_named_not_found, 'mosac: the compiler ~w given by ~w was not found or did not run').
 message(toolchain_hint_macos, 'Install the Xcode Command Line Tools: xcode-select --install').
 message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt install g++').
+message(toolchain_msvc_needs_prompt, 'mosac: cl runs without the Visual Studio environment (INCLUDE is not set), because mosac runs vcvarsall.bat only when no compiler is named~nOpen a Developer Command Prompt for Visual Studio, or omit --cxx (and MOSA_CXX and CXX) so that mosac runs vcvarsall.bat itself').
 message(toolchain_hint_windows, 'Install Visual Studio Build Tools with the "Desktop development with C++" workload: https://visualstudio.microsoft.com/downloads/').
 
 % mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。

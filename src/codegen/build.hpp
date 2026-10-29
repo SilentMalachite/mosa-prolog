@@ -56,8 +56,6 @@ struct RuntimeLayout {
 [[nodiscard]] std::filesystem::path unit_archive(const Toolchain& toolchain, const RuntimeLayout& layout,
                                                  std::string_view name);
 
-// コンパイラが cl（MSVC）か。旗の形とライブラリの名前が変わる。
-[[nodiscard]] bool is_msvc(const std::filesystem::path& cxx);
 // `cmake version 3.31.2` の版が 3.25 以上か。
 [[nodiscard]] bool cmake_new_enough(std::string_view line);
 // 実行ファイルの拡張子（Windows は .exe）と、-o の名前に付けるかどうか。

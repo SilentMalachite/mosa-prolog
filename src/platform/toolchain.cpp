@@ -248,8 +248,6 @@ bool same_name(std::string_view left, std::string_view right) {
   return true;
 }
 
-bool is_msvc(const std::filesystem::path& cxx) { return same_name(utf8_from_path(cxx.stem()), "cl"); }
-
 // gcc と clang は --version の 1 行目。cl は --version を知らず、引数なしで標準エラーに使い方と見出しを出して 0 以外で
 // 終わるので、終了コードを見ずに見出しの行（msvc_banner_line）を取る。起こせないか 0 以外で終わる gcc/clang は
 // 使えないものとして扱う（macOS の /usr/bin/clang++ は Command Line Tools が無いと案内を出して失敗するだけの殻）。
@@ -263,6 +261,18 @@ std::optional<std::string> probe_version(const std::filesystem::path& cxx) {
   if (line.empty()) return std::nullopt;
   return line;
 }
+
+}  // namespace
+
+bool is_msvc(const std::filesystem::path& cxx) { return same_name(utf8_from_path(cxx.stem()), "cl"); }
+
+// 名指しの cl は vcvarsall を通さない（持ち主の決定 A、2026-10-30）。INCLUDE が無ければ標準ヘッダが見つからず、
+// コンパイルの失敗が「内部エラー」に見えるので、その前に開発者用のプロンプトを案内する。
+bool needs_developer_prompt(const std::filesystem::path& cxx, bool has_vcvars_env, bool include_set) {
+  return is_msvc(cxx) && !has_vcvars_env && !include_set;
+}
+
+namespace {
 
 std::optional<std::string> environment_text(std::string_view name) {
   const auto value = environment_path(name);
