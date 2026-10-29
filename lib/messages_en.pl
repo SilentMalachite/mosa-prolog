@@ -103,6 +103,8 @@ message(diff_source_changed, '~w: source changed since mosac emit --units').
 message(diff_mismatch, '~w ~w: outputs differ').
 message(diff_interpreter, '  interpreter: ~w').
 message(diff_translated, '  translated:  ~w').
-message(diff_file, '~w: ~w compared, ~w agree, ~w translated goals').
+message(diff_file, '~w: ~w compared, ~w agree, ~w translated goals, ~w/~w attached').
+message(diff_not_attached, '~w: only ~w of ~w native procedures attached (fingerprint mismatch)').
+message(diff_no_self, 'mosatest: cannot determine its own location').
 message(diff_total, 'agreement ~w/~w, translated predicates ~w/~w (~w%), differences ~w').
 message(mosac_units_skipped, 'mosac: ~w is not translated: ~w').

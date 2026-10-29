@@ -97,6 +97,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/process.cpp
   src/platform/toolchain.cpp
   src/machine/bench.cpp
+  src/machine/answer_text.cpp
   src/machine/diff.cpp
   src/machine/diff_main.cpp
   src/machine/diff_report.cpp

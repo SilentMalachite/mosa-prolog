@@ -111,7 +111,7 @@ DiffArgs parse_diff_args(std::span<const std::string_view> args) {
 int run_diff(const DiffArgs& args) {
   const auto self = executable_path();
   if (!self) {
-    std::cerr << message("bench_not_found", {"mosac"}) << '\n';
+    std::cerr << message("diff_no_self") << '\n';
     return 1;
   }
   const std::filesystem::path work =

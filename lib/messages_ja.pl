@@ -103,6 +103,8 @@ message(diff_source_changed, '~w: mosac emit --units のあとで原文が変わ
 message(diff_mismatch, '~w ~w: 出力が違います').
 message(diff_interpreter, '  インタプリタ: ~w').
 message(diff_translated, '  翻訳:         ~w').
-message(diff_file, '~w: 比較 ~w 件、一致 ~w 件、翻訳したゴール ~w 件').
+message(diff_file, '~w: 比較 ~w 件、一致 ~w 件、翻訳したゴール ~w 件、付けた述語 ~w/~w').
+message(diff_not_attached, '~w: 翻訳した述語のうち付いたのは ~w/~w 個（指紋の不一致）').
+message(diff_no_self, 'mosatest: 自分の場所が分かりません').
 message(diff_total, '一致 ~w/~w、翻訳した述語 ~w/~w（~w%）、違い ~w 件').
 message(mosac_units_skipped, 'mosac: ~w は翻訳しません: ~w').

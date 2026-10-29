@@ -45,7 +45,7 @@ struct ProjectOptions {
   // mosac の在るディレクトリ。生成する CMakeLists.txt の MOSA_RUNTIME_DIR の既定の元で、同梱ライブラリの原文
   // lib/<名前>.pl を比べる場所でもある（計画 Task 10）
   std::string runtime_dir;
-  bool check_calls = true;  // --units（Task 11）は偽にする。存在エラーを確かめるテストも翻訳するため
+  bool check_calls = true;  // 未定義の述語の呼び出しの警告で translate_program を止めるか。translate_units は警告を出さず見ない
   bool trace = false;       // mosac build --debug。生成コードの kTrace を真にする
   bool library = false;     // mosac emit --library。lib/<名前>.pl の単位 <名前>.cpp だけを出す（計画 Task 10）
 };

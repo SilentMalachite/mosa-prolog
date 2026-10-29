@@ -6,6 +6,7 @@
 
 #include "diff.hpp"
 #include "internal.hpp"
+#include "percent.hpp"
 
 #include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
@@ -88,9 +89,20 @@ bool load_interpreter(Machine& machine, const Sides& sides) {
   }
 }
 
+// install_unit が指紋で付けた述語の数。この機械に入れた単位はこのファイルの物だけなので、native を持つ述語を数えれば
+// よい（同梱ライブラリは原文だけで native を持たない）。
+std::size_t attached_count(Machine& machine) {
+  std::size_t count = 0;
+  for (const Predicate& predicate : engine_impl(machine).predicates) {
+    if (predicate.native != nullptr) ++count;
+  }
+  return count;
+}
+
 // 根の単位が include や use_module で読んだモジュールのファイルは、その単位の install_unit が付けるだけになる。
 // 単位の無い根（どの機械でも読めない原文）はインタプリタ側と同じ読み方で、同じ失敗の字面を出す。
-bool load_translated(Machine& machine, const Sides& sides) {
+// attached には付け終えた直後の数を入れる（ADR 0009 の 3。出した生成関数が指紋の不一致で付かなければ呼び手が違いにする）。
+bool load_translated(Machine& machine, const Sides& sides, std::size_t& attached) {
   if (sides.entry.files.front().unit == nullptr) return load_interpreter(machine, sides);
   prepare(machine, sides);
   try {
@@ -98,6 +110,7 @@ bool load_translated(Machine& machine, const Sides& sides) {
       const DiffFile& file = sides.entry.files[index];
       if (file.unit != nullptr && !install_unit(machine, file.unit(sides.texts[index]))) return false;
     }
+    attached = attached_count(machine);
     return true;
   } catch (const ResourceLimit&) {
     return false;
@@ -127,6 +140,13 @@ Outcome compare(const std::string& shown, const std::vector<DiffLine>& left, con
   return out;
 }
 
+// 読み込みの行が failed なら、ゴールは 1 つも流れていない。節にしたゴールを翻訳したとは数えない。
+bool loaded(const std::vector<DiffLine>& lines) {
+  return std::none_of(lines.begin(), lines.end(), [](const DiffLine& line) {
+    return line.label == "load" && line.text.starts_with("failed");
+  });
+}
+
 std::size_t count_goals(DiffStats& stats, const DiffSource& source) {
   std::size_t translated = 0;
   for (const DiffGoal& goal : source.goals) {
@@ -143,6 +163,32 @@ void fail_file(DiffStats& stats, const std::string& line) {
   ++stats.differences;
 }
 
+struct FileCount {
+  Outcome outcome;
+  std::size_t goals = 0;
+  std::size_t attached = 0;
+};
+
+// 付いた述語が出した生成関数より少なければ違いとして数える（ADR 0009 の 3。指紋の不一致を黙って IR に回さない）。
+void note_file(DiffStats& stats, const DiffEntry& entry, const FileCount& count, const std::string& shown) {
+  ++stats.files;
+  stats.compared += count.outcome.compared;
+  stats.agreed += count.outcome.agreed;
+  stats.differences += count.outcome.compared - count.outcome.agreed;
+  stats.predicates += entry.predicates;
+  stats.translated_predicates += entry.translated;
+  stats.attached_predicates += count.attached;
+  if (count.attached < entry.translated) {
+    std::cout << message("diff_not_attached", {shown, std::to_string(count.attached), std::to_string(entry.translated)})
+              << '\n';
+    ++stats.differences;
+  }
+  std::cout << message("diff_file", {shown, std::to_string(count.outcome.compared), std::to_string(count.outcome.agreed),
+                                     std::to_string(count.goals), std::to_string(count.attached),
+                                     std::to_string(entry.translated)})
+            << '\n';
+}
+
 void run_file(const std::filesystem::path& file, const std::filesystem::path& dir, std::span<const DiffEntry> entries,
               DiffStats& stats) {
   const std::string shown = utf8_from_path(file);
@@ -156,30 +202,16 @@ void run_file(const std::filesystem::path& file, const std::filesystem::path& di
   Sides sides{*entry, {}, file, source.lgt};
   for (const DiffFile& item : entry->files) sides.texts.push_back(joined(item.source));
   if (sides.texts.front() != source.source) return fail_file(stats, message("diff_source_changed", {shown}));
+  FileCount count;
   const auto interpreter = run_diff_file(file, dir, source, [&](Machine& machine, const std::filesystem::path&) {
     return load_interpreter(machine, sides);
   });
   const auto translated = run_diff_file(file, dir, source, [&](Machine& machine, const std::filesystem::path&) {
-    return load_translated(machine, sides);
+    return load_translated(machine, sides, count.attached);
   });
-  const Outcome outcome = compare(shown, interpreter, translated);
-  const std::size_t goals = count_goals(stats, source);
-  ++stats.files;
-  stats.compared += outcome.compared;
-  stats.agreed += outcome.agreed;
-  stats.differences += outcome.compared - outcome.agreed;
-  stats.predicates += entry->predicates;
-  stats.translated_predicates += entry->translated;
-  std::cout << message("diff_file", {shown, std::to_string(outcome.compared), std::to_string(outcome.agreed),
-                                     std::to_string(goals)})
-            << '\n';
-}
-
-// 小数第 1 位まで。第 2 位が 5 のときは切り上げる（iso_suite.cpp の合格率と同じ）。
-std::string percent(std::size_t part, std::size_t whole) {
-  if (whole == 0) return "0.0";
-  const std::size_t tenths = (part * 2000 + whole) / (whole * 2);
-  return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10);
+  count.outcome = compare(shown, interpreter, translated);
+  if (loaded(interpreter)) count.goals = count_goals(stats, source);
+  note_file(stats, *entry, count, shown);
 }
 
 std::string label_of(const std::filesystem::path& dir) {
@@ -192,14 +224,15 @@ std::string label_of(const std::filesystem::path& dir) {
 
 int diff_main(int argc, char** argv, std::span<const DiffLibrary> libraries, std::span<const DiffEntry> entries) {
   prepare_console();
+  // 同梱ライブラリは原文だけ。一覧はプロセスで 1 つなので、両方の側（と文面のための新しい機械）が同じ原文を読む。
+  // 使い方の文面も同梱の messages_*.pl から出すので、引数を見る前に入れる。
+  for (const DiffLibrary& library : libraries) bundle_library(library.name, joined(library.source));
   const std::vector<std::string> args = command_line_utf8(argc, argv);
   const Args parsed = parse_args(args);
   if (!parsed.ok) {
     std::cerr << message("diff_usage", {args.empty() ? std::string{"mosa_diff"} : args.front()}) << '\n';
     return 1;
   }
-  // 同梱ライブラリは原文だけ。一覧はプロセスで 1 つなので、両方の側（と文面のための新しい機械）が同じ原文を読む。
-  for (const DiffLibrary& library : libraries) bundle_library(library.name, joined(library.source));
   const std::filesystem::path dir = path_from_utf8(parsed.dir);
   const std::vector<std::filesystem::path> files = diff_files(dir);
   if (files.empty()) {
@@ -210,7 +243,7 @@ int diff_main(int argc, char** argv, std::span<const DiffLibrary> libraries, std
   for (const std::filesystem::path& file : files) run_file(file, dir, entries, stats);
   std::cout << message("diff_total", {std::to_string(stats.agreed), std::to_string(stats.compared),
                                       std::to_string(stats.translated_predicates), std::to_string(stats.predicates),
-                                      percent(stats.translated_predicates, stats.predicates),
+                                      percent_text(stats.translated_predicates, stats.predicates),
                                       std::to_string(stats.differences)})
             << '\n';
   if (!parsed.report.empty() && !write_agreement(path_from_utf8(parsed.report), label_of(dir), stats)) {

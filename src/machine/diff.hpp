@@ -25,6 +25,7 @@ struct DiffGoal {
   std::string query;          // '$mosa_diff_goal'(K, X, Y)。節にしなかったら空
   std::string shape;          // 節にしなかった形（judge、unsupported、unreadable）。節にしたら空
   std::size_t solutions = 1;  // 比べる解の数。tests/pl の solutions([...]) の長さ、ほかは 1
+  bool enumerate = false;     // solutions([...]) の試験。期待の数の後にもう 1 つ next() を比べ、余分な解を見せる
 };
 
 struct DiffSource {
@@ -66,7 +67,8 @@ struct DiffStats {
   std::size_t differences = 0;  // 違った行の数。組み立てられなかったファイルも 1 と数える
   std::size_t translated_goals = 0;
   std::size_t predicates = 0;
-  std::size_t translated_predicates = 0;
+  std::size_t translated_predicates = 0;  // 生成関数を出した述語
+  std::size_t attached_predicates = 0;    // そのうち翻訳側の機械で install_unit が指紋で付けた物（ADR 0009 の 3）
   std::vector<DiffShape> untranslated;
 };
 

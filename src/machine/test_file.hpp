@@ -22,6 +22,7 @@ struct Exam {
   std::string canonical;           // 演算子に頼らない字面（ignore_ops）。差分の節の本体にする
   std::vector<std::string> names;  // ゴールに出る名前のある変数（出現順）。差分の節の頭部の引数の順
   std::size_t solutions = 1;       // 期待が solutions([...]) ならその長さ。差分が比べる解の数
+  bool enumerate = false;          // 期待が solutions([...]) か。差分はその数の後にもう 1 つ解を求めて比べる
 };
 
 // test/3 の事実か。読み込みの横取り（Impl::term_hook）が節にしない項を選ぶ。diff.cpp も同じ形で選ぶ。

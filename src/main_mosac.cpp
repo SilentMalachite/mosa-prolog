@@ -84,8 +84,6 @@ int run_emit(const std::vector<std::string>& args) {
   mosa::codegen::ProjectOptions options;
   options.runtime_dir = runtime_dir();
   options.library = parsed->library;
-  // --units は存在エラーを確かめる試験も翻訳するので、呼び出しの警告で止めない（ProjectOptions の注）。
-  options.check_calls = !parsed->units;
   const mosa::codegen::Project project = parsed->units ? mosa::codegen::translate_units(parsed->source, options)
                                                        : mosa::codegen::translate_program(parsed->source, options);
   // Prolog の誤りは翻訳の段で止め、何も書かずコンパイラも起こさない（SPEC 第6節のエラーの扱い）。

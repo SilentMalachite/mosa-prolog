@@ -2,7 +2,8 @@
 
 // 標準出力と標準エラーを一時的に文字列へ向ける。Prolog の標準の流れは std::cout と std::cerr に書く
 // （builtins/chars.cpp の emit_os、write_pred.cpp の emit_text）ので、差分テストは 1 件ごとにここで受けて両側で比べる。
-// 入れ子にはしない。テストランナーの外には出さない。
+// 入れ子にできる（内側は外側のバッファを覚えて戻すので、外側は内側の後の出力を受け続ける）。テストランナーの外には
+// 出さない。
 
 #include <iostream>
 #include <sstream>

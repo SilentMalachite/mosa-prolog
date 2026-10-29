@@ -1,6 +1,7 @@
 #include "mosa/suite.hpp"
 
 #include "lgt_suite.hpp"
+#include "percent.hpp"
 
 #include "mosa/heap.hpp"
 #include "mosa/path_text.hpp"
@@ -76,11 +77,9 @@ void walk_suite(const std::filesystem::path& root, std::vector<SideNote>& notes,
   }
 }
 
+// 小数第 2 位が 5 のときは切り上げる（percent.hpp）。終了コードはこの表示を見ない。
 std::string percentage(int passed, int denominator) {
-  const auto den = static_cast<long long>(denominator);
-  // 小数第 2 位が 5 のときは切り上げる。終了コードはこの表示を見ない。
-  const auto tenths = (static_cast<long long>(passed) * 2000 + den) / (den * 2);
-  return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10);
+  return percent_text(static_cast<std::size_t>(passed), static_cast<std::size_t>(denominator));
 }
 
 int suite_status(int passed, int denominator) {

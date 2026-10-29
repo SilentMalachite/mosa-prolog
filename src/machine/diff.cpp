@@ -6,6 +6,7 @@
 
 #include "diff.hpp"
 
+#include "answer_text.hpp"
 #include "internal.hpp"
 #include "std_capture.hpp"
 #include "test_file.hpp"
@@ -83,7 +84,7 @@ DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes
   std::vector<Clause> clauses;
   for (std::size_t index = 0; index < exams.size(); ++index) {
     const Exam& exam = exams[index];
-    DiffGoal goal{exam.name, exam.goal, head_text(index + 1, exam.names), {}, exam.solutions};
+    DiffGoal goal{exam.name, exam.goal, head_text(index + 1, exam.names), {}, exam.solutions, exam.enumerate};
     clauses.push_back(Clause{exam.names.size() + 1, goal.query + " :- " + exam.canonical + ".\n"});
     out.goals.push_back(std::move(goal));
   }
@@ -158,26 +159,29 @@ DiffSource lgt_source(const std::string& bytes) {
   return out;
 }
 
-// 答えは問い合わせの変数の名前を使わずに書く。生成コードは頭部の変数を問い合わせのセルに直に結ぶが、IR は節の新しい
-// セルを間に置くので、名前で書くと束縛の中の問い合わせの変数（L = [a,b|L] と [a,b|_]、t(X,W,Y) と t(_G1,_G2,_G1)）の
-// 見え方がセルの同一性で変わる。名前の無い変数は最初の出現の順の _G<n> で、同じ代入なら同じ字面になる。
-// 束縛の無い（変数のままの）名前は書かない。
-std::string render(const Machine& machine, const Stop& stop) {
+// 答えは束縛を 1 つの項 '$a'(V1, ..., Vn)（問い合わせの変数の順）にまとめ、問い合わせの変数の名前を使わずに書く。
+// 生成コードは頭部の変数を問い合わせのセルに直に結ぶが、IR は節の新しいセルを間に置くので、名前で書くと束縛の中の
+// 問い合わせの変数（L = [a,b|L] と [a,b|_]、t(X,W,Y) と t(_G1,_G2,_G1)）の見え方がセルの同一性で変わる。1 回の書き出し
+// の中では名前の無い変数が最初の出現の順の _G<n> になるので、束縛どうしの共有（f(A), g(A)）と束縛の無い変数の別名
+// （X = Y）は残り、同じ代入なら同じ字面になる（ADR 0009 の Review Focus 1 の結び方の違いを隠さない）。
+// 字面は write_term ではなく answer_text（深い項でも C++ のスタックを使わない。answer_text.hpp の注）。
+std::string render(Machine& machine, const Stop& stop) {
   if (stop.kind == StopKind::Halt) return "halt(" + std::to_string(stop.halt_code) + ")";
   if (stop.kind == StopKind::Failure) return "false";
-  WriteOptions options;
-  options.quoted = true;
+  Impl& impl = engine_impl(machine);
   if (stop.kind == StopKind::Exception) {
-    return "exception: " + write_term(machine.heap(), machine.operators(), stop.exception, options, {});
+    return "exception: " + answer_text(impl.heap, impl.operators, stop.exception);
   }
-  std::string text;
+  if (stop.bindings.empty()) return "true";
+  std::string names;
+  std::vector<Cell> parts;
   for (const Binding& binding : stop.bindings) {
-    const Cell value = machine.heap().deref(binding.variable);
-    if (machine.heap().unbound(value)) continue;
-    text += (text.empty() ? "" : ", ") + binding.name + " = " +
-            write_term(machine.heap(), machine.operators(), value, options, {});
+    names += (names.empty() ? "" : ",") + binding.name;
+    parts.push_back(binding.variable);
   }
-  return text.empty() ? std::string{"true"} : text;
+  // 項はヒープの先に置くだけで、次の next() の巻き戻しが捨てる。
+  const Cell answer = impl.heap.structure(impl.atoms.intern("$a"), parts);
+  return "{" + names + "} = " + answer_text(impl.heap, impl.operators, answer);
 }
 
 std::string run_goal(Machine& machine, const DiffGoal& goal) {
@@ -187,6 +191,11 @@ std::string run_goal(Machine& machine, const DiffGoal& goal) {
     Stop stop = machine.query((goal.query.empty() ? goal.plain : goal.query) + ".");
     text = render(machine, stop);
     for (std::size_t index = 1; index < goal.solutions && stop.kind == StopKind::Success; ++index) {
+      stop = machine.next();
+      text += "\n" + render(machine, stop);
+    }
+    // solutions([...]) は期待の数の後にもう 1 つ求め、片方だけが余分な解を持つ違いも見せる。
+    if (goal.enumerate && stop.kind == StopKind::Success) {
       stop = machine.next();
       text += "\n" + render(machine, stop);
     }

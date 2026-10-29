@@ -85,6 +85,7 @@ Exam make_exam(const Machine& machine, Cell term, const std::vector<VarName>& na
   if (expect.tag() == Tag::Str && heap.functor_arity(expect) == 1 &&
       heap.atoms().name(heap.functor_atom(expect)) == "solutions") {
     exam.solutions = std::max<std::size_t>(1, list_items(heap, heap.arg(expect, 0)).size());
+    exam.enumerate = true;
   }
   return exam;
 }

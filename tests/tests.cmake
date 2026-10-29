@@ -45,6 +45,12 @@ target_include_directories(writer_test PRIVATE tests/cpp)
 target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
+# 差分テストの答えの字面（計画 Task 11）。深い項を既定のスタックで書けることまで見る。
+add_executable(answer_text_test tests/cpp/answer_text_test.cpp)
+target_include_directories(answer_text_test PRIVATE tests/cpp src/machine)
+target_link_libraries(answer_text_test PRIVATE mosa_lib)
+add_test(NAME answer_text COMMAND $<TARGET_FILE:answer_text_test>)
+
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
 # テストのパスはリポジトリの根から書く。build の場所に左右されない（計画 Task 15）。
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
@@ -344,11 +350,12 @@ endif()
 # 差分テスト（計画 Task 11、持ち主の決定 1 の B）。ディレクトリごとに 1 つの実行ファイルを mosac emit --units と
 # CMake で作り、インタプリタと翻訳の答え、エラー項、標準出力を 1 バイトずつ比べる。環境は mosatest_bench と同じ
 # （翻訳側の configure を本体と同じ生成器、コンパイラ、旗で行う）。報告 docs/agreement.{json,md} は 2 つのテストが
-# 同じファイルに書くので、RESOURCE_LOCK で同時に走らせない。japanese.pl と native.pl が含まれることも確かめる。
+# 同じファイルに書くので、RESOURCE_LOCK で同時に走らせない。japanese.pl と native.pl が含まれることと、native.pl に
+# 生成関数が 1 つ以上付いたこと（ATTACHED）も確かめる。
 add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/pl -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_tests_pl
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
-  "-DREQUIRE=japanese.pl;native.pl" -DROOT=${CMAKE_SOURCE_DIR}
+  "-DREQUIRE=japanese.pl;native.pl" "-DATTACHED=native.pl" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
 set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
   TIMEOUT 3000)
@@ -357,7 +364,7 @@ set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}
 add_test(NAME diff_conformance COMMAND ${CMAKE_COMMAND}
   -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/conformance -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_conformance
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
-  "-DREQUIRE=" -DROOT=${CMAKE_SOURCE_DIR}
+  "-DREQUIRE=" "-DATTACHED=" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
 set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
   TIMEOUT 3000)
