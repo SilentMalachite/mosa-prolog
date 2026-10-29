@@ -96,6 +96,16 @@ elseif(CASE STREQUAL "cache_reuse")
 elseif(CASE STREQUAL "internal_error")
   set(compiler_env "MOSA_CXX=${FAKE_CXX}")
   set(internal "^内部エラー: 生成コードがコンパイルできません。\\.mosac-cache/[0-9a-f]+/ を添えて報告してください\n$")
+  # 名指しの cl は vcvarsall を通らない（持ち主の決定 A）。INCLUDE が無ければ、コンパイルの前に開発者用のプロンプトを
+  # 案内して止まる。偽の cl を生成コードまで届かせるため、その後は INCLUDE を置いて開発者用のプロンプトの形にする。
+  if(CMAKE_HOST_WIN32)
+    set(compiler_env "--unset=INCLUDE" "MOSA_CXX=${FAKE_CXX}")
+    mosac(build "${SRC}/hello.pl" -o hello)
+    if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: cl が Visual Studio の環境無し" OR err MATCHES "内部エラー")
+      fail("a named cl without INCLUDE must point to a Developer Command Prompt")
+    endif()
+    set(compiler_env "MOSA_CXX=${FAKE_CXX}" "INCLUDE=${WORK}")
+  endif()
   # Windows の偽物は cl.exe の名（tests.cmake）なので、MOSA_NO_CMAKE=0 なら CMake の道を通る。偽の cl では CMake の
   # configure（コンパイラの確かめ）が通らず、それは内部エラーでなく環境の問題として出ること。生成コードの段の
   # 内部エラーは直接の道（mosac_internal_error_direct）で確かめる。
