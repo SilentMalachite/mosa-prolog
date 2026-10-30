@@ -43,6 +43,21 @@ if(NOT code EQUAL 2 OR NOT err MATCHES "8 MiB")
   fail("--heap-max must beat MOSA_HEAP_MAX")
 endif()
 
+# 1 MiB の物差し（loop(1000000) と tak(18,12,6,A)）は、空きを生まない GC の規則（ADR 0010 の改訂 B）で止まらない。
+file(COPY "${SRC}/heap_near_limit.pl" DESTINATION "${WORK}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1 -g yardsticks -t halt heap_near_limit.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+if(NOT code EQUAL 0 OR NOT out MATCHES "tak\\(7\\)")
+  fail("mosa --heap-max 1 must finish loop(1000000) and tak(18,12,6,A)")
+endif()
+
+# 上限の 96% を生かしたまま捨てる項を作り続けると、上限に当たる前に同じ文面と終了コード 2 で止まる。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1 -g thrash heap_near_limit.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+if(NOT code EQUAL 2 OR NOT err MATCHES "1 MiB")
+  fail("mosa --heap-max 1 -g thrash must stop with exit code 2 and say 1 MiB")
+endif()
+
 # 解釈できない値は使い方の誤り（終了コード 1）。
 execute_process(COMMAND "${MOSA}" --heap-max 0 -g true
   OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)

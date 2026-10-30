@@ -152,14 +152,48 @@ void collect_garbage(Impl& machine) {
   if (machine.trace_gc) trace_line(machine, before, after, std::chrono::steady_clock::now() - started);
 }
 
+namespace {
+
+// 空きを生まない GC の基準（ADR 0010 の 2026-10-30 改訂、所有者の決定 B）。上限の 1/32 は、生きているデータが
+// 上限まで 1/16 ほどに迫ったときの 1 回の空き（閾値は L と上限の中ほど）にあたる。3 回は、1 回だけ空きが少ない
+// 波（大きな項を作って捨てる途中）で止めないための猶予である。
+constexpr std::size_t kUnproductiveDivisor = 32;
+constexpr std::size_t kUnproductiveRun = 3;
+
+// 閾値で始めた GC の後に呼ぶ。C が天井にあり、空いた語が上限の 1/32 に満たない GC が続けば、上限での確保と同じ
+// ResourceLimit を投げる。安全点はステップの間なので、途中まで進んだ C++ のコードは無く、受ける場所も同じで済む。
+// 投げる前に数を 0 に戻し、止めた問い合わせの数を受けた側の次の GC へ持ち越さない。
+void judge_collection(Impl& machine, bool at_cap, std::size_t freed) {
+  if (!at_cap || freed >= machine.heap.limit() / kUnproductiveDivisor) {
+    machine.gc_unproductive = 0;
+    return;
+  }
+  if (++machine.gc_unproductive < kUnproductiveRun) return;
+  machine.gc_unproductive = 0;
+  throw ResourceLimit("heap_limit");
+}
+
+}  // namespace
+
 void gc_safe_point(Impl& machine) {
   if (machine.gc_stress == 0 && machine.heap.size() < machine.gc_threshold) return;
-  bool due = machine.heap.size() >= machine.gc_threshold;
+  const bool by_threshold = machine.heap.size() >= machine.gc_threshold;
+  bool due = by_threshold;
   if (machine.gc_stress != 0 && ++machine.gc_ticks >= machine.gc_stress) {
     machine.gc_ticks = 0;
     due = true;
   }
-  if (due) collect_garbage(machine);
+  if (!due) return;
+  // ストレスだけで来た GC は上限の近さと関係なく回るので数えない。GcInhibit の下では回収せず空きが 0 に見えるので、
+  // 数えると回収していないのに止まる。
+  if (!by_threshold || machine.gc_inhibit > 0) {
+    collect_garbage(machine);
+    return;
+  }
+  const bool at_cap = machine.gc_capacity >= capacity_cap(machine.heap.limit());
+  const std::size_t before = machine.heap.size();
+  collect_garbage(machine);
+  judge_collection(machine, at_cap, before - machine.heap.size());
 }
 
 }  // namespace mosa

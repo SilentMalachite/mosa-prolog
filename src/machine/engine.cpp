@@ -550,6 +550,8 @@ Stop Machine::query(std::string_view goal_text) {
   machine.trail.mark = nullptr;
   machine.extras.clear();
   machine.heap.truncate(0);
+  // 空きを生まない GC の連続は 1 つの問い合わせの中だけで数える（ADR 0010 の改訂 B）。
+  machine.gc_unproductive = 0;
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;

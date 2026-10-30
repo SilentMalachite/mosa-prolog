@@ -353,6 +353,9 @@ struct Machine::Impl {
   std::size_t gc_threshold = 0;
   // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
   std::size_t gc_trigger = 0;
+  // C が天井にあるとき、閾値で始めた GC のうち空きを生まなかったものの連続回数（ADR 0010 の改訂 B）。
+  // 書くのは gc.cpp の安全点（judge_collection）と、問い合わせの始まりで 0 に戻す Machine::query だけ。
+  std::size_t gc_unproductive = 0;
   // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
