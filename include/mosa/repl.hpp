@@ -1,5 +1,7 @@
 #pragma once
 
+#include "mosa/heap.hpp"
+
 #include <cstddef>
 #include <iosfwd>
 #include <span>
@@ -17,7 +19,7 @@ struct SessionResult {
 };
 
 [[nodiscard]] SessionResult run_session(std::span<const std::string_view> args, std::string_view input, bool tty,
-                                       std::size_t heap_limit = std::size_t{1} << 20,
+                                       std::size_t heap_limit = kDefaultHeapMax,
                                        std::ostream* live_out = nullptr, std::ostream* live_err = nullptr);
 
 // 読み込み済みの machine の上で REPL だけを動かす（mosac build --interactive。計画 Task 14）。標準入力が端末でなくても

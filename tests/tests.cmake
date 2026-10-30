@@ -56,6 +56,11 @@ add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOUR
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+add_executable(heap_growth_test tests/cpp/heap_growth_test.cpp)
+target_include_directories(heap_growth_test PRIVATE tests/cpp)
+target_link_libraries(heap_growth_test PRIVATE mosa_lib)
+add_test(NAME heap_growth COMMAND $<TARGET_FILE:heap_growth_test>)
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -350,6 +355,16 @@ add_test(NAME mosac_long_list COMMAND ${CMAKE_COMMAND}
   "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/long_list_test.cmake)
 set_tests_properties(mosac_long_list PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# ヒープの上限（--heap-max / MOSA_HEAP_MAX）で止まる。mosac run は終了コード 2 と上限の MiB を出す。
+# REPL は repl_ref（端末でなくても REPL にする）で、止まったあとの次の問い合わせに答える。
+add_test(NAME mosac_heap_limit COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DREF=$<TARGET_FILE:repl_ref>
+  -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_heap_limit
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/heap_limit_test.cmake)
+set_tests_properties(mosac_heap_limit PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
 # cmake --install を一時の prefix に行い、SPEC 第6節の形と、インストールした mosac での build を確かめる。

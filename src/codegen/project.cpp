@@ -282,7 +282,7 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
       return fail_with(message_text(impl, "mosac_catalog_missing", {std::string{machine->diagnostic()}}));
     }
   } catch (const ResourceLimit&) {
-    return fail_with(message_text(impl, "heap_limit"));
+    return fail_with(heap_limit_text(impl));
   }
   impl.translation = nullptr;
   if (log.files.empty()) return fail_with(message_text(impl, "cannot_open_file", {path}));

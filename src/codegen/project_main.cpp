@@ -60,7 +60,7 @@ std::string file_lines(const Impl& machine, const TranslationLog& log, const Pro
 }
 
 std::string main_body(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan, bool interactive) {
-  std::string out = "int main(int argc, char** argv) {\n  auto machine = mosa::Machine::create(std::size_t{1} << 20);\n";
+  std::string out = "int main(int argc, char** argv) {\n  auto machine = mosa::Machine::create(mosa::rt::heap_max_from_env());\n";
   out += "  mosa::rt::start(*machine, argc, argv);\n" + file_lines(machine, log, plan) + "  bool loaded = true;\n";
   for (const UnitPlan& unit : plan.units) {
     out += "  loaded = loaded && mosa::rt::install_unit(*machine, mosa_gen::" + unit_stem(machine, unit.module) +

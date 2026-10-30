@@ -78,7 +78,7 @@ DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes
       return out;
     }
   } catch (const ResourceLimit&) {
-    out.error = message_text(engine_impl(*scratch), "heap_limit");
+    out.error = heap_limit_text(engine_impl(*scratch));
     return out;
   }
   std::vector<Clause> clauses;

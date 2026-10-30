@@ -40,7 +40,7 @@ class Machine {
  public:
   struct Impl;
 
-  [[nodiscard]] static std::unique_ptr<Machine> create(std::size_t heap_limit = std::size_t{1} << 20);
+  [[nodiscard]] static std::unique_ptr<Machine> create(std::size_t heap_limit = kDefaultHeapMax);
   ~Machine();
 
   Machine(const Machine&) = delete;

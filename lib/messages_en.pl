@@ -5,6 +5,7 @@
 
 message(goal_raised, 'Warning: goal raised exception: ~q').
 message(heap_limit, 'Warning: heap limit exceeded').
+message(heap_limit_size, 'The heap reached its limit (~w MiB); the query was stopped').
 message(help_japanese_variables, 'Variables with Japanese names start with an underscore, as in _太郎. Without it, 太郎 is an atom.').
 
 % 構文エラー（ADR 0007）。理由の鍵は syntax_error(Key) の Key と同じ。

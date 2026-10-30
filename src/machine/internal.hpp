@@ -370,6 +370,9 @@ struct Compiled {
 [[nodiscard]] std::string message_text(const Impl& machine, std::string_view key,
                                        std::initializer_list<std::string_view> args = {});
 
+// ヒープが上限に達したときの文面。上限は MiB で添える（ADR 0010）。
+[[nodiscard]] std::string heap_limit_text(const Impl& machine);
+
 [[nodiscard]] Impl& engine_impl(Machine& machine);
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);
 

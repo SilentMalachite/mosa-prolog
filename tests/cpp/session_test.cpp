@@ -90,11 +90,11 @@ void check_resource_limit_session() {
   std::vector<std::string_view> args{arg0, arg_g, goal};
   auto batch = mosa::run_session(args, "", false, 8);
   mosa_test::check(batch.code == 2, "resource batch exit");
-  mosa_test::check(batch.err.find("ヒープの上限を超えました") != std::string::npos, "resource warning");
+  mosa_test::check(batch.err.find("ヒープが上限（1 MiB）に達した") != std::string::npos, "resource warning");
   mosa_test::check(batch.out.find("?- ") == std::string::npos, "resource batch no prompt");
   auto talk = mosa::run_session(args, "\n", true, 8);
   mosa_test::check(talk.code == 0, "resource tty stays up");
-  mosa_test::check(talk.err.find("ヒープの上限を超えました") != std::string::npos, "resource tty warning");
+  mosa_test::check(talk.err.find("ヒープが上限（1 MiB）に達した") != std::string::npos, "resource tty warning");
   mosa_test::check(talk.out.find("?- ") != std::string::npos, "resource tty prompt");
 }
 

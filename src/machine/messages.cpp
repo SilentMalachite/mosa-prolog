@@ -6,6 +6,7 @@
 
 #include "mosa/exe_path.hpp"
 #include "mosa/heap.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/writer.hpp"
 
@@ -104,6 +105,10 @@ std::string render_message_fresh(MessageLanguage language, std::string_view key,
   } catch (const ResourceLimit&) {
     return plain_text(key, args);
   }
+}
+
+std::string heap_limit_text(const Impl& machine) {
+  return message_text(machine, "heap_limit_size", {heap_limit_mib_text(machine.heap.limit())});
 }
 
 std::string message_text(const Impl& machine, std::string_view key, std::initializer_list<std::string_view> args) {

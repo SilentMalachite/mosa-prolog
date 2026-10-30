@@ -6,6 +6,7 @@
 #include "../core/fnv.hpp"
 
 #include "mosa/goal_word.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/path_text.hpp"
 
 #include <algorithm>
@@ -124,10 +125,11 @@ bool load_unit(Impl& machine, const rt::NativeUnit& unit) {
   if (std::find(machine.prepared.begin(), machine.prepared.end(), key) != machine.prepared.end()) return true;
   try {
     if (load_source(machine, unit.source, utf8_from_path(path_from_utf8(key).parent_path()), key).ok) return true;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     // 上限に達したヒープではカタログを読めない。message_text は新しいマシンで文面を作る。
     machine.heap.truncate(0);
-    machine.diagnostic = message_text(machine, "heap_limit");
+    machine.diagnostic = heap_limit_text(machine);
     machine.load_heap_limit = true;
     return false;
   }

@@ -1,9 +1,12 @@
 #include "mosa/heap.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
+#include <utility>
 
 namespace mosa {
 namespace {
@@ -15,24 +18,48 @@ std::uint64_t tagged(std::uint64_t payload, Tag tag) {
   return payload | static_cast<std::uint64_t>(tag);
 }
 
+// 伸ばす単位は 1 MiB（語で 2^17）。小刻みに mprotect/VirtualAlloc を呼ばないための粒度。
+constexpr std::size_t k_commit_step = std::size_t{1} << 17;
+
+AddressRange reserve_or_throw(std::size_t limit) {
+  // 語数からバイト数への掛け算があふれる上限は、予約できないものとして同じ止め方にする。
+  if (limit > std::numeric_limits<std::size_t>::max() / sizeof(std::uint64_t)) throw ResourceLimit("heap_limit");
+  auto range = AddressRange::reserve(limit * sizeof(std::uint64_t));
+  if (!range) throw ResourceLimit("heap_limit");
+  return std::move(*range);
+}
+
 }  // namespace
 
-Heap::Heap(AtomTable& atoms, std::size_t limit) : atoms_(atoms), limit_(limit), words_(limit) {}
+Heap::Heap(AtomTable& atoms, std::size_t limit)
+    : atoms_(atoms), limit_(limit), range_(reserve_or_throw(limit)) {
+  grow(std::min(kInitialHeapCommit, limit));
+}
+
+void Heap::grow(std::size_t need) {
+  const std::size_t rounded = (need + k_commit_step - 1) / k_commit_step * k_commit_step;
+  const std::size_t target = std::min(rounded, limit_);
+  if (target < need || !range_.commit(target * sizeof(std::uint64_t))) throw ResourceLimit("heap_limit");
+  committed_words_ = target;
+}
 
 void Heap::truncate(std::size_t size) { used_ = size; }
 
+void Heap::reset_size_after_gc(std::size_t used) { used_ = used; }
+
 std::size_t Heap::allocate_words(std::size_t count) {
   const auto* slot = allocate(count);
-  return static_cast<std::size_t>(slot - words_.data());
+  return static_cast<std::size_t>(slot - range_.words());
 }
 
-std::uint64_t Heap::word_at(std::size_t index) const { return words_[index]; }
+std::uint64_t Heap::word_at(std::size_t index) const { return range_.words()[index]; }
 
-void Heap::set_word(std::size_t index, std::uint64_t value) { words_[index] = value; }
+void Heap::set_word(std::size_t index, std::uint64_t value) { range_.words()[index] = value; }
 
 std::uint64_t* Heap::allocate(std::size_t count) {
   if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("heap_limit");
-  auto* slot = words_.data() + used_;
+  if (used_ + count > committed_words_) grow(used_ + count);
+  auto* slot = range_.words() + used_;
   used_ += count;
   return slot;
 }

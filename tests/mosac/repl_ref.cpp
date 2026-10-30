@@ -3,6 +3,7 @@
 
 #include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/repl.hpp"
 
 #include <iostream>
@@ -14,5 +15,5 @@ int main(int argc, char** argv) {
   mosa::prepare_console();
   const std::vector<std::string> owned = mosa::command_line_utf8(argc, argv);
   const std::vector<std::string_view> args(owned.begin(), owned.end());
-  return mosa::run_session(args, std::string_view{}, true, std::size_t{1} << 20, &std::cout, &std::cerr).code;
+  return mosa::run_session(args, std::string_view{}, true, mosa::heap_max_from_environment(), &std::cout, &std::cerr).code;
 }

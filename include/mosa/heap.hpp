@@ -1,7 +1,9 @@
 #pragma once
 
-// 語の番地をセルに書く。コンストラクタで一度だけ確保し、再配置しない。
+// 語の番地をセルに書く。コンストラクタで上限までの番地を予約し（ADR 0010）、使う分だけ commit で足す。
+// 予約した範囲は動かないので、伸びても確保済みの語の番地は変わらない。
 
+#include "mosa/address_range.hpp"
 #include "mosa/atom.hpp"
 #include "mosa/cell.hpp"
 
@@ -9,7 +11,6 @@
 #include <cstdint>
 #include <exception>
 #include <span>
-#include <vector>
 
 namespace mosa {
 
@@ -22,18 +23,27 @@ class ResourceLimit : public std::exception {
   const char* message_;
 };
 
+// どちらも語の数。4 GiB は 2^29 語。起動時に commit する量は min(kInitialHeapCommit, 上限)。
+inline constexpr std::size_t kDefaultHeapMax = std::size_t{1} << 29;
+inline constexpr std::size_t kInitialHeapCommit = std::size_t{1} << 20;
+
 class Heap {
  public:
-  explicit Heap(AtomTable& atoms, std::size_t limit = std::size_t{1} << 20);
+  // limit は伸ばせる上限（語）。予約が断られたら ResourceLimit("heap_limit")。
+  explicit Heap(AtomTable& atoms, std::size_t limit = kDefaultHeapMax);
   Heap(const Heap&) = delete;
   Heap& operator=(const Heap&) = delete;
 
   [[nodiscard]] AtomTable& atoms() const { return atoms_; }
   [[nodiscard]] std::size_t limit() const { return limit_; }
   [[nodiscard]] std::size_t size() const { return used_; }
-  [[nodiscard]] std::size_t capacity() const { return words_.size(); }
-  [[nodiscard]] const std::uint64_t* data() const { return words_.data(); }
+  // 今 commit してある語数。上限（limit）までの途中の段階であり、allocate が足りなければ伸ばす。
+  [[nodiscard]] std::size_t committed() const { return committed_words_; }
+  [[nodiscard]] std::size_t capacity() const { return committed_words_; }
+  [[nodiscard]] const std::uint64_t* data() const { return range_.words(); }
   void truncate(std::size_t size);
+  // GC が生きている語を詰めたあとの大きさ。truncate と同じ動きだが、呼ぶ意図を名前で分ける。
+  void reset_size_after_gc(std::size_t used);
 
   // ゴール枠は項のタグを付けない。返る添字から count 語を呼んだ側が埋める。
   [[nodiscard]] std::size_t allocate_words(std::size_t count);
@@ -61,13 +71,16 @@ class Heap {
 
  private:
   [[nodiscard]] std::uint64_t* allocate(std::size_t count);
+  // need 語までを commit する。1 MiB 単位に切り上げ、上限か OS の断りで ResourceLimit。
+  void grow(std::size_t need);
   [[nodiscard]] const std::uint64_t* pointer(Cell cell) const;
 
   AtomTable& atoms_;
   std::size_t limit_;
   std::size_t used_ = 0;
-  // 全容量を構築時に置く。size() は使った語数であり、vector の再配置は起こさない。
-  std::vector<std::uint64_t> words_;
+  // 上限までの番地を構築時に予約する。size() は使った語数、committed_words_ は使える語数。
+  AddressRange range_;
+  std::size_t committed_words_ = 0;
 };
 
 }

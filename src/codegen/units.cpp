@@ -74,7 +74,7 @@ bool read_for_translation(Machine& machine, const std::filesystem::path& file, c
     }
     diagnostic = std::string{machine.diagnostic()};
   } catch (const ResourceLimit&) {
-    diagnostic = message_text(impl, "heap_limit");
+    diagnostic = heap_limit_text(impl);
   }
   return false;
 }

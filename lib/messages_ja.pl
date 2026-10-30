@@ -5,6 +5,7 @@
 
 message(goal_raised, '警告: ゴールは例外を送出しました: ~q').
 message(heap_limit, '警告: ヒープの上限を超えました').
+message(heap_limit_size, 'ヒープが上限（~w MiB）に達したので、問い合わせを止めました').
 message(help_japanese_variables, '日本語の名前の変数は _太郎 のように下線で始める。下線の無い 太郎 は原子である。').
 
 % 構文エラー（ADR 0007）。理由の鍵は syntax_error(Key) の Key と同じ。

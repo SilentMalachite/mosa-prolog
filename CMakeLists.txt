@@ -76,6 +76,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/answer.cpp
   src/machine/consult.cpp
   src/machine/session.cpp
+  src/machine/heap_option.cpp
   src/machine/messages.cpp
   src/machine/suite.cpp
   src/machine/iso_suite.cpp
