@@ -14,6 +14,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -109,7 +111,10 @@ bool as_local(const VarIds& ids, std::size_t index, Cell cell) {
   return ids.hidden != nullptr && listed(*ids.hidden, cell);
 }
 
-void collect_free(const Impl& machine, Cell term, std::vector<Cell>& vars, std::vector<std::uint64_t>& seen) {
+// 1 つの項を見る。変数なら vars に足し、まだ見ていない複合項なら子を右から pending に積む。右から積むので、
+// 取り出す順は前の再帰と同じ左からの前順になり、vars の並びも変わらない。
+void free_one(const Impl& machine, Cell term, std::vector<Cell>& vars, std::unordered_set<std::uint64_t>& seen,
+              std::vector<Cell>& pending) {
   if (term.tag() == Tag::Ref) {
     const Cell value = machine.heap.deref(term);
     if (machine.heap.unbound(value)) {
@@ -121,17 +126,24 @@ void collect_free(const Impl& machine, Cell term, std::vector<Cell>& vars, std::
     term = machine.heap.deref(term);
   }
   if (machine.heap.unbound(term) || (term.tag() != Tag::Lis && term.tag() != Tag::Str)) return;
-  for (const auto raw : seen) {
-    if (raw == term.raw()) return;
-  }
-  seen.push_back(term.raw());
+  if (!seen.insert(term.raw()).second) return;
   if (term.tag() == Tag::Lis) {
-    collect_free(machine, machine.heap.list_head(term), vars, seen);
-    collect_free(machine, machine.heap.list_tail(term), vars, seen);
+    pending.push_back(machine.heap.list_tail(term));
+    pending.push_back(machine.heap.list_head(term));
     return;
   }
-  for (std::uint16_t index = 0; index < machine.heap.functor_arity(term); ++index) {
-    collect_free(machine, machine.heap.arg(term, index), vars, seen);
+  for (std::uint16_t index = machine.heap.functor_arity(term); index > 0; --index) {
+    pending.push_back(machine.heap.arg(term, static_cast<std::uint16_t>(index - 1)));
+  }
+}
+
+// 深い項でも C++ のスタックを使わないよう、まだ見ていない項を手で積む（ADR 0011）。
+void collect_free(const Impl& machine, Cell term, std::vector<Cell>& vars, std::unordered_set<std::uint64_t>& seen) {
+  std::vector<Cell> pending{term};
+  while (!pending.empty()) {
+    const Cell next = pending.back();
+    pending.pop_back();
+    free_one(machine, next, vars, seen, pending);
   }
 }
 
@@ -145,7 +157,7 @@ bool is_caret(const Impl& machine, Cell cell) {
 Cell strip_caret(Impl& machine, Cell goal, std::vector<Cell>& hidden) {
   goal = machine.heap.deref(goal);
   while (is_caret(machine, goal)) {
-    std::vector<std::uint64_t> seen;
+    std::unordered_set<std::uint64_t> seen;
     collect_free(machine, machine.heap.arg(goal, 0), hidden, seen);
     goal = machine.heap.deref(machine.heap.arg(goal, 1));
   }
@@ -165,8 +177,8 @@ std::vector<Cell> witness_vars(const std::vector<Cell>& goal_vars, const std::ve
 std::vector<Cell> free_witnesses(Impl& machine, Cell goal, Cell templ, const std::vector<Cell>& hidden) {
   std::vector<Cell> goal_vars;
   std::vector<Cell> templ_vars;
-  std::vector<std::uint64_t> seen_goal;
-  std::vector<std::uint64_t> seen_templ;
+  std::unordered_set<std::uint64_t> seen_goal;
+  std::unordered_set<std::uint64_t> seen_templ;
   collect_free(machine, goal, goal_vars, seen_goal);
   collect_free(machine, templ, templ_vars, seen_templ);
   return witness_vars(goal_vars, templ_vars, hidden);
@@ -257,50 +269,82 @@ void note_alias(const Impl& machine, VarIds& ids) {
   }
 }
 
-Cell encode(Impl& machine, Cell cell, VarIds& ids, std::vector<std::pair<std::uint64_t, Cell>>& seen,
-            std::uint32_t external, std::uint32_t renaming) {
-  cell = machine.heap.deref(cell);
-  if (machine.heap.unbound(cell)) {
-    if (const int home = ids.outside(cell.raw()); home >= 0) {
-      return marker_for(machine, external, kept_id(ids, home));
+// 鍵に写す途中の複合項 1 つ分。穴を先に作って seen に置き、子をすべて写してから本体を作って穴に束縛する。
+struct EncodeFrame {
+  Cell hole;
+  Cell cell;
+  std::uint16_t next;
+  std::uint16_t arity;
+  std::vector<Cell> args;
+};
+
+struct Encoder {
+  Impl& machine;
+  VarIds& ids;
+  std::unordered_map<std::uint64_t, Cell>& seen;
+  std::uint32_t external;
+  std::uint32_t renaming;
+  std::vector<EncodeFrame> frames;
+
+  // 葉はその場で写し、まだ見ていない複合項は穴を返して frames に積む。
+  Cell start(Cell cell) {
+    cell = machine.heap.deref(cell);
+    if (machine.heap.unbound(cell)) {
+      if (const int home = ids.outside(cell.raw()); home >= 0) {
+        return marker_for(machine, external, kept_id(ids, home));
+      }
+      const auto index = heap_index(machine, cell);
+      const bool local = as_local(ids, index, cell);
+      const auto name = local ? renaming : external;
+      return marker_for(machine, name, ids.id_of(index, cell.raw(), local));
     }
-    const auto index = heap_index(machine, cell);
-    const bool local = as_local(ids, index, cell);
-    const auto name = local ? renaming : external;
-    return marker_for(machine, name, ids.id_of(index, cell.raw(), local));
-  }
-  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
-  for (const auto& item : seen) {
-    if (item.first == cell.raw()) return item.second;
-  }
-  const Cell hole = machine.heap.fresh_ref();
-  seen.emplace_back(cell.raw(), hole);
-  Cell built;
-  if (cell.tag() == Tag::Lis) {
-    const Cell head = encode(machine, machine.heap.list_head(cell), ids, seen, external, renaming);
-    const Cell tail = encode(machine, machine.heap.list_tail(cell), ids, seen, external, renaming);
-    built = machine.heap.list(head, tail);
-  } else {
+    if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
+    if (const auto found = seen.find(cell.raw()); found != seen.end()) return found->second;
+    const Cell hole = machine.heap.fresh_ref();
+    seen.emplace(cell.raw(), hole);
+    const std::uint16_t arity = cell.tag() == Tag::Lis ? 2 : machine.heap.functor_arity(cell);
     std::vector<Cell> args;
-    const auto arity = machine.heap.functor_arity(cell);
     args.reserve(arity);
-    for (std::uint16_t index = 0; index < arity; ++index) {
-      args.push_back(encode(machine, machine.heap.arg(cell, index), ids, seen, external, renaming));
-    }
-    built = machine.heap.structure(machine.heap.functor_atom(cell), args);
+    frames.push_back(EncodeFrame{hole, cell, 0, arity, std::move(args)});
+    return hole;
   }
-  machine.heap.bind(hole, built);
-  return hole;
-}
+
+  Cell child(const EncodeFrame& frame) const {
+    if (frame.cell.tag() == Tag::Lis) {
+      return frame.next == 0 ? machine.heap.list_head(frame.cell) : machine.heap.list_tail(frame.cell);
+    }
+    return machine.heap.arg(frame.cell, frame.next);
+  }
+
+  // 前の再帰と同じ順にヒープを割り当てる。子を 1 つ写し終えるまで次の兄弟へ進まない（ADR 0011）。
+  Cell run(Cell cell) {
+    const Cell result = start(cell);
+    while (!frames.empty()) {
+      EncodeFrame& top = frames.back();
+      if (top.next == top.arity) {
+        const Cell built = top.cell.tag() == Tag::Lis
+                               ? machine.heap.list(top.args[0], top.args[1])
+                               : machine.heap.structure(machine.heap.functor_atom(top.cell), top.args);
+        machine.heap.bind(top.hole, built);
+        frames.pop_back();
+        continue;
+      }
+      const Cell next = child(top);
+      ++top.next;
+      // start が frames を伸ばすと top は無効になるので、子の値は伸ばす前の位置へ添字で書く。
+      const std::size_t at = frames.size() - 1;
+      const Cell value = start(next);
+      frames[at].args.push_back(value);
+    }
+    return result;
+  }
+};
 
 Cell coded_key(Impl& machine, const std::vector<Cell>& witnesses, VarIds& ids) {
   std::vector<Cell> key_items;
-  std::vector<std::pair<std::uint64_t, Cell>> seen;
-  const auto external = machine.atoms.intern("$witness");
-  const auto renaming = machine.atoms.intern("$rename");
-  for (const Cell& var : witnesses) {
-    key_items.push_back(encode(machine, var, ids, seen, external, renaming));
-  }
+  std::unordered_map<std::uint64_t, Cell> seen;
+  Encoder encoder{machine, ids, seen, machine.atoms.intern("$witness"), machine.atoms.intern("$rename"), {}};
+  for (const Cell& var : witnesses) key_items.push_back(encoder.run(var));
   return list_from_cells(machine, key_items);
 }
 
@@ -325,13 +369,6 @@ int image_list(Image& image, std::uint32_t nil, const std::vector<int>& kids) {
   return tail;
 }
 
-int found_node(const std::vector<std::pair<std::uint64_t, int>>& seen, std::uint64_t raw) {
-  for (const auto& item : seen) {
-    if (item.first == raw) return item.second;
-  }
-  return -1;
-}
-
 int copy_scalar(Impl& machine, Cell cell, Image& image) {
   CopyNode node;
   if (cell.tag() == Tag::Atom) {
@@ -347,54 +384,82 @@ int copy_scalar(Impl& machine, Cell cell, Image& image) {
   return push_node(image, std::move(node));
 }
 
-int copy_cell(Impl& machine, Cell cell, Image& image, std::vector<std::pair<std::uint64_t, int>>& seen, VarIds& ids) {
-  cell = machine.heap.deref(cell);
-  if (const int prior = found_node(seen, cell.raw()); prior >= 0 &&
-                                                        (machine.heap.unbound(cell) || cell.tag() == Tag::Lis ||
-                                                         cell.tag() == Tag::Str)) {
-    return prior;
-  }
-  if (machine.heap.unbound(cell)) {
-    if (const int home = ids.outside(cell.raw()); home >= 0) {
-      CopyNode node;
-      node.kind = CopyKind::Ext;
-      node.id = kept_id(ids, home);
-      const int at = push_node(image, std::move(node));
-      seen.emplace_back(cell.raw(), at);
-      return at;
-    }
-    CopyNode node;
+using NodeSeen = std::unordered_map<std::uint64_t, int>;
+
+// 像に写す途中の複合項 1 つ分。kids は image.nodes[id] に直に足す。nodes は伸びるので添字で持つ。
+struct CopyFrame {
+  int id;
+  Cell cell;
+  std::uint16_t next;
+  std::uint16_t arity;
+};
+
+int copy_var(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids) {
+  CopyNode node;
+  if (const int home = ids.outside(cell.raw()); home >= 0) {
+    node.kind = CopyKind::Ext;
+    node.id = kept_id(ids, home);
+  } else {
     const auto index = heap_index(machine, cell);
     const bool local = as_local(ids, index, cell);
     node.kind = local ? CopyKind::Loc : CopyKind::Ext;
     node.id = ids.id_of(index, cell.raw(), local);
-    const int at = push_node(image, std::move(node));
-    seen.emplace_back(cell.raw(), at);
-    return at;
   }
-  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return copy_scalar(machine, cell, image);
-  const int at = push_node(image, CopyNode{});
-  seen.emplace_back(cell.raw(), at);
+  const int at = push_node(image, std::move(node));
+  seen.emplace(cell.raw(), at);
+  return at;
+}
+
+// 1 つの項に番号を振る。複合項は番号だけ先に取って frames に積む。前の再帰と同じ前順の番号になる。
+int copy_one(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids, std::vector<CopyFrame>& frames) {
+  cell = machine.heap.deref(cell);
+  const bool compound = cell.tag() == Tag::Lis || cell.tag() == Tag::Str;
+  if (machine.heap.unbound(cell) || compound) {
+    if (const auto found = seen.find(cell.raw()); found != seen.end()) return found->second;
+  }
+  if (machine.heap.unbound(cell)) return copy_var(machine, cell, image, seen, ids);
+  if (!compound) return copy_scalar(machine, cell, image);
   CopyNode node;
+  std::uint16_t arity = 2;
   if (cell.tag() == Tag::Lis) {
     node.kind = CopyKind::List;
-    node.kids.push_back(copy_cell(machine, machine.heap.list_head(cell), image, seen, ids));
-    node.kids.push_back(copy_cell(machine, machine.heap.list_tail(cell), image, seen, ids));
   } else {
     node.kind = CopyKind::Str;
     node.atom = machine.heap.functor_atom(cell);
     node.arity = machine.heap.functor_arity(cell);
-    for (std::uint16_t index = 0; index < node.arity; ++index) {
-      node.kids.push_back(copy_cell(machine, machine.heap.arg(cell, index), image, seen, ids));
-    }
+    arity = node.arity;
   }
-  image.nodes[static_cast<std::size_t>(at)] = std::move(node);
+  node.kids.reserve(arity);
+  const int at = push_node(image, std::move(node));
+  seen.emplace(cell.raw(), at);
+  frames.push_back(CopyFrame{at, cell, 0, arity});
   return at;
+}
+
+// 深い項でも C++ のスタックを使わないよう、祖先を frames に手で積む（ADR 0011）。
+int copy_cell(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids) {
+  std::vector<CopyFrame> frames;
+  const int root = copy_one(machine, cell, image, seen, ids, frames);
+  while (!frames.empty()) {
+    CopyFrame& top = frames.back();
+    if (top.next == top.arity) {
+      frames.pop_back();
+      continue;
+    }
+    const int parent = top.id;
+    const Cell child = top.cell.tag() == Tag::Lis
+                           ? (top.next == 0 ? machine.heap.list_head(top.cell) : machine.heap.list_tail(top.cell))
+                           : machine.heap.arg(top.cell, top.next);
+    ++top.next;
+    const int kid = copy_one(machine, child, image, seen, ids, frames);
+    image.nodes[static_cast<std::size_t>(parent)].kids.push_back(kid);
+  }
+  return root;
 }
 
 Image snapshot(Impl& machine, const std::vector<Cell>& witnesses, Cell templ, VarIds& ids) {
   Image image;
-  std::vector<std::pair<std::uint64_t, int>> seen;
+  NodeSeen seen;
   std::vector<int> kids;
   kids.reserve(witnesses.size());
   for (const Cell& var : witnesses) kids.push_back(copy_cell(machine, var, image, seen, ids));

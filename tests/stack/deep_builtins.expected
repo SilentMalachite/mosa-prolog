@@ -10,6 +10,7 @@ is_list_cyclic:ok
 copy_term:ok
 findall:ok
 bagof:ok
+bagof_witness:ok
 compare:ok
 eq:ok
 term_variables:ok

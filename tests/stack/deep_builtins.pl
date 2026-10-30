@@ -12,6 +12,10 @@ nest(N, X, Y) :- M is N - 1, nest(M, f(X), Y).
 count(0, L, L) :- !.
 count(N, L0, L) :- M is N - 1, count(M, [N|L0], L).
 
+% lists ライブラリを読まずに済むよう、member/2 と同じものをここに置く。
+mem(X, [X|_]).
+mem(X, [_|T]) :- mem(X, T).
+
 fdepth(T, N) :- fdepth(T, 0, N).
 fdepth(T, N0, N) :- nonvar(T), T = f(X), !, N1 is N0 + 1, fdepth(X, N1, N).
 fdepth(_, N, N).
@@ -38,7 +42,8 @@ main :-
     show(copy_term, (deep(F), nest(D, V, FV), copy_term(F-FV, C-CV), fdepth(C, D), fdepth(CV, D),
                      nest(D, W, CV), var(W), W \== V)),
     show(findall, (deep(F), findall(F, true, [G]), fdepth(G, D))),
-    show(bagof, (deep(F), bagof(K, member(K, [F]), [B]), fdepth(B, D))),
+    show(bagof, (deep(F), bagof(K, mem(K, [F]), [B]), fdepth(B, D))),
+    show(bagof_witness, (deep(F), bagof(K, mem(K-W, [x-F, y-F]), Bs), Bs == [x, y], fdepth(W, D))),
     show(compare, (deep(F1), deep(F2), depth(D), nest(D, b, F3), compare(O1, F1, F2), O1 == (=),
                    compare(O2, F1, F3), O2 == (<))),
     show(eq, (deep(F1), deep(F2), nest(D, b, F3), F1 == F2, F1 \== F3)),

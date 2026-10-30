@@ -79,19 +79,39 @@ struct Porter {
     return slot(marked(id) ? *shared : loc, id);
   }
 
-  Cell compound(int index, const CopyNode& node) {
-    const Cell hole = machine->heap.fresh_ref();
-    made[static_cast<std::size_t>(index)] = hole;
+  // 取り込み中の複合項 1 つ分。穴を先に作って made に置き、子をすべて作ってから本体を作って穴に束縛する。
+  struct Frame {
+    int index;
+    Cell hole;
+    std::size_t next;
     std::vector<Cell> args;
-    args.reserve(node.kids.size());
-    for (const int kid : node.kids) args.push_back(at(kid));
-    const Cell real = node.kind == CopyKind::List ? machine->heap.list(args[0], args[1])
-                                                   : machine->heap.structure(node.atom, args);
-    machine->heap.bind(hole, real);
-    return hole;
+  };
+  std::vector<Frame> frames;
+
+  // 前の再帰と同じ順にヒープを割り当てる。変数の標準順序は番地で決まるので、順を変えると答えが変わる。
+  // 深い像でも C++ のスタックを使わないよう、祖先を frames に手で積む（ADR 0011）。
+  Cell at(int index) {
+    const Cell result = start(index);
+    while (!frames.empty()) {
+      Frame& top = frames.back();
+      const CopyNode& node = image->nodes[static_cast<std::size_t>(top.index)];
+      if (top.next == node.kids.size()) {
+        const Cell real = node.kind == CopyKind::List ? machine->heap.list(top.args[0], top.args[1])
+                                                       : machine->heap.structure(node.atom, top.args);
+        machine->heap.bind(top.hole, real);
+        frames.pop_back();
+        continue;
+      }
+      const int kid = node.kids[top.next++];
+      // start が frames を伸ばすと top は無効になるので、子の値は伸ばす前の位置へ添字で書く。
+      const std::size_t slot_at = frames.size() - 1;
+      const Cell value = start(kid);
+      frames[slot_at].args.push_back(value);
+    }
+    return result;
   }
 
-  Cell at(int index) {
+  Cell start(int index) {
     const auto slot_at = static_cast<std::size_t>(index);
     if (started[slot_at]) return made[slot_at];
     started[slot_at] = 1;
@@ -102,7 +122,12 @@ struct Porter {
     else if (node.kind == CopyKind::Atom) cell = machine->heap.atom(node.atom);
     else if (node.kind == CopyKind::Int) cell = machine->heap.integer(node.integer);
     else if (node.kind == CopyKind::Float) cell = machine->heap.floating(node.floating);
-    else cell = compound(index, node);
+    else {
+      cell = machine->heap.fresh_ref();
+      std::vector<Cell> args;
+      args.reserve(node.kids.size());
+      frames.push_back(Frame{index, cell, 0, std::move(args)});
+    }
     made[slot_at] = cell;
     return cell;
   }
