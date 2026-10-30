@@ -598,9 +598,7 @@ void disarm(Impl& machine, std::size_t floor) {
   }
 }
 
-void trim_extras(Impl& machine, std::size_t mark) {
-  if (machine.extras.size() > mark) machine.extras.resize(mark);
-}
+void trim_extras(Impl& machine, std::size_t mark) { shrink_extras(machine, mark); }
 
 // 入れ子の run_loop の間に GC が動かす値（gc.hpp）。saved.stack は呼ぶ前の機械のスタックの写しである。
 void visit_snap(GcVisitor& visitor, Snap& saved) {

@@ -3,6 +3,7 @@
 #include "mosa/goal_word.hpp"
 #include "mosa/reader.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -44,15 +45,20 @@ bool has_more(const Impl& machine) {
   return false;
 }
 
-// 制御枠の extras[index] を launch の間だけ外へ出す。launch は extras を push_back で伸ばすだけで、伸びると
-// 中への参照が無効になる。呼び出しごとに節の本体を写す代わりにムーブで出し入れする。launch の間に extras が
-// 縮むことは無い（縮めるのは後戻り・GC・入れ子の後片付けで、どれも launch の外）。
+// 制御枠の extras[index] を launch の間だけ外へ出す。launch は extras を push_back で伸ばし、伸びると中への
+// 参照が無効になる。呼び出しごとに節の本体を写す代わりにムーブで出し入れする。launch の中の同期の throw は
+// restore_state で extras をこの枠ごと捨て、回復のゴールが同じ添字に新しい extra を積みうる。そのときは
+// 書き戻さない。捨てたかどうかは extras_low で見る（入れ子の借用があるので、出るときに前の値と合わせる）。
 class BorrowedExtra {
  public:
   BorrowedExtra(Impl& machine, std::size_t index)
-      : machine_(machine), index_(index), extra_(std::move(machine.extras[index])) {}
+      : machine_(machine), index_(index), outer_low_(machine.extras_low), extra_(std::move(machine.extras[index])) {
+    machine.extras_low = SIZE_MAX;
+  }
   ~BorrowedExtra() {
-    if (index_ < machine_.extras.size()) machine_.extras[index_] = std::move(extra_);
+    const std::size_t low = machine_.extras_low;
+    if (low > index_ && index_ < machine_.extras.size()) machine_.extras[index_] = std::move(extra_);
+    machine_.extras_low = std::min(outer_low_, low);
   }
   BorrowedExtra(const BorrowedExtra&) = delete;
   BorrowedExtra& operator=(const BorrowedExtra&) = delete;
@@ -61,6 +67,7 @@ class BorrowedExtra {
  private:
   Impl& machine_;
   std::size_t index_;
+  std::size_t outer_low_;
   Extra extra_;
 };
 

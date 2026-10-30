@@ -75,3 +75,7 @@ test(if_bad_then, (if_three(T), if(true, T, true)), error(type_error(callable, i
 test(if_bad_else, (if_three(T), if(fail, true, T)), error(type_error(callable, if(fail, true, 3)))).
 test(if_var_cond, if(_, true, true), error(instantiation_error)).
 test(if_built_in, predicate_property(if(_, _, _), built_in), true).
+% 7.8.9: if-then-else の then の中で投げた例外を捕まえ、回復のゴールが新しい制御を積んでも、then の制御が
+% 回復の制御を上書きしない。
+test(catch_then_recovery, catch((true -> throw(x) ; true), _, ((true -> true ; true), (true -> X = ok ; X = bad))), solutions([X = ok])).
+test(catch_call_then_recovery, catch(call((true -> throw(x) ; true)), _, ((true *-> true ; true), (true -> X = ok ; X = bad))), solutions([X = ok])).

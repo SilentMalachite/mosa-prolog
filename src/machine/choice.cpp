@@ -1,5 +1,6 @@
 #include "internal.hpp"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -41,7 +42,13 @@ void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark,
     *slot = std::bit_cast<std::uint64_t>(slot);
   }
   machine.heap.truncate(heap_mark);
-  if (machine.extras.size() > extras_mark) machine.extras.resize(extras_mark);
+  shrink_extras(machine, extras_mark);
+}
+
+void shrink_extras(Impl& machine, std::size_t mark) {
+  if (machine.extras.size() <= mark) return;
+  machine.extras.resize(mark);
+  machine.extras_low = std::min(machine.extras_low, mark);
 }
 
 void note_catches(const Impl& machine, Entry& entry) {
