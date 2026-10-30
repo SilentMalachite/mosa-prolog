@@ -111,6 +111,27 @@ void check_one_gc_after_large_step() {
   }
 }
 
+// 印付けの語のスタックの深さは、長いリストや右に入れ子の Str の鎖でも長さによらない（ヒープの上限の外で
+// メモリを食わない）。百万要素を作り、答えの束縛をルートにして印付けだけを回す。
+std::size_t mark_stack_peak(std::string_view goal) {
+  auto machine = mosa::Machine::create();
+  const std::string program = std::string{k_make_list} + " chain(0, z) :- !. chain(N, f(N, T)) :- N1 is N - 1, chain(N1, T).";
+  mosa_test::check(machine->load_program(program).ok, "mark stack: load");
+  bool limited = false;
+  const auto stop = ask(*machine, goal, limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "mark stack: " + std::string{goal});
+  mosa::GcMarks marks;
+  mosa::mark_live(mosa::engine_impl(*machine), marks);
+  return marks.peak_cells;
+}
+
+void check_mark_stack_flat() {
+  const auto list = mark_stack_peak("mk(1000000, L).");
+  mosa_test::check(list < 64, "mark stack: list peak stays small (" + std::to_string(list) + ")");
+  const auto chain = mark_stack_peak("chain(1000000, S).");
+  mosa_test::check(chain < 64, "mark stack: chain peak stays small (" + std::to_string(chain) + ")");
+}
+
 void check_ball() {
   auto machine = mosa::Machine::create(k_small);
   mosa_test::check(machine->load_program(k_loop).ok, "ball: load");
@@ -447,6 +468,7 @@ int main() {
   check_cyclic();
   check_long_live_list();
   check_one_gc_after_large_step();
+  check_mark_stack_flat();
   check_ball();
   check_redo();
   check_tiny_limit();

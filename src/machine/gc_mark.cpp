@@ -61,13 +61,15 @@ void Marker::mark_cell_word(std::size_t index) {
   if (index >= marks_.used || marked(index)) return;
   set(index, WordKind::Cell);
   cells_.push_back(index);
+  if (cells_.size() > marks_.peak_cells) marks_.peak_cells = cells_.size();
 }
 
 void Marker::mark_structure(std::size_t at) {
   if (marked(at)) return;
   set(at, WordKind::Raw);
   const std::uint16_t arity = functor_arity(word(at));
-  for (std::size_t index = 1; index <= arity; ++index) mark_cell_word(at + index);
+  // 最後の引数を最後に取り出すよう、後ろから積む。右に入れ子の鎖 f(_, f(_, ...)) でもスタックは引数の数で済む。
+  for (std::size_t index = arity; index >= 1; --index) mark_cell_word(at + index);
 }
 
 // ヒープの外を指すセル（既定の Cell{} など）は項ではない。辿らず、詰め直しも書き換えない。
@@ -81,8 +83,9 @@ void Marker::mark_value(Cell value) {
   switch (tag) {
     case Tag::Ref: mark_cell_word(at); return;
     case Tag::Lis:
-      mark_cell_word(at);
+      // 尾を先に積み、頭を先に取り出す。頭を積んだまま尾を辿ると、リストの長さだけ頭がスタックに溜まる。
       mark_cell_word(at + 1);
+      mark_cell_word(at);
       return;
     case Tag::Str: mark_structure(at); return;
     case Tag::Float:

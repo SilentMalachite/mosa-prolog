@@ -109,6 +109,7 @@ struct GcMarks {
   std::vector<std::uint64_t> live;          // 1 語 1 ビット。used の位置まで引けるよう 1 区画多い
   std::vector<std::uint64_t> kinds;         // 1 語 2 ビット（WordKind）
   std::vector<std::uint64_t> extras_live;   // extras の 1 項目 1 ビット
+  std::size_t peak_cells = 0;               // 印付けの語のスタックの最大の深さ。テストが見るだけで、振る舞いは変えない
 };
 
 // gc_mark.cpp。ルートから届く語に印と種類を付ける。
