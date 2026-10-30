@@ -164,6 +164,7 @@ target_include_directories(suite_path_test PRIVATE tests/cpp)
 target_compile_definitions(suite_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(suite_path_test PRIVATE mosa_lib)
 add_test(NAME suite_path_test COMMAND $<TARGET_FILE:suite_path_test>)
+set_tests_properties(suite_path_test PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(suite_vars_test tests/cpp/suite_vars_test.cpp)
 target_include_directories(suite_vars_test PRIVATE tests/cpp)
@@ -193,7 +194,9 @@ add_executable(conformance_io_test tests/cpp/conformance_io_test.cpp)
 target_include_directories(conformance_io_test PRIVATE tests/cpp)
 target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(conformance_io_test PRIVATE mosa_lib)
+# tests/tmp/suite は tests.lgt を流す全てが共有する。空かどうかを見るこの 2 本と diff_conformance は同時に走らせない。
 add_test(NAME conformance_io_test COMMAND $<TARGET_FILE:conformance_io_test>)
+set_tests_properties(conformance_io_test PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(conformance_output_test tests/cpp/conformance_output_test.cpp)
 target_include_directories(conformance_output_test PRIVATE tests/cpp)
@@ -422,7 +425,7 @@ add_test(NAME diff_conformance COMMAND ${CMAKE_COMMAND}
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
   "-DREQUIRE=" "-DATTACHED=" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
-set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
+set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK "agreement;suite_scratch"
   TIMEOUT 3000)
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。
