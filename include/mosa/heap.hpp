@@ -46,7 +46,10 @@ class Heap {
   void reset_size_after_gc(std::size_t used);
 
   // ゴール枠は項のタグを付けない。返る添字から count 語を呼んだ側が埋める。
-  [[nodiscard]] std::size_t allocate_words(std::size_t count);
+  // 速い道は比較 1 回。bench の nrev で呼び出しの分まで目に見えたので header に置く。
+  [[nodiscard]] std::size_t allocate_words(std::size_t count) {
+    return static_cast<std::size_t>(allocate(count) - range_.words());
+  }
   [[nodiscard]] std::uint64_t word_at(std::size_t index) const;
   void set_word(std::size_t index, std::uint64_t value);
 
@@ -70,7 +73,15 @@ class Heap {
   [[nodiscard]] const std::uint64_t* word(Cell cell) const;
 
  private:
-  [[nodiscard]] std::uint64_t* allocate(std::size_t count);
+  [[nodiscard]] std::uint64_t* allocate(std::size_t count) {
+    // used_ <= committed_words_ <= limit_ が常に成り立つので、引き算はあふれない。
+    if (count > committed_words_ - used_) [[unlikely]] grow_for(count);
+    auto* slot = range_.words() + used_;
+    used_ += count;
+    return slot;
+  }
+  // 足りないときだけ。上限を確かめて伸ばし、上限を超えるなら ResourceLimit("heap_limit")。
+  void grow_for(std::size_t count);
   // need 語までを commit する。1 MiB 単位に切り上げ、上限か OS の断りで ResourceLimit。
   void grow(std::size_t need);
   [[nodiscard]] const std::uint64_t* pointer(Cell cell) const;

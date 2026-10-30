@@ -99,7 +99,6 @@ bool AddressRange::commit(std::size_t bytes) {
   return true;
 }
 
-std::uint64_t* AddressRange::words() const { return static_cast<std::uint64_t*>(base_); }
 std::size_t AddressRange::reserved_bytes() const { return reserved_; }
 std::size_t AddressRange::committed_bytes() const { return committed_; }
 

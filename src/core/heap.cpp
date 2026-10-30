@@ -43,26 +43,18 @@ void Heap::grow(std::size_t need) {
   committed_words_ = target;
 }
 
+void Heap::grow_for(std::size_t count) {
+  if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("heap_limit");
+  grow(used_ + count);
+}
+
 void Heap::truncate(std::size_t size) { used_ = size; }
 
 void Heap::reset_size_after_gc(std::size_t used) { used_ = used; }
 
-std::size_t Heap::allocate_words(std::size_t count) {
-  const auto* slot = allocate(count);
-  return static_cast<std::size_t>(slot - range_.words());
-}
-
 std::uint64_t Heap::word_at(std::size_t index) const { return range_.words()[index]; }
 
 void Heap::set_word(std::size_t index, std::uint64_t value) { range_.words()[index] = value; }
-
-std::uint64_t* Heap::allocate(std::size_t count) {
-  if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("heap_limit");
-  if (used_ + count > committed_words_) grow(used_ + count);
-  auto* slot = range_.words() + used_;
-  used_ += count;
-  return slot;
-}
 
 const std::uint64_t* Heap::pointer(Cell cell) const {
   const auto address = cell.raw() & ~std::uint64_t{7};
