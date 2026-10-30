@@ -26,7 +26,7 @@ Making the reader iterative too: nesting in source (`f(f(...))`, `[[...]]`, `(..
 On approval, ADR 0010's sentence on the portray exception (English and Japanese) is amended to say the exception is removed by this ADR.
 No code is written on this ADR before it is approved.
 
-## Amendment (2026-10-31, awaiting owner approval)
+## Amendment (2026-10-31, approved 2026-10-31)
 
 Context: a pure explicit stack made the interpreter 30–80% slower (bench, phase7-iterative Task 6), and the reader limit measured under 1 MiB is about 600 levels of `f(f(...))`, not the 10,000 assumed above.
 Decision: the hot walkers (`IrTerm` copy and destruction, `materialize`, `unify_cells`, `compare_seen`) recurse natively up to depth 64, passing the depth as an argument, and move only deeper subtrees to an explicit stack, keeping the visiting and allocation order; `IrTerm` move assignment is user-written so that `term = std::move(term.args[1])` stays valid; a control construct's extra is moved out and back during `launch` instead of copied, and is not written back when a synchronous throw discarded it (`extras_low`).
