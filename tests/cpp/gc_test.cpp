@@ -441,6 +441,115 @@ void check_portray_inhibited() {
   if (impl.gc_stress == 0) mosa_test::check(impl.gc_stats.count == before, "portray: no GC during the hook");
 }
 
+// 上限の近くで空きを生まない GC が続けば止める（ADR 0010 の 2026-10-30 改訂、所有者の決定 B）。
+// junk/1 は 1 歩ごとに捨てる項を作り、grow/2 は生きたリストを 1 要素ずつ伸ばす。
+constexpr std::string_view k_thrash =
+    "junk(0) :- !. junk(K) :- _ = f(K, K, K, K), K1 is K - 1, junk(K1).\n"
+    "grow(N, L) :- junk(5), N1 is N + 1, grow(N1, [N|L]).";
+
+// 例外の文面も返す。ResourceLimit の文面は止め方の鍵（heap_limit）である。
+std::string ask_stop_text(mosa::Machine& machine, std::string_view goal) {
+  try {
+    (void)machine.query(goal);
+  } catch (const mosa::ResourceLimit& stop) {
+    return stop.what();
+  }
+  return {};
+}
+
+// length/2 の 2 万 1 千要素（6 万 3 千語）で上限 2^16 語の 96% を 1 歩で生かし、捨てる項を作りながら伸ばす。
+// 空きは 2536 語で上限の 1/16（4096 語）より狭いので、閾値は L と上限の中ほどにあり、閾値で始まる GC は
+// 1 歩の確保を足しても 2048 語（上限の 1/32）を空けられない。length の直後の GC（空きは 0）から 3 回で止まる。
+// 改訂の前は、空きが 1 歩の確保を下回って確保が上限に当たるまで、何百回も GC が続いた。
+void check_thrash_stops() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(k_thrash).ok, "thrash: load");
+  auto& impl = mosa::engine_impl(*machine);
+  const auto before = impl.gc_stats.count;
+  const std::string text = ask_stop_text(*machine, "length(L, 21000), grow(0, L).");
+  mosa_test::check(text == "heap_limit", "thrash: stops with heap_limit (got '" + text + "')");
+  const auto count = impl.gc_stats.count - before;
+  // ストレスでは回数を比べず、どちらの止まり方かも問わない。ストレスの GC が閾値より先に捨てる項を回収するので、
+  // 閾値に届くかは N による（N = 1 なら閾値に届かず、生きたリストが伸びて確保が上限に当たる）。どちらも同じ
+  // ResourceLimit("heap_limit") で、止まったときのヒープの大きさでも見分けられない（確保は上限を超える前に断る）。
+  if (impl.gc_stress == 0) mosa_test::check(count <= 3, "thrash: at most 3 GCs (got " + std::to_string(count) + ")");
+}
+
+// 生きているデータが上限の半分ほど（3 万語）なら、1 回の GC で上限の 1/4 ほどが空くので止めない。
+void check_productive_near_limit() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(k_loop).ok, "productive: load");
+  auto& impl = mosa::engine_impl(*machine);
+  bool limited = false;
+  const auto stop = ask(*machine, "length(L, 10000), loop(1000000), L = [_|_].", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "productive: finishes without a stop");
+  mosa_test::check(impl.gc_stats.count >= 1, "productive: GC ran");
+}
+
+// garbage_collect/0 の GC は数えない。6 万 3 千語を生かしたまま何度呼んでも、空きを生まないことで止めない。
+void check_explicit_collect_not_counted() {
+  auto machine = mosa::Machine::create(k_small);
+  bool limited = false;
+  const auto stop = ask(*machine,
+                        "length(L, 21000), garbage_collect, garbage_collect, garbage_collect, garbage_collect, "
+                        "garbage_collect, L = [_|_].",
+                        limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "explicit collect: not counted");
+}
+
+// 生きているデータが上限の 9 割ほど（1 万 9500 要素、5 万 8500 語、89%）でも、空きは上限の 1/16 より広く、
+// 閾値で始まる GC は上限の 1/32 より多く空けるので止めない。
+void check_productive_at_ninety() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(k_loop).ok, "ninety: load");
+  bool limited = false;
+  const auto stop = ask(*machine, "length(L, 19500), loop(1000000), L = [_|_].", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "ninety: finishes without a stop");
+}
+
+// 3 回に分けて上限の 88% まで生かし、その間に捨てる項を作る（再レビューの diverge.pl を半分の上限に縮めたもの）。
+// ストレスの GC が捨てる項を先に回収すると、続く閾値の GC は自分ではほとんど空けない。判定を前の判定からの空き
+// （ストレスの GC の分も含む）で数えるので、ストレスの有無で止まるかが分かれない。
+constexpr std::string_view k_diverge =
+    "length(A, 11000), junk(3000), length(B, 5500), junk(3000), length(C, 2700), junk(3000), "
+    "A = [_|_], B = [_|_], C = [_|_].";
+
+void check_stress_same_outcome() {
+  for (const std::size_t every : {std::size_t{0}, std::size_t{10}, std::size_t{1000}}) {
+    const std::string label = "diverge stress " + std::to_string(every);
+    auto machine = mosa::Machine::create(k_small);
+    mosa_test::check(machine->load_program(k_thrash).ok, label + ": load");
+    auto& impl = mosa::engine_impl(*machine);
+    // 環境の MOSA_GC_STRESS によらず、この機械だけ N 回の安全点ごとに GC する（init_gc の後で上書きする）。
+    if (every != 0) {
+      impl.gc_stress = every;
+      impl.gc_ticks = 0;
+      impl.gc_trigger = 0;
+    }
+    bool limited = false;
+    const auto stop = ask(*machine, k_diverge, limited);
+    mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, label + ": finishes without a stop");
+  }
+}
+
+// 数と空きの基準は、トップレベルの問い合わせ・consult・load_program のたびに戻す。前の分を次へ持ち越さない。
+void check_unproductive_reset() {
+  auto machine = mosa::Machine::create(k_small);
+  auto& impl = mosa::engine_impl(*machine);
+  const std::string file = consulted_path("reset.pl", "r(1).\n");
+  const auto reset = [&impl] { return impl.gc_unproductive == 0 && impl.gc_judged_freed == impl.gc_stats.freed_words; };
+  impl.gc_unproductive = 2;
+  impl.gc_judged_freed = impl.gc_stats.freed_words + 1;
+  const auto stop = machine->query("true.");
+  mosa_test::check(stop.kind == mosa::StopKind::Success && reset(), "unproductive count resets at a query");
+  impl.gc_unproductive = 2;
+  impl.gc_judged_freed = impl.gc_stats.freed_words + 1;
+  mosa_test::check(machine->consult(file) && reset(), "unproductive count resets at consult");
+  impl.gc_unproductive = 2;
+  impl.gc_judged_freed = impl.gc_stats.freed_words + 1;
+  mosa_test::check(machine->load_program("s(1).").ok && reset(), "unproductive count resets at load_program");
+}
+
 // 標準エラーの流れを一時的に差し替え、例外で抜けても元へ戻す。
 class CerrRedirect {
  public:
@@ -536,6 +645,12 @@ int main() {
   check_consult();
   check_consult_marks();
   check_portray_inhibited();
+  check_thrash_stops();
+  check_productive_near_limit();
+  check_explicit_collect_not_counted();
+  check_productive_at_ninety();
+  check_stress_same_outcome();
+  check_unproductive_reset();
   check_trace_line();
   check_trace_text();
   return mosa_test::failures();

@@ -43,6 +43,26 @@ if(NOT code EQUAL 2 OR NOT err MATCHES "8 MiB")
   fail("--heap-max must beat MOSA_HEAP_MAX")
 endif()
 
+# 1 MiB の物差し（loop(1000000) と tak(18,12,6,A)）は、空きを生まない GC の規則（ADR 0010 の改訂 B）で止まらない。
+file(COPY "${SRC}/heap_near_limit.pl" DESTINATION "${WORK}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1 -g yardsticks -t halt heap_near_limit.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+if(NOT code EQUAL 0 OR NOT out MATCHES "tak\\(7\\)")
+  fail("mosa --heap-max 1 must finish loop(1000000) and tak(18,12,6,A)")
+endif()
+
+# 上限の 96% を生かしたまま捨てる項を作り続けると、空きを生まない GC 3 回で、同じ文面と終了コード 2 で止まる。
+# 改訂の前は、確保が上限に当たるまで何百回も GC が続いた。trace_gc の行を数えて規則で止まったことを見る。
+# GC の回数を数えるので、CI の MOSA_GC_STRESS はここだけ外す。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "--unset=MOSA_GC_STRESS" "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1
+  -g "set_prolog_flag(trace_gc, true), thrash" heap_near_limit.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+string(REGEX MATCHALL "% GC" gc_lines "${err}")
+list(LENGTH gc_lines gc_count)
+if(NOT code EQUAL 2 OR NOT err MATCHES "1 MiB" OR gc_count EQUAL 0 OR gc_count GREATER 3)
+  fail("mosa --heap-max 1 -g thrash must stop after at most 3 GCs (got ${gc_count}) with exit code 2 and say 1 MiB")
+endif()
+
 # 解釈できない値は使い方の誤り（終了コード 1）。
 execute_process(COMMAND "${MOSA}" --heap-max 0 -g true
   OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)

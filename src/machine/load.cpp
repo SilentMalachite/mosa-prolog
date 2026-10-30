@@ -533,6 +533,10 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   return finish_load(machine, heap_base, inits);
 }
 
-LoadStatus Machine::load_program(std::string_view source) { return load_source(*impl_, source); }
+LoadStatus Machine::load_program(std::string_view source) {
+  // 問い合わせと同じく、前の分の空きを生まない GC の数を持ち越さない（ADR 0010 の改訂 B）。
+  reset_gc_judgement(*impl_);
+  return load_source(*impl_, source);
+}
 
 }

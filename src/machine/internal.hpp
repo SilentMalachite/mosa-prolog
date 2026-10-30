@@ -353,6 +353,12 @@ struct Machine::Impl {
   std::size_t gc_threshold = 0;
   // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
   std::size_t gc_trigger = 0;
+  // C が天井にあるとき、閾値で始めた GC のうち空きを生まなかったものの連続回数（ADR 0010 の改訂 B）。
+  // 書くのは gc.cpp の安全点（judge_collection）と reset_gc_judgement（問い合わせ・consult・load_program の始まり）だけ。
+  std::size_t gc_unproductive = 0;
+  // 前に判定した GC の時点の gc_stats.freed_words。判定はその後に空いた語（ストレスや garbage_collect/0 の GC の分も
+  // 含む）で行うので、ストレスの GC が先に回収しても止まるかは変わらない。書く場所は gc_unproductive と同じ。
+  std::uint64_t gc_judged_freed = 0;
   // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
