@@ -42,11 +42,13 @@ std::size_t read_stress() {
 
 // 生きている量 L を見て C と閾値を決め直す。C の上でも 7 割を超えたままなら、閾値を L と上限の中ほどに置く。
 // 毎回の安全点で GC が回り続けるのを防ぎ、いずれ確保が上限に当たって止まる。
+// 1 歩で L が C の 1.4 倍を超えることがある（length/2 の長いリストなど）。1 回に 1 度だけ倍にすると、次の安全点で
+// また混んでいて GC が続けて回るので、混まなくなるか上限に着くまで倍にし続ける。
 void update_policy(Impl& machine, std::size_t live) {
   const std::size_t limit = machine.heap.limit();
   const std::size_t cap = capacity_cap(limit);
   std::size_t capacity = machine.gc_capacity;
-  if (crowded(live, capacity)) capacity = std::min(capacity * 2, cap);
+  while (crowded(live, capacity) && capacity < cap) capacity = std::min(capacity * 2, cap);
   machine.gc_capacity = capacity;
   machine.gc_threshold = capacity;
   if (capacity >= cap && crowded(live, capacity)) {

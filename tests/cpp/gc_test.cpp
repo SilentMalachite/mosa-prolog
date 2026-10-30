@@ -94,6 +94,23 @@ void check_long_live_list() {
   mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, "long list: GC ran");
 }
 
+// 1 歩で C の 1.4 倍を超える生きたデータを作っても、GC は 1 回で済む（C を混まなくなるまで一度に倍にする）。
+// length/2 は 150 万要素（300 万語）を 1 歩で作る。C を 1 回に 1 度しか倍にしないと、2M・4M・8M と 3 回続けて回る。
+void check_one_gc_after_large_step() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(k_loop).ok, "large step: load");
+  auto& impl = mosa::engine_impl(*machine);
+  const auto before = impl.gc_stats.count;
+  bool limited = false;
+  const auto stop = ask(*machine, "length(L, 1500000), loop(1000), L = [_|_].", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "large step: query succeeds");
+  // ストレスでは安全点ごとに GC が回るので、回数は比べない。
+  if (impl.gc_stress == 0) {
+    mosa_test::check(impl.gc_stats.count - before == 1,
+                     "large step: exactly one GC (got " + std::to_string(impl.gc_stats.count - before) + ")");
+  }
+}
+
 void check_ball() {
   auto machine = mosa::Machine::create(k_small);
   mosa_test::check(machine->load_program(k_loop).ok, "ball: load");
@@ -429,6 +446,7 @@ int main() {
   check_tak();
   check_cyclic();
   check_long_live_list();
+  check_one_gc_after_large_step();
   check_ball();
   check_redo();
   check_tiny_limit();
