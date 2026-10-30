@@ -227,6 +227,7 @@ class Printer final : public WriteHeld {
   void render_compound(Cell term, int parent, bool allow_equal);
   void push_op(const OpDef& op, Cell term);
   void push_prefix(const OpDef& op, Cell term, std::string name);
+  void push_operand(Cell arg, int priority, bool allow_equal);
   void push_list(Cell term);
   void list_rest(Cell cell);
   void push_bar(Cell rest);
@@ -581,15 +582,24 @@ void Printer::push_op(const OpDef& op, Cell term) {
   if (is_postfix(op.specifier)) {
     tail.step = Step::Postfix;
     work_.push_back(std::move(tail));
-    return push_term(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yf);
+    return push_operand(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yf);
   }
   const std::size_t id = next_id_++;
   push_clear(id);
-  push_term(heap_.arg(term, 1), op.priority, op.specifier == Specifier::Xfy);
+  push_operand(heap_.arg(term, 1), op.priority, op.specifier == Specifier::Xfy);
   tail.step = Step::Infix;
   tail.id = id;
   work_.push_back(std::move(tail));
-  push_term(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yfx);
+  push_operand(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yfx);
+}
+
+// 6.3.4.2: 演算子のアトムは演算子の被演算子になれない。括弧に入れないと、読み手は (-)/1 の - /1 を
+// 前置演算子の項として読もうとして拒む（7.10.5 の往復）。引数とリストの要素は 6.3.3.1 で許されるので付けない。
+void Printer::push_operand(Cell arg, int priority, bool allow_equal) {
+  const bool wrap = operator_atom(arg);
+  if (wrap) push_text(")");
+  push_term(arg, priority, allow_equal);
+  if (wrap) push_text("(");
 }
 
 void Printer::push_prefix(const OpDef& op, Cell term, std::string name) {

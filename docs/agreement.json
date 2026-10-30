@@ -1,7 +1,7 @@
-{"schemaVersion":1,"label":"interpreter = translated","message":"4225/4225 (100.0%)","color":"brightgreen",
+{"schemaVersion":1,"label":"interpreter = translated","message":"4240/4240 (100.0%)","color":"brightgreen",
  "generated":"mosatest --diff writes this file. Do not edit by hand.",
  "directories":{
   "tests/conformance":{"files":154,"compared":2366,"agreed":2366,"differences":0,"translatedGoals":1377,"predicates":582,"translatedPredicates":581,"attachedPredicates":581,"untranslated":{"judge":832}},
-  "tests/pl":{"files":45,"compared":1859,"agreed":1859,"differences":0,"translatedGoals":1814,"predicates":368,"translatedPredicates":366,"attachedPredicates":366,"untranslated":{}}
+  "tests/pl":{"files":45,"compared":1874,"agreed":1874,"differences":0,"translatedGoals":1829,"predicates":369,"translatedPredicates":367,"attachedPredicates":367,"untranslated":{}}
  }
 }

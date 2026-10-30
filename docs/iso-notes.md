@@ -555,12 +555,6 @@ Decision (2026-10-29): this is a deliberate deviation of the translator only. Th
 
 Decision (2026-10-30): A. The diagnostic suggests `:- dynamic(Name/Arity).` for a program that creates the procedure at run time with `assertz/1`. The suggestion is written as `dynamic(Name/Arity)` and not as the prefix form `dynamic Name/Arity`, because Table 7 (6.3.4.4) has no `dynamic` operator, and 7.4.2.1 `dynamic/1` takes the predicate indicator as an ordinary argument. The name is written as `writeq` writes it, in brackets when it is an operator or a symbol-character atom (ctest `mosac_emit_undefined_quoted`).
 
-## 7.10.5 A prefix operator as an operand is written without brackets
-
-`writeq((-)/1)` writes `- /1` and `writeq((:-)/2)` writes `:- /2`. 7.10.5 requires the output of `writeq` to be read back as the same term, and 6.3.4.2 requires an atom that is an operator and an operand to be bracketed; the reader rejects `- /1`.
-
-Decision (2026-10-30): this is a known defect, not an intended deviation. The interpreter is unchanged in phase 6, and `mosac emit` brackets the name in its own `dynamic` suggestion. The writer is fixed in phase 7. TODO(iso): 7.10.5 round trip of an operator atom as an operand.
-
 ## 7.1 Nesting depth of terms (implementation limit)
 
 The writer, the reader and the loader recurse once per nesting level, so a term nested very deeply overflows the C stack. Printing a term nested about 30000 deep overflows the stack, `mosa` overflows on loading a 50000-element list literal on macOS, and on Windows (1 MiB stack) a 20000-element list literal cannot be loaded. The owner treats this as an implementation limit (ISO 7.1, implementation defined) and not as a deviation from a requirement. The translator (`mosac`) walks terms iteratively and handles a 20000-element list (ctest `mosac_long_list`).

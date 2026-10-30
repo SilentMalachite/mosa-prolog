@@ -1,7 +1,7 @@
 // writer の出力を固定する（ADR 0011 は出力を 1 バイトも変えないと決めた）。決まった種で項を作り、
 // 選択肢（quoted、ignore_ops、numbervars、variable_names）の組ごとに書いて、golden のファイルと比べる。
 // 使い方: writer_golden_test <golden のパス> [--write-golden]。--write-golden はファイルを書き直す。
-// 被演算子や引数になる演算子アトム（`- /1` の不具合、7.10.5）は、直すまで集まりから外す（計画の Task 8）。
+// 演算子アトムを被演算子や引数にした項は kOperatorAtoms に置き、集まりの最後に足す。前からの行の番号を変えないため。
 // 種の乱数は std::mt19937 の生の出力だけを使う。分布の型は処理系ごとに結果が違うため。
 
 #include "harness.hpp"
@@ -32,6 +32,11 @@ constexpr std::array<std::string_view, 24> kCrafted{
     "f((a,b)).", "f((a:-b)).", "[a|b].", "{a,b}.", "(a:-b,c;d->e).", "2- (-2)^2.", "- (2^2).",
     "(-2)^2.", "-(2)^2.", "1 rem 2.", "a=..b.", "\\+ \\+ a.", "1*(2+3)*4.", "[(a:-b)].",
     "[a,b|c].", "'$VAR'(1)+'$VAR'(27)."};
+
+// 演算子アトムを被演算子、引数、リストの要素にする（7.10.5、6.3.4.2）。後置と語の演算子も混ぜる。
+constexpr std::array<std::string_view, 16> kOperatorAtoms{
+    "(-)/1.", "(:-)/2.", "1-(-).", "a=(is).", "(-)=(+).", "f(:-).", "[-,:-].", "- (-).",
+    "(dyn)/1.", "('$post')/1.", "(##)/2.", "(',')/2.", "f(-,+).", "\\+ (-).", "(-)##.", "[a|-]."};
 
 class Maker {
  public:
@@ -132,6 +137,12 @@ std::vector<mosa::Cell> collect_terms(Maker& maker, mosa::Heap& heap, const mosa
     for (int count = 0; count < 3; ++count) terms.push_back(maker.rooted(op, 3));
   }
   for (int count = 0; count < 120; ++count) terms.push_back(maker.term(3));
+  for (const std::string_view text : kOperatorAtoms) {
+    mosa::Reader reader(text, heap, ops);
+    const auto outcome = reader.next();
+    mosa_test::check(outcome.term.has_value(), text);
+    if (outcome.term) terms.push_back(outcome.term->term);
+  }
   return terms;
 }
 
