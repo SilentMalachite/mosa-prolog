@@ -198,6 +198,32 @@ void check_deep_lists() {
   mosa_test::check(us.size() == 2U * kDeep + 7 && ends(us, "[_G1,_G1,_,_,", ",_,_]"), "deep underscore once");
 }
 
+// 深い g(…, N) の連鎖と長いリスト。変数は 1 つを奇数段で共有するので、対応の表は 1 組で済む。
+mosa::Cell deep_pair(mosa::AtomTable& atoms, mosa::Heap& heap, std::string_view leaf) {
+  const auto var = heap.fresh_ref();
+  mosa::Cell term = heap.atom(atoms.intern(leaf));
+  mosa::Cell list = heap.atom(atoms.intern("[]"));
+  for (int depth = 0; depth < kDeep; ++depth) {
+    const mosa::Cell side = depth % 2 == 0 ? heap.integer(depth) : var;
+    term = heap.structure(atoms.intern("g"), std::array<mosa::Cell, 2>{term, side});
+    list = heap.list(heap.integer(depth), list);
+  }
+  return heap.structure(atoms.intern("h"), std::array<mosa::Cell, 2>{list, term});
+}
+
+// ADR 0011: same_term は深さ 1,000,000 の項を C++ の再帰なしで比べる。違いは一番深い葉だけに置く。
+void check_same_term_deep() {
+  mosa::AtomTable left_atoms;
+  mosa::Heap left_heap(left_atoms);
+  mosa::AtomTable right_atoms;
+  mosa::Heap right_heap(right_atoms);
+  const mosa::Cell left = deep_pair(left_atoms, left_heap, "a");
+  const mosa::Cell right = deep_pair(right_atoms, right_heap, "a");
+  const mosa::Cell other = deep_pair(right_atoms, right_heap, "b");
+  mosa_test::check(mosa::same_term(left_heap, left, {}, right_heap, right, {}), "same_term deep equal");
+  mosa_test::check(!mosa::same_term(left_heap, left, {}, right_heap, other, {}), "same_term deep leaf differs");
+}
+
 }  // namespace
 
 int main() {
@@ -206,5 +232,6 @@ int main() {
   check_equality();
   check_deep_terms();
   check_deep_lists();
+  check_same_term_deep();
   return mosa_test::failures();
 }

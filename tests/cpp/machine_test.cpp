@@ -158,6 +158,23 @@ void check_terms() {
                    "functor dot builds a list");
 }
 
+// ADR 0011: REPL の答え（format_answer）は深さ 1,000,000 の項と長いリストを C++ の再帰なしで書く。
+void check_answer_deep() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("nest(0, X, X) :- !. nest(N, X, Y) :- M is N - 1, nest(M, f(X), Y). "
+                                         "mk(0, []) :- !. mk(N, [N|T]) :- M is N - 1, mk(M, T).")
+                       .ok,
+                   "answer deep: load");
+  const auto nested = machine->query("nest(1000000, a, T).");
+  const std::string text = mosa::format_answer(*machine, nested);
+  mosa_test::check(text.size() == 4U + 3U * 1000000U + 1U && text.starts_with("T = f(f(") &&
+                       text.substr(4U + 2U * 1000000U - 2U, 4) == "f(a)" && text.ends_with(")))"),
+                   "answer deep: nested f");
+  const auto listed = machine->query("mk(1000000, L).");
+  const std::string list = mosa::format_answer(*machine, listed);
+  mosa_test::check(list.starts_with("L = [1000000,999999,") && list.ends_with(",3,2,1]"), "answer deep: long list");
+}
+
 void check_answer_and_consult() {
   auto machine = mosa::Machine::create();
   auto cycle = machine->query("X = [X].");
@@ -654,6 +671,7 @@ int main() {
   check_initialization_args();
   check_initialization_live();
   check_general_directive();
+  check_answer_deep();
   check_arith();
   check_control();
   check_index();
