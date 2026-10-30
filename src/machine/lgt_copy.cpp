@@ -75,8 +75,9 @@ Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint6
 
 bool copied_succeeds(Machine& scratch, Cell goal) {
   Impl& machine = engine_impl(scratch);
-  // 計画 Task 5 で RootScope にするか決める仮の措置。それまで写した先の機械では GC しない。
-  const GcInhibit inhibit(machine);
+  // RootScope も GcInhibit も要らない。この run_loop は scratch の外の問い合わせの中ではなく、scratch の
+  // ヒープの値で run_loop の後に読むものも無い（goal は launch までで使い終わり、水位は stack の cleanup が持つ）。
+  // 元の機械は動かないので、写しの元のセルも動かない。
   Entry cleanup;
   cleanup.pick = Pick::Cleanup;
   cleanup.heap_mark = machine.heap.size();

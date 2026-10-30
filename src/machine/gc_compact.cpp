@@ -10,6 +10,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -59,7 +60,10 @@ class Rewriter final : public GcVisitor {
     const auto at = index_of(raw);
     raw = at && heap_.live(*at) ? relocate(raw) : 0;
   }
-  void weak_index(std::size_t& index) override { index = index < used_ && heap_.live(index) ? heap_.of(index) : 0; }
+  // 添字 0 は生きた語でありうるので、死んだ語は SIZE_MAX にする。どの生きた添字とも一致しない。
+  void weak_index(std::size_t& index) override {
+    index = index < used_ && heap_.live(index) ? heap_.of(index) : std::numeric_limits<std::size_t>::max();
+  }
 
   // ポインタのタグの語だけを書き換える。ヒープの外を指すセルは項ではないので、そのまま残す。
   [[nodiscard]] std::uint64_t relocate(std::uint64_t raw) const {

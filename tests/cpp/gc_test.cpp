@@ -9,6 +9,7 @@
 #include "mosa/writer.hpp"
 
 #include <cstddef>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -152,6 +153,106 @@ void check_direct_collect() {
                    "direct: binding is the structure");
 }
 
+// 入れ子の run_loop（計画 Task 5）。findall・bagof・読み込みの指示・with_output_to の中でも GC が回ること。
+constexpr std::string_view k_between =
+    "between(L, H, L) :- L =< H. between(L, H, X) :- L < H, L1 is L + 1, between(L1, H, X).";
+
+std::string with_loop(std::initializer_list<std::string_view> parts) {
+  std::string program{k_loop};
+  for (const std::string_view part : parts) {
+    program += ' ';
+    program += part;
+  }
+  return program;
+}
+
+void check_findall() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(with_loop({k_between})).ok, "findall: load");
+  bool limited = false;
+  const auto stop = ask(*machine, "findall(N, (between(1, 3, N), loop(200000)), L), L == [1,2,3].", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "findall: L == [1,2,3]");
+  mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, "findall: GC ran");
+}
+
+// 変数を出現順に v(0), v(1), ... へ束縛する。番地で決まる _G の名前を比べないため。
+constexpr std::string_view k_name_vars =
+    "nv(T, N0, N) :- var(T), !, T = v(N0), N is N0 + 1. nv(T, N0, N) :- T =.. [_|As], nvl(As, N0, N).\n"
+    "nvl([], N, N). nvl([A|As], N0, N) :- nv(A, N0, N1), nvl(As, N1, N).";
+
+// 解をすべて next() で集め、束縛 T の字面を解ごとに並べる。
+std::string all_answers(mosa::Machine& machine, std::string_view goal, bool& limited) {
+  std::string text;
+  auto stop = ask(machine, goal, limited);
+  while (!limited && stop.kind == mosa::StopKind::Success) {
+    for (std::size_t index = 0; index < stop.bindings.size(); ++index) {
+      if (stop.bindings[index].name == "T") text += binding_text(machine, stop, index) + ";";
+    }
+    if (!stop.more) break;
+    try {
+      stop = machine.next();
+    } catch (const mosa::ResourceLimit&) {
+      limited = true;
+    }
+  }
+  return text;
+}
+
+// GC の無い解（loop を外した同じゴール）と同じ並びになること。自由変数の扱いも比べる。
+void check_bagof_case(std::string_view label, std::string_view goal, std::string_view shown) {
+  const std::string program = with_loop({k_member, k_name_vars});
+  const std::string tail = std::string{", copy_term("} + std::string{shown} + ", T), nv(T, 0, _).";
+  const std::string with = "bagof(" + std::string{goal} + ", loop(100000)), L)" + tail;
+  const std::string without = "bagof(" + std::string{goal} + ", true), L)" + tail;
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(program).ok, std::string{label} + ": load");
+  auto plain = mosa::Machine::create(k_small);
+  mosa_test::check(plain->load_program(program).ok, std::string{label} + ": load plain");
+  bool limited = false;
+  const std::string expected = all_answers(*plain, without, limited);
+  const std::string actual = all_answers(*machine, with, limited);
+  mosa_test::check(!limited && !expected.empty(), std::string{label} + ": does not hit heap_limit");
+  mosa_test::check(actual == expected, std::string{label} + ": " + actual + " == " + expected);
+  mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, std::string{label} + ": GC ran");
+}
+
+void check_bagof() {
+  check_bagof_case("bagof", "X-Y, (member(X-Y, [a-1,b-2,a-3])", "L");
+  check_bagof_case("bagof free", "Y, (member(X-Y, [a-1,b-2,a-3])", "X-L");
+  check_bagof_case("bagof alias", "Y, (member(X-Y, [a-1,b-2,Z-3])", "X-Z-L");
+  check_bagof_case("bagof caret", "Y, X^(member(X-Y, [b-2,a-1,Z-3])", "Z-L");
+}
+
+void check_directive_case(std::string_view label, std::string_view directive) {
+  auto machine = mosa::Machine::create(k_small);
+  bool loaded = false;
+  try {
+    loaded = machine->load_program(with_loop({directive, "p(ok)."})).ok;
+  } catch (const mosa::ResourceLimit&) {
+    loaded = false;
+  }
+  mosa_test::check(loaded, std::string{label} + ": load succeeds");
+  bool limited = false;
+  const auto stop = ask(*machine, "p(X).", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success && binding_text(*machine, stop, 0) == "ok",
+                   std::string{label} + ": later clause p(ok) is usable");
+  mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, std::string{label} + ": GC ran");
+}
+
+void check_directive() {
+  check_directive_case("directive", ":- loop(300000).");
+  check_directive_case("initialization", ":- initialization(loop(300000)).");
+}
+
+void check_with_output_to() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(k_loop).ok, "with_output_to: load");
+  bool limited = false;
+  const auto stop = ask(*machine, "with_output_to(atom(A), (loop(200000), write(done))), A == done.", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "with_output_to: A == done");
+  mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, "with_output_to: GC ran");
+}
+
 }  // namespace
 
 int main() {
@@ -164,5 +265,9 @@ int main() {
   check_redo();
   check_tiny_limit();
   check_direct_collect();
+  check_findall();
+  check_bagof();
+  check_directive();
+  check_with_output_to();
   return mosa_test::failures();
 }

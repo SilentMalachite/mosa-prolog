@@ -19,6 +19,15 @@
 //     heap_mark と同じく rank で写す。死んだ語を 0（nullptr）にすると unify の境界の意味が変わる。
 //   ルートでないもの: Stop（呼び手へ返した写し。次の next() の後に古い Stop のセルを読まない）、op_undos・
 //     streams・predicates・main_goal（ヒープの値を持たない）、native_next（関数の番地）。
+//
+// RootScope を置く入れ子（計画 Task 5）。入れ子の後で使う const Goal& は可変の写しを登録してから使う。
+//   solutions.cpp の run_solutions（goal・templ・witnesses・hidden）と collect（Saved・VarIds）。VarIds の base は
+//     水位なので heap_mark、stable・local・homes・alias は弱い参照、ext_raw は答えに戻すので強い参照。
+//   load_directive.cpp の run_parked（退避したスタック・束縛・水位）。extras とトレイルは退避せず水位だけ持つ。
+//   load.cpp の load_source（heap_base・inits）と apply_use（arg）、consult.cpp の run_consult（goal）。
+//   write_pred.cpp の run_goal（Snap）と run_with（goal・sink.slot）。
+//   lgt_copy.cpp の copied_succeeds は何も持たない（コメント参照）。
+// GcInhibit が残るのは write_pred.cpp の apply_portray だけ。writer の C++ の再帰が書きかけの項を握るため。
 
 #include "mosa/cell.hpp"
 #include "mosa/machine.hpp"
@@ -48,7 +57,8 @@ class GcVisitor {
   virtual void trail_mark(std::size_t& mark) = 0;
   virtual void extras_mark(std::size_t& mark) = 0;
   virtual void weak_address(std::uint64_t& raw) = 0;  // 印付けでは辿らない。生きていれば新番地、死んでいれば 0
-  virtual void weak_index(std::size_t& index) = 0;    // 同上。ヒープの添字
+  // ヒープの添字。印付けでは辿らない。生きていれば新しい添字、死んでいれば SIZE_MAX（0 は生きた添字でありうる）
+  virtual void weak_index(std::size_t& index) = 0;
   void entry(Entry& entry);                           // Entry のセル・枠・水位をすべて訪ねる
 
  protected:
