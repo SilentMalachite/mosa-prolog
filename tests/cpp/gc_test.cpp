@@ -8,7 +8,10 @@
 #include "mosa/machine.hpp"
 #include "mosa/writer.hpp"
 
+#include <algorithm>
 #include <cstddef>
+#include <iostream>
+#include <sstream>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -366,6 +369,35 @@ void check_portray_inhibited() {
   if (impl.gc_stress == 0) mosa_test::check(impl.gc_stats.count == before, "portray: no GC during the hook");
 }
 
+// 旗 trace_gc が true なら、GC のたびに標準エラーへ GC を含む 1 行が出る。偽なら何も出ない。
+void check_trace_line() {
+  auto machine = mosa::Machine::create(k_small);
+  bool limited = false;
+  std::string quiet;
+  std::string logged;
+  {
+    std::ostringstream captured;
+    auto* saved = std::cerr.rdbuf(captured.rdbuf());
+    (void)ask(*machine, "garbage_collect.", limited);
+    quiet = captured.str();
+    std::cerr.rdbuf(saved);
+  }
+  {
+    std::ostringstream captured;
+    auto* saved = std::cerr.rdbuf(captured.rdbuf());
+    (void)ask(*machine, "set_prolog_flag(trace_gc, true), garbage_collect.", limited);
+    logged = captured.str();
+    std::cerr.rdbuf(saved);
+  }
+  // ストレスでは旗が立つ前に GC が回りうるが、その時の旗は偽なので、静かなことは変わらない。
+  const auto flag = ask(*machine, "current_prolog_flag(trace_gc, true).", limited);
+  mosa_test::check(!limited && flag.kind == mosa::StopKind::Success, "trace: flag reads back true");
+  mosa_test::check(quiet.empty(), "trace: silent by default");
+  mosa_test::check(logged.find("GC") != std::string::npos &&
+                       std::count(logged.begin(), logged.end(), '\n') >= 1,
+                   "trace: one GC line on stderr");
+}
+
 }  // namespace
 
 int main() {
@@ -386,5 +418,6 @@ int main() {
   check_consult();
   check_consult_marks();
   check_portray_inhibited();
+  check_trace_line();
   return mosa_test::failures();
 }

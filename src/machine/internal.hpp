@@ -11,6 +11,7 @@
 #include "../module/module.hpp"
 #include "gc.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -354,6 +355,10 @@ struct Machine::Impl {
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
   bool trace_gc = false;
+  // statistics(runtime/walltime, [合計, 前回からの差]) の「前回」。マシンごとに持つ。
+  std::chrono::steady_clock::time_point started_at = std::chrono::steady_clock::now();
+  std::int64_t last_runtime_ms = 0;
+  std::int64_t last_walltime_ms = 0;
 
   explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {
     install_modules(*this);
@@ -507,6 +512,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_statistics(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);

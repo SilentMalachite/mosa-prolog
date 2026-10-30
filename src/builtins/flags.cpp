@@ -10,7 +10,8 @@
 // dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
 // version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
 // message_language は ja と en。既定は LANG から決める（ADR 0007）。
-// テスト: tests/pl/flags.pl
+// trace_gc は true と false。既定は false。true なら GC のたびに標準エラーへ 1 行書く（非 ISO、Task 7）。
+// テスト: tests/pl/flags.pl、tests/pl/gc.pl
 
 #include "../machine/internal.hpp"
 
@@ -27,7 +28,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 20;
+constexpr std::size_t kFlagCount = 21;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -58,11 +59,12 @@ std::string_view flag_name(std::size_t index) {
     case 17: return "version";
     case 18: return "message_language";
     case 19: return "argv";
+    case 20: return "trace_gc";
     default: return {};
   }
 }
 
-bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || (index >= 9 && index <= 14) || index == 18; }
+bool flag_writable(std::size_t index) { return index == 5 || index == 6 || index == 8 || (index >= 9 && index <= 14) || index == 18 || index == 20; }
 
 int find_flag(const Impl& machine, Cell flag) {
   const auto text = machine.atoms.name(atom_id(flag));
@@ -107,6 +109,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
     case 17: return machine.heap.integer(kVersionMajor * 10000 + kVersionMinor * 100 + kVersionPatch);
     case 18: return atom_named(machine, machine.message_lang == MessageLanguage::Ja ? "ja" : "en");
     case 19: return argv_list(machine);
+    case 20: return atom_named(machine, machine.trace_gc ? "true" : "false");
     default: return atom_named(machine, "error");
   }
 }
@@ -147,6 +150,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
     case 15: return value.tag() == Tag::Atom;
     case 16: return value.tag() == Tag::Str && machine.heap.functor_arity(value) == 4;
     case 18: return same_atom(machine, value, "ja") || same_atom(machine, value, "en");
+    case 20: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
     // 読み取り専用。領域は形だけ見て、次の permission_error に回す。
     case 19: return true;
     default: return same_atom(machine, value, "error");
@@ -175,6 +179,7 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
   if (index == 12) machine.char_conv.enabled = text == "on";
   if (index == 13) machine.utf8_replace = text == "replace";
   if (index == 14) machine.debug_on = text == "on";
+  if (index == 20) machine.trace_gc = text == "true";
   if (index == 18) machine.message_lang = text == "ja" ? MessageLanguage::Ja : MessageLanguage::En;
 }
 

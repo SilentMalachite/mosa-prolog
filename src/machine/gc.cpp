@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <utility>
@@ -91,6 +92,19 @@ void init_gc(Impl& machine) {
   machine.gc_stress = read_stress();
 }
 
+// 旗 trace_gc の 1 行。文面は鍵 gc_trace のカタログから引く。ミリ秒は小数 2 桁まで見せる。
+void trace_line(const Impl& machine, std::size_t before, std::size_t after,
+                std::chrono::steady_clock::duration took) {
+  const auto kib = [](std::size_t words) { return std::to_string(words * 8 / 1024); };
+  const auto hundredths = std::chrono::duration_cast<std::chrono::microseconds>(took).count() / 10;
+  const std::string ms = std::to_string(hundredths / 100) + "." + (hundredths % 100 < 10 ? "0" : "") +
+                         std::to_string(hundredths % 100);
+  const std::string line = message_text(machine, "gc_trace",
+                                        {std::to_string(machine.gc_stats.count), kib(before), kib(after),
+                                         kib(machine.gc_capacity), ms});
+  std::cerr << line << '\n';
+}
+
 void collect_garbage(Impl& machine) {
   if (machine.gc_inhibit > 0) return;
   const auto started = std::chrono::steady_clock::now();
@@ -104,6 +118,7 @@ void collect_garbage(Impl& machine) {
   machine.gc_stats.freed_words += before - after;
   machine.gc_stats.time += std::chrono::steady_clock::now() - started;
   update_policy(machine, after);
+  if (machine.trace_gc) trace_line(machine, before, after, std::chrono::steady_clock::now() - started);
 }
 
 void gc_safe_point(Impl& machine) {

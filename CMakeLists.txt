@@ -122,6 +122,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/atoms.cpp
   src/builtins/atoms_number.cpp
   src/builtins/flags.cpp
+  src/builtins/statistics.cpp
   src/builtins/database.cpp
   src/builtins/database_scan.cpp
   src/builtins/module_prop.cpp
