@@ -16,6 +16,8 @@ test(not_unify, (1 \= 2), true).
 test(not_unify_same, (1 \= 1), fail).
 test(occurs_fail, unify_with_occurs_check(Y, f(Y)), fail).
 test(occurs_ok, unify_with_occurs_check(Y, f(a)), solutions([Y = f(a)])).
+% 8.2.2: 共有された部分項は循環ではない。
+test(occurs_dag, (X = g(a), unify_with_occurs_check(_, f(X, X))), true).
 test(missing, missing(1), error(existence_error(procedure, missing/1))).
 test(iso_unify_both, ((X = Y, Y = 1)), solutions([(X = 1, Y = 1)])).
 test(iso_unify_list, ([a, b] = [a, b]), true).

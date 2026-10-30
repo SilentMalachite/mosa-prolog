@@ -59,6 +59,13 @@ add_test(NAME stack_deep_write COMMAND ${CMAKE_COMMAND}
   -DSUMMARY=1 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
 set_tests_properties(stack_deep_write PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
+# 1 MiB のスタックで、深さ 1,000,000 の項に項を歩く組込を使う（ADR 0011、計画 Task 7）。
+add_test(NAME stack_deep_builtins COMMAND ${CMAKE_COMMAND}
+  "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.pl"
+  -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_builtins PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 1 MiB のスタックで、ソースに書いた 200,000 要素のリストを読んで動かす（ADR 0011）。
 add_test(NAME long_literal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/long_literal -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
