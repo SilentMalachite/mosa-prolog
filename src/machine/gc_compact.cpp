@@ -41,13 +41,15 @@ class Rank {
 
 class Rewriter final : public GcVisitor {
  public:
-  Rewriter(Impl& machine, const GcMarks& marks, std::vector<std::size_t> kept_before)
+  // 2 つの Rank と kept_before の表をここで確保する。どれもトレイルとヒープを書き換える前に済ませ、bad_alloc で
+  // 抜けてもヒープを壊さない（ADR 0010 の停止）。kept_before の中身は compact_trail が埋める。
+  Rewriter(Impl& machine, const GcMarks& marks)
       : base_(std::bit_cast<std::uint64_t>(machine.heap.data())),
         used_(marks.used),
         extras_size_(machine.extras.size()),
         heap_(marks.live),
         extras_(marks.extras_live),
-        kept_before_(std::move(kept_before)) {}
+        kept_before_(machine.trail.slots.size() + 1, 0) {}
 
   void cell(Cell& slot) override { slot = Cell{relocate(slot.raw())}; }
   void frame(std::uint64_t& index) override {
@@ -81,6 +83,7 @@ class Rewriter final : public GcVisitor {
   [[nodiscard]] const Rank& heap() const { return heap_; }
   [[nodiscard]] const Rank& extras() const { return extras_; }
   [[nodiscard]] std::uint64_t base() const { return base_; }
+  [[nodiscard]] std::vector<std::size_t>& kept_before() { return kept_before_; }
 
  private:
   std::uint64_t base_;
@@ -136,11 +139,12 @@ void compact_extras(Impl& machine, Rewriter& rewriter) {
 }
 
 // 印の付いた語を指す項目だけを残す。kept_before[k] は旧位置 k より前に残った数で、trail_mark の写しに使う。
-std::vector<std::size_t> compact_trail(Impl& machine, const GcMarks& marks) {
+// 表は Rewriter が確保済みなので、ここでは何も確保しない（縮める resize も確保しない）。
+void compact_trail(Impl& machine, const GcMarks& marks, Rewriter& rewriter) {
   const auto base = std::bit_cast<std::uint64_t>(machine.heap.data());
-  const Rank rank(marks.live);
+  const Rank& rank = rewriter.heap();
   auto& slots = machine.trail.slots;
-  std::vector<std::size_t> kept_before(slots.size() + 1, 0);
+  std::vector<std::size_t>& kept_before = rewriter.kept_before();
   std::size_t to = 0;
   for (std::size_t from = 0; from < slots.size(); ++from) {
     kept_before[from] = to;
@@ -153,7 +157,6 @@ std::vector<std::size_t> compact_trail(Impl& machine, const GcMarks& marks) {
   }
   kept_before[slots.size()] = to;
   slots.resize(to);
-  return kept_before;
 }
 
 // Trail::mark は水位（data() + heap_mark）なので、heap_mark と同じく rank で写す。
@@ -167,7 +170,8 @@ void move_trail_mark(Impl& machine, const Rewriter& rewriter, std::size_t used) 
 }  // namespace
 
 void compact_live(Impl& machine, const GcMarks& marks) {
-  Rewriter rewriter(machine, marks, compact_trail(machine, marks));
+  Rewriter rewriter(machine, marks);
+  compact_trail(machine, marks, rewriter);
   visit_roots(machine, rewriter);
   move_trail_mark(machine, rewriter, marks.used);
   slide_heap(machine, marks, rewriter);
