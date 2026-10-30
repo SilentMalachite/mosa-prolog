@@ -67,6 +67,8 @@ target_include_directories(gc_test PRIVATE tests/cpp src)
 target_compile_definitions(gc_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(gc_test PRIVATE mosa_lib)
 add_test(NAME gc COMMAND $<TARGET_FILE:gc_test>)
+# 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
+set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)

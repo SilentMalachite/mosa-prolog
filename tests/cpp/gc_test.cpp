@@ -12,6 +12,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <streambuf>
@@ -143,6 +144,36 @@ void check_ball() {
                         "B, true), B == g([1,2,3], \"abc\", 1.5e300, 4611686018427387904).",
                         limited);
   mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "ball keeps floats and boxed integers");
+}
+
+// Float と IntBox（2^60 を超える整数の箱）が詰め直しで下へ動いても値を保つ。length/2 の死んだリストの上で
+// is/2 が新しい箱を作るので、GC はそれらをリストの分だけ下へ写す。
+void check_boxed_relocation() {
+  auto machine = mosa::Machine::create(k_small);
+  auto& impl = mosa::engine_impl(*machine);
+  const auto stop =
+      machine->query("length(_, 2000), F is 1.5e300 * 1.0, B is 4611686018427387903 + 1, N is -B - 1.");
+  mosa_test::check(stop.kind == mosa::StopKind::Success && stop.bindings.size() == 3, "boxed: query succeeds");
+  if (stop.bindings.size() != 3) return;
+  std::array<std::uint64_t, 3> before{};
+  std::array<std::string, 3> texts;
+  for (std::size_t index = 0; index < 3; ++index) {
+    before[index] = machine->heap().deref(impl.bindings[index].variable).raw();
+    texts[index] = binding_text(*machine, stop, index);
+  }
+  mosa_test::check(machine->heap().deref(impl.bindings[0].variable).tag() == mosa::Tag::Float, "boxed: F is a Float");
+  mosa_test::check(machine->heap().deref(impl.bindings[1].variable).tag() == mosa::Tag::IntBox, "boxed: B is an IntBox");
+  mosa_test::check(machine->heap().deref(impl.bindings[2].variable).tag() == mosa::Tag::IntBox, "boxed: N is an IntBox");
+  mosa::collect_garbage(impl);
+  mosa::Stop after;
+  after.bindings = impl.bindings;
+  for (std::size_t index = 0; index < 3; ++index) {
+    const auto label = "boxed " + std::string{impl.bindings[index].name};
+    mosa_test::check(machine->heap().deref(impl.bindings[index].variable).raw() < before[index], label + ": slid down");
+    mosa_test::check(binding_text(*machine, after, index) == texts[index], label + ": reads " + texts[index]);
+  }
+  mosa_test::check(texts[0] == "1.5e300" || texts[0] == "1.5e+300", "boxed: F text " + texts[0]);
+  mosa_test::check(texts[1] == "4611686018427387904" && texts[2] == "-4611686018427387905", "boxed: integer texts");
 }
 
 void check_redo() {
@@ -493,6 +524,7 @@ int main() {
   check_one_gc_after_large_step();
   check_mark_stack_flat();
   check_ball();
+  check_boxed_relocation();
   check_redo();
   check_tiny_limit();
   check_direct_collect();
