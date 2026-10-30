@@ -160,10 +160,14 @@ namespace {
 constexpr std::size_t kUnproductiveDivisor = 32;
 constexpr std::size_t kUnproductiveRun = 3;
 
-// 閾値で始めた GC の後に呼ぶ。C が天井にあり、空いた語が上限の 1/32 に満たない GC が続けば、上限での確保と同じ
-// ResourceLimit を投げる。安全点はステップの間なので、途中まで進んだ C++ のコードは無く、受ける場所も同じで済む。
+// 閾値で始めた GC の後に呼ぶ。C が天井にあり、前の判定から空いた語が上限の 1/32 に満たない GC が続けば、上限での
+// 確保と同じ ResourceLimit を投げる。空きを前の判定から数えるのは、間のストレスや garbage_collect/0 の GC が先に
+// 回収した分もこの閾値までの空きだからである。この GC の分だけで見ると、ストレスの有無で止まるかが分かれる。
+// 安全点はステップの間なので、途中まで進んだ C++ のコードは無く、受ける場所も同じで済む。
 // 投げる前に数を 0 に戻し、止めた問い合わせの数を受けた側の次の GC へ持ち越さない。
-void judge_collection(Impl& machine, bool at_cap, std::size_t freed) {
+void judge_collection(Impl& machine, bool at_cap) {
+  const std::size_t freed = machine.gc_stats.freed_words - machine.gc_judged_freed;
+  machine.gc_judged_freed = machine.gc_stats.freed_words;
   if (!at_cap || freed >= machine.heap.limit() / kUnproductiveDivisor) {
     machine.gc_unproductive = 0;
     return;
@@ -184,16 +188,21 @@ void gc_safe_point(Impl& machine) {
     due = true;
   }
   if (!due) return;
-  // ストレスだけで来た GC は上限の近さと関係なく回るので数えない。GcInhibit の下では回収せず空きが 0 に見えるので、
-  // 数えると回収していないのに止まる。
+  // ストレスだけで来た GC は上限の近さと関係なく回るので判定しない（空いた分は次の判定に入る）。GcInhibit の下では
+  // 回収しないので、判定すると回収していないのに止まりうる。
   if (!by_threshold || machine.gc_inhibit > 0) {
     collect_garbage(machine);
     return;
   }
   const bool at_cap = machine.gc_capacity >= capacity_cap(machine.heap.limit());
-  const std::size_t before = machine.heap.size();
   collect_garbage(machine);
-  judge_collection(machine, at_cap, before - machine.heap.size());
+  judge_collection(machine, at_cap);
+}
+
+// 前の問い合わせや読み込みの GC の空きを、次の判定に持ち越さない。
+void reset_gc_judgement(Impl& machine) {
+  machine.gc_unproductive = 0;
+  machine.gc_judged_freed = machine.gc_stats.freed_words;
 }
 
 }  // namespace mosa

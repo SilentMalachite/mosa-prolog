@@ -191,6 +191,8 @@ int apply_file_list(Impl& machine, Cell term, std::string_view directory, std::v
 
 bool Machine::consult(std::string_view path) {
   Impl& impl = engine_impl(*this);
+  // 問い合わせと同じく、前の分の空きを生まない GC の数を持ち越さない（ADR 0010 の改訂 B）。
+  reset_gc_judgement(impl);
   const auto text = read_source(impl, path_from_utf8(path));
   if (!text) {
     impl.diagnostic = message_text(impl, "cannot_open_file", {path});
