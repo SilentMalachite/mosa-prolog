@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <iostream>
 #include <sstream>
+#include <streambuf>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -369,13 +370,27 @@ void check_portray_inhibited() {
   if (impl.gc_stress == 0) mosa_test::check(impl.gc_stats.count == before, "portray: no GC during the hook");
 }
 
+// 標準エラーの流れを一時的に差し替え、例外で抜けても元へ戻す。
+class CerrRedirect {
+ public:
+  explicit CerrRedirect(std::ostringstream& sink) : saved_(std::cerr.rdbuf(sink.rdbuf())) {}
+  ~CerrRedirect() { std::cerr.rdbuf(saved_); }
+  CerrRedirect(const CerrRedirect&) = delete;
+  CerrRedirect& operator=(const CerrRedirect&) = delete;
+
+ private:
+  std::streambuf* saved_;
+};
+
 // 標準エラーを奪って goal を問い合わせ、出た文字列を返す。成功しなければ ok を偽にする。
 std::string ask_capturing_stderr(mosa::Machine& machine, std::string_view goal, bool& ok) {
   bool limited = false;
   std::ostringstream captured;
-  auto* saved = std::cerr.rdbuf(captured.rdbuf());
-  const auto stop = ask(machine, goal, limited);
-  std::cerr.rdbuf(saved);
+  mosa::Stop stop;
+  {
+    const CerrRedirect redirect(captured);
+    stop = ask(machine, goal, limited);
+  }
   ok = !limited && stop.kind == mosa::StopKind::Success;
   return captured.str();
 }
@@ -395,16 +410,15 @@ void check_trace_line() {
   if (impl.gc_stress == 0) {
     mosa_test::check(std::count(logged.begin(), logged.end(), '\n') == 1, "trace: exactly one line");
   }
-  bool limited = false;
-  const auto flag = ask(*machine, "current_prolog_flag(trace_gc, true).", limited);
-  mosa_test::check(!limited && flag.kind == mosa::StopKind::Success, "trace: flag reads back true");
-  // 戻すゴールの前の安全点ではまだ旗が真で、ストレスならそこで行が出る。だから行が無いことは、ストレス無しでだけ言える。
-  const std::string stopped =
-      ask_capturing_stderr(*machine, "set_prolog_flag(trace_gc, false), garbage_collect.", ok);
-  mosa_test::check(ok, "trace: set false and collect succeeds");
-  if (impl.gc_stress == 0) {
-    mosa_test::check(stopped.find("GC") == std::string::npos, "trace: no GC line after switching off");
-  }
+  (void)ask_capturing_stderr(*machine, "current_prolog_flag(trace_gc, true).", ok);
+  mosa_test::check(ok, "trace: flag reads back true");
+  // 旗を戻す問い合わせの前の安全点ではまだ真なので、その出力は捨てる。次の問い合わせは旗が偽から始まるので、
+  // ストレスでも行は出ない。
+  (void)ask_capturing_stderr(*machine, "set_prolog_flag(trace_gc, false).", ok);
+  mosa_test::check(ok, "trace: set false succeeds");
+  const std::string stopped = ask_capturing_stderr(*machine, "garbage_collect.", ok);
+  mosa_test::check(ok, "trace: collect after switching off succeeds");
+  mosa_test::check(stopped.find("GC") == std::string::npos, "trace: no GC line after switching off");
 }
 
 }  // namespace
