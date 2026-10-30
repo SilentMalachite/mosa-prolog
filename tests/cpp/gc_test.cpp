@@ -9,6 +9,8 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <cstddef>
 #include <iostream>
 #include <sstream>
@@ -459,6 +461,27 @@ void check_trace_line() {
   mosa_test::check(stopped.find("GC") == std::string::npos, "trace: no GC line after switching off");
 }
 
+// trace_gc の行はカタログで直に作った文面とバイトまで同じで、言語を変えれば従う。行ごとに新しいマシンで
+// カタログを読み直すと 1 行 1.5 ms ほどかかるので、2000 行が 0.5 秒に収まることで読み直していないことを見る。
+void check_trace_text() {
+  const std::array<std::string, 5> numbers{"7", "1024", "512", "2048", "1.25"};
+  auto machine = mosa::Machine::create(k_small);
+  auto& impl = mosa::engine_impl(*machine);
+  for (const auto language : {mosa::MessageLanguage::En, mosa::MessageLanguage::Ja, mosa::MessageLanguage::En}) {
+    impl.message_lang = language;
+    const std::string label = language == mosa::MessageLanguage::Ja ? "trace text ja" : "trace text en";
+    const std::string expected =
+        mosa::message_text(impl, "gc_trace", {numbers[0], numbers[1], numbers[2], numbers[3], numbers[4]});
+    mosa_test::check(!expected.starts_with("gc_trace:") && expected.find("1024") != std::string::npos,
+                     label + ": the catalog renders the line");
+    mosa_test::check(mosa::gc_trace_text(impl, numbers) == expected, label + ": same bytes as the catalog");
+    const auto started = std::chrono::steady_clock::now();
+    for (int index = 0; index < 2000; ++index) (void)mosa::gc_trace_text(impl, numbers);
+    const auto took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    mosa_test::check(took.count() < 500, label + ": 2000 lines in " + std::to_string(took.count()) + " ms");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -482,5 +505,6 @@ int main() {
   check_consult_marks();
   check_portray_inhibited();
   check_trace_line();
+  check_trace_text();
   return mosa_test::failures();
 }

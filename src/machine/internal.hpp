@@ -357,6 +357,9 @@ struct Machine::Impl {
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
   bool trace_gc = false;
+  // trace_gc の行の型と、それを作ったときの言語（gc.cpp の trace_form）。旗で言語が変われば作り直す。
+  std::optional<std::string> gc_trace_form;
+  MessageLanguage gc_trace_form_lang = MessageLanguage::En;
   // statistics(runtime/walltime, [合計, 前回からの差]) の「前回」。マシンごとに持つ。
   std::chrono::steady_clock::time_point started_at = std::chrono::steady_clock::now();
   std::int64_t last_runtime_ms = 0;

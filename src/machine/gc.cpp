@@ -9,6 +9,7 @@
 #include "mosa/path_text.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <iostream>
 #include <optional>
@@ -96,17 +97,43 @@ void init_gc(Impl& machine) {
   machine.gc_trigger = machine.gc_stress == 0 ? machine.gc_threshold : 0;
 }
 
+namespace {
+
+// 行の型。数の位置に印の文字 U+0001〜U+0005 を渡してカタログから作り、言語ごとに 1 度だけ作り直す。カタログを
+// 引くたびに新しいマシンを作るので、1 行ごとに引くと 1.5 ms ほどかかる。~w は原子をそのまま書くので、印を数に
+// 置き換えた行はカタログで直に作った行と同じバイト列になり、書式を C++ に写さずに済む。
+const std::string& trace_form(Impl& machine) {
+  if (!machine.gc_trace_form || machine.gc_trace_form_lang != machine.message_lang) {
+    machine.gc_trace_form = message_text(machine, "gc_trace", {"\x01", "\x02", "\x03", "\x04", "\x05"});
+    machine.gc_trace_form_lang = machine.message_lang;
+  }
+  return *machine.gc_trace_form;
+}
+
+}  // namespace
+
+std::string gc_trace_text(Impl& machine, std::span<const std::string> numbers) {
+  std::string line;
+  for (const char ch : trace_form(machine)) {
+    const auto slot = static_cast<std::size_t>(static_cast<unsigned char>(ch));
+    if (slot >= 1 && slot <= numbers.size()) {
+      line += numbers[slot - 1];
+    } else {
+      line += ch;
+    }
+  }
+  return line;
+}
+
 // 旗 trace_gc の 1 行。文面は鍵 gc_trace のカタログから引く。ミリ秒は小数 2 桁まで見せる。
-void trace_line(const Impl& machine, std::size_t before, std::size_t after,
-                std::chrono::steady_clock::duration took) {
+void trace_line(Impl& machine, std::size_t before, std::size_t after, std::chrono::steady_clock::duration took) {
   const auto kib = [](std::size_t words) { return std::to_string(words * kHeapWordBytes / 1024); };
   const auto hundredths = std::chrono::duration_cast<std::chrono::microseconds>(took).count() / 10;
   const std::string ms = std::to_string(hundredths / 100) + "." + (hundredths % 100 < 10 ? "0" : "") +
                          std::to_string(hundredths % 100);
-  const std::string line = message_text(machine, "gc_trace",
-                                        {std::to_string(machine.gc_stats.count), kib(before), kib(after),
-                                         kib(machine.gc_capacity), ms});
-  std::cerr << line << '\n';
+  const std::array<std::string, 5> numbers{std::to_string(machine.gc_stats.count), kib(before), kib(after),
+                                           kib(machine.gc_capacity), ms};
+  std::cerr << gc_trace_text(machine, numbers) << '\n';
 }
 
 void collect_garbage(Impl& machine) {

@@ -36,6 +36,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <span>
+#include <string>
 #include <vector>
 
 namespace mosa {
@@ -99,6 +101,8 @@ void collect_garbage(Machine::Impl& machine);  // 無条件に 1 回。gc_inhibi
 void gc_safe_point(Machine::Impl& machine);    // run_loop が step の前に呼ぶ。比較 1 回で抜けるのが普通
 // Impl の構築で呼ぶ。柔らかい容量と閾値を上限から決め、MOSA_GC_STRESS を読む。
 void init_gc(Machine::Impl& machine);
+// 旗 trace_gc の 1 行（改行なし）。numbers は回数・前後の KiB・容量の KiB・ミリ秒の 5 つで、鍵 gc_trace の ~w に入る。
+[[nodiscard]] std::string gc_trace_text(Machine::Impl& machine, std::span<const std::string> numbers);
 
 // ここから下は gc*.cpp の間だけで使う。
 // 語の種類は 1 語 2 ビット。印付けが決め、詰め直しがこれに従って中身を書き換える。
