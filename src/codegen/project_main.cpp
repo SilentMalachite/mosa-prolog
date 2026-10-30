@@ -41,15 +41,14 @@ const LibraryPlan* library_of(const ProjectPlan& plan, std::size_t file) {
   return nullptr;
 }
 
-// ファイルごとに、原文の std::string を作ってから embed し、ライブラリは bundle_library にも渡す。ライブラリも
-// embed するのは、ライブラリの中の素のパスの use_module(util) が library/util.pl をこの機械の埋め込みから引くため
-// （一覧は library(Name) の形と、そこへ解決した素のパスが引く。どちらも鍵は同じ library/<語幹>.pl）。
-std::string file_lines(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan) {
+// ファイルごとに原文の std::string を作り、ライブラリは bundle_library に渡す。bundle_library の一覧はプロセスで 1 つで
+// マシンを要らないので、create_machine より先に置く。上限を予約できずに止まるときの文面も、この一覧のカタログから出す
+// （実行ファイルは外のファイルを要らない。SPEC 第6節）。
+std::string source_lines(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan) {
   std::string out;
   for (std::size_t index = 0; index < log.files.size(); ++index) {
     const std::string name = "file" + std::to_string(index);
     out += "  const std::string " + name + " = joined(kFile" + std::to_string(index) + ");\n";
-    out += "  mosa::rt::embed(*machine, " + string_literal(plan.keys[index]) + ", " + name + ");\n";
     if (const LibraryPlan* library = library_of(plan, index)) {
       const std::string unit = library->prebuilt ? "mosa_gen::" + unit_stem(machine, library->module) + "::unit(" + name + ")"
                                                  : name;
@@ -59,9 +58,20 @@ std::string file_lines(const Impl& machine, const TranslationLog& log, const Pro
   return out;
 }
 
+// 原文を embed する。ライブラリも embed するのは、ライブラリの中の素のパスの use_module(util) が library/util.pl を
+// この機械の埋め込みから引くため（一覧は library(Name) の形と、そこへ解決した素のパスが引く。鍵はどちらも library/<語幹>.pl）。
+std::string embed_lines(const TranslationLog& log, const ProjectPlan& plan) {
+  std::string out;
+  for (std::size_t index = 0; index < log.files.size(); ++index) {
+    out += "  mosa::rt::embed(*machine, " + string_literal(plan.keys[index]) + ", file" + std::to_string(index) + ");\n";
+  }
+  return out;
+}
+
 std::string main_body(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan, bool interactive) {
-  std::string out = "int main(int argc, char** argv) {\n  auto machine = mosa::rt::create_machine();\n";
-  out += "  mosa::rt::start(*machine, argc, argv);\n" + file_lines(machine, log, plan) + "  bool loaded = true;\n";
+  std::string out = "int main(int argc, char** argv) {\n" + source_lines(machine, log, plan);
+  out += "  auto machine = mosa::rt::create_machine();\n  mosa::rt::start(*machine, argc, argv);\n";
+  out += embed_lines(log, plan) + "  bool loaded = true;\n";
   for (const UnitPlan& unit : plan.units) {
     out += "  loaded = loaded && mosa::rt::install_unit(*machine, mosa_gen::" + unit_stem(machine, unit.module) +
            "::unit(file" + std::to_string(unit.file) + "));\n";

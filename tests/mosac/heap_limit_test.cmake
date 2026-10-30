@@ -63,7 +63,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MO
 if(NOT code EQUAL 0)
   fail("mosac build")
 endif()
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=999999999" "${WORK}/heap_grow_exe${EXE_SUFFIX}"
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "--unset=MOSA_LIB" "MOSA_HEAP_MAX=999999999" "${WORK}/heap_grow_exe${EXE_SUFFIX}"
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
 if(NOT code EQUAL 2 OR NOT err MATCHES "MiB")
   fail("an exe whose heap cannot be reserved must exit 2 with a message")
