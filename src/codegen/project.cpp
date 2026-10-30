@@ -18,6 +18,7 @@
 #include "project.hpp"
 
 #include "mosa/path_text.hpp"
+#include "mosa/heap_option.hpp"
 
 #include <algorithm>
 #include <array>
@@ -281,7 +282,8 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
     if (!options.library && !load_catalogs(*machine)) {
       return fail_with(message_text(impl, "mosac_catalog_missing", {std::string{machine->diagnostic()}}));
     }
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return fail_with(heap_limit_text(impl));
   }
   impl.translation = nullptr;

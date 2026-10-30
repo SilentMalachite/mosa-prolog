@@ -7,6 +7,7 @@
 #include "internal.hpp"
 
 #include "mosa/machine.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
 #include "mosa/writer.hpp"
@@ -413,7 +414,8 @@ LgtFile read_lgt_file(std::string_view source) {
     // endif が無いと、選ばなかった枝の終わりが無い。ファイル全体を不合格 1 件にする。
     if (!parse.stack.empty()) wipe_read(file, "incomplete_term");
     return file;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     file = {};
     file.error = "heap_limit";
     return file;

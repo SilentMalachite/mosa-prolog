@@ -6,6 +6,7 @@
 #include "internal.hpp"
 
 #include "mosa/writer.hpp"
+#include "mosa/heap_option.hpp"
 
 #include <array>
 #include <string>
@@ -20,7 +21,8 @@ constexpr std::array<std::string_view, 6> suite_libraries{"lists", "apply", "bet
 bool directive_ok(Machine& machine, const std::string& directive) {
   try {
     return machine.load_program(":- " + directive + ".\n").ok;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return false;
   }
 }

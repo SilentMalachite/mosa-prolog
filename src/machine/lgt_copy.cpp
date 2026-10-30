@@ -2,6 +2,7 @@
 // -2^63 を字面に戻すと正のトークンが溢れて変数になる。ゴールと同じセル写しで節を載せる。
 
 #include "lgt_priv.hpp"
+#include "mosa/heap_option.hpp"
 
 #include "internal.hpp"
 
@@ -135,7 +136,8 @@ void plant_user_clauses(Impl& src, Impl& dst) {
       if (!keep_predicate(src, predicate)) continue;
       plant_predicate(src, dst, predicate);
     }
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     // 表明の一時項だけ戻す。開いている query の水位より後ろを残さない。
     src.heap.truncate(mark);
     throw;

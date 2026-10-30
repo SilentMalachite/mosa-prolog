@@ -2,7 +2,7 @@
 # mosa の --heap-max 16 も同じ文面で止まり、REPL は止まったあとの次の問い合わせに答える。
 # mosa の main は端末でない入力を読まないので、REPL は repl_ref（同じ run_session）で動かす。
 # 使い方: cmake -DMOSA=<mosa> -DMOSAC=<mosac> -DREF=<repl_ref> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
-#   -DCXX=<コンパイラ。空なら mosac の既定> -DMOSA_LIB=<lib/> -P heap_limit_test.cmake
+#   -DCXX=<コンパイラ。空なら mosac の既定> -DMOSA_LIB=<lib/> -DEXE_SUFFIX=<.exe など> -P heap_limit_test.cmake
 
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
@@ -55,4 +55,16 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${REF}
   OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
 if(NOT err MATCHES "16 MiB" OR NOT out MATCHES "X = 1")
   fail("the REPL must report the limit and answer the next query")
+endif()
+
+# 上限を予約できない値でも、生成した実行ファイルは異常終了（134）にならず、文面を出して 2 で終わる。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" build heap_grow_main.pl -o heap_grow_exe
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200)
+if(NOT code EQUAL 0)
+  fail("mosac build")
+endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=999999999" "${WORK}/heap_grow_exe${EXE_SUFFIX}"
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
+if(NOT code EQUAL 2 OR NOT err MATCHES "MiB")
+  fail("an exe whose heap cannot be reserved must exit 2 with a message")
 endif()

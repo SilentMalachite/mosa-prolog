@@ -362,7 +362,7 @@ set_tests_properties(mosac_long_list PROPERTIES TIMEOUT 1800
 add_test(NAME mosac_heap_limit COMMAND ${CMAKE_COMMAND}
   -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DREF=$<TARGET_FILE:repl_ref>
   -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_heap_limit
-  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/heap_limit_test.cmake)
 set_tests_properties(mosac_heap_limit PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")

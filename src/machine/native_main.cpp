@@ -12,7 +12,9 @@
 #include "mosa/repl.hpp"
 
 #include <array>
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -20,7 +22,18 @@
 
 namespace mosa::rt {
 
-std::size_t heap_max_from_env() { return heap_max_from_environment(); }
+std::unique_ptr<Machine> create_machine() {
+  const std::size_t limit = heap_max_from_environment();
+  try {
+    return Machine::create(limit);
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    std::cerr << render_message_fresh(default_message_language(), "heap_limit_size",
+                                      std::array{heap_limit_mib_text(limit)})
+              << '\n';
+    std::exit(2);
+  }
+}
 
 void start(Machine& machine, int argc, char** argv) {
   // 何かを読み書きする前に、Windows のコンソールを UTF-8 にする（mosa の main と同じ順）。

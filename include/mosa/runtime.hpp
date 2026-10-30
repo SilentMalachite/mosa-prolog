@@ -153,11 +153,12 @@ enum class Compare : std::uint8_t { Eq, Ne, Lt, Le, Gt, Ge };
 [[nodiscard]] bool arith_is(Machine::Impl& machine, std::uint32_t name, Cell left, Cell right);
 [[nodiscard]] bool arith_compare(Machine::Impl& machine, Compare op, std::uint32_t name, Cell left, Cell right);
 
+// 生成する main の最初の 1 行。環境変数 MOSA_HEAP_MAX（MiB。解釈できなければ既定）の上限で Machine を作る。
+// 上限の予約を OS に断られたら、ヒープの上限と同じ文面を標準エラーに出して終了コード 2 で終わる（戻らない）。
+[[nodiscard]] std::unique_ptr<Machine> create_machine();
+
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
 // 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。
-// 環境変数 MOSA_HEAP_MAX（MiB）から決めたヒープの上限（語）。生成する main の Machine::create に渡す。
-// 解釈できない値は既定の上限にする。
-[[nodiscard]] std::size_t heap_max_from_env();
 void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする
 void embed(Machine& machine, std::string_view path, std::string_view source);  // include/1 などがファイルより先に引く
 // 同梱ライブラリ（計画 Task 10）。use_module(library(Name)) は SPEC 第5節の探索（$MOSA_LIB、実行ファイルの横の lib/）
