@@ -45,6 +45,13 @@ target_include_directories(writer_test PRIVATE tests/cpp)
 target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
+# writer の出力を golden のファイルで固定する。--write-golden を付けて動かすとファイルを書き直す。
+add_executable(writer_golden_test tests/cpp/writer_golden_test.cpp)
+target_include_directories(writer_golden_test PRIVATE tests/cpp)
+target_link_libraries(writer_golden_test PRIVATE mosa_lib)
+add_test(NAME writer_golden COMMAND $<TARGET_FILE:writer_golden_test>
+  ${CMAKE_SOURCE_DIR}/tests/cpp/data/writer_golden.txt)
+
 # 差分テストの答えの字面（計画 Task 11）。深い項を既定のスタックで書けることまで見る。
 add_executable(answer_text_test tests/cpp/answer_text_test.cpp)
 target_include_directories(answer_text_test PRIVATE tests/cpp src/machine)
