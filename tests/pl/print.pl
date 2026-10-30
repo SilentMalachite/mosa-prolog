@@ -37,3 +37,12 @@ test(print_portray_alloc, (
   Out == kept,
   W == foo
 ), true).
+test(print_portray_gc, (
+  assertz((portray(X) :- X == leaf, !, garbage_collect, write(leaf))),
+  assertz((portray(_) :- length(_, 30), fail)),
+  T = g(A, f(B, leaf), A, [B|C], h(C, leaf, [A|B])),
+  with_output_to(atom(P), print(T)),
+  with_output_to(atom(W), write(T)),
+  retractall(portray(_)),
+  P == W
+), true).

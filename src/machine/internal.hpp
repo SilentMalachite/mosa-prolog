@@ -348,7 +348,6 @@ struct Machine::Impl {
   // 普段は閾値 = C で、上限の近くだけ C より上に置く（init_gc と collect_garbage の方針）。
   GcStats gc_stats;
   std::vector<RootVisit> gc_roots;
-  int gc_inhibit = 0;
   std::size_t gc_capacity = 0;
   std::size_t gc_threshold = 0;
   // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。

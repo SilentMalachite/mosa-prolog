@@ -203,18 +203,26 @@ std::optional<char32_t> final_cp(std::string_view text) {
   return decoded.code;
 }
 
-class Printer {
+class Printer final : public WriteHeld {
  public:
   Printer(const Heap& heap, OperatorView operators, WriteOptions options,
           std::span<const VarName> names, WriteReplace replace, void* context)
       : heap_(heap), operators_(operators), options_(options), names_(names), replace_(replace),
-        context_(context) {}
+        context_(context) {
+    // replace の間の GC は名前のセルも動かす。呼び手の表は const なので、写しを GC に見せる。
+    if (replace_ != nullptr) {
+      own_names_.assign(names.begin(), names.end());
+      names_ = own_names_;
+    }
+  }
 
   void collect(Cell term);
   [[nodiscard]] std::string print(Cell term);
+  void visit(WriteRoots& roots) override;
 
  private:
   void run(Work& item);
+  void settle();
   void render(const Work& item);
   void render_compound(Cell term, int parent, bool allow_equal);
   void push_op(const OpDef& op, Cell term);
@@ -245,6 +253,7 @@ class Printer {
   OperatorView operators_;
   WriteOptions options_;
   std::span<const VarName> names_;
+  std::vector<VarName> own_names_;
   std::unordered_map<std::uint64_t, int> counts_;
   std::unordered_map<std::uint64_t, int> assigned_;
   // 今書いている項の祖先。循環項はここで _ にして止める。
@@ -257,7 +266,48 @@ class Printer {
   WriteReplace replace_ = nullptr;
   void* context_ = nullptr;
   bool aborted_ = false;
+  // replace に渡している項。GC の訪問が書き換える。
+  Cell hooked_{};
+  // replace の間に GC が来たら真。鍵の写しを訪ね、戻った後で settle が表を作り直す。
+  bool held_ = false;
+  std::vector<std::pair<std::uint64_t, int>> held_counts_;
+  std::vector<std::pair<std::uint64_t, int>> held_assigned_;
 };
+
+void Printer::visit(WriteRoots& roots) {
+  // map の鍵はその場で書き換えられない。初めの訪問で写しを作り、同じ replace の間の GC はその写しを訪ねる。
+  if (!held_) {
+    held_counts_.assign(counts_.begin(), counts_.end());
+    held_assigned_.assign(assigned_.begin(), assigned_.end());
+    held_ = true;
+  }
+  roots.cell(hooked_);
+  for (Work& item : work_) roots.cell(item.term);
+  for (VarName& var : own_names_) roots.cell(var.cell);
+  // 書き終えて残りの仕事から届かない変数は二度と書かないので、弱い参照で落としてよい。
+  for (auto& entry : held_counts_) roots.weak(entry.first);
+  for (auto& entry : held_assigned_) roots.weak(entry.first);
+}
+
+void Printer::settle() {
+  if (!held_) return;
+  held_ = false;
+  counts_.clear();
+  for (const auto& [raw, count] : held_counts_) {
+    if (raw != 0) counts_.emplace(raw, count);
+  }
+  assigned_.clear();
+  for (const auto& [raw, number] : held_assigned_) {
+    if (raw != 0) assigned_.emplace(raw, number);
+  }
+  held_counts_.clear();
+  held_assigned_.clear();
+  // 祖先の集まりは積んだ Leave の項と同じなので、動いた番地で数え直す。
+  open_.clear();
+  for (const Work& item : work_) {
+    if (item.step == Step::Leave) open_.insert(item.term.raw());
+  }
+}
 
 void Printer::collect(Cell root) {
   // 2 番目は「祖先から外す」の印。名前のある REF は束縛を追わない。答えの X = [X] がここで止まらないようにする。
@@ -469,7 +519,12 @@ void Printer::render(const Work& item) {
   Cell term = item.term;
   if (item.allow_hook && replace_ != nullptr) {
     std::string swapped;
-    const WriteCut cut = replace_(context_, term, swapped);
+    // replace は GC を走らせうる。訪問が hooked_ を新しい番地に直すので、戻った後はそちらを読む。
+    hooked_ = term;
+    const WriteCut cut = replace_(context_, term, swapped, *this);
+    term = hooked_;
+    hooked_ = Cell{};
+    settle();
     if (cut == WriteCut::Stop) {
       aborted_ = true;
       return;

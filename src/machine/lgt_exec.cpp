@@ -129,7 +129,7 @@ struct SavedText {
 };
 
 // 読み直すと _GN が分かれる。今の演算子で読めない字面は、変数のまま残す。
-WriteCut paste_saved(void* context, Cell term, std::string& out) {
+WriteCut paste_saved(void* context, Cell term, std::string& out, WriteHeld& /*held*/) {
   const auto* text = static_cast<const SavedText*>(context);
   if (text == nullptr || text->machine == nullptr || term.tag() != Tag::Ref) return WriteCut::Keep;
   for (const VarName& var : *text->names) {
