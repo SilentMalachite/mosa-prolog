@@ -13,3 +13,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0007](0007-messages.md) | Message catalogs, flag message_language, syntax_error Key | Approved (2026-10-28) |
 | [0008](0008-logical-update-view.md) | Logical update view: dead clauses kept for open scans | Approved (2026-10-28) |
 | [0009](0009-native-code.md) | Generated code: coexistence and calling convention | Approved (2026-10-29) |
+| [0010](0010-gc-heap-growth.md) | GC and heap growth: reserved address space, safe-point sliding collector | Awaiting approval |

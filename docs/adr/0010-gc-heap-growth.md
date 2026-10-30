@@ -1,0 +1,27 @@
+English | [日本語](0010-gc-heap-growth.ja.md)
+
+Status: Awaiting approval (written 2026-10-30)
+
+## Context
+
+Load tests stop at `heap_limit`: `tak(18,12,6)` overflows the heap and a bare `loop(N)` overflows between N = 40000 and 45000, and the interpreter's `extras` and the trail also grow without bound because they shrink only on backtracking.
+Cells hold real addresses (ADR 0001/0002), while goal frames, continuations and `redo_goal` hold heap indexes (ADR 0003/0009) and `Trail::slots` and `Trail::mark` are raw pointers, so a heap that moves needs every one of them rewritten.
+The owner asked for a GC, a heap that grows by itself, a safe stop when it cannot, and visible statistics; the plateau is the exit check of SPEC section 9, not an absolute size.
+
+## Decision
+
+Heap: `Heap` reserves virtual address space up to the limit at start-up and commits it from the bottom as needed (`mmap`+`mprotect` on POSIX, `VirtualAlloc` `MEM_RESERVE`/`MEM_COMMIT` on Windows, both in `src/platform/`), so committed cells never move and a built-in can grow the heap in the middle of a step. The limit is in words: the `heap_limit` argument of `Machine::create` as given (the API reads no environment variable); the entry points (`mosa`'s `main`, generated `main.cpp`) decide `--heap-max` (MiB, an integer; `mosa` only) → `MOSA_HEAP_MAX` (MiB) → default 4 GiB (2^29 words), since the Linux OOM killer can kill the process before it prints a message. The initial commit is min(2^20 words, limit).
+Safe points: GC runs only between two steps of `run_loop`, never inside a built-in or generated function, so a C++ local that holds a Cell is never moved. A soft capacity C (`gc_capacity`) is at most `limit - headroom` with `headroom = min(max(limit / 4, 65536), limit / 2)` words, so one step always fits after a GC; allocation inside a step may pass C up to the limit. The check at a safe point is one comparison against the trigger `gc_threshold`, which is C normally. After a GC with live data L: if L > 0.7·C, C doubles up to the cap; if L > 0.7·C still holds at the cap, `gc_threshold = max(C, L + (limit - L) / 2)`, so a nearly full heap does not collect at every safe point and the run ends at the limit instead. A tiny limit (`Machine::create(8)`) keeps today's `heap_limit` stop.
+Collector: mark in an explicit stack (no C++ recursion) into a bit table, one bit per word, plus 2 bits per word for the kind (Cell, Raw, FrameIndex, ExtrasIndex): Str functor words, Float and IntBox words and goal-frame words 0-2 are Raw, a `Ctrl::Native` frame's words 0-2 and 4 are Raw and its words from 5 are Cells (ADR 0009). Then slide: `rank(i)` = marked words below i, from per-64-word block prefix counts plus `popcount`, one upward pass moves each marked word to `rank(i)` and rewrites Cell pointers, frame indexes and extras indexes, so order is kept and every `heap_mark` becomes `rank(mark)`. `extras` keeps only entries that a reachable control frame points to, in order (own bit table); the trail keeps only entries whose slot is marked and rewrites them, and each `trail_mark` is the number of kept entries below its old position.
+Roots: `ip`, `ball`, `bindings`, every `Entry` of the choice stack, `Trail::mark`, and `Impl::gc_roots`, a registry of nested C++ holders. Every site that runs a nested `run_loop` (`findall/bagof/setof`, directives while consulting, `with_output_to`, the `lgt_copy` helper) holds a `RootScope` that registers its Cells, heap marks and heap indexes (findall's `VarIds`, the loader's `heap_base`, `Saved`, `Snap` with `extras_mark`) and deregisters on exit. The one exception is the portray hook (`apply_portray` in `src/builtins/write_pred.cpp`), which runs inside the writer's recursion whose C++ frames and `Printer::assigned_` hold raw addresses: a `GcInhibit` counter stops GC there until the writer is rewritten iteratively (phase 7), when it is removed.
+Stop: reaching the limit, a refused commit or a `std::bad_alloc` stops the current query without damaging the heap, with a bilingual message (ADR 0007 catalog); the REPL continues, a `mosac` executable exits 2, and `catch/3` cannot catch it, as with `heap_limit` today (`ResourceLimit`).
+
+## Rejected alternatives
+
+Moving to an array twice as large at GC time, since cells are real addresses, so every pointer, trail slot and index would be rewritten and the heap could not grow in the middle of a step (no way to undo a step).
+Switching GC off inside nested `run_loop` calls, since a heavy computation inside `findall` would overflow again, which is the failure being fixed.
+Changing the execution model so that a plain conjunction creates no `Extra`, since it changes ADR 0003 and is a large change apart from GC; collecting `extras` in the GC does the job.
+
+## Consequences
+
+On approval, SPEC section 6 (English and Japanese), rows Heap and GC, change from "allocated as `std::vector<Cell>` with an upper bound" to a reserved address range committed as needed, and `docs/iso-notes.md` (English and Japanese) records that there is no atom table GC, so a loop that makes atoms grows the table. Heap, `extras` and trail all plateau; the choice stack grows only with live choice points. `statistics/2`, `garbage_collect/0` and a log flag follow in a later task. No code is written on this ADR before it is approved.
