@@ -28,6 +28,7 @@ enum class IrTag {
   Halt
 };
 
+// 破棄と複製は C++ の再帰を使わず手で積む（ADR 0011、src/core/ir.cpp）。長いリストは args[1] の入れ子になる。
 struct IrTerm {
   IrTag tag = IrTag::True;
   std::uint16_t slot = 0;
@@ -36,6 +37,14 @@ struct IrTerm {
   std::int64_t integer = 0;
   double floating = 0;
   std::vector<IrTerm> args;
+
+  IrTerm() = default;
+  IrTerm(const IrTerm& other);
+  IrTerm(IrTerm&& other) noexcept = default;
+  IrTerm& operator=(const IrTerm& other);
+  // 自分の子からのムーブ（term = std::move(term.args[1])）も受ける。
+  IrTerm& operator=(IrTerm&& other) noexcept;
+  ~IrTerm();
 };
 
 }

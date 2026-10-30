@@ -59,6 +59,12 @@ add_test(NAME stack_deep_write COMMAND ${CMAKE_COMMAND}
   -DSUMMARY=1 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
 set_tests_properties(stack_deep_write PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
+# 1 MiB のスタックで、ソースに書いた 200,000 要素のリストを読んで動かす（ADR 0011）。
+add_test(NAME long_literal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/long_literal -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/long_literal.cmake)
+set_tests_properties(long_literal PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 差分テストの答えの字面（計画 Task 11）。深い項を既定のスタックで書けることまで見る。
 add_executable(answer_text_test tests/cpp/answer_text_test.cpp)
 target_include_directories(answer_text_test PRIVATE tests/cpp src/machine)
