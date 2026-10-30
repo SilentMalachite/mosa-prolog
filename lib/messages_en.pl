@@ -7,6 +7,7 @@ message(goal_raised, 'Warning: goal raised exception: ~q').
 message(heap_limit, 'Warning: heap limit exceeded').
 message(heap_limit_size, 'The heap reached its limit (~w MiB); the query was stopped').
 message(heap_reserve, 'Could not reserve address space for a heap of ~w MiB; set a smaller limit with --heap-max or MOSA_HEAP_MAX').
+message(heap_max_env_ignored, 'Warning: MOSA_HEAP_MAX=~w is not a whole number of MiB and was ignored (default ~w MiB)').
 message(gc_trace, '% GC #~w: ~w KiB -> ~w KiB (capacity ~w KiB, ~w ms)').
 message(help_japanese_variables, 'Variables with Japanese names start with an underscore, as in _太郎. Without it, 太郎 is an atom.').
 

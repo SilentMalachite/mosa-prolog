@@ -25,6 +25,7 @@ namespace mosa {
 [[nodiscard]] std::string_view heap_stop_key() noexcept;
 
 // 環境変数 MOSA_HEAP_MAX を読んだ上限（語）。無いか解釈できなければ kDefaultHeapMax。
+// 空でない値が解釈できなければ、値と既定を名指す警告を 1 行、標準エラーに出す（入口の main だけが呼ぶ）。
 [[nodiscard]] std::size_t heap_max_from_environment();
 
 // 上限（語）を MiB に直した十進の文字列。端数は切り上げる（小さな上限でも 0 にならない）。

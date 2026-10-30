@@ -50,6 +50,17 @@ if(NOT code EQUAL 1)
   fail("--heap-max 0 must be a usage error")
 endif()
 
+# 解釈できない MOSA_HEAP_MAX は既定の上限で動き、値と既定を名指す警告を 1 行だけ出す（黙って既定にしない）。
+foreach(bad 512M 2GB)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=${bad}" "${MOSA}" -g halt
+    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
+  string(REGEX MATCHALL "MOSA_HEAP_MAX=${bad}" named "${err}")
+  list(LENGTH named named_count)
+  if(NOT code EQUAL 0 OR NOT named_count EQUAL 1 OR NOT err MATCHES "4096 MiB")
+    fail("MOSA_HEAP_MAX=${bad} must run with the default and warn once with the value and 4096 MiB")
+  endif()
+endforeach()
+
 # 予約を断られる上限は「上限に達した」ではなく、番地を予約できなかったと言い、--heap-max と MOSA_HEAP_MAX を名指す。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 999999999 -g halt
   OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)

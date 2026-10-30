@@ -2,8 +2,11 @@
 
 #include "mosa/exe_path.hpp"
 #include "mosa/heap.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
 
+#include <array>
+#include <iostream>
 #include <limits>
 #include <new>
 #include <string>
@@ -67,6 +70,12 @@ std::size_t heap_max_from_environment() {
   const auto value = environment_path("MOSA_HEAP_MAX");
   if (!value) return kDefaultHeapMax;
   const std::string text = utf8_from_path(*value);
+  // 512M や 2GB を黙って既定にすると、利用者は効いていないことに気づけない。空の値は無いのと同じに扱う。
+  if (!text.empty() && !parse_heap_max_mib(text)) {
+    std::cerr << render_message_fresh(default_message_language(), "heap_max_env_ignored",
+                                      std::array{text, heap_limit_mib_text(kDefaultHeapMax)})
+              << '\n';
+  }
   return resolve_heap_max(std::nullopt, std::string_view{text});
 }
 
