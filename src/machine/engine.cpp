@@ -501,8 +501,8 @@ Stop run_loop(Impl& machine) {
       return Stop{StopKind::Success, 0, {}, machine.bindings, has_more(machine)};
     }
     // 2 歩の間だけが GC の機会である（ADR 0010）。組込と生成関数の C++ の局所はここでは何も握っていない。
-    // 呼び出しを避けるため、通常の「まだ早い」判定はここで済ませる（gc_safe_point 側の判定と同じ条件）。
-    if (machine.gc_stress != 0 || machine.heap.size() >= machine.gc_threshold) gc_safe_point(machine);
+    // 呼び出しを避けるため、通常の「まだ早い」判定はここで済ませる（gc_trigger は stress 中だけ 0 なので比較 1 回で済む）。
+    if (machine.heap.size() >= machine.gc_trigger) gc_safe_point(machine);
     step(machine);
   }
 }

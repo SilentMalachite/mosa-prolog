@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -48,9 +49,16 @@ void Heap::grow_for(std::size_t count) {
   grow(used_ + count);
 }
 
-void Heap::truncate(std::size_t size) { used_ = size; }
+// どちらも used_ <= committed_words_ <= limit_（allocate の速い道が頼る不変条件）を壊さない大きさだけを渡すこと。
+void Heap::truncate(std::size_t size) {
+  assert(size <= committed_words_);
+  used_ = size;
+}
 
-void Heap::reset_size_after_gc(std::size_t used) { used_ = used; }
+void Heap::reset_size_after_gc(std::size_t used) {
+  assert(used <= committed_words_);
+  used_ = used;
+}
 
 std::uint64_t Heap::word_at(std::size_t index) const { return range_.words()[index]; }
 

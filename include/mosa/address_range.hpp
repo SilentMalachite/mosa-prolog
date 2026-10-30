@@ -1,7 +1,7 @@
 #pragma once
 
 // 予約と確保を分けたアドレス範囲（ADR 0010）。ヒープはこの上に置き、伸ばしても確保済みの語が動かない。
-// 定義は src/platform/address_range.cpp だけに置く。
+// OS を呼ぶ定義は src/platform/address_range.cpp だけに置く（words() のような読むだけの口は速さのためここで inline）。
 #include <cstddef>
 #include <cstdint>
 #include <optional>

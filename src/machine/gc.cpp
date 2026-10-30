@@ -52,6 +52,7 @@ void update_policy(Impl& machine, std::size_t live) {
   if (capacity >= cap && crowded(live, capacity)) {
     machine.gc_threshold = std::max(capacity, live + (limit - live) / 2);
   }
+  machine.gc_trigger = machine.gc_stress == 0 ? machine.gc_threshold : 0;
 }
 
 }  // namespace
@@ -90,6 +91,7 @@ void init_gc(Impl& machine) {
   machine.gc_capacity = std::min(kInitialHeapCommit, capacity_cap(limit));
   machine.gc_threshold = machine.gc_capacity;
   machine.gc_stress = read_stress();
+  machine.gc_trigger = machine.gc_stress == 0 ? machine.gc_threshold : 0;
 }
 
 // 旗 trace_gc の 1 行。文面は鍵 gc_trace のカタログから引く。ミリ秒は小数 2 桁まで見せる。

@@ -351,6 +351,8 @@ struct Machine::Impl {
   int gc_inhibit = 0;
   std::size_t gc_capacity = 0;
   std::size_t gc_threshold = 0;
+  // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
+  std::size_t gc_trigger = 0;
   // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
