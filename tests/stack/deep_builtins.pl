@@ -20,8 +20,9 @@ fdepth(T, N) :- fdepth(T, 0, N).
 fdepth(T, N0, N) :- nonvar(T), T = f(X), !, N1 is N0 + 1, fdepth(X, N1, N).
 fdepth(_, N, N).
 
+% 各行は \+ \+ で束縛を戻し、前の行の深い項を次の行へ持ち越さない。
 show(Name, Goal) :-
-    (   catch(Goal, E, (write(Name: E), nl, fail))
+    (   \+ \+ catch(Goal, E, (write(Name: E), nl, fail))
     ->  write(Name: ok), nl
     ;   write(Name: failed), nl
     ).

@@ -1,6 +1,8 @@
 #include "../machine/internal.hpp"
 
 #include <string_view>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -252,14 +254,21 @@ void run_univ(Impl& machine, const Goal& goal) {
   else succeed(machine, goal);
 }
 
-void collect_vars(const Impl& machine, Cell term, std::vector<Cell>& vars, std::vector<std::uint64_t>& seen) {
+// 集めた変数と、辿り終えた複合項。どちらも百万を超えうるので、探すのは定数時間の表で行う。
+struct VarWalk {
+  std::vector<Cell> vars;
+  std::unordered_set<std::uint64_t> listed;
+  std::unordered_set<std::uint64_t> seen;
+  std::vector<Cell> pending;
+};
+
+// 1 つの項を見る。変数なら初めての時だけ vars に足し、まだ見ていない複合項なら子を右から pending に積む。
+// 右から積むので、取り出す順は前の再帰と同じ左からの前順になり、vars の並びも変わらない。
+void visit_vars(const Impl& machine, Cell term, VarWalk& walk) {
   if (term.tag() == Tag::Ref) {
     const Cell value = machine.heap.deref(term);
     if (machine.heap.unbound(value)) {
-      for (const Cell& var : vars) {
-        if (var.raw() == value.raw()) return;
-      }
-      vars.push_back(value);
+      if (walk.listed.insert(value.raw()).second) walk.vars.push_back(value);
       return;
     }
     term = value;
@@ -267,18 +276,27 @@ void collect_vars(const Impl& machine, Cell term, std::vector<Cell>& vars, std::
     term = machine.heap.deref(term);
   }
   if (machine.heap.unbound(term) || (term.tag() != Tag::Lis && term.tag() != Tag::Str)) return;
-  for (const auto raw : seen) {
-    if (raw == term.raw()) return;
-  }
-  seen.push_back(term.raw());
+  if (!walk.seen.insert(term.raw()).second) return;
   if (term.tag() == Tag::Lis) {
-    collect_vars(machine, machine.heap.list_head(term), vars, seen);
-    collect_vars(machine, machine.heap.list_tail(term), vars, seen);
+    walk.pending.push_back(machine.heap.list_tail(term));
+    walk.pending.push_back(machine.heap.list_head(term));
     return;
   }
-  for (std::uint16_t index = 0; index < machine.heap.functor_arity(term); ++index) {
-    collect_vars(machine, machine.heap.arg(term, index), vars, seen);
+  for (std::uint16_t index = machine.heap.functor_arity(term); index > 0; --index) {
+    walk.pending.push_back(machine.heap.arg(term, static_cast<std::uint16_t>(index - 1)));
   }
+}
+
+// 深い項でも C++ のスタックを使わないよう、まだ見ていない項を手で積む（ADR 0011）。
+std::vector<Cell> collect_vars(const Impl& machine, Cell term) {
+  VarWalk walk;
+  walk.pending.push_back(term);
+  while (!walk.pending.empty()) {
+    const Cell next = walk.pending.back();
+    walk.pending.pop_back();
+    visit_vars(machine, next, walk);
+  }
+  return std::move(walk.vars);
 }
 
 void run_copy(Impl& machine, const Goal& goal) {
@@ -297,9 +315,7 @@ void run_variables(Impl& machine, const Goal& goal) {
       return;
     }
   }
-  std::vector<Cell> vars;
-  std::vector<std::uint64_t> seen;
-  collect_vars(machine, goal.arg(machine, 0), vars, seen);
+  const std::vector<Cell> vars = collect_vars(machine, goal.arg(machine, 0));
   if (!do_unify(machine, goal.arg(machine, 1), list_from(machine, vars))) machine.failed = true;
   else succeed(machine, goal);
 }
