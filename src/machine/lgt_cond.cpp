@@ -5,6 +5,7 @@
 #include "internal.hpp"
 
 #include "mosa/writer.hpp"
+#include "mosa/heap_option.hpp"
 
 #include <cstdint>
 #include <string>
@@ -35,7 +36,8 @@ Verdict ask_text(Machine& machine, std::string_view goal) {
   Stop stop;
   try {
     stop = machine.query(goal);
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return Verdict::Dead;
   }
   // 条件の halt を、次のテストのクエリに残さない。
@@ -189,7 +191,8 @@ LgtCond lgt_condition(Machine& machine, std::string_view goal) {
     const ReadOutcome read = reader.next();
     if (!read.term) return LgtCond::Bad;
     return publish_cond(eval_goal(machine, heap, ops, read.term->term));
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return LgtCond::Dead;
   }
 }

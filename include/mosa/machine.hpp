@@ -40,7 +40,7 @@ class Machine {
  public:
   struct Impl;
 
-  [[nodiscard]] static std::unique_ptr<Machine> create(std::size_t heap_limit = std::size_t{1} << 20);
+  [[nodiscard]] static std::unique_ptr<Machine> create(std::size_t heap_limit = kDefaultHeapMax);
   ~Machine();
 
   Machine(const Machine&) = delete;
@@ -52,6 +52,9 @@ class Machine {
   [[nodiscard]] OperatorTable& operators();
   [[nodiscard]] const OperatorTable& operators() const;
   [[nodiscard]] LoadStatus load_program(std::string_view source);
+  // 返した Stop のセル（bindings・exception）は、この Machine の次の呼び出しまでしか有効でない。
+  // GC（ADR 0010）はヒープを選択点より下まで詰めるので、次の next()・query()・load_program()・consult() の後は
+  // 古い番地になる。続けて使う値は、次の呼び出しの前に字面か C++ の値へ写しておく。
   [[nodiscard]] Stop query(std::string_view goal_text);
   [[nodiscard]] Stop next();
   void halt(int code);

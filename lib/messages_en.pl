@@ -5,6 +5,10 @@
 
 message(goal_raised, 'Warning: goal raised exception: ~q').
 message(heap_limit, 'Warning: heap limit exceeded').
+message(heap_limit_size, 'The heap reached its limit (~w MiB); the query was stopped').
+message(heap_reserve, 'Could not reserve address space for a heap of ~w MiB; set a smaller limit with --heap-max or MOSA_HEAP_MAX').
+message(heap_max_env_ignored, 'Warning: MOSA_HEAP_MAX=~w is not a whole number of MiB and was ignored (default ~w MiB)').
+message(gc_trace, '% GC #~w: ~w KiB -> ~w KiB (capacity ~w KiB, ~w ms)').
 message(help_japanese_variables, 'Variables with Japanese names start with an underscore, as in _太郎. Without it, 太郎 is an atom.').
 
 % 構文エラー（ADR 0007）。理由の鍵は syntax_error(Key) の Key と同じ。
@@ -21,7 +25,7 @@ message(max_arity, 'too many arguments').
 message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
-message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [-- argument...]').
+message(usage, 'mosa: usage: mosa [file...] [-g goal] [-t halt] [--heap-max MiB] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
 message(mosac_dist_unavailable, 'mosac: mosac dist is not available until phase 7').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').

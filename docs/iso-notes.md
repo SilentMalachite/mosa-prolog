@@ -566,3 +566,9 @@ Decision (2026-10-30): this is a known defect, not an intended deviation. The in
 The writer, the reader and the loader recurse once per nesting level, so a term nested very deeply overflows the C stack. Printing a term nested about 30000 deep overflows the stack, `mosa` overflows on loading a 50000-element list literal on macOS, and on Windows (1 MiB stack) a 20000-element list literal cannot be loaded. The owner treats this as an implementation limit (ISO 7.1, implementation defined) and not as a deviation from a requirement. The translator (`mosac`) walks terms iteratively and handles a 20000-element list (ctest `mosac_long_list`).
 
 Decision (2026-10-30): A. Make the writer, the reader and the loader iterative in phase 7 or later. Until then the limit stands, and the test `mosac_long_list` steps down to a shorter list on Windows.
+
+## 7.1 No garbage collection of the atom table (implementation limit)
+
+The GC of ADR 0010 reclaims the heap, `extras` and the trail, but not the atom table, so a loop that keeps creating new atoms (for example with `atom_concat/3` or `atom_codes/2`) makes the table grow until the process ends. This is a known limit of the implementation, not a deviation from the standard.
+
+Decision (2026-10-30): A. Keep the limit through phase 7; ADR 0010 lists atom table GC as a non-goal.

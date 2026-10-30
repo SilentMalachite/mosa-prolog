@@ -6,17 +6,34 @@
 #include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
 #include "mosa/heap.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/repl.hpp"
 
+#include <array>
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace mosa::rt {
+
+std::unique_ptr<Machine> create_machine() {
+  const std::size_t limit = heap_max_from_environment();
+  try {
+    return Machine::create(limit);
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    std::cerr << render_message_fresh(default_message_language(), heap_stop_key(),
+                                      std::array{heap_limit_mib_text(limit)})
+              << '\n';
+    std::exit(2);
+  }
+}
 
 void start(Machine& machine, int argc, char** argv) {
   // 何かを読み書きする前に、Windows のコンソールを UTF-8 にする（mosa の main と同じ順）。
@@ -46,15 +63,22 @@ std::optional<int> load_outcome(Impl& impl, bool loaded) {
   return std::nullopt;
 }
 
+// 上限に達したマシンのヒープではカタログを読めないので、新しいマシンで文面を作る。終了コードは 2。
+int report_heap_limit(Machine& machine) {
+  const std::string limit = heap_limit_mib_text(machine.heap().limit());
+  std::cerr << render_message_fresh(default_message_language(), "heap_limit_size", std::array{limit}) << '\n';
+  return 2;
+}
+
 }  // namespace
 
 int finish_interactive(Machine& machine, bool loaded) {
   if (const auto code = load_outcome(engine_impl(machine), loaded)) return *code;
   try {
     return run_prepared_session(machine, &std::cout, &std::cerr).code;
-  } catch (const ResourceLimit&) {
-    std::cerr << render_message_fresh(default_message_language(), "heap_limit") << '\n';
-    return 2;
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    return report_heap_limit(machine);
   }
 }
 

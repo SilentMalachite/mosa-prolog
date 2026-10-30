@@ -7,6 +7,7 @@
 #include "internal.hpp"
 
 #include "mosa/machine.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/writer.hpp"
 
@@ -327,7 +328,8 @@ Step ask(Machine& machine, std::string_view goal) {
   Step step;
   try {
     step.stop = machine.query(goal);
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     step.dead = true;
     return step;
   }
@@ -339,7 +341,8 @@ Step again(Machine& machine) {
   Step step;
   try {
     step.stop = machine.next();
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     step.dead = true;
     return step;
   }
@@ -404,7 +407,8 @@ bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>
   }
   try {
     return lgt_run_copied_goal(main, *scratch, resolved);
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return false;
   }
 }

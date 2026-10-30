@@ -268,6 +268,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"$format_float", 4},
     {"$upcase_atom", 2},
     {"$char_width", 2},
+    {"garbage_collect", 0},
+    {"statistics", 2},
 });
 
 // 節の ^^ は判定器を通らない。ここで閉じないと put_byte/1 がバイナリへ書いて成功する。
@@ -478,7 +480,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   }
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_qualify(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
-      run_flags(machine, goal) || run_database(machine, goal) || run_module_prop(machine, goal) ||
+      run_flags(machine, goal) || run_statistics(machine, goal) || run_database(machine, goal) || run_module_prop(machine, goal) ||
       run_lists(machine, goal) || run_format_float(machine, goal) || run_case(machine, goal) || run_char_width(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal)) {
@@ -498,6 +500,9 @@ Stop run_loop(Impl& machine) {
     if (machine.ip == kNoFrame) {
       return Stop{StopKind::Success, 0, {}, machine.bindings, has_more(machine)};
     }
+    // 2 歩の間だけが GC の機会である（ADR 0010）。組込と生成関数の C++ の局所はここでは何も握っていない。
+    // 呼び出しを避けるため、通常の「まだ早い」判定はここで済ませる（gc_trigger は stress 中だけ 0 なので比較 1 回で済む）。
+    if (machine.heap.size() >= machine.gc_trigger) gc_safe_point(machine);
     step(machine);
   }
 }

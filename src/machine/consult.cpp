@@ -206,14 +206,14 @@ bool Machine::consult(std::string_view path) {
   return false;
 }
 
-bool run_consult(Impl& machine, const Goal& goal) {
-  const Cell path = machine.heap.deref(goal.arg(machine, 0));
+bool run_consult(Impl& machine, const Goal& call) {
+  const Cell path = machine.heap.deref(call.arg(machine, 0));
   if (machine.heap.unbound(path)) {
-    raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
+    raise_formal(machine, formal_instantiation(machine), call.name, call.arity);
     return true;
   }
   if (path.tag() != Tag::Atom) {
-    raise_formal(machine, formal_type(machine, "atom", path), goal.name, goal.arity);
+    raise_formal(machine, formal_type(machine, "atom", path), call.name, call.arity);
     return true;
   }
   const auto text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
@@ -223,6 +223,12 @@ bool run_consult(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return true;
   }
+  // 読み込みの指示は入れ子の run_loop で動き、GC が枠を動かす。読んだ後は登録した写し goal を使う。
+  Goal goal = call;
+  const RootScope roots(machine, [&goal](GcVisitor& visitor) {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+  });
   // 公開述語は consult を呼んだ文脈モジュールへ取り込む。
   const auto outer = machine.load_module;
   machine.load_module = goal.module;

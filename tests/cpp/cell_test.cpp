@@ -65,7 +65,7 @@ void check_heap_cap_and_ref() {
 void check_numbers_and_terms() {
   mosa::AtomTable atoms;
   mosa::Heap wide(atoms);
-  mosa_test::check(wide.limit() == (std::size_t{1} << 20), "default cap");
+  mosa_test::check(wide.limit() == mosa::kDefaultHeapMax, "default cap");
   const auto* base = wide.data();
   const auto reserved = wide.capacity();
   const auto small = wide.integer((std::int64_t{1} << 60) - 1);

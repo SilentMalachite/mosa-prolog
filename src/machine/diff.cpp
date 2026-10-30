@@ -12,6 +12,7 @@
 #include "test_file.hpp"
 
 #include "mosa/path_text.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/writer.hpp"
 
@@ -77,8 +78,9 @@ DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes
     if (!read_test_file(*scratch, bytes, utf8_from_path(file.parent_path()), utf8_from_path(file), exams, out.error)) {
       return out;
     }
-  } catch (const ResourceLimit&) {
-    out.error = message_text(engine_impl(*scratch), "heap_limit");
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    out.error = heap_limit_text(engine_impl(*scratch));
     return out;
   }
   std::vector<Clause> clauses;
@@ -151,7 +153,8 @@ DiffSource lgt_source(const std::string& bytes) {
       if (!lgt_guard_holds(item.guard, chosen) || item.outside) continue;
       lgt_case(*scratch, item, index + 1, out, clauses);
     }
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     out.error = "heap_limit";
     return out;
   }
@@ -199,7 +202,8 @@ std::string run_goal(Machine& machine, const DiffGoal& goal) {
       stop = machine.next();
       text += "\n" + render(machine, stop);
     }
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     text = "resource_limit";
   }
   // halt は次の問い合わせを空振りさせる。lgt の実行器と同じく印を戻す。
@@ -245,7 +249,8 @@ std::vector<DiffLine> lgt_results(const std::filesystem::path& file, const std::
     for (const std::string& line : run.results) lines.push_back(split_label(line));
     for (const std::string& line : run.failures) lines.push_back(DiffLine{"failure", line});
     lines.push_back(DiffLine{"summary", "passed " + std::to_string(run.passed) + " failed " + std::to_string(run.failed)});
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     lines.push_back(DiffLine{"summary", "resource_limit"});
   }
   // 実行器は case ごとに出力を捕まえる。ここに残るのは読み込みなどの間の出力で、まとめの行に付ける。

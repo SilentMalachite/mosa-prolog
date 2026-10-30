@@ -52,6 +52,9 @@ target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/term_equal.cpp)
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
+  src/machine/gc.cpp
+  src/machine/gc_mark.cpp
+  src/machine/gc_compact.cpp
   src/machine/load.cpp
   src/machine/load_clauses.cpp
   src/machine/native.cpp
@@ -76,6 +79,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/answer.cpp
   src/machine/consult.cpp
   src/machine/session.cpp
+  src/machine/heap_option.cpp
   src/machine/messages.cpp
   src/machine/suite.cpp
   src/machine/iso_suite.cpp
@@ -95,6 +99,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/command_line.cpp
   src/platform/console.cpp
   src/platform/process.cpp
+  src/platform/address_range.cpp
   src/platform/toolchain.cpp
   src/machine/bench.cpp
   src/machine/bench_report.cpp
@@ -117,6 +122,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/atoms.cpp
   src/builtins/atoms_number.cpp
   src/builtins/flags.cpp
+  src/builtins/statistics.cpp
   src/builtins/database.cpp
   src/builtins/database_scan.cpp
   src/builtins/module_prop.cpp

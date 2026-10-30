@@ -56,6 +56,20 @@ add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOUR
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+add_executable(heap_growth_test tests/cpp/heap_growth_test.cpp)
+target_include_directories(heap_growth_test PRIVATE tests/cpp)
+target_link_libraries(heap_growth_test PRIVATE mosa_lib)
+add_test(NAME heap_growth COMMAND $<TARGET_FILE:heap_growth_test>)
+
+# mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
+add_executable(gc_test tests/cpp/gc_test.cpp)
+target_include_directories(gc_test PRIVATE tests/cpp src)
+target_compile_definitions(gc_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(gc_test PRIVATE mosa_lib)
+add_test(NAME gc COMMAND $<TARGET_FILE:gc_test>)
+# 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
+set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -81,6 +95,10 @@ add_executable(machine_test tests/cpp/machine_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)
 target_link_libraries(machine_test PRIVATE mosa_lib)
 add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)
+add_executable(address_range_test tests/cpp/address_range_test.cpp)
+target_include_directories(address_range_test PRIVATE tests/cpp)
+target_link_libraries(address_range_test PRIVATE mosa_lib)
+add_test(NAME address_range COMMAND $<TARGET_FILE:address_range_test>)
 add_executable(evaluable_test tests/cpp/evaluable_test.cpp)
 target_include_directories(evaluable_test PRIVATE tests/cpp src)
 target_link_libraries(evaluable_test PRIVATE mosa_lib)
@@ -148,6 +166,7 @@ target_include_directories(suite_path_test PRIVATE tests/cpp)
 target_compile_definitions(suite_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(suite_path_test PRIVATE mosa_lib)
 add_test(NAME suite_path_test COMMAND $<TARGET_FILE:suite_path_test>)
+set_tests_properties(suite_path_test PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(suite_vars_test tests/cpp/suite_vars_test.cpp)
 target_include_directories(suite_vars_test PRIVATE tests/cpp)
@@ -177,7 +196,9 @@ add_executable(conformance_io_test tests/cpp/conformance_io_test.cpp)
 target_include_directories(conformance_io_test PRIVATE tests/cpp)
 target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(conformance_io_test PRIVATE mosa_lib)
+# tests/tmp/suite は tests.lgt を流す全てが共有する。空かどうかを見るこの 2 本と diff_conformance は同時に走らせない。
 add_test(NAME conformance_io_test COMMAND $<TARGET_FILE:conformance_io_test>)
+set_tests_properties(conformance_io_test PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(conformance_output_test tests/cpp/conformance_output_test.cpp)
 target_include_directories(conformance_output_test PRIVATE tests/cpp)
@@ -348,6 +369,16 @@ add_test(NAME mosac_long_list COMMAND ${CMAKE_COMMAND}
 set_tests_properties(mosac_long_list PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
+# ヒープの上限（--heap-max / MOSA_HEAP_MAX）で止まる。mosac run は終了コード 2 と上限の MiB を出す。
+# REPL は repl_ref（端末でなくても REPL にする）で、止まったあとの次の問い合わせに答える。
+add_test(NAME mosac_heap_limit COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DREF=$<TARGET_FILE:repl_ref>
+  -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_heap_limit
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/heap_limit_test.cmake)
+set_tests_properties(mosac_heap_limit PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # cmake --install を一時の prefix に行い、SPEC 第6節の形と、インストールした mosac での build を確かめる。
 # runtime の部品は Release だけ入れるので、ほかの構成では台本が「skipped: 」を出し、CTest はそれを skip と数える。
 add_test(NAME mosac_installed_layout COMMAND ${CMAKE_COMMAND}
@@ -396,7 +427,7 @@ add_test(NAME diff_conformance COMMAND ${CMAKE_COMMAND}
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
   "-DREQUIRE=" "-DATTACHED=" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
-set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
+set_tests_properties(diff_conformance PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK "agreement;suite_scratch"
   TIMEOUT 3000)
 
 # 日本語の文面を確かめるテストを、流す機械の LANG に左右させない（ADR 0007）。英語の既定は session_english が見る。

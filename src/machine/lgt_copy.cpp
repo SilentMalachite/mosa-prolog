@@ -2,6 +2,7 @@
 // -2^63 を字面に戻すと正のトークンが溢れて変数になる。ゴールと同じセル写しで節を載せる。
 
 #include "lgt_priv.hpp"
+#include "mosa/heap_option.hpp"
 
 #include "internal.hpp"
 
@@ -74,6 +75,9 @@ Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint6
 
 bool copied_succeeds(Machine& scratch, Cell goal) {
   Impl& machine = engine_impl(scratch);
+  // RootScope も GcInhibit も要らない。この run_loop は scratch の外の問い合わせの中ではなく、scratch の
+  // ヒープの値で run_loop の後に読むものも無い（goal は launch までで使い終わり、水位は stack の cleanup が持つ）。
+  // 元の機械は動かないので、写しの元のセルも動かない。
   Entry cleanup;
   cleanup.pick = Pick::Cleanup;
   cleanup.heap_mark = machine.heap.size();
@@ -135,7 +139,8 @@ void plant_user_clauses(Impl& src, Impl& dst) {
       if (!keep_predicate(src, predicate)) continue;
       plant_predicate(src, dst, predicate);
     }
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     // 表明の一時項だけ戻す。開いている query の水位より後ろを残さない。
     src.heap.truncate(mark);
     throw;

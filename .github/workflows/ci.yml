@@ -127,6 +127,31 @@ jobs:
           grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
+  # 取りこぼした GC の根を落ちとして見つけるジョブ（ADR 0010、計画 Task 6）。MOSA_GC_STRESS=N は N 回の安全点ごとに GC を走らせる。
+  # 手元（macOS、10 コア）で N=1 の ctest（差分テスト diff_tests_pl と diff_conformance を含む、mosatest --diff を内部で流す）が
+  # 309 秒だったので、N は 1 のまま（40 分を超えたら 7 に上げる）。ヒープに何百万語も載せる gc、heap_growth、mosac_heap_limit は
+  # N=1 では設計上遅いので、1 段目から外し、2 段目で N=1000 にして流す（手元で 401 秒）。install と bench は GC と関わらないので外す。
+  linux-gc-stress:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ ninja-build cmake
+      - name: Configure
+        run: cmake --preset linux-gcc
+      - name: Build
+        run: cmake --build --preset linux-gcc
+      - name: Tests and differential tests with MOSA_GC_STRESS=1
+        env:
+          MOSA_GC_STRESS: 1
+        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit)$|install|bench" --no-tests=error
+      - name: Heavy GC tests with MOSA_GC_STRESS=1000
+        env:
+          MOSA_GC_STRESS: 1000
+        run: ctest --preset linux-gcc -R "^(gc|heap_growth|mosac_heap_limit)$" --no-tests=error
+
   linux-clang:
     runs-on: ubuntu-24.04
     steps:

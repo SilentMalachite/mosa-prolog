@@ -260,10 +260,12 @@ int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>
   return 1;
 }
 
+// extras とトレイルは退避せず、水位だけを覚えて入れ子をその上に積む。GC は machine の extras とトレイルしか
+// 詰め直せないので、別の vector へ退避すると、退避した制御枠の extras の添字と Entry の trail_mark を写せない。
 struct SavedExec {
   std::vector<Entry> stack;
-  std::vector<Extra> extras;
-  std::vector<std::uint64_t*> trail;
+  std::size_t extras_mark = 0;
+  std::size_t trail_size = 0;
   const std::uint64_t* trail_mark = nullptr;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
@@ -279,8 +281,8 @@ struct SavedExec {
 SavedExec park_exec(Impl& machine) {
   SavedExec saved;
   saved.stack.swap(machine.stack);
-  saved.extras.swap(machine.extras);
-  saved.trail.swap(machine.trail.slots);
+  saved.extras_mark = machine.extras.size();
+  saved.trail_size = machine.trail.slots.size();
   saved.trail_mark = machine.trail.mark;
   machine.trail.mark = nullptr;
   saved.ip = machine.ip;
@@ -300,12 +302,29 @@ SavedExec park_exec(Impl& machine) {
   return saved;
 }
 
+// 入れ子の run_loop の間に GC が動かす値（gc.hpp）。退避したスタックと束縛は、機械のものと同じ扱いで辿る。
+void visit_parked(Impl& machine, GcVisitor& visitor, SavedExec& saved) {
+  for (Entry& entry : saved.stack) visitor.entry(entry);
+  visitor.extras_mark(saved.extras_mark);
+  visitor.trail_mark(saved.trail_size);
+  // Trail::mark はヒープの水位なので、heap_mark と同じく写す（gc.hpp）。予約したヒープの data() は動かない。
+  if (saved.trail_mark != nullptr) {
+    auto offset = static_cast<std::size_t>(saved.trail_mark - machine.heap.data());
+    visitor.heap_mark(offset);
+    saved.trail_mark = machine.heap.data() + offset;
+  }
+  visitor.frame(saved.ip);
+  // exception が偽のときの ball は古い番地でありうる（gc.hpp の Impl::ball と同じ）。辿らずに消す。
+  if (saved.exception) visitor.cell(saved.ball);
+  else saved.ball = Cell{};
+  for (Binding& binding : saved.bindings) visitor.cell(binding.variable);
+}
+
+// 入れ子が積んだ extras とトレイルは、呼び手が restore_state で水位まで戻してから呼ぶ。
 void unpark_exec(Impl& machine, SavedExec& saved, bool keep_halt) {
   const bool halted = machine.halt_now;
   const int code = machine.halt_code;
   machine.stack.swap(saved.stack);
-  machine.extras.swap(saved.extras);
-  machine.trail.slots.swap(saved.trail);
   machine.trail.mark = saved.trail_mark;
   machine.ip = saved.ip;
   machine.failed = saved.failed;
@@ -487,17 +506,22 @@ int apply_module_directive(Impl& machine, Cell directive, bool first, std::strin
 StopKind run_parked(Impl& machine, Cell goal) {
   SavedExec saved = park_exec(machine);
   const Compiled compiled = compile_goal(machine.heap, goal);
-  const auto heap_mark = machine.heap.size();
+  std::size_t heap_mark = machine.heap.size();
+  const RootScope roots(machine, [&machine, &saved, &heap_mark](GcVisitor& visitor) {
+    visit_parked(machine, visitor, saved);
+    visitor.heap_mark(heap_mark);
+  });
   Entry cleanup;
   cleanup.pick = Pick::Cleanup;
   cleanup.heap_mark = heap_mark;
-  cleanup.trail_mark = 0;
-  cleanup.extras_mark = 0;
+  cleanup.trail_mark = saved.trail_size;
+  cleanup.extras_mark = saved.extras_mark;
   machine.stack.push_back(std::move(cleanup));
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   const Stop stop = run_loop(machine);
+  // stop.exception は run_loop が返した直後の ball なので、GC の前に読む。
   if (stop.kind == StopKind::Exception) fail_load(machine, formal_text(machine, stop.exception));
-  restore_state(machine, heap_mark, 0, 0);
+  restore_state(machine, heap_mark, saved.trail_size, saved.extras_mark);
   unpark_exec(machine, saved, true);
   return stop.kind;
 }

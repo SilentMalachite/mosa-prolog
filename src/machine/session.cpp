@@ -4,6 +4,7 @@
 
 #include "mosa/console.hpp"
 #include "mosa/heap.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
@@ -66,6 +67,7 @@ struct Options {
   bool top_halt = false;
   bool version = false;
   bool bad = false;
+  std::optional<std::size_t> heap_max;  // --heap-max の MiB を語にした値
 };
 
 Options parse_args(std::span<const std::string_view> args) {
@@ -79,6 +81,17 @@ Options parse_args(std::span<const std::string_view> args) {
     }
     if (arg == "--version") {
       options.version = true;
+      continue;
+    }
+    if (arg == "--heap-max") {
+      // 値は 1 以上の十進整数 MiB。無い、または解釈できなければ使い方の誤り。
+      const auto words = index + 1 < args.size() ? parse_heap_max_mib(args[index + 1]) : std::nullopt;
+      if (!words) {
+        options.bad = true;
+        return options;
+      }
+      options.heap_max = words;
+      ++index;
       continue;
     }
     if (arg == "-g") {
@@ -143,7 +156,7 @@ std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
 
 // 上限に達したマシンのヒープではカタログを読めないので、新しいマシンで文面を作る。
 void warn_resource(Machine& machine, Echo& echo) {
-  echo.warn(render_message_fresh(engine_impl(machine).message_lang, "heap_limit") + "\n");
+  echo.warn(heap_limit_text(engine_impl(machine)) + "\n");
 }
 
 void recover_heap(Machine& machine) { machine.heap().truncate(0); }
@@ -206,7 +219,8 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
       echo.say(".\n");
       return 0;
     }
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     recover_heap(machine);
     warn_resource(machine, echo);
     return interactive ? 0 : 2;
@@ -242,7 +256,8 @@ std::optional<std::string> command_goal(Machine& machine, const std::string& goa
     }
     warn_syntax(machine, *outcome.failure, echo);
     return std::nullopt;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     // 読むだけで溢れる小さな上限。判定を諦め、play_goal に資源の報告を任せる。
     recover_heap(machine);
   }
@@ -270,7 +285,8 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
                     &engine_impl(machine).char_conv);
       reader.set_fullwidth(engine_impl(machine).japanese_punct);
       outcome = reader.next();
-    } catch (const ResourceLimit&) {
+    } catch (...) {
+      if (!is_heap_exhaustion()) throw;
       recover_heap(machine);
       warn_resource(machine, echo);
       buffer.clear();
@@ -278,13 +294,8 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
       continue;
     }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
-    if (outcome.failure) {
-      warn_syntax(machine, *outcome.failure, echo);
-      buffer.clear();
-      echo.say("?- ");
-      continue;
-    }
-    if (!outcome.term) {
+    if (outcome.failure) warn_syntax(machine, *outcome.failure, echo);
+    if (outcome.failure || !outcome.term) {
       buffer.clear();
       echo.say("?- ");
       continue;
@@ -325,7 +336,8 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
       if (engine_impl(machine).halt_now) return engine_impl(machine).halt_code;
       echo.warn(std::string{machine.diagnostic()} + "\n");
       return 1;
-    } catch (const ResourceLimit&) {
+    } catch (...) {
+      if (!is_heap_exhaustion()) throw;
       recover_heap(machine);
       warn_resource(machine, echo);
       return 2;
@@ -348,12 +360,51 @@ int run_main_goal(Machine& machine, const std::string& goal, std::string& warnin
       return 2;
     }
     return stop.kind == StopKind::Failure ? 1 : 0;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     recover_heap(machine);
-    warning += render_message_fresh(engine_impl(machine).message_lang, "heap_limit") + "\n";
+    warning += heap_limit_text(engine_impl(machine)) + "\n";
     return 2;
   }
 }
+
+namespace {
+
+void run_with_machine(const Options& options, std::string_view input, bool tty, std::size_t limit, Echo& echo,
+                      SessionResult& result) {
+  Cursor cursor;
+  cursor.data = input;
+  cursor.from_cin = tty && input.empty();
+  auto machine = Machine::create(limit);
+  engine_impl(*machine).program_argv = options.program_args;
+  if (const auto code = consult_files(*machine, options.files, echo)) {
+    result.code = *code;
+    return;
+  }
+  // main は入口で、終わったらプロセスも終わる。REPL にも -g にも進まない。
+  if (const auto& main_goal = engine_impl(*machine).main_goal) {
+    result.code = play_main(*machine, *main_goal, echo);
+    return;
+  }
+  if (!tty && !options.has_goal) {
+    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
+    result.code = 1;
+    return;
+  }
+  if (options.has_goal) {
+    const bool interactive = tty && !options.top_halt;
+    bool halted = false;
+    const auto goal = command_goal(*machine, options.goal, echo);
+    // 読めないゴールは例外と同じ扱い。対話ではプロンプトへ進み、一括では 2 で終える。
+    const int code = goal ? play_goal(*machine, *goal, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
+    result.code = code;
+    if (halted || !interactive || code == 2) return;
+    result.code = 0;
+  }
+  if (tty && !options.top_halt) prompt_loop(*machine, cursor, echo);
+}
+
+}  // namespace
 
 SessionResult run_prepared_session(Machine& machine, std::ostream* live_out, std::ostream* live_err) {
   SessionResult result;
@@ -389,36 +440,17 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     result.code = 1;
     return result;
   }
-  Cursor cursor;
-  cursor.data = input;
-  cursor.from_cin = tty && input.empty();
-  auto machine = Machine::create(heap_limit);
-  engine_impl(*machine).program_argv = options.program_args;
-  if (const auto code = consult_files(*machine, options.files, echo)) {
-    result.code = *code;
-    return result;
+  // --heap-max が最優先。無ければ呼んだ側の値（mosa の main は MOSA_HEAP_MAX を読んで渡す）。
+  const std::size_t limit = options.heap_max.value_or(heap_limit);
+  // Machine::create が予約を断られた場合も含め、上限と OS のメモリ不足は同じ止め方にする。
+  try {
+    run_with_machine(options, input, tty, limit, echo, result);
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    echo.warn(render_message_fresh(default_message_language(), heap_stop_key(),
+                                   std::array{heap_limit_mib_text(limit)}) + "\n");
+    result.code = 2;
   }
-  // main は入口で、終わったらプロセスも終わる。REPL にも -g にも進まない。
-  if (const auto& main_goal = engine_impl(*machine).main_goal) {
-    result.code = play_main(*machine, *main_goal, echo);
-    return result;
-  }
-  if (!tty && !options.has_goal) {
-    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
-    result.code = 1;
-    return result;
-  }
-  if (options.has_goal) {
-    const bool interactive = tty && !options.top_halt;
-    bool halted = false;
-    const auto goal = command_goal(*machine, options.goal, echo);
-    // 読めないゴールは例外と同じ扱い。対話ではプロンプトへ進み、一括では 2 で終える。
-    const int code = goal ? play_goal(*machine, *goal, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
-    result.code = code;
-    if (halted || !interactive || code == 2) return result;
-    result.code = 0;
-  }
-  if (tty && !options.top_halt) prompt_loop(*machine, cursor, echo);
   return result;
 }
 

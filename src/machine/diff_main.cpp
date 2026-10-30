@@ -9,6 +9,7 @@
 #include "percent.hpp"
 
 #include "mosa/command_line.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/console.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
@@ -84,7 +85,8 @@ bool load_interpreter(Machine& machine, const Sides& sides) {
   const DiffFile& root = sides.entry.files.front();
   try {
     return load_unit(engine_impl(machine), NativeUnit{root.key, sides.texts.front(), nullptr, {}, {}, {}});
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return false;
   }
 }
@@ -112,7 +114,8 @@ bool load_translated(Machine& machine, const Sides& sides, std::size_t& attached
     }
     attached = attached_count(machine);
     return true;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return false;
   }
 }

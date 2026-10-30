@@ -5,6 +5,10 @@
 
 message(goal_raised, '警告: ゴールは例外を送出しました: ~q').
 message(heap_limit, '警告: ヒープの上限を超えました').
+message(heap_limit_size, 'ヒープが上限（~w MiB）に達したので、問い合わせを止めました').
+message(heap_reserve, 'ヒープ ~w MiB 分の番地空間を予約できませんでした。--heap-max か MOSA_HEAP_MAX で上限を小さくしてください').
+message(heap_max_env_ignored, '警告: MOSA_HEAP_MAX=~w は MiB の整数ではないので無視しました（既定は ~w MiB）').
+message(gc_trace, '% GC ~w 回目: ~w KiB → ~w KiB（容量 ~w KiB、~w ms）').
 message(help_japanese_variables, '日本語の名前の変数は _太郎 のように下線で始める。下線の無い 太郎 は原子である。').
 
 % 構文エラー（ADR 0007）。理由の鍵は syntax_error(Key) の Key と同じ。
@@ -21,7 +25,7 @@ message(max_arity, '引数が多すぎる').
 message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
-message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [-- 引数...]').
+message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール] [-t halt] [--heap-max MiB] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
 message(mosac_dist_unavailable, 'mosac: mosac dist はフェーズ7まで使えません').
 message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').

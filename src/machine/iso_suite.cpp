@@ -1,4 +1,5 @@
 #include "mosa/suite.hpp"
+#include "mosa/heap_option.hpp"
 
 #include "lgt_suite.hpp"
 #include "percent.hpp"
@@ -159,7 +160,8 @@ void run_file(const Pending& item, int& passed, int& failed, std::vector<std::st
     for (const std::string& line : run.failures) failures.push_back(item.relative + " " + line);
     const std::string folder = folder_of(item.relative);
     for (const std::string& name : run.outside) notes.push_back(SideNote{folder, name});
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     failures.push_back(item.relative);
     ++failed;
   }

@@ -8,6 +8,7 @@
 #include "std_capture.hpp"
 
 #include "mosa/machine.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/syntax_error.hpp"
@@ -73,7 +74,8 @@ Query run_goal(Machine& machine, std::string_view goal) {
   Query query;
   try {
     query.stop = machine.query(goal);
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     query.dead = true;
     return query;
   }
@@ -149,7 +151,8 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup,
     if (!end.pass) end.actual = actual_text(machine, query.stop);
     if (!call_hook(machine, cleanup, "cleanup.")) end.dead = true;
     return end;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     end.dead = true;
     end.actual = "aborted";
     return end;
@@ -160,7 +163,8 @@ bool load_ok(Machine& machine, std::string_view program) {
   if (program.empty()) return true;
   try {
     return machine.load_program(program).ok;
-  } catch (const ResourceLimit&) {
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
     return false;
   }
 }

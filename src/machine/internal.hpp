@@ -9,7 +9,9 @@
 #include "mosa/runtime.hpp"
 
 #include "../module/module.hpp"
+#include "gc.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -342,8 +344,31 @@ struct Machine::Impl {
   std::vector<EmbeddedSource> embedded;
   // 実行ファイルの起動の読み込みがヒープの上限で止まった。rt::finish は mosa の consult と同じ 2 で終わる。
   bool load_heap_limit = false;
+  // ADR 0010 の GC。gc_capacity は柔らかい容量 C、gc_threshold は安全点で GC を始める heap.size()。
+  // 普段は閾値 = C で、上限の近くだけ C より上に置く（init_gc と collect_garbage の方針）。
+  GcStats gc_stats;
+  std::vector<RootVisit> gc_roots;
+  int gc_inhibit = 0;
+  std::size_t gc_capacity = 0;
+  std::size_t gc_threshold = 0;
+  // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
+  std::size_t gc_trigger = 0;
+  // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
+  std::size_t gc_stress = 0;
+  std::size_t gc_ticks = 0;
+  bool trace_gc = false;
+  // trace_gc の行の型と、それを作ったときの言語（gc.cpp の trace_form）。旗で言語が変われば作り直す。
+  std::optional<std::string> gc_trace_form;
+  MessageLanguage gc_trace_form_lang = MessageLanguage::En;
+  // statistics(runtime/walltime, [合計, 前回からの差]) の「前回」。マシンごとに持つ。
+  std::chrono::steady_clock::time_point started_at = std::chrono::steady_clock::now();
+  std::int64_t last_runtime_ms = 0;
+  std::int64_t last_walltime_ms = 0;
 
-  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }
+  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {
+    install_modules(*this);
+    init_gc(*this);
+  }
 };
 
 using Impl = Machine::Impl;
@@ -369,6 +394,9 @@ struct Compiled {
 // 読み込み中の診断の文面（ADR 0007）。読み込んでいるマシンでは問い合わせを動かせないので、新しいマシンで作る。
 [[nodiscard]] std::string message_text(const Impl& machine, std::string_view key,
                                        std::initializer_list<std::string_view> args = {});
+
+// ヒープが上限に達したときの文面。上限は MiB で添える（ADR 0010）。
+[[nodiscard]] std::string heap_limit_text(const Impl& machine);
 
 [[nodiscard]] Impl& engine_impl(Machine& machine);
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);
@@ -489,6 +517,7 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_statistics(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);

@@ -88,7 +88,8 @@ LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const Save
   return LoadStatus{false, machine.diagnostic};
 }
 
-LoadStatus finish_load(Impl& machine, std::size_t heap_base, const std::vector<Cell>& inits) {
+// heap_base は load_source が RootScope に登録した変数を参照で受ける。初期化のゴールの GC が値を書き換える。
+LoadStatus finish_load(Impl& machine, const std::size_t& heap_base, const std::vector<Cell>& inits) {
   // 翻訳のときは initialization/1 のゴールを書き留めるだけで呼ばない。起動時の読み込みが呼ぶ。
   if (machine.translation == nullptr && !run_inits(machine, inits)) {
     machine.heap.truncate(heap_base);
@@ -259,7 +260,9 @@ std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directo
 int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& scan) {
   const auto body = use_body(machine, term);
   if (!body) return 0;
-  const Cell arg = machine.heap.deref(machine.heap.arg(*body, 0));
+  Cell arg = machine.heap.deref(machine.heap.arg(*body, 0));
+  // 読み込むファイルの指示が GC を起こしうる。読んだ後の permission_error で arg を使うので登録する。
+  const RootScope roots(machine, [&arg](GcVisitor& visitor) { visitor.cell(arg); });
   std::filesystem::path file;
   std::optional<std::string> bundled;
   if (const auto formal = locate_use(machine, arg, directory, file, bundled)) return fail_formal(machine, *formal);
@@ -486,7 +489,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
 LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
                        std::string_view origin, std::vector<std::string>* shared_opening) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
-  const auto heap_base = machine.heap.size();
+  std::size_t heap_base = machine.heap.size();
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   machine.load_kept = false;
@@ -505,6 +508,11 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   std::vector<Apart> apart;
   // テキストを準備し終えてから、ソースの順に実行する。
   std::vector<Cell> inits;
+  // 指示と初期化のゴールは入れ子の run_loop で動き、GC がヒープを詰める。水位と後で呼ぶゴールを写させる。
+  const RootScope roots(machine, [&heap_base, &inits](GcVisitor& visitor) {
+    visitor.heap_mark(heap_base);
+    for (Cell& goal : inits) visitor.cell(goal);
+  });
   const auto previous_size = machine.predicates.size();
   std::size_t last = static_cast<std::size_t>(-1);
   std::vector<std::string> local_opening;

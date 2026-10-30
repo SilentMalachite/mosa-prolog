@@ -1,9 +1,13 @@
 #include "mosa/heap.hpp"
 
+#include <algorithm>
 #include <bit>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
+#include <utility>
 
 namespace mosa {
 namespace {
@@ -15,27 +19,50 @@ std::uint64_t tagged(std::uint64_t payload, Tag tag) {
   return payload | static_cast<std::uint64_t>(tag);
 }
 
+// 伸ばす単位は 1 MiB（語で 2^17）。小刻みに mprotect/VirtualAlloc を呼ばないための粒度。
+constexpr std::size_t k_commit_step = std::size_t{1} << 17;
+
+AddressRange reserve_or_throw(std::size_t limit) {
+  // 語数からバイト数への掛け算があふれる上限は、予約できないものとして同じ止め方にする。
+  if (limit > std::numeric_limits<std::size_t>::max() / sizeof(std::uint64_t)) throw HeapReserveFailed();
+  auto range = AddressRange::reserve(limit * sizeof(std::uint64_t));
+  if (!range) throw HeapReserveFailed();
+  return std::move(*range);
+}
+
 }  // namespace
 
-Heap::Heap(AtomTable& atoms, std::size_t limit) : atoms_(atoms), limit_(limit), words_(limit) {}
-
-void Heap::truncate(std::size_t size) { used_ = size; }
-
-std::size_t Heap::allocate_words(std::size_t count) {
-  const auto* slot = allocate(count);
-  return static_cast<std::size_t>(slot - words_.data());
+Heap::Heap(AtomTable& atoms, std::size_t limit)
+    : atoms_(atoms), limit_(limit), range_(reserve_or_throw(limit)) {
+  grow(std::min(kInitialHeapCommit, limit));
 }
 
-std::uint64_t Heap::word_at(std::size_t index) const { return words_[index]; }
+void Heap::grow(std::size_t need) {
+  const std::size_t rounded = (need + k_commit_step - 1) / k_commit_step * k_commit_step;
+  const std::size_t target = std::min(rounded, limit_);
+  if (target < need || !range_.commit(target * sizeof(std::uint64_t))) throw ResourceLimit("heap_limit");
+  committed_words_ = target;
+}
 
-void Heap::set_word(std::size_t index, std::uint64_t value) { words_[index] = value; }
-
-std::uint64_t* Heap::allocate(std::size_t count) {
+void Heap::grow_for(std::size_t count) {
   if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("heap_limit");
-  auto* slot = words_.data() + used_;
-  used_ += count;
-  return slot;
+  grow(used_ + count);
 }
+
+// どちらも used_ <= committed_words_ <= limit_（allocate の速い道が頼る不変条件）を壊さない大きさだけを渡すこと。
+void Heap::truncate(std::size_t size) {
+  assert(size <= committed_words_);
+  used_ = size;
+}
+
+void Heap::reset_size_after_gc(std::size_t used) {
+  assert(used <= committed_words_);
+  used_ = used;
+}
+
+std::uint64_t Heap::word_at(std::size_t index) const { return range_.words()[index]; }
+
+void Heap::set_word(std::size_t index, std::uint64_t value) { range_.words()[index] = value; }
 
 const std::uint64_t* Heap::pointer(Cell cell) const {
   const auto address = cell.raw() & ~std::uint64_t{7};

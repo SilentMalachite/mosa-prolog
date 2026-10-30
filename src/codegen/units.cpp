@@ -11,6 +11,7 @@
 
 #include "../machine/diff.hpp"
 #include "mosa/messages.hpp"
+#include "mosa/heap_option.hpp"
 #include "mosa/path_text.hpp"
 
 #include <algorithm>
@@ -73,8 +74,9 @@ bool read_for_translation(Machine& machine, const std::filesystem::path& file, c
       if (machine.consult(key)) return true;
     }
     diagnostic = std::string{machine.diagnostic()};
-  } catch (const ResourceLimit&) {
-    diagnostic = message_text(impl, "heap_limit");
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    diagnostic = heap_limit_text(impl);
   }
   return false;
 }

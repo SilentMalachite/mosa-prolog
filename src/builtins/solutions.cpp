@@ -506,16 +506,55 @@ void unwind_throw(Impl& machine, const Saved& saved, std::size_t floor) {
   rearm_below(machine, saved, floor);
 }
 
+// 入れ子の run_loop の間に GC が動かす値（gc.hpp）。saved は呼ぶ前の機械の写しなので、機械と同じ扱いで辿る。
+void visit_saved(GcVisitor& visitor, Saved& saved) {
+  for (Entry& entry : saved.stack) visitor.entry(entry);
+  visitor.frame(saved.ip);
+  // exception が偽のときの ball は古い番地でありうる（gc.hpp の Impl::ball と同じ）。辿らずに消す。
+  if (saved.exception) visitor.cell(saved.ball);
+  else saved.ball = Cell{};
+  visitor.heap_mark(saved.heap_mark);
+  visitor.trail_mark(saved.trail_mark);
+  visitor.extras_mark(saved.extras_mark);
+}
+
+// base は「呼ぶ前からあったセル」の境の水位なので、語の生死ではなく heap_mark として写す。
+// stable・local・homes・alias は見つけたセルの同一性を覚えるだけなので弱い参照にする。死んだセルは二度と
+// 現れないので、SIZE_MAX と 0 はどれとも一致しないまま残ってよい。ext_raw は collect の後で答えの外部変数に
+// 戻す（solutions_answer.cpp）ので、強い参照にして生かしておく。
+void visit_ids(GcVisitor& visitor, VarIds& ids) {
+  visitor.heap_mark(ids.base);
+  for (auto& item : ids.stable) visitor.weak_index(item.first);
+  for (auto& item : ids.local) visitor.weak_index(item.first);
+  for (std::uint64_t& raw : ids.ext_raw) {
+    Cell cell{raw};
+    visitor.cell(cell);
+    raw = cell.raw();
+  }
+  for (Home& home : ids.homes) {
+    visitor.weak_index(home.index);
+    visitor.weak_address(home.raw);
+    // 番地 0 の Ref を deref しないよう、死んだ証人の家は無いものにする。
+    if (home.raw == 0) home.live = false;
+  }
+  for (auto& item : ids.alias) visitor.weak_address(item.first);
+}
+
 // 外側の節走査はスタックに残す。asserta と retract が添字を更新できるようにするため。
 // 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
-Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses,
+// templ・witnesses・hidden は呼び手（run_solutions）が RootScope に登録した値を参照で受ける。
+Packet collect(Impl& machine, const Compiled& compiled, const Cell& templ, const std::vector<Cell>& witnesses,
                const std::vector<Cell>& hidden, bool share, std::uint32_t module) {
-  const Saved saved = save_exec(machine);
+  Saved saved = save_exec(machine);
+  VarIds ids;
+  const RootScope roots(machine, [&saved, &ids](GcVisitor& visitor) {
+    visit_saved(visitor, saved);
+    visit_ids(visitor, ids);
+  });
   const auto floor = park_callers(machine, saved);
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;
-  VarIds ids;
   ids.base = saved.heap_mark;
   ids.hidden = &hidden;
   note_homes(machine, witnesses, ids);
@@ -546,22 +585,32 @@ Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::v
 
 }  // namespace
 
-bool run_solutions(Impl& machine, const Goal& goal) {
-  const Which which = which_solution(machine.atoms.name(goal.name), goal.arity);
+bool run_solutions(Impl& machine, const Goal& call) {
+  const Which which = which_solution(machine.atoms.name(call.name), call.arity);
   if (which == Which::None) return false;
-  const Cell given = machine.heap.deref(goal.arg(machine, 1));
-  if (which != Which::Findall && !goal_shape_ok(machine, goal, given)) return true;
+  const Cell given = machine.heap.deref(call.arg(machine, 1));
+  if (which != Which::Findall && !goal_shape_ok(machine, call, given)) return true;
   std::vector<Cell> hidden;
   Cell runnable = given;
   if (which != Which::Findall) runnable = strip_caret(machine, given, hidden);
   Compiled compiled;
-  if (!goal_body_ok(machine, goal, runnable, compiled)) return true;
-  if (bad_list(machine, goal)) return true;
-  if (bad_tail(machine, goal)) return true;
+  if (!goal_body_ok(machine, call, runnable, compiled)) return true;
+  if (bad_list(machine, call)) return true;
+  if (bad_tail(machine, call)) return true;
+  Cell templ = call.arg(machine, 0);
   std::vector<Cell> witnesses;
-  if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, goal.arg(machine, 0), hidden);
+  if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, templ, hidden);
+  // 入れ子の GC は枠もセルも動かす。collect の後は、登録した写し goal と templ・witnesses・hidden だけを使う。
+  Goal goal = call;
+  const RootScope roots(machine, [&goal, &templ, &witnesses, &hidden](GcVisitor& visitor) {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+    visitor.cell(templ);
+    for (Cell& cell : witnesses) visitor.cell(cell);
+    for (Cell& cell : hidden) visitor.cell(cell);
+  });
   const bool share = which != Which::Findall;
-  const Packet packet = collect(machine, compiled, goal.arg(machine, 0), witnesses, hidden, share, goal.module);
+  const Packet packet = collect(machine, compiled, templ, witnesses, hidden, share, goal.module);
   if (packet.end == Finish::Threw) {
     propagate_throw(machine, import_term(machine, packet.ball));
     return true;

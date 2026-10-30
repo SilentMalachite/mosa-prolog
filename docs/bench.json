@@ -1,11 +1,11 @@
 {"generated":"mosatest --bench --report writes this file. Do not edit by hand.",
  "unit":"median wall-clock milliseconds of 5 runs per side; ratio = interpreter / translated",
  "programs":[
-  {"file":"bench/crypt.pl","count":300,"interpreter_ms":3073,"translated_ms":327,"ratio":9.4},
-  {"file":"bench/deriv.pl","count":30000,"interpreter_ms":1134,"translated_ms":155,"ratio":7.3},
-  {"file":"bench/nrev.pl","count":20000,"interpreter_ms":3290,"translated_ms":143,"ratio":23.0},
-  {"file":"bench/queens.pl","count":80,"interpreter_ms":2847,"translated_ms":622,"ratio":4.6},
-  {"file":"bench/tak.pl","count":100,"interpreter_ms":2501,"translated_ms":325,"ratio":7.7},
-  {"file":"bench/zebra.pl","count":120,"interpreter_ms":2810,"translated_ms":1035,"ratio":2.7}
+  {"file":"bench/crypt.pl","count":300,"interpreter_ms":3132,"translated_ms":324,"ratio":9.7},
+  {"file":"bench/deriv.pl","count":30000,"interpreter_ms":1125,"translated_ms":152,"ratio":7.4},
+  {"file":"bench/nrev.pl","count":20000,"interpreter_ms":3272,"translated_ms":131,"ratio":24.9},
+  {"file":"bench/queens.pl","count":80,"interpreter_ms":2929,"translated_ms":618,"ratio":4.7},
+  {"file":"bench/tak.pl","count":100,"interpreter_ms":2516,"translated_ms":326,"ratio":7.7},
+  {"file":"bench/zebra.pl","count":120,"interpreter_ms":2843,"translated_ms":1033,"ratio":2.8}
  ]
 }

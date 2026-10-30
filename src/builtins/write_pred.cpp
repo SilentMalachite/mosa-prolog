@@ -446,7 +446,10 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out) {
   const std::size_t saved = machine.current_out;
   // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。
   machine.current_out = hook->scratch;
-  // portray/1 は user の述語を探して呼ぶ（portray_ready）。
+  // portray/1 は user の述語を探して呼ぶ（portray_ready）。writer の C++ の再帰が書きかけの項のセルを握るので、
+  // ここだけは入れ子の間も GC しない。run_goal の RootScope は、この禁止の内側では何もしない。
+  // TODO(iso): 7.10.5 writer を反復に直すフェーズ7 の 2 番目の仕事で外す
+  const GcInhibit inhibit(machine);
   const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term}, machine.user_module);
   machine.current_out = saved;
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
@@ -580,8 +583,20 @@ void trim_extras(Impl& machine, std::size_t mark) {
   if (machine.extras.size() > mark) machine.extras.resize(mark);
 }
 
+// 入れ子の run_loop の間に GC が動かす値（gc.hpp）。saved.stack は呼ぶ前の機械のスタックの写しである。
+void visit_snap(GcVisitor& visitor, Snap& saved) {
+  for (Entry& entry : saved.stack) visitor.entry(entry);
+  // exception が偽のときの ball は古い番地でありうる（gc.hpp の Impl::ball と同じ）。辿らずに消す。
+  if (saved.exception) visitor.cell(saved.ball);
+  else saved.ball = Cell{};
+  visitor.heap_mark(saved.heap_mark);
+  visitor.trail_mark(saved.trail_mark);
+  visitor.extras_mark(saved.extras_mark);
+}
+
 Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module) {
-  const Snap saved = take_snap(machine);
+  Snap saved = take_snap(machine);
+  const RootScope roots(machine, [&saved](GcVisitor& visitor) { visit_snap(visitor, saved); });
   disarm(machine, machine.stack.size());
   Entry barrier;
   barrier.pick = Pick::Barrier;
@@ -660,14 +675,21 @@ void finish_with(Impl& machine, const Goal& goal, const Sink& sink, std::size_t 
   if (sink.kind != SinkKind::Stream) machine.streams[index].closed = true;
 }
 
-void run_with(Impl& machine, const Goal& goal) {
+void run_with(Impl& machine, const Goal& call) {
   Sink sink;
-  if (prepare_with(machine, goal, sink)) return;
+  if (prepare_with(machine, call, sink)) return;
   const std::size_t saved_out = machine.current_out;
   std::size_t index = sink.index;
   if (sink.kind != SinkKind::Stream) index = push_memory(machine);
   machine.current_out = index;
-  const Compiled compiled = compile_goal(machine.heap, machine.heap.deref(goal.arg(machine, 1)));
+  const Compiled compiled = compile_goal(machine.heap, machine.heap.deref(call.arg(machine, 1)));
+  // 入れ子の GC は枠とセルを動かす。run_goal の後は、登録した写し goal と sink.slot だけを使う。
+  Goal goal = call;
+  const RootScope roots(machine, [&goal, &sink](GcVisitor& visitor) {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+    visitor.cell(sink.slot);
+  });
   const Ran ran = run_goal(machine, compiled.term, compiled.env, goal.module);
   machine.current_out = saved_out;
   finish_with(machine, goal, sink, index, ran);
