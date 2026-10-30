@@ -205,10 +205,10 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 | Component | Design |
 | --- | --- |
 | Cell representation | 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (reserved for the future). Integers that do not fit in 61 bits are boxed like FLT, and `max_integer` stays 2^63−1 |
-| Heap | A single contiguous array (allocated as `std::vector<Cell>`, with an upper bound reserved to avoid reallocation). Reclaimed on backtracking simply by resetting the top |
+| Heap | A single contiguous array: address space up to the limit is reserved at start-up and committed from the bottom as needed, so committed cells never move (ADR 0010). Reclaimed on backtracking simply by resetting the top |
 | Trail | Pushes the addresses of bound REFs. Conditional trailing (records only cells older than the choice point) |
 | Choice point stack | Holds the continuation, trail position, heap position, pointer to the alternative clause, and cut barrier |
-| GC | None until Phase 5 (only reclamation by backtracking). A mark-and-compact collector is added in Phase 7. Provide `garbage_collect/0` |
+| GC | None until Phase 5 (only reclamation by backtracking). A sliding mark-and-compact collector that runs only at safe points between steps is added in Phase 7 (ADR 0010). Provide `garbage_collect/0` |
 | Atom table | UTF-8 byte sequence → 32-bit atom number. Does not need to be thread-safe (non-goal) |
 | Exceptions | Prolog's `throw/1` does not use C++ exceptions; it pushes `catch` frames on the choice point stack and unwinds them. C++ exceptions are used only for fatal errors inside the runtime (`resource_error`) |
 | Streams | `Stream` abstract class + implementations for files / standard I/O / memory (equivalent to `open_string`). Buffering and peeking (`peek_char/1`) are built in |
