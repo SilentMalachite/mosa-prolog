@@ -166,7 +166,7 @@ constexpr std::size_t kUnproductiveRun = 3;
 // 安全点はステップの間なので、途中まで進んだ C++ のコードは無く、受ける場所も同じで済む。
 // 投げる前に数を 0 に戻し、止めた問い合わせの数を受けた側の次の GC へ持ち越さない。
 void judge_collection(Impl& machine, bool at_cap) {
-  const std::size_t freed = machine.gc_stats.freed_words - machine.gc_judged_freed;
+  const std::uint64_t freed = machine.gc_stats.freed_words - machine.gc_judged_freed;
   machine.gc_judged_freed = machine.gc_stats.freed_words;
   if (!at_cap || freed >= machine.heap.limit() / kUnproductiveDivisor) {
     machine.gc_unproductive = 0;

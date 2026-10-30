@@ -358,7 +358,7 @@ struct Machine::Impl {
   std::size_t gc_unproductive = 0;
   // 前に判定した GC の時点の gc_stats.freed_words。判定はその後に空いた語（ストレスや garbage_collect/0 の GC の分も
   // 含む）で行うので、ストレスの GC が先に回収しても止まるかは変わらない。書く場所は gc_unproductive と同じ。
-  std::size_t gc_judged_freed = 0;
+  std::uint64_t gc_judged_freed = 0;
   // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
