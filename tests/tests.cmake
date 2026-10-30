@@ -52,6 +52,13 @@ target_link_libraries(writer_golden_test PRIVATE mosa_lib)
 add_test(NAME writer_golden COMMAND $<TARGET_FILE:writer_golden_test>
   ${CMAKE_SOURCE_DIR}/tests/cpp/data/writer_golden.txt)
 
+# 1 MiB のスタックで、深さ 1,000,000 の項を書く（ADR 0011）。
+add_test(NAME stack_deep_write COMMAND ${CMAKE_COMMAND}
+  "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_write.pl"
+  -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_write.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
+  -DSUMMARY=1 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_write PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 差分テストの答えの字面（計画 Task 11）。深い項を既定のスタックで書けることまで見る。
 add_executable(answer_text_test tests/cpp/answer_text_test.cpp)
 target_include_directories(answer_text_test PRIVATE tests/cpp src/machine)

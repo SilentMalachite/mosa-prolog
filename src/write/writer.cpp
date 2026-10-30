@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -53,19 +54,6 @@ std::optional<char32_t> first_cp(std::string_view text) {
   const Decoded decoded = decode_at(text, 0);
   if (!decoded.valid) return std::nullopt;
   return decoded.code;
-}
-
-std::optional<char32_t> last_cp(std::string_view text) {
-  if (text.empty()) return std::nullopt;
-  std::size_t index = 0;
-  Decoded last;
-  while (index < text.size()) {
-    const Decoded decoded = decode_at(text, index);
-    if (!decoded.valid) return std::nullopt;
-    last = decoded;
-    index += decoded.bytes;
-  }
-  return last.code;
 }
 
 bool continues_name(char32_t code) {
@@ -174,6 +162,47 @@ std::string format_float(double value) {
   return text;
 }
 
+// 書き出しの仕事。C++ の再帰を使わず work_ に積む（ADR 0011）。積む順は書く順の逆。
+enum class Step : std::uint8_t { Term, Text, Infix, Postfix, Bar, ListRest, Clear, Leave };
+
+// 字句を書いた後、次の字句の前に空白を置くかの判断の種類。Prefix は `(` で始まる引数にも空白を置く。
+enum class Space : std::uint8_t { None, Glue, Prefix };
+
+struct Work {
+  Step step = Step::Term;
+  Cell term{};
+  int parent = 1200;
+  bool allow_equal = true;
+  // 括弧を足し直す再入では、失敗した portray を繰り返さない。
+  bool allow_hook = true;
+  Space then = Space::None;
+  // Infix と Postfix で、左の被演算子を書き始めたときの out_ の長さ。
+  std::size_t mark = 0;
+  // Text、Infix、Bar が始める待ちの番号。Clear はこの番号の待ちだけを取り消す。
+  std::size_t id = 0;
+  std::string text;
+};
+
+// 待ち: 直前の字句と、この後に最初に書く字句の間の空白。古い writer の glue(左の字面, 右の字面) と同じく、
+// 右の字面が空のまま終われば空白は置かない（Clear が取り消す）。
+struct Pending {
+  bool active = false;
+  Space kind = Space::None;
+  std::optional<char32_t> left;
+  std::size_t id = 0;
+};
+
+std::optional<char32_t> final_cp(std::string_view text) {
+  if (text.empty()) return std::nullopt;
+  std::size_t start = text.size() - 1;
+  while (start > 0 && text.size() - start < 4 && (static_cast<unsigned char>(text[start]) & 0xC0U) == 0x80U) {
+    --start;
+  }
+  const Decoded decoded = decode_at(text, start);
+  if (!decoded.valid || start + decoded.bytes != text.size()) return std::nullopt;
+  return decoded.code;
+}
+
 class Printer {
  public:
   Printer(const Heap& heap, OperatorView operators, WriteOptions options,
@@ -181,17 +210,26 @@ class Printer {
       : heap_(heap), operators_(operators), options_(options), names_(names), replace_(replace),
         context_(context) {}
 
-  void collect(Cell term) { count(term); }
-  [[nodiscard]] std::string print(Cell term) { return render(term, 1200, true); }
+  void collect(Cell term);
+  [[nodiscard]] std::string print(Cell term);
 
  private:
-  void count(Cell term);
-  // 括弧を足し直す再入では、失敗した portray を繰り返さない。
-  [[nodiscard]] std::string render(Cell term, int parent, bool allow_equal, bool allow_hook = true);
-  [[nodiscard]] std::string render_op(const OpDef& op, Cell term);
-  [[nodiscard]] std::string render_list(Cell term);
-  [[nodiscard]] std::string render_functor(Cell term, std::string_view name);
-  void append_comma(std::string& out, const std::string& next) const;
+  void run(Work& item);
+  void render(const Work& item);
+  void render_compound(Cell term, int parent, bool allow_equal);
+  void push_op(const OpDef& op, Cell term);
+  void push_prefix(const OpDef& op, Cell term, std::string name);
+  void push_list(Cell term);
+  void list_rest(Cell cell);
+  void push_bar(Cell rest);
+  void push_functor(Cell term, std::string_view name);
+  void push_term(Cell term, int parent, bool allow_equal, bool allow_hook = true);
+  void push_text(std::string text, Space then = Space::None, std::size_t id = 0);
+  void push_clear(std::size_t id);
+  void push_comma(std::size_t id);
+  void emit(std::string_view text);
+  void await(Space kind, std::size_t id);
+  [[nodiscard]] bool left_glue(std::size_t mark, std::string_view next) const;
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
   [[nodiscard]] bool operator_atom(Cell term) const;
   [[nodiscard]] bool unsigned_number(Cell term) const;
@@ -200,7 +238,7 @@ class Printer {
   [[nodiscard]] std::string spell_functor(std::string_view name) const;
   [[nodiscard]] const VarName* var_name(Cell term) const;
   [[nodiscard]] std::string var_text(Cell term);
-  [[nodiscard]] static bool glue(std::string_view left, std::string_view right);
+  [[nodiscard]] static bool glue(std::optional<char32_t> end, std::optional<char32_t> start);
   [[nodiscard]] static bool needs_paren(int priority, int parent, bool allow_equal);
 
   const Heap& heap_;
@@ -209,39 +247,135 @@ class Printer {
   std::span<const VarName> names_;
   std::unordered_map<std::uint64_t, int> counts_;
   std::unordered_map<std::uint64_t, int> assigned_;
-  std::vector<std::uint64_t> open_;
+  // 今書いている項の祖先。循環項はここで _ にして止める。
+  std::unordered_set<std::uint64_t> open_;
+  std::vector<Work> work_;
+  std::string out_;
+  Pending pending_;
+  std::size_t next_id_ = 1;
   int next_number_ = 1;
   WriteReplace replace_ = nullptr;
   void* context_ = nullptr;
   bool aborted_ = false;
-
-  [[nodiscard]] bool opened(std::uint64_t raw) const {
-    for (const auto item : open_) {
-      if (item == raw) return true;
-    }
-    return false;
-  }
 };
 
-void Printer::count(Cell term) {
-  // 名前のある REF は束縛を追わない。答えの X = [X] がここで止まらないようにする。
-  if (term.tag() == Tag::Ref && var_name(term) != nullptr) return;
-  term = heap_.deref(term);
-  if (heap_.unbound(term)) {
-    if (var_name(term) == nullptr) counts_[term.raw()] += 1;
-    return;
+void Printer::collect(Cell root) {
+  // 2 番目は「祖先から外す」の印。名前のある REF は束縛を追わない。答えの X = [X] がここで止まらないようにする。
+  std::vector<std::pair<Cell, bool>> stack{{root, false}};
+  while (!stack.empty()) {
+    auto [term, leave] = stack.back();
+    stack.pop_back();
+    if (leave) {
+      open_.erase(term.raw());
+      continue;
+    }
+    if (term.tag() == Tag::Ref && var_name(term) != nullptr) continue;
+    term = heap_.deref(term);
+    if (heap_.unbound(term)) {
+      if (var_name(term) == nullptr) counts_[term.raw()] += 1;
+      continue;
+    }
+    if (term.tag() != Tag::Lis && term.tag() != Tag::Str) continue;
+    if (!open_.insert(term.raw()).second) continue;
+    stack.emplace_back(term, true);
+    if (term.tag() == Tag::Lis) {
+      stack.emplace_back(heap_.list_tail(term), false);
+      stack.emplace_back(heap_.list_head(term), false);
+    } else {
+      const auto arity = heap_.functor_arity(term);
+      for (std::uint16_t index = arity; index > 0; --index) stack.emplace_back(heap_.arg(term, index - 1U), false);
+    }
   }
-  if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return;
-  if (opened(term.raw())) return;
-  open_.push_back(term.raw());
-  if (term.tag() == Tag::Lis) {
-    count(heap_.list_head(term));
-    count(heap_.list_tail(term));
-  } else {
-    const auto arity = heap_.functor_arity(term);
-    for (std::uint16_t index = 0; index < arity; ++index) count(heap_.arg(term, index));
+}
+
+std::string Printer::print(Cell term) {
+  push_term(term, 1200, true);
+  while (!work_.empty() && !aborted_) {
+    Work item = std::move(work_.back());
+    work_.pop_back();
+    run(item);
   }
-  open_.pop_back();
+  return std::move(out_);
+}
+
+void Printer::run(Work& item) {
+  switch (item.step) {
+    case Step::Term: render(item); return;
+    case Step::Text:
+      emit(item.text);
+      if (item.then != Space::None) await(item.then, item.id);
+      return;
+    case Step::Infix:
+      if (left_glue(item.mark, item.text)) out_ += ' ';
+      emit(item.text);
+      await(Space::Glue, item.id);
+      return;
+    case Step::Postfix:
+      if (left_glue(item.mark, item.text)) out_ += ' ';
+      emit(item.text);
+      return;
+    case Step::Bar:
+      if (glue(final_cp(out_), U'|')) out_ += ' ';
+      emit("|");
+      await(Space::Glue, item.id);
+      return;
+    case Step::ListRest: list_rest(item.term); return;
+    case Step::Clear:
+      if (pending_.active && pending_.id == item.id) pending_.active = false;
+      return;
+    case Step::Leave: open_.erase(item.term.raw()); return;
+  }
+}
+
+void Printer::emit(std::string_view text) {
+  if (text.empty()) return;
+  if (pending_.active) {
+    pending_.active = false;
+    // `\+(` は関数表記になる。空白を置くと '(' は括弧であり、前置の引数のまま読み戻せる。
+    const bool call_form = pending_.kind == Space::Prefix && text.front() == '(';
+    if (call_form || glue(pending_.left, first_cp(text))) out_ += ' ';
+  }
+  out_ += text;
+}
+
+void Printer::await(Space kind, std::size_t id) {
+  pending_ = Pending{true, kind, final_cp(out_), id};
+}
+
+bool Printer::left_glue(std::size_t mark, std::string_view next) const {
+  // 左の被演算子が何も書かなかったときは、その前の字句と比べない。
+  return out_.size() > mark && glue(final_cp(out_), first_cp(next));
+}
+
+void Printer::push_term(Cell term, int parent, bool allow_equal, bool allow_hook) {
+  Work item;
+  item.term = term;
+  item.parent = parent;
+  item.allow_equal = allow_equal;
+  item.allow_hook = allow_hook;
+  work_.push_back(std::move(item));
+}
+
+void Printer::push_text(std::string text, Space then, std::size_t id) {
+  Work item;
+  item.step = Step::Text;
+  item.text = std::move(text);
+  item.then = then;
+  item.id = id;
+  work_.push_back(std::move(item));
+}
+
+void Printer::push_clear(std::size_t id) {
+  Work item;
+  item.step = Step::Clear;
+  item.id = id;
+  work_.push_back(std::move(item));
+}
+
+void Printer::push_comma(std::size_t id) {
+  // コンマは単独字なので、直後の空白は糊付けが要るときだけ置く。space_args は右が空でも置く。
+  if (options_.space_args) push_text(", ");
+  else push_text(",", Space::Glue, id);
 }
 
 const VarName* Printer::var_name(Cell term) const {
@@ -260,9 +394,7 @@ std::string Printer::var_text(Cell term) {
   return "_G" + std::to_string(number);
 }
 
-bool Printer::glue(std::string_view left, std::string_view right) {
-  const auto end = last_cp(left);
-  const auto start = first_cp(right);
+bool Printer::glue(std::optional<char32_t> end, std::optional<char32_t> start) {
   if (!end || !start) return false;
   if (classify(*end) == CharClass::Graphic && classify(*start) == CharClass::Graphic) return true;
   return continues_name(*end) && continues_name(*start);
@@ -271,13 +403,6 @@ bool Printer::glue(std::string_view left, std::string_view right) {
 bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
   if (allow_equal) return priority > parent;
   return priority >= parent;
-}
-
-void Printer::append_comma(std::string& out, const std::string& next) const {
-  // コンマは単独字なので、直後の空白は糊付けが要るときだけ置く。
-  out += ',';
-  if (options_.space_args || glue(",", next)) out += ' ';
-  out += next;
 }
 
 std::string Printer::spell(std::string_view name) const {
@@ -326,97 +451,6 @@ bool Printer::operator_atom(Cell term) const {
   return !operators_.lookup(heap_.atoms().name(atom_of(term))).empty();
 }
 
-std::string Printer::render_op(const OpDef& op, Cell term) {
-  const std::string name = spell_operator(op.name);
-  if (is_prefix(op.specifier) || is_postfix(op.specifier)) {
-    const bool allow = op.specifier == Specifier::Fy || op.specifier == Specifier::Yf;
-    std::string arg = render(heap_.arg(term, 0), op.priority, allow);
-    // 空白だけだと次の字が演算子になり、引数のアトムとして読み戻せない。
-    if (is_prefix(op.specifier) && operator_atom(heap_.arg(term, 0))) arg = "(" + arg + ")";
-    // 6.3.4.1: `- 1` も負の数と読まれる。-(1) は数を括弧で包んで前置演算子のまま読み戻す。
-    if (is_prefix(op.specifier) && op.name == "-" && unsigned_number(heap_.arg(term, 0))) arg = "(" + arg + ")";
-    const bool space = is_prefix(op.specifier) ? glue(name, arg) : glue(arg, name);
-    // `\+(` は関数表記になる。空白を置くと '(' は括弧であり、前置の引数のまま読み戻せる。
-    const bool call_form = is_prefix(op.specifier) && !arg.empty() && arg.front() == '(';
-    if (is_prefix(op.specifier)) return (space || call_form) ? name + " " + arg : name + arg;
-    return space ? arg + " " + name : arg + name;
-  }
-  const std::string left = render(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yfx);
-  const std::string right = render(heap_.arg(term, 1), op.priority, op.specifier == Specifier::Xfy);
-  std::string out = left;
-  if (glue(left, name)) out += ' ';
-  out += name;
-  // 中置コンマも他の演算子と同じく、糊付けが要るときだけ空白を置く。
-  if (glue(name, right)) out += ' ';
-  out += right;
-  return out;
-}
-
-std::string Printer::render_list(Cell term) {
-  if (options_.ignore_ops) {
-    const std::string head = render(heap_.list_head(term), 999, true);
-    const std::string tail = render(heap_.list_tail(term), 999, true);
-    std::string out = spell_functor(".");
-    out += '(';
-    out += head;
-    append_comma(out, tail);
-    out += ')';
-    return out;
-  }
-  std::string out = "[";
-  bool first = true;
-  Cell current = term;
-  while (true) {
-    const std::string item = render(heap_.list_head(current), 999, true);
-    if (first) {
-      first = false;
-      out += item;
-    } else {
-      append_comma(out, item);
-    }
-    const Cell raw_tail = heap_.list_tail(current);
-    // 名前表の REF は束縛より先に書く。先に辿ると X = [a|X] が [a|_] になる。
-    if (raw_tail.tag() == Tag::Ref && var_name(raw_tail) != nullptr) {
-      const std::string rest = render(raw_tail, 999, true);
-      if (glue(out, "|")) out += ' ';
-      out += '|';
-      if (glue("|", rest)) out += ' ';
-      out += rest;
-      break;
-    }
-    const Cell tail = heap_.deref(raw_tail);
-    if (is_nil(heap_, tail)) break;
-    if (opened(tail.raw())) {
-      out += "|_";
-      break;
-    }
-    if (tail.tag() != Tag::Lis) {
-      const std::string rest = render(tail, 999, true);
-      if (glue(out, "|")) out += ' ';
-      out += '|';
-      if (glue("|", rest)) out += ' ';
-      out += rest;
-      break;
-    }
-    current = tail;
-  }
-  out += ']';
-  return out;
-}
-
-std::string Printer::render_functor(Cell term, std::string_view name) {
-  std::string out = spell_functor(name);
-  out += '(';
-  const auto arity = heap_.functor_arity(term);
-  for (std::uint16_t index = 0; index < arity; ++index) {
-    const std::string arg = render(heap_.arg(term, index), 999, true);
-    if (index == 0) out += arg;
-    else append_comma(out, arg);
-  }
-  out += ')';
-  return out;
-}
-
 std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
   if (term.tag() != Tag::Str || heap.functor_arity(term) != 1) return std::nullopt;
   if (heap.atoms().name(heap.functor_atom(term)) != "$VAR") return std::nullopt;
@@ -431,50 +465,150 @@ std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
   return name;
 }
 
-std::string Printer::render(Cell term, int parent, bool allow_equal, bool allow_hook) {
-  if (aborted_) return {};
-  if (allow_hook && replace_ != nullptr) {
+void Printer::render(const Work& item) {
+  Cell term = item.term;
+  if (item.allow_hook && replace_ != nullptr) {
     std::string swapped;
     const WriteCut cut = replace_(context_, term, swapped);
     if (cut == WriteCut::Stop) {
       aborted_ = true;
-      return {};
+      return;
     }
     // 成功した portray は、変数名や '$VAR' より先にその字面を使う。
-    if (cut == WriteCut::Swap) return swapped;
+    if (cut == WriteCut::Swap) return emit(swapped);
   }
-  if (term.tag() == Tag::Ref && var_name(term) != nullptr) return var_name(term)->name;
+  if (term.tag() == Tag::Ref && var_name(term) != nullptr) return emit(var_name(term)->name);
   term = heap_.deref(term);
-  if (heap_.unbound(term)) return var_text(term);
-  if (term.tag() == Tag::Atom) return spell(heap_.atoms().name(atom_of(term)));
-  if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return std::to_string(heap_.integer_value(term));
-  if (term.tag() == Tag::Float) return format_float(heap_.float_value(term));
+  if (heap_.unbound(term)) return emit(var_text(term));
+  if (term.tag() == Tag::Atom) return emit(spell(heap_.atoms().name(atom_of(term))));
+  if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return emit(std::to_string(heap_.integer_value(term)));
+  if (term.tag() == Tag::Float) return emit(format_float(heap_.float_value(term)));
   // '$VAR'(N) は関数表記より先。N は 0 以上の整数だけが変数名になる。
   if (options_.numbervars) {
-    if (const std::optional<std::string> named = numbervar_text(heap_, term)) return *named;
+    if (const std::optional<std::string> named = numbervar_text(heap_, term)) return emit(*named);
   }
-  if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return {};
-  if (opened(term.raw())) return "_";
-  open_.push_back(term.raw());
-  std::string text;
-  if (term.tag() == Tag::Lis) text = render_list(term);
-  else if (const std::optional<OpDef> op = as_operator(term)) {
-    if (needs_paren(op->priority, parent, allow_equal)) {
-      open_.pop_back();
-      // この項の portray はもう失敗している。括弧の中でもう一度呼ぶと副作用が二重になる。
-      return "(" + render(term, 1200, true, false) + ")";
-    }
-    text = render_op(*op, term);
-  } else {
-    const std::string_view name = heap_.atoms().name(heap_.functor_atom(term));
-    if (!options_.ignore_ops && name == "{}" && heap_.functor_arity(term) == 1) {
-      text = "{" + render(heap_.arg(term, 0), 1200, true) + "}";
-    } else {
-      text = render_functor(term, name);
-    }
+  if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return;
+  if (open_.contains(term.raw())) return emit("_");
+  render_compound(term, item.parent, item.allow_equal);
+}
+
+void Printer::render_compound(Cell term, int parent, bool allow_equal) {
+  const std::optional<OpDef> op = term.tag() == Tag::Str ? as_operator(term) : std::nullopt;
+  if (op && needs_paren(op->priority, parent, allow_equal)) {
+    // この項の portray はもう失敗している。括弧の中でもう一度呼ぶと副作用が二重になる。
+    emit("(");
+    push_text(")");
+    push_term(term, 1200, true, false);
+    return;
   }
-  open_.pop_back();
-  return text;
+  open_.insert(term.raw());
+  Work leave;
+  leave.step = Step::Leave;
+  leave.term = term;
+  work_.push_back(std::move(leave));
+  if (term.tag() == Tag::Lis) return push_list(term);
+  if (op) return push_op(*op, term);
+  const std::string_view name = heap_.atoms().name(heap_.functor_atom(term));
+  if (!options_.ignore_ops && name == "{}" && heap_.functor_arity(term) == 1) {
+    emit("{");
+    push_text("}");
+    return push_term(heap_.arg(term, 0), 1200, true);
+  }
+  push_functor(term, name);
+}
+
+void Printer::push_op(const OpDef& op, Cell term) {
+  std::string name = spell_operator(op.name);
+  if (is_prefix(op.specifier)) return push_prefix(op, term, std::move(name));
+  Work tail;
+  tail.text = std::move(name);
+  tail.mark = out_.size();
+  if (is_postfix(op.specifier)) {
+    tail.step = Step::Postfix;
+    work_.push_back(std::move(tail));
+    return push_term(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yf);
+  }
+  const std::size_t id = next_id_++;
+  push_clear(id);
+  push_term(heap_.arg(term, 1), op.priority, op.specifier == Specifier::Xfy);
+  tail.step = Step::Infix;
+  tail.id = id;
+  work_.push_back(std::move(tail));
+  push_term(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yfx);
+}
+
+void Printer::push_prefix(const OpDef& op, Cell term, std::string name) {
+  const Cell arg = heap_.arg(term, 0);
+  // 空白だけだと次の字が演算子になり、引数のアトムとして読み戻せない。
+  // 6.3.4.1: `- 1` も負の数と読まれる。-(1) は数を括弧で包んで前置演算子のまま読み戻す。
+  const bool wrap = operator_atom(arg) || (op.name == "-" && unsigned_number(arg));
+  const std::size_t id = next_id_++;
+  push_clear(id);
+  if (wrap) push_text(")");
+  push_term(arg, op.priority, op.specifier == Specifier::Fy);
+  if (wrap) push_text("(");
+  emit(name);
+  await(Space::Prefix, id);
+}
+
+void Printer::push_list(Cell term) {
+  if (options_.ignore_ops) {
+    emit(spell_functor(".") + "(");
+    const std::size_t id = next_id_++;
+    push_text(")");
+    push_clear(id);
+    push_term(heap_.list_tail(term), 999, true);
+    push_comma(id);
+    return push_term(heap_.list_head(term), 999, true);
+  }
+  emit("[");
+  Work rest;
+  rest.step = Step::ListRest;
+  rest.term = term;
+  work_.push_back(std::move(rest));
+  push_term(heap_.list_head(term), 999, true);
+}
+
+void Printer::list_rest(Cell cell) {
+  const Cell raw_tail = heap_.list_tail(cell);
+  // 名前表の REF は束縛より先に書く。先に辿ると X = [a|X] が [a|_] になる。
+  if (raw_tail.tag() == Tag::Ref && var_name(raw_tail) != nullptr) return push_bar(raw_tail);
+  const Cell tail = heap_.deref(raw_tail);
+  if (is_nil(heap_, tail)) return emit("]");
+  if (open_.contains(tail.raw())) return emit("|_]");
+  if (tail.tag() != Tag::Lis) return push_bar(tail);
+  Work rest;
+  rest.step = Step::ListRest;
+  rest.term = tail;
+  work_.push_back(std::move(rest));
+  const std::size_t id = next_id_++;
+  push_clear(id);
+  push_term(heap_.list_head(tail), 999, true);
+  push_comma(id);
+}
+
+void Printer::push_bar(Cell rest) {
+  const std::size_t id = next_id_++;
+  push_text("]");
+  push_clear(id);
+  push_term(rest, 999, true);
+  Work bar;
+  bar.step = Step::Bar;
+  bar.id = id;
+  work_.push_back(std::move(bar));
+}
+
+void Printer::push_functor(Cell term, std::string_view name) {
+  emit(spell_functor(name) + "(");
+  push_text(")");
+  const auto arity = heap_.functor_arity(term);
+  for (std::uint16_t index = arity; index > 1; --index) {
+    const std::size_t id = next_id_++;
+    push_clear(id);
+    push_term(heap_.arg(term, index - 1U), 999, true);
+    push_comma(id);
+  }
+  push_term(heap_.arg(term, 0), 999, true);
 }
 
 }  // namespace
