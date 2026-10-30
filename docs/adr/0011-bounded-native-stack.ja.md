@@ -1,6 +1,6 @@
 [English](0011-bounded-native-stack.md) | 日本語
 
-状態: 承認待ち
+状態: 承認済み（2026-10-30）
 
 ## 背景
 

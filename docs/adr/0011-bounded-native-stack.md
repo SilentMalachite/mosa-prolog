@@ -1,6 +1,6 @@
 English | [日本語](0011-bounded-native-stack.ja.md)
 
-Status: Pending approval
+Status: Approved (2026-10-30)
 
 ## Context
 
