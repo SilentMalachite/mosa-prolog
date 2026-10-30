@@ -10,7 +10,7 @@ Measured on 2026-10-30 (after the GC, phase 7) on an Apple M1 Max, macOS 27.2, A
 
 | Program | N | Interpreter (ms) | Translated (ms) | Ratio |
 | --- | ---: | ---: | ---: | ---: |
-| nrev | 20000 | 3448 | 137 | 25.1 |
+| nrev | 20000 | 3272 | 131 | 24.9 |
 | queens | 80 | 2929 | 618 | 4.7 |
 | zebra | 120 | 2843 | 1033 | 2.8 |
 | tak | 100 | 2516 | 326 | 7.7 |
@@ -31,18 +31,18 @@ Every program is also included by `tests/pl/bench_<name>.pl`, which runs its fir
 
 ## Cost of the GC
 
-Measured on 2026-10-30 on the same machine, one tree after the other: commit b5303e5 (the last code before the GC) against the GC branch, both Release, the same `N`, median of five runs (ms). Delta is the GC branch against b5303e5. The check in front of each step of the interpreter (`gc_safe_point`) and the heap allocation are the only added work on the hot path; both are a single comparison, defined inline.
+Measured on 2026-10-30 on the same machine, one tree after the other: commit b5303e5 (the last code before the GC) against the GC branch, both Release, the same `N`, median of five runs (ms). Delta is the GC branch against b5303e5. The check in front of each step of the interpreter (`gc_safe_point`) and the heap allocation are the only added work on the hot path; the check is one comparison (`heap.size() >= gc_trigger`, where `gc_trigger` is 0 while `MOSA_GC_STRESS` is on) and the allocation fast path is one comparison, both defined inline. The `nrev` row is the final measurement: the median of three runs of each tree, alternating, after the last change (interpreter 3185, 3172, 3169 ms before the GC against 3272, 3268, 3267 ms now; translated 144, 143, 144 against 132, 132, 131). The other rows are from the full run just before that change, which touched only the one comparison.
 
 | Program | Interpreter before | Interpreter now | Delta | Translated before | Translated now | Delta |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| nrev | 3184 | 3448 | +8.3% (re-measured: +3.4% to +5.6%) | 145 | 137 | -5.5% |
+| nrev | 3172 | 3268 | +3.0% | 144 | 132 | -8.3% |
 | queens | 2834 | 2929 | +3.4% | 626 | 618 | -1.3% |
 | zebra | 2833 | 2843 | +0.4% | 1070 | 1033 | -3.5% |
 | tak | 2502 | 2516 | +0.6% | 321 | 326 | +1.6% |
 | deriv | 1137 | 1125 | -1.1% | 155 | 152 | -1.9% |
 | crypt | 3084 | 3132 | +1.6% | 332 | 324 | -2.4% |
 
-The first measurement of the GC branch was 16% slower on the interpreter and 75% slower on the translated side for `nrev`. The cause was two calls on the hot path (the heap's `allocate` and `AddressRange::words()` were out-of-line); with both inline the table above is the result. `nrev` on the interpreter is the largest remaining difference, measured at +3% to +6% on repeated runs, which is the cost of the safe-point comparison in front of its cheapest steps. These programs are failure-driven, so most of what they allocate is given back by backtracking and collections are rare; the numbers measure mostly the checks, not the collector.
+The first measurement of the GC branch was 16% slower on the interpreter and 75% slower on the translated side for `nrev`. The cause was two calls on the hot path (the heap's `allocate` and `AddressRange::words()` were out-of-line); with both inline the table above is the result. Before the last change, `nrev` on the interpreter measured +3% to +8% (the safe-point test was two comparisons); with one comparison it is +3.0%, within 5%. The remaining gap was not profiled further. None of the six programs collects at all with the default limit: `statistics(garbage_collection, G)` after one `bench(N)` run gives `[0,0,0]` for each, so the numbers measure the checks and the larger heap setup, not the collector.
 
 ## CI
 
@@ -63,6 +63,7 @@ These were found before the GC (phase 6), when the heap was 1<<20 words and neve
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-10-29 | Apple M1 Max, macOS 27.2, Apple clang 21.0 | Release | 20000 | 3147 | 149 | 21.2 |
 | 2026-10-30 | Apple M1 Max, macOS 27.2, Apple clang 21.0 | Release | 20000 | 3290 | 143 | 23.0 |
+| 2026-10-30 (after the GC) | Apple M1 Max, macOS 27.2, Apple clang 21.0 | Release | 20000 | 3272 | 131 | 24.9 |
 
 The first row used the code `mosac emit` produced as of phase 6 Task 6: the first-argument dispatch (`select_clauses` rule), native-to-native calls by callee number, and head unification that reads the frame arguments directly (ADR 0009) were already in place from Task 4.
 
