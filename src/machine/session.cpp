@@ -286,7 +286,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
       reader.set_fullwidth(engine_impl(machine).japanese_punct);
       outcome = reader.next();
     } catch (...) {
-    if (!is_heap_exhaustion()) throw;
+      if (!is_heap_exhaustion()) throw;
       recover_heap(machine);
       warn_resource(machine, echo);
       buffer.clear();
@@ -294,13 +294,8 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
       continue;
     }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
-    if (outcome.failure) {
-      warn_syntax(machine, *outcome.failure, echo);
-      buffer.clear();
-      echo.say("?- ");
-      continue;
-    }
-    if (!outcome.term) {
+    if (outcome.failure) warn_syntax(machine, *outcome.failure, echo);
+    if (outcome.failure || !outcome.term) {
       buffer.clear();
       echo.say("?- ");
       continue;
@@ -342,7 +337,7 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
       echo.warn(std::string{machine.diagnostic()} + "\n");
       return 1;
     } catch (...) {
-    if (!is_heap_exhaustion()) throw;
+      if (!is_heap_exhaustion()) throw;
       recover_heap(machine);
       warn_resource(machine, echo);
       return 2;
