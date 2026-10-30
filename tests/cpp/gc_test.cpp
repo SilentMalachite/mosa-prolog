@@ -9,10 +9,13 @@
 #include "mosa/writer.hpp"
 
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <initializer_list>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace {
 
@@ -221,6 +224,28 @@ void check_bagof() {
   check_bagof_case("bagof free", "Y, (member(X-Y, [a-1,b-2,a-3])", "X-L");
   check_bagof_case("bagof alias", "Y, (member(X-Y, [a-1,b-2,Z-3])", "X-Z-L");
   check_bagof_case("bagof caret", "Y, X^(member(X-Y, [b-2,a-1,Z-3])", "Z-L");
+  // ゴールが作った変数は解ごとに別の変数（VarIds::base を水位として写すこと）。
+  check_bagof_case("bagof goal vars", "Y, (member(X, [a,b,a]), copy_term(g(_, _), Y)", "X-L");
+}
+
+// 証人がゴールの作った新しい変数を含む項 f(_) に結び付く解は、解ごとに名前を付け直して 1 つの組になる（8.10.2.4 の bagof の
+// 自由変数の具体化は変種で比べる）。gv/2 の枠は base の位置にあり、loop の間に死ぬ。VarIds::base を語の生死で
+// 写すと（SIZE_MAX）、新しい変数が呼ぶ前からあった変数として数えられ、組が 2 つに割れる。
+void check_bagof_fresh_witness() {
+  const std::string program = with_loop(
+      {k_member, k_name_vars,
+       "gv(X, Y) :- loop(100000), member(Y, [1,2]), copy_term(f(_), X).",
+       "gp(X, Y) :- member(Y, [1,2]), copy_term(f(_), X)."});
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(program).ok, "bagof fresh witness: load");
+  auto plain = mosa::Machine::create(k_small);
+  mosa_test::check(plain->load_program(program).ok, "bagof fresh witness: load plain");
+  bool limited = false;
+  const std::string expected = all_answers(*plain, "bagof(Y, gp(X, Y), L), copy_term(X-L, T), nv(T, 0, _).", limited);
+  const std::string actual = all_answers(*machine, "bagof(Y, gv(X, Y), L), copy_term(X-L, T), nv(T, 0, _).", limited);
+  mosa_test::check(!limited && expected == "f(v(0))-[1,2];", "bagof fresh witness: no-GC answer is one group: " + expected);
+  mosa_test::check(actual == expected, "bagof fresh witness: " + actual + " == " + expected);
+  mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, "bagof fresh witness: GC ran");
 }
 
 void check_directive_case(std::string_view label, std::string_view directive) {
@@ -253,6 +278,94 @@ void check_with_output_to() {
   mosa_test::check(mosa::engine_impl(*machine).gc_stats.count >= 1, "with_output_to: GC ran");
 }
 
+// 実行中の consult（計画 Task 5 の見直し）。外側に選択点・選択点より古いセルのトレイル・if-then-else の extras が
+// ある状態で consult の指示が GC を起こす。退避した水位と goal.cont が写されていなければ、後の解が崩れる。
+std::string consulted_path(std::string_view name, std::string_view text) {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "gc_consult";
+  std::filesystem::create_directories(dir);
+  const auto file = dir / name;
+  std::ofstream out(file, std::ios::binary | std::ios::trunc);
+  out << text;
+  return file.generic_string();
+}
+
+std::string consult_goal(std::string_view shape, const std::string& file) {
+  const std::string inner = "X = w(_), member(A, [x,y,z]), X = w(Q), var(Q), Q = A, (A == y -> consult('" + file +
+                            "') ; true)";
+  if (shape == "findall") return "findall(A, (" + inner + "), L), L == [x,y,z], q(done).";
+  return "(" + inner + ", assertz(seen(A)), fail ; true), findall(S, seen(S), L), L == [x,y,z], q(done).";
+}
+
+void check_consult_case(std::string_view shape) {
+  const std::string label = "consult " + std::string{shape};
+  const std::string program = with_loop({k_member, ":- dynamic(seen/1)."});
+  const std::string heavy = consulted_path("heavy.pl", ":- loop(300000).\nq(done).\n");
+  const std::string light = consulted_path("light.pl", "q(done).\n");
+  // GC の無い答え。同じゴールが指示の loop なしで成功することを先に確かめる。
+  auto plain = mosa::Machine::create(k_small);
+  mosa_test::check(plain->load_program(program).ok, label + ": load plain");
+  bool limited = false;
+  const auto expected = ask(*plain, consult_goal(shape, light), limited);
+  mosa_test::check(!limited && expected.kind == mosa::StopKind::Success, label + ": succeeds without GC");
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(program).ok, label + ": load");
+  auto& impl = mosa::engine_impl(*machine);
+  const auto before = impl.gc_stats.count;
+  const auto stop = ask(*machine, consult_goal(shape, heavy), limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success,
+                   label + ": later answers see undone bindings and give [x,y,z]");
+  mosa_test::check(impl.gc_stats.count > before, label + ": GC ran inside the consult");
+}
+
+void check_consult() {
+  check_consult_case("fail");
+  check_consult_case("findall");
+}
+
+// 退避した extras と trail の水位も GC が写すこと。外側に死んだ extras（済んだ if-then-else）と死んだセルを指す
+// トレイル（t/0 の V）を作ってから consult する。指示が古いセル Y を束縛すると、正しく写した水位なら読み込みの後で
+// 戻され、束縛しない指示と同じ大きさに揃う。写さない水位は大きすぎ、指示のトレイルと extras が残る。
+std::pair<std::size_t, std::size_t> sizes_after_consult(std::string_view name, std::string_view directive) {
+  const std::string program =
+      with_loop({k_member, "t :- V = v(_), member(_, [1,2]), V = v(1), !."});
+  const std::string file = consulted_path(name, std::string{directive} + "\nq(done).\n");
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(program).ok, std::string{name} + ": load");
+  bool limited = false;
+  const auto stop = ask(*machine, "member(A, [x,y,z]), t, (true -> true ; true), A == y, consult('" + file +
+                                      "'), q(done).", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, std::string{name} + ": query succeeds");
+  const auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(impl.gc_stats.count >= 1, std::string{name} + ": GC ran");
+  return {impl.trail.slots.size(), impl.extras.size()};
+}
+
+void check_consult_marks() {
+  const auto quiet = sizes_after_consult("quiet.pl", ":- loop(300000).");
+  const auto binding = sizes_after_consult("binding.pl", ":- X = f(Y), Y = 1, loop(300000), X == f(1), (true -> true ; true).");
+  mosa_test::check(binding.first == quiet.first, "consult marks: directive trail is undone (" +
+                                                     std::to_string(binding.first) + " vs " + std::to_string(quiet.first) + ")");
+  mosa_test::check(binding.second == quiet.second, "consult marks: directive extras are dropped (" +
+                                                       std::to_string(binding.second) + " vs " + std::to_string(quiet.second) + ")");
+}
+
+// portray/1 の中は GC しない（apply_portray の GcInhibit、TODO(iso) 7.10.5）。loop(3000) はヒープを閾値（2^15 語）
+// より上へ伸ばし、上限（2^16 語）には届かない。print が最後のゴールなので、外側の安全点も通らない。
+void check_portray_inhibited() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(with_loop({"portray(foo) :- loop(3000), write(bar)."})).ok,
+                   "portray: load");
+  auto& impl = mosa::engine_impl(*machine);
+  const auto before = impl.gc_stats.count;
+  bool limited = false;
+  const auto stop = ask(*machine, "with_output_to(atom(A), print(foo)).", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success && binding_text(*machine, stop, 0) == "bar",
+                   "portray: print(foo) writes bar");
+  mosa_test::check(machine->heap().size() >= impl.gc_threshold, "portray: heap passed the threshold");
+  // ストレスでは print の前の安全点でも GC が回るので、回数は比べない。
+  if (impl.gc_stress == 0) mosa_test::check(impl.gc_stats.count == before, "portray: no GC during the hook");
+}
+
 }  // namespace
 
 int main() {
@@ -267,7 +380,11 @@ int main() {
   check_direct_collect();
   check_findall();
   check_bagof();
+  check_bagof_fresh_witness();
   check_directive();
   check_with_output_to();
+  check_consult();
+  check_consult_marks();
+  check_portray_inhibited();
   return mosa_test::failures();
 }
