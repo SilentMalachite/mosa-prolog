@@ -42,6 +42,9 @@ namespace mosa {
 
 struct Entry;
 
+// ヒープの 1 語のバイト数。statistics/2 と trace_gc の行が同じ値で換算する。
+inline constexpr std::size_t kHeapWordBytes = sizeof(std::uint64_t);
+
 struct GcStats {
   std::uint64_t count = 0;
   std::uint64_t freed_words = 0;

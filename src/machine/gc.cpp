@@ -95,7 +95,7 @@ void init_gc(Impl& machine) {
 // 旗 trace_gc の 1 行。文面は鍵 gc_trace のカタログから引く。ミリ秒は小数 2 桁まで見せる。
 void trace_line(const Impl& machine, std::size_t before, std::size_t after,
                 std::chrono::steady_clock::duration took) {
-  const auto kib = [](std::size_t words) { return std::to_string(words * 8 / 1024); };
+  const auto kib = [](std::size_t words) { return std::to_string(words * kHeapWordBytes / 1024); };
   const auto hundredths = std::chrono::duration_cast<std::chrono::microseconds>(took).count() / 10;
   const std::string ms = std::to_string(hundredths / 100) + "." + (hundredths % 100 < 10 ? "0" : "") +
                          std::to_string(hundredths % 100);

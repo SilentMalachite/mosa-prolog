@@ -5,7 +5,7 @@
 //   instantiation_error（鍵が変数）、type_error(atom, K)、domain_error(statistics_key, K)
 //   鍵: garbage_collection -> [回数, 回収したバイト, ミリ秒]、heap -> [使用バイト, 柔らかい容量のバイト, 上限のバイト]、
 //   runtime / walltime -> [合計ミリ秒, 前回の同じ鍵からの差]（前回はマシンごと）、cputime -> CPU 秒（浮動小数）。
-// テスト: tests/pl/gc.pl、tests/cpp/gc_test.cpp（gc_trace_line）
+// テスト: tests/pl/gc.pl、tests/cpp/gc_test.cpp（check_trace_line）
 #include "../machine/internal.hpp"
 
 #include <array>
@@ -13,12 +13,13 @@
 #include <cstdint>
 #include <ctime>
 #include <initializer_list>
+#include <iterator>
 #include <string_view>
 
 namespace mosa {
 namespace {
 
-constexpr std::int64_t kWordBytes = 8;
+constexpr auto kWordBytes = static_cast<std::int64_t>(kHeapWordBytes);
 
 Cell make_list(Impl& machine, std::initializer_list<std::int64_t> values) {
   Cell list = machine.heap.atom(machine.atoms.intern("[]"));

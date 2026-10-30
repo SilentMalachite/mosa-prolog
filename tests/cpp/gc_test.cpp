@@ -369,33 +369,42 @@ void check_portray_inhibited() {
   if (impl.gc_stress == 0) mosa_test::check(impl.gc_stats.count == before, "portray: no GC during the hook");
 }
 
-// 旗 trace_gc が true なら、GC のたびに標準エラーへ GC を含む 1 行が出る。偽なら何も出ない。
+// 標準エラーを奪って goal を問い合わせ、出た文字列を返す。成功しなければ ok を偽にする。
+std::string ask_capturing_stderr(mosa::Machine& machine, std::string_view goal, bool& ok) {
+  bool limited = false;
+  std::ostringstream captured;
+  auto* saved = std::cerr.rdbuf(captured.rdbuf());
+  const auto stop = ask(machine, goal, limited);
+  std::cerr.rdbuf(saved);
+  ok = !limited && stop.kind == mosa::StopKind::Success;
+  return captured.str();
+}
+
+// 旗 trace_gc が true なら、GC のたびに標準エラーへ GC を含む 1 行が出る。偽に戻せば止まる。
 void check_trace_line() {
   auto machine = mosa::Machine::create(k_small);
+  const auto& impl = mosa::engine_impl(*machine);
+  bool ok = false;
+  const std::string quiet = ask_capturing_stderr(*machine, "garbage_collect.", ok);
+  mosa_test::check(ok && quiet.empty(), "trace: silent by default");
+  const std::string logged =
+      ask_capturing_stderr(*machine, "set_prolog_flag(trace_gc, true), garbage_collect.", ok);
+  mosa_test::check(ok, "trace: set true and collect succeeds");
+  mosa_test::check(logged.find("GC") != std::string::npos, "trace: a GC line on stderr");
+  // ストレスでは安全点ごとに GC が回るので、行の数は固定しない。
+  if (impl.gc_stress == 0) {
+    mosa_test::check(std::count(logged.begin(), logged.end(), '\n') == 1, "trace: exactly one line");
+  }
   bool limited = false;
-  std::string quiet;
-  std::string logged;
-  {
-    std::ostringstream captured;
-    auto* saved = std::cerr.rdbuf(captured.rdbuf());
-    (void)ask(*machine, "garbage_collect.", limited);
-    quiet = captured.str();
-    std::cerr.rdbuf(saved);
-  }
-  {
-    std::ostringstream captured;
-    auto* saved = std::cerr.rdbuf(captured.rdbuf());
-    (void)ask(*machine, "set_prolog_flag(trace_gc, true), garbage_collect.", limited);
-    logged = captured.str();
-    std::cerr.rdbuf(saved);
-  }
-  // ストレスでは旗が立つ前に GC が回りうるが、その時の旗は偽なので、静かなことは変わらない。
   const auto flag = ask(*machine, "current_prolog_flag(trace_gc, true).", limited);
   mosa_test::check(!limited && flag.kind == mosa::StopKind::Success, "trace: flag reads back true");
-  mosa_test::check(quiet.empty(), "trace: silent by default");
-  mosa_test::check(logged.find("GC") != std::string::npos &&
-                       std::count(logged.begin(), logged.end(), '\n') >= 1,
-                   "trace: one GC line on stderr");
+  // 戻すゴールの前の安全点ではまだ旗が真で、ストレスならそこで行が出る。だから行が無いことは、ストレス無しでだけ言える。
+  const std::string stopped =
+      ask_capturing_stderr(*machine, "set_prolog_flag(trace_gc, false), garbage_collect.", ok);
+  mosa_test::check(ok, "trace: set false and collect succeeds");
+  if (impl.gc_stress == 0) {
+    mosa_test::check(stopped.find("GC") == std::string::npos, "trace: no GC line after switching off");
+  }
 }
 
 }  // namespace
