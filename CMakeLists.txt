@@ -52,6 +52,9 @@ target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/term_equal.cpp)
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
+  src/machine/gc.cpp
+  src/machine/gc_mark.cpp
+  src/machine/gc_compact.cpp
   src/machine/load.cpp
   src/machine/load_clauses.cpp
   src/machine/native.cpp

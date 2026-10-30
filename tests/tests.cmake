@@ -61,6 +61,12 @@ target_include_directories(heap_growth_test PRIVATE tests/cpp)
 target_link_libraries(heap_growth_test PRIVATE mosa_lib)
 add_test(NAME heap_growth COMMAND $<TARGET_FILE:heap_growth_test>)
 
+# mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
+add_executable(gc_test tests/cpp/gc_test.cpp)
+target_include_directories(gc_test PRIVATE tests/cpp src)
+target_link_libraries(gc_test PRIVATE mosa_lib)
+add_test(NAME gc COMMAND $<TARGET_FILE:gc_test>)
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

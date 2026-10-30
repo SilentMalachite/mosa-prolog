@@ -75,6 +75,8 @@ Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint6
 
 bool copied_succeeds(Machine& scratch, Cell goal) {
   Impl& machine = engine_impl(scratch);
+  // 計画 Task 5 で RootScope にするか決める仮の措置。それまで写した先の機械では GC しない。
+  const GcInhibit inhibit(machine);
   Entry cleanup;
   cleanup.pick = Pick::Cleanup;
   cleanup.heap_mark = machine.heap.size();

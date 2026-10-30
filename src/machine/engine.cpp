@@ -498,6 +498,8 @@ Stop run_loop(Impl& machine) {
     if (machine.ip == kNoFrame) {
       return Stop{StopKind::Success, 0, {}, machine.bindings, has_more(machine)};
     }
+    // 2 歩の間だけが GC の機会である（ADR 0010）。組込と生成関数の C++ の局所はここでは何も握っていない。
+    gc_safe_point(machine);
     step(machine);
   }
 }

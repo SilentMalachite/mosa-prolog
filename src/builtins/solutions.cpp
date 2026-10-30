@@ -510,6 +510,8 @@ void unwind_throw(Impl& machine, const Saved& saved, std::size_t floor) {
 // 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
 Packet collect(Impl& machine, const Compiled& compiled, Cell templ, const std::vector<Cell>& witnesses,
                const std::vector<Cell>& hidden, bool share, std::uint32_t module) {
+  // 計画 Task 5 で RootScope に替える仮の措置。それまで入れ子の間は GC しない（saved と ids が古い番地を握る）。
+  const GcInhibit inhibit(machine);
   const Saved saved = save_exec(machine);
   const auto floor = park_callers(machine, saved);
   machine.failed = false;

@@ -9,6 +9,7 @@
 #include "mosa/runtime.hpp"
 
 #include "../module/module.hpp"
+#include "gc.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -342,8 +343,22 @@ struct Machine::Impl {
   std::vector<EmbeddedSource> embedded;
   // 実行ファイルの起動の読み込みがヒープの上限で止まった。rt::finish は mosa の consult と同じ 2 で終わる。
   bool load_heap_limit = false;
+  // ADR 0010 の GC。gc_capacity は柔らかい容量 C、gc_threshold は安全点で GC を始める heap.size()。
+  // 普段は閾値 = C で、上限の近くだけ C より上に置く（init_gc と collect_garbage の方針）。
+  GcStats gc_stats;
+  std::vector<RootVisit> gc_roots;
+  int gc_inhibit = 0;
+  std::size_t gc_capacity = 0;
+  std::size_t gc_threshold = 0;
+  // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
+  std::size_t gc_stress = 0;
+  std::size_t gc_ticks = 0;
+  bool trace_gc = false;
 
-  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) { install_modules(*this); }
+  explicit Impl(std::size_t limit) : heap(atoms, limit), operators(OperatorTable::iso_core()) {
+    install_modules(*this);
+    init_gc(*this);
+  }
 };
 
 using Impl = Machine::Impl;

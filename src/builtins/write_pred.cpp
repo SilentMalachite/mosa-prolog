@@ -581,6 +581,8 @@ void trim_extras(Impl& machine, std::size_t mark) {
 }
 
 Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module) {
+  // 計画 Task 5 で RootScope に替える仮の措置。それまで入れ子の間は GC しない（saved が古い番地を握る）。
+  const GcInhibit inhibit(machine);
   const Snap saved = take_snap(machine);
   disarm(machine, machine.stack.size());
   Entry barrier;

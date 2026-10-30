@@ -485,6 +485,8 @@ int apply_module_directive(Impl& machine, Cell directive, bool first, std::strin
 
 // 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。
 StopKind run_parked(Impl& machine, Cell goal) {
+  // 計画 Task 5 で RootScope に替える仮の措置。それまで入れ子の間は GC しない（saved と読み込みの水位が古い番地を握る）。
+  const GcInhibit inhibit(machine);
   SavedExec saved = park_exec(machine);
   const Compiled compiled = compile_goal(machine.heap, goal);
   const auto heap_mark = machine.heap.size();
