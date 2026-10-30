@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
   } catch (...) {
     if (!mosa::is_heap_exhaustion()) throw;
     // run_session の中で止まった分は run_session が知らせる。ここへ来るのは外側で溢れた場合だけ。
-    std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "heap_limit_size",
+    std::cerr << mosa::render_message_fresh(mosa::default_message_language(), mosa::heap_stop_key(),
                                             std::array{mosa::heap_limit_mib_text(env_limit)})
               << "\n";
     return 2;

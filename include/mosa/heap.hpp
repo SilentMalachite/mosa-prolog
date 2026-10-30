@@ -23,13 +23,19 @@ class ResourceLimit : public std::exception {
   const char* message_;
 };
 
+// 上限までの番地を OS が予約させなかった（起動時の Heap の構築）。止め方は ResourceLimit と同じで、文面だけを分ける。
+class HeapReserveFailed : public ResourceLimit {
+ public:
+  HeapReserveFailed() noexcept : ResourceLimit("heap_reserve") {}
+};
+
 // どちらも語の数。4 GiB は 2^29 語。起動時に commit する量は min(kInitialHeapCommit, 上限)。
 inline constexpr std::size_t kDefaultHeapMax = std::size_t{1} << 29;
 inline constexpr std::size_t kInitialHeapCommit = std::size_t{1} << 20;
 
 class Heap {
  public:
-  // limit は伸ばせる上限（語）。予約が断られたら ResourceLimit("heap_limit")。
+  // limit は伸ばせる上限（語）。予約が断られたら HeapReserveFailed。
   explicit Heap(AtomTable& atoms, std::size_t limit = kDefaultHeapMax);
   Heap(const Heap&) = delete;
   Heap& operator=(const Heap&) = delete;

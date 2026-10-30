@@ -6,6 +6,7 @@
 message(goal_raised, '警告: ゴールは例外を送出しました: ~q').
 message(heap_limit, '警告: ヒープの上限を超えました').
 message(heap_limit_size, 'ヒープが上限（~w MiB）に達したので、問い合わせを止めました').
+message(heap_reserve, 'ヒープ ~w MiB 分の番地空間を予約できませんでした。--heap-max か MOSA_HEAP_MAX で上限を小さくしてください').
 message(gc_trace, '% GC ~w 回目: ~w KiB → ~w KiB（容量 ~w KiB、~w ms）').
 message(help_japanese_variables, '日本語の名前の変数は _太郎 のように下線で始める。下線の無い 太郎 は原子である。').
 

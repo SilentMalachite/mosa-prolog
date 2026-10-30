@@ -447,7 +447,7 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     run_with_machine(options, input, tty, limit, echo, result);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
-    echo.warn(render_message_fresh(default_message_language(), "heap_limit_size",
+    echo.warn(render_message_fresh(default_message_language(), heap_stop_key(),
                                    std::array{heap_limit_mib_text(limit)}) + "\n");
     result.code = 2;
   }

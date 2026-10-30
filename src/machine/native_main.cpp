@@ -28,7 +28,7 @@ std::unique_ptr<Machine> create_machine() {
     return Machine::create(limit);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
-    std::cerr << render_message_fresh(default_message_language(), "heap_limit_size",
+    std::cerr << render_message_fresh(default_message_language(), heap_stop_key(),
                                       std::array{heap_limit_mib_text(limit)})
               << '\n';
     std::exit(2);

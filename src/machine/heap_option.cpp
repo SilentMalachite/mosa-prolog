@@ -53,6 +53,16 @@ bool is_heap_exhaustion() noexcept {
   }
 }
 
+std::string_view heap_stop_key() noexcept {
+  try {
+    throw;
+  } catch (const HeapReserveFailed&) {
+    return "heap_reserve";
+  } catch (...) {
+    return "heap_limit_size";
+  }
+}
+
 std::size_t heap_max_from_environment() {
   const auto value = environment_path("MOSA_HEAP_MAX");
   if (!value) return kDefaultHeapMax;

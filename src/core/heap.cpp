@@ -24,9 +24,9 @@ constexpr std::size_t k_commit_step = std::size_t{1} << 17;
 
 AddressRange reserve_or_throw(std::size_t limit) {
   // 語数からバイト数への掛け算があふれる上限は、予約できないものとして同じ止め方にする。
-  if (limit > std::numeric_limits<std::size_t>::max() / sizeof(std::uint64_t)) throw ResourceLimit("heap_limit");
+  if (limit > std::numeric_limits<std::size_t>::max() / sizeof(std::uint64_t)) throw HeapReserveFailed();
   auto range = AddressRange::reserve(limit * sizeof(std::uint64_t));
-  if (!range) throw ResourceLimit("heap_limit");
+  if (!range) throw HeapReserveFailed();
   return std::move(*range);
 }
 

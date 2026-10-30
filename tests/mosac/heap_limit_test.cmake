@@ -50,6 +50,13 @@ if(NOT code EQUAL 1)
   fail("--heap-max 0 must be a usage error")
 endif()
 
+# 予約を断られる上限は「上限に達した」ではなく、番地を予約できなかったと言い、--heap-max と MOSA_HEAP_MAX を名指す。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 999999999 -g halt
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
+if(NOT code EQUAL 2 OR NOT err MATCHES "999999999 MiB" OR NOT err MATCHES "--heap-max" OR NOT err MATCHES "MOSA_HEAP_MAX")
+  fail("mosa --heap-max 999999999 must exit 2 and say the address space could not be reserved")
+endif()
+
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${REF}" --heap-max 16 heap_grow.pl
   INPUT_FILE "${WORK}/repl.in" WORKING_DIRECTORY "${WORK}"
   OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
@@ -65,6 +72,6 @@ if(NOT code EQUAL 0)
 endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "--unset=MOSA_LIB" "MOSA_HEAP_MAX=999999999" "${WORK}/heap_grow_exe${EXE_SUFFIX}"
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
-if(NOT code EQUAL 2 OR NOT err MATCHES "MiB")
-  fail("an exe whose heap cannot be reserved must exit 2 with a message")
+if(NOT code EQUAL 2 OR NOT err MATCHES "999999999 MiB" OR NOT err MATCHES "MOSA_HEAP_MAX")
+  fail("an exe whose heap cannot be reserved must exit 2 and name MOSA_HEAP_MAX")
 endif()

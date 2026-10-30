@@ -20,6 +20,10 @@ namespace mosa {
 // trail・選択点スタック・extras の std::vector）なら true。どちらも同じ止め方にするので、判定を一か所に置く。
 [[nodiscard]] bool is_heap_exhaustion() noexcept;
 
+// catch (...) の中で呼ぶ。マシンを作るときに止まった文面の鍵。予約を断られた（HeapReserveFailed）なら
+// heap_reserve、ほかは heap_limit_size。どちらも引数は上限の MiB 1 つ。
+[[nodiscard]] std::string_view heap_stop_key() noexcept;
+
 // 環境変数 MOSA_HEAP_MAX を読んだ上限（語）。無いか解釈できなければ kDefaultHeapMax。
 [[nodiscard]] std::size_t heap_max_from_environment();
 

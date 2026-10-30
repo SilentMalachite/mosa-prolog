@@ -154,7 +154,7 @@ enum class Compare : std::uint8_t { Eq, Ne, Lt, Le, Gt, Ge };
 [[nodiscard]] bool arith_compare(Machine::Impl& machine, Compare op, std::uint32_t name, Cell left, Cell right);
 
 // 生成する main の最初の 1 行。環境変数 MOSA_HEAP_MAX（MiB。解釈できなければ既定）の上限で Machine を作る。
-// 上限の予約を OS に断られたら、ヒープの上限と同じ文面を標準エラーに出して終了コード 2 で終わる（戻らない）。
+// 上限の予約を OS に断られたら、予約できなかったという文面（鍵 heap_reserve）を標準エラーに出して終了コード 2 で終わる（戻らない）。
 [[nodiscard]] std::unique_ptr<Machine> create_machine();
 
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
