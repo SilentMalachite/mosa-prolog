@@ -22,7 +22,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–6 are done; phase 7 (GC, manuals, release packages) waits for the owner's go. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
+Phases 0–6 are done. Phase 7 is under way: the GC is done on the branch `phase7-gc`; the iterative writer and loader, the manuals and the release packages are next. Current progress is in [`docs/STATUS.md`](docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ Phases 0–6 are done; phase 7 (GC, manuals, release packages) waits for the own
 | 4 | Modules and `library(*)` | Done |
 | 5 | Conformance push, full-width symbol mode, Japanese messages | Done |
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Done |
-| 7 | GC, manuals, release packages | Not started |
+| 7 | GC, manuals, release packages | In progress (GC done) |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 
@@ -62,7 +62,7 @@ Executables go to `build/` (`build/Release/` on Windows).
 ### `mosa` (interpreter)
 
 ```sh
-mosa [file...] [-g goal] [-t halt] [-- argument...]
+mosa [file...] [-g goal] [-t halt] [--heap-max MiB] [-- argument...]
 ```
 
 Started from a terminal with no goal, `mosa` enters interactive mode. A `-g` goal may end with `.` or leave it out, as in SWI-Prolog. A goal that cannot be read prints a syntax error; with `-t halt` the exit status is then 2.
@@ -77,6 +77,12 @@ N = 3.
 ```
 
 A character is always one Unicode scalar value, so `𠮷` counts as one character.
+
+#### Heap, GC and `statistics/2`
+
+The heap grows on demand up to a limit and is garbage-collected (mark and compact, ADR 0010); the default limit is 4 GiB. `--heap-max <MiB>` sets it for `mosa`, and the environment variable `MOSA_HEAP_MAX` (also in MiB) sets it for `mosa` and for executables built by `mosac`. A value that cannot be read leaves the default. When the heap reaches the limit, the query is stopped with `The heap reached its limit (N MiB); the query was stopped` on standard error: `mosa` goes on to the next query in the REPL, while a generated executable exits with status 2. A program that stays within a small live set runs in a small heap: `loop/1` counting to 1000000 and `tak(18, 12, 6)` both finish with `--heap-max 1`.
+
+`statistics(Key, Value)` has these keys: `heap` is `[Used, Capacity, Limit]` in bytes (`Capacity` is the soft capacity at which a collection starts); `garbage_collection` is `[Count, FreedBytes, Ms]`; `runtime` and `walltime` are `[TotalMs, MsSinceLastCall]`; `cputime` is CPU seconds as a float. `garbage_collect/0` forces a collection. The flag `trace_gc` (`set_prolog_flag(trace_gc, true)`) prints one line per collection to standard error. The environment variable `MOSA_GC_STRESS=N` collects at every N-th safe point; it is a testing aid.
 
 When standard input is not a terminal, it belongs to Prolog's `user_input`, so a goal can read piped data:
 
