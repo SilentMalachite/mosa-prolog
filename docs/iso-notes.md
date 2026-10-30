@@ -557,9 +557,11 @@ Decision (2026-10-30): A. The diagnostic suggests `:- dynamic(Name/Arity).` for 
 
 ## 7.1 Nesting depth of terms (implementation limit)
 
-The writer, the reader and the loader recurse once per nesting level, so a term nested very deeply overflows the C stack. Printing a term nested about 30000 deep overflows the stack, `mosa` overflows on loading a 50000-element list literal on macOS, and on Windows (1 MiB stack) a 20000-element list literal cannot be loaded. The owner treats this as an implementation limit (ISO 7.1, implementation defined) and not as a deviation from a requirement. The translator (`mosac`) walks terms iteratively and handles a 20000-element list (ctest `mosac_long_list`).
+The writer, the loader (clause building, `IrTerm` copy and destruction, materialization), unification and the builtins that walk terms (`copy_term/2`, `findall/3`, `bagof/3`, `setof/3`, `compare/3`, `==`, `term_variables/2`, `clause/2`, `unify_with_occurs_check/2`, `is_list/1`) keep deep subterms on explicit stacks (ADR 0011). Under a 1 MiB stack they handle a term nested 1,000,000 deep and a 200,000-element list literal (ctest `stack_deep_write`, `stack_deep_builtins`, `long_literal`).
 
-Decision (2026-10-30): A. Make the writer, the reader and the loader iterative in phase 7 or later. Until then the limit stands, and the test `mosac_long_list` steps down to a shorter list on Windows.
+Only the reader still recurses once per nesting level of the source text. Measured on macOS under `ulimit -s 1024` (the Windows default is also 1 MiB): about 600 levels of `f(f(...))` or `[[...]]`, about 850 nested prefix operators, about 1,000 nested parentheses and about 1,600 right-nested `xfy` operands. With the 8 MiB default stack of macOS, about 4,800 levels of `f(f(...))`. Flat lists and left-nested `yfx` chains are read iteratively and have no such limit. The owner treats this as an implementation limit (ISO 7.1, implementation defined) and not as a deviation from a requirement.
+
+Decision (2026-10-30): A. Make the writer, the reader and the loader iterative in phase 7 or later. Phase 7 made the writer and the loader iterative (ADR 0011); the reader stays recursive, and `mosac_long_list` runs 20000 elements on every OS.
 
 ## 7.1 No garbage collection of the atom table (implementation limit)
 
