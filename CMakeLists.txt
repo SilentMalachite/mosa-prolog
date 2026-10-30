@@ -95,6 +95,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/command_line.cpp
   src/platform/console.cpp
   src/platform/process.cpp
+  src/platform/address_range.cpp
   src/platform/toolchain.cpp
   src/machine/bench.cpp
   src/machine/bench_report.cpp
