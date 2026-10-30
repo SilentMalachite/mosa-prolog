@@ -453,6 +453,23 @@ void check_portray_gc() {
   mosa_test::check(impl.gc_stats.count > before, "portray_gc: GC ran inside the hook");
 }
 
+// ADR 0011: 200,000 要素のリストを持つ節を、上限に当たるまで繰り返し呼ぶ。手で積む実体化の途中で heap_limit で
+// 止まり、次の問い合わせは普通に動く。上限は節を読み込める大きさ（2^20 語）で、3 回分の実体化は入らない。
+void check_materialize_limit() {
+  std::string program = "data([";
+  for (int index = 1; index <= 200000; ++index) program += (index == 1 ? "" : ",") + std::to_string(index);
+  program += "]). ok(yes).";
+  auto machine = mosa::Machine::create(std::size_t{1} << 20);
+  mosa_test::check(machine->load_program(program).ok, "materialize limit: load");
+  bool limited = false;
+  (void)ask(*machine, "data(A), data(B), data(C), data(D).", limited);
+  mosa_test::check(limited, "materialize limit: heap_limit");
+  const auto next = ask(*machine, "ok(X), data(L), length(L, N).", limited);
+  mosa_test::check(!limited && next.kind == mosa::StopKind::Success && binding_text(*machine, next, 0) == "yes" &&
+                       binding_text(*machine, next, 2) == "200000",
+                   "materialize limit: next query runs");
+}
+
 // 上限の近くで空きを生まない GC が続けば止める（ADR 0010 の 2026-10-30 改訂、所有者の決定 B）。
 // junk/1 は 1 歩ごとに捨てる項を作り、grow/2 は生きたリストを 1 要素ずつ伸ばす。
 constexpr std::string_view k_thrash =
@@ -657,6 +674,7 @@ int main() {
   check_consult();
   check_consult_marks();
   check_portray_gc();
+  check_materialize_limit();
   check_thrash_stops();
   check_productive_near_limit();
   check_explicit_collect_not_counted();

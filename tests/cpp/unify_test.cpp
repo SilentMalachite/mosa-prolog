@@ -77,9 +77,71 @@ void check_numbers_and_lists() {
   mosa_test::check(std::signbit(heap.float_value(neg_zero)), "neg zero kept");
 }
 
+constexpr int kDeep = 1000000;
+
+// [first, 2, 3, ..., kDeep - 1, last]
+mosa::Cell deep_list(mosa::Heap& heap, mosa::Cell first, mosa::Cell last) {
+  mosa::Cell list = heap.list(last, heap.atom(heap.atoms().intern("[]")));
+  for (int value = kDeep - 1; value >= 2; --value) list = heap.list(heap.integer(value), list);
+  return heap.list(first, list);
+}
+
+mosa::Cell deep_f(mosa::Heap& heap, std::uint32_t f, mosa::Cell leaf) {
+  for (int depth = 0; depth < kDeep; ++depth) leaf = heap.structure(f, std::array<mosa::Cell, 1>{leaf});
+  return leaf;
+}
+
+// ADR 0011: 深さ 1,000,000 のリストと f(f(...)) を C++ の再帰なしで単一化する。失敗は一番深い所に置く。
+void check_unify_deep() {
+  mosa::AtomTable atoms;
+  mosa::Heap heap(atoms);
+  const auto last = heap.fresh_ref();
+  const auto left = deep_list(heap, heap.integer(1), last);
+  const auto right = deep_list(heap, heap.integer(1), heap.integer(kDeep));
+  mosa_test::check(unify_marked(heap, left, right) && heap.deref(last).raw() == heap.integer(kDeep).raw(),
+                   "deep list unifies");
+  const auto first = heap.fresh_ref();
+  const auto open = deep_list(heap, first, heap.integer(kDeep));
+  const auto wrong = deep_list(heap, heap.integer(1), heap.integer(0));
+  mosa_test::check(!unify_marked(heap, open, wrong) && heap.unbound(first), "deep list fails and unbinds");
+  const auto f = atoms.intern("f");
+  const auto a = heap.atom(atoms.intern("a"));
+  const auto b = heap.atom(atoms.intern("b"));
+  mosa_test::check(unify_marked(heap, deep_f(heap, f, a), deep_f(heap, f, a)), "deep f unifies");
+  mosa_test::check(!unify_marked(heap, deep_f(heap, f, a), deep_f(heap, f, b)), "deep f fails");
+}
+
+// X = f(X), Y = f(Y), X = Y は止まって成功する。周期の違う巡回リストも同じ無限の項なら一致する。
+void check_unify_cyclic() {
+  mosa::AtomTable atoms;
+  mosa::Heap heap(atoms);
+  const auto f = atoms.intern("f");
+  const auto a = heap.atom(atoms.intern("a"));
+  const auto b = heap.atom(atoms.intern("b"));
+  const auto loop = [&](mosa::Cell second) {
+    const auto self = heap.fresh_ref();
+    (void)unify_marked(heap, self, heap.structure(f, std::array<mosa::Cell, 2>{self, second}));
+    return self;
+  };
+  const auto x = loop(a);
+  const auto y = loop(a);
+  const auto z = loop(b);
+  mosa_test::check(unify_marked(heap, x, y), "cyclic f unifies");
+  mosa_test::check(!unify_marked(heap, x, z), "cyclic f differs");
+  const auto one = heap.integer(1);
+  const auto two = heap.integer(2);
+  const auto short_tail = heap.fresh_ref();
+  (void)unify_marked(heap, short_tail, heap.list(one, heap.list(two, short_tail)));
+  const auto long_tail = heap.fresh_ref();
+  (void)unify_marked(heap, long_tail, heap.list(one, heap.list(two, heap.list(one, heap.list(two, long_tail)))));
+  mosa_test::check(unify_marked(heap, short_tail, long_tail), "cyclic lists of different periods");
+}
+
 int main() {
   check_atoms_vars_and_cycle();
   check_failure_restores();
   check_numbers_and_lists();
+  check_unify_deep();
+  check_unify_cyclic();
   return mosa_test::failures();
 }
