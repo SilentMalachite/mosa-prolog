@@ -75,6 +75,8 @@ A か B か: A は 7.6.2 に従う。節は本体が `call(X)` であるかの�
 
 A か B か: A は catch/3 の Goal と Recovery を、実行時に束縛された変数が切断に対して透過になるように訳す（IR の変更なので先に ADR）。B は訳した形を残し、ここに逸脱として記す。
 
+決定（2026-11-01）: A。H6 の後に行う。ゴール位置に変数を持つ Goal か Recovery だけをデータのまま持ち、実行時に `call/1` で動かす。そういう変数の無い catch/3 は今のまま訳す。IR と mosac のコード生成が変わるので、先に ADR を書く。レビュー項目 M14。
+
 ## 8.8 current_predicate/1
 
 決定（2026-10-25）: 未決 6 は B。`current_predicate/1` は利用者の述語だけを、定義された順に返す。`current_predicate(true/0)` は失敗であり、`permission_error` ではない。空の動的述語は成功する。`abolish` のあとは失敗する。

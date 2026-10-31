@@ -73,6 +73,8 @@ Decision (2026-11-01): A (the owner asked for H5 to be planned and implemented i
 
 A or B?: A compiles the Goal and Recovery of catch/3 so that a variable in them is transparent to cut when it is bound at run time (an IR change, so an ADR first). B keeps the compiled form and records it here as a deviation.
 
+Decision (2026-11-01): A. Planned after H6: only a Goal or Recovery with a variable in goal position is kept as data and run by `call/1` at run time; catch/3 without such a variable stays compiled. ADR first (IR and mosac codegen change). Review item M14.
+
 ## 8.8 current_predicate/1
 
 Decision (2026-10-25): Open question 6: B. `current_predicate/1` returns only user predicates, in definition order. `current_predicate(true/0)` fails; it is not a `permission_error`. An empty dynamic predicate succeeds. After `abolish` it fails.
