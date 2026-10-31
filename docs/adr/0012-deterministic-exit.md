@@ -21,5 +21,6 @@ Removing dead entries in the GC: the stack indexes kept in `cut`, `Extra::trim_t
 
 ## Consequences
 
-Deterministic loops through `catch/3` and `*->` keep the choice stack, `catch_log` and the heap flat, in the interpreter and in generated code; when choice points remain above the entry, nothing changes.
-The observable behaviour does not change: op/3 changes made inside are still undone by the next choice point below (iso-notes M4 is unaffected), and an exception after the exit is still not caught by that `catch/3`.
+Deterministic loops through `catch/3` and `*->` keep the choice stack, `catch_log` and the heap flat, in the interpreter and in generated code; when choice points remain above the entry, nothing changes. `soft_id` and `next_soft` become 64-bit, since such a loop can now run past 2^31 `*->`.
+Backtracking, cuts and exceptions behave as before. Three things a program can see now match `once/1` and `->`, which never left an entry: an op/3 call after such an exit inside a directive is no longer recorded against the dead entry, so an outer backtrack keeps it (review M4 still decides whether op/3 is undone at all); consult no longer refuses to redefine a predicate with `predicate_running` after a deterministic `*->`; `Machine::choice_depth()` counts fewer entries.
+Tests: `choice_exit` (2^16 words, 1,000,000 steps each), `mosac_heap_limit` (mosa and a mosac executable at 1 MiB), and `control.pl` (`op_exit_same`, `soft_exit_consult`, and guards for redo, cut and throw).

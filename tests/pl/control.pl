@@ -43,6 +43,10 @@ test(soft_exit_cut, sc_cut, fail).
 test(soft_exit_outer, (findall(X-Y, (p(X), (true *-> (Y = 1) ; Y = 2)), L), L == [1-1, 2-1]), true).
 test(soft_in_catch, catch((true *-> (X = 1) ; X = 2), _, true), solutions([X = 1])).
 test(soft_redo_cond, findall(X, (p(X) *-> true ; X = 0), [1, 2]), true).
+% 外した Entry は op/3 の記録の持ち主にも、consult の「実行中」にもならない。once/1 と -> の後と同じ扱いになる。
+op_kept(Op, K) :- ( current_op(_, _, Op) -> K = kept ; K = undone ).
+test(op_exit_same, ((consult('tests/pl/modules/op_exit.pl'), fail ; true), op_kept('=once=>', A), op_kept('=catch=>', B), op_kept('=soft=>', C), op_kept('=ite=>', D), A == B, B == C, C == D), true).
+test(soft_exit_consult, (consult('tests/pl/modules/redef_a.pl'), (true *-> true ; true), consult('tests/pl/modules/redef_b.pl'), findall(X, redef(X), L), L == [2]), true).
 % 指令の実行は選択点スタックを退避して空から積む。その中で抜けた catch の記録が、外の同じ位置の抜けた
 % catch を、外の選択点へ戻ったときに有効に戻してはいけない（ADR 0011 の改訂 3）。
 test(catch_parked_rearm,

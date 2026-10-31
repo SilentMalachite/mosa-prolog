@@ -30,7 +30,7 @@ void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
 
 // (A *-> B ; C) の C。条件が成功したら soft_commit が印を付けるか外し、やり直しは C を飛ばす（Pick::ElseGoal の soft_id と同じ）。
 std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
-  const int soft_id = machine.next_soft++;
+  const std::uint64_t soft_id = machine.next_soft++;
   push_branch(machine, frame, cut);
   machine.stack.back().soft_id = soft_id;
   return static_cast<std::size_t>(soft_id);
@@ -41,7 +41,7 @@ std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t c
 void soft_commit(Machine::Impl& machine, std::size_t soft_id) {
   for (std::size_t index = machine.stack.size(); index-- > 0;) {
     Entry& entry = machine.stack[index];
-    if (entry.soft_id != static_cast<int>(soft_id)) continue;
+    if (entry.soft_id != soft_id) continue;
     if (index + 1 == machine.stack.size()) trim_stack(machine, index);
     else entry.cond_ok = true;
     return;

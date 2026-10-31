@@ -15,7 +15,7 @@ std::uint64_t push_extra(Impl& machine, Extra extra) {
   return at;
 }
 
-void push_else(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, const EnvRef& env, int soft_id,
+void push_else(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, const EnvRef& env, std::uint64_t soft_id,
                std::uint32_t module) {
   Entry entry;
   entry.pick = Pick::ElseGoal;
@@ -65,7 +65,7 @@ LaunchNext open_or(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::
     return LaunchNext{sub_goal(cond_then, 0), frame, machine.stack.size()};
   }
   if (left.tag == IrTag::SoftIf) {
-    const int soft_id = machine.next_soft++;
+    const std::uint64_t soft_id = machine.next_soft++;
     const auto else_at = machine.stack.size();
     push_else(machine, sub_goal(goal, 1), cont, cut, env, soft_id, module);
     const GoalRef cond_then = sub_goal(goal, 0);

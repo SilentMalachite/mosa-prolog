@@ -137,7 +137,8 @@ struct Entry {
   // 選択点の種類によっては、組込が状態のセルを置く（operators.cpp）。null は空と同じ。
   EnvRef env;
   std::uint64_t cont = kNoFrame;
-  int soft_id = 0;
+  // 0 は *-> の else ではない印。64 ビットなので、決定的に外れる *-> を何回まわしてもあふれない（ADR 0012）。
+  std::uint64_t soft_id = 0;
   bool cond_ok = false;
   bool armed = false;
   std::size_t extras_mark = 0;
@@ -167,7 +168,7 @@ struct Extra {
   // Commit と CatchExit では切り詰める高さ。SoftCommit では else の Entry の位置で、条件が動く間は変わらない
   // （条件のカットは else より上だけを切る）。スタックをなめて soft_id を探さずに済む（ADR 0011 の改訂 3）。
   std::size_t trim_to = 0;
-  int soft_id = 0;
+  std::uint64_t soft_id = 0;
   std::uint32_t module = 0;
 };
 
@@ -337,7 +338,7 @@ struct Machine::Impl {
   std::size_t diag_line = 1;
   std::size_t diag_column = 1;
   std::vector<Binding> bindings;
-  int next_soft = 1;
+  std::uint64_t next_soft = 1;
   DoubleQuotes quotes = DoubleQuotes::Codes;
   // unknown=fail のときだけ真。warning は未決 10 で受け付けない。
   bool unknown_fail = false;
