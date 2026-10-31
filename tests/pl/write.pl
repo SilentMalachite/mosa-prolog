@@ -104,3 +104,20 @@ test(wt_opt_vn_pair_var, write_term(a, [variable_names([_='A'])]), error(instant
 test(wt_opt_ok, with_output_to(atom(_), write_term(a, [quoted(false), numbervars(true), variable_names(['Used'=_])])), true).
 % 後ろの選択肢が誤りでも、書き出しは一文字も始めない。
 test(wt_opt_no_partial, (with_output_to(atom(A), catch(write_term(f(a, b), [quoted(true), bogus]), _, true)), A == ''), true).
+% 7.10.5、6.3.4.2: 演算子のアトムを演算子の被演算子にするときは括弧に入れる。引数（6.3.3.1）とリストの要素には付けない。
+test(writeq_op_atom_left, (with_output_to(atom(A), writeq((-)/1)), A == '(-)/1'), true).
+test(writeq_op_atom_neck, (with_output_to(atom(A), writeq((:-)/2)), A == '(:-)/2'), true).
+test(writeq_op_atom_right, (with_output_to(atom(A), writeq(1-(-))), A == '1-(-)'), true).
+test(writeq_op_atom_word, (with_output_to(atom(A), writeq(a=(is))), A == 'a=(is)'), true).
+test(writeq_op_atom_both, (with_output_to(atom(A), writeq((-)=(+))), A == '(-)=(+)'), true).
+test(writeq_op_atom_arg, (with_output_to(atom(A), writeq(f(:-))), A == 'f(:-)'), true).
+test(writeq_op_atom_list, (with_output_to(atom(A), writeq([-, :-])), A == '[-,:-]'), true).
+test(writeq_prefix_prefix, (with_output_to(atom(A), writeq(- - a)), A == '- -a'), true).
+% 書いた字面を読み戻すと同じ項になる（7.10.5 の往復）。
+test(writeq_round_left, (T = (-)/1, with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+test(writeq_round_neck, (T = (:-)/2, with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+test(writeq_round_right, (T = 1-(-), with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+test(writeq_round_word, (T = (a=(is)), with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+test(writeq_round_arg, (T = f(:-), with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+test(writeq_round_list, (T = [-, :-], with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+test(writeq_round_prefix, (T = (- - a), with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).

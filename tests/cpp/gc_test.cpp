@@ -424,21 +424,50 @@ void check_consult_marks() {
                                                        std::to_string(binding.second) + " vs " + std::to_string(quiet.second) + ")");
 }
 
-// portray/1 の中は GC しない（apply_portray の GcInhibit、TODO(iso) 7.10.5）。loop(3000) はヒープを閾値（2^15 語）
-// より上へ伸ばし、上限（2^16 語）には届かない。print が最後のゴールなので、外側の安全点も通らない。
-void check_portray_inhibited() {
-  auto machine = mosa::Machine::create(k_small);
-  mosa_test::check(machine->load_program(with_loop({"portray(foo) :- loop(3000), write(bar)."})).ok,
-                   "portray: load");
+// portray/1 の中でも GC が走る（ADR 0011）。writer は積んだ仕事と表を RootScope で GC に見せ、動いた番地で
+// 表を作り直す。深さ 10,000 の項を print し、出力がヒープを使わない portray のときと同じであることを見る。
+void check_portray_gc() {
+  constexpr std::string_view k_nest = "nest(0, X, X) :- !. nest(N, X, Y) :- M is N - 1, nest(M, f(X, N), Y).";
+  // 引数の portray は毎回リストを作って捨て、失敗して writer に戻る。葉の portray は garbage_collect/0 も呼ぶ。
+  auto machine = mosa::Machine::create(std::size_t{1} << 20);
+  mosa_test::check(machine->load_program(std::string(k_make_list) + " " + std::string(k_nest) +
+                                         " portray(leaf) :- !, garbage_collect, write(hidden)."
+                                         " portray(_) :- mk(50, _), fail.")
+                       .ok,
+                   "portray_gc: load");
+  auto plain = mosa::Machine::create(std::size_t{1} << 20);
+  mosa_test::check(plain->load_program(std::string(k_nest) + " portray(leaf) :- !, write(hidden).").ok,
+                   "portray_gc: load plain");
+  const std::string goal = "nest(10000, leaf, T), with_output_to(atom(A), print(T)).";
   auto& impl = mosa::engine_impl(*machine);
   const auto before = impl.gc_stats.count;
   bool limited = false;
-  const auto stop = ask(*machine, "with_output_to(atom(A), print(foo)).", limited);
-  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success && binding_text(*machine, stop, 0) == "bar",
-                   "portray: print(foo) writes bar");
-  mosa_test::check(machine->heap().size() >= impl.gc_threshold, "portray: heap passed the threshold");
-  // ストレスでは print の前の安全点でも GC が回るので、回数は比べない。
-  if (impl.gc_stress == 0) mosa_test::check(impl.gc_stats.count == before, "portray: no GC during the hook");
+  bool plain_limited = false;
+  const auto stop = ask(*machine, goal, limited);
+  const auto want = ask(*plain, goal, plain_limited);
+  mosa_test::check(!limited && !plain_limited && stop.kind == mosa::StopKind::Success && want.kind == mosa::StopKind::Success,
+                   "portray_gc: both print");
+  const std::string got = binding_text(*machine, stop, 1);
+  mosa_test::check(got.size() > 60000 && got == binding_text(*plain, want, 1), "portray_gc: same text as plain");
+  mosa_test::check(got.find("hidden") != std::string::npos, "portray_gc: leaf portrayed");
+  mosa_test::check(impl.gc_stats.count > before, "portray_gc: GC ran inside the hook");
+}
+
+// ADR 0011: 200,000 要素のリストを持つ節を、上限に当たるまで繰り返し呼ぶ。手で積む実体化の途中で heap_limit で
+// 止まり、次の問い合わせは普通に動く。上限は節を読み込める大きさ（2^20 語）で、3 回分の実体化は入らない。
+void check_materialize_limit() {
+  std::string program = "data([";
+  for (int index = 1; index <= 200000; ++index) program += (index == 1 ? "" : ",") + std::to_string(index);
+  program += "]). ok(yes).";
+  auto machine = mosa::Machine::create(std::size_t{1} << 20);
+  mosa_test::check(machine->load_program(program).ok, "materialize limit: load");
+  bool limited = false;
+  (void)ask(*machine, "data(A), data(B), data(C), data(D).", limited);
+  mosa_test::check(limited, "materialize limit: heap_limit");
+  const auto next = ask(*machine, "ok(X), data(L), length(L, N).", limited);
+  mosa_test::check(!limited && next.kind == mosa::StopKind::Success && binding_text(*machine, next, 0) == "yes" &&
+                       binding_text(*machine, next, 2) == "200000",
+                   "materialize limit: next query runs");
 }
 
 // 上限の近くで空きを生まない GC が続けば止める（ADR 0010 の 2026-10-30 改訂、所有者の決定 B）。
@@ -644,7 +673,8 @@ int main() {
   check_with_output_to();
   check_consult();
   check_consult_marks();
-  check_portray_inhibited();
+  check_portray_gc();
+  check_materialize_limit();
   check_thrash_stops();
   check_productive_near_limit();
   check_explicit_collect_not_counted();

@@ -6,6 +6,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_set>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -14,7 +16,7 @@ struct Build {
   const Heap* heap = nullptr;
   std::vector<std::uint64_t> refs;
   // 今たどっている複合項。循環を匿名に切る。with_output_to が束縛済みの項を再び訳す。
-  std::vector<std::uint64_t> open;
+  std::unordered_set<std::uint64_t> open;
   std::vector<Cell> env;
   // 実行時のゴールで巡回の戻り先になった複合項。写さずに元の項を指す。
   std::vector<std::uint64_t> loops;
@@ -38,18 +40,43 @@ struct Build {
   }
 
   [[nodiscard]] IrTerm data(Cell cell);
-  [[nodiscard]] IrTerm compound_data(Cell cell);
+  [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
+  [[nodiscard]] IrTerm close_data(Cell cell, IrTerm term);
   [[nodiscard]] IrTerm goal(Cell cell);
-  [[nodiscard]] bool building(std::uint64_t raw) const {
-    for (const auto item : open) {
-      if (item == raw) return true;
-    }
-    return false;
-  }
 };
 
-IrTerm Build::data(Cell cell) {
-  cell = heap->deref(cell);
+// 組み立て途中の複合項。子の IrTerm を term.args に集め終えたら閉じる（emit_head.cpp の PlaceFrame と同じ形）。
+struct DataFrame {
+  Cell cell;
+  IrTerm term;
+  std::uint16_t count = 0;
+};
+
+// 複合項の頭だけを作る。'.'/2 はリストそのもの。構造体のままにすると = と == が食い違う。
+DataFrame open_frame(const Heap& heap, Cell cell) {
+  DataFrame frame{cell, IrTerm{}, 2};
+  const bool dot = cell.tag() == Tag::Str && heap.functor_arity(cell) == 2 &&
+                   heap.atoms().name(heap.functor_atom(cell)) == ".";
+  if (cell.tag() == Tag::Lis || dot) {
+    frame.term.tag = IrTag::List;
+    frame.term.args.reserve(2);
+    return frame;
+  }
+  frame.term.tag = IrTag::Fun;
+  frame.term.atom = heap.functor_atom(cell);
+  frame.term.arity = heap.functor_arity(cell);
+  frame.term.args.reserve(frame.term.arity);
+  frame.count = frame.term.arity;
+  return frame;
+}
+
+Cell child_of(const Heap& heap, Cell cell, std::size_t index) {
+  if (cell.tag() == Tag::Lis) return index == 0 ? heap.list_head(cell) : heap.list_tail(cell);
+  return heap.arg(cell, static_cast<std::uint16_t>(index));
+}
+
+// 複合項でない項と、巡回の戻り先。たどる複合項は nullopt で、呼び手が枠を積む。
+std::optional<IrTerm> Build::data_leaf(Cell cell) {
   IrTerm term;
   if (heap->unbound(cell)) {
     term.tag = IrTag::Var;
@@ -72,21 +99,21 @@ IrTerm Build::data(Cell cell) {
     return term;
   }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
-  if (building(cell.raw())) {
-    // 実行時のゴールは元の項を指せば巡回が残る。匿名に切ると巡回リストが部分リストになる。
-    // 節は env を持たないので匿名のまま（巡回する節は 7.6.2 の外）。
-    if (keep) {
-      loops.push_back(cell.raw());
-      term.tag = IrTag::Var;
-      term.slot = slot_of(cell);
-      return term;
-    }
-    term.tag = IrTag::Anon;
+  if (!open.contains(cell.raw())) return std::nullopt;
+  // 実行時のゴールは元の項を指せば巡回が残る。匿名に切ると巡回リストが部分リストになる。
+  // 節は env を持たないので匿名のまま（巡回する節は 7.6.2 の外）。
+  if (keep) {
+    loops.push_back(cell.raw());
+    term.tag = IrTag::Var;
+    term.slot = slot_of(cell);
     return term;
   }
-  open.push_back(cell.raw());
-  term = compound_data(cell);
-  open.pop_back();
+  term.tag = IrTag::Anon;
+  return term;
+}
+
+IrTerm Build::close_data(Cell cell, IrTerm term) {
+  open.erase(cell.raw());
   // 巡回の入口まで写すと、元の項より一段長い項になる。入口は元の項そのものを渡す。
   if (keep && std::find(loops.begin(), loops.end(), cell.raw()) != loops.end()) {
     term = IrTerm{};
@@ -96,27 +123,31 @@ IrTerm Build::data(Cell cell) {
   return term;
 }
 
-IrTerm Build::compound_data(Cell cell) {
-  IrTerm term;
-  if (cell.tag() == Tag::Lis) {
-    term.tag = IrTag::List;
-    term.args.push_back(data(heap->list_head(cell)));
-    term.args.push_back(data(heap->list_tail(cell)));
-    return term;
+// 後順に組み立てる。長いリストや深い項でも C++ の呼び出しを積まないよう、途中の複合項を手で積む（ADR 0011）。
+// 子は左から訳すので、変数の番号は前の再帰と同じ順に振られる。
+IrTerm Build::data(Cell root) {
+  std::vector<DataFrame> stack;
+  const auto enter = [&](Cell cell) -> std::optional<IrTerm> {
+    cell = heap->deref(cell);
+    if (auto leaf = data_leaf(cell)) return leaf;
+    open.insert(cell.raw());
+    stack.push_back(open_frame(*heap, cell));
+    return std::nullopt;
+  };
+  if (auto leaf = enter(root)) return std::move(*leaf);
+  while (true) {
+    DataFrame& top = stack.back();
+    if (top.term.args.size() < top.count) {
+      const Cell next = child_of(*heap, top.cell, top.term.args.size());
+      // enter が枠を積むと top は無効になるので、積まなかったときだけ書く。
+      if (auto leaf = enter(next)) stack.back().term.args.push_back(std::move(*leaf));
+      continue;
+    }
+    IrTerm done = close_data(top.cell, std::move(top.term));
+    stack.pop_back();
+    if (stack.empty()) return done;
+    stack.back().term.args.push_back(std::move(done));
   }
-  // '.'/2 はリストそのもの。構造体のままにすると = と == が食い違う。
-  if (heap->functor_arity(cell) == 2 && heap->atoms().name(heap->functor_atom(cell)) == ".") {
-    term.tag = IrTag::List;
-    term.args.push_back(data(heap->arg(cell, 0)));
-    term.args.push_back(data(heap->arg(cell, 1)));
-    return term;
-  }
-  term.tag = IrTag::Fun;
-  term.atom = heap->functor_atom(cell);
-  term.arity = heap->functor_arity(cell);
-  term.args.reserve(term.arity);
-  for (std::uint16_t index = 0; index < term.arity; ++index) term.args.push_back(data(heap->arg(cell, index)));
-  return term;
 }
 
 IrTerm Build::goal(Cell cell) {

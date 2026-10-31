@@ -3,8 +3,12 @@
 #include "mosa/goal_word.hpp"
 #include "mosa/reader.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -41,9 +45,35 @@ bool has_more(const Impl& machine) {
   return false;
 }
 
-void step_control(Impl& machine) {
-  const auto index = static_cast<std::size_t>(machine.heap.word_at(machine.ip + 1));
-  const Extra extra = machine.extras[index];
+// 制御枠の extras[index] を launch の間だけ外へ出す。launch は extras を push_back で伸ばし、伸びると中への
+// 参照が無効になる。呼び出しごとに節の本体を写す代わりにムーブで出し入れする。launch の中の同期の throw は
+// restore_state で extras をこの枠ごと捨て、回復のゴールが同じ添字に新しい extra を積みうる。そのときは
+// 書き戻さない。捨てたかどうかは extras_low で見る（入れ子の借用があるので、出るときに前の値と合わせる）。
+class BorrowedExtra {
+ public:
+  BorrowedExtra(Impl& machine, std::size_t index)
+      : machine_(machine), index_(index), outer_low_(machine.extras_low), extra_(std::move(machine.extras[index])) {
+    machine.extras_low = SIZE_MAX;
+  }
+  ~BorrowedExtra() {
+    const std::size_t low = machine_.extras_low;
+    if (low > index_ && index_ < machine_.extras.size()) machine_.extras[index_] = std::move(extra_);
+    machine_.extras_low = std::min(outer_low_, low);
+  }
+  BorrowedExtra(const BorrowedExtra&) = delete;
+  BorrowedExtra& operator=(const BorrowedExtra&) = delete;
+  [[nodiscard]] const Extra& get() const { return extra_; }
+
+ private:
+  Impl& machine_;
+  std::size_t index_;
+  std::size_t outer_low_;
+  Extra extra_;
+};
+
+void launch_control(Impl& machine, std::size_t index) {
+  const BorrowedExtra borrowed(machine, index);
+  const Extra& extra = borrowed.get();
   if (extra.ctrl == Ctrl::Interpret) {
     launch(machine, extra.goal, extra.cont, extra.cut, extra.env, extra.module);
     return;
@@ -53,27 +83,35 @@ void step_control(Impl& machine) {
     launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
     return;
   }
-  if (extra.ctrl == Ctrl::SoftCommit) {
-    if (extra.soft_id != 0) {
-      for (Entry& entry : machine.stack) {
-        if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
-      }
+  if (extra.soft_id != 0) {
+    for (Entry& entry : machine.stack) {
+      if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
     }
-    launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
+  }
+  launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
+}
+
+void step_control(Impl& machine) {
+  const auto index = static_cast<std::size_t>(machine.heap.word_at(machine.ip + 1));
+  const Ctrl ctrl = machine.extras[index].ctrl;
+  if (ctrl == Ctrl::Interpret || ctrl == Ctrl::Commit || ctrl == Ctrl::SoftCommit) {
+    launch_control(machine, index);
     return;
   }
-  if (extra.ctrl == Ctrl::NegDone) {
-    trim_stack(machine, extra.trim_to);
+  const std::size_t trim_to = machine.extras[index].trim_to;
+  const std::uint64_t cont = machine.extras[index].cont;
+  if (ctrl == Ctrl::NegDone) {
+    trim_stack(machine, trim_to);
     machine.failed = true;
     return;
   }
-  if (extra.ctrl == Ctrl::CatchExit) {
-    disarm_catch(machine, extra.trim_to);
-    machine.ip = extra.cont;
+  if (ctrl == Ctrl::CatchExit) {
+    disarm_catch(machine, trim_to);
+    machine.ip = cont;
     return;
   }
-  trim_stack(machine, extra.trim_to);
-  machine.ip = extra.cont;
+  trim_stack(machine, trim_to);
+  machine.ip = cont;
 }
 
 void reject_callable(Impl& machine, Cell culprit) {
@@ -318,19 +356,20 @@ Goal read_goal(const Impl& machine, std::uint64_t at) {
   return goal;
 }
 
-Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env) {
+namespace {
+
+// 子を持たない項のセル。子を集めてから作る複合項（List・Fun・Call と制御の項）は nullopt。
+std::optional<Cell> materialize_leaf(Impl& machine, const IrTerm& term, const std::vector<Cell>& env) {
   switch (term.tag) {
     case IrTag::Var: return env.at(term.slot);
     case IrTag::Anon: return machine.heap.fresh_ref();
     case IrTag::Atom: return machine.heap.atom(term.atom);
     case IrTag::Int: return machine.heap.integer(term.integer);
     case IrTag::Float: return machine.heap.floating(term.floating);
-    case IrTag::List:
-      return machine.heap.list(materialize(machine, term.args[0], env),
-                               materialize(machine, term.args[1], env));
     case IrTag::True: return machine.heap.atom(machine.atoms.intern("true"));
     case IrTag::Fail: return machine.heap.atom(machine.atoms.intern("fail"));
     case IrTag::Cut: return machine.heap.atom(machine.atoms.intern("!"));
+    case IrTag::List:
     case IrTag::And:
     case IrTag::Or:
     case IrTag::IfThen:
@@ -339,31 +378,77 @@ Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env
     case IrTag::Throw:
     case IrTag::Halt:
     case IrTag::Call:
-    case IrTag::Fun: {
-      const char* name = "!";
-      if (term.tag == IrTag::And) name = ",";
-      else if (term.tag == IrTag::Or) name = ";";
-      else if (term.tag == IrTag::IfThen) name = "->";
-      else if (term.tag == IrTag::SoftIf) name = "*->";
-      else if (term.tag == IrTag::Catch) name = "catch";
-      else if (term.tag == IrTag::Throw) name = "throw";
-      else if (term.tag == IrTag::Halt) name = "halt";
-      else if (term.tag == IrTag::Call || term.tag == IrTag::Fun) {
-        std::vector<Cell> args;
-        args.reserve(term.args.size());
-        for (const IrTerm& arg : term.args) args.push_back(materialize(machine, arg, env));
-        if (term.args.size() == 2 && machine.atoms.name(term.atom) == ".") {
-          return machine.heap.list(args[0], args[1]);
-        }
-        return machine.heap.structure(term.atom, args);
-      }
-      std::vector<Cell> args;
-      args.reserve(term.args.size());
-      for (const IrTerm& arg : term.args) args.push_back(materialize(machine, arg, env));
-      return machine.heap.structure(machine.atoms.intern(name), args);
-    }
+    case IrTag::Fun: return std::nullopt;
   }
   return machine.heap.atom(machine.atoms.intern("[]"));
+}
+
+Cell close_compound(Impl& machine, const IrTerm& term, std::span<const Cell> parts) {
+  if (term.tag == IrTag::List) return machine.heap.list(parts[0], parts[1]);
+  if (term.tag == IrTag::Call || term.tag == IrTag::Fun) {
+    if (parts.size() == 2 && machine.atoms.name(term.atom) == ".") return machine.heap.list(parts[0], parts[1]);
+    return machine.heap.structure(term.atom, parts);
+  }
+  const char* name = "!";
+  if (term.tag == IrTag::And) name = ",";
+  else if (term.tag == IrTag::Or) name = ";";
+  else if (term.tag == IrTag::IfThen) name = "->";
+  else if (term.tag == IrTag::SoftIf) name = "*->";
+  else if (term.tag == IrTag::Catch) name = "catch";
+  else if (term.tag == IrTag::Throw) name = "throw";
+  else if (term.tag == IrTag::Halt) name = "halt";
+  return machine.heap.structure(machine.atoms.intern(name), parts);
+}
+
+// 組み立て途中の複合項。子のセルは parts に続けて置き、base は自分の分の始まり。
+struct BuildFrame {
+  const IrTerm* term;
+  std::size_t base;
+};
+
+// この深さまでは C++ の再帰で組み立てる。より深い部分木は手で積んで組み立てる（ADR 0011）。浅い項の確保は
+// 前の再帰と同じになる。
+constexpr int kShallow = 64;
+
+// 後順に組み立てる。子は左から作るので、ヒープの並びは再帰と同じになる。
+Cell materialize_deep(Impl& machine, const IrTerm& root, const std::vector<Cell>& env) {
+  std::vector<BuildFrame> stack{{&root, 0}};
+  std::vector<Cell> parts;
+  while (true) {
+    const BuildFrame top = stack.back();
+    const std::size_t made = parts.size() - top.base;
+    if (made < top.term->args.size()) {
+      const IrTerm& next = top.term->args[made];
+      if (const auto leaf = materialize_leaf(machine, next, env)) parts.push_back(*leaf);
+      else stack.push_back(BuildFrame{&next, parts.size()});
+      continue;
+    }
+    const Cell cell = close_compound(machine, *top.term, std::span<const Cell>(parts).subspan(top.base));
+    parts.resize(top.base);
+    stack.pop_back();
+    if (stack.empty()) return cell;
+    parts.push_back(cell);
+  }
+}
+
+Cell materialize_at(Impl& machine, const IrTerm& term, const std::vector<Cell>& env, int depth) {
+  if (const auto leaf = materialize_leaf(machine, term, env)) return *leaf;
+  if (depth >= kShallow) return materialize_deep(machine, term, env);
+  if (term.tag == IrTag::List) {
+    const Cell head = materialize_at(machine, term.args[0], env, depth + 1);
+    const Cell tail = materialize_at(machine, term.args[1], env, depth + 1);
+    return machine.heap.list(head, tail);
+  }
+  std::vector<Cell> args;
+  args.reserve(term.args.size());
+  for (const IrTerm& arg : term.args) args.push_back(materialize_at(machine, arg, env, depth + 1));
+  return close_compound(machine, term, args);
+}
+
+}  // namespace
+
+Cell materialize(Impl& machine, const IrTerm& root, const std::vector<Cell>& env) {
+  return materialize_at(machine, root, env, 0);
 }
 
 std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,

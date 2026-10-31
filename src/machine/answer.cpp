@@ -2,40 +2,45 @@
 
 #include "mosa/writer.hpp"
 
+#include <algorithm>
+#include <cstdint>
 #include <span>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace mosa {
 namespace {
 
-void note_shown(const Heap& heap, Cell term, std::span<const VarName> names, std::vector<std::uint64_t>& shown,
-                std::vector<std::uint64_t>& seen) {
-  if (term.tag() == Tag::Ref) {
-    for (const VarName& name : names) {
-      if (name.cell.raw() != term.raw()) continue;
-      const Cell value = heap.deref(term);
-      shown.push_back(value.raw());
-      return;
+// 答えに出た変数を shown に集める。C++ の再帰を使わず手で積む（ADR 0011）。seen は辿った複合項で、
+// 共有された部分項と循環を 1 度だけ辿る。
+void note_shown(const Heap& heap, Cell root, std::span<const VarName> names, std::vector<std::uint64_t>& shown) {
+  std::unordered_set<std::uint64_t> seen;
+  std::vector<Cell> todo{root};
+  while (!todo.empty()) {
+    Cell term = todo.back();
+    todo.pop_back();
+    if (term.tag() == Tag::Ref) {
+      const bool named = std::any_of(names.begin(), names.end(),
+                                     [term](const VarName& name) { return name.cell.raw() == term.raw(); });
+      if (named) {
+        shown.push_back(heap.deref(term).raw());
+        continue;
+      }
     }
-  }
-  term = heap.deref(term);
-  if (heap.unbound(term)) {
-    shown.push_back(term.raw());
-    return;
-  }
-  if (term.tag() != Tag::Lis && term.tag() != Tag::Str) return;
-  for (const auto raw : seen) {
-    if (raw == term.raw()) return;
-  }
-  seen.push_back(term.raw());
-  if (term.tag() == Tag::Lis) {
-    note_shown(heap, heap.list_head(term), names, shown, seen);
-    note_shown(heap, heap.list_tail(term), names, shown, seen);
-    return;
-  }
-  for (std::uint16_t index = 0; index < heap.functor_arity(term); ++index) {
-    note_shown(heap, heap.arg(term, index), names, shown, seen);
+    term = heap.deref(term);
+    if (heap.unbound(term)) {
+      shown.push_back(term.raw());
+      continue;
+    }
+    if (term.tag() != Tag::Lis && term.tag() != Tag::Str) continue;
+    if (!seen.insert(term.raw()).second) continue;
+    if (term.tag() == Tag::Lis) {
+      todo.push_back(heap.list_tail(term));
+      todo.push_back(heap.list_head(term));
+      continue;
+    }
+    for (std::uint16_t index = heap.functor_arity(term); index > 0; --index) todo.push_back(heap.arg(term, index - 1U));
   }
 }
 
@@ -63,8 +68,7 @@ std::string format_answer(const Machine& machine, const Stop& stop) {
     text += binding.name;
     text += " = ";
     text += write_term(machine.heap(), machine.operators(), value, {}, names);
-    std::vector<std::uint64_t> seen;
-    note_shown(machine.heap(), value, names, shown, seen);
+    note_shown(machine.heap(), value, names, shown);
   }
   if (text.empty()) return "true";
   return text;

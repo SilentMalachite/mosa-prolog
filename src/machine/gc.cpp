@@ -85,10 +85,6 @@ RootScope::RootScope(Impl& machine, RootVisit visit) : machine_(machine) {
 // 入れ子は内側から抜けるので、最後に積んだものが自分である。
 RootScope::~RootScope() { machine_.gc_roots.pop_back(); }
 
-GcInhibit::GcInhibit(Impl& machine) : machine_(machine) { ++machine_.gc_inhibit; }
-
-GcInhibit::~GcInhibit() { --machine_.gc_inhibit; }
-
 void init_gc(Impl& machine) {
   const std::size_t limit = machine.heap.limit();
   machine.gc_capacity = std::min(kInitialHeapCommit, capacity_cap(limit));
@@ -137,7 +133,6 @@ void trace_line(Impl& machine, std::size_t before, std::size_t after, std::chron
 }
 
 void collect_garbage(Impl& machine) {
-  if (machine.gc_inhibit > 0) return;
   const auto started = std::chrono::steady_clock::now();
   const std::size_t before = machine.heap.size();
   if (!machine.exception) machine.ball = Cell{};
@@ -188,9 +183,8 @@ void gc_safe_point(Impl& machine) {
     due = true;
   }
   if (!due) return;
-  // ストレスだけで来た GC は上限の近さと関係なく回るので判定しない（空いた分は次の判定に入る）。GcInhibit の下では
-  // 回収しないので、判定すると回収していないのに止まりうる。
-  if (!by_threshold || machine.gc_inhibit > 0) {
+  // ストレスだけで来た GC は上限の近さと関係なく回るので判定しない（空いた分は次の判定に入る）。
+  if (!by_threshold) {
     collect_garbage(machine);
     return;
   }

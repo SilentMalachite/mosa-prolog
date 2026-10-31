@@ -25,9 +25,9 @@
 //     水位なので heap_mark、stable・local・homes・alias は弱い参照、ext_raw は答えに戻すので強い参照。
 //   load_directive.cpp の run_parked（退避したスタック・束縛・水位）。extras とトレイルは退避せず水位だけ持つ。
 //   load.cpp の load_source（heap_base・inits）と apply_use（arg）、consult.cpp の run_consult（goal）。
-//   write_pred.cpp の run_goal（Snap）と run_with（goal・sink.slot）。
+//   write_pred.cpp の run_goal（Snap）、run_with（goal・sink.slot）、run_out（goal）、apply_portray（writer の
+//     積んだ仕事・名前・番地の表。WriteHeld 経由、ADR 0011）。
 //   lgt_copy.cpp の copied_succeeds は何も持たない（コメント参照）。
-// GcInhibit が残るのは write_pred.cpp の apply_portray だけ。writer の C++ の再帰が書きかけの項を握るため。
 
 #include "mosa/cell.hpp"
 #include "mosa/machine.hpp"
@@ -86,18 +86,7 @@ class RootScope {  // 構築で Impl::gc_roots に積み、破棄で外す
   Machine::Impl& machine_;
 };
 
-class GcInhibit {  // 構築で Impl::gc_inhibit を 1 増やし、破棄で戻す
- public:
-  explicit GcInhibit(Machine::Impl& machine);
-  ~GcInhibit();
-  GcInhibit(const GcInhibit&) = delete;
-  GcInhibit& operator=(const GcInhibit&) = delete;
-
- private:
-  Machine::Impl& machine_;
-};
-
-void collect_garbage(Machine::Impl& machine);  // 無条件に 1 回。gc_inhibit > 0 なら何もしない
+void collect_garbage(Machine::Impl& machine);  // 無条件に 1 回
 void gc_safe_point(Machine::Impl& machine);    // run_loop が step の前に呼ぶ。比較 1 回で抜けるのが普通
 // 空きを生まない GC の数と空きの基準を戻す（ADR 0010 の改訂 B）。問い合わせ・consult・load_program の始まりで呼ぶ。
 void reset_gc_judgement(Machine::Impl& machine);

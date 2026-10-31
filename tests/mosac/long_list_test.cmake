@@ -30,28 +30,14 @@ function(write_program count)
     "body_data(X) :- X = [${items}].\n")
 endfunction()
 
-# 確かめの前提は「mosa が読める原文は mosac も翻訳できる」こと。macOS と Linux の主スレッドのスタック（8 MiB）では
-# mosa が 2 万要素を読む。Windows の既定の 1 MiB ではインタプリタの読み込み自身が先に溢れる（CI run 40926240394。
-# 読み込み器の再帰はフェーズ7の項目）ので、Windows だけは mosa が読める最大の長さまで下げ、その長さで比べる。
-set(counts 20000)
-if(CMAKE_HOST_WIN32)
-  set(counts 20000 10000 5000 2000 1000)
-endif()
-set(chosen "")
-foreach(count IN LISTS counts)
-  write_program(${count})
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" long_list.pl
-    WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE expected ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
-  if(code EQUAL 0 AND expected MATCHES "^${count}\r?\n\\[0,1,2,")
-    set(chosen ${count})
-    break()
-  endif()
-  message(STATUS "long_list: mosa cannot load ${count} elements here: code=[${code}]")
-endforeach()
-if(chosen STREQUAL "")
+# 確かめの前提は「mosa が読める原文は mosac も翻訳できる」こと。読み込みと実行は再帰しない（ADR 0011）ので、
+# Windows の既定の 1 MiB のスタックでも、全 OS で同じ 2 万要素で比べる。
+write_program(20000)
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" long_list.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE expected ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+if(NOT code EQUAL 0 OR NOT expected MATCHES "^20000\r?\n\\[0,1,2,")
   fail("mosa must run the program")
 endif()
-message(STATUS "long_list: comparing mosa and mosac run with ${chosen} elements")
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" emit long_list.pl -o emitted
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)

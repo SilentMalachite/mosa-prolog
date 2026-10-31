@@ -8,6 +8,7 @@
 #include "project.hpp"
 
 #include <algorithm>
+#include <array>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -53,17 +54,21 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
   }
 }
 
-// :- dynamic(~w). の案内は貼ればそのまま読める形にする。'Foo' や 'a b' は引用が要るので、名前は writeq の形
-// （write_term の quoted）で書く。演算子の名前は被演算子にするとき括弧に入れる（6.3.1.3）。書き手は (-)/1 を
-// - /1 と書き、読み手はそれを読めないので、名前/アリティの項ではなく名前だけを書いてここで括弧を付ける。
-// 記号文字で終わる名前（+++ など）も、続く / と 1 つのトークンになるので括弧に入れる（6.4.2）。
-std::string dynamic_indicator(const Impl& machine, const PredKey& key) {
+// :- dynamic(~w). の案内は貼ればそのまま読める形にする。'Foo' や 'a b' は引用が要るので、名前/アリティの項を
+// writeq の形（write_term の quoted）で書く。演算子の名前は書き手が括弧に入れる（7.10.5、(-)/1）。記号文字で
+// 終わる名前（+++ など）は書き手なら +++ /1 と空白で分けるが、案内では (+++)/1 と括弧で区切って見せる（6.4.2）。
+std::string dynamic_indicator(Impl& machine, const PredKey& key) {
   const OperatorView operators = op_view(machine, key.module);
-  std::string name = write_term(machine.heap, operators, machine.heap.atom(key.name), WriteOptions{}, {});
+  const Cell name_cell = machine.heap.atom(key.name);
+  const std::string name = write_term(machine.heap, operators, name_cell, WriteOptions{}, {});
   constexpr std::string_view kSymbolChars = "+-*/\\^<>=~:.?@#&$";
   const bool glues = !name.empty() && kSymbolChars.find(name.back()) != std::string_view::npos;
-  if (glues || !operators.lookup(machine.atoms.name(key.name)).empty()) name = "(" + name + ")";
-  return name + "/" + std::to_string(key.arity);
+  if (glues && operators.lookup(machine.atoms.name(key.name)).empty()) {
+    return "(" + name + ")/" + std::to_string(key.arity);
+  }
+  const std::array<Cell, 2> args{name_cell, machine.heap.integer(key.arity)};
+  const Cell indicator = machine.heap.structure(machine.atoms.intern("/"), args);
+  return write_term(machine.heap, operators, indicator, WriteOptions{}, {});
 }
 
 // 組込、モジュールと取り込みの連鎖で引ける述語、宣言だけの手続き（iso-notes 7.4.2）を定義とみなす。

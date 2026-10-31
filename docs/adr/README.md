@@ -14,3 +14,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0008](0008-logical-update-view.md) | Logical update view: dead clauses kept for open scans | Approved (2026-10-28) |
 | [0009](0009-native-code.md) | Generated code: coexistence and calling convention | Approved (2026-10-29) |
 | [0010](0010-gc-heap-growth.md) | GC and heap growth: reserved address space, safe-point sliding collector | Approved (2026-10-30) |
+| [0011](0011-bounded-native-stack.md) | Bounded native stack: iterative writer, loader, unification and term walkers | Approved (2026-10-30) |

@@ -136,6 +136,8 @@ void compact_extras(Impl& machine, Rewriter& rewriter) {
     ++to;
   }
   machine.extras.resize(to);
+  // 詰めると添字が変わる。借りている extra があっても、元の添字へは書き戻させない。
+  machine.extras_low = 0;
 }
 
 // 印の付いた語を指す項目だけを残す。kept_before[k] は旧位置 k より前に残った数で、trail_mark の写しに使う。

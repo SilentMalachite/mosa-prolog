@@ -7,6 +7,7 @@
 #include "mosa/operator_table.hpp"
 #include "mosa/reader.hpp"
 
+#include <cstdint>
 #include <span>
 #include <string>
 
@@ -27,7 +28,32 @@ struct WriteOptions {
 // Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。
 enum class WriteCut { Keep, Swap, Stop };
 
-using WriteReplace = WriteCut (*)(void* context, Cell term, std::string& out);
+// writer が握るセルを訪ねる側。portray の入れ子で GC が動くとき、呼び手がこれを GC の訪問につなぐ（ADR 0011）。
+class WriteRoots {
+ public:
+  virtual void cell(Cell& slot) = 0;
+  virtual void weak(std::uint64_t& raw) = 0;  // 辿らない。生きていれば新しい語、死んでいれば 0
+
+ protected:
+  WriteRoots() = default;
+  WriteRoots(const WriteRoots&) = default;
+  WriteRoots& operator=(const WriteRoots&) = default;
+  ~WriteRoots() = default;
+};
+
+// replace の間に writer の状態を見せる口。visit は GC が呼び、writer は replace から戻った後で番地の表を直す。
+class WriteHeld {
+ public:
+  virtual void visit(WriteRoots& roots) = 0;
+
+ protected:
+  WriteHeld() = default;
+  WriteHeld(const WriteHeld&) = default;
+  WriteHeld& operator=(const WriteHeld&) = default;
+  ~WriteHeld() = default;
+};
+
+using WriteReplace = WriteCut (*)(void* context, Cell term, std::string& out, WriteHeld& held);
 
 [[nodiscard]] std::string write_term(const Heap& heap, OperatorView operators, Cell term,
                                      WriteOptions options, std::span<const VarName> names,

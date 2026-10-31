@@ -45,6 +45,33 @@ target_include_directories(writer_test PRIVATE tests/cpp)
 target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
+# writer の出力を golden のファイルで固定する。--write-golden を付けて動かすとファイルを書き直す。
+add_executable(writer_golden_test tests/cpp/writer_golden_test.cpp)
+target_include_directories(writer_golden_test PRIVATE tests/cpp)
+target_link_libraries(writer_golden_test PRIVATE mosa_lib)
+add_test(NAME writer_golden COMMAND $<TARGET_FILE:writer_golden_test>
+  ${CMAKE_SOURCE_DIR}/tests/cpp/data/writer_golden.txt)
+
+# 1 MiB のスタックで、深さ 1,000,000 の項を書く（ADR 0011）。
+add_test(NAME stack_deep_write COMMAND ${CMAKE_COMMAND}
+  "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_write.pl"
+  -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_write.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
+  -DSUMMARY=1 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_write PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
+# 1 MiB のスタックで、深さ 1,000,000 の項に項を歩く組込を使う（ADR 0011、計画 Task 7）。
+add_test(NAME stack_deep_builtins COMMAND ${CMAKE_COMMAND}
+  "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.pl"
+  -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_builtins PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
+# 1 MiB のスタックで、ソースに書いた 200,000 要素のリストを読んで動かす（ADR 0011）。
+add_test(NAME long_literal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/long_literal -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/long_literal.cmake)
+set_tests_properties(long_literal PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 差分テストの答えの字面（計画 Task 11）。深い項を既定のスタックで書けることまで見る。
 add_executable(answer_text_test tests/cpp/answer_text_test.cpp)
 target_include_directories(answer_text_test PRIVATE tests/cpp src/machine)
@@ -95,6 +122,10 @@ add_executable(machine_test tests/cpp/machine_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)
 target_link_libraries(machine_test PRIVATE mosa_lib)
 add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)
+add_executable(machine_deep_test tests/cpp/machine_deep_test.cpp)
+target_include_directories(machine_deep_test PRIVATE tests/cpp)
+target_link_libraries(machine_deep_test PRIVATE mosa_lib)
+add_test(NAME machine_deep COMMAND $<TARGET_FILE:machine_deep_test>)
 add_executable(address_range_test tests/cpp/address_range_test.cpp)
 target_include_directories(address_range_test PRIVATE tests/cpp)
 target_link_libraries(address_range_test PRIVATE mosa_lib)

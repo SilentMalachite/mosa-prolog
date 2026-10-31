@@ -292,6 +292,9 @@ struct Machine::Impl {
   bool load_kept = false;
   std::vector<Entry> stack;
   std::vector<Extra> extras;
+  // extras がこれまでに縮んだ一番小さい長さ。制御枠の extra を借りている間に、同期の throw の
+  // restore_state がその枠まで捨てたかどうかを BorrowedExtra が見る（engine.cpp）。
+  std::size_t extras_low = SIZE_MAX;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
@@ -348,7 +351,6 @@ struct Machine::Impl {
   // 普段は閾値 = C で、上限の近くだけ C より上に置く（init_gc と collect_garbage の方針）。
   GcStats gc_stats;
   std::vector<RootVisit> gc_roots;
-  int gc_inhibit = 0;
   std::size_t gc_capacity = 0;
   std::size_t gc_threshold = 0;
   // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
@@ -433,6 +435,8 @@ Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Predicate& predicate, std::size_t index, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
+// extras を mark まで縮め、借りている extra が捨てられたことを extras_low に残す。
+void shrink_extras(Impl& machine, std::size_t mark);
 void trail_operators(Impl& machine, std::uint32_t module, int priority, Specifier specifier,
                      const std::vector<std::string>& names);
 

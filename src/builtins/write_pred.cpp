@@ -434,7 +434,18 @@ IrTerm portray_call(std::uint32_t name) {
 std::size_t push_memory(Impl& machine);
 Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module);
 
-WriteCut apply_portray(void* raw, Cell term, std::string& out) {
+// writer の訪問を GC の訪問へつなぐ。名前の無い変数の表は弱い参照の番地で持つ。
+class HeldRoots final : public WriteRoots {
+ public:
+  explicit HeldRoots(GcVisitor& visitor) : visitor_(visitor) {}
+  void cell(Cell& slot) override { visitor_.cell(slot); }
+  void weak(std::uint64_t& raw) override { visitor_.weak_address(raw); }
+
+ private:
+  GcVisitor& visitor_;
+};
+
+WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) {
   auto* hook = static_cast<PortrayHook*>(raw);
   if (hook->stop) return WriteCut::Stop;
   Impl& machine = *hook->machine;
@@ -446,10 +457,12 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out) {
   const std::size_t saved = machine.current_out;
   // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。
   machine.current_out = hook->scratch;
-  // portray/1 は user の述語を探して呼ぶ（portray_ready）。writer の C++ の再帰が書きかけの項のセルを握るので、
-  // ここだけは入れ子の間も GC しない。run_goal の RootScope は、この禁止の内側では何もしない。
-  // TODO(iso): 7.10.5 writer を反復に直すフェーズ7 の 2 番目の仕事で外す
-  const GcInhibit inhibit(machine);
+  // portray/1 は user の述語を探して呼ぶ（portray_ready）。入れ子の GC は書きかけの項を動かすので、writer が
+  // 積んだ仕事と表を見せる（ADR 0011）。
+  const RootScope roots(machine, [&held](GcVisitor& visitor) {
+    HeldRoots adapter(visitor);
+    held.visit(adapter);
+  });
   const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term}, machine.user_module);
   machine.current_out = saved;
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
@@ -489,7 +502,13 @@ bool emit_written(Impl& machine, std::uint32_t module, std::size_t index, Cell t
   return true;
 }
 
-void run_out(Impl& machine, const Goal& goal, Kind kind) {
+void run_out(Impl& machine, const Goal& call, Kind kind) {
+  // print の portray は入れ子で GC を走らせ、枠を動かす。書いた後は登録した写しの cont を使う。
+  Goal goal = call;
+  const RootScope roots(machine, [&goal](GcVisitor& visitor) {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+  });
   const Spec spec = spec_of(goal, kind == Kind::Term);
   std::size_t index = 0;
   Chosen chosen;
@@ -579,9 +598,7 @@ void disarm(Impl& machine, std::size_t floor) {
   }
 }
 
-void trim_extras(Impl& machine, std::size_t mark) {
-  if (machine.extras.size() > mark) machine.extras.resize(mark);
-}
+void trim_extras(Impl& machine, std::size_t mark) { shrink_extras(machine, mark); }
 
 // 入れ子の run_loop の間に GC が動かす値（gc.hpp）。saved.stack は呼ぶ前の機械のスタックの写しである。
 void visit_snap(GcVisitor& visitor, Snap& saved) {

@@ -3,7 +3,10 @@
 
 #include "../machine/internal.hpp"
 
+#include <cstdint>
 #include <string_view>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -28,20 +31,35 @@ bool is_nil(const Impl& machine, Cell cell) {
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-bool acyclic_term(const Impl& machine, Cell cell, std::vector<std::uint64_t>& seen) {
-  cell = machine.heap.deref(cell);
-  if (machine.heap.unbound(cell) || is_atomic(machine, cell)) return true;
-  for (const auto raw : seen) {
-    if (raw == cell.raw()) return false;
-  }
-  seen.push_back(cell.raw());
-  if (cell.tag() == Tag::Lis) {
-    return acyclic_term(machine, machine.heap.list_head(cell), seen) &&
-           acyclic_term(machine, machine.heap.list_tail(cell), seen);
-  }
-  if (cell.tag() != Tag::Str) return true;
-  for (std::uint16_t index = 0; index < machine.heap.functor_arity(cell); ++index) {
-    if (!acyclic_term(machine, machine.heap.arg(cell, index), seen)) return false;
+// 祖先に戻る道があれば循環。辿り終えた複合項（done）は共有されていても辿り直さない。前は辿った項すべてを
+// 祖先として扱い、f(X, X) の共有を循環と取り違えていた（8.2.2）。C++ の再帰を使わず手で積む（ADR 0011）。
+bool acyclic_term(const Impl& machine, Cell root) {
+  std::unordered_set<std::uint64_t> path;
+  std::unordered_set<std::uint64_t> done;
+  // 2 番目が真の項目は「この複合項の子を辿り終えた」の印。
+  std::vector<std::pair<Cell, bool>> pending{{root, false}};
+  while (!pending.empty()) {
+    const auto [cell, leave] = pending.back();
+    pending.pop_back();
+    if (leave) {
+      path.erase(cell.raw());
+      done.insert(cell.raw());
+      continue;
+    }
+    const Cell term = machine.heap.deref(cell);
+    if (term.tag() != Tag::Lis && term.tag() != Tag::Str) continue;
+    if (path.contains(term.raw())) return false;
+    if (done.contains(term.raw())) continue;
+    path.insert(term.raw());
+    pending.emplace_back(term, true);
+    if (term.tag() == Tag::Lis) {
+      pending.emplace_back(machine.heap.list_tail(term), false);
+      pending.emplace_back(machine.heap.list_head(term), false);
+      continue;
+    }
+    for (std::uint16_t index = machine.heap.functor_arity(term); index > 0; --index) {
+      pending.emplace_back(machine.heap.arg(term, index - 1U), false);
+    }
   }
   return true;
 }
@@ -67,21 +85,17 @@ bool ground_term(const Impl& machine, Cell cell) {
 }
 
 bool proper_list(const Impl& machine, Cell cell) {
-  std::vector<std::uint64_t> spine;
+  std::unordered_set<std::uint64_t> spine;
   Cell cursor = cell;
   while (true) {
     cursor = machine.heap.deref(cursor);
     if (machine.heap.unbound(cursor)) return false;
     if (is_nil(machine, cursor)) break;
     if (cursor.tag() != Tag::Lis) return false;
-    for (const auto raw : spine) {
-      if (raw == cursor.raw()) return false;
-    }
-    spine.push_back(cursor.raw());
+    if (!spine.insert(cursor.raw()).second) return false;
     cursor = machine.heap.list_tail(cursor);
   }
-  std::vector<std::uint64_t> seen;
-  return acyclic_term(machine, cell, seen);
+  return acyclic_term(machine, cell);
 }
 
 void occurs_unify(Impl& machine, const Goal& goal) {
@@ -93,10 +107,7 @@ void occurs_unify(Impl& machine, const Goal& goal) {
     return;
   }
   // 選択点より新しい変数はトレイルに残らない。束縛後の項が循環なら失敗させる。
-  std::vector<std::uint64_t> seen_left;
-  std::vector<std::uint64_t> seen_right;
-  const bool cyclic = !acyclic_term(machine, goal.arg(machine, 0), seen_left) ||
-                      !acyclic_term(machine, goal.arg(machine, 1), seen_right);
+  const bool cyclic = !acyclic_term(machine, goal.arg(machine, 0)) || !acyclic_term(machine, goal.arg(machine, 1));
   if (cyclic) {
     restore_state(machine, heap_mark, trail_mark, extras_mark);
     machine.failed = true;
