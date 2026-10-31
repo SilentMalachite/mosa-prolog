@@ -321,23 +321,47 @@ bool run_suite_super(Impl& machine, const Goal& goal) {
   return true;
 }
 
-}  // namespace
+// この深さまでは C++ の再帰で辿る。より深い部分木は手で積んで辿る（ADR 0011 と改訂 2）。浅い項の確保と
+// 辿る順は前の再帰と同じになる。
+constexpr int kShallow = 64;
 
-bool body_callable(const IrTerm& term) {
+// 深さ kShallow に達した部分木は later に回し、呼び手が深さ 0 から辿り直す。偽になるのはどれか 1 つの葉が
+// 偽のときだけなので、辿る順は答えを変えない。
+bool leaves_at(const IrTerm& term, GoalLeafOk ok, int depth, std::vector<const IrTerm*>& later) {
+  if (depth >= kShallow) {
+    later.push_back(&term);
+    return true;
+  }
   switch (term.tag) {
-    case IrTag::Int:
-    case IrTag::Float:
-    case IrTag::Anon: return false;
     case IrTag::And:
     case IrTag::Or:
     case IrTag::IfThen:
     case IrTag::SoftIf:
-      return term.args.size() >= 2 && body_callable(term.args[0]) && body_callable(term.args[1]);
+      return term.args.size() >= 2 && leaves_at(term.args[0], ok, depth + 1, later) &&
+             leaves_at(term.args[1], ok, depth + 1, later);
     case IrTag::Catch:
-      return term.args.size() >= 3 && body_callable(term.args[0]) && body_callable(term.args[2]);
-    case IrTag::Call: return term.args.empty() || body_callable(term.args[0]);
-    default: return true;
+      return term.args.size() >= 3 && leaves_at(term.args[0], ok, depth + 1, later) &&
+             leaves_at(term.args[2], ok, depth + 1, later);
+    case IrTag::Call: return term.args.empty() || leaves_at(term.args[0], ok, depth + 1, later);
+    default: return ok(term.tag);
   }
+}
+
+}  // namespace
+
+bool goal_leaves_all(const IrTerm& root, GoalLeafOk ok) {
+  std::vector<const IrTerm*> later;
+  if (!leaves_at(root, ok, 0, later)) return false;
+  while (!later.empty()) {
+    const IrTerm* next = later.back();
+    later.pop_back();
+    if (!leaves_at(*next, ok, 0, later)) return false;
+  }
+  return true;
+}
+
+bool body_callable(const IrTerm& term) {
+  return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float && tag != IrTag::Anon; });
 }
 
 Impl& engine_impl(Machine& machine) { return *machine.impl_; }
@@ -405,10 +429,6 @@ struct BuildFrame {
   const IrTerm* term;
   std::size_t base;
 };
-
-// この深さまでは C++ の再帰で組み立てる。より深い部分木は手で積んで組み立てる（ADR 0011）。浅い項の確保は
-// 前の再帰と同じになる。
-constexpr int kShallow = 64;
 
 // 後順に組み立てる。子は左から作るので、ヒープの並びは再帰と同じになる。
 Cell materialize_deep(Impl& machine, const IrTerm& root, const std::vector<Cell>& env) {
@@ -491,17 +511,28 @@ void launch_list(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::siz
   machine.ip = embody(machine, call, cont, cut, env, module);
 }
 
+namespace {
+
+// 左に入れ子の連言 ((a,b),c) を繰り返しで降りる。右から順に継続を作るので、ヒープの並びは再帰と同じになる。
+void launch_and(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+                const std::vector<Cell>& env, std::uint32_t module) {
+  const IrTerm* left = &goal;
+  while (left->tag == IrTag::And) {
+    cont = embody(machine, left->args[1], cont, cut, env, module);
+    left = &left->args[0];
+  }
+  launch(machine, *left, cont, cut, env, module);
+}
+
+}  // namespace
+
 void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
             const std::vector<Cell>& env, std::uint32_t module) {
   switch (goal.tag) {
     case IrTag::True: machine.ip = cont; return;
     case IrTag::Fail: machine.failed = true; return;
     case IrTag::Cut: trim_stack(machine, cut); machine.ip = cont; return;
-    case IrTag::And: {
-      const auto right = embody(machine, goal.args[1], cont, cut, env, module);
-      launch(machine, goal.args[0], right, cut, env, module);
-      return;
-    }
+    case IrTag::And: launch_and(machine, goal, cont, cut, env, module); return;
     case IrTag::Or: launch_or(machine, goal, cont, cut, env, module); return;
     case IrTag::IfThen: launch_if_then(machine, goal, cont, cut, env, module); return;
     case IrTag::SoftIf: launch_soft(machine, goal, cont, cut, env, module); return;

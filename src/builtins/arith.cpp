@@ -4,8 +4,10 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -101,19 +103,6 @@ Ev number_of(Impl& machine, Cell cell) {
     ev.num.fval = machine.heap.float_value(cell);
   }
   return ev;
-}
-
-Ev eval_expr(Impl& machine, const Goal& goal, Cell cell);
-
-bool eval_args(Impl& machine, const Goal& goal, Cell cell, std::vector<Num>& args) {
-  const auto arity = machine.heap.functor_arity(cell);
-  args.reserve(arity);
-  for (std::uint16_t index = 0; index < arity; ++index) {
-    const Ev ev = eval_expr(machine, goal, machine.heap.arg(cell, index));
-    if (!ev.ok) return false;
-    args.push_back(ev.num);
-  }
-  return true;
 }
 
 Cell indicator(Impl& machine, std::uint32_t name, std::uint16_t arity) {
@@ -496,36 +485,93 @@ Ev constant_of(std::string_view name) {
   return {};
 }
 
-Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {
-  cell = machine.heap.deref(cell);
+// 子を持たない式と、評価できない関数子の誤り。評価できる複合項は nullopt で、呼び手が引数を評価する。
+// 7.12.1 は誤りの条件が重なったときの選択を任せる。外側の関数子を引数より先に見る（iso-notes 7.9.1 の決定 B）。
+std::optional<Ev> eval_leaf(Impl& machine, const Goal& goal, Cell cell) {
   if (machine.heap.unbound(cell)) {
     fail_inst(machine, goal);
-    return {};
+    return Ev{};
   }
   if (const Ev num = number_of(machine, cell); num.ok) return num;
   if (cell.tag() == Tag::Atom) {
     const auto text = machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
     if (const Ev constant = constant_of(text); constant.ok) return constant;
     fail_evaluable(machine, goal, indicator(machine, static_cast<std::uint32_t>(cell.raw() >> 3), 0));
-    return {};
+    return Ev{};
   }
   if (cell.tag() != Tag::Str) {
     fail_evaluable(machine, goal, cell);
-    return {};
+    return Ev{};
   }
   const auto name = machine.atoms.name(machine.heap.functor_atom(cell));
-  // 7.12.1 は誤りの条件が重なったときの選択を任せる。外側の関数子を先に見る（iso-notes 7.9.1 の決定 B）。
   if (!is_evaluable(name, machine.heap.functor_arity(cell))) {
     fail_evaluable(machine, goal, indicator(machine, machine.heap.functor_atom(cell), machine.heap.functor_arity(cell)));
-    return {};
+    return Ev{};
   }
-  std::vector<Num> args;
-  if (!eval_args(machine, goal, cell, args)) return {};
+  return std::nullopt;
+}
+
+// 引数を評価し終えた複合項に、その関数子を当てる。
+Ev eval_apply(Impl& machine, const Goal& goal, Cell cell, const std::vector<Num>& args) {
+  const auto name = machine.atoms.name(machine.heap.functor_atom(cell));
   Ev known = eval_known(machine, goal, name, args);
   if (known.ok || machine.exception || machine.eval_abort) return known;
   fail_evaluable(machine, goal, indicator(machine, machine.heap.functor_atom(cell), machine.heap.functor_arity(cell)));
   return {};
 }
+
+// 評価途中の複合項。評価し終えた引数は nums に続けて置き、base は自分の分の始まり。
+struct EvalFrame {
+  Cell cell;
+  std::size_t base;
+};
+
+// この深さまでは C++ の再帰で評価する。より深い式は手で積んで評価する（ADR 0011 の改訂 2）。
+constexpr int kShallow = 64;
+
+// 後順に評価する。引数は左から評価するので、最初に投げる誤りは再帰と同じになる。
+Ev eval_deep(Impl& machine, const Goal& goal, Cell root) {
+  std::vector<EvalFrame> stack{{root, 0}};
+  std::vector<Num> nums;
+  while (true) {
+    const EvalFrame top = stack.back();
+    const std::size_t done = nums.size() - top.base;
+    if (done < machine.heap.functor_arity(top.cell)) {
+      const Cell next = machine.heap.deref(machine.heap.arg(top.cell, static_cast<std::uint16_t>(done)));
+      if (const auto leaf = eval_leaf(machine, goal, next)) {
+        if (!leaf->ok) return {};
+        nums.push_back(leaf->num);
+      } else {
+        stack.push_back(EvalFrame{next, nums.size()});
+      }
+      continue;
+    }
+    const std::vector<Num> args(nums.begin() + static_cast<std::ptrdiff_t>(top.base), nums.end());
+    const Ev ev = eval_apply(machine, goal, top.cell, args);
+    if (!ev.ok) return ev;
+    nums.resize(top.base);
+    stack.pop_back();
+    if (stack.empty()) return ev;
+    nums.push_back(ev.num);
+  }
+}
+
+Ev eval_at(Impl& machine, const Goal& goal, Cell cell, int depth) {
+  cell = machine.heap.deref(cell);
+  if (auto leaf = eval_leaf(machine, goal, cell)) return *leaf;
+  if (depth >= kShallow) return eval_deep(machine, goal, cell);
+  const auto arity = machine.heap.functor_arity(cell);
+  std::vector<Num> args;
+  args.reserve(arity);
+  for (std::uint16_t index = 0; index < arity; ++index) {
+    const Ev ev = eval_at(machine, goal, machine.heap.arg(cell, index), depth + 1);
+    if (!ev.ok) return {};
+    args.push_back(ev.num);
+  }
+  return eval_apply(machine, goal, cell, args);
+}
+
+Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) { return eval_at(machine, goal, cell, 0); }
 
 Cell num_cell(Impl& machine, Num num) {
   if (num.flt) return machine.heap.floating(num.fval);

@@ -17,3 +17,13 @@ term_variables:ok
 clause:ok
 occurs_check:ok
 is_list:ok
+call_conj_right:ok
+call_conj_left:ok
+assertz_conj_left:ok
+call_not_callable:ok
+assertz_not_callable:ok
+is_left:ok
+is_right:ok
+compare_arith:ok
+is_instantiation:ok
+is_evaluable:ok

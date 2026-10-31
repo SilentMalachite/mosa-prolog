@@ -42,8 +42,21 @@ struct Build {
   [[nodiscard]] IrTerm data(Cell cell);
   [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
   [[nodiscard]] IrTerm close_data(Cell cell, IrTerm term);
+  [[nodiscard]] IrTerm goal_leaf(Cell cell);
+  [[nodiscard]] IrTerm goal_deep(Cell cell);
+  [[nodiscard]] IrTerm goal_at(Cell cell, int depth);
   [[nodiscard]] IrTerm goal(Cell cell);
 };
+
+// 組み立て途中の制御構造。子のゴール（catch/3 の 2 番目だけはデータ）を term.args に集め終えたら閉じる。
+struct GoalFrame {
+  Cell cell;
+  IrTerm term;
+  std::uint16_t count = 0;
+};
+
+// この深さまでは C++ の再帰で訳す。より深い制御構造は手で積んで訳す（ADR 0011 の改訂 2）。
+constexpr int kShallow = 64;
 
 // 組み立て途中の複合項。子の IrTerm を term.args に集め終えたら閉じる（emit_head.cpp の PlaceFrame と同じ形）。
 struct DataFrame {
@@ -150,8 +163,69 @@ IrTerm Build::data(Cell root) {
   }
 }
 
-IrTerm Build::goal(Cell cell) {
+// 子のゴールを持つ制御構造（, ; -> *-> catch/3）なら、子を除いた頭の枠を返す。
+std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
+  if (cell.tag() != Tag::Str) return std::nullopt;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  const auto arity = heap.functor_arity(cell);
+  GoalFrame frame{cell, IrTerm{}, arity};
+  if (arity == 2 && name == ",") frame.term.tag = IrTag::And;
+  else if (arity == 2 && name == ";") frame.term.tag = IrTag::Or;
+  else if (arity == 2 && name == "->") frame.term.tag = IrTag::IfThen;
+  else if (arity == 2 && name == "*->") frame.term.tag = IrTag::SoftIf;
+  else if (arity == 3 && name == "catch") frame.term.tag = IrTag::Catch;
+  else return std::nullopt;
+  frame.term.args.reserve(arity);
+  return frame;
+}
+
+// catch/3 の 2 番目は捕まえる型であり、ゴールではない。
+bool child_is_data(const GoalFrame& frame, std::size_t index) {
+  return frame.term.tag == IrTag::Catch && index == 1;
+}
+
+// 後順に訳す。子は左から訳すので、変数の番号は浅いときの再帰と同じ順に振られる。
+IrTerm Build::goal_deep(Cell root) {
+  std::vector<GoalFrame> stack;
+  stack.push_back(*goal_frame(*heap, root));
+  while (true) {
+    GoalFrame& top = stack.back();
+    const std::size_t index = top.term.args.size();
+    if (index < top.count) {
+      const Cell next = heap->deref(heap->arg(top.cell, static_cast<std::uint16_t>(index)));
+      if (child_is_data(top, index)) {
+        top.term.args.push_back(data(next));
+      } else if (auto frame = goal_frame(*heap, next)) {
+        // 積むと top は無効になる。
+        stack.push_back(std::move(*frame));
+      } else {
+        top.term.args.push_back(goal_leaf(next));
+      }
+      continue;
+    }
+    IrTerm done = std::move(top.term);
+    stack.pop_back();
+    if (stack.empty()) return done;
+    stack.back().term.args.push_back(std::move(done));
+  }
+}
+
+IrTerm Build::goal_at(Cell cell, int depth) {
   cell = heap->deref(cell);
+  auto frame = goal_frame(*heap, cell);
+  if (!frame) return goal_leaf(cell);
+  if (depth >= kShallow) return goal_deep(cell);
+  for (std::size_t index = 0; index < frame->count; ++index) {
+    const Cell next = heap->arg(cell, static_cast<std::uint16_t>(index));
+    frame->term.args.push_back(child_is_data(*frame, index) ? data(next) : goal_at(next, depth + 1));
+  }
+  return std::move(frame->term);
+}
+
+IrTerm Build::goal(Cell cell) { return goal_at(cell, 0); }
+
+// 子のゴールを持たないゴール。制御構造は呼び手が goal_frame で見分けて枠を作る。
+IrTerm Build::goal_leaf(Cell cell) {
   if (is_name(cell, "true", 0)) {
     IrTerm term;
     term.tag = IrTag::True;
@@ -165,25 +239,6 @@ IrTerm Build::goal(Cell cell) {
   if (is_name(cell, "!", 0)) {
     IrTerm term;
     term.tag = IrTag::Cut;
-    return term;
-  }
-  if (is_name(cell, ",", 2) || is_name(cell, ";", 2) || is_name(cell, "->", 2) || is_name(cell, "*->", 2)) {
-    IrTerm term;
-    const auto name = heap->atoms().name(heap->functor_atom(cell));
-    if (name == ",") term.tag = IrTag::And;
-    else if (name == ";") term.tag = IrTag::Or;
-    else if (name == "->") term.tag = IrTag::IfThen;
-    else term.tag = IrTag::SoftIf;
-    term.args.push_back(goal(heap->arg(cell, 0)));
-    term.args.push_back(goal(heap->arg(cell, 1)));
-    return term;
-  }
-  if (is_name(cell, "catch", 3)) {
-    IrTerm term;
-    term.tag = IrTag::Catch;
-    term.args.push_back(goal(heap->arg(cell, 0)));
-    term.args.push_back(data(heap->arg(cell, 1)));
-    term.args.push_back(goal(heap->arg(cell, 2)));
     return term;
   }
   if (is_name(cell, "throw", 1)) {

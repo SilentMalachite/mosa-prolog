@@ -460,6 +460,10 @@ void restore_operators(Impl& machine, std::uint64_t effect_id);
 void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
 void push_frame(Impl& machine, Entry entry);
+// ゴールの位置にある、制御構造でない項（葉）の型を見る。
+using GoalLeafOk = bool (*)(IrTag tag);
+// 葉がどれも ok を満たすか。深い制御構造でも C++ の呼び出しを積まない（ADR 0011 の改訂 2）。
+[[nodiscard]] bool goal_leaves_all(const IrTerm& root, GoalLeafOk ok);
 [[nodiscard]] bool body_callable(const IrTerm& term);
 [[nodiscard]] bool backtrack(Impl& machine);
 [[nodiscard]] bool run_builtin(Impl& machine, const Goal& goal);

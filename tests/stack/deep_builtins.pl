@@ -1,4 +1,4 @@
-% 項を歩く組込を、深さ 1,000,000 の項で 1 つずつ確かめる（ADR 0011、計画 Task 7）。small_stack.cmake が
+% 項を歩く組込と、実行時に組み立てたゴールと式を、深さ 1,000,000 の項で 1 つずつ確かめる（ADR 0011 と改訂 2、
 % 1 MiB のスタックで動かす。acyclic_term は unify_with_occurs_check/2 と is_list/1 を通して見る。
 % 各行は「組込: 結果」。循環項の行（_cyclic）は、書き直す前と同じ結果であること。
 % 項は数え上げの繰り返しで作る。mosa の lib には numlist/3 が無い。
@@ -15,6 +15,20 @@ count(N, L0, L) :- M is N - 1, count(M, [N|L0], L).
 % lists ライブラリを読まずに済むよう、member/2 と同じものをここに置く。
 mem(X, [X|_]).
 mem(X, [_|T]) :- mem(X, T).
+
+% 右に入れ子の連言 (true,(true,...)) と、左に入れ子の連言 ((...,true),true)。
+conj_right(0, true) :- !.
+conj_right(N, (true, G)) :- M is N - 1, conj_right(M, G).
+
+conj_left(0, true) :- !.
+conj_left(N, (G, true)) :- M is N - 1, conj_left(M, G).
+
+% 左に入れ子の式 X+1+1+... と、右に入れ子の式 1+(1+(...+X))。
+sum_left(0, X, X) :- !.
+sum_left(N, X, Y) :- M is N - 1, sum_left(M, X+1, Y).
+
+sum_right(0, X, X) :- !.
+sum_right(N, X, Y) :- M is N - 1, sum_right(M, 1+X, Y).
 
 fdepth(T, N) :- fdepth(T, 0, N).
 fdepth(T, N0, N) :- nonvar(T), T = f(X), !, N1 is N0 + 1, fdepth(X, N1, N).
@@ -53,4 +67,15 @@ main :-
     show(clause, (deep(F), assertz(deep_fact(F)), clause(deep_fact(X), true), fdepth(X, D),
                   count(D, [], L), assertz(long_fact(L)), clause(long_fact(Y), true), length(Y, D))),
     show(occurs_check, (deep(F), unify_with_occurs_check(Y, F), Y == F)),
-    show(is_list, (count(D, [], L), is_list(L))).
+    show(is_list, (count(D, [], L), is_list(L))),
+    show(call_conj_right, (conj_right(20000, G), call(G))),
+    show(call_conj_left, (conj_left(D, G), call(G))),
+    show(assertz_conj_left, (conj_left(D, G), assertz((deep_left :- G)), deep_left)),
+    show(call_not_callable, (conj_right(D, G), catch(call((G, 1)), error(type_error(callable, _), _), true))),
+    show(assertz_not_callable, (conj_right(D, G),
+                                catch(assertz((bad :- G, 1)), error(type_error(callable, _), _), true))),
+    show(is_left, (sum_left(D, 0, E), X is E, X =:= D)),
+    show(is_right, (sum_right(D, 0, E), X is E, X =:= D)),
+    show(compare_arith, (sum_left(D, 0, E), sum_right(D, 0, F), E =:= F)),
+    show(is_instantiation, (sum_left(D, _, E), catch(_ is E, error(instantiation_error, _), true))),
+    show(is_evaluable, (sum_right(D, foo, E), catch(_ is E, error(type_error(evaluable, foo/0), _), true))).

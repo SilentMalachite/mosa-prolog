@@ -155,19 +155,7 @@ bool reject_clause(Impl& machine, const Goal& goal, Cell term, bool allow_body_v
 
 // 数はゴールにならない。変数と匿名は call できるので、ここでは許す。
 bool goal_form(const IrTerm& term) {
-  switch (term.tag) {
-    case IrTag::Int:
-    case IrTag::Float: return false;
-    case IrTag::And:
-    case IrTag::Or:
-    case IrTag::IfThen:
-    case IrTag::SoftIf:
-      return term.args.size() >= 2 && goal_form(term.args[0]) && goal_form(term.args[1]);
-    case IrTag::Catch:
-      return term.args.size() >= 3 && goal_form(term.args[0]) && goal_form(term.args[2]);
-    case IrTag::Call: return term.args.empty() || goal_form(term.args[0]);
-    default: return true;
-  }
+  return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; });
 }
 
 // candidates が節の添字である選択点だけ。述語の添字を足すと asserta が別の述語を飛ばす。
