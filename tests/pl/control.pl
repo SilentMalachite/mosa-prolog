@@ -30,6 +30,19 @@ test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).
 test(error_neg, throw(error(domain_error(not_less_than_zero, -1), _)), error(domain_error(not_less_than_zero, -1))).
 test(throw_keeps_ball, catch((X = a, throw(f(X))), Y, Y == f(a)), true).
 test(catch_after, (catch(true, _, true), throw(x)), error(x)).
+% ADR 0012: 決定的に抜けた catch/3 と *-> の Entry は外す。選択点が残るときと外したときで、見える動きが変わらないこと。
+test(catch_redo, catch(p(X), _, true), solutions([X = 1, X = 2])).
+test(catch_redo_after, catch((catch(p(X), _, fail), X == 2, throw(t)), t, true), true).
+test(catch_exit_nested, catch((catch(true, _, fail), throw(b)), b, true), true).
+cc_cut :- catch(true, _, true), !, fail.
+cc_cut.
+test(catch_exit_cut, cc_cut, fail).
+sc_cut :- (true *-> true ; true), !, fail.
+sc_cut.
+test(soft_exit_cut, sc_cut, fail).
+test(soft_exit_outer, (findall(X-Y, (p(X), (true *-> (Y = 1) ; Y = 2)), L), L == [1-1, 2-1]), true).
+test(soft_in_catch, catch((true *-> (X = 1) ; X = 2), _, true), solutions([X = 1])).
+test(soft_redo_cond, findall(X, (p(X) *-> true ; X = 0), [1, 2]), true).
 % 指令の実行は選択点スタックを退避して空から積む。その中で抜けた catch の記録が、外の同じ位置の抜けた
 % catch を、外の選択点へ戻ったときに有効に戻してはいけない（ADR 0011 の改訂 3）。
 test(catch_parked_rearm,

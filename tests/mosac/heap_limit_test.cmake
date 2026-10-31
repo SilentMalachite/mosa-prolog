@@ -51,6 +51,22 @@ if(NOT code EQUAL 0 OR NOT out MATCHES "tak\\(7\\)")
   fail("mosa --heap-max 1 must finish loop(1000000) and tak(18,12,6,A)")
 endif()
 
+# 決定的に抜けた catch/3 と *-> の Entry を外す（ADR 0012）。mosa も mosac の実行ファイルも 1 MiB で最後まで走る。
+file(COPY "${SRC}/choice_exit.pl" DESTINATION "${WORK}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1 -g exits -t halt choice_exit.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+if(NOT code EQUAL 0 OR NOT out MATCHES "exits_done")
+  fail("mosa --heap-max 1 must finish the catch/3 and *-> loops")
+endif()
+file(READ "${SRC}/choice_exit.pl" body)
+file(WRITE "${WORK}/choice_exit_main.pl" "${body}:- initialization(exits, main).\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=1"
+  "${MOSAC}" run choice_exit_main.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200)
+if(NOT code EQUAL 0 OR NOT out MATCHES "exits_done")
+  fail("mosac run with MOSA_HEAP_MAX=1 must finish the catch/3 and *-> loops")
+endif()
+
 # 上限の 96% を生かしたまま捨てる項を作り続けると、空きを生まない GC 3 回で、同じ文面と終了コード 2 で止まる。
 # 改訂の前は、確保が上限に当たるまで何百回も GC が続いた。trace_gc の行を数えて規則で止まったことを見る。
 # GC の回数を数えるので、CI の MOSA_GC_STRESS はここだけ外す。

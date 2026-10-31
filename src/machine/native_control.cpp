@@ -28,7 +28,7 @@ void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
   push_frame(machine, std::move(entry));
 }
 
-// (A *-> B ; C) の C。条件が成功したら soft_commit が印を付け、やり直しは C を飛ばす（Pick::ElseGoal の soft_id と同じ）。
+// (A *-> B ; C) の C。条件が成功したら soft_commit が印を付けるか外し、やり直しは C を飛ばす（Pick::ElseGoal の soft_id と同じ）。
 std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
   const int soft_id = machine.next_soft++;
   push_branch(machine, frame, cut);
@@ -36,9 +36,15 @@ std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t c
   return static_cast<std::size_t>(soft_id);
 }
 
+// 印は 1 つの else にしか付かず、else は条件の選択点より下にあるので、上から探して最初の一致で止める。
+// 一番上なら条件の選択点は残っていないので、印を付けずに外す（ADR 0012、launch_control の SoftCommit と同じ）。
 void soft_commit(Machine::Impl& machine, std::size_t soft_id) {
-  for (Entry& entry : machine.stack) {
-    if (entry.soft_id == static_cast<int>(soft_id)) entry.cond_ok = true;
+  for (std::size_t index = machine.stack.size(); index-- > 0;) {
+    Entry& entry = machine.stack[index];
+    if (entry.soft_id != static_cast<int>(soft_id)) continue;
+    if (index + 1 == machine.stack.size()) trim_stack(machine, index);
+    else entry.cond_ok = true;
+    return;
   }
 }
 

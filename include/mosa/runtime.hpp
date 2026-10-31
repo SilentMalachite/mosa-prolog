@@ -137,12 +137,12 @@ void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t en
 [[nodiscard]] std::size_t choice_mark(Machine::Impl& machine);  // 選択点の高さ。条件のカット境界と、切り戻す先
 void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut);  // (A ; B) の B。やり直しで枠の状態へ
 [[nodiscard]] std::size_t push_soft(Machine::Impl& machine, std::uint64_t frame, std::size_t cut);  // (A *-> B ; C) の C。印の番号を返す
-void soft_commit(Machine::Impl& machine, std::size_t soft_id);  // 条件の成功。印の付いた else はやり直しで飛ぶ
+void soft_commit(Machine::Impl& machine, std::size_t soft_id);  // 条件の成功。else が一番上なら外し、そうでなければ印を付けてやり直しで飛ばす
 void push_negation(Machine::Impl& machine, std::uint64_t cont);  // \+ A の床。A が失敗してここへ戻れば cont へ
 void throw_term(Machine::Impl& machine, Cell ball);  // throw/1。捕まえる catch まで巻き戻す（C++ の例外は使わない）
 // catch/3。recovery は回復ゴールの継続枠。ボールが pattern と単一化できればそこへ進む
 void push_catch(Machine::Impl& machine, Cell pattern, std::uint64_t recovery, std::size_t cut);
-void catch_exit(Machine::Impl& machine, std::size_t index);  // ゴールを抜けた。index の Catch を無効にする
+void catch_exit(Machine::Impl& machine, std::size_t index);  // ゴールを抜けた。index の Catch が一番上なら外し、そうでなければ無効にする
 // meta_predicate で限定する引数。M: が無ければ context:actual にする（enter_clause の meta_argument）
 [[nodiscard]] Cell qualify(Machine::Impl& machine, Cell actual, std::uint32_t context);
 

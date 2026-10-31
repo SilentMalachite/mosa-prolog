@@ -239,10 +239,17 @@ LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, st
   return LaunchNext{sub_goal(goal, 0), frame, machine.stack.size()};
 }
 
+// ADR 0012。ゴールが作った選択点はちょうど Catch より上の Entry なので、上に何も無ければゴールの中へ戻る道は無く、
+// この Catch も抜ける枠も二度と使われない。外して根と catch_log を残さない。上に選択点があれば無効にするだけにし、
+// 戻ったときに有効に戻せるよう記録する。
 void disarm_catch(Impl& machine, std::size_t index) {
   if (index >= machine.stack.size() || machine.stack[index].pick != Pick::Catch) return;
+  if (index + 1 == machine.stack.size()) {
+    trim_stack(machine, index);
+    return;
+  }
   Entry& entry = machine.stack[index];
-  if (entry.armed && index + 1 < machine.stack.size()) machine.catch_log.push_back(CatchRecord{index, entry.effect_id});
+  if (entry.armed) machine.catch_log.push_back(CatchRecord{index, entry.effect_id});
   entry.armed = false;
 }
 

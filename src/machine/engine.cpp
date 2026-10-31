@@ -50,9 +50,11 @@ bool has_more(const Impl& machine) {
 void launch_control(Impl& machine, std::size_t index) {
   const Extra& extra = machine.extras[index];
   if (extra.ctrl == Ctrl::Commit) trim_stack(machine, extra.trim_to);
+  // 条件の選択点が残らなければ else に戻る道は無いので、印を付けずに外す（ADR 0012）。
   if (extra.ctrl == Ctrl::SoftCommit && extra.soft_id != 0 && extra.trim_to < machine.stack.size()) {
     Entry& entry = machine.stack[extra.trim_to];
-    if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
+    if (entry.soft_id == extra.soft_id && extra.trim_to + 1 == machine.stack.size()) trim_stack(machine, extra.trim_to);
+    else if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
   }
   GoalRef goal = extra.ctrl == Ctrl::Interpret ? extra.goal : extra.then;
   const EnvRef env = extra.env;
