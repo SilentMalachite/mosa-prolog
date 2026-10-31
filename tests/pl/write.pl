@@ -109,7 +109,7 @@ test(writeq_minus_paren_left, minus_round(-((1^2)^3), '- (1^2)^3'), true).
 test(writeq_minus_neg_pow, minus_round(-((-1)^2), '- -1^2'), true).
 test(writeq_minus_wide, minus_round(-(1-2), '- (1-2)'), true).
 test(writeq_minus_numbervar, (with_output_to(atom(A), writeq(-('$VAR'(1)^2))), A == '-B^2'), true).
-test(writeq_minus_cycle, (X = X^2, with_output_to(atom(A), writeq(-(X))), atom(A)), true).
+test(writeq_minus_cycle, (X = X^2, with_output_to(atom(A), writeq(-(X))), A == '-_^2'), true).
 % 8.14.2.3 の選択肢の検査。部分リストと quoted の変数は opt_partial と quoted_var が見る。
 test(wt_opt_var, write_term(a, [_]), error(instantiation_error)).
 test(wt_opt_quoted_fail, write_term(a, [quoted(fail)]), error(domain_error(write_option, quoted(fail)))).
