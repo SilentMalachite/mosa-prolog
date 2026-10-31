@@ -102,6 +102,13 @@ target_compile_definitions(gc_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 target_link_libraries(gc_test PRIVATE mosa_lib)
 add_test(NAME gc COMMAND $<TARGET_FILE:gc_test>)
 
+# レビュー H6。ヒープの上限で with_output_to/2 と portray/1 から抜けても現在出力が戻り、捕獲の流れが閉じる。
+add_executable(output_stop_test tests/cpp/output_stop_test.cpp)
+target_include_directories(output_stop_test PRIVATE tests/cpp src)
+target_compile_definitions(output_stop_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(output_stop_test PRIVATE mosa_lib)
+add_test(NAME output_stop COMMAND $<TARGET_FILE:output_stop_test>)
+
 # ADR 0012。決定的に抜けた catch/3 と *-> の Entry を外し、ループで選択点スタックとヒープが頭打ちになる。
 add_executable(choice_exit_test tests/cpp/choice_exit_test.cpp)
 target_include_directories(choice_exit_test PRIVATE tests/cpp src)

@@ -642,6 +642,12 @@ Stop Machine::query(std::string_view goal_text) {
     return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
   }
   machine.halt_now = false;
+  // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。
+  const auto usable = [&machine](std::size_t index) {
+    return index < machine.streams.size() && !machine.streams[index].closed;
+  };
+  if (!usable(machine.current_in)) machine.current_in = 0;
+  if (!usable(machine.current_out)) machine.current_out = 1;
   machine.stack.clear();
   // 前のクエリの選択点はもう無い。戻さずに捨てる。成功した op/3 は表に残す。
   machine.op_undos.clear();

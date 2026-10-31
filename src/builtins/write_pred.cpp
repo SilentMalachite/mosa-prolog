@@ -378,6 +378,36 @@ struct StreamSpot {
   bool past_end = false;
 };
 
+// 現在出力をその間だけ差し替える。ヒープの上限は C++ の例外（ResourceLimit）で run_goal を越えて抜けるので、
+// 戻すのを後ろに書くと飛ばされる（レビュー H6）。owns なら捕獲用のメモリも閉じる。呼ぶ前の流れが中で閉じられたら、
+// close/1 と同じく user_output へ戻す（8.11.6.1）。
+class OutputScope {
+ public:
+  OutputScope(Impl& machine, std::size_t index, bool owns)
+      : machine_(machine), saved_(machine.current_out), index_(index), owns_(owns) {
+    machine.current_out = index;
+  }
+  OutputScope(const OutputScope&) = delete;
+  OutputScope& operator=(const OutputScope&) = delete;
+  ~OutputScope() {
+    restore();
+    if (owns_) machine_.streams[index_].closed = true;
+  }
+
+  void restore() {
+    if (restored_) return;
+    restored_ = true;
+    machine_.current_out = machine_.streams[saved_].closed ? 1 : saved_;
+  }
+
+ private:
+  Impl& machine_;
+  std::size_t saved_;
+  std::size_t index_;
+  bool owns_;
+  bool restored_ = false;
+};
+
 struct PortrayHook {
   Impl* machine = nullptr;
   std::uint32_t name = 0;
@@ -454,9 +484,8 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     hook->have_scratch = true;
   }
   const StreamSpot spot = spot_of(machine.streams[hook->scratch]);
-  const std::size_t saved = machine.current_out;
-  // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。
-  machine.current_out = hook->scratch;
+  // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。scratch は hook が閉じる。
+  OutputScope scope(machine, hook->scratch, false);
   // portray/1 は user の述語を探して呼ぶ（portray_ready）。入れ子の GC は書きかけの項を動かすので、writer が
   // 積んだ仕事と表を見せる（ADR 0011）。
   const RootScope roots(machine, [&held](GcVisitor& visitor) {
@@ -464,7 +493,7 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     held.visit(adapter);
   });
   const Ran ran = run_goal(machine, make_goal(portray_call(hook->name)), make_env({term}), machine.user_module);
-  machine.current_out = saved;
+  scope.restore();
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
   if (ran == Ran::Ok) out = stream.bytes.substr(spot.bytes);
@@ -687,18 +716,16 @@ void finish_with(Impl& machine, const Goal& goal, const Sink& sink, std::size_t 
     if (sink.kind == SinkKind::Stream) machine.ip = goal.cont;
     else bind_capture(machine, goal, sink, index);
   }
-  // 捕獲用のメモリは呼んだ側の流れではない。開いたまま残すと stream_property が拾い、
-  // その後も書き込める。バイトを束縛してから閉じ、スロットは再利用しない。
-  if (sink.kind != SinkKind::Stream) machine.streams[index].closed = true;
 }
 
 void run_with(Impl& machine, const Goal& call) {
   Sink sink;
   if (prepare_with(machine, call, sink)) return;
-  const std::size_t saved_out = machine.current_out;
   std::size_t index = sink.index;
   if (sink.kind != SinkKind::Stream) index = push_memory(machine);
-  machine.current_out = index;
+  // 捕獲用のメモリは呼んだ側の流れではない。開いたまま残すと stream_property が拾い、その後も書き込める。
+  // scope が抜けるとき（束縛の後、または例外で）閉じ、スロットは再利用しない。
+  OutputScope scope(machine, index, sink.kind != SinkKind::Stream);
   const Compiled compiled = compile_goal(machine.heap, machine.heap.deref(call.arg(machine, 1)));
   // 入れ子の GC は枠とセルを動かす。run_goal の後は、登録した写し goal と sink.slot だけを使う。
   Goal goal = call;
@@ -708,7 +735,7 @@ void run_with(Impl& machine, const Goal& call) {
     visitor.cell(sink.slot);
   });
   const Ran ran = run_goal(machine, compiled.term, compiled.env, goal.module);
-  machine.current_out = saved_out;
+  scope.restore();
   finish_with(machine, goal, sink, index, ran);
 }
 
