@@ -1,6 +1,6 @@
 English | [日本語](0012-deterministic-exit.ja.md)
 
-Status: Approved (2026-10-31; the owner asked for the plan of review item H3 to be implemented in the same request)
+Status: Approved (2026-10-31; the owner asked for the plan of review item H3 to be implemented in the same request, and confirmed this status afterwards)
 
 ## Context
 
