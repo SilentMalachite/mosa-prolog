@@ -187,7 +187,7 @@ void propagate_throw(Impl& machine, Cell ball) {
   machine.native_next = nullptr;
   const ExportedTerm copy = export_term(machine, ball);
   while (!machine.stack.empty()) {
-    // 収集の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。
+    // 入れ子の run_loop の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。
     if (machine.stack.back().pick == Pick::Barrier) break;
     const Entry top = std::move(machine.stack.back());
     machine.stack.pop_back();

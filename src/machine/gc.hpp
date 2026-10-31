@@ -6,10 +6,12 @@
 // ルートの一覧（Serena の find_referencing_symbols で Impl・Entry・Extra・Trail・Binding のフィールドを洗った結果）。
 //   Impl::ip（枠）、Impl::bindings[].variable（セル）、Impl::stack の各 Entry、Impl::gc_roots。
 //   Impl::ball は exception が真のときだけルートにする。偽のときは collect_garbage が Cell{} に戻す。入れ子の
-//     run_loop（with_output_to・findall）が捕まった例外の後に残す古い番地は、切り詰めの後で別の語（枠など）を
+//     run_loop（with_output_to など）が捕まった例外の後に残す古い番地は、切り詰めの後で別の語（枠など）を
 //     指しうる。それを項として辿ると、枠の語に違う種類が付いて枠を辿り損ねる。安全点では exception は常に偽で、
 //     ball を読むのは exception が真のとき（run_loop・errors.cpp）だけなので、消しても意味は変わらない。
-//   Entry（GcVisitor::entry）: env と pattern はセル、redo_goal と cont は枠、heap_mark・trail_mark・extras_mark は
+//   Entry（GcVisitor::entry）: collect（収集の状態。solutions.cpp の Collecting::visit が goal の枠、templ・witnesses・
+//     hidden のセル、VarIds を辿る。VarIds の base は水位なので heap_mark、stable・local・homes・alias は弱い参照、
+//     ext_raw は答えに戻すので強い参照。ADR 0013）、env と pattern はセル、redo_goal と cont は枠、heap_mark・trail_mark・extras_mark は
 //     水位。cut・catch_mark・native_cut・Extra::trim_to・Impl::catch_log は選択点スタックの高さか添字で、ヒープではないので触らない。
 //     candidates は節の添字か生成関数の状態（native_control.cpp の push_branch は語 1 の下位 32 ビットの状態）で、
 //     ヒープの添字ではない。
@@ -22,8 +24,6 @@
 //     streams・predicates・main_goal（ヒープの値を持たない）、native_next（関数の番地）。
 //
 // RootScope を置く入れ子（計画 Task 5）。入れ子の後で使う const Goal& は可変の写しを登録してから使う。
-//   solutions.cpp の run_solutions（goal・templ・witnesses・hidden）と collect（Saved・VarIds）。VarIds の base は
-//     水位なので heap_mark、stable・local・homes・alias は弱い参照、ext_raw は答えに戻すので強い参照。
 //   load_directive.cpp の run_parked（退避したスタック・束縛・水位）。extras とトレイルは退避せず水位だけ持つ。
 //   load.cpp の load_source（heap_base・inits）と apply_use（arg）、consult.cpp の run_consult（goal）。
 //   write_pred.cpp の run_goal（Snap）、run_with（goal・sink.slot）、run_out（goal）、apply_portray（writer の
@@ -45,6 +45,7 @@ namespace mosa {
 
 struct Entry;
 struct EnvCells;
+struct Collector;
 
 // ヒープの 1 語のバイト数。statistics/2 と trace_gc の行が同じ値で換算する。
 inline constexpr std::size_t kHeapWordBytes = sizeof(std::uint64_t);
@@ -69,6 +70,8 @@ class GcVisitor {
   void entry(Entry& entry);                           // Entry のセル・枠・水位をすべて訪ねる
   // 共有の env は 1 回の訪問で 1 度だけ訪ねる。書き換えを 2 度当てると番地がずれる（ADR 0011 の改訂 3）。
   void env(EnvCells* env);
+  // 収集の状態も Entry の写しと共有するので、env と同じく 1 回の訪問で 1 度だけ訪ねる（ADR 0013）。
+  void collect(Collector* collector);
 
  protected:
   GcVisitor() = default;

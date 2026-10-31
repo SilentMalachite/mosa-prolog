@@ -273,23 +273,22 @@ void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witn
 }
 
 // 空の findall/3 は []。空の findall/4 は List と Tail を同じにし、Tail を [] にしない。
-bool bind_found(Impl& machine, const Goal& goal, const Packet& packet) {
+void bind_found(Impl& machine, const Goal& goal, const Packet& packet) {
   if (packet.groups.empty()) {
     if (goal.arity == 3) {
       bind_answers(machine, goal, {}, {blank_answer(machine)});
-      return true;
+      return;
     }
     Answer answer;
     answer.list = goal.arg(machine, 3);
     bind_answers(machine, goal, {}, {answer});
-    return true;
+    return;
   }
   const Cell tail = goal.arity == 4 ? goal.arg(machine, 3) : machine.heap.atom(machine.atoms.intern("[]"));
   std::vector<Answer> answers;
   answers.reserve(packet.groups.size());
   for (const Group& group : packet.groups) answers.push_back(make_copied(machine, group, false, tail));
   bind_answers(machine, goal, {}, answers);
-  return true;
 }
 
 }  // namespace sol

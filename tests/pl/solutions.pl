@@ -75,3 +75,21 @@ test(findall_throw_keeps_scan, (
         error(instantiation_error, _),
         true)
 ), solutions([X = a, X = b, X = c])).
+
+% ADR 0013 の見張り。収集を呼び手のループの中で動かしても、答え・カット・例外・副作用の順序は変わらない。
+:- dynamic(lv_q/1).
+
+test(collect_cut_local, findall(X, ((X = 1; X = 2), !), L), solutions([L = [1]])).
+test(collect_cut_after, ((Y = 1; Y = 2), findall(X, (X = a; X = b), L), !), solutions([(Y = 1, L = [a, b])])).
+test(collect_in_not, \+ findall(_, fail, [_]), true).
+test(collect_in_recovery, catch(throw(b), b, findall(X, (X = 1; X = 2), L)), solutions([L = [1, 2]])).
+test(collect_throw_keeps_outer, ((Y = 1; Y = 2), catch(findall(_, throw(t), _), t, true)), solutions([Y = 1, Y = 2])).
+test(collect_catch_inside, findall(X, catch((X = 1; X = 2; throw(s)), s, X = 3), L), solutions([L = [1, 2, 3]])).
+test(collect_nested_redo, findall(X-L, ((X = 1; X = 2), findall(Y, (Y = X; Y = 0), L)), R),
+     solutions([R = [1-[1, 0], 2-[2, 0]]])).
+test(collect_bagof_groups_then_findall, (bagof(X, d(X, Y), L), findall(Z, d(Z, Y), M)),
+     solutions([(Y = a, L = [1, 3], M = [1, 3]), (Y = b, L = [2], M = [2])])).
+test(collect_bagof_of_findall, bagof(Y-L, ((Y = a; Y = b), findall(X, d(X, Y), L)), R),
+     solutions([R = [a-[1, 3], b-[2]]])).
+test(collect_update_view, (retractall(lv_q(_)), assertz(lv_q(a)), assertz(lv_q(b)),
+                           findall(X, (lv_q(X), assertz(lv_q(n))), L)), solutions([L = [a, b]])).

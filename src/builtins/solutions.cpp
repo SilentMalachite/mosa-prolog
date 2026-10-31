@@ -22,7 +22,6 @@
 namespace mosa {
 using sol::CopyKind;
 using sol::CopyNode;
-using sol::Finish;
 using sol::Group;
 using sol::Image;
 using sol::Packet;
@@ -30,18 +29,6 @@ using sol::Packet;
 namespace {
 
 enum class Which { None, Findall, Bagof, Setof };
-
-struct Saved {
-  std::vector<Entry> stack;
-  std::uint64_t ip = kNoFrame;
-  bool failed = false;
-  bool exception = false;
-  bool eval_abort = false;
-  Cell ball{};
-  std::size_t heap_mark = 0;
-  std::size_t trail_mark = 0;
-  std::size_t extras_mark = 0;
-};
 
 // 呼び出し前に未束縛だった証人。解の途中で別のセルへ結び付いても、この番地が同一性である。
 struct Home {
@@ -501,88 +488,6 @@ void remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, Var
   groups.push_back(std::move(created));
 }
 
-void disarm_below(Impl& machine, std::size_t floor) {
-  for (std::size_t index = 0; index < floor; ++index) {
-    if (machine.stack[index].pick == Pick::Catch) machine.stack[index].armed = false;
-  }
-}
-
-void rearm_below(Impl& machine, const Saved& saved, std::size_t floor) {
-  std::size_t limit = floor;
-  if (limit > machine.stack.size()) limit = machine.stack.size();
-  if (limit > saved.stack.size()) limit = saved.stack.size();
-  for (std::size_t index = 0; index < limit; ++index) {
-    if (saved.stack[index].pick == Pick::Catch && saved.stack[index].armed) {
-      machine.stack[index].armed = true;
-    }
-  }
-}
-
-std::size_t park_callers(Impl& machine, const Saved& saved) {
-  const auto floor = machine.stack.size();
-  disarm_below(machine, floor);
-  Entry barrier;
-  barrier.pick = Pick::Barrier;
-  barrier.heap_mark = saved.heap_mark;
-  barrier.trail_mark = saved.trail_mark;
-  push_frame(machine, std::move(barrier));
-  return floor;
-}
-
-void release_callers(Impl& machine, const Saved& saved, std::size_t floor) {
-  restore_state(machine, saved.heap_mark, saved.trail_mark, saved.extras_mark);
-  if (!machine.stack.empty() && machine.stack.back().pick == Pick::Barrier) machine.stack.pop_back();
-  rearm_below(machine, saved, floor);
-}
-
-Saved save_exec(const Impl& machine) {
-  Saved saved;
-  saved.stack = machine.stack;
-  saved.ip = machine.ip;
-  saved.failed = machine.failed;
-  saved.exception = machine.exception;
-  saved.eval_abort = machine.eval_abort;
-  saved.ball = machine.ball;
-  saved.heap_mark = machine.heap.size();
-  saved.trail_mark = machine.trail.slots.size();
-  saved.extras_mark = machine.extras.size();
-  return saved;
-}
-
-void restore_exec(Impl& machine, const Saved& saved) {
-  restore_state(machine, saved.heap_mark, saved.trail_mark, saved.extras_mark);
-  machine.stack = saved.stack;
-  machine.ip = saved.ip;
-  machine.failed = saved.failed;
-  machine.exception = saved.exception;
-  machine.eval_abort = saved.eval_abort;
-  machine.ball = saved.ball;
-}
-
-// 床より下はスナップショットで覆さない。asserta が直した節の添字を残すため。
-void unwind_throw(Impl& machine, const Saved& saved, std::size_t floor) {
-  if (machine.stack.size() > floor) machine.stack.resize(floor);
-  restore_state(machine, saved.heap_mark, saved.trail_mark, saved.extras_mark);
-  machine.ip = saved.ip;
-  machine.failed = saved.failed;
-  machine.exception = saved.exception;
-  machine.eval_abort = saved.eval_abort;
-  machine.ball = saved.ball;
-  rearm_below(machine, saved, floor);
-}
-
-// 入れ子の run_loop の間に GC が動かす値（gc.hpp）。saved は呼ぶ前の機械の写しなので、機械と同じ扱いで辿る。
-void visit_saved(GcVisitor& visitor, Saved& saved) {
-  for (Entry& entry : saved.stack) visitor.entry(entry);
-  visitor.frame(saved.ip);
-  // exception が偽のときの ball は古い番地でありうる（gc.hpp の Impl::ball と同じ）。辿らずに消す。
-  if (saved.exception) visitor.cell(saved.ball);
-  else saved.ball = Cell{};
-  visitor.heap_mark(saved.heap_mark);
-  visitor.trail_mark(saved.trail_mark);
-  visitor.extras_mark(saved.extras_mark);
-}
-
 // base は「呼ぶ前からあったセル」の境の水位なので、語の生死ではなく heap_mark として写す。
 // stable・local・homes・alias は見つけたセルの同一性を覚えるだけなので弱い参照にする。死んだセルは二度と
 // 現れないので、SIZE_MAX と 0 はどれとも一致しないまま残ってよい。ext_raw は collect の後で答えの外部変数に
@@ -605,50 +510,82 @@ void visit_ids(GcVisitor& visitor, VarIds& ids) {
   for (auto& item : ids.alias) visitor.weak_address(item.first);
 }
 
-// 外側の節走査はスタックに残す。asserta と retract が添字を更新できるようにするため。
-// 床より下の catch は外し、収集中に外側の回復ゴールへ落ちないようにする。
-// templ・witnesses・hidden は呼び手（run_solutions）が RootScope に登録した値を参照で受ける。
-Packet collect(Impl& machine, const Compiled& compiled, const Cell& templ, const std::vector<Cell>& witnesses,
-               const std::vector<Cell>& hidden, bool share, std::uint32_t module) {
-  Saved saved = save_exec(machine);
+// 動いている収集の状態（ADR 0013）。Pick::Collect の Entry が持ち、GC は Entry を通して辿る。
+// goal は findall などの呼び出しの枠で、終わりに引数と継続を読む。templ・witnesses・hidden は呼ぶ前からあった項。
+struct Collecting final : Collector {
+  Which which = Which::None;
+  Goal goal;
+  Cell templ{};
+  std::vector<Cell> witnesses;
+  std::vector<Cell> hidden;
   VarIds ids;
-  const RootScope roots(machine, [&saved, &ids](GcVisitor& visitor) {
-    visit_saved(visitor, saved);
-    visit_ids(visitor, ids);
-  });
-  const auto floor = park_callers(machine, saved);
-  machine.failed = false;
-  machine.exception = false;
-  machine.eval_abort = false;
-  ids.base = saved.heap_mark;
-  ids.hidden = &hidden;
-  note_homes(machine, witnesses, ids);
-  launch(machine, compiled.term, kNoFrame, machine.stack.size(), compiled.env, module);
   Packet packet;
-  while (true) {
-    const Stop stop = run_loop(machine);
-    if (stop.kind == StopKind::Exception) {
-      packet.end = Finish::Threw;
-      packet.ball = export_term(machine, machine.ball);
-      unwind_throw(machine, saved, floor);
-      return packet;
-    }
-    if (stop.kind == StopKind::Halt) {
-      packet.end = Finish::Halted;
-      packet.halt_code = machine.halt_code;
-      restore_exec(machine, saved);
-      return packet;
-    }
-    if (stop.kind != StopKind::Success) break;
-    remember(machine, templ, witnesses, ids, packet.groups, share);
-    if (!backtrack(machine)) break;
+
+  void visit(GcVisitor& visitor) override {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+    visitor.cell(templ);
+    for (Cell& cell : witnesses) visitor.cell(cell);
+    for (Cell& cell : hidden) visitor.cell(cell);
+    visit_ids(visitor, ids);
   }
-  release_callers(machine, saved, floor);
-  packet.ext_raw = std::move(ids.ext_raw);
-  return packet;
+};
+
+// 収集の床と Ctrl::Collect の枠を積み、ゴールを呼び手の run_loop で動かす。\+ と同じ形で、C++ では再帰しない。
+// 外側の節走査と catch はスタックにそのまま残るので、assert が直す添字も、ゴールからの例外の行き先も普通の呼び出しと同じ。
+void start_collect(Impl& machine, const Compiled& compiled, std::shared_ptr<Collecting> state) {
+  Entry entry;
+  entry.pick = Pick::Collect;
+  entry.heap_mark = machine.heap.size();
+  entry.trail_mark = machine.trail.slots.size();
+  state->ids.base = entry.heap_mark;
+  state->ids.hidden = &state->hidden;
+  note_homes(machine, state->witnesses, state->ids);
+  const std::uint32_t module = state->goal.module;
+  entry.collect = std::move(state);
+  push_frame(machine, std::move(entry));
+  const auto boundary = machine.stack.size();
+  Extra done;
+  done.ctrl = Ctrl::Collect;
+  done.trim_to = boundary - 1;
+  machine.extras.push_back(std::move(done));
+  const auto at = machine.heap.allocate_words(kFrameHead);
+  machine.heap.set_word(at, 0);
+  machine.heap.set_word(at + 1, machine.extras.size() - 1);
+  machine.heap.set_word(at + 2, 0);
+  machine.heap.set_word(at + 3, kNoFrame);
+  launch(machine, compiled.term, at, boundary, compiled.env, module);
 }
 
+Collecting& collecting(Entry& entry) { return static_cast<Collecting&>(*entry.collect); }
+
 }  // namespace
+
+void collect_step(Impl& machine, std::size_t entry) {
+  Collecting& state = collecting(machine.stack[entry]);
+  remember(machine, state.templ, state.witnesses, state.ids, state.packet.groups, state.which != Which::Findall);
+  machine.failed = true;
+}
+
+void finish_collect(Impl& machine) {
+  const CollectRef held = machine.stack.back().collect;
+  apply_catches(machine, machine.stack.back());
+  machine.stack.pop_back();
+  Collecting& state = static_cast<Collecting&>(*held);
+  state.packet.ext_raw = std::move(state.ids.ext_raw);
+  const Goal& goal = state.goal;
+  if (state.which == Which::Findall) {
+    sol::bind_found(machine, goal, state.packet);
+    return;
+  }
+  if (state.packet.groups.empty()) {
+    machine.failed = true;
+    return;
+  }
+  const bool sorting = state.which == Which::Setof;
+  sol::bind_answers(machine, goal, state.witnesses,
+                    sol::answers_from(machine, state.packet.groups, sorting, state.packet.ext_raw));
+}
 
 bool run_solutions(Impl& machine, const Goal& call) {
   const Which which = which_solution(machine.atoms.name(call.name), call.arity);
@@ -662,38 +599,13 @@ bool run_solutions(Impl& machine, const Goal& call) {
   if (!goal_body_ok(machine, call, runnable, compiled)) return true;
   if (bad_list(machine, call)) return true;
   if (bad_tail(machine, call)) return true;
-  Cell templ = call.arg(machine, 0);
-  std::vector<Cell> witnesses;
-  if (which != Which::Findall) witnesses = free_witnesses(machine, runnable, templ, hidden);
-  // 入れ子の GC は枠もセルも動かす。collect の後は、登録した写し goal と templ・witnesses・hidden だけを使う。
-  Goal goal = call;
-  const RootScope roots(machine, [&goal, &templ, &witnesses, &hidden](GcVisitor& visitor) {
-    visitor.frame(goal.at);
-    visitor.frame(goal.cont);
-    visitor.cell(templ);
-    for (Cell& cell : witnesses) visitor.cell(cell);
-    for (Cell& cell : hidden) visitor.cell(cell);
-  });
-  const bool share = which != Which::Findall;
-  const Packet packet = collect(machine, compiled, templ, witnesses, hidden, share, goal.module);
-  if (packet.end == Finish::Threw) {
-    propagate_throw(machine, import_term(machine, packet.ball));
-    return true;
-  }
-  if (packet.end == Finish::Halted) {
-    machine.halt_now = true;
-    machine.halt_code = packet.halt_code;
-    machine.ip = kNoFrame;
-    return true;
-  }
-  if (which == Which::Findall) return sol::bind_found(machine, goal, packet);
-  const bool sorting = which == Which::Setof;
-  if (packet.groups.empty()) {
-    machine.failed = true;
-    return true;
-  }
-  sol::bind_answers(machine, goal, witnesses,
-                    sol::answers_from(machine, packet.groups, sorting, packet.ext_raw));
+  auto state = std::make_shared<Collecting>();
+  state->which = which;
+  state->goal = call;
+  state->templ = call.arg(machine, 0);
+  if (which != Which::Findall) state->witnesses = free_witnesses(machine, runnable, state->templ, hidden);
+  state->hidden = std::move(hidden);
+  start_collect(machine, compiled, std::move(state));
   return true;
 }
 

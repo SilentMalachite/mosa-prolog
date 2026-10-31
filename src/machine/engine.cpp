@@ -80,6 +80,10 @@ void step_control(Impl& machine) {
     machine.ip = cont;
     return;
   }
+  if (ctrl == Ctrl::Collect) {
+    collect_step(machine, trim_to);
+    return;
+  }
   trim_stack(machine, trim_to);
   machine.ip = cont;
 }

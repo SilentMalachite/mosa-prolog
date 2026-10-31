@@ -16,3 +16,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0010](0010-gc-heap-growth.md) | GC and heap growth: reserved address space, safe-point sliding collector | Approved (2026-10-30) |
 | [0011](0011-bounded-native-stack.md) | Bounded native stack: iterative writer, loader, unification and term walkers | Approved (2026-10-30) |
 | [0012](0012-deterministic-exit.md) | Deterministic exit pops the catch/3 and *-> entries | Approved (2026-10-31) |
+| [0013](0013-inline-collection.md) | Collections run inside the caller's loop, without native recursion | Approved (2026-10-31) |

@@ -110,8 +110,22 @@ enum class Pick {
   // ストリームの性質は節ではない。やり直しを節の添字に載せない。
   StreamGen,
   // 生成関数の節の候補。candidates は節の添字ではなく状態なので、pred_* を入れず節の走査に数えさせない。
-  Native
+  Native,
+  // 動いている findall・bagof・setof（ADR 0013）。ここへ戻ればゴールの解は尽きたので、答えを束ねる。
+  Collect
 };
+
+// 動いている収集の状態（ADR 0013）。Pick::Collect の Entry が持つ。中身は solutions.cpp だけが知る。
+// Entry の写し（退避したスタック）も同じものを指すので、GC は gc_pass で 1 回の訪問に 1 度だけ辿る。
+struct Collector {
+  std::uint64_t gc_pass = 0;
+  Collector() = default;
+  Collector(const Collector&) = delete;
+  Collector& operator=(const Collector&) = delete;
+  virtual ~Collector() = default;
+  virtual void visit(GcVisitor& visitor) = 0;
+};
+using CollectRef = std::shared_ptr<Collector>;
 
 // 抜けた Catch のスタック位置と、その Entry の effect_id。入れ子の実行の後では同じ位置に別の Catch が
 // ありうるので、位置だけでは有効に戻す相手を決めない。
@@ -153,10 +167,12 @@ struct Entry {
   std::uint8_t gen_kind = 0;
   // Pick::Native のやり直しで呼ぶ生成関数。
   rt::NativeProc native = nullptr;
+  // Pick::Collect の収集の状態。ほかの選択点では null。
+  CollectRef collect;
 };
 
 // Native は extras に載せない。語 1 の第 63 ビットが立った制御枠で、ヒープに関数と節の変数を持つ（ADR 0009）。
-enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native };
+enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native, Collect };
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
@@ -580,6 +596,10 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
+// Ctrl::Collect の枠に着いた解を、stack[entry] の収集に記録して失敗する（ADR 0013）。
+void collect_step(Impl& machine, std::size_t entry);
+// backtrack が一番上の Pick::Collect に戻ったとき。状態は戻してある。Entry を外して答えを束ねる。
+void finish_collect(Impl& machine);
 void init_streams(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);
 void run_current_input(Impl& machine, const Goal& goal);

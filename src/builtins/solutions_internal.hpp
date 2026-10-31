@@ -11,8 +11,6 @@
 namespace mosa {
 namespace sol {
 
-enum class Finish { Ready, Threw, Halted };
-
 enum class CopyKind { Ext, Loc, Atom, Int, Float, List, Str };
 
 struct CopyNode {
@@ -39,11 +37,8 @@ struct Group {
 };
 
 struct Packet {
-  Finish end = Finish::Ready;
   std::vector<Group> groups;
   std::vector<std::uint64_t> ext_raw;
-  ExportedTerm ball;
-  int halt_code = 0;
 };
 
 struct Answer {
@@ -56,7 +51,7 @@ struct Answer {
                                                const std::vector<std::uint64_t>& ext_raw);
 void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witnesses,
                   const std::vector<Answer>& answers);
-[[nodiscard]] bool bind_found(Impl& machine, const Goal& goal, const Packet& packet);
+void bind_found(Impl& machine, const Goal& goal, const Packet& packet);
 
 }  // namespace sol
 }  // namespace mosa

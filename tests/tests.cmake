@@ -66,6 +66,13 @@ add_test(NAME stack_deep_builtins COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
 set_tests_properties(stack_deep_builtins PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
+# 1 MiB のスタックで、findall/3・findall/4・bagof/3・setof/3 を 100,000 段入れ子にする（ADR 0013、レビュー H4）。
+add_test(NAME stack_deep_collect COMMAND ${CMAKE_COMMAND}
+  "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_collect.pl"
+  -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_collect.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_collect PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 1 MiB のスタックで、ソースに書いた 200,000 要素のリストを読んで動かす（ADR 0011）。
 add_test(NAME long_literal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/long_literal -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
@@ -414,6 +421,14 @@ add_test(NAME mosac_heap_limit COMMAND ${CMAKE_COMMAND}
   "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/heap_limit_test.cmake)
 set_tests_properties(mosac_heap_limit PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# 入れ子の収集 100,000 段を mosac の実行ファイルで 1 MiB のスタックの下で動かす（ADR 0013、レビュー H4）。
+add_test(NAME mosac_deep_collect COMMAND ${CMAKE_COMMAND}
+  -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_deep_collect
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/deep_collect_test.cmake)
+set_tests_properties(mosac_deep_collect PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
 # cmake --install を一時の prefix に行い、SPEC 第6節の形と、インストールした mosac での build を確かめる。

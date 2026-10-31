@@ -66,8 +66,15 @@ void GcVisitor::env(EnvCells* env) {
   for (Cell& slot : env->cells) cell(slot);
 }
 
+void GcVisitor::collect(Collector* collector) {
+  if (collector == nullptr || collector->gc_pass == pass_) return;
+  collector->gc_pass = pass_;
+  collector->visit(*this);
+}
+
 void GcVisitor::entry(Entry& entry) {
   env(entry.env.get());
+  collect(entry.collect.get());
   cell(entry.pattern);
   frame(entry.redo_goal);
   frame(entry.cont);

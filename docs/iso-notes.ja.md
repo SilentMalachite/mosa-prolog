@@ -563,6 +563,8 @@ ISO に翻訳の段は無い。どこにも定義の無い手続きの呼び出�
 
 writer、loader（節の組み立て、`IrTerm` の複製と破棄、実体化）、単一化と、項を辿る組込（`copy_term/2`、`findall/3`、`bagof/3`、`setof/3`、`compare/3`、`==`、`term_variables/2`、`clause/2`、`unify_with_occurs_check/2`、`is_list/1`）は、深い部分項を手で積むスタックに置く（ADR 0011）。1 MiB のスタックの下で、深さ 1,000,000 の項と 200,000 要素のリストのリテラルを扱える（ctest `stack_deep_write`、`stack_deep_builtins`、`long_literal`）。実行時に組み立てたゴールと算術式（`call/1`、`assertz/1`、`is/2` と比較）にも深さの上限はない（ADR 0011 の改訂 2 と 3）。式と、左にも右にも入れ子の `,` `;` `->` `*->` `catch/3` を深さ 1,000,000 で 1 MiB のスタックで確かめ、長さに比例する時間で動く。
 
+入れ子の `findall/3`、`findall/4`、`bagof/3`、`setof/3` は呼び手のループの中で動き、ネイティブのスタックを使わない（ADR 0013、レビュー H4）。1 MiB のスタックで 100,000 段を、mosa と mosac の実行ファイルの両方で確かめる（ctest `stack_deep_collect`、`mosac_deep_collect`）。portray のフック、`with_output_to/2`、指令は今も 1 段ごとに入れ子の `run_loop` を始めるので、それらどうしの入れ子や、それらと収集を交互にした入れ子はネイティブのスタックで抑えられる。`w(N) :- M is N-1, findall(x, with_output_to(atom(_), w(M)), [x]).` は 1 MiB の下で 500 段は通り、1,000 段で SIGSEGV になる。
+
 reader だけが、ソースの字面の入れ子の 1 段ごとにまだ再帰する。macOS で `ulimit -s 1024`（Windows の既定も 1 MiB）の下で測ると、`f(f(...))` や `[[...]]` は約 600 段、前置演算子の入れ子は約 850 段、括弧の入れ子は約 1,000 段、`xfy` の右の被演算子の連鎖は約 1,600 段まで読める。macOS の既定の 8 MiB のスタックでは、`f(f(...))` は約 4,800 段である。平らなリストと `yfx` の左の連鎖は繰り返しで読むので、この上限は無い。これは要件からの逸脱ではなく、処理系の上限（ISO 7.1、処理系定義）として扱う。
 
 決定（2026-10-30）: A。writer、reader、loader を、フェーズ7かそれ以降に反復にする。フェーズ7で writer と loader を反復にした（ADR 0011）。reader は再帰のまま残し、`mosac_long_list` は全 OS で 20000 要素で動く。

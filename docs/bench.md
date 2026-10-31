@@ -72,6 +72,19 @@ Measured on 2026-10-31 on the same machine, both Release, the same `N`, median o
 | deriv | 1132 | 969 | -14.4% | 156 | 113 | -27.6% |
 | crypt | 2807 | 1168 | -58.4% | 322 | 303 | -5.9% |
 
+## Cost of running collections inline
+
+Measured on 2026-10-31 on the same machine, interpreter only, both Release, the same `N`, median of runs taken alternately (ms): "before" is c81afc0, "now" is ADR 0013 (findall, bagof and setof run in the caller's loop; `Entry` gains a 16-byte `collect` pointer). None of the six programs collects solutions, so this measures the larger `Entry` only.
+
+| Program | Before | Now | Delta |
+| --- | ---: | ---: | ---: |
+| nrev | 3269 | 3274 | +0.2% |
+| queens | 2857 | 2846 | -0.4% |
+| zebra | 1988 | 2035 | +2.4% |
+| tak | 1348 | 1357 | +0.7% |
+| deriv | 974 | 993 | +1.9% |
+| crypt | 1201 | 1184 | -1.4% |
+
 ## CI
 
 The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.

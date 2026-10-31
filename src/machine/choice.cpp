@@ -52,7 +52,7 @@ void shrink_extras(Impl& machine, std::size_t mark) {
 
 void note_catches(const Impl& machine, Entry& entry) { entry.catch_mark = machine.catch_log.size(); }
 
-// entry が積まれた後に無効にした Catch を、新しい順に有効に戻す。外した枠や、入れ子の実行（run_goal、findall）
+// entry が積まれた後に無効にした Catch を、新しい順に有効に戻す。外した枠や、入れ子の実行（run_goal、指令）
 // の中の枠を指す記録は、位置か effect_id が合わないので飛ばす。
 void apply_catches(Impl& machine, const Entry& entry) {
   while (machine.catch_log.size() > entry.catch_mark) {
@@ -284,8 +284,13 @@ bool backtrack(Impl& machine) {
     restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
     // 成功した catch は選択点ではない。記録は親の選択点まで残す。
     if (!(top.pick == Pick::Catch && !top.armed)) restore_operators(machine, top.effect_id);
-    // 収集の床。束縛は消すが、呼び出し元の節走査はやり直さない。
+    // 入れ子の run_loop（portray、指令など）の床。束縛は消すが、呼び出し元の節走査はやり直さない。
     if (top.pick == Pick::Barrier) return false;
+    // 収集のゴールの解が尽きた。答えを束ねる launch か、bagof の空の失敗（failed）で返る（ADR 0013）。
+    if (top.pick == Pick::Collect) {
+      finish_collect(machine);
+      return true;
+    }
     if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {
       machine.stack.pop_back();
       continue;
