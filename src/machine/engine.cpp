@@ -45,50 +45,18 @@ bool has_more(const Impl& machine) {
   return false;
 }
 
-// 制御枠の extras[index] を launch の間だけ外へ出す。launch は extras を push_back で伸ばし、伸びると中への
-// 参照が無効になる。呼び出しごとに節の本体を写す代わりにムーブで出し入れする。launch の中の同期の throw は
-// restore_state で extras をこの枠ごと捨て、回復のゴールが同じ添字に新しい extra を積みうる。そのときは
-// 書き戻さない。捨てたかどうかは extras_low で見る（入れ子の借用があるので、出るときに前の値と合わせる）。
-class BorrowedExtra {
- public:
-  BorrowedExtra(Impl& machine, std::size_t index)
-      : machine_(machine), index_(index), outer_low_(machine.extras_low), extra_(std::move(machine.extras[index])) {
-    machine.extras_low = SIZE_MAX;
-  }
-  ~BorrowedExtra() {
-    const std::size_t low = machine_.extras_low;
-    if (low > index_ && index_ < machine_.extras.size()) machine_.extras[index_] = std::move(extra_);
-    machine_.extras_low = std::min(outer_low_, low);
-  }
-  BorrowedExtra(const BorrowedExtra&) = delete;
-  BorrowedExtra& operator=(const BorrowedExtra&) = delete;
-  [[nodiscard]] const Extra& get() const { return extra_; }
-
- private:
-  Impl& machine_;
-  std::size_t index_;
-  std::size_t outer_low_;
-  Extra extra_;
-};
-
+// launch は extras を push_back で伸ばし、伸びると中への参照が無効になる。ゴールと env は共有のポインタなので、
+// 先に局所へ写しておく（ADR 0011 の改訂 3）。
 void launch_control(Impl& machine, std::size_t index) {
-  const BorrowedExtra borrowed(machine, index);
-  const Extra& extra = borrowed.get();
-  if (extra.ctrl == Ctrl::Interpret) {
-    launch(machine, extra.goal, extra.cont, extra.cut, extra.env, extra.module);
-    return;
+  const Extra& extra = machine.extras[index];
+  if (extra.ctrl == Ctrl::Commit) trim_stack(machine, extra.trim_to);
+  if (extra.ctrl == Ctrl::SoftCommit && extra.soft_id != 0 && extra.trim_to < machine.stack.size()) {
+    Entry& entry = machine.stack[extra.trim_to];
+    if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
   }
-  if (extra.ctrl == Ctrl::Commit) {
-    trim_stack(machine, extra.trim_to);
-    launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
-    return;
-  }
-  if (extra.soft_id != 0) {
-    for (Entry& entry : machine.stack) {
-      if (entry.soft_id == extra.soft_id) entry.cond_ok = true;
-    }
-  }
-  launch(machine, extra.then, extra.cont, extra.cut, extra.env, extra.module);
+  GoalRef goal = extra.ctrl == Ctrl::Interpret ? extra.goal : extra.then;
+  const EnvRef env = extra.env;
+  launch(machine, std::move(goal), extra.cont, extra.cut, env, extra.module);
 }
 
 void step_control(Impl& machine) {
@@ -119,9 +87,8 @@ void reject_callable(Impl& machine, Cell culprit) {
   raise_formal(machine, formal_type(machine, "callable", culprit), name, 1);
 }
 
-void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t /*cut*/,
-                const std::vector<Cell>& env, std::uint32_t module) {
-  const Cell cell = machine.heap.deref(env.at(goal.slot));
+void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const EnvRef& env, std::uint32_t module) {
+  const Cell cell = machine.heap.deref(env->cells.at(goal.slot));
   if (machine.heap.unbound(cell)) {
     raise_formal(machine, formal_instantiation(machine), machine.atoms.intern("call"), 1);
     return;
@@ -132,7 +99,7 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size
   }
   const Compiled compiled = compile_goal(machine.heap, cell);
   // 変数ゴールは call(G) と同じで、中のカットは局所である（7.8.3）。
-  if (!body_callable(compiled.term)) {
+  if (!body_callable(*compiled.term)) {
     reject_callable(machine, cell);
     return;
   }
@@ -471,25 +438,29 @@ Cell materialize(Impl& machine, const IrTerm& root, const std::vector<Cell>& env
   return materialize_at(machine, root, env, 0);
 }
 
-std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                     const std::vector<Cell>& env, std::uint32_t module) {
-  if (goal.tag == IrTag::Atom || goal.tag == IrTag::Fun || goal.tag == IrTag::Call) {
-    std::vector<Cell> args;
-    if (goal.tag != IrTag::Atom) {
-      args.reserve(goal.args.size());
-      for (const IrTerm& arg : goal.args) args.push_back(materialize(machine, arg, env));
-    }
-    const auto at = machine.heap.allocate_words(kFrameHead + args.size());
-    const auto name = goal.tag == IrTag::Atom ? goal.atom : goal.atom;
-    machine.heap.set_word(at, name);
-    machine.heap.set_word(at + 1, pack_goal_word(static_cast<std::uint16_t>(args.size()), module));
-    machine.heap.set_word(at + 2, cut);
-    machine.heap.set_word(at + 3, cont);
-    for (std::size_t index = 0; index < args.size(); ++index) {
-      machine.heap.set_word(at + kFrameHead + index, args[index].raw());
-    }
-    return at;
+bool is_call_leaf(IrTag tag) { return tag == IrTag::Atom || tag == IrTag::Fun || tag == IrTag::Call; }
+
+std::uint64_t embody_leaf(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+                          const std::vector<Cell>& cells, std::uint32_t module) {
+  std::vector<Cell> args;
+  if (goal.tag != IrTag::Atom) {
+    args.reserve(goal.args.size());
+    for (const IrTerm& arg : goal.args) args.push_back(materialize(machine, arg, cells));
   }
+  const auto at = machine.heap.allocate_words(kFrameHead + args.size());
+  machine.heap.set_word(at, goal.atom);
+  machine.heap.set_word(at + 1, pack_goal_word(static_cast<std::uint16_t>(args.size()), module));
+  machine.heap.set_word(at + 2, cut);
+  machine.heap.set_word(at + 3, cont);
+  for (std::size_t index = 0; index < args.size(); ++index) {
+    machine.heap.set_word(at + kFrameHead + index, args[index].raw());
+  }
+  return at;
+}
+
+std::uint64_t embody(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut, const EnvRef& env,
+                     std::uint32_t module) {
+  if (is_call_leaf(goal->tag)) return embody_leaf(machine, *goal, cont, cut, env->cells, module);
   Extra extra;
   extra.ctrl = Ctrl::Interpret;
   extra.goal = goal;
@@ -500,53 +471,59 @@ std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std:
   return push_extra(machine, std::move(extra));
 }
 
-void launch_list(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                 const std::vector<Cell>& env, std::uint32_t module) {
+void launch_list(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut, const EnvRef& env,
+                 std::uint32_t module) {
   // リストは '.'/2 である。未定義なら existence_error であり、callable の型誤りではない。
   IrTerm call;
   call.tag = IrTag::Fun;
   call.atom = machine.atoms.intern(".");
   call.arity = 2;
   call.args = goal.args;
-  machine.ip = embody(machine, call, cont, cut, env, module);
+  machine.ip = embody(machine, make_goal(std::move(call)), cont, cut, env, module);
 }
 
-namespace {
+GoalRef make_goal(IrTerm term) { return std::make_shared<const IrTerm>(std::move(term)); }
 
-// 左に入れ子の連言 ((a,b),c) を繰り返しで降りる。右から順に継続を作るので、ヒープの並びは再帰と同じになる。
-void launch_and(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                const std::vector<Cell>& env, std::uint32_t module) {
-  const IrTerm* left = &goal;
-  while (left->tag == IrTag::And) {
-    cont = embody(machine, left->args[1], cont, cut, env, module);
-    left = &left->args[0];
-  }
-  launch(machine, *left, cont, cut, env, module);
+GoalRef sub_goal(const GoalRef& goal, std::size_t index) { return GoalRef{goal, &goal->args[index]}; }
+
+EnvRef make_env(std::vector<Cell> cells) {
+  auto env = std::make_shared<EnvCells>();
+  env->cells = std::move(cells);
+  return env;
 }
 
-}  // namespace
-
-void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-            const std::vector<Cell>& env, std::uint32_t module) {
-  switch (goal.tag) {
-    case IrTag::True: machine.ip = cont; return;
-    case IrTag::Fail: machine.failed = true; return;
-    case IrTag::Cut: trim_stack(machine, cut); machine.ip = cont; return;
-    case IrTag::And: launch_and(machine, goal, cont, cut, env, module); return;
-    case IrTag::Or: launch_or(machine, goal, cont, cut, env, module); return;
-    case IrTag::IfThen: launch_if_then(machine, goal, cont, cut, env, module); return;
-    case IrTag::SoftIf: launch_soft(machine, goal, cont, cut, env, module); return;
-    case IrTag::Catch: arm_catch(machine, goal, cont, cut, env, module); return;
-    case IrTag::Throw: arm_throw(machine, goal, env); return;
-    case IrTag::Halt: arm_halt(machine, goal, env); return;
-    case IrTag::Var: launch_var(machine, goal, cont, cut, env, module); return;
-    case IrTag::Atom:
-    case IrTag::Fun:
-    case IrTag::Call: machine.ip = embody(machine, goal, cont, cut, env, module); return;
-    case IrTag::List: launch_list(machine, goal, cont, cut, env, module); return;
-    case IrTag::Anon:
-    case IrTag::Int:
-    case IrTag::Float: reject_callable(machine, materialize(machine, goal, env)); return;
+// 制御構造は枠を積んで最初の下位ゴールを返し、ここで次の周に回す。連言は右から継続を作るので、ヒープの並びは
+// 再帰で降りたときと同じになる（ADR 0011 の改訂 3）。
+void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, const EnvRef& env,
+            std::uint32_t module) {
+  while (true) {
+    LaunchNext next;
+    switch (goal->tag) {
+      case IrTag::True: machine.ip = cont; return;
+      case IrTag::Fail: machine.failed = true; return;
+      case IrTag::Cut: trim_stack(machine, cut); machine.ip = cont; return;
+      case IrTag::And:
+        cont = embody(machine, sub_goal(goal, 1), cont, cut, env, module);
+        goal = sub_goal(goal, 0);
+        continue;
+      case IrTag::Or: next = open_or(machine, goal, cont, cut, env, module); break;
+      case IrTag::IfThen: next = open_if_then(machine, goal, cont, cut, env, module); break;
+      case IrTag::SoftIf: next = open_soft(machine, goal, cont, cut, env, module); break;
+      case IrTag::Catch: next = open_catch(machine, goal, cont, cut, env, module); break;
+      case IrTag::Throw: arm_throw(machine, *goal, env->cells); return;
+      case IrTag::Halt: arm_halt(machine, *goal, env->cells); return;
+      case IrTag::Var: launch_var(machine, *goal, cont, env, module); return;
+      case IrTag::Atom:
+      case IrTag::Fun:
+      case IrTag::Call: machine.ip = embody(machine, goal, cont, cut, env, module); return;
+      case IrTag::List: launch_list(machine, *goal, cont, cut, env, module); return;
+      case IrTag::Anon:
+      case IrTag::Int:
+      case IrTag::Float: reject_callable(machine, materialize(machine, *goal, env->cells)); return;
+    }
+    goal = std::move(next.goal);
+    cont = next.cont;
+    cut = next.cut;
   }
 }
 

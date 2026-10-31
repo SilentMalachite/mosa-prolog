@@ -104,7 +104,7 @@ bool run_qualify(Impl& machine, const Goal& goal) {
     return true;
   }
   const Compiled compiled = is_callable(inner) ? compile_goal(machine.heap, inner) : Compiled{};
-  if (!is_callable(inner) || !body_callable(compiled.term)) {
+  if (!is_callable(inner) || !body_callable(*compiled.term)) {
     // culprit は利用者が書いた M:G 全体。call(M:G) の引数と同じ項になる（iso-notes の決定 A）。
     const std::array<Cell, 2> parts{module, inner};
     const Cell culprit = machine.heap.structure(goal.name, parts);

@@ -44,7 +44,8 @@ class Rewriter final : public GcVisitor {
   // 2 つの Rank と kept_before の表をここで確保する。どれもトレイルとヒープを書き換える前に済ませ、bad_alloc で
   // 抜けてもヒープを壊さない（ADR 0010 の停止）。kept_before の中身は compact_trail が埋める。
   Rewriter(Impl& machine, const GcMarks& marks)
-      : base_(std::bit_cast<std::uint64_t>(machine.heap.data())),
+      : GcVisitor(++machine.gc_pass),
+        base_(std::bit_cast<std::uint64_t>(machine.heap.data())),
         used_(marks.used),
         extras_size_(machine.extras.size()),
         heap_(marks.live),
@@ -130,14 +131,12 @@ void compact_extras(Impl& machine, Rewriter& rewriter) {
   for (std::size_t from = 0; from < machine.extras.size(); ++from) {
     if (!rewriter.extras().live(from)) continue;
     Extra& extra = machine.extras[from];
-    for (Cell& slot : extra.env) rewriter.cell(slot);
+    rewriter.env(extra.env.get());
     rewriter.frame(extra.cont);
     if (to != from) machine.extras[to] = std::move(extra);
     ++to;
   }
   machine.extras.resize(to);
-  // 詰めると添字が変わる。借りている extra があっても、元の添字へは書き戻させない。
-  machine.extras_low = 0;
 }
 
 // 印の付いた語を指す項目だけを残す。kept_before[k] は旧位置 k より前に残った数で、trail_mark の写しに使う。

@@ -183,7 +183,7 @@ void push_op(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std
   entry.pick = Pick::AtomGen;
   entry.gen_kind = kOpGen;
   entry.next = next;
-  entry.env = flat;
+  entry.env = make_env(flat);
   entry.redo_goal = goal.at;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
@@ -291,7 +291,7 @@ void push_char(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, s
   entry.pick = Pick::AtomGen;
   entry.gen_kind = kCharGen;
   entry.next = next;
-  entry.env = flat;
+  entry.env = make_env(flat);
   entry.redo_goal = goal.at;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
@@ -377,7 +377,7 @@ bool redo_current_op(Impl& machine) {
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   const Goal goal = read_goal(machine, top.redo_goal);
-  const std::vector<Cell> flat = top.env;
+  const std::vector<Cell> flat = top.env->cells;
   const auto next = top.next;
   machine.stack.pop_back();
   return prove_ops(machine, goal, flat, next);
@@ -391,7 +391,7 @@ bool redo_current_char_conversion(Impl& machine) {
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   const Goal goal = read_goal(machine, top.redo_goal);
-  const std::vector<Cell> flat = top.env;
+  const std::vector<Cell> flat = top.env->cells;
   const auto next = top.next;
   machine.stack.pop_back();
   return prove_chars(machine, goal, flat, next);

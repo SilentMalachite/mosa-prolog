@@ -83,7 +83,7 @@ bool run_call(Impl& machine, const Goal& goal) {
   const auto boundary = machine.stack.size();
   const Compiled compiled = compile_goal(machine.heap, callable);
   // (fail, 1) は複合項なので callable だが、ゴールには変換できない（7.8.3、Cor.2）。
-  if (!body_callable(compiled.term)) {
+  if (!body_callable(*compiled.term)) {
     not_callable(machine, goal, callable);
     return true;
   }
@@ -205,7 +205,7 @@ bool run_forall(Impl& machine, const Goal& goal) {
   const Cell both = machine.heap.structure(machine.atoms.intern(","), parts);
   const Cell term = machine.heap.structure(negation, std::array<Cell, 1>{both});
   const Compiled compiled = compile_goal(machine.heap, term);
-  if (!body_callable(compiled.term)) {
+  if (!body_callable(*compiled.term)) {
     not_callable(machine, goal, both);
     return true;
   }
@@ -221,7 +221,7 @@ bool run_if(Impl& machine, const Goal& goal) {
   const Cell soft = machine.heap.structure(machine.atoms.intern("*->"), std::array<Cell, 2>{parts[0], parts[1]});
   const Cell term = machine.heap.structure(machine.atoms.intern(";"), std::array<Cell, 2>{soft, parts[2]});
   const Compiled compiled = compile_goal(machine.heap, term);
-  if (!body_callable(compiled.term)) {
+  if (!body_callable(*compiled.term)) {
     not_callable(machine, goal, machine.heap.structure(goal.name, parts));
     return true;
   }

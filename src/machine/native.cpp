@@ -159,7 +159,7 @@ std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predic
     if (clause.dead) continue;
     hash.word(clause.vars);
     hash_term(hash, atoms, clause.head);
-    hash_term(hash, atoms, clause.body);
+    hash_term(hash, atoms, *clause.body);
   }
   return hash.value;
 }

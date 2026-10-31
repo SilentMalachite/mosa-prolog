@@ -57,7 +57,7 @@ bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator, std::u
 bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body) {
   std::vector<Cell> slots;
   const Cell made_head = ir_to_term(machine, clause.head, slots, false);
-  const Cell made_body = ir_to_term(machine, clause.body, slots, true);
+  const Cell made_body = ir_to_term(machine, *clause.body, slots, true);
   return do_unify(machine, head, made_head) && do_unify(machine, body, made_body);
 }
 

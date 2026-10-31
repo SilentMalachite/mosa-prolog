@@ -301,8 +301,8 @@ Compiled compile_goal(const Heap& heap, Cell cell) {
   build.heap = &heap;
   build.keep = true;
   Compiled compiled;
-  compiled.term = build.goal(cell);
-  compiled.env = std::move(build.env);
+  compiled.term = make_goal(build.goal(cell));
+  compiled.env = make_env(std::move(build.env));
   return compiled;
 }
 
@@ -330,6 +330,19 @@ void set_dot_head(Build& build, const Heap& heap, Clause& clause, Cell left, Cel
   clause.head.args.push_back(build.data(right));
 }
 
+namespace {
+
+GoalRef fact_body() {
+  static const GoalRef body = [] {
+    IrTerm term;
+    term.tag = IrTag::True;
+    return make_goal(std::move(term));
+  }();
+  return body;
+}
+
+}  // namespace
+
 bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
   Build build;
   build.heap = &heap;
@@ -350,8 +363,8 @@ bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const
   } else {
     clause.head = build.data(head);
   }
-  clause.body = body.tag == IrTag::True && body.args.empty() ? body : body;
-  if (build.is_name(heap.deref(cell), ":-", 2)) clause.body = body;
+  // 事実の本体はどの節も同じ true なので、1 つを共有して節ごとに確保しない。
+  clause.body = body.tag == IrTag::True && body.args.empty() ? fact_body() : make_goal(std::move(body));
   clause.vars = static_cast<std::uint16_t>(build.refs.size());
   name_slots(heap, build, names, clause);
   if (clause.head.tag == IrTag::Atom) {

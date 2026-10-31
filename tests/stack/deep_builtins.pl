@@ -1,4 +1,4 @@
-% 項を歩く組込と、実行時に組み立てたゴールと式を、深さ 1,000,000 の項で 1 つずつ確かめる（ADR 0011 と改訂 2、
+% 項を歩く組込と、実行時に組み立てたゴールと式を、深さ 1,000,000 の項で 1 つずつ確かめる（ADR 0011 と改訂 2、3。
 % 1 MiB のスタックで動かす。acyclic_term は unify_with_occurs_check/2 と is_list/1 を通して見る。
 % 各行は「組込: 結果」。循環項の行（_cyclic）は、書き直す前と同じ結果であること。
 % 項は数え上げの繰り返しで作る。mosa の lib には numlist/3 が無い。
@@ -22,6 +22,26 @@ conj_right(N, (true, G)) :- M is N - 1, conj_right(M, G).
 
 conj_left(0, true) :- !.
 conj_left(N, (G, true)) :- M is N - 1, conj_left(M, G).
+
+% 制御構造の入れ子。右は (fail;(fail;...)) と (true->(true->...))、左は ((...;fail);fail)、条件は
+% ((... -> true ; fail) -> true ; fail)。どれも長さに比例する時間で動くこと（改訂 3）。
+disj_right(0, true) :- !.
+disj_right(N, (fail ; G)) :- M is N - 1, disj_right(M, G).
+
+disj_left(0, true) :- !.
+disj_left(N, (G ; fail)) :- M is N - 1, disj_left(M, G).
+
+ite_cond(0, true) :- !.
+ite_cond(N, (G -> true ; fail)) :- M is N - 1, ite_cond(M, G).
+
+soft_cond(0, true) :- !.
+soft_cond(N, (G *-> true ; fail)) :- M is N - 1, soft_cond(M, G).
+
+ite_then(0, true) :- !.
+ite_then(N, (true -> G)) :- M is N - 1, ite_then(M, G).
+
+catch_nest(0, G, G) :- !.
+catch_nest(N, G0, G) :- M is N - 1, catch_nest(M, catch(G0, inner, true), G).
 
 % 左に入れ子の式 X+1+1+... と、右に入れ子の式 1+(1+(...+X))。
 sum_left(0, X, X) :- !.
@@ -68,7 +88,15 @@ main :-
                   count(D, [], L), assertz(long_fact(L)), clause(long_fact(Y), true), length(Y, D))),
     show(occurs_check, (deep(F), unify_with_occurs_check(Y, F), Y == F)),
     show(is_list, (count(D, [], L), is_list(L))),
-    show(call_conj_right, (conj_right(20000, G), call(G))),
+    show(call_conj_right, (conj_right(D, G), call(G))),
+    show(assertz_conj_right, (conj_right(D, G), assertz((deep_right :- G)), deep_right)),
+    show(call_disj_right, (disj_right(D, G), call(G))),
+    show(call_disj_left, (disj_left(D, G), call(G))),
+    show(call_ite_cond, (ite_cond(D, G), call(G))),
+    show(call_soft_cond, (soft_cond(D, G), call(G))),
+    show(call_ite_then, (ite_then(D, G), call(G))),
+    show(call_catch, (catch_nest(D, true, G), call(G))),
+    show(call_catch_throw, (catch_nest(D, throw(ball), G), catch(G, ball, true))),
     show(call_conj_left, (conj_left(D, G), call(G))),
     show(assertz_conj_left, (conj_left(D, G), assertz((deep_left :- G)), deep_left)),
     show(call_not_callable, (conj_right(D, G), catch(call((G, 1)), error(type_error(callable, _), _), true))),

@@ -108,7 +108,7 @@ std::vector<std::string> call_warnings(Impl& machine, const TranslationLog& log,
     const Predicate* predicate = find_pred(machine, site.pred);
     if (predicate == nullptr || site.clause >= predicate->clauses.size()) continue;
     std::vector<PredKey> goals;
-    collect_goals(machine, predicate->clauses[site.clause].body, site.pred.module, goals);
+    collect_goals(machine, *predicate->clauses[site.clause].body, site.pred.module, goals);
     std::vector<std::string> seen;
     for (const PredKey& goal : goals) {
       if (defined(machine, goal)) continue;

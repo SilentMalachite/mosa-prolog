@@ -60,8 +60,14 @@ void update_policy(Impl& machine, std::size_t live) {
 
 }  // namespace
 
+void GcVisitor::env(EnvCells* env) {
+  if (env == nullptr || env->gc_pass == pass_) return;
+  env->gc_pass = pass_;
+  for (Cell& slot : env->cells) cell(slot);
+}
+
 void GcVisitor::entry(Entry& entry) {
-  for (Cell& slot : entry.env) cell(slot);
+  env(entry.env.get());
   cell(entry.pattern);
   frame(entry.redo_goal);
   frame(entry.cont);

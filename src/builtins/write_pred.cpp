@@ -432,7 +432,7 @@ IrTerm portray_call(std::uint32_t name) {
 }
 
 std::size_t push_memory(Impl& machine);
-Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module);
+Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module);
 
 // writer の訪問を GC の訪問へつなぐ。名前の無い変数の表は弱い参照の番地で持つ。
 class HeldRoots final : public WriteRoots {
@@ -463,7 +463,7 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     HeldRoots adapter(visitor);
     held.visit(adapter);
   });
-  const Ran ran = run_goal(machine, portray_call(hook->name), std::vector<Cell>{term}, machine.user_module);
+  const Ran ran = run_goal(machine, make_goal(portray_call(hook->name)), make_env({term}), machine.user_module);
   machine.current_out = saved;
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
@@ -531,7 +531,7 @@ bool reject_goal(Impl& machine, const Goal& goal, Cell cell) {
   if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
   if (!callable_cell(machine, cell)) return raise_type(machine, goal, "callable", cell);
   const Compiled compiled = compile_goal(machine.heap, cell);
-  if (!body_callable(compiled.term)) return raise_type(machine, goal, "callable", cell);
+  if (!body_callable(*compiled.term)) return raise_type(machine, goal, "callable", cell);
   return false;
 }
 
@@ -611,7 +611,7 @@ void visit_snap(GcVisitor& visitor, Snap& saved) {
   visitor.extras_mark(saved.extras_mark);
 }
 
-Ran run_goal(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, std::uint32_t module) {
+Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module) {
   Snap saved = take_snap(machine);
   const RootScope roots(machine, [&saved](GcVisitor& visitor) { visit_snap(visitor, saved); });
   disarm(machine, machine.stack.size());

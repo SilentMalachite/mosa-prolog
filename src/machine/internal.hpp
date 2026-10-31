@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <functional>
 #include <initializer_list>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -31,9 +32,26 @@ static_assert(rt::kFrameHead == kFrameHead);
 
 enum class KeyKind { Any, None, Var, Atom, Int, Float, List, Fun };
 
+// ゴールの木は写さずに共有する。部分木は根と同じ持ち主を持つ別名のポインタで指す。節を消しても、動いている
+// 本体はこれが生かしておく（ADR 0011 の改訂 3）。
+using GoalRef = std::shared_ptr<const IrTerm>;
+
+// 節や call/1 のゴールの変数の値。継続と選択点が共有し、GC は gc_pass で 1 回の回収に 1 度だけ訪ねる。
+// 書き換えるのは GC だけである。
+struct EnvCells {
+  std::vector<Cell> cells;
+  std::uint64_t gc_pass = 0;
+};
+using EnvRef = std::shared_ptr<EnvCells>;
+
+[[nodiscard]] GoalRef make_goal(IrTerm term);
+// goal の args[index] を、goal と同じ持ち主で指す。
+[[nodiscard]] GoalRef sub_goal(const GoalRef& goal, std::size_t index);
+[[nodiscard]] EnvRef make_env(std::vector<Cell> cells);
+
 struct Clause {
   IrTerm head;
-  IrTerm body;
+  GoalRef body;
   std::uint16_t vars = 0;
   KeyKind key = KeyKind::Any;
   std::uint32_t key_atom = 0;
@@ -95,6 +113,13 @@ enum class Pick {
   Native
 };
 
+// 抜けた Catch のスタック位置と、その Entry の effect_id。入れ子の実行の後では同じ位置に別の Catch が
+// ありうるので、位置だけでは有効に戻す相手を決めない。
+struct CatchRecord {
+  std::size_t index = 0;
+  std::uint64_t id = 0;
+};
+
 struct Entry {
   Pick pick = Pick::Clauses;
   std::size_t heap_mark = 0;
@@ -108,8 +133,9 @@ struct Entry {
   // else_goal と recovery を動かす文脈モジュール。
   std::uint32_t module = 0;
   std::size_t cut = 0;
-  IrTerm else_goal;
-  std::vector<Cell> env;
+  GoalRef else_goal;
+  // 選択点の種類によっては、組込が状態のセルを置く（operators.cpp）。null は空と同じ。
+  EnvRef env;
   std::uint64_t cont = kNoFrame;
   int soft_id = 0;
   bool cond_ok = false;
@@ -117,10 +143,10 @@ struct Entry {
   std::size_t extras_mark = 0;
   // 0 は束縛の水位だけで、選択点ではない。op/3 を戻す対象にしない。
   std::uint64_t effect_id = 0;
-  // この選択点をやり直すとき、有効に戻す Catch のスタック位置。抜けたあとの選択点は空である。
-  std::vector<std::uint32_t> live_catches;
+  // 積んだときの Impl::catch_log の長さ。やり直すとき、これより後に無効にした Catch を有効に戻す。
+  std::size_t catch_mark = 0;
   Cell pattern{};
-  IrTerm recovery;
+  GoalRef recovery;
   // 節ではない組込のやり直し。1 は atom_concat、2 は sub_atom、3 は旗、4 は current_op、
   // 5 は current_char_conversion、6 は length。
   std::uint8_t gen_kind = 0;
@@ -133,11 +159,13 @@ enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, N
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
-  IrTerm goal;
-  IrTerm then;
-  std::vector<Cell> env;
+  GoalRef goal;
+  GoalRef then;
+  EnvRef env;
   std::uint64_t cont = kNoFrame;
   std::size_t cut = 0;
+  // Commit と CatchExit では切り詰める高さ。SoftCommit では else の Entry の位置で、条件が動く間は変わらない
+  // （条件のカットは else より上だけを切る）。スタックをなめて soft_id を探さずに済む（ADR 0011 の改訂 3）。
   std::size_t trim_to = 0;
   int soft_id = 0;
   std::uint32_t module = 0;
@@ -292,9 +320,9 @@ struct Machine::Impl {
   bool load_kept = false;
   std::vector<Entry> stack;
   std::vector<Extra> extras;
-  // extras がこれまでに縮んだ一番小さい長さ。制御枠の extra を借りている間に、同期の throw の
-  // restore_state がその枠まで捨てたかどうかを BorrowedExtra が見る（engine.cpp）。
-  std::size_t extras_low = SIZE_MAX;
+  // 上に選択点を残したまま抜けた（無効にした）Catch。選択点ごとに有効な Catch を写すと、同時に生きている
+  // 選択点の数の 2 乗になる（ADR 0011 の改訂 3）。
+  std::vector<CatchRecord> catch_log;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
@@ -352,6 +380,8 @@ struct Machine::Impl {
   GcStats gc_stats;
   std::vector<RootVisit> gc_roots;
   std::size_t gc_capacity = 0;
+  // GcVisitor の訪問ごとに 1 つ進める。EnvCells::gc_pass と比べ、共有の env を 2 度訪ねない。
+  std::uint64_t gc_pass = 0;
   std::size_t gc_threshold = 0;
   // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
   std::size_t gc_trigger = 0;
@@ -395,8 +425,8 @@ struct Goal {
 };
 
 struct Compiled {
-  IrTerm term;
-  std::vector<Cell> env;
+  GoalRef term;
+  EnvRef env;
 };
 
 // 読み込み中の診断の文面（ADR 0007）。読み込んでいるマシンでは問い合わせを動かせないので、新しいマシンで作る。
@@ -413,29 +443,39 @@ struct Compiled {
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
 [[nodiscard]] bool is_directive(const Heap& heap, Cell cell);
 
-void launch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-            const std::vector<Cell>& env, std::uint32_t module);
-void launch_or(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env, std::uint32_t module);
-void launch_if_then(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                    const std::vector<Cell>& env, std::uint32_t module);
-void launch_soft(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                 const std::vector<Cell>& env, std::uint32_t module);
+void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, const EnvRef& env,
+            std::uint32_t module);
+// launch の繰り返しの 1 歩。制御構造の枠を積み、次に動かす最初の下位ゴールとその継続とカットの高さを返す。
+// launch を呼ばないので、入れ子が深くても C++ の呼び出しは積まない（ADR 0011 の改訂 3）。
+struct LaunchNext {
+  GoalRef goal;
+  std::uint64_t cont = kNoFrame;
+  std::size_t cut = 0;
+};
+[[nodiscard]] LaunchNext open_or(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
+                                 const EnvRef& env, std::uint32_t module);
+[[nodiscard]] LaunchNext open_if_then(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
+                                      const EnvRef& env, std::uint32_t module);
+[[nodiscard]] LaunchNext open_soft(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
+                                   const EnvRef& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
 Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
-[[nodiscard]] std::uint64_t embody(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                                   const std::vector<Cell>& env, std::uint32_t module);
+// 述語を呼ぶゴール（制御構造でも変数でもない）。env を残さないので、共有の env を作らずに枠にできる。
+[[nodiscard]] bool is_call_leaf(IrTag tag);
+[[nodiscard]] std::uint64_t embody_leaf(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
+                                        const std::vector<Cell>& cells, std::uint32_t module);
+[[nodiscard]] std::uint64_t embody(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
+                                   const EnvRef& env, std::uint32_t module);
 [[nodiscard]] Goal read_goal(const Impl& machine, std::uint64_t at);
 [[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right);
 // floor より前の REF を候補ごとに戻す。節の匿名は外側の選択点より新しい。
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Predicate& predicate, std::size_t index, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
-// extras を mark まで縮め、借りている extra が捨てられたことを extras_low に残す。
 void shrink_extras(Impl& machine, std::size_t mark);
 void trail_operators(Impl& machine, std::uint32_t module, int priority, Specifier specifier,
                      const std::vector<std::string>& names);
@@ -459,6 +499,8 @@ struct OpRequest {
 void restore_operators(Impl& machine, std::uint64_t effect_id);
 void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
+// スタックが縮んだ後、外した Catch を指す末尾の記録を捨てる。カットで縮み続ける決定的な再帰で記録が溜まらない。
+void prune_catch_log(Impl& machine);
 void push_frame(Impl& machine, Entry entry);
 // ゴールの位置にある、制御構造でない項（葉）の型を見る。
 using GoalLeafOk = bool (*)(IrTag tag);
@@ -478,12 +520,13 @@ void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uin
                                                       bool has_arg, Cell first);
 
 [[nodiscard]] Stop run_loop(Impl& machine);
-void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env, std::uint32_t module);
+[[nodiscard]] LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
+                                    const EnvRef& env, std::uint32_t module);
 void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 // throw/1 の本体。ball が変数なら instantiation_error、他は捕まえる catch まで巻き戻す。生成コードも通る。
 void throw_ball(Impl& machine, Cell ball);
 // ゴールを抜けた catch を無効にする。選択点が残る間は枠を残し、戻ったときだけ apply_catches が有効に戻す。
+// 上に選択点が無ければ、戻ってくる選択点も無いので記録しない。
 void disarm_catch(Impl& machine, std::size_t index);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_instantiation(Impl& machine);

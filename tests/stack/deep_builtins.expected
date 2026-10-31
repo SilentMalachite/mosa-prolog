@@ -18,6 +18,14 @@ clause:ok
 occurs_check:ok
 is_list:ok
 call_conj_right:ok
+assertz_conj_right:ok
+call_disj_right:ok
+call_disj_left:ok
+call_ite_cond:ok
+call_soft_cond:ok
+call_ite_then:ok
+call_catch:ok
+call_catch_throw:ok
 call_conj_left:ok
 assertz_conj_left:ok
 call_not_callable:ok

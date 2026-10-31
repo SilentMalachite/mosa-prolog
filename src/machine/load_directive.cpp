@@ -264,6 +264,8 @@ int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>
 // 詰め直せないので、別の vector へ退避すると、退避した制御枠の extras の添字と Entry の trail_mark を写せない。
 struct SavedExec {
   std::vector<Entry> stack;
+  // 入れ子は空のスタックから積むので、Catch の位置が外と重なる。記録もスタックと一緒に退避する。
+  std::vector<CatchRecord> catch_log;
   std::size_t extras_mark = 0;
   std::size_t trail_size = 0;
   const std::uint64_t* trail_mark = nullptr;
@@ -281,6 +283,7 @@ struct SavedExec {
 SavedExec park_exec(Impl& machine) {
   SavedExec saved;
   saved.stack.swap(machine.stack);
+  saved.catch_log.swap(machine.catch_log);
   saved.extras_mark = machine.extras.size();
   saved.trail_size = machine.trail.slots.size();
   saved.trail_mark = machine.trail.mark;
@@ -325,6 +328,7 @@ void unpark_exec(Impl& machine, SavedExec& saved, bool keep_halt) {
   const bool halted = machine.halt_now;
   const int code = machine.halt_code;
   machine.stack.swap(saved.stack);
+  machine.catch_log.swap(saved.catch_log);
   machine.trail.mark = saved.trail_mark;
   machine.ip = saved.ip;
   machine.failed = saved.failed;

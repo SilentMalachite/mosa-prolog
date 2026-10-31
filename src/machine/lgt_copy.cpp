@@ -98,7 +98,7 @@ bool keep_predicate(const Impl& src, const Predicate& predicate) {
 bool compile_copied(Impl& src, Impl& dst, const Clause& clause, Clause& out) {
   std::vector<Cell> slots;
   const Cell head = ir_to_term(src, clause.head, slots, false);
-  const Cell body = ir_to_term(src, clause.body, slots, true);
+  const Cell body = ir_to_term(src, *clause.body, slots, true);
   std::vector<std::pair<std::uint64_t, Cell>> seen;
   const Cell copied_head = copy_goal(src, dst, head, seen);
   const Cell copied_body = copy_goal(src, dst, body, seen);

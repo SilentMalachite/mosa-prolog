@@ -268,7 +268,8 @@ void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witn
     branches.push_back(fold(IrTag::And, parts));
   }
   // 束縛は収集が例外なく終わったあと。残りの証人は選択点で返す。
-  launch(machine, fold(IrTag::Or, branches), goal.cont, machine.stack.size(), env, goal.module);
+  launch(machine, make_goal(fold(IrTag::Or, branches)), goal.cont, machine.stack.size(), make_env(std::move(env)),
+         goal.module);
 }
 
 // 空の findall/3 は []。空の findall/4 は List と Tail を同じにし、Tail を [] にしない。

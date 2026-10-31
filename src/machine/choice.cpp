@@ -48,26 +48,25 @@ void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark,
 void shrink_extras(Impl& machine, std::size_t mark) {
   if (machine.extras.size() <= mark) return;
   machine.extras.resize(mark);
-  machine.extras_low = std::min(machine.extras_low, mark);
 }
 
-void note_catches(const Impl& machine, Entry& entry) {
-  entry.live_catches.clear();
-  for (std::size_t index = 0; index < machine.stack.size(); ++index) {
-    const Entry& frame = machine.stack[index];
-    if (frame.pick == Pick::Catch && frame.armed) {
-      entry.live_catches.push_back(static_cast<std::uint32_t>(index));
-    }
-  }
-}
+void note_catches(const Impl& machine, Entry& entry) { entry.catch_mark = machine.catch_log.size(); }
 
+// entry が積まれた後に無効にした Catch を、新しい順に有効に戻す。外した枠や、入れ子の実行（run_goal、findall）
+// の中の枠を指す記録は、位置か effect_id が合わないので飛ばす。
 void apply_catches(Impl& machine, const Entry& entry) {
-  std::vector<char> on(machine.stack.size(), 0);
-  for (const std::uint32_t index : entry.live_catches) {
-    if (index < on.size()) on[index] = 1;
+  while (machine.catch_log.size() > entry.catch_mark) {
+    const CatchRecord record = machine.catch_log.back();
+    machine.catch_log.pop_back();
+    if (record.index >= machine.stack.size()) continue;
+    Entry& target = machine.stack[record.index];
+    if (target.pick == Pick::Catch && target.effect_id == record.id) target.armed = true;
   }
-  for (std::size_t index = 0; index < machine.stack.size(); ++index) {
-    if (machine.stack[index].pick == Pick::Catch) machine.stack[index].armed = on[index] != 0;
+}
+
+void prune_catch_log(Impl& machine) {
+  while (!machine.catch_log.empty() && machine.catch_log.back().index >= machine.stack.size()) {
+    machine.catch_log.pop_back();
   }
 }
 
@@ -136,12 +135,12 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
   const Clause& clause = predicate.clauses[which];
   // meta 引数の限定は呼び手の文脈。枠は書き換えず、節に入るたびに作る。やり直しで枠より新しい項を指さないため。
   const auto context = predicate.meta.empty() ? 0 : read_goal(machine, goal).module;
-  std::vector<Cell> env;
-  env.reserve(clause.vars);
-  for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
+  std::vector<Cell> cells;
+  cells.reserve(clause.vars);
+  for (std::uint16_t index = 0; index < clause.vars; ++index) cells.push_back(machine.heap.fresh_ref());
   if (clause.head.tag == IrTag::Fun) {
     for (std::size_t index = 0; index < clause.head.args.size(); ++index) {
-      const Cell expected = materialize(machine, clause.head.args[index], env);
+      const Cell expected = materialize(machine, clause.head.args[index], cells);
       Cell actual = Cell{machine.heap.word_at(goal + kFrameHead + index)};
       if (!predicate.meta.empty()) actual = meta_argument(machine, predicate, context, index, actual);
       if (!do_unify(machine, expected, actual)) {
@@ -152,7 +151,17 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
   }
   const auto cont = machine.heap.word_at(goal + 3);
   // 本体のゴールは節の述語のモジュールで動く（ADR 0006）。呼び手の文脈は受け継がない。
-  launch(machine, clause.body, cont, cut, env, predicate.module);
+  // 事実と 1 ゴールの本体は env を残さない。共有の env を作る確保を、よく通るこの道から省く。
+  const IrTag tag = clause.body->tag;
+  if (tag == IrTag::True) {
+    machine.ip = cont;
+    return;
+  }
+  if (is_call_leaf(tag)) {
+    machine.ip = embody_leaf(machine, *clause.body, cont, cut, cells, predicate.module);
+    return;
+  }
+  launch(machine, clause.body, cont, cut, make_env(std::move(cells)), predicate.module);
 }
 
 void enter_user(Impl& machine, const Goal& goal) {
@@ -240,13 +249,13 @@ bool redo_else(Impl& machine) {
     return false;
   }
   apply_catches(machine, top);
-  const IrTerm goal = top.else_goal;
-  const auto env = top.env;
+  GoalRef goal = top.else_goal;
+  const EnvRef env = top.env;
   const auto cont = top.cont;
   const auto cut = top.cut;
   const auto module = top.module;
   machine.stack.pop_back();
-  launch(machine, goal, cont, cut, env, module);
+  launch(machine, std::move(goal), cont, cut, env, module);
   return true;
 }
 

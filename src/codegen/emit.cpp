@@ -100,14 +100,14 @@ class ClauseText {
     const auto mark = scratch_->heap.size();
     std::vector<Cell> slots;
     const Cell head = ir_to_term(*scratch_, clause.head, slots, false);
-    const Cell body = ir_to_term(*scratch_, clause.body, slots, true);
+    const Cell body = ir_to_term(*scratch_, *clause.body, slots, true);
     const std::vector<VarName> names = var_names(clause, slots);
     WriteOptions options;
     options.numbervars = true;
     options.space_args = true;
     const OperatorView operators = op_view(source_, module_);
     std::string text = write_term(scratch_->heap, operators, head, options, names);
-    if (clause.body.tag != IrTag::True) text += " :- " + write_term(scratch_->heap, operators, body, options, names);
+    if (clause.body->tag != IrTag::True) text += " :- " + write_term(scratch_->heap, operators, body, options, names);
     scratch_->heap.truncate(mark);
     return text + ".";
   }
@@ -117,7 +117,7 @@ class ClauseText {
   static std::vector<VarName> var_names(const Clause& clause, const std::vector<Cell>& slots) {
     std::vector<int> uses(slots.size(), 0);
     count_uses(clause.head, uses);
-    count_uses(clause.body, uses);
+    count_uses(*clause.body, uses);
     std::vector<VarName> names;
     for (std::size_t slot = 0; slot < slots.size(); ++slot) {
       if (slots[slot].raw() == 0) continue;
@@ -142,7 +142,7 @@ std::size_t scratch_limit(const Impl& machine, std::uint32_t module) {
   for (const Predicate& predicate : machine.predicates) {
     if (!translatable(predicate, module)) continue;
     for (const Clause& clause : predicate.clauses) {
-      nodes = std::max(nodes, node_count(clause.head) + node_count(clause.body));
+      nodes = std::max(nodes, node_count(clause.head) + node_count(*clause.body));
     }
   }
   return std::max(std::size_t{1} << 14, nodes * 4 + 64);
@@ -286,7 +286,7 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   std::vector<bool> plans;
   std::size_t native = 0;
   for (const Clause& clause : predicate.clauses) {
-    plans.push_back(translatable_body(machine, clause.body));
+    plans.push_back(translatable_body(machine, *clause.body));
     native += plans.back() ? 1 : 0;
   }
   if (native == 0) {

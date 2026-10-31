@@ -10,10 +10,11 @@
 //     指しうる。それを項として辿ると、枠の語に違う種類が付いて枠を辿り損ねる。安全点では exception は常に偽で、
 //     ball を読むのは exception が真のとき（run_loop・errors.cpp）だけなので、消しても意味は変わらない。
 //   Entry（GcVisitor::entry）: env と pattern はセル、redo_goal と cont は枠、heap_mark・trail_mark・extras_mark は
-//     水位。cut・live_catches・native_cut・Extra::trim_to は選択点スタックの高さか添字で、ヒープではないので触らない。
+//     水位。cut・catch_mark・native_cut・Extra::trim_to・Impl::catch_log は選択点スタックの高さか添字で、ヒープではないので触らない。
 //     candidates は節の添字か生成関数の状態（native_control.cpp の push_branch は語 1 の下位 32 ビットの状態）で、
 //     ヒープの添字ではない。
 //   Extra（extras）はルートではない。制御枠の語 1 から届いたものだけが生き、その env（セル）と cont（枠）を辿る。
+//   env は Entry と Extra が共有するので、どちらからも GcVisitor::env を通して 1 度だけ辿る（ADR 0011 の改訂 3）。
 //   Trail::slots は弱い参照。印の付いた語を指す項目だけを残す。
 //   Trail::mark は計画では weak_address だが、生きた語の番地ではなく水位（heap.data() + heap_mark）なので、
 //     heap_mark と同じく rank で写す。死んだ語を 0（nullptr）にすると unify の境界の意味が変わる。
@@ -43,6 +44,7 @@
 namespace mosa {
 
 struct Entry;
+struct EnvCells;
 
 // ヒープの 1 語のバイト数。statistics/2 と trace_gc の行が同じ値で換算する。
 inline constexpr std::size_t kHeapWordBytes = sizeof(std::uint64_t);
@@ -65,12 +67,18 @@ class GcVisitor {
   // ヒープの添字。印付けでは辿らない。生きていれば新しい添字、死んでいれば SIZE_MAX（0 は生きた添字でありうる）
   virtual void weak_index(std::size_t& index) = 0;
   void entry(Entry& entry);                           // Entry のセル・枠・水位をすべて訪ねる
+  // 共有の env は 1 回の訪問で 1 度だけ訪ねる。書き換えを 2 度当てると番地がずれる（ADR 0011 の改訂 3）。
+  void env(EnvCells* env);
 
  protected:
   GcVisitor() = default;
+  explicit GcVisitor(std::uint64_t pass) : pass_(pass) {}
   GcVisitor(const GcVisitor&) = default;
   GcVisitor& operator=(const GcVisitor&) = default;
   ~GcVisitor() = default;
+
+ private:
+  std::uint64_t pass_ = 0;
 };
 
 using RootVisit = std::function<void(GcVisitor&)>;

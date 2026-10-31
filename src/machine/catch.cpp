@@ -189,8 +189,9 @@ void propagate_throw(Impl& machine, Cell ball) {
   while (!machine.stack.empty()) {
     // 収集の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。
     if (machine.stack.back().pick == Pick::Barrier) break;
-    const Entry top = machine.stack.back();
+    const Entry top = std::move(machine.stack.back());
     machine.stack.pop_back();
+    prune_catch_log(machine);
     if (top.pick != Pick::Catch || !top.armed) continue;
     // 例外もその catch より後ろの op/3 を戻す。節のデータベースは戻さない。
     restore_operators(machine, top.effect_id);
@@ -215,12 +216,12 @@ void propagate_throw(Impl& machine, Cell ball) {
   machine.ip = kNoFrame;
 }
 
-void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-               const std::vector<Cell>& env, std::uint32_t module) {
+LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
+                      const EnvRef& env, std::uint32_t module) {
   Entry entry;
   entry.pick = Pick::Catch;
-  entry.pattern = materialize(machine, goal.args[1], env);
-  entry.recovery = goal.args[2];
+  entry.pattern = materialize(machine, goal->args[1], env->cells);
+  entry.recovery = sub_goal(goal, 2);
   entry.env = env;
   entry.cont = cont;
   entry.cut = cut;
@@ -235,11 +236,14 @@ void arm_catch(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_
   exit.trim_to = machine.stack.size() - 1;
   exit.cont = cont;
   const auto frame = push_extra(machine, std::move(exit));
-  launch(machine, goal.args[0], frame, machine.stack.size(), env, module);
+  return LaunchNext{sub_goal(goal, 0), frame, machine.stack.size()};
 }
 
 void disarm_catch(Impl& machine, std::size_t index) {
-  if (index < machine.stack.size() && machine.stack[index].pick == Pick::Catch) machine.stack[index].armed = false;
+  if (index >= machine.stack.size() || machine.stack[index].pick != Pick::Catch) return;
+  Entry& entry = machine.stack[index];
+  if (entry.armed && index + 1 < machine.stack.size()) machine.catch_log.push_back(CatchRecord{index, entry.effect_id});
+  entry.armed = false;
 }
 
 void throw_ball(Impl& machine, Cell ball) {

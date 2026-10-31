@@ -198,7 +198,7 @@ bool goal_shape_ok(Impl& machine, const Goal& goal, Cell cell) {
 bool goal_body_ok(Impl& machine, const Goal& goal, Cell cell, Compiled& compiled) {
   if (!goal_shape_ok(machine, goal, cell)) return false;
   compiled = compile_goal(machine.heap, cell);
-  if (body_callable(compiled.term)) return true;
+  if (body_callable(*compiled.term)) return true;
   raise_formal(machine, formal_type(machine, "callable", cell), goal.name, goal.arity);
   return false;
 }

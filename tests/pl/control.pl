@@ -30,6 +30,12 @@ test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).
 test(error_neg, throw(error(domain_error(not_less_than_zero, -1), _)), error(domain_error(not_less_than_zero, -1))).
 test(throw_keeps_ball, catch((X = a, throw(f(X))), Y, Y == f(a)), true).
 test(catch_after, (catch(true, _, true), throw(x)), error(x)).
+% 指令の実行は選択点スタックを退避して空から積む。その中で抜けた catch の記録が、外の同じ位置の抜けた
+% catch を、外の選択点へ戻ったときに有効に戻してはいけない（ADR 0011 の改訂 3）。
+test(catch_parked_rearm,
+     (catch(true, _, fail), catch(true, _, fail), (X = 1 ; X = 2),
+      (X == 1 -> consult('tests/pl/catch_park_dir.pl') ; true), X == 2, throw(boom)),
+     error(boom)).
 test(if_cut_local, ((!, fail) -> true ; true), true).
 test(var_goal_cut, (G = !, (G, fail ; true)), true).
 test(call_conj_num, call((fail, 1)), error(type_error(callable, (fail, 1)))).

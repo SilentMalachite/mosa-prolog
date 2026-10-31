@@ -19,7 +19,7 @@ constexpr std::uint64_t k_count_mask = 0x7FFFFFFFU;
 
 class Marker final : public GcVisitor {
  public:
-  Marker(Impl& machine, GcMarks& marks) : machine_(machine), marks_(marks) {}
+  Marker(Impl& machine, GcMarks& marks) : GcVisitor(++machine.gc_pass), machine_(machine), marks_(marks) {}
 
   void cell(Cell& slot) override { mark_value(slot); }
   void frame(std::uint64_t& index) override {
@@ -103,7 +103,7 @@ void Marker::mark_extra(std::size_t index) {
   if ((bits & bit) != 0) return;
   bits |= bit;
   Extra& extra = machine_.extras[index];
-  for (Cell& slot : extra.env) mark_value(slot);
+  env(extra.env.get());
   frame(extra.cont);
 }
 

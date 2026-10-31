@@ -307,7 +307,7 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
   if (!unify_visible(machine, floor, view.head, materialize(machine, clause.head, env))) return false;
   if (view.head_only) return true;
-  const Cell body = materialize(machine, clause.body, env);
+  const Cell body = materialize(machine, *clause.body, env);
   if (!view.rule) {
     // 事実の正規形は本体 true。規則は retract(Head) では消さない。
     return unify_visible(machine, floor, machine.heap.atom(machine.atoms.intern("true")), body);
@@ -390,7 +390,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     return;
   }
   // 8.9.1.3 は、非公開より先に本体がゴールへ変換できるかを見る。
-  if (view.rule && !goal_form(clause.body)) {
+  if (view.rule && !goal_form(*clause.body)) {
     raise_type(machine, goal, "callable", view.body);
     return;
   }

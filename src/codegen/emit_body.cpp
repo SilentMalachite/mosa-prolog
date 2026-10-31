@@ -398,7 +398,7 @@ ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate&
   const Clause& clause = predicate.clauses[name.clause - 1];
   ClauseCtx ctx{machine, tables, predicate, name, code, 1, {}};
   std::vector<GoalRef> goals;
-  flatten(ctx, clause.body, predicate.module, goals);
+  flatten(ctx, *clause.body, predicate.module, goals);
   const auto entry_state = rt::state_of(name.clause, 0);
   // 頭部の単一化は束縛を残さずに失敗するか、本体の fail で戻るだけなので、本体がすぐ失敗する節は頭部を見ない。
   if (goals.size() == 1 && goals[0].term->tag == IrTag::Fail) {
