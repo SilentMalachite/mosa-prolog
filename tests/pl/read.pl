@@ -13,6 +13,8 @@ test(read_position, (open_string([97, 46, 10, 98, 46], S), read(S, a), stream_pr
 % 6.4.8: 終止符の後ろは空白か % である。% の注釈は次の read が飛ばす。
 test(read_end_percent, (open_string('a.% c\n', S), read(S, T), read(S, U), T == a, U == end_of_file), true).
 test(read_end_percent_eof, (open_string('a.%', S), read(S, T), T == a), true).
+test(read_univ_percent, (open_string('X =..% c\n Y.', S), read(S, T), T = (_ =.. _)), true).
+test(read_char_dot_percent, (open_string('0\'.%c\n', S), read(S, _)), error(syntax_error(_))).
 test(read_end_percent_next, (open_string('a.%c\nb.', S), read(S, a), read(S, T), T == b), true).
 end_percent_fact.% この節は終止符のすぐ後ろに % を置く。読めなければファイル全体が読み込めない。
 test(read_end_percent_clause, end_percent_fact, true).

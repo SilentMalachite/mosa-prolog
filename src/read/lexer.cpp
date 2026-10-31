@@ -239,11 +239,11 @@ bool Lexer::end_follows(std::size_t width) const {
 }
 
 bool Lexer::ends_clause(SourceChar ch, Place start) const {
-  // 空白の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
+  // 空白か % の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
   if (ch.code == U'.') {
     return end_follows(ch.bytes) && (index_ == start.byte || source_[index_ - 1] != '.');
   }
-  // 。は小数点にしないので半角に写さない。後ろが空白か終わりのときだけ終止符で、他は記号文字。
+  // 。は小数点にしないので半角に写さない。後ろが空白か % か終わりのときだけ終止符で、他は記号文字。
   return fullwidth_ && ch.code == U'。' && end_follows(ch.bytes);
 }
 

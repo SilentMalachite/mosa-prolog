@@ -190,6 +190,15 @@ void test_radix_and_comment_end() {
   auto end_comment = scan_all("a.% c\n");
   mosa_test::check(end_comment.size() == 2 && end_comment[1].kind == mosa::TokenKind::EndFullStop,
                    "end before %");
+  mosa::Lexer after_end("a.% c\n");
+  (void)after_end.next();
+  (void)after_end.next();
+  const mosa::Scan rest_scan = after_end.next();
+  mosa_test::check(!rest_scan.failure && rest_scan.token.kind == mosa::TokenKind::End,
+                   "comment after end is skipped");
+  auto univ_comment = scan_all("X =..% c\n Y.");
+  mosa_test::check(univ_comment.size() == 4 && univ_comment[1].text == "=..",
+                   "=.. before % stays one name");
   auto fw_end_comment = scan_all("w（x）。% c", true);
   mosa_test::check(fw_end_comment.size() == 5 &&
                        fw_end_comment[4].kind == mosa::TokenKind::EndFullStop,

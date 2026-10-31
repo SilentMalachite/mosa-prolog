@@ -105,6 +105,7 @@ test(char_width_repr, '$char_width'(-1, _), error(representation_error(character
     ( nonvar(E) -> throw(E) ; T = T0 ).
 test(fw_same_term, (全角で読む('親（太郎，一郎）。', T1), open_string('親(太郎,一郎).', S), read(S, T2), T1 == T2), true).
 test(fw_end_percent, (全角で読む('w（x）。% c', T), T == w(x)), true).
+test(fw_end_percent_next, (set_prolog_flag(japanese_punctuation, true), catch((open_string('w（x）。%c\nv（y）。', S), read(S, A), read(S, B)), E, true), set_prolog_flag(japanese_punctuation, false), var(E), A == w(x), B == v(y)), true).
 test(fw_list, (全角で読む('X = ［1，2］。', T), T = (_ = L), L == [1, 2]), true).
 test(fw_touten, (全角で読む('f（a、b）。', T), T == f(a, b)), true).
 test(fw_colon, (全角で読む('a：b。', T), T == (a:b)), true).
