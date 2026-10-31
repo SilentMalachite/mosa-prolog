@@ -628,6 +628,8 @@ int apply_char_conv_directive(Impl& machine, Cell directive);
 [[nodiscard]] bool redo_pred_gen(Impl& machine);
 // slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。
 [[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal);
+// clause/2 が見せる形が格納した IR と違うか（変数ゴール、Call、halt/0、catch の隠し引数）。
+[[nodiscard]] bool shown_differs(const IrTerm& term, bool as_goal);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。
 [[nodiscard]] bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);

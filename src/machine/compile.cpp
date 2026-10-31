@@ -180,6 +180,8 @@ std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
 }
 
 // catch/3 の 2 番目は捕まえる型であり、ゴールではない。
+// TODO(iso): 7.8.9.1 catch/3 の Goal は実行時に call/1 で動く。ここで訳すと、後で ! に束縛される変数が
+// call(X) の壁になり、clause/2 が見せる形と動きが違う（iso-notes 7.8.9）。
 bool child_is_data(const GoalFrame& frame, std::size_t index) {
   return frame.term.tag == IrTag::Catch && index == 1;
 }

@@ -125,7 +125,7 @@ ClauseView clause_view(Impl& machine, Cell term) {
   return view;
 }
 
-bool reject_clause(Impl& machine, const Goal& goal, Cell term, bool allow_body_var) {
+bool reject_clause(Impl& machine, const Goal& goal, Cell term) {
   if (machine.heap.unbound(term)) {
     raise_instantiation(machine, goal);
     return true;
@@ -140,12 +140,9 @@ bool reject_clause(Impl& machine, const Goal& goal, Cell term, bool allow_body_v
     return true;
   }
   if (!view.rule) return false;
-  if (machine.heap.unbound(view.body)) {
-    // retract((H :- _)) は本体を束縛する。assert の変数本体は具体化エラーのまま。
-    if (allow_body_var) return false;
-    raise_instantiation(machine, goal);
-    return true;
-  }
+  // 7.6.2 は変数の本体を call/1 に変える。8.9.1.3 の具体化エラーは頭部だけ。
+  // retract((H :- B)) の B は、clause/2 と同じく変数を call/1 に包んだ本体と単一化する（unify_stored）。
+  if (machine.heap.unbound(view.body)) return false;
   if (!callable_term(machine, view.body)) {
     raise_type(machine, goal, "callable", view.body);
     return true;
@@ -307,7 +304,12 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
   if (!unify_visible(machine, floor, view.head, materialize(machine, clause.head, env))) return false;
   if (view.head_only) return true;
-  const Cell body = materialize(machine, *clause.body, env);
+  // retract(Head) は本体 true の節だけを消す。他の規則の本体を組んでから比べると、本体の大きさだけ無駄になる。
+  if (!view.rule && clause.body->tag != IrTag::True) return false;
+  // 8.9.3 は clause/2 と同じ本体と単一化する。IR のままだと変数の本体がどの本体とも合う（7.6.2）。
+  // env はもう全スロットを持つので、形が変わらない本体は ir_to_term の走査を省いて直接組む。
+  const Cell body = shown_differs(*clause.body, true) ? ir_to_term(machine, *clause.body, env, true)
+                                                      : materialize(machine, *clause.body, env);
   if (!view.rule) {
     // 事実の正規形は本体 true。規則は retract(Head) では消さない。
     return unify_visible(machine, floor, machine.heap.atom(machine.atoms.intern("true")), body);
@@ -376,7 +378,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   Cell term = goal.arg(machine, 0);
   std::uint32_t module = 0;
   if (!strip_target(machine, goal, term, module, true)) return;
-  if (reject_clause(machine, goal, term, false)) return;
+  if (reject_clause(machine, goal, term)) return;
   const ClauseView view = clause_view(machine, term);
   const HeadName head = head_indicator(machine, view.head);
   // 別名で取り込んだ述語へ足す節は、取り込み元の名前の頭で持つ。検査と誤りは呼び手の書いた名前で出す。
@@ -428,7 +430,7 @@ void run_retract(Impl& machine, const Goal& goal) {
   Cell term = goal.arg(machine, 0);
   std::uint32_t module = 0;
   if (!strip_target(machine, goal, term, module, true)) return;
-  if (reject_clause(machine, goal, term, true)) return;
+  if (reject_clause(machine, goal, term)) return;
   const ClauseView view = clause_view(machine, term);
   HeadName head = head_indicator(machine, view.head);
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;

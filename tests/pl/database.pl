@@ -186,3 +186,51 @@ test(asserta_neck_2, asserta(((a :- b) :- true)), error(permission_error(modify,
 test(asserta_neck_1, asserta(((:- b) :- true)), error(permission_error(modify, static_procedure, (:-)/1))).
 test(assert_nested, assertz((nest_phase3 :- (true, 4))), error(type_error(callable, (true, 4)))).
 test(assert_builtin_body, assertz((atom(_) :- (true, 4))), error(type_error(callable, (true, 4)))).
+
+% 8.9.1.3・8.9.2.3 は頭部の変数だけを誤りとし、7.6.2 は変数の本体を call/1 に変える（iso-notes 8.9.1、レビュー H5）。
+:- dynamic(bv_order/0).
+bv_order :- fail.
+bv_static :- true.
+test(assert_body_var_asserta, asserta((bv_a :- _)), true).
+test(assert_body_var_asserta_clause, (clause(bv_a, B), nonvar(B), B = call(V), var(V)), true).
+test(assert_body_var_assertz_call, (assertz((bv_z(X) :- X)), bv_z(true)), true).
+test(assert_body_var_assertz_fail, bv_z(fail), fail).
+test(assert_body_var_unbound_call, bv_z(_), error(instantiation_error)).
+test(assert_body_var_number_call, bv_z(1), error(type_error(callable, 1))).
+% 頭部と本体が同じセルのまま格納される。頭の引数を本体として呼ぶ。
+test(assert_body_var_shared, (clause(bv_z(Y), B), B == call(Y)), true).
+test(assert_body_var_solutions, (assertz((bv_m(X) :- X)), bv_m((Z = 1 ; Z = 2 ; Z = 3))), solutions([Z = 1, Z = 2, Z = 3])).
+% call/1 は切断を閉じる。本体へ ! をそのまま埋めると、二つ目の節を切ってしまう。
+test(assert_body_var_cut_opaque, (assertz((bv_c(X) :- X)), assertz(bv_c(_)), findall(k, bv_c(!), L)), solutions([L = [k, k]])).
+test(assert_body_var_cut_local, (findall(Z, bv_m(((Z = 1 ; Z = 2 ; Z = 3), !)), L)), solutions([L = [1]])).
+% assert の後で束縛しても、格納された節の変数は動かない。
+test(assert_body_var_copied, (assertz((bv_cp :- G)), G = true, catch(bv_cp, error(instantiation_error, _), R = caught), R == caught), true).
+test(assert_body_var_asserta_first, (asserta((bv_order :- true)), asserta((bv_order :- _)), clause(bv_order, B)), solutions([B = call(_), B = true, B = fail])).
+test(assert_body_var_qualified, (assertz(user:(bv_q(X) :- X)), bv_q(true)), true).
+test(assert_body_var_retract, (assertz((bv_r :- _)), retract((bv_r :- B)), nonvar(B), B = call(V), var(V)), true).
+test(assert_body_var_retract_gone, (assertz((bv_rg :- _)), retract((bv_rg :- _)), \+ clause(bv_rg, _), assertz((bv_rg :- _)), clause(bv_rg, B)), solutions([B = call(_)])).
+test(assert_body_var_retract_call, (assertz((bv_rc :- _)), retract((bv_rc :- call(_)))), true).
+% retract は clause/2 と同じ本体を見る。格納した変数のまま単一化すると、どの本体とも合ってしまう。
+test(assert_body_var_retract_fact_first, (assertz((bv_rf :- _)), assertz(bv_rf), retract(bv_rf), clause(bv_rf, B)), solutions([B = call(_)])).
+test(assert_body_var_retract_true, (assertz((bv_rt :- _)), assertz((bv_rt :- true)), retract((bv_rt :- true)), findall(B, clause(bv_rt, B), L)), solutions([L = [call(_)]])).
+test(assert_body_var_retract_head_only, (assertz((bv_rh :- _)), retract(bv_rh)), fail).
+test(assert_body_var_retract_other_goal, (assertz((bv_ro :- _)), retract((bv_ro :- foo(1)))), fail).
+test(assert_body_var_retract_head_arg, (assertz((bv_ra(X) :- X)), retract((bv_ra(_) :- foo))), fail).
+test(assert_body_var_retract_shared, (assertz((bv_rs(X) :- X)), findall(Y-B, retract((bv_rs(Y) :- B)), [Y1-B1]), B1 == call(Y1)), true).
+test(assert_body_var_retract_conj, (assertz((bv_rj(X) :- true, X)), retract((bv_rj(_) :- (true, foo)))), fail).
+test(assert_body_var_retract_conj_call, (assertz((bv_rk(X) :- true, X)), retract((bv_rk(Y) :- (true, B))), B == call(Y)), true).
+test(assert_body_var_retract_halt, (assertz((bv_hl :- halt)), retract((bv_hl :- halt))), true).
+% catch/3 の引数の変数は call/1 に包まない。本体の false は fail に畳む（iso-notes 8.8 clause/2）ので、それを除けば assert した形で消せる。
+test(assert_body_var_retract_catch, (assertz((bv_ct(G) :- catch(G, _, fail))), retract((bv_ct(foo) :- catch(foo, _, fail)))), true).
+test(assert_body_var_retract_catch_var, (assertz((bv_cv(G) :- catch(G, _, true))), retract((bv_cv(X) :- catch(X, _, true))), var(X)), true).
+test(assert_body_var_retract_left_nested, (assertz((bv_ln(X) :- ((X, a), b))), retract((bv_ln(Y) :- ((B, a), b))), B == call(Y)), true).
+test(assert_body_var_retract_halt_inside, (assertz((bv_hi :- ((a ; halt) -> b ; c))), retract((bv_hi :- ((a ; halt) -> b ; c)))), true).
+% 事実を消す retract(Head) は本体 true の節だけを見る。
+test(assert_body_var_retract_rule_true, (assertz((bv_tr :- true)), assertz((bv_tr :- _)), retract(bv_tr), clause(bv_tr, B)), solutions([B = call(_)])).
+% 頭部の誤りが本体より先。静的と組込の拒否も本体が変数で変わらない。
+test(assert_body_var_both_var, assertz((_ :- _)), error(instantiation_error)).
+test(assert_body_var_head_number, asserta((1 :- _)), error(type_error(callable, 1))).
+test(assert_body_var_builtin, assertz((atom(_) :- _)), error(permission_error(modify, static_procedure, atom/1))).
+test(assert_body_var_control, asserta((call(_) :- _)), error(permission_error(modify, static_procedure, call/1))).
+test(assert_body_var_static, assertz((bv_static :- _)), error(permission_error(modify, static_procedure, bv_static/0))).
+test(assert_body_var_conj_number, assertz((bv_n :- (_, 1))), error(type_error(callable, (_, 1)))).

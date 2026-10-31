@@ -16,6 +16,14 @@ meta(X) :- X.
 
 branch(X) :- (X ; true).
 
+% 7.6.2 c は catch/3 の引数をそのまま残す。変換するのは , ; -> の引数だけ。
+guarded(G) :- catch(G, _, fail).
+guarded_and(X) :- catch((X, a), _, X).
+guarded_or(X) :- (catch(X, _, true) ; X).
+% 形の変わる節点が、最後でない子の制御構造の中にだけある。
+left_nested(X) :- ((X, a), b).
+halt_inside :- ((a ; halt) -> b ; c).
+
 test(clause_facts, clause(insect(X), true), solutions([X = ant, X = bee])).
 test(clause_share, (clause(legs(A, 6), B), B == insect(A)), true).
 test(clause_and, (clause(path(A, C), (edge(F, D), edge(E, G))), A == F, C == G, D == E), true).
@@ -23,6 +31,11 @@ test(clause_static, clause(frozen(X), B), solutions([(X = 1, B = true)])).
 test(clause_false, clause(quiet, B), solutions([B = fail])).
 test(clause_call, (clause(meta(Y), B), B == call(Y)), true).
 test(clause_call_or, (clause(branch(Y), B), B == (call(Y) ; true)), true).
+test(clause_catch_var, (clause(guarded(G), B), B = catch(H, _, R), H == G, R == fail), true).
+test(clause_catch_and, (clause(guarded_and(X), B), B = catch(H, _, R), H == (X, a), R == X), true).
+test(clause_left_nested, (clause(left_nested(X), B), B == ((call(X), a), b)), true).
+test(clause_halt_inside, (clause(halt_inside, B), B == ((a ; halt) -> b ; c)), true).
+test(clause_catch_in_or, (clause(guarded_or(X), B), B = (catch(H, _, T) ; O), H == X, T == true, O == call(X)), true).
 test(clause_var, clause(X, Y), error(instantiation_error)).
 test(clause_number, clause(1, Y), error(type_error(callable, 1))).
 test(clause_body, clause(insect(X), 1), error(type_error(callable, 1))).

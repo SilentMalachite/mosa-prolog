@@ -61,6 +61,20 @@ A か B か: A は `domain_error(write_option, LaterTerm)` のまま（今の決
 
 決定（2026-10-25）: 未決 5 は A。利用者が定義した述語は公開である。`consult` の静的な節、`:- dynamic`、`assert` で作った述語、`retract` で節を空にした動的述語を含む。`clause/2` は定義順に節を返す。事実の本体はアトム `true` である。同じスロットの変数は同じセルで、匿名変数は出現ごとに新しい参照である。本体の `false/0` はコンパイルが `fail` に畳むので、返る本体はアトム `fail` である。組込と制御は `permission_error(access, private_procedure, PI)` である。無い述語は失敗する。節の無い動的述語は失敗するが、非公開ではない。静的な利用者述語は読める。
 
+## 8.9.1 本体が変数の asserta/1 と assertz/1
+
+8.9.1.3 と 8.9.2.3 が `instantiation_error` とするのは頭部が変数のときだけで、7.6.2 は変数の本体 `X` を `call(X)` に変える。Mosa は `consult` と `mosac` から来た `p :- X` と、assert の `p(X) :- true, X` はそう格納していたが、`asserta((p :- X))` と `assertz((p(X) :- X))` は `instantiation_error` を出していた（レビュー H5）。
+
+A か B か: A は 7.6.2 に従う。節は本体が `call(X)` であるかのように振る舞う。`clause(p, B)` は `B = call(_)` を返し、`retract((p :- B))` は `B` を `call(_)` と単一化する（したがって `retract(p)` と `retract((p :- true))` はこの節を消さない）。`X` が未束縛のまま呼ぶと `call/1` から `instantiation_error` になる。B は誤りを残し、意図した逸脱として記す。
+
+決定（2026-11-01）: A（所有者が H5 の計画と実装を一度に依頼した）。retract/1 は格納した IR の変数そのものと単一化していたので、どの本体とも合っていた。H5 より前から `p(X) :- true, X` や consult した節でも起きていた。今は clause/2 と同じ形に本体を戻す（`retract((h :- halt))` も一致するようになり、本体の `false` は、このファイルの 8.8 clause/2 に記したとおり `fail` に見える）。`catch/3` の引数は 7.6.2 c のとおり書いたままにする。clause/2 は以前そこの変数を `call(X)` と見せていた。`p(X) :- X` に対する `retract((p(Y) :- Y))` は `Y` を `call(Y)` と単一化する。これは出現検査の対象外（7.3.3）なので、`Y` は循環項になる。テスト: `tests/pl/database.pl` の `assert_body_var_*`。
+
+## 7.8.9 変数を含む catch/3 のゴール
+
+7.8.9.1 は `catch/3` の Goal を `call/1` と同じように動かす。したがって中の変数は catch が動くときに置き換わり、その変数が `!` に束縛されていれば catch の Goal を切る。Mosa は節を作るときに Goal を訳し、その変数を切断を閉じる `call(X)` にする。`assertz((t(X) :- catch(((X, fail) ; true), _, true)))` の後、`t(!)` は成功する（mosa と mosac）が、`G = catch(((X, fail) ; true), _, true), X = !, call(G)` は失敗する。H5 以降 clause/2 は Goal を書いたまま見せる（7.6.2 c）ので、`clause(t(!), B), call(B)` は失敗し、`t(!)` は成功する。H5 の敵対的レビューで見つかった。訳し方は H5 より前からある。
+
+A か B か: A は catch/3 の Goal と Recovery を、実行時に束縛された変数が切断に対して透過になるように訳す（IR の変更なので先に ADR）。B は訳した形を残し、ここに逸脱として記す。
+
 ## 8.8 current_predicate/1
 
 決定（2026-10-25）: 未決 6 は B。`current_predicate/1` は利用者の述語だけを、定義された順に返す。`current_predicate(true/0)` は失敗であり、`permission_error` ではない。空の動的述語は成功する。`abolish` のあとは失敗する。

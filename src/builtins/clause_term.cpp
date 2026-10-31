@@ -6,6 +6,7 @@
 #include "../machine/internal.hpp"
 
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -48,10 +49,10 @@ std::size_t shown_count(const IrTerm& term) {
   return term.args.size();
 }
 
-bool child_as_goal(const IrTerm& term, std::size_t index) {
-  if (goal_connective(term.tag)) return true;
-  if (term.tag == IrTag::Catch && term.args.size() >= 3) return index != 1;
-  return false;
+// 7.6.2 b が変換するのはゴール位置の , ; -> の引数だけ。c により catch/3 の引数はそのまま見せる。
+// catch の中の (X, a) を (call(X), a) にすると、assert した形で retract できない。
+bool child_as_goal(const IrTerm& term, bool term_as_goal) {
+  return term_as_goal && goal_connective(term.tag);
 }
 
 IrTerm named_atom(Impl& machine, std::string_view name) {
@@ -66,6 +67,7 @@ struct ExposeFrame {
   const IrTerm* source;
   IrTerm built;
   std::size_t next;
+  bool as_goal;
 };
 
 // 子を持たない形になったものは out に置いて true を返す。子を持つ項は frames に積んで false を返す。
@@ -99,7 +101,7 @@ bool expose_start(Impl& machine, const IrTerm* term, bool as_goal, IrTerm& out, 
     return true;
   }
   copy.args.reserve(shown_count(*term));
-  frames.push_back(ExposeFrame{term, std::move(copy), 0});
+  frames.push_back(ExposeFrame{term, std::move(copy), 0, as_goal});
   return false;
 }
 
@@ -119,16 +121,57 @@ IrTerm expose(Impl& machine, const IrTerm& root, bool as_goal) {
     }
     const std::size_t index = top.next++;
     const IrTerm* child = &top.source->args[index];
-    const bool goal = child_as_goal(*top.source, index);
+    const bool goal = child_as_goal(*top.source, top.as_goal);
     IrTerm leaf;
     // expose_start が frames を伸ばすと top は無効になるので、葉は改めて末尾の枠へ足す。
     if (expose_start(machine, child, goal, leaf, frames)) frames.back().built.args.push_back(std::move(leaf));
   }
 }
 
+// expose_start がこの節点自身の形を変えるか。
+bool node_differs(const IrTerm& term, bool as_goal) {
+  if (term.tag == IrTag::Call) return true;
+  if (as_goal && (term.tag == IrTag::Var || term.tag == IrTag::Anon)) return true;
+  if (term.tag == IrTag::Halt && term.args.empty()) return true;
+  return shown_count(term) != term.args.size();
+}
+
+// 子をゴールとして訳すのは compile.cpp の goal_frame の 5 つだけ。他の葉の引数はデータで形が変わらない。
+bool has_goal_children(const IrTerm& term) { return goal_connective(term.tag) || term.tag == IrTag::Catch; }
+
 }  // namespace
 
+// expose_start が形を変える節点があるか。無ければ写さずに戻せる。
+// retract は候補ごとに本体を組むので、写しの確保が大きな本体で 3 倍の時間になった。
+// 連言は右へ入れ子になるので、最後の子へは積まずに進む。普通の本体では確保が起きない。
+bool shown_differs(const IrTerm& root, bool as_goal) {
+  std::vector<std::pair<const IrTerm*, bool>> pending;
+  const IrTerm* term = &root;
+  bool goal = as_goal;
+  while (true) {
+    if (node_differs(*term, goal)) return true;
+    if (has_goal_children(*term) && !term->args.empty()) {
+      const bool child_goal = child_as_goal(*term, goal);
+      for (std::size_t index = 0; index + 1 < term->args.size(); ++index) {
+        const IrTerm& arg = term->args[index];
+        if (has_goal_children(arg)) pending.emplace_back(&arg, child_goal);
+        else if (node_differs(arg, child_goal)) return true;
+      }
+      term = &term->args.back();
+      goal = child_goal;
+      continue;
+    }
+    if (pending.empty()) return false;
+    std::tie(term, goal) = pending.back();
+    pending.pop_back();
+  }
+}
+
 Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal) {
+  if (!shown_differs(term, as_goal)) {
+    remember_slot(machine, term, slots);
+    return materialize(machine, term, slots);
+  }
   const IrTerm shown = expose(machine, term, as_goal);
   remember_slot(machine, shown, slots);
   return materialize(machine, shown, slots);

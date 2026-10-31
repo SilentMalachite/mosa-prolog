@@ -59,6 +59,20 @@ Decision (2026-10-25): Only the first solution is taken. On success, `atom/1` an
 
 Decision (2026-10-25): Open question 5: A. User-defined predicates are public. This includes static clauses from `consult`, `:- dynamic`, predicates created by `assert`, and dynamic predicates whose clauses were all removed by `retract`. `clause/2` returns clauses in definition order. The body of a fact is the atom `true`. Variables in the same slot are the same cell; an anonymous variable is a fresh reference at each occurrence. `false/0` in a body is folded to `fail` by the compiler, so the returned body is the atom `fail`. Built-ins and control constructs give `permission_error(access, private_procedure, PI)`. A nonexistent predicate fails. A dynamic predicate with no clauses fails but is not private. Static user predicates can be read.
 
+## 8.9.1 asserta/1 and assertz/1 with a variable body
+
+8.9.1.3 and 8.9.2.3 raise `instantiation_error` only for a variable head; 7.6.2 converts a variable body `X` to `call(X)`. Mosa stored `p :- X` that way when it came from `consult` or `mosac`, and also `p(X) :- true, X` from assert, but `asserta((p :- X))` and `assertz((p(X) :- X))` raised `instantiation_error` (review H5).
+
+A or B?: A follows 7.6.2: the clause behaves as if its body were `call(X)`. `clause(p, B)` gives `B = call(_)`, `retract((p :- B))` unifies `B` with `call(_)` (so `retract(p)` and `retract((p :- true))` do not remove it), and calling it with `X` unbound raises `instantiation_error` from `call/1`. B keeps the error and records it as an intentional deviation.
+
+Decision (2026-11-01): A (the owner asked for H5 to be planned and implemented in one request). retract/1 used to unify the stored IR variable itself, which matched any body, also for `p(X) :- true, X` and consulted clauses before H5; it now builds the body as clause/2 does (this also makes `retract((h :- halt))` match, and `false` in a body is seen as `fail`, as this file records under 8.8 clause/2). The arguments of `catch/3` are left as written, as 7.6.2 c says; clause/2 used to show a variable there as `call(X)`. `retract((p(Y) :- Y))` on `p(X) :- X` unifies `Y` with `call(Y)`, which is not subject to occurs check (7.3.3), so `Y` becomes a cyclic term. Tests: `tests/pl/database.pl` `assert_body_var_*`.
+
+## 7.8.9 catch/3 goals that contain variables
+
+7.8.9.1 runs the Goal of `catch/3` as `call/1` does, so a variable inside it is replaced only when the catch runs, and a `!` it is bound to cuts the Goal of the catch. Mosa compiles the Goal when the clause is made and turns such a variable into `call(X)`, which is opaque to cut: after `assertz((t(X) :- catch(((X, fail) ; true), _, true)))`, `t(!)` succeeds (mosa and mosac), while `G = catch(((X, fail) ; true), _, true), X = !, call(G)` fails. Since H5, clause/2 shows the Goal as written (7.6.2 c), so `clause(t(!), B), call(B)` fails while `t(!)` succeeds. Found by the adversarial review of H5; the compile step predates H5.
+
+A or B?: A compiles the Goal and Recovery of catch/3 so that a variable in them is transparent to cut when it is bound at run time (an IR change, so an ADR first). B keeps the compiled form and records it here as a deviation.
+
 ## 8.8 current_predicate/1
 
 Decision (2026-10-25): Open question 6: B. `current_predicate/1` returns only user predicates, in definition order. `current_predicate(true/0)` fails; it is not a `permission_error`. An empty dynamic predicate succeeds. After `abolish` it fails.
