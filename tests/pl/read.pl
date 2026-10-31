@@ -10,6 +10,12 @@ test(read_eof_past, (open_string('', S), read(S, end_of_file), stream_property(S
 test(read_layout_eof, (open_string('  ', S), read(S, end_of_file)), true).
 % 8.14.1.4 は終止符の直後の改行も残す。位置はドットの次で、次の read は改行を飛ばして b を読む。
 test(read_position, (open_string([97, 46, 10, 98, 46], S), read(S, a), stream_property(S, position(stream_position(2, 1, 3))), read(S, b)), true).
+% 6.4.8: 終止符の後ろは空白か % である。% の注釈は次の read が飛ばす。
+test(read_end_percent, (open_string('a.% c\n', S), read(S, T), read(S, U), T == a, U == end_of_file), true).
+test(read_end_percent_eof, (open_string('a.%', S), read(S, T), T == a), true).
+test(read_end_percent_next, (open_string('a.%c\nb.', S), read(S, a), read(S, T), T == b), true).
+end_percent_fact.% この節は終止符のすぐ後ろに % を置く。読めなければファイル全体が読み込めない。
+test(read_end_percent_clause, end_percent_fact, true).
 test(read_keeps_layout, (open_string('term1. term2. ...', S), read(S, T), T == term1, get_char(S, C), C == ' '), true).
 test(read_fail_consumes, (open_string('a. b.', S), (read(S, b) ; true), read(S, T), T == b), true).
 test(read_names, (open_string('foo(A, B, A).', S), read_term(S, T, [variables(L), variable_names(N), singletons(G)]), T = foo(A, B, A), L = [A, B], N = ['A'=A, 'B'=B], G = ['B'=B]), true).

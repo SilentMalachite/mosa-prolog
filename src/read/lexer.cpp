@@ -231,19 +231,20 @@ std::optional<Scan> Lexer::skip_line_comment() {
   return std::nullopt;
 }
 
-bool Lexer::layout_follows(std::size_t width) const {
+// 6.4.8: end char の後ろは layout char か %。% は注釈の開始なので、次の読みが飛ばす。
+bool Lexer::end_follows(std::size_t width) const {
   if (index_ + width >= source_.size()) return true;
   const SourceChar after = peek_char_at(index_ + width);
-  return after.valid && classify(after.code) == CharClass::Layout;
+  return after.valid && (classify(after.code) == CharClass::Layout || after.code == U'%');
 }
 
 bool Lexer::ends_clause(SourceChar ch, Place start) const {
   // 空白の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
   if (ch.code == U'.') {
-    return layout_follows(ch.bytes) && (index_ == start.byte || source_[index_ - 1] != '.');
+    return end_follows(ch.bytes) && (index_ == start.byte || source_[index_ - 1] != '.');
   }
   // 。は小数点にしないので半角に写さない。後ろが空白か終わりのときだけ終止符で、他は記号文字。
-  return fullwidth_ && ch.code == U'。' && layout_follows(ch.bytes);
+  return fullwidth_ && ch.code == U'。' && end_follows(ch.bytes);
 }
 
 Scan Lexer::scan_word(TokenKind kind) {

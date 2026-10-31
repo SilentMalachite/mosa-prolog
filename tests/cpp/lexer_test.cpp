@@ -187,6 +187,13 @@ void test_radix_and_comment_end() {
   mosa_test::check(arrow.size() == 2 && arrow[0].kind == mosa::TokenKind::Name &&
                        arrow[0].text == "->",
                    "graphic arrow");
+  auto end_comment = scan_all("a.% c\n");
+  mosa_test::check(end_comment.size() == 2 && end_comment[1].kind == mosa::TokenKind::EndFullStop,
+                   "end before %");
+  auto fw_end_comment = scan_all("w（x）。% c", true);
+  mosa_test::check(fw_end_comment.size() == 5 &&
+                       fw_end_comment[4].kind == mosa::TokenKind::EndFullStop,
+                   "fullwidth end before %");
   auto open_comment = mosa::Lexer("/* unterminated");
   auto comment_scan = open_comment.next();
   mosa_test::check(comment_scan.failure &&
