@@ -94,6 +94,22 @@ test(writeq_minus_int, (open_string('-(1). ', S), read(S, T), with_output_to(ato
 test(writeq_minus_float, (open_string('-(1.0). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- (1.0)'), true).
 test(writeq_minus_neg, (open_string('-(-1). ', S), read(S, T), with_output_to(atom(A), writeq(T)), A == '- -1'), true).
 test(writeq_minus_name, (with_output_to(atom(A), writeq(-(a))), A == '-a'), true).
+% 6.3.4.1, 7.10.5: 被演算子の字面が符号なしの数で始まるときも括弧に入れる。-1^2 は (-1)^2 と読まれる。
+minus_round(T, A) :- with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T.
+test(writeq_minus_pow, minus_round(-(1^2), '- (1^2)'), true).
+test(writeq_minus_starstar, minus_round(-(1**2), '- (1**2)'), true).
+test(writeq_minus_float_pow, minus_round(-(1.5^2), '- (1.5^2)'), true).
+test(writeq_minus_chain, minus_round(-(1^a^b), '- (1^a^b)'), true).
+test(writeq_minus_code, minus_round(-(0'a^2), '- (97^2)'), true).
+test(writeq_minus_exp, minus_round(-(1.0e10^2), '- (1.0e+10^2)'), true).
+test(writeq_minus_postfix, (op(200, xf, '~~'), (minus_round(-('~~'(1)), A) -> R = A ; R = no), op(0, xf, '~~'), R == '- (1~~)'), true).
+% 左端が数でなければ今までどおり。括弧に入る被演算子、負の数、名前は字面を変えない。
+test(writeq_minus_name_pow, minus_round(-(a^b), '-a^b'), true).
+test(writeq_minus_paren_left, minus_round(-((1^2)^3), '- (1^2)^3'), true).
+test(writeq_minus_neg_pow, minus_round(-((-1)^2), '- -1^2'), true).
+test(writeq_minus_wide, minus_round(-(1-2), '- (1-2)'), true).
+test(writeq_minus_numbervar, (with_output_to(atom(A), writeq(-('$VAR'(1)^2))), A == '-B^2'), true).
+test(writeq_minus_cycle, (X = X^2, with_output_to(atom(A), writeq(-(X))), atom(A)), true).
 % 8.14.2.3 の選択肢の検査。部分リストと quoted の変数は opt_partial と quoted_var が見る。
 test(wt_opt_var, write_term(a, [_]), error(instantiation_error)).
 test(wt_opt_quoted_fail, write_term(a, [quoted(fail)]), error(domain_error(write_option, quoted(fail)))).

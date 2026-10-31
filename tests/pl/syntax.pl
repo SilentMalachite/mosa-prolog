@@ -139,3 +139,7 @@ c'.
 
 % case: curly_bare
 {}.
+
+% case: minus_pow
+% expect: - (1^2)
+- (1^2).

@@ -242,6 +242,7 @@ class Printer final : public WriteHeld {
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
   [[nodiscard]] bool operator_atom(Cell term) const;
   [[nodiscard]] bool unsigned_number(Cell term) const;
+  [[nodiscard]] bool leftmost_unsigned_number(Cell term, int priority, bool allow_equal) const;
   [[nodiscard]] std::string spell(std::string_view name) const;
   [[nodiscard]] std::string spell_operator(std::string_view name) const;
   [[nodiscard]] std::string spell_functor(std::string_view name) const;
@@ -516,6 +517,25 @@ std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
   return name;
 }
 
+// 書く順をなぞって左端の被演算子を降り、字面の先頭が符号なしの数になるかを見る。括弧、前置演算子、
+// 関数表記、リスト、{}、変数、'$VAR' は数以外の字で始まるので止める。降りの中で同じ項に戻るのは循環で、
+// writer はそこに _ を書く。portray が置き換える字面は見ない（7.10.5 で portray の出力は利用者が決める）。
+bool Printer::leftmost_unsigned_number(Cell term, int priority, bool allow_equal) const {
+  std::unordered_set<std::uint64_t> seen;
+  while (true) {
+    if (term.tag() == Tag::Ref && var_name(term) != nullptr) return false;
+    term = heap_.deref(term);
+    if (unsigned_number(term)) return true;
+    if (term.tag() != Tag::Str || open_.contains(term.raw()) || !seen.insert(term.raw()).second) return false;
+    if (options_.numbervars && numbervar_text(heap_, term)) return false;
+    const std::optional<OpDef> op = as_operator(term);
+    if (!op || is_prefix(op->specifier) || needs_paren(op->priority, priority, allow_equal)) return false;
+    priority = op->priority;
+    allow_equal = op->specifier == Specifier::Yfx || op->specifier == Specifier::Yf;
+    term = heap_.arg(term, 0);
+  }
+}
+
 void Printer::render(const Work& item) {
   Cell term = item.term;
   if (item.allow_hook && replace_ != nullptr) {
@@ -606,7 +626,9 @@ void Printer::push_prefix(const OpDef& op, Cell term, std::string name) {
   const Cell arg = heap_.arg(term, 0);
   // 空白だけだと次の字が演算子になり、引数のアトムとして読み戻せない。
   // 6.3.4.1: `- 1` も負の数と読まれる。-(1) は数を括弧で包んで前置演算子のまま読み戻す。
-  const bool wrap = operator_atom(arg) || (op.name == "-" && unsigned_number(arg));
+  // 字面が数で始まる被演算子も同じ。-(1^2) を -1^2 と書くと (-1)^2 と読まれる（7.10.5 の往復）。
+  const bool wrap = operator_atom(arg) ||
+                    (op.name == "-" && leftmost_unsigned_number(arg, op.priority, op.specifier == Specifier::Fy));
   const std::size_t id = next_id_++;
   push_clear(id);
   if (wrap) push_text(")");
