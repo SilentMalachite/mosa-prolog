@@ -191,15 +191,22 @@ bool is_connective(const Heap& heap, Cell cell) {
   return name == "," || name == ";" || name == "->" || name == "*->";
 }
 
-// , ; -> *-> の下のゴール位置に未束縛の変数があるか（7.6.2 が変換するのはこの 4 つだけ）。入れ子の catch/3 は
-// 自分で決めるので入らない。見た節点を覚え、巡回するゴールでもこの歩き手は止まる（ゴールの翻訳はレビュー M13）。
-bool has_goal_var(const Heap& heap, Cell root) {
+// 数はゴールにならない（7.6.2）。変数は呼べるかどうかが束縛で決まるので、ここでは数えない。
+bool non_callable(const Heap& heap, Cell cell) {
+  const Tag tag = cell.tag();
+  return !heap.unbound(cell) && tag != Tag::Atom && tag != Tag::Str && tag != Tag::Lis;
+}
+
+// , ; -> *-> の下のゴール位置に、未束縛の変数か呼べない項があるか（7.6.2 が変換するのはこの 4 つだけ）。
+// 入れ子の catch/3 は自分で決めるので入らない。見た節点を覚え、巡回するゴールでもこの歩き手は止まる
+// （ゴールの翻訳はレビュー M13）。
+bool has_late_leaf(const Heap& heap, Cell root) {
   std::vector<Cell> pending{root};
   std::unordered_set<std::uint64_t> seen;
   while (!pending.empty()) {
     const Cell cell = heap.deref(pending.back());
     pending.pop_back();
-    if (heap.unbound(cell)) return true;
+    if (heap.unbound(cell) || non_callable(heap, cell)) return true;
     if (!is_connective(heap, cell) || !seen.insert(cell.raw()).second) continue;
     pending.push_back(heap.arg(cell, 1));
     pending.push_back(heap.arg(cell, 0));
@@ -210,10 +217,13 @@ bool has_goal_var(const Heap& heap, Cell root) {
 // ADR 0014。catch/3 の Goal と Recovery は catch が動くときに call/1 で訳す（7.8.9.1）。ゴール位置の変数が
 // そのとき ! なら、そのゴールに閉じたカットになる。今訳すと call(X) の壁になるので、データのまま Call にする。
 // 変数 1 つだけのゴールは Var の葉が同じく call(X) として動くので、今のまま訳す。
+// 呼べない部分のあるゴールも Call にする（レビュー M15）。call/1 が何も動かす前に type_error(callable, Goal) を
+// 出す（7.8.3.3）。今訳すと前のゴールが先に動き、外の call/1 や assertz/1 が catch/3 ごと拒む。
 bool runs_late(const Heap& heap, const GoalFrame& frame, std::size_t index, Cell child) {
   if (frame.term.tag != IrTag::Catch || index == 1) return false;
   child = heap.deref(child);
-  return is_connective(heap, child) && has_goal_var(heap, child);
+  if (non_callable(heap, child)) return true;
+  return is_connective(heap, child) && has_late_leaf(heap, child);
 }
 
 // call/1 の葉。clause/2 は Call を中の項として見せる（clause_term.cpp の expose_start）。

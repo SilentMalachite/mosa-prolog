@@ -409,6 +409,13 @@ void check_control() {
     const auto stop = stopped->query(goal);
     mosa_test::check(stop.kind == mosa::StopKind::Halt && stop.halt_code == code, std::string{goal} + ": halt code");
   }
+  // レビュー M15。呼べない部分のある catch の Goal と Recovery は、halt/1 を動かす前に型エラーで捕まえられる。
+  constexpr std::string_view early = "nh :- catch((halt(6), 1), error(type_error(callable, _), _), true)."
+                                     " nr :- catch(throw(e), _, (halt(7), 1)).";
+  auto checked = mosa::Machine::create();
+  mosa_test::check(checked->load_program(early).ok, "nh nr: load");
+  mosa_test::check(checked->query("nh.").kind == mosa::StopKind::Success, "nh: no halt");
+  mosa_test::check(checked->query("nr.").kind == mosa::StopKind::Exception, "nr: no halt");
   auto again = mosa::Machine::create();
   mosa_test::check(again->query("call(1).").kind == mosa::StopKind::Exception, "call number");
   mosa_test::check(again->load_program(":- op(600, xfy, *->). p(1). p(2).").ok, "soft cut data");

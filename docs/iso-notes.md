@@ -75,7 +75,7 @@ A or B?: A compiles the Goal and Recovery of catch/3 so that a variable in them 
 
 Decision (2026-11-01): A. Planned after H6: only a Goal or Recovery with a variable in goal position is kept as data and run by `call/1` at run time; catch/3 without such a variable stays compiled. ADR first (IR and mosac codegen change). Review item M14.
 
-Done (2026-11-01, 0b333c3, ADR 0014): such a Goal or Recovery becomes an `IrTag::Call` node and runs as `call/1` when the catch runs; mosac no longer translates `\+` and `M:G` data with a variable in goal position ahead (n(!) used to differ from mosa). Tests: `tests/pl/control.pl` `m14_*`, `tests/mosac/undefined_catch.pl`, `tests/stack/deep_builtins.pl` `call_catch_late_nest`. Without a variable, a non-callable part of a catch argument is still checked ahead (review M15).
+Done (2026-11-01, 0b333c3, ADR 0014): such a Goal or Recovery becomes an `IrTag::Call` node and runs as `call/1` when the catch runs; mosac no longer translates `\+` and `M:G` data with a variable in goal position ahead (n(!) used to differ from mosa). Tests: `tests/pl/control.pl` `m14_*`, `tests/mosac/undefined_catch.pl`, `tests/stack/deep_builtins.pl` `call_catch_late_nest`. Done (2026-11-01, review M15, ADR 0014 amendment): without a variable, a Goal or Recovery with a non-callable part (a number in goal position below `,` `;` `->` `*->`) also becomes a `Call` node, so `catch((write(a), 1), E, true)` binds `E` to `type_error(callable, (write(a), 1))` without writing `a`, and `call/1` and `assertz/1` no longer look into catch/3 arguments. Tests: `tests/pl/control.pl` `m15_*`.
 
 ## 8.8 current_predicate/1
 

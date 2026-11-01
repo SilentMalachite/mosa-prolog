@@ -77,7 +77,7 @@ A か B か: A は catch/3 の Goal と Recovery を、実行時に束縛され�
 
 決定（2026-11-01）: A。H6 の後に行う。ゴール位置に変数を持つ Goal か Recovery だけをデータのまま持ち、実行時に `call/1` で動かす。そういう変数の無い catch/3 は今のまま訳す。IR と mosac のコード生成が変わるので、先に ADR を書く。レビュー項目 M14。
 
-完了（2026-11-01、0b333c3、ADR 0014）: そういう Goal か Recovery は `IrTag::Call` の節点になり、catch が動くときに `call/1` として動く。mosac は、ゴール位置に変数を含む `\+` と `M:G` のデータを先に訳さなくなった（以前は n(!) が mosa と違った）。テスト: `tests/pl/control.pl` の `m14_*`、`tests/mosac/undefined_catch.pl`、`tests/stack/deep_builtins.pl` の `call_catch_late_nest`。変数が無い場合、catch の引数の呼び出せない部分は今も先に確かめる（レビュー M15）。
+完了（2026-11-01、0b333c3、ADR 0014）: そういう Goal か Recovery は `IrTag::Call` の節点になり、catch が動くときに `call/1` として動く。mosac は、ゴール位置に変数を含む `\+` と `M:G` のデータを先に訳さなくなった（以前は n(!) が mosa と違った）。テスト: `tests/pl/control.pl` の `m14_*`、`tests/mosac/undefined_catch.pl`、`tests/stack/deep_builtins.pl` の `call_catch_late_nest`。完了（2026-11-01、レビュー M15、ADR 0014 の改訂）: 変数が無くても、呼び出せない部分（`,` `;` `->` `*->` の下のゴール位置の数）のある Goal と Recovery は `Call` の節点になる。`catch((write(a), 1), E, true)` は `a` を書かずに `E` を `type_error(callable, (write(a), 1))` に束縛し、`call/1` と `assertz/1` は catch/3 の引数の中を見なくなった。テスト: `tests/pl/control.pl` の `m15_*`。
 
 ## 8.8 current_predicate/1
 

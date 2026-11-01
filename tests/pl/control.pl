@@ -173,6 +173,65 @@ test(m14_not_arg, (m14_not_arg(1), \+ m14_not_arg(2)), true).
 test(m14_clause_shown, (clause(m14_goal(_), B), B = catch(G, _, true), G = ((V, fail) ; true), var(V)), true).
 test(m14_clause_recovery_shown, (clause(m14_recovery(_), B), B = catch(throw(e), _, R), R = ((V, fail) ; true), var(V)), true).
 test(m14_clause_same_as_head, (clause(m14_goal(!), B), \+ call(B)), true).
+% レビュー M15。変数のない catch/3 の Goal と Recovery も call/1 と同じく、呼べない部分があれば何も動かす前に
+% type_error(callable, Goal) になる（7.8.9.1、7.8.3.3）。catch/3 自体は呼べる項なので、外の call/1 や
+% assertz/1 は中を見ない（7.6.2 は catch/3 の引数を変換しない）。
+:- dynamic(m15_seen/0).
+:- dynamic(m15_dyn/1).
+m15_goal(E) :- catch((assertz(m15_seen), 1), E, true).
+m15_recovery :- catch(throw(x), _, (assertz(m15_seen), 1)).
+m15_lone_recovery :- catch(throw(x), _, 1).
+m15_disj(L) :- findall(E, catch((true ; 1), E, true), L).
+m15_ite(E) :- catch((fail -> true ; (true, 1)), E, true).
+m15_float(E) :- catch((true, 1.5), E, true).
+m15_big(E) :- catch((true, 9223372036854775807), E, true).
+m15_lone(E) :- catch(1, E, true).
+m15_nested(I, O) :- catch(catch((true, 1), I, true), O, true).
+m15_throw_first(E) :- catch((throw(a), 1), E, true).
+m15_cut_first(L) :- findall(E, catch((m14_m(_), !, 1), E, true), L).
+m15_outside(E) :- catch((assertz(m15_seen), catch(1, _, true), 2), E, true).
+m15_formal(E, F) :- E = error(F, _).
+test(m15_goal_first, (retractall(m15_seen), m15_goal(E), m15_formal(E, F), \+ m15_seen), solutions([F = type_error(callable, (assertz(m15_seen), 1))])).
+test(m15_recovery_first, (retractall(m15_seen), catch(m15_recovery, E, true), m15_formal(E, F), \+ m15_seen), solutions([F = type_error(callable, (assertz(m15_seen), 1))])).
+test(m15_lone_recovery, m15_lone_recovery, error(type_error(callable, 1))).
+test(m15_disj_once, (m15_disj(L), L = [E], m15_formal(E, F)), solutions([F = type_error(callable, (true ; 1))])).
+test(m15_ite_whole, (m15_ite(E), m15_formal(E, F)), solutions([F = type_error(callable, (fail -> true ; (true, 1)))])).
+test(m15_float, (m15_float(E), m15_formal(E, F)), solutions([F = type_error(callable, (true, 1.5))])).
+test(m15_big, (m15_big(E), m15_formal(E, F)), solutions([F = type_error(callable, (true, 9223372036854775807))])).
+test(m15_lone, (m15_lone(E), m15_formal(E, F)), solutions([F = type_error(callable, 1)])).
+test(m15_nested_inner, (m15_nested(I, O), var(O), m15_formal(I, F)), solutions([F = type_error(callable, (true, 1))])).
+test(m15_throw_not_reached, (m15_throw_first(E), m15_formal(E, F)), solutions([F = type_error(callable, (throw(a), 1))])).
+test(m15_cut_not_reached, (m15_cut_first(L), L = [E], m15_formal(E, F)), solutions([F = type_error(callable, (m14_m(_), !, 1))])).
+% 外の連言の 2 は catch の外なので、外の catch が何も動かす前に全体で捕まえる。
+test(m15_outside_still_checked, (retractall(m15_seen), m15_outside(E), m15_formal(E, F), \+ m15_seen), solutions([F = type_error(callable, (assertz(m15_seen), catch(1, _, true), 2))])).
+test(m15_call_inner, (catch(call(catch((true, 1), E, true)), O, true), var(O), m15_formal(E, F)), solutions([F = type_error(callable, (true, 1))])).
+test(m15_call_lone, (call(catch(1, E, true)), m15_formal(E, F)), solutions([F = type_error(callable, 1)])).
+test(m15_call_prefix_runs, (retractall(m15_seen), call((assertz(m15_seen), catch(1, _, true))), m15_seen), true).
+test(m15_call_outside, (retractall(m15_seen), catch(call((assertz(m15_seen), catch(true, _, true), 1)), E, true), m15_formal(E, F), \+ m15_seen), solutions([F = type_error(callable, (assertz(m15_seen), catch(true, _, true), 1))])).
+test(m15_findall, findall(F, (catch((true, 1), E, true), m15_formal(E, F)), L), solutions([L = [type_error(callable, (true, 1))]])).
+test(m15_qualified, (user:catch((true, 1), E, true), m15_formal(E, F)), solutions([F = type_error(callable, (true, 1))])).
+test(m15_with_output, (with_output_to(atom(A), catch((write(a), 1), _, true)), A == ''), true).
+test(m15_assert, (retractall(m15_dyn(_)), assertz((m15_dyn(E) :- catch((true, 1), E, true))), m15_dyn(E1), m15_formal(E1, F)), solutions([F = type_error(callable, (true, 1))])).
+test(m15_assert_shown, (retractall(m15_dyn(_)), assertz((m15_dyn(E) :- catch((true, 1), E, true))), clause(m15_dyn(_), B), B = catch(G, _, true), G == (true, 1)), true).
+test(m15_clause_shown, (clause(m15_goal(_), B), B = catch(G, _, true), G == (assertz(m15_seen), 1)), true).
+test(m15_clause_lone_shown, (clause(m15_lone(_), B), B = catch(G, _, true), G == 1), true).
+% 節として訳す側（assertz）では Call が数をデータのまま持つ。Goal や Recovery が数だけでも節は入る。
+test(m15_assert_lone, (retractall(m15_dyn(_)), assertz((m15_dyn(E) :- catch(1, E, true))), m15_dyn(E1), m15_formal(E1, F)), solutions([F = type_error(callable, 1)])).
+test(m15_assert_lone_recovery, (retractall(m15_dyn(_)), assertz((m15_dyn(_) :- catch(throw(x), _, 2))), catch(m15_dyn(_), E, true), m15_formal(E, F)), solutions([F = type_error(callable, 2)])).
+test(m15_assert_recovery_shown, (retractall(m15_dyn(_)), assertz((m15_dyn(_) :- catch(throw(x), _, (true, 2)))), clause(m15_dyn(_), B), B = catch(throw(x), _, R), R == (true, 2)), true).
+test(m15_call_recovery, (catch(call(catch(throw(x), _, (assertz(m15_seen), 1))), E, true), m15_formal(E, F)), solutions([F = type_error(callable, (assertz(m15_seen), 1))])).
+% 項として作った深い入れ子（kShallow の 64 段を超える）の中の catch/3 も同じ。
+m15_deep(0, catch((true, 1), _, true)) :- !.
+m15_deep(N, (true, G)) :- N1 is N - 1, m15_deep(N1, G).
+m15_deep_catch(N, F) :- m15_deep(N, G), m15_last(G, catch(_, E, _)), call(G), m15_formal(E, F).
+m15_last((_, G), C) :- !, m15_last(G, C).
+m15_last(C, C).
+test(m15_deep_call, m15_deep_catch(200, F), solutions([F = type_error(callable, (true, 1))])).
+test(m15_deep_assert, (retractall(m15_dyn(_)), m15_deep(200, G), m15_last(G, catch(_, E, _)), assertz((m15_dyn(E) :- G)), m15_dyn(E1), m15_formal(E1, F)), solutions([F = type_error(callable, (true, 1))])).
+% 変数があるときの M14 の振る舞いは変わらない。X は call/1 が変換したときに未束縛なので call(X) になる。
+% 変数 1 つだけの Goal は今のまま Var の葉で、call/1 と同じ具体化エラーになる（型エラーではない）。
+test(m15_call_anon, (call(catch(_, E, true)), m15_formal(E, F)), solutions([F = instantiation_error])).
+test(m15_var_bound_later, (catch((X = 1, X), E, true), m15_formal(E, F)), solutions([F = type_error(callable, 1)])).
 test(m14_clause_written_call, (clause(m14_written(_), B), B = catch(G, _, true), G = call(_)), true).
 test(m14_written_call, m14_written(!), fail).
 test(m14_assert_retract, (assertz((m14_dyn(X) :- catch(((X, fail) ; true), _, true))), \+ m14_dyn(!), retract((m14_dyn(Y) :- catch(((Y, fail) ; true), _, true))), \+ clause(m14_dyn(_), _)), true).

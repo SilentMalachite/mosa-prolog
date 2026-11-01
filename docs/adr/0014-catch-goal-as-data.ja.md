@@ -23,4 +23,10 @@ mosac の `owned_goal` はゴール位置に変数を含むデータを断る。
 
 `t(!)`、Recovery の形、`call((Y = !, ...))` の形は失敗し、`n(!)` は成功する。mosa でも mosac の実行ファイルでも `call(G)` と同じになる。`tests/pl/control.pl` のテスト（どれも `mosac` でも通す）で、Goal、Recovery、`\+`、`M:G`、catch が始まった後に束縛される変数（`catch((X = !, ((X, fail) ; true)), _, true)` は今後も成功する。call/1 は `X` が未束縛のうちに変換するため）、そういう節への `clause/2` と `retract/1` を確かめる。
 そういう catch は呼ぶたびにゴールを 1 回訳す。変数 `G` の `catch(G, ...)` はすでにそうしている。他の catch、`lib/`、ベンチのプログラムは変わらない。そういうゴールの中に呼び出せない部分があれば、`call/1` と同じく、どれかを動かす前に `type_error(callable, Goal)` になる（7.8.3.3）。
-対象外（レビュー M15）: 変数が無い場合、catch の引数の呼び出せない部分は、その前のゴールを動かしてしまう（`catch((write(a), 1), E, true)` は `a` を書く）。また `call(catch((true, 1), E, true))` は catch の外へ `type_error(callable, catch(...))` を投げる。`body_callable` が catch の引数の中まで見るためである。
+当初の対象外（レビュー M15。下の改訂で対応した）: 変数が無い場合、catch の引数の呼び出せない部分は、その前のゴールを動かしてしまう（`catch((write(a), 1), E, true)` は `a` を書く）。また `call(catch((true, 1), E, true))` は catch の外へ `type_error(callable, catch(...))` を投げる。`body_callable` が catch の引数の中まで見るためである。
+
+## 改訂（2026-11-01、所有者の M15 の実装の依頼により 2026-11-01 承認）
+
+背景: 変数が無い場合、呼び出せない部分のある catch/3 の Goal と Recovery は先に訳されていた。そのため `catch((write(a), 1), E, true)` は `type_error(callable, 1)` の前に `a` を書いた。また `body_callable` とデータベースの `goal_form` が `Catch` の中まで見るので、`call(catch((true, 1), E, true))` と `assertz((p :- catch(1, _, true)))` は catch の外へ `type_error(callable, catch(...))` を投げた（レビュー M15。7.8.9.1、7.8.3.3。7.6.2 は catch/3 の引数を変換しない）。
+決定: Goal か Recovery が数のとき、または `,` `;` `->` `*->` の下のゴール位置に数があるとき（変数と同じ歩き方）も `IrTag::Call` の節点にする。`call/1` が何も動かす前に `type_error(callable, Goal)` を出す。`leaves_at` は `Catch` の中を見ない（catch/3 のゴールは呼び出せる）。mosac の未定義の呼び出しの検査は、ゴール位置に数のある `Call` の節点を飛ばす。どれも動かないからである。
+退けた案: `open_catch` の中で実行時に Goal 全体を確かめる（catch を呼ぶたびにもう 1 回なめる）。結果: 数も変数も無い catch は変わらない。テストは `tests/pl/control.pl` の `m15_*`、`tests/cpp/machine_test.cpp`（数の前の halt/1）、`tests/mosac/halt_noncallable_*.pl` と `noncallable_undefined.pl`。

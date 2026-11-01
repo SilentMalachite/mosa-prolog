@@ -312,9 +312,9 @@ bool leaves_at(const IrTerm& term, GoalLeafOk ok, int depth, std::vector<const I
     case IrTag::SoftIf:
       return term.args.size() >= 2 && leaves_at(term.args[0], ok, depth + 1, later) &&
              leaves_at(term.args[1], ok, depth + 1, later);
-    case IrTag::Catch:
-      return term.args.size() >= 3 && leaves_at(term.args[0], ok, depth + 1, later) &&
-             leaves_at(term.args[2], ok, depth + 1, later);
+    // catch/3 は呼べる項であり、7.6.2 はその引数を変換しない。呼べない Goal と Recovery は Call の節点に
+    // なり（compile.cpp の runs_late、レビュー M15）、catch が動くときに call/1 が拒む。
+    case IrTag::Catch: return term.args.size() >= 3;
     case IrTag::Call: return term.args.empty() || leaves_at(term.args[0], ok, depth + 1, later);
     default: return ok(term.tag);
   }
