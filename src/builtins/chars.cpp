@@ -296,8 +296,8 @@ void emit_os(std::size_t index, std::string_view chunk) {
 }
 
 void place_bytes(Stream& stream, std::string_view chunk) {
-  stream.unsaved = true;
   if (stream.cursor > stream.bytes.size()) stream.cursor = stream.bytes.size();
+  note_edit(stream);
   if (stream.cursor == stream.bytes.size()) {
     stream.bytes.append(chunk);
     return;

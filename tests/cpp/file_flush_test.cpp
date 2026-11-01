@@ -276,6 +276,62 @@ void check_only_unsaved_streams() {
   mosa_test::check(holds(once, "host"), "the end does not write again what halt wrote, got " + shown(once));
 }
 
+// Grok のレビューの High。close と flush_output で保存したパスは、それより前に書いて放置した別の流れに戻されない。
+// 保存の後にその流れがまた書けば、その書き込みが残る。
+void check_save_beats_older_edits() {
+  const auto closed = tmp_path("m5_close_wins.txt");
+  fresh(closed);
+  const auto first = batch({"-g", "open('" + closed + "', write, A), write(A, draft), open('" + closed +
+                                      "', write, B), write(B, final), close(B).", "-t", "halt"});
+  mosa_test::check(first.code == 0 && holds(closed, "final"), "close beats an older edit, got " + shown(closed));
+  const auto flushed = tmp_path("m5_flush_wins.txt");
+  fresh(flushed);
+  const auto second = batch({"-g", "open('" + flushed + "', write, A), write(A, draft), open('" + flushed +
+                                       "', write, B), write(B, final), flush_output(B), halt."});
+  mosa_test::check(second.code == 0 && holds(flushed, "final"), "flush beats an older edit, got " + shown(flushed));
+  const auto later = tmp_path("m5_later_edit.txt");
+  fresh(later);
+  const auto third = batch({"-g", "open('" + later + "', write, A), write(A, draft), open('" + later +
+                                      "', write, B), write(B, final), close(B), write(A, '+late'), halt."});
+  mosa_test::check(third.code == 0 && holds(later, "draft+late"), "an edit after the save wins, got " + shown(later));
+}
+
+// Grok のレビューの Medium。保存はファイルと同じ先頭を書き直さず、続きだけを書く。append の元の中身は切り詰めない。
+void check_save_writes_only_the_rest() {
+  const auto app = tmp_path("m5_tail.txt");
+  put_file(app, "old,");
+  {
+    auto machine = mosa::Machine::create();
+    const auto stop = machine->query("open('" + app + "', append, S, [alias(m5_tail)]), write(m5_tail, new), "
+                                     "flush_output(m5_tail).");
+    mosa_test::check(stop.kind == mosa::StopKind::Success && holds(app, "old,new"), "tail: first flush");
+    // 外で先頭を変える。続きだけを書くなら、この先頭は残る。
+    put_file(app, "OLD,NEW");
+    const auto halted = machine->query("write(m5_tail, '!'), halt.");
+    mosa_test::check(halted.kind == mosa::StopKind::Halt, "tail: halt");
+  }
+  mosa_test::check(holds(app, "OLD,NEW!"), "the saved prefix is not rewritten, got " + shown(app));
+  const auto gone = tmp_path("m5_tail_gone.txt");
+  put_file(gone, "old,");
+  {
+    auto machine = mosa::Machine::create();
+    const auto stop = machine->query("open('" + gone + "', append, S, [alias(m5_gone)]), write(m5_gone, new), "
+                                     "flush_output(m5_gone).");
+    mosa_test::check(stop.kind == mosa::StopKind::Success, "gone: first flush");
+    fresh(gone);
+    const auto halted = machine->query("write(m5_gone, '!'), halt.");
+    mosa_test::check(halted.kind == mosa::StopKind::Halt, "gone: halt");
+  }
+  mosa_test::check(holds(gone, "old,new!"), "a removed file is written whole again, got " + shown(gone));
+  // 位置を戻して 3 バイトの文字を 1 バイトで上書きすると、中身が縮む。ファイルの余りを残さない。
+  const auto shrink = tmp_path("m5_shrink.txt");
+  fresh(shrink);
+  const auto shrunk = batch({"-g", "open('" + shrink + "', write, S, [reposition(true)]), stream_property(S, "
+                                    "position(P)), write(S, '日本'), flush_output(S), set_stream_position(S, P), "
+                                    "write(S, a), halt."});
+  mosa_test::check(shrunk.code == 0 && holds(shrink, "a本"), "a shrunk stream leaves no tail, got " + shown(shrink));
+}
+
 }  // namespace
 
 int main() {
@@ -291,5 +347,7 @@ int main() {
   check_embedded_halt();
   check_embedded_leaves_others();
   check_only_unsaved_streams();
+  check_save_beats_older_edits();
+  check_save_writes_only_the_rest();
   return mosa_test::failures();
 }

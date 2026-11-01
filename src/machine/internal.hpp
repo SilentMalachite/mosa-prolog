@@ -287,9 +287,18 @@ struct Stream {
   // 書いてからまだファイルへ保存していない。halt と終わりはこれが立つ流れだけを書き出す。開いただけの流れや
   // 保存の後に書いていない流れが、後で書かれたファイルを古い写しで潰さないため（レビュー M5 の A1〜A3）。
   bool unsaved = false;
+  // bytes の先頭のうち、ファイルと同じだと分かっている長さ。保存はその続きだけを書き、append の元の中身を
+  // 切り詰めない（Grok のレビューの Medium）。0 ならファイル全体を書き直す。
+  std::size_t on_disk = 0;
   std::string alias;
   std::string path;
 };
+
+// 書き込みの前、cursor を末尾までに収めた後に呼ぶ。cursor から後ろはファイルと違ってくる。
+inline void note_edit(Stream& stream) {
+  stream.unsaved = true;
+  if (stream.cursor < stream.on_disk) stream.on_disk = stream.cursor;
+}
 
 // この op/3 が変えた名前だけ。表全体を写すと、後の :- op まで消える。
 struct OpTouch {

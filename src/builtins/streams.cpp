@@ -293,7 +293,11 @@ bool fill_write(Impl& machine, const Goal& goal, Cell source, const std::filesys
   }
   const FileLoadResult loaded = load_bytes(path);
   if (loaded.status == FileLoad::Denied) return refuse_file(machine, goal, source);
-  if (loaded.status == FileLoad::Ok) made.bytes = loaded.bytes;
+  // 読んだ中身はファイルと同じなので、保存はその続きから書く。
+  if (loaded.status == FileLoad::Ok) {
+    made.bytes = loaded.bytes;
+    made.on_disk = made.bytes.size();
+  }
   else if (!create_empty(path)) return refuse_file(machine, goal, source);
   note_end(made);
   return false;
@@ -431,6 +435,30 @@ Cell named_stream(Impl& machine, const Goal& goal, std::size_t index) {
                                 std::array<Cell, 1>{machine.heap.integer(static_cast<std::int64_t>(index))});
 }
 
+bool write_whole(const std::filesystem::path& path, std::string_view bytes) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  if (!output) return false;
+  if (!bytes.empty()) output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  output.close();
+  return static_cast<bool>(output);
+}
+
+// ファイルが on_disk より短ければ、外で切られたか消されたので全体を書く。続きを書いた後、縮んだ分の余りを切る。
+bool write_rest(const std::filesystem::path& path, std::string_view bytes, std::size_t on_disk) {
+  std::error_code code;
+  const auto size = std::filesystem::file_size(path, code);
+  if (code || size < on_disk) return write_whole(path, bytes);
+  std::fstream output(path, std::ios::binary | std::ios::in | std::ios::out);
+  if (!output) return false;
+  output.seekp(static_cast<std::streamoff>(on_disk));
+  const std::string_view rest = bytes.substr(on_disk);
+  if (!rest.empty()) output.write(rest.data(), static_cast<std::streamsize>(rest.size()));
+  output.close();
+  if (!output) return false;
+  if (size > bytes.size()) std::filesystem::resize_file(path, bytes.size(), code);
+  return !code;
+}
+
 bool save_output(std::size_t index, Stream& stream) {
   if (stream.mode == Stream::Mode::Read) return true;
   if (stream.kind == Stream::Kind::Standard) {
@@ -439,15 +467,33 @@ bool save_output(std::size_t index, Stream& stream) {
     return true;
   }
   if (stream.kind != Stream::Kind::File) return true;
-  std::ofstream output(path_from_utf8(stream.path), std::ios::binary | std::ios::trunc);
-  if (!output) return false;
-  if (!stream.bytes.empty()) {
-    output.write(stream.bytes.data(), static_cast<std::streamsize>(stream.bytes.size()));
-  }
-  output.close();
-  if (!output) return false;
+  const auto path = path_from_utf8(stream.path);
+  const bool saved =
+      stream.on_disk == 0 ? write_whole(path, stream.bytes) : write_rest(path, stream.bytes, stream.on_disk);
+  if (!saved) return false;
+  stream.on_disk = stream.bytes.size();
   stream.unsaved = false;
   return true;
+}
+
+bool same_file(const Stream& left, const Stream& right) {
+  if (left.path == right.path) return true;
+  std::error_code code;
+  return std::filesystem::equivalent(path_from_utf8(left.path), path_from_utf8(right.path), code) && !code;
+}
+
+// close と flush_output で保存したファイルは、それより前に書いて放置した別の流れに終わりで戻されない
+// （Grok のレビューの High）。その流れがまた書けば unsaved が立ち、全体を書き直す。
+void settle_same_file(Impl& machine, std::size_t index) {
+  const Stream& saved = machine.streams[index];
+  if (saved.kind != Stream::Kind::File) return;
+  for (std::size_t other = 0; other < machine.streams.size(); ++other) {
+    Stream& stream = machine.streams[other];
+    if (other == index || stream.closed || !stream.unsaved || stream.kind != Stream::Kind::File) continue;
+    if (!same_file(saved, stream)) continue;
+    stream.unsaved = false;
+    stream.on_disk = 0;
+  }
 }
 
 void mark_closed(Impl& machine, std::size_t index) {
@@ -508,6 +554,7 @@ void run_flush(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_system(machine), goal.name, goal.arity);
     return;
   }
+  settle_same_file(machine, index);
   machine.ip = goal.cont;
 }
 
@@ -527,6 +574,8 @@ void run_close(Impl& machine, const Goal& goal) {
       raise_formal(machine, formal_system(machine), goal.name, goal.arity);
       return;
     }
+  } else {
+    settle_same_file(machine, index);
   }
   // 標準ストリームは吐き出すだけで閉じない（iso-notes 8.11.6.1 の A）。閉じると、戻り先の user_output まで
   // 書けなくなり、そのセッションの出力が二度と出ない（レビュー L13）。
