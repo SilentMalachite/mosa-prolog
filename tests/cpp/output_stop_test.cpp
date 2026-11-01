@@ -123,6 +123,20 @@ void check_api_portray_inside_capture() {
   mosa_test::check(ok(*machine, "with_output_to(atom(A), write(ok)), A == ok."), "api_portray: write works");
 }
 
+// query の冒頭の戻しを通らない入口（load_program の指示）で、portray の scope だけが戻したことを見る。
+void check_api_portray_then_directive() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program("portray(big) :- write(p), length(_, 100000000).").ok,
+                   "portray_directive: load portray");
+  mosa_test::check(stops(*machine, "print(f(big))."), "portray_directive: stops");
+  // REPL の recover_heap と同じく、上限で止まったヒープを空けてから読む。
+  machine->heap().truncate(0);
+  const CoutCapture capture;
+  mosa_test::check(machine->load_program(":- write(portray_mark), flush_output.\n").ok,
+                   "portray_directive: directive runs");
+  mosa_test::check(capture.text() == "portray_mark", "portray_directive: the directive wrote to user_output");
+}
+
 // portray の中の print がまた portray を呼び、内側で止まる。scratch が 2 つ積まれ、どちらも戻して閉じる。
 void check_api_nested_portray() {
   auto machine = mosa::Machine::create(k_limit);
@@ -180,7 +194,7 @@ void check_normal_exits_unchanged() {
   mosa_test::check(ok(*machine, k_three_open), "normal: halt closes the capture");
 }
 
-// 現在入出力が閉じた流れを指したまま次の問い合わせに来たら、標準の流れへ戻す（どの経路にも残さない最後の守り）。
+// 現在入出力が閉じた流れを指したまま次の問い合わせに来たら、標準の流れへ戻す（差し替えの戻し忘れへの備え。開いた流れを指すのは set_output の持ち越しなので戻さない）。
 void check_query_resets_closed_current() {
   auto machine = mosa::Machine::create(k_limit);
   mosa_test::check(ok(*machine, "with_output_to(atom(_), true)."), "query_reset: make a closed slot");
@@ -204,6 +218,7 @@ int main() {
   check_api_plain_and_repeated();
   check_api_nested();
   check_api_portray_inside_capture();
+  check_api_portray_then_directive();
   check_api_nested_portray();
   check_api_set_output_inside();
   check_api_stream_sink_survives();

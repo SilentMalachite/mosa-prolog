@@ -643,6 +643,7 @@ Stop Machine::query(std::string_view goal_text) {
   }
   machine.halt_now = false;
   // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。
+  // 開いた流れは set_output/1 が問い合わせをまたいで持ち越したものなので戻さない。load_program と next は見ない。
   const auto usable = [&machine](std::size_t index) {
     return index < machine.streams.size() && !machine.streams[index].closed;
   };
