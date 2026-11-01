@@ -284,6 +284,9 @@ struct Stream {
   // 終端の印を一度返したあと。開いた直後の空は cursor が末尾で、こちらは false。
   bool past_end = false;
   bool reposition = true;
+  // 書いてからまだファイルへ保存していない。halt と終わりはこれが立つ流れだけを書き出す。開いただけの流れや
+  // 保存の後に書いていない流れが、後で書かれたファイルを古い写しで潰さないため（レビュー M5 の A1〜A3）。
+  bool unsaved = false;
   std::string alias;
   std::string path;
 };
@@ -603,6 +606,8 @@ void collect_step(Impl& machine, std::size_t entry);
 // backtrack が一番上の Pick::Collect に戻ったとき。状態は戻してある。Entry を外して答えを束ねる。
 void finish_collect(Impl& machine);
 void init_streams(Impl& machine);
+// 開いている書き込みのファイルを、閉じずに今の中身で書き出す。halt と Machine の終わりで呼ぶ（レビュー M5）。
+void flush_open_files(Impl& machine);
 [[nodiscard]] bool run_streams(Impl& machine, const Goal& goal);
 void run_current_input(Impl& machine, const Goal& goal);
 void run_current_output(Impl& machine, const Goal& goal);

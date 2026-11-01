@@ -617,7 +617,11 @@ bool run_builtin(Impl& machine, const Goal& goal) {
 
 Stop run_loop(Impl& machine) {
   while (true) {
-    if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+    if (machine.halt_now) {
+      // 埋め込みでは halt の後も Machine が生きるので、終わりを待たずにここで書き出す（レビュー M5）。
+      flush_open_files(machine);
+      return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+    }
     if (machine.exception) return Stop{StopKind::Exception, 0, machine.ball, {}, false};
     if (machine.failed) {
       if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
@@ -637,7 +641,14 @@ Machine::Machine(std::size_t heap_limit) : impl_(std::make_unique<Impl>(heap_lim
   init_streams(*impl_);
 }
 
-Machine::~Machine() = default;
+Machine::~Machine() {
+  // close を書かずに終わったプログラムの出力を残す（レビュー M5）。halt を通らない終わり方
+  // （ゴールの成功・失敗・例外、ヒープの上限で巻き戻る途中）もここを通る。デストラクタから例外は出さない。
+  try {
+    flush_open_files(*impl_);
+  } catch (...) {
+  }
+}
 
 std::unique_ptr<Machine> Machine::create(std::size_t heap_limit) {
   return std::make_unique<Machine>(heap_limit);
@@ -660,6 +671,7 @@ std::string_view Machine::diagnostic() const { return impl_->diagnostic; }
 void Machine::halt(int code) {
   impl_->halt_pending = true;
   impl_->halt_code = code;
+  flush_open_files(*impl_);
 }
 
 namespace {

@@ -14,7 +14,9 @@
 //   user_input・user_output・user_error は吐き出すだけで閉じない（iso-notes 8.11.6.1 の A）。
 // flush_output / flush_output(+stream_or_alias)
 //   入力ストリームは permission_error(output, stream, S)。
-// テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
+// ファイルへの書き込みは close と flush のほかに、halt と Machine の終わりでも書き出す（レビュー M5）。
+// テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,
+//   tests/cpp/file_flush_test.cpp
 
 #include "../machine/internal.hpp"
 #include "mosa/path_text.hpp"
@@ -442,7 +444,10 @@ bool save_output(std::size_t index, Stream& stream) {
   if (!stream.bytes.empty()) {
     output.write(stream.bytes.data(), static_cast<std::streamsize>(stream.bytes.size()));
   }
-  return static_cast<bool>(output);
+  output.close();
+  if (!output) return false;
+  stream.unsaved = false;
+  return true;
 }
 
 void mark_closed(Impl& machine, std::size_t index) {
@@ -530,6 +535,16 @@ void run_close(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+void flush_open_files(Impl& machine) {
+  for (std::size_t index = 0; index < machine.streams.size(); ++index) {
+    Stream& stream = machine.streams[index];
+    // 閉じた流れの中身は close で書いた後の古い写しなので、外で変えられた中身を戻してしまう。
+    if (stream.closed || stream.kind != Stream::Kind::File || !stream.unsaved) continue;
+    // 書き出せなくても終わり方は変えない。close と違い、誤りを返す相手がいない。
+    (void)save_output(index, stream);
+  }
+}
 
 void init_streams(Impl& machine) {
   machine.streams.push_back(standard_stream(Stream::Mode::Read, "user_input"));

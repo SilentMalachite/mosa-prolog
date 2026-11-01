@@ -180,6 +180,7 @@ bool scalar_at(std::string_view text, std::size_t index, Scalar& out) {
 }
 
 void place_one(Stream& stream, std::string_view chunk) {
+  stream.unsaved = true;
   if (stream.cursor > stream.bytes.size()) stream.cursor = stream.bytes.size();
   if (stream.cursor == stream.bytes.size()) {
     stream.bytes.append(chunk);

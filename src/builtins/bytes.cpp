@@ -178,6 +178,7 @@ void emit_os(std::size_t index, unsigned char byte) {
 }
 
 void place_byte(Stream& stream, unsigned char byte) {
+  stream.unsaved = true;
   if (stream.cursor > stream.bytes.size()) stream.cursor = stream.bytes.size();
   if (stream.cursor == stream.bytes.size()) stream.bytes.push_back(static_cast<char>(byte));
   else stream.bytes[stream.cursor] = static_cast<char>(byte);

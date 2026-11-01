@@ -108,6 +108,11 @@ target_include_directories(output_stop_test PRIVATE tests/cpp src)
 target_compile_definitions(output_stop_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(output_stop_test PRIVATE mosa_lib)
 add_test(NAME output_stop COMMAND $<TARGET_FILE:output_stop_test>)
+add_executable(file_flush_test tests/cpp/file_flush_test.cpp)
+target_include_directories(file_flush_test PRIVATE tests/cpp)
+target_compile_definitions(file_flush_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(file_flush_test PRIVATE mosa_lib)
+add_test(NAME file_flush COMMAND $<TARGET_FILE:file_flush_test>)
 
 # ADR 0012。決定的に抜けた catch/3 と *-> の Entry を外し、ループで選択点スタックとヒープが頭打ちになる。
 add_executable(choice_exit_test tests/cpp/choice_exit_test.cpp)

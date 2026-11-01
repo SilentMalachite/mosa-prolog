@@ -52,6 +52,20 @@ function(expect_reused what)
   endif()
 endfunction()
 
+# レビュー M5。PROGRAM.pl を mosac run で動かし、終了コードが CODE で、WORK/TARGET の中身が TEXT であること。
+# mosac は out・err・code を書き換えるので、引数にその名前を使わない。
+function(expect_unclosed program expected_code target expected_text)
+  file(REMOVE "${WORK}/${target}")
+  mosac(run "${SRC}/${program}.pl")
+  if(NOT code EQUAL expected_code OR NOT EXISTS "${WORK}/${target}")
+    fail("${program}: exit code or ${target} missing")
+  endif()
+  file(READ "${WORK}/${target}" got)
+  if(NOT got STREQUAL expected_text)
+    fail("${program}: ${target} holds [${got}]")
+  endif()
+endfunction()
+
 if(CASE STREQUAL "build_hello")
   mosac(build "${SRC}/hello.pl" -o hello)
   if(NOT code EQUAL 0 OR NOT EXISTS "${WORK}/hello${EXE_SUFFIX}")
@@ -79,6 +93,10 @@ elseif(CASE STREQUAL "run_exit_code")
       fail("${late_file}: exit code")
     endif()
   endforeach()
+  # レビュー M5。close を書かない書き込みも、halt と main の終わりで実行ファイルがファイルへ書き出す。
+  # 書き先は相対パスなので、mosac run の作業場所 WORK にできる。
+  expect_unclosed(open_unclosed_halt 7 m5_unclosed_halt.txt "halted")
+  expect_unclosed(open_unclosed_end 0 m5_unclosed_end.txt "ended\n")
 elseif(CASE STREQUAL "run_args")
   mosac(run "${SRC}/args.pl" -- a 漢字)
   if(NOT code EQUAL 0 OR NOT out STREQUAL "[a,漢字]\n")
