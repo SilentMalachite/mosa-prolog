@@ -1,7 +1,6 @@
 #include "../machine/internal.hpp"
 
 #include <array>
-#include <optional>
 #include <vector>
 
 namespace mosa {
@@ -93,28 +92,26 @@ bool run_call(Impl& machine, const Goal& goal) {
 }
 
 // \+ G と once(G) の G は call/1 として動く（8.15.1.1、8.15.2.1）。(write(a), 1) のように呼べない部分があれば、
-// 床を積んで何かを動かす前に type_error(callable, G) にする（7.8.3.3、レビュー M16）。誤りを出したら nullopt。
-std::optional<Compiled> called_goal(Impl& machine, const Goal& goal) {
-  const Cell inner = machine.heap.deref(goal.arg(machine, 0));
+// 床を積んで何かを動かす前に type_error(callable, Culprit) にする（7.8.3.3、レビュー M16）。誤りを出したら false。
+bool called_goal(Impl& machine, const Goal& goal, Cell inner, Cell culprit, Compiled& out) {
   if (machine.heap.unbound(inner)) {
     instantiation(machine, goal);
-    return std::nullopt;
+    return false;
   }
   if (!is_callable(machine, inner)) {
-    not_callable(machine, goal, inner);
-    return std::nullopt;
+    not_callable(machine, goal, culprit);
+    return false;
   }
-  Compiled compiled = compile_goal(machine.heap, inner);
-  if (!body_callable(*compiled.term)) {
-    not_callable(machine, goal, inner);
-    return std::nullopt;
+  out = compile_goal(machine.heap, inner);
+  if (!body_callable(*out.term)) {
+    not_callable(machine, goal, culprit);
+    return false;
   }
-  return compiled;
+  return true;
 }
 
-bool run_not(Impl& machine, const Goal& goal) {
-  const std::optional<Compiled> compiled = called_goal(machine, goal);
-  if (!compiled.has_value()) return true;
+// 訳して調べた G を \+ として動かす。G が成功すれば床ごと切って失敗し（Ctrl::NegDone）、失敗すれば続きへ進む。
+void launch_negation(Impl& machine, const Goal& goal, const Compiled& compiled) {
   Entry barrier;
   barrier.pick = Pick::Negation;
   barrier.cont = goal.cont;
@@ -131,13 +128,20 @@ bool run_not(Impl& machine, const Goal& goal) {
   machine.heap.set_word(at + 1, machine.extras.size() - 1);
   machine.heap.set_word(at + 2, 0);
   machine.heap.set_word(at + 3, kNoFrame);
-  launch(machine, compiled->term, at, boundary, compiled->env, goal.module);
+  launch(machine, compiled.term, at, boundary, compiled.env, goal.module);
+}
+
+bool run_not(Impl& machine, const Goal& goal) {
+  const Cell inner = machine.heap.deref(goal.arg(machine, 0));
+  Compiled compiled;
+  if (called_goal(machine, goal, inner, inner, compiled)) launch_negation(machine, goal, compiled);
   return true;
 }
 
 bool run_once(Impl& machine, const Goal& goal) {
-  const std::optional<Compiled> compiled = called_goal(machine, goal);
-  if (!compiled.has_value()) return true;
+  const Cell inner = machine.heap.deref(goal.arg(machine, 0));
+  Compiled compiled;
+  if (!called_goal(machine, goal, inner, inner, compiled)) return true;
   Entry barrier;
   barrier.pick = Pick::Once;
   barrier.heap_mark = machine.heap.size();
@@ -154,7 +158,7 @@ bool run_once(Impl& machine, const Goal& goal) {
   machine.heap.set_word(at + 1, machine.extras.size() - 1);
   machine.heap.set_word(at + 2, 0);
   machine.heap.set_word(at + 3, kNoFrame);
-  launch(machine, compiled->term, at, boundary, compiled->env, goal.module);
+  launch(machine, compiled.term, at, boundary, compiled.env, goal.module);
   return true;
 }
 
@@ -194,24 +198,23 @@ bool run_halt(Impl& machine, const Goal& goal) {
 }  // namespace
 
 // forall/2 は \+ (Cond, \+ Action) を呼び手の文脈で走らせる（iso-notes「Section 7 forall/2」の決定 A）。
-// 前もって調べるのは Cond だけで、呼べない部分があれば誤りは Cond で出す（外の \+ に任せると (Cond, \+ Action) に
-// なる）。Action の誤りは、その \+ に届いたときに \+ が出す（レビュー M16）。
+// (Cond, \+ Action) を一度だけ訳して調べる。\+ Action は呼べる葉なので、呼べない部分があればそれは Cond にあり、
+// 誤りは Cond で出す。Action の誤りは、その \+ に届いたときに \+ が出す（レビュー M16）。
 bool run_forall(Impl& machine, const Goal& goal) {
   std::array<Cell, 2> parts{machine.heap.deref(goal.arg(machine, 0)), machine.heap.deref(goal.arg(machine, 1))};
   if (machine.heap.unbound(parts[0])) {
     instantiation(machine, goal);
     return true;
   }
-  if (!is_callable(machine, parts[0]) || !body_callable(*compile_goal(machine.heap, parts[0]).term)) {
+  if (!is_callable(machine, parts[0])) {
     not_callable(machine, goal, parts[0]);
     return true;
   }
   const auto negation = machine.atoms.intern("\\+");
   parts[1] = machine.heap.structure(negation, std::array<Cell, 1>{parts[1]});
   const Cell both = machine.heap.structure(machine.atoms.intern(","), parts);
-  const Cell term = machine.heap.structure(negation, std::array<Cell, 1>{both});
-  const Compiled compiled = compile_goal(machine.heap, term);
-  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
+  Compiled compiled;
+  if (called_goal(machine, goal, both, parts[0], compiled)) launch_negation(machine, goal, compiled);
   return true;
 }
 
