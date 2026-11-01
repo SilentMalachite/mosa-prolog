@@ -235,3 +235,45 @@ test(m15_var_bound_later, (catch((X = 1, X), E, true), m15_formal(E, F)), soluti
 test(m14_clause_written_call, (clause(m14_written(_), B), B = catch(G, _, true), G = call(_)), true).
 test(m14_written_call, m14_written(!), fail).
 test(m14_assert_retract, (assertz((m14_dyn(X) :- catch(((X, fail) ; true), _, true))), \+ m14_dyn(!), retract((m14_dyn(Y) :- catch(((Y, fail) ; true), _, true))), \+ clause(m14_dyn(_), _)), true).
+% レビュー M13。巡回するゴール（7.3.3 の STO の項）を呼んでも落ちない。巡回は無限に展開した項として動く。
+% 葉の巡回: 引数に自分を含む述語の呼び出しは、その巡回する項を引数にした普通の呼び出しになる。
+:- dynamic(m13_c/1).
+m13_f(_).
+m13_same(T) :- T = m13_same(U), U == T.
+m13_tick(N) :- retract(m13_c(C)), N is C + 1, assertz(m13_c(N)).
+m13_step :- retract(m13_c(C)), C1 is C + 1, assertz(m13_c(C1)), C1 < 100.
+test(m13_leaf_call, (X = m13_f(X), call(X)), true).
+test(m13_leaf_var_goal, (X = m13_f(X), X), true).
+test(m13_leaf_arg_is_term, (X = m13_same(X), call(X)), true).
+test(m13_leaf_undefined, (X = m13_nosuch(X), catch(call(X), error(existence_error(procedure, PI), _), true)), solutions([PI = m13_nosuch/1])).
+test(m13_leaf_findall, (X = m13_f(X), findall(a, X, L)), solutions([L = [a]])).
+test(m13_leaf_not, (X = m13_f(X), \+ \+ X), true).
+test(m13_leaf_once, (X = m13_f(X), once(X)), true).
+test(m13_leaf_catch, (X = m13_f(X), catch(X, _, fail)), true).
+test(m13_leaf_qualified, (X = m13_f(X), user:X), true).
+test(m13_leaf_forall, (X = m13_f(X), forall(X, true)), true).
+test(m13_leaf_with_output, (X = m13_f(X), with_output_to(atom(A), X), A == ''), true).
+% 制御構造の巡回: (a, X) は a を呼び、(G ; X) は G の解を順に返し続ける。
+test(m13_conj_undefined, (X = (m13_undef, X), catch(call(X), error(existence_error(procedure, PI), _), true)), solutions([PI = m13_undef/0])).
+% 巡回の各段は同じ変数を共有するので、段ごとの数は変数に束縛せずに数える。
+test(m13_conj_runs, (retractall(m13_c(_)), assertz(m13_c(0)), X = (m13_step, X), \+ call(X), m13_c(M)), solutions([M = 100])).
+test(m13_disj_first, (X = (Y = 1 ; X), once(X)), solutions([Y = 1])).
+test(m13_disj_many, (retractall(m13_c(_)), assertz(m13_c(0)), X = (m13_tick(N) ; X), once((call(X), N >= 200))), solutions([N = 200])).
+test(m13_ite_cycle, (X = (fail -> true ; (Y = 2 ; X)), once(X)), solutions([Y = 2])).
+test(m13_catch_cycle, (X = catch((m13_undef2, X), error(existence_error(_, PI), _), true), call(X)), solutions([PI = m13_undef2/0])).
+test(m13_not_cycle, (X = (\+ m13_undef3, X), catch(call(X), error(existence_error(_, PI), _), true)), solutions([PI = m13_undef3/0])).
+% 共有する部分木は巡回ではない。同じ (a ; b) を 2 度通る。
+test(m13_shared_not_cycle, (G = (Y = a ; Y = b), findall(Y-Z, (G, Z = Y ; G), L)), solutions([L = [a-a, b-b, a-_, b-_]])).
+% 巡回の中のカットは、その段を訳した call/1 に閉じる。最初の段のカットが ; の残りを切るので失敗する。
+test(m13_cut_in_cycle, (X = ((!, fail) ; X), \+ X), true).
+% 巡回の入口が述語の引数なら、throw/1 と catch/3 は元の巡回する項をそのまま渡す。
+test(m13_throw_cyclic, (X = m13_f(X), catch(throw(X), B, true), B == X), true).
+% 巡回の戻り辺は call/1 として訳す（iso-notes 7.3.3）。2 段目のカットは 2 段目の中だけを切るので、1 段目の
+% ; Y = extra は残る。展開して書いた有限のゴールなら、2 段目のカットが外まで切って [x] になる。
+test(m13_cut_local_per_pass, (X = (((Y == x, !) ; (Y = x, X)) ; Y = extra), findall(Y, X, L)), solutions([L = [x, extra]])).
+% 共有する部分木は巡回ではないので、中のカットは呼んだゴール全体を切る。戻り辺と間違えると [1, 2, 1, 3] になる。
+test(m13_shared_cut, (S = (!, Y = 1), findall(Y, ((S ; Y = 2) ; (S ; Y = 3)), L)), solutions([L = [1]])).
+m13_wrap(0, G, G) :- !.
+m13_wrap(N, G, (true, W)) :- M is N - 1, m13_wrap(M, G, W).
+test(m13_shared_cut_deep, (S = (!, Y = 1), m13_wrap(100, ((S ; Y = 2) ; (S ; Y = 3)), G), findall(Y, G, L)), solutions([L = [1]])).
+test(m13_cut_local_deep, (m13_wrap(100, (((Y == x, !) ; (Y = x, X)) ; Y = extra), X), findall(Y, X, L)), solutions([L = [x, extra]])).

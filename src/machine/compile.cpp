@@ -18,8 +18,12 @@ struct Build {
   // 今たどっている複合項。循環を匿名に切る。with_output_to が束縛済みの項を再び訳す。
   std::unordered_set<std::uint64_t> open;
   std::vector<Cell> env;
-  // 実行時のゴールで巡回の戻り先になった複合項。写さずに元の項を指す。
-  std::vector<std::uint64_t> loops;
+  // 実行時のゴールで巡回の戻り先になった複合項。写さずに元の項を指す。葉ごとに足すので集合にする（レビュー M13）。
+  std::unordered_set<std::uint64_t> loops;
+  // 実行時のゴールで今訳している制御構造（レビュー M13）。浅い部分は goal_at の道、深い部分は goal_deep の枠。
+  // 巡回の戻り先は元の項を指す Var の葉にし、call/1 として動くときに訳す。巡回は無限に展開した項として動く。
+  std::vector<std::uint64_t> goal_path;
+  std::unordered_set<std::uint64_t> deep_open;
   bool keep = false;
 
   [[nodiscard]] std::uint16_t slot_of(Cell cell) {
@@ -39,9 +43,11 @@ struct Build {
     return heap->atoms().name(heap->functor_atom(cell)) == name;
   }
 
-  [[nodiscard]] IrTerm data(Cell cell);
+  [[nodiscard]] IrTerm data(Cell cell, bool shape = false);
   [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
-  [[nodiscard]] IrTerm close_data(Cell cell, IrTerm term);
+  [[nodiscard]] IrTerm close_data(Cell cell, IrTerm term, bool shape);
+  [[nodiscard]] bool goal_loops(Cell cell) const;
+  [[nodiscard]] IrTerm goal_back(Cell cell);
   [[nodiscard]] IrTerm goal_leaf(Cell cell);
   [[nodiscard]] IrTerm goal_deep(Cell cell);
   [[nodiscard]] IrTerm goal_at(Cell cell, int depth);
@@ -113,11 +119,17 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
     return term;
   }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
+  // 訳している途中の制御構造は元の項を指す。葉の引数ごとに巡回するゴール全体を写すと 2 乗以上になる（レビュー M13）。
+  if (goal_loops(cell)) {
+    term.tag = IrTag::Var;
+    term.slot = slot_of(cell);
+    return term;
+  }
   if (!open.contains(cell.raw())) return std::nullopt;
   // 実行時のゴールは元の項を指せば巡回が残る。匿名に切ると巡回リストが部分リストになる。
   // 節は env を持たないので匿名のまま（巡回する節は 7.6.2 の外）。
   if (keep) {
-    loops.push_back(cell.raw());
+    loops.insert(cell.raw());
     term.tag = IrTag::Var;
     term.slot = slot_of(cell);
     return term;
@@ -126,10 +138,11 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
   return term;
 }
 
-IrTerm Build::close_data(Cell cell, IrTerm term) {
+// shape はゴールの葉の根。根を Var にすると call(X) として動き、同じ項を訳し直して止まらない（レビュー M13）。
+IrTerm Build::close_data(Cell cell, IrTerm term, bool shape) {
   open.erase(cell.raw());
   // 巡回の入口まで写すと、元の項より一段長い項になる。入口は元の項そのものを渡す。
-  if (keep && std::find(loops.begin(), loops.end(), cell.raw()) != loops.end()) {
+  if (!shape && keep && loops.contains(cell.raw())) {
     term = IrTerm{};
     term.tag = IrTag::Var;
     term.slot = slot_of(cell);
@@ -139,7 +152,7 @@ IrTerm Build::close_data(Cell cell, IrTerm term) {
 
 // 後順に組み立てる。長いリストや深い項でも C++ の呼び出しを積まないよう、途中の複合項を手で積む（ADR 0011）。
 // 子は左から訳すので、変数の番号は前の再帰と同じ順に振られる。
-IrTerm Build::data(Cell root) {
+IrTerm Build::data(Cell root, bool shape) {
   std::vector<DataFrame> stack;
   const auto enter = [&](Cell cell) -> std::optional<IrTerm> {
     cell = heap->deref(cell);
@@ -157,7 +170,7 @@ IrTerm Build::data(Cell root) {
       if (auto leaf = enter(next)) stack.back().term.args.push_back(std::move(*leaf));
       continue;
     }
-    IrTerm done = close_data(top.cell, std::move(top.term));
+    IrTerm done = close_data(top.cell, std::move(top.term), shape && stack.size() == 1);
     stack.pop_back();
     if (stack.empty()) return done;
     stack.back().term.args.push_back(std::move(done));
@@ -245,9 +258,23 @@ IrTerm Build::late_goal(Cell cell) {
 }
 
 // 後順に訳す。子は左から訳すので、変数の番号は浅いときの再帰と同じ順に振られる。
+// 節は env を持たないので、巡回するゴールの節（7.6.2 の外）は今も止まらない（レビュー M7）。
+bool Build::goal_loops(Cell cell) const {
+  if (!keep || (goal_path.empty() && deep_open.empty())) return false;
+  return deep_open.contains(cell.raw()) || std::find(goal_path.begin(), goal_path.end(), cell.raw()) != goal_path.end();
+}
+
+IrTerm Build::goal_back(Cell cell) {
+  IrTerm term;
+  term.tag = IrTag::Var;
+  term.slot = slot_of(cell);
+  return term;
+}
+
 IrTerm Build::goal_deep(Cell root) {
   std::vector<GoalFrame> stack;
   stack.push_back(*goal_frame(*heap, root));
+  if (keep) deep_open.insert(root.raw());
   while (true) {
     GoalFrame& top = stack.back();
     const std::size_t index = top.term.args.size();
@@ -258,6 +285,11 @@ IrTerm Build::goal_deep(Cell root) {
       } else if (runs_late(*heap, top, index, next)) {
         top.term.args.push_back(late_goal(next));
       } else if (auto frame = goal_frame(*heap, next)) {
+        if (goal_loops(next)) {
+          top.term.args.push_back(goal_back(next));
+          continue;
+        }
+        if (keep) deep_open.insert(next.raw());
         // 積むと top は無効になる。
         stack.push_back(std::move(*frame));
       } else {
@@ -265,6 +297,7 @@ IrTerm Build::goal_deep(Cell root) {
       }
       continue;
     }
+    if (keep) deep_open.erase(top.cell.raw());
     IrTerm done = std::move(top.term);
     stack.pop_back();
     if (stack.empty()) return done;
@@ -272,17 +305,21 @@ IrTerm Build::goal_deep(Cell root) {
   }
 }
 
+// 浅い道は高々 kShallow 個なので、集合ではなく線形に探す。ふつうの call/1 の費用を増やさないため。
 IrTerm Build::goal_at(Cell cell, int depth) {
   cell = heap->deref(cell);
   auto frame = goal_frame(*heap, cell);
   if (!frame) return goal_leaf(cell);
+  if (goal_loops(cell)) return goal_back(cell);
   if (depth >= kShallow) return goal_deep(cell);
+  if (keep) goal_path.push_back(cell.raw());
   for (std::size_t index = 0; index < frame->count; ++index) {
     const Cell next = heap->arg(cell, static_cast<std::uint16_t>(index));
     if (child_is_data(*frame, index)) frame->term.args.push_back(data(next));
     else if (runs_late(*heap, *frame, index, next)) frame->term.args.push_back(late_goal(next));
     else frame->term.args.push_back(goal_at(next, depth + 1));
   }
+  if (keep) goal_path.pop_back();
   return std::move(frame->term);
 }
 
@@ -317,7 +354,7 @@ IrTerm Build::goal_leaf(Cell cell) {
     if (heap->deref(cell).tag() == Tag::Str) term.args.push_back(data(heap->arg(cell, 0)));
     return term;
   }
-  return data(cell);
+  return data(cell, true);
 }
 
 void set_key(Clause& clause) {

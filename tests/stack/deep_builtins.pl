@@ -23,6 +23,11 @@ conj_right(N, (true, G)) :- M is N - 1, conj_right(M, G).
 conj_left(0, true) :- !.
 conj_left(N, (G, true)) :- M is N - 1, conj_left(M, G).
 
+% (lf(X), (lf(X), ... true)) の X を全体に束縛して、引数に自分を含む葉を並べる（レビュー M13）。
+cyclic_leaves(0, _, true) :- !.
+cyclic_leaves(N, X, (lf(X), G)) :- M is N - 1, cyclic_leaves(M, X, G).
+lf(_).
+
 % 制御構造の入れ子。右は (fail;(fail;...)) と (true->(true->...))、左は ((...;fail);fail)、条件は
 % ((... -> true ; fail) -> true ; fail)。どれも長さに比例する時間で動くこと（改訂 3）。
 disj_right(0, true) :- !.
@@ -123,4 +128,6 @@ main :-
     show(is_right, (sum_right(D, 0, E), X is E, X =:= D)),
     show(compare_arith, (sum_left(D, 0, E), sum_right(D, 0, F), E =:= F)),
     show(is_instantiation, (sum_left(D, _, E), catch(_ is E, error(instantiation_error, _), true))),
-    show(is_evaluable, (sum_right(D, foo, E), catch(_ is E, error(type_error(evaluable, foo/0), _), true))).
+    show(is_evaluable, (sum_right(D, foo, E), catch(_ is E, error(type_error(evaluable, foo/0), _), true))),
+    % レビュー M13。葉の引数が訳している途中のゴール自身を指す巡回するゴール。葉ごとに全体を写すと 2 乗以上になる。
+    show(call_cyclic_leaves, (cyclic_leaves(D, X, G), X = G, call(X))).

@@ -345,6 +345,8 @@ struct Machine::Impl {
   bool exception = false;
   // catch が評価の途中で例外を消しても、呼び出し元がヒープを読み続けないようにする。
   bool eval_abort = false;
+  // launch_var の中から launch_var に入った段数（レビュー M13）。深くなれば call/1 の枠にして run_loop に回す。
+  int var_depth = 0;
   Cell ball{};
   bool halt_now = false;
   bool halt_pending = false;

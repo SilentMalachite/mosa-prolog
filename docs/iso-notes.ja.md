@@ -79,6 +79,10 @@ A か B か: A は catch/3 の Goal と Recovery を、実行時に束縛され�
 
 完了（2026-11-01、0b333c3、ADR 0014）: そういう Goal か Recovery は `IrTag::Call` の節点になり、catch が動くときに `call/1` として動く。mosac は、ゴール位置に変数を含む `\+` と `M:G` のデータを先に訳さなくなった（以前は n(!) が mosa と違った）。テスト: `tests/pl/control.pl` の `m14_*`、`tests/mosac/undefined_catch.pl`、`tests/stack/deep_builtins.pl` の `call_catch_late_nest`。完了（2026-11-01、レビュー M15、ADR 0014 の改訂）: 変数が無くても、呼び出せない部分（`,` `;` `->` `*->` の下のゴール位置の数）のある Goal と Recovery は `Call` の節点になる。`catch((write(a), 1), E, true)` は `a` を書かずに `E` を `type_error(callable, (write(a), 1))` に束縛し、`call/1` と `assertz/1` は catch/3 の引数の中を見なくなった。テスト: `tests/pl/control.pl` の `m15_*`。
 
+## 7.3.3 巡回するゴールの呼び出し
+
+7.3.3 は出現検査の対象にならない項（巡回する項）を定めていない。Mosa は `X = f(X), call(X)` と `X = call(X), call(X)` で落ち（SIGSEGV）、`X = (a, X), call(X)` から戻らなかった（レビュー M13）。レビュー M13（2026-11-01）から、実行時に組み立てたゴールは展開した形として動く。引数にゴール自身を含む述語の呼び出しは、その巡回する引数での普通の呼び出しになる。訳している途中の制御構造（`,` `;` `->` `*->` `catch/3`）に戻る所は、その位置で元の項を call/1 する。そのため `X = (a, X)` は `existence_error(procedure, a/0)` になり、`X = (Y = 1 ; X)` はやり直すたびに `Y = 1` を返す。カットはそれがある段の中に閉じる。`X = (((Y == x, !) ; (Y = x, X)) ; Y = extra), findall(Y, X, L)` は `[x, extra]` になり、同じゴールを手で 1 段展開して書くと `[x]` になる。展開しても止まらないゴールはここでも止まらない。`X = call(X)`、`X = user:X`、`X = (true, X)`、`X = (fail ; X)` は（`p :- (true, p)` と同じく）ヒープの上限の中で動き続け、`X = (X, true)` のような左再帰はヒープの上限で止まり、`X = (X ; true)` は `p :- (p ; true)` と同じく `--heap-max` の外で選択点のスタックを伸ばす（レビュー M17）。assertz/1 に渡した巡回する本体は今も止まらず（レビュー M7）、`with_output_to/2` は今も C++ で再帰する（7.1）。テスト: `tests/pl/control.pl` の `m13_*`、`tests/cpp/machine_test.cpp` の `check_cyclic_goal_limit`、`tests/stack/deep_builtins.pl` の `call_cyclic_leaves`。
+
 ## 8.8 current_predicate/1
 
 決定（2026-10-25）: 未決 6 は B。`current_predicate/1` は利用者の述語だけを、定義された順に返す。`current_predicate(true/0)` は失敗であり、`permission_error` ではない。空の動的述語は成功する。`abolish` のあとは失敗する。

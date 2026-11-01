@@ -96,6 +96,23 @@ void check_catch() {
   }
 }
 
+// レビュー M13。左の子から自分に戻る巡回するゴールは、無限の左再帰として動く。C++ の再帰で積まずに、
+// ヒープの上限で止まる（SIGSEGV で落ちない）。(X ; true) は除く。選択点はヒープの外に積まれ、巡回しない
+// p :- (p ; true) と同じく上限で止まらない（レビュー M17）。
+void check_cyclic_goal_limit() {
+  for (const char* goal : {"X = (X, true), call(X).", "X = catch(X, _, true), call(X).",
+                           "X = (X -> true ; true), call(X).", "X = (\\+ X), call(X).", "X = (X, true), X."}) {
+    auto tiny = mosa::Machine::create(std::size_t{1} << 16);
+    bool limited = false;
+    try {
+      (void)tiny->query(goal);
+    } catch (const mosa::ResourceLimit&) {
+      limited = true;
+    }
+    mosa_test::check(limited, std::string{goal} + ": hits the heap limit");
+  }
+}
+
 // length/2 が作るリストはヒープの上限で止まる。先に vector を確保すると length_error で落ちる。
 void check_length_limit() {
   auto tiny = mosa::Machine::create(4096);
@@ -658,6 +675,7 @@ int main() {
   check_types();
   check_order();
   check_length_limit();
+  check_cyclic_goal_limit();
   check_terms();
   check_answer_and_consult();
   check_discontiguous();

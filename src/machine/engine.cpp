@@ -93,7 +93,33 @@ void reject_callable(Impl& machine, Cell culprit) {
   raise_formal(machine, formal_type(machine, "callable", culprit), name, 1);
 }
 
+// 左の子が自分に戻る巡回するゴール（X = (X, true)）は launch_var と launch を交互に呼び続ける。C++ の再帰は
+// この段数までにし、より深くは call/1 の枠を run_loop に渡す（ADR 0011 と同じ考え、レビュー M13）。枠は
+// ヒープに載るので、無限の左再帰はヒープの上限で止まる。
+constexpr int kVarNest = 64;
+
+struct VarNest {
+  Impl& machine;
+  explicit VarNest(Impl& owner) : machine(owner) { ++machine.var_depth; }
+  ~VarNest() { --machine.var_depth; }
+  VarNest(const VarNest&) = delete;
+  VarNest& operator=(const VarNest&) = delete;
+};
+
+void defer_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const EnvRef& env, std::uint32_t module) {
+  IrTerm call;
+  call.tag = IrTag::Call;
+  call.atom = machine.atoms.intern("call");
+  call.arity = 1;
+  call.args.push_back(goal);
+  machine.ip = embody(machine, make_goal(std::move(call)), cont, machine.stack.size(), env, module);
+}
+
 void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const EnvRef& env, std::uint32_t module) {
+  if (machine.var_depth >= kVarNest) {
+    defer_var(machine, goal, cont, env, module);
+    return;
+  }
   const Cell cell = machine.heap.deref(env->cells.at(goal.slot));
   if (machine.heap.unbound(cell)) {
     raise_formal(machine, formal_instantiation(machine), machine.atoms.intern("call"), 1);
@@ -109,6 +135,7 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const Env
     reject_callable(machine, cell);
     return;
   }
+  const VarNest nest(machine);
   launch(machine, compiled.term, cont, machine.stack.size(), compiled.env, module);
 }
 
