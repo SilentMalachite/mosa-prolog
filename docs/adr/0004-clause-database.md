@@ -1,6 +1,6 @@
 English | [日本語](0004-clause-database.ja.md)
 
-Status: Approved (2026-10-25). The retract and abolish sentences are replaced by [ADR 0008](0008-logical-update-view.md) (2026-10-28)
+Status: Approved (2026-10-25). The retract and abolish sentences are replaced by [ADR 0008](0008-logical-update-view.md) (2026-10-28); clause positions as choice point candidates and the asserta shift are replaced by [ADR 0015](0015-first-argument-index.md) (2026-11-02)
 
 ## Context
 
