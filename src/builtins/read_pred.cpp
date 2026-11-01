@@ -16,7 +16,7 @@
 //   permission_error(input, past_end_of_stream),
 //   representation_error(character), syntax_error(Key)
 // 構文エラーの Key と Extra syntax(stream(S, Line, LinePos, CharNo), Token) は ADR 0007。テストは Formal を比べる。
-// テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
+// テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp, tests/cpp/stdin_read_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -24,6 +24,7 @@
 
 #include "mosa/reader.hpp"
 
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <string>
@@ -362,8 +363,19 @@ ReadTerm eof_term(Impl& machine) {
   return term;
 }
 
+// 項の後ろに標準入力から足した字（from から先）を、読み取り口へ返す。終止符を確かめるためだけに読んだ字で、
+// 返さないと user_input に残り、REPL が次の行として読めない（レビュー M12）。peek_char が前に取り込んだ字は残す。
+void give_back(Stream& stream, std::size_t from) {
+  if (stream.kind != Stream::Kind::Standard) return;
+  while (stream.bytes.size() > from) {
+    standard_input_unget(stream.bytes.back());
+    stream.bytes.pop_back();
+  }
+}
+
 // 演算子は呼び手の文脈モジュールの見え方で読む（ADR 0006）。
 Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
+  const std::size_t had = stream.bytes.size();
   while (true) {
     const std::string_view slice = rest(stream);
     Reader reader(slice, machine.heap, op_view(machine, module), current_double_quotes(machine),
@@ -371,8 +383,12 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
     reader.set_fullwidth(machine.japanese_punct);
     ReadOutcome outcome = reader.next();
     const std::size_t consumed = reader.consumed();
-    // 標準入力は、項が閉じるか本当の終端まで 1 バイトずつ足す。
-    if (outcome.term || consumed < slice.size() || !pull_byte(stream)) return Intake{std::move(outcome), consumed};
+    // 標準入力は、読んだ先に字が残るか本当の終端まで 1 バイトずつ足す。項が閉じても終止符が切れ目の最後の字なら、
+    // 次の字を見るまで終止符と決まらない（6.4.8、1. の次が 5 なら 1.5）。次の字が無ければ終端の前の終止符である。
+    if (consumed < slice.size() || !pull_byte(stream)) {
+      if (outcome.term) give_back(stream, std::max(had, stream.cursor + consumed));
+      return Intake{std::move(outcome), consumed};
+    }
   }
 }
 

@@ -66,6 +66,8 @@ ConsoleRead read_console() { return {}; }
 std::string pending;
 std::size_t pending_at = 0;
 bool console_ended = false;
+// 先読みして返した字（後に返したものが先）。read/1 が終止符を確かめるために読んだ次の字を、読まなかったことにする。
+std::string returned;
 
 }  // namespace
 
@@ -119,6 +121,11 @@ std::optional<std::string> console_line_text(std::u16string_view raw) {
 }
 
 int standard_input_get() {
+  if (!returned.empty()) {
+    const auto byte = static_cast<unsigned char>(returned.back());
+    returned.pop_back();
+    return byte;
+  }
   while (pending_at >= pending.size()) {
     if (console_ended) return EOF;
     ConsoleRead read = read_console();
@@ -132,6 +139,8 @@ int standard_input_get() {
   }
   return static_cast<unsigned char>(pending[pending_at++]);
 }
+
+void standard_input_unget(char byte) { returned.push_back(byte); }
 
 void standard_input_clear() {
   console_ended = false;
