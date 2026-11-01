@@ -134,12 +134,36 @@ void check_api_portray_then_directive() {
   mosa_test::check(machine->load_program("portray(big) :- write(p), length(_, 100000000).").ok,
                    "portray_directive: load portray");
   mosa_test::check(stops(*machine, "print(f(big))."), "portray_directive: stops");
-  // REPL の recover_heap と同じく、上限で止まったヒープを空けてから読む。
-  machine->heap().truncate(0);
+  // ヒープは空けない。止まった問い合わせの後始末は機械が自分でする（check_api_stop_abandons_query）。
   const CoutCapture capture;
-  mosa_test::check(machine->load_program(":- write(portray_mark), flush_output.\n").ok,
+  mosa_test::check(machine->load_program(":- garbage_collect, write(portray_mark), flush_output.\n").ok,
                    "portray_directive: directive runs");
   mosa_test::check(capture.text() == "portray_mark", "portray_directive: the directive wrote to user_output");
+}
+
+// C++ の例外で query から抜けたら、止まった問い合わせの選択点・トレイル・束縛を残さない。残すと次の load_program の
+// 指示（run_parked）が古いスタックを退避して GC の根として辿り、空けたヒープの番地を指す（Grok のレビュー）。
+void check_api_stop_abandons_query() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program("deep(X) :- catch(length(X, 100000000), _, true).\n"
+                                         "portray(big) :- write(p), length(_, 100000000).")
+                       .ok,
+                   "abandon: load");
+  const char* const goals[] = {"(Y = 1 ; Y = 2), with_output_to(atom(A), (write(Y), deep(_))).",
+                               "(Z = a ; Z = b), print(f(big)).", "X = f(Y), deep(Y)."};
+  for (const char* goal : goals) {
+    mosa_test::check(stops(*machine, goal), "abandon: stops");
+    const mosa::Impl& impl = mosa::engine_impl(*machine);
+    mosa_test::check(impl.stack.empty(), "abandon: no choice points left");
+    mosa_test::check(impl.trail.slots.empty(), "abandon: trail empty");
+    mosa_test::check(impl.extras.empty(), "abandon: extras empty");
+    mosa_test::check(impl.bindings.empty(), "abandon: bindings dropped");
+    mosa_test::check(impl.catch_log.empty(), "abandon: catch log empty");
+    mosa_test::check(impl.heap.size() == 0, "abandon: heap emptied");
+    mosa_test::check(machine->load_program(":- garbage_collect, X = g(_), garbage_collect.\n").ok,
+                     "abandon: directive with GC runs");
+  }
+  mosa_test::check(ok(*machine, "X = 1."), "abandon: next query works");
 }
 
 // portray の中の print がまた portray を呼び、内側で止まる。scratch が 2 つ積まれ、どちらも戻して閉じる。
@@ -233,6 +257,7 @@ int main() {
   check_api_nested();
   check_api_portray_inside_capture();
   check_api_portray_then_directive();
+  check_api_stop_abandons_query();
   check_api_nested_portray();
   check_api_set_output_inside();
   check_api_stream_sink_survives();

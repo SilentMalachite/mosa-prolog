@@ -635,36 +635,39 @@ void Machine::halt(int code) {
   impl_->halt_code = code;
 }
 
-Stop Machine::query(std::string_view goal_text) {
-  Impl& machine = *impl_;
-  if (machine.halt_pending) {
-    machine.halt_pending = false;
-    return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
-  }
-  machine.halt_now = false;
-  // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。
-  // 開いた流れは set_output/1 が問い合わせをまたいで持ち越したものなので戻さない。load_program と next は見ない。
-  const auto usable = [&machine](std::size_t index) {
-    return index < machine.streams.size() && !machine.streams[index].closed;
-  };
-  if (!usable(machine.current_in)) machine.current_in = 0;
-  if (!usable(machine.current_out)) machine.current_out = 1;
+namespace {
+
+// 問い合わせ 1 つ分の実行状態を捨てる。選択点はもう無いので戻さずに捨てる。成功した op/3 は表に残す。
+// 選択点が無ければ catch_log の記録はどれも指す先が無い。
+void drop_run(Impl& machine) {
   machine.stack.clear();
-  // 前のクエリの選択点はもう無い。戻さずに捨てる。成功した op/3 は表に残す。
   machine.op_undos.clear();
+  machine.catch_log.clear();
   machine.trail.slots.clear();
   machine.trail.mark = nullptr;
   machine.extras.clear();
   machine.heap.truncate(0);
-  // 空きを生まない GC の連続は 1 つの問い合わせの中だけで数える（ADR 0010 の改訂 B）。
-  reset_gc_judgement(machine);
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;
   machine.native_next = nullptr;
-  machine.diagnostic.clear();
   machine.ip = kNoFrame;
   machine.bindings.clear();
+}
+
+// C++ の例外（ヒープの上限、OS のメモリ不足）で抜ける問い合わせは、選択点・トレイル・束縛を残さない。残すと次の
+// load_program の指示（run_parked）が古いスタックを退避し、GC が空けたヒープの番地を根として辿る。
+template <class Run>
+Stop drop_on_throw(Impl& machine, Run run) {
+  try {
+    return run();
+  } catch (...) {
+    drop_run(machine);
+    throw;
+  }
+}
+
+Stop start_query(Impl& machine, std::string_view goal_text) {
   Reader reader(goal_text, machine.heap, machine.operators, current_double_quotes(machine),
                 &machine.char_conv);
   reader.set_fullwidth(machine.japanese_punct);
@@ -685,11 +688,36 @@ Stop Machine::query(std::string_view goal_text) {
   return run_loop(machine);
 }
 
+}  // namespace
+
+Stop Machine::query(std::string_view goal_text) {
+  Impl& machine = *impl_;
+  if (machine.halt_pending) {
+    machine.halt_pending = false;
+    return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+  }
+  machine.halt_now = false;
+  // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。
+  // 開いた流れは set_output/1 が問い合わせをまたいで持ち越したものなので戻さない。load_program と next は見ない。
+  const auto usable = [&machine](std::size_t index) {
+    return index < machine.streams.size() && !machine.streams[index].closed;
+  };
+  if (!usable(machine.current_in)) machine.current_in = 0;
+  if (!usable(machine.current_out)) machine.current_out = 1;
+  drop_run(machine);
+  // 空きを生まない GC の連続は 1 つの問い合わせの中だけで数える（ADR 0010 の改訂 B）。
+  reset_gc_judgement(machine);
+  machine.diagnostic.clear();
+  return drop_on_throw(machine, [&machine, goal_text] { return start_query(machine, goal_text); });
+}
+
 Stop Machine::next() {
   Impl& machine = *impl_;
   if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
-  if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
-  return run_loop(machine);
+  return drop_on_throw(machine, [&machine] {
+    if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
+    return run_loop(machine);
+  });
 }
 
 }
