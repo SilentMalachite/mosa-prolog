@@ -588,3 +588,9 @@ Decision (2026-10-30): A. Make the writer, the reader and the loader iterative i
 The GC of ADR 0010 reclaims the heap, `extras` and the trail, but not the atom table, so a loop that keeps creating new atoms (for example with `atom_concat/3` or `atom_codes/2`) makes the table grow until the process ends. This is a known limit of the implementation, not a deviation from the standard.
 
 Decision (2026-10-30): A. Keep the limit through phase 7; ADR 0010 lists atom table GC as a non-goal.
+
+## 8.11.6.1 close/1,2 of a standard stream
+
+Mosa really closes `user_input`, `user_output` and `user_error` (`src/builtins/streams.cpp` `run_close`, `mark_closed`). After `close(user_output)` the current output falls back to stream 1, which is closed, so every later `write/1` raises `existence_error(stream, user_output)` for the rest of the session (`mosa -g "close(user_output), write(hello)"`); `with_output_to/2` and `query()` land on the same closed stream (review item L13, found in the H6 review). The text of 8.11.6.1 was not available while writing this note. The Logtalk suite only expects `close(user_input)`, `close(user_output)`, `close(user_error)` and their `force(true)` forms to succeed (`lgt_close_1_07`..`09`, `lgt_close_2_16`..`18`); it does not check later output. Prolog-cafe returns from close/2 without closing a standard stream.
+
+A or B?: A: close/1,2 of a standard stream flushes it and succeeds without closing it, so it stays the current stream and stays writable. B: keep closing it (current behaviour). B until confirmed.

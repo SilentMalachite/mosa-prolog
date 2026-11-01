@@ -590,3 +590,9 @@ reader だけが、ソースの字面の入れ子の 1 段ごとにまだ再帰�
 ADR 0010 の GC はヒープ、`extras`、trail を回収するが、アトム表は回収しない。このため、新しいアトムを作り続けるループ（たとえば `atom_concat/3` や `atom_codes/2` を使うもの）では、プロセスが終わるまで表が伸び続ける。これは処理系の既知の上限であり、標準からの逸脱ではない。
 
 決定（2026-10-30）: A。フェーズ7でもこの上限を残す。ADR 0010 はアトム表の GC を非目標としている。
+
+## 8.11.6.1 標準ストリームの close/1,2
+
+Mosa は `user_input`、`user_output`、`user_error` を本当に閉じる（`src/builtins/streams.cpp` の `run_close`、`mark_closed`）。`close(user_output)` の後、現在出力は添字 1 へ戻るが、その流れは閉じているので、以降の `write/1` はセッションの終わりまで `existence_error(stream, user_output)` になる（`mosa -g "close(user_output), write(hello)"`）。`with_output_to/2` と `query()` も同じ閉じた流れに着地する（レビュー項目 L13。H6 のレビューで見つかった）。この記録を書いた時点で 8.11.6.1 の本文は手元に無かった。Logtalk のスイートは `close(user_input)`、`close(user_output)`、`close(user_error)` と、その `force(true)` 付きが成功することだけを見ており（`lgt_close_1_07`〜`09`、`lgt_close_2_16`〜`18`）、その後の出力は見ていない。Prolog-cafe は標準ストリームの close/2 では閉じずに戻る。
+
+A か B か: A は標準ストリームの close/1,2 で吐き出しだけして成功し、閉じない。現在の流れのまま書き込める。B は今のまま閉じる。確認前は B のまま。
