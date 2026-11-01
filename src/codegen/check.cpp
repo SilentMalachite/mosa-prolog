@@ -38,6 +38,11 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
       collect_goals(machine, goal.args[0], module, out);
       collect_goals(machine, goal.args[2], module, out);
       return;
+    // ADR 0014。ゴール位置に変数を含む catch/3 の Goal と Recovery。中身は catch が動くときに訳すが、字面で名指す
+    // 述語は今と同じに見る。変数は goal_view の後も Var のままで、何も集めない。
+    case IrTag::Call:
+      if (!goal.args.empty()) collect_goals(machine, goal_view(machine, goal.args[0]), module, out);
+      return;
     case IrTag::Atom: out.push_back(PredKey{module, goal.atom, 0}); return;
     case IrTag::Fun:
       if (machine.atoms.name(goal.atom) == ":" && goal.args.size() == 2 && goal.args[0].tag == IrTag::Atom) {

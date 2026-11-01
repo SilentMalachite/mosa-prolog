@@ -46,6 +46,7 @@ struct Build {
   [[nodiscard]] IrTerm goal_deep(Cell cell);
   [[nodiscard]] IrTerm goal_at(Cell cell, int depth);
   [[nodiscard]] IrTerm goal(Cell cell);
+  [[nodiscard]] IrTerm late_goal(Cell cell);
 };
 
 // 組み立て途中の制御構造。子のゴール（catch/3 の 2 番目だけはデータ）を term.args に集め終えたら閉じる。
@@ -180,10 +181,57 @@ std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
 }
 
 // catch/3 の 2 番目は捕まえる型であり、ゴールではない。
-// TODO(iso): 7.8.9.1 catch/3 の Goal は実行時に call/1 で動く。ここで訳すと、後で ! に束縛される変数が
-// call(X) の壁になり、clause/2 が見せる形と動きが違う（iso-notes 7.8.9）。
 bool child_is_data(const GoalFrame& frame, std::size_t index) {
   return frame.term.tag == IrTag::Catch && index == 1;
+}
+
+bool is_connective(const Heap& heap, Cell cell) {
+  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 2) return false;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  return name == "," || name == ";" || name == "->" || name == "*->";
+}
+
+// , ; -> *-> の下のゴール位置に未束縛の変数があるか（7.6.2 が変換するのはこの 4 つだけ）。入れ子の catch/3 は
+// 自分で決めるので入らない。見た節点を覚え、巡回するゴールでもこの歩き手は止まる（ゴールの翻訳はレビュー M13）。
+bool has_goal_var(const Heap& heap, Cell root) {
+  std::vector<Cell> pending{root};
+  std::unordered_set<std::uint64_t> seen;
+  while (!pending.empty()) {
+    const Cell cell = heap.deref(pending.back());
+    pending.pop_back();
+    if (heap.unbound(cell)) return true;
+    if (!is_connective(heap, cell) || !seen.insert(cell.raw()).second) continue;
+    pending.push_back(heap.arg(cell, 1));
+    pending.push_back(heap.arg(cell, 0));
+  }
+  return false;
+}
+
+// ADR 0014。catch/3 の Goal と Recovery は catch が動くときに call/1 で訳す（7.8.9.1）。ゴール位置の変数が
+// そのとき ! なら、そのゴールに閉じたカットになる。今訳すと call(X) の壁になるので、データのまま Call にする。
+// 変数 1 つだけのゴールは Var の葉が同じく call(X) として動くので、今のまま訳す。
+bool runs_late(const Heap& heap, const GoalFrame& frame, std::size_t index, Cell child) {
+  if (frame.term.tag != IrTag::Catch || index == 1) return false;
+  child = heap.deref(child);
+  return is_connective(heap, child) && has_goal_var(heap, child);
+}
+
+// call/1 の葉。clause/2 は Call を中の項として見せる（clause_term.cpp の expose_start）。
+// 実行時のゴールは元の項を env から指す。写すと、入れ子の catch が段ごとに残り全体を写して 2 乗になる。
+IrTerm Build::late_goal(Cell cell) {
+  IrTerm term;
+  term.tag = IrTag::Call;
+  term.atom = heap->atoms().intern("call");
+  term.arity = 1;
+  if (keep) {
+    IrTerm source;
+    source.tag = IrTag::Var;
+    source.slot = slot_of(heap->deref(cell));
+    term.args.push_back(std::move(source));
+  } else {
+    term.args.push_back(data(cell));
+  }
+  return term;
 }
 
 // 後順に訳す。子は左から訳すので、変数の番号は浅いときの再帰と同じ順に振られる。
@@ -197,6 +245,8 @@ IrTerm Build::goal_deep(Cell root) {
       const Cell next = heap->deref(heap->arg(top.cell, static_cast<std::uint16_t>(index)));
       if (child_is_data(top, index)) {
         top.term.args.push_back(data(next));
+      } else if (runs_late(*heap, top, index, next)) {
+        top.term.args.push_back(late_goal(next));
       } else if (auto frame = goal_frame(*heap, next)) {
         // 積むと top は無効になる。
         stack.push_back(std::move(*frame));
@@ -219,7 +269,9 @@ IrTerm Build::goal_at(Cell cell, int depth) {
   if (depth >= kShallow) return goal_deep(cell);
   for (std::size_t index = 0; index < frame->count; ++index) {
     const Cell next = heap->arg(cell, static_cast<std::uint16_t>(index));
-    frame->term.args.push_back(child_is_data(*frame, index) ? data(next) : goal_at(next, depth + 1));
+    if (child_is_data(*frame, index)) frame->term.args.push_back(data(next));
+    else if (runs_late(*heap, *frame, index, next)) frame->term.args.push_back(late_goal(next));
+    else frame->term.args.push_back(goal_at(next, depth + 1));
   }
   return std::move(frame->term);
 }

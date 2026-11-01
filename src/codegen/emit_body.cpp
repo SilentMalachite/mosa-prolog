@@ -224,10 +224,33 @@ IrTerm goal_view(const Impl& machine, const IrTerm& data) {
 
 namespace {
 
+// ADR 0014。データのゴールは組み込みが動くときに、そのときの束縛で訳される。goal_view がゴールとして訳す位置
+// （, ; -> *-> の下と catch/3 の Goal と Recovery）に変数があれば、そのとき ! になりうるので先に訳さない。
+bool goal_var_below(const Impl& machine, const IrTerm& root) {
+  std::vector<const IrTerm*> pending{&root};
+  while (!pending.empty()) {
+    const IrTerm* term = pending.back();
+    pending.pop_back();
+    if (term->tag == IrTag::Var) return true;
+    if (term->tag != IrTag::Fun) continue;
+    const auto name = machine.atoms.name(term->atom);
+    const std::size_t arity = term->args.size();
+    if (arity == 2 && (name == "," || name == ";" || name == "->" || name == "*->")) {
+      pending.push_back(&term->args[1]);
+      pending.push_back(&term->args[0]);
+    } else if (arity == 3 && name == "catch") {
+      pending.push_back(&term->args[2]);
+      pending.push_back(&term->args[0]);
+    }
+  }
+  return false;
+}
+
 // データの形で持つゴール（\+ の中、M:G の G）をゴールの形に直して ctx.owned に置く。変数や数や、(true, 1) のように
 // 動かせないゴールを含む形は、呼び出しのときに組み込みが確かめる（instantiation_error、type_error）ので nullptr。
 const IrTerm* owned_goal(ClauseCtx& ctx, const IrTerm& data) {
   if (data.tag != IrTag::Atom && data.tag != IrTag::Fun) return nullptr;
+  if (goal_var_below(ctx.machine, data)) return nullptr;
   IrTerm goal = goal_view(ctx.machine, data);
   if (!translatable_body(ctx.machine, goal)) return nullptr;
   ctx.owned.push_back(std::move(goal));

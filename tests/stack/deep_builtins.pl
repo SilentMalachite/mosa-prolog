@@ -40,6 +40,19 @@ soft_cond(N, (G *-> true ; fail)) :- M is N - 1, soft_cond(M, G).
 ite_then(0, true) :- !.
 ite_then(N, (true -> G)) :- M is N - 1, ite_then(M, G).
 
+% ADR 0014。catch/3 のゴールの一番奥に変数を置く。変数を探す歩き手も、後で call/1 が訳すのも、深さに比例すること。
+conj_var_left(0, X, X) :- !.
+conj_var_left(N, X, (G, true)) :- M is N - 1, conj_var_left(M, X, G).
+
+conj_var_right(0, X, X) :- !.
+conj_var_right(N, X, (true, G)) :- M is N - 1, conj_var_right(M, X, G).
+
+% 各段の変数はその段の catch が動くまで束縛されないので、どの段も Call の節点になる。段ごとに残り全体を
+% 写すと 2 乗になる（ADR 0014 の敵対的レビュー A2）。節にすると 1 段 2 個の変数が 65535 のスロットを越える
+% （STATUS の Doubts (g)）ので、実行時のゴールだけを確かめる。
+catch_late_nest(0, true) :- !.
+catch_late_nest(N, catch((V = true, (V, G)), _, true)) :- M is N - 1, catch_late_nest(M, G).
+
 catch_nest(0, G, G) :- !.
 catch_nest(N, G0, G) :- M is N - 1, catch_nest(M, catch(G0, inner, true), G).
 
@@ -97,6 +110,10 @@ main :-
     show(call_ite_then, (ite_then(D, G), call(G))),
     show(call_catch, (catch_nest(D, true, G), call(G))),
     show(call_catch_throw, (catch_nest(D, throw(ball), G), catch(G, ball, true))),
+    show(assertz_catch_var_left, (conj_var_left(D, X, G), assertz((deep_catch_left(X) :- catch((G ; true), _, true))),
+                                  deep_catch_left(true), \+ deep_catch_left((!, fail)))),
+    show(call_catch_late_nest, (catch_late_nest(D, G), call(G))),
+    show(call_catch_var_right, (conj_var_right(D, X, G), \+ call((X = (!, fail), catch((G ; true), _, true))))),
     show(call_conj_left, (conj_left(D, G), call(G))),
     show(assertz_conj_left, (conj_left(D, G), assertz((deep_left :- G)), deep_left)),
     show(call_not_callable, (conj_right(D, G), catch(call((G, 1)), error(type_error(callable, _), _), true))),

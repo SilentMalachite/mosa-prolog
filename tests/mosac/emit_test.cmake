@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_quoted|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -45,6 +45,21 @@ endif()
 if(CASE STREQUAL "undefined")
   if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1[^\n]*:- dynamic\\(nosuch/1\\)\\.")
     message(FATAL_ERROR "undefined: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+  endif()
+  expect_no_cpp()
+  return()
+endif()
+
+# ADR 0014。ゴール位置に変数を含む catch/3 の Goal と Recovery は Call の節点になる。その中で名指す述語も
+# 翻訳の時点で未定義と分かる（iso-notes 7.7.7 and SPEC Section 5）。
+if(CASE STREQUAL "undefined_catch")
+  foreach(want "undefined_catch\\.pl:3: [^\n]*nosuch_goal/0" "undefined_catch\\.pl:4: [^\n]*nosuch_recovery/0")
+    if(NOT emit_err MATCHES "${want}")
+      message(FATAL_ERROR "undefined_catch: ${want}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+    endif()
+  endforeach()
+  if(NOT emit_code EQUAL 1)
+    message(FATAL_ERROR "undefined_catch: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
   endif()
   expect_no_cpp()
   return()

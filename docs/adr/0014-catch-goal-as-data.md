@@ -1,6 +1,6 @@
 English | [日本語](0014-catch-goal-as-data.ja.md)
 
-Status: Proposed (2026-11-01; review item M14, owner chose A in iso-notes 7.8.9; awaiting the owner's approval)
+Status: Approved (2026-11-01; review item M14, owner chose A in iso-notes 7.8.9, and A again for fixing mosac's `\+` and `M:G` in the same item)
 
 ## Context
 
@@ -10,9 +10,9 @@ ADR 0003 fixes the IR, and this gives meaning to `IrTag::Call`, which nothing bu
 
 ## Decision
 
-When `Build` translates `catch/3`, a Goal or Recovery that is a `,` `;` `->` or `*->` with an unbound variable in goal position below it (looking through those four only, as 7.6.2 does; a nested `catch/3` decides for itself) becomes an `IrTag::Call` node (atom `call`, arity 1, the subterm as data); a lone variable and a construct without such a variable stay compiled as today.
+When `Build` translates `catch/3`, a Goal or Recovery that is a `,` `;` `->` or `*->` with an unbound variable in goal position below it (looking through those four only, as 7.6.2 does; a nested `catch/3` decides for itself) becomes an `IrTag::Call` node (atom `call`, arity 1, the subterm as data; in a goal built at run time the node points at the original term instead of a copy, so nested catches stay linear); a lone variable and a construct without such a variable stay compiled as today.
 The node runs as a `call/1` leaf (`embody_leaf`, and in mosac the same `call_goal` as a written `call/1`), so the goal is translated with the bindings of the moment the catch runs and its cut barrier sits inside the catch, cutting the choice points the Goal (or Recovery) made, as 7.8.9.1 and 7.8.3 say; clause/2 and retract already show a `Call` node as its argument (`expose_start`), so the Goal is shown as written (7.6.2 c).
-mosac's `owned_goal` refuses data with a variable in goal position, so `\+` and `M:G` with one go to the built-in as in mosa; the translator checks the term and mosac the IR, each in one walk with an explicit stack (ADR 0011).
+mosac's `owned_goal` refuses data with a variable in goal position, so `\+` and `M:G` with one go to the built-in as in mosa; the translator checks the term and mosac the IR, each in one walk with an explicit stack (ADR 0011), and mosac's undefined-call check still looks inside a `Call` node.
 
 ## Rejected alternatives
 

@@ -102,3 +102,77 @@ test(if_built_in, predicate_property(if(_, _, _), built_in), true).
 % 回復の制御を上書きしない。
 test(catch_then_recovery, catch((true -> throw(x) ; true), _, ((true -> true ; true), (true -> X = ok ; X = bad))), solutions([X = ok])).
 test(catch_call_then_recovery, catch(call((true -> throw(x) ; true)), _, ((true *-> true ; true), (true -> X = ok ; X = bad))), solutions([X = ok])).
+
+% ADR 0014（レビュー M14）: catch/3 の Goal と Recovery は catch が動くときに call/1 として訳す（7.8.9.1）。
+% ゴール位置の変数がそのとき ! なら、そのゴールに閉じたカットになる。call(X) の壁にしてはいけない。
+:- dynamic(m14_seen/0).
+:- dynamic(m14_dyn/1).
+m14_m(1).
+m14_m(2).
+m14_m(3).
+m14_goal(X) :- catch(((X, fail) ; true), _, true).
+m14_recovery(X) :- catch(throw(e), _, ((X, fail) ; true)).
+m14_prefix(X, Y) :- catch((m14_m(Y), X), _, true).
+m14_else(X, Y) :- catch((m14_m(Y), (fail -> true ; X)), _, true).
+m14_soft(X, Y) :- catch((m14_m(Y), (true *-> X ; true)), _, true).
+m14_outer(X, Z) :- m14_m(Z), Z < 3, catch(((X, true) ; true), _, true).
+m14_clause(X, Z) :- catch((X ; true), _, true), Z = a.
+m14_clause(_, b).
+m14_inner(X, Y) :- catch(catch((m14_m(Y), X), _, true), _, true).
+m14_lone(X, Y) :- catch((m14_m(Y), catch(X, _, true)), _, true).
+m14_rec_prefix(X, Y) :- catch(throw(e), _, (m14_m(Y), X)).
+m14_ball(Y) :- catch(throw(!), X, (m14_m(Y), X)).
+m14_late :- catch((X = !, ((X, fail) ; true)), _, true).
+m14_unbound(E) :- catch(((_, fail) ; true), E, true).
+m14_undone(Y) :- catch((X = !, throw(e)), _, (m14_m(Y), X)).
+m14_noncallable(G, E) :- catch((G, 1), E, true).
+m14_not(X) :- \+ ((X, fail) ; true).
+m14_qual(X) :- user:((X, fail) ; true).
+m14_qual(_).
+m14_not_qual(X) :- \+ user:((X, fail) ; true).
+m14_ite(X, Y) :- catch((X ; Y = 9), _, true).
+m14_not_catch(X) :- \+ catch(((X, fail) ; true), _, true).
+m14_not_arg(X) :- \+ (m14_m(X), X > 1).
+m14_written(X) :- catch(call(((X, fail) ; true)), _, true).
+test(m14_goal_cut, m14_goal(!), fail).
+test(m14_goal_same_as_call, (G = catch(((X, fail) ; true), _, true), X = !, \+ call(G), \+ m14_goal(!)), true).
+test(m14_goal_true, m14_goal(true), true).
+test(m14_recovery_cut, m14_recovery(!), fail).
+test(m14_runtime_cut, call((Y = !, catch(((Y, fail) ; true), _, true))), fail).
+test(m14_prefix_cut, (findall(Y, m14_prefix(!, Y), L), L == [1]), true).
+test(m14_prefix_conj_cut, (findall(Y, m14_prefix((!, true), Y), L), L == [1]), true).
+test(m14_prefix_true, (findall(Y, m14_prefix(true, Y), L), L == [1, 2, 3]), true).
+% findall の中の catch は X が束縛された後に訳される。節の catch と同じ答えになること。
+test(m14_prefix_runtime, (X = !, findall(Y, catch((m14_m(Y), X), _, true), L)), solutions([L = [1]])).
+test(m14_else_cut, (findall(Y, m14_else(!, Y), L), L == [1]), true).
+test(m14_soft_cut, (findall(Y, m14_soft(!, Y), L), L == [1]), true).
+test(m14_cut_stays_in_catch, (findall(Z, m14_outer(!, Z), L), L == [1, 2]), true).
+test(m14_cut_not_clause, findall(Z, m14_clause(!, Z), L), solutions([L = [a, b]])).
+test(m14_inner_catch, (findall(Y, m14_inner(!, Y), L), L == [1]), true).
+test(m14_lone_var, (findall(Y, m14_lone(!, Y), L), L == [1, 2, 3]), true).
+test(m14_recovery_prefix, (findall(Y, m14_rec_prefix(!, Y), L), L == [1]), true).
+% 捕まえる型との単一化で X が ! になる。Recovery はその後に訳す。
+test(m14_recovery_ball, (findall(Y, m14_ball(Y), L), L == [1]), true).
+test(m14_recovery_ball_runtime, findall(Y, catch(throw(!), X, (m14_m(Y), X)), L), solutions([L = [1]])).
+test(m14_bound_late, m14_late, true).
+test(m14_bound_late_call, catch((X = !, ((X, fail) ; true)), _, true), true).
+test(m14_unbound, (m14_unbound(E), E = error(F, _)), solutions([F = instantiation_error])).
+test(m14_recovery_undone, m14_undone(_), error(instantiation_error)).
+test(m14_noncallable_first, (m14_noncallable(assertz(m14_seen), E), E = error(F, _), \+ m14_seen), solutions([F = type_error(callable, (assertz(m14_seen), 1))])).
+test(m14_noncallable_call, (catch(call(catch((X, 1), E, true)), O, true), var(O), E = error(type_error(callable, (V, 1)), _), var(V)), true).
+test(m14_throw_through, catch(m14_noncallable_rethrow, b, true), true).
+m14_noncallable_rethrow :- G = throw(b), catch((G ; true), a, true).
+test(m14_throw_caught, (G = throw(z), catch((G ; true), z, true)), true).
+test(m14_not_cut, m14_not(!), true).
+test(m14_qual_cut, findall(a, m14_qual(!), L), solutions([L = []])).
+test(m14_not_qual_cut, m14_not_qual(!), true).
+% X が -> になると (X ; E) は if-then-else になり、else の枝は動かない（7.8.8）。
+test(m14_ite_shape, (findall(Y, (X = (true -> Y = 1), m14_ite(X, Y)), L), L == [1]), true).
+test(m14_not_catch_cut, m14_not_catch(!), true).
+test(m14_not_arg, (m14_not_arg(1), \+ m14_not_arg(2)), true).
+test(m14_clause_shown, (clause(m14_goal(_), B), B = catch(G, _, true), G = ((V, fail) ; true), var(V)), true).
+test(m14_clause_recovery_shown, (clause(m14_recovery(_), B), B = catch(throw(e), _, R), R = ((V, fail) ; true), var(V)), true).
+test(m14_clause_same_as_head, (clause(m14_goal(!), B), \+ call(B)), true).
+test(m14_clause_written_call, (clause(m14_written(_), B), B = catch(G, _, true), G = call(_)), true).
+test(m14_written_call, m14_written(!), fail).
+test(m14_assert_retract, (assertz((m14_dyn(X) :- catch(((X, fail) ; true), _, true))), \+ m14_dyn(!), retract((m14_dyn(Y) :- catch(((Y, fail) ; true), _, true))), \+ clause(m14_dyn(_), _)), true).
