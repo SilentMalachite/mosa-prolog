@@ -19,6 +19,9 @@ constexpr std::string_view k_program =
     "ls(0) :- !. ls(N) :- (true *-> true ; true), N1 is N - 1, ls(N1).\n"
     "ln(0) :- !. ln(N) :- catch((true *-> true ; true), _, true), N1 is N - 1, ln(N1).\n"
     "lc(0) :- !. lc(N) :- catch(catch(true, _, true), _, true), N1 is N - 1, lc(N1).\n"
+    // ADR 0014。ゴール位置に変数があるので、Goal と Recovery は Call の節点として call/1 で動く。
+    "lv(0, _) :- !. lv(N, X) :- catch((X, true), _, true), N1 is N - 1, lv(N1, X).\n"
+    "lr(0, _) :- !. lr(N, X) :- catch(throw(e), _, (X, true)), N1 is N - 1, lr(N1, X).\n"
     "p(1). p(2).";
 
 mosa::Stop ask(mosa::Machine& machine, std::string_view goal, bool& limited) {
@@ -81,6 +84,8 @@ int main() {
   check_loop("ls(1000000).");
   check_loop("ln(1000000).");
   check_loop("lc(1000000).");
+  check_loop("lv(1000000, true).");
+  check_loop("lr(1000000, true).");
   check_kept_catch();
   check_popped_now();
   return mosa_test::failures();

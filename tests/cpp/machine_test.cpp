@@ -5,6 +5,8 @@
 
 #include <exception>
 #include <string>
+#include <string_view>
+#include <utility>
 
 namespace {
 
@@ -399,6 +401,14 @@ void check_control() {
   mosa_test::check(machine->query("(\\+ true).").kind == mosa::StopKind::Failure, "not true");
   auto halted = machine->query("halt(3).");
   mosa_test::check(halted.kind == mosa::StopKind::Halt && halted.halt_code == 3, "halt code");
+  // ADR 0014。Call の節点として call/1 で動く catch の Goal と Recovery の中の halt/1 も、機械を止めて終了コードを返す。
+  constexpr std::string_view late = "lh(X) :- catch((X, true), _, true). lr(X) :- catch(throw(e), _, (X, true)).";
+  for (const auto& [goal, code] : {std::pair{"lh(halt(4)).", 4}, std::pair{"lr(halt(5)).", 5}}) {
+    auto stopped = mosa::Machine::create();
+    mosa_test::check(stopped->load_program(late).ok, std::string{goal} + ": load");
+    const auto stop = stopped->query(goal);
+    mosa_test::check(stop.kind == mosa::StopKind::Halt && stop.halt_code == code, std::string{goal} + ": halt code");
+  }
   auto again = mosa::Machine::create();
   mosa_test::check(again->query("call(1).").kind == mosa::StopKind::Exception, "call number");
   mosa_test::check(again->load_program(":- op(600, xfy, *->). p(1). p(2).").ok, "soft cut data");
