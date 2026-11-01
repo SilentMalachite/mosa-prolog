@@ -51,25 +51,30 @@ std::string read_file(const std::string& path) {
   return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
 
-// user_output は std::cout へ書く。答えの行（result.out）とは別なので、その間だけ受けて後ろに付ける。
+// user_output は std::cout へ、user_error は std::cerr へ書く。答えの行（result.out）とは別なので、その間だけ受けて
+// 後ろに付ける。
 class CoutCapture {
  public:
-  CoutCapture() : saved_(std::cout.rdbuf(sink_.rdbuf())) {}
+  explicit CoutCapture(std::ostream& stream = std::cout) : stream_(stream), saved_(stream.rdbuf(sink_.rdbuf())) {}
   CoutCapture(const CoutCapture&) = delete;
   CoutCapture& operator=(const CoutCapture&) = delete;
-  ~CoutCapture() { std::cout.rdbuf(saved_); }
+  ~CoutCapture() { stream_.rdbuf(saved_); }
   std::string text() const { return sink_.str(); }
 
  private:
   std::ostringstream sink_;
+  std::ostream& stream_;
   std::streambuf* saved_;
 };
 
 mosa::SessionResult session(const std::vector<std::string_view>& args, std::string_view input) {
   const CoutCapture capture;
+  const CoutCapture errors(std::cerr);
   mosa::SessionResult result = mosa::run_session(args, input, true, k_limit);
   std::cout.flush();
+  std::cerr.flush();
   result.out += capture.text();
+  result.err += errors.text();
   return result;
 }
 
@@ -210,6 +215,15 @@ void check_query_resets_closed_current() {
   mosa_test::check(ok(*machine, k_on_user_output), "query_reset: out of range resets");
 }
 
+// 標準ストリームの close は閉じない（iso-notes 8.11.6.1 の A、レビュー L13）。次の問い合わせの write が端末に届く。
+void check_session_close_user_output() {
+  const std::vector<std::string_view> args{"mosa", "-g", "close(user_output), close(user_error)"};
+  const auto result = session(args, "write(visible), nl, write(user_error, err_visible).\n");
+  mosa_test::check(result.out.find("visible") != std::string::npos, "close_std: next write reaches user_output");
+  mosa_test::check(result.err.find("existence_error") == std::string::npos, "close_std: no closed standard stream");
+  mosa_test::check(result.err.find("err_visible") != std::string::npos, "close_std: next write reaches user_error");
+}
+
 }  // namespace
 
 int main() {
@@ -225,5 +239,6 @@ int main() {
   check_closed_saved_falls_back();
   check_normal_exits_unchanged();
   check_query_resets_closed_current();
+  check_session_close_user_output();
   return mosa_test::failures();
 }

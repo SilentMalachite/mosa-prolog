@@ -480,10 +480,11 @@ void check_at_end(const std::filesystem::path& path) {
   auto after = mid->query("get_byte('$stream'(3), _), at_end_of_stream('$stream'(3)).");
   mosa_test::check(after.kind == mosa::StopKind::Success, "binary after the byte");
 
+  // user_input は close しても閉じない（iso-notes 8.11.6.1 の A）。閉じた流れはファイルで作る。
   auto closed_in = mosa::Machine::create();
-  auto closed = closed_in->query("close(user_input), at_end_of_stream.");
-  mosa_test::check(closed.kind == mosa::StopKind::Exception, "closed current input");
-  mosa_test::check(formal_text(*closed_in, closed) == "existence_error(stream,'$stream'(0))",
+  auto closed = closed_in->query("open(" + atom + ", read, S), close(S), at_end_of_stream(S).");
+  mosa_test::check(closed.kind == mosa::StopKind::Exception, "closed input");
+  mosa_test::check(formal_text(*closed_in, closed) == "existence_error(stream,'$stream'(3))",
                    "at_end closed formal");
 }
 
@@ -649,9 +650,9 @@ void check_close_standard() {
   auto machine = mosa::Machine::create();
   auto closed = machine->query("close(user_output).");
   mosa_test::check(closed.kind == mosa::StopKind::Success, "close user_output");
-  auto put = machine->query("put_char(a).");
-  mosa_test::check(put.kind == mosa::StopKind::Exception, "put after close");
-  mosa_test::check(formal_text(*machine, put) == "existence_error(stream,user_output)", "current stays user_output");
+  // 標準ストリームは吐き出すだけで閉じない（iso-notes 8.11.6.1 の A、レビュー L13）。
+  auto kept = machine->query("current_output(S), stream_property(S, alias(user_output)), flush_output(S).");
+  mosa_test::check(kept.kind == mosa::StopKind::Success, "user_output stays open and current after close");
 }
 
 void check_flush_failure(const std::filesystem::path& path) {

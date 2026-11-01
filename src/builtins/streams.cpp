@@ -11,6 +11,7 @@
 // close(+stream_or_alias) / close(+stream_or_alias, +close_options)
 //   選択肢は force(true/false)。無いときは force(false)。
 //   書き戻しに失敗し force が false なら system_error。ストリームは開いたまま。
+//   user_input・user_output・user_error は吐き出すだけで閉じない（iso-notes 8.11.6.1 の A）。
 // flush_output / flush_output(+stream_or_alias)
 //   入力ストリームは permission_error(output, stream, S)。
 // テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
@@ -522,7 +523,9 @@ void run_close(Impl& machine, const Goal& goal) {
       return;
     }
   }
-  mark_closed(machine, index);
+  // 標準ストリームは吐き出すだけで閉じない（iso-notes 8.11.6.1 の A）。閉じると、戻り先の user_output まで
+  // 書けなくなり、そのセッションの出力が二度と出ない（レビュー L13）。
+  if (machine.streams[index].kind != Stream::Kind::Standard) mark_closed(machine, index);
   machine.ip = goal.cont;
 }
 
