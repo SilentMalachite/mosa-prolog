@@ -152,3 +152,10 @@ test(m1_read_recovers_last, (open_string('9223372036854775808.', S), catch(read(
 test(m1_read_after_operand, m1_read('a 9223372036854775808.', _), error(syntax_error(integer_overflow))).
 test(m1_read_after_operand_list, m1_read('[a 0x8000000000000000].', _), error(syntax_error(integer_overflow))).
 test(m1_read_after_operand_recovers, (open_string('f(a 9223372036854775808). b.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == b), true).
+% 1025 番目の引数が 2^63 なら、字句で溢れにしていたときと同じく max_arity より integer_overflow が先（Grok レビュー）。
+m1_wide(0, Last, A) :- !, atom_concat(Last, ').', A).
+m1_wide(N, Last, A) :- M is N - 1, m1_wide(M, Last, B), atom_concat('0,', B, A).
+m1_wide_read(Last) :- m1_wide(1024, Last, Body), atom_concat('f(', Body, Text), m1_read(Text, _).
+test(m1_read_wide_min, m1_wide_read('9223372036854775808'), error(syntax_error(integer_overflow))).
+test(m1_read_wide_beyond, m1_wide_read('9223372036854775809'), error(syntax_error(integer_overflow))).
+test(m1_read_wide_plain, m1_wide_read('1'), error(syntax_error(max_arity))).
