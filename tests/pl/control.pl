@@ -277,3 +277,45 @@ m13_wrap(0, G, G) :- !.
 m13_wrap(N, G, (true, W)) :- M is N - 1, m13_wrap(M, G, W).
 test(m13_shared_cut_deep, (S = (!, Y = 1), m13_wrap(100, ((S ; Y = 2) ; (S ; Y = 3)), G), findall(Y, G, L)), solutions([L = [1]])).
 test(m13_cut_local_deep, (m13_wrap(100, (((Y == x, !) ; (Y = x, X)) ; Y = extra), X), findall(Y, X, L)), solutions([L = [x, extra]])).
+% レビュー M16。\+ G と once(G) は G を call/1 として動かす（8.15.1.1、8.15.2.1）。呼べない部分があれば、何も動かす
+% 前に type_error(callable, G) になる（7.8.3.3）。forall/2 は \+ (Cond, \+ Action) なので、Cond は動かす前に
+% 調べる。Action を調べるのは Cond が成功して Action を動かすときで、そのときも Action の何かが動く前に型エラーに
+% なる（iso-notes forall/2）。
+:- dynamic(m16_seen/0).
+m16_not(E) :- catch(\+ (assertz(m16_seen), 1), E, true).
+m16_once(E) :- catch(once((assertz(m16_seen), 1)), E, true).
+m16_forall_cond(E) :- catch(forall((assertz(m16_seen), 1), true), E, true).
+m16_forall_action(E) :- catch(forall(true, (assertz(m16_seen), 1)), E, true).
+m16_formal(E, F) :- E = error(F, _).
+m16_pick(1).
+m16_pick(2).
+m16_wrap(0, G, G) :- !.
+m16_wrap(N, G, (true, W)) :- M is N - 1, m16_wrap(M, G, W).
+test(m16_not_body, (retractall(m16_seen), m16_not(E), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_not_goal, (retractall(m16_seen), catch(\+ (assertz(m16_seen), 1), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_not_disj, (retractall(m16_seen), catch(\+ ((assertz(m16_seen), fail) ; 1), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, ((assertz(m16_seen), fail) ; 1))])).
+test(m16_not_ite, (catch(\+ (fail -> true ; (true, 1.5)), E, true), m16_formal(E, F)), solutions([F = type_error(callable, (fail -> true ; (true, 1.5)))])).
+test(m16_not_bound_later, (X = 1, catch(\+ (true, X), E, true), m16_formal(E, F)), solutions([F = type_error(callable, (true, 1))])).
+test(m16_not_deep, (retractall(m16_seen), m16_wrap(200, 1, G), catch(\+ (assertz(m16_seen), G), E, true), m16_formal(E, F), F = type_error(callable, C), C == (assertz(m16_seen), G), \+ m16_seen), true).
+test(m16_not_lone, (catch(\+ 1, E, true), m16_formal(E, F)), solutions([F = type_error(callable, 1)])).
+test(m16_not_var, (catch(\+ (true, _), E, true), m16_formal(E, F)), solutions([F = instantiation_error])).
+test(m16_not_call, (retractall(m16_seen), catch(call(\+ (assertz(m16_seen), 1)), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_not_findall, (retractall(m16_seen), findall(F, (catch(\+ (assertz(m16_seen), 1), E, true), m16_formal(E, F)), L), \+ m16_seen), solutions([L = [type_error(callable, (assertz(m16_seen), 1))]])).
+test(m16_not_with_output, (with_output_to(atom(A), catch(\+ (write(a), 1), _, true)), A == ''), true).
+test(m16_not_still_negates, (\+ fail, \+ \+ true, \+ (X = 1, fail), var(X), \+ (m16_pick(Y), Y > 2)), true).
+test(m16_not_cut_local, (\+ (!, fail ; true)), true).
+test(m16_once_goal, (retractall(m16_seen), m16_once(E), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_once_disj, (retractall(m16_seen), catch(once(((assertz(m16_seen), fail) ; 1)), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, ((assertz(m16_seen), fail) ; 1))])).
+test(m16_once_deep, (retractall(m16_seen), m16_wrap(200, 2, G), catch(once((assertz(m16_seen), G)), E, true), m16_formal(E, F), F = type_error(callable, C), C == (assertz(m16_seen), G), \+ m16_seen), true).
+test(m16_once_lone, (catch(once(1), E, true), m16_formal(E, F)), solutions([F = type_error(callable, 1)])).
+test(m16_once_still_once, (once(m16_pick(X)), X == 1, \+ once((!, fail ; true))), true).
+test(m16_forall_cond, (retractall(m16_seen), m16_forall_cond(E), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_forall_action, (retractall(m16_seen), m16_forall_action(E), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_forall_action_bound, (catch(forall(m16_pick(X), (X > 0, 1)), E, true), m16_formal(E, F)), solutions([F = type_error(callable, (1 > 0, 1))])).
+test(m16_forall_action_unreached, forall(fail, 1), true).
+test(m16_forall_still_works, (forall(m16_pick(X), X > 0), \+ forall(m16_pick(X), X > 1)), true).
+test(m16_once_var, (catch(once((true, _)), E, true), m16_formal(E, F)), solutions([F = instantiation_error])).
+test(m16_forall_var, (catch(forall((true, _), true), E, true), m16_formal(E, F)), solutions([F = instantiation_error])).
+test(m16_call_not_extra, (retractall(m16_seen), catch(call(\+, (assertz(m16_seen), 1)), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_call_once_extra, (retractall(m16_seen), catch(call(once, (assertz(m16_seen), 1)), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
+test(m16_not_cyclic, (X = (X, 1), catch(\+ X, E, true), m16_formal(E, F), F = type_error(callable, C), C == X), true).

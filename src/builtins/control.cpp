@@ -1,6 +1,7 @@
 #include "../machine/internal.hpp"
 
 #include <array>
+#include <optional>
 #include <vector>
 
 namespace mosa {
@@ -91,16 +92,29 @@ bool run_call(Impl& machine, const Goal& goal) {
   return true;
 }
 
-bool run_not(Impl& machine, const Goal& goal) {
+// \+ G と once(G) の G は call/1 として動く（8.15.1.1、8.15.2.1）。(write(a), 1) のように呼べない部分があれば、
+// 床を積んで何かを動かす前に type_error(callable, G) にする（7.8.3.3、レビュー M16）。誤りを出したら nullopt。
+std::optional<Compiled> called_goal(Impl& machine, const Goal& goal) {
   const Cell inner = machine.heap.deref(goal.arg(machine, 0));
   if (machine.heap.unbound(inner)) {
     instantiation(machine, goal);
-    return true;
+    return std::nullopt;
   }
   if (!is_callable(machine, inner)) {
     not_callable(machine, goal, inner);
-    return true;
+    return std::nullopt;
   }
+  Compiled compiled = compile_goal(machine.heap, inner);
+  if (!body_callable(*compiled.term)) {
+    not_callable(machine, goal, inner);
+    return std::nullopt;
+  }
+  return compiled;
+}
+
+bool run_not(Impl& machine, const Goal& goal) {
+  const std::optional<Compiled> compiled = called_goal(machine, goal);
+  if (!compiled.has_value()) return true;
   Entry barrier;
   barrier.pick = Pick::Negation;
   barrier.cont = goal.cont;
@@ -117,21 +131,13 @@ bool run_not(Impl& machine, const Goal& goal) {
   machine.heap.set_word(at + 1, machine.extras.size() - 1);
   machine.heap.set_word(at + 2, 0);
   machine.heap.set_word(at + 3, kNoFrame);
-  const Compiled compiled = compile_goal(machine.heap, inner);
-  launch(machine, compiled.term, at, boundary, compiled.env, goal.module);
+  launch(machine, compiled->term, at, boundary, compiled->env, goal.module);
   return true;
 }
 
 bool run_once(Impl& machine, const Goal& goal) {
-  const Cell inner = machine.heap.deref(goal.arg(machine, 0));
-  if (machine.heap.unbound(inner)) {
-    instantiation(machine, goal);
-    return true;
-  }
-  if (!is_callable(machine, inner)) {
-    not_callable(machine, goal, inner);
-    return true;
-  }
+  const std::optional<Compiled> compiled = called_goal(machine, goal);
+  if (!compiled.has_value()) return true;
   Entry barrier;
   barrier.pick = Pick::Once;
   barrier.heap_mark = machine.heap.size();
@@ -148,8 +154,7 @@ bool run_once(Impl& machine, const Goal& goal) {
   machine.heap.set_word(at + 1, machine.extras.size() - 1);
   machine.heap.set_word(at + 2, 0);
   machine.heap.set_word(at + 3, kNoFrame);
-  const Compiled compiled = compile_goal(machine.heap, inner);
-  launch(machine, compiled.term, at, boundary, compiled.env, goal.module);
+  launch(machine, compiled->term, at, boundary, compiled->env, goal.module);
   return true;
 }
 
@@ -189,14 +194,15 @@ bool run_halt(Impl& machine, const Goal& goal) {
 }  // namespace
 
 // forall/2 は \+ (Cond, \+ Action) を呼び手の文脈で走らせる（iso-notes「Section 7 forall/2」の決定 A）。
-// 前もって調べるのは Cond だけ。Action の誤りは、その \+ に届いたときに出る。
+// 前もって調べるのは Cond だけで、呼べない部分があれば誤りは Cond で出す（外の \+ に任せると (Cond, \+ Action) に
+// なる）。Action の誤りは、その \+ に届いたときに \+ が出す（レビュー M16）。
 bool run_forall(Impl& machine, const Goal& goal) {
   std::array<Cell, 2> parts{machine.heap.deref(goal.arg(machine, 0)), machine.heap.deref(goal.arg(machine, 1))};
   if (machine.heap.unbound(parts[0])) {
     instantiation(machine, goal);
     return true;
   }
-  if (!is_callable(machine, parts[0])) {
+  if (!is_callable(machine, parts[0]) || !body_callable(*compile_goal(machine.heap, parts[0]).term)) {
     not_callable(machine, goal, parts[0]);
     return true;
   }
@@ -205,10 +211,6 @@ bool run_forall(Impl& machine, const Goal& goal) {
   const Cell both = machine.heap.structure(machine.atoms.intern(","), parts);
   const Cell term = machine.heap.structure(negation, std::array<Cell, 1>{both});
   const Compiled compiled = compile_goal(machine.heap, term);
-  if (!body_callable(*compiled.term)) {
-    not_callable(machine, goal, both);
-    return true;
-  }
   launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
   return true;
 }
