@@ -75,6 +75,8 @@ A or B?: A compiles the Goal and Recovery of catch/3 so that a variable in them 
 
 Decision (2026-11-01): A. Planned after H6: only a Goal or Recovery with a variable in goal position is kept as data and run by `call/1` at run time; catch/3 without such a variable stays compiled. ADR first (IR and mosac codegen change). Review item M14.
 
+Done (2026-11-01, 0b333c3, ADR 0014): such a Goal or Recovery becomes an `IrTag::Call` node and runs as `call/1` when the catch runs; mosac no longer translates `\+` and `M:G` data with a variable in goal position ahead (n(!) used to differ from mosa). Tests: `tests/pl/control.pl` `m14_*`, `tests/mosac/undefined_catch.pl`, `tests/stack/deep_builtins.pl` `call_catch_late_nest`. Without a variable, a non-callable part of a catch argument is still checked ahead (review M15).
+
 ## 8.8 current_predicate/1
 
 Decision (2026-10-25): Open question 6: B. `current_predicate/1` returns only user predicates, in definition order. `current_predicate(true/0)` fails; it is not a `permission_error`. An empty dynamic predicate succeeds. After `abolish` it fails.

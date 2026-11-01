@@ -77,6 +77,8 @@ A か B か: A は catch/3 の Goal と Recovery を、実行時に束縛され�
 
 決定（2026-11-01）: A。H6 の後に行う。ゴール位置に変数を持つ Goal か Recovery だけをデータのまま持ち、実行時に `call/1` で動かす。そういう変数の無い catch/3 は今のまま訳す。IR と mosac のコード生成が変わるので、先に ADR を書く。レビュー項目 M14。
 
+完了（2026-11-01、0b333c3、ADR 0014）: そういう Goal か Recovery は `IrTag::Call` の節点になり、catch が動くときに `call/1` として動く。mosac は、ゴール位置に変数を含む `\+` と `M:G` のデータを先に訳さなくなった（以前は n(!) が mosa と違った）。テスト: `tests/pl/control.pl` の `m14_*`、`tests/mosac/undefined_catch.pl`、`tests/stack/deep_builtins.pl` の `call_catch_late_nest`。変数が無い場合、catch の引数の呼び出せない部分は今も先に確かめる（レビュー M15）。
+
 ## 8.8 current_predicate/1
 
 決定（2026-10-25）: 未決 6 は B。`current_predicate/1` は利用者の述語だけを、定義された順に返す。`current_predicate(true/0)` は失敗であり、`permission_error` ではない。空の動的述語は成功する。`abolish` のあとは失敗する。
