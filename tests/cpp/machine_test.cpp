@@ -97,8 +97,9 @@ void check_catch() {
 }
 
 // レビュー M13。左の子から自分に戻る巡回するゴールは、無限の左再帰として動く。C++ の再帰で積まずに、
-// ヒープの上限で止まる（SIGSEGV で落ちない）。(X ; true) は除く。選択点はヒープの外に積まれ、巡回しない
-// p :- (p ; true) と同じく上限で止まらない（レビュー M17）。
+// ヒープの上限で止まる（SIGSEGV で落ちない）。catch、->、\+ の段は選択点も積むので、止まるまでの RSS は
+// 上限の何倍にもなる（--heap-max 64 で 1.6 GB）。(X ; true) は除く。ヒープの語が増えず、巡回しない
+// p :- (p ; true) と同じく上限で止まらない。どちらもレビュー M17。
 void check_cyclic_goal_limit() {
   for (const char* goal : {"X = (X, true), call(X).", "X = catch(X, _, true), call(X).",
                            "X = (X -> true ; true), call(X).", "X = (\\+ X), call(X).", "X = (X, true), X."}) {
