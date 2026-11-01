@@ -24,7 +24,7 @@
 1. Reconsult and failed consult (`load_clauses.cpp:128,139,154`, `consult.cpp:96`) of a predicate with an index or open scans: the next call by key sees exactly the new clauses — `m3_reconsult` (Task 4).
 2. asserta and assertz during an open scan, crossing the 8-clause threshold: the scan sees the clauses of its call, the next call all of them, in order — `m3_asserta_open`, `m3_threshold_assertz` (Tasks 2 and 4).
 3. Keys equal across representations: `0.0`/`-0.0`, `nan`, 2^62 (an `IntBox`), `1` vs `1.0`, `f/1` vs `f/2`, `[]` vs `[_|_]` — `m3_keys_*` (Task 4).
-4. Removal while older scans are open (`p(X), retract(p(Y))`, retract inside a cursor scan, abolish during a scan, a removal at the front held by an older scan): held clauses are still tried, then erased — `m3_sweep_*` (Tasks 3 and 5).
+4. Removal while older scans are open (`p(X), retract(p(Y))`, retract inside a cursor scan, abolish during a scan, a removal at the front still reachable by an older scan): reachable clauses are still tried, then erased — `m3_sweep_*` (Tasks 3 and 5).
 5. A cut or exception that drops scan entries before a sweep, and `--heap-max` stops inside a scan: no entry is left pointing at a missing id, `redo_clause` skips ids it cannot find — `m3_cut_then_retract` (Task 5).
 
 ---
@@ -65,7 +65,7 @@
 **Interfaces:**
 - `Impl::db_generation` (`std::uint64_t`), raised by every assert and removal. `Clause::born`, `Clause::died` (`kAlive = UINT64_MAX`); `bool Clause::dead() const { return died != kAlive; }` replaces the field; `bool visible(const Clause&, std::uint64_t g)` is `born <= g && g < died`.
 - `Entry::generation` for the three scan picks; `Entry::cursor` (next id, `kNoClause` when done) with `Entry::by_cursor` for `Pick::Clauses`. A call with an unbound first argument, no argument, or `wraps_first` finds the first visible clause, looks ahead to the next, and pushes an entry only if one exists; `redo_clause` does the same from `cursor`. Retract scans still skip any dead clause (as today).
-- `std::uint64_t oldest_scan(const Impl&, PredKey)` (min `generation` of open scans, `UINT64_MAX` if none) replaces `held_by_scan`; `kill_clause` sets `died` and erases the clause when `died <= oldest_scan(...)`.
+- `bool scan_reaches(const Entry&, std::size_t id, std::uint64_t died)`: the entry scans this predicate, `entry.generation < died`, and it has not passed the clause (cursor entry: `cursor <= id`; list entry: `id` is in `candidates[next..]`, found by binary search since ids ascend). `bool reachable(const Impl&, PredKey, const Clause&)` asks every open entry; it replaces `held_by_scan`. `kill_clause` sets `died` and erases the clause when it is not reachable (the retract's own entry has passed it).
 
 - [ ] **Step 1:** Add `check_linear("unbound first call", 5000, …)` timing N calls of `one :- p(_, _), !.`, and guards `m3_sweep_cursor_retract` (inside `p(X, _)` over 9 clauses, retract the 5th and assertz a 10th: the scan gives the 9, the next call 9 without the 5th) and `m3_sweep_abolish_open`.
 - [ ] **Step 2:** Run → `FAIL: unbound first call …` (ratio ≈ 14); database.pl passes.
@@ -93,8 +93,9 @@
 **Files:** Modify `src/builtins/database.cpp` (`collect_matches`, `kill_clause`, `purge_dead`, `abolish_open`), `src/builtins/database_scan.cpp` (`matching_clauses`, the `live_count` check at `:129`), `clause_store.cpp`, `internal.hpp` (`Predicate::dead_since`), `load_clauses.cpp:116`. Test: `index_scale_test.cpp`, `tests/pl/database.pl`.
 
 **Interfaces:**
-- Consumes `key_candidates` (Task 4), `oldest_scan` (Task 3).
-- `void sweep_dead(Impl&, Predicate&)`: erases every clause with `died <= oldest_scan(...)` in one pass, drops the index, sets `dead_since = 0`. `kill_clause` erases at once when the clause is first or last and `died <= oldest_scan(...)`, otherwise `++dead_since`; `purge_dead` sweeps when `2 * dead_since > clauses.size()` or the predicate is abolished (abolish sweeps at once and erases the predicate if nothing is left, as now).
+- Consumes `key_candidates` (Task 4), `scan_reaches`/`reachable` (Task 3).
+- With a bound first argument the collectors unify only `key_candidates`. With an unbound one, retract and clause/2 no longer collect: they unify from a cursor up to the first match, then look ahead (unify and undo) to the next match and push a cursor `Retract`/`ClauseScan` entry only if one exists, so `has_more` and the REPL's `true.` stay as today; each clause is unified at most twice per scan.
+- `void sweep_dead(Impl&, Predicate&)`: erases in one pass every dead clause that no open entry reaches (collect, per open entry of the predicate, its cursor or its untried ids once; do not call `reachable` per clause), drops the index, sets `dead_since = 0`. `kill_clause` erases at once when the clause is first or last and not reachable, otherwise `++dead_since`; `purge_dead` sweeps when `2 * dead_since > clauses.size()` or the predicate is abolished (abolish sweeps at once and erases the predicate if nothing is left, as now).
 
 - [ ] **Step 1:** Add `check_linear` cases (2500 each): `retract by key`, `retractall by key`, `clause/2 by key`, `retract scan` (`(retract(p(_, _)), fail ; true)`), `retract from front` (N times `retract(p(_, _))`); guards `m3_sweep_held` (`p(X, _), retract(p(Y, _))` over 9+ clauses: same `solutions` as today), `m3_retract_counts` (`number_of_clauses` after retracting half), `m3_retract_reassert`, `m3_cut_then_retract` (`(p(X, _), ! ; true)` then retract all, then call).
 - [ ] **Step 2:** Run → the five new cases FAIL; database.pl passes.

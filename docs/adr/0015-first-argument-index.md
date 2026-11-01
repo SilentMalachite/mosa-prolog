@@ -10,7 +10,7 @@ Every backtrack and clause redo copies the top `Entry` with its candidate list, 
 ## Decision
 
 Clauses live in a deque in clause order; each has an id that never changes or repeats (asserta takes one below the first, assertz one above the last) and the database generations at which it was added and removed, and a scan sees exactly the clauses alive at its own generation (the logical update view of 7.5.4). A scan with an unbound first argument keeps a cursor (next id, generation); one with a bound first argument lists candidate ids, taken for predicates of 8 or more clauses from a first-argument index (atom, integer, float with -0.0 = 0.0 and NaN = NaN, list, name/arity; plus keyless clauses) that asserta and assertz extend; retract, retractall and clause/2 use the same index.
-A removed clause is erased at once when it is first or last and no open scan of the predicate is older than its removal, otherwise in one sweep once the removals since the last sweep exceed half the clauses; ids do not change, so nothing is renumbered. Backtracking and redo read the top `Entry` in place.
+A removed clause is erased at once when it is first or last and no open scan of the predicate can still reach it (a scan older than the removal that has not passed it), otherwise in one sweep once the removals since the last sweep exceed half the clauses; ids do not change, so nothing is renumbered. Backtracking and redo read the top `Entry` in place.
 
 ## Rejected alternatives
 
@@ -20,5 +20,5 @@ Generation numbers without stable ids, or a linked list of clauses: positions st
 ## Consequences
 
 Calls, retracts and clause/2 by a bound first argument cost the bucket plus the keyless clauses, an unbound call and asserta cost O(1) amortized, and a scan over N clauses is linear; a redo finds its clause by id (O(1) when nothing was removed from the middle, else a binary search).
-`dead` becomes "has a removal generation"; `held_by_scan`, `note_asserta` and the clause half of `note_removed` go; `live_count` becomes a counter. The index holds keys from clause heads only, no heap cells, so the GC does not see it.
+`dead` becomes "has a removal generation"; `held_by_scan` becomes a check by generation and id, `note_asserta` and the clause half of `note_removed` go; `live_count` becomes a counter. The index holds keys from clause heads only, no heap cells, so the GC does not see it.
 Tests: `index_scale` (with 4 times the clauses: scan, asserta, unbound first call, lookups, retract, retractall, clause/2 and retract from the front take less than 8 times as long) and `tests/pl/database.pl` `m3_*`.
