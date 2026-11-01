@@ -363,7 +363,7 @@ ReadTerm eof_term(Impl& machine) {
   return term;
 }
 
-// 項の後ろに標準入力から足した字（from から先）を、読み取り口へ返す。終止符を確かめるためだけに読んだ字で、
+// 項（または誤り）の後ろに標準入力から足した字（from から先）を、読み取り口へ返す。終止符を確かめるためだけに読んだ字で、
 // 返さないと user_input に残り、REPL が次の行として読めない（レビュー M12）。peek_char が前に取り込んだ字は残す。
 void give_back(Stream& stream, std::size_t from) {
   if (stream.kind != Stream::Kind::Standard) return;
@@ -385,8 +385,15 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
     const std::size_t consumed = reader.consumed();
     // 標準入力は、読んだ先に字が残るか本当の終端まで 1 バイトずつ足す。項が閉じても終止符が切れ目の最後の字なら、
     // 次の字を見るまで終止符と決まらない（6.4.8、1. の次が 5 なら 1.5）。次の字が無ければ終端の前の終止符である。
-    if (consumed < slice.size() || !pull_byte(stream)) {
-      if (outcome.term) give_back(stream, std::max(had, stream.cursor + consumed));
+    // 誤りでも返す。成功と失敗とで REPL に渡る字を変えない（Grok レビュー）。
+    if (consumed < slice.size()) {
+      give_back(stream, std::max(had, stream.cursor + consumed));
+      return Intake{std::move(outcome), consumed};
+    }
+    if (!pull_byte(stream)) {
+      // 項が読めた後の終わりは終止符の区切りとしてだけ使う。印を残すと、端末で foo. の後の Ctrl-D が
+      // REPL の次の行の読みまで終わらせる。パイプは下ろしても次の読みでまた終わりを見る。
+      if (outcome.term && stream.kind == Stream::Kind::Standard) standard_input_clear();
       return Intake{std::move(outcome), consumed};
     }
   }

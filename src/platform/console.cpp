@@ -145,6 +145,9 @@ void standard_input_unget(char byte) { returned.push_back(byte); }
 void standard_input_clear() {
   console_ended = false;
   std::cin.clear();
+  // std::cin は stdin の FILE を通して読む。macOS などの stdio は FILE の終わりの印も残し、
+  // それを下ろさないと端末に字が届いても getc が EOF を返し続ける。
+  std::clearerr(stdin);
 }
 
 }
