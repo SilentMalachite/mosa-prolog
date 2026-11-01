@@ -28,6 +28,7 @@ const char* reason_name(SyntaxReason reason) {
     case SyntaxReason::UnterminatedComment: return "UnterminatedComment";
     case SyntaxReason::BadEscape: return "BadEscape";
     case SyntaxReason::IntegerOverflow: return "IntegerOverflow";
+    case SyntaxReason::FloatOverflow: return "FloatOverflow";
     case SyntaxReason::UnexpectedToken: return "UnexpectedToken";
     case SyntaxReason::MaxArity: return "MaxArity";
     case SyntaxReason::IncompleteTerm: return "IncompleteTerm";

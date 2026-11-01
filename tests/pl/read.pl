@@ -159,3 +159,14 @@ m1_wide_read(Last) :- m1_wide(1024, Last, Body), atom_concat('f(', Body, Text), 
 test(m1_read_wide_min, m1_wide_read('9223372036854775808'), error(syntax_error(integer_overflow))).
 test(m1_read_wide_beyond, m1_wide_read('9223372036854775809'), error(syntax_error(integer_overflow))).
 test(m1_read_wide_plain, m1_wide_read('1'), error(syntax_error(max_arity))).
+% レビュー M2（持ち主は A を選んだ、iso-notes 6.4.5）。double に入らない浮動小数点数は inf.0 にせず、整数の溢れと
+% 同じく syntax_error(float_overflow) とし、read/1 は終止符まで読み飛ばす。下位の溢れは 0.0 のままである。
+test(m2_read_big, m1_read('1.0e400.', _), error(syntax_error(float_overflow))).
+test(m2_read_just_above, m1_read('1.8e308.', _), error(syntax_error(float_overflow))).
+test(m2_read_negative, m1_read('-1.0e400.', _), error(syntax_error(float_overflow))).
+test(m2_read_in_term, m1_read('f(a, [1.0e400]).', _), error(syntax_error(float_overflow))).
+test(m2_read_is, m1_read('X is 1.0e400 * 1.', _), error(syntax_error(float_overflow))).
+test(m2_read_recovers, (open_string('X = 1.0e400. a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
+test(m2_read_max_kept, (m1_read('1.7976931348623157e308.', X), X =:= 1.7976931348623157e308), true).
+test(m2_read_underflow_kept, (m1_read('1.0e-400.', X), X == 0.0), true).
+test(m2_read_subnormal_kept, (m1_read('1.0e-310.', X), X > 0.0, X < 1.0e-300), true).

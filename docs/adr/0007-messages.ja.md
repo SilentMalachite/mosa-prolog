@@ -12,7 +12,7 @@ SPEC 第4節は構文エラーの表示に問題のトークンを求め、第7�
 
 モジュール `messages_ja` と `messages_en` がそれぞれ `message(Key, Format)` を持つ（Format は `format/2` の書式原子。今足す鍵は `goal_raised`、`heap_limit`、`help_japanese_variables`）。`render_message` は初めて使うときに `library(messages_<lang>)` を読み、`user` には取り込まず、同じマシンで catch の内側で `format/3` を動かす。
 旗 `message_language` は `ja` か `en` を取り、他の原子は `domain_error(flag_value, message_language+V)`。既定は `LANG`（`src/platform/` で読む）が `ja` で始まれば `ja`、それ以外は `en`。カタログが無い、鍵が無い、表示が失敗したときは `Key: ` の後に各引数を `writeq` で空白区切りに出す。
-`syntax_error(Key)` は理由ごとに英語の原子を 1 つ（`invalid_utf8`、`illegal_character`、`unterminated_quoted`、`unterminated_comment`、`bad_escape`、`integer_overflow`、`unexpected_token`、`max_arity`、`incomplete_term`）。Extra は `syntax(stream(S, Line, LinePos, CharNo), Token)` で、Token は問題のトークンの原子、入力の終わりでは `''`（持ち主が `stream/5` より A を選んだ）。
+`syntax_error(Key)` は理由ごとに英語の原子を 1 つ（`invalid_utf8`、`illegal_character`、`unterminated_quoted`、`unterminated_comment`、`bad_escape`、`integer_overflow`、`float_overflow`（2026-11-02 にレビュー M2 で追加、iso-notes 6.4.5）、`unexpected_token`、`max_arity`、`incomplete_term`）。Extra は `syntax(stream(S, Line, LinePos, CharNo), Token)` で、Token は問題のトークンの原子、入力の終わりでは `''`（持ち主が `stream/5` より A を選んだ）。
 
 ## 退けた案
 

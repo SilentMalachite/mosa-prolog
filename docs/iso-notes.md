@@ -602,3 +602,11 @@ Before the decision below, Mosa really closed `user_input`, `user_output` and `u
 A or B?: A: close/1,2 of a standard stream flushes it and succeeds without closing it, so it stays the current stream and stays writable. B: keep closing it (current behaviour). B until confirmed.
 
 Decision (2026-11-01): A. close/1,2 checks its arguments and options as before, flushes `user_output` and `user_error`, and leaves the three standard streams open (`src/builtins/streams.cpp` `run_close`, `tests/pl/close.pl` `close_std_*`, `tests/cpp/output_stop_test.cpp` `check_session_close_user_output`). `tests/cpp/stream_test.cpp` changes in the same commit: "close user_output" now expects the stream to stay open and current, and "closed current input" (now "closed input") closes a file stream instead of `user_input`.
+
+## 6.4.5 Float literal out of range
+
+Before the decision below, a float token whose value does not fit in an IEEE 754 double (`1.0e400`, `1.8e308`) silently became `inf.0` (`src/read/lexer_literal.cpp` `make_float`), in read/1, consult, number_codes/2, number_chars/2 and atom_number/2 alike. `X is 1.0e400 * 1` therefore did not raise although `float_overflow` is `error` (7.11), and `inf.0` does not read back, so 8.16.8 round-trip failed (review item M2). The standard does not say what an out-of-range float token is.
+
+A or B?: A: `syntax_error(float_overflow)`, the same way as `syntax_error(integer_overflow)` for integers (read/1 skips to the full stop). B: `evaluation_error(float_overflow)`.
+
+Decision (2026-11-02): A. The lexer reports the new ADR 0007 key `float_overflow` for a float above the largest double; a spelling that rounds to the largest double is still a number. The direction of an out-of-range value is taken from its magnitude (the place of the first non-zero digit plus the exponent), not from the sign of the exponent, so `1<400 zeros>.0e-10` overflows and `0.<400 zeros>1` underflows. Underflow is unchanged: `1.0e-400` reads as `0.0` and subnormals such as `1.0e-310` are kept (`tests/pl/read.pl` and `tests/pl/atoms.pl` `m2_*`, `tests/cpp/lexer_test.cpp` `test_float_range`).

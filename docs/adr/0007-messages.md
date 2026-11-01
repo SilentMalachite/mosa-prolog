@@ -12,7 +12,7 @@ SPEC Section 4 wants the offending token in the syntax error message, Section 7 
 
 Modules `messages_ja` and `messages_en` each define `message(Key, Format)` (Format a `format/2` atom; keys `goal_raised`, `heap_limit`, `help_japanese_variables` now); `render_message` loads `library(messages_<lang>)` on first use, not imported into `user`, and runs `format/3` on the same machine inside a catch.
 Flag `message_language` takes `ja` or `en`, other atoms give `domain_error(flag_value, message_language+V)`; the default is `ja` when `LANG` (read in `src/platform/`) starts with `ja`, else `en`. A missing catalog, missing key or failing render prints `Key: ` then each argument by `writeq`, separated by spaces.
-`syntax_error(Key)` with one English atom per reason (`invalid_utf8`, `illegal_character`, `unterminated_quoted`, `unterminated_comment`, `bad_escape`, `integer_overflow`, `unexpected_token`, `max_arity`, `incomplete_term`); Extra is `syntax(stream(S, Line, LinePos, CharNo), Token)`, Token the offending token as an atom, `''` at end of input (owner chose A over `stream/5`).
+`syntax_error(Key)` with one English atom per reason (`invalid_utf8`, `illegal_character`, `unterminated_quoted`, `unterminated_comment`, `bad_escape`, `integer_overflow`, `float_overflow` (added 2026-11-02, review M2, iso-notes 6.4.5), `unexpected_token`, `max_arity`, `incomplete_term`); Extra is `syntax(stream(S, Line, LinePos, CharNo), Token)`, Token the offending token as an atom, `''` at end of input (owner chose A over `stream/5`).
 
 ## Rejected alternatives
 

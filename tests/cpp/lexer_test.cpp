@@ -269,12 +269,49 @@ void test_fullwidth() {
                    "kagi stays illegal when the flag is off");
 }
 
+// 溢れの向きは指数の符号ではなく値の桁で決まる。仮数部が 400 桁あると、e- でも上位、e の無い 0.000…1 でも
+// 下位に溢れる（M2 の敵対的レビュー A1/A2）。
+void test_float_range_long_mantissa() {
+  const std::string zeros(400, '0');
+  for (const std::string& text : {"1" + zeros + ".0e-10.", "1" + zeros + ".0.", "0.0" + zeros + "1e800."}) {
+    auto big = mosa::Lexer(text);
+    auto big_scan = big.next();
+    mosa_test::check(big_scan.failure && big_scan.failure->reason == mosa::SyntaxReason::FloatOverflow,
+                     "long mantissa overflow: " + text.substr(text.size() - 8));
+  }
+  for (const std::string& text : {"0." + zeros + "1.", "0." + zeros + "1e5.", "0." + zeros + "1e+5.",
+                                  "1" + zeros + ".0e-800."}) {
+    auto tiny = scan_all(text);
+    mosa_test::check(!tiny.empty() && tiny[0].kind == mosa::TokenKind::Float && tiny[0].floating == 0.0,
+                     "long mantissa underflow: " + text.substr(text.size() - 8));
+  }
+}
+
+// レビュー M2（持ち主は A を選んだ、iso-notes 6.4.5）。double に入らない浮動小数点数は inf にせず、整数の
+// 溢れと同じく字句の誤りにする。下位の溢れは 0.0、非正規化数と最大値に丸まる綴りは今までどおり数である。
+void test_float_range() {
+  for (const char* text : {"1.0e400.", "1.8e308.", "1.0e+400.", "1_0.0e400.", "1.0E400."}) {
+    auto big = mosa::Lexer(text);
+    auto big_scan = big.next();
+    mosa_test::check(big_scan.failure && big_scan.failure->reason == mosa::SyntaxReason::FloatOverflow,
+                     std::string("float overflow: ") + text);
+  }
+  auto tiny = scan_all("1.0e-400.");
+  mosa_test::check(tiny[0].kind == mosa::TokenKind::Float && tiny[0].floating == 0.0, "underflow is 0.0");
+  auto subnormal = scan_all("1.0e-310.");
+  mosa_test::check(subnormal[0].floating > 0.0 && subnormal[0].floating < 1.0e-300, "subnormal kept");
+  auto top = scan_all("1.7976931348623158e308.");
+  mosa_test::check(top[0].floating == std::numeric_limits<double>::max(), "rounds to max");
+  test_float_range_long_mantissa();
+}
+
 }  // namespace
 
 int main() {
   test_names_and_columns();
   test_invalid_utf8();
   test_numbers();
+  test_float_range();
   test_bad_underscores();
   test_quotes_and_comments();
   test_radix_and_comment_end();

@@ -2,11 +2,13 @@
 
 #include "mosa/char_class.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <cstdint>
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -76,6 +78,28 @@ std::optional<char32_t> symbolic_escape(char32_t code) {
 // CR LF は advance が 1 改行として両方消費する。LF だけ拒むと CR が改行を飲み込む。
 bool raw_quote_break(char32_t code) {
   return code == U'\n' || code == U'\r' || code == U'\t';
+}
+
+// from_chars が範囲外と言った値の向きを、最初の 0 でない数字の桁と指数の和の符号で決める。指数の符号だけでは、
+// 仮数部が 300 桁を超えると向きを誤る（M2 の敵対的レビュー A1/A2）。範囲外の値の桁は ±300 を超えるので、指数は
+// 十億で頭打ちにしても符号は変わらない。clean は区切りの _ を除いた浮動小数点数の綴りである。
+bool above_double(std::string_view clean) {
+  const std::size_t mark = clean.find_first_of("eE");
+  const std::string_view mantissa = clean.substr(0, mark);
+  const std::size_t point = std::min(mantissa.find('.'), mantissa.size());
+  const std::size_t first = mantissa.find_first_not_of("0.");
+  if (first == std::string_view::npos) return false;
+  const auto gap = [](std::size_t from, std::size_t to) { return static_cast<std::int64_t>(to - from); };
+  std::int64_t place = first < point ? gap(first, point) - 1 : -gap(point, first);
+  if (mark == std::string_view::npos) return place > 0;
+  std::string_view exponent = clean.substr(mark + 1);
+  const bool negative = exponent.starts_with('-');
+  if (exponent.starts_with('-') || exponent.starts_with('+')) exponent.remove_prefix(1);
+  constexpr std::int64_t cap = 1'000'000'000;
+  std::int64_t value = 0;
+  for (const char digit : exponent) value = std::min(cap, value * 10 + (digit - '0'));
+  place += negative ? -value : value;
+  return place > 0;
 }
 
 }  // namespace
@@ -266,8 +290,10 @@ Scan Lexer::make_float(const std::string& spelling, Place start) {
   const char* const last = first + clean.size();
   const std::from_chars_result parsed = std::from_chars(first, last, value);
   if (parsed.ec == std::errc::result_out_of_range) {
-    const bool tiny = clean.find('-') != std::string::npos;
-    value = tiny ? 0 : std::numeric_limits<double>::infinity();
+    // 上位の溢れを inf にすると float_overflow=error のもとで評価されずに残り、inf.0 は読み戻せない（レビュー M2、
+    // iso-notes 6.4.5 の A）。下位の溢れは今までどおり 0.0 にする。
+    if (above_double(clean)) return fail_at(SyntaxReason::FloatOverflow, spelling, start);
+    value = 0;
   } else if (parsed.ec != std::errc{} || parsed.ptr != last) {
     return fail_at(SyntaxReason::UnexpectedToken, spelling, start);
   }

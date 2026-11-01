@@ -92,3 +92,15 @@ test(atom_number_mismatch, atom_number('12', 13), fail).
 test(atom_number_type_atom, atom_number(12, _), error(type_error(atom, 12))).
 test(atom_number_type_number, atom_number(_, foo), error(type_error(number, foo))).
 test(sub_atom_int_before_sub, sub_atom(abc, foo, _, _, 1), error(type_error(integer, foo))).
+% レビュー M2（iso-notes 6.4.5 の決定 A）。数の構文解析を共有するので、double に入らない浮動小数点数は字句の鍵になる。
+test(m2_number_codes_big, number_codes(N, "1.0e400"), error(syntax_error(float_overflow))).
+test(m2_number_chars_negative, number_chars(N, ['-', '1', '.', '0', e, '4', '0', '0']), error(syntax_error(float_overflow))).
+test(m2_atom_number_big, atom_number('1.0e400', N), error(syntax_error(float_overflow))).
+test(m2_number_codes_underflow, number_codes(N, "1.0e-400"), solutions([N = 0.0])).
+% 溢れの向きは指数の符号でなく値の桁で決まる（M2 の敵対的レビュー A1/A2）。0 を 400 個並べた仮数部で確かめる。
+m2_zero_codes(0, []) :- !.
+m2_zero_codes(K, [0'0|T]) :- J is K - 1, m2_zero_codes(J, T).
+m2_zeros(Z) :- m2_zero_codes(400, L), atom_codes(Z, L).
+m2_number([A, B, C], N) :- atom_concat(A, B, AB), atom_concat(AB, C, T), atom_number(T, N).
+test(m2_long_big_negative_exp, (m2_zeros(Z), m2_number(['1', Z, '.0e-10'], _)), error(syntax_error(float_overflow))).
+test(m2_long_tiny_no_exp, (m2_zeros(Z), m2_number(['0.', Z, '1'], N), N == 0.0), true).

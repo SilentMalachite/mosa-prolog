@@ -604,3 +604,11 @@ ADR 0010 の GC はヒープ、`extras`、trail を回収するが、アトム�
 A か B か: A は標準ストリームの close/1,2 で吐き出しだけして成功し、閉じない。現在の流れのまま書き込める。B は今のまま閉じる。確認前は B のまま。
 
 決定（2026-11-01）: A。close/1,2 は引数と選択肢を今までどおり検査し、`user_output` と `user_error` を吐き出し、三つの標準ストリームを開いたまま残す（`src/builtins/streams.cpp` の `run_close`、`tests/pl/close.pl` の `close_std_*`、`tests/cpp/output_stop_test.cpp` の `check_session_close_user_output`）。`tests/cpp/stream_test.cpp` は同じコミットで変える。「close user_output」は流れが開いたまま現在出力であることを期待し、「closed current input」（今は「closed input」）は `user_input` ではなくファイルの流れを閉じる。
+
+## 6.4.5 範囲を超えた浮動小数点数リテラル
+
+下の決定までは、値が IEEE 754 の double に入らない浮動小数点数のトークン（`1.0e400`、`1.8e308`）は黙って `inf.0` になっていた（`src/read/lexer_literal.cpp` の `make_float`）。read/1、consult、number_codes/2、number_chars/2、atom_number/2 のどれでも同じである。そのため `float_overflow` が `error`（7.11）でも `X is 1.0e400 * 1` は誤りにならず、`inf.0` は読み戻せないので 8.16.8 の往復も成り立たなかった（レビュー項目 M2）。範囲を超えた浮動小数点数のトークンをどう扱うかは規格に書かれていない。
+
+A か B か: A は整数の `syntax_error(integer_overflow)` と同じく `syntax_error(float_overflow)` にする（read/1 は終止符まで読み飛ばす）。B は `evaluation_error(float_overflow)` にする。
+
+決定（2026-11-02）: A。最大の double より大きい浮動小数点数には、字句が ADR 0007 の新しい鍵 `float_overflow` を返す。最大の double に丸まる綴りは今までどおり数である。範囲外の値の向きは指数の符号ではなく値の桁（最初の 0 でない数字の位置と指数の和）で決めるので、`1<0 を 400 個>.0e-10` は上位に、`0.<0 を 400 個>1` は下位に溢れる。下位の溢れは変えない。`1.0e-400` は `0.0` と読み、`1.0e-310` のような非正規化数はそのまま残る（`tests/pl/read.pl` と `tests/pl/atoms.pl` の `m2_*`、`tests/cpp/lexer_test.cpp` の `test_float_range`）。
