@@ -2,6 +2,9 @@
 #include "mosa/char_class.hpp"
 #include "mosa/lexer.hpp"
 
+#include <cstdint>
+#include <limits>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -121,11 +124,25 @@ void test_numbers() {
                    "1. is integer and full stop");
   auto real = scan_all("1.5e-2.");
   mosa_test::check(real[0].kind == mosa::TokenKind::Float && real[0].floating == 1.5e-2, "float");
-  auto big = mosa::Lexer("9223372036854775808.");
-  auto big_scan = big.next();
-  mosa_test::check(big_scan.failure &&
-                       big_scan.failure->reason == mosa::SyntaxReason::IntegerOverflow,
-                   "int64 overflow");
+  // レビュー M1。2^63 ちょうどは - の後ろでだけ数になる（6.3.4.1）。字句は印を付けて返し、読む側が決める。
+  auto edge = mosa::Lexer("9223372036854775808.");
+  auto edge_scan = edge.next();
+  mosa_test::check(!edge_scan.failure && edge_scan.token.kind == mosa::TokenKind::Integer &&
+                       edge_scan.token.needs_minus &&
+                       edge_scan.token.integer == std::numeric_limits<std::int64_t>::min(),
+                   "2^63 needs a minus");
+  auto edge_hex = mosa::Lexer("0x8000000000000000.");
+  auto edge_hex_scan = edge_hex.next();
+  mosa_test::check(!edge_hex_scan.failure && edge_hex_scan.token.needs_minus, "hex 2^63 needs a minus");
+  auto plain = scan_all("9223372036854775807.");
+  mosa_test::check(!plain[0].needs_minus && plain[0].integer == std::numeric_limits<std::int64_t>::max(),
+                   "max_integer is plain");
+  for (const char* text : {"9223372036854775809.", "92233720368547758080.", "0x8000000000000001."}) {
+    auto big = mosa::Lexer(text);
+    auto big_scan = big.next();
+    mosa_test::check(big_scan.failure && big_scan.failure->reason == mosa::SyntaxReason::IntegerOverflow,
+                     std::string("int64 overflow: ") + text);
+  }
 }
 
 void test_quotes_and_comments() {

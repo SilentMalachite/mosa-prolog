@@ -22,11 +22,13 @@ int digit_value(char32_t code, int base) {
   return value;
 }
 
-// 乗算の前に int64 の上限を見る。超えた整数は浮動小数にしない。
-bool push_digit(std::int64_t& value, int base, int digit) {
-  const auto limit = std::numeric_limits<std::int64_t>::max();
-  if (value > (limit - digit) / base) return false;
-  value = value * static_cast<std::int64_t>(base) + digit;
+// 乗算の前に 2^63 を見る。超えた整数は浮動小数にしない。
+constexpr std::uint64_t kMinMagnitude = std::uint64_t{1} << 63U;
+
+bool push_digit(std::uint64_t& value, int base, int digit) {
+  const auto add = static_cast<std::uint64_t>(digit);
+  if (value > (kMinMagnitude - add) / static_cast<std::uint64_t>(base)) return false;
+  value = value * static_cast<std::uint64_t>(base) + add;
   return true;
 }
 
@@ -117,8 +119,19 @@ Scan Lexer::scan_decimal(Place start) {
   }
   if (*fraction) return finish_float(whole.spelling, start);
   if (whole.overflow) return fail_at(SyntaxReason::IntegerOverflow, whole.spelling, start);
+  return integer_token(whole.value, whole.spelling, start);
+}
+
+// 2^63 の綴りは、- の後ろでないと読む側が溢れの誤りに使う。ほかの整数の綴りは今までどおり持たない。
+Scan Lexer::integer_token(std::uint64_t magnitude, std::string spelling, Place start) {
   Scan scan = token_at(TokenKind::Integer, start);
-  scan.token.integer = whole.value;
+  if (magnitude == kMinMagnitude) {
+    scan.token.text = std::move(spelling);
+    scan.token.needs_minus = true;
+    scan.token.integer = std::numeric_limits<std::int64_t>::min();
+  } else {
+    scan.token.integer = static_cast<std::int64_t>(magnitude);
+  }
   return scan;
 }
 
@@ -134,9 +147,7 @@ Scan Lexer::scan_radix(int base, char prefix, Place start) {
     return fail_at(SyntaxReason::UnexpectedToken, std::move(spelling), start);
   }
   if (digits.overflow) return fail_at(SyntaxReason::IntegerOverflow, std::move(spelling), start);
-  Scan scan = token_at(TokenKind::Integer, start);
-  scan.token.integer = digits.value;
-  return scan;
+  return integer_token(digits.value, std::move(spelling), start);
 }
 
 Scan Lexer::scan_char_code(Place start) {

@@ -471,7 +471,8 @@ void check_reopen(const std::filesystem::path& root) {
   mosa_test::check(failed.find("existence_error") == std::string::npos, "reopen is not a closed alias");
 }
 
-// min_integer は -2^63。字面へ戻すと正のトークンが溢れて、表明の Value は変数のままになる。
+// min_integer は -2^63。表明は字面へ戻して読み直すので、- の後ろの 2^63 が読めないと（レビュー M1 の前）Value は
+// 変数のままになる。
 std::string flag_value_text() {
   return "test(lgt_current_prolog_flag_2_20, true) :-\n"
          "    forall(\n"

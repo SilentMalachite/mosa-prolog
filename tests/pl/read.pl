@@ -100,3 +100,55 @@ test(read_neg_arg, (open_string('f(-1). ', S), read(S, T), T = f(A), integer(A))
 test(src_neg_layout, (X = - 1, integer(X)), true).
 test(src_neg_paren, (X = -(1), compound(X)), true).
 test(src_neg_int, (X = -1, integer(X)), true).
+% レビュー M1。6.3.4.1: - の直後の数は負の定数なので、-9223372036854775808 は min_integer として読める。符号を
+% 付ける前の 9223372036854775808 は int64 に入らないが、- の後ろでだけ許す。- の付かない 2^63 と、それより大きい
+% 負の数は今までどおり integer_overflow。writeq した min_integer は読み戻せる（7.10.5）。
+m1_read(Text, T) :- open_string(Text, S), read(S, T).
+m1_min(M) :- current_prolog_flag(min_integer, M).
+m1_back(T) :- with_output_to(atom(A), (writeq(T), write('.'))), m1_read(A, U), U == T.
+m1_fact(-9223372036854775808).
+m1_head(-9223372036854775808, min).
+test(m1_read_min, (m1_read('-9223372036854775808.', X), m1_min(M), X == M), true).
+test(m1_read_layout, (m1_read('- 9223372036854775808.', X), m1_min(M), X == M), true).
+test(m1_read_comment, (m1_read('- /* c */9223372036854775808.', X), m1_min(M), X == M), true).
+test(m1_read_zeros, (m1_read('-0009223372036854775808.', X), m1_min(M), X == M), true).
+test(m1_read_underscore, (m1_read('-9_223_372_036_854_775_808.', X), m1_min(M), X == M), true).
+test(m1_read_hex, (m1_read('-0x8000000000000000.', X), m1_min(M), X == M), true).
+test(m1_read_octal, (m1_read('-0o1000000000000000000000.', X), m1_min(M), X == M), true).
+test(m1_read_binary, (m1_read('-0b1000000000000000000000000000000000000000000000000000000000000000.', X), m1_min(M), X == M), true).
+test(m1_read_in_term, (m1_read('f(-9223372036854775808, [-9223372036854775808|T]).', X), m1_min(M), X = f(A, [B|T]), A == M, B == M, var(T)), true).
+test(m1_read_args, (m1_read('- 9223372036854775808 - -9223372036854775808.', X), m1_min(M), X = (A - B), A == M, B == M), true).
+test(m1_read_positive, m1_read('9223372036854775808.', _), error(syntax_error(integer_overflow))).
+test(m1_read_positive_hex, m1_read('0x8000000000000000.', _), error(syntax_error(integer_overflow))).
+test(m1_read_below, m1_read('-9223372036854775809.', _), error(syntax_error(integer_overflow))).
+test(m1_read_below_hex, m1_read('-0x8000000000000001.', _), error(syntax_error(integer_overflow))).
+test(m1_read_far_below, m1_read('-92233720368547758080.', _), error(syntax_error(integer_overflow))).
+test(m1_read_paren, m1_read('-(9223372036854775808).', _), error(syntax_error(integer_overflow))).
+test(m1_read_infix, m1_read('a - 9223372036854775808.', _), error(syntax_error(integer_overflow))).
+test(m1_read_arg, m1_read('f(9223372036854775808).', _), error(syntax_error(integer_overflow))).
+test(m1_read_prefix_op, m1_read('\\+ 9223372036854775808.', _), error(syntax_error(integer_overflow))).
+test(m1_read_float_kept, (m1_read('-9223372036854775808.0.', X), float(X), X =:= -9223372036854775808.0), true).
+test(m1_read_max_kept, (m1_read('-9223372036854775807.', X), current_prolog_flag(max_integer, Max), X =:= -Max), true).
+test(m1_read_next, (open_string('-9223372036854775808. a.', S), read(S, X), read(S, Y), m1_min(M), X == M, Y == a), true).
+test(m1_read_recovers, (open_string('9223372036854775808. a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
+test(m1_back_min, (m1_min(M), m1_back(M)), true).
+test(m1_back_minus_min, (m1_min(M), m1_back(-(M))), true).
+test(m1_back_sub, (m1_min(M), m1_back(1 - M)), true).
+test(m1_back_list, (m1_min(M), m1_back([M, f(M), - M])), true).
+test(m1_source_fact, (m1_fact(X), m1_min(M), X == M), true).
+test(m1_source_head, (m1_min(M), m1_head(M, R), R == min), true).
+test(m1_source_is, (X is -9223372036854775808, m1_min(M), X == M), true).
+test(m1_source_cmp, (m1_min(M), M =:= -9223372036854775808), true).
+test(m1_number_codes, (number_codes(X, "-9223372036854775808"), m1_min(M), X == M), true).
+test(m1_number_codes_hex, (number_codes(X, "-0x8000000000000000"), m1_min(M), X == M), true).
+test(m1_atom_number_layout, (atom_number(' -9223372036854775808', X), m1_min(M), X == M), true).
+test(m1_number_codes_positive, number_codes(_, "9223372036854775808"), error(syntax_error(integer_overflow))).
+test(m1_number_codes_positive_hex, number_codes(_, "0x8000000000000000"), error(syntax_error(integer_overflow))).
+test(m1_number_codes_plus, number_codes(_, "+9223372036854775808"), error(syntax_error(_))).
+test(m1_number_codes_below, number_codes(_, "-9223372036854775809"), error(syntax_error(integer_overflow))).
+test(m1_read_recovers_arg, (open_string('f(9223372036854775808, x). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
+test(m1_read_recovers_paren, (open_string('-(0x8000000000000000). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
+test(m1_read_recovers_last, (open_string('9223372036854775808.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == end_of_file), true).
+test(m1_read_after_operand, m1_read('a 9223372036854775808.', _), error(syntax_error(integer_overflow))).
+test(m1_read_after_operand_list, m1_read('[a 0x8000000000000000].', _), error(syntax_error(integer_overflow))).
+test(m1_read_after_operand_recovers, (open_string('f(a 9223372036854775808). b.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == b), true).

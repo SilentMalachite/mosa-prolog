@@ -158,15 +158,6 @@ std::optional<std::string_view> skip_layout_text(std::string_view text) {
   return text.substr(codes.cuts[index]);
 }
 
-bool min_magnitude(std::string_view body) {
-  std::string digits;
-  digits.reserve(body.size());
-  for (const char ch : body) {
-    if (ch != '_') digits.push_back(ch);
-  }
-  return digits == "9223372036854775808";
-}
-
 bool consumed_number(const Scan& first, const Scan& end, std::string_view body) {
   if (first.failure || end.failure || first.token.after_layout || first.token.byte != 0) return false;
   if (first.token.kind != TokenKind::Integer && first.token.kind != TokenKind::Float) return false;
@@ -187,15 +178,13 @@ Parsed parse_number(Impl& machine, std::string_view text) {
   if (signed_text.body.empty()) return {};
   Lexer lexer(signed_text.body);
   const Scan first = lexer.next();
-  if (first.failure && first.failure->reason == SyntaxReason::IntegerOverflow && signed_text.negative &&
-      first.failure->token == signed_text.body && min_magnitude(signed_text.body)) {
-    return Parsed{machine.heap.integer(std::numeric_limits<std::int64_t>::min())};
-  }
   if (first.failure) return Parsed{std::nullopt, first.failure->reason};
   const Scan end = lexer.next();
   if (end.failure) return Parsed{std::nullopt, end.failure->reason};
   if (!consumed_number(first, end, signed_text.body)) return {};
   if (first.token.kind == TokenKind::Integer) {
+    // 2^63 は - が付くときだけ数で、integer はすでに min_integer である（レビュー M1）。
+    if (first.token.needs_minus && !signed_text.negative) return Parsed{std::nullopt, SyntaxReason::IntegerOverflow};
     auto value = first.token.integer;
     if (signed_text.negative && value > 0) value = -value;
     return Parsed{machine.heap.integer(value)};

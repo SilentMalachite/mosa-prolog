@@ -97,6 +97,12 @@ elseif(CASE STREQUAL "run_exit_code")
   # 書き先は相対パスなので、mosac run の作業場所 WORK にできる。
   expect_unclosed(open_unclosed_halt 7 m5_unclosed_halt.txt "halted")
   expect_unclosed(open_unclosed_end 0 m5_unclosed_end.txt "ended\n")
+  # レビュー M1。min_integer の字面を持つプログラムを訳して動かせる。
+  mosac(run "${SRC}/min_integer.pl")
+  string(REPLACE "\r\n" "\n" out "${out}")
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "[-9223372036854775808,head,-9223372036854775808]\n")
+    fail("min_integer literal")
+  endif()
 elseif(CASE STREQUAL "run_args")
   mosac(run "${SRC}/args.pl" -- a 漢字)
   if(NOT code EQUAL 0 OR NOT out STREQUAL "[a,漢字]\n")
