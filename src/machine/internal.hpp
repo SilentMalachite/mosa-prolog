@@ -22,6 +22,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace mosa {
@@ -86,6 +87,16 @@ struct SharedPred {
 };
 
 struct Predicate {
+  // libstdc++ と MSVC の deque は移動コンストラクタが noexcept でない。暗黙の移動のままだと、述語表の vector が
+  // 伸びるたびに move_if_noexcept が全部の述語を節ごと写す。移動は noexcept と宣言する（C++20、P1286R2）。
+  // 写しの演算は暗黙のときと同じく残す。
+  Predicate() = default;
+  Predicate(const Predicate&) = default;
+  Predicate& operator=(const Predicate&) = default;
+  Predicate(Predicate&&) noexcept = default;
+  Predicate& operator=(Predicate&&) noexcept = default;
+  ~Predicate() = default;
+
   // 既定値の 0 は user ではない。述語を作る所で必ず入れる。
   std::uint32_t module = 0;
   std::uint32_t name = 0;
@@ -109,6 +120,10 @@ struct Predicate {
   // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
   rt::NativeProc native = nullptr;
 };
+
+// 述語表の伸長が節を写す形に戻れば、libstdc++ と MSVC の CI がここで落ちる（libc++ は宣言が無くても通る）。
+static_assert(std::is_nothrow_move_constructible_v<Predicate>);
+static_assert(std::is_nothrow_move_assignable_v<Predicate>);
 
 enum class Pick {
   Clauses,

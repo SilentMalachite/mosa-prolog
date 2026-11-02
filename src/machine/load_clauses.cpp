@@ -59,19 +59,23 @@ bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name
   return false;
 }
 
+// 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
+Snapshot::Snapshot(PredKey key, const Predicate* predicate)
+    : module(key.module),
+      name(key.name),
+      arity(key.arity),
+      clauses(predicate == nullptr ? ClauseList{} : predicate->clauses),
+      created(predicate == nullptr),
+      dynamic(predicate != nullptr && predicate->dynamic),
+      abolished(predicate != nullptr && predicate->abolished),
+      meta(predicate == nullptr ? std::vector<MetaArg>{} : predicate->meta) {}
+
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
   const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
     return shot.module == key.module && shot.name == key.name && shot.arity == key.arity;
   });
   if (known) return;
-  const Predicate* predicate = find_pred(machine, key);
-  if (predicate == nullptr) {
-    snapshots.push_back(Snapshot{key.module, key.name, key.arity, {}, true, false, false, {}});
-    return;
-  }
-  // 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
-  snapshots.push_back(Snapshot{key.module, key.name, key.arity, predicate->clauses, false, predicate->dynamic,
-                               predicate->abolished, predicate->meta});
+  snapshots.emplace_back(key, find_pred(machine, key));
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
