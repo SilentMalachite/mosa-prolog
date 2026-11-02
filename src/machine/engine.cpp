@@ -31,6 +31,11 @@ bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
+    // retract と clause/2 のカーソルは、次に合う節を先に試して見つけたときだけ積む（ADR 0015）。
+    if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan) && entry.by_cursor) {
+      if (entry.cursor != kNoClause) return true;
+      continue;
+    }
     if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen ||
          entry.pick == Pick::StreamGen) &&
         entry.next < entry.candidates.size()) {
@@ -677,11 +682,12 @@ void Machine::halt(int code) {
 namespace {
 
 // 問い合わせ 1 つ分の実行状態を捨てる。選択点はもう無いので戻さずに捨てる。成功した op/3 は表に残す。
-// 選択点が無ければ catch_log の記録はどれも指す先が無い。
+// 選択点が無ければ catch_log と scan_log の記録はどれも指す先が無い。
 void drop_run(Impl& machine) {
   machine.stack.clear();
   machine.op_undos.clear();
   machine.catch_log.clear();
+  machine.scan_log.clear();
   machine.trail.slots.clear();
   machine.trail.mark = nullptr;
   machine.extras.clear();

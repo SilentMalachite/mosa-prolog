@@ -15,8 +15,10 @@
 
 #include "database_internal.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -65,16 +67,53 @@ bool strip_target(Impl& machine, const Goal& goal, Cell& term, std::uint32_t& mo
   return false;
 }
 
+std::optional<Cell> bound_first(const Impl& machine, Cell head) {
+  head = machine.heap.deref(head);
+  Cell first{};
+  if (head.tag() == Tag::Lis) first = machine.heap.list_head(head);
+  else if (head.tag() == Tag::Str && machine.heap.functor_arity(head) >= 1) first = machine.heap.arg(head, 0);
+  else return std::nullopt;
+  first = machine.heap.deref(first);
+  if (machine.heap.unbound(first)) return std::nullopt;
+  return first;
+}
+
+Entry scan_entry(Pick pick, const Goal& goal, PredKey key, std::uint64_t generation) {
+  Entry entry;
+  entry.pick = pick;
+  entry.generation = generation;
+  entry.redo_goal = goal.at;
+  entry.pred_module = key.module;
+  entry.pred_name = key.name;
+  entry.pred_arity = key.arity;
+  return entry;
+}
+
+// 枠は移すだけにし、やり直すたびに候補の列を写さない（レビュー M3）。
+void push_if_more(Impl& machine, Entry&& scan) {
+  const bool more = scan.by_cursor ? scan.cursor != kNoClause : scan.next < scan.candidates.size();
+  if (!more) return;
+  scan.heap_mark = machine.heap.size();
+  scan.trail_mark = machine.trail.slots.size();
+  push_frame(machine, std::move(scan));
+}
+
 }  // namespace database
 
 using database::HeadName;
 using database::strip_target;
 using database::run_clause;
 using database::run_current_predicate;
+using database::bound_first;
 using database::callable_term;
+using database::collect_ids;
+using database::find_match;
 using database::head_indicator;
+using database::push_if_more;
 using database::raise_instantiation;
 using database::raise_type;
+using database::scan_entry;
+using database::step_scan;
 using database::succeed;
 
 namespace {
@@ -155,49 +194,16 @@ bool goal_form(const IrTerm& term) {
   return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; });
 }
 
-// candidates が節の添字である選択点だけ。述語の添字を足すと asserta が別の述語を飛ばす。
+// candidates が節の番号である選択点だけ。述語の添字（PredGen）や状態（Native）を節の番号と比べない。
 bool scans_clauses(Pick pick) {
   return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
 }
 
-// 同じ名前の述語はモジュールごとにある。名前だけで比べると、別のモジュールの走査をずらす。
+// 同じ名前の述語はモジュールごとにある。番号はどの述語も同じ所から振るので、名前だけで比べると別のモジュールの
+// 走査の候補を自分の節と取り違える。
 bool scans_pred(const Entry& entry, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
   return scans_clauses(entry.pick) && entry.pred_module == module && entry.pred_name == name &&
          entry.pred_arity == arity;
-}
-
-void note_removed(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity,
-                  std::size_t removed) {
-  for (Entry& entry : machine.stack) {
-    if (!scans_pred(entry, module, name, arity)) continue;
-    std::vector<std::size_t> kept;
-    kept.reserve(entry.candidates.size());
-    std::size_t next = entry.next;
-    for (std::size_t cursor = 0; cursor < entry.candidates.size(); ++cursor) {
-      auto index = entry.candidates[cursor];
-      if (index == removed) {
-        // 消費済みの枠を落とすと next が一つ戻る。未消費なら次の枠が同じ位置に残る。
-        if (cursor < next) --next;
-        continue;
-      }
-      if (index > removed) --index;
-      kept.push_back(index);
-    }
-    entry.candidates = std::move(kept);
-    entry.next = next;
-  }
-}
-
-void note_asserta(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
-  for (Entry& entry : machine.stack) {
-    if (!scans_pred(entry, module, name, arity)) continue;
-    // 先頭に足しても、開いている走査は新しい節を見ない。古い添字だけ 1 つずれる。
-    for (std::size_t& index : entry.candidates) ++index;
-  }
-}
-
-void erase_clause(Predicate& predicate, std::size_t index) {
-  predicate.clauses.erase(predicate.clauses.begin() + static_cast<std::ptrdiff_t>(index));
 }
 
 void shift_pred_index(Entry& entry, std::size_t removed) {
@@ -225,56 +231,108 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
     removed = index;
     break;
   }
+  // 述語を作り直すと番号は同じ所から振り直す。開いた走査を尽きた印にしておけば、新しい定義の節を指さない。
   for (Entry& entry : machine.stack) {
     if (scans_pred(entry, module, name, arity)) {
       entry.candidates.clear();
       entry.next = 0;
+      entry.cursor = kNoClause;
       continue;
     }
-    // current_predicate の候補は述語ベクタの添字。節の添字とは別にずらす。
+    // current_predicate の候補は述語ベクタの添字なので、節の番号と違い、消した述語より後ろをずらす。
     if (entry.pick == Pick::PredGen && removed < machine.predicates.size()) shift_pred_index(entry, removed);
   }
   if (removed >= machine.predicates.size()) return;
   machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
 }
 
-// ADR 0008。開いた走査がまだ試していない候補にこの節があるか。試し終えた節と今動いている節は消してよい。
-bool held_by_scan(const Impl& machine, PredKey key, std::size_t index) {
-  for (const Entry& entry : machine.stack) {
-    if (!scans_pred(entry, key.module, key.name, key.arity)) continue;
-    for (std::size_t cursor = entry.next; cursor < entry.candidates.size(); ++cursor) {
-      if (entry.candidates[cursor] == index) return true;
-    }
-  }
-  return false;
+// entry が、消した節 clause をまだ試しうるか（ADR 0015）。ほかの述語の走査と、節を足す前か消した後に始めた
+// 走査はこの節を見ない。通り過ぎた節（試し終えた節と今動いている節）にはもう戻らない。retract は別の retract が
+// 消した節を飛ばすので、開いた retract はどの消した節も試さない。番号は変わらず、候補の列は番号の昇順。
+bool scan_reaches(const Entry& entry, PredKey key, const Clause& clause) {
+  if (!scans_pred(entry, key.module, key.name, key.arity) || entry.pick == Pick::Retract) return false;
+  if (entry.generation < clause.born || entry.generation >= clause.died) return false;
+  if (entry.by_cursor) return entry.cursor != kNoClause && entry.cursor <= clause.id;
+  const auto untried = static_cast<std::ptrdiff_t>(std::min(entry.next, entry.candidates.size()));
+  return std::binary_search(entry.candidates.begin() + untried, entry.candidates.end(), clause.id);
 }
 
-void kill_clause(Impl& machine, Predicate& predicate, PredKey key, std::size_t index) {
-  if (held_by_scan(machine, key, index)) {
-    predicate.clauses[index].dead = true;
+// 開いた走査のどれかがこの節をまだ試しうるか。届かない節は消してよい。見るのは記録した節の走査だけで、retract の
+// 選択点や制御の枠がいくつ積もっても手間は増えない。
+bool reachable(Impl& machine, PredKey key, const Clause& clause) {
+  prune_scan_log(machine);
+  return std::any_of(machine.scan_log.begin(), machine.scan_log.end(), [&](const ScanRecord& record) {
+    return scan_reaches(machine.stack[record.index], key, clause);
+  });
+}
+
+// 消した世代を付ける。消した節に付け直すと、その間に始めた走査の見え方が変わる。
+bool mark_dead(Impl& machine, Predicate& predicate, Clause& clause) {
+  if (clause.dead()) return false;
+  clause.died = ++machine.db_generation;
+  predicate.live -= 1;
+  return true;
+}
+
+// 先頭か末尾の節は、届く走査が無ければすぐ消す。端の節を消しても索引の組は端を外すだけで、ほかの節は動かない。
+// 真ん中の節と届く節は残して数え、前の掃除から数えて半分を超えたら、次の変更がまとめて掃除する（purge_dead）。
+// 真ん中を一つずつ詰めると 1 回が節の数だけかかり、索引も作り直しになる。開いた走査は世代で見分けて試す。
+void kill_clause(Impl& machine, Predicate& predicate, PredKey key, std::size_t id) {
+  const auto position = clause_position(predicate, id);
+  if (!position) return;
+  Clause& clause = predicate.clauses[*position];
+  if (!mark_dead(machine, predicate, clause)) return;
+  const bool end = *position == 0 || *position + 1 == predicate.clauses.size();
+  if (end && !reachable(machine, key, clause)) {
+    erase_clause_id(predicate, id);
     return;
   }
-  erase_clause(predicate, index);
-  note_removed(machine, key.module, key.name, key.arity, index);
+  ++predicate.dead_since;
 }
 
-// 死んだ節は、それを持つ走査が閉じた後の最初の変更で消す。節が尽きた abolish 済みの述語は表からも消す。
-// 添字をずらすので、候補を集める前に呼ぶ。
+// 開いた走査のために残した端の節は、その走査が閉じた後の最初の変更で消す。消すと隣が端になるので続けて見る。
+// 端の節が生きていれば走査を見ないので、変更のたびの手間は O(1)。
+void trim_ends(Impl& machine, Predicate& predicate, PredKey key) {
+  const ClauseList& clauses = predicate.clauses;
+  while (!clauses.empty() && clauses.front().dead() && !reachable(machine, key, clauses.front())) {
+    erase_clause_id(predicate, clauses.front().id);
+  }
+  while (!clauses.empty() && clauses.back().dead() && !reachable(machine, key, clauses.back())) {
+    erase_clause_id(predicate, clauses.back().id);
+  }
+}
+
+// 前の掃除が残した節に届いた一番下の枠が、もうスタックに無いか。スタックは上から外すので、上の枠も無い。
+bool holder_gone(const Impl& machine, const Predicate& predicate) {
+  const ScanRecord& holder = predicate.held_by;
+  return holder.index >= machine.stack.size() || machine.stack[holder.index].effect_id != holder.id;
+}
+
+// 残した節に届く枠がまだあるときにそれも数えると、変更のたびに掃除して残すだけになり 2 乗になる。そのときは
+// 掃除の後に消した節だけで決め、枠が外れたら残した節も数える。どちらも掃除 1 回を半分の節で払う。
+bool sweep_due(const Impl& machine, const Predicate& predicate) {
+  if (predicate.abolished) return true;
+  const std::size_t counted =
+      predicate.held_dead == 0 || holder_gone(machine, predicate) ? predicate.dead_since
+                                                                  : predicate.dead_since - predicate.held_dead;
+  return 2 * counted > predicate.clauses.size();
+}
+
+// 変更の前に呼ぶ。端の死んだ節を消し、前の掃除から残した節が半分を超えたか abolish 済みなら一度に掃除する。
+// 掃除は節の数に比例するが、半分を超える数の削除に 1 回なので、ならせば削除 1 回あたり O(1)。掃除は端の節も
+// 消すので、掃除するときは端を一つずつ確かめない。節が尽きた abolish 済みの述語は表からも消す。
 Predicate* purge_dead(Impl& machine, Predicate* predicate) {
   if (predicate == nullptr) return nullptr;
   const PredKey key{predicate->module, predicate->name, predicate->arity};
-  for (std::size_t index = predicate->clauses.size(); index > 0; --index) {
-    if (predicate->clauses[index - 1].dead && !held_by_scan(machine, key, index - 1)) {
-      erase_clause(*predicate, index - 1);
-      note_removed(machine, key.module, key.name, key.arity, index - 1);
-    }
-  }
+  if (!sweep_due(machine, *predicate)) trim_ends(machine, *predicate, key);
+  if (sweep_due(machine, *predicate)) sweep_dead(machine, *predicate);
   if (!predicate->abolished || !predicate->clauses.empty()) return predicate;
   erase_predicate(machine, key.module, key.name, key.arity);
   return nullptr;
 }
 
-// abolish 済みの述語へ足すときは、同じ枠を新しい動的な述語として使い直す。走査の添字が二つの述語を指さない。
+// abolish 済みの述語へ足すときは、同じ枠を新しい動的な述語として使い直す。番号の範囲も続くので、開いた走査の
+// 番号が新しい定義の節を指さない。
 void revive(Impl& machine, Predicate& predicate) {
   if (!predicate.abolished) return;
   predicate.abolished = false;
@@ -284,11 +342,11 @@ void revive(Impl& machine, Predicate& predicate) {
   adopt_meta(machine, predicate);
 }
 
+// 節ごとに端を確かめて消すと、節ごとにスタックをなめる。全部に消した世代を付けてから一度に掃除する。
 void abolish_open(Impl& machine, Predicate& predicate) {
   const PredKey key{predicate.module, predicate.name, predicate.arity};
-  for (std::size_t index = predicate.clauses.size(); index > 0; --index) {
-    kill_clause(machine, predicate, key, index - 1);
-  }
+  for (Clause& clause : predicate.clauses) mark_dead(machine, predicate, clause);
+  sweep_dead(machine, predicate);
   if (predicate.clauses.empty()) {
     erase_predicate(machine, key.module, key.name, key.arity);
     return;
@@ -317,61 +375,46 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   return unify_visible(machine, floor, view.body, body);
 }
 
-std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predicate, const ClauseView& view) {
-  std::vector<std::size_t> found;
-  for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
-    if (predicate.clauses[index].dead) continue;
-    const auto heap_mark = machine.heap.size();
-    const auto trail_mark = machine.trail.slots.size();
-    const auto extras_mark = machine.extras.size();
-    const bool matched = unify_stored(machine, predicate.clauses[index], view);
-    if (matched) found.push_back(index);
-    restore_state(machine, heap_mark, trail_mark, extras_mark);
+// retract が試してよい節。走査を始めた後に足した節は見ず、別の retract が先に消した節はもう無い節である。
+bool retractable(const Clause& clause, std::uint64_t generation) {
+  return clause.born <= generation && !clause.dead();
+}
+
+// 第1引数を束縛した retract は key_candidates の候補だけを試しに単一化し、合う節の列で走査する。未束縛なら
+// どの節も候補なので、列を作らずにカーソルで進む（ADR 0015）。
+Entry retract_scan(Impl& machine, const Goal& goal, const Predicate& predicate, PredKey key, const ClauseView& view) {
+  const auto generation = machine.db_generation;
+  Entry scan = scan_entry(Pick::Retract, goal, key, generation);
+  const auto first = bound_first(machine, view.head);
+  if (!first) {
+    scan.by_cursor = true;
+    return scan;
   }
-  return found;
+  const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
+  scan.candidates = collect_ids(machine, predicate, key_candidates(machine, predicate, *first, generation), match);
+  return scan;
 }
 
-void push_retract(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
-                  std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
-  Entry entry;
-  entry.pick = Pick::Retract;
-  entry.candidates = matches;
-  entry.next = next;
-  entry.redo_goal = goal.at;
-  entry.pred_module = key.module;
-  entry.pred_name = key.name;
-  entry.pred_arity = key.arity;
-  entry.heap_mark = heap_mark;
-  entry.trail_mark = trail_mark;
-  push_frame(machine, std::move(entry));
-}
-
-bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
-                  std::size_t begin) {
+// scan.generation は最初の呼び出しの世代で、やり直しても進めない。次に合う節があれば、束縛する前に scan を積む。
+// unify_stored は水位より前の変数の束縛を全部トレイルに残すので、やり直しはこの答えの束縛を戻してから次を試す。
+bool take_retract(Impl& machine, const Goal& goal, Entry scan, bool redo) {
+  const PredKey key{scan.pred_module, scan.pred_name, scan.pred_arity};
   Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
   // 引数は最初の呼び出しで検査済み。M: は外すだけにし、節を作り直してヒープを使わない。
   ClauseView view = clause_view(machine, skip_module(machine, goal.arg(machine, 0)));
   view.head = named_head(machine, skip_module(machine, view.head), key.name);
-  for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
-    const auto index = matches[cursor];
-    // 別の retract が先に消した節は、もう無い節である。
-    if (index >= predicate->clauses.size() || predicate->clauses[index].dead) continue;
-    const auto heap_mark = machine.heap.size();
-    const auto trail_mark = machine.trail.slots.size();
-    const auto extras_mark = machine.extras.size();
-    if (!unify_stored(machine, predicate->clauses[index], view)) {
-      restore_state(machine, heap_mark, trail_mark, extras_mark);
-      continue;
-    }
-    if (cursor + 1 < matches.size()) {
-      push_retract(machine, goal, key, matches, cursor + 1, heap_mark, trail_mark);
-    }
-    kill_clause(machine, *predicate, key, index);
-    succeed(machine, goal);
-    return true;
-  }
-  return false;
+  const auto generation = scan.generation;
+  const auto usable = [generation](const Clause& clause) { return retractable(clause, generation); };
+  const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
+  const auto position = step_scan(machine, *predicate, scan, redo, usable, match);
+  if (!position) return false;
+  const std::size_t id = predicate->clauses[*position].id;
+  push_if_more(machine, std::move(scan));
+  if (!unify_stored(machine, predicate->clauses[*position], view)) return false;
+  kill_clause(machine, *predicate, key, id);
+  succeed(machine, goal);
+  return true;
 }
 
 void run_assert(Impl& machine, const Goal& goal, bool at_front) {
@@ -417,12 +460,10 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     existing = &machine.predicates.back();
     adopt_meta(machine, *existing);
   }
-  if (at_front) {
-    existing->clauses.insert(existing->clauses.begin(), std::move(clause));
-    note_asserta(machine, existing->module, source_name, head.arity);
-  } else {
-    existing->clauses.push_back(std::move(clause));
-  }
+  // 番号で持つ開いた走査は、先頭に足しても付け直さない。新しい番号はどの候補にも無く、カーソルより後ろに
+  // 足した節も世代が走査より新しいので、走査は見ない。
+  if (at_front) prepend_clause(*existing, std::move(clause), ++machine.db_generation);
+  else append_clause(*existing, std::move(clause), ++machine.db_generation);
   succeed(machine, goal);
 }
 
@@ -446,8 +487,7 @@ void run_retract(Impl& machine, const Goal& goal) {
   const PredKey key{predicate->module, head.name, head.arity};
   ClauseView source = view;
   source.head = named_head(machine, view.head, head.name);
-  const auto matches = collect_matches(machine, *predicate, source);
-  if (!take_retract(machine, goal, key, matches, 0)) machine.failed = true;
+  if (!take_retract(machine, goal, retract_scan(machine, goal, *predicate, key, source), false)) machine.failed = true;
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
@@ -477,12 +517,22 @@ void run_retractall(Impl& machine, const Goal& goal) {
   ClauseView view;
   view.head = named_head(machine, head_cell, head.name);
   view.head_only = true;
-  const auto matches = collect_matches(machine, *predicate, view);
+  // 消すのは全部済ませてからなので、試すのは今生きている節（世代は今のもの）。
+  const auto generation = machine.db_generation;
+  const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
+  std::vector<std::size_t> matches;
+  if (const auto first = bound_first(machine, view.head)) {
+    matches = collect_ids(machine, *predicate, key_candidates(machine, *predicate, *first, generation), match);
+  } else {
+    const auto usable = [generation](const Clause& clause) { return retractable(clause, generation); };
+    for (std::size_t at = find_match(machine, *predicate, 0, usable, match); at < predicate->clauses.size();
+         at = find_match(machine, *predicate, at + 1, usable, match)) {
+      matches.push_back(predicate->clauses[at].id);
+    }
+  }
+  // 後ろから消すと、全部消すときはどの節も消す時点で末尾にあり、すぐ消える。節を消しても述語は表に残る。
   for (std::size_t cursor = matches.size(); cursor > 0; --cursor) {
-    const auto index = matches[cursor - 1];
-    Predicate* current = find_pred(machine, key);
-    if (current == nullptr || index >= current->clauses.size()) continue;
-    kill_clause(machine, *current, key, index);
+    kill_clause(machine, *predicate, key, matches[cursor - 1]);
   }
   succeed(machine, goal);
 }
@@ -547,16 +597,40 @@ void run_abolish(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
-// 読み込みが abolish 済みの枠を使い直すときにも、同じ片付けをする（ADR 0008）。
-Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate) { return purge_dead(machine, predicate); }
+// この述語の開いた走査を記録から一度だけ集め、死んだ節ごとにはその分だけを見る。節ごとに reachable で記録を
+// なめると、ほかの述語の走査の数まで節の数に掛かる。読み込みが abolish 済みの枠を使い直すときにも呼ぶ（ADR 0008）。
+void sweep_dead(Impl& machine, Predicate& predicate) {
+  const PredKey key{predicate.module, predicate.name, predicate.arity};
+  prune_scan_log(machine);
+  std::vector<ScanRecord> scans;
+  for (const ScanRecord& record : machine.scan_log) {
+    if (scans_pred(machine.stack[record.index], key.module, key.name, key.arity)) scans.push_back(record);
+  }
+  // 下の枠から試すと、節ごとに最初に届いた枠がその節に届く一番下の枠になる。
+  std::sort(scans.begin(), scans.end(), [](const ScanRecord& a, const ScanRecord& b) { return a.index < b.index; });
+  std::vector<bool> held(predicate.clauses.size(), false);
+  std::optional<ScanRecord> holder;
+  for (std::size_t position = 0; position < held.size(); ++position) {
+    const Clause& clause = predicate.clauses[position];
+    if (!clause.dead()) continue;
+    const auto first = std::find_if(scans.begin(), scans.end(), [&](const ScanRecord& record) {
+      return scan_reaches(machine.stack[record.index], key, clause);
+    });
+    if (first == scans.end()) continue;
+    held[position] = true;
+    if (!holder || first->index < holder->index) holder = *first;
+  }
+  sweep_clauses(predicate, held, holder.value_or(ScanRecord{}));
+}
 
 bool redo_retract(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::Retract) return false;
   apply_catches(machine, machine.stack.back());
-  const Entry top = machine.stack.back();
+  // 枠を外す前に枠ごと移す。候補の列を写すと、消すたびに残りの候補の数だけかかる（レビュー M3）。
+  Entry scan = std::move(machine.stack.back());
   machine.stack.pop_back();
-  return take_retract(machine, read_goal(machine, top.redo_goal), PredKey{top.pred_module, top.pred_name, top.pred_arity},
-                      top.candidates, top.next);
+  const Goal goal = read_goal(machine, scan.redo_goal);
+  return take_retract(machine, goal, std::move(scan), true);
 }
 
 

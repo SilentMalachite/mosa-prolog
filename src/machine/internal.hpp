@@ -9,10 +9,12 @@
 #include "mosa/runtime.hpp"
 
 #include "../module/module.hpp"
+#include "clause_index.hpp"
 #include "gc.hpp"
 
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <initializer_list>
@@ -21,6 +23,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace mosa {
@@ -29,8 +32,6 @@ inline constexpr std::uint64_t kNoFrame = UINT64_MAX;
 inline constexpr std::size_t kFrameHead = 4;
 // 生成コードは rt::kFrameHead でゴール枠の引数を読む。2 つは同じ枠の同じ頭である。
 static_assert(rt::kFrameHead == kFrameHead);
-
-enum class KeyKind { Any, None, Var, Atom, Int, Float, List, Fun };
 
 // ゴールの木は写さずに共有する。部分木は根と同じ持ち主を持つ別名のポインタで指す。節を消しても、動いている
 // 本体はこれが生かしておく（ADR 0011 の改訂 3）。
@@ -49,7 +50,12 @@ using EnvRef = std::shared_ptr<EnvCells>;
 [[nodiscard]] GoalRef sub_goal(const GoalRef& goal, std::size_t index);
 [[nodiscard]] EnvRef make_env(std::vector<Cell> cells);
 
+// Clause::died の「まだ消していない」。どの世代もこれより小さいので、生きた節はどの走査にも消えて見えない。
+inline constexpr std::uint64_t kAlive = UINT64_MAX;
+
 struct Clause {
+  // ADR 0015。述語の中で変わらず、繰り返さない番号。clauses の中では狭義に増える。振るのは clause_store.cpp だけ。
+  std::size_t id = 0;
   IrTerm head;
   GoalRef body;
   std::uint16_t vars = 0;
@@ -58,12 +64,31 @@ struct Clause {
   std::uint16_t key_arity = 0;
   std::int64_t key_int = 0;
   double key_float = 0;
-  // ADR 0008。開いた走査がまだ試していない節を消すと、消さずにこの印を付ける。新しい呼び出しは飛ばす。
-  bool dead = false;
+  // ADR 0015。足したときと消したときのデータベースの世代。走査は自分の世代に生きていた節だけを見る（7.5.4）。
+  // 消した節は、まだ届く走査がある間だけ残る。新しい呼び出しは died を持つ節を飛ばす。
+  std::uint64_t born = 0;
+  std::uint64_t died = kAlive;
+  [[nodiscard]] bool dead() const { return died != kAlive; }
   // スロットごとの原文の変数名（名前の無い変数は空）。読み込んだ節だけが持ち、mosac のコメントだけが読む。
   // 意味は持たないので指紋には数えない。
   std::vector<std::string> names;
 };
+
+// 世代 generation に始めた走査がこの節を見るか。足すより前の走査と、消した後の走査には見えない。
+[[nodiscard]] inline bool visible(const Clause& clause, std::uint64_t generation) {
+  return clause.born <= generation && generation < clause.died;
+}
+
+// 先頭へ足しても後ろの節を動かさない（ADR 0015）。位置で引く enter_clause・mosac・指紋のために添字でも引ける。
+using ClauseList = std::deque<Clause>;
+
+// Entry::cursor の「もう試す節が無い」。番号は 2^62 の前後から振るので、この値は節の番号にならない。
+inline constexpr std::size_t kNoClause = SIZE_MAX;
+
+// 番号は真ん中から振り始める。asserta は下へ、assertz は上へ伸ばすので、どちらへ 2^62 回足してもあふれない。
+// 2^62 を置くには 64 ビットの size_t が要る（CI の 3 つの OS はどれも 64 ビット）。
+static_assert(sizeof(std::size_t) >= 8);
+inline constexpr std::size_t kFirstClauseId = std::size_t{1} << 62;
 
 // multifile と discontiguous の宣言。述語が無くても残す。宣言だけで節の無い手続きになる（iso-notes 7.8.3 の決定 B）。
 // shared は multifile。複数のテキストに節を足してよい印でもある。
@@ -75,11 +100,37 @@ struct SharedPred {
 };
 
 struct Predicate {
+  // libstdc++ と MSVC の deque は移動コンストラクタが noexcept でない。暗黙の移動のままだと、述語表の vector が
+  // 伸びるたびに move_if_noexcept が全部の述語を節ごと写す。移動は noexcept と宣言する（C++20、P1286R2）。
+  // 写しの演算は暗黙のときと同じく残す。
+  Predicate() = default;
+  Predicate(const Predicate&) = default;
+  Predicate& operator=(const Predicate&) = default;
+  Predicate(Predicate&&) noexcept = default;
+  Predicate& operator=(Predicate&&) noexcept = default;
+  ~Predicate() = default;
+
   // 既定値の 0 は user ではない。述語を作る所で必ず入れる。
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
+  // 書くのは clause_store.cpp の関数だけ。番号と live をそこで保つ。
+  ClauseList clauses;
+  // [first_id, next_id) が振った番号の範囲。節を消しても縮めないので、消した節の番号を別の節が使わない。
+  std::size_t first_id = kFirstClauseId;
+  std::size_t next_id = kFirstClauseId;
+  // dead() でない節の数。clause_store.cpp と database.cpp の mark_dead の died の書き込みだけが変える。
+  std::size_t live = 0;
+  // 列に残っている死んだ節の数（ADR 0015）。前の掃除が開いた走査のために残した節と、その後に消したが端に無いか
+  // 走査が届くので外さなかった節。後で端から外れても減らさない。節の数の半分を超えたら次の変更が一度に掃除する。
+  // 消す節ごとに真ん中を詰めると、1 回が節の数だけかかる。
+  std::size_t dead_since = 0;
+  // 前の掃除が残した死んだ節の数と、それに届いた一番下の枠（Codex レビュー P2）。その枠が外れれば上の枠も外れて
+  // いるので、残した節も数えて掃除を決める。枠があるうちは、その後に消した節だけで決める（毎回の掃除を避ける）。
+  std::size_t held_dead = 0;
+  ScanRecord held_by;
+  // 第1引数の索引。const の述語を引く呼び出しが初めて要るときに作るので mutable。節を書く所が一緒に直す。
+  mutable FirstArgIndex index;
   bool seen = false;
   bool dynamic = false;
   // 読み込みの開始で落とす。この読み込みが dynamic を見たら真。見ていなければ置き換え後は静的。
@@ -92,6 +143,10 @@ struct Predicate {
   // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
   rt::NativeProc native = nullptr;
 };
+
+// 述語表の伸長が節を写す形に戻れば、libstdc++ と MSVC の CI がここで落ちる（libc++ は宣言が無くても通る）。
+static_assert(std::is_nothrow_move_constructible_v<Predicate>);
+static_assert(std::is_nothrow_move_assignable_v<Predicate>);
 
 enum class Pick {
   Clauses,
@@ -107,9 +162,9 @@ enum class Pick {
   // 節の本体は実行しない。Clauses に載せるとやり直しが節を呼ぶ。
   ClauseScan,
   PredGen,
-  // ストリームの性質は節ではない。やり直しを節の添字に載せない。
+  // ストリームの性質は節ではない。やり直しを節の番号に載せない。
   StreamGen,
-  // 生成関数の節の候補。candidates は節の添字ではなく状態なので、pred_* を入れず節の走査に数えさせない。
+  // 生成関数の節の候補。candidates は節の番号ではなく状態なので、pred_* を入れず節の走査に数えさせない。
   Native,
   // 動いている findall・bagof・setof（ADR 0013）。ここへ戻ればゴールの解は尽きたので、答えを束ねる。
   Collect
@@ -139,8 +194,17 @@ struct Entry {
   std::size_t heap_mark = 0;
   std::size_t trail_mark = 0;
   std::uint64_t redo_goal = kNoFrame;
+  // Clauses・Retract・ClauseScan では節の番号（Clause::id）。消しても asserta しても付け直さない（ADR 0015）。
+  // PredGen は述語ベクタの添字、StreamGen と Native は状態。
   std::vector<std::size_t> candidates;
   std::size_t next = 0;
+  // Clauses・Retract・ClauseScan の走査を始めたときの Impl::db_generation。消した節がまだこの走査に届くかを決める。
+  std::uint64_t generation = 0;
+  // by_cursor の Clauses・Retract・ClauseScan は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）だけを
+  // 持つ。第1引数が未束縛の呼び出しは全部の節が候補なので、列を作ると呼ぶたびに節の数だけかかる（レビュー M3）。
+  // Retract と ClauseScan のカーソルは、次に合う節（先に試して合った節）を指す。
+  std::size_t cursor = kNoClause;
+  bool by_cursor = false;
   std::uint32_t pred_module = 0;
   std::uint32_t pred_name = 0;
   std::uint16_t pred_arity = 0;
@@ -335,6 +399,9 @@ struct Machine::Impl {
   std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
+  // 節を足すたびと消すたびに 1 つ進める（ADR 0015）。走査はこの値を世代として持ち、それより後の変更を見ない。
+  // 64 ビットなので、変更をいくつ重ねてもあふれず、kAlive にも届かない。
+  std::uint64_t db_generation = 0;
   std::vector<Module> modules;
   std::uint32_t user_module = 0;
   std::uint32_t system_module = 0;
@@ -352,6 +419,9 @@ struct Machine::Impl {
   // 上に選択点を残したまま抜けた（無効にした）Catch。選択点ごとに有効な Catch を写すと、同時に生きている
   // 選択点の数の 2 乗になる（ADR 0011 の改訂 3）。
   std::vector<CatchRecord> catch_log;
+  // 消した節にまだ届く走査を探すとき、スタック全体でなく開いた節の走査だけを見る（レビュー M3）。retract の枠は
+  // 消した節を試さないので載せない。載せると、選択点を残す retract の N 回が N の 2 乗になる。
+  std::vector<ScanRecord> scan_log;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
@@ -490,9 +560,27 @@ struct LaunchNext {
 [[nodiscard]] LaunchNext open_soft(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
                                    const EnvRef& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
+// 定義は clause_store.cpp。Predicate::clauses を書くのはここだけで、番号・first_id・next_id・live をここで保つ
+// （ADR 0015）。append と prepend は新しい番号を振り、born を節の世代にする。replace は渡された番号と世代を残し、
+// 範囲をそれが入るまで広げる。
+void append_clause(Predicate& predicate, Clause clause, std::uint64_t born);
+void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born);
+void replace_clauses(Predicate& predicate, ClauseList clauses);
+void clear_clauses(Predicate& predicate);
+void erase_clause_id(Predicate& predicate, std::size_t id);
+// held[位置] が偽の死んだ節を一度に消し、残した死んだ節の数を dead_since と held_dead に、それに届いた一番下の枠
+// holder を held_by に置く。消した節があれば索引を捨てる。held は節の数だけ要る。
+void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanRecord holder);
+// 番号の節の位置。無い番号は nullopt。
+[[nodiscard]] std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id);
+// 番号が id 以上の最初の節の位置。無ければ clauses.size()。
+[[nodiscard]] std::size_t clause_from(const Predicate& predicate, std::size_t id);
+// 位置 from から先で、世代 generation の走査に見える最初の節の位置。無ければ clauses.size()。
+[[nodiscard]] std::size_t next_visible(const Predicate& predicate, std::size_t from, std::uint64_t generation);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
-Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
+// 開いた走査が届かない死んだ節を一度に消す（定義は database.cpp、ADR 0015）。述語は消さない。
+void sweep_dead(Impl& machine, Predicate& predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 // 述語を呼ぶゴール（制御構造でも変数でもない）。env を残さないので、共有の env を作らずに枠にできる。
@@ -532,6 +620,8 @@ void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
 // スタックが縮んだ後、外した Catch を指す末尾の記録を捨てる。カットで縮み続ける決定的な再帰で記録が溜まらない。
 void prune_catch_log(Impl& machine);
+// 外した枠を指す scan_log の記録を捨てる。残った記録はどれも今のスタックの開いた節の走査を指す。
+void prune_scan_log(Impl& machine);
 void push_frame(Impl& machine, Entry entry);
 // ゴールの位置にある、制御構造でない項（葉）の型を見る。
 using GoalLeafOk = bool (*)(IrTag tag);
@@ -547,8 +637,11 @@ void propagate_throw(Impl& machine, Cell ball);
 void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity);
 void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
-[[nodiscard]] std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& predicate,
-                                                      bool has_arg, Cell first);
+// 束縛した第1引数 first に合う節（鍵が等しい節と鍵の無い節）のうち、世代 generation に見える節の番号を節の順に
+// 返す。8 節以上なら索引を作って引く。first が未束縛なら見える節を全部返すが、呼び手はカーソルで走査するので
+// 普通は来ない。呼び出しでは、第1引数を meta 引数で包む述語に呼ばない。
+[[nodiscard]] std::vector<std::size_t> key_candidates(const Impl& machine, const Predicate& predicate, Cell first,
+                                                      std::uint64_t generation);
 
 [[nodiscard]] Stop run_loop(Impl& machine);
 [[nodiscard]] LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,

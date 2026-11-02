@@ -5,6 +5,7 @@
 
 #include <filesystem>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -46,12 +47,29 @@ struct SeenMark {
 };
 
 struct ClauseBackup {
+  // 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
+  explicit ClauseBackup(const Predicate& predicate)
+      : module(predicate.module),
+        name(predicate.name),
+        arity(predicate.arity),
+        clauses(predicate.clauses),
+        dynamic(predicate.dynamic) {}
+  // Predicate と同じく、写しの vector が伸びても節を写さないよう移動を noexcept にする。
+  ClauseBackup(const ClauseBackup&) = default;
+  ClauseBackup& operator=(const ClauseBackup&) = default;
+  ClauseBackup(ClauseBackup&&) noexcept = default;
+  ClauseBackup& operator=(ClauseBackup&&) noexcept = default;
+  ~ClauseBackup() = default;
+
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
+  ClauseList clauses;
   bool dynamic = false;
 };
+
+static_assert(std::is_nothrow_move_constructible_v<ClauseBackup>);
+static_assert(std::is_nothrow_move_assignable_v<ClauseBackup>);
 
 std::vector<SeenMark> mark_seen(const Impl& machine) {
   std::vector<SeenMark> saved;
@@ -81,8 +99,7 @@ std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
   std::vector<ClauseBackup> saved;
   saved.reserve(machine.predicates.size());
   for (const Predicate& predicate : machine.predicates) {
-    saved.push_back(
-        ClauseBackup{predicate.module, predicate.name, predicate.arity, predicate.clauses, predicate.dynamic});
+    saved.emplace_back(predicate);
   }
   return saved;
 }
@@ -93,7 +110,7 @@ void restore_clauses(Impl& machine, const std::vector<ClauseBackup>& saved) {
       if (predicate.module != item.module || predicate.name != item.name || predicate.arity != item.arity) continue;
       // 戻した節にも生成関数は付け直さない（ADR 0009）。
       detach_native(machine, predicate);
-      predicate.clauses = item.clauses;
+      replace_clauses(predicate, item.clauses);
       predicate.dynamic = item.dynamic;
       break;
     }

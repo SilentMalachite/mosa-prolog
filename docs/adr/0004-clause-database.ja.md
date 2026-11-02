@@ -1,6 +1,6 @@
 [English](0004-clause-database.md) | 日本語
 
-状態: 承認済み（2026-10-25）。retract と abolish の文は [ADR 0008](0008-logical-update-view.ja.md) で置き換えた（2026-10-28）
+状態: 承認済み（2026-10-25）。retract と abolish の文は [ADR 0008](0008-logical-update-view.ja.md) で置き換えた（2026-10-28）。選択点の候補としての節の位置と asserta のずらしは [ADR 0015](0015-first-argument-index.ja.md) で置き換えた（2026-11-02）
 
 ## 背景
 

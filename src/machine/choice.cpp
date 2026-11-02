@@ -4,6 +4,9 @@
 #include <array>
 #include <bit>
 #include <cstdint>
+#include <optional>
+#include <utility>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -31,6 +34,96 @@ OperatorTable* op_layer(Impl& machine, std::uint32_t module) {
   if (module == machine.user_module) return &machine.operators;
   Module* found = find_module(machine, module);
   return found == nullptr ? nullptr : &found->ops;
+}
+
+// 水位は節に入る前。世代は呼んだ時点のもので、走査はそれより後に足した節と消した節を見ない（7.5.4）。
+Entry clause_entry(const Impl& machine, const Predicate& predicate, std::uint64_t goal, std::size_t boundary) {
+  Entry entry;
+  entry.pick = Pick::Clauses;
+  entry.redo_goal = goal;
+  // 別名で呼んでも、やり直しは定義の名前で引き直す。
+  entry.pred_module = predicate.module;
+  entry.pred_name = predicate.name;
+  entry.pred_arity = predicate.arity;
+  entry.cut = boundary;
+  entry.heap_mark = machine.heap.size();
+  entry.trail_mark = machine.trail.slots.size();
+  entry.generation = machine.db_generation;
+  return entry;
+}
+
+// 第1引数で節を選べない呼び出しは生きた節が全部候補なので、列を作らずに次の節の番号だけを持つ（ADR 0015）。
+// 次に見える節が無ければ積まない。列の長さが 1 のとき積まなかったのと同じで、決定的な答えは選択点を残さない。
+void call_by_cursor(Impl& machine, const Predicate& predicate, std::uint64_t goal) {
+  const auto generation = machine.db_generation;
+  const std::size_t position = next_visible(predicate, 0, generation);
+  if (position >= predicate.clauses.size()) {
+    machine.failed = true;
+    return;
+  }
+  const std::size_t after = next_visible(predicate, position + 1, generation);
+  const auto boundary = machine.stack.size();
+  if (after < predicate.clauses.size()) {
+    Entry entry = clause_entry(machine, predicate, goal, boundary);
+    entry.by_cursor = true;
+    entry.cursor = predicate.clauses[after].id;
+    push_frame(machine, std::move(entry));
+  }
+  enter_clause(machine, predicate, position, goal, boundary);
+}
+
+// 候補は今見える節の番号だけなので、最初の番号の節は在る。位置は真ん中から消していなければ差の 1 回で引ける。
+void call_by_list(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t goal) {
+  auto candidates = key_candidates(machine, predicate, first, machine.db_generation);
+  const auto position = candidates.empty() ? std::nullopt : clause_position(predicate, candidates.front());
+  if (!position) {
+    machine.failed = true;
+    return;
+  }
+  const auto boundary = machine.stack.size();
+  if (candidates.size() > 1) {
+    Entry entry = clause_entry(machine, predicate, goal, boundary);
+    entry.candidates = std::move(candidates);
+    entry.next = 1;
+    push_frame(machine, std::move(entry));
+  }
+  enter_clause(machine, predicate, *position, goal, boundary);
+}
+
+bool exhausted(const Entry& entry) {
+  return entry.by_cursor ? entry.cursor == kNoClause : entry.next >= entry.candidates.size();
+}
+
+// カーソルの節はまだこの走査が届くので消さず、普通は在る。読み込みの戻しなどで無くなっていれば、その番号より
+// 先で見える節から続ける。次に見える節を先に探しておき、無ければ尽きた印にする。
+std::optional<std::size_t> advance_cursor(const Predicate& predicate, Entry& entry) {
+  const std::size_t position = next_visible(predicate, clause_from(predicate, entry.cursor), entry.generation);
+  if (position >= predicate.clauses.size()) {
+    entry.cursor = kNoClause;
+    return std::nullopt;
+  }
+  const std::size_t after = next_visible(predicate, position + 1, entry.generation);
+  entry.cursor = after < predicate.clauses.size() ? predicate.clauses[after].id : kNoClause;
+  return position;
+}
+
+// 候補は番号なので、前の節を消しても asserta しても位置を引き直せば同じ節に入る（ADR 0015）。まだ試して
+// いない節は消さずに残すので普通は在る。無い番号が残っていれば飛ばす。
+std::optional<std::size_t> advance_list(const Predicate& predicate, Entry& entry) {
+  std::optional<std::size_t> position;
+  while (!position && entry.next < entry.candidates.size()) {
+    position = clause_position(predicate, entry.candidates[entry.next]);
+    entry.next += 1;
+  }
+  return position;
+}
+
+// 積む位置とそれより上を指す記録は外した枠のものなので、足す前に捨てる。記録は位置の昇順に並び、枠の数より
+// 増えない。
+void note_scan(Impl& machine, const Entry& entry) {
+  std::vector<ScanRecord>& log = machine.scan_log;
+  while (!log.empty() && log.back().index >= machine.stack.size()) log.pop_back();
+  log.push_back(ScanRecord{machine.stack.size(), entry.effect_id});
 }
 
 }  // namespace
@@ -70,11 +163,18 @@ void prune_catch_log(Impl& machine) {
   }
 }
 
+void prune_scan_log(Impl& machine) {
+  std::erase_if(machine.scan_log, [&machine](const ScanRecord& record) {
+    return record.index >= machine.stack.size() || machine.stack[record.index].effect_id != record.id;
+  });
+}
+
 void push_frame(Impl& machine, Entry entry) {
   entry.extras_mark = machine.extras.size();
   // query の Cleanup はここを通さないので印は 0。通った枠より後ろの op/3 だけを戻す。
   entry.effect_id = ++machine.effect_clock;
   note_catches(machine, entry);
+  if (entry.pick == Pick::Clauses || entry.pick == Pick::ClauseScan) note_scan(machine, entry);
   machine.stack.push_back(std::move(entry));
 }
 
@@ -194,51 +294,32 @@ void enter_user(Impl& machine, const Goal& goal) {
   }
   const bool has_arg = goal.arity >= 1 && !wraps_first(*predicate);
   const Cell first = has_arg ? machine.heap.deref(goal.arg(machine, 0)) : Cell{};
-  const auto candidates = select_clauses(machine, *predicate, has_arg, first);
-  if (candidates.empty()) {
-    machine.failed = true;
-    return;
-  }
-  const auto boundary = machine.stack.size();
-  if (candidates.size() > 1) {
-    Entry entry;
-    entry.pick = Pick::Clauses;
-    entry.candidates = candidates;
-    entry.next = 1;
-    entry.redo_goal = goal.at;
-    // 別名で呼んでも、やり直しは定義の名前で引き直す。
-    entry.pred_module = predicate->module;
-    entry.pred_name = predicate->name;
-    entry.pred_arity = predicate->arity;
-    entry.cut = boundary;
-    entry.heap_mark = machine.heap.size();
-    entry.trail_mark = machine.trail.slots.size();
-    push_frame(machine, std::move(entry));
-  }
-  enter_clause(machine, *predicate, candidates[0], goal.at, boundary);
+  if (!has_arg || machine.heap.unbound(first)) call_by_cursor(machine, *predicate, goal.at);
+  else call_by_list(machine, *predicate, first, goal.at);
 }
 
 bool redo_clause(Impl& machine) {
-  const Entry top = machine.stack.back();
-  if (top.next >= top.candidates.size()) {
+  // 候補の列は写さずに読む。一歩ごとに写すと、節を尽くすまでが候補の数の 2 乗になる（レビュー M3）。
+  // apply_catches と find_pred はスタックの長さを変えないので、外すか進めるまで参照は有効。
+  Entry& top = machine.stack.back();
+  if (exhausted(top)) {
     machine.stack.pop_back();
     return false;
   }
   apply_catches(machine, top);
-  const auto index = top.candidates[top.next];
-  const auto name = top.pred_name;
-  const auto arity = top.pred_arity;
-  const auto goal = top.redo_goal;
-  const auto cut = top.cut;
-  const Predicate* predicate = find_pred(machine, PredKey{top.pred_module, name, arity});
-  // 述語ごと消えると添字が外れる。枠を残すとやり直しが終わらない。
-  if (predicate == nullptr || index >= predicate->clauses.size()) {
+  const Predicate* predicate = find_pred(machine, PredKey{top.pred_module, top.pred_name, top.pred_arity});
+  // 述語ごと消えると番号を引く先が無い。枠を残すとやり直しが終わらない。
+  if (predicate == nullptr) {
     machine.stack.pop_back();
     return false;
   }
-  if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
-  else machine.stack.back().next += 1;
-  enter_clause(machine, *predicate, index, goal, cut);
+  const auto position = top.by_cursor ? advance_cursor(*predicate, top) : advance_list(*predicate, top);
+  const auto goal = top.redo_goal;
+  const auto cut = top.cut;
+  // 最後の節に入るときは外す。呼び出しで 1 節なら積まなかったのと同じく、最後の答えは選択点を残さない。
+  if (exhausted(top)) machine.stack.pop_back();
+  if (!position) return false;
+  enter_clause(machine, *predicate, *position, goal, cut);
   return true;
 }
 
@@ -280,37 +361,44 @@ bool backtrack(Impl& machine) {
   machine.failed = false;
   machine.exception = false;
   while (!machine.stack.empty()) {
-    const Entry top = machine.stack.back();
-    restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
+    // 枠ごと写すと、候補の列まで一歩ごとに写る（レビュー M3）。redo_* は枠を外し、finish_collect は
+    // スタックを変えうるので、要る値は呼ぶ前に手元へ移し、その後は参照に触れない。
+    const Entry& top = machine.stack.back();
+    const Pick pick = top.pick;
+    const bool armed = top.armed;
+    const auto effect_id = top.effect_id;
+    const auto heap_mark = top.heap_mark;
+    const auto trail_mark = top.trail_mark;
+    const auto extras_mark = top.extras_mark;
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
     // 成功した catch は選択点ではない。記録は親の選択点まで残す。
-    if (!(top.pick == Pick::Catch && !top.armed)) restore_operators(machine, top.effect_id);
+    if (!(pick == Pick::Catch && !armed)) restore_operators(machine, effect_id);
     // 入れ子の run_loop（portray、指令など）の床。束縛は消すが、呼び出し元の節走査はやり直さない。
-    if (top.pick == Pick::Barrier) return false;
+    if (pick == Pick::Barrier) return false;
     // 収集のゴールの解が尽きた。答えを束ねる launch か、bagof の空の失敗（failed）で返る（ADR 0013）。
-    if (top.pick == Pick::Collect) {
+    if (pick == Pick::Collect) {
       finish_collect(machine);
       return true;
     }
-    if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {
+    if (pick == Pick::Catch || pick == Pick::Cleanup || pick == Pick::Once) {
       machine.stack.pop_back();
       continue;
     }
-    if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
-    if (top.pick == Pick::Native && redo_native(machine)) return true;
-    if (top.pick == Pick::Retract && redo_retract(machine)) return true;
+    if (pick == Pick::Clauses && redo_clause(machine)) return true;
+    if (pick == Pick::Native && redo_native(machine)) return true;
+    if (pick == Pick::Retract && redo_retract(machine)) return true;
     // Clauses は節の本体を実行する。参照と列挙は項を返すだけで、本体は走らせない。
-    if (top.pick == Pick::ClauseScan && redo_clause_scan(machine)) return true;
-    if (top.pick == Pick::PredGen && redo_pred_gen(machine)) return true;
-    if (top.pick == Pick::ElseGoal && redo_else(machine)) return true;
-    if (top.pick == Pick::Negation && redo_not(machine)) return true;
-    if (top.pick == Pick::Repeat && redo_repeat(machine)) return true;
+    if (pick == Pick::ClauseScan && redo_clause_scan(machine)) return true;
+    if (pick == Pick::PredGen && redo_pred_gen(machine)) return true;
+    if (pick == Pick::ElseGoal && redo_else(machine)) return true;
+    if (pick == Pick::Negation && redo_not(machine)) return true;
+    if (pick == Pick::Repeat && redo_repeat(machine)) return true;
     // アトムの候補は節ではない。やり直しを節の添字に載せると、別の述語を引いてしまう。
-    if (top.pick == Pick::AtomGen && redo_atoms(machine)) return true;
-    if (top.pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
-    if (top.pick != Pick::Clauses && top.pick != Pick::Native && top.pick != Pick::Retract &&
-        top.pick != Pick::ClauseScan &&
-        top.pick != Pick::PredGen && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
-        top.pick != Pick::Repeat && top.pick != Pick::AtomGen && top.pick != Pick::StreamGen) {
+    if (pick == Pick::AtomGen && redo_atoms(machine)) return true;
+    if (pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
+    if (pick != Pick::Clauses && pick != Pick::Native && pick != Pick::Retract && pick != Pick::ClauseScan &&
+        pick != Pick::PredGen && pick != Pick::ElseGoal && pick != Pick::Negation && pick != Pick::Repeat &&
+        pick != Pick::AtomGen && pick != Pick::StreamGen) {
       machine.stack.pop_back();
     }
   }

@@ -8,20 +8,33 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace mosa {
 
 struct Snapshot {
+  // predicate が null なら、この読み込みが作る述語の印。在れば節を番号ごと写す（定義は load_clauses.cpp）。
+  Snapshot(PredKey key, const Predicate* predicate);
+  // Predicate と同じく、写しの vector が伸びるたびに節を写さないよう移動を noexcept にする。
+  Snapshot(const Snapshot&) = default;
+  Snapshot& operator=(const Snapshot&) = default;
+  Snapshot(Snapshot&&) noexcept = default;
+  Snapshot& operator=(Snapshot&&) noexcept = default;
+  ~Snapshot() = default;
+
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
+  ClauseList clauses;
   bool created = false;
   bool dynamic = false;
   bool abolished = false;
   std::vector<MetaArg> meta;
 };
+
+static_assert(std::is_nothrow_move_constructible_v<Snapshot>);
+static_assert(std::is_nothrow_move_assignable_v<Snapshot>);
 
 // この読み込みの中だけで隙間を許す。述語ベクタには入れない。宣言は手続きを作らない。
 struct Apart {

@@ -89,6 +89,9 @@ add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOUR
 # テストのパスはリポジトリの根から書く。build の場所に左右されない（計画 Task 15）。
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+# tests/pl の consult と close の試験は tests/tmp の同じパスに書いて読む。open/3 の write は開いた時点で空にするので、
+# 差分テスト（diff_tests_pl）と重なると、片方が書き終える前のファイルをもう片方が読みうる（Codex レビュー）。
+set_tests_properties(prolog_tests PROPERTIES RESOURCE_LOCK pl_tmp)
 
 add_executable(heap_growth_test tests/cpp/heap_growth_test.cpp)
 target_include_directories(heap_growth_test PRIVATE tests/cpp)
@@ -119,6 +122,18 @@ add_executable(choice_exit_test tests/cpp/choice_exit_test.cpp)
 target_include_directories(choice_exit_test PRIVATE tests/cpp src)
 target_link_libraries(choice_exit_test PRIVATE mosa_lib)
 add_test(NAME choice_exit COMMAND $<TARGET_FILE:choice_exit_test>)
+
+# レビュー M3（ADR 0015）。assertz で積んだ p/2 の節を 4 倍にしても、ゴールの時間が節の数に比例する範囲に収まる。
+add_executable(index_scale_test tests/cpp/index_scale_test.cpp)
+target_include_directories(index_scale_test PRIVATE tests/cpp)
+target_link_libraries(index_scale_test PRIVATE mosa_lib)
+add_test(NAME index_scale COMMAND $<TARGET_FILE:index_scale_test>)
+# レビュー M3（ADR 0015）。未束縛の第1引数の呼び出し・retract・clause/2 の答えごとの more と、
+# 閉じた走査が残した節の消去。
+add_executable(clause_scan_test tests/cpp/clause_scan_test.cpp)
+target_include_directories(clause_scan_test PRIVATE tests/cpp src)
+target_link_libraries(clause_scan_test PRIVATE mosa_lib)
+add_test(NAME clause_scan COMMAND $<TARGET_FILE:clause_scan_test>)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 
@@ -486,7 +501,7 @@ add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
   "-DREQUIRE=japanese.pl;native.pl;${diff_bench_files}" "-DATTACHED=native.pl;${diff_bench_files}" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
-set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK agreement
+set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK "agreement;pl_tmp"
   TIMEOUT 3000)
 # 同梱スイート（tests/conformance）の tests.lgt も同じ形で比べる。1 ファイル 1 単位なので翻訳側のビルドが長く、
 # ラベル diff で外せる（ctest -LE diff）。

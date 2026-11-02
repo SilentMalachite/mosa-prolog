@@ -1,6 +1,6 @@
 [English](0008-logical-update-view.md) | 日本語
 
-状態: 承認済み（2026-10-28）
+状態: 承認済み（2026-10-28）。死んだ節の規則（いつ消すか、`held_by_scan`）は [ADR 0015](0015-first-argument-index.ja.md) で置き換えた（2026-11-02）。節と走査ごとの世代による
 
 ## 背景
 

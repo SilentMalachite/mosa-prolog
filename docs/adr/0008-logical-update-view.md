@@ -1,6 +1,6 @@
 English | [日本語](0008-logical-update-view.ja.md)
 
-Status: Approved (2026-10-28)
+Status: Approved (2026-10-28). The dead-clause rules (when a clause is erased, `held_by_scan`) are replaced by [ADR 0015](0015-first-argument-index.md) (2026-11-02): generations per clause and per scan
 
 ## Context
 

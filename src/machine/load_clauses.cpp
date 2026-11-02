@@ -59,24 +59,23 @@ bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name
   return false;
 }
 
+// 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
+Snapshot::Snapshot(PredKey key, const Predicate* predicate)
+    : module(key.module),
+      name(key.name),
+      arity(key.arity),
+      clauses(predicate == nullptr ? ClauseList{} : predicate->clauses),
+      created(predicate == nullptr),
+      dynamic(predicate != nullptr && predicate->dynamic),
+      abolished(predicate != nullptr && predicate->abolished),
+      meta(predicate == nullptr ? std::vector<MetaArg>{} : predicate->meta) {}
+
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
   const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
     return shot.module == key.module && shot.name == key.name && shot.arity == key.arity;
   });
   if (known) return;
-  Predicate* predicate = find_pred(machine, key);
-  Snapshot shot;
-  shot.module = key.module;
-  shot.name = key.name;
-  shot.arity = key.arity;
-  shot.created = predicate == nullptr;
-  if (predicate != nullptr) {
-    shot.clauses = predicate->clauses;
-    shot.dynamic = predicate->dynamic;
-    shot.abolished = predicate->abolished;
-    shot.meta = predicate->meta;
-  }
-  snapshots.push_back(std::move(shot));
+  snapshots.emplace_back(key, find_pred(machine, key));
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
@@ -112,8 +111,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
     predicate.abolished = false;
     predicate.dynamic = predicate.dynamic_declared;
     if (!predicate.meta_declared) predicate.meta.clear();
-    // 印を外してから片付けるので、述語ごと消えて index が外れることは無い。
-    static_cast<void>(purge_dead_clauses(machine, &predicate));
+    // 開いた走査が届かない死んだ節を一度に消す。sweep_dead は述語を表から消さないので、index は外れない。
+    sweep_dead(machine, predicate);
   } else if (!predicate.seen && !predicate.clauses.empty()) {
     bool busy = false;
     for (const Entry& entry : machine.stack) {
@@ -125,7 +124,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
     }
     // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
     if (!keeps_clauses(machine, module, name, arity)) {
-      predicate.clauses.clear();
+      clear_clauses(predicate);
       // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
       if (!predicate.dynamic_declared) predicate.dynamic = false;
       // meta_predicate も同じ。読み直したテキストが宣言を消したら、限定もやめる。
@@ -136,7 +135,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   detach_native(machine, predicate);
   predicate.seen = true;
   last = index;
-  predicate.clauses.push_back(std::move(clause));
+  // 読み込みの節も assert と同じく世代を進める。読み込みの中のゴールが開いた走査は、後から読んだ節を見ない。
+  append_clause(predicate, std::move(clause), ++machine.db_generation);
   return true;
 }
 
@@ -151,7 +151,7 @@ void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::
     if (predicate != nullptr) {
       // 写しへ戻した節にも生成関数は付け直さない（ADR 0009）。外したら、その述語はインタプリタで動き続ける。
       detach_native(machine, *predicate);
-      predicate->clauses = shot.clauses;
+      replace_clauses(*predicate, shot.clauses);
       predicate->dynamic = shot.dynamic;
       predicate->abolished = shot.abolished;
       predicate->meta = shot.meta;

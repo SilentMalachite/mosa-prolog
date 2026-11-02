@@ -65,7 +65,7 @@ void app_rule(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, Cell fir
   rt::call_goal(m, r, kApp, args, rt::frame_cont(r, frame), r.cut);
 }
 
-// 第1引数が未束縛のときだけ両方の節が候補になる。select_clauses と同じ規則。
+// 第1引数が未束縛のときだけ両方の節が候補になる。enter_user と同じ規則。
 void app_unbound(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, Cell first) {
   static constexpr std::array<std::uint32_t, 1> kRest{rt::state_of(2, 0)};
   rt::push_alternative(m, r, frame, &app_3, kRest);
