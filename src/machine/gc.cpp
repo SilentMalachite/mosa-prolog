@@ -54,11 +54,14 @@ std::size_t widened(std::size_t capacity, std::size_t occupied, std::size_t cap)
 // gc_capacity は生きている語だけで広げた C で、持った語が無ければ改訂前と同じ値になる。持った語の分は呼ぶたびに
 // その上へ広げ直すので、収集が終わって返した後に広がったままの C は残らない（レビュー A2）。
 // 安全点の速い比較は heap.size() だけを見るので、trigger は閾値から持った語を引いた値にする。
+// 生きている語は今のヒープより多くはない。前の GC の後にバックトラックで縮んだ分を数え続けると、持った語を
+// 足したとき見積もりが上限を超え、回収できるゴミがあっても GC の前に止まる（Codex レビュー P2）。
+// GC の直後は heap.size() が生きている語そのものなので、持った語が無ければ判断は改訂前と同じ。
 void retune(Impl& machine) {
   const std::size_t limit = machine.heap.limit();
   const std::size_t cap = capacity_cap(limit);
   const std::size_t held = machine.heap.held();
-  const std::size_t occupied = machine.gc_last_live + held;
+  const std::size_t occupied = std::min(machine.gc_last_live, machine.heap.size()) + held;
   const std::size_t capacity = widened(machine.gc_capacity, occupied, cap);
   machine.gc_threshold = capacity;
   if (capacity >= cap && crowded(occupied, capacity)) {

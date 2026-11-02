@@ -25,6 +25,8 @@ constexpr std::string_view k_program =
     // 決定的にゴミを作る。答え 1 つの中で GC が回らないと、ヒープは上限まで伸びる。
     "garbage(0) :- !.\n"
     "garbage(N) :- mk(1000, _), N1 is N - 1, garbage(N1).\n"
+    "burn(0) :- !.\n"
+    "burn(N) :- length(_, 1000), N1 is N - 1, burn(N1).\n"
     // 1 万個ごとに印を残す。止まった後に、どこまで集めたかを読む。
     "note(X) :- ( X mod 10000 =:= 0 -> assertz(seen(X)) ; true ).\n"
     "furthest(M) :- findall(S, seen(S), L), ( L == [] -> M = 0 ; max_list_(L, M) ).\n"
@@ -101,6 +103,18 @@ void check_capacity_after_release() {
                    "capacity: the threshold no longer counts the released words");
 }
 
+// 前の GC が数えた生きている語は、バックトラックでヒープが縮んでも残る。それに持った語を足すと見積もりが上限を
+// 超え、回収できるゴミがあっても GC の前に止まった（Codex レビュー P2）。見積もりは今のヒープの大きさで抑える。
+void check_stale_live() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program(k_program).ok, "stale: load");
+  const Outcome outcome = run(*machine,
+                              "findall(f(X,X,X), ((length(_, 400000), fail) ; btw(1, 30000, X), "
+                              "(X =:= 30000 -> burn(400) ; true)), L), length(L, 30000).");
+  mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success,
+                   "stale: live words freed by backtracking are not counted again");
+}
+
 // 止まった後も、上限の大半を使う収集がまた通る。持った語を返していなければ、ここで止まる。
 void check_released_after_stop() {
   auto machine = mosa::Machine::create(k_limit);
@@ -152,6 +166,7 @@ int main() {
   check_bagof_groups_released();
   check_inside_committed();
   check_capacity_after_release();
+  check_stale_live();
   check_released_after_stop();
   check_released_by_throw();
   check_nested();
