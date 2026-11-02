@@ -362,8 +362,8 @@ test(m3_index_erase, (retract(m3_ta(j, -1)), retract(m3_ta(j, 11)), retract(m3_t
 test(m3_bucket_pop_front, (m3_qe_fill(1, 16), findall(X, m3_qe(k, X), _), m3_qe_drop(1, 9), m3_qe_fill(17, 18), findall(X, m3_qe(k, X), L)), solutions([L = [10, 11, 12, 13, 14, 15, 16, 17, 18]])).
 test(m3_bucket_pop_back, (asserta(m3_qe(k, 9)), asserta(m3_qe(k, 8)), asserta(m3_qe(k, 7)), m3_qe_drop_down(18, 9), m3_qe_fill(19, 25), findall(X, m3_qe(k, X), L)), solutions([L = [7, 8, 19, 20, 21, 22, 23, 24, 25]])).
 test(m3_bucket_after_move, (asserta(m3_qe(k, 6)), retract(m3_qe(k, 6)), asserta(m3_qe(k, 5)), findall(X, m3_qe(k, X), L)), solutions([L = [5, 7, 8, 19, 20, 21, 22, 23, 24, 25]])).
-% 読み直しは節を置き換える。前の読み込みの鍵の組を引かないこと。ctest は prolog_tests と差分テストを同時に流すので、
-% 中身ごとに別のファイルにし、同じパスへ違う中身を書き合わないようにする。
+% 読み直しは節を置き換える。前の読み込みの鍵の組を引かないこと。prolog_tests と差分テストはどちらもこのファイルを
+% 書くので、tests.cmake の RESOURCE_LOCK pl_tmp で同時に走らせない。中身ごとに別のファイルにしておく。
 test(m3_reconsult_first, (m3_write_clauses('tests/tmp/m3_reconsult_1.pl', [m3_rc(a, 1), m3_rc(b, 2), m3_rc(_, 3), m3_rc(c, 4), m3_rc(a, 5), m3_rc(d, 6), m3_rc(e, 7), m3_rc(c, 8), m3_rc(f, 9)]), consult('tests/tmp/m3_reconsult_1.pl'), findall(X, m3_rc(c, X), L)), solutions([L = [3, 4, 8]])).
 test(m3_reconsult, (m3_write_clauses('tests/tmp/m3_reconsult_2.pl', [m3_rc(c, 10), m3_rc(g, 11), m3_rc(h, 12), m3_rc(_, 13), m3_rc(i, 14), m3_rc(j, 15), m3_rc(c, 16), m3_rc(k, 17), m3_rc(l, 18)]), consult('tests/tmp/m3_reconsult_2.pl'), findall(X, m3_rc(c, X), C), findall(X, m3_rc(a, X), A)), solutions([(C = [10, 13, 16], A = [13])])).
 
