@@ -119,6 +119,12 @@ add_executable(choice_exit_test tests/cpp/choice_exit_test.cpp)
 target_include_directories(choice_exit_test PRIVATE tests/cpp src)
 target_link_libraries(choice_exit_test PRIVATE mosa_lib)
 add_test(NAME choice_exit COMMAND $<TARGET_FILE:choice_exit_test>)
+
+# レビュー M3（ADR 0015）。assertz で積んだ p/2 の節を 4 倍にしても、ゴールの時間が節の数に比例する範囲に収まる。
+add_executable(index_scale_test tests/cpp/index_scale_test.cpp)
+target_include_directories(index_scale_test PRIVATE tests/cpp)
+target_link_libraries(index_scale_test PRIVATE mosa_lib)
+add_test(NAME index_scale COMMAND $<TARGET_FILE:index_scale_test>)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 

@@ -331,11 +331,12 @@ std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predica
   return found;
 }
 
-void push_retract(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+// 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。
+void push_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t>&& matches,
                   std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = Pick::Retract;
-  entry.candidates = matches;
+  entry.candidates = std::move(matches);
   entry.next = next;
   entry.redo_goal = goal.at;
   entry.pred_module = key.module;
@@ -346,7 +347,7 @@ void push_retract(Impl& machine, const Goal& goal, PredKey key, const std::vecto
   push_frame(machine, std::move(entry));
 }
 
-bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+bool take_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t> matches,
                   std::size_t begin) {
   Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
@@ -365,7 +366,7 @@ bool take_retract(Impl& machine, const Goal& goal, PredKey key, const std::vecto
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_retract(machine, goal, key, matches, cursor + 1, heap_mark, trail_mark);
+      push_retract(machine, goal, key, std::move(matches), cursor + 1, heap_mark, trail_mark);
     }
     kill_clause(machine, *predicate, key, index);
     succeed(machine, goal);
@@ -446,8 +447,7 @@ void run_retract(Impl& machine, const Goal& goal) {
   const PredKey key{predicate->module, head.name, head.arity};
   ClauseView source = view;
   source.head = named_head(machine, view.head, head.name);
-  const auto matches = collect_matches(machine, *predicate, source);
-  if (!take_retract(machine, goal, key, matches, 0)) machine.failed = true;
+  if (!take_retract(machine, goal, key, collect_matches(machine, *predicate, source), 0)) machine.failed = true;
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
@@ -552,11 +552,15 @@ Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate) { return purg
 
 bool redo_retract(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::Retract) return false;
-  apply_catches(machine, machine.stack.back());
-  const Entry top = machine.stack.back();
+  Entry& top = machine.stack.back();
+  apply_catches(machine, top);
+  // 枠を外す前に候補の列を移す。写すと、消すたびに残りの候補の数だけかかる（レビュー M3）。
+  const auto at = top.redo_goal;
+  const PredKey key{top.pred_module, top.pred_name, top.pred_arity};
+  const auto next = top.next;
+  std::vector<std::size_t> candidates = std::move(top.candidates);
   machine.stack.pop_back();
-  return take_retract(machine, read_goal(machine, top.redo_goal), PredKey{top.pred_module, top.pred_name, top.pred_arity},
-                      top.candidates, top.next);
+  return take_retract(machine, read_goal(machine, at), key, std::move(candidates), next);
 }
 
 

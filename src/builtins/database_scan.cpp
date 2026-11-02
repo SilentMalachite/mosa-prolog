@@ -74,11 +74,12 @@ std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predic
   return found;
 }
 
-void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+// 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。
+void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, std::vector<std::size_t>&& matches,
                std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = pick;
-  entry.candidates = matches;
+  entry.candidates = std::move(matches);
   entry.next = next;
   entry.redo_goal = goal.at;
   entry.pred_module = key.module;
@@ -90,7 +91,7 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, const st
   push_frame(machine, std::move(entry));
 }
 
-bool take_clause(Impl& machine, const Goal& goal, PredKey key, const std::vector<std::size_t>& matches,
+bool take_clause(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t> matches,
                  std::size_t begin) {
   const Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
@@ -108,7 +109,7 @@ bool take_clause(Impl& machine, const Goal& goal, PredKey key, const std::vector
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::ClauseScan, goal, key, matches, cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::ClauseScan, goal, key, std::move(matches), cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -132,8 +133,9 @@ void run_clause(Impl& machine, const Goal& goal) {
   }
   const PredKey key{predicate->module, indicator.name, indicator.arity};
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
-  const auto matches = matching_clauses(machine, *predicate, head, goal.arg(machine, 1));
-  if (!take_clause(machine, goal, key, matches, 0)) machine.failed = true;
+  if (!take_clause(machine, goal, key, matching_clauses(machine, *predicate, head, goal.arg(machine, 1)), 0)) {
+    machine.failed = true;
+  }
 }
 
 }  // namespace database
@@ -213,7 +215,7 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
   return found;
 }
 
-bool take_pred(Impl& machine, const Goal& goal, const std::vector<std::size_t>& matches, std::size_t begin) {
+bool take_pred(Impl& machine, const Goal& goal, std::vector<std::size_t> matches, std::size_t begin) {
   const Cell wanted = goal.arg(machine, 0);
   // やり直しでも引数の形は同じ。M:PI には M も束縛する。
   const bool qualified = qualified_term(machine, wanted);
@@ -234,7 +236,7 @@ bool take_pred(Impl& machine, const Goal& goal, const std::vector<std::size_t>& 
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::PredGen, goal, PredKey{}, matches, cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::PredGen, goal, PredKey{}, std::move(matches), cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -263,27 +265,33 @@ void run_current_predicate(Impl& machine, const Goal& goal) {
     pred = machine.heap.arg(pred, 1);
   }
   if (!accept_indicator(machine, goal, pred, wanted)) return;
-  const auto matches = pred_matches(machine, wanted);
-  if (!take_pred(machine, goal, matches, 0)) machine.failed = true;
+  if (!take_pred(machine, goal, pred_matches(machine, wanted), 0)) machine.failed = true;
 }
 
 }  // namespace database
 
+// 枠を外す前に候補の列を移す。写すと、解ごとに残りの候補の数だけかかる（レビュー M3）。
 bool redo_clause_scan(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::ClauseScan) return false;
-  apply_catches(machine, machine.stack.back());
-  const Entry top = machine.stack.back();
+  Entry& top = machine.stack.back();
+  apply_catches(machine, top);
+  const auto at = top.redo_goal;
+  const PredKey key{top.pred_module, top.pred_name, top.pred_arity};
+  const auto next = top.next;
+  std::vector<std::size_t> candidates = std::move(top.candidates);
   machine.stack.pop_back();
-  return take_clause(machine, read_goal(machine, top.redo_goal), PredKey{top.pred_module, top.pred_name, top.pred_arity},
-                     top.candidates, top.next);
+  return take_clause(machine, read_goal(machine, at), key, std::move(candidates), next);
 }
 
 bool redo_pred_gen(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::PredGen) return false;
-  apply_catches(machine, machine.stack.back());
-  const Entry top = machine.stack.back();
+  Entry& top = machine.stack.back();
+  apply_catches(machine, top);
+  const auto at = top.redo_goal;
+  const auto next = top.next;
+  std::vector<std::size_t> candidates = std::move(top.candidates);
   machine.stack.pop_back();
-  return take_pred(machine, read_goal(machine, top.redo_goal), top.candidates, top.next);
+  return take_pred(machine, read_goal(machine, at), std::move(candidates), next);
 }
 
 }  // namespace mosa

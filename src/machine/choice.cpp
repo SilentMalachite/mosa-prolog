@@ -219,25 +219,26 @@ void enter_user(Impl& machine, const Goal& goal) {
 }
 
 bool redo_clause(Impl& machine) {
-  const Entry top = machine.stack.back();
+  // 候補の列は写さずに読む。一歩ごとに写すと、節を尽くすまでが候補の数の 2 乗になる（レビュー M3）。
+  // apply_catches と find_pred はスタックの長さを変えないので、外すか進めるまで参照は有効。
+  Entry& top = machine.stack.back();
   if (top.next >= top.candidates.size()) {
     machine.stack.pop_back();
     return false;
   }
   apply_catches(machine, top);
   const auto index = top.candidates[top.next];
-  const auto name = top.pred_name;
-  const auto arity = top.pred_arity;
   const auto goal = top.redo_goal;
   const auto cut = top.cut;
-  const Predicate* predicate = find_pred(machine, PredKey{top.pred_module, name, arity});
+  const bool last = top.next + 1 >= top.candidates.size();
+  const Predicate* predicate = find_pred(machine, PredKey{top.pred_module, top.pred_name, top.pred_arity});
   // 述語ごと消えると添字が外れる。枠を残すとやり直しが終わらない。
   if (predicate == nullptr || index >= predicate->clauses.size()) {
     machine.stack.pop_back();
     return false;
   }
-  if (top.next + 1 >= top.candidates.size()) machine.stack.pop_back();
-  else machine.stack.back().next += 1;
+  if (last) machine.stack.pop_back();
+  else top.next += 1;
   enter_clause(machine, *predicate, index, goal, cut);
   return true;
 }
@@ -280,37 +281,44 @@ bool backtrack(Impl& machine) {
   machine.failed = false;
   machine.exception = false;
   while (!machine.stack.empty()) {
-    const Entry top = machine.stack.back();
-    restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
+    // 枠ごと写すと、候補の列まで一歩ごとに写る（レビュー M3）。redo_* は枠を外し、finish_collect は
+    // スタックを変えうるので、要る値は呼ぶ前に手元へ移し、その後は参照に触れない。
+    const Entry& top = machine.stack.back();
+    const Pick pick = top.pick;
+    const bool armed = top.armed;
+    const auto effect_id = top.effect_id;
+    const auto heap_mark = top.heap_mark;
+    const auto trail_mark = top.trail_mark;
+    const auto extras_mark = top.extras_mark;
+    restore_state(machine, heap_mark, trail_mark, extras_mark);
     // 成功した catch は選択点ではない。記録は親の選択点まで残す。
-    if (!(top.pick == Pick::Catch && !top.armed)) restore_operators(machine, top.effect_id);
+    if (!(pick == Pick::Catch && !armed)) restore_operators(machine, effect_id);
     // 入れ子の run_loop（portray、指令など）の床。束縛は消すが、呼び出し元の節走査はやり直さない。
-    if (top.pick == Pick::Barrier) return false;
+    if (pick == Pick::Barrier) return false;
     // 収集のゴールの解が尽きた。答えを束ねる launch か、bagof の空の失敗（failed）で返る（ADR 0013）。
-    if (top.pick == Pick::Collect) {
+    if (pick == Pick::Collect) {
       finish_collect(machine);
       return true;
     }
-    if (top.pick == Pick::Catch || top.pick == Pick::Cleanup || top.pick == Pick::Once) {
+    if (pick == Pick::Catch || pick == Pick::Cleanup || pick == Pick::Once) {
       machine.stack.pop_back();
       continue;
     }
-    if (top.pick == Pick::Clauses && redo_clause(machine)) return true;
-    if (top.pick == Pick::Native && redo_native(machine)) return true;
-    if (top.pick == Pick::Retract && redo_retract(machine)) return true;
+    if (pick == Pick::Clauses && redo_clause(machine)) return true;
+    if (pick == Pick::Native && redo_native(machine)) return true;
+    if (pick == Pick::Retract && redo_retract(machine)) return true;
     // Clauses は節の本体を実行する。参照と列挙は項を返すだけで、本体は走らせない。
-    if (top.pick == Pick::ClauseScan && redo_clause_scan(machine)) return true;
-    if (top.pick == Pick::PredGen && redo_pred_gen(machine)) return true;
-    if (top.pick == Pick::ElseGoal && redo_else(machine)) return true;
-    if (top.pick == Pick::Negation && redo_not(machine)) return true;
-    if (top.pick == Pick::Repeat && redo_repeat(machine)) return true;
+    if (pick == Pick::ClauseScan && redo_clause_scan(machine)) return true;
+    if (pick == Pick::PredGen && redo_pred_gen(machine)) return true;
+    if (pick == Pick::ElseGoal && redo_else(machine)) return true;
+    if (pick == Pick::Negation && redo_not(machine)) return true;
+    if (pick == Pick::Repeat && redo_repeat(machine)) return true;
     // アトムの候補は節ではない。やり直しを節の添字に載せると、別の述語を引いてしまう。
-    if (top.pick == Pick::AtomGen && redo_atoms(machine)) return true;
-    if (top.pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
-    if (top.pick != Pick::Clauses && top.pick != Pick::Native && top.pick != Pick::Retract &&
-        top.pick != Pick::ClauseScan &&
-        top.pick != Pick::PredGen && top.pick != Pick::ElseGoal && top.pick != Pick::Negation &&
-        top.pick != Pick::Repeat && top.pick != Pick::AtomGen && top.pick != Pick::StreamGen) {
+    if (pick == Pick::AtomGen && redo_atoms(machine)) return true;
+    if (pick == Pick::StreamGen && redo_stream_prop(machine)) return true;
+    if (pick != Pick::Clauses && pick != Pick::Native && pick != Pick::Retract && pick != Pick::ClauseScan &&
+        pick != Pick::PredGen && pick != Pick::ElseGoal && pick != Pick::Negation && pick != Pick::Repeat &&
+        pick != Pick::AtomGen && pick != Pick::StreamGen) {
       machine.stack.pop_back();
     }
   }
