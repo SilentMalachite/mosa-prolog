@@ -99,6 +99,23 @@ void check_sweep(const std::string& scan) {
   mosa_test::check(holds(*machine, "findall(X, p(X), L), L == [1, 5, 6]."), label + ": clauses left");
 }
 
+// Codex レビュー P2。開いた走査の中で 3 節を消してから足すと、掃除が走るが 3 節とも走査が届くので残る。残した節も
+// 死んだ節として数え続けるので、走査が閉じた後に真ん中の 1 節を消すと半分を超え、次の変更がまとめて掃除する。
+// 両端は生きているので端からは消えない。数えなければ、残した節は次に半分の節を消すまで残る。
+void check_held_sweep(const std::string& scan) {
+  auto machine = mosa::Machine::create();
+  const std::string label = "held sweep after " + scan;
+  mosa_test::check(machine->load_program(k_five).ok, label + ": load");
+  const auto stop =
+      machine->query(scan + ", X == 1, retract(p(2)), retract(p(3)), retract(p(4)), assertz(p(6)).");
+  mosa_test::check(stop.kind == mosa::StopKind::Success && stop.more, label + ": scan stays open");
+  mosa_test::check(stored(*machine) == 6, label + ": the sweep keeps the clauses the open scan reaches");
+  mosa_test::check(holds(*machine, "retract(p(5))."), label + ": retract after the scan closed");
+  mosa_test::check(holds(*machine, "assertz(p(7))."), label + ": assertz");
+  mosa_test::check(stored(*machine) == 3, label + ": the kept clauses count towards the next sweep");
+  mosa_test::check(holds(*machine, "findall(X, p(X), L), L == [1, 6, 7]."), label + ": clauses left");
+}
+
 }  // namespace
 
 int main() {
@@ -112,5 +129,7 @@ int main() {
   check_end_erase("clause(p(X), true)");
   check_sweep("p(X)");
   check_sweep("clause(p(X), true)");
+  check_held_sweep("p(X)");
+  check_held_sweep("clause(p(X), true)");
   return mosa_test::failures();
 }

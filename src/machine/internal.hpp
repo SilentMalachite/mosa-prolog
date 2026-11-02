@@ -121,10 +121,14 @@ struct Predicate {
   std::size_t next_id = kFirstClauseId;
   // dead() でない節の数。clause_store.cpp と database.cpp の mark_dead の died の書き込みだけが変える。
   std::size_t live = 0;
-  // 前の掃除から、消してもすぐには節の列から外さなかった節の数（ADR 0015）。端に無いか、開いた走査が届く節で、
-  // 後で端から外れても減らさない。節の数の半分を超えたら次の変更が一度に掃除する。消す節ごとに真ん中を詰めると、
-  // 1 回が節の数だけかかる。
+  // 列に残っている死んだ節の数（ADR 0015）。前の掃除が開いた走査のために残した節と、その後に消したが端に無いか
+  // 走査が届くので外さなかった節。後で端から外れても減らさない。節の数の半分を超えたら次の変更が一度に掃除する。
+  // 消す節ごとに真ん中を詰めると、1 回が節の数だけかかる。
   std::size_t dead_since = 0;
+  // 前の掃除が残した死んだ節の数と、それに届いた一番下の枠（Codex レビュー P2）。その枠が外れれば上の枠も外れて
+  // いるので、残した節も数えて掃除を決める。枠があるうちは、その後に消した節だけで決める（毎回の掃除を避ける）。
+  std::size_t held_dead = 0;
+  ScanRecord held_by;
   // 第1引数の索引。const の述語を引く呼び出しが初めて要るときに作るので mutable。節を書く所が一緒に直す。
   mutable FirstArgIndex index;
   bool seen = false;
@@ -181,13 +185,6 @@ using CollectRef = std::shared_ptr<Collector>;
 // 抜けた Catch のスタック位置と、その Entry の effect_id。入れ子の実行の後では同じ位置に別の Catch が
 // ありうるので、位置だけでは有効に戻す相手を決めない。
 struct CatchRecord {
-  std::size_t index = 0;
-  std::uint64_t id = 0;
-};
-
-// 開いた Clauses・ClauseScan の枠のスタック位置と effect_id（ADR 0015）。外した枠の位置には別の枠が積まれうるので、
-// effect_id が合わない記録はもう開いていない。
-struct ScanRecord {
   std::size_t index = 0;
   std::uint64_t id = 0;
 };
@@ -571,8 +568,9 @@ void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born);
 void replace_clauses(Predicate& predicate, ClauseList clauses);
 void clear_clauses(Predicate& predicate);
 void erase_clause_id(Predicate& predicate, std::size_t id);
-// held[位置] が偽の死んだ節を一度に消し、dead_since を 0 にする。消した節があれば索引を捨てる。held は節の数だけ要る。
-void sweep_clauses(Predicate& predicate, const std::vector<bool>& held);
+// held[位置] が偽の死んだ節を一度に消し、残した死んだ節の数を dead_since と held_dead に、それに届いた一番下の枠
+// holder を held_by に置く。消した節があれば索引を捨てる。held は節の数だけ要る。
+void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanRecord holder);
 // 番号の節の位置。無い番号は nullopt。
 [[nodiscard]] std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id);
 // 番号が id 以上の最初の節の位置。無ければ clauses.size()。

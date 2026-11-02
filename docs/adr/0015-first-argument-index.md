@@ -10,7 +10,7 @@ Every backtrack and clause redo copies the top `Entry` with its candidate list, 
 ## Decision
 
 Clauses live in a deque in clause order; each has an id that never changes or repeats (asserta takes one below the first, assertz one above the last) and the database generations at which it was added and removed, and a scan sees exactly the clauses alive at its own generation (the logical update view of 7.5.4). A scan with an unbound first argument keeps a cursor (next id, generation); one with a bound first argument lists candidate ids, taken for predicates of 8 or more clauses from a first-argument index (atom, integer, float with -0.0 = 0.0 and NaN = NaN, list, name/arity; plus keyless clauses) that asserta and assertz extend; retract, retractall and clause/2 use the same index.
-A removed clause is erased at once when it is first or last and no open scan of the predicate can still reach it (a scan older than the removal that has not passed it), otherwise in one sweep once the removals since the last sweep exceed half the clauses; ids do not change, so nothing is renumbered. Backtracking and redo read the top `Entry` in place.
+A removed clause is erased at once when it is first or last and no open scan of the predicate can still reach it (a scan older than the removal that has not passed it), otherwise in one sweep once the dead clauses left in the list exceed half the clauses (dead clauses a sweep kept for an open scan count again once the lowest scan holding them is gone; until then only later removals count, so a long-lived scan does not cause a sweep on every change); ids do not change, so nothing is renumbered. Backtracking and redo read the top `Entry` in place.
 
 ## Rejected alternatives
 

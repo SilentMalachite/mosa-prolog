@@ -302,8 +302,20 @@ void trim_ends(Impl& machine, Predicate& predicate, PredKey key) {
   }
 }
 
-bool sweep_due(const Predicate& predicate) {
-  return predicate.abolished || 2 * predicate.dead_since > predicate.clauses.size();
+// 前の掃除が残した節に届いた一番下の枠が、もうスタックに無いか。スタックは上から外すので、上の枠も無い。
+bool holder_gone(const Impl& machine, const Predicate& predicate) {
+  const ScanRecord& holder = predicate.held_by;
+  return holder.index >= machine.stack.size() || machine.stack[holder.index].effect_id != holder.id;
+}
+
+// 残した節に届く枠がまだあるときにそれも数えると、変更のたびに掃除して残すだけになり 2 乗になる。そのときは
+// 掃除の後に消した節だけで決め、枠が外れたら残した節も数える。どちらも掃除 1 回を半分の節で払う。
+bool sweep_due(const Impl& machine, const Predicate& predicate) {
+  if (predicate.abolished) return true;
+  const std::size_t counted =
+      predicate.held_dead == 0 || holder_gone(machine, predicate) ? predicate.dead_since
+                                                                  : predicate.dead_since - predicate.held_dead;
+  return 2 * counted > predicate.clauses.size();
 }
 
 // 変更の前に呼ぶ。端の死んだ節を消し、前の掃除から残した節が半分を超えたか abolish 済みなら一度に掃除する。
@@ -312,8 +324,8 @@ bool sweep_due(const Predicate& predicate) {
 Predicate* purge_dead(Impl& machine, Predicate* predicate) {
   if (predicate == nullptr) return nullptr;
   const PredKey key{predicate->module, predicate->name, predicate->arity};
-  if (!sweep_due(*predicate)) trim_ends(machine, *predicate, key);
-  if (sweep_due(*predicate)) sweep_dead(machine, *predicate);
+  if (!sweep_due(machine, *predicate)) trim_ends(machine, *predicate, key);
+  if (sweep_due(machine, *predicate)) sweep_dead(machine, *predicate);
   if (!predicate->abolished || !predicate->clauses.empty()) return predicate;
   erase_predicate(machine, key.module, key.name, key.arity);
   return nullptr;
@@ -590,19 +602,25 @@ void run_abolish(Impl& machine, const Goal& goal) {
 void sweep_dead(Impl& machine, Predicate& predicate) {
   const PredKey key{predicate.module, predicate.name, predicate.arity};
   prune_scan_log(machine);
-  std::vector<const Entry*> scans;
+  std::vector<ScanRecord> scans;
   for (const ScanRecord& record : machine.scan_log) {
-    const Entry& entry = machine.stack[record.index];
-    if (scans_pred(entry, key.module, key.name, key.arity)) scans.push_back(&entry);
+    if (scans_pred(machine.stack[record.index], key.module, key.name, key.arity)) scans.push_back(record);
   }
+  // 下の枠から試すと、節ごとに最初に届いた枠がその節に届く一番下の枠になる。
+  std::sort(scans.begin(), scans.end(), [](const ScanRecord& a, const ScanRecord& b) { return a.index < b.index; });
   std::vector<bool> held(predicate.clauses.size(), false);
+  std::optional<ScanRecord> holder;
   for (std::size_t position = 0; position < held.size(); ++position) {
     const Clause& clause = predicate.clauses[position];
     if (!clause.dead()) continue;
-    held[position] = std::any_of(scans.begin(), scans.end(),
-                                 [&](const Entry* entry) { return scan_reaches(*entry, key, clause); });
+    const auto first = std::find_if(scans.begin(), scans.end(), [&](const ScanRecord& record) {
+      return scan_reaches(machine.stack[record.index], key, clause);
+    });
+    if (first == scans.end()) continue;
+    held[position] = true;
+    if (!holder || first->index < holder->index) holder = *first;
   }
-  sweep_clauses(predicate, held);
+  sweep_clauses(predicate, held, holder.value_or(ScanRecord{}));
 }
 
 bool redo_retract(Impl& machine) {

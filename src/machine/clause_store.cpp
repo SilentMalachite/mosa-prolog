@@ -89,6 +89,7 @@ void replace_clauses(Predicate& predicate, ClauseList clauses) {
   predicate.clauses = std::move(clauses);
   predicate.live = count_live(predicate.clauses);
   predicate.dead_since = predicate.clauses.size() - predicate.live;
+  predicate.held_dead = 0;
   drop_index(predicate.index);
   if (predicate.clauses.empty()) return;
   // 述語を作り直した後に戻すと、写しの番号が今の範囲の外にありうる。広げておけば次の番号と重ならない。
@@ -101,6 +102,7 @@ void clear_clauses(Predicate& predicate) {
   predicate.clauses.clear();
   predicate.live = 0;
   predicate.dead_since = 0;
+  predicate.held_dead = 0;
   drop_index(predicate.index);
 }
 
@@ -115,15 +117,20 @@ void erase_clause_id(Predicate& predicate, std::size_t id) {
 
 // 残す節を前へ詰めて末尾を一度に切るので、消す節がいくつでも 1 回は節の数に比例する。番号は変わらないので、
 // 開いた走査の候補とカーソルは付け直さない。真ん中から消すと索引の組の中を探すことになるので、索引は捨てる。
-void sweep_clauses(Predicate& predicate, const std::vector<bool>& held) {
+// 残した死んだ節を数え直しに入れないと、走査が閉じた後も次の半分の削除まで残り、未束縛の呼び出しがなめ続ける。
+void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanRecord holder) {
   ClauseList& clauses = predicate.clauses;
   std::size_t kept = 0;
+  std::size_t kept_dead = 0;
   for (std::size_t position = 0; position < clauses.size(); ++position) {
     if (clauses[position].dead() && !held[position]) continue;
+    if (clauses[position].dead()) ++kept_dead;
     if (kept != position) clauses[kept] = std::move(clauses[position]);
     ++kept;
   }
-  predicate.dead_since = 0;
+  predicate.dead_since = kept_dead;
+  predicate.held_dead = kept_dead;
+  predicate.held_by = holder;
   if (kept == clauses.size()) return;
   clauses.erase(clauses.begin() + static_cast<std::ptrdiff_t>(kept), clauses.end());
   drop_index(predicate.index);

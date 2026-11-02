@@ -64,6 +64,13 @@ struct FirstArgIndex {
   IdBucket keyless;
 };
 
+// 開いた Clauses・ClauseScan の枠のスタック位置と effect_id（ADR 0015）。外した枠の位置には別の枠が積まれうるので、
+// effect_id が合わない記録はもう開いていない。
+struct ScanRecord {
+  std::size_t index = 0;
+  std::uint64_t id = 0;
+};
+
 struct Clause;
 
 // 節の鍵（定義は index.cpp）。鍵の無い節（Any・Var・None）は nullopt。索引を作るときも直すときもこれで組を選ぶ。
