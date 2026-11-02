@@ -681,11 +681,10 @@ void Machine::halt(int code) {
 
 namespace {
 
-// 問い合わせ 1 つ分の実行状態を捨てる。選択点はもう無いので戻さずに捨てる。成功した op/3 は表に残す。
+// 問い合わせ 1 つ分の実行状態を捨てる。選択点はもう無いので戻さずに捨てる。
 // 選択点が無ければ catch_log と scan_log の記録はどれも指す先が無い。
 void drop_run(Impl& machine) {
   machine.stack.clear();
-  machine.op_undos.clear();
   machine.catch_log.clear();
   machine.scan_log.clear();
   machine.trail.slots.clear();

@@ -215,7 +215,7 @@ bool runner_functor(std::string_view name, std::uint16_t arity) {
 }
 
 bool update_functor(std::string_view name, std::uint16_t arity) {
-  // op/3 を別の query に分けると、o/1 の選択点が消えてから xf が走る。戻す場所が無くなる。
+  // op/3 は assert と同じく表を変える副作用。同じ query の中で、後のゴールが変えた表を見るように動かす。
   if (name == "op" && arity == 3) return true;
   if (arity != 1) return false;
   return name == "asserta" || name == "assertz" || name == "retract" || name == "retractall" || name == "abolish";

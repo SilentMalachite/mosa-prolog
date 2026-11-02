@@ -36,11 +36,8 @@ class OperatorTable {
   // 表に入っている順。名前を決めない current_op/3 はこの順で返す。
   [[nodiscard]] std::vector<OpDef> entries() const;
 
-  // op/3 を戻すとき、その名前と指定子だけを見る。他の define は触らない。
-  [[nodiscard]] std::optional<OpDef> stored(std::string_view name, Specifier specifier) const;
+  // その名前で同じ類（前置、中置、後置）の項目。優先度 0 の印も返すので、固有層が下の層を隠すかを決められる。
   [[nodiscard]] std::optional<OpDef> stored_class(std::string_view name, Specifier specifier) const;
-  void erase_stored(std::string_view name, Specifier specifier);
-  void put_stored(int priority, Specifier specifier, std::string name);
 
   // モジュールの固有層に置く。優先度 0 も消さずに印として残し、下の層の同じ類を隠す。
   // 検査は呼び手が OperatorView::admits で済ませておく。

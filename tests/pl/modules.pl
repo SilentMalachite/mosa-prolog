@@ -151,6 +151,9 @@ test(op_writeq_ctx, 演算:with_output_to(atom(S), writeq(内演(a, b))), soluti
 test(op_mask, 演算:current_op(_, xfx, 隠演), fail).
 test(op_mask_user, current_op(700, xfx, 隠演), true).
 test(op_runtime_local, (演算:op(300, xfx, 実演), \+ current_op(_, _, 実演), 演算:current_op(300, xfx, 実演)), true).
+% モジュール固有の層への op/3 も、失敗で戻らない（レビュー M4、iso-notes 8.14.3 の決定 A）。
+% 固有層の優先度 0 は消去ではなく印として残り、user の 戻演 を 演算 の中で隠す。戻演 はこのテストだけで使う。
+test(m4_local_backtrack, ((演算:op(300, xfx, 戻演), fail ; true), 演算:current_op(300, xfx, 戻演), \+ current_op(_, _, 戻演), 演算:op(0, xfx, 戻演)), true).
 :- consult('modules/旗.pl').
 test(flag_dq_inside_file, 旗の中の文字列(X), solutions([X = ab])).
 test(flag_dq_per_file, current_prolog_flag(double_quotes, codes), true).

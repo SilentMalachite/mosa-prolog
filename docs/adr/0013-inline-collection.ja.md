@@ -22,5 +22,5 @@ ADR 0011 は ISO 7.1 が深さを定めないことから深さの上限を退�
 ## 結果
 
 入れ子の収集はネイティブのスタックを使わず、深さに比例する時間で動く（1 段あたり約 1.1 KB。`Entry` と `Collector` はヒープの外にあるので、ほかの選択点と同じく `--heap-max` には数えない）。`tests/stack/deep_collect.pl` は findall/3、findall/4、bagof/3、setof/3 と一番下からの throw を、1 MiB のスタックで 100,000 段、mosa と mosac の実行ファイルの両方で動かす。
-答え、誤りの項、副作用の順序、収集の終わりで op/3 が戻ること（レビュー M4）は変わらない。`Machine::choice_depth()` は、動いている収集 1 つにつき `Barrier` の代わりに `Collect` の Entry を 1 つ数える。
+答え、誤りの項、副作用の順序、収集の終わりで op/3 が戻ること（レビュー M4）は変わらない（M4 はその後 2026-11-02 に A と決まり、op/3 は戻さない。iso-notes 8.14.3）。`Machine::choice_depth()` は、動いている収集 1 つにつき `Barrier` の代わりに `Collect` の Entry を 1 つ数える。
 portray のフック、`with_output_to/2`、指令と交互に入れ子にした収集は、今も組ごとに 1 回再帰する（1 MiB では約 1,000 組で SIGSEGV になる）。これは iso-notes 7.1 に記す。`Saved`、`park_callers`、`disarm_below`、`rearm_below`、`unwind_throw` は `solutions.cpp` から無くなる。`Pick::Barrier` はほかの入れ子の実行のために残す。

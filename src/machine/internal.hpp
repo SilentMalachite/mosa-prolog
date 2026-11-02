@@ -220,7 +220,7 @@ struct Entry {
   bool cond_ok = false;
   bool armed = false;
   std::size_t extras_mark = 0;
-  // 0 は束縛の水位だけで、選択点ではない。op/3 を戻す対象にしない。
+  // 0 は束縛の水位だけで、選択点ではない。catch_log と scan_log はこの番号で同じ枠かを確かめる。
   std::uint64_t effect_id = 0;
   // 積んだときの Impl::catch_log の長さ。やり直すとき、これより後に無効にした Catch を有効に戻す。
   std::size_t catch_mark = 0;
@@ -364,24 +364,6 @@ inline void note_edit(Stream& stream) {
   if (stream.cursor < stream.on_disk) stream.on_disk = stream.cursor;
 }
 
-// この op/3 が変えた名前だけ。表全体を写すと、後の :- op まで消える。
-struct OpTouch {
-  std::string name;
-  int priority = 0;
-  Specifier specifier = Specifier::Xfx;
-  bool had = false;
-  int old_priority = 0;
-  Specifier old_specifier = Specifier::Xfx;
-};
-
-// 選択点より後ろの op/3 だけを失敗で戻す。assert と retract はここへ載せない。
-struct OpUndo {
-  std::uint64_t effect_id = 0;
-  // どの層の変更か。user なら全体の表、ほかはそのモジュールの固有層。
-  std::uint32_t module = 0;
-  std::vector<OpTouch> touches;
-};
-
 struct LgtIo;
 
 // cleanup の ^^ はクエリの中で走る。Skip のときは利用者手続きのままにする。
@@ -391,7 +373,6 @@ struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
   OperatorTable operators;
-  std::vector<OpUndo> op_undos;
   std::uint64_t effect_clock = 0;
   // 0 が stdin、1 が stdout、2 が stderr。読み書きそのものは get と put が行う。
   std::vector<Stream> streams;
@@ -596,8 +577,6 @@ void sweep_dead(Impl& machine, Predicate& predicate);
 void enter_clause(Impl& machine, const Predicate& predicate, std::size_t index, std::uint64_t goal, std::size_t cut);
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark);
 void shrink_extras(Impl& machine, std::size_t mark);
-void trail_operators(Impl& machine, std::uint32_t module, int priority, Specifier specifier,
-                     const std::vector<std::string>& names);
 
 struct OpName {
   Cell cell;
@@ -615,7 +594,6 @@ struct OpRequest {
                                                   OpRequest& request);
 // module の層へ全部の名前を入れる。拒否は permission_error の Formal で、表は変えない。
 [[nodiscard]] std::optional<Cell> commit_op_request(Impl& machine, std::uint32_t module, const OpRequest& request);
-void restore_operators(Impl& machine, std::uint64_t effect_id);
 void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
 // スタックが縮んだ後、外した Catch を指す末尾の記録を捨てる。カットで縮み続ける決定的な再帰で記録が溜まらない。

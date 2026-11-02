@@ -49,6 +49,10 @@ A か B か: A は `domain_error(write_option, LaterTerm)` のまま（今の決
 
 決定（2026-10-26）: ゴールは `OperatorTable::define` を呼ぶ。検査は具体化、型、ドメイン、許可の順で、名前のリストは全部を確かめてから表を置き換える。拒否のときは表を変えない。0 以外の宣言は、同じ類（前置、中置、後置）の古い指定子を置き換える。優先度 0 はその指定子だけを消す。`|` の優先度 0 は Cor.2 の例どおり削除として成功する。中置で 1 以上 1000 以下、および前置と後置は `permission_error(create, operator, '|')`。コンマは `permission_error(modify, operator, ',')`。`[]` と `{}` は `permission_error(create, operator, そのアトム)`。指示の `:- op` も同じ `define` を使う。
 
+質問（2026-11-02、レビュー M4）: 45bbc64 以来、選択点の後ろや、守りが有効な catch/3 の中で呼んだ op/3 は、その点へバックトラックしたときや catch が throw を受けたときに戻っていた。そのため `findall(x, op(700, xfx, qq2), _)` の後に `qq2` が残らなかった。8.14.3 は表の変更をゴールの副作用とし、戻すことには触れていない。assertz/1、set_prolog_flag/2、char_conversion/2 は一度も戻していない。A か B か: A: op/3 はバックトラック、例外、findall/3、`\+` のどれでも戻さない。B: 今のまま戻し、意図的な逸脱として記す。
+
+決定（2026-11-02）: A。op/3 が成功した時点から表の変更は残る。mosa でも mosac の実行ファイルでも同じで、`user` の表でもモジュール固有の層でも同じ。失敗した読み込みが、読み込みを始めたときの表へ戻すのは今のまま（これは読み込み自体の取り消しで、この規則とは別）。テストは `tests/pl/operators.pl` の `m4_*` と `op_backtrack_prefix`、`tests/pl/modules.pl` の `m4_local_backtrack`。
+
 ## 8.14.4 current_op/3
 
 決定（2026-10-26）: 検査は引数の順で、最初に当てはまるものを投げる。優先度が変数でなく、0 以上 1200 以下の整数でもなければ `domain_error(operator_priority, Priority)`。アトムや浮動小数もこのドメインエラーである。指定子が変数でなく、`xf` `yf` `xfx` `xfy` `yfx` `fx` `fy` のどれでもなければ `domain_error(operator_specifier, Op_specifier)`。整数や複合項もこのドメインエラーである。演算子が変数でもアトムでもなければ `type_error(atom, Operator)`。優先度 0 は領域に入る。該当が無ければ失敗する。候補は呼び出しのときに写し、やり直しの途中で `op/3` が表を変えても写した候補は残る。名前がアトムのときの並びは `lookup` と同じで、優先度の昇順、同じ優先度では指定子の宣言順である。名前が変数のときは表の並びである。

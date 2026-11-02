@@ -16,26 +16,6 @@ const std::uint64_t* watermark(const Impl& machine) {
   return machine.heap.data() + machine.stack.back().heap_mark;
 }
 
-// まだ書いた通りの組だけを戻す。あとから define が優先度を替えていたら、その指示を残す。
-// 固有層の優先度 0 は消去ではなく印なので、0 以外と同じく「書いた値なら戻す」で扱う。
-void undo_touch(OperatorTable& table, const OpTouch& touch, bool local) {
-  if (touch.priority == 0 && !local) {
-    if (!touch.had || table.stored(touch.name, touch.specifier)) return;
-    table.put_stored(touch.old_priority, touch.old_specifier, touch.name);
-    return;
-  }
-  const auto current = table.stored(touch.name, touch.specifier);
-  if (!current || current->priority != touch.priority) return;
-  table.erase_stored(touch.name, touch.specifier);
-  if (touch.had) table.put_stored(touch.old_priority, touch.old_specifier, touch.name);
-}
-
-OperatorTable* op_layer(Impl& machine, std::uint32_t module) {
-  if (module == machine.user_module) return &machine.operators;
-  Module* found = find_module(machine, module);
-  return found == nullptr ? nullptr : &found->ops;
-}
-
 // 水位は節に入る前。世代は呼んだ時点のもので、走査はそれより後に足した節と消した節を見ない（7.5.4）。
 Entry clause_entry(const Impl& machine, const Predicate& predicate, std::uint64_t goal, std::size_t boundary) {
   Entry entry;
@@ -171,50 +151,11 @@ void prune_scan_log(Impl& machine) {
 
 void push_frame(Impl& machine, Entry entry) {
   entry.extras_mark = machine.extras.size();
-  // query の Cleanup はここを通さないので印は 0。通った枠より後ろの op/3 だけを戻す。
+  // query の Cleanup はここを通さないので印は 0。catch_log と scan_log が、記録した枠がまだ同じ枠かをこれで確かめる。
   entry.effect_id = ++machine.effect_clock;
   note_catches(machine, entry);
   if (entry.pick == Pick::Clauses || entry.pick == Pick::ClauseScan) note_scan(machine, entry);
   machine.stack.push_back(std::move(entry));
-}
-
-void trail_operators(Impl& machine, std::uint32_t module, int priority, Specifier specifier,
-                     const std::vector<std::string>& names) {
-  if (machine.stack.empty()) return;
-  const auto effect_id = machine.stack.back().effect_id;
-  if (effect_id == 0) return;
-  const OperatorTable* table = op_layer(machine, module);
-  if (table == nullptr) return;
-  const bool local = module != machine.user_module;
-  OpUndo undo;
-  undo.effect_id = effect_id;
-  undo.module = module;
-  for (const std::string& name : names) {
-    OpTouch touch;
-    touch.name = name;
-    touch.priority = priority;
-    touch.specifier = specifier;
-    const auto old = priority == 0 && !local ? table->stored(name, specifier) : table->stored_class(name, specifier);
-    if (old) {
-      touch.had = true;
-      touch.old_priority = old->priority;
-      touch.old_specifier = old->specifier;
-    }
-    undo.touches.push_back(std::move(touch));
-  }
-  machine.op_undos.push_back(std::move(undo));
-}
-
-void restore_operators(Impl& machine, std::uint64_t effect_id) {
-  if (effect_id == 0) return;
-  while (!machine.op_undos.empty() && machine.op_undos.back().effect_id >= effect_id) {
-    const OpUndo undo = std::move(machine.op_undos.back());
-    machine.op_undos.pop_back();
-    OperatorTable* table = op_layer(machine, undo.module);
-    if (table == nullptr) continue;
-    const bool local = undo.module != machine.user_module;
-    for (auto it = undo.touches.rbegin(); it != undo.touches.rend(); ++it) undo_touch(*table, *it, local);
-  }
 }
 
 bool do_unify(Impl& machine, Cell left, Cell right) {
@@ -365,14 +306,10 @@ bool backtrack(Impl& machine) {
     // スタックを変えうるので、要る値は呼ぶ前に手元へ移し、その後は参照に触れない。
     const Entry& top = machine.stack.back();
     const Pick pick = top.pick;
-    const bool armed = top.armed;
-    const auto effect_id = top.effect_id;
     const auto heap_mark = top.heap_mark;
     const auto trail_mark = top.trail_mark;
     const auto extras_mark = top.extras_mark;
     restore_state(machine, heap_mark, trail_mark, extras_mark);
-    // 成功した catch は選択点ではない。記録は親の選択点まで残す。
-    if (!(pick == Pick::Catch && !armed)) restore_operators(machine, effect_id);
     // 入れ子の run_loop（portray、指令など）の床。束縛は消すが、呼び出し元の節走査はやり直さない。
     if (pick == Pick::Barrier) return false;
     // 収集のゴールの解が尽きた。答えを束ねる launch か、bagof の空の失敗（failed）で返る（ADR 0013）。

@@ -22,5 +22,5 @@ Re-entering the builtin through its own frame to finish (the frame identifies th
 ## Consequences
 
 Nested collections no longer use the native stack and run in time linear in the depth (about 1.1 KB per level: the `Entry` and `Collector` live outside the heap, so `--heap-max` does not count them, as for any other choice point); `tests/stack/deep_collect.pl` runs findall/3, findall/4, bagof/3, setof/3 and a throw from the bottom 100,000 levels deep under 1 MiB, in mosa and in a mosac executable.
-Answers, error terms, the order of side effects and the undoing of op/3 at the end of a collection (review M4) do not change; `Machine::choice_depth()` counts one `Collect` entry per running collection instead of one `Barrier`.
+Answers, error terms, the order of side effects and the undoing of op/3 at the end of a collection (review M4) do not change (M4 was later decided as A on 2026-11-02: op/3 is never undone, iso-notes 8.14.3); `Machine::choice_depth()` counts one `Collect` entry per running collection instead of one `Barrier`.
 A collection interleaved with a portray hook, `with_output_to/2` or a directive still recurses once per pair (about 1,000 pairs under 1 MiB end in SIGSEGV), recorded in iso-notes 7.1; `Saved`, `park_callers`, `disarm_below`, `rearm_below` and `unwind_throw` leave `solutions.cpp`; `Pick::Barrier` stays for the other nested runs.

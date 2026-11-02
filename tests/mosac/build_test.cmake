@@ -84,7 +84,8 @@ elseif(CASE STREQUAL "run_exit_code")
     fail("exit code")
   endif()
   # ADR 0014。Call の節点として call/1 で動く catch の Goal と Recovery の中の halt/1 も、生成コードの終了コードになる。
-  foreach(late halt_late_goal:4 halt_late_recovery:5 halt_noncallable_goal:0 halt_noncallable_recovery:0 halt_noncallable_not:0 noncallable_undefined:0)
+  # op_kept はレビュー M4。生成コードでも op/3 が戻らなければ 3 で終わる。
+  foreach(late halt_late_goal:4 halt_late_recovery:5 halt_noncallable_goal:0 halt_noncallable_recovery:0 halt_noncallable_not:0 noncallable_undefined:0 op_kept:3)
     string(REPLACE ":" ";" late "${late}")
     list(GET late 0 late_file)
     list(GET late 1 late_code)

@@ -21,8 +21,8 @@
 //   Trail::slots は弱い参照。印の付いた語を指す項目だけを残す。
 //   Trail::mark は計画では weak_address だが、生きた語の番地ではなく水位（heap.data() + heap_mark）なので、
 //     heap_mark と同じく rank で写す。死んだ語を 0（nullptr）にすると unify の境界の意味が変わる。
-//   ルートでないもの: Stop（呼び手へ返した写し。次の next() の後に古い Stop のセルを読まない）、op_undos・
-//     streams・predicates・main_goal（ヒープの値を持たない）、native_next（関数の番地）。
+//   ルートでないもの: Stop（呼び手へ返した写し。次の next() の後に古い Stop のセルを読まない）、streams・
+//     predicates・main_goal（ヒープの値を持たない）、native_next（関数の番地）。
 //
 // RootScope を置く入れ子（計画 Task 5）。入れ子の後で使う const Goal& は可変の写しを登録してから使う。
 //   load_directive.cpp の run_parked（退避したスタック・束縛・水位）。extras とトレイルは退避せず水位だけ持つ。

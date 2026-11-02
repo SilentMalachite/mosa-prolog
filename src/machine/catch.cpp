@@ -193,8 +193,6 @@ void propagate_throw(Impl& machine, Cell ball) {
     machine.stack.pop_back();
     prune_catch_log(machine);
     if (top.pick != Pick::Catch || !top.armed) continue;
-    // 例外もその catch より後ろの op/3 を戻す。節のデータベースは戻さない。
-    restore_operators(machine, top.effect_id);
     restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
     const Cell rebuilt = import_term(machine, copy);
     if (do_unify(machine, rebuilt, top.pattern)) {

@@ -116,14 +116,15 @@ o(1).
 o(2).
 o(3).
 
-% 8.14.3.4。fx は o/1 の選択点より前なので 1 回。xf はその後ろなので、次の解では消えている。
-% 前置と後置が両立すると write は前置を選ぶ。出力だけでは xf が残っても三つとも o N になる。
+% 8.14.3.4。op/3 は副作用で、バックトラックしても戻らない（iso-notes 8.14.3 の決定 A）。
+% 1 つ目の解ではまだ xf は無く、2 つ目からは 1 つ目の後ろで宣言した xf が残っている。
+% 前置と後置が両立すると write は前置を選ぶ。出力だけでは xf の有無が見えないので current_op で確かめる。
 % with_output_to は失敗したゴールでは原子を束縛しない。失敗のあとに成功する選言を置く。
 test(op_backtrack_prefix, (
   with_output_to(atom(A), (
     op(555, fx, o),
     o(X),
-    (X = 1 -> true ; \+ current_op(555, xf, o)),
+    (X = 1 -> \+ current_op(555, xf, o) ; current_op(555, xf, o)),
     write(o(X)), nl,
     op(555, xf, o),
     fail
@@ -134,31 +135,73 @@ test(op_backtrack_prefix, (
   op(0, xf, o)
 ), true).
 
-% 選択点が無い失敗は op/3 を残す。Cleanup の印は 0。
+% 失敗しても op/3 は残る。
 test(op_fail_keeps, (op(100, fx, zz), fail), fail).
 test(op_fail_kept, current_op(100, fx, zz), true).
 test(op_fail_clear, op(0, fx, zz), true).
 
-% 成功した catch は枠を残すが armed を落とす。選択点が無ければ、中の op/3 は残す。
+% 成功した catch の後の失敗でも、中の op/3 は残る。
 test(op_catch_keeps, (catch(op(100, fx, yy), _, true), fail), fail).
 test(op_catch_kept, current_op(100, fx, yy), true).
 test(op_catch_clear, op(0, fx, yy), true).
 
-% 守っているゴールが失敗した catch は、その op/3 を戻す。
-test(op_armed_catch_undo, catch((op(100, fx, aa), fail), _, true), fail).
-test(op_armed_catch_gone, \+ current_op(100, fx, aa), true).
+% 守っているゴールが失敗した catch も、中の op/3 を残す。
+test(op_armed_catch_keeps, catch((op(100, fx, aa), fail), _, true), fail).
+test(op_armed_catch_kept, current_op(100, fx, aa), true).
+test(op_armed_catch_clear, op(0, fx, aa), true).
 
-% throw を受けた catch も、中の op/3 を戻す。
-test(op_throw_undo, (catch((op(100, fx, cc), throw(1)), _, true), \+ current_op(100, fx, cc)), true).
+% throw を受けた catch も、中の op/3 を残す。
+test(op_throw_keeps, (catch((op(100, fx, cc), throw(1)), _, true), current_op(100, fx, cc), op(0, fx, cc)), true).
 
 % ctest も直接実行も、作業ディレクトリはリポジトリの根。
 consult_dd :- consult('tests/pl/op_keep_dir.pl').
 
-% op/3 の戻しは、その後の :- op を消さない。zz2 だけが選択点より後ろの op/3。
+% 選択点より後ろの op/3 も、その後の :- op も、失敗で戻らない。
 test(op_directive_survives, (
-  (op(100, fx, zz2), consult_dd, fail ; current_op(200, xfx, dd), \+ current_op(100, fx, zz2)),
+  (op(100, fx, zz2), consult_dd, fail ; current_op(200, xfx, dd), current_op(100, fx, zz2)),
   op(0, xfx, dd),
   op(0, fx, zz2)
 ), true).
 test(op_directive_clear, (op(0, xfx, dd), op(0, fx, zz2)), true).
 
+% 指令の中で、生きた選択点の後ろの op/3 も戻らない（レビュー M4 の A2）。指令の実行は印 0 の Cleanup の上に積む。
+consult_dir_backtrack :- consult('tests/pl/op_dir_backtrack.pl').
+test(m4_directive_backtrack, (consult_dir_backtrack, current_op(700, xfx, zz3), op(0, xfx, zz3)), true).
+
+% レビュー M4（iso-notes 8.14.3 の決定 A）。op/3 は assertz と同じ副作用で、バックトラック、例外、findall、
+% \+ のどれでも戻らない。各テストは最後に自分の演算子を消し、後のテストへ持ち越さない。
+test(m4_findall, (findall(x, op(700, xfx, m4a), _), current_op(700, xfx, m4a), op(0, xfx, m4a)), true).
+test(m4_forall, (
+  forall((O = m4b ; O = m4c), op(700, xfx, O)),
+  current_op(700, xfx, m4b), current_op(700, xfx, m4c),
+  op(0, xfx, [m4b, m4c])
+), true).
+test(m4_disj, ((op(700, xfx, m4d), fail ; true), current_op(700, xfx, m4d), op(0, xfx, m4d)), true).
+test(m4_clause_redo, ((o(_), op(700, xfx, m4e), fail ; true), current_op(700, xfx, m4e), op(0, xfx, m4e)), true).
+test(m4_not_not, (\+ \+ op(700, xfx, m4f), current_op(700, xfx, m4f), op(0, xfx, m4f)), true).
+test(m4_not_fail, (\+ (op(700, xfx, m4g), fail), current_op(700, xfx, m4g), op(0, xfx, m4g)), true).
+test(m4_throw_list, (
+  catch((op(700, xfx, [m4h, m4i]), throw(e)), e, true),
+  current_op(700, xfx, m4h), current_op(700, xfx, m4i),
+  op(0, xfx, [m4h, m4i])
+), true).
+test(m4_rethrow, (
+  catch(catch((op(700, xfx, m4j), throw(a)), b, true), a, true),
+  current_op(700, xfx, m4j), op(0, xfx, m4j)
+), true).
+% 選択点の前に宣言した演算子の優先度の付け替えと削除も、失敗で元へ戻らない。
+test(m4_priority_kept, (
+  op(700, xfx, m4k), (op(200, xfx, m4k), fail ; true),
+  findall(P, current_op(P, xfx, m4k), Ps), op(0, xfx, m4k), Ps == [200]
+), true).
+test(m4_removal_kept, (
+  op(700, xfx, m4l), (op(0, xfx, m4l), fail ; true),
+  findall(P, current_op(P, _, m4l), Ps), op(0, xfx, m4l), Ps == []
+), true).
+% 戻らなかった演算子で、その後の読み込みが項を組む。
+test(m4_read_after, (
+  findall(x, op(700, xfx, m4m), _),
+  open('tests/tmp/m4_read_after.pl', write, W), write(W, 'a m4m b.\n'), close(W),
+  open('tests/tmp/m4_read_after.pl', read, R), read(R, T), close(R),
+  op(0, xfx, m4m), T == m4m(a, b)
+), true).

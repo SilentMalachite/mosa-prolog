@@ -14,7 +14,7 @@
 // type_error(character),
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
-// 選択点より後ろの変更は失敗で戻す。assert と retract は戻さない。
+// 表の変更は assert と同じく、バックトラックでも例外でも戻さない（iso-notes 8.14.3 の決定 A）。
 // テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl,
 // tests/pl/curchar.pl, tests/pl/japanese.pl
 
@@ -358,12 +358,7 @@ std::optional<Cell> commit_op_request(Impl& machine, std::uint32_t module, const
     if (result == OpResult::Ok) continue;
     return formal_permission(machine, result == OpResult::ModifyComma ? "modify" : "create", "operator", name.cell);
   }
-  // 検査が通ってから表を替える。戻すのはこの呼び出しの名前だけ。
-  std::vector<std::string> touched;
-  touched.reserve(request.names.size());
-  for (const OpName& name : request.names) touched.push_back(name.text);
-  trail_operators(machine, local == nullptr ? machine.user_module : module, request.priority, request.specifier,
-                  touched);
+  // 検査が通ってから表を替える。変更は副作用で、バックトラックでも例外でも戻さない（iso-notes 8.14.3 の決定 A）。
   if (local == nullptr) machine.operators = std::move(trial);
   else local->ops = std::move(trial);
   return std::nullopt;
