@@ -137,3 +137,12 @@ test(writeq_round_word, (T = (a=(is)), with_output_to(atom(A), writeq(T)), atom_
 test(writeq_round_arg, (T = f(:-), with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
 test(writeq_round_list, (T = [-, :-], with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
 test(writeq_round_prefix, (T = (- - a), with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R), R == T), true).
+% レビュー M7: 途中から巡回するリスト。戻り先のセルに来たら |_ と書いて止める。
+test(m7_write_lasso, (X = [a|X], with_output_to(atom(A), write([f|X])), A == '[f,a|_]'), true).
+test(m7_write_lasso_long, (X = [a, b, c|X], with_output_to(atom(A), write([f, g|X])), A == '[f,g,a,b,c|_]'), true).
+test(m7_write_lasso_mid, (X = [a, b|Y], Y = [c, d|Y], with_output_to(atom(A), write(X)), A == '[a,b,c,d|_]'), true).
+test(m7_writeq_lasso, (X = [a|X], with_output_to(atom(A), writeq(['F'|X])), A == '[\'F\',a|_]'), true).
+test(m7_print_lasso, (X = [a|X], with_output_to(atom(A), print([f|X])), A == '[f,a|_]'), true).
+test(m7_write_lasso_arg, (X = [a|X], with_output_to(atom(A), write(g([f|X], b))), A == 'g([f,a|_],b)'), true).
+test(m7_write_lasso_inner, (X = [a|X], with_output_to(atom(A), write([[f|X], b])), A == '[[f,a|_],b]'), true).
+test(m7_write_cycle_kept, (X = [a, b|X], with_output_to(atom(A), write(X)), A == '[a,b|_]'), true).

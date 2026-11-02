@@ -181,6 +181,13 @@ struct Work {
   // Text、Infix、Bar が始める待ちの番号。Clear はこの番号の待ちだけを取り消す。
   std::size_t id = 0;
   std::string text;
+  // ListRest で、背骨が巡回して戻る入口のセル（巡回しなければリストの先頭）と、入口を書き終えたか。
+  Cell back{};
+  bool passed = false;
+  // ListRest の安全網（Brent の方法）。portray が書く途中で束縛して背骨を後から巡回させても止める。
+  Cell anchor{};
+  std::size_t lap = 0;
+  std::size_t power = 1;
 };
 
 // 待ち: 直前の字句と、この後に最初に書く字句の間の空白。古い writer の glue(左の字面, 右の字面) と同じく、
@@ -229,7 +236,8 @@ class Printer final : public WriteHeld {
   void push_prefix(const OpDef& op, Cell term, std::string name);
   void push_operand(Cell arg, int priority, bool allow_equal);
   void push_list(Cell term);
-  void list_rest(Cell cell);
+  void list_rest(const Work& item);
+  [[nodiscard]] Cell spine_entry(Cell list) const;
   void push_bar(Cell rest);
   void push_functor(Cell term, std::string_view name);
   void push_term(Cell term, int parent, bool allow_equal, bool allow_hook = true);
@@ -284,7 +292,12 @@ void Printer::visit(WriteRoots& roots) {
     held_ = true;
   }
   roots.cell(hooked_);
-  for (Work& item : work_) roots.cell(item.term);
+  for (Work& item : work_) {
+    roots.cell(item.term);
+    if (item.step != Step::ListRest) continue;
+    roots.cell(item.back);
+    roots.cell(item.anchor);
+  }
   for (VarName& var : own_names_) roots.cell(var.cell);
   // 書き終えて残りの仕事から届かない変数は二度と書かないので、弱い参照で落としてよい。
   for (auto& entry : held_counts_) roots.weak(entry.first);
@@ -371,7 +384,7 @@ void Printer::run(Work& item) {
       emit("|");
       await(Space::Glue, item.id);
       return;
-    case Step::ListRest: list_rest(item.term); return;
+    case Step::ListRest: list_rest(item); return;
     case Step::Clear:
       if (pending_.active && pending_.id == item.id) pending_.active = false;
       return;
@@ -652,21 +665,66 @@ void Printer::push_list(Cell term) {
   Work rest;
   rest.step = Step::ListRest;
   rest.term = term;
+  rest.back = spine_entry(term);
+  rest.passed = rest.back.raw() == term.raw();
+  rest.anchor = term;
   work_.push_back(std::move(rest));
   push_term(heap_.list_head(term), 999, true);
 }
 
-void Printer::list_rest(Cell cell) {
+// 背骨の巡回の入口（Floyd の方法）。巡回しなければ list を返す。背骨のセルを祖先の集まりに足すと、長い
+// リストで集まりと Leave が要素の数だけ膨らむので、入口だけを覚える。前は先頭のセルしか祖先になく、
+// [f|X] で X = [a|X] のように途中から巡回するリストを書き続けて止まらなかった（レビュー M7）。
+Cell Printer::spine_entry(Cell list) const {
+  const auto next = [this](Cell cell) -> std::optional<Cell> {
+    const Cell tail = heap_.deref(heap_.list_tail(cell));
+    if (tail.tag() != Tag::Lis) return std::nullopt;
+    return tail;
+  };
+  Cell slow = list;
+  Cell fast = list;
+  while (true) {
+    const std::optional<Cell> one = next(fast);
+    if (!one) return list;
+    const std::optional<Cell> two = next(*one);
+    if (!two) return list;
+    fast = *two;
+    slow = *next(slow);
+    if (slow.raw() == fast.raw()) break;
+  }
+  slow = list;
+  while (slow.raw() != fast.raw()) {
+    slow = *next(slow);
+    fast = *next(fast);
+  }
+  return slow;
+}
+
+void Printer::list_rest(const Work& item) {
+  const Cell cell = item.term;
   const Cell raw_tail = heap_.list_tail(cell);
   // 名前表の REF は束縛より先に書く。先に辿ると X = [a|X] が [a|_] になる。
   if (raw_tail.tag() == Tag::Ref && var_name(raw_tail) != nullptr) return push_bar(raw_tail);
   const Cell tail = heap_.deref(raw_tail);
   if (is_nil(heap_, tail)) return emit("]");
-  if (open_.contains(tail.raw())) return emit("|_]");
+  // 背骨の入口は、書き終えた後に戻ってきたら祖先である。背骨が変わらなければ、最初に戻るセルは入口なので
+  // 安全網の anchor より先にこちらが止める。anchor で止まるのは portray が背骨を変えたときだけである。
+  if (open_.contains(tail.raw()) || (item.passed && tail.raw() == item.back.raw())) return emit("|_]");
+  if (tail.raw() == item.anchor.raw()) return emit("|_]");
   if (tail.tag() != Tag::Lis) return push_bar(tail);
   Work rest;
   rest.step = Step::ListRest;
   rest.term = tail;
+  rest.back = item.back;
+  rest.passed = item.passed || tail.raw() == item.back.raw();
+  rest.anchor = item.anchor;
+  rest.lap = item.lap + 1;
+  rest.power = item.power;
+  if (rest.lap == rest.power) {
+    rest.anchor = tail;
+    rest.lap = 0;
+    rest.power *= 2;
+  }
   work_.push_back(std::move(rest));
   const std::size_t id = next_id_++;
   push_clear(id);

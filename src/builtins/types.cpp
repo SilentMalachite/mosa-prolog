@@ -64,19 +64,28 @@ bool acyclic_term(const Impl& machine, Cell root) {
   return true;
 }
 
+// この数までの複合項は集合を作らずに辿る。小さい項の ground/1 の費用を増やさないため。大きい項では集合が
+// 複合項 1 つに数十バイトを --heap-max の外に使う（is_list/1 の proper_list と同じ）。
+constexpr std::size_t kGroundPlain = 1024;
+
 // 深い項で C++ のスタックを使い切らないよう、再帰ではなく明示のスタックで辿る。束縛は一切しない。
+// kGroundPlain 個を超えたら辿った複合項を覚えて二度辿らない。巡回する項は止まらず、f(X, X) を重ねた
+// 共有の多い項は指数に膨らんでいた（レビュー M7）。覚える前に辿った複合項は高々もう一度辿るだけである。
 bool ground_term(const Impl& machine, Cell cell) {
   std::vector<Cell> pending{cell};
+  std::unordered_set<std::uint64_t> seen;
+  std::size_t steps = 0;
   while (!pending.empty()) {
     const Cell current = machine.heap.deref(pending.back());
     pending.pop_back();
     if (machine.heap.unbound(current)) return false;
+    if (current.tag() != Tag::Lis && current.tag() != Tag::Str) continue;
+    if (++steps > kGroundPlain && !seen.insert(current.raw()).second) continue;
     if (current.tag() == Tag::Lis) {
       pending.push_back(machine.heap.list_tail(current));
       pending.push_back(machine.heap.list_head(current));
       continue;
     }
-    if (current.tag() != Tag::Str) continue;
     for (std::uint16_t index = 0; index < machine.heap.functor_arity(current); ++index) {
       pending.push_back(machine.heap.arg(current, index));
     }

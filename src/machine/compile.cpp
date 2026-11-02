@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -20,11 +21,14 @@ struct Build {
   std::vector<Cell> env;
   // 実行時のゴールで巡回の戻り先になった複合項。写さずに元の項を指す。葉ごとに足すので集合にする（レビュー M13）。
   std::unordered_set<std::uint64_t> loops;
-  // 実行時のゴールで今訳している制御構造（レビュー M13）。浅い部分は goal_at の道、深い部分は goal_deep の枠。
-  // 巡回の戻り先は元の項を指す Var の葉にし、call/1 として動くときに訳す。巡回は無限に展開した項として動く。
+  // 今訳している制御構造（レビュー M13、M7）。浅い部分は goal_at の道、深い部分は goal_deep の枠。
+  // 実行時のゴールは、巡回の戻り先を元の項を指す Var の葉にし、call/1 として動くときに訳す。巡回は無限に
+  // 展開した項として動く。節は env を持たないので、戻り先ごとに新しい名前のない変数のゴールにする。
   std::vector<std::uint64_t> goal_path;
   std::unordered_set<std::uint64_t> deep_open;
   bool keep = false;
+  // 節の戻り先の制御構造と、そこに振った変数のスロット。name_slots はこのスロットに名前を付けない。
+  std::unordered_map<std::uint64_t, std::uint16_t> backs;
 
   [[nodiscard]] std::uint16_t slot_of(Cell cell) {
     const auto raw = cell.raw();
@@ -120,7 +124,8 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
   }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
   // 訳している途中の制御構造は元の項を指す。葉の引数ごとに巡回するゴール全体を写すと 2 乗以上になる（レビュー M13）。
-  if (goal_loops(cell)) {
+  // 節では元の項を指せないので、データとして写し、その中の巡回を下で匿名に切る。
+  if (keep && goal_loops(cell)) {
     term.tag = IrTag::Var;
     term.slot = slot_of(cell);
     return term;
@@ -258,23 +263,32 @@ IrTerm Build::late_goal(Cell cell) {
 }
 
 // 後順に訳す。子は左から訳すので、変数の番号は浅いときの再帰と同じ順に振られる。
-// 節は env を持たないので、巡回するゴールの節（7.6.2 の外）は今も止まらない（レビュー M7）。
 bool Build::goal_loops(Cell cell) const {
-  if (!keep || (goal_path.empty() && deep_open.empty())) return false;
+  if (goal_path.empty() && deep_open.empty()) return false;
   return deep_open.contains(cell.raw()) || std::find(goal_path.begin(), goal_path.end(), cell.raw()) != goal_path.end();
 }
 
+// 節の戻り先は、頭や引数のデータの巡回を匿名に切るのと同じく、名前のない変数のゴールに切る（オーナー決定 A、
+// iso-notes 7.3.3）。変数は戻り先の制御構造ごとに 1 つ。ゴールの位置にしか現れず誰も束縛しないので、
+// 共有しても動きは同じで、戻り辺ごとに振ると共有の多い本体でスロットが 2^n 個要る（M7 の敵対的レビュー A2）。
+// refs には戻り先の複合項の raw を置く。束縛されていない変数の raw とはタグが違うので slot_of は取り違えない。
 IrTerm Build::goal_back(Cell cell) {
   IrTerm term;
   term.tag = IrTag::Var;
-  term.slot = slot_of(cell);
+  if (keep) {
+    term.slot = slot_of(cell);
+    return term;
+  }
+  const auto [entry, fresh] = backs.try_emplace(cell.raw(), static_cast<std::uint16_t>(refs.size()));
+  if (fresh) refs.push_back(cell.raw());
+  term.slot = entry->second;
   return term;
 }
 
 IrTerm Build::goal_deep(Cell root) {
   std::vector<GoalFrame> stack;
   stack.push_back(*goal_frame(*heap, root));
-  if (keep) deep_open.insert(root.raw());
+  deep_open.insert(root.raw());
   while (true) {
     GoalFrame& top = stack.back();
     const std::size_t index = top.term.args.size();
@@ -289,7 +303,7 @@ IrTerm Build::goal_deep(Cell root) {
           top.term.args.push_back(goal_back(next));
           continue;
         }
-        if (keep) deep_open.insert(next.raw());
+        deep_open.insert(next.raw());
         // 積むと top は無効になる。
         stack.push_back(std::move(*frame));
       } else {
@@ -297,7 +311,7 @@ IrTerm Build::goal_deep(Cell root) {
       }
       continue;
     }
-    if (keep) deep_open.erase(top.cell.raw());
+    deep_open.erase(top.cell.raw());
     IrTerm done = std::move(top.term);
     stack.pop_back();
     if (stack.empty()) return done;
@@ -312,14 +326,14 @@ IrTerm Build::goal_at(Cell cell, int depth) {
   if (!frame) return goal_leaf(cell);
   if (goal_loops(cell)) return goal_back(cell);
   if (depth >= kShallow) return goal_deep(cell);
-  if (keep) goal_path.push_back(cell.raw());
+  goal_path.push_back(cell.raw());
   for (std::size_t index = 0; index < frame->count; ++index) {
     const Cell next = heap->arg(cell, static_cast<std::uint16_t>(index));
     if (child_is_data(*frame, index)) frame->term.args.push_back(data(next));
     else if (runs_late(*heap, *frame, index, next)) frame->term.args.push_back(late_goal(next));
     else frame->term.args.push_back(goal_at(next, depth + 1));
   }
-  if (keep) goal_path.pop_back();
+  goal_path.pop_back();
   return std::move(frame->term);
 }
 
@@ -389,6 +403,8 @@ void name_slots(const Heap& heap, const Build& build, std::span<const VarName> n
   clause.names.assign(build.refs.size(), std::string{});
   for (const VarName& name : names) {
     const auto raw = heap.deref(name.cell).raw();
+    // 戻り先の制御構造に束縛された名前は、その戻り先の変数の名前ではない。
+    if (build.backs.contains(raw)) continue;
     for (std::size_t index = 0; index < build.refs.size(); ++index) {
       if (build.refs[index] == raw) clause.names[index] = name.name;
     }

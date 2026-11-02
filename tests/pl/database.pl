@@ -547,3 +547,28 @@ test(assert_body_var_builtin, assertz((atom(_) :- _)), error(permission_error(mo
 test(assert_body_var_control, asserta((call(_) :- _)), error(permission_error(modify, static_procedure, call/1))).
 test(assert_body_var_static, assertz((bv_static :- _)), error(permission_error(modify, static_procedure, bv_static/0))).
 test(assert_body_var_conj_number, assertz((bv_n :- (_, 1))), error(type_error(callable, (_, 1)))).
+% レビュー M7: 本体が制御構造で巡回する節は、戻り先を名前のない変数のゴールに切って足す（オーナー決定 A、
+% iso-notes 7.3.3）。頭や引数のデータの巡回を匿名に切るのと同じ。そこまで来ると instantiation_error になる。
+:- dynamic(m7_q/1).
+m7_q(_).
+m7_chain(0, T, T) :- !.
+m7_chain(N, T, (true, R)) :- M is N - 1, m7_chain(M, T, R).
+test(m7_assert_conj, (X = (m7_undef, X), assertz((m7_p1 :- X)), catch(m7_p1, error(existence_error(procedure, PI), _), true)), solutions([PI = m7_undef/0])).
+test(m7_assert_conj_back, (X = (true, X), assertz((m7_p2 :- X)), catch(m7_p2, error(E, _), true)), solutions([E = instantiation_error])).
+test(m7_assert_clause_view, (X = (m7_a, X), assertz((m7_p3 :- X)), clause(m7_p3, B), B = (m7_a, call(V)), var(V)), true).
+test(m7_assert_disj, (X = (Y = 1 ; X), assertz((m7_p4(Y) :- X)), findall(Y, catch(m7_p4(Y), error(instantiation_error, _), Y = err), L)), solutions([L = [1, err]])).
+test(m7_assert_ite, (X = (fail -> true ; X), assertz((m7_p5 :- X)), catch(m7_p5, error(E, _), true)), solutions([E = instantiation_error])).
+test(m7_assert_soft, (X = (fail *-> true ; X), assertz((m7_p6 :- X)), catch(m7_p6, error(E, _), true)), solutions([E = instantiation_error])).
+test(m7_assert_catch, (X = catch(X, _, true), assertz((m7_p7 :- X)), m7_p7), true).
+test(m7_assert_left, (X = (X, a), asserta((m7_p8 :- X)), catch(m7_p8, error(E, _), true)), solutions([E = instantiation_error])).
+test(m7_assert_inner, (X = (m7_b, X), assertz((m7_p9 :- m7_c, X)), clause(m7_p9, B), B = (m7_c, m7_b, call(V)), var(V)), true).
+test(m7_assert_deep, (m7_chain(100, G, G0), G = G0, assertz((m7_p10 :- G)), catch(m7_p10, error(E, _), true)), solutions([E = instantiation_error])).
+% 戻り先の変数は制御構造ごとに 1 つ。ゴールの位置にしかないので、共有しても誰も束縛しない。
+test(m7_assert_two_backs, (X = (Y ; Z), Y = (true, X), Z = (fail, X), assertz((m7_p11 :- X)), clause(m7_p11, (A, call(V1) ; B, call(V2))), A == true, B == fail, var(V1), V1 == V2), true).
+test(m7_assert_two_targets, (X = (m7_q(1), Y), Y = (m7_q(2), X ; Y), assertz((m7_p13 :- X)), clause(m7_p13, (m7_q(1), (m7_q(2), call(V1) ; call(V2)))), var(V1), var(V2), V1 \== V2), true).
+% 共有の多い巡回する本体は、戻り辺が 2^16 個あっても戻り先は 1 つなので変数は 1 つで済む。
+m7_body_dag(0, L, L) :- !.
+m7_body_dag(N, L, T) :- M is N - 1, m7_body_dag(M, L, T0), T = (T0 ; T0).
+m7_body_dag_runs :- m7_body_dag(16, (true, X), X), assertz((m7_p14 :- X)), catch(m7_p14, error(instantiation_error, _), true).
+test(m7_assert_body_dag, m7_body_dag_runs, true).
+test(m7_assert_data_arg, (X = (m7_q(X), true), assertz((m7_p12 :- X)), m7_p12, clause(m7_p12, (m7_q(A), true)), A = (m7_q(V), true), var(V)), true).

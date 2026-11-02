@@ -47,3 +47,18 @@ test(ground_deep_var, (numlist_deep(30000, T0), T = f(T0, _), ground(T)), fail).
 numlist_deep(N, T) :- deep_acc(N, a, T).
 deep_acc(0, T, T) :- !.
 deep_acc(N, Acc, T) :- M is N - 1, deep_acc(M, f(Acc), T).
+% レビュー M7: 巡回する項と、共有で指数に膨らむ項でも止まる。辿った複合項は二度辿らない。
+% 辿りは最後の引数から降りるので、変数は最初の引数に置くと巡回や DAG を辿り終えた後に見つかる。
+% DAG は述語の中で作って捨てる。差分テストは束縛を共有を展開して書くので、束縛に残すと終わらない。
+m7_dag(0, L, L) :- !.
+m7_dag(N, L, T) :- M is N - 1, m7_dag(M, L, T0), T = f(T0, T0).
+m7_dag_ground(N, Leaf) :- m7_dag(N, Leaf, T), ground(T).
+m7_dag_late_var(N) :- m7_dag(N, a, T), ground(g(_, T)).
+test(m7_ground_cyclic, (X = f(X), ground(X)), true).
+test(m7_ground_cyclic_shared, (X = f(X, X), ground(X)), true).
+test(m7_ground_cyclic_var, (X = f(_, X), ground(X)), fail).
+test(m7_ground_cyclic_list, (X = [a|X], ground(X)), true).
+test(m7_ground_lasso_var, (X = [a|X], ground(f(_, [b|X]))), fail).
+test(m7_ground_mutual, (X = g(Y, a), Y = h(X), ground(X)), true).
+test(m7_ground_dag, m7_dag_ground(64, a), true).
+test(m7_ground_dag_late_var, m7_dag_late_var(64), fail).

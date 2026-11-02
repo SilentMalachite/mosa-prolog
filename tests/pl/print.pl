@@ -46,3 +46,10 @@ test(print_portray_gc, (
   retractall(portray(_)),
   P == W
 ), true).
+% レビュー M7: portray が書く途中で束縛し、リストの残りを後から巡回させても止まる。
+test(m7_print_portray_cycles, (
+  assertz((portray(m7_h(T)) :- var(T), M = [a|M], T = M, write(hh))),
+  L = [m7_h(T), g|T],
+  with_output_to(atom(A), print(L)),
+  retractall(portray(_)),
+  atom_concat('[hh,g,a', _, A)), true).

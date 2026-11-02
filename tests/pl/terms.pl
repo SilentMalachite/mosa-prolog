@@ -35,3 +35,7 @@ test(iso_copy_ground, copy_term(f(a), X), solutions([X = f(a)])).
 test(iso_vars_empty, term_variables(a, L), solutions([L = []])).
 test(arity_limit, functor(T, foo, 1025), error(representation_error(max_arity))).
 test(vars_improper, term_variables(t, [a|b]), error(type_error(list, [a|b]))).
+% レビュー M7: 巡回するリストは部分リストでもリストでもない（8.5.3.3 e）。誤りの項は書いて止まる。
+test(m7_univ_lasso, (X = [a|X], catch(_ =.. [f|X], error(type_error(list, L), _), true), L = [f|T], T == X), true).
+test(m7_univ_lasso_text, (X = [a|X], catch(_ =.. [f|X], error(E, _), true), with_output_to(atom(A), write(E)), A == 'type_error(list,[f,a|_])'), true).
+test(m7_univ_cycle, (X = [f|X], catch(_ =.. X, error(type_error(list, L), _), true), L == X), true).
