@@ -675,10 +675,12 @@ void Printer::push_list(Cell term) {
 // 背骨の巡回の入口（Floyd の方法）。巡回しなければ list を返す。背骨のセルを祖先の集まりに足すと、長い
 // リストで集まりと Leave が要素の数だけ膨らむので、入口だけを覚える。前は先頭のセルしか祖先になく、
 // [f|X] で X = [a|X] のように途中から巡回するリストを書き続けて止まらなかった（レビュー M7）。
+// 開いている祖先の尾で先読みを止める。list_rest もそこで |_] と閉じるので、その先は書かない。止めないと、
+// 要素がみな [x|L] の L を書くとき要素ごとに L 全体をなめて 2 乗になる（M7 の Codex レビュー）。
 Cell Printer::spine_entry(Cell list) const {
   const auto next = [this](Cell cell) -> std::optional<Cell> {
     const Cell tail = heap_.deref(heap_.list_tail(cell));
-    if (tail.tag() != Tag::Lis) return std::nullopt;
+    if (tail.tag() != Tag::Lis || open_.contains(tail.raw())) return std::nullopt;
     return tail;
   };
   Cell slow = list;

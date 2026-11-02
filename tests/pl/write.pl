@@ -146,3 +146,5 @@ test(m7_print_lasso, (X = [a|X], with_output_to(atom(A), print([f|X])), A == '[f
 test(m7_write_lasso_arg, (X = [a|X], with_output_to(atom(A), write(g([f|X], b))), A == 'g([f,a|_],b)'), true).
 test(m7_write_lasso_inner, (X = [a|X], with_output_to(atom(A), write([[f|X], b])), A == '[[f,a|_],b]'), true).
 test(m7_write_cycle_kept, (X = [a, b|X], with_output_to(atom(A), write(X)), A == '[a,b|_]'), true).
+% 要素が祖先のリストを尾に持つ。先読みはその尾で止まり、書く字面は前と同じ。
+test(m7_write_elements_back, (L = [A, B], A = [x|L], B = [y, z|L], with_output_to(atom(T), write(L)), T == '[[x|_],[y,z|_]]'), true).

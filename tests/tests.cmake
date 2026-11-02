@@ -133,6 +133,11 @@ add_executable(index_scale_test tests/cpp/index_scale_test.cpp)
 target_include_directories(index_scale_test PRIVATE tests/cpp)
 target_link_libraries(index_scale_test PRIVATE mosa_lib)
 add_test(NAME index_scale COMMAND $<TARGET_FILE:index_scale_test>)
+# レビュー M7。リストを書く時間が要素の数に比例する範囲に収まる（背骨の巡回の先読みが祖先で止まる）。
+add_executable(write_scale_test tests/cpp/write_scale_test.cpp)
+target_include_directories(write_scale_test PRIVATE tests/cpp)
+target_link_libraries(write_scale_test PRIVATE mosa_lib)
+add_test(NAME write_scale COMMAND $<TARGET_FILE:write_scale_test>)
 # レビュー M3（ADR 0015）。未束縛の第1引数の呼び出し・retract・clause/2 の答えごとの more と、
 # 閉じた走査が残した節の消去。
 add_executable(clause_scan_test tests/cpp/clause_scan_test.cpp)

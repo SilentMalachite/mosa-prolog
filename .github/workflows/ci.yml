@@ -137,6 +137,8 @@ jobs:
   # 深さ 100 万の答えを書く machine_deep（手元で N=1 は 900 秒超、N=1000 は 57 秒）は 2 段目に置く。
   # index_scale（ADR 0015）は 20000 本を先頭から retract する時間の比を測るので、安全点ごとの GC が開いた retract の選択点を N 個なめて
   # 2 乗になり（手元で N=1 は 403 秒かかり、比が 15.9 で落ちる）、時間を測るテストを GC ストレスで流しても意味が無い。索引の正しさは clause_scan と tests/pl が N=1 で見る。
+  # write_scale（レビュー M7）も時間の比を測る。20 万要素のリストを作る間の安全点ごとの GC がヒープ全体をなめて 2 乗になる。
+  # 巡回するリストを書く正しさは tests/pl の m7_* が N=1 で見る。
   linux-gc-stress:
     runs-on: ubuntu-24.04
     steps:
@@ -152,7 +154,7 @@ jobs:
       - name: Tests and differential tests with MOSA_GC_STRESS=1
         env:
           MOSA_GC_STRESS: 1
-        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale)$|install|bench" --no-tests=error
+        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale)$|install|bench" --no-tests=error
       - name: Heavy GC tests with MOSA_GC_STRESS=1000
         env:
           MOSA_GC_STRESS: 1000
