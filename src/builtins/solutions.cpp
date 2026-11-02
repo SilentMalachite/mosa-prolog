@@ -509,9 +509,11 @@ std::size_t remember(Impl& machine, Cell templ, const std::vector<Cell>& witness
     return answer + pushed(group.templs, std::move(templ_copy));
   }
   Group created;
+  // 写しは容量を要素数まで縮めるので、捨てる key_copy ではなく残す created.key で数える（Codex レビュー 3 回目の P2）。
   created.key = key_copy;
+  const std::size_t key = footprint(created.key);
   const std::size_t inner = share ? pushed(created.shots, std::move(image)) : pushed(created.templs, std::move(templ_copy));
-  return answer + inner + footprint(key_copy) + pushed(groups, std::move(created));
+  return answer + inner + key + pushed(groups, std::move(created));
 }
 
 // base は「呼ぶ前からあったセル」の境の水位なので、語の生死ではなく heap_mark として写す。

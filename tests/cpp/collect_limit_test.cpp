@@ -79,6 +79,17 @@ void check_bagof_groups_released() {
   mosa_test::check(machine->heap().held() == 0, "groups: nothing is held afterwards");
 }
 
+// 組の鍵は保存するときの写しで容量が要素数まで縮む。捨てる写し元の容量で数えると、長い鍵の組が多い bagof を
+// 多く数えすぎて早く止まる（Codex レビュー 3 回目の P2）。1 MiB で、130 要素のリストを鍵にした 16 組が収まる。
+void check_long_keys() {
+  auto machine = mosa::Machine::create(std::size_t{1} << 17);
+  mosa_test::check(machine->load_program(k_program).ok, "keys: load");
+  const Outcome outcome =
+      run(*machine, "findall(K-L, bagof(X, (btw(1, 16, X), mk(129, T), K = [X|T]), L), G), length(G, 16).");
+  mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success, "keys: the stored key is counted");
+  mosa_test::check(machine->heap().held() == 0, "keys: nothing is held afterwards");
+}
+
 // commit 済みの範囲の中で確保しても、持った語を数える（レビュー A1）。答えを 5 万個（約 1.9M 語）持ったまま、
 // 1 歩で 100 万語ほどの length/2 を作る。和は上限を超えるので止まる。
 void check_inside_committed() {
@@ -174,6 +185,7 @@ int main() {
   check_stops_early("bagof", "bagof(f(X,X,X), (btw(1, 1000000, X), note(X)), L).");
   check_stops_early("setof", "setof(f(X,X,X), (btw(1, 1000000, X), note(X)), L).");
   check_bagof_groups_released();
+  check_long_keys();
   check_inside_committed();
   check_capacity_after_release();
   check_stale_live();
