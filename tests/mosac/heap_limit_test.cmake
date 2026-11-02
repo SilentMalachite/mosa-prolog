@@ -43,6 +43,22 @@ if(NOT code EQUAL 2 OR NOT err MATCHES "8 MiB")
   fail("--heap-max must beat MOSA_HEAP_MAX")
 endif()
 
+# findall が外に持つ答えも上限に数える（レビュー M6、ADR 0010 の改訂 2）。mosa も mosac の実行ファイルも止まる。
+file(COPY "${SRC}/heap_answers.pl" DESTINATION "${WORK}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g answers heap_answers.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+if(NOT code EQUAL 2 OR NOT err MATCHES "16 MiB")
+  fail("mosa --heap-max 16 must stop a findall whose held answers pass the limit")
+endif()
+file(READ "${SRC}/heap_answers.pl" body)
+file(WRITE "${WORK}/heap_answers_main.pl" "${body}:- initialization(answers, main).\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=16"
+  "${MOSAC}" run heap_answers_main.pl
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200)
+if(NOT code EQUAL 2 OR NOT err MATCHES "16 MiB")
+  fail("mosac run with MOSA_HEAP_MAX=16 must stop a findall whose held answers pass the limit")
+endif()
+
 # 1 MiB の物差し（loop(1000000) と tak(18,12,6,A)）は、空きを生まない GC の規則（ADR 0010 の改訂 B）で止まらない。
 file(COPY "${SRC}/heap_near_limit.pl" DESTINATION "${WORK}")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1 -g yardsticks -t halt heap_near_limit.pl

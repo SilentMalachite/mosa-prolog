@@ -1,6 +1,6 @@
 English | [日本語](0010-gc-heap-growth.ja.md)
 
-Status: Approved (2026-10-30). Amended 2026-10-30 (owner decision B): unproductive GC near the limit stops the query.
+Status: Approved (2026-10-30). Amended 2026-10-30 (owner decision B): unproductive GC near the limit stops the query. Amendment 2 (2026-11-02, review M6, owner decision A; approved by the owner's request to implement M6): words held by running collections count against the limit.
 
 ## Context
 
@@ -29,3 +29,10 @@ Keeping on collecting near the limit (A, before the amendment): each GC costs O(
 On approval, SPEC section 6 (English and Japanese), rows Heap and GC, change from "allocated as `std::vector<Cell>` with an upper bound" to a reserved address range committed as needed, and `docs/iso-notes.md` (English and Japanese) records that there is no atom table GC, so a loop that makes atoms grows the table. Heap, `extras` and trail all plateau; the choice stack grows only with live choice points. `statistics/2`, `garbage_collect/0` and a log flag follow in a later task. No code is written on this ADR before it is approved.
 Since the amendment, a program whose live data stays within about `limit / 16` of the limit is stopped with the heap-limit message after 3 GCs, even if it would have finished slowly; the remedy is a larger `--heap-max` / `MOSA_HEAP_MAX`.
 A program whose live data keeps growing still pays for the productive collections (each freeing at least `limit / 32`) on its way to the stop.
+
+## Amendment 2 (2026-11-02, review M6, owner decision A)
+
+Context: findall/3, bagof/3 and setof/3 keep each answer outside the heap as C++ nodes (ADR 0013, `ExportedTerm` and `Image`, about 360 bytes of RSS for `f(X,X,X)`), so `--heap-max 16` let `findall(f(X,X,X), between(1,10000000,X), L)` reach 3.6 GB before the OOM killer; the limit counted heap words only.
+Decision: a running collection adds the bytes of each kept answer and key (vector capacities included, also the growth of the vectors that hold them), divided by 8 and rounded up, to `Heap::held()`, and gives them back when its `Collecting` state is destroyed (finish, exception, query drop); held words count as heap words everywhere: the allocation fast path stops at `min(committed, limit - held)` and heap growth at `size + held + count > limit`, the safe point compares `size + held` with `gc_threshold`, and adding an answer that makes `size + held` pass the limit throws the same `ResourceLimit("heap_limit")`. `gc_capacity` still grows from live words only; each policy decision widens a copy of it for `live + held` (L for the threshold and the unproductive-GC judgement), so a C widened by held words does not outlast the collection, and with nothing held every decision is the one before this amendment.
+Rejected: B (also store answers as a flat array of 8-byte words, about 10 times denser), a larger change kept for later; counting answers by the heap words they will need when rebuilt, since RSS is the C++ size, so the limit would still let RSS pass it by about 10 times. Consequences: the same `--heap-max` holds about 10 times fewer answers than heap words would; the clause store, the choice stack and other C++ state stay outside the count (review M17).
+

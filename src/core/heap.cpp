@@ -42,22 +42,45 @@ void Heap::grow(std::size_t need) {
   const std::size_t target = std::min(rounded, limit_);
   if (target < need || !range_.commit(target * sizeof(std::uint64_t))) throw ResourceLimit("heap_limit");
   committed_words_ = target;
+  reset_ceiling();
 }
 
+// 外に持つ語も上限に数える（ADR 0010 の改訂 2）。持った分だけ伸ばせる語が減る。天井で来ただけなら commit しない。
 void Heap::grow_for(std::size_t count) {
-  if (count > limit_ || used_ > limit_ - count) throw ResourceLimit("heap_limit");
-  grow(used_ + count);
+  const std::size_t room = held_ < limit_ ? limit_ - held_ : 0;
+  if (count > room || used_ > room - count) throw ResourceLimit("heap_limit");
+  if (used_ + count > committed_words_) grow(used_ + count);
+  else reset_ceiling();
+}
+
+void Heap::reset_ceiling() {
+  const std::size_t room = held_ < limit_ ? limit_ - held_ : 0;
+  ceiling_ = std::max(used_, std::min(committed_words_, room));
+}
+
+void Heap::hold(std::size_t words) {
+  held_ += words;
+  reset_ceiling();
+}
+
+// 返すのは足した収集だけで、足した分を超えない。超えれば別の収集の分まで消えるので、黙って 0 にしない。
+void Heap::release(std::size_t words) {
+  assert(words <= held_);
+  held_ -= std::min(words, held_);
+  reset_ceiling();
 }
 
 // どちらも used_ <= committed_words_ <= limit_（allocate の速い道が頼る不変条件）を壊さない大きさだけを渡すこと。
 void Heap::truncate(std::size_t size) {
   assert(size <= committed_words_);
   used_ = size;
+  reset_ceiling();
 }
 
 void Heap::reset_size_after_gc(std::size_t used) {
   assert(used <= committed_words_);
   used_ = used;
+  reset_ceiling();
 }
 
 std::uint64_t Heap::word_at(std::size_t index) const { return range_.words()[index]; }

@@ -7,6 +7,7 @@
 //   第4引数が部分リストでもリストでもなければ type_error(list, Tail)
 // テスト: tests/pl/solutions.pl
 
+#include "../machine/gc.hpp"
 #include "../machine/internal.hpp"
 #include "solutions_internal.hpp"
 
@@ -466,8 +467,34 @@ bool same_term(Impl& machine, const ExportedTerm& left, const ExportedTerm& righ
   return order == 0;
 }
 
-void remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, VarIds& ids,
-              std::vector<Group>& groups, bool share) {
+// 外に持つ答えの大きさ（ADR 0010 の改訂 2）。RSS に効くのは C++ の大きさなので、ベクタの容量で数える。
+// 割り当ての付け足しは数えない。上限を超えて動き続けないための目安であり、バイトまでは合わせない。
+// 項そのもの（sizeof）は入れ物のベクタの容量で数えるので、ここでは中の節点だけを数える。
+std::size_t footprint(const ExportedTerm& term) {
+  std::size_t bytes = term.nodes.capacity() * sizeof(ExportedTerm::Node);
+  for (const ExportedTerm::Node& node : term.nodes) bytes += node.kids.capacity() * sizeof(int);
+  return bytes;
+}
+
+std::size_t footprint(const Image& image) {
+  std::size_t bytes = image.nodes.capacity() * sizeof(CopyNode);
+  for (const CopyNode& node : image.nodes) bytes += node.kids.capacity() * sizeof(int);
+  return bytes;
+}
+
+// 入れ物のベクタが伸びた分。倍々に伸ばすので、使っていない余りも RSS に入る（レビュー A5）。
+template <typename T, typename U>
+std::size_t pushed(std::vector<T>& items, U&& item) {
+  const std::size_t before = items.capacity();
+  items.push_back(std::forward<U>(item));
+  return (items.capacity() - before) * sizeof(T);
+}
+
+std::size_t words_of(std::size_t bytes) { return (bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t); }
+
+// 返り値は新しく持ったバイト数。同じ鍵の組へ足すときは鍵の写しを捨てるので、答えの分だけ。
+std::size_t remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, VarIds& ids,
+                     std::vector<Group>& groups, bool share) {
   ids.reset_local();
   note_alias(machine, ids);
   const ExportedTerm key_copy = export_term(machine, coded_key(machine, witnesses, ids));
@@ -475,17 +502,16 @@ void remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, Var
   Image image;
   if (share) image = snapshot(machine, witnesses, templ, ids);
   else templ_copy = export_term(machine, templ);
+  const std::size_t answer = share ? footprint(image) : footprint(templ_copy);
   for (Group& group : groups) {
     if (!same_term(machine, group.key, key_copy)) continue;
-    if (share) group.shots.push_back(std::move(image));
-    else group.templs.push_back(templ_copy);
-    return;
+    if (share) return answer + pushed(group.shots, std::move(image));
+    return answer + pushed(group.templs, std::move(templ_copy));
   }
   Group created;
   created.key = key_copy;
-  if (share) created.shots.push_back(std::move(image));
-  else created.templs.push_back(std::move(templ_copy));
-  groups.push_back(std::move(created));
+  const std::size_t inner = share ? pushed(created.shots, std::move(image)) : pushed(created.templs, std::move(templ_copy));
+  return answer + inner + footprint(key_copy) + pushed(groups, std::move(created));
 }
 
 // base は「呼ぶ前からあったセル」の境の水位なので、語の生死ではなく heap_mark として写す。
@@ -512,7 +538,11 @@ void visit_ids(GcVisitor& visitor, VarIds& ids) {
 
 // 動いている収集の状態（ADR 0013）。Pick::Collect の Entry が持ち、GC は Entry を通して辿る。
 // goal は findall などの呼び出しの枠で、終わりに引数と継続を読む。templ・witnesses・hidden は呼ぶ前からあった項。
+// 持った語は、終わり・例外・問い合わせの破棄のどれで壊れても Heap へ返す（ADR 0010 の改訂 2）。
+// Impl の中ではヒープがスタックより先に宣言されているので、スタックの片付けの間もヒープは生きている。
 struct Collecting final : Collector {
+  Heap* heap = nullptr;
+  std::size_t held = 0;
   Which which = Which::None;
   Goal goal;
   Cell templ{};
@@ -528,6 +558,13 @@ struct Collecting final : Collector {
     for (Cell& cell : witnesses) visitor.cell(cell);
     for (Cell& cell : hidden) visitor.cell(cell);
     visit_ids(visitor, ids);
+  }
+
+  Collecting() = default;
+  Collecting(const Collecting&) = delete;
+  Collecting& operator=(const Collecting&) = delete;
+  ~Collecting() override {
+    if (heap != nullptr) heap->release(held);
   }
 };
 
@@ -563,7 +600,12 @@ Collecting& collecting(Entry& entry) { return static_cast<Collecting&>(*entry.co
 
 void collect_step(Impl& machine, std::size_t entry) {
   Collecting& state = collecting(machine.stack[entry]);
-  remember(machine, state.templ, state.witnesses, state.ids, state.packet.groups, state.which != Which::Findall);
+  const std::size_t bytes =
+      remember(machine, state.templ, state.witnesses, state.ids, state.packet.groups, state.which != Which::Findall);
+  // 先に数えてから上限を確かめる。投げても、Collecting の破棄が同じ語数を返す。
+  const std::size_t words = words_of(bytes);
+  state.held += words;
+  hold_answer_words(machine, words);
   machine.failed = true;
 }
 
@@ -600,6 +642,7 @@ bool run_solutions(Impl& machine, const Goal& call) {
   if (bad_list(machine, call)) return true;
   if (bad_tail(machine, call)) return true;
   auto state = std::make_shared<Collecting>();
+  state->heap = &machine.heap;
   state->which = which;
   state->goal = call;
   state->templ = call.arg(machine, 0);

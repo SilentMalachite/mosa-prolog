@@ -97,6 +97,11 @@ add_executable(heap_growth_test tests/cpp/heap_growth_test.cpp)
 target_include_directories(heap_growth_test PRIVATE tests/cpp)
 target_link_libraries(heap_growth_test PRIVATE mosa_lib)
 add_test(NAME heap_growth COMMAND $<TARGET_FILE:heap_growth_test>)
+# レビュー M6（ADR 0010 の改訂 2）。findall/bagof/setof が持つ答えを上限に数える。
+add_executable(collect_limit_test tests/cpp/collect_limit_test.cpp)
+target_include_directories(collect_limit_test PRIVATE tests/cpp src)
+target_link_libraries(collect_limit_test PRIVATE mosa_lib)
+add_test(NAME collect_limit COMMAND $<TARGET_FILE:collect_limit_test>)
 
 # mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
 add_executable(gc_test tests/cpp/gc_test.cpp)

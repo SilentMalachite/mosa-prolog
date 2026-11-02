@@ -102,6 +102,9 @@ void collect_garbage(Machine::Impl& machine);  // 無条件に 1 回
 void gc_safe_point(Machine::Impl& machine);    // run_loop が step の前に呼ぶ。比較 1 回で抜けるのが普通
 // 空きを生まない GC の数と空きの基準を戻す（ADR 0010 の改訂 B）。問い合わせ・consult・load_program の始まりで呼ぶ。
 void reset_gc_judgement(Machine::Impl& machine);
+// ADR 0010 の改訂 2。収集が答えを外に持つたびに語数を足し、上限を超えれば ResourceLimit("heap_limit")。
+// 返すのは Collecting の破棄（Heap::release）で、安全点が trigger を直す。
+void hold_answer_words(Machine::Impl& machine, std::size_t words);
 // Impl の構築で呼ぶ。柔らかい容量と閾値を上限から決め、MOSA_GC_STRESS を読む。
 void init_gc(Machine::Impl& machine);
 // 旗 trace_gc の 1 行（改行なし）。numbers は回数・前後の KiB・容量の KiB・ミリ秒の 5 つで、鍵 gc_trace の ~w に入る。

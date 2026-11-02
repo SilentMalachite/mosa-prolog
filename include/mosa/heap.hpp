@@ -46,6 +46,10 @@ class Heap {
   // 今 commit してある語数。上限（limit）までの途中の段階であり、allocate が足りなければ伸ばす。
   [[nodiscard]] std::size_t committed() const { return committed_words_; }
   [[nodiscard]] std::size_t capacity() const { return committed_words_; }
+  // ヒープの外に持ち、上限ではヒープの語と同じに数える語（ADR 0010 の改訂 2。動いている収集の答え）。
+  [[nodiscard]] std::size_t held() const { return held_; }
+  void hold(std::size_t words);
+  void release(std::size_t words);
   [[nodiscard]] const std::uint64_t* data() const { return range_.words(); }
   void truncate(std::size_t size);
   // GC が生きている語を詰めたあとの大きさ。truncate と同じ動きだが、呼ぶ意図を名前で分ける。
@@ -80,8 +84,9 @@ class Heap {
 
  private:
   [[nodiscard]] std::uint64_t* allocate(std::size_t count) {
-    // used_ <= committed_words_ <= limit_ が常に成り立つので、引き算はあふれない。
-    if (count > committed_words_ - used_) [[unlikely]] grow_for(count);
+    // used_ <= ceiling_ <= committed_words_ <= limit_ が常に成り立つので、引き算はあふれない。
+    // ceiling_ は持った語の分だけ commit 済みより低い。commit 済みの中の確保でも持った語を数える（ADR 0010 の改訂 2）。
+    if (count > ceiling_ - used_) [[unlikely]] grow_for(count);
     auto* slot = range_.words() + used_;
     used_ += count;
     return slot;
@@ -91,6 +96,8 @@ class Heap {
   // need 語までを commit する。1 MiB 単位に切り上げ、上限か OS の断りで ResourceLimit。
   void grow(std::size_t need);
   [[nodiscard]] const std::uint64_t* pointer(Cell cell) const;
+  // 速い道の天井 min(commit 済み, 上限 - 持った語) を決め直す。used_ より下には置かない。
+  void reset_ceiling();
 
   AtomTable& atoms_;
   std::size_t limit_;
@@ -98,6 +105,8 @@ class Heap {
   // 上限までの番地を構築時に予約する。size() は使った語数、committed_words_ は使える語数。
   AddressRange range_;
   std::size_t committed_words_ = 0;
+  std::size_t held_ = 0;
+  std::size_t ceiling_ = 0;
 };
 
 }
