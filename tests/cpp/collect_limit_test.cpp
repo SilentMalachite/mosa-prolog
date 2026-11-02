@@ -27,6 +27,8 @@ constexpr std::string_view k_program =
     "garbage(N) :- mk(1000, _), N1 is N - 1, garbage(N1).\n"
     "burn(0) :- !.\n"
     "burn(N) :- length(_, 1000), N1 is N - 1, burn(N1).\n"
+    // 答えごとに使わない長さ 1000 のリストを残して、長さ 100 のリストを答える。
+    "gen(N, L) :- N > 0, length(_, 1000), ( length(L, 100) ; N1 is N - 1, gen(N1, L) ).\n"
     // 1 万個ごとに印を残す。止まった後に、どこまで集めたかを読む。
     "note(X) :- ( X mod 10000 =:= 0 -> assertz(seen(X)) ; true ).\n"
     "furthest(M) :- findall(S, seen(S), L), ( L == [] -> M = 0 ; max_list_(L, M) ).\n"
@@ -113,6 +115,14 @@ void check_stale_live() {
                               "(X =:= 30000 -> burn(400) ; true)), L), length(L, 30000).");
   mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success,
                    "stale: live words freed by backtracking are not counted again");
+  // 縮んだ見積もりは、次の GC まで、ゴミでヒープがまた伸びても戻さない（Codex レビュー 2 回目の P2）。
+  auto again = mosa::Machine::create(k_limit);
+  mosa_test::check(again->load_program(k_program).ok, "stale regrow: load");
+  const Outcome regrow = run(*again,
+                             "findall(T, ((btw(1, 28000, X), T = f(X,X,X)) ; (length(A, 240000), garbage_collect, "
+                             "A = [_|_], fail) ; gen(250, T)), L), length(L, 28250).");
+  mosa_test::check(!regrow.limited && regrow.kind == mosa::StopKind::Success,
+                   "stale regrow: garbage after the shrink is not counted as live");
 }
 
 // 止まった後も、上限の大半を使う収集がまた通る。持った語を返していなければ、ここで止まる。

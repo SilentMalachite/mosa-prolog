@@ -467,8 +467,8 @@ struct Machine::Impl {
   std::size_t gc_threshold = 0;
   // 安全点の速い道の比較に使う値。通常は gc_threshold と同じで、stress 中は 0（毎回 gc_safe_point に入る）。
   std::size_t gc_trigger = 0;
-  // 前の GC の後に生きていた語と、閾値を決めたときの Heap::held()（ADR 0010 の改訂 2）。持つ語が変われば
-  // 安全点が閾値を決め直す。
+  // 前の GC の後に生きていた語（バックトラックで縮めば、決め直しのときに今のヒープの大きさまで下げる）と、
+  // 閾値を決めたときの Heap::held()（ADR 0010 の改訂 2）。持つ語が変われば安全点が閾値を決め直す。
   std::size_t gc_last_live = 0;
   std::size_t gc_tuned_held = 0;
   // C が天井にあるとき、閾値で始めた GC のうち空きを生まなかったものの連続回数（ADR 0010 の改訂 B）。
