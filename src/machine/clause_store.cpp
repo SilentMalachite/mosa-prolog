@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <deque>
 #include <iterator>
 #include <optional>
 #include <utility>
@@ -29,22 +28,14 @@ void drop_index(FirstArgIndex& index) {
 void index_add(FirstArgIndex& index, const Clause& clause, bool at_back) {
   if (!index.built) return;
   const auto key = clause_key(clause);
-  std::deque<std::size_t>& ids = key ? index.buckets[*key] : index.keyless;
+  IdBucket& ids = key ? index.buckets[*key] : index.keyless;
   if (at_back) ids.push_back(clause.id);
   else ids.push_front(clause.id);
 }
 
 // 組の first なら先頭、last なら末尾の番号が id なら外す。どちらでも外せなければ偽。
-bool pop_end(std::deque<std::size_t>& ids, std::size_t id, bool first, bool last) {
-  if (first && !ids.empty() && ids.front() == id) {
-    ids.pop_front();
-    return true;
-  }
-  if (last && !ids.empty() && ids.back() == id) {
-    ids.pop_back();
-    return true;
-  }
-  return false;
+bool pop_end(IdBucket& ids, std::size_t id, bool first, bool last) {
+  return (first && ids.pop_front_id(id)) || (last && ids.pop_back_id(id));
 }
 
 // 節の列の先頭か末尾の節は、番号が最小か最大なので、その組（か keyless）の同じ端にある。真ん中の節は組の中を

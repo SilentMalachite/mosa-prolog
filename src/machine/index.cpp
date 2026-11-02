@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <limits>
 #include <optional>
 #include <vector>
@@ -75,7 +74,7 @@ std::vector<std::size_t> index_candidates(const Predicate& predicate, const std:
                                           std::uint64_t generation) {
   if (!predicate.index.built) build_index(predicate);
   const FirstArgIndex& index = predicate.index;
-  const std::deque<std::size_t>* bucket = nullptr;
+  const IdBucket* bucket = nullptr;
   if (wanted) {
     const auto found = index.buckets.find(*wanted);
     if (found != index.buckets.end()) bucket = &found->second;
@@ -83,7 +82,7 @@ std::vector<std::size_t> index_candidates(const Predicate& predicate, const std:
   const std::size_t keyed = bucket == nullptr ? 0 : bucket->size();
   std::vector<std::size_t> chosen;
   chosen.reserve(keyed + index.keyless.size());
-  const std::deque<std::size_t>& keyless = index.keyless;
+  const IdBucket& keyless = index.keyless;
   std::size_t at = 0;
   std::size_t other = 0;
   while (at < keyed || other < keyless.size()) {
@@ -94,6 +93,45 @@ std::vector<std::size_t> index_candidates(const Predicate& predicate, const std:
 }
 
 }  // namespace
+
+bool IdBucket::pop_front_id(std::size_t id) {
+  if (!prepended_.empty()) {
+    if (prepended_.back() != id) return false;
+    prepended_.pop_back();
+    return true;
+  }
+  if (start_ == appended_.size() || appended_[start_] != id) return false;
+  ++start_;
+  // 外した分が半分を超えたら詰める。詰めて動かす番号は外した数より少ないので、ならせば 1 回 O(1)。
+  if (start_ * 2 > appended_.size()) {
+    appended_.erase(appended_.begin(), appended_.begin() + static_cast<std::ptrdiff_t>(start_));
+    start_ = 0;
+  }
+  return true;
+}
+
+// appended が尽きたら最大の番号は prepended の最初の要素で、vector の先頭を消すと残りが全部ずれる。prepended を
+// 昇順で appended へ移してから末尾を外す。番号は prepended から appended へ一度しか移らないので、ならせば O(1)。
+bool IdBucket::pop_back_id(std::size_t id) {
+  if (start_ == appended_.size() && !prepended_.empty()) {
+    appended_.assign(prepended_.rbegin(), prepended_.rend());
+    prepended_.clear();
+    start_ = 0;
+  }
+  if (start_ == appended_.size() || appended_.back() != id) return false;
+  appended_.pop_back();
+  if (start_ == appended_.size()) {
+    appended_.clear();
+    start_ = 0;
+  }
+  return true;
+}
+
+void IdBucket::clear() {
+  prepended_.clear();
+  appended_.clear();
+  start_ = 0;
+}
 
 std::size_t IndexKeyHash::operator()(const IndexKey& key) const noexcept {
   // 整数の鍵は連番になりやすい。種類とアリティを混ぜてから splitmix64 の仕上げで散らす。

@@ -357,11 +357,23 @@ test(m3_index_extend_open, (m3_ta(j, X), (X == 0 -> asserta(m3_ta(j, -1)), asser
 test(m3_index_extend_left, findall(X, m3_ta(j, X), L), solutions([L = [-1, 0, 2, 4, 6, 9, 10, 11]])).
 % 先頭、末尾、真ん中の節を消す。消した節は次の呼び出しに出ない。
 test(m3_index_erase, (retract(m3_ta(j, -1)), retract(m3_ta(j, 11)), retract(m3_ta(k, 5)), findall(X, m3_ta(j, X), J), findall(X, m3_ta(k, X), K)), solutions([(J = [0, 2, 4, 6, 9, 10], K = [1, 2, 3, 4, 6, 7, 8, 9])])).
+% 索引の組の両端を外す。前から 9 節消すと組の始まりが半分を越えて詰め直し、後ろから消し尽くすと asserta した番号を
+% 後ろから外す。どれも呼び出しの時点で 8 節以上あり、索引を引く。
+test(m3_bucket_pop_front, (m3_qe_fill(1, 16), findall(X, m3_qe(k, X), _), m3_qe_drop(1, 9), m3_qe_fill(17, 18), findall(X, m3_qe(k, X), L)), solutions([L = [10, 11, 12, 13, 14, 15, 16, 17, 18]])).
+test(m3_bucket_pop_back, (asserta(m3_qe(k, 9)), asserta(m3_qe(k, 8)), asserta(m3_qe(k, 7)), m3_qe_drop_down(18, 9), m3_qe_fill(19, 25), findall(X, m3_qe(k, X), L)), solutions([L = [7, 8, 19, 20, 21, 22, 23, 24, 25]])).
+test(m3_bucket_after_move, (asserta(m3_qe(k, 6)), retract(m3_qe(k, 6)), asserta(m3_qe(k, 5)), findall(X, m3_qe(k, X), L)), solutions([L = [5, 7, 8, 19, 20, 21, 22, 23, 24, 25]])).
 % 読み直しは節を置き換える。前の読み込みの鍵の組を引かないこと。ctest は prolog_tests と差分テストを同時に流すので、
 % 中身ごとに別のファイルにし、同じパスへ違う中身を書き合わないようにする。
 test(m3_reconsult_first, (m3_write_clauses('tests/tmp/m3_reconsult_1.pl', [m3_rc(a, 1), m3_rc(b, 2), m3_rc(_, 3), m3_rc(c, 4), m3_rc(a, 5), m3_rc(d, 6), m3_rc(e, 7), m3_rc(c, 8), m3_rc(f, 9)]), consult('tests/tmp/m3_reconsult_1.pl'), findall(X, m3_rc(c, X), L)), solutions([L = [3, 4, 8]])).
 test(m3_reconsult, (m3_write_clauses('tests/tmp/m3_reconsult_2.pl', [m3_rc(c, 10), m3_rc(g, 11), m3_rc(h, 12), m3_rc(_, 13), m3_rc(i, 14), m3_rc(j, 15), m3_rc(c, 16), m3_rc(k, 17), m3_rc(l, 18)]), consult('tests/tmp/m3_reconsult_2.pl'), findall(X, m3_rc(c, X), C), findall(X, m3_rc(a, X), A)), solutions([(C = [10, 13, 16], A = [13])])).
 
+:- dynamic(m3_qe/2).
+m3_qe_fill(I, N) :- I > N, !.
+m3_qe_fill(I, N) :- assertz(m3_qe(k, I)), I1 is I + 1, m3_qe_fill(I1, N).
+m3_qe_drop(I, N) :- I > N, !.
+m3_qe_drop(I, N) :- retract(m3_qe(k, I)), I1 is I + 1, m3_qe_drop(I1, N).
+m3_qe_drop_down(I, N) :- I < N, !.
+m3_qe_drop_down(I, N) :- retract(m3_qe(k, I)), I1 is I - 1, m3_qe_drop_down(I1, N).
 % 第1引数で節を選ぶので、選択点を残さない。読み込みは選択点が残っていると述語を置き換えない。
 m3_write_clauses(Path, Clauses) :- open(Path, write, S), m3_put_clauses(Clauses, S), close(S).
 m3_put_clauses([], _).
