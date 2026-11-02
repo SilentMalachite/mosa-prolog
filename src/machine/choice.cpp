@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -117,6 +118,14 @@ std::optional<std::size_t> advance_list(const Predicate& predicate, Entry& entry
   return position;
 }
 
+// 積む位置とそれより上を指す記録は外した枠のものなので、足す前に捨てる。記録は位置の昇順に並び、枠の数より
+// 増えない。
+void note_scan(Impl& machine, const Entry& entry) {
+  std::vector<ScanRecord>& log = machine.scan_log;
+  while (!log.empty() && log.back().index >= machine.stack.size()) log.pop_back();
+  log.push_back(ScanRecord{machine.stack.size(), entry.effect_id});
+}
+
 }  // namespace
 
 void restore_state(Impl& machine, std::size_t heap_mark, std::size_t trail_mark, std::size_t extras_mark) {
@@ -154,11 +163,18 @@ void prune_catch_log(Impl& machine) {
   }
 }
 
+void prune_scan_log(Impl& machine) {
+  std::erase_if(machine.scan_log, [&machine](const ScanRecord& record) {
+    return record.index >= machine.stack.size() || machine.stack[record.index].effect_id != record.id;
+  });
+}
+
 void push_frame(Impl& machine, Entry entry) {
   entry.extras_mark = machine.extras.size();
   // query の Cleanup はここを通さないので印は 0。通った枠より後ろの op/3 だけを戻す。
   entry.effect_id = ++machine.effect_clock;
   note_catches(machine, entry);
+  if (entry.pick == Pick::Clauses || entry.pick == Pick::ClauseScan) note_scan(machine, entry);
   machine.stack.push_back(std::move(entry));
 }
 

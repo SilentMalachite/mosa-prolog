@@ -257,10 +257,13 @@ bool scan_reaches(const Entry& entry, PredKey key, const Clause& clause) {
   return std::binary_search(entry.candidates.begin() + untried, entry.candidates.end(), clause.id);
 }
 
-// 開いた走査のどれかがこの節をまだ試しうるか。届かない節は消してよい。
-bool reachable(const Impl& machine, PredKey key, const Clause& clause) {
-  return std::any_of(machine.stack.begin(), machine.stack.end(),
-                     [&](const Entry& entry) { return scan_reaches(entry, key, clause); });
+// 開いた走査のどれかがこの節をまだ試しうるか。届かない節は消してよい。見るのは記録した節の走査だけで、retract の
+// 選択点や制御の枠がいくつ積もっても手間は増えない。
+bool reachable(Impl& machine, PredKey key, const Clause& clause) {
+  prune_scan_log(machine);
+  return std::any_of(machine.scan_log.begin(), machine.scan_log.end(), [&](const ScanRecord& record) {
+    return scan_reaches(machine.stack[record.index], key, clause);
+  });
 }
 
 // 消した世代を付ける。消した節に付け直すと、その間に始めた走査の見え方が変わる。
@@ -299,14 +302,18 @@ void trim_ends(Impl& machine, Predicate& predicate, PredKey key) {
   }
 }
 
+bool sweep_due(const Predicate& predicate) {
+  return predicate.abolished || 2 * predicate.dead_since > predicate.clauses.size();
+}
+
 // 変更の前に呼ぶ。端の死んだ節を消し、前の掃除から残した節が半分を超えたか abolish 済みなら一度に掃除する。
-// 掃除は節の数に比例するが、半分を超える数の削除に 1 回なので、ならせば削除 1 回あたり O(1)。節が尽きた
-// abolish 済みの述語は表からも消す。
+// 掃除は節の数に比例するが、半分を超える数の削除に 1 回なので、ならせば削除 1 回あたり O(1)。掃除は端の節も
+// 消すので、掃除するときは端を一つずつ確かめない。節が尽きた abolish 済みの述語は表からも消す。
 Predicate* purge_dead(Impl& machine, Predicate* predicate) {
   if (predicate == nullptr) return nullptr;
   const PredKey key{predicate->module, predicate->name, predicate->arity};
-  trim_ends(machine, *predicate, key);
-  if (predicate->abolished || 2 * predicate->dead_since > predicate->clauses.size()) sweep_dead(machine, *predicate);
+  if (!sweep_due(*predicate)) trim_ends(machine, *predicate, key);
+  if (sweep_due(*predicate)) sweep_dead(machine, *predicate);
   if (!predicate->abolished || !predicate->clauses.empty()) return predicate;
   erase_predicate(machine, key.module, key.name, key.arity);
   return nullptr;
@@ -578,12 +585,14 @@ void run_abolish(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
-// 開いた走査を一度だけ集め、死んだ節ごとにはその分だけを見る。節ごとに reachable でスタック全体をなめると、
-// 走査ではない枠の数まで節の数に掛かる。読み込みが abolish 済みの枠を使い直すときにも呼ぶ（ADR 0008）。
+// この述語の開いた走査を記録から一度だけ集め、死んだ節ごとにはその分だけを見る。節ごとに reachable で記録を
+// なめると、ほかの述語の走査の数まで節の数に掛かる。読み込みが abolish 済みの枠を使い直すときにも呼ぶ（ADR 0008）。
 void sweep_dead(Impl& machine, Predicate& predicate) {
   const PredKey key{predicate.module, predicate.name, predicate.arity};
+  prune_scan_log(machine);
   std::vector<const Entry*> scans;
-  for (const Entry& entry : machine.stack) {
+  for (const ScanRecord& record : machine.scan_log) {
+    const Entry& entry = machine.stack[record.index];
     if (scans_pred(entry, key.module, key.name, key.arity)) scans.push_back(&entry);
   }
   std::vector<bool> held(predicate.clauses.size(), false);

@@ -185,6 +185,13 @@ struct CatchRecord {
   std::uint64_t id = 0;
 };
 
+// 開いた Clauses・ClauseScan の枠のスタック位置と effect_id（ADR 0015）。外した枠の位置には別の枠が積まれうるので、
+// effect_id が合わない記録はもう開いていない。
+struct ScanRecord {
+  std::size_t index = 0;
+  std::uint64_t id = 0;
+};
+
 struct Entry {
   Pick pick = Pick::Clauses;
   std::size_t heap_mark = 0;
@@ -415,6 +422,9 @@ struct Machine::Impl {
   // 上に選択点を残したまま抜けた（無効にした）Catch。選択点ごとに有効な Catch を写すと、同時に生きている
   // 選択点の数の 2 乗になる（ADR 0011 の改訂 3）。
   std::vector<CatchRecord> catch_log;
+  // 消した節にまだ届く走査を探すとき、スタック全体でなく開いた節の走査だけを見る（レビュー M3）。retract の枠は
+  // 消した節を試さないので載せない。載せると、選択点を残す retract の N 回が N の 2 乗になる。
+  std::vector<ScanRecord> scan_log;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
@@ -612,6 +622,8 @@ void note_catches(const Impl& machine, Entry& entry);
 void apply_catches(Impl& machine, const Entry& entry);
 // スタックが縮んだ後、外した Catch を指す末尾の記録を捨てる。カットで縮み続ける決定的な再帰で記録が溜まらない。
 void prune_catch_log(Impl& machine);
+// 外した枠を指す scan_log の記録を捨てる。残った記録はどれも今のスタックの開いた節の走査を指す。
+void prune_scan_log(Impl& machine);
 void push_frame(Impl& machine, Entry entry);
 // ゴールの位置にある、制御構造でない項（葉）の型を見る。
 using GoalLeafOk = bool (*)(IrTag tag);

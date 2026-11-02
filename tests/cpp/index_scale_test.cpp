@@ -44,11 +44,14 @@ constexpr std::string_view k_program =
     "cks(N) :- cks(1, N).\n"
     "cks(I, N) :- I =< N, !, clause(p(I, _), true), I1 is I + 1, cks(I1, N).\n"
     "cks(_, _).\n"
-    // カットで retract の選択点を外す。残すと選択点が N 個積もり、節を消すたびにそれを全部見る。
-    "rf1 :- retract(p(_, _)), !.\n"
+    // retract の選択点は外さずに残す。N 個積もっても、節を消すたびにそれを見てはいけない（todo の待ち行列の形）。
     "rfs(N) :- rfs(1, N).\n"
-    "rfs(I, N) :- I =< N, !, rf1, I1 is I + 1, rfs(I1, N).\n"
+    "rfs(I, N) :- I =< N, !, retract(p(_, _)), I1 is I + 1, rfs(I1, N).\n"
     "rfs(_, _).\n"
+    "rf1 :- retract(p(_, _)), !.\n"
+    "rfcs(N) :- rfcs(1, N).\n"
+    "rfcs(I, N) :- I =< N, !, rf1, I1 is I + 1, rfcs(I1, N).\n"
+    "rfcs(_, _).\n"
     // 節の数の 1/4 から 12 おきに、真ん中の節を消して末尾へ足し直し、鍵で引く。
     "upd(N) :- K is N // 25, upd(0, K, N).\n"
     "upd(J, K, _) :- J >= K, !.\n"
@@ -120,8 +123,10 @@ int main() {
   // 第1引数が未束縛の retract と clause/2 の走査。やり直しのたびに節を集め直すか写すと、N の 2 乗になる。
   check_linear("retract scan", 2500, "(retract(p(_, _)), fail ; true).");
   check_linear("clause/2 scan", 2500, "(clause(p(_, _), true), fail ; true).");
-  // 先頭の 1 節だけが要る retract が全部の節を集めると、1 回が N かかる。
-  check_linear("retract from front", 2500, [](std::size_t n) { return "rfs(" + std::to_string(n) + ")."; });
+  // 先頭の 1 節だけが要る retract が全部の節を集めると、1 回が N かかる。選択点を残したままの retract は、消すたびに
+  // 選択点を全部見ても N の 2 乗になる。カットで外す形も足す。
+  check_linear("retract from front", 5000, [](std::size_t n) { return "rfs(" + std::to_string(n) + ")."; });
+  check_linear("retract from front, cut", 2500, [](std::size_t n) { return "rfcs(" + std::to_string(n) + ")."; });
   // 真ん中の節を消すたびに索引を捨てると、次の鍵の呼び出しが索引を作り直し、1 回が N かかる（Ruling 10）。
   check_linear("update by key", 2500, [](std::size_t n) { return "upd(" + std::to_string(n) + ")."; });
   return mosa_test::failures();
