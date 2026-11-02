@@ -51,6 +51,9 @@ using EnvRef = std::shared_ptr<EnvCells>;
 [[nodiscard]] GoalRef sub_goal(const GoalRef& goal, std::size_t index);
 [[nodiscard]] EnvRef make_env(std::vector<Cell> cells);
 
+// Clause::died の「まだ消していない」。どの世代もこれより小さいので、生きた節はどの走査にも消えて見えない。
+inline constexpr std::uint64_t kAlive = UINT64_MAX;
+
 struct Clause {
   // ADR 0015。述語の中で変わらず、繰り返さない番号。clauses の中では狭義に増える。振るのは clause_store.cpp だけ。
   std::size_t id = 0;
@@ -62,15 +65,26 @@ struct Clause {
   std::uint16_t key_arity = 0;
   std::int64_t key_int = 0;
   double key_float = 0;
-  // ADR 0008。開いた走査がまだ試していない節を消すと、消さずにこの印を付ける。新しい呼び出しは飛ばす。
-  bool dead = false;
+  // ADR 0015。足したときと消したときのデータベースの世代。走査は自分の世代に生きていた節だけを見る（7.5.4）。
+  // 消した節は、まだ届く走査がある間だけ残る。新しい呼び出しは died を持つ節を飛ばす。
+  std::uint64_t born = 0;
+  std::uint64_t died = kAlive;
+  [[nodiscard]] bool dead() const { return died != kAlive; }
   // スロットごとの原文の変数名（名前の無い変数は空）。読み込んだ節だけが持ち、mosac のコメントだけが読む。
   // 意味は持たないので指紋には数えない。
   std::vector<std::string> names;
 };
 
+// 世代 generation に始めた走査がこの節を見るか。足すより前の走査と、消した後の走査には見えない。
+[[nodiscard]] inline bool visible(const Clause& clause, std::uint64_t generation) {
+  return clause.born <= generation && generation < clause.died;
+}
+
 // 先頭へ足しても後ろの節を動かさない（ADR 0015）。位置で引く enter_clause・mosac・指紋のために添字でも引ける。
 using ClauseList = std::deque<Clause>;
+
+// Entry::cursor の「もう試す節が無い」。番号は 2^62 の前後から振るので、この値は節の番号にならない。
+inline constexpr std::size_t kNoClause = SIZE_MAX;
 
 // 番号は真ん中から振り始める。asserta は下へ、assertz は上へ伸ばすので、どちらへ 2^62 回足してもあふれない。
 // 2^62 を置くには 64 ビットの size_t が要る（CI の 3 つの OS はどれも 64 ビット）。
@@ -106,7 +120,7 @@ struct Predicate {
   // [first_id, next_id) が振った番号の範囲。節を消しても縮めないので、消した節の番号を別の節が使わない。
   std::size_t first_id = kFirstClauseId;
   std::size_t next_id = kFirstClauseId;
-  // dead でない節の数。clause_store.cpp と kill_clause の印付けだけが変える。
+  // dead() でない節の数。clause_store.cpp と kill_clause の died の書き込みだけが変える。
   std::size_t live = 0;
   bool seen = false;
   bool dynamic = false;
@@ -175,6 +189,12 @@ struct Entry {
   // PredGen は述語ベクタの添字、StreamGen と Native は状態。
   std::vector<std::size_t> candidates;
   std::size_t next = 0;
+  // Clauses・Retract・ClauseScan の走査を始めたときの Impl::db_generation。消した節がまだこの走査に届くかを決める。
+  std::uint64_t generation = 0;
+  // by_cursor の Clauses は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）だけを持つ。第1引数が
+  // 未束縛の呼び出しは全部の節が候補なので、列を作ると呼ぶたびに節の数だけかかる（レビュー M3）。
+  std::size_t cursor = kNoClause;
+  bool by_cursor = false;
   std::uint32_t pred_module = 0;
   std::uint32_t pred_name = 0;
   std::uint16_t pred_arity = 0;
@@ -369,6 +389,9 @@ struct Machine::Impl {
   std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
+  // 節を足すたびと消すたびに 1 つ進める（ADR 0015）。走査はこの値を世代として持ち、それより後の変更を見ない。
+  // 64 ビットなので、変更をいくつ重ねてもあふれず、kAlive にも届かない。
+  std::uint64_t db_generation = 0;
   std::vector<Module> modules;
   std::uint32_t user_module = 0;
   std::uint32_t system_module = 0;
@@ -525,14 +548,19 @@ struct LaunchNext {
                                    const EnvRef& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
 // 定義は clause_store.cpp。Predicate::clauses を書くのはここだけで、番号・first_id・next_id・live をここで保つ
-// （ADR 0015）。append と prepend は新しい番号を振る。replace は渡された番号を残し、範囲をそれが入るまで広げる。
-void append_clause(Predicate& predicate, Clause clause);
-void prepend_clause(Predicate& predicate, Clause clause);
+// （ADR 0015）。append と prepend は新しい番号を振り、born を節の世代にする。replace は渡された番号と世代を残し、
+// 範囲をそれが入るまで広げる。
+void append_clause(Predicate& predicate, Clause clause, std::uint64_t born);
+void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born);
 void replace_clauses(Predicate& predicate, ClauseList clauses);
 void clear_clauses(Predicate& predicate);
 void erase_clause_id(Predicate& predicate, std::size_t id);
 // 番号の節の位置。無い番号は nullopt。
 [[nodiscard]] std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id);
+// 番号が id 以上の最初の節の位置。無ければ clauses.size()。
+[[nodiscard]] std::size_t clause_from(const Predicate& predicate, std::size_t id);
+// 位置 from から先で、世代 generation の走査に見える最初の節の位置。無ければ clauses.size()。
+[[nodiscard]] std::size_t next_visible(const Predicate& predicate, std::size_t from, std::uint64_t generation);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
 Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);

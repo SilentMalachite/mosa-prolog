@@ -156,7 +156,7 @@ std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predic
   }
   hash.word(live_count(predicate));
   for (const Clause& clause : predicate.clauses) {
-    if (clause.dead) continue;
+    if (clause.dead()) continue;
     hash.word(clause.vars);
     hash_term(hash, atoms, clause.head);
     hash_term(hash, atoms, *clause.body);

@@ -44,7 +44,7 @@ std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& pr
   const bool any = !has_arg || machine.heap.unbound(machine.heap.deref(first));
   for (std::size_t position = 0; position < predicate.clauses.size(); ++position) {
     const Clause& clause = predicate.clauses[position];
-    if (clause.dead || (!any && !matches(machine, clause, first))) continue;
+    if (clause.dead() || (!any && !matches(machine, clause, first))) continue;
     if (chosen.empty()) first_position = position;
     chosen.push_back(clause.id);
   }

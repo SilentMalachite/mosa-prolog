@@ -14,7 +14,7 @@
 //     ext_raw は答えに戻すので強い参照。ADR 0013）、env と pattern はセル、redo_goal と cont は枠、heap_mark・trail_mark・extras_mark は
 //     水位。cut・catch_mark・native_cut・Extra::trim_to・Impl::catch_log は選択点スタックの高さか添字で、ヒープではないので触らない。
 //     candidates は節の番号（Clause::id、ADR 0015）か生成関数の状態（native_control.cpp の push_branch は語 1 の下位
-//     32 ビットの状態）で、ヒープの添字ではない。
+//     32 ビットの状態）で、ヒープの添字ではない。cursor も節の番号、generation はデータベースの世代で、触らない。
 //   Extra（extras）はルートではない。制御枠の語 1 から届いたものだけが生き、その env（セル）と cont（枠）を辿る。
 //   env は Entry と Extra が共有するので、どちらからも GcVisitor::env を通して 1 度だけ辿る（ADR 0011 の改訂 3）。
 //   Trail::slots は弱い参照。印の付いた語を指す項目だけを残す。

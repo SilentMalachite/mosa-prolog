@@ -135,7 +135,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   detach_native(machine, predicate);
   predicate.seen = true;
   last = index;
-  append_clause(predicate, std::move(clause));
+  // 読み込みの節も assert と同じく世代を進める。読み込みの中のゴールが開いた走査は、後から読んだ節を見ない。
+  append_clause(predicate, std::move(clause), ++machine.db_generation);
   return true;
 }
 

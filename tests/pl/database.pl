@@ -188,6 +188,41 @@ test(m3_asserta_open_left, m3_ao(X), solutions([X = 4, X = 1, X = 2, X = 3])).
 % 走査中の節より前（試し終えた節）と後（まだ試していない節）を消す。前は真ん中から消えるので番号が飛ぶ。
 test(m3_retract_open_both, (m3_rb(X), (X == 3 -> retract(m3_rb(2)), retract(m3_rb(5)) ; true)), solutions([X = 1, X = 2, X = 3, X = 4, X = 5])).
 test(m3_retract_open_both_left, m3_rb(X), solutions([X = 1, X = 3, X = 4])).
+
+:- dynamic(m3_sc/2).
+m3_sc(1, a).
+m3_sc(2, a).
+m3_sc(3, a).
+m3_sc(4, a).
+m3_sc(5, a).
+m3_sc(6, a).
+m3_sc(7, a).
+m3_sc(8, a).
+m3_sc(9, a).
+:- dynamic(m3_sa/2).
+m3_sa(1, a).
+m3_sa(2, a).
+m3_sa(3, a).
+:- dynamic(m3_ar/1).
+m3_ar(1).
+m3_ar(2).
+m3_ar(3).
+:- dynamic(m3_ac/1).
+m3_ac(1).
+m3_ac(2).
+m3_ac(3).
+
+% 第1引数が未束縛の走査の先の節を消し、後ろへ足す。走査は呼んだ時点の 9 節を試し、次の呼び出しは消した節を見ない。
+test(m3_sweep_cursor_retract, (m3_sc(X, _), (X == 1 -> retract(m3_sc(5, _)), assertz(m3_sc(10, a)) ; true)), solutions([X = 1, X = 2, X = 3, X = 4, X = 5, X = 6, X = 7, X = 8, X = 9])).
+test(m3_sweep_cursor_retract_left, findall(X, m3_sc(X, _), L), solutions([L = [1, 2, 3, 4, 6, 7, 8, 9, 10]])).
+% 同じ走査の中で abolish して足し直す。走査は abolish の前の節を試し、次の呼び出しは足し直した節だけを見る。
+test(m3_sweep_abolish_open, (m3_sa(X, _), (X == 1 -> abolish(m3_sa/2), assertz(m3_sa(7, b)) ; true)), solutions([X = 1, X = 2, X = 3])).
+test(m3_sweep_abolish_open_left, findall(X, m3_sa(X, _), L), solutions([L = [7]])).
+% retract と clause/2 の開いた走査も asserta した節を見ない。clause/2 は連言の中のやり直しに既知の不具合（M18）があるので findall で包む。
+test(m3_asserta_open_retract, findall(X, (retract(m3_ar(X)), (X == 1 -> asserta(m3_ar(0)) ; true)), L), solutions([L = [1, 2, 3]])).
+test(m3_asserta_open_retract_left, findall(X, m3_ar(X), L), solutions([L = [0]])).
+test(m3_asserta_open_clause, findall(X, (clause(m3_ac(X), true), (X == 1 -> asserta(m3_ac(0)) ; true)), L), solutions([L = [1, 2, 3]])).
+test(m3_asserta_open_clause_left, findall(X, m3_ac(X), L), solutions([L = [0, 1, 2, 3]])).
 test(assertz_builtin, assertz(true), error(permission_error(modify, static_procedure, true/0))).
 test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
 test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).

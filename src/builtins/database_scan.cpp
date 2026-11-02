@@ -65,7 +65,7 @@ bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body)
 std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predicate, Cell head, Cell body) {
   std::vector<std::size_t> found;
   for (const Clause& clause : predicate.clauses) {
-    if (clause.dead) continue;
+    if (clause.dead()) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -76,12 +76,14 @@ std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predic
 }
 
 // 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。
+// generation は ClauseScan の世代。PredGen は節を走査しないので 0 を渡す。
 void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, std::vector<std::size_t>&& matches,
-               std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
+               std::size_t next, std::uint64_t generation, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = pick;
   entry.candidates = std::move(matches);
   entry.next = next;
+  entry.generation = generation;
   entry.redo_goal = goal.at;
   entry.pred_module = key.module;
   entry.pred_name = key.name;
@@ -92,8 +94,9 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, std::vec
   push_frame(machine, std::move(entry));
 }
 
+// generation は最初の呼び出しの世代。やり直しても進めない。
 bool take_clause(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t> matches,
-                 std::size_t begin) {
+                 std::size_t begin, std::uint64_t generation) {
   const Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
   // M: は最初の呼び出しで検査済み。節の頭部と比べるのは内側の項。
@@ -111,7 +114,8 @@ bool take_clause(Impl& machine, const Goal& goal, PredKey key, std::vector<std::
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::ClauseScan, goal, key, std::move(matches), cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::ClauseScan, goal, key, std::move(matches), cursor + 1, generation, heap_mark,
+                trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -135,7 +139,9 @@ void run_clause(Impl& machine, const Goal& goal) {
   }
   const PredKey key{predicate->module, indicator.name, indicator.arity};
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
-  if (!take_clause(machine, goal, key, matching_clauses(machine, *predicate, head, goal.arg(machine, 1)), 0)) {
+  const auto generation = machine.db_generation;
+  if (!take_clause(machine, goal, key, matching_clauses(machine, *predicate, head, goal.arg(machine, 1)), 0,
+                   generation)) {
     machine.failed = true;
   }
 }
@@ -238,7 +244,7 @@ bool take_pred(Impl& machine, const Goal& goal, std::vector<std::size_t> matches
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::PredGen, goal, PredKey{}, std::move(matches), cursor + 1, heap_mark, trail_mark);
+      push_scan(machine, Pick::PredGen, goal, PredKey{}, std::move(matches), cursor + 1, 0, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -280,9 +286,10 @@ bool redo_clause_scan(Impl& machine) {
   const auto at = top.redo_goal;
   const PredKey key{top.pred_module, top.pred_name, top.pred_arity};
   const auto next = top.next;
+  const auto generation = top.generation;
   std::vector<std::size_t> candidates = std::move(top.candidates);
   machine.stack.pop_back();
-  return take_clause(machine, read_goal(machine, at), key, std::move(candidates), next);
+  return take_clause(machine, read_goal(machine, at), key, std::move(candidates), next, generation);
 }
 
 bool redo_pred_gen(Impl& machine) {

@@ -123,11 +123,12 @@ void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
   made.seen = predicate.seen;
   for (const Clause& clause : predicate.clauses) {
     // 死んだ節は元の機械の開いた走査のためだけにある。写した先には走査が無い。
-    if (clause.dead) continue;
+    if (clause.dead()) continue;
     Clause copied;
     if (!compile_copied(src, dst, clause, copied)) continue;
-    // 写した先の番号は新しく振る。元の機械の走査の番号は写した先では使わない。
-    append_clause(made, std::move(copied));
+    // 写した先の番号は新しく振る。元の機械の走査の番号は写した先では使わない。世代は 0 にする。写した先は作った
+    // ばかりで開いた走査が無く、これからの走査はどれも 0 以上の世代で始まって、この節を見る。
+    append_clause(made, std::move(copied), 0);
   }
   if (made.clauses.empty() && !made.dynamic) return;
   dst.predicates.push_back(std::move(made));

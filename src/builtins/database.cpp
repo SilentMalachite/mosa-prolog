@@ -15,6 +15,7 @@
 
 #include "database_internal.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -192,10 +193,12 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
     removed = index;
     break;
   }
+  // 述語を作り直すと番号は同じ所から振り直す。開いた走査を尽きた印にしておけば、新しい定義の節を指さない。
   for (Entry& entry : machine.stack) {
     if (scans_pred(entry, module, name, arity)) {
       entry.candidates.clear();
       entry.next = 0;
+      entry.cursor = kNoClause;
       continue;
     }
     // current_predicate の候補は述語ベクタの添字なので、節の番号と違い、消した述語より後ろをずらす。
@@ -205,31 +208,40 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
   machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
 }
 
-// ADR 0008。開いた走査がまだ試していない候補にこの節があるか。試し終えた節と今動いている節は消してよい。
-// 候補は番号なので、消しても asserta しても比べる値は変わらない（ADR 0015）。
-bool held_by_scan(const Impl& machine, PredKey key, std::size_t id) {
+// この述語を走査する entry が、died に消した番号 id の節をまだ試しうるか（ADR 0015）。消した後に始めた走査は
+// 見ず、通り過ぎた節（試し終えた節と今動いている節）にはもう戻らない。番号は変わらず、候補の列は番号の昇順。
+bool scan_reaches(const Entry& entry, std::size_t id, std::uint64_t died) {
+  if (entry.generation >= died) return false;
+  if (entry.by_cursor) return entry.cursor != kNoClause && entry.cursor <= id;
+  const auto untried = static_cast<std::ptrdiff_t>(std::min(entry.next, entry.candidates.size()));
+  return std::binary_search(entry.candidates.begin() + untried, entry.candidates.end(), id);
+}
+
+// 開いた走査のどれかがこの節をまだ試しうるか。届かない節はすぐ消してよい。足すより前に始めた走査は、カーソルが
+// 手前にあってもこの節を見ないので数えない。
+bool reachable(const Impl& machine, PredKey key, const Clause& clause) {
   for (const Entry& entry : machine.stack) {
-    if (!scans_pred(entry, key.module, key.name, key.arity)) continue;
-    for (std::size_t cursor = entry.next; cursor < entry.candidates.size(); ++cursor) {
-      if (entry.candidates[cursor] == id) return true;
-    }
+    if (!scans_pred(entry, key.module, key.name, key.arity) || entry.generation < clause.born) continue;
+    if (scan_reaches(entry, clause.id, clause.died)) return true;
   }
   return false;
 }
 
-// 番号は変わらないので、すぐ消しても開いた走査の候補を付け直さない。
+// 消した世代を付けてから、届く走査が無ければすぐ消す。届くなら残し、その走査は世代で見分けて試す。番号は
+// 変わらないので、すぐ消しても開いた走査の候補とカーソルを付け直さない。消した後の節も届かなければ消す
+// （abolish は死んだ節にも来る）。
 void kill_clause(Impl& machine, Predicate& predicate, PredKey key, std::size_t id) {
-  if (!held_by_scan(machine, key, id)) {
-    erase_clause_id(predicate, id);
-    return;
-  }
   const auto position = clause_position(predicate, id);
-  if (!position || predicate.clauses[*position].dead) return;
-  predicate.clauses[*position].dead = true;
-  predicate.live -= 1;
+  if (!position) return;
+  Clause& clause = predicate.clauses[*position];
+  if (!clause.dead()) {
+    clause.died = ++machine.db_generation;
+    predicate.live -= 1;
+  }
+  if (!reachable(machine, key, clause)) erase_clause_id(predicate, id);
 }
 
-// 死んだ節は、それを持つ走査が閉じた後の最初の変更で消す。節が尽きた abolish 済みの述語は表からも消す。
+// 死んだ節は、それに届く走査が閉じた後の最初の変更で消す。節が尽きた abolish 済みの述語は表からも消す。
 // 候補は番号なので、消して位置がずれても開いた走査はそのまま引ける。
 Predicate* purge_dead(Impl& machine, Predicate* predicate) {
   if (predicate == nullptr) return nullptr;
@@ -240,7 +252,7 @@ Predicate* purge_dead(Impl& machine, Predicate* predicate) {
   for (std::size_t index = predicate->clauses.size(); index > 0; --index) {
     const Clause& clause = predicate->clauses[index - 1];
     const std::size_t id = clause.id;
-    if (clause.dead && !held_by_scan(machine, key, id)) erase_clause_id(*predicate, id);
+    if (clause.dead() && !reachable(machine, key, clause)) erase_clause_id(*predicate, id);
   }
   if (!predicate->abolished || !predicate->clauses.empty()) return predicate;
   erase_predicate(machine, key.module, key.name, key.arity);
@@ -296,7 +308,7 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
 std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predicate, const ClauseView& view) {
   std::vector<std::size_t> found;
   for (const Clause& clause : predicate.clauses) {
-    if (clause.dead) continue;
+    if (clause.dead()) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -309,11 +321,12 @@ std::vector<std::size_t> collect_matches(Impl& machine, const Predicate& predica
 
 // 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。
 void push_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t>&& matches,
-                  std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
+                  std::size_t next, std::uint64_t generation, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = Pick::Retract;
   entry.candidates = std::move(matches);
   entry.next = next;
+  entry.generation = generation;
   entry.redo_goal = goal.at;
   entry.pred_module = key.module;
   entry.pred_name = key.name;
@@ -323,8 +336,9 @@ void push_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std:
   push_frame(machine, std::move(entry));
 }
 
+// generation は最初の呼び出しの世代。やり直しても進めない。
 bool take_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t> matches,
-                  std::size_t begin) {
+                  std::size_t begin, std::uint64_t generation) {
   Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
   // 引数は最初の呼び出しで検査済み。M: は外すだけにし、節を作り直してヒープを使わない。
@@ -334,7 +348,7 @@ bool take_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std:
     const auto id = matches[cursor];
     const auto position = clause_position(*predicate, id);
     // 別の retract が先に消した節は、もう無い節である。
-    if (!position || predicate->clauses[*position].dead) continue;
+    if (!position || predicate->clauses[*position].dead()) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
@@ -343,7 +357,7 @@ bool take_retract(Impl& machine, const Goal& goal, PredKey key, std::vector<std:
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_retract(machine, goal, key, std::move(matches), cursor + 1, heap_mark, trail_mark);
+      push_retract(machine, goal, key, std::move(matches), cursor + 1, generation, heap_mark, trail_mark);
     }
     kill_clause(machine, *predicate, key, id);
     succeed(machine, goal);
@@ -395,9 +409,10 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     existing = &machine.predicates.back();
     adopt_meta(machine, *existing);
   }
-  // 番号で持つ開いた走査は、先頭に足しても付け直さない。新しい番号はどの候補にも無いので、走査は見ない。
-  if (at_front) prepend_clause(*existing, std::move(clause));
-  else append_clause(*existing, std::move(clause));
+  // 番号で持つ開いた走査は、先頭に足しても付け直さない。新しい番号はどの候補にも無く、カーソルより後ろに
+  // 足した節も世代が走査より新しいので、走査は見ない。
+  if (at_front) prepend_clause(*existing, std::move(clause), ++machine.db_generation);
+  else append_clause(*existing, std::move(clause), ++machine.db_generation);
   succeed(machine, goal);
 }
 
@@ -421,7 +436,10 @@ void run_retract(Impl& machine, const Goal& goal) {
   const PredKey key{predicate->module, head.name, head.arity};
   ClauseView source = view;
   source.head = named_head(machine, view.head, head.name);
-  if (!take_retract(machine, goal, key, collect_matches(machine, *predicate, source), 0)) machine.failed = true;
+  const auto generation = machine.db_generation;
+  if (!take_retract(machine, goal, key, collect_matches(machine, *predicate, source), 0, generation)) {
+    machine.failed = true;
+  }
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
@@ -531,9 +549,10 @@ bool redo_retract(Impl& machine) {
   const auto at = top.redo_goal;
   const PredKey key{top.pred_module, top.pred_name, top.pred_arity};
   const auto next = top.next;
+  const auto generation = top.generation;
   std::vector<std::size_t> candidates = std::move(top.candidates);
   machine.stack.pop_back();
-  return take_retract(machine, read_goal(machine, at), key, std::move(candidates), next);
+  return take_retract(machine, read_goal(machine, at), key, std::move(candidates), next, generation);
 }
 
 
