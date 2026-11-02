@@ -17,10 +17,15 @@
 namespace mosa {
 
 using database::HeadName;
+using database::bound_first;
 using database::callable_term;
+using database::collect_ids;
 using database::head_indicator;
+using database::push_if_more;
 using database::raise_instantiation;
 using database::raise_type;
+using database::scan_entry;
+using database::step_scan;
 using database::succeed;
 using database::strip_target;
 
@@ -54,36 +59,24 @@ bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator, std::u
   return false;
 }
 
+// floor は節を組む前の水位。それより前の変数（呼び出しの変数）の束縛は全部トレイルに残す。do_unify は上の選択点
+// より新しい変数を残さないので、選択点を積む前に束縛すると、やり直しで前の答えの束縛が残る（レビュー M18）。
 bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body) {
+  const auto floor = machine.heap.size();
   std::vector<Cell> slots;
   const Cell made_head = ir_to_term(machine, clause.head, slots, false);
   const Cell made_body = ir_to_term(machine, *clause.body, slots, true);
-  return do_unify(machine, head, made_head) && do_unify(machine, body, made_body);
+  return unify_visible(machine, floor, head, made_head) && unify_visible(machine, floor, body, made_body);
 }
 
-// 合う節の番号を節の順に返す。
-std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predicate, Cell head, Cell body) {
-  std::vector<std::size_t> found;
-  for (const Clause& clause : predicate.clauses) {
-    if (clause.dead()) continue;
-    const auto heap_mark = machine.heap.size();
-    const auto trail_mark = machine.trail.slots.size();
-    const auto extras_mark = machine.extras.size();
-    if (unify_clause_ref(machine, clause, head, body)) found.push_back(clause.id);
-    restore_state(machine, heap_mark, trail_mark, extras_mark);
-  }
-  return found;
-}
-
-// 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。
-// generation は ClauseScan の世代。PredGen は節を走査しないので 0 を渡す。
+// 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。PredGen は節を
+// 走査しないので世代を持たない。
 void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, std::vector<std::size_t>&& matches,
-               std::size_t next, std::uint64_t generation, std::size_t heap_mark, std::size_t trail_mark) {
+               std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = pick;
   entry.candidates = std::move(matches);
   entry.next = next;
-  entry.generation = generation;
   entry.redo_goal = goal.at;
   entry.pred_module = key.module;
   entry.pred_name = key.name;
@@ -94,33 +87,43 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, std::vec
   push_frame(machine, std::move(entry));
 }
 
-// generation は最初の呼び出しの世代。やり直しても進めない。
-bool take_clause(Impl& machine, const Goal& goal, PredKey key, std::vector<std::size_t> matches,
-                 std::size_t begin, std::uint64_t generation) {
+// 第1引数を束縛した clause/2 は key_candidates の候補だけを試しに単一化し、合う節の列で走査する。未束縛なら
+// どの節も候補なので、列を作らずにカーソルで進む（ADR 0015）。
+Entry clause_scan(Impl& machine, const Goal& goal, const Predicate& predicate, PredKey key, Cell head, Cell body) {
+  const auto generation = machine.db_generation;
+  Entry scan = scan_entry(Pick::ClauseScan, goal, key, generation);
+  const auto first = bound_first(machine, head);
+  if (!first) {
+    scan.by_cursor = true;
+    return scan;
+  }
+  const auto match = [&machine, head, body](const Clause& clause) {
+    return unify_clause_ref(machine, clause, head, body);
+  };
+  scan.candidates = collect_ids(machine, predicate, key_candidates(machine, predicate, *first, generation), match);
+  return scan;
+}
+
+// scan.generation は最初の呼び出しの世代で、やり直しても進めない。次に合う節があれば、束縛する前に scan を積む。
+bool take_clause(Impl& machine, const Goal& goal, Entry scan, bool redo) {
+  const PredKey key{scan.pred_module, scan.pred_name, scan.pred_arity};
   const Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) return false;
   // M: は最初の呼び出しで検査済み。節の頭部と比べるのは内側の項。
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const Cell body = goal.arg(machine, 1);
-  for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
-    // 走査を始めた後に消した節も死んだ印で残るので見る（7.5.4）。無い番号だけを飛ばす。
-    const auto position = clause_position(*predicate, matches[cursor]);
-    if (!position) continue;
-    const auto heap_mark = machine.heap.size();
-    const auto trail_mark = machine.trail.slots.size();
-    const auto extras_mark = machine.extras.size();
-    if (!unify_clause_ref(machine, predicate->clauses[*position], head, body)) {
-      restore_state(machine, heap_mark, trail_mark, extras_mark);
-      continue;
-    }
-    if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::ClauseScan, goal, key, std::move(matches), cursor + 1, generation, heap_mark,
-                trail_mark);
-    }
-    succeed(machine, goal);
-    return true;
-  }
-  return false;
+  // 走査を始めた後に消した節も、走査の世代には見えるので試す（7.5.4）。
+  const auto generation = scan.generation;
+  const auto usable = [generation](const Clause& clause) { return visible(clause, generation); };
+  const auto match = [&machine, head, body](const Clause& clause) {
+    return unify_clause_ref(machine, clause, head, body);
+  };
+  const auto position = step_scan(machine, *predicate, scan, redo, usable, match);
+  if (!position) return false;
+  push_if_more(machine, std::move(scan));
+  if (!unify_clause_ref(machine, predicate->clauses[*position], head, body)) return false;
+  succeed(machine, goal);
+  return true;
 }
 
 
@@ -139,11 +142,8 @@ void run_clause(Impl& machine, const Goal& goal) {
   }
   const PredKey key{predicate->module, indicator.name, indicator.arity};
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
-  const auto generation = machine.db_generation;
-  if (!take_clause(machine, goal, key, matching_clauses(machine, *predicate, head, goal.arg(machine, 1)), 0,
-                   generation)) {
-    machine.failed = true;
-  }
+  Entry scan = clause_scan(machine, goal, *predicate, key, head, goal.arg(machine, 1));
+  if (!take_clause(machine, goal, std::move(scan), false)) machine.failed = true;
 }
 
 }  // namespace database
@@ -244,7 +244,7 @@ bool take_pred(Impl& machine, const Goal& goal, std::vector<std::size_t> matches
       continue;
     }
     if (cursor + 1 < matches.size()) {
-      push_scan(machine, Pick::PredGen, goal, PredKey{}, std::move(matches), cursor + 1, 0, heap_mark, trail_mark);
+      push_scan(machine, Pick::PredGen, goal, PredKey{}, std::move(matches), cursor + 1, heap_mark, trail_mark);
     }
     succeed(machine, goal);
     return true;
@@ -278,18 +278,14 @@ void run_current_predicate(Impl& machine, const Goal& goal) {
 
 }  // namespace database
 
-// 枠を外す前に候補の列を移す。写すと、解ごとに残りの候補の数だけかかる（レビュー M3）。
+// 枠を外す前に枠ごと移す。候補の列を写すと、解ごとに残りの候補の数だけかかる（レビュー M3）。
 bool redo_clause_scan(Impl& machine) {
   if (machine.stack.empty() || machine.stack.back().pick != Pick::ClauseScan) return false;
-  Entry& top = machine.stack.back();
-  apply_catches(machine, top);
-  const auto at = top.redo_goal;
-  const PredKey key{top.pred_module, top.pred_name, top.pred_arity};
-  const auto next = top.next;
-  const auto generation = top.generation;
-  std::vector<std::size_t> candidates = std::move(top.candidates);
+  apply_catches(machine, machine.stack.back());
+  Entry scan = std::move(machine.stack.back());
   machine.stack.pop_back();
-  return take_clause(machine, read_goal(machine, at), key, std::move(candidates), next, generation);
+  const Goal goal = read_goal(machine, scan.redo_goal);
+  return take_clause(machine, goal, std::move(scan), true);
 }
 
 bool redo_pred_gen(Impl& machine) {

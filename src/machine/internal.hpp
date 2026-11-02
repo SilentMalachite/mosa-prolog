@@ -119,8 +119,12 @@ struct Predicate {
   // [first_id, next_id) が振った番号の範囲。節を消しても縮めないので、消した節の番号を別の節が使わない。
   std::size_t first_id = kFirstClauseId;
   std::size_t next_id = kFirstClauseId;
-  // dead() でない節の数。clause_store.cpp と kill_clause の died の書き込みだけが変える。
+  // dead() でない節の数。clause_store.cpp と database.cpp の mark_dead の died の書き込みだけが変える。
   std::size_t live = 0;
+  // 前の掃除から、消してもすぐには節の列から外さなかった節の数（ADR 0015）。端に無いか、開いた走査が届く節で、
+  // 後で端から外れても減らさない。節の数の半分を超えたら次の変更が一度に掃除する。消す節ごとに真ん中を詰めると、
+  // 1 回が節の数だけかかる。
+  std::size_t dead_since = 0;
   // 第1引数の索引。const の述語を引く呼び出しが初めて要るときに作るので mutable。節を書く所が一緒に直す。
   mutable FirstArgIndex index;
   bool seen = false;
@@ -192,8 +196,9 @@ struct Entry {
   std::size_t next = 0;
   // Clauses・Retract・ClauseScan の走査を始めたときの Impl::db_generation。消した節がまだこの走査に届くかを決める。
   std::uint64_t generation = 0;
-  // by_cursor の Clauses は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）だけを持つ。第1引数が
-  // 未束縛の呼び出しは全部の節が候補なので、列を作ると呼ぶたびに節の数だけかかる（レビュー M3）。
+  // by_cursor の Clauses・Retract・ClauseScan は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）だけを
+  // 持つ。第1引数が未束縛の呼び出しは全部の節が候補なので、列を作ると呼ぶたびに節の数だけかかる（レビュー M3）。
+  // Retract と ClauseScan のカーソルは、次に合う節（先に試して合った節）を指す。
   std::size_t cursor = kNoClause;
   bool by_cursor = false;
   std::uint32_t pred_module = 0;
@@ -556,6 +561,8 @@ void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born);
 void replace_clauses(Predicate& predicate, ClauseList clauses);
 void clear_clauses(Predicate& predicate);
 void erase_clause_id(Predicate& predicate, std::size_t id);
+// held[位置] が偽の死んだ節を一度に消し、dead_since を 0 にする。消した節があれば索引を捨てる。held は節の数だけ要る。
+void sweep_clauses(Predicate& predicate, const std::vector<bool>& held);
 // 番号の節の位置。無い番号は nullopt。
 [[nodiscard]] std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id);
 // 番号が id 以上の最初の節の位置。無ければ clauses.size()。
@@ -564,7 +571,8 @@ void erase_clause_id(Predicate& predicate, std::size_t id);
 [[nodiscard]] std::size_t next_visible(const Predicate& predicate, std::size_t from, std::uint64_t generation);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
-Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
+// 開いた走査が届かない死んだ節を一度に消す（定義は database.cpp、ADR 0015）。述語は消さない。
+void sweep_dead(Impl& machine, Predicate& predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 // 述語を呼ぶゴール（制御構造でも変数でもない）。env を残さないので、共有の env を作らずに枠にできる。
@@ -620,7 +628,8 @@ void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t 
 void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
 // 束縛した第1引数 first に合う節（鍵が等しい節と鍵の無い節）のうち、世代 generation に見える節の番号を節の順に
-// 返す。8 節以上なら索引を作って引く。first が未束縛のときと、第1引数を meta 引数で包む述語には呼ばない。
+// 返す。8 節以上なら索引を作って引く。first が未束縛なら見える節を全部返すが、呼び手はカーソルで走査するので
+// 普通は来ない。呼び出しでは、第1引数を meta 引数で包む述語に呼ばない。
 [[nodiscard]] std::vector<std::size_t> key_candidates(const Impl& machine, const Predicate& predicate, Cell first,
                                                       std::uint64_t generation);
 

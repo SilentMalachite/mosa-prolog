@@ -8,6 +8,7 @@
 #include <iterator>
 #include <optional>
 #include <utility>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -39,8 +40,8 @@ bool pop_end(IdBucket& ids, std::size_t id, bool first, bool last) {
 }
 
 // 節の列の先頭か末尾の節は、番号が最小か最大なので、その組（か keyless）の同じ端にある。真ん中の節は組の中を
-// 探すことになるので、索引を捨てて次の束縛した呼び出しに作り直させる（Task 5 までは retract が真ん中を消しうる）。
-// 端に無いのは索引が節の列と食い違うときだけで、そのときも捨てれば作り直した索引は必ず合う。
+// 探すことになるので、索引を捨てて次の束縛した呼び出しに作り直させる（真ん中を消すのは sweep_clauses だけで、
+// そこでも捨てる）。端に無いのは索引が節の列と食い違うときだけで、そのときも捨てれば作り直した索引は必ず合う。
 void index_remove(Predicate& predicate, std::size_t position) {
   FirstArgIndex& index = predicate.index;
   if (!index.built) return;
@@ -83,10 +84,11 @@ void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born) {
 }
 
 // 戻す写しは前の番号と世代のまま持つ。開いた走査の候補とカーソルがその番号を指したままで、どの節が見えるかも
-// 世代で決まるので、振り直さない。写しは死んだ節を含みうるので、生きた節は数え直す。
+// 世代で決まるので、振り直さない。写しは死んだ節を含みうるので、生きた節は数え直し、死んだ節は掃除の数に入れる。
 void replace_clauses(Predicate& predicate, ClauseList clauses) {
   predicate.clauses = std::move(clauses);
   predicate.live = count_live(predicate.clauses);
+  predicate.dead_since = predicate.clauses.size() - predicate.live;
   drop_index(predicate.index);
   if (predicate.clauses.empty()) return;
   // 述語を作り直した後に戻すと、写しの番号が今の範囲の外にありうる。広げておけば次の番号と重ならない。
@@ -98,6 +100,7 @@ void replace_clauses(Predicate& predicate, ClauseList clauses) {
 void clear_clauses(Predicate& predicate) {
   predicate.clauses.clear();
   predicate.live = 0;
+  predicate.dead_since = 0;
   drop_index(predicate.index);
 }
 
@@ -108,6 +111,22 @@ void erase_clause_id(Predicate& predicate, std::size_t id) {
   const auto at = predicate.clauses.begin() + static_cast<std::ptrdiff_t>(*position);
   if (!at->dead()) --predicate.live;
   predicate.clauses.erase(at);
+}
+
+// 残す節を前へ詰めて末尾を一度に切るので、消す節がいくつでも 1 回は節の数に比例する。番号は変わらないので、
+// 開いた走査の候補とカーソルは付け直さない。真ん中から消すと索引の組の中を探すことになるので、索引は捨てる。
+void sweep_clauses(Predicate& predicate, const std::vector<bool>& held) {
+  ClauseList& clauses = predicate.clauses;
+  std::size_t kept = 0;
+  for (std::size_t position = 0; position < clauses.size(); ++position) {
+    if (clauses[position].dead() && !held[position]) continue;
+    if (kept != position) clauses[kept] = std::move(clauses[position]);
+    ++kept;
+  }
+  predicate.dead_since = 0;
+  if (kept == clauses.size()) return;
+  clauses.erase(clauses.begin() + static_cast<std::ptrdiff_t>(kept), clauses.end());
+  drop_index(predicate.index);
 }
 
 std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id) {

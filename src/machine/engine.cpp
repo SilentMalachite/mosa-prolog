@@ -31,6 +31,11 @@ bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
     if (entry.pick == Pick::Clauses || entry.pick == Pick::Repeat || entry.pick == Pick::AtomGen) return true;
+    // retract と clause/2 のカーソルは、次に合う節を先に試して見つけたときだけ積む（ADR 0015）。
+    if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan) && entry.by_cursor) {
+      if (entry.cursor != kNoClause) return true;
+      continue;
+    }
     if ((entry.pick == Pick::Retract || entry.pick == Pick::ClauseScan || entry.pick == Pick::PredGen ||
          entry.pick == Pick::StreamGen) &&
         entry.next < entry.candidates.size()) {

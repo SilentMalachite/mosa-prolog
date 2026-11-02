@@ -111,8 +111,8 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
     predicate.abolished = false;
     predicate.dynamic = predicate.dynamic_declared;
     if (!predicate.meta_declared) predicate.meta.clear();
-    // 印を外してから片付けるので、述語ごと消えて index が外れることは無い。
-    static_cast<void>(purge_dead_clauses(machine, &predicate));
+    // 開いた走査が届かない死んだ節を一度に消す。sweep_dead は述語を表から消さないので、index は外れない。
+    sweep_dead(machine, predicate);
   } else if (!predicate.seen && !predicate.clauses.empty()) {
     bool busy = false;
     for (const Entry& entry : machine.stack) {

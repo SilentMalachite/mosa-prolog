@@ -42,11 +42,12 @@ bool selects(const Clause& clause, const std::optional<IndexKey>& wanted) {
   return !key || (wanted && *key == *wanted);
 }
 
+// every なら鍵を見ずに見える節を全部選ぶ。
 std::vector<std::size_t> scan_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted,
-                                         std::uint64_t generation) {
+                                         std::uint64_t generation, bool every) {
   std::vector<std::size_t> chosen;
   for (const Clause& clause : predicate.clauses) {
-    if (visible(clause, generation) && selects(clause, wanted)) chosen.push_back(clause.id);
+    if (visible(clause, generation) && (every || selects(clause, wanted))) chosen.push_back(clause.id);
   }
   return chosen;
 }
@@ -155,8 +156,12 @@ std::optional<IndexKey> clause_key(const Clause& clause) {
 
 std::vector<std::size_t> key_candidates(const Impl& machine, const Predicate& predicate, Cell first,
                                         std::uint64_t generation) {
-  const auto wanted = cell_key(machine, machine.heap.deref(first));
-  if (predicate.clauses.size() < kIndexMinClauses) return scan_candidates(predicate, wanted, generation);
+  const Cell cell = machine.heap.deref(first);
+  // 未束縛の第1引数はどの節の頭とも合う。cell_key は鍵の無いセルとして nullopt を返し、鍵の無い節だけを選ぶので、
+  // そのまま引くと答えが欠ける。
+  if (machine.heap.unbound(cell)) return scan_candidates(predicate, std::nullopt, generation, true);
+  const auto wanted = cell_key(machine, cell);
+  if (predicate.clauses.size() < kIndexMinClauses) return scan_candidates(predicate, wanted, generation, false);
   return index_candidates(predicate, wanted, generation);
 }
 

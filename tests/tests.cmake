@@ -125,6 +125,12 @@ add_executable(index_scale_test tests/cpp/index_scale_test.cpp)
 target_include_directories(index_scale_test PRIVATE tests/cpp)
 target_link_libraries(index_scale_test PRIVATE mosa_lib)
 add_test(NAME index_scale COMMAND $<TARGET_FILE:index_scale_test>)
+# レビュー M3（ADR 0015）。未束縛の第1引数の呼び出し・retract・clause/2 の答えごとの more と、
+# 閉じた走査が残した節の消去。
+add_executable(clause_scan_test tests/cpp/clause_scan_test.cpp)
+target_include_directories(clause_scan_test PRIVATE tests/cpp src)
+target_link_libraries(clause_scan_test PRIVATE mosa_lib)
+add_test(NAME clause_scan COMMAND $<TARGET_FILE:clause_scan_test>)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 

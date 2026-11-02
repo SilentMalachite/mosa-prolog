@@ -378,6 +378,110 @@ m3_qe_drop_down(I, N) :- retract(m3_qe(k, I)), I1 is I - 1, m3_qe_drop_down(I1, 
 m3_write_clauses(Path, Clauses) :- open(Path, write, S), m3_put_clauses(Clauses, S), close(S).
 m3_put_clauses([], _).
 m3_put_clauses([C | Cs], S) :- writeq(S, C), write(S, '.'), nl(S), m3_put_clauses(Cs, S).
+
+% レビュー M3 の retract・retractall・clause/2（ADR 0015）。第1引数で索引を引き、真ん中の節をまとめて掃除しても、
+% 答えは今と同じ。
+:- dynamic(m3_cq/1).
+m3_cq(1).
+m3_cq(2).
+m3_cq(3).
+m3_cq(4).
+% X は呼び出しの後にできた変数。clause/2 が選択点の水位で束縛を戻さないと、やり直しで最初の答えが残る（レビュー M18）。
+m3_cq_show :- clause(m3_cq(X), true), write(X), X > 2, nl.
+:- dynamic(m3_sh/2).
+m3_sh(1, a).
+m3_sh(2, a).
+m3_sh(3, a).
+m3_sh(4, a).
+m3_sh(5, a).
+m3_sh(6, a).
+m3_sh(7, a).
+m3_sh(8, a).
+m3_sh(9, a).
+m3_sh(10, a).
+:- dynamic(m3_rh/1).
+m3_rh(1).
+m3_rh(2).
+m3_rh(3).
+m3_rh(4).
+m3_rh(5).
+m3_rh(6).
+m3_rh(7).
+m3_rh(8).
+m3_rh(9).
+m3_rh(10).
+:- dynamic(m3_rr/1).
+m3_rr(1).
+m3_rr(2).
+m3_rr(3).
+m3_rr(4).
+m3_rr(5).
+m3_rr(6).
+m3_rr(7).
+m3_rr(8).
+m3_rr(9).
+m3_rr(10).
+m3_rr(11).
+m3_rr(12).
+m3_rr(13).
+m3_rr(14).
+m3_rr(15).
+m3_rr(16).
+m3_rr_drop(I, N) :- I > N, !.
+m3_rr_drop(I, N) :- retract(m3_rr(I)), I1 is I + 1, m3_rr_drop(I1, N).
+:- dynamic(m3_so/1).
+m3_so(1).
+m3_so(2).
+m3_so(3).
+m3_so(4).
+m3_so(5).
+:- dynamic(m3_sq/1).
+m3_sq(1).
+m3_sq(2).
+m3_sq(3).
+m3_sq(4).
+m3_sq(5).
+:- dynamic(m3_sl/2).
+m3_sl(k, 1).
+m3_sl(k, 2).
+m3_sl(k, 3).
+m3_sl(k, 4).
+m3_sl(k, 5).
+m3_sl(k, 6).
+m3_sl(k, 7).
+m3_sl(k, 8).
+m3_sl(k, 9).
+m3_sl_drop(I, N) :- I > N, !.
+m3_sl_drop(I, N) :- retract(m3_sl(k, I)), I1 is I + 1, m3_sl_drop(I1, N).
+:- dynamic(m3_ct/2).
+m3_ct(1, a).
+m3_ct(2, a).
+m3_ct(3, a).
+m3_ct(4, a).
+m3_ct(5, a).
+m3_ct(6, a).
+m3_ct(7, a).
+m3_ct(8, a).
+m3_ct(9, a).
+
+test(m3_clause_conj_redo, (with_output_to(atom(A), m3_cq_show), A == '123\n'), true).
+% 開いた走査が見ている先の節を retract が消す。走査は呼んだ時点の節を見るが、retract は消えた節を二度は消さない。
+test(m3_sweep_held, (m3_sh(X, _), retract(m3_sh(Y, _))), solutions([(X = 1, Y = 1), (X = 1, Y = 2), (X = 1, Y = 3), (X = 1, Y = 4), (X = 1, Y = 5), (X = 1, Y = 6), (X = 1, Y = 7), (X = 1, Y = 8), (X = 1, Y = 9), (X = 1, Y = 10)])).
+test(m3_sweep_held_left, (findall(X, m3_sh(X, _), L), predicate_property(m3_sh(_, _), number_of_clauses(N))), solutions([(L = [], N = 0)])).
+% 真ん中から消した節は掃除まで節の列に残るが、節の数は生きた節だけを数える。
+test(m3_retract_counts, (retract(m3_rh(2)), retract(m3_rh(4)), retract(m3_rh(6)), retract(m3_rh(8)), retract(m3_rh(10)), predicate_property(m3_rh(_), number_of_clauses(N)), findall(X, m3_rh(X), L)), solutions([(N = 5, L = [1, 3, 5, 7, 9])])).
+% 真ん中の 9 節を消すと半分を超え、次の assertz の前に掃除する。掃除の後も鍵で引け、消した鍵を足し直すと末尾に入る。
+test(m3_retract_reassert, (m3_rr_drop(2, 10), assertz(m3_rr(17)), findall(X, m3_rr(X), L1), findall(y, m3_rr(12), In), findall(y, m3_rr(5), Out), assertz(m3_rr(5)), findall(B, clause(m3_rr(5), B), L2), findall(X, m3_rr(X), L3)), solutions([(L1 = [1, 11, 12, 13, 14, 15, 16, 17], In = [y], Out = [], L2 = [true], L3 = [1, 11, 12, 13, 14, 15, 16, 17, 5])])).
+% 開いた走査の先の節を半分を超えて消すと、走査の中の assertz の前に掃除する。走査がまだ試す節は掃除で残し、
+% 走査は呼んだ時点の節を全部見る。カーソルの呼び出し、clause/2 のカーソル、鍵で引いた候補の列の 3 通り。
+test(m3_sweep_open, (m3_so(X), (X == 1 -> retract(m3_so(2)), retract(m3_so(3)), retract(m3_so(4)), assertz(m3_so(6)) ; true)), solutions([X = 1, X = 2, X = 3, X = 4, X = 5])).
+test(m3_sweep_open_left, findall(X, m3_so(X), L), solutions([L = [1, 5, 6]])).
+test(m3_sweep_open_clause, findall(X, (clause(m3_sq(X), true), (X == 1 -> retract(m3_sq(2)), retract(m3_sq(3)), retract(m3_sq(4)), assertz(m3_sq(6)) ; true)), L), solutions([L = [1, 2, 3, 4, 5]])).
+test(m3_sweep_open_clause_left, findall(X, m3_sq(X), L), solutions([L = [1, 5, 6]])).
+test(m3_sweep_open_list, (m3_sl(k, X), (X == 1 -> m3_sl_drop(2, 7), assertz(m3_sl(k, 10)) ; true)), solutions([X = 1, X = 2, X = 3, X = 4, X = 5, X = 6, X = 7, X = 8, X = 9])).
+test(m3_sweep_open_list_left, findall(X, m3_sl(k, X), L), solutions([L = [1, 8, 9, 10]])).
+% カットで閉じた走査は節を持たない。全部消すと次の呼び出しは何も見ず、足した節だけを見る。
+test(m3_cut_then_retract, ((m3_ct(X, _), ! ; true), (retract(m3_ct(_, _)), fail ; true), findall(Y, m3_ct(Y, _), L), assertz(m3_ct(z, b)), findall(Y, m3_ct(Y, _), L2)), solutions([(X = 1, L = [], L2 = [z])])).
 test(assertz_builtin, assertz(true), error(permission_error(modify, static_procedure, true/0))).
 test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
 test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).
