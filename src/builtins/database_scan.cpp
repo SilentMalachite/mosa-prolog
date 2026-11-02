@@ -61,14 +61,15 @@ bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body)
   return do_unify(machine, head, made_head) && do_unify(machine, body, made_body);
 }
 
+// 合う節の番号を節の順に返す。
 std::vector<std::size_t> matching_clauses(Impl& machine, const Predicate& predicate, Cell head, Cell body) {
   std::vector<std::size_t> found;
-  for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
-    if (predicate.clauses[index].dead) continue;
+  for (const Clause& clause : predicate.clauses) {
+    if (clause.dead) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
-    if (unify_clause_ref(machine, predicate.clauses[index], head, body)) found.push_back(index);
+    if (unify_clause_ref(machine, clause, head, body)) found.push_back(clause.id);
     restore_state(machine, heap_mark, trail_mark, extras_mark);
   }
   return found;
@@ -99,12 +100,13 @@ bool take_clause(Impl& machine, const Goal& goal, PredKey key, std::vector<std::
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const Cell body = goal.arg(machine, 1);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
-    const auto index = matches[cursor];
-    if (index >= predicate->clauses.size()) continue;
+    // 走査を始めた後に消した節も死んだ印で残るので見る（7.5.4）。無い番号だけを飛ばす。
+    const auto position = clause_position(*predicate, matches[cursor]);
+    if (!position) continue;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
-    if (!unify_clause_ref(machine, predicate->clauses[index], head, body)) {
+    if (!unify_clause_ref(machine, predicate->clauses[*position], head, body)) {
       restore_state(machine, heap_mark, trail_mark, extras_mark);
       continue;
     }

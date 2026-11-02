@@ -38,28 +38,17 @@ bool matches(const Impl& machine, const Clause& clause, Cell first) {
 }  // namespace
 
 std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& predicate, bool has_arg,
-                                        Cell first) {
+                                        Cell first, std::size_t& first_position) {
   std::vector<std::size_t> chosen;
-  if (has_arg && machine.heap.unbound(machine.heap.deref(first))) {
-    for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
-      if (!predicate.clauses[index].dead) chosen.push_back(index);
-    }
-    return chosen;
-  }
-  for (std::size_t index = 0; index < predicate.clauses.size(); ++index) {
-    const Clause& clause = predicate.clauses[index];
-    if (clause.dead) continue;
-    if (!has_arg || matches(machine, clause, first)) chosen.push_back(index);
+  // 最初の候補はすぐ入る節なので、見つけた位置を返す。番号から位置を引き直さない。
+  const bool any = !has_arg || machine.heap.unbound(machine.heap.deref(first));
+  for (std::size_t position = 0; position < predicate.clauses.size(); ++position) {
+    const Clause& clause = predicate.clauses[position];
+    if (clause.dead || (!any && !matches(machine, clause, first))) continue;
+    if (chosen.empty()) first_position = position;
+    chosen.push_back(clause.id);
   }
   return chosen;
-}
-
-std::size_t live_count(const Predicate& predicate) {
-  std::size_t count = 0;
-  for (const Clause& clause : predicate.clauses) {
-    if (!clause.dead) ++count;
-  }
-  return count;
 }
 
 }

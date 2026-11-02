@@ -169,6 +169,25 @@ test(lu_clause_abolish_gone, current_predicate(lu_ca/1), fail).
 % retract の選択点が残ったまま述語が abolish されたら、やり直した retract は死んだ節を消さずに終わる。
 test(lu_retract_abolish, findall(X, (retract(lu_rt(X)), (X == 1 -> abolish(lu_rt/1) ; true)), L), solutions([L = [1]])).
 test(lu_retract_abolish_gone, current_predicate(lu_rt/1), fail).
+
+% レビュー M3（ADR 0015）。節の番号を変わらないものにしても、開いた走査の答えは今と同じ。
+:- dynamic(m3_ao/1).
+m3_ao(1).
+m3_ao(2).
+m3_ao(3).
+:- dynamic(m3_rb/1).
+m3_rb(1).
+m3_rb(2).
+m3_rb(3).
+m3_rb(4).
+m3_rb(5).
+
+% 開いた走査は asserta した節を見ない。次の呼び出しは新しい節を先頭に見る。
+test(m3_asserta_open, (m3_ao(X), (X == 1 -> asserta(m3_ao(4)) ; true)), solutions([X = 1, X = 2, X = 3])).
+test(m3_asserta_open_left, m3_ao(X), solutions([X = 4, X = 1, X = 2, X = 3])).
+% 走査中の節より前（試し終えた節）と後（まだ試していない節）を消す。前は真ん中から消えるので番号が飛ぶ。
+test(m3_retract_open_both, (m3_rb(X), (X == 3 -> retract(m3_rb(2)), retract(m3_rb(5)) ; true)), solutions([X = 1, X = 2, X = 3, X = 4, X = 5])).
+test(m3_retract_open_both_left, m3_rb(X), solutions([X = 1, X = 3, X = 4])).
 test(assertz_builtin, assertz(true), error(permission_error(modify, static_procedure, true/0))).
 test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
 test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).

@@ -64,19 +64,14 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key)
     return shot.module == key.module && shot.name == key.name && shot.arity == key.arity;
   });
   if (known) return;
-  Predicate* predicate = find_pred(machine, key);
-  Snapshot shot;
-  shot.module = key.module;
-  shot.name = key.name;
-  shot.arity = key.arity;
-  shot.created = predicate == nullptr;
-  if (predicate != nullptr) {
-    shot.clauses = predicate->clauses;
-    shot.dynamic = predicate->dynamic;
-    shot.abolished = predicate->abolished;
-    shot.meta = predicate->meta;
+  const Predicate* predicate = find_pred(machine, key);
+  if (predicate == nullptr) {
+    snapshots.push_back(Snapshot{key.module, key.name, key.arity, {}, true, false, false, {}});
+    return;
   }
-  snapshots.push_back(std::move(shot));
+  // 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
+  snapshots.push_back(Snapshot{key.module, key.name, key.arity, predicate->clauses, false, predicate->dynamic,
+                               predicate->abolished, predicate->meta});
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
@@ -125,7 +120,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
     }
     // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
     if (!keeps_clauses(machine, module, name, arity)) {
-      predicate.clauses.clear();
+      clear_clauses(predicate);
       // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
       if (!predicate.dynamic_declared) predicate.dynamic = false;
       // meta_predicate も同じ。読み直したテキストが宣言を消したら、限定もやめる。
@@ -136,7 +131,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   detach_native(machine, predicate);
   predicate.seen = true;
   last = index;
-  predicate.clauses.push_back(std::move(clause));
+  append_clause(predicate, std::move(clause));
   return true;
 }
 
@@ -151,7 +146,7 @@ void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::
     if (predicate != nullptr) {
       // 写しへ戻した節にも生成関数は付け直さない（ADR 0009）。外したら、その述語はインタプリタで動き続ける。
       detach_native(machine, *predicate);
-      predicate->clauses = shot.clauses;
+      replace_clauses(*predicate, shot.clauses);
       predicate->dynamic = shot.dynamic;
       predicate->abolished = shot.abolished;
       predicate->meta = shot.meta;

@@ -126,7 +126,8 @@ void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
     if (clause.dead) continue;
     Clause copied;
     if (!compile_copied(src, dst, clause, copied)) continue;
-    made.clauses.push_back(std::move(copied));
+    // 写した先の番号は新しく振る。元の機械の走査の番号は写した先では使わない。
+    append_clause(made, std::move(copied));
   }
   if (made.clauses.empty() && !made.dynamic) return;
   dst.predicates.push_back(std::move(made));

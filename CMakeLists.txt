@@ -76,6 +76,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/cut.cpp
   src/machine/catch.cpp
   src/machine/index.cpp
+  src/machine/clause_store.cpp
   src/machine/answer.cpp
   src/machine/consult.cpp
   src/machine/session.cpp

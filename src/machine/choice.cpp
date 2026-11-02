@@ -4,6 +4,8 @@
 #include <array>
 #include <bit>
 #include <cstdint>
+#include <optional>
+#include <utility>
 
 namespace mosa {
 namespace {
@@ -194,7 +196,8 @@ void enter_user(Impl& machine, const Goal& goal) {
   }
   const bool has_arg = goal.arity >= 1 && !wraps_first(*predicate);
   const Cell first = has_arg ? machine.heap.deref(goal.arg(machine, 0)) : Cell{};
-  const auto candidates = select_clauses(machine, *predicate, has_arg, first);
+  std::size_t position = 0;
+  auto candidates = select_clauses(machine, *predicate, has_arg, first, position);
   if (candidates.empty()) {
     machine.failed = true;
     return;
@@ -203,7 +206,7 @@ void enter_user(Impl& machine, const Goal& goal) {
   if (candidates.size() > 1) {
     Entry entry;
     entry.pick = Pick::Clauses;
-    entry.candidates = candidates;
+    entry.candidates = std::move(candidates);
     entry.next = 1;
     entry.redo_goal = goal.at;
     // 別名で呼んでも、やり直しは定義の名前で引き直す。
@@ -215,7 +218,7 @@ void enter_user(Impl& machine, const Goal& goal) {
     entry.trail_mark = machine.trail.slots.size();
     push_frame(machine, std::move(entry));
   }
-  enter_clause(machine, *predicate, candidates[0], goal.at, boundary);
+  enter_clause(machine, *predicate, position, goal.at, boundary);
 }
 
 bool redo_clause(Impl& machine) {
@@ -227,19 +230,24 @@ bool redo_clause(Impl& machine) {
     return false;
   }
   apply_catches(machine, top);
-  const auto index = top.candidates[top.next];
-  const auto goal = top.redo_goal;
-  const auto cut = top.cut;
-  const bool last = top.next + 1 >= top.candidates.size();
   const Predicate* predicate = find_pred(machine, PredKey{top.pred_module, top.pred_name, top.pred_arity});
-  // 述語ごと消えると添字が外れる。枠を残すとやり直しが終わらない。
-  if (predicate == nullptr || index >= predicate->clauses.size()) {
+  // 述語ごと消えると番号を引く先が無い。枠を残すとやり直しが終わらない。
+  if (predicate == nullptr) {
     machine.stack.pop_back();
     return false;
   }
-  if (last) machine.stack.pop_back();
-  else top.next += 1;
-  enter_clause(machine, *predicate, index, goal, cut);
+  // 候補は番号なので、前の節を消しても asserta しても位置を引き直せば同じ節に入る（ADR 0015）。まだ試して
+  // いない節は消さずに死んだ印を付けるので普通は在る。無い番号が残っていれば飛ばす。
+  std::optional<std::size_t> position;
+  while (!position && top.next < top.candidates.size()) {
+    position = clause_position(*predicate, top.candidates[top.next]);
+    top.next += 1;
+  }
+  const auto goal = top.redo_goal;
+  const auto cut = top.cut;
+  if (top.next >= top.candidates.size()) machine.stack.pop_back();
+  if (!position) return false;
+  enter_clause(machine, *predicate, *position, goal, cut);
   return true;
 }
 

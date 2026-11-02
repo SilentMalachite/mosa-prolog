@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <initializer_list>
@@ -50,6 +51,8 @@ using EnvRef = std::shared_ptr<EnvCells>;
 [[nodiscard]] EnvRef make_env(std::vector<Cell> cells);
 
 struct Clause {
+  // ADR 0015。述語の中で変わらず、繰り返さない番号。clauses の中では狭義に増える。振るのは clause_store.cpp だけ。
+  std::size_t id = 0;
   IrTerm head;
   GoalRef body;
   std::uint16_t vars = 0;
@@ -65,6 +68,14 @@ struct Clause {
   std::vector<std::string> names;
 };
 
+// 先頭へ足しても後ろの節を動かさない（ADR 0015）。位置で引く enter_clause・mosac・指紋のために添字でも引ける。
+using ClauseList = std::deque<Clause>;
+
+// 番号は真ん中から振り始める。asserta は下へ、assertz は上へ伸ばすので、どちらへ 2^62 回足してもあふれない。
+// 2^62 を置くには 64 ビットの size_t が要る（CI の 3 つの OS はどれも 64 ビット）。
+static_assert(sizeof(std::size_t) >= 8);
+inline constexpr std::size_t kFirstClauseId = std::size_t{1} << 62;
+
 // multifile と discontiguous の宣言。述語が無くても残す。宣言だけで節の無い手続きになる（iso-notes 7.8.3 の決定 B）。
 // shared は multifile。複数のテキストに節を足してよい印でもある。
 struct SharedPred {
@@ -79,7 +90,13 @@ struct Predicate {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
+  // 書くのは clause_store.cpp の関数だけ。番号と live をそこで保つ。
+  ClauseList clauses;
+  // [first_id, next_id) が振った番号の範囲。節を消しても縮めないので、消した節の番号を別の節が使わない。
+  std::size_t first_id = kFirstClauseId;
+  std::size_t next_id = kFirstClauseId;
+  // dead でない節の数。clause_store.cpp と kill_clause の印付けだけが変える。
+  std::size_t live = 0;
   bool seen = false;
   bool dynamic = false;
   // 読み込みの開始で落とす。この読み込みが dynamic を見たら真。見ていなければ置き換え後は静的。
@@ -107,9 +124,9 @@ enum class Pick {
   // 節の本体は実行しない。Clauses に載せるとやり直しが節を呼ぶ。
   ClauseScan,
   PredGen,
-  // ストリームの性質は節ではない。やり直しを節の添字に載せない。
+  // ストリームの性質は節ではない。やり直しを節の番号に載せない。
   StreamGen,
-  // 生成関数の節の候補。candidates は節の添字ではなく状態なので、pred_* を入れず節の走査に数えさせない。
+  // 生成関数の節の候補。candidates は節の番号ではなく状態なので、pred_* を入れず節の走査に数えさせない。
   Native,
   // 動いている findall・bagof・setof（ADR 0013）。ここへ戻ればゴールの解は尽きたので、答えを束ねる。
   Collect
@@ -139,6 +156,8 @@ struct Entry {
   std::size_t heap_mark = 0;
   std::size_t trail_mark = 0;
   std::uint64_t redo_goal = kNoFrame;
+  // Clauses・Retract・ClauseScan では節の番号（Clause::id）。消しても asserta しても付け直さない（ADR 0015）。
+  // PredGen は述語ベクタの添字、StreamGen と Native は状態。
   std::vector<std::size_t> candidates;
   std::size_t next = 0;
   std::uint32_t pred_module = 0;
@@ -490,6 +509,15 @@ struct LaunchNext {
 [[nodiscard]] LaunchNext open_soft(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
                                    const EnvRef& env, std::uint32_t module);
 void trim_stack(Impl& machine, std::size_t boundary);
+// 定義は clause_store.cpp。Predicate::clauses を書くのはここだけで、番号・first_id・next_id・live をここで保つ
+// （ADR 0015）。append と prepend は新しい番号を振る。replace は渡された番号を残し、範囲をそれが入るまで広げる。
+void append_clause(Predicate& predicate, Clause clause);
+void prepend_clause(Predicate& predicate, Clause clause);
+void replace_clauses(Predicate& predicate, ClauseList clauses);
+void clear_clauses(Predicate& predicate);
+void erase_clause_id(Predicate& predicate, std::size_t id);
+// 番号の節の位置。無い番号は nullopt。
+[[nodiscard]] std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
 Predicate* purge_dead_clauses(Impl& machine, Predicate* predicate);
@@ -547,8 +575,9 @@ void propagate_throw(Impl& machine, Cell ball);
 void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity);
 void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
+// 候補の節の番号を節の順に返す。first_position には最初の候補の位置を入れる（空なら触らない）。
 [[nodiscard]] std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& predicate,
-                                                      bool has_arg, Cell first);
+                                                      bool has_arg, Cell first, std::size_t& first_position);
 
 [[nodiscard]] Stop run_loop(Impl& machine);
 [[nodiscard]] LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,

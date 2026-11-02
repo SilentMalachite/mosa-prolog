@@ -16,7 +16,7 @@ struct Snapshot {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
+  ClauseList clauses;
   bool created = false;
   bool dynamic = false;
   bool abolished = false;

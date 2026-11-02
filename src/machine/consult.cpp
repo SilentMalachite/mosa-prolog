@@ -49,7 +49,7 @@ struct ClauseBackup {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  std::vector<Clause> clauses;
+  ClauseList clauses;
   bool dynamic = false;
 };
 
@@ -93,7 +93,7 @@ void restore_clauses(Impl& machine, const std::vector<ClauseBackup>& saved) {
       if (predicate.module != item.module || predicate.name != item.name || predicate.arity != item.arity) continue;
       // 戻した節にも生成関数は付け直さない（ADR 0009）。
       detach_native(machine, predicate);
-      predicate.clauses = item.clauses;
+      replace_clauses(predicate, item.clauses);
       predicate.dynamic = item.dynamic;
       break;
     }
