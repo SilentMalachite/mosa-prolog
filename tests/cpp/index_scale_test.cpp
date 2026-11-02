@@ -31,7 +31,10 @@ constexpr std::string_view k_program =
     "one :- p(_, _), !.\n"
     "ones(N) :- ones(1, N).\n"
     "ones(I, N) :- I =< N, !, one, I1 is I + 1, ones(I1, N).\n"
-    "ones(_, _).\n";
+    "ones(_, _).\n"
+    "looks(N) :- looks(1, N).\n"
+    "looks(I, N) :- I =< N, !, p(I, _), I1 is I + 1, looks(I1, N).\n"
+    "looks(_, _).\n";
 
 constexpr int k_runs = 2;
 constexpr double k_slack_ms = 30.0;
@@ -90,5 +93,7 @@ int main() {
       [](std::size_t) { return std::string{"mk(0)."}; });
   // 第1引数が未束縛の呼び出しが生きた節を全部候補の列に積むと、すぐカットしても 1 回が N かかり、N 回で N の 2 乗になる。
   check_linear("unbound first call", 5000, [](std::size_t n) { return "ones(" + std::to_string(n) + ")."; });
+  // 第1引数で引く呼び出しが全部の節の鍵を照らすと、鍵が 1 節にしか合わなくても 1 回が N かかり、N 回で N の 2 乗になる。
+  check_linear("lookup by key", 5000, [](std::size_t n) { return "looks(" + std::to_string(n) + ")."; });
   return mosa_test::failures();
 }

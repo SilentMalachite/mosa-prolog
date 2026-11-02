@@ -71,10 +71,11 @@ void call_by_cursor(Impl& machine, const Predicate& predicate, std::uint64_t goa
   enter_clause(machine, predicate, position, goal, boundary);
 }
 
+// 候補は今見える節の番号だけなので、最初の番号の節は在る。位置は真ん中から消していなければ差の 1 回で引ける。
 void call_by_list(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t goal) {
-  std::size_t position = 0;
-  auto candidates = select_clauses(machine, predicate, true, first, position);
-  if (candidates.empty()) {
+  auto candidates = key_candidates(machine, predicate, first, machine.db_generation);
+  const auto position = candidates.empty() ? std::nullopt : clause_position(predicate, candidates.front());
+  if (!position) {
     machine.failed = true;
     return;
   }
@@ -85,7 +86,7 @@ void call_by_list(Impl& machine, const Predicate& predicate, Cell first, std::ui
     entry.next = 1;
     push_frame(machine, std::move(entry));
   }
-  enter_clause(machine, predicate, position, goal, boundary);
+  enter_clause(machine, predicate, *position, goal, boundary);
 }
 
 bool exhausted(const Entry& entry) {

@@ -9,6 +9,7 @@
 #include "mosa/runtime.hpp"
 
 #include "../module/module.hpp"
+#include "clause_index.hpp"
 #include "gc.hpp"
 
 #include <chrono>
@@ -31,8 +32,6 @@ inline constexpr std::uint64_t kNoFrame = UINT64_MAX;
 inline constexpr std::size_t kFrameHead = 4;
 // 生成コードは rt::kFrameHead でゴール枠の引数を読む。2 つは同じ枠の同じ頭である。
 static_assert(rt::kFrameHead == kFrameHead);
-
-enum class KeyKind { Any, None, Var, Atom, Int, Float, List, Fun };
 
 // ゴールの木は写さずに共有する。部分木は根と同じ持ち主を持つ別名のポインタで指す。節を消しても、動いている
 // 本体はこれが生かしておく（ADR 0011 の改訂 3）。
@@ -122,6 +121,8 @@ struct Predicate {
   std::size_t next_id = kFirstClauseId;
   // dead() でない節の数。clause_store.cpp と kill_clause の died の書き込みだけが変える。
   std::size_t live = 0;
+  // 第1引数の索引。const の述語を引く呼び出しが初めて要るときに作るので mutable。節を書く所が一緒に直す。
+  mutable FirstArgIndex index;
   bool seen = false;
   bool dynamic = false;
   // 読み込みの開始で落とす。この読み込みが dynamic を見たら真。見ていなければ置き換え後は静的。
@@ -618,9 +619,10 @@ void propagate_throw(Impl& machine, Cell ball);
 void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity);
 void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
-// 候補の節の番号を節の順に返す。first_position には最初の候補の位置を入れる（空なら触らない）。
-[[nodiscard]] std::vector<std::size_t> select_clauses(const Impl& machine, const Predicate& predicate,
-                                                      bool has_arg, Cell first, std::size_t& first_position);
+// 束縛した第1引数 first に合う節（鍵が等しい節と鍵の無い節）のうち、世代 generation に見える節の番号を節の順に
+// 返す。8 節以上なら索引を作って引く。first が未束縛のときと、第1引数を meta 引数で包む述語には呼ばない。
+[[nodiscard]] std::vector<std::size_t> key_candidates(const Impl& machine, const Predicate& predicate, Cell first,
+                                                      std::uint64_t generation);
 
 [[nodiscard]] Stop run_loop(Impl& machine);
 [[nodiscard]] LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,

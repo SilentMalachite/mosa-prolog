@@ -223,6 +223,149 @@ test(m3_asserta_open_retract, findall(X, (retract(m3_ar(X)), (X == 1 -> asserta(
 test(m3_asserta_open_retract_left, findall(X, m3_ar(X), L), solutions([L = [0]])).
 test(m3_asserta_open_clause, findall(X, (clause(m3_ac(X), true), (X == 1 -> asserta(m3_ac(0)) ; true)), L), solutions([L = [1, 2, 3]])).
 test(m3_asserta_open_clause_left, findall(X, m3_ac(X), L), solutions([L = [0, 1, 2, 3]])).
+
+% レビュー M3 の第1引数の索引（ADR 0015）。索引は 8 節以上の述語だけが持つので、どの述語も 9 節以上にする。
+% 鍵の組と鍵の無い節を合わせても、線形に照らしたときと同じ節を同じ順に返すこと。
+:- dynamic(m3_ok/2).
+m3_ok(a, 1).
+m3_ok(_, 2).
+m3_ok(b, 3).
+m3_ok(a, 4).
+m3_ok(f(x), 5).
+m3_ok(_, 6).
+m3_ok(b, 7).
+m3_ok(a, 8).
+m3_ok(_, 9).
+m3_ok(c, 10).
+:- dynamic(m3_kz/2).
+m3_kz(0.0, a).
+m3_kz(1, b).
+m3_kz(-0.0, c).
+m3_kz(0, d).
+m3_kz(_, e).
+m3_kz(1.0, f).
+m3_kz(-0.0, g).
+m3_kz(0.0, h).
+m3_kz(-1.0, i).
+:- dynamic(m3_kn/2).
+m3_kn(0.0, a).
+m3_kn(_, b).
+m3_kn(1.0, c).
+m3_kn(_, d).
+m3_kn(nan, e).
+m3_kn(2.0, f).
+m3_kn(_, g).
+m3_kn(3.0, h).
+% 2^60 からは箱の整数になる。2^61 + 5 は下の桁が 5 と同じ。
+:- dynamic(m3_kb/2).
+m3_kb(5, a).
+m3_kb(1152921504606846975, b).
+m3_kb(1152921504606846976, c).
+m3_kb(2305843009213693957, d).
+m3_kb(_, e).
+m3_kb(9223372036854775807, f).
+m3_kb(-1152921504606846977, g).
+m3_kb(-1152921504606846976, h).
+m3_kb(1152921504606846976, i).
+m3_kb(5.0, j).
+% 4607182418800017408 は 1.0 のビット列と同じ値の整数。'1' はアトム。
+:- dynamic(m3_kf/2).
+m3_kf(1, a).
+m3_kf(1.0, b).
+m3_kf(4607182418800017408, c).
+m3_kf(_, d).
+m3_kf(2, e).
+m3_kf(2.0, f).
+m3_kf(1, g).
+m3_kf(1.0, h).
+m3_kf('1', i).
+:- dynamic(m3_ka/2).
+m3_ka(f, a).
+m3_ka(f(1), b).
+m3_ka(f(1, 2), c).
+m3_ka(g(1), d).
+m3_ka(_, e).
+m3_ka(f(2), f).
+m3_ka(f(x, y, z), g).
+m3_ka(f, h).
+m3_ka(f(3, 4), i).
+:- dynamic(m3_kl/2).
+m3_kl([], a).
+m3_kl([x], b).
+m3_kl('[]', c).
+m3_kl([y | z], d).
+m3_kl(_, e).
+m3_kl('.'(p, q), f).
+m3_kl({}, g).
+m3_kl([], h).
+m3_kl([[]], i).
+% 7 節。索引を作る数の手前。
+:- dynamic(m3_ta/2).
+m3_ta(k, 1).
+m3_ta(_, 2).
+m3_ta(k, 3).
+m3_ta(_, 4).
+m3_ta(k, 5).
+m3_ta(_, 6).
+m3_ta(k, 7).
+
+% 鍵の無い節は鍵の組の間に節の順で入る。鍵の組が無い呼び出しと、鍵の型が違う呼び出しは鍵の無い節だけを見る。
+test(m3_order_keyless, m3_ok(a, X), solutions([X = 1, X = 2, X = 4, X = 6, X = 8, X = 9])).
+test(m3_order_keyless_absent, findall(X, m3_ok(z, X), L), solutions([L = [2, 6, 9]])).
+test(m3_order_keyless_type, findall(X, m3_ok(1, X), L), solutions([L = [2, 6, 9]])).
+test(m3_order_keyless_struct, findall(X, m3_ok(f(_), X), L), solutions([L = [2, 5, 6, 9]])).
+% 0.0 と -0.0 は同じ鍵（単一化も通る）。整数の 0 とは別の鍵。
+test(m3_keys_zero, findall(R, m3_kz(0.0, R), L), solutions([L = [a, c, e, g, h]])).
+test(m3_keys_zero_negative, findall(R, (Z is -(0.0), m3_kz(Z, R)), L), solutions([L = [a, c, e, g, h]])).
+test(m3_keys_zero_int, findall(R, m3_kz(0, R), L), solutions([L = [d, e]])).
+% NaN の鍵はどの NaN とも同じ鍵だが、NaN は単一化しないので鍵の無い節だけが答える。アトム nan は別の鍵。
+test(m3_keys_nan_setup, (N is nan, M is -(nan), assertz(m3_kn(N, i)), assertz(m3_kn(M, j)), assertz(m3_kn(_, k))), true).
+test(m3_keys_nan, findall(R, (N is nan, m3_kn(N, R)), L), solutions([L = [b, d, g, k]])).
+test(m3_keys_nan_negative, findall(R, (N is -(nan), m3_kn(N, R)), L), solutions([L = [b, d, g, k]])).
+test(m3_keys_nan_atom, findall(R, m3_kn(nan, R), L), solutions([L = [b, d, e, g, k]])).
+test(m3_keys_nan_all, findall(R, m3_kn(_, R), L), solutions([L = [a, b, c, d, e, f, g, h, i, j, k]])).
+% 箱の整数も即値の整数も値で引く。計算した箱の整数と、読んだ箱の整数は同じ鍵。
+test(m3_keys_big, findall(R, (K is 1 << 60, m3_kb(K, R)), L), solutions([L = [c, e, i]])).
+test(m3_keys_big_literal, findall(R, m3_kb(1152921504606846976, R), L), solutions([L = [c, e, i]])).
+test(m3_keys_big_below, findall(R, (K is (1 << 60) - 1, m3_kb(K, R)), L), solutions([L = [b, e]])).
+test(m3_keys_big_low_bits, findall(R, m3_kb(5, R), L), solutions([L = [a, e]])).
+test(m3_keys_big_max, findall(R, (K is 9223372036854775807, m3_kb(K, R)), L), solutions([L = [e, f]])).
+test(m3_keys_big_negative, findall(R, (K is -(1 << 60) - 1, m3_kb(K, R)), L), solutions([L = [e, g]])).
+test(m3_keys_big_negative_small, findall(R, (K is -(1 << 60), m3_kb(K, R)), L), solutions([L = [e, h]])).
+% 整数と浮動小数点数は値が同じでも、ビット列が同じでも別の鍵。アトム '1' も別。
+test(m3_keys_int_float, findall(R, m3_kf(1, R), L), solutions([L = [a, d, g]])).
+test(m3_keys_int_float_float, findall(R, m3_kf(1.0, R), L), solutions([L = [b, d, h]])).
+test(m3_keys_int_float_bits, findall(R, m3_kf(4607182418800017408, R), L), solutions([L = [c, d]])).
+test(m3_keys_int_float_atom, findall(R, m3_kf('1', R), L), solutions([L = [d, i]])).
+% 複合項の鍵は名前とアリティ。同じ名前のアトムとも別。
+test(m3_keys_arity, findall(R, m3_ka(f(_), R), L), solutions([L = [b, e, f]])).
+test(m3_keys_arity_two, findall(R, m3_ka(f(_, _), R), L), solutions([L = [c, e, i]])).
+test(m3_keys_arity_three, findall(R, m3_ka(f(_, _, _), R), L), solutions([L = [e, g]])).
+test(m3_keys_arity_atom, findall(R, m3_ka(f, R), L), solutions([L = [a, e, h]])).
+test(m3_keys_arity_name, findall(R, m3_ka(g(_), R), L), solutions([L = [d, e]])).
+% [] はアトムで '[]' と同じ。リストの鍵は中身に依らずどのリストとも合う。
+test(m3_keys_nil_list, findall(R, m3_kl([], R), L), solutions([L = [a, c, e, h]])).
+test(m3_keys_nil_list_cons, findall(R, m3_kl([_ | _], R), L), solutions([L = [b, d, e, f, i]])).
+test(m3_keys_nil_list_curly, findall(R, m3_kl({}, R), L), solutions([L = [e, g]])).
+% 7 節の走査を開いたまま 2 節足す。走査は 7 節を見て、次の呼び出しは 9 節（索引を作る数を越えた）を見る。
+test(m3_threshold_assertz, (m3_ta(k, X), (X == 1 -> assertz(m3_ta(k, 8)), assertz(m3_ta(_, 9)) ; true)), solutions([X = 1, X = 2, X = 3, X = 4, X = 5, X = 6, X = 7])).
+test(m3_threshold_assertz_left, findall(X, m3_ta(k, X), L), solutions([L = [1, 2, 3, 4, 5, 6, 7, 8, 9]])).
+test(m3_threshold_assertz_keyless, findall(X, m3_ta(j, X), L), solutions([L = [2, 4, 6, 9]])).
+% 索引を作った後の asserta と assertz も、開いた走査は見ず、次の呼び出しは見る。
+test(m3_index_extend, (asserta(m3_ta(j, 0)), assertz(m3_ta(j, 10)), findall(X, m3_ta(j, X), L)), solutions([L = [0, 2, 4, 6, 9, 10]])).
+test(m3_index_extend_open, (m3_ta(j, X), (X == 0 -> asserta(m3_ta(j, -1)), assertz(m3_ta(j, 11)) ; true)), solutions([X = 0, X = 2, X = 4, X = 6, X = 9, X = 10])).
+test(m3_index_extend_left, findall(X, m3_ta(j, X), L), solutions([L = [-1, 0, 2, 4, 6, 9, 10, 11]])).
+% 先頭、末尾、真ん中の節を消す。消した節は次の呼び出しに出ない。
+test(m3_index_erase, (retract(m3_ta(j, -1)), retract(m3_ta(j, 11)), retract(m3_ta(k, 5)), findall(X, m3_ta(j, X), J), findall(X, m3_ta(k, X), K)), solutions([(J = [0, 2, 4, 6, 9, 10], K = [1, 2, 3, 4, 6, 7, 8, 9])])).
+% 読み直しは節を置き換える。前の読み込みの鍵の組を引かないこと。ctest は prolog_tests と差分テストを同時に流すので、
+% 中身ごとに別のファイルにし、同じパスへ違う中身を書き合わないようにする。
+test(m3_reconsult_first, (m3_write_clauses('tests/tmp/m3_reconsult_1.pl', [m3_rc(a, 1), m3_rc(b, 2), m3_rc(_, 3), m3_rc(c, 4), m3_rc(a, 5), m3_rc(d, 6), m3_rc(e, 7), m3_rc(c, 8), m3_rc(f, 9)]), consult('tests/tmp/m3_reconsult_1.pl'), findall(X, m3_rc(c, X), L)), solutions([L = [3, 4, 8]])).
+test(m3_reconsult, (m3_write_clauses('tests/tmp/m3_reconsult_2.pl', [m3_rc(c, 10), m3_rc(g, 11), m3_rc(h, 12), m3_rc(_, 13), m3_rc(i, 14), m3_rc(j, 15), m3_rc(c, 16), m3_rc(k, 17), m3_rc(l, 18)]), consult('tests/tmp/m3_reconsult_2.pl'), findall(X, m3_rc(c, X), C), findall(X, m3_rc(a, X), A)), solutions([(C = [10, 13, 16], A = [13])])).
+
+% 第1引数で節を選ぶので、選択点を残さない。読み込みは選択点が残っていると述語を置き換えない。
+m3_write_clauses(Path, Clauses) :- open(Path, write, S), m3_put_clauses(Clauses, S), close(S).
+m3_put_clauses([], _).
+m3_put_clauses([C | Cs], S) :- writeq(S, C), write(S, '.'), nl(S), m3_put_clauses(Cs, S).
 test(assertz_builtin, assertz(true), error(permission_error(modify, static_procedure, true/0))).
 test(retract_builtin, retract(fail), error(permission_error(modify, static_procedure, fail/0))).
 test(abolish_builtin, abolish(atom/1), error(permission_error(modify, static_procedure, atom/1))).
