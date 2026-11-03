@@ -86,15 +86,13 @@ bool is_small_name(std::string_view text) {
 // 全角記号モードの字句解析器は引用の外の （），、： を半角に読み、後ろに空白か % か終わりが来る 。 を終止符にする
 // （SPEC 第4節）。原子の中の 。 の後ろは図形の字なので、見るのは最後の 。 だけ。［］「」 は図形でなく、もう引用される。
 bool fullwidth_changes(std::string_view name) {
-  char32_t last = 0;
   for (std::size_t index = 0; index < name.size();) {
     const Decoded decoded = decode_at(name, index);
     if (!decoded.valid) return false;
     if (halfwidth_punctuation(decoded.code)) return true;
-    last = decoded.code;
     index += decoded.bytes;
   }
-  return last == U'。';
+  return name.ends_with("。");
 }
 
 // ! と ; 以外の単独文字は、引用しないと括弧や区切りとして読まれる。
@@ -288,6 +286,7 @@ class Printer final : public WriteHeld {
   std::string out_;
   Pending pending_;
   std::size_t next_id_ = 1;
+  std::size_t zero_end_ = std::string::npos;  // 最後に書いた整数 0 の終わりの out_ の長さ
   int next_number_ = 1;
   WriteReplace replace_ = nullptr;
   void* context_ = nullptr;
@@ -428,11 +427,10 @@ bool Printer::left_glue(std::size_t mark, std::string_view next) const {
   return out_.size() > mark && (glue(final_cp(out_), first_cp(next)) || zero_quote(next));
 }
 
-// 0 だけの数の直後の ' は 0'c の文字コードに読まれる（M8 の Codex レビュー）。10' や 1.0' は読み手が分けるので詰めたまま。
+// 書いたばかりの整数 0 の直後の ' は 0'c の文字コードに読まれる（M8 の Codex レビュー）。字面の 0 は名前や
+// 演算子の一部でもありうるので、字句として書いた場所で覚える。10' や 1.0' は読み手が分けるので詰めたまま。
 bool Printer::zero_quote(std::string_view next) const {
-  if (next.empty() || next.front() != '\'' || out_.empty() || out_.back() != '0') return false;
-  const std::optional<char32_t> before = final_cp(std::string_view{out_}.substr(0, out_.size() - 1));
-  return !before || (!continues_name(*before) && *before != U'.');
+  return !next.empty() && next.front() == '\'' && zero_end_ == out_.size();
 }
 
 void Printer::push_term(Cell term, int parent, bool allow_equal, bool allow_hook) {
@@ -595,7 +593,11 @@ void Printer::render(const Work& item) {
   term = heap_.deref(term);
   if (heap_.unbound(term)) return emit(var_text(term));
   if (term.tag() == Tag::Atom) return emit(spell(heap_.atoms().name(atom_of(term))));
-  if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return emit(std::to_string(heap_.integer_value(term)));
+  if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) {
+    emit(std::to_string(heap_.integer_value(term)));
+    if (heap_.integer_value(term) == 0) zero_end_ = out_.size();
+    return;
+  }
   if (term.tag() == Tag::Float) return emit(format_float(heap_.float_value(term)));
   // '$VAR'(N) は関数表記より先。N は 0 以上の整数だけが変数名になる。
   if (options_.numbervars) {

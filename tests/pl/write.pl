@@ -164,3 +164,5 @@ test(l16_zero_quoted, quoted_op_round(xfx, 'x y'(0, a), '0 ''x y''a'), true).
 % 0 だけでない数の後ろは前のまま詰めて書く。読み手は数と引用に分ける。
 test(l16_number_quoted, quoted_op_round(xf, 'x y'(10), '10''x y'''), true).
 test(l16_float_quoted, quoted_op_round(xf, 'x y'(1.0), '1.0''x y'''), true).
+% 字面の 0 の前の . は小数点とは限らない。整数 0 を書いた場所で覚える（M8 の Codex レビュー 3 回目）。
+test(l16_dots_zero_quoted, (op(100, xfx, '..'), catch((quoted_op_round(xfx, 'x y'('..'(a, 0), b), 'a..0 ''x y''b') -> R = true ; R = false), E, R = error(E)), op(0, xfx, '..'), R == true), true).
