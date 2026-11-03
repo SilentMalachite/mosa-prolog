@@ -344,6 +344,14 @@ void note_site(Impl& machine, std::size_t pred, std::size_t line) {
                                             predicate.clauses.size() - 1, log->current, line});
 }
 
+// 飛ばしたゴールの op/3 は後の項の読みを変えうるので、翻訳の読みで誤りになった項も起動時には読めるかもしれない
+// （計画 Task 5）。誤りにせず、このファイルの述語を IR のまま動かす印を付ける。飛ばしたゴールが無ければ誤りのまま。
+bool mark_opaque(TranslationLog* log) {
+  if (log == nullptr || log->current >= log->files.size() || !log->files[log->current].skipped_goal) return false;
+  log->files[log->current].opaque = true;
+  return true;
+}
+
 // 翻訳のときに開いたファイルの原文を書き留め、読み終えるまで節の行き先にする。include を 2 回読んでも 1 つ。
 // library(_) で開いたファイルと、そこから開いたファイルはライブラリとして印を付ける（翻訳は Task 10）。
 struct FileNote {
@@ -379,13 +387,7 @@ struct FileNote {
     }
     log->current = outer;
   }
-  // 飛ばしたゴールの後の構文エラーは、起動時には読める形かもしれない（計画 Task 5）。誤りにせず、
-  // このファイルの述語を IR のまま動かす印を付けて読み進める。飛ばしたゴールが無ければ誤りのまま。
-  [[nodiscard]] bool tolerate_syntax() const {
-    if (log == nullptr || log->current >= log->files.size() || !log->files[log->current].skipped_goal) return false;
-    log->files[log->current].opaque = true;
-    return true;
-  }
+  [[nodiscard]] bool tolerate_syntax() const { return mark_opaque(log); }
   void first_term(const ReadTerm& read) const {
     if (log == nullptr || log->current >= log->files.size() || log->files[log->current].line != 0) return;
     log->files[log->current].line = read.line;
@@ -434,7 +436,11 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
     return false;
   }
   // SPEC 第5節。組込と制御構造は system モジュールにあるので、どのモジュールへ足す節でも断る。
-  if (const auto formal = refused_clause(machine, term, clause)) return fail_formal(machine, *formal) > 0;
+  // 翻訳の読みで断った節は、構文エラーと同じく足さずに読み進め、起動時の読み込みに判定を任せる（M10 の Codex レビュー）。
+  if (const auto formal = refused_clause(machine, term, clause)) {
+    if (mark_opaque(machine.translation)) return true;
+    return fail_formal(machine, *formal) > 0;
+  }
   remember_clause(machine, scan.snapshots, module, clause);
   if (!add_clause(machine, module, std::move(clause), scan.last, scan.apart)) return false;
   note_site(machine, scan.last, read.line);
