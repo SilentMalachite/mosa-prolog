@@ -37,6 +37,19 @@ test(var_names_bound, (X = 1, with_output_to(atom(A), write_term(X, [quoted(true
 test(write_fresh, (with_output_to(atom(A), write(X)), A == '_G1'), true).
 test(write_two_fresh, (with_output_to(atom(A), write(f(X, Y))), A == 'f(_G1,_G2)'), true).
 test(write_named_rest, (with_output_to(atom(A), write_term(f(X, Y), [variable_names(['X' = X])])), A == 'f(X,_G1)'), true).
+% レビュー M9（7.10.4、7.10.5 a）。作る _G の名前は variable_names の名前を飛ばす。同じ字面の 2 つの変数は読み戻すと 1 つになる。
+% 項に出ない変数の名前も飛ばす。同じ名前の表で項を分けて書く呼び手（節の頭と体など）で、分けた字面の間でも重ならない。
+test(m9_given_g1, (with_output_to(atom(A), write_term(f(X, Y), [variable_names(['_G1'=X])])), A == 'f(_G1,_G2)'), true).
+test(m9_given_g2, (with_output_to(atom(A), write_term(f(X, Y, Z), [variable_names(['_G2'=Y])])), A == 'f(_G1,_G2,_G3)'), true).
+test(m9_given_both, (with_output_to(atom(A), write_term(f(X, Y, Z, W), [variable_names(['_G2'=Y, '_G1'=X])])), A == 'f(_G1,_G2,_G3,_G4)'), true).
+test(m9_given_later, (with_output_to(atom(A), write_term(f(Y, Z, X), [variable_names(['_G2'=X])])), A == 'f(_G1,_G3,_G2)'), true).
+test(m9_given_shared, (with_output_to(atom(A), write_term(f(Y, X, Y), [variable_names(['_G1'=X])])), A == 'f(_G2,_G1,_G2)'), true).
+test(m9_given_absent, (with_output_to(atom(A), write_term(f(Y), [variable_names(['_G1'=_])])), A == 'f(_G2)'), true).
+test(m9_given_quoted, (with_output_to(atom(A), write_term([X|Y], [quoted(true), variable_names(['_G1'=X])])), A == '[_G1|_G2]'), true).
+test(m9_given_numbervars, (with_output_to(atom(A), write_term(f(X, Y), [numbervars(true), variable_names(['_G1'=X])])), A == 'f(_G1,_G2)'), true).
+% _G01 と _G1 は別の名前。束縛済みの組は Cor.3 で無視するので、その名前は作る名前と重ならない。
+test(m9_given_leading_zero, (with_output_to(atom(A), write_term(f(X, Y), [variable_names(['_G01'=X])])), A == 'f(_G01,_G1)'), true).
+test(m9_given_bound, (X = 1, with_output_to(atom(A), write_term(f(X, Y), [variable_names(['_G1'=X])])), A == 'f(1,_G1)'), true).
 test(write_share, (with_output_to(atom(A), write(f(X, X))), A == 'f(_G1,_G1)'), true).
 test(write_cycle, (X = f(X), with_output_to(atom(A), write(X)), A == 'f(_)'), true).
 test(write_stream, (with_output_to(atom(A), (current_output(S), write(S, 東))), A == 東), true).

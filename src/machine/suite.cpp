@@ -76,7 +76,11 @@ Exam make_exam(const Machine& machine, Cell term, const std::vector<VarName>& na
   const Cell expect = heap.deref(heap.arg(term, 2));
   Exam exam;
   exam.name = written(heap, machine.operators(), heap.arg(term, 0), names);
-  exam.goal = written(heap, machine.operators(), goal, names);
+  // 問い合わせはこの字面を読み直す。_ を _G1 と書くと名前付きの変数になって答えの名前の表に入り、作る名前がそれを
+  // 飛ばすので（レビュー M9）、答えの中の新しい変数が期待の字面と違う番号になる。読んだ節の名前の無い変数は 1 度しか出ない。
+  WriteOptions source;
+  source.underscore_once = true;
+  exam.goal = write_term(heap, machine.operators(), goal, source, names);
   exam.expect = written(heap, machine.operators(), expect, names);
   exam.canonical = write_term(heap, machine.operators(), goal, canonical_options(), names);
   for (const VarName& name : names) {

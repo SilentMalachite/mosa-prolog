@@ -38,6 +38,8 @@ bool is_prefix(Specifier specifier) { return specifier == Specifier::Fx || speci
 
 bool is_postfix(Specifier specifier) { return specifier == Specifier::Xf || specifier == Specifier::Yf; }
 
+std::string made_name(int number) { return "_G" + std::to_string(number); }
+
 // 書き出しの仕事。C++ の再帰を使わず work_ に積む（ADR 0011）。積む順は書く順の逆。
 enum class Step : std::uint8_t { Term, Text, Infix, Postfix, Bar, ListRest, Clear, Leave };
 
@@ -86,6 +88,9 @@ class Printer final : public WriteHeld {
       own_names_.assign(names.begin(), names.end());
       names_ = own_names_;
     }
+    for (const VarName& var : names) {
+      if (var.name.starts_with("_G")) given_.insert(var.name);
+    }
   }
 
   void collect(Cell term);
@@ -130,6 +135,8 @@ class Printer final : public WriteHeld {
   WriteOptions options_;
   std::span<const VarName> names_;
   std::vector<VarName> own_names_;
+  // 呼び手が付けた _G で始まる名前。作る名前はこれを飛ばす（レビュー M9）。
+  std::unordered_set<std::string> given_;
   std::unordered_map<std::uint64_t, int> counts_;
   std::unordered_map<std::uint64_t, int> assigned_;
   // 今書いている項の祖先。循環項はここで _ にして止める。
@@ -326,10 +333,12 @@ const VarName* Printer::var_name(Cell term) const {
 std::string Printer::var_text(Cell term) {
   if (const VarName* var = var_name(term)) return var->name;
   if (options_.underscore_once && counts_[term.raw()] <= 1) return "_";
-  const auto found = assigned_.find(term.raw());
-  const int number = found == assigned_.end() ? next_number_++ : found->second;
-  if (found == assigned_.end()) assigned_.emplace(term.raw(), number);
-  return "_G" + std::to_string(number);
+  if (const auto found = assigned_.find(term.raw()); found != assigned_.end()) return made_name(found->second);
+  // 7.10.4 の variable_names は名前を付けるだけで、ほかの変数の字面を選ばない。付けた名前と同じ番号を作ると、
+  // 読み戻したとき 2 つの変数が 1 つになる（レビュー M9）。項に出ない名前も飛ばし、同じ表で分けて書く字面とも重ねない。
+  while (given_.contains(made_name(next_number_))) ++next_number_;
+  assigned_.emplace(term.raw(), next_number_);
+  return made_name(next_number_++);
 }
 
 bool Printer::glue(std::optional<char32_t> end, std::optional<char32_t> start) {

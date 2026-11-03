@@ -220,6 +220,17 @@ void check_fullwidth_quoted_answer() {
                    "fullwidth quoted paren and colon answer");
 }
 
+// レビュー M9。REPL は読んだゴールを書いて読み直す。作った _G1 が利用者の _G1 と重なると 2 つの変数が 1 つになり、
+// f(_G1, _) = f(a, b) が偽になっていた。
+void check_given_made_up_name() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args, "f(_G1, _) = f(a, b).\nX = f(_G1, _).\n", true);
+  mosa_test::check(result.out.find("false") == std::string::npos, "given _G1 keeps the anonymous variable apart");
+  mosa_test::check(result.out.find("_G1 = a") != std::string::npos, "given _G1 is bound");
+  mosa_test::check(result.out.find("X = f(_G1,_G2).") != std::string::npos, "answer names the anonymous variable apart");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
@@ -482,6 +493,7 @@ int main(int argc, char** argv) {
   check_resource_limit_session();
   check_fullwidth_query();
   check_fullwidth_quoted_answer();
+  check_given_made_up_name();
   check_runner();
   check_runner_reports_every_file();
   check_uncaught_message("ja", "警告: ゴールは例外を送出しました: foo", "uncaught_ja");
