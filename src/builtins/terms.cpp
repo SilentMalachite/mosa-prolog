@@ -2,7 +2,8 @@
 // numbervars(?term, +integer, ?integer)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog に合わせる。
 //   Term の変数を左からの前順に '$VAR'(Start)、'$VAR'(Start+1)… に束縛し、End を次の番号と単一化する。
 //   instantiation_error（Start が変数）、type_error(integer, Start)、representation_error(max_integer)（番号が
-//   あふれる）。End が整数で数が合わなければ、変数を束縛せずに失敗する。
+//   あふれる。SWI-Prolog はタグ付き整数の範囲で representation_error(tagged_integer) だが、Mosa の整数は 64 ビット）。
+//   End が整数でないか数が合わなければ、誤りにせず、変数を束縛せずに失敗する（SWI-Prolog の pl-prims.c も失敗）。
 // テスト: tests/pl/terms.pl、tests/pl/utilities.pl
 #include "../machine/internal.hpp"
 
@@ -342,9 +343,9 @@ void run_numbervars(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_representation(machine, "max_integer"), goal.name, goal.arity);
     return;
   }
-  // 数の合わない End は、変数を束縛する前に断る（組込は束縛してから失敗しない）。
+  // SWI-Prolog は束縛してから End を単一化して失敗する。ここでは同じ答えを、束縛する前に断って出す。
   const Cell end = machine.heap.deref(goal.arg(machine, 2));
-  if (is_int(end) && machine.heap.integer_value(end) != first + count) {
+  if (!machine.heap.unbound(end) && (!is_int(end) || machine.heap.integer_value(end) != first + count)) {
     machine.failed = true;
     return;
   }
