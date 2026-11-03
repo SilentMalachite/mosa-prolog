@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 36edc52, CI run 41607610578 passed all 8 jobs (2026-11-03)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 24d418e, CI run 41653426668 passed all 8 jobs (2026-11-03)
 
 - **In progress:** none.
 - **Last done:** review M17: `--heap-max` also counts choice points, `extras`, envs, run-time goals and candidate lists (ADR 0010 amendment 3).
