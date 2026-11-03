@@ -433,6 +433,14 @@ A or B?: A: implement `forall/2` in `system` as a meta predicate in phase 4 Task
 
 Decision (2026-10-28): A. `forall/2` is implemented in `system` as a meta predicate in phase 4 Task 9, as `\+ (Cond, \+ Action)` run in the caller's context module. It is the only stage G predicate outside the six modules that phase 4 adds.
 
+## Section 7 Stage G utilities
+
+Review M11. Stage G of SPEC section 7 lists `tab/1,2`, `term_to_atom/2`, `nb_setval/2`, `nb_getval/2`, `setup_call_cleanup/3`, `sort/4` and `numbervars/3` (written `number_vars/3` there), but no phase in SPEC section 9 names them, phase 4 added only the six modules of the section 5 table and `forall/2`, and none of them exists, so each call raises `existence_error`.
+
+A or B?: A: implement them in phase 7, before the manuals and the release packages, in `system` as `forall/2` is, with the argument modes and errors of SWI-Prolog since none is ISO; `setup_call_cleanup/3` needs the engine to run the cleanup on exit, failure, cut and exception, so ADR 0016 comes first; SPEC's `number_vars/3` becomes `numbervars/3`. B: leave them out of this release (the existence error stays), remove them from stage G and say so in the manuals. Not implemented before confirmation.
+
+Decision (2026-11-03): A (review M11). The seven predicates go into `system` in phase 7, one predicate per commit, with their tests in `tests/pl/utilities.pl`; where SWI-Prolog's behaviour is not visible from its manual and source, the choice is written in the header comment of the predicate's file. SPEC section 7 now says `numbervars/3`.
+
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
 SPEC section 5 lists `predicate_property/2` in stage F but does not say what a variable head or an unknown module gives.

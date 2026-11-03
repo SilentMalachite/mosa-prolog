@@ -435,6 +435,14 @@ A か B か: A はフェーズ4の Task 9 で `forall/2` を meta 述語とし�
 
 決定（2026-10-28）: A。`forall/2` はフェーズ4の Task 9 で meta 述語として `system` に作り、呼び手の文脈モジュールで `\+ (Cond, \+ Action)` を動かす。6 モジュールの外にある段階 G の述語でフェーズ4が足すのは、これだけである。
 
+## 第7節 段階 G の便利述語
+
+レビュー M11。SPEC 第7節の段階 G は `tab/1,2`、`term_to_atom/2`、`nb_setval/2`、`nb_getval/2`、`setup_call_cleanup/3`、`sort/4`、`numbervars/3`（そこでは `number_vars/3` と書く）を挙げるが、SPEC 第9節のどのフェーズもこれを名指さず、フェーズ4が足したのは第5節の表の 6 モジュールと `forall/2` だけで、どれも存在しないので呼ぶと `existence_error` になる。
+
+A か B か: A はフェーズ7で、マニュアルとリリースパッケージの前に、`forall/2` と同じく `system` に作る。どれも ISO ではないので、引数の形と誤りは SWI-Prolog に合わせる。`setup_call_cleanup/3` は抜けたとき・失敗・カット・例外で後始末を動かす仕組みがエンジンに要るので、先に ADR 0016 を書く。SPEC の `number_vars/3` は `numbervars/3` に直す。B は今回のリリースに入れず（存在の誤りのまま）、段階 G から消し、マニュアルにそう書く。確認まで実装しない。
+
+決定（2026-11-03）: A（レビュー M11）。7 つの述語はフェーズ7で `system` に作り、1 述語ずつコミットし、テストは `tests/pl/utilities.pl` に置く。SWI-Prolog の振る舞いがマニュアルとソースから読み取れないところは、述語のファイルの見出しのコメントに選んだ形を書く。SPEC 第7節は `numbervars/3` と書く。
+
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
 SPEC 第5節は段階 F に `predicate_property/2` を挙げるが、頭部が変数のときと、無いモジュールを指したときを決めていない。
