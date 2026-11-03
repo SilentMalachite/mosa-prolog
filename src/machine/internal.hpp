@@ -24,6 +24,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace mosa {
@@ -329,6 +330,12 @@ struct ExportedTerm {
   int root = -1;
 };
 
+// nb_setval/2 の値（レビュー M11）。words は Heap::held に足した語数で、置き換えるときに返す。
+struct GlobalValue {
+  ExportedTerm value;
+  std::size_t words = 0;
+};
+
 // 入出力は値のベクタ。抽象クラスにはしない（ADR 0005）。添字が '$stream'(N) の N。
 struct Stream {
   enum class Kind { File, Standard, Memory };
@@ -419,6 +426,8 @@ struct Machine::Impl {
   std::size_t diag_line = 1;
   std::size_t diag_column = 1;
   std::vector<Binding> bindings;
+  // nb_setval/2 の値を鍵のアトムで引く。ヒープは後戻りで巻き戻るので、findall の答えと同じく外に写して持つ。
+  std::unordered_map<std::uint32_t, GlobalValue> globals;
   std::uint64_t next_soft = 1;
   DoubleQuotes quotes = DoubleQuotes::Codes;
   // unknown=fail のときだけ真。warning は未決 10 で受け付けない。

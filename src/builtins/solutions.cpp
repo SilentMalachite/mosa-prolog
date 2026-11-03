@@ -27,6 +27,15 @@ using sol::Group;
 using sol::Image;
 using sol::Packet;
 
+// 外に持つ答えの大きさ（ADR 0010 の改訂 2）。RSS に効くのは C++ の大きさなので、ベクタの容量で数える。
+// 割り当ての付け足しは数えない。上限を超えて動き続けないための目安であり、バイトまでは合わせない。
+// 項そのもの（sizeof）は入れ物のベクタの容量で数えるので、ここでは中の節点だけを数える。
+std::size_t footprint(const ExportedTerm& term) {
+  std::size_t bytes = term.nodes.capacity() * sizeof(ExportedTerm::Node);
+  for (const ExportedTerm::Node& node : term.nodes) bytes += node.kids.capacity() * sizeof(int);
+  return bytes;
+}
+
 namespace {
 
 enum class Which { None, Findall, Bagof, Setof };
@@ -465,15 +474,6 @@ bool same_term(Impl& machine, const ExportedTerm& left, const ExportedTerm& righ
   const int order = compare_cells(machine, a, b);
   restore_state(machine, heap_mark, trail_mark, extras_mark);
   return order == 0;
-}
-
-// 外に持つ答えの大きさ（ADR 0010 の改訂 2）。RSS に効くのは C++ の大きさなので、ベクタの容量で数える。
-// 割り当ての付け足しは数えない。上限を超えて動き続けないための目安であり、バイトまでは合わせない。
-// 項そのもの（sizeof）は入れ物のベクタの容量で数えるので、ここでは中の節点だけを数える。
-std::size_t footprint(const ExportedTerm& term) {
-  std::size_t bytes = term.nodes.capacity() * sizeof(ExportedTerm::Node);
-  for (const ExportedTerm::Node& node : term.nodes) bytes += node.kids.capacity() * sizeof(int);
-  return bytes;
 }
 
 std::size_t footprint(const Image& image) {

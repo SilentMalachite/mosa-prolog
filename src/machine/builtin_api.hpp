@@ -68,6 +68,9 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
+// ヒープの外に写した項の C++ での大きさ（バイト）。findall の答えと nb_setval/2 の値が Heap::held に数える。
+[[nodiscard]] std::size_t footprint(const ExportedTerm& term);
+[[nodiscard]] bool run_global_vars(Impl& machine, const Goal& goal);
 // Ctrl::Collect の枠に着いた解を、stack[entry] の収集に記録して失敗する（ADR 0013）。
 void collect_step(Impl& machine, std::size_t entry);
 // backtrack が一番上の Pick::Collect に戻ったとき。状態は戻してある。Entry を外して答えを束ねる。

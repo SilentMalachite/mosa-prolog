@@ -106,3 +106,26 @@ test(term_to_atom_element_var, term_to_atom(_, [0'a, _]), error(instantiation_er
 test(term_to_atom_compound, term_to_atom(_, f(x)), error(type_error(string, f(x)))).
 test(term_to_atom_mixed, term_to_atom(_, [a, 0'b]), error(type_error(string, [a, 0'b]))).
 test(term_to_atom_bad_tail, term_to_atom(_, [0'a|b]), error(type_error(string, [0'a|b]))).
+
+% nb_setval/2、nb_getval/2。値は置いたときに写し、後戻りでも消えない。SWI-Prolog の nb_getval は同じ項を返すが、
+% Mosa のヒープは後戻りで巻き戻るので、読むたびに写しを返す（iso-notes 第7節 段階 G の便利述語）。
+test(nb_set_get, (nb_setval(m11_k1, f(a, [1, 2])), nb_getval(m11_k1, V)), solutions([V = f(a, [1, 2])])).
+test(nb_overwrite, (nb_setval(m11_k2, one), nb_setval(m11_k2, two), nb_getval(m11_k2, V)), solutions([V = two])).
+test(nb_survives_backtracking, ((nb_setval(m11_k3, before), (nb_setval(m11_k3, after), fail ; true)), nb_getval(m11_k3, V)), solutions([V = after])).
+test(nb_copied_at_set, (X = g(Y), nb_setval(m11_k4, X), Y = bound, nb_getval(m11_k4, V), V = g(Z), var(Z)), true).
+test(nb_get_fresh, (nb_setval(m11_k5, h(_)), nb_getval(m11_k5, A), nb_getval(m11_k5, B), A = h(P), B = h(Q), P \== Q), true).
+test(nb_get_bound_value, (nb_setval(m11_k6, 3), nb_getval(m11_k6, 3)), true).
+test(nb_get_differs, (nb_setval(m11_k7, 3), nb_getval(m11_k7, 4)), fail).
+test(nb_cyclic, (X = f(X, a), nb_setval(m11_k8, X), nb_getval(m11_k8, V), V = f(W, A), A == a, W = f(_, A2), A2 == a), true).
+test(nb_long_list, (numlist_m11(100000, L), nb_setval(m11_k9, L), nb_getval(m11_k9, V), length(V, N)), solutions([N = 100000])).
+test(nb_after_findall, (findall(x, nb_setval(m11_k10, inside), _), nb_getval(m11_k10, V)), solutions([V = inside])).
+test(nb_set_key_var, nb_setval(_, a), error(instantiation_error)).
+test(nb_set_key_type, nb_setval(f(x), a), error(type_error(atom, f(x)))).
+test(nb_set_key_number, nb_setval(1, a), error(type_error(atom, 1))).
+test(nb_get_key_var, nb_getval(_, _), error(instantiation_error)).
+test(nb_get_key_type, nb_getval(1, _), error(type_error(atom, 1))).
+test(nb_get_missing, nb_getval(m11_never_set, _), error(existence_error(variable, m11_never_set))).
+
+numlist_m11(N, L) :- numlist_m11(1, N, L).
+numlist_m11(I, N, []) :- I > N, !.
+numlist_m11(I, N, [I|T]) :- J is I + 1, numlist_m11(J, N, T).
