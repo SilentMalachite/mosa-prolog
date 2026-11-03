@@ -1,5 +1,13 @@
+// 規格 8.5.1 functor/3、8.5.2 arg/3、8.5.3 =../2、8.5.4 copy_term/2、8.5.5 term_variables/2（Cor.2）。
+// numbervars(?term, +integer, ?integer)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog に合わせる。
+//   Term の変数を左からの前順に '$VAR'(Start)、'$VAR'(Start+1)… に束縛し、End を次の番号と単一化する。
+//   instantiation_error（Start が変数）、type_error(integer, Start)、representation_error(max_integer)（番号が
+//   あふれる）。End が整数で数が合わなければ、変数を束縛せずに失敗する。
+// テスト: tests/pl/terms.pl、tests/pl/utilities.pl
 #include "../machine/internal.hpp"
 
+#include <array>
+#include <limits>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -320,6 +328,36 @@ void run_variables(Impl& machine, const Goal& goal) {
   else succeed(machine, goal);
 }
 
+void run_numbervars(Impl& machine, const Goal& goal) {
+  const Cell start = machine.heap.deref(goal.arg(machine, 1));
+  if (machine.heap.unbound(start)) return instantiation(machine, goal);
+  if (!is_int(start)) {
+    raise_formal(machine, formal_type(machine, "integer", start), goal.name, goal.arity);
+    return;
+  }
+  const std::int64_t first = machine.heap.integer_value(start);
+  const std::vector<Cell> vars = collect_vars(machine, goal.arg(machine, 0));
+  const auto count = static_cast<std::int64_t>(vars.size());
+  if (first > std::numeric_limits<std::int64_t>::max() - count) {
+    raise_formal(machine, formal_representation(machine, "max_integer"), goal.name, goal.arity);
+    return;
+  }
+  // 数の合わない End は、変数を束縛する前に断る（組込は束縛してから失敗しない）。
+  const Cell end = machine.heap.deref(goal.arg(machine, 2));
+  if (is_int(end) && machine.heap.integer_value(end) != first + count) {
+    machine.failed = true;
+    return;
+  }
+  const std::uint32_t name = machine.atoms.intern("$VAR");
+  for (std::int64_t index = 0; index < count; ++index) {
+    const std::array<Cell, 1> number{machine.heap.integer(first + index)};
+    // vars は互いに違う未束縛の変数なので、この単一化は失敗しない。
+    static_cast<void>(do_unify(machine, vars[static_cast<std::size_t>(index)], machine.heap.structure(name, number)));
+  }
+  if (!do_unify(machine, goal.arg(machine, 2), machine.heap.integer(first + count))) machine.failed = true;
+  else succeed(machine, goal);
+}
+
 }  // namespace
 
 bool run_terms(Impl& machine, const Goal& goal) {
@@ -342,6 +380,10 @@ bool run_terms(Impl& machine, const Goal& goal) {
   }
   if (name == "term_variables" && goal.arity == 2) {
     run_variables(machine, goal);
+    return true;
+  }
+  if (name == "numbervars" && goal.arity == 3) {
+    run_numbervars(machine, goal);
     return true;
   }
   return false;

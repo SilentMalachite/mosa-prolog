@@ -208,6 +208,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"=..", 2},
     {"copy_term", 2},
     {"term_variables", 2},
+    {"numbervars", 3},
     {"\\+", 1},
     {"once", 1},
     {"repeat", 0},
