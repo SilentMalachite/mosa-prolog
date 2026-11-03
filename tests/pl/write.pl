@@ -148,3 +148,14 @@ test(m7_write_lasso_inner, (X = [a|X], with_output_to(atom(A), write([[f|X], b])
 test(m7_write_cycle_kept, (X = [a, b|X], with_output_to(atom(A), write(X)), A == '[a,b|_]'), true).
 % 要素が祖先のリストを尾に持つ。先読みはその尾で止まり、書く字面は前と同じ。
 test(m7_write_elements_back, (L = [A, B], A = [x|L], B = [y, z|L], with_output_to(atom(T), write(L)), T == '[[x|_],[y,z|_]]'), true).
+% レビュー L16。引用原子の中の '' は引用符 1 字なので、続く 2 つの引用原子の間には空白を置く。
+% 演算子は後のテストに残さないよう、成功、失敗、例外のどれでも op(0, …) で外す。
+quoted_op_round(Type, T, A) :-
+    op(200, Type, 'x y'),
+    catch((with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', B), open_string(B, S), read(S, R) -> true ; R = none), E, R = error(E)),
+    op(0, Type, 'x y'),
+    R == T.
+test(l16_infix_quoted, quoted_op_round(xfx, 'x y'('a b', 'c d'), '''a b'' ''x y'' ''c d'''), true).
+test(l16_postfix_quoted, quoted_op_round(xf, 'x y'('a b'), '''a b'' ''x y'''), true).
+test(l16_prefix_quoted, quoted_op_round(fy, 'x y'('a b'), '''x y'' ''a b'''), true).
+test(l16_args_unchanged, (with_output_to(atom(A), writeq(f('A', ['B', 'C']))), A == 'f(''A'',[''B'',''C''])'), true).

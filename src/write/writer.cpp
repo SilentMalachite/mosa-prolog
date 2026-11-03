@@ -477,6 +477,9 @@ std::string Printer::var_text(Cell term) {
 
 bool Printer::glue(std::optional<char32_t> end, std::optional<char32_t> start) {
   if (!end || !start) return false;
+  // 引用原子の中の '' は引用符 1 字なので、続けて書いた 2 つの引用原子は 1 つの原子に読まれる（レビュー L16）。
+  // 書き出しで ' で終わる字句と ' で始まる字句は引用原子だけ。
+  if (*end == U'\'' && *start == U'\'') return true;
   if (classify(*end) == CharClass::Graphic && classify(*start) == CharClass::Graphic) return true;
   return continues_name(*end) && continues_name(*start);
 }

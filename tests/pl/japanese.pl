@@ -154,6 +154,8 @@ test(m8_brackets_kagi, (全角で書く(f('［', '］', '「', '」'), W), W == 
 test(m8_operator, (op(200, xfx, '：'), catch((全角で書く('：'(a, b), W) -> true ; W = none), E, W = error(E)), op(0, xfx, '：'), W == 'a''：''b'), true).
 test(m8_operator_back, (op(200, xfx, '：'), catch((全角で往復('：'(a, b)) -> R = true ; R = false), E, R = error(E)), op(0, xfx, '：'), R == true), true).
 test(m8_prefix_operand_back, 全角で往復(- '、'), true).
+% 新しく引用する原子が引用した演算子と隣り合う（M8 の Codex レビュー）。'。''x y' は 1 つの原子に読まれる。
+test(m8_quoted_operator_back, (op(200, xf, 'x y'), catch((全角で往復('x y'('。')) -> R = true ; R = false), E, R = error(E)), op(0, xf, 'x y'), R == true), true).
 test(m8_canonical, (全角で(with_output_to(atom(W), write_canonical('、'(a)))), W == '''、''(a)'), true).
 test(m8_write_term_format, (全角で((with_output_to(atom(P), write_term('：', [quoted(true)])), with_output_to(atom(Q), format("~q", ['）'])))), P == '''：''', Q == '''）'''), true).
 % write/1 は引用しない。旗が偽の writeq も、そのまま読める字は引用しない（7.10.5 h）。
