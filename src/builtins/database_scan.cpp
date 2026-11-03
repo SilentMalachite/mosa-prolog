@@ -239,7 +239,9 @@ bool take_pred(Impl& machine, const Goal& goal, IdList matches, std::size_t begi
       const std::array<Cell, 2> parts{machine.heap.atom(predicate.module), indicator};
       indicator = machine.heap.structure(machine.atoms.intern(":"), parts);
     }
-    if (!do_unify(machine, wanted, indicator)) {
+    // 選択点はまだ積んでいない。do_unify は上の選択点より新しい変数の束縛をトレイルに残さないので、呼び出しの変数
+    // （heap_mark より前）の束縛は全部残す。残さないと、やり直しで前の答えの束縛が残る（レビュー M18）。
+    if (!unify_visible(machine, heap_mark, wanted, indicator)) {
       restore_state(machine, heap_mark, trail_mark, extras_mark);
       continue;
     }

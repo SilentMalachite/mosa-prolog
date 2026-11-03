@@ -218,7 +218,7 @@ test(m3_sweep_cursor_retract_left, findall(X, m3_sc(X, _), L), solutions([L = [1
 % 同じ走査の中で abolish して足し直す。走査は abolish の前の節を試し、次の呼び出しは足し直した節だけを見る。
 test(m3_sweep_abolish_open, (m3_sa(X, _), (X == 1 -> abolish(m3_sa/2), assertz(m3_sa(7, b)) ; true)), solutions([X = 1, X = 2, X = 3])).
 test(m3_sweep_abolish_open_left, findall(X, m3_sa(X, _), L), solutions([L = [7]])).
-% retract と clause/2 の開いた走査も asserta した節を見ない。clause/2 は連言の中のやり直しに既知の不具合（M18）があるので findall で包む。
+% retract と clause/2 の開いた走査も asserta した節を見ない。
 test(m3_asserta_open_retract, findall(X, (retract(m3_ar(X)), (X == 1 -> asserta(m3_ar(0)) ; true)), L), solutions([L = [1, 2, 3]])).
 test(m3_asserta_open_retract_left, findall(X, m3_ar(X), L), solutions([L = [0]])).
 test(m3_asserta_open_clause, findall(X, (clause(m3_ac(X), true), (X == 1 -> asserta(m3_ac(0)) ; true)), L), solutions([L = [1, 2, 3]])).
@@ -465,6 +465,35 @@ m3_ct(8, a).
 m3_ct(9, a).
 
 test(m3_clause_conj_redo, (with_output_to(atom(A), m3_cq_show), A == '123\n'), true).
+
+% current_predicate/1 も選択点を積む前に束縛する。節の中でできた変数は上の選択点より新しく、束縛がトレイルに
+% 残らないので、選択点の水位で戻さないと、やり直しで最初の述語が残り、連言の後ろが落ちる（レビュー M18）。
+% 試験のゴールの変数は runner の選択点より古く、旧コードでも戻るので、どれも節の本体で変数を作る。
+% アリティ 9 の述語はこのファイルではこの 3 つだけ。
+m18_d1(1, 2, 3, 4, 5, 6, 7, 8, 9).
+m18_d2(1, 2, 3, 4, 5, 6, 7, 8, 9).
+m18_d3(1, 2, 3, 4, 5, 6, 7, 8, 9).
+m18_v(1).
+m18_v(1, 2).
+m18_v(1, 2, 3).
+m18_cp_show :- current_predicate(X/9), write(X), X == m18_d3, nl.
+m18_cp_name :- current_predicate(X/9), X == m18_d3.
+m18_cp_arity :- current_predicate(m18_v/A), A == 3.
+m18_cp_indicator :- current_predicate(P), P == m18_d3/9.
+m18_cp_qualified :- current_predicate(user:X/9), X == m18_d3.
+m18_cp_any_module :- current_predicate(M:X/9), M == user, X == m18_d3.
+m18_cp_gen(X) :- current_predicate(Y/9), X = Y.
+
+test(m18_current_conj_redo, (with_output_to(atom(A), m18_cp_show), A == 'm18_d1m18_d2m18_d3\n'), true).
+test(m18_current_name_redo, m18_cp_name, true).
+test(m18_current_arity_redo, m18_cp_arity, true).
+% 束縛していない P は旧コードでも偶然通る。やり直しが、残った束縛の指す番地に次の述語表示を組み直すから。
+test(m18_current_indicator_redo, m18_cp_indicator, true).
+test(m18_current_qualified_redo, m18_cp_qualified, true).
+test(m18_current_any_module_redo, m18_cp_any_module, true).
+% findall が答えを捨てて戻るたびに、前の答えの束縛を外してから次の述語と単一化する。
+test(m18_current_all_answers, findall(X, m18_cp_gen(X), L), solutions([L = [m18_d1, m18_d2, m18_d3]])).
+
 % 開いた走査が見ている先の節を retract が消す。走査は呼んだ時点の節を見るが、retract は消えた節を二度は消さない。
 test(m3_sweep_held, (m3_sh(X, _), retract(m3_sh(Y, _))), solutions([(X = 1, Y = 1), (X = 1, Y = 2), (X = 1, Y = 3), (X = 1, Y = 4), (X = 1, Y = 5), (X = 1, Y = 6), (X = 1, Y = 7), (X = 1, Y = 8), (X = 1, Y = 9), (X = 1, Y = 10)])).
 test(m3_sweep_held_left, (findall(X, m3_sh(X, _), L), predicate_property(m3_sh(_, _), number_of_clauses(N))), solutions([(L = [], N = 0)])).
