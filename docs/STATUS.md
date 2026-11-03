@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 24d418e, CI run 41653426668 passed all 8 jobs (2026-11-03)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main b2ca620, CI run 41724358245 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
 - **Last done:** review M18: current_predicate/1 trails its bindings like clause/2, so a redo inside a conjunction tries the next predicate.
