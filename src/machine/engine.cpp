@@ -310,6 +310,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"predicate_property", 2},
     {"length", 2},
     {"sort", 2},
+    {"sort", 4},
     {"keysort", 2},
     {"$format_float", 4},
     {"$upcase_atom", 2},

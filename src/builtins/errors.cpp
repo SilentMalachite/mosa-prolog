@@ -36,6 +36,11 @@ Cell formal_existence(Impl& machine, std::string_view kind, Cell culprit) {
   return pair(machine, "existence_error", machine.heap.atom(machine.atoms.intern(kind)), culprit);
 }
 
+Cell formal_existence_at(Impl& machine, std::string_view kind, Cell where, Cell culprit) {
+  const std::array<Cell, 3> args{machine.heap.atom(machine.atoms.intern(kind)), where, culprit};
+  return machine.heap.structure(machine.atoms.intern("existence_error"), args);
+}
+
 Cell formal_representation(Impl& machine, std::string_view which) {
   return machine.heap.structure(machine.atoms.intern("representation_error"),
                                 std::array<Cell, 1>{machine.heap.atom(machine.atoms.intern(which))});

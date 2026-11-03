@@ -4,12 +4,21 @@
 //   instantiation_error, type_error(list, Pairs), type_error(pair, E), type_error(list, Sorted)
 // length/2 (?list, ?integer)。13211-1 に条項は無く、SPEC 第5節の表で system に置き library(lists) が公開し直す。
 //   type_error(integer, N), type_error(list, List), domain_error(not_less_than_zero, N)
-// テスト: tests/pl/lib_lists.pl
+// sort(+integer, +atom, +list, -list)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog の pl-list.c に合わせる。
+//   Key が 0 なら要素全体、正の整数ならその番目の引数を鍵にする。Order は @< @=< @> @>= と同じ意味の < =< > >=。
+//   @< と @> は鍵の等しい要素のうち入力で最初のものだけを残し、@=< と @>= は等しい鍵の順を保つ。
+//   検査は Key、Order、List の形、要素の鍵の順。Sorted は検査せず単一化するだけ。
+//   instantiation_error, domain_error(not_less_than_one, Key), type_error(sort_key, Key), type_error(atom, Order),
+//   domain_error(order, Order), type_error(list, List), type_error(compound, E), existence_error(argument, Key, E)。
+//   SWI-Prolog は原子の Key（辞書の鍵）とリストの Key（鍵の道）も受けるが、Mosa に辞書は無く、どちらも
+//   type_error(sort_key, Key) にする。
+// テスト: tests/pl/lib_lists.pl、tests/pl/utilities.pl
 #include "../machine/internal.hpp"
 
 #include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -65,6 +74,93 @@ void run_sort(Impl& machine, const Goal& goal, bool keyed) {
     items.erase(std::unique(items.begin(), items.end(), same), items.end());
   }
   if (do_unify(machine, goal.arg(machine, 1), list_from_cells(machine, items))) succeed(machine, goal);
+  else machine.failed = true;
+}
+
+struct SortBy {
+  std::int64_t key = 0;
+  bool descending = false;
+  bool unique = false;
+};
+
+std::optional<Cell> sort_key_problem(Impl& machine, Cell key, SortBy& by) {
+  key = machine.heap.deref(key);
+  if (machine.heap.unbound(key)) return formal_instantiation(machine);
+  if (!is_int(key)) return formal_type(machine, "sort_key", key);
+  by.key = machine.heap.integer_value(key);
+  if (by.key < 0) return formal_domain(machine, "not_less_than_one", key);
+  return std::nullopt;
+}
+
+std::optional<Cell> sort_order_problem(Impl& machine, Cell order, SortBy& by) {
+  order = machine.heap.deref(order);
+  if (machine.heap.unbound(order)) return formal_instantiation(machine);
+  if (order.tag() != Tag::Atom) return formal_type(machine, "atom", order);
+  const auto name = machine.atoms.name(static_cast<std::uint32_t>(order.raw() >> 3));
+  const bool known = name == "@<" || name == "<" || name == "@=<" || name == "=<" || name == "@>" || name == ">" ||
+                     name == "@>=" || name == ">=";
+  if (!known) return formal_domain(machine, "order", order);
+  by.descending = name.find('>') != std::string_view::npos;
+  by.unique = name.find('=') == std::string_view::npos;
+  return std::nullopt;
+}
+
+// 鍵が無い要素は、比べる前に入力の順で断る。keys[i] は items[i] の鍵。
+std::optional<Cell> sort_keys_problem(Impl& machine, const SortBy& by, const std::vector<Cell>& items,
+                                      std::vector<Cell>& keys) {
+  keys.reserve(items.size());
+  for (const Cell item : items) {
+    if (by.key == 0) {
+      keys.push_back(item);
+      continue;
+    }
+    const Cell term = machine.heap.deref(item);
+    if (machine.heap.unbound(term)) return formal_instantiation(machine);
+    if (term.tag() != Tag::Str && term.tag() != Tag::Lis) return formal_type(machine, "compound", term);
+    const std::int64_t arity = term.tag() == Tag::Lis ? 2 : machine.heap.functor_arity(term);
+    if (by.key > arity) return formal_existence_at(machine, "argument", machine.heap.integer(by.key), term);
+    if (term.tag() == Tag::Lis) keys.push_back(by.key == 1 ? machine.heap.list_head(term) : machine.heap.list_tail(term));
+    else keys.push_back(machine.heap.arg(term, static_cast<std::uint16_t>(by.key - 1)));
+  }
+  return std::nullopt;
+}
+
+std::optional<Cell> sort4_problem(Impl& machine, const Goal& goal, SortBy& by, std::vector<Cell>& items,
+                                  std::vector<Cell>& keys) {
+  if (auto problem = sort_key_problem(machine, goal.arg(machine, 0), by)) return problem;
+  if (auto problem = sort_order_problem(machine, goal.arg(machine, 1), by)) return problem;
+  WalkedList input = walk_list(machine, goal.arg(machine, 2));
+  if (input.shape == ListShape::Variable || input.shape == ListShape::Partial) return formal_instantiation(machine);
+  if (input.shape == ListShape::Bad) return formal_type(machine, "list", machine.heap.deref(goal.arg(machine, 2)));
+  items = std::move(input.items);
+  return sort_keys_problem(machine, by, items, keys);
+}
+
+void run_sort4(Impl& machine, const Goal& goal) {
+  SortBy by;
+  std::vector<Cell> items;
+  std::vector<Cell> keys;
+  if (const auto problem = sort4_problem(machine, goal, by, items, keys)) {
+    raise_formal(machine, *problem, goal.name, goal.arity);
+    return;
+  }
+  // 入力の位置で並べる。安定なので、等しい鍵は降順でも入力の順のまま並び、重複を落とすと最初の要素が残る。
+  std::vector<std::size_t> order(items.size());
+  for (std::size_t index = 0; index < order.size(); ++index) order[index] = index;
+  std::stable_sort(order.begin(), order.end(), [&machine, &keys, &by](std::size_t left, std::size_t right) {
+    const int compared = compare_cells(machine, keys[left], keys[right]);
+    return by.descending ? compared > 0 : compared < 0;
+  });
+  if (by.unique) {
+    const auto same = [&machine, &keys](std::size_t left, std::size_t right) {
+      return compare_cells(machine, keys[left], keys[right]) == 0;
+    };
+    order.erase(std::unique(order.begin(), order.end(), same), order.end());
+  }
+  std::vector<Cell> sorted;
+  sorted.reserve(order.size());
+  for (const std::size_t index : order) sorted.push_back(items[index]);
+  if (do_unify(machine, goal.arg(machine, 3), list_from_cells(machine, sorted))) succeed(machine, goal);
   else machine.failed = true;
 }
 
@@ -163,6 +259,10 @@ bool run_lists(Impl& machine, const Goal& goal) {
   }
   if ((name == "sort" || name == "keysort") && goal.arity == 2) {
     run_sort(machine, goal, name == "keysort");
+    return true;
+  }
+  if (name == "sort" && goal.arity == 4) {
+    run_sort4(machine, goal);
     return true;
   }
   return false;

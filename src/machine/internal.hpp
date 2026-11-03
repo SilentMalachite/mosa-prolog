@@ -640,6 +640,8 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] Cell formal_type(Impl& machine, std::string_view type, Cell culprit);
 [[nodiscard]] Cell formal_domain(Impl& machine, std::string_view domain, Cell culprit);
 [[nodiscard]] Cell formal_existence(Impl& machine, std::string_view kind, Cell culprit);
+// existence_error(Kind, Where, Culprit)。SWI-Prolog の sort/4 が引数の無い要素に使う 3 引数の形。
+[[nodiscard]] Cell formal_existence_at(Impl& machine, std::string_view kind, Cell where, Cell culprit);
 [[nodiscard]] Cell formal_evaluation(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_representation(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_syntax(Impl& machine, Cell detail);

@@ -41,3 +41,37 @@ test(numbervars_long_list, (length(L, 200000), numbervars(L, 0, E), E == 200000,
 test(numbervars_start_var, numbervars(f(_), _, _), error(instantiation_error)).
 test(numbervars_start_type, numbervars(f(_), a, _), error(type_error(integer, a))).
 test(numbervars_start_float, numbervars(f(_), 1.0, _), error(type_error(integer, 1.0))).
+
+% sort/4。Key が 0 なら項全体、正の整数ならその引数で比べる。@< と @> は鍵の等しい要素の最初だけを残し、
+% @=< と @>= は安定。検査は Key、Order、List、要素の鍵の順で、Sorted は単一化するだけ（SWI-Prolog の pl-list.c）。
+test(sort4_key_asc, sort(1, @<, [f(2, a), f(1, z), f(1, b), f(3, c)], L), solutions([L = [f(1, z), f(2, a), f(3, c)]])).
+test(sort4_key_asc_dups, sort(1, @=<, [f(2, a), f(1, z), f(1, b), f(3, c)], L), solutions([L = [f(1, z), f(1, b), f(2, a), f(3, c)]])).
+test(sort4_key_desc, sort(1, @>, [f(2, a), f(1, z), f(1, b), f(3, c)], L), solutions([L = [f(3, c), f(2, a), f(1, z)]])).
+test(sort4_key_desc_dups, sort(1, @>=, [f(2, a), f(1, z), f(1, b), f(3, c)], L), solutions([L = [f(3, c), f(2, a), f(1, z), f(1, b)]])).
+test(sort4_whole_asc, sort(0, @<, [c, a, b, a], L), solutions([L = [a, b, c]])).
+test(sort4_whole_desc_dups, sort(0, @>=, [1, 2, 3, 2], L), solutions([L = [3, 2, 2, 1]])).
+test(sort4_second_arg, sort(2, @<, [p(x, 3), p(y, 1), p(z, 2)], L), solutions([L = [p(y, 1), p(z, 2), p(x, 3)]])).
+test(sort4_list_elements, sort(1, @<, [[b|x], [a|y]], L), solutions([L = [[a|y], [b|x]]])).
+test(sort4_synonyms, (sort(0, <, [b, a, b], A), sort(0, =<, [b, a, b], B), sort(0, >, [a, b, a], C), sort(0, >=, [a, b, a], D)), solutions([(A = [a, b], B = [a, b, b], C = [b, a], D = [b, a, a])])).
+test(sort4_empty, sort(3, @<, [], L), solutions([L = []])).
+test(sort4_sorted_bound, sort(0, @<, [b, a], [a, b]), true).
+test(sort4_sorted_not_list, sort(0, @<, [b, a], foo), fail).
+test(sort4_sorted_partial, sort(0, @<, [c, a, b], [X|_]), solutions([X = a])).
+test(sort4_key_var, sort(_, @<, [], _), error(instantiation_error)).
+test(sort4_key_negative, sort(-1, @<, [], _), error(domain_error(not_less_than_one, -1))).
+test(sort4_key_float, sort(1.5, @<, [], _), error(type_error(sort_key, 1.5))).
+test(sort4_key_atom, sort(a, @<, [], _), error(type_error(sort_key, a))).
+test(sort4_key_before_order, sort(a, foo, [], _), error(type_error(sort_key, a))).
+test(sort4_order_var, sort(0, _, [], _), error(instantiation_error)).
+test(sort4_order_type, sort(0, 1, [], _), error(type_error(atom, 1))).
+test(sort4_order_domain, sort(0, foo, [], _), error(domain_error(order, foo))).
+test(sort4_order_before_list, sort(0, foo, bar, _), error(domain_error(order, foo))).
+test(sort4_list_var, sort(0, @<, _, _), error(instantiation_error)).
+test(sort4_list_partial, sort(0, @<, [a|_], _), error(instantiation_error)).
+test(sort4_list_type, sort(0, @<, foo, _), error(type_error(list, foo))).
+test(sort4_list_tail, sort(0, @<, [a|b], _), error(type_error(list, [a|b]))).
+test(sort4_element_var, sort(1, @<, [f(1), _], _), error(instantiation_error)).
+test(sort4_element_atomic, sort(1, @<, [f(1), a], _), error(type_error(compound, a))).
+test(sort4_element_arity, sort(2, @<, [f(1)], _), error(existence_error(argument, 2, f(1)))).
+test(sort4_element_order, sort(2, @<, [a, f(1)], _), error(type_error(compound, a))).
+test(sort4_whole_vars, (sort(0, @<, [X, Y, X], L), L == [X, Y] ; sort(0, @<, [X, Y, X], L), L == [Y, X]), true).
