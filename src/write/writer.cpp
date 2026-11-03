@@ -83,9 +83,8 @@ bool is_small_name(std::string_view text) {
   return every_code(text.substr(decoded.bytes), continues_name) || text.size() == decoded.bytes;
 }
 
-// 全角記号モードの字句解析器は、引用の外の （），、： を半角の括弧、コンマ、コロンに読み、後ろに空白か % か終わりが
-// 来る 。 を終止符にする（SPEC 第4節、iso-notes 第4節）。図形の原子の中では 。 の後ろも図形の字なので、
-// 終止符になりうるのは最後の 。 だけ。［］「」 は図形でないので、ここに来る前に引用が決まっている。
+// 全角記号モードの字句解析器は引用の外の （），、： を半角に読み、後ろに空白か % か終わりが来る 。 を終止符にする
+// （SPEC 第4節）。原子の中の 。 の後ろは図形の字なので、見るのは最後の 。 だけ。［］「」 は図形でなく、もう引用される。
 bool fullwidth_changes(std::string_view name) {
   char32_t last = 0;
   for (std::size_t index = 0; index < name.size();) {
@@ -263,6 +262,7 @@ class Printer final : public WriteHeld {
   void emit(std::string_view text);
   void await(Space kind, std::size_t id);
   [[nodiscard]] bool left_glue(std::size_t mark, std::string_view next) const;
+  [[nodiscard]] bool zero_quote(std::string_view next) const;
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
   [[nodiscard]] bool operator_atom(Cell term) const;
   [[nodiscard]] bool unsigned_number(Cell term) const;
@@ -414,7 +414,7 @@ void Printer::emit(std::string_view text) {
     pending_.active = false;
     // `\+(` は関数表記になる。空白を置くと '(' は括弧であり、前置の引数のまま読み戻せる。
     const bool call_form = pending_.kind == Space::Prefix && text.front() == '(';
-    if (call_form || glue(pending_.left, first_cp(text))) out_ += ' ';
+    if (call_form || glue(pending_.left, first_cp(text)) || zero_quote(text)) out_ += ' ';
   }
   out_ += text;
 }
@@ -425,7 +425,14 @@ void Printer::await(Space kind, std::size_t id) {
 
 bool Printer::left_glue(std::size_t mark, std::string_view next) const {
   // 左の被演算子が何も書かなかったときは、その前の字句と比べない。
-  return out_.size() > mark && glue(final_cp(out_), first_cp(next));
+  return out_.size() > mark && (glue(final_cp(out_), first_cp(next)) || zero_quote(next));
+}
+
+// 0 だけの数の直後の ' は 0'c の文字コードに読まれる（M8 の Codex レビュー）。10' や 1.0' は読み手が分けるので詰めたまま。
+bool Printer::zero_quote(std::string_view next) const {
+  if (next.empty() || next.front() != '\'' || out_.empty() || out_.back() != '0') return false;
+  const std::optional<char32_t> before = final_cp(std::string_view{out_}.substr(0, out_.size() - 1));
+  return !before || (!continues_name(*before) && *before != U'.');
 }
 
 void Printer::push_term(Cell term, int parent, bool allow_equal, bool allow_hook) {
@@ -477,8 +484,7 @@ std::string Printer::var_text(Cell term) {
 
 bool Printer::glue(std::optional<char32_t> end, std::optional<char32_t> start) {
   if (!end || !start) return false;
-  // 引用原子の中の '' は引用符 1 字なので、続けて書いた 2 つの引用原子は 1 つの原子に読まれる（レビュー L16）。
-  // 書き出しで ' で終わる字句と ' で始まる字句は引用原子だけ。
+  // 引用の中の '' は引用符 1 字なので、続く 2 つの引用原子は 1 つに読まれる（L16）。' で始まり終わる字句は引用原子だけ。
   if (*end == U'\'' && *start == U'\'') return true;
   if (classify(*end) == CharClass::Graphic && classify(*start) == CharClass::Graphic) return true;
   return continues_name(*end) && continues_name(*start);

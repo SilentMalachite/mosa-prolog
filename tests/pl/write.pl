@@ -159,3 +159,8 @@ test(l16_infix_quoted, quoted_op_round(xfx, 'x y'('a b', 'c d'), '''a b'' ''x y'
 test(l16_postfix_quoted, quoted_op_round(xf, 'x y'('a b'), '''a b'' ''x y'''), true).
 test(l16_prefix_quoted, quoted_op_round(fy, 'x y'('a b'), '''x y'' ''a b'''), true).
 test(l16_args_unchanged, (with_output_to(atom(A), writeq(f('A', ['B', 'C']))), A == 'f(''A'',[''B'',''C''])'), true).
+% 0 の直後の ' は 0'c の文字コードになる（M8 の Codex レビュー 2 回目）。0 の後ろの引用原子の前には空白を置く。
+test(l16_zero_quoted, quoted_op_round(xfx, 'x y'(0, a), '0 ''x y''a'), true).
+% 0 だけでない数の後ろは前のまま詰めて書く。読み手は数と引用に分ける。
+test(l16_number_quoted, quoted_op_round(xf, 'x y'(10), '10''x y'''), true).
+test(l16_float_quoted, quoted_op_round(xf, 'x y'(1.0), '1.0''x y'''), true).
