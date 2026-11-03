@@ -155,6 +155,14 @@ Decision (2026-10-29, phase 6 Task 5, owner decided A on 2026-10-29): A directiv
 
 Question asked: A (failure and exception undo the load, as above) or B (as SWI-Prolog, warn and continue)? The owner chose A on 2026-10-29.
 
+## 7.4 Clauses for built-in predicates and control constructs, and bodies that are not callable
+
+Review M10. consult adds a clause whose head is a built-in predicate or a control construct (`atom_length(_, 99).`, `length(_, 7).`, `call(_) :- write(mine).`, `catch(_, _, _).`, `(a, b) :- true.`, `! :- true.`) and a clause whose body is not callable (`foo :- 1.`, `foo :- (true, 1).`, `p :- (q ; 2).`) without an error, in mosa and in a mosac build (which loads the program with the same consult). The clause never runs (`atom_length(abc, L)` still gives 3), but `current_predicate(atom_length/2)` becomes true, and `foo` raises `type_error(callable, 1)` only when it is called, with context `call/1`. assertz/1 rejects the same clauses with `type_error(callable, Body)` and then `permission_error(modify, static_procedure, PI)` (8.9.1.3, in that order). A head that is a variable or a number already fails the load with `directive_unsupported`. Predicates written in Prolog under `lib/` (`append/3` and so on) are not built-in and stay redefinable; `foo :- X.` and `foo :- call(1).` stay valid (7.6.2). As we read 7.4 and 7.6, such a clause cannot be part of a Prolog text, but the text we have does not say how the processor reports it or whether it reads on; we have not checked the clause text itself. Every other load error in Mosa (`:- dynamic(true/0).`, clauses apart without `discontiguous/1`, a directive that fails or raises, a syntax error) fails the whole load and undoes it (7.4.2 Other directives above, owner decision A of 2026-10-29).
+
+A or B?: A: such a clause fails the load with the Formal that assertz/1 gives for it (`type_error(callable, Body)` for a body that is not callable, else `permission_error(modify, static_procedure, PI)` for a built-in predicate or control construct), and the clauses and flags of the load are undone, like the other load errors. B: as SWI-Prolog, print that error as a warning, skip the clause, and read on. Not implemented before confirmation.
+
+Decision (2026-11-03): A (review M10).
+
 ## 7.11 Flag debug
 
 Decision (2026-10-25): Open question 9: A. The default is `off`. Even when set to `on`, Phase 3 does not trace.

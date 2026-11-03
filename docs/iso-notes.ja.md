@@ -157,6 +157,14 @@ ISO（5.5）は 7.4.2 のほかの指示を処理系固有の機能として扱�
 
 尋ねた問い: A（失敗と例外は読み込みを戻す。上のとおり）か B（SWI-Prolog と同じく警告を出して読み続ける）か。持ち主は 2026-10-29 に A を選んだ。
 
+## 7.4 組込述語と制御構造の節、呼べない本体の節
+
+レビュー M10。consult は、頭が組込述語か制御構造の節（`atom_length(_, 99).`、`length(_, 7).`、`call(_) :- write(mine).`、`catch(_, _, _).`、`(a, b) :- true.`、`! :- true.`）と、本体が呼べない節（`foo :- 1.`、`foo :- (true, 1).`、`p :- (q ; 2).`）を誤りにせず足す。mosa でも mosac build でも同じ（mosac build は同じ consult でプログラムを読む）。その節は動かない（`atom_length(abc, L)` は 3 のまま）が、`current_predicate(atom_length/2)` が真になり、`foo` は呼ばれたときに初めて文脈 `call/1` の `type_error(callable, 1)` を出す。assertz/1 は同じ節を `type_error(callable, Body)`、その次に `permission_error(modify, static_procedure, PI)` で拒む（8.9.1.3、この順）。頭が変数か数の節は、今も `directive_unsupported` で読み込みを失敗させる。`lib/` に Prolog で書いた述語（`append/3` など）は組込でなく、定義し直せるまま。`foo :- X.` と `foo :- call(1).` も正しい節のまま（7.6.2）。7.4 と 7.6 を読む限り、このような節は Prolog テキストの一部になれないが、手元の本文には処理系がそれをどう知らせるか、読み続けるかが書かれていない。条文そのものは確かめていない。Mosa のほかの読み込みの誤り（`:- dynamic(true/0).`、`discontiguous/1` の無い離れた節、失敗するか例外を出す指示、構文エラー）は、どれも読み込み全体を失敗させて戻す（上の 7.4.2 そのほかの指示、2026-10-29 の持ち主の決定 A）。
+
+A か B か: A: このような節は、assertz/1 がその節に出すのと同じ Formal（本体が呼べなければ `type_error(callable, Body)`、そうでなく組込述語か制御構造なら `permission_error(modify, static_procedure, PI)`）で読み込みを失敗させ、ほかの読み込みの誤りと同じく、その読み込みの節と旗を戻す。B: SWI-Prolog と同じく、その誤りを警告として出し、その節を飛ばして読み続ける。確かめるまで実装しない。
+
+決定（2026-11-03）: A（レビュー M10）。
+
 ## 7.11 旗 debug
 
 決定（2026-10-25）: 未決 9 は A。既定は `off`。`on` にしてもフェーズ3ではトレースしない。
