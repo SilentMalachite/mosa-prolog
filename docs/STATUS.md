@@ -2,7 +2,7 @@
 
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 36edc52, CI run 41607610578 passed all 8 jobs (2026-11-03)
 
-- **In progress:** none.
+- **In progress:** review M17: count the choice stack, `extras`, envs and run-time goals against `--heap-max` (ADR 0010 amendment 3).
 - **Last done:** review M11: tab/1,2, numbervars/3, sort/4, term_to_atom/2, nb_setval/2, nb_getval/2 and setup_call_cleanup/3 in `system` (ADR 0016).
 - **Next:** review items M17-M22, then L1-L12, L14, L15, L17, L18 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
