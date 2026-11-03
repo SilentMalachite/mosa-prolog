@@ -290,6 +290,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"write_canonical", 2},
     {"print", 1},
     {"print", 2},
+    {"term_to_atom", 2},
     {"with_output_to", 2},
     {"op", 3},
     {"current_op", 3},
@@ -618,7 +619,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_flags(machine, goal) || run_statistics(machine, goal) || run_database(machine, goal) || run_module_prop(machine, goal) ||
       run_lists(machine, goal) || run_format_float(machine, goal) || run_case(machine, goal) || run_char_width(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
-      run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal)) {
+      run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) || run_term_text(machine, goal)) {
     return true;
   }
   return false;

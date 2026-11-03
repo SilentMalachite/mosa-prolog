@@ -75,3 +75,34 @@ test(sort4_element_atomic, sort(1, @<, [f(1), a], _), error(type_error(compound,
 test(sort4_element_arity, sort(2, @<, [f(1)], _), error(existence_error(argument, 2, f(1)))).
 test(sort4_element_order, sort(2, @<, [a, f(1)], _), error(type_error(compound, a))).
 test(sort4_whole_vars, (sort(0, @<, [X, Y, X], L), L == [X, Y] ; sort(0, @<, [X, Y, X], L), L == [Y, X]), true).
+
+% term_to_atom/2。Atom が変数なら Term を引用して書き（numbervars は使わない）、そうでなければ Atom の字面を読んで
+% Term と単一化する。終止符は無くてよく、最初の項の後ろは読まない（SWI-Prolog の pl-read.c）。
+test(term_to_atom_write, term_to_atom(f(a, 'B c', [1, 2]), A), solutions([A = 'f(a,\'B c\',[1,2])'])).
+test(term_to_atom_write_ops, term_to_atom((a :- b, c), A), solutions([A = 'a:-b,c'])).
+test(term_to_atom_write_var, (term_to_atom(f(X, Y, X), A), term_to_atom(T, A), T = f(P, Q, R), P == R, P \== Q, var(P), var(Q)), true).
+test(term_to_atom_write_no_numbervars, term_to_atom('$VAR'(1), A), solutions([A = '\'$VAR\'(1)'])).
+test(term_to_atom_both_var, (term_to_atom(T, A), atom(A), var(T)), true).
+test(term_to_atom_read, term_to_atom(T, 'foo(X, Y, X)'), true).
+test(term_to_atom_read_shape, (term_to_atom(T, 'foo(X, Y, X)'), T = foo(P, Q, R), P == R, P \== Q), true).
+test(term_to_atom_read_ops, term_to_atom(T, 'a :- b, c'), solutions([T = (a :- b, c)])).
+test(term_to_atom_read_end, term_to_atom(T, 'foo.'), solutions([T = foo])).
+test(term_to_atom_read_rest, term_to_atom(T, 'foo. bar'), solutions([T = foo])).
+test(term_to_atom_read_comment, term_to_atom(T, 'foo % c'), solutions([T = foo])).
+test(term_to_atom_both_bound, term_to_atom(f(X), 'f(1)'), solutions([X = 1])).
+test(term_to_atom_both_bound_differ, term_to_atom(g(_), 'f(1)'), fail).
+test(term_to_atom_number, term_to_atom(T, 12), solutions([T = 12])).
+test(term_to_atom_float, term_to_atom(T, -1.5), solutions([T = -1.5])).
+test(term_to_atom_codes, term_to_atom(T, [0'f, 0'(, 0'x, 0')]), solutions([T = f(x)])).
+test(term_to_atom_chars, term_to_atom(T, [g, '(', a, ')']), solutions([T = g(a)])).
+test(term_to_atom_nil, term_to_atom(T, []), solutions([T = []])).
+test(term_to_atom_round_trip, (term_to_atom(f('a b', "c", -(1), - 1, 1 - -1, [x|Y]), A), term_to_atom(T, A), T = f('a b', _, -(1), _, _, [x|Z]), var(Z), Y \== Z), true).
+test(term_to_atom_empty, term_to_atom(_, ''), error(syntax_error(incomplete_term))).
+test(term_to_atom_blank, term_to_atom(_, '  '), error(syntax_error(incomplete_term))).
+test(term_to_atom_open, term_to_atom(_, 'f('), error(syntax_error(incomplete_term))).
+test(term_to_atom_bad, term_to_atom(_, 'f(a b)'), error(syntax_error(_))).
+test(term_to_atom_partial, term_to_atom(_, [0'a|_]), error(instantiation_error)).
+test(term_to_atom_element_var, term_to_atom(_, [0'a, _]), error(instantiation_error)).
+test(term_to_atom_compound, term_to_atom(_, f(x)), error(type_error(string, f(x)))).
+test(term_to_atom_mixed, term_to_atom(_, [a, 0'b]), error(type_error(string, [a, 0'b]))).
+test(term_to_atom_bad_tail, term_to_atom(_, [0'a|b]), error(type_error(string, [0'a|b]))).

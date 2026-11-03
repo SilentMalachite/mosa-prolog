@@ -181,3 +181,5 @@ test(fmt_wide_fill_after_text, with_output_to(atom(A), format("ab~`漢t~6|x", []
 test(fmt_wide_fill_two, with_output_to(atom(A), format("~`漢t~w~`漢t~7|", [ab])), solutions([A = '漢ab漢 '])).
 % SPEC 第4節。日本語のファイル名を書いて consult できる（計画 Task 15）。パスはリポジトリの根から。
 test(consult_japanese_name, (open('tests/tmp/日本語の読込.pl', write, S), write(S, '読込済(はい).'), nl(S), close(S), consult('tests/tmp/日本語の読込.pl'), 読込済(はい)), true).
+% term_to_atom/2 は日本語の原子と変数名を読み書きする（レビュー M11）。
+test(m11_term_to_atom_japanese, (term_to_atom(T, '親(太郎, _名前, _名前)'), T = 親(A, B, C), A == 太郎, var(B), B == C, term_to_atom(親(太郎, '次 郎'), S), S == '親(太郎,\'次 郎\')'), true).

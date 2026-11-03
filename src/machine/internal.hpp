@@ -710,6 +710,7 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_byte_io(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_read(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_write(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_term_text(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_operators(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_op(Impl& machine);
 [[nodiscard]] bool redo_current_char_conversion(Impl& machine);

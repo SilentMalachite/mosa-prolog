@@ -136,6 +136,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/bytes.cpp
   src/builtins/read_pred.cpp
   src/builtins/write_pred.cpp
+  src/builtins/term_text.cpp
   src/builtins/operators.cpp
 )
 # mosac の翻訳器（計画 Task 4）。Machine の IR を読むので libmosa の中に置く。
