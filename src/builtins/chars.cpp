@@ -19,8 +19,8 @@
 // invalid_utf8 が replace のときだけ、壊れた先頭 1 バイトを U+FFFD にする。既定の error は進めない。
 // tab(+evaluable) / tab(+stream_or_alias, +evaluable)。非 ISO（SPEC 第7節の段階 G、レビュー M11）。
 //   SWI-Prolog の pl-file.c と同じく流れを先に調べ、次に N を is/2 と同じく評価し、0 以下なら何も書かない。
-//   流れの誤りは nl/1 と同じ。加えて instantiation_error, type_error(evaluable, F/A), type_error(integer, V)
-//   と評価の誤り
+//   流れの誤りは nl/1 と同じ。加えて instantiation_error, type_error(evaluable, F/A),
+//   type_error(integer_expression, N)（値が整数でない。N は評価する前の式）と評価の誤り
 // テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
@@ -394,7 +394,7 @@ void run_tab(Impl& machine, const Goal& goal) {
   if (reject_closed(machine, goal, index, culprit) || reject_output(machine, goal, machine.streams[index], culprit)) {
     return;
   }
-  const auto count = eval_integer(machine, goal, goal.arg(machine, goal.arity - 1));
+  const auto count = eval_int_expression(machine, goal, goal.arg(machine, goal.arity - 1));
   if (!count) return;
   // place_bytes は途中の位置では 1 字だけを置き換えるので、流れには 1 字ずつ置く。emit_os は呼ぶたびに
   // 吐き出すので、標準の流れへは塊で渡す。

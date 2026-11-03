@@ -636,9 +636,13 @@ bool run_arith(Impl& machine, const Goal& goal) {
   return false;
 }
 
-std::optional<std::int64_t> eval_integer(Impl& machine, const Goal& goal, Cell cell) {
+std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal, Cell cell) {
   const Ev value = eval_expr(machine, goal, cell);
-  if (!value.ok || !need_int(machine, goal, value.num)) return std::nullopt;
+  if (!value.ok) return std::nullopt;
+  if (value.num.flt) {
+    raise_formal(machine, formal_type(machine, "integer_expression", cell), goal.name, goal.arity);
+    return std::nullopt;
+  }
   return value.num.ival;
 }
 

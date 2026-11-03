@@ -7,8 +7,9 @@ test(tab_expression, (with_output_to(atom(A), tab(1 + 2)), A == '   '), true).
 test(tab_zero, (with_output_to(atom(A), tab(0)), A == ''), true).
 test(tab_negative, (with_output_to(atom(A), tab(-2)), A == ''), true).
 test(tab_var, tab(_), error(instantiation_error)).
-test(tab_float, tab(1.5), error(type_error(integer, 1.5))).
-test(tab_float_expression, tab(3 / 2), error(type_error(integer, 1.5))).
+test(tab_float, tab(1.5), error(type_error(integer_expression, 1.5))).
+test(tab_float_expression, tab(3 / 2), error(type_error(integer_expression, 3 / 2))).
+test(tab_float_whole, tab(2.0), error(type_error(integer_expression, 2.0))).
 test(tab_not_evaluable, tab(a), error(type_error(evaluable, a/0))).
 test(tab_stream, (with_output_to(atom(A), (current_output(S), tab(S, 2), write(x))), A == '  x'), true).
 test(tab_stream_alias, (with_output_to(atom(A), (write(a), tab(user_output, 0), write(b))), A == ab), true).

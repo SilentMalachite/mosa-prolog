@@ -652,8 +652,9 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
 [[nodiscard]] bool run_control(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_arith(Impl& machine, const Goal& goal);
-// 式を is/2 と同じく評価し、整数でなければ type_error(integer, V)。誤りを投げたら nullopt（tab/1,2）。
-[[nodiscard]] std::optional<std::int64_t> eval_integer(Impl& machine, const Goal& goal, Cell cell);
+// 式を is/2 と同じく評価する。値が整数でなければ SWI-Prolog の PL_eval_expression_to_int64_ex と同じく
+// type_error(integer_expression, 元の式)。誤りを投げたら nullopt（tab/1,2）。
+[[nodiscard]] std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal, Cell cell);
 struct CodeText {
   std::string bytes;
   std::vector<char32_t> codes;
