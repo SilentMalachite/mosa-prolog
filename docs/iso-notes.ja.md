@@ -443,6 +443,8 @@ A か B か: A はフェーズ7で、マニュアルとリリースパッケー�
 
 決定（2026-11-03）: A（レビュー M11）。7 つの述語はフェーズ7で `system` に作り、1 述語ずつコミットし、テストは `tests/pl/utilities.pl` に置く。SWI-Prolog の振る舞いがマニュアルとソースから読み取れないところは、述語のファイルの見出しのコメントに選んだ形を書く。SPEC 第7節は `numbervars/3` と書く。
 
+2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` は 64 ビットの整数を超えると `representation_error(max_integer)`（SWI は `tagged_integer`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
+
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
 SPEC 第5節は段階 F に `predicate_property/2` を挙げるが、頭部が変数のときと、無いモジュールを指したときを決めていない。

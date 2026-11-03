@@ -441,6 +441,8 @@ A or B?: A: implement them in phase 7, before the manuals and the release packag
 
 Decision (2026-11-03): A (review M11). The seven predicates go into `system` in phase 7, one predicate per commit, with their tests in `tests/pl/utilities.pl`; where SWI-Prolog's behaviour is not visible from its manual and source, the choice is written in the header comment of the predicate's file. SPEC section 7 now says `numbervars/3`.
 
+Implemented 2026-11-03 (`setup_call_cleanup/3` under ADR 0016). Where Mosa departs from SWI-Prolog: `nb_getval/2` gives a fresh copy on each call, since the heap is reclaimed on backtracking; `sort/4` takes only an integer Key and gives `type_error(sort_key, Key)` for SWI's dict keys and key paths, since Mosa has no dicts; `term_to_atom/2` reads `[]` as the atom `'[]'` and gives `syntax_error(incomplete_term)` for empty or unfinished text (SWI 9.3.5 and later: `end_of_string`); `numbervars/3` gives `representation_error(max_integer)` past 64-bit integers (SWI: `tagged_integer`); `setup_call_cleanup/3` runs no cleanup on `halt` or a heap-limit stop, drops the cleanup's exception when the goal raised (SWI keeps the more urgent one), runs every cleanup removed by one cut and then rethrows the first of their exceptions, and ignores a cleanup's exception when a new query of the embedding API closes the old one (a `-g` goal, a toplevel answer and `initialization(G, main)` are cut after their answer as in SWI, and their cleanup's exception is the goal's).
+
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
 SPEC section 5 lists `predicate_property/2` in stage F but does not say what a variable head or an unknown module gives.
