@@ -48,7 +48,7 @@ target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/ir.cpp src/core/unify.cpp)
 target_sources(mosa_lib PRIVATE src/read/reader.cpp src/read/reader_bracket.cpp)
-target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/term_equal.cpp)
+target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/spelling.cpp src/write/term_equal.cpp)
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
