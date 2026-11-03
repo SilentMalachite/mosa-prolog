@@ -23,6 +23,9 @@ struct WriteOptions {
   bool underscore_once = false;
   // 引数とリストの要素を区切るコンマの後に、糊付けが要らなくても空白を置く。mosac の生成コードのコメントが使う。
   bool space_args = false;
+  // 旗 japanese_punctuation の値（SPEC 第4節、レビュー M8）。真なら、全角記号モードの読み手が別の字句に読む原子を引用する。
+  // 書いた字面を同じ旗で読み戻す呼び手（writeq などの述語、REPL）が機械の旗を写す。
+  bool fullwidth = false;
 };
 
 // Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。

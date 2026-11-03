@@ -120,6 +120,45 @@ test(fw_off_symbol, (open_string('X = 、.', S), read(S, T), T = (_ = A), A == '
 test(fw_quoted_kept, (全角で読む('X = f（''（）''，"，"）。', T), T = (_ = f(A, C)), A == '（）', atom_codes('，', C)), true).
 test(fw_char_code_kept, (全角で読む('X = 0''（。', T), T = (_ = N), char_code('（', N)), true).
 test(fw_comment_kept, (全角で読む('X = a /* （ */。', T), T = (_ = A), A == a), true).
+% 全角記号モードの writeq（レビュー M8、7.10.5 h）。引用しないと半角に読まれる （），、： を含む図形の原子と、
+% 後ろに空白が来ると終止符になる 。 で終わる図形の原子を引用する。
+% 旗を真にして G を 1 度だけ走らせ、成功、失敗、例外のどれでも偽に戻す。真のまま残すと、実行器が後のテストの字面を全角で読む。
+全角で(G) :-
+    set_prolog_flag(japanese_punctuation, true),
+    catch((G -> R = true ; R = false), E, R = error(E)),
+    set_prolog_flag(japanese_punctuation, false),
+    ( R = error(E2) -> throw(E2) ; R == true ).
+全角で書く(T, W) :- 全角で(with_output_to(atom(W), writeq(T))).
+% 書いた字面に ' .' を足して全角記号モードで読み、元の項と同じか見る。
+全角で往復(T) :-
+    全角で書く(T, W),
+    atom_concat(W, ' .', Text),
+    全角で読む(Text, T2),
+    T2 == T.
+test(m8_touten_arg, (全角で書く(f('、'), W), W == 'f(''、'')'), true).
+test(m8_touten_arg_back, 全角で往復(f('、')), true).
+test(m8_colon_functor, (全角で書く('：'(a), W), W == '''：''(a)'), true).
+test(m8_colon_functor_back, 全角で往復('：'(a)), true).
+test(m8_touten_functor_back, 全角で往復('、'(a, b)), true).
+test(m8_paren_open, (全角で書く('（', W), W == '''（'''), true).
+test(m8_paren_back, 全角で往復(f('（', '）')), true).
+test(m8_comma_back, 全角で往復(['，', '、']), true).
+test(m8_graphic_mixed, (全角で書く(['+、', '：-', '-（'], W), W == '[''+、'',''：-'',''-（'']'), true).
+test(m8_graphic_mixed_back, 全角で往復(f('+、', '：-', '-（')), true).
+test(m8_kuten, (全角で書く(['。', '+。'], W), W == '[''。'',''+。'']'), true).
+test(m8_kuten_back, 全角で往復(f('。') - '+。'), true).
+% 原子の途中の 。 の後ろは図形の字で、終止符にならない。読めるので引用しない。
+test(m8_kuten_inner_bare, (全角で書く('。+', W), W == '。+'), true).
+test(m8_kuten_inner_back, 全角で往復('。+' - a), true).
+test(m8_brackets_kagi, (全角で書く(f('［', '］', '「', '」'), W), W == 'f(''［'',''］'',''「'',''」'')'), true).
+test(m8_operator, (op(200, xfx, '：'), catch((全角で書く('：'(a, b), W) -> true ; W = none), E, W = error(E)), op(0, xfx, '：'), W == 'a''：''b'), true).
+test(m8_operator_back, (op(200, xfx, '：'), catch((全角で往復('：'(a, b)) -> R = true ; R = false), E, R = error(E)), op(0, xfx, '：'), R == true), true).
+test(m8_prefix_operand_back, 全角で往復(- '、'), true).
+test(m8_canonical, (全角で(with_output_to(atom(W), write_canonical('、'(a)))), W == '''、''(a)'), true).
+test(m8_write_term_format, (全角で((with_output_to(atom(P), write_term('：', [quoted(true)])), with_output_to(atom(Q), format("~q", ['）'])))), P == '''：''', Q == '''）'''), true).
+% write/1 は引用しない。旗が偽の writeq も、そのまま読める字は引用しない（7.10.5 h）。
+test(m8_write_unquoted, (全角で(with_output_to(atom(W), write(f('、')))), W == 'f(、)'), true).
+test(m8_flag_off_bare, (with_output_to(atom(W), writeq(f('、', '（', '：', '。'))), W == 'f(、,（,：,。)'), true).
 :- consult('modules/全角.pl').
 test(fw_directive_next_clause, 全(1), true).
 test(fw_directive_per_file, current_prolog_flag(japanese_punctuation, false), true).

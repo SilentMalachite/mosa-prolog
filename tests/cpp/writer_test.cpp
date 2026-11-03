@@ -224,10 +224,63 @@ void check_same_term_deep() {
   mosa_test::check(!mosa::same_term(left_heap, left, {}, right_heap, other, {}), "same_term deep leaf differs");
 }
 
+// レビュー M8。fullwidth で書いた字面を全角記号モードの読み手で読み、元の項と同じか比べる。
+bool fullwidth_round_trip(std::string_view source, std::string& text) {
+  const Held original(source);
+  if (!original.ok) return false;
+  mosa::WriteOptions options;
+  options.fullwidth = true;
+  text = mosa::write_term(original.heap, original.ops, original.term.term, options, original.term.names);
+  const std::string again_source = text + " .";
+  mosa::AtomTable atoms;
+  mosa::Heap heap(atoms);
+  auto ops = mosa::OperatorTable::iso_core();
+  mosa::Reader reader(again_source, heap, ops);
+  reader.set_fullwidth(true);
+  const auto outcome = reader.next();
+  return outcome.term && mosa::same_term(original.heap, original.term.term, original.term.names, heap,
+                                         outcome.term->term, outcome.term->names);
+}
+
+void check_fullwidth_quoting() {
+  const std::array<std::pair<std::string_view, std::string_view>, 9> quoted{{
+      {"'、'.", "'、'"},
+      {"f('，', '（', '）').", "f('，','（','）')"},
+      {"'：'(a).", "'：'(a)"},
+      {"'、'(a, b).", "'、'(a,b)"},
+      {"['+、', '：-'].", "['+、','：-']"},
+      {"'。'.", "'。'"},
+      {"'+。' - b.", "'+。'-b"},
+      {"- '（'.", "-'（'"},
+      {"f('［', '「').", "f('［','「')"},
+  }};
+  for (const auto& [source, expected] : quoted) {
+    std::string text;
+    const bool back = fullwidth_round_trip(source, text);
+    mosa_test::check(text == expected, "fullwidth writes " + std::string(source) + " as " + text);
+    mosa_test::check(back, "fullwidth reads back " + std::string(source));
+  }
+  // 途中の 。 は図形の字が後ろに続くので終止符にならない。全角でない図形と名前も引用しない。
+  const std::array<std::pair<std::string_view, std::string_view>, 3> bare{{
+      {"'。+' - a.", "。+ -a"},
+      {"f(東京, +, []).", "f(東京,+,[])"},
+      {"a:b.", "a:b"},
+  }};
+  for (const auto& [source, expected] : bare) {
+    std::string text;
+    const bool back = fullwidth_round_trip(source, text);
+    mosa_test::check(text == expected, "fullwidth keeps " + std::string(source) + " as " + text);
+    mosa_test::check(back, "fullwidth reads back " + std::string(source));
+  }
+  // 旗が偽の読み手はこれらを図形の字として読むので、既定の書き出しは引用しない。
+  mosa_test::check(written("f('、', '（', '：', '。').") == "f(、,（,：,。)", "default leaves fullwidth bare");
+}
+
 }  // namespace
 
 int main() {
   check_layout();
+  check_fullwidth_quoting();
   check_unnamed_and_numbers();
   check_equality();
   check_deep_terms();

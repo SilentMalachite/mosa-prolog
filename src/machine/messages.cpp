@@ -20,6 +20,7 @@ namespace {
 std::string fallback_text(Machine& machine, std::string_view key, std::span<const Cell> args) {
   WriteOptions options;
   options.numbervars = true;
+  options.fullwidth = engine_impl(machine).japanese_punct;
   std::string text{key};
   text += ':';
   for (const Cell arg : args) {
@@ -46,12 +47,16 @@ std::string catalog_module(Machine& machine) {
   return engine_impl(machine).message_lang == MessageLanguage::Ja ? "messages_ja" : "messages_en";
 }
 
+// query は旗 japanese_punctuation のまま読み直すので、引数も同じ旗で書く。偽で書くと、旗が真のとき
+// '：' は : に化け、'、' は読めずに鍵の文面に落ちる（レビュー M8）。
 std::string goal_text(Machine& machine, std::string_view key, std::span<const Cell> args) {
   const std::string module = catalog_module(machine);
+  WriteOptions options;
+  options.fullwidth = engine_impl(machine).japanese_punct;
   std::string list = "[";
   for (std::size_t index = 0; index < args.size(); ++index) {
     if (index > 0) list += ", ";
-    list += write_term(machine.heap(), machine.operators(), args[index], WriteOptions{}, {});
+    list += write_term(machine.heap(), machine.operators(), args[index], options, {});
   }
   list += "]";
   return "catch((" + module + ":message(" + std::string{key} +

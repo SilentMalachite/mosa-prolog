@@ -547,6 +547,7 @@ void run_out(Impl& machine, const Goal& call, Kind kind) {
   options.quoted = chosen.quoted;
   options.ignore_ops = chosen.ignore_ops;
   options.numbervars = chosen.numbervars;
+  options.fullwidth = machine.japanese_punct;
   if (!emit_written(machine, goal.module, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
   machine.ip = goal.cont;
 }

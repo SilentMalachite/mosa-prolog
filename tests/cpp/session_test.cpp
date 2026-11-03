@@ -5,6 +5,7 @@
 #include "mosa/suite.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -207,6 +208,18 @@ void check_fullwidth_query() {
   mosa_test::check(result.out.find("X = f(a,b).") != std::string::npos, "fullwidth query in the repl");
 }
 
+// レビュー M8。REPL は読んだゴールを書き直して読み直す。全角記号モードで '、' を引用しないと , に読み直され、
+// 答えも引用しないと読み戻せない。
+void check_fullwidth_quoted_answer() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(
+      args, "set_prolog_flag(japanese_punctuation, true).\nX = '、'.\nY = f('（'), Z = '：'(a).\n", true);
+  mosa_test::check(result.out.find("X = '、'.") != std::string::npos, "fullwidth quoted touten answer");
+  mosa_test::check(result.out.find("Y = f('（'), Z = '：'(a).") != std::string::npos,
+                   "fullwidth quoted paren and colon answer");
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
@@ -238,6 +251,25 @@ void check_uncaught_message(std::string_view lang, std::string_view phrase, std:
   auto result = mosa::run_session(args, "", false);
   mosa_test::check(result.code == 2, std::string{label} + " exit");
   mosa_test::check(result.err.find(phrase) != std::string::npos, label);
+}
+
+// レビュー M8。メッセージの引数は字面にしてから旗のまま読み直す。旗が真で '：' が : に化けず、
+// '、' で鍵の文面に落ちないこと。カタログに無い鍵の代わりの表示も同じ旗で引用する。
+void check_fullwidth_message_args() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal =
+      "set_prolog_flag(message_language, ja), set_prolog_flag(japanese_punctuation, true), throw(f(a, '：', '、')).";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  auto result = mosa::run_session(args, "", false);
+  mosa_test::check(result.err.find("警告: ゴールは例外を送出しました: f(a,'：','、')") != std::string::npos,
+                   "fullwidth message args quoted");
+  auto machine = mosa::Machine::create();
+  const mosa::Stop flag = machine->query("set_prolog_flag(japanese_punctuation, true).");
+  mosa_test::check(flag.kind == mosa::StopKind::Success, "fullwidth fallback flag set");
+  const std::array<mosa::Cell, 1> atoms{machine->heap().atom(machine->atoms().intern("、"))};
+  mosa_test::check(mosa::render_message(*machine, "m8_no_such_key", atoms) == "m8_no_such_key: '、'",
+                   "fullwidth fallback quoted");
 }
 
 // CMake はこのテストを LANG=ja_JP.UTF-8 で流す。
@@ -449,10 +481,12 @@ int main(int argc, char** argv) {
   check_consult_twice();
   check_resource_limit_session();
   check_fullwidth_query();
+  check_fullwidth_quoted_answer();
   check_runner();
   check_runner_reports_every_file();
   check_uncaught_message("ja", "警告: ゴールは例外を送出しました: foo", "uncaught_ja");
   check_uncaught_message("en", "Warning: goal raised exception: foo", "uncaught_en");
+  check_fullwidth_message_args();
   check_message_language_default();
   check_language_from_lang();
   check_help_japanese_variables();

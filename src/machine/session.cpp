@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <iostream>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -271,6 +272,13 @@ bool blank(std::string_view text) {
   return true;
 }
 
+// 読んだゴールを、play_goal が同じ旗で読み直す字面にする。旗が真なら '、' などを引用しないと , に読まれる（レビュー M8）。
+std::string goal_text(const Machine& machine, Cell term, std::span<const VarName> names) {
+  WriteOptions options;
+  options.fullwidth = engine_impl(machine).japanese_punct;
+  return write_term(machine.heap(), machine.operators(), term, options, names) + ".";
+}
+
 void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   std::string buffer;
   echo.say("?- ");
@@ -315,8 +323,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     if (directive) {
       if (!directive_text(machine, text)) echo.warn(std::string{machine.diagnostic()} + "\n");
     } else {
-      const std::string goal =
-          write_term(machine.heap(), machine.operators(), term, {}, outcome.term->names) + ".";
+      const std::string goal = goal_text(machine, term, outcome.term->names);
       bool halted = false;
       const int code = play_goal(machine, goal, true, cursor, echo, halted);
       if (halted) {

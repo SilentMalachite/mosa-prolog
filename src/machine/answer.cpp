@@ -61,13 +61,16 @@ std::string format_answer(const Machine& machine, const Stop& stop) {
   for (const Binding& binding : stop.bindings) names.push_back(VarName{binding.name, binding.variable});
   std::vector<std::uint64_t> shown;
   std::string text;
+  // 答えは利用者が同じ旗のまま貼り直せるように書く（レビュー M8）。
+  WriteOptions options;
+  options.fullwidth = engine_impl(machine).japanese_punct;
   for (const Binding& binding : stop.bindings) {
     const Cell value = machine.heap().deref(binding.variable);
     if (machine.heap().unbound(value) && already(shown, value.raw())) continue;
     if (!text.empty()) text += ", ";
     text += binding.name;
     text += " = ";
-    text += write_term(machine.heap(), machine.operators(), value, {}, names);
+    text += write_term(machine.heap(), machine.operators(), value, options, names);
     note_shown(machine.heap(), value, names, shown);
   }
   if (text.empty()) return "true";

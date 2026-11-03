@@ -83,13 +83,29 @@ bool is_small_name(std::string_view text) {
   return every_code(text.substr(decoded.bytes), continues_name) || text.size() == decoded.bytes;
 }
 
+// 全角記号モードの字句解析器は、引用の外の （），、： を半角の括弧、コンマ、コロンに読み、後ろに空白か % か終わりが
+// 来る 。 を終止符にする（SPEC 第4節、iso-notes 第4節）。図形の原子の中では 。 の後ろも図形の字なので、
+// 終止符になりうるのは最後の 。 だけ。［］「」 は図形でないので、ここに来る前に引用が決まっている。
+bool fullwidth_changes(std::string_view name) {
+  char32_t last = 0;
+  for (std::size_t index = 0; index < name.size();) {
+    const Decoded decoded = decode_at(name, index);
+    if (!decoded.valid) return false;
+    if (halfwidth_punctuation(decoded.code)) return true;
+    last = decoded.code;
+    index += decoded.bytes;
+  }
+  return last == U'。';
+}
+
 // ! と ; 以外の単独文字は、引用しないと括弧や区切りとして読まれる。
 // 図形の先頭の /* は読み戻すとブロック注釈になる。途中の /* と */ は図形のまま読める。
 // 単独の . は終止符なので、図形でも引用しないとアトムとして読めない。
-bool bare_atom(std::string_view name) {
+// 7.10.5 h は引用しないと原子として読めないときだけ引用する。全角記号は旗が真の読み手でだけ別の字句になる。
+bool bare_atom(std::string_view name, bool fullwidth) {
   if (name == "[]" || name == "{}") return true;
   if (is_small_name(name)) return true;
-  if (is_graphic_token(name)) return name != "." && !name.starts_with("/*");
+  if (is_graphic_token(name)) return name != "." && !name.starts_with("/*") && !(fullwidth && fullwidth_changes(name));
   return name == "!" || name == ";";
 }
 
@@ -471,7 +487,7 @@ bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
 }
 
 std::string Printer::spell(std::string_view name) const {
-  if (!options_.quoted || bare_atom(name)) return std::string{name};
+  if (!options_.quoted || bare_atom(name, options_.fullwidth)) return std::string{name};
   return quote_atom(name);
 }
 
