@@ -620,3 +620,11 @@ Before the decision below, a float token whose value does not fit in an IEEE 754
 A or B?: A: `syntax_error(float_overflow)`, the same way as `syntax_error(integer_overflow)` for integers (read/1 skips to the full stop). B: `evaluation_error(float_overflow)`.
 
 Decision (2026-11-02): A. The lexer reports the new ADR 0007 key `float_overflow` for a float above the largest double; a spelling that rounds to the largest double is still a number. The direction of an out-of-range value is taken from its magnitude (the place of the first non-zero digit plus the exponent), not from the sign of the exponent, so `1<400 zeros>.0e-10` overflows and `0.<400 zeros>1` underflows. Underflow is unchanged: `1.0e-400` reads as `0.0` and subnormals such as `1.0e-310` are kept (`tests/pl/read.pl` and `tests/pl/atoms.pl` `m2_*`, `tests/cpp/lexer_test.cpp` `test_float_range`).
+
+## 6.4.2 Symbol-character token before a full stop
+
+Before the decision below, the lexer ended a symbol-character token at a `.` that a layout character or `%` follows, unless another `.` came before it (`src/read/lexer.cpp` `Lexer::ends_clause`). So `X = +.` followed by a newline read as `X = +`, and `writeq(t('+.' - b))` wrote `t(+. -b)`, which did not read back (review L17). 6.4.2 forbids only the single character `.` followed by layout as a graphic token, so `+.` there is one token.
+
+A or B?: A: the lexer reads `+.` as one token (6.4.2); `X = +.` then waits for the end. B: keep the lexer and have writeq quote a symbol-character atom that ends in `.`.
+
+Decision (2026-11-03): A (review L17). Not implemented yet. The full-width `。` follows the same rule, since the decision of 2026-10-31 reads `。` as `.`; quoting atoms that end in `。` (review M8) stays correct. No file in `lib/`, `tests/pl` or `tests/conformance` ends a clause with a symbol character right before `.`.
