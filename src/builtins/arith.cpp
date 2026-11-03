@@ -636,6 +636,12 @@ bool run_arith(Impl& machine, const Goal& goal) {
   return false;
 }
 
+std::optional<std::int64_t> eval_integer(Impl& machine, const Goal& goal, Cell cell) {
+  const Ev value = eval_expr(machine, goal, cell);
+  if (!value.ok || !need_int(machine, goal, value.num)) return std::nullopt;
+  return value.num.ival;
+}
+
 namespace rt {
 
 namespace {

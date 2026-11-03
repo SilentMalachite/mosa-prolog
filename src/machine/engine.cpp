@@ -273,6 +273,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"peek_byte", 2},
     {"put_byte", 1},
     {"put_byte", 2},
+    {"tab", 1},
+    {"tab", 2},
     {"read_term", 2},
     {"read_term", 3},
     {"read", 1},

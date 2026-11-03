@@ -17,7 +17,11 @@
 //   representation_error(character), representation_error(in_character_code),
 //   representation_error(character_code)
 // invalid_utf8 が replace のときだけ、壊れた先頭 1 バイトを U+FFFD にする。既定の error は進めない。
-// テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
+// tab(+evaluable) / tab(+stream_or_alias, +evaluable)。非 ISO（SPEC 第7節の段階 G、レビュー M11）。
+//   SWI-Prolog の pl-file.c と同じく流れを先に調べ、次に N を is/2 と同じく評価し、0 以下なら何も書かない。
+//   流れの誤りは nl/1 と同じ。加えて instantiation_error, type_error(evaluable, F/A), type_error(integer, V)
+//   と評価の誤り
+// テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -383,6 +387,31 @@ void run_nl(Impl& machine, const Goal& goal) {
   write_char(machine, goal, index, U'\n');
 }
 
+void run_tab(Impl& machine, const Goal& goal) {
+  std::size_t index = machine.current_out;
+  if (goal.arity == 2 && resolve_stream(machine, goal, goal.arg(machine, 0), index)) return;
+  const Cell culprit = stream_culprit(machine, goal, index);
+  if (reject_closed(machine, goal, index, culprit) || reject_output(machine, goal, machine.streams[index], culprit)) {
+    return;
+  }
+  const auto count = eval_integer(machine, goal, goal.arg(machine, goal.arity - 1));
+  if (!count) return;
+  // place_bytes は途中の位置では 1 字だけを置き換えるので、流れには 1 字ずつ置く。emit_os は呼ぶたびに
+  // 吐き出すので、標準の流れへは塊で渡す。
+  constexpr std::int64_t kChunk = 256;
+  const std::string spaces(static_cast<std::size_t>(kChunk), ' ');
+  Stream& stream = machine.streams[index];
+  for (std::int64_t left = *count; left > 0; left -= kChunk) {
+    const auto size = static_cast<std::size_t>(left < kChunk ? left : kChunk);
+    if (stream.kind == Stream::Kind::Standard) emit_os(index, std::string_view{spaces.data(), size});
+    for (std::size_t at = 0; at < size; ++at) {
+      place_bytes(stream, std::string_view{spaces.data(), 1});
+      advance(stream, U' ', 1);
+    }
+  }
+  machine.ip = goal.cont;
+}
+
 }  // namespace
 
 // eof_action(reset)。ファイルと記憶の流れは先頭へ戻す。標準入力は読んだ分を巻き戻さず、
@@ -427,6 +456,10 @@ bool run_char_io(Impl& machine, const Goal& goal) {
   }
   if (name == "nl" && goal.arity <= 1) {
     run_nl(machine, goal);
+    return true;
+  }
+  if (name == "tab" && (goal.arity == 1 || goal.arity == 2)) {
+    run_tab(machine, goal);
     return true;
   }
   return false;
