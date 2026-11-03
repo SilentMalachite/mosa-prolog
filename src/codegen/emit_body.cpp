@@ -84,6 +84,7 @@ std::vector<std::uint16_t> emit_state(ClauseCtx& ctx, const StateSpec& spec, std
       fn.line("const std::size_t " + env.cut + " = rt::choice_mark(m);");
     }
     const std::size_t after = fn.out.size();
+    if (spec.prologue_cuts) yield_after_cut(ctx, fn, spec.goals, env);
     emit_seq(ctx, fn, spec.goals, env);
     // 回復ゴールがカットも呼び出しも持たなければ境界を読まない。宣言だけ残すと未使用の警告になる。
     if (spec.local_cut && !uses_identifier(std::string_view{fn.out}.substr(after), env.cut)) fn.out.erase(at, after - at);
@@ -371,11 +372,30 @@ std::string make_rest(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef>
   return make_frame(ctx, emit, "next", spec, env.cut, env.cont, {});
 }
 
+namespace {
+
+// spec の状態の番号と、枠が運ぶ変数。ゴールの並びだけで決まる状態は、同じ並びなら 1 つを使い回す。カットの後で
+// 後始末へ譲る枠（yield_after_cut）はその場で続ける道と同じ続きを指すので、まとめないとカットごとに状態が倍に増える。
+std::pair<std::uint32_t, std::vector<std::uint16_t>> state_of_spec(ClauseCtx& ctx, const StateSpec& spec) {
+  const bool plain = spec.skip == 0 && spec.prologue.empty() && !spec.local_cut && !spec.fails;
+  std::vector<std::pair<const IrTerm*, std::uint32_t>> key;
+  if (plain) {
+    for (const GoalRef& goal : spec.goals) key.emplace_back(goal.term, goal.module);
+    if (const auto found = ctx.plain_states.find(key); found != ctx.plain_states.end()) return found->second;
+  }
+  const std::uint32_t state = ctx.next_state++;
+  std::pair<std::uint32_t, std::vector<std::uint16_t>> made{state, emit_state(ctx, spec, state)};
+  if (plain) ctx.plain_states.emplace(std::move(key), made);
+  return made;
+}
+
+}  // namespace
+
 std::string make_frame(ClauseCtx& ctx, ClauseEmit& emit, std::string_view stem, const StateSpec& spec,
                        const std::string& cut, const std::string& cont, const std::vector<std::string>& prefix) {
-  const std::uint32_t state = ctx.next_state++;
+  const auto [state, live] = state_of_spec(ctx, spec);
   std::vector<std::string> cells = prefix;
-  for (const std::uint16_t slot : emit_state(ctx, spec, state)) cells.push_back(var_name(slot));
+  for (const std::uint16_t slot : live) cells.push_back(var_name(slot));
   const std::string kept = cell_list(emit, "k", cells);
   const std::string frame = emit.fresh(stem);
   emit.line("const auto " + frame + " = rt::resume_frame(m, &" + ctx.name.proc + ", " +
@@ -387,6 +407,40 @@ std::string mark_cell(std::string_view value) {
   return "rt::small_int(static_cast<std::int64_t>(" + std::string{value} + "))";
 }
 
+namespace {
+
+// rest がこの関数の中で動く文（算術、構文の入口と条件、\+、throw/1、次のカット）で始まるか。呼び出しと fail は
+// 歩みを終えるだけで、後始末より先に束縛を読みも作りもしない。throw/1 は投げる項が変数かをその場で見るので、
+// 後始末の束縛を見るには回す（Codex レビュー）。巻き戻しは propagate_throw が後始末の後へ回す。
+bool runs_inline(const ClauseCtx& ctx, std::span<const GoalRef> rest) {
+  if (rest.empty()) return false;
+  const IrTerm& goal = *rest.front().term;
+  switch (goal.tag) {
+    case IrTag::Fail: return false;
+    case IrTag::Throw:
+    case IrTag::Cut:
+    case IrTag::Or:
+    case IrTag::IfThen:
+    case IrTag::SoftIf:
+    case IrTag::Catch: return true;
+    default: break;
+  }
+  return arith_op(ctx.machine, goal).has_value() || is_name(ctx.machine, goal, "\\+", 1);
+}
+
+}  // namespace
+
+// カットが setup_call_cleanup/3 の後始末を外したら、rest を次の歩みへ回す。後始末は run_loop が歩みの間で動かすので、
+// 回さないと rest のうちこの関数の中で動く文が先に動き、インタプリタと違う束縛を後始末が見る（ADR 0016、敵対的
+// レビュー A4）。外していなければ、そのままこの関数で続ける。
+void yield_after_cut(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> rest, const BodyEnv& env) {
+  if (!runs_inline(ctx, rest)) return;
+  emit.line("if (rt::cleanup_pending(m)) {");
+  const std::string frame = make_rest(ctx, emit, rest, env);
+  emit.line("return rt::proceed(m, " + frame + ");");
+  emit.line("}");
+}
+
 // goals を順に出す。呼び出しと構文は続きまで出し切って戻るので、ここに戻るのは直線の文（カットなど）のあとだけ。
 void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, const BodyEnv& env) {
   for (std::size_t index = 0; index < goals.size(); ++index) {
@@ -395,7 +449,10 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
     switch (ref.term->tag) {
       case IrTag::Fail: emit.line("return rt::fail(m);"); return;
       case IrTag::Throw: emit.line("return rt::throw_term(m, " + emit_build(emit, ref.term->args[0]) + ");"); return;
-      case IrTag::Cut: emit.line("rt::cut_to(m, " + env.cut + ");"); continue;
+      case IrTag::Cut:
+        emit.line("rt::cut_to(m, " + env.cut + ");");
+        yield_after_cut(ctx, emit, rest, env);
+        continue;
       case IrTag::Or: emit_or(ctx, emit, ref, rest, env); return;
       case IrTag::IfThen: emit_if_then(ctx, emit, ref, rest, env); return;
       case IrTag::SoftIf: emit_soft(ctx, emit, ref, rest, env); return;
@@ -419,7 +476,7 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
 ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate& predicate, const ClauseName& name) {
   ClauseCode code;
   const Clause& clause = predicate.clauses[name.clause - 1];
-  ClauseCtx ctx{machine, tables, predicate, name, code, 1, {}};
+  ClauseCtx ctx{machine, tables, predicate, name, code, 1, {}, {}};
   std::vector<GoalRef> goals;
   flatten(ctx, *clause.body, predicate.module, goals);
   const auto entry_state = rt::state_of(name.clause, 0);

@@ -525,7 +525,12 @@ StopKind run_parked(Impl& machine, Cell goal) {
   cleanup.extras_mark = saved.extras_mark;
   machine.stack.push_back(std::move(cleanup));
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
-  const Stop stop = run_loop(machine);
+  Stop stop = run_loop(machine);
+  // 指示は 1 回だけ解く。残った選択点を捨てる前に切り、setup_call_cleanup/3 の後始末の例外は指示の例外にする（ADR 0016）。
+  if (stop.kind == StopKind::Success) {
+    Stop closed = close_cleanups(machine, 0);
+    if (closed.kind == StopKind::Exception || closed.kind == StopKind::Halt) stop = std::move(closed);
+  }
   // stop.exception は run_loop が返した直後の ball なので、GC の前に読む。
   if (stop.kind == StopKind::Exception) fail_load(machine, formal_text(machine, stop.exception));
   restore_state(machine, heap_mark, saved.trail_size, saved.extras_mark);

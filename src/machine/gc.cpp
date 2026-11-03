@@ -111,6 +111,7 @@ void visit_roots(Impl& machine, GcVisitor& visitor) {
   visitor.cell(machine.ball);
   for (Binding& binding : machine.bindings) visitor.cell(binding.variable);
   for (Entry& entry : machine.stack) visitor.entry(entry);
+  for (PendingCleanup& pending : machine.pending_cleanups) visitor.cell(pending.goal);
   for (const RootVisit& visit : machine.gc_roots) visit(visitor);
 }
 

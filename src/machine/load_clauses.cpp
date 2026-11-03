@@ -134,7 +134,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   } else if (!predicate.seen && !predicate.clauses.empty()) {
     bool busy = false;
     for (const Entry& entry : machine.stack) {
-      if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch) busy = true;
+      if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch && entry.pick != Pick::CallCleanup) busy = true;
     }
     if (busy) {
       fail_load(machine, message_text(machine, "predicate_running"));

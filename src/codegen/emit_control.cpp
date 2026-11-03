@@ -35,6 +35,7 @@ std::string then_frame(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& then, std
   spec.goals = branch_goals(ctx, then, module);
   spec.skip = 1;
   spec.prologue = "rt::cut_to(m, static_cast<std::size_t>(rt::small_value(rt::var(r, frame, 0))));";
+  spec.prologue_cuts = true;
   return make_frame(ctx, emit, "then", spec, cut, cont, {mark_cell(mark)});
 }
 

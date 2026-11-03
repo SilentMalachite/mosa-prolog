@@ -430,6 +430,28 @@ void check_init_main() {
   mosa_test::check(halted.code == 3, "init_main_halt3 exit");
 }
 
+// 敵対的レビュー A3（M11、ADR 0016）。選択点を残して成功した -g のゴール、対話の答え、main は、SWI-Prolog の
+// '$run_init_goal' と toplevel と同じく答えの後で切り、setup_call_cleanup/3 の後始末を動かす。その例外はゴールの例外。
+// SessionResult は Echo の出力だけを持ち write/1 の出力は持たないので、後始末が投げる警告で動いたことを見る。
+// 書いた順（答えの後に後始末）は mosac_run_exit_code の cleanup_main.pl が見る。
+void check_answer_runs_cleanup() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "setup_call_cleanup(true, (X = 1 ; X = 2), throw(oops(X))).";
+  std::vector<std::string_view> args{arg0, arg_g, goal};
+  const auto batch = mosa::run_session(args, "", false);
+  const auto answer = batch.out.find("X = 1.");
+  mosa_test::check(batch.code == 2 && answer != std::string::npos && batch.err.find("oops(1)") != std::string::npos,
+                   "-g answer then cleanup");
+  std::vector<std::string_view> plain{arg0};
+  const auto talk = mosa::run_session(plain, goal + "\n\n", true);
+  mosa_test::check(talk.out.find("X = 1") != std::string::npos && talk.err.find("oops(1)") != std::string::npos,
+                   "toplevel answer then cleanup");
+  const auto main_raised = run_main_program(
+      "session_main_cleanup", "main :- setup_call_cleanup(true, (X = 1 ; X = 2), throw(oops(X))).\n");
+  mosa_test::check(main_raised.code == 2 && main_raised.err.find("oops(1)") != std::string::npos, "main answer then cleanup");
+}
+
 // 指示の halt/0,1 は読み込みを止め、その値で終わる。後の指示、initialization(_, main)、-g は動かない。
 // -g が動けば答えの行 true. が out に出、main が動けば 0 で終わる。
 void check_directive_halt() {
@@ -506,6 +528,7 @@ int main(int argc, char** argv) {
   check_load_diagnostics_en();
   check_goal_without_period();
   check_init_main();
+  check_answer_runs_cleanup();
   check_directive_halt();
   check_argv_after_dashes();
   return mosa_test::failures();

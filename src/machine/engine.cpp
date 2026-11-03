@@ -63,6 +63,11 @@ void launch_control(Impl& machine, std::size_t index) {
   }
   GoalRef goal = extra.ctrl == Ctrl::Interpret ? extra.goal : extra.then;
   const EnvRef env = extra.env;
+  // 確定が外した後始末を then の頭（launch はこの歩みで動かす）より先にするため、枠にして回す（ADR 0016）。
+  if (!machine.pending_cleanups.empty()) {
+    machine.ip = embody(machine, goal, extra.cont, extra.cut, env, extra.module);
+    return;
+  }
   launch(machine, std::move(goal), extra.cont, extra.cut, env, extra.module);
 }
 
@@ -87,6 +92,10 @@ void step_control(Impl& machine) {
   }
   if (ctrl == Ctrl::Collect) {
     collect_step(machine, trim_to);
+    return;
+  }
+  if (ctrl == Ctrl::CleanupExit) {
+    exit_cleanup(machine, trim_to, cont);
     return;
   }
   trim_stack(machine, trim_to);
@@ -293,6 +302,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"term_to_atom", 2},
     {"nb_setval", 2},
     {"nb_getval", 2},
+    {"setup_call_cleanup", 3},
+    {"$call_cleanup", 2},
     {"with_output_to", 2},
     {"op", 3},
     {"current_op", 3},
@@ -622,7 +633,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_lists(machine, goal) || run_format_float(machine, goal) || run_case(machine, goal) || run_char_width(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
       run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) || run_term_text(machine, goal) ||
-      run_global_vars(machine, goal)) {
+      run_global_vars(machine, goal) || run_cleanup(machine, goal)) {
     return true;
   }
   return false;
@@ -635,6 +646,8 @@ Stop run_loop(Impl& machine) {
       flush_open_files(machine);
       return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
     }
+    // 歩みの途中のカットが外した後始末は、次の歩み（失敗や例外の伝わりも含む）の前に動かす（ADR 0016）。
+    if (!machine.pending_cleanups.empty()) settle_cleanups(machine);
     if (machine.exception) return Stop{StopKind::Exception, 0, machine.ball, {}, false};
     if (machine.failed) {
       if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
@@ -687,8 +700,6 @@ void Machine::halt(int code) {
   flush_open_files(*impl_);
 }
 
-namespace {
-
 // 問い合わせ 1 つ分の実行状態を捨てる。選択点はもう無いので戻さずに捨てる。
 // 選択点が無ければ catch_log と scan_log の記録はどれも指す先が無い。
 void drop_run(Impl& machine) {
@@ -705,7 +716,10 @@ void drop_run(Impl& machine) {
   machine.native_next = nullptr;
   machine.ip = kNoFrame;
   machine.bindings.clear();
+  machine.pending_cleanups.clear();
 }
+
+namespace {
 
 // C++ の例外（ヒープの上限、OS のメモリ不足）で抜ける問い合わせは、選択点・トレイル・束縛を残さない。残すと次の
 // load_program の指示（run_parked）が古いスタックを退避し、GC が空けたヒープの番地を根として辿る。
@@ -748,6 +762,8 @@ Stop Machine::query(std::string_view goal_text) {
     machine.halt_pending = false;
     return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
   }
+  // halt で止まった問い合わせの後始末は、次の問い合わせが閉じるときも動かさない（ADR 0016、敵対的レビュー A5）。
+  const bool halted = machine.halt_now;
   machine.halt_now = false;
   // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。
   // 開いた流れは set_output/1 が問い合わせをまたいで持ち越したものなので戻さない。load_program と next は見ない。
@@ -756,6 +772,14 @@ Stop Machine::query(std::string_view goal_text) {
   };
   if (!usable(machine.current_in)) machine.current_in = 0;
   if (!usable(machine.current_out)) machine.current_out = 1;
+  // 前の問い合わせが選択点を残していれば、捨てる前に setup_call_cleanup/3 の後始末を動かす。その例外は返す先が無い。
+  if (!halted && has_cleanup_entries(machine, 0)) {
+    const Stop closed = close_query(machine);
+    if (closed.kind == StopKind::Halt) {
+      drop_run(machine);
+      return closed;
+    }
+  }
   drop_run(machine);
   // 空きを生まない GC の連続は 1 つの問い合わせの中だけで数える（ADR 0010 の改訂 B）。
   reset_gc_judgement(machine);

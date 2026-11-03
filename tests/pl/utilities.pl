@@ -1,5 +1,6 @@
 % SPEC 第7節の段階 G の便利述語（非 ISO、レビュー M11、iso-notes の第7節 段階 G の便利述語）。
 % 引数の形と誤りは SWI-Prolog に合わせる。
+:- use_module(library(lists)).
 
 % tab/1,2。N は式として評価し、0 以下なら何も書かない。tab/2 は流れを先に調べる。
 test(tab_spaces, (with_output_to(atom(A), (write(a), tab(3), write(b))), A == 'a   b'), true).
@@ -129,3 +130,76 @@ test(nb_get_missing, nb_getval(m11_never_set, _), error(existence_error(variable
 numlist_m11(N, L) :- numlist_m11(1, N, L).
 numlist_m11(I, N, []) :- I > N, !.
 numlist_m11(I, N, [I|T]) :- J is I + 1, numlist_m11(J, N, T).
+
+% setup_call_cleanup/3（ADR 0016）。Setup は once/1 として動き、Cleanup は Goal が選択点を残さずに抜けたとき、
+% 失敗したとき、例外を投げたとき、選択点を切られたときに 1 回だけ動く。
+test(scc_det_exit, (with_output_to(atom(A), (setup_call_cleanup(write(s), write(g), write(c)), write(after))), A == sgcafter), true).
+test(scc_det_bindings, setup_call_cleanup(true, X = 1, Y = X), solutions([(X = 1, Y = 1)])).
+test(scc_fail, (with_output_to(atom(A), (setup_call_cleanup(true, fail, write(c)) ; write(alt))), A == calt), true).
+test(scc_fail_bindings, (((setup_call_cleanup(X = s, (Y = g, fail), nb_setval(m11_scc_f, X-Y))) ; true), nb_getval(m11_scc_f, P-Q), P == s, var(Q)), true).
+test(scc_exhausted, (with_output_to(atom(A), forall(setup_call_cleanup(true, member(X, [1, 2]), write(c)), write(X))), A == '12c'), true).
+test(scc_nondet_answers, setup_call_cleanup(true, member(X, [1, 2]), true), solutions([X = 1, X = 2])).
+test(scc_cut, (with_output_to(atom(A), (setup_call_cleanup(true, member(X, [1, 2]), write(c)), !, write(X))), A == c1), true).
+test(scc_cut_sees_goal, (setup_call_cleanup(true, member(X, [1, 2]), nb_setval(m11_scc_c, X)), !, nb_getval(m11_scc_c, V)), solutions([(X = 1, V = 1)])).
+test(scc_once, (with_output_to(atom(A), (once(setup_call_cleanup(true, member(X, [1, 2]), write(c))), write(X))), A == c1), true).
+test(scc_if_then, (with_output_to(atom(A), (setup_call_cleanup(true, member(X, [1, 2]), write(c)) -> write(X) ; true)), A == c1), true).
+test(scc_not, (with_output_to(atom(A), (\+ \+ setup_call_cleanup(true, member(_, [1, 2]), write(c)), write(n))), A == cn), true).
+test(scc_findall, (with_output_to(atom(A), findall(X, setup_call_cleanup(true, member(X, [1, 2]), write(c)), L)), A == c, L == [1, 2]), true).
+test(scc_nested_cut, (with_output_to(atom(A), (setup_call_cleanup(true, setup_call_cleanup(true, member(_, [1, 2]), write(i)), write(o)), !)), A == io), true).
+test(scc_cut_then_fail, (with_output_to(atom(A), (\+ (setup_call_cleanup(true, member(_, [1, 2]), write(c)), !, fail), write(alt))), A == calt), true).
+test(scc_exception, (with_output_to(atom(A), catch(setup_call_cleanup(true, throw(e), write(c)), E, write(E))), A == ce), true).
+test(scc_exception_bindings, (catch(setup_call_cleanup(X = s, (Y = g, throw(e)), nb_setval(m11_scc_e, X-Y)), e, true), nb_getval(m11_scc_e, P-Q), P == s, var(Q)), true).
+test(scc_exception_wins, catch(setup_call_cleanup(true, throw(first), throw(second)), E, true), solutions([E = first])).
+test(scc_exception_after_exit, (with_output_to(atom(A), catch((setup_call_cleanup(true, member(_, [1, 2]), write(c)), throw(late)), late, write(caught))), A == ccaught), true).
+test(scc_exception_cleanup_fails, catch(setup_call_cleanup(true, throw(e), fail), E, true), solutions([E = e])).
+test(scc_cleanup_throws_exit, catch(setup_call_cleanup(true, true, throw(oops)), B, true), solutions([B = oops])).
+test(scc_cleanup_throws_fail, catch(setup_call_cleanup(true, fail, throw(oops)), B, true), solutions([B = oops])).
+test(scc_cleanup_throws_cut, catch((setup_call_cleanup(true, member(_, [1, 2]), throw(oops)), !), B, true), solutions([B = oops])).
+test(scc_cleanup_fails, setup_call_cleanup(true, true, fail), true).
+test(scc_cleanup_nondet, setup_call_cleanup(true, true, member(Z, [1, 2])), solutions([Z = 1])).
+test(scc_cleanup_cut_local, (setup_call_cleanup(true, true, (member(Z, [1, 2]), !)), Z == 1), true).
+test(scc_setup_fails, (with_output_to(atom(A), (setup_call_cleanup(fail, write(g), write(c)) ; true)), A == ''), true).
+test(scc_setup_throws, (with_output_to(atom(A), catch(setup_call_cleanup(throw(s), write(g), write(c)), s, true)), A == ''), true).
+test(scc_setup_once, setup_call_cleanup(member(X, [1, 2]), true, true), solutions([X = 1])).
+test(scc_setup_var, setup_call_cleanup(_, true, true), error(instantiation_error)).
+test(scc_setup_type, setup_call_cleanup(1, true, true), error(type_error(callable, 1))).
+test(scc_cleanup_var, setup_call_cleanup(true, true, _), error(instantiation_error)).
+test(scc_cleanup_type, setup_call_cleanup(true, true, 1), error(type_error(callable, 1))).
+test(scc_cleanup_after_setup, (with_output_to(atom(A), catch(setup_call_cleanup(write(s), write(g), 1), _, true)), A == s), true).
+test(scc_cleanup_body, catch(setup_call_cleanup(true, true, (true, 1)), error(E, _), true), solutions([E = type_error(callable, (true, 1))])).
+test(scc_goal_var, (with_output_to(atom(A), catch(setup_call_cleanup(true, _, write(c)), error(instantiation_error, _), write(e))), A == ce), true).
+test(scc_goal_type, setup_call_cleanup(true, 1, true), error(type_error(callable, 1))).
+test(scc_goal_cut_local, (setup_call_cleanup(true, (member(X, [1, 2]), !), true) ; X = 3), solutions([X = 1, X = 3])).
+test(scc_det_loop, scc_loop_m11(200000), true).
+test(scc_cut_loop, scc_cut_loop_m11(200000), true).
+% 敵対的レビュー A1、A2、A4（M11）。節の本体のカットが外した後始末は、生成コードでも同じ歩みの続き（throw、算術、
+% -> の then）より先に、カットの時点の束縛で動く。1 回のカットが外した後始末は、先のものが投げても全部動く。
+test(scc_cut_then_throw, (catch(scc_cut_throw_m11, after(_), true), nb_getval(m11_scc_ct, V)), solutions([V = 1])).
+test(scc_cut_then_eval_error, (catch(scc_cut_eval_m11, error(type_error(evaluable, foo/0), _), true), nb_getval(m11_scc_ce, V)), solutions([V = 1])).
+test(scc_cut_then_throw_outer, (catch(setup_call_cleanup(true, scc_cut_throw_m11, nb_setval(m11_scc_co, outer)), after(_), true), nb_getval(m11_scc_ct, V), nb_getval(m11_scc_co, W)), solutions([(V = 1, W = outer)])).
+test(scc_cut_then_arith, (scc_cut_arith_m11(Y), nb_getval(m11_scc_ca, V)), solutions([(Y = 2, V = unbound)])).
+test(scc_commit_then_arith, (scc_commit_arith_m11(Y), nb_getval(m11_scc_ia, V)), solutions([(Y = 2, V = unbound)])).
+test(scc_cut_two_cuts_arith, (scc_two_cuts_m11(Y), nb_getval(m11_scc_t1, V), nb_getval(m11_scc_t2, W)), solutions([(Y = 3, V = unbound, W = unbound)])).
+test(scc_cut_rest_run, (nb_setval(m11_scc_two, none), catch((setup_call_cleanup(true, setup_call_cleanup(true, member(_, [1, 2]), throw(inner)), nb_setval(m11_scc_two, ran)), !), E, true), nb_getval(m11_scc_two, V)), solutions([(E = inner, V = ran)])).
+test(scc_cut_first_wins, (with_output_to(atom(A), catch((setup_call_cleanup(true, setup_call_cleanup(true, member(_, [1, 2]), (write(i), throw(inner))), (write(o), throw(outer))), !), E, true)), A == io), solutions([E = inner])).
+test(scc_cut_rest_run_body, (nb_setval(m11_scc_tb, none), catch(scc_cut_two_m11, E, true), nb_getval(m11_scc_tb, V)), solutions([(E = inner, V = ran)])).
+% Codex レビュー（M11）。-> の確定と節の本体のカットの直後の throw/1 も、後始末の束縛を見てから投げる。
+test(scc_commit_then_throw, (catch((setup_call_cleanup(true, (true ; true), X = ok) -> throw(X) ; true), E, true), E == ok), true).
+test(scc_cut_then_throw_bound, (catch(scc_cut_throw_bound_m11, E, true), E == foo), true).
+test(scc_commit_then_throw_body, (catch(scc_commit_throw_m11, E, true), E == foo), true).
+
+scc_loop_m11(0) :- !.
+scc_loop_m11(N) :- setup_call_cleanup(true, true, true), M is N - 1, scc_loop_m11(M).
+scc_cut_loop_m11(0) :- !.
+scc_cut_loop_m11(N) :- setup_call_cleanup(true, member(_, [a, b]), true), !, M is N - 1, scc_cut_loop_m11(M).
+scc_cut_throw_m11 :- setup_call_cleanup(true, (X = 1 ; X = 2), nb_setval(m11_scc_ct, X)), !, throw(after([a, b, c, d, e, f])).
+scc_cut_eval_m11 :- setup_call_cleanup(true, (X = 1 ; X = 2), nb_setval(m11_scc_ce, X)), !, _ is foo + X.
+scc_cut_arith_m11(Y) :- setup_call_cleanup(true, (Z = 1 ; Z = 2), scc_note_m11(m11_scc_ca, Y)), !, Y is Z + 1.
+scc_commit_arith_m11(Y) :- ( setup_call_cleanup(true, (Z = 1 ; Z = 2), scc_note_m11(m11_scc_ia, Y)) -> Y is Z + 1 ; Y = none ).
+scc_two_cuts_m11(Y) :-
+    setup_call_cleanup(true, (Z = 1 ; Z = 2), scc_note_m11(m11_scc_t1, Y)), !, W is Z + 1,
+    setup_call_cleanup(true, (U = 1 ; U = 2), scc_note_m11(m11_scc_t2, Y)), !, Y is W + U.
+scc_cut_two_m11 :- setup_call_cleanup(true, setup_call_cleanup(true, member(_, [1, 2]), throw(inner)), nb_setval(m11_scc_tb, ran)), !.
+scc_cut_throw_bound_m11 :- setup_call_cleanup(true, (true ; true), X = foo), !, throw(X).
+scc_commit_throw_m11 :- ( setup_call_cleanup(true, (true ; true), X = foo) -> throw(X) ; true ).
+scc_note_m11(Key, X) :- ( var(X) -> nb_setval(Key, unbound) ; nb_setval(Key, X) ).

@@ -168,7 +168,9 @@ enum class Pick {
   // 生成関数の節の候補。candidates は節の番号ではなく状態なので、pred_* を入れず節の走査に数えさせない。
   Native,
   // 動いている findall・bagof・setof（ADR 0013）。ここへ戻ればゴールの解は尽きたので、答えを束ねる。
-  Collect
+  Collect,
+  // setup_call_cleanup/3 の後始末（ADR 0016）。pattern が Cleanup、module がその文脈。解ではない。
+  CallCleanup
 };
 
 // 動いている収集の状態（ADR 0013）。Pick::Collect の Entry が持つ。中身は solutions.cpp だけが知る。
@@ -237,7 +239,7 @@ struct Entry {
 };
 
 // Native は extras に載せない。語 1 の第 63 ビットが立った制御枠で、ヒープに関数と節の変数を持つ（ADR 0009）。
-enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native, Collect };
+enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native, Collect, CleanupExit };
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
@@ -328,6 +330,12 @@ struct ExportedTerm {
   };
   std::vector<Node> nodes;
   int root = -1;
+};
+
+// カットで外した setup_call_cleanup/3 の後始末。run_loop が次の歩みの前に動かす（ADR 0016）。
+struct PendingCleanup {
+  Cell goal{};
+  std::uint32_t module = 0;
 };
 
 // nb_setval/2 の値（レビュー M11）。words は Heap::held に足した語数で、置き換えるときに返す。
@@ -428,6 +436,8 @@ struct Machine::Impl {
   std::vector<Binding> bindings;
   // nb_setval/2 の値を鍵のアトムで引く。ヒープは後戻りで巻き戻るので、findall の答えと同じく外に写して持つ。
   std::unordered_map<std::uint32_t, GlobalValue> globals;
+  // GC の根。歩みの途中のカットが積み、run_loop の次の回の初めに空にするので、歩みの境ではいつも空である。
+  std::vector<PendingCleanup> pending_cleanups;
   std::uint64_t next_soft = 1;
   DoubleQuotes quotes = DoubleQuotes::Codes;
   // unknown=fail のときだけ真。warning は未決 10 で受け付けない。

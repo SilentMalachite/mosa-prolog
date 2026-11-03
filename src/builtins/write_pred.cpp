@@ -656,7 +656,12 @@ Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_
   machine.exception = false;
   machine.eval_abort = false;
   launch(machine, goal, kNoFrame, machine.stack.size(), env, module);
-  const Stop stop = run_loop(machine);
+  Stop stop = run_loop(machine);
+  // portray は 1 回だけ解く。床の上に残った選択点を捨てる前に切り、setup_call_cleanup/3 の後始末を動かす（ADR 0016）。
+  if (stop.kind == StopKind::Success) {
+    Stop closed = close_cleanups(machine, saved.stack.size() + 1);
+    if (closed.kind != StopKind::Success) stop = std::move(closed);
+  }
   machine.stack = saved.stack;
   trim_extras(machine, saved.extras_mark);
   if (stop.kind == StopKind::Exception) {

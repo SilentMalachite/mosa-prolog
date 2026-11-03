@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <span>
 #include <string>
 #include <string_view>
@@ -91,6 +92,8 @@ struct StateSpec {
   bool local_cut = false;
   // prologue のあと失敗する（\+ の中のゴールが成功したとき）。
   bool fails = false;
+  // prologue が rt::cut_to で切る（-> の then）。外した後始末があれば goals を次の歩みへ回す（yield_after_cut）。
+  bool prologue_cuts = false;
 };
 
 // 1 つの節を訳す間に共有する。状態の番号は節の中の再開の点を 1 から順に数える。ADR 0009 の
@@ -104,6 +107,9 @@ struct ClauseCtx {
   std::uint32_t next_state = 1;
   // \+ と M:G の中のゴール。IR はデータの形で持つので、ゴールの形に直した項をここに置いて指す。
   std::deque<IrTerm> owned;
+  // ゴールの並びだけで決まる状態（make_rest と枝の枠）の番号と、枠が運ぶ変数。同じ並びは 1 つの状態にまとめる。
+  std::map<std::vector<std::pair<const IrTerm*, std::uint32_t>>, std::pair<std::uint32_t, std::vector<std::uint16_t>>>
+      plain_states;
 };
 
 // 文字列の補助（emit.cpp）。
@@ -161,6 +167,8 @@ void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>
 // 生成した文面が識別子 ident を使うか。使わない局所変数や引数を出さないために見る（警告を誤りにしてある）。
 [[nodiscard]] bool uses_identifier(std::string_view text, std::string_view ident);
 void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, const BodyEnv& env);
+// カットの後。外した後始末があれば rest を次の歩みへ回す文を出す（ADR 0016）。
+void yield_after_cut(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> rest, const BodyEnv& env);
 [[nodiscard]] ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate& predicate,
                                      const ClauseName& name);
 

@@ -321,6 +321,13 @@ bool backtrack(Impl& machine) {
       machine.stack.pop_back();
       continue;
     }
+    // Goal の解が尽きた。Setup の直後まで戻した状態で後始末を動かし、その後でまた失敗する（ADR 0016）。
+    if (pick == Pick::CallCleanup) {
+      machine.pending_cleanups.push_back(PendingCleanup{top.pattern, top.module});
+      machine.stack.pop_back();
+      machine.failed = true;
+      return true;
+    }
     if (pick == Pick::Clauses && redo_clause(machine)) return true;
     if (pick == Pick::Native && redo_native(machine)) return true;
     if (pick == Pick::Retract && redo_retract(machine)) return true;

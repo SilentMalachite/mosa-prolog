@@ -71,6 +71,21 @@ void append_utf8_code(std::string& text, char32_t code);
 // ヒープの外に写した項の C++ での大きさ（バイト）。findall の答えと nb_setval/2 の値が Heap::held に数える。
 [[nodiscard]] std::size_t footprint(const ExportedTerm& term);
 [[nodiscard]] bool run_global_vars(Impl& machine, const Goal& goal);
+// setup_call_cleanup/3 と内部の '$call_cleanup'/2（ADR 0016、定義は cleanup.cpp）。
+[[nodiscard]] bool run_cleanup(Impl& machine, const Goal& goal);
+// Ctrl::CleanupExit。stack[index] が一番上なら切って後始末を積み、cont へ進む。
+void exit_cleanup(Impl& machine, std::size_t index, std::uint64_t cont);
+// 積んだ後始末を、今の ip（失敗していれば fail、例外が待っていれば throw(Ball)）の前の枠にする。
+void settle_cleanups(Impl& machine);
+// propagate_throw が Pick::CallCleanup に着いた。水位まで戻し、例外を捨てる形の後始末の後で ball を投げ直す。
+void throw_through_cleanup(Impl& machine, const Entry& entry, const ExportedTerm& ball);
+// stack[floor] から上に Pick::CallCleanup があれば、そこまで切って後始末を動かす。無ければ何もせず Success。
+[[nodiscard]] bool has_cleanup_entries(const Impl& machine, std::size_t floor);
+[[nodiscard]] Stop close_cleanups(Impl& machine, std::size_t floor);
+// 答えの後で問い合わせを切る close_cleanups(machine, 0)。C++ の例外で抜けたら drop_run してから投げ直す。
+[[nodiscard]] Stop close_query(Impl& machine);
+// 問い合わせ 1 つ分の実行状態（スタック、トレイル、ヒープ、束縛、積んだ後始末）を戻さずに捨てる（engine.cpp）。
+void drop_run(Impl& machine);
 // Ctrl::Collect の枠に着いた解を、stack[entry] の収集に記録して失敗する（ADR 0013）。
 void collect_step(Impl& machine, std::size_t entry);
 // backtrack が一番上の Pick::Collect に戻ったとき。状態は戻してある。Entry を外して答えを束ねる。

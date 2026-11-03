@@ -128,6 +128,8 @@ void call_goal(Machine::Impl& machine, const Regs& regs, std::uint32_t number, s
 void push_alternative(Machine::Impl& machine, const Regs& regs, std::uint64_t frame, NativeProc proc,
                       std::span<const std::uint32_t> states);  // cut = regs.cut
 void cut_to(Machine::Impl& machine, std::size_t barrier);
+// cut_to が setup_call_cleanup/3 の後始末を外して積んだか。積んだら生成コードは続きを次の歩みへ回す（ADR 0016）。
+[[nodiscard]] bool cleanup_pending(const Machine::Impl& machine);
 void proceed(Machine::Impl& machine, std::uint64_t cont);
 void fail(Machine::Impl& machine);
 void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t entry, std::uint64_t frame,

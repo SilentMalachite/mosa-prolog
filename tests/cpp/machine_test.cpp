@@ -29,6 +29,39 @@ void check_one_fact() {
   mosa_test::check(binding_text(*machine, bound) == "a", "value a");
 }
 
+// 選択点を残した問い合わせを次の問い合わせが閉じるとき、setup_call_cleanup/3 の後始末を動かす（ADR 0016、レビュー M11）。
+// 閉じるときは Goal の束縛が見える。next() で解を尽くせば、そのとき失敗の後始末として 1 回だけ動く。
+void check_cleanup_on_close() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("g(1). g(2).").ok, "cleanup load");
+  auto open = machine->query("setup_call_cleanup(true, g(X), nb_setval(m11_closed, X)).");
+  mosa_test::check(open.kind == mosa::StopKind::Success && open.more, "cleanup goal left a choice point");
+  auto none = machine->query("catch(nb_getval(m11_closed, _), _, fail).");
+  mosa_test::check(none.kind == mosa::StopKind::Success, "closing the query ran the cleanup");
+  auto seen = machine->query("nb_getval(m11_closed, V).");
+  mosa_test::check(seen.kind == mosa::StopKind::Success && binding_text(*machine, seen) == "1", "cleanup saw X = 1");
+  auto again = machine->query("setup_call_cleanup(true, g(_), nb_setval(m11_count, done)).");
+  mosa_test::check(again.kind == mosa::StopKind::Success && again.more, "second goal open");
+  auto second = machine->next();
+  mosa_test::check(second.kind == mosa::StopKind::Success && !second.more, "second answer is the last");
+  auto last = machine->next();
+  mosa_test::check(last.kind == mosa::StopKind::Failure, "no third answer");
+  auto count = machine->query("nb_getval(m11_count, V).");
+  mosa_test::check(count.kind == mosa::StopKind::Success && binding_text(*machine, count) == "done", "cleanup ran on failure");
+  // 敵対的レビュー A5。halt で止まった問い合わせの後始末は、次の問い合わせが閉じるときも動かさない（ADR 0016）。
+  auto reset = machine->query("nb_setval(m11_halted, none).");
+  mosa_test::check(reset.kind == mosa::StopKind::Success, "reset before halt");
+  auto halted = machine->query("setup_call_cleanup(true, g(_), nb_setval(m11_halted, ran)), halt.");
+  mosa_test::check(halted.kind == mosa::StopKind::Halt, "goal halted with a cleanup armed");
+  auto after = machine->query("nb_getval(m11_halted, V).");
+  mosa_test::check(after.kind == mosa::StopKind::Success && binding_text(*machine, after) == "none", "halt runs no cleanup");
+  // Codex レビュー。-> の確定が外した後始末は、then の halt より先に動く。
+  auto committed = machine->query("setup_call_cleanup(true, (true ; true), nb_setval(m11_commit, ran)) -> halt.");
+  mosa_test::check(committed.kind == mosa::StopKind::Halt, "then branch halted");
+  auto ran = machine->query("nb_getval(m11_commit, V).");
+  mosa_test::check(ran.kind == mosa::StopKind::Success && binding_text(*machine, ran) == "ran", "commit ran the cleanup before halt");
+}
+
 // 旗は前のクエリで真にし、次のクエリの読みから効く（SPEC 第4節）。
 void check_fullwidth_query() {
   auto machine = mosa::Machine::create();
@@ -734,5 +767,6 @@ int main() {
   check_index();
   check_list_goal();
   check_abolished_reload();
+  check_cleanup_on_close();
   return mosa_test::failures();
 }

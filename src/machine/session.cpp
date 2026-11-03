@@ -182,6 +182,21 @@ bool directive_text(Machine& machine, std::string_view text) {
   return machine.load_program(text).ok;
 }
 
+// 選択点を残した答えで終わるゴールは、SWI-Prolog の toplevel と '$run_init_goal' と同じく答えの後で切り、
+// setup_call_cleanup/3 の後始末を動かす（ADR 0016、敵対的レビュー A3）。その例外はゴールの例外として出す。
+int close_answer(Machine& machine, bool interactive, Echo& echo, bool& halted) {
+  const Stop closed = close_query(engine_impl(machine));
+  if (closed.kind == StopKind::Halt) {
+    halted = true;
+    return closed.halt_code;
+  }
+  if (closed.kind == StopKind::Exception) {
+    warn_exception(machine, closed, echo);
+    return interactive ? 0 : 2;
+  }
+  return 0;
+}
+
 int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& cursor, Echo& echo, bool& halted) {
   halted = false;
   try {
@@ -207,7 +222,7 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
       }
       if (!interactive || !stop.more) {
         echo.say(answer_line(machine, stop, true));
-        return 0;
+        return close_answer(machine, interactive, echo, halted);
       }
       // ; を読む前に答えを出す。終了時にまとめて書くと、対話では次の入力を判断できない。
       echo.say(format_answer(machine, stop));
@@ -218,7 +233,7 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
         continue;
       }
       echo.say(".\n");
-      return 0;
+      return close_answer(machine, interactive, echo, halted);
     }
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
@@ -359,7 +374,9 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
 // 答えの行は出さない。実行ファイルと同じ出力にするため。
 int run_main_goal(Machine& machine, const std::string& goal, std::string& warning) {
   try {
-    const Stop stop = machine.query(goal);
+    Stop stop = machine.query(goal);
+    // 選択点を残した成功も答えの後で切り、後始末を動かす（ADR 0016、敵対的レビュー A3）。
+    if (stop.kind == StopKind::Success) stop = close_query(engine_impl(machine));
     if (stop.kind == StopKind::Halt) return stop.halt_code;
     if (stop.kind == StopKind::Exception) {
       const std::array<Cell, 1> args{stop.exception};

@@ -47,6 +47,11 @@ std::uint64_t push_commit(Impl& machine, Ctrl ctrl, GoalRef then, std::uint64_t 
 
 void trim_stack(Impl& machine, std::size_t boundary) {
   if (machine.stack.size() > boundary) {
+    // 切る Entry の setup_call_cleanup/3 の後始末を上から積む。歩みの途中なので、動かすのは run_loop（ADR 0016）。
+    for (std::size_t index = machine.stack.size(); index > boundary; --index) {
+      const Entry& entry = machine.stack[index - 1];
+      if (entry.pick == Pick::CallCleanup) machine.pending_cleanups.push_back(PendingCleanup{entry.pattern, entry.module});
+    }
     machine.stack.resize(boundary);
     prune_catch_log(machine);
   }

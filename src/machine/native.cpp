@@ -259,6 +259,8 @@ void call_goal(Machine::Impl& machine, const Regs& regs, std::uint32_t number, s
 
 void cut_to(Machine::Impl& machine, std::size_t barrier) { trim_stack(machine, barrier); }
 
+bool cleanup_pending(const Machine::Impl& machine) { return !machine.pending_cleanups.empty(); }
+
 void proceed(Machine::Impl& machine, std::uint64_t cont) { machine.ip = cont; }
 
 void fail(Machine::Impl& machine) { machine.failed = true; }

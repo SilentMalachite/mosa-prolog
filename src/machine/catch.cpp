@@ -185,6 +185,16 @@ Cell import_term(Impl& machine, const ExportedTerm& term) {
 void propagate_throw(Impl& machine, Cell ball) {
   // 例外は call_goal が設定した呼び先を無効にする。回復ゴールの枠を生成関数で始めない。
   machine.native_next = nullptr;
+  // 同じ歩みのカット（生成コードの rt::cut_to の後の throw や算術の誤り）が外した後始末は、巻き戻す前に動かす。
+  // 先に巻き戻すと、後始末の項の載ったヒープを catch/3 の水位まで切り詰めてしまう（ADR 0016、敵対的レビュー A1）。
+  // run_loop が次の歩みの前に後始末を動かし、その後で throw(Ball) を投げ直す。
+  if (!machine.pending_cleanups.empty()) {
+    machine.ball = ball;
+    machine.exception = true;
+    machine.failed = false;
+    machine.ip = kNoFrame;
+    return;
+  }
   const ExportedTerm copy = export_term(machine, ball);
   while (!machine.stack.empty()) {
     // 入れ子の run_loop の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。
@@ -192,6 +202,10 @@ void propagate_throw(Impl& machine, Cell ball) {
     const Entry top = std::move(machine.stack.back());
     machine.stack.pop_back();
     prune_catch_log(machine);
+    if (top.pick == Pick::CallCleanup) {
+      throw_through_cleanup(machine, top, copy);
+      return;
+    }
     if (top.pick != Pick::Catch || !top.armed) continue;
     restore_state(machine, top.heap_mark, top.trail_mark, top.extras_mark);
     const Cell rebuilt = import_term(machine, copy);
