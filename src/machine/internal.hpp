@@ -11,6 +11,7 @@
 #include "../module/module.hpp"
 #include "clause_index.hpp"
 #include "gc.hpp"
+#include "state_alloc.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -39,17 +40,27 @@ static_assert(rt::kFrameHead == kFrameHead);
 using GoalRef = std::shared_ptr<const IrTerm>;
 
 // 節や call/1 のゴールの変数の値。継続と選択点が共有し、GC は gc_pass で 1 回の回収に 1 度だけ訪ねる。
-// 書き換えるのは GC だけである。
+// 書き換えるのは GC だけである。作った機械の Heap::state に自分の語を数え、放すときに引く（ADR 0010 の改訂 3）。
+// Heap は Impl の 2 番目の要素なので、Impl の中の env はどれも Heap より先に壊れる。
 struct EnvCells {
+  EnvCells(Heap& heap, std::vector<Cell> values);
+  ~EnvCells();
+  EnvCells(const EnvCells&) = delete;
+  EnvCells& operator=(const EnvCells&) = delete;
+
   std::vector<Cell> cells;
   std::uint64_t gc_pass = 0;
+  Heap* owner;
 };
 using EnvRef = std::shared_ptr<EnvCells>;
 
+// 節の格納の木（節の本体）。上限には数えない。
 [[nodiscard]] GoalRef make_goal(IrTerm term);
+// 実行時に訳したゴールの木。木の語を heap の Heap::state に数える（ADR 0010 の改訂 3）。
+[[nodiscard]] GoalRef make_run_goal(Heap& heap, IrTerm term);
 // goal の args[index] を、goal と同じ持ち主で指す。
 [[nodiscard]] GoalRef sub_goal(const GoalRef& goal, std::size_t index);
-[[nodiscard]] EnvRef make_env(std::vector<Cell> cells);
+[[nodiscard]] EnvRef make_env(Heap& heap, std::vector<Cell> cells);
 
 // Clause::died の「まだ消していない」。どの世代もこれより小さいので、生きた節はどの走査にも消えて見えない。
 inline constexpr std::uint64_t kAlive = UINT64_MAX;
@@ -199,7 +210,8 @@ struct Entry {
   std::uint64_t redo_goal = kNoFrame;
   // Clauses・Retract・ClauseScan では節の番号（Clause::id）。消しても asserta しても付け直さない（ADR 0015）。
   // PredGen は述語ベクタの添字、StreamGen と Native は状態。
-  std::vector<std::size_t> candidates;
+  // 上限に数える（ADR 0010 の改訂 3）。作るときは id_list で、この機械の Heap に数える列にする。
+  IdList candidates;
   std::size_t next = 0;
   // Clauses・Retract・ClauseScan の走査を始めたときの Impl::db_generation。消した節がまだこの走査に届くかを決める。
   std::uint64_t generation = 0;
@@ -384,6 +396,16 @@ struct LgtIo;
 // cleanup の ^^ はクエリの中で走る。Skip のときは利用者手続きのままにする。
 enum class SuiteSuper { Skip, Ok, No };
 
+// Impl::stack・extras・scan_log が今の確保（伸びたときと容量を返したとき）の後に持った要素の数の最高と、それを
+// 数えた語（ADR 0010 の改訂 3）。容量のうち触っていない分のページは OS が割り当てないので、倍に伸びた直後に
+// 容量で数えると、使っていない半分で上限に着く（敵対的レビュー A2）。縮んでも触ったページは残るので下げない。
+struct CountedVectors {
+  std::size_t stack = 0;
+  std::size_t extras = 0;
+  std::size_t scan_log = 0;
+  std::size_t words = 0;
+};
+
 struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
@@ -418,6 +440,8 @@ struct Machine::Impl {
   // 消した節にまだ届く走査を探すとき、スタック全体でなく開いた節の走査だけを見る（レビュー M3）。retract の枠は
   // 消した節を試さないので載せない。載せると、選択点を残す retract の N 回が N の 2 乗になる。
   std::vector<ScanRecord> scan_log;
+  // 上の 3 つのベクタを Heap::state に数えたときの値（ADR 0010 の改訂 3）。
+  CountedVectors counted_vectors;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
@@ -493,9 +517,12 @@ struct Machine::Impl {
   // C が天井にあるとき、閾値で始めた GC のうち空きを生まなかったものの連続回数（ADR 0010 の改訂 B）。
   // 書くのは gc.cpp の安全点（judge_collection）と reset_gc_judgement（問い合わせ・consult・load_program の始まり）だけ。
   std::size_t gc_unproductive = 0;
-  // 前に判定した GC の時点の gc_stats.freed_words。判定はその後に空いた語（ストレスや garbage_collect/0 の GC の分も
-  // 含む）で行うので、ストレスの GC が先に回収しても止まるかは変わらない。書く場所は gc_unproductive と同じ。
+  // 前に判定した GC の時点の gc_stats.freed_words と gc_state_freed の和。判定はその後に空いた語（ストレスや
+  // garbage_collect/0 の GC の分も含む）で行うので、ストレスの GC が先に回収しても止まるかは変わらない。
+  // 書く場所は gc_unproductive と同じ。
   std::uint64_t gc_judged_freed = 0;
+  // GC が空けた状態の語の累計（ADR 0010 の改訂 3）。書くのは collect_garbage だけ。
+  std::uint64_t gc_state_freed = 0;
   // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
@@ -515,6 +542,23 @@ struct Machine::Impl {
 };
 
 using Impl = Machine::Impl;
+
+// ADR 0010 の改訂 3。stack・extras・scan_log の要素の数の最高で Heap::state を数え直す。count_vectors は最高を
+// 超えたときだけ数え直すので、積んだ後に呼ぶ。
+void recount_vectors(Impl& machine);
+inline void count_vectors(Impl& machine) {
+  const CountedVectors& counted = machine.counted_vectors;
+  if (machine.stack.size() > counted.stack || machine.extras.size() > counted.extras ||
+      machine.scan_log.size() > counted.scan_log) {
+    recount_vectors(machine);
+  }
+}
+// stack と scan_log を別のベクタと入れ替えた後（consult の指示の脇置きと戻し）。最高をその値にして数え直す。
+void mark_parked_vectors(Impl& machine, std::size_t stack, std::size_t scan_log);
+// GC の後。大きさの 4 倍を超えた容量を返し、返したベクタの最高を今の大きさにする。
+void give_back_vectors(Impl& machine);
+// extras に積み、それを指す 4 語の制御枠をヒープに作って返す。
+[[nodiscard]] std::uint64_t push_extra(Impl& machine, Extra extra);
 
 struct Goal {
   std::uint64_t at = 0;
@@ -544,7 +588,7 @@ struct Compiled {
 [[nodiscard]] Impl& engine_impl(Machine& machine);
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);
 
-[[nodiscard]] Compiled compile_goal(const Heap& heap, Cell cell);
+[[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
 [[nodiscard]] bool is_directive(const Heap& heap, Cell cell);
 
@@ -640,9 +684,10 @@ void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uin
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
 // 束縛した第1引数 first に合う節（鍵が等しい節と鍵の無い節）のうち、世代 generation に見える節の番号を節の順に
 // 返す。8 節以上なら索引を作って引く。first が未束縛なら見える節を全部返すが、呼び手はカーソルで走査するので
-// 普通は来ない。呼び出しでは、第1引数を meta 引数で包む述語に呼ばない。
-[[nodiscard]] std::vector<std::size_t> key_candidates(const Impl& machine, const Predicate& predicate, Cell first,
-                                                      std::uint64_t generation);
+// 普通は来ない。呼び出しでは、第1引数を meta 引数で包む述語に呼ばない。列は machine の Heap に数える。
+[[nodiscard]] IdList key_candidates(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t generation);
+// この機械の Heap::state に数える空の候補の列（ADR 0010 の改訂 3）。
+[[nodiscard]] inline IdList id_list(Impl& machine) { return IdList(StateAllocator<std::size_t>(machine.heap)); }
 
 [[nodiscard]] Stop run_loop(Impl& machine);
 [[nodiscard]] LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,

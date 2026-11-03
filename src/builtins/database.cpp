@@ -207,7 +207,7 @@ bool scans_pred(const Entry& entry, std::uint32_t module, std::uint32_t name, st
 }
 
 void shift_pred_index(Entry& entry, std::size_t removed) {
-  std::vector<std::size_t> kept;
+  IdList kept(entry.candidates.get_allocator());
   kept.reserve(entry.candidates.size());
   std::size_t next = entry.next;
   for (std::size_t cursor = 0; cursor < entry.candidates.size(); ++cursor) {
@@ -520,7 +520,7 @@ void run_retractall(Impl& machine, const Goal& goal) {
   // 消すのは全部済ませてからなので、試すのは今生きている節（世代は今のもの）。
   const auto generation = machine.db_generation;
   const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
-  std::vector<std::size_t> matches;
+  IdList matches = id_list(machine);
   if (const auto first = bound_first(machine, view.head)) {
     matches = collect_ids(machine, *predicate, key_candidates(machine, *predicate, *first, generation), match);
   } else {

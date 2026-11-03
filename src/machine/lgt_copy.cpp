@@ -84,6 +84,7 @@ bool copied_succeeds(Machine& scratch, Cell goal) {
   cleanup.trail_mark = machine.trail.slots.size();
   cleanup.extras_mark = machine.extras.size();
   machine.stack.push_back(std::move(cleanup));
+  count_vectors(machine);
   const Compiled compiled = compile_goal(machine.heap, goal);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   return run_loop(machine).kind == StopKind::Success;

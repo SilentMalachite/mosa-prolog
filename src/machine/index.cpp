@@ -43,13 +43,11 @@ bool selects(const Clause& clause, const std::optional<IndexKey>& wanted) {
 }
 
 // every なら鍵を見ずに見える節を全部選ぶ。
-std::vector<std::size_t> scan_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted,
-                                         std::uint64_t generation, bool every) {
-  std::vector<std::size_t> chosen;
+void scan_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted, std::uint64_t generation,
+                     bool every, IdList& chosen) {
   for (const Clause& clause : predicate.clauses) {
     if (visible(clause, generation) && (every || selects(clause, wanted))) chosen.push_back(clause.id);
   }
-  return chosen;
 }
 
 void build_index(const Predicate& predicate) {
@@ -64,15 +62,14 @@ void build_index(const Predicate& predicate) {
 }
 
 // 番号は繰り返さないので、節の列に無い番号が別の節を指すことは無い。無い番号と見えない節は飛ばす。
-void take_visible(const Predicate& predicate, std::size_t id, std::uint64_t generation,
-                  std::vector<std::size_t>& chosen) {
+void take_visible(const Predicate& predicate, std::size_t id, std::uint64_t generation, IdList& chosen) {
   const auto position = clause_position(predicate, id);
   if (position && visible(predicate.clauses[*position], generation)) chosen.push_back(id);
 }
 
 // 組も keyless も番号の昇順なので、併せれば節の順になる。開いた走査の候補は昇順でなければならない（scan_reaches）。
-std::vector<std::size_t> index_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted,
-                                          std::uint64_t generation) {
+void index_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted, std::uint64_t generation,
+                      IdList& chosen) {
   if (!predicate.index.built) build_index(predicate);
   const FirstArgIndex& index = predicate.index;
   const IdBucket* bucket = nullptr;
@@ -81,7 +78,6 @@ std::vector<std::size_t> index_candidates(const Predicate& predicate, const std:
     if (found != index.buckets.end()) bucket = &found->second;
   }
   const std::size_t keyed = bucket == nullptr ? 0 : bucket->size();
-  std::vector<std::size_t> chosen;
   chosen.reserve(keyed + index.keyless.size());
   const IdBucket& keyless = index.keyless;
   std::size_t at = 0;
@@ -90,7 +86,6 @@ std::vector<std::size_t> index_candidates(const Predicate& predicate, const std:
     const bool from_bucket = other >= keyless.size() || (at < keyed && (*bucket)[at] < keyless[other]);
     take_visible(predicate, from_bucket ? (*bucket)[at++] : keyless[other++], generation, chosen);
   }
-  return chosen;
 }
 
 }  // namespace
@@ -154,15 +149,19 @@ std::optional<IndexKey> clause_key(const Clause& clause) {
   }
 }
 
-std::vector<std::size_t> key_candidates(const Impl& machine, const Predicate& predicate, Cell first,
-                                        std::uint64_t generation) {
+IdList key_candidates(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t generation) {
+  IdList chosen = id_list(machine);
   const Cell cell = machine.heap.deref(first);
   // 未束縛の第1引数はどの節の頭とも合う。cell_key は鍵の無いセルとして nullopt を返し、鍵の無い節だけを選ぶので、
   // そのまま引くと答えが欠ける。
-  if (machine.heap.unbound(cell)) return scan_candidates(predicate, std::nullopt, generation, true);
-  const auto wanted = cell_key(machine, cell);
-  if (predicate.clauses.size() < kIndexMinClauses) return scan_candidates(predicate, wanted, generation, false);
-  return index_candidates(predicate, wanted, generation);
+  if (machine.heap.unbound(cell)) {
+    scan_candidates(predicate, std::nullopt, generation, true, chosen);
+  } else if (const auto wanted = cell_key(machine, cell); predicate.clauses.size() < kIndexMinClauses) {
+    scan_candidates(predicate, wanted, generation, false, chosen);
+  } else {
+    index_candidates(predicate, wanted, generation, chosen);
+  }
+  return chosen;
 }
 
 }  // namespace mosa

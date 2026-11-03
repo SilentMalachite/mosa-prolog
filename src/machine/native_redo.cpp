@@ -67,6 +67,7 @@ void push_alternative(Machine::Impl& machine, const Regs& regs, std::uint64_t fr
   entry.pick = Pick::Native;
   entry.native = proc;
   entry.redo_goal = frame;
+  entry.candidates = id_list(machine);
   entry.candidates.assign(states.begin(), states.end());
   entry.cut = regs.cut;
   entry.heap_mark = machine.heap.size();

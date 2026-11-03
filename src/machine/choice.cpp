@@ -156,6 +156,7 @@ void push_frame(Impl& machine, Entry entry) {
   note_catches(machine, entry);
   if (entry.pick == Pick::Clauses || entry.pick == Pick::ClauseScan) note_scan(machine, entry);
   machine.stack.push_back(std::move(entry));
+  count_vectors(machine);
 }
 
 bool do_unify(Impl& machine, Cell left, Cell right) {
@@ -202,7 +203,7 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
     machine.ip = embody_leaf(machine, *clause.body, cont, cut, cells, predicate.module);
     return;
   }
-  launch(machine, clause.body, cont, cut, make_env(std::move(cells)), predicate.module);
+  launch(machine, clause.body, cont, cut, make_env(machine.heap, std::move(cells)), predicate.module);
 }
 
 void enter_user(Impl& machine, const Goal& goal) {

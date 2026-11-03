@@ -131,6 +131,21 @@ The workload of review M3 was measured on the same two trees with `mosa` (Releas
 
 The "before" column grows with the square of `N` or faster (the front retract without a cut grew about 50 times for 4 times the clauses), the "now" column about 4 times. The one-run value for 20000 is a single run because three runs exceeded 900 s.
 
+## Cost of counting state outside the heap
+
+Measured on 2026-11-03 on the same machine, both Release, the same `N`, the two trees built side by side: "before" is f53b868, "now" is review M17 (ADR 0010 amendment 3: choice points, `extras`, envs, run-time goals and candidate lists count in `Heap::state()`, which the safe point adds to the heap size; `Entry` gains the 8-byte allocator of its candidate list, 256 bytes with libc++). Interpreter: medians of five runs taken alternately (ms). Translated: medians of five runs by `mosatest --bench`, the two trees one after the other.
+
+| Program | Interpreter before | Interpreter now | Delta | Translated before | Translated now | Delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| nrev | 3550 | 3542 | -0.2% | 135 | 134 | -0.7% |
+| queens | 2874 | 2891 | +0.6% | 454 | 458 | +0.9% |
+| zebra | 2016 | 2015 | -0.1% | 812 | 818 | +0.7% |
+| tak | 1435 | 1487 | +3.7% | 316 | 316 | 0.0% |
+| deriv | 966 | 978 | +1.2% | 136 | 135 | -0.7% |
+| crypt | 1256 | 1274 | +1.4% | 333 | 328 | -1.5% |
+
+`tak` runs 100 collections (48 ms in all) where it ran none: its continuations and envs now count toward the GC threshold, while its heap alone never reached it. A loop of one million `call/1` of a conjunction is 3.1% to 3.4% slower and a loop of 500,000 `findall/3` 2.0% to 2.2% slower (medians of seven alternated runs; 4.8% and 3.5% before the work list of a small goal tree was kept on the stack).
+
 ## CI
 
 The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.

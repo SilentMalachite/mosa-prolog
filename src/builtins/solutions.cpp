@@ -587,12 +587,7 @@ void start_collect(Impl& machine, const Compiled& compiled, std::shared_ptr<Coll
   Extra done;
   done.ctrl = Ctrl::Collect;
   done.trim_to = boundary - 1;
-  machine.extras.push_back(std::move(done));
-  const auto at = machine.heap.allocate_words(kFrameHead);
-  machine.heap.set_word(at, 0);
-  machine.heap.set_word(at + 1, machine.extras.size() - 1);
-  machine.heap.set_word(at + 2, 0);
-  machine.heap.set_word(at + 3, kNoFrame);
+  const auto at = push_extra(machine, std::move(done));
   launch(machine, compiled.term, at, boundary, compiled.env, module);
 }
 

@@ -59,16 +59,19 @@ std::size_t widened(std::size_t capacity, std::size_t occupied, std::size_t cap)
 // 縮めた見積もりは次の GC まで残す。その場の min だけだと、ゴミでヒープがまた伸びたときにゴミを生きている語に
 // 数え直し、答えを足すたびに閾値が上限の側へ逃げて、GC の前に確保が上限に着く（Codex レビュー 2 回目の P2）。
 // GC の直後は heap.size() が生きている語そのものなので、持った語が無ければ判断は改訂前と同じ。
+// ヒープの外の状態の語（ADR 0010 の改訂 3）も持った語と同じに L へ足す。状態は歩みごとに変わるので、決め直しは
+// GC と持った語の変わり目だけで、その間は安全点が今の状態の語を閾値と比べる。閾値は上限を超えないので、状態で
+// 上限を超えた安全点は必ず遅い道に入る。
 void retune(Impl& machine) {
   const std::size_t limit = machine.heap.limit();
   const std::size_t cap = capacity_cap(limit);
   const std::size_t held = machine.heap.held();
   machine.gc_last_live = std::min(machine.gc_last_live, machine.heap.size());
-  const std::size_t occupied = machine.gc_last_live + held;
+  const std::size_t occupied = machine.gc_last_live + held + machine.heap.state();
   const std::size_t capacity = widened(machine.gc_capacity, occupied, cap);
   machine.gc_threshold = capacity;
   if (capacity >= cap && crowded(occupied, capacity)) {
-    machine.gc_threshold = occupied >= limit ? occupied : std::max(capacity, occupied + (limit - occupied) / 2);
+    machine.gc_threshold = occupied >= limit ? limit : std::max(capacity, occupied + (limit - occupied) / 2);
   }
   machine.gc_tuned_held = held;
   if (machine.gc_stress != 0) machine.gc_trigger = 0;
@@ -172,13 +175,17 @@ void trace_line(Impl& machine, std::size_t before, std::size_t after, std::chron
 void collect_garbage(Impl& machine) {
   const auto started = std::chrono::steady_clock::now();
   const std::size_t before = machine.heap.size();
+  const std::size_t state_before = machine.heap.state();
   if (!machine.exception) machine.ball = Cell{};
   GcMarks marks;
   mark_live(machine, marks);
   compact_live(machine, marks);
+  give_back_vectors(machine);
   const std::size_t after = machine.heap.size();
   machine.gc_stats.count += 1;
   machine.gc_stats.freed_words += before - after;
+  // 詰めた extras が放した env と、返したベクタの容量。空きを生まない GC の判定で空いた語に入れる（ADR 0010 の改訂 3）。
+  machine.gc_state_freed += state_before - std::min(state_before, machine.heap.state());
   machine.gc_stats.time += std::chrono::steady_clock::now() - started;
   update_policy(machine, after);
   if (machine.trace_gc) trace_line(machine, before, after, std::chrono::steady_clock::now() - started);
@@ -198,8 +205,9 @@ constexpr std::size_t kUnproductiveRun = 3;
 // 安全点はステップの間なので、途中まで進んだ C++ のコードは無く、受ける場所も同じで済む。
 // 投げる前に数を 0 に戻し、止めた問い合わせの数を受けた側の次の GC へ持ち越さない。
 void judge_collection(Impl& machine, bool at_cap) {
-  const std::uint64_t freed = machine.gc_stats.freed_words - machine.gc_judged_freed;
-  machine.gc_judged_freed = machine.gc_stats.freed_words;
+  const std::uint64_t freed_total = machine.gc_stats.freed_words + machine.gc_state_freed;
+  const std::uint64_t freed = freed_total - machine.gc_judged_freed;
+  machine.gc_judged_freed = freed_total;
   if (!at_cap || freed >= machine.heap.limit() / kUnproductiveDivisor) {
     machine.gc_unproductive = 0;
     return;
@@ -209,12 +217,20 @@ void judge_collection(Impl& machine, bool at_cap) {
   throw ResourceLimit("heap_limit");
 }
 
+// GC の後もヒープと持った語と状態の語の和が上限を超えるなら、回収できない生きた状態が上限を超えている
+// （ADR 0010 の改訂 3）。ヒープの確保が上限に当たったときと同じ停止にする。
+void stop_past_limit(const Impl& machine) {
+  const std::size_t limit = machine.heap.limit();
+  const std::size_t outside = machine.heap.held() + machine.heap.state();
+  if (outside > limit || machine.heap.size() > limit - outside) throw ResourceLimit("heap_limit");
+}
+
 }  // namespace
 
 // 収集が返した語は Collecting の破棄で Heap へ戻るだけなので、閾値と trigger は前の値のまま来る。ここで直す。
 void gc_safe_point(Impl& machine) {
   if (machine.heap.held() != machine.gc_tuned_held) retune(machine);
-  const std::size_t occupied = machine.heap.size() + machine.heap.held();
+  const std::size_t occupied = machine.heap.size() + machine.heap.held() + machine.heap.state();
   if (machine.gc_stress == 0 && occupied < machine.gc_threshold) return;
   const bool by_threshold = occupied >= machine.gc_threshold;
   bool due = by_threshold;
@@ -231,6 +247,7 @@ void gc_safe_point(Impl& machine) {
   // 閾値が天井より下なのは、持った語を足しても C が天井に着いていないときだけ。持った語が無ければ改訂前と同じ判定。
   const bool at_cap = machine.gc_threshold >= capacity_cap(machine.heap.limit());
   collect_garbage(machine);
+  stop_past_limit(machine);
   judge_collection(machine, at_cap);
 }
 
@@ -247,7 +264,7 @@ void hold_answer_words(Impl& machine, std::size_t words) {
 // 前の問い合わせや読み込みの GC の空きを、次の判定に持ち越さない。
 void reset_gc_judgement(Impl& machine) {
   machine.gc_unproductive = 0;
-  machine.gc_judged_freed = machine.gc_stats.freed_words;
+  machine.gc_judged_freed = machine.gc_stats.freed_words + machine.gc_state_freed;
 }
 
 }  // namespace mosa

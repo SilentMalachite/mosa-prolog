@@ -7,6 +7,7 @@
 #include "mosa/atom.hpp"
 #include "mosa/cell.hpp"
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -50,6 +51,15 @@ class Heap {
   [[nodiscard]] std::size_t held() const { return held_; }
   void hold(std::size_t words);
   void release(std::size_t words);
+  // ヒープの外の実行の状態（選択点・extras・env・実行時に訳したゴール）の語（ADR 0010 の改訂 3）。持った語と
+  // 違って確保の天井には入れず、歩みごとの安全点が上限に数える。env は作るたびに足すので、天井を決め直さない。
+  [[nodiscard]] std::size_t state() const { return state_; }
+  void add_state(std::size_t words) { state_ += words; }
+  // 足した物だけが引くので、足した分を超えない。超えれば別の物の分まで消えるので、黙って 0 にしない。
+  void drop_state(std::size_t words) {
+    assert(words <= state_);
+    state_ -= words;
+  }
   [[nodiscard]] const std::uint64_t* data() const { return range_.words(); }
   void truncate(std::size_t size);
   // GC が生きている語を詰めたあとの大きさ。truncate と同じ動きだが、呼ぶ意図を名前で分ける。
@@ -106,6 +116,7 @@ class Heap {
   AddressRange range_;
   std::size_t committed_words_ = 0;
   std::size_t held_ = 0;
+  std::size_t state_ = 0;
   std::size_t ceiling_ = 0;
 };
 

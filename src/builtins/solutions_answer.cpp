@@ -268,7 +268,8 @@ void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witn
     branches.push_back(fold(IrTag::And, parts));
   }
   // 束縛は収集が例外なく終わったあと。残りの証人は選択点で返す。
-  launch(machine, make_goal(fold(IrTag::Or, branches)), goal.cont, machine.stack.size(), make_env(std::move(env)),
+  launch(machine, make_run_goal(machine.heap, fold(IrTag::Or, branches)), goal.cont, machine.stack.size(),
+         make_env(machine.heap, std::move(env)),
          goal.module);
 }
 

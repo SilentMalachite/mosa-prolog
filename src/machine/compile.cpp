@@ -413,13 +413,13 @@ void name_slots(const Heap& heap, const Build& build, std::span<const VarName> n
 
 }  // namespace
 
-Compiled compile_goal(const Heap& heap, Cell cell) {
+Compiled compile_goal(Heap& heap, Cell cell) {
   Build build;
   build.heap = &heap;
   build.keep = true;
   Compiled compiled;
-  compiled.term = make_goal(build.goal(cell));
-  compiled.env = make_env(std::move(build.env));
+  compiled.term = make_run_goal(heap, build.goal(cell));
+  compiled.env = make_env(heap, std::move(build.env));
   return compiled;
 }
 

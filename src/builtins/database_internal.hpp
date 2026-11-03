@@ -50,9 +50,8 @@ bool try_match(Impl& machine, const Clause& clause, const Match& match) {
 // ids の節のうち合う節の番号を、順を保って返す。合う節だけを列にするので、列に次があるかで次の答えがあるかが
 // 分かる（今と同じ true. と true ;）。
 template <typename Match>
-std::vector<std::size_t> collect_ids(Impl& machine, const Predicate& predicate, const std::vector<std::size_t>& ids,
-                                     const Match& match) {
-  std::vector<std::size_t> found;
+IdList collect_ids(Impl& machine, const Predicate& predicate, const IdList& ids, const Match& match) {
+  IdList found = id_list(machine);
   for (const std::size_t id : ids) {
     const auto position = clause_position(predicate, id);
     if (position && try_match(machine, predicate.clauses[*position], match)) found.push_back(id);

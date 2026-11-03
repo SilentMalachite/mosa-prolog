@@ -17,16 +17,6 @@
 namespace mosa {
 namespace {
 
-std::uint64_t push_extra(Impl& machine, Extra extra) {
-  machine.extras.push_back(std::move(extra));
-  const auto at = machine.heap.allocate_words(kFrameHead);
-  machine.heap.set_word(at, 0);
-  machine.heap.set_word(at + 1, machine.extras.size() - 1);
-  machine.heap.set_word(at + 2, 0);
-  machine.heap.set_word(at + 3, kNoFrame);
-  return at;
-}
-
 bool has_more(const Impl& machine) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch) continue;
@@ -126,7 +116,7 @@ void defer_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const EnvR
   call.atom = machine.atoms.intern("call");
   call.arity = 1;
   call.args.push_back(goal);
-  machine.ip = embody(machine, make_goal(std::move(call)), cont, machine.stack.size(), env, module);
+  machine.ip = embody(machine, make_run_goal(machine.heap, std::move(call)), cont, machine.stack.size(), env, module);
 }
 
 void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const EnvRef& env, std::uint32_t module) {
@@ -535,17 +525,7 @@ void launch_list(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::siz
   call.atom = machine.atoms.intern(".");
   call.arity = 2;
   call.args = goal.args;
-  machine.ip = embody(machine, make_goal(std::move(call)), cont, cut, env, module);
-}
-
-GoalRef make_goal(IrTerm term) { return std::make_shared<const IrTerm>(std::move(term)); }
-
-GoalRef sub_goal(const GoalRef& goal, std::size_t index) { return GoalRef{goal, &goal->args[index]}; }
-
-EnvRef make_env(std::vector<Cell> cells) {
-  auto env = std::make_shared<EnvCells>();
-  env->cells = std::move(cells);
-  return env;
+  machine.ip = embody(machine, make_run_goal(machine.heap, std::move(call)), cont, cut, env, module);
 }
 
 // 制御構造は枠を積んで最初の下位ゴールを返し、ここで次の周に回す。連言は右から継続を作るので、ヒープの並びは
@@ -653,12 +633,15 @@ Stop run_loop(Impl& machine) {
       if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
       continue;
     }
+    // 2 歩の間だけが GC の機会である（ADR 0010）。組込と生成関数の C++ の局所はここでは何も握っていない。
+    // 呼び出しを避けるため、通常の「まだ早い」判定はここで済ませる（gc_trigger は stress 中だけ 0 なので比較 1 回で済む）。
+    // ヒープの外の状態の語（ADR 0010 の改訂 3）もここで足す。trigger は閾値から持った語を引いた値である。
+    // 答えを返す前にも通る。最後の歩みで上限を超えた状態（大きなゴールを訳した選択点など）を、答えと一緒に残さない
+    // （Codex レビュー P2）。
+    if (machine.heap.size() + machine.heap.state() >= machine.gc_trigger) gc_safe_point(machine);
     if (machine.ip == kNoFrame) {
       return Stop{StopKind::Success, 0, {}, machine.bindings, has_more(machine)};
     }
-    // 2 歩の間だけが GC の機会である（ADR 0010）。組込と生成関数の C++ の局所はここでは何も握っていない。
-    // 呼び出しを避けるため、通常の「まだ早い」判定はここで済ませる（gc_trigger は stress 中だけ 0 なので比較 1 回で済む）。
-    if (machine.heap.size() >= machine.gc_trigger) gc_safe_point(machine);
     step(machine);
   }
 }
@@ -749,6 +732,7 @@ Stop start_query(Impl& machine, std::string_view goal_text) {
   cleanup.trail_mark = machine.trail.slots.size();
   cleanup.extras_mark = machine.extras.size();
   machine.stack.push_back(std::move(cleanup));
+  count_vectors(machine);
   const Compiled compiled = compile_goal(machine.heap, outcome.term->term);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   return run_loop(machine);

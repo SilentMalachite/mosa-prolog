@@ -493,7 +493,8 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     HeldRoots adapter(visitor);
     held.visit(adapter);
   });
-  const Ran ran = run_goal(machine, make_goal(portray_call(hook->name)), make_env({term}), machine.user_module);
+  const Ran ran = run_goal(machine, make_run_goal(machine.heap, portray_call(hook->name)),
+                           make_env(machine.heap, {term}), machine.user_module);
   scope.restore();
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
@@ -663,6 +664,7 @@ Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_
     if (closed.kind != StopKind::Success) stop = std::move(closed);
   }
   machine.stack = saved.stack;
+  count_vectors(machine);
   trim_extras(machine, saved.extras_mark);
   if (stop.kind == StopKind::Exception) {
     const ExportedTerm ball = export_term(machine, machine.ball);

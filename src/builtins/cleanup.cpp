@@ -117,12 +117,7 @@ void run_arm(Impl& machine, const Goal& goal) {
   exit.ctrl = Ctrl::CleanupExit;
   exit.trim_to = machine.stack.size() - 1;
   exit.cont = goal.cont;
-  machine.extras.push_back(std::move(exit));
-  const auto at = machine.heap.allocate_words(kFrameHead);
-  machine.heap.set_word(at, 0);
-  machine.heap.set_word(at + 1, machine.extras.size() - 1);
-  machine.heap.set_word(at + 2, 0);
-  machine.heap.set_word(at + 3, kNoFrame);
+  const auto at = push_extra(machine, std::move(exit));
   const Cell inner = machine.heap.deref(goal.arg(machine, 0));
   if (machine.heap.unbound(inner)) return raise(machine, formal_instantiation(machine));
   if (!callable_cell(inner)) return raise(machine, formal_type(machine, "callable", inner));

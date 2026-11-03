@@ -5,16 +5,6 @@
 namespace mosa {
 namespace {
 
-std::uint64_t push_extra(Impl& machine, Extra extra) {
-  machine.extras.push_back(std::move(extra));
-  const auto at = machine.heap.allocate_words(kFrameHead);
-  machine.heap.set_word(at, 0);
-  machine.heap.set_word(at + 1, machine.extras.size() - 1);
-  machine.heap.set_word(at + 2, 0);
-  machine.heap.set_word(at + 3, kNoFrame);
-  return at;
-}
-
 void push_else(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, const EnvRef& env, std::uint64_t soft_id,
                std::uint32_t module) {
   Entry entry;

@@ -183,7 +183,7 @@ void push_op(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, std
   entry.pick = Pick::AtomGen;
   entry.gen_kind = kOpGen;
   entry.next = next;
-  entry.env = make_env(flat);
+  entry.env = make_env(machine.heap, flat);
   entry.redo_goal = goal.at;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;
@@ -291,7 +291,7 @@ void push_char(Impl& machine, const Goal& goal, const std::vector<Cell>& flat, s
   entry.pick = Pick::AtomGen;
   entry.gen_kind = kCharGen;
   entry.next = next;
-  entry.env = make_env(flat);
+  entry.env = make_env(machine.heap, flat);
   entry.redo_goal = goal.at;
   entry.heap_mark = heap_mark;
   entry.trail_mark = trail_mark;

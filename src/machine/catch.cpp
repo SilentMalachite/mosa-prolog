@@ -158,16 +158,6 @@ class Importer {
   std::vector<ImportFrame> frames_;
 };
 
-std::uint64_t push_extra(Impl& machine, Extra extra) {
-  machine.extras.push_back(std::move(extra));
-  const auto at = machine.heap.allocate_words(kFrameHead);
-  machine.heap.set_word(at, 0);
-  machine.heap.set_word(at + 1, machine.extras.size() - 1);
-  machine.heap.set_word(at + 2, 0);
-  machine.heap.set_word(at + 3, kNoFrame);
-  return at;
-}
-
 }  // namespace
 
 ExportedTerm export_term(Impl& machine, Cell cell) {

@@ -21,6 +21,7 @@ void push_branch(Machine::Impl& machine, std::uint64_t frame, std::size_t cut) {
   entry.pick = Pick::Native;
   entry.native = std::bit_cast<NativeProc>(machine.heap.word_at(frame + 4));
   entry.redo_goal = frame;
+  entry.candidates = id_list(machine);
   entry.candidates.push_back(static_cast<std::uint32_t>(machine.heap.word_at(frame + 1)));
   entry.cut = cut;
   entry.heap_mark = machine.heap.size();

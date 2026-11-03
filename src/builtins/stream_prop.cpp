@@ -29,6 +29,7 @@
 #include "../machine/internal.hpp"
 
 #include <array>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -232,11 +233,12 @@ bool bind_hit(Impl& machine, const Goal& goal, std::size_t packed) {
   return do_unify(machine, goal.arg(machine, 1), prop_cell(machine, machine.streams[stream], prop));
 }
 
-void push_gen(Impl& machine, const Goal& goal, const std::vector<std::size_t>& hits, std::size_t next,
+void push_gen(Impl& machine, const Goal& goal, std::span<const std::size_t> hits, std::size_t next,
               std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = Pick::StreamGen;
-  entry.candidates = hits;
+  entry.candidates = id_list(machine);
+  entry.candidates.assign(hits.begin(), hits.end());
   entry.next = next;
   entry.redo_goal = goal.at;
   entry.heap_mark = heap_mark;
@@ -244,7 +246,7 @@ void push_gen(Impl& machine, const Goal& goal, const std::vector<std::size_t>& h
   push_frame(machine, std::move(entry));
 }
 
-bool prove_props(Impl& machine, const Goal& goal, const std::vector<std::size_t>& hits, std::size_t begin) {
+bool prove_props(Impl& machine, const Goal& goal, std::span<const std::size_t> hits, std::size_t begin) {
   for (std::size_t index = begin; index < hits.size(); ++index) {
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();

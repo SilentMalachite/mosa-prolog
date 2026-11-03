@@ -71,7 +71,7 @@ bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body)
 
 // 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。PredGen は節を
 // 走査しないので世代を持たない。
-void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, std::vector<std::size_t>&& matches,
+void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, IdList&& matches,
                std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = pick;
@@ -209,8 +209,8 @@ bool accept_indicator(Impl& machine, const Goal& goal, Cell pred, WantedPred& wa
   return true;
 }
 
-std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wanted) {
-  std::vector<std::size_t> found;
+IdList pred_matches(Impl& machine, const WantedPred& wanted) {
+  IdList found = id_list(machine);
   if (wanted.arity_high) return found;
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
     const Predicate& predicate = machine.predicates[index];
@@ -223,7 +223,7 @@ std::vector<std::size_t> pred_matches(const Impl& machine, const WantedPred& wan
   return found;
 }
 
-bool take_pred(Impl& machine, const Goal& goal, std::vector<std::size_t> matches, std::size_t begin) {
+bool take_pred(Impl& machine, const Goal& goal, IdList matches, std::size_t begin) {
   const Cell wanted = goal.arg(machine, 0);
   // やり直しでも引数の形は同じ。M:PI には M も束縛する。
   const bool qualified = qualified_term(machine, wanted);
@@ -294,7 +294,7 @@ bool redo_pred_gen(Impl& machine) {
   apply_catches(machine, top);
   const auto at = top.redo_goal;
   const auto next = top.next;
-  std::vector<std::size_t> candidates = std::move(top.candidates);
+  IdList candidates = std::move(top.candidates);
   machine.stack.pop_back();
   return take_pred(machine, read_goal(machine, at), std::move(candidates), next);
 }
