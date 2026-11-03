@@ -151,3 +151,31 @@ test(empty_files, true, true).
 % 旗 argv は読み取り専用（initialization(_, main) と対。値は mosa の -- より後ろの引数）。
 
 test(argv_readonly, set_prolog_flag(argv, []), error(permission_error(modify, flag, argv))).
+
+% レビュー M10（iso-notes 7.4 の決定 A、SPEC 第5節の system モジュール）。組込述語と制御構造の節、本体が呼べない節は
+% assertz/1 と同じ誤りで読み込みを失敗させ、その読み込みの節を戻す。誤りの Formal は tests/cpp/machine_test.cpp で見る。
+% 前の consult で読んだファイルを同じパスで読み直さないよう、試験ごとにファイルを分ける。
+m10_path(Name, Path) :- atom_concat('tests/tmp/m10_', Name, Stem), atom_concat(Stem, '.pl', Path).
+m10_write(Path, Text) :- open(Path, write, S), write(S, Text), close(S).
+m10_refused(Name, Text) :- m10_path(Name, Path), m10_write(Path, Text), \+ consult(Path), \+ current_predicate(m10_keep/1).
+m10_loads(Name, Text) :- m10_path(Name, Path), m10_write(Path, Text), consult(Path).
+
+test(m10_builtin_fact, (m10_refused(builtin_fact, 'm10_keep(1).\natom_length(_, 99).\n'), \+ current_predicate(atom_length/2), atom_length(abc, L)), solutions([L = 3])).
+test(m10_builtin_rule, (m10_refused(builtin_rule, 'm10_keep(1).\nlength(_, 7) :- true.\n'), length([a], N)), solutions([N = 1])).
+test(m10_call_rule, (m10_refused(call_rule, 'm10_keep(1).\ncall(_) :- write(mine).\n'), \+ current_predicate(call/1)), true).
+test(m10_conj_head, m10_refused(conj_head, 'm10_keep(1).\n(m10_a, m10_b) :- true.\n'), true).
+test(m10_disj_head, m10_refused(disj_head, 'm10_keep(1).\n(m10_a ; m10_b).\n'), true).
+test(m10_cut_head, m10_refused(cut_head, 'm10_keep(1).\n! :- true.\n'), true).
+test(m10_true_fact, m10_refused(true_fact, 'm10_keep(1).\ntrue.\n'), true).
+test(m10_catch_fact, m10_refused(catch_fact, 'm10_keep(1).\ncatch(_, _, _).\n'), true).
+test(m10_neck_head, m10_refused(neck_head, 'm10_keep(1).\n(m10_a :- m10_b) :- true.\n'), true).
+test(m10_directive_head, m10_refused(directive_head, 'm10_keep(1).\n(:- m10_a) :- true.\n'), true).
+test(m10_module_builtin, m10_refused(module_builtin, ':- module(m10_mod, []).\nm10_keep(1).\natom_length(_, 99).\n'), true).
+test(m10_number_body, (m10_refused(number_body, 'm10_keep(1).\nm10_foo :- 1.\n'), \+ current_predicate(m10_foo/0)), true).
+test(m10_conj_number_body, m10_refused(conj_number_body, 'm10_keep(1).\nm10_foo :- (true, 1).\n'), true).
+test(m10_disj_number_body, m10_refused(disj_number_body, 'm10_keep(1).\nm10_foo :- (m10_q ; 2).\n'), true).
+test(m10_float_body, m10_refused(float_body, 'm10_keep(1).\nm10_foo :- (m10_q -> 1.5 ; true).\n'), true).
+% 変数の本体は call/1 になり（7.6.2）、call(1) と \+ 1 は呼んだときの誤り。読み込みでは断らない（assertz/1 と同じ）。
+test(m10_var_body, (m10_loads(var_body, 'm10_vb(X) :- X.\n'), catch(m10_vb(1), error(E, _), true)), solutions([E = type_error(callable, 1)])).
+test(m10_call_number, (m10_loads(call_number, 'm10_cn :- call(1).\n'), catch(m10_cn, error(E, _), true)), solutions([E = type_error(callable, 1)])).
+test(m10_not_number, (m10_loads(not_number, 'm10_nn :- \\+ 1.\n'), catch(m10_nn, error(E, _), true)), solutions([E = type_error(callable, 1)])).

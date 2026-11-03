@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -48,6 +49,9 @@ void fail_load(Impl& machine, std::string message);
 void note_declared(Impl& machine, PredKey key, bool shared);
 void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
+// 定義は load_clauses.cpp。テキストに置けない節なら、assertz/1 がその節に出すのと同じ Formal を返す（レビュー M10）。
+// term は module の修飾を外した節、clause はそれを訳したもの。
+[[nodiscard]] std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& clause);
 // 定義は load_clauses.cpp。節は module に入る。last は直前に節を足した述語の添字。
 [[nodiscard]] bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t& last,
                               const std::vector<Apart>& apart);

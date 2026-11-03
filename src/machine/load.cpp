@@ -433,6 +433,8 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
                                     {write_term(machine.heap, machine.operators, term, {}, {})}));
     return false;
   }
+  // SPEC 第5節。組込と制御構造は system モジュールにあるので、どのモジュールへ足す節でも断る。
+  if (const auto formal = refused_clause(machine, term, clause)) return fail_formal(machine, *formal) > 0;
   remember_clause(machine, scan.snapshots, module, clause);
   if (!add_clause(machine, module, std::move(clause), scan.last, scan.apart)) return false;
   note_site(machine, scan.last, read.line);

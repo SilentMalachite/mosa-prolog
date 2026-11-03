@@ -5,6 +5,7 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,6 +32,23 @@ bool keeps_clauses(const Impl& machine, std::uint32_t module, std::uint32_t name
 }
 
 }  // namespace
+
+std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& clause) {
+  // 7.4 と iso-notes 7.4 の決定 A。足すと本体に届かない隠れ節になり、current_predicate/1 だけが真になる。
+  // 順は assertz/1 と同じ（8.9.1.3）。数は 7.6.2 でゴールに変えられず、変数と call(1) は呼ぶときの誤りなので断らない。
+  term = machine.heap.deref(term);
+  const bool rule = term.tag() == Tag::Str && machine.heap.functor_arity(term) == 2 &&
+                    machine.atoms.name(machine.heap.functor_atom(term)) == ":-";
+  if (rule && !goal_leaves_all(*clause.body, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; })) {
+    return formal_type(machine, "callable", machine.heap.deref(machine.heap.arg(term, 1)));
+  }
+  const auto name = head_name(clause);
+  const auto arity = head_arity(clause);
+  // :-/1 は指示、:-/2 は節の首。組込の表に無いが、assertz/1 と同じく静的として断る。
+  const bool neck = machine.atoms.name(name) == ":-" && (arity == 1 || arity == 2);
+  if (!neck && !is_builtin_procedure(machine, name, arity)) return std::nullopt;
+  return formal_permission(machine, "modify", "static_procedure", cell_functor(machine, name, arity));
+}
 
 void fail_load(Impl& machine, std::string message) {
   machine.diagnostic = std::move(message);

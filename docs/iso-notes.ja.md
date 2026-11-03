@@ -163,7 +163,7 @@ ISO（5.5）は 7.4.2 のほかの指示を処理系固有の機能として扱�
 
 A か B か: A: このような節は、assertz/1 がその節に出すのと同じ Formal（本体が呼べなければ `type_error(callable, Body)`、そうでなく組込述語か制御構造なら `permission_error(modify, static_procedure, PI)`）で読み込みを失敗させ、ほかの読み込みの誤りと同じく、その読み込みの節と旗を戻す。B: SWI-Prolog と同じく、その誤りを警告として出し、その節を飛ばして読み続ける。確かめるまで実装しない。
 
-決定（2026-11-03）: A（レビュー M10）。
+決定（2026-11-03）: A（レビュー M10）。読み込み器は各節を訳した後、足す前に確かめる（`src/machine/load_clauses.cpp` の `refused_clause`、`take_term` から呼ぶ）。順は assertz/1 と同じで、ゴールの位置に数のある本体は `type_error(callable, Body)`、その次に、頭が組込述語、制御構造、`:-/1`、`:-/2` なら `permission_error(modify, static_procedure, Name/Arity)` になる。SPEC 第5節は組込述語と制御構造を `system` に置くので、どのモジュールでも、`user:` で修飾しても同じ。読み込みはその Formal を診断として失敗し、その読み込みの節と旗は戻る。実行中に呼んだ consult/1 は失敗し、`mosac emit` と `mosac build` は C++ を書かずに止まる。テストは `tests/pl/directives.pl` の `m10_*`、`tests/cpp/machine_test.cpp` の `check_refused_clauses`、ctest の `mosac_emit_refused`。
 
 ## 7.11 旗 debug
 

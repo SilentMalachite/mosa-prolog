@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|refused|duplicate|silent|newop|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -74,6 +74,15 @@ if(CASE STREQUAL "undefined_quoted")
   endforeach()
   if(NOT emit_code EQUAL 1)
     message(FATAL_ERROR "undefined_quoted: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+  endif()
+  expect_no_cpp()
+  return()
+endif()
+
+# レビュー M10（iso-notes 7.4 の決定 A）。組込述語の節は、インタプリタと同じ読み込みの誤りで止まり、.cpp は書かない。
+if(CASE STREQUAL "refused")
+  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "refused\\.pl[^\n]*permission_error\\(modify,static_procedure,atom_length/2\\)")
+    message(FATAL_ERROR "refused: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
   endif()
   expect_no_cpp()
   return()

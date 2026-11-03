@@ -3,6 +3,7 @@
 #include "mosa/machine.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -604,6 +605,43 @@ void check_initialization_live() {
   mosa_test::check(machine->query("initialization(true).").kind == mosa::StopKind::Exception, "not a goal");
 }
 
+// レビュー M10（iso-notes 7.4 の決定 A）。組込述語と制御構造の節、本体が呼べない節は、assertz/1 と同じ Formal で
+// 読み込みを失敗させて節を戻す。両方に当たる節は、assertz/1 と同じく本体の誤りを先に出す（8.9.1.3）。
+void check_refused_clauses() {
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 12> cases{{
+      {"atom_length(_, 99).\n", "permission_error(modify,static_procedure,atom_length/2)"},
+      {"call(_) :- write(mine).\n", "permission_error(modify,static_procedure,call/1)"},
+      {"(a, b) :- true.\n", "permission_error(modify,static_procedure,(',')/2)"},
+      {"! :- true.\n", "permission_error(modify,static_procedure,!/0)"},
+      {"catch(_, _, _).\n", "permission_error(modify,static_procedure,catch/3)"},
+      {"(a :- b) :- c.\n", "permission_error(modify,static_procedure,(:-)/2)"},
+      {"(:- a) :- true.\n", "permission_error(modify,static_procedure,(:-)/1)"},
+      {"user:atom_length(_, 99).\n", "permission_error(modify,static_procedure,atom_length/2)"},
+      {"foo :- 1.\n", "type_error(callable,1)"},
+      {"foo :- (true, 1).\n", "type_error(callable,(true,1))"},
+      {"p :- (q ; 2.5).\n", "type_error(callable,(q;2.5))"},
+      {"atom_length(_, _) :- 1.\n", "type_error(callable,1)"},
+  }};
+  for (const auto& [text, formal] : cases) {
+    auto machine = mosa::Machine::create();
+    mosa_test::check(!machine->load_program("keep(1).\n" + std::string{text}).ok, "refused " + std::string{formal});
+    mosa_test::check(machine->diagnostic() == formal, "refused formal " + std::string{formal});
+    mosa_test::check(machine->query("keep(1).").kind == mosa::StopKind::Exception, "refused rolls back");
+    mosa_test::check(
+        machine->query("atom_length(abc, 3), \\+ current_predicate(atom_length/2).").kind == mosa::StopKind::Success,
+        "refused builtin intact");
+  }
+  // SPEC 第5節。組込は system モジュールにあり、どのモジュールの中でも定義し直せない。
+  auto module = mosa::Machine::create();
+  mosa_test::check(!module->load_program(":- module(m10, []).\natom_length(_, 99).\n").ok, "refused in module");
+  mosa_test::check(module->diagnostic() == "permission_error(modify,static_procedure,atom_length/2)",
+                   "refused in module formal");
+  for (const std::string_view text : {"foo(X) :- X.\n", "foo :- call(1).\n", "foo :- \\+ 1.\n", "[a].\n"}) {
+    auto machine = mosa::Machine::create();
+    mosa_test::check(machine->load_program(std::string{text}).ok, "accepted " + std::string{text});
+  }
+}
+
 // iso-notes 7.4.2 の一般の指示。その位置で呼び、失敗と例外は読み込みを失敗させて節を戻す。
 void check_general_directive() {
   auto ran = mosa::Machine::create();
@@ -690,6 +728,7 @@ int main() {
   check_initialization_args();
   check_initialization_live();
   check_general_directive();
+  check_refused_clauses();
   check_arith();
   check_control();
   check_index();
