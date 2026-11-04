@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main fdd111b, CI run 41804598657 passed all 8 jobs (2026-11-04)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 5c92c9f, CI run 41831451308 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
 - **Last done:** review M25 (ADR 0018): predicates are found through an open-addressing index on the table and on a load's snapshots; 100,000 calls next to 40,000 predicates 5,544 → 53 ms, consult of 40,000 one-clause predicates 1.41 → 0.04 s; tests `pred_table_test`, `pred_scale_test`. Before it, M21 (ADR 0015 amendment 2).
