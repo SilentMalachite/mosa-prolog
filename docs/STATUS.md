@@ -4,7 +4,7 @@ Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 5c92c
 
 - **In progress:** none.
 - **Last done:** review M27: a toplevel answer writes each value as the right operand of the current `=` (`X = (a;b)`, `X = (=)`), so it reads back while `=` is below priority 1000; tests `check_answer_operands`, `check_operand_priority`. Before it, M26 (ADR 0019) with L18.
-- **Next:** review items L1-L12, L14, L15, L17 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Next:** review items L1-L12, L14, L15, L17, L19 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
