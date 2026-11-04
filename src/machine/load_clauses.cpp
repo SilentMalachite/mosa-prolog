@@ -98,13 +98,15 @@ bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name
 }
 
 // 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
-Snapshot::Snapshot(PredKey key, const Predicate* predicate)
+Snapshot::Snapshot(PredKey key, const Predicate* predicate, std::uint64_t taken_at)
     : module(key.module),
       name(key.name),
       arity(key.arity),
       clauses(predicate == nullptr ? ClauseList{} : predicate->clauses),
       serial(predicate == nullptr ? 0 : predicate->serial),
       defined_at(predicate == nullptr ? 0 : predicate->defined_at),
+      taken_at(taken_at),
+      text_clause_at(predicate == nullptr ? 0 : predicate->text_clause_at),
       defined_by_goal(predicate != nullptr && predicate->defined_by_goal),
       created(predicate == nullptr),
       dynamic(predicate != nullptr && predicate->dynamic),
@@ -116,13 +118,13 @@ Snapshot::Snapshot(PredKey key, const Predicate* predicate)
 // 前にあるのは、テキストが前の定義に触れたか、述語が無かったときで、失敗したら前の定義へ戻すか枠ごと消す。
 // predicate は呼び手が表で引いたもの。引き直すと、節ごとに述語表をもう一度なめる。写しは後ろから見る。続く節の
 // 述語の写しは末尾の近くにある。
-void remember_pred(std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate) {
+void remember_pred(const Impl& machine, std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate) {
   const bool by_goal = predicate != nullptr && predicate->defined_by_goal;
   for (auto shot = snapshots.rbegin(); shot != snapshots.rend(); ++shot) {
     if (shot->module != key.module || shot->name != key.name || shot->arity != key.arity) continue;
     if (!by_goal || (!shot->created && shot->defined_at == predicate->defined_at)) return;
   }
-  snapshots.emplace_back(key, predicate);
+  snapshots.emplace_back(key, predicate, machine.db_generation);
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
@@ -135,7 +137,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<
     if (same_pred(machine.predicates[cursor], module, name, arity)) index = cursor;
   }
   // 失敗した読み込みは、この節を足す前の述語へ戻す。
-  remember_pred(snapshots, PredKey{module, name, arity},
+  remember_pred(machine, snapshots, PredKey{module, name, arity},
                 index == machine.predicates.size() ? nullptr : &machine.predicates[index]);
   if (index == machine.predicates.size()) {
     // 取り込んだ名前と同じ局所の述語は作らない（iso-notes 第5節の取り込みの衝突）。
@@ -179,6 +181,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<
   last = PredKey{module, name, arity};
   // 読み込みの節も assert と同じく世代を進める。読み込みの中のゴールが開いた走査は、後から読んだ節を見ない。
   append_clause(predicate, std::move(clause), ++machine.db_generation);
+  predicate.text_clause_at = machine.db_generation;
   return true;
 }
 
@@ -206,6 +209,15 @@ void restore_shot(Impl& machine, Predicate& predicate, const Snapshot& shot) {
   predicate.meta = shot.meta;
   predicate.defined_at = shot.defined_at;
   predicate.defined_by_goal = shot.defined_by_goal;
+  predicate.text_clause_at = shot.text_clause_at;
+}
+
+// 写しの後にテキストが節を足していなければ、テキストは宣言しかしていない。ゴールが足し消しした節は残し、宣言だけを
+// 戻す（ADR 0017 の改訂）。宣言が dynamic にした静的な空の述語へゴールが節を足していれば、dynamic のまま残す。
+void restore_declarations(Impl& machine, Predicate& predicate, const Snapshot& shot) {
+  detach_native(machine, predicate);
+  predicate.meta = shot.meta;
+  if (!shot.dynamic && live_count(predicate) == 0) predicate.dynamic = false;
 }
 
 bool text_defined(std::size_t defined_at, bool by_goal, std::size_t previous_serial) {
@@ -246,10 +258,18 @@ void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::
   for (const Snapshot& shot : snapshots) {
     if (!usable(shot)) continue;
     Predicate* predicate = find_pred(machine, PredKey{shot.module, shot.name, shot.arity});
-    if (predicate != nullptr && predicate->defined_at == shot.defined_at) restore_shot(machine, *predicate, shot);
+    if (predicate == nullptr || predicate->defined_at != shot.defined_at) continue;
+    if (predicate->text_clause_at > shot.taken_at) restore_shot(machine, *predicate, shot);
+    else restore_declarations(machine, *predicate, shot);
   }
   for (Predicate& predicate : machine.predicates) {
     if (!text_defined(predicate, previous_serial)) continue;
+    // 宣言が始め、テキストが節を足していない定義にゴールが節を足していれば、ゴールが作った定義と同じく残す。
+    // ゴールの定義になるので、readopt_meta が保留の meta_predicate を読み込みの前のものから引き取り直す。
+    if (predicate.text_clause_at == 0 && live_count(predicate) > 0) {
+      predicate.defined_by_goal = true;
+      continue;
+    }
     if (const auto found = last_of.find(predicate.serial); found != last_of.end()) {
       restore_shot(machine, predicate, *found->second);
     }

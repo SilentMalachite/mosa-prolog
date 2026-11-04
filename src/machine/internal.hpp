@@ -170,9 +170,11 @@ struct Predicate {
   // 今の定義を始めた時の Impl::pred_serial と、始めたのがゴールか（ADR 0017）。定義は枠を作るときと、abolish 済み
   // の枠を使い直すときと、開いた走査の下の abolish で始まる。失敗した読み込みは、同じ定義が残る述語だけを写しへ
   // 戻し、読み込みの間にテキストが始めた定義を取り消す。ゴールが始めた定義は、既にある述語への変更と同じく残す。
-  // bool を上の bool の隣に置き、詰め物を増やさない。
+  // bool を上の bool の隣に置き、詰め物を増やさない。text_clause_at は、今の定義へテキストが最後に節を足した
+  // Impl::db_generation（定義が始まると 0）。写しより後なら写しを丸ごと戻し、前なら宣言だけを戻す（ADR 0017 の改訂）。
   bool defined_by_goal = false;
   std::size_t defined_at = 0;
+  std::uint64_t text_clause_at = 0;
   // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
   rt::NativeProc native = nullptr;
 };

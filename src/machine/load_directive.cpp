@@ -179,7 +179,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) 
     return false;
   }
   // 失敗した読み込みは、宣言の前の動的フラグへ戻す。
-  remember_pred(snapshots, key, predicate);
+  remember_pred(machine, snapshots, key, predicate);
   if (predicate == nullptr) {
     Predicate created;
     created.module = key.module;
@@ -479,7 +479,7 @@ bool declare_meta(Impl& machine, std::vector<Snapshot>& snapshots, Cell head) {
     module->pending_meta.push_back(PendingMeta{key.name, key.arity, std::move(args)});
     return true;
   }
-  remember_pred(snapshots, key, predicate);
+  remember_pred(machine, snapshots, key, predicate);
   // meta は指紋に入る。付けたあとの宣言は、生成関数が知らない限定になる。
   detach_native(machine, *predicate);
   predicate->meta = std::move(args);

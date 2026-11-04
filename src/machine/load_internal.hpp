@@ -16,7 +16,8 @@ namespace mosa {
 
 struct Snapshot {
   // predicate が null なら、この読み込みが作る述語の印。在れば節を番号ごと写す（定義は load_clauses.cpp）。
-  Snapshot(PredKey key, const Predicate* predicate);
+  // taken_at は写した時の Impl::db_generation。
+  Snapshot(PredKey key, const Predicate* predicate, std::uint64_t taken_at);
   // Predicate と同じく、写しの vector が伸びるたびに節を写さないよう移動を noexcept にする。
   Snapshot(const Snapshot&) = default;
   Snapshot& operator=(const Snapshot&) = default;
@@ -31,6 +32,9 @@ struct Snapshot {
   // 写した枠と定義（ADR 0017）。戻すのは同じ定義が残る枠だけで、テキストが始めた定義はその枠の最後の写しへ戻す。
   std::size_t serial = 0;
   std::size_t defined_at = 0;
+  // 写した時の世代と Predicate::text_clause_at。後にテキストが節を足したかを比べ、丸ごと戻すときは印も戻す。
+  std::uint64_t taken_at = 0;
+  std::uint64_t text_clause_at = 0;
   bool defined_by_goal = false;
   bool created = false;
   bool dynamic = false;
@@ -52,7 +56,7 @@ void fail_load(Impl& machine, std::string message);
 [[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, PredKey key);
 void note_declared(Impl& machine, PredKey key, bool shared);
 // predicate は key を表で引いた結果（無ければ null）。
-void remember_pred(std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate);
+void remember_pred(const Impl& machine, std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
 // 定義は load_clauses.cpp。テキストに置けない節なら、assertz/1 がその節に出すのと同じ Formal を返す（レビュー M10）。
 // term は module の修飾を外した節、clause はそれを訳したもの。

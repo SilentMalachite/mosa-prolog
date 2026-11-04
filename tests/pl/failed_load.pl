@@ -25,7 +25,8 @@ test(m24_new_by_assert, m24_left(new_by_assert, m24_n(_), L), solutions([L = [m2
 test(m24_assert_then_text_load, m24_load(assert_then_text, ':- assertz(m24_u(1)).\nm24_u(2).\n'), fail).
 test(m24_assert_then_text, (m24_left(assert_then_text, m24_u(_), L), assertz(m24_u(3))), solutions([L = [m24_u(1)]])).
 test(m24_text_made_load, m24_load(text_made, ':- dynamic(m24_d/1).\n:- assertz(m24_d(1)).\nm24_t(1).\n'), fail).
-test(m24_text_made, (m24_reached(text_made), \+ current_predicate(m24_d/1), \+ current_predicate(m24_t/1)), true).
+% テキストの節が作った述語は消える。宣言が作った述語にゴールが足した節は残る（ADR 0017 の改訂、所有者が B を選んだ）。
+test(m24_text_made, (m24_left(text_made, m24_d(_), L), \+ current_predicate(m24_t/1)), solutions([L = [m24_d(1)]])).
 :- dynamic(m24_e/1).
 m24_e(1).
 test(m24_goal_changes_load, m24_load(goal_changes, ':- assertz(m24_e(2)).\n:- retract(m24_e(1)).\n'), fail).
@@ -110,3 +111,28 @@ test(m24_list_earlier, (findall(X, m24_w(X), L), \+ current_predicate(m24_wn/1))
 % 残ると、親の次の節が子の述語を置き換えるときに宣言を消していた（同 A2）。子が成功したときも同じ。
 test(m24_parent_meta_failed_child, (m24_write('tests/tmp/m24_mqc.pl', ':- assertz(m24_mq(true)).\n:- fail.\n'), m24_write('tests/tmp/m24_mqp.pl', ':- meta_predicate(m24_mq(0)).\n:- (consult(\'tests/tmp/m24_mqc.pl\') ; true).\nm24_mq(x).\n'), consult('tests/tmp/m24_mqp.pl'), predicate_property(m24_mq(_), meta_predicate(M)), findall(X, clause(m24_mq(X), true), L)), solutions([(M = m24_mq(0), L = [x])])).
 test(m24_parent_meta_child, (m24_write('tests/tmp/m24_mrc.pl', ':- assertz(m24_mr(true)).\n'), m24_write('tests/tmp/m24_mrp.pl', ':- meta_predicate(m24_mr(0)).\n:- consult(\'tests/tmp/m24_mrc.pl\'), true.\nm24_mr(x).\n'), consult('tests/tmp/m24_mrp.pl'), predicate_property(m24_mr(_), meta_predicate(M))), solutions([M = m24_mr(0)])).
+% ADR 0017 の改訂（M24 の 2 度目の敵対的レビュー A3、所有者が B を選んだ）。テキストが宣言しかしていない述語は、
+% ゴールの節を残し、宣言だけを戻す。テキストが節を足した述語は、今までどおりテキストが触れる前へ戻す。
+:- dynamic(m24b_q/1).
+m24b_q(1).
+test(m24b_declared_load, m24_load(b_declared, ':- dynamic(m24b_q/1).\n:- assertz(m24b_q(7)).\n'), fail).
+test(m24b_declared, m24_left(b_declared, m24b_q(_), L), solutions([L = [m24b_q(1), m24b_q(7)]])).
+test(m24b_new_load, m24_load(b_new, ':- dynamic(m24b_r/1).\n:- assertz(m24b_r(7)).\n:- dynamic(m24b_r0/1).\n'), fail).
+test(m24b_new, (m24_left(b_new, m24b_r(_), L), assertz(m24b_r(8)), catch(m24b_r0(_), error(existence_error(procedure, _), _), true)), solutions([L = [m24b_r(7)]])).
+:- dynamic(m24b_m/1).
+m24b_m(1).
+test(m24b_meta_load, m24_load(b_meta, ':- meta_predicate(m24b_m(0)).\n:- assertz(m24b_m(true)).\n'), fail).
+test(m24b_meta, (m24_reached(b_meta), \+ predicate_property(m24b_m(_), meta_predicate(_)), findall(X, clause(m24b_m(X), true), L)), solutions([L = [1, true]])).
+% 開いた走査の下でゴールが abolish した枠を宣言が使い直しても、ゴールが足した節は残る。
+:- dynamic(m24b_v/1).
+m24b_v(1). m24b_v(2).
+test(m24b_reuse, (findall(X, (m24b_v(X), (X =:= 1 -> \+ m24_load(b_reuse, ':- abolish(m24b_v/1).\n:- dynamic(m24b_v/1).\n:- assertz(m24b_v(7)).\n') ; true)), L), m24_reached(b_reuse), findall(Y, m24b_v(Y), L2)), solutions([(L = [1, 2], L2 = [7])])).
+% 子のテキストの宣言も宣言として扱い、子のテキストの節は親が写した後の節として数える。
+:- dynamic(m24b_c/1).
+m24b_c(1).
+test(m24b_child_decl_load, (m24_write('tests/tmp/m24b_c1.pl', ':- dynamic(m24b_c/1).\n'), m24_load(b_child_decl, ':- consult(\'m24b_c1.pl\').\n:- assertz(m24b_c(7)).\n')), fail).
+test(m24b_child_decl, m24_left(b_child_decl, m24b_c(_), L), solutions([L = [m24b_c(1), m24b_c(7)]])).
+:- dynamic(m24b_d/1).
+m24b_d(1).
+test(m24b_child_clause_load, (m24_write('tests/tmp/m24b_c2.pl', 'm24b_d(8).\n'), m24_load(b_child_clause, ':- dynamic(m24b_d/1).\n:- assertz(m24b_d(7)).\n:- consult(\'m24b_c2.pl\').\n')), fail).
+test(m24b_child_clause, (m24_left(b_child_clause, m24b_d(_), L), assertz(m24b_d(9))), solutions([L = [m24b_d(1)]])).

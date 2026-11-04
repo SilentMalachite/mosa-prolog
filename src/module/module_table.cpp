@@ -78,6 +78,7 @@ Predicate& add_predicate(Impl& machine, Predicate made) {
 void begin_definition(Impl& machine, Predicate& predicate, bool by_goal) {
   predicate.defined_at = ++machine.pred_serial;
   predicate.defined_by_goal = by_goal;
+  predicate.text_clause_at = 0;
 }
 
 // 表は serial の昇順なので二分探索で引く。current_predicate/1 のやり直しごとに表をなめない。
