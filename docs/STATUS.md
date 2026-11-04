@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main bd32139, CI run 41916910472 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** review M27: a toplevel answer writes each value as the right operand of the current `=` (`X = (a;b)`, `X = (=)`), so it reads back while `=` is below priority 1000; tests `check_answer_operands`, `check_operand_priority`. Before it, M26 (ADR 0019) with L18.
-- **Next:** review items L1-L12, L14, L15, L17, L19 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** review L1 (`rem`/`mod` by -1 and `gcd` of the minimum integer; `max`/`min` stay float by iso-notes 9.3.8 decision B) and L4 (`integer_rounding_function` `down` gives permission_error). Before them, M27.
+- **Next:** review items L3, L7 next, then L5, L6, L9, L10; decisions L2, L11, L12; L8 (Windows); L14, L15, L17, L19 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
