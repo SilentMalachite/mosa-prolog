@@ -108,7 +108,7 @@ struct LoadScan {
   std::vector<Snapshot>& snapshots;
   std::vector<Apart>& apart;
   std::vector<Cell>& inits;
-  std::size_t& last;
+  std::optional<PredKey>& last;
   std::vector<std::string>& opening;
 };
 
@@ -336,10 +336,13 @@ bool replaces_files(Impl& machine, Cell term) {
 }
 
 // 翻訳のときだけ、足した節の位置を書き留める。どこにも定義の無い述語を呼ぶ警告がこの行を出す。
-void note_site(Impl& machine, std::size_t pred, std::size_t line) {
+// key は add_clause が節を足した述語。
+void note_site(Impl& machine, PredKey key, std::size_t line) {
   TranslationLog* log = machine.translation;
-  if (log == nullptr || log->current >= log->files.size() || pred >= machine.predicates.size()) return;
-  const Predicate& predicate = machine.predicates[pred];
+  if (log == nullptr || log->current >= log->files.size()) return;
+  const Predicate* found = find_pred(machine, key);
+  if (found == nullptr) return;
+  const Predicate& predicate = *found;
   log->sites.push_back(TranslationLog::Site{PredKey{predicate.module, predicate.name, predicate.arity},
                                             predicate.clauses.size() - 1, log->current, line});
 }
@@ -443,7 +446,7 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
   }
   remember_clause(machine, scan.snapshots, module, clause);
   if (!add_clause(machine, module, std::move(clause), scan.last, scan.apart)) return false;
-  note_site(machine, scan.last, read.line);
+  if (scan.last) note_site(machine, *scan.last, read.line);
   return true;
 }
 
@@ -522,7 +525,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     for (Cell& goal : inits) visitor.cell(goal);
   });
   const auto previous_serial = machine.pred_serial;
-  std::size_t last = static_cast<std::size_t>(-1);
+  std::optional<PredKey> last;
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening};

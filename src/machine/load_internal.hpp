@@ -52,8 +52,8 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key)
 // 定義は load_clauses.cpp。テキストに置けない節なら、assertz/1 がその節に出すのと同じ Formal を返す（レビュー M10）。
 // term は module の修飾を外した節、clause はそれを訳したもの。
 [[nodiscard]] std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& clause);
-// 定義は load_clauses.cpp。節は module に入る。last は直前に節を足した述語の添字。
-[[nodiscard]] bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t& last,
+// 定義は load_clauses.cpp。節は module に入る。last は直前に節を足した述語の名前。
+[[nodiscard]] bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::optional<PredKey>& last,
                               const std::vector<Apart>& apart);
 void remember_clause(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t module, const Clause& clause);
 // 失敗した読み込みの述語を写しへ戻し、この読み込みで作った述語（serial が previous_serial より後）を捨てる。

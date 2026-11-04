@@ -3,8 +3,10 @@
 #include "mosa/writer.hpp"
 #include "mosa/path_text.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -40,7 +42,14 @@ std::filesystem::path resolve_file(std::string_view directory, std::string_view 
   return path_from_utf8(directory) / file;
 }
 
+// 印は述語の名前（モジュール・名前・項数）で持つ。印は「親のテキストがこの名前に節を与えたか」で、子のテキストが
+// 述語を消して作り直しても親の印は残る。添字で持つと、子の読み込みが abolish で述語を表から消したとき、後ろの述語に
+// 隣の印が付く（M19 で見つけた不具合）。Predicate::serial で持つと、子が消して作り直した述語に親の印が付かず、親の
+// 続きの節が子の節を置き換えて述語を静的にする（その直しの敵対的レビュー A1）。親のテキストで節が離れていれば、
+// 子が作り直しても clauses_apart になる（同 B1）。子が消したままの述語は、親のテキストの abolish と同じく印を失う。
 struct SeenMark {
+  PredKey key;
+  std::size_t serial = 0;
   bool seen = false;
   bool declared = false;
   bool meta = false;
@@ -71,27 +80,53 @@ struct ClauseBackup {
 static_assert(std::is_nothrow_move_constructible_v<ClauseBackup>);
 static_assert(std::is_nothrow_move_assignable_v<ClauseBackup>);
 
+bool key_less(const PredKey& a, const PredKey& b) {
+  return std::tie(a.module, a.name, a.arity) < std::tie(b.module, b.name, b.arity);
+}
+
+// 述語の表は serial の昇順（M18）なので、写しも serial の昇順になる。
 std::vector<SeenMark> mark_seen(const Impl& machine) {
   std::vector<SeenMark> saved;
   saved.reserve(machine.predicates.size());
   for (const Predicate& predicate : machine.predicates) {
-    saved.push_back(SeenMark{predicate.seen, predicate.dynamic_declared, predicate.meta_declared});
+    const PredKey key{predicate.module, predicate.name, predicate.arity};
+    saved.push_back(
+        SeenMark{key, predicate.serial, predicate.seen, predicate.dynamic_declared, predicate.meta_declared});
   }
   return saved;
 }
 
+void put_mark(Predicate& predicate, const SeenMark* mark) {
+  // 写しに無い名前は子の読み込みが初めて作った。親のテキストはまだ見ていないので、次の節は置き換える。
+  predicate.seen = mark != nullptr && mark->seen;
+  predicate.dynamic_declared = mark != nullptr && mark->declared;
+  predicate.meta_declared = mark != nullptr && mark->meta;
+}
+
+// 表と写しを serial の順に並べて歩く。同じ serial は子の前からある述語。子が消した述語の印だけを名前で並べ、子が
+// 作った述語はそこから同じ名前を探す。全部を名前で並べ替えると、consult のたびに述語の数 n について n log n かかる
+// （敵対的レビュー B3）。
 void restore_seen(Impl& machine, const std::vector<SeenMark>& saved) {
-  const auto count = saved.size();
-  for (std::size_t index = 0; index < count && index < machine.predicates.size(); ++index) {
-    machine.predicates[index].seen = saved[index].seen;
-    machine.predicates[index].dynamic_declared = saved[index].declared;
-    machine.predicates[index].meta_declared = saved[index].meta;
+  std::vector<const SeenMark*> gone;
+  std::vector<Predicate*> created;
+  auto mark = saved.begin();
+  for (Predicate& predicate : machine.predicates) {
+    for (; mark != saved.end() && mark->serial < predicate.serial; ++mark) gone.push_back(&*mark);
+    if (mark != saved.end() && mark->serial == predicate.serial) {
+      put_mark(predicate, &*mark);
+      ++mark;
+    } else {
+      created.push_back(&predicate);
+    }
   }
-  // 親のテキストは、consult が足した述語をまだ見ていない。次の節は置き換える。
-  for (std::size_t index = count; index < machine.predicates.size(); ++index) {
-    machine.predicates[index].seen = false;
-    machine.predicates[index].dynamic_declared = false;
-    machine.predicates[index].meta_declared = false;
+  for (; mark != saved.end(); ++mark) gone.push_back(&*mark);
+  const auto before = [](const SeenMark* a, const SeenMark* b) { return key_less(a->key, b->key); };
+  std::sort(gone.begin(), gone.end(), before);
+  for (Predicate* predicate : created) {
+    const SeenMark wanted{PredKey{predicate->module, predicate->name, predicate->arity}};
+    const auto found = std::lower_bound(gone.begin(), gone.end(), &wanted, before);
+    const bool kept = found != gone.end() && !key_less(wanted.key, (*found)->key);
+    put_mark(*predicate, kept ? *found : nullptr);
   }
 }
 
@@ -251,7 +286,11 @@ bool run_consult(Impl& machine, const Goal& call) {
   // 公開述語は consult を呼んだ文脈モジュールへ取り込む。
   const auto outer = machine.load_module;
   machine.load_module = goal.module;
+  // 読み込みの中の指示から呼ぶと、子の読み込みが親の印を落とす。[File] と同じく戻す（M19 で見つけた不具合）。
+  // 戻さないと、親の次の節が自分の前の節を置き換え、dynamic の宣言も忘れる。読み込みの外では印は使わない。
+  const auto saved = mark_seen(machine);
   const LoadStatus status = load_consulted(machine, text, *source);
+  restore_seen(machine, saved);
   machine.load_module = outer;
   if (!status.ok) {
     prefix_consult_diagnostic(machine, text);

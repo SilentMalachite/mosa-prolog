@@ -179,3 +179,37 @@ test(m10_float_body, m10_refused(float_body, 'm10_keep(1).\nm10_foo :- (m10_q ->
 test(m10_var_body, (m10_loads(var_body, 'm10_vb(X) :- X.\n'), catch(m10_vb(1), error(E, _), true)), solutions([E = type_error(callable, 1)])).
 test(m10_call_number, (m10_loads(call_number, 'm10_cn :- call(1).\n'), catch(m10_cn, error(E, _), true)), solutions([E = type_error(callable, 1)])).
 test(m10_not_number, (m10_loads(not_number, 'm10_nn :- \\+ 1.\n'), catch(m10_nn, error(E, _), true)), solutions([E = type_error(callable, 1)])).
+% 読み込みの中の consult は、子のテキストの前に読み込みの印（seen と宣言の印）を落とし、子を読み終えたら親の印に
+% 戻す（M19 で見つけた不具合）。印を述語表の添字で戻していたので、子が abolish で述語を表から消すと、後ろの述語に
+% 隣の印が付き、親の次の節が自分の前の節を置き換えた（L = [2]）。ゴールとして呼ぶ consult/1 は印を戻していなかった。
+:- dynamic(seen_zap/0).
+seen_zap.
+seen_files :-
+    m10_write('tests/tmp/seen_child.pl', ':- abolish(seen_zap/0).\n'),
+    m10_write('tests/tmp/seen_parent.pl', 'seen_a(1).\n:- consult(\'seen_child.pl\').\nseen_a(2).\n'),
+    m10_write('tests/tmp/seen_other.pl', 'seen_s(1).\n'),
+    m10_write('tests/tmp/seen_goal.pl', ':- dynamic(seen_r/1).\nseen_r(1).\n:- consult(\'tests/tmp/seen_other.pl\'), true.\nseen_r(2).\n').
+test(seen_nested_abolish, (seen_files, consult('tests/tmp/seen_parent.pl'), findall(X, seen_a(X), L)), solutions([L = [1, 2]])).
+test(seen_goal_consult, (seen_files, consult('tests/tmp/seen_goal.pl'), findall(X, seen_r(X), L), assertz(seen_r(3)), findall(Y, seen_r(Y), L2)), solutions([(L = [1, 2], L2 = [1, 2, 3])])).
+% 子が親の述語を abolish で消して作り直しても、印は名前に付くので親の印が戻る。親の続きの節は子の節に足され、
+% 述語は動的のまま。この形では、同じ節を 1 つのファイルに並べたときと同じになる（その直しの敵対的レビュー A1）。印を述語の
+% serial で戻すと、作り直した述語に親の印が付かず、親の節が子の節を置き換えて述語を静的にした。選択点の下では、
+% 置き換えが断られて読み込みが失敗した。
+:- dynamic(seen_zap2/0).
+seen_zap2.
+seen_renew_files :-
+    m10_write('tests/tmp/seen_renew_child.pl', ':- abolish(seen_zap2/0).\n:- abolish(seen_p/1).\n:- dynamic(seen_p/1).\nseen_p(9).\n'),
+    m10_write('tests/tmp/seen_renew.pl', ':- dynamic(seen_p/1).\nseen_p(1).\n:- consult(\'seen_renew_child.pl\').\nseen_p(2).\n').
+test(seen_recreated, (seen_renew_files, once(((W = 1 ; W = 2), consult('tests/tmp/seen_renew.pl'))), findall(X, seen_p(X), L), assertz(seen_p(3)), findall(Y, seen_p(Y), L2)), solutions([(W = 1, L = [9, 2], L2 = [9, 2, 3])])).
+% 印は親のテキストのもので、親のテキストで節が離れていれば、子が述語を消して作り直しても離れた節として読み込みが
+% 失敗する（その直しの敵対的レビュー B1）。子が消したままなら、親のテキストの abolish と同じく印を失い、親の続きの
+% 節が新しい定義になる。直す前のコードは、作り直した述語の印を落として [9, 2] を読み込んだ。
+:- dynamic(seen_w/1).
+seen_w(0).
+seen_apart_files :-
+    m10_write('tests/tmp/seen_apart_child.pl', ':- abolish(seen_u/1).\nseen_u(9).\n'),
+    m10_write('tests/tmp/seen_apart.pl', ':- dynamic(seen_u/1).\nseen_u(1).\nseen_v(1).\n:- consult(\'seen_apart_child.pl\').\nseen_u(2).\n'),
+    m10_write('tests/tmp/seen_gone_child.pl', ':- abolish(seen_w/1).\n'),
+    m10_write('tests/tmp/seen_gone.pl', ':- dynamic(seen_w/1).\nseen_w(1).\nseen_x(1).\n:- consult(\'seen_gone_child.pl\').\nseen_w(2).\n').
+test(seen_apart_recreated, (seen_apart_files, consult('tests/tmp/seen_apart.pl')), fail).
+test(seen_apart_removed, (seen_apart_files, consult('tests/tmp/seen_gone.pl'), findall(X, seen_w(X), L)), solutions([L = [2]])).

@@ -116,7 +116,7 @@ void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key)
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
-bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t& last,
+bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::optional<PredKey>& last,
                 const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
@@ -138,7 +138,10 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   }
   Predicate& predicate = machine.predicates[index];
   // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
-  if (predicate.seen && last != index && !allows_gap(apart, PredKey{module, name, arity})) {
+  // last は直前に節を足した述語の名前。印（seen）と同じく名前で持つ。添字で持つと、間の consult が述語を表から
+  // 消したとき、同じ述語の続きの節を離れた節と取り違える（M19 で見つけた不具合）。
+  const bool next_to = last && last->module == module && last->name == name && last->arity == arity;
+  if (predicate.seen && !next_to && !allows_gap(apart, PredKey{module, name, arity})) {
     const std::string indicator = std::string(machine.atoms.name(name)) + "/" + std::to_string(arity);
     fail_load(machine, message_text(machine, "clauses_apart", {indicator}));
     return false;
@@ -159,7 +162,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
   // 置き換え、multifile の追加、abolish 済みの枠の使い直しのどれでも、付けた生成関数の知らない節になる。
   detach_native(machine, predicate);
   predicate.seen = true;
-  last = index;
+  last = PredKey{module, name, arity};
   // 読み込みの節も assert と同じく世代を進める。読み込みの中のゴールが開いた走査は、後から読んだ節を見ない。
   append_clause(predicate, std::move(clause), ++machine.db_generation);
   return true;
