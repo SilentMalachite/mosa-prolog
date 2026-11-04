@@ -38,12 +38,18 @@ constexpr std::string_view k_program =
     "work(X) :- Y is X * 2, Z is Y + 1, call(Z > 0).\n"
     "len([], 0).\n"
     "len([_|T], N) :- len(T, N0), N is N0 + 1.\n"
-    // 1 つの鍵に 20,000 節。f(a, _) の選択点は 1 つで残りの候補の列（約 20,000 語）を持つ（敵対的レビュー A1）。
+    // 1 つの鍵に 20,000 節。M17 の敵対的レビュー A1 のときは、f(a, _) の選択点が残りの候補の列（約 20,000 語）を
+    // 持った。レビュー M20 からは列を作らずにカーソルで歩くので、選択点は Entry だけになる。
     ":- dynamic(f/2).\n"
     "fill :- btw(1, 20000, X), assertz(f(a, X)), fail.\n"
     "fill.\n"
     "ring(N) :- N < 2000, assertz(seen(N)), f(a, _), N1 is N + 1, ring(N1).\n"
     "ring(2000).\n"
+    // アリティ 2 の述語を 4,000 個作る。current_predicate(_/2) の選択点は残りの述語の列（約 4,000 語）を持つ。
+    "mkp :- btw(1, 4000, I), number_codes(I, Cs), atom_codes(F, [0'g | Cs]), T =.. [F, a, b], assertz(T), fail.\n"
+    "mkp.\n"
+    "pring(N) :- N < 2000, assertz(seen(N)), current_predicate(_/2), N1 is N + 1, pring(N1).\n"
+    "pring(2000).\n"
     // 選択点を M 個積んでから切り、ヒープに K 要素の列を作る。切った分の容量は GC が返す（敵対的レビュー A3）。
     "mk(0) :- !.\n"
     "mk(N) :- N1 is N - 1, ( mk(N1) ; true ).\n"
@@ -128,15 +134,27 @@ void check_still_fits() {
                    "fits: every env and goal gives its words back");
 }
 
-// 候補の列は選択点の外の確保なので、Entry の大きさだけを数えると、ring は 2,000 歩を 320 MB で走り切る。
+// 候補の列は選択点の外の確保なので、Entry の大きさだけを数えると、pring は 2,000 歩を走り切る。M17 の敵対的
+// レビュー A1 は鍵の走査の列（ring）で確かめたが、レビュー M20 で鍵の走査は列を持たなくなった。
 void check_candidates() {
+  auto machine = loaded("candidates");
+  mosa_test::check(run(*machine, "mkp.").kind == mosa::StopKind::Success, "candidates: make the predicates");
+  const Outcome outcome = run(*machine, "pring(0).");
+  mosa_test::check(outcome.limited, "candidates: the candidate lists reach the limit");
+  const long reached = furthest(*machine);
+  std::cout << "candidates: reached " << reached << '\n';
+  // 1 歩約 4,000 語なので、16 MiB で約 470 歩。数え方が 2 倍ずれれば外れる幅。
+  mosa_test::check(reached >= 300 && reached <= 800, "candidates: stops near the counted size");
+  check_after_stop(*machine, "candidates");
+}
+
+// レビュー M20。鍵の走査は組の列を作らないので、1 つの組の f(a, _) の選択点を 2,000 個残しても上限に着かない。
+// 列を作っていたときは 100 歩ほどで止まった。
+void check_bucket_holds_no_list() {
   auto machine = loaded("bucket");
   const Outcome outcome = run(*machine, "fill, ring(0).");
-  mosa_test::check(outcome.limited, "bucket: the candidate lists reach the limit");
-  const long reached = furthest(*machine);
-  std::cout << "bucket: reached " << reached << '\n';
-  mosa_test::check(reached >= 0 && reached <= 400, "bucket: stops near the counted size");
-  check_after_stop(*machine, "bucket");
+  mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success,
+                   "bucket: the keyed choice points hold no candidate list");
 }
 
 // 入れ子の実行（with_output_to/2）の中でも、切った選択点の容量を返す。返さなければ、トップレベルで収まる
@@ -169,6 +187,7 @@ int main() {
   check_runaway("cyclic or", "X = (X ; true), call(X).");
   check_runaway("cyclic and", "X = (X, true), call(X).");
   check_candidates();
+  check_bucket_holds_no_list();
   check_nested_give_back();
   check_success_counts();
   return mosa_test::failures();

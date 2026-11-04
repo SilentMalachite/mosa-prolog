@@ -146,6 +146,29 @@ Measured on 2026-11-03 on the same machine, both Release, the same `N`, the two 
 
 `tak` runs 100 collections (48 ms in all) where it ran none: its continuations and envs now count toward the GC threshold, while its heap alone never reached it. A loop of one million `call/1` of a conjunction is 3.1% to 3.4% slower and a loop of 500,000 `findall/3` 2.0% to 2.2% slower (medians of seven alternated runs; 4.8% and 3.5% before the work list of a small goal tree was kept on the stack).
 
+## Cost of lazy clause walks
+
+Measured on 2026-11-04 on the same machine, both Release, the same `N`, the two trees built side by side: "before" is bec093c, "now" is review M20 (ADR 0015 amendment: a clause scan keeps a cursor and the key it selects on instead of a candidate list and finds the next candidate when it steps; a dead clause holds two skips; `Clause` grows to 160 bytes and `Entry` to 264 with libc++). Interpreter: medians of five runs taken alternately (ms). Translated: medians of five runs by `mosatest --bench`, the two trees one after the other.
+
+| Program | Interpreter before | Interpreter now | Delta | Translated before | Translated now | Delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| nrev | 3344 | 3172 | -5.1% | 133 | 135 | +1.5% |
+| queens | 2722 | 2656 | -2.4% | 443 | 438 | -1.1% |
+| zebra | 1884 | 1819 | -3.5% | 761 | 753 | -1.1% |
+| tak | 1418 | 1334 | -5.9% | 296 | 295 | -0.3% |
+| deriv | 927 | 906 | -2.3% | 132 | 131 | -0.8% |
+| crypt | 1193 | 1176 | -1.4% | 309 | 307 | -0.6% |
+
+The causes of the interpreter's gains were not profiled; a call with a bound first argument no longer fills a candidate list. The repros of the review (wall time of `mosa file -g goal -t halt` in seconds, including loading and filling; `q(k, I)` under one key, `p(I)` for the last two rows):
+
+| Goal | N | Before | Now |
+| --- | --- | --- | --- |
+| `q(k,_), !` N times | 5,000 / 10,000 / 20,000 | 0.43 / 0.66 / 2.53 | 0.04 / 0.05 / 0.06 |
+| `drain :- retract(q(k,_)), !, drain.` | 2,500 / 5,000 / 10,000 | 0.51 / 2.02 / 7.99 | 0.02 / 0.03 / 0.04 |
+| `clause(q(k,_), true), !` N times | 2,500 / 5,000 / 10,000 | 1.22 / 4.88 / 19.34 | 0.03 / 0.04 / 0.05 |
+| `p(_), drain, !` with `drain :- retract(p(_)), !, drain.` | 10,000 / 20,000 / 40,000 | 0.09 / 0.26 / 0.89 | 0.04 / 0.06 / 0.10 |
+| `p(_), drain2, !` with `drain2 :- p(X), !, retract(p(X)), drain2.` | 10,000 / 20,000 / 40,000 | 0.09 / 0.25 / 0.89 | 0.04 / 0.06 / 0.11 |
+
 ## CI
 
 The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.

@@ -1,18 +1,28 @@
-// 第1引数で節を選ぶ（ADR 0015）。線形に照らすときも索引を引くときも、clause_key と cell_key の鍵の等しさだけで
-// 決める。8 節より少ない述語と多い述語で答えと順が変わらないよう、等しさの定めを一つにする。
+// 第1引数で節を選ぶ（ADR 0015 とその改訂）。線形に照らすときも索引を引くときも、clause_key と cell_key の鍵の
+// 等しさだけで決める。8 節より少ない述語と多い述語で答えと順が変わらないよう、等しさの定めを一つにする。候補は列に
+// せず、走査が一歩ごとに ClauseWalk で次の候補を探す（レビュー M20）。
 
 #include "internal.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
-#include <vector>
 
 namespace mosa {
 namespace {
+
+// 指示付きの初期化子は、省いた欄に -Wmissing-field-initializers を出すコンパイラがあるので使わない。
+IndexKey key_of(KeyKind kind, std::uint64_t value = 0, std::uint32_t arity = 0) {
+  IndexKey key;
+  key.kind = kind;
+  key.value = value;
+  key.arity = arity;
+  return key;
+}
 
 // 0.0 と -0.0 は等しく、NaN どうしも等しい（mosac の生成コードの same_float と同じ）。ビット列を揃えて同じ鍵にする。
 std::uint64_t float_bits(double value) {
@@ -25,28 +35,15 @@ std::uint64_t float_bits(double value) {
 // だけに合う。
 std::optional<IndexKey> cell_key(const Impl& machine, Cell first) {
   switch (first.tag()) {
-    case Tag::Atom: return IndexKey{KeyKind::Atom, static_cast<std::uint32_t>(first.raw() >> 3), 0};
+    case Tag::Atom: return key_of(KeyKind::Atom, static_cast<std::uint32_t>(first.raw() >> 3));
     case Tag::Int:
     case Tag::IntBox:
-      return IndexKey{KeyKind::Int, std::bit_cast<std::uint64_t>(machine.heap.integer_value(first)), 0};
-    case Tag::Float: return IndexKey{KeyKind::Float, float_bits(machine.heap.float_value(first)), 0};
-    case Tag::Lis: return IndexKey{KeyKind::List, 0, 0};
+      return key_of(KeyKind::Int, std::bit_cast<std::uint64_t>(machine.heap.integer_value(first)));
+    case Tag::Float: return key_of(KeyKind::Float, float_bits(machine.heap.float_value(first)));
+    case Tag::Lis: return key_of(KeyKind::List);
     case Tag::Str:
-      return IndexKey{KeyKind::Fun, machine.heap.functor_atom(first), machine.heap.functor_arity(first)};
+      return key_of(KeyKind::Fun, machine.heap.functor_atom(first), machine.heap.functor_arity(first));
     default: return std::nullopt;
-  }
-}
-
-bool selects(const Clause& clause, const std::optional<IndexKey>& wanted) {
-  const auto key = clause_key(clause);
-  return !key || (wanted && *key == *wanted);
-}
-
-// every なら鍵を見ずに見える節を全部選ぶ。
-void scan_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted, std::uint64_t generation,
-                     bool every, IdList& chosen) {
-  for (const Clause& clause : predicate.clauses) {
-    if (visible(clause, generation) && (every || selects(clause, wanted))) chosen.push_back(clause.id);
   }
 }
 
@@ -61,31 +58,55 @@ void build_index(const Predicate& predicate) {
   index.built = true;
 }
 
-// 番号は繰り返さないので、節の列に無い番号が別の節を指すことは無い。無い番号と見えない節は飛ばす。
-void take_visible(const Predicate& predicate, std::size_t id, std::uint64_t generation, IdList& chosen) {
-  const auto position = clause_position(predicate, id);
-  if (position && visible(predicate.clauses[*position], generation)) chosen.push_back(id);
+// 幅は番号の差。32 ビットを超える差は最大値に留める。範囲が短くなるだけで、その中の節が死んでいることは変わらない。
+std::uint32_t span_to(std::size_t id, std::size_t target) {
+  return static_cast<std::uint32_t>(std::min<std::size_t>(target - id, std::numeric_limits<std::uint32_t>::max()));
 }
 
-// 組も keyless も番号の昇順なので、併せれば節の順になる。開いた走査の候補は昇順でなければならない（scan_reaches）。
-void index_candidates(const Predicate& predicate, const std::optional<IndexKey>& wanted, std::uint64_t generation,
-                      IdList& chosen) {
-  if (!predicate.index.built) build_index(predicate);
-  const FirstArgIndex& index = predicate.index;
-  const IdBucket* bucket = nullptr;
-  if (wanted) {
-    const auto found = index.buckets.find(*wanted);
-    if (found != index.buckets.end()) bucket = &found->second;
+std::size_t hop_all(const Predicate& predicate, const Clause& clause) {
+  return clause_from(predicate, clause.id + clause.skip_all);
+}
+
+// 位置 at の死んだ節から skip_all に沿って跳び、最初の生きた節の位置（無ければ clauses.size()）を返す。跳んだ元の
+// 節の幅は跳んだ先までに延ばす（経路圧縮）。どの元からも跳んだ先までの節は全部死んでいるので、延ばしても正しい。
+// 末尾まで死んでいれば先は next_id で、後で assertz する節の番号はそこから始まる。
+std::size_t past_dead(const Predicate& predicate, std::size_t at) {
+  const ClauseList& clauses = predicate.clauses;
+  std::size_t end = at;
+  while (end < clauses.size() && clauses[end].dead()) end = hop_all(predicate, clauses[end]);
+  const std::size_t target = end < clauses.size() ? clauses[end].id : predicate.next_id;
+  for (std::size_t walk = at; walk < end;) {
+    const Clause& clause = clauses[walk];
+    walk = hop_all(predicate, clause);
+    clause.skip_all = span_to(clause.id, target);
   }
-  const std::size_t keyed = bucket == nullptr ? 0 : bucket->size();
-  chosen.reserve(keyed + index.keyless.size());
-  const IdBucket& keyless = index.keyless;
-  std::size_t at = 0;
-  std::size_t other = 0;
-  while (at < keyed || other < keyless.size()) {
-    const bool from_bucket = other >= keyless.size() || (at < keyed && (*bucket)[at] < keyless[other]);
-    take_visible(predicate, from_bucket ? (*bucket)[at++] : keyless[other++], generation, chosen);
+  return end;
+}
+
+// 組の at 番目の節。死んでいなければ null。索引は節の列と同じ番号を持つが、無い番号も死んでいない節として止める。
+const Clause* dead_entry(const Predicate& predicate, const IdBucket& ids, std::size_t at) {
+  if (at >= ids.size()) return nullptr;
+  const auto position = clause_position(predicate, ids[at]);
+  if (!position || !predicate.clauses[*position].dead()) return nullptr;
+  return &predicate.clauses[*position];
+}
+
+// past_dead の組の版。skip_key に沿って同じ鍵の組（か鍵の無い節の列）の中を跳び、跳んだ元の幅を延ばす。返すのは
+// 組の添字。ほかの鍵の生きた節が間に挟まっても、同じ鍵の死んだ節を一度に跳べる。
+std::size_t past_dead_in(const Predicate& predicate, const IdBucket& ids, std::size_t at) {
+  std::size_t end = at;
+  for (const Clause* clause = dead_entry(predicate, ids, end); clause != nullptr;
+       clause = dead_entry(predicate, ids, end)) {
+    end = ids.lower_bound(clause->id + clause->skip_key);
   }
+  const std::size_t target = end < ids.size() ? ids[end] : predicate.next_id;
+  for (std::size_t walk = at; walk < end;) {
+    const Clause* clause = dead_entry(predicate, ids, walk);
+    if (clause == nullptr) break;
+    walk = ids.lower_bound(clause->id + clause->skip_key);
+    clause->skip_key = span_to(clause->id, target);
+  }
+  return end;
 }
 
 }  // namespace
@@ -138,30 +159,109 @@ std::size_t IndexKeyHash::operator()(const IndexKey& key) const noexcept {
   return static_cast<std::size_t>(mixed ^ (mixed >> 31));
 }
 
+std::size_t IdBucket::lower_bound(std::size_t id) const {
+  // 新しい走査は番号 0 から始める。よく通る道なので二分探索を省く。
+  if (empty() || id <= (*this)[0]) return 0;
+  std::size_t low = 1;
+  std::size_t high = size();
+  while (low < high) {
+    const std::size_t middle = low + (high - low) / 2;
+    if ((*this)[middle] < id) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
 std::optional<IndexKey> clause_key(const Clause& clause) {
   switch (clause.key) {
-    case KeyKind::Atom: return IndexKey{KeyKind::Atom, clause.key_atom, 0};
-    case KeyKind::Int: return IndexKey{KeyKind::Int, std::bit_cast<std::uint64_t>(clause.key_int), 0};
-    case KeyKind::Float: return IndexKey{KeyKind::Float, float_bits(clause.key_float), 0};
-    case KeyKind::List: return IndexKey{KeyKind::List, 0, 0};
-    case KeyKind::Fun: return IndexKey{KeyKind::Fun, clause.key_atom, clause.key_arity};
+    case KeyKind::Atom: return key_of(KeyKind::Atom, clause.key_atom);
+    case KeyKind::Int: return key_of(KeyKind::Int, std::bit_cast<std::uint64_t>(clause.key_int));
+    case KeyKind::Float: return key_of(KeyKind::Float, float_bits(clause.key_float));
+    case KeyKind::List: return key_of(KeyKind::List);
+    case KeyKind::Fun: return key_of(KeyKind::Fun, clause.key_atom, clause.key_arity);
     default: return std::nullopt;
   }
 }
 
-IdList key_candidates(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t generation) {
-  IdList chosen = id_list(machine);
-  const Cell cell = machine.heap.deref(first);
-  // 未束縛の第1引数はどの節の頭とも合う。cell_key は鍵の無いセルとして nullopt を返し、鍵の無い節だけを選ぶので、
-  // そのまま引くと答えが欠ける。
-  if (machine.heap.unbound(cell)) {
-    scan_candidates(predicate, std::nullopt, generation, true, chosen);
-  } else if (const auto wanted = cell_key(machine, cell); predicate.clauses.size() < kIndexMinClauses) {
-    scan_candidates(predicate, wanted, generation, false, chosen);
-  } else {
-    index_candidates(predicate, wanted, generation, chosen);
+IndexKey first_key(const Impl& machine, Cell first) {
+  return cell_key(machine, first).value_or(key_of(KeyKind::None));
+}
+
+bool scan_usable(const Clause& clause, ScanView view) {
+  return view.retract ? clause.born <= view.generation && !clause.dead() : visible(clause, view.generation);
+}
+
+bool key_selects(const Clause& clause, const IndexKey& key) {
+  if (key.kind == KeyKind::Any) return true;
+  const auto own = clause_key(clause);
+  return !own || *own == key;
+}
+
+// 8 節より少ない述語は索引を持たないので、鍵があっても節の列を歩く。どちらで歩いても選ぶ節と順は同じ。
+ClauseWalk::ClauseWalk(const Predicate& predicate, const IndexKey& key, std::size_t from, ScanView view,
+                       std::size_t hint)
+    : predicate_(&predicate), key_(key), view_(view) {
+  // retract はどの死んだ節も試さない。呼び出しと clause/2 は、その述語の最後の削除より後に始めた走査ならどの死んだ節も
+  // 見えない。古い走査が跳ぶと、跳ぶ範囲にある、走査より後に消した節（まだ見える節）を欠く。
+  skip_ = view.retract || view.generation >= predicate.last_death;
+  by_index_ = key.kind != KeyKind::Any && predicate.clauses.size() >= kIndexMinClauses;
+  if (!by_index_) {
+    at_ = clause_from(predicate, from);
+    return;
   }
-  return chosen;
+  if (!predicate.index.built) build_index(predicate);
+  const FirstArgIndex& index = predicate.index;
+  if (const auto found = index.buckets.find(key); found != index.buckets.end()) bucket_ = &found->second;
+  if (bucket_ != nullptr) {
+    at_ = hint < bucket_->size() && (*bucket_)[hint] == from ? hint : bucket_->lower_bound(from);
+  }
+  keyless_ = index.keyless.lower_bound(from);
+}
+
+std::size_t ClauseWalk::next() { return by_index_ ? next_in_index() : next_in_list(); }
+
+// 走査より後に生まれた節に当たったら、そこで尽きたことにする（敵対的レビュー A1）。歩く先の番号はどれも走査が始めに
+// 見た節の番号以上で、asserta した節はその時の最小の番号より小さいので、その節は走査より後に assertz した節。
+// assertz の番号と生まれた世代は一緒に増えるので、その先の節もみな走査より後に生まれ、どれも見えない。戻した写しも
+// 写した時の番号と世代のままなので、この順は崩れない。歩き続けると、尽きるたびに後で足した節を 1 つずつなめる。
+std::size_t ClauseWalk::next_in_list() {
+  const ClauseList& clauses = predicate_->clauses;
+  while (at_ < clauses.size()) {
+    const std::size_t position = at_;
+    const Clause& clause = clauses[position];
+    if (clause.born > view_.generation) break;
+    if (scan_usable(clause, view_) && key_selects(clause, key_)) {
+      at_ = position + 1;
+      return position;
+    }
+    at_ = skip_ && clause.dead() ? past_dead(*predicate_, position) : position + 1;
+  }
+  at_ = clauses.size();
+  return clauses.size();
+}
+
+// 組も keyless も番号の昇順なので、小さい方から取れば節の順になる。索引に無い番号（節の列と食い違う索引）は飛ばす。
+// 取った番号は両方の残りで最小なので、その節が走査より後に生まれたなら両方の残りもみなそう。
+std::size_t ClauseWalk::next_in_index() {
+  const Predicate& predicate = *predicate_;
+  const IdBucket& keyless = predicate.index.keyless;
+  const std::size_t keyed = bucket_ == nullptr ? 0 : bucket_->size();
+  while (at_ < keyed || keyless_ < keyless.size()) {
+    const bool from_bucket = keyless_ >= keyless.size() || (at_ < keyed && (*bucket_)[at_] < keyless[keyless_]);
+    const IdBucket& ids = from_bucket ? *bucket_ : keyless;
+    std::size_t& at = from_bucket ? at_ : keyless_;
+    const auto position = clause_position(predicate, ids[at]);
+    if (position && predicate.clauses[*position].born > view_.generation) break;
+    if (position && scan_usable(predicate.clauses[*position], view_)) {
+      hint_ = from_bucket ? at : kNoHint;
+      ++at;
+      return *position;
+    }
+    at = position && skip_ && predicate.clauses[*position].dead() ? past_dead_in(predicate, ids, at) : at + 1;
+  }
+  at_ = keyed;
+  keyless_ = keyless.size();
+  return predicate.clauses.size();
 }
 
 }  // namespace mosa

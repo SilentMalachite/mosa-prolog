@@ -81,6 +81,12 @@ struct Clause {
   std::uint64_t born = 0;
   std::uint64_t died = kAlive;
   [[nodiscard]] bool dead() const { return died != kAlive; }
+  // ADR 0015 の改訂（レビュー M20）。死んだ節だけが使う飛び越しの幅。番号が [id, id + skip_all) の節は全部死んで
+  // おり、[id, id + skip_key) の同じ鍵の節（鍵の無い節どうしも一つの鍵と数える）も全部死んでいる。節は生き返らず、
+  // 足す番号はこの範囲の外なので、足しても消しても掃除しても正しいまま。歩みが跳んだ道を縮めて書き直すので mutable。
+  // 32 ビットに収まらない幅は最大値に留める（短い範囲も正しい）。
+  mutable std::uint32_t skip_all = 1;
+  mutable std::uint32_t skip_key = 1;
   // スロットごとの原文の変数名（名前の無い変数は空）。読み込んだ節だけが持ち、mosac のコメントだけが読む。
   // 意味は持たないので指紋には数えない。
   std::vector<std::string> names;
@@ -145,6 +151,9 @@ struct Predicate {
   // いるので、残した節も数えて掃除を決める。枠があるうちは、その後に消した節だけで決める（毎回の掃除を避ける）。
   std::size_t held_dead = 0;
   ScanRecord held_by;
+  // この述語の節を最後に消した世代（ADR 0015 の改訂）。これ以上の世代の走査はどの死んだ節も見ないので、死んだ節の
+  // 飛び越しの幅で跳んでよい。それより古い走査は、跳ぶ範囲に自分に見える節があり得るので 1 つずつ歩く。
+  std::uint64_t last_death = 0;
   // 第1引数の索引。const の述語を引く呼び出しが初めて要るときに作るので mutable。節を書く所が一緒に直す。
   mutable FirstArgIndex index;
   bool seen = false;
@@ -212,18 +221,19 @@ struct Entry {
   std::size_t heap_mark = 0;
   std::size_t trail_mark = 0;
   std::uint64_t redo_goal = kNoFrame;
-  // Clauses・Retract・ClauseScan では節の番号（Clause::id）。消しても asserta しても付け直さない（ADR 0015）。
-  // PredGen は述語ベクタの添字、StreamGen と Native は状態。
-  // 上限に数える（ADR 0010 の改訂 3）。作るときは id_list で、この機械の Heap に数える列にする。
+  // PredGen は述語の番号（Predicate::serial）、StreamGen と Native は状態。節の走査は candidates を使わない（ADR 0015
+  // の改訂）。上限に数える（ADR 0010 の改訂 3）。作るときは id_list で、この機械の Heap に数える列にする。
   IdList candidates;
+  // candidates の次の添字。節の走査では、最後に返した節の鍵の組の添字（ClauseWalk::hint、無ければ kNoHint）で、
+  // やり直しが組を二分探索せずに続ける。番号を照らしてから使うので、組が変わっていても答えは変わらない。
   std::size_t next = 0;
   // Clauses・Retract・ClauseScan の走査を始めたときの Impl::db_generation。消した節がまだこの走査に届くかを決める。
   std::uint64_t generation = 0;
-  // by_cursor の Clauses・Retract・ClauseScan は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）だけを
-  // 持つ。第1引数が未束縛の呼び出しは全部の節が候補なので、列を作ると呼ぶたびに節の数だけかかる（レビュー M3）。
-  // Retract と ClauseScan のカーソルは、次に合う節（先に試して合った節）を指す。
+  // Clauses・Retract・ClauseScan は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）と選ぶ鍵だけを持つ。
+  // 列を作ると、最初の答えで切っても呼ぶたびに候補の数だけかかる（レビュー M3 と M20）。番号は消しても asserta
+  // しても付け直さない（ADR 0015）。Retract と ClauseScan のカーソルは、次に合う節（先に試して合った節）を指す。
   std::size_t cursor = kNoClause;
-  bool by_cursor = false;
+  IndexKey key;
   std::uint32_t pred_module = 0;
   std::uint32_t pred_name = 0;
   std::uint16_t pred_arity = 0;
@@ -638,8 +648,6 @@ void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanReco
 [[nodiscard]] std::optional<std::size_t> clause_position(const Predicate& predicate, std::size_t id);
 // 番号が id 以上の最初の節の位置。無ければ clauses.size()。
 [[nodiscard]] std::size_t clause_from(const Predicate& predicate, std::size_t id);
-// 位置 from から先で、世代 generation の走査に見える最初の節の位置。無ければ clauses.size()。
-[[nodiscard]] std::size_t next_visible(const Predicate& predicate, std::size_t from, std::uint64_t generation);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
 // 開いた走査が届かない死んだ節を一度に消す（定義は database.cpp、ADR 0015）。述語は消さない。
@@ -701,10 +709,9 @@ void propagate_throw(Impl& machine, Cell ball);
 void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity);
 void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);
 [[nodiscard]] Cell cell_functor(Impl& machine, std::uint32_t name, std::uint16_t arity);
-// 束縛した第1引数 first に合う節（鍵が等しい節と鍵の無い節）のうち、世代 generation に見える節の番号を節の順に
-// 返す。8 節以上なら索引を作って引く。first が未束縛なら見える節を全部返すが、呼び手はカーソルで走査するので
-// 普通は来ない。呼び出しでは、第1引数を meta 引数で包む述語に呼ばない。列は machine の Heap に数える。
-[[nodiscard]] IdList key_candidates(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t generation);
+// 束縛した第1引数 first（deref 済み）の走査の鍵。鍵の型でない値なら kind が None で、鍵の無い節だけを選ぶ。未束縛の
+// 第1引数は呼び手が Any の鍵（IndexKey{}）にする（定義は index.cpp）。
+[[nodiscard]] IndexKey first_key(const Impl& machine, Cell first);
 // この機械の Heap::state に数える空の候補の列（ADR 0010 の改訂 3）。
 [[nodiscard]] inline IdList id_list(Impl& machine) { return IdList(StateAllocator<std::size_t>(machine.heap)); }
 

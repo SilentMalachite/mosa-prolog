@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <optional>
 #include <utility>
@@ -16,6 +17,15 @@ namespace {
 std::size_t count_live(const ClauseList& clauses) {
   return static_cast<std::size_t>(
       std::count_if(clauses.begin(), clauses.end(), [](const Clause& clause) { return !clause.dead(); }));
+}
+
+// 写しの死んだ節の最後の世代。これより新しい走査は写しのどの死んだ節も見ない（ADR 0015 の改訂）。
+std::uint64_t latest_death(const ClauseList& clauses) {
+  std::uint64_t latest = 0;
+  for (const Clause& clause : clauses) {
+    if (clause.dead()) latest = std::max(latest, clause.died);
+  }
+  return latest;
 }
 
 // 記憶は返さない。捨てるのは読み直しと真ん中の削除で、どちらもすぐ後の呼び出しが同じくらいの索引を作り直す。
@@ -64,11 +74,20 @@ void index_remove(Predicate& predicate, std::size_t position) {
 
 }  // namespace
 
-// 足す節はいつも生きた節として数える。写した節に died が残っていても、足した世代からは見える節にする。
-void append_clause(Predicate& predicate, Clause clause, std::uint64_t born) {
-  clause.id = predicate.next_id++;
+// 足す節はいつも生きた節として数える。写した節に died が残っていても、足した世代からは見える節にする。死んだ節を
+// 跳ぶ幅も 1 に戻す。写した元の幅は元の述語の番号の差で、足した先では生きた節を跳び越しうる（敵対的レビュー A3）。
+namespace {
+void reset_life(Clause& clause, std::uint64_t born) {
   clause.born = born;
   clause.died = kAlive;
+  clause.skip_all = 1;
+  clause.skip_key = 1;
+}
+}  // namespace
+
+void append_clause(Predicate& predicate, Clause clause, std::uint64_t born) {
+  clause.id = predicate.next_id++;
+  reset_life(clause, born);
   ++predicate.live;
   predicate.clauses.push_back(std::move(clause));
   index_add(predicate.index, predicate.clauses.back(), true);
@@ -76,8 +95,7 @@ void append_clause(Predicate& predicate, Clause clause, std::uint64_t born) {
 
 void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born) {
   clause.id = --predicate.first_id;
-  clause.born = born;
-  clause.died = kAlive;
+  reset_life(clause, born);
   ++predicate.live;
   predicate.clauses.push_front(std::move(clause));
   index_add(predicate.index, predicate.clauses.front(), false);
@@ -90,6 +108,7 @@ void replace_clauses(Predicate& predicate, ClauseList clauses) {
   predicate.live = count_live(predicate.clauses);
   predicate.dead_since = predicate.clauses.size() - predicate.live;
   predicate.held_dead = 0;
+  predicate.last_death = latest_death(predicate.clauses);
   drop_index(predicate.index);
   if (predicate.clauses.empty()) return;
   // 述語を作り直した後に戻すと、写しの番号が今の範囲の外にありうる。広げておけば次の番号と重ならない。
@@ -145,14 +164,6 @@ std::size_t clause_from(const Predicate& predicate, std::size_t id) {
   const auto found = std::lower_bound(clauses.begin(), end, id,
                                       [](const Clause& clause, std::size_t wanted) { return clause.id < wanted; });
   return static_cast<std::size_t>(std::distance(clauses.begin(), found));
-}
-
-// 見えない節は、走査より後に assertz した節（末尾に並ぶので、走査の終わりに一度だけ飛ばす）と、走査より前に
-// 消して古い走査のために残る節だけなので、一つずつ飛ばす。
-std::size_t next_visible(const Predicate& predicate, std::size_t from, std::uint64_t generation) {
-  const ClauseList& clauses = predicate.clauses;
-  while (from < clauses.size() && !visible(clauses[from], generation)) ++from;
-  return from;
 }
 
 std::size_t live_count(const Predicate& predicate) { return predicate.live; }

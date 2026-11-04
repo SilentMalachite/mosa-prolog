@@ -1,5 +1,5 @@
-// レビュー M3（ADR 0015）。assertz で積んだ動的述語 p/2 の節を 4 倍にしても、ゴールの時間が節の数に
-// 比例する範囲（8 倍 + 30 ms）に収まること。選択点の候補を一歩ごとに写すと、やり直しが節の数の 2 乗になる。
+// レビュー M3 と M20（ADR 0015 とその改訂）。assertz で積んだ動的述語 p/2 と k/2 の節を 4 倍にしても、ゴールの時間が
+// 節の数に比例する範囲（8 倍 + 30 ms）に収まること。選択点の候補を一歩ごとに写すと、やり直しが節の数の 2 乗になる。
 // 測るのはゴールだけ。毎回 mk(N) で p/2 を作り直す（節を足すゴールは mk(0) で空にする）ので、節を変えるゴールも
 // 同じ形で足せる。
 #include "harness.hpp"
@@ -55,7 +55,48 @@ constexpr std::string_view k_program =
     // 節の数の 1/4 から 12 おきに、真ん中の節を消して末尾へ足し直し、鍵で引く。
     "upd(N) :- K is N // 25, upd(0, K, N).\n"
     "upd(J, K, _) :- J >= K, !.\n"
-    "upd(J, K, N) :- I is N // 4 + J * 12, retract(p(I, _)), assertz(p(I, x)), p(7, _), J1 is J + 1, upd(J1, K, N).\n";
+    "upd(J, K, N) :- I is N // 4 + J * 12, retract(p(I, _)), assertz(p(I, x)), p(7, _), J1 is J + 1, upd(J1, K, N).\n"
+    // レビュー M20。k/2 は 1 つの鍵 a に N 節（mkk）か、鍵 0 と 1 を交互に N 節（mki）。
+    ":- dynamic(k/2).\n"
+    "mkk(N) :- retractall(k(_, _)), mkk(1, N).\n"
+    "mkk(I, N) :- I =< N, !, assertz(k(a, I)), I1 is I + 1, mkk(I1, N).\n"
+    "mkk(_, _).\n"
+    "mki(N) :- retractall(k(_, _)), mki(1, N).\n"
+    "mki(I, N) :- I =< N, !, K is I mod 2, assertz(k(K, I)), I1 is I + 1, mki(I1, N).\n"
+    "mki(_, _).\n"
+    "kones(N) :- kones(1, N).\n"
+    "kones(I, N) :- I =< N, !, k(a, _), !, I1 is I + 1, kones(I1, N).\n"
+    "kones(_, _).\n"
+    "kdrain :- retract(k(a, _)), !, kdrain.\n"
+    "kdrain.\n"
+    "kcls(N) :- kcls(1, N).\n"
+    "kcls(I, N) :- I =< N, !, clause(k(a, _), true), !, I1 is I + 1, kcls(I1, N).\n"
+    "kcls(_, _).\n"
+    // 外の走査が消した節に届くので、消した節は列に残る。後の走査はそれを 1 つずつ歩いてはいけない。
+    "pdrain :- retract(p(_, _)), !, pdrain.\n"
+    "pdrain.\n"
+    "pcdrain :- p(X, Y), !, retract(p(X, Y)), pcdrain.\n"
+    "pcdrain.\n"
+    // 鍵 1 の死んだ節の間に鍵 0 の生きた節が挟まる。節の列には死んだ節の並びが無い。
+    "kdrain1 :- retract(k(1, _)), !, kdrain1.\n"
+    "kdrain1.\n"
+    // retract は次に合う節を先に試すので、鍵 1 の組で一つにしか合わない retract(k(1, X)) は組の残りを試す。
+    // 測るのは呼び出しなので、retract は組の先頭を消す形にする。
+    "kcdrain1 :- k(1, _), !, retract(k(1, _)), !, kcdrain1.\n"
+    "kcdrain1.\n"
+    // 敵対的レビュー A1（M20）。鍵 a の 2 節と鍵 b の 8 節（mkn）に K 個の選択点を開いてから鍵 a に N 節足し、K 個とも
+    // 尽きるまでやり直す。足した節は開いた走査に見えないので、やり直しがそれを 1 つずつ歩くと K と N の積になる。
+    "mkn :- retractall(k(_, _)), assertz(k(a, 1)), assertz(k(a, 0)), mkb(8).\n"
+    "mkb(0) :- !.\n"
+    "mkb(I) :- assertz(k(b, 0)), I1 is I - 1, mkb(I1).\n"
+    "nest(How, K, N) :- (nest1(How, K, N) ; true), !.\n"
+    "nest1(_, 0, N) :- !, more(N), fail.\n"
+    "nest1(How, K, N) :- probe(How, X), X == 1, K1 is K - 1, nest1(How, K1, N).\n"
+    "probe(call, X) :- k(a, X).\n"
+    "probe(clause, X) :- clause(k(a, X), true).\n"
+    "probe(any, X) :- k(_, X).\n"
+    "more(0) :- !.\n"
+    "more(N) :- assertz(k(a, 2)), N1 is N - 1, more(N1).\n";
 
 constexpr int k_runs = 2;
 constexpr double k_slack_ms = 30.0;
@@ -129,5 +170,26 @@ int main() {
   check_linear("retract from front, cut", 2500, [](std::size_t n) { return "rfcs(" + std::to_string(n) + ")."; });
   // 真ん中の節を消すたびに索引を捨てると、次の鍵の呼び出しが索引を作り直し、1 回が N かかる（Ruling 10）。
   check_linear("update by key", 2500, [](std::size_t n) { return "upd(" + std::to_string(n) + ")."; });
+  // レビュー M20 (A3)。1 つの鍵に N 節あると、鍵で引く呼び出しが組の全体の列を作るか、retract と clause/2 が組の全部と
+  // 単一化すれば、最初の答えで切っても 1 回が N かかる。
+  const GoalOf one_key = [](std::size_t n) { return "mkk(" + std::to_string(n) + ")."; };
+  const GoalOf two_keys = [](std::size_t n) { return "mki(" + std::to_string(n) + ")."; };
+  check_linear("keyed call, cut", 5000, [](std::size_t n) { return "kones(" + std::to_string(n) + ")."; }, one_key);
+  check_linear("keyed retract, cut", 2500, [](std::size_t) { return std::string{"kdrain."}; }, one_key);
+  check_linear("keyed clause/2, cut", 2500, [](std::size_t n) { return "kcls(" + std::to_string(n) + ")."; }, one_key);
+  // レビュー M20 (A2)。外の走査が届く消した先頭の節を、後の呼び出しと retract が位置 0 から 1 つずつ歩くと N の 2 乗。
+  check_linear("dead prefix, retract", 10000, "p(_, _), pdrain, !.");
+  check_linear("dead prefix, call", 10000, "p(_, _), pcdrain, !.");
+  check_linear("dead keyed clauses, retract", 10000, [](std::size_t) { return std::string{"k(1, _), kdrain1, !."}; },
+               two_keys);
+  check_linear("dead keyed clauses, call", 10000, [](std::size_t) { return std::string{"k(1, _), kcdrain1, !."}; },
+               two_keys);
+  // 敵対的レビュー A1（M20）。開いた走査より後に足した節を、尽きるときに 1 つずつ歩かない。
+  const GoalOf few = [](std::size_t) { return std::string{"mkn."}; };
+  for (const std::string how : {"call", "clause", "any"}) {
+    check_linear("clauses added after open scans, " + how, 2500,
+                 [how](std::size_t n) { return "nest(" + how + ", " + std::to_string(n) + ", " + std::to_string(n) + ")."; },
+                 few);
+  }
   return mosa_test::failures();
 }

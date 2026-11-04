@@ -17,10 +17,9 @@
 namespace mosa {
 
 using database::HeadName;
-using database::bound_first;
 using database::callable_term;
-using database::collect_ids;
 using database::head_indicator;
+using database::head_key;
 using database::push_if_more;
 using database::raise_instantiation;
 using database::raise_type;
@@ -87,20 +86,10 @@ void push_scan(Impl& machine, Pick pick, const Goal& goal, PredKey key, IdList&&
   push_frame(machine, std::move(entry));
 }
 
-// 第1引数を束縛した clause/2 は key_candidates の候補だけを試しに単一化し、合う節の列で走査する。未束縛なら
-// どの節も候補なので、列を作らずにカーソルで進む（ADR 0015）。
-Entry clause_scan(Impl& machine, const Goal& goal, const Predicate& predicate, PredKey key, Cell head, Cell body) {
-  const auto generation = machine.db_generation;
-  Entry scan = scan_entry(Pick::ClauseScan, goal, key, generation);
-  const auto first = bound_first(machine, head);
-  if (!first) {
-    scan.by_cursor = true;
-    return scan;
-  }
-  const auto match = [&machine, head, body](const Clause& clause) {
-    return unify_clause_ref(machine, clause, head, body);
-  };
-  scan.candidates = collect_ids(machine, predicate, key_candidates(machine, predicate, *first, generation), match);
+// 第1引数を束縛した clause/2 はその鍵の候補だけを、未束縛ならどの節もカーソルで歩く（ADR 0015 とその改訂）。
+Entry clause_scan(Impl& machine, const Goal& goal, PredKey key, Cell head) {
+  Entry scan = scan_entry(Pick::ClauseScan, goal, key, machine.db_generation);
+  scan.key = head_key(machine, head);
   return scan;
 }
 
@@ -113,8 +102,7 @@ bool take_clause(Impl& machine, const Goal& goal, Entry scan, bool redo) {
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
   const Cell body = goal.arg(machine, 1);
   // 走査を始めた後に消した節も、走査の世代には見えるので試す（7.5.4）。
-  const auto generation = scan.generation;
-  const auto usable = [generation](const Clause& clause) { return visible(clause, generation); };
+  const ScanView usable{scan.generation, false};
   const auto match = [&machine, head, body](const Clause& clause) {
     return unify_clause_ref(machine, clause, head, body);
   };
@@ -142,7 +130,7 @@ void run_clause(Impl& machine, const Goal& goal) {
   }
   const PredKey key{predicate->module, indicator.name, indicator.arity};
   const Cell head = named_head(machine, skip_module(machine, goal.arg(machine, 0)), key.name);
-  Entry scan = clause_scan(machine, goal, *predicate, key, head, goal.arg(machine, 1));
+  Entry scan = clause_scan(machine, goal, key, head);
   if (!take_clause(machine, goal, std::move(scan), false)) machine.failed = true;
 }
 

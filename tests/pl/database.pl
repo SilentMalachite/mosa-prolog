@@ -718,3 +718,52 @@ m7_body_dag(N, L, T) :- M is N - 1, m7_body_dag(M, L, T0), T = (T0 ; T0).
 m7_body_dag_runs :- m7_body_dag(16, (true, X), X), assertz((m7_p14 :- X)), catch(m7_p14, error(instantiation_error, _), true).
 test(m7_assert_body_dag, m7_body_dag_runs, true).
 test(m7_assert_data_arg, (X = (m7_q(X), true), assertz((m7_p12 :- X)), m7_p12, clause(m7_p12, (m7_q(A), true)), A = (m7_q(V), true), var(V)), true).
+
+% レビュー M20（ADR 0015 の改訂）。第1引数で引く走査は組の列を作らずに番号のカーソルで歩き、死んだ節は飛び越しの
+% 幅で跳ぶ。答えと順は列を作っていたときと同じで、走査は始めた時点の節を見る（7.5.4）。索引は 8 節以上の述語だけが
+% 持つので、どの述語も 9 節以上にする。
+:- dynamic(m20_k/2).
+m20_k(a, 1). m20_k(b, 2). m20_k(a, 3). m20_k(_, 4). m20_k(a, 5). m20_k(b, 6). m20_k(a, 7). m20_k(b, 8). m20_k(a, 9).
+test(m20_keyed_call_view, findall(X, (m20_k(a, X), (X == 1 -> assertz(m20_k(a, 10)), asserta(m20_k(a, 0)), retract(m20_k(a, 7)), retract(m20_k(_, 4)) ; true)), L), solutions([L = [1, 3, 4, 5, 7, 9]])).
+test(m20_keyed_call_view_left, findall(X, m20_k(a, X), L), solutions([L = [0, 1, 3, 5, 9, 10]])).
+:- dynamic(m20_r/2).
+m20_r(a, 1). m20_r(b, 2). m20_r(a, 3). m20_r(b, 4). m20_r(a, 5). m20_r(b, 6). m20_r(a, 7). m20_r(b, 8). m20_r(a, 9).
+% retract の走査は別の retract が消した節を飛ばし、走査の後に足した節を見ない。
+test(m20_keyed_retract_view, findall(X, (retract(m20_r(a, X)), (X == 1 -> assertz(m20_r(a, 10)), retract(m20_r(a, 5)) ; true)), L), solutions([L = [1, 3, 7, 9]])).
+test(m20_keyed_retract_view_left, findall(K-X, m20_r(K, X), L), solutions([L = [b-2, b-4, b-6, b-8, a-10]])).
+:- dynamic(m20_c/2).
+m20_c(a, 1). m20_c(b, 2). m20_c(a, 3). m20_c(b, 4). m20_c(a, 5). m20_c(b, 6). m20_c(a, 7). m20_c(b, 8). m20_c(a, 9).
+test(m20_keyed_clause_view, findall(X, (clause(m20_c(a, X), true), (X == 1 -> retract(m20_c(a, 5)), assertz(m20_c(a, 10)) ; true)), L), solutions([L = [1, 3, 5, 7, 9]])).
+% 外の走査が届くので、消した先頭の節は列に残る。新しい呼び出しと retract はそれを見ず、外の走査は全部を見る。
+:- dynamic(m20_d/1).
+m20_d(1). m20_d(2). m20_d(3). m20_d(4). m20_d(5). m20_d(6). m20_d(7). m20_d(8). m20_d(9). m20_d(10).
+m20_d_drain(0) :- !.
+m20_d_drain(N) :- retract(m20_d(_)), !, M is N - 1, m20_d_drain(M).
+test(m20_dead_prefix, findall(X-L, (m20_d(X), (X == 1 -> m20_d_drain(4), findall(Y, m20_d(Y), L) ; L = [])), R), solutions([R = [1-[5, 6, 7, 8, 9, 10], 2-[], 3-[], 4-[], 5-[], 6-[], 7-[], 8-[], 9-[], 10-[]]])).
+test(m20_dead_prefix_left, findall(X, m20_d(X), L), solutions([L = [5, 6, 7, 8, 9, 10]])).
+% 2 を消した後に始めた内の走査は、その後に消した 3 と 4 をまだ見る。新しい呼び出しが 2 から 4 を跳んで道を縮めても、
+% 内の走査はそれを跳ばない。跳べば 4 が欠ける。
+:- dynamic(m20_g/1).
+m20_g(1). m20_g(2). m20_g(3). m20_g(4). m20_g(5). m20_g(6). m20_g(7). m20_g(8). m20_g(9).
+test(m20_skip_generations, (m20_g(X), X == 1, retract(m20_g(2)), findall(Y-Z, (m20_g(Y), (Y == 1 -> retract(m20_g(3)), retract(m20_g(4)), findall(W, m20_g(W), Z) ; Z = [])), L), !), solutions([L = [1-[1, 5, 6, 7, 8, 9], 3-[], 4-[], 5-[], 6-[], 7-[], 8-[], 9-[]]])).
+% 同じことを鍵の組の中で。鍵 a の節の間に鍵 b の生きた節が挟まる。
+:- dynamic(m20_gk/2).
+m20_gk(a, 1). m20_gk(b, 0). m20_gk(a, 2). m20_gk(b, 0). m20_gk(a, 3). m20_gk(b, 0). m20_gk(a, 4). m20_gk(b, 0). m20_gk(a, 5). m20_gk(a, 6).
+test(m20_skip_generations_keyed, (m20_gk(a, X), X == 1, retract(m20_gk(a, 2)), findall(Y-Z, (m20_gk(a, Y), (Y == 1 -> retract(m20_gk(a, 3)), retract(m20_gk(a, 4)), findall(W, m20_gk(a, W), Z) ; Z = [])), L), !), solutions([L = [1-[1, 5, 6], 3-[], 4-[], 5-[], 6-[]]])).
+% 外の鍵の走査の下で鍵 a の節を前から消す。消した節は鍵 b の生きた節の間に残る。
+:- dynamic(m20_ik/2).
+:- dynamic(m20_ik_log/1).
+m20_ik(a, 1). m20_ik(b, 1). m20_ik(a, 2). m20_ik(b, 2). m20_ik(a, 3). m20_ik(b, 3). m20_ik(a, 4). m20_ik(b, 4). m20_ik(a, 5). m20_ik(b, 5).
+m20_ik_drain :- retract(m20_ik(a, X)), !, assertz(m20_ik_log(X)), m20_ik_drain.
+m20_ik_drain.
+test(m20_dead_interleaved, (findall(X, (m20_ik(a, X), (X == 1 -> m20_ik_drain ; true)), L), findall(Y, m20_ik_log(Y), Log), findall(K-V, m20_ik(K, V), Left)), solutions([(L = [1, 2, 3, 4, 5], Log = [1, 2, 3, 4, 5], Left = [b-1, b-2, b-3, b-4, b-5])])).
+% 末尾まで死んだ節を跳ぶと、跳んだ先は次に振る番号になる。後で足した節はそこから見える。
+:- dynamic(m20_e/2).
+m20_e(k, 1). m20_e(k, 2). m20_e(k, 3). m20_e(k, 4). m20_e(k, 5). m20_e(k, 6). m20_e(k, 7). m20_e(k, 8). m20_e(k, 9).
+m20_e_drain :- retract(m20_e(_, _)), !, m20_e_drain.
+m20_e_drain.
+test(m20_dead_to_end, findall(X-L1-L2-L3, (m20_e(k, X), (X == 1 -> m20_e_drain, findall(Y, m20_e(_, Y), L1), findall(Y, m20_e(k, Y), L2), assertz(m20_e(k, 20)), asserta(m20_e(k, 0)), findall(Y, m20_e(k, Y), L3) ; L1 = [], L2 = [], L3 = [])), R), solutions([R = [1-[]-[]-[0, 20], 2-[]-[]-[], 3-[]-[]-[], 4-[]-[]-[], 5-[]-[]-[], 6-[]-[]-[], 7-[]-[]-[], 8-[]-[]-[], 9-[]-[]-[]]])).
+% retractall も鍵で歩き、外の走査が届く死んだ節を跳ぶ。
+:- dynamic(m20_ra/2).
+m20_ra(a, 1). m20_ra(b, 2). m20_ra(a, 3). m20_ra(b, 4). m20_ra(a, 5). m20_ra(b, 6). m20_ra(a, 7). m20_ra(b, 8). m20_ra(a, 9).
+test(m20_retractall_keyed, findall(X-L, (m20_ra(a, X), (X == 1 -> retract(m20_ra(a, 3)), retractall(m20_ra(a, _)), findall(K-Y, m20_ra(K, Y), L) ; L = [])), R), solutions([R = [1-[b-2, b-4, b-6, b-8], 3-[], 5-[], 7-[], 9-[]]])).

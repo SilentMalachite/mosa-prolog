@@ -78,6 +78,11 @@ std::optional<Cell> bound_first(const Impl& machine, Cell head) {
   return first;
 }
 
+IndexKey head_key(const Impl& machine, Cell head) {
+  const auto first = bound_first(machine, head);
+  return first ? first_key(machine, *first) : IndexKey{};
+}
+
 Entry scan_entry(Pick pick, const Goal& goal, PredKey key, std::uint64_t generation) {
   Entry entry;
   entry.pick = pick;
@@ -89,10 +94,9 @@ Entry scan_entry(Pick pick, const Goal& goal, PredKey key, std::uint64_t generat
   return entry;
 }
 
-// 枠は移すだけにし、やり直すたびに候補の列を写さない（レビュー M3）。
+// 枠は移すだけにし、やり直すたびに写さない（レビュー M3）。
 void push_if_more(Impl& machine, Entry&& scan) {
-  const bool more = scan.by_cursor ? scan.cursor != kNoClause : scan.next < scan.candidates.size();
-  if (!more) return;
+  if (scan.cursor == kNoClause) return;
   scan.heap_mark = machine.heap.size();
   scan.trail_mark = machine.trail.slots.size();
   push_frame(machine, std::move(scan));
@@ -104,11 +108,9 @@ using database::HeadName;
 using database::strip_target;
 using database::run_clause;
 using database::run_current_predicate;
-using database::bound_first;
 using database::callable_term;
-using database::collect_ids;
-using database::find_match;
 using database::head_indicator;
+using database::head_key;
 using database::push_if_more;
 using database::raise_instantiation;
 using database::raise_type;
@@ -194,7 +196,7 @@ bool goal_form(const IrTerm& term) {
   return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; });
 }
 
-// candidates が節の番号である選択点だけ。述語の番号（PredGen）や状態（Native）を節の番号と比べない。
+// cursor が節の番号である選択点だけ。述語の番号（PredGen）や状態（Native）を節の番号と比べない。
 bool scans_clauses(Pick pick) {
   return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
 }
@@ -220,8 +222,6 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
   const auto exhaust = [module, name, arity](std::vector<Entry>& stack) {
     for (Entry& entry : stack) {
       if (!scans_pred(entry, module, name, arity)) continue;
-      entry.candidates.clear();
-      entry.next = 0;
       entry.cursor = kNoClause;
     }
   };
@@ -231,15 +231,14 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
   machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
 }
 
-// entry が、消した節 clause をまだ試しうるか（ADR 0015）。ほかの述語の走査と、節を足す前か消した後に始めた
-// 走査はこの節を見ない。通り過ぎた節（試し終えた節と今動いている節）にはもう戻らない。retract は別の retract が
-// 消した節を飛ばすので、開いた retract はどの消した節も試さない。番号は変わらず、候補の列は番号の昇順。
+// entry が、消した節 clause をまだ試しうるか（ADR 0015 とその改訂）。ほかの述語の走査と、節を足す前か消した後に
+// 始めた走査はこの節を見ない。通り過ぎた節（試し終えた節と今動いている節）にはもう戻らず、走査の鍵に合わない節は
+// 試さない。retract は別の retract が消した節を飛ばすので、開いた retract はどの消した節も試さない。番号は変わらない。
+// clause/2 のカーソルより先の合わない節も残すが、述語の掃除を遅らせるだけで答えは変わらない。
 bool scan_reaches(const Entry& entry, PredKey key, const Clause& clause) {
   if (!scans_pred(entry, key.module, key.name, key.arity) || entry.pick == Pick::Retract) return false;
-  if (entry.generation < clause.born || entry.generation >= clause.died) return false;
-  if (entry.by_cursor) return entry.cursor != kNoClause && entry.cursor <= clause.id;
-  const auto untried = static_cast<std::ptrdiff_t>(std::min(entry.next, entry.candidates.size()));
-  return std::binary_search(entry.candidates.begin() + untried, entry.candidates.end(), clause.id);
+  if (!visible(clause, entry.generation)) return false;
+  return entry.cursor != kNoClause && entry.cursor <= clause.id && key_selects(clause, entry.key);
 }
 
 // 記録した節の走査を、脇に置いたスタック（Impl::parked）の古い順から今のスタックまで渡す。visit が偽を返したら
@@ -276,10 +275,12 @@ bool reachable(Impl& machine, PredKey key, const Clause& clause) {
   return found;
 }
 
-// 消した世代を付ける。消した節に付け直すと、その間に始めた走査の見え方が変わる。
+// 消した世代を付ける。消した節に付け直すと、その間に始めた走査の見え方が変わる。飛び越しの幅は節を作ったときの 1 の
+// ままで、自分だけの範囲を指す（ADR 0015 の改訂）。
 bool mark_dead(Impl& machine, Predicate& predicate, Clause& clause) {
   if (clause.dead()) return false;
   clause.died = ++machine.db_generation;
+  predicate.last_death = clause.died;
   predicate.live -= 1;
   return true;
 }
@@ -391,23 +392,10 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   return unify_visible(machine, floor, view.body, body);
 }
 
-// retract が試してよい節。走査を始めた後に足した節は見ず、別の retract が先に消した節はもう無い節である。
-bool retractable(const Clause& clause, std::uint64_t generation) {
-  return clause.born <= generation && !clause.dead();
-}
-
-// 第1引数を束縛した retract は key_candidates の候補だけを試しに単一化し、合う節の列で走査する。未束縛なら
-// どの節も候補なので、列を作らずにカーソルで進む（ADR 0015）。
-Entry retract_scan(Impl& machine, const Goal& goal, const Predicate& predicate, PredKey key, const ClauseView& view) {
-  const auto generation = machine.db_generation;
-  Entry scan = scan_entry(Pick::Retract, goal, key, generation);
-  const auto first = bound_first(machine, view.head);
-  if (!first) {
-    scan.by_cursor = true;
-    return scan;
-  }
-  const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
-  scan.candidates = collect_ids(machine, predicate, key_candidates(machine, predicate, *first, generation), match);
+// 第1引数を束縛した retract はその鍵の候補だけを、未束縛ならどの節もカーソルで歩く（ADR 0015 とその改訂）。
+Entry retract_scan(Impl& machine, const Goal& goal, PredKey key, const ClauseView& view) {
+  Entry scan = scan_entry(Pick::Retract, goal, key, machine.db_generation);
+  scan.key = head_key(machine, view.head);
   return scan;
 }
 
@@ -420,8 +408,7 @@ bool take_retract(Impl& machine, const Goal& goal, Entry scan, bool redo) {
   // 引数は最初の呼び出しで検査済み。M: は外すだけにし、節を作り直してヒープを使わない。
   ClauseView view = clause_view(machine, skip_module(machine, goal.arg(machine, 0)));
   view.head = named_head(machine, skip_module(machine, view.head), key.name);
-  const auto generation = scan.generation;
-  const auto usable = [generation](const Clause& clause) { return retractable(clause, generation); };
+  const ScanView usable{scan.generation, true};
   const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
   const auto position = step_scan(machine, *predicate, scan, redo, usable, match);
   if (!position) return false;
@@ -502,7 +489,7 @@ void run_retract(Impl& machine, const Goal& goal) {
   const PredKey key{predicate->module, head.name, head.arity};
   ClauseView source = view;
   source.head = named_head(machine, view.head, head.name);
-  if (!take_retract(machine, goal, retract_scan(machine, goal, *predicate, key, source), false)) machine.failed = true;
+  if (!take_retract(machine, goal, retract_scan(machine, goal, key, source), false)) machine.failed = true;
 }
 
 void run_retractall(Impl& machine, const Goal& goal) {
@@ -532,18 +519,13 @@ void run_retractall(Impl& machine, const Goal& goal) {
   ClauseView view;
   view.head = named_head(machine, head_cell, head.name);
   view.head_only = true;
-  // 消すのは全部済ませてからなので、試すのは今生きている節（世代は今のもの）。
-  const auto generation = machine.db_generation;
+  // 消すのは全部済ませてからなので、試すのは今生きている節（世代は今のもの）。第1引数を束縛していれば、その鍵の
+  // 候補だけを歩く。
   const auto match = [&machine, &view](const Clause& clause) { return unify_stored(machine, clause, view); };
   IdList matches = id_list(machine);
-  if (const auto first = bound_first(machine, view.head)) {
-    matches = collect_ids(machine, *predicate, key_candidates(machine, *predicate, *first, generation), match);
-  } else {
-    const auto usable = [generation](const Clause& clause) { return retractable(clause, generation); };
-    for (std::size_t at = find_match(machine, *predicate, 0, usable, match); at < predicate->clauses.size();
-         at = find_match(machine, *predicate, at + 1, usable, match)) {
-      matches.push_back(predicate->clauses[at].id);
-    }
+  ClauseWalk walk(*predicate, head_key(machine, view.head), 0, ScanView{machine.db_generation, true});
+  for (std::size_t at = walk.next(); at < predicate->clauses.size(); at = walk.next()) {
+    if (database::try_match(machine, predicate->clauses[at], match)) matches.push_back(predicate->clauses[at].id);
   }
   // 後ろから消すと、全部消すときはどの節も消す時点で末尾にあり、すぐ消える。節を消しても述語は表に残る。
   for (std::size_t cursor = matches.size(); cursor > 0; --cursor) {

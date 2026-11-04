@@ -32,72 +32,43 @@ Entry clause_entry(const Impl& machine, const Predicate& predicate, std::uint64_
   return entry;
 }
 
-// 第1引数で節を選べない呼び出しは生きた節が全部候補なので、列を作らずに次の節の番号だけを持つ（ADR 0015）。
-// 次に見える節が無ければ積まない。列の長さが 1 のとき積まなかったのと同じで、決定的な答えは選択点を残さない。
-void call_by_cursor(Impl& machine, const Predicate& predicate, std::uint64_t goal) {
-  const auto generation = machine.db_generation;
-  const std::size_t position = next_visible(predicate, 0, generation);
+// 候補は列にせず、鍵 key で次の候補を探しながら歩く（ADR 0015 とその改訂）。第1引数が未束縛なら key は Any で、
+// 全部の節が候補。次の候補が無ければ積まないので、決定的な答えは選択点を残さない。列を作ると最初の答えで切っても
+// 呼ぶたびに候補の数だけかかる（レビュー M3 と M20）。
+void call_scan(Impl& machine, const Predicate& predicate, const IndexKey& key, std::uint64_t goal) {
+  ClauseWalk walk(predicate, key, 0, ScanView{machine.db_generation, false});
+  const std::size_t position = walk.next();
   if (position >= predicate.clauses.size()) {
     machine.failed = true;
     return;
   }
-  const std::size_t after = next_visible(predicate, position + 1, generation);
+  const std::size_t after = walk.next();
   const auto boundary = machine.stack.size();
   if (after < predicate.clauses.size()) {
     Entry entry = clause_entry(machine, predicate, goal, boundary);
-    entry.by_cursor = true;
+    entry.key = key;
     entry.cursor = predicate.clauses[after].id;
+    entry.next = walk.hint();
     push_frame(machine, std::move(entry));
   }
   enter_clause(machine, predicate, position, goal, boundary);
 }
 
-// 候補は今見える節の番号だけなので、最初の番号の節は在る。位置は真ん中から消していなければ差の 1 回で引ける。
-void call_by_list(Impl& machine, const Predicate& predicate, Cell first, std::uint64_t goal) {
-  auto candidates = key_candidates(machine, predicate, first, machine.db_generation);
-  const auto position = candidates.empty() ? std::nullopt : clause_position(predicate, candidates.front());
-  if (!position) {
-    machine.failed = true;
-    return;
-  }
-  const auto boundary = machine.stack.size();
-  if (candidates.size() > 1) {
-    Entry entry = clause_entry(machine, predicate, goal, boundary);
-    entry.candidates = std::move(candidates);
-    entry.next = 1;
-    push_frame(machine, std::move(entry));
-  }
-  enter_clause(machine, predicate, *position, goal, boundary);
-}
-
-bool exhausted(const Entry& entry) {
-  return entry.by_cursor ? entry.cursor == kNoClause : entry.next >= entry.candidates.size();
-}
+bool exhausted(const Entry& entry) { return entry.cursor == kNoClause; }
 
 // カーソルの節はまだこの走査が届くので消さず、普通は在る。読み込みの戻しなどで無くなっていれば、その番号より
-// 先で見える節から続ける。次に見える節を先に探しておき、無ければ尽きた印にする。
-std::optional<std::size_t> advance_cursor(const Predicate& predicate, Entry& entry) {
-  const std::size_t position = next_visible(predicate, clause_from(predicate, entry.cursor), entry.generation);
+// 先の候補から続ける。歩みは走査の世代に見える節だけを返すので、述語を消して作り直した後に同じ番号を持つ新しい節も
+// 飛ばす（レビュー M19）。次の候補を先に探しておき、無ければ尽きた印にする。
+std::optional<std::size_t> advance_scan(const Predicate& predicate, Entry& entry) {
+  ClauseWalk walk(predicate, entry.key, entry.cursor, ScanView{entry.generation, false}, entry.next);
+  const std::size_t position = walk.next();
   if (position >= predicate.clauses.size()) {
     entry.cursor = kNoClause;
     return std::nullopt;
   }
-  const std::size_t after = next_visible(predicate, position + 1, entry.generation);
+  const std::size_t after = walk.next();
   entry.cursor = after < predicate.clauses.size() ? predicate.clauses[after].id : kNoClause;
-  return position;
-}
-
-// 候補は番号なので、前の節を消しても asserta しても位置を引き直せば同じ節に入る（ADR 0015）。まだ試して
-// いない節は消さずに残すので普通は在る。無い番号が残っていれば飛ばす。述語を消して作り直すと番号は先頭から
-// 振り直すので、走査の世代に見えない節は同じ番号の新しい節で、これも飛ばす（レビュー M19）。カーソルの走査、
-// clause/2 と retract は、もとから世代で確かめている。
-std::optional<std::size_t> advance_list(const Predicate& predicate, Entry& entry) {
-  std::optional<std::size_t> position;
-  while (!position && entry.next < entry.candidates.size()) {
-    position = clause_position(predicate, entry.candidates[entry.next]);
-    entry.next += 1;
-    if (position && !visible(predicate.clauses[*position], entry.generation)) position.reset();
-  }
+  entry.next = walk.hint();
   return position;
 }
 
@@ -242,12 +213,12 @@ void enter_user(Impl& machine, const Goal& goal) {
   }
   const bool has_arg = goal.arity >= 1 && !wraps_first(*predicate);
   const Cell first = has_arg ? machine.heap.deref(goal.arg(machine, 0)) : Cell{};
-  if (!has_arg || machine.heap.unbound(first)) call_by_cursor(machine, *predicate, goal.at);
-  else call_by_list(machine, *predicate, first, goal.at);
+  const IndexKey key = !has_arg || machine.heap.unbound(first) ? IndexKey{} : first_key(machine, first);
+  call_scan(machine, *predicate, key, goal.at);
 }
 
 bool redo_clause(Impl& machine) {
-  // 候補の列は写さずに読む。一歩ごとに写すと、節を尽くすまでが候補の数の 2 乗になる（レビュー M3）。
+  // 枠は写さずに読む。一歩ごとに写すと、節を尽くすまでが候補の数の 2 乗になった（レビュー M3）。
   // apply_catches と find_pred はスタックの長さを変えないので、外すか進めるまで参照は有効。
   Entry& top = machine.stack.back();
   if (exhausted(top)) {
@@ -261,7 +232,7 @@ bool redo_clause(Impl& machine) {
     machine.stack.pop_back();
     return false;
   }
-  const auto position = top.by_cursor ? advance_cursor(*predicate, top) : advance_list(*predicate, top);
+  const auto position = advance_scan(*predicate, top);
   const auto goal = top.redo_goal;
   const auto cut = top.cut;
   // 最後の節に入るときは外す。呼び出しで 1 節なら積まなかったのと同じく、最後の答えは選択点を残さない。

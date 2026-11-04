@@ -35,7 +35,7 @@ void first_of(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, rt::Nati
   run(m, r, frame, states.front());
 }
 
-// 第1引数の選び方は key_candidates と同じ。NaN どうしは等しく、0.0 と -0.0 も等しい。
+// 第1引数の選び方は key_selects（index.cpp）と同じ。NaN どうしは等しく、0.0 と -0.0 も等しい。
 [[maybe_unused]] bool same_float(Cell cell, double value) {
   const double actual = std::bit_cast<double>(*rt::cell_words(cell));
   if (actual != actual || value != value) return actual != actual && value != value;
@@ -161,7 +161,7 @@ bool same_key(const Clause& left, const Clause& right) {
   }
 }
 
-// key_candidates（index.cpp）の鍵の等しさと同じ判定を、第1引数のセル first に対して書く。
+// key_selects（index.cpp）の鍵の等しさと同じ判定を、第1引数のセル first に対して書く。
 std::string key_test(UnitTables& tables, const Clause& clause) {
   const auto atom = [&] { return "r.atoms[" + std::to_string(tables.atom(clause.key_atom)) + "]"; };
   switch (clause.key) {
@@ -185,7 +185,7 @@ std::string states_array(std::string_view name, const std::vector<std::uint32_t>
          "{" + items + "};\n";
 }
 
-// 状態 0。第1引数が未束縛なら全部の節、束縛済みなら鍵の合う節と鍵の無い節（enter_user と key_candidates と同じ）。
+// 状態 0。第1引数が未束縛なら全部の節、束縛済みなら鍵の合う節と鍵の無い節（enter_user と key_selects と同じ）。
 std::string dispatch_text(UnitTables& tables, const Predicate& predicate, const std::string& proc) {
   const auto& clauses = predicate.clauses;
   std::vector<std::uint32_t> all;
