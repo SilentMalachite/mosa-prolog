@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 5c92c9f, CI run 41831451308 passed all 8 jobs (2026-11-04)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main bd32139, CI run 41916910472 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
 - **Last done:** review M27: a toplevel answer writes each value as the right operand of the current `=` (`X = (a;b)`, `X = (=)`), so it reads back while `=` is below priority 1000; tests `check_answer_operands`, `check_operand_priority`. Before it, M26 (ADR 0019) with L18.
