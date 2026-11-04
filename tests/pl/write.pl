@@ -46,6 +46,10 @@ test(m9_given_later, (with_output_to(atom(A), write_term(f(Y, Z, X), [variable_n
 test(m9_given_shared, (with_output_to(atom(A), write_term(f(Y, X, Y), [variable_names(['_G1'=X])])), A == 'f(_G2,_G1,_G2)'), true).
 test(m9_given_absent, (with_output_to(atom(A), write_term(f(Y), [variable_names(['_G1'=_])])), A == 'f(_G2)'), true).
 test(m9_given_quoted, (with_output_to(atom(A), write_term([X|Y], [quoted(true), variable_names(['_G1'=X])])), A == '[_G1|_G2]'), true).
+% レビュー M22。solutions の答えは束縛をまたいで 1 つの番号で書いて比べる。
+test(m22_fresh_apart, (length(L, 2), length(M, 1)), solutions([(L = [_G1,_G2], M = [_G3])])).
+test(m22_copies_apart, (copy_term(f(_), X), copy_term(g(_), Y)), solutions([(X = f(_), Y = g(_))])).
+test(m22_copies_shared, copy_term(f(Q)-g(Q), X-Y), solutions([(X = f(_G1), Y = g(_G1))])).
 test(m9_given_numbervars, (with_output_to(atom(A), write_term(f(X, Y), [numbervars(true), variable_names(['_G1'=X])])), A == 'f(_G1,_G2)'), true).
 % _G01 と _G1 は別の名前。束縛済みの組は Cor.3 で無視するので、その名前は作る名前と重ならない。
 test(m9_given_leading_zero, (with_output_to(atom(A), write_term(f(X, Y), [variable_names(['_G01'=X])])), A == 'f(_G01,_G1)'), true).

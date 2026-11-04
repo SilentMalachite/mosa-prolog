@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -175,13 +176,14 @@ bool unify_formal(Machine& machine, Cell actual, Cell expected) {
   return ok;
 }
 
-void binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::string, std::string>>& pairs,
-                   const std::vector<VarName>& names, const OperatorTable& ops) {
+// 期待の (Name = Value, ...) から名前と値の組を拾う。値はまだ書かない（freeze_answers が 1 つの番号付けで書く）。
+void binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::string, Cell>>& pairs,
+                   const std::vector<VarName>& names) {
   term = heap.deref(term);
   if (term.tag() == Tag::Str && heap.functor_arity(term) == 2 &&
       heap.atoms().name(heap.functor_atom(term)) == ",") {
-    binding_pairs(heap, heap.arg(term, 0), pairs, names, ops);
-    binding_pairs(heap, heap.arg(term, 1), pairs, names, ops);
+    binding_pairs(heap, heap.arg(term, 0), pairs, names);
+    binding_pairs(heap, heap.arg(term, 1), pairs, names);
     return;
   }
   if (term.tag() == Tag::Str && heap.functor_arity(term) == 2 &&
@@ -192,7 +194,7 @@ void binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::strin
       if (var.cell.raw() == left.raw() || heap.deref(var.cell).raw() == heap.deref(left).raw()) name = var.name;
     }
     if (name.empty() && left.tag() == Tag::Ref) name = "V";
-    pairs.emplace_back(name, write_term(heap, ops, heap.arg(term, 1), {}, names));
+    pairs.emplace_back(name, heap.arg(term, 1));
   }
 }
 
@@ -208,10 +210,19 @@ bool freeze_answers(const Machine& machine, const std::vector<Cell>& items, cons
   rows.clear();
   rows.reserve(items.size());
   for (const Cell item : items) {
-    std::vector<std::pair<std::string, std::string>> pairs;
-    binding_pairs(machine.heap(), item, pairs, names, machine.operators());
+    std::vector<std::pair<std::string, Cell>> found;
+    binding_pairs(machine.heap(), item, found, names);
     // 組が無い答えは、切れた項を成功と見なさない。
-    if (pairs.empty()) return false;
+    if (found.empty()) return false;
+    std::vector<Cell> values;
+    values.reserve(found.size());
+    for (const auto& pair : found) values.push_back(pair.second);
+    // 組ごとに書くと、作る名前が組ごとに _G1 から始まり、別の変数と共有した変数を区別できない（レビュー M22）。
+    // saved_matches も同じ順に 1 つの番号付けで書く。
+    std::vector<std::string> texts = write_terms(machine.heap(), machine.operators(), values, {}, names);
+    std::vector<std::pair<std::string, std::string>> pairs;
+    pairs.reserve(found.size());
+    for (std::size_t at = 0; at < found.size(); ++at) pairs.emplace_back(found[at].first, std::move(texts[at]));
     rows.push_back(std::move(pairs));
   }
   return true;
@@ -219,15 +230,20 @@ bool freeze_answers(const Machine& machine, const std::vector<Cell>& items, cons
 
 bool saved_matches(const Machine& machine, const Stop& stop,
                    const std::vector<std::pair<std::string, std::string>>& pairs) {
+  std::vector<Cell> values;
+  values.reserve(pairs.size());
   for (const auto& pair : pairs) {
     const Binding* found = nullptr;
     for (const Binding& binding : stop.bindings) {
       if (binding.name == pair.first) found = &binding;
     }
     if (found == nullptr) return false;
-    const auto text =
-        write_term(machine.heap(), machine.operators(), machine.heap().deref(found->variable), {}, stop_names(stop));
-    if (text != pair.second) return false;
+    values.push_back(machine.heap().deref(found->variable));
+  }
+  const std::vector<std::string> texts =
+      write_terms(machine.heap(), machine.operators(), values, {}, stop_names(stop));
+  for (std::size_t at = 0; at < pairs.size(); ++at) {
+    if (texts[at] != pairs[at].second) return false;
   }
   return true;
 }

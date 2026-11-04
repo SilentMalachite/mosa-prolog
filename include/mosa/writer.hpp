@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace mosa {
 
@@ -61,6 +62,12 @@ using WriteReplace = WriteCut (*)(void* context, Cell term, std::string& out, Wr
 [[nodiscard]] std::string write_term(const Heap& heap, OperatorView operators, Cell term,
                                      WriteOptions options, std::span<const VarName> names,
                                      WriteReplace replace = nullptr, void* context = nullptr);
+
+// terms を 1 つの番号付けで続けて書き、項ごとの字面を返す。作る名前（_G1 など）は、同じ変数には項をまたいでも
+// 同じ名前、違う変数には違う名前になる。underscore_once の「1 度だけ」は全部の項を通して数える。トップレベルの
+// 答えが束縛ごとに書くのに使う（レビュー M22）。portray を呼ばないので、書く間に GC は動かない。
+[[nodiscard]] std::vector<std::string> write_terms(const Heap& heap, OperatorView operators, std::span<const Cell> terms,
+                                                   WriteOptions options, std::span<const VarName> names);
 
 [[nodiscard]] bool same_term(const Heap& left_heap, Cell left, std::span<const VarName> left_names,
                              const Heap& right_heap, Cell right, std::span<const VarName> right_names);

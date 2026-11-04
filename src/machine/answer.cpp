@@ -3,6 +3,7 @@
 #include "mosa/writer.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -59,19 +60,28 @@ std::string format_answer(const Machine& machine, const Stop& stop) {
   std::vector<VarName> names;
   names.reserve(stop.bindings.size());
   for (const Binding& binding : stop.bindings) names.push_back(VarName{binding.name, binding.variable});
+  // 書く束縛を先に選ぶ。未束縛のまま前の束縛に出た変数は書かない。
   std::vector<std::uint64_t> shown;
-  std::string text;
-  // 答えは利用者が同じ旗のまま貼り直せるように書く（レビュー M8）。
-  WriteOptions options;
-  options.fullwidth = engine_impl(machine).japanese_punct;
+  std::vector<const Binding*> picked;
+  std::vector<Cell> values;
   for (const Binding& binding : stop.bindings) {
     const Cell value = machine.heap().deref(binding.variable);
     if (machine.heap().unbound(value) && already(shown, value.raw())) continue;
-    if (!text.empty()) text += ", ";
-    text += binding.name;
-    text += " = ";
-    text += write_term(machine.heap(), machine.operators(), value, options, names);
+    picked.push_back(&binding);
+    values.push_back(value);
     note_shown(machine.heap(), value, names, shown);
+  }
+  // 答えは利用者が同じ旗のまま貼り直せるように書く（レビュー M8）。
+  WriteOptions options;
+  options.fullwidth = engine_impl(machine).japanese_punct;
+  // 束縛ごとに write_term を呼ぶと、作る名前が束縛ごとに _G1 から始まり、違う変数が同じ名前になる（レビュー M22）。
+  const std::vector<std::string> texts = write_terms(machine.heap(), machine.operators(), values, options, names);
+  std::string text;
+  for (std::size_t at = 0; at < picked.size(); ++at) {
+    if (at > 0) text += ", ";
+    text += picked[at]->name;
+    text += " = ";
+    text += texts[at];
   }
   if (text.empty()) return "true";
   return text;

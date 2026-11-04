@@ -231,9 +231,61 @@ void check_given_made_up_name() {
   mosa_test::check(result.out.find("X = f(_G1,_G2).") != std::string::npos, "answer names the anonymous variable apart");
 }
 
+// レビュー M22。答えの束縛を 1 つずつ書くと、作る名前が束縛ごとに _G1 から始まり、違う変数が同じ名前になった。
+// 同じ変数は束縛をまたいでも同じ名前のまま、利用者の _G2 は後の束縛でも飛ばす。REPL は読んだゴールを書き直して
+// 読むので（M9）、_ は名前の付いた変数になる。名前の無い _ は -g で確かめる。
+void check_answer_numbering() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args,
+                                  "length(L, 2), length(M, 1).\n"
+                                  "copy_term(f(A), X), copy_term(g(B), Y).\n"
+                                  "length(L, 2), length(K, 1), M = L.\n"
+                                  "X = f(_G2), length(L, 1), length(M, 1).\n"
+                                  "(N = 1 ; N = 2), length(L, N), length(M, 1).\n;\n",
+                                  true);
+  const auto has = [&result](std::string_view line) { return result.out.find(line) != std::string::npos; };
+  mosa_test::check(has("L = [_G1,_G2], M = [_G3]."), "lists of fresh variables apart: " + result.out);
+  mosa_test::check(has("X = f(_G1), B = B, Y = g(_G2)."), "copies apart");
+  mosa_test::check(has("L = [_G1,_G2], K = [_G3], M = [_G1,_G2]."), "one variable keeps its name across bindings");
+  mosa_test::check(has("X = f(_G2), L = [_G1], M = [_G3]."), "given _G2 skipped while the numbering carries on");
+  // 別解はそれぞれ別の答えなので、番号は答えごとに 1 から振る。
+  mosa_test::check(has("N = 1, L = [_G1], M = [_G2]"), "first alternative");
+  mosa_test::check(has("N = 2, L = [_G1,_G2], M = [_G3]."), "second alternative numbers from 1 again");
+  const std::string arg_g = "-g";
+  const std::string goal = "X = f(_, _), Y = g(_).";
+  std::vector<std::string_view> batch{arg0, arg_g, goal};
+  auto anonymous = mosa::run_session(batch, "", false);
+  mosa_test::check(anonymous.out.find("X = f(_G1,_G2), Y = g(_G3).") != std::string::npos,
+                   "anonymous variables apart: " + anonymous.out);
+}
+
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
+}
+
+// レビュー M22。mosatest の solutions は期待と答えの束縛を 1 つの番号付けで書いて比べる。答えを束縛ごとに書くと、
+// M22 の誤った字面（h1）も、別の 2 つの変数を 1 つの共有した変数とする期待（h3）も通った。h2 は逆向きの取り違え。
+// 期待は全体を 1 度に書いて読み直すので、_ は _G1、_G2 と番号の付いた名前になる。h1〜h3 は落ちたゴールを見分ける印。
+void check_runner_answer_numbering() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_m22.pl";
+  {
+    std::ofstream file(path, std::ios::binary);
+    file << "test(m22_old_text, (length(L, 2), length(M, 1), h1 = h1), solutions([(L = [_G1,_G2], M = [_G1])])).\n"
+            "test(m22_shared_as_apart, copy_term(h2(Q)-g(Q), X-Y), solutions([(X = h2(_), Y = g(_))])).\n"
+            "test(m22_apart_as_shared, (copy_term(h3(_), X), copy_term(g(_), Y)), "
+            "solutions([(X = h3(_G1), Y = g(_G1))])).\n";
+  }
+  std::ostringstream captured;
+  auto* saved = std::cerr.rdbuf(captured.rdbuf());
+  const int code = mosa::run_suite(path);
+  std::cerr.rdbuf(saved);
+  const std::string text = captured.str();
+  mosa_test::check(code == 1, "wrong answer texts fail");
+  mosa_test::check(text.find("h1") != std::string::npos, "M22 text no longer matches: " + text);
+  mosa_test::check(text.find("h2") != std::string::npos, "shared variable is not two variables");
+  mosa_test::check(text.find("h3") != std::string::npos, "two variables are not one shared variable");
 }
 
 // ディレクトリを渡したら、落ちたファイルの後ろも流して全部の失敗を出す。先で止めると後ろの失敗が隠れる。
@@ -516,8 +568,10 @@ int main(int argc, char** argv) {
   check_fullwidth_query();
   check_fullwidth_quoted_answer();
   check_given_made_up_name();
+  check_answer_numbering();
   check_runner();
   check_runner_reports_every_file();
+  check_runner_answer_numbering();
   check_uncaught_message("ja", "警告: ゴールは例外を送出しました: foo", "uncaught_ja");
   check_uncaught_message("en", "Warning: goal raised exception: foo", "uncaught_en");
   check_fullwidth_message_args();

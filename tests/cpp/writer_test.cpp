@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -276,12 +277,55 @@ void check_fullwidth_quoting() {
   mosa_test::check(written("f('、', '（', '：', '。').") == "f(、,（,：,。)", "default leaves fullwidth bare");
 }
 
+// レビュー M22。write_terms は番号を項から項へ持ち越す。1 度だけ出るかは全部の項を通して数え、空白の判断
+// （直前の整数 0 と引用符）は項ごとに始める。
+void check_write_terms() {
+  mosa::AtomTable atoms;
+  mosa::Heap heap(atoms);
+  auto ops = mosa::OperatorTable::iso_core();
+  const auto x = heap.fresh_ref();
+  const auto y = heap.fresh_ref();
+  const auto z = heap.fresh_ref();
+  const auto f = atoms.intern("f");
+  const std::array<mosa::Cell, 3> terms{heap.structure(f, std::array<mosa::Cell, 2>{x, y}),
+                                        heap.structure(f, std::array<mosa::Cell, 2>{y, z}),
+                                        heap.structure(f, std::array<mosa::Cell, 1>{heap.fresh_ref()})};
+  const std::vector<std::string> plain{"f(_G1,_G2)", "f(_G2,_G3)", "f(_G4)"};
+  mosa_test::check(mosa::write_terms(heap, ops, terms, {}, {}) == plain, "numbering carried across terms");
+  mosa::WriteOptions paste;
+  paste.underscore_once = true;
+  const std::vector<std::string> once{"f(_,_G1)", "f(_G1,_)", "f(_)"};
+  mosa_test::check(mosa::write_terms(heap, ops, terms, paste, {}) == once, "occurrences counted across terms");
+  // 呼び手が付けた _G 名は、後の項で作る名前からも飛ばす（レビュー M9）。
+  const std::array<mosa::VarName, 1> given{mosa::VarName{"_G2", z}};
+  const std::vector<std::string> skipped{"f(_G1,_G3)", "f(_G3,_G2)", "f(_G4)"};
+  mosa_test::check(mosa::write_terms(heap, ops, terms, {}, given) == skipped, "given _G name skipped across terms");
+  // 前の項の終わりの 0 は、次の項の初めの引用符の前に空白を置かせない。
+  const auto quoted = heap.structure(atoms.intern("-"), std::array<mosa::Cell, 1>{heap.atom(atoms.intern("A"))});
+  const std::array<mosa::Cell, 2> zero_then_quote{heap.integer(0), quoted};
+  const std::vector<std::string> apart{"0", "-'A'"};
+  mosa_test::check(mosa::write_terms(heap, ops, zero_then_quote, {}, {}) == apart, "spacing starts again per term");
+  mosa_test::check(mosa::write_terms(heap, ops, std::span<const mosa::Cell>{}, {}, {}).empty(), "no terms");
+  // 前の項の祖先の集まり（循環を止める open_）が残ると、次の項の根がすぐ _ になる。名前のある変数も項ごとに同じ名前。
+  const auto back = heap.fresh_ref();
+  const auto loop = heap.structure(f, std::array<mosa::Cell, 2>{back, x});
+  heap.bind(back, loop);
+  const std::array<mosa::VarName, 1> named{mosa::VarName{"X", x}};
+  const std::array<mosa::Cell, 2> twice{loop, loop};
+  const auto loops = mosa::write_terms(heap, ops, twice, {}, named);
+  mosa_test::check(loops.size() == 2 && loops[0] == loops[1] && loops[0].starts_with("f(") &&
+                       loops[0].find("X)") != std::string::npos,
+                   "cycle check starts again per term: " + loops[0] + " / " + loops[1]);
+}
+
+
 }  // namespace
 
 int main() {
   check_layout();
   check_fullwidth_quoting();
   check_unnamed_and_numbers();
+  check_write_terms();
   check_equality();
   check_deep_terms();
   check_deep_lists();

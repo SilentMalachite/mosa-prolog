@@ -228,6 +228,11 @@ void Printer::collect(Cell root) {
 }
 
 std::string Printer::print(Cell term) {
+  // write_terms は同じ Printer で続けて書く。作った名前の表（assigned_、next_number_）は次の項へ持ち越し、
+  // 空白の待ちと直前の 0 の位置は前の項の字面のものなので捨てる。
+  out_.clear();
+  pending_ = Pending{};
+  zero_end_ = std::string::npos;
   push_term(term, 1200, true);
   while (!work_.empty() && !aborted_) {
     Work item = std::move(work_.back());
@@ -656,6 +661,18 @@ std::string write_term(const Heap& heap, OperatorView operators, Cell term, Writ
   Printer printer(heap, operators, options, names, replace, context);
   if (options.underscore_once) printer.collect(term);
   return printer.print(term);
+}
+
+std::vector<std::string> write_terms(const Heap& heap, OperatorView operators, std::span<const Cell> terms,
+                                     WriteOptions options, std::span<const VarName> names) {
+  Printer printer(heap, operators, options, names, nullptr, nullptr);
+  if (options.underscore_once) {
+    for (const Cell term : terms) printer.collect(term);
+  }
+  std::vector<std::string> texts;
+  texts.reserve(terms.size());
+  for (const Cell term : terms) texts.push_back(printer.print(term));
+  return texts;
 }
 
 }
