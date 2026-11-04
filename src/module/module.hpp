@@ -3,6 +3,7 @@
 #include "mosa/machine.hpp"
 #include "mosa/operator_table.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -62,6 +63,10 @@ void install_modules(Machine::Impl& machine);
 [[nodiscard]] Module* find_module(Machine::Impl& machine, std::uint32_t name);
 [[nodiscard]] Predicate* find_pred(Machine::Impl& machine, PredKey key);
 [[nodiscard]] const Predicate* find_pred(const Machine::Impl& machine, PredKey key);
+// 述語表の末尾に足し、次の Predicate::serial を振る。表に述語を足すのはここだけ。
+Predicate& add_predicate(Machine::Impl& machine, Predicate made);
+// serial の述語。消した述語なら nullptr。
+[[nodiscard]] const Predicate* pred_by_serial(const Machine::Impl& machine, std::size_t serial);
 [[nodiscard]] Predicate* resolve_pred(Machine::Impl& machine, std::uint32_t context, std::uint32_t name,
                                       std::uint16_t arity);
 

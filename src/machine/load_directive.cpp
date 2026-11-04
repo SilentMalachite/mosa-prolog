@@ -187,8 +187,7 @@ bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) 
     created.arity = arity;
     created.dynamic = true;
     created.dynamic_declared = true;
-    machine.predicates.push_back(std::move(created));
-    adopt_meta(machine, machine.predicates.back());
+    adopt_meta(machine, add_predicate(machine, std::move(created)));
     return true;
   }
   predicate->dynamic = true;

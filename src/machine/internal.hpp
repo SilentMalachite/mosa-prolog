@@ -126,6 +126,10 @@ struct Predicate {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  // 表に足した順の番号。add_predicate だけが振り、使い回さない。表は末尾に足して途中を消すだけなので、この
+  // 番号の昇順に並ぶ。current_predicate/1 の候補は添字でなくこれで持つ。添字は消した述語より後ろがずれ、入れ子の
+  // 実行が戻したスタックや脇に置いたスタックの候補はずらせない（M18 の敵対的レビュー A1）。
+  std::size_t serial = 0;
   // 書くのは clause_store.cpp の関数だけ。番号と live をそこで保つ。
   ClauseList clauses;
   // [first_id, next_id) が振った番号の範囲。節を消しても縮めないので、消した節の番号を別の節が使わない。
@@ -417,6 +421,8 @@ struct Machine::Impl {
   std::size_t current_out = 1;
   Trail trail;
   std::vector<Predicate> predicates;
+  // 最後に振った Predicate::serial。
+  std::size_t pred_serial = 0;
   // 節を足すたびと消すたびに 1 つ進める（ADR 0015）。走査はこの値を世代として持ち、それより後の変更を見ない。
   // 64 ビットなので、変更をいくつ重ねてもあふれず、kAlive にも届かない。
   std::uint64_t db_generation = 0;

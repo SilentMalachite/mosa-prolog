@@ -209,16 +209,16 @@ bool accept_indicator(Impl& machine, const Goal& goal, Cell pred, WantedPred& wa
   return true;
 }
 
+// 候補は Predicate::serial の列（表の順）。
 IdList pred_matches(Impl& machine, const WantedPred& wanted) {
   IdList found = id_list(machine);
   if (wanted.arity_high) return found;
-  for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
-    const Predicate& predicate = machine.predicates[index];
+  for (const Predicate& predicate : machine.predicates) {
     if (predicate.abolished) continue;
     if (!wanted.any_module && predicate.module != wanted.module) continue;
     if (wanted.name_set && predicate.name != wanted.name) continue;
     if (wanted.arity_set && predicate.arity != wanted.arity) continue;
-    found.push_back(index);
+    found.push_back(predicate.serial);
   }
   return found;
 }
@@ -228,12 +228,14 @@ bool take_pred(Impl& machine, const Goal& goal, IdList matches, std::size_t begi
   // やり直しでも引数の形は同じ。M:PI には M も束縛する。
   const bool qualified = qualified_term(machine, wanted);
   for (std::size_t cursor = begin; cursor < matches.size(); ++cursor) {
-    const auto index = matches[cursor];
-    if (index >= machine.predicates.size()) continue;
+    // 走査を始めた後に表から消した述語と abolish した述語は答えない。abolish した述語が表に残るのは開いた節の
+    // 走査のためだけで、新しい呼び出しと同じく無いものとする（ADR 0008）。
+    const Predicate* found = pred_by_serial(machine, matches[cursor]);
+    if (found == nullptr || found->abolished) continue;
+    const Predicate& predicate = *found;
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
-    const Predicate& predicate = machine.predicates[index];
     Cell indicator = cell_functor(machine, predicate.name, predicate.arity);
     if (qualified) {
       const std::array<Cell, 2> parts{machine.heap.atom(predicate.module), indicator};

@@ -3,6 +3,10 @@
 
 #include "../machine/internal.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <utility>
+
 namespace mosa {
 
 namespace {
@@ -60,6 +64,19 @@ const Predicate* find_pred(const Impl& machine, PredKey key) {
     if (same_key(predicate, key)) return &predicate;
   }
   return nullptr;
+}
+
+Predicate& add_predicate(Impl& machine, Predicate made) {
+  made.serial = ++machine.pred_serial;
+  machine.predicates.push_back(std::move(made));
+  return machine.predicates.back();
+}
+
+// 表は serial の昇順なので二分探索で引く。current_predicate/1 のやり直しごとに表をなめない。
+const Predicate* pred_by_serial(const Impl& machine, std::size_t serial) {
+  const auto found = std::ranges::lower_bound(machine.predicates, serial, {}, &Predicate::serial);
+  if (found == machine.predicates.end() || found->serial != serial) return nullptr;
+  return &*found;
 }
 
 Predicate* resolve_pred(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {

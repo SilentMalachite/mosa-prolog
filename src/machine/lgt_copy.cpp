@@ -132,7 +132,7 @@ void plant_predicate(Impl& src, Impl& dst, const Predicate& predicate) {
     append_clause(made, std::move(copied), 0);
   }
   if (made.clauses.empty() && !made.dynamic) return;
-  dst.predicates.push_back(std::move(made));
+  add_predicate(dst, std::move(made));
 }
 
 void plant_user_clauses(Impl& src, Impl& dst) {

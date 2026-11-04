@@ -494,6 +494,49 @@ test(m18_current_any_module_redo, m18_cp_any_module, true).
 % findall が答えを捨てて戻るたびに、前の答えの束縛を外してから次の述語と単一化する。
 test(m18_current_all_answers, findall(X, m18_cp_gen(X), L), solutions([L = [m18_d1, m18_d2, m18_d3]])).
 
+% 走査を始めた後に消した述語は答えず、作った述語も答えない。候補が述語表の添字だと、入れ子の実行
+% （with_output_to/2 と consult の指令）が終わってスタックを戻すとき、消した分のずらしが捨てられ、添字が
+% 1 つ後ろの述語を指す（M18 の敵対的レビュー A1）。アリティは試験ごとに分ける。
+:- dynamic(m18_e1/12). :- dynamic(m18_e2/12). :- dynamic(m18_e3/12).
+m18_e1(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12).
+m18_e2(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12).
+m18_e3(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12).
+test(m18_current_abolish_ahead, findall(X, (current_predicate(X/12), (X == m18_e1 -> abolish(m18_e2/12) ; true)), L), solutions([L = [m18_e1, m18_e3]])).
+:- dynamic(m18_w1/8). :- dynamic(m18_w2/8). :- dynamic(m18_w3/8). :- dynamic(m18_w4/8).
+m18_w1(1, 2, 3, 4, 5, 6, 7, 8).
+m18_w2(1, 2, 3, 4, 5, 6, 7, 8).
+m18_w3(1, 2, 3, 4, 5, 6, 7, 8).
+m18_w4(1, 2, 3, 4, 5, 6, 7, 8).
+m18_w_abolish :- abolish(m18_w1/8), assertz(m18_w5(1, 2, 3, 4, 5, 6, 7, 8)).
+test(m18_current_nested_abolish, findall(X, (current_predicate(X/8), (X == m18_w1 -> with_output_to(atom(_), m18_w_abolish) ; true)), L), solutions([L = [m18_w1, m18_w2, m18_w3, m18_w4]])).
+:- dynamic(m18_c1/10). :- dynamic(m18_c2/10). :- dynamic(m18_c3/10). :- dynamic(m18_c4/10).
+m18_c1(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).
+m18_c2(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).
+m18_c3(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).
+m18_c4(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).
+m18_c_file('tests/tmp/m18_abolish.pl').
+m18_c_consult :- m18_c_file(Path), consult(Path).
+m18_c_write :- m18_c_file(Path), open(Path, write, S), write(S, ':- abolish(m18_c1/10).\n'), close(S).
+test(m18_current_consult_abolish, (m18_c_write, findall(X, (current_predicate(X/10), (X == m18_c1 -> m18_c_consult ; true)), L)), solutions([L = [m18_c1, m18_c2, m18_c3, m18_c4]])).
+% 開いた節の走査があると、abolish した述語は abolished の印で表に残る。新しい呼び出しと同じく、やり直しも
+% それを答えない（ADR 0008）。
+:- dynamic(m18_a1/11). :- dynamic(m18_a2/11). :- dynamic(m18_a3/11).
+m18_a1(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).
+m18_a2(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).
+m18_a2(2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).
+m18_a3(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).
+m18_a_open(K) :- m18_a2(K, _, _, _, _, _, _, _, _, _, _).
+% 指示が述語を消してから読み込みが失敗しても、巻き戻しは読み込みの前の述語を引けるままにし、読み込みで作った
+% 述語を残さない。表の長さへ縮めていたので、末尾に空の述語が足されて serial の昇順が崩れ、最後に作った述語が
+% current_predicate/1 から消えた（M18 の Codex レビュー P2）。指示の abolish は実行時の変更なので戻さない。
+:- dynamic(m18_r_zap/0).
+m18_r_zap.
+m18_r_file('tests/tmp/m18_rollback.pl').
+m18_r_write :- m18_r_file(Path), open(Path, write, S), write(S, ':- abolish(m18_r_zap/0).\nm18_r_new.\n:- fail.\n'), close(S).
+m18_r_rejected :- m18_r_file(Path), \+ consult(Path).
+test(m18_rollback_after_abolish, (assertz(m18_r_late), m18_r_write, m18_r_rejected, current_predicate(m18_r_late/0), \+ current_predicate(m18_r_new/0), \+ current_predicate(m18_r_zap/0)), true).
+test(m18_current_abolished_kept,findall(X, (m18_a_open(K), K == 1, current_predicate(X/11), (X == m18_a1 -> abolish(m18_a2/11) ; true)), L), solutions([L = [m18_a1, m18_a3]])).
+
 % 開いた走査が見ている先の節を retract が消す。走査は呼んだ時点の節を見るが、retract は消えた節を二度は消さない。
 test(m3_sweep_held, (m3_sh(X, _), retract(m3_sh(Y, _))), solutions([(X = 1, Y = 1), (X = 1, Y = 2), (X = 1, Y = 3), (X = 1, Y = 4), (X = 1, Y = 5), (X = 1, Y = 6), (X = 1, Y = 7), (X = 1, Y = 8), (X = 1, Y = 9), (X = 1, Y = 10)])).
 test(m3_sweep_held_left, (findall(X, m3_sh(X, _), L), predicate_property(m3_sh(_, _), number_of_clauses(N))), solutions([(L = [], N = 0)])).

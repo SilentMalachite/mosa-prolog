@@ -111,11 +111,11 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
       fail_load(machine, write_term(machine.heap, machine.operators, *formal, {}, {}));
       return false;
     }
-    machine.predicates.push_back(Predicate{});
-    machine.predicates.back().module = module;
-    machine.predicates.back().name = name;
-    machine.predicates.back().arity = arity;
-    adopt_meta(machine, machine.predicates.back());
+    Predicate created;
+    created.module = module;
+    created.name = name;
+    created.arity = arity;
+    adopt_meta(machine, add_predicate(machine, std::move(created)));
   }
   Predicate& predicate = machine.predicates[index];
   // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
@@ -162,7 +162,7 @@ void remember_clause(Impl& machine, std::vector<Snapshot>& snapshots, std::uint3
   remember_pred(machine, snapshots, PredKey{module, head_name(clause), head_arity(clause)});
 }
 
-void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_size) {
+void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_serial) {
   for (const Snapshot& shot : snapshots) {
     if (shot.created) continue;
     Predicate* predicate = find_pred(machine, PredKey{shot.module, shot.name, shot.arity});
@@ -175,7 +175,11 @@ void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::
       predicate->meta = shot.meta;
     }
   }
-  machine.predicates.resize(previous_size);
+  // 読み込みの間に作った述語を消す。表の長さへ縮めると、指示が述語を消していたとき、作った述語が残るか、空の
+  // 述語が末尾に足されて serial の昇順が崩れる（M18 の Codex レビュー P2）。
+  std::erase_if(machine.predicates, [previous_serial](const Predicate& predicate) {
+    return predicate.serial > previous_serial;
+  });
 }
 
 }

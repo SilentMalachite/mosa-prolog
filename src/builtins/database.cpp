@@ -194,7 +194,7 @@ bool goal_form(const IrTerm& term) {
   return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; });
 }
 
-// candidates が節の番号である選択点だけ。述語の添字（PredGen）や状態（Native）を節の番号と比べない。
+// candidates が節の番号である選択点だけ。述語の番号（PredGen）や状態（Native）を節の番号と比べない。
 bool scans_clauses(Pick pick) {
   return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
 }
@@ -206,23 +206,6 @@ bool scans_pred(const Entry& entry, std::uint32_t module, std::uint32_t name, st
          entry.pred_arity == arity;
 }
 
-void shift_pred_index(Entry& entry, std::size_t removed) {
-  IdList kept(entry.candidates.get_allocator());
-  kept.reserve(entry.candidates.size());
-  std::size_t next = entry.next;
-  for (std::size_t cursor = 0; cursor < entry.candidates.size(); ++cursor) {
-    auto index = entry.candidates[cursor];
-    if (index == removed) {
-      if (cursor < next) --next;
-      continue;
-    }
-    if (index > removed) --index;
-    kept.push_back(index);
-  }
-  entry.candidates = std::move(kept);
-  entry.next = next;
-}
-
 void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
   std::size_t removed = machine.predicates.size();
   for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
@@ -232,15 +215,12 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
     break;
   }
   // 述語を作り直すと番号は同じ所から振り直す。開いた走査を尽きた印にしておけば、新しい定義の節を指さない。
+  // current_predicate の候補は Predicate::serial なので、表から消してもずらさない。
   for (Entry& entry : machine.stack) {
-    if (scans_pred(entry, module, name, arity)) {
-      entry.candidates.clear();
-      entry.next = 0;
-      entry.cursor = kNoClause;
-      continue;
-    }
-    // current_predicate の候補は述語ベクタの添字なので、節の番号と違い、消した述語より後ろをずらす。
-    if (entry.pick == Pick::PredGen && removed < machine.predicates.size()) shift_pred_index(entry, removed);
+    if (!scans_pred(entry, module, name, arity)) continue;
+    entry.candidates.clear();
+    entry.next = 0;
+    entry.cursor = kNoClause;
   }
   if (removed >= machine.predicates.size()) return;
   machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
@@ -456,8 +436,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     created.name = source_name;
     created.arity = head.arity;
     created.dynamic = true;
-    machine.predicates.push_back(std::move(created));
-    existing = &machine.predicates.back();
+    existing = &add_predicate(machine, std::move(created));
     adopt_meta(machine, *existing);
   }
   // 番号で持つ開いた走査は、先頭に足しても付け直さない。新しい番号はどの候補にも無く、カーソルより後ろに

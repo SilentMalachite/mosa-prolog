@@ -74,7 +74,7 @@ void restore_file_flags(Impl& machine, const SavedFlags& saved) {
 }
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
-                       const std::vector<Snapshot>& snapshots, std::size_t previous_size,
+                       const std::vector<Snapshot>& snapshots, std::size_t previous_serial,
                        std::size_t heap_base, const std::vector<SharedPred>& saved_declared,
                        const std::vector<std::string>& saved_prepared, const std::vector<Module>& saved_modules) {
   machine.operators = saved_ops;
@@ -83,7 +83,7 @@ LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const Save
   restore_flags(machine, saved_flags);
   machine.declared = saved_declared;
   machine.prepared = saved_prepared;
-  rollback_preds(machine, snapshots, previous_size);
+  rollback_preds(machine, snapshots, previous_serial);
   machine.heap.truncate(heap_base);
   return LoadStatus{false, machine.diagnostic};
 }
@@ -521,7 +521,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     visitor.heap_mark(heap_base);
     for (Cell& goal : inits) visitor.cell(goal);
   });
-  const auto previous_size = machine.predicates.size();
+  const auto previous_serial = machine.pred_serial;
   std::size_t last = static_cast<std::size_t>(-1);
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
@@ -532,7 +532,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
       machine.heap.truncate(heap_base);
       return LoadStatus{false, machine.diagnostic};
     }
-    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_size, heap_base, saved_declared,
+    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_serial, heap_base, saved_declared,
                        saved_prepared, saved_modules);
   }
   // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
