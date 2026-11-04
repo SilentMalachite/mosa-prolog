@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main e5066dd, CI run 41749007896 passed all 8 jobs (2026-11-04)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 19b0c24, CI run 41765277091 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
 - **Last done:** review M23 (found during M19): a consult inside a load gives the parent file its load marks back by predicate name, so the parent no longer replaces its own clauses or forgets its declarations.
