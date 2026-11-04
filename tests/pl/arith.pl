@@ -112,3 +112,30 @@ test(eval_functor_cmp, (foo(bar) =:= 1), error(type_error(evaluable, foo/1))).
 test(eval_functor_arity, (X is sqrt(bar, 1)), error(type_error(evaluable, sqrt/2))).
 test(eval_arg_atom, (X is 1 + bar), error(type_error(evaluable, bar/0))).
 test(eval_known_functor_arg, (X is log(foo, 2)), error(type_error(evaluable, foo/0))).
+
+% レビュー L1。最小の整数を -1 で割った余りは 0 で、桁はあふれない（9.1.3）。商はあふれる。
+test(l1_rem_min, (M is -9223372036854775807 - 1, X is M rem -1), solutions([X = 0])).
+test(l1_mod_min, (M is -9223372036854775807 - 1, X is M mod -1), solutions([X = 0])).
+test(l1_quot_min, (M is -9223372036854775807 - 1, X is M // -1), error(evaluation_error(int_overflow))).
+test(l1_div_min, (M is -9223372036854775807 - 1, X is div(M, -1)), error(evaluation_error(int_overflow))).
+% gcd は最小の整数を含んでも、値が収まれば返す。2^63 になるときだけあふれる。
+test(l1_gcd_min_2, (M is -9223372036854775807 - 1, X is gcd(M, 2)), solutions([X = 2])).
+test(l1_gcd_2_min, (M is -9223372036854775807 - 1, X is gcd(-6, M)), solutions([X = 2])).
+test(l1_gcd_min_half, (M is -9223372036854775807 - 1, X is gcd(M, 4611686018427387904)), solutions([X = 4611686018427387904])).
+test(l1_gcd_min_0, (M is -9223372036854775807 - 1, X is gcd(M, 0)), error(evaluation_error(int_overflow))).
+test(l1_gcd_min_min, (M is -9223372036854775807 - 1, X is gcd(M, M)), error(evaluation_error(int_overflow))).
+% max と min は、型の違う引数を float に直して比べ、float を返す（iso-notes 9.3.8 の決定 B）。値の型が値で変わらないので、
+% 丸めの関数にそのまま渡せる（9.1.6 の決定 A で floor は整数を受け付けない）。2^53 を超える整数は丸まる。
+test(l1_max_mixed_float, (X is max(2.0, 3)), solutions([X = 3.0])).
+test(l1_min_mixed_float, (X is min(2, 3.0)), solutions([X = 2.0])).
+test(l1_max_float_arg, (X is max(2, 3.0)), solutions([X = 3.0])).
+test(l1_max_tie, (X is max(0, 0.0)), solutions([X = 0.0])).
+test(l1_min_tie, (X is min(0, 0.0)), solutions([X = 0.0])).
+test(l1_max_half, (X is max(2, 2.5)), solutions([X = 2.5])).
+test(l1_min_half, (X is min(-2, -2.5)), solutions([X = -2.5])).
+test(l1_max_rounded, (X is max(9007199254740993, 9007199254740992.0)), solutions([X = 9007199254740992.0])).
+test(l1_floor_of_max, (X is floor(max(0.0, 3))), solutions([X = 3])).
+test(l1_max_inf, (X is max(3, inf), Y is inf, X == Y), true).
+% NaN との比べは大小どちらも偽なので、max は左、min は右の引数を返す。
+test(l1_max_nan_right, (X is max(1, nan), X == 1.0), true).
+test(l1_min_nan_left, (X is min(nan, 1), X == 1.0), true).

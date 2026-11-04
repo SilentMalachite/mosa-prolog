@@ -253,8 +253,9 @@ Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left
     fail_eval(machine, goal, "zero_divisor");
     return {};
   }
-  if ((name == "//" || name == "rem" || name == "div" || name == "mod") &&
-      a == std::numeric_limits<std::int64_t>::min() && b == -1) {
+  // a rem -1 と a mod -1 は 0。C++ の % は最小の整数 % -1 で桁あふれ（未定義動作）になるので先に返す（レビュー L1）。
+  if ((name == "rem" || name == "mod") && b == -1) return from_int(0);
+  if ((name == "//" || name == "div") && a == std::numeric_limits<std::int64_t>::min() && b == -1) {
     fail_eval(machine, goal, "int_overflow");
     return {};
   }
@@ -352,6 +353,27 @@ Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const
 
 namespace {
 
+// 絶対値は符号なしで取る。-(-2^63) は int64 に収まらず未定義動作になる（レビュー L1）。値が 2^63 になる
+// gcd(最小の整数, 0) と gcd(最小の整数, 最小の整数) だけがあふれる。
+Ev gcd_of(Impl& machine, const Goal& goal, std::int64_t left, std::int64_t right) {
+  const auto magnitude = [](std::int64_t value) {
+    const auto bits = static_cast<std::uint64_t>(value);
+    return value < 0 ? std::uint64_t{0} - bits : bits;
+  };
+  std::uint64_t a = magnitude(left);
+  std::uint64_t b = magnitude(right);
+  while (b != 0) {
+    const auto next = a % b;
+    a = b;
+    b = next;
+  }
+  if (a > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+    fail_eval(machine, goal, "int_overflow");
+    return {};
+  }
+  return from_int(static_cast<std::int64_t>(a));
+}
+
 Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args);
 
 Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
@@ -375,6 +397,8 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
     return from_int(0);
   }
   if ((name == "min" || name == "max") && args.size() == 2) {
+    // 型の違う引数は float に直して比べ、float を返す。値の型が値によらず、< と同じ比べ方になる（iso-notes 9.3.8 の
+    // 決定 B）。2^53 を超える整数は丸まるので、max(9007199254740993, 9007199254740992.0) は整数より小さい float になる。
     const bool left_smaller = both_int(args) ? args[0].ival < args[1].ival : as_float(args[0]) < as_float(args[1]);
     const bool take_left = name == "min" ? left_smaller : !left_smaller;
     if (both_int(args)) return from_int(take_left ? args[0].ival : args[1].ival);
@@ -382,19 +406,7 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
   }
   if (name == "gcd" && args.size() == 2) {
     if (!one_int(args[0]) || !one_int(args[1])) return {};
-    auto a = args[0].ival < 0 ? -args[0].ival : args[0].ival;
-    auto b = args[1].ival < 0 ? -args[1].ival : args[1].ival;
-    if (args[0].ival == std::numeric_limits<std::int64_t>::min() ||
-        args[1].ival == std::numeric_limits<std::int64_t>::min()) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-    while (b != 0) {
-      const auto next = a % b;
-      a = b;
-      b = next;
-    }
-    return from_int(a);
+    return gcd_of(machine, goal, args[0].ival, args[1].ival);
   }
   return eval_int_rest(machine, goal, name, args);
 }

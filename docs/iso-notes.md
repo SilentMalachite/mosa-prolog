@@ -646,3 +646,11 @@ Before the decision below, the lexer ended a symbol-character token at a `.` tha
 A or B?: A: the lexer reads `+.` as one token (6.4.2); `X = +.` then waits for the end. B: keep the lexer and have writeq quote a symbol-character atom that ends in `.`.
 
 Decision (2026-11-03): A (review L17). Not implemented yet. The full-width `。` follows the same rule, since the decision of 2026-10-31 reads `。` as `.`; quoting atoms that end in `。` (review M8) stays correct. No file in `lib/`, `tests/pl` or `tests/conformance` ends a clause with a symbol character right before `.`.
+
+## 9.3.8 and 9.3.9 max/2 and min/2 of an integer and a float
+
+Cor.2 leaves the type of the value implementation dependent when the arguments are an integer and a float (its examples: `max(2.0, 3)` is `3` or `3.0`, `max(0, 0.0)` is `0` or `0.0`; `max(2, 3.0)` is `3.0`). Mosa converts the integer to a float, compares as `<`/2 does and returns a float, so `max(9007199254740993, 9007199254740992.0)` is `9.007199254740992e+15`, smaller than the integer argument (review L1). Returning the chosen argument with its own type would give the exact value, but the type would then depend on the values, and since 9.1.6 (decision A) makes `floor` and the other rounding functions reject integers, `floor(max(0.0, 3))` would raise `type_error(float, 3)` (L1 adversarial review A1).
+
+A or B?: A: compare exactly and return the chosen argument with its own type (`max(2.0, 3) = 3`). B: keep converting to a float and returning a float (`max(2.0, 3) = 3.0`).
+
+Decision (2026-11-05): B. Nothing changes. A comparison with a NaN is false both ways, so `max` gives the left argument and `min` the right one (`max(1, nan) = 1.0`, `max(nan, 1) = nan`); equal values do the same (`max(0, 0.0) = 0.0`). Tests: `l1_max_*` and `l1_min_*` in `tests/pl/arith.pl`.
