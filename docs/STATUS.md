@@ -1,9 +1,9 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main dd09de4, CI run 41769482732 passed all 8 jobs (2026-11-04)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main fdd111b, CI run 41804598657 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
-- **Last done:** review M24 (ADR 0017, approved by the owner choosing A, amended by B): a failed load undoes its text (clauses, declarations, nested loads) and keeps what its directive goals did, also on a predicate the text only declared; tests in `tests/pl/failed_load.pl`. Before it, M20 (ADR 0015 amendment). Neither is pushed, so CI has not run them.
+- **Last done:** review M24 (ADR 0017, approved by the owner choosing A, amended by B): a failed load undoes its text (clauses, declarations, nested loads) and keeps what its directive goals did, also on a predicate the text only declared; tests in `tests/pl/failed_load.pl`. Before it, M20 (ADR 0015 amendment).
 - **Next:** review items M21, M22, L1-L12, L14, L15, L17, L18 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
