@@ -17,6 +17,11 @@ test(unknown_fail, (set_prolog_flag(unknown, fail), no_such_pred_phase3), fail).
 test(unknown_restored, (set_prolog_flag(unknown, error), no_such_pred_phase3), error(existence_error(procedure, no_such_pred_phase3/0))).
 test(flag_bounded_value, set_prolog_flag(bounded, foo), error(domain_error(flag_value, bounded+foo))).
 test(flag_bounded_same, set_prolog_flag(bounded, true), error(permission_error(modify, flag, bounded))).
+% レビュー L4。down は integer_rounding_function の取りうる値なので、領域の誤りではなく変更の誤り（7.11.1.4、8.17.1.3）。
+test(l4_rounding_down, set_prolog_flag(integer_rounding_function, down), error(permission_error(modify, flag, integer_rounding_function))).
+test(l4_rounding_same, set_prolog_flag(integer_rounding_function, toward_zero), error(permission_error(modify, flag, integer_rounding_function))).
+test(l4_rounding_bad, set_prolog_flag(integer_rounding_function, up), error(domain_error(flag_value, integer_rounding_function+up))).
+test(l4_rounding_not_down, current_prolog_flag(integer_rounding_function, down), fail).
 test(flag_max_arity_modify, set_prolog_flag(max_arity, 40), error(permission_error(modify, flag, max_arity))).
 test(flag_max_arity_atom, set_prolog_flag(max_arity, foo), error(domain_error(flag_value, max_arity+foo))).
 test(flag_quotes_bad, set_prolog_flag(double_quotes, foo), error(domain_error(flag_value, double_quotes+foo))).

@@ -127,7 +127,8 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
   value = machine.heap.deref(value);
   switch (index) {
     case 0: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
-    case 1: return same_atom(machine, value, "toward_zero");
+    // down も取りうる値なので、領域の誤りではなく変更の誤りにする（7.11.1.4、8.17.1.3、レビュー L4）。
+    case 1: return same_atom(machine, value, "toward_zero") || same_atom(machine, value, "down");
     case 2: return same_int(machine, value, std::numeric_limits<std::int64_t>::max());
     case 3: return same_int(machine, value, std::numeric_limits<std::int64_t>::min());
     case 4: return same_int(machine, value, 1024);
