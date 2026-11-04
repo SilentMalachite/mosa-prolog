@@ -77,6 +77,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/catch.cpp
   src/machine/state_count.cpp
   src/machine/index.cpp
+  src/machine/clause_list.cpp
   src/machine/clause_store.cpp
   src/machine/answer.cpp
   src/machine/consult.cpp

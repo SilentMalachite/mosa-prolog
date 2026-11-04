@@ -151,6 +151,11 @@ target_include_directories(clause_scan_test PRIVATE tests/cpp src)
 target_link_libraries(clause_scan_test PRIVATE mosa_lib)
 target_compile_definitions(clause_scan_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME clause_scan COMMAND $<TARGET_FILE:clause_scan_test>)
+# レビュー M21（ADR 0015 の改訂 2）。節の列の大きさ・順・写し。
+add_executable(clause_list_test tests/cpp/clause_list_test.cpp)
+target_include_directories(clause_list_test PRIVATE tests/cpp src)
+target_link_libraries(clause_list_test PRIVATE mosa_lib)
+add_test(NAME clause_list COMMAND $<TARGET_FILE:clause_list_test>)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 

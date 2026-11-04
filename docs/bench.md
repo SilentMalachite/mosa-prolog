@@ -169,6 +169,45 @@ The causes of the interpreter's gains were not profiled; a call with a bound fir
 | `p(_), drain, !` with `drain :- retract(p(_)), !, drain.` | 10,000 / 20,000 / 40,000 | 0.09 / 0.26 / 0.89 | 0.04 / 0.06 / 0.10 |
 | `p(_), drain2, !` with `drain2 :- p(X), !, retract(p(X)), drain2.` | 10,000 / 20,000 / 40,000 | 0.09 / 0.25 / 0.89 | 0.04 / 0.06 / 0.11 |
 
+## Cost of the small clause vector
+
+Measured on 2026-11-04 on the same machine, both Release, the two trees built side by side: "before" is 60c50e7, "now" is review M21 (ADR 0015 amendment 2: a predicate of up to 16 clauses keeps them in a vector of their own size, a longer one in a deque; `Predicate` shrinks from 304 to 288 bytes and `Snapshot` from 128 to 112 with libc++). Memory is the maximum resident set size from `/usr/bin/time -l` (macOS, libc++) for `mosa file -g goal -t halt`, median of three runs, with `p0(0).` to `p39999(39999).` as 40,000 predicates of one clause and `q(0).` to `q(39999).` as one predicate.
+
+| Load | Before | Now |
+| --- | ---: | ---: |
+| consult, 40,000 predicates of one clause | 209.3 MB | 54.5 MB |
+| assertz, 40,000 predicates of one clause | 211.2 MB | 56.4 MB |
+| consult, one predicate of 40,000 clauses | 12.9 MB | 12.9 MB |
+| assertz, one predicate of 40,000 clauses | 22.8 MB | 22.7 MB |
+| assertz, one predicate of 160,000 clauses | 51.4 MB | 51.8 MB |
+| `-g true` alone | 2.1 MB | 2.1 MB |
+
+Single runs of either tree sometimes come out about 1.5 MB higher on the one-predicate rows. A first version kept every list in one vector with a gap at the front: 54.4 and 56.1 MB for the first two rows, but 22.8 and 30.6 MB for the next two, and 112.6 MB for 160,000 clauses when it grew by half instead of doubling, because a growing vector holds the old and the new array at once. Of the 54.5 MB that remain, the predicate table (`std::vector<Predicate>`, 288 bytes a predicate, doubling) holds about 28 MB at its last growth, by the sizes, not measured.
+
+Wall time (medians of five runs taken alternately, ms):
+
+| Load | Before | Now |
+| --- | ---: | ---: |
+| consult, 10,000 / 20,000 / 40,000 predicates of one clause | 100 / 306 / 1523 | 104 / 340 / 1554 |
+| assertz, 40,000 predicates of one clause | 689 | 661 |
+| assertz, one predicate of 40,000 clauses | 52 | 51 |
+| 300,000 times `asserta(p(0)), retract(p(0))` on 1 / 8 / 15 clauses | 688 / 703 / 705 | 704 / 740 / 769 |
+| the same on 16 / 30 / 100 clauses | 705 / 704 / 704 | 718 / 721 / 718 |
+| 300,000 times `assertz(p(K)), once(retract(p(_)))` on 8 / 15 / 30 clauses | 910 / 911 / 912 | 935 / 952 / 929 |
+
+The consult rows grow faster than the number of predicates because `add_clause` scans the predicate table and `remember_pred` scans the load's snapshots for each clause (`src/machine/load_clauses.cpp`), both before this change. In that loop "now" retires fewer instructions (3,696 million against 3,762 million for 20,000 predicates) but takes more cycles (1,043 million against 929 million); this was not profiled further. The last three rows also count a one-clause counter (`retract(d(K))`, `assertz(d(K1))`) on each step. Up to 16 clauses asserta and front removal move the clauses of the vector, which costs up to 9% (with a limit of 32 it was 19% at 30 clauses, measured by the adversarial review, B1, and the reason for the limit of 16); a longer predicate is in the deque, and the 2% that remains there was not profiled. An emptied vector keeps up to 3 spare slots, so the counter reuses its slot instead of allocating on each step.
+
+Benchmarks: interpreter medians of five runs taken alternately (ms); translated medians of five runs by `mosatest --bench`, the two trees one after the other. A run of the same benchmarks on the first version with a limit of 32 gave -0.4% to -5.4% for the interpreter and -1.0% to +0.9% for the translated code, with zebra before at 734 ms, so the translated differences below are within the spread between runs.
+
+| Program | Interpreter before | Interpreter now | Delta | Translated before | Translated now | Delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| nrev | 3188 | 2951 | -7.4% | 132 | 131 | -0.8% |
+| queens | 2628 | 2572 | -2.1% | 423 | 427 | +0.9% |
+| zebra | 1782 | 1766 | -0.9% | 791 | 741 | -6.3% |
+| tak | 1340 | 1288 | -3.9% | 297 | 303 | +2.0% |
+| deriv | 892 | 885 | -0.8% | 126 | 130 | +3.2% |
+| crypt | 1185 | 1153 | -2.7% | 307 | 302 | -1.6% |
+
 ## CI
 
 The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.

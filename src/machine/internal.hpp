@@ -10,12 +10,12 @@
 
 #include "../module/module.hpp"
 #include "clause_index.hpp"
+#include "clause_list.hpp"
 #include "gc.hpp"
 #include "state_alloc.hpp"
 
 #include <chrono>
 #include <cstdint>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <initializer_list>
@@ -36,10 +36,6 @@ inline constexpr std::uint64_t kNoFrame = UINT64_MAX;
 inline constexpr std::size_t kFrameHead = 4;
 // 生成コードは rt::kFrameHead でゴール枠の引数を読む。2 つは同じ枠の同じ頭である。
 static_assert(rt::kFrameHead == kFrameHead);
-
-// ゴールの木は写さずに共有する。部分木は根と同じ持ち主を持つ別名のポインタで指す。節を消しても、動いている
-// 本体はこれが生かしておく（ADR 0011 の改訂 3）。
-using GoalRef = std::shared_ptr<const IrTerm>;
 
 // 節や call/1 のゴールの変数の値。継続と選択点が共有し、GC は gc_pass で 1 回の回収に 1 度だけ訪ねる。
 // 書き換えるのは GC だけである。作った機械の Heap::state に自分の語を数え、放すときに引く（ADR 0010 の改訂 3）。
@@ -64,44 +60,6 @@ using EnvRef = std::shared_ptr<EnvCells>;
 [[nodiscard]] GoalRef sub_goal(const GoalRef& goal, std::size_t index);
 [[nodiscard]] EnvRef make_env(Heap& heap, std::vector<Cell> cells);
 
-// Clause::died の「まだ消していない」。どの世代もこれより小さいので、生きた節はどの走査にも消えて見えない。
-inline constexpr std::uint64_t kAlive = UINT64_MAX;
-
-struct Clause {
-  // ADR 0015。述語の中で変わらず、繰り返さない番号。clauses の中では狭義に増える。振るのは clause_store.cpp だけ。
-  std::size_t id = 0;
-  IrTerm head;
-  GoalRef body;
-  std::uint16_t vars = 0;
-  KeyKind key = KeyKind::Any;
-  std::uint32_t key_atom = 0;
-  std::uint16_t key_arity = 0;
-  std::int64_t key_int = 0;
-  double key_float = 0;
-  // ADR 0015。足したときと消したときのデータベースの世代。走査は自分の世代に生きていた節だけを見る（7.5.4）。
-  // 消した節は、まだ届く走査がある間だけ残る。新しい呼び出しは died を持つ節を飛ばす。
-  std::uint64_t born = 0;
-  std::uint64_t died = kAlive;
-  [[nodiscard]] bool dead() const { return died != kAlive; }
-  // ADR 0015 の改訂（レビュー M20）。死んだ節だけが使う飛び越しの幅。番号が [id, id + skip_all) の節は全部死んで
-  // おり、[id, id + skip_key) の同じ鍵の節（鍵の無い節どうしも一つの鍵と数える）も全部死んでいる。節は生き返らず、
-  // 足す番号はこの範囲の外なので、足しても消しても掃除しても正しいまま。歩みが跳んだ道を縮めて書き直すので mutable。
-  // 32 ビットに収まらない幅は最大値に留める（短い範囲も正しい）。
-  mutable std::uint32_t skip_all = 1;
-  mutable std::uint32_t skip_key = 1;
-  // スロットごとの原文の変数名（名前の無い変数は空）。読み込んだ節だけが持ち、mosac のコメントだけが読む。
-  // 意味は持たないので指紋には数えない。
-  std::vector<std::string> names;
-};
-
-// 世代 generation に始めた走査がこの節を見るか。足すより前の走査と、消した後の走査には見えない。
-[[nodiscard]] inline bool visible(const Clause& clause, std::uint64_t generation) {
-  return clause.born <= generation && generation < clause.died;
-}
-
-// 先頭へ足しても後ろの節を動かさない（ADR 0015）。位置で引く enter_clause・mosac・指紋のために添字でも引ける。
-using ClauseList = std::deque<Clause>;
-
 // Entry::cursor の「もう試す節が無い」。番号は 2^62 の前後から振るので、この値は節の番号にならない。
 inline constexpr std::size_t kNoClause = SIZE_MAX;
 
@@ -120,8 +78,8 @@ struct SharedPred {
 };
 
 struct Predicate {
-  // libstdc++ と MSVC の deque は移動コンストラクタが noexcept でない。暗黙の移動のままだと、述語表の vector が
-  // 伸びるたびに move_if_noexcept が全部の述語を節ごと写す。移動は noexcept と宣言する（C++20、P1286R2）。
+  // 標準ライブラリによっては索引の unordered_map の移動が noexcept でない（MSVC）。暗黙の移動のままだと、述語表の
+  // vector が伸びるたびに move_if_noexcept が全部の述語を節ごと写す。移動は noexcept と宣言する（C++20、P1286R2）。
   // 写しの演算は暗黙のときと同じく残す。
   Predicate() = default;
   Predicate(const Predicate&) = default;
@@ -179,7 +137,7 @@ struct Predicate {
   rt::NativeProc native = nullptr;
 };
 
-// 述語表の伸長が節を写す形に戻れば、libstdc++ と MSVC の CI がここで落ちる（libc++ は宣言が無くても通る）。
+// 述語表の伸長が節を写す形に戻れば、移動が noexcept でない標準ライブラリの CI がここで落ちる。
 static_assert(std::is_nothrow_move_constructible_v<Predicate>);
 static_assert(std::is_nothrow_move_assignable_v<Predicate>);
 
