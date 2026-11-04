@@ -5,8 +5,11 @@
 
 #include "machine/internal.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
 
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,6 +18,7 @@ namespace {
 
 constexpr std::string_view k_three = ":- dynamic(p/1).\n:- dynamic(seen/1).\np(1).\np(2).\np(3).\n";
 constexpr std::string_view k_five = ":- dynamic(p/1).\np(1).\np(2).\np(3).\np(4).\np(5).\n";
+constexpr std::string_view k_static = "p(1).\np(2).\np(3).\np(4).\np(5).\n";
 constexpr std::string_view k_unmatched = ":- dynamic(q/2).\nq(1, a).\nq(2, a).\nq(3, b).\n";
 
 // 答えを尽くし、答えごとの more を返す。more が偽の答えの後も next を呼び、もう答えが無いことを確かめる。
@@ -116,6 +120,29 @@ void check_held_sweep(const std::string& scan) {
   mosa_test::check(holds(*machine, "findall(X, p(X), L), L == [1, 6, 7]."), label + ": clauses left");
 }
 
+// M19 の敵対的レビュー B2。脇に置いた走査の下で静的な述語を読み直すと、走査が届く古い節は死んだ節で残る。静的な
+// 述語は変更されないので、走査が閉じた後の最初の呼び出しが消す。消さないと次に読み直すまで残り、束縛しない呼び出しが
+// 毎回それを歩く。
+std::string scan_file(std::string_view name, std::string_view text) {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "clause_scan";
+  std::filesystem::create_directories(dir);
+  const auto path = dir / mosa::path_from_utf8(name);
+  std::ofstream{path, std::ios::binary} << text;
+  return mosa::utf8_from_path(path);
+}
+
+void check_static_reload() {
+  auto machine = mosa::Machine::create();
+  const auto renewed = scan_file("renewed.pl", "p(10).\n");
+  const auto init = scan_file("init.pl", ":- initialization(consult('" + renewed + "')).\n");
+  mosa_test::check(machine->load_program(k_static).ok, "static reload: load");
+  const std::string scan = "findall(X, (p(X), (X =:= 1 -> consult('" + init + "') ; true)), L), L == [1, 2, 3, 4, 5].";
+  mosa_test::check(holds(*machine, scan), "static reload: the parked scan keeps the replaced clauses");
+  mosa_test::check(stored(*machine) == 5, "static reload: the dead clauses wait for a call");
+  mosa_test::check(holds(*machine, "findall(X, p(X), L), L == [10]."), "static reload: the new clause");
+  mosa_test::check(stored(*machine) == 1, "static reload: the first call after the scan closed sweeps");
+}
+
 }  // namespace
 
 int main() {
@@ -131,5 +158,6 @@ int main() {
   check_sweep("clause(p(X), true)");
   check_held_sweep("p(X)");
   check_held_sweep("clause(p(X), true)");
+  check_static_reload();
   return mosa_test::failures();
 }

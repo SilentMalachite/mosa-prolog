@@ -536,6 +536,80 @@ m18_r_write :- m18_r_file(Path), open(Path, write, S), write(S, ':- abolish(m18_
 m18_r_rejected :- m18_r_file(Path), \+ consult(Path).
 test(m18_rollback_after_abolish, (assertz(m18_r_late), m18_r_write, m18_r_rejected, current_predicate(m18_r_late/0), \+ current_predicate(m18_r_new/0), \+ current_predicate(m18_r_zap/0)), true).
 test(m18_current_abolished_kept,findall(X, (m18_a_open(K), K == 1, current_predicate(X/11), (X == m18_a1 -> abolish(m18_a2/11) ; true)), L), solutions([L = [m18_a1, m18_a3]])).
+% consult の指示（と初期化のゴール）は、外の走査の選択点を脇に置いて動く。脇に置いた走査も開いた走査なので、
+% 指示が消した節を試し、直接呼んだときと同じ答えになる（7.5.4、レビュー M19）。指示のファイルは tests/tmp に書く。
+m19_write(Path, Text) :- open(Path, write, S), write(S, Text), close(S).
+:- dynamic(m19_p/1).
+m19_p(1). m19_p(2). m19_p(3).
+test(m19_parked_call, (m19_write('tests/tmp/m19_call.pl', ':- retract(m19_p(3)).\n'), findall(X, (m19_p(X), (X =:= 1 -> consult('tests/tmp/m19_call.pl') ; true)), L), findall(Y, m19_p(Y), L2)), solutions([(L = [1, 2, 3], L2 = [1, 2])])).
+:- dynamic(m19_c/1).
+m19_c(1). m19_c(2). m19_c(3).
+test(m19_parked_clause, (m19_write('tests/tmp/m19_clause.pl', ':- retract(m19_c(3)).\n'), findall(X, (clause(m19_c(X), true), (X =:= 1 -> consult('tests/tmp/m19_clause.pl') ; true)), L)), solutions([L = [1, 2, 3]])).
+:- dynamic(m19_i/1).
+m19_i(1). m19_i(2). m19_i(3).
+test(m19_parked_init, (m19_write('tests/tmp/m19_init.pl', ':- initialization(retract(m19_i(3))).\n'), findall(X, (m19_i(X), (X =:= 1 -> consult('tests/tmp/m19_init.pl') ; true)), L), findall(Y, m19_i(Y), L2)), solutions([(L = [1, 2, 3], L2 = [1, 2])])).
+% 指示が abolish して足し直す。脇に置いた走査が消した節に届くので、述語は abolish 済みの枠で残り、足した節は
+% 続きの番号になる。消していたときは、作り直した述語の番号が先頭から振り直され、鍵で選んだ候補の番号が新しい節を
+% 指した（第1引数を束縛した走査は [o0, n1, n2] を、束縛しない走査は [o0] を答えた）。
+:- dynamic(m19_k/2).
+m19_k(1, o0). m19_k(1, o1). m19_k(1, o2). m19_k(1, o3). m19_k(1, o4).
+m19_k(1, o5). m19_k(1, o6). m19_k(1, o7). m19_k(1, o8). m19_k(1, o9).
+:- dynamic(m19_u/2).
+m19_u(1, o0). m19_u(1, o1). m19_u(1, o2). m19_u(1, o3). m19_u(1, o4).
+m19_u(1, o5). m19_u(1, o6). m19_u(1, o7). m19_u(1, o8). m19_u(1, o9).
+m19_put(S, Directive) :- write(S, ':- '), writeq(S, Directive), write(S, '.\n').
+m19_renew(Path, Name) :- open(Path, write, S), m19_put(S, abolish(Name/2)), m19_put(S, dynamic(Name/2)), m19_renew_add(S, Name, [n0, n1, n2]), close(S).
+m19_renew_add(_, _, []).
+m19_renew_add(S, Name, [V|Vs]) :- Clause =.. [Name, 1, V], m19_put(S, assertz(Clause)), m19_renew_add(S, Name, Vs).
+test(m19_parked_keyed_abolish, (m19_renew('tests/tmp/m19_keyed.pl', m19_k), findall(V, (m19_k(1, V), (V == o0 -> consult('tests/tmp/m19_keyed.pl') ; true)), L), findall(W, m19_k(1, W), L2)), solutions([(L = [o0, o1, o2, o3, o4, o5, o6, o7, o8, o9], L2 = [n0, n1, n2])])).
+test(m19_parked_cursor_abolish, (m19_renew('tests/tmp/m19_cursor.pl', m19_u), findall(V, (m19_u(_, V), (V == o0 -> consult('tests/tmp/m19_cursor.pl') ; true)), L), findall(W, m19_u(_, W), L2)), solutions([(L = [o0, o1, o2, o3, o4, o5, o6, o7, o8, o9], L2 = [n0, n1, n2])])).
+% retract は別のゴールが消した節を消さない。脇に置いた retract の走査も、直接 abolish したときと同じく [1] で終わる。
+:- dynamic(m19_t/1).
+m19_t(1). m19_t(2). m19_t(3).
+test(m19_parked_retract, (m19_renew_t, findall(X, (retract(m19_t(X)), (X =:= 1 -> consult('tests/tmp/m19_retract.pl') ; true)), L), findall(Y, m19_t(Y), L2)), solutions([(L = [1], L2 = [10, 20])])).
+m19_renew_t :- m19_write('tests/tmp/m19_retract.pl', ':- abolish(m19_t/1).\n:- dynamic(m19_t/1).\n:- assertz(m19_t(10)).\n:- assertz(m19_t(20)).\n').
+% 指示の中の consult が述語を置き換える。外の走査が脇に置かれていても置き換え、古い節は retract と同じく、外の
+% 走査がまだ試す間は死んだ節で残す。前は置き換えで消え、外の走査は残りの節を失った（L = [1]）。
+m19_r_setup :-
+    m19_write('tests/tmp/m19_r_old.pl', ':- dynamic(m19_r/1).\nm19_r(1).\nm19_r(2).\nm19_r(3).\n'),
+    m19_write('tests/tmp/m19_r_new.pl', ':- dynamic(m19_r/1).\nm19_r(10).\nm19_r(20).\n'),
+    m19_write('tests/tmp/m19_r_dir.pl', ':- consult(\'tests/tmp/m19_r_new.pl\'), true.\n'),
+    consult('tests/tmp/m19_r_old.pl').
+test(m19_parked_reconsult, (m19_r_setup, findall(X, (m19_r(X), (X =:= 1 -> consult('tests/tmp/m19_r_dir.pl') ; true)), L), findall(Y, m19_r(Y), L2)), solutions([(L = [1, 2, 3], L2 = [10, 20])])).
+% abolish と dynamic の後に節を読み直すファイル。abolish の後も外の走査が届く節が残るが、dynamic が印を外すので、
+% 節は置き換えの道を通る。置き換えを断っていたときは読み込みが失敗した（M19 の Codex レビュー P2）。
+:- dynamic(m19_d/1).
+m19_d(1). m19_d(2). m19_d(3).
+m19_d_text(':- abolish(m19_d/1).\n:- dynamic(m19_d/1).\nm19_d(10).\nm19_d(20).\n').
+test(m19_parked_redefine, (m19_d_text(Text), m19_write('tests/tmp/m19_redefine.pl', Text), findall(X, (m19_d(X), (X =:= 1 -> consult('tests/tmp/m19_redefine.pl') ; true)), L), findall(Y, m19_d(Y), L2)), solutions([(L = [1, 2, 3], L2 = [10, 20])])).
+% 開いた走査が生きた節を全部消した述語を読み直す。死んだ節だけの述語は空の述語と同じで、選択点の下でも読み直し、
+% 動的のまま残る（M19 の敵対的レビュー B1）。前は選択点があると断り、[2, 3] と [] になった。
+:- dynamic(m19_b/1).
+m19_b(1). m19_b(2). m19_b(3).
+test(m19_dead_only_reload, (m19_write('tests/tmp/m19_dead_only.pl', 'm19_b(10).\n'), findall(X, (m19_b(X), (X =:= 1 -> (retract(m19_b(_)), fail ; true), consult('tests/tmp/m19_dead_only.pl') ; true)), L), assertz(m19_b(99)), findall(Y, m19_b(Y), L2)), solutions([(L = [1, 2, 3], L2 = [10, 99])])).
+% multifile の述語は置き換えずに足す。外の走査は後から足した節を見ない（M19 の Codex レビュー P2）。
+:- multifile(m19_m/1).
+:- dynamic(m19_m/1).
+m19_m(1). m19_m(2).
+m19_m_setup :-
+    m19_write('tests/tmp/m19_m_more.pl', ':- multifile(m19_m/1).\n:- dynamic(m19_m/1).\nm19_m(3).\n'),
+    m19_write('tests/tmp/m19_m_dir.pl', ':- consult(\'tests/tmp/m19_m_more.pl\'), true.\n').
+test(m19_parked_multifile, (m19_m_setup, findall(X, (m19_m(X), (X =:= 1 -> consult('tests/tmp/m19_m_dir.pl') ; true)), L), findall(Y, m19_m(Y), L2)), solutions([(L = [1, 2], L2 = [1, 2, 3])])).
+% 2 段の入れ子。指示の中の consult の指示が消した節も、一番外の走査が試す。
+:- dynamic(m19_n/1).
+m19_n(1). m19_n(2). m19_n(3).
+m19_n_setup :-
+    m19_write('tests/tmp/m19_nested_1.pl', ':- consult(\'tests/tmp/m19_nested_2.pl\'), true.\n'),
+    m19_write('tests/tmp/m19_nested_2.pl', ':- retract(m19_n(3)).\n').
+test(m19_parked_nested, (m19_n_setup, findall(X, (m19_n(X), (X =:= 1 -> consult('tests/tmp/m19_nested_1.pl') ; true)), L), findall(Y, m19_n(Y), L2)), solutions([(L = [1, 2, 3], L2 = [1, 2])])).
+% 脇に置いた選択点は置き換えを断らない。once/1 の中で読む初期化のゴールは述語を置き換える（M19 の敵対的レビュー
+% A1）。脇に置いた選択点を全部数えていたときは黙って断り、古い定義が残った。
+m19_o_setup :-
+    m19_write('tests/tmp/m19_o_old.pl', 'm19_o(1).\n'),
+    m19_write('tests/tmp/m19_o_new.pl', 'm19_o(2).\n'),
+    m19_write('tests/tmp/m19_o_init.pl', ':- initialization(consult(\'tests/tmp/m19_o_new.pl\')).\n'),
+    consult('tests/tmp/m19_o_old.pl').
+test(m19_parked_once, (m19_o_setup, once(consult('tests/tmp/m19_o_init.pl')), findall(X, m19_o(X), L)), solutions([L = [2]])).
 
 % 開いた走査が見ている先の節を retract が消す。走査は呼んだ時点の節を見るが、retract は消えた節を二度は消さない。
 test(m3_sweep_held, (m3_sh(X, _), retract(m3_sh(Y, _))), solutions([(X = 1, Y = 1), (X = 1, Y = 2), (X = 1, Y = 3), (X = 1, Y = 4), (X = 1, Y = 5), (X = 1, Y = 6), (X = 1, Y = 7), (X = 1, Y = 8), (X = 1, Y = 9), (X = 1, Y = 10)])).

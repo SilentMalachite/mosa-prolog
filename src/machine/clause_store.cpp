@@ -97,15 +97,6 @@ void replace_clauses(Predicate& predicate, ClauseList clauses) {
   predicate.next_id = std::max(predicate.next_id, predicate.clauses.back().id + 1);
 }
 
-// 範囲は戻さない。置き換えの後で足す節が、消した節の番号を使い回さない。
-void clear_clauses(Predicate& predicate) {
-  predicate.clauses.clear();
-  predicate.live = 0;
-  predicate.dead_since = 0;
-  predicate.held_dead = 0;
-  drop_index(predicate.index);
-}
-
 void erase_clause_id(Predicate& predicate, std::size_t id) {
   const auto position = clause_position(predicate, id);
   if (!position) return;

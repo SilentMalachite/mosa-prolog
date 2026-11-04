@@ -31,6 +31,25 @@ bool keeps_clauses(const Impl& machine, std::uint32_t module, std::uint32_t name
   return false;
 }
 
+// この読み込みで初めて見る述語に、前の読み込みの生きた節が残っている。宣言が無ければ置き換える。
+bool take_over(Impl& machine, Predicate& predicate, PredKey key) {
+  for (const Entry& entry : machine.stack) {
+    if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch || entry.pick == Pick::CallCleanup) continue;
+    fail_load(machine, message_text(machine, "predicate_running"));
+    return false;
+  }
+  // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
+  if (keeps_clauses(machine, key.module, key.name, key.arity)) return true;
+  // 消すのは retract と同じく世代を付けてから。consult の指示と初期化のゴールの間は外の走査が脇に置かれていて
+  // （Impl::parked）、それがまだ試す節は残る（レビュー M19）。今のスタックの選択点は上で断っている。
+  retire_clauses(machine, predicate);
+  // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
+  if (!predicate.dynamic_declared) predicate.dynamic = false;
+  // meta_predicate も同じ。読み直したテキストが宣言を消したら、限定もやめる。
+  if (!predicate.meta_declared) predicate.meta.clear();
+  return true;
+}
+
 }  // namespace
 
 std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& clause) {
@@ -131,23 +150,11 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::size_t&
     if (!predicate.meta_declared) predicate.meta.clear();
     // 開いた走査が届かない死んだ節を一度に消す。sweep_dead は述語を表から消さないので、index は外れない。
     sweep_dead(machine, predicate);
-  } else if (!predicate.seen && !predicate.clauses.empty()) {
-    bool busy = false;
-    for (const Entry& entry : machine.stack) {
-      if (entry.pick != Pick::Cleanup && entry.pick != Pick::Catch && entry.pick != Pick::CallCleanup) busy = true;
-    }
-    if (busy) {
-      fail_load(machine, message_text(machine, "predicate_running"));
-      return false;
-    }
-    // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
-    if (!keeps_clauses(machine, module, name, arity)) {
-      clear_clauses(predicate);
-      // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
-      if (!predicate.dynamic_declared) predicate.dynamic = false;
-      // meta_predicate も同じ。読み直したテキストが宣言を消したら、限定もやめる。
-      if (!predicate.meta_declared) predicate.meta.clear();
-    }
+  } else if (!predicate.seen && live_count(predicate) > 0) {
+    // 死んだ節だけの述語は空の述語と同じに扱う。死んだ節は開いた走査のためだけにあり、置き換えても消すものは無く、
+    // 走査は後から足す節を見ない。分けると、選択点の確かめと dynamic を戻すかが、開いた走査がまだ節を持つかで
+    // 変わる（M19 の敵対的レビュー B1）。abolish の後の dynamic が印を外した述語もここを通らない（Codex レビュー P2）。
+    if (!take_over(machine, predicate, PredKey{module, name, arity})) return false;
   }
   // 置き換え、multifile の追加、abolish 済みの枠の使い直しのどれでも、付けた生成関数の知らない節になる。
   detach_native(machine, predicate);

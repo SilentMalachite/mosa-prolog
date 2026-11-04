@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main e5066dd, CI run 41749007896 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
-- **Last done:** review M18: current_predicate/1 trails its bindings like clause/2, and its candidates are predicate serials, so a nested run's abolish shifts nothing.
-- **Next:** review items M19-M22, then L1-L12, L14, L15, L17, L18 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** review M19: scans parked by a consult directive or an initialization goal count as open, so the clauses a directive removes stay for them, and a reconsult retires the clauses it replaces instead of clearing them.
+- **Next:** the seen-flag bug found during M19 (an abolish in a nested consult, or consult/1 called as a goal while a file loads, makes the parent file replace its own clauses), then review items M20-M22, L1-L12, L14, L15, L17, L18 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open

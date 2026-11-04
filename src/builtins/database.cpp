@@ -215,13 +215,18 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
     break;
   }
   // 述語を作り直すと番号は同じ所から振り直す。開いた走査を尽きた印にしておけば、新しい定義の節を指さない。
-  // current_predicate の候補は Predicate::serial なので、表から消してもずらさない。
-  for (Entry& entry : machine.stack) {
-    if (!scans_pred(entry, module, name, arity)) continue;
-    entry.candidates.clear();
-    entry.next = 0;
-    entry.cursor = kNoClause;
-  }
+  // 指示が脇に置いた外の走査も同じにする（レビュー M19）。current_predicate の候補は Predicate::serial なので、
+  // 表から消してもずらさない。
+  const auto exhaust = [module, name, arity](std::vector<Entry>& stack) {
+    for (Entry& entry : stack) {
+      if (!scans_pred(entry, module, name, arity)) continue;
+      entry.candidates.clear();
+      entry.next = 0;
+      entry.cursor = kNoClause;
+    }
+  };
+  for (const ParkedScans& parked : machine.parked) exhaust(*parked.stack);
+  exhaust(machine.stack);
   if (removed >= machine.predicates.size()) return;
   machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
 }
@@ -237,13 +242,38 @@ bool scan_reaches(const Entry& entry, PredKey key, const Clause& clause) {
   return std::binary_search(entry.candidates.begin() + untried, entry.candidates.end(), clause.id);
 }
 
+// 記録した節の走査を、脇に置いたスタック（Impl::parked）の古い順から今のスタックまで渡す。visit が偽を返したら
+// やめる。脇に置いたスタックは指示が終わるまで動かせないので、外の走査も開いた走査である（レビュー M19）。渡す
+// 位置は、脇に置いたスタックを今のスタックの下に重ねた通しの位置。脇に置いたスタックは戻すまで伸び縮みせず、
+// 戻すと一番上のものが今のスタックになるので、通しの位置は戻した後も同じ枠を指す。脇に置いた記録は外した枠を
+// 指すことがあるので、位置と effect_id で確かめて飛ばす。
+template <typename Visit>
+void each_open_scan(Impl& machine, Visit visit) {
+  std::size_t base = 0;
+  const auto walk = [&base, &visit](const std::vector<Entry>& stack, const std::vector<ScanRecord>& log) {
+    for (const ScanRecord& record : log) {
+      if (record.index >= stack.size() || stack[record.index].effect_id != record.id) continue;
+      if (!visit(stack[record.index], ScanRecord{base + record.index, record.id})) return false;
+    }
+    base += stack.size();
+    return true;
+  };
+  for (const ParkedScans& parked : machine.parked) {
+    if (!walk(*parked.stack, *parked.scan_log)) return;
+  }
+  prune_scan_log(machine);
+  walk(machine.stack, machine.scan_log);
+}
+
 // 開いた走査のどれかがこの節をまだ試しうるか。届かない節は消してよい。見るのは記録した節の走査だけで、retract の
 // 選択点や制御の枠がいくつ積もっても手間は増えない。
 bool reachable(Impl& machine, PredKey key, const Clause& clause) {
-  prune_scan_log(machine);
-  return std::any_of(machine.scan_log.begin(), machine.scan_log.end(), [&](const ScanRecord& record) {
-    return scan_reaches(machine.stack[record.index], key, clause);
+  bool found = false;
+  each_open_scan(machine, [&found, key, &clause](const Entry& entry, ScanRecord) {
+    found = scan_reaches(entry, key, clause);
+    return !found;
   });
+  return found;
 }
 
 // 消した世代を付ける。消した節に付け直すと、その間に始めた走査の見え方が変わる。
@@ -283,9 +313,17 @@ void trim_ends(Impl& machine, Predicate& predicate, PredKey key) {
 }
 
 // 前の掃除が残した節に届いた一番下の枠が、もうスタックに無いか。スタックは上から外すので、上の枠も無い。
+// 位置は each_open_scan の通しの位置で、脇に置いたスタックの枠でもありうる（レビュー M19）。
 bool holder_gone(const Impl& machine, const Predicate& predicate) {
   const ScanRecord& holder = predicate.held_by;
-  return holder.index >= machine.stack.size() || machine.stack[holder.index].effect_id != holder.id;
+  std::size_t base = 0;
+  for (const ParkedScans& parked : machine.parked) {
+    const std::vector<Entry>& stack = *parked.stack;
+    if (holder.index < base + stack.size()) return stack[holder.index - base].effect_id != holder.id;
+    base += stack.size();
+  }
+  const std::size_t index = holder.index - base;
+  return index >= machine.stack.size() || machine.stack[index].effect_id != holder.id;
 }
 
 // 残した節に届く枠がまだあるときにそれも数えると、変更のたびに掃除して残すだけになり 2 乗になる。そのときは
@@ -322,11 +360,9 @@ void revive(Impl& machine, Predicate& predicate) {
   adopt_meta(machine, predicate);
 }
 
-// 節ごとに端を確かめて消すと、節ごとにスタックをなめる。全部に消した世代を付けてから一度に掃除する。
 void abolish_open(Impl& machine, Predicate& predicate) {
   const PredKey key{predicate.module, predicate.name, predicate.arity};
-  for (Clause& clause : predicate.clauses) mark_dead(machine, predicate, clause);
-  sweep_dead(machine, predicate);
+  retire_clauses(machine, predicate);
   if (predicate.clauses.empty()) {
     erase_predicate(machine, key.module, key.name, key.arity);
     return;
@@ -580,26 +616,45 @@ void run_abolish(Impl& machine, const Goal& goal) {
 // なめると、ほかの述語の走査の数まで節の数に掛かる。読み込みが abolish 済みの枠を使い直すときにも呼ぶ（ADR 0008）。
 void sweep_dead(Impl& machine, Predicate& predicate) {
   const PredKey key{predicate.module, predicate.name, predicate.arity};
-  prune_scan_log(machine);
-  std::vector<ScanRecord> scans;
-  for (const ScanRecord& record : machine.scan_log) {
-    if (scans_pred(machine.stack[record.index], key.module, key.name, key.arity)) scans.push_back(record);
-  }
+  // 枠と通しの位置。掃除は枠を積みも外しもしないので、枠を指したままでよい。
+  std::vector<std::pair<const Entry*, ScanRecord>> scans;
+  each_open_scan(machine, [&scans, key](const Entry& entry, ScanRecord at) {
+    if (scans_pred(entry, key.module, key.name, key.arity)) scans.emplace_back(&entry, at);
+    return true;
+  });
   // 下の枠から試すと、節ごとに最初に届いた枠がその節に届く一番下の枠になる。
-  std::sort(scans.begin(), scans.end(), [](const ScanRecord& a, const ScanRecord& b) { return a.index < b.index; });
+  std::sort(scans.begin(), scans.end(), [](const auto& a, const auto& b) { return a.second.index < b.second.index; });
   std::vector<bool> held(predicate.clauses.size(), false);
   std::optional<ScanRecord> holder;
   for (std::size_t position = 0; position < held.size(); ++position) {
     const Clause& clause = predicate.clauses[position];
     if (!clause.dead()) continue;
-    const auto first = std::find_if(scans.begin(), scans.end(), [&](const ScanRecord& record) {
-      return scan_reaches(machine.stack[record.index], key, clause);
+    const auto first = std::find_if(scans.begin(), scans.end(), [&](const auto& scan) {
+      return scan_reaches(*scan.first, key, clause);
     });
     if (first == scans.end()) continue;
     held[position] = true;
-    if (!holder || first->index < holder->index) holder = *first;
+    if (!holder || first->second.index < holder->index) holder = first->second;
   }
   sweep_clauses(predicate, held, holder.value_or(ScanRecord{}));
+}
+
+// 静的な述語は assert も retract も abolish もされないので、変更の前の掃除（purge_dead）が走らない。読み込みの
+// 置き換えが開いた走査のために残した死んだ節は、走査が閉じた後の呼び出しが消す（M19 の敵対的レビュー B2）。
+// 消さないと、束縛しない呼び出しが毎回先頭の死んだ節を歩き、次に読み直すまで残る。
+void purge_static(Impl& machine, Predicate& predicate) {
+  static_cast<void>(purge_dead(machine, &predicate));
+  // 端から外した節は dead_since から引かない。死んだ節が残っていなければ 0 に戻し、次の呼び出しからは来ない。
+  if (live_count(predicate) == predicate.clauses.size()) {
+    predicate.dead_since = 0;
+    predicate.held_dead = 0;
+  }
+}
+
+// 節ごとに端を確かめて消すと、節ごとにスタックをなめる。全部に消した世代を付けてから一度に掃除する。
+void retire_clauses(Impl& machine, Predicate& predicate) {
+  for (Clause& clause : predicate.clauses) mark_dead(machine, predicate, clause);
+  sweep_dead(machine, predicate);
 }
 
 bool redo_retract(Impl& machine) {

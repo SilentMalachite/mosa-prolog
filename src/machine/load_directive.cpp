@@ -515,9 +515,25 @@ int apply_module_directive(Impl& machine, Cell directive, bool first, std::strin
 }
 
 
-// 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。
-StopKind run_parked(Impl& machine, Cell goal) {
-  SavedExec saved = park_exec(machine);
+// 入れ子の実行の間だけ、脇に置いた外のスタックを Impl::parked に載せる（レビュー M19）。外の走査はまだ開いて
+// いるので、指示が消した節をそれが試せるように残し、指示の中の consult はその選択点を数えて置き換えを断る。
+// C++ の例外で抜けても外す。
+class ParkedScope {
+ public:
+  ParkedScope(Impl& machine, SavedExec& saved) : machine_(machine) {
+    machine.parked.push_back(ParkedScans{&saved.stack, &saved.scan_log});
+  }
+  ~ParkedScope() { machine_.parked.pop_back(); }
+  ParkedScope(const ParkedScope&) = delete;
+  ParkedScope& operator=(const ParkedScope&) = delete;
+
+ private:
+  Impl& machine_;
+};
+
+// 入れ子のスタックで goal を解き、積んだものを外の水位まで戻す。外のスタックを戻すのは呼び手。
+StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
+  const ParkedScope parked(machine, saved);
   const Compiled compiled = compile_goal(machine.heap, goal);
   std::size_t heap_mark = machine.heap.size();
   const RootScope roots(machine, [&machine, &saved, &heap_mark](GcVisitor& visitor) {
@@ -541,8 +557,15 @@ StopKind run_parked(Impl& machine, Cell goal) {
   // stop.exception は run_loop が返した直後の ball なので、GC の前に読む。
   if (stop.kind == StopKind::Exception) fail_load(machine, formal_text(machine, stop.exception));
   restore_state(machine, heap_mark, saved.trail_size, saved.extras_mark);
-  unpark_exec(machine, saved, true);
   return stop.kind;
+}
+
+// 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。
+StopKind run_parked(Impl& machine, Cell goal) {
+  SavedExec saved = park_exec(machine);
+  const StopKind kind = run_aside(machine, saved, goal);
+  unpark_exec(machine, saved, true);
+  return kind;
 }
 
 // 失敗はエラーにしない。節は呼び出し側が戻さない。halt/0,1 は残りの初期化を呼ばずに止める。

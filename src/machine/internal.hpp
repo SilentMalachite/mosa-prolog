@@ -410,6 +410,13 @@ struct CountedVectors {
   std::size_t words = 0;
 };
 
+// run_parked が脇に置いた stack と scan_log（レビュー M19）。指す先は run_parked の SavedExec で、戻すまで
+// 伸び縮みしない。
+struct ParkedScans {
+  std::vector<Entry>* stack = nullptr;
+  std::vector<ScanRecord>* scan_log = nullptr;
+};
+
 struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
@@ -448,6 +455,9 @@ struct Machine::Impl {
   std::vector<ScanRecord> scan_log;
   // 上の 3 つのベクタを Heap::state に数えたときの値（ADR 0010 の改訂 3）。
   CountedVectors counted_vectors;
+  // consult の指示と初期化のゴールが脇に置いた外のスタック。古い順。外の走査もまだ開いているので、消した節に
+  // 届く走査と、読み込みが置き換える述語の選択点を探すときに数える（レビュー M19）。
+  std::vector<ParkedScans> parked;
   std::uint64_t ip = kNoFrame;
   bool failed = false;
   bool exception = false;
@@ -620,7 +630,6 @@ void trim_stack(Impl& machine, std::size_t boundary);
 void append_clause(Predicate& predicate, Clause clause, std::uint64_t born);
 void prepend_clause(Predicate& predicate, Clause clause, std::uint64_t born);
 void replace_clauses(Predicate& predicate, ClauseList clauses);
-void clear_clauses(Predicate& predicate);
 void erase_clause_id(Predicate& predicate, std::size_t id);
 // held[位置] が偽の死んだ節を一度に消し、残した死んだ節の数を dead_since と held_dead に、それに届いた一番下の枠
 // holder を held_by に置く。消した節があれば索引を捨てる。held は節の数だけ要る。
@@ -635,6 +644,10 @@ void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanReco
 void reset_at_end(Stream& stream);
 // 開いた走査が届かない死んだ節を一度に消す（定義は database.cpp、ADR 0015）。述語は消さない。
 void sweep_dead(Impl& machine, Predicate& predicate);
+// 生きた節を全部消す（abolish と、読み込みが述語を置き換えるとき）。開いた走査がまだ試す節は死んだ節で残す。
+void retire_clauses(Impl& machine, Predicate& predicate);
+// 静的な述語に残った死んだ節のうち、開いた走査がもう届かないものを消す（enter_user が呼ぶ）。
+void purge_static(Impl& machine, Predicate& predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
 // 述語を呼ぶゴール（制御構造でも変数でもない）。env を残さないので、共有の env を作らずに枠にできる。

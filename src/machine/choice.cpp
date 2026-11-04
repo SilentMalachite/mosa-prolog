@@ -88,12 +88,15 @@ std::optional<std::size_t> advance_cursor(const Predicate& predicate, Entry& ent
 }
 
 // 候補は番号なので、前の節を消しても asserta しても位置を引き直せば同じ節に入る（ADR 0015）。まだ試して
-// いない節は消さずに残すので普通は在る。無い番号が残っていれば飛ばす。
+// いない節は消さずに残すので普通は在る。無い番号が残っていれば飛ばす。述語を消して作り直すと番号は先頭から
+// 振り直すので、走査の世代に見えない節は同じ番号の新しい節で、これも飛ばす（レビュー M19）。カーソルの走査、
+// clause/2 と retract は、もとから世代で確かめている。
 std::optional<std::size_t> advance_list(const Predicate& predicate, Entry& entry) {
   std::optional<std::size_t> position;
   while (!position && entry.next < entry.candidates.size()) {
     position = clause_position(predicate, entry.candidates[entry.next]);
     entry.next += 1;
+    if (position && !visible(predicate.clauses[*position], entry.generation)) position.reset();
   }
   return position;
 }
@@ -229,6 +232,9 @@ void enter_user(Impl& machine, const Goal& goal) {
     call_native(machine, predicate->native, goal.at);
     return;
   }
+  // 静的な述語の死んだ節は、読み込みの置き換えが開いた走査のために残したものだけ（M19 の敵対的レビュー B2）。
+  // 普段の呼び出しは 2 つの値を見るだけで通る。
+  if (!predicate->dynamic && predicate->dead_since > 0) purge_static(machine, *predicate);
   if (predicate->clauses.empty()) {
     // 節を消し切っても動的述語は残る。呼び出しは失敗であり、存在エラーではない。
     machine.failed = true;

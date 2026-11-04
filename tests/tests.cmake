@@ -149,6 +149,7 @@ add_test(NAME write_scale COMMAND $<TARGET_FILE:write_scale_test>)
 add_executable(clause_scan_test tests/cpp/clause_scan_test.cpp)
 target_include_directories(clause_scan_test PRIVATE tests/cpp src)
 target_link_libraries(clause_scan_test PRIVATE mosa_lib)
+target_compile_definitions(clause_scan_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME clause_scan COMMAND $<TARGET_FILE:clause_scan_test>)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
