@@ -4,9 +4,10 @@
 
 #include "mosa/writer.hpp"
 
-#include <algorithm>
 #include <optional>
+#include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -102,28 +103,40 @@ Snapshot::Snapshot(PredKey key, const Predicate* predicate)
       name(key.name),
       arity(key.arity),
       clauses(predicate == nullptr ? ClauseList{} : predicate->clauses),
+      serial(predicate == nullptr ? 0 : predicate->serial),
+      defined_at(predicate == nullptr ? 0 : predicate->defined_at),
+      defined_by_goal(predicate != nullptr && predicate->defined_by_goal),
       created(predicate == nullptr),
       dynamic(predicate != nullptr && predicate->dynamic),
       abolished(predicate != nullptr && predicate->abolished),
       meta(predicate == nullptr ? std::vector<MetaArg>{} : predicate->meta) {}
 
-void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
-  const bool known = std::any_of(snapshots.begin(), snapshots.end(), [&](const Snapshot& shot) {
-    return shot.module == key.module && shot.name == key.name && shot.arity == key.arity;
-  });
-  if (known) return;
-  snapshots.emplace_back(key, find_pred(machine, key));
+// 名前の写しがあっても、ゴールが始めた今の定義が写していないものなら写す（ADR 0017）。ゴールが abolish して
+// 作り直した述語へテキストが触れると、戻す先はその定義になる。テキストが始めた定義は写さない。この読み込みの写しが
+// 前にあるのは、テキストが前の定義に触れたか、述語が無かったときで、失敗したら前の定義へ戻すか枠ごと消す。
+// predicate は呼び手が表で引いたもの。引き直すと、節ごとに述語表をもう一度なめる。写しは後ろから見る。続く節の
+// 述語の写しは末尾の近くにある。
+void remember_pred(std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate) {
+  const bool by_goal = predicate != nullptr && predicate->defined_by_goal;
+  for (auto shot = snapshots.rbegin(); shot != snapshots.rend(); ++shot) {
+    if (shot->module != key.module || shot->name != key.name || shot->arity != key.arity) continue;
+    if (!by_goal || (!shot->created && shot->defined_at == predicate->defined_at)) return;
+  }
+  snapshots.emplace_back(key, predicate);
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
-bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::optional<PredKey>& last,
-                const std::vector<Apart>& apart) {
+bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<Snapshot>& snapshots,
+                std::optional<PredKey>& last, const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
   std::size_t index = machine.predicates.size();
   for (std::size_t cursor = 0; cursor < machine.predicates.size(); ++cursor) {
     if (same_pred(machine.predicates[cursor], module, name, arity)) index = cursor;
   }
+  // 失敗した読み込みは、この節を足す前の述語へ戻す。
+  remember_pred(snapshots, PredKey{module, name, arity},
+                index == machine.predicates.size() ? nullptr : &machine.predicates[index]);
   if (index == machine.predicates.size()) {
     // 取り込んだ名前と同じ局所の述語は作らない（iso-notes 第5節の取り込みの衝突）。
     if (const auto formal = check_local(machine, module, name, arity)) {
@@ -148,6 +161,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::optiona
   }
   if (predicate.abolished) {
     // ADR 0008。abolish 済みの枠を新しい定義に使い直す。死んだ節は開いた走査のために残す。
+    begin_definition(machine, predicate, false);
     predicate.abolished = false;
     predicate.dynamic = predicate.dynamic_declared;
     if (!predicate.meta_declared) predicate.meta.clear();
@@ -168,27 +182,86 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::optiona
   return true;
 }
 
-void remember_clause(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t module, const Clause& clause) {
-  remember_pred(machine, snapshots, PredKey{module, head_name(clause), head_arity(clause)});
+// 親が失敗したら、子のテキストが触れた述語も子が触れる前へ戻す。子の作った定義は写さなくても text_defined で消える
+// ので、作る前の印（created）は渡さない。
+void hand_up_snapshots(std::vector<Snapshot>& parent, std::vector<Snapshot>& own) {
+  std::set<std::pair<std::size_t, std::size_t>> known;
+  for (const Snapshot& shot : parent) {
+    if (!shot.created) known.emplace(shot.serial, shot.defined_at);
+  }
+  for (Snapshot& shot : own) {
+    if (shot.created || !known.emplace(shot.serial, shot.defined_at).second) continue;
+    parent.push_back(std::move(shot));
+  }
 }
 
+namespace {
+
+void restore_shot(Impl& machine, Predicate& predicate, const Snapshot& shot) {
+  // 写しへ戻した節にも生成関数は付け直さない（ADR 0009）。外したら、その述語はインタプリタで動き続ける。
+  detach_native(machine, predicate);
+  replace_clauses(predicate, shot.clauses);
+  predicate.dynamic = shot.dynamic;
+  predicate.abolished = shot.abolished;
+  predicate.meta = shot.meta;
+  predicate.defined_at = shot.defined_at;
+  predicate.defined_by_goal = shot.defined_by_goal;
+}
+
+bool text_defined(std::size_t defined_at, bool by_goal, std::size_t previous_serial) {
+  return defined_at > previous_serial && !by_goal;
+}
+
+bool text_defined(const Predicate& predicate, std::size_t previous_serial) {
+  return text_defined(predicate.defined_at, predicate.defined_by_goal, previous_serial);
+}
+
+// ゴールが作った述語は、モジュールの保留の meta_predicate をそのとき引き取った。保留は呼び手がモジュール表ごと
+// 読み込みの前へ戻したので、失敗したテキストの宣言を残さないよう引き取り直す（M24 の 2 度目の Codex レビュー P2）。
+// 写しの meta も、作ったときに引き取ったものなので同じく直す。abolish 済みの枠は、使い直すときに引き取る。
+void readopt_meta(Impl& machine, std::size_t previous_serial) {
+  for (Predicate& predicate : machine.predicates) {
+    if (!predicate.defined_by_goal || predicate.defined_at <= previous_serial || predicate.abolished) continue;
+    predicate.meta.clear();
+    predicate.meta_declared = false;
+    adopt_meta(machine, predicate);
+  }
+}
+
+}  // namespace
+
+// テキストがしたことを取り消し、指令のゴールがしたことは残す（ADR 0017）。写しは、写した時と同じ定義が残る枠だけ
+// へ戻す。ゴールが abolish した定義へ戻すと、ゴールの abolish の後に作り直した述語を前の節で上書きする。
+// テキストが始めた定義は、その枠の最後の写し（ゴールが abolish した後の枠など）へ戻し、写しが無ければ枠ごと消す。
+// この読み込みのテキストが始めた定義の写し（子が親のテキストの定義を写したものなど）は戻す先にしない。その定義も
+// 取り消すので、戻すと枠ごと消え、ゴールの abolish の下で開いている走査が残りの節を失う（2 度目の Codex レビュー P2）。
 void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_serial) {
+  const auto usable = [previous_serial](const Snapshot& shot) {
+    return !shot.created && !text_defined(shot.defined_at, shot.defined_by_goal, previous_serial);
+  };
+  std::unordered_map<std::size_t, const Snapshot*> last_of;
   for (const Snapshot& shot : snapshots) {
-    if (shot.created) continue;
+    if (usable(shot)) last_of[shot.serial] = &shot;
+  }
+  for (const Snapshot& shot : snapshots) {
+    if (!usable(shot)) continue;
     Predicate* predicate = find_pred(machine, PredKey{shot.module, shot.name, shot.arity});
-    if (predicate != nullptr) {
-      // 写しへ戻した節にも生成関数は付け直さない（ADR 0009）。外したら、その述語はインタプリタで動き続ける。
-      detach_native(machine, *predicate);
-      replace_clauses(*predicate, shot.clauses);
-      predicate->dynamic = shot.dynamic;
-      predicate->abolished = shot.abolished;
-      predicate->meta = shot.meta;
+    if (predicate != nullptr && predicate->defined_at == shot.defined_at) restore_shot(machine, *predicate, shot);
+  }
+  for (Predicate& predicate : machine.predicates) {
+    if (!text_defined(predicate, previous_serial)) continue;
+    if (const auto found = last_of.find(predicate.serial); found != last_of.end()) {
+      restore_shot(machine, predicate, *found->second);
     }
   }
-  // 読み込みの間に作った述語を消す。表の長さへ縮めると、指示が述語を消していたとき、作った述語が残るか、空の
-  // 述語が末尾に足されて serial の昇順が崩れる（M18 の Codex レビュー P2）。
-  std::erase_if(machine.predicates, [previous_serial](const Predicate& predicate) {
-    return predicate.serial > previous_serial;
+  readopt_meta(machine, previous_serial);
+  // 表の長さへ縮めると、指示が述語を消していたとき、作った述語が残るか、空の述語が末尾に足されて serial の昇順が
+  // 崩れる（M18 の Codex レビュー P2）。この読み込みが宣言したモジュールの述語も消す。モジュールは呼び手が先に
+  // 戻しているので、残すと呼べないモジュールの述語が current_predicate/1 に見える（宣言の無いモジュールへの assert
+  // は existence_error になる）。
+  std::erase_if(machine.predicates, [&machine, previous_serial](const Predicate& predicate) {
+    if (text_defined(predicate, previous_serial)) return true;
+    return predicate.serial > previous_serial && find_module(machine, predicate.module) == nullptr;
   });
 }
 

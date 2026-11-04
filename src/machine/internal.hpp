@@ -30,6 +30,8 @@
 
 namespace mosa {
 
+struct Snapshot;
+
 inline constexpr std::uint64_t kNoFrame = UINT64_MAX;
 inline constexpr std::size_t kFrameHead = 4;
 // 生成コードは rt::kFrameHead でゴール枠の引数を読む。2 つは同じ枠の同じ頭である。
@@ -165,6 +167,12 @@ struct Predicate {
   bool meta_declared = false;
   // ADR 0008。開いた走査があるときの abolish。走査のやり直しだけが引き、新しい引き当ては無いものとして扱う。
   bool abolished = false;
+  // 今の定義を始めた時の Impl::pred_serial と、始めたのがゴールか（ADR 0017）。定義は枠を作るときと、abolish 済み
+  // の枠を使い直すときと、開いた走査の下の abolish で始まる。失敗した読み込みは、同じ定義が残る述語だけを写しへ
+  // 戻し、読み込みの間にテキストが始めた定義を取り消す。ゴールが始めた定義は、既にある述語への変更と同じく残す。
+  // bool を上の bool の隣に置き、詰め物を増やさない。
+  bool defined_by_goal = false;
+  std::size_t defined_at = 0;
   // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
   rt::NativeProc native = nullptr;
 };
@@ -455,6 +463,8 @@ struct Machine::Impl {
   std::vector<std::string> prepared;
   // 初期化の例外で節を残す。入れ子の consult がこれで失敗したとき、親は節を戻さない。
   bool load_kept = false;
+  // 動いている一番内側の読み込みの写し（ADR 0017）。入れ子の読み込みは、成功したら自分の写しを親へ渡す。
+  std::vector<Snapshot>* load_snapshots = nullptr;
   std::vector<Entry> stack;
   std::vector<Extra> extras;
   // 上に選択点を残したまま抜けた（無効にした）Catch。選択点ごとに有効な Catch を写すと、同時に生きている

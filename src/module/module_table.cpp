@@ -68,8 +68,16 @@ const Predicate* find_pred(const Impl& machine, PredKey key) {
 
 Predicate& add_predicate(Impl& machine, Predicate made) {
   made.serial = ++machine.pred_serial;
+  made.defined_at = made.serial;
   machine.predicates.push_back(std::move(made));
   return machine.predicates.back();
+}
+
+// 番号は serial と同じ数から取るので、定義の始まりどうしも枠の作成とも重ならず、読み込みの始めの pred_serial と
+// 比べれば読み込みの間に始めた定義かがわかる。serial は振り直さないので、表の昇順（M18）は崩れない。
+void begin_definition(Impl& machine, Predicate& predicate, bool by_goal) {
+  predicate.defined_at = ++machine.pred_serial;
+  predicate.defined_by_goal = by_goal;
 }
 
 // 表は serial の昇順なので二分探索で引く。current_predicate/1 のやり直しごとに表をなめない。

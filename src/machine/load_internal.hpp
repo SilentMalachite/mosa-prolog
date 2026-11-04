@@ -28,6 +28,10 @@ struct Snapshot {
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
   ClauseList clauses;
+  // 写した枠と定義（ADR 0017）。戻すのは同じ定義が残る枠だけで、テキストが始めた定義はその枠の最後の写しへ戻す。
+  std::size_t serial = 0;
+  std::size_t defined_at = 0;
+  bool defined_by_goal = false;
   bool created = false;
   bool dynamic = false;
   bool abolished = false;
@@ -47,17 +51,19 @@ struct Apart {
 void fail_load(Impl& machine, std::string message);
 [[nodiscard]] bool allows_gap(const std::vector<Apart>& apart, PredKey key);
 void note_declared(Impl& machine, PredKey key, bool shared);
-void remember_pred(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key);
+// predicate は key を表で引いた結果（無ければ null）。
+void remember_pred(std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate);
 [[nodiscard]] bool run_inits(Impl& machine, const std::vector<Cell>& goals);
 // 定義は load_clauses.cpp。テキストに置けない節なら、assertz/1 がその節に出すのと同じ Formal を返す（レビュー M10）。
 // term は module の修飾を外した節、clause はそれを訳したもの。
 [[nodiscard]] std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& clause);
-// 定義は load_clauses.cpp。節は module に入る。last は直前に節を足した述語の名前。
-[[nodiscard]] bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::optional<PredKey>& last,
-                              const std::vector<Apart>& apart);
-void remember_clause(Impl& machine, std::vector<Snapshot>& snapshots, std::uint32_t module, const Clause& clause);
+// 定義は load_clauses.cpp。節は module に入り、足す前の述語を snapshots へ写す。last は直前に節を足した述語の名前。
+[[nodiscard]] bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<Snapshot>& snapshots,
+                              std::optional<PredKey>& last, const std::vector<Apart>& apart);
 // 失敗した読み込みの述語を写しへ戻し、この読み込みで作った述語（serial が previous_serial より後）を捨てる。
 void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_serial);
+// 成功した入れ子の読み込みの写しを親の写しへ足す。親が同じ定義を写していれば、親の古い写しを残す（ADR 0017）。
+void hand_up_snapshots(std::vector<Snapshot>& parent, std::vector<Snapshot>& own);
 // first は、この項がファイルの最初の項であること。module/2 はそこでしか受けない。
 [[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
                                     std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,

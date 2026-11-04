@@ -354,6 +354,7 @@ Predicate* purge_dead(Impl& machine, Predicate* predicate) {
 // 番号が新しい定義の節を指さない。
 void revive(Impl& machine, Predicate& predicate) {
   if (!predicate.abolished) return;
+  begin_definition(machine, predicate, true);
   predicate.abolished = false;
   predicate.dynamic = true;
   predicate.dynamic_declared = false;
@@ -368,6 +369,8 @@ void abolish_open(Impl& machine, Predicate& predicate) {
     erase_predicate(machine, key.module, key.name, key.arity);
     return;
   }
+  // 枠を残しても定義は無くなる。失敗した読み込みが、abolish の前の写しをこの枠へ戻さないようにする（ADR 0017）。
+  begin_definition(machine, predicate, true);
   predicate.abolished = true;
 }
 
@@ -459,6 +462,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     created.name = source_name;
     created.arity = head.arity;
     created.dynamic = true;
+    created.defined_by_goal = true;
     existing = &add_predicate(machine, std::move(created));
     adopt_meta(machine, *existing);
   }

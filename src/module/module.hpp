@@ -63,8 +63,10 @@ void install_modules(Machine::Impl& machine);
 [[nodiscard]] Module* find_module(Machine::Impl& machine, std::uint32_t name);
 [[nodiscard]] Predicate* find_pred(Machine::Impl& machine, PredKey key);
 [[nodiscard]] const Predicate* find_pred(const Machine::Impl& machine, PredKey key);
-// 述語表の末尾に足し、次の Predicate::serial を振る。表に述語を足すのはここだけ。
+// 述語表の末尾に足し、次の Predicate::serial を振る。表に述語を足すのはここだけ。defined_by_goal は呼び手が入れる。
 Predicate& add_predicate(Machine::Impl& machine, Predicate made);
+// 表にある枠で新しい定義を始める（ADR 0017）。abolish 済みの枠を使い直すときと、開いた走査の下の abolish で呼ぶ。
+void begin_definition(Machine::Impl& machine, Predicate& predicate, bool by_goal);
 // serial の述語。消した述語なら nullptr。
 [[nodiscard]] const Predicate* pred_by_serial(const Machine::Impl& machine, std::size_t serial);
 [[nodiscard]] Predicate* resolve_pred(Machine::Impl& machine, std::uint32_t context, std::uint32_t name,

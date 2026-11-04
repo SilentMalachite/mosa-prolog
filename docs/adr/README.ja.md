@@ -20,3 +20,4 @@ ADR を連番で置く。各 ADR は「背景・決定・捨てた案・影響�
 | [0014](0014-catch-goal-as-data.ja.md) | ゴール位置に変数を含む catch/3 のゴールを call/1 として動かす | 承認済み（2026-11-01） |
 | [0015](0015-first-argument-index.ja.md) | 変わらない節の番号、世代、第1引数の索引 | 承認済み（2026-11-02） |
 | [0016](0016-call-cleanup.ja.md) | setup_call_cleanup/3: 後始末の Entry と次の歩みへ回す後始末 | 承認済み（2026-11-03） |
+| [0017](0017-failed-load-keeps-asserted.ja.md) | 失敗した読み込みは、ゴールが assert で作った述語を残す | 承認済み（2026-11-04） |

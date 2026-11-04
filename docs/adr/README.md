@@ -20,3 +20,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0014](0014-catch-goal-as-data.md) | A catch/3 goal with a variable in goal position runs as call/1 | Approved (2026-11-01) |
 | [0015](0015-first-argument-index.md) | Stable clause ids, generations and a first-argument index | Approved (2026-11-02) |
 | [0016](0016-call-cleanup.md) | setup_call_cleanup/3: a cleanup entry and cleanups queued to the next step | Approved (2026-11-03) |
+| [0017](0017-failed-load-keeps-asserted.md) | A failed load keeps the predicates its goals made with assert | Approved (2026-11-04) |

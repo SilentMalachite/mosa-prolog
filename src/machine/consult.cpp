@@ -7,7 +7,6 @@
 #include <filesystem>
 #include <string>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -55,44 +54,29 @@ struct SeenMark {
   bool meta = false;
 };
 
-struct ClauseBackup {
-  // 節は番号ごと写す。戻したとき、開いた走査の候補が同じ節を指す（ADR 0015）。
-  explicit ClauseBackup(const Predicate& predicate)
-      : module(predicate.module),
-        name(predicate.name),
-        arity(predicate.arity),
-        clauses(predicate.clauses),
-        dynamic(predicate.dynamic) {}
-  // Predicate と同じく、写しの vector が伸びても節を写さないよう移動を noexcept にする。
-  ClauseBackup(const ClauseBackup&) = default;
-  ClauseBackup& operator=(const ClauseBackup&) = default;
-  ClauseBackup(ClauseBackup&&) noexcept = default;
-  ClauseBackup& operator=(ClauseBackup&&) noexcept = default;
-  ~ClauseBackup() = default;
-
-  std::uint32_t module = 0;
-  std::uint32_t name = 0;
-  std::uint16_t arity = 0;
-  ClauseList clauses;
-  bool dynamic = false;
-};
-
-static_assert(std::is_nothrow_move_constructible_v<ClauseBackup>);
-static_assert(std::is_nothrow_move_assignable_v<ClauseBackup>);
-
 bool key_less(const PredKey& a, const PredKey& b) {
   return std::tie(a.module, a.name, a.arity) < std::tie(b.module, b.name, b.arity);
 }
 
+// 子の読み込みの前の印と、モジュールが保留していた meta_predicate の名前（名前の順）。
+struct SavedMarks {
+  std::vector<SeenMark> marks;
+  std::vector<PredKey> pending;
+};
+
 // 述語の表は serial の昇順（M18）なので、写しも serial の昇順になる。
-std::vector<SeenMark> mark_seen(const Impl& machine) {
-  std::vector<SeenMark> saved;
-  saved.reserve(machine.predicates.size());
+SavedMarks mark_seen(const Impl& machine) {
+  SavedMarks saved;
+  saved.marks.reserve(machine.predicates.size());
   for (const Predicate& predicate : machine.predicates) {
     const PredKey key{predicate.module, predicate.name, predicate.arity};
-    saved.push_back(
+    saved.marks.push_back(
         SeenMark{key, predicate.serial, predicate.seen, predicate.dynamic_declared, predicate.meta_declared});
   }
+  for (const Module& module : machine.modules) {
+    for (const PendingMeta& item : module.pending_meta) saved.pending.push_back(PredKey{module.name, item.name, item.arity});
+  }
+  std::sort(saved.pending.begin(), saved.pending.end(), key_less);
   return saved;
 }
 
@@ -106,20 +90,22 @@ void put_mark(Predicate& predicate, const SeenMark* mark) {
 // 表と写しを serial の順に並べて歩く。同じ serial は子の前からある述語。子が消した述語の印だけを名前で並べ、子が
 // 作った述語はそこから同じ名前を探す。全部を名前で並べ替えると、consult のたびに述語の数 n について n log n かかる
 // （敵対的レビュー B3）。
-void restore_seen(Impl& machine, const std::vector<SeenMark>& saved) {
+// 子が作った述語が親の保留した meta_predicate を引き取っていれば、それは親のテキストの宣言なので印を付ける。付けない
+// と、親の次の節が子の節を置き換えるとき宣言も消す（M24 の敵対的レビュー A2。子のゴールの述語は、子が失敗しても残る）。
+void restore_seen(Impl& machine, const SavedMarks& saved) {
   std::vector<const SeenMark*> gone;
   std::vector<Predicate*> created;
-  auto mark = saved.begin();
+  auto mark = saved.marks.begin();
   for (Predicate& predicate : machine.predicates) {
-    for (; mark != saved.end() && mark->serial < predicate.serial; ++mark) gone.push_back(&*mark);
-    if (mark != saved.end() && mark->serial == predicate.serial) {
+    for (; mark != saved.marks.end() && mark->serial < predicate.serial; ++mark) gone.push_back(&*mark);
+    if (mark != saved.marks.end() && mark->serial == predicate.serial) {
       put_mark(predicate, &*mark);
       ++mark;
     } else {
       created.push_back(&predicate);
     }
   }
-  for (; mark != saved.end(); ++mark) gone.push_back(&*mark);
+  for (; mark != saved.marks.end(); ++mark) gone.push_back(&*mark);
   const auto before = [](const SeenMark* a, const SeenMark* b) { return key_less(a->key, b->key); };
   std::sort(gone.begin(), gone.end(), before);
   for (Predicate* predicate : created) {
@@ -127,27 +113,8 @@ void restore_seen(Impl& machine, const std::vector<SeenMark>& saved) {
     const auto found = std::lower_bound(gone.begin(), gone.end(), &wanted, before);
     const bool kept = found != gone.end() && !key_less(wanted.key, (*found)->key);
     put_mark(*predicate, kept ? *found : nullptr);
-  }
-}
-
-std::vector<ClauseBackup> backup_clauses(const Impl& machine) {
-  std::vector<ClauseBackup> saved;
-  saved.reserve(machine.predicates.size());
-  for (const Predicate& predicate : machine.predicates) {
-    saved.emplace_back(predicate);
-  }
-  return saved;
-}
-
-void restore_clauses(Impl& machine, const std::vector<ClauseBackup>& saved) {
-  for (const ClauseBackup& item : saved) {
-    for (Predicate& predicate : machine.predicates) {
-      if (predicate.module != item.module || predicate.name != item.name || predicate.arity != item.arity) continue;
-      // 戻した節にも生成関数は付け直さない（ADR 0009）。
-      detach_native(machine, predicate);
-      replace_clauses(predicate, item.clauses);
-      predicate.dynamic = item.dynamic;
-      break;
+    if (!kept && std::binary_search(saved.pending.begin(), saved.pending.end(), wanted.key, key_less)) {
+      predicate->meta_declared = true;
     }
   }
 }
@@ -228,15 +195,13 @@ int apply_file_list(Impl& machine, Cell term, std::string_view directory, std::v
   std::vector<Cell> items;
   const int collected = collect_files(machine, term, items);
   if (collected <= 0) return collected;
-  const auto backups = backup_clauses(machine);
+  // 失敗したファイルは自分のテキストを取り消す。この指令が失敗すると、それを読んでいた読み込みも失敗し、その巻き戻しが
+  // 成功した前のファイルから渡された写しで、前のファイルのテキストも取り消す（ADR 0017）。前はここでリストの前の節を
+  // 名前で戻し、ゴールが abolish した枠に生きた節を戻していた（M24 の敵対的レビュー A1）。
   for (const Cell item : items) {
     const auto text = machine.atoms.name(static_cast<std::uint32_t>(item.raw() >> 3));
     const auto file = resolve_file(directory, text);
-    if (consult_one(machine, file, opening) < 0) {
-      // 初期化の例外は節を残す。それ以外は、このリストで置き換えた節を戻す。
-      if (!machine.load_kept) restore_clauses(machine, backups);
-      return -1;
-    }
+    if (consult_one(machine, file, opening) < 0) return -1;
   }
   return 1;
 }

@@ -325,16 +325,6 @@ bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGua
   return true;
 }
 
-// [File] と consult(File) は別の読み込みで既存の節を置き換える。親の写しに無いと、親の失敗で戻せない。
-bool replaces_files(Impl& machine, Cell term) {
-  if (!is_directive(machine.heap, term)) return false;
-  const Cell body = machine.heap.deref(machine.heap.arg(term, 0));
-  if (body.tag() == Tag::Lis) return true;
-  if (body.tag() == Tag::Atom) return machine.atoms.name(static_cast<std::uint32_t>(body.raw() >> 3)) == "[]";
-  return body.tag() == Tag::Str && machine.heap.functor_arity(body) == 1 &&
-         machine.atoms.name(machine.heap.functor_atom(body)) == "consult";
-}
-
 // 翻訳のときだけ、足した節の位置を書き留める。どこにも定義の無い述語を呼ぶ警告がこの行を出す。
 // key は add_clause が節を足した述語。
 void note_site(Impl& machine, PredKey key, std::size_t line) {
@@ -414,11 +404,6 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
   if (ensured != 0) return ensured > 0;
   const int used = apply_use(machine, term, directory, scan);
   if (used != 0) return used > 0;
-  if (replaces_files(machine, term)) {
-    for (const Predicate& predicate : machine.predicates) {
-      remember_pred(machine, scan.snapshots, PredKey{predicate.module, predicate.name, predicate.arity});
-    }
-  }
   const int listed = apply_file_list(machine, term, directory, scan.opening);
   if (listed != 0) return listed > 0;
   const int directed =
@@ -444,8 +429,7 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
     if (mark_opaque(machine.translation)) return true;
     return fail_formal(machine, *formal) > 0;
   }
-  remember_clause(machine, scan.snapshots, module, clause);
-  if (!add_clause(machine, module, std::move(clause), scan.last, scan.apart)) return false;
+  if (!add_clause(machine, module, std::move(clause), scan.snapshots, scan.last, scan.apart)) return false;
   if (scan.last) note_site(machine, *scan.last, read.line);
   return true;
 }
@@ -495,6 +479,24 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   }
 }
 
+// 読み込みの間だけ Impl::load_snapshots をこの読み込みの写しにし、抜けるときに親のものへ戻す。[File] と
+// consult(File) の入れ子の読み込みは既存の節を置き換えるので、子の写しを親へ渡さないと親の失敗で戻せない。前は
+// 指令の前に全部の述語を写していたので、その後のゴールが既にある述語へした変更まで戻した（ADR 0017）。
+class SnapshotScope {
+ public:
+  SnapshotScope(Impl& machine, std::vector<Snapshot>& own) : machine_(machine), parent_(machine.load_snapshots) {
+    machine.load_snapshots = &own;
+  }
+  ~SnapshotScope() { machine_.load_snapshots = parent_; }
+  SnapshotScope(const SnapshotScope&) = delete;
+  SnapshotScope& operator=(const SnapshotScope&) = delete;
+  [[nodiscard]] std::vector<Snapshot>* parent() const { return parent_; }
+
+ private:
+  Impl& machine_;
+  std::vector<Snapshot>* parent_;
+};
+
 }  // namespace
 
 LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
@@ -515,6 +517,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   const auto saved_prepared = machine.prepared;
   const auto saved_modules = machine.modules;
   std::vector<Snapshot> snapshots;
+  const SnapshotScope shot_scope(machine, snapshots);
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
   std::vector<Apart> apart;
   // テキストを準備し終えてから、ソースの順に実行する。
@@ -541,7 +544,11 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
   // initialization のゴールより先に戻す（iso-notes 7.4.2.8 の決定 B）。
   if (!origin.empty()) restore_file_flags(machine, saved_flags);
-  return finish_load(machine, heap_base, inits);
+  const LoadStatus status = finish_load(machine, heap_base, inits);
+  // 初期化のゴールの後で渡す。そのゴールが読んだ孫の写しも、この写しへ渡されている（2 度目の Codex レビュー P2）。
+  // 初期化のゴールが失敗しても節は戻さないが、親が失敗すれば親が戻す。
+  if (shot_scope.parent() != nullptr) hand_up_snapshots(*shot_scope.parent(), snapshots);
+  return status;
 }
 
 LoadStatus Machine::load_program(std::string_view source) {
