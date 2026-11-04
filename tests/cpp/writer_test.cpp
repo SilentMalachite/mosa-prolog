@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -318,6 +319,38 @@ void check_write_terms() {
                    "cycle check starts again per term: " + loops[0] + " / " + loops[1]);
 }
 
+std::string as_operand(std::string_view source, std::optional<int> priority) {
+  Held held(source);
+  if (!held.ok) return "<read failed>";
+  mosa::WriteOptions options;
+  options.operand_priority = priority;
+  return mosa::write_term(held.heap, held.ops, held.term.term, options, held.term.names);
+}
+
+// レビュー M27。operand_priority を渡すと、項をその優先度までの被演算子として書く。それより高い演算子の項と、
+// 演算子の原子は括弧に入る。引数とリストの要素の中は前と同じ。渡さなければ優先度 1200 で項だけを書く。
+void check_operand_priority() {
+  const std::array<std::pair<std::string_view, std::string_view>, 9> at_699{{
+      {"(a:-b).", "(a:-b)"},
+      {"(a;b).", "(a;b)"},
+      {"(a=b).", "(a=b)"},
+      {"(=).", "(=)"},
+      {"(-).", "(-)"},
+      {"1+2.", "1+2"},
+      {"- a.", "-a"},
+      {"f(=, (a:-b)).", "f(=,(a:-b))"},
+      {"[-].", "[-]"},
+  }};
+  for (const auto& [source, text] : at_699) {
+    const std::string got = as_operand(source, 699);
+    mosa_test::check(got == text, std::string{source} + " as an operand at 699: " + got);
+  }
+  mosa_test::check(as_operand("- a.", 0) == "(-a)", "every operator term bracketed at 0");
+  mosa_test::check(as_operand("(a=b).", 700) == "a=b", "operand at the operator's own priority");
+  mosa_test::check(as_operand("(a:-b).", std::nullopt) == "a:-b", "a term alone at 1200");
+  mosa_test::check(as_operand("(=).", std::nullopt) == "=", "an operator atom alone");
+}
+
 
 }  // namespace
 
@@ -326,6 +359,7 @@ int main() {
   check_fullwidth_quoting();
   check_unnamed_and_numbers();
   check_write_terms();
+  check_operand_priority();
   check_equality();
   check_deep_terms();
   check_deep_lists();

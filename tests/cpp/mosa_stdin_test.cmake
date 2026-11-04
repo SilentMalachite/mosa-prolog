@@ -23,5 +23,6 @@ expect_output("read from stdin" "X = foo, Y = bar\\." -g "read(X), read(Y)." -t 
 expect_output("version ignores stdin" "^mosa 0\\.0\\.1 \\(phase 6\\)" --version)
 # レビュー M12。パイプの read/1 は 1.5 の小数点を終止符にしない。
 file(WRITE "${input}" "X = 1.5.\nfoo(2.25).\n")
-expect_output("float from stdin" "T = _[A-Za-z0-9]*=1\\.5, U = foo\\(2\\.25\\)\\." -g "read(T), read(U)." -t halt)
+# = の項は = の右の被演算子として括弧に入る（レビュー M27）。
+expect_output("float from stdin" "T = \\(_[A-Za-z0-9]*=1\\.5\\), U = foo\\(2\\.25\\)\\." -g "read(T), read(U)." -t halt)
 file(REMOVE "${input}")

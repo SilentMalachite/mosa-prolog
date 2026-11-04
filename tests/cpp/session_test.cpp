@@ -335,6 +335,49 @@ void check_anonymous_under_char_conversion() {
   mosa_test::check(!answered(result.out, "false."), "converted anonymous variables stay apart: " + result.out);
 }
 
+// レビュー M27。答えの値は = の右の被演算子として書く。優先度 1200 で書くと X = (a;b) が X = a;b になり、貼り直すと
+// 別のゴール（X = a, Y = Y）か誤りになった。答えは同じ表のまま貼り直すと同じ答えになること（レビュー M8）。setup は
+// 両方の回で先に通すゴールで、op/3 で = を変える。
+struct Pasted {
+  std::string_view setup;
+  std::string_view goal;
+  std::string_view answer;
+};
+
+void check_answer_operands() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  const std::array<Pasted, 13> cases{{
+      {"", "X = (a ; b), Y = 1.", "X = (a;b), Y = 1."},
+      {"", "X = (a , b).", "X = (a,b)."},
+      {"", "X = (a :- b).", "X = (a:-b)."},
+      {"", "X = (a = b).", "X = (a=b)."},
+      {"", "X = (=).", "X = (=)."},
+      {"", "X = (-), Y = (:-).", "X = (-), Y = (:-)."},
+      {"", "X = (\\+ a), Y = (a < b).", "X = (\\+a), Y = (a<b)."},
+      {"", "X = (A :- B).", "X = (A:-B)."},
+      // 演算子の原子に束縛された名前は名前で書くので、括弧に入れない（M27 の敵対的レビュー A3）。
+      {"", "Y = (-), X = (a :- Y), Z = - Y.", "Y = (-), X = (a:-Y), Z = -Y."},
+      // 699 までの項と、引数とリストの要素は前と同じく括弧に入れない。
+      {"", "X = 1+2, Y = - a, Z = [-, (a :- b)], W = f(=).", "X = 1+2, Y = -a, Z = [-,(a:-b)], W = f(=)."},
+      // = を変えたら、今の表の = の右の被演算子として書く。
+      {"op(700, xfy, =).", "X = (a = b).", "X = a=b."},
+      {"op(700, yfx, =).", "X = (a = b).", "X = (a=b)."},
+      {"op(200, xfx, =).", "X = (1 + 2).", "X = (1+2)."},
+  }};
+  for (const Pasted& item : cases) {
+    const std::string setup = item.setup.empty() ? std::string{} : std::string{item.setup} + "\n";
+    auto first = mosa::run_session(args, setup + std::string{item.goal} + "\n", true);
+    mosa_test::check(answered(first.out, item.answer), std::string{item.goal} + " -> " + first.out);
+    auto again = mosa::run_session(args, setup + std::string{item.answer} + "\n", true);
+    mosa_test::check(answered(again.out, item.answer), std::string{item.answer} + " pasted back -> " + again.out);
+  }
+  // = が演算子でなければ答えは読み戻せないので、貼り直さない。ISO の 699 で書くこと: 1+2 は括弧に入らず
+  // （0 なら入る）、a<b は入る（999 なら入らない）。ゴールは op/3 の前に読むので = が使える（M27 の敵対的レビュー A2）。
+  auto plain = mosa::run_session(args, "op(0, xfx, =), X = 1+2, Y = (a :- b), Z = (a < b).\n", true);
+  mosa_test::check(answered(plain.out, "X = 1+2, Y = (a:-b), Z = (a<b)."), "no = operator writes at 699: " + plain.out);
+}
+
 // レビュー M22。mosatest の solutions は期待と答えの束縛を 1 つの番号付けで書いて比べる。答えを束縛ごとに書くと、
 // M22 の誤った字面（h1）も、別の 2 つの変数を 1 つの共有した変数とする期待（h3）も通った。h2 は逆向きの取り違え。
 // 期待は全体を 1 度に書いて読み直すので、_ は _G1、_G2 と番号の付いた名前になる。h1〜h3 は落ちたゴールを見分ける印。
@@ -641,6 +684,7 @@ int main(int argc, char** argv) {
   check_answer_numbering();
   check_answer_aliases();
   check_anonymous_under_char_conversion();
+  check_answer_operands();
   check_runner();
   check_runner_reports_every_file();
   check_runner_answer_numbering();

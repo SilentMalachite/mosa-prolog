@@ -233,7 +233,9 @@ std::string Printer::print(Cell term) {
   out_.clear();
   pending_ = Pending{};
   zero_end_ = std::string::npos;
-  push_term(term, 1200, true);
+  // 被演算子として書くときは、演算子の中の被演算子と同じ道を通り、演算子の原子も括弧に入れる（レビュー M27）。
+  if (options_.operand_priority) push_operand(term, *options_.operand_priority, true);
+  else push_term(term, 1200, true);
   while (!work_.empty() && !aborted_) {
     Work item = std::move(work_.back());
     work_.pop_back();
@@ -400,6 +402,8 @@ bool Printer::unsigned_number(Cell term) const {
 }
 
 bool Printer::operator_atom(Cell term) const {
+  // 名前のある変数は名前で書くので、束縛された原子を見ると (Y) と余計な括弧が付く（M27 の敵対的レビュー A3）。
+  if (term.tag() == Tag::Ref && var_name(term) != nullptr) return false;
   term = heap_.deref(term);
   if (term.tag() != Tag::Atom) return false;
   return !operators_.lookup(heap_.atoms().name(atom_of(term))).empty();

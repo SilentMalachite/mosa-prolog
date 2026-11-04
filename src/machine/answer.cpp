@@ -108,6 +108,18 @@ Picked pick_bindings(const Heap& heap, std::span<const Binding> bindings, std::v
   return picked;
 }
 
+// 答えの「名前 = 値」の値は = の右の被演算子なので、今の表の = が右に取れる優先度まで括弧を付けずに書く
+// （7.10.5、レビュー M27）。利用者が op/3 で = を 999 までの優先度に変えても、答えは同じ表のまま読み戻せる。
+// 1000 以上だと「名前 = 値」の組が区切りの , の左に入らないので、組が 2 つ以上の答えは読み戻せない（前からある、
+// M27 の敵対的レビュー A1）。= が中置の演算子でなければ答えはどう書いても読み戻せないので、ISO の表の 699 にしておく。
+int value_priority(OperatorView operators) {
+  for (const OpDef& op : operators.lookup("=")) {
+    if (op.specifier == Specifier::Xfy) return op.priority;
+    if (op.specifier == Specifier::Xfx || op.specifier == Specifier::Yfx) return op.priority - 1;
+  }
+  return 699;
+}
+
 }  // namespace
 
 std::string format_answer(const Machine& machine, const Stop& stop) {
@@ -120,6 +132,7 @@ std::string format_answer(const Machine& machine, const Stop& stop) {
   // 答えは利用者が同じ旗のまま貼り直せるように書く（レビュー M8）。
   WriteOptions options;
   options.fullwidth = engine_impl(machine).japanese_punct;
+  options.operand_priority = value_priority(machine.operators());
   // 束縛ごとに write_term を呼ぶと、作る名前が束縛ごとに _G1 から始まり、違う変数が同じ名前になる（レビュー M22）。
   const std::vector<std::string> texts =
       write_terms(machine.heap(), machine.operators(), picked.values, options, names);

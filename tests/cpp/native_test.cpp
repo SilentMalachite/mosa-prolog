@@ -221,7 +221,8 @@ void check_fingerprint_mismatch() {
   auto interp = interp_machine(native_units::kOpSource);
   const auto rel_before = hits().rel;
   const auto same_before = hits().same;
-  same_answers(*native, *interp, "rel(X), X = (L ===> R).", "X = a===>b-c, L = a, R = b-c.");
+  // 実行時の ===> は xfx 700 なので、= の右の被演算子（699 まで）としては括弧に入る（レビュー M27）。
+  same_answers(*native, *interp, "rel(X), X = (L ===> R).", "X = (a===>b-c), L = a, R = b-c.");
   same_answers(*native, *interp, "same(X).", "X = f(a,2.5,-3).");
   same_answers(*native, *interp, "same(f(A, B, C)).", "A = a, B = 2.5, C = -3.");
   same_answers(*native, *interp, "same(f(a, 2.5, -4)).", "false");

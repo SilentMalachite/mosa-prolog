@@ -8,6 +8,7 @@
 #include "mosa/reader.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -27,6 +28,10 @@ struct WriteOptions {
   // 旗 japanese_punctuation の値（SPEC 第4節、レビュー M8）。真なら、全角記号モードの読み手が別の字句に読む原子を引用する。
   // 書いた字面を同じ旗で読み戻す呼び手（writeq などの述語、REPL）が機械の旗を写す。
   bool fullwidth = false;
+  // 値があれば、項を優先度がそれまでの被演算子として書く。それより高い演算子の項と、演算子の原子を括弧に入れる
+  // （7.10.5、6.3.4.2）。トップレベルの答えは値を = の右の被演算子として書き、貼り直せるようにする（レビュー M27）。
+  // 無ければ write_term と同じく項だけを書き、優先度 1200 まで括弧を付けない。
+  std::optional<int> operand_priority;
 };
 
 // Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。
