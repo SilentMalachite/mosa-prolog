@@ -231,6 +231,21 @@ void check_given_made_up_name() {
   mosa_test::check(result.out.find("X = f(_G1,_G2).") != std::string::npos, "answer names the anonymous variable apart");
 }
 
+// REPL の出力に、行全体が line の答えがあるか（行の頭のプロンプトは除く）。部分文字列で探すと、余分な部分が前に
+// 付いた答えも通る（M26 の敵対的レビュー A4）。
+bool answered(std::string_view out, std::string_view line) {
+  std::size_t start = 0;
+  while (start < out.size()) {
+    std::size_t end = out.find('\n', start);
+    if (end == std::string_view::npos) end = out.size();
+    std::string_view row = out.substr(start, end - start);
+    while (row.starts_with("?- ")) row.remove_prefix(3);
+    if (row == line) return true;
+    start = end + 1;
+  }
+  return false;
+}
+
 // レビュー M22。答えの束縛を 1 つずつ書くと、作る名前が束縛ごとに _G1 から始まり、違う変数が同じ名前になった。
 // 同じ変数は束縛をまたいでも同じ名前のまま、利用者の _G2 は後の束縛でも飛ばす。REPL は読んだゴールを書き直して
 // 読むので（M9）、_ は名前の付いた変数になる。名前の無い _ は -g で確かめる。
@@ -244,9 +259,9 @@ void check_answer_numbering() {
                                   "X = f(_G2), length(L, 1), length(M, 1).\n"
                                   "(N = 1 ; N = 2), length(L, N), length(M, 1).\n;\n",
                                   true);
-  const auto has = [&result](std::string_view line) { return result.out.find(line) != std::string::npos; };
+  const auto has = [&result](std::string_view line) { return answered(result.out, line); };
   mosa_test::check(has("L = [_G1,_G2], M = [_G3]."), "lists of fresh variables apart: " + result.out);
-  mosa_test::check(has("X = f(_G1), B = B, Y = g(_G2)."), "copies apart");
+  mosa_test::check(has("A = A, X = f(_G1), B = B, Y = g(_G2)."), "copies apart");
   mosa_test::check(has("L = [_G1,_G2], K = [_G3], M = [_G1,_G2]."), "one variable keeps its name across bindings");
   mosa_test::check(has("X = f(_G2), L = [_G1], M = [_G3]."), "given _G2 skipped while the numbering carries on");
   // 別解はそれぞれ別の答えなので、番号は答えごとに 1 から振る。
@@ -256,13 +271,68 @@ void check_answer_numbering() {
   const std::string goal = "X = f(_, _), Y = g(_).";
   std::vector<std::string_view> batch{arg0, arg_g, goal};
   auto anonymous = mosa::run_session(batch, "", false);
-  mosa_test::check(anonymous.out.find("X = f(_G1,_G2), Y = g(_G3).") != std::string::npos,
-                   "anonymous variables apart: " + anonymous.out);
+  mosa_test::check(answered(anonymous.out, "X = f(_G1,_G2), Y = g(_G3)."), "anonymous variables apart: " + anonymous.out);
 }
 
 void check_runner() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/pl/runner.pl";
   mosa_test::check(mosa::run_suite(path) == 0, "runner");
+}
+
+// レビュー M26（ADR 0019）。値が同じ未束縛の変数である名前は、鎖 N1 = N2, N2 = N3 で示す。前は前の束縛に出た変数の
+// 束縛を書かなかったので、名前が消え、1 つの変数が _G1 と Q の 2 つの字面になった。
+void check_answer_aliases() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args,
+                                  "X = Y, Y = Z.\n"
+                                  "Y = Z, X = Y.\n"
+                                  "findall(X-X, true, [P-Q]), Y = g(Q).\n"
+                                  "findall(f(X)-X, true, [Y-P]).\n"
+                                  "X = f(Y), Y = Z.\n"
+                                  "copy_term(A-A, P-Q).\n"
+                                  "findall(X-X-f(X), true, [P-Q-Y]).\n"
+                                  "findall(X-X-X, true, [P-Q-R]), Y = f(P).\n"
+                                  "X = Y, length(L, 1), L = [Y].\n"
+                                  "f(_, X) = f(a, b).\n"
+                                  "functor(T, f, 2), arg(1, T, _).\n"
+                                  "X = _, Y = X.\n"
+                                  "findall(f(X)-X, true, [Y-_]).\n"
+                                  "functor(T, f, 2), arg(1, T, A).\n"
+                                  "(X = Y ; X = a), Y = Z.\n;\n",
+                                  true);
+  const auto has = [&result](std::string_view line) { return answered(result.out, line); };
+  mosa_test::check(has("X = Y, Y = Z."), "chain of three names: " + result.out);
+  mosa_test::check(has("Y = Z, Z = X."), "chain in binding order");
+  mosa_test::check(has("X = X, P = Q, Y = g(Q)."), "fresh variable with two names");
+  mosa_test::check(has("X = X, Y = f(_G1), P = _G1."), "one name shown after its variable");
+  mosa_test::check(has("X = f(Y), Y = Z."), "alias after a value that shows it");
+  mosa_test::check(has("A = A, P = Q."), "copied shared variable");
+  mosa_test::check(has("X = X, P = Q, Y = f(Q)."), "fresh variable written as the last name");
+  mosa_test::check(has("X = X, P = Q, Q = R, Y = f(P)."), "chain of a fresh variable");
+  mosa_test::check(has("X = Y, L = [Y]."), "a plain alias stays");
+  // REPL は読んだゴールを書いて読み直す。_ を _ のまま書くので、名前の無い変数は答えに出ない（レビュー L18）。
+  mosa_test::check(has("X = b."), "anonymous variable not shown");
+  mosa_test::check(has("T = f(_G1,_G2)."), "anonymous argument not shown");
+  mosa_test::check(has("X = Y."), "alias through an anonymous variable");
+  mosa_test::check(has("X = X, Y = f(_G1)."), "anonymous copy not shown");
+  // 名前が 1 つで問い合わせの変数そのものでない変数は、前の値に出ても示す。前は A が消えた。
+  mosa_test::check(has("T = f(_G1,_G2), A = _G1."), "one name of a fresh variable kept");
+  mosa_test::check(has("X = Y, Y = Z"), "chain in the first alternative");
+  mosa_test::check(has("X = a, Y = Z."), "chain gone in the second alternative");
+}
+
+// M26 の Codex レビュー。char_conversion が _ を別の字に変えるとき、REPL がゴールの無名変数を _ と書くと、読み直しで
+// 2 つが同じ名前になり、f(x, x) = f(a, b) が偽になった。
+void check_anonymous_under_char_conversion() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args,
+                                  "char_conversion(x, '_'), char_conversion('_', 'A'), "
+                                  "set_prolog_flag(char_conversion, on).\n"
+                                  "f(x, x) = f(a, b).\n",
+                                  true);
+  mosa_test::check(!answered(result.out, "false."), "converted anonymous variables stay apart: " + result.out);
 }
 
 // レビュー M22。mosatest の solutions は期待と答えの束縛を 1 つの番号付けで書いて比べる。答えを束縛ごとに書くと、
@@ -569,6 +639,8 @@ int main(int argc, char** argv) {
   check_fullwidth_quoted_answer();
   check_given_made_up_name();
   check_answer_numbering();
+  check_answer_aliases();
+  check_anonymous_under_char_conversion();
   check_runner();
   check_runner_reports_every_file();
   check_runner_answer_numbering();

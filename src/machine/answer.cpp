@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -52,6 +54,60 @@ bool already(const std::vector<std::uint64_t>& shown, std::uint64_t raw) {
   return false;
 }
 
+// 答えの「名前 = 右辺」の 1 つ。value が真なら右辺は値を書いた字面（Picked::values の次の項）、偽なら名前 alias。
+struct Piece {
+  std::string_view name;
+  std::string_view alias;
+  bool value = false;
+};
+
+// 選んだ束縛と、書く値。値は write_terms で 1 つの番号付けで書く（レビュー M22）。
+struct Picked {
+  std::vector<Piece> pieces;
+  std::vector<Cell> values;
+};
+
+bool own_variable(std::span<const Binding> bindings, Cell variable) {
+  return std::any_of(bindings.begin(), bindings.end(),
+                     [variable](const Binding& binding) { return binding.variable.raw() == variable.raw(); });
+}
+
+// ADR 0019。値が同じ未束縛の変数である名前の組は、鎖 N1 = N2, … で示す。前の束縛に出たかによらず示さないと、
+// 名前が消える。問い合わせの変数そのものでない変数は、ほかの値の中で組の最後の名前で書くよう names に足す。
+// 名前が 1 つの組は前と同じく、問い合わせの変数そのものが前の束縛に出ていれば書かない。作った名前で出た変数は、
+// どの名前の変数か字面から分からないので必ず書く。
+Picked pick_bindings(const Heap& heap, std::span<const Binding> bindings, std::vector<VarName>& names) {
+  std::vector<Cell> values;
+  values.reserve(bindings.size());
+  std::unordered_map<std::uint64_t, std::vector<std::size_t>> classes;
+  for (std::size_t at = 0; at < bindings.size(); ++at) {
+    values.push_back(heap.deref(bindings[at].variable));
+    if (heap.unbound(values.back())) classes[values.back().raw()].push_back(at);
+  }
+  Picked picked;
+  std::vector<std::uint64_t> shown;
+  for (std::size_t at = 0; at < bindings.size(); ++at) {
+    const Cell value = values[at];
+    if (heap.unbound(value)) {
+      const std::vector<std::size_t>& members = classes[value.raw()];
+      const bool own = own_variable(bindings, value);
+      if (members.size() > 1) {
+        if (!own && at == members.front()) names.push_back(VarName{bindings[members.back()].name, value});
+        const auto self = std::find(members.begin(), members.end(), at);
+        if (self + 1 != members.end()) {
+          picked.pieces.push_back(Piece{bindings[at].name, bindings[*(self + 1)].name, false});
+        }
+        continue;
+      }
+      if (own && already(shown, value.raw())) continue;
+    }
+    picked.pieces.push_back(Piece{bindings[at].name, {}, true});
+    picked.values.push_back(value);
+    note_shown(heap, value, names, shown);
+  }
+  return picked;
+}
+
 }  // namespace
 
 std::string format_answer(const Machine& machine, const Stop& stop) {
@@ -60,28 +116,21 @@ std::string format_answer(const Machine& machine, const Stop& stop) {
   std::vector<VarName> names;
   names.reserve(stop.bindings.size());
   for (const Binding& binding : stop.bindings) names.push_back(VarName{binding.name, binding.variable});
-  // 書く束縛を先に選ぶ。未束縛のまま前の束縛に出た変数は書かない。
-  std::vector<std::uint64_t> shown;
-  std::vector<const Binding*> picked;
-  std::vector<Cell> values;
-  for (const Binding& binding : stop.bindings) {
-    const Cell value = machine.heap().deref(binding.variable);
-    if (machine.heap().unbound(value) && already(shown, value.raw())) continue;
-    picked.push_back(&binding);
-    values.push_back(value);
-    note_shown(machine.heap(), value, names, shown);
-  }
+  const Picked picked = pick_bindings(machine.heap(), stop.bindings, names);
   // 答えは利用者が同じ旗のまま貼り直せるように書く（レビュー M8）。
   WriteOptions options;
   options.fullwidth = engine_impl(machine).japanese_punct;
   // 束縛ごとに write_term を呼ぶと、作る名前が束縛ごとに _G1 から始まり、違う変数が同じ名前になる（レビュー M22）。
-  const std::vector<std::string> texts = write_terms(machine.heap(), machine.operators(), values, options, names);
+  const std::vector<std::string> texts =
+      write_terms(machine.heap(), machine.operators(), picked.values, options, names);
   std::string text;
-  for (std::size_t at = 0; at < picked.size(); ++at) {
-    if (at > 0) text += ", ";
-    text += picked[at]->name;
+  std::size_t written = 0;
+  for (const Piece& piece : picked.pieces) {
+    if (!text.empty()) text += ", ";
+    text += piece.name;
     text += " = ";
-    text += texts[at];
+    if (piece.value) text += texts[written++];
+    else text += piece.alias;
   }
   if (text.empty()) return "true";
   return text;

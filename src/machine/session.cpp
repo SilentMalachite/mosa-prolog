@@ -288,9 +288,14 @@ bool blank(std::string_view text) {
 }
 
 // 読んだゴールを、play_goal が同じ旗で読み直す字面にする。旗が真なら '、' などを引用しないと , に読まれる（レビュー M8）。
+// 読んだ項の名前の無い変数は _ だけで、どれも 1 度しか出ない。_G1 と書くと名前の付いた問い合わせの変数として読み直され、
+// 答えに _G1 = a や _G1 = _G2 が出る（レビュー L18、M26 の敵対的レビュー A1）。
 std::string goal_text(const Machine& machine, Cell term, std::span<const VarName> names) {
   WriteOptions options;
   options.fullwidth = engine_impl(machine).japanese_punct;
+  // 旗 char_conversion が _ を別の字に変えると、_ と書いた別々の無名変数は読み直しで 1 つの名前になる（M26 の Codex
+  // レビュー）。そのときは前と同じく _G1、_G2 と書き、別々の変数のまま戻す。
+  options.underscore_once = engine_impl(machine).char_conv.apply(U'_') == U'_';
   return write_term(machine.heap(), machine.operators(), term, options, names) + ".";
 }
 

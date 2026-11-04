@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 5c92c9f, CI run 41831451308 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
-- **Last done:** review M22: `write_terms` writes the bindings of one toplevel answer, and mosatest's `solutions` comparison, with one numbering of made-up names (`L = [_G1,_G2], M = [_G3]`); tests `check_answer_numbering`, `check_runner_answer_numbering`, `m22_*`. Before it, M25 (ADR 0018).
-- **Next:** review items M26 (decision), M27, L1-L12, L14, L15, L17, L18 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** review M26 (ADR 0019, A): a toplevel answer shows the names of one unbound variable as a chain (`X = Y, Y = Z`; `P = Q, Y = g(Q)`), and with it L18: the REPL keeps `_` anonymous when it writes the goal it read; test `check_answer_aliases`. Before it, M22.
+- **Next:** review items M27, L1-L12, L14, L15, L17 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
