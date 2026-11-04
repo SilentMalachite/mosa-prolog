@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main b2ca620, CI run 41724358245 passed all 8 jobs (2026-11-04)
+Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main e5066dd, CI run 41749007896 passed all 8 jobs (2026-11-04)
 
 - **In progress:** none.
 - **Last done:** review M18: current_predicate/1 trails its bindings like clause/2, and its candidates are predicate serials, so a nested run's abolish shifts nothing.
