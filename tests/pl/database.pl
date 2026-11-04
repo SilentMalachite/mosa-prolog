@@ -767,3 +767,18 @@ test(m20_dead_to_end, findall(X-L1-L2-L3, (m20_e(k, X), (X == 1 -> m20_e_drain, 
 :- dynamic(m20_ra/2).
 m20_ra(a, 1). m20_ra(b, 2). m20_ra(a, 3). m20_ra(b, 4). m20_ra(a, 5). m20_ra(b, 6). m20_ra(a, 7). m20_ra(b, 8). m20_ra(a, 9).
 test(m20_retractall_keyed, findall(X-L, (m20_ra(a, X), (X == 1 -> retract(m20_ra(a, 3)), retractall(m20_ra(a, _)), findall(K-Y, m20_ra(K, Y), L) ; L = [])), R), solutions([R = [1-[b-2, b-4, b-6, b-8], 3-[], 5-[], 7-[], 9-[]]])).
+
+% レビュー M25（ADR 0018）。表の前の方の述語を abolish すると、後ろの述語の位置が 1 つずつずれる。索引がずれを
+% 直さなければ、後ろの述語は引けないか、表の外を読む。名前が同じでアリティだけが違う述語も別に引く。
+:- dynamic(m25_a/1).
+:- dynamic(m25_b/1).
+:- dynamic(m25_b/2).
+:- dynamic(m25_c/1).
+m25_a(1).
+m25_b(2).
+m25_b(3, x).
+m25_c(4).
+test(m25_abolish_front, (abolish(m25_a/1), findall(X, m25_b(X), B), findall(X-Y, m25_b(X, Y), B2), findall(X, m25_c(X), C)), solutions([(B = [2], B2 = [3-x], C = [4])])).
+test(m25_abolish_front_gone, m25_a(_), error(existence_error(procedure, m25_a/1))).
+test(m25_abolish_then_assert, (assertz(m25_a(5)), retract(m25_c(4)), assertz(m25_c(6)), findall(X, m25_a(X), A), findall(X, m25_c(X), C), findall(X, m25_b(X), B)), solutions([(A = [5], C = [6], B = [2])])).
+test(m25_abolish_middle, (abolish(m25_b/1), findall(X-Y, m25_b(X, Y), B2), findall(X, m25_c(X), C), findall(X, m25_a(X), A)), solutions([(B2 = [3-x], C = [6], A = [5])])).

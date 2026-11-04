@@ -11,10 +11,6 @@ namespace mosa {
 
 namespace {
 
-bool same_key(const Predicate& predicate, PredKey key) {
-  return predicate.module == key.module && predicate.name == key.name && predicate.arity == key.arity;
-}
-
 const Import* find_import(const Module& module, std::uint32_t name, std::uint16_t arity) {
   for (const Import& item : module.imports) {
     if (item.alias == name && item.arity == arity) return &item;
@@ -52,25 +48,15 @@ Module* find_module(Impl& machine, std::uint32_t name) {
   return nullptr;
 }
 
-Predicate* find_pred(Impl& machine, PredKey key) {
-  for (Predicate& predicate : machine.predicates) {
-    if (same_key(predicate, key)) return &predicate;
-  }
-  return nullptr;
-}
+// 表の索引で引く（ADR 0018）。表をなめると、呼び出しのたびに述語の数だけかかった（レビュー M25）。
+Predicate* find_pred(Impl& machine, PredKey key) { return machine.predicates.find(key); }
 
-const Predicate* find_pred(const Impl& machine, PredKey key) {
-  for (const Predicate& predicate : machine.predicates) {
-    if (same_key(predicate, key)) return &predicate;
-  }
-  return nullptr;
-}
+const Predicate* find_pred(const Impl& machine, PredKey key) { return machine.predicates.find(key); }
 
 Predicate& add_predicate(Impl& machine, Predicate made) {
   made.serial = ++machine.pred_serial;
   made.defined_at = made.serial;
-  machine.predicates.push_back(std::move(made));
-  return machine.predicates.back();
+  return machine.predicates.add(std::move(made));
 }
 
 // 番号は serial と同じ数から取るので、定義の始まりどうしも枠の作成とも重ならず、読み込みの始めの pred_serial と

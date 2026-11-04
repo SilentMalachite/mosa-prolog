@@ -14,10 +14,6 @@
 namespace mosa {
 namespace {
 
-bool same_pred(const Predicate& predicate, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
-  return predicate.module == module && predicate.name == name && predicate.arity == arity;
-}
-
 std::uint32_t head_name(const Clause& clause) { return clause.head.atom; }
 
 std::uint16_t head_arity(const Clause& clause) {
@@ -113,33 +109,50 @@ Snapshot::Snapshot(PredKey key, const Predicate* predicate, std::uint64_t taken_
       abolished(predicate != nullptr && predicate->abolished),
       meta(predicate == nullptr ? std::vector<MetaArg>{} : predicate->meta) {}
 
+std::size_t LoadSnapshots::last_of(PredKey key) const {
+  const std::size_t slot = index_.find(shots_, key);
+  return slot == KeyIndex<Snapshot>::kNoSlot ? kNone : index_.at(slot);
+}
+
+// 確保は 3 か所（索引、earlier_、shots_）で、索引へ入れる前に済ませる。shots_ が伸びられなければ earlier_ を戻す。
+void LoadSnapshots::push_back(Snapshot shot) {
+  const PredKey key{shot.module, shot.name, shot.arity};
+  index_.reserve(shots_, shots_.size() + 1);
+  const std::size_t slot = index_.find(shots_, key);
+  earlier_.push_back(slot == KeyIndex<Snapshot>::kNoSlot ? kNone : index_.at(slot));
+  try {
+    shots_.push_back(std::move(shot));
+  } catch (...) {
+    earlier_.pop_back();
+    throw;
+  }
+  const auto at = static_cast<std::uint32_t>(shots_.size() - 1);
+  if (slot == KeyIndex<Snapshot>::kNoSlot) index_.insert(shots_, at);
+  else index_.repoint(slot, at);
+}
+
 // 名前の写しがあっても、ゴールが始めた今の定義が写していないものなら写す（ADR 0017）。ゴールが abolish して
 // 作り直した述語へテキストが触れると、戻す先はその定義になる。テキストが始めた定義は写さない。この読み込みの写しが
 // 前にあるのは、テキストが前の定義に触れたか、述語が無かったときで、失敗したら前の定義へ戻すか枠ごと消す。
-// predicate は呼び手が表で引いたもの。引き直すと、節ごとに述語表をもう一度なめる。写しは後ろから見る。続く節の
-// 述語の写しは末尾の近くにある。
-void remember_pred(const Impl& machine, std::vector<Snapshot>& snapshots, PredKey key, const Predicate* predicate) {
+// predicate は呼び手が表で引いたもの。同じ鍵の写しだけを新しい順に見る（ADR 0018）。
+void remember_pred(const Impl& machine, LoadSnapshots& snapshots, PredKey key, const Predicate* predicate) {
   const bool by_goal = predicate != nullptr && predicate->defined_by_goal;
-  for (auto shot = snapshots.rbegin(); shot != snapshots.rend(); ++shot) {
-    if (shot->module != key.module || shot->name != key.name || shot->arity != key.arity) continue;
-    if (!by_goal || (!shot->created && shot->defined_at == predicate->defined_at)) return;
+  for (std::size_t at = snapshots.last_of(key); at != LoadSnapshots::kNone; at = snapshots.earlier(at)) {
+    const Snapshot& shot = snapshots[at];
+    if (!by_goal || (!shot.created && shot.defined_at == predicate->defined_at)) return;
   }
-  snapshots.emplace_back(key, predicate, machine.db_generation);
+  snapshots.push_back(Snapshot(key, predicate, machine.db_generation));
 }
 
 // 節は module に入る。頭部に M: が無ければ読み込み中のモジュールで、module/2 の無いテキストでは user。
-bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<Snapshot>& snapshots,
+bool add_clause(Impl& machine, std::uint32_t module, Clause clause, LoadSnapshots& snapshots,
                 std::optional<PredKey>& last, const std::vector<Apart>& apart) {
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
-  std::size_t index = machine.predicates.size();
-  for (std::size_t cursor = 0; cursor < machine.predicates.size(); ++cursor) {
-    if (same_pred(machine.predicates[cursor], module, name, arity)) index = cursor;
-  }
+  Predicate* found = find_pred(machine, PredKey{module, name, arity});
   // 失敗した読み込みは、この節を足す前の述語へ戻す。
-  remember_pred(machine, snapshots, PredKey{module, name, arity},
-                index == machine.predicates.size() ? nullptr : &machine.predicates[index]);
-  if (index == machine.predicates.size()) {
+  remember_pred(machine, snapshots, PredKey{module, name, arity}, found);
+  if (found == nullptr) {
     // 取り込んだ名前と同じ局所の述語は作らない（iso-notes 第5節の取り込みの衝突）。
     if (const auto formal = check_local(machine, module, name, arity)) {
       fail_load(machine, write_term(machine.heap, machine.operators, *formal, {}, {}));
@@ -149,9 +162,10 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<
     created.module = module;
     created.name = name;
     created.arity = arity;
-    adopt_meta(machine, add_predicate(machine, std::move(created)));
+    found = &add_predicate(machine, std::move(created));
+    adopt_meta(machine, *found);
   }
-  Predicate& predicate = machine.predicates[index];
+  Predicate& predicate = *found;
   // 宣言の無い述語は、これまでと同じ診断のまま失敗する。
   // last は直前に節を足した述語の名前。印（seen）と同じく名前で持つ。添字で持つと、間の consult が述語を表から
   // 消したとき、同じ述語の続きの節を離れた節と取り違える（M19 で見つけた不具合）。
@@ -187,7 +201,7 @@ bool add_clause(Impl& machine, std::uint32_t module, Clause clause, std::vector<
 
 // 親が失敗したら、子のテキストが触れた述語も子が触れる前へ戻す。子の作った定義は写さなくても text_defined で消える
 // ので、作る前の印（created）は渡さない。
-void hand_up_snapshots(std::vector<Snapshot>& parent, std::vector<Snapshot>& own) {
+void hand_up_snapshots(LoadSnapshots& parent, LoadSnapshots& own) {
   std::set<std::pair<std::size_t, std::size_t>> known;
   for (const Snapshot& shot : parent) {
     if (!shot.created) known.emplace(shot.serial, shot.defined_at);
@@ -247,7 +261,7 @@ void readopt_meta(Impl& machine, std::size_t previous_serial) {
 // テキストが始めた定義は、その枠の最後の写し（ゴールが abolish した後の枠など）へ戻し、写しが無ければ枠ごと消す。
 // この読み込みのテキストが始めた定義の写し（子が親のテキストの定義を写したものなど）は戻す先にしない。その定義も
 // 取り消すので、戻すと枠ごと消え、ゴールの abolish の下で開いている走査が残りの節を失う（2 度目の Codex レビュー P2）。
-void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::size_t previous_serial) {
+void rollback_preds(Impl& machine, const LoadSnapshots& snapshots, std::size_t previous_serial) {
   const auto usable = [previous_serial](const Snapshot& shot) {
     return !shot.created && !text_defined(shot.defined_at, shot.defined_by_goal, previous_serial);
   };
@@ -279,7 +293,7 @@ void rollback_preds(Impl& machine, const std::vector<Snapshot>& snapshots, std::
   // 崩れる（M18 の Codex レビュー P2）。この読み込みが宣言したモジュールの述語も消す。モジュールは呼び手が先に
   // 戻しているので、残すと呼べないモジュールの述語が current_predicate/1 に見える（宣言の無いモジュールへの assert
   // は existence_error になる）。
-  std::erase_if(machine.predicates, [&machine, previous_serial](const Predicate& predicate) {
+  machine.predicates.erase_if([&machine, previous_serial](const Predicate& predicate) {
     if (text_defined(predicate, previous_serial)) return true;
     return predicate.serial > previous_serial && find_module(machine, predicate.module) == nullptr;
   });

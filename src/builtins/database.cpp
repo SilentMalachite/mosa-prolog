@@ -209,13 +209,6 @@ bool scans_pred(const Entry& entry, std::uint32_t module, std::uint32_t name, st
 }
 
 void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
-  std::size_t removed = machine.predicates.size();
-  for (std::size_t index = 0; index < machine.predicates.size(); ++index) {
-    const Predicate& predicate = machine.predicates[index];
-    if (predicate.module != module || predicate.name != name || predicate.arity != arity) continue;
-    removed = index;
-    break;
-  }
   // 述語を作り直すと番号は同じ所から振り直す。開いた走査を尽きた印にしておけば、新しい定義の節を指さない。
   // 指示が脇に置いた外の走査も同じにする（レビュー M19）。current_predicate の候補は Predicate::serial なので、
   // 表から消してもずらさない。
@@ -227,8 +220,7 @@ void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, st
   };
   for (const ParkedScans& parked : machine.parked) exhaust(*parked.stack);
   exhaust(machine.stack);
-  if (removed >= machine.predicates.size()) return;
-  machine.predicates.erase(machine.predicates.begin() + static_cast<std::ptrdiff_t>(removed));
+  machine.predicates.erase(PredKey{module, name, arity});
 }
 
 // entry が、消した節 clause をまだ試しうるか（ADR 0015 とその改訂）。ほかの述語の走査と、節を足す前か消した後に

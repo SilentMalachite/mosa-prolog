@@ -208,6 +208,35 @@ Benchmarks: interpreter medians of five runs taken alternately (ms); translated 
 | deriv | 892 | 885 | -0.8% | 126 | 130 | +3.2% |
 | crypt | 1185 | 1153 | -2.7% | 307 | 302 | -1.6% |
 
+## Cost of the predicate index
+
+Measured on 2026-11-04 on the same machine, both Release, the two trees built side by side: "before" is 1ee2e8b, "now" is review M25 (ADR 0018: the predicate table and a load's snapshots get an open-addressing index from (module, name, arity) to the position). Times are medians of three runs of `mosa file -g goal -t halt`; the call rows subtract the same file run with `-g true`, and the abolish rows subtract the goal run without its last part. Memory is measured as in the section above, median of five runs. The N predicates are `f0(0).` to `f<N-1>(N-1).`, next to `loop/1`, which calls `t/0`; `loop2/1` calls a two-clause `t2/0` and retries it.
+
+| Load | Before | Now |
+| --- | ---: | ---: |
+| 100,000 calls next to 0 / 1,000 / 10,000 / 40,000 predicates (ms) | 52 / 149 / 1335 / 5544 | 53 / 53 / 52 / 53 |
+| the same with a retry each (`loop2`, ms) | 71 / 215 / 1995 / 8229 | 71 / 72 / 71 / 70 |
+| consult, 10,000 / 20,000 / 40,000 predicates of one clause (s) | 0.08 / 0.32 / 1.41 | 0.01 / 0.02 / 0.04 |
+| assertz, 40,000 predicates of one clause (s) | 0.64 | 0.11 |
+| assertz of 50,000 new predicates, then abolish of all from the back (ms) | 1053, then 1934 | 126, then 85 |
+| then 20,000 times `abolish(q/1), assertz(q(K))` (ms) | 45 | 13 |
+| maximum RSS, consult / assertz of 40,000 predicates of one clause | 54.5 / 57.3 MB | 54.8 / 57.8 MB |
+
+The index holds 4 bytes a slot and two to four slots a predicate (131,072 slots, 512 KB, for 40,000). A first version with `std::unordered_map` added about 4 MB to the memory rows. The abolish rows were quadratic before because the table was searched from the front; a second version lowered every slot of the index on each erase, so abolishing from the back stayed quadratic and the last row took 0.6 s after 50,000 erases (adversarial review B1, B2). Each load still walks the whole table once (the seen marks, M18), and `resolve_pred` still searches the modules and the imports linearly; neither grows with the clauses of a file.
+
+Benchmarks, measured as in the section above:
+
+| Program | Interpreter before | Interpreter now | Delta | Translated before | Translated now | Delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| nrev | 2963 | 3174 | +7.1% | 131 | 131 | 0.0% |
+| queens | 2582 | 2601 | +0.7% | 426 | 424 | -0.5% |
+| zebra | 1779 | 1774 | -0.3% | 735 | 734 | -0.1% |
+| tak | 1285 | 1306 | +1.6% | 290 | 289 | -0.3% |
+| deriv | 888 | 881 | -0.8% | 126 | 126 | 0.0% |
+| crypt | 1146 | 1159 | +1.1% | 300 | 296 | -1.3% |
+
+The nrev row does not come from the lookup. nrev's table has 7 predicates, and the old scan found `app/3` first. With `-falign-functions=64` in both trees, nrev takes 10,164 million cycles before and 10,206 million now (+0.4%, medians of three) and retires 52,180 and 52,463 million instructions (+0.55%). The default builds retire the same instructions in 9,407 and 9,862 million cycles. The difference is where the functions land in the binary; review M21 gained 7.4% on nrev the same way (section above).
+
 ## CI
 
 The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.

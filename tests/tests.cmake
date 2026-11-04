@@ -156,6 +156,17 @@ add_executable(clause_list_test tests/cpp/clause_list_test.cpp)
 target_include_directories(clause_list_test PRIVATE tests/cpp src)
 target_link_libraries(clause_list_test PRIVATE mosa_lib)
 add_test(NAME clause_list COMMAND $<TARGET_FILE:clause_list_test>)
+# レビュー M25（ADR 0018）。述語表の索引と読み込みの写しの鎖、述語の数を 4 倍にしたときの呼び出しと読み込みの時間。
+add_executable(pred_table_test tests/cpp/pred_table_test.cpp)
+target_include_directories(pred_table_test PRIVATE tests/cpp src)
+target_link_libraries(pred_table_test PRIVATE mosa_lib)
+add_test(NAME pred_table COMMAND $<TARGET_FILE:pred_table_test>)
+add_executable(pred_scale_test tests/cpp/pred_scale_test.cpp)
+target_include_directories(pred_scale_test PRIVATE tests/cpp)
+target_link_libraries(pred_scale_test PRIVATE mosa_lib)
+add_test(NAME pred_scale COMMAND $<TARGET_FILE:pred_scale_test>)
+# 時間の比を測るので、並列の ctest -j でほかのテストと CPU を取り合うと落ちうる。ひとりで走らせる。
+set_tests_properties(pred_scale PROPERTIES RUN_SERIAL TRUE)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 

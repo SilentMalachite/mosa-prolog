@@ -74,7 +74,7 @@ void restore_file_flags(Impl& machine, const SavedFlags& saved) {
 }
 
 LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
-                       const std::vector<Snapshot>& snapshots, std::size_t previous_serial,
+                       const LoadSnapshots& snapshots, std::size_t previous_serial,
                        std::size_t heap_base, const std::vector<SharedPred>& saved_declared,
                        const std::vector<std::string>& saved_prepared, const std::vector<Module>& saved_modules) {
   machine.operators = saved_ops;
@@ -105,7 +105,7 @@ LoadStatus finish_load(Impl& machine, const std::size_t& heap_base, const std::v
 }
 
 struct LoadScan {
-  std::vector<Snapshot>& snapshots;
+  LoadSnapshots& snapshots;
   std::vector<Apart>& apart;
   std::vector<Cell>& inits;
   std::optional<PredKey>& last;
@@ -484,17 +484,17 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
 // 指令の前に全部の述語を写していたので、その後のゴールが既にある述語へした変更まで戻した（ADR 0017）。
 class SnapshotScope {
  public:
-  SnapshotScope(Impl& machine, std::vector<Snapshot>& own) : machine_(machine), parent_(machine.load_snapshots) {
+  SnapshotScope(Impl& machine, LoadSnapshots& own) : machine_(machine), parent_(machine.load_snapshots) {
     machine.load_snapshots = &own;
   }
   ~SnapshotScope() { machine_.load_snapshots = parent_; }
   SnapshotScope(const SnapshotScope&) = delete;
   SnapshotScope& operator=(const SnapshotScope&) = delete;
-  [[nodiscard]] std::vector<Snapshot>* parent() const { return parent_; }
+  [[nodiscard]] LoadSnapshots* parent() const { return parent_; }
 
  private:
   Impl& machine_;
-  std::vector<Snapshot>* parent_;
+  LoadSnapshots* parent_;
 };
 
 }  // namespace
@@ -516,7 +516,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   const auto saved_declared = machine.declared;
   const auto saved_prepared = machine.prepared;
   const auto saved_modules = machine.modules;
-  std::vector<Snapshot> snapshots;
+  LoadSnapshots snapshots;
   const SnapshotScope shot_scope(machine, snapshots);
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
   std::vector<Apart> apart;

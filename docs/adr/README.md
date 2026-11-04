@@ -21,3 +21,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0015](0015-first-argument-index.md) | Stable clause ids, generations and a first-argument index | Approved (2026-11-02) |
 | [0016](0016-call-cleanup.md) | setup_call_cleanup/3: a cleanup entry and cleanups queued to the next step | Approved (2026-11-03) |
 | [0017](0017-failed-load-keeps-asserted.md) | A failed load keeps the predicates its goals made with assert | Approved (2026-11-04) |
+| [0018](0018-predicate-lookup.md) | Predicate lookup by key: an open-addressing index on the predicate table and the load's snapshots | Approved (2026-11-04) |

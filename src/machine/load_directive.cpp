@@ -158,7 +158,7 @@ bool read_declared(Impl& machine, Cell arg, std::vector<PredKey>& indicators) {
   return false;
 }
 
-bool mark_dynamic(Impl& machine, std::vector<Snapshot>& snapshots, PredKey key) {
+bool mark_dynamic(Impl& machine, LoadSnapshots& snapshots, PredKey key) {
   const auto name = key.name;
   const auto arity = key.arity;
   if (is_builtin_procedure(machine, name, arity)) {
@@ -249,7 +249,7 @@ int apply_discontiguous_directive(Impl& machine, Cell directive, std::vector<Apa
   return 1;
 }
 
-int apply_dynamic_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
+int apply_dynamic_directive(Impl& machine, Cell directive, LoadSnapshots& snapshots) {
   Cell arg;
   if (!dynamic_argument(machine, directive, arg)) return 0;
   std::vector<PredKey> indicators;
@@ -455,7 +455,7 @@ bool fail_with(Impl& machine, Cell formal) {
 }
 
 // 手続きがあればその述語へ、無ければモジュールの保留の表へ置く。節を足すとき adopt_meta が移す。
-bool declare_meta(Impl& machine, std::vector<Snapshot>& snapshots, Cell head) {
+bool declare_meta(Impl& machine, LoadSnapshots& snapshots, Cell head) {
   PredKey key{machine.load_module, 0, 0};
   std::vector<MetaArg> args;
   auto formal = strip_module(machine, head, key.module);
@@ -487,7 +487,7 @@ bool declare_meta(Impl& machine, std::vector<Snapshot>& snapshots, Cell head) {
   return true;
 }
 
-int apply_meta_directive(Impl& machine, Cell directive, std::vector<Snapshot>& snapshots) {
+int apply_meta_directive(Impl& machine, Cell directive, LoadSnapshots& snapshots) {
   const auto body = directive_body(machine, directive, "meta_predicate", 1);
   if (!body) return 0;
   std::vector<Cell> heads;
@@ -625,7 +625,7 @@ bool run_inits(Impl& machine, const std::vector<Cell>& goals) {
   return true;
 }
 
-int consume_directive(Impl& machine, Reader& reader, Cell term, std::vector<Snapshot>& snapshots,
+int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& snapshots,
                       std::vector<Apart>& apart, std::vector<Cell>& inits, bool first, std::string_view origin) {
   if (!is_directive(machine.heap, term)) return 0;
   const int module_directive = apply_module_directive(machine, term, first, origin);
