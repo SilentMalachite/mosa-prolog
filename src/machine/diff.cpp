@@ -87,7 +87,8 @@ DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes
   for (std::size_t index = 0; index < exams.size(); ++index) {
     const Exam& exam = exams[index];
     DiffGoal goal{exam.name, exam.goal, head_text(index + 1, exam.names), {}, exam.solutions, exam.enumerate};
-    clauses.push_back(Clause{exam.names.size() + 1, goal.query + " :- " + exam.canonical + ".\n"});
+    clauses.push_back(
+        Clause{exam.names.size() + 1, goal.query + " :- " + exam.canonical + full_stop_after(exam.canonical) + "\n"});
     out.goals.push_back(std::move(goal));
   }
   out.source = with_newline(bytes) + clause_text(std::move(clauses));
@@ -97,7 +98,7 @@ DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes
 // 本体の問い合わせの字面を実行器と同じ読み方で読み、節の頭部（名前のある変数）と本体（演算子に頼らない字面）にする。
 std::optional<Clause> lgt_clause(Machine& machine, std::size_t index, const std::string& text, std::string& head) {
   Impl& impl = engine_impl(machine);
-  Reader reader(text, impl.heap, impl.operators, current_double_quotes(impl), &impl.char_conv);
+  Reader reader(text, impl.heap, impl.operators, current_double_quotes(impl), nullptr);
   reader.set_fullwidth(impl.japanese_punct);
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) return std::nullopt;
@@ -105,7 +106,7 @@ std::optional<Clause> lgt_clause(Machine& machine, std::size_t index, const std:
   for (const VarName& name : outcome.term->names) names.push_back(name.name);
   head = head_text(index, names);
   const std::string body = write_term(impl.heap, impl.operators, outcome.term->term, canonical_options(), outcome.term->names);
-  return Clause{names.size() + 1, head + " :- " + body + ".\n"};
+  return Clause{names.size() + 1, head + " :- " + body + full_stop_after(body) + "\n"};
 }
 
 void lgt_case(Machine& machine, LgtCase& item, std::size_t index, DiffSource& out, std::vector<Clause>& clauses) {
@@ -191,7 +192,8 @@ std::string run_goal(Machine& machine, const DiffGoal& goal) {
   StdCapture capture;
   std::string text;
   try {
-    Stop stop = machine.query((goal.query.empty() ? goal.plain : goal.query) + ".");
+    const std::string& query = goal.query.empty() ? goal.plain : goal.query;
+    Stop stop = query_written(machine, query + full_stop_after(query));
     text = render(machine, stop);
     for (std::size_t index = 1; index < goal.solutions && stop.kind == StopKind::Success; ++index) {
       stop = machine.next();

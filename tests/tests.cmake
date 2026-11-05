@@ -185,6 +185,12 @@ set_tests_properties(pred_scale PROPERTIES RUN_SERIAL TRUE)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
 set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
 
+add_executable(full_stop_test tests/cpp/full_stop_test.cpp)
+target_include_directories(full_stop_test PRIVATE tests/cpp)
+target_compile_definitions(full_stop_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(full_stop_test PRIVATE mosa_lib)
+add_test(NAME full_stop COMMAND $<TARGET_FILE:full_stop_test>)
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

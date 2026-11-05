@@ -238,12 +238,11 @@ bool Lexer::end_follows(std::size_t width) const {
   return after.valid && (classify(after.code) == CharClass::Layout || after.code == U'%');
 }
 
-bool Lexer::ends_clause(SourceChar ch, Place start) const {
-  // 空白か % の前のドットは終止符。ただし直前もドットなら =.. の一部なので切らない。
-  if (ch.code == U'.') {
-    return end_follows(ch.bytes) && (index_ == start.byte || source_[index_ - 1] != '.');
-  }
-  // 。は小数点にしないので半角に写さない。後ろが空白か % か終わりのときだけ終止符で、他は記号文字。
+// 呼ぶのは図形トークンの先頭だけ。6.4.2 が図形トークンにしないのは、空白か % の前の . 1 字だけで、+. や =.. は
+// 後ろに空白が来ても 1 つのトークンである（レビュー L17、iso-notes 6.4.2 の決定 A）。
+bool Lexer::ends_clause(SourceChar ch) const {
+  if (ch.code == U'.') return end_follows(ch.bytes);
+  // 。は小数点にしないので半角に写さない。. と同じく、トークンの先頭で後ろが空白か % か終わりのときだけ終止符。
   return fullwidth_ && ch.code == U'。' && end_follows(ch.bytes);
 }
 
@@ -269,7 +268,8 @@ Scan Lexer::scan_graphic() {
   std::string text;
   while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
-    if (!ch.valid || classify(ch.code) != CharClass::Graphic || ends_clause(ch, start)) break;
+    if (!ch.valid || classify(ch.code) != CharClass::Graphic) break;
+    if (index_ == start.byte && ends_clause(ch)) break;
     append_code(text, ch.code);
     advance(ch.code, ch.bytes);
   }

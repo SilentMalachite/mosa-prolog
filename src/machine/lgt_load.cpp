@@ -321,7 +321,8 @@ void add_piece(Heap& heap, const OperatorTable& operators, Cell term, const std:
                const Parse& parse, LgtFile& file) {
   const Cell prepared = strip_user_scope(heap, silence_flag(heap, term));
   std::string text = machine_text(heap, operators, prepared, names, true);
-  text += ".\n";
+  text += full_stop_after(text);
+  text += '\n';
   if (parse.stack.empty()) file.program += text;
   file.pieces.push_back(LgtPiece{std::move(text), parse.stack});
 }

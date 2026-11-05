@@ -70,8 +70,10 @@ bool is_small_name(std::string_view text) {
   return every_code(text.substr(decoded.bytes), continues_name) || text.size() == decoded.bytes;
 }
 
-// 全角記号モードの字句解析器は引用の外の （），、： を半角に読み、後ろに空白か % か終わりが来る 。 を終止符にする
-// （SPEC 第4節）。原子の中の 。 の後ろは図形の字なので、見るのは最後の 。 だけ。［］「」 は図形でなく、もう引用される。
+// 全角記号モードの字句解析器は引用の外の （），、： を半角に読み、図形の字句の先頭にあって後ろに空白か % か終わりが
+// 来る 。 を終止符にする（SPEC 第4節、レビュー L17）。原子の中の 。 の後ろは図形の字なので、見るのは最後の 。 だけ。
+// 引用が要るのは 。 1 字の原子だけだが、+。 のように 。 で終わる原子も M8 のとおり引用する。引用しても読み戻せ、
+// 字面は L17 の前と変わらない（iso-notes 6.4.2）。［］「」 は図形でなく、もう引用される。
 bool fullwidth_changes(std::string_view name) {
   for (std::size_t index = 0; index < name.size();) {
     const Decoded decoded = decode_at(name, index);

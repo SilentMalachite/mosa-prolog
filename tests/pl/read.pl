@@ -170,3 +170,17 @@ test(m2_read_recovers, (open_string('X = 1.0e400. a.', S), catch(read(S, _), err
 test(m2_read_max_kept, (m1_read('1.7976931348623157e308.', X), X =:= 1.7976931348623157e308), true).
 test(m2_read_underflow_kept, (m1_read('1.0e-400.', X), X == 0.0), true).
 test(m2_read_subnormal_kept, (m1_read('1.0e-310.', X), X > 0.0, X < 1.0e-300), true).
+% レビュー L17（持ち主は A を選んだ、iso-notes 6.4.2）。6.4.2 が図形トークンにしないのは空白か % か終わりの前の . 1 字
+% だけで、図形の字に続く . は同じトークンに入る。前は +. を + と終止符に読み、writeq(t('+.' - b)) の t(+. -b) が読めなかった。
+test(l17_review_repro, (open_string('t(+. -b) .', S), read(S, T)), solutions([T = t('+.' - b)])).
+test(l17_writeq_back, (with_output_to(atom(W), writeq(t('+.' - b))), atom_concat(W, ' .', Text), open_string(Text, S), read(S, T)), solutions([T = t('+.' - b)])).
+test(l17_plus_dot_newline, (open_string('X = +.\n.', S), read(S, T), T = (_ = A)), solutions([A = '+.'])).
+test(l17_plus_dot_percent, (open_string('X = +.% c\n.', S), read(S, T), T = (_ = A)), solutions([A = '+.'])).
+test(l17_plus_dot_eof, (open_string('X = +.', S), read(S, _)), error(syntax_error(incomplete_term))).
+test(l17_glued_next, (open_string('a = #. b.', S), read(S, _)), error(syntax_error(_))).
+test(l17_space_keeps_end, (open_string('X = + . b.', S), read(S, T), read(S, U), T = (_ = A)), solutions([(A = (+), U = b)])).
+test(l17_univ_kept, (open_string('X =.. Y.', S), read(S, T), T = (A =.. B), A = x, B = [x]), true).
+test(l17_term_to_atom, term_to_atom(T, '+.'), solutions([T = '+.'])).
+% mosatest はゴールと期待を書いて読み直す。最後が図形の字なら、足す終止符の前に空白を置く（前の X= #. は終止符が無い）。
+test(l17_goal_ends_graphic, X = '#', solutions([X = '#'])).
+test(l17_goal_ends_dot, X = '+.', solutions([X = '+.'])).

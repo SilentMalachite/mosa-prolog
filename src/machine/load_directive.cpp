@@ -423,7 +423,8 @@ int apply_initialization_main(Impl& machine, Cell directive) {
     const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
     goal = machine.heap.structure(machine.atoms.intern(":"), parts);
   }
-  machine.main_goal = write_term(machine.heap, machine.operators, goal, {}, {}) + ".";
+  // 終止符は run_main_goal が足し、char_conversion なしで読む（レビュー L17）。
+  machine.main_goal = write_term(machine.heap, machine.operators, goal, {}, {});
   return 1;
 }
 

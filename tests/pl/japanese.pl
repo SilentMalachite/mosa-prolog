@@ -116,10 +116,16 @@ test(fw_kagi_apostrophe, (全角で読む('X = 「it''s」。', T), T = (_ = A),
 test(fw_kagi_newline, 全角で読む([0'X, 0' , 0'=, 0' , 0'「, 0'a, 10, 0'b, 0'」, 0'。], _), error(syntax_error(_))).
 test(fw_kuten_not_decimal, (全角で読む('X = 1。', T), T = (_ = N), N == 1), true).
 test(fw_kuten_no_float, 全角で読む('X = 1。5。', _), error(syntax_error(_))).
-test(fw_off_symbol, (open_string('X = 、.', S), read(S, T), T = (_ = A), A == '、', open_string('X = 。.', S2), read(S2, T2), T2 = (_ = B), B == '。'), true).
+% 旗が偽なら 、 も 。 も図形の字で、続けた . は同じトークンに入る（6.4.2、レビュー L17）。空白で終止符を分ける。
+test(fw_off_symbol, (open_string('X = 、 .', S), read(S, T), T = (_ = A), A == '、', open_string('X = 。 .', S2), read(S2, T2), T2 = (_ = B), B == '。'), true).
 test(fw_quoted_kept, (全角で読む('X = f（''（）''，"，"）。', T), T = (_ = f(A, C)), A == '（）', atom_codes('，', C)), true).
 test(fw_char_code_kept, (全角で読む('X = 0''（。', T), T = (_ = N), char_code('（', N)), true).
 test(fw_comment_kept, (全角で読む('X = a /* （ */。', T), T = (_ = A), A == a), true).
+% レビュー L17。全角記号モードの 。 も . と同じく、トークンの先頭のときだけ終止符で、図形の字に続けば同じトークンに入る。
+test(l17_fw_plus_kuten, (全角で読む('X = +。 。', T), T = (_ = A)), solutions([A = '+。'])).
+test(l17_fw_space_kuten, (全角で読む('X = + 。', T), T = (_ = A)), solutions([A = (+)])).
+test(l17_fw_plus_kuten_eof, 全角で読む('X = +。', _), error(syntax_error(incomplete_term))).
+test(l17_fw_off_glued, (open_string('X = 、.', S), read(S, _)), error(syntax_error(incomplete_term))).
 % 全角記号モードの writeq（レビュー M8、7.10.5 h）。引用しないと半角に読まれる （），、： を含む図形の原子と、
 % 後ろに空白が来ると終止符になる 。 で終わる図形の原子を引用する。
 % 旗を真にして G を 1 度だけ走らせ、成功、失敗、例外のどれでも偽に戻す。真のまま残すと、実行器が後のテストの字面を全角で読む。
@@ -183,3 +189,5 @@ test(fmt_wide_fill_two, with_output_to(atom(A), format("~`漢t~w~`漢t~7|", [ab]
 test(consult_japanese_name, (open('tests/tmp/日本語の読込.pl', write, S), write(S, '読込済(はい).'), nl(S), close(S), consult('tests/tmp/日本語の読込.pl'), 読込済(はい)), true).
 % term_to_atom/2 は日本語の原子と変数名を読み書きする（レビュー M11）。
 test(m11_term_to_atom_japanese, (term_to_atom(T, '親(太郎, _名前, _名前)'), T = 親(A, B, C), A == 太郎, var(B), B == C, term_to_atom(親(太郎, '次 郎'), S), S == '親(太郎,\'次 郎\')'), true).
+% L17。旗が真の writeq が 。 で終わる原子を引用するのは今も正しい。+。 と +. を並べても読み戻せる。
+test(l17_fw_back, 全角で往復(f('+。', '+.', - '#')), true).

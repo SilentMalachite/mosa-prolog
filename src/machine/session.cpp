@@ -155,7 +155,7 @@ std::string answer_line(const Machine& machine, const Stop& stop, bool period) {
   if (stop.kind == StopKind::Success) text = format_answer(machine, stop);
   else if (stop.kind == StopKind::Failure) text = "false";
   else text = "false";
-  if (period) text += '.';
+  if (period) text += full_stop_after(text);
   text += '\n';
   return text;
 }
@@ -202,10 +202,12 @@ int close_answer(Machine& machine, bool interactive, Echo& echo, bool& halted) {
   return 0;
 }
 
-int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& cursor, Echo& echo, bool& halted) {
+// written は goal が Mosa の書いた字面であること。char_conversion なしで読み直す（レビュー L17）。
+int play_goal(Machine& machine, std::string goal, bool written, bool interactive, Cursor& cursor, Echo& echo,
+              bool& halted) {
   halted = false;
   try {
-    Stop stop = machine.query(goal);
+    Stop stop = written ? query_written(machine, goal) : machine.query(goal);
     while (true) {
       if (stop.kind == StopKind::Halt) {
         halted = true;
@@ -230,14 +232,15 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
         return close_answer(machine, interactive, echo, halted);
       }
       // ; を読む前に答えを出す。終了時にまとめて書くと、対話では次の入力を判断できない。
-      echo.say(format_answer(machine, stop));
+      const std::string answer = format_answer(machine, stop);
+      echo.say(answer);
       const int ch = cursor.answer();
       if (ch == ';') {
         echo.say("\n");
         stop = machine.next();
         continue;
       }
-      echo.say(".\n");
+      echo.say(full_stop_after(answer) + "\n");
       return close_answer(machine, interactive, echo, halted);
     }
   } catch (...) {
@@ -298,10 +301,10 @@ bool blank(std::string_view text) {
 std::string goal_text(const Machine& machine, Cell term, std::span<const VarName> names) {
   WriteOptions options;
   options.fullwidth = engine_impl(machine).japanese_punct;
-  // 旗 char_conversion が _ を別の字に変えると、_ と書いた別々の無名変数は読み直しで 1 つの名前になる（M26 の Codex
-  // レビュー）。そのときは前と同じく _G1、_G2 と書き、別々の変数のまま戻す。
-  options.underscore_once = engine_impl(machine).char_conv.apply(U'_') == U'_';
-  return write_term(machine.heap(), machine.operators(), term, options, names) + ".";
+  // 読み直しは char_conversion なしなので、_ が写されていても別々の無名変数のまま戻る（M26 の Codex レビュー）。
+  options.underscore_once = true;
+  const std::string text = write_term(machine.heap(), machine.operators(), term, options, names);
+  return text + full_stop_after(text);
 }
 
 void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
@@ -350,7 +353,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     } else {
       const std::string goal = goal_text(machine, term, outcome.term->names);
       bool halted = false;
-      const int code = play_goal(machine, goal, true, cursor, echo, halted);
+      const int code = play_goal(machine, goal, true, true, cursor, echo, halted);
       if (halted) {
         echo.result->code = code;
         return;
@@ -384,7 +387,8 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
 // 答えの行は出さない。実行ファイルと同じ出力にするため。
 int run_main_goal(Machine& machine, const std::string& goal, std::string& warning) {
   try {
-    Stop stop = machine.query(goal);
+    // 書いた字面なので char_conversion なしで読む。読み込みの後の指令が変換を変えても、ゴールは変わらない（レビュー L17）。
+    Stop stop = query_written(machine, goal + full_stop_after(goal));
     // 選択点を残した成功も答えの後で切り、後始末を動かす（ADR 0016、敵対的レビュー A3）。
     if (stop.kind == StopKind::Success) stop = close_query(engine_impl(machine));
     if (stop.kind == StopKind::Halt) return stop.halt_code;
@@ -426,7 +430,8 @@ void run_with_machine(const Options& options, std::string_view input, bool tty, 
   for (const std::string& text : options.goals) {
     bool halted = false;
     const auto goal = command_goal(*machine, text, echo);
-    const int code = goal ? play_goal(*machine, *goal, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
+    const int code =
+        goal ? play_goal(*machine, *goal, false, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
     if (halted || (!interactive && code != 0)) {
       result.code = code;
       return;

@@ -249,9 +249,9 @@ bool saved_matches(const Machine& machine, const Stop& stop,
 }
 
 bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
-  const std::string goal_text = exam.goal + ".";
-  Stop stop = machine.query(goal_text);
-  const std::string expect_text = exam.expect + ".";
+  // ゴールは読み込んだ項を書いた字面なので、前のテストが char_conversion を有効にしたままでも変換なしで読む（レビュー L17）。
+  Stop stop = query_written(machine, exam.goal + full_stop_after(exam.goal));
+  const std::string expect_text = exam.expect + full_stop_after(exam.expect);
   Reader expect_reader(expect_text, machine.heap(), machine.operators());
   const ReadOutcome outcome = expect_reader.next();
   if (!outcome.term) {

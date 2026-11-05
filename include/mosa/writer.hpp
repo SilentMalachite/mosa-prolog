@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mosa {
@@ -74,6 +75,10 @@ using WriteReplace = WriteCut (*)(void* context, Cell term, std::string& out, Wr
 // 答えが束縛ごとに書くのに使う（レビュー M22）。portray を呼ばないので、書く間に GC は動かない。
 [[nodiscard]] std::vector<std::string> write_terms(const Heap& heap, OperatorView operators, std::span<const Cell> terms,
                                                    WriteOptions options, std::span<const VarName> names);
+
+// 書いた項の字面の後ろに置く終止符。最後の字が図形の字なら空白を挟む。6.4.2 では図形の字に続く . は同じトークンに
+// 入り（#. も +. も 1 つの名前）、終止符にならない（レビュー L17）。読み直しは char_conversion なしで読む。
+[[nodiscard]] std::string full_stop_after(std::string_view text);
 
 [[nodiscard]] bool same_term(const Heap& left_heap, Cell left, std::span<const VarName> left_names,
                              const Heap& right_heap, Cell right, std::span<const VarName> right_names);

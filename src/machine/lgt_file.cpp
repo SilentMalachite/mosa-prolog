@@ -30,7 +30,7 @@ bool thrown_matches(Machine& machine, Cell ball, std::string_view formal) {
   const Heap& heap = machine.heap();
   ball = heap.deref(ball);
   if (!lgt_functor_is(heap, ball, "error", 2)) return false;
-  const std::string text = std::string{formal} + ".";
+  const std::string text = std::string{formal} + full_stop_after(formal);
   Reader reader(text, machine.heap(), machine.operators());
   const ReadOutcome read = reader.next();
   if (!read.term) return false;
@@ -41,8 +41,7 @@ std::string goal_text(const LgtCase& item, const LgtWant& want) {
   std::string goal = item.body;
   // 表明が失敗しても、本体の次の解は試さない。
   if (want.kind == LgtKind::Assert) goal = "(" + item.body + ", !), (" + want.detail + ")";
-  goal.push_back('.');
-  return goal;
+  return goal + full_stop_after(goal);
 }
 
 bool routes_to_judge(Machine& machine, std::string_view body, const LgtWant& want) {
@@ -73,7 +72,7 @@ struct Query {
 Query run_goal(Machine& machine, std::string_view goal) {
   Query query;
   try {
-    query.stop = machine.query(goal);
+    query.stop = query_written(machine, goal);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
     query.dead = true;
@@ -141,7 +140,9 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup,
     }
     // 差分テストは本体を節 '$mosa_diff_goal'(K, ...) にしてあるので、その問い合わせを流す（計画 Task 11）。
     const Query query =
-        run_goal(machine, item.diff_goal.empty() ? goal_text(item, want) : item.diff_goal + ".");
+        run_goal(machine, item.diff_goal.empty()
+                              ? goal_text(item, want)
+                              : item.diff_goal + full_stop_after(item.diff_goal));
     if (query.dead) {
       end.dead = true;
       end.actual = "aborted";

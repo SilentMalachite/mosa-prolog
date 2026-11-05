@@ -412,7 +412,7 @@ struct Machine::Impl {
   MessageLanguage message_lang = default_message_language();
   // 旗 argv。プログラムに渡す引数（mosa では -- より後ろ）。読み取り専用で、起動前に一度だけ決まる。
   std::vector<std::string> program_argv;
-  // initialization(G, main) で決まったゴールの文面。読み込み後にヒープを切るので、項ではなく文で持つ。
+  // initialization(G, main) で決まったゴールの文面。読み込み後にヒープを切るので、項ではなく文で持つ。終止符は無い。
   std::optional<std::string> main_goal;
   // 文面を作るためだけのマシン。自分の診断を文面にしに行くと、また新しいマシンを作り続ける。
   bool render_only = false;
@@ -520,6 +520,9 @@ struct Compiled {
 
 [[nodiscard]] Impl& engine_impl(Machine& machine);
 [[nodiscard]] const Impl& engine_impl(const Machine& machine);
+// Machine::query と同じだが、字面を char_conversion なしで読む。Mosa が書いたゴールの字面を読み直すときに使う
+// （レビュー L17）。利用者が打った字面は Machine::query で読む。
+[[nodiscard]] Stop query_written(Machine& machine, std::string_view goal_text);
 
 [[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});

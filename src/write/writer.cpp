@@ -681,4 +681,10 @@ std::vector<std::string> write_terms(const Heap& heap, OperatorView operators, s
   return texts;
 }
 
+// Mosa が書いた字面は char_conversion なしで読み直す（query_written）ので、区切りは空白 1 つでよい。
+std::string full_stop_after(std::string_view text) {
+  const std::optional<char32_t> last = final_cp(text);
+  return last && classify(*last) == CharClass::Graphic ? " ." : ".";
+}
+
 }

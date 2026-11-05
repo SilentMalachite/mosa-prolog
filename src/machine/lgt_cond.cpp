@@ -35,7 +35,7 @@ enum class Verdict { Yes, No, Bad, Dead, Throw };
 Verdict ask_text(Machine& machine, std::string_view goal) {
   Stop stop;
   try {
-    stop = machine.query(goal);
+    stop = query_written(machine, goal);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
     return Verdict::Dead;
@@ -71,7 +71,8 @@ bool calls_special(const Heap& heap, Cell cell) {
 }
 
 Verdict ask_cell(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  return ask_text(machine, write_term(heap, ops, cell, lgt_write_options(), {}) + ".");
+  const std::string text = write_term(heap, ops, cell, lgt_write_options(), {});
+  return ask_text(machine, text + full_stop_after(text));
 }
 
 Verdict property_cond(Machine& machine, const Heap& heap, Cell cell) {
@@ -186,7 +187,7 @@ LgtCond lgt_condition(Machine& machine, std::string_view goal) {
     OperatorTable ops = OperatorTable::iso_core();
     if (!condition_ops(ops)) return LgtCond::Bad;
     // Reader は string_view しか持たない。一時文字列のまま渡すと、next の時点で消える。
-    const std::string source = std::string{goal} + ".";
+    const std::string source = std::string{goal} + full_stop_after(goal);
     Reader reader(source, heap, ops);
     const ReadOutcome read = reader.next();
     if (!read.term) return LgtCond::Bad;

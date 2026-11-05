@@ -112,7 +112,7 @@ class ClauseText {
     std::string text = write_term(scratch_->heap, operators, head, options, names);
     if (clause.body->tag != IrTag::True) text += " :- " + write_term(scratch_->heap, operators, body, options, names);
     scratch_->heap.truncate(mark);
-    return text + ".";
+    return text + full_stop_after(text);
   }
 
  private:

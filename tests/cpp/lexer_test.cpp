@@ -200,9 +200,10 @@ void test_radix_and_comment_end() {
                        upper_bin[0].integer == 0 && upper_bin[1].kind == mosa::TokenKind::Variable &&
                        upper_bin[1].text == "B10",
                    "0B10 is not binary");
-  auto arrow = scan_all("->.");
+  // -> と終止符の間に空白を置く。続けた ->. は 1 つの名前になる（レビュー L17、test_graphic_full_stop）。
+  auto arrow = scan_all("-> .");
   mosa_test::check(arrow.size() == 2 && arrow[0].kind == mosa::TokenKind::Name &&
-                       arrow[0].text == "->",
+                       arrow[0].text == "->" && arrow[1].kind == mosa::TokenKind::EndFullStop,
                    "graphic arrow");
   auto end_comment = scan_all("a.% c\n");
   mosa_test::check(end_comment.size() == 2 && end_comment[1].kind == mosa::TokenKind::EndFullStop,
@@ -269,6 +270,39 @@ void test_fullwidth() {
                    "kagi stays illegal when the flag is off");
 }
 
+// レビュー L17（持ち主は A を選んだ、iso-notes 6.4.2）。6.4.2 が図形トークンにしないのは、空白か % か終わりの前の
+// . 1 字だけである。前は図形の字の後ろの . もそこで切り、+. を + と終止符に読んだ。
+bool names_then(const std::vector<mosa::Token>& tokens, std::vector<std::string_view> names, mosa::TokenKind last) {
+  if (tokens.size() != names.size() + 1 || tokens.back().kind != last) return false;
+  for (std::size_t index = 0; index < names.size(); ++index) {
+    if (tokens[index].kind != mosa::TokenKind::Name || tokens[index].text != names[index]) return false;
+  }
+  return true;
+}
+
+void test_graphic_full_stop() {
+  using mosa::TokenKind;
+  mosa_test::check(names_then(scan_all("+.\n."), {"+."}, TokenKind::EndFullStop), "+. before a newline is one name");
+  mosa_test::check(names_then(scan_all("+. ."), {"+."}, TokenKind::EndFullStop), "+. before a space is one name");
+  mosa_test::check(names_then(scan_all("+.% c\n."), {"+."}, TokenKind::EndFullStop), "+. before % is one name");
+  mosa_test::check(names_then(scan_all("->."), {"->."}, TokenKind::End), "->. at the end of input is one name");
+  mosa_test::check(names_then(scan_all("#. a."), {"#.", "a"}, TokenKind::EndFullStop), "#. then a name");
+  mosa_test::check(names_then(scan_all("+.. ."), {"+.."}, TokenKind::EndFullStop), "+.. is one name");
+  mosa_test::check(names_then(scan_all("+ ."), {"+"}, TokenKind::EndFullStop), "a space keeps the full stop");
+  mosa_test::check(names_then(scan_all("=.. ."), {"=.."}, TokenKind::EndFullStop), "=.. stays one name");
+  mosa_test::check(names_then(scan_all(".. ."), {".."}, TokenKind::EndFullStop), ".. stays one name");
+  // 先頭の . は今までどおり終止符。後ろが空白でなければ図形の字。
+  mosa_test::check(names_then(scan_all("a. "), {"a"}, TokenKind::EndFullStop), "a dot after a name ends");
+  mosa_test::check(names_then(scan_all(".+ ."), {".+"}, TokenKind::EndFullStop), "a dot before + starts a name");
+  // 全角記号モードの 。 も同じ規則（決定の 2026-11-03）。
+  mosa_test::check(names_then(scan_all("+。 。", true), {"+。"}, TokenKind::EndFullStop), "+。 is one name");
+  mosa_test::check(names_then(scan_all("+。\n", true), {"+。"}, TokenKind::End), "+。 before a newline");
+  mosa_test::check(names_then(scan_all("+.。", true), {"+.。"}, TokenKind::End), "+.。 is one name");
+  mosa_test::check(names_then(scan_all("+ 。", true), {"+"}, TokenKind::EndFullStop), "a space keeps the kuten");
+  // 旗が偽なら 。 はただの図形の字で、終止符にならない。
+  mosa_test::check(names_then(scan_all("+。 ."), {"+。"}, TokenKind::EndFullStop), "+。 without the flag");
+}
+
 // 溢れの向きは指数の符号ではなく値の桁で決まる。仮数部が 400 桁あると、e- でも上位、e の無い 0.000…1 でも
 // 下位に溢れる（M2 の敵対的レビュー A1/A2）。
 void test_float_range_long_mantissa() {
@@ -316,5 +350,6 @@ int main() {
   test_quotes_and_comments();
   test_radix_and_comment_end();
   test_fullwidth();
+  test_graphic_full_stop();
   return mosa_test::failures();
 }

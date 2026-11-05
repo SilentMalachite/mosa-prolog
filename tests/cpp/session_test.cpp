@@ -1,3 +1,4 @@
+#include "answer_lines.hpp"
 #include "harness.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/messages.hpp"
@@ -230,21 +231,6 @@ void check_given_made_up_name() {
   mosa_test::check(result.out.find("false") == std::string::npos, "given _G1 keeps the anonymous variable apart");
   mosa_test::check(result.out.find("_G1 = a") != std::string::npos, "given _G1 is bound");
   mosa_test::check(result.out.find("X = f(_G1,_G2).") != std::string::npos, "answer names the anonymous variable apart");
-}
-
-// REPL の出力に、行全体が line の答えがあるか（行の頭のプロンプトは除く）。部分文字列で探すと、余分な部分が前に
-// 付いた答えも通る（M26 の敵対的レビュー A4）。
-bool answered(std::string_view out, std::string_view line) {
-  std::size_t start = 0;
-  while (start < out.size()) {
-    std::size_t end = out.find('\n', start);
-    if (end == std::string_view::npos) end = out.size();
-    std::string_view row = out.substr(start, end - start);
-    while (row.starts_with("?- ")) row.remove_prefix(3);
-    if (row == line) return true;
-    start = end + 1;
-  }
-  return false;
 }
 
 // レビュー M22。答えの束縛を 1 つずつ書くと、作る名前が束縛ごとに _G1 から始まり、違う変数が同じ名前になった。

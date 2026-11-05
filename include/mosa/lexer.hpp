@@ -92,7 +92,7 @@ class Lexer {
   [[nodiscard]] std::optional<Scan> skip_block_comment(Place start);
   [[nodiscard]] std::optional<Scan> skip_line_comment();
   [[nodiscard]] bool end_follows(std::size_t width) const;
-  [[nodiscard]] bool ends_clause(SourceChar ch, Place start) const;
+  [[nodiscard]] bool ends_clause(SourceChar ch) const;
   [[nodiscard]] Scan scan_word(TokenKind kind);
   [[nodiscard]] Scan scan_graphic();
   [[nodiscard]] Scan scan_solo();

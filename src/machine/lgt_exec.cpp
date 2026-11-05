@@ -407,7 +407,7 @@ void exec_plain(Machine& machine, const Node& node, Env& env) {
   }
   const std::string text = goal_with_saved(machine, node.text, env.saved);
   snapshot_bundle(machine, env);
-  const LgtStep step = lgt_ask(machine, text + ".");
+  const LgtStep step = lgt_ask(machine, text + full_stop_after(text));
   env.stop = step.stop;
   if (step.dead) {
     env.tri = Tri::Dead;
@@ -517,7 +517,7 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
     return;
   }
   const std::string text = prog.nodes[static_cast<std::size_t>(generator)].text;
-  LgtStep step = lgt_ask(machine, text + ".");
+  LgtStep step = lgt_ask(machine, text + full_stop_after(text));
   env.stop = step.stop;
   if (step.dead) {
     env.tri = Tri::Dead;

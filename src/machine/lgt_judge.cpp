@@ -92,7 +92,9 @@ struct ColonOp {
 Parsed parse_term(Machine& machine, std::string_view text) {
   Parsed parsed;
   std::string source{text};
-  if (source.empty() || source.back() != '.') source.push_back('.');
+  // 字面がもう . で終わっていても足す。+. の . は終止符でなく（6.4.2、レビュー L17）、foo. なら足した終止符は
+  // 読まない 2 つめの項の終わりになるだけである。
+  source += full_stop_after(source);
   const SuperOp super_op(machine.operators());
   const ColonOp colon_op(machine.operators());
   Reader reader(source, machine.heap(), machine.operators());
@@ -327,7 +329,7 @@ void clear_halt(Machine& machine) {
 Step ask(Machine& machine, std::string_view goal) {
   Step step;
   try {
-    step.stop = machine.query(goal);
+    step.stop = query_written(machine, goal);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
     step.dead = true;
@@ -524,7 +526,7 @@ LgtEnd finish_success(Machine& machine, const LgtWant& want, const Stop& stop) {
 }
 
 LgtEnd judge_query(Machine& machine, std::string_view body, const LgtWant& want) {
-  const Step step = ask(machine, std::string{body} + ".");
+  const Step step = ask(machine, std::string{body} + full_stop_after(body));
   if (step.dead) return aborted();
   if (want.kind == LgtKind::Errors || want.kind == LgtKind::Ball) {
     LgtEnd end;

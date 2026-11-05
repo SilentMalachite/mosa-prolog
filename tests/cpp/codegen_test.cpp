@@ -310,7 +310,8 @@ void comment_backslash() {
   const EmitResult result = emit_module(*machine, machine->atoms().intern("m\\"), "dir\\");
   check(has(result.source, "// mosac が単位 dir\\. のモジュール m\\. から"), "banner closes backslash names");
   check(has(result.source, "% 'p\\\\'(\\)."), "clause comment keeps the quoted name");
-  check(has(result.source, "% \\."), "clause comment for the atom \\");
+  // 図形の字の後ろの終止符は空白の後に置く。\. と続けると 1 つの名前になる（6.4.2、レビュー L17 の決定 A）。
+  check(has(result.source, "% \\ ."), "clause comment for the atom \\");
   check(!line_ends_in_backslash(result.source), "no source line ends in a backslash");
   check(!line_ends_in_backslash(result.header), "no header line ends in a backslash");
 }

@@ -127,7 +127,8 @@ test(l6_read_quoted, l6_read_all(quoted, [0'x, 0'(, 0'', 0'c, 0'a, 0'f, 0xE9, 0'
 test(l6_read_block_comment, l6_read_all(block, [0'/, 0'*, 0' , 0xE9, 0' , 0'*, 0'/, 0' , 0'o, 0'k, 0'., 0'\n, 0'n, 0'., 0'\n], Ts), solutions([Ts = [rep, n]])).
 % 注釈の中の壊れた並びは、その後ろの項と一緒に読まれる。replace はその項を返すので、error はその項まで捨てる。
 test(l6_read_line_comment, l6_read_all(line, [0'%, 0' , 0xE9, 0' , 0'x, 0'., 0'\n, 0'r, 0'., 0'\n, 0'o, 0'k, 0'., 0'\n], Ts), solutions([Ts = [rep, ok]])).
-test(l6_read_bom_error, l6_read_all(bom, [0xEF, 0xBB, 0xBF, 0xE9, 0'., 0'\n, 0'o, 0'k, 0'., 0'\n], Ts), solutions([Ts = [rep, ok]])).
+% 置き換えた U+FFFD は図形の字なので、続けた . は同じトークンに入る（6.4.2、レビュー L17）。空白で終止符を分ける。
+test(l6_read_bom_error, l6_read_all(bom, [0xEF, 0xBB, 0xBF, 0xE9, 0' , 0'., 0'\n, 0'o, 0'k, 0'., 0'\n], Ts), solutions([Ts = [rep, ok]])).
 % 構文の誤りの読み飛ばしの中の壊れた並びも置き換えてから飛ばす。前は注釈の中の壊れた並びで注釈が切れ、注釈の中の
 % 終止符で止まって、次の read が注釈の中の delete_all を返した（L6 の Codex レビュー）。
 test(l6_read_skip_comment, l6_read_all(skip, [0'f, 0'(, 0xFF, 0' , 0'a, 0' , 0'/, 0'*, 0' , 0xFF, 0'., 0' , 0'd, 0'., 0' , 0'*, 0'/, 0'), 0'., 0' , 0'b, 0'., 0'\n], Ts), solutions([Ts = [rep, b]])).
@@ -143,7 +144,12 @@ test(l6_read_f8_replace, (l6_file(f8, [0'', 0xF8, 0x90, 0x80, 0x80, 0'', 0'., 0'
 test(l6_read_f8_error, l6_read_all(f8_error, [0'', 0xF8, 0x90, 0x80, 0x80, 0'', 0'., 0' , 0'o, 0'k, 0'., 0'\n], Ts), solutions([Ts = [rep, ok]])).
 % 先頭の BOM は字句解析が列に数えない。前は置き換える位置が 1 字ずれ、replace の read が止まらなかった（L6 の敵対的レビュー A4）。
 test(l6_read_bom_replace, (l6_file(bom_replace, [0xEF, 0xBB, 0xBF, 0'', 0xE9, 0'', 0'., 0'\n], Path), l6_with_replace((open(Path, read, S), read(S, T), close(S))), atom_codes(T, Cs)), solutions([Cs = [65533]])).
-test(l6_read_bom_keeps_next, (l6_file(bom_next, [0xEF, 0xBB, 0xBF, 0'a, 0'b, 0xE9, 0'., 0'\n], Path), l6_with_replace((open(Path, read, S), catch(read(S, _), error(syntax_error(_), context(_, syntax(_, Token))), true), close(S))), atom_codes(Token, Cs)), solutions([Cs = [65533]])).
+% U+FFFD は図形の字なので、続けた . は同じトークンに入る（6.4.2、レビュー L17）。空白で終止符を分ける。
+test(l6_read_bom_keeps_next, (l6_file(bom_next, [0xEF, 0xBB, 0xBF, 0'a, 0'b, 0xE9, 0' , 0'., 0'\n], Path), l6_with_replace((open(Path, read, S), catch(read(S, _), error(syntax_error(_), context(_, syntax(_, Token))), true), close(S))), atom_codes(Token, Cs)), solutions([Cs = [65533]])).
+% 空白を置かない元の入力（レビュー L17 の敵対的レビュー A1）。置き換えた U+FFFD が . を取り込むので、構文エラーの
+% 読み飛ばしは次の終止符まで進み、後ろの ok. も一緒に消える。replace の誤りの字句も U+FFFD と . の 2 字になる。
+test(l17_bad_byte_takes_dot, l6_read_all(bom_glued, [0xEF, 0xBB, 0xBF, 0xE9, 0'., 0'\n, 0'o, 0'k, 0'., 0'\n], Ts), solutions([Ts = [rep]])).
+test(l17_bad_byte_glued_token, (l6_file(bom_glued_next, [0xEF, 0xBB, 0xBF, 0'a, 0'b, 0xE9, 0'., 0'\n], Path), l6_with_replace((open(Path, read, S), catch(read(S, _), error(syntax_error(_), context(_, syntax(_, Token))), true), close(S))), atom_codes(Token, Cs)), solutions([Cs = [65533, 46]])).
 % stream_property の位置へ戻すと、同じ字から読み直す。前は位置の数え方が get_char とずれ、違うバイトに立った（同 A2、A3）。
 test(l6_reposition_error, (l6_file(repos, [0'a, 0xE3, 0x81, 0'b], Path), open(Path, read, S, [reposition(true)]), get_char(S, _), catch(get_char(S, _), _, true), stream_property(S, position(P)), get_char(S, B), set_stream_position(S, P), get_char(S, C), close(S)), solutions([(B = b, C = b)])).
 test(l6_reposition_surrogate, (l6_file(repos_sur, [0xED, 0xA0, 0x80, 0'b], Path), l6_with_replace((open(Path, read, S, [reposition(true)]), get_code(S, _), stream_property(S, position(P)), get_code(S, _), get_code(S, _), set_stream_position(S, P), l6_codes(S, Cs), close(S)))), solutions([Cs = [65533, 65533, 98]])).
