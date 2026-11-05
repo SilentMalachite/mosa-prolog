@@ -82,6 +82,13 @@ bool item_unbound(const Impl& machine, const WalkedList& walked) {
 
 FileLoadResult load_bytes(const std::filesystem::path& path) {
   FileLoadResult result;
+  // macOS と Linux の ifstream はディレクトリも開け、読むと空になる。ディレクトリは開けないソースとして
+  // permission_error にする（8.11.5.3 f、レビュー L5）。書き込みの create_empty は前からそうなる。
+  std::error_code kind;
+  if (std::filesystem::is_directory(path, kind) && !kind) {
+    result.status = FileLoad::Denied;
+    return result;
+  }
   std::ifstream input(path, std::ios::binary);
   if (!input) {
     std::error_code code;

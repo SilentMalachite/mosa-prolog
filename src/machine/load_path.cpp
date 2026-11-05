@@ -62,6 +62,9 @@ const EmbeddedSource* embedded_of(const Impl& machine, const std::filesystem::pa
 // 実行ファイルは埋め込んだ原文を先に引く（計画 Task 5）。埋め込みが無ければ今までどおりファイルを読む。
 std::optional<std::string> read_source(const Impl& machine, const std::filesystem::path& file) {
   if (const EmbeddedSource* source = embedded_of(machine, file)) return source->text;
+  // ifstream はディレクトリも開けることがあり、consult が空のファイルとして黙って成功した（レビュー L5）。
+  std::error_code kind;
+  if (std::filesystem::is_directory(file, kind) && !kind) return std::nullopt;
   std::ifstream input{file, std::ios::binary};
   if (!input) return std::nullopt;
   std::ostringstream buffer;

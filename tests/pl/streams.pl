@@ -37,3 +37,8 @@ test(open_utf8_missing, open('/no/such/mosa-open-file', read, S, [encoding(utf8)
 test(open_alias_after_missing, open('/no/such/mosa-open-file', read, S, [alias(user_input)]), error(existence_error(source_sink, '/no/such/mosa-open-file'))).
 test(open_alias_user_input, open('/no/such/mosa-open-file', write, S, [alias(user_input)]), error(permission_error(open, source_sink, alias(user_input)))).
 test(open_write_nodir, open('/no/such/mosa-open-dir/file', write, S), error(permission_error(open, source_sink, '/no/such/mosa-open-dir/file'))).
+% レビュー L5。ディレクトリは読みにも追記にも開けない（8.11.5.3 f）。前は読みが成功し、end_of_file を返した。
+test(l5_open_dir_read, open('tests/pl', read, S), error(permission_error(open, source_sink, 'tests/pl'))).
+test(l5_open_dir_append, open('tests/pl', append, S), error(permission_error(open, source_sink, 'tests/pl'))).
+test(l5_open_dir_write, open('tests/pl', write, S), error(permission_error(open, source_sink, 'tests/pl'))).
+test(l5_open_dir_options, open('tests/pl', read, S, [type(binary)]), error(permission_error(open, source_sink, 'tests/pl'))).

@@ -213,3 +213,10 @@ seen_apart_files :-
     m10_write('tests/tmp/seen_gone.pl', ':- dynamic(seen_w/1).\nseen_w(1).\nseen_x(1).\n:- consult(\'seen_gone_child.pl\').\nseen_w(2).\n').
 test(seen_apart_recreated, (seen_apart_files, consult('tests/tmp/seen_apart.pl')), fail).
 test(seen_apart_removed, (seen_apart_files, consult('tests/tmp/seen_gone.pl'), findall(X, seen_w(X), L)), solutions([L = [2]])).
+
+% レビュー L5。ディレクトリはソースとして読めない。無いファイルと同じく、診断を出して失敗する。前は空のファイルとして
+% 黙って成功した。
+% tests/cpp.pl は無いので、.pl を補っても別のファイルを読まない。
+test(l5_consult_dir, \+ consult('tests/cpp'), true).
+% 指令の [File] は読んでいるファイルのディレクトリから開く。tests/tmp の .. は tests。
+test(l5_consult_dir_list, (m10_write('tests/tmp/l5_dir_list.pl', ':- [\'..\'].\n'), \+ consult('tests/tmp/l5_dir_list.pl')), true).
