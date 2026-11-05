@@ -164,21 +164,26 @@ bool note_syntax(Impl& machine, std::string_view origin, bool nested, const Synt
   return false;
 }
 
-// import_all は、モジュールのファイルを読み終えたとき公開述語を全部取り込むこと。use_module は自分で取り込む。
-bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
-                bool nested, LoadScan& scan, bool import_all = true);
+// テキストの読み方。import_all は、モジュールのファイルを読み終えたとき公開述語を全部取り込むこと（use_module は
+// 自分で取り込む）。owns は、テキストの述語をこのファイルのものにすること（ADR 0020）。include したテキストは、
+// それを読んだファイルの述語を定義する。
+struct TextRole {
+  bool nested = true;
+  bool import_all = true;
+  bool owns = true;
+};
 
-int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, bool import_all = true) {
+bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
+                LoadScan& scan, TextRole role);
+
+int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, TextRole role) {
   const auto text = read_source(machine, file);
   if (!text) {
     fail_load(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
     return -1;
   }
   // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
-  if (!read_terms(machine, *text, utf8_from_path(file.parent_path()), utf8_from_path(file), true, scan,
-                  import_all)) {
-    return -1;
-  }
+  if (!read_terms(machine, *text, utf8_from_path(file.parent_path()), utf8_from_path(file), scan, role)) return -1;
   return 1;
 }
 
@@ -273,7 +278,7 @@ int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& sc
     }
   }
   if (!file_ready(machine, scan, file)) {
-    if (open_prolog_file(machine, file, scan, false) < 0) return -1;
+    if (open_prolog_file(machine, file, scan, TextRole{true, false, true}) < 0) return -1;
     // 同梱ライブラリの翻訳済みの単位は、原文を読み終えてから付ける（ADR 0009）。
     if (bundled) attach_bundled_library(machine, *bundled);
   }
@@ -303,7 +308,7 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
   const auto file = source_path(machine, resolve_include(directory, name));
   // include は毎回足す。ensure_loaded は、準備済みのパスを節も初期化も足さない。
   if (once && file_ready(machine, scan, file)) return import_ready(machine, file);
-  return open_prolog_file(machine, file, scan);
+  return open_prolog_file(machine, file, scan, TextRole{true, true, once});
 }
 
 // 開き済みのファイルをもう一度開くと、読み込みが終わらない。
@@ -452,10 +457,32 @@ struct ModuleScope {
   }
 };
 
+// 述語の持ち主になるファイルの番号（Predicate::source_file と同じ数え方）。無ければ足す。
+std::uint32_t file_number(Impl& machine, const std::string& key) {
+  const auto found = std::find(machine.source_files.begin(), machine.source_files.end(), key);
+  if (found == machine.source_files.end()) {
+    machine.source_files.push_back(key);
+    return static_cast<std::uint32_t>(machine.source_files.size());
+  }
+  return static_cast<std::uint32_t>(found - machine.source_files.begin()) + 1;
+}
+
+// テキストを読み終えるまで、定義した述語をこのファイルのものとして書き留める（ADR 0020）。
+struct OwnerScope {
+  Impl& machine;
+  std::uint32_t outer;
+  OwnerScope(Impl& owner, std::uint32_t file) : machine(owner), outer(owner.load_owner) { owner.load_owner = file; }
+  OwnerScope(const OwnerScope&) = delete;
+  OwnerScope& operator=(const OwnerScope&) = delete;
+  ~OwnerScope() { machine.load_owner = outer; }
+};
+
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
-                bool nested, LoadScan& scan, bool import_all) {
+                LoadScan& scan, TextRole role) {
   CycleGuard guard;
   if (!enter_file(machine, origin, scan, guard)) return false;
+  const std::uint32_t file = !role.owns ? machine.load_owner : origin.empty() ? 0 : file_number(machine, guard.key);
+  const OwnerScope owner{machine, file};
   const FileNote note{machine, origin, source};
   ModuleScope scope{machine};
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
@@ -466,12 +493,17 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     reader.set_operators(op_view(machine, machine.load_module));
     const std::size_t before = reader.consumed();
     const ReadOutcome outcome = reader.next();
-    if (outcome.failure && !note.tolerate_syntax()) return note_syntax(machine, origin, nested, *outcome.failure);
+    if (outcome.failure && !note.tolerate_syntax()) {
+      return note_syntax(machine, origin, role.nested, *outcome.failure);
+    }
     // 読み飛ばしが進まなければ、そこで終わりにする。同じ誤りを読み続けない。
     if (outcome.failure && reader.consumed() > before) continue;
     if (!outcome.term) {
       guard.finished = true;
-      return scope.close(import_all);
+      if (!scope.close(role.import_all)) return false;
+      // 読み終えたファイルだけが、前に定義して今は定義しない述語を失う。include したテキストは読んだファイルの分。
+      if (role.owns && file != 0) scan.snapshots.notes().files.push_back(file);
+      return true;
     }
     note.first_term(*outcome.term);
     if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan)) return false;
@@ -496,6 +528,12 @@ class SnapshotScope {
   Impl& machine_;
   LoadSnapshots* parent_;
 };
+
+// 一番外の読み込みなら書き留めを使い、入れ子なら親へ渡す。
+void keep_notes(Impl& machine, LoadSnapshots* parent, LoadSnapshots& own, std::uint64_t started_at) {
+  if (parent == nullptr) apply_file_notes(machine, own.notes(), started_at);
+  else hand_up_notes(*parent, own);
+}
 
 }  // namespace
 
@@ -528,14 +566,17 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     for (Cell& goal : inits) visitor.cell(goal);
   });
   const auto previous_serial = machine.pred_serial;
+  const auto started_at = machine.db_generation;
   std::optional<PredKey> last;
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening};
-  if (!read_terms(machine, source, directory, origin, false, scan)) {
+  if (!read_terms(machine, source, directory, origin, scan, TextRole{false, true, true})) {
     if (machine.load_kept) {
       if (!origin.empty()) restore_file_flags(machine, saved_flags);
       machine.heap.truncate(heap_base);
+      // 初期化の例外で残した節も、成功した読み込みの節と同じく持ち主を付け、古い述語を消す（L11 の敵対的レビュー A3）。
+      keep_notes(machine, shot_scope.parent(), snapshots, started_at);
       return LoadStatus{false, machine.diagnostic};
     }
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_serial, heap_base, saved_declared,
@@ -544,10 +585,15 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
   // initialization のゴールより先に戻す（iso-notes 7.4.2.8 の決定 B）。
   if (!origin.empty()) restore_file_flags(machine, saved_flags);
+  // 古い述語を消すのは一番外の読み込みだけで、初期化のゴールより先（ADR 0020）。入れ子の読み込みが消すと、後で外の
+  // 読み込みが失敗したとき戻せない。初期化のゴールが consult したファイルの分は、ゴールの後でもう一度使う。
+  const bool outermost = shot_scope.parent() == nullptr;
+  if (outermost) apply_file_notes(machine, snapshots.notes(), started_at);
   const LoadStatus status = finish_load(machine, heap_base, inits);
   // 初期化のゴールの後で渡す。そのゴールが読んだ孫の写しも、この写しへ渡されている（2 度目の Codex レビュー P2）。
   // 初期化のゴールが失敗しても節は戻さないが、親が失敗すれば親が戻す。
-  if (shot_scope.parent() != nullptr) hand_up_snapshots(*shot_scope.parent(), snapshots);
+  if (outermost) apply_file_notes(machine, snapshots.notes(), started_at);
+  else hand_up_snapshots(*shot_scope.parent(), snapshots);
   return status;
 }
 

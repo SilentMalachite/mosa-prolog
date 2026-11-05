@@ -706,3 +706,11 @@ ISO floats have no NaN, so 9.1.4 says nothing about `sign(nan)`; Mosa gave `1.0`
 A or B?: for sign/1, A: return the NaN; B: keep `1.0`. For integer/1 (truncation was offered first and not chosen), A: round to the nearest integer with halves away from zero, as SWI does (`integer(-2.5) = -3`); B: round as Mosa's round/1 does, by the floor(x + 1/2) of 9.1.6.1 (`integer(-2.5) = -2`). The first form of the integer/1 question wrongly said that A was the same as round/1; the owner answered again after the correction.
 
 Decision (2026-11-05): A for both. Tests: `l2_sign_*` and `l2_integer_*` in `tests/pl/arith.pl`; `l2_round_neg_half` pins that round/1 does not change.
+
+## 7.4.2 Consulting a path again
+
+ISO prepares a Prolog text once (7.4) and defines no reconsult; SPEC does not define it either. Consulting a path again replaced only the predicates the new contents define, so a predicate that the earlier contents defined and the new ones no longer have stayed, including one declared there with `:- dynamic` (review L11).
+
+A or B?: A: on a reconsult, remove the predicates that the previous load of that path defined and the new contents lack, as SWI-Prolog does; a failed load keeps them. B: keep them.
+
+Decision (2026-11-05): A, under ADR 0020. A predicate made by a goal (assertz) and a multifile predicate stay, and so does one that another file defined later. One that the new contents only declare dynamic, or that a goal of the reload asserted into or retracted from, stays with only the clauses added during the reload. A stale predicate of a nested consult goes when the outermost load succeeds.

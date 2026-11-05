@@ -37,6 +37,9 @@ struct Predicate {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
+  // 最後にこの述語を定義したテキストのファイル（ADR 0020）。Impl::source_files の添字に 1 を足した値で、0 は
+  // どのファイルのものでもない（ゴールが作った述語と、文字だけの読み込みの述語）。arity の後の詰め物に入る。
+  std::uint32_t source_file = 0;
   // 表に足した順の番号。add_predicate だけが振り、使い回さない。表は末尾に足して途中を消すだけなので、この
   // 番号の昇順に並ぶ。current_predicate/1 の候補は添字でなくこれで持つ。添字は消した述語より後ろがずれ、入れ子の
   // 実行が戻したスタックや脇に置いたスタックの候補はずらせない（M18 の敵対的レビュー A1）。
@@ -78,6 +81,10 @@ struct Predicate {
   bool defined_by_goal = false;
   std::size_t defined_at = 0;
   std::uint64_t text_clause_at = 0;
+  // ゴール（assert、retract、retractall）が最後に節を足すか消した Impl::db_generation。読み直しは、この値が読み込みの
+  // 始めより後の述語を消さない（ADR 0020）。失敗した入れ子の読み込みの巻き戻しは写しの節を戻すが、この値は戻さない。
+  // 節の born や last_death で見ると、その巻き戻しが消す（L11 の 7 度目の Codex レビュー P2）。
+  std::uint64_t goal_changed_at = 0;
   // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
   rt::NativeProc native = nullptr;
 };

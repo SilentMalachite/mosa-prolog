@@ -23,3 +23,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0017](0017-failed-load-keeps-asserted.md) | A failed load keeps the predicates its goals made with assert | Approved (2026-11-04) |
 | [0018](0018-predicate-lookup.md) | Predicate lookup by key: an open-addressing index on the predicate table and the load's snapshots | Approved (2026-11-04) |
 | [0019](0019-answer-aliases.md) | Toplevel answers show the aliases of one unbound variable as a chain | Approved (2026-11-04) |
+| [0020](0020-reconsult-ownership.md) | A reconsult removes the predicates the file no longer defines, applied by the outermost load | Approved (2026-11-05) |

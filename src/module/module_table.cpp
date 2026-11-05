@@ -65,6 +65,8 @@ void begin_definition(Impl& machine, Predicate& predicate, bool by_goal) {
   predicate.defined_at = ++machine.pred_serial;
   predicate.defined_by_goal = by_goal;
   predicate.text_clause_at = 0;
+  // ゴールが始めた定義はどのファイルのテキストでもない。読み直しはそれを消さない（ADR 0020）。
+  if (by_goal) predicate.source_file = 0;
 }
 
 // 表は serial の昇順なので二分探索で引く。current_predicate/1 のやり直しごとに表をなめない。

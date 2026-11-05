@@ -353,6 +353,11 @@ struct Machine::Impl {
   // 正規化したパス。ensure_loaded/1 は、ここにあるファイルを読み直さない。
   // include と consult は読み直す。節を戻す失敗では、この一覧も戻す。
   std::vector<std::string> prepared;
+  // 述語の持ち主になったファイルの正規化したパス（ADR 0020）。Predicate::source_file が添字に 1 を足して指す。
+  // 足すだけで消さないので、添字は変わらない。
+  std::vector<std::string> source_files;
+  // 今テキストを読んでいるファイル（Predicate::source_file と同じ数え方）。include したテキストは読んだファイルの分。
+  std::uint32_t load_owner = 0;
   // 初期化の例外で節を残す。入れ子の consult がこれで失敗したとき、親は節を戻さない。
   bool load_kept = false;
   // 動いている一番内側の読み込みの写し（ADR 0017）。入れ子の読み込みは、成功したら自分の写しを親へ渡す。
@@ -561,6 +566,11 @@ void reset_at_end(Stream& stream);
 void sweep_dead(Impl& machine, Predicate& predicate);
 // 生きた節を全部消す（abolish と、読み込みが述語を置き換えるとき）。開いた走査がまだ試す節は死んだ節で残す。
 void retire_clauses(Impl& machine, Predicate& predicate);
+// 読み直しが古い述語をまとめて消す（定義は database.cpp、ADR 0020）。静的な述語も消す。metas は、この読み込みの
+// テキストが meta_predicate と宣言した鍵（名前の順）で、その宣言はモジュールの保留の表へ移して残す。
+void abolish_stale(Impl& machine, const std::vector<PredKey>& keys, const std::vector<PredKey>& metas);
+// 読み直しが述語を残し、世代 generation までに足した生きた節だけを消す（定義は database.cpp、ADR 0020）。
+void retire_older(Impl& machine, const std::vector<PredKey>& keys, std::uint64_t generation);
 // 静的な述語に残った死んだ節のうち、開いた走査がもう届かないものを消す（enter_user が呼ぶ）。
 void purge_static(Impl& machine, Predicate& predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -285,6 +286,7 @@ void kill_clause(Impl& machine, Predicate& predicate, PredKey key, std::size_t i
   if (!position) return;
   Clause& clause = predicate.clauses[*position];
   if (!mark_dead(machine, predicate, clause)) return;
+  predicate.goal_changed_at = machine.db_generation;
   const bool end = *position == 0 || *position + 1 == predicate.clauses.size();
   if (end && !reachable(machine, key, clause)) {
     erase_clause_id(predicate, id);
@@ -462,6 +464,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   // 足した節も世代が走査より新しいので、走査は見ない。
   if (at_front) prepend_clause(*existing, std::move(clause), ++machine.db_generation);
   else append_clause(*existing, std::move(clause), ++machine.db_generation);
+  existing->goal_changed_at = machine.db_generation;
   succeed(machine, goal);
 }
 
@@ -589,6 +592,78 @@ void run_abolish(Impl& machine, const Goal& goal) {
 
 
 }  // namespace
+
+namespace {
+
+// この読み込みのテキストが古い述語へした meta_predicate の宣言は、述語を消しても残す。宣言の無い述語への宣言と
+// 同じく保留の表へ移し、後で作る定義が引き取る。消すと、初期化のゴールが assertz で作り直した述語が限定を失う
+// （L11 の 4 度目の Codex レビュー P2）。
+void pend_meta(Impl& machine, Predicate& predicate) {
+  Module* module = find_module(machine, predicate.module);
+  if (module == nullptr) return;
+  std::erase_if(module->pending_meta, [&predicate](const PendingMeta& item) {
+    return item.name == predicate.name && item.arity == predicate.arity;
+  });
+  module->pending_meta.push_back(PendingMeta{predicate.name, predicate.arity, std::move(predicate.meta)});
+  predicate.meta.clear();
+  predicate.meta_declared = false;
+}
+
+}  // namespace
+
+// abolish/1 と同じく、開いた走査があれば枠を abolish 済みにして残し、無ければ表から消す。1 つずつ表から消すと、
+// 後ろの述語と索引を毎回ずらし、消す数と表の長さの積になる（L11 の Codex レビュー P2）。静的な述語は生成関数を
+// 付けていることがあるので外す。外さないと、ほかの単位の呼び出しが消した述語の関数を呼び続ける（同 P2）。
+void abolish_stale(Impl& machine, const std::vector<PredKey>& keys, const std::vector<PredKey>& metas) {
+  const auto less = [](const PredKey& a, const PredKey& b) {
+    return std::tie(a.module, a.name, a.arity) < std::tie(b.module, b.name, b.arity);
+  };
+  std::vector<PredKey> erased;
+  for (const PredKey key : keys) {
+    Predicate* predicate = find_pred(machine, key);
+    if (predicate == nullptr) continue;
+    detach_native(machine, *predicate);
+    if (std::binary_search(metas.begin(), metas.end(), key, less)) pend_meta(machine, *predicate);
+    retire_clauses(machine, *predicate);
+    if (predicate->clauses.empty()) {
+      erased.push_back(key);
+      continue;
+    }
+    // 枠を残しても定義は無くなる。失敗した読み込みが、abolish の前の写しをこの枠へ戻さないようにする（ADR 0017）。
+    // abolish/1 の枠と同じく動的にする。静的のままだと、開いた走査がある間の assertz と dynamic の宣言が、消した
+    // 述語の新しい定義を静的な述語への変更として断る（L11 の 2 度目の Codex レビュー P2）。
+    begin_definition(machine, *predicate, true);
+    predicate->abolished = true;
+    predicate->dynamic = true;
+  }
+  if (erased.empty()) return;
+  std::sort(erased.begin(), erased.end(), less);
+  const auto gone = [&erased, &less](PredKey key) { return std::binary_search(erased.begin(), erased.end(), key, less); };
+  // erase_predicate と同じく、開いた走査を尽きた印にする。作り直した述語の節を指さない。
+  const auto exhaust = [&gone](std::vector<Entry>& stack) {
+    for (Entry& entry : stack) {
+      if (scans_clauses(entry.pick) && gone(PredKey{entry.pred_module, entry.pred_name, entry.pred_arity})) {
+        entry.cursor = kNoClause;
+      }
+    }
+  };
+  for (const ParkedScans& parked : machine.parked) exhaust(*parked.stack);
+  exhaust(machine.stack);
+  machine.predicates.erase_if([&gone](const Predicate& predicate) { return gone(key_of(predicate)); });
+}
+
+// retire_clauses と同じく、全部に消した世代を付けてから一度に掃除する。開いた走査がまだ試す節は死んだ節で残る。
+void retire_older(Impl& machine, const std::vector<PredKey>& keys, std::uint64_t generation) {
+  for (const PredKey key : keys) {
+    Predicate* predicate = find_pred(machine, key);
+    if (predicate == nullptr) continue;
+    detach_native(machine, *predicate);
+    for (Clause& clause : predicate->clauses) {
+      if (clause.born <= generation) mark_dead(machine, *predicate, clause);
+    }
+    sweep_dead(machine, *predicate);
+  }
+}
 
 // この述語の開いた走査を記録から一度だけ集め、死んだ節ごとにはその分だけを見る。節ごとに reachable で記録を
 // なめると、ほかの述語の走査の数まで節の数に掛かる。読み込みが abolish 済みの枠を使い直すときにも呼ぶ（ADR 0008）。

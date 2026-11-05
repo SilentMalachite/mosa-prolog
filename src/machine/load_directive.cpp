@@ -187,10 +187,15 @@ bool mark_dynamic(Impl& machine, LoadSnapshots& snapshots, PredKey key) {
     created.arity = arity;
     created.dynamic = true;
     created.dynamic_declared = true;
-    adopt_meta(machine, add_predicate(machine, std::move(created)));
+    Predicate& made = add_predicate(machine, std::move(created));
+    adopt_meta(machine, made);
+    note_defined(machine, snapshots, made, false);
     return true;
   }
   if (predicate->abolished) begin_definition(machine, *predicate, false);
+  // 宣言のたびに書き留める。別のファイルが同じ読み込みで宣言し直すと、後のファイルのものになる（L11 の Codex
+  // レビュー P2）。
+  note_defined(machine, snapshots, *predicate, false);
   predicate->dynamic = true;
   predicate->dynamic_declared = true;
   predicate->abolished = false;
@@ -484,6 +489,7 @@ bool declare_meta(Impl& machine, LoadSnapshots& snapshots, Cell head) {
   detach_native(machine, *predicate);
   predicate->meta = std::move(args);
   predicate->meta_declared = true;
+  snapshots.notes().metas.push_back(key);
   return true;
 }
 

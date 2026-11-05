@@ -151,6 +151,12 @@ target_include_directories(clause_scan_test PRIVATE tests/cpp src)
 target_link_libraries(clause_scan_test PRIVATE mosa_lib)
 target_compile_definitions(clause_scan_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME clause_scan COMMAND $<TARGET_FILE:clause_scan_test>)
+# レビュー L11（ADR 0020）。読み直しは、ファイルがもう定義しない述語を消す。
+add_executable(reconsult_test tests/cpp/reconsult_test.cpp)
+target_include_directories(reconsult_test PRIVATE tests/cpp src)
+target_link_libraries(reconsult_test PRIVATE mosa_lib)
+target_compile_definitions(reconsult_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME reconsult COMMAND $<TARGET_FILE:reconsult_test>)
 # レビュー M21（ADR 0015 の改訂 2）。節の列の大きさ・順・写し。
 add_executable(clause_list_test tests/cpp/clause_list_test.cpp)
 target_include_directories(clause_list_test PRIVATE tests/cpp src)
