@@ -10,7 +10,10 @@
 #include "mosa/path_text.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
+#include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -41,28 +44,54 @@ std::string plain_text(std::string_view key, std::span<const std::string> args) 
   return text;
 }
 
-// 問い合わせはヒープを捨てるので、引数は先に字面にして問い合わせの中で読み直す。
-// numbervars は偽にする。'$VAR'(1) を B と書くと、読み直したときに変数になる。
 std::string catalog_module(Machine& machine) {
   return engine_impl(machine).message_lang == MessageLanguage::Ja ? "messages_ja" : "messages_en";
 }
 
-// query は旗 japanese_punctuation のまま読み直すので、引数も同じ旗で書く。偽で書くと、旗が真のとき
-// '：' は : に化け、'、' は読めずに鍵の文面に落ちる（レビュー M8）。
+// 目録のゴール catch((M:message(Key, MosaFormat), with_output_to(atom(MosaText), format:format(MosaFormat, Args))),
+// _, fail) を項で作り、利用者の表で書く。query は同じ表で読み直すので、利用者が : や = を変えても同じ項に戻る（レビュー
+// L19）。字面を手で書くと、op(0, xfy, :) の後は M:message が読めなかった。問い合わせはヒープを捨てるので、項ではなく
+// 字面で渡す。numbervars は偽にする。'$VAR'(1) を B と書くと、読み直したときに変数になる。旗 japanese_punctuation も
+// 同じ旗で書く。偽で書くと、旗が真のとき '：' は : に化け、'、' は読めずに鍵の文面に落ちる（レビュー M8）。
 std::string goal_text(Machine& machine, std::string_view key, std::span<const Cell> args) {
-  const std::string module = catalog_module(machine);
+  Impl& impl = engine_impl(machine);
+  const auto atom = [&impl](std::string_view name) { return impl.heap.atom(impl.atoms.intern(name)); };
+  const auto term = [&impl](std::string_view name, std::initializer_list<Cell> parts) {
+    return impl.heap.structure(impl.atoms.intern(name), std::span<const Cell>(parts.begin(), parts.size()));
+  };
+  Cell list = atom("[]");
+  for (std::size_t index = args.size(); index > 0; --index) list = impl.heap.list(args[index - 1], list);
+  const Cell format = impl.heap.fresh_ref();
+  const Cell text = impl.heap.fresh_ref();
+  const Cell lookup = term(":", {atom(catalog_module(machine)), term("message", {atom(key), format})});
+  const Cell render =
+      term("with_output_to", {term("atom", {text}), term(":", {atom("format"), term("format", {format, list})})});
+  const Cell goal = term("catch", {term(",", {lookup, render}), impl.heap.fresh_ref(), atom("fail")});
   WriteOptions options;
-  options.fullwidth = engine_impl(machine).japanese_punct;
-  std::string list = "[";
-  for (std::size_t index = 0; index < args.size(); ++index) {
-    if (index > 0) list += ", ";
-    list += write_term(machine.heap(), machine.operators(), args[index], options, {});
-  }
-  list += "]";
-  return "catch((" + module + ":message(" + std::string{key} +
-         ", MosaFormat), with_output_to(atom(MosaText), format:format(MosaFormat, " + list +
-         "))), _, fail).";
+  options.fullwidth = impl.japanese_punct;
+  const std::array<VarName, 2> names{VarName{"MosaFormat", format}, VarName{"MosaText", text}};
+  const std::string written = write_term(impl.heap, impl.operators, goal, options, names);
+  return written + full_stop_after(written);
 }
+
+// カタログと library(format) は ISO の表で読み、抜けるとき利用者の表に戻す（レビュー L19）。利用者が op/3 で = や
+// -> を変えると、format.pl の節が別の項に読まれて読み込みが落ち、文面が鍵の形になった。カタログも format.pl も
+// lists.pl も演算子を定義しないので、戻すときに失うものは無い。利用者がその前に自分の表で library(format) を
+// 読んでいれば、それを使い回す（L19 の敵対的レビュー A1、review に記録）。ISO の表は作り終えてから入れ替える。
+// 作る途中で確保に失敗しても、利用者の表はまだ動いていない（L19 の Codex レビュー）。
+class IsoOperators {
+ public:
+  explicit IsoOperators(OperatorTable& table) : table_(table), user_(OperatorTable::iso_core()) {
+    std::swap(table_, user_);
+  }
+  ~IsoOperators() { std::swap(table_, user_); }
+  IsoOperators(const IsoOperators&) = delete;
+  IsoOperators& operator=(const IsoOperators&) = delete;
+
+ private:
+  OperatorTable& table_;
+  OperatorTable user_;
+};
 
 // 文面を作る間は char_conversion を止め、抜けるとき戻す。目録の指示とゴールは Mosa が書いた字面で、カタログも Mosa の
 // 文書だからである（レビュー L17 の続き。止めないと a を b に写す変換の下で library が librbry に化け、鍵の形に落ちた）。
@@ -94,12 +123,17 @@ MessageLanguage default_message_language() {
 
 std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args) {
   const std::string fallback = fallback_text(machine, key, args);
-  const std::string goal = goal_text(machine, key, args);
   const ConversionPause pause(engine_impl(machine).char_conv);
   try {
+    // ゴールは読み込みより先に、利用者の表で字面にする。args は GC の根に無いので、読み込みの指示が GC を起こすと
+    // 動いた後の番地を指す（L19 の Codex レビュー）。ヒープに項を作るので、溢れたときは下の catch が受ける。
+    const std::string goal = goal_text(machine, key, args);
     // 読み込みは指示でしか書けないので、問い合わせの前に済ませる。カタログは何も公開しないので、
     // use_module でも user の名前は増えない。2 度目からは読み直さない。
-    if (!machine.load_program(":- use_module(library(" + catalog_module(machine) + ")).\n").ok) return fallback;
+    {
+      const IsoOperators iso(engine_impl(machine).operators);
+      if (!machine.load_program(":- use_module(library(" + catalog_module(machine) + ")).\n").ok) return fallback;
+    }
     const Stop stop = machine.query(goal);
     if (stop.kind != StopKind::Success) return fallback;
     for (const Binding& binding : stop.bindings) {

@@ -191,6 +191,17 @@ target_compile_definitions(full_stop_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURC
 target_link_libraries(full_stop_test PRIVATE mosa_lib)
 add_test(NAME full_stop COMMAND $<TARGET_FILE:full_stop_test>)
 
+add_executable(message_ops_test tests/cpp/message_ops_test.cpp)
+target_include_directories(message_ops_test PRIVATE tests/cpp)
+target_link_libraries(message_ops_test PRIVATE mosa_lib)
+add_test(NAME message_ops COMMAND $<TARGET_FILE:message_ops_test>)
+# 読み込みの指示が GC を起こすカタログ。文面の引数は、カタログを読む前に字面にしておく（L19 の Codex レビュー）。
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_gc/messages_en.pl
+  ":- module(messages_en, []).\n:- use_module(library(format)).\n:- garbage_collect.\n"
+  "message(goal_raised, 'Warning: goal raised exception: ~q').\n")
+add_test(NAME message_ops_gc COMMAND $<TARGET_FILE:message_ops_test> gc)
+set_tests_properties(message_ops_gc PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_gc")
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
