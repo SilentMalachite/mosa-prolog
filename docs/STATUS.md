@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main bd32139, CI run 41916910472 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** review L1 (`rem`/`mod` by -1 and `gcd` of the minimum integer; `max`/`min` stay float by iso-notes 9.3.8 decision B) and L4 (`integer_rounding_function` `down` gives permission_error). Before them, M27.
-- **Next:** review items L3, L7 next, then L5, L6, L9, L10; decisions L2, L11, L12; L8 (Windows); L14, L15, L17, L19 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** review L3 (is_list/1 looks only at the spine, decision A; unify_with_occurs_check/2 fails when a value it bound is cyclic, iso-notes 8.2.2 decision B) and L7 (`~Nd` of the minimum integer; `[](x)` and `{}(a)` stay, decision B). Before them, L1 and L4. L20 and L21 added (found by the L3 review).
+- **Next:** review items L5, L6 next, then L9, L10; decisions L2, L11, L12; L8 (Windows); L14, L15, L17, L19, L20, L21 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
