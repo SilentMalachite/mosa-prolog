@@ -654,3 +654,11 @@ Cor.2 leaves the type of the value implementation dependent when the arguments a
 A or B?: A: compare exactly and return the chosen argument with its own type (`max(2.0, 3) = 3`). B: keep converting to a float and returning a float (`max(2.0, 3) = 3.0`).
 
 Decision (2026-11-05): B. Nothing changes. A comparison with a NaN is false both ways, so `max` gives the left argument and `min` the right one (`max(1, nan) = 1.0`, `max(nan, 1) = nan`); equal values do the same (`max(0, 0.0) = 0.0`). Tests: `l1_max_*` and `l1_min_*` in `tests/pl/arith.pl`.
+
+## 6.3.3 `[]` and `{}` as the name of a compound term
+
+6.3.3 writes a compound term in functional notation as a name token followed by `(`, and `[]` and `{}` are not name tokens (6.4.2; they are atoms formed by 6.3.1.3), so `'[]'(x)` and `'{}'(a)` have no unquoted form in ISO syntax. Mosa writes `writeq('[]'(x))` as `[](x)` and `write_canonical({a})` as `{}(a)`, and its reader reads both back (review L7). The Logtalk portability tests in the conformance suite expect the same: `write_canonical({a})` writes `{}(a)` (`lgt_curly_bracketed_term_07`, `08`), and `[](2,3)` and `{}(2,3)` read as compound terms (`lgt_compound_01`, `02`).
+
+A or B?: A: follow 6.3.3 and quote the name when quoted is true (`'[]'(x)`, `'{}'(a)`); the two Logtalk tests would fail. B: keep `[](x)` and `{}(a)`.
+
+Decision (2026-11-05): B. Nothing changes; `canonical_brace` in `tests/pl/write.pl` pins `{}(a)`.

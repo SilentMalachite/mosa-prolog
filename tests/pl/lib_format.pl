@@ -22,6 +22,9 @@ test(fmt_d_expr, with_output_to(atom(A), format("~d", [1 + 2])), solutions([A = 
 test(fmt_d_point, with_output_to(atom(A), format("~1d", [123])), solutions([A = '12.3'])).
 test(fmt_d_small, with_output_to(atom(A), format("~3d", [5])), solutions([A = '0.005'])).
 test(fmt_d_neg, with_output_to(atom(A), format("~3d", [-5])), solutions([A = '-0.005'])).
+% レビュー L7。最小の整数の abs はあふれる。符号を字から外して桁を数える。
+test(l7_fmt_d_min_integer, (current_prolog_flag(min_integer, M), with_output_to(atom(A), format("~2d", [M]))), solutions([A = '-92233720368547758.08'])).
+test(l7_fmt_d_max_integer, (current_prolog_flag(max_integer, M), with_output_to(atom(A), format("~2d", [M]))), solutions([A = '92233720368547758.07'])).
 test(fmt_d_star, with_output_to(atom(A), format("~*d", [2, 1234])), solutions([A = '12.34'])).
 test(fmt_d_inst, format("~d", [_]), error(instantiation_error)).
 test(fmt_d_type, format("~d", [a]), error(type_error(evaluable, a/0))).

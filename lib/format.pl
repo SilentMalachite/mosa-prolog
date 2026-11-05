@@ -225,9 +225,13 @@ float_directive(Kind, Count, Args0, Args, PI, St0, St) :-
 decimal_chars(N, 0, Chars) :-
     !,
     number_chars(N, Chars).
+% 最小の整数の abs はあふれるので、符号は字から外す（レビュー L7）。
 decimal_chars(N, Places, Chars) :-
-    Abs is abs(N),
-    number_chars(Abs, Digits0),
+    number_chars(N, Chars0),
+    (   Chars0 = ['-'|Digits0]
+    ->  true
+    ;   Digits0 = Chars0
+    ),
     length(Digits0, Len),
     Zeros is max(0, Places + 1 - Len),
     repeat_char(Zeros, '0', Pad),
