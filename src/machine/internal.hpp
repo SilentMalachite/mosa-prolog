@@ -394,7 +394,7 @@ struct Machine::Impl {
   DoubleQuotes quotes = DoubleQuotes::Codes;
   // unknown=fail のときだけ真。warning は未決 10 で受け付けない。
   bool unknown_fail = false;
-  // invalid_utf8=replace のときだけ真。既定の error は壊れたバイトを進めない。
+  // invalid_utf8=replace のときだけ真。既定の error は壊れた並びを進めてから representation_error を出す。
   bool utf8_replace = false;
   bool float_overflow_error = true;
   bool float_zero_div_error = true;
@@ -552,6 +552,11 @@ void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanReco
 [[nodiscard]] std::size_t clause_from(const Predicate& predicate, std::size_t id);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
+// bytes[index] から始まる壊れた UTF-8 の並びのうち、1 つの誤り（U+FFFD 1 つ）にするバイト数。index が範囲の外なら 0
+// （定義は chars.cpp）。
+[[nodiscard]] std::size_t ill_formed_width(std::string_view bytes, std::size_t index);
+// get_char が bytes[index] から 1 文字として進めるバイト数。index が範囲の外なら 0（定義は chars.cpp）。
+[[nodiscard]] std::size_t text_char_width(std::string_view bytes, std::size_t index);
 // 開いた走査が届かない死んだ節を一度に消す（定義は database.cpp、ADR 0015）。述語は消さない。
 void sweep_dead(Impl& machine, Predicate& predicate);
 // 生きた節を全部消す（abolish と、読み込みが述語を置き換えるとき）。開いた走査がまだ試す節は死んだ節で残す。

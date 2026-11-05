@@ -16,7 +16,8 @@
 //   permission_error(output, stream), permission_error(output, binary_stream),
 //   representation_error(character), representation_error(in_character_code),
 //   representation_error(character_code)
-// invalid_utf8 が replace のときだけ、壊れた先頭 1 バイトを U+FFFD にする。既定の error は進めない。
+// 壊れた並び（最大の部分）は 1 文字として進む。invalid_utf8 が error なら representation_error(character)、
+// replace なら U+FFFD。peek は進めない。
 // tab(+evaluable) / tab(+stream_or_alias, +evaluable)。非 ISO（SPEC 第7節の段階 G、レビュー M11）。
 //   SWI-Prolog の pl-file.c と同じく流れを先に調べ、次に N を is/2 と同じく評価し、0 以下なら何も書かない。
 //   流れの誤りは nl/1 と同じ。加えて instantiation_error, type_error(evaluable, F/A),
@@ -259,14 +260,15 @@ bool take_char(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
   }
   const Got got = next_scalar(stream);
   if (got.step == Step::Bad) {
-    // replace は壊れた先頭 1 バイトだけを U+FFFD にする。peek は位置を変えない。
+    // 壊れた並びは 1 文字として進めてから、error なら誤りを出し、replace なら U+FFFD を返す。error で進めないと、
+    // 誤りを捕えて読み続けるループが同じ誤りを出し続けた（レビュー L6）。peek は位置を変えない。
+    if (!peek) advance(stream, U'\uFFFD', ill_formed_width(stream.bytes, stream.cursor));
     if (!machine.utf8_replace) {
       raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
       return true;
     }
     eof = false;
     code = U'\uFFFD';
-    if (!peek) advance(stream, code, 1);
     return false;
   }
   if (got.step == Step::Eof) {
@@ -413,6 +415,47 @@ void run_tab(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+// 壊れた並びは、正しい並びの頭として通る最長の部分（maximal subpart）を 1 つの誤りとする（Unicode 15.0 の 3.9 節、
+// 表 3-7）。前は先頭の 1 バイトだけを 1 つとし、末尾で切れた E3 81 が U+FFFD 2 つになった（レビュー L6）。
+std::size_t ill_formed_width(std::string_view bytes, std::size_t index) {
+  if (index >= bytes.size()) return 0;
+  const auto lead = static_cast<unsigned char>(bytes[index]);
+  std::size_t width = 0;
+  unsigned char low = 0x80U;
+  unsigned char high = 0xBFU;
+  if (lead >= 0xC2U && lead <= 0xDFU) {
+    width = 2;
+  } else if (lead >= 0xE0U && lead <= 0xEFU) {
+    width = 3;
+    if (lead == 0xE0U) low = 0xA0U;
+    if (lead == 0xEDU) high = 0x9FU;
+  } else if (lead >= 0xF0U && lead <= 0xF4U) {
+    width = 4;
+    if (lead == 0xF0U) low = 0x90U;
+    if (lead == 0xF4U) high = 0x8FU;
+  } else {
+    return 1;
+  }
+  std::size_t taken = 1;
+  while (taken < width && index + taken < bytes.size()) {
+    const auto unit = static_cast<unsigned char>(bytes[index + taken]);
+    if (unit < low || unit > high) break;
+    low = 0x80U;
+    high = 0xBFU;
+    ++taken;
+  }
+  return taken;
+}
+
+// get_char が 1 文字として進めるバイト数。正しい並びはその幅、壊れた並びは最大の部分。stream_property の位置と
+// set_stream_position、追記で開いたときの位置もこれで数え、読んだ位置とずらさない（L6 の敵対的レビュー A2、A3）。
+std::size_t text_char_width(std::string_view bytes, std::size_t index) {
+  if (index >= bytes.size()) return 0;
+  const Got got = classify(bytes, index);
+  if (got.step == Step::Char) return got.width;
+  return ill_formed_width(bytes, index);
+}
 
 // eof_action(reset)。ファイルと記憶の流れは先頭へ戻す。標準入力は読んだ分を巻き戻さず、
 // 終わりの印を下ろして OS からの続きを待つ（iso-notes 8.11 の決定 B）。端末は Ctrl-D の後も読める。

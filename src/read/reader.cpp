@@ -97,13 +97,13 @@ Reader::Parsed Reader::bad_token(const Token& token) const {
   auto reason = token.kind == TokenKind::End ? SyntaxReason::IncompleteTerm : SyntaxReason::UnexpectedToken;
   // 2^63 は字句が数として返す。置けない位置でも、字句で溢れにしていたときと同じ理由にする（レビュー M1）。
   if (token.kind == TokenKind::Integer && token.needs_minus) reason = SyntaxReason::IntegerOverflow;
-  parsed.failure = SyntaxFailure{token.line, token.column, token.text, reason};
+  parsed.failure = SyntaxFailure{token.line, token.column, token.text, reason, token.byte};
   return parsed;
 }
 
 Reader::Parsed Reader::max_arity(const Token& token) const {
   Parsed parsed;
-  parsed.failure = SyntaxFailure{token.line, token.column, token.text, SyntaxReason::MaxArity};
+  parsed.failure = SyntaxFailure{token.line, token.column, token.text, SyntaxReason::MaxArity, token.byte};
   return parsed;
 }
 

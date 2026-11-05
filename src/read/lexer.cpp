@@ -293,7 +293,7 @@ Scan Lexer::scan_solo() {
 
 Scan Lexer::fail_at(SyntaxReason reason, std::string token, Place place) {
   Scan scan;
-  scan.failure = SyntaxFailure{place.line, place.column, std::move(token), reason};
+  scan.failure = SyntaxFailure{place.line, place.column, std::move(token), reason, place.byte};
   // 桁などは失敗の前に進む。1 字も動いていない失敗は、同じ場所で繰り返す。
   failure_stuck_ = index_ == attempt_;
   failure_ = scan;

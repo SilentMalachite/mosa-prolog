@@ -3,7 +3,8 @@
 // read_term(?term, +read_options_list) は現在の入力。
 // read/2, read/1 はオプションが空の read_term。
 //   終端の印は end_of_file。終止符の直後の空白は流れに残す。
-//   構文エラーもその項の終止符まで進める。確認の空白は次の項に残す。
+//   構文エラーもその項の終止符まで進める。確認の空白は次の項に残す。壊れた UTF-8 は replace なら U+FFFD に置き換え、
+//   error なら置き換えて読んだのと同じ所まで進めてから representation_error(character) を出す（iso-notes 第4節の決定 A）。
 //   オプションは variables, variable_names, singletons と、仕様の quoted。
 //   その三つの引数がリストでも変数でもなければ、読む前に domain_error(read_option, その選択肢)。
 //   変数と真のリスト（空リストを含む）は読んだあとで束縛する。部分リストも同じ。
@@ -27,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -161,7 +163,8 @@ bool decode_scalar(std::string_view bytes, std::size_t index, char32_t& code, st
     width = 1;
     return true;
   }
-  const std::size_t need = lead >= 0xF0U ? 4 : lead >= 0xE0U ? 3 : lead >= 0xC2U ? 2 : 0;
+  // F5..FF は先頭になれない。前は F8 90 80 80 を正しい字と取り、置き換えを拒んで進まなかった（L6 の Codex レビュー 2 回目）。
+  const std::size_t need = lead >= 0xF5U ? 0 : lead >= 0xF0U ? 4 : lead >= 0xE0U ? 3 : lead >= 0xC2U ? 2 : 0;
   if (need == 0 || index + need > bytes.size()) return false;
   code = lead & (need == 2 ? 0x1FU : need == 3 ? 0x0FU : 0x07U);
   for (std::size_t unit = 1; unit < need; ++unit) {
@@ -185,13 +188,15 @@ void step_spot(Spot& spot, char32_t code) {
   spot.line_pos += 1;
 }
 
+// 壊れた並びは get_char と同じく 1 字に数えて進む。構文の誤りの読み飛ばしは、置き換えていない壊れた並びを含みうる。
+// そこで止めると項の途中に残り、次の read が注釈の中を項として読んだ（L6 の Codex レビュー）。
 void advance_slice(Stream& stream, std::string_view slice) {
   Spot spot{stream.line, stream.line_pos, stream.char_no};
   std::size_t index = 0;
   while (index < slice.size()) {
-    char32_t code = 0;
+    char32_t code = U'\uFFFD';
     std::size_t width = 0;
-    if (!decode_scalar(slice, index, code, width)) break;
+    if (!decode_scalar(slice, index, code, width)) width = ill_formed_width(slice, index);
     index += width;
     step_spot(spot, code);
   }
@@ -202,10 +207,16 @@ void advance_slice(Stream& stream, std::string_view slice) {
   stream.past_end = false;
 }
 
+// 字句解析は切り出しの先頭の BOM を飛ばし、列に数えない（Lexer::skip_bom）。行と列から位置を戻すときも同じに飛ばす。
+// 数えると 1 行目の位置が 1 字ずれ、replace が正しい字を U+FFFD に置き換え続けて止まらなかった（L6 の敵対的レビュー A4）。
+std::size_t bom_width(std::string_view slice) { return slice.starts_with("\xEF\xBB\xBF") ? 3 : 0; }
+
 Spot at_token(const Stream& stream, std::string_view slice, std::size_t line, std::size_t column) {
   Spot rel{1, 1, 0};
   Spot abs{stream.line, stream.line_pos, stream.char_no};
-  std::size_t index = 0;
+  const std::size_t bom = bom_width(slice);
+  if (bom > 0) step_spot(abs, U'\uFEFF');
+  std::size_t index = bom;
   while (rel.line < line || (rel.line == line && rel.line_pos < column)) {
     char32_t code = 0;
     std::size_t width = 0;
@@ -227,34 +238,59 @@ Cell syntax_place(Impl& machine, Cell culprit, const Spot& spot, std::string_vie
   return machine.heap.structure(machine.atoms.intern("syntax"), both);
 }
 
-std::size_t utf8_fault_at(std::string_view slice, std::size_t line, std::size_t column) {
-  Spot rel{1, 1, 0};
+// U+FFFD に置き換えた壊れた並び。at は stream.bytes の中の位置、bytes は元のバイト。
+struct Splice {
+  std::size_t at = 0;
+  std::string bytes;
+};
+
+// 次に置き換える壊れた並びの、読む字の中の位置。字句の誤りはその位置。構文の誤りは、読み飛ばした所の中の最初の
+// 壊れた並び。読み飛ばしは注釈の中の壊れた並びを注釈の終わりと取り、注釈の中の終止符で止まって、次の read が
+// 注釈の中を項として読んだ（L6 の Codex レビュー）。置き換えて読み直せば、注釈を最後まで飛ばす。
+std::optional<std::size_t> next_fault(const Stream& stream, const Intake& intake) {
+  const SyntaxFailure& failure = *intake.outcome.failure;
+  if (failure.reason == SyntaxReason::InvalidUtf8) return failure.byte;
+  const std::string_view slice = rest(stream);
+  const std::size_t limit = std::min(intake.consumed, slice.size());
   std::size_t index = 0;
-  while (rel.line < line || (rel.line == line && rel.line_pos < column)) {
+  while (index < limit) {
     char32_t code = 0;
     std::size_t width = 0;
-    if (!decode_scalar(slice, index, code, width)) break;
+    if (!decode_scalar(slice, index, code, width)) return index;
     index += width;
-    step_spot(rel, code);
   }
-  return index;
+  return std::nullopt;
 }
 
-bool splice_fffd(Stream& stream, const SyntaxFailure& failure) {
+// 壊れた並びの最大の部分を U+FFFD の UTF-8 1 つにし、その位置から読み直す（get_char と同じ幅、レビュー L6）。
+// そこが正しい字なら置き換えない。置き換えると同じ所で失敗し続け、読み直しが止まらない。
+bool splice_fffd(Stream& stream, std::size_t index, std::vector<Splice>& splices) {
   const std::string_view slice = rest(stream);
-  const std::size_t index = utf8_fault_at(slice, failure.line, failure.column);
-  if (index >= slice.size()) return false;
-  // 不正な 1 バイトだけを U+FFFD の UTF-8 にし、その位置から読み直す。
-  stream.bytes.replace(stream.cursor + index, 1, "\xEF\xBF\xBD");
+  char32_t code = 0;
+  std::size_t valid = 0;
+  if (index >= slice.size() || decode_scalar(slice, index, code, valid)) return false;
+  const std::size_t width = ill_formed_width(slice, index);
+  splices.push_back(Splice{stream.cursor + index, std::string{slice.substr(index, width)}});
+  stream.bytes.replace(stream.cursor + index, width, "\xEF\xBF\xBD");
   return true;
 }
 
-bool note_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFailure& failure,
-                 std::size_t consumed, Cell culprit) {
+// error のときの置き換えを元のバイトに戻す。後ろから戻すので、前の置き換えの位置はずれない。U+FFFD も壊れた並びも
+// 1 文字に数えるので、行と列はそのまま。戻さないと、位置を戻して読み直したとき誤りでなく U+FFFD が返る。
+void restore_splices(Stream& stream, const std::vector<Splice>& splices) {
+  for (auto splice = splices.rbegin(); splice != splices.rend(); ++splice) {
+    stream.bytes.replace(splice->at, 3, splice->bytes);
+    if (splice->at < stream.cursor) stream.cursor = stream.cursor + splice->bytes.size() - 3;
+  }
+}
+
+// 構文の誤りは、その項の終止符まで進めてから出す。
+void raise_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFailure& failure,
+                  std::size_t consumed, Cell culprit) {
   if (failure.reason == SyntaxReason::InvalidUtf8) {
-    if (machine.utf8_replace && splice_fffd(stream, failure)) return true;
+    // 置き換える位置が見つからないときだけここに来る。進めずに出す。
     raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
-    return false;
+    return;
   }
   const std::string_view slice = rest(stream);
   const Spot spot = at_token(stream, slice, failure.line, failure.column);
@@ -263,7 +299,6 @@ bool note_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFa
   const Cell key = machine.heap.atom(machine.atoms.intern(syntax_key(failure.reason)));
   raise_formal_extra(machine, formal_syntax(machine, key), goal.name, goal.arity,
                      syntax_place(machine, culprit, spot, failure.token));
-  return false;
 }
 
 Spec spec_of(const Goal& goal, bool term_pred) {
@@ -399,26 +434,39 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
   }
 }
 
-void deliver(Impl& machine, const Goal& goal, Stream& stream, Intake intake, Cell term_cell,
+// error でも replace と同じく U+FFFD に置き換えて読み、項の終わり（構文の誤りなら、その読み飛ばしの後）まで進めてから、
+// 元のバイトに戻して representation_error を出す。流れの位置は replace のときと同じになる（iso-notes 第4節の決定 A、
+// レビュー L6）。壊れた並びの直後で止めると、注釈や引用の中の字を次の read が項として読んだ（L6 の敵対的レビュー A1）。
+// 読み直す前に、失敗した読みが作った項をヒープから捨てる。捨てないと壊れた並びの数だけ前半の項が積もり、
+// catch できる誤りの代わりに --heap-max で止まった（L6 の Codex レビュー）。読む間に GC は動かない。
+void deliver(Impl& machine, const Goal& goal, Stream& stream, std::size_t heap_mark, Intake intake, Cell term_cell,
              const std::vector<Chosen>& chosen, Cell culprit) {
-  while (true) {
-    if (intake.outcome.failure) {
-      // 置換できたときだけ、カーソルを進めずに同じ位置から読み直す。
-      if (!note_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit)) return;
-      intake = intake_term(machine, stream, goal.module);
-      continue;
-    }
-    const std::string_view slice = rest(stream);
-    const std::size_t take = intake.consumed > slice.size() ? slice.size() : intake.consumed;
-    advance_slice(stream, slice.substr(0, take));
-    if (!intake.outcome.term) {
-      stream.past_end = true;
-      bind_read(machine, goal, term_cell, chosen, eof_term(machine));
-      return;
-    }
-    bind_read(machine, goal, term_cell, chosen, *intake.outcome.term);
+  std::vector<Splice> splices;
+  while (intake.outcome.failure) {
+    const std::optional<std::size_t> fault = next_fault(stream, intake);
+    if (!fault || !splice_fffd(stream, *fault, splices)) break;
+    if (machine.heap.size() >= heap_mark) machine.heap.truncate(heap_mark);
+    intake = intake_term(machine, stream, goal.module);
+  }
+  const bool refused = !machine.utf8_replace && !splices.empty();
+  if (intake.outcome.failure && !refused) {
+    raise_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit);
     return;
   }
+  const std::string_view slice = rest(stream);
+  const std::size_t take = intake.consumed > slice.size() ? slice.size() : intake.consumed;
+  advance_slice(stream, slice.substr(0, take));
+  if (refused) {
+    restore_splices(stream, splices);
+    raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
+    return;
+  }
+  if (!intake.outcome.term) {
+    stream.past_end = true;
+    bind_read(machine, goal, term_cell, chosen, eof_term(machine));
+    return;
+  }
+  bind_read(machine, goal, term_cell, chosen, *intake.outcome.term);
 }
 
 bool prepare(Impl& machine, const Goal& goal, const Spec& spec, std::size_t& index, std::vector<Chosen>& chosen,
@@ -458,7 +506,8 @@ void run_one(Impl& machine, const Goal& goal, bool term_pred) {
     bind_read(machine, goal, term_cell, chosen, eof_term(machine));
     return;
   }
-  deliver(machine, goal, stream, intake_term(machine, stream, goal.module), term_cell, chosen, culprit);
+  const std::size_t heap_mark = machine.heap.size();
+  deliver(machine, goal, stream, heap_mark, intake_term(machine, stream, goal.module), term_cell, chosen, culprit);
 }
 
 }  // namespace

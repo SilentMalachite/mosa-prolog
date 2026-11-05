@@ -23,8 +23,6 @@ struct IoOpt {
 };
 
 [[nodiscard]] std::string_view atom_text(const Heap& heap, Cell cell);
-// UTF-8 の 1 文字のバイト数。壊れた並びは 1 として先へ進める。
-[[nodiscard]] std::size_t scalar_width(std::string_view bytes, std::size_t index);
 [[nodiscard]] bool text_contents(const Heap& heap, Cell cell, std::string& out);
 [[nodiscard]] bool byte_contents(const Heap& heap, Cell cell, std::string& out);
 [[nodiscard]] bool read_options(const Heap& heap, Cell list, IoOpt& opt);

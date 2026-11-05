@@ -105,7 +105,7 @@ Cell char_list(Heap& heap, std::string_view bytes) {
   std::vector<Cell> chars;
   std::size_t index = 0;
   while (index < bytes.size()) {
-    const std::size_t width = scalar_width(bytes, index);
+    const std::size_t width = text_char_width(bytes, index);
     chars.push_back(heap.atom(heap.atoms().intern(std::string{bytes.substr(index, width)})));
     index += width;
   }

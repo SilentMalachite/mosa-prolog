@@ -89,6 +89,8 @@ void check_japanese_path(const std::filesystem::path& path) {
 }
 
 std::string formal_text(mosa::Machine& machine, const mosa::Stop& stop) {
+  // 例外でない答えの exception は空のセル。辿ると落ち、後の検査の FAIL も出なくなる。
+  if (stop.kind != mosa::StopKind::Exception) return "(no exception)";
   const auto ball = machine.heap().deref(stop.exception);
   return mosa::write_term(machine.heap(), machine.operators(), machine.heap().arg(ball, 0), mosa::WriteOptions{}, {});
 }
@@ -165,7 +167,9 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
   mosa_test::check(binary->query("get_byte('$stream'(3), 97).").kind == mosa::StopKind::Success,
                    "code binary keeps the byte");
 
-  write_bytes(bad_path, "\xFF");
+  // get_code の誤りは壊れたバイトを進める（iso-notes 第4節の決定 A、レビュー L6）。peek_code が次の壊れたバイトで
+  // 止まることを見るため 2 バイトにする。前は 1 バイトで、get_code の後も同じバイトに立っていた。
+  write_bytes(bad_path, "\xFF\xFF");
   auto broken = mosa::Machine::create();
   const std::string bad_atom = path_atom(bad_path);
   mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "code bad open");
@@ -174,6 +178,8 @@ void check_get_code(const std::filesystem::path& binary_path, const std::filesys
   mosa_test::check(formal_text(*broken, utf) == "representation_error(character)", "code bad utf formal");
   auto peeked = broken->query("peek_code('$stream'(3), C).");
   mosa_test::check(formal_text(*broken, peeked) == "representation_error(character)", "peek code stays on bad utf");
+  auto peeked_again = broken->query("peek_code('$stream'(3), C).");
+  mosa_test::check(formal_text(*broken, peeked_again) == "representation_error(character)", "peek code does not advance");
 
   write_bytes(eof_path, "");
   auto ending = mosa::Machine::create();
@@ -557,8 +563,10 @@ void check_read_term(const std::filesystem::path& eof_path, const std::filesyste
   mosa_test::check(broken->query("open(" + bad_atom + ", read, S).").kind == mosa::StopKind::Success, "read utf open");
   auto utf = broken->query("read('$stream'(3), T).");
   mosa_test::check(formal_text(*broken, utf) == "representation_error(character)", "read utf formal");
-  auto stayed = broken->query("read('$stream'(3), T).");
-  mosa_test::check(formal_text(*broken, stayed) == "representation_error(character)", "read utf stays");
+  // read/1 は壊れたバイトまでを読んだものとして進める（iso-notes 第4節の決定 A、レビュー L6）。前は 2 度目も同じ誤りで、
+  // 誤りを捕えて読み続けるループが止まらなかった。
+  auto passed = broken->query("read('$stream'(3), T), T == end_of_file.");
+  mosa_test::check(passed.kind == mosa::StopKind::Success, "read utf advances");
 }
 
 void check_write_stream(const std::filesystem::path& text_path, const std::filesystem::path& binary_path) {
@@ -590,14 +598,16 @@ void check_write_stream(const std::filesystem::path& text_path, const std::files
 
 void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem::path& peek_path,
                         const std::filesystem::path& read_path, const std::filesystem::path& error_path) {
-  write_bytes(path, "\xFF");
+  // error は壊れた並びを 1 文字として進めてから誤りを出す（iso-notes 第4節の決定 A、レビュー L6）。replace を確かめる
+  // 2 つ目の壊れたバイトを残すため、2 バイトにする。前は 1 バイトで、error の後も位置 0 のままだった。
+  write_bytes(path, "\xFF\xFF");
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->query("open(" + path_atom(path) + ", read, _).").kind == mosa::StopKind::Success,
                    "utf flag open");
   auto utf = machine->query("get_char('$stream'(3), C).");
   mosa_test::check(formal_text(*machine, utf) == "representation_error(character)", "utf flag default");
-  auto stayed = machine->query("stream_property('$stream'(3), position(stream_position(N, _, _))).");
-  mosa_test::check(binding_named(*machine, stayed, "N") == "0", "utf flag stays");
+  auto advanced = machine->query("stream_property('$stream'(3), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, advanced, "N") == "1", "utf flag advances");
   auto replaced = machine->query("set_prolog_flag(invalid_utf8, replace).");
   // 旗が無いときは domain_error(prolog_flag) で止まり、後続の置換を誤報にしない。
   if (replaced.kind != mosa::StopKind::Success) {
@@ -606,7 +616,7 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
   }
   auto got = machine->query("get_char('$stream'(3), C), char_code(C, Code), "
                              "stream_property('$stream'(3), position(stream_position(N, _, _))).");
-  mosa_test::check(binding_named(*machine, got, "Code") == "65533" && binding_named(*machine, got, "N") == "1",
+  mosa_test::check(binding_named(*machine, got, "Code") == "65533" && binding_named(*machine, got, "N") == "2",
                    "utf flag replaces");
   write_bytes(peek_path, "\xFF");
   mosa_test::check(machine->query("open(" + path_atom(peek_path) + ", read, _).").kind ==
@@ -638,8 +648,8 @@ void check_invalid_utf8(const std::filesystem::path& path, const std::filesystem
                    "utf flag error");
   auto again = machine->query("get_char('$stream'(6), C).");
   mosa_test::check(formal_text(*machine, again) == "representation_error(character)", "utf flag restored");
-  auto held = machine->query("stream_property('$stream'(6), position(stream_position(N, _, _))).");
-  mosa_test::check(binding_named(*machine, held, "N") == "0", "utf error stays");
+  auto passed = machine->query("stream_property('$stream'(6), position(stream_position(N, _, _))).");
+  mosa_test::check(binding_named(*machine, passed, "N") == "1", "utf error advances");
   auto dropped = machine->query("set_prolog_flag(invalid_utf8, drop).");
   mosa_test::check(formal_text(*machine, dropped) == "domain_error(flag_value,invalid_utf8+drop)", "utf drop formal");
   auto current = machine->query("current_prolog_flag(invalid_utf8, error).");

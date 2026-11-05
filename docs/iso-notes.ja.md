@@ -181,6 +181,14 @@ A か B か: A: このような節は、assertz/1 がその節に出すのと同
 
 決定（2026-10-25）: 未決 12 は A。`invalid_utf8` の既定は `error`。`replace` のときは U+FFFD を入れる。
 
+## 第4節と 8.12.1 壊れた UTF-8 の並びの後の位置
+
+SPEC 第4節は、`invalid_utf8` が `error` のとき壊れた UTF-8 の並びで `representation_error(character)` を出すとするが、その後に流れがどこに立つかは書いていない。8.12.1 と 8.14.1 も書いていない。Mosa は位置を並びの前のままにしたので、誤りを捕えて読み続けるループは、get_char/1,2 でも read/1 でも同じ誤りを出し続けた（レビュー L6）。これとは別に、`replace` は先頭の 1 バイトだけを U+FFFD にしたので、`E3 81` のように途中で切れた並びが U+FFFD 2 つになった。
+
+A か B か: A は並びを 1 文字として進めてから誤りを出す。位置は `replace` のときと同じになる。peek_char/1,2 は進めない。B は位置を並びの前のままにする。
+
+決定（2026-11-05）: A。どちらの旗の値でも、並びはその maximal subpart とする（Unicode 15.0 の 3.9 節、表 3-7。正しい並びの頭として通る最長の部分で、1 バイト以上）。`E3 81` は 1 文字、`ED A0 80` は 3 文字になる。read/1 は、並びを U+FFFD に置き換えた `replace` と同じく項の終わりまで（構文の誤りなら、ほかの構文の誤りと同じく読み飛ばした後まで）読み、元のバイトに戻してから誤りを出す。その項は捨てる。`foo(<E3>).` の後に `bar.` があれば、`representation_error(character)` の次に `bar` を返す。注釈の中の並びは後ろの項の読みに属するので、その項も捨てる（`% <E9>` の後に `r.` と `ok.` があれば、誤りの次は `ok`）。並びの位置を求めるときは、字句解析と同じく先頭の BOM を飛ばす。テスト: `tests/pl/chars.pl` の `l6_*`、`tests/cpp/stream_test.cpp`（`check_invalid_utf8` の「utf flag advances」と「utf error advances」、`check_read_term` の「read utf advances」、`check_get_code` の「peek code stays on bad utf」。最後のものはファイルを壊れたバイト 2 つにした。前はどれも、流れが壊れたバイトの前に留まることを期待していた）。
+
 ## 第4節 旗 japanese_punctuation
 
 決定（2026-10-25）: 未決 13 は A。`set_prolog_flag(japanese_punctuation, true)` は値として `true` を保存する。字句解析は変えない。

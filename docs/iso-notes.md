@@ -179,6 +179,14 @@ Decision (2026-10-25): Open question 11: B. `float_overflow`, `float_zero_div`, 
 
 Decision (2026-10-25): Open question 12: A. The default of `invalid_utf8` is `error`. With `replace`, U+FFFD is inserted.
 
+## Section 4 and 8.12.1 Position after an invalid UTF-8 sequence
+
+SPEC Section 4 makes an invalid UTF-8 sequence raise `representation_error(character)` when `invalid_utf8` is `error`, but does not say where the stream stands afterwards, and 8.12.1 and 8.14.1 do not either. Mosa left the position before the sequence, so a loop that catches the error and reads on raised the same error forever, for get_char/1,2 and for read/1 (review L6). Independently of this, `replace` turned only the first byte into U+FFFD, so a sequence cut short such as `E3 81` became two U+FFFD.
+
+A or B?: A: advance past the sequence as one character, then raise, so the position is the one `replace` would leave; peek_char/1,2 does not advance. B: keep the position before the sequence.
+
+Decision (2026-11-05): A. In both modes the sequence is its maximal subpart (Unicode 15.0, Section 3.9, Table 3-7: the longest prefix of a well-formed sequence, at least one byte), so `E3 81` is one character and `ED A0 80` is three. read/1 reads on as `replace` would, with U+FFFD in place of each sequence, to the end of the term (or past a syntax error, as for any syntax error), then puts the original bytes back and raises; the term is dropped, so `foo(<E3>).` followed by `bar.` gives `representation_error(character)` and then `bar`. A sequence in a comment belongs to the read of the term after it, which is dropped too (`% <E9>` then `r.` and `ok.` gives the error and then `ok`). A leading byte order mark is skipped when the position of the sequence is worked out, as the lexer skips it. Tests: `l6_*` in `tests/pl/chars.pl`, `tests/cpp/stream_test.cpp` ("utf flag advances" and "utf error advances" in `check_invalid_utf8`, "read utf advances" in `check_read_term`, and "peek code stays on bad utf" in `check_get_code`, whose file now has two bad bytes; before, they expected the stream to stay before the bad byte).
+
 ## Section 4 Flag japanese_punctuation
 
 Decision (2026-10-25): Open question 13: A. `set_prolog_flag(japanese_punctuation, true)` stores `true` as the value. Lexical analysis is not changed.

@@ -108,22 +108,6 @@ bool create_empty(const std::filesystem::path& path) {
   return static_cast<bool>(output);
 }
 
-std::size_t scalar_width(std::string_view bytes, std::size_t index) {
-  if (index >= bytes.size()) return 0;
-  const auto lead = static_cast<unsigned char>(bytes[index]);
-  std::size_t width = 1;
-  if (lead <= 0x7FU) width = 1;
-  else if (lead >= 0xC2U && lead <= 0xDFU) width = 2;
-  else if (lead >= 0xE0U && lead <= 0xEFU) width = 3;
-  else if (lead >= 0xF0U && lead <= 0xF4U) width = 4;
-  else return 1;
-  if (index + width > bytes.size()) return 1;
-  for (std::size_t step = 1; step < width; ++step) {
-    if ((static_cast<unsigned char>(bytes[index + step]) & 0xC0U) != 0x80U) return 1;
-  }
-  return width;
-}
-
 // 追記は末尾から書く。開いた時点の位置を、バイト列を一度歩いて残す。
 void note_end(Stream& stream) {
   stream.cursor = stream.bytes.size();
@@ -133,7 +117,7 @@ void note_end(Stream& stream) {
   }
   std::size_t index = 0;
   while (index < stream.bytes.size()) {
-    const std::size_t width = scalar_width(stream.bytes, index);
+    const std::size_t width = text_char_width(stream.bytes, index);
     const bool newline = width == 1 && stream.bytes[index] == '\n';
     index += width;
     stream.char_no += 1;
