@@ -2,8 +2,8 @@
 
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 27fa83b, CI run 41985159246 passed all 8 jobs (2026-11-05)
 
-- **In progress:** review L8 (owner chose A: Windows stdin/stdout/stderr in binary mode; ctest `mosa_std_binary`; to be checked on Windows CI after the push).
-- **Last done:** review L12 (owner chose A: mosac warns on calls to undefined predicates and still builds; the executable raises `existence_error` or follows `unknown`, as mosa; ctest `mosac_emit_undefined_handled`, `mosac_library_clean`). Before it, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **In progress:** none.
+- **Last done:** review L8 (owner chose A: on Windows, stdin, stdout and stderr in binary mode; ctest `mosa_std_binary`, not yet run on Windows CI: push and check it there). Before it, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
 - **Next:** L14, L15 (now also `;` then Enter answering twice), L17, L19, L20, L21, L22 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
