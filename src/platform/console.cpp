@@ -1,6 +1,6 @@
 // 標準入力とコンソール（SPEC 第4節、計画 Task 14）。Windows のコンソールだけ UTF-16 で読み、Windows の標準の流れは
 // binary にする（レビュー L8）。テスト: tests/cpp/console_test.cpp、tests/cpp/mosa_utf8_pipe_test.cmake、
-// tests/mosac/std_binary_test.cmake
+// tests/mosac/std_binary_test.cmake、tests/cpp/answer_prompt_test.cpp
 #include "mosa/console.hpp"
 
 #include <cstdio>
@@ -152,6 +152,14 @@ int standard_input_get() {
 }
 
 void standard_input_unget(char byte) { returned.push_back(byte); }
+
+void standard_input_drop_returned_line() {
+  while (!returned.empty()) {
+    const char byte = returned.back();
+    returned.pop_back();
+    if (byte == '\n') return;
+  }
+}
 
 void standard_input_clear() {
   console_ended = false;

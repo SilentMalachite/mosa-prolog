@@ -23,5 +23,10 @@ void prepare_console();
 void standard_input_unget(char byte);
 // 入力の終わりの印を下ろす。eof_action(reset) と、端末で Ctrl+D の後に読み続けるため。
 void standard_input_clear();
+// standard_input_unget で返された字を、最初の改行まで（無ければ全部）捨てる。read/1 が終止符を確かめるために読んだ
+// 字で、利用者がもう打った字なので待たずに捨てられる。答えの後の ; の促しが、read/1 の残した foo. の後の改行を
+// 答えにしないため（レビュー L15）。返された字より先は読まない。端末で行の途中を Ctrl+D で送った後は、その先を
+// 待つと次に打つ行を捨ててしまう（L15 の Codex レビューと敵対的レビュー A1）。
+void standard_input_drop_returned_line();
 
 }

@@ -1,7 +1,8 @@
 # 計画 Task 14。mosac build --interactive で作った実行ファイルが、mosa と同じ REPL で同じ答えの並びを出すことを確かめる。
 # 基準は repl_ref（mosa と同じ run_session。端末でなくても REPL を動かす）に同じ原文と同じ入力を流した出力である。
 # 入力は app/3 の全部の答え（; で次へ）と、動的な述語への assertz、翻訳済みの静的な app/3 への assertz（mosa と同じ
-# permission_error になる）を含む。
+# permission_error になる）を含む。2 つめの答えも選択点を残すので、その促しは空の行で止める（促しは 1 行で読む。
+# レビュー L15 の前は ; の後の改行がこの促しに答えていた）。
 # 使い方: cmake -DMOSAC=<mosac> -DREF=<repl_ref> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P interactive_test.cmake
 

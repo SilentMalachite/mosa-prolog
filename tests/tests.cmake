@@ -132,6 +132,10 @@ target_include_directories(portray_halt_test PRIVATE tests/cpp)
 target_compile_definitions(portray_halt_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(portray_halt_test PRIVATE mosa_lib)
 add_test(NAME portray_halt COMMAND $<TARGET_FILE:portray_halt_test>)
+add_executable(answer_prompt_test tests/cpp/answer_prompt_test.cpp)
+target_include_directories(answer_prompt_test PRIVATE tests/cpp)
+target_link_libraries(answer_prompt_test PRIVATE mosa_lib)
+add_test(NAME answer_prompt COMMAND $<TARGET_FILE:answer_prompt_test>)
 
 # ADR 0012。決定的に抜けた catch/3 と *-> の Entry を外し、ループで選択点スタックとヒープが頭打ちになる。
 add_executable(choice_exit_test tests/cpp/choice_exit_test.cpp)

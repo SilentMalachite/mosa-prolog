@@ -53,10 +53,17 @@ struct Cursor {
     return true;
   }
 
-  int get() {
-    if (from_cin) return standard_input_get();
-    if (at >= data.size()) return EOF;
-    return static_cast<unsigned char>(data[at++]);
+  // 答えの後の ; の促しの答え。1 行で読み、最初の空白でない字を返す。空の行は '\n'、入力の終わりは EOF。
+  // 1 バイトずつ読むと、; の後の Enter が次の促しの答えになる（レビュー L15）。read/1 が終止符を確かめて返した字
+  // （foo. の後の改行）は答えではないので先に捨てる。
+  int answer() {
+    if (from_cin) standard_input_drop_returned_line();
+    std::string text;
+    if (!line(text)) return EOF;
+    for (const char ch : text) {
+      if (ch != ' ' && ch != '\t' && ch != '\r') return static_cast<unsigned char>(ch);
+    }
+    return '\n';
   }
 };
 
@@ -224,7 +231,7 @@ int play_goal(Machine& machine, std::string goal, bool interactive, Cursor& curs
       }
       // ; を読む前に答えを出す。終了時にまとめて書くと、対話では次の入力を判断できない。
       echo.say(format_answer(machine, stop));
-      const int ch = cursor.get();
+      const int ch = cursor.answer();
       if (ch == ';') {
         echo.say("\n");
         stop = machine.next();
