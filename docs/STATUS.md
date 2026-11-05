@@ -3,7 +3,7 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 8520e80, CI run 42005277509 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** review L17 (2fc7c7b: the lexer reads `+.` before layout as one token, and every writer that adds a full stop puts a space before it after a graphic char; text Mosa wrote is read back without char_conversion, messages included (owner chose A on 2026-11-06); ctest `full_stop`). Before it, L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Last done:** review L17 (2fc7c7b: the lexer reads `+.` before layout as one token, and every writer that adds a full stop puts a space before it after a graphic char; text Mosa wrote is read back without char_conversion, messages included (7f2599b, owner chose A on 2026-11-06); ctest `full_stop`). Before it, L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
 - **Next:** L19, L20, L21, L22 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
