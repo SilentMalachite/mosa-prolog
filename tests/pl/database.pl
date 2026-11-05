@@ -314,9 +314,9 @@ test(m3_order_keyless, m3_ok(a, X), solutions([X = 1, X = 2, X = 4, X = 6, X = 8
 test(m3_order_keyless_absent, findall(X, m3_ok(z, X), L), solutions([L = [2, 6, 9]])).
 test(m3_order_keyless_type, findall(X, m3_ok(1, X), L), solutions([L = [2, 6, 9]])).
 test(m3_order_keyless_struct, findall(X, m3_ok(f(_), X), L), solutions([L = [2, 5, 6, 9]])).
-% 0.0 と -0.0 は同じ鍵（単一化も通る）。整数の 0 とは別の鍵。
-test(m3_keys_zero, findall(R, m3_kz(0.0, R), L), solutions([L = [a, c, e, g, h]])).
-test(m3_keys_zero_negative, findall(R, (Z is -(0.0), m3_kz(Z, R)), L), solutions([L = [a, c, e, g, h]])).
+% 0.0 と -0.0 は別の鍵で、単一化もしない（iso-notes 7.2.2 の決定 A、レビュー L2）。整数の 0 とも別の鍵。
+test(m3_keys_zero, findall(R, m3_kz(0.0, R), L), solutions([L = [a, e, h]])).
+test(m3_keys_zero_negative, findall(R, (Z is -(0.0), m3_kz(Z, R)), L), solutions([L = [c, e, g]])).
 test(m3_keys_zero_int, findall(R, m3_kz(0, R), L), solutions([L = [d, e]])).
 % NaN の鍵はどの NaN とも同じ鍵だが、NaN は単一化しないので鍵の無い節だけが答える。アトム nan は別の鍵。
 test(m3_keys_nan_setup, (N is nan, M is -(nan), assertz(m3_kn(N, i)), assertz(m3_kn(M, j)), assertz(m3_kn(_, k))), true).

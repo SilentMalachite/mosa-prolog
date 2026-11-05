@@ -663,6 +663,10 @@ A or B?: A: compare exactly and return the chosen argument with its own type (`m
 
 Decision (2026-11-05): B. Nothing changes. A comparison with a NaN is false both ways, so `max` gives the left argument and `min` the right one (`max(1, nan) = 1.0`, `max(nan, 1) = nan`); equal values do the same (`max(0, 0.0) = 0.0`). Tests: `l1_max_*` and `l1_min_*` in `tests/pl/arith.pl`.
 
+Once `-0.0` and `0.0` became distinct terms (7.2.2 below), the rule for equal values made `max(-0.0, 0.0)` give `-0.0` and `max(0.0, -0.0)` give `0.0` (adversarial review of L2, A3). A or B?: A: take `-0.0` as smaller than `0.0` and `0`, so `max` gives `0.0` and `min` gives `-0.0` in either order, as the standard order and IEEE 754-2019 maximum and minimum do. B: keep the rule for equal values.
+
+Decision (2026-11-05): A. NaN and other equal values keep decision B. Tests: `l2_max_zero_*` and `l2_min_zero_*` in `tests/pl/arith.pl`.
+
 ## 6.3.3 `[]` and `{}` as the name of a compound term
 
 6.3.3 writes a compound term in functional notation as a name token followed by `(`, and `[]` and `{}` are not name tokens (6.4.2; they are atoms formed by 6.3.1.3), so `'[]'(x)` and `'{}'(a)` have no unquoted form in ISO syntax. Mosa writes `writeq('[]'(x))` as `[](x)` and `write_canonical({a})` as `{}(a)`, and its reader reads both back (review L7). The Logtalk portability tests in the conformance suite expect the same: `write_canonical({a})` writes `{}(a)` (`lgt_curly_bracketed_term_07`, `08`), and `[](2,3)` and `{}(2,3)` read as compound terms (`lgt_compound_01`, `02`).
@@ -686,3 +690,19 @@ Decision (2026-11-05): B. A was chosen first, but the adversarial review of L3 f
 A or B?: A: look at the spine only; a list whose spine ends in `[]` is a list whatever its elements are. B: keep failing when any part of the term is cyclic.
 
 Decision (2026-11-05): A. A cyclic spine (`L = [a|L]`) still fails. Tests: `list_cycle` and `l3_list_*` in `tests/pl/types.pl`, `cyclic list` in `tests/cpp/machine_test.cpp`.
+
+## 7.2.2 Negative zero as a term
+
+7.2.2 orders two floats by value and does not say whether `-0.0` and `0.0` are the same term. Mosa unified them and took them as identical, so `-0.0 == 0.0` held and `sort([0.0, -0.0], L)` gave `[0.0]`, although writeq and copysign tell them apart (review L2).
+
+A or B?: A: make them distinct terms: `-0.0 \== 0.0`, they do not unify, `-0.0 @< 0.0`, and `-0.0 =:= 0.0` stays true. B: keep them the same term.
+
+Decision (2026-11-05): A, as in SWI-Prolog. `same_float_term` in `include/mosa/unify.hpp` is the rule for unification, for `mosatest --roundtrip` and for the matcher of the Logtalk suite; compare/3 and `==` put `-0.0` first; the first-argument index and the generated code of mosac give the two different keys. A NaN still unifies with nothing, not even itself, while `==` and compare/3 take two NaNs as equal (unchanged). Tests: `signed_zero_eq` and `l2_zero_*` in `tests/pl/order.pl`, `m3_keys_zero` and `m3_keys_zero_negative` in `tests/pl/database.pl`, "signed zero" in `tests/cpp/unify_test.cpp`; the decision changed the expectations of these four.
+
+## 9.1.4 sign/1 of a NaN, and integer/1 (non-ISO)
+
+ISO floats have no NaN, so 9.1.4 says nothing about `sign(nan)`; Mosa gave `1.0`. `integer/1` is an SWI-Prolog extension, not ISO; Mosa truncated (`integer(2.5)` was `2`), while SWI rounds to the nearest integer (review L2).
+
+A or B?: for sign/1, A: return the NaN; B: keep `1.0`. For integer/1 (truncation was offered first and not chosen), A: round to the nearest integer with halves away from zero, as SWI does (`integer(-2.5) = -3`); B: round as Mosa's round/1 does, by the floor(x + 1/2) of 9.1.6.1 (`integer(-2.5) = -2`). The first form of the integer/1 question wrongly said that A was the same as round/1; the owner answered again after the correction.
+
+Decision (2026-11-05): A for both. Tests: `l2_sign_*` and `l2_integer_*` in `tests/pl/arith.pl`; `l2_round_neg_half` pins that round/1 does not change.

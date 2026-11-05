@@ -191,7 +191,7 @@ void check_order() {
   auto machine = mosa::Machine::create();
   mosa_test::check(machine->query("(1.0 @< 1).").kind == mosa::StopKind::Success, "float before integer");
   mosa_test::check(machine->query("(1 == 1.0).").kind == mosa::StopKind::Failure, "term equality is not numeric");
-  mosa_test::check(machine->query("(0.0 @< -0.0).").kind == mosa::StopKind::Failure, "signed zero equal");
+  mosa_test::check(machine->query("(0.0 @< -0.0).").kind == mosa::StopKind::Failure, "0.0 is not before -0.0");
   mosa_test::check(machine->query("compare(=, a, a).").kind == mosa::StopKind::Success, "compare same");
   mosa_test::check(machine->query("(a @< b).").kind == mosa::StopKind::Success, "atom order");
   mosa_test::check(machine->query("(X = f(X), Y = f(Y), X @< Y).").kind == mosa::StopKind::Failure,

@@ -116,7 +116,7 @@ bool unify_cells(Heap& heap, Cell left, Cell right, Attempt& attempt, int depth)
   }
   if (is_integer(left) && is_integer(right)) return heap.integer_value(left) == heap.integer_value(right);
   if (left.tag() != right.tag()) return false;
-  if (left.tag() == Tag::Float) return heap.float_value(left) == heap.float_value(right);
+  if (left.tag() == Tag::Float) return same_float_term(heap.float_value(left), heap.float_value(right));
   if (left.tag() == Tag::Lis || left.tag() == Tag::Str) return unify_compound(heap, left, right, attempt, depth);
   return false;
 }

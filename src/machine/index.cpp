@@ -24,10 +24,10 @@ IndexKey key_of(KeyKind kind, std::uint64_t value = 0, std::uint32_t arity = 0) 
   return key;
 }
 
-// 0.0 と -0.0 は等しく、NaN どうしも等しい（mosac の生成コードの same_float と同じ）。ビット列を揃えて同じ鍵にする。
+// NaN どうしは同じ鍵にする（mosac の生成コードの same_float と同じ）。NaN は単一化しないので鍵の無い節だけが答える。
+// -0.0 と 0.0 は単一化しない別の項なので、ビット列のままの別の鍵になる（iso-notes 7.2.2 の決定 A）。
 std::uint64_t float_bits(double value) {
   if (std::isnan(value)) return std::bit_cast<std::uint64_t>(std::numeric_limits<double>::quiet_NaN());
-  if (value == 0.0) return 0;
   return std::bit_cast<std::uint64_t>(value);
 }
 

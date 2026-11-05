@@ -5,10 +5,18 @@
 
 #include "mosa/heap.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
 namespace mosa {
+
+// 単一化で同じ浮動小数の項か。mosatest --roundtrip の照合（term_equal.cpp）と Logtalk の照合（lgt_shape.cpp）も使う。
+// -0.0 と 0.0 は writeq でも copysign でも区別できるので別の項にする（iso-notes 7.2.2 の決定 A、レビュー L2）。
+// NaN は前から自分とも単一化しない。== と compare/3 は order.cpp の標準順序で、そこでは NaN どうしは等しい。
+[[nodiscard]] inline bool same_float_term(double left, double right) {
+  return left == right && std::signbit(left) == std::signbit(right);
+}
 
 struct Trail {
   std::vector<std::uint64_t*> slots;

@@ -139,3 +139,31 @@ test(l1_max_inf, (X is max(3, inf), Y is inf, X == Y), true).
 % NaN との比べは大小どちらも偽なので、max は左、min は右の引数を返す。
 test(l1_max_nan_right, (X is max(1, nan), X == 1.0), true).
 test(l1_min_nan_left, (X is min(nan, 1), X == 1.0), true).
+% レビュー L2（iso-notes 9.1.4 の決定 A）。sign/1 は NaN をそのまま返す。NaN だけが自分と =:= にならない。
+test(l2_sign_nan, (X is sign(nan), \+ X =:= X), true).
+test(l2_sign_neg_nan, (X is sign(-(nan)), \+ X =:= X), true).
+test(l2_sign_neg_zero, (X is sign(-0.0), X == -0.0), true).
+test(l2_sign_zero, (X is sign(0.0), X == 0.0), true).
+% レビュー L2（iso-notes 9.1.4 の決定 A）。integer/1（SWI の拡張）は近い整数へ丸め、ちょうど半分は 0 から遠い方へ。
+% round/1 は 9.1.6.1 の floor(x + 1/2) なので、負の半分だけが違う。
+test(l2_integer_half, (X is integer(2.5)), solutions([X = 3])).
+test(l2_integer_neg_half, (X is integer(-2.5)), solutions([X = -3])).
+test(l2_integer_below_half, (X is integer(2.4)), solutions([X = 2])).
+test(l2_integer_neg_above_half, (X is integer(-2.6)), solutions([X = -3])).
+test(l2_integer_small_half, (X is integer(0.5), Y is integer(-0.5)), solutions([(X = 1, Y = -1)])).
+test(l2_integer_int, (X is integer(7)), solutions([X = 7])).
+% 整数は double を通さない（L2 の敵対的レビュー A2）。2^53 + 1 と max_integer も変わらない。
+test(l2_integer_int_exact, (X is integer(9007199254740993)), solutions([X = 9007199254740993])).
+test(l2_integer_int_max, (X is integer(9223372036854775807)), solutions([X = 9223372036854775807])).
+test(l2_integer_int_min, (M is -9223372036854775807 - 1, X is integer(M), X =:= M), true).
+test(l2_integer_overflow, (X is integer(1.0e300)), error(evaluation_error(int_overflow))).
+test(l2_integer_nan, (X is integer(nan)), error(evaluation_error(undefined))).
+test(l2_round_neg_half, (X is round(-2.5)), solutions([X = -2])).
+% L2 の敵対的レビュー A3（iso-notes 9.3.8 の追記）。-0.0 は 0.0 と 0 より小さいとみなし、引数の順によらない。
+test(l2_max_zero_left, (X is max(-0.0, 0.0), X == 0.0), true).
+test(l2_max_zero_right, (X is max(0.0, -0.0), X == 0.0), true).
+test(l2_min_zero_left, (X is min(-0.0, 0.0), X == -0.0), true).
+test(l2_min_zero_right, (X is min(0.0, -0.0), X == -0.0), true).
+test(l2_max_zero_int, (X is max(-0.0, 0), Y is max(0, -0.0), X == 0.0, Y == 0.0), true).
+test(l2_min_zero_int, (X is min(-0.0, 0), Y is min(0, -0.0), X == -0.0, Y == -0.0), true).
+test(l2_max_zero_same, (X is max(-0.0, -0.0), X == -0.0), true).

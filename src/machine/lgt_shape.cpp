@@ -2,6 +2,8 @@
 
 #include "lgt_suite.hpp"
 
+#include "mosa/unify.hpp"
+
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -33,7 +35,8 @@ bool same_shape(const Heap& heap, Cell left, Cell right) {
   }
   if (left.tag() != right.tag()) return false;
   if (left.tag() == Tag::Atom) return atom_text(heap, left) == atom_text(heap, right);
-  if (left.tag() == Tag::Float) return heap.float_value(left) == heap.float_value(right);
+  // 単一化と同じく -0.0 と 0.0 を分ける（iso-notes 7.2.2 の決定 A、L2 の Codex レビュー）。
+  if (left.tag() == Tag::Float) return same_float_term(heap.float_value(left), heap.float_value(right));
   if (left.tag() == Tag::Lis) {
     return same_shape(heap, heap.list_head(left), heap.list_head(right)) &&
            same_shape(heap, heap.list_tail(left), heap.list_tail(right));
@@ -95,7 +98,7 @@ bool sign_of_number(const Heap& heap, Cell cell) {
 bool same_number(const NumberValue& left, const NumberValue& right) {
   if (left.integer != right.integer) return false;
   if (left.integer) return left.as_int == right.as_int;
-  return left.as_float == right.as_float;
+  return same_float_term(left.as_float, right.as_float);
 }
 
 bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pair<std::uint64_t, Cell>>& bound) {
@@ -120,7 +123,7 @@ bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pa
   }
   if (general.tag() != specific.tag()) return false;
   if (general.tag() == Tag::Atom) return atom_text(heap, general) == atom_text(heap, specific);
-  if (general.tag() == Tag::Float) return heap.float_value(general) == heap.float_value(specific);
+  if (general.tag() == Tag::Float) return same_float_term(heap.float_value(general), heap.float_value(specific));
   if (general.tag() == Tag::Lis) {
     return subsumes(heap, heap.list_head(general), heap.list_head(specific), bound) &&
            subsumes(heap, heap.list_tail(general), heap.list_tail(specific), bound);

@@ -279,6 +279,16 @@ void trigraph_literal() {
   check(mosa::codegen::comment_safe("a?/") == "a?/", "comment_safe keeps a single ? before /");
 }
 
+// レビュー L2（iso-notes 7.2.2 の決定 A）。-0.0 と 0.0 は別の鍵で、生成コードの same_float はビット列で比べる。
+// 同じ鍵にまとめると、鍵の分かれ目の行が 1 つになる（L2 の敵対的レビュー A1）。
+void signed_zero_keys() {
+  const EmitResult result = emit_user("p(-0.0, neg).\np(0.0, pos).\np(1.0, one).\n");
+  check(has(result.source, "{0x8000000000000000}))) return first_of("), "negative zero has its own key");
+  check(has(result.source, "{0x0000000000000000}))) return first_of("), "positive zero has its own key");
+  check(has(result.source, "std::bit_cast<std::uint64_t>(actual) == std::bit_cast<std::uint64_t>(value)"),
+        "same_float compares the bits");
+}
+
 // 行末が \ の // コメントは次の行をつなぎ、生成コードが黙って消える。\ の後に空白を置いても GCC と Clang はつなぐ。
 bool line_ends_in_backslash(const std::string& text) {
   std::istringstream lines{text};
@@ -390,6 +400,7 @@ int main() {
   japanese_unit();
   octal_before_digit();
   trigraph_literal();
+  signed_zero_keys();
   comment_backslash();
   project_modules();
   project_opaque();

@@ -56,7 +56,9 @@ void check_numbers_and_lists() {
   const auto zero = heap.floating(0.0);
   const auto neg_zero = heap.floating(-0.0);
   const auto nan = heap.floating(std::numeric_limits<double>::quiet_NaN());
-  mosa_test::check(unify_marked(heap, zero, neg_zero), "signed zero");
+  // -0.0 と 0.0 は別の項で単一化しない（iso-notes 7.2.2 の決定 A、レビュー L2）。同じ符号の 0 どうしは単一化する。
+  mosa_test::check(!unify_marked(heap, zero, neg_zero), "signed zero");
+  mosa_test::check(unify_marked(heap, neg_zero, heap.floating(-0.0)), "same signed zero");
   mosa_test::check(!unify_marked(heap, nan, nan), "nan");
   const auto big = heap.integer(std::int64_t{1} << 60);
   const auto big2 = heap.integer(std::int64_t{1} << 60);

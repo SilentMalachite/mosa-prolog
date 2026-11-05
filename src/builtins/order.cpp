@@ -66,6 +66,8 @@ int compare_scalar(const Impl& machine, Cell left, Cell right, int rank) {
     if (a_nan || b_nan) return a_nan == b_nan ? 0 : (a_nan ? 1 : -1);
     if (a < b) return -1;
     if (a > b) return 1;
+    // -0.0 と 0.0 は値が等しいが別の項なので、== と同じく区別し、-0.0 を先にする（iso-notes 7.2.2 の決定 A）。
+    if (std::signbit(a) != std::signbit(b)) return std::signbit(a) ? -1 : 1;
     return 0;
   }
   if (rank == 2) {

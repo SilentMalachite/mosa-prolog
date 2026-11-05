@@ -338,6 +338,9 @@ Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const
     raise_formal(machine, formal_type(machine, "float", machine.heap.integer(args[0].ival)), goal.name, goal.arity);
     return {};
   }
+  // integer/1 の整数はそのまま返す。double を通すと 2^53 を超える値が丸まり、max_integer は int_overflow になる
+  // （L2 の敵対的レビュー A2）。
+  if (args.size() == 1 && !args[0].flt && name == "integer") return from_int(args[0].ival);
   for (std::size_t index = 0; index < args.size(); ++index) inputs[index] = as_float(args[index]);
   double value = 0;
   bool as_int = false;
@@ -389,6 +392,8 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
   }
   if (name == "sign" && args.size() == 1) {
     if (args[0].flt) {
+      // NaN には符号の値が無いので、そのまま返す（IEEE 754 と SWI-Prolog と同じ。iso-notes 9.1.4 の決定 A）。
+      if (std::isnan(args[0].fval)) return from_float(args[0].fval);
       if (args[0].fval == 0) return from_float(std::copysign(0.0, args[0].fval));
       return from_float(std::copysign(1.0, args[0].fval));
     }
@@ -399,10 +404,15 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
   if ((name == "min" || name == "max") && args.size() == 2) {
     // 型の違う引数は float に直して比べ、float を返す。値の型が値によらず、< と同じ比べ方になる（iso-notes 9.3.8 の
     // 決定 B）。2^53 を超える整数は丸まるので、max(9007199254740993, 9007199254740992.0) は整数より小さい float になる。
-    const bool left_smaller = both_int(args) ? args[0].ival < args[1].ival : as_float(args[0]) < as_float(args[1]);
+    // -0.0 と 0 は値が等しいが別の項なので、-0.0 を小さいとみなし、引数の順によらず max は 0.0、min は -0.0 にする
+    // （標準順序の -0.0 @< 0.0 と IEEE 754-2019 の maximum と同じ。iso-notes 9.3.8 の追記、L2 の敵対的レビュー A3）。
+    const double left = as_float(args[0]);
+    const double right = as_float(args[1]);
+    const bool signed_zero = left == 0 && right == 0 && std::signbit(left) && !std::signbit(right);
+    const bool left_smaller = both_int(args) ? args[0].ival < args[1].ival : (left < right || signed_zero);
     const bool take_left = name == "min" ? left_smaller : !left_smaller;
     if (both_int(args)) return from_int(take_left ? args[0].ival : args[1].ival);
-    return from_float(take_left ? as_float(args[0]) : as_float(args[1]));
+    return from_float(take_left ? left : right);
   }
   if (name == "gcd" && args.size() == 2) {
     if (!one_int(args[0]) || !one_int(args[1])) return {};

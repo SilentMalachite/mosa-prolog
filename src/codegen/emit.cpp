@@ -35,11 +35,11 @@ void first_of(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, rt::Nati
   run(m, r, frame, states.front());
 }
 
-// 第1引数の選び方は key_selects（index.cpp）と同じ。NaN どうしは等しく、0.0 と -0.0 も等しい。
+// 第1引数の選び方は key_selects（index.cpp）と同じ。NaN どうしは等しく、0.0 と -0.0 は別の鍵（iso-notes 7.2.2）。
 [[maybe_unused]] bool same_float(Cell cell, double value) {
   const double actual = std::bit_cast<double>(*rt::cell_words(cell));
   if (actual != actual || value != value) return actual != actual && value != value;
-  return actual == value;
+  return std::bit_cast<std::uint64_t>(actual) == std::bit_cast<std::uint64_t>(value);
 }
 
 )";
@@ -70,7 +70,7 @@ namespace {
 
 bool same_float_value(double left, double right) {
   if (std::isnan(left) || std::isnan(right)) return std::isnan(left) && std::isnan(right);
-  return left == right;
+  return std::bit_cast<std::uint64_t>(left) == std::bit_cast<std::uint64_t>(right);
 }
 
 std::size_t node_count(const IrTerm& term) {

@@ -57,7 +57,10 @@ int float_round(Impl& machine, const Goal& goal, std::string_view name, double v
     as_int = true;
     return 1;
   };
-  if (name == "integer" || name == "truncate") return integral(std::trunc(value));
+  // integer/1 は SWI-Prolog の拡張で、近い整数へ丸め、ちょうど半分は 0 から遠い方へ（std::round）。round/1 は
+  // 9.1.6.1 の floor(x + 1/2) なので、負の半分だけが違う（iso-notes 9.1.4 の決定 A、レビュー L2）。
+  if (name == "integer") return integral(std::round(value));
+  if (name == "truncate") return integral(std::trunc(value));
   if (name == "floor") return integral(std::floor(value));
   if (name == "ceiling") return integral(std::ceil(value));
   if (name == "round") return integral(round_half_up(value));

@@ -13,6 +13,7 @@
 #include <fstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -174,7 +175,28 @@ void check_static_reload() {
 
 }  // namespace
 
+// レビュー L2（iso-notes 7.2.2 の決定 A）。-0.0 と 0.0 は別の鍵なので、先の節の鍵で呼べば後の節に選択点を残さない。
+// 鍵が同じだと答えは変わらず、後の節が単一化で落ちるまで選択点が残る（L2 の敵対的レビュー A1）。8 節より少ない
+// 述語の走査と、索引の組を歩く 9 節の述語の両方で、どちらの符号を先にしても見る。
+void check_signed_zero_keys() {
+  constexpr std::string_view k_tail = "z(1.0, a).\nz(2.0, b).\nz(3.0, c).\nz(4.0, d).\nz(5.0, e).\nz(6.0, f).\nz(7.0, g).\n";
+  const std::vector<std::pair<std::string, std::string_view>> cases{
+      {"z(-0.0, neg).\nz(0.0, pos).\n", "z(-0.0, X)."},
+      {"z(0.0, pos).\nz(-0.0, neg).\n", "z(0.0, X)."},
+      {"z(-0.0, neg).\nz(0.0, pos).\n" + std::string{k_tail}, "z(-0.0, X)."},
+      {"z(0.0, pos).\nz(-0.0, neg).\n" + std::string{k_tail}, "z(0.0, X)."},
+  };
+  for (const auto& [program, goal] : cases) {
+    auto machine = mosa::Machine::create();
+    mosa_test::check(machine->load_program(program).ok, "signed zero keys load");
+    const auto answer = machine->query(goal);
+    mosa_test::check(answer.kind == mosa::StopKind::Success && !answer.more,
+                     "signed zero key leaves no choice point: " + std::string{goal});
+  }
+}
+
 int main() {
+  check_signed_zero_keys();
   check_determinism("p(X)", false);
   check_determinism("retract(p(X))", true);
   check_determinism("clause(p(X), true)", false);

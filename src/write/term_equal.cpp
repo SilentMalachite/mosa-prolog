@@ -1,3 +1,4 @@
+#include "mosa/unify.hpp"
 #include "mosa/writer.hpp"
 
 #include <cstdint>
@@ -80,7 +81,7 @@ bool match_one(const Side& left_side, Cell left, const Side& right_side, Cell ri
   }
   if (left.tag() != right.tag()) return false;
   if (left.tag() == Tag::Atom) return left_heap.atoms().name(atom_of(left)) == right_heap.atoms().name(atom_of(right));
-  if (left.tag() == Tag::Float) return left_heap.float_value(left) == right_heap.float_value(right);
+  if (left.tag() == Tag::Float) return same_float_term(left_heap.float_value(left), right_heap.float_value(right));
   if (left.tag() == Tag::Lis || left.tag() == Tag::Str) return push_children(left_side, left, right_side, right, todo);
   return false;
 }
