@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main bd32139, CI run 41916910472 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** review L2 (owner chose A: `-0.0` and `0.0` are distinct terms, `sign(nan)` is the NaN, `integer/1` rounds halves away from zero; max/min take `-0.0` as smaller). Before it, L9, L10, L5, L6, L3, L7, L1, L4.
-- **Next:** L11 (owner chose A: a reconsult removes what the file no longer defines; ADR 0020 first), then L12 (owner chose A: mosac warns on undefined calls and still builds); L8 (Windows); L14, L15 (now also `;` then Enter answering twice), L17, L19, L20, L21, L22 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** review L11 (owner chose A, ADR 0020: a reconsult removes the predicates the file defined before and no text of the load defines now, when the outermost load succeeds; tests/cpp/reconsult_test.cpp). Before it, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Next:** L12 (owner chose A: mosac warns on undefined calls and still builds; SPEC §6, `mosac_emit_undefined*` in tests/mosac/emit_test.cmake); L8 (Windows); L14, L15 (now also `;` then Enter answering twice), L17, L19, L20, L21, L22 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
