@@ -126,10 +126,8 @@ void undo_attempt(Heap& heap, Attempt& attempt, std::size_t heap_mark) {
   heap.truncate(heap_mark);
 }
 
-}  // namespace
-
-bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left, Cell right) {
-  Attempt attempt;
+bool unify_attempt(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left, Cell right,
+                   Attempt& attempt) {
   attempt.boundary = trail.mark != nullptr ? trail.mark : heap.data() + heap_mark;
   if (!unify_cells(heap, left, right, attempt, 0)) {
     undo_attempt(heap, attempt, heap_mark);
@@ -137,6 +135,22 @@ bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_ma
   }
   trail.slots.resize(trail_mark);
   trail.slots.insert(trail.slots.end(), attempt.keep.begin(), attempt.keep.end());
+  return true;
+}
+
+}  // namespace
+
+bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left, Cell right) {
+  Attempt attempt;
+  return unify_attempt(heap, trail, trail_mark, heap_mark, left, right, attempt);
+}
+
+bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left, Cell right,
+           std::vector<Cell>& bound) {
+  Attempt attempt;
+  if (!unify_attempt(heap, trail, trail_mark, heap_mark, left, right, attempt)) return false;
+  // 未束縛の REF は自分の番地を値に持つ。束縛した後も、その番地の REF を辿れば束縛した値になる。
+  for (const auto* slot : attempt.undo) bound.emplace_back(std::bit_cast<std::uint64_t>(slot));
   return true;
 }
 

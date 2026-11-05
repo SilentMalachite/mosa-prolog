@@ -26,7 +26,12 @@ test(iso_callable_pair, callable((1, 2)), true).
 test(list_proper, is_list([a]), true).
 test(list_partial, is_list([a|b]), fail).
 test(list_var, is_list(X), fail).
-test(list_cycle, (X = [X], is_list(X)), fail).
+test(list_cycle, (L = [a|L], is_list(L)), fail).
+% レビュー L3。is_list はリストの背骨だけを見る。要素が循環していても、背骨が [] で終わればリスト。前は項全体を
+% acyclic_term で調べ、X = [X] も [f(f(...))] も偽にしたので、format/2 と msort/2 が型や具体化の誤りを出した。
+test(l3_list_cyclic_element, (X = f(X), is_list([a, X, b])), true).
+test(l3_list_self_element, (X = [X], is_list(X)), true).
+test(l3_list_cyclic_spine_later, (L = [a, b|T], T = [c|T], is_list(L)), fail).
 test(iso_nonvar_compound, nonvar(f(X)), true).
 test(iso_atomic_float, atomic(1.5), true).
 test(iso_compound_fun, compound(f(X)), true).

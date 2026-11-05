@@ -1,5 +1,5 @@
 % 項を歩く組込と、実行時に組み立てたゴールと式を、深さ 1,000,000 の項で 1 つずつ確かめる（ADR 0011 と改訂 2、3。
-% 1 MiB のスタックで動かす。acyclic_term は unify_with_occurs_check/2 と is_list/1 を通して見る。
+% 1 MiB のスタックで動かす。循環の検査は unify_with_occurs_check/2 を、背骨の検査は is_list/1 を通して見る。
 % 各行は「組込: 結果」。循環項の行（_cyclic）は、書き直す前と同じ結果であること。
 % 項は数え上げの繰り返しで作る。mosa の lib には numlist/3 が無い。
 :- initialization(main, main).

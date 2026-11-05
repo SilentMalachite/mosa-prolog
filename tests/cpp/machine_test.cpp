@@ -174,8 +174,11 @@ void check_types() {
   mosa_test::check(machine->query("is_list([a]).").kind == mosa::StopKind::Success, "proper list");
   mosa_test::check(machine->query("is_list([a|b]).").kind == mosa::StopKind::Failure, "partial list");
   mosa_test::check(machine->query("is_list(X).").kind == mosa::StopKind::Failure, "unbound list");
-  auto cycle = machine->query("(X = [X], is_list(X)).");
+  // is_list は背骨だけを見る。背骨が循環すれば偽、要素が循環しても背骨が [] で終われば真（レビュー L3 の決定 A）。
+  auto cycle = machine->query("(L = [a|L], is_list(L)).");
   mosa_test::check(cycle.kind == mosa::StopKind::Failure, "cyclic list");
+  mosa_test::check(machine->query("(X = [X], is_list(X)).").kind == mosa::StopKind::Success,
+                   "list with a cyclic element");
   mosa_test::check(machine->query("(X = f(X), unify_with_occurs_check(Y, f(Y))).").kind ==
                        mosa::StopKind::Failure,
                    "occurs check fails");

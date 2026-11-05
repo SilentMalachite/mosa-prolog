@@ -568,6 +568,8 @@ void purge_static(Impl& machine, Predicate& predicate);
                                    const EnvRef& env, std::uint32_t module);
 [[nodiscard]] Goal read_goal(const Impl& machine, std::uint64_t at);
 [[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right);
+// 成功したとき、束縛した REF を bound の後ろに足す。
+[[nodiscard]] bool do_unify(Impl& machine, Cell left, Cell right, std::vector<Cell>& bound);
 // floor より前の REF を候補ごとに戻す。節の匿名は外側の選択点より新しい。
 [[nodiscard]] bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right);
 void enter_clause(Impl& machine, const Predicate& predicate, std::size_t index, std::uint64_t goal, std::size_t cut);

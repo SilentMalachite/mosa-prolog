@@ -662,3 +662,19 @@ Decision (2026-11-05): B. Nothing changes. A comparison with a NaN is false both
 A or B?: A: follow 6.3.3 and quote the name when quoted is true (`'[]'(x)`, `'{}'(a)`); the two Logtalk tests would fail. B: keep `[](x)` and `{}(a)`.
 
 Decision (2026-11-05): B. Nothing changes; `canonical_brace` in `tests/pl/write.pl` pins `{}(a)`.
+
+## 8.2.2 unify_with_occurs_check/2 of terms that are already cyclic
+
+7.3.2 fails a unification with occurs check when it would bind a variable to a term that contains it; 8.2.2 does not say what happens when an argument is already cyclic (7.3.3 leaves such terms undefined). Mosa unified and then failed when the result was cyclic, so `X = f(X), Y = f(Y), unify_with_occurs_check(X, Y)` failed although it binds nothing (review L3).
+
+A or B?: A: fail only when a binding makes a new cycle, as the 7.3.2 check does (`X = f(X), unify_with_occurs_check(A, X)` succeeds, since A does not occur in X). B: also fail when a variable would be bound to a cyclic term.
+
+Decision (2026-11-05): B. A was chosen first, but the adversarial review of L3 found that it makes the answer depend on the order of the bindings: after `X = f(X)`, `unify_with_occurs_check(g(A, A), g(X, f(A)))` succeeded and `unify_with_occurs_check(g(A, A), g(f(A), X))` failed, although the two solve the same equations; whether A stands for an infinite term does not depend on the order. Mosa unifies as `=` does, then walks the values of the variables this call bound, sharing what it has already walked, and fails, undoing the bindings, when one of them is cyclic (`occurs_unify` in `src/builtins/types.cpp`). A unification that fails is as cheap as with `=`, and a call that binds nothing succeeds without a walk. Tests: `l3_occurs_*` in `tests/pl/unify.pl` (`l3_occurs_cyclic_equal`, `l3_occurs_cyclic_unfolded`, `l3_occurs_bind_beside_old` and `l3_occurs_bind_inside_old` fail on 5dd9ed9; `l3_occurs_order_left` succeeded under A), `occurs_check_cyclic` in `tests/stack/deep_builtins.pl` (unchanged).
+
+## 8 is_list/1 (non-ISO) of a list with cyclic elements
+
+`is_list/1` checked that the whole term was acyclic, so `X = [X], is_list(X)` and `X = f(X), is_list([X])` failed, and `format/2` and `msort/2`, which check their list arguments with it, raised errors for such lists (review L3).
+
+A or B?: A: look at the spine only; a list whose spine ends in `[]` is a list whatever its elements are. B: keep failing when any part of the term is cyclic.
+
+Decision (2026-11-05): A. A cyclic spine (`L = [a|L]`) still fails. Tests: `list_cycle` and `l3_list_*` in `tests/pl/types.pl`, `cyclic list` in `tests/cpp/machine_test.cpp`.

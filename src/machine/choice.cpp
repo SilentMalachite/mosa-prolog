@@ -138,6 +138,11 @@ bool do_unify(Impl& machine, Cell left, Cell right) {
   return unify(machine.heap, machine.trail, machine.trail.slots.size(), machine.heap.size(), left, right);
 }
 
+bool do_unify(Impl& machine, Cell left, Cell right, std::vector<Cell>& bound) {
+  machine.trail.mark = watermark(machine);
+  return unify(machine.heap, machine.trail, machine.trail.slots.size(), machine.heap.size(), left, right, bound);
+}
+
 bool unify_visible(Impl& machine, std::size_t floor, Cell left, Cell right) {
   const auto* saved = machine.trail.mark;
   // 節の中の匿名は Cleanup より新しい。選択点の水位だと、最初の候補の束縛が残る。

@@ -1,9 +1,12 @@
 // 型検査（8.3）と unify_with_occurs_check/2（8.2.2）、is_list/1。
-// ground/1 は Cor.2 の 8.3.10。ground(?term)。エラーは投げない。テストは tests/pl/types.pl。
+// ground/1 は Cor.2 の 8.3.10。ground(?term)。エラーは投げない。テストは tests/pl/types.pl、tests/pl/unify.pl、
+// tests/stack/deep_builtins.pl。
 
 #include "../machine/internal.hpp"
 
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -33,11 +36,15 @@ void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
 // 祖先に戻る道があれば循環。辿り終えた複合項（done）は共有されていても辿り直さない。前は辿った項すべてを
 // 祖先として扱い、f(X, X) の共有を循環と取り違えていた（8.2.2）。C++ の再帰を使わず手で積む（ADR 0011）。
-bool acyclic_term(const Impl& machine, Cell root) {
+// 根を全部積んでも、1 つの根を辿り終えてから次の根に移るので path は根ごとに空から始まる。done は根の間で
+// 共有し、束縛の多い unify_with_occurs_check/2 でも項を 1 度しか辿らない（レビュー L3 の敵対的レビュー A3）。
+bool acyclic_terms(const Impl& machine, std::span<const Cell> roots) {
   std::unordered_set<std::uint64_t> path;
   std::unordered_set<std::uint64_t> done;
   // 2 番目が真の項目は「この複合項の子を辿り終えた」の印。
-  std::vector<std::pair<Cell, bool>> pending{{root, false}};
+  std::vector<std::pair<Cell, bool>> pending;
+  pending.reserve(roots.size());
+  for (const Cell root : roots) pending.emplace_back(root, false);
   while (!pending.empty()) {
     const auto [cell, leave] = pending.back();
     pending.pop_back();
@@ -104,20 +111,26 @@ bool proper_list(const Impl& machine, Cell cell) {
     if (!spine.insert(cursor.raw()).second) return false;
     cursor = machine.heap.list_tail(cursor);
   }
-  return acyclic_term(machine, cell);
+  // 背骨だけを見る。要素の循環はリストであることを変えない。前は項全体を acyclic_term で調べ、format/2 と msort/2 が
+  // 循環する要素のリストを受け取れなかった（レビュー L3）。
+  return true;
 }
 
+// 8.2.2 の「NSTO なら実装依存」を、束縛した変数の値が循環すれば失敗とする（iso-notes 8.2.2 の決定 B）。
+// 結果全体の循環を見ると、前から循環している X = f(X), Y = f(Y) の X と Y のように何も束縛しない組まで
+// 失敗した（レビュー L3）。束縛のたびに出現を調べると、同じ方程式でも束縛の順で答えが変わった（敵対的レビュー A1）。
+// 束縛した値だけを辿るので、失敗する単一化は前と同じくすぐ失敗する（同 A2）。
 void occurs_unify(Impl& machine, const Goal& goal) {
   const auto heap_mark = machine.heap.size();
   const auto trail_mark = machine.trail.slots.size();
   const auto extras_mark = machine.extras.size();
-  if (!do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1))) {
+  std::vector<Cell> bound;
+  if (!do_unify(machine, goal.arg(machine, 0), goal.arg(machine, 1), bound)) {
     machine.failed = true;
     return;
   }
-  // 選択点より新しい変数はトレイルに残らない。束縛後の項が循環なら失敗させる。
-  const bool cyclic = !acyclic_term(machine, goal.arg(machine, 0)) || !acyclic_term(machine, goal.arg(machine, 1));
-  if (cyclic) {
+  // 選択点より新しい変数はトレイルに残らないが、失敗の後戻りがヒープごと捨てる。
+  if (!acyclic_terms(machine, bound)) {
     restore_state(machine, heap_mark, trail_mark, extras_mark);
     machine.failed = true;
     return;

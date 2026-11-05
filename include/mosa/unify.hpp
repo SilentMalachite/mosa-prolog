@@ -18,5 +18,8 @@ struct Trail {
 
 [[nodiscard]] bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left,
                          Cell right);
+// 成功したとき、この呼び出しで束縛した REF を bound の後ろに足す。unify_with_occurs_check/2 が束縛した値を調べる。
+[[nodiscard]] bool unify(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left,
+                         Cell right, std::vector<Cell>& bound);
 
 }

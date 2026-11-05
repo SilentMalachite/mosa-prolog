@@ -61,6 +61,8 @@ test(reverse_list, reverse([a, b, c], L), solutions([L = [c, b, a]])).
 test(msort_dups, msort([b, a, c, a], L), solutions([L = [a, a, b, c]])).
 test(msort_order, (msort([1+Y, z, a, V, 1, 2, V, 1, 7.0, 8.0, 1+Y, 1+2, 8.0, -a, -X, a], S), S == [V, V, 7.0, 8.0, 8.0, 1, 1, 2, a, a, z, -X, -a, 1+Y, 1+Y, 1+2]), true).
 test(msort_inst, msort(_, _), error(instantiation_error)).
+% レビュー L3。要素が循環していても並べられる。前は is_list が偽になり、具体化の誤りを出した。
+test(l3_msort_cyclic_element, (X = f(X), msort([X, a], L), L = [A, B], A == a, B == X), true).
 test(msort_partial, msort([a|_], _), error(instantiation_error)).
 test(msort_type, msort([a|b], _), error(type_error(list, [a|b]))).
 test(msort_sorted_type, msort([a, b, a], [a, a, b|d]), error(type_error(list, [a, a, b|d]))).

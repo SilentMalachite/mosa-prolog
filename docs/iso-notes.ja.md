@@ -664,3 +664,19 @@ A か B か: A は丸めずに比べ、選んだ引数を型のまま返す（`m
 A か B か: A は 6.3.3 に従い、quoted が真なら名前を引用する（`'[]'(x)`、`'{}'(a)`）。Logtalk のテスト 2 件が落ちる。B は `[](x)` と `{}(a)` のまま。
 
 決定（2026-11-05）: B。動作は変えない。`tests/pl/write.pl` の `canonical_brace` が `{}(a)` を留める。
+
+## 8.2.2 前から循環している項の unify_with_occurs_check/2
+
+7.3.2 の出現検査付きの単一化は、変数をそれ自身を含む項に束縛するとき失敗する。8.2.2 は、引数が前から循環しているときを定めていない（7.3.3 はそのような項を未定義とする）。Mosa は単一化してから、結果が循環していれば失敗していた。そのため、何も束縛しない `X = f(X), Y = f(Y), unify_with_occurs_check(X, Y)` まで失敗した（レビュー L3）。
+
+A か B か: A は 7.3.2 の検査と同じく、束縛が新しい循環を作るときだけ失敗する（`X = f(X), unify_with_occurs_check(A, X)` は、A が X の中に出ないので成功する）。B は、変数を循環する項に束縛するときも失敗する。
+
+決定（2026-11-05）: B。初めは A を選んだが、L3 の敵対的レビューで、A では答えが束縛の順で変わると分かった。`X = f(X)` の後で、`unify_with_occurs_check(g(A, A), g(X, f(A)))` は成功し、`unify_with_occurs_check(g(A, A), g(f(A), X))` は失敗した。2 つは同じ方程式を解いている。A が無限の項を表すかは、順によらない。Mosa は `=` と同じく単一化してから、この呼び出しで束縛した変数の値を、辿り終えた部分を共有しながら辿る。どれかが循環していれば、束縛を戻して失敗する（`src/builtins/types.cpp` の `occurs_unify`）。失敗する単一化は `=` と同じ費用で済み、何も束縛しない呼び出しは何も辿らずに成功する。テスト: `tests/pl/unify.pl` の `l3_occurs_*`（`l3_occurs_cyclic_equal`、`l3_occurs_cyclic_unfolded`、`l3_occurs_bind_beside_old`、`l3_occurs_bind_inside_old` は 5dd9ed9 で失敗する。`l3_occurs_order_left` は A のとき成功していた）、`tests/stack/deep_builtins.pl` の `occurs_check_cyclic`（変えていない）。
+
+## 8 要素が循環するリストの is_list/1（ISO の外）
+
+`is_list/1` は項全体が循環していないかを調べていた。そのため `X = [X], is_list(X)` と `X = f(X), is_list([X])` は失敗し、これでリストの引数を調べる `format/2` と `msort/2` は、そのようなリストを誤りにした（レビュー L3）。
+
+A か B か: A は背骨だけを見る。背骨が `[]` で終われば、要素によらずリストである。B は項のどこかが循環していれば失敗し続ける。
+
+決定（2026-11-05）: A。背骨が循環するリスト（`L = [a|L]`）はこれまでどおり失敗する。テスト: `tests/pl/types.pl` の `list_cycle` と `l3_list_*`、`tests/cpp/machine_test.cpp` の `cyclic list`。

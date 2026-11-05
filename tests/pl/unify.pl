@@ -30,3 +30,19 @@ occurs_local :- unify_with_occurs_check(X, f(X)).
 test(occurs_local, occurs_local, fail).
 occurs_pair :- unify_with_occurs_check(f(X, Y), f(Y, g(X))).
 test(occurs_pair, occurs_pair, fail).
+
+% レビュー L3。unify_with_occurs_check は、この単一化で束縛した変数の値が循環すれば失敗する（iso-notes 8.2.2 の決定 B）。
+% 前から循環している項は、何も束縛せずに一致すれば成功する。前は結果が循環していれば失敗した。
+test(l3_occurs_cyclic_equal, (X = f(X), Y = f(Y), unify_with_occurs_check(X, Y)), true).
+test(l3_occurs_cyclic_unfolded, (X = f(X), Y = f(f(Y)), unify_with_occurs_check(X, Y)), true).
+test(l3_occurs_cyclic_mismatch, (X = f(X), Y = f(g(Y)), unify_with_occurs_check(X, Y)), fail).
+test(l3_occurs_bind_beside_old, (X = f(X), unify_with_occurs_check(g(X, A), g(X, B)), A == B), true).
+test(l3_occurs_bind_inside_old, (X = f(X, A), unify_with_occurs_check(X, f(X, b)), A == b), true).
+test(l3_occurs_bind_to_cyclic, (X = f(X), unify_with_occurs_check(A, X)), fail).
+test(l3_occurs_bind_to_cyclic_list, (X = [a|X], unify_with_occurs_check(X, [a|Y])), fail).
+test(l3_occurs_var_inside_cyclic, (X = f(X, A), unify_with_occurs_check(A, X)), fail).
+test(l3_occurs_new_cycle_next_to_old, (X = f(X), unify_with_occurs_check(g(X, A), g(X, h(A)))), fail).
+test(l3_occurs_through_earlier_binding, (X = f(X), unify_with_occurs_check(g(X, A, B), g(X, B, f(A)))), fail).
+% 同じ方程式は、どの束縛を先に作っても同じ答えになる（L3 の敵対的レビュー A1）。
+test(l3_occurs_order_left, (X = f(X), unify_with_occurs_check(g(A, A), g(X, f(A)))), fail).
+test(l3_occurs_order_right, (X = f(X), unify_with_occurs_check(g(A, A), g(f(A), X))), fail).
