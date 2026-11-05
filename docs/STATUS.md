@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main bd32139, CI run 41916910472 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** review L5 (a directory gives permission_error in open/3 and fails in consult) and L6 (invalid UTF-8: maximal subpart as one character; `error` advances to where `replace` stops, iso-notes Section 4 decision A). Before them, L3, L7, L1, L4.
-- **Next:** review items L9, L10 next; decisions L2, L11, L12; L8 (Windows); L14, L15, L17, L19, L20, L21 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** review L9 (mosac writes `?` as `\?`, so `??=` no longer stops `MOSA_WERROR=1`) and L10 (`-g` may repeat; with no `-g`, `-t halt` or piped input exits 0 after loading; answers are written as they come). Before them, L5, L6, L3, L7, L1, L4.
+- **Next:** decisions L2, L11, L12 (one A-or-B question each); L8 (Windows); L14, L15 (now also `;` then Enter answering twice), L17, L19, L20, L21 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
