@@ -1,5 +1,6 @@
-// 標準入力とコンソール（SPEC 第4節、計画 Task 14）。Windows のコンソールだけ UTF-16 で読む。
-// テスト: tests/cpp/console_test.cpp、tests/cpp/mosa_utf8_pipe_test.cmake
+// 標準入力とコンソール（SPEC 第4節、計画 Task 14）。Windows のコンソールだけ UTF-16 で読み、Windows の標準の流れは
+// binary にする（レビュー L8）。テスト: tests/cpp/console_test.cpp、tests/cpp/mosa_utf8_pipe_test.cmake、
+// tests/mosac/std_binary_test.cmake
 #include "mosa/console.hpp"
 
 #include <cstdio>
@@ -8,6 +9,9 @@
 
 #ifdef _WIN32
 #include <cstdlib>
+#include <fcntl.h>
+#include <initializer_list>
+#include <io.h>
 #include <windows.h>
 #endif
 
@@ -73,6 +77,13 @@ std::string returned;
 
 void prepare_console() {
 #ifdef _WIN32
+  // 改行はどの OS でも LF の 1 字で、C 実行時ライブラリのテキストモードに任せない（iso-notes「7.10.2 と 8.12」の
+  // 決定 A）。テキストモードはパイプの 0x1A で入力を終わらせ、CRLF の CR を落とし、nl を CRLF で書く。読み書きの
+  // 前に変える。標準の流れの無いプロセスでは _fileno が負を返し、それを _setmode に渡すと実行時ライブラリが落ちる。
+  for (std::FILE* stream : {stdin, stdout, stderr}) {
+    const int descriptor = _fileno(stream);
+    if (descriptor >= 0) _setmode(descriptor, _O_BINARY);
+  }
   if (saved_input_cp != 0) return;
   saved_input_cp = GetConsoleCP();
   saved_output_cp = GetConsoleOutputCP();

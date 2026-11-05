@@ -574,3 +574,12 @@ add_test(NAME mosac_interactive COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/interactive_test.cmake)
 set_tests_properties(mosac_interactive PROPERTIES ENVIRONMENT "MOSA_WERROR=1"
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir};LANG=set:ja_JP.UTF-8")
+
+# レビュー L8。標準入力の CRLF と 0x1A をバイトのとおりに読み、標準出力と標準エラーに LF だけを書く（mosa と実行ファイル）。
+add_test(NAME mosa_std_binary COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosa_std_binary "-DCXX=${mosac_build_cxx}"
+  "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/std_binary_test.cmake)
+set_tests_properties(mosa_std_binary PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")

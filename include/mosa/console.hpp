@@ -7,7 +7,8 @@
 
 namespace mosa {
 
-// Windows ではコンソールの入出力のコードページを UTF-8 にする。他の OS では何もしない。
+// Windows ではコンソールの入出力のコードページを UTF-8 にし、stdin、stdout、stderr を binary にする（改行は LF だけ、
+// 0x1A はただのバイト。iso-notes「7.10.2 と 8.12」）。他の OS では何もしない。何かを読み書きする前に呼ぶ。
 void prepare_console();
 // 標準入力が Windows のコンソールのときだけ、ReadConsoleW で 1 行を読み UTF-8 にして返す。
 // それ以外は nullopt で、呼び手は今の読み取りに戻る。入力の終わりも nullopt。

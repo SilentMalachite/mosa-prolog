@@ -1,5 +1,6 @@
 #include "mosa/bench.hpp"
 #include "mosa/command_line.hpp"
+#include "mosa/console.hpp"
 #include "mosa/diff.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
@@ -23,6 +24,9 @@ int usage() {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // 何かを読み書きする前に、Windows のコンソールを UTF-8 にし、標準の流れを binary にする。mosatest <file> も
+  // Prolog の user_input と user_output を動かすので、mosa と同じにする（L8 の敵対的レビュー A3）。
+  mosa::prepare_console();
   // パスは UTF-8 で受け、path_from_utf8 で作る。リポジトリの場所に日本語があっても、どの OS でも同じに読む。
   const std::vector<std::string> owned = mosa::command_line_utf8(argc, argv);
   const std::vector<std::string_view> args(owned.begin(), owned.end());

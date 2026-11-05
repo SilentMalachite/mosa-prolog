@@ -720,3 +720,11 @@ ISO は Prolog のテキストを 1 度準備するもので（7.4）、読み�
 A か B か: A は、読み直しのとき、前にそのパスを読んで定義し、新しい中身に無い述語を、SWI-Prolog と同じく消す。失敗した読み込みは残す。B は残す。
 
 決定（2026-11-05）: A。ADR 0020 による。ゴールが作った述語（assertz）と multifile の述語は残り、後で別のファイルが定義した述語も残る。新しい中身が dynamic と宣言しただけの述語と、読み直しのゴールが節を足すか消した述語は、読み直しの間に足した節だけを持って残る。入れ子の consult の古い述語は、一番外の読み込みが成功したときに消える。
+
+## 7.10.2 と 8.12 Windows の標準の流れの行末
+
+「8.12 テキストの改行」の決定は、テキストのファイルとメモリの流れの改行を、どの OS でも U+000A の 1 字とし、C++ のテキストモードに任せない。ファイルは binary で開くが、stdin、stdout、stderr は Windows では C 実行時ライブラリのテキストモードのままである（レビュー L8）。そのため、パイプの 0x1A のバイトで入力が終わり、パイプからの CRLF は LF として届き、stdout の `nl` は CRLF で書かれる。Windows のコンソールは `ReadConsoleW` で読み、Enter が出す CRLF の CR を落とす（src/platform/console.cpp の `console_line_text`）。
+
+A か B か（レビュー L8）: Windows でも stdin、stdout、stderr を binary にして、0x1A をただのバイトとし、改行を macOS と Linux と同じく LF だけで書くとき、A は、パイプの CRLF をファイルからと同じく、また macOS と Linux と同じくそのまま読み、get_char/1 には CR が見える（read/1 はそれを空白とみなす）。B は、Windows ではパイプの CRLF の CR を、コンソールと同じく、また今のテキストモードと同じく落とす。
+
+決定（2026-11-05）: A。Windows では、mosa、mosac、mosatest（`mosatest --diff` も）、mosac が作る実行ファイルのどれも、何かを読み書きする前に `prepare_console`（src/platform/console.cpp）が stdin、stdout、stderr を binary にする。実行ファイルはヒープを予約する前に呼ぶ。libmosa を組み込むプログラムは自分のモードのままである。0x1A のバイトはほかのバイトと同じく読む。パイプや stdin に渡したファイルからの CRLF は、macOS や Linux と同じく CR と LF として get_char/1 に届き、`nl` は LF だけを書く。コンソールは今までどおり、Enter が出す CRLF の CR を落とす。テスト: ctest の `mosa_std_binary`。

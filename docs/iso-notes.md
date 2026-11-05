@@ -718,3 +718,11 @@ ISO prepares a Prolog text once (7.4) and defines no reconsult; SPEC does not de
 A or B?: A: on a reconsult, remove the predicates that the previous load of that path defined and the new contents lack, as SWI-Prolog does; a failed load keeps them. B: keep them.
 
 Decision (2026-11-05): A, under ADR 0020. A predicate made by a goal (assertz) and a multifile predicate stay, and so does one that another file defined later. One that the new contents only declare dynamic, or that a goal of the reload asserted into or retracted from, stays with only the clauses added during the reload. A stale predicate of a nested consult goes when the outermost load succeeds.
+
+## 7.10.2 and 8.12: Line ends of the standard streams on Windows
+
+The decision in "8.12 Newlines in text" makes a newline a single U+000A in text files and memory streams on every OS, and does not leave it to C++ text mode. Files are opened in binary mode, but stdin, stdout and stderr stay in the C runtime's text mode on Windows (review L8): a 0x1A byte in a pipe ends the input, a CRLF from a pipe arrives as LF, and each `nl` on stdout is written as CRLF. A Windows console is read with `ReadConsoleW`, which drops the CR of the CRLF that Enter gives (`console_line_text`, src/platform/console.cpp).
+
+A or B? (review L8): with stdin, stdout and stderr in binary mode on Windows, so that 0x1A is an ordinary byte and a newline is written as LF alone, as on macOS and Linux: A: a pipe's CRLF is read as it is, as from a file and as on macOS and Linux, so get_char/1 sees the CR (read/1 takes it as layout); B: the CR of a pipe's CRLF is dropped on Windows, as the console does and as text mode does today.
+
+Decision (2026-11-05): A. On Windows, `prepare_console` (src/platform/console.cpp) puts stdin, stdout and stderr in binary mode before anything is read or written, in mosa, mosac, mosatest (and `mosatest --diff`) and the executables mosac builds, which call it before they reserve the heap. A program that embeds libmosa keeps its own modes. A 0x1A byte is read like any other, a CRLF from a pipe or a file given as stdin reaches get_char/1 as CR and LF, as on macOS and Linux, and `nl` writes LF alone. The console still drops the CR of the CRLF that Enter gives. Test: ctest `mosa_std_binary`.

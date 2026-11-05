@@ -13,7 +13,7 @@
 #include <vector>
 
 int main(int argc, char** argv) {
-  // 何かを読み書きする前に、Windows のコンソールを UTF-8 にする。他の OS では何もしない。
+  // 何かを読み書きする前に、Windows のコンソールを UTF-8 にし、標準の流れを binary にする。他の OS では何もしない。
   mosa::prepare_console();
   // ファイル名も -g のゴールも原子になるので、UTF-8 で受ける。
   const std::vector<std::string> owned = mosa::command_line_utf8(argc, argv);

@@ -23,6 +23,9 @@
 namespace mosa::rt {
 
 std::unique_ptr<Machine> create_machine() {
+  // 生成した main は create_machine を start より先に呼び、ヒープを予約できないとここで書いて終わる。その文面も
+  // UTF-8 と binary の標準の流れに書くので、何かを読み書きする前のここで整える（L8 の敵対的レビュー A2）。
+  prepare_console();
   const std::size_t limit = heap_max_from_environment();
   try {
     return Machine::create(limit);
@@ -36,8 +39,6 @@ std::unique_ptr<Machine> create_machine() {
 }
 
 void start(Machine& machine, int argc, char** argv) {
-  // 何かを読み書きする前に、Windows のコンソールを UTF-8 にする（mosa の main と同じ順）。
-  prepare_console();
   std::vector<std::string> args = command_line_utf8(argc, argv);
   // mosa では -- より後ろが旗 argv になる。実行ファイルではプログラム名より後ろの全部である。
   if (!args.empty()) args.erase(args.begin());

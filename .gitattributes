@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# レビュー L8 の入力は CR と 0x1A をバイトのとおりに持つ。改行を変えずに取り出す。
+tests/mosac/std_binary*.in -text
