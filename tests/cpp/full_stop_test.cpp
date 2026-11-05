@@ -202,6 +202,23 @@ void check_written_unconverted() {
   mosa_test::check(answered(twice.out, "X = b."), "X = a under a to b and b to c -> " + twice.out);
 }
 
+// L17 の続き（持ち主は 2026-11-06 に A を選んだ）。文面を作る目録の指示とゴールも Mosa が書いた字面で、カタログも
+// Mosa の文書なので、変換をかけずに読む。前は a を b に写すと library が librbry に化け、鍵の形の文面に落ちた。
+void check_message_unconverted() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  const std::string en = "set_prolog_flag(message_language, en).\n";
+  const std::string on = "char_conversion(a, b), set_prolog_flag(char_conversion, on).\n";
+  // カタログを読む前に変換を有効にする。
+  auto before = mosa::run_session(args, en + on + "help.\n", true);
+  mosa_test::check(before.out.find("underscore") != std::string::npos,
+                   "help under a to b before the catalog is read -> " + before.out);
+  // カタログを読んだ後で有効にする。
+  auto after = mosa::run_session(args, en + "help.\n" + on + "foo.\n", true);
+  mosa_test::check(after.err.find("Warning: goal raised exception") != std::string::npos,
+                   "error message under a to b after the catalog is read -> " + after.err);
+}
+
 }  // namespace
 
 int main() {
@@ -211,5 +228,6 @@ int main() {
   check_converted_everything();
   check_converted_inverse();
   check_written_unconverted();
+  check_message_unconverted();
   return mosa_test::failures();
 }

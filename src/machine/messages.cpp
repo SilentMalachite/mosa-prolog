@@ -1,5 +1,5 @@
 // 利用者向けの文面（ADR 0007、SPEC 第7節）。文面は lib/messages_ja.pl と lib/messages_en.pl の事実に置く。
-// テスト: tests/cpp/session_test.cpp
+// テスト: tests/cpp/session_test.cpp、tests/cpp/full_stop_test.cpp（char_conversion の下の文面）
 #include "mosa/messages.hpp"
 
 #include "internal.hpp"
@@ -64,6 +64,21 @@ std::string goal_text(Machine& machine, std::string_view key, std::span<const Ce
          "))), _, fail).";
 }
 
+// 文面を作る間は char_conversion を止め、抜けるとき戻す。目録の指示とゴールは Mosa が書いた字面で、カタログも Mosa の
+// 文書だからである（レビュー L17 の続き。止めないと a を b に写す変換の下で library が librbry に化け、鍵の形に落ちた）。
+// render_message は問い合わせの外でしか呼ばれないので、止めた旗を利用者のゴールが見ることは無い。
+class ConversionPause {
+ public:
+  explicit ConversionPause(CharConv& conv) : conv_(conv), was_(conv.enabled) { conv_.enabled = false; }
+  ~ConversionPause() { conv_.enabled = was_; }
+  ConversionPause(const ConversionPause&) = delete;
+  ConversionPause& operator=(const ConversionPause&) = delete;
+
+ private:
+  CharConv& conv_;
+  bool was_;
+};
+
 }  // namespace
 
 MessageLanguage language_from_lang(std::optional<std::string_view> lang) {
@@ -80,6 +95,7 @@ MessageLanguage default_message_language() {
 std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args) {
   const std::string fallback = fallback_text(machine, key, args);
   const std::string goal = goal_text(machine, key, args);
+  const ConversionPause pause(engine_impl(machine).char_conv);
   try {
     // 読み込みは指示でしか書けないので、問い合わせの前に済ませる。カタログは何も公開しないので、
     // use_module でも user の名前は増えない。2 度目からは読み直さない。
