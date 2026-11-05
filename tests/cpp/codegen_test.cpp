@@ -267,6 +267,18 @@ void octal_before_digit() {
   check(!has(result.source, "\\2021"), "no digit directly after an octal escape");
 }
 
+// ??= などの並びは C++20 では 3 文字表記にならないが、GCC と Clang は字面の中で -Wtrigraphs を出し、MOSA_WERROR では
+// 生成コードがコンパイルできない（レビュー L9）。字面の ? はどれも \? にする。GCC は行末の ??/ の // コメントにも出す。
+void trigraph_literal() {
+  const EmitResult result = emit_user("p('a?\?=b?\?/').\n");
+  check(has(result.source, "{\"a\\?\\?=b\\?\\?/\", 8}"), "question marks escaped in the atom literal");
+  check(has(result.source, "% p('a?\?=b?\?/')."), "clause comment keeps the text");
+  check(mosa::codegen::comment_safe("dir?\?/") == "dir?\?/.", "comment_safe closes a trailing ?\?/");
+  check(mosa::codegen::comment_safe("a?\?/ \n") == "a?\?/  .", "comment_safe closes ?\?/ before blanks");
+  check(mosa::codegen::comment_safe("a?\?/b") == "a?\?/b", "comment_safe keeps an inner ?\?/");
+  check(mosa::codegen::comment_safe("a?/") == "a?/", "comment_safe keeps a single ? before /");
+}
+
 // 行末が \ の // コメントは次の行をつなぎ、生成コードが黙って消える。\ の後に空白を置いても GCC と Clang はつなぐ。
 bool line_ends_in_backslash(const std::string& text) {
   std::istringstream lines{text};
@@ -377,6 +389,7 @@ int main() {
   dynamic_skipped();
   japanese_unit();
   octal_before_digit();
+  trigraph_literal();
   comment_backslash();
   project_modules();
   project_opaque();

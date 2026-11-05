@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|refused|duplicate|silent|newop|refused_op|halt> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|refused|duplicate|silent|newop|refused_op|halt|trigraph> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -140,6 +140,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB "${exe}"
 # newop.pl は翻訳のときに飛ばした指示のゴールが op/3 を定義する。翻訳器は後の項を読めないが誤りにせず、
 # その述語は起動時に IR のまま動く。refused_op.pl は同じ指示の後の節を翻訳が読み違えて断るが、起動時には正しい節と
 # 読む（M10 の Codex レビュー）。halt.pl は指示の halt(3) で読み込みを止め、後の指示も main も動かさない。
+# trigraph.pl は字面の ? を \? にしないと -Wtrigraphs の警告でコンパイルできない（レビュー L9）。
 set(expected_code 0)
 if(CASE STREQUAL "hello")
   set(expected "こんにちは\n")
@@ -150,6 +151,8 @@ elseif(CASE STREQUAL "refused_op")
 elseif(CASE STREQUAL "halt")
   set(expected "a\n")
   set(expected_code 3)
+elseif(CASE STREQUAL "trigraph")
+  set(expected "a??=b??/c??(d??)e??!f??<g??>h??-i??'j\n")
 else()
   set(expected "x")
 endif()

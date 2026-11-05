@@ -52,6 +52,8 @@ constexpr std::string_view kUsings = "using mosa::Cell;\nusing mosa::Machine;\nu
 // // のコメントの中では後ろに空白しか置けない（[lex.comment]）ので、制御文字はまとめて空白にする。
 // 行末の \ は次の行をコメントにつなぎ（[lex.phases] の 2）、生成コードが黙って消える。\ の後に空白を置いても
 // GCC と Clang はつなぐので、空白でない . を足す。どこに置いても行末になりうるよう、断片ごとにここで直す。
+// 行末の ??/ も 3 文字表記なら \ になり、C++20 の GCC は -Wtrigraphs で警告する（MOSA_WERROR では誤り。レビュー L9）。
+// 行の中の ??/ と 3 文字表記の他の形は、// のコメントの中では GCC も Clang も警告しない。
 std::string comment_safe(std::string_view text) {
   std::string out{text};
   for (char& unit : out) {
@@ -59,7 +61,8 @@ std::string comment_safe(std::string_view text) {
     if (byte < 0x20 || byte == 0x7F) unit = ' ';
   }
   const auto last = out.find_last_not_of(' ');
-  if (last != std::string::npos && out[last] == '\\') out += '.';
+  if (last == std::string::npos) return out;
+  if (out[last] == '\\' || std::string_view{out}.substr(0, last + 1).ends_with("?\?/")) out += '.';
   return out;
 }
 
@@ -421,12 +424,14 @@ std::string float_literal(double value) {
 // UTF-8 のバイトは 3 桁の 8 進にする。MSVC の既定のコードページでも字面が変わらない。長さは明示する（NUL を含みうる）。
 // 8 進の直後に 10 進の数字が続くと MSVC が /W4 で C4125 を出す（警告は誤りにしている）ので、そこで字面を一度閉じて
 // 隣の字面としてつなぐ。テスト: tests/cpp/codegen_test.cpp の octal_before_digit。
+// ? も \? にする。??= などは C++20 では 3 文字表記にならないが、GCC と Clang は字面の中でも -Wtrigraphs で警告し、
+// MOSA_WERROR では生成コードがコンパイルできない（レビュー L9）。テスト: 同じファイルの trigraph_literal。
 std::string string_literal(std::string_view text) {
   std::string out = "std::string_view{\"";
   for (std::size_t at = 0; at < text.size(); ++at) {
     const char unit = text[at];
     const auto byte = static_cast<unsigned char>(unit);
-    if (unit == '"' || unit == '\\') {
+    if (unit == '"' || unit == '\\' || unit == '?') {
       out += '\\';
       out += unit;
     } else if (byte >= 0x20 && byte < 0x7F) {
