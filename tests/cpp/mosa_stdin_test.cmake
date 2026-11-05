@@ -25,4 +25,8 @@ expect_output("version ignores stdin" "^mosa 0\\.0\\.1 \\(phase 6\\)" --version)
 file(WRITE "${input}" "X = 1.5.\nfoo(2.25).\n")
 # = の項は = の右の被演算子として括弧に入る（レビュー M27）。
 expect_output("float from stdin" "T = \\(_[A-Za-z0-9]*=1\\.5\\), U = foo\\(2\\.25\\)\\." -g "read(T), read(U)." -t halt)
+# レビュー L10。-g は書いた順に動き、答えの行はそのゴールの write の出力のすぐ後に出る（端末でなくても）。
+# 終わりにまとめて書くと a、b の後に答えが並ぶ（敵対的レビュー A1）。
+expect_output("goals in order" "^a\r?\ntrue\\.\r?\nX = 1\\.\r?\nb\r?\ntrue\\.\r?\n$"
+  -g "write(a), nl" -g "X = 1" -g "write(b), nl" -t halt)
 file(REMOVE "${input}")

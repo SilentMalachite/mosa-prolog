@@ -62,9 +62,8 @@ struct Cursor {
 
 struct Options {
   std::vector<std::string> files;
-  std::string goal;
+  std::vector<std::string> goals;  // -g は書いた順に動かす（SWI-Prolog と同じく繰り返してよい。レビュー L10）
   std::vector<std::string> program_args;
-  bool has_goal = false;
   bool top_halt = false;
   bool version = false;
   bool bad = false;
@@ -96,12 +95,11 @@ Options parse_args(std::span<const std::string_view> args) {
       continue;
     }
     if (arg == "-g") {
-      if (options.has_goal || index + 1 >= args.size()) {
+      if (index + 1 >= args.size()) {
         options.bad = true;
         return options;
       }
-      options.has_goal = true;
-      options.goal = std::string{args[++index]};
+      options.goals.emplace_back(args[++index]);
       continue;
     }
     if (arg == "-t") {
@@ -415,22 +413,20 @@ void run_with_machine(const Options& options, std::string_view input, bool tty, 
     result.code = play_main(*machine, *main_goal, echo);
     return;
   }
-  if (!tty && !options.has_goal) {
-    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
-    result.code = 1;
-    return;
-  }
-  if (options.has_goal) {
-    const bool interactive = tty && !options.top_halt;
+  // 対話では -g をプロンプトに打ったのと同じに全部動かす。一括では成功しなかった最初のゴールの値で終え、
+  // 後のゴールは動かさない（SWI-Prolog と同じ）。読めないゴールは例外と同じ扱い。
+  const bool interactive = tty && !options.top_halt;
+  for (const std::string& text : options.goals) {
     bool halted = false;
-    const auto goal = command_goal(*machine, options.goal, echo);
-    // 読めないゴールは例外と同じ扱い。対話ではプロンプトへ進み、一括では 2 で終える。
+    const auto goal = command_goal(*machine, text, echo);
     const int code = goal ? play_goal(*machine, *goal, interactive, cursor, echo, halted) : (interactive ? 0 : 2);
-    result.code = code;
-    if (halted || !interactive || code == 2) return;
-    result.code = 0;
+    if (halted || (!interactive && code != 0)) {
+      result.code = code;
+      return;
+    }
   }
-  if (tty && !options.top_halt) prompt_loop(*machine, cursor, echo);
+  // 端末でない入力と -t halt は、読み込みと -g の後で 0 で終える。mosac の実行ファイルと同じ（レビュー L10）。
+  if (interactive) prompt_loop(*machine, cursor, echo);
 }
 
 }  // namespace
@@ -459,12 +455,8 @@ SessionResult run_session(std::span<const std::string_view> args, std::string_vi
     echo.say(version_line() + "\n");
     return result;
   }
-  if (options.bad || (options.top_halt && !options.has_goal)) {
-    echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
-    result.code = 1;
-    return result;
-  }
-  if (!tty && !options.has_goal && options.files.empty()) {
+  // 端末でない入力で、ファイルも -g も -t halt も無ければ、何をするのかが分からない。
+  if (options.bad || (!tty && options.goals.empty() && options.files.empty() && !options.top_halt)) {
     echo.warn(render_message_fresh(default_message_language(), "usage") + "\n");
     result.code = 1;
     return result;

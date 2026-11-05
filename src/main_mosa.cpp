@@ -23,13 +23,11 @@ int main(int argc, char** argv) {
   const bool tty = mosa::standard_input_is_terminal();
   // 上限は --heap-max → MOSA_HEAP_MAX → 既定。API は環境変数を読まないので、ここで読んで渡す。
   const std::size_t env_limit = mosa::heap_max_from_environment();
+  // 答えの行と警告は端末でなくてもその場で書く。終わりにまとめて書くと、-g を複数書いたとき前のゴールの答えが
+  // 後のゴールの write の出力より後ろに来る（レビュー L10 の敵対的レビュー A1）。
   try {
-    const mosa::SessionResult result = mosa::run_session(args, std::string_view{}, tty, env_limit,
-                                                         tty ? &std::cout : nullptr, tty ? &std::cerr : nullptr);
-    if (!tty) {
-      std::cout << result.out;
-      std::cerr << result.err;
-    }
+    const mosa::SessionResult result =
+        mosa::run_session(args, std::string_view{}, tty, env_limit, &std::cout, &std::cerr);
     return result.code;
   } catch (...) {
     if (!mosa::is_heap_exhaustion()) throw;

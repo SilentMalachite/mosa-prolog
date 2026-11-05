@@ -62,10 +62,12 @@ Executables go to `build/` (`build/Release/` on Windows).
 ### `mosa` (interpreter)
 
 ```sh
-mosa [file...] [-g goal] [-t halt] [--heap-max MiB] [-- argument...]
+mosa [file...] [-g goal]... [-t halt] [--heap-max MiB] [-- argument...]
 ```
 
-Started from a terminal with no goal, `mosa` enters interactive mode. A `-g` goal may end with `.` or leave it out, as in SWI-Prolog. A goal that cannot be read prints a syntax error; with `-t halt` the exit status is then 2.
+Started from a terminal without `-t halt`, `mosa` enters interactive mode once any `-g` goals have run. A `-g` goal may end with `.` or leave it out, as in SWI-Prolog. A goal that cannot be read prints a syntax error; with `-t halt` the exit status is then 2.
+
+`-g` may be given more than once, and the goals run in order. With `-t halt`, or when standard input is not a terminal, the first goal that fails or raises an exception (or cannot be read) ends the run with status 1 or 2, and the later goals do not run; at a terminal every goal runs as if typed at the prompt, and interactive mode follows. With no `-g`, a run with `-t halt` or without a terminal exits 0 once the files have loaded, as an executable built by `mosac` does. Without a terminal, at least one file, `-g` or `-t halt` is needed; with none of them `mosa` prints the usage text and exits 1. Answer lines are written as each goal finishes, so they stay in order with the program's own output.
 
 Everything after `--` is passed to the program as the read-only flag `argv`, a list of atoms (`[]` without `--`). A file with `:- initialization(main, main).` calls `main` once after loading and then exits: 0 on success, 1 on failure, 2 after printing an uncaught exception, and the `halt/1` value if `main` halts. It then neither enters interactive mode nor runs `-g`.
 
