@@ -46,6 +46,12 @@ Cell formal_representation(Impl& machine, std::string_view which) {
                                 std::array<Cell, 1>{machine.heap.atom(machine.atoms.intern(which))});
 }
 
+// 7.12.2 h の resource_error(Resource)。Resource は処理系依存。
+Cell formal_resource(Impl& machine, std::string_view which) {
+  return machine.heap.structure(machine.atoms.intern("resource_error"),
+                                std::array<Cell, 1>{machine.heap.atom(machine.atoms.intern(which))});
+}
+
 Cell formal_syntax(Impl& machine, Cell detail) {
   return machine.heap.structure(machine.atoms.intern("syntax_error"), std::array<Cell, 1>{detail});
 }

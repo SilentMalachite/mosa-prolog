@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 8520e80, CI run 42005277509 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** L19 A1 (2aa1cdf; owner decision A, ADR 0006 amendment 1: a file found through `library(...)` is read with the ISO core and its own module's operators; ctest `library_ops`). Before it, L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
-- **Next:** L20, L21, L22, L23 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** L20 (owner decision A, 2026-11-06, iso-notes 7.3.3: a compound term met again on its own evaluation path raises `resource_error(cyclic_term)`; Brent's cycle detection in `CycleWatch`, src/builtins/arith.cpp). Before it, L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Next:** L21, L22, L23 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open

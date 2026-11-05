@@ -21,7 +21,8 @@
 // tab(+evaluable) / tab(+stream_or_alias, +evaluable)。非 ISO（SPEC 第7節の段階 G、レビュー M11）。
 //   SWI-Prolog の pl-file.c と同じく流れを先に調べ、次に N を is/2 と同じく評価し、0 以下なら何も書かない。
 //   流れの誤りは nl/1 と同じ。加えて instantiation_error, type_error(evaluable, F/A),
-//   type_error(integer_expression, N)（値が整数でない。N は評価する前の式）と評価の誤り
+//   type_error(integer_expression, N)（値が整数でない。N は評価する前の式）と評価の誤り、
+//   resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）
 // テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"

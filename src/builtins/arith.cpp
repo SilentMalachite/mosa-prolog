@@ -1,3 +1,10 @@
+// 8.6.1 is/2 と 8.7.1 算術比較（=:=、=\=、<、=<、>、>=）が使う式の評価（7.9）。is(?term, @evaluable)、
+// =:=(@evaluable, @evaluable) ほか。誤り: instantiation_error, type_error(evaluable, F/A),
+// type_error(integer, X), type_error(float, X), type_error(integer_expression, E)（tab/1,2 が使う
+// eval_int_expression）, evaluation_error(zero_divisor | undefined | int_overflow | float_overflow),
+// resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。
+// テスト: tests/pl/arith.pl, tests/pl/native.pl, tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp
+
 #include "../machine/internal.hpp"
 #include "evaluable.hpp"
 #include "mosa/runtime.hpp"
@@ -40,6 +47,11 @@ void fail_eval(Impl& machine, const Goal& goal, std::string_view which) {
 
 void fail_evaluable(Impl& machine, const Goal& goal, Cell culprit) {
   raise_formal(machine, formal_type(machine, "evaluable", culprit), goal.name, goal.arity);
+}
+
+// 循環する式（7.3.3 は未定義）は resource_error(cyclic_term)（iso-notes 7.3.3、レビュー L20 の持ち主の決定 A）。
+void fail_cyclic(Impl& machine, const Goal& goal) {
+  raise_formal(machine, formal_resource(machine, "cyclic_term"), goal.name, goal.arity);
 }
 
 void fail_integer(Impl& machine, const Goal& goal, Cell culprit) {
@@ -551,8 +563,48 @@ struct EvalFrame {
 // この深さまでは C++ の再帰で評価する。より深い式は手で積んで評価する（ADR 0011 の改訂 2）。
 constexpr int kShallow = 64;
 
-// 後順に評価する。引数は左から評価するので、最初に投げる誤りは再帰と同じになる。
-Ev eval_deep(Impl& machine, const Goal& goal, Cell root) {
+// 循環する式の見張り（Brent の方法を根からの道に当てる）。道の各段は下の段の引数なので、見張りの段は入る段の
+// 祖先で、同じ複合項なら式は循環している。終わらない評価は、同じ部分項を毎回同じに評価するので、ある段から先の
+// 消えない段は同じ周期で並ぶ。見張りは入った段の数が 1, 2, 4, … に届くたびにその段へ移り、その段が脇道ごと
+// 評価を終えれば親へ下がるので、いずれ消えない段に留まり、窓が 1 周期より長くなればその周期のうちに同じ段と
+// 出会う。比べるのは入るたびの 1 回だけで、見つけるまでの手間は循環しない部分と 1 周期の評価の数倍に収まる。
+// 前は深さが倍になるたびに真ん中の段を探したので、閉路の中に深い脇道があると真ん中が脇道に落ちて見逃し続け、
+// 手間が脇道の深さの 2 乗になった（レビュー L20 の敵対的レビュー A1）。C++ の再帰と eval_deep で 1 つを共有する。
+// 再帰の側だけ深さで見張りを移すと、循環しない部分が 33〜63 段の閉路を 31 周まで回った（再確認の B1）。
+struct CycleWatch {
+  Cell watched{};
+  std::size_t watched_depth = 0;
+  std::size_t entered = 0;
+  std::size_t window = 1;
+
+  // 深さ depth（根は 0）の複合項 cell に入る。
+  [[nodiscard]] bool enter(Cell cell, std::size_t depth) {
+    if (depth == 0) {
+      watched = cell;
+      return false;
+    }
+    if (cell.raw() == watched.raw()) return true;
+    if (++entered == window) {
+      watched = cell;
+      watched_depth = depth;
+      entered = 0;
+      window *= 2;
+    }
+    return false;
+  }
+
+  // 深さ depth の複合項 cell の子が評価を終えた。見張りがその子の側にあれば、この段へ下げる。
+  void returned(Cell cell, std::size_t depth) {
+    if (watched_depth > depth) {
+      watched = cell;
+      watched_depth = depth;
+    }
+  }
+};
+
+// 後順に評価する。引数は左から評価するので、最初に投げる誤りは再帰と同じになる。root は深さ depth で、
+// eval_at が見張りに入れ終えている。前は循環する式で stack が --heap-max の外で限りなく育った（レビュー L20）。
+Ev eval_deep(Impl& machine, const Goal& goal, Cell root, std::size_t depth, CycleWatch& watch) {
   std::vector<EvalFrame> stack{{root, 0}};
   std::vector<Num> nums;
   while (true) {
@@ -565,6 +617,10 @@ Ev eval_deep(Impl& machine, const Goal& goal, Cell root) {
         nums.push_back(leaf->num);
       } else {
         stack.push_back(EvalFrame{next, nums.size()});
+        if (watch.enter(next, depth + stack.size() - 1)) {
+          fail_cyclic(machine, goal);
+          return {};
+        }
       }
       continue;
     }
@@ -574,26 +630,36 @@ Ev eval_deep(Impl& machine, const Goal& goal, Cell root) {
     nums.resize(top.base);
     stack.pop_back();
     if (stack.empty()) return ev;
+    watch.returned(stack.back().cell, depth + stack.size() - 1);
     nums.push_back(ev.num);
   }
 }
 
-Ev eval_at(Impl& machine, const Goal& goal, Cell cell, int depth) {
+Ev eval_at(Impl& machine, const Goal& goal, Cell cell, int depth, CycleWatch& watch) {
   cell = machine.heap.deref(cell);
   if (auto leaf = eval_leaf(machine, goal, cell)) return *leaf;
-  if (depth >= kShallow) return eval_deep(machine, goal, cell);
+  const auto level = static_cast<std::size_t>(depth);
+  if (watch.enter(cell, level)) {
+    fail_cyclic(machine, goal);
+    return {};
+  }
+  if (depth >= kShallow) return eval_deep(machine, goal, cell, level, watch);
   const auto arity = machine.heap.functor_arity(cell);
   std::vector<Num> args;
   args.reserve(arity);
   for (std::uint16_t index = 0; index < arity; ++index) {
-    const Ev ev = eval_at(machine, goal, machine.heap.arg(cell, index), depth + 1);
+    const Ev ev = eval_at(machine, goal, machine.heap.arg(cell, index), depth + 1, watch);
     if (!ev.ok) return {};
+    watch.returned(cell, level);
     args.push_back(ev.num);
   }
   return eval_apply(machine, goal, cell, args);
 }
 
-Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) { return eval_at(machine, goal, cell, 0); }
+Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {
+  CycleWatch watch;
+  return eval_at(machine, goal, cell, 0, watch);
+}
 
 Cell num_cell(Impl& machine, Num num) {
   if (num.flt) return machine.heap.floating(num.fval);

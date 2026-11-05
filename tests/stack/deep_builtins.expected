@@ -38,4 +38,8 @@ is_right:ok
 compare_arith:ok
 is_instantiation:ok
 is_evaluable:ok
+is_cyclic:ok
+is_cyclic_after_deep:ok
+is_cyclic_side:ok
+is_cyclic_side_prefix:ok
 call_cyclic_leaves:ok

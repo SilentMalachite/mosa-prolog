@@ -96,3 +96,7 @@ test(fmt_float_f, '$format_float'(f, 2, 2.5, A), solutions([A = '2.50'])).
 test(fmt_float_e, '$format_float'(e, 1, 2.5, A), solutions([A = '2.5e+00'])).
 test(fmt_float_type, '$format_float'(f, 2, 1, _), error(type_error(float, 1))).
 test(fmt_float_neg, '$format_float'(f, -1, 1.0, _), error(domain_error(not_less_than_zero, -1))).
+% レビュー L20。~d は引数を is/2 と同じく評価するので、循環する式の誤りも is/2 のものになる。
+test(l20_fmt_cyclic_d, (X = X+1, format("~d", [X])), error(resource_error(cyclic_term))).
+test(l20_fmt_cyclic_e, (X = X+1, format("~e", [X])), error(resource_error(cyclic_term))).
+test(l20_fmt_cyclic_column, (X = 1+X, format("~*c", [X, 0'a])), error(resource_error(cyclic_term))).

@@ -203,3 +203,7 @@ scc_cut_two_m11 :- setup_call_cleanup(true, setup_call_cleanup(true, member(_, [
 scc_cut_throw_bound_m11 :- setup_call_cleanup(true, (true ; true), X = foo), !, throw(X).
 scc_commit_throw_m11 :- ( setup_call_cleanup(true, (true ; true), X = foo) -> throw(X) ; true ).
 scc_note_m11(Key, X) :- ( var(X) -> nb_setval(Key, unbound) ; nb_setval(Key, X) ).
+% レビュー L20。tab/1 の引数も式として評価する。
+test(l20_tab_cyclic, (X = X+1, with_output_to(atom(_), tab(X))), error(resource_error(cyclic_term))).
+test(l20_tab2_cyclic, (X = X+1, with_output_to(atom(_), (current_output(S), tab(S, X)))),
+     error(resource_error(cyclic_term))).

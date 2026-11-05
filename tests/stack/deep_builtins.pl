@@ -129,5 +129,14 @@ main :-
     show(compare_arith, (sum_left(D, 0, E), sum_right(D, 0, F), E =:= F)),
     show(is_instantiation, (sum_left(D, _, E), catch(_ is E, error(instantiation_error, _), true))),
     show(is_evaluable, (sum_right(D, foo, E), catch(_ is E, error(type_error(evaluable, foo/0), _), true))),
+    % レビュー L20。周期が D の循環する式、深さ D の後ろの閉路、閉路の中の深さ D の脇道。どれも誤りで止まる。
+    show(is_cyclic, (sum_right(D, X, E), X = E, catch((_ is E, fail), error(resource_error(cyclic_term), _), true))),
+    show(is_cyclic_after_deep, (sum_left(D, X, E), X = X+1,
+                                catch((_ is E, fail), error(resource_error(cyclic_term), _), true))),
+    show(is_cyclic_side, (sum_left(D, 0, S), X = S+X, catch((_ is X, fail), error(resource_error(cyclic_term), _), true))),
+    % 閉路の前に 100 段。見張りは eval_deep の中で脇道へ移っては親へ下がる。深さが倍になるたびに真ん中の段を探した版は
+    % 脇道の深さの 2 乗かかり、ここで止まらなかった（敵対的レビュー A1、再確認の B2）。
+    show(is_cyclic_side_prefix, (sum_left(D, 0, S), X = S+X, sum_right(100, X, E),
+                                 catch((_ is E, fail), error(resource_error(cyclic_term), _), true))),
     % レビュー M13。葉の引数が訳している途中のゴール自身を指す巡回するゴール。葉ごとに全体を写すと 2 乗以上になる。
     show(call_cyclic_leaves, (cyclic_leaves(D, X, G), X = G, call(X))).

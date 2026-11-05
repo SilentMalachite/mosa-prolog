@@ -210,7 +210,7 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 | Choice point stack | Holds the continuation, trail position, heap position, pointer to the alternative clause, and cut barrier |
 | GC | None until Phase 5 (only reclamation by backtracking). A sliding mark-and-compact collector that runs only at safe points between steps is added in Phase 7 (ADR 0010). Near the limit, 3 GCs in a row that each free fewer than `limit / 32` words stop the query with the heap-limit message. Provide `garbage_collect/0` |
 | Atom table | UTF-8 byte sequence → 32-bit atom number. Does not need to be thread-safe (non-goal) |
-| Exceptions | Prolog's `throw/1` does not use C++ exceptions; it pushes `catch` frames on the choice point stack and unwinds them. C++ exceptions are used only for fatal errors inside the runtime (`resource_error`) |
+| Exceptions | Prolog's `throw/1` does not use C++ exceptions; it pushes `catch` frames on the choice point stack and unwinds them. C++ exceptions are used only for fatal errors inside the runtime (`resource_error`, such as the heap limit). `resource_error(cyclic_term)` from evaluating a cyclic expression is not fatal: it is thrown like other errors (iso-notes 7.3.3) |
 | Streams | `Stream` abstract class + implementations for files / standard I/O / memory (equivalent to `open_string`). Buffering and peeking (`peek_char/1`) are built in |
 
 **Execution model: binarization + explicit continuations**

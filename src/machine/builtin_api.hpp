@@ -22,6 +22,7 @@ namespace mosa {
 [[nodiscard]] Cell formal_existence_at(Impl& machine, std::string_view kind, Cell where, Cell culprit);
 [[nodiscard]] Cell formal_evaluation(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_representation(Impl& machine, std::string_view which);
+[[nodiscard]] Cell formal_resource(Impl& machine, std::string_view which);
 [[nodiscard]] Cell formal_syntax(Impl& machine, Cell detail);
 [[nodiscard]] Cell formal_system(Impl& machine);
 [[nodiscard]] bool run_types(Impl& machine, const Goal& goal);

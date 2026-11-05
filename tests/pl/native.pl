@@ -34,6 +34,11 @@ mk(L) :- L = [B, A], g(A), g(B).
 mk_head([B, A]) :- g(A), g(B).
 g(_).
 
+% レビュー L20。生成コードは is/2 と比較を rt::arith_is と rt::arith_compare で評価する。循環する式はどちらも
+% resource_error(cyclic_term) を投げる。
+l20_eval(X, Y) :- Y is X.
+l20_less(X) :- X < 0.
+
 test(native_fact, color(green), true).
 test(native_fact_all, color(C), solutions([C = red, C = green, C = blue])).
 test(native_fact_none, color(black), fail).
@@ -234,3 +239,6 @@ test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
 % 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。
 % 代表は Y で、間にある W より新しい。向きが逆なら代表は X になり W より古い
 test(native_var_head, (T = t(X, W, Y), app([X], [], [Y]), X @> W, T = t(_, _, _)), true).
+test(native_l20_is_cyclic, (X = X+1, l20_eval(X, _)), error(resource_error(cyclic_term))).
+test(native_l20_compare_cyclic, (X = 1+X, l20_less(X)), error(resource_error(cyclic_term))).
+test(native_l20_is_plain, l20_eval(1+2, Y), solutions([Y = 3])).

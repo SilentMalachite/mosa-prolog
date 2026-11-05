@@ -1,3 +1,12 @@
+% レビュー L20 のテストが使う式の組み立て。test/3 の節を離さないよう先頭に置く。
+l20_right(0, X, X) :- !.
+l20_right(N, X, Y) :- M is N - 1, l20_right(M, 1+X, Y).
+l20_left(0, X, X) :- !.
+l20_left(N, X, Y) :- M is N - 1, l20_left(M, X+1, Y).
+% 葉ごとに同じ部分項 S を共有する深い式。共有は循環ではない。
+l20_shared(0, _, X, X) :- !.
+l20_shared(N, S, X, Y) :- M is N - 1, l20_shared(M, S, X+S, Y).
+
 test(quot, (X is -5 // 2), solutions([X = -2])).
 test(floor_div, (X is div(-5, 2)), solutions([X = -3])).
 test(zero, (X is 1 / 0), error(evaluation_error(zero_divisor))).
@@ -167,3 +176,38 @@ test(l2_min_zero_right, (X is min(0.0, -0.0), X == -0.0), true).
 test(l2_max_zero_int, (X is max(-0.0, 0), Y is max(0, -0.0), X == 0.0, Y == 0.0), true).
 test(l2_min_zero_int, (X is min(-0.0, 0), Y is min(0, -0.0), X == -0.0, Y == -0.0), true).
 test(l2_max_zero_same, (X is max(-0.0, -0.0), X == -0.0), true).
+
+% レビュー L20 のテスト（持ち主の決定 A、iso-notes 7.3.3）。循環する式は resource_error(cyclic_term) を投げ、止まる。
+% 評価する前に誤りになるもの（評価できない関数子、未束縛の変数）は、左から順に評価して先に出会えばそちらになる。
+test(l20_cyclic_left, (X = X+1, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_right, (X = 1+X, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_both, (X = X*X, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_unary, (X = -X, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_mutual, (X = Y+1, Y = X*2, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_inner, (X = 1+X, _ is 2*(3-X)), error(resource_error(cyclic_term))).
+test(l20_cyclic_long_period, (l20_right(300, X, E), X = E, _ is E), error(resource_error(cyclic_term))).
+test(l20_cyclic_after_deep, (l20_right(300, X, E), X = 1+X, _ is E), error(resource_error(cyclic_term))).
+test(l20_cyclic_side_first, (l20_left(500, 0, S), X = S+X, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_side_both, (l20_left(500, 0, S), X = (S+X)+S, _ is X), error(resource_error(cyclic_term))).
+% 閉路の中に深い脇道がある。見張りは脇道へ移っても、脇道を評価し終えれば親へ下がるので、手間は脇道の深さに比例する
+% （敵対的レビュー A1。深さが倍になるたびに真ん中の段を探した前の版は 2 乗で、深さ 32000 に 48 秒かかった）。
+test(l20_cyclic_side_deep, (l20_left(20000, 0, S), X = S+X, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_side_deep_prefix, (l20_left(1000, 0, S), X = S+X, l20_right(20000, X, E), _ is E),
+     error(resource_error(cyclic_term))).
+% 閉路の前の部分が 33〜63 段。C++ の再帰の見張りを深さだけで移した版は、ここで閉路を 31 周まで回った（再確認の B1）。
+test(l20_cyclic_side_mid, (l20_left(2000, 0, S), X = S+X, l20_right(40, X, E), _ is E), error(resource_error(cyclic_term))).
+test(l20_cyclic_var_later, (X = X+_, _ is X), error(resource_error(cyclic_term))).
+test(l20_cyclic_var_first, (X = _+X, _ is X), error(instantiation_error)).
+test(l20_cyclic_evaluable_first, (X = foo+X, _ is X), error(type_error(evaluable, foo/0))).
+test(l20_cyclic_not_evaluable, (X = f(X), _ is X), error(type_error(evaluable, f/1))).
+test(l20_cyclic_compare_left, (X = X+1, X > 0), error(resource_error(cyclic_term))).
+test(l20_cyclic_compare_right, (X = 1+X, 0 =:= X), error(resource_error(cyclic_term))).
+test(l20_cyclic_compare_ne, (X = 1+X, X =\= 0), error(resource_error(cyclic_term))).
+test(l20_cyclic_caught, (X = X+1, catch(_ is X, error(E, _), true), Y is 1+2), solutions([(E = resource_error(cyclic_term), Y = 3)])).
+test(l20_deep_not_cyclic, (l20_right(2000, 0, E), X is E), solutions([X = 2000])).
+% 見張りが共有の S へ移っても、S を評価し終えれば親へ下がる。下がらなければ次の S で同じ項に出会い、循環と取り違える
+% （CycleWatch::returned を外すとこれが落ちる）。
+test(l20_shared_not_cyclic, (S = 2*3, l20_shared(2000, S, 0, E), X is E), solutions([X = 12000])).
+% 深い部分項 T を 2 つの引数で共有する。
+test(l20_shared_deep_twice, (l20_right(2000, 0, T), X is T + T), solutions([X = 4000])).
+test(l20_shared_deep_aliases, (l20_right(2000, 0, T), A = T, B = T, X is A - B), solutions([X = 0])).
