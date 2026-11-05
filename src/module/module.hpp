@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -131,6 +132,32 @@ void adopt_meta(Machine::Impl& machine, Predicate& predicate);
                                  std::string name);
 // from の公開の演算子を into の層へ入れる。use_module/1、except、consult の取り込みで呼ぶ。
 [[nodiscard]] std::optional<Cell> import_ops(Machine::Impl& machine, std::uint32_t from, std::uint32_t into);
+
+// user の表へ ops を順に入れる。library(...) を読む間は、退けた利用者の表にも入れる（ADR 0006 の改訂 1）。
+// どれかの表が拒否すれば、どの表も変えずに、拒否した ops の位置と理由を返す。
+struct UserOpFailure {
+  std::size_t index = 0;
+  OpResult result = OpResult::Ok;
+};
+[[nodiscard]] std::optional<UserOpFailure> define_user_ops(Machine::Impl& machine, std::span<const OpDef> ops);
+
+// library(...) のファイルを読む間、全体の表（user の層）を退けて ISO の核を置く（ADR 0006 の改訂 1）。退けた表は
+// set_aside_ops に積まれ、その間の user の op/3 も受ける。finish() はそれを全体の表に戻す。finish() を呼ばずに
+// 抜けると（読み込みの失敗、C++ の例外）、表も退けた表の並びも入る前の形に戻す。
+class CoreOperatorScope {
+ public:
+  explicit CoreOperatorScope(Machine::Impl& machine);
+  ~CoreOperatorScope();
+  CoreOperatorScope(const CoreOperatorScope&) = delete;
+  CoreOperatorScope& operator=(const CoreOperatorScope&) = delete;
+  void finish();
+
+ private:
+  Machine::Impl& machine_;
+  std::vector<OperatorTable> saved_aside_;
+  OperatorTable saved_ops_;
+  bool restored_ = false;
+};
 
 // user の述語は N/A、ほかは M:N/A（iso-notes 第5節の決定 A）。
 [[nodiscard]] Cell module_indicator(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,

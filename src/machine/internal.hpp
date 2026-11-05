@@ -331,6 +331,9 @@ struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
   OperatorTable operators;
+  // library(...) を読む間に退けた利用者の表。外側の読み込みのものが先（ADR 0006 の改訂 1）。user の op/3 は
+  // operators と同じくここへも入るので、読み終えて戻した表に、ISO の既定と同じ値への変更も衝突も正しく残る。
+  std::vector<OperatorTable> set_aside_ops;
   std::uint64_t effect_clock = 0;
   // 0 が stdin、1 が stdout、2 が stderr。読み書きそのものは get と put が行う。
   std::vector<Stream> streams;

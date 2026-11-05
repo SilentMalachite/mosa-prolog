@@ -469,6 +469,8 @@ A or B?: A: a local `op(0, T, N)` hides the `user` and ISO core operator of that
 
 Decision (2026-10-28): A for both. Lookup is the module's own layer, then the `user` table (which holds the ISO core). `op/3`, `current_op/3`, `read_term/2,3` and the `write` family use the caller's context module. A `:- op` directive in a module file defines into that module. Importing into `user` puts the operator in the `user` table, so every module sees it.
 
+Amendment (2026-11-06, owner decision A on review L19 A1, ADR 0006 amendment 1): while a file found through `library(...)` is read, the ISO core stands in for the `user` table, so the file's own layer and the core read it; its `user:op/3` goes into both the core and the set-aside `user` table at once, and is refused if either refuses it.
+
 ## 7.4.2.8 Per-file flags and initialization/1
 
 SPEC section 5 restores `double_quotes` and `japanese_punctuation` per file being loaded. 7.4.2.8 runs an `initialization/1` goal after the Prolog text has been prepared, but does not say whether it sees the flags the file set.

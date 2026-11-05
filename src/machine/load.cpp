@@ -73,11 +73,19 @@ void restore_file_flags(Impl& machine, const SavedFlags& saved) {
   machine.japanese_punct = saved.japanese_punct;
 }
 
-LoadStatus reject_load(Impl& machine, const OperatorTable& saved_ops, const SavedFlags& saved_flags,
+// 読み込みの前の演算子。library(...) を読む間に退けた利用者の表も、その読み込みの user の op/3 を受けるので戻す
+// （ADR 0006 の改訂 1）。
+struct SavedOps {
+  OperatorTable table;
+  std::vector<OperatorTable> aside;
+};
+
+LoadStatus reject_load(Impl& machine, const SavedOps& saved_ops, const SavedFlags& saved_flags,
                        const LoadSnapshots& snapshots, std::size_t previous_serial,
                        std::size_t heap_base, const std::vector<SharedPred>& saved_declared,
                        const std::vector<std::string>& saved_prepared, const std::vector<Module>& saved_modules) {
-  machine.operators = saved_ops;
+  machine.operators = saved_ops.table;
+  machine.set_aside_ops = saved_ops.aside;
   // 途中で作ったモジュールと取り込みを残さない。半分だけ登録されたモジュールが見えると解決が変わる。
   machine.modules = saved_modules;
   restore_flags(machine, saved_flags);
@@ -229,14 +237,18 @@ std::filesystem::path library_root(std::filesystem::path found, std::string_view
   return canonical_key(found);
 }
 
+bool names_library(const Impl& machine, Cell arg) {
+  return arg.tag() == Tag::Str && machine.heap.functor_arity(arg) == 1 &&
+         machine.atoms.name(machine.heap.functor_atom(arg)) == "library";
+}
+
 // use_module の第 1 引数。原子は読み込み中のファイルからの相対、library(Name) は、実行ファイルに同梱した一覧
 // （bundled に名前が入る。計画 Task 10）を先に引き、無ければ library_path の探索（SPEC 第5節）。同梱ライブラリの中の
 // 素のパスは擬似ディレクトリ library/ に解決するので、それも同じ一覧で引く。
 std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directory, std::filesystem::path& file,
                                std::optional<std::string>& bundled) {
   if (machine.heap.unbound(arg)) return formal_instantiation(machine);
-  if (arg.tag() == Tag::Str && machine.heap.functor_arity(arg) == 1 &&
-      machine.atoms.name(machine.heap.functor_atom(arg)) == "library") {
+  if (names_library(machine, arg)) {
     const Cell name = machine.heap.deref(machine.heap.arg(arg, 0));
     if (machine.heap.unbound(name)) return formal_instantiation(machine);
     if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
@@ -278,7 +290,12 @@ int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& sc
     }
   }
   if (!file_ready(machine, scan, file)) {
+    // library(...) で見つけたファイルは、利用者の表でなく ISO の核と自分のモジュールの演算子で読む（ADR 0006 の
+    // 改訂 1）。利用者が -> や :- を変えた後でも、ライブラリの節を別の項に読まない。
+    std::optional<CoreOperatorScope> core;
+    if (names_library(machine, arg)) core.emplace(machine);
     if (open_prolog_file(machine, file, scan, TextRole{true, false, true}) < 0) return -1;
+    if (core) core->finish();
     // 同梱ライブラリの翻訳済みの単位は、原文を読み終えてから付ける（ADR 0009）。
     if (bundled) attach_bundled_library(machine, *bundled);
   }
@@ -549,7 +566,7 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     predicate.dynamic_declared = false;
     predicate.meta_declared = false;
   }
-  const auto saved_ops = machine.operators;
+  const SavedOps saved_ops{machine.operators, machine.set_aside_ops};
   const SavedFlags saved_flags = save_flags(machine);
   const auto saved_declared = machine.declared;
   const auto saved_prepared = machine.prepared;

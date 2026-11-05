@@ -202,6 +202,30 @@ file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_gc/messages_en.pl
 add_test(NAME message_ops_gc COMMAND $<TARGET_FILE:message_ops_test> gc)
 set_tests_properties(message_ops_gc PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_gc")
 
+# ADR 0006 の改訂 1。library(...) のファイルは ISO の核と自分のモジュールの演算子で読む。plain.pl はパスで読む。
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/uselib.pl
+  ":- module(uselib, [pick/2]).\npick(X, Y) :- ( X > 0 -> Y = pos ; Y = neg ).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/userops.pl ":- module(userops, []).\n:- user:op(700, xfx, ===).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/rmops.pl ":- module(rmops, []).\n:- user:op(0, xfx, =..).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/localops.pl
+  ":- module(localops, [t/1]).\n:- op(700, xfx, ~~).\nt(a ~~ b).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/plain.pl "q(a === b).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/resetops.pl
+     ":- module(resetops, []).\n:- user:op(1050, xfy, ->).\n:- user:op(0, xfx, ===).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/swapops.pl
+     ":- module(swapops, []).\n:- user:op(0, yf, ===).\n:- user:op(700, xfx, ===).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/rejectops.pl
+     ":- module(rejectops, []).\n:- user:op(700, xfx, ===).\natom_length(a, 1).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/nestops.pl
+     ":- module(nestops, []).\n:- ( consult('${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/badops.pl') -> true ; true ).\n")
+file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/badops.pl ":- user:op(700, xfx, ===).\natom_length(a, 1).\n")
+add_executable(library_ops_test tests/cpp/library_ops_test.cpp)
+target_include_directories(library_ops_test PRIVATE tests/cpp)
+target_compile_definitions(library_ops_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(library_ops_test PRIVATE mosa_lib)
+add_test(NAME library_ops COMMAND $<TARGET_FILE:library_ops_test>)
+set_tests_properties(library_ops PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/library_ops")
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")

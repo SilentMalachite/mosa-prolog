@@ -13,7 +13,6 @@
 #include <array>
 #include <initializer_list>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -74,25 +73,6 @@ std::string goal_text(Machine& machine, std::string_view key, std::span<const Ce
   return written + full_stop_after(written);
 }
 
-// カタログと library(format) は ISO の表で読み、抜けるとき利用者の表に戻す（レビュー L19）。利用者が op/3 で = や
-// -> を変えると、format.pl の節が別の項に読まれて読み込みが落ち、文面が鍵の形になった。カタログも format.pl も
-// lists.pl も演算子を定義しないので、戻すときに失うものは無い。利用者がその前に自分の表で library(format) を
-// 読んでいれば、それを使い回す（L19 の敵対的レビュー A1、review に記録）。ISO の表は作り終えてから入れ替える。
-// 作る途中で確保に失敗しても、利用者の表はまだ動いていない（L19 の Codex レビュー）。
-class IsoOperators {
- public:
-  explicit IsoOperators(OperatorTable& table) : table_(table), user_(OperatorTable::iso_core()) {
-    std::swap(table_, user_);
-  }
-  ~IsoOperators() { std::swap(table_, user_); }
-  IsoOperators(const IsoOperators&) = delete;
-  IsoOperators& operator=(const IsoOperators&) = delete;
-
- private:
-  OperatorTable& table_;
-  OperatorTable user_;
-};
-
 // 文面を作る間は char_conversion を止め、抜けるとき戻す。目録の指示とゴールは Mosa が書いた字面で、カタログも Mosa の
 // 文書だからである（レビュー L17 の続き。止めないと a を b に写す変換の下で library が librbry に化け、鍵の形に落ちた）。
 // render_message は問い合わせの外でしか呼ばれないので、止めた旗を利用者のゴールが見ることは無い。
@@ -130,9 +110,12 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
     const std::string goal = goal_text(machine, key, args);
     // 読み込みは指示でしか書けないので、問い合わせの前に済ませる。カタログは何も公開しないので、
     // use_module でも user の名前は増えない。2 度目からは読み直さない。
+    // 指示の字面も Mosa のものなので、ISO の核で読む。カタログと library(format) は、use_module が library(...) の
+    // ファイルとして ISO の核で読む（レビュー L19、ADR 0006 の改訂 1）。利用者が先に読んだライブラリも同じく読まれている。
     {
-      const IsoOperators iso(engine_impl(machine).operators);
+      CoreOperatorScope core(engine_impl(machine));
       if (!machine.load_program(":- use_module(library(" + catalog_module(machine) + ")).\n").ok) return fallback;
+      core.finish();
     }
     const Stop stop = machine.query(goal);
     if (stop.kind != StopKind::Success) return fallback;

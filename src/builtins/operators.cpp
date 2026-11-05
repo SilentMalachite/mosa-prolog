@@ -103,12 +103,14 @@ std::vector<OpName> op_names(const Impl& machine, Cell names, const WalkedList& 
 }
 
 // 局所の層では優先度 0 も印として残す。拒否は user の表と重ねた見え方で決める。
-OpResult define_in(const Impl& machine, OperatorTable& trial, bool local, const OpRequest& request,
-                   const std::string& name) {
-  if (!local) return trial.define(request.priority, request.specifier, name);
+OpResult define_in(const Impl& machine, OperatorTable& trial, const OpRequest& request, const std::string& name) {
   const OpResult result = OperatorView{machine.operators, &trial}.admits(request.priority, request.specifier, name);
   if (result == OpResult::Ok) trial.define_local(request.priority, request.specifier, name);
   return result;
+}
+
+std::optional<Cell> op_permission(Impl& machine, OpResult result, Cell culprit) {
+  return formal_permission(machine, result == OpResult::ModifyComma ? "modify" : "create", "operator", culprit);
 }
 
 void run_op(Impl& machine, const Goal& goal) {
@@ -352,15 +354,22 @@ std::optional<Cell> read_op_request(Impl& machine, Cell priority, Cell specifier
 
 std::optional<Cell> commit_op_request(Impl& machine, std::uint32_t module, const OpRequest& request) {
   Module* local = module == machine.user_module ? nullptr : find_module(machine, module);
-  OperatorTable trial = local == nullptr ? machine.operators : local->ops;
+  // user の表は define_user_ops が替える。library(...) を読む間は、退けた利用者の表にも入れる（ADR 0006 の改訂 1）。
+  if (local == nullptr) {
+    std::vector<OpDef> ops;
+    ops.reserve(request.names.size());
+    for (const OpName& name : request.names) ops.push_back(OpDef{request.priority, request.specifier, name.text});
+    const auto failure = define_user_ops(machine, ops);
+    if (failure) return op_permission(machine, failure->result, request.names[failure->index].cell);
+    return std::nullopt;
+  }
+  OperatorTable trial = local->ops;
   for (const OpName& name : request.names) {
-    const OpResult result = define_in(machine, trial, local != nullptr, request, name.text);
-    if (result == OpResult::Ok) continue;
-    return formal_permission(machine, result == OpResult::ModifyComma ? "modify" : "create", "operator", name.cell);
+    const OpResult result = define_in(machine, trial, request, name.text);
+    if (result != OpResult::Ok) return op_permission(machine, result, name.cell);
   }
   // 検査が通ってから表を替える。変更は副作用で、バックトラックでも例外でも戻さない（iso-notes 8.14.3 の決定 A）。
-  if (local == nullptr) machine.operators = std::move(trial);
-  else local->ops = std::move(trial);
+  local->ops = std::move(trial);
   return std::nullopt;
 }
 

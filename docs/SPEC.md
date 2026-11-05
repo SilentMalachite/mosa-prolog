@@ -168,7 +168,7 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 - Arguments specified with `:`, `0`–`9`, `^`, or `//` in `meta_predicate/1` are wrapped as `呼び出し元モジュール:引数` (calling module:argument) at call time. This makes `maplist/2,3`, `findall/3`, `catch/3`, `forall/2`, etc. work correctly across modules
 - `multifile/1` takes the form `モジュール:PI` (Module:PI) and lets other modules add clauses
 - The `user` module is the top-level default. `library(...)` is searched in `$MOSA_LIB` and in `lib/` relative to the executable. An executable built by `mosac` first looks in the list of libraries bundled into it (Section 6) and searches those two places only for a library that is not bundled
-- `op/3` is local to the module that declares it. Writing `op(P, T, N)` in the export list makes it effective in importing modules too. Operators declared in `user` are visible in all modules
+- `op/3` is local to the module that declares it. Writing `op(P, T, N)` in the export list makes it effective in importing modules too. Operators declared in `user` are visible in all modules, except while a file found through `library(...)` is read: it is read with the ISO core and its own module's operators (ADR 0006, amendment 1)
 - The flags `double_quotes` and `japanese_punctuation` are saved and restored per module (more precisely, per file being loaded)
 
 **Handling in the translator (`mosac`)**
