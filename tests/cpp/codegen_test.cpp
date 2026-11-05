@@ -339,7 +339,7 @@ void project_modules() {
   write_file(dir / "part.pl", "part(_).\n");
   write_file(dir / "two.pl", ":- module(two, [twice/2]).\ntwice(X, Y) :- Y is X * 2.\n");
   const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "app.pl"), {});
-  check(project.ok, "project ok: " + project.diagnostic);
+  check(project.ok && project.warnings.empty(), "project ok: " + project.diagnostic + project.warnings);
   check(find_file(project, "muser.cpp") != nullptr && find_file(project, "mtwo.cpp") != nullptr, "unit per module");
   const auto* main_file = find_file(project, "main.cpp");
   check(main_file != nullptr && has(main_file->text, "part.pl"), "include embedded");
@@ -348,10 +348,20 @@ void project_modules() {
   check(user_at != std::string::npos && two_at != std::string::npos && user_at < two_at, "root unit first");
   write_file(dir / "skip.pl", ":- assertz(seen(1)).\nmain :- seen(1).\n");
   const auto skipped = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), {});
-  check(!skipped.ok && has(skipped.diagnostic, ":2: ") && has(skipped.diagnostic, "seen/1"), "directive skipped");
+  // 未定義の呼び出しは翻訳を止めない警告になる（レビュー L12、持ち主の決定 A。前は ok が偽だった）。
+  check(skipped.ok && has(skipped.warnings, ":2: ") && has(skipped.warnings, "seen/1"), "directive skipped");
   mosa::codegen::ProjectOptions units;
   units.check_calls = false;
-  check(mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), units).ok, "check_calls off");
+  const auto unchecked = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), units);
+  check(unchecked.ok && unchecked.warnings.empty(), "check_calls off");
+  // 止めた理由の export の誤りを先に、呼び出しの警告を後ろに書く（L12 の敵対的レビュー A8）。
+  write_file(dir / "bad_export.pl", ":- module(bad_export, [p/0, q/0]).\np :- nosuch.\n");
+  const auto refused = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "bad_export.pl"), {});
+  const auto export_at = refused.diagnostic.find("q/0");
+  const auto call_at = refused.diagnostic.find("nosuch/0");
+  check(!refused.ok && refused.warnings.empty() && export_at != std::string::npos && call_at != std::string::npos &&
+            export_at < call_at,
+        "export error before call warning: " + refused.diagnostic);
 }
 
 // 翻訳のときに飛ばした指示のゴールが op/3 を定義すると、後の項は翻訳器に読めない。誤りにせず、
@@ -367,6 +377,10 @@ void project_opaque() {
   write_file(dir / "plain_broken.pl", "r(a ===> b).\n:- true, op(700, xfx, ===>).\n");
   const auto broken = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "plain_broken.pl"), {});
   check(!broken.ok && has(broken.diagnostic, "plain_broken.pl:1:"), "syntax error before skip stays an error");
+  // 読めなかった項の定義は翻訳器に見えない。それを呼ぶ節に未定義の警告を出さない（L12 の敵対的レビュー A1）。
+  write_file(dir / "opaque_call.pl", "p :- r(_).\n:- true, op(700, xfx, ===>).\nr(a ===> b).\n");
+  const auto quiet = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "opaque_call.pl"), {});
+  check(quiet.ok && quiet.warnings.empty(), "no call warning past an opaque term: " + quiet.warnings);
   auto machine = Machine::create();
   check(machine->load_program(kApp).ok, "load app");
   const auto& impl = mosa::engine_impl(*machine);

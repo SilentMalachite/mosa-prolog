@@ -609,11 +609,15 @@ Decision (2026-10-28): A. `「…」` uses the escapes of `'…'`, with `」` as
 
 ## 7.7.7 and SPEC Section 5: statically undefined calls in `mosac emit`
 
-ISO has no translation step: calling a procedure that is defined nowhere is an `existence_error(procedure, PI)` when the goal runs (7.7.7, flag `unknown` 7.11.2.4, 7.12.2 c), and SPEC Section 5 gives `existence_error(module, M)` at run time for `M:G` with an unknown `M`. `mosac emit` (phase 6 Tasks 5 and 7) instead rejects the program at translation time when a clause body names, literally, a predicate with no definition anywhere, including `nomod:foo(X)` with a module that is never loaded (`mosac_undefined_call`, src/codegen/check.cpp), and writes nothing.
+ISO has no translation step: calling a procedure that is defined nowhere is an `existence_error(procedure, PI)` when the goal runs (7.7.7, flag `unknown` 7.11.2.4, 7.12.2 c), and SPEC Section 5 gives `existence_error(module, M)` at run time for `M:G` with an unknown `M`. `mosac emit` (phase 6 Tasks 5 and 7) instead rejected the program at translation time when a clause body names, literally, a predicate with no definition anywhere, including `nomod:foo(X)` with a module that is never loaded (`mosac_undefined_call`, src/codegen/check.cpp), and wrote nothing, until the decision of 2026-11-05 below made this a warning.
 
 Decision (2026-10-29): this is a deliberate deviation of the translator only. The interpreter and the generated executable keep the ISO behaviour at run time: the error is raised when the goal is reached (`tests/pl/modules.pl` `mod_qual_unknown`; `tests/pl/native.pl` `native_qualified_missing`, which reaches the unknown module through a variable `M` so that the translation is accepted). `mosatest --diff` (`--units`, Task 11) skips the check so that tests of existence errors can be translated.
 
 Decision (2026-10-30): A. The diagnostic suggests `:- dynamic(Name/Arity).` for a program that creates the procedure at run time with `assertz/1`. The suggestion is written as `dynamic(Name/Arity)` and not as the prefix form `dynamic Name/Arity`, because Table 7 (6.3.4.4) has no `dynamic` operator, and 7.4.2.1 `dynamic/1` takes the predicate indicator as an ordinary argument. The name is written as `writeq` writes it, in brackets when it is an operator or a symbol-character atom (ctest `mosac_emit_undefined_quoted`).
+
+A or B? (review L12): a program that handles such calls on purpose, with `unknown` set to `fail` or by catching `existence_error`, was rejected by mosac although it runs under mosa, and the hinted `:- dynamic` changes what a catch sees (the call fails instead of raising). A: print the same diagnostic as a warning and still build; B: keep stopping.
+
+Decision (2026-11-05): A. `mosac emit`, `build` and `run` print the diagnostic (file and line, with the `:- dynamic` hint) prefixed by "Warning:" and go on; the executable raises the error or follows the `unknown` flag when the goal runs, as mosa does. Export inconsistencies still stop the translation. Tests: ctest `mosac_emit_undefined`, `mosac_emit_undefined_catch`, `mosac_emit_undefined_quoted` (these now build and run) and `mosac_emit_undefined_handled`.
 
 ## 7.1 Nesting depth of terms (implementation limit)
 

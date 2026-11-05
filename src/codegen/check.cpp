@@ -1,6 +1,7 @@
 // 計画 Task 5。翻訳のときの静的な警告。export したのに定義の無い述語と、どこにも定義の無い述語を呼ぶ節を、
-// Prolog の行で知らせる（SPEC 第6節のエラーの扱い）。差分用の --units（Task 11）は存在エラーを確かめる
-// テストを翻訳するので、呼び出しの警告は export の警告と別の関数にして、呼ぶかどうかを選ばせる。
+// Prolog の行で知らせる（SPEC 第6節のエラーの扱い）。export の誤りは翻訳を止め、呼び出しは警告だけで続ける
+// （レビュー L12）ので、2 つを別の関数にする。差分用の --units（Task 11）は存在エラーを確かめるテストを
+// 訳すので、呼び出しの警告を呼ばない。
 
 #include "../module/module.hpp"
 #include "emit_state.hpp"
@@ -126,9 +127,9 @@ std::vector<std::string> call_warnings(Impl& machine, const TranslationLog& log,
       const std::string text = indicator(machine, goal);
       if (std::find(seen.begin(), seen.end(), text) != seen.end()) continue;
       seen.push_back(text);
-      // assertz だけで作る述語もここに来る（持ち主の決定 A で拒み続ける）。直し方として、定義する側のファイルに
-      // 書く :- dynamic(Name/Arity). を示す（ISO の演算子表に dynamic は無いので括弧の形）。モジュールの中では
-      // モジュールを付けずに書くので、名前とアリティだけにする。
+      // assertz だけで作る述語もここに来る。翻訳は止めない（レビュー L12、持ち主の決定 A）。直し方として、定義する
+      // 側のファイルに書く :- dynamic(Name/Arity). を示す（ISO の演算子表に dynamic は無いので括弧の形）。モジュールの
+      // 中ではモジュールを付けずに書くので、名前とアリティだけにする。
       lines.push_back(names[site.file] + ":" + std::to_string(site.line) + ": " +
                       message_text(machine, "mosac_undefined_call", {text, dynamic_indicator(machine, goal)}));
     }

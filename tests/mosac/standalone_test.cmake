@@ -58,6 +58,11 @@ if(NOT code EQUAL 0 OR NOT EXISTS "${exe}")
   fail("build")
 endif()
 string(REPLACE "\r\n" "\n" err "${err}")
+# 取り込みと include の述語は定義済みと見え、未定義の呼び出しの警告は出ない。警告は build を止めないので、
+# 誤った警告はここで見る（L12 の敵対的レビュー A1）。頭は文面の言語で変わる。
+if(err MATCHES "\\.pl:[0-9]+: (Warning|警告): ")
+  fail("unexpected undefined-call warning")
+endif()
 
 # library(lists) は mosac の隣の lib/lists.pl と同じ原文なので、翻訳済みの単位 pl/ の書庫を結ぶ。
 if(CASE STREQUAL "use_lists" AND NOT err MATCHES "mosac: 結ぶ翻訳済みライブラリ: [^\n]*mosa_pl_lists")

@@ -45,7 +45,7 @@ struct ProjectOptions {
   // mosac の在るディレクトリ。生成する CMakeLists.txt の MOSA_RUNTIME_DIR の既定の元で、同梱ライブラリの原文
   // lib/<名前>.pl を比べる場所でもある（計画 Task 10）
   std::string runtime_dir;
-  bool check_calls = true;  // 未定義の述語の呼び出しの警告で translate_program を止めるか。translate_units は警告を出さず見ない
+  bool check_calls = true;  // 未定義の述語の呼び出しを Project::warnings に書くか。translate_units は警告を出さず見ない
   bool trace = false;       // mosac build --debug。生成コードの kTrace を真にする
   bool interactive = false;  // mosac build --interactive。main.cpp が rt::finish_interactive で終わる（REPL を起こす。計画 Task 14）
   bool library = false;     // mosac emit --library。lib/<名前>.pl の単位 <名前>.cpp だけを出す（計画 Task 10）
@@ -57,6 +57,9 @@ struct ProjectOptions {
 struct Project {
   bool ok = false;
   std::string diagnostic;
+  // 翻訳を止めない警告（行ごとに改行で区切る）。未定義の述語の呼び出しは、プログラムが unknown や catch で扱う
+  // ことがあるので止めない（レビュー L12、持ち主の決定 A）。ok が偽のときは diagnostic の後ろに入り、ここは空。
+  std::string warnings;
   std::vector<ProjectFile> files;
   std::vector<std::string> libraries;
   std::vector<std::string> source_only;

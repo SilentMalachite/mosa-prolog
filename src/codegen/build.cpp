@@ -373,6 +373,7 @@ Built build_cached(const BuildRequest& request) {
   options.interactive = request.interactive;
   // Prolog の誤りは翻訳の段で止め、コンパイラを探しにも行かない（SPEC 第6節のエラーの扱い）。
   const Project project = translate_program(request.source, options);
+  if (!project.warnings.empty()) std::cerr << project.warnings << '\n';
   if (!project.ok) {
     std::cerr << project.diagnostic << '\n';
     return {};

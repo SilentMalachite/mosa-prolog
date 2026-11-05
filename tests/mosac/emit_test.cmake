@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|refused|duplicate|silent|newop|refused_op|halt|trigraph> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|undefined_handled|refused|duplicate|silent|newop|refused_op|halt|trigraph> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -42,41 +42,41 @@ if(CASE STREQUAL "broken")
   return()
 endif()
 
+# 未定義の述語の呼び出しは警告にして翻訳を続け、実行ファイルは mosa と同じく呼んだときに動く（レビュー L12、
+# 持ち主の決定 A）。警告の確かめの後は、ほかの場合と同じく build して実行する。警告の頭は文面の言語で変わる。
+set(warning_head "(Warning|警告): ")
 if(CASE STREQUAL "undefined")
-  if(NOT emit_code EQUAL 1 OR NOT emit_err MATCHES "^undefined\\.pl:3: [^\n]*nosuch/1[^\n]*:- dynamic\\(nosuch/1\\)\\.")
+  if(NOT emit_err MATCHES "^undefined\\.pl:3: ${warning_head}[^\n]*nosuch/1[^\n]*:- dynamic\\(nosuch/1\\)\\.")
     message(FATAL_ERROR "undefined: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
   endif()
-  expect_no_cpp()
-  return()
 endif()
 
 # ADR 0014。ゴール位置に変数を含む catch/3 の Goal と Recovery は Call の節点になる。その中で名指す述語も
 # 翻訳の時点で未定義と分かる（iso-notes 7.7.7 and SPEC Section 5）。
 if(CASE STREQUAL "undefined_catch")
-  foreach(want "undefined_catch\\.pl:3: [^\n]*nosuch_goal/0" "undefined_catch\\.pl:4: [^\n]*nosuch_recovery/0")
+  foreach(want "undefined_catch\\.pl:3: ${warning_head}[^\n]*nosuch_goal/0" "undefined_catch\\.pl:4: ${warning_head}[^\n]*nosuch_recovery/0")
     if(NOT emit_err MATCHES "${want}")
       message(FATAL_ERROR "undefined_catch: ${want}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
     endif()
   endforeach()
-  if(NOT emit_code EQUAL 1)
-    message(FATAL_ERROR "undefined_catch: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
-  endif()
-  expect_no_cpp()
-  return()
 endif()
 
 # :- dynamic(~w). の案内は貼れば読める形で書く。引用の要る名前は writeq の形、演算子と記号文字の名前は括弧に入れる。
 if(CASE STREQUAL "undefined_quoted")
   foreach(hint "'Foo'/1" "'a b'/0" "\\(-\\)/1" "'it\\\\'s'/2" "\\(\\+\\+\\+\\)/1")
-    if(NOT emit_err MATCHES "undefined_quoted\\.pl:3: [^\n]*:- dynamic\\(${hint}\\)\\.")
+    if(NOT emit_err MATCHES "undefined_quoted\\.pl:3: ${warning_head}[^\n]*:- dynamic\\(${hint}\\)\\.")
       message(FATAL_ERROR "undefined_quoted: ${hint}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
     endif()
   endforeach()
-  if(NOT emit_code EQUAL 1)
-    message(FATAL_ERROR "undefined_quoted: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
-  endif()
-  expect_no_cpp()
-  return()
+endif()
+
+# レビュー L12 の再現。catch で existence_error を捕まえるか unknown を fail にしたプログラムも、警告を出して作る。
+if(CASE STREQUAL "undefined_handled")
+  foreach(want "undefined_handled\\.pl:5: ${warning_head}[^\n]*nosuch/0" "undefined_handled\\.pl:5: ${warning_head}[^\n]*nosuch2/0")
+    if(NOT emit_err MATCHES "${want}")
+      message(FATAL_ERROR "undefined_handled: ${want}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+    endif()
+  endforeach()
 endif()
 
 # レビュー M10（iso-notes 7.4 の決定 A）。組込述語の節は、インタプリタと同じ読み込みの誤りで止まり、.cpp は書かない。
@@ -97,8 +97,14 @@ if(CASE STREQUAL "duplicate")
   return()
 endif()
 
-# 翻訳のときの読み込みは宣言だけを実行する。silent.pl の :- write(x). はここでは何も書かない。
-if(NOT emit_code EQUAL 0 OR NOT emit_out STREQUAL "")
+# 翻訳のときの読み込みは宣言だけを実行する。silent.pl の :- write(x). はここでは何も書かない。未定義の呼び出しの
+# 無い原文は標準エラーにも何も書かない。警告は翻訳を止めないので、誤った警告はここで見る（L12 の敵対的レビュー A1）。
+if(NOT CASE MATCHES "^undefined")
+  set(clean_err "${emit_err}")
+else()
+  set(clean_err "")
+endif()
+if(NOT emit_code EQUAL 0 OR NOT emit_out STREQUAL "" OR NOT clean_err STREQUAL "")
   message(FATAL_ERROR "${CASE}: emit code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
 endif()
 
@@ -153,10 +159,22 @@ elseif(CASE STREQUAL "halt")
   set(expected_code 3)
 elseif(CASE STREQUAL "trigraph")
   set(expected "a??=b??/c??(d??)e??!f??<g??>h??-i??'j\n")
+elseif(CASE STREQUAL "undefined" OR CASE STREQUAL "undefined_quoted")
+  # mosa と同じく、捕まえなかった existence_error で 2 で終わる。呼んだ述語の名前は文面の中に出る。
+  set(expected "hello")
+  set(expected_code 2)
+  set(expected_err "existence_error\\(procedure,nosuch/1\\)")
+  if(CASE STREQUAL "undefined_quoted")
+    set(expected_err "existence_error\\(procedure,'Foo'/1\\)")
+  endif()
+elseif(CASE STREQUAL "undefined_catch")
+  set(expected "hello")
+elseif(CASE STREQUAL "undefined_handled")
+  set(expected "caught\nfailed\n")
 else()
   set(expected "x")
 endif()
 string(REPLACE "\r\n" "\n" run_out "${run_out}")
-if(NOT run_code EQUAL expected_code OR NOT run_out STREQUAL expected)
+if(NOT run_code EQUAL expected_code OR NOT run_out STREQUAL expected OR (DEFINED expected_err AND NOT run_err MATCHES "${expected_err}"))
   message(FATAL_ERROR "${CASE}: run code=${run_code} out=[${run_out}] err=[${run_err}]")
 endif()

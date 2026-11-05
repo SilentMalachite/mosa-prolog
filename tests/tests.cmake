@@ -379,7 +379,7 @@ target_link_libraries(codegen_test PRIVATE mosa_lib)
 add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
 
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
-foreach(emit_case hello broken undefined undefined_catch undefined_quoted refused duplicate silent newop refused_op halt
+foreach(emit_case hello broken undefined undefined_catch undefined_quoted undefined_handled refused duplicate silent newop refused_op halt
   trigraph)
   add_test(NAME mosac_emit_${emit_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${emit_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
@@ -391,6 +391,11 @@ foreach(emit_case hello broken undefined undefined_catch undefined_quoted refuse
   # このリポジトリのテストでは、生成コードが警告なしで通ることも確かめる（MOSA_WARNINGS_AS_ERRORS）。
   set_tests_properties(mosac_emit_${emit_case} PROPERTIES ENVIRONMENT "MOSA_WERROR=1")
 endforeach()
+
+# 同梱の lib/*.pl を訳しても、未定義の呼び出しの警告が出ない（L12 の敵対的レビュー A4。警告はビルドを止めない）。
+add_test(NAME mosac_library_clean COMMAND ${CMAKE_COMMAND}
+  -DMOSAC=$<TARGET_FILE:mosac> -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_library_clean
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/library_clean_test.cmake)
 
 # mosac の使い方の誤り、--help、dist、原文を上書きする build の拒否（コンパイラを起こさない）。
 add_test(NAME mosac_cli COMMAND ${CMAKE_COMMAND}

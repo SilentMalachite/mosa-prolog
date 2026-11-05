@@ -611,11 +611,15 @@ A か B か: A: `'…'`（6.4.2）と同じ規則。`\` のエスケープが効
 
 ## 7.7.7 と SPEC 第5節: `mosac emit` での静的に未定義の呼び出し
 
-ISO に翻訳の段は無い。どこにも定義の無い手続きの呼び出しは、ゴールが動くときの `existence_error(procedure, PI)` であり（7.7.7、旗 `unknown` 7.11.2.4、7.12.2 c）、SPEC 第5節は無いモジュール `M` への `M:G` を実行時の `existence_error(module, M)` とする。`mosac emit`（フェーズ6 Task 5 と 7）はそれと違い、節の本体がどこにも定義の無い述語を字面で呼んでいれば、読み込まれないモジュールへの `nomod:foo(X)` も含めて、翻訳のときにプログラムを拒み（`mosac_undefined_call`、src/codegen/check.cpp）、何も書かない。
+ISO に翻訳の段は無い。どこにも定義の無い手続きの呼び出しは、ゴールが動くときの `existence_error(procedure, PI)` であり（7.7.7、旗 `unknown` 7.11.2.4、7.12.2 c）、SPEC 第5節は無いモジュール `M` への `M:G` を実行時の `existence_error(module, M)` とする。`mosac emit`（フェーズ6 Task 5 と 7）はそれと違い、節の本体がどこにも定義の無い述語を字面で呼んでいれば、読み込まれないモジュールへの `nomod:foo(X)` も含めて、翻訳のときにプログラムを拒み（`mosac_undefined_call`、src/codegen/check.cpp）、何も書かなかった。下の 2026-11-05 の決定で、これは警告になった。
 
 決定（2026-10-29）: これは翻訳器だけの意図した逸脱である。インタプリタと生成した実行ファイルは実行時に ISO の振る舞いを保ち、ゴールに届いたときに誤りを投げる（`tests/pl/modules.pl` の `mod_qual_unknown`、`tests/pl/native.pl` の `native_qualified_missing`。後者は翻訳が通るように、無いモジュールを変数 `M` で渡す）。`mosatest --diff`（`--units`、Task 11）はこの検査を飛ばし、存在エラーを確かめるテストも翻訳できるようにする。
 
 決定（2026-10-30）: A。静的に未定義の呼び出しの診断は、手続きを実行時に `assertz/1` で作るプログラムに `:- dynamic(名前/アリティ).` を案内する。案内は前置形の `dynamic 名前/アリティ` ではなく `dynamic(名前/アリティ)` と書く。表 7（6.3.4.4）に `dynamic` の演算子は無く、7.4.2.1 の `dynamic/1` は述語標識を普通の引数として取るからである。名前は `writeq` の書き方で書き、演算子や記号文字のアトムなら括弧に入れる（ctest `mosac_emit_undefined_quoted`）。
+
+A か B か（レビュー L12）: `unknown` を `fail` にするか `existence_error` を捕まえて、こうした呼び出しを意図して扱うプログラムを、mosa では動くのに mosac は拒んだ。案内した `:- dynamic` は catch に見えるものを変える（呼び出しは例外を投げずに失敗する）。A は、同じ診断を警告として出し、そのまま作る。B は止め続ける。
+
+決定（2026-11-05）: A。`mosac emit`、`build`、`run` は診断（ファイルと行、`:- dynamic` の案内）の頭に「警告:」を付けて出し、先へ進む。実行ファイルは mosa と同じく、ゴールが動くときに誤りを投げるか、旗 `unknown` に従う。export の不整合は今までどおり翻訳を止める。テスト: ctest の `mosac_emit_undefined`、`mosac_emit_undefined_catch`、`mosac_emit_undefined_quoted`（今は build して実行する）と `mosac_emit_undefined_handled`。
 
 ## 7.1 項の入れ子の深さ（実装の上限）
 

@@ -257,7 +257,8 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 
 **Error handling (reported differently depending on whose responsibility it is)**
 
-- Problems in the user's Prolog (syntax errors, export inconsistencies, static warnings for undefined predicates) → stop at the translation stage and report with Prolog line numbers. The compiler is not started
+- Problems in the user's Prolog (syntax errors, export inconsistencies) → stop at the translation stage and report with Prolog line numbers. The compiler is not started
+- Calls to predicates that are defined nowhere → report each as a warning with its Prolog line number and translate anyway. The executable raises `existence_error` when the goal runs, or follows the `unknown` flag, as `mosa` does (review L12; iso-notes 7.7.7)
 - Generated C++ fails to compile → treated as a `mosac` bug. Print only "内部エラー: 生成コードがコンパイルできません。`.mosac-cache/<hash>/` を添えて報告してください" (Internal error: the generated code cannot be compiled. Please report it with `.mosac-cache/<hash>/` attached), and show the raw compiler errors only with `--verbose`. In CI, "generated C++ always compiles" is an invariant, checked across all differential test cases
 - Compiler not found, insufficient disk space, permissions → report as environment problems, with remedies
 

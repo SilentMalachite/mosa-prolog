@@ -84,14 +84,26 @@ elseif(CASE STREQUAL "run_exit_code")
     fail("exit code")
   endif()
   # ADR 0014。Call の節点として call/1 で動く catch の Goal と Recovery の中の halt/1 も、生成コードの終了コードになる。
-  # op_kept はレビュー M4。生成コードでも op/3 が戻らなければ 3 で終わる。
-  foreach(late halt_late_goal:4 halt_late_recovery:5 halt_noncallable_goal:0 halt_noncallable_recovery:0 halt_noncallable_not:0 noncallable_undefined:0 op_kept:3)
+  # op_kept はレビュー M4。生成コードでも op/3 が戻らなければ 3 で終わる。undefined_handled はレビュー L12。未定義の
+  # 呼び出しは警告で、mosac run は止まらずに作って動かす。
+  foreach(late halt_late_goal:4 halt_late_recovery:5 halt_noncallable_goal:0 halt_noncallable_recovery:0 halt_noncallable_not:0 noncallable_undefined:0 op_kept:3
+                undefined_handled:0)
     string(REPLACE ":" ";" late "${late}")
     list(GET late 0 late_file)
     list(GET late 1 late_code)
     mosac(run "${SRC}/${late_file}.pl")
     if(NOT code EQUAL late_code)
       fail("${late_file}: exit code")
+    endif()
+    # 警告は止めないので、出るべき警告と出てはならない警告を標準エラーで見る（L12 の敵対的レビュー A1 と A2）。
+    # noncallable_undefined は数のある Call 節点を検査しないこと（ADR 0014）。頭は文面の言語で変わる。
+    if(late_file STREQUAL "undefined_handled")
+      if(NOT err MATCHES "undefined_handled\\.pl:5: (Warning|警告): [^\n]*nosuch/0"
+         OR NOT err MATCHES "undefined_handled\\.pl:5: (Warning|警告): [^\n]*nosuch2/0")
+        fail("${late_file}: mosac run must print the undefined-call warnings")
+      endif()
+    elseif(err MATCHES "\\.pl:[0-9]+: (Warning|警告): ")
+      fail("${late_file}: unexpected undefined-call warning")
     endif()
   endforeach()
   # レビュー M5。close を書かない書き込みも、halt と main の終わりで実行ファイルがファイルへ書き出す。

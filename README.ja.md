@@ -109,7 +109,7 @@ mosac toolchain                    # コンパイラ、CMake、同梱の実行�
 
 そのほかの旗: `--debug` は `-O0 -g` でビルドし、プログラム自身の節を追跡します（同梱ライブラリの単位は追跡しません）。`--verbose` はコンパイラの命令を表示し、`--clean` はビルドの前に `.mosac-cache/` を消します。`mosac run --keep` は実行ファイルの写しを置いた一時ディレクトリを残し、`--runtime-source` は同梱の静的ライブラリではなくソースから実行時ライブラリをビルドします。`mosac emit --library` と `mosac emit --units` は同梱ライブラリのビルドと `mosatest --diff` のためにあり、普通は使いません。
 
-コンパイラは `--cxx`、`MOSA_CXX`、`CXX`、OS の既定の順に探します（macOS は `clang++`、Linux は `g++` の次に `clang++`、Windows は `vswhere` で見つけた MSVC）。CMake が無いとき、または `MOSA_NO_CMAKE=1` のときは、`mosac` が生成したファイルを 1 つずつ直接コンパイルします。`MOSA_WERROR=1` は生成した C++ を警告をエラーにしてコンパイルします（テストと CI が立てます）。`:- initialization(main, main).` があれば、実行ファイルは `mosa` と同じく `main` を実行して終わります。`--interactive` ではそれを実行せず REPL を立ち上げます。どこにも定義の無い述語を呼んでいると、`mosac emit` と `mosac build` は止まり、`:- dynamic(名前/アリティ).` を案内します。途中のファイルは `.mosac-cache/` に置きます。詳しくは `docs/SPEC.ja.md` の第 6 節です。
+コンパイラは `--cxx`、`MOSA_CXX`、`CXX`、OS の既定の順に探します（macOS は `clang++`、Linux は `g++` の次に `clang++`、Windows は `vswhere` で見つけた MSVC）。CMake が無いとき、または `MOSA_NO_CMAKE=1` のときは、`mosac` が生成したファイルを 1 つずつ直接コンパイルします。`MOSA_WERROR=1` は生成した C++ を警告をエラーにしてコンパイルします（テストと CI が立てます）。`:- initialization(main, main).` があれば、実行ファイルは `mosa` と同じく `main` を実行して終わります。`--interactive` ではそれを実行せず REPL を立ち上げます。どこにも定義の無い述語を呼んでいると、行番号付きの警告で `:- dynamic(名前/アリティ).` を案内し、翻訳は続けます。実行ファイルは `mosa` と同じく、そのゴールが動くときに `existence_error` を投げるか、旗 `unknown` に従います。途中のファイルは `.mosac-cache/` に置きます。詳しくは `docs/SPEC.ja.md` の第 6 節です。
 
 ### `mosatest`（テストランナー）
 

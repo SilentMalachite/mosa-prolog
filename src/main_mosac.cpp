@@ -86,7 +86,9 @@ int run_emit(const std::vector<std::string>& args) {
   options.library = parsed->library;
   const mosa::codegen::Project project = parsed->units ? mosa::codegen::translate_units(parsed->source, options)
                                                        : mosa::codegen::translate_program(parsed->source, options);
-  // Prolog の誤りは翻訳の段で止め、何も書かずコンパイラも起こさない（SPEC 第6節のエラーの扱い）。
+  // 警告は止めずに出す（レビュー L12）。Prolog の誤りは翻訳の段で止め、何も書かずコンパイラも起こさない（SPEC 第6節の
+  // エラーの扱い）。
+  if (!project.warnings.empty()) std::cerr << project.warnings << '\n';
   if (!project.ok) {
     std::cerr << project.diagnostic << '\n';
     return 1;

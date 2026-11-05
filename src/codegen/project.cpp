@@ -188,15 +188,17 @@ std::vector<PredKey> opaque_preds(const TranslationLog& log) {
 
 namespace {
 
-std::vector<std::string> warnings(Impl& machine, const TranslationLog& log, std::string_view path,
-                                  const ProjectOptions& options) {
-  const DisplayNames names = display_names(log, path);
-  std::vector<std::string> lines = export_warnings(machine, log, names);
-  // 読めなかった項の定義は翻訳器に見えない。呼び出しの警告はそれを未定義と取り違えるので出さない。
-  if (options.check_calls && !any_opaque(log)) {
-    for (std::string& line : call_warnings(machine, log, names)) lines.push_back(std::move(line));
-  }
-  return lines;
+std::string joined(const std::vector<std::string>& lines) {
+  std::string text;
+  for (const std::string& line : lines) text += (text.empty() ? "" : "\n") + line;
+  return text;
+}
+
+// 未定義の述語を呼ぶ節の警告。読めなかった項の定義は翻訳器に見えず、それを未定義と取り違えるので出さない。
+std::string call_warning_text(Impl& machine, const TranslationLog& log, std::string_view path,
+                              const ProjectOptions& options) {
+  if (!options.check_calls || any_opaque(log)) return {};
+  return joined(call_warnings(machine, log, display_names(log, path)));
 }
 
 Project build_project(Machine& machine, const TranslationLog& log, std::string_view path,
@@ -288,11 +290,17 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   }
   impl.translation = nullptr;
   if (log.files.empty()) return fail_with(message_text(impl, "cannot_open_file", {path}));
-  std::string diagnostic;
-  for (const std::string& line : warnings(impl, log, path, options)) diagnostic += (diagnostic.empty() ? "" : "\n") + line;
-  if (!diagnostic.empty()) return fail_with(std::move(diagnostic));
-  if (options.library) return build_library(*machine, log, path);
-  return build_project(*machine, log, path, options);
+  // export の不整合はプログラムの誤りなので止める。未定義の呼び出しは警告にして翻訳を続け、実行ファイルは mosa と
+  // 同じく呼んだときに existence_error か unknown の旗のとおりに動く（レビュー L12、持ち主の決定 A）。
+  const std::string warnings = call_warning_text(impl, log, path, options);
+  std::string diagnostic = joined(export_warnings(impl, log, display_names(log, path)));
+  Project project = !diagnostic.empty() ? fail_with(std::move(diagnostic))
+                    : options.library   ? build_library(*machine, log, path)
+                                        : build_project(*machine, log, path, options);
+  // 止まったときは止めた理由を先に読ませ、呼び出しの警告はその後ろに足す（L12 の敵対的レビュー A8）。
+  if (!project.ok && !warnings.empty()) project.diagnostic += "\n" + warnings;
+  if (project.ok) project.warnings = warnings;
+  return project;
 }
 
 }  // namespace mosa::codegen
