@@ -34,8 +34,9 @@ struct WriteOptions {
   std::optional<int> operand_priority;
 };
 
-// Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。
-enum class WriteCut { Keep, Swap, Stop };
+// Swap の out がその項の字面で、子は書かない。Stop は残りの書き出しを捨てる。Last は out を Swap と同じく書いてから
+// 残りを捨てる。portray/1 の中の halt で、それまでの字面を行き先に届けるのに使う（レビュー L14）。
+enum class WriteCut { Keep, Swap, Stop, Last };
 
 // writer が握るセルを訪ねる側。portray の入れ子で GC が動くとき、呼び手がこれを GC の訪問につなぐ（ADR 0011）。
 class WriteRoots {

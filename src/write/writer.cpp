@@ -452,7 +452,9 @@ void Printer::render(const Work& item) {
     term = hooked_;
     hooked_ = Cell{};
     settle();
-    if (cut == WriteCut::Stop) {
+    if (cut == WriteCut::Stop || cut == WriteCut::Last) {
+      // Last の字面も Swap と同じ emit を通し、前の字句との間の空白を同じに決める。
+      if (cut == WriteCut::Last) emit(swapped);
       aborted_ = true;
       return;
     }

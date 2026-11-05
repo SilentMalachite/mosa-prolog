@@ -190,7 +190,8 @@ void check_nested_halt() {
   const auto out = tmp_path("m5_nested_portray.txt");
   fresh(out);
   const auto program = tmp_path("m5_portray.pl");
-  // portray の中の現在出力は捕獲用のメモリなので、別名で直にファイルへ書く。捕獲の分は halt で捨てる（L14）。
+  // portray の中の現在出力は print の字面へ挟む捕獲用のメモリなので、ここでは別名で直にファイルへ書いた分を見る。
+  // 現在出力へ書いた分が halt でも行き先に届くことは portray_halt_test が見る（レビュー L14）。
   put_file(program, ":- dynamic(portray/1).\nportray(boom) :- write(m5_portray, p), halt(6).\n");
   const auto run = batch({program, "-g", "open('" + out + "', write, _, [alias(m5_portray)]), print(boom), "
                                          "write(m5_portray, after)."});

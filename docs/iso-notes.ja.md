@@ -35,6 +35,8 @@
 
 決定（2026-10-27）: 上の B は取り下げる。`portray/1` に節がありゴールが成功するとき、`print/1` と `print/2` はその書き出しを項の字面にする。節が無いときは `write/1` と同じ手続きである。節はあるが失敗するときは、その項は `write/1` と同じ字面で、複合項の引数だけ再び `print` にかける。`portray/1` は組込にしない。`write/1` は `portray` を見ない。失敗した `portray` の書き出しは残さない。
 
+レビュー L14（2026-11-05。持ち主の決定ではない）: `portray` の中で halt したときは、項のそれまでの字面と `portray` が現在出力へ書いた分を、halt の前に流れへ書く。`write/1` の後の `halt` と同じである。今までどおり `print` は項を書き終えてから字面を一度に書くので、`portray` が名指しで別の流れへ書いた分の方が先に出る。例外のときは、`catch` の後で続きが書かれうるので、今までどおりその `print` の分は何も書かない。
+
 ## 8.14 書き出しオプション
 
 決定（2026-10-25）: `write/1,2` と `print/1,2` は `numbervars(true)`。`writeq/1,2` は `quoted(true)` と `numbervars(true)`。`write_canonical/1,2` は `quoted(true)` と `ignore_ops(true)`。`write_term` の既定は三つとも偽。同じ論理オプションの値が食い違うときは `domain_error(write_option, 後の項)`。`variable_names` は一回で、名前が変数の綴りでなければ `domain_error(write_option, その対)`。束縛済みの Var は無視する。

@@ -1,6 +1,8 @@
 // 規格 8.14.2 write_term/3,2。8.14.3 write/2,1。8.14.4 writeq/2,1。8.14.5 write_canonical/2,1。
 // print/1,2 は portray/1 に節があり成功するときその書き出しを使う。無い、または失敗なら write と同じ。
 // 複合項の引数は再び print する。portray/1 は組込にしない。write は portray を見ない。
+// portray/1 の中の halt では、それまでの字面（portray が現在出力へ書いた分を含む）を書いてから止まる（レビュー L14）。
+// 例外では、その print の分を何も書かない。
 // with_output_to/2 は ADR 0005。最初の成功だけ取り、現在出力は必ず戻す。
 // atom/1 と codes/1 のために作ったメモリは、成功・失敗・例外・停止のあと閉じる。渡された流れは閉じない。
 // write_term(+stream_or_alias, @term, +write_options_list)
@@ -14,7 +16,8 @@
 //   type_error(list), type_error(callable), type_error(atom),
 //   existence_error(stream),
 //   permission_error(output, stream), permission_error(output, binary_stream)
-// テスト: tests/pl/write.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp
+// テスト: tests/pl/write.pl, tests/pl/print.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,
+//   tests/cpp/portray_halt_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -415,6 +418,7 @@ struct PortrayHook {
   std::size_t scratch = 0;
   bool have_scratch = false;
   bool stop = false;
+  bool halted = false;
 
   PortrayHook() = default;
   PortrayHook(const PortrayHook&) = delete;
@@ -485,7 +489,7 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     hook->have_scratch = true;
   }
   const StreamSpot spot = spot_of(machine.streams[hook->scratch]);
-  // write/1 は現在出力へ書く。親の字面へ挟むため、成功分だけメモリから戻す。scratch は hook が閉じる。
+  // write/1 は現在出力へ書く。親の字面へ挟むため、成功と halt の分だけメモリから戻す。scratch は hook が閉じる。
   OutputScope scope(machine, hook->scratch, false);
   // portray/1 は user の述語を探して呼ぶ（portray_ready）。入れ子の GC は書きかけの項を動かすので、writer が
   // 積んだ仕事と表を見せる（ADR 0011）。
@@ -498,7 +502,9 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
   scope.restore();
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
-  if (ran == Ran::Ok) out = stream.bytes.substr(spot.bytes);
+  // halt は write/1 の後の halt と同じく、それまでに書いた分を行き先に残す（レビュー L14）。例外は catch で続きが
+  // 書かれうるので、書きかけを残さない。
+  if (ran == Ran::Ok || ran == Ran::Halted) out = stream.bytes.substr(spot.bytes);
   // ゴール全体が失敗した書き出しを残すと、続く write の字面と重なる。
   rewind_spot(stream, spot);
   if (ran == Ran::Ok) return WriteCut::Swap;
@@ -507,7 +513,8 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     return WriteCut::Keep;
   }
   hook->stop = true;
-  return WriteCut::Stop;
+  hook->halted = ran == Ran::Halted;
+  return hook->halted ? WriteCut::Last : WriteCut::Stop;
 }
 
 // 演算子は呼び手の文脈モジュールの見え方で書く（ADR 0006）。
@@ -525,9 +532,10 @@ bool emit_written(Impl& machine, std::uint32_t module, std::size_t index, Cell t
     hook.name = name;
     const std::string text =
         write_term(machine.heap, view, term, options, names, apply_portray, &hook);
-    if (hook.stop) return false;
+    if (hook.stop && !hook.halted) return false;
+    // halt で止まったときは、portray の分までの字面を書いてから止まる。halt_now が残りのゴールを止める。
     emit_text(machine, index, text);
-    return true;
+    return !hook.stop;
   }
   emit_text(machine, index, write_term(machine.heap, view, term, options, names));
   return true;
