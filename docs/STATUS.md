@@ -3,7 +3,7 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 8520e80, CI run 42005277509 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** review L15 (the `;` prompt reads a whole line and drops the newline read/1 gave back; ctest `answer_prompt`). Before it, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Last done:** review L15 (9530590: the `;` prompt reads a whole line and drops the newline read/1 gave back; ctest `answer_prompt`). Before it, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
 - **Next:** L17, L19, L20, L21, L22 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
