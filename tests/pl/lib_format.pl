@@ -100,3 +100,21 @@ test(fmt_float_neg, '$format_float'(f, -1, 1.0, _), error(domain_error(not_less_
 test(l20_fmt_cyclic_d, (X = X+1, format("~d", [X])), error(resource_error(cyclic_term))).
 test(l20_fmt_cyclic_e, (X = X+1, format("~e", [X])), error(resource_error(cyclic_term))).
 test(l20_fmt_cyclic_column, (X = 1+X, format("~*c", [X, 0'a])), error(resource_error(cyclic_term))).
+% レビュー L21。背骨が循環するリストはリストでなく、末尾がリストでないものと同じく type_error(list, …) になる。
+% 誤りの項は循環するので期待値には頭の側だけを書き、それが渡したリストそのものであることは *_culprit で見る。
+test(l21_fmt_args_cyclic, (X = [a|X], format("~w", X)), error(type_error(list, [a|_]))).
+test(l21_fmt_args_culprit, (X = [a|X], catch(format("~w", X), error(type_error(list, C), _), true), C == X), true).
+test(l21_fmt_args_lasso, (X = [b, c|X], format("~w~w", [a|X])), error(type_error(list, [a, b, c|_]))).
+test(l21_fmt_args_lasso_culprit, (X = [b|X], L = [a|X], catch(format("~w", L), error(type_error(list, C), _), true), C == L), true).
+test(l21_fmt_args_cyclic_var, (X = [_|X], format("~w", X)), error(type_error(list, [_|_]))).
+test(l21_fmt1_cyclic, (X = [0'a|X], format(X)), error(type_error(list, [0'a|_]))).
+test(l21_fmt_format_codes, (X = [0'a|X], format(X, [])), error(type_error(list, [0'a|_]))).
+test(l21_fmt_format_chars, (X = [a|X], format(X, [])), error(type_error(list, [a|_]))).
+test(l21_fmt_format_culprit, (X = [a|X], catch(format(X, []), error(type_error(list, C), _), true), C == X), true).
+test(l21_fmt_format_lasso, (X = [b|X], L = [a|X], catch(format(L, []), error(type_error(list, C), _), true), C == L), true).
+test(l21_fmt3_cyclic, (X = [a|X], format(user_output, "~w", X)), error(type_error(list, [a|_]))).
+test(l21_fmt_s_cyclic, (X = [0'a|X], format("~s", [X])), error(type_error(list, [0'a|_]))).
+test(l21_fmt_s_culprit, (X = [0'a|X], catch(format("~s", [X]), error(type_error(list, C), _), true), C == X), true).
+test(l21_fmt_cyclic_no_output, (X = [a|X], with_output_to(atom(A), catch(format("ab~w", X), _, true))), solutions([A = ''])).
+% 循環が要素にあるだけなら、背骨は真のリストである（L3）。
+test(l21_fmt_cyclic_element, (X = [a|X], with_output_to(atom(A), format("~w", [X]))), solutions([A = '[a|_]'])).

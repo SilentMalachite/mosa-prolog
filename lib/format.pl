@@ -57,23 +57,16 @@ text_item(X, _, X) :-
 text_item(X, PI, _) :-
     throw(error(type_error(character, X), context(PI, _))).
 
-% 部分リストは具体化の誤り、それ以外の形は型の誤り。
+% 部分リストは具体化の誤り、それ以外の形は型の誤り。背骨が循環するリストを Prolog で辿ると止まらないので
+% （レビュー L21）、形は length/2 に見させる。length/2 は巡回を type_error(list, List) にし、部分リストなら
+% 末尾を束縛して成功する。その束縛は、続けて投げる具体化の誤りが戻す。\+ \+ で戻さないのは、\+ が実行時に
+% ゴールを訳し直してリストを写し、共有の多い要素を木に広げるため（L21 の Codex 敵対的レビュー）。
 must_be_list(List, _) :-
     is_list(List),
     !.
 must_be_list(List, PI) :-
-    list_tail(List, Tail),
-    (   var(Tail)
-    ->  throw(error(instantiation_error, context(PI, _)))
-    ;   throw(error(type_error(list, List), context(PI, _)))
-    ).
-
-list_tail(List, Tail) :-
-    (   nonvar(List),
-        List = [_|Rest]
-    ->  list_tail(Rest, Tail)
-    ;   Tail = List
-    ).
+    catch(length(List, _), error(Formal, _), throw(error(Formal, context(PI, _)))),
+    throw(error(instantiation_error, context(PI, _))).
 
 directives([], Args, PI, St, Out) :-
     (   Args == []

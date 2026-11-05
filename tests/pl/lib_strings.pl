@@ -41,6 +41,23 @@ test(alc_split_digits, atomic_list_concat(L, '.', '1.2'), solutions([L = ['1', '
 test(alc_split_det, findall(L, atomic_list_concat(L, ',', 'a,b'), Ls), solutions([Ls = [[a, b]]])).
 test(alc_split_empty_sep, atomic_list_concat(_, '', abc), error(domain_error(non_empty_atom, ''))).
 test(alc_split_type_list, atomic_list_concat(foo, ',', 'a,b'), error(type_error(list, foo))).
+% レビュー L21。背骨が循環するリストはリストでなく、末尾がリストでないものと同じく type_error(list, …) になる。
+% 誤りの項は循環するので期待値には頭の側だけを書き、それが渡したリストそのものであることは *_culprit で見る。
+test(l21_alc_cyclic, (X = [a|X], atomic_list_concat(X, _)), error(type_error(list, [a|_]))).
+test(l21_alc_cyclic_bound, (X = [a|X], atomic_list_concat(X, aaa)), error(type_error(list, [a|_]))).
+test(l21_alc_culprit, (X = [a|X], catch(atomic_list_concat(X, _), error(type_error(list, C), _), true), C == X), true).
+test(l21_alc_lasso, (X = [b, c|X], atomic_list_concat([a|X], _)), error(type_error(list, [a, b, c|_]))).
+test(l21_alc_cyclic_var, (X = [_|X], atomic_list_concat(X, _)), error(type_error(list, [_|_]))).
+test(l21_alc_sep_cyclic, (X = [a|X], atomic_list_concat(X, -, _)), error(type_error(list, [a|_]))).
+test(l21_alc_sep_culprit, (X = [a|X], catch(atomic_list_concat(X, -, _), error(type_error(list, C), _), true), C == X), true).
+test(l21_alc_sep_lasso, (X = [b|X], L = [a|X], catch(atomic_list_concat(L, -, _), error(type_error(list, C), _), true), C == L), true).
+test(l21_alc_sep_cyclic_var, (X = [_|X], atomic_list_concat(X, -, _)), error(type_error(list, [_|_]))).
+test(l21_alc_split_cyclic, (X = [a|X], atomic_list_concat(X, -, 'a-a')), error(type_error(list, [a|_]))).
+test(l21_alc_split_culprit, (X = [a|X], catch(atomic_list_concat(X, -, 'a-a'), error(type_error(list, C), _), true), C == X), true).
+test(l21_alc_split_cyclic_var, (X = [_|X], atomic_list_concat(X, -, 'a-a')), error(type_error(list, [_|_]))).
+test(l21_alc_split_lasso, (X = [b|X], L = [a|X], catch(atomic_list_concat(L, -, 'a-b'), error(type_error(list, C), _), true), C == L), true).
+% 循環が要素にあるだけなら、背骨は真のリストであり、要素の型の誤りになる。
+test(l21_alc_cyclic_element, (X = [a|X], atomic_list_concat([X], _)), error(type_error(atomic, [a|_]))).
 % split_atom/4。
 test(split_atom_basic, split_atom('a b  c', ' ', '', L), solutions([L = [a, b, '', c]])).
 test(split_atom_pad, split_atom(' a ', '', ' ', L), solutions([L = [a]])).

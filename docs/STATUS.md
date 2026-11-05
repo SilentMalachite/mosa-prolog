@@ -3,8 +3,8 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 8520e80, CI run 42005277509 passed all 8 jobs (2026-11-05)
 
 - **In progress:** none.
-- **Last done:** L20 (91ffdb4; owner decision A, 2026-11-06, iso-notes 7.3.3: a compound term met again on its own evaluation path raises `resource_error(cyclic_term)`; Brent's cycle detection in `CycleWatch`, src/builtins/arith.cpp). Before it, L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
-- **Next:** L21, L22, L23 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
+- **Last done:** L21 (a cyclic spine raises `type_error(list, …)` in format/1,2,3 and atomic_list_concat/2,3: lib/format.pl and lib/strings.pl check the shape with `length/2`, without `\+`, which copies shared data at run time, now M28). Before it, L20 (91ffdb4), L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Next:** L22, L23, M28 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open

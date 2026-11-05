@@ -152,26 +152,23 @@ must_be_atom_or_var(X, PI) :-
     ).
 
 % 部分リストは具体化の誤り、それ以外の形は型の誤り。
+must_be_list(List, _) :-
+    is_list(List),
+    !.
 must_be_list(List, PI) :-
     must_be_list_or_partial(List, PI),
-    list_tail(List, Tail),
-    (   Tail == []
-    ->  true
-    ;   throw(error(instantiation_error, context(PI, _)))
-    ).
+    throw(error(instantiation_error, context(PI, _))).
 
+% 背骨が循環するリストを Prolog で辿ると止まらないので（レビュー L21）、形は length/2 に見させる。length/2 は
+% 巡回を type_error(list, List) にし、部分リストなら末尾を束縛して成功する。成功したら失敗して束縛を戻し、選言の
+% 残りで成功する。length_once/1 の切断が、その失敗で length/2 に次の長さを作らせない。\+ \+ で戻さないのは、
+% \+ が実行時にゴールを訳し直してリストを写し、共有の多い要素を木に広げるため（L21 の Codex 敵対的レビュー）。
 must_be_list_or_partial(List, PI) :-
-    list_tail(List, Tail),
-    (   var(Tail)
-    ->  true
-    ;   Tail == []
-    ->  true
-    ;   throw(error(type_error(list, List), context(PI, _)))
+    (   catch(length_once(List), error(Formal, _), throw(error(Formal, context(PI, _)))),
+        fail
+    ;   true
     ).
 
-list_tail(List, Tail) :-
-    (   nonvar(List),
-        List = [_|Rest]
-    ->  list_tail(Rest, Tail)
-    ;   Tail = List
-    ).
+length_once(List) :-
+    length(List, _),
+    !.

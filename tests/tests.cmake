@@ -226,6 +226,15 @@ target_link_libraries(library_ops_test PRIVATE mosa_lib)
 add_test(NAME library_ops COMMAND $<TARGET_FILE:library_ops_test>)
 set_tests_properties(library_ops PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/library_ops")
 
+# レビュー L21 の Codex 敵対的レビュー。共有の多い要素を持つリストを、8 MiB の上限で format/2 と
+# atomic_list_concat/2,3 に渡す。背骨の検査が \+ でリストを写すと、上限で止まる。
+add_executable(lib_shared_test tests/cpp/lib_shared_test.cpp)
+target_include_directories(lib_shared_test PRIVATE tests/cpp)
+target_compile_definitions(lib_shared_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(lib_shared_test PRIVATE mosa_lib)
+add_test(NAME lib_shared COMMAND $<TARGET_FILE:lib_shared_test>)
+set_tests_properties(lib_shared PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
