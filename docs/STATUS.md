@@ -3,7 +3,7 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 632c3e6, CI run 42145637485 passed all 8 jobs (2026-11-06)
 
 - **In progress:** none.
-- **Last done:** L23 (`initialization(G, main)` keeps a copy of its goal term, not its text, so a later op/3 cannot change it; query entry points moved to src/machine/query.cpp). Before it, L22 (c473c46), L21 (f59a346), L20 (91ffdb4), L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Last done:** L23 (63811c2; `initialization(G, main)` keeps a copy of its goal term, not its text, so a later op/3 cannot change it; query entry points moved to src/machine/query.cpp). Before it, L22 (c473c46), L21 (f59a346), L20 (91ffdb4), L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
 - **Next:** M28, M29 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
