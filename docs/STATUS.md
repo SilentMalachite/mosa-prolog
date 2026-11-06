@@ -3,7 +3,7 @@
 Phase 7 · `mosa 0.0.1 (phase 6)` · conformance 2136/2171 (98.4%) · main 2e2cbab, CI run 42155608727 passed all 8 jobs (2026-11-06)
 
 - **In progress:** none.
-- **Last done:** M28 (a run-time goal refers to its bound compound arguments in place and, past 63,488 slots, compiles the rest when it runs; every stage stops at the heap limit while it builds the IR; the reader builds `'.'/2` as a list; a failed query no longer leaves a freed frame in `ip` for the next load's GC). Before it, L23 (63811c2), L22 (c473c46), L21 (f59a346), L20 (91ffdb4), L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
+- **Last done:** M28 (6ac3c60; a run-time goal refers to its bound compound arguments in place and, past 63,488 slots, compiles the rest when it runs; every stage stops at the heap limit while it builds the IR; the reader builds `'.'/2` as a list; a failed query no longer leaves a freed frame in `ip` for the next load's GC). Before it, L23 (63811c2), L22 (c473c46), L21 (f59a346), L20 (91ffdb4), L19 A1 (2aa1cdf), L19 (d8f4e1d), L17 (2fc7c7b, 7f2599b), L15, L14, L8, L12, L11, L2, L9, L10, L5, L6, L3, L7, L1, L4.
 - **Next:** M29, M30, M31 ([review](review-2026-10-31.md)); then the manuals (`docs/manual/ja`, `en`) and release packages.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
