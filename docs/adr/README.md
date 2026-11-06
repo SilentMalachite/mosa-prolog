@@ -24,3 +24,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0018](0018-predicate-lookup.md) | Predicate lookup by key: an open-addressing index on the predicate table and the load's snapshots | Approved (2026-11-04) |
 | [0019](0019-answer-aliases.md) | Toplevel answers show the aliases of one unbound variable as a chain | Approved (2026-11-04) |
 | [0020](0020-reconsult-ownership.md) | A reconsult removes the predicates the file no longer defines, applied by the outermost load | Approved (2026-11-05) |
+| [0021](0021-wide-ir-slots.md) | 32-bit IR slots; a run-time goal is never compiled again with copies | Approved (2026-11-06) |

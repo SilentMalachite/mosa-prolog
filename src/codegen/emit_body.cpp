@@ -29,12 +29,12 @@ void mark_slots(const IrTerm& term, std::vector<int>& counts) {
 }
 
 // goals が使う変数をスロットの順に。継続枠の語 5 から先にこの順で置き、状態の関数も同じ順で読む。
-std::vector<std::uint16_t> live_slots(ClauseCtx& ctx, std::span<const GoalRef> goals, std::size_t vars) {
+std::vector<std::uint32_t> live_slots(ClauseCtx& ctx, std::span<const GoalRef> goals, std::size_t vars) {
   std::vector<int> counts(vars, 0);
   count_body(ctx, goals, counts);
-  std::vector<std::uint16_t> live;
+  std::vector<std::uint32_t> live;
   for (std::size_t slot = 0; slot < vars; ++slot) {
-    if (counts[slot] > 0) live.push_back(static_cast<std::uint16_t>(slot));
+    if (counts[slot] > 0) live.push_back(static_cast<std::uint32_t>(slot));
   }
   return live;
 }
@@ -65,7 +65,7 @@ std::string state_function(const ClauseCtx& ctx, std::uint32_t state) {
 
 // spec の状態の関数を出す。枠の変数は skip 個の整数セルのあとに、使う変数がスロットの順で並ぶ。
 // 再開の状態ではカットの境界は継続枠の語 2 で、regs.cut は状態 0 と節の入口でだけ正しい（ADR 0009）。
-std::vector<std::uint16_t> emit_state(ClauseCtx& ctx, const StateSpec& spec, std::uint32_t state) {
+std::vector<std::uint32_t> emit_state(ClauseCtx& ctx, const StateSpec& spec, std::uint32_t state) {
   const Clause& clause = ctx.predicate.clauses[ctx.name.clause - 1];
   ClauseEmit fn{ctx.machine, ctx.tables, {}, {}, 0, 1};
   fn.slots.assign(clause.vars, SlotState{});
@@ -376,7 +376,7 @@ namespace {
 
 // spec の状態の番号と、枠が運ぶ変数。ゴールの並びだけで決まる状態は、同じ並びなら 1 つを使い回す。カットの後で
 // 後始末へ譲る枠（yield_after_cut）はその場で続ける道と同じ続きを指すので、まとめないとカットごとに状態が倍に増える。
-std::pair<std::uint32_t, std::vector<std::uint16_t>> state_of_spec(ClauseCtx& ctx, const StateSpec& spec) {
+std::pair<std::uint32_t, std::vector<std::uint32_t>> state_of_spec(ClauseCtx& ctx, const StateSpec& spec) {
   const bool plain = spec.skip == 0 && spec.prologue.empty() && !spec.local_cut && !spec.fails;
   std::vector<std::pair<const IrTerm*, std::uint32_t>> key;
   if (plain) {
@@ -384,7 +384,7 @@ std::pair<std::uint32_t, std::vector<std::uint16_t>> state_of_spec(ClauseCtx& ct
     if (const auto found = ctx.plain_states.find(key); found != ctx.plain_states.end()) return found->second;
   }
   const std::uint32_t state = ctx.next_state++;
-  std::pair<std::uint32_t, std::vector<std::uint16_t>> made{state, emit_state(ctx, spec, state)};
+  std::pair<std::uint32_t, std::vector<std::uint32_t>> made{state, emit_state(ctx, spec, state)};
   if (plain) ctx.plain_states.emplace(std::move(key), made);
   return made;
 }
@@ -395,7 +395,7 @@ std::string make_frame(ClauseCtx& ctx, ClauseEmit& emit, std::string_view stem, 
                        const std::string& cut, const std::string& cont, const std::vector<std::string>& prefix) {
   const auto [state, live] = state_of_spec(ctx, spec);
   std::vector<std::string> cells = prefix;
-  for (const std::uint16_t slot : live) cells.push_back(var_name(slot));
+  for (const std::uint32_t slot : live) cells.push_back(var_name(slot));
   const std::string kept = cell_list(emit, "k", cells);
   const std::string frame = emit.fresh(stem);
   emit.line("const auto " + frame + " = rt::resume_frame(m, &" + ctx.name.proc + ", " +

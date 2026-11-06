@@ -64,7 +64,7 @@ std::optional<std::string> atomic_expr(ClauseEmit& emit, const IrTerm& term) {
   return std::nullopt;
 }
 
-std::string use_var(ClauseEmit& emit, std::uint16_t slot) {
+std::string use_var(ClauseEmit& emit, std::uint32_t slot) {
   SlotState& state = emit.slots[slot];
   state.seen = true;
   state.left -= 1;
@@ -140,7 +140,7 @@ std::string place(ClauseEmit& emit, const IrTerm& root, std::string_view block, 
 
 void match(ClauseEmit& emit, const IrTerm& term, const std::string& expr, int depth);
 
-void match_var(ClauseEmit& emit, std::uint16_t slot, const std::string& expr) {
+void match_var(ClauseEmit& emit, std::uint32_t slot, const std::string& expr) {
   SlotState& state = emit.slots[slot];
   state.left -= 1;
   if (state.seen) {
@@ -228,7 +228,7 @@ void match(ClauseEmit& emit, const IrTerm& term, const std::string& expr, int de
 
 }  // namespace
 
-std::string var_name(std::uint16_t slot) { return "v" + std::to_string(slot); }
+std::string var_name(std::uint32_t slot) { return "v" + std::to_string(slot); }
 
 // 未束縛のまま残りうる変数のセルを、enter_clause と同じくスロットの順に作る（Review Focus 1）。
 // 本体の回数は emit_body.cpp が届くゴールだけを数えたもの。fail のあとの変数を作ると使われない宣言になる。
@@ -255,7 +255,7 @@ void emit_slot_cells(ClauseEmit& emit) {
   std::size_t offset = 0;
   for (std::size_t slot = 0; slot < emit.slots.size(); ++slot) {
     if (!emit.slots[slot].allocated) continue;
-    emit.line("Cell " + var_name(static_cast<std::uint16_t>(slot)) + " = rt::put_ref(" + at("cells", offset) + ");");
+    emit.line("Cell " + var_name(static_cast<std::uint32_t>(slot)) + " = rt::put_ref(" + at("cells", offset) + ");");
     offset += 1;
   }
 }

@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <functional>
 #include <initializer_list>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -509,6 +510,12 @@ struct Goal {
     return Cell{machine.heap.word_at(at + kFrameHead + index)};
   }
 };
+
+// IR のスロットの番号（ADR 0021）。2^32 個目の env はそれだけで 32 GiB になるので、ヒープの上限と同じに止める。
+[[nodiscard]] inline std::uint32_t slot_number(std::size_t index) {
+  if (index > std::numeric_limits<std::uint32_t>::max()) throw ResourceLimit("heap_limit");
+  return static_cast<std::uint32_t>(index);
+}
 
 struct Compiled {
   GoalRef term;

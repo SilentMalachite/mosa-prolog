@@ -30,7 +30,7 @@ struct Clause {
   std::size_t id = 0;
   IrTerm head;
   GoalRef body;
-  std::uint16_t vars = 0;
+  std::uint32_t vars = 0;
   KeyKind key = KeyKind::Any;
   std::uint32_t key_atom = 0;
   std::uint16_t key_arity = 0;

@@ -33,7 +33,7 @@ enum class IrTag {
 // embody）ので、浅い項の手間を既定の特殊メンバ関数に近く保つ。
 struct IrTerm {
   IrTag tag = IrTag::True;
-  std::uint16_t slot = 0;
+  std::uint32_t slot = 0;
   std::uint32_t atom = 0;
   std::uint16_t arity = 0;
   std::int64_t integer = 0;

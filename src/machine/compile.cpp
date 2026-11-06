@@ -13,53 +13,43 @@
 namespace mosa {
 namespace {
 
-// 実行時のゴールのデータの複合項を、写さずに元の項を env から指すか（レビュー M28）。木として写すと、共有の多い項は
-// 写しも組み立ても共有を広げた大きさになる。All はすべてを指す。スロットが溢れたら compile_goal が Large（木として
-// kSmallTree 個以下の項は写す）、それでも溢れたら Copy（前と同じくすべて写し、変数だけがスロット）で訳し直す。
-enum class Refer { Copy, All, Large };
-
-// Large で写す項の大きさ（木として数えた節点）。f(a, g(b)) は 4。
-constexpr std::size_t kSmallTree = 16;
-
-// IrTerm::slot は 16 ビットなので、スロットは 2^16 個まで。
-constexpr std::size_t kSlotCount = std::size_t{1} << 16;
-// ここを超えたら、残りのゴールを元の項のまま後で訳す（Build::defers）。葉 1 つは引数 1024 個（max_arity）の
-// スロットまでしか足さないので、2^16 個に届かない。
-constexpr std::size_t kDeferAt = kSlotCount - 2048;
+// 実行時のゴールのスロットがここを超えたら、残りの子のゴールを元の項のまま、動くときに訳す（Build::defers）。M28 では
+// 16 ビットのスロットを溢れさせないためだった。32 ビットにした後も、動かない残りまで一度に訳すと IR が項の何倍にも
+// なってヒープの上限で止まるので残す（M31 の Codex 敵対的レビュー）。値は M28 のまま。
+constexpr std::size_t kDeferAt = 63488;
 
 struct Build {
   const Heap* heap = nullptr;
   std::vector<std::uint64_t> refs;
-  // 今たどっている複合項。循環を匿名に切る。with_output_to が束縛済みの項を再び訳す。
+  // 今たどっている複合項。節のデータの循環を匿名に切る。
   std::unordered_set<std::uint64_t> open;
   std::vector<Cell> env;
-  // 実行時のゴールで巡回の戻り先になった複合項。写さずに元の項を指す。葉ごとに足すので集合にする（レビュー M13）。
-  std::unordered_set<std::uint64_t> loops;
   // 今訳している制御構造（レビュー M13、M7）。浅い部分は goal_at の道、深い部分は goal_deep の枠。
   // 実行時のゴールは、巡回の戻り先を元の項を指す Var の葉にし、call/1 として動くときに訳す。巡回は無限に
   // 展開した項として動く。節は env を持たないので、戻り先ごとに新しい名前のない変数のゴールにする。
   std::vector<std::uint64_t> goal_path;
   std::unordered_set<std::uint64_t> deep_open;
+  // 実行時のゴール。束縛された複合項の引数は、写さずに元の項を env から指す（レビュー M28）。木として写すと、
+  // 共有の多い項は写しも組み立ても共有を広げた大きさになる。スロットは 32 ビットなので溢れない（ADR 0021）。
   bool keep = false;
-  Refer refer = Refer::Copy;
   // ゴールの骨組みの節点ごとの、後で訳せないかの答え（Build::blocks）。同じ部分木を 2 度歩かない。
   std::unordered_map<std::uint64_t, std::uint8_t> skeleton;
-  // 組む IR の節点の数の上限。実行時のゴールは compile_with がヒープの上限で決める。節は決めない（レビュー M30）。
+  // 組む IR の節点の数の上限。実行時のゴールは compile_goal がヒープの上限で決める。節は決めない（レビュー M30）。
   std::size_t node_budget = SIZE_MAX;
   std::size_t nodes = 0;
   // 節の戻り先の制御構造と、そこに振った変数のスロット。name_slots はこのスロットに名前を付けない。
-  std::unordered_map<std::uint64_t, std::uint16_t> backs;
+  std::unordered_map<std::uint64_t, std::uint32_t> backs;
 
-  // refs の添字。M28 から実行時のゴールは複合項の引数ごとにスロットを振るので、長い連言を線形に探すと 2 乗になる
+  // refs の添字。実行時のゴールは複合項の引数ごとにスロットを振るので、長い連言を線形に探すと 2 乗になる
   // （6 万個で 8 倍遅い）。短いうちは線形のほうが速いので、kLinearRefs 個を超えてから作る。
-  std::unordered_map<std::uint64_t, std::uint16_t> ref_index;
+  std::unordered_map<std::uint64_t, std::uint32_t> ref_index;
   static constexpr std::size_t kLinearRefs = 32;
 
-  [[nodiscard]] std::uint16_t slot_of(Cell cell) {
+  [[nodiscard]] std::uint32_t slot_of(Cell cell) {
     const auto raw = cell.raw();
     if (ref_index.empty()) {
       for (std::size_t index = 0; index < refs.size(); ++index) {
-        if (refs[index] == raw) return static_cast<std::uint16_t>(index);
+        if (refs[index] == raw) return static_cast<std::uint32_t>(index);
       }
     } else if (const auto found = ref_index.find(raw); found != ref_index.end()) {
       return found->second;
@@ -69,23 +59,23 @@ struct Build {
   }
 
   // 同じ raw が 2 度あれば、線形に探すときと同じく前のほうを返す。
-  std::uint16_t push_ref(std::uint64_t raw) {
-    const auto slot = static_cast<std::uint16_t>(refs.size());
+  std::uint32_t push_ref(std::uint64_t raw) {
+    const std::uint32_t slot = slot_number(refs.size());
     refs.push_back(raw);
     if (!ref_index.empty()) {
       ref_index.emplace(raw, slot);
     } else if (refs.size() > kLinearRefs) {
       for (std::size_t index = 0; index < refs.size(); ++index) {
-        ref_index.emplace(refs[index], static_cast<std::uint16_t>(index));
+        ref_index.emplace(refs[index], static_cast<std::uint32_t>(index));
       }
     }
     return slot;
   }
 
   // できたゴールの木は状態の語に数える（ADR 0010 の改訂 3）が、数えるのは組み終えた後なので、組む間に溢れさせない。
-  // 共有の多いデータを写す段（Copy）も、共有する制御構造を木に広げるどの段も、ここで上限に止まる（M28 の Codex
-  // 敵対的レビュー 3 回目と 5 回目）。数えるのは安全点の tree_bytes と同じく args に確保する IrTerm で、データの枠と
-  // 葉の根は確保する前に数える（10 回目。訪ねた節点を数えると、まだ歩かない子の分を先に確保して上限を超える）。
+  // 共有する制御構造を木に広げるゴールは、ここで上限に止まる（M28 の Codex 敵対的レビュー 5 回目）。数えるのは
+  // 安全点の tree_bytes と同じく args に確保する IrTerm で、データの枠と葉の根は確保する前に数える（10 回目。
+  // 訪ねた節点を数えると、まだ歩かない子の分を先に確保して上限を超える）。
   void spend(std::size_t count) {
     nodes += count;
     if (nodes > node_budget) throw ResourceLimit("heap_limit");
@@ -99,12 +89,10 @@ struct Build {
   }
 
   [[nodiscard]] IrTerm data(Cell cell, bool shape = false);
-  [[nodiscard]] IrTerm copy_data(Cell cell, bool shape);
-  [[nodiscard]] std::optional<IrTerm> place(Cell cell);
+  [[nodiscard]] IrTerm copy_data(Cell cell);
+  [[nodiscard]] IrTerm place(Cell cell);
   [[nodiscard]] IrTerm place_root(Cell cell);
   [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
-  [[nodiscard]] IrTerm close_data(Cell cell, IrTerm term, bool shape);
-  void mark_loops(Cell root);
   [[nodiscard]] bool goal_loops(Cell cell) const;
   [[nodiscard]] IrTerm goal_back(Cell cell);
   [[nodiscard]] IrTerm goal_leaf(Cell cell);
@@ -159,7 +147,7 @@ Cell child_of(const Heap& heap, Cell cell, std::size_t index) {
   return heap.arg(cell, static_cast<std::uint16_t>(index));
 }
 
-// 複合項でない項と、巡回の戻り先。たどる複合項は nullopt で、呼び手が枠を積む。
+// 複合項でない項と、節のデータの巡回の戻り先。たどる複合項は nullopt で、呼び手が枠を積む。
 std::optional<IrTerm> Build::data_leaf(Cell cell) {
   IrTerm term;
   if (heap->unbound(cell)) {
@@ -183,159 +171,46 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
     return term;
   }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
-  // 訳している途中の制御構造は元の項を指す。葉の引数ごとに巡回するゴール全体を写すと 2 乗以上になる（レビュー M13）。
-  // 節では元の項を指せないので、データとして写し、その中の巡回を下で匿名に切る。
-  if (keep && goal_loops(cell)) {
-    term.tag = IrTag::Var;
-    term.slot = slot_of(cell);
-    return term;
-  }
   if (!open.contains(cell.raw())) return std::nullopt;
-  // 実行時のゴールは元の項を指せば巡回が残る。匿名に切ると巡回リストが部分リストになる。
-  // 節は env を持たないので匿名のまま（巡回する節は 7.6.2 の外）。
-  if (keep) {
-    loops.insert(cell.raw());
-    term.tag = IrTag::Var;
-    term.slot = slot_of(cell);
-    return term;
-  }
+  // 節は env を持たないので、巡回は匿名に切る（巡回する節は 7.6.2 の外）。実行時のゴールはここに来ない（place）。
   term.tag = IrTag::Anon;
   return term;
 }
 
-// shape はゴールの葉の根。根を Var にすると call(X) として動き、同じ項を訳し直して止まらない（レビュー M13）。
-IrTerm Build::close_data(Cell cell, IrTerm term, bool shape) {
-  open.erase(cell.raw());
-  // 巡回の入口まで写すと、元の項より一段長い項になる。入口は元の項そのものを渡す。
-  if (!shape && keep && loops.contains(cell.raw())) {
-    term = IrTerm{};
-    term.tag = IrTag::Var;
-    term.slot = slot_of(cell);
-  }
-  return term;
-}
-
-// 木として数えた大きさが limit を超えるか。共有も巡回も木として数えるので、高々 limit 個の節点で止まる。
-bool tree_exceeds(const Heap& heap, Cell root, std::size_t limit) {
-  std::vector<Cell> pending{root};
-  std::size_t count = 0;
-  while (!pending.empty()) {
-    const Cell cell = heap.deref(pending.back());
-    pending.pop_back();
-    if (++count > limit) return true;
-    if (heap.unbound(cell)) continue;
-    if (cell.tag() == Tag::Lis) {
-      pending.push_back(heap.list_tail(cell));
-      pending.push_back(heap.list_head(cell));
-    } else if (cell.tag() == Tag::Str) {
-      for (std::uint16_t index = 0; index < heap.functor_arity(cell); ++index) pending.push_back(heap.arg(cell, index));
-    }
-  }
-  return false;
-}
-
-// 束縛済みの複合項は、巡回の入口（loops）と同じく元の項を指す Var の葉にする。項は書き換わらず、中の変数も
-// 元のままなので、写した項と同じに動く。nullopt は写す小さい項（Refer::Large）。
-std::optional<IrTerm> Build::place(Cell cell) {
+// 実行時のゴールの束縛済みの複合項は、元の項を指す Var の葉にする。項は書き換わらず、中の変数も元のままなので、
+// 写した項と同じに動く。巡回する項も元の項のまま渡すので、巡回が残る。
+IrTerm Build::place(Cell cell) {
   cell = heap->deref(cell);
-  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return data_leaf(cell);
-  if (refer == Refer::Large && !tree_exceeds(*heap, cell, kSmallTree)) return std::nullopt;
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return *data_leaf(cell);
   IrTerm term;
   term.tag = IrTag::Var;
   term.slot = slot_of(cell);
   return term;
 }
 
-// ゴールの葉の根は写し、引数から先を指す。根を Var にすると call/1 として動く（レビュー M13）。
+// ゴールの葉の根は写し、引数から先を指す。根を Var にすると call/1 として動き、同じ項を訳し直して止まらない
+// （レビュー M13）。
 IrTerm Build::place_root(Cell root) {
   root = heap->deref(root);
   if (root.tag() != Tag::Lis && root.tag() != Tag::Str) return *data_leaf(root);
   spend(child_count(*heap, root));
   DataFrame frame = open_frame(*heap, root);
-  for (std::size_t index = 0; index < frame.count; ++index) {
-    const Cell child = child_of(*heap, root, index);
-    auto term = place(child);
-    frame.term.args.push_back(term ? std::move(*term) : copy_data(child, false));
-  }
+  for (std::size_t index = 0; index < frame.count; ++index) frame.term.args.push_back(place(child_of(*heap, root, index)));
   return std::move(frame.term);
 }
 
+// shape はゴールの葉の根。節は env を持たないので、データをすべて写す。
 IrTerm Build::data(Cell root, bool shape) {
-  if (refer == Refer::Copy) return copy_data(root, shape);
-  if (shape) return place_root(root);
-  if (auto term = place(root)) return std::move(*term);
-  return copy_data(root, false);
-}
-
-// すべて写す段の前に、循環する強連結成分の節点をすべて loops に印す（Tarjan の方法を手で積む）。写しは印した節点を
-// 歩かずに指すので、循環のどの節点から写し始めても、縮めて捨てる部分の中の共有項を広げない。戻り辺の先だけを印すと、
-// C = f(D), D = f(C, X) で C を先に訪ねたとき、D の写しが X を広げて上限で止まる（M28 の Codex 敵対的レビュー 9、
-// 10、11 回目）。訪ねた節点を覚えるので、共有の多い項でも節点の数に比例する。
-void Build::mark_loops(Cell root) {
-  struct Seen {
-    std::uint32_t order;
-    std::uint32_t low;
-    bool on_stack;
-  };
-  std::unordered_map<std::uint64_t, Seen> seen;
-  std::vector<std::pair<Cell, std::size_t>> path;
-  std::vector<Cell> members;
-  const auto open_node = [&](Cell cell) {
-    const auto order = static_cast<std::uint32_t>(seen.size());
-    seen.emplace(cell.raw(), Seen{order, order, true});
-    members.push_back(cell);
-    path.emplace_back(cell, 0);
-  };
-  root = heap->deref(root);
-  if (root.tag() == Tag::Lis || root.tag() == Tag::Str) open_node(root);
-  while (!path.empty()) {
-    const auto [cell, next] = path.back();
-    if (next < child_count(*heap, cell)) {
-      ++path.back().second;
-      const Cell child = heap->deref(child_of(*heap, cell, next));
-      if (child.tag() != Tag::Lis && child.tag() != Tag::Str) continue;
-      if (const auto found = seen.find(child.raw()); found == seen.end()) {
-        open_node(child);
-      } else if (found->second.on_stack) {
-        Seen& self = seen.at(cell.raw());
-        self.low = std::min(self.low, found->second.order);
-        if (child.raw() == cell.raw()) loops.insert(cell.raw());
-      }
-      continue;
-    }
-    path.pop_back();
-    const Seen done = seen.at(cell.raw());
-    if (!path.empty()) {
-      Seen& parent = seen.at(path.back().first.raw());
-      parent.low = std::min(parent.low, done.low);
-    }
-    if (done.low != done.order) continue;
-    // 成分の根で閉じる。節点が 2 つ以上なら循環する（1 つの循環は自分への辺で上で印した）。
-    std::size_t first = members.size() - 1;
-    while (members[first].raw() != cell.raw()) --first;
-    const bool cyclic = members.size() - first > 1;
-    for (std::size_t at = first; at < members.size(); ++at) {
-      seen.at(members[at].raw()).on_stack = false;
-      if (cyclic) loops.insert(members[at].raw());
-    }
-    members.resize(first);
-  }
+  if (!keep) return copy_data(root);
+  return shape ? place_root(root) : place(root);
 }
 
 // 後順に組み立てる。長いリストや深い項でも C++ の呼び出しを積まないよう、途中の複合項を手で積む（ADR 0011）。
 // 子は左から訳すので、変数の番号は前の再帰と同じ順に振られる。
-IrTerm Build::copy_data(Cell root, bool shape) {
+IrTerm Build::copy_data(Cell root) {
   std::vector<DataFrame> stack;
   const auto enter = [&](Cell cell) -> std::optional<IrTerm> {
     cell = heap->deref(cell);
-    // 循環の入口（mark_loops か前の巡回で見つけたもの）は、close_data が縮めるのと同じ Var にし、歩かない。
-    // ゴールの葉の根は写す（レビュー M13）。
-    if (keep && !(shape && stack.empty()) && loops.contains(cell.raw())) {
-      IrTerm term;
-      term.tag = IrTag::Var;
-      term.slot = slot_of(cell);
-      return term;
-    }
     if (auto leaf = data_leaf(cell)) return leaf;
     spend(child_count(*heap, cell));
     open.insert(cell.raw());
@@ -351,7 +226,8 @@ IrTerm Build::copy_data(Cell root, bool shape) {
       if (auto leaf = enter(next)) stack.back().term.args.push_back(std::move(*leaf));
       continue;
     }
-    IrTerm done = close_data(top.cell, std::move(top.term), shape && stack.size() == 1);
+    open.erase(top.cell.raw());
+    IrTerm done = std::move(top.term);
     stack.pop_back();
     if (stack.empty()) return done;
     stack.back().term.args.push_back(std::move(done));
@@ -505,11 +381,10 @@ bool tags_parent(const Heap& heap, const GoalFrame& frame, std::size_t index, Ce
   return name == "->" || name == "*->";
 }
 
-// スロットが溢れそうなら、残りのゴールを元の項を指す call/1 の葉にし、動くときに新しいスロットで訳す（M28 の
-// Codex 敵対的レビュー）。写し直すと、2^16 個を超える大きい引数の共有をまた木に広げる。後で訳せない部分木は、
-// その子ごとに決める。
+// スロットが kDeferAt を超えたら、残りのゴールを元の項を指す call/1 の葉にし、動くときに新しいスロットで訳す（M28 の
+// Codex 敵対的レビュー、M31 の Codex 敵対的レビュー）。動かない残りは訳さない。後で訳せない部分木は、その子ごとに決める。
 bool Build::defers(Cell cell) {
-  if (refer == Refer::Copy || refs.size() < kDeferAt) return false;
+  if (!keep || refs.size() < kDeferAt) return false;
   cell = heap->deref(cell);
   return !slotless_leaf(*heap, cell) && !blocks(cell);
 }
@@ -531,7 +406,7 @@ IrTerm Build::goal_back(Cell cell) {
     term.slot = slot_of(cell);
     return term;
   }
-  const auto [entry, fresh] = backs.try_emplace(cell.raw(), static_cast<std::uint16_t>(refs.size()));
+  const auto [entry, fresh] = backs.try_emplace(cell.raw(), slot_number(refs.size()));
   if (fresh) push_ref(cell.raw());
   term.slot = entry->second;
   return term;
@@ -676,38 +551,23 @@ void name_slots(const Heap& heap, const Build& build, std::span<const VarName> n
 
 }  // namespace
 
-namespace {
-
-// 元の項を指すと、変数の無い複合項の引数ごとにもスロットが要る。溢れたら nullopt（Copy は前と同じく溢れても返す）。
-std::optional<Compiled> compile_with(Heap& heap, Cell cell, Refer refer) {
+// 束縛された複合項の引数はどれも元の項を指すので、変数の無い引数ごとにもスロットが要る。スロットは 32 ビットなので、
+// 前のように溢れたら写し直す段は要らない（ADR 0021）。
+Compiled compile_goal(Heap& heap, Cell cell) {
   Build build;
   build.heap = &heap;
   build.keep = true;
-  build.refer = refer;
   // 節点 1 つは親の args の IrTerm 1 つ。ヒープと状態の語は GC が空けうる（前に訳したゴールは、届かない extras が
   // 持ったままのことがある）ので引かない。引くと、収まるゴールが GC の時機で止まる（M28 の Codex 敵対的レビュー
   // 6 回目）。持った語は動いている収集の答えで、空かない。木だけで残りを超えれば、安全点（gc.cpp）も必ず止める。
   const std::size_t held = heap.held();
   const std::size_t left = held < heap.limit() ? heap.limit() - held : 0;
   build.node_budget = left / ((sizeof(IrTerm) + kHeapWordBytes - 1) / kHeapWordBytes);
-  if (refer == Refer::Copy) build.mark_loops(cell);
   IrTerm term = build.goal(cell);
-  if (refer != Refer::Copy && build.refs.size() > kSlotCount) return std::nullopt;
   Compiled compiled;
   compiled.term = make_run_goal(heap, std::move(term));
   compiled.env = make_env(heap, std::move(build.env));
   return compiled;
-}
-
-}  // namespace
-
-// ふつうは後で訳す葉（Build::defers）で溢れない。溢れるのは、後で訳せない葉が残りに 2048 個を超えて並ぶとき。そのときも
-// 小さい引数だけを写す Large で共有の多い大きい項を指し続ける。すべて写す Copy に落ちるのは、それでも溢れるときだけで、
-// 写しがヒープの残りを超えればヒープの上限で止まる。
-Compiled compile_goal(Heap& heap, Cell cell) {
-  if (auto compiled = compile_with(heap, cell, Refer::All)) return std::move(*compiled);
-  if (auto compiled = compile_with(heap, cell, Refer::Large)) return std::move(*compiled);
-  return std::move(*compile_with(heap, cell, Refer::Copy));
 }
 
 bool dot_head(const Heap& heap, Cell head, Cell& left, Cell& right) {
@@ -769,7 +629,7 @@ bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const
   }
   // 事実の本体はどの節も同じ true なので、1 つを共有して節ごとに確保しない。
   clause.body = body.tag == IrTag::True && body.args.empty() ? fact_body() : make_goal(std::move(body));
-  clause.vars = static_cast<std::uint16_t>(build.refs.size());
+  clause.vars = slot_number(build.refs.size());
   name_slots(heap, build, names, clause);
   if (clause.head.tag == IrTag::Atom) {
     clause.head.arity = 0;

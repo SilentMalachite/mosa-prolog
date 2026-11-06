@@ -17,6 +17,13 @@
 // 前に、捨てる X（深さ 40 の共有項）まで木に広げて上限で止めた。今は写す前に入口を印す（Build::mark_loops）。
 // Codex 敵対的レビュー（11 回目）。C = f(D), D = f(C, X) で C を先に訪ねると、戻り辺の先 C だけが印され、D の写しが
 // X を広げた。今は循環する強連結成分の節点をすべて印す。
+// レビュー M31（ADR 0021）。スロットは 32 ビットになり、実行時のゴールはいつも元の項を指す。上の over は、前は
+// スロットが溢れてすべての写しに落ち、共有項を木に広げて上限で止まった（今は 8 MiB で動く）。cyclic_own は引数ごとに
+// 別の循環 X = f(f(f(X))) を持ち、すべての写しでは循環の入口と変数が 2^16 を超えて番号が折り返し、失敗した。
+// bagof/3 の証人 70000 個は、答えを結ぶゴールのスロットが折り返して別の証人と結び、失敗した（control.pl に置くと、
+// = を証人ごとに 1 歩ずつ動かすので MOSA_GC_STRESS=1 で 5 分を超える）。M31 の Codex 敵対的レビュー 1 回目: 後で訳す段は
+// 折り返しを防ぐだけでなく、動かない残りを訳さずにおくので残す。外すと lazy_chain（IR は項の 4 倍）と lazy_skeleton
+// （共有する深さ 20 の骨組み）がヒープの上限で止まる。
 // 手元の GC ストレス（reconsult が落ちた）。失敗した問い合わせは ip に空いた枠の番号を残し、次の load_program の指示が
 // それを外の枠として退避して GC の根にした。GC は空いた番地の語を枠と読み、指示のゴール枠の引数を捨てて落ちた。
 #include "harness.hpp"
@@ -82,7 +89,18 @@ constexpr std::string_view k_program =
     "    dag(40, X), C = f(X, C), wide_goal(C, V, G), vars(3000, Bs, Vars), call((bind(Bs), V = v, G, Vars)).\n"
     "cyclic_scc :-\n"
     "    dag(40, X), C = f(D), D = f(C, X), wide_goal(D, V, G), vars(3000, Bs, Vars),\n"
-    "    call((C \\== b, bind(Bs), V = v, G, Vars)).\n";
+    "    call((C \\== b, bind(Bs), V = v, G, Vars)).\n"
+    "own_cycles(0, []) :- !.\n"
+    "own_cycles(N, [f(C)|T]) :- C = f(f(f(C))), M is N - 1, own_cycles(M, T).\n"
+    "owide(_, 0, true) :- !.\n"
+    "owide(V, N, (G, Rest)) :- own_cycles(999, Args), G =.. [cw, V|Args], M is N - 1, owide(V, M, Rest).\n"
+    "cyclic_own :- cw_head, owide(V, 70, G), vars(3000, Bs, Vars), call((bind(Bs), V = v, G, Vars)).\n"
+    "any(_).\n"
+    "witnesses :- length(W, 70000), bagof(x, any(W), L), L == [x], sort(W, S), length(S, 70000).\n"
+    "chain(0, T, T) :- !.\n"
+    "chain(N, T, (nonvar(f(_)), R)) :- M is N - 1, chain(M, T, R).\n"
+    "lazy_chain :- chain(240000, true, G), \\+ call((fail, G)).\n"
+    "lazy_skeleton :- dag(40, X), wide_goal(X, V, G), skel(20, fail, T), \\+ call((V = w, G, T)).\n";
 
 struct Outcome {
   bool limited = false;
@@ -118,7 +136,8 @@ int main() {
   auto machine = mosa::Machine::create(k_limit);
   mosa_test::check(machine->load_program(k_program).ok, "load");
   const Outcome over = run(*machine, "over.");
-  mosa_test::check(over.limited, "a copy that spreads the sharing stops at the heap limit");
+  mosa_test::check(!over.limited && over.kind == mosa::StopKind::Success,
+                   "a goal past 65,536 slots refers to its shared arguments in place and fits in 8 MiB");
   const Outcome fits = run(*machine, "fits.");
   mosa_test::check(!fits.limited && fits.kind == mosa::StopKind::Success, "the deferred goal fits in 8 MiB");
   const Outcome shared = run(*machine, "shared_skeleton.");
@@ -130,6 +149,9 @@ int main() {
   const Outcome again = run(*machine, "twice.");
   mosa_test::check(!again.limited && again.kind == mosa::StopKind::Success,
                    "the IR of an earlier goal that GC can free does not stop the next goal");
+  const Outcome skeleton_rest = run(*machine, "lazy_skeleton.");
+  mosa_test::check(!skeleton_rest.limited && skeleton_rest.kind == mosa::StopKind::Success,
+                   "a shared skeleton past 63,488 slots that never runs is not compiled");
   auto wide = mosa::Machine::create(4 * k_limit);
   mosa_test::check(wide->load_program(k_program).ok, "load 32 MiB");
   const Outcome cyclic = run(*wide, "cyclic.");
@@ -147,6 +169,15 @@ int main() {
   const Outcome scc = run(*wide, "cyclic_scc.");
   mosa_test::check(!scc.limited && scc.kind == mosa::StopKind::Success,
                    "the copy refers to every node of a cycle, not only to the target of its back edge");
+  const Outcome own = run(*wide, "cyclic_own.");
+  mosa_test::check(!own.limited && own.kind == mosa::StopKind::Success,
+                   "69,930 arguments, each with its own cycle, and 3000 variable goals keep their own slots");
+  const Outcome chain = run(*wide, "lazy_chain.");
+  mosa_test::check(!chain.limited && chain.kind == mosa::StopKind::Success,
+                   "the goals past 63,488 slots that never run are not compiled");
+  const Outcome witnesses = run(*wide, "witnesses.");
+  mosa_test::check(!witnesses.limited && witnesses.kind == mosa::StopKind::Success,
+                   "bagof/3 binds each of 70,000 witnesses to its own value");
   check_failed_query_then_directive();
   return mosa_test::failures();
 }

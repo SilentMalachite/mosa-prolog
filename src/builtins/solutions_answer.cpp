@@ -207,14 +207,14 @@ Answer blank_answer(Impl& machine) {
   return answer;
 }
 
-IrTerm slot_var(std::uint16_t slot) {
+IrTerm slot_var(std::uint32_t slot) {
   IrTerm term;
   term.tag = IrTag::Var;
   term.slot = slot;
   return term;
 }
 
-IrTerm eq_term(std::uint32_t name, std::uint16_t left, std::uint16_t right) {
+IrTerm eq_term(std::uint32_t name, std::uint32_t left, std::uint32_t right) {
   IrTerm term;
   term.tag = IrTag::Fun;
   term.atom = name;
@@ -257,12 +257,12 @@ void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witn
   branches.reserve(answers.size());
   for (const Answer& answer : answers) {
     std::vector<IrTerm> parts;
-    const auto list_slot = static_cast<std::uint16_t>(env.size());
+    const auto list_slot = slot_number(env.size());
     env.push_back(answer.list);
     for (std::size_t index = 0; index < witnesses.size(); ++index) {
-      const auto slot = static_cast<std::uint16_t>(env.size());
+      const auto slot = slot_number(env.size());
       env.push_back(answer.values[index]);
-      parts.push_back(eq_term(eq, static_cast<std::uint16_t>(index + 1), slot));
+      parts.push_back(eq_term(eq, slot_number(index + 1), slot));
     }
     parts.push_back(eq_term(eq, 0, list_slot));
     branches.push_back(fold(IrTag::And, parts));

@@ -373,7 +373,7 @@ bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   const auto floor = machine.heap.size();
   std::vector<Cell> env;
   env.reserve(clause.vars);
-  for (std::uint16_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
+  for (std::uint32_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
   if (!unify_visible(machine, floor, view.head, materialize(machine, clause.head, env))) return false;
   if (view.head_only) return true;
   // retract(Head) は本体 true の節だけを消す。他の規則の本体を組んでから比べると、本体の大きさだけ無駄になる。

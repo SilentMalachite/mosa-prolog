@@ -326,9 +326,8 @@ test(m16_not_cyclic, (X = (X, 1), catch(\+ X, E, true), m16_formal(E, F), F = ty
 :- dynamic(m28_seen/0).
 m28_dag(0, a) :- !.
 m28_dag(N, f(T, T)) :- M is N - 1, m28_dag(M, T).
-% 引数 1000 個のゴールを 70 個つなぎ、束縛済みの引数を 69930 個にする。引数はどれも別のセルの f(E)（変数のある
-% f(_) にすると、写すときに変数のスロットが溢れる。これは M28 の前からの上限）。スロットを取り違えると、ある f(E) の
-% 位置に V の値 v が入って頭と合わない。歩みは少なく保つ。MOSA_GC_STRESS=1 は歩みごとに GC を走らせ、7 万の歩みでは
+% 引数 1000 個のゴールを 70 個つなぎ、束縛済みの引数を 69930 個にする。引数はどれも別のセルの f(E)。スロットを
+% 取り違えると、ある f(E) の位置に V の値 v が入って頭と合わない。歩みは少なく保つ。MOSA_GC_STRESS=1 は歩みごとに GC を走らせ、7 万の歩みでは
 % 400 秒を超えた。
 m28_fs(0, _, [], []) :- !.
 m28_fs(N, E, [f(_)|T], [f(E)|U]) :- M is N - 1, m28_fs(M, E, T, U).
@@ -339,7 +338,7 @@ m28_wide(Fs, As, V, N, Last, (G, Rest)) :-
 m28_wide_goal(E, Last, V, G) :-
     m28_fs(999, E, Fs, As), copy_term(Fs, HeadArgs), H =.. [m28_w, W|HeadArgs], retractall(H),
     assertz((H :- W == v)), m28_wide(Fs, As, V, 70, Last, G).
-% 同じ 70 個のゴールを釣り合った連言（深さ 8）にする。浅い道（goal_at）でもスロットが溢れそうになる。
+% 同じ 70 個のゴールを釣り合った連言（深さ 8）にする。浅い道（goal_at）でも 2^16 個を超えるスロットを使う。
 m28_chain_list(true, Last, [Last]) :- !.
 m28_chain_list((G, Rest), Last, [G|L]) :- m28_chain_list(Rest, Last, L).
 m28_pairs([A, B|T], [(A, B)|U]) :- !, m28_pairs(T, U).
@@ -359,8 +358,10 @@ m28_run(catcher) :- m28_dag(40, X), call(catch(throw(X), B, true)), B \== b.
 m28_run(findall) :- m28_dag(40, X), findall(t, X \== b, L), L == [t].
 m28_run(once) :- m28_dag(40, X), once((X \== b ; true)).
 m28_run(if_then_else) :- m28_dag(40, X), call((X == b -> R = yes ; R = no)), R == no.
-% 束縛済みの引数ごとにスロットが要る。溢れそうなら残りのゴールを後で訳すので、スロットを取り違えない（Codex 敵対的
-% レビュー。前はすべてを写し直して、共有項の引数 f(X) が 69930 個あると、ここでまた木に広げた）。
+% 束縛済みの引数ごとにスロットが要る。M28 は 2^16 個を超えそうなら残りのゴールを後で訳し、それでも溢れたら写し直した
+% （Codex 敵対的レビュー。前はすべてを写し直して、共有項の引数 f(X) が 69930 個あると、ここでまた木に広げた）。
+% M31（ADR 0021）でスロットは 32 ビットになり、写し直す段は無くなった。後で訳す段は、動かない残りを訳さずにおくので
+% 残る。下の検査は、後で訳す規則（カット、ゴール位置の変数、呼べない項、if-then-else）を確かめる。
 m28_run(many_compound_args) :- m28_wide_goal(a, true, V, G), call((V = v, G)).
 m28_run(many_shared_args) :- m28_dag(40, X), m28_wide_goal(X, true, V, G), call((V = v, G)).
 % 残りの中の ! は前の選択点を切るので、残りを後で訳せない（call/1 の中では局所になる）。小さい引数を写して訳し直し、
@@ -422,3 +423,11 @@ test(m28_inner_var, (X = f(Y), call((Y = 1, X == f(1)))), true).
 test(m28_inner_var_later, (X = g(f(Y)), call((X = g(Z), Y = 2, Z == f(2)))), true).
 test(m28_inner_var_undo, (X = f(Y), call(((Y = 1, fail) ; var(Y))), X = f(Z), var(Z)), true).
 test(m28_cyclic_arg, (X = f(X), call(X = f(Y)), Y == X), true).
+
+% レビュー M31（ADR 0021）。スロットの番号は 32 ビット。前は 16 ビットで、変数 70000 個の節は番号が 2^16 で折り返して
+% env の外を指し、プロセスごと落ちた。どちらも組込の数歩で済むので、MOSA_GC_STRESS=1 でも重くない。bagof/3 の
+% 証人の検査は、答えを結ぶ = を証人ごとに 1 歩ずつ動かすので、ストレスを 1000 にする ctest goal_shared に置く。
+:- dynamic(m31_p/1).
+:- dynamic(m31_q/1).
+test(m31_clause_head_vars, (length(L, 70000), retractall(m31_p(_)), assertz(m31_p(L)), m31_p(M), sort(M, S), length(S, 70000)), true).
+test(m31_clause_body_vars, (length(L, 70000), retractall(m31_q(_)), assertz((m31_q(X) :- X = L)), m31_q(M), sort(M, S), length(S, 70000)), true).

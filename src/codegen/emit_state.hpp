@@ -108,7 +108,7 @@ struct ClauseCtx {
   // \+ と M:G の中のゴール。IR はデータの形で持つので、ゴールの形に直した項をここに置いて指す。
   std::deque<IrTerm> owned;
   // ゴールの並びだけで決まる状態（make_rest と枝の枠）の番号と、枠が運ぶ変数。同じ並びは 1 つの状態にまとめる。
-  std::map<std::vector<std::pair<const IrTerm*, std::uint32_t>>, std::pair<std::uint32_t, std::vector<std::uint16_t>>>
+  std::map<std::vector<std::pair<const IrTerm*, std::uint32_t>>, std::pair<std::uint32_t, std::vector<std::uint32_t>>>
       plain_states;
 };
 
@@ -140,7 +140,7 @@ void plan_slots(const Clause& clause, const std::vector<int>& body_counts, Claus
 void emit_slot_cells(ClauseEmit& emit);
 void emit_head(ClauseEmit& emit, const IrTerm& head, const Predicate& predicate);
 [[nodiscard]] std::string emit_build(ClauseEmit& emit, const IrTerm& term);
-[[nodiscard]] std::string var_name(std::uint16_t slot);
+[[nodiscard]] std::string var_name(std::uint32_t slot);
 
 // emit_body.cpp
 // 本体の全部を生成コードで動かせるか。動かせない節は interpret_clause に回す。

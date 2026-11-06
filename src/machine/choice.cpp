@@ -158,7 +158,7 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
   const auto context = predicate.meta.empty() ? 0 : read_goal(machine, goal).module;
   std::vector<Cell> cells;
   cells.reserve(clause.vars);
-  for (std::uint16_t index = 0; index < clause.vars; ++index) cells.push_back(machine.heap.fresh_ref());
+  for (std::uint32_t index = 0; index < clause.vars; ++index) cells.push_back(machine.heap.fresh_ref());
   if (clause.head.tag == IrTag::Fun) {
     for (std::size_t index = 0; index < clause.head.args.size(); ++index) {
       const Cell expected = materialize(machine, clause.head.args[index], cells);
