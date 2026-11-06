@@ -53,7 +53,7 @@ std::string write_tmp(const std::string& name, std::string_view text) {
   return path;
 }
 
-// initialization(G, main) は G を書いて読み直す。
+// initialization(G, main) のゴールは、書けば図形の字で終わる項でも動く（L17。L23 からは書いて読み直さない）。
 void check_init_main() {
   const std::string arg0 = "mosa";
   const std::string path = write_tmp("full_stop_main.pl", ":- initialization(X = '#', main).\n");
@@ -79,7 +79,7 @@ void check_converted() {
                                  true);
   mosa_test::check(three.out.find("false") == std::string::npos && three.err.empty(),
                    "goal # under char_conversion of three layout characters -> " + three.out + three.err);
-  // main は読み込みが終わってから読む。後ろの指令が変換を有効にしても、ゴールは書いたときのまま。
+  // main は読み込みが終わってから動く。後ろの指令が変換を有効にしても、ゴールは指令の項のまま（L17、L23）。
   const std::string main_path = write_tmp(
       "full_stop_main_converted.pl",
       ":- initialization('#', main).\n'#'.\n:- char_conversion(' ', a), set_prolog_flag(char_conversion, on).\n");

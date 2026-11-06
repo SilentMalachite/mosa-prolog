@@ -252,7 +252,7 @@ int play_goal(Machine& machine, std::string goal, bool written, bool interactive
 }
 
 // 文面は run_main_goal が作る。mosac の実行ファイルも同じ関数で終わる（計画 Task 5）。
-int play_main(Machine& machine, const std::string& goal, Echo& echo) {
+int play_main(Machine& machine, const ExportedTerm& goal, Echo& echo) {
   std::string warning;
   const int code = run_main_goal(machine, goal, warning);
   if (!warning.empty()) echo.warn(warning);
@@ -385,10 +385,10 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
 
 // initialization(G, main) の入口。成功は 0、失敗は 1、例外は文面を出して 2、halt/1 の値はそのまま。
 // 答えの行は出さない。実行ファイルと同じ出力にするため。
-int run_main_goal(Machine& machine, const std::string& goal, std::string& warning) {
+int run_main_goal(Machine& machine, const ExportedTerm& goal, std::string& warning) {
   try {
-    // 書いた字面なので char_conversion なしで読む。読み込みの後の指令が変換を変えても、ゴールは変わらない（レビュー L17）。
-    Stop stop = query_written(machine, goal + full_stop_after(goal));
+    // 字面を読まないので、読み込みの後の指令が変換や演算子を変えても、ゴールは指令の項のまま（レビュー L17、L23）。
+    Stop stop = query_exported(machine, goal);
     // 選択点を残した成功も答えの後で切り、後始末を動かす（ADR 0016、敵対的レビュー A3）。
     if (stop.kind == StopKind::Success) stop = close_query(engine_impl(machine));
     if (stop.kind == StopKind::Halt) return stop.halt_code;

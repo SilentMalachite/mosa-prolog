@@ -52,6 +52,7 @@ target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/spelling.cpp src/
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp
+  src/machine/query.cpp
   src/machine/gc.cpp
   src/machine/gc_mark.cpp
   src/machine/gc_compact.cpp

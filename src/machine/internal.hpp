@@ -415,8 +415,9 @@ struct Machine::Impl {
   MessageLanguage message_lang = default_message_language();
   // 旗 argv。プログラムに渡す引数（mosa では -- より後ろ）。読み取り専用で、起動前に一度だけ決まる。
   std::vector<std::string> program_argv;
-  // initialization(G, main) で決まったゴールの文面。読み込み後にヒープを切るので、項ではなく文で持つ。終止符は無い。
-  std::optional<std::string> main_goal;
+  // initialization(G, main) で決まったゴールの写し。読み込み後にヒープを切るので、ヒープの外に写して持つ。字面で持つと、
+  // 後の op/3 や旗の下で読み直して別の項になる（レビュー L23）。
+  std::optional<ExportedTerm> main_goal;
   // 文面を作るためだけのマシン。自分の診断を文面にしに行くと、また新しいマシンを作り続ける。
   bool render_only = false;
   CharConv char_conv;
@@ -526,6 +527,8 @@ struct Compiled {
 // Machine::query と同じだが、字面を char_conversion なしで読む。Mosa が書いたゴールの字面を読み直すときに使う
 // （レビュー L17）。利用者が打った字面は Machine::query で読む。
 [[nodiscard]] Stop query_written(Machine& machine, std::string_view goal_text);
+// export_term で写したゴールを戻して問い合わせる。字面を読まない（レビュー L23）。
+[[nodiscard]] Stop query_exported(Machine& machine, const ExportedTerm& goal);
 
 [[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
@@ -682,7 +685,7 @@ void prefix_consult_diagnostic(Impl& machine, std::string_view path);
 // 差分テスト（計画 Task 11）のインタプリタ側は、表の無い単位でこれを呼んで翻訳側と同じ読み方をする。
 [[nodiscard]] bool load_unit(Impl& machine, const rt::NativeUnit& unit);
 // 定義は session.cpp。initialization(G, main) を Task 2 の規則で動かし、終了コードを返す。文面は warning に足す。
-[[nodiscard]] int run_main_goal(Machine& machine, const std::string& goal, std::string& warning);
+[[nodiscard]] int run_main_goal(Machine& machine, const ExportedTerm& goal, std::string& warning);
 // 定義は native.cpp。翻訳器（Task 4）も同じ関数で指紋を出す。
 [[nodiscard]] std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate);
 // install_unit が生成関数を付けてよい述語か（指紋は見ない）。翻訳器も同じ関数で出す述語を選ぶ。

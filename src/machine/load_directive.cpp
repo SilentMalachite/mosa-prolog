@@ -401,7 +401,7 @@ int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals
 }
 
 // initialization(G, main)。ゴールは読み込みの後に実行ファイルの入口として 1 回だけ呼ぶので、
-// ここでは文面を覚えるだけにする。複数あれば最後のものが勝つ（main は ISO 7.4.2.8 に無く、この実装の規則）。
+// ここでは項をヒープの外に写して覚えるだけにする。複数あれば最後のものが勝つ（main は ISO 7.4.2.8 に無く、この実装の規則）。
 int apply_initialization_main(Impl& machine, Cell directive) {
   directive = machine.heap.deref(directive);
   if (directive.tag() != Tag::Str || machine.heap.functor_arity(directive) != 1) return 0;
@@ -423,8 +423,8 @@ int apply_initialization_main(Impl& machine, Cell directive) {
     const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
     goal = machine.heap.structure(machine.atoms.intern(":"), parts);
   }
-  // 終止符は run_main_goal が足し、char_conversion なしで読む（レビュー L17）。
-  machine.main_goal = write_term(machine.heap, machine.operators, goal, {}, {});
+  // 字面に書くと、読み込みの後でその時の演算子の表と旗で読み直すことになり、後の op/3 でゴールが変わる（レビュー L23）。
+  machine.main_goal = export_term(machine, goal);
   return 1;
 }
 

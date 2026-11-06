@@ -234,6 +234,12 @@ target_compile_definitions(lib_shared_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(lib_shared_test PRIVATE mosa_lib)
 add_test(NAME lib_shared COMMAND $<TARGET_FILE:lib_shared_test>)
 set_tests_properties(lib_shared PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+# レビュー L23。initialization(G, main) のゴールは、後の op/3 の下でも指令の項のまま動く。
+add_executable(main_goal_test tests/cpp/main_goal_test.cpp)
+target_include_directories(main_goal_test PRIVATE tests/cpp)
+target_compile_definitions(main_goal_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(main_goal_test PRIVATE mosa_lib)
+add_test(NAME main_goal COMMAND $<TARGET_FILE:main_goal_test>)
 
 add_executable(session_test tests/cpp/session_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp)
