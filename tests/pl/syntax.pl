@@ -66,6 +66,31 @@ f(_, _).
 % case: float_exponent
 1.5e-2.
 
+% case: float_inf
+1.0Inf.
+
+% case: float_neg_inf
+-1.0Inf.
+
+% case: float_inf_digits
+% expect: 1.0Inf
+2.5Inf.
+
+% case: float_nan
+1.5NaN.
+
+% case: float_nan_mantissa
+% expect: 1.5NaN
+1.25NaN.
+
+% case: float_minus_inf
+% expect: - (1.0Inf)
+-(1.0Inf).
+
+% case: float_special_args
+% expect: f(1.0Inf,-1.0Inf,1.5NaN)
+f(1.0Inf, -1.0Inf, 1.5NaN).
+
 % case: list_empty
 [].
 

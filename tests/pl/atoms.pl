@@ -65,6 +65,12 @@ test(number_chars_comment, number_chars(A, ['/', '*', 'x', '*', '/', ' ', '4']),
 test(number_chars_minus_space, number_chars(N, [-, ' ', '1']), error(syntax_error(_))).
 test(number_chars_plus, number_chars(N, ['+', '1']), error(syntax_error(_))).
 test(number_codes_letter, number_codes(1, [97]), error(syntax_error(_))).
+% レビュー L22（iso-notes 6.4.5 の B）。数の字面を読む述語も 1.0Inf と 1.5NaN を読み、書いた字面と往復する。
+test(l22_number_codes_inf, (number_codes(X, "1.0Inf"), float(X), X > 0, number_codes(X, C), atom_codes(A, C)), solutions([A = '1.0Inf'])).
+test(l22_number_codes_neg_inf, (number_codes(X, " -1.0Inf"), float(X), X < 0), true).
+test(l22_number_chars_nan, (number_chars(X, ['1', '.', '5', 'N', a, 'N']), \+ X =:= X, number_chars(X, C)), solutions([C = ['1', '.', '5', 'N', a, 'N']])).
+test(l22_atom_number_neg_nan, (Y is -(nan), atom_number(A, Y), atom_number(A, Z), \+ Z =:= Z), solutions([A = '1.5NaN'])).
+test(l22_number_codes_info, number_codes(_, "1.0Info"), error(syntax_error(_))).
 test(number_codes_empty, number_codes(1, []), error(syntax_error(_))).
 test(number_codes_leading_zero, number_codes(1, [48, 49]), true).
 test(number_codes_space, number_codes(N, [32, 49]), solutions([N = 1])).

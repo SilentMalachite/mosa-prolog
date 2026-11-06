@@ -107,6 +107,7 @@ class Lexer {
   [[nodiscard]] Digits read_digits(int base);
   [[nodiscard]] Scan finish_float(std::string spelling, Place start);
   [[nodiscard]] std::optional<Scan> take_exponent(std::string& spelling, Place start);
+  [[nodiscard]] std::optional<Scan> take_special(const std::string& spelling, Place start);
   [[nodiscard]] Scan make_float(const std::string& spelling, Place start);
   [[nodiscard]] Scan scan_quoted();
   [[nodiscard]] std::optional<Scan> append_escape(std::string* text, char32_t* code);

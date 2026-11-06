@@ -1,6 +1,7 @@
 #include "mosa/unify.hpp"
 #include "mosa/writer.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -81,7 +82,14 @@ bool match_one(const Side& left_side, Cell left, const Side& right_side, Cell ri
   }
   if (left.tag() != right.tag()) return false;
   if (left.tag() == Tag::Atom) return left_heap.atoms().name(atom_of(left)) == right_heap.atoms().name(atom_of(right));
-  if (left.tag() == Tag::Float) return same_float_term(left_heap.float_value(left), right_heap.float_value(right));
+  if (left.tag() == Tag::Float) {
+    // writer はどの NaN も 1.5NaN と書くので、読み戻すと符号と中身が消える。== と同じく NaN 同士は同じ項に見る。
+    // 単一化の same_float_term は NaN を何とも合わせないので、ここだけ先に見る（レビュー L22）。
+    const double a = left_heap.float_value(left);
+    const double b = right_heap.float_value(right);
+    if (std::isnan(a) || std::isnan(b)) return std::isnan(a) && std::isnan(b);
+    return same_float_term(a, b);
+  }
   if (left.tag() == Tag::Lis || left.tag() == Tag::Str) return push_children(left_side, left, right_side, right, todo);
   return false;
 }

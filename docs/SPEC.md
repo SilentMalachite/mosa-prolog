@@ -75,7 +75,7 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 | Default of `unknown` | `error` |
 | Character range | Unicode scalar values U+0000–U+10FFFF (surrogates are not allowed) |
 | String type | None. `"..."` follows the `double_quotes` flag (SWI's string type is a non-goal) |
-| Float format | Shortest round-trip representation (`std::to_chars`). Always contains `.`, exponent written with `e` |
+| Float format | Shortest round-trip representation (`std::to_chars`). Always contains `.`, exponent written with `e`. NaN is written `1.5NaN` and infinities `1.0Inf` and `-1.0Inf`, as in SWI-Prolog and ECLiPSe, and the reader reads them back (iso-notes 6.4.5, review L22) |
 | Integer syntax | `0b`, `0o`, `0x`, `0'c`, `_` digit separators (not specified in Cor.3, but allowed) |
 
 **Intentional deviations from ISO (all are behind a flag or off by default, and are disabled when the `iso` flag is true)**

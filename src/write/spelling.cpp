@@ -157,7 +157,12 @@ std::string quote_atom(std::string_view text) {
   return out;
 }
 
+// 13211-1 の浮動小数点数に NaN と無限大は無い。std::to_chars の字面は標準ライブラリごとに違い（-nan(ind) など）、
+// 読み戻せないので、Schimpf の提案に沿う SWI-Prolog と ECLiPSe の形で書く。字句解析がこれを数として読む。
+// NaN の符号と中身は書かない。== と compare/3 はどの NaN も同じ項に見る（レビュー L22、iso-notes 6.4.5）。
 std::string format_float(double value) {
+  if (std::isnan(value)) return "1.5NaN";
+  if (std::isinf(value)) return value > 0 ? "1.0Inf" : "-1.0Inf";
   if (value == 0.0 && std::signbit(value)) return "-0.0";
   std::array<char, 128> buffer{};
   const std::to_chars_result result =

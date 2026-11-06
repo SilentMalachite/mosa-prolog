@@ -395,10 +395,14 @@ std::optional<OpDef> Printer::as_operator(Cell term) const {
   return postfix;
 }
 
+// 字面が - で始まらない数。符号の立った NaN も 1.5NaN と書くので符号なしに数える。数えないと -(NaN) を
+// -1.5NaN と書き、負の数として読み戻される（レビュー L22）。
 bool Printer::unsigned_number(Cell term) const {
   term = heap_.deref(term);
   if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return heap_.integer_value(term) >= 0;
-  return term.tag() == Tag::Float && !std::signbit(heap_.float_value(term));
+  if (term.tag() != Tag::Float) return false;
+  const double value = heap_.float_value(term);
+  return std::isnan(value) || !std::signbit(value);
 }
 
 bool Printer::operator_atom(Cell term) const {

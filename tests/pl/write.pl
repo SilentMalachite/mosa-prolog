@@ -183,3 +183,33 @@ test(l16_number_quoted, quoted_op_round(xf, 'x y'(10), '10''x y'''), true).
 test(l16_float_quoted, quoted_op_round(xf, 'x y'(1.0), '1.0''x y'''), true).
 % 字面の 0 の前の . は小数点とは限らない。整数 0 を書いた場所で覚える（M8 の Codex レビュー 3 回目）。
 test(l16_dots_zero_quoted, (op(100, xfx, '..'), catch((quoted_op_round(xfx, 'x y'('..'(a, 0), b), 'a..0 ''x y''b') -> R = true ; R = false), E, R = error(E)), op(0, xfx, '..'), R == true), true).
+% レビュー L22（持ち主は B を選んだ、iso-notes 6.4.5）。NaN と無限大は std::to_chars の字面（macOS では符号の立った
+% NaN が -nan(ind).0）でなく、SWI-Prolog と ECLiPSe の 1.5NaN、1.0Inf、-1.0Inf と書き、読み戻せる。
+l22_text(Goal, T, A) :- call(Goal, T), with_output_to(atom(A), writeq(T)).
+l22_nan(X) :- X is nan.
+l22_neg_nan(X) :- X is -(nan).
+l22_inf(X) :- X is inf.
+l22_neg_inf(X) :- X is -inf.
+l22_back(A, T) :- atom_concat(A, ' .', B), open_string(B, S), read(S, T).
+test(l22_writeq_nan, l22_text(l22_nan, _, A), solutions([A = '1.5NaN'])).
+test(l22_writeq_neg_nan, l22_text(l22_neg_nan, _, A), solutions([A = '1.5NaN'])).
+test(l22_writeq_sign_neg_nan, (X is sign(-(nan)), with_output_to(atom(A), writeq(X))), solutions([A = '1.5NaN'])).
+test(l22_writeq_inf, l22_text(l22_inf, _, A), solutions([A = '1.0Inf'])).
+test(l22_writeq_neg_inf, l22_text(l22_neg_inf, _, A), solutions([A = '-1.0Inf'])).
+test(l22_write_neg_nan, (X is -(nan), with_output_to(atom(A), write(X))), solutions([A = '1.5NaN'])).
+test(l22_print_neg_nan, (X is -(nan), with_output_to(atom(A), print(X))), solutions([A = '1.5NaN'])).
+test(l22_canonical_neg_inf, (X is -inf, with_output_to(atom(A), write_canonical(X))), solutions([A = '-1.0Inf'])).
+test(l22_back_neg_nan, (l22_text(l22_neg_nan, _, A), l22_back(A, T), float(T), \+ T =:= T), true).
+test(l22_back_inf, (l22_text(l22_inf, X, A), l22_back(A, T), T == X), true).
+test(l22_back_neg_inf, (l22_text(l22_neg_inf, X, A), l22_back(A, T), T == X), true).
+test(l22_back_same_term, (l22_text(l22_neg_nan, X, A), l22_back(A, T), T == X), true).
+% 符号の立った NaN も - で始まらない字面なので、-(NaN) は前置演算子のまま括弧で包む。-1.5NaN は負の数と読まれる。
+test(l22_minus_neg_nan, (X is -(nan), minus_round(-(X), A)), solutions([A = '- (1.5NaN)'])).
+test(l22_minus_nan_back, (X is -(nan), with_output_to(atom(A), writeq(-(X))), l22_back(A, T), T = -(Y), float(Y), \+ Y =:= Y), true).
+test(l22_minus_inf, (X is inf, minus_round(-(X), A)), solutions([A = '- (1.0Inf)'])).
+test(l22_minus_neg_inf, (X is -inf, minus_round(-(X), A)), solutions([A = '- -1.0Inf'])).
+test(l22_sub_neg_inf, (X is -inf, minus_round(1 - X, A)), solutions([A = '1- -1.0Inf'])).
+test(l22_args, (X is -(nan), Y is -inf, with_output_to(atom(A), writeq(f(X, Y, [X|Y])))), solutions([A = 'f(1.5NaN,-1.0Inf,[1.5NaN|-1.0Inf])'])).
+% 字面の最後が英字なので、英字の演算子や引用した名前の前でも読み手は別の字句に分ける。
+test(l22_alpha_op, (X is inf, with_output_to(atom(A), writeq(X mod 2))), solutions([A = '1.0Inf mod 2'])).
+test(l22_quoted_op, (X is inf, quoted_op_round(xf, 'x y'(X), A)), solutions([A = '1.0Inf''x y'''])).

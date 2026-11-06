@@ -663,6 +663,14 @@ A か B か: A は整数の `syntax_error(integer_overflow)` と同じく `synta
 
 決定（2026-11-02）: A。最大の double より大きい浮動小数点数には、字句が ADR 0007 の新しい鍵 `float_overflow` を返す。最大の double に丸まる綴りは今までどおり数である。範囲外の値の向きは指数の符号ではなく値の桁（最初の 0 でない数字の位置と指数の和）で決めるので、`1<0 を 400 個>.0e-10` は上位に、`0.<0 を 400 個>1` は下位に溢れる。下位の溢れは変えない。`1.0e-400` は `0.0` と読み、`1.0e-310` のような非正規化数はそのまま残る（`tests/pl/read.pl` と `tests/pl/atoms.pl` の `m2_*`、`tests/cpp/lexer_test.cpp` の `test_float_range`）。
 
+## 6.4.5 NaN と無限大（ISO にない）
+
+下の決定の前は、writeq/1 などの書き手は NaN と無限大を `std::to_chars` の字面に `.0` を足して書いた（`src/write/spelling.cpp` の `format_float`）。`nan.0`、`inf.0`、`-inf.0` となり、符号の立った NaN（`X is -(nan)`、L2 からは `sign(-(nan))` も）は標準ライブラリ独自の字面で、macOS では `-nan(ind).0` だった。どれも読み戻せず、`term_to_atom(T, '-nan(ind).0')` も `term_to_atom(T, 'nan.0')` も `syntax_error(unexpected_token)` になる（レビュー L22）。ISO の浮動小数点数に NaN と無限大は無いので、規格はその字面を決めていない。SWI-Prolog と ECLiPSe は Joachim Schimpf の浮動小数点の core update の提案に沿って `1.0Inf`、`-1.0Inf`、`1.5NaN` と書き、読み戻す。
+
+A か B か: A: NaN は符号の立ち方や標準ライブラリによらずすべて `nan.0` と書き、読み手は変えない（NaN と無限大は読み戻せないまま）。B: SWI-Prolog と同じく NaN を `1.5NaN`、無限大を `1.0Inf` と `-1.0Inf` と書き、字句解析がこれを浮動小数点数として読む。
+
+決定（2026-11-06）: B。NaN はどれも `1.5NaN` と書き、符号と中身は書かない。`==` と compare/3 はもとからどの NaN も同じ項に見る。字句は `<桁>.<桁>Inf` を正の無限大（SWI と同じく桁は何でもよい）、`<桁>.<桁>NaN` を、桁の値が 1.0 以上 2.0 未満（SWI が書く `1.xxx`）のとき NaN と読む。範囲は丸めた double でなく小数点の前の桁（前の 0 を除いて `1`）で決めるので、`1.99999999999999999NaN` は NaN で、`0.99999999999999999NaN` は NaN でない。前の `-` は、ほかの浮動小数点数と同じく負の数にする。`Inf` や `NaN` の直後に名前の字が続くもの（`1.0Info`、`1.0Inf_`）、指数の付くもの（`1.0e5Inf`）、小文字（`1.0inf`）、ほかの NaN の仮数（`2.0NaN`）は、今までどおり浮動小数点数と変数に分かれて構文の誤りになる。ISO のテキストでは数の直後に変数は来ないので、規格に合うテキストの意味は変わらない。これらは溢れではないので、`float_overflow` が `error` でも読める。`1.0e400` は M2 のとおり `syntax_error(float_overflow)` のまま。read/1、consult、number_codes/2、number_chars/2、atom_number/2 はどれもこの字句解析を使う。符号の立った NaN の `-(X)` を writeq すると `- (1.5NaN)` と書き、複合項として読み戻す。`mosatest --roundtrip` は NaN 同士を同じ項に見る（`src/write/term_equal.cpp`）。テスト: `tests/pl/write.pl`、`tests/pl/read.pl`、`tests/pl/atoms.pl` の `l22_*` と、`tests/pl/syntax.pl` の `float_inf`、`float_nan`、`float_special_args` などの場合。
+
 ## 6.4.2 終止符の前の記号文字の字句
 
 下の決定までは、字句解析器は、後ろに配置文字か `%` が来る `.` で記号文字の字句を切っていた。直前も `.` のときだけは切らない（`src/read/lexer.cpp` の `Lexer::ends_clause`）。だから `X = +.` の後に改行が来ると `X = +` と読み、`writeq(t('+.' - b))` が書く `t(+. -b)` は読み戻せなかった（レビュー L17）。6.4.2 が図形の字句として禁じるのは、配置文字が後ろに来る単独の `.` だけなので、そこでの `+.` は 1 つの字句である。

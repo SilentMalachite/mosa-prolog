@@ -170,6 +170,39 @@ test(m2_read_recovers, (open_string('X = 1.0e400. a.', S), catch(read(S, _), err
 test(m2_read_max_kept, (m1_read('1.7976931348623157e308.', X), X =:= 1.7976931348623157e308), true).
 test(m2_read_underflow_kept, (m1_read('1.0e-400.', X), X == 0.0), true).
 test(m2_read_subnormal_kept, (m1_read('1.0e-310.', X), X > 0.0, X < 1.0e-300), true).
+% レビュー L22（持ち主は B を選んだ、iso-notes 6.4.5）。SWI-Prolog と ECLiPSe の 1.0Inf と 1.5NaN を数として読む。
+% Inf の前はどの桁でもよく、NaN の前は 1.xxx だけ。名前が続く綴りや指数の付いた綴りは今までどおり構文の誤り。
+% 1.0Inf は値が溢れた綴りではないので、float_overflow が error でも M2 の誤りにしない。
+test(l22_read_inf, (m1_read('1.0Inf.', X), float(X), X > 1.7976931348623157e308), true).
+test(l22_read_neg_inf, (m1_read('-1.0Inf.', X), float(X), X < -1.7976931348623157e308), true).
+test(l22_read_inf_digits, (m1_read('[0.0Inf, 12.5Inf, 1_0.0Inf].', L), L = [A, B, C], A == B, B == C, A > 0), true).
+test(l22_read_nan, (m1_read('1.5NaN.', X), float(X), \+ X =:= X), true).
+test(l22_read_nan_mantissa, (m1_read('[1.0NaN, 1.999NaN].', L), L = [A, B], \+ A =:= A, \+ B =:= B), true).
+test(l22_read_neg_nan, (m1_read('-1.5NaN.', X), float(X), \+ X =:= X), true).
+test(l22_read_nan_two, m1_read('2.0NaN.', _), error(syntax_error(_))).
+test(l22_read_nan_half, m1_read('0.5NaN.', _), error(syntax_error(_))).
+% 仮数の範囲は丸めた double でなく桁で決める（L22 の Codex レビュー）。
+test(l22_read_nan_ten, m1_read('1_0.5NaN.', _), error(syntax_error(_))).
+test(l22_read_nan_near_two, (m1_read('[1.99999999999999999NaN, 01.5NaN].', L), L = [A, B], \+ A =:= A, \+ B =:= B), true).
+test(l22_read_nan_near_one, m1_read('0.99999999999999999NaN.', _), error(syntax_error(_))).
+test(l22_read_info, m1_read('1.0Info.', _), error(syntax_error(_))).
+test(l22_read_nan_longer, m1_read('1.5NaNa.', _), error(syntax_error(_))).
+test(l22_read_inf_digit, m1_read('1.0Inf1.', _), error(syntax_error(_))).
+test(l22_read_inf_underline, m1_read('1.0Inf_.', _), error(syntax_error(_))).
+test(l22_read_exp_inf, m1_read('1.0e5Inf.', _), error(syntax_error(_))).
+test(l22_read_lower_inf, m1_read('1.0inf.', _), error(syntax_error(_))).
+test(l22_read_short, m1_read('1.0In.', _), error(syntax_error(_))).
+test(l22_read_minus_compound, (m1_read('-(1.0Inf).', T), T = -(X), float(X), X > 0), true).
+test(l22_read_op_after, (m1_read('1.0Inf mod 2.', T), T = mod(X, 2), float(X)), true).
+test(l22_read_back, (m1_read('f(1.0Inf, -1.0Inf, 1.5NaN).', T), m1_back(T)), true).
+% 節に書いた字句も同じ値になる。mosac は値をビットのまま C++ に写す。NaN は何とも単一化しないので頭の 1.5NaN にも合わない。
+l22_head(1.0Inf, plus).
+l22_head(-1.0Inf, minus).
+l22_head(1.5NaN, nan).
+test(l22_literal_body, (X = 1.0Inf, Y = -1.0Inf, Z = 1.5NaN, X > 1.0e308, Y < -1.0e308, \+ Z =:= Z), true).
+test(l22_literal_head, (X is -inf, findall(R, l22_head(X, R), L)), solutions([L = [minus]])).
+test(l22_literal_head_nan, (X is nan, findall(R, l22_head(X, R), L)), solutions([L = []])).
+test(l22_literal_head_scan, findall(X-R, l22_head(X, R), L), solutions([L = [1.0Inf-plus, -1.0Inf-minus, 1.5NaN-nan]])).
 % レビュー L17（持ち主は A を選んだ、iso-notes 6.4.2）。6.4.2 が図形トークンにしないのは空白か % か終わりの前の . 1 字
 % だけで、図形の字に続く . は同じトークンに入る。前は +. を + と終止符に読み、writeq(t('+.' - b)) の t(+. -b) が読めなかった。
 test(l17_review_repro, (open_string('t(+. -b) .', S), read(S, T)), solutions([T = t('+.' - b)])).

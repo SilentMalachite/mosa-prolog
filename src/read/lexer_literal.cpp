@@ -102,6 +102,31 @@ bool above_double(std::string_view clean) {
   return place > 0;
 }
 
+// scan_word が名前や変数を続ける字。数の後ろの Inf と NaN が長い名前の頭なら特別な字句にしない。
+bool word_char(char32_t code) {
+  const CharClass cls = classify(code);
+  return cls == CharClass::Small || cls == CharClass::Capital || cls == CharClass::Underline ||
+         cls == CharClass::Digit || cls == CharClass::Mark;
+}
+
+std::string without_separators(const std::string& spelling) {
+  std::string clean;
+  clean.reserve(spelling.size());
+  for (const char ch : spelling) {
+    if (ch != '_') clean.push_back(ch);
+  }
+  return clean;
+}
+
+// 指数の無い `<桁>.<桁>` の値が 1.0 以上 2.0 未満か。double に丸めると 1.99999999999999999 が 2.0 に、
+// 0.99999999999999999 が 1.0 になって判定が逆になるので、整数部の桁で決める（L22 の Codex レビュー）。
+bool one_point_mantissa(const std::string& spelling) {
+  const std::string clean = without_separators(spelling);
+  const std::string_view whole = std::string_view{clean}.substr(0, clean.find('.'));
+  const std::size_t first = whole.find_first_not_of('0');
+  return first != std::string_view::npos && whole.substr(first) == "1";
+}
+
 }  // namespace
 
 Scan Lexer::scan_number() {
@@ -238,8 +263,52 @@ Scan Lexer::finish_float(std::string spelling, Place start) {
   if (fraction.bad_separator || !fraction.any) {
     return fail_at(SyntaxReason::UnexpectedToken, std::move(spelling), start);
   }
+  if (std::optional<Scan> special = take_special(spelling, start)) return std::move(*special);
   if (const std::optional<Scan> error = take_exponent(spelling, start)) return *error;
   return make_float(spelling, start);
+}
+
+// 13211-1 に無い字句。SWI-Prolog と ECLiPSe（Schimpf の提案）の 1.0Inf と 1.5NaN を読み、writer の字面を読み戻す
+// （レビュー L22、iso-notes 6.4.5）。ISO では数の直後に変数が来て必ず構文の誤りになる綴りなので、正しい ISO の
+// テキストの意味は変わらない。Inf の前は SWI と同じくどの桁でもよく、NaN の前は SWI の書く 1.xxx だけを受ける。
+// 名前が続く 1.0Info や 2.0NaN は今までどおり数と変数に分ける。
+std::optional<Scan> Lexer::take_special(const std::string& spelling, Place start) {
+  constexpr std::u32string_view kInf = U"Inf";
+  constexpr std::u32string_view kNaN = U"NaN";
+  std::u32string_view word;
+  std::size_t look = index_;
+  for (const std::u32string_view candidate : {kInf, kNaN}) {
+    std::size_t at = index_;
+    bool matches = true;
+    for (const char32_t expected : candidate) {
+      const SourceChar ch = peek_char_at(at);
+      if (!ch.valid || ch.code != expected) {
+        matches = false;
+        break;
+      }
+      at += ch.bytes;
+    }
+    if (matches) {
+      word = candidate;
+      look = at;
+      break;
+    }
+  }
+  if (word.empty()) return std::nullopt;
+  const SourceChar after = peek_char_at(look);
+  if (after.valid && word_char(after.code)) return std::nullopt;
+  double value = std::numeric_limits<double>::infinity();
+  if (word == kNaN) {
+    if (!one_point_mantissa(spelling)) return std::nullopt;
+    value = std::numeric_limits<double>::quiet_NaN();
+  }
+  while (index_ < look) {
+    const SourceChar ch = peek_char();
+    advance(ch.code, ch.bytes);
+  }
+  Scan scan = token_at(TokenKind::Float, start);
+  scan.token.floating = value;
+  return scan;
 }
 
 std::optional<Scan> Lexer::take_exponent(std::string& spelling, Place start) {
@@ -280,11 +349,7 @@ std::optional<Scan> Lexer::take_exponent(std::string& spelling, Place start) {
 }
 
 Scan Lexer::make_float(const std::string& spelling, Place start) {
-  std::string clean;
-  clean.reserve(spelling.size());
-  for (const char ch : spelling) {
-    if (ch != '_') clean.push_back(ch);
-  }
+  const std::string clean = without_separators(spelling);
   double value = 0;
   const char* const first = clean.data();
   const char* const last = first + clean.size();
