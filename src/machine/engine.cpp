@@ -627,7 +627,12 @@ Stop run_loop(Impl& machine) {
     if (!machine.pending_cleanups.empty()) settle_cleanups(machine);
     if (machine.exception) return Stop{StopKind::Exception, 0, machine.ball, {}, false};
     if (machine.failed) {
-      if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
+      if (!backtrack(machine)) {
+        // 戻した水位より上の枠は空いた。ip を残すと、問い合わせの後の load_program の指示（run_parked）がそれを外の
+        // 枠として退避し、GC が空いた番地の語を枠と読んで、指示のゴール枠の引数を捨てる（レビュー M28）。
+        machine.ip = kNoFrame;
+        return Stop{StopKind::Failure, 0, {}, {}, false};
+      }
       continue;
     }
     // 2 歩の間だけが GC の機会である（ADR 0010）。組込と生成関数の C++ の局所はここでは何も握っていない。

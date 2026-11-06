@@ -217,3 +217,11 @@ test(l17_term_to_atom, term_to_atom(T, '+.'), solutions([T = '+.'])).
 % mosatest はゴールと期待を書いて読み直す。最後が図形の字なら、足す終止符の前に空白を置く（前の X= #. は終止符が無い）。
 test(l17_goal_ends_graphic, X = '#', solutions([X = '#'])).
 test(l17_goal_ends_dot, X = '+.', solutions([X = '+.'])).
+% レビュー M28。'.'/2 はリストの構成子（6.3.5）。前は読み手が構造体のまま作り、ゴールを IR に写すときだけ直したので、
+% read/2 で読んだ '.'(a, []) は [a] と単一化せず、is_list/1 も偽だった。
+test(m28_read_dot_unify, (open_string('\'.\'(a, []).', S), read(S, T), T = [a]), true).
+test(m28_read_dot_list, (open_string('\'.\'(a, []).', S), read(S, T), is_list(T)), true).
+test(m28_read_dot_nested, (open_string('f(\'.\'(a, \'.\'(b, []))).', S), read(S, T), T = f([A, B])), solutions([(A = a, B = b)])).
+test(m28_read_dot_partial, (open_string('\'.\'(a, T).', S), read(S, L), L = [H|_]), solutions([H = a])).
+test(m28_read_dot_three, (open_string('\'.\'(a, b, c).', S), read(S, T), functor(T, N, A)), solutions([(N = '.', A = 3)])).
+test(m28_read_dot_infix, (op(200, xfy, '.'), open_string('x \'.\' y.', S), read(S, T), op(0, xfy, '.'), T = [H|R]), solutions([(H = x, R = y)])).

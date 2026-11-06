@@ -100,3 +100,11 @@ test(upcase_type_out_num, upcase_atom(a, 1), error(type_error(atom, 1))).
 test(upcase_raw, '$upcase_atom'(xyz, X), solutions([X = 'XYZ'])).
 test(upcase_raw_inst, '$upcase_atom'(_, _), error(instantiation_error)).
 test(upcase_raw_type, '$upcase_atom'(1, _), error(type_error(atom, 1))).
+% レビュー M28。joinable/1 の \+ (member(X, List), var(X)) は、共有の多い要素をゴールの IR に広げて写した。
+% 共有項は答えの変数に出さない（差分テストが答えを書く）。
+m28_dag(0, a) :- !.
+m28_dag(N, f(T, T)) :- M is N - 1, m28_dag(M, T).
+m28_alc3_bad :- m28_dag(40, X), catch(atomic_list_concat([X], -, _), error(type_error(atomic, _), _), true).
+m28_alc2_bad :- m28_dag(40, X), catch(atomic_list_concat([X], _), error(type_error(atomic, _), _), true).
+test(m28_alc_join_dag, m28_alc3_bad, true).
+test(m28_alc2_dag, m28_alc2_bad, true).

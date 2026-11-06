@@ -63,6 +63,8 @@ Cell head_of(Impl& machine, std::uint32_t name, const std::vector<MetaArg>& args
   std::vector<Cell> cells;
   cells.reserve(args.size());
   for (const MetaArg& arg : args) cells.push_back(spec_cell(machine, arg));
+  // 読み手と同じく '.'/2 はリストにする。構造体で返すと、利用者の書いた '.'(0, ?) と単一化しない。
+  if (cells.size() == 2 && machine.atoms.name(name) == ".") return machine.heap.list(cells[0], cells[1]);
   return machine.heap.structure(name, cells);
 }
 
@@ -102,11 +104,16 @@ std::optional<Cell> read_meta_spec(Impl& machine, Cell head, std::vector<MetaArg
     args.clear();
     return std::nullopt;
   }
-  if (head.tag() != Tag::Str) return formal_type(machine, "callable", head);
+  // 読み手は '.'(0, ?) をリストのセルにする（レビュー M28）。
+  const bool list = head.tag() == Tag::Lis;
+  if (head.tag() != Tag::Str && !list) return formal_type(machine, "callable", head);
   std::vector<MetaArg> parsed;
-  for (std::uint16_t index = 0; index < machine.heap.functor_arity(head); ++index) {
+  const std::uint16_t arity = list ? 2 : machine.heap.functor_arity(head);
+  for (std::uint16_t index = 0; index < arity; ++index) {
     MetaArg arg;
-    if (const auto formal = read_arg(machine, machine.heap.arg(head, index), arg)) return formal;
+    const Cell part = !list ? machine.heap.arg(head, index)
+                      : index == 0 ? machine.heap.list_head(head) : machine.heap.list_tail(head);
+    if (const auto formal = read_arg(machine, part, arg)) return formal;
     parsed.push_back(arg);
   }
   args = std::move(parsed);

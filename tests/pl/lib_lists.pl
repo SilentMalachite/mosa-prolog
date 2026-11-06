@@ -80,3 +80,11 @@ test(list_to_set_type, list_to_set([a|b], _), error(type_error(list, [a|b]))).
 test(length_cyclic, (L = [a, b|L], catch(length(L, _), error(type_error(list, _), _), true)), true).
 test(sort_cyclic, (L = [3, 1, 2|L], catch(sort(L, _), error(type_error(list, _), _), true)), true).
 test(msort_cyclic, (L = [3, 1, 2|L], catch(msort(L, _), error(type_error(list, _), _), true)), true).
+% レビュー M28。must_be_list_or_partial/2 の \+ \+ length(List, _) は、共有の多い要素をゴールの IR に広げて写した。
+% 共有項は答えの変数に出さない（差分テストが答えを書く）。
+m28_dag(0, a) :- !.
+m28_dag(N, f(T, T)) :- M is N - 1, m28_dag(M, T).
+m28_msort_bad :- m28_dag(40, X), catch(msort([X|bad], _), error(type_error(list, _), _), true).
+m28_msort_ok :- m28_dag(40, X), msort([X, a], L), L = [a, Y], Y == X.
+test(m28_msort_dag, m28_msort_bad, true).
+test(m28_msort_dag_ok, m28_msort_ok, true).

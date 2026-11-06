@@ -467,7 +467,10 @@ bool declare_meta(Impl& machine, LoadSnapshots& snapshots, Cell head) {
   auto formal = strip_module(machine, head, key.module);
   if (!formal) formal = read_meta_spec(machine, head, args);
   if (formal) return fail_with(machine, *formal);
-  key.name = head.tag() == Tag::Atom ? static_cast<std::uint32_t>(head.raw() >> 3) : machine.heap.functor_atom(head);
+  const Cell spec = machine.heap.deref(head);
+  if (spec.tag() == Tag::Atom) key.name = static_cast<std::uint32_t>(spec.raw() >> 3);
+  else if (spec.tag() == Tag::Lis) key.name = machine.atoms.intern(".");
+  else key.name = machine.heap.functor_atom(spec);
   key.arity = static_cast<std::uint16_t>(args.size());
   if (is_builtin_procedure(machine, key.name, key.arity)) {
     return fail_with(machine, formal_permission(machine, "modify", "static_procedure",

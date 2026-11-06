@@ -319,3 +319,106 @@ test(m16_forall_var, (catch(forall((true, _), true), E, true), m16_formal(E, F))
 test(m16_call_not_extra, (retractall(m16_seen), catch(call(\+, (assertz(m16_seen), 1)), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
 test(m16_call_once_extra, (retractall(m16_seen), catch(call(once, (assertz(m16_seen), 1)), E, true), m16_formal(E, F), \+ m16_seen), solutions([F = type_error(callable, (assertz(m16_seen), 1))])).
 test(m16_not_cyclic, (X = (X, 1), catch(\+ X, E, true), m16_formal(E, F), F = type_error(callable, C), C == X), true).
+
+% レビュー M28。実行時に訳すゴールは束縛済みの複合項を写さず、元の項を指す。深さ 40 の共有項はヒープでは f/2 が
+% 40 個だが、木に広げると 2^40 個になる。前は call/1 などがゴールを IR に写すときに広げたので止まらなかった。
+% 共有項は答えの変数に出さない。差分テストが答えを書いて比べるので、書くと 2^40 個になる。
+:- dynamic(m28_seen/0).
+m28_dag(0, a) :- !.
+m28_dag(N, f(T, T)) :- M is N - 1, m28_dag(M, T).
+% 引数 1000 個のゴールを 70 個つなぎ、束縛済みの引数を 69930 個にする。引数はどれも別のセルの f(E)（変数のある
+% f(_) にすると、写すときに変数のスロットが溢れる。これは M28 の前からの上限）。スロットを取り違えると、ある f(E) の
+% 位置に V の値 v が入って頭と合わない。歩みは少なく保つ。MOSA_GC_STRESS=1 は歩みごとに GC を走らせ、7 万の歩みでは
+% 400 秒を超えた。
+m28_fs(0, _, [], []) :- !.
+m28_fs(N, E, [f(_)|T], [f(E)|U]) :- M is N - 1, m28_fs(M, E, T, U).
+m28_wide(_, _, _, 0, Last, Last) :- !.
+m28_wide(Fs, As, V, N, Last, (G, Rest)) :-
+    copy_term(Fs, Args), Args = As, G =.. [m28_w, V|Args], M is N - 1, m28_wide(Fs, As, V, M, Last, Rest).
+% 連言の終わりは Last（true か !）。
+m28_wide_goal(E, Last, V, G) :-
+    m28_fs(999, E, Fs, As), copy_term(Fs, HeadArgs), H =.. [m28_w, W|HeadArgs], retractall(H),
+    assertz((H :- W == v)), m28_wide(Fs, As, V, 70, Last, G).
+% 同じ 70 個のゴールを釣り合った連言（深さ 8）にする。浅い道（goal_at）でもスロットが溢れそうになる。
+m28_chain_list(true, Last, [Last]) :- !.
+m28_chain_list((G, Rest), Last, [G|L]) :- m28_chain_list(Rest, Last, L).
+m28_pairs([A, B|T], [(A, B)|U]) :- !, m28_pairs(T, U).
+m28_pairs(L, L).
+m28_tree([G], G) :- !.
+m28_tree(L, G) :- m28_pairs(L, P), m28_tree(P, G).
+m28_tree_goal(Last, V, G) :- m28_wide_goal(a, true, V, Chain), m28_chain_list(Chain, Last, L), m28_tree(L, G).
+m28_run(call) :- m28_dag(40, X), call(X \== b).
+m28_run(call_built) :- m28_dag(40, X), G = (X \== b), call(G).
+m28_run(var_goal) :- m28_dag(40, X), G = (X \== b), G.
+m28_run(not_not) :- m28_dag(40, X), \+ \+ X \== b.
+m28_run(not) :- m28_dag(40, X), \+ X \== b.
+m28_run(call_extra) :- m28_dag(40, X), call(\==, X, b).
+% 節の本体に書いた catch/3 は読み込みのときに訳すので、実行時に組んだ catch/3 を呼ぶ。
+m28_run(catch) :- m28_dag(40, X), call(catch(X \== b, _, true)).
+m28_run(catcher) :- m28_dag(40, X), call(catch(throw(X), B, true)), B \== b.
+m28_run(findall) :- m28_dag(40, X), findall(t, X \== b, L), L == [t].
+m28_run(once) :- m28_dag(40, X), once((X \== b ; true)).
+m28_run(if_then_else) :- m28_dag(40, X), call((X == b -> R = yes ; R = no)), R == no.
+% 束縛済みの引数ごとにスロットが要る。溢れそうなら残りのゴールを後で訳すので、スロットを取り違えない（Codex 敵対的
+% レビュー。前はすべてを写し直して、共有項の引数 f(X) が 69930 個あると、ここでまた木に広げた）。
+m28_run(many_compound_args) :- m28_wide_goal(a, true, V, G), call((V = v, G)).
+m28_run(many_shared_args) :- m28_dag(40, X), m28_wide_goal(X, true, V, G), call((V = v, G)).
+% 残りの中の ! は前の選択点を切るので、残りを後で訳せない（call/1 の中では局所になる）。小さい引数を写して訳し直し、
+% 共有の多い大きい項は指したまま。
+m28_run(many_compound_args_cut) :- m28_wide_goal(a, !, V, G), findall(Y, call((V = v, (Y = 1 ; Y = 2), G)), L), L == [1].
+m28_run(many_compound_args_dag) :- m28_wide_goal(a, !, V, G), m28_dag(40, X), call((V = v, X \== b, G)).
+% 呼べない部分のある残りも後で訳さない。call/1 は何も動かす前に type_error(callable, _) を出す（7.8.3.3）。
+m28_run(many_compound_args_bad) :-
+    m28_wide_goal(a, 1, V, G), retractall(m28_seen),
+    catch(call((assertz(m28_seen), V = v, G)), error(type_error(callable, _), _), true), \+ m28_seen.
+% M:G はカットの壁を引き継ぐので、user:! も残りを後で訳させない（Codex 敵対的レビュー 3 回目）。
+m28_run(many_compound_args_qualified_cut) :-
+    m28_wide_goal(a, user:!, V, G), findall(Y, call((V = v, (Y = 1 ; Y = 2), G)), L), L == [1].
+% ゴール位置の未束縛の変数は call(C) として動く。後で訳すと、その時の束縛 ! がじかのカットになり、1 が
+% 残り全体の type_error になる（Codex レビュー 3 回目、Codex 敵対的レビュー 3 回目）。
+m28_run(many_compound_args_var_cut) :-
+    m28_wide_goal(a, ((Y = 1 ; Y = 2), C), V, G), findall(Y, call((C = !, V = v, G)), L), L == [1, 2].
+m28_run(many_compound_args_var_bad) :-
+    m28_wide_goal(a, (assertz(m28_seen), C), V, G), retractall(m28_seen),
+    catch(call((C = 1, V = v, G)), error(type_error(callable, Culprit), _), true), Culprit == 1, m28_seen.
+% 後で訳せない ! が終わりにあっても、その前の葉は 1 つずつ後で訳すので、共有の多い引数を写さない。
+m28_run(many_shared_args_cut) :- m28_dag(40, X), m28_wide_goal(X, !, V, G), call((V = v, G)).
+% ; の左の -> と *-> を Call に包むとただの選言になり、then の fail の後に else が動く。else の ! で ; は後で訳せず、
+% 左だけを後で訳しそうになる（Codex レビュー 4 回目、Codex 敵対的レビュー 4 回目）。深い道と浅い道の両方。
+m28_run(if_then_late) :-
+    m28_wide_goal(a, (a = a -> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
+m28_run(soft_if_late) :-
+    m28_wide_goal(a, ((a = a) *-> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
+m28_run(if_then_late_shallow) :-
+    m28_tree_goal((a = a -> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
+m28_run(soft_if_late_shallow) :-
+    m28_tree_goal(((a = a) *-> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
+test(m28_call_dag, m28_run(call), true).
+test(m28_call_built_dag, m28_run(call_built), true).
+test(m28_var_goal_dag, m28_run(var_goal), true).
+test(m28_not_not_dag, m28_run(not_not), true).
+test(m28_not_dag, m28_run(not), fail).
+test(m28_call_extra_dag, m28_run(call_extra), true).
+test(m28_catch_dag, m28_run(catch), true).
+test(m28_catcher_dag, m28_run(catcher), true).
+test(m28_findall_dag, m28_run(findall), true).
+test(m28_once_dag, m28_run(once), true).
+test(m28_ite_dag, m28_run(if_then_else), true).
+test(m28_many_compound_args, m28_run(many_compound_args), true).
+test(m28_many_shared_args, m28_run(many_shared_args), true).
+test(m28_many_compound_args_cut, m28_run(many_compound_args_cut), true).
+test(m28_many_compound_args_dag, m28_run(many_compound_args_dag), true).
+test(m28_many_compound_args_bad, m28_run(many_compound_args_bad), true).
+test(m28_many_compound_args_qualified_cut, m28_run(many_compound_args_qualified_cut), true).
+test(m28_many_compound_args_var_cut, m28_run(many_compound_args_var_cut), true).
+test(m28_many_compound_args_var_bad, m28_run(many_compound_args_var_bad), true).
+test(m28_many_shared_args_cut, m28_run(many_shared_args_cut), true).
+test(m28_if_then_late, m28_run(if_then_late), true).
+test(m28_soft_if_late, m28_run(soft_if_late), true).
+test(m28_if_then_late_shallow, m28_run(if_then_late_shallow), true).
+test(m28_soft_if_late_shallow, m28_run(soft_if_late_shallow), true).
+% 元の項を指しても、中の変数は同じ変数のまま。ゴールの中で束縛すれば、指した項からも見える。
+test(m28_inner_var, (X = f(Y), call((Y = 1, X == f(1)))), true).
+test(m28_inner_var_later, (X = g(f(Y)), call((X = g(Z), Y = 2, Z == f(2)))), true).
+test(m28_inner_var_undo, (X = f(Y), call(((Y = 1, fail) ; var(Y))), X = f(Z), var(Z)), true).
+test(m28_cyclic_arg, (X = f(X), call(X = f(Y)), Y == X), true).

@@ -102,8 +102,15 @@ Reader::Parsed Reader::parse_arguments(std::string functor) {
     return bad_token(scan.token);
   }
   Parsed parsed;
-  parsed.term = heap_.structure(heap_.atoms().intern(functor), args);
+  parsed.term = compound(functor, args);
   return parsed;
+}
+
+// '.'/2 はリストの構成子（6.3.5）なので、'.'(a, []) も [a] と同じセルにする。構造体のままだと = と is_list/1 が
+// リストと見ない。前は実行時のゴールを IR に写すときに直していたが、M28 から写さずに元の項を指す（レビュー M28）。
+Cell Reader::compound(std::string_view name, std::span<const Cell> args) {
+  if (name == "." && args.size() == 2) return heap_.list(args[0], args[1]);
+  return heap_.structure(heap_.atoms().intern(name), args);
 }
 
 Reader::Parsed Reader::take_bar_tail(Cell& tail) {

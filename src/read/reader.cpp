@@ -272,7 +272,7 @@ Reader::Parsed Reader::parse_rest(Parsed left, int max_priority) {
     const int right_max = op->specifier == Specifier::Xfy ? op->priority : op->priority - 1;
     Parsed right = parse_expr(right_max);
     if (right.failure) return right;
-    left.term = heap_.structure(heap_.atoms().intern(op->name), std::array<Cell, 2>{left.term, right.term});
+    left.term = compound(op->name, std::array<Cell, 2>{left.term, right.term});
     left.priority = op->priority;
   }
   return left;

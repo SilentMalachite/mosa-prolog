@@ -168,3 +168,13 @@ test(strings_needs_use, atomic_list_concat([a], _), error(existence_error(proced
 test(japanese_needs_use, 読み幅(a, _), error(existence_error(procedure, 読み幅/2))).
 % 試験器はテストのモジュールへ 6 ライブラリを取り込むが、mosa の user は変えない。
 test(between_needs_use, between(1, 2, _), error(existence_error(procedure, between/3))).
+% レビュー M28 の Codex レビュー。'.'/2 のメタ宣言は、読み手がリストにした頭でも読み込める。as の別名へ移した頭も、
+% 別名から '.' へ移した頭も、メタ宣言の引数を保つ（Codex 敵対的レビュー）。
+:- use_module('modules/m28_dot.pl', ['.'/2 as m28_q]).
+:- consult('modules/m28_dot_back.pl').
+test(m28_dot_meta, predicate_property(m28_dot:'.'(_, _), meta_predicate(M)), solutions([M = '.'(0, ?)])).
+test(m28_dot_meta_call, m28_dot:'.'(X = 1, _), solutions([X = 1])).
+test(m28_dot_alias_meta, predicate_property(m28_q(_, _), meta_predicate(M)), solutions([M = m28_q(0, ?)])).
+test(m28_dot_alias_call, m28_q(X = 1, _), solutions([X = 1])).
+test(m28_dot_back_meta, m28_back_meta(M), solutions([M = '.'(0, ?)])).
+test(m28_dot_back_call, m28_back_call(X), solutions([X = 1])).

@@ -29,11 +29,19 @@ Cell rename_head(Impl& machine, Cell head, std::uint32_t name) {
   if (head.tag() == Tag::Atom) {
     return static_cast<std::uint32_t>(head.raw() >> 3) == name ? head : machine.heap.atom(name);
   }
-  if (head.tag() != Tag::Str || machine.heap.functor_atom(head) == name) return head;
-  const std::uint16_t arity = machine.heap.functor_arity(head);
+  // '.'/2 の頭はリストのセル（読み手と meta の head_of がそう作る、レビュー M28）。別名へもリストへも同じ形で移す。
+  const std::uint32_t dot = machine.atoms.intern(".");
+  const bool list = head.tag() == Tag::Lis;
+  if (list ? name == dot : head.tag() != Tag::Str || machine.heap.functor_atom(head) == name) return head;
   std::vector<Cell> args;
-  args.reserve(arity);
-  for (std::uint16_t index = 0; index < arity; ++index) args.push_back(machine.heap.arg(head, index));
+  if (list) {
+    args = {machine.heap.list_head(head), machine.heap.list_tail(head)};
+  } else {
+    const std::uint16_t arity = machine.heap.functor_arity(head);
+    args.reserve(arity);
+    for (std::uint16_t index = 0; index < arity; ++index) args.push_back(machine.heap.arg(head, index));
+  }
+  if (name == dot && args.size() == 2) return machine.heap.list(args[0], args[1]);
   return machine.heap.structure(name, args);
 }
 
