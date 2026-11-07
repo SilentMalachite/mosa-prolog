@@ -12,7 +12,8 @@ installing Mosa and goes on, one small step at a time, to writing programs and b
   a "What happened" section that explains them, and one or two exercises with their answers.
 - A line that starts with `?- ` is a query: you type the text after `?- `, and the lines under it are what Mosa
   prints. A line that starts with `$ ` is a command for your shell (Terminal on macOS and Linux, PowerShell on
-  Windows): you type the text after `$ `.
+  Windows): you type the text after `$ `. Lines only for PowerShell are shown without a prompt: type each of them
+  whole. A `$` at the start of such a line, as in `$bin = …`, is part of the command, so type it too.
 - Every example is run by `mosatest --manual` against Mosa 0.1.0, and the check fails if the output differs by a
   single character. So what you see here is what Mosa prints. Only installation steps and other things that depend
   on your machine are not run.

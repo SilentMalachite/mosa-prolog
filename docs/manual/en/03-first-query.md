@@ -74,8 +74,9 @@ X = green
 ```
 
 7. Use a built-in predicate. A predicate is a named question that Mosa can answer. `atom_length/2` comes with
-   Mosa; the `/2` means it takes two arguments. `atom_length(hello, N)` is true when `N` is the number of characters
-   in `hello`. You can also give both arguments and ask for `true.` or `false.`.
+   Mosa; the `/2` means it takes two arguments. The arguments are the values in the parentheses after the name,
+   separated by commas: in `atom_length(hello, N)` they are `hello` and `N`. `atom_length(hello, N)` is true when
+   `N` is the number of characters in `hello`. You can also give both arguments and ask for `true.` or `false.`.
 
 <!-- check: builtin -->
 ```text

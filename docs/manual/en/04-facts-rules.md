@@ -6,9 +6,35 @@ In this chapter you write facts and a rule about a family in a file, load the fi
 
 ## Steps
 
-1. Make a folder for this chapter, and move your shell there: type `cd`, a space and the path of the folder in
-   Terminal (PowerShell on Windows). With a text editor, create a file named `family.pl` in that folder, write these
-   lines in it and save it. Each line is a fact: it says that the first person is a parent of the second.
+1. Make a folder for this chapter and move your shell into it. Open Terminal, a terminal or PowerShell as in
+   chapter 2. On macOS and Linux, type:
+
+<!-- skip: folder-unix -->
+```console
+$ mkdir ~/prolog
+$ cd ~/prolog
+```
+
+On Windows, in PowerShell:
+
+<!-- skip: folder-windows -->
+```powershell
+mkdir $HOME\prolog
+cd $HOME\prolog
+```
+
+`mkdir` makes the folder `prolog` in your home folder, and `cd` moves your shell into it. When you open a new window
+later, type only the `cd` line to come back.
+
+2. With a text editor, create a file named `family.pl` in the folder `prolog`, write these lines in it and save it.
+   Save it as plain text, because Mosa reads only plain text:
+   - On macOS, in TextEdit, choose Format, then Make Plain Text, before you save. Keep the name `family.pl`; if
+     TextEdit asks which extension to use, choose `.pl`.
+   - On Windows, in Notepad, set "Save as type" to "All files" in the Save As dialog, so that the file does not
+     become `family.pl.txt`.
+   - On Linux, any plain-text editor works, such as Text Editor on Ubuntu.
+
+   Each line of the file is a fact: it says that the first person is a parent of the second.
 
 <!-- file: family-file family.pl -->
 ```prolog
@@ -19,7 +45,7 @@ parent(bob, pat).
 parent(pat, jim).
 ```
 
-2. Start Mosa with the file name. Mosa loads the file first and then shows `?- `. Ask whether Tom is a parent of
+3. Start Mosa with the file name. Mosa loads the file first and then shows `?- `. Ask whether Tom is a parent of
    Liz, and whether Liz is a parent of Tom, then quit.
 
 <!-- check: start-with-file -->
@@ -32,7 +58,12 @@ false.
 ?- halt.
 ```
 
-3. Start `mosa` without a file name this time, and load the file with `consult/1`. The file name is in single
+If Mosa prints a line such as `family.pl:1:7: unexpected token` instead and you are back in your shell, the file
+was saved as rich text: open it and save it again as plain text (step 2). If it prints
+`family.pl: cannot open file`, this folder holds no file with exactly that name: check the name (it may have
+become `family.pl.txt`) and the folder that you saved it in.
+
+4. Start `mosa` without a file name this time, and load the file with `consult/1`. The file name is in single
    quotes because it holds a period. Then ask who Tom's children are, and who is a parent of Jim. Press `;` after
    the first answer, as in chapter 3. The examples from here on start with `consult('family.pl')`, so that each of
    them also works after you restart Mosa. Loading the file again when it is already loaded does no harm.
@@ -54,7 +85,7 @@ X = liz.
 X = pat.
 ```
 
-4. Ask whether Tom is a parent of Bob. Mosa prints `true` without a period and waits, because it has not yet looked
+5. Ask whether Tom is a parent of Bob. Mosa prints `true` without a period and waits, because it has not yet looked
    at every fact about Tom. Press Enter to stop. Then ask again and press `;` instead: Mosa looks at the rest and
    prints `false.`, because there is no other way.
 
@@ -77,7 +108,7 @@ true;
 false.
 ```
 
-5. Add a rule. Open `family.pl` again, add the last line below, and save it. The rule says: X is a grandparent of
+6. Add a rule. Open `family.pl` again, add the last line below, and save it. The rule says: X is a grandparent of
    Z if X is a parent of some Y and that Y is a parent of Z. Read `:-` as "if".
 
 <!-- file: family-rule family.pl -->
@@ -91,7 +122,7 @@ parent(pat, jim).
 grandparent(X, Z) :- parent(X, Y), parent(Y, Z).
 ```
 
-6. Load the file again with `consult/1`, so that Mosa reads the new rule. Loading a file again replaces what Mosa
+7. Load the file again with `consult/1`, so that Mosa reads the new rule. Loading a file again replaces what Mosa
    read from it before. Ask who Tom's grandchildren are, pressing `;` until the period, and who is a grandparent of
    Jim.
 
@@ -118,7 +149,7 @@ X = bob;
 false.
 ```
 
-7. Type `halt.` to quit.
+8. Type `halt.` to quit.
 
 ## What happened
 
@@ -142,7 +173,7 @@ To answer a query, Mosa tries the clauses of the predicate from top to bottom. W
 answer, and remembers that the clauses below it are still to be tried. When you press `;`, Mosa goes back to the
 last place where it had a choice and tries the next clause. This going back is called backtracking.
 
-Here is how Mosa found the answers of `grandparent(tom, X)` in step 6:
+Here is how Mosa found the answers of `grandparent(tom, X)` in step 7:
 
 1. In the rule, `X` becomes `tom`, and `Z` stands for your `X`. The first goal of the rule, `parent(tom, Y)`, fits
    the first fact, so `Y = bob`.
@@ -154,7 +185,7 @@ Here is how Mosa found the answers of `grandparent(tom, X)` in step 6:
    `false.`.
 
 `true` or an answer without a period means that Mosa still has clauses left to try. It does not mean there is
-another answer: in step 4 there was none, so `;` led to `false.`.
+another answer: in step 5 there was none, so `;` led to `false.`.
 
 ## Exercises
 

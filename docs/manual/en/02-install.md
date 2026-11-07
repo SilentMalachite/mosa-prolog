@@ -33,7 +33,7 @@ settings.
 
 2. Unpack the package in your home folder. Each package holds one folder with the same name as the package, and
    the programs are in the `bin` folder inside it. The commands below expect the package in your Downloads folder.
-   On macOS, open Terminal and type these two lines:
+   On macOS, open Terminal (press Command-Space, type Terminal and press Enter) and type these two lines:
 
 <!-- skip: unpack-macos -->
 ```console
@@ -41,7 +41,11 @@ $ cd ~
 $ tar -xzf ~/Downloads/mosa-0.1.0-macos-arm64.tar.gz
 ```
 
-On Linux, in a terminal:
+Safari may have unpacked the package for you, when its setting "Open 'safe' files after downloading" is on. If your
+Downloads folder already holds the folder `mosa-0.1.0-macos-arm64`, do not run `tar`: move that folder to your home
+folder instead, with `mv ~/Downloads/mosa-0.1.0-macos-arm64 ~`. Step 3 is still needed.
+
+On Linux, open a terminal (on Ubuntu, press Ctrl-Alt-T) and type:
 
 <!-- skip: unpack-linux -->
 ```console
@@ -49,8 +53,8 @@ $ cd ~
 $ tar -xzf ~/Downloads/mosa-0.1.0-linux-x86_64.tar.gz
 ```
 
-On Windows, open PowerShell and type this line. PowerShell shows its own prompt (`PS C:\Users\you>`), so this
-manual writes PowerShell lines without one:
+On Windows, open PowerShell (open Start, type PowerShell, and choose Windows PowerShell) and type this line.
+PowerShell shows its own prompt (`PS C:\Users\you>`), so this manual writes PowerShell lines without one:
 
 <!-- skip: unpack-windows -->
 ```powershell
@@ -58,9 +62,10 @@ Expand-Archive "$HOME\Downloads\mosa-0.1.0-windows-x86_64.zip" -DestinationPath 
 ```
 
 3. On macOS only, remove the quarantine mark. macOS puts this mark on files downloaded with a web browser, and
-   `tar` copies it to every file it unpacks. With the mark, macOS refuses to open a program that is not signed and
-   says that it cannot verify it. This command removes the mark from the folder (`-d`) and from everything inside
-   it (`-r`):
+   `tar` and Safari copy it to every file they unpack. With the mark, macOS refuses to open a program that is not
+   signed and says that it cannot verify it. If you have already tried to start `mosa` and such a dialog appeared,
+   click Done or Cancel, whichever it shows, but not Move to Trash, which deletes the program. This command removes
+   the mark from the folder (`-d`) and from everything inside it (`-r`):
 
 <!-- skip: quarantine-macos -->
 ```console
@@ -82,7 +87,8 @@ On Linux, where the shell is usually bash:
 $ echo 'export PATH="$HOME/mosa-0.1.0-linux-x86_64/bin:$PATH"' >> ~/.bashrc
 ```
 
-On Windows, in PowerShell:
+On Windows, type these three lines in PowerShell. Type each line whole, the `$` at its start included: in
+PowerShell, `$bin` and `$old` are names that hold a value, not a prompt.
 
 <!-- skip: path-windows -->
 ```powershell
@@ -93,8 +99,10 @@ $old = [Environment]::GetEnvironmentVariable("Path", "User")
 
 On Windows you can also do this in a dialog: open Start, search for "environment variables", choose "Edit
 environment variables for your account", select Path, click Edit, then New, and type the path of the `bin`
-folder. On every system, the new PATH applies only to windows opened afterwards, so close the terminal or
-PowerShell window and open a new one.
+folder, `C:\Users\<name>\mosa-0.1.0-windows-x86_64\bin`, with your user name for `<name>`. Then click OK in that
+dialog and OK in the Environment Variables dialog: closing them with the X discards the change. On every system,
+the new PATH applies only to windows opened afterwards, so close the terminal or PowerShell window and open a new
+one.
 
 5. Check that your shell finds Mosa. Type `mosa --version`:
 
@@ -127,7 +135,8 @@ waited for a query. `halt.` is a query that ends the session. Every query ends w
 you press Enter after the period.
 
 You can also end the session by ending its input: press Ctrl-D on macOS and Linux, or Ctrl-Z then Enter on Windows,
-at the start of a line.
+at the start of a line. After Ctrl-D, Mosa ends without printing a newline, so your shell's prompt appears on the
+same line, right after `?- `.
 
 ## Exercises
 
