@@ -174,7 +174,7 @@ X = あいう.
 
 ### 制御
 
-ゴールを実行し、どれを実行するかを選びます（第 8 章と第 9 章）。
+ゴールを実行し、どれを実行するかを選びます（第 8 章と第 9 章）。規格の第 2 部は、`:/2` を組み込みの述語に入れていません。その行の 6.5.2 は、モジュールで限定した項をゴールにする節です。
 
 <!-- predicates: system -->
 | 述語 | ISO | すること |
@@ -203,7 +203,7 @@ X = あいう.
 | `catch/3` | 7.8.9 | `catch(G, Catcher, Recovery)`: G を実行し、G が Catcher と単一化できるエラーを起こせば Recovery を実行します。 |
 | `throw/1` | 7.8.10 | 項を例外として投げます。 |
 | `setup_call_cleanup/3` | — | `setup_call_cleanup(S, G, C)`: S を 1 回実行してから G を実行し、G が終わったとき、つまり最後の答え、失敗、エラー、カットのときに C を 1 回実行します。 |
-| `:/2` | 13211-2 | `M:G`: G をモジュール M の中で実行します（第 12 章）。 |
+| `:/2` | 13211-2 6.5.2 | `M:G`: G をモジュール M の中で実行します（第 12 章）。 |
 
 ### 単一化と比較
 
@@ -305,8 +305,8 @@ X = あいう.
 | `retract/1` | 8.9.3 | 引数と単一化できる最初の節を消します。 |
 | `retractall/1` | 8.9.5 | `retractall(Head)`: 頭部が Head と単一化できる節をすべて消します。 |
 | `abolish/1` | 8.9.4 | `abolish(Name/Arity)`: 動的な述語を、節ごとすべて消します。 |
-| `clause/2` | 8.8.1 | `clause(Head, Body)`: 動的な述語の節です。 |
-| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: 節のある述語です。 |
+| `clause/2` | 8.8.1 | `clause(Head, Body)`: プログラムの述語の節です。ファイルから読み込んだ節も、`assertz` で足した節も返します。組み込みの述語では `permission_error` を投げます。 |
+| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: プログラムの述語のうち、節があるものと、`dynamic` と宣言したものです。組み込みの述語は入りません。 |
 | `predicate_property/2` | 13211-2 7.2.2 | `predicate_property(Head, P)`: P は、`built_in`、`dynamic`、`exported` のような、述語の性質です。 |
 | `current_module/1` | 13211-2 7.2.1 | あるモジュールです。 |
 | `consult/1` | — | ファイルを読み込みます（第 4 章）。名前には `.pl` が要ります。 |

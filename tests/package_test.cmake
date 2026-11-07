@@ -15,11 +15,12 @@ endif()
 file(REMOVE_RECURSE "${WORK}")
 set(out "${WORK}/展開 先")
 set(unpacked "${out}/unpacked")
-file(MAKE_DIRECTORY "${unpacked}" "${WORK}/work")
+file(MAKE_DIRECTORY "${unpacked}")
 
+# ENCODING UTF-8: Windows のコンソールのコードページが 65001 でないと、印字された「展開 先」が化ける（3.11 から使える）。
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DBUILD_DIR=${BUILD_DIR}" "-DCONFIG=${CONFIG}" "-DOUT=${out}"
     -P "${SRC}/cmake/package.cmake"
-  OUTPUT_VARIABLE printed ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  OUTPUT_VARIABLE printed ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "package.cmake: code=[${code}] out=[${printed}] err=[${err}]")
 endif()
@@ -33,9 +34,13 @@ if(os_arch MATCHES "^windows-")
 endif()
 string(REPLACE "\r" "" printed "${printed}")
 string(STRIP "${printed}" printed)
-string(REGEX REPLACE "^.*\n" "" archive "${printed}")
-if(NOT archive STREQUAL "${out}/${name}${extension}" OR NOT EXISTS "${archive}")
-  message(FATAL_ERROR "the last line is not the archive ${out}/${name}${extension}: [${printed}]")
+string(REGEX REPLACE "^.*\n" "" printed_last "${printed}")
+# パス全体ではなく ASCII だけのファイル名で比べ、書庫は印字ではなく自分で組んだパスで探す。デコードが外れても、
+# 日本語のディレクトリ名がこの確かめを壊さないように。
+set(archive "${out}/${name}${extension}")
+get_filename_component(printed_name "${printed_last}" NAME)
+if(NOT printed_name STREQUAL "${name}${extension}" OR NOT EXISTS "${archive}")
+  message(FATAL_ERROR "the last line is not the archive ${archive}: [${printed}]")
 endif()
 if(NOT IS_DIRECTORY "${out}/${name}")
   message(FATAL_ERROR "the installed tree ${out}/${name} is missing")
@@ -65,11 +70,21 @@ foreach(expected
   endif()
 endforeach()
 
-# 展開した木の mosatest は、--mosa を省けば隣の mosa を使う。MOSA_LIB は tests.cmake が外す。
-execute_process(COMMAND "${root}/bin/mosatest${EXE_SUFFIX}" --manual "${root}/docs/manual"
-    --work "${WORK}/work" --all-tables
-  OUTPUT_VARIABLE manual_out ERROR_VARIABLE manual_err RESULT_VARIABLE code TIMEOUT 1800)
-set(summary "${manual_out}${manual_err}")
-if(NOT code EQUAL 0 OR NOT summary MATCHES "manual: [1-9][0-9]* checked, [0-9]+ skipped, 0 failed")
-  message(FATAL_ERROR "mosatest --manual in the package: code=[${code}]\n${summary}")
-endif()
+# 展開した木の mosatest は、--mosa を省けば隣の mosa を使う。MOSA_LIB は tests.cmake が外す。2 回流す。
+# 1 回目は tests.cmake が PATH の先に置いたビルドの cmake で、mosac の CMake の道を通す。CMake の無い読者
+# （Xcode の CLT だけ、g++ だけ）の mosac はコンパイラを直に呼ぶので、2 回目は MOSA_NO_CMAKE=1 でその道を、
+# 空白と日本語を含む実行時ライブラリのパスで通す。
+foreach(route cmake direct)
+  set(no_cmake 0)
+  if(route STREQUAL "direct")
+    set(no_cmake 1)
+  endif()
+  file(MAKE_DIRECTORY "${WORK}/work-${route}")
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_NO_CMAKE=${no_cmake}"
+      "${root}/bin/mosatest${EXE_SUFFIX}" --manual "${root}/docs/manual" --work "${WORK}/work-${route}" --all-tables
+    OUTPUT_VARIABLE manual_out ERROR_VARIABLE manual_err RESULT_VARIABLE code TIMEOUT 1800)
+  set(summary "${manual_out}${manual_err}")
+  if(NOT code EQUAL 0 OR NOT summary MATCHES "manual: [1-9][0-9]* checked, [0-9]+ skipped, 0 failed")
+    message(FATAL_ERROR "mosatest --manual in the package (${route}): code=[${code}]\n${summary}")
+  endif()
+endforeach()

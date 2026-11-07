@@ -194,7 +194,8 @@ of arguments.
 
 ### Control
 
-These run goals and choose between them (chapters 8 and 9).
+These run goals and choose between them (chapters 8 and 9). Part 2 of the standard does not list `:/2` among its
+built-in predicates; the row gives 6.5.2, the clause that turns a module-qualified term into a goal.
 
 <!-- predicates: system -->
 | Predicate | ISO | What it does |
@@ -223,7 +224,7 @@ These run goals and choose between them (chapters 8 and 9).
 | `catch/3` | 7.8.9 | `catch(G, Catcher, Recovery)`: runs G, and runs Recovery if G raises an error that unifies with Catcher. |
 | `throw/1` | 7.8.10 | Raises the term as an exception. |
 | `setup_call_cleanup/3` | — | `setup_call_cleanup(S, G, C)`: runs S once, then G, then C once when G is done: after its last answer, a failure, an error or a cut. |
-| `:/2` | 13211-2 | `M:G`: runs G in the module M (chapter 12). |
+| `:/2` | 13211-2 6.5.2 | `M:G`: runs G in the module M (chapter 12). |
 
 ### Unification and comparison
 
@@ -326,8 +327,8 @@ These look at the clauses of predicates and change them, and look at modules.
 | `retract/1` | 8.9.3 | Removes the first clause that unifies with the argument. |
 | `retractall/1` | 8.9.5 | `retractall(Head)`: removes every clause whose head unifies with Head. |
 | `abolish/1` | 8.9.4 | `abolish(Name/Arity)`: removes a dynamic predicate and all its clauses. |
-| `clause/2` | 8.8.1 | `clause(Head, Body)`: a clause of a dynamic predicate. |
-| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: a predicate that has clauses. |
+| `clause/2` | 8.8.1 | `clause(Head, Body)`: a clause of a predicate of your program, whether it was loaded from a file or added with `assertz`. A built-in predicate raises a `permission_error`. |
+| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: a predicate of your program that has clauses or is declared `dynamic`. Built-in predicates are not listed. |
 | `predicate_property/2` | 13211-2 7.2.2 | `predicate_property(Head, P)`: P is a property of the predicate, such as `built_in`, `dynamic` or `exported`. |
 | `current_module/1` | 13211-2 7.2.1 | A module that exists. |
 | `consult/1` | — | Loads a file (chapter 4). The name needs its `.pl`. |

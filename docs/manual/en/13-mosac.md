@@ -58,7 +58,8 @@ main :- write(hello), nl.
 
 4. Build the executable, and run it. `mosac build hello.pl -o hello` prints nothing when it succeeds, and takes a
    second or two. `-o hello` names the executable: `hello`, or `hello.exe` on Windows. `./hello` runs the program
-   `hello` in this folder.
+   `hello` in this folder. On a Linux with `clang++` and no `g++`, `mosac build` stops with `there is no runtime
+   library for this compiler`; [What happened](#what-happened) says what to do.
 
 <!-- check: build -->
 ```console
@@ -180,7 +181,8 @@ The simplest way out is to install `g++` as in step 1. Otherwise, add `--runtime
 `mosac run`: `mosac` then builds the runtime library for `clang++` from the source that the package carries. This
 needs CMake 3.25 or later (on Ubuntu, `sudo apt install cmake`). The first such build takes a minute or more and,
 like any build, prints nothing when it succeeds. It keeps the runtime library in `.mosac-cache`, so the next builds
-in the same folder are fast again:
+in the same folder are fast again, until you delete `.mosac-cache` or build with `--clean`, which throws the runtime
+library away so that the next build takes a minute or more again:
 
 <!-- skip: runtime-source -->
 ```console
