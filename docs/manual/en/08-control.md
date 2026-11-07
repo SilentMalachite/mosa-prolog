@@ -168,8 +168,8 @@ You used four ways to control the search:
   answer of `Goal` and then forgets it. This is called negation as failure, because "not" here means "Mosa cannot
   prove it from the facts and rules that it has". Liz has no child in `family.pl`, so for Mosa she has none.
 - `( Condition -> Then ; Else )` uses only the first answer of `Condition`, and never comes back to try the others.
-- `!` succeeds once, and removes every choice left since the start of the clause: the other clauses of the same
-  predicate, and the other answers of the goals before the cut in that clause.
+- `!` succeeds once, and removes two kinds of choice: the clauses of the same predicate below the current one, and
+  the other answers of the goals before the cut in that clause.
 - `findall/3` runs a goal to the end, through every answer, and gives you the answers in a list.
 
 In step 7, `grade(90, G)` tried the first clause: `90 >= 80` held, the cut removed the other two clauses, and
@@ -217,5 +217,5 @@ X = X, L = [liz,ann,jim], N = 3.
 
 ---
 
-[Index](README.md) · Previous: [7. Lists and recursion](07-lists-recursion.md) · Next: 9. Errors and exceptions (not
-written yet)
+[Index](README.md) · Previous: [7. Lists and recursion](07-lists-recursion.md) · Next:
+[9. Errors and exceptions](09-errors.md)
