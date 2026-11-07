@@ -70,8 +70,8 @@ hello
 Type the `./`. Without it, your shell looks for `hello` only in the folders of your PATH (chapter 2), not in the
 current folder, and does not find it: zsh, the default shell of macOS, prints `zsh: command not found: hello`, and
 bash prints something like `bash: hello: command not found`. On Ubuntu, bash may also suggest installing a package
-named `hello`, which you do not need. In PowerShell on Windows, type `.\hello` (`./hello` works there too). In the Command Prompt (cmd),
-`hello` alone works.
+named `hello`, which you do not need. In PowerShell on Windows, type `.\hello` (`./hello` works there too). In the
+Command Prompt (cmd), `hello` alone works.
 
 `mosac build` also made a folder `.mosac-cache` in the folder `prolog`. It holds the C++ files and the other files
 that `mosac` made on the way, so that building the same program again is fast. Its name starts with a period, so
@@ -236,5 +236,5 @@ $ ./nomain
 
 ---
 
-[Index](README.md) · Previous: [12. Modules and libraries](12-modules-libraries.md) · Next: 14. Reference (not
-written yet)
+[Index](README.md) · Previous: [12. Modules and libraries](12-modules-libraries.md) · Next:
+[14. Reference](14-reference.md)
