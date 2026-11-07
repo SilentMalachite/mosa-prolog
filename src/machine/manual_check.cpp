@@ -9,8 +9,12 @@
 // ディレクトリの引数は無く、posix_spawn_file_actions_addchdir_np は移植できないので、起こす間だけこのプロセスの
 // 作業ディレクトリを移す。
 // mosatest は 1 本の流れで動くのでほかと取り合わない。そのためパスは前もってすべて絶対にしておく。
+// 述語の表（Task 5）は例を動かす前に、このプロセスの中で処理系の一覧と両方向で比べる。組込は engine.cpp の表、
+// ライブラリは新しい機械に読んだ公開リスト。子と同じ mosa の一覧と比べるため、mosatest は mosa の隣に置く。
 
 #include "mosa/manual.hpp"
+
+#include "internal.hpp"
 
 #include "mosa/exe_path.hpp"
 #include "mosa/messages.hpp"
@@ -24,6 +28,8 @@
 #include <fstream>
 #include <initializer_list>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -39,6 +45,9 @@ namespace {
 constexpr std::array<std::string_view, 2> kEditions{"en", "ja"};
 constexpr std::string_view kPrompt = "?- ";
 constexpr std::string_view kReadme = "README.md";
+constexpr std::string_view kSystem = "system";
+// 表に書けるライブラリ。lib/ の messages_* は文面の表で、述語を公開しない。
+constexpr std::array<std::string_view, 6> kLibraries{"apply", "between", "format", "japanese", "lists", "strings"};
 
 std::string message(std::string_view key, std::vector<std::string> args = {}) {
   return render_message_fresh(default_message_language(), key, args);
@@ -64,6 +73,7 @@ struct Chapter {
   std::string shown;   // <ディレクトリ>/<版>/01-sample.md。渡された <ディレクトリ> のまま診断に出す
   bool usable = false; // 読めて誤りが無い。README.md は読まないので false
   std::vector<ManualExample> examples;
+  std::vector<ManualTable> tables;
 };
 
 struct Edition {
@@ -99,6 +109,7 @@ Chapter load_chapter(const std::filesystem::path& path, std::string shown, std::
   problems.insert(problems.end(), parsed.errors.begin(), parsed.errors.end());
   chapter.usable = parsed.errors.empty();
   chapter.examples = std::move(parsed.examples);
+  chapter.tables = std::move(parsed.tables);
   return chapter;
 }
 
@@ -133,7 +144,18 @@ const Chapter* find_chapter(const Edition& edition, std::string_view name) {
   return nullptr;
 }
 
-// どちらかの版にあるファイルは両方にあり、例の印の種類と id（印の 3 種すべて）の並びが同じ。
+// 版の突き合わせに使う表の並び。"between system" の形。表の中身は両版とも処理系と比べるので、名前だけを見る。
+std::string table_sequence(const std::vector<ManualTable>& tables) {
+  std::string out;
+  for (const ManualTable& table : tables) {
+    if (!out.empty()) out += ' ';
+    out += table.library;
+  }
+  return out;
+}
+
+// どちらかの版にあるファイルは両方にあり、例の印の種類と id（印の 3 種すべて）の並びと、表の並びが同じ。
+// 表の並びも見るのは、片方の版だけが表の印を落として比べられずに通ることを防ぐため。
 void check_editions(const Edition& en, const Edition& ja, const std::filesystem::path& shown,
                     std::vector<std::string>& problems) {
   std::set<std::string> names;
@@ -155,6 +177,75 @@ void check_editions(const Edition& en, const Edition& ja, const std::filesystem:
     const std::string right_ids = id_sequence(right->examples);
     if (left_ids != right_ids) {
       problems.push_back(message("manual_ids_differ", {left->shown, right->shown, left_ids, right_ids}));
+    }
+    const std::string left_tables = table_sequence(left->tables);
+    const std::string right_tables = table_sequence(right->tables);
+    if (left_tables != right_tables) {
+      problems.push_back(message("manual_tables_differ", {left->shown, right->shown, left_tables, right_tables}));
+    }
+  }
+}
+
+using Expected = std::map<std::string, std::optional<std::vector<PredicateIndicator>>>;
+
+// 表と比べる処理系の一覧。ライブラリは新しい機械に読むので、同じ名前は 1 度だけ作る。
+const std::optional<std::vector<PredicateIndicator>>& expected_list(Expected& lists, const std::string& library) {
+  if (const auto found = lists.find(library); found != lists.end()) return found->second;
+  std::optional<std::vector<PredicateIndicator>> made =
+      library == kSystem ? std::optional{builtin_indicators()} : library_exports(library);
+  return lists.emplace(library, std::move(made)).first->second;
+}
+
+// 同じ章の同じ名前の表は 1 つにまとめる（見出しごとに分けた表）。診断は最初の印の行に出す。
+std::vector<ManualTable> merged_tables(const std::vector<ManualTable>& tables) {
+  std::vector<ManualTable> out;
+  for (const ManualTable& table : tables) {
+    const auto found = std::ranges::find(out, table.library, &ManualTable::library);
+    if (found == out.end()) out.push_back(table);
+    else found->entries.insert(found->entries.end(), table.entries.begin(), table.entries.end());
+  }
+  return out;
+}
+
+// from にあって in に無い述語を、from の順に空白で区切って並べる。
+std::string absent(const std::vector<PredicateIndicator>& from, const std::vector<PredicateIndicator>& in) {
+  std::set<std::string> known;
+  for (const PredicateIndicator& item : in) known.insert(indicator_text(item));
+  std::string out;
+  for (const PredicateIndicator& item : from) {
+    std::string text = indicator_text(item);
+    if (known.contains(text)) continue;
+    if (!out.empty()) out += ' ';
+    out += text;
+  }
+  return out;
+}
+
+std::string library_names() {
+  std::string out;
+  for (const std::string_view name : kLibraries) {
+    if (!out.empty()) out += ", ";
+    out += name;
+  }
+  return out;
+}
+
+// 表にあって処理系に無い述語と、処理系にあって表に無い述語の両方を 1 つの誤りに名指す。
+void check_tables(const Edition& edition, Expected& lists, std::vector<std::string>& problems) {
+  for (const Chapter& chapter : edition.chapters) {
+    if (!chapter.usable) continue;
+    for (const ManualTable& table : merged_tables(chapter.tables)) {
+      const std::string where = chapter.shown + ":" + std::to_string(table.line) + ": ";
+      const std::optional<std::vector<PredicateIndicator>>& wanted = expected_list(lists, table.library);
+      if (!wanted) {
+        problems.push_back(where + message("manual_predicates_unknown", {table.library, library_names()}));
+        continue;
+      }
+      std::string extra = absent(table.entries, *wanted);
+      std::string missing = absent(*wanted, table.entries);
+      if (extra.empty() && missing.empty()) continue;
+      problems.push_back(
+          where + message("manual_predicates_differ", {table.library, std::move(extra), std::move(missing)}));
     }
   }
 }
@@ -346,6 +437,31 @@ std::optional<Runner> make_runner(const ManualArgs& args, const std::filesystem:
 
 }  // namespace
 
+std::vector<PredicateIndicator> builtin_indicators() {
+  std::vector<PredicateIndicator> all;
+  for (const BuiltinPi& item : builtin_procedures()) {
+    // $ で始まる名前はライブラリが使う内側の補助で、初めて読む人のマニュアルには載せない（Task 5 の決定）。
+    if (item.name.starts_with('$')) continue;
+    all.push_back(PredicateIndicator{std::string{item.name}, item.arity});
+  }
+  return all;
+}
+
+std::optional<std::vector<PredicateIndicator>> library_exports(std::string_view library) {
+  if (std::ranges::find(kLibraries, library) == kLibraries.end()) return std::nullopt;
+  const std::unique_ptr<Machine> machine = Machine::create();
+  // use_module/2 は指令でしか使えない。[] で何も取り込まずに読み、user を変えずに公開リストだけを見る。
+  if (!machine->load_program(":- use_module(library(" + std::string{library} + "), []).\n").ok) return std::nullopt;
+  const Impl& impl = engine_impl(*machine);
+  const Module* module = find_module(impl, machine->atoms().intern(library));
+  if (module == nullptr) return std::nullopt;
+  std::vector<PredicateIndicator> exports;
+  for (const PredKey& key : module->exports) {
+    exports.push_back(PredicateIndicator{std::string{impl.atoms.name(key.name)}, key.arity});
+  }
+  return exports;
+}
+
 ManualArgs parse_manual_args(std::span<const std::string_view> args) {
   ManualArgs parsed;
   if (args.empty() || args.front().empty() || args.front().front() == '-') return parsed;
@@ -385,6 +501,9 @@ int run_manual(const ManualArgs& args) {
   const std::optional<Edition> ja = load_edition(dir, shown, kEditions[1], problems);
   if (!en || !ja) return 2;
   check_editions(*en, *ja, shown, problems);
+  Expected lists;
+  check_tables(*en, lists, problems);
+  check_tables(*ja, lists, problems);
   // 何も確かめずに「失敗 0」で通ったことにしない。誤りがあればそちらを出して 1 にする。
   if (problems.empty() && !has_checks(*en) && !has_checks(*ja)) {
     std::cerr << message("manual_no_examples", {args.dir}) << '\n';

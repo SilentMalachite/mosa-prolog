@@ -3,7 +3,7 @@ English | [日本語](README.ja.md)
 # Manual examples and `mosatest --manual`
 
 This directory holds the fixtures of `mosatest --manual` (`good`, `bad-output`, `bad-ids`, `unmarked`, `empty`,
-registered in `tests/tests.cmake`). The rules below are for whoever writes a chapter of `docs/manual/`.
+`bad-preds`, registered in `tests/tests.cmake`). The rules below are for whoever writes a chapter of `docs/manual/`.
 
 ```text
 mosatest --manual <dir> [--mosa <path>] [--work <dir>]
@@ -12,8 +12,9 @@ mosatest --manual <dir> [--mosa <path>] [--work <dir>]
 `<dir>` holds `en/` and `ja/`. `--mosa` defaults to the `mosa` beside the running `mosatest`; `mosac` and `mosatest`
 in examples are the ones beside that `mosa`. `--work` defaults to `tests/tmp/manual`. The checker prints one block per
 failure (`file:line id`, the expected text, the actual text), then `manual: N checked, M skipped, F failed`. That last
-line is the same in both message languages, so scripts can match it. F counts failed examples and every structural
-error (a parse error, a missing edition of a file, different ids, a chapter directory that cannot be emptied). Exit
+line is the same in both message languages, so scripts can match it. N and M count examples. F counts failed examples
+and every structural error (a parse error, a missing edition of a file, different ids or predicate tables, a predicate
+table that differs from Mosa, a chapter directory that cannot be emptied). Exit
 status: 0 when nothing failed, 1 on any failure, 2 on a usage error, also when `<dir>` lacks a readable `en/` or `ja/`
 and when there is no `check:` example at all (nothing was checked, so nothing passed).
 
@@ -82,3 +83,30 @@ empty line, which the expected text shows too. A run cannot time out, so an exam
 of the chapter runs with that directory as its working directory. The directory is emptied at the start of each
 chapter, so a chapter cannot use files from another chapter or from an earlier run. When it cannot be emptied, the
 chapter is not run and counts as a failure.
+
+## Predicate tables
+
+A line `<!-- predicates: system -->` or `<!-- predicates: LIB -->` opens a section that ends at the next heading (a
+line starting with `#` to `######`). LIB is one of `apply`, `between`, `format`, `japanese`, `lists` and `strings`;
+the message catalogs `messages_en` and `messages_ja` have no list of predicates. Every table row in the section whose
+first cell is a code span `` `name/arity` `` is one entry; the header row, the `| --- |` row and rows whose first cell
+is anything else are not entries. A row starts with `|`. Write the name as it is (`` `=../2` ``, `` `\+/1` ``,
+`` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``, where `''` stands for one quote). Lines
+inside code blocks are neither headings nor rows.
+
+```markdown
+<!-- predicates: between -->
+| Predicate | Meaning |
+| --- | --- |
+| `between/3` | `between(Low, High, X)`: X is an integer from Low to High. |
+```
+
+The entries of every section with the same name in one file are taken together, so a chapter can split a list under
+several headings, and an entry listed twice for that name is an error. They are compared with Mosa in both directions:
+an entry that Mosa lacks and a predicate that the tables lack both fail, and the failure names both lists, written on
+the line of the first marker. `system` means the built-in predicates, those for which `predicate_property(H,
+built_in)` holds (and `:/2`, which `predicate_property/2` reads as a module qualification), without the internal
+helpers whose names start with `$`. `LIB` means the export list of `library(LIB)` loaded in a fresh machine, found the
+usual way (`$MOSA_LIB`, then the `lib/` beside `mosatest`); keep `mosatest` beside the `mosa` that runs the examples so
+both use the same system. Directives such as `use_module/1` and `dynamic/1` are not built-in predicates, so list them
+in a table without a marker. Both editions of a chapter have the same sequence of `predicates:` markers.

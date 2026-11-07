@@ -722,6 +722,17 @@ add_test(NAME manual_fixture_unmarked COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARG
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_unmarked -DLANG_VALUE=ja_JP.UTF-8 -DCODE=1
   "-DPATTERN_1=unmarked/en/01-sample\\.md:5: " "-DPATTERN_2=unmarked/ja/01-sample\\.md:5: "
   "-DPATTERN_3=~manual: 0 checked, 0 skipped, 2 failed~$" -P ${manual_fixture_script})
+# 述語の表（リリース 0.1.0 Task 5）。表が処理系に無いものと処理系が表に無いものを両方名指し、system は $ の補助を
+# 数えず call/1..8 と halt/0,1 を数え、文面の表は一覧を持たず、片方の版だけの表は版の違いになる。
+add_test(NAME manual_fixture_bad_preds COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-preds
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_preds -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+  "-DPATTERN_1=bad-preds/en/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
+  "-DPATTERN_2=bad-preds/ja/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
+  "-DPATTERN_3=bad-preds/en/14-reference\\.md:27: table of system differs from Mosa \\(not in Mosa \\[\\$call_cleanup/2 nope/0\\], not in the table \\[[^~]* =\\.\\./2 [^~]* call/1 call/2 call/3 call/4 call/5 call/6 call/7 call/8 halt/0 halt/1\\]\\)~"
+  "-DPATTERN_4=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, format, japanese, lists, strings~"
+  "-DPATTERN_5=bad-preds/en/15-tables\\.md and [^~]*bad-preds/ja/15-tables\\.md: predicate tables differ \\(between / \\)~"
+  "-DPATTERN_6=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
 add_test(NAME manual_usage COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest> -DLANG_VALUE=en_US.UTF-8
   -DCODE=2 "-DPATTERN_1=mosatest --manual <directory>" -P ${manual_fixture_script})
 # 章の無いマニュアルは何も確かめていないので、通ったことにせず 2 で止める（修正 8）。

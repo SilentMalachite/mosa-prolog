@@ -133,6 +133,11 @@ message(manual_console_special, 'the command has ~w, which a shell treats specia
 message(manual_console_program, 'command must start with mosa, mosac, mosatest or ./NAME, not ~w').
 message(manual_missing, '~w: missing (~w exists)').
 message(manual_ids_differ, '~w and ~w: example ids differ (~w / ~w)').
+% 述語の表（リリース 0.1.0 Task 5）。
+message(manual_tables_differ, '~w and ~w: predicate tables differ (~w / ~w)').
+message(manual_predicates_twice, 'predicate ~w listed twice in the tables of ~w').
+message(manual_predicates_unknown, 'no predicate list for ~w; a table names system or one of ~w').
+message(manual_predicates_differ, 'table of ~w differs from Mosa (not in Mosa [~w], not in the table [~w])').
 message(manual_no_editions, 'mosatest: ~w must hold en/ and ja/').
 message(manual_cannot_list, 'mosatest: cannot read the directory ~w').
 message(manual_no_examples, 'mosatest: no check: examples in ~w').

@@ -2,16 +2,20 @@
 // 囲いは必ず直前の行に印を持つ。印の無い囲いを誤りにするのは、検査から黙って漏れる例を作らないため。
 // 行は 1 行ずつ前から読む。印は次の行が開きの囲いのときだけ効き、間に何かあればその印を誤りにする。
 // \r は行末で落とす。Windows で checkout したファイル（CRLF）でも同じ例と同じ入力になる。
+// 囲いの外では述語の表も読む（Task 5）。<!-- predicates: LIB --> の行から次の見出しまでの表の行が 1 つの表になる。
 
 #include "mosa/manual.hpp"
 
 #include "mosa/messages.hpp"
 
+#include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstddef>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -138,23 +142,80 @@ std::size_t unreadable_prefix(std::string_view line) {
   return unreadable ? index : 0;
 }
 
-// 印の行なら種類と残りを返す。印でない注釈（<!-- predicates: … --> など）は nullopt で、ただの本文として扱う。
-std::optional<MarkerHead> marker_head(std::string_view line) {
+struct Comment {
+  std::string_view text;  // <!-- の後ろ（同じ行の --> の前まで）。前後の空白は除いてある
+  bool closed = false;    // 同じ行に --> がある
+};
+
+std::optional<Comment> comment(std::string_view line) {
   std::string_view text = trim(line);
   if (!text.starts_with("<!--")) return std::nullopt;
   text = trim(text.substr(4));
-  MarkerHead head;
-  head.closed = text.ends_with("-->");
-  if (head.closed) text = trim(text.substr(0, text.size() - 3));
+  Comment note;
+  note.closed = text.ends_with("-->");
+  if (note.closed) text = trim(text.substr(0, text.size() - 3));
+  note.text = text;
+  return note;
+}
+
+// 印の行なら種類と残りを返す。印でない注釈は nullopt（<!-- predicates: … --> は Parser::table_line が読む）。
+std::optional<MarkerHead> marker_head(std::string_view line) {
+  const std::optional<Comment> note = comment(line);
+  if (!note) return std::nullopt;
   constexpr std::array<std::pair<std::string_view, MarkerKind>, 3> kinds{{
       {"check:", MarkerKind::Check}, {"skip:", MarkerKind::Skip}, {"file:", MarkerKind::File}}};
   for (const auto& [prefix, kind] : kinds) {
-    if (!text.starts_with(prefix)) continue;
-    head.kind = kind;
-    head.rest = trim(text.substr(prefix.size()));
-    return head;
+    if (!note->text.starts_with(prefix)) continue;
+    return MarkerHead{kind, trim(note->text.substr(prefix.size())), note->closed};
   }
   return std::nullopt;
+}
+
+constexpr std::string_view kTablePrefix = "predicates:";
+
+// ATX の見出し（字下げは空白 3 つまで、# が 1〜6 個、その後ろは行末か空白）。表の区切りはここで終わる。
+bool heading(std::string_view line) {
+  std::size_t index = 0;
+  while (index < 3 && index < line.size() && line[index] == ' ') ++index;
+  std::size_t marks = 0;
+  while (index + marks < line.size() && line[index + marks] == '#') ++marks;
+  if (marks == 0 || marks > 6) return false;
+  return index + marks == line.size() || blank(line[index + marks]);
+}
+
+// 名前は書いたままか、Prolog と同じく一重引用符の中（'' は ' 1 つ）。','/2 を Prolog の書き方で書けるように。
+std::optional<std::string> indicator_name(std::string_view text) {
+  if (text.size() < 2 || text.front() != '\'' || text.back() != '\'') return std::string{text};
+  const std::string_view inner = text.substr(1, text.size() - 2);
+  std::string name;
+  for (std::size_t index = 0; index < inner.size(); ++index) {
+    if (inner[index] == '\'') {
+      if (index + 1 == inner.size() || inner[index + 1] != '\'') return std::nullopt;
+      ++index;
+    }
+    name += inner[index];
+  }
+  return name;
+}
+
+// | で始まる表の行の最初の欄が `name/arity` ならその述語。見出しの行、| --- | の行、ほかの欄で始まる行は nullopt。
+std::optional<PredicateIndicator> table_entry(std::string_view line) {
+  std::string_view text = trim(line);
+  if (!text.starts_with('|')) return std::nullopt;
+  text.remove_prefix(1);
+  const std::string_view cell = trim(text.substr(0, text.find('|')));
+  if (cell.size() < 3 || cell.front() != '`' || cell.back() != '`') return std::nullopt;
+  const std::string_view code = cell.substr(1, cell.size() - 2);
+  const std::size_t slash = code.rfind('/');
+  if (code.find('`') != std::string_view::npos || slash == std::string_view::npos || slash == 0) return std::nullopt;
+  const std::string_view digits = code.substr(slash + 1);
+  if (digits.empty() || digits.front() < '0' || digits.front() > '9') return std::nullopt;
+  int arity = 0;
+  const auto [last, problem] = std::from_chars(digits.data(), digits.data() + digits.size(), arity);
+  if (problem != std::errc{} || last != digits.data() + digits.size()) return std::nullopt;
+  std::optional<std::string> name = indicator_name(code.substr(0, slash));
+  if (!name) return std::nullopt;
+  return PredicateIndicator{std::move(*name), arity};
 }
 
 // file: の NAME と ./NAME は章のディレクトリの中の名前だけにする。作業場所の外へ書かせない。
@@ -226,11 +287,15 @@ class Parser {
   void add_example(const Marker& marker, const Fence& fence, std::size_t line, std::string body);
   std::optional<ExampleKind> check_kind(const Fence& fence, std::size_t line, std::string_view body);
   void check_console(std::size_t line, std::string_view body);
+  void table_line(std::size_t index);
+  void open_table(std::size_t index, const Comment& note);
+  void add_entry(std::size_t index, PredicateIndicator entry);
 
   std::vector<std::string_view> lines_;
   std::string file_;
   ParsedManual result_;
   std::optional<Marker> pending_;
+  std::optional<std::size_t> table_;  // 開いている表の区切り（result_.tables の位置）
 };
 
 ParsedManual Parser::run() {
@@ -255,10 +320,49 @@ ParsedManual Parser::run() {
       index = read_marker(index, *head);
       continue;
     }
+    table_line(index);
     ++index;
   }
   if (pending_) error(pending_->line, "manual_marker_alone");
   return std::move(result_);
+}
+
+// 囲いの外の行だけがここに来る。囲いの中の # の行と | の行は、見出しにも表の行にもならない。
+void Parser::table_line(std::size_t index) {
+  const std::string_view line = lines_[index];
+  if (heading(line)) {
+    table_.reset();
+    return;
+  }
+  if (const auto note = comment(line); note && note->text.starts_with(kTablePrefix)) {
+    open_table(index, *note);
+    return;
+  }
+  if (!table_) return;
+  if (std::optional<PredicateIndicator> entry = table_entry(line)) add_entry(index, std::move(*entry));
+}
+
+// 形の違う印は誤りにし、区切りを開かない。その後ろの表の行を前の区切りに数えないよう、前の区切りも閉じる。
+void Parser::open_table(std::size_t index, const Comment& note) {
+  table_.reset();
+  const std::vector<std::string_view> words = split_words(note.text.substr(kTablePrefix.size()));
+  if (!note.closed || words.size() != 1) {
+    error(index + 1, "manual_marker_bad", {std::string{trim(lines_[index])}});
+    return;
+  }
+  result_.tables.push_back(ManualTable{std::string{words[0]}, index + 1, {}});
+  table_ = result_.tables.size() - 1;
+}
+
+// 同じファイルの同じ名前の表に 2 度書いた述語は誤り。比べるのは集合なので、黙って重ねると片方の行は何も確かめない。
+void Parser::add_entry(std::size_t index, PredicateIndicator entry) {
+  ManualTable& table = result_.tables[*table_];
+  for (const ManualTable& other : result_.tables) {
+    if (other.library != table.library || std::ranges::find(other.entries, entry) == other.entries.end()) continue;
+    error(index + 1, "manual_predicates_twice", {indicator_text(entry), table.library});
+    return;
+  }
+  table.entries.push_back(std::move(entry));
 }
 
 void Parser::error(std::size_t line, std::string_view key, std::vector<std::string> args) {
@@ -398,6 +502,8 @@ void Parser::check_console(std::size_t line, std::string_view body) {
 }  // namespace
 
 ParsedManual parse_manual(std::string_view text, std::string_view file) { return Parser{text, file}.run(); }
+
+std::string indicator_text(const PredicateIndicator& item) { return item.name + "/" + std::to_string(item.arity); }
 
 std::vector<ConsoleCommand> console_commands(std::string_view body) {
   std::vector<ConsoleCommand> commands;

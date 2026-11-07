@@ -1,8 +1,9 @@
 #pragma once
 
 // mosatest --manual（リリース 0.1.0 Task 4）。docs/manual/{en,ja}/*.md の例を抜き出して動かし、書いてある出力と
-// 1 字ずつ比べる。印の書き方は tests/manual/README.md。読み取りは src/machine/manual_parse.cpp、動かして比べるのは
-// src/machine/manual_check.cpp。試験は tests/cpp/manual_parse_test.cpp と tests/manual の見本（tests/tests.cmake）。
+// 1 字ずつ比べる。述語の表は処理系の一覧と両方向で比べる（Task 5）。印の書き方は tests/manual/README.md。読み取りは
+// src/machine/manual_parse.cpp、動かして比べるのは src/machine/manual_check.cpp。試験は tests/cpp/manual_parse_test.cpp
+// と tests/manual の見本（tests/tests.cmake）。
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -25,13 +26,38 @@ struct ManualExample {
   std::string file_name;             // file: の NAME
 };
 
-// std::expected の代わり（C++20）。errors が空なら examples がそのファイルの例のすべて。
+// 述語の表の 1 行と、処理系の述語 1 つ（リリース 0.1.0 Task 5）。name は引用を外した名前（UTF-8）。
+struct PredicateIndicator {
+  std::string name;
+  int arity = 0;
+  bool operator==(const PredicateIndicator&) const = default;
+};
+
+// <!-- predicates: LIB --> の行から次の見出しまでの表の行のうち、最初の欄が `name/arity` のもの。
+struct ManualTable {
+  std::string library;   // system か、library(LIB) の LIB
+  std::size_t line = 0;  // 印の行（1 から）
+  std::vector<PredicateIndicator> entries;
+};
+
+// std::expected の代わり（C++20）。errors が空なら examples がそのファイルの例のすべてで、tables が表のすべて。
 struct ParsedManual {
   std::vector<ManualExample> examples;
+  std::vector<ManualTable> tables;  // 印の順
   std::vector<std::string> errors;  // "file:line: 文面"。文面は lib/messages_*.pl の鍵（ADR 0007）
 };
 
 [[nodiscard]] ParsedManual parse_manual(std::string_view text, std::string_view file);
+// 診断に出す形 name/arity。名前は引用しない。組込とライブラリの名前に空白は無いので、空白で区切って並べても読める。
+[[nodiscard]] std::string indicator_text(const PredicateIndicator& item);
+
+// 表の system と比べる一覧。predicate_property(H, built_in) が成り立つ述語（engine.cpp の kBuiltins、call/1..8、
+// halt/0,1）から、$ で始まる内側の補助を除いたもの。system には Prolog で書いた述語が無いので、これで全部。
+[[nodiscard]] std::vector<PredicateIndicator> builtin_indicators();
+// 表の LIB と比べる一覧。新しい機械に library(LIB) を読んだときの公開リスト（宣言の順）。LIB は apply、between、
+// format、japanese、lists、strings のどれか（文面の表 messages_* は述語の一覧ではない）。ほかの名前と、読めない
+// ときは nullopt。ライブラリはいつもの探し方（$MOSA_LIB、次に実行ファイルの隣の lib/）で見つける。
+[[nodiscard]] std::optional<std::vector<PredicateIndicator>> library_exports(std::string_view library);
 
 // console の囲いの 1 つのコマンド。argv[0] は mosa、mosac、mosatest か ./NAME のまま（置き換えは動かす側）。
 struct ConsoleCommand {

@@ -133,6 +133,11 @@ message(manual_console_special, 'コマンドの ~w はシェルが特別に扱�
 message(manual_console_program, 'コマンドは mosa、mosac、mosatest か ./NAME で始めます: ~w').
 message(manual_missing, '~w がありません（~w はあります）').
 message(manual_ids_differ, '~w と ~w で例の id が違います（~w / ~w）').
+% 述語の表（リリース 0.1.0 Task 5）。
+message(manual_tables_differ, '~w と ~w で述語の表が違います（~w / ~w）').
+message(manual_predicates_twice, '述語 ~w が ~w の表に 2 度あります').
+message(manual_predicates_unknown, '~w の述語の一覧はありません。表に書けるのは system か ~w です').
+message(manual_predicates_differ, '~w の表が Mosa と違います（Mosa に無いもの [~w]、表に無いもの [~w]）').
 message(manual_no_editions, 'mosatest: ~w に en/ と ja/ が要ります').
 message(manual_cannot_list, 'mosatest: ディレクトリ ~w を読めません').
 message(manual_no_examples, 'mosatest: ~w に check: の例がありません').
