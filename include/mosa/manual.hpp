@@ -3,7 +3,7 @@
 // mosatest --manual（リリース 0.1.0 Task 4）。docs/manual/{en,ja}/*.md の例を抜き出して動かし、書いてある出力と
 // 1 字ずつ比べる。述語の表は処理系の一覧と両方向で比べる（Task 5）。印の書き方は tests/manual/README.md。読み取りは
 // src/machine/manual_parse.cpp、動かして比べるのは src/machine/manual_check.cpp。試験は tests/cpp/manual_parse_test.cpp
-// と tests/manual の見本（tests/tests.cmake）。
+// （読み取り）、tests/cpp/manual_lists_test.cpp（表と比べる一覧）と tests/manual の見本（tests/tests.cmake）。
 #include <cstddef>
 #include <filesystem>
 #include <optional>

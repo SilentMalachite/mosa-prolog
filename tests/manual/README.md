@@ -89,40 +89,51 @@ chapter is not run and counts as a failure.
 ## Predicate tables
 
 A line `<!-- predicates: system -->` or `<!-- predicates: LIB -->` opens a section that ends at the next ATX heading at
-column 0 (a line starting with `#` to `######` followed by a space or the end of the line). LIB is the stem of a
+column 0 (a line starting with `#` to `######` followed by a space, a tab or the end of the line). LIB is the stem of a
 `*.pl` file in the `lib/` beside `--mosa`, except the message catalogs `messages_*`, which have no list of predicates;
 any other name is an error. A comment whose text starts with `predicate` in any case (`<!-- predicate: lists -->`,
 `<!-- Predicates: lists -->`) and is not exactly `predicates: NAME` on one line is an error, so a misspelled marker
 does not leave a table unchecked. Outside a section, markers inside code blocks and inside a multi-line comment do not
 count; a comment ends on the line that has `-->`, so `<!-->` and `<!--->` end on their own line.
 
-Inside a section, the checker does not try to follow every Markdown shape. Each line must be one of these, and any
-other line is an error:
+A section holds only tables. Following each Markdown shape that GitHub renders in its own way missed another shape
+three times in a row, so the checker accepts only lines whose rendering is unambiguous. Each line of a section must be
+one of these, and any other line is an error:
 
-1. a blank line;
-2. a header row: it starts with `|` at column 0 and has no backtick;
-3. a delimiter row (`| --- | --- |`, colons for alignment allowed), right under a header row;
-4. a body row, under the delimiter row or another body row: it starts with `|` at column 0 and its first cell is
-   exactly one code span `` `name/arity` ``;
-5. a prose line: it starts at column 0 with a character other than a space, a tab, `|`, `>`, `<`, `` ` ``, `~`, `#`,
-   `-`, `*`, `+`, `=` or `_`, it is not an ordered-list item (`1.`, `1)`), and it has no backtick.
+1. an empty line (a line of spaces is an error);
+2. a header row: it starts with `|` at column 0, has no backtick and no `<`, and has as many cells as the delimiter row
+   right under it;
+3. a delimiter row (`| --- | --- |`, colons for alignment allowed) that starts with `|`, right under a header row;
+4. a body row, under the delimiter row or another body row: it starts with `|` at column 0, its first cell is exactly
+   one code span `` `name/arity` ``, and it has no `<` outside code spans.
 
-So indented lines, list items, block quotes, comments other than the next marker, code blocks, thematic breaks and
-setext underlines are all errors inside a section, and so is a setext heading. End a section with an ATX heading, and
-write sentences that need a code span before the marker. A table ends at a blank line; a line right under a body row
-that is not another body row is an error, and so is a header row with no delimiter row under it. In a body row, text
-after the code span (`` `nope/1` (deprecated) ``), a link, bold or two code spans are errors. The arity is a decimal
-number without a leading zero (`between/03` is an error). Write the name as it is (`` `=../2` ``, `` `\+/1` ``,
-`` `\==/2` ``, `` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``). Inside the quotes only
-`''` is decoded, as one quote; a backslash stays as it is, so write names with a backslash (`\=`, `\==`, `\+`, `=\=`)
-without quotes.
+Cells are counted as GitHub counts them: a `|` with a backslash right before it (`\|`) does not split cells, and a last
+`|` followed only by spaces does not start another cell, so `| a \| b | c |` has two cells and needs `| --- | --- |`.
+So prose, indented lines, list items, block quotes, comments other than the next marker, code blocks, thematic breaks,
+setext underlines and raw HTML are all errors inside a section. Write sentences above the marker and end the section
+with an ATX heading. No line of a section may hold a control character (a byte below 0x20 such as a tab, a form feed,
+a vertical tab or NUL). A line ends at LF, at CRLF or, as in CommonMark, at a CR without LF; inside a section a line
+that ends at a CR without LF is an error too. A table ends at an empty line; a line right under a body row that is not
+another body row is an error, and so is a header row with no delimiter row of as many cells right under it. In a body
+row, text after the code span (`` `nope/1` (deprecated) ``), a link, bold, two code spans and inline HTML (`<code>`,
+`<!-- … -->`, any `<` outside a code span) are errors. The arity is a decimal number without a leading zero
+(`between/03` is an error). Write the name as it is (`` `=../2` ``, `` `\+/1` ``, `` `\==/2` ``,
+`` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``). Inside the quotes only `''` is decoded,
+as one quote; a backslash stays as it is, so write names with a backslash (`\=`, `\==`, `\+`, `=\=`) without quotes.
 
 ```markdown
+`between/3` enumerates integers. The sentence goes above the marker.
+
 <!-- predicates: between -->
 | Predicate | Meaning |
 | --- | --- |
 | `between/3` | `between(Low, High, X)`: X is an integer from Low to High. |
 ```
+
+In a chapter with any `predicates:` marker, a line outside code blocks and comments that starts, after at most three
+spaces, with `<` and a letter, `</`, `<?` or `<!` is an error anywhere in the chapter, also outside the sections. Such a
+line opens a raw HTML block (`<details>`, `<div>`, `<script>`, `<?php`, `<![CDATA[`), and a marker or table inside one
+is counted but not shown as a table. `<!--` comments and the markers themselves are fine.
 
 The entries of every section with the same name in one file are taken together, so a chapter can split a list under
 several headings, and an entry listed twice for that name is an error. They are compared with Mosa in both directions:

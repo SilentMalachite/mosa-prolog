@@ -695,8 +695,13 @@ set_tests_properties(mosa_std_binary PROPERTIES TIMEOUT 1800
 add_executable(manual_parse_test tests/cpp/manual_parse_test.cpp)
 target_include_directories(manual_parse_test PRIVATE tests/cpp)
 target_link_libraries(manual_parse_test PRIVATE mosa_lib)
-target_compile_definitions(manual_parse_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME manual_parse COMMAND $<TARGET_FILE:manual_parse_test>)
+# 表と比べる処理系の一覧（Task 5 の修正 4 で manual_parse_test から分けた）。
+add_executable(manual_lists_test tests/cpp/manual_lists_test.cpp)
+target_include_directories(manual_lists_test PRIVATE tests/cpp)
+target_link_libraries(manual_lists_test PRIVATE mosa_lib)
+target_compile_definitions(manual_lists_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME manual_lists COMMAND $<TARGET_FILE:manual_lists_test>)
 set(manual_fixture_script ${CMAKE_SOURCE_DIR}/tests/cpp/manual_fixture_test.cmake)
 set(manual_fixture_dir ${CMAKE_SOURCE_DIR}/tests/manual)
 add_test(NAME manual_fixture_good COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>

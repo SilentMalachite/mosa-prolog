@@ -138,9 +138,11 @@ message(manual_tables_differ, '~w と ~w で述語の表が違います（~w / ~
 message(manual_predicates_twice, '述語 ~w が ~w の表に 2 度あります').
 message(manual_predicates_unknown, '~w の述語の一覧はありません。表に書けるのは system か ~w です').
 message(manual_predicates_differ, '~w の表が Mosa と違います（Mosa に無いもの [~w]、表に無いもの [~w]）').
-message(manual_table_row, '述語の表の行は | で始め、最初の欄にコードスパン `name/arity` を 1 つだけ書きます: ~w').
-message(manual_table_header, '述語の区切りの表の行の下に | --- | の行がありません: ~w').
-message(manual_section_line, '述語の区切りの中に書けない行です（書けるのは空の行、コードスパンの無い | 見出し | の行、その下の | --- |、| `name/arity` | の行、0 桁目から Markdown の印もコードスパンも無い地の文）: ~w').
+message(manual_table_row, '述語の表の行は | で始め、最初の欄にコードスパン `name/arity` を 1 つだけ書き、コードスパンの外に < を書きません: ~w').
+message(manual_table_header, '述語の表の見出しの行のすぐ下に、欄の数が同じ | --- | の行がありません: ~w').
+message(manual_section_line, '述語の区切りの中に書けない行です。区切りに置けるのは表だけです（書けるのは空の行、バッククォートも < も無い | 見出し | の行、そのすぐ下の | --- |、| `name/arity` | の行。文は印の前に書きます）: ~w').
+message(manual_section_control, '述語の区切りの行に制御文字 ~w があります（タブ、改ページ、NUL、LF の付かない CR は書けません。行は LF か CRLF で終えます）').
+message(manual_html_block, '生の HTML のブロックを始める行です。GitHub はその中を Markdown として映しません。predicates: の印を持つ章で < から始めてよいのは <!-- の注釈だけです: ~w').
 message(manual_tables_missing, '~w に ~w の述語の表がありません').
 message(manual_library_unloadable, 'library(~w)（~w）を読めません: ~w').
 message(manual_library_no_module, 'ファイルがモジュール ~w を定義していません').

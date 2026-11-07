@@ -138,9 +138,11 @@ message(manual_tables_differ, '~w and ~w: predicate tables differ (~w / ~w)').
 message(manual_predicates_twice, 'predicate ~w listed twice in the tables of ~w').
 message(manual_predicates_unknown, 'no predicate list for ~w; a table names system or one of ~w').
 message(manual_predicates_differ, 'table of ~w differs from Mosa (not in Mosa [~w], not in the table [~w])').
-message(manual_table_row, 'a row of a predicates table starts with | and has exactly one code span `name/arity` in its first cell: ~w').
-message(manual_table_header, 'table line in a predicates section without a | --- | row under it: ~w').
-message(manual_section_line, 'line not allowed in a predicates section (allowed: a blank line, a | header | without a code span, the | --- | under it, | `name/arity` | rows, prose at column 0 without a code span or a Markdown mark): ~w').
+message(manual_table_row, 'a row of a predicates table starts with |, has exactly one code span `name/arity` in its first cell and no < outside code spans: ~w').
+message(manual_table_header, 'header row of a predicates table without a | --- | row of as many cells right under it: ~w').
+message(manual_section_line, 'line not allowed in a predicates section, which holds only tables (allowed: an empty line, a | header | row without a backtick or <, the | --- | row right under it, | `name/arity` | rows; write sentences above the marker): ~w').
+message(manual_section_control, 'control character ~w in a line of a predicates section (no tab, form feed, NUL or CR without LF; end lines with LF or CRLF)').
+message(manual_html_block, 'line starts a raw HTML block, which GitHub does not render as Markdown; in a chapter with predicates: markers only a <!-- comment may start a line with <: ~w').
 message(manual_tables_missing, '~w: no predicates table for ~w').
 message(manual_library_unloadable, 'library(~w) at ~w cannot be loaded: ~w').
 message(manual_library_no_module, 'the file does not define the module ~w').
