@@ -206,4 +206,4 @@ X = 牛乳.
 
 ---
 
-[目次](README.md) ・ 前: [5. 項と単一化](05-terms-unification.md) ・ 次: 7. リストと再帰（まだ書いていません）
+[目次](README.md) ・ 前: [5. 項と単一化](05-terms-unification.md) ・ 次: [7. リストと再帰](07-lists-recursion.md)

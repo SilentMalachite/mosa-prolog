@@ -28,7 +28,7 @@ The packages are not signed. [Chapter 2](02-install.md) shows how to start Mosa 
 
 ## Chapters
 
-Chapters 1 to 6 are written. The others are listed without a link until they are written.
+Chapters 1 to 8 are written. The others are listed without a link until they are written.
 
 1. [Introduction](01-introduction.md)
 2. [Getting and starting Mosa](02-install.md)
@@ -36,8 +36,8 @@ Chapters 1 to 6 are written. The others are listed without a link until they are
 4. [Facts and rules](04-facts-rules.md)
 5. [Terms and unification](05-terms-unification.md)
 6. [Arithmetic](06-arithmetic.md)
-7. Lists and recursion
-8. Control
+7. [Lists and recursion](07-lists-recursion.md)
+8. [Control](08-control.md)
 9. Errors and exceptions
 10. Input and output
 11. Writing in Japanese

@@ -234,5 +234,5 @@ Item = milk.
 
 ---
 
-[Index](README.md) · Previous: [5. Terms and unification](05-terms-unification.md) · Next: 7. Lists and recursion
-(not written yet)
+[Index](README.md) · Previous: [5. Terms and unification](05-terms-unification.md) · Next:
+[7. Lists and recursion](07-lists-recursion.md)
