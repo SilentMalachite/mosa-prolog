@@ -26,10 +26,12 @@ On Linux (Ubuntu), install `g++`. `sudo` asks for your password, and `apt` asks 
 $ sudo apt install g++
 ```
 
-On Windows, open the [Visual Studio downloads page](https://visualstudio.microsoft.com/downloads/), download Build
-Tools for Visual Studio 2022, and run it. In the installer, check the workload "Desktop development with C++", and
-click Install. You need no special window afterwards: `mosac` finds the compiler from an ordinary PowerShell window.
-Close PowerShell and open a new one when the installer is done.
+On Windows, download the
+[installer of Build Tools for Visual Studio 2022](https://aka.ms/vs/17/release/vs_BuildTools.exe), and run it. In
+the installer, choose the workload "Desktop development with C++", and click Install. You need no special window
+afterwards: `mosac` finds the compiler from an ordinary PowerShell window. Close PowerShell and open a new one when
+the installer is done. Mosa 0.1.0 is tested with Visual Studio 2022. If a newer Visual Studio is also installed,
+`mosac` uses the newest one, which is not tested.
 
 2. Check that `mosac` finds the compiler. `mosac toolchain` prints the compiler and its version, CMake (a build tool
    that `mosac` uses when it is installed, and does without when it is not), and the folder of the runtime library,
@@ -56,7 +58,7 @@ main :- write(hello), nl.
 
 4. Build the executable, and run it. `mosac build hello.pl -o hello` prints nothing when it succeeds, and takes a
    second or two. `-o hello` names the executable: `hello`, or `hello.exe` on Windows. `./hello` runs the program
-   `hello` in this folder; type it the same way in PowerShell.
+   `hello` in this folder.
 
 <!-- check: build -->
 ```console
@@ -65,14 +67,20 @@ $ ./hello
 hello
 ```
 
+Type the `./`. Without it, your shell looks for `hello` only in the folders of your PATH (chapter 2), not in the
+current folder, and does not find it: zsh, the shell of macOS, prints `zsh: command not found: hello`, and bash
+prints `bash: hello: command not found`. On Ubuntu, bash may also suggest installing a package named `hello`, which
+you do not need. In PowerShell on Windows, type `.\hello` (`./hello` works there too). In the Command Prompt (cmd),
+`hello` alone works.
+
 `mosac build` also made a folder `.mosac-cache` in the folder `prolog`. It holds the C++ files and the other files
 that `mosac` made on the way, so that building the same program again is fast. Its name starts with a period, so
 `ls` and the Finder on macOS do not show it (`ls -a` does). You can delete it whenever you like: your executable
 still runs, and the next `mosac build` makes the folder again, taking a second or two again.
 
 5. Run the program without building it yourself. `mosa hello.pl` loads the file, and the directive runs `main` and
-   ends Mosa, so you see no `?-` prompt. `mosac run hello.pl` builds the executable in a temporary place, runs it,
-   and leaves no executable behind.
+   ends Mosa, so you see no `?-` prompt. `mosac run hello.pl` builds the program in `.mosac-cache`, as
+   `mosac build` does, runs it, and leaves no executable in the folder `prolog`.
 
 <!-- check: run -->
 ```console
@@ -98,8 +106,8 @@ parent(pat, jim).
 grandparent(X, Z) :- parent(X, Y), parent(Y, Z).
 ```
 
-Then create a file `grandchildren.pl` with these lines. Its `main` prints Tom's grandchildren, as
-`show_grandchildren/1` of chapter 12 did.
+Then create a file `grandchildren.pl` in the folder `prolog` with these lines. Its `main` prints Tom's
+grandchildren, as `show_grandchildren/1` of chapter 12 did.
 
 <!-- file: grandchildren-file grandchildren.pl -->
 ```prolog
@@ -121,8 +129,8 @@ ann is a grandchild of tom
 pat is a grandchild of tom
 ```
 
-8. See what a program does when `main` raises an error. Create a file `divide.pl` with these lines, build it and run
-   it. The program prints the same warning as the `?-` prompt (chapter 9), and ends.
+8. See what a program does when `main` raises an error. Create a file `divide.pl` in the folder `prolog` with these
+   lines, build it and run it. The program prints the same warning as the `?-` prompt (chapter 9), and ends.
 
 <!-- file: divide-file divide.pl -->
 ```prolog
@@ -158,14 +166,14 @@ set, from the Windows display language. So the warning of step 8 is in Japanese 
 compiler of Visual Studio on Windows. After you change a file, run `mosac build` again, and it takes a second or two
 again. For a program that has not changed, it reuses what is in `.mosac-cache` and is done almost at once.
 
-`mosac dist`, which is to pack a program so that other people can install it, is not part of Mosa 0.1.0.
+`mosac dist`, which packs a program for other people to install, is not part of Mosa 0.1.0.
 
 ## Exercises
 
-1. Write a program `squares.pl` that prints the squares of 1, 2 and 3, one on each line. Use `forall/2`,
-   `member/2` and `format/2` (chapter 12). Build it and run it.
-2. Save `main :- write('Hello, world'), nl.` alone, without the directive, as `nodirective.pl`. Build it and run
-   it. What does it print?
+1. Write a program `squares.pl` in the folder `prolog` that prints the squares of 1, 2 and 3, one on each line. Use
+   `forall/2`, `member/2` and `format/2` (chapter 12). Build it and run it.
+2. Save `main :- write('Hello, world'), nl.` alone, without the directive, as `nodirective.pl` in the folder
+   `prolog`. Build it and run it. What does it print?
 
 ### Answers
 

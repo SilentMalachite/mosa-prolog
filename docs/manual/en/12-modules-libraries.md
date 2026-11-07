@@ -195,9 +195,8 @@ Every predicate belongs to a module. The `?-` prompt, and every file without `mo
 `append/3`, `member/2` and others. `use_module/1` imports the exported predicates into the module of the file that
 holds the directive. In `report.pl` that is `user`, so `grandparent/2` was usable at the prompt as well.
 
-`parent/2` stayed inside `family_tree`. Another module can have a `parent/2` of its own, and the two do not mix: if
-you also load `family.pl` of chapter 4, `parent/2` at the prompt is the one of `family.pl`, and
-`family_tree:parent(…)` is the one of the module. `Module:Goal` runs `Goal` inside the module `Module`.
+`parent/2` stayed inside `family_tree`, so another module can have a `parent/2` of its own, and the two do not mix.
+`Module:Goal` runs `Goal` inside the module `Module`.
 
 `use_module/1` takes two kinds of names:
 

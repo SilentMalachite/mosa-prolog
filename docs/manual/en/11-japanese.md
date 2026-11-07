@@ -83,7 +83,8 @@ F = false.
 Syntax error: line 1 column 6: unexpected token （
 ```
 
-6. Turn on full-width symbol mode with `set_prolog_flag/2`, which changes the value of a flag. Now Mosa reads the
+6. Turn on full-width symbol mode, the mode in which Mosa reads full-width punctuation: set the flag
+   `japanese_punctuation` to `true` with `set_prolog_flag/2`, which changes the value of a flag. Now Mosa reads the
    full-width punctuation as the half-width one. It always writes its answers in half-width. `「` and `」` are
    Japanese quotation marks, and they work as single quotes. Then turn the mode off again, for the next steps.
 
@@ -159,7 +160,7 @@ true.
 ```
 
 10. Type `halt.` to quit. Then start Mosa with its messages in Japanese from the beginning. On macOS and Linux, put
-    `LANG=ja_JP.UTF-8` before `mosa`, which sets it for this one command:
+    `LANG=ja_JP.UTF-8` before `mosa`. This sets `LANG` for this one command only, so your shell keeps its own value:
 
 <!-- skip: lang-unix -->
 ```console
@@ -175,7 +176,13 @@ mosa
 ```
 
 Type `hello.`, and the warning is in Japanese, as in step 9. Type `halt.` to quit. In PowerShell, `LANG` stays set
-until you close the window.
+in this window, so every `mosa` that you start there prints its messages in Japanese. Before you go on to chapter
+12, close the window and open a new one, or remove `LANG` with this line:
+
+<!-- skip: lang-windows-remove -->
+```powershell
+Remove-Item Env:LANG
+```
 
 ## What happened
 
