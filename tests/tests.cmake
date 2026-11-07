@@ -800,3 +800,7 @@ add_test(NAME manual_fixture_empty COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_
   -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/empty
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_empty -DLANG_VALUE=en_US.UTF-8 -DCODE=2
   "-DPATTERN_1=^mosatest: no check: examples in [^~]*tests/manual/empty~$" -P ${manual_fixture_script})
+# マニュアル本体（リリース 0.1.0 Task 6）。読者が打つ例が書いてあるとおりに動くことを、人の目ではなく ctest で保つ。
+# 英語版と日本語版の両方を動かす。--work は見本の場所と重ねない。
+add_test(NAME manual_en_ja COMMAND $<TARGET_FILE:mosatest> --manual ${CMAKE_SOURCE_DIR}/docs/manual
+  --mosa $<TARGET_FILE:mosa> --work ${CMAKE_SOURCE_DIR}/tests/tmp/manual)
