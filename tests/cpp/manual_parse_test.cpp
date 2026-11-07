@@ -234,8 +234,8 @@ void manual_parse_console() {
   check(commands[1].output == "a b\n\n" && commands[1].offset == 2, "console: second output and offset");
 }
 
-// 述語の表（リリース 0.1.0 Task 5）。区切りは印から次の ATX の見出しまで。表は見出しの行、| --- |、本体の行の順。
-// 囲いの中の行は見出しにも表の行にもならない。
+// 述語の表（リリース 0.1.0 Task 5）。区切りは印から次の 0 桁目の ATX の見出しまでで、中に書ける行は決めた種類だけ
+// （修正 3）。区切りの外の囲いの中の行は、見出しにも印にもならない。
 constexpr std::string_view kTables =
     "# Reference\n"                                // 1
     "<!-- predicates: between -->\n"               // 2
@@ -248,18 +248,19 @@ constexpr std::string_view kTables =
     "| ` \\+/1 ` | backslash unquoted, padded |\n" // 9
     "| `ひらがな_カタカナ/2` | Japanese name |\n"   // 10
     "\n"                                           // 11
-    "`succ/2` is prose after the table\n"          // 12
-    "## Next\n"                                    // 13
-    "| `after/0` | after the heading |\n"          // 14
-    "<!--predicates:system-->\n"                   // 15
+    "Prose after the table, without code.\n"       // 12
+    "2 more words; 日本語の地の文も書ける。\n"      // 13
+    "## Next\n"                                    // 14
+    "| `after/0` | after the heading |\n"          // 15
     "<!-- skip: block -->\n"                       // 16
     "```console\n"                                 // 17
     "# a shell comment, not a heading\n"           // 18
-    "| `inside/0` | in a code block |\n"           // 19
+    "<!-- predicates: inside -->\n"                // 19
     "```\n"                                        // 20
-    "| Name | |\n"                                 // 21
-    "|:---|---:|\n"                                // 22
-    "| `atom/1` | after the code block |\n";       // 23
+    "<!--predicates:system-->\n"                   // 21
+    "| Name | |\n"                                 // 22
+    "|:---|---:|\n"                                // 23
+    "| `atom/1` | after the code block |\n";       // 24
 
 bool same(const std::vector<mosa::PredicateIndicator>& entries,
           const std::vector<mosa::PredicateIndicator>& wanted) {
@@ -278,13 +279,115 @@ void manual_parse_tables() {
   check(same(first.entries, {{"between", 3}, {",", 2}, {"it's", 0}, {"=..", 2}, {"\\+", 1}, {"ひらがな_カタカナ", 2}}),
         "tables: entries of the first section, quotes removed");
   const mosa::ManualTable& second = parsed.tables[1];
-  check(second.library == "system" && second.line == 15, "tables: marker without spaces");
+  check(second.library == "system" && second.line == 21, "tables: marker without spaces, not the one in the block");
   check(same(second.entries, {{"atom", 1}}), "tables: code block lines are neither headings nor rows");
   check(parsed.examples.size() == 1, "tables: the marked code block is still an example");
 }
 
-// 読者に見えない行は数えない。複数行の注釈の中と、箇条書きの外で 4 つ字下げした行（字下げのコードブロック）。
-// 箇条書きの項目の中で字下げした表は読者に表として見えるので数える。
+// 区切りの中の 1 行で、書けない種類のもの。どれも 1 つの誤りで、何も数えない（修正 3 の決定）。
+void manual_parse_section_lines() {
+  for (const std::string_view line :
+       {"    | `code/1` |", "\t| `tab/1` |", " | `space/1` |", "- In a list item", "* item", "+ item", "1. item",
+        "2) item", "> A quote", "* * *", "- - -", "___", "===", "---", "<!-- a note -->", "<!--", "<!-->", "<div>",
+        "~~~", "```text\n| `in/1` |\n```", "#hashtag", "`code` first", "Prose with `code` in it.",
+        "| `nope/1` | a code span in the header position |", "| --- |", "  ## indented heading"}) {
+    const std::string text = "<!-- predicates: lists -->\n" + std::string{line} + "\n";
+    const mosa::ParsedManual parsed = mosa::parse_manual(text, "w.md");
+    check(parsed.errors.size() == 1 && has_error(parsed, "w.md:2: "), "section: error for " + std::string{line});
+    check(parsed.tables.size() == 1 && parsed.tables.front().entries.empty(), "section: nothing counted for " +
+                                                                                    std::string{line});
+  }
+  check(mosa::parse_manual("<!-- predicates: lists -->\n2026 was a year.\n3.5 is a float.\n", "w.md").errors.empty(),
+        "section: prose that starts with a number but is not a list item");
+}
+
+// 再レビューの見本（rr2/probes）。区切りの中の箇条書き、字下げの続きの行、太字の見出し、区切りの線、引用、注釈は
+// 誤りで、章 14 の形は通る。first は最初の誤りの行（0 なら誤り無し）、entries は数えた行。
+struct Probe {
+  std::string_view name;
+  std::string_view text;
+  std::size_t first = 0;
+  std::vector<mosa::PredicateIndicator> entries;
+};
+
+constexpr std::string_view kProbeRows = "| Predicate | Meaning |\n| --- | --- |\n| `between/3` | x |\n";
+
+std::vector<Probe> probes() {
+  const std::string_view marker = "<!-- predicates: between -->\n";
+  static const std::string boldhead = std::string{marker} + "| **`nope/1`** | Not in Mosa |\n| --- | --- |\n"
+                                      "| `between/3` | x |\n| `succ/2` | x |\n";
+  static const std::string contline = std::string{marker} + "Predicates of the library:\n"
+                                      "    `nope/1` | Not in Mosa |\n| --- | --- |\n| `between/3` | x |\n";
+  static const std::string listhead = std::string{marker} + "- | `nope/1` | Not in Mosa |\n  | --- | --- |\n"
+                                      "  | `between/3` | x |\n";
+  static const std::string listhead2 = std::string{marker} + "1. `nope/1` | Not in Mosa |\n   | --- | --- |\n"
+                                       "   | `between/3` | x |\n";
+  static const std::string listok = std::string{marker} + "- | Predicate | Meaning |\n  | --- | --- |\n"
+                                    "  | `between/3` | x |\n";
+  static const std::string listbreak = std::string{marker} + std::string{kProbeRows} + "\n- a list item\n\n * * *\n\n"
+                                       "    | Predicate |\n    | --- |\n    | `succ/2` |\n";
+  static const std::string thematic = std::string{marker} + std::string{kProbeRows} +
+                                      "\n___\n\n    | Predicate |\n    | --- |\n    | `succ/2` |\n";
+  static const std::string listquote = std::string{marker} + std::string{kProbeRows} +
+                                       "\n- > | Predicate | Meaning |\n  > | --- | --- |\n  > | `nope/1` | x |\n";
+  static const std::string sentence = std::string{marker} + "`between/3` and its friends are listed below.\n" +
+                                      std::string{kProbeRows};
+  return {{"boldhead", boldhead, 2, {{"between", 3}, {"succ", 2}}},
+          {"contline", contline, 3, {{"between", 3}}},
+          {"listhead", listhead, 2, {}},
+          {"listhead2", listhead2, 2, {}},
+          {"listok", listok, 2, {}},
+          {"listbreak", listbreak, 6, {{"between", 3}}},
+          {"thematic3", thematic, 6, {{"between", 3}}},
+          {"listquote", listquote, 6, {{"between", 3}}},
+          {"sentence_after", sentence, 2, {{"between", 3}}}};
+}
+
+void manual_parse_probes() {
+  for (const Probe& probe : probes()) {
+    const mosa::ParsedManual parsed = mosa::parse_manual(probe.text, "p.md");
+    const std::string prefix = "p.md:" + std::to_string(probe.first) + ": ";
+    check(!parsed.errors.empty() && parsed.errors.front().starts_with(prefix),
+          "probe " + std::string{probe.name} + ": first error at line " + std::to_string(probe.first));
+    check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, probe.entries),
+          "probe " + std::string{probe.name} + ": counted rows");
+  }
+}
+
+// 章 14 の形（見出し、文、印、| Predicate | Meaning |、| --- | --- |、行）は通る。印の前の文はコードスパンを持ってよい。
+constexpr std::string_view kChapter14 =
+    "# Ref\n\n<!-- check: query -->\n```text\n?- X = 1.\nX = 1.\n```\n\n"            // 1-8
+    "## between\n\n<!-- predicates: between -->\n| Predicate | Meaning |\n| --- | --- |\n"  // 9-13
+    "| `between/3` | x |\n| `succ/2` | x |\n| `plus/3` | x |\n\n"                        // 14-17
+    "## more\n\n`between/3` comes first. Use it for ranges.\n\n"                         // 18-21
+    "<!-- predicates: lists -->\n| 述語 | 意味 |\n| --- | --- |\n| `append/3` | x |\n";    // 22-25
+
+// 注釈は --> を含む行で閉じる。<!--> と <!---> も同じ行で閉じ、後ろの印を隠さない（修正 3）。区切りの中の注釈は誤り
+// だが、後ろの行は読む。
+void manual_parse_comment_probes() {
+  const mosa::ParsedManual chapter = mosa::parse_manual(kChapter14, "c.md");
+  check(chapter.errors.empty() && chapter.examples.size() == 1 && chapter.tables.size() == 2, "chapter 14: passes");
+  if (chapter.tables.size() == 2) {
+    check(same(chapter.tables[0].entries, {{"between", 3}, {"succ", 2}, {"plus", 3}}) &&
+              same(chapter.tables[1].entries, {{"append", 3}}) && chapter.tables[1].line == 22,
+          "chapter 14: both tables");
+  }
+  for (const std::string_view open : {"<!-->", "<!--->"}) {
+    const std::string before = std::string{open} + "\n\n<!-- predicates: between -->\n" + std::string{kProbeRows};
+    const mosa::ParsedManual seen = mosa::parse_manual(before, "c.md");
+    check(seen.errors.empty() && seen.tables.size() == 1 && same(seen.tables.front().entries, {{"between", 3}}),
+          "comments: the marker after " + std::string{open} + " is seen");
+    const std::string inside = "<!-- predicates: between -->\n" + std::string{kProbeRows} + "\n" +
+                               std::string{open} + "\n\n| P |\n| --- |\n| `nope/1` | x |\n\n<!-- end -->\n";
+    const mosa::ParsedManual counted = mosa::parse_manual(inside, "c.md");
+    check(has_error(counted, "c.md:6: ") && has_error(counted, "c.md:12: ") && counted.tables.size() == 1 &&
+              same(counted.tables.front().entries, {{"between", 3}, {"nope", 1}}),
+          "comments: " + std::string{open} + " in a section is an error and the row after it is counted");
+  }
+}
+
+// 区切りの中の複数行の注釈、字下げのコードブロック、箇条書きの中の表は、どれも書けない行（修正 3。修正 1 では数えない
+// 行として読み飛ばした）。
 void manual_parse_hidden_rows() {
   constexpr std::string_view text =
       "<!-- predicates: lists -->\n"  // 1
@@ -308,9 +411,9 @@ void manual_parse_hidden_rows() {
       "    | --- |\n"                 // 19
       "    | `length/2` |\n";         // 20
   const mosa::ParsedManual parsed = mosa::parse_manual(text, "h.md");
-  check(parsed.errors.empty(), "hidden rows: no errors");
-  check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, {{"append", 3}, {"length", 2}}),
-        "hidden rows: not the comment or the indented code, but the list item");
+  check(has_error(parsed, "h.md:6: ") && has_error(parsed, "h.md:10: ") && has_error(parsed, "h.md:12: ") &&
+            has_error(parsed, "h.md:16: ") && has_error(parsed, "h.md:18: "),
+        "hidden rows: the comment, the indented code and the list item are errors");
 }
 
 // 見出しと | --- | の下の 4 行目に row を置いた区切り。
@@ -341,10 +444,11 @@ void manual_parse_bad_rows() {
   check(loose.errors.size() == 1 && has_error(loose, "r.md:2: "), "bad rows: code span and | without a leading |");
   const mosa::ParsedManual prose =
       mosa::parse_manual("<!-- predicates: lists -->\nUse `a | b` here.\nText with a|bar.\n", "r.md");
-  check(prose.errors.empty(), "bad rows: prose with | that does not start with a code span or |");
+  check(prose.errors.size() == 1 && has_error(prose, "r.md:2: "), "bad rows: prose with a code span, not a plain |");
 }
 
 // 見出しの行は比べないので、最初の欄がコードスパンの見出しは誤り。頭の | があってもなくても（修正 2 の N1）。
+// | --- | は | で始まる見出しの行のすぐ下だけに書ける（修正 3）。
 void manual_parse_header_span() {
   for (const std::string_view header : {"| `nope/1` | Not in Mosa |", "`nope/1` | Not in Mosa |", "`nope/1`"}) {
     const std::string text = "<!-- predicates: between -->\n" + std::string{header} +
@@ -354,12 +458,12 @@ void manual_parse_header_span() {
     check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, {{"between", 3}}),
           "header span: body rows still counted for " + std::string{header});
   }
-  check(mosa::parse_manual("<!-- predicates: between -->\nPredicates\n| --- |\n| `between/3` |\n", "s.md")
-            .errors.empty(),
-        "header span: a plain header without a pipe");
+  const mosa::ParsedManual plain =
+      mosa::parse_manual("<!-- predicates: between -->\nPredicates\n| --- |\n| `between/3` |\n", "s.md");
+  check(plain.errors.size() == 1 && has_error(plain, "s.md:3: "), "header span: | --- | under prose");
 }
 
-// 読者に見える行を隠さない。同じ行で閉じる注釈の後ろ、区切りの線の後ろの字下げ、引用の中の表（修正 2 の N2、N3、N5）。
+// 区切りの中の注釈、区切りの線、引用はどれも書けない行で、後ろの行はまた読む（修正 2 の見本、修正 3 で誤りに）。
 void manual_parse_visible_rows() {
   constexpr std::string_view trailing =
       "<!-- predicates: between -->\n"            // 1
@@ -372,7 +476,8 @@ void manual_parse_visible_rows() {
       "<!-- predicates: lists -->\n"              // 12
       "| P |\n| --- |\n| `append/3` |\n";        // 13-15
   const mosa::ParsedManual seen = mosa::parse_manual(trailing, "v.md");
-  check(seen.errors.empty() && seen.tables.size() == 2, "visible rows: a comment closed mid-line hides nothing");
+  check(seen.errors.size() == 1 && has_error(seen, "v.md:6: ") && seen.tables.size() == 2,
+        "visible rows: a comment in a section is an error");
   if (seen.tables.size() == 2) {
     check(same(seen.tables[0].entries, {{"between", 3}, {"succ", 2}}) &&
               same(seen.tables[1].entries, {{"append", 3}}) && seen.tables[1].line == 12,
@@ -383,15 +488,16 @@ void manual_parse_visible_rows() {
       "* * *\n\n    | P |\n    | --- |\n    | `succ/2` |\n\n"            // 6-11
       "- - -\n\n    | `plus/3` |\n";                                      // 12-14
   const mosa::ParsedManual broken = mosa::parse_manual(rule, "v.md");
-  check(broken.errors.empty() && broken.tables.size() == 1 && same(broken.tables.front().entries, {{"between", 3}}),
-        "visible rows: a thematic break is not a list item, so indented lines after it are code");
+  check(has_error(broken, "v.md:6: ") && has_error(broken, "v.md:8: ") && has_error(broken, "v.md:12: ") &&
+            has_error(broken, "v.md:14: ") && same(broken.tables.front().entries, {{"between", 3}}),
+        "visible rows: thematic breaks and indented lines are errors");
   constexpr std::string_view quote =
       "<!-- predicates: between -->\n| P |\n| --- |\n| `between/3` |\n\n"  // 1-5
       "> A quote without a table.\n\n"                                     // 6-7
       "> | P |\n> | --- |\n> | `nope/1` |\n";                             // 8-10
   const mosa::ParsedManual quoted = mosa::parse_manual(quote, "v.md");
-  check(quoted.errors.size() == 3 && has_error(quoted, "v.md:8: ") && has_error(quoted, "v.md:10: "),
-        "visible rows: each line of a table in a block quote is an error");
+  check(quoted.errors.size() == 4 && has_error(quoted, "v.md:6: ") && has_error(quoted, "v.md:10: "),
+        "visible rows: every quote line is an error");
   check(quoted.tables.size() == 1 && same(quoted.tables.front().entries, {{"between", 3}}),
         "visible rows: the quoted rows are not counted");
 }
@@ -544,6 +650,9 @@ int main() {
   manual_parse_default_input();
   manual_parse_console();
   manual_parse_tables();
+  manual_parse_section_lines();
+  manual_parse_probes();
+  manual_parse_comment_probes();
   manual_parse_hidden_rows();
   manual_parse_bad_rows();
   manual_parse_header_span();

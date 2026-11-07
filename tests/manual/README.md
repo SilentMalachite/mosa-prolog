@@ -15,10 +15,10 @@ in examples are the ones beside that `mosa`. `--work` defaults to `tests/tmp/man
 failure (`file:line id`, the expected text, the actual text), then `manual: N checked, M skipped, F failed`. That last
 line is the same in both message languages, so scripts can match it. N and M count examples. F counts failed examples
 and every structural error (a parse error, a missing edition of a file, different ids or predicate tables, a predicate
-table that differs from Mosa, a chapter directory that cannot be emptied). Exit
-status: 0 when nothing failed, 1 on any failure, 2 on a usage error, also when `<dir>` lacks a readable `en/` or `ja/`,
-when there is no `check:` example at all (nothing was checked, so nothing passed), when `<--mosa> --version` does not
-print the version line of the running `mosatest`, and when the `lib/` beside `--mosa` cannot be read.
+table that differs from Mosa, a chapter directory that cannot be emptied). Exit status: 0 when nothing failed, 1 on any
+failure, 2 on a usage error, also when `<dir>` lacks a readable `en/` or `ja/`, when there is no `check:` example at
+all (nothing was checked, so nothing passed), when `<--mosa> --version` does not print the version line of the running
+`mosatest`, and when the `lib/` beside `--mosa` cannot be read.
 
 ## Markers
 
@@ -88,32 +88,34 @@ chapter is not run and counts as a failure.
 
 ## Predicate tables
 
-A line `<!-- predicates: system -->` or `<!-- predicates: LIB -->` opens a section that ends at the next ATX heading
-(a line starting with `#` to `######`, indented by at most three spaces). A setext heading (a line underlined with
-`===` or `---`) does not end a section, so follow a section with an ATX heading. LIB is the stem of a `*.pl` file in
-the `lib/` beside `--mosa`, except the message catalogs `messages_*`, which have no list of predicates; any other name
-is an error. A comment whose text starts with `predicate` in any case (`<!-- predicate: lists -->`,
+A line `<!-- predicates: system -->` or `<!-- predicates: LIB -->` opens a section that ends at the next ATX heading at
+column 0 (a line starting with `#` to `######` followed by a space or the end of the line). LIB is the stem of a
+`*.pl` file in the `lib/` beside `--mosa`, except the message catalogs `messages_*`, which have no list of predicates;
+any other name is an error. A comment whose text starts with `predicate` in any case (`<!-- predicate: lists -->`,
 `<!-- Predicates: lists -->`) and is not exactly `predicates: NAME` on one line is an error, so a misspelled marker
-does not leave a table unchecked.
+does not leave a table unchecked. Outside a section, markers inside code blocks and inside a multi-line comment do not
+count; a comment ends on the line that has `-->`, so `<!-->` and `<!--->` end on their own line.
 
-A table in a section is a header row, a `| --- |` row and body rows. Every line after the `| --- |` row is a body row
-until a blank line, a heading, a comment or a code block, as GitHub renders a line right after a table as one more row.
-Every body row starts with `|`, and its first cell is exactly one code span `` `name/arity` ``. Anything else is an
-error, not a row to skip: text after the code span (`` `nope/1` (deprecated) ``), a link, bold, two code spans, a row
-without the leading `|`, or a line of prose right under the table. A line with a `|` that is not followed by a
-`| --- |` row is an error when it starts with `|`, and so is a line that starts with a code span and has a `|`. The
-header row is not compared, so a header whose first cell starts with a code span is an error, with or without the
-leading `|`. Inside a section, a line that starts with `>` and has a `|` (a table in a block quote) is an error too. The
-arity is a decimal number without a leading zero (`between/03` is an error). Write the name as it is (`` `=../2` ``,
-`` `\+/1` ``, `` `\==/2` ``, `` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``). Inside the
-quotes only `''` is decoded, as one quote; a backslash stays as it is, so write names with a backslash (`\=`, `\==`,
-`\+`, `=\=`) without quotes.
+Inside a section, the checker does not try to follow every Markdown shape. Each line must be one of these, and any
+other line is an error:
 
-Lines that a reader does not see as a table are not read: lines inside code blocks, lines inside a multi-line
-`<!-- … -->` comment, and lines indented by four or more spaces outside a list item (an indented code block). As in
-GitHub, a comment ends on the line that has `-->`, even with text after it, and the lines after that are read again.
-A table inside a list item may be indented. A thematic break (`* * *`, `- - -`, `___`) is not a list item, so lines
-indented under it are an indented code block.
+1. a blank line;
+2. a header row: it starts with `|` at column 0 and has no backtick;
+3. a delimiter row (`| --- | --- |`, colons for alignment allowed), right under a header row;
+4. a body row, under the delimiter row or another body row: it starts with `|` at column 0 and its first cell is
+   exactly one code span `` `name/arity` ``;
+5. a prose line: it starts at column 0 with a character other than a space, a tab, `|`, `>`, `<`, `` ` ``, `~`, `#`,
+   `-`, `*`, `+`, `=` or `_`, it is not an ordered-list item (`1.`, `1)`), and it has no backtick.
+
+So indented lines, list items, block quotes, comments other than the next marker, code blocks, thematic breaks and
+setext underlines are all errors inside a section, and so is a setext heading. End a section with an ATX heading, and
+write sentences that need a code span before the marker. A table ends at a blank line; a line right under a body row
+that is not another body row is an error, and so is a header row with no delimiter row under it. In a body row, text
+after the code span (`` `nope/1` (deprecated) ``), a link, bold or two code spans are errors. The arity is a decimal
+number without a leading zero (`between/03` is an error). Write the name as it is (`` `=../2` ``, `` `\+/1` ``,
+`` `\==/2` ``, `` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``). Inside the quotes only
+`''` is decoded, as one quote; a backslash stays as it is, so write names with a backslash (`\=`, `\==`, `\+`, `=\=`)
+without quotes.
 
 ```markdown
 <!-- predicates: between -->
@@ -129,11 +131,11 @@ the line of the first marker. `system` means the built-in predicates, those for 
 built_in)` holds (and `:/2`, which `predicate_property/2` reads as a module qualification), without the internal
 helpers whose names start with `$`. The list is the one built into `mosatest`, which is why `--mosa` must print the
 same version. `LIB` means the export list of `lib/LIB.pl` beside `--mosa` (beside the file it points to, when it is a
-symbolic link, as `mosa` itself looks there), loaded by its absolute path in a fresh
-machine; `$MOSA_LIB` is ignored, as it is for the `mosa` that runs the examples. A library that is present but cannot
-be loaded (a syntax error, no `module/2`, a module with another name) fails with its name, its path and the load error.
-Directives such as `use_module/1` and `dynamic/1` are not built-in predicates, so list them in a table without a
-marker. Both editions of a chapter have the same sequence of `predicates:` markers.
+symbolic link, as `mosa` itself looks there), loaded by its absolute path in a fresh machine; `$MOSA_LIB` is ignored,
+as it is for the `mosa` that runs the examples. A library that is present but cannot be loaded (a syntax error, no
+`module/2`, a module with another name) fails with its name, its path and the load error. Directives such as
+`use_module/1` and `dynamic/1` are not built-in predicates, so list them in a table without a marker. Both editions of
+a chapter have the same sequence of `predicates:` markers.
 
 With `--all-tables`, each edition must also have a section for `system` and for every library in that `lib/`; the
 missing names fail as one error per edition. Use it for the full manual, whose reference chapter lists them all.
