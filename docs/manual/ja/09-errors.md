@@ -33,7 +33,7 @@
 警告: ゴールは例外を送出しました: error(existence_error(procedure,こんにちは/0),context(こんにちは/0,_G1))
 ```
 
-3. `catch/3` でエラーを捕まえます。`catch(Goal, Catcher, Recovery)` はゴール `Goal` を実行します。`Goal` が投げた例外が、捕まえる形 `Catcher` と単一化できると、Mosa は警告を出さずに、代わりに実行するゴール `Recovery` を実行し、問い合わせを続けます。ここでの `Catcher` は変数 `E` で、どんな例外とも単一化できるので、`E` にエラーの項が入ります。`Recovery` は何もしない `true` です。`X = X` は、第 8 章と同じように、`X` に値がないことを表します。`is/2` が `X` に値を入れる前に、エラーが起きたからです。
+3. `catch/3` でエラーを捕まえます。`catch(Goal, Catcher, Recovery)` はゴール `Goal` を実行します。`Goal` が投げた例外が、捕まえる形 `Catcher` と単一化できると、Mosa は警告を出す代わりにゴール `Recovery` を実行し、問い合わせを続けます。ここでの `Catcher` は変数 `E` で、どんな例外とも単一化できるので、`E` にエラーの項が入ります。`Recovery` は何もしない `true` です。`X = X` は、第 8 章と同じように、`X` に値がないことを表します。`is/2` が `X` に値を入れる前に、エラーが起きたからです。
 
 <!-- check: catch-all -->
 ```text

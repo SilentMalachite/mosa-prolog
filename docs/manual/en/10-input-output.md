@@ -171,10 +171,10 @@ of the file is an atom, so put it in quotes when it holds a period, as with `con
 `end_of_file`.
 
 `write/1` and `write/2` write an atom without its quotes, so a term that you write with them cannot always be read
-back. `writeq/1` and `writeq/2` write the quotes too. To see the difference, save this file as `quoted.pl`.
-`save_plain` writes the atom `'Hello world'` with `write/2`, and `save_quoted` with `writeq/2`. `load(T)` reads one
-term inside `catch/3` (chapter 9). Its `Recovery` is the two goals in parentheses: when `read/2` raises an error,
-`load/1` closes the stream and throws the same exception again, so the stream does not stay open.
+back. `writeq/1` and `writeq/2` write the quotes too. To see the difference, save this file as `quoted.pl` in the
+folder `prolog`. `save_plain` writes the atom `'Hello world'` with `write/2`, and `save_quoted` with `writeq/2`.
+`load(T)` reads one term inside `catch/3` (chapter 9). Its `Recovery` is the two goals in parentheses: when `read/2`
+raises an error, `load/1` closes the stream and throws the same exception again, so the stream does not stay open.
 
 <!-- file: quoted-file quoted.pl -->
 ```prolog
@@ -186,7 +186,8 @@ load(T) :- open('quoted.txt', read, S), catch(read(S, T), E, (close(S), throw(E)
 After `save_plain`, the file holds `Hello world.`. `read/2` cannot read it: `Hello` is a variable, and the atom
 `world` cannot follow it with only a space between them. So `load/1` raises a syntax error. The query catches it to
 show its `Formal`, `syntax_error(unexpected_token)`, and passes `_` to `load/1`, because there is no term to see.
-After `save_quoted`, the file holds `'Hello world'.`, and the atom comes back whole:
+After `save_quoted`, the file holds `'Hello world'.`, and the atom comes back whole. You quit Mosa in step 11, so
+start `mosa` again in the folder `prolog`, as in step 1, and type:
 
 <!-- check: writeq -->
 ```text
