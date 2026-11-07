@@ -107,6 +107,37 @@ std::string_view dedent(std::string_view line, std::size_t indent) {
   return line.substr(index);
 }
 
+// 箇条書きの印（- * + か 1. 1)）とその後の空白 1 つの長さ。印でなければ 0。
+std::size_t list_marker(std::string_view text) {
+  std::size_t index = 0;
+  if (!text.empty() && (text.front() == '-' || text.front() == '*' || text.front() == '+')) {
+    index = 1;
+  } else {
+    while (index < text.size() && text[index] >= '0' && text[index] <= '9') ++index;
+    if (index == 0 || index == text.size() || (text[index] != '.' && text[index] != ')')) return 0;
+    ++index;
+  }
+  return index < text.size() && blank(text[index]) ? index + 1 : 0;
+}
+
+// 行頭のうち、検査器が囲いとして読まないもの（> の引用、タブ、同じ行の箇条書きの印、その間の空白）の長さ。
+// 空白だけなら 0（opening_fence が読む）。この後ろの囲いを黙って飛ばすと検査から漏れるので、誤りにする。
+std::size_t unreadable_prefix(std::string_view line) {
+  std::size_t index = 0;
+  bool unreadable = false;
+  while (index < line.size()) {
+    if (line[index] == ' ') {
+      ++index;
+      continue;
+    }
+    const std::size_t step = line[index] == '\t' || line[index] == '>' ? 1 : list_marker(line.substr(index));
+    if (step == 0) break;
+    unreadable = true;
+    index += step;
+  }
+  return unreadable ? index : 0;
+}
+
 // 印の行なら種類と残りを返す。印でない注釈（<!-- predicates: … --> など）は nullopt で、ただの本文として扱う。
 std::optional<MarkerHead> marker_head(std::string_view line) {
   std::string_view text = trim(line);
@@ -136,13 +167,31 @@ bool allowed_program(std::string_view word) {
   return word.starts_with("./") && plain_file_name(word.substr(2));
 }
 
-// シェルの語の分け方のうち、空白と '…' "…" だけ。引用は隣の字とつながる（-g"x" は -gx）。
-std::optional<std::vector<std::string>> split_command(std::string_view text) {
+struct Words {
   std::vector<std::string> words;
+  std::string_view problem;  // 空でなければ誤りの鍵（lib/messages_*.pl）
+  char culprit = '\0';       // manual_console_special のときの字
+};
+
+// POSIX のシェルが特別に扱う字。引用の外ではこれ、"…" の中では \ $ ` を誤りにして、シェルが動かすのと同じ argv
+// だけを受ける（読者は同じ行をシェルに打つ）。'…' の中はシェルでもすべて字のまま。
+constexpr std::string_view kShellSpecial = "\\$`|&;<>()*?[#~";
+constexpr std::string_view kDoubleQuoteSpecial = "\\$`";
+
+// シェルの語の分け方のうち、空白と '…' "…" だけ。引用は隣の字とつながる（-g"x" は -gx）。
+Words split_command(std::string_view text) {
+  Words result;
   std::string word;
   bool in_word = false;
   char quote = '\0';
   for (const char letter : text) {
+    std::string_view special = kShellSpecial;
+    if (quote != '\0') special = quote == '"' ? kDoubleQuoteSpecial : std::string_view{};
+    if (special.find(letter) != std::string_view::npos) {
+      result.problem = "manual_console_special";
+      result.culprit = letter;
+      return result;
+    }
     if (quote != '\0') {
       if (letter == quote) quote = '\0';
       else word += letter;
@@ -150,7 +199,7 @@ std::optional<std::vector<std::string>> split_command(std::string_view text) {
       quote = letter;
       in_word = true;
     } else if (blank(letter)) {
-      if (in_word) words.push_back(std::move(word));
+      if (in_word) result.words.push_back(std::move(word));
       word.clear();
       in_word = false;
     } else {
@@ -158,9 +207,9 @@ std::optional<std::vector<std::string>> split_command(std::string_view text) {
       in_word = true;
     }
   }
-  if (quote != '\0') return std::nullopt;
-  if (in_word) words.push_back(std::move(word));
-  return words;
+  if (quote != '\0') result.problem = "manual_console_quote";
+  else if (in_word) result.words.push_back(std::move(word));
+  return result;
 }
 
 class Parser {
@@ -173,6 +222,7 @@ class Parser {
   std::size_t read_marker(std::size_t index, const MarkerHead& head);
   std::size_t read_override(std::size_t index, Marker& marker);
   std::size_t read_block(std::size_t index, const Fence& fence);
+  std::size_t skip_unreadable(std::size_t index, const Fence& fence);
   void add_example(const Marker& marker, const Fence& fence, std::size_t line, std::string body);
   std::optional<ExampleKind> check_kind(const Fence& fence, std::size_t line, std::string_view body);
   void check_console(std::size_t line, std::string_view body);
@@ -190,6 +240,12 @@ ParsedManual Parser::run() {
     if (const auto fence = opening_fence(line)) {
       index = read_block(index, *fence);
       continue;
+    }
+    if (const std::size_t prefix = unreadable_prefix(line); prefix > 0) {
+      if (const auto fence = opening_fence(line.substr(prefix))) {
+        index = skip_unreadable(index, *fence);
+        continue;
+      }
     }
     if (pending_) {
       error(pending_->line, "manual_marker_alone");
@@ -276,6 +332,18 @@ std::size_t Parser::read_block(std::size_t index, const Fence& fence) {
   return next + 1;
 }
 
+// 読めない囲いは誤りにし、閉じの囲いまで飛ばす。中の行を印や囲いとして読み違えないため。直前の印も捨てる。
+std::size_t Parser::skip_unreadable(std::size_t index, const Fence& fence) {
+  error(index + 1, "manual_fence_unsupported");
+  pending_.reset();
+  std::size_t next = index + 1;
+  while (next < lines_.size()) {
+    const std::string_view line = lines_[next++];
+    if (closes(fence, line.substr(unreadable_prefix(line)))) break;
+  }
+  return next;
+}
+
 void Parser::add_example(const Marker& marker, const Fence& fence, std::size_t line, std::string body) {
   std::optional<ExampleKind> kind = ExampleKind::Skip;
   if (marker.kind == MarkerKind::Check) kind = check_kind(fence, line, body);
@@ -315,11 +383,14 @@ void Parser::check_console(std::size_t line, std::string_view body) {
   }
   for (std::size_t offset = 0; offset < lines.size(); ++offset) {
     if (!lines[offset].starts_with(kCommandPrefix)) continue;
-    const auto words = split_command(lines[offset].substr(kCommandPrefix.size()));
-    if (!words) {
-      error(line + 1 + offset, "manual_console_quote");
-    } else if (words->empty() || !allowed_program(words->front())) {
-      error(line + 1 + offset, "manual_console_program", {words->empty() ? std::string{} : words->front()});
+    const Words words = split_command(lines[offset].substr(kCommandPrefix.size()));
+    if (!words.problem.empty()) {
+      std::vector<std::string> args;
+      if (words.culprit != '\0') args.emplace_back(1, words.culprit);
+      error(line + 1 + offset, words.problem, std::move(args));
+    } else if (words.words.empty() || !allowed_program(words.words.front())) {
+      error(line + 1 + offset, "manual_console_program",
+            {words.words.empty() ? std::string{} : words.words.front()});
     }
   }
 }
@@ -335,7 +406,8 @@ std::vector<ConsoleCommand> console_commands(std::string_view body) {
     const std::string_view line = lines[offset];
     if (line.starts_with(kCommandPrefix)) {
       ConsoleCommand command;
-      command.argv = split_command(line.substr(kCommandPrefix.size())).value_or(std::vector<std::string>{});
+      Words words = split_command(line.substr(kCommandPrefix.size()));
+      if (words.problem.empty()) command.argv = std::move(words.words);
       command.offset = offset;
       commands.push_back(std::move(command));
     } else if (!commands.empty()) {
@@ -354,6 +426,19 @@ std::string default_input(std::string_view expected) {
     input += '\n';
   }
   return input;
+}
+
+// 版の突き合わせは id だけでなく印の種類も見る。片方の版だけが skip: にして検査を逃れることを防ぐ。
+std::string id_sequence(std::span<const ManualExample> examples) {
+  std::string out;
+  for (const ManualExample& example : examples) {
+    if (!out.empty()) out += ' ';
+    if (example.kind == ExampleKind::Skip) out += "skip:";
+    else if (example.kind == ExampleKind::File) out += "file:";
+    else out += "check:";
+    out += example.id;
+  }
+  return out;
 }
 
 }  // namespace mosa

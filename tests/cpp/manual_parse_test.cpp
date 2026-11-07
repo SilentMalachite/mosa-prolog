@@ -141,6 +141,61 @@ void manual_parse_misplaced() {
   check(mosa::parse_manual("<!-- predicates: system -->\n", "m.md").errors.empty(), "other comments are not markers");
 }
 
+// 版の突き合わせの並びは印の種類も含む。片方の版だけが skip: にすると違う並びになる（Task 4 の修正 5）。
+void manual_parse_kind_sequence() {
+  constexpr std::string_view checked = "<!-- check: a -->\n```text\n?- a.\n```\n<!-- file: b x.pl -->\n```prolog\nx.\n```\n";
+  constexpr std::string_view skipped = "<!-- skip: a -->\n```text\n?- a.\n```\n<!-- file: b y.pl -->\n```prolog\ny.\n```\n";
+  const std::string left = mosa::id_sequence(mosa::parse_manual(checked, "en.md").examples);
+  const std::string right = mosa::id_sequence(mosa::parse_manual(skipped, "ja.md").examples);
+  check(left == "check:a file:b", "kind sequence: check and file");
+  check(right == "skip:a file:b", "kind sequence: skip and file");
+  check(left != right, "kind sequence: skip in one edition differs from check in the other");
+}
+
+// 検査器が読まない囲い（引用の中、タブの後ろ、箇条書きの印と同じ行）は黙って飛ばさず誤りにする（修正 6）。
+void manual_parse_unreadable() {
+  constexpr std::string_view quoted =
+      "> <!-- check: q -->\n"  // 1
+      "> ```text\n"            // 2
+      "> <!-- check: z -->\n"  // 3
+      "> ```\n"                // 4
+      "<!-- check: a -->\n"    // 5
+      "```text\n"              // 6
+      "?- a.\n"                // 7
+      "```\n";                 // 8
+  const mosa::ParsedManual parsed = mosa::parse_manual(quoted, "q.md");
+  check(parsed.errors.size() == 1 && has_error(parsed, "q.md:2: "), "unreadable: fence in a block quote");
+  check(parsed.examples.size() == 1 && parsed.examples.front().id == "a", "unreadable: lines inside are skipped");
+  check(has_error(mosa::parse_manual("<!-- skip: t -->\n\t```text\nx\n\t```\n", "t.md"), "t.md:2: "),
+        "unreadable: fence after a tab");
+  check(has_error(mosa::parse_manual("- ```text\n  x\n  ```\n", "l.md"), "l.md:1: "),
+        "unreadable: fence on a list marker line");
+  check(has_error(mosa::parse_manual("1. ```text\n   x\n   ```\n", "n.md"), "n.md:1: "),
+        "unreadable: fence on a numbered list marker line");
+  const mosa::ParsedManual spaces = mosa::parse_manual("1. Step\n\n   <!-- skip: s -->\n   ```text\n   x\n   ```\n", "s.md");
+  check(spaces.errors.empty() && spaces.examples.size() == 1, "fence indented with spaces in a list is read");
+  check(mosa::parse_manual("> quoted text\n- item\n\tindented\n", "p.md").errors.empty(), "prose is not a fence");
+}
+
+// シェルが argv を変える字は誤りにする。'…' の中は字のまま（修正 7）。
+void manual_parse_shell_characters() {
+  const auto console = [](std::string_view command) {
+    return "<!-- check: c -->\n```console\n$ " + std::string{command} + "\nout\n```\n";
+  };
+  check(has_error(mosa::parse_manual(console("mosa -g \"a\\\\b\""), "s.md"), "s.md:3: "), "shell: \\ in \"...\"");
+  check(has_error(mosa::parse_manual(console("mosa -g \"X = $Y\""), "s.md"), "s.md:3: "), "shell: $ in \"...\"");
+  check(has_error(mosa::parse_manual(console("mosa -g \"`x`\""), "s.md"), "s.md:3: "), "shell: ` in \"...\"");
+  check(has_error(mosa::parse_manual(console("mosa a|b"), "s.md"), "s.md:3: "), "shell: | outside quotes");
+  check(has_error(mosa::parse_manual(console("mosa x > out.txt"), "s.md"), "s.md:3: "), "shell: > outside quotes");
+  check(has_error(mosa::parse_manual(console("mosa *.pl"), "s.md"), "s.md:3: "), "shell: glob outside quotes");
+  const mosa::ParsedManual literal = mosa::parse_manual(console("mosa -g 'X = \"$a\\b|\" ; !'"), "s.md");
+  check(literal.errors.empty() && literal.examples.size() == 1, "shell: everything is literal inside '...'");
+  if (literal.examples.size() != 1) return;
+  const std::vector<mosa::ConsoleCommand> commands = mosa::console_commands(literal.examples.front().body);
+  check(commands.size() == 1 && commands.front().argv == std::vector<std::string>{"mosa", "-g", "X = \"$a\\b|\" ; !"},
+        "shell: argv of the single-quoted argument");
+}
+
 void manual_parse_default_input() {
   check(mosa::default_input("?- a.\nyes.\n?- b.\n") == "a.\nb.\n", "default input from ?- lines");
   check(mosa::default_input("X = 1.\n").empty(), "default input empty without ?- lines");
@@ -179,6 +234,9 @@ int main() {
   manual_parse_crlf();
   manual_parse_unmarked();
   manual_parse_misplaced();
+  manual_parse_kind_sequence();
+  manual_parse_unreadable();
+  manual_parse_shell_characters();
   manual_parse_default_input();
   manual_parse_console();
   return mosa_test::failures() == 0 ? 0 : 1;

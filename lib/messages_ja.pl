@@ -122,17 +122,24 @@ message(manual_marker_alone, '印の次の行がコードブロックではあ�
 message(manual_marker_bad, '印の形が違います: ~w').
 message(manual_marker_unclosed, '複数行の check: の印を閉じる --> の行がありません').
 message(manual_fence_unclosed, 'コードブロックが閉じていません').
+message(manual_fence_unsupported, 'ブロック引用の中、箇条書きの印と同じ行、タブの後ろのコードブロックは読めません。囲いは空白だけで字下げした行に置きます').
 message(manual_file_name, 'file: の名前はディレクトリを含まないファイル名にします: ~w').
 message(manual_file_kind, 'file: は prolog のコードブロックに付けます').
 message(manual_check_kind, 'check: は "?- " で始まる text のコードブロックか console のコードブロックに付けます').
 message(manual_duplicate_id, '例の id ~w がこのファイルで 2 度使われています').
 message(manual_console_start, 'console のコードブロックは "$ " の行で始めます').
 message(manual_console_quote, 'コマンドの引用が閉じていません').
+message(manual_console_special, 'コマンドの ~w はシェルが特別に扱うので、一重引用符の中に書きます').
 message(manual_console_program, 'コマンドは mosa、mosac、mosatest か ./NAME で始めます: ~w').
 message(manual_missing, '~w がありません（~w はあります）').
 message(manual_ids_differ, '~w と ~w で例の id が違います（~w / ~w）').
 message(manual_no_editions, 'mosatest: ~w に en/ と ja/ が要ります').
+message(manual_cannot_list, 'mosatest: ディレクトリ ~w を読めません').
+message(manual_no_examples, 'mosatest: ~w に check: の例がありません').
+message(manual_cannot_clear, 'mosatest: ~w を空にできないので、その章は動かしていません').
+message(manual_abnormal_exit, '~w は異常終了しました（終了コード ~w）').
 message(manual_expected, '期待した出力:').
 message(manual_actual, '実際の出力:').
 message(manual_no_newline, '（最後に改行がありません）').
-message(manual_summary, 'manual: ~w 件を確かめ、~w 件を飛ばし、~w 件が失敗').
+% 件数の 1 行は英語と同じ字にする。スクリプトがどちらの言語でも同じ形で読めるように（Task 4 の修正）。
+message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').

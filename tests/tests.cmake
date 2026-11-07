@@ -700,21 +700,32 @@ set(manual_fixture_script ${CMAKE_SOURCE_DIR}/tests/cpp/manual_fixture_test.cmak
 set(manual_fixture_dir ${CMAKE_SOURCE_DIR}/tests/manual)
 add_test(NAME manual_fixture_good COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
   -DDIR=${manual_fixture_dir}/good -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_good -DLANG_VALUE=fr_FR.UTF-8
-  -DCODE=0 "-DPATTERN=^manual: 10 checked, 2 skipped, 0 failed~$" -P ${manual_fixture_script})
+  -DCODE=0 "-DPATTERN_1=^manual: 10 checked, 2 skipped, 0 failed~$" -P ${manual_fixture_script})
 add_test(NAME manual_fixture_bad_output COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
   -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-output
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_output -DLANG_VALUE=en_US.UTF-8 -DCODE=1
-  "-DPATTERN=bad-output/en/01-sample\\.md:13 wrong-answer~expected:~\\?- X = 1\\.~X = 2\\.~actual:~\\?- X = 1\\.~X = 1\\.~"
-  "-DALSO=~manual: 4 checked, 0 skipped, 1 failed~$" -P ${manual_fixture_script})
+  "-DPATTERN_1=bad-output/en/01-sample\\.md:13 wrong-answer~expected:~\\?- X = 1\\.~X = 2\\.~actual:~\\?- X = 1\\.~X = 1\\.~"
+  # 入力の無い -g だけの mosa は促しを出したまま待つ。読者にも見えるので、除かずに違いとして出す（修正 1）。
+  "-DPATTERN_2=bad-output/en/01-sample\\.md:23 waiting-prompt~expected:~x~true\\.~actual:~x~true\\.~\\?- ~\\(no newline at end\\)~"
+  "-DPATTERN_3=bad-output/ja/01-sample\\.md:23 waiting-prompt~"
+  "-DPATTERN_4=~manual: 6 checked, 0 skipped, 3 failed~$" -P ${manual_fixture_script})
 add_test(NAME manual_fixture_bad_ids COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
   -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-ids
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_ids -DLANG_VALUE=en_US.UTF-8 -DCODE=1
-  "-DPATTERN=bad-ids/en/01-sample\\.md and [^~]*bad-ids/ja/01-sample\\.md: example ids differ \\(first second / second first\\)"
-  "-DALSO=bad-ids/ja/02-only\\.md: missing" -P ${manual_fixture_script})
-# 日本語の文面でも file:line: の形は同じ（印の誤りは lib/messages_ja.pl の鍵）。
+  "-DPATTERN_1=bad-ids/en/01-sample\\.md and [^~]*bad-ids/ja/01-sample\\.md: example ids differ \\(check:first skip:second / skip:second check:first\\)"
+  "-DPATTERN_2=bad-ids/ja/02-only\\.md: missing"
+  # id が同じでも、片方の版だけが skip: なら違う（修正 5）。
+  "-DPATTERN_3=bad-ids/en/03-kind\\.md and [^~]*bad-ids/ja/03-kind\\.md: example ids differ \\(check:shown / skip:shown\\)" -P ${manual_fixture_script})
+# 日本語の文面でも file:line: の形と件数の 1 行は英語と同じ（印の誤りは lib/messages_ja.pl の鍵）。
 add_test(NAME manual_fixture_unmarked COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
   -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/unmarked
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_unmarked -DLANG_VALUE=ja_JP.UTF-8 -DCODE=1
-  "-DPATTERN=unmarked/en/01-sample\\.md:5: " "-DALSO=unmarked/ja/01-sample\\.md:5: " -P ${manual_fixture_script})
+  "-DPATTERN_1=unmarked/en/01-sample\\.md:5: " "-DPATTERN_2=unmarked/ja/01-sample\\.md:5: "
+  "-DPATTERN_3=~manual: 0 checked, 0 skipped, 2 failed~$" -P ${manual_fixture_script})
 add_test(NAME manual_usage COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest> -DLANG_VALUE=en_US.UTF-8
-  -DCODE=2 "-DPATTERN=mosatest --manual <directory>" -P ${manual_fixture_script})
+  -DCODE=2 "-DPATTERN_1=mosatest --manual <directory>" -P ${manual_fixture_script})
+# 章の無いマニュアルは何も確かめていないので、通ったことにせず 2 で止める（修正 8）。
+add_test(NAME manual_fixture_empty COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/empty
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_empty -DLANG_VALUE=en_US.UTF-8 -DCODE=2
+  "-DPATTERN_1=^mosatest: no check: examples in [^~]*tests/manual/empty~$" -P ${manual_fixture_script})

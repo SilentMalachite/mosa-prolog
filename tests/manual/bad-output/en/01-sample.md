@@ -14,3 +14,13 @@ X = 1.
 ?- X = 1.
 X = 2.
 ```
+
+Without `-t halt`, `mosa` stays at the prompt after the goal, and with no input the prompt is left waiting. The checker
+does not remove that prompt, because the reader sees it too, so this example fails.
+
+<!-- check: waiting-prompt -->
+```console
+$ mosa -g "write(x), nl"
+x
+true.
+```

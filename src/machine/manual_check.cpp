@@ -1,11 +1,13 @@
 // リリース 0.1.0 Task 4。mosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>]。
 // en/ と ja/ の *.md（README.md は読まない）から例を読み（manual_parse.cpp）、両版で同じ名前のファイルがそろい、
-// 例の id の並びが同じことを確かめてから、check: の例を mosa で動かして書いてある出力と 1 字ずつ比べる。
+// 例の印の種類と id の並びが同じことを確かめてから、check: の例を mosa で動かして書いてある出力と 1 字ずつ比べる。
 // 子は標準出力と標準エラーを 1 つのファイルに受け、MOSA_TRANSCRIPT=1 で端末と同じ表示（打った行の書き返しと促し）を
-// 出す（Task 3）。比べる前に両側の \r と、入力の終わりで待っている最後の促し "?- " を除く。終了コードは比べない。
-// エラーを見せる例は 0 以外で終わるのが正しいことがある。LANG は版で決め、MOSA_LIB などは消して、開発者の環境に
-// 左右させない。子の作業ディレクトリは章ごとの <work>/<版>/<章の語幹>/。run_process に作業ディレクトリの引数は無く、
-// posix_spawn_file_actions_addchdir_np は移植できないので、起こす間だけこのプロセスの作業ディレクトリを移す。
+// 出す（Task 3）。比べる前に両側の \r と、入力の終わりで待っている最後の促し "?- "（入力があり、最後の行が halt. で
+// ないときだけ）を除く。終了コードは比べない。エラーを見せる例は 0 以外で終わるのが正しいことがある。ただし落ちた子
+// （シグナル、Windows の NTSTATUS のエラー）と出力の無い子は失敗にする。LANG は版で決め、MOSA_LIB などは消して、
+// 開発者の環境に左右させない。子の作業ディレクトリは章ごとの <work>/<版>/<章の語幹>/。run_process に作業
+// ディレクトリの引数は無く、posix_spawn_file_actions_addchdir_np は移植できないので、起こす間だけこのプロセスの
+// 作業ディレクトリを移す。
 // mosatest は 1 本の流れで動くのでほかと取り合わない。そのためパスは前もってすべて絶対にしておく。
 
 #include "mosa/manual.hpp"
@@ -69,7 +71,8 @@ struct Edition {
   std::vector<Chapter> chapters;  // 名前の順
 };
 
-std::vector<std::filesystem::path> markdown_files(const std::filesystem::path& dir) {
+// 一覧の途中で読めなくなったら nullopt。黙って途中までで済ませると、章が抜けたまま通る。
+std::optional<std::vector<std::filesystem::path>> markdown_files(const std::filesystem::path& dir) {
   std::vector<std::filesystem::path> files;
   std::error_code error;
   std::filesystem::directory_iterator entry(dir, error);
@@ -77,6 +80,7 @@ std::vector<std::filesystem::path> markdown_files(const std::filesystem::path& d
     std::error_code kind;
     if (entry->is_regular_file(kind) && entry->path().extension() == ".md") files.push_back(entry->path());
   }
+  if (error) return std::nullopt;
   std::sort(files.begin(), files.end());
   return files;
 }
@@ -98,14 +102,28 @@ Chapter load_chapter(const std::filesystem::path& path, std::string shown, std::
   return chapter;
 }
 
-Edition load_edition(const std::filesystem::path& dir, const std::filesystem::path& shown, std::string_view name,
-                     std::vector<std::string>& problems) {
+std::optional<Edition> load_edition(const std::filesystem::path& dir, const std::filesystem::path& shown,
+                                    std::string_view name, std::vector<std::string>& problems) {
   Edition edition{std::string{name}, {}};
   const std::filesystem::path sub = path_from_utf8(name);
-  for (const std::filesystem::path& path : markdown_files(dir / sub)) {
+  const auto files = markdown_files(dir / sub);
+  if (!files) {
+    std::cerr << message("manual_cannot_list", {utf8_from_path(shown / sub)}) << '\n';
+    return std::nullopt;
+  }
+  for (const std::filesystem::path& path : *files) {
     edition.chapters.push_back(load_chapter(path, utf8_from_path(shown / sub / path.filename()), problems));
   }
   return edition;
+}
+
+bool has_checks(const Edition& edition) {
+  for (const Chapter& chapter : edition.chapters) {
+    for (const ManualExample& example : chapter.examples) {
+      if (example.kind == ExampleKind::Repl || example.kind == ExampleKind::Console) return true;
+    }
+  }
+  return false;
 }
 
 const Chapter* find_chapter(const Edition& edition, std::string_view name) {
@@ -115,16 +133,7 @@ const Chapter* find_chapter(const Edition& edition, std::string_view name) {
   return nullptr;
 }
 
-std::string id_list(const Chapter& chapter) {
-  std::string out;
-  for (const ManualExample& example : chapter.examples) {
-    if (!out.empty()) out += ' ';
-    out += example.id;
-  }
-  return out;
-}
-
-// どちらかの版にあるファイルは両方にあり、例の id（印の 3 種すべて）の並びが同じ。
+// どちらかの版にあるファイルは両方にあり、例の印の種類と id（印の 3 種すべて）の並びが同じ。
 void check_editions(const Edition& en, const Edition& ja, const std::filesystem::path& shown,
                     std::vector<std::string>& problems) {
   std::set<std::string> names;
@@ -142,8 +151,8 @@ void check_editions(const Edition& en, const Edition& ja, const std::filesystem:
     }
     // 誤りのあるファイルの並びは途中までなので比べない。誤りは読んだときに出してある。
     if (!left->usable || !right->usable) continue;
-    const std::string left_ids = id_list(*left);
-    const std::string right_ids = id_list(*right);
+    const std::string left_ids = id_sequence(left->examples);
+    const std::string right_ids = id_sequence(right->examples);
     if (left_ids != right_ids) {
       problems.push_back(message("manual_ids_differ", {left->shown, right->shown, left_ids, right_ids}));
     }
@@ -191,22 +200,49 @@ std::string program_path(const Runner& runner, const std::filesystem::path& chap
   return utf8_from_path((local ? chapter : runner.tools) / path_from_utf8(name));
 }
 
-// 1 つのコマンドを動かし、比べる形の出力を返す。起こせなければその診断を出力の代わりにする（違いとして見せる）。
-std::string run_child(const Runner& runner, const std::filesystem::path& chapter, const std::vector<std::string>& argv,
-                      std::string_view input) {
+// 1 回の実行の結果。ran が false なら、出力が期待どおり（空の期待も）でも失敗にする。
+struct Outcome {
+  std::string output;  // 比べる形の出力。失敗の理由はその後ろに 1 行足してある
+  bool ran = false;    // 起こせて、自分で終わり、出力を読めた
+};
+
+Outcome broken(std::string output, std::string_view key, std::vector<std::string> args) {
+  if (!output.empty() && !output.ends_with('\n')) output += '\n';
+  return Outcome{output + message(key, std::move(args)) + '\n', false};
+}
+
+// Task 3 が決めた形。入力があり、その最後の行が halt. でなければ、mosa は入力の終わりで促し "?- " を出して待つ。
+// それ以外の "?- " は読者の端末でも出たまま待つものなので除かない（-g だけで -t halt の無い mosa など）。
+bool waits_at_end(std::string_view input) {
+  if (input.empty()) return false;
+  if (input.ends_with('\n')) input.remove_suffix(1);
+  const std::size_t start = input.rfind('\n');
+  return (start == std::string_view::npos ? input : input.substr(start + 1)) != "halt.";
+}
+
+// 1 つのコマンドを動かし、比べる形の出力を返す。前の実行の出力を読まないよう、出力のファイルは先に消す。
+Outcome run_child(const Runner& runner, const std::filesystem::path& chapter, const std::vector<std::string>& argv,
+                  std::string_view input) {
   const std::filesystem::path in = runner.io / "input.txt";
   const std::filesystem::path out = runner.io / "output.txt";
-  if (!write_file(in, input)) return message("bench_cannot_write", {utf8_from_path(in)}) + '\n';
+  std::error_code error;
+  std::filesystem::remove(out, error);
+  if (error) return broken({}, "bench_cannot_write", {utf8_from_path(out)});
+  if (!write_file(in, input)) return broken({}, "bench_cannot_write", {utf8_from_path(in)});
   std::optional<int> code;
   {
     const WorkingDirectory here(chapter);
     if (here.entered()) code = run_process(argv, out, runner.env, in);
   }
-  if (!code) return message("bench_cannot_start", {argv.front()}) + '\n';
-  std::string text = read_file(out).value_or(std::string{});
-  std::erase(text, '\r');
-  if (text.ends_with(kPrompt)) text.resize(text.size() - kPrompt.size());
-  return text;
+  if (!code) return broken({}, "bench_cannot_start", {argv.front()});
+  std::optional<std::string> text = read_file(out);
+  if (!text) return broken({}, "cannot_open_file", {utf8_from_path(out)});
+  std::erase(*text, '\r');
+  if (waits_at_end(input) && text->ends_with(kPrompt)) text->resize(text->size() - kPrompt.size());
+  if (exited_abnormally(*code)) {
+    return broken(std::move(*text), "manual_abnormal_exit", {argv.front(), std::to_string(*code)});
+  }
+  return Outcome{std::move(*text), true};
 }
 
 // 最後の改行の有無も違いになるので、無いときはそう書く。
@@ -225,9 +261,9 @@ void report_failure(const ManualExample& example, std::size_t line, std::string_
 
 bool check_repl(const Runner& runner, const ManualExample& example, const std::filesystem::path& chapter) {
   const std::string input = example.input ? *example.input : default_input(example.body);
-  const std::string actual = run_child(runner, chapter, {utf8_from_path(runner.mosa)}, input);
-  if (actual == example.body) return true;
-  report_failure(example, example.line, example.body, actual);
+  const Outcome outcome = run_child(runner, chapter, {utf8_from_path(runner.mosa)}, input);
+  if (outcome.ran && outcome.output == example.body) return true;
+  report_failure(example, example.line, example.body, outcome.output);
   return false;
 }
 
@@ -237,22 +273,29 @@ bool check_console(const Runner& runner, const ManualExample& example, const std
     std::vector<std::string> argv = command.argv;
     argv.front() = program_path(runner, chapter, argv.front());
     const std::string input = example.input ? *example.input : default_input(command.output);
-    const std::string actual = run_child(runner, chapter, argv, input);
-    if (actual == command.output) continue;
-    report_failure(example, example.line + 1 + command.offset, command.output, actual);
+    const Outcome outcome = run_child(runner, chapter, argv, input);
+    if (outcome.ran && outcome.output == command.output) continue;
+    report_failure(example, example.line + 1 + command.offset, command.output, outcome.output);
     return false;
   }
   return true;
 }
 
-// 章のディレクトリは毎回空から作る。前の回のファイルや実行ファイルが残ると、作れなくなった例が通ってしまう。
-void run_chapter(Runner& runner, const Chapter& chapter, const std::filesystem::path& dir) {
+// 章のディレクトリは毎回空から作る。前の回のファイルや実行ファイルが残ると、作れなくなった例が通ってしまうので、
+// 消せないか消した後も残っていれば誤りの鍵を返す（その章は動かさない）。
+std::optional<std::string_view> fresh_directory(const std::filesystem::path& dir) {
   std::error_code error;
   std::filesystem::remove_all(dir, error);
-  error.clear();
+  if (error) return "manual_cannot_clear";
+  if (std::filesystem::exists(dir, error) || error) return "manual_cannot_clear";
   std::filesystem::create_directories(dir, error);
-  if (error) {
-    std::cout << message("bench_cannot_write", {utf8_from_path(dir)}) << '\n';
+  if (error) return "bench_cannot_write";
+  return std::nullopt;
+}
+
+void run_chapter(Runner& runner, const Chapter& chapter, const std::filesystem::path& dir) {
+  if (const auto key = fresh_directory(dir)) {
+    std::cout << message(*key, {utf8_from_path(dir)}) << '\n';
     ++runner.failed;
     return;
   }
@@ -338,14 +381,20 @@ int run_manual(const ManualArgs& args) {
     return 2;
   }
   std::vector<std::string> problems;
-  const Edition en = load_edition(dir, shown, kEditions[0], problems);
-  const Edition ja = load_edition(dir, shown, kEditions[1], problems);
-  check_editions(en, ja, shown, problems);
+  const std::optional<Edition> en = load_edition(dir, shown, kEditions[0], problems);
+  const std::optional<Edition> ja = load_edition(dir, shown, kEditions[1], problems);
+  if (!en || !ja) return 2;
+  check_editions(*en, *ja, shown, problems);
+  // 何も確かめずに「失敗 0」で通ったことにしない。誤りがあればそちらを出して 1 にする。
+  if (problems.empty() && !has_checks(*en) && !has_checks(*ja)) {
+    std::cerr << message("manual_no_examples", {args.dir}) << '\n';
+    return 2;
+  }
   for (const std::string& problem : problems) std::cout << problem << '\n';
   std::optional<Runner> runner = make_runner(args, *self, work);
   if (!runner) return 1;
-  run_edition(*runner, en, work);
-  run_edition(*runner, ja, work);
+  run_edition(*runner, *en, work);
+  run_edition(*runner, *ja, work);
   runner->failed += problems.size();
   std::cout << message("manual_summary", {std::to_string(runner->checked), std::to_string(runner->skipped),
                                           std::to_string(runner->failed)})

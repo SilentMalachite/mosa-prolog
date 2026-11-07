@@ -41,10 +41,13 @@ struct ConsoleCommand {
 };
 
 // "$ " の行で区切る。引数は空白で分け、'…' と "…" はまとめる。最初の "$ " より前の行は捨てる。
-// 引用が閉じない行の argv は空にする（parse_manual がその行を誤りにするので、正しく読めた囲いでは起きない）。
+// 引用が閉じない行と、シェルが特別に扱う字を引用の外か "…" の中に持つ行の argv は空にする（parse_manual がその行を
+// 誤りにするので、正しく読めた囲いでは起きない）。
 [[nodiscard]] std::vector<ConsoleCommand> console_commands(std::string_view body);
 // 書き換えの無い入力。"?- " で始まる行の残りを、1 行ずつ \n を付けて並べる。
 [[nodiscard]] std::string default_input(std::string_view expected);
+// 版の突き合わせに使う並び。"check:a skip:b file:c" の形で、Repl と Console はどちらも check。
+[[nodiscard]] std::string id_sequence(std::span<const ManualExample> examples);
 
 struct ManualArgs {
   std::string dir;                   // en/ と ja/ を持つディレクトリ
@@ -56,7 +59,8 @@ struct ManualArgs {
 // mosatest --manual の後ろ。<ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>]。
 [[nodiscard]] ManualArgs parse_manual_args(std::span<const std::string_view> args);
 // 例を動かして比べる。失敗ごとに 1 塊と、最後に件数の 1 行を標準出力に出す。終了コードは失敗が無ければ 0、
-// あれば 1、<ディレクトリ> に en/ か ja/ が無ければ 2（使い方の誤りと同じ）。
+// あれば 1。<ディレクトリ> に en/ か ja/ が無いか読めないとき、どこにも check: の例が無いときは 2（使い方の誤りと
+// 同じ。何も確かめずに通ったことにしない）。
 [[nodiscard]] int run_manual(const ManualArgs& args);
 
 }

@@ -122,16 +122,22 @@ message(manual_marker_alone, 'marker not on the line right before a code block')
 message(manual_marker_bad, 'malformed marker: ~w').
 message(manual_marker_unclosed, 'multi-line check: marker without a closing --> line').
 message(manual_fence_unclosed, 'code block not closed').
+message(manual_fence_unsupported, 'code block in a block quote, on a list marker line or after a tab; start the fence on its own line, indented with spaces only').
 message(manual_file_name, 'file: needs a plain file name, not ~w').
 message(manual_file_kind, 'file: needs a prolog code block').
 message(manual_check_kind, 'check: needs a text code block starting with "?- " or a console code block').
 message(manual_duplicate_id, 'example id ~w used twice in this file').
 message(manual_console_start, 'console code block must start with a "$ " line').
 message(manual_console_quote, 'unclosed quote in the command').
+message(manual_console_special, 'the command has ~w, which a shell treats specially; put it inside single quotes').
 message(manual_console_program, 'command must start with mosa, mosac, mosatest or ./NAME, not ~w').
 message(manual_missing, '~w: missing (~w exists)').
 message(manual_ids_differ, '~w and ~w: example ids differ (~w / ~w)').
 message(manual_no_editions, 'mosatest: ~w must hold en/ and ja/').
+message(manual_cannot_list, 'mosatest: cannot read the directory ~w').
+message(manual_no_examples, 'mosatest: no check: examples in ~w').
+message(manual_cannot_clear, 'mosatest: cannot empty ~w, so its chapter was not run').
+message(manual_abnormal_exit, '~w ended abnormally (exit code ~w)').
 message(manual_expected, 'expected:').
 message(manual_actual, 'actual:').
 message(manual_no_newline, '(no newline at end)').

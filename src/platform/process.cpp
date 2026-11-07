@@ -7,6 +7,7 @@
 #include "mosa/path_text.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -201,6 +202,9 @@ std::optional<int> run_process(std::span<const std::string> argv, const std::fil
   return wait_for(process);
 }
 
+// wait_for は DWORD の終了コードをそのまま int にするので、NTSTATUS のエラーは負の値で来る。
+bool exited_abnormally(int code) { return static_cast<std::uint32_t>(code) >= 0xC0000000U; }
+
 #else
 
 namespace {
@@ -265,10 +269,12 @@ std::optional<int> run_process(std::span<const std::string> argv, const std::fil
   return std::nullopt;
 }
 
+bool exited_abnormally(int code) { return code > 128; }
+
 #endif
 
-std::vector<std::pair<std::string, std::string>> environment_with(std::span<const std::pair<std::string, std::string>> set,
-                                                                  std::span<const std::string> unset) {
+std::vector<std::pair<std::string, std::string>> environment_with(
+    std::span<const std::pair<std::string, std::string>> set, std::span<const std::string> unset) {
   return merged(parent_environment(), set, unset, kFoldCase);
 }
 
