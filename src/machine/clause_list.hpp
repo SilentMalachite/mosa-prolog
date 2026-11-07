@@ -12,6 +12,7 @@
 #include <deque>
 #include <iterator>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -22,6 +23,21 @@ namespace mosa {
 // 本体はこれが生かしておく（ADR 0011 の改訂 3）。
 using GoalRef = std::shared_ptr<const IrTerm>;
 
+// ADR 0022（レビュー M30）。assert した項で 2 度出会った、変数も NaN も循環も含まない部分項。IR は写した所のほかの
+// 出現を slot の Var で指す。slot は env の外（SharedTable::base 以上）で、materialize が 1 つの頭か 1 つのゴールを組む
+// 間に 1 度だけ組む（SharedMemo）。env に置かないので、呼び出しごとに置き場を作らず、読んだ項を継続が持ち続けることもない。
+struct SharedTerm {
+  std::uint32_t slot = 0;
+  IrTerm term;
+};
+
+// 節の共有の項。節が消えても、動いている本体の env がこれを生かしておく（GoalRef と同じ）。
+struct SharedTable {
+  std::vector<SharedTerm> terms;
+  // terms[i] のスロットは base + i。base は節の変数の数（Clause::vars）。
+  std::uint32_t base = 0;
+};
+
 // Clause::died の「まだ消していない」。どの世代もこれより小さいので、生きた節はどの走査にも消えて見えない。
 inline constexpr std::uint64_t kAlive = UINT64_MAX;
 
@@ -31,6 +47,8 @@ struct Clause {
   IrTerm head;
   GoalRef body;
   std::uint32_t vars = 0;
+  // ADR 0022。assert した節だけが持つ。読み込んだ節と、共有の項の無い節は空。
+  std::shared_ptr<const SharedTable> shared;
   KeyKind key = KeyKind::Any;
   std::uint32_t key_atom = 0;
   std::uint16_t key_arity = 0;
@@ -55,6 +73,12 @@ struct Clause {
 // 列が節を動かすときに写さず移すには、移動が noexcept でなければならない（std::vector は move_if_noexcept で移す）。
 static_assert(std::is_nothrow_move_constructible_v<Clause>);
 static_assert(std::is_nothrow_move_assignable_v<Clause>);
+
+// clause/2 と同じく IR を項に戻す道（ir_to_term）に渡す共有の項。
+[[nodiscard]] inline std::span<const SharedTerm> shared_terms(const Clause& clause) {
+  if (!clause.shared) return {};
+  return clause.shared->terms;
+}
 
 // 世代 generation に始めた走査がこの節を見るか。足すより前の走査と、消した後の走査には見えない。
 [[nodiscard]] inline bool visible(const Clause& clause, std::uint64_t generation) {

@@ -1,6 +1,7 @@
 #include "internal.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -18,6 +19,32 @@ namespace {
 // なってヒープの上限で止まるので残す（M31 の Codex 敵対的レビュー）。値は M28 のまま。
 constexpr std::size_t kDeferAt = 63488;
 
+// ADR 0022（レビュー M30）。assert の写し（Build::share_data）が出会った複合項。open は今たどっている写しの中、apart は
+// 出現ごとに写しを分ける（変数・循環を切る匿名・NaN を含む）こと。first は共有の項にしうる所で最初に写した所で、親の args の中にあるので、
+// 親の IrTerm が動いても番地は変わらない（args は子の数だけ先に確保してある）。weight は木に広げたときの節点の数で、
+// kShareWeight で止める。
+constexpr std::uint32_t kNoShare = UINT32_MAX;
+struct Seen {
+  bool open = false;
+  bool done = false;
+  bool apart = false;
+  std::uint32_t slot = kNoShare;
+  std::uint32_t weight = 0;
+  IrTerm* first = nullptr;
+};
+
+// 木に広げてこれより小さい部分項は共有せず、前と同じく出現ごとに写す。共有の項は読むたびに memo を引くので、小さい
+// 項では写すより遅い（M30 の Codex 敵対的レビュー 4 回目）。共有の項を指す節点も、指す先の大きさで数える。指す数だけで
+// 数えると、f(T, T) のような小さい節点を写し直し、その上でまた木に広がる。
+constexpr std::uint32_t kShareWeight = 64;
+
+IrTerm var_leaf(std::uint32_t slot) {
+  IrTerm term;
+  term.tag = IrTag::Var;
+  term.slot = slot;
+  return term;
+}
+
 struct Build {
   const Heap* heap = nullptr;
   std::vector<std::uint64_t> refs;
@@ -34,11 +61,19 @@ struct Build {
   bool keep = false;
   // ゴールの骨組みの節点ごとの、後で訳せないかの答え（Build::blocks）。同じ部分木を 2 度歩かない。
   std::unordered_map<std::uint64_t, std::uint8_t> skeleton;
-  // 組む IR の節点の数の上限。実行時のゴールは compile_goal がヒープの上限で決める。節は決めない（レビュー M30）。
+  // 組む IR の節点の数の上限。実行時のゴールと assert の節は、compile_goal と compile_asserted がヒープの上限で決める
+  // （レビュー M28、M30）。読み込んだ節は読んだとおりの木なので決めない。
   std::size_t node_budget = SIZE_MAX;
   std::size_t nodes = 0;
   // 節の戻り先の制御構造と、そこに振った変数のスロット。name_slots はこのスロットに名前を付けない。
   std::unordered_map<std::uint64_t, std::uint32_t> backs;
+  // ADR 0022。assert の節は、2 度目に出会った部分項を共有の項にする（Build::share_ref）。節を写す間ずっと持つので、
+  // 頭と本体の間でも共有する。
+  bool share = false;
+  // 今の写しが節の頭。頭の第 1 引数は共有の項にしない。
+  bool head_copy = false;
+  std::unordered_map<std::uint64_t, Seen> seen;
+  std::vector<SharedTerm> shared;
 
   // refs の添字。実行時のゴールは複合項の引数ごとにスロットを振るので、長い連言を線形に探すと 2 乗になる
   // （6 万個で 8 倍遅い）。短いうちは線形のほうが速いので、kLinearRefs 個を超えてから作る。
@@ -90,6 +125,8 @@ struct Build {
 
   [[nodiscard]] IrTerm data(Cell cell, bool shape = false);
   [[nodiscard]] IrTerm copy_data(Cell cell);
+  [[nodiscard]] IrTerm share_data(Cell cell);
+  [[nodiscard]] std::optional<IrTerm> share_ref(Seen& node, bool pinned);
   [[nodiscard]] IrTerm place(Cell cell);
   [[nodiscard]] IrTerm place_root(Cell cell);
   [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
@@ -119,6 +156,16 @@ struct DataFrame {
   Cell cell;
   IrTerm term;
   std::uint16_t count = 0;
+};
+
+// share_data の枠。root は写しの根、pinned は共有の項にしない所（Build::share_ref）。
+struct ShareFrame {
+  DataFrame data;
+  bool root = false;
+  bool pinned = false;
+  bool apart = false;
+  Seen* node = nullptr;
+  std::uint32_t weight = 1;
 };
 
 // 複合項の子の数。open_frame が args に確保する数でもある。
@@ -201,7 +248,7 @@ IrTerm Build::place_root(Cell root) {
 
 // shape はゴールの葉の根。節は env を持たないので、データをすべて写す。
 IrTerm Build::data(Cell root, bool shape) {
-  if (!keep) return copy_data(root);
+  if (!keep) return share ? share_data(root) : copy_data(root);
   return shape ? place_root(root) : place(root);
 }
 
@@ -231,6 +278,81 @@ IrTerm Build::copy_data(Cell root) {
     stack.pop_back();
     if (stack.empty()) return done;
     stack.back().term.args.push_back(std::move(done));
+  }
+}
+
+// ADR 0022。循環に届かず写し終えた部分項にまた出会ったら、共有の項のスロットを指す。初めて共有にするときは、最初の
+// 写しをその場から共有の項へ移し、そこも Var にする。pinned（写しの根と頭の第 1 引数）は写す。ゴールの根を Var に
+// すると call/1 になり、頭の第 1 引数は鍵になる（set_key）から。前の出会いが pinned だけなら、ここを最初の写しにする。
+std::optional<IrTerm> Build::share_ref(Seen& node, bool pinned) {
+  if (!node.done || node.apart || pinned || node.weight < kShareWeight) return std::nullopt;
+  if (node.slot == kNoShare) {
+    if (node.first == nullptr) return std::nullopt;
+    // 変数のスロットではないので env に置かない。訳し終えてから base + i に付け直す（renumber_shared）。
+    node.slot = kProvisionalShared - static_cast<std::uint32_t>(shared.size());
+    shared.push_back(SharedTerm{node.slot, std::move(*node.first)});
+    *node.first = var_leaf(node.slot);
+    node.first = nullptr;
+  }
+  return var_leaf(node.slot);
+}
+
+// copy_data と同じ順に写す。循環に届く部分項は、写しごとに自分の匿名で循環を切る（iso-notes 7.3.3 の決定 A）ので
+// 共有しない。1 つにすると、別の出現の匿名が同じ変数になる。NaN を含む部分項も、変数を含む部分項も共有しない。単一化は
+// 同じ番地の複合項を中を見ずに一致とするので、1 つにすると、NaN は自分とも単一化しない（iso-notes 7.2.2）出現どうしが
+// 一致してしまう。変数は assert の後で NaN になりうる（M30 の Codex 敵対的レビュー 2 回目と Codex レビュー 3 回目）。
+IrTerm Build::share_data(Cell root) {
+  std::vector<ShareFrame> stack;
+  const auto enter = [&](Cell cell, bool pinned) -> std::optional<IrTerm> {
+    cell = heap->deref(cell);
+    if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return data_leaf(cell);
+    Seen& node = seen[cell.raw()];
+    if (node.open) {
+      IrTerm anon;
+      anon.tag = IrTag::Anon;
+      return anon;
+    }
+    if (auto ref = share_ref(node, pinned)) return ref;
+    spend(child_count(*heap, cell));
+    node.open = true;
+    stack.push_back(ShareFrame{open_frame(*heap, cell), stack.empty(), pinned, false, &node, 1});
+    return std::nullopt;
+  };
+  if (auto leaf = enter(root, true)) return std::move(*leaf);
+  while (true) {
+    ShareFrame& top = stack.back();
+    if (top.data.term.args.size() < top.data.count) {
+      const std::size_t index = top.data.term.args.size();
+      const Cell next = heap->deref(child_of(*heap, top.data.cell, index));
+      const bool variable = heap->unbound(next);
+      // enter が枠を積むと top は無効になるので、積まなかったときだけ末尾の枠へ書く。
+      if (auto leaf = enter(next, head_copy && top.root && index == 0)) {
+        ShareFrame& parent = stack.back();
+        parent.apart = parent.apart || variable || leaf->tag == IrTag::Anon ||
+                       (leaf->tag == IrTag::Float && std::isnan(leaf->floating));
+        // 複合項から Var の葉ができたなら、それは共有の項を指す。
+        const bool refers = leaf->tag == IrTag::Var && (next.tag() == Tag::Lis || next.tag() == Tag::Str);
+        parent.weight = std::min(kShareWeight, parent.weight + (refers ? seen[next.raw()].weight : 1));
+        parent.data.term.args.push_back(std::move(*leaf));
+      }
+      continue;
+    }
+    Seen& node = *top.node;
+    node.open = false;
+    node.done = true;
+    node.apart = top.apart;
+    node.weight = top.weight;
+    const bool pinned = top.pinned;
+    IrTerm done = std::move(top.data.term);
+    stack.pop_back();
+    if (stack.empty()) return done;
+    ShareFrame& parent = stack.back();
+    parent.apart = parent.apart || node.apart;
+    parent.weight = std::min(kShareWeight, parent.weight + node.weight);
+    parent.data.term.args.push_back(std::move(done));
+    if (!pinned && !node.apart && node.slot == kNoShare && node.first == nullptr) {
+      node.first = &parent.data.term.args.back();
+    }
   }
 }
 
@@ -549,6 +671,15 @@ void name_slots(const Heap& heap, const Build& build, std::span<const VarName> n
   }
 }
 
+// 節点 1 つは親の args の IrTerm 1 つ。ヒープと状態の語は GC が空けうる（前に訳したゴールは、届かない extras が
+// 持ったままのことがある）ので引かない。引くと、収まるゴールが GC の時機で止まる（M28 の Codex 敵対的レビュー
+// 6 回目）。持った語は動いている収集の答えで、空かない。木だけで残りを超えれば、安全点（gc.cpp）も必ず止める。
+std::size_t ir_budget(const Heap& heap) {
+  const std::size_t held = heap.held();
+  const std::size_t left = held < heap.limit() ? heap.limit() - held : 0;
+  return left / ((sizeof(IrTerm) + kHeapWordBytes - 1) / kHeapWordBytes);
+}
+
 }  // namespace
 
 // 束縛された複合項の引数はどれも元の項を指すので、変数の無い引数ごとにもスロットが要る。スロットは 32 ビットなので、
@@ -557,12 +688,7 @@ Compiled compile_goal(Heap& heap, Cell cell) {
   Build build;
   build.heap = &heap;
   build.keep = true;
-  // 節点 1 つは親の args の IrTerm 1 つ。ヒープと状態の語は GC が空けうる（前に訳したゴールは、届かない extras が
-  // 持ったままのことがある）ので引かない。引くと、収まるゴールが GC の時機で止まる（M28 の Codex 敵対的レビュー
-  // 6 回目）。持った語は動いている収集の答えで、空かない。木だけで残りを超えれば、安全点（gc.cpp）も必ず止める。
-  const std::size_t held = heap.held();
-  const std::size_t left = held < heap.limit() ? heap.limit() - held : 0;
-  build.node_budget = left / ((sizeof(IrTerm) + kHeapWordBytes - 1) / kHeapWordBytes);
+  build.node_budget = ir_budget(heap);
   IrTerm term = build.goal(cell);
   Compiled compiled;
   compiled.term = make_run_goal(heap, std::move(term));
@@ -605,11 +731,7 @@ GoalRef fact_body() {
   return body;
 }
 
-}  // namespace
-
-bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
-  Build build;
-  build.heap = &heap;
+bool compile_into(Build& build, const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
   Cell head = heap.deref(cell);
   IrTerm body;
   body.tag = IrTag::True;
@@ -625,17 +747,39 @@ bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const
              head.tag() == Tag::Float) {
     return false;
   } else {
+    build.head_copy = true;
     clause.head = build.data(head);
+    build.head_copy = false;
   }
+  clause.vars = slot_number(build.refs.size());
+  if (build.share) renumber_shared(clause.head, body, build.shared, clause.vars);
   // 事実の本体はどの節も同じ true なので、1 つを共有して節ごとに確保しない。
   clause.body = body.tag == IrTag::True && body.args.empty() ? fact_body() : make_goal(std::move(body));
-  clause.vars = slot_number(build.refs.size());
   name_slots(heap, build, names, clause);
   if (clause.head.tag == IrTag::Atom) {
     clause.head.arity = 0;
   }
   set_key(clause);
   return clause.head.tag == IrTag::Atom || clause.head.tag == IrTag::Fun;
+}
+
+}  // namespace
+
+bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
+  Build build;
+  build.heap = &heap;
+  return compile_into(build, heap, cell, clause, names);
+}
+
+// 節はヒープの外のデータベースに残るが、組む IR が上限の語数を超えるなら、それはヒープに収まらない項を木に広げている。
+bool compile_asserted(const Heap& heap, Cell cell, Clause& clause) {
+  Build build;
+  build.heap = &heap;
+  build.share = true;
+  build.node_budget = ir_budget(heap);
+  if (!compile_into(build, heap, cell, clause, {})) return false;
+  clause.shared = make_shared_table(std::move(build.shared), clause.vars);
+  return true;
 }
 
 bool is_directive(const Heap& heap, Cell cell) {

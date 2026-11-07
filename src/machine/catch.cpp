@@ -222,7 +222,7 @@ LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, st
                       const EnvRef& env, std::uint32_t module) {
   Entry entry;
   entry.pick = Pick::Catch;
-  entry.pattern = materialize(machine, goal->args[1], env->cells);
+  entry.pattern = materialize(machine, goal->args[1], env->cells, env->shared.get());
   entry.recovery = sub_goal(goal, 2);
   entry.env = env;
   entry.cont = cont;
@@ -264,14 +264,14 @@ void throw_ball(Impl& machine, Cell ball) {
   propagate_throw(machine, ball);
 }
 
-void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {
-  throw_ball(machine, materialize(machine, goal.args[0], env));
+void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, const SharedTable* shared) {
+  throw_ball(machine, materialize(machine, goal.args[0], env, shared));
 }
 
-void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env) {
+void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, const SharedTable* shared) {
   int code = 0;
   if (!goal.args.empty()) {
-    const Cell value = machine.heap.deref(materialize(machine, goal.args[0], env));
+    const Cell value = machine.heap.deref(materialize(machine, goal.args[0], env, shared));
     const auto name = machine.atoms.intern("halt");
     if (machine.heap.unbound(value)) {
       raise_formal(machine, formal_instantiation(machine), name, 1);

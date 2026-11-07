@@ -15,6 +15,7 @@
 #include "pred_table.hpp"
 #include "state_alloc.hpp"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -28,6 +29,7 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -42,13 +44,15 @@ static_assert(rt::kFrameHead == kFrameHead);
 // 節や call/1 のゴールの変数の値。継続と選択点が共有し、GC は gc_pass で 1 回の回収に 1 度だけ訪ねる。
 // 書き換えるのは GC だけである。作った機械の Heap::state に自分の語を数え、放すときに引く（ADR 0010 の改訂 3）。
 // Heap は Impl の 2 番目の要素なので、Impl の中の env はどれも Heap より先に壊れる。
+// shared は節の共有の項（ADR 0022）。materialize がそのスロットを最初に読むときに組む。
 struct EnvCells {
-  EnvCells(Heap& heap, std::vector<Cell> values);
+  EnvCells(Heap& heap, std::vector<Cell> values, std::shared_ptr<const SharedTable> table = nullptr);
   ~EnvCells();
   EnvCells(const EnvCells&) = delete;
   EnvCells& operator=(const EnvCells&) = delete;
 
   std::vector<Cell> cells;
+  std::shared_ptr<const SharedTable> shared;
   std::uint64_t gc_pass = 0;
   Heap* owner;
 };
@@ -60,7 +64,7 @@ using EnvRef = std::shared_ptr<EnvCells>;
 [[nodiscard]] GoalRef make_run_goal(Heap& heap, IrTerm term);
 // goal の args[index] を、goal と同じ持ち主で指す。
 [[nodiscard]] GoalRef sub_goal(const GoalRef& goal, std::size_t index);
-[[nodiscard]] EnvRef make_env(Heap& heap, std::vector<Cell> cells);
+[[nodiscard]] EnvRef make_env(Heap& heap, std::vector<Cell> cells, std::shared_ptr<const SharedTable> shared = nullptr);
 
 // Entry::cursor の「もう試す節が無い」。番号は 2^62 の前後から振るので、この値は節の番号にならない。
 inline constexpr std::size_t kNoClause = SIZE_MAX;
@@ -328,6 +332,12 @@ struct ParkedScans {
   std::vector<ScanRecord>* scan_log = nullptr;
 };
 
+// ADR 0022。SharedMemo の置き場の 1 つ。stamp が memo の番号と同じときだけ cell が生きている。
+struct SharedEntry {
+  Cell cell;
+  std::uint64_t stamp = 0;
+};
+
 struct Machine::Impl {
   AtomTable atoms;
   Heap heap;
@@ -464,6 +474,12 @@ struct Machine::Impl {
   // MOSA_GC_STRESS=N。N 回の安全点ごとに GC する。0 は無効。
   std::size_t gc_stress = 0;
   std::size_t gc_ticks = 0;
+  // ADR 0022。SharedMemo が組んだ共有の項を、表の添字の所に置く。番号がその memo のものだけが生きている。memo ごとに
+  // 番号を進めるので、消さずに使い回し、組むたびに確保しない（M30 の Codex 敵対的レビュー 5 回目）。セルと番号を並べて
+  // 置くのは、鎖になった共有の項を組む 1 段ごとに 1 か所だけ読むため。GC は安全点でしか走らず、memo はその前に終わる
+  // ので根にしない。
+  std::vector<SharedEntry> shared_entries;
+  std::uint64_t shared_stamp = 0;
   bool trace_gc = false;
   // trace_gc の行の型と、それを作ったときの言語（gc.cpp の trace_form）。旗で言語が変われば作り直す。
   std::optional<std::string> gc_trace_form;
@@ -539,6 +555,15 @@ struct Compiled {
 
 [[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
+// ADR 0022（レビュー M30）。asserta/1 と assertz/1 の節。繰り返す部分項を Clause::shared にし、組む IR は
+// compile_goal と同じくヒープの上限で止める（ResourceLimit）。
+[[nodiscard]] bool compile_asserted(const Heap& heap, Cell cell, Clause& clause);
+// compile_asserted が集めた共有の項の表。terms[i] のスロットは base + i。共有の項が無ければ空のポインタ。
+[[nodiscard]] std::shared_ptr<const SharedTable> make_shared_table(std::vector<SharedTerm> terms, std::uint32_t base);
+// 訳す間の共有の項の仮のスロット。i 番目は kProvisionalShared - i で、変数のスロットとは重ならない。
+inline constexpr std::uint32_t kProvisionalShared = UINT32_MAX - 1;
+// 訳し終えた頭・本体・共有の項の仮のスロットを base + i に付け直す。
+void renumber_shared(IrTerm& head, IrTerm& body, std::vector<SharedTerm>& terms, std::uint32_t base);
 [[nodiscard]] bool is_directive(const Heap& heap, Cell cell);
 
 void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, const EnvRef& env,
@@ -591,10 +616,29 @@ void retire_older(Impl& machine, const std::vector<PredKey>& keys, std::uint64_t
 void purge_static(Impl& machine, Predicate& predicate);
 [[nodiscard]] bool declared_only(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env);
+// ADR 0022。1 つの頭か 1 つのゴールを組む間に組んだ共有の項（terms の添字からセル）。置き場は機械の shared_entries で、
+// 自分の番号の付いたものだけを見るので、memo を作るのも捨てるのも確保しない。
+struct SharedMemo {
+  SharedMemo(Impl& machine, const SharedTable& shared)
+      : table(shared), entries(machine.shared_entries), stamp(++machine.shared_stamp) {
+    if (entries.size() < table.terms.size()) entries.resize(table.terms.size());
+  }
+  const SharedTable& table;
+  std::vector<SharedEntry>& entries;
+  std::uint64_t stamp;
+
+};
+// shared の共有の項のスロットは、この呼び出しの中で最初に読むときに 1 度だけ組む。shared が空なら上と同じ。
+[[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env,
+                               const SharedTable* shared);
+[[nodiscard]] Cell materialize(Impl& machine, const IrTerm& term, const std::vector<Cell>& env, SharedMemo& memo);
+// 節に入るときの env。変数のスロットごとに新しい変数を作る。共有の項は env に置かない。
+[[nodiscard]] std::vector<Cell> clause_env(Impl& machine, const Clause& clause);
 // 述語を呼ぶゴール（制御構造でも変数でもない）。env を残さないので、共有の env を作らずに枠にできる。
 [[nodiscard]] bool is_call_leaf(IrTag tag);
 [[nodiscard]] std::uint64_t embody_leaf(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                                        const std::vector<Cell>& cells, std::uint32_t module);
+                                        const std::vector<Cell>& cells, std::uint32_t module,
+                                        const SharedTable* shared = nullptr);
 [[nodiscard]] std::uint64_t embody(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
                                    const EnvRef& env, std::uint32_t module);
 [[nodiscard]] Goal read_goal(const Impl& machine, std::uint64_t at);
@@ -653,15 +697,17 @@ void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uin
 [[nodiscard]] Stop run_loop(Impl& machine);
 [[nodiscard]] LaunchNext open_catch(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut,
                                     const EnvRef& env, std::uint32_t module);
-void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
+void arm_throw(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, const SharedTable* shared);
 // throw/1 の本体。ball が変数なら instantiation_error、他は捕まえる catch まで巻き戻す。生成コードも通る。
 void throw_ball(Impl& machine, Cell ball);
 // ゴールを抜けた catch を無効にする。選択点が残る間は枠を残し、戻ったときだけ apply_catches が有効に戻す。
 // 上に選択点が無ければ、戻ってくる選択点も無いので記録しない。
 void disarm_catch(Impl& machine, std::size_t index);
-void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env);
-// slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。
-[[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal);
+void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, const SharedTable* shared);
+// slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。共有の項（ADR 0022）のスロットは、最初の出現で
+// その項を組んで置く。
+[[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal,
+                          std::span<const SharedTerm> shared = {});
 // clause/2 が見せる形が格納した IR と違うか（変数ゴール、Call、halt/0、catch の隠し引数）。
 [[nodiscard]] bool shown_differs(const IrTerm& term, bool as_goal);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。

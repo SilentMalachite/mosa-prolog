@@ -173,6 +173,11 @@ std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predic
 bool native_eligible(const Impl& machine, const Predicate& predicate) {
   if (predicate.dynamic || predicate.abolished || predicate.clauses.empty()) return false;
   if (live_count(predicate) != predicate.clauses.size()) return false;
+  // 生成コードはどのスロットも変数として読むので、共有の項（ADR 0022）を持つ節は IR のまま動かす。それを持つのは
+  // assert した動的な節だけで、ここには普通来ない。
+  for (const Clause& clause : predicate.clauses) {
+    if (clause.shared) return false;
+  }
   return !is_builtin_procedure(machine, predicate.name, predicate.arity);
 }
 

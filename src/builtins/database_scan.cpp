@@ -63,9 +63,12 @@ bool clause_head_ok(Impl& machine, const Goal& goal, HeadName& indicator, std::u
 bool unify_clause_ref(Impl& machine, const Clause& clause, Cell head, Cell body) {
   const auto floor = machine.heap.size();
   std::vector<Cell> slots;
-  const Cell made_head = ir_to_term(machine, clause.head, slots, false);
-  const Cell made_body = ir_to_term(machine, *clause.body, slots, true);
-  return unify_visible(machine, floor, head, made_head) && unify_visible(machine, floor, body, made_body);
+  // 頭を照合してから本体を組む。頭の合わない節で本体の大きさだけかけない（M30 の Codex レビュー 2 回目）。変数は
+  // 歩みの順に作るので、本体の変数が頭の変数より後にできるのは前と同じ。
+  const Cell made_head = ir_to_term(machine, clause.head, slots, false, shared_terms(clause));
+  if (!unify_visible(machine, floor, head, made_head)) return false;
+  const Cell made_body = ir_to_term(machine, *clause.body, slots, true, shared_terms(clause));
+  return unify_visible(machine, floor, body, made_body);
 }
 
 // 候補の列は呼び出しごとに 1 つ。次の枠へ移すだけにし、やり直すたびに写さない（レビュー M3）。PredGen は節を

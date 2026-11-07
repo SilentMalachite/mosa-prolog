@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -121,6 +122,7 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const Env
     defer_var(machine, goal, cont, env, module);
     return;
   }
+  // ゴールの根は共有の項にしない（ADR 0022）ので、変数のゴールはいつも env のスロット。
   const Cell cell = machine.heap.deref(env->cells.at(goal.slot));
   if (machine.heap.unbound(cell)) {
     raise_formal(machine, formal_instantiation(machine), machine.atoms.intern("call"), 1);
@@ -390,105 +392,21 @@ Goal read_goal(const Impl& machine, std::uint64_t at) {
   return goal;
 }
 
-namespace {
-
-// 子を持たない項のセル。子を集めてから作る複合項（List・Fun・Call と制御の項）は nullopt。
-std::optional<Cell> materialize_leaf(Impl& machine, const IrTerm& term, const std::vector<Cell>& env) {
-  switch (term.tag) {
-    case IrTag::Var: return env.at(term.slot);
-    case IrTag::Anon: return machine.heap.fresh_ref();
-    case IrTag::Atom: return machine.heap.atom(term.atom);
-    case IrTag::Int: return machine.heap.integer(term.integer);
-    case IrTag::Float: return machine.heap.floating(term.floating);
-    case IrTag::True: return machine.heap.atom(machine.atoms.intern("true"));
-    case IrTag::Fail: return machine.heap.atom(machine.atoms.intern("fail"));
-    case IrTag::Cut: return machine.heap.atom(machine.atoms.intern("!"));
-    case IrTag::List:
-    case IrTag::And:
-    case IrTag::Or:
-    case IrTag::IfThen:
-    case IrTag::SoftIf:
-    case IrTag::Catch:
-    case IrTag::Throw:
-    case IrTag::Halt:
-    case IrTag::Call:
-    case IrTag::Fun: return std::nullopt;
-  }
-  return machine.heap.atom(machine.atoms.intern("[]"));
-}
-
-Cell close_compound(Impl& machine, const IrTerm& term, std::span<const Cell> parts) {
-  if (term.tag == IrTag::List) return machine.heap.list(parts[0], parts[1]);
-  if (term.tag == IrTag::Call || term.tag == IrTag::Fun) {
-    if (parts.size() == 2 && machine.atoms.name(term.atom) == ".") return machine.heap.list(parts[0], parts[1]);
-    return machine.heap.structure(term.atom, parts);
-  }
-  const char* name = "!";
-  if (term.tag == IrTag::And) name = ",";
-  else if (term.tag == IrTag::Or) name = ";";
-  else if (term.tag == IrTag::IfThen) name = "->";
-  else if (term.tag == IrTag::SoftIf) name = "*->";
-  else if (term.tag == IrTag::Catch) name = "catch";
-  else if (term.tag == IrTag::Throw) name = "throw";
-  else if (term.tag == IrTag::Halt) name = "halt";
-  return machine.heap.structure(machine.atoms.intern(name), parts);
-}
-
-// 組み立て途中の複合項。子のセルは parts に続けて置き、base は自分の分の始まり。
-struct BuildFrame {
-  const IrTerm* term;
-  std::size_t base;
-};
-
-// 後順に組み立てる。子は左から作るので、ヒープの並びは再帰と同じになる。
-Cell materialize_deep(Impl& machine, const IrTerm& root, const std::vector<Cell>& env) {
-  std::vector<BuildFrame> stack{{&root, 0}};
-  std::vector<Cell> parts;
-  while (true) {
-    const BuildFrame top = stack.back();
-    const std::size_t made = parts.size() - top.base;
-    if (made < top.term->args.size()) {
-      const IrTerm& next = top.term->args[made];
-      if (const auto leaf = materialize_leaf(machine, next, env)) parts.push_back(*leaf);
-      else stack.push_back(BuildFrame{&next, parts.size()});
-      continue;
-    }
-    const Cell cell = close_compound(machine, *top.term, std::span<const Cell>(parts).subspan(top.base));
-    parts.resize(top.base);
-    stack.pop_back();
-    if (stack.empty()) return cell;
-    parts.push_back(cell);
-  }
-}
-
-Cell materialize_at(Impl& machine, const IrTerm& term, const std::vector<Cell>& env, int depth) {
-  if (const auto leaf = materialize_leaf(machine, term, env)) return *leaf;
-  if (depth >= kShallow) return materialize_deep(machine, term, env);
-  if (term.tag == IrTag::List) {
-    const Cell head = materialize_at(machine, term.args[0], env, depth + 1);
-    const Cell tail = materialize_at(machine, term.args[1], env, depth + 1);
-    return machine.heap.list(head, tail);
-  }
-  std::vector<Cell> args;
-  args.reserve(term.args.size());
-  for (const IrTerm& arg : term.args) args.push_back(materialize_at(machine, arg, env, depth + 1));
-  return close_compound(machine, term, args);
-}
-
-}  // namespace
-
-Cell materialize(Impl& machine, const IrTerm& root, const std::vector<Cell>& env) {
-  return materialize_at(machine, root, env, 0);
-}
-
 bool is_call_leaf(IrTag tag) { return tag == IrTag::Atom || tag == IrTag::Fun || tag == IrTag::Call; }
 
 std::uint64_t embody_leaf(Impl& machine, const IrTerm& goal, std::uint64_t cont, std::size_t cut,
-                          const std::vector<Cell>& cells, std::uint32_t module) {
+                          const std::vector<Cell>& cells, std::uint32_t module, const SharedTable* shared) {
   std::vector<Cell> args;
   if (goal.tag != IrTag::Atom) {
     args.reserve(goal.args.size());
-    for (const IrTerm& arg : goal.args) args.push_back(materialize(machine, arg, cells));
+    // 共有の項（ADR 0022）は、このゴールの引数の間で 1 度だけ組む。前の写しと同じくゴールごとに組み直すので、
+    // ゴールが終われば組んだ項は残らない。
+    if (shared == nullptr) {
+      for (const IrTerm& arg : goal.args) args.push_back(materialize(machine, arg, cells));
+    } else {
+      SharedMemo memo{machine, *shared};
+      for (const IrTerm& arg : goal.args) args.push_back(materialize(machine, arg, cells, memo));
+    }
   }
   const auto at = machine.heap.allocate_words(kFrameHead + args.size());
   machine.heap.set_word(at, goal.atom);
@@ -503,7 +421,7 @@ std::uint64_t embody_leaf(Impl& machine, const IrTerm& goal, std::uint64_t cont,
 
 std::uint64_t embody(Impl& machine, const GoalRef& goal, std::uint64_t cont, std::size_t cut, const EnvRef& env,
                      std::uint32_t module) {
-  if (is_call_leaf(goal->tag)) return embody_leaf(machine, *goal, cont, cut, env->cells, module);
+  if (is_call_leaf(goal->tag)) return embody_leaf(machine, *goal, cont, cut, env->cells, module, env->shared.get());
   Extra extra;
   extra.ctrl = Ctrl::Interpret;
   extra.goal = goal;
@@ -543,8 +461,8 @@ void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, co
       case IrTag::IfThen: next = open_if_then(machine, goal, cont, cut, env, module); break;
       case IrTag::SoftIf: next = open_soft(machine, goal, cont, cut, env, module); break;
       case IrTag::Catch: next = open_catch(machine, goal, cont, cut, env, module); break;
-      case IrTag::Throw: arm_throw(machine, *goal, env->cells); return;
-      case IrTag::Halt: arm_halt(machine, *goal, env->cells); return;
+      case IrTag::Throw: arm_throw(machine, *goal, env->cells, env->shared.get()); return;
+      case IrTag::Halt: arm_halt(machine, *goal, env->cells, env->shared.get()); return;
       case IrTag::Var: launch_var(machine, *goal, cont, env, module); return;
       case IrTag::Atom:
       case IrTag::Fun:

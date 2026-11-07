@@ -245,6 +245,12 @@ add_executable(format_digits_test tests/cpp/format_digits_test.cpp)
 target_include_directories(format_digits_test PRIVATE tests/cpp)
 target_link_libraries(format_digits_test PRIVATE mosa_lib)
 add_test(NAME format_digits COMMAND $<TARGET_FILE:format_digits_test>)
+# レビュー M30。assert は共有の深い項を木に広げず、共有しない形はヒープの上限で止まる。
+add_executable(assert_shared_test tests/cpp/assert_shared_test.cpp)
+target_include_directories(assert_shared_test PRIVATE tests/cpp)
+target_compile_definitions(assert_shared_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(assert_shared_test PRIVATE mosa_lib)
+add_test(NAME assert_shared COMMAND $<TARGET_FILE:assert_shared_test>)
 # レビュー M28。実行時のゴールの共有の多い引数は写さずに指し、すべて写す最後の段はヒープの上限で止まる。
 add_executable(goal_shared_test tests/cpp/goal_shared_test.cpp)
 target_include_directories(goal_shared_test PRIVATE tests/cpp)

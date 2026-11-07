@@ -5,6 +5,7 @@
 
 #include "../machine/internal.hpp"
 
+#include <span>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -15,18 +16,36 @@ namespace {
 
 // 前の再帰と同じ左からの前順に穴を作る。変数の標準順序は番地で決まるので、順を変えると答えが変わる。
 // 深い節でも C++ のスタックを使わないよう、まだ見ていない項を手で積む（ADR 0011）。
-void remember_slot(Impl& machine, const IrTerm& root, std::vector<Cell>& slots) {
-  std::vector<const IrTerm*> pending{&root};
+// 共有の項（ADR 0022）のスロットは、最初の出現でその項の中を同じ順に歩いてから組む。木に広げた前の節と同じ順に
+// 変数ができる。pending の build が nullptr でない印は、中を歩き終えたその共有の項を組むこと。
+void remember_slot(Impl& machine, const IrTerm& root, std::vector<Cell>& slots, std::span<const SharedTerm> shared) {
+  std::vector<const SharedTerm*> owner;
+  for (const SharedTerm& term : shared) {
+    if (owner.size() <= term.slot) owner.resize(static_cast<std::size_t>(term.slot) + 1, nullptr);
+    owner[term.slot] = &term;
+  }
+  std::vector<std::pair<const IrTerm*, const SharedTerm*>> pending{{&root, nullptr}};
   while (!pending.empty()) {
-    const IrTerm& term = *pending.back();
+    const auto [next, build] = pending.back();
     pending.pop_back();
+    if (build != nullptr) {
+      slots[build->slot] = materialize(machine, build->term, slots);
+      continue;
+    }
+    const IrTerm& term = *next;
     if (term.tag == IrTag::Var) {
       // fresh_ref はヒープ番地なので 0 ではない。0 はまだ作っていない穴。
       if (slots.size() <= term.slot) slots.resize(static_cast<std::size_t>(term.slot) + 1);
-      if (slots[term.slot].raw() == 0) slots[term.slot] = machine.heap.fresh_ref();
+      if (slots[term.slot].raw() != 0) continue;
+      if (term.slot < owner.size() && owner[term.slot] != nullptr) {
+        pending.emplace_back(nullptr, owner[term.slot]);
+        pending.emplace_back(&owner[term.slot]->term, nullptr);
+        continue;
+      }
+      slots[term.slot] = machine.heap.fresh_ref();
       continue;
     }
-    for (auto arg = term.args.rbegin(); arg != term.args.rend(); ++arg) pending.push_back(&*arg);
+    for (auto arg = term.args.rbegin(); arg != term.args.rend(); ++arg) pending.emplace_back(&*arg, nullptr);
   }
 }
 
@@ -167,13 +186,14 @@ bool shown_differs(const IrTerm& root, bool as_goal) {
   }
 }
 
-Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal) {
+Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal,
+                std::span<const SharedTerm> shared) {
   if (!shown_differs(term, as_goal)) {
-    remember_slot(machine, term, slots);
+    remember_slot(machine, term, slots, shared);
     return materialize(machine, term, slots);
   }
   const IrTerm shown = expose(machine, term, as_goal);
-  remember_slot(machine, shown, slots);
+  remember_slot(machine, shown, slots, shared);
   return materialize(machine, shown, slots);
 }
 

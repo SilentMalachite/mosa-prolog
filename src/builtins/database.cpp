@@ -371,17 +371,20 @@ void abolish_open(Impl& machine, Predicate& predicate) {
 bool unify_stored(Impl& machine, const Clause& clause, const ClauseView& view) {
   // 呼び出し側の変数は、この関数が足す項より前にある。候補ごとに束縛を戻す水位。
   const auto floor = machine.heap.size();
-  std::vector<Cell> env;
-  env.reserve(clause.vars);
-  for (std::uint32_t index = 0; index < clause.vars; ++index) env.push_back(machine.heap.fresh_ref());
-  if (!unify_visible(machine, floor, view.head, materialize(machine, clause.head, env))) return false;
+  std::vector<Cell> env = clause_env(machine, clause);
+  // 共有の項（ADR 0022）は頭と本体がそれぞれ組む。本体の分を先に組むと、頭の合わない節や retractall/1 でも本体の
+  // 大きさだけかかる（M30 の Codex レビュー 2 回目）。
+  if (!unify_visible(machine, floor, view.head, materialize(machine, clause.head, env, clause.shared.get()))) {
+    return false;
+  }
   if (view.head_only) return true;
   // retract(Head) は本体 true の節だけを消す。他の規則の本体を組んでから比べると、本体の大きさだけ無駄になる。
   if (!view.rule && clause.body->tag != IrTag::True) return false;
   // 8.9.3 は clause/2 と同じ本体と単一化する。IR のままだと変数の本体がどの本体とも合う（7.6.2）。
   // env はもう全スロットを持つので、形が変わらない本体は ir_to_term の走査を省いて直接組む。
-  const Cell body = shown_differs(*clause.body, true) ? ir_to_term(machine, *clause.body, env, true)
-                                                      : materialize(machine, *clause.body, env);
+  const Cell body = shown_differs(*clause.body, true)
+                        ? ir_to_term(machine, *clause.body, env, true, shared_terms(clause))
+                        : materialize(machine, *clause.body, env, clause.shared.get());
   if (!view.rule) {
     // 事実の正規形は本体 true。規則は retract(Head) では消さない。
     return unify_visible(machine, floor, machine.heap.atom(machine.atoms.intern("true")), body);
@@ -430,7 +433,7 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
   term = named_head(machine, term, source_name);
   Clause clause;
   // 呼び出し後の束縛が節へ漏れないよう、データベースに見える前に IR の変数番号へ切る。
-  if (!compile_clause(machine.heap, term, clause)) {
+  if (!compile_asserted(machine.heap, term, clause)) {
     raise_type(machine, goal, "callable", view.head);
     return;
   }

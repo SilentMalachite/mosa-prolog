@@ -142,6 +142,8 @@ jobs:
   # pred_scale（ADR 0018）も時間の比を測る。述語表の索引の正しさは pred_table と tests/pl が N=1 で見る。
   # goal_shared（レビュー M28）は 32 MiB のヒープに長さ 64 の循環 1 万個を置き、安全点ごとの GC がそれをなめて 2 乗になる
   # （手元で N=1 は 89 分で終わらず、N=1000 は 24 秒）。ゴールを訳す途中の GC は tests/pl/control.pl の m28_* が N=1 で見る。
+  # assert_shared（レビュー M30）は時間の比も測り、安全点ごとの GC が節の大きな IR を数えるので比が崩れる（手元で N=1 は 10 分
+  # かかり head first が落ち、N=1000 は 1 秒で通る）。共有の項を持つ節を assert し組む途中の GC は tests/pl/database.pl の m30_* が N=1 で見る。
   linux-gc-stress:
     runs-on: ubuntu-24.04
     steps:
@@ -157,11 +159,11 @@ jobs:
       - name: Tests and differential tests with MOSA_GC_STRESS=1
         env:
           MOSA_GC_STRESS: 1
-        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|goal_shared)$|install|bench" --no-tests=error
+        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|goal_shared|assert_shared)$|install|bench" --no-tests=error
       - name: Heavy GC tests with MOSA_GC_STRESS=1000
         env:
           MOSA_GC_STRESS: 1000
-        run: ctest --preset linux-gcc -R "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_collect|mosac_deep_collect|goal_shared)$" --no-tests=error
+        run: ctest --preset linux-gcc -R "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_collect|mosac_deep_collect|goal_shared|assert_shared)$" --no-tests=error
 
   linux-clang:
     runs-on: ubuntu-24.04

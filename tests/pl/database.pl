@@ -782,3 +782,75 @@ test(m25_abolish_front, (abolish(m25_a/1), findall(X, m25_b(X), B), findall(X-Y,
 test(m25_abolish_front_gone, m25_a(_), error(existence_error(procedure, m25_a/1))).
 test(m25_abolish_then_assert, (assertz(m25_a(5)), retract(m25_c(4)), assertz(m25_c(6)), findall(X, m25_a(X), A), findall(X, m25_c(X), C), findall(X, m25_b(X), B)), solutions([(A = [5], C = [6], B = [2])])).
 test(m25_abolish_middle, (abolish(m25_b/1), findall(X-Y, m25_b(X, Y), B2), findall(X, m25_c(X), C), findall(X, m25_a(X), A)), solutions([(B2 = [3-x], C = [6], A = [5])])).
+
+% レビュー M30（ADR 0022）。共有の深い項を assert すると、前は節の IR を木に広げたので、深さ 40 の項は 2^40 個の節点に
+% なって止まらなかった（ヒープの上限も超えた）。今は 2 度目に出会った部分項を、節に入るときに 1 度だけ組む。
+% m30_shape は左の枝をたどり、各段の 2 つの子が同じ項であることを確かめる。共有を保てば == は段ごとにすぐ終わる。
+% 共有の深い項はテストのゴールの変数に残さない。差分テスト（mosatest --diff）は答えを書いて比べ、書くのは木の大きさになる。
+m30_dag(0, a) :- !.
+m30_dag(N, f(T, T)) :- M is N - 1, m30_dag(M, T).
+m30_shape(a, 0).
+m30_shape(f(A, B), N) :- N > 0, A == B, M is N - 1, m30_shape(A, M).
+:- dynamic(m30_p/1).
+:- dynamic(m30_pa/1).
+:- dynamic(m30_c/1).
+:- dynamic(m30_r/1).
+:- dynamic(m30_b/1).
+:- dynamic(m30_hb/1).
+:- dynamic(m30_t/0).
+:- dynamic(m30_v/2).
+:- dynamic(m30_cy/1).
+:- dynamic(m30_o/1).
+:- dynamic(m30_l/2).
+:- dynamic(m30_d/3).
+:- dynamic(m30_i/2).
+:- dynamic(m30_bt/1).
+:- dynamic(m30_re/1).
+m30_run(assert_dag) :- m30_dag(40, X), assertz(m30_p(X)), m30_p(Y), m30_shape(Y, 40).
+m30_run(asserta_dag) :- m30_dag(40, X), asserta(m30_pa(X)), m30_pa(Y), m30_shape(Y, 40).
+m30_run(clause_dag) :- m30_dag(40, X), assertz(m30_c(X)), clause(m30_c(Y), B), B == true, m30_shape(Y, 40).
+m30_run(retract_dag) :- m30_dag(40, X), assertz(m30_r(X)), retract(m30_r(Y)), m30_shape(Y, 40), \+ m30_r(_).
+m30_run(body_dag) :- m30_dag(40, X), assertz((m30_b(Y) :- Y = g(X))), m30_b(g(Y)), m30_shape(Y, 40).
+m30_run(head_body_dag) :- m30_dag(40, X), assertz((m30_hb(X) :- m30_shape(X, 40))), m30_hb(Y), m30_shape(Y, 40).
+m30_run(throw_dag) :- m30_dag(40, X), assertz((m30_t :- throw(X))), catch(m30_t, B, true), m30_shape(B, 40).
+m30_run(list_tail) :-
+    m30_upto(1, 2000, [_|T]), assertz(m30_l(f(T), g(T))), m30_l(f(A), g(B)), A == B, length(A, 1999), A = [2|_],
+    m30_last(A, 2000).
+test(m30_assert_dag, m30_run(assert_dag), true).
+test(m30_asserta_dag, m30_run(asserta_dag), true).
+test(m30_clause_dag, m30_run(clause_dag), true).
+test(m30_retract_dag, m30_run(retract_dag), true).
+test(m30_body_dag, m30_run(body_dag), true).
+test(m30_head_body_dag, m30_run(head_body_dag), true).
+test(m30_throw_dag, m30_run(throw_dag), true).
+% 1 度だけ組む部分項の中の変数も、節の他の所の同じ変数のままである。
+test(m30_shared_var, (S = g(V), assertz(m30_v(k(h(S), h(S)), V)), m30_v(k(h(A), h(B)), W), A == B, A = g(W1), W1 == W), true).
+% 循環に届く部分項は共有しない。循環を切る匿名は出現ごとに別の変数のまま（iso-notes 7.3.3 の決定 A）。
+test(m30_cycle_anon, (X = f(X), assertz(m30_cy(k(h(X), h(X)))), m30_cy(k(h(f(A)), h(f(B)))), A \== B), true).
+% clause/2 は前と同じく、変数を頭から左の前順に作る（変数の標準順序は番地で決まる）。
+test(m30_clause_order, (S = g(_), assertz(m30_o(w(_, k(h(S), h(S)), _))), clause(m30_o(W), true), W = w(X, k(h(g(Y)), _), Z), X @< Y, Y @< Z), true).
+% 長いリストの尾を 2 か所で共有しても、どちらの引数も元のリストになる。
+m30_upto(N, N, [N]) :- !.
+m30_upto(I, N, [I|T]) :- J is I + 1, m30_upto(J, N, T).
+m30_last([X], X) :- !.
+m30_last([_|T], X) :- m30_last(T, X).
+test(m30_list_tail, m30_run(list_tail), true).
+% 頭の第 1 引数のほかは、引数そのものも共有する。頭の第 1 引数は鍵のために写すので、索引も前のまま引く。
+test(m30_arg_shared, (S = k(V), assertz(m30_d(a, S, S)), m30_d(a, X, Y), X == Y, X = k(W), var(W), clause(m30_d(a, P, Q), true), P == Q, retract(m30_d(a, R1, R2)), R1 == R2), true).
+test(m30_first_arg_key, (S = k(1), assertz(m30_i(S, S)), assertz(m30_i(z, z)), findall(Q, m30_i(k(1), Q), L1), findall(Q, m30_i(z, Q), L2)), solutions([(L1 = [k(1)], L2 = [z])])).
+% 共有の項は最初に要るときに組み、置き場の変数に束縛する。束縛より前の選択点へ戻れば、次に要るときに組み直す。
+test(m30_rebuilt, (S = g(h(1)), assertz((m30_bt(R) :- (Y = 1 ; Y = 2), R = k(S, S, Y))), findall(R, m30_bt(R), L), L = [k(A1, B1, 1), k(A2, B2, 2)], A1 == B1, A2 == B2, A1 == g(h(1)), A2 == g(h(1))), true).
+% NaN は自分とも単一化しない（iso-notes 7.2.2）。共有にすると同じ番地の近道で一致するので、M30 の前と同じく写しを分ける。
+% 小さい部分項はもともと共有しない（kShareWeight）ので、要素 70 個のリスト P で共有しうる大きさにする。
+:- dynamic(m30_n/3).
+:- dynamic(m30_nd/1).
+test(m30_nan_apart, (m30_upto(1, 70, P), S = g(1.5NaN, P), assertz(m30_n(a, S, S)), \+ m30_n(a, X, X), \+ clause(m30_n(a, Y, Y), true), \+ retract(m30_n(a, Z, Z)), retract(m30_n(a, _, _))), true).
+test(m30_nan_deep, (m30_upto(1, 70, P), S = h(g(1.5NaN, P), k), assertz(m30_nd(f(S, S))), \+ m30_nd(f(X, X)), retract(m30_nd(_))), true).
+% assert の後で変数が NaN になっても同じ（M30 の Codex レビュー 3 回目）。変数を含む部分項は共有しない。
+:- dynamic(m30_nl/1).
+:- dynamic(m30_nh/3).
+:- dynamic(m30_nr/1).
+test(m30_nan_later_body, (m30_upto(1, 70, P), S = g(X, P), assertz((m30_nl(X) :- S = S)), \+ m30_nl(1.5NaN), retract((m30_nl(_) :- _))), true).
+test(m30_nan_later_head, (m30_upto(1, 70, P), S = g(X, P), assertz(m30_nh(X, f(S, S), S)), \+ m30_nh(1.5NaN, f(Y, Y), _), \+ retract(m30_nh(1.5NaN, f(Z, Z), _)), retract(m30_nh(_, _, _))), true).
+test(m30_nan_after_read, (m30_upto(1, 70, P), S = g(X, P), assertz((m30_nr(X) :- T = S, X = 1.5NaN, T = S)), \+ m30_nr(_), retract((m30_nr(_) :- _))), true).
+test(m30_failed_branch,(S = g(1), assertz((m30_re(R) :- (Q = w(S, S), Q = z ; true), R = v(S, S))), m30_re(v(A, B)), A == B, A == g(1)), true).

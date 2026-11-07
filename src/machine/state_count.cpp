@@ -85,7 +85,8 @@ bool give_back(std::vector<T>& items) {
 }  // namespace
 
 // cells は作った後に長さを変えない（GC が中のセルを書き換えるだけ）ので、引く語は足した語と同じになる。
-EnvCells::EnvCells(Heap& heap, std::vector<Cell> values) : cells(std::move(values)), owner(&heap) {
+EnvCells::EnvCells(Heap& heap, std::vector<Cell> values, std::shared_ptr<const SharedTable> table)
+    : cells(std::move(values)), shared(std::move(table)), owner(&heap) {
   owner->add_state(env_words(cells));
 }
 
@@ -100,7 +101,9 @@ GoalRef make_run_goal(Heap& heap, IrTerm term) {
 
 GoalRef sub_goal(const GoalRef& goal, std::size_t index) { return GoalRef{goal, &goal->args[index]}; }
 
-EnvRef make_env(Heap& heap, std::vector<Cell> cells) { return std::make_shared<EnvCells>(heap, std::move(cells)); }
+EnvRef make_env(Heap& heap, std::vector<Cell> cells, std::shared_ptr<const SharedTable> shared) {
+  return std::make_shared<EnvCells>(heap, std::move(cells), std::move(shared));
+}
 
 void recount_vectors(Impl& machine) {
   CountedVectors& counted = machine.counted_vectors;

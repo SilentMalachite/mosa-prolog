@@ -156,12 +156,15 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
   const Clause& clause = predicate.clauses[which];
   // meta 引数の限定は呼び手の文脈。枠は書き換えず、節に入るたびに作る。やり直しで枠より新しい項を指さないため。
   const auto context = predicate.meta.empty() ? 0 : read_goal(machine, goal).module;
-  std::vector<Cell> cells;
-  cells.reserve(clause.vars);
-  for (std::uint32_t index = 0; index < clause.vars; ++index) cells.push_back(machine.heap.fresh_ref());
+  std::vector<Cell> cells = clause_env(machine, clause);
+  // 共有の項（ADR 0022）は頭の引数の間で 1 度だけ組む。本体のゴールはそれぞれ自分の分を組む（embody_leaf）。
+  const SharedTable* shared = clause.shared.get();
+  std::optional<SharedMemo> memo;
+  if (shared != nullptr) memo.emplace(machine, *shared);
   if (clause.head.tag == IrTag::Fun) {
     for (std::size_t index = 0; index < clause.head.args.size(); ++index) {
-      const Cell expected = materialize(machine, clause.head.args[index], cells);
+      const IrTerm& arg = clause.head.args[index];
+      const Cell expected = memo ? materialize(machine, arg, cells, *memo) : materialize(machine, arg, cells);
       Cell actual = Cell{machine.heap.word_at(goal + kFrameHead + index)};
       if (!predicate.meta.empty()) actual = meta_argument(machine, predicate, context, index, actual);
       if (!do_unify(machine, expected, actual)) {
@@ -179,10 +182,10 @@ void enter_clause(Impl& machine, const Predicate& predicate, std::size_t which, 
     return;
   }
   if (is_call_leaf(tag)) {
-    machine.ip = embody_leaf(machine, *clause.body, cont, cut, cells, predicate.module);
+    machine.ip = embody_leaf(machine, *clause.body, cont, cut, cells, predicate.module, shared);
     return;
   }
-  launch(machine, clause.body, cont, cut, make_env(machine.heap, std::move(cells)), predicate.module);
+  launch(machine, clause.body, cont, cut, make_env(machine.heap, std::move(cells), clause.shared), predicate.module);
 }
 
 void enter_user(Impl& machine, const Goal& goal) {

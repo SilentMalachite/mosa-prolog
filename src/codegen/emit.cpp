@@ -102,8 +102,8 @@ class ClauseText {
   [[nodiscard]] std::string text(const Clause& clause) {
     const auto mark = scratch_->heap.size();
     std::vector<Cell> slots;
-    const Cell head = ir_to_term(*scratch_, clause.head, slots, false);
-    const Cell body = ir_to_term(*scratch_, *clause.body, slots, true);
+    const Cell head = ir_to_term(*scratch_, clause.head, slots, false, shared_terms(clause));
+    const Cell body = ir_to_term(*scratch_, *clause.body, slots, true, shared_terms(clause));
     const std::vector<VarName> names = var_names(clause, slots);
     WriteOptions options;
     options.numbervars = true;

@@ -98,13 +98,16 @@ bool keep_predicate(const Impl& src, const Predicate& predicate) {
 
 bool compile_copied(Impl& src, Impl& dst, const Clause& clause, Clause& out) {
   std::vector<Cell> slots;
-  const Cell head = ir_to_term(src, clause.head, slots, false);
-  const Cell body = ir_to_term(src, *clause.body, slots, true);
+  const Cell head = ir_to_term(src, clause.head, slots, false, shared_terms(clause));
+  const Cell body = ir_to_term(src, *clause.body, slots, true, shared_terms(clause));
   std::vector<std::pair<std::uint64_t, Cell>> seen;
   const Cell copied_head = copy_goal(src, dst, head, seen);
   const Cell copied_body = copy_goal(src, dst, body, seen);
   const std::array<Cell, 2> args{copied_head, copied_body};
   const Cell term = dst.heap.structure(dst.atoms.intern(":-"), args);
+  // assert した節の共有の項（ADR 0022）は写した項でも共有のまま。写し先でも共有の項にしないと木に広げる（M30 の Codex
+  // 敵対的レビュー 1 回目）。
+  if (clause.shared) return compile_asserted(dst.heap, term, out);
   return compile_clause(dst.heap, term, out);
 }
 
