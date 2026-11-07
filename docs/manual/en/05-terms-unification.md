@@ -22,8 +22,9 @@ X = 3.14.
 ```
 
 2. Write an atom in single quotes. In chapter 3 an atom started with a lowercase letter. In single quotes it can
-   also start with a capital letter and hold spaces or periods, as `'family.pl'` did in chapter 4. Mosa shows the
-   quotes only when the atom needs them, so `'hello'` and `hello` are the same atom.
+   also start with a capital letter and hold spaces or periods, as `'family.pl'` did in chapter 4. The quotes are
+   not part of the name, so `'hello'` and `hello` are the same atom. Mosa shows the quotes only when the atom needs
+   them.
 
 <!-- check: quoted -->
 ```text
@@ -216,4 +217,4 @@ Who = ann.
 
 ---
 
-[Index](README.md) · Previous: [4. Facts and rules](04-facts-rules.md) · Next: 6. Arithmetic (not written yet)
+[Index](README.md) · Previous: [4. Facts and rules](04-facts-rules.md) · Next: [6. Arithmetic](06-arithmetic.md)

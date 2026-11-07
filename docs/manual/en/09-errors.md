@@ -21,8 +21,8 @@ Read the warning from left to right:
 - `goal raised exception` means that a goal of your query raised an exception. An exception is a term that a goal
   hands back instead of an answer, and it stops the query.
 - After the colon comes that term. An error from a built-in predicate has the form `error(Formal, Context)`.
-- `Formal`, here `evaluation_error(zero_divisor)`, says what went wrong: arithmetic evaluation failed, and the
-  reason is division by zero.
+- `Formal`, here `evaluation_error(zero_divisor)`, says what went wrong: arithmetic evaluation could not be
+  done, because of division by zero.
 - `Context`, here `context((is)/2,_G1)`, says where: in `is/2`. `is` is in parentheses because it is an operator,
   as `(+)` was in chapter 6. The second argument of `context` holds more information when there is some. Here there
   is none, so it is a variable without a value, which Mosa writes as `_G1`.
@@ -76,8 +76,8 @@ Warning: goal raised exception: error(instantiation_error,context(atom_length/2,
 ```
 
 6. Raise an exception yourself with `throw/1`. `throw(Ball)` raises the term `Ball` as an exception. Any term will
-   do: a term that you throw yourself does not need the form `error(…)`. When nothing catches it, the warning shows
-   it as it is.
+   do, except a variable without a value: `throw(_)` raises an instantiation error instead. A term that you throw
+   yourself does not need the form `error(…)`. When nothing catches it, the warning shows it as it is.
 
 <!-- check: throw -->
 ```text
@@ -85,6 +85,8 @@ Warning: goal raised exception: error(instantiation_error,context(atom_length/2,
 Warning: goal raised exception: oops
 ?- catch(throw(oops), Ball, true).
 Ball = oops.
+?- throw(_).
+Warning: goal raised exception: error(instantiation_error,context(throw/1,_G1))
 ```
 
 7. Use `catch/3` and `throw/1` in a file. Create a file `safe.pl` in the folder `prolog` with these two rules.
