@@ -276,5 +276,5 @@ X = liz.
 
 ---
 
-[Index](README.md) · Previous: [3. Your first query](03-first-query.md) · Next: 5. Terms and unification (not
-written yet)
+[Index](README.md) · Previous: [3. Your first query](03-first-query.md) · Next:
+[5. Terms and unification](05-terms-unification.md)

@@ -236,4 +236,4 @@ X = 花子.
 
 ---
 
-[目次](README.md) ・ 前: [3. 最初の問い合わせ](03-first-query.md) ・ 次: 5. 項と単一化（まだ書いていません）
+[目次](README.md) ・ 前: [3. 最初の問い合わせ](03-first-query.md) ・ 次: [5. 項と単一化](05-terms-unification.md)
