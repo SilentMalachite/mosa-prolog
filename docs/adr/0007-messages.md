@@ -1,6 +1,6 @@
 English | [日本語](0007-messages.ja.md)
 
-Status: Approved (2026-10-28)
+Status: Approved (2026-10-28). Amendment 1 (2026-11-07; approved by the owner's choice on 2026-11-07): without `LANG`, Windows follows the display language
 
 ## Context
 
@@ -26,7 +26,7 @@ Keeping the sentence in the Formal. `catch/3` patterns would depend on the langu
 CMake runs `session_test` with `LANG=ja_JP.UTF-8` so the existing Japanese checks do not depend on the machine, and once more with `MOSA_LIB` at `tests/tmp/messages_empty/`, whose `messages_en.pl` (written at configure time) has no keys; `MOSA_LIB` is searched before the exe `lib/`, so that run checks the fallback.
 `read_syntax`, `read_incomplete` and `read_syntax_stream` in `tests/pl/read.pl` change to the Key and Extra above in the Task 12 commit. SPEC Section 7 names this Extra since approval. No code is written before approval.
 
-## Amendment 1 (2026-11-07; owner's choice on 2026-11-07)
+## Amendment 1 (2026-11-07; approved by the owner's choice on 2026-11-07)
 
 Context: on Windows `LANG` is normally unset, so `message_language` was always `en` even on a Japanese Windows.
 Decision: a non-empty `LANG` decides as before (`ja` prefix gives Japanese); when `LANG` is absent or empty, Windows uses the display language (`GetUserDefaultUILanguage`, primary language Japanese gives Japanese); other systems give English. The decision is `message_language_from(lang, ui_japanese)`, and the OS call lives in `src/platform/ui_language.cpp`.

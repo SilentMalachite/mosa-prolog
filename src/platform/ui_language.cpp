@@ -1,4 +1,4 @@
-// OS の表示言語（ADR 0007 追補 1）。Windows だけ GetUserDefaultUILanguage を呼ぶ。
+// OS の表示言語（ADR 0007 改訂 1）。Windows だけ GetUserDefaultUILanguage を呼ぶ。
 // テスト: tests/cpp/message_language_test.cpp（決定の部分。この呼び出しは Windows の CI で動く）
 #include "mosa/ui_language.hpp"
 
