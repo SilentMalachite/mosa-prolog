@@ -66,10 +66,11 @@ the file, then the line and the column where Mosa noticed the problem:
   again as plain text (step 2).
 - Any other line and column point at a typing mistake. Compare that line, and the line before it, with the lines
   above. Each fact ends with a period, and when a period is missing, Mosa notices only at the start of the next
-  line: without the period after `parent(tom, bob)`, Mosa prints `family.pl:2:1: unexpected token`, and without
-  the last period it prints `family.pl:6:1: incomplete term`. Type parentheses, commas and periods as the ordinary
-  half-width characters. An input method for Japanese, Chinese or Korean may type full-width ones such as `（` or
-  `。`, which Mosa does not read as punctuation.
+  line: without the period after `parent(tom, bob)`, Mosa prints `family.pl:2:1: unexpected token`. Without the
+  last period it prints `family.pl:6:1: incomplete term`, or `family.pl:5:17: incomplete term` when the file does
+  not end with a line break (TextEdit and Notepad do not add one). Type parentheses, commas and periods as the
+  ordinary half-width characters. An input method for Japanese, Chinese or Korean may type full-width ones such as
+  `（` or `。`, which Mosa does not read as punctuation.
 - `family.pl: cannot open file` means that this folder holds no file with exactly that name. List the folder to
   see the real names: type `ls` on macOS and Linux, or `dir` in PowerShell. File Explorer on Windows hides
   extensions such as `.txt`, so a file that it shows as `family.pl` may really be `family.pl.txt`.
@@ -178,6 +179,27 @@ started it, and the name must be complete: without the `.pl`, Mosa does not find
 ?- consult(family).
 family: cannot open file
 false.
+```
+
+When the file itself has a mistake, Mosa names the line and the column where it noticed it, as in the list after
+step 3. You can try one on purpose without touching `family.pl`: save the facts of step 2 once more as `typo.pl`,
+with the period after the first fact left out. Mosa reads `parent(tom, bob)` and goes on to the next line, where
+`parent` cannot follow without a period in between. So the message names line 2, column 1, and `mosa` returns to
+your shell:
+
+<!-- file: typo-file typo.pl -->
+```prolog
+parent(tom, bob)
+parent(tom, liz).
+parent(bob, ann).
+parent(bob, pat).
+parent(pat, jim).
+```
+
+<!-- check: typo -->
+```console
+$ mosa typo.pl
+typo.pl:2:1: unexpected token
 ```
 
 To answer a query, Mosa tries the clauses of the predicate from top to bottom. When a clause fits, Mosa shows the

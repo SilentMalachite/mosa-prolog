@@ -37,7 +37,7 @@ settings.
    time Terminal reads your Downloads folder, macOS asks: "“Terminal” would like to access files in your Downloads
    folder." Click the button that allows it (OK or Allow), not Don't Allow, or the `tar` and `mv` lines below
    cannot read the folder. If you clicked Don't Allow, turn Downloads Folder on for Terminal in System Settings,
-   under Privacy & Security, then Files and Folders.
+   under Privacy & Security, then Files & Folders.
 
 <!-- skip: unpack-macos -->
 ```console
