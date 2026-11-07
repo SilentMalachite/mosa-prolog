@@ -33,7 +33,11 @@ settings.
 
 2. Unpack the package in your home folder. Each package holds one folder with the same name as the package, and
    the programs are in the `bin` folder inside it. The commands below expect the package in your Downloads folder.
-   On macOS, open Terminal (press Command-Space, type Terminal and press Enter) and type these two lines:
+   On macOS, open Terminal (press Command-Space, type Terminal and press Enter) and type these two lines. The first
+   time Terminal reads your Downloads folder, macOS asks: "“Terminal” would like to access files in your Downloads
+   folder." Click the button that allows it (OK or Allow), not Don't Allow, or the `tar` and `mv` lines below
+   cannot read the folder. If you clicked Don't Allow, turn Downloads Folder on for Terminal in System Settings,
+   under Privacy & Security, then Files and Folders.
 
 <!-- skip: unpack-macos -->
 ```console
@@ -135,8 +139,9 @@ waited for a query. `halt.` is a query that ends the session. Every query ends w
 you press Enter after the period.
 
 You can also end the session by ending its input: press Ctrl-D on macOS and Linux, or Ctrl-Z then Enter on Windows,
-at the start of a line. After Ctrl-D, Mosa ends without printing a newline, so your shell's prompt appears on the
-same line, right after `?- `.
+at the start of a line. After Ctrl-D, Mosa ends without printing a newline. In bash (common on Linux) your shell's
+prompt appears right after `?- `. In zsh (the macOS default) a highlighted `%` appears there, and the prompt starts
+on the next line.
 
 ## Exercises
 

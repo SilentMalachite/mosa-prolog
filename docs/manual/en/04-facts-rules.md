@@ -58,10 +58,21 @@ false.
 ?- halt.
 ```
 
-If Mosa prints a line such as `family.pl:1:7: unexpected token` instead and you are back in your shell, the file
-was saved as rich text: open it and save it again as plain text (step 2). If it prints
-`family.pl: cannot open file`, this folder holds no file with exactly that name: check the name (it may have
-become `family.pl.txt`) and the folder that you saved it in.
+If Mosa prints an error instead and you are back in your shell, the file is not what Mosa expects. The error names
+the file, then the line and the column where Mosa noticed the problem:
+
+- `family.pl:1:7: unexpected token`, at line 1, column 7, means that the file was saved as rich text. TextEdit and
+  WordPad start such a file with `{\rtf1\ansi`, and Mosa stops at its seventh character. Open the file and save it
+  again as plain text (step 2).
+- Any other line and column point at a typing mistake. Compare that line, and the line before it, with the lines
+  above. Each fact ends with a period, and when a period is missing, Mosa notices only at the start of the next
+  line: without the period after `parent(tom, bob)`, Mosa prints `family.pl:2:1: unexpected token`, and without
+  the last period it prints `family.pl:6:1: incomplete term`. Type parentheses, commas and periods as the ordinary
+  half-width characters. An input method for Japanese, Chinese or Korean may type full-width ones such as `（` or
+  `。`, which Mosa does not read as punctuation.
+- `family.pl: cannot open file` means that this folder holds no file with exactly that name. List the folder to
+  see the real names: type `ls` on macOS and Linux, or `dir` in PowerShell. File Explorer on Windows hides
+  extensions such as `.txt`, so a file that it shows as `family.pl` may really be `family.pl.txt`.
 
 4. Start `mosa` without a file name this time, and load the file with `consult/1`. The file name is in single
    quotes because it holds a period. Then ask who Tom's children are, and who is a parent of Jim. Press `;` after
