@@ -246,5 +246,5 @@ true.
 
 ---
 
-[Index](README.md) · Previous: [9. Errors and exceptions](09-errors.md) · Next: 11. Writing in Japanese (not
-written yet)
+[Index](README.md) · Previous: [9. Errors and exceptions](09-errors.md) · Next:
+[11. Writing in Japanese](11-japanese.md)
