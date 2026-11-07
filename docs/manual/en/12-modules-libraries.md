@@ -278,5 +278,5 @@ X = liz.
 
 ---
 
-[Index](README.md) · Previous: [11. Writing in Japanese](11-japanese.md) · Next: 13. Building executables with
-`mosac` (not written yet)
+[Index](README.md) · Previous: [11. Writing in Japanese](11-japanese.md) · Next:
+[13. Building executables with `mosac`](13-mosac.md)
