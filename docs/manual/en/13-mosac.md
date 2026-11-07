@@ -68,9 +68,9 @@ hello
 ```
 
 Type the `./`. Without it, your shell looks for `hello` only in the folders of your PATH (chapter 2), not in the
-current folder, and does not find it: zsh, the shell of macOS, prints `zsh: command not found: hello`, and bash
-prints `bash: hello: command not found`. On Ubuntu, bash may also suggest installing a package named `hello`, which
-you do not need. In PowerShell on Windows, type `.\hello` (`./hello` works there too). In the Command Prompt (cmd),
+current folder, and does not find it: zsh, the default shell of macOS, prints `zsh: command not found: hello`, and
+bash prints something like `bash: hello: command not found`. On Ubuntu, bash may also suggest installing a package
+named `hello`, which you do not need. In PowerShell on Windows, type `.\hello` (`./hello` works there too). In the Command Prompt (cmd),
 `hello` alone works.
 
 `mosac build` also made a folder `.mosac-cache` in the folder `prolog`. It holds the C++ files and the other files
@@ -166,14 +166,37 @@ set, from the Windows display language. So the warning of step 8 is in Japanese 
 compiler of Visual Studio on Windows. After you change a file, run `mosac build` again, and it takes a second or two
 again. For a program that has not changed, it reuses what is in `.mosac-cache` and is done almost at once.
 
+The Linux package carries the runtime library for `g++` only. If your Linux has `clang++` and no `g++`, `mosac`
+finds `clang++`, and `mosac build` stops with two lines like these, which name the folder where you unpacked Mosa:
+
+<!-- skip: clang-linux -->
+```console
+$ mosac build hello.pl -o hello
+mosac: there is no runtime library for this compiler: /home/<name>/mosa-0.1.0-linux-x86_64/lib/mosa/linux-x86_64-clang
+Use the compiler mosac was built with, or run mosac build --runtime-source to build it from the bundled source (the result stays in .mosac-cache)
+```
+
+The simplest way out is to install `g++` as in step 1. Otherwise, add `--runtime-source` to each `mosac build` and
+`mosac run`: `mosac` then builds the runtime library for `clang++` from the source that the package carries. This
+needs CMake 3.25 or later (on Ubuntu, `sudo apt install cmake`). The first such build takes a minute or more and,
+like any build, prints nothing when it succeeds. It keeps the runtime library in `.mosac-cache`, so the next builds
+in the same folder are fast again:
+
+<!-- skip: runtime-source -->
+```console
+$ mosac build hello.pl -o hello --runtime-source
+$ ./hello
+hello
+```
+
 `mosac dist`, which packs a program for other people to install, is not part of Mosa 0.1.0.
 
 ## Exercises
 
 1. Write a program `squares.pl` in the folder `prolog` that prints the squares of 1, 2 and 3, one on each line. Use
    `forall/2`, `member/2` and `format/2` (chapter 12). Build it and run it.
-2. Save `main :- write('Hello, world'), nl.` alone, without the directive, as `nodirective.pl` in the folder
-   `prolog`. Build it and run it. What does it print?
+2. Save `main :- write('Hello, world'), nl.` alone, without the directive, as `nomain.pl` in the folder `prolog`.
+   Build it and run it. What does it print?
 
 ### Answers
 
@@ -200,15 +223,15 @@ $ ./squares
 
 2. Nothing. The build succeeds, but nothing calls `main`, so the program ends at once:
 
-<!-- file: nodirective-file nodirective.pl -->
+<!-- file: nodirective-file nomain.pl -->
 ```prolog
 main :- write('Hello, world'), nl.
 ```
 
 <!-- check: exercise-nodirective -->
 ```console
-$ mosac build nodirective.pl -o nodirective
-$ ./nodirective
+$ mosac build nomain.pl -o nomain
+$ ./nomain
 ```
 
 ---
