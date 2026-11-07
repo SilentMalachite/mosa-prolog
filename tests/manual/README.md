@@ -102,14 +102,18 @@ Every body row starts with `|`, and its first cell is exactly one code span `` `
 error, not a row to skip: text after the code span (`` `nope/1` (deprecated) ``), a link, bold, two code spans, a row
 without the leading `|`, or a line of prose right under the table. A line with a `|` that is not followed by a
 `| --- |` row is an error when it starts with `|`, and so is a line that starts with a code span and has a `|`. The
+header row is not compared, so a header whose first cell starts with a code span is an error, with or without the
+leading `|`. Inside a section, a line that starts with `>` and has a `|` (a table in a block quote) is an error too. The
 arity is a decimal number without a leading zero (`between/03` is an error). Write the name as it is (`` `=../2` ``,
 `` `\+/1` ``, `` `\==/2` ``, `` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``). Inside the
 quotes only `''` is decoded, as one quote; a backslash stays as it is, so write names with a backslash (`\=`, `\==`,
 `\+`, `=\=`) without quotes.
 
 Lines that a reader does not see as a table are not read: lines inside code blocks, lines inside a multi-line
-`<!-- … -->` comment, and lines indented by four or more spaces outside a list item (an indented code block). A table
-inside a list item may be indented.
+`<!-- … -->` comment, and lines indented by four or more spaces outside a list item (an indented code block). As in
+GitHub, a comment ends on the line that has `-->`, even with text after it, and the lines after that are read again.
+A table inside a list item may be indented. A thematic break (`* * *`, `- - -`, `___`) is not a list item, so lines
+indented under it are an indented code block.
 
 ```markdown
 <!-- predicates: between -->
@@ -124,7 +128,8 @@ an entry that Mosa lacks and a predicate that the tables lack both fail, and the
 the line of the first marker. `system` means the built-in predicates, those for which `predicate_property(H,
 built_in)` holds (and `:/2`, which `predicate_property/2` reads as a module qualification), without the internal
 helpers whose names start with `$`. The list is the one built into `mosatest`, which is why `--mosa` must print the
-same version. `LIB` means the export list of `lib/LIB.pl` beside `--mosa`, loaded by its absolute path in a fresh
+same version. `LIB` means the export list of `lib/LIB.pl` beside `--mosa` (beside the file it points to, when it is a
+symbolic link, as `mosa` itself looks there), loaded by its absolute path in a fresh
 machine; `$MOSA_LIB` is ignored, as it is for the `mosa` that runs the examples. A library that is present but cannot
 be loaded (a syntax error, no `module/2`, a module with another name) fails with its name, its path and the load error.
 Directives such as `use_module/1` and `dynamic/1` are not built-in predicates, so list them in a table without a

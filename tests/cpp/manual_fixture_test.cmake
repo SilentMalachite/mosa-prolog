@@ -4,12 +4,15 @@
 # MOSA_HEAP_MAX=bogus は子に渡れば mosa が警告を出して例が違うので、mosatest が消していることも確かめる。
 # 使い方: cmake -DMOSATEST=<mosatest> [-DMOSA=<mosa>] [-DDIR=<見本>] -DWORK=<作業場所> -DLANG_VALUE=<LANG>
 #   [-DOPTIONS=<引数>] [-DMOSA_LIB_VALUE=<ディレクトリ>] [-DSTAGE=<置き場> -DSTAGE_LIB=<ディレクトリ>]
+#   [-DLINK=<置き場> -DLINK_LIB=<ディレクトリ>]
 #   -DCODE=<終了コード> -DPATTERN_1=<正規表現> [-DPATTERN_2=… -DPATTERN_6=…] -P manual_fixture_test.cmake
 # 正規表現は出力の改行を ~ に置き換えたものに当てる。与えたものはすべて合わなければならない。
 # DIR を省くと mosatest --manual だけを動かす（使い方の誤り）。MOSA を省くと既定（mosatest の隣の mosa）を使う。
 # OPTIONS は後ろに足す引数（--all-tables など）。MOSA_LIB_VALUE は mosatest の環境の MOSA_LIB で、表と比べる
 # ライブラリがそれに左右されないことを見る。STAGE は MOSA（必須）とその隣の lib/*.pl を空にした置き場に写し、
 # STAGE_LIB/*.pl を置き場の lib/ に足して、写した mosa を --mosa に渡す（リリース 0.1.0 Task 5 の修正）。
+# LINK は空にした置き場に MOSA（必須）へのシンボリックリンクと、LINK_LIB/*.pl だけの lib/ を作り、リンクを --mosa に
+# 渡す。表がリンクの隣でなく実体の隣の lib/ と比べられることを見る（修正 2）。
 
 set(ENV{LANG} "${LANG_VALUE}")
 set(ENV{MOSA_HEAP_MAX} "bogus")
@@ -25,6 +28,18 @@ if(STAGE)
   file(GLOB libraries "${tools}/lib/*.pl" "${STAGE_LIB}/*.pl")
   file(COPY ${libraries} DESTINATION "${STAGE}/lib")
   set(MOSA "${STAGE}/${program}")
+endif()
+if(LINK)
+  get_filename_component(program "${MOSA}" NAME)
+  file(REMOVE_RECURSE "${LINK}")
+  file(MAKE_DIRECTORY "${LINK}/lib")
+  file(GLOB libraries "${LINK_LIB}/*.pl")
+  file(COPY ${libraries} DESTINATION "${LINK}/lib")
+  file(CREATE_LINK "${MOSA}" "${LINK}/${program}" RESULT linked SYMBOLIC)
+  if(NOT linked EQUAL 0)
+    message(FATAL_ERROR "cannot create a symbolic link in ${LINK}: ${linked}")
+  endif()
+  set(MOSA "${LINK}/${program}")
 endif()
 set(command "${MOSATEST}" --manual)
 if(DIR)

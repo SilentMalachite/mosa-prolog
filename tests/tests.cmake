@@ -743,6 +743,18 @@ add_test(NAME manual_fixture_bad_preds_mosa_lib COMMAND ${CMAKE_COMMAND} -DMOSAT
   "-DPATTERN_1=bad-preds/en/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
   "-DPATTERN_2=bad-preds/ja/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
   "-DPATTERN_3=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
+# シンボリックリンクの --mosa は実体に解いてから隣の lib/ を取る。リンクの隣の lib/ は bad-preds/lib の偽の between
+# だけで、それと比べれば between の表は通り、知らない名前の一覧も between だけになる（修正 2）。Windows のリンクは
+# 特権か開発者モードが要り、試験が走らせる環境の設定しだいになるので登録しない（解き方は executable_path と同じ）。
+if(NOT WIN32)
+  add_test(NAME manual_fixture_bad_preds_link COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+    -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-preds
+    -DLINK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_link -DLINK_LIB=${manual_fixture_dir}/bad-preds/lib
+    -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_preds_link -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+    "-DPATTERN_1=bad-preds/en/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
+    "-DPATTERN_2=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, format, japanese, lists, strings~"
+    "-DPATTERN_3=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
+endif()
 # あるが読めないライブラリは、その名前とパスと読み込みの誤りを出す。置き場は mosa と lib/ に bad-lib/lib を足したもの
 # （修正 1 と 5）。
 add_test(NAME manual_fixture_bad_lib COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>

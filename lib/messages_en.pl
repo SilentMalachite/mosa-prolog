@@ -140,6 +140,8 @@ message(manual_predicates_unknown, 'no predicate list for ~w; a table names syst
 message(manual_predicates_differ, 'table of ~w differs from Mosa (not in Mosa [~w], not in the table [~w])').
 message(manual_table_row, 'a row of a predicates table starts with | and has exactly one code span `name/arity` in its first cell: ~w').
 message(manual_table_header, 'table line in a predicates section without a | --- | row under it: ~w').
+message(manual_table_header_span, 'the header row of a predicates table starts with a code span, which is not compared; put predicates under the | --- | row: ~w').
+message(manual_table_quote, 'a table in a block quote inside a predicates section is not compared; take it out of the quote or end the section first: ~w').
 message(manual_tables_missing, '~w: no predicates table for ~w').
 message(manual_library_unloadable, 'library(~w) at ~w cannot be loaded: ~w').
 message(manual_library_no_module, 'the file does not define the module ~w').

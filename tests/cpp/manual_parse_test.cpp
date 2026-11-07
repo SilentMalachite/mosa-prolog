@@ -344,6 +344,58 @@ void manual_parse_bad_rows() {
   check(prose.errors.empty(), "bad rows: prose with | that does not start with a code span or |");
 }
 
+// 見出しの行は比べないので、最初の欄がコードスパンの見出しは誤り。頭の | があってもなくても（修正 2 の N1）。
+void manual_parse_header_span() {
+  for (const std::string_view header : {"| `nope/1` | Not in Mosa |", "`nope/1` | Not in Mosa |", "`nope/1`"}) {
+    const std::string text = "<!-- predicates: between -->\n" + std::string{header} +
+                             "\n| --- | --- |\n| `between/3` | x |\n";
+    const mosa::ParsedManual parsed = mosa::parse_manual(text, "s.md");
+    check(parsed.errors.size() == 1 && has_error(parsed, "s.md:2: "), "header span: error for " + std::string{header});
+    check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, {{"between", 3}}),
+          "header span: body rows still counted for " + std::string{header});
+  }
+  check(mosa::parse_manual("<!-- predicates: between -->\nPredicates\n| --- |\n| `between/3` |\n", "s.md")
+            .errors.empty(),
+        "header span: a plain header without a pipe");
+}
+
+// 読者に見える行を隠さない。同じ行で閉じる注釈の後ろ、区切りの線の後ろの字下げ、引用の中の表（修正 2 の N2、N3、N5）。
+void manual_parse_visible_rows() {
+  constexpr std::string_view trailing =
+      "<!-- predicates: between -->\n"            // 1
+      "| P |\n| --- |\n| `between/3` |\n"        // 2-4
+      "\n"                                        // 5
+      "<!-- note --> text after the comment\n"    // 6
+      "\n"                                        // 7
+      "| P |\n| --- |\n| `succ/2` |\n"           // 8-10
+      "\n"                                        // 11
+      "<!-- predicates: lists -->\n"              // 12
+      "| P |\n| --- |\n| `append/3` |\n";        // 13-15
+  const mosa::ParsedManual seen = mosa::parse_manual(trailing, "v.md");
+  check(seen.errors.empty() && seen.tables.size() == 2, "visible rows: a comment closed mid-line hides nothing");
+  if (seen.tables.size() == 2) {
+    check(same(seen.tables[0].entries, {{"between", 3}, {"succ", 2}}) &&
+              same(seen.tables[1].entries, {{"append", 3}}) && seen.tables[1].line == 12,
+          "visible rows: the rows and the marker after it");
+  }
+  constexpr std::string_view rule =
+      "<!-- predicates: between -->\n| P |\n| --- |\n| `between/3` |\n\n"  // 1-5
+      "* * *\n\n    | P |\n    | --- |\n    | `succ/2` |\n\n"            // 6-11
+      "- - -\n\n    | `plus/3` |\n";                                      // 12-14
+  const mosa::ParsedManual broken = mosa::parse_manual(rule, "v.md");
+  check(broken.errors.empty() && broken.tables.size() == 1 && same(broken.tables.front().entries, {{"between", 3}}),
+        "visible rows: a thematic break is not a list item, so indented lines after it are code");
+  constexpr std::string_view quote =
+      "<!-- predicates: between -->\n| P |\n| --- |\n| `between/3` |\n\n"  // 1-5
+      "> A quote without a table.\n\n"                                     // 6-7
+      "> | P |\n> | --- |\n> | `nope/1` |\n";                             // 8-10
+  const mosa::ParsedManual quoted = mosa::parse_manual(quote, "v.md");
+  check(quoted.errors.size() == 3 && has_error(quoted, "v.md:8: ") && has_error(quoted, "v.md:10: "),
+        "visible rows: each line of a table in a block quote is an error");
+  check(quoted.tables.size() == 1 && same(quoted.tables.front().entries, {{"between", 3}}),
+        "visible rows: the quoted rows are not counted");
+}
+
 void manual_parse_table_errors() {
   check(has_error(mosa::parse_manual("<!-- predicates: -->\n", "e.md"), "e.md:1: "), "tables: no library name");
   check(has_error(mosa::parse_manual("<!-- predicates: a b -->\n", "e.md"), "e.md:1: "), "tables: two names");
@@ -494,6 +546,8 @@ int main() {
   manual_parse_tables();
   manual_parse_hidden_rows();
   manual_parse_bad_rows();
+  manual_parse_header_span();
+  manual_parse_visible_rows();
   manual_parse_table_errors();
   manual_builtin_indicators();
   manual_library_exports();

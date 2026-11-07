@@ -259,7 +259,34 @@ bool starts_with_folded(std::string_view text, std::string_view prefix) {
   return true;
 }
 
-// 区切りの中の表の位置。Header は | --- | を待つ見出しの候補の行の後ろ、Body は | --- | の後ろ。
+// GFM の HTML ブロック <!-- … --> は --> を含む行で終わる。--> の後ろに字があっても、注釈はその行で閉じる。
+bool comment_ends_on(std::string_view line) {
+  const std::size_t open = line.find("<!--");
+  return line.find("-->", open == std::string_view::npos ? 0 : open + 4) != std::string_view::npos;
+}
+
+// 区切りの線（* * *、- - -、___）。字下げは空白 3 つまでで、同じ字が 3 つ以上、間は空白だけ。箇条書きの印に見えても
+// 項目ではない。
+bool thematic_break(std::string_view line) {
+  if (indentation(line) >= 4) return false;
+  const std::string_view text = trim(line);
+  if (text.empty() || (text.front() != '*' && text.front() != '-' && text.front() != '_')) return false;
+  std::size_t marks = 0;
+  for (const char letter : text) {
+    if (letter == text.front()) ++marks;
+    else if (!blank(letter)) return false;
+  }
+  return marks >= 3;
+}
+
+// 表の行の最初の欄。頭の | は省いてよい（GFM と同じ）。
+std::string_view first_cell(std::string_view text) {
+  text = trim(text);
+  if (text.starts_with('|')) text.remove_prefix(1);
+  return trim(text.substr(0, text.find('|')));
+}
+
+// 区切りの中の表の位置。Header は見出しの候補の行（| --- | の直前になりうる行）の後ろ、Body は | --- | の後ろ。
 enum class Rows { None, Header, Body };
 
 // file: の NAME と ./NAME は章のディレクトリの中の名前だけにする。作業場所の外へ書かせない。
@@ -395,7 +422,7 @@ void Parser::table_line(std::size_t index) {
   }
   if (const auto note = comment(line)) {
     end_rows();
-    in_comment_ = !note->closed;
+    in_comment_ = !comment_ends_on(line);
     table_comment(index, *note);
     return;
   }
@@ -418,8 +445,13 @@ bool Parser::skipped_line(std::string_view line) {
     return true;
   }
   const std::size_t indent = indentation(line);
-  if (indent < 4 && list_marker(trim(line)) > 0) in_list_ = true;
-  else if (indent == 0 && after_blank) in_list_ = false;
+  if (thematic_break(line)) {
+    if (indent == 0) in_list_ = false;
+  } else if (indent < 4 && list_marker(trim(line)) > 0) {
+    in_list_ = true;
+  } else if (indent == 0 && after_blank) {
+    in_list_ = false;
+  }
   return false;
 }
 
@@ -440,7 +472,8 @@ void Parser::table_comment(std::size_t index, const Comment& note) {
 }
 
 // 区切りの中の表は、見出しの行、| --- | の行、本体の行の順。本体のどの行も | で始まり、最初の欄はコードスパン
-// `name/arity` 1 つだけ。読み飛ばして数えない行を作らないため、ほかの形の行はどれも誤りにする。
+// `name/arity` 1 つだけ。読み飛ばして数えない行を作らないため、ほかの形の行はどれも誤りにする。見出しの行は
+// 比べないので、最初の欄がコードスパンなら述語を見出しに書いたものとして誤りにする。
 void Parser::section_line(std::size_t index, std::string_view text) {
   if (rows_ == Rows::Body) {
     std::optional<PredicateIndicator> entry = table_entry(text);
@@ -449,13 +482,17 @@ void Parser::section_line(std::size_t index, std::string_view text) {
     return;
   }
   if (delimiter_row(text)) {
+    if (rows_ == Rows::Header && first_cell(lines_[header_]).starts_with('`')) {
+      error(header_ + 1, "manual_table_header_span", {std::string{trim(lines_[header_])}});
+    }
     rows_ = Rows::Body;
     return;
   }
   end_rows();
-  if (text.find('|') == std::string_view::npos) return;
-  if (text.starts_with('`')) {
-    error(index + 1, "manual_table_row", {std::string{text}});
+  const bool bar = text.find('|') != std::string_view::npos;
+  // 引用の中の表は読者に表と見えるが、ここでは読まない。黙って数えずに通らないよう誤りにする。
+  if (bar && (text.starts_with('`') || text.starts_with('>'))) {
+    error(index + 1, text.starts_with('>') ? "manual_table_quote" : "manual_table_row", {std::string{text}});
     return;
   }
   rows_ = Rows::Header;

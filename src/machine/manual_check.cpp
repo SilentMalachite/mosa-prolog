@@ -466,6 +466,11 @@ std::optional<Runner> make_runner(const ManualArgs& args, const std::filesystem:
   runner.suffix = utf8_from_path(self.extension());
   runner.mosa = args.mosa.empty() ? self.parent_path() / path_from_utf8("mosa" + runner.suffix)
                                   : std::filesystem::absolute(path_from_utf8(args.mosa), error);
+  // シンボリックリンクの --mosa でも、mosac、mosatest と表の lib/ は実体の隣のもの。mosa 自身が隣の lib/ を探すのと
+  // 同じ形にする（executable_path と同じ weakly_canonical で、解けなければそのまま）。
+  std::error_code unresolved;
+  const std::filesystem::path real = std::filesystem::weakly_canonical(runner.mosa, unresolved);
+  if (!error && !unresolved) runner.mosa = real;
   runner.tools = runner.mosa.parent_path();
   runner.io = work / "io";
   if (!error) std::filesystem::create_directories(runner.io, error);

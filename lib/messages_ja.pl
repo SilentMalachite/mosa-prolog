@@ -140,6 +140,8 @@ message(manual_predicates_unknown, '~w の述語の一覧はありません。�
 message(manual_predicates_differ, '~w の表が Mosa と違います（Mosa に無いもの [~w]、表に無いもの [~w]）').
 message(manual_table_row, '述語の表の行は | で始め、最初の欄にコードスパン `name/arity` を 1 つだけ書きます: ~w').
 message(manual_table_header, '述語の区切りの表の行の下に | --- | の行がありません: ~w').
+message(manual_table_header_span, '述語の表の見出しの行がコードスパンで始まりますが、見出しの行は比べません。述語は | --- | の行より下に書きます: ~w').
+message(manual_table_quote, '述語の区切りの中の引用の表は比べません。引用の外に出すか、先に区切りを終えます: ~w').
 message(manual_tables_missing, '~w に ~w の述語の表がありません').
 message(manual_library_unloadable, 'library(~w)（~w）を読めません: ~w').
 message(manual_library_no_module, 'ファイルがモジュール ~w を定義していません').
