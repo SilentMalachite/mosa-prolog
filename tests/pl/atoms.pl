@@ -110,3 +110,107 @@ m2_zeros(Z) :- m2_zero_codes(400, L), atom_codes(Z, L).
 m2_number([A, B, C], N) :- atom_concat(A, B, AB), atom_concat(AB, C, T), atom_number(T, N).
 test(m2_long_big_negative_exp, (m2_zeros(Z), m2_number(['1', Z, '.0e-10'], _)), error(syntax_error(float_overflow))).
 test(m2_long_tiny_no_exp, (m2_zeros(Z), m2_number(['0.', Z, '1'], N), N == 0.0), true).
+% レビュー M32。sub_atom/5 は束縛された引数が許す候補だけを試す。8.16.3.4 の Examples のうち上に無いもの、
+% 決まった引数の組ごとの解とその順（Before の昇順、同じ Before では Length の昇順）、同じ変数を 2 つの引数に
+% 置いたとき、最後の解が選択点を残さないこと、長い原子で答えがすぐ返ること。
+test(m32_iso_acada, sub_atom(abracadabra, 3, L, 3, S), solutions([(L = 5, S = acada)])).
+test(m32_iso_ab, sub_atom(abracadabra, B, 2, A, ab), solutions([(B = 0, A = 9), (B = 7, A = 2)])).
+test(m32_iso_banana, sub_atom('Banana', 3, 2, _, S), solutions([S = an])).
+test(m32_iso_charity, sub_atom(charity, _, 3, _, S), solutions([S = cha, S = har, S = ari, S = rit, S = ity])).
+test(m32_before, sub_atom(abc, 1, L, A, S), solutions([
+    (L = 0, A = 2, S = ''),
+    (L = 1, A = 1, S = b),
+    (L = 2, A = 0, S = bc)
+])).
+test(m32_length, sub_atom(abc, B, 2, A, S), solutions([(B = 0, A = 1, S = ab), (B = 1, A = 0, S = bc)])).
+test(m32_after, sub_atom(abc, B, L, 1, S), solutions([
+    (B = 0, L = 2, S = ab),
+    (B = 1, L = 1, S = b),
+    (B = 2, L = 0, S = '')
+])).
+test(m32_before_length, sub_atom(abc, 1, 1, A, S), solutions([(A = 1, S = b)])).
+test(m32_before_after, sub_atom(abc, 1, L, 0, S), solutions([(L = 2, S = bc)])).
+test(m32_length_after, sub_atom(abc, B, 1, 0, S), solutions([(B = 2, S = c)])).
+test(m32_all_three, sub_atom(abc, 1, 1, 1, S), solutions([S = b])).
+test(m32_all_three_sum, sub_atom(abc, 1, 1, 0, _), fail).
+test(m32_before_long, sub_atom(abc, 4, _, _, _), fail).
+test(m32_length_long, sub_atom(abc, _, 4, _, _), fail).
+test(m32_after_long, sub_atom(abc, _, _, 4, _), fail).
+test(m32_two_long, sub_atom(abc, 2, 2, _, _), fail).
+test(m32_huge_before, sub_atom(abc, 9223372036854775807, _, _, _), fail).
+test(m32_huge_pair, sub_atom(abc, _, 9223372036854775807, 9223372036854775807, _), fail).
+test(m32_huge_sum, sub_atom(abc, 1, 9223372036854775807, _, _), fail).
+test(m32_sub, sub_atom(abcabc, B, L, A, bc), solutions([(B = 1, L = 2, A = 3), (B = 4, L = 2, A = 0)])).
+test(m32_sub_overlap, sub_atom(aaaa, B, _, _, aa), solutions([B = 0, B = 1, B = 2])).
+test(m32_sub_restart, sub_atom(aabaabaaab, B, _, _, aab), solutions([B = 0, B = 3, B = 7])).
+test(m32_sub_period, sub_atom(abababab, B, _, _, abab), solutions([B = 0, B = 2, B = 4])).
+test(m32_sub_empty, sub_atom(ab, B, L, A, ''), solutions([
+    (B = 0, L = 0, A = 2),
+    (B = 1, L = 0, A = 1),
+    (B = 2, L = 0, A = 0)
+])).
+test(m32_sub_before, sub_atom(abcabc, 3, L, A, abc), solutions([(L = 3, A = 0)])).
+test(m32_sub_before_miss, sub_atom(abcabc, 1, _, _, abc), fail).
+test(m32_sub_after, sub_atom(abcabc, B, L, 0, abc), solutions([(B = 3, L = 3)])).
+test(m32_sub_length_miss, sub_atom(abcabc, _, 2, _, abc), fail).
+test(m32_sub_long, sub_atom(ab, _, _, _, abc), fail).
+test(m32_sub_whole, sub_atom(abc, B, L, A, abc), solutions([(B = 0, L = 3, A = 0)])).
+test(m32_alias_before_length, sub_atom(abcd, X, X, A, S), solutions([
+    (X = 0, A = 4, S = ''),
+    (X = 1, A = 2, S = b),
+    (X = 2, A = 0, S = cd)
+])).
+test(m32_alias_length_after, sub_atom(abcd, B, X, X, S), solutions([
+    (B = 0, X = 2, S = ab),
+    (B = 2, X = 1, S = c),
+    (B = 4, X = 0, S = '')
+])).
+test(m32_alias_before_after, sub_atom(abab, X, 2, X, S), solutions([(X = 1, S = ba)])).
+test(m32_alias_sub, sub_atom(xabxab, X, _, X, ab), fail).
+test(m32_alias_sub_mid, sub_atom(xabx, X, _, X, ab), solutions([X = 1])).
+test(m32_alias_before_after_free, sub_atom(abcd, X, L, X, S), solutions([
+    (X = 0, L = 4, S = abcd),
+    (X = 1, L = 2, S = bc),
+    (X = 2, L = 0, S = '')
+])).
+test(m32_alias_length_after_odd, sub_atom(abcde, B, X, X, S), solutions([
+    (B = 1, X = 2, S = bc),
+    (B = 3, X = 1, S = d),
+    (B = 5, X = 0, S = '')
+])).
+test(m32_alias_all_three, sub_atom(abcdef, X, X, X, S), solutions([(X = 2, S = cd)])).
+test(m32_alias_all_three_miss, sub_atom(abcde, X, X, X, _), fail).
+test(m32_alias_halved_before, sub_atom(abcde, 1, X, X, S), solutions([(X = 2, S = bc)])).
+test(m32_alias_halved_odd, sub_atom(abcd, 1, X, X, _), fail).
+test(m32_alias_halved_length, sub_atom(abcde, X, 1, X, S), solutions([(X = 2, S = c)])).
+test(m32_alias_halved_after, sub_atom(abcde, X, X, 1, S), solutions([(X = 2, S = cd)])).
+test(m32_alias_sub_half, sub_atom(aaaaaa, X, _, X, aa), solutions([X = 2])).
+test(m32_alias_sub_length, sub_atom(xxab, X, X, A, ab), solutions([(X = 2, A = 0)])).
+test(m32_alias_sub_length_miss, sub_atom(aabab, X, X, _, ab), fail).
+test(m32_alias_sub_var_before, sub_atom(abc, S, _, _, S), fail).
+test(m32_alias_sub_var_length, sub_atom(abc, _, S, _, S), fail).
+test(m32_alias_sub_var_after, sub_atom(abc, _, _, S, S), fail).
+% setup_call_cleanup/3 の後始末は、ゴールが選択点を残さずに成功したときだけ、その直後に走る。
+m32_det(Goal) :- setup_call_cleanup(true, Goal, Det = yes), Det == yes.
+test(m32_det_length_after, m32_det(sub_atom(abc, _, 1, 0, _)), true).
+test(m32_det_before_length, m32_det(sub_atom(abc, 1, 1, _, _)), true).
+test(m32_det_sub_before, m32_det(sub_atom(abcabc, 3, _, _, abc)), true).
+test(m32_det_last_match, (m32_det(sub_atom(abcab, B, _, _, ab)), B == 3), true).
+test(m32_det_last_before, (m32_det(sub_atom(abc, 1, L, _, _)), L == 2), true).
+test(m32_det_last_length, (m32_det(sub_atom(abc, B, 2, _, _)), B == 1), true).
+test(m32_det_last_after, (m32_det(sub_atom(abc, B, _, 1, _)), B == 2), true).
+test(m32_det_last_all, (m32_det(sub_atom(ab, B, L, _, _)), B == 2, L == 0), true).
+test(m32_det_alias_sub, m32_det(sub_atom(aaaa, X, 2, X, aa)), true).
+test(m32_det_alias_last, (m32_det(sub_atom(abcd, X, X, _, _)), X == 2), true).
+test(m32_det_alias_after_last, (m32_det(sub_atom(abcd, X, _, X, _)), X == 2), true).
+test(m32_det_alias_length_last, (m32_det(sub_atom(abcde, B, X, X, _)), B == 5), true).
+test(m32_nondet_first_match, (setup_call_cleanup(true, sub_atom(abcab, B, _, _, ab), Det = yes), B == 0, var(Det)), true).
+% 2^K 個の a の原子。atom_concat で倍にするので、GC ストレスでも組むのは K 回で済む。
+m32_as(0, a) :- !.
+m32_as(K, A) :- J is K - 1, m32_as(J, H), atom_concat(H, H, A).
+test(m32_long_end, (m32_as(12, A), sub_atom(A, 4095, 1, 0, S)), solutions([S = a])).
+test(m32_long_length_after, (m32_as(12, A), sub_atom(A, B, 1, 0, _)), solutions([B = 4095])).
+test(m32_long_match, (m32_as(12, A0), atom_concat(A0, b, A), sub_atom(A, B, _, _, b)), solutions([B = 4096])).
+test(m32_long_absent, (m32_as(12, A), m32_as(11, P0), atom_concat(P0, b, P), \+ sub_atom(A, _, _, _, P)), true).
+test(m32_long_alias_sub, (m32_as(12, A), m32_as(11, P), sub_atom(A, X, _, X, P)), solutions([X = 1024])).
+test(m32_long_count, (m32_as(10, A), findall(B, sub_atom(A, B, _, _, a), Bs), length(Bs, N)), solutions([N = 1024])).

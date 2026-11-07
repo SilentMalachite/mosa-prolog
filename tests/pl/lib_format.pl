@@ -137,6 +137,6 @@ test(m29_fmt_star_inf, (X is -inf, with_output_to(atom(A), format("~*e", [1200, 
 test(m29_float_e_inf, (X is inf, '$format_float'(e, 1200, X, A)), solutions([A = '1.0Inf'])).
 test(m29_float_f_nan, (X is -(nan), '$format_float'(f, 1200, X, A)), solutions([A = '1.5NaN'])).
 % 有限の数は 1100 桁を超えても、指数の前か末尾に 0 を足す。期待する原子は桁を埋める ~`0t~N| で組む。
-% sub_atom/5 は長い原子で候補をすべて数え上げて遅いので使わない。
+% 書いたときの sub_atom/5 は長い原子で候補をすべて数え上げて遅かったので使っていない（レビュー M32 で直した）。
 test(m29_fmt_e_many_finite, (with_output_to(atom(Z), format("~`0t~1200|", [])), atom_concat('1.', Z, P), atom_concat(P, 'e+00', E), with_output_to(atom(A), format("~1200e", [1.0])), A == E), true).
 test(m29_fmt_f_many_finite, (with_output_to(atom(Z), format("~`0t~1199|", [])), atom_concat('0.5', Z, E), with_output_to(atom(A), format("~1200f", [0.5])), A == E), true).

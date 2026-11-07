@@ -137,6 +137,7 @@ struct Entry {
   // Clauses・Retract・ClauseScan は候補の列を作らず、次に試す節の番号（尽きたら kNoClause）と選ぶ鍵だけを持つ。
   // 列を作ると、最初の答えで切っても呼ぶたびに候補の数だけかかる（レビュー M3 と M20）。番号は消しても asserta
   // しても付け直さない（ADR 0015）。Retract と ClauseScan のカーソルは、次に合う節（先に試して合った節）を指す。
+  // sub_atom の AtomGen は、次に試す候補の Before を next に、Length をここに置く（レビュー M32）。
   std::size_t cursor = kNoClause;
   IndexKey key;
   std::uint32_t pred_module = 0;

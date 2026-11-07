@@ -1,4 +1,5 @@
-// 8.16 アトム処理。atom_number/2（未決 2 の決定 A）は number_chars と同じく atoms_number.cpp に置く。
+// 8.16 アトム処理。atom_number/2（未決 2 の決定 A）は number_chars と同じく atoms_number.cpp に、
+// sub_atom/5 は候補を絞る並べ方とともに atoms_sub.cpp に置く。
 // atom_length(+atom, ?integer)
 //   instantiation_error, type_error(atom), type_error(integer), domain_error(not_less_than_zero)
 // atom_concat(?atom, ?atom, ?atom)
@@ -23,6 +24,7 @@ namespace mosa {
 namespace {
 
 constexpr std::uint8_t kConcat = 1;
+// sub_atom/5 のやり直し（atoms_sub.cpp）。
 constexpr std::uint8_t kSub = 2;
 
 struct Step {
@@ -82,35 +84,10 @@ void domain_at(Impl& machine, const Goal& goal, Cell culprit) {
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-struct Slice {
-  std::size_t before = 0;
-  std::size_t length = 0;
-  std::size_t after = 0;
-};
-
-Slice slice_at(std::size_t len, std::size_t index) {
-  std::size_t cursor = 0;
-  Slice slice;
-  for (slice.before = 0; slice.before <= len; ++slice.before) {
-    const auto room = len - slice.before;
-    for (slice.length = 0; slice.length <= room; ++slice.length) {
-      if (cursor == index) {
-        slice.after = room - slice.length;
-        return slice;
-      }
-      ++cursor;
-    }
-  }
-  return {};
-}
-
-std::size_t slice_count(std::size_t len) { return (len + 1) * (len + 2) / 2; }
-
-void push_gen(Impl& machine, const Goal& goal, std::uint8_t kind, std::size_t next, std::size_t heap_mark,
-              std::size_t trail_mark) {
+void push_concat(Impl& machine, const Goal& goal, std::size_t next, std::size_t heap_mark, std::size_t trail_mark) {
   Entry entry;
   entry.pick = Pick::AtomGen;
-  entry.gen_kind = kind;
+  entry.gen_kind = kConcat;
   entry.next = next;
   entry.redo_goal = goal.at;
   entry.heap_mark = heap_mark;
@@ -127,39 +104,20 @@ bool bind_concat(Impl& machine, const Goal& goal, std::size_t split) {
   return do_unify(machine, goal.arg(machine, 0), left) && do_unify(machine, goal.arg(machine, 1), right);
 }
 
-bool bind_sub(Impl& machine, const Goal& goal, std::size_t index) {
-  const Cell atom = machine.heap.deref(goal.arg(machine, 0));
-  const CodeText text = decode_codes(machine.atoms.name(atom_id(atom)));
-  const Slice slice = slice_at(text.size(), index);
-  const Cell before = machine.heap.integer(static_cast<std::int64_t>(slice.before));
-  const Cell length = machine.heap.integer(static_cast<std::int64_t>(slice.length));
-  const Cell after = machine.heap.integer(static_cast<std::int64_t>(slice.after));
-  const Cell sub = machine.heap.atom(machine.atoms.intern(text.slice(slice.before, slice.length)));
-  return do_unify(machine, goal.arg(machine, 1), before) && do_unify(machine, goal.arg(machine, 2), length) &&
-         do_unify(machine, goal.arg(machine, 3), after) && do_unify(machine, goal.arg(machine, 4), sub);
+std::size_t concat_total(const Impl& machine, const Goal& goal) {
+  const Cell atom = machine.heap.deref(goal.arg(machine, 2));
+  return decode_codes(machine.atoms.name(atom_id(atom))).size() + 1;
 }
 
-bool bind_gen(Impl& machine, const Goal& goal, std::uint8_t kind, std::size_t index) {
-  if (kind == kConcat) return bind_concat(machine, goal, index);
-  return bind_sub(machine, goal, index);
-}
-
-std::size_t gen_total(const Impl& machine, const Goal& goal, std::uint8_t kind) {
-  const Cell atom = machine.heap.deref(goal.arg(machine, kind == kConcat ? 2 : 0));
-  const auto len = decode_codes(machine.atoms.name(atom_id(atom))).size();
-  if (kind == kConcat) return len + 1;
-  return slice_count(len);
-}
-
-bool prove_gen(Impl& machine, const Goal& goal, std::uint8_t kind, std::size_t begin, std::size_t total) {
+bool prove_concat(Impl& machine, const Goal& goal, std::size_t begin, std::size_t total) {
   for (std::size_t index = begin; index < total; ++index) {
     const auto heap_mark = machine.heap.size();
     const auto trail_mark = machine.trail.slots.size();
     const auto extras_mark = machine.extras.size();
     const bool more = index + 1 < total;
     // 水位は束縛より前。後だとやり直しが、今の解の束縛を消さない。
-    if (more) push_gen(machine, goal, kind, index + 1, heap_mark, trail_mark);
-    if (bind_gen(machine, goal, kind, index)) {
+    if (more) push_concat(machine, goal, index + 1, heap_mark, trail_mark);
+    if (bind_concat(machine, goal, index)) {
       succeed(machine, goal);
       return true;
     }
@@ -167,10 +125,6 @@ bool prove_gen(Impl& machine, const Goal& goal, std::uint8_t kind, std::size_t b
     restore_state(machine, heap_mark, trail_mark, extras_mark);
   }
   return false;
-}
-
-void gen_or_fail(Impl& machine, const Goal& goal, std::uint8_t kind) {
-  if (!prove_gen(machine, goal, kind, 0, gen_total(machine, goal, kind))) machine.failed = true;
 }
 
 bool negative_int(const Impl& machine, Cell cell) {
@@ -305,47 +259,7 @@ void run_atom_concat(Impl& machine, const Goal& goal) {
     else succeed(machine, goal);
     return;
   }
-  gen_or_fail(machine, goal, kConcat);
-}
-
-bool reject_sub_type(Impl& machine, const Goal& goal, Cell cell) {
-  if (machine.heap.unbound(cell) || is_int_cell(cell)) return false;
-  type_at(machine, goal, "integer", cell);
-  return true;
-}
-
-bool reject_sub_domain(Impl& machine, const Goal& goal, Cell cell) {
-  if (!negative_int(machine, cell)) return false;
-  domain_at(machine, goal, cell);
-  return true;
-}
-
-void run_sub_atom(Impl& machine, const Goal& goal) {
-  const Cell atom = machine.heap.deref(goal.arg(machine, 0));
-  const Cell sub = machine.heap.deref(goal.arg(machine, 4));
-  if (machine.heap.unbound(atom)) {
-    instantiation(machine, goal);
-    return;
-  }
-  if (atom.tag() != Tag::Atom) {
-    type_at(machine, goal, "atom", atom);
-    return;
-  }
-  // 8.16.3.3 は整数の型を、部分アトムの型より先に見る。
-  const Cell before = machine.heap.deref(goal.arg(machine, 1));
-  const Cell length = machine.heap.deref(goal.arg(machine, 2));
-  const Cell after = machine.heap.deref(goal.arg(machine, 3));
-  if (reject_sub_type(machine, goal, before)) return;
-  if (reject_sub_type(machine, goal, length)) return;
-  if (reject_sub_type(machine, goal, after)) return;
-  if (!machine.heap.unbound(sub) && sub.tag() != Tag::Atom) {
-    type_at(machine, goal, "atom", sub);
-    return;
-  }
-  if (reject_sub_domain(machine, goal, before)) return;
-  if (reject_sub_domain(machine, goal, length)) return;
-  if (reject_sub_domain(machine, goal, after)) return;
-  gen_or_fail(machine, goal, kSub);
+  if (!prove_concat(machine, goal, 0, concat_total(machine, goal))) machine.failed = true;
 }
 
 void run_atom_list(Impl& machine, const Goal& goal, bool codes) {
@@ -406,6 +320,8 @@ void run_char_code(Impl& machine, const Goal& goal) {
 
 void run_number_atoms(Impl& machine, const Goal& goal);
 void run_atom_number(Impl& machine, const Goal& goal);
+void run_sub_atom(Impl& machine, const Goal& goal);
+bool redo_sub_atom(Impl& machine);
 
 CodeText decode_codes(std::string_view text) {
   CodeText out;
@@ -514,11 +430,12 @@ bool redo_atoms(Impl& machine) {
   if (machine.stack.back().gen_kind == 4) return redo_current_op(machine);
   if (machine.stack.back().gen_kind == 5) return redo_current_char_conversion(machine);
   if (machine.stack.back().gen_kind == 6) return redo_length_gen(machine);
+  if (machine.stack.back().gen_kind == kSub) return redo_sub_atom(machine);
   apply_catches(machine, machine.stack.back());
   const Entry top = machine.stack.back();
   const Goal goal = read_goal(machine, top.redo_goal);
   machine.stack.pop_back();
-  return prove_gen(machine, goal, top.gen_kind, top.next, gen_total(machine, goal, top.gen_kind));
+  return prove_concat(machine, goal, top.next, concat_total(machine, goal));
 }
 
 bool run_atoms(Impl& machine, const Goal& goal) {

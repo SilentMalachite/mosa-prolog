@@ -128,6 +128,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/arith_float.cpp
   src/builtins/atoms.cpp
   src/builtins/atoms_number.cpp
+  src/builtins/atoms_sub.cpp
   src/builtins/flags.cpp
   src/builtins/statistics.cpp
   src/builtins/database.cpp

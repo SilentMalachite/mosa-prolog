@@ -191,3 +191,12 @@ test(consult_japanese_name, (open('tests/tmp/日本語の読込.pl', write, S), 
 test(m11_term_to_atom_japanese, (term_to_atom(T, '親(太郎, _名前, _名前)'), T = 親(A, B, C), A == 太郎, var(B), B == C, term_to_atom(親(太郎, '次 郎'), S), S == '親(太郎,\'次 郎\')'), true).
 % L17。旗が真の writeq が 。 で終わる原子を引用するのは今も正しい。+。 と +. を並べても読み戻せる。
 test(l17_fw_back, 全角で往復(f('+。', '+.', - '#')), true).
+% レビュー M32。日本語と 4 バイトの字でも、Sub の字面を探す位置と決まった引数の解は字の数で数える。
+test(m32_ja_sub, sub_atom('日本語日本', B, L, A, '日本'), solutions([(B = 0, L = 2, A = 3), (B = 3, L = 2, A = 0)])).
+test(m32_ja_length_after, sub_atom('𠮷野家', B, 1, 0, S), solutions([(B = 2, S = '家')])).
+test(m32_ja_before, sub_atom('𠮷野家', 1, L, A, S), solutions([
+    (L = 0, A = 2, S = ''),
+    (L = 1, A = 1, S = '野'),
+    (L = 2, A = 0, S = '野家')
+])).
+test(m32_ja_scalar_sub, sub_atom('野𠮷野𠮷', B, _, A, '𠮷'), solutions([(B = 1, A = 2), (B = 3, A = 0)])).
