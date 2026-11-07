@@ -1,12 +1,16 @@
 // '$format_float'(+atom, +integer, +float, -atom)。13211-1 に条項は無い。library(format) の ~f と ~e が使う。
-//   Kind は f（小数点表記）か e（指数表記）、Digits は小数点以下の桁数。
+//   Kind は f（小数点表記）か e（指数表記）、Digits は小数点以下の桁数。無限大と NaN は Digits によらず
+//   writeq と同じ 1.0Inf、-1.0Inf、1.5NaN になる。有限の数で Digits がヒープの上限の語数を超えれば、
+//   ヒープの上限で止まる（ResourceLimit）。
 //   instantiation_error、type_error(atom, Kind)、domain_error(format_directive, Kind)、
 //   type_error(integer, Digits)、domain_error(not_less_than_zero, Digits)、type_error(float, Float)
 // テスト: tests/pl/lib_format.pl
 #include "../machine/internal.hpp"
+#include "../write/spelling.hpp"
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -36,6 +40,9 @@ std::optional<Cell> float_problem(Impl& machine, Cell kind, Cell digits, Cell va
 }
 
 std::string format_float(double value, bool scientific, std::int64_t digits) {
+  // to_chars の無限大と NaN は標準ライブラリごとに字面が違い（-nan(ind) など）、指数の e も無いので
+  // 0 を足す位置も無い。writeq と同じ字面にして、桁数によらず一つの字面にする（レビュー M29、iso-notes 6.4.5）。
+  if (!std::isfinite(value)) return spelling::format_float(value);
   const auto precision = static_cast<int>(std::min(digits, kExactDigits));
   // 小数点の前は最大 309 桁、指数は 5 文字、符号と小数点で 2 文字。
   std::string text(static_cast<std::size_t>(precision) + 330, '\0');
@@ -59,8 +66,15 @@ void prove_format_float(Impl& machine, const Goal& goal) {
     return;
   }
   const bool scientific = machine.atoms.name(atom_id(kind)) == "e";
-  const std::string text =
-      format_float(machine.heap.float_value(value), scientific, machine.heap.integer_value(digits));
+  const double number = machine.heap.float_value(value);
+  const std::int64_t count = machine.heap.integer_value(digits);
+  // format.pl は答えの原子を atom_chars で字のリストにし、1 字にヒープの 2 語を使う（ADR 0001）。上限の語数より
+  // 多い桁は、そのリストが必ず上限を超える。その前にヒープの外へ巨大な文字列を作らず、ここで上限に止める。
+  // 2^63 - 1 桁では string::insert が length_error でプロセスごと落ちた（M29 の Codex 敵対的レビュー）。
+  if (std::isfinite(number) && static_cast<std::uint64_t>(count) > machine.heap.limit()) {
+    throw ResourceLimit("heap_limit");
+  }
+  const std::string text = format_float(number, scientific, count);
   const Cell atom = machine.heap.atom(machine.atoms.intern(text));
   if (do_unify(machine, goal.arg(machine, 3), atom)) machine.ip = goal.cont;
   else machine.failed = true;
