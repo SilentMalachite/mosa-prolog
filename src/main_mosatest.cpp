@@ -2,6 +2,7 @@
 #include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
 #include "mosa/diff.hpp"
+#include "mosa/manual.hpp"
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/roundtrip.hpp"
@@ -16,9 +17,9 @@
 
 namespace {
 
-int usage() {
+int usage(int code = 1) {
   std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "mosatest_usage") << '\n';
-  return 1;
+  return code;
 }
 
 }  // namespace
@@ -60,6 +61,13 @@ int main(int argc, char** argv) {
     const mosa::DiffArgs parsed = mosa::parse_diff_args(rest);
     if (!parsed.ok) return usage();
     return mosa::run_diff(parsed);
+  }
+  // --manual の使い方の誤りは 2。1 は例の失敗に取っておく（リリース 0.1.0 Task 4）。
+  if (args.size() >= 2 && args[1] == "--manual") {
+    const std::vector<std::string_view> rest(args.begin() + 2, args.end());
+    const mosa::ManualArgs parsed = mosa::parse_manual_args(rest);
+    if (!parsed.ok) return usage(2);
+    return mosa::run_manual(parsed);
   }
   if (args.size() == 2) return mosa::run_suite(args[1]);
   return usage();

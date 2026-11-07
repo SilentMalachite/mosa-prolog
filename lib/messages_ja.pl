@@ -27,7 +27,7 @@ message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール]... [-t halt] [--heap-max MiB] [-- 引数...]').
-message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
+message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~nmosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
 message(mosac_dist_unavailable, 'mosac: mosac dist はフェーズ7まで使えません').
 message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
@@ -115,3 +115,24 @@ message(diff_not_attached, '~w: 翻訳した述語のうち付いたのは ~w/~w
 message(diff_no_self, 'mosatest: 自分の場所が分かりません').
 message(diff_total, '一致 ~w/~w、翻訳した述語 ~w/~w（~w%）、違い ~w 件').
 message(mosac_units_skipped, 'mosac: ~w は翻訳しません: ~w').
+
+% mosatest --manual（リリース 0.1.0 Task 4）。印の規則は tests/manual/README.md。
+message(manual_unmarked, '直前の行に check:、skip:、file: の印が無いコードブロックです').
+message(manual_marker_alone, '印の次の行がコードブロックではありません').
+message(manual_marker_bad, '印の形が違います: ~w').
+message(manual_marker_unclosed, '複数行の check: の印を閉じる --> の行がありません').
+message(manual_fence_unclosed, 'コードブロックが閉じていません').
+message(manual_file_name, 'file: の名前はディレクトリを含まないファイル名にします: ~w').
+message(manual_file_kind, 'file: は prolog のコードブロックに付けます').
+message(manual_check_kind, 'check: は "?- " で始まる text のコードブロックか console のコードブロックに付けます').
+message(manual_duplicate_id, '例の id ~w がこのファイルで 2 度使われています').
+message(manual_console_start, 'console のコードブロックは "$ " の行で始めます').
+message(manual_console_quote, 'コマンドの引用が閉じていません').
+message(manual_console_program, 'コマンドは mosa、mosac、mosatest か ./NAME で始めます: ~w').
+message(manual_missing, '~w がありません（~w はあります）').
+message(manual_ids_differ, '~w と ~w で例の id が違います（~w / ~w）').
+message(manual_no_editions, 'mosatest: ~w に en/ と ja/ が要ります').
+message(manual_expected, '期待した出力:').
+message(manual_actual, '実際の出力:').
+message(manual_no_newline, '（最後に改行がありません）').
+message(manual_summary, 'manual: ~w 件を確かめ、~w 件を飛ばし、~w 件が失敗').

@@ -27,7 +27,7 @@ message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal]... [-t halt] [--heap-max MiB] [-- argument...]').
-message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~nmosatest --manual <directory> [--mosa <path>] [--work <directory>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
 message(mosac_dist_unavailable, 'mosac: mosac dist is not available until phase 7').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
@@ -115,3 +115,24 @@ message(diff_not_attached, '~w: only ~w of ~w native procedures attached (finger
 message(diff_no_self, 'mosatest: cannot determine its own location').
 message(diff_total, 'agreement ~w/~w, translated predicates ~w/~w (~w%), differences ~w').
 message(mosac_units_skipped, 'mosac: ~w is not translated: ~w').
+
+% mosatest --manual（リリース 0.1.0 Task 4）。印の規則は tests/manual/README.md。
+message(manual_unmarked, 'code block without a check:, skip: or file: marker on the line before it').
+message(manual_marker_alone, 'marker not on the line right before a code block').
+message(manual_marker_bad, 'malformed marker: ~w').
+message(manual_marker_unclosed, 'multi-line check: marker without a closing --> line').
+message(manual_fence_unclosed, 'code block not closed').
+message(manual_file_name, 'file: needs a plain file name, not ~w').
+message(manual_file_kind, 'file: needs a prolog code block').
+message(manual_check_kind, 'check: needs a text code block starting with "?- " or a console code block').
+message(manual_duplicate_id, 'example id ~w used twice in this file').
+message(manual_console_start, 'console code block must start with a "$ " line').
+message(manual_console_quote, 'unclosed quote in the command').
+message(manual_console_program, 'command must start with mosa, mosac, mosatest or ./NAME, not ~w').
+message(manual_missing, '~w: missing (~w exists)').
+message(manual_ids_differ, '~w and ~w: example ids differ (~w / ~w)').
+message(manual_no_editions, 'mosatest: ~w must hold en/ and ja/').
+message(manual_expected, 'expected:').
+message(manual_actual, 'actual:').
+message(manual_no_newline, '(no newline at end)').
+message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').

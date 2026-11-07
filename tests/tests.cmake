@@ -687,3 +687,34 @@ add_test(NAME mosa_std_binary COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/std_binary_test.cmake)
 set_tests_properties(mosa_std_binary PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# mosatest --manual（リリース 0.1.0 Task 4）。印の読み取りは部品テストで、動かして比べるところは tests/manual の見本で
+# 確かめる。見本ごとに --work を分け、マニュアル本体の検査（Task 6 の manual_en_ja、tests/tmp/manual）とも重ねない。
+# LANG は manual_fixture_test.cmake が見本ごとに決めるので、上の LANG=ja_JP.UTF-8 の一括の設定より後ろに置く。
+# 見本の good は --mosa を省き、既定（mosatest の隣の mosa）を通す。展開したパッケージで動かすのと同じ形（Task 9）。
+add_executable(manual_parse_test tests/cpp/manual_parse_test.cpp)
+target_include_directories(manual_parse_test PRIVATE tests/cpp)
+target_link_libraries(manual_parse_test PRIVATE mosa_lib)
+add_test(NAME manual_parse COMMAND $<TARGET_FILE:manual_parse_test>)
+set(manual_fixture_script ${CMAKE_SOURCE_DIR}/tests/cpp/manual_fixture_test.cmake)
+set(manual_fixture_dir ${CMAKE_SOURCE_DIR}/tests/manual)
+add_test(NAME manual_fixture_good COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DDIR=${manual_fixture_dir}/good -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_good -DLANG_VALUE=fr_FR.UTF-8
+  -DCODE=0 "-DPATTERN=^manual: 10 checked, 2 skipped, 0 failed~$" -P ${manual_fixture_script})
+add_test(NAME manual_fixture_bad_output COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-output
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_output -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+  "-DPATTERN=bad-output/en/01-sample\\.md:13 wrong-answer~expected:~\\?- X = 1\\.~X = 2\\.~actual:~\\?- X = 1\\.~X = 1\\.~"
+  "-DALSO=~manual: 4 checked, 0 skipped, 1 failed~$" -P ${manual_fixture_script})
+add_test(NAME manual_fixture_bad_ids COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-ids
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_ids -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+  "-DPATTERN=bad-ids/en/01-sample\\.md and [^~]*bad-ids/ja/01-sample\\.md: example ids differ \\(first second / second first\\)"
+  "-DALSO=bad-ids/ja/02-only\\.md: missing" -P ${manual_fixture_script})
+# 日本語の文面でも file:line: の形は同じ（印の誤りは lib/messages_ja.pl の鍵）。
+add_test(NAME manual_fixture_unmarked COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/unmarked
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_unmarked -DLANG_VALUE=ja_JP.UTF-8 -DCODE=1
+  "-DPATTERN=unmarked/en/01-sample\\.md:5: " "-DALSO=unmarked/ja/01-sample\\.md:5: " -P ${manual_fixture_script})
+add_test(NAME manual_usage COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest> -DLANG_VALUE=en_US.UTF-8
+  -DCODE=2 "-DPATTERN=mosatest --manual <directory>" -P ${manual_fixture_script})
