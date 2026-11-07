@@ -695,6 +695,7 @@ set_tests_properties(mosa_std_binary PROPERTIES TIMEOUT 1800
 add_executable(manual_parse_test tests/cpp/manual_parse_test.cpp)
 target_include_directories(manual_parse_test PRIVATE tests/cpp)
 target_link_libraries(manual_parse_test PRIVATE mosa_lib)
+target_compile_definitions(manual_parse_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME manual_parse COMMAND $<TARGET_FILE:manual_parse_test>)
 set(manual_fixture_script ${CMAKE_SOURCE_DIR}/tests/cpp/manual_fixture_test.cmake)
 set(manual_fixture_dir ${CMAKE_SOURCE_DIR}/tests/manual)
@@ -733,6 +734,43 @@ add_test(NAME manual_fixture_bad_preds COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TAR
   "-DPATTERN_4=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, format, japanese, lists, strings~"
   "-DPATTERN_5=bad-preds/en/15-tables\\.md and [^~]*bad-preds/ja/15-tables\\.md: predicate tables differ \\(between / \\)~"
   "-DPATTERN_6=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
+# 表と比べるライブラリは --mosa の隣の lib/ のもので、$MOSA_LIB は見ない。bad-preds/lib/between.pl は表の行と
+# ちょうど同じ述語を公開するので、それを読めば between の表は誤って通る（修正 1）。
+add_test(NAME manual_fixture_bad_preds_mosa_lib COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-preds
+  -DMOSA_LIB_VALUE=${manual_fixture_dir}/bad-preds/lib
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_preds_mosa_lib -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+  "-DPATTERN_1=bad-preds/en/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
+  "-DPATTERN_2=bad-preds/ja/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
+  "-DPATTERN_3=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
+# あるが読めないライブラリは、その名前とパスと読み込みの誤りを出す。置き場は mosa と lib/ に bad-lib/lib を足したもの
+# （修正 1 と 5）。
+add_test(NAME manual_fixture_bad_lib COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/bad-lib
+  -DSTAGE=${CMAKE_SOURCE_DIR}/tests/tmp/manual_stage_bad_lib
+  -DSTAGE_LIB=${manual_fixture_dir}/bad-lib/lib -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_lib
+  -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+  "-DPATTERN_1=bad-lib/en/14-reference\\.md:17: library\\(broken\\) at [^~]*manual_stage_bad_lib/lib/broken\\.pl cannot be loaded: [^~]*broken\\.pl"
+  "-DPATTERN_2=bad-lib/en/14-reference\\.md:26: library\\(nomodule\\) at [^~]*manual_stage_bad_lib/lib/nomodule\\.pl cannot be loaded: [^~]+"
+  "-DPATTERN_3=bad-lib/en/14-reference\\.md:35: library\\(renamed\\) at [^~]* cannot be loaded: the file does not define the module renamed~"
+  "-DPATTERN_4=bad-lib/ja/14-reference\\.md:16: library\\(broken\\) at "
+  "-DPATTERN_5=bad-lib/ja/14-reference\\.md:34: library\\(renamed\\) at "
+  "-DPATTERN_6=~manual: 2 checked, 0 skipped, 6 failed~$" -P ${manual_fixture_script})
+# --all-tables はどの版にも system と、mosa の隣の lib/ のどのライブラリの表も求める。good には between しか無い
+# （修正 3）。
+add_test(NAME manual_fixture_all_tables COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/good -DOPTIONS=--all-tables
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_all_tables -DLANG_VALUE=en_US.UTF-8 -DCODE=1
+  "-DPATTERN_1=good/en: no predicates table for system apply format japanese lists strings~"
+  "-DPATTERN_2=good/ja: no predicates table for system apply format japanese lists strings~"
+  "-DPATTERN_3=~manual: 10 checked, 2 skipped, 2 failed~$" -P ${manual_fixture_script})
+# 組込の一覧は mosatest の中から取るので、版の違う --mosa とは比べずに 2 で止める。cmake --version は別の 1 行を
+# 出す（修正 1）。
+add_test(NAME manual_fixture_version COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DMOSA=${CMAKE_COMMAND} -DDIR=${manual_fixture_dir}/good
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_version -DLANG_VALUE=en_US.UTF-8 -DCODE=2
+  "-DPATTERN_1=^mosatest: [^~]* --version printed cmake version [^~]*, not mosa [0-9.]+; give the mosa built with this mosatest~$"
+  -P ${manual_fixture_script})
 add_test(NAME manual_usage COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest> -DLANG_VALUE=en_US.UTF-8
   -DCODE=2 "-DPATTERN_1=mosatest --manual <directory>" -P ${manual_fixture_script})
 # 章の無いマニュアルは何も確かめていないので、通ったことにせず 2 で止める（修正 8）。

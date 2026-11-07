@@ -1,4 +1,4 @@
-// リリース 0.1.0 Task 4。mosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>]。
+// リリース 0.1.0 Task 4。mosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>] [--all-tables]。
 // en/ と ja/ の *.md（README.md は読まない）から例を読み（manual_parse.cpp）、両版で同じ名前のファイルがそろい、
 // 例の印の種類と id の並びが同じことを確かめてから、check: の例を mosa で動かして書いてある出力と 1 字ずつ比べる。
 // 子は標準出力と標準エラーを 1 つのファイルに受け、MOSA_TRANSCRIPT=1 で端末と同じ表示（打った行の書き返しと促し）を
@@ -9,8 +9,9 @@
 // ディレクトリの引数は無く、posix_spawn_file_actions_addchdir_np は移植できないので、起こす間だけこのプロセスの
 // 作業ディレクトリを移す。
 // mosatest は 1 本の流れで動くのでほかと取り合わない。そのためパスは前もってすべて絶対にしておく。
-// 述語の表（Task 5）は例を動かす前に、このプロセスの中で処理系の一覧と両方向で比べる。組込は engine.cpp の表、
-// ライブラリは新しい機械に読んだ公開リスト。子と同じ mosa の一覧と比べるため、mosatest は mosa の隣に置く。
+// 述語の表（Task 5）は例を動かす前に、このプロセスの中で処理系の一覧と両方向で比べる。組込は engine.cpp の表で、
+// --mosa の版がこの mosatest と同じことを先に確かめる。ライブラリは --mosa の隣の lib/ のファイルを新しい機械に
+// 読んだ公開リストで、$MOSA_LIB は見ない。どちらも例を動かす mosa と同じ処理系と比べるため。
 
 #include "mosa/manual.hpp"
 
@@ -20,6 +21,7 @@
 #include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/process.hpp"
+#include "mosa/version.hpp"
 
 #include <algorithm>
 #include <array>
@@ -46,8 +48,8 @@ constexpr std::array<std::string_view, 2> kEditions{"en", "ja"};
 constexpr std::string_view kPrompt = "?- ";
 constexpr std::string_view kReadme = "README.md";
 constexpr std::string_view kSystem = "system";
-// 表に書けるライブラリ。lib/ の messages_* は文面の表で、述語を公開しない。
-constexpr std::array<std::string_view, 6> kLibraries{"apply", "between", "format", "japanese", "lists", "strings"};
+// lib/ のうち、述語を公開しない文面の表（ADR 0007）。表に書けるライブラリには数えない。
+constexpr std::string_view kCatalogPrefix = "messages_";
 
 std::string message(std::string_view key, std::vector<std::string> args = {}) {
   return render_message_fresh(default_message_language(), key, args);
@@ -81,14 +83,15 @@ struct Edition {
   std::vector<Chapter> chapters;  // 名前の順
 };
 
-// 一覧の途中で読めなくなったら nullopt。黙って途中までで済ませると、章が抜けたまま通る。
-std::optional<std::vector<std::filesystem::path>> markdown_files(const std::filesystem::path& dir) {
+// 一覧の途中で読めなくなったら nullopt。黙って途中までで済ませると、章やライブラリが抜けたまま通る。
+std::optional<std::vector<std::filesystem::path>> files_with(const std::filesystem::path& dir,
+                                                             std::string_view extension) {
   std::vector<std::filesystem::path> files;
   std::error_code error;
   std::filesystem::directory_iterator entry(dir, error);
   for (; !error && entry != std::filesystem::directory_iterator{}; entry.increment(error)) {
     std::error_code kind;
-    if (entry->is_regular_file(kind) && entry->path().extension() == ".md") files.push_back(entry->path());
+    if (entry->is_regular_file(kind) && entry->path().extension() == extension) files.push_back(entry->path());
   }
   if (error) return std::nullopt;
   std::sort(files.begin(), files.end());
@@ -117,7 +120,7 @@ std::optional<Edition> load_edition(const std::filesystem::path& dir, const std:
                                     std::string_view name, std::vector<std::string>& problems) {
   Edition edition{std::string{name}, {}};
   const std::filesystem::path sub = path_from_utf8(name);
-  const auto files = markdown_files(dir / sub);
+  const auto files = files_with(dir / sub, ".md");
   if (!files) {
     std::cerr << message("manual_cannot_list", {utf8_from_path(shown / sub)}) << '\n';
     return std::nullopt;
@@ -186,14 +189,22 @@ void check_editions(const Edition& en, const Edition& ja, const std::filesystem:
   }
 }
 
-using Expected = std::map<std::string, std::optional<std::vector<PredicateIndicator>>>;
+// 表を比べる相手。ライブラリは --mosa の隣の lib/ のもので、新しい機械に読むので同じ名前は 1 度だけ作る。
+struct TableCheck {
+  std::filesystem::path lib_dir;
+  std::vector<std::string> libraries;           // manual_libraries(lib_dir)
+  std::map<std::string, LibraryExports> lists;  // 作った一覧
+};
 
-// 表と比べる処理系の一覧。ライブラリは新しい機械に読むので、同じ名前は 1 度だけ作る。
-const std::optional<std::vector<PredicateIndicator>>& expected_list(Expected& lists, const std::string& library) {
-  if (const auto found = lists.find(library); found != lists.end()) return found->second;
-  std::optional<std::vector<PredicateIndicator>> made =
-      library == kSystem ? std::optional{builtin_indicators()} : library_exports(library);
-  return lists.emplace(library, std::move(made)).first->second;
+const LibraryExports& expected_list(TableCheck& check, const std::string& library) {
+  if (const auto found = check.lists.find(library); found != check.lists.end()) return found->second;
+  LibraryExports made = library == kSystem ? LibraryExports{builtin_indicators(), {}}
+                                           : library_exports(library, check.lib_dir);
+  return check.lists.emplace(library, std::move(made)).first->second;
+}
+
+bool known_table(const TableCheck& check, const std::string& library) {
+  return library == kSystem || std::ranges::find(check.libraries, library) != check.libraries.end();
 }
 
 // 同じ章の同じ名前の表は 1 つにまとめる（見出しごとに分けた表）。診断は最初の印の行に出す。
@@ -221,33 +232,57 @@ std::string absent(const std::vector<PredicateIndicator>& from, const std::vecto
   return out;
 }
 
-std::string library_names() {
+std::string joined(const std::vector<std::string>& names, std::string_view separator) {
   std::string out;
-  for (const std::string_view name : kLibraries) {
-    if (!out.empty()) out += ", ";
+  for (const std::string& name : names) {
+    if (!out.empty()) out += separator;
     out += name;
   }
   return out;
 }
 
-// 表にあって処理系に無い述語と、処理系にあって表に無い述語の両方を 1 つの誤りに名指す。
-void check_tables(const Edition& edition, Expected& lists, std::vector<std::string>& problems) {
+// 1 つの名前の表を比べ、違えば誤りの文面を返す。表にあって処理系に無い述語と、処理系にあって表に無い述語を両方名指す。
+std::optional<std::string> table_problem(TableCheck& check, const ManualTable& table) {
+  if (!known_table(check, table.library)) {
+    return message("manual_predicates_unknown", {table.library, joined(check.libraries, ", ")});
+  }
+  const LibraryExports& wanted = expected_list(check, table.library);
+  if (!wanted.exports) {
+    const std::filesystem::path file = check.lib_dir / path_from_utf8(table.library + ".pl");
+    return message("manual_library_unloadable", {table.library, utf8_from_path(file), wanted.error});
+  }
+  std::string extra = absent(table.entries, *wanted.exports);
+  std::string missing = absent(*wanted.exports, table.entries);
+  if (extra.empty() && missing.empty()) return std::nullopt;
+  return message("manual_predicates_differ", {table.library, std::move(extra), std::move(missing)});
+}
+
+void check_tables(const Edition& edition, TableCheck& check, std::vector<std::string>& problems) {
   for (const Chapter& chapter : edition.chapters) {
     if (!chapter.usable) continue;
     for (const ManualTable& table : merged_tables(chapter.tables)) {
-      const std::string where = chapter.shown + ":" + std::to_string(table.line) + ": ";
-      const std::optional<std::vector<PredicateIndicator>>& wanted = expected_list(lists, table.library);
-      if (!wanted) {
-        problems.push_back(where + message("manual_predicates_unknown", {table.library, library_names()}));
-        continue;
+      if (const std::optional<std::string> problem = table_problem(check, table)) {
+        problems.push_back(chapter.shown + ":" + std::to_string(table.line) + ": " + *problem);
       }
-      std::string extra = absent(table.entries, *wanted);
-      std::string missing = absent(*wanted, table.entries);
-      if (extra.empty() && missing.empty()) continue;
-      problems.push_back(
-          where + message("manual_predicates_differ", {table.library, std::move(extra), std::move(missing)}));
     }
   }
+}
+
+// --all-tables。版のどこかに system とどのライブラリの表もある。無い名前は 1 つの誤りにまとめて名指す。
+void check_all_tables(const Edition& edition, const TableCheck& check, const std::filesystem::path& shown,
+                      std::vector<std::string>& problems) {
+  std::set<std::string> present;
+  for (const Chapter& chapter : edition.chapters) {
+    for (const ManualTable& table : chapter.tables) present.insert(table.library);
+  }
+  std::vector<std::string> missing;
+  if (!present.contains(std::string{kSystem})) missing.emplace_back(kSystem);
+  for (const std::string& library : check.libraries) {
+    if (!present.contains(library)) missing.push_back(library);
+  }
+  if (missing.empty()) return;
+  const std::string where = utf8_from_path(shown / path_from_utf8(edition.name));
+  problems.push_back(message("manual_tables_missing", {where, joined(missing, " ")}));
 }
 
 // 子を起こす間だけ作業ディレクトリを移し、どの道で抜けても戻す。
@@ -407,11 +442,17 @@ void run_chapter(Runner& runner, const Chapter& chapter, const std::filesystem::
   }
 }
 
+// 子の環境。開発者の MOSA_LIB などに左右させない。
+std::vector<std::pair<std::string, std::string>> child_environment(
+    std::span<const std::pair<std::string, std::string>> set) {
+  const std::array<std::string, 3> unset{"MOSA_LIB", "MOSA_HEAP_MAX", "MOSA_GC_STRESS"};
+  return environment_with(set, unset);
+}
+
 void run_edition(Runner& runner, const Edition& edition, const std::filesystem::path& work) {
   const std::string lang = edition.name == "ja" ? "ja_JP.UTF-8" : "en_US.UTF-8";
   const std::array<std::pair<std::string, std::string>, 2> set{{{"LANG", lang}, {"MOSA_TRANSCRIPT", "1"}}};
-  const std::array<std::string, 3> unset{"MOSA_LIB", "MOSA_HEAP_MAX", "MOSA_GC_STRESS"};
-  runner.env = environment_with(set, unset);
+  runner.env = child_environment(set);
   for (const Chapter& chapter : edition.chapters) {
     if (!chapter.usable) continue;
     run_chapter(runner, chapter, work / path_from_utf8(edition.name) / path_from_utf8(chapter.name).stem());
@@ -435,6 +476,63 @@ std::optional<Runner> make_runner(const ManualArgs& args, const std::filesystem:
   return runner;
 }
 
+// mosa --version の出力。起こせないか落ちたら nullopt。
+std::optional<std::string> version_output(const Runner& runner) {
+  const std::filesystem::path out = runner.io / "version.txt";
+  std::error_code error;
+  std::filesystem::remove(out, error);
+  const std::vector<std::string> argv{utf8_from_path(runner.mosa), "--version"};
+  const std::optional<int> code = run_process(argv, out, child_environment({}));
+  if (!code || exited_abnormally(*code)) return std::nullopt;
+  return read_file(out);
+}
+
+std::string first_line(std::string_view text) {
+  std::string line{text.substr(0, text.find('\n'))};
+  std::erase(line, '\r');
+  return line;
+}
+
+// 表は例を動かす mosa と同じ処理系と比べる。組込の一覧はこの mosatest の中から取るので、mosa の版が違えば 2 で
+// 止める。ライブラリは mosa の隣の lib/ のもの。問題は problems に足し、続けてよければ 0 を返す。
+int check_system(const Runner& runner, bool all_tables, const Edition& en, const Edition& ja,
+                 const std::filesystem::path& shown, std::vector<std::string>& problems) {
+  const std::optional<std::string> version = version_output(runner);
+  if (!version) {
+    std::cerr << message("bench_cannot_start", {utf8_from_path(runner.mosa)}) << '\n';
+    return 2;
+  }
+  if (!same_version(*version)) {
+    std::cerr << message("manual_version_differs", {utf8_from_path(runner.mosa), first_line(*version), version_line()})
+              << '\n';
+    return 2;
+  }
+  TableCheck check;
+  check.lib_dir = runner.tools / "lib";
+  std::optional<std::vector<std::string>> libraries = manual_libraries(check.lib_dir);
+  if (!libraries) {
+    std::cerr << message("manual_cannot_list", {utf8_from_path(check.lib_dir)}) << '\n';
+    return 2;
+  }
+  check.libraries = std::move(*libraries);
+  for (const Edition* edition : {&en, &ja}) {
+    check_tables(*edition, check, problems);
+    if (all_tables) check_all_tables(*edition, check, shown, problems);
+  }
+  return 0;
+}
+
+// 読み込みの指令に書く原子。Windows のパスの \ と、名前の ' を読み戻せるようにする。
+std::string quoted_atom(std::string_view text) {
+  std::string out = "'";
+  for (const char letter : text) {
+    if (letter == '\\') out += '\\';
+    if (letter == '\'') out += '\'';
+    out += letter;
+  }
+  return out + "'";
+}
+
 }  // namespace
 
 std::vector<PredicateIndicator> builtin_indicators() {
@@ -447,31 +545,69 @@ std::vector<PredicateIndicator> builtin_indicators() {
   return all;
 }
 
-std::optional<std::vector<PredicateIndicator>> library_exports(std::string_view library) {
-  if (std::ranges::find(kLibraries, library) == kLibraries.end()) return std::nullopt;
+// 公開リストはそのファイルの module/2 の宣言だけで決まる。ファイルの中の use_module(library(_)) はいつもの探し方
+// （$MOSA_LIB を含む）で読まれるが、それが変えうるのは読めるかどうかだけで、読めなければ誤りとして名指す。
+LibraryExports library_exports(std::string_view library, const std::filesystem::path& lib_dir) {
+  LibraryExports result;
+  const std::filesystem::path named = lib_dir / path_from_utf8(std::string{library} + ".pl");
+  std::error_code error;
+  const std::filesystem::path file = std::filesystem::absolute(named, error);
+  if (error || !std::filesystem::is_regular_file(file, error)) {
+    result.error = message("cannot_open_file", {utf8_from_path(named)});
+    return result;
+  }
   const std::unique_ptr<Machine> machine = Machine::create();
   // use_module/2 は指令でしか使えない。[] で何も取り込まずに読み、user を変えずに公開リストだけを見る。
-  if (!machine->load_program(":- use_module(library(" + std::string{library} + "), []).\n").ok) return std::nullopt;
+  const LoadStatus status = machine->load_program(":- use_module(" + quoted_atom(utf8_from_path(file)) + ", []).\n");
+  if (!status.ok) {
+    result.error = status.message;
+    return result;
+  }
   const Impl& impl = engine_impl(*machine);
   const Module* module = find_module(impl, machine->atoms().intern(library));
-  if (module == nullptr) return std::nullopt;
+  if (module == nullptr) {
+    result.error = message("manual_library_no_module", {std::string{library}});
+    return result;
+  }
   std::vector<PredicateIndicator> exports;
   for (const PredKey& key : module->exports) {
     exports.push_back(PredicateIndicator{std::string{impl.atoms.name(key.name)}, key.arity});
   }
-  return exports;
+  result.exports = std::move(exports);
+  return result;
+}
+
+std::optional<std::vector<std::string>> manual_libraries(const std::filesystem::path& lib_dir) {
+  const std::optional<std::vector<std::filesystem::path>> files = files_with(lib_dir, ".pl");
+  if (!files) return std::nullopt;
+  std::vector<std::string> names;
+  for (const std::filesystem::path& file : *files) {
+    std::string name = utf8_from_path(file.stem());
+    if (!name.starts_with(kCatalogPrefix)) names.push_back(std::move(name));
+  }
+  return names;
+}
+
+bool same_version(std::string_view output) {
+  std::string text{output};
+  std::erase(text, '\r');
+  if (text.ends_with('\n')) text.pop_back();
+  return text == version_line();
 }
 
 ManualArgs parse_manual_args(std::span<const std::string_view> args) {
   ManualArgs parsed;
   if (args.empty() || args.front().empty() || args.front().front() == '-') return parsed;
   parsed.dir = std::string{args.front()};
-  if (args.size() % 2 != 1) return parsed;
-  for (std::size_t index = 1; index < args.size(); index += 2) {
-    const std::string value{args[index + 1]};
-    if (value.empty()) return parsed;
-    if (args[index] == "--mosa") parsed.mosa = value;
-    else if (args[index] == "--work") parsed.work = value;
+  for (std::size_t index = 1; index < args.size(); ++index) {
+    if (args[index] == "--all-tables") {
+      parsed.all_tables = true;
+      continue;
+    }
+    if (index + 1 == args.size() || args[index + 1].empty()) return parsed;
+    const std::string value{args[++index]};
+    if (args[index - 1] == "--mosa") parsed.mosa = value;
+    else if (args[index - 1] == "--work") parsed.work = value;
     else return parsed;
   }
   parsed.ok = true;
@@ -501,17 +637,15 @@ int run_manual(const ManualArgs& args) {
   const std::optional<Edition> ja = load_edition(dir, shown, kEditions[1], problems);
   if (!en || !ja) return 2;
   check_editions(*en, *ja, shown, problems);
-  Expected lists;
-  check_tables(*en, lists, problems);
-  check_tables(*ja, lists, problems);
+  std::optional<Runner> runner = make_runner(args, *self, work);
+  if (!runner) return 1;
+  if (const int code = check_system(*runner, args.all_tables, *en, *ja, shown, problems); code != 0) return code;
   // 何も確かめずに「失敗 0」で通ったことにしない。誤りがあればそちらを出して 1 にする。
   if (problems.empty() && !has_checks(*en) && !has_checks(*ja)) {
     std::cerr << message("manual_no_examples", {args.dir}) << '\n';
     return 2;
   }
   for (const std::string& problem : problems) std::cout << problem << '\n';
-  std::optional<Runner> runner = make_runner(args, *self, work);
-  if (!runner) return 1;
   run_edition(*runner, *en, work);
   run_edition(*runner, *ja, work);
   runner->failed += problems.size();

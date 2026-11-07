@@ -2,7 +2,8 @@
 // 囲いは必ず直前の行に印を持つ。印の無い囲いを誤りにするのは、検査から黙って漏れる例を作らないため。
 // 行は 1 行ずつ前から読む。印は次の行が開きの囲いのときだけ効き、間に何かあればその印を誤りにする。
 // \r は行末で落とす。Windows で checkout したファイル（CRLF）でも同じ例と同じ入力になる。
-// 囲いの外では述語の表も読む（Task 5）。<!-- predicates: LIB --> の行から次の見出しまでの表の行が 1 つの表になる。
+// 囲いの外では述語の表も読む（Task 5）。<!-- predicates: LIB --> の行から次の ATX の見出しまでの表の本体の行が
+// 1 つの表になる。読者に表と見える行は数えるか誤りにし、黙って読み飛ばさない（Task 5 の修正）。
 
 #include "mosa/manual.hpp"
 
@@ -198,18 +199,20 @@ std::optional<std::string> indicator_name(std::string_view text) {
   return name;
 }
 
-// | で始まる表の行の最初の欄が `name/arity` ならその述語。見出しの行、| --- | の行、ほかの欄で始まる行は nullopt。
+// | で始まる表の行の最初の欄が、ちょうど 1 つのコードスパン `name/arity` ならその述語。ほかは nullopt。
+// 引数の数は 10 進の数字で、0 でない頭の 0（between/03）は書き違いとして受けない。
 std::optional<PredicateIndicator> table_entry(std::string_view line) {
   std::string_view text = trim(line);
   if (!text.starts_with('|')) return std::nullopt;
   text.remove_prefix(1);
   const std::string_view cell = trim(text.substr(0, text.find('|')));
   if (cell.size() < 3 || cell.front() != '`' || cell.back() != '`') return std::nullopt;
-  const std::string_view code = cell.substr(1, cell.size() - 2);
+  const std::string_view code = trim(cell.substr(1, cell.size() - 2));
   const std::size_t slash = code.rfind('/');
   if (code.find('`') != std::string_view::npos || slash == std::string_view::npos || slash == 0) return std::nullopt;
   const std::string_view digits = code.substr(slash + 1);
   if (digits.empty() || digits.front() < '0' || digits.front() > '9') return std::nullopt;
+  if (digits.size() > 1 && digits.front() == '0') return std::nullopt;
   int arity = 0;
   const auto [last, problem] = std::from_chars(digits.data(), digits.data() + digits.size(), arity);
   if (problem != std::errc{} || last != digits.data() + digits.size()) return std::nullopt;
@@ -217,6 +220,47 @@ std::optional<PredicateIndicator> table_entry(std::string_view line) {
   if (!name) return std::nullopt;
   return PredicateIndicator{std::move(*name), arity};
 }
+
+// GFM の表の区切りの行（| --- | :--: |）。| を 1 つは持つ。
+bool delimiter_row(std::string_view text) {
+  if (text.find('|') == std::string_view::npos) return false;
+  if (text.starts_with('|')) text.remove_prefix(1);
+  if (text.ends_with('|')) text.remove_suffix(1);
+  while (true) {
+    const std::size_t bar = text.find('|');
+    std::string_view cell = trim(text.substr(0, bar));
+    if (cell.starts_with(':')) cell.remove_prefix(1);
+    if (cell.ends_with(':')) cell.remove_suffix(1);
+    if (cell.empty() || cell.find_first_not_of('-') != std::string_view::npos) return false;
+    if (bar == std::string_view::npos) return true;
+    text.remove_prefix(bar + 1);
+  }
+}
+
+// 行頭の空白の幅。タブは次の 4 の倍数まで進める（CommonMark と同じ）。
+std::size_t indentation(std::string_view line) {
+  std::size_t width = 0;
+  for (const char letter : line) {
+    if (letter == ' ') ++width;
+    else if (letter == '\t') width += 4 - width % 4;
+    else break;
+  }
+  return width;
+}
+
+// 大文字と小文字を問わない ASCII の頭の一致。
+bool starts_with_folded(std::string_view text, std::string_view prefix) {
+  if (text.size() < prefix.size()) return false;
+  for (std::size_t index = 0; index < prefix.size(); ++index) {
+    const char letter = text[index] >= 'A' && text[index] <= 'Z' ? static_cast<char>(text[index] - 'A' + 'a')
+                                                                   : text[index];
+    if (letter != prefix[index]) return false;
+  }
+  return true;
+}
+
+// 区切りの中の表の位置。Header は | --- | を待つ見出しの候補の行の後ろ、Body は | --- | の後ろ。
+enum class Rows { None, Header, Body };
 
 // file: の NAME と ./NAME は章のディレクトリの中の名前だけにする。作業場所の外へ書かせない。
 bool plain_file_name(std::string_view name) {
@@ -288,7 +332,10 @@ class Parser {
   std::optional<ExampleKind> check_kind(const Fence& fence, std::size_t line, std::string_view body);
   void check_console(std::size_t line, std::string_view body);
   void table_line(std::size_t index);
-  void open_table(std::size_t index, const Comment& note);
+  bool skipped_line(std::string_view line);
+  void table_comment(std::size_t index, const Comment& note);
+  void section_line(std::size_t index, std::string_view text);
+  void end_rows();
   void add_entry(std::size_t index, PredicateIndicator entry);
 
   std::vector<std::string_view> lines_;
@@ -296,6 +343,12 @@ class Parser {
   ParsedManual result_;
   std::optional<Marker> pending_;
   std::optional<std::size_t> table_;  // 開いている表の区切り（result_.tables の位置）
+  Rows rows_ = Rows::None;
+  std::size_t header_ = 0;     // Rows::Header の行の位置
+  std::size_t next_line_ = 0;  // table_line が次に受けるはずの行。飛べば間に囲いか印があり、表はそこで切れる
+  bool in_comment_ = false;    // 複数行の <!-- … --> の中
+  bool in_list_ = false;       // 箇条書きの中。字下げした行はその項目の続き
+  bool after_blank_ = true;    // 前の行が空
 };
 
 ParsedManual Parser::run() {
@@ -323,6 +376,7 @@ ParsedManual Parser::run() {
     table_line(index);
     ++index;
   }
+  end_rows();
   if (pending_) error(pending_->line, "manual_marker_alone");
   return std::move(result_);
 }
@@ -330,28 +384,90 @@ ParsedManual Parser::run() {
 // 囲いの外の行だけがここに来る。囲いの中の # の行と | の行は、見出しにも表の行にもならない。
 void Parser::table_line(std::size_t index) {
   const std::string_view line = lines_[index];
+  if (index != next_line_) end_rows();
+  next_line_ = index + 1;
+  if (skipped_line(line)) return;
   if (heading(line)) {
+    end_rows();
     table_.reset();
+    in_list_ = false;
     return;
   }
-  if (const auto note = comment(line); note && note->text.starts_with(kTablePrefix)) {
-    open_table(index, *note);
+  if (const auto note = comment(line)) {
+    end_rows();
+    in_comment_ = !note->closed;
+    table_comment(index, *note);
     return;
   }
-  if (!table_) return;
-  if (std::optional<PredicateIndicator> entry = table_entry(line)) add_entry(index, std::move(*entry));
+  // 箇条書きの外で空白 4 つ字下げした行は、字下げのコードブロックか段落の続きで、読者には表の行に見えない。
+  const bool code = indentation(line) >= 4 && !in_list_;
+  if (!table_ || (code && rows_ != Rows::Body)) return;
+  section_line(index, trim(line));
 }
 
-// 形の違う印は誤りにし、区切りを開かない。その後ろの表の行を前の区切りに数えないよう、前の区切りも閉じる。
-void Parser::open_table(std::size_t index, const Comment& note) {
+// 複数行の注釈の中の行と空の行は読者に見えない行で、表を切る。箇条書きに入ったか出たかもここで決める。
+bool Parser::skipped_line(std::string_view line) {
+  if (in_comment_) {
+    in_comment_ = line.find("-->") == std::string_view::npos;
+    return true;
+  }
+  const bool after_blank = after_blank_;
+  after_blank_ = trim(line).empty();
+  if (after_blank_) {
+    end_rows();
+    return true;
+  }
+  const std::size_t indent = indentation(line);
+  if (indent < 4 && list_marker(trim(line)) > 0) in_list_ = true;
+  else if (indent == 0 && after_blank) in_list_ = false;
+  return false;
+}
+
+// predicate で始まる注釈は、大文字と小文字を問わず述語の表の印と見る。predicates: NAME の形でなければ誤りにし、
+// 印の書き違いで表が比べられずに通ることを防ぐ。前の区切りも閉じ、誤った印の後ろの行をそこに数えない。
+void Parser::table_comment(std::size_t index, const Comment& note) {
+  if (!starts_with_folded(note.text, "predicate")) return;
   table_.reset();
-  const std::vector<std::string_view> words = split_words(note.text.substr(kTablePrefix.size()));
+  const bool spelled = note.text.starts_with(kTablePrefix);
+  const std::vector<std::string_view> words =
+      spelled ? split_words(note.text.substr(kTablePrefix.size())) : std::vector<std::string_view>{};
   if (!note.closed || words.size() != 1) {
     error(index + 1, "manual_marker_bad", {std::string{trim(lines_[index])}});
     return;
   }
   result_.tables.push_back(ManualTable{std::string{words[0]}, index + 1, {}});
   table_ = result_.tables.size() - 1;
+}
+
+// 区切りの中の表は、見出しの行、| --- | の行、本体の行の順。本体のどの行も | で始まり、最初の欄はコードスパン
+// `name/arity` 1 つだけ。読み飛ばして数えない行を作らないため、ほかの形の行はどれも誤りにする。
+void Parser::section_line(std::size_t index, std::string_view text) {
+  if (rows_ == Rows::Body) {
+    std::optional<PredicateIndicator> entry = table_entry(text);
+    if (entry) add_entry(index, std::move(*entry));
+    else error(index + 1, "manual_table_row", {std::string{text}});
+    return;
+  }
+  if (delimiter_row(text)) {
+    rows_ = Rows::Body;
+    return;
+  }
+  end_rows();
+  if (text.find('|') == std::string_view::npos) return;
+  if (text.starts_with('`')) {
+    error(index + 1, "manual_table_row", {std::string{text}});
+    return;
+  }
+  rows_ = Rows::Header;
+  header_ = index;
+}
+
+// 表が切れた。| で始まる見出しの候補の下に | --- | が来なかったなら、表のつもりで書いた行が表にならなかった。
+void Parser::end_rows() {
+  if (rows_ == Rows::Header && trim(lines_[header_]).starts_with('|')) {
+    error(header_ + 1, "manual_table_header", {std::string{trim(lines_[header_])}});
+  }
+  rows_ = Rows::None;
 }
 
 // 同じファイルの同じ名前の表に 2 度書いた述語は誤り。比べるのは集合なので、黙って重ねると片方の行は何も確かめない。

@@ -27,7 +27,7 @@ message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal]... [-t halt] [--heap-max MiB] [-- argument...]').
-message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~nmosatest --manual <directory> [--mosa <path>] [--work <directory>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~nmosatest --manual <directory> [--mosa <path>] [--work <directory>] [--all-tables]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
 message(mosac_dist_unavailable, 'mosac: mosac dist is not available until phase 7').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
@@ -138,6 +138,12 @@ message(manual_tables_differ, '~w and ~w: predicate tables differ (~w / ~w)').
 message(manual_predicates_twice, 'predicate ~w listed twice in the tables of ~w').
 message(manual_predicates_unknown, 'no predicate list for ~w; a table names system or one of ~w').
 message(manual_predicates_differ, 'table of ~w differs from Mosa (not in Mosa [~w], not in the table [~w])').
+message(manual_table_row, 'a row of a predicates table starts with | and has exactly one code span `name/arity` in its first cell: ~w').
+message(manual_table_header, 'table line in a predicates section without a | --- | row under it: ~w').
+message(manual_tables_missing, '~w: no predicates table for ~w').
+message(manual_library_unloadable, 'library(~w) at ~w cannot be loaded: ~w').
+message(manual_library_no_module, 'the file does not define the module ~w').
+message(manual_version_differs, 'mosatest: ~w --version printed ~w, not ~w; give the mosa built with this mosatest').
 message(manual_no_editions, 'mosatest: ~w must hold en/ and ja/').
 message(manual_cannot_list, 'mosatest: cannot read the directory ~w').
 message(manual_no_examples, 'mosatest: no check: examples in ~w').

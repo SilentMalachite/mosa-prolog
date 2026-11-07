@@ -27,7 +27,7 @@ message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール]... [-t halt] [--heap-max MiB] [-- 引数...]').
-message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~nmosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
+message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~nmosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>] [--all-tables]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
 message(mosac_dist_unavailable, 'mosac: mosac dist はフェーズ7まで使えません').
 message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
@@ -138,6 +138,12 @@ message(manual_tables_differ, '~w と ~w で述語の表が違います（~w / ~
 message(manual_predicates_twice, '述語 ~w が ~w の表に 2 度あります').
 message(manual_predicates_unknown, '~w の述語の一覧はありません。表に書けるのは system か ~w です').
 message(manual_predicates_differ, '~w の表が Mosa と違います（Mosa に無いもの [~w]、表に無いもの [~w]）').
+message(manual_table_row, '述語の表の行は | で始め、最初の欄にコードスパン `name/arity` を 1 つだけ書きます: ~w').
+message(manual_table_header, '述語の区切りの表の行の下に | --- | の行がありません: ~w').
+message(manual_tables_missing, '~w に ~w の述語の表がありません').
+message(manual_library_unloadable, 'library(~w)（~w）を読めません: ~w').
+message(manual_library_no_module, 'ファイルがモジュール ~w を定義していません').
+message(manual_version_differs, 'mosatest: ~w --version の出力は ~w で、~w ではありません。この mosatest と同じ組み上げの mosa を渡します').
 message(manual_no_editions, 'mosatest: ~w に en/ と ja/ が要ります').
 message(manual_cannot_list, 'mosatest: ディレクトリ ~w を読めません').
 message(manual_no_examples, 'mosatest: ~w に check: の例がありません').

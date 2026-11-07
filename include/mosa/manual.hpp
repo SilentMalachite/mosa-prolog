@@ -5,6 +5,7 @@
 // src/machine/manual_parse.cpp、動かして比べるのは src/machine/manual_check.cpp。試験は tests/cpp/manual_parse_test.cpp
 // と tests/manual の見本（tests/tests.cmake）。
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -54,10 +55,21 @@ struct ParsedManual {
 // 表の system と比べる一覧。predicate_property(H, built_in) が成り立つ述語（engine.cpp の kBuiltins、call/1..8、
 // halt/0,1）から、$ で始まる内側の補助を除いたもの。system には Prolog で書いた述語が無いので、これで全部。
 [[nodiscard]] std::vector<PredicateIndicator> builtin_indicators();
-// 表の LIB と比べる一覧。新しい機械に library(LIB) を読んだときの公開リスト（宣言の順）。LIB は apply、between、
-// format、japanese、lists、strings のどれか（文面の表 messages_* は述語の一覧ではない）。ほかの名前と、読めない
-// ときは nullopt。ライブラリはいつもの探し方（$MOSA_LIB、次に実行ファイルの隣の lib/）で見つける。
-[[nodiscard]] std::optional<std::vector<PredicateIndicator>> library_exports(std::string_view library);
+
+// std::expected の代わり。exports が nullopt なら error がその理由（読み込みの診断など）。
+struct LibraryExports {
+  std::optional<std::vector<PredicateIndicator>> exports;
+  std::string error;
+};
+
+// 表の LIB と比べる一覧。新しい機械に lib_dir/LIB.pl を絶対パスで読んだときの、モジュール LIB の公開リスト（宣言の
+// 順）。例を動かす mosa と同じライブラリと比べるため、$MOSA_LIB は通さない（子の mosa も $MOSA_LIB を持たない）。
+[[nodiscard]] LibraryExports library_exports(std::string_view library, const std::filesystem::path& lib_dir);
+// 表に書けるライブラリ。lib_dir の *.pl のうち、文面の表 messages_* を除いた語幹（名前の順）。読めなければ nullopt。
+[[nodiscard]] std::optional<std::vector<std::string>> manual_libraries(const std::filesystem::path& lib_dir);
+// mosa --version の出力が、この mosatest と同じ版の 1 行か（\r と最後の改行は問わない）。組込の一覧はこの mosatest
+// の中から取るので、違う組み上げの mosa の例とは比べない。
+[[nodiscard]] bool same_version(std::string_view output);
 
 // console の囲いの 1 つのコマンド。argv[0] は mosa、mosac、mosatest か ./NAME のまま（置き換えは動かす側）。
 struct ConsoleCommand {
@@ -79,14 +91,15 @@ struct ManualArgs {
   std::string dir;                   // en/ と ja/ を持つディレクトリ
   std::string mosa;                  // 空なら動いている mosatest の隣の mosa
   std::string work = "tests/tmp/manual";
+  bool all_tables = false;           // --all-tables。どの版にも system とどのライブラリの表もあること
   bool ok = false;
 };
 
-// mosatest --manual の後ろ。<ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>]。
+// mosatest --manual の後ろ。<ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>] [--all-tables]。
 [[nodiscard]] ManualArgs parse_manual_args(std::span<const std::string_view> args);
 // 例を動かして比べる。失敗ごとに 1 塊と、最後に件数の 1 行を標準出力に出す。終了コードは失敗が無ければ 0、
-// あれば 1。<ディレクトリ> に en/ か ja/ が無いか読めないとき、どこにも check: の例が無いときは 2（使い方の誤りと
-// 同じ。何も確かめずに通ったことにしない）。
+// あれば 1。<ディレクトリ> に en/ か ja/ が無いか読めないとき、どこにも check: の例が無いとき、mosa の版が違うか
+// mosa の隣の lib/ を読めないときは 2（使い方の誤りと同じ。何も確かめずに通ったことにしない）。
 [[nodiscard]] int run_manual(const ManualArgs& args);
 
 }

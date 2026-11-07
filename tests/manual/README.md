@@ -3,10 +3,11 @@ English | [日本語](README.ja.md)
 # Manual examples and `mosatest --manual`
 
 This directory holds the fixtures of `mosatest --manual` (`good`, `bad-output`, `bad-ids`, `unmarked`, `empty`,
-`bad-preds`, registered in `tests/tests.cmake`). The rules below are for whoever writes a chapter of `docs/manual/`.
+`bad-preds`, `bad-lib`, registered in `tests/tests.cmake`). The rules below are for whoever writes a chapter of
+`docs/manual/`.
 
 ```text
-mosatest --manual <dir> [--mosa <path>] [--work <dir>]
+mosatest --manual <dir> [--mosa <path>] [--work <dir>] [--all-tables]
 ```
 
 `<dir>` holds `en/` and `ja/`. `--mosa` defaults to the `mosa` beside the running `mosatest`; `mosac` and `mosatest`
@@ -15,8 +16,9 @@ failure (`file:line id`, the expected text, the actual text), then `manual: N ch
 line is the same in both message languages, so scripts can match it. N and M count examples. F counts failed examples
 and every structural error (a parse error, a missing edition of a file, different ids or predicate tables, a predicate
 table that differs from Mosa, a chapter directory that cannot be emptied). Exit
-status: 0 when nothing failed, 1 on any failure, 2 on a usage error, also when `<dir>` lacks a readable `en/` or `ja/`
-and when there is no `check:` example at all (nothing was checked, so nothing passed).
+status: 0 when nothing failed, 1 on any failure, 2 on a usage error, also when `<dir>` lacks a readable `en/` or `ja/`,
+when there is no `check:` example at all (nothing was checked, so nothing passed), when `<--mosa> --version` does not
+print the version line of the running `mosatest`, and when the `lib/` beside `--mosa` cannot be read.
 
 ## Markers
 
@@ -86,13 +88,28 @@ chapter is not run and counts as a failure.
 
 ## Predicate tables
 
-A line `<!-- predicates: system -->` or `<!-- predicates: LIB -->` opens a section that ends at the next heading (a
-line starting with `#` to `######`). LIB is one of `apply`, `between`, `format`, `japanese`, `lists` and `strings`;
-the message catalogs `messages_en` and `messages_ja` have no list of predicates. Every table row in the section whose
-first cell is a code span `` `name/arity` `` is one entry; the header row, the `| --- |` row and rows whose first cell
-is anything else are not entries. A row starts with `|`. Write the name as it is (`` `=../2` ``, `` `\+/1` ``,
-`` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``, where `''` stands for one quote). Lines
-inside code blocks are neither headings nor rows.
+A line `<!-- predicates: system -->` or `<!-- predicates: LIB -->` opens a section that ends at the next ATX heading
+(a line starting with `#` to `######`, indented by at most three spaces). A setext heading (a line underlined with
+`===` or `---`) does not end a section, so follow a section with an ATX heading. LIB is the stem of a `*.pl` file in
+the `lib/` beside `--mosa`, except the message catalogs `messages_*`, which have no list of predicates; any other name
+is an error. A comment whose text starts with `predicate` in any case (`<!-- predicate: lists -->`,
+`<!-- Predicates: lists -->`) and is not exactly `predicates: NAME` on one line is an error, so a misspelled marker
+does not leave a table unchecked.
+
+A table in a section is a header row, a `| --- |` row and body rows. Every line after the `| --- |` row is a body row
+until a blank line, a heading, a comment or a code block, as GitHub renders a line right after a table as one more row.
+Every body row starts with `|`, and its first cell is exactly one code span `` `name/arity` ``. Anything else is an
+error, not a row to skip: text after the code span (`` `nope/1` (deprecated) ``), a link, bold, two code spans, a row
+without the leading `|`, or a line of prose right under the table. A line with a `|` that is not followed by a
+`| --- |` row is an error when it starts with `|`, and so is a line that starts with a code span and has a `|`. The
+arity is a decimal number without a leading zero (`between/03` is an error). Write the name as it is (`` `=../2` ``,
+`` `\+/1` ``, `` `\==/2` ``, `` `ひらがな_カタカナ/2` ``) or in single quotes as in Prolog (`` `','/2` ``). Inside the
+quotes only `''` is decoded, as one quote; a backslash stays as it is, so write names with a backslash (`\=`, `\==`,
+`\+`, `=\=`) without quotes.
+
+Lines that a reader does not see as a table are not read: lines inside code blocks, lines inside a multi-line
+`<!-- … -->` comment, and lines indented by four or more spaces outside a list item (an indented code block). A table
+inside a list item may be indented.
 
 ```markdown
 <!-- predicates: between -->
@@ -106,7 +123,12 @@ several headings, and an entry listed twice for that name is an error. They are 
 an entry that Mosa lacks and a predicate that the tables lack both fail, and the failure names both lists, written on
 the line of the first marker. `system` means the built-in predicates, those for which `predicate_property(H,
 built_in)` holds (and `:/2`, which `predicate_property/2` reads as a module qualification), without the internal
-helpers whose names start with `$`. `LIB` means the export list of `library(LIB)` loaded in a fresh machine, found the
-usual way (`$MOSA_LIB`, then the `lib/` beside `mosatest`); keep `mosatest` beside the `mosa` that runs the examples so
-both use the same system. Directives such as `use_module/1` and `dynamic/1` are not built-in predicates, so list them
-in a table without a marker. Both editions of a chapter have the same sequence of `predicates:` markers.
+helpers whose names start with `$`. The list is the one built into `mosatest`, which is why `--mosa` must print the
+same version. `LIB` means the export list of `lib/LIB.pl` beside `--mosa`, loaded by its absolute path in a fresh
+machine; `$MOSA_LIB` is ignored, as it is for the `mosa` that runs the examples. A library that is present but cannot
+be loaded (a syntax error, no `module/2`, a module with another name) fails with its name, its path and the load error.
+Directives such as `use_module/1` and `dynamic/1` are not built-in predicates, so list them in a table without a
+marker. Both editions of a chapter have the same sequence of `predicates:` markers.
+
+With `--all-tables`, each edition must also have a section for `system` and for every library in that `lib/`; the
+missing names fail as one error per edition. Use it for the full manual, whose reference chapter lists them all.

@@ -1,13 +1,18 @@
 // mosatest --manual の印の読み取り（リリース 0.1.0 Task 4）。印の 3 種、複数行の入力、CRLF、印の無い囲い、
 // 既定の入力、console の区切りと引用を確かめる。走らせて比べるところは tests/manual の見本（tests.cmake）が見る。
-// 述語の表の読み取りと、表と比べる処理系の一覧（組込と library の公開リスト）も見る（Task 5）。
+// 述語の表の読み取りと、表と比べる処理系の一覧（組込と library の公開リスト）も見る（Task 5）。ライブラリは
+// 組み上げで写した隣の lib/ と、読めないライブラリの見本 tests/manual/bad-lib/lib（MOSA_SOURCE_DIR）を読む。
 
 #include "harness.hpp"
+#include "mosa/exe_path.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/manual.hpp"
+#include "mosa/version.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -229,7 +234,8 @@ void manual_parse_console() {
   check(commands[1].output == "a b\n\n" && commands[1].offset == 2, "console: second output and offset");
 }
 
-// 述語の表（リリース 0.1.0 Task 5）。区切りは印から次の見出しまで。囲いの中の行は見出しにも表の行にもならない。
+// 述語の表（リリース 0.1.0 Task 5）。区切りは印から次の ATX の見出しまで。表は見出しの行、| --- |、本体の行の順。
+// 囲いの中の行は見出しにも表の行にもならない。
 constexpr std::string_view kTables =
     "# Reference\n"                                // 1
     "<!-- predicates: between -->\n"               // 2
@@ -239,20 +245,21 @@ constexpr std::string_view kTables =
     "|`','/2`| quoted, no spaces |\n"              // 6
     "| `'it''s'/0` | doubled quote |\n"            // 7
     "| `=../2` | symbol char |\n"                  // 8
-    "| plain/1 | not a code span |\n"              // 9
-    "| `foo` | no arity |\n"                       // 10
-    "| `bar/x` | arity not a number |\n"           // 11
-    "`succ/2` is not in a table row\n"             // 12
-    "| `ひらがな_カタカナ/2` | Japanese name |\n"   // 13
-    "## Next\n"                                    // 14
-    "| `after/0` | after the heading |\n"          // 15
-    "<!--predicates:system-->\n"                   // 16
-    "<!-- skip: block -->\n"                       // 17
-    "```console\n"                                 // 18
-    "# a shell comment, not a heading\n"           // 19
-    "| `inside/0` | in a code block |\n"           // 20
-    "```\n"                                        // 21
-    "| `atom/1` | after the code block |\n";       // 22
+    "| ` \\+/1 ` | backslash unquoted, padded |\n" // 9
+    "| `ひらがな_カタカナ/2` | Japanese name |\n"   // 10
+    "\n"                                           // 11
+    "`succ/2` is prose after the table\n"          // 12
+    "## Next\n"                                    // 13
+    "| `after/0` | after the heading |\n"          // 14
+    "<!--predicates:system-->\n"                   // 15
+    "<!-- skip: block -->\n"                       // 16
+    "```console\n"                                 // 17
+    "# a shell comment, not a heading\n"           // 18
+    "| `inside/0` | in a code block |\n"           // 19
+    "```\n"                                        // 20
+    "| Name | |\n"                                 // 21
+    "|:---|---:|\n"                                // 22
+    "| `atom/1` | after the code block |\n";       // 23
 
 bool same(const std::vector<mosa::PredicateIndicator>& entries,
           const std::vector<mosa::PredicateIndicator>& wanted) {
@@ -268,29 +275,112 @@ void manual_parse_tables() {
   }
   const mosa::ManualTable& first = parsed.tables[0];
   check(first.library == "between" && first.line == 2, "tables: first section and its marker line");
-  check(same(first.entries, {{"between", 3}, {",", 2}, {"it's", 0}, {"=..", 2}, {"ひらがな_カタカナ", 2}}),
+  check(same(first.entries, {{"between", 3}, {",", 2}, {"it's", 0}, {"=..", 2}, {"\\+", 1}, {"ひらがな_カタカナ", 2}}),
         "tables: entries of the first section, quotes removed");
   const mosa::ManualTable& second = parsed.tables[1];
-  check(second.library == "system" && second.line == 16, "tables: marker without spaces");
+  check(second.library == "system" && second.line == 15, "tables: marker without spaces");
   check(same(second.entries, {{"atom", 1}}), "tables: code block lines are neither headings nor rows");
   check(parsed.examples.size() == 1, "tables: the marked code block is still an example");
+}
+
+// 読者に見えない行は数えない。複数行の注釈の中と、箇条書きの外で 4 つ字下げした行（字下げのコードブロック）。
+// 箇条書きの項目の中で字下げした表は読者に表として見えるので数える。
+void manual_parse_hidden_rows() {
+  constexpr std::string_view text =
+      "<!-- predicates: lists -->\n"  // 1
+      "| Predicate |\n"               // 2
+      "| --- |\n"                     // 3
+      "| `append/3` |\n"              // 4
+      "\n"                            // 5
+      "<!--\n"                        // 6
+      "| Predicate |\n"               // 7
+      "| --- |\n"                     // 8
+      "| `hidden/1` |\n"              // 9
+      "-->\n"                         // 10
+      "\n"                            // 11
+      "    | Predicate |\n"           // 12
+      "    | --- |\n"                 // 13
+      "    | `code/1` |\n"            // 14
+      "\n"                            // 15
+      "- In a list item:\n"           // 16
+      "\n"                            // 17
+      "    | Predicate |\n"           // 18
+      "    | --- |\n"                 // 19
+      "    | `length/2` |\n";         // 20
+  const mosa::ParsedManual parsed = mosa::parse_manual(text, "h.md");
+  check(parsed.errors.empty(), "hidden rows: no errors");
+  check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, {{"append", 3}, {"length", 2}}),
+        "hidden rows: not the comment or the indented code, but the list item");
+}
+
+// 見出しと | --- | の下の 4 行目に row を置いた区切り。
+std::string table_with(std::string_view row) {
+  return "<!-- predicates: lists -->\n| Predicate | Meaning |\n| --- | --- |\n" + std::string{row} + "\n";
+}
+
+// 本体の行はどれも | で始まり、最初の欄はちょうど 1 つのコードスパン `name/arity`。ほかは読み飛ばさずに誤り。
+void manual_parse_bad_rows() {
+  for (const std::string_view row : {"| `nope/1` (deprecated) | |", "| [`append/3`](#append) | |",
+                                     "| **`append/3`** | |", "`append/3` | no leading pipe |",
+                                     "| `between/03` | leading zero |", "| `foo` | no arity |",
+                                     "| `bar/x` | arity not a number |", "| plain/1 | not a code span |",
+                                     "| `a/1` `b/1` | two code spans |", "| `'a'b'/1` | bad quotes |",
+                                     "| `/1` | no name |", "Prose right after the rows."}) {
+    const mosa::ParsedManual parsed = mosa::parse_manual(table_with(row), "r.md");
+    check(parsed.errors.size() == 1 && has_error(parsed, "r.md:4: "), "bad rows: error for " + std::string{row});
+    check(parsed.tables.size() == 1 && parsed.tables.front().entries.empty(), "bad rows: not counted " +
+                                                                                  std::string{row});
+  }
+  const mosa::ParsedManual zero = mosa::parse_manual(table_with("| `halt/0` | |\n| `atom_length/2` | |"), "r.md");
+  check(zero.errors.empty() && zero.tables.size() == 1 && same(zero.tables.front().entries, {{"halt", 0},
+                                                                                            {"atom_length", 2}}),
+        "bad rows: arity 0 and 2 are fine");
+  const mosa::ParsedManual header = mosa::parse_manual("<!-- predicates: lists -->\n| Predicate |\n\n", "r.md");
+  check(has_error(header, "r.md:2: "), "bad rows: a | header without a | --- | row under it");
+  const mosa::ParsedManual loose = mosa::parse_manual("<!-- predicates: lists -->\n`append/3` | joins |\n", "r.md");
+  check(loose.errors.size() == 1 && has_error(loose, "r.md:2: "), "bad rows: code span and | without a leading |");
+  const mosa::ParsedManual prose =
+      mosa::parse_manual("<!-- predicates: lists -->\nUse `a | b` here.\nText with a|bar.\n", "r.md");
+  check(prose.errors.empty(), "bad rows: prose with | that does not start with a code span or |");
 }
 
 void manual_parse_table_errors() {
   check(has_error(mosa::parse_manual("<!-- predicates: -->\n", "e.md"), "e.md:1: "), "tables: no library name");
   check(has_error(mosa::parse_manual("<!-- predicates: a b -->\n", "e.md"), "e.md:1: "), "tables: two names");
   check(has_error(mosa::parse_manual("<!-- predicates: lists\n-->\n", "e.md"), "e.md:1: "), "tables: not closed");
+  for (const std::string_view marker : {"<!-- predicate: lists -->", "<!-- Predicates: lists -->",
+                                        "<!-- PREDICATES lists -->", "<!-- predicates lists -->"}) {
+    const mosa::ParsedManual parsed = mosa::parse_manual(std::string{marker} + "\n", "e.md");
+    check(parsed.errors.size() == 1 && has_error(parsed, "e.md:1: ") && parsed.tables.empty(),
+          "tables: misspelled marker " + std::string{marker});
+  }
+  check(mosa::parse_manual("<!-- a note on predicates -->\n<!-- TODO -->\n", "e.md").errors.empty(),
+        "tables: other comments are not markers");
+  constexpr std::string_view misspelled =
+      "<!-- predicates: between -->\n"  // 1
+      "| P |\n| --- |\n"                // 2, 3
+      "| `between/3` |\n"               // 4
+      "\n"                              // 5
+      "<!-- predicate: lists -->\n"     // 6
+      "| P |\n| --- |\n"                // 7, 8
+      "| `append/3` |\n";               // 9
+  const mosa::ParsedManual parsed = mosa::parse_manual(misspelled, "e.md");
+  check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, {{"between", 3}}),
+        "tables: rows after a misspelled marker belong to no section");
   constexpr std::string_view twice =
       "<!-- predicates: between -->\n"  // 1
-      "| `between/3` | |\n"             // 2
-      "# Other\n"                       // 3
-      "<!-- predicates: system -->\n"   // 4
-      "| `between/3` | |\n"             // 5
-      "<!-- predicates: between -->\n"  // 6
-      "| `succ/2` | |\n"                // 7
-      "| `between/3` | |\n";            // 8
-  const mosa::ParsedManual parsed = mosa::parse_manual(twice, "d.md");
-  check(parsed.errors.size() == 1 && has_error(parsed, "d.md:8: "),
+      "| P |\n| --- |\n"                // 2, 3
+      "| `between/3` | |\n"             // 4
+      "# Other\n"                       // 5
+      "<!-- predicates: system -->\n"   // 6
+      "| P |\n| --- |\n"                // 7, 8
+      "| `between/3` | |\n"             // 9
+      "<!-- predicates: between -->\n"  // 10
+      "| P |\n| --- |\n"                // 11, 12
+      "| `succ/2` | |\n"                // 13
+      "| `between/3` | |\n";            // 14
+  const mosa::ParsedManual repeated = mosa::parse_manual(twice, "d.md");
+  check(repeated.errors.size() == 1 && has_error(repeated, "d.md:14: "),
         "tables: the same entry twice for one name in a file, other names apart");
 }
 
@@ -301,8 +391,8 @@ bool has_indicator(const std::vector<mosa::PredicateIndicator>& all, std::string
   return false;
 }
 
-// 引用した原子にする。名前に ' と \ があっても読み戻せる。
-std::string quoted(std::string_view name) {
+// 引用した原子にする。名前に ' と \ があっても読み戻せる。std::quoted と ADL でぶつからない名前にする。
+std::string quoted_name(std::string_view name) {
   std::string out = "'";
   for (const char letter : name) {
     if (letter == '\'' || letter == '\\') out += '\\';
@@ -326,26 +416,66 @@ void manual_builtin_indicators() {
   const auto machine = mosa::Machine::create();
   for (const mosa::PredicateIndicator& item : all) {
     if (item.name == ":" && item.arity == 2) continue;
-    const std::string goal = "functor(H, " + quoted(item.name) + ", " + std::to_string(item.arity) +
+    const std::string goal = "functor(H, " + quoted_name(item.name) + ", " + std::to_string(item.arity) +
                              "), predicate_property(H, built_in).";
     const mosa::Stop stop = machine->query(goal);
     check(stop.kind == mosa::StopKind::Success, "builtins: built_in holds for " + item.name);
   }
 }
 
+// mosatest の隣の lib/。mosatest --manual が mosa の隣の lib/ を読むのと同じ置き方（組み上げで写す）。
+std::filesystem::path beside_lib() {
+  const std::optional<std::filesystem::path> self = mosa::executable_path();
+  return self ? self->parent_path() / "lib" : std::filesystem::path{"lib"};
+}
+
 void manual_library_exports() {
-  const auto between = mosa::library_exports("between");
-  check(between && same(*between, {{"between", 3}, {"succ", 2}, {"plus", 3}}), "exports: library(between)");
-  const auto lists = mosa::library_exports("lists");
-  check(lists && has_indicator(*lists, "length", 2) && has_indicator(*lists, "append", 3), "exports: library(lists)");
-  const auto japanese = mosa::library_exports("japanese");
-  check(japanese && has_indicator(*japanese, "ひらがな_カタカナ", 2), "exports: library(japanese)");
+  const std::filesystem::path lib = beside_lib();
+  const mosa::LibraryExports between = mosa::library_exports("between", lib);
+  check(between.exports && same(*between.exports, {{"between", 3}, {"succ", 2}, {"plus", 3}}),
+        "exports: library(between)");
+  const mosa::LibraryExports lists = mosa::library_exports("lists", lib);
+  check(lists.exports && has_indicator(*lists.exports, "length", 2) && has_indicator(*lists.exports, "append", 3),
+        "exports: library(lists)");
+  const mosa::LibraryExports japanese = mosa::library_exports("japanese", lib);
+  check(japanese.exports && has_indicator(*japanese.exports, "ひらがな_カタカナ", 2), "exports: library(japanese)");
   for (const std::string_view name : {"apply", "format", "strings"}) {
-    check(mosa::library_exports(name).has_value(), "exports: library " + std::string{name});
+    check(mosa::library_exports(name, lib).exports.has_value(), "exports: library " + std::string{name});
   }
-  for (const std::string_view name : {"messages_en", "messages_ja", "system", "nope"}) {
-    check(!mosa::library_exports(name).has_value(), "exports: none for " + std::string{name});
+  for (const std::string_view name : {"system", "nope"}) {
+    const mosa::LibraryExports none = mosa::library_exports(name, lib);
+    check(!none.exports && !none.error.empty(), "exports: none, with a reason, for " + std::string{name});
   }
+  const std::filesystem::path bad = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "manual" / "bad-lib" / "lib";
+  for (const std::string_view name : {"broken", "nomodule", "renamed"}) {
+    const mosa::LibraryExports none = mosa::library_exports(name, bad);
+    check(!none.exports && !none.error.empty(), "exports: unloadable " + std::string{name});
+  }
+  check(!mosa::library_exports("between", bad).exports, "exports: only the given directory is searched");
+}
+
+void manual_libraries_and_version() {
+  const auto names = mosa::manual_libraries(beside_lib());
+  check(names == std::vector<std::string>{"apply", "between", "format", "japanese", "lists", "strings"},
+        "libraries: the *.pl beside mosatest without messages_*");
+  check(!mosa::manual_libraries(beside_lib() / "nope").has_value(), "libraries: unreadable directory");
+  const std::string line = mosa::version_line();
+  check(mosa::same_version(line + "\n") && mosa::same_version(line + "\r\n") && mosa::same_version(line),
+        "version: the same line");
+  check(!mosa::same_version("cmake version 3.31.0\n") && !mosa::same_version("") &&
+            !mosa::same_version(line + "\nmore\n") && !mosa::same_version(line + "-dev\n"),
+        "version: another line");
+}
+
+void manual_args() {
+  const std::vector<std::string_view> all{"docs/manual", "--all-tables", "--mosa", "build/mosa"};
+  const mosa::ManualArgs parsed = mosa::parse_manual_args(all);
+  check(parsed.ok && parsed.all_tables && parsed.dir == "docs/manual" && parsed.mosa == "build/mosa",
+        "args: --all-tables with --mosa");
+  const std::vector<std::string_view> plain{"docs/manual"};
+  check(mosa::parse_manual_args(plain).ok && !mosa::parse_manual_args(plain).all_tables, "args: no --all-tables");
+  const std::vector<std::string_view> bare{"--all-tables"};
+  check(!mosa::parse_manual_args(bare).ok, "args: --all-tables without a directory");
 }
 
 }  // namespace
@@ -362,8 +492,12 @@ int main() {
   manual_parse_default_input();
   manual_parse_console();
   manual_parse_tables();
+  manual_parse_hidden_rows();
+  manual_parse_bad_rows();
   manual_parse_table_errors();
   manual_builtin_indicators();
   manual_library_exports();
+  manual_libraries_and_version();
+  manual_args();
   return mosa_test::failures() == 0 ? 0 : 1;
 }
