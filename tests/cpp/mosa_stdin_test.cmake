@@ -20,7 +20,7 @@ function(expect_output label regex)
 endfunction()
 
 expect_output("read from stdin" "X = foo, Y = bar\\." -g "read(X), read(Y)." -t halt)
-expect_output("version ignores stdin" "^mosa 0\\.0\\.1 \\(phase 6\\)" --version)
+expect_output("version ignores stdin" "^mosa 0\\.1\\.0" --version)
 # レビュー M12。パイプの read/1 は 1.5 の小数点を終止符にしない。
 file(WRITE "${input}" "X = 1.5.\nfoo(2.25).\n")
 # = の項は = の右の被演算子として括弧に入る（レビュー M27）。
