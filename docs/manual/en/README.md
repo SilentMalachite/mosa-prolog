@@ -28,7 +28,7 @@ The packages are not signed. [Chapter 2](02-install.md) shows how to start Mosa 
 
 ## Chapters
 
-Chapters 1 to 11 are written. The others are listed without a link until they are written.
+Chapters 1 to 12 are written. The others are listed without a link until they are written.
 
 1. [Introduction](01-introduction.md)
 2. [Getting and starting Mosa](02-install.md)
@@ -41,6 +41,6 @@ Chapters 1 to 11 are written. The others are listed without a link until they ar
 9. [Errors and exceptions](09-errors.md)
 10. [Input and output](10-input-output.md)
 11. [Writing in Japanese](11-japanese.md)
-12. Modules and libraries
+12. [Modules and libraries](12-modules-libraries.md)
 13. Building executables with `mosac`
 14. Reference
