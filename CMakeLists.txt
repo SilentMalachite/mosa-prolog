@@ -204,6 +204,9 @@ else()
 endif()
 set(mosa_abi "${mosa_abi_os}-${mosa_abi_arch}-${mosa_abi_cxx}")
 set(mosa_runtime_dest "lib/mosa/${mosa_abi}")
+# パッケージを作る台本 cmake/package.cmake は、名前の <OS>-<arch> をビルド木の CMakeCache.txt のこの鍵から取る
+# （リリース 0.1.0 Task 9）。版は project() が残す CMAKE_PROJECT_VERSION から取る。
+set(MOSA_ABI "${mosa_abi}" CACHE INTERNAL "Runtime key <OS>-<arch>-<compiler> of this build")
 
 # lib/*.pl の翻訳済みの単位（計画 Task 10）。作った mosac に emit --library を頼んで <語幹>.cpp を出し、ライブラリごとの
 # 静的ライブラリ libmosa_pl_<語幹>.a（MSVC は mosa_pl_<語幹>.lib）にして mosac の隣の pl/ に置く。mosac build は
@@ -238,6 +241,10 @@ install(DIRECTORY include/mosa DESTINATION ${mosa_runtime_dest}/include COMPONEN
 install(TARGETS ${mosa_pl_targets} ARCHIVE DESTINATION ${mosa_runtime_dest}/pl COMPONENT runtime CONFIGURATIONS Release)
 install(FILES CMakeLists.txt DESTINATION lib/mosa/source COMPONENT source)
 install(DIRECTORY src include lib DESTINATION lib/mosa/source COMPONENT source PATTERN ".DS_Store" EXCLUDE)
+# 利用者向けの文書（リリース 0.1.0 Task 9）。根に置く README と CHANGELOG の docs/manual/… へのリンクがパッケージの中でも
+# 通るよう、マニュアルはリポジトリと同じ docs/manual/ に置く。
+install(FILES LICENSE NOTICE README.md README.ja.md CHANGELOG.md CHANGELOG.ja.md DESTINATION . COMPONENT docs)
+install(DIRECTORY docs/manual/ DESTINATION docs/manual COMPONENT docs PATTERN ".DS_Store" EXCLUDE)
 
 # テスト（tests/tests.cmake）。同梱の源から実行時ライブラリだけを作るとき（mosac build --runtime-source）は外す。
 option(MOSA_BUILD_TESTS "Build the tests" ON)

@@ -623,6 +623,21 @@ set_tests_properties(mosac_installed_layout PROPERTIES ENVIRONMENT "MOSA_WERROR=
   SKIP_REGULAR_EXPRESSION "skipped: the runtime component is installed only for Release"
   ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
 
+# リリースのパッケージ（リリース 0.1.0 Task 9）。cmake/package.cmake で作って空白と日本語のある場所に展開し、その木の
+# mosatest でマニュアルを動かす。Release 以外は台本が「skipped: 」を出す。第 13 章の mosac build は同梱の実行時ライブラリ
+# を使うので、鍵の合うこのビルドのコンパイラを MOSA_CXX で渡す（Windows は mosac の既定の vswhere で探す）。
+add_test(NAME package_layout COMMAND ${CMAKE_COMMAND}
+  -DSRC=${CMAKE_SOURCE_DIR} -DBUILD_DIR=${CMAKE_BINARY_DIR} "-DCONFIG=$<CONFIG>" "-DABI=${mosa_abi}"
+  -DVERSION=${PROJECT_VERSION} -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/package "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/package_test.cmake)
+set(package_env "MOSA_WERROR=1")
+if(mosac_build_cxx)
+  list(APPEND package_env "MOSA_CXX=${mosac_build_cxx}")
+endif()
+set_tests_properties(package_layout PROPERTIES ENVIRONMENT "${package_env}" TIMEOUT 1800
+  SKIP_REGULAR_EXPRESSION "skipped: the runtime component is installed only for Release"
+  ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # mosac build --runtime-source は同梱の源から libmosa を 2 回作る（M1 Max で 35 秒、CI の Linux ではもっと長い）。
 # ふだんの ctest には重いので、MOSA_SLOW_TESTS=ON のときだけ登録する（ラベル slow）。2 回目がキャッシュの物を使い、
 # 3 回目の --clean が作り直した物で結べることまで見る。
