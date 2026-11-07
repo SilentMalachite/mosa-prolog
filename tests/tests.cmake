@@ -702,6 +702,11 @@ target_include_directories(manual_lists_test PRIVATE tests/cpp)
 target_link_libraries(manual_lists_test PRIVATE mosa_lib)
 target_compile_definitions(manual_lists_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME manual_lists COMMAND $<TARGET_FILE:manual_lists_test>)
+# 生の HTML のタグ（Task 5 の修正 4 の追加で manual_parse_test から分けた）。
+add_executable(manual_html_test tests/cpp/manual_html_test.cpp)
+target_include_directories(manual_html_test PRIVATE tests/cpp)
+target_link_libraries(manual_html_test PRIVATE mosa_lib)
+add_test(NAME manual_html COMMAND $<TARGET_FILE:manual_html_test>)
 set(manual_fixture_script ${CMAKE_SOURCE_DIR}/tests/cpp/manual_fixture_test.cmake)
 set(manual_fixture_dir ${CMAKE_SOURCE_DIR}/tests/manual)
 add_test(NAME manual_fixture_good COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>

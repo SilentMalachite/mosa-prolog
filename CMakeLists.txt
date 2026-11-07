@@ -129,6 +129,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/diff_report.cpp
   src/machine/diff_tool.cpp
   src/machine/manual_parse.cpp
+  src/machine/manual_markdown.cpp
   src/machine/manual_check.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp

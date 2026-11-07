@@ -142,7 +142,7 @@ message(manual_table_row, 'a row of a predicates table starts with |, has exactl
 message(manual_table_header, 'header row of a predicates table without a | --- | row of as many cells right under it: ~w').
 message(manual_section_line, 'line not allowed in a predicates section, which holds only tables (allowed: an empty line, a | header | row without a backtick or <, the | --- | row right under it, | `name/arity` | rows; write sentences above the marker): ~w').
 message(manual_section_control, 'control character ~w in a line of a predicates section (no tab, form feed, NUL or CR without LF; end lines with LF or CRLF)').
-message(manual_html_block, 'line starts a raw HTML block, which GitHub does not render as Markdown; in a chapter with predicates: markers only a <!-- comment may start a line with <: ~w').
+message(manual_html_tag, 'raw HTML tag, which GitHub renders as HTML (a <details> or <script> hides the tables after it); in a chapter with predicates: markers write < followed by a letter, /, ? or ! only inside code spans, code blocks or <!-- --> comments: ~w').
 message(manual_tables_missing, '~w: no predicates table for ~w').
 message(manual_library_unloadable, 'library(~w) at ~w cannot be loaded: ~w').
 message(manual_library_no_module, 'the file does not define the module ~w').

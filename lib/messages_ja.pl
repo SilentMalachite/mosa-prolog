@@ -142,7 +142,7 @@ message(manual_table_row, '述語の表の行は | で始め、最初の欄に�
 message(manual_table_header, '述語の表の見出しの行のすぐ下に、欄の数が同じ | --- | の行がありません: ~w').
 message(manual_section_line, '述語の区切りの中に書けない行です。区切りに置けるのは表だけです（書けるのは空の行、バッククォートも < も無い | 見出し | の行、そのすぐ下の | --- |、| `name/arity` | の行。文は印の前に書きます）: ~w').
 message(manual_section_control, '述語の区切りの行に制御文字 ~w があります（タブ、改ページ、NUL、LF の付かない CR は書けません。行は LF か CRLF で終えます）').
-message(manual_html_block, '生の HTML のブロックを始める行です。GitHub はその中を Markdown として映しません。predicates: の印を持つ章で < から始めてよいのは <!-- の注釈だけです: ~w').
+message(manual_html_tag, '生の HTML のタグです。GitHub は HTML として映します（<details> や <script> は後ろの表を隠します）。predicates: の印を持つ章で < の後ろに英字、/、?、! を続けてよいのは、コードスパン、コードブロック、<!-- --> の注釈の中だけです: ~w').
 message(manual_tables_missing, '~w に ~w の述語の表がありません').
 message(manual_library_unloadable, 'library(~w)（~w）を読めません: ~w').
 message(manual_library_no_module, 'ファイルがモジュール ~w を定義していません').

@@ -130,10 +130,29 @@ as one quote; a backslash stays as it is, so write names with a backslash (`\=`,
 | `between/3` | `between(Low, High, X)`: X is an integer from Low to High. |
 ```
 
-In a chapter with any `predicates:` marker, a line outside code blocks and comments that starts, after at most three
-spaces, with `<` and a letter, `</`, `<?` or `<!` is an error anywhere in the chapter, also outside the sections. Such a
-line opens a raw HTML block (`<details>`, `<div>`, `<script>`, `<?php`, `<![CDATA[`), and a marker or table inside one
-is counted but not shown as a table. `<!--` comments and the markers themselves are fine.
+In a chapter with any `predicates:` marker, a raw HTML tag is an error on any line, also outside the sections. A tag
+here is `<` followed by a letter, `/`, `?` or `!` (`<details>`, `</div>`, `<?php`, `<!DOCTYPE html>`, an autolink
+`<https://…>`; write a URL without the angle brackets), except `<!--`. GitHub renders a tag as HTML, and a tag such as
+`<details>` or `<script>` hides the tables after it. A tag is fine only inside a code span, a code block or a
+`<!-- … -->` comment, and the checker reads these as GitHub does:
+
+- A comment ends at the first `-->` or `--!>`, and `<!-->` and `<!--->` are empty comments. A line that starts at
+  column 0 with `<!--` begins a comment block that runs to the first line with `-->`. The whole block is raw HTML, so
+  text after the comment on such a line has no code spans and no backslash escapes (`` <!-- a --> `<b>` `` is an
+  error). A comment inside a paragraph ends on its own line.
+- Code spans pair as in CommonMark. Where the pairing can change, a tag inside a code span is an error too, from there
+  to the next empty line: after a backtick run that does not close on its line, after a `<!--` that does not end on
+  its line, and after a link destination, title or label (`[a](…)`, `[a][…]`) that holds a backtick or may go on to
+  the next line, because a link takes its backticks. A line with a `|` is also read cell by cell, as GFM splits a
+  table row into cells first.
+- A `<!--` after indentation, a `>` or a list marker may start a comment block or may be plain text, so that line and
+  the lines up to the next `-->` are read both ways, and a tag that either reading finds is an error.
+- The lines of a code block are skipped, except a line indented less than the opening fence and every line after it
+  in the block: GitHub ends a list item, and the fence in it, at such a line.
+
+`\<` outside a comment block is a plain `<`, and `<` followed by a space (`X < Y`) is not a tag. In a body row of a
+section, a link destination, title or label that holds a backtick also ends the code spans of its cell, so a `<` after
+it is an error.
 
 The entries of every section with the same name in one file are taken together, so a chapter can split a list under
 several headings, and an entry listed twice for that name is an error. They are compared with Mosa in both directions:

@@ -1,6 +1,7 @@
 // mosatest --manual の印の読み取り（リリース 0.1.0 Task 4）。印の 3 種、複数行の入力、CRLF、印の無い囲い、
 // 既定の入力、console の区切りと引用を確かめる。走らせて比べるところは tests/manual の見本（tests.cmake）が見る。
-// 述語の表の読み取りも見る（Task 5）。表と比べる処理系の一覧（組込と library の公開リスト）は manual_lists_test.cpp。
+// 述語の表の読み取りも見る（Task 5）。表と比べる処理系の一覧（組込と library の公開リスト）は manual_lists_test.cpp、
+// 生の HTML のタグは manual_html_test.cpp。
 
 #include "harness.hpp"
 #include "mosa/manual.hpp"
@@ -571,33 +572,6 @@ void manual_parse_control() {
   check(mosa::parse_manual(prose, "k.md").errors.empty(), "control: only the lines of a section");
 }
 
-// 印を持つ章では、区切りの外でも生の HTML のブロックを始める行は誤り。そのブロックの中の印と表は数えても表として
-// 映らない（rr3 の details と script、修正 4）。3 つまでの空白の後ろの <字、</、<?、<! が始め。<!-- の注釈、字下げの
-// コードブロック、囲いと注釈の中、印の無い章は誤りにしない。誤りは行の順に並ぶ。
-void manual_parse_raw_html() {
-  const std::string details = "<!-- predicates: between -->\n" + std::string{kProbeRows} +
-                              "\n## hidden\n\n<details>\n<!-- predicates: between -->\n| P |\n| --- |\n"
-                              "| `succ/2` | x |\n# x\n</details>\n";
-  const mosa::ParsedManual hidden = mosa::parse_manual(details, "h.md");
-  check(hidden.errors.size() == 2 && has_error(hidden, "h.md:8: ") && has_error(hidden, "h.md:14: "),
-        "raw html: <details> and </details> around a section");
-  for (const std::string_view open : {"<details>", "<script>", "<style>", "<table><tr><td>", "</div>", "  <details>",
-                                      "   <pre>", "<?php", "<!DOCTYPE html>", "<![CDATA[", "<DIV>"}) {
-    const std::string text = std::string{open} + "\n<!-- predicates: between -->\n" + std::string{kProbeRows} +
-                             "\n| `nope/1` |\n";
-    const mosa::ParsedManual parsed = mosa::parse_manual(text, "h.md");
-    check(parsed.errors.size() == 2 && parsed.errors.front().starts_with("h.md:1: ") && has_error(parsed, "h.md:7: "),
-          "raw html: " + std::string{open} + ", in line order");
-  }
-  constexpr std::string_view allowed = "<!-- a note -->\n<!--\n<div>\n-->\n< 3 is not a tag\n\n    <div> code\n\n"
-                                       "<!-- skip: html -->\n```html\n<div>\n```\n";
-  const mosa::ParsedManual fine =
-      mosa::parse_manual(std::string{allowed} + "<!-- predicates: between -->\n" + std::string{kProbeRows}, "h.md");
-  check(fine.errors.empty() && fine.tables.size() == 1, "raw html: comments, indented code and code blocks");
-  check(mosa::parse_manual("<details>\n\n| P |\n| --- |\n| `succ/2` |\n</details>\n", "h.md").errors.empty(),
-        "raw html: a chapter without a marker may use HTML");
-}
-
 // 区切りの中の注釈、区切りの線、引用はどれも書けない行で、後ろの行はまた読む（修正 2 の見本、修正 3 で誤りに）。
 void manual_parse_visible_rows() {
   constexpr std::string_view trailing =
@@ -699,7 +673,6 @@ int main() {
   manual_parse_cell_counts();
   manual_parse_header_span();
   manual_parse_control();
-  manual_parse_raw_html();
   manual_parse_visible_rows();
   manual_parse_table_errors();
   return mosa_test::failures() == 0 ? 0 : 1;
