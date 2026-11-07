@@ -117,6 +117,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/exe_path.cpp
   src/platform/command_line.cpp
   src/platform/console.cpp
+  src/platform/ui_language.cpp
   src/platform/process.cpp
   src/platform/address_range.cpp
   src/platform/toolchain.cpp

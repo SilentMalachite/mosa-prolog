@@ -444,6 +444,11 @@ add_executable(console_test tests/cpp/console_test.cpp)
 target_include_directories(console_test PRIVATE tests/cpp)
 target_link_libraries(console_test PRIVATE mosa_lib)
 add_test(NAME console COMMAND $<TARGET_FILE:console_test> plain --flag 42)
+
+add_executable(message_language_test tests/cpp/message_language_test.cpp)
+target_include_directories(message_language_test PRIVATE tests/cpp)
+target_link_libraries(message_language_test PRIVATE mosa_lib)
+add_test(NAME message_language COMMAND $<TARGET_FILE:message_language_test>)
 add_test(NAME mosa_utf8_pipe COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_utf8_pipe_test.cmake)
 

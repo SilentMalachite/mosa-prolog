@@ -25,3 +25,10 @@ Keeping the sentence in the Formal. `catch/3` patterns would depend on the langu
 `goal_raised` uses `~q`, so the shown exception is quoted as now (variables written by `numbervars` as `writeq/1` does). `main_mosa.cpp`, `warn_resource` in `session.cpp`, usage texts and load diagnostics (made while the machine is loading) have no machine that can run a query, so they render on a fresh machine marked `render_only`, whose own diagnostics use the fallback.
 CMake runs `session_test` with `LANG=ja_JP.UTF-8` so the existing Japanese checks do not depend on the machine, and once more with `MOSA_LIB` at `tests/tmp/messages_empty/`, whose `messages_en.pl` (written at configure time) has no keys; `MOSA_LIB` is searched before the exe `lib/`, so that run checks the fallback.
 `read_syntax`, `read_incomplete` and `read_syntax_stream` in `tests/pl/read.pl` change to the Key and Extra above in the Task 12 commit. SPEC Section 7 names this Extra since approval. No code is written before approval.
+
+## Amendment 1 (2026-11-07; owner's choice on 2026-11-07)
+
+Context: on Windows `LANG` is normally unset, so `message_language` was always `en` even on a Japanese Windows.
+Decision: a non-empty `LANG` decides as before (`ja` prefix gives Japanese); when `LANG` is absent or empty, Windows uses the display language (`GetUserDefaultUILanguage`, primary language Japanese gives Japanese); other systems give English. The decision is `message_language_from(lang, ui_japanese)`, and the OS call lives in `src/platform/ui_language.cpp`.
+Rejected: reading the console code page or the locale name (the user may change them for other reasons); keeping English until `LANG` is set (the default would not match the user's language).
+Consequences: SPEC Section 7 says so; a set `LANG` still wins, so `LANG=en` gives English on a Japanese Windows; tests pin `LANG` so they do not depend on the machine.

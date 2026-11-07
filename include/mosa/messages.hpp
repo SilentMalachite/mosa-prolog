@@ -17,6 +17,8 @@ enum class MessageLanguage { Ja, En };
 // 旗 message_language の既定。LANG が ja で始まれば日本語、それ以外と未設定は英語。
 [[nodiscard]] MessageLanguage language_from_lang(std::optional<std::string_view> lang);
 // 環境変数 LANG から決めた既定。
+// LANG があれば（空でなければ）その先頭で決め、無いか空なら OS の表示言語が日本語かで決める（ADR 0007 追補 1）。
+[[nodiscard]] MessageLanguage message_language_from(std::optional<std::string_view> lang, bool ui_japanese);
 [[nodiscard]] MessageLanguage default_message_language();
 // 旗の言語のカタログで Key を書式にする。改行は付けない。machine のヒープと束縛は捨てる。
 [[nodiscard]] std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args);
