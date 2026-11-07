@@ -79,7 +79,7 @@ std::vector<std::string_view> split_words(std::string_view text) {
   return words;
 }
 
-// CommonMark の囲い（``` か ~~~ を 3 つ以上）。リストの中の囲いも見落とさないよう、字下げの深さは問わない。
+// CommonMark の囲い（``` か ~~~ を 3 つ以上）。字下げした囲いも見つけ、Parser::run が誤りにする（Task 5 の修正 5）。
 std::optional<Fence> opening_fence(std::string_view line) {
   Fence fence;
   while (fence.indent < line.size() && line[fence.indent] == ' ') ++fence.indent;
@@ -101,20 +101,9 @@ bool closes(const Fence& fence, std::string_view line) {
   return length >= fence.length && length == text.size();
 }
 
-// 囲いの字下げの分だけ、中の行の頭の空白を落とす（CommonMark と同じ）。
-std::string_view dedent(std::string_view line, std::size_t indent) {
-  std::size_t index = 0;
-  while (index < indent && index < line.size() && line[index] == ' ') ++index;
-  return line.substr(index);
-}
-
-// 囲いの字下げより浅い、空でない中の行。箇条書きの中の囲いなら、GitHub はこの行で箇条書きごと囲いを閉じる。
-bool outdented(std::string_view line, std::size_t indent) {
-  return dedent(line, indent).size() + indent > line.size() && !trim(line).empty();
-}
-
 // 行頭のうち、検査器が囲いとして読まないもの（> の引用、タブ、同じ行の箇条書きの印、その間の空白）の長さ。
-// 空白だけなら 0（opening_fence が読む）。この後ろの囲いを黙って飛ばすと検査から漏れるので、誤りにする。
+// 空白だけなら 0（opening_fence が読み、字下げした囲いとして誤りにする）。この後ろの囲いを黙って飛ばすと検査から
+// 漏れるので、誤りにする。
 std::size_t unreadable_prefix(std::string_view line) {
   std::size_t index = 0;
   bool unreadable = false;
@@ -161,6 +150,17 @@ std::optional<MarkerHead> marker_head(std::string_view line) {
 }
 
 constexpr std::string_view kTablePrefix = "predicates:";
+
+// 行のどこかに印の注釈（<!-- check:、skip:、file:、predicate で始まるもの）がある。複数行の注釈を閉じる行の印を
+// 見つけるため（修正 5）。--> の後ろの印も、GitHub ではその行ごと HTML のブロックの中で、印として読めない。
+bool holds_marker(std::string_view line) {
+  for (std::size_t open = line.find("<!--"); open != std::string_view::npos; open = line.find("<!--", open + 4)) {
+    const std::string_view rest = line.substr(open);
+    const std::optional<Comment> note = comment(rest);
+    if (marker_head(rest) || (note && starts_with_folded(note->text, "predicate"))) return true;
+  }
+  return false;
+}
 
 // 区切りの中の表の位置。Header は見出しの行の後ろ、Rejected は誤りにした行の後ろ（すぐ下の | --- | で本体に入り、
 // 誤りを重ねない）、Body は | --- | の後ろ。
@@ -240,6 +240,7 @@ class Parser {
   void add_example(const Marker& marker, const Fence& fence, std::size_t line, std::string body);
   std::optional<ExampleKind> check_kind(const Fence& fence, std::size_t line, std::string_view body);
   void check_console(std::size_t line, std::string_view body);
+  bool comment_line(std::size_t index);
   void table_line(std::size_t index);
   void table_comment(std::size_t index, const Comment& note);
   std::size_t section_line(std::size_t index);
@@ -269,7 +270,7 @@ ParsedManual Parser::run() {
     }
     const std::string_view line = lines_[index];
     if (const auto fence = opening_fence(line)) {
-      index = read_block(index, *fence);
+      index = fence->indent == 0 ? read_block(index, *fence) : skip_unreadable(index, *fence);
       continue;
     }
     if (const std::size_t prefix = unreadable_prefix(line); prefix > 0) {
@@ -281,6 +282,11 @@ ParsedManual Parser::run() {
     if (pending_) {
       error(pending_->line, "manual_marker_alone");
       pending_.reset();
+    }
+    if (in_comment_ && !comment_line(index)) {
+      tags_.line(index, line);
+      ++index;
+      continue;
     }
     if (const auto head = marker_head(line)) {
       const std::size_t next = read_marker(index, *head);
@@ -307,15 +313,23 @@ void Parser::finish() {
   for (auto& [line, text] : errors_) result_.errors.push_back(std::move(text));
 }
 
-// 区切りの外で、囲いの外の行だけがここに来る。見るのは印の注釈と生の HTML のタグだけで、囲いの中と複数行の注釈の
-// 中の印は数えない。タグは TagScan が GitHub の読み方で探す。
+// 複数行の注釈の中の行。--> を含む行で注釈は閉じる（GFM の HTML のブロックと同じ）。その行の印は GitHub では注釈の
+// 中に隠れるので誤りにし（Task 5 の修正 5、rr4 の opencomment と markerclose）、その後は印として読んで、印の無い
+// 囲いの誤りを重ねない。返すのは、この行を印としてさらに読むかどうか。
+bool Parser::comment_line(std::size_t index) {
+  const std::string_view line = lines_[index];
+  if (line.find("-->") == std::string_view::npos) return false;
+  in_comment_ = false;
+  if (!holds_marker(line)) return false;
+  error(index + 1, "manual_marker_in_comment", {shown(trim(line))});
+  return true;
+}
+
+// 区切りの外で、囲いの外と複数行の注釈の外の行だけがここに来る。見るのは印の注釈と生の HTML のタグだけ。タグは
+// TagScan が GitHub の読み方で探す。
 void Parser::table_line(std::size_t index) {
   const std::string_view line = lines_[index];
   tags_.line(index, line);
-  if (in_comment_) {
-    in_comment_ = line.find("-->") == std::string_view::npos;
-    return;
-  }
   const std::optional<Comment> note = comment(line);
   if (!note) return;
   in_comment_ = !comment_ends_on(line);
@@ -438,6 +452,7 @@ std::size_t Parser::read_marker(std::size_t index, const MarkerHead& head) {
   const bool multi_line = !head.closed && head.kind == MarkerKind::Check;
   if (words.size() != wanted || (!head.closed && !multi_line)) {
     error(marker.line, "manual_marker_bad", {std::string{trim(lines_[index])}});
+    in_comment_ = !comment_ends_on(lines_[index]);  // 閉じない注釈は GitHub では後ろの行を隠す（修正 5）
     return index + 1;
   }
   marker.id = std::string{words[0]};
@@ -455,9 +470,13 @@ std::size_t Parser::read_marker(std::size_t index, const MarkerHead& head) {
 }
 
 // 複数行の check: の入力を --> の行まで読む。行はそのまま（空の行も）。閉じなければ誤りにし、size() + 1 を返す。
+// 途中の行の --> も誤り。GitHub はそこで印の注釈を閉じ、後ろの入力を文として映す（修正 5。DCG の規則など）。
 std::size_t Parser::read_override(std::size_t index, Marker& marker) {
   std::string input;
   while (index < lines_.size() && trim(lines_[index]) != "-->") {
+    if (lines_[index].find("-->") != std::string_view::npos) {
+      error(index + 1, "manual_override_arrow", {shown(lines_[index])});
+    }
     input += lines_[index];
     input += '\n';
     ++index;
@@ -470,18 +489,16 @@ std::size_t Parser::read_override(std::size_t index, Marker& marker) {
   return index + 1;
 }
 
-// 囲いの中を閉じの囲いまで読み、取っておいた印と合わせて例にする。返すのは閉じの次の行の位置。
+// 0 桁目の囲いの中を閉じの囲いまで読み、取っておいた印と合わせて例にする。返すのは閉じの次の行の位置。閉じの行も
+// 0 桁目だけ（修正 5）。字下げした閉じの行は、GitHub が閉じない（空白 4 つ）こともあるので誤りにし、そこで閉じる。
 std::size_t Parser::read_block(std::size_t index, const Fence& fence) {
   const std::size_t line = index + 1;
   std::optional<Marker> marker = std::move(pending_);
   pending_.reset();
   std::string body;
   std::size_t next = index + 1;
-  bool outside = false;  // 浅い行から後ろは、GitHub では囲いの外かもしれないのでタグを探す
   while (next < lines_.size() && !closes(fence, lines_[next])) {
-    outside = outside || outdented(lines_[next], fence.indent);
-    if (outside) tags_.line(next, lines_[next]);
-    body += dedent(lines_[next], fence.indent);
+    body += lines_[next];
     body += '\n';
     ++next;
   }
@@ -489,6 +506,7 @@ std::size_t Parser::read_block(std::size_t index, const Fence& fence) {
     error(line, "manual_fence_unclosed");
     return next;
   }
+  if (lines_[next].front() != fence.mark) error(next + 1, "manual_fence_unsupported");
   if (!marker) {
     error(line, "manual_unmarked");
     return next + 1;
@@ -497,7 +515,8 @@ std::size_t Parser::read_block(std::size_t index, const Fence& fence) {
   return next + 1;
 }
 
-// 読めない囲いは誤りにし、閉じの囲いまで飛ばす。中の行を印や囲いとして読み違えないため。直前の印も捨てる。
+// 読めない囲い（字下げ、引用、箇条書きの印、タブの後ろ）は誤りにし、閉じの囲いまで飛ばす。中の行を印や囲いとして
+// 読み違えないため。直前の印も捨てる。
 std::size_t Parser::skip_unreadable(std::size_t index, const Fence& fence) {
   error(index + 1, "manual_fence_unsupported");
   pending_.reset();

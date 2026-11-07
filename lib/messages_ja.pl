@@ -121,8 +121,10 @@ message(manual_unmarked, '直前の行に check:、skip:、file: の印が無い
 message(manual_marker_alone, '印の次の行がコードブロックではありません').
 message(manual_marker_bad, '印の形が違います: ~w').
 message(manual_marker_unclosed, '複数行の check: の印を閉じる --> の行がありません').
+message(manual_override_arrow, '複数行の check: の入力の行に --> があります。GitHub はそこで印の注釈を閉じ、後ろを文として映すので、その入力は file: のブロックに書きます: ~w').
+message(manual_marker_in_comment, '複数行の注釈を閉じる行に印があります。GitHub はその印を注釈の中に隠すので、注釈はその前の行で閉じます: ~w').
 message(manual_fence_unclosed, 'コードブロックが閉じていません').
-message(manual_fence_unsupported, 'ブロック引用の中、箇条書きの印と同じ行、タブの後ろのコードブロックは読めません。囲いは空白だけで字下げした行に置きます').
+message(manual_fence_unsupported, '囲いの行が 0 桁目にありません（字下げ、ブロック引用の中、箇条書きの印と同じ行、タブの後ろ）。コードブロックは箇条書きと引用の外で、0 桁目で開いて 0 桁目で閉じます').
 message(manual_file_name, 'file: の名前はディレクトリを含まないファイル名にします: ~w').
 message(manual_file_kind, 'file: は prolog のコードブロックに付けます').
 message(manual_check_kind, 'check: は "?- " で始まる text のコードブロックか console のコードブロックに付けます').

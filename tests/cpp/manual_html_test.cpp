@@ -76,8 +76,6 @@ void manual_html_any_line() {
            Shape{"indented comment", "    <!-- x\n<details>\n-->", 2},
            Shape{"listcomment", "- item\n  <!-- x\n<details>\n-->", 3},
            Shape{"marker tail", "<!-- skip: a--><details>-->\n```text\nx\n```", 1},
-           Shape{"check input after -->", "<!-- check: a\ng --> <b>.\n-->\n```text\n?- a.\n```", 2},
-           Shape{"fence closed by a list", "- a\n  <!-- skip: x -->\n  ```text\nout\n  <details>\n  ```", 5},
        }) {
     const mosa::ParsedManual parsed = mosa::parse_manual(with_section(shape.text), "t.md");
     const std::string prefix = "t.md:" + std::to_string(shape.line) + ": ";
@@ -98,7 +96,7 @@ void manual_html_exempt() {
            "Text <!-- a -- <details> -->", "`X<Y` and `=</2` compare.", "See [lists](lists.md) and `X<Y`.",
            "[a](b) `<details>`", "[a](b \"t\") `<i>` and [c][d] `<i>`", "<!-- a note -->\n<!--\n<div>\n-->",
            "< 3 is not a tag", "<!-- check: a\n?- X = '<b>'.\n-->\n```text\n?- a.\n```",
-           "<!-- skip: html -->\n```html\n<div>\n```", "- a\n\n  <!-- skip: y -->\n  ```html\n  <div>\n  ```",
+           "<!-- skip: html -->\n```html\n<div>\n```",
        }) {
     const mosa::ParsedManual parsed = mosa::parse_manual(with_section(text), "e.md");
     check(parsed.errors.empty() && parsed.tables.size() == 1, "exempt: " + std::string{text});
@@ -108,11 +106,34 @@ void manual_html_exempt() {
   check(mosa::parse_manual(cell, "e.md").errors.empty(), "exempt: a link before a code span in a row");
 }
 
+// 段落の中の注釈は - の直後の -->（--->）では閉じない（修正 5、rr4 の dashend、dashlater、dashmore、dashvar）。
+// GitHub はその後ろの --> を探し、無ければ <!-- を字のまま映すので、中のタグが映る。
+void manual_html_dash_close() {
+  const mosa::ParsedManual end = mosa::parse_manual(with_section("Text <!-- <details> --->"), "d.md");
+  check(end.errors.size() == 1 && has_error(end, "d.md:1: "), "dash close: dashend");
+  constexpr std::string_view later =
+      "G <!-- <i>g</i> ---> h --> <i>i</i>\n\nPara\n    <!-- <i>j</i> --->\n\nK <!--- note <i>k</i> --->";
+  const mosa::ParsedManual seen = mosa::parse_manual(with_section(later), "d.md");
+  check(seen.errors.size() == 3 && has_error(seen, "d.md:1: ") && has_error(seen, "d.md:4: ") &&
+            has_error(seen, "d.md:6: "),
+        "dash close: dashlater");
+  constexpr std::string_view more =
+      "A <!-- <i>a</i> --- b -->\n\nB <!-- <i>b</i> -- > c -->\n\nC <!-- <i>c</i> ---->\n\n"
+      "D <!-- <i>d</i> -x-->\n\nE <!--<i>e</i>--->\n\nF <!-- <i>f</i> -->-->";
+  const mosa::ParsedManual dashes = mosa::parse_manual(with_section(more), "d.md");
+  check(dashes.errors.size() == 2 && has_error(dashes, "d.md:5: ") && has_error(dashes, "d.md:9: "),
+        "dash close: dashmore");
+  const mosa::ParsedManual var =
+      mosa::parse_manual(with_section("Text <!-- <details> - -->\nText <!-- <i>x</i>--->"), "d.md");
+  check(var.errors.size() == 1 && has_error(var, "d.md:2: "), "dash close: dashvar");
+}
+
 }  // namespace
 
 int main() {
   manual_html_line_start();
   manual_html_any_line();
   manual_html_exempt();
+  manual_html_dash_close();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

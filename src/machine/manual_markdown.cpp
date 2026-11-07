@@ -149,6 +149,14 @@ bool tag_at(std::string_view text, std::size_t index) {
   return ascii_letter(next) || next == '/' || next == '?' || next == '!';
 }
 
+// 段落の中の注釈 <!-- … --> を閉じる --> の位置。GitHub は - の直後の -->（---> の中のもの）では閉じず、後ろの
+// --> を探す（修正 5。rr4 の dashend、dashlater、dashmore）。無ければ kNone で、<!-- は字のまま映る。
+std::size_t inline_comment_close(std::string_view text, std::size_t open) {
+  std::size_t close = text.find("-->", open + 2);
+  while (close != kNone && text[close - 1] == '-') close = text.find("-->", close + 1);
+  return close;
+}
+
 // HTML の注釈の終わり（--> か --!>）の後ろ。無ければ kNone。GitHub の HTML の読み方では --!> でも閉じる。
 std::size_t comment_end(std::string_view text, std::size_t from) {
   const std::size_t dash = text.find("-->", from);
@@ -194,7 +202,7 @@ bool markdown_tags(std::string_view text, bool& loose) {
       loose = end == index + backtick_run(text, index);
       index = end;
     } else if (!loose && text.substr(index).starts_with("<!--")) {
-      const std::size_t close = text.find("-->", index + 2);
+      const std::size_t close = inline_comment_close(text, index);
       loose = close == kNone;
       bool open = false;
       if (!loose) tag = raw_tags(text.substr(index, close + 3 - index), open) || tag;

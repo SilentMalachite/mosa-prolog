@@ -35,9 +35,15 @@ its opening fence. A block without one is an error, and so is a marker that is n
 sequence of marker kinds and ids (all three kinds counted), so `en` and `ja` show the same examples in the same order
 and one edition cannot `skip:` what the other `check:`s.
 
-A fence starts its line, indented with spaces only. A fence inside a block quote (`>`), on the same line as a list
-marker (`- `, `1. `) or after a tab is an error, because the checker would not read it. An indented code block without
-a fence (four spaces) is not read at all and needs no marker, so do not use one for an example.
+Every fence line, the opening one and the closing one, starts at column 0. A fence line indented by one or more spaces
+is an error, also inside a list item, and so is a fence inside a block quote (`>`), on the same line as a list marker
+(`- `, `1. `) or after a tab, because GitHub may read such a line as text, as indented code or as part of a list. For
+an example between numbered steps, end the list, put the marker and the fence at column 0, and go on with the next
+number (`3.`): GitHub keeps the start number of an ordered list. An indented code block without a fence (four
+spaces) is not read at all and needs no marker, so do not use one for an example.
+
+A marker on the line that closes a multi-line comment is an error, because GitHub hides it inside that comment. That
+includes the comment of a malformed marker that does not close on its own line.
 
 ## What `check:` runs
 
@@ -63,7 +69,8 @@ For anything else (a `;` for more answers, input read by `read/1`, a multi-line 
 ```
 
 The lines between `<!-- check: ID` and `-->` are the input, verbatim, empty lines included. In a `console` block every
-command gets this input.
+command gets this input. No line of the input may hold `-->` (a DCG rule, for example): GitHub ends the comment
+there and shows the rest of the input as text. Put such input in a `file:` block and load it instead.
 
 ## How output is compared
 
@@ -94,7 +101,8 @@ column 0 (a line starting with `#` to `######` followed by a space, a tab or the
 any other name is an error. A comment whose text starts with `predicate` in any case (`<!-- predicate: lists -->`,
 `<!-- Predicates: lists -->`) and is not exactly `predicates: NAME` on one line is an error, so a misspelled marker
 does not leave a table unchecked. Outside a section, markers inside code blocks and inside a multi-line comment do not
-count; a comment ends on the line that has `-->`, so `<!-->` and `<!--->` end on their own line.
+count; a comment ends on the line that has `-->`, so `<!-->` and `<!--->` end on their own line, and a marker on that
+line is an error (see Markers).
 
 A section holds only tables. Following each Markdown shape that GitHub renders in its own way missed another shape
 three times in a row, so the checker accepts only lines whose rendering is unambiguous. Each line of a section must be
@@ -136,10 +144,11 @@ here is `<` followed by a letter, `/`, `?` or `!` (`<details>`, `</div>`, `<?php
 `<details>` or `<script>` hides the tables after it. A tag is fine only inside a code span, a code block or a
 `<!-- … -->` comment, and the checker reads these as GitHub does:
 
-- A comment ends at the first `-->` or `--!>`, and `<!-->` and `<!--->` are empty comments. A line that starts at
-  column 0 with `<!--` begins a comment block that runs to the first line with `-->`. The whole block is raw HTML, so
-  text after the comment on such a line has no code spans and no backslash escapes (`` <!-- a --> `<b>` `` is an
-  error). A comment inside a paragraph ends on its own line.
+- A line that starts at column 0 with `<!--` begins a comment block that runs to the first line with `-->`. The
+  whole block is raw HTML: a comment in it ends at the first `-->` or `--!>`, `<!-->` and `<!--->` are empty comments,
+  and text after a comment has no code spans and no backslash escapes (`` <!-- a --> `<b>` `` is an error).
+- A comment inside a paragraph ends at the first `-->` on its own line that does not follow a `-`: GitHub does not
+  end it at `--->`. Without such a `-->`, the `<!--` is plain text, and so is not a comment (see the next item).
 - Code spans pair as in CommonMark. Where the pairing can change, a tag inside a code span is an error too, from there
   to the next empty line: after a backtick run that does not close on its line, after a `<!--` that does not end on
   its line, and after a link destination, title or label (`[a](…)`, `[a][…]`) that holds a backtick or may go on to
@@ -147,8 +156,8 @@ here is `<` followed by a letter, `/`, `?` or `!` (`<details>`, `</div>`, `<?php
   table row into cells first.
 - A `<!--` after indentation, a `>` or a list marker may start a comment block or may be plain text, so that line and
   the lines up to the next `-->` are read both ways, and a tag that either reading finds is an error.
-- The lines of a code block are skipped, except a line indented less than the opening fence and every line after it
-  in the block: GitHub ends a list item, and the fence in it, at such a line.
+- The lines of a code block are skipped. Its fences start at column 0 (see Markers), so GitHub reads the same lines as
+  code.
 
 `\<` outside a comment block is a plain `<`, and `<` followed by a space (`X < Y`) is not a tag. In a body row of a
 section, a link destination, title or label that holds a backtick also ends the code spans of its cell, so a `<` after

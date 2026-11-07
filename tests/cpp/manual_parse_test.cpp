@@ -167,7 +167,8 @@ void manual_parse_kind_sequence() {
   check(left != right, "kind sequence: skip in one edition differs from check in the other");
 }
 
-// 検査器が読まない囲い（引用の中、タブの後ろ、箇条書きの印と同じ行）は黙って飛ばさず誤りにする（修正 6）。
+// 検査器が読まない囲い（引用の中、タブの後ろ、箇条書きの印と同じ行、Task 5 の修正 5 から字下げも）は黙って飛ばさず
+// 誤りにする（修正 6）。
 void manual_parse_unreadable() {
   constexpr std::string_view quoted =
       "> <!-- check: q -->\n"  // 1
@@ -188,7 +189,8 @@ void manual_parse_unreadable() {
   check(has_error(mosa::parse_manual("1. ```text\n   x\n   ```\n", "n.md"), "n.md:1: "),
         "unreadable: fence on a numbered list marker line");
   const mosa::ParsedManual spaces = mosa::parse_manual("1. Step\n\n   <!-- skip: s -->\n   ```text\n   x\n   ```\n", "s.md");
-  check(spaces.errors.empty() && spaces.examples.size() == 1, "fence indented with spaces in a list is read");
+  check(spaces.errors.size() == 1 && has_error(spaces, "s.md:4: ") && spaces.examples.empty(),
+        "unreadable: a fence indented with spaces in a list");
   check(mosa::parse_manual("> quoted text\n- item\n\tindented\n", "p.md").errors.empty(), "prose is not a fence");
 }
 
@@ -651,6 +653,71 @@ void manual_parse_table_errors() {
         "tables: the same entry twice for one name in a file, other names apart");
 }
 
+// 囲いの行は開きも閉じも 0 桁目だけ（Task 5 の修正 5）。字下げした囲いは箇条書きの中でも誤りで、中の行は読まない。
+// GitHub は字下げした囲いを文の続き、字下げのコード、箇条書きの中の囲いのどれとしても読み、中の行や後ろの表を検査器と
+// 違う形で映す（rr4 の fence4、fence4t、listfence、closeindent）。字下げした閉じの行は誤りにして、そこで閉じる。
+void manual_parse_fence_column() {
+  const std::string rows = "\n<!-- predicates: between -->\n| P |\n| --- |\n| `between/3` |\n";
+  struct Case {
+    std::string_view name;
+    std::string_view text;
+    std::size_t line = 0;
+  };
+  for (const Case& item : {
+           Case{"fence4", "# R\n\nThe output is:\n    <!-- skip: x -->\n    ```text\n    <details>\n    ```\n", 5},
+           Case{"fence4t", "# R\n\nThe output is:\n    <!-- skip: x -->\n    ~~~text\n    <details>\n    ~~~\n", 5},
+           Case{"listfence", "# R\n\n1. Run:\n\n   <!-- skip: x -->\n   ```text\n   ?- X = 1.\nX = 1.\n   ```\n", 6},
+           Case{"closeindent", "# R\n\n<!-- skip: x -->\n```text\nhello\n    ```\n", 6},
+           Case{"one space", "<!-- skip: x -->\n ```text\nx\n ```\n", 2},
+           Case{"closing line indented", "<!-- check: x -->\n```text\n?- x.\n  ```\n", 4},
+       }) {
+    const mosa::ParsedManual parsed = mosa::parse_manual(std::string{item.text} + rows, "f.md");
+    const std::string name{item.name};
+    check(parsed.errors.size() == 1 && has_error(parsed, "f.md:" + std::to_string(item.line) + ": "),
+          "fence column: " + name);
+    check(parsed.tables.size() == 1 && same(parsed.tables.front().entries, {{"between", 3}}),
+          "fence column: the section after " + name);
+  }
+}
+
+// rr4 の opencomment と markerclose。複数行の注釈を閉じる行の印は、GitHub では注釈の中に隠れる。
+constexpr std::string_view kOpenComment =
+    "# Reference\n\nThe library `between` enumerates integers, and `X<Y` stays code.\n\n"  // 1-4
+    "<!-- predicates: between -->\n| Predicate | Meaning |\n| --- | --- |\n"           // 5-7
+    "| `between/3` | `between(Low, High, X)` |\n| `succ/2` | successor |\n"            // 8, 9
+    "| `plus/3` | addition |\n\n## More\n\n"                                          // 10-13
+    "<!-- TODO: plus/3 is listed above\n<!-- predicates: between -->\n"               // 14, 15
+    "| Predicate | Meaning |\n| --- | --- |\n| `nope/1` | x |\n";                    // 16-18
+constexpr std::string_view kMarkerClose =
+    "# Reference\n\n<!-- predicates: between -->\n| Predicate | Meaning |\n| --- | --- |\n"  // 1-5
+    "| `between/3` | `between(Low, High, X)` |\n| `succ/2` | successor |\n"               // 6, 7
+    "| `plus/3` | addition |\n\n## More\n\n"                                             // 8-11
+    "<!-- note\n<!-- skip: x -->\n```text\ny\n```\n\n"                                   // 12-17
+    "<!-- predicates: between -->\n| Predicate | Meaning |\n| --- | --- |\n| `nope/1` | x |\n";  // 18-21
+
+// 複数行の注釈を閉じる行の印は誤り（修正 5）。読み飛ばすと表が比べられずに映り（opencomment）、見えない印で例を読む
+// （markerclose）。誤りの後は印として読み、印の無い囲いの誤りを重ねない。書き違えて閉じない印の注釈を閉じる行の印、
+// 複数行の check: の入力の中の -->（GitHub はそこで注釈を閉じる。DCG）も誤り。
+void manual_parse_comment_markers() {
+  const mosa::ParsedManual open = mosa::parse_manual(kOpenComment, "c.md");
+  check(open.errors.size() == 1 && has_error(open, "c.md:15: ") && open.tables.size() == 2,
+        "comment markers: opencomment");
+  const mosa::ParsedManual close = mosa::parse_manual(kMarkerClose, "c.md");
+  check(close.errors.size() == 1 && has_error(close, "c.md:13: ") && close.examples.size() == 1 &&
+            close.tables.size() == 2,
+        "comment markers: markerclose");
+  const mosa::ParsedManual tail = mosa::parse_manual("<!-- note\nend --> <!-- predicates: lists -->\n", "c.md");
+  check(tail.errors.size() == 1 && has_error(tail, "c.md:2: "), "comment markers: after the end of the comment");
+  const mosa::ParsedManual own = mosa::parse_manual("<!-- skip: a\n<!-- check: b -->\n```text\n?- b.\n```\n", "c.md");
+  check(own.errors.size() == 2 && has_error(own, "c.md:1: ") && has_error(own, "c.md:2: "),
+        "comment markers: the line that closes a bad marker");
+  check(mosa::parse_manual("<!-- note\nmore -->\n<!-- skip: x -->\n```text\ny\n```\n", "c.md").errors.empty(),
+        "comment markers: a marker after the comment is fine");
+  const mosa::ParsedManual dcg =
+      mosa::parse_manual("<!-- check: g\ngreeting --> [hello].\n-->\n```text\n?- a.\n```\n", "c.md");
+  check(dcg.errors.size() == 1 && has_error(dcg, "c.md:2: "), "comment markers: --> inside a multi-line input");
+}
+
 }  // namespace
 
 int main() {
@@ -675,5 +742,7 @@ int main() {
   manual_parse_control();
   manual_parse_visible_rows();
   manual_parse_table_errors();
+  manual_parse_fence_column();
+  manual_parse_comment_markers();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

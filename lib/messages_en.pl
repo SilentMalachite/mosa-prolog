@@ -121,8 +121,10 @@ message(manual_unmarked, 'code block without a check:, skip: or file: marker on 
 message(manual_marker_alone, 'marker not on the line right before a code block').
 message(manual_marker_bad, 'malformed marker: ~w').
 message(manual_marker_unclosed, 'multi-line check: marker without a closing --> line').
+message(manual_override_arrow, 'line of a multi-line check: input holds -->, where GitHub ends the marker comment and shows the rest as text; put that input in a file: block: ~w').
+message(manual_marker_in_comment, 'marker on the line that closes a multi-line comment, where GitHub hides it inside that comment; close the comment on an earlier line: ~w').
 message(manual_fence_unclosed, 'code block not closed').
-message(manual_fence_unsupported, 'code block in a block quote, on a list marker line or after a tab; start the fence on its own line, indented with spaces only').
+message(manual_fence_unsupported, 'fence line not at column 0 (indented, in a block quote, on a list marker line or after a tab); start and close every code block at column 0, outside lists and quotes').
 message(manual_file_name, 'file: needs a plain file name, not ~w').
 message(manual_file_kind, 'file: needs a prolog code block').
 message(manual_check_kind, 'check: needs a text code block starting with "?- " or a console code block').
