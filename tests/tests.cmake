@@ -458,6 +458,17 @@ add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mo
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
 
+# MOSA_TRANSCRIPT=1 の管の出力が端末の表示と同じになる（リリース 0.1.0 Task 3、マニュアルの検査の土台）。
+foreach(transcript_case query more read order ja)
+  set(transcript_lang en_US.UTF-8)
+  if(transcript_case STREQUAL "ja")
+    set(transcript_lang ja_JP.UTF-8)
+  endif()
+  add_test(NAME transcript_${transcript_case} COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+    -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/transcript -DCASE=transcript_${transcript_case}
+    -DLANG_VALUE=${transcript_lang} -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake)
+endforeach()
+
 # 手書きの生成関数は runtime.hpp だけを見る。internal.hpp を見るのは指紋を出す側の native_test.cpp だけ。
 add_executable(native_test tests/cpp/native_test.cpp tests/cpp/native_units.cpp)
 target_include_directories(native_test PRIVATE tests/cpp src)

@@ -1,0 +1,4 @@
+?- write(hello), nl, X is 1/0.
+hello
+Warning: goal raised exception: error(evaluation_error(zero_divisor),context((is)/2,_G1))
+?- 

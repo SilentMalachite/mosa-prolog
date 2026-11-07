@@ -1,6 +1,6 @@
 // 標準入力とコンソール（SPEC 第4節、計画 Task 14）。Windows のコンソールだけ UTF-16 で読み、Windows の標準の流れは
 // binary にする（レビュー L8）。テスト: tests/cpp/console_test.cpp、tests/cpp/mosa_utf8_pipe_test.cmake、
-// tests/mosac/std_binary_test.cmake、tests/cpp/answer_prompt_test.cpp
+// tests/mosac/std_binary_test.cmake、tests/cpp/answer_prompt_test.cpp、tests/cpp/transcript_test.cmake
 #include "mosa/console.hpp"
 
 #include <cstdio>
@@ -66,12 +66,26 @@ ConsoleRead read_console() { return {}; }
 
 #endif
 
-// 読みかけのコンソールの行。read/1 も get_char/1 も REPL も同じ行を分けて読むので、1 か所に持つ。
+// 読みかけのコンソールの行（書き返す管の行も）。read/1 も get_char/1 も REPL も同じ行を分けて読むので、1 か所に持つ。
 std::string pending;
 std::size_t pending_at = 0;
 bool console_ended = false;
 // 先読みして返した字（後に返したものが先）。read/1 が終止符を確かめるために読んだ次の字を、読まなかったことにする。
 std::string returned;
+// MOSA_TRANSCRIPT=1。管から読んだ行を、端末が映すように書き返す。
+bool echo_input = false;
+
+// 端末は行を Enter でまとめて渡し、その行は打ったときもう映っている。だから 1 行を読み切ってから書き返す。
+// 使った字だけ書き返すと、read/1 が foo. bar. の途中で止まったとき、答えが行の残りより前に出る。
+// 管の終わりは Windows のコンソールの Ctrl+Z と同じ End にする。standard_input_clear が下ろすのも同じ。
+ConsoleRead read_echoed_line() {
+  std::string line;
+  if (!std::getline(std::cin, line)) return ConsoleRead{ConsoleKind::End, {}};
+  if (!std::cin.eof()) line.push_back('\n');
+  std::cout << line;
+  std::cout.flush();
+  return ConsoleRead{ConsoleKind::Line, std::move(line)};
+}
 
 }  // namespace
 
@@ -140,7 +154,10 @@ int standard_input_get() {
   while (pending_at >= pending.size()) {
     if (console_ended) return EOF;
     ConsoleRead read = read_console();
-    if (read.kind == ConsoleKind::NotConsole) return std::cin.get();
+    if (read.kind == ConsoleKind::NotConsole) {
+      if (!echo_input) return std::cin.get();
+      read = read_echoed_line();
+    }
     if (read.kind == ConsoleKind::End) {
       console_ended = true;
       return EOF;
@@ -150,6 +167,8 @@ int standard_input_get() {
   }
   return static_cast<unsigned char>(pending[pending_at++]);
 }
+
+void set_standard_input_echo(bool on) { echo_input = on; }
 
 void standard_input_unget(char byte) { returned.push_back(byte); }
 
