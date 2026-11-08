@@ -53,7 +53,7 @@ N = 5.
 
 ## マニュアル
 
-[マニュアル](docs/manual/ja/README.md)（[English](docs/manual/en/README.md)）は、Prolog を使ったことのない人に向けて書いています。Mosa の入手から始めて、プログラムを書くところ、`mosac` で実行ファイルを作るところまで進みます。第 14 章は、コマンド、フラグ、組み込みの述語を調べるためのリファレンスです。マニュアルの例はすべて Mosa 0.1.0 で確かめています。各リリースの中身と既知の制限は [CHANGELOG](CHANGELOG.ja.md) にあります。
+[マニュアル](docs/manual/ja/README.md)（[English](docs/manual/en/README.md)）は、Prolog を使ったことのない人に向けて書いています。Mosa の入手から始めて、プログラムを書くところ、`mosac` で実行ファイルを作るところまで進みます。第 14 章は、コマンド、フラグ、組み込みの述語を調べるためのリファレンスです。マニュアルの例はすべて Mosa 0.1.0 で確かめています。実行しないのは、インストールの手順のように、使う機械によって変わるものだけです。各リリースの中身と既知の制限は [CHANGELOG](CHANGELOG.ja.md) にあります。
 
 ## ソースからのビルド
 
@@ -171,7 +171,7 @@ mosatest --suite <ディレクトリ> --report tests/tmp/x.md   # 別のスイ�
 mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
 mosatest --diff tests/pl              # インタプリタと mosac の出力を比べる。docs/agreement.md と .json を書き出す
 mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # インタプリタと mosac の時間（5 回の中央値）
-mosatest --manual docs/manual         # マニュアルの例をすべて、英語版と日本語版で動かす
+mosatest --manual docs/manual         # マニュアルの例を、英語版と日本語版で動かす
 ```
 
 `--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance`（`--diff` では `tests/pl` も）を渡したときだけです。`--diff` は `--work`、`--cmake`、`--config` も取ります。`--bench` は [`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md) を見てください。別のスイートで `docs/` の報告書とバッジを上書きしないためです。

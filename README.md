@@ -51,7 +51,7 @@ N = 5.
 
 ## Manual
 
-The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against Mosa 0.1.0. What each release has, and its known limits, are in the [CHANGELOG](CHANGELOG.md).
+The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against Mosa 0.1.0; only installation steps and other things that depend on your machine are not run. What each release has, and its known limits, are in the [CHANGELOG](CHANGELOG.md).
 
 ## Build from source
 
@@ -169,7 +169,7 @@ mosatest --suite <dir> --report tests/tmp/x.md   # Another suite; writes x.md an
 mosatest --roundtrip tests/pl/syntax.pl   # Read/write round trip
 mosatest --diff tests/pl              # Interpreter against mosac output; writes docs/agreement.md and .json
 mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # Interpreter and mosac timings, median of 5
-mosatest --manual docs/manual         # Every example of the manual, in English and Japanese
+mosatest --manual docs/manual         # The examples of the manual, in English and Japanese
 ```
 
 `--report` may be omitted only when you pass the bundled `tests/conformance` (for `--diff`, also `tests/pl`) from the repository root. `--diff` also takes `--work`, `--cmake` and `--config`; see [`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md) for `--bench`. This keeps another suite from overwriting the report and badge data in `docs/`.
