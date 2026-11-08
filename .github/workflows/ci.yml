@@ -159,7 +159,7 @@ jobs:
       - name: Tests and differential tests with MOSA_GC_STRESS=1
         env:
           MOSA_GC_STRESS: 1
-        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|sub_atom_scale|goal_shared|assert_shared)$|install|bench" --no-tests=error
+        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|sub_atom_scale|goal_shared|assert_shared)$|install|bench|package" --no-tests=error
       - name: Heavy GC tests with MOSA_GC_STRESS=1000
         env:
           MOSA_GC_STRESS: 1000
