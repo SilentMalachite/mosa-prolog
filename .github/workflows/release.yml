@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    # 試しの実行のためだけに置く（2026-11-08 持ち主の判断）。v0.1.0 のタグを打つ前に必ず消す。
-    branches:
-      - release-0.1.0
   workflow_dispatch:
 
 # 利用者に渡すパッケージを 3 OS で作る（リリース 0.1.0 Task 10）。ci.yml と同じ準備でビルドと ctest -LE diff を通し、
@@ -14,8 +11,7 @@ on:
 # ビルド木で通っても、install に入れ忘れた物や、mosa と mosac が自分の場所から lib を探す道の誤りは、読者と同じ形に
 # 展開した木でしか出ないため。依存の確かめも、ビルド木ではなく渡す物そのもので行う。
 # タグ v* では 3 つの書庫を下書きの Release に付ける。公開すると通知が飛び latest が変わるので、持ち主が中身を見てから手で行う。
-# release-0.1.0 への push（試しの間だけ）と workflow_dispatch は、タグを打つ前に 3 OS で試すためのもので、書庫を
-# 成果物に上げるだけで Release は作らない。タグでだけ流す段は、どれも if: で ref がタグであることを見る。
+# workflow_dispatch は、タグを打つ前に 3 OS で試すためのもので、書庫を成果物に上げるだけで Release は作らない。タグでだけ流す段は、どれも if: で ref がタグであることを見る。
 # 3 つのジョブで同じ手順（版の確かめ、書庫を作る、展開する）は bash にそろえ、Windows でも Git Bash で流す。
 permissions:
   contents: read
@@ -117,7 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # release ジョブが本文に使う CHANGELOG.md の節を、ビルドの前に同じ台本で取り出してみる。節が無いか空なら、3 つの
-      # ビルドの後ではなく数秒で落ちる。ブランチへの push でも流すのは、台本の awk の正規表現をランナーの mawk で先に
+      # ビルドの後ではなく数秒で落ちる。workflow_dispatch でも流すのは、台本の awk の正規表現をランナーの mawk で先に
       # 試し、初めての mawk がタグの実行にならないようにするため。版はタグならタグから、ほかは CMakeLists.txt の
       # project(... VERSION x.y.z ...) から取る。書き換えの後に相対のリンク（「](」の先が http://、https://、#、mailto:
       # のどれでもない）が残れば Release のページで開けないので落とす。その確かめは awk ではなく sed と grep -F で行い、
