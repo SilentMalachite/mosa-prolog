@@ -1,10 +1,10 @@
 # Status
 
-Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main 19bd13f, CI run 42457319501 passed all 8 jobs (2026-11-08); release trial run 42449537425 built the 3 packages at d7cd5f1
+Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main 19bd13f, CI run 42457319501 passed all 8 jobs (2026-11-08); v0.1.0 released 2026-11-08 (tag at 0b09fe4, release run 42462402391, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.0))
 
-- **In progress:** none. Release 0.1.0 ([plan](superpowers/plans/2026-11-07-release-0.1.0.md), [design](superpowers/specs/2026-11-07-release-0.1.0-design.md)) is done: the final review's 12 findings are fixed and the re-review is clean; the temporary push trigger is gone (3d288e3). Merged into main (27b68a3) and the branch deleted; both CHANGELOG headings say 2026-11-08 (19bd13f).
+- **In progress:** none. Release 0.1.0 ([plan](superpowers/plans/2026-11-07-release-0.1.0.md), [design](superpowers/specs/2026-11-07-release-0.1.0-design.md)) is done: the final review's 12 findings are fixed and the re-review is clean; the temporary push trigger is gone (3d288e3). Merged into main (27b68a3), dated 2026-11-08 (19bd13f), tagged `v0.1.0` and published with the 3 packages.
 - **Last done:** release 0.1.0: version (b211846); Windows display language (9d58836, caaf71e); `MOSA_TRANSCRIPT=1` (daa51a1); `mosatest --manual` (c2882b2 to be92a01); manual chapters 1–14 (2c430c2 to fac3303); package and `package_layout` (a84accd to ea291e0); release workflow and macOS 26 (27368d6 to f7cf290, c1d6c2b, 9dc2208); Release body links (24eb8a7); Windows: no telemetry powershell under vcvarsall (0c4b415), direct route for non-ASCII paths (7779233); README and CHANGELOG (8b7de9b, 12bd991); final review fixes (d76164f to d7cd5f1); AGENTS.md Xcode 26 (7a74d96).
-- **Next:** the owner tags `v0.1.0` (the tag run checks that both CHANGELOG headings are dated), checks the draft release body and publishes it. Then 0.1.1: format/1,2,3 at the prompt leaves a choice point (lib/format.pl expand/5); after it, `mosac dist`.
+- **Next:** 0.1.1: open `## 0.1.1 (unreleased)` in both CHANGELOGs, then fix format/1,2,3 leaving a choice point at the prompt (lib/format.pl expand/5); after it, `mosac dist`.
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
