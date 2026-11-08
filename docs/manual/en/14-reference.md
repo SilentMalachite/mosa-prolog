@@ -549,7 +549,7 @@ The [CHANGELOG](../../../CHANGELOG.md) lists the known limits of Mosa 0.1.0, and
 removed. Among them:
 
 - Grammar rules written with `-->` are not supported: a file that holds one does not load.
-- Typing Japanese in the console window of Windows has not been checked.
+- Typing Japanese in the console window of Windows has not been verified.
 - `mosac dist` is not part of Mosa 0.1.0.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
 - A term nested very deeply in a file, such as `f(f(f(…)))`, can crash Mosa while it reads the file: from about 600
