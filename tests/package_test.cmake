@@ -46,7 +46,10 @@ if(NOT IS_DIRECTORY "${out}/${name}")
   message(FATAL_ERROR "the installed tree ${out}/${name} is missing")
 endif()
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E tar xf "${archive}"
+# LC_ALL=C.UTF-8: ctest はすべてのテストに LANG=ja_JP.UTF-8 を渡す。そのロケールの無い機械（Ubuntu の CI）では
+# setlocale が失敗して C ロケールになり、CMake の libarchive は書庫を空として読む（tar tf も何も出さず、終了コードは 0。
+# run 42436896703）。読者は第 2 章のとおり tar や Explorer で展開するので、これはこの確かめの環境だけの問題。
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C.UTF-8 "${CMAKE_COMMAND}" -E tar xf "${archive}"
   WORKING_DIRECTORY "${unpacked}" OUTPUT_VARIABLE tar_out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "unpack ${archive}: code=[${code}] out=[${tar_out}] err=[${err}]")
@@ -54,24 +57,9 @@ endif()
 # 書庫の中はパッケージと同じ名前のフォルダ 1 つ（第 2 章が読者にそう書く）。
 file(GLOB top LIST_DIRECTORIES true RELATIVE "${unpacked}" "${unpacked}/*")
 if(NOT top STREQUAL name)
-  # Linux の CI で書庫が空に展開された（run 42435938912）。原因を絞るため、書庫の大きさと目録、入れた木の数、
-  # ロケールを出し、LC_ALL=C.UTF-8 で展開し直した結果も並べる。
   file(SIZE "${archive}" archive_size)
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E tar tf "${archive}"
-    OUTPUT_VARIABLE listing ERROR_VARIABLE listing_err RESULT_VARIABLE listing_code)
-  string(SUBSTRING "${listing}" 0 1500 listing)
-  file(GLOB_RECURSE staged LIST_DIRECTORIES false RELATIVE "${out}/${name}" "${out}/${name}/*")
-  list(LENGTH staged staged_count)
-  file(MAKE_DIRECTORY "${out}/retry")
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C.UTF-8 "${CMAKE_COMMAND}" -E tar xf "${archive}"
-    WORKING_DIRECTORY "${out}/retry" ERROR_VARIABLE retry_err RESULT_VARIABLE retry_code)
-  file(GLOB retry_top LIST_DIRECTORIES true RELATIVE "${out}/retry" "${out}/retry/*")
-  message(FATAL_ERROR "the archive must hold one folder ${name}, not [${top}]\n"
-    "cmake ${CMAKE_VERSION}; LANG=[$ENV{LANG}] LC_ALL=[$ENV{LC_ALL}]\n"
-    "archive: ${archive_size} bytes; staged files: ${staged_count}\n"
-    "first extract: out=[${tar_out}] err=[${err}]\n"
-    "retry with LC_ALL=C.UTF-8: code=[${retry_code}] err=[${retry_err}] top=[${retry_top}]\n"
-    "tar tf: code=[${listing_code}] err=[${listing_err}]\n${listing}")
+  message(FATAL_ERROR "the archive must hold one folder ${name}, not [${top}] "
+    "(archive ${archive_size} bytes; cmake ${CMAKE_VERSION}; LANG=[$ENV{LANG}] LC_ALL=[$ENV{LC_ALL}])")
 endif()
 
 set(root "${unpacked}/${name}")
