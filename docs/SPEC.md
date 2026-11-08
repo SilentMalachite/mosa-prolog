@@ -41,7 +41,7 @@ The deliverables are three executables and one library. All are built from a sin
 
 | OS | Compiler | Notes |
 | --- | --- | --- |
-| macOS (Apple Silicon) | Apple Clang 15 or later | Primary development environment |
+| macOS 26 or later (Apple Silicon) | Xcode 26 or later, or its Command Line Tools (Apple Clang 17) | Primary development environment |
 | Linux (Ubuntu 24.04) | GCC 13 or later, Clang 17 or later | Reference CI environment |
 | Windows 11 | MSVC 2022 (v17.8 or later) | `/utf-8` `/permissive-` `/Zc:__cplusplus` are required |
 

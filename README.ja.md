@@ -64,7 +64,7 @@ N = 5.
 - ソースを取るための Git
 - CMake 3.25 以上と Ninja（macOS と Linux）
 - 次のどれかのコンパイラ
-  - macOS 26 以降: Apple Clang 17 以上（Xcode 26 か、その Command Line Tools）
+  - macOS 26 以降: Xcode 26 以降か、その Command Line Tools（Apple Clang 17）
   - Linux: GCC 13 以上、または Clang 17 以上
   - Windows: Visual Studio 2022（MSVC v17.8 以上）
 

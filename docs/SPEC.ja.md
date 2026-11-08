@@ -42,7 +42,7 @@
 
 | OS | コンパイラ | 備考 |
 | --- | --- | --- |
-| macOS（Apple Silicon） | Apple Clang 15 以上 | 開発の主環境 |
+| macOS 26 以降（Apple Silicon） | Xcode 26 以降か、その Command Line Tools（Apple Clang 17） | 開発の主環境 |
 | Linux（Ubuntu 24.04） | GCC 13 以上、Clang 17 以上 | CI の基準環境 |
 | Windows 11 | MSVC 2022（v17.8 以上） | `/utf-8` `/permissive-` `/Zc:__cplusplus` を必須とする |
 

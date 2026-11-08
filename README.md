@@ -62,7 +62,7 @@ You need this only to build Mosa yourself, for example to work on it. The packag
 - Git, to get the source
 - CMake 3.25 or later, and Ninja (macOS and Linux)
 - One of these compilers:
-  - macOS 26 or later: Apple Clang 17 or later (Xcode 26 or its Command Line Tools)
+  - macOS 26 or later: Xcode 26 or later, or its Command Line Tools (Apple Clang 17)
   - Linux: GCC 13 or later, or Clang 17 or later
   - Windows: Visual Studio 2022 (MSVC v17.8 or later)
 
