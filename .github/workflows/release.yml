@@ -116,12 +116,34 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      # release ジョブが本文に使う CHANGELOG.md の節を、タグの実行ではビルドの前に同じ台本で取り出してみる。節が無いか
-      # 空なら、3 つのビルドの後ではなく数秒で落ちる。ブランチでは CHANGELOG が Task 11 まで雛形なので見ない。
+      # release ジョブが本文に使う CHANGELOG.md の節を、ビルドの前に同じ台本で取り出してみる。節が無いか空なら、3 つの
+      # ビルドの後ではなく数秒で落ちる。ブランチへの push でも流すのは、台本の awk の正規表現をランナーの mawk で先に
+      # 試し、初めての mawk がタグの実行にならないようにするため。版はタグならタグから、ほかは CMakeLists.txt の
+      # project(... VERSION x.y.z ...) から取る。書き換えの後に相対のリンク（「](」の先が http://、https://、#、mailto:
+      # のどれでもない）が残れば Release のページで開けないので落とす。その確かめは awk ではなく sed と grep -F で行い、
+      # mawk が書き換えを取り違えたときに同じ取り違えで見逃さないようにする。
       - name: Check the CHANGELOG section for the release
-        if: github.ref_type == 'tag'
         shell: bash
-        run: bash .github/scripts/release_notes.sh "${GITHUB_REF_NAME#v}"
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version=${GITHUB_REF_NAME#v}
+          else
+            version=$(sed -n -E 's/^project[(][^ ]+ VERSION ([0-9]+[.][0-9]+[.][0-9]+)[ )].*/\1/p' CMakeLists.txt)
+          fi
+          if [ -z "$version" ]; then
+            echo "no version: this is not a tag, and CMakeLists.txt has no project(... VERSION x.y.z ...) line"
+            exit 1
+          fi
+          notes=$(bash .github/scripts/release_notes.sh "$version")
+          printf '%s\n' "$notes"
+          lines=$(printf '%s\n' "$notes" | sed -E 's,][(](https?://|#|mailto:),,g' | grep -n -F '](' | cut -d : -f 1 || true)
+          if [ -n "$lines" ]; then
+            echo "the release notes for $version still hold relative links, which the Release page cannot open:"
+            for n in $lines; do
+              printf '%s: %s\n' "$n" "$(printf '%s\n' "$notes" | sed -n "${n}p")"
+            done
+            exit 1
+          fi
       - name: Install packages
         run: |
           sudo apt-get update
