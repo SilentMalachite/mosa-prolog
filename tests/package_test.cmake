@@ -79,6 +79,8 @@ endforeach()
 # 1 回目は tests.cmake が PATH の先に置いたビルドの cmake で、mosac の CMake の道を通す。CMake の無い読者
 # （Xcode の CLT だけ、g++ だけ）の mosac はコンパイラを直に呼ぶので、2 回目は MOSA_NO_CMAKE=1 でその道を、
 # 空白と日本語を含む実行時ライブラリのパスで通す。
+# 1 つの道が失敗しても、もう 1 つの道も流してから止める。どちらで壊れるかが、原因を分ける手がかりになる。
+set(failures "")
 foreach(route cmake direct)
   set(no_cmake 0)
   if(route STREQUAL "direct")
@@ -90,7 +92,23 @@ foreach(route cmake direct)
     OUTPUT_VARIABLE manual_out ERROR_VARIABLE manual_err RESULT_VARIABLE code TIMEOUT 1800)
   set(summary "${manual_out}${manual_err}")
   if(NOT code EQUAL 0 OR NOT summary MATCHES "manual: [1-9][0-9]* checked, [0-9]+ skipped, 0 failed")
-    message(FATAL_ERROR "mosatest --manual in the package (${route}): code=[${code}]\n${summary}")
+    # mosac は生のコンパイラの出力を --verbose のときしか出さない。CI の機械では .mosac-cache が残らないので、
+    # 失敗したビルドの記録（configure 以外）の末尾をここで見せる。
+    file(GLOB_RECURSE logs LIST_DIRECTORIES false "${WORK}/work-${route}/*.log")
+    list(FILTER logs INCLUDE REGEX "/\\.mosac-cache/[^/]+/logs/[^/]+\\.log$")
+    list(FILTER logs EXCLUDE REGEX "/configure\\.log$")
+    set(shown "")
+    foreach(log IN LISTS logs)
+      file(READ "${log}" text)
+      string(LENGTH "${text}" length)
+      if(length GREATER 3000)
+        math(EXPR start "${length} - 3000")
+        string(SUBSTRING "${text}" ${start} 3000 text)
+      endif()
+      string(APPEND shown "\n--- ${log}\n${text}")
+    endforeach()
+    string(APPEND failures "mosatest --manual in the package (${route}): code=[${code}]\n${summary}${shown}\n")
+    continue()
   endif()
   # 通ったことだけでは、どちらの道を通ったかは分からない。MOSA_NO_CMAKE が効かずに 2 回とも CMake の道を通っても、
   # cmake が見つからずに 2 回とも直の道を通っても、この確かめは通ってしまう。CMake の道だけが CMakeCache.txt を残す。
@@ -102,3 +120,6 @@ foreach(route cmake direct)
     message(FATAL_ERROR "the MOSA_NO_CMAKE=1 route used CMake: ${caches}")
   endif()
 endforeach()
+if(failures)
+  message(FATAL_ERROR "${failures}")
+endif()
