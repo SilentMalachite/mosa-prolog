@@ -233,10 +233,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "hello-temp.exe failed" }
       - name: Test
         run: ctest --preset windows-msvc -LE diff
-        # 試しのためだけに置く（リリース 0.1.0 Task 10、2026-11-08）。release.yml の windows はこれを置かないので、
-        # vcvarsall が裏で起こす telemetry の powershell が io/output.txt を掴むのかを、同じ push の 2 つの実行で比べる。
-        env:
-          VSCMD_SKIP_SENDTELEMETRY: '1'
       # mosatest --diff の日本語の文面を UTF-8 のまま取るため、コードページを 65001 にしてから流す。
       - name: Differential tests
         shell: cmd
