@@ -28,7 +28,7 @@ the `?-` prompt (chapter 3).
 | Argument | What it does |
 | --- | --- |
 | `file` | Loads the file before anything else, as `consult/1` does (chapter 4). Several files load in the order given. |
-| `-g goal` | After the files, runs the goal once and prints its first answer as the prompt does. Several `-g` run in order, and the first one that fails or raises an error stops the rest. |
+| `-g goal` | After the files, runs the goal once and prints its first answer as the prompt does. Several `-g` run in order. With `-t halt`, or when the input of `mosa` is not a terminal, the first one that fails or raises an error stops the rest; at a terminal without `-t halt`, every one runs. |
 | `-t halt` | Quits after the `-g` goals instead of showing the prompt. |
 | `--heap-max MiB` | The most memory that terms may use, in MiB (default 4096). A query that needs more stops with a message. This wins over `MOSA_HEAP_MAX`. |
 | `--version` | Prints `mosa 0.1.0` and quits. |
@@ -143,7 +143,7 @@ A flag whose "Other values" says "none" cannot be changed.
 | `encoding` | `utf8` | none | Text is UTF-8. |
 | `invalid_utf8` | `error` | `replace` | What reading bytes that are not UTF-8 does: raise `representation_error(character)`, or read U+FFFD instead. |
 | `japanese_punctuation` | `false` | `true` | Whether full-width punctuation is read as half-width (chapter 11). |
-| `message_language` | from `LANG` | `ja`, `en` | The language of messages (chapter 11). |
+| `message_language` | from `LANG` (on Windows without `LANG`, from the display language) | `ja`, `en` | The language of messages (chapter 11). |
 | `float_overflow` | `error` | none | A float result too large raises `evaluation_error(float_overflow)`. |
 | `float_zero_div` | `error` | none | A float divided by zero raises `evaluation_error(zero_divisor)`. |
 | `float_undefined` | `error` | none | A float result that does not exist, as for `log(0)`, raises `evaluation_error(undefined)`. |
