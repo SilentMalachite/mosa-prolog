@@ -1,14 +1,15 @@
 #include "mosa/lexer.hpp"
 
 #include "mosa/char_class.hpp"
-#include "mosa/parse_double.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 
 namespace mosa {
@@ -349,14 +350,16 @@ std::optional<Scan> Lexer::take_exponent(std::string& spelling, Place start) {
 
 Scan Lexer::make_float(const std::string& spelling, Place start) {
   const std::string clean = without_separators(spelling);
-  const DoubleParse parsed = parse_double(clean);
-  double value = parsed.value;
-  if (parsed.kind == DoubleKind::OutOfRange) {
+  double value = 0;
+  const char* const first = clean.data();
+  const char* const last = first + clean.size();
+  const std::from_chars_result parsed = std::from_chars(first, last, value);
+  if (parsed.ec == std::errc::result_out_of_range) {
     // 上位の溢れを inf にすると float_overflow=error のもとで評価されずに残り、inf.0 は読み戻せない（レビュー M2、
     // iso-notes 6.4.5 の A）。下位の溢れは今までどおり 0.0 にする。
     if (above_double(clean)) return fail_at(SyntaxReason::FloatOverflow, spelling, start);
     value = 0;
-  } else if (parsed.kind != DoubleKind::Value) {
+  } else if (parsed.ec != std::errc{} || parsed.ptr != last) {
     return fail_at(SyntaxReason::UnexpectedToken, spelling, start);
   }
   Scan scan = token_at(TokenKind::Float, start);
