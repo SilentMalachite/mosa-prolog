@@ -51,6 +51,9 @@ Windows.
 - `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are not built in.
 - `use_module/1` works only in a file: typed at the `?-` prompt, it gives a warning with
   `existence_error(procedure,use_module/1)` ([chapter 12](docs/manual/en/12-modules-libraries.md)).
+- After a query with `format/1`, `format/2` or `format/3` at the `?-` prompt, Mosa shows `true` with no period and
+  waits, as if there could be another answer ([chapter 3](docs/manual/en/03-first-query.md)). Press Enter, and Mosa
+  prints the period; `;` gives `false.`.
 - Typing Japanese in the console window of Windows (with `chcp 932` or `chcp 437`) has not been verified.
 - `mosac dist` is not part of Mosa 0.1.0.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.

@@ -37,6 +37,7 @@ Mosa Prolog の最初のリリースです。Mosa Prolog は ISO/IEC 13211-1 に
 - `-->` で書く文法規則は使えません。それを含むファイルは読み込まれません。
 - `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）は組み込みにありません。
 - `use_module/1` はファイルの中でしか使えません。`?-` のプロンプトで打つと、`existence_error(procedure,use_module/1)` の警告が出ます（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。
+- `?-` のプロンプトで `format/1`、`format/2`、`format/3` を使った問い合わせをすると、Mosa は `true` をピリオドなしで出して待ちます。ほかの答えがあるかもしれないときと同じです（[第 3 章](docs/manual/ja/03-first-query.md)）。Enter を押すと、Mosa はピリオドを出します。`;` を打つと `false.` が出ます。
 - Windows のコンソールのウィンドウで日本語を打つこと（`chcp 932` と `chcp 437`）は未検証です。
 - `mosac dist` は Mosa 0.1.0 にはありません。
 - `mosac build --debug` は、最適化して作った実行時ライブラリにつなぎます。ライブラリの節は出しません。
