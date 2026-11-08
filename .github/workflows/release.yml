@@ -144,6 +144,28 @@ jobs:
             done
             exit 1
           fi
+      # 見出しに日付を入れ忘れたままタグを打つと、どのパッケージの CHANGELOG も自分の版を「未リリース」と呼び、直すには
+      # タグを打ち直すしかない。タグでだけ、英日の版の見出し（「## 0.1.0 (unreleased)」「## 0.1.0（未リリース）」）に
+      # その言葉が残っていれば落とす。ブランチでは日付を入れる前なので見ない。欄で比べるのは版の . を正規表現にしないため。
+      - name: Check that the CHANGELOG headings are dated
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          undated=0
+          for file in CHANGELOG.md CHANGELOG.ja.md; do
+            if awk -v version="$version" '
+                $1 == "##" && ($2 == version || index($2, version "（") == 1) &&
+                  (index(tolower($0), "unreleased") || index($0, "未リリース")) { print FILENAME ":" FNR ": " $0; found = 1 }
+                END { exit !found }
+              ' "$file"; then
+              undated=1
+            fi
+          done
+          if [ "$undated" -ne 0 ]; then
+            echo "the CHANGELOG still calls $version unreleased: write the release date in the heading of both CHANGELOG.md and CHANGELOG.ja.md, then tag again"
+            exit 1
+          fi
       - name: Install packages
         run: |
           sudo apt-get update
