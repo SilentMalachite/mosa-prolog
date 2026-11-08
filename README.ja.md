@@ -68,7 +68,7 @@ N = 5.
   - Linux: GCC 13 以上、または Clang 17 以上
   - Windows: Visual Studio 2022（MSVC v17.8 以上）
 
-macOS では、`xcode-select --install` で Command Line Tools が入り、残りは [Homebrew](https://brew.sh) の `brew install cmake ninja` で入ります。Ubuntu 24.04 では、`sudo apt install git g++ cmake ninja-build` ですべて入ります。
+macOS では、`xcode-select --install` で Command Line Tools が入り、残りは [Homebrew](https://brew.sh) の `brew install cmake ninja` で入ります。Ubuntu 24.04 では、`sudo apt update && sudo apt install git g++ cmake ninja-build` ですべて入ります。
 
 ### ビルドとテスト
 

@@ -66,7 +66,7 @@ You need this only to build Mosa yourself, for example to work on it. The packag
   - Linux: GCC 13 or later, or Clang 17 or later
   - Windows: Visual Studio 2022 (MSVC v17.8 or later)
 
-On macOS, `xcode-select --install` installs the Command Line Tools, and [Homebrew](https://brew.sh) installs the rest with `brew install cmake ninja`. On Ubuntu 24.04, `sudo apt install git g++ cmake ninja-build` installs everything.
+On macOS, `xcode-select --install` installs the Command Line Tools, and [Homebrew](https://brew.sh) installs the rest with `brew install cmake ninja`. On Ubuntu 24.04, `sudo apt update && sudo apt install git g++ cmake ninja-build` installs everything.
 
 ### Build and test
 
