@@ -8,9 +8,11 @@
 
 Mosa Prolog 0.1.0 が動くのは、次のコンピュータです。
 
-- macOS 14 以降（Apple Silicon）
+- macOS 26 以降（Apple Silicon）
 - Linux（x86_64）。glibc が Ubuntu 24.04 と同じか、それより新しいもの
 - Windows 10 22H2 以降と Windows 11（x64）。Smart App Control が無効のもの
+
+Mac の macOS がそれより古いときは、先に「システム設定」の「一般」にある「ソフトウェアアップデート」で macOS を新しくしてください。Apple Silicon の Mac なら、どれも macOS 26 に上げられます。
 
 パッケージには署名がありません。OS が起動を止めたときの進め方を、手順 3（macOS）と手順 5（Windows）に書いています。Windows 11 には Smart App Control（日本語の画面では「スマート アプリ コントロール」）という設定があります。これが有効だと、Windows は署名のないプログラムを止めます。1 つのプログラムだけを通すこともできません。そのため、Smart App Control が有効な PC では Mosa は動かず、動作対象にも入れていません。設定は「Windows セキュリティ」の「アプリとブラウザー コントロール」で確かめられます。
 

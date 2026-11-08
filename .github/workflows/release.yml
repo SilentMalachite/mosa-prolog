@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+    # 試しの実行のためだけに置く（2026-11-08 持ち主の判断）。v0.1.0 のタグを打つ前に必ず消す。
+    branches:
+      - release-0.1.0
   workflow_dispatch:
 
 # 利用者に渡すパッケージを 3 OS で作る（リリース 0.1.0 Task 10）。ci.yml と同じ準備でビルドと ctest -LE diff を通し、
@@ -11,7 +14,8 @@ on:
 # ビルド木で通っても、install に入れ忘れた物や、mosa と mosac が自分の場所から lib を探す道の誤りは、読者と同じ形に
 # 展開した木でしか出ないため。依存の確かめも、ビルド木ではなく渡す物そのもので行う。
 # タグ v* では 3 つの書庫を下書きの Release に付ける。公開すると通知が飛び latest が変わるので、持ち主が中身を見てから手で行う。
-# workflow_dispatch はタグを打つ前に 3 OS で試すためのもので、書庫を成果物に上げるだけで Release は作らない。
+# release-0.1.0 への push（試しの間だけ）と workflow_dispatch は、タグを打つ前に 3 OS で試すためのもので、書庫を
+# 成果物に上げるだけで Release は作らない。タグでだけ流す段は、どれも if: で ref がタグであることを見る。
 # 3 つのジョブで同じ手順（版の確かめ、書庫を作る、展開する）は bash にそろえ、Windows でも Git Bash で流す。
 permissions:
   contents: read
@@ -21,13 +25,15 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      # 対応する macOS は 14 以降（マニュアルと CHANGELOG）。既定ではランナーの macOS の版が minos になり、14 では起動しない。
+      # 対応する macOS は 26 以降（マニュアルと CHANGELOG、2026-11-08 持ち主の判断）。字句解析の浮動小数点の
+      # std::from_chars を Apple の libc++ は macOS 26.0 から出すので、それより下にはできない。既定のままではランナーの
+      # macOS の版が minos になり、それより古い 26.x で起動しない。
       - name: Configure
-        run: cmake --preset macos-clang -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+        run: cmake --preset macos-clang -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0
       - name: Build
         run: cmake --build --preset macos-clang
       # 版が食い違えば書庫の名前（CMakeCache.txt の版）がタグと合わないので、時間のかかる ctest より前に止める。
-      # workflow_dispatch では比べるタグが無い。
+      # ブランチへの push と workflow_dispatch では比べるタグが無い。
       - name: Check the tag against mosa --version
         if: github.ref_type == 'tag'
         shell: bash
@@ -82,7 +88,7 @@ jobs:
           cd "$MOSA_PKG"
           bin/mosatest --manual docs/manual --all-tables --work "$work"
       # macOS の libc++ は OS の一部で静的にできないので、依存が /usr/lib/ と /System/ の物だけであることを見る（ci.yml の
-      # hello-macos と同じ）。minos は、Configure で決めた 14.0 が渡す実行ファイルに入ったことを見る。
+      # hello-macos と同じ）。minos は、Configure で決めた 26.0 が渡す実行ファイルに入ったことを見る。
       - name: Check dependencies and the minimum macOS
         shell: bash
         run: |
@@ -95,8 +101,8 @@ jobs:
           fi
           build=$(vtool -show-build bin/mosa)
           printf '%s\n' "$build"
-          if ! printf '%s\n' "$build" | grep -E '^[[:space:]]*minos 14\.0$' > /dev/null; then
-            echo "bin/mosa is not built for macOS 14.0"
+          if ! printf '%s\n' "$build" | grep -E '^[[:space:]]*minos 26\.0$' > /dev/null; then
+            echo "bin/mosa is not built for macOS 26.0"
             exit 1
           fi
       - uses: actions/upload-artifact@v4
@@ -110,6 +116,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      # release ジョブが本文に使う CHANGELOG.md の節を、タグの実行ではビルドの前に同じ台本で取り出してみる。節が無いか
+      # 空なら、3 つのビルドの後ではなく数秒で落ちる。ブランチでは CHANGELOG が Task 11 まで雛形なので見ない。
+      - name: Check the CHANGELOG section for the release
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: bash .github/scripts/release_notes.sh "${GITHUB_REF_NAME#v}"
       - name: Install packages
         run: |
           sudo apt-get update
@@ -272,9 +284,9 @@ jobs:
           path: ${{ env.MOSA_ARCHIVE }}
           if-no-files-found: error
 
-  # タグを push したときだけ、3 つのジョブがすべて通った書庫を下書きの Release に付ける。workflow_dispatch をタグの
-  # ref で流しても Release は作らない。本文は CHANGELOG.md の「## <版>」の節（次の「## 」の見出しまで）で、見出しの
-  # 行は Release の題名と重なるので入れない。節が空でも（Task 11 の前の雛形）下書きは作れる。
+  # タグを push したときだけ、3 つのジョブがすべて通った書庫を下書きの Release に付ける。ブランチへの push と、
+  # workflow_dispatch をタグの ref で流したときは Release を作らない。本文は CHANGELOG.md の「## <版>」の節で、取り出しの
+  # 規則は .github/scripts/release_notes.sh に 1 つだけ置く（linux ジョブの早い確かめと同じ物）。
   release:
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [macos, linux, windows]
@@ -291,16 +303,7 @@ jobs:
       - name: Release notes
         shell: bash
         run: |
-          version=${GITHUB_REF_NAME#v}
-          if ! awk -v version="$version" '
-              $1 == "##" && $2 == version { found = 1; next }
-              found && /^## / { exit }
-              found { print }
-              END { if (!found) exit 1 }
-            ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"; then
-            echo "CHANGELOG.md has no '## $version' section"
-            exit 1
-          fi
+          bash .github/scripts/release_notes.sh "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
       # 名前を 3 つとも挙げ、どれかが欠けていれば Release を作る前に止める。
       - name: Create the draft release

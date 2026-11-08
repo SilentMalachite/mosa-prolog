@@ -13,7 +13,7 @@ Mosa Prolog 0.1.0 のマニュアルです。Prolog を使ったことのない�
 
 ## 動作環境
 
-- macOS 14 以降（Apple Silicon）
+- macOS 26 以降（Apple Silicon）
 - Linux（x86_64）。glibc が Ubuntu 24.04 と同じか、それより新しいもの
 - Windows 10 22H2 以降と Windows 11（x64）。Smart App Control が無効のもの
 

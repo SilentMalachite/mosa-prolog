@@ -20,7 +20,7 @@ installing Mosa and goes on, one small step at a time, to writing programs and b
 
 ## Supported platforms
 
-- macOS 14 or later on Apple Silicon.
+- macOS 26 or later on Apple Silicon.
 - Linux on x86_64 with the glibc of Ubuntu 24.04 or later.
 - Windows 10 22H2 or later and Windows 11, on x64, with Smart App Control off.
 
