@@ -19,11 +19,12 @@ executable. The executable runs without `mosa` and without your `.pl` files.
 $ xcode-select --install
 ```
 
-On Linux (Ubuntu), install `g++`. `sudo` asks for your password, and `apt` asks you to confirm with `Y`:
+On Linux (Ubuntu), install `g++`. `apt update` first brings the list of packages of Ubuntu up to date. `sudo` asks
+for your password, and `apt install` asks you to confirm with `Y`:
 
 <!-- skip: compiler-linux -->
 ```console
-$ sudo apt install g++
+$ sudo apt update && sudo apt install g++
 ```
 
 On Windows, download the
@@ -182,10 +183,10 @@ Use the compiler mosac was built with, or run mosac build --runtime-source to bu
 
 The simplest way out is to install `g++` as in step 1. Otherwise, add `--runtime-source` to each `mosac build` and
 `mosac run`: `mosac` then builds the runtime library for `clang++` from the source that the package carries. This
-needs CMake 3.25 or later (on Ubuntu, `sudo apt install cmake`). The first such build takes a minute or more and,
-like any build, prints nothing when it succeeds. It keeps the runtime library in `.mosac-cache`, so the next builds
-in the same folder are fast again, until you delete `.mosac-cache`, after which the next build takes a minute or more
-again; a build with `--clean` deletes it first, so that build itself takes that long:
+needs CMake 3.25 or later (on Ubuntu, `sudo apt update && sudo apt install cmake`). The first such build takes a
+minute or more and, like any build, prints nothing when it succeeds. It keeps the runtime library in `.mosac-cache`,
+so the next builds in the same folder are fast again, until you delete `.mosac-cache`, after which the next build
+takes a minute or more again; a build with `--clean` deletes it first, so that build itself takes that long:
 
 <!-- skip: runtime-source -->
 ```console

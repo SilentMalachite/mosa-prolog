@@ -15,11 +15,11 @@
 $ xcode-select --install
 ```
 
-Linux（Ubuntu）では `g++` を入れます。`sudo` がパスワードを聞き、`apt` が続けてよいかを聞くので、`Y` と打ちます。
+Linux（Ubuntu）では `g++` を入れます。`apt update` は、先に Ubuntu のパッケージの一覧を新しくします。`sudo` がパスワードを聞き、`apt install` が続けてよいかを聞くので、`Y` と打ちます。
 
 <!-- skip: compiler-linux -->
 ```console
-$ sudo apt install g++
+$ sudo apt update && sudo apt install g++
 ```
 
 Windows では、[Build Tools for Visual Studio 2022 のインストーラー](https://aka.ms/vs/17/release/vs_BuildTools.exe)をダウンロードして実行します。インストーラーで「C++ によるデスクトップ開発」のワークロードを選び、「インストール」を押します。特別なウィンドウは要りません。`mosac` は、ふつうの PowerShell のウィンドウからコンパイラを見つけます。インストーラーが終わったら、PowerShell を閉じて開き直します。Mosa 0.1.0 は Visual Studio 2022 で動作を確かめています。それより新しい Visual Studio も入っていると、`mosac` はいちばん新しいものを使いますが、その組み合わせは確かめていません。
@@ -134,7 +134,7 @@ mosac: このコンパイラ用の実行時ライブラリがありません: /h
 mosac と同じコンパイラを使うか、mosac build --runtime-source で同梱の源から作ってください（結果は .mosac-cache に残ります）
 ```
 
-いちばん簡単なのは、手順 1 のとおり `g++` を入れることです。そうしないなら、`mosac build` と `mosac run` のたびに `--runtime-source` を付けます。すると `mosac` は、パッケージに入っている源から `clang++` 用の実行時ライブラリを作ります。これには CMake 3.25 以上が要ります（Ubuntu では `sudo apt install cmake`）。最初のビルドは 1 分以上かかります。ほかのビルドと同じく、うまくいけば何も出しません。作った実行時ライブラリは `.mosac-cache` に残るので、同じフォルダでの次からのビルドはまた速くなります。ただし `.mosac-cache` を消すと、作った実行時ライブラリも消えるので、次のビルドはまた 1 分以上かかります。`--clean` を付けたビルドは、初めに `.mosac-cache` を消すので、そのビルド自身がそれだけかかります。
+いちばん簡単なのは、手順 1 のとおり `g++` を入れることです。そうしないなら、`mosac build` と `mosac run` のたびに `--runtime-source` を付けます。すると `mosac` は、パッケージに入っている源から `clang++` 用の実行時ライブラリを作ります。これには CMake 3.25 以上が要ります（Ubuntu では `sudo apt update && sudo apt install cmake`）。最初のビルドは 1 分以上かかります。ほかのビルドと同じく、うまくいけば何も出しません。作った実行時ライブラリは `.mosac-cache` に残るので、同じフォルダでの次からのビルドはまた速くなります。ただし `.mosac-cache` を消すと、作った実行時ライブラリも消えるので、次のビルドはまた 1 分以上かかります。`--clean` を付けたビルドは、初めに `.mosac-cache` を消すので、そのビルド自身がそれだけかかります。
 
 <!-- skip: runtime-source -->
 ```console
