@@ -102,7 +102,9 @@ N = 5.
 ```
 
 9. Ask about a predicate that does not exist. Mosa prints a warning. Chapter 9 explains how to read it; for now, it
-   says that there is no predicate `hello` with no arguments (`hello/0`).
+   says that there is no predicate `hello` with no arguments (`hello/0`). On a computer set to Japanese, the messages
+   of Mosa are in Japanese, so this warning starts with `警告:` instead of `Warning:`; chapter 11 explains how Mosa
+   chooses the language.
 
 <!-- check: unknown -->
 ```text
