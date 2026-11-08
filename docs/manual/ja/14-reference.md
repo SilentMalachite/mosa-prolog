@@ -306,7 +306,7 @@ X = あいう.
 | `retractall/1` | 8.9.5 | `retractall(Head)`: 頭部が Head と単一化できる節をすべて消します。 |
 | `abolish/1` | 8.9.4 | `abolish(Name/Arity)`: 動的な述語を、節ごとすべて消します。 |
 | `clause/2` | 8.8.1 | `clause(Head, Body)`: プログラムの述語の節です。ファイルから読み込んだ節も、`assertz` で足した節も返します。組み込みの述語では `permission_error` を投げます。 |
-| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: プログラムの述語のうち、節があるものと、`dynamic` と宣言したものです。組み込みの述語は入りません。 |
+| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: プログラムの述語のうち、節があるものと、動的なもの（`dynamic` と宣言したもの、`assertz` や `asserta` で作ったもの）です。組み込みの述語は入りません。 |
 | `predicate_property/2` | 13211-2 7.2.2 | `predicate_property(Head, P)`: P は、`built_in`、`dynamic`、`exported` のような、述語の性質です。 |
 | `current_module/1` | 13211-2 7.2.1 | あるモジュールです。 |
 | `consult/1` | — | ファイルを読み込みます（第 4 章）。名前には `.pl` が要ります。 |

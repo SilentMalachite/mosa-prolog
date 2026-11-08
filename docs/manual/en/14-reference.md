@@ -328,7 +328,7 @@ These look at the clauses of predicates and change them, and look at modules.
 | `retractall/1` | 8.9.5 | `retractall(Head)`: removes every clause whose head unifies with Head. |
 | `abolish/1` | 8.9.4 | `abolish(Name/Arity)`: removes a dynamic predicate and all its clauses. |
 | `clause/2` | 8.8.1 | `clause(Head, Body)`: a clause of a predicate of your program, whether it was loaded from a file or added with `assertz`. A built-in predicate raises a `permission_error`. |
-| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: a predicate of your program that has clauses or is declared `dynamic`. Built-in predicates are not listed. |
+| `current_predicate/1` | 8.8.2 | `current_predicate(Name/Arity)`: a predicate of your program that has clauses or is dynamic (declared with `dynamic`, or created by `assertz`/`asserta`). Built-in predicates are not listed. |
 | `predicate_property/2` | 13211-2 7.2.2 | `predicate_property(Head, P)`: P is a property of the predicate, such as `built_in`, `dynamic` or `exported`. |
 | `current_module/1` | 13211-2 7.2.1 | A module that exists. |
 | `consult/1` | — | Loads a file (chapter 4). The name needs its `.pl`. |

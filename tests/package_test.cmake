@@ -87,4 +87,13 @@ foreach(route cmake direct)
   if(NOT code EQUAL 0 OR NOT summary MATCHES "manual: [1-9][0-9]* checked, [0-9]+ skipped, 0 failed")
     message(FATAL_ERROR "mosatest --manual in the package (${route}): code=[${code}]\n${summary}")
   endif()
+  # 通ったことだけでは、どちらの道を通ったかは分からない。MOSA_NO_CMAKE が効かずに 2 回とも CMake の道を通っても、
+  # cmake が見つからずに 2 回とも直の道を通っても、この確かめは通ってしまう。CMake の道だけが CMakeCache.txt を残す。
+  file(GLOB_RECURSE caches LIST_DIRECTORIES false "${WORK}/work-${route}/*CMakeCache.txt")
+  list(FILTER caches INCLUDE REGEX "/CMakeCache\\.txt$")
+  if(route STREQUAL "cmake" AND NOT caches)
+    message(FATAL_ERROR "the CMake route left no CMakeCache.txt under ${WORK}/work-${route}")
+  elseif(route STREQUAL "direct" AND caches)
+    message(FATAL_ERROR "the MOSA_NO_CMAKE=1 route used CMake: ${caches}")
+  endif()
 endforeach()
