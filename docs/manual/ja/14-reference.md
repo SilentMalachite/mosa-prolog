@@ -54,7 +54,7 @@ A = [一,二].
 | `mosac emit ファイル -o フォルダ` | C++ のファイルと `CMakeLists.txt` だけをフォルダに書き出します。それを読んだり、手で直したりするためのものです。 |
 | `mosac emit --library ファイル -o フォルダ` | フォルダ `lib` のライブラリを 1 つ訳します。Mosa のビルドが使います。 |
 | `mosac emit --units フォルダ -o フォルダ` | テストのフォルダを訳します。`mosatest --diff` が使います。 |
-| `mosac toolchain` | `mosac` が使うコンパイラ、CMake、実行時ライブラリを出します。見つからなければ、入れるものを出します。 |
+| `mosac toolchain` | `mosac` が使うコンパイラ、CMake、実行時ライブラリを出します。見つからなければ、入れるものを出します。Windows では、実行時ライブラリか `.mosac-cache` のパスに ASCII の外の文字があると、`mosac` は CMake を使わず、コンパイラを直接呼びます（第 13 章）。 |
 | `mosac --version` | `mosa 0.1.0` と出します。 |
 
 `mosac build` と `mosac run` には、次のオプションがあります。

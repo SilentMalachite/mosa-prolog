@@ -37,7 +37,10 @@ the installer is done. Mosa 0.1.0 is tested with Visual Studio 2022. If a newer 
    that `mosac` uses when it is installed, and does without when it is not), and the folder of the runtime library,
    the part of Mosa that every executable carries. These lines name folders on your computer, so they differ from
    machine to machine. If no compiler is found, the first line is `mosac: no C++20 compiler was found`, and the next
-   line says what to install.
+   line says what to install. On Windows, `mosac` also does without CMake when the path of the runtime library, or
+   of the folder `.mosac-cache` that `mosac build` makes (step 4), has a character outside ASCII, such as a Japanese
+   one: CMake's build for the compiler of Visual Studio can lose such characters, so `mosac` calls the compiler
+   directly.
 
 <!-- skip: toolchain -->
 ```console

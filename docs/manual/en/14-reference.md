@@ -61,7 +61,7 @@ the same way, as `main` succeeds, fails or raises an error.
 | `mosac emit file -o folder` | Writes only the C++ files and a `CMakeLists.txt` into the folder, for reading or changing them by hand. |
 | `mosac emit --library file -o folder` | Translates one library of the folder `lib`. The build of Mosa uses it. |
 | `mosac emit --units folder -o folder` | Translates a folder of tests. `mosatest --diff` uses it. |
-| `mosac toolchain` | Prints the compiler, CMake and the runtime library that `mosac` would use, or what to install. |
+| `mosac toolchain` | Prints the compiler, CMake and the runtime library that `mosac` would use, or what to install. On Windows, when the path of the runtime library or of `.mosac-cache` has a character outside ASCII, `mosac` does not use CMake, and calls the compiler directly (chapter 13). |
 | `mosac --version` | Prints `mosa 0.1.0`. |
 
 `mosac build` and `mosac run` take these options:
