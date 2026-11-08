@@ -99,21 +99,21 @@ Args cmake_defines(const Toolchain& toolchain, const RuntimeLayout& runtime, boo
   return defines;
 }
 
-// 実行時ライブラリ（include/ とライブラリ）と .mosac-cache（生成コードとオブジェクト）が NMake の道に渡るパスの全部。
-// cache_root は作業場所が読めないと相対の名前を返すので、絶対にしてから見る。
-bool nmake_safe_paths(const RuntimeLayout& runtime) {
-  std::error_code error;
-  const std::filesystem::path cache = std::filesystem::absolute(cache_root(), error);
-  return nmake_safe_path(utf8_from_path(runtime.root)) && nmake_safe_path(utf8_from_path(error ? cache_root() : cache));
+// NMake の道に渡るパスのうち、ここで見るのは実行時ライブラリ（include/ とライブラリ）と .mosac-cache（生成コードと
+// オブジェクト）の 2 つ。cache_root は作業場所が読めなければ相対の名前を返すが、NMake の道に渡るのも同じ名前なので
+// そのまま見る。
+bool runtime_and_cache_nmake_safe(const RuntimeLayout& runtime) {
+  return nmake_safe_path(utf8_from_path(runtime.root)) && nmake_safe_path(utf8_from_path(cache_root()));
 }
 
 // Windows で cl 以外のコンパイラを CMake に渡すと、既定の Visual Studio の生成器はそれを無視して MSVC で作る。
-// 頼まれたコンパイラで作るため、その組み合わせは直接の道にする。MSVC でも、ASCII の外の文字を含むパスは NMake の道で
-// 化けるので直接の道にする。直接の道は cl を CreateProcessW の UTF-16 の引数で起こすので、その文字が残る。
+// 頼まれたコンパイラで作るため、その組み合わせは直接の道にする。その行を過ぎた Windows のコンパイラは MSVC だけで、
+// ASCII の外の文字を含むパスは NMake の道で化けるので、それも直接の道にする。直接の道は cl を CreateProcessW の
+// UTF-16 の引数で起こすので、その文字が残る。
 bool use_cmake(const Toolchain& toolchain, const RuntimeLayout& runtime) {
   if (env_is_one("MOSA_NO_CMAKE")) return false;
   if (host_os() == HostOs::windows && !is_msvc(toolchain.cxx)) return false;
-  if (host_os() == HostOs::windows && is_msvc(toolchain.cxx) && !nmake_safe_paths(runtime)) return false;
+  if (host_os() == HostOs::windows && !runtime_and_cache_nmake_safe(runtime)) return false;
   return toolchain.cmake.has_value() && cmake_new_enough(toolchain.cmake_version);
 }
 

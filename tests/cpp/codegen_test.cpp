@@ -1,6 +1,8 @@
 // フェーズ6 Task 4。翻訳器（src/codegen）が IR から出す C++ を文面で確かめる。出した C++ を実際に
 // コンパイルして動かすのは Task 5 の mosac emit から。ここは名前の変換、コメント、数え方、呼び出しの形を見る。
 // translated は生成関数を出した述語の数、interpreted は IR のまま動く節の数（codegen.hpp）。
+// 終わりの nmake_paths だけは翻訳ではなく、build.hpp の nmake_safe_path（Windows の MSVC で NMake の道に渡せるパスか）を
+// 見る（リリース 0.1.0 Task 10）。コンパイラを起こさずに、どの OS でも確かめられるので、ここに置く。
 
 #include "harness.hpp"
 
