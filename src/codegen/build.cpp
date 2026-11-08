@@ -1,5 +1,6 @@
 // mosac build の翻訳 → コンパイル → リンク（SPEC 第6節「build and run pipeline」、計画 Task 9）。
-// CMake があればそれで、無いか MOSA_NO_CMAKE=1 なら生成コードを 1 ファイルずつコンパイルして mosac がリンクの命令を組む。
+// CMake があればそれで、無いか MOSA_NO_CMAKE=1 なら（Windows の MSVC でパスが NMake に渡せないときも、use_cmake）
+// 生成コードを 1 ファイルずつコンパイルして mosac がリンクの命令を組む。
 // 既定は -O2 と静的リンク（Windows は /MT）、--debug は -O0 -g と節の追跡。子プロセスは run_process だけで起こし、
 // Toolchain::env（Windows の vcvarsall の環境）を渡す。中間物は .mosac-cache/<hash>/（cache.cpp）に置く。
 // 実行時ライブラリと翻訳済みの lib/*.pl の単位の場所は runtime_layout.cpp（計画 Task 10）。
@@ -98,11 +99,21 @@ Args cmake_defines(const Toolchain& toolchain, const RuntimeLayout& runtime, boo
   return defines;
 }
 
+// 実行時ライブラリ（include/ とライブラリ）と .mosac-cache（生成コードとオブジェクト）が NMake の道に渡るパスの全部。
+// cache_root は作業場所が読めないと相対の名前を返すので、絶対にしてから見る。
+bool nmake_safe_paths(const RuntimeLayout& runtime) {
+  std::error_code error;
+  const std::filesystem::path cache = std::filesystem::absolute(cache_root(), error);
+  return nmake_safe_path(utf8_from_path(runtime.root)) && nmake_safe_path(utf8_from_path(error ? cache_root() : cache));
+}
+
 // Windows で cl 以外のコンパイラを CMake に渡すと、既定の Visual Studio の生成器はそれを無視して MSVC で作る。
-// 頼まれたコンパイラで作るため、その組み合わせは直接の道にする。
-bool use_cmake(const Toolchain& toolchain) {
+// 頼まれたコンパイラで作るため、その組み合わせは直接の道にする。MSVC でも、ASCII の外の文字を含むパスは NMake の道で
+// 化けるので直接の道にする。直接の道は cl を CreateProcessW の UTF-16 の引数で起こすので、その文字が残る。
+bool use_cmake(const Toolchain& toolchain, const RuntimeLayout& runtime) {
   if (env_is_one("MOSA_NO_CMAKE")) return false;
   if (host_os() == HostOs::windows && !is_msvc(toolchain.cxx)) return false;
+  if (host_os() == HostOs::windows && is_msvc(toolchain.cxx) && !nmake_safe_paths(runtime)) return false;
   return toolchain.cmake.has_value() && cmake_new_enough(toolchain.cmake_version);
 }
 
@@ -272,7 +283,7 @@ void report_libraries(const Toolchain& toolchain, const RuntimeLayout& runtime, 
 
 Built build_translated(const BuildRequest& request, const Project& project, const Toolchain& toolchain,
                        const RuntimeLayout& runtime) {
-  const bool cmake = use_cmake(toolchain);
+  const bool cmake = use_cmake(toolchain, runtime);
   const std::string target = target_name(request.source);
   const std::string mode = cmake ? "cmake " + utf8_from_path(*toolchain.cmake) + " " + toolchain.cmake_version : "direct";
   if (!units_present(toolchain, runtime, project.libraries)) return {};
@@ -327,6 +338,12 @@ bool cmake_new_enough(std::string_view line) {
   const auto second = std::from_chars(first.ptr + 1, text.data() + text.size(), minor);
   if (second.ec != std::errc{}) return false;
   return major > 3 || (major == 3 && minor >= 25);
+}
+
+// NMake は cl へのインラインの応答ファイルを ANSI の符号ページで書き、そこに無い文字を落とす（ci run 42438279645 では
+// 「展開 先」の下の include/ が見つからなかった）。残る文字は機械の符号ページで変わるので、0x80 以上のバイトを 1 つも許さない。
+bool nmake_safe_path(std::string_view utf8) {
+  return std::ranges::none_of(utf8, [](char byte) { return static_cast<unsigned char>(byte) >= 0x80; });
 }
 
 std::string mosac_message(std::string_view key, std::vector<std::string> args) {

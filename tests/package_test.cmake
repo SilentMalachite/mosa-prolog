@@ -114,7 +114,13 @@ foreach(route cmake direct)
   # cmake が見つからずに 2 回とも直の道を通っても、この確かめは通ってしまう。CMake の道だけが CMakeCache.txt を残す。
   file(GLOB_RECURSE caches LIST_DIRECTORIES false "${WORK}/work-${route}/*CMakeCache.txt")
   list(FILTER caches INCLUDE REGEX "/CMakeCache\\.txt$")
-  if(route STREQUAL "cmake" AND NOT caches)
+  # Windows では実行時ライブラリが「展開 先」の下にあり、NMake は ASCII の外の文字を cl に渡せない（ci run 42438279645）。
+  # mosac はそのとき CMake があっても直の道に落ちるので、cmake の道でも CMakeCache.txt が無いことで落ちたことを確かめる。
+  if(route STREQUAL "cmake" AND os_arch MATCHES "^windows-")
+    if(caches)
+      message(FATAL_ERROR "on Windows the runtime under a non-ASCII folder must send the CMake route direct: ${caches}")
+    endif()
+  elseif(route STREQUAL "cmake" AND NOT caches)
     message(FATAL_ERROR "the CMake route left no CMakeCache.txt under ${WORK}/work-${route}")
   elseif(route STREQUAL "direct" AND caches)
     message(FATAL_ERROR "the MOSA_NO_CMAKE=1 route used CMake: ${caches}")

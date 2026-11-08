@@ -60,6 +60,8 @@ struct RuntimeLayout {
 
 // `cmake version 3.31.2` の版が 3.25 以上か。
 [[nodiscard]] bool cmake_new_enough(std::string_view line);
+// NMake の道に渡せるパスか（Windows の MSVC だけが問う）。
+[[nodiscard]] bool nmake_safe_path(std::string_view utf8);
 // 実行ファイルの拡張子（Windows は .exe）と、-o の名前に付けるかどうか。
 [[nodiscard]] std::string exe_suffix();
 [[nodiscard]] std::filesystem::path with_exe_suffix(const std::filesystem::path& path);
