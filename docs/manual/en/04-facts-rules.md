@@ -28,11 +28,16 @@ later, type only the `cd` line to come back.
 
 2. With a text editor, create a file named `family.pl` in the folder `prolog`, write these lines in it and save it.
    Save it as plain text, because Mosa reads only plain text:
-   - On macOS, in TextEdit, choose Format, then Make Plain Text, before you save. Keep the name `family.pl`; if
-     TextEdit asks which extension to use, choose `.pl`.
+   - On macOS, in TextEdit, first choose Format, then Make Plain Text, before you type the lines. A new TextEdit
+     document is rich text, and while you type in rich text, TextEdit may change what you type. To make every new
+     document plain text, choose TextEdit, then Settings, and under New Document choose Plain text, once. Keep the
+     name `family.pl`; if TextEdit asks which extension to use, choose `.pl`.
    - On Windows, in Notepad, set "Save as type" to "All files" in the Save As dialog, so that the file does not
      become `family.pl.txt`.
    - On Linux, any plain-text editor works, such as Text Editor on Ubuntu.
+
+   The files of later chapters hold quotes. Each one must be the straight `'`, not a curly quote such as `‘` or `’`,
+   which Mosa does not read as a quote.
 
    Each line of the file is a fact: it says that the first person is a parent of the second.
 
@@ -61,9 +66,11 @@ false.
 If Mosa prints an error instead and you are back in your shell, the file is not what Mosa expects. The error names
 the file, then the line and the column where Mosa noticed the problem:
 
-- `family.pl:1:7: unexpected token`, at line 1, column 7, means that the file was saved as rich text. TextEdit and
-  WordPad start such a file with `{\rtf1\ansi`, and Mosa stops at its seventh character. Open the file and save it
-  again as plain text (step 2).
+- `family.pl:1:7: unexpected token`, at line 1, column 7, usually means that the file was saved as rich text.
+  TextEdit and WordPad start such a file with `{\rtf1\ansi`, and Mosa stops at its seventh character. Open the
+  file, make it plain text as in step 2, and save it again. If the error stays, compare the lines with the lines
+  above: TextEdit may have changed them while the file was rich text, and a capital at the start of line 1, as in
+  `Parent(tom, bob).`, also stops Mosa at column 7.
 - Any other line and column point at a typing mistake. Compare that line, and the line before it, with the lines
   above. Each fact ends with a period, and when a period is missing, Mosa notices only at the start of the next
   line: without the period after `parent(tom, bob)`, Mosa prints `family.pl:2:1: unexpected token`. Without the
