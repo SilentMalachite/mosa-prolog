@@ -184,8 +184,9 @@ gives `X = bob`. In step 12, `lives(Who, address(_, japan))` unified with the fi
 the second, because `france` and `japan` are different atoms.
 
 In an answer, Mosa shows each variable of your query that has a value, in the order in which the variables first
-appear in the query. A variable of your query inside a value is shown by its name (`X = f(Y)`), and a variable
-without a name as `_G1`, `_G2` and so on.
+appear in the query. A variable of your query inside a value is usually shown by its name (`X = f(Y)`), and a
+variable without a name as `_G1`, `_G2` and so on. With predicates of later chapters, such as `append/3` in chapter
+12, an answer can also be `R = _G1`: the value of `R` is then a new variable that has no name yet.
 
 ## Exercises
 
