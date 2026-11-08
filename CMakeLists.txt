@@ -121,6 +121,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/process.cpp
   src/platform/address_range.cpp
   src/platform/toolchain.cpp
+  src/platform/parse_double.cpp
   src/machine/bench.cpp
   src/machine/bench_report.cpp
   src/machine/answer_text.cpp
