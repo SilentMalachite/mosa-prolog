@@ -26,6 +26,8 @@ installing Mosa and goes on, one small step at a time, to writing programs and b
 
 The packages are not signed. [Chapter 2](02-install.md) shows how to start Mosa anyway on macOS and Windows.
 
+What Mosa 0.1.0 has, and its known limits, are in the [CHANGELOG](../../../CHANGELOG.md).
+
 ## Chapters
 
 Chapters 1 to 13 are meant to be read in order. Chapter 14 is a reference to look things up in.
