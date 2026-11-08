@@ -15,7 +15,7 @@ Mosa Prolog の最初のリリースです。Mosa Prolog は ISO/IEC 13211-1 に
 - `mosatest` は `test(名前, ゴール, 期待)` の事実で書いたテストを動かし、マニュアルの例を確かめます。
 - 日本語: Mosa は UTF-8 で読み書きし、字数を Unicode の符号位置で数えます。原子と変数に日本語の名前を付けられます。フラグ `japanese_punctuation` が `true` のときは全角の記号を半角として読みます。`LANG` が `ja` で始まるとメッセージは日本語です。`LANG` の無い Windows では、Windows の表示言語に従います（[第 11 章](docs/manual/ja/11-japanese.md)）。
 - メモリ: ヒープは必要に応じて上限まで伸びます。上限の既定は 4 GiB です（`--heap-max`、`MOSA_HEAP_MAX`）。プログラムがもう使わない項は、ガベージコレクタが空けます。`garbage_collect/0` と `statistics/2` は組み込みです。
-- ライブラリ: `lists`、`apply`、`between`、`format`、`strings`、`japanese` を `use_module` で読み込めます（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。
+- ライブラリ: `lists`、`apply`、`between`、`format`、`strings`、`japanese` を、ファイルの中の `:- use_module(library(名前)).` で読み込めます（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。
 - 準拠率: ソースに同梱した Logtalk の準拠スイートで、2171 件中 2136 件（98.4%）が通ります。
 
 ### 動作環境
@@ -36,6 +36,7 @@ Mosa Prolog の最初のリリースです。Mosa Prolog は ISO/IEC 13211-1 に
 
 - `-->` で書く文法規則は使えません。それを含むファイルは読み込まれません。
 - `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）は組み込みにありません。
+- `use_module/1` はファイルの中でしか使えません。`?-` のプロンプトで打つと、`existence_error(procedure,use_module/1)` の警告が出ます（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。
 - Windows のコンソールのウィンドウで日本語を打つこと（`chcp 932` と `chcp 437`）は未検証です。
 - `mosac dist` は Mosa 0.1.0 にはありません。
 - `mosac build --debug` は、最適化して作った実行時ライブラリにつなぎます。ライブラリの節は出しません。

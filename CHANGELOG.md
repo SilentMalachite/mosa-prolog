@@ -26,8 +26,8 @@ this release. Only installation steps and other things that depend on your machi
   display language ([chapter 11](docs/manual/en/11-japanese.md)).
 - Memory: the heap grows as needed up to a limit, 4 GiB by default (`--heap-max`, `MOSA_HEAP_MAX`), and the garbage
   collector frees the terms that a program no longer uses. `garbage_collect/0` and `statistics/2` are built in.
-- Libraries: `lists`, `apply`, `between`, `format`, `strings` and `japanese`, loaded with `use_module`
-  ([chapter 12](docs/manual/en/12-modules-libraries.md)).
+- Libraries: `lists`, `apply`, `between`, `format`, `strings` and `japanese`, loaded with
+  `:- use_module(library(Name)).` in a file ([chapter 12](docs/manual/en/12-modules-libraries.md)).
 - Conformance: 2136 of the 2171 tests (98.4%) of the Logtalk conformance suite bundled with the source pass.
 
 ### Supported platforms
@@ -49,6 +49,8 @@ Windows.
 
 - Grammar rules written with `-->` are not supported: a file that holds one does not load.
 - `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are not built in.
+- `use_module/1` works only in a file: typed at the `?-` prompt, it gives a warning with
+  `existence_error(procedure,use_module/1)` ([chapter 12](docs/manual/en/12-modules-libraries.md)).
 - Typing Japanese in the console window of Windows (with `chcp 932` or `chcp 437`) has not been verified.
 - `mosac dist` is not part of Mosa 0.1.0.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
