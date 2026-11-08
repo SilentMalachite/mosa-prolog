@@ -28,7 +28,7 @@ message(incomplete_term, 'incomplete term').
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal]... [-t halt] [--heap-max MiB] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~nmosatest --manual <directory> [--mosa <path>] [--work <directory>] [--all-tables]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
-message(mosac_dist_unavailable, 'mosac: mosac dist is not available until phase 7').
+message(mosac_dist_unavailable, 'mosac: mosac dist is not part of Mosa 0.1.0').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_output_is_source, 'mosac: the output ~w is the source file itself, and building would overwrite it~nGive another output name with -o').
@@ -45,9 +45,9 @@ message(toolchain_msvc_env, 'environment: ~w variables from vcvarsall.bat').
 message(toolchain_not_found, 'mosac: no C++20 compiler was found').
 message(toolchain_named_not_found, 'mosac: the compiler ~w given by ~w was not found or did not run').
 message(toolchain_hint_macos, 'Install the Xcode Command Line Tools: xcode-select --install').
-message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt install g++').
+message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt update && sudo apt install g++').
 message(toolchain_msvc_needs_prompt, 'mosac: cl runs without the Visual Studio environment (INCLUDE is not set), because mosac runs vcvarsall.bat only when no compiler is named~nOpen a Developer Command Prompt for Visual Studio, or omit --cxx (and MOSA_CXX and CXX) so that mosac runs vcvarsall.bat itself').
-message(toolchain_hint_windows, 'Install Visual Studio Build Tools with the "Desktop development with C++" workload: https://visualstudio.microsoft.com/downloads/').
+message(toolchain_hint_windows, 'Install Build Tools for Visual Studio 2022 with the "Desktop development with C++" workload: https://aka.ms/vs/17/release/vs_BuildTools.exe').
 
 % mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。
 message(mosac_internal_error, 'internal error: the generated code cannot be compiled. Please report it with ~w attached').

@@ -1,5 +1,5 @@
 # mosac の入口の確かめ（最終レビューの直し 1 と 5）。どれもコンパイラを起こさない。
-# - 引数無し、知らない副命令は使い方を標準エラーに出して 1、--help は標準出力に出して 0。dist はフェーズ7の文面で 1。
+# - 引数無し、知らない副命令は使い方を標準エラーに出して 1、--help は標準出力に出して 0。dist は CHANGELOG と同じ「Mosa 0.1.0 にはありません」の文面で 1。
 # - -o の無い build で出力が原文そのものになる（拡張子の無い原文 hello、Windows では hello.exe）なら、何も作らず
 #   -o を促して 1 で止まり、原文はそのまま残る。
 # 使い方: cmake -DMOSAC=<mosac> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DEXE_SUFFIX=<.exe など>
@@ -35,8 +35,8 @@ if(NOT code EQUAL 1 OR NOT err MATCHES "${usage}")
   fail("an unknown subcommand must print the usage and exit 1")
 endif()
 mosac(dist hello.pl -o dist)
-if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: mosac dist はフェーズ7まで使えません\n$")
-  fail("dist must say it arrives in phase 7")
+if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: mosac dist は Mosa 0\\.1\\.0 にはありません\n$")
+  fail("dist must say it is not part of Mosa 0.1.0")
 endif()
 
 # 原文 hello（Windows では hello.exe）の語幹 hello に実行ファイルの接尾辞を付けると原文そのものになる。

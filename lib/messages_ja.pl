@@ -28,7 +28,7 @@ message(incomplete_term, '項が閉じていません').
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール]... [-t halt] [--heap-max MiB] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~nmosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>] [--all-tables]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
-message(mosac_dist_unavailable, 'mosac: mosac dist はフェーズ7まで使えません').
+message(mosac_dist_unavailable, 'mosac: mosac dist は Mosa 0.1.0 にはありません').
 message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_output_is_source, 'mosac: 出力 ~w は原文のファイルそのもので、ビルドすると原文を上書きします~n-o で別の出力名を与えてください').
@@ -45,9 +45,9 @@ message(toolchain_msvc_env, '環境: vcvarsall.bat から ~w 個の変数').
 message(toolchain_not_found, 'mosac: C++20 のコンパイラが見つかりません').
 message(toolchain_named_not_found, 'mosac: コンパイラ ~w（~w で指定）が見つからないか、起動できません').
 message(toolchain_hint_macos, 'Xcode Command Line Tools を入れてください: xcode-select --install').
-message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt install g++').
+message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt update && sudo apt install g++').
 message(toolchain_msvc_needs_prompt, 'mosac: cl が Visual Studio の環境無し（INCLUDE が未設定）で動きます。mosac が vcvarsall.bat を呼ぶのはコンパイラを名指ししないときだけです~nVisual Studio の開発者用コマンドプロンプトを開くか、--cxx（と MOSA_CXX、CXX）を外して mosac に vcvarsall.bat を呼ばせてください').
-message(toolchain_hint_windows, 'Visual Studio Build Tools を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://visualstudio.microsoft.com/ja/downloads/').
+message(toolchain_hint_windows, 'Build Tools for Visual Studio 2022 を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://aka.ms/vs/17/release/vs_BuildTools.exe').
 
 % mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。
 message(mosac_internal_error, '内部エラー: 生成コードがコンパイルできません。~w を添えて報告してください').
