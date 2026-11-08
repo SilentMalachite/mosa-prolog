@@ -12,8 +12,10 @@ Mosa Prolog 0.1.0 runs on these computers:
 - Linux on x86_64 with the glibc of Ubuntu 24.04 or later.
 - Windows 10 22H2 or later and Windows 11, on x64, with Smart App Control off.
 
-If your Mac has an older macOS, update it first in System Settings, under General, then Software Update; every Mac
-with Apple Silicon can run macOS 26.
+To see which macOS your Mac has, choose About This Mac in the Apple menu, at the left end of the menu bar. If it is
+older than macOS 26, update it first in System Settings, under General, then Software Update. macOS 12 and earlier
+have no System Settings: there, click Software Update in the About This Mac window. Every Mac with Apple Silicon can
+run macOS 26.
 
 The packages are not signed. Step 3 (macOS) and step 5 (Windows) show how to start Mosa anyway. Windows 11 has a
 setting called Smart App Control. When it is on, it blocks programs that are not signed, and it cannot be told to
