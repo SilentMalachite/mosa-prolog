@@ -27,8 +27,8 @@ message(incomplete_term, '項が閉じていません').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール]... [-t halt] [--heap-max MiB] [-- 引数...]').
-message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
-message(mosac_dist_unavailable, 'mosac: mosac dist はフェーズ7まで使えません').
+message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~nmosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>] [--all-tables]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
+message(mosac_dist_unavailable, 'mosac: mosac dist は Mosa 0.1.0 にはありません').
 message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_output_is_source, 'mosac: 出力 ~w は原文のファイルそのもので、ビルドすると原文を上書きします~n-o で別の出力名を与えてください').
@@ -45,9 +45,9 @@ message(toolchain_msvc_env, '環境: vcvarsall.bat から ~w 個の変数').
 message(toolchain_not_found, 'mosac: C++20 のコンパイラが見つかりません').
 message(toolchain_named_not_found, 'mosac: コンパイラ ~w（~w で指定）が見つからないか、起動できません').
 message(toolchain_hint_macos, 'Xcode Command Line Tools を入れてください: xcode-select --install').
-message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt install g++').
+message(toolchain_hint_linux, 'C++ のコンパイラを入れてください: sudo apt update && sudo apt install g++').
 message(toolchain_msvc_needs_prompt, 'mosac: cl が Visual Studio の環境無し（INCLUDE が未設定）で動きます。mosac が vcvarsall.bat を呼ぶのはコンパイラを名指ししないときだけです~nVisual Studio の開発者用コマンドプロンプトを開くか、--cxx（と MOSA_CXX、CXX）を外して mosac に vcvarsall.bat を呼ばせてください').
-message(toolchain_hint_windows, 'Visual Studio Build Tools を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://visualstudio.microsoft.com/ja/downloads/').
+message(toolchain_hint_windows, 'Build Tools for Visual Studio 2022 を「C++ によるデスクトップ開発」のワークロード付きで入れてください: https://aka.ms/vs/17/release/vs_BuildTools.exe').
 
 % mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。
 message(mosac_internal_error, '内部エラー: 生成コードがコンパイルできません。~w を添えて報告してください').
@@ -115,3 +115,47 @@ message(diff_not_attached, '~w: 翻訳した述語のうち付いたのは ~w/~w
 message(diff_no_self, 'mosatest: 自分の場所が分かりません').
 message(diff_total, '一致 ~w/~w、翻訳した述語 ~w/~w（~w%）、違い ~w 件').
 message(mosac_units_skipped, 'mosac: ~w は翻訳しません: ~w').
+
+% mosatest --manual（リリース 0.1.0 Task 4）。印の規則は tests/manual/README.md。
+message(manual_unmarked, '直前の行に check:、skip:、file: の印が無いコードブロックです').
+message(manual_marker_alone, '印の次の行がコードブロックではありません').
+message(manual_marker_bad, '印の形が違います: ~w').
+message(manual_marker_unclosed, '複数行の check: の印を閉じる --> の行がありません').
+message(manual_override_arrow, '複数行の check: の入力の行に --> があります。GitHub はそこで印の注釈を閉じ、後ろを文として映すので、その入力は file: のブロックに書きます: ~w').
+message(manual_marker_in_comment, '複数行の注釈を閉じる行に印があります。GitHub はその印を注釈の中に隠すので、注釈はその前の行で閉じます: ~w').
+message(manual_fence_unclosed, 'コードブロックが閉じていません').
+message(manual_fence_unsupported, '囲いの行が 0 桁目にありません（字下げ、ブロック引用の中、箇条書きの印と同じ行、タブの後ろ）。コードブロックは箇条書きと引用の外で、0 桁目で開いて 0 桁目で閉じます').
+message(manual_file_name, 'file: の名前はディレクトリを含まないファイル名にします: ~w').
+message(manual_file_kind, 'file: は prolog のコードブロックに付けます').
+message(manual_check_kind, 'check: は "?- " で始まる text のコードブロックか console のコードブロックに付けます').
+message(manual_duplicate_id, '例の id ~w がこのファイルで 2 度使われています').
+message(manual_console_start, 'console のコードブロックは "$ " の行で始めます').
+message(manual_console_quote, 'コマンドの引用が閉じていません').
+message(manual_console_special, 'コマンドの ~w はシェルが特別に扱うので、一重引用符の中に書きます').
+message(manual_console_program, 'コマンドは mosa、mosac、mosatest か ./NAME で始めます: ~w').
+message(manual_missing, '~w がありません（~w はあります）').
+message(manual_ids_differ, '~w と ~w で例の id が違います（~w / ~w）').
+% 述語の表（リリース 0.1.0 Task 5）。
+message(manual_tables_differ, '~w と ~w で述語の表が違います（~w / ~w）').
+message(manual_predicates_twice, '述語 ~w が ~w の表に 2 度あります').
+message(manual_predicates_unknown, '~w の述語の一覧はありません。表に書けるのは system か ~w です').
+message(manual_predicates_differ, '~w の表が Mosa と違います（Mosa に無いもの [~w]、表に無いもの [~w]）').
+message(manual_table_row, '述語の表の行は | で始め、最初の欄にコードスパン `name/arity` を 1 つだけ書き、コードスパンの外に < を書きません: ~w').
+message(manual_table_header, '述語の表の見出しの行のすぐ下に、欄の数が同じ | --- | の行がありません: ~w').
+message(manual_section_line, '述語の区切りの中に書けない行です。区切りに置けるのは表だけです（書けるのは空の行、バッククォートも < も無い | 見出し | の行、そのすぐ下の | --- |、| `name/arity` | の行。文は印の前に書きます）: ~w').
+message(manual_section_control, '述語の区切りの行に制御文字 ~w があります（タブ、改ページ、NUL、LF の付かない CR は書けません。行は LF か CRLF で終えます）').
+message(manual_html_tag, '生の HTML のタグです。GitHub は HTML として映します（<details> や <script> は後ろの表を隠します）。predicates: の印を持つ章で < の後ろに英字、/、?、! を続けてよいのは、コードスパン、コードブロック、<!-- --> の注釈の中だけです: ~w').
+message(manual_tables_missing, '~w に ~w の述語の表がありません').
+message(manual_library_unloadable, 'library(~w)（~w）を読めません: ~w').
+message(manual_library_no_module, 'ファイルがモジュール ~w を定義していません').
+message(manual_version_differs, 'mosatest: ~w --version の出力は ~w で、~w ではありません。この mosatest と同じ組み上げの mosa を渡します').
+message(manual_no_editions, 'mosatest: ~w に en/ と ja/ が要ります').
+message(manual_cannot_list, 'mosatest: ディレクトリ ~w を読めません').
+message(manual_no_examples, 'mosatest: ~w に check: の例がありません').
+message(manual_cannot_clear, 'mosatest: ~w を空にできないので、その章は動かしていません').
+message(manual_abnormal_exit, '~w は異常終了しました（終了コード ~w）').
+message(manual_expected, '期待した出力:').
+message(manual_actual, '実際の出力:').
+message(manual_no_newline, '（最後に改行がありません）').
+% 件数の 1 行は英語と同じ字にする。スクリプトがどちらの言語でも同じ形で読めるように（Task 4 の修正）。
+message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').

@@ -42,7 +42,7 @@
 
 | OS | コンパイラ | 備考 |
 | --- | --- | --- |
-| macOS（Apple Silicon） | Apple Clang 15 以上 | 開発の主環境 |
+| macOS 26 以降（Apple Silicon） | Xcode 26 以降か、その Command Line Tools（Apple Clang 17） | 開発の主環境 |
 | Linux（Ubuntu 24.04） | GCC 13 以上、Clang 17 以上 | CI の基準環境 |
 | Windows 11 | MSVC 2022（v17.8 以上） | `/utf-8` `/permissive-` `/Zc:__cplusplus` を必須とする |
 
@@ -308,7 +308,7 @@
 - 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `type_error(integer, foo)` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
 - C++ 側では `throw_error(m, Formal, PI)` の 1 系統のヘルパだけを使い、`Formal` の各種は `make_type_error(m, Type, Culprit)` のような関数で組む。文字列の直書きは禁止（アトム名のタイポを防ぐ）
 - 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、整数オーバーフローは `evaluation_error(int_overflow)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
-- トップレベルは捕捉されなかった例外を `警告: ゴールは例外を送出しました: error(...)` の形で日本語と英語（フラグ `message_language`、既定は環境変数 `LANG` から判定）で表示する。メッセージ文字列は `lib/messages_ja.pl`、`lib/messages_en.pl` の Prolog 事実として置き、C++ には埋め込まない
+- トップレベルは捕捉されなかった例外を `警告: ゴールは例外を送出しました: error(...)` の形で日本語と英語（フラグ `message_language`、既定は環境変数 `LANG` から判定し、Windows で `LANG` が無いか空のときは Windows の表示言語から判定）で表示する。メッセージ文字列は `lib/messages_ja.pl`、`lib/messages_en.pl` の Prolog 事実として置き、C++ には埋め込まない
 
 ## 8. テスト戦略
 

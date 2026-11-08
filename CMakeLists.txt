@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(mosa VERSION 0.0.1 LANGUAGES CXX)
+project(mosa VERSION 0.1.0 LANGUAGES CXX)
+
+# include/mosa/version.hpp の定数と project VERSION が食い違うと版表示と旗がずれるので、構成時に止める。
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/mosa/version.hpp" mosa_version_lines REGEX "kVersion(Major|Minor|Patch) = [0-9]+;")
+set(mosa_header_version "")
+foreach(mosa_line IN LISTS mosa_version_lines)
+  string(REGEX REPLACE ".*= ([0-9]+);.*" "\\1" mosa_part "${mosa_line}")
+  list(APPEND mosa_header_version "${mosa_part}")
+endforeach()
+list(JOIN mosa_header_version "." mosa_header_version)
+if(NOT mosa_header_version STREQUAL PROJECT_VERSION)
+  message(FATAL_ERROR "include/mosa/version.hpp の版 (${mosa_header_version}) が project VERSION (${PROJECT_VERSION}) と違う")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -105,6 +117,7 @@ target_sources(mosa_lib PRIVATE
   src/platform/exe_path.cpp
   src/platform/command_line.cpp
   src/platform/console.cpp
+  src/platform/ui_language.cpp
   src/platform/process.cpp
   src/platform/address_range.cpp
   src/platform/toolchain.cpp
@@ -115,6 +128,9 @@ target_sources(mosa_lib PRIVATE
   src/machine/diff_main.cpp
   src/machine/diff_report.cpp
   src/machine/diff_tool.cpp
+  src/machine/manual_parse.cpp
+  src/machine/manual_markdown.cpp
+  src/machine/manual_check.cpp
   src/builtins/errors.cpp
   src/builtins/types.cpp
   src/builtins/order.cpp
@@ -188,6 +204,9 @@ else()
 endif()
 set(mosa_abi "${mosa_abi_os}-${mosa_abi_arch}-${mosa_abi_cxx}")
 set(mosa_runtime_dest "lib/mosa/${mosa_abi}")
+# パッケージを作る台本 cmake/package.cmake は、名前の <OS>-<arch> をビルド木の CMakeCache.txt のこの鍵から取る
+# （リリース 0.1.0 Task 9）。版は project() が残す CMAKE_PROJECT_VERSION から取る。
+set(MOSA_ABI "${mosa_abi}" CACHE INTERNAL "Runtime key <OS>-<arch>-<compiler> of this build")
 
 # lib/*.pl の翻訳済みの単位（計画 Task 10）。作った mosac に emit --library を頼んで <語幹>.cpp を出し、ライブラリごとの
 # 静的ライブラリ libmosa_pl_<語幹>.a（MSVC は mosa_pl_<語幹>.lib）にして mosac の隣の pl/ に置く。mosac build は
@@ -222,6 +241,10 @@ install(DIRECTORY include/mosa DESTINATION ${mosa_runtime_dest}/include COMPONEN
 install(TARGETS ${mosa_pl_targets} ARCHIVE DESTINATION ${mosa_runtime_dest}/pl COMPONENT runtime CONFIGURATIONS Release)
 install(FILES CMakeLists.txt DESTINATION lib/mosa/source COMPONENT source)
 install(DIRECTORY src include lib DESTINATION lib/mosa/source COMPONENT source PATTERN ".DS_Store" EXCLUDE)
+# 利用者向けの文書（リリース 0.1.0 Task 9）。根に置く README と CHANGELOG の docs/manual/… へのリンクがパッケージの中でも
+# 通るよう、マニュアルはリポジトリと同じ docs/manual/ に置く。
+install(FILES LICENSE NOTICE README.md README.ja.md CHANGELOG.md CHANGELOG.ja.md DESTINATION . COMPONENT docs)
+install(DIRECTORY docs/manual/ DESTINATION docs/manual COMPONENT docs PATTERN ".DS_Store" EXCLUDE)
 
 # テスト（tests/tests.cmake）。同梱の源から実行時ライブラリだけを作るとき（mosac build --runtime-source）は外す。
 option(MOSA_BUILD_TESTS "Build the tests" ON)

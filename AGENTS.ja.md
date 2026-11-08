@@ -8,7 +8,7 @@
 
 - ISO/IEC 13211 準拠の Prolog 処理系 **Mosa Prolog**（リポジトリ `mosa-prolog`）を C++20 で実装する
 - コマンド: `mosa`（インタプリタ）、`mosac`（Prolog → C++20 変換・ビルド）、`mosatest`（テストランナー）。ランタイムは `libmosa`、ヘッダは `include/mosa/`、名前空間は `mosa`、環境変数の接頭辞は `MOSA_`
-- 依存は C++20 標準ライブラリと CMake 3.25 以上のみ。macOS（Apple Clang 15+）、Linux（GCC 13+ / Clang 17+）、Windows（MSVC 2022 v17.8+）の 3 OS で CI を通す
+- 依存は C++20 標準ライブラリと CMake 3.25 以上のみ。macOS（Xcode 26 / Apple Clang 17+）、Linux（GCC 13+ / Clang 17+）、Windows（MSVC 2022 v17.8+）の 3 OS で CI を通す
 - 文字コードはすべて UTF-8（BOM なし）。「文字」は常に Unicode スカラー値 1 個
 
 ## 仕様の参照先

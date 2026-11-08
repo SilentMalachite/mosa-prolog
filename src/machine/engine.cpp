@@ -165,10 +165,9 @@ void step(Impl& machine) {
   enter_user(machine, goal);
 }
 
-struct BuiltinPi {
-  std::string_view name;
-  std::uint16_t arity;
-};
+// call/N と halt/N は表に置かず、引数の数の範囲で引く。is_builtin_procedure と builtin_procedures が同じ値を使う。
+constexpr std::uint16_t kCallArityMax = 8;
+constexpr std::uint16_t kHaltArityMax = 1;
 
 // call/1..8、halt/0..1、findall、open、close、at_end_of_stream、get_char、get_code、peek_char、
 // peek_code、put_char、put_code、nl、get_byte、peek_byte、put_byte、read_term、read、
@@ -480,12 +479,19 @@ void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, co
 
 bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
   const auto text = machine.atoms.name(name);
-  if (text == "call" && arity >= 1 && arity <= 8) return true;
-  if (text == "halt" && arity <= 1) return true;
+  if (text == "call" && arity >= 1 && arity <= kCallArityMax) return true;
+  if (text == "halt" && arity <= kHaltArityMax) return true;
   for (const BuiltinPi& item : kBuiltins) {
     if (item.arity == arity && item.name == text) return true;
   }
   return false;
+}
+
+std::vector<BuiltinPi> builtin_procedures() {
+  std::vector<BuiltinPi> all(kBuiltins.begin(), kBuiltins.end());
+  for (std::uint16_t arity = 1; arity <= kCallArityMax; ++arity) all.push_back(BuiltinPi{"call", arity});
+  for (std::uint16_t arity = 0; arity <= kHaltArityMax; ++arity) all.push_back(BuiltinPi{"halt", arity});
+  return all;
 }
 
 bool run_builtin(Impl& machine, const Goal& goal) {

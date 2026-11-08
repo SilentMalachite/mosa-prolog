@@ -19,6 +19,10 @@ void prepare_console();
 [[nodiscard]] std::optional<std::string> console_line_text(std::u16string_view raw);
 // 標準入力の 1 バイト。コンソールの行を読み終えるまでそこから返し、他は std::cin から読む。終わりは EOF。
 [[nodiscard]] int standard_input_get();
+// 真にすると、Windows のコンソールでない標準入力は std::cin から 1 行（\n まで、終わりなら残り全部）を読み、
+// std::cout に書いて flush してから、その行を 1 バイトずつ返す。端末が打った行を映すのと同じ表示を管から得るため
+// （MOSA_TRANSCRIPT=1、マニュアルの検査）。standard_input_unget で返された字は書き返さない。既定は偽。
+void set_standard_input_echo(bool on);
 // standard_input_get で読んだ字を返す。次の standard_input_get が返した順の逆に返す（レビュー M12）。
 void standard_input_unget(char byte);
 // 入力の終わりの印を下ろす。eof_action(reset) と、端末で Ctrl+D の後に読み続けるため。

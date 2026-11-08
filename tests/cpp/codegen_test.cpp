@@ -1,9 +1,12 @@
 // フェーズ6 Task 4。翻訳器（src/codegen）が IR から出す C++ を文面で確かめる。出した C++ を実際に
 // コンパイルして動かすのは Task 5 の mosac emit から。ここは名前の変換、コメント、数え方、呼び出しの形を見る。
 // translated は生成関数を出した述語の数、interpreted は IR のまま動く節の数（codegen.hpp）。
+// 終わりの nmake_paths だけは翻訳ではなく、build.hpp の nmake_safe_path（Windows の MSVC で NMake の道に渡せるパスか）を
+// 見る（リリース 0.1.0 Task 10）。コンパイラを起こさずに、どの OS でも確かめられるので、ここに置く。
 
 #include "harness.hpp"
 
+#include "codegen/build.hpp"
 #include "codegen/codegen.hpp"
 #include "machine/internal.hpp"
 #include "mosa/path_text.hpp"
@@ -394,6 +397,17 @@ void project_opaque() {
   check(cmake != nullptr && has(cmake->text, "project(app "), "reserved target name");
 }
 
+// Windows の NMake は cl へのインラインの応答ファイルを ANSI の符号ページで書き、ASCII の外の文字を落とす
+// （ci run 42438279645 の「展開 先」）。どの OS でも、UTF-8 で 0x80 以上のバイトが 1 つでもあれば渡せないと答える。
+void nmake_paths() {
+  using mosa::codegen::nmake_safe_path;
+  check(nmake_safe_path("C:/Program Files (x86)/Microsoft Visual Studio/2022"), "ASCII with spaces and (x86)");
+  check(nmake_safe_path(""), "an empty path is NMake-safe");
+  check(!nmake_safe_path("D:/a/tests/tmp/package/展開 先/unpacked"), "a Japanese folder is not NMake-safe");
+  check(!nmake_safe_path("C:/Users/José/work"), "a Latin-1 letter is not NMake-safe");
+  check(!nmake_safe_path("C:/work/\xf0\x9f\x98\x80/x"), "an emoji (U+1F600) is not NMake-safe");
+}
+
 int main() {
   mangle_names();
   no_double_underscore();
@@ -419,5 +433,6 @@ int main() {
   comment_backslash();
   project_modules();
   project_opaque();
+  nmake_paths();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

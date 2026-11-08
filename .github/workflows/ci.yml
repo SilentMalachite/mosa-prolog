@@ -131,6 +131,8 @@ jobs:
   # 手元（macOS、10 コア）で N=1 の ctest（差分テスト diff_tests_pl と diff_conformance を含む、mosatest --diff を内部で流す）が
   # 309 秒だったので、N は 1 のまま（40 分を超えたら 7 に上げる）。ヒープに何百万語も載せる gc、heap_growth、mosac_heap_limit は
   # N=1 では設計上遅いので、1 段目から外し、2 段目で N=1000 にして流す（手元で 401 秒）。install と bench は GC と関わらないので外す。
+  # package（package_layout）も外す。書庫を作って展開し、マニュアル全体を 2 回（第 13 章の mosac build を含む）流すので、
+  # GC ストレスのもとでは長すぎ、見たいのはパッケージの形で GC ではないため。
   # 深さ 100 万の項を作って書く stack_deep_write と stack_deep_builtins（ADR 0011）は、GC ごとに項全体をなめるので N=1000 でも
   # 深さの 2 乗で 600 秒を超える（手元で深さ 10 万の print/1 が 2.3 秒、20 万で 9.0 秒）。どちらも C++ のスタックの深さを見るテストで、
   # writer の途中の GC は print.pl の print_portray_gc が N=1 で見るので、このジョブでは流さない。long_literal、mosac_long_list、
@@ -159,7 +161,7 @@ jobs:
       - name: Tests and differential tests with MOSA_GC_STRESS=1
         env:
           MOSA_GC_STRESS: 1
-        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|sub_atom_scale|goal_shared|assert_shared)$|install|bench" --no-tests=error
+        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|sub_atom_scale|goal_shared|assert_shared)$|install|bench|package" --no-tests=error
       - name: Heavy GC tests with MOSA_GC_STRESS=1000
         env:
           MOSA_GC_STRESS: 1000

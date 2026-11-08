@@ -27,8 +27,8 @@ message(incomplete_term, 'incomplete term').
 
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal]... [-t halt] [--heap-max MiB] [-- argument...]').
-message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
-message(mosac_dist_unavailable, 'mosac: mosac dist is not available until phase 7').
+message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~nmosatest --manual <directory> [--mosa <path>] [--work <directory>] [--all-tables]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
+message(mosac_dist_unavailable, 'mosac: mosac dist is not part of Mosa 0.1.0').
 message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_output_is_source, 'mosac: the output ~w is the source file itself, and building would overwrite it~nGive another output name with -o').
@@ -45,9 +45,9 @@ message(toolchain_msvc_env, 'environment: ~w variables from vcvarsall.bat').
 message(toolchain_not_found, 'mosac: no C++20 compiler was found').
 message(toolchain_named_not_found, 'mosac: the compiler ~w given by ~w was not found or did not run').
 message(toolchain_hint_macos, 'Install the Xcode Command Line Tools: xcode-select --install').
-message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt install g++').
+message(toolchain_hint_linux, 'Install a C++ compiler: sudo apt update && sudo apt install g++').
 message(toolchain_msvc_needs_prompt, 'mosac: cl runs without the Visual Studio environment (INCLUDE is not set), because mosac runs vcvarsall.bat only when no compiler is named~nOpen a Developer Command Prompt for Visual Studio, or omit --cxx (and MOSA_CXX and CXX) so that mosac runs vcvarsall.bat itself').
-message(toolchain_hint_windows, 'Install Visual Studio Build Tools with the "Desktop development with C++" workload: https://visualstudio.microsoft.com/downloads/').
+message(toolchain_hint_windows, 'Install Build Tools for Visual Studio 2022 with the "Desktop development with C++" workload: https://aka.ms/vs/17/release/vs_BuildTools.exe').
 
 % mosac build と run（SPEC 第6節、計画 Task 9）。環境の問題は直し方まで書き、生成コードの誤りは内部エラーとして出す。
 message(mosac_internal_error, 'internal error: the generated code cannot be compiled. Please report it with ~w attached').
@@ -115,3 +115,46 @@ message(diff_not_attached, '~w: only ~w of ~w native procedures attached (finger
 message(diff_no_self, 'mosatest: cannot determine its own location').
 message(diff_total, 'agreement ~w/~w, translated predicates ~w/~w (~w%), differences ~w').
 message(mosac_units_skipped, 'mosac: ~w is not translated: ~w').
+
+% mosatest --manual（リリース 0.1.0 Task 4）。印の規則は tests/manual/README.md。
+message(manual_unmarked, 'code block without a check:, skip: or file: marker on the line before it').
+message(manual_marker_alone, 'marker not on the line right before a code block').
+message(manual_marker_bad, 'malformed marker: ~w').
+message(manual_marker_unclosed, 'multi-line check: marker without a closing --> line').
+message(manual_override_arrow, 'line of a multi-line check: input holds -->, where GitHub ends the marker comment and shows the rest as text; put that input in a file: block: ~w').
+message(manual_marker_in_comment, 'marker on the line that closes a multi-line comment, where GitHub hides it inside that comment; close the comment on an earlier line: ~w').
+message(manual_fence_unclosed, 'code block not closed').
+message(manual_fence_unsupported, 'fence line not at column 0 (indented, in a block quote, on a list marker line or after a tab); start and close every code block at column 0, outside lists and quotes').
+message(manual_file_name, 'file: needs a plain file name, not ~w').
+message(manual_file_kind, 'file: needs a prolog code block').
+message(manual_check_kind, 'check: needs a text code block starting with "?- " or a console code block').
+message(manual_duplicate_id, 'example id ~w used twice in this file').
+message(manual_console_start, 'console code block must start with a "$ " line').
+message(manual_console_quote, 'unclosed quote in the command').
+message(manual_console_special, 'the command has ~w, which a shell treats specially; put it inside single quotes').
+message(manual_console_program, 'command must start with mosa, mosac, mosatest or ./NAME, not ~w').
+message(manual_missing, '~w: missing (~w exists)').
+message(manual_ids_differ, '~w and ~w: example ids differ (~w / ~w)').
+% 述語の表（リリース 0.1.0 Task 5）。
+message(manual_tables_differ, '~w and ~w: predicate tables differ (~w / ~w)').
+message(manual_predicates_twice, 'predicate ~w listed twice in the tables of ~w').
+message(manual_predicates_unknown, 'no predicate list for ~w; a table names system or one of ~w').
+message(manual_predicates_differ, 'table of ~w differs from Mosa (not in Mosa [~w], not in the table [~w])').
+message(manual_table_row, 'a row of a predicates table starts with |, has exactly one code span `name/arity` in its first cell and no < outside code spans: ~w').
+message(manual_table_header, 'header row of a predicates table without a | --- | row of as many cells right under it: ~w').
+message(manual_section_line, 'line not allowed in a predicates section, which holds only tables (allowed: an empty line, a | header | row without a backtick or <, the | --- | row right under it, | `name/arity` | rows; write sentences above the marker): ~w').
+message(manual_section_control, 'control character ~w in a line of a predicates section (no tab, form feed, NUL or CR without LF; end lines with LF or CRLF)').
+message(manual_html_tag, 'raw HTML tag, which GitHub renders as HTML (a <details> or <script> hides the tables after it); in a chapter with predicates: markers write < followed by a letter, /, ? or ! only inside code spans, code blocks or <!-- --> comments: ~w').
+message(manual_tables_missing, '~w: no predicates table for ~w').
+message(manual_library_unloadable, 'library(~w) at ~w cannot be loaded: ~w').
+message(manual_library_no_module, 'the file does not define the module ~w').
+message(manual_version_differs, 'mosatest: ~w --version printed ~w, not ~w; give the mosa built with this mosatest').
+message(manual_no_editions, 'mosatest: ~w must hold en/ and ja/').
+message(manual_cannot_list, 'mosatest: cannot read the directory ~w').
+message(manual_no_examples, 'mosatest: no check: examples in ~w').
+message(manual_cannot_clear, 'mosatest: cannot empty ~w, so its chapter was not run').
+message(manual_abnormal_exit, '~w ended abnormally (exit code ~w)').
+message(manual_expected, 'expected:').
+message(manual_actual, 'actual:').
+message(manual_no_newline, '(no newline at end)').
+message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').

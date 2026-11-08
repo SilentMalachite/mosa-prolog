@@ -1,6 +1,6 @@
 [English](0007-messages.md) | 日本語
 
-状態: 承認済み（2026-10-28）
+状態: 承認済み（2026-10-28）。改訂 1（2026-11-07。2026-11-07 の持ち主の選択で承認）: `LANG` が無い Windows は表示言語に従う
 
 ## 背景
 
@@ -25,3 +25,10 @@ SPEC 第4節は構文エラーの表示に問題のトークンを求め、第7�
 `goal_raised` は `~q` を使うので、表示する例外は今と同じく引用付きになる（変数は `writeq/1` と同じく `numbervars` で書く）。`main_mosa.cpp`、`session.cpp` の `warn_resource`、使い方の表示、読み込みの診断（マシンが読み込みの最中に作る）は問い合わせを動かせるマシンを持たないので、`render_only` の印を付けた新しいマシンで文面を作る。そのマシン自身の診断は代わりの表示にする。
 CMake は `session_test` を `LANG=ja_JP.UTF-8` で流し、今ある日本語の確認を機械に左右させない。もう一度、`MOSA_LIB` を `tests/tmp/messages_empty/` にして流す。そこの `messages_en.pl`（構成時に書く）は鍵を持たない。`MOSA_LIB` は実行ファイルの `lib/` より先に探すので、その回が代わりの表示を確かめる。
 `tests/pl/read.pl` の `read_syntax`、`read_incomplete`、`read_syntax_stream` は Task 12 のコミットで上の Key と Extra に変わる。SPEC 第7節は承認から、この Extra を書く。承認までコードを書かない。
+
+## 改訂 1（2026-11-07。2026-11-07 の持ち主の選択で承認）
+
+背景: Windows では `LANG` がふつう無いので、日本語の Windows でも `message_language` は常に `en` だった。
+決定: 空でない `LANG` は今まで通り決める（`ja` で始まれば日本語）。`LANG` が無いか空のとき、Windows は表示言語（`GetUserDefaultUILanguage`。主言語が日本語なら日本語）で決め、ほかの OS は英語にする。決定は `message_language_from(lang, ui_japanese)` で行い、OS の呼び出しは `src/platform/ui_language.cpp` に置く。
+捨てた案: コンソールのコードページやロケール名を読む案（利用者がほかの理由で変えうる）。`LANG` が設定されるまで英語のままにする案（既定が利用者の言語に合わない）。
+影響: SPEC 第7節に書く。`LANG` が設定されていればそれが勝つので、日本語の Windows でも `LANG=en` なら英語になる。テストは `LANG` を固定し、機械に左右されない。

@@ -433,7 +433,7 @@ target_link_libraries(bench_report_test PRIVATE mosa_lib)
 add_test(NAME bench_report_test COMMAND $<TARGET_FILE:bench_report_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
-set(version_pass_regex "^mosa 0\\.0\\.1 \\(phase 6\\)\r?\n?$")
+set(version_pass_regex "^mosa 0\\.1\\.0\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
 add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
 add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
@@ -444,6 +444,11 @@ add_executable(console_test tests/cpp/console_test.cpp)
 target_include_directories(console_test PRIVATE tests/cpp)
 target_link_libraries(console_test PRIVATE mosa_lib)
 add_test(NAME console COMMAND $<TARGET_FILE:console_test> plain --flag 42)
+
+add_executable(message_language_test tests/cpp/message_language_test.cpp)
+target_include_directories(message_language_test PRIVATE tests/cpp)
+target_link_libraries(message_language_test PRIVATE mosa_lib)
+add_test(NAME message_language COMMAND $<TARGET_FILE:message_language_test>)
 add_test(NAME mosa_utf8_pipe COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_utf8_pipe_test.cmake)
 
@@ -452,6 +457,17 @@ add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mo
 
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
+
+# MOSA_TRANSCRIPT=1 の管の出力が端末の表示と同じになる（リリース 0.1.0 Task 3、マニュアルの検査の土台）。
+foreach(transcript_case query more read order ja)
+  set(transcript_lang en_US.UTF-8)
+  if(transcript_case STREQUAL "ja")
+    set(transcript_lang ja_JP.UTF-8)
+  endif()
+  add_test(NAME transcript_${transcript_case} COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+    -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/transcript -DCASE=transcript_${transcript_case}
+    -DLANG_VALUE=${transcript_lang} -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake)
+endforeach()
 
 # 手書きの生成関数は runtime.hpp だけを見る。internal.hpp を見るのは指紋を出す側の native_test.cpp だけ。
 add_executable(native_test tests/cpp/native_test.cpp tests/cpp/native_units.cpp)
@@ -607,6 +623,21 @@ set_tests_properties(mosac_installed_layout PROPERTIES ENVIRONMENT "MOSA_WERROR=
   SKIP_REGULAR_EXPRESSION "skipped: the runtime component is installed only for Release"
   ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
 
+# リリースのパッケージ（リリース 0.1.0 Task 9）。cmake/package.cmake で作って空白と日本語のある場所に展開し、その木の
+# mosatest でマニュアルを動かす。Release 以外は台本が「skipped: 」を出す。第 13 章の mosac build は同梱の実行時ライブラリ
+# を使うので、鍵の合うこのビルドのコンパイラを MOSA_CXX で渡す（Windows は mosac の既定の vswhere で探す）。
+add_test(NAME package_layout COMMAND ${CMAKE_COMMAND}
+  -DSRC=${CMAKE_SOURCE_DIR} -DBUILD_DIR=${CMAKE_BINARY_DIR} "-DCONFIG=$<CONFIG>" "-DABI=${mosa_abi}"
+  -DVERSION=${PROJECT_VERSION} -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/package "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/package_test.cmake)
+set(package_env "MOSA_WERROR=1")
+if(mosac_build_cxx)
+  list(APPEND package_env "MOSA_CXX=${mosac_build_cxx}")
+endif()
+set_tests_properties(package_layout PROPERTIES ENVIRONMENT "${package_env}" TIMEOUT 1800
+  SKIP_REGULAR_EXPRESSION "skipped: the runtime component is installed only for Release"
+  ENVIRONMENT_MODIFICATION "MOSA_LIB=unset:;PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # mosac build --runtime-source は同梱の源から libmosa を 2 回作る（M1 Max で 35 秒、CI の Linux ではもっと長い）。
 # ふだんの ctest には重いので、MOSA_SLOW_TESTS=ON のときだけ登録する（ラベル slow）。2 回目がキャッシュの物を使い、
 # 3 回目の --clean が作り直した物で結べることまで見る。
@@ -671,3 +702,7 @@ add_test(NAME mosa_std_binary COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/std_binary_test.cmake)
 set_tests_properties(mosa_std_binary PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# マニュアルの検査（リリース 0.1.0 Task 4〜6）は tests/manual_tests.cmake にある（Task 9 で 800 行を超えないよう分けた）。
+# 見本ごとに LANG を決めるので、上の LANG=ja_JP.UTF-8 の一括の設定より後ろで読む。
+include(${CMAKE_SOURCE_DIR}/tests/manual_tests.cmake)

@@ -8,6 +8,7 @@
 #include "mosa/heap.hpp"
 #include "mosa/heap_option.hpp"
 #include "mosa/path_text.hpp"
+#include "mosa/ui_language.hpp"
 #include "mosa/writer.hpp"
 
 #include <array>
@@ -97,8 +98,15 @@ MessageLanguage language_from_lang(std::optional<std::string_view> lang) {
 
 MessageLanguage default_message_language() {
   const auto lang = environment_path("LANG");
-  if (!lang) return MessageLanguage::En;
-  return language_from_lang(utf8_from_path(*lang));
+  std::optional<std::string> text;
+  if (lang) text = utf8_from_path(*lang);
+  return message_language_from(text ? std::optional<std::string_view>{*text} : std::nullopt,
+                               system_ui_language_is_japanese());
+}
+
+MessageLanguage message_language_from(std::optional<std::string_view> lang, bool ui_japanese) {
+  if (lang && !lang->empty()) return language_from_lang(lang);
+  return ui_japanese ? MessageLanguage::Ja : MessageLanguage::En;
 }
 
 std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args) {

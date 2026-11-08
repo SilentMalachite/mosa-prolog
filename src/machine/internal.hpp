@@ -713,6 +713,13 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, c
 [[nodiscard]] bool shown_differs(const IrTerm& term, bool as_goal);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。
 [[nodiscard]] bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity);
+struct BuiltinPi {
+  std::string_view name;
+  std::uint16_t arity;
+};
+// is_builtin_procedure が真になる名前と引数の数のすべて（kBuiltins、call/1..8、halt/0,1）。マニュアルの述語の表を
+// 処理系と突き合わせる（リリース 0.1.0 Task 5）。
+[[nodiscard]] std::vector<BuiltinPi> builtin_procedures();
 [[nodiscard]] DoubleQuotes current_double_quotes(const Impl& machine);
 [[nodiscard]] int apply_flag_directive(Impl& machine, Cell directive);
 [[nodiscard]] Cell formal_permission(Impl& machine, std::string_view action, std::string_view type,

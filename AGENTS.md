@@ -8,7 +8,7 @@ This file is the body of the agent instructions shared by Claude Code and Grok B
 
 - Implement **Mosa Prolog** (repository `mosa-prolog`), a Prolog system conforming to ISO/IEC 13211, in C++20
 - Commands: `mosa` (interpreter), `mosac` (Prolog → C++20 translation and build), `mosatest` (test runner). The runtime is `libmosa`, headers are in `include/mosa/`, the namespace is `mosa`, and the environment variable prefix is `MOSA_`
-- The only dependencies are the C++20 standard library and CMake 3.25 or later. CI must pass on 3 OSes: macOS (Apple Clang 15+), Linux (GCC 13+ / Clang 17+), Windows (MSVC 2022 v17.8+)
+- The only dependencies are the C++20 standard library and CMake 3.25 or later. CI must pass on 3 OSes: macOS (Xcode 26 / Apple Clang 17+), Linux (GCC 13+ / Clang 17+), Windows (MSVC 2022 v17.8+)
 - All text encoding is UTF-8 (no BOM). A "character" is always exactly one Unicode scalar value
 
 ## Where the specification lives
