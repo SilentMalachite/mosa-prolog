@@ -2,7 +2,7 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-08)
 
 The first release of Mosa Prolog, a Prolog system that follows ISO/IEC 13211-1. The
 [manual](docs/manual/en/README.md) shows everything below step by step, and every example in it is checked against
