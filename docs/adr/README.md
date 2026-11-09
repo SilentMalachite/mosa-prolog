@@ -26,3 +26,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0020](0020-reconsult-ownership.md) | A reconsult removes the predicates the file no longer defines, applied by the outermost load | Approved (2026-11-05) |
 | [0021](0021-wide-ir-slots.md) | 32-bit IR slots; a run-time goal is never compiled again with copies | Approved (2026-11-06) |
 | [0022](0022-shared-asserted-terms.md) | An asserted clause builds each repeated deep subterm once per call | Approved (2026-11-07) |
+| [0023](0023-mosac-dist.md) | `mosac dist`: the archive is written by mosac itself, with the runtime's LICENSE, NOTICE and a README | Approved (2026-11-10) |
