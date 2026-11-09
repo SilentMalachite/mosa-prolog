@@ -247,6 +247,11 @@ target_include_directories(format_det_test PRIVATE tests/cpp)
 target_link_libraries(format_det_test PRIVATE mosa_lib)
 add_test(NAME format_det COMMAND $<TARGET_FILE:format_det_test>)
 set_tests_properties(format_det PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+# ADR 0023。mosac dist の書庫（tar.gz と zip）をバイトで確かめる。
+add_executable(archive_test tests/cpp/archive_test.cpp)
+target_include_directories(archive_test PRIVATE tests/cpp src)
+target_link_libraries(archive_test PRIVATE mosa_lib)
+add_test(NAME archive COMMAND $<TARGET_FILE:archive_test>)
 # レビュー L23。initialization(G, main) のゴールは、後の op/3 の下でも指令の項のまま動く。
 add_executable(main_goal_test tests/cpp/main_goal_test.cpp)
 target_include_directories(main_goal_test PRIVATE tests/cpp)

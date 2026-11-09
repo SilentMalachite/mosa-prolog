@@ -178,6 +178,7 @@ target_sources(mosa_lib PRIVATE
   src/codegen/build.cpp
   src/codegen/cache.cpp
   src/codegen/runtime_layout.cpp
+  src/codegen/archive.cpp
 )
 
 # 実行時ライブラリの置き場所の鍵 <OS>-<arch>-<compiler>（SPEC 第6節、計画 Task 10）。綴りは mosac の runtime_abi
