@@ -146,7 +146,8 @@ DosTime dos_time(std::int64_t mtime) {
   const std::int64_t clamped = std::clamp(mtime, k_1980, k_2107_end);
   const std::int64_t day = clamped / 86'400;
   const std::int64_t second = clamped % 86'400;
-  const std::chrono::year_month_day ymd{std::chrono::sys_days{std::chrono::days{day}}};
+  // days の型は int なので先に狭める（1980 年から 2107 年の日数は int に収まる）。MSVC の /W4 が型の変換を誤りにしないため。
+  const std::chrono::year_month_day ymd{std::chrono::sys_days{std::chrono::days{static_cast<int>(day)}}};
   const auto year = static_cast<std::uint32_t>(static_cast<int>(ymd.year()) - 1980);
   const auto month = static_cast<std::uint32_t>(static_cast<unsigned>(ymd.month()));
   const auto mday = static_cast<std::uint32_t>(static_cast<unsigned>(ymd.day()));

@@ -31,12 +31,6 @@ std::string version_text() {
   return std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." + std::to_string(kVersionPatch);
 }
 
-// 書庫を固めた OS で動かす命令。Windows のコマンドプロンプトは今のディレクトリの実行ファイルを ./ 無しで探す。
-std::string start_command(std::string_view stem) {
-  if (host_os() == HostOs::windows) return std::string{stem} + exe_suffix();
-  return "./" + std::string{stem};
-}
-
 std::int64_t now_seconds() {
   const auto since = std::chrono::system_clock::now().time_since_epoch();
   return std::chrono::duration_cast<std::chrono::seconds>(since).count();
@@ -94,8 +88,13 @@ bool write_replacing(const std::filesystem::path& archive, std::string_view byte
 
 }  // namespace
 
+std::string dist_start_command(std::string_view stem, HostOs os) {
+  if (os == HostOs::windows) return ".\\" + std::string{stem} + ".exe";
+  return "./" + std::string{stem};
+}
+
 std::string dist_readme(std::string_view stem) {
-  const std::vector<std::string> args{std::string{stem}, version_text(), start_command(stem)};
+  const std::vector<std::string> args{std::string{stem}, version_text(), dist_start_command(stem, host_os())};
   return render_message_fresh(MessageLanguage::En, "mosac_dist_readme", args) + "\n\n" +
          render_message_fresh(MessageLanguage::Ja, "mosac_dist_readme", args) + "\n";
 }

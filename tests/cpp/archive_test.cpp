@@ -3,6 +3,7 @@
 #include "harness.hpp"
 
 #include "codegen/archive.hpp"
+#include "codegen/dist.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -187,6 +188,14 @@ void zip_dos_time() {
 
 void zip_dos_time_floor() { check_dos_time(0, (0U << 9U) | (1U << 5U) | 1U, 0, "1970 clamps to 1980-01-01"); }
 
+// README.txt の動かし方。マニュアルは Windows で PowerShell を使い、PowerShell は今のディレクトリを探さないので、
+// .\ を付ける（コマンドプロンプトでも通る）。
+void dist_start_commands() {
+  mosa_test::check(mosa::codegen::dist_start_command("hello", mosa::HostOs::windows) == ".\\hello.exe", "Windows");
+  mosa_test::check(mosa::codegen::dist_start_command("hello", mosa::HostOs::macos) == "./hello", "macOS");
+  mosa_test::check(mosa::codegen::dist_start_command("こんにちは", mosa::HostOs::linux) == "./こんにちは", "Linux");
+}
+
 }  // namespace
 
 int main() {
@@ -197,5 +206,6 @@ int main() {
   zip_entries();
   zip_dos_time();
   zip_dos_time_floor();
+  dist_start_commands();
   return mosa_test::failures();
 }
