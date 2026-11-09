@@ -1,4 +1,5 @@
-% library(format)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_format.pl。
+% library(format)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_format.pl と、選択点を残さないことを見る
+% tests/cpp/format_det_test.cpp。
 % 指示は ~w ~q ~a ~d ~f ~e ~s ~c ~n ~t ~| ~~ だけ。誤りは iso-notes の Section 5 format/2 errors の決定 A。
 % 出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
 :- module(format, [format/1, format/2, format/3]).
@@ -229,7 +230,9 @@ decimal_chars(N, Places, Chars) :-
     Zeros is max(0, Places + 1 - Len),
     repeat_char(Zeros, '0', Pad),
     append(Pad, Digits0, Digits),
-    length(Frac, Places),
+    % 整数部の長さを先に決める。Int が未束縛のまま append/3 で分けると選択点が残る（0.1.1）。
+    IntLen is Len + Zeros - Places,
+    length(Int, IntLen),
     append(Int, Frac, Digits),
     append(Int, ['.'|Frac], Body),
     (   N < 0
@@ -298,8 +301,10 @@ count_fills([Item|Items], N0, N) :-
     ),
     count_fills(Items, N1, N).
 
+% text と fill の節は第 1 引数の索引ではどちらも [_|_] なので、切らないと text ごとに選択点が残る（0.1.1）。
 expand([], _, _, _, []).
 expand([text(Text)|Items], I, First, Base, Chars) :-
+    !,
     append(Text, Rest, Chars),
     expand(Items, I, First, Base, Rest).
 expand([fill(C)|Items], I, First, Base, Chars) :-

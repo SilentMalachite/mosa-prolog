@@ -2,6 +2,15 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## 0.1.1 (unreleased)
+
+### Fixed
+
+- `format/1`, `format/2` and `format/3` no longer leave a choice point. At the `?-` prompt, a query such as
+  `format("~w~n", [a])` now ends with `true.`, and Mosa goes on to the next query. Mosa 0.1.0 showed `true` with no
+  period and waited, as if there could be another answer. Each call also left one choice point behind, so a
+  recursive loop that called `format` many times stopped at the heap limit.
+
 ## 0.1.0 (2026-11-08)
 
 The first release of Mosa Prolog, a Prolog system that follows ISO/IEC 13211-1. The

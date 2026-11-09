@@ -241,6 +241,12 @@ target_compile_definitions(lib_shared_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(lib_shared_test PRIVATE mosa_lib)
 add_test(NAME lib_shared COMMAND $<TARGET_FILE:lib_shared_test>)
 set_tests_properties(lib_shared PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+# 0.1.1。format/1,2,3 は成功して選択点を残さない（対話が促しを出さない）。
+add_executable(format_det_test tests/cpp/format_det_test.cpp)
+target_include_directories(format_det_test PRIVATE tests/cpp)
+target_link_libraries(format_det_test PRIVATE mosa_lib)
+add_test(NAME format_det COMMAND $<TARGET_FILE:format_det_test>)
+set_tests_properties(format_det PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 # レビュー L23。initialization(G, main) のゴールは、後の op/3 の下でも指令の項のまま動く。
 add_executable(main_goal_test tests/cpp/main_goal_test.cpp)
 target_include_directories(main_goal_test PRIVATE tests/cpp)

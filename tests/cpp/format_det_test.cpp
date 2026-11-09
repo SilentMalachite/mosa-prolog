@@ -1,0 +1,57 @@
+// 0.1.1。format/1,2,3 は成功して選択点を残さない。lib/format.pl の expand/5 と decimal_chars/3 が選択点を残し、
+// 対話では `true` の後に終止符が付かず次の答えを待っていた（0.1.0 の Known limits）。
+// tests/pl の solutions(...) は解の一覧だけを比べ、失敗する選択点が残っても見分けられないので、対話が促しを出すかを
+// 決める Stop::more を見る。失敗や例外でも促しは出ないので、成功したことも合わせて見る（敵対的レビュー A1）。
+// ctest の format_det が MOSA_LIB に lib/ を置く。
+#include "harness.hpp"
+#include "mosa/machine.hpp"
+
+#include <array>
+#include <string>
+#include <string_view>
+
+namespace {
+
+// 指示ごとに通る道が違う（~Nd は decimal_chars/3 で、0 で埋める道と負の数がある。~t と ~| は column_stop/3 で、
+// 埋め所が 1 つと 2 つ）。どれも最後は expand/5 を通る。text の項目が無い書式は 0.1.0 でも選択点を残さないので、
+// 埋め所の書式にも ~w を入れる（敵対的レビュー A2）。
+constexpr auto k_goals = std::to_array<std::string_view>({
+    "format(\"abc\")",
+    "format(\"\")",
+    "format(\"~w\", [a])",
+    "format(\"~q\", ['A'])",
+    "format(\"~a\", [abc])",
+    "format(\"~d\", [12])",
+    "format(\"~2d\", [314])",
+    "format(\"~3d\", [5])",
+    "format(\"~2d\", [-314])",
+    "format(\"~f\", [1.5])",
+    "format(\"~e\", [1.5])",
+    "format(\"~s\", [\"ab\"])",
+    "format(\"~3s\", [\"ab\"])",
+    "format(\"~c\", [0'x])",
+    "format(\"~n\")",
+    "format(\"~a~t~10|~w\", [ab, c])",
+    "format(\"~`-t~w~10|\", [a])",
+    "format(\"~t~w~t~11|\", [ab])",
+    "format(\"~~\")",
+    "format(\"~*c\", [3, 0'x])",
+    "format(user_output, \"~w\", [a])",
+});
+
+void check_goal(mosa::Machine& machine, std::string_view goal) {
+  const auto answer = machine.query(std::string{goal} + ".");
+  mosa_test::check(answer.kind == mosa::StopKind::Success,
+                   std::string{goal} + ": does not succeed");
+  mosa_test::check(!answer.more, std::string{goal} + ": leaves a choice point");
+}
+
+}  // namespace
+
+int main() {
+  auto machine = mosa::Machine::create();
+  const auto loaded = machine->load_program(":- use_module(library(format)).\n");
+  mosa_test::check(loaded.ok, "library(format) loads: " + loaded.message);
+  for (const std::string_view goal : k_goals) check_goal(*machine, goal);
+  return mosa_test::failures();
+}
