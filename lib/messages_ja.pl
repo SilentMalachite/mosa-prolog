@@ -28,9 +28,10 @@ message(incomplete_term, '項が閉じていません').
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: 使い方: mosa [ファイル...] [-g ゴール]... [-t halt] [--heap-max MiB] [-- 引数...]').
 message(mosatest_usage, 'mosatest: 使い方: mosatest --roundtrip <ファイル>~nmosatest --suite <ディレクトリ> [--report <ファイル>]~nmosatest --bench <ファイル> [--count <N>] [--work <ディレクトリ>] [--cmake <パス>] [--report <ファイル>]~nmosatest --diff <ディレクトリ> [--report <ファイル>] [--work <ディレクトリ>] [--cmake <パス>] [--config <名前>]~nmosatest --manual <ディレクトリ> [--mosa <パス>] [--work <ディレクトリ>] [--all-tables]~n--report を省けるのは、リポジトリ直下で tests/conformance（--diff では tests/pl も）を渡したときだけです').
-message(mosac_dist_unavailable, 'mosac: mosac dist は Mosa 0.1.0 にはありません').
-message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
+message(mosac_dist_readme, '~w~n~nこのプログラムは Mosa Prolog ~w で作りました。動かすには、このフォルダーで端末を開いて ~w と打ちます。~n~nMosa Prolog の実行時ライブラリを含みます。そのライセンスは Apache License, Version 2.0 です（LICENSE と NOTICE を見てください）。').
+message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファイル>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac run <ファイル> [--debug] [--verbose] [--keep] [--clean] [--cxx <コンパイラ>] [--runtime-source] [-- <引数>...]~nmosac dist <ファイル> [-o <ディレクトリ>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <コンパイラ>] [--runtime-source]~nmosac emit <ファイル> -o <ディレクトリ>~nmosac emit --library <lib/名前.pl> -o <ディレクトリ>~nmosac emit --units <ディレクトリ> -o <ディレクトリ>~nmosac toolchain [--cxx <コンパイラ>]').
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
+message(mosac_cannot_read, 'mosac: 読めません: ~w').
 message(mosac_output_is_source, 'mosac: 出力 ~w は原文のファイルそのもので、ビルドすると原文を上書きします~n-o で別の出力名を与えてください').
 message(mosac_undefined_call, '警告: ~w を呼んでいるが、どこにも定義が無い（assertz/1 で実行時に作るなら :- dynamic(~w). と宣言する）').
 message(mosac_export_undefined, '~w を export したが定義が無い').

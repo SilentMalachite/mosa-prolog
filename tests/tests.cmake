@@ -567,6 +567,21 @@ foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error
   endforeach()
 endforeach()
 
+# ADR 0023。mosac dist の書庫を cmake -E tar で展開して動かす。名前の <OS>-<arch> は鍵 MOSA_ABI の前の 2 つ。
+string(REGEX MATCH "^[^-]+-[^-]+" mosac_dist_os_arch "${MOSA_ABI}")
+set(mosac_dist_ext .tar.gz)
+if(WIN32)
+  set(mosac_dist_ext .zip)
+endif()
+foreach(dist_case hello default_dir japanese replace out_is_file build_fails)
+  add_test(NAME mosac_dist_${dist_case} COMMAND ${CMAKE_COMMAND}
+    -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${dist_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+    -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_dist_${dist_case} "-DCXX=${mosac_build_cxx}"
+    "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -DROOT=${CMAKE_SOURCE_DIR}
+    -DOS_ARCH=${mosac_dist_os_arch} -DARCHIVE_EXT=${mosac_dist_ext}
+    -P ${CMAKE_SOURCE_DIR}/tests/mosac/dist_test.cmake)
+endforeach()
+
 # mosatest --bench の出力の形だけを確かめる（計画 Task 6）。N が小さいので時間は見ない。翻訳側の configure は
 # 本体と同じ生成器、コンパイラ、旗で行う（emit_test.cmake の -G と -A に相当）。CMake は最初の configure で
 # 環境変数 CMAKE_GENERATOR、CMAKE_GENERATOR_PLATFORM、CXX、CXXFLAGS、LDFLAGS を読む。

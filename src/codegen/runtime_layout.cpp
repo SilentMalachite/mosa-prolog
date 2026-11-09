@@ -182,9 +182,9 @@ std::optional<RuntimeLayout> runtime_from_source(const BuildRequest& request, co
 
 }  // namespace
 
-std::string runtime_abi(const Toolchain& toolchain) {
-  return std::string{os_name(host_os())} + "-" + std::string{host_arch()} + "-" + compiler_family(toolchain);
-}
+std::string host_os_arch() { return std::string{os_name(host_os())} + "-" + std::string{host_arch()}; }
+
+std::string runtime_abi(const Toolchain& toolchain) { return host_os_arch() + "-" + compiler_family(toolchain); }
 
 std::filesystem::path unit_archive(const Toolchain& toolchain, const RuntimeLayout& layout, std::string_view name) {
   const std::string file = is_msvc(toolchain.cxx) ? "mosa_pl_" + std::string{name} + ".lib"

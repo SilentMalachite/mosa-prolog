@@ -28,9 +28,10 @@ message(incomplete_term, 'incomplete term').
 % 読み込みと使い方の診断（ADR 0007、Task 12b）。
 message(usage, 'mosa: usage: mosa [file...] [-g goal]... [-t halt] [--heap-max MiB] [-- argument...]').
 message(mosatest_usage, 'mosatest: usage: mosatest --roundtrip <file>~nmosatest --suite <directory> [--report <file>]~nmosatest --bench <file> [--count <n>] [--work <directory>] [--cmake <path>] [--report <file>]~nmosatest --diff <directory> [--report <file>] [--work <directory>] [--cmake <path>] [--config <name>]~nmosatest --manual <directory> [--mosa <path>] [--work <directory>] [--all-tables]~n--report may be omitted only when tests/conformance (or, for --diff, tests/pl) is given from the repository root').
-message(mosac_dist_unavailable, 'mosac: mosac dist is not part of Mosa 0.1.0').
-message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
+message(mosac_dist_readme, '~w~n~nThis program was built with Mosa Prolog ~w. To start it, open a terminal in this folder and type ~w~n~nIt contains the runtime of Mosa Prolog, licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE).').
+message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac run <file> [--debug] [--verbose] [--keep] [--clean] [--cxx <compiler>] [--runtime-source] [-- <argument>...]~nmosac dist <file> [-o <directory>] [--interactive] [--debug] [--verbose] [--clean] [--cxx <compiler>] [--runtime-source]~nmosac emit <file> -o <directory>~nmosac emit --library <lib/name.pl> -o <directory>~nmosac emit --units <directory> -o <directory>~nmosac toolchain [--cxx <compiler>]').
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
+message(mosac_cannot_read, 'mosac: cannot read: ~w').
 message(mosac_output_is_source, 'mosac: the output ~w is the source file itself, and building would overwrite it~nGive another output name with -o').
 message(mosac_undefined_call, 'Warning: call to undefined procedure ~w (if it is created at run time with assertz/1, declare it with :- dynamic(~w).)').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').

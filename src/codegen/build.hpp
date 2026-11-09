@@ -50,6 +50,8 @@ struct RuntimeLayout {
   std::filesystem::path library;
   std::filesystem::path units_dir;
 };
+// 鍵の前の 2 つ <OS>-<arch>（macos-arm64、linux-x86_64、windows-x86_64）。mosac dist の書庫の名前にも使う（ADR 0023）。
+[[nodiscard]] std::string host_os_arch();
 // 置き場所の鍵 <OS>-<arch>-<compiler>。compiler は clang、gcc、msvc のどれか（版は入れない）。
 [[nodiscard]] std::string runtime_abi(const Toolchain& toolchain);
 // 見つからなければ診断を出して nullopt（環境の問題。SPEC 第6節のエラーの扱い）。

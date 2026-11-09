@@ -1,9 +1,10 @@
-// mosac（SPEC 第6節）。--version、--help、emit、toolchain、build、run を受ける。dist はフェーズ7（SPEC 第9節）。
+// mosac（SPEC 第6節）。--version、--help、emit、toolchain、build、run、dist を受ける。dist の書庫は ADR 0023。
 // 文面は lib/messages_*.pl の鍵（ADR 0007）。翻訳と目録の組み立ては src/codegen/project.cpp、
 // build と run のコンパイルとキャッシュは src/codegen/build.cpp と cache.cpp。
 
 #include "codegen/build.hpp"
 #include "codegen/codegen.hpp"
+#include "codegen/dist.hpp"
 
 #include "mosa/command_line.hpp"
 #include "mosa/console.hpp"
@@ -244,6 +245,21 @@ int run_run(const std::vector<std::string>& args) {
   return *code;
 }
 
+// mosac dist app.pl [-o dist/]。build と同じ旗で作り、-o のディレクトリ（既定は dist）に書庫を書く（ADR 0023）。
+// 書庫の名前は語幹から決めるので、build のように -o が原文そのものになることはない。
+int run_dist(const std::vector<std::string>& args) {
+  const auto parsed = parse_build(args, false);
+  if (!parsed) {
+    std::cerr << message("mosac_usage") << '\n';
+    return 1;
+  }
+  const mosa::codegen::Built built = mosa::codegen::build_cached(parsed->request);
+  if (built.code != 0) return built.code;
+  const std::string stem = mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem());
+  const std::string out = parsed->out.empty() ? std::string{"dist"} : parsed->out;
+  return mosa::codegen::write_dist(built.exe, stem, mosa::path_from_utf8(out));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -263,10 +279,7 @@ int main(int argc, char** argv) {
     std::cout << message("mosac_usage") << '\n';
     return 0;
   }
-  if (args.size() >= 2 && args[1] == "dist") {
-    std::cerr << message("mosac_dist_unavailable") << '\n';
-    return 1;
-  }
+  if (args.size() >= 2 && args[1] == "dist") return run_dist(args);
   std::cerr << message("mosac_usage") << '\n';
   return 1;
 }

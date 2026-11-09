@@ -1,0 +1,13 @@
+// CMakeLists.txt が configure_file で作る（ADR 0023）。mosac dist が書庫に入れる LICENSE と NOTICE の文面。
+// mosac を作った木の文面をそのまま持つので、実行時に mosac の隣を探さない。MSVC の 1 つの文字列リテラルは
+// 16,380 バイトまでで、LICENSE は 11,358 バイトである。
+#pragma once
+
+#include <string_view>
+
+namespace mosa::codegen {
+
+inline constexpr std::string_view k_mosa_license = R"mosa_text(@MOSA_LICENSE_TEXT@)mosa_text";
+inline constexpr std::string_view k_mosa_notice = R"mosa_text(@MOSA_NOTICE_TEXT@)mosa_text";
+
+}  // namespace mosa::codegen

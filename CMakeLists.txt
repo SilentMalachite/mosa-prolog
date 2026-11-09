@@ -179,7 +179,14 @@ target_sources(mosa_lib PRIVATE
   src/codegen/cache.cpp
   src/codegen/runtime_layout.cpp
   src/codegen/archive.cpp
+  src/codegen/dist.cpp
 )
+# mosac dist が書庫に入れる LICENSE と NOTICE の文面を、この木のファイルから作る（ADR 0023）。文面が変われば構成し直す。
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" MOSA_LICENSE_TEXT)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/NOTICE" MOSA_NOTICE_TEXT)
+configure_file(src/codegen/dist_texts.inc.in "${CMAKE_BINARY_DIR}/generated/dist/dist_texts.inc" @ONLY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS LICENSE NOTICE)
+target_include_directories(mosa_lib PRIVATE "${CMAKE_BINARY_DIR}/generated/dist")
 
 # 実行時ライブラリの置き場所の鍵 <OS>-<arch>-<compiler>（SPEC 第6節、計画 Task 10）。綴りは mosac の runtime_abi
 # （src/codegen/runtime_layout.cpp）と、mosac emit が出す CMakeLists.txt の既定と同じにする。構成（Debug/Release）は
@@ -240,7 +247,8 @@ install(DIRECTORY lib/ DESTINATION bin/lib COMPONENT tools FILES_MATCHING PATTER
 install(TARGETS mosa_lib ARCHIVE DESTINATION ${mosa_runtime_dest} COMPONENT runtime CONFIGURATIONS Release)
 install(DIRECTORY include/mosa DESTINATION ${mosa_runtime_dest}/include COMPONENT runtime CONFIGURATIONS Release)
 install(TARGETS ${mosa_pl_targets} ARCHIVE DESTINATION ${mosa_runtime_dest}/pl COMPONENT runtime CONFIGURATIONS Release)
-install(FILES CMakeLists.txt DESTINATION lib/mosa/source COMPONENT source)
+# LICENSE と NOTICE は、同梱の源を構成するとき mosac dist の文面になる（ADR 0023）。
+install(FILES CMakeLists.txt LICENSE NOTICE DESTINATION lib/mosa/source COMPONENT source)
 install(DIRECTORY src include lib DESTINATION lib/mosa/source COMPONENT source PATTERN ".DS_Store" EXCLUDE)
 # 利用者向けの文書（リリース 0.1.0 Task 9）。根に置く README と CHANGELOG の docs/manual/… へのリンクがパッケージの中でも
 # 通るよう、マニュアルはリポジトリと同じ docs/manual/ に置く。

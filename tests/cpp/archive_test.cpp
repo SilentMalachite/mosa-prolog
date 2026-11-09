@@ -4,7 +4,6 @@
 
 #include "codegen/archive.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
