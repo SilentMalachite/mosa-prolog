@@ -10,9 +10,9 @@
 
 ## 決定
 
-`mosac dist app.pl [-o DIR]` は `mosac build` の旗を受け、同じように build して、macOS と Linux では `DIR/<語幹>-<os>-<arch>.tar.gz`、Windows では `DIR/<語幹>-<os>-<arch>.zip` を書く（`DIR` の既定は `dist`、`<os>-<arch>` は実行時ライブラリの鍵と同じ）。書庫はフォルダー `<語幹>-<os>-<arch>/` を 1 つ持ち、その中に実行ファイル、Mosa の `LICENSE` と `NOTICE`（文面は mosac を作るときに mosac に入れる）、`README.txt`（カタログの鍵 `mosac_dist_readme` の英語、続けて日本語）を置く。mosac は書庫のパスを標準出力に書く。
+`mosac dist app.pl [-o DIR]` は `mosac build` の旗を受け、同じように build して、macOS と Linux では `DIR/<語幹>-<os>-<arch>.tar.gz`、Windows では `DIR/<語幹>-<os>-<arch>.zip` を書く（`DIR` の既定は `dist`、`<os>-<arch>` は実行時ライブラリの鍵と同じ）。書庫はフォルダー `<語幹>-<os>-<arch>/` を 1 つ持ち、その中に実行ファイル、Mosa の `LICENSE` と `NOTICE`（文面は mosac を作るときに mosac に入れる）、`README.txt`（カタログの鍵 `mosac_dist_readme` の英語、続けて日本語。動かし方は、名前にシェルが区切る字や引用符があれば引用し、Windows では PowerShell の `& '…'` にする）を置く。mosac は書庫のパスを標準出力に書く。
 mosac は 2 つの形を標準の C++ で自分で書き（`src/codegen/archive.cpp`）、圧縮はしない。tar は ustar の項目で、名前が ASCII でないか 100 バイトの欄に入らなければ、前に PAX の `path` の記録を置き、全体を無圧縮の deflate ブロックの gzip にする。zip は無圧縮の項目に UTF-8 の名前の旗と Unix のモードを付ける。実行ファイルはモード 0755、ほかのファイルは 0644 で、どの項目の時刻も固めた時刻である。
-同じ名前の書庫があれば、隣に新しいファイルを書いてから名前を変えて置き換え、書くのに失敗しても古い書庫を残す。`DIR` が既にあるファイルなら、書けないときのメッセージで止める。
+同じ名前の書庫があれば、隣に新しいファイルを書いてから名前を変えて置き換え、書くのに失敗しても古い書庫を残す。前に残った一時ファイルは先に消し、そこにリンクがあってもたどらない。`DIR` が既にあるファイルなら、書けないときのメッセージで止め、実行ファイルの名前が `LICENSE`、`NOTICE`、`README.txt` と（ASCII の大文字小文字を除いて）同じになるプログラムは、展開すると片方が他方を上書きするので build の前に止める。
 
 ## 却下した案
 

@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -189,11 +190,31 @@ void zip_dos_time() {
 void zip_dos_time_floor() { check_dos_time(0, (0U << 9U) | (1U << 5U) | 1U, 0, "1970 clamps to 1980-01-01"); }
 
 // README.txt の動かし方。マニュアルは Windows で PowerShell を使い、PowerShell は今のディレクトリを探さないので、
-// .\ を付ける（コマンドプロンプトでも通る）。
+// .\ を付ける（コマンドプロンプトでも通る）。空白や引用符を含む名前は、名前全体を 1 語として渡す形にする。
 void dist_start_commands() {
-  mosa_test::check(mosa::codegen::dist_start_command("hello", mosa::HostOs::windows) == ".\\hello.exe", "Windows");
-  mosa_test::check(mosa::codegen::dist_start_command("hello", mosa::HostOs::macos) == "./hello", "macOS");
-  mosa_test::check(mosa::codegen::dist_start_command("こんにちは", mosa::HostOs::linux) == "./こんにちは", "Linux");
+  using mosa::codegen::dist_start_command;
+  using mosa::HostOs;
+  mosa_test::check(dist_start_command("hello", HostOs::windows) == ".\\hello.exe", "Windows");
+  mosa_test::check(dist_start_command("hello", HostOs::macos) == "./hello", "macOS");
+  mosa_test::check(dist_start_command("こんにちは", HostOs::linux) == "./こんにちは", "Linux");
+  mosa_test::check(dist_start_command("hello world", HostOs::macos) == "'./hello world'", "POSIX space");
+  mosa_test::check(dist_start_command("it's", HostOs::linux) == "'./it'\\''s'", "POSIX quote");
+  mosa_test::check(dist_start_command("hello world", HostOs::windows) == "& '.\\hello world.exe'", "PowerShell space");
+  mosa_test::check(dist_start_command("it's", HostOs::windows) == "& '.\\it''s.exe'", "PowerShell quote");
+  mosa_test::check(dist_start_command("a’b", HostOs::windows) == "& '.\\a’’b.exe'", "PowerShell U+2019");
+  mosa_test::check(dist_start_command("こんにちは", HostOs::windows) == "& '.\\こんにちは.exe'", "PowerShell non-ASCII");
+}
+
+// 実行ファイルと同梱の文書の名前の重なり。macOS と Windows の既定のファイルシステムは大文字小文字を区別しない。
+void dist_name_clashes() {
+  using mosa::codegen::dist_name_clash;
+  mosa_test::check(dist_name_clash("LICENSE") == std::optional<std::string_view>{"LICENSE"}, "LICENSE");
+  mosa_test::check(dist_name_clash("license") == std::optional<std::string_view>{"LICENSE"}, "license");
+  mosa_test::check(dist_name_clash("Notice") == std::optional<std::string_view>{"NOTICE"}, "Notice");
+  mosa_test::check(dist_name_clash("README.TXT") == std::optional<std::string_view>{"README.txt"}, "README.TXT");
+  mosa_test::check(!dist_name_clash("LICENSE.exe"), "LICENSE.exe");
+  mosa_test::check(!dist_name_clash("README"), "README");
+  mosa_test::check(!dist_name_clash("hello"), "hello");
 }
 
 }  // namespace
@@ -207,5 +228,6 @@ int main() {
   zip_dos_time();
   zip_dos_time_floor();
   dist_start_commands();
+  dist_name_clashes();
   return mosa_test::failures();
 }

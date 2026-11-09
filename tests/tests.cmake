@@ -573,7 +573,7 @@ set(mosac_dist_ext .tar.gz)
 if(WIN32)
   set(mosac_dist_ext .zip)
 endif()
-foreach(dist_case hello default_dir japanese replace out_is_file build_fails)
+foreach(dist_case hello default_dir japanese replace out_is_file tmp_link name_clash build_fails)
   add_test(NAME mosac_dist_${dist_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${dist_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_dist_${dist_case} "-DCXX=${mosac_build_cxx}"

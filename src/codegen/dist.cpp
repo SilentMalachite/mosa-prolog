@@ -14,7 +14,10 @@
 #include "mosa/toolchain.hpp"
 #include "mosa/version.hpp"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -36,14 +39,58 @@ std::int64_t now_seconds() {
   return std::chrono::duration_cast<std::chrono::seconds>(since).count();
 }
 
+// 実行ファイルの隣に置く文書の名前。dist_entries はこの順に置く。
+constexpr std::array<std::string_view, 3> k_doc_names{"LICENSE", "NOTICE", "README.txt"};
+
 std::vector<ArchiveEntry> dist_entries(std::string exe_bytes, std::string_view stem) {
   const std::string folder = std::string{stem} + "-" + host_os_arch() + "/";
   return {
       {folder + std::string{stem} + exe_suffix(), std::move(exe_bytes), true},
-      {folder + "LICENSE", std::string{k_mosa_license}, false},
-      {folder + "NOTICE", std::string{k_mosa_notice}, false},
-      {folder + "README.txt", dist_readme(stem), false},
+      {folder + std::string{k_doc_names[0]}, std::string{k_mosa_license}, false},
+      {folder + std::string{k_doc_names[1]}, std::string{k_mosa_notice}, false},
+      {folder + std::string{k_doc_names[2]}, dist_readme(stem), false},
   };
+}
+
+bool plain_ascii(char unit) {
+  const bool alnum = (unit >= 'a' && unit <= 'z') || (unit >= 'A' && unit <= 'Z') || (unit >= '0' && unit <= '9');
+  return alnum || unit == '_' || unit == '-' || unit == '.';
+}
+
+char ascii_lower(char unit) { return unit >= 'A' && unit <= 'Z' ? static_cast<char>(unit - 'A' + 'a') : unit; }
+
+// POSIX のシェルは ASCII の字でだけ語を区切るので、ASCII でない字は引用しない。引用の中の ' は '\'' と書く。
+std::string posix_command(std::string_view stem) {
+  const std::string command = "./" + std::string{stem};
+  const auto plain = [](char unit) { return static_cast<unsigned char>(unit) >= 0x80U || plain_ascii(unit); };
+  if (std::all_of(stem.begin(), stem.end(), plain)) return command;
+  std::string quoted = "'";
+  for (const char unit : command) quoted += unit == '\'' ? std::string{"'\\''"} : std::string(1, unit);
+  return quoted + "'";
+}
+
+// ' の仲間なら、その UTF-8 のバイト数。PowerShell は U+2018 から U+201B（E2 80 98 から E2 80 9B）も ' として読む。
+std::size_t single_quote_length(std::string_view rest) {
+  if (rest.front() == '\'') return 1;
+  const auto byte = [&](std::size_t at) { return static_cast<unsigned char>(rest[at]); };
+  return rest.size() >= 3 && byte(0) == 0xE2U && byte(1) == 0x80U && byte(2) >= 0x98U && byte(2) <= 0x9BU ? 3 : 0;
+}
+
+// PowerShell は ASCII でない空白（U+3000 など）でも語を区切るので、字の表を持たず、ASCII でない字を含む名前はいつも
+// 引用する。引用した文字列は & で呼ぶ（引用しただけでは文字列を出すだけ）。中の ' の仲間は 2 つ重ねる。
+std::string powershell_command(std::string_view stem) {
+  const std::string command = ".\\" + std::string{stem} + ".exe";
+  if (std::all_of(stem.begin(), stem.end(), plain_ascii)) return command;
+  std::string quoted = "& '";
+  for (std::size_t at = 0; at < command.size();) {
+    const std::string_view rest = std::string_view{command}.substr(at);
+    const std::size_t quote = single_quote_length(rest);
+    const std::size_t length = quote == 0 ? 1 : quote;
+    quoted.append(rest.substr(0, length));
+    if (quote != 0) quoted.append(rest.substr(0, length));
+    at += length;
+  }
+  return quoted + "'";
 }
 
 // 出力の場所。既にあるファイルなら書けない誤りとして止める（その中に作れないので）。
@@ -66,6 +113,8 @@ bool write_replacing(const std::filesystem::path& archive, std::string_view byte
   std::filesystem::path temp = archive;
   temp += ".tmp";
   std::error_code ignored;
+  // 前に残った一時ファイルを先に消す。それがリンクなら、開くとリンクの先を切り詰めてしまう（remove はリンクそのものを消す）。
+  std::filesystem::remove(temp, ignored);
   {
     std::ofstream out{temp, std::ios::binary | std::ios::trunc};
     out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
@@ -89,8 +138,24 @@ bool write_replacing(const std::filesystem::path& archive, std::string_view byte
 }  // namespace
 
 std::string dist_start_command(std::string_view stem, HostOs os) {
-  if (os == HostOs::windows) return ".\\" + std::string{stem} + ".exe";
-  return "./" + std::string{stem};
+  return os == HostOs::windows ? powershell_command(stem) : posix_command(stem);
+}
+
+std::optional<std::string_view> dist_name_clash(std::string_view exe_name) {
+  // macOS と Windows の既定のファイルシステムは大文字小文字を区別しないので、license も LICENSE と重なる。
+  const auto same = [](char left, char right) { return ascii_lower(left) == ascii_lower(right); };
+  for (const std::string_view doc : k_doc_names) {
+    if (std::equal(exe_name.begin(), exe_name.end(), doc.begin(), doc.end(), same)) return doc;
+  }
+  return std::nullopt;
+}
+
+bool dist_name_ok(std::string_view stem) {
+  const std::string exe_name = std::string{stem} + exe_suffix();
+  const std::optional<std::string_view> clash = dist_name_clash(exe_name);
+  if (!clash) return true;
+  std::cerr << mosac_message("mosac_dist_name_clash", {exe_name, std::string{*clash}}) << '\n';
+  return false;
 }
 
 std::string dist_readme(std::string_view stem) {

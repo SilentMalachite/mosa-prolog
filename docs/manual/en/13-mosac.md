@@ -211,7 +211,9 @@ and the files `LICENSE` and `NOTICE`. The executable contains the runtime librar
 Apache License 2.0, asks that these two files go with it. The person who gets the archive unpacks it and starts the
 executable; they need neither Mosa nor a compiler, but the same system and processor as the name says. The archive
 is not compressed, so it is about as large as the executable. The executable is not signed: on macOS and Windows,
-the person may have to start it as chapter 2 shows for `mosa`.
+the person may have to start it as chapter 2 shows for `mosa`. On macOS and Linux, a program named `LICENSE`,
+`NOTICE` or `README.txt`, in capitals or not, cannot be packed, because its executable would take the place of that
+file; `mosac` says so, and you rename the source file.
 
 ## Exercises
 

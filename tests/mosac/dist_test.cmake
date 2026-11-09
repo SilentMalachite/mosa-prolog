@@ -1,6 +1,6 @@
 # ADR 0023。mosac dist が書いた書庫を cmake -E tar で展開し、中の実行ファイルを動かし、LICENSE、NOTICE、README.txt を
 # 確かめる。展開を CMake に任せるのは、mosac が書いた形を mosac と別の実装（libarchive）で読むため。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|build_fails>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|build_fails>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -DROOT=<リポジトリの根> -DOS_ARCH=<macos-arm64 など> -DARCHIVE_EXT=<.tar.gz か .zip>
 #   -P dist_test.cmake
@@ -105,6 +105,29 @@ elseif(CASE STREQUAL "out_is_file")
   file(READ "${WORK}/out" kept)
   if(NOT code EQUAL 1 OR NOT err MATCHES "mosac: (書き出せません|cannot write): " OR NOT kept STREQUAL "keep\n")
     fail("an -o that is a file must stop with the cannot-write message and stay as it was")
+  endif()
+elseif(CASE STREQUAL "tmp_link")
+  # 隣の一時ファイルの名前に別のファイルへのリンクが残っていても、リンクの先を書き換えない。
+  file(WRITE "${WORK}/victim" "keep\n")
+  file(MAKE_DIRECTORY "${WORK}/out")
+  file(CREATE_LINK "${WORK}/victim" "${WORK}/out/hello-${OS_ARCH}${ARCHIVE_EXT}.tmp" SYMBOLIC COPY_ON_ERROR)
+  mosac(dist "${SRC}/hello.pl" -o out)
+  expect_archive("out/hello-${OS_ARCH}${ARCHIVE_EXT}")
+  file(READ "${WORK}/victim" kept)
+  if(NOT kept STREQUAL "keep\n" OR IS_SYMLINK "${WORK}/out/hello-${OS_ARCH}${ARCHIVE_EXT}")
+    fail("a link at the temporary name must not be followed: victim=[${kept}]")
+  endif()
+  expect_unpacked("out/hello-${OS_ARCH}${ARCHIVE_EXT}" hello)
+elseif(CASE STREQUAL "name_clash")
+  # 実行ファイルが LICENSE と同じ名前になる（大文字小文字だけ違う）なら、作る前に止める。Windows は .exe が付くので重ならない。
+  file(COPY_FILE "${SRC}/hello.pl" "${WORK}/license.pl")
+  mosac(dist license.pl -o out)
+  if(EXE_SUFFIX)
+    expect_archive("out/license-${OS_ARCH}${ARCHIVE_EXT}")
+    expect_unpacked("out/license-${OS_ARCH}${ARCHIVE_EXT}" license)
+  elseif(NOT code EQUAL 1 OR NOT err MATCHES "mosac: (実行ファイル license は|the executable license would)"
+         OR EXISTS "${WORK}/out")
+    fail("an executable named like LICENSE must stop before building and write no out/")
   endif()
 elseif(CASE STREQUAL "build_fails")
   mosac(build "${SRC}/broken.pl" -o broken)

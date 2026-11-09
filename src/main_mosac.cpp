@@ -253,9 +253,10 @@ int run_dist(const std::vector<std::string>& args) {
     std::cerr << message("mosac_usage") << '\n';
     return 1;
   }
+  const std::string stem = mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem());
+  if (!mosa::codegen::dist_name_ok(stem)) return 1;
   const mosa::codegen::Built built = mosa::codegen::build_cached(parsed->request);
   if (built.code != 0) return built.code;
-  const std::string stem = mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem());
   const std::string out = parsed->out.empty() ? std::string{"dist"} : parsed->out;
   return mosa::codegen::write_dist(built.exe, stem, mosa::path_from_utf8(out));
 }
