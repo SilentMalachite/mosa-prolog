@@ -1,6 +1,6 @@
 # Status
 
-Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main 4efd657 (format fix), CI run 42642790380: 7 of 8 jobs passed on 3 OSes, linux-gc-stress still running at the time of writing (2026-11-10); v0.1.0 released 2026-11-08 (tag at 0b09fe4, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.0))
+Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main 4efd657 (format fix), CI run 42642790380 passed all 8 jobs (2026-11-10); v0.1.0 released 2026-11-08 (tag at 0b09fe4, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.0))
 
 - **In progress:** none. Branch `mosac-dist` (not pushed, not merged): `mosac dist` ([ADR 0023](adr/0023-mosac-dist.md), [plan](superpowers/plans/2026-11-10-mosac-dist.md)): ADR and plan 689c419, archive writer 30eb433, `mosac dist` b218fcd, docs a38e5cf, review fix 66233c0 (Windows README `.\name.exe`). macOS only: ctest 153/153, `mosatest --diff` 0 differences, `--manual` 0 failed; the zip, Windows and Linux are first checked by CI. The final review was a self-review: auto mode refused the Opus reviewer call because a hook rewrites its input.
 - **Last done:** `mosac dist` on the branch; 0.1.1 format choice point (3e6f130, on main); release 0.1.0 (b211846 to 7a74d96).
