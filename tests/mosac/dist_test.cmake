@@ -47,8 +47,10 @@ endfunction()
 function(expect_unpacked archive stem)
   file(REMOVE_RECURSE "${WORK}/x")
   file(MAKE_DIRECTORY "${WORK}/x")
-  execute_process(COMMAND "${CMAKE_COMMAND}" -E tar xf "${WORK}/${archive}" WORKING_DIRECTORY "${WORK}/x"
-    RESULT_VARIABLE code OUTPUT_VARIABLE out ERROR_VARIABLE err)
+  # 展開は UTF-8 のロケールで行う。テストは一括で LANG=ja_JP.UTF-8 にするが、Ubuntu の CI にはそのロケールが無く C に
+  # 落ち、cmake -E tar（libarchive）は PAX の UTF-8 の名前を C のロケールへ変えられずに別の名前で書く。
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C.UTF-8 "${CMAKE_COMMAND}" -E tar xf "${WORK}/${archive}"
+    WORKING_DIRECTORY "${WORK}/x" RESULT_VARIABLE code OUTPUT_VARIABLE out ERROR_VARIABLE err)
   if(NOT code EQUAL 0)
     fail("unpack ${archive}")
   endif()
@@ -57,7 +59,8 @@ function(expect_unpacked archive stem)
     TIMEOUT 60)
   string(REPLACE "\r\n" "\n" out "${out}")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "こんにちは\n")
-    fail("run the unpacked ${stem}${EXE_SUFFIX}")
+    file(GLOB_RECURSE unpacked RELATIVE "${WORK}/x" "${WORK}/x/*")
+    fail("run the unpacked ${stem}${EXE_SUFFIX} (unpacked: [${unpacked}])")
   endif()
   foreach(doc LICENSE NOTICE)
     file(READ "${folder}/${doc}" got HEX)
