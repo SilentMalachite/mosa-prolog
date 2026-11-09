@@ -4,6 +4,13 @@ English | [日本語](CHANGELOG.ja.md)
 
 ## 0.1.1 (unreleased)
 
+### Added
+
+- `mosac dist app.pl -o dist` builds the program and packs it for other people: one archive
+  `app-<system>-<processor>.tar.gz` (`.zip` on Windows) with the executable, a `README.txt` in English and Japanese,
+  and the `LICENSE` and `NOTICE` of the Mosa runtime that the executable contains
+  ([chapter 13](docs/manual/en/13-mosac.md)). The archive is not compressed.
+
 ### Fixed
 
 - `format/1`, `format/2` and `format/3` no longer leave a choice point. At the `?-` prompt, a query such as

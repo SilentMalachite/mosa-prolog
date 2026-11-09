@@ -58,18 +58,19 @@ the same way, as `main` succeeds, fails or raises an error.
 | --- | --- |
 | `mosac build file -o name` | Translates the file, and every file it loads with `use_module/1`, into C++, compiles them and writes the executable `name` (`name.exe` on Windows). Without `-o`, the name is the file name without `.pl`. |
 | `mosac run file -- argument...` | Builds as `build` does and runs the program at once, with the words after `--` as its arguments. It leaves no executable in the folder, and ends with the exit status of the program. |
+| `mosac dist file -o folder` | Builds as `build` does and packs the executable, `README.txt`, `LICENSE` and `NOTICE` into one archive in the folder (`dist` without `-o`): `name-system-processor.tar.gz`, or `.zip` on Windows (chapter 13). It prints the path of the archive. |
 | `mosac emit file -o folder` | Writes only the C++ files and a `CMakeLists.txt` into the folder, for reading or changing them by hand. |
 | `mosac emit --library file -o folder` | Translates one library of the folder `lib`. The build of Mosa uses it. |
 | `mosac emit --units folder -o folder` | Translates a folder of tests. `mosatest --diff` uses it. |
 | `mosac toolchain` | Prints the compiler, CMake and the runtime library that `mosac` would use, or what to install. On Windows, when the path of the runtime library or of `.mosac-cache` has a character outside ASCII, `mosac` does not use CMake, and calls the compiler directly (chapter 13). |
 | `mosac --version` | Prints `mosa 0.1.0`. |
 
-`mosac build` and `mosac run` take these options:
+`mosac build`, `mosac run` and `mosac dist` take these options:
 
 | Option | What it does |
 | --- | --- |
-| `-o name` | `build` only: the name of the executable. |
-| `--interactive` | `build` only: the executable shows the `?-` prompt with your program loaded, instead of running `initialization(main, main)`. |
+| `-o name` | `build`: the name of the executable. `dist`: the folder for the archive. |
+| `--interactive` | `build` and `dist` only: the executable shows the `?-` prompt with your program loaded, instead of running `initialization(main, main)`. |
 | `--debug` | Compiles without optimization, and the program prints each clause of your own files as it runs it. The libraries are not traced. |
 | `--verbose` | Prints what `mosac` does, and the messages of the compiler when the generated C++ does not compile. |
 | `--clean` | Deletes `.mosac-cache` first, so that everything is built again. |
@@ -80,7 +81,7 @@ the same way, as `main` succeeds, fails or raises an error.
 `mosac` looks for a compiler in this order: `--cxx`, then `MOSA_CXX`, then `CXX`, then the usual names (`clang++` on
 macOS, `g++` and then `clang++` on Linux, Visual Studio on Windows). It exits with 0 when it succeeds and with
 another status when it does not. A mistake in your program stops `mosac build` with its line and column, as in
-`mosa`. `mosac dist` is not part of Mosa 0.1.0.
+`mosa`.
 
 ### `mosatest`
 
@@ -550,7 +551,6 @@ removed. Among them:
 
 - Grammar rules written with `-->` are not supported: a file that holds one does not load.
 - Typing Japanese in the console window of Windows has not been verified.
-- `mosac dist` is not part of Mosa 0.1.0.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
 - A term nested very deeply in a file, such as `f(f(f(…)))`, can crash Mosa while it reads the file: from about 600
   levels on Windows, and from a few thousand on macOS and Linux.

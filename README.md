@@ -93,7 +93,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–6 are done. Phase 7 is in progress: the GC, the iterative writer and loader, the manuals and the release packages are done, and `mosac dist` is left. Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
+Phases 0–6 are done. Phase 7 is in progress: the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist` are done, and the check of its exit criteria is left. Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ Phases 0–6 are done. Phase 7 is in progress: the GC, the iterative writer and 
 | 4 | Modules and `library(*)` | Done |
 | 5 | Conformance push, full-width symbol mode, Japanese messages | Done |
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Done |
-| 7 | GC, manuals, `mosac dist`, release packages | In progress (`mosac dist` left) |
+| 7 | GC, manuals, `mosac dist`, release packages | In progress (exit check left) |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 

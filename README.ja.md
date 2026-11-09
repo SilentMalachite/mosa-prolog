@@ -95,7 +95,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 0〜6 は終わっています。フェーズ 7 は進行中で、GC、ライタとローダの反復化、マニュアル、配布パッケージができました。残りは `mosac dist` です。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
+フェーズ 0〜6 は終わっています。フェーズ 7 は進行中で、GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist` ができました。残りは完了条件の確かめです。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 4 | モジュールと `library(*)` | 完了 |
 | 5 | 準拠率の追い込み、全角記号モード、メッセージの日本語化 | 完了 |
 | 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 完了 |
-| 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 進行中（残りは `mosac dist`） |
+| 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 進行中（残りは完了条件の確かめ） |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 

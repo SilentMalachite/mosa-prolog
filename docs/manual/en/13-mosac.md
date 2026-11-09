@@ -195,7 +195,23 @@ $ ./hello
 hello
 ```
 
-`mosac dist`, which packs a program for other people to install, is not part of Mosa 0.1.0.
+To give a program to other people, pack it with `mosac dist`. It builds the program as `mosac build` does, takes
+the same options, and writes one archive into the folder named with `-o` (`dist` when you leave it out). On macOS and
+Linux the archive is a `.tar.gz` file, and on Windows a `.zip` file. Its name is the name of the program, the system
+and the processor, and `mosac` prints it (here on a Mac with Apple silicon):
+
+<!-- skip: dist -->
+```console
+$ mosac dist hello.pl
+dist/hello-macos-arm64.tar.gz
+```
+
+The archive holds one folder with the executable, `README.txt`, which says in English and Japanese how to start it,
+and the files `LICENSE` and `NOTICE`. The executable contains the runtime library of Mosa, and its license, the
+Apache License 2.0, asks that these two files go with it. The person who gets the archive unpacks it and starts the
+executable; they need neither Mosa nor a compiler, but the same system and processor as the name says. The archive
+is not compressed, so it is about as large as the executable. The executable is not signed: on macOS and Windows,
+the person may have to start it as chapter 2 shows for `mosa`.
 
 ## Exercises
 

@@ -240,7 +240,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 | `mosac build app.pl -o app` | Translate → compile → link in one step. The default | Executable `app` (`app.exe` on Windows) |
 | `mosac run app.pl -- 引数...` | build, then run immediately. Built in `./.mosac-cache` like `build`; a copy of the executable runs from a temporary directory (kept with `--keep`), and the exit code is returned as-is | Execution result |
 | `mosac emit app.pl -o out/` | Outputs only C++ source and `CMakeLists.txt` (for people who want to modify it by hand, and for debugging) | `out/` |
-| `mosac dist app.pl -o dist/` | build + distribution package (executable, LICENSE, README) | zip / tar.gz |
+| `mosac dist app.pl -o dist/` | build + distribution package: one folder `<stem>-<os>-<arch>/` with the executable, Mosa's LICENSE and NOTICE, and README.txt (ADR 0023) | `<stem>-<os>-<arch>.tar.gz` (`.zip` on Windows) |
 | `mosac toolchain` | Shows the location and version of the detected compiler, CMake, and bundled runtime. If there is a problem, prints remedies in Japanese | Diagnostic output |
 
 (`引数...` in the `run` row means "arguments...".)

@@ -239,7 +239,7 @@
 | `mosac build app.pl -o app` | 変換 → コンパイル → リンクを一括。既定 | 実行ファイル `app`（Windows は `app.exe`） |
 | `mosac run app.pl -- 引数...` | build のあと即実行。`build` と同じく `./.mosac-cache` で作り、実行ファイルの写しを一時ディレクトリから動かして（`--keep` で残す）、終了コードをそのまま返す | 実行結果 |
 | `mosac emit app.pl -o out/` | C++ ソースと `CMakeLists.txt` だけを出す（手で改変したい人向け、デバッグ用） | `out/` |
-| `mosac dist app.pl -o dist/` | build + 配布用パッケージ（実行ファイル、LICENSE、README） | zip / tar.gz |
+| `mosac dist app.pl -o dist/` | build + 配布用パッケージ: フォルダー `<語幹>-<os>-<arch>/` に実行ファイル、Mosa の LICENSE と NOTICE、README.txt（ADR 0023） | `<語幹>-<os>-<arch>.tar.gz`（Windows は `.zip`） |
 | `mosac toolchain` | 検出したコンパイラ・CMake・同梱ランタイムの場所と版を表示。問題があれば対処法を日本語で出す | 診断表示 |
 
 **ツールチェーンの扱い**
