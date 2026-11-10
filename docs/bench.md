@@ -237,6 +237,36 @@ Benchmarks, measured as in the section above:
 
 The nrev row does not come from the lookup. nrev's table has 7 predicates, and the old scan found `app/3` first. With `-falign-functions=64` in both trees, nrev takes 10,164 million cycles before and 10,206 million now (+0.4%, medians of three) and retires 52,180 and 52,463 million instructions (+0.55%). The default builds retire the same instructions in 9,407 and 9,862 million cycles. The difference is where the functions land in the binary; review M21 gained 7.4% on nrev the same way (section above).
 
+## Memory in long loops
+
+This is the check for the first phase 7 exit criterion of SPEC section 9, "memory usage plateaus in long-running loops". It was measured on 2026-11-10 on the same machine at commit 0b6e63f, Release, with the default limit (4 GiB) and no `MOSA_GC_STRESS`. Each loop below runs N, 10N and 100N times in one process, both in `mosa file.pl -- Shape N` and in the executable that `mosac build` makes from the same file (`./exe Shape N`), and `/usr/bin/time -l` gives the maximum resident set size of the whole process. The file has `:- initialization(main, main).`, `:- use_module(library(between)).`, `:- dynamic(cnt/2).`, the usual `member/2` and `append/3`, and `mk(K, I, L)`, which builds a list of K terms `f(K, I, g(K))`. Each loop body other than `fail` and `repeat` is the clause before `N1 is N - 1` and the recursive call:
+
+```prolog
+count:   true
+build:   mk(100, N, L), length(L, 100)
+fail:    ( between(1, N, I), mk(50, I, _), fail ; true )
+findall: findall(X-N, member(X, [a, b, c, d, e, f(N), g(N, N)]), L), length(L, 7)
+assert:  assertz(cnt(N, f(N, [N, N]))), retract(cnt(N, _))
+catch:   catch(throw(e(N, [N])), e(_, _), true)
+codes:   number_codes(N, Cs), atom_codes(abc, Ds), append(Cs, Ds, Es), length(Es, _)
+copy:    copy_term(f(X, Y, [X, Y, N]), T), T =.. [_|As], length(As, 3)
+repeat:  repeat, retract(cnt(k, I)), I1 is I + 1, assertz(cnt(k, I1)), mk(20, I, _), I1 >= N, !
+```
+
+| Loop | N | Interpreter max RSS (MiB) at N, 10N, 100N | Translated max RSS (MiB) at N, 10N, 100N | Collections at 100N (interpreter, translated) |
+| --- | ---: | --- | --- | --- |
+| `count` | 1000000 | 11.9, 11.9, 11.9 | 12.4, 12.4, 12.4 | 1526, 858 |
+| `build` | 10000 | 12.3, 12.4, 12.4 | 12.5, 12.5, 12.6 | 2743, 1945 |
+| `fail` | 10000 | 4.5, 11.4, 11.9 | 6.3, 11.9, 12.5 | 19, 35 |
+| `findall` | 50000 | 14.2, 15.5, 16.8 | 12.9, 12.9, 13.0 | 744, 567 |
+| `assert` | 100000 | 15.1, 16.8, 18.2 | 12.5, 13.1, 13.1 | 896, 553 |
+| `catch` | 100000 | 14.3, 17.3, 17.3 | 12.2, 12.7, 12.7 | 543, 314 |
+| `codes` | 100000 | 14.4, 17.5, 18.5 | 12.0, 12.6, 12.6 | 2366, 1701 |
+| `copy` | 100000 | 17.4, 17.3, 17.5 | 12.8, 12.8, 12.8 | 1325, 886 |
+| `repeat` | 10000 | 3.0, 3.1, 3.1 | 3.5, 3.5, 3.5 | 0, 0 |
+
+`statistics(heap, [_, Capacity, _])` was 8 MiB at the end of all 54 runs, so no loop grew the heap. In no row does memory grow in proportion to N: the translated side stays within 13.1 MiB, and on the interpreter the largest rise from 10N to 100N is 1.4 MiB (`assert`), against 10 times as many rounds. That rise is smaller than the spread between runs of the interpreter: `copy` with N = 100000 measured 15.1 MiB in one run and 17.8 MiB in another. `fail` at N runs before the first collection. Single runs of the interpreter were sampled every 5 seconds with `ps -o rss`. `findall` with N = 2 × 10^7 (170 s) reached 18,048 KiB at 30 s, rose once to 18,544 KiB at 105 s and held it to the end. `assert` with N = 10^8 (210 s) held 17,904 KiB from 5 s to 115 s, then rose in three steps to 19,456 KiB and ended while still rising. A longer `assert` run with N = 3 × 10^8 (632 s) therefore followed it. That run reached 18,624 KiB at 50 s and held it for the remaining 580 s (115 samples). `vmmap --summary` at 60, 150, 250, 350, 450 and 550 s, with the process alive before and after each one, gave a physical footprint that fell from 9.9M to 9.2M. The live data in the default malloc zone moved between 791 KiB and 4,473 KiB (4,123 to 22,301 blocks) with no upward trend. The resident pages above the live data are pages that the malloc zone keeps after they are freed. Two kinds of growth are out of scope: a loop that makes new atoms grows the atom table, which is never collected ([iso-notes](iso-notes.md)), and a loop that leaves a choice point each round grows with its live choice points (ADR 0010).
+
 ## CI
 
 The macOS job runs all six programs with the `N` of each line of `bench.json` and writes a table of the new times, the new ratio and the committed ratio to the Job Summary. It compares ratios (interpreter time divided by translated time), not milliseconds: both sides of a ratio run on the same runner, so the runner's speed cancels out, while the GitHub macOS runner's absolute times differ from the machine above by 20–80%. When a program's ratio is 20% or more below its committed ratio, the step prints a `::warning::` annotation and marks the row. When a measured or committed ratio is missing or zero, it prints a `::warning::` that the comparison was skipped. The step has a 20-minute timeout and never fails the job; it is a coarse regression alarm, not a measurement.
