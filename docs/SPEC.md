@@ -190,7 +190,7 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 | `library(between)` | `between/3`, `succ/2`, `plus/3` |
 | `library(format)` | `format/1,2,3` (`~w`, `~q`, `~a`, `~d`, `~f`, `~e`, `~s`, `~c`, `~n`, `~t`, `~\|`) |
 | `library(strings)` | `atomic_list_concat/2,3`, `split_atom/4`, `upcase_atom/2` (Unicode uppercasing uses simple case mapping only) |
-| `library(dcg)` | `expand_term/2` (translates one grammar rule `H --> B`; a term that is not `-->/2` comes back unchanged) |
+| `library(dcg)` | `expand_term/2` (translates one grammar rule `H --> B`; a non-variable term that is not `-->/2` comes back unchanged; an unbound first argument is `instantiation_error`) |
 | `library(japanese)` | `ひらがな_カタカナ/2` (hiragana/katakana), `全角_半角/2` (full-width/half-width), `読み幅/2` (display width calculation). Implemented with the generated tables |
 
 ## 6. Architecture (runtime, interpreter, C++20 translation)

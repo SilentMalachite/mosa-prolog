@@ -189,7 +189,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | `library(between)` | `between/3`、`succ/2`、`plus/3` |
 | `library(format)` | `format/1,2,3`（`~w`、`~q`、`~a`、`~d`、`~f`、`~e`、`~s`、`~c`、`~n`、`~t`、`~\|`） |
 | `library(strings)` | `atomic_list_concat/2,3`、`split_atom/4`、`upcase_atom/2`（Unicode 大文字化は simple case mapping のみ） |
-| `library(dcg)` | `expand_term/2`（文法規則 `H --> B` を 1 つ訳す。`-->/2` でない項はそのまま返る） |
+| `library(dcg)` | `expand_term/2`（文法規則 `H --> B` を 1 つ訳す。変数でなく `-->/2` でもない項はそのまま返り、第 1 引数が未束縛なら `instantiation_error`） |
 | `library(japanese)` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2`（表示幅の計算）。生成テーブルで実装 |
 
 ## 6. アーキテクチャ（ランタイム・インタプリタ・C++20変換）
