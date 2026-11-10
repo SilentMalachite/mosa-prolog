@@ -2,13 +2,38 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.1.2 (2026-11-11)
+
+A release that adds grammar rules. It runs on the same computers as 0.1.1
+([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is checked
+against it.
 
 ### Added
 
 - Grammar rules: a clause `Head --> Body` in a file is translated to an ordinary clause when the file is loaded, in
-  `mosa` and in programs built by `mosac`. `phrase/2` and `phrase/3` are built in. A grammar rule passed to
-  `assertz/1` is not translated, and `term_expansion/2` is not supported.
+  `mosa` and in programs built by `mosac`. `phrase/2` and `phrase/3` are built in
+  ([chapter 14](docs/manual/en/14-reference.md)). In a grammar body, `{G}` calls `G` as `call/1` does, so a cut
+  inside `{}` cuts only inside it.
+
+### Known limits
+
+The known limits of 0.1.1 still hold, except the one that this release removes (grammar rules). Grammar rules have
+limits of their own, the first three below:
+
+- A grammar rule passed to `assertz/1` is not translated, and `term_expansion/2`, `goal_expansion/2` and
+  `expand_term/2` are not built in.
+- An export list cannot name a non-terminal as `Name//Arity`: `:- module(m, [greet//0])` is a
+  `type_error(predicate_indicator,greet//0)`. Write the predicate the rule becomes instead, with two more arguments:
+  `greet/2`.
+- `*->` in a grammar body is not a soft cut: `([x] *-> [y] ; [z])` calls a non-terminal `(*->)/4`.
+- `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are not built in.
+- `use_module/1` works only in a file: typed at the `?-` prompt, it gives a warning with
+  `existence_error(procedure,use_module/1)` ([chapter 12](docs/manual/en/12-modules-libraries.md)).
+- Typing Japanese in the console window of Windows (with `chcp 932` or `chcp 437`) has not been verified.
+- `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
+- A term nested very deeply in a file, such as `f(f(f(…)))`, can crash Mosa while it reads the file: from about 600
+  levels on Windows, and from a few thousand on macOS and Linux.
+- On Windows, Mosa does not start while Smart App Control is on ([chapter 2](docs/manual/en/02-install.md)).
 
 ## 0.1.1 (2026-11-10)
 
