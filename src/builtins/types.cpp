@@ -1,9 +1,11 @@
 // 型検査（8.3）と unify_with_occurs_check/2（8.2.2）、is_list/1。
 // ground/1 は Cor.2 の 8.3.10。ground(?term)。エラーは投げない。テストは tests/pl/types.pl、tests/pl/unify.pl、
 // tests/stack/deep_builtins.pl。
+// acyclic_term/1 は Cor.2 の 8.3.11。acyclic_term(@term)。エラーは投げない。テストは tests/pl/types.pl。
 
 #include "../machine/internal.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -192,6 +194,13 @@ bool run_types(Impl& machine, const Goal& goal) {
   }
   if (name == "ground" && goal.arity == 1) {
     if (ground_term(machine, goal.arg(machine, 0))) succeed(machine, goal);
+    else machine.failed = true;
+    return true;
+  }
+  if (name == "acyclic_term" && goal.arity == 1) {
+    // 循環項を作れるので、unify_with_occurs_check/2 と同じ明示スタックの acyclic_terms で判定する（ADR 0011）。
+    const std::array<Cell, 1> roots{goal.arg(machine, 0)};
+    if (acyclic_terms(machine, roots)) succeed(machine, goal);
     else machine.failed = true;
     return true;
   }

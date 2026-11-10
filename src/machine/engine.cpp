@@ -192,6 +192,7 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"callable", 1},
     {"is_list", 1},
     {"ground", 1},
+    {"acyclic_term", 1},
     {"unify_with_occurs_check", 2},
     {"@<", 2},
     {"@=<", 2},

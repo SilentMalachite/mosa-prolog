@@ -268,6 +268,7 @@ These check what kind of term the argument is now. None of them binds anything.
 | `compound/1` | 8.3.6 | A compound term, such as `f(a)` or `[a]`. |
 | `callable/1` | 8.3.9 | An atom or a compound term: something that can run as a goal. |
 | `ground/1` | 8.3.10 | A term with no variable without a value inside. |
+| `acyclic_term/1` | 8.3.11 | A term that does not contain itself. |
 | `is_list/1` | — | A list that ends in `[]`. |
 
 ### Terms
@@ -534,7 +535,7 @@ Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO
 - Integers are 64-bit: there are no larger integers, and going past `max_integer` raises
   `evaluation_error(int_overflow)`. Floats are 64-bit, and Mosa writes the shortest text that reads back as the same
   float.
-- `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are not built in.
+- `subsumes_term/2` (8.2.4) is not built in.
 - `unknown` takes only `error` and `fail`, and the three `float_*` flags take only `error`.
 - Modules (chapter 12) use the syntax of part 2 of the standard (ISO/IEC 13211-2), and a module holds predicates and
   operators. Atoms are the same in every module.

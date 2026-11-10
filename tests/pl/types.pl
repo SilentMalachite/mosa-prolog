@@ -67,3 +67,16 @@ test(m7_ground_lasso_var, (X = [a|X], ground(f(_, [b|X]))), fail).
 test(m7_ground_mutual, (X = g(Y, a), Y = h(X), ground(X)), true).
 test(m7_ground_dag, m7_dag_ground(64, a), true).
 test(m7_ground_dag_late_var, m7_dag_late_var(64), fail).
+
+% 8.3.11.4 acyclic_term/1（Cor.2）。リポジトリに規格本文が無いので、iso_ の 2 行は同梱の Logtalk 準拠スイート
+% tests/conformance/logtalk/prolog/predicates/acyclic_term_1/tests.lgt の iso_acyclic_term_1_01 と _02 から写す。
+% 02 の X = f(X) は規格では「STO; Undefined」。Mosa は循環項を作れるので、acyclic_term/1 は失敗する。
+test(iso_acyclic_term_1_01, acyclic_term(a(1, _)), true).
+test(iso_acyclic_term_1_02, (X = f(X), acyclic_term(X)), fail).
+% 以下は Mosa 自前のテスト。
+test(acyclic_atom, acyclic_term(a), true).
+test(acyclic_var, acyclic_term(_), true).
+test(acyclic_compound, acyclic_term(f(X, _, g(X))), true).
+test(acyclic_list_cyclic, (X = [a|X], acyclic_term(X)), fail).
+test(acyclic_dag, (X = f(Y, Y), acyclic_term(X)), true).
+test(acyclic_cycle_inside, (Y = g(Y), acyclic_term(f(a, Y))), fail).
