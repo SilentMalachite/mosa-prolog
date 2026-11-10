@@ -627,6 +627,21 @@ void check_directive_halt() {
   mosa_test::check(stopped.code == 0 && stopped.out.empty() && stopped.err.empty(), "directive_halt0 stops load");
 }
 
+// Muse のレビューの中。プロンプトに打った指示の halt/0,1 も、ファイルの指示と同じくその値で終わる。
+// 続けて打った行は動かず、空の警告も出ない。
+void check_prompt_directive_halt() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_p.pl";
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0, path};
+  const auto result = mosa::run_session(args, ":- halt(4).\nwrite(after_halt), nl.\n", true);
+  mosa_test::check(result.code == 4, "prompt directive halt exit " + std::to_string(result.code));
+  mosa_test::check(result.out.find("after_halt") == std::string::npos, "prompt directive halt stops the prompt");
+  mosa_test::check(result.err.empty(), "prompt directive halt warns nothing, got [" + result.err + "]");
+  const auto bare = mosa::run_session(args, ":- halt.\nwrite(after_halt), nl.\n", true);
+  mosa_test::check(bare.code == 0 && bare.out.find("after_halt") == std::string::npos && bare.err.empty(),
+                   "prompt directive halt/0 stops the prompt");
+}
+
 void check_argv_after_dashes() {
   const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_p.pl";
   const std::string arg0 = "mosa";
@@ -754,6 +769,7 @@ int main(int argc, char** argv) {
   check_init_main();
   check_answer_runs_cleanup();
   check_directive_halt();
+  check_prompt_directive_halt();
   check_argv_after_dashes();
   check_load_then_exit();
   check_repeated_goals();

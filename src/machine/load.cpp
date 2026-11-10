@@ -38,6 +38,8 @@ struct SavedFlags {
   bool debug_on = false;
   bool japanese_punct = false;
   std::vector<std::pair<char32_t, char32_t>> char_map;
+  // 旗ではないが同じく、失敗した読み込みの initialization(G, main) を残さない。残すと取り消したファイルの G が動く。
+  std::optional<ExportedTerm> main_goal;
 };
 
 SavedFlags save_flags(const Impl& machine) {
@@ -50,7 +52,8 @@ SavedFlags save_flags(const Impl& machine) {
                     machine.utf8_replace,
                     machine.debug_on,
                     machine.japanese_punct,
-                    machine.char_conv.map};
+                    machine.char_conv.map,
+                    machine.main_goal};
 }
 
 void restore_flags(Impl& machine, const SavedFlags& saved) {
@@ -64,6 +67,7 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.debug_on = saved.debug_on;
   machine.japanese_punct = saved.japanese_punct;
   machine.char_conv.map = saved.char_map;
+  machine.main_goal = saved.main_goal;
 }
 
 // SPEC 第5節。この 2 つは字句の旗なので、ファイルの書き手の選択を読み手のファイルへ持ち出さない。

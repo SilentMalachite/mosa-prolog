@@ -621,7 +621,12 @@ int run_directive_goal(Impl& machine, Cell term) {
     machine.load_kept = true;
     return -1;
   }
-  if (kind != StopKind::Failure) return 1;
+  if (kind != StopKind::Failure) {
+    // ゴールの中の consult が初期化の例外で失敗しても、ゴールが立ち直ったならその印を持ち越さない。
+    // 持ち越すと、この読み込みの後の構文エラーで、取り消すはずの節が残る（Muse のレビューの中）。
+    machine.load_kept = false;
+    return 1;
+  }
   fail_load(machine, message_text(machine, "directive_failed", {text}));
   return -1;
 }

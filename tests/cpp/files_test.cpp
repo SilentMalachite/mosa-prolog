@@ -284,6 +284,14 @@ void check_file_kept_does_not_stick(const std::filesystem::path& dir) {
                    "parent clause rolls back");
   mosa_test::check(rolled->query("current_predicate(k/1).").kind == mosa::StopKind::Failure,
                    "nested clause rolls back");
+  // Muse のレビューの中。指示のゴールが consult の失敗から立ち直っても、その印は残らず、後の構文エラーで戻す。
+  auto directive = mosa::Machine::create();
+  const auto recovered = directive->load_program("d(1). :- (consult(" + prolog_path(inner) + ") -> true ; true). q(.");
+  mosa_test::check(!recovered.ok, "syntax after recovered nested throw");
+  mosa_test::check(directive->query("current_predicate(d/1).").kind == mosa::StopKind::Failure,
+                   "recovered directive: parent clause rolls back");
+  mosa_test::check(directive->query("current_predicate(k/1).").kind == mosa::StopKind::Failure,
+                   "recovered directive: nested clause rolls back");
 }
 
 void check_file_japanese(const std::filesystem::path& dir) {

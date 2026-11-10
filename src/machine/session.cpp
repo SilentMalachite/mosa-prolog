@@ -307,6 +307,18 @@ std::string goal_text(const Machine& machine, Cell term, std::span<const VarName
   return text + full_stop_after(text);
 }
 
+// 指示の halt/0,1 は読み込みを止める。ファイルの指示（consult_files）と同じく、その値で終える。
+// 止まった読み込みの診断は空なので、警告にしない。終えるなら true。
+bool prompt_directive(Machine& machine, std::string_view text, Echo& echo) {
+  if (directive_text(machine, text)) return false;
+  if (engine_impl(machine).halt_now) {
+    echo.result->code = engine_impl(machine).halt_code;
+    return true;
+  }
+  echo.warn(std::string{machine.diagnostic()} + "\n");
+  return false;
+}
+
 void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   std::string buffer;
   echo.say("?- ");
@@ -349,7 +361,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
                            (machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == ":-" ||
                             machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == "?-");
     if (directive) {
-      if (!directive_text(machine, text)) echo.warn(std::string{machine.diagnostic()} + "\n");
+      if (prompt_directive(machine, text, echo)) return;
     } else {
       const std::string goal = goal_text(machine, term, outcome.term->names);
       bool halted = false;

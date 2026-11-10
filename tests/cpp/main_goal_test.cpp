@@ -97,5 +97,12 @@ int main() {
        {}},
   };
   for (const Case& item : cases) check_case(dir, item);
+  // Muse のレビューの中。構文エラーで取り消した読み込みの initialization(G, main) は残さない。
+  // ゴールが consult の失敗から立ち直って外の読み込みが成功しても、取り消したファイルの G は動かない。
+  // 引数に渡すのは外のファイルだけ。取り消すファイルは consult で読む。
+  std::ofstream(mosa::path_from_utf8(dir + "/rejected_main.pl"), std::ios::binary)
+      << ":- initialization(bad_main, main).\nfoo( .\n";
+  const std::string outer = "bad_main :- halt(7).\n:- (consult('" + dir + "/rejected_main.pl') -> true ; true).\n";
+  check_case(dir, Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, {}});
   return mosa_test::failures();
 }
