@@ -252,6 +252,12 @@ Reader::Parsed Reader::parse_prefix(int max_priority) {
     return parse_literal();
   }
   if (token.kind == TokenKind::Solo && is_closer(token.text)) return bad_token(token);
+  // 6.4: , と | は区切りの字句で、名前の字句ではないので項にならない。f((,)) も ,(a, b) も構文エラー。
+  // | は演算子に定めたときだけ、ほかの演算子の名前と同じくアトム '|' として書ける（6.3.4.3、Cor.3）。
+  if (token.kind == TokenKind::Solo &&
+      (token.text == "," || (token.text == "|" && operators_.lookup(token.text).empty()))) {
+    return bad_token(token);
+  }
   if (token.kind == TokenKind::Name || token.kind == TokenKind::Solo) return parse_name(max_priority);
   return bad_token(token);
 }

@@ -57,6 +57,13 @@ test(read_closed, (open_string('a.', S), close(S), read(S, _)), error(existence_
 % ADR 0007。Formal は言語に依らない鍵。行、列、問題のトークンは Context の syntax(stream(...), Token) に置く。
 test(read_syntax, (open_string('foo)', S), read(S, _)), error(syntax_error(unexpected_token))).
 test(read_incomplete, (open_string(foo, S), read(S, _)), error(syntax_error(incomplete_term))).
+% 6.4: , と | は区切りの字句で項にならない。| は演算子に定めたときだけアトム '|' になる（6.3.4.3、Cor.3）。
+test(read_bare_comma, (open_string('f((,)).', S), read(S, _)), error(syntax_error(_))).
+test(read_comma_functional, (open_string(',(a, b).', S), read(S, _)), error(syntax_error(_))).
+test(read_bare_bar, (open_string('f((|)).', S), read(S, _)), error(syntax_error(_))).
+test(read_bar_functional, (open_string('|(a, b).', S), read(S, _)), error(syntax_error(_))).
+test(read_bar_operator_atom, (op(1105, xfy, '|'), open_string('f((|)).', S), read(S, T), op(0, xfy, '|'), T == f('|')), true).
+test(read_quoted_comma_bar, (open_string('f(\',\', \'|\').', S), read(S, T), T == f(',', '|')), true).
 % 6.5 の quoted char に生の改行とタブは無い。このファイルにその字を書くと、読み込み自体が落ちる。
 test(quoted_raw_nl, (open_string([39, 97, 10, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
 test(quoted_raw_tab, (open_string([39, 97, 9, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
