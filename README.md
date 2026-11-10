@@ -5,7 +5,7 @@ English | [日本語](README.ja.md)
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-7_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-8_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.1.1-blue)](CHANGELOG.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -93,7 +93,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–7 are done. Phase 7 (the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist`) was finished on 2026-11-10 after the check of its exit criteria: memory plateaus in long-running loops ([`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#memory-in-long-loops)), and the steps in this README alone build Mosa and pass its tests (in CI on Linux and Windows, and from a fresh clone on macOS). Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
+Phases 0–8 are done. Phase 8 (grammar rules: `-->` and `phrase/2,3`) was finished on 2026-11-11 after the check of its exit criteria: `tests/pl/dcg.pl` passes in `mosa` with zero differences under `mosatest --diff`, and the conformance pass rate did not go down (CI on macOS, Linux and Windows). Phase 7 (the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist`) was finished on 2026-11-10 after the check of its exit criteria: memory plateaus in long-running loops ([`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#memory-in-long-loops)), and the steps in this README alone build Mosa and pass its tests (in CI on Linux and Windows, and from a fresh clone on macOS). Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -105,7 +105,7 @@ Phases 0–7 are done. Phase 7 (the GC, the iterative writer and loader, the man
 | 5 | Conformance push, full-width symbol mode, Japanese messages | Done |
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Done |
 | 7 | GC, manuals, `mosac dist`, release packages | Done |
-| 8 | Grammar rules (`-->`, `phrase/2,3`) | In progress |
+| 8 | Grammar rules (`-->`, `phrase/2,3`) | Done |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 
