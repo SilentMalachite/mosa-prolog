@@ -66,6 +66,10 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 7. Flags (7.11): `bounded`, `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
 8. Directives (7.4.2): `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`, `set_prolog_flag/2`, `include/1`, `ensure_loaded/1`
 
+**Grammar rules (phase 8)**
+
+A clause `Head --> Body` in a Prolog text is translated to an ordinary clause when the text is loaded, and `phrase/2,3` are in `system`. 13211-1 does not define grammar rules; the reference is the grammar-rule part of the standard, ISO/IEC 13211-3 (for its source text see `docs/iso-notes.md`, "13211-3"). ADR 0024 fixes the translation. `term_expansion/2`, `goal_expansion/2` and `expand_term/2` are not part of it.
+
 **Decisions on implementation-defined matters**
 
 | Matter | Decision |
@@ -351,6 +355,7 @@ Move to the next phase only when the current phase's exit criteria are met. Exit
 | 5 | Raising the conformance rate and polishing Japanese support: fixing failing items, full-width symbol mode, Windows console, Japanese messages | Raise the pass rate on the bundled Logtalk conformance suite. All of `tests/pl/japanese.pl` passes |
 | 6 | `mosac`: IR → C++20 generation, build pipeline (build / run / emit / toolchain, toolchain detection, bundled runtime), differential tests | Zero differences across all layer 2 and 3 tests. On 3 OSes, the executable built by mosac build hello.pl runs in a clean environment with no compiler, CMake, or mosac installed. The translated `nrev` is at least 3 times faster than the interpreter |
 | 7 | Finishing: GC, `garbage_collect/0`, `statistics/2`, manual (Japanese and English), mosac dist, release packages (binaries for each OS, bundled runtime) | Memory usage plateaus in long-running loops. A newcomer can build using only the steps in the README |
+| 8 | Grammar rules: `-->` translated when a text is loaded (ADR 0024), `phrase/2,3` in `system`, the same behavior under `mosac` | `tests/pl/dcg.pl` passes in `mosa`, with zero differences in `mosatest --diff`. The pass rate on the bundled Logtalk conformance suite does not go down |
 
 **Prohibitions across phases**
 

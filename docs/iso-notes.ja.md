@@ -750,3 +750,7 @@ A か B か: A は、読み直しのとき、前にそのパスを読んで定�
 A か B か（レビュー L8）: Windows でも stdin、stdout、stderr を binary にして、0x1A をただのバイトとし、改行を macOS と Linux と同じく LF だけで書くとき、A は、パイプの CRLF をファイルからと同じく、また macOS と Linux と同じくそのまま読み、get_char/1 には CR が見える（read/1 はそれを空白とみなす）。B は、Windows ではパイプの CRLF の CR を、コンソールと同じく、また今のテキストモードと同じく落とす。
 
 決定（2026-11-05）: A。Windows では、mosa、mosac、mosatest（`mosatest --diff` も）、mosac が作る実行ファイルのどれも、何かを読み書きする前に `prepare_console`（src/platform/console.cpp）が stdin、stdout、stderr を binary にする。実行ファイルはヒープを予約する前に呼ぶ。libmosa を組み込むプログラムは自分のモードのままである。0x1A のバイトはほかのバイトと同じく読む。パイプや stdin に渡したファイルからの CRLF は、macOS や Linux と同じく CR と LF として get_char/1 に届き、`nl` は LF だけを書く。コンソールは今までどおり、Enter が出す CRLF の CR を落とす。テスト: ctest の `mosa_std_binary`。
+
+## 13211-3 文法規則: 本文の出どころ
+
+13211-1 に文法規則は無い。SPEC 第 3 節はフェーズ 8 から ISO/IEC 13211-3 を拠り所にする。リポジトリに 13211-3 の本文は無く、ADR 0024 は本文なしで、Prolog の処理系に共通する動作から書いた。そのため 13211-3 の条番号はまだ引いていない。本文が手に入るまで `tests/pl/dcg.pl` のテストは自前のもので、手に入ったら Examples を写す。ADR 0024 と本文が食い違う点は、条番号を付けてここに 1 項目ずつ書く。

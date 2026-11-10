@@ -105,6 +105,7 @@ Phases 0–7 are done. Phase 7 (the GC, the iterative writer and loader, the man
 | 5 | Conformance push, full-width symbol mode, Japanese messages | Done |
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Done |
 | 7 | GC, manuals, `mosac dist`, release packages | Done |
+| 8 | Grammar rules (`-->`, `phrase/2,3`) | In progress |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 
