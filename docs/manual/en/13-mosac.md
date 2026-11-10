@@ -31,7 +31,7 @@ On Windows, download the
 [installer of Build Tools for Visual Studio 2022](https://aka.ms/vs/17/release/vs_BuildTools.exe), and run it. In
 the installer, choose the workload "Desktop development with C++", and click Install. You need no special window
 afterwards: `mosac` finds the compiler from an ordinary PowerShell window. Close PowerShell and open a new one when
-the installer is done. Mosa 0.1.0 is tested with Visual Studio 2022. If a newer Visual Studio is also installed,
+the installer is done. Mosa 0.1.1 is tested with Visual Studio 2022. If a newer Visual Studio is also installed,
 `mosac` uses the newest one, which is not tested.
 
 2. Check that `mosac` finds the compiler. `mosac toolchain` prints the compiler and its version, CMake (a build tool
@@ -177,7 +177,7 @@ finds `clang++`, and `mosac build` stops with two lines like these, which name t
 <!-- skip: clang-linux -->
 ```console
 $ mosac build hello.pl -o hello
-mosac: there is no runtime library for this compiler: /home/<name>/mosa-0.1.0-linux-x86_64/lib/mosa/linux-x86_64-clang
+mosac: there is no runtime library for this compiler: /home/<name>/mosa-0.1.1-linux-x86_64/lib/mosa/linux-x86_64-clang
 Use the compiler mosac was built with, or run mosac build --runtime-source to build it from the bundled source (the result stays in .mosac-cache)
 ```
 

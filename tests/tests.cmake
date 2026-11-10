@@ -450,7 +450,7 @@ target_link_libraries(bench_report_test PRIVATE mosa_lib)
 add_test(NAME bench_report_test COMMAND $<TARGET_FILE:bench_report_test>)
 
 # \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
-set(version_pass_regex "^mosa 0\\.1\\.0\r?\n?$")
+set(version_pass_regex "^mosa 0\\.1\\.1\r?\n?$")
 add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
 add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
 add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
