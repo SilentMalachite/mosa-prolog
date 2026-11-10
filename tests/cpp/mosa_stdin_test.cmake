@@ -8,12 +8,13 @@ set(input "${WORK}/mosa_stdin_input.txt")
 file(WRITE "${input}" "foo.\nbar.\n")
 
 function(expect_output label regex)
+  # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
   execute_process(COMMAND "${MOSA}" ${ARGN}
     INPUT_FILE "${input}"
     OUTPUT_VARIABLE out
     ERROR_VARIABLE err
     RESULT_VARIABLE code
-    TIMEOUT 20)
+    TIMEOUT 20 ENCODING UTF-8)
   if(NOT code EQUAL 0 OR NOT out MATCHES "${regex}")
     message(FATAL_ERROR "${label}: code=${code} out=[${out}] err=[${err}]")
   endif()

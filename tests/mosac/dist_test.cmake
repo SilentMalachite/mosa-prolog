@@ -15,9 +15,10 @@ endif()
 
 # mosac を WORK で動かす。結果は code、out、err に入る。
 macro(mosac)
+  # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" ${ARGN}
     WORKING_DIRECTORY "${WORK}"
-    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
   string(REPLACE "\r\n" "\n" out "${out}")
   string(REPLACE "\r\n" "\n" err "${err}")
 endmacro()
@@ -50,13 +51,13 @@ function(expect_unpacked archive stem)
   # 展開は UTF-8 のロケールで行う。テストは一括で LANG=ja_JP.UTF-8 にするが、Ubuntu の CI にはそのロケールが無く C に
   # 落ち、cmake -E tar（libarchive）は PAX の UTF-8 の名前を C のロケールへ変えられずに別の名前で書く。
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C.UTF-8 "${CMAKE_COMMAND}" -E tar xf "${WORK}/${archive}"
-    WORKING_DIRECTORY "${WORK}/x" RESULT_VARIABLE code OUTPUT_VARIABLE out ERROR_VARIABLE err)
+    WORKING_DIRECTORY "${WORK}/x" RESULT_VARIABLE code OUTPUT_VARIABLE out ERROR_VARIABLE err ENCODING UTF-8)
   if(NOT code EQUAL 0)
     fail("unpack ${archive}")
   endif()
   set(folder "${WORK}/x/${stem}-${OS_ARCH}")
   execute_process(COMMAND "${folder}/${stem}${EXE_SUFFIX}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code
-    TIMEOUT 60)
+    TIMEOUT 60 ENCODING UTF-8)
   string(REPLACE "\r\n" "\n" out "${out}")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "こんにちは\n")
     file(GLOB_RECURSE unpacked RELATIVE "${WORK}/x" "${WORK}/x/*")

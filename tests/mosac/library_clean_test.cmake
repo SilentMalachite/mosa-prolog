@@ -12,9 +12,10 @@ if(NOT sources)
 endif()
 foreach(source ${sources})
   get_filename_component(stem "${source}" NAME_WE)
+  # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}"
       "${MOSAC}" emit --library "${source}" -o "${WORK}/${stem}"
-    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
   if(NOT code EQUAL 0 OR NOT err STREQUAL "")
     message(FATAL_ERROR "library_clean: ${stem}.pl: code=[${code}] out=[${out}] err=[${err}]")
   endif()

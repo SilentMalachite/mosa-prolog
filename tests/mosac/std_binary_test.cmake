@@ -21,9 +21,10 @@ endif()
 function(expect_bytes what input want_out want_err)
   string(HEX "${want_out}" want_out_hex)
   string(HEX "${want_err}" want_err_hex)
+  # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
   execute_process(COMMAND ${ARGN}
     INPUT_FILE "${SRC}/${input}" WORKING_DIRECTORY "${WORK}"
-    OUTPUT_FILE "${WORK}/run.out" ERROR_FILE "${WORK}/run.err" RESULT_VARIABLE code TIMEOUT 60)
+    OUTPUT_FILE "${WORK}/run.out" ERROR_FILE "${WORK}/run.err" RESULT_VARIABLE code TIMEOUT 60 ENCODING UTF-8)
   file(READ "${WORK}/run.out" out HEX)
   file(READ "${WORK}/run.err" err HEX)
   if(NOT code EQUAL 0 OR NOT out STREQUAL want_out_hex OR NOT err STREQUAL want_err_hex)
@@ -35,7 +36,7 @@ endfunction()
 # mosac build を WORK で動かす。
 function(build_program what)
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" build ${ARGN}
-    WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+    WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
   if(NOT code EQUAL 0)
     message(FATAL_ERROR "std_binary: mosac build ${what}: code=[${code}] out=[${out}] err=[${err}]")
   endif()

@@ -5,12 +5,13 @@
 file(MAKE_DIRECTORY "${WORK}")
 set(input "${WORK}/mosa_utf8_pipe_input.txt")
 file(WRITE "${input}" "親(太郎). \n")
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${MOSA}" -g "read(X), write(X), nl." -t halt
   INPUT_FILE "${input}"
   OUTPUT_VARIABLE out
   ERROR_VARIABLE err
   RESULT_VARIABLE code
-  TIMEOUT 20)
+  TIMEOUT 20 ENCODING UTF-8)
 file(REMOVE "${input}")
 string(FIND "${out}" "親(太郎)\n" at)
 if(NOT code EQUAL 0 OR at EQUAL -1)

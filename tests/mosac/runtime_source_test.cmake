@@ -28,10 +28,11 @@ foreach(round first second third)
   if(round STREQUAL "third")
     set(clean --clean)
   endif()
+  # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB ${compiler_env}
       "${MOSAC}" build --runtime-source --verbose ${clean} uses_lists.pl -o "${WORK}/uses_lists"
     WORKING_DIRECTORY "${WORK}"
-    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1800)
+    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1800 ENCODING UTF-8)
   string(REPLACE "\r\n" "\n" err "${err}")
   if(NOT code EQUAL 0)
     fail("build --runtime-source")
@@ -46,7 +47,7 @@ endforeach()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB "${WORK}/uses_lists${EXE_SUFFIX}"
   WORKING_DIRECTORY "${WORK}"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60 ENCODING UTF-8)
 string(REPLACE "\r\n" "\n" out "${out}")
 if(NOT code EQUAL 0 OR NOT out STREQUAL "[a,b]\n")
   fail("the executable linked against the runtime built from source")

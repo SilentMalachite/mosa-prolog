@@ -12,8 +12,9 @@ else()
   # exec で置き換えるので、ulimit はコマンド自身の主スレッドのスタックにかかる。
   set(run sh -c "ulimit -s 1024 && exec \"$@\"" small_stack ${COMMAND})
 endif()
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND ${run} WORKING_DIRECTORY "${WORK}"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 string(REPLACE "\r\n" "\n" out "${out}")
 if(SUMMARY AND code EQUAL 0)
   set(summary "")

@@ -50,11 +50,12 @@ if(MOSA)
 endif()
 list(APPEND command ${OPTIONS})
 # 同じ変数に stdout と stderr を受けると、CMake は一つの管にまとめ、書かれた順のまま読む。
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND ${command}
   OUTPUT_VARIABLE merged
   ERROR_VARIABLE merged
   RESULT_VARIABLE code
-  TIMEOUT 300)
+  TIMEOUT 300 ENCODING UTF-8)
 string(REPLACE "\r" "" merged "${merged}")
 if(NOT code STREQUAL CODE)
   message(FATAL_ERROR "mosatest --manual: exit ${code}, expected ${CODE}\n${merged}")

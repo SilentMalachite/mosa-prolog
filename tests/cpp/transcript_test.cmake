@@ -8,12 +8,13 @@
 function(run_mosa transcript out_var code_var)
   set(ENV{MOSA_TRANSCRIPT} "${transcript}")
   set(ENV{LANG} "${LANG_VALUE}")
+  # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
   execute_process(COMMAND "${MOSA}"
     INPUT_FILE "${DATA}/${CASE}.in"
     OUTPUT_VARIABLE merged
     ERROR_VARIABLE merged
     RESULT_VARIABLE code
-    TIMEOUT 20)
+    TIMEOUT 20 ENCODING UTF-8)
   string(REPLACE "\r" "" merged "${merged}")
   set(${out_var} "${merged}" PARENT_SCOPE)
   set(${code_var} "${code}" PARENT_SCOPE)

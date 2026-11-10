@@ -14,16 +14,17 @@ if(CXX)
 endif()
 
 file(COPY "${SRC}/stack/deep_collect.pl" DESTINATION "${WORK}")
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" build deep_collect.pl
   -o deep_collect_exe
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "deep_collect: mosac build: code=[${code}] out=[${out}] err=[${err}]")
 endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DCOMMAND=${WORK}/deep_collect_exe${EXE_SUFFIX}"
   "-DEXPECTED=${SRC}/stack/deep_collect.expected" "-DWORK=${WORK}" -P "${SRC}/stack/small_stack.cmake"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 900)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 900 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "deep_collect: executable under 1 MiB: out=[${out}] err=[${err}]")
 endif()

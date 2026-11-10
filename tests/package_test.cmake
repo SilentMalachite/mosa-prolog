@@ -50,7 +50,7 @@ endif()
 # setlocale が失敗して C ロケールになり、CMake の libarchive は書庫を空として読む（tar tf も何も出さず、終了コードは 0。
 # run 42436896703）。読者は第 2 章のとおり tar や Explorer で展開するので、これはこの確かめの環境だけの問題。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env LC_ALL=C.UTF-8 "${CMAKE_COMMAND}" -E tar xf "${archive}"
-  WORKING_DIRECTORY "${unpacked}" OUTPUT_VARIABLE tar_out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  WORKING_DIRECTORY "${unpacked}" OUTPUT_VARIABLE tar_out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "unpack ${archive}: code=[${code}] out=[${tar_out}] err=[${err}]")
 endif()
@@ -89,7 +89,7 @@ foreach(route cmake direct)
   file(MAKE_DIRECTORY "${WORK}/work-${route}")
   execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_NO_CMAKE=${no_cmake}"
       "${root}/bin/mosatest${EXE_SUFFIX}" --manual "${root}/docs/manual" --work "${WORK}/work-${route}" --all-tables
-    OUTPUT_VARIABLE manual_out ERROR_VARIABLE manual_err RESULT_VARIABLE code TIMEOUT 1800)
+    OUTPUT_VARIABLE manual_out ERROR_VARIABLE manual_err RESULT_VARIABLE code TIMEOUT 1800 ENCODING UTF-8)
   set(summary "${manual_out}${manual_err}")
   if(NOT code EQUAL 0 OR NOT summary MATCHES "manual: [1-9][0-9]* checked, [0-9]+ skipped, 0 failed")
     # mosac は生のコンパイラの出力を --verbose のときしか出さない。CI の機械では .mosac-cache が残らないので、

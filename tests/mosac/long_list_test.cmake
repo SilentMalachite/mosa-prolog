@@ -33,20 +33,21 @@ endfunction()
 # 確かめの前提は「mosa が読める原文は mosac も翻訳できる」こと。読み込みと実行は再帰しない（ADR 0011）ので、
 # Windows の既定の 1 MiB のスタックでも、全 OS で同じ 2 万要素で比べる。
 write_program(20000)
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" long_list.pl
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE expected ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE expected ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 0 OR NOT expected MATCHES "^20000\r?\n\\[0,1,2,")
   fail("mosa must run the program")
 endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" emit long_list.pl -o emitted
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   fail("mosac emit")
 endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" run long_list.pl
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 1200 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   fail("mosac run")
 endif()

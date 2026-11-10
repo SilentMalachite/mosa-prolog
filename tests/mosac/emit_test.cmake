@@ -20,12 +20,13 @@ if(CASE STREQUAL "duplicate")
 endif()
 
 # 診断の頭はコマンド行に書いたパスのままなので、ファイル名だけを渡す。
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND ${emit_env} "${MOSAC}" emit "${CASE}.pl" -o "${out_dir}"
   WORKING_DIRECTORY "${SRC}"
   OUTPUT_VARIABLE emit_out
   ERROR_VARIABLE emit_err
   RESULT_VARIABLE emit_code
-  TIMEOUT 60)
+  TIMEOUT 60 ENCODING UTF-8)
 
 function(expect_no_cpp)
   file(GLOB written "${out_dir}/*.cpp")
@@ -119,7 +120,7 @@ if(PLATFORM)
   list(APPEND configure_args -A "${PLATFORM}")
 endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" ${configure_args}
-  OUTPUT_VARIABLE configure_out ERROR_VARIABLE configure_err RESULT_VARIABLE configure_code TIMEOUT 300)
+  OUTPUT_VARIABLE configure_out ERROR_VARIABLE configure_err RESULT_VARIABLE configure_code TIMEOUT 300 ENCODING UTF-8)
 if(NOT configure_code EQUAL 0)
   message(FATAL_ERROR "${CASE}: configure code=${configure_code} out=[${configure_out}] err=[${configure_err}]")
 endif()
@@ -129,7 +130,7 @@ if(CONFIG)
   list(APPEND build_args --config "${CONFIG}")
 endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" ${build_args}
-  OUTPUT_VARIABLE build_out ERROR_VARIABLE build_err RESULT_VARIABLE build_code TIMEOUT 600)
+  OUTPUT_VARIABLE build_out ERROR_VARIABLE build_err RESULT_VARIABLE build_code TIMEOUT 600 ENCODING UTF-8)
 if(NOT build_code EQUAL 0)
   message(FATAL_ERROR "${CASE}: build code=${build_code} out=[${build_out}] err=[${build_err}]")
 endif()
@@ -141,7 +142,7 @@ if(NOT EXISTS "${exe}")
 endif()
 # 単独の実行ファイルは lib/ を探さない（計画 Task 10）。MOSA_LIB を外して、文面の表も同梱の単位から読ませる。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB "${exe}"
-  OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err RESULT_VARIABLE run_code TIMEOUT 60)
+  OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err RESULT_VARIABLE run_code TIMEOUT 60 ENCODING UTF-8)
 
 # newop.pl は翻訳のときに飛ばした指示のゴールが op/3 を定義する。翻訳器は後の項を読めないが誤りにせず、
 # その述語は起動時に IR のまま動く。refused_op.pl は同じ指示の後の節を翻訳が読み違えて断るが、起動時には正しい節と

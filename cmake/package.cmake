@@ -57,16 +57,17 @@ endif()
 # 前の回の物が残っていると、消したファイルが新しい書庫に紛れ込む。
 file(REMOVE_RECURSE "${stage}" "${archive}")
 file(MAKE_DIRECTORY "${out_dir}")
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${CMAKE_COMMAND}" --install "${build_dir}" --prefix "${stage}" --config "${CONFIG}"
-  OUTPUT_VARIABLE install_out ERROR_VARIABLE install_err RESULT_VARIABLE code)
+  OUTPUT_VARIABLE install_out ERROR_VARIABLE install_err RESULT_VARIABLE code ENCODING UTF-8)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "package.cmake: cmake --install failed (${code})\n${install_out}${install_err}")
 endif()
 
 # 書庫の中はパッケージと同じ名前のフォルダ 1 つにする（マニュアル第 2 章が読者にそう書く）。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E tar ${tar_args} "${name}"
-  WORKING_DIRECTORY "${out_dir}" OUTPUT_VARIABLE tar_out ERROR_VARIABLE tar_err RESULT_VARIABLE code)
+  WORKING_DIRECTORY "${out_dir}" OUTPUT_VARIABLE tar_out ERROR_VARIABLE tar_err RESULT_VARIABLE code ENCODING UTF-8)
 if(NOT code EQUAL 0 OR NOT EXISTS "${archive}")
   message(FATAL_ERROR "package.cmake: cmake -E tar failed (${code})\n${tar_out}${tar_err}")
 endif()
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "${archive}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "${archive}" ENCODING UTF-8)

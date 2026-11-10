@@ -49,10 +49,11 @@ function(fail what)
 endfunction()
 
 # mosac は WORK/src で動かす。--verbose は結んだ翻訳済みのライブラリの行を出す。
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${library_env} ${compiler_env}
     "${MOSAC}" build --verbose "${program}.pl" -o "${WORK}/run/${program}"
   WORKING_DIRECTORY "${WORK}/src"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 set(exe "${WORK}/run/${program}${EXE_SUFFIX}")
 if(NOT code EQUAL 0 OR NOT EXISTS "${exe}")
   fail("build")
@@ -103,7 +104,7 @@ endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB "LANG=ja_JP.UTF-8" "${exe}"
   WORKING_DIRECTORY "${WORK}/run"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60 ENCODING UTF-8)
 string(REPLACE "\r\n" "\n" out "${out}")
 string(REPLACE "\r\n" "\n" err "${err}")
 

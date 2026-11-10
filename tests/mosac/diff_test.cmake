@@ -13,12 +13,13 @@ foreach(name MOSATEST DIR WORK CMAKE_PATH CONFIG ROOT)
 endforeach()
 
 set(ENV{MOSA_WERROR} 1)
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${MOSATEST}" --diff "${DIR}" --work "${WORK}" --cmake "${CMAKE_PATH}" --config "${CONFIG}"
   WORKING_DIRECTORY "${ROOT}"
   OUTPUT_VARIABLE out
   ERROR_VARIABLE err
   RESULT_VARIABLE code
-  TIMEOUT 3000)
+  TIMEOUT 3000 ENCODING UTF-8)
 message("${out}")
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "mosatest --diff ${DIR}: code=[${code}] err=[${err}]")

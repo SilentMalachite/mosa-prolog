@@ -21,8 +21,9 @@ function(fail what)
   message(FATAL_ERROR "interactive: ${what}: code=[${code}] out=[${out}] err=[${err}]")
 endfunction()
 
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "${MOSAC}" build --interactive interactive.pl -o interactive
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0 OR NOT EXISTS "${WORK}/interactive${EXE_SUFFIX}")
   fail("build --interactive")
 endif()
@@ -31,7 +32,7 @@ endif()
 macro(replay program)
   execute_process(COMMAND "${program}" ${ARGN}
     INPUT_FILE "${WORK}/interactive.in" WORKING_DIRECTORY "${WORK}"
-    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
   string(REPLACE "\r\n" "\n" out "${out}")
   string(REPLACE "\r\n" "\n" err "${err}")
 endmacro()
@@ -49,31 +50,31 @@ endif()
 # 以下は実行ファイル側だけを見る（基準と一致するとは限らない）。
 # 1. initialization(main, main) の main は動かさない（暫定。owner 未決。docs/STATUS.md）。argv は引数、halt(3) の値が終了コード。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "${MOSAC}" build --interactive interactive_main.pl -o imain
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   fail("build interactive_main")
 endif()
 execute_process(COMMAND "${WORK}/imain${EXE_SUFFIX}" arg1 INPUT_FILE "${WORK}/interactive_main.in" WORKING_DIRECTORY "${WORK}"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 3 OR out MATCHES "MARKER-MAIN" OR NOT out MATCHES "Z = \\[a, ?b\\]" OR NOT out MATCHES "A = \\[arg1\\]")
   fail("main skipped, argv and halt(3)")
 endif()
 
 # 2. --debug の実行ファイルでは app/3 の節の追跡が標準エラーに出る。翻訳済みの節が実際に動いている印である。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "${MOSAC}" build --interactive --debug interactive_main.pl -o idebug
-  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   fail("build --debug")
 endif()
 execute_process(COMMAND "${WORK}/idebug${EXE_SUFFIX}" INPUT_FILE "${WORK}/interactive_main.in" WORKING_DIRECTORY "${WORK}"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT err MATCHES "app\\(")
   fail("translated app/3 must run natively (trace)")
 endif()
 
 # 3. consult/1 で app/3 を定義し直すと翻訳済みの単位が外れ（ADR 0009）、インタプリタの定義で答える。
 execute_process(COMMAND "${WORK}/idebug${EXE_SUFFIX}" INPUT_FILE "${WORK}/interactive_redef.in" WORKING_DIRECTORY "${WORK}"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT out MATCHES "X = redefined")
   fail("consult must detach the translated app/3")
 endif()

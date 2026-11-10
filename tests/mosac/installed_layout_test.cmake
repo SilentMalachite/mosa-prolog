@@ -20,8 +20,9 @@ set(install_args --install "${BUILD_DIR}" --prefix "${prefix}")
 if(CONFIG)
   list(APPEND install_args --config "${CONFIG}")
 endif()
+# ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${CMAKE_COMMAND}" ${install_args}
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0)
   message(FATAL_ERROR "install: code=[${code}] out=[${out}] err=[${err}]")
 endif()
@@ -59,13 +60,13 @@ endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB ${compiler_env}
     "${prefix}/bin/mosac${EXE_SUFFIX}" build "${SRC}/hello.pl" -o hello
   WORKING_DIRECTORY "${WORK}/work"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0 OR NOT EXISTS "${WORK}/work/hello${EXE_SUFFIX}")
   message(FATAL_ERROR "build with the installed mosac: code=[${code}] out=[${out}] err=[${err}]")
 endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=MOSA_LIB "${WORK}/work/hello${EXE_SUFFIX}"
   WORKING_DIRECTORY "${WORK}/work"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 60 ENCODING UTF-8)
 string(REPLACE "\r\n" "\n" out "${out}")
 if(NOT code EQUAL 0 OR NOT out STREQUAL "こんにちは\n")
   message(FATAL_ERROR "run hello built by the installed mosac: code=[${code}] out=[${out}] err=[${err}]")
