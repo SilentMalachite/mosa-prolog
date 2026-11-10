@@ -2,7 +2,11 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## 0.1.1 (unreleased)
+## 0.1.1 (2026-11-10)
+
+A release that adds `mosac dist` and fixes the bugs below. It runs on the same computers as 0.1.0
+([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is checked
+against it.
 
 ### Added
 
@@ -17,6 +21,40 @@ English | [日本語](CHANGELOG.ja.md)
   `format("~w~n", [a])` now ends with `true.`, and Mosa goes on to the next query. Mosa 0.1.0 showed `true` with no
   period and waited, as if there could be another answer. Each call also left one choice point behind, so a
   recursive loop that called `format` many times stopped at the heap limit.
+- A bare `,` is no longer read as an atom: `f((,))` and `,(a, b)` are syntax errors, as ISO says (6.4); write `','`
+  instead. A bare `|` is an atom only while `|` is an operator (6.3.4.3).
+- `char_code/2` with both arguments given now compares them: `char_code(a, 98)` fails. Mosa 0.1.0 succeeded.
+- `bagof/3` and `setof/3` no longer put a solution whose free variable is bound to a term such as `'$rename'(0)` in
+  the same group as a solution where that variable is unbound.
+- Closing a stream that reads a file no longer loses what another stream had written to the same file but not yet
+  saved. After `open(F, write, W), write(W, hello), open(F, read, R), close(R)`, the file was empty when Mosa
+  stopped.
+- `call/2` and the other `call/N` no longer crash on a goal with very many module qualifiers, such as one built at
+  run time with a million `user:`.
+- `:- halt(N).` typed at the `?-` prompt now stops Mosa with status `N`. Mosa 0.1.0 ignored it and printed an empty
+  warning.
+- When a file is not loaded because of a syntax error, its `initialization(G, main)` no longer runs.
+- A file with a syntax error again keeps the clauses that were there before it was loaded, also after a directive in
+  it caught an error of a nested `consult/1`.
+- `mosac build` and `mosac run` work for a predicate with 65,536 clauses or more. In Mosa 0.1.0 the generated C++
+  did not compile. `mosac emit` now reports an error when a file it writes cannot be completed.
+- `mosatest`: an expected `solutions(L)` passes only when the goal has exactly the solutions in `L`, in that order.
+  Mosa 0.1.0 checked only the first ones, and passed a goal that succeeded for `solutions([])`. A test folder that
+  cannot be read is now an error message, not a crash.
+
+### Known limits
+
+The known limits of 0.1.0 still hold, except the two that this release removes (`format` and `mosac dist`):
+
+- Grammar rules written with `-->` are not supported: a file that holds one does not load.
+- `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are not built in.
+- `use_module/1` works only in a file: typed at the `?-` prompt, it gives a warning with
+  `existence_error(procedure,use_module/1)` ([chapter 12](docs/manual/en/12-modules-libraries.md)).
+- Typing Japanese in the console window of Windows (with `chcp 932` or `chcp 437`) has not been verified.
+- `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
+- A term nested very deeply in a file, such as `f(f(f(…)))`, can crash Mosa while it reads the file: from about 600
+  levels on Windows, and from a few thousand on macOS and Linux.
+- On Windows, Mosa does not start while Smart App Control is on ([chapter 2](docs/manual/en/02-install.md)).
 
 ## 0.1.0 (2026-11-08)
 

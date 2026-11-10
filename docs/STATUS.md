@@ -1,8 +1,8 @@
 # Status
 
-Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main: the Muse review fixes on top of 9ef0784, CI not run yet (2026-11-10); last green CI run 42699403723 at ac6d35d; v0.1.0 released 2026-11-08 (tag at 0b09fe4, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.0))
+Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main 8741858, CI run 42730896231 passed all 8 jobs (2026-11-10); v0.1.0 released 2026-11-08 (tag at 0b09fe4, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.0))
 
-- **In progress:** none.
+- **In progress:** release 0.1.1 on branch `release-0.1.1` (owner's request 2026-11-10): version 0.1.1, dated CHANGELOG with the review fixes, trial release run, then tag `v0.1.1` and a draft release. The owner publishes it.
 - **Last done:** a Muse review of the whole tree (5 read-only runs, then an adversarial review), each fix with a test that fails first: char_code/2 with both arguments bound, bagof/setof keys against user terms such as `'$rename'(0)`, closing a reader dropped unsaved writes to the same file at halt, a failed open/4 cleared a closed alias, closed streams kept their bytes, deep `M:` in call/N crashed, REPL `:- halt(N).` was ignored, a rejected load kept `initialization(G, main)`, a recovered nested consult left `load_kept`, mosatest `solutions/1` now needs every solution, unreadable test folders, the Logtalk judge's forall/2 (earlier bindings, endless retry), broken `agreement.json`, an unwritable conformance report, codegen past 65535 clauses, bare `,` and `|` read as atoms (6.4), the Unicode table rollback; also float_op split, the control.cpp header and closing written files.
 - **Next:** CI on 3 OSes for these commits, then the phase 7 exit check (SPEC section 9) and 0.1.1. Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
