@@ -395,7 +395,10 @@ class OutputScope {
   OutputScope& operator=(const OutputScope&) = delete;
   ~OutputScope() {
     restore();
-    if (owns_) machine_.streams[index_].closed = true;
+    if (!owns_) return;
+    // 束縛の後か例外で抜けるときに来る。閉じたスロットは再利用しないので、捕獲した中身をここで手放す。
+    machine_.streams[index_].closed = true;
+    std::string{}.swap(machine_.streams[index_].bytes);
   }
 
   void restore() {
@@ -425,7 +428,10 @@ struct PortrayHook {
   PortrayHook& operator=(const PortrayHook&) = delete;
 
   ~PortrayHook() {
-    if (have_scratch && machine != nullptr) machine->streams[scratch].closed = true;
+    if (have_scratch && machine != nullptr) {
+      machine->streams[scratch].closed = true;
+      std::string{}.swap(machine->streams[scratch].bytes);
+    }
   }
 };
 

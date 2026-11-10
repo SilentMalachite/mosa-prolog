@@ -67,91 +67,84 @@ int float_round(Impl& machine, const Goal& goal, std::string_view name, double v
   return 0;
 }
 
+// 定義域の外。undefined の旗が off なら、誤りにせず NaN を返す。
+int undefined_value(Impl& machine, const Goal& goal, double& out) {
+  if (!machine.float_undefined_error) {
+    out = std::numeric_limits<double>::quiet_NaN();
+    return 1;
+  }
+  fail_eval(machine, goal, "undefined");
+  return -1;
+}
+
+int checked(Impl& machine, const Goal& goal, double value, bool finite_in, double& out) {
+  if (bad_float(machine, goal, value, finite_in)) return -1;
+  out = value;
+  return 1;
+}
+
+int float_unary(Impl& machine, const Goal& goal, std::string_view name, double value, double& out) {
+  auto apply = [&](double (*fn)(double)) { return checked(machine, goal, fn(value), std::isfinite(value), out); };
+  if (name == "sqrt") return value < 0 ? undefined_value(machine, goal, out) : apply(std::sqrt);
+  if (name == "sin") return apply(std::sin);
+  if (name == "cos") return apply(std::cos);
+  if (name == "tan") return apply(std::tan);
+  if (name == "asin") return apply(std::asin);
+  if (name == "acos") return apply(std::acos);
+  if (name == "atan") return apply(std::atan);
+  if (name == "exp") return apply(std::exp);
+  return 0;
+}
+
+// log(B, X) の底 1 は ln B = 0 で割ることになる。底として意味が無いので、0 以下と同じく undefined。
+int float_log(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out) {
+  const bool with_base = name == "log" && in.size() == 2;
+  if (!with_base && in.size() != 1) return 0;
+  if (in[0] <= 0 || (with_base && (in[0] == 1 || in[1] <= 0))) return undefined_value(machine, goal, out);
+  if (with_base) {
+    return checked(machine, goal, std::log(in[1]) / std::log(in[0]), std::isfinite(in[0]) && std::isfinite(in[1]),
+                   out);
+  }
+  return checked(machine, goal, name == "log" ? std::log(in[0]) : std::log2(in[0]), std::isfinite(in[0]), out);
+}
+
+int float_atan2(Impl& machine, const Goal& goal, std::span<const double> in, double& out) {
+  if (in.size() != 2) return 0;
+  if (in[0] == 0 && in[1] == 0) return undefined_value(machine, goal, out);
+  return checked(machine, goal, std::atan2(in[0], in[1]), true, out);
+}
+
 }  // namespace
 
 int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out,
              bool& as_int, std::int64_t& iout) {
-  const int count = static_cast<int>(in.size());
-  auto unary = [&](double (*fn)(double)) {
-    if (count != 1) return 0;
-    const double value = fn(in[0]);
-    if (bad_float(machine, goal, value, std::isfinite(in[0]))) return -1;
-    out = value;
-    return 1;
-  };
-  if (name == "sqrt") {
-    if (count != 1) return 0;
-    if (in[0] < 0) {
-      if (!machine.float_undefined_error) {
-        out = std::numeric_limits<double>::quiet_NaN();
-        return 1;
-      }
-      fail_eval(machine, goal, "undefined");
-      return -1;
-    }
-    return unary(std::sqrt);
+  const std::size_t count = in.size();
+  if (count == 1) {
+    if (const int done = float_unary(machine, goal, name, in[0], out); done != 0) return done;
   }
-  if (name == "sin") return unary(std::sin);
-  if (name == "cos") return unary(std::cos);
-  if (name == "tan") return unary(std::tan);
-  if (name == "asin") return unary(std::asin);
-  if (name == "acos") return unary(std::acos);
-  if (name == "atan") return unary(std::atan);
-  if (name == "exp") return unary(std::exp);
-  if (name == "log" || name == "log2") {
-    // log(B, X) の底 1 は ln B = 0 で割ることになる。底として意味が無いので、0 以下と同じく undefined。
-    const bool with_base = name == "log" && count == 2;
-    if ((count == 1 && in[0] <= 0) || (with_base && (in[0] <= 0 || in[0] == 1 || in[1] <= 0))) {
-      if (!machine.float_undefined_error) {
-        out = std::numeric_limits<double>::quiet_NaN();
-        return 1;
-      }
-      fail_eval(machine, goal, "undefined");
-      return -1;
-    }
-    if (with_base) {
-      out = std::log(in[1]) / std::log(in[0]);
-      return bad_float(machine, goal, out, std::isfinite(in[0]) && std::isfinite(in[1])) ? -1 : 1;
-    }
-    return name == "log" ? unary(std::log) : unary(std::log2);
-  }
-  if (name == "atan2") {
-    if (count != 2) return 0;
-    if (in[0] == 0 && in[1] == 0) {
-      if (!machine.float_undefined_error) {
-        out = std::numeric_limits<double>::quiet_NaN();
-        return 1;
-      }
-      fail_eval(machine, goal, "undefined");
-      return -1;
-    }
-    out = std::atan2(in[0], in[1]);
-    if (bad_float(machine, goal, out, true)) return -1;
-    return 1;
-  }
-  if (name == "float" && count == 1) {
-    out = in[0];
-    return 1;
-  }
+  if (name == "log" || name == "log2") return float_log(machine, goal, name, in, out);
+  if (name == "atan2") return float_atan2(machine, goal, in, out);
   if (name == "copysign" && count == 2) {
     out = std::copysign(in[0], in[1]);
     return 1;
   }
   if (name == "nexttoward" && count == 2) {
-    out = std::nexttoward(in[0], in[1]);
-    if (bad_float(machine, goal, out, std::isfinite(in[0]))) return -1;
+    return checked(machine, goal, std::nexttoward(in[0], in[1]), std::isfinite(in[0]), out);
+  }
+  if (count != 1) return 0;
+  if (name == "float") {
+    out = in[0];
     return 1;
   }
-  if (name == "float_integer_part" && count == 1) {
+  if (name == "float_integer_part") {
     out = std::trunc(in[0]);
     return 1;
   }
-  if (name == "float_fractional_part" && count == 1) {
+  if (name == "float_fractional_part") {
     out = in[0] - std::trunc(in[0]);
     return 1;
   }
-  if (count == 1 && (name == "integer" || name == "truncate" || name == "floor" || name == "ceiling" ||
-                     name == "round")) {
+  if (name == "integer" || name == "truncate" || name == "floor" || name == "ceiling" || name == "round") {
     return float_round(machine, goal, name, in[0], as_int, iout);
   }
   return 0;

@@ -302,18 +302,19 @@ void finish_open(Impl& machine, const Goal& goal, Cell source, Cell slot, const 
   made.eof_action = choice.eof;
   made.reposition = choice.reposition;
   made.path = std::string{atom_text(machine, source)};
-  if (choice.has_alias) {
-    // 閉じた流れが同じ別名を持ったままだと、新しい流れに届かない。
-    for (Stream& old : machine.streams) {
-      if (old.closed && old.alias == choice.alias) old.alias.clear();
-    }
-    made.alias = choice.alias;
-  }
+  if (choice.has_alias) made.alias = choice.alias;
   const auto path = path_from_utf8(made.path);
   if (choice.mode == Stream::Mode::Read) {
     if (fill_read(machine, goal, source, path, made) || take_alias(machine, goal, choice)) return;
   } else if (take_alias(machine, goal, choice) || fill_write(machine, goal, source, path, made)) {
     return;
+  }
+  // 閉じた流れが同じ別名を持ったままだと、新しい流れに届かない。消すのは開けると決まってから。
+  // 失敗した open が消すと、その別名の誤りが existence_error から domain_error に変わる。
+  if (choice.has_alias) {
+    for (Stream& old : machine.streams) {
+      if (old.closed && old.alias == choice.alias) old.alias.clear();
+    }
   }
   bind_new(machine, goal, slot, std::move(made));
 }
@@ -475,9 +476,10 @@ bool same_file(const Stream& left, const Stream& right) {
 
 // close と flush_output で保存したファイルは、それより前に書いて放置した別の流れに終わりで戻されない
 // （Grok のレビューの High）。その流れがまた書けば unsaved が立ち、全体を書き直す。
+// 読む流れは何も書かないので、同じファイルへ書いて放置した流れの中身を消してはいけない。
 void settle_same_file(Impl& machine, std::size_t index) {
   const Stream& saved = machine.streams[index];
-  if (saved.kind != Stream::Kind::File) return;
+  if (saved.kind != Stream::Kind::File || saved.mode == Stream::Mode::Read) return;
   for (std::size_t other = 0; other < machine.streams.size(); ++other) {
     Stream& stream = machine.streams[other];
     if (other == index || stream.closed || !stream.unsaved || stream.kind != Stream::Kind::File) continue;
@@ -489,6 +491,8 @@ void settle_same_file(Impl& machine, std::size_t index) {
 
 void mark_closed(Impl& machine, std::size_t index) {
   machine.streams[index].closed = true;
+  // スロットは再利用しないので、中身を持ち続けると開け閉めのたびにメモリが増える。閉じた後は誤りしか返さない。
+  std::string{}.swap(machine.streams[index].bytes);
   // 閉じた流れが現在入出力なら、標準の別名に戻す。
   if (machine.current_in == index) machine.current_in = 0;
   if (machine.current_out == index) machine.current_out = 1;

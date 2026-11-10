@@ -297,6 +297,15 @@ void check_save_beats_older_edits() {
   mosa_test::check(third.code == 0 && holds(later, "draft+late"), "an edit after the save wins, got " + shown(later));
 }
 
+// Muse のレビューの High。同じファイルを読む流れを閉じても、何も保存していないので、書いて放置した流れは halt で残る。
+void check_reader_close_keeps_edits() {
+  const auto path = tmp_path("m5_reader_close.txt");
+  fresh(path);
+  const auto result = batch({"-g", "open('" + path + "', write, W), write(W, hello), open('" + path +
+                                       "', read, R), close(R).", "-t", "halt"});
+  mosa_test::check(result.code == 0 && holds(path, "hello"), "closing a reader keeps the edit, got " + shown(path));
+}
+
 // Grok のレビューの Medium。保存はファイルと同じ先頭を書き直さず、続きだけを書く。append の元の中身は切り詰めない。
 void check_save_writes_only_the_rest() {
   const auto app = tmp_path("m5_tail.txt");
@@ -349,6 +358,7 @@ int main() {
   check_embedded_leaves_others();
   check_only_unsaved_streams();
   check_save_beats_older_edits();
+  check_reader_close_keeps_edits();
   check_save_writes_only_the_rest();
   return mosa_test::failures();
 }

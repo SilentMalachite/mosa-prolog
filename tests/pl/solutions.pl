@@ -50,6 +50,13 @@ r(3).
 test(bagof_share, (bagof(f(X), (X = Y; X = Z), S), Y = a, S == [f(a), f(Z)]), true).
 test(setof_same_var, (setof(X, (X = Y; X = Y), L), L == [Y]), true).
 test(bagof_rename, bagof(none, q(X, Y, Z), L), solutions([(X = Z, L = [none, none]), (Y = Z, L = [none])])).
+% 証人の鍵の印と同じ形の利用者の項は、ゴールが作った変数と別の組になる（8.10.2.1）。
+pm(1, f('$rename'(0))).
+pm(2, f(_)).
+pm(3, f('$quote'('$rename'(0)))).
+% '$quote' も包む。包まないと pm(4) の鍵が pm(1) を包んだ鍵と同じ f('$quote'('$rename'(0))) になる。
+pm(4, f('$quote'(_))).
+test(bagof_marker_shaped, (findall(L, bagof(X, pm(X, _), L), Ls), Ls == [[1], [2], [3], [4]]), true).
 test(scan_asserta, (a(X), findall(_, asserta(a(9)), _)), solutions([X = 1, X = 2])).
 test(a_now, a(X), solutions([X = 9, X = 9, X = 1, X = 2])).
 % ADR 0008。開いた走査は消した r(2) も試す。新しい呼び出しの r_left は見ない。

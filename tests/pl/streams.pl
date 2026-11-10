@@ -36,6 +36,10 @@ test(open_missing, open('/no/such/mosa-open-file', read, S), error(existence_err
 test(open_utf8_missing, open('/no/such/mosa-open-file', read, S, [encoding(utf8)]), error(existence_error(source_sink, '/no/such/mosa-open-file'))).
 test(open_alias_after_missing, open('/no/such/mosa-open-file', read, S, [alias(user_input)]), error(existence_error(source_sink, '/no/such/mosa-open-file'))).
 test(open_alias_user_input, open('/no/such/mosa-open-file', write, S, [alias(user_input)]), error(permission_error(open, source_sink, alias(user_input)))).
+% 開けなかった open は、閉じた流れが持つ別名を消さない。その別名の誤りは existence_error のまま。
+test(open_failed_keeps_closed_alias, (open('tests/tmp/streams_alias.txt', write, S, [alias(streams_kept)]), close(S),
+  catch(open('/no/such/mosa-open-file', read, _, [alias(streams_kept)]), error(existence_error(source_sink, _), _), true),
+  catch(write(streams_kept, x), error(E, _), true), E == existence_error(stream, streams_kept)), true).
 test(open_write_nodir, open('/no/such/mosa-open-dir/file', write, S), error(permission_error(open, source_sink, '/no/such/mosa-open-dir/file'))).
 % レビュー L5。ディレクトリは読みにも追記にも開けない（8.11.5.3 f）。前は読みが成功し、end_of_file を返した。
 test(l5_open_dir_read, open('tests/pl', read, S), error(permission_error(open, source_sink, 'tests/pl'))).

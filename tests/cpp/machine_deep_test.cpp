@@ -73,11 +73,24 @@ void check_compile_long_list() {
   mosa_test::check(machine->load_program(program).ok, "compile long list: load");
 }
 
+// Muse のレビューの High。call/N は M:…:G の G に引数を足す。実行時に組み立てた深さ 1,000,000 の
+// user:…:p でも C++ の再帰なしで足す（iso-notes 7.1）。call/1 の経路は前から通る。
+void check_call_qualified_deep() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program("p(X) :- X == a. wrap(0, G, G) :- !. "
+                                         "wrap(N, G, T) :- M is N - 1, wrap(M, user:G, T).")
+                       .ok,
+                   "call qualified deep: load");
+  const auto called = machine->query("wrap(1000000, p, T), call(T, a), !, T = user:_.");
+  mosa_test::check(called.kind == mosa::StopKind::Success, "call qualified deep: call/2 adds the argument");
+}
+
 }  // namespace
 
 int main() {
   check_answer_deep();
   check_ir_deep_copy_destroy();
   check_compile_long_list();
+  check_call_qualified_deep();
   return mosa_test::failures();
 }

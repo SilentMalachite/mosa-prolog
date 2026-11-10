@@ -1,3 +1,14 @@
+// 7.8.3 call/1 (+callable_term)、8.15.4 call/2..8 (+callable_term, ?term, ...)
+//   instantiation_error, type_error(callable, Goal)
+// 8.15.1 (\+)/1 (+callable_term)、8.15.2 once/1 (+callable_term)
+//   instantiation_error, type_error(callable, Goal)
+// 8.15.3 repeat/0
+// 8.17.3 halt/0、8.17.4 halt/1 (+integer)
+//   instantiation_error, type_error(integer, Code)
+// forall/2 (+callable_term, +callable_term) と if/3 (+callable_term, +callable_term, +callable_term) は非 ISO
+//   instantiation_error, type_error(callable, Goal)
+// テスト: tests/pl/control.pl
+
 #include "../machine/internal.hpp"
 
 #include <array>
@@ -31,14 +42,7 @@ Cell unqualified(const Impl& machine, Cell goal) {
   return goal;
 }
 
-Cell appended(Impl& machine, Cell goal, const Goal& frame) {
-  goal = machine.heap.deref(goal);
-  // call(user:p, X) は user:p(X) である。文脈の切り替えは :/2 に任せ、ここでは G にだけ足す。
-  if (is_qualified(machine, goal)) {
-    const Cell inner = appended(machine, machine.heap.arg(goal, 1), frame);
-    const std::array<Cell, 2> parts{machine.heap.arg(goal, 0), inner};
-    return machine.heap.structure(machine.heap.functor_atom(goal), parts);
-  }
+Cell with_args(Impl& machine, Cell goal, const Goal& frame) {
   std::vector<Cell> args;
   std::uint32_t name = 0;
   if (goal.tag() == Tag::Atom) {
@@ -55,6 +59,24 @@ Cell appended(Impl& machine, Cell goal, const Goal& frame) {
   }
   for (std::uint16_t index = 1; index < frame.arity; ++index) args.push_back(frame.arg(machine, index));
   return machine.heap.structure(name, args);
+}
+
+// call(user:p, X) は user:p(X) である。文脈の切り替えは :/2 に任せ、ここでは G にだけ足す。
+// :/2 の段ごとに再帰すると、実行時に組み立てた深い M:…:G で C++ のスタックが尽きる（iso-notes 7.1）。
+// 段を外側から積み、内側から組み直す。割り当ての順は前の再帰と同じ。
+Cell appended(Impl& machine, Cell goal, const Goal& frame) {
+  std::vector<Cell> layers;
+  goal = machine.heap.deref(goal);
+  while (is_qualified(machine, goal)) {
+    layers.push_back(goal);
+    goal = machine.heap.deref(machine.heap.arg(goal, 1));
+  }
+  Cell built = with_args(machine, goal, frame);
+  for (auto layer = layers.rbegin(); layer != layers.rend(); ++layer) {
+    const std::array<Cell, 2> parts{machine.heap.arg(*layer, 0), built};
+    built = machine.heap.structure(machine.heap.functor_atom(*layer), parts);
+  }
+  return built;
 }
 
 bool run_call(Impl& machine, const Goal& goal) {

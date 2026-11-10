@@ -41,6 +41,9 @@ test(atom_codes_in, atom_codes(X, [97, 98, 99]), solutions([X = abc])).
 test(char_code_out, char_code(a, C), solutions([C = 97])).
 test(char_code_in, char_code(C, 99), solutions([C = c])).
 test(char_code_open, char_code(C, Code), error(instantiation_error)).
+test(char_code_both_match, char_code(a, 97), true).
+test(char_code_both_mismatch, char_code(a, 98), fail).
+test(char_code_both_mismatch_rev, char_code(b, 97), fail).
 test(number_chars_int, number_chars(33, L), solutions([L = ['3', '3']])).
 test(number_chars_in, number_chars(X, ['3', '3']), solutions([X = 33])).
 test(number_chars_neg, number_chars(-25, L), solutions([L = ['-', '2', '5']])).

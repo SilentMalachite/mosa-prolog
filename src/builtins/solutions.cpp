@@ -281,7 +281,15 @@ struct Encoder {
   std::unordered_map<std::uint64_t, Cell>& seen;
   std::uint32_t external;
   std::uint32_t renaming;
+  std::uint32_t quoting;
   std::vector<EncodeFrame> frames;
+
+  // 利用者の項にも '$rename'(0) などは書ける。印と同じ形の複合項を '$quote'(…) で包み、鍵を単射に保つ。
+  bool marker_shaped(Cell cell) const {
+    if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 1) return false;
+    const std::uint32_t name = machine.heap.functor_atom(cell);
+    return name == external || name == renaming || name == quoting;
+  }
 
   // 葉はその場で写し、まだ見ていない複合項は穴を返して frames に積む。
   Cell start(Cell cell) {
@@ -298,12 +306,13 @@ struct Encoder {
     if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
     if (const auto found = seen.find(cell.raw()); found != seen.end()) return found->second;
     const Cell hole = machine.heap.fresh_ref();
-    seen.emplace(cell.raw(), hole);
+    const Cell shown = marker_shaped(cell) ? machine.heap.structure(quoting, std::array<Cell, 1>{hole}) : hole;
+    seen.emplace(cell.raw(), shown);
     const std::uint16_t arity = cell.tag() == Tag::Lis ? 2 : machine.heap.functor_arity(cell);
     std::vector<Cell> args;
     args.reserve(arity);
     frames.push_back(EncodeFrame{hole, cell, 0, arity, std::move(args)});
-    return hole;
+    return shown;
   }
 
   Cell child(const EncodeFrame& frame) const {
@@ -340,7 +349,13 @@ struct Encoder {
 Cell coded_key(Impl& machine, const std::vector<Cell>& witnesses, VarIds& ids) {
   std::vector<Cell> key_items;
   std::unordered_map<std::uint64_t, Cell> seen;
-  Encoder encoder{machine, ids, seen, machine.atoms.intern("$witness"), machine.atoms.intern("$rename"), {}};
+  Encoder encoder{machine,
+                  ids,
+                  seen,
+                  machine.atoms.intern("$witness"),
+                  machine.atoms.intern("$rename"),
+                  machine.atoms.intern("$quote"),
+                  {}};
   for (const Cell& var : witnesses) key_items.push_back(encoder.run(var));
   return list_from_cells(machine, key_items);
 }

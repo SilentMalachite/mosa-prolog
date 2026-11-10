@@ -308,7 +308,8 @@ void run_char_code(Impl& machine, const Goal& goal) {
     const auto value = static_cast<char32_t>(machine.heap.integer_value(code));
     left = machine.heap.atom(machine.atoms.intern_char(value));
   }
-  if (code_var) right = machine.heap.integer(static_cast<std::int64_t>(scalar));
+  // 両方が束縛済みでも文字の側のコードと比べる。元の引数どうしだと自分自身との単一化で通ってしまう（8.16.6）。
+  if (!character_var) right = machine.heap.integer(static_cast<std::int64_t>(scalar));
   if (!do_unify(machine, goal.arg(machine, 0), left) || !do_unify(machine, goal.arg(machine, 1), right)) {
     machine.failed = true;
     return;
