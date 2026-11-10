@@ -222,6 +222,8 @@ built-in predicates; the row gives 6.5.2, the clause that turns a module-qualifi
 | `once/1` | 8.15.2 | `once(G)`: the first answer of G only. |
 | `repeat/0` | 8.15.3 | Succeeds again each time Prolog backtracks into it. |
 | `forall/2` | — | `forall(C, A)`: succeeds when A succeeds for every answer of C. |
+| `phrase/2` | 13211-3 | `phrase(G, L)`: the grammar body G reads the whole list L. |
+| `phrase/3` | 13211-3 | `phrase(G, L, R)`: G reads the start of L and leaves R. |
 | `catch/3` | 7.8.9 | `catch(G, Catcher, Recovery)`: runs G, and runs Recovery if G raises an error that unifies with Catcher. |
 | `throw/1` | 7.8.10 | Raises the term as an exception. |
 | `setup_call_cleanup/3` | — | `setup_call_cleanup(S, G, C)`: runs S once, then G, then C once when G is done: after its last answer, a failure, an error or a cut. |
@@ -549,7 +551,6 @@ source tree.
 The [CHANGELOG](../../../CHANGELOG.md) lists the known limits of Mosa 0.1.1, and is updated when one is found or
 removed. Among them:
 
-- Grammar rules written with `-->` are not supported: a file that holds one does not load.
 - Typing Japanese in the console window of Windows has not been verified.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
 - A term nested very deeply in a file, such as `f(f(f(…)))`, can crash Mosa while it reads the file: from about 600

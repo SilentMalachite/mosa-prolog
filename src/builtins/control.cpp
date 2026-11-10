@@ -7,6 +7,7 @@
 //   instantiation_error, type_error(integer, Code)
 // forall/2 (+callable_term, +callable_term) と if/3 (+callable_term, +callable_term, +callable_term) は非 ISO
 //   instantiation_error, type_error(callable, Goal)
+// phrase/2,3 は phrase.cpp（ここは振り分けだけ）
 // テスト: tests/pl/control.pl
 
 #include "../machine/internal.hpp"
@@ -254,6 +255,7 @@ bool run_control(Impl& machine, const Goal& goal) {
   if (name == "repeat" && goal.arity == 0) return run_repeat(machine, goal);
   if (name == "forall" && goal.arity == 2) return run_forall(machine, goal);
   if (name == "if" && goal.arity == 3) return run_if(machine, goal);
+  if (name == "phrase" && (goal.arity == 2 || goal.arity == 3)) return run_phrase(machine, goal);
   if (name == "halt" && goal.arity <= 1) return run_halt(machine, goal);
   return false;
 }

@@ -200,3 +200,12 @@ test(m32_ja_before, sub_atom('𠮷野家', 1, L, A, S), solutions([
     (L = 2, A = 0, S = '野家')
 ])).
 test(m32_ja_scalar_sub, sub_atom('野𠮷野𠮷', B, _, A, '𠮷'), solutions([(B = 1, A = 2), (B = 3, A = 0)])).
+% 日本語の名前の文法規則と、全角の文字コードの終端記号（ADR 0024）。
+挨拶 --> [こんにちは], 呼び名.
+呼び名 --> [太郎].
+呼び名 --> [花子].
+漢数字(1) --> "一".
+漢数字(2) --> "二".
+test(dcg_japanese, phrase(挨拶, [こんにちは, 花子]), true).
+test(dcg_japanese_all, phrase(挨拶, L), solutions([L = [こんにちは, 太郎], L = [こんにちは, 花子]])).
+test(dcg_japanese_codes, (atom_codes('二', Cs), phrase(漢数字(N), Cs)), solutions([N = 2])).

@@ -71,6 +71,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/gc_compact.cpp
   src/machine/load.cpp
   src/machine/load_clauses.cpp
+  src/machine/dcg.cpp
   src/machine/native.cpp
   src/machine/native_redo.cpp
   src/machine/native_control.cpp
@@ -140,6 +141,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/char_width.cpp
   src/builtins/terms.cpp
   src/builtins/control.cpp
+  src/builtins/phrase.cpp
   src/builtins/arith.cpp
   src/builtins/arith_float.cpp
   src/builtins/atoms.cpp

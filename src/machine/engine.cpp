@@ -309,6 +309,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"current_module", 1},
     {"forall", 2},
     {"if", 3},
+    {"phrase", 2},
+    {"phrase", 3},
     {"predicate_property", 2},
     {"length", 2},
     {"sort", 2},

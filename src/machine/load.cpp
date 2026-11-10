@@ -1,5 +1,7 @@
 #include "load_internal.hpp"
 
+#include "dcg.hpp"
+
 #include "mosa/library_path.hpp"
 #include "mosa/path_text.hpp"
 #include "mosa/reader.hpp"
@@ -419,10 +421,11 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
   // mosatest の test/3 は節にせず横取りする（suite.cpp）。指示より先に見るので、横取りした項は何も変えない。
   if (machine.term_hook && machine.term_hook(read, origin)) return true;
   Cell term = read.term;
+  // 文法規則は訳した節として、以下の節と同じ道を通す（ADR 0024）。
   if (is_rule_arrow(machine.heap, term)) {
-    fail_load(machine, message_text(machine, "directive_unsupported",
-                                    {write_term(machine.heap, machine.operators, term, {}, {})}));
-    return false;
+    const DcgOut translated = dcg_rule(machine, term);
+    if (translated.formal) return fail_formal(machine, *translated.formal) > 0;
+    term = translated.term;
   }
   const int included = apply_file(machine, term, directory, scan, "include", false);
   if (included != 0) return included > 0;

@@ -350,6 +350,11 @@ target_compile_definitions(include_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_
 target_link_libraries(include_test PRIVATE mosa_lib)
 add_test(NAME include_test COMMAND $<TARGET_FILE:include_test>)
 
+add_executable(dcg_test tests/cpp/dcg_test.cpp)
+target_include_directories(dcg_test PRIVATE tests/cpp)
+target_link_libraries(dcg_test PRIVATE mosa_lib)
+add_test(NAME dcg_test COMMAND $<TARGET_FILE:dcg_test>)
+
 add_executable(ensure_test tests/cpp/ensure_test.cpp)
 target_include_directories(ensure_test PRIVATE tests/cpp)
 target_compile_definitions(ensure_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -695,7 +700,7 @@ set(diff_bench_files bench_nrev.pl bench_queens.pl bench_zebra.pl bench_tak.pl b
 add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/pl -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_tests_pl
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
-  "-DREQUIRE=japanese.pl;native.pl;${diff_bench_files}" "-DATTACHED=native.pl;${diff_bench_files}" -DROOT=${CMAKE_SOURCE_DIR}
+  "-DREQUIRE=japanese.pl;native.pl;dcg.pl;${diff_bench_files}" "-DATTACHED=native.pl;${diff_bench_files}" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
 set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK "agreement;pl_tmp"
   TIMEOUT 3000)

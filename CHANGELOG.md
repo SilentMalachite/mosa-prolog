@@ -2,6 +2,14 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Grammar rules: a clause `Head --> Body` in a file is translated to an ordinary clause when the file is loaded, in
+  `mosa` and in programs built by `mosac`. `phrase/2` and `phrase/3` are built in. A grammar rule passed to
+  `assertz/1` is not translated, and `term_expansion/2` is not supported.
+
 ## 0.1.1 (2026-11-10)
 
 A release that adds `mosac dist` and fixes the bugs below. It runs on the same computers as 0.1.0
