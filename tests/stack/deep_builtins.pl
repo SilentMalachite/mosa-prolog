@@ -72,6 +72,27 @@ fdepth(T, N) :- fdepth(T, 0, N).
 fdepth(T, N0, N) :- nonvar(T), T = f(X), !, N1 is N0 + 1, fdepth(X, N1, N).
 fdepth(_, N, N).
 
+% 文法規則の本体の入れ子（ADR 0024、Codex のレビューの P1）。phrase/2 は実行時に組み立てた本体を訳すので、左と右の
+% 連言、左の選言、条件、\+、M:B のどの入れ子でも深さに比例する時間で動くこと。
+gram_conj_left(0, []) :- !.
+gram_conj_left(N, (G, [])) :- M is N - 1, gram_conj_left(M, G).
+
+gram_conj_right(0, []) :- !.
+gram_conj_right(N, ([], G)) :- M is N - 1, gram_conj_right(M, G).
+
+gram_disj_left(0, []) :- !.
+gram_disj_left(N, (G ; [x])) :- M is N - 1, gram_disj_left(M, G).
+
+gram_ite_cond(0, []) :- !.
+gram_ite_cond(N, (G -> [] ; [x])) :- M is N - 1, gram_ite_cond(M, G).
+
+% 深さは偶数なので、\+ が偶数段の \+ [x] は [] で失敗する。
+gram_not(0, [x]) :- !.
+gram_not(N, (\+ G)) :- M is N - 1, gram_not(M, G).
+
+gram_qualified(0, []) :- !.
+gram_qualified(N, user:G) :- M is N - 1, gram_qualified(M, G).
+
 % 各行は \+ \+ で束縛を戻し、前の行の深い項を次の行へ持ち越さない。
 show(Name, Goal) :-
     (   \+ \+ catch(Goal, E, (write(Name: E), nl, fail))
@@ -139,4 +160,10 @@ main :-
     show(is_cyclic_side_prefix, (sum_left(D, 0, S), X = S+X, sum_right(100, X, E),
                                  catch((_ is E, fail), error(resource_error(cyclic_term), _), true))),
     % レビュー M13。葉の引数が訳している途中のゴール自身を指す巡回するゴール。葉ごとに全体を写すと 2 乗以上になる。
-    show(call_cyclic_leaves, (cyclic_leaves(D, X, G), X = G, call(X))).
+    show(call_cyclic_leaves, (cyclic_leaves(D, X, G), X = G, call(X))),
+    show(phrase_conj_left, (gram_conj_left(D, G), phrase(G, []))),
+    show(phrase_conj_right, (gram_conj_right(D, G), phrase(G, []))),
+    show(phrase_disj_left, (gram_disj_left(D, G), phrase(G, []))),
+    show(phrase_ite_cond, (gram_ite_cond(D, G), phrase(G, []))),
+    show(phrase_not, (gram_not(D, G), \+ phrase(G, []))),
+    show(phrase_qualified, (gram_qualified(D, G), phrase(G, []))).

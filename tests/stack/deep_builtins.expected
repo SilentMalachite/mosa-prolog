@@ -43,3 +43,9 @@ is_cyclic_after_deep:ok
 is_cyclic_side:ok
 is_cyclic_side_prefix:ok
 call_cyclic_leaves:ok
+phrase_conj_left:ok
+phrase_conj_right:ok
+phrase_disj_left:ok
+phrase_ite_cond:ok
+phrase_not:ok
+phrase_qualified:ok

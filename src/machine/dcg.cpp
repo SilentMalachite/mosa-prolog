@@ -1,12 +1,18 @@
 // 文法規則（-->）を節に、文法規則の本体をゴールに訳す（ADR 0024）。13211-3 の本文は手元に無い（iso-notes「13211-3」）。
 //   instantiation_error（頭部、プッシュバック、終端記号のリストの末尾が変数）、type_error(callable, Culprit)、
 //   type_error(list, Culprit)
-// テスト: tests/pl/dcg.pl、tests/cpp/dcg_test.cpp
+// テスト: tests/pl/dcg.pl、tests/cpp/dcg_test.cpp、tests/stack/deep_builtins.pl
+//
+// 本体は再帰せず、明示したスタックで訳す。phrase/2,3 は実行時に組み立てた本体を受けるので、制御構造の入れ子の深さで
+// C++ のスタックが尽きてはならない（iso-notes 7.1、ADR 0011。Codex のレビューの P1）。
 
 #include "dcg.hpp"
 
 #include <array>
+#include <cstdint>
+#include <span>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace mosa {
@@ -14,12 +20,25 @@ namespace {
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
 
+// Enter は本体を 1 つ訳し始める。ほかは制御構造の子を訳し終えた後に、子の結果から制御構造を組み直す。
+enum class Step : std::uint8_t { Enter, Conj, Disj, IfThen, Not, Qualified };
+
+struct Work {
+  Step step = Step::Enter;
+  // Enter では訳す本体。Qualified では M:B の M。
+  Cell body{};
+  Cell s0{};
+  Cell s{};
+  // 組み直す段では、訳している途中の祖先の印から外す制御構造。
+  Cell node{};
+};
+
 class Translator {
  public:
   explicit Translator(Impl& machine) : m_(machine) {}
 
   std::optional<Cell> translate(Cell body, Cell s0, Cell s);
-  DcgOut rule(Cell rule);
+  DcgOut rule(Cell term);
   DcgOut result(std::optional<Cell> term) const {
     DcgOut out;
     if (term) out.term = *term;
@@ -32,9 +51,15 @@ class Translator {
   Impl& m_;
   std::optional<Cell> formal_;
   bool not_callable_ = false;
+  std::vector<Work> work_;
+  std::vector<Cell> done_;
+  // 訳している途中の制御構造（今の本体の祖先）。巡回する本体の戻り先を見つける。
+  std::unordered_set<std::uint64_t> path_;
 
+  bool enter(const Work& item);
+  bool spread(Cell body, const Work& item);
+  void leave(const Work& item);
   std::optional<Cell> single(Cell body, Cell s0, Cell s);
-  std::optional<Cell> control(Cell body, std::string_view name, std::uint16_t arity, Cell s0, Cell s);
   std::optional<Cell> terminals(Cell list, Cell s0, Cell s);
   Cell nonterminal(Cell callable, Cell s0, Cell s);
 
@@ -48,6 +73,14 @@ class Translator {
   Cell unify(Cell left, Cell right) { return pair("=", left, right); }
   // ゴールの後で S0 = S を足す。{}、!、\+ は何も読まない。
   Cell then_same(Cell goal, Cell s0, Cell s) { return pair(",", goal, unify(s0, s)); }
+  // 変数の本体と巡回の戻り先は、実行時に束縛された本体を訳して呼ぶ。call/1 が巡回の戻り先を変数のゴールにして
+  // 呼ぶときに訳すのと同じ（compile.cpp）。
+  Cell late(Cell body, Cell s0, Cell s) { return make("phrase", std::array<Cell, 3>{body, s0, s}); }
+  Cell pop() {
+    const Cell top = done_.back();
+    done_.pop_back();
+    return top;
+  }
   bool is_functor(Cell cell, std::string_view name, std::uint16_t arity) const {
     return cell.tag() == Tag::Str && m_.heap.functor_arity(cell) == arity &&
            m_.atoms.name(m_.heap.functor_atom(cell)) == name;
@@ -74,75 +107,92 @@ class Translator {
   }
 };
 
-// 連言は右へ伸びる鎖をループで辿る。実行時に組み立てた長い本体の phrase/2 で C++ のスタックが尽きないように
-// （iso-notes 7.1）。左へ入れ子の連言と、ほかの制御構造は入れ子の深さだけ再帰する。
+// 子は左から訳すので、誤りは左にある部分で出る。
 std::optional<Cell> Translator::translate(Cell body, Cell s0, Cell s) {
-  std::vector<Cell> parts;
-  Cell from = s0;
-  body = deref(body);
-  while (is_functor(body, ",", 2)) {
-    const Cell mid = m_.heap.fresh_ref();
-    const auto left = single(arg(body, 0), from, mid);
-    if (!left) return std::nullopt;
-    parts.push_back(*left);
-    from = mid;
-    body = deref(arg(body, 1));
+  work_.push_back(Work{Step::Enter, body, s0, s, {}});
+  while (!work_.empty()) {
+    const Work item = work_.back();
+    work_.pop_back();
+    if (item.step != Step::Enter) {
+      leave(item);
+    } else if (!enter(item)) {
+      return std::nullopt;
+    }
   }
-  const auto last = single(body, from, s);
-  if (!last) return std::nullopt;
-  Cell built = *last;
-  for (auto part = parts.rbegin(); part != parts.rend(); ++part) built = pair(",", *part, built);
-  return built;
+  return pop();
 }
 
+bool Translator::enter(const Work& item) {
+  const Cell body = deref(item.body);
+  // 祖先と同じ制御構造に戻ったら巡回である。共有しているだけの部分項は祖先ではないので、ふつうに訳す（そこで
+  // 遅らせると、中のカットが phrase に閉じて意味が変わる）。
+  if (body.tag() == Tag::Str && path_.contains(body.raw())) {
+    done_.push_back(late(body, item.s0, item.s));
+    return true;
+  }
+  if (spread(body, item)) return true;
+  const auto leaf = single(body, item.s0, item.s);
+  if (!leaf) return false;
+  done_.push_back(*leaf);
+  return true;
+}
+
+// 制御構造なら、組み直す段と子を積んで true。子は後に積んだものから訳すので、左の子を最後に積む。
+bool Translator::spread(Cell body, const Work& item) {
+  if (body.tag() != Tag::Str) return false;
+  const auto name = m_.atoms.name(m_.heap.functor_atom(body));
+  const auto arity = m_.heap.functor_arity(body);
+  const Cell left = arg(body, 0);
+  if (arity == 2 && (name == "," || name == "->")) {
+    const Cell mid = m_.heap.fresh_ref();
+    work_.push_back(Work{name == "," ? Step::Conj : Step::IfThen, {}, item.s0, item.s, body});
+    work_.push_back(Work{Step::Enter, arg(body, 1), mid, item.s, {}});
+    work_.push_back(Work{Step::Enter, left, item.s0, mid, {}});
+  } else if (arity == 2 && (name == ";" || name == "|")) {
+    work_.push_back(Work{Step::Disj, {}, item.s0, item.s, body});
+    work_.push_back(Work{Step::Enter, arg(body, 1), item.s0, item.s, {}});
+    work_.push_back(Work{Step::Enter, left, item.s0, item.s, {}});
+  } else if (arity == 1 && name == "\\+") {
+    work_.push_back(Work{Step::Not, {}, item.s0, item.s, body});
+    work_.push_back(Work{Step::Enter, left, item.s0, m_.heap.fresh_ref(), {}});
+  } else if (arity == 2 && name == ":") {
+    work_.push_back(Work{Step::Qualified, left, item.s0, item.s, body});
+    work_.push_back(Work{Step::Enter, arg(body, 1), item.s0, item.s, {}});
+  } else {
+    return false;
+  }
+  path_.insert(body.raw());
+  return true;
+}
+
+void Translator::leave(const Work& item) {
+  path_.erase(item.node.raw());
+  if (item.step == Step::Not) {
+    done_.push_back(then_same(make("\\+", std::array<Cell, 1>{pop()}), item.s0, item.s));
+    return;
+  }
+  if (item.step == Step::Qualified) {
+    done_.push_back(pair(":", item.body, pop()));
+    return;
+  }
+  const Cell right = pop();
+  const Cell left = pop();
+  const std::string_view name = item.step == Step::Conj ? "," : item.step == Step::Disj ? ";" : "->";
+  done_.push_back(pair(name, left, right));
+}
+
+// 制御構造でない本体。
 std::optional<Cell> Translator::single(Cell body, Cell s0, Cell s) {
-  body = deref(body);
-  // 変数の本体は、実行時に束縛された本体を訳して呼ぶ。
-  if (m_.heap.unbound(body)) return make("phrase", std::array<Cell, 3>{body, s0, s});
+  if (m_.heap.unbound(body)) return late(body, s0, s);
   if (body.tag() == Tag::Lis || is_nil(body)) return terminals(body, s0, s);
   if (body.tag() == Tag::Atom) {
     if (m_.atoms.name(atom_id(body)) == "!") return then_same(atom("!"), s0, s);
     return nonterminal(body, s0, s);
   }
   if (body.tag() != Tag::Str) return fail(formal_type(m_, "callable", body), true);
-  const auto name = m_.atoms.name(m_.heap.functor_atom(body));
-  const auto arity = m_.heap.functor_arity(body);
-  if (const auto done = control(body, name, arity, s0, s)) return done;
-  if (formal_) return std::nullopt;
+  if (is_functor(body, "{}", 1)) return then_same(make("call", std::array<Cell, 1>{arg(body, 0)}), s0, s);
   // 非終端記号と call/N は、引数の後ろに S0 と S を足す。
   return nonterminal(body, s0, s);
-}
-
-// 制御構造の本体。制御構造でなければ、誤りを立てずに nullopt を返す。
-std::optional<Cell> Translator::control(Cell body, std::string_view name, std::uint16_t arity, Cell s0, Cell s) {
-  if (arity == 2 && name == ",") return translate(body, s0, s);
-  if (arity == 2 && (name == ";" || name == "|")) {
-    const auto left = translate(arg(body, 0), s0, s);
-    if (!left) return std::nullopt;
-    const auto right = translate(arg(body, 1), s0, s);
-    if (!right) return std::nullopt;
-    return pair(";", *left, *right);
-  }
-  if (arity == 2 && name == "->") {
-    const Cell mid = m_.heap.fresh_ref();
-    const auto condition = translate(arg(body, 0), s0, mid);
-    if (!condition) return std::nullopt;
-    const auto then = translate(arg(body, 1), mid, s);
-    if (!then) return std::nullopt;
-    return pair("->", *condition, *then);
-  }
-  if (arity == 1 && name == "\\+") {
-    const auto inner = translate(arg(body, 0), s0, m_.heap.fresh_ref());
-    if (!inner) return std::nullopt;
-    return then_same(make("\\+", std::array<Cell, 1>{*inner}), s0, s);
-  }
-  if (arity == 1 && name == "{}") return then_same(make("call", std::array<Cell, 1>{arg(body, 0)}), s0, s);
-  if (arity == 2 && name == ":") {
-    const auto inner = translate(arg(body, 1), s0, s);
-    if (!inner) return std::nullopt;
-    return pair(":", arg(body, 0), *inner);
-  }
-  return std::nullopt;
 }
 
 // 終端記号は頭部へ畳み込まず、本体の単一化にする。前にあるカットや {} が単一化より先に走る（ADR 0024）。
@@ -163,7 +213,9 @@ Cell Translator::nonterminal(Cell callable, Cell s0, Cell s) {
     args.push_back(m_.heap.list_tail(callable));
   } else {
     name = m_.heap.functor_atom(callable);
-    for (std::uint16_t index = 0; index < m_.heap.functor_arity(callable); ++index) args.push_back(arg(callable, index));
+    for (std::uint16_t index = 0; index < m_.heap.functor_arity(callable); ++index) {
+      args.push_back(arg(callable, index));
+    }
   }
   args.push_back(s0);
   args.push_back(s);

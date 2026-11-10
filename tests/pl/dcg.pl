@@ -78,6 +78,11 @@ test(dcg_phrase_cut_local, dcg_cut_local(X), solutions([X = 1, X = 2])).
 test(dcg_phrase_cut_inside, phrase((!, [a] ; [b]), L), solutions([L = [a]])).
 test(dcg_phrase_call, phrase(call(dcg_tail, y), [y]), true).
 test(dcg_phrase_qualified, phrase(user:greeting, [hello, world]), true).
+% 巡回する本体の戻り先は、call/1 と同じく呼ぶときに訳す（Codex のレビューの P1）。共有しているだけの部分項は
+% 祖先ではないのでその場で訳し、中のカットは外の選言まで切る。
+test(dcg_phrase_cyclic_disj, (G = ([a] ; G), once(phrase(G, [a]))), true).
+test(dcg_phrase_cyclic_conj, (G = ([a], ([] ; G)), once(phrase(G, [a, a, a]))), true).
+test(dcg_phrase_shared_cut, (S = (!, []), phrase(((S, [x]) ; (S, [y])), L)), solutions([L = [x]])).
 
 % phrase/2,3 のエラー。
 test(dcg_phrase_var, phrase(_, []), error(instantiation_error)).

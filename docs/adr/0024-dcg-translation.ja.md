@@ -11,7 +11,7 @@
 ## 決定
 
 ローダが C++（`src/machine/dcg.cpp`）で `H --> B` を `H' :- B'` に訳し、`compile_clause` に渡す。IR、Cell、`mosac` は変えない。`H'` は `H` に引数 `S0, S` を足したもの。頭部が `H, Pushback` なら本体の後ろに `S = Pushback ++ S1` を足す。`M:(H --> B)` は断ったままにする。`phrase/2,3` は `call/N` と同じく `system` の制御構造で、引数を検査し、同じコードで `G` を `L` から `R` までの本体として訳し（phrase/2 の `R` は `[]`）、call/1 と同じく動かす。中のカットは phrase に閉じる（改訂 1。初めの文は「`G` に `L` と `R` を足して呼ぶ」で、それでは `phrase([a], L)` が失敗する）。
-本体: 非終端記号には `S0, S` を足す。リスト `[a,b]` はゴール `S0 = [a,b|S]`、`[]` は `S0 = S` とし、頭部には畳み込まない。`,`、`;`、`|`、`->` は構造を保つ。`M:B` は `M:B'`。`\+ A` は `\+ A', S0 = S`、`{G}` は `call(G), S0 = S`、`!` は `!, S0 = S`、`call(G, A…)` は `call(G, A…, S0, S)`、変数 `V` は `phrase(V, S0, S)`。
+本体: 非終端記号には `S0, S` を足す。リスト `[a,b]` はゴール `S0 = [a,b|S]`、`[]` は `S0 = S` とし、頭部には畳み込まない。`,`、`;`、`|`、`->` は構造を保つ。`M:B` は `M:B'`。`\+ A` は `\+ A', S0 = S`、`{G}` は `call(G), S0 = S`、`!` は `!, S0 = S`、`call(G, A…)` は `call(G, A…, S0, S)`、変数 `V` と、自分の中で再び出会う制御構造（phrase/2,3 に渡した巡回する本体）は `phrase(V, S0, S)`。call/1 が巡回するゴールを戻り先に着いたとき訳すのと同じである。本体は再帰でなく明示したスタックで歩く（改訂 2。Codex のレビューの P1。深い本体や巡回する本体で C++ のスタックが尽きた）。
 読み込み時のエラーは `formal_*` の手助けで作る。頭部が変数なら `instantiation_error`、頭部や本体の部分が呼び出し可能でなければ `type_error(callable, Culprit)`、プッシュバックや終端記号のリストの末尾が変数なら `instantiation_error`、リストでなければ `type_error(list, Culprit)`。phrase/2,3 は、`G` が変数なら `instantiation_error`、`G` に呼び出し可能でない部分があれば `type_error(callable, G)`（call/1 と同じく `G` 全体）、`L` や `R` がリストでも部分リストでもなければ `type_error(list, Culprit)`。
 
 ## 却下した案
