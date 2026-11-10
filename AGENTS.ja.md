@@ -139,3 +139,7 @@ mosa-prolog/
 2. `CMakeLists.txt` と `CMakePresets.json` を書き、`mosa --version` が `mosa 0.0.1 (phase 0)` と出力するだけの実行ファイルを作る
 3. `tests/cpp/harness.hpp` と、`1 + 1 == 2` を確認するだけのテストを 1 つ登録し、`ctest` で通す
 4. `.github/workflows/ci.yml` を書き、3 OS で緑になるのを確認してから `STATUS.md` を更新して終了する
+
+## 決まりごと
+
+- Prolog のライブラリは `:- use_module(library(...)).` で読み込む。

@@ -139,3 +139,7 @@ mosa-prolog/
 2. Write `CMakeLists.txt` and `CMakePresets.json`, and build an executable that does nothing but print `mosa 0.0.1 (phase 0)` for `mosa --version`
 3. Register `tests/cpp/harness.hpp` and one test that only checks `1 + 1 == 2`, and make it pass with `ctest`
 4. Write `.github/workflows/ci.yml`, confirm it is green on 3 OSes, then update `STATUS.md` and finish
+
+## Conventions
+
+- Write Prolog library imports with `:- use_module(library(...)).`.
