@@ -5,7 +5,7 @@
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-7_in_progress-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-7_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.1.1-blue)](CHANGELOG.ja.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -95,7 +95,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 0〜6 は終わっています。フェーズ 7 は進行中で、GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist` ができました。残りは完了条件の確かめです。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
+フェーズ 0〜7 は終わっています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 4 | モジュールと `library(*)` | 完了 |
 | 5 | 準拠率の追い込み、全角記号モード、メッセージの日本語化 | 完了 |
 | 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 完了 |
-| 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 進行中（残りは完了条件の確かめ） |
+| 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 完了 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 
