@@ -63,6 +63,7 @@ inline std::string_view child_name(std::string_view path, std::string_view paren
 // 段階 A〜E のディレクトリだけ真。not_1 は (\+)/1。一覧に無い子は別欄。
 inline constexpr auto kPredicateScope = std::to_array<std::string_view>({
     "abolish_1",
+    "acyclic_term_1",
     "arg_3",
     "arithmetic_comparison",
     "asserta_1",

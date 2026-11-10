@@ -18,6 +18,7 @@ namespace {
 
 constexpr auto kPredicateTrue = std::to_array<std::string_view>({
     "abolish_1",
+    "acyclic_term_1",
     "arg_3",
     "arithmetic_comparison",
     "asserta_1",
@@ -93,7 +94,6 @@ constexpr auto kPredicateTrue = std::to_array<std::string_view>({
 });
 
 constexpr auto kPredicateFalse = std::to_array<std::string_view>({
-    "acyclic_term_1",
     "atomic_concat_3",
     "atomic_list_concat_2",
     "atomic_list_concat_3",

@@ -59,7 +59,10 @@ functions/popcount_1 11
 functions/sinh_1 6
 functions/tanh_1 5
 functions/xor_2 iso_xor_2_03
-predicates/acyclic_term_1 4
+predicates/acyclic_term_1 iso_acyclic_term_1_02
+predicates/acyclic_term_1 iso_acyclic_term_1_02
+predicates/acyclic_term_1 lgt_acyclic_term_1_03
+predicates/acyclic_term_1 lgt_acyclic_term_1_03
 predicates/arg_3 iso_arg_3_12
 predicates/arg_3 iso_arg_3_12
 predicates/arg_3 lgt_arg_3_24
