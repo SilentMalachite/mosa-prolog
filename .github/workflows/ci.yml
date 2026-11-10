@@ -9,6 +9,7 @@ on:
 # 生成コードは diff_test.cmake と MOSA_WERROR=1 で警告を誤りにしてコンパイルする（「生成した C++ は常にコンパイルできる」）。
 # 持ち主の決定 3: mosac build した hello を成果物に上げ、別のジョブで落として動かす（ADR 0009 Review Focus 5）。
 # macOS では bench/ の 6 本を流し、比が docs/bench.json より 20% 以上下がれば警告にする（失敗にはしない、計画 Task 13）。
+# readme-linux と readme-windows は README の Build from source の手順を、README から取ってそのまま流す（持ち主の決定 A）。
 jobs:
   macos:
     runs-on: macos-latest
@@ -330,3 +331,66 @@ jobs:
           out=$(./hello.exe | tr -d '\r')
           echo "$out"
           test "$out" = "こんにちは"
+
+  # README の手順だけで初見の人がビルドできること（SPEC 第 9 節のフェーズ 7 の完了条件、持ち主の決定 A、2026-11-10）。
+  # ほかのジョブの runner には道具が初めから入っているので、ここは素の ubuntu:24.04 で README の apt の行から始める。
+  # 用意するのは Ubuntu の机上の機械に初めからある物だけである: sudo を使える一般の利用者、UTF-8 のロケール、apt の問いに
+  # 既定で答えること（人が Y を押す代わり）。root で流さないのは、読めないフォルダを使うテストが root では読めてしまうため。
+  readme-linux:
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    steps:
+      # git はまだ無いので、checkout は REST API で取る。使うのは README.md と readme_steps.sh だけである。
+      - uses: actions/checkout@v4
+      - name: Prepare a fresh Ubuntu user
+        run: |
+          apt-get update
+          apt-get install -y sudo
+          echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+          echo 'APT::Get::Assume-Yes "true";' > /etc/apt/apt.conf.d/90assume-yes
+          useradd --create-home --shell /bin/bash newcomer
+          echo 'newcomer ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/newcomer
+          echo 'export LANG=C.UTF-8' >> /home/newcomer/.profile
+          bash .github/scripts/readme_steps.sh apt > /home/newcomer/install.sh
+          bash .github/scripts/readme_steps.sh build linux-gcc "$GITHUB_SHA" > /home/newcomer/build.sh
+          chown newcomer: /home/newcomer/install.sh /home/newcomer/build.sh
+          cat /home/newcomer/install.sh /home/newcomer/build.sh
+      - name: Install the requirements with the README's apt line
+        run: runuser --login newcomer --command 'bash -eux install.sh'
+      - name: Build and test with the README's steps
+        run: runuser --login newcomer --command 'bash -eux build.sh'
+      - name: Check where the README says the executables are
+        run: |
+          out=$(runuser --login newcomer --command 'mosa-prolog/build/mosa --version')
+          echo "$out"
+          echo "$out" | grep -E -q '^mosa [0-9]+\.[0-9]+\.[0-9]+$'
+
+  # 同じ確かめの Windows 版。windows-2022 には README の要件の Visual Studio 2022、CMake、Git が入っている（ほかの道具も
+  # 入っているので、ほかに何も要らないことの証にはならない。それは CMake に find_package も find_program も無いことで見る）。
+  # windows ジョブと違い、chcp 65001 をせずに cmd の既定のコードページのまま、README の 3 行を分けずに流す。
+  readme-windows:
+    runs-on: windows-2022
+    steps:
+      # 使うのは README.md と readme_steps.sh だけである。手順は別のフォルダに clone する。
+      - uses: actions/checkout@v4
+      - name: Write the README steps as a batch file
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/newcomer"
+          bash .github/scripts/readme_steps.sh build windows-msvc "$GITHUB_SHA" \
+            | sed 's/$/ || exit \/b 1\r/' > "$RUNNER_TEMP/newcomer/steps.cmd"
+          cat "$RUNNER_TEMP/newcomer/steps.cmd"
+      - name: Build and test with the README's steps in cmd
+        shell: cmd
+        working-directory: ${{ runner.temp }}/newcomer
+        run: |
+          chcp
+          call steps.cmd
+          if errorlevel 1 exit /b 1
+      - name: Check where the README says the executables are
+        shell: bash
+        working-directory: ${{ runner.temp }}/newcomer
+        run: |
+          out=$(mosa-prolog/build/Release/mosa.exe --version | tr -d '\r')
+          echo "$out"
+          echo "$out" | grep -E -q '^mosa [0-9]+\.[0-9]+\.[0-9]+$'

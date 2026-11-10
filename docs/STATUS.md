@@ -2,7 +2,7 @@
 
 Phase 7 · `mosa 0.1.1` · conformance 2136/2171 (98.4%) · v0.1.1 released 2026-11-10 (tag at e1c420d, release run 42750642692, 3 `mosa-0.1.1-*` archives, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.1)); CI runs 42750641262 (main) and 42753119913 (11cf1be) passed all 8 jobs. v0.1.0 released 2026-11-08 (tag at 0b09fe4)
 
-- **In progress:** none.
+- **In progress:** CI jobs that run the README build steps as written: Linux in a bare `ubuntu:24.04` container, Windows on `windows-2022` without `chcp 65001` (owner decision A, 2026-11-10).
 - **Last done:** the phase 7 exit check on macOS at 0b6e63f. Memory: 9 loop shapes at N, 10N and 100N in `mosa` and in a `mosac build` executable kept the soft capacity at 8 MiB and max RSS at 3–19 MiB, with no growth in proportion to N; a 632 s interpreter `assert` run (3 × 10^8 rounds) held 18,624 KiB from 50 s to the end, with no upward trend in live malloc data (vmmap; [bench.md](bench.md#memory-in-long-loops)). README: a fresh `git clone` from GitHub, then the README commands verbatim under `env -i`, built with no warnings, `mosa --version` gave `mosa 0.1.1`, `ctest --preset macos-clang` passed 156/156; CMake needs only Git, CMake, Ninja and a compiler.
 - **Next:** the owner decides whether phase 7 is finished (README badge `phase-7_in_progress`). Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
