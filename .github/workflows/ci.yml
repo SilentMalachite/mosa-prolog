@@ -367,7 +367,8 @@ jobs:
 
   # 同じ確かめの Windows 版。windows-2022 には README の要件の Visual Studio 2022、CMake、Git が入っている（ほかの道具も
   # 入っているので、ほかに何も要らないことの証にはならない。それは CMake に find_package も find_program も無いことで見る）。
-  # windows ジョブと違い、chcp 65001 をせずに cmd の既定のコードページのまま、README の 3 行を分けずに流す。
+  # windows ジョブと違い、README の 3 行を分けずに、65001 でない cmd で流す。runner の cmd は初めから 65001 なので
+  # （2026-11-10 の run 42766101139 で確かめた）、日本語版の Windows の既定の 932 に替えてから流す。
   readme-windows:
     runs-on: windows-2022
     steps:
@@ -384,6 +385,8 @@ jobs:
         shell: cmd
         working-directory: ${{ runner.temp }}/newcomer
         run: |
+          chcp 932
+          if errorlevel 1 exit /b 1
           chcp
           call steps.cmd
           if errorlevel 1 exit /b 1
