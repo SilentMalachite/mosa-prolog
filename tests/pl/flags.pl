@@ -29,7 +29,7 @@ test(flag_ja_punct_set, (set_prolog_flag(japanese_punctuation, true), current_pr
 
 % iso-notes「Section 3 Flags dialect and version_data」の決定 B。どちらも変えられない処理系定義の旗。
 test(flag_dialect, current_prolog_flag(dialect, mosa), true).
-test(flag_version_data, current_prolog_flag(version_data, mosa(0, 1, 1, [])), true).
+test(flag_version_data, current_prolog_flag(version_data, mosa(0, 1, 2, [])), true).
 test(flag_dialect_listed, (current_prolog_flag(F, mosa), F == dialect), true).
 test(flag_dialect_modify, set_prolog_flag(dialect, swi), error(permission_error(modify, flag, dialect))).
 test(flag_dialect_value, set_prolog_flag(dialect, 1), error(domain_error(flag_value, dialect+1))).
@@ -37,8 +37,8 @@ test(flag_version_data_modify, set_prolog_flag(version_data, mosa(9, 9, 9, [])),
 test(flag_version_data_value, set_prolog_flag(version_data, x), error(domain_error(flag_value, version_data+x))).
 
 % SPEC 第3節 7 の旗 version。値は Major*10000 + Minor*100 + Patch の整数で、変えられない（持ち主の決定 A、2026-10-28）。
-test(flag_version, current_prolog_flag(version, 101), true).
-test(flag_version_listed, (current_prolog_flag(F, 101), F == version), true).
+test(flag_version, current_prolog_flag(version, 102), true).
+test(flag_version_listed, (current_prolog_flag(F, 102), F == version), true).
 test(flag_version_modify, set_prolog_flag(version, 2), error(permission_error(modify, flag, version))).
 test(flag_version_value, set_prolog_flag(version, x), error(domain_error(flag_value, version+x))).
 % 旗 message_language（ADR 0007）。既定は LANG で決まるので、値は ja か en のどちらか。

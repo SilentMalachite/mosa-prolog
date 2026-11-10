@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(mosa VERSION 0.1.1 LANGUAGES CXX)
+project(mosa VERSION 0.1.2 LANGUAGES CXX)
 
 # include/mosa/version.hpp の定数と project VERSION が食い違うと版表示と旗がずれるので、構成時に止める。
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/mosa/version.hpp" mosa_version_lines REGEX "kVersion(Major|Minor|Patch) = [0-9]+;")
