@@ -1,10 +1,10 @@
 # Status
 
-Phase 7 · `mosa 0.1.0` · conformance 2136/2171 (98.4%) · main 8741858, CI run 42730896231 passed all 8 jobs (2026-11-10); v0.1.0 released 2026-11-08 (tag at 0b09fe4, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.0))
+Phase 7 · `mosa 0.1.1` · conformance 2136/2171 (98.4%) · tag `v0.1.1` at e1c420d (2026-11-10): CI run 42742948070 passed all 8 jobs and trial release run 42742948308 the 3 OSes at that commit; release run 42750642692 made the draft release with the 3 `mosa-0.1.1-*` archives. v0.1.0 released 2026-11-08 (tag at 0b09fe4)
 
-- **In progress:** release 0.1.1 on branch `release-0.1.1` (owner's request 2026-11-10): version 0.1.1, dated CHANGELOG with the review fixes, trial release run, then tag `v0.1.1` and a draft release. The owner publishes it.
-- **Last done:** a Muse review of the whole tree (5 read-only runs, then an adversarial review), each fix with a test that fails first: char_code/2 with both arguments bound, bagof/setof keys against user terms such as `'$rename'(0)`, closing a reader dropped unsaved writes to the same file at halt, a failed open/4 cleared a closed alias, closed streams kept their bytes, deep `M:` in call/N crashed, REPL `:- halt(N).` was ignored, a rejected load kept `initialization(G, main)`, a recovered nested consult left `load_kept`, mosatest `solutions/1` now needs every solution, unreadable test folders, the Logtalk judge's forall/2 (earlier bindings, endless retry), broken `agreement.json`, an unwritable conformance report, codegen past 65535 clauses, bare `,` and `|` read as atoms (6.4), the Unicode table rollback; also float_op split, the control.cpp header and closing written files.
-- **Next:** CI on 3 OSes for these commits, then the phase 7 exit check (SPEC section 9) and 0.1.1. Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
+- **In progress:** none.
+- **Last done:** release 0.1.1 at the owner's request (f7dc757 version 0.1.1 in code, tests, README and manual; e1c420d dated CHANGELOG with the Muse review fixes and the 0.1.1 known limits, en and ja). Before that, the Muse review of the whole tree: its fixes are listed in the 0.1.1 CHANGELOG and in `git log` 17935ae..286148d.
+- **Next:** the owner checks the draft body and publishes it (or asks the agent to); then the phase 7 exit check (SPEC section 9). Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
