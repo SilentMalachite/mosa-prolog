@@ -309,15 +309,29 @@ def emit(
     return "\n".join(lines)
 
 
+def restore(path: Path, old: bytes | None) -> None:
+    if old is None:
+        path.unlink(missing_ok=True)
+    else:
+        path.write_bytes(old)
+
+
 def publish(text: str) -> None:
+    # 2 つは別々にしか差し替えられない。2 つ目で失敗したら 1 つ目を元の中身へ戻し、新しい表と古い版の
+    # 組み合わせを残さない（docstring の「既存の表を残す」、Muse のレビューの低）。
     inc_tmp = OUT_PATH.with_name(OUT_PATH.name + ".tmp")
     version_tmp = VERSION_PATH.with_name(VERSION_PATH.name + ".tmp")
+    old_inc = OUT_PATH.read_bytes() if OUT_PATH.exists() else None
+    replaced = False
     try:
         inc_tmp.write_text(text, encoding="utf-8", newline="\n")
         version_tmp.write_text(UNICODE_VERSION + "\n", encoding="utf-8", newline="\n")
         os.replace(inc_tmp, OUT_PATH)
+        replaced = True
         os.replace(version_tmp, VERSION_PATH)
     except Exception:
+        if replaced:
+            restore(OUT_PATH, old_inc)
         for path in (inc_tmp, version_tmp):
             try:
                 path.unlink()
