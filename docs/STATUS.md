@@ -1,10 +1,10 @@
 # Status
 
-Phase 7 · `mosa 0.1.1` · conformance 2136/2171 (98.4%) · tag `v0.1.1` at e1c420d (2026-11-10): CI run 42742948070 passed all 8 jobs and trial release run 42742948308 the 3 OSes at that commit; release run 42750642692 made the draft release with the 3 `mosa-0.1.1-*` archives. v0.1.0 released 2026-11-08 (tag at 0b09fe4)
+Phase 7 · `mosa 0.1.1` · conformance 2136/2171 (98.4%) · v0.1.1 released 2026-11-10 (tag at e1c420d, release run 42750642692, 3 `mosa-0.1.1-*` archives, [release page](https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.1.1)); CI runs 42750641262 (main) and 42753119913 (11cf1be) passed all 8 jobs. v0.1.0 released 2026-11-08 (tag at 0b09fe4)
 
 - **In progress:** none.
-- **Last done:** release 0.1.1 at the owner's request (f7dc757 version 0.1.1 in code, tests, README and manual; e1c420d dated CHANGELOG with the Muse review fixes and the 0.1.1 known limits, en and ja). Before that, the Muse review of the whole tree: its fixes are listed in the 0.1.1 CHANGELOG and in `git log` 17935ae..286148d.
-- **Next:** the owner checks the draft body and publishes it (or asks the agent to); then the phase 7 exit check (SPEC section 9). Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
+- **Last done:** release 0.1.1 at the owner's request, published by the agent on the owner's word (f7dc757 version 0.1.1 in code, tests, README and manual; e1c420d dated CHANGELOG with the Muse review fixes and the 0.1.1 known limits, en and ja). Before that, the Muse review of the whole tree: its fixes are listed in the 0.1.1 CHANGELOG and in `git log` 17935ae..286148d.
+- **Next:** the phase 7 exit check (SPEC section 9). Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
 - **History:** the Status line of each finished item in the review, the ADRs, [bench.md](bench.md) and `git log`.
 
 ## Open
