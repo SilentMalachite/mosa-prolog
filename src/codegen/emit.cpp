@@ -271,6 +271,15 @@ std::string pred_label(const Impl& machine, const Predicate& predicate) {
   return comment_safe(machine.atoms.name(predicate.name)) + "/" + std::to_string(predicate.arity);
 }
 
+// rt::state_of は節の番号と再開点の番号を 16 ビットずつに詰める（ADR 0009）。入らない番号を出すと case が重なり、
+// 生成した C++ が組み立てられないか、別の再開関数へ飛ぶ（Muse のレビューの中）。
+constexpr std::uint32_t kStateField = 0xFFFF;
+
+std::pair<std::uint32_t, std::string> interpreted_case(std::uint32_t clause, const std::string& entry) {
+  return {rt::state_of(clause, 0),
+          "return rt::interpret_clause(m, r, " + entry + ", frame, " + std::to_string(clause) + ");"};
+}
+
 // 生成関数を 1 つ出す。どの節も IR のままなら出さない（出しても interpret_clause を呼ぶだけになる）。
 void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer, const Predicate& predicate,
                     UnitText& text, EmitResult& result) {
@@ -288,8 +297,10 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   }
   std::vector<bool> plans;
   std::size_t native = 0;
+  // 節の番号が 16 ビットに入らない述語は、丸ごと IR のまま動かす。
+  const bool fits = predicate.clauses.size() <= kStateField;
   for (const Clause& clause : predicate.clauses) {
-    plans.push_back(translatable_body(machine, *clause.body));
+    plans.push_back(fits && translatable_body(machine, *clause.body));
     native += plans.back() ? 1 : 0;
   }
   if (native == 0) {
@@ -297,8 +308,6 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
     text.helpers += "// " + label + " はどの節も IR のまま動かす。\n" + comments + "\n";
     return;
   }
-  result.translated += 1;
-  result.interpreted += predicate.clauses.size() - native;
   const std::string proc = "p" + mangle(machine.atoms.name(predicate.name)) + "_" + std::to_string(predicate.arity);
   const std::string entry = std::to_string(text.entry_count++);
   std::vector<std::pair<std::uint32_t, std::string>> cases;
@@ -306,14 +315,22 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   for (std::uint32_t index = 0; index < predicate.clauses.size(); ++index) {
     const std::uint32_t clause = index + 1;
     if (!plans[index]) {
-      cases.emplace_back(rt::state_of(clause, 0),
-                         "return rt::interpret_clause(m, r, " + entry + ", frame, " + std::to_string(clause) + ");");
+      cases.push_back(interpreted_case(clause, entry));
       continue;
     }
     ClauseCode code = emit_clause(machine, tables, predicate, ClauseName{proc, clause});
+    // 再開点の番号が 16 ビットに入らない節は、生成コードを捨てて IR のまま動かす。
+    if (code.next_state > kStateField + 1) {
+      native -= 1;
+      cases.push_back(interpreted_case(clause, entry));
+      continue;
+    }
     text.helpers += code.functions;
     for (auto& item : code.cases) cases.push_back(std::move(item));
   }
+  // 生成コードを捨てた節は IR の数へ入れる。どれも捨てた述語の関数は interpret_clause を呼ぶだけで、訳した数に入れない。
+  result.translated += native > 0 ? 1 : 0;
+  result.interpreted += predicate.clauses.size() - native;
   add_trace(cases, texts);
   text.helpers += "void " + proc + "_run(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, std::uint32_t state);\n\n";
   text.helpers += dispatch_text(tables, predicate, proc) + run_text(proc, cases);

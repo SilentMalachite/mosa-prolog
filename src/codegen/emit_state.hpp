@@ -68,6 +68,8 @@ struct ClauseName {
 struct ClauseCode {
   std::string functions;
   std::vector<std::pair<std::uint32_t, std::string>> cases;
+  // 使った再開点の番号の次（ClauseCtx::next_state）。state_of の 16 ビットに入るかを呼び手が見る。
+  std::uint32_t next_state = 1;
 };
 
 // 本体のゴール 1 つと、それを動かす文脈モジュール（ADR 0006）。M:G は G の並びを M で置く。

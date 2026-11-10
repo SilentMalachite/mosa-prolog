@@ -67,6 +67,8 @@ std::optional<std::string> write_files(const std::filesystem::path& out, const s
     const std::filesystem::path target = out / mosa::path_from_utf8(file.name);
     std::ofstream stream{target, std::ios::binary};
     stream << file.text;
+    // 小さいファイルはバッファに残り、書けないことが close で初めて分かる。デストラクタの close は結果を返さない。
+    stream.close();
     if (!stream) return mosa::utf8_from_path(target);
   }
   return std::nullopt;

@@ -225,6 +225,16 @@ void dynamic_skipped() {
   check(result.interpreted == 0, "dynamic interpreted == 0");
 }
 
+// Muse のレビューの中。rt::state_of は節の番号を 16 ビットに詰めるので、65536 節の述語は丸ごと IR のまま動かす。
+// 前は state_of(65536, 0) が呼び出しの状態 0 と重なり、生成した C++ の case が重なった。
+void clause_count_limit() {
+  std::string many;
+  for (int index = 1; index <= 65536; ++index) many += "many(" + std::to_string(index) + ").\n";
+  const EmitResult over = emit_user(many);
+  check(over.translated == 0 && over.interpreted == 65536, "65536 clauses stay in IR");
+  check(!has(over.source, "rt::state_of(65536"), "no clause number past 16 bits");
+}
+
 // コメントと文字列を除いた識別子に __ が無いか見る（C++ は __ を含む識別子を予約する）。
 bool has_double_underscore(std::string_view text) {
   std::string word;
@@ -426,6 +436,7 @@ int main() {
   arith_translated();
   meta_translated();
   dynamic_skipped();
+  clause_count_limit();
   japanese_unit();
   octal_before_digit();
   trigraph_literal();

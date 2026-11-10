@@ -495,6 +495,7 @@ ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate&
   const std::string entry = name.proc + "_c" + std::to_string(name.clause);
   code.functions += function_text(entry, emit.out);
   code.cases.emplace_back(entry_state, "return " + entry + "(m, r, frame);");
+  code.next_state = ctx.next_state;
   return code;
 }
 
