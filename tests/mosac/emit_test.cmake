@@ -129,8 +129,10 @@ set(build_args --build "${out_dir}/build")
 if(CONFIG)
   list(APPEND build_args --config "${CONFIG}")
 endif()
+# ここだけ AUTO: cmake --build はビルドツールの出力を変えずに渡し、MSBuild と cl はコンソールのコードページで書く。
+# UTF-8 で読むと、日本語版の Windows で失敗したときの診断が化ける（Codex のレビューの P3）。成否は終了コードで見る。
 execute_process(COMMAND "${CMAKE_COMMAND}" ${build_args}
-  OUTPUT_VARIABLE build_out ERROR_VARIABLE build_err RESULT_VARIABLE build_code TIMEOUT 600 ENCODING UTF-8)
+  OUTPUT_VARIABLE build_out ERROR_VARIABLE build_err RESULT_VARIABLE build_code TIMEOUT 600 ENCODING AUTO)
 if(NOT build_code EQUAL 0)
   message(FATAL_ERROR "${CASE}: build code=${build_code} out=[${build_out}] err=[${build_err}]")
 endif()
