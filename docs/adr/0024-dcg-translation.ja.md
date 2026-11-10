@@ -1,6 +1,6 @@
 [English](0024-dcg-translation.md) | 日本語
 
-状態: 提案（2026-11-10。持ち主が文法規則のためにフェーズ 8 を設けた。この ADR の承認を求めている）。SPEC 第 3 節は文法規則を範囲に入れ、第 9 節はフェーズ 8 を定める。この ADR は `-->` を訳す場所と、訳した節の形を決める。
+状態: 承認済み（2026-11-10。持ち主が文法規則のためにフェーズ 8 を設け、この ADR を決定 A で承認した）。SPEC 第 3 節は文法規則を範囲に入れ、第 9 節はフェーズ 8 を定める。この ADR は `-->` を訳す場所と、訳した節の形を決める。
 
 ## 背景
 
@@ -10,9 +10,9 @@
 
 ## 決定
 
-ローダが C++（`src/machine/load_dcg.cpp`）で `H --> B` を `H' :- B'` に訳し、`compile_clause` に渡す。IR、Cell、`mosac` は変えない。`H'` は `H` に引数 `S0, S` を足したもの。頭部が `H, Pushback` なら本体の後ろに `S = Pushback ++ S1` を足す。`M:(H --> B)` は断ったままにする。`phrase/2,3` は `call/N` と同じく `system` の制御構造で、引数を検査してから `G` に `L` と `R` を足して呼ぶ（phrase/2 の `R` は `[]`）。
-本体: 非終端記号には `S0, S` を足す。リスト `[a,b]` はゴール `S0 = [a,b|S]`、`[]` は `S0 = S` とし、頭部には畳み込まない。`,`、`;`、`|`、`->` は構造を保つ。`\+ A` は `\+ A', S0 = S`、`{G}` は `call(G), S0 = S`、`!` は `!, S0 = S`、`call(G, A…)` は `call(G, A…, S0, S)`、変数 `V` は `phrase(V, S0, S)`。
-読み込み時のエラーは `throw_error` で出す。頭部が変数なら `instantiation_error`、頭部や本体が呼び出し可能でなければ `type_error(callable, Culprit)`、プッシュバックがリストでなければ `type_error(list, Culprit)`。phrase/2,3 は、`G` が変数なら `instantiation_error`、呼び出し可能でなければ `type_error(callable, G)`、`L` や `R` がリストでも部分リストでもなければ `type_error(list, Culprit)`。
+ローダが C++（`src/machine/dcg.cpp`）で `H --> B` を `H' :- B'` に訳し、`compile_clause` に渡す。IR、Cell、`mosac` は変えない。`H'` は `H` に引数 `S0, S` を足したもの。頭部が `H, Pushback` なら本体の後ろに `S = Pushback ++ S1` を足す。`M:(H --> B)` は断ったままにする。`phrase/2,3` は `call/N` と同じく `system` の制御構造で、引数を検査し、同じコードで `G` を `L` から `R` までの本体として訳し（phrase/2 の `R` は `[]`）、call/1 と同じく動かす。中のカットは phrase に閉じる（改訂 1。初めの文は「`G` に `L` と `R` を足して呼ぶ」で、それでは `phrase([a], L)` が失敗する）。
+本体: 非終端記号には `S0, S` を足す。リスト `[a,b]` はゴール `S0 = [a,b|S]`、`[]` は `S0 = S` とし、頭部には畳み込まない。`,`、`;`、`|`、`->` は構造を保つ。`M:B` は `M:B'`。`\+ A` は `\+ A', S0 = S`、`{G}` は `call(G), S0 = S`、`!` は `!, S0 = S`、`call(G, A…)` は `call(G, A…, S0, S)`、変数 `V` は `phrase(V, S0, S)`。
+読み込み時のエラーは `formal_*` の手助けで作る。頭部が変数なら `instantiation_error`、頭部や本体の部分が呼び出し可能でなければ `type_error(callable, Culprit)`、プッシュバックや終端記号のリストの末尾が変数なら `instantiation_error`、リストでなければ `type_error(list, Culprit)`。phrase/2,3 は、`G` が変数なら `instantiation_error`、`G` に呼び出し可能でない部分があれば `type_error(callable, G)`（call/1 と同じく `G` 全体）、`L` や `R` がリストでも部分リストでもなければ `type_error(list, Culprit)`。
 
 ## 却下した案
 

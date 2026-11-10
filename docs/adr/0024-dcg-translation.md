@@ -1,6 +1,6 @@
 English | [日本語](0024-dcg-translation.ja.md)
 
-Status: Proposed (2026-11-10; the owner opened phase 8 for grammar rules, and the approval of this ADR is asked). SPEC section 3 puts grammar rules in scope and section 9 gives phase 8; this ADR fixes where `-->` is translated and the shape of the clause that results.
+Status: Approved (2026-11-10; the owner opened phase 8 for grammar rules and approved this ADR, decision A). SPEC section 3 puts grammar rules in scope and section 9 gives phase 8; this ADR fixes where `-->` is translated and the shape of the clause that results.
 
 ## Context
 
@@ -10,9 +10,9 @@ A program sees the translated clause through `clause/2`, error terms and the pla
 
 ## Decision
 
-The loader translates `H --> B` to `H' :- B'` in C++ (`src/machine/load_dcg.cpp`) before `compile_clause`; the IR, the Cell and `mosac` do not change. `H'` is `H` with two more arguments `S0, S`; a head `H, Pushback` adds `S = Pushback ++ S1` after the body. `M:(H --> B)` stays refused. `phrase/2,3` are control constructs in `system`, like `call/N`: they check their arguments and then call `G` with `L` and `R` added (`R` is `[]` for phrase/2).
-Body: a non-terminal gets `S0, S`; a list `[a,b]` is the goal `S0 = [a,b|S]` and `[]` is `S0 = S`, never folded into the head; `,`, `;`, `|` and `->` keep their structure; `\+ A` is `\+ A', S0 = S`; `{G}` is `call(G), S0 = S`; `!` is `!, S0 = S`; `call(G, A…)` is `call(G, A…, S0, S)`; a variable `V` is `phrase(V, S0, S)`.
-Errors at load, by `throw_error`: a variable head is `instantiation_error`; a head or body that is not callable is `type_error(callable, Culprit)`; a pushback that is not a list is `type_error(list, Culprit)`. phrase/2,3: a variable `G` is `instantiation_error`, a non-callable `G` is `type_error(callable, G)`, and an `L` or `R` that is neither a list nor a partial list is `type_error(list, Culprit)`.
+The loader translates `H --> B` to `H' :- B'` in C++ (`src/machine/dcg.cpp`) before `compile_clause`; the IR, the Cell and `mosac` do not change. `H'` is `H` with two more arguments `S0, S`; a head `H, Pushback` adds `S = Pushback ++ S1` after the body. `M:(H --> B)` stays refused. `phrase/2,3` are control constructs in `system`, like `call/N`: they check their arguments, translate `G` as a body from `L` to `R` with the same code (`R` is `[]` for phrase/2), and run it as call/1 does, so a cut in it is local (revision 1: the first text said "call `G` with `L` and `R` added", which fails for `phrase([a], L)`).
+Body: a non-terminal gets `S0, S`; a list `[a,b]` is the goal `S0 = [a,b|S]` and `[]` is `S0 = S`, never folded into the head; `,`, `;`, `|` and `->` keep their structure; `M:B` is `M:B'`; `\+ A` is `\+ A', S0 = S`; `{G}` is `call(G), S0 = S`; `!` is `!, S0 = S`; `call(G, A…)` is `call(G, A…, S0, S)`; a variable `V` is `phrase(V, S0, S)`.
+Errors at load, by the `formal_*` helpers: a variable head is `instantiation_error`; a head or body part that is not callable is `type_error(callable, Culprit)`; a pushback or terminal list with a variable tail is `instantiation_error`, and one that is not a list is `type_error(list, Culprit)`. phrase/2,3: a variable `G` is `instantiation_error`, a `G` with a part that is not callable is `type_error(callable, G)` (the whole `G`, as call/1 does), and an `L` or `R` that is neither a list nor a partial list is `type_error(list, Culprit)`.
 
 ## Rejected alternatives
 
