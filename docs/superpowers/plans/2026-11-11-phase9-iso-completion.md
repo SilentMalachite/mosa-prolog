@@ -219,7 +219,7 @@ test(read_error_deep_unclosed, (open_string('f(g(h(i(j(a))))).', S), read(S, _))
 **Files:**
 - Modify: `src/read/reader_bracket.cpp`（`parse_arguments`、`parse_list`、`take_bar_tail`、`parse_paren`、`parse_curly`）、`src/read/reader_frames.cpp`（`reduce` の `Args`/`List`/`ListTail`/`Paren`/`Curly`）
 - Modify: `tests/stack/deep_read.pl`、`tests/stack/deep_read.expected`
-- Create: `tests/stack/deep_file.cmake`（`long_literal.cmake` を写して、`f(f(...))` 100,000 段の事実を持つファイルを作り、`mosa`（1 MiB）と `mosac run` の両方で読む）
+- Create: `tests/stack/deep_file.cmake`（`long_literal.cmake` を写して、テストの手順が `f(f(...))` 100,000 段の項を 1 つ持つデータのファイルを書き、`mosac build` で作った小さなプログラムが、そのファイルを開いて `read/1` で読み、深さを確かめる。実行ファイルは 1 MiB のスタックで動かす。深い項はプログラムのソースに置かない）
 - Modify: `tests/tests.cmake`（`stack_deep_read` を 56〜60 行の `stack_deep_write` と同じ形で、`mosac_deep_file` を 626 行の `mosac_long_list` と同じ形で登録。`TIMEOUT 900`）
 - Modify: `docs/iso-notes.md` 632 行の節（reader の段落を「フェーズ9で reader も枠で読む」に）、`docs/iso-notes.ja.md` 634 行の節
 
@@ -242,7 +242,7 @@ parens(N) :- open('deep_read.txt', write, W), put_n(N, W, '('), write(W, a), put
 
 - [ ] **Step 2: 落ちることを確かめる**: Task 4 Step 2 のコマンドで `nested` の読みで SIGSEGV。
 - [ ] **Step 3: 実装**。`parse_arguments`、`parse_list`、`parse_paren`、`parse_curly` を「開きを消費して枠を積み `pushed` を返す」だけにし、閉じと区切りの処理を `reduce` に移す。`take_bar_tail` の検査（`|` の後に項が無い、`|` が 2 つ）はそのまま `ListTail` を積む前に行う。空リスト `[]` と `{}` は今のまま枠を積まずに返す。`parse_expr` の再帰呼び出しが `src/read/` に 1 つも残らないこと（`grep -n 'parse_expr(' src/read/*.cpp` が入口の定義とループの中だけ）。
-- [ ] **Step 4: 通ることを確かめる**: `cmake --build build && ctest --test-dir build -R 'stack_deep_read|mosac_deep_file|roundtrip|prolog_tests|diff_tests_pl|writer_golden|long_literal' --output-on-failure` 全通過。`stack_deep_read` の所要時間を記録する（5 つの形で合計が 60 秒を超えるなら枠の積み降ろしが O(1) でない。段数を下げず、原因を直す）。`build/mosatest --suite tests/conformance/logtalk` の合格数が不変。Windows と Linux は CI に任せる（push 後に 11 ジョブを確かめる）。
+- [ ] **Step 4: 通ることを確かめる**: `cmake --build build && ctest --test-dir build -R 'stack_deep_read|mosac_deep_file|roundtrip|prolog_tests|diff_tests_pl|writer_golden|long_literal' --output-on-failure` 全通過。100,000 段の節を持つソースを `mosac build` が扱えるかは、手で 1 度確かめる。落ちたら iso-notes 7.1 に codegen の既知の限界として書く（ADR 0011 改訂 2）。フェーズ 9 は codegen を変えない。`stack_deep_read` の所要時間を記録する（5 つの形で合計が 60 秒を超えるなら枠の積み降ろしが O(1) でない。段数を下げず、原因を直す）。`build/mosatest --suite tests/conformance/logtalk` の合格数が不変。Windows と Linux は CI に任せる（push 後に 11 ジョブを確かめる）。
 - [ ] **Step 5: iso-notes 7.1 を直す**（英・日）。「Only the reader still recurses …」の段落を「Phase 9 made the reader iterative too (ADR 0011 amendment 4): …」に替え、測った段数の文を消す。決定の行に「Phase 9: the reader (ctest `stack_deep_read`)」を足す。
 - [ ] **Step 6: Commit**（2 つ）: `[phase9] reader の括弧を枠に載せ、5 つの形を 1,000,000 段で読む（1 MiB の stack_deep_read、mosac_deep_file 100,000 段、syntax.pl の往復と準拠率は不変）`、`[phase9] iso-notes 7.1 の reader の段落を閉じる（文書だけ）`。
 

@@ -95,13 +95,13 @@ SPEC 第9節のフェーズは 8 で終わっており、次のフェーズは S
 - ループは 2 つの状態を行き来する。「優先順位 P 以下の項を待つ」では 1 つの基本項を読む（開き括弧や前置演算子なら枠を積んで続ける。`6.3.4.1` の `- 1`、`-(1)` と `- (1)` の区別、`can_start` による前置演算子かアトムかの判断は今の関数のまま）。「優先順位 Q の項を得た」では `find_follower` で中置・後置を続け、中置なら枠を積んで「待つ」へ、続きが無ければ上の枠を 1 つ降ろして還元する（引数を足して次の引数へ、閉じ括弧で複合項を作る、前置・中置の項を作る）。枠が空になれば読み終わり。
 - 失敗（`Parsed::failure`）はその場で返し、枠の列は捨てる。`bad_token`、`max_arity`、`needs_minus`（2^63）、`reject_empty_comma`、`reject_headless_bar`、`take_bar_tail`、`absorb_full_stop` の判断と、エラー項の位置とトークンは今のまま。
 - 置き場所は `src/read/reader.cpp`（演算子）と `reader_bracket.cpp`（括弧）。枠の型とループが入って 800 行を超えるなら `reader_frames.cpp` に分ける。関数は 60 行以内で、還元は枠の種類ごとに 1 関数。
-- テストは `tests/stack/deep_read.pl`（と `.expected`）に 5 つの形を 1,000,000 段で書き、`tests/tests.cmake` に `stack_deep_read` を `small_stack.cmake`（1 MiB）で登録する。深い項は実行時に `atom_codes/2` と `read_term/2` で組み立てて読み、`write_canonical/1` で書き戻す（ファイルに 2 MB の字面を置かない）。mosac 側も同じ reader を使うので、`mosac_long_list` と同じ形で 1 つ（`f(f(...))` 100,000 段のファイルを `mosac build` で読む）を足す。
+- テストは `tests/stack/deep_read.pl`（と `.expected`）に 5 つの形を 1,000,000 段で書き、`tests/tests.cmake` に `stack_deep_read` を `small_stack.cmake`（1 MiB）で登録する。深い項は実行時に `atom_codes/2` と `read_term/2` で組み立てて読み、`write_canonical/1` で書き戻す（ファイルに 2 MB の字面を置かない）。mosac 側も同じ reader を使うので、`mosac_long_list` と同じ形で 1 つ（`mosac build` で作った実行ファイルが、実行時にデータのファイルから `f(f(...))` 100,000 段の項を読む。ソースに深い節を書いた場合は手で 1 度確かめ、落ちれば iso-notes 7.1 に codegen の既知の限界として書く）を足す。
 - ADR 0011 の改訂として、「reader はまだ再帰する」の文を消し、枠の形を「決定」に 3 行で書く。所有者の承認を得てから 4〜5 に入る。
 - iso-notes 7.1 の 3 段落目（reader の限界）は、閉じるときに「フェーズ9で reader も繰り返しにした」に書き替える。
 
 ### 4. `Name//Arity`（エクスポート、インポート、宣言）
 
-- `src/module/qualify.cpp` の `read_indicator` を、`N//A` を `N/(A+2)` として受けるように広げる。呼び手はエクスポートの表（`qualify.cpp`）とインポートの表（`import.cpp` の 2 箇所）だけなので、`abolish/1` と `current_predicate/1` と `retract/1` は ISO のまま `/` だけを受ける（8.9.4.3、`foo//1` は `type_error(predicate_indicator, foo//1)` のまま）。
+- `src/module/qualify.cpp` の `read_indicator` を、`N//A` を `N/(A+2)` として受けるように広げる。呼び手はエクスポートの表（`qualify.cpp`）とインポートの表（`import.cpp` の 2 箇所）だけなので、`abolish/1` と `current_predicate/1` は ISO のまま `/` だけを受ける（8.9.4.3、`foo//1` は `type_error(predicate_indicator, foo//1)` のまま）。
 - `dynamic/1`、`discontiguous/1`、`multifile/1` の PI の読み取りは別の場所にある（実装者が探す。`src/machine/load*.cpp` か `src/builtins/database.cpp`）。同じ広げ方をする。
 - エラーは `/` と同じ順（`N` が未束縛なら `instantiation_error`、アトムでなければ `type_error(atom, N)`、`A` が整数でなければ `type_error(integer, A)`、負なら `domain_error(not_less_than_zero, A)`、`A+2 > 1024` なら `representation_error(max_arity)`）。
 - `predicate_property/2`、`current_predicate/1`、`listing` は `N/(A+2)` を見せる（`//` の形は宣言の書き方であって、述語の名前ではない）。
