@@ -268,7 +268,7 @@ These check what kind of term the argument is now. None of them binds anything.
 | `compound/1` | 8.3.6 | A compound term, such as `f(a)` or `[a]`. |
 | `callable/1` | 8.3.9 | An atom or a compound term: something that can run as a goal. |
 | `ground/1` | 8.3.10 | A term with no variable without a value inside. |
-| `acyclic_term/1` | 8.3.11 | A term that does not contain itself. |
+| `acyclic_term/1` | 8.3.11 | A term with no part that contains itself. |
 | `is_list/1` | — | A list that ends in `[]`. |
 
 ### Terms

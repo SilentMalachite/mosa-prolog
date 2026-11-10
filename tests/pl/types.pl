@@ -58,6 +58,7 @@ deep_acc(N, Acc, T) :- M is N - 1, deep_acc(M, f(Acc), T).
 m7_dag(0, L, L) :- !.
 m7_dag(N, L, T) :- M is N - 1, m7_dag(M, L, T0), T = f(T0, T0).
 m7_dag_ground(N, Leaf) :- m7_dag(N, Leaf, T), ground(T).
+m7_dag_acyclic(N, Leaf) :- m7_dag(N, Leaf, T), acyclic_term(T).
 m7_dag_late_var(N) :- m7_dag(N, a, T), ground(g(_, T)).
 test(m7_ground_cyclic, (X = f(X), ground(X)), true).
 test(m7_ground_cyclic_shared, (X = f(X, X), ground(X)), true).
@@ -80,3 +81,7 @@ test(acyclic_compound, acyclic_term(f(X, _, g(X))), true).
 test(acyclic_list_cyclic, (X = [a|X], acyclic_term(X)), fail).
 test(acyclic_dag, (X = f(Y, Y), acyclic_term(X)), true).
 test(acyclic_cycle_inside, (Y = g(Y), acyclic_term(f(a, Y))), fail).
+test(acyclic_dag_compound, (Y = g(a), acyclic_term(f(Y, Y))), true).
+% T を述語の中に閉じ込める。2^64 の道がある項を答えの束縛に出すと、答えの複写が終わらない（m7_ground_dag と同じ）。
+test(acyclic_dag_wide, m7_dag_acyclic(64, a), true).
+test(acyclic_builtin, predicate_property(acyclic_term(_), built_in), true).

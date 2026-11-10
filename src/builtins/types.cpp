@@ -140,6 +140,12 @@ void occurs_unify(Impl& machine, const Goal& goal) {
   succeed(machine, goal);
 }
 
+// 循環項を作れるので、unify_with_occurs_check/2 と同じ明示スタックの acyclic_terms で判定する（ADR 0011）。
+bool acyclic_one(const Impl& machine, Cell cell) {
+  const std::array<Cell, 1> roots{cell};
+  return acyclic_terms(machine, roots);
+}
+
 bool typed(Impl& machine, const Goal& goal, bool (*test)(const Impl&, Cell)) {
   if (test(machine, goal.arg(machine, 0))) succeed(machine, goal);
   else machine.failed = true;
@@ -192,23 +198,9 @@ bool run_types(Impl& machine, const Goal& goal) {
     else machine.failed = true;
     return true;
   }
-  if (name == "ground" && goal.arity == 1) {
-    if (ground_term(machine, goal.arg(machine, 0))) succeed(machine, goal);
-    else machine.failed = true;
-    return true;
-  }
-  if (name == "acyclic_term" && goal.arity == 1) {
-    // 循環項を作れるので、unify_with_occurs_check/2 と同じ明示スタックの acyclic_terms で判定する（ADR 0011）。
-    const std::array<Cell, 1> roots{goal.arg(machine, 0)};
-    if (acyclic_terms(machine, roots)) succeed(machine, goal);
-    else machine.failed = true;
-    return true;
-  }
-  if (name == "is_list" && goal.arity == 1) {
-    if (proper_list(machine, goal.arg(machine, 0))) succeed(machine, goal);
-    else machine.failed = true;
-    return true;
-  }
+  if (name == "ground" && goal.arity == 1) return typed(machine, goal, ground_term);
+  if (name == "acyclic_term" && goal.arity == 1) return typed(machine, goal, acyclic_one);
+  if (name == "is_list" && goal.arity == 1) return typed(machine, goal, proper_list);
   if (name == "unify_with_occurs_check" && goal.arity == 2) {
     occurs_unify(machine, goal);
     return true;
