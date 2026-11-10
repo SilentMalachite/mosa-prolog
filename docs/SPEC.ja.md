@@ -69,7 +69,7 @@
 
 **文法規則（フェーズ 8）**
 
-Prolog テキストの `Head --> Body` の節は、テキストを読み込むとき通常の節に訳す。`phrase/2,3` は `system` に置く。13211-1 は文法規則を定めていないので、規格の文法規則の部である ISO/IEC 13211-3 を拠り所にする（本文の出どころは `docs/iso-notes.md` の「13211-3」）。変換は ADR 0024 で決める。`term_expansion/2`、`goal_expansion/2`、`expand_term/2` は含めない。
+Prolog テキストの `Head --> Body` の節は、テキストを読み込むとき通常の節に訳す。`phrase/2,3` は `system` に置く。13211-1 は文法規則を定めていないので、規格の文法規則の部である ISO/IEC 13211-3 を拠り所にする（本文の出どころは `docs/iso-notes.md` の「13211-3」）。変換は ADR 0024 で決める。フェーズ 9 で、エクスポートの表、インポートの表、ディレクティブ `dynamic/1`、`discontiguous/1`、`multifile/1` の `Name//Arity`（`Name/(Arity+2)` の意味）と、文法規則の本体の `*->` を足す。`expand_term/2` はフェーズ 9 で `library(dcg)` に足す（文法規則 1 つを訳す。`term_expansion/2` と `goal_expansion/2` は範囲に入れない）。
 
 **実装定義事項の決定**
 
@@ -189,6 +189,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | `library(between)` | `between/3`、`succ/2`、`plus/3` |
 | `library(format)` | `format/1,2,3`（`~w`、`~q`、`~a`、`~d`、`~f`、`~e`、`~s`、`~c`、`~n`、`~t`、`~\|`） |
 | `library(strings)` | `atomic_list_concat/2,3`、`split_atom/4`、`upcase_atom/2`（Unicode 大文字化は simple case mapping のみ） |
+| `library(dcg)` | `expand_term/2`（文法規則 `H --> B` を 1 つ訳す。`-->/2` でない項はそのまま返る） |
 | `library(japanese)` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2`（表示幅の計算）。生成テーブルで実装 |
 
 ## 6. アーキテクチャ（ランタイム・インタプリタ・C++20変換）
@@ -353,6 +354,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | 6 | `mosac`: IR → C++20 生成、ビルドパイプライン（build / run / emit / toolchain、ツールチェーン検出、ランタイム同梱）、差分テスト | 層 2・3 の全テストで差分ゼロ。3 OS で mosac build hello.pl が作った実行ファイルが、コンパイラも CMake も mosac も入っていないクリーンな環境で動く。`nrev` の変換物がインタプリタの 3 倍以上速い |
 | 7 | 仕上げ: GC、`garbage_collect/0`、`statistics/2`、マニュアル（日本語・英語）、mosac dist、リリース用パッケージ（各 OS のバイナリ、同梱ランタイム） | 長時間ループでメモリが頭打ちになる。README の手順だけで初見の人がビルドできる |
 | 8 | 文法規則: テキストの読み込み時に `-->` を訳す（ADR 0024）、`system` の `phrase/2,3`、`mosac` でも同じ動作 | `tests/pl/dcg.pl` が `mosa` で通り、`mosatest --diff` の差分がゼロ。同梱 Logtalk 準拠スイートの合格率が下がらない |
+| 9 | ISO の穴埋めと堅牢性: `subsumes_term/2`、`acyclic_term/1`、再帰でなく枠で動く reader（ADR 0011 改訂 4）、`Name//Arity`、文法規則の本体の `*->`、`library(dcg)` の `expand_term/2`（ADR 0024 改訂 3） | 8.2.4.4 と 8.3.11.4 の Examples が `tests/pl/unify.pl` と `types.pl` で通る。`mosatest --suite` が `predicates/subsumes_term_2` と `predicates/acyclic_term_1` をディレクトリとして範囲に入れる（STO の件は件ごとに別欄のまま）。`subsumes_term` の判定が組み込みを通る。合格率が 98.4% を下回らない。ctest `stack_deep_read` が 1 MiB の下で 3 OS で通る。`tests/pl/dcg.pl`、`lib_dcg.pl`、`modules.pl` が通り、`mosatest --diff` の差分が 0 |
 
 **フェーズをまたぐ禁止事項**
 

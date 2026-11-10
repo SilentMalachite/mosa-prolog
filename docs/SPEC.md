@@ -68,7 +68,7 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 
 **Grammar rules (phase 8)**
 
-A clause `Head --> Body` in a Prolog text is translated to an ordinary clause when the text is loaded, and `phrase/2,3` are in `system`. 13211-1 does not define grammar rules; the reference is the grammar-rule part of the standard, ISO/IEC 13211-3 (for its source text see `docs/iso-notes.md`, "13211-3"). ADR 0024 fixes the translation. `term_expansion/2`, `goal_expansion/2` and `expand_term/2` are not part of it.
+A clause `Head --> Body` in a Prolog text is translated to an ordinary clause when the text is loaded, and `phrase/2,3` are in `system`. 13211-1 does not define grammar rules; the reference is the grammar-rule part of the standard, ISO/IEC 13211-3 (for its source text see `docs/iso-notes.md`, "13211-3"). ADR 0024 fixes the translation. Phase 9 adds `Name//Arity` in export lists, import lists and the directives `dynamic/1`, `discontiguous/1` and `multifile/1` (it means `Name/(Arity+2)`), and `*->` in a grammar body. `expand_term/2` is added in phase 9 in `library(dcg)` (it translates one grammar rule; `term_expansion/2` and `goal_expansion/2` stay out of scope).
 
 **Decisions on implementation-defined matters**
 
@@ -190,6 +190,7 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 | `library(between)` | `between/3`, `succ/2`, `plus/3` |
 | `library(format)` | `format/1,2,3` (`~w`, `~q`, `~a`, `~d`, `~f`, `~e`, `~s`, `~c`, `~n`, `~t`, `~\|`) |
 | `library(strings)` | `atomic_list_concat/2,3`, `split_atom/4`, `upcase_atom/2` (Unicode uppercasing uses simple case mapping only) |
+| `library(dcg)` | `expand_term/2` (translates one grammar rule `H --> B`; a term that is not `-->/2` comes back unchanged) |
 | `library(japanese)` | `ひらがな_カタカナ/2` (hiragana/katakana), `全角_半角/2` (full-width/half-width), `読み幅/2` (display width calculation). Implemented with the generated tables |
 
 ## 6. Architecture (runtime, interpreter, C++20 translation)
@@ -356,6 +357,7 @@ Move to the next phase only when the current phase's exit criteria are met. Exit
 | 6 | `mosac`: IR → C++20 generation, build pipeline (build / run / emit / toolchain, toolchain detection, bundled runtime), differential tests | Zero differences across all layer 2 and 3 tests. On 3 OSes, the executable built by mosac build hello.pl runs in a clean environment with no compiler, CMake, or mosac installed. The translated `nrev` is at least 3 times faster than the interpreter |
 | 7 | Finishing: GC, `garbage_collect/0`, `statistics/2`, manual (Japanese and English), mosac dist, release packages (binaries for each OS, bundled runtime) | Memory usage plateaus in long-running loops. A newcomer can build using only the steps in the README |
 | 8 | Grammar rules: `-->` translated when a text is loaded (ADR 0024), `phrase/2,3` in `system`, the same behavior under `mosac` | `tests/pl/dcg.pl` passes in `mosa`, with zero differences in `mosatest --diff`. The pass rate on the bundled Logtalk conformance suite does not go down |
+| 9 | ISO completion and robustness: `subsumes_term/2`, `acyclic_term/1`, a reader that runs on frames instead of recursion (ADR 0011 amendment 4), `Name//Arity`, `*->` in a grammar body, `expand_term/2` in `library(dcg)` (ADR 0024 revision 3) | The Examples of 8.2.4.4 and 8.3.11.4 pass in `tests/pl/unify.pl` and `types.pl`; `mosatest --suite` takes `predicates/subsumes_term_2` and `predicates/acyclic_term_1` into its range as directories (the STO items stay in their own column, item by item); the verdict on `subsumes_term` goes through the built-in; the pass rate does not fall below 98.4%; the ctest `stack_deep_read` passes under 1 MiB on 3 OSes; `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass and `mosatest --diff` shows zero differences |
 
 **Prohibitions across phases**
 
