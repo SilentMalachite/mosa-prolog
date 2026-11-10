@@ -69,6 +69,16 @@ void check_absent(const std::filesystem::path& root) {
   mosa_test::check(!path_exists(root / "absent.json"), "absent writes no badge");
 }
 
+// Muse のレビューの中。報告書を書けない場所なら、合格率が 90 以上でも 1 で終える。前は黙って 0 で終えた。
+void check_unwritable(const std::filesystem::path& root) {
+  const auto suite = root / "unwritable";
+  mosa_test::check(write_text(suite / "logtalk" / "prolog" / "predicates" / "atom_length_2" / "tests.lgt",
+                              "test(ok, true) :- {true}.\n"),
+                   "write unwritable tests");
+  const auto report = root / "no-such-folder" / "unwritable.md";
+  mosa_test::check(mosa::run_iso_suite(suite.string(), report.string()) == 1, "unwritable report returns 1");
+}
+
 }  // namespace
 
 int main() {
@@ -78,6 +88,7 @@ int main() {
   std::filesystem::remove_all(root, error);
   check_colors(root);
   check_absent(root);
+  check_unwritable(root);
   std::filesystem::remove_all(root, error);
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

@@ -79,7 +79,7 @@ A = [一,二].
 
 | コマンド | すること |
 | --- | --- |
-| `mosatest ファイル` | ファイルの事実 `test(Name, Goal, Expected)` を読み込み、ゴールを 1 つずつ実行します。`Expected` は `true`、`fail`、`error(Formal)`、`solutions(List)` のどれかです。期待どおりにならなかったゴールを出し、1 つでもあれば 1 で終わります。フォルダを渡せば、その中の `.pl` のファイルをどれも実行します。 |
+| `mosatest ファイル` | ファイルの事実 `test(Name, Goal, Expected)` を読み込み、ゴールを 1 つずつ実行します。`Expected` は `true`、`fail`、`error(Formal)`、`solutions(List)` のどれかで、`List` には解をすべて順に並べます。期待どおりにならなかったゴールを出し、1 つでもあれば 1 で終わります。フォルダを渡せば、その中の `.pl` のファイルをどれも実行します。 |
 | `mosatest --suite フォルダ --report ファイル` | ソースの木にある ISO の適合性のテストを実行します。 |
 | `mosatest --diff フォルダ --report ファイル` | テストを `mosa` と `mosac` の両方で実行し、結果を比べます。 |
 | `mosatest --bench ファイル --count 回数` | プログラムにかかる時間を、`mosa` と `mosac` で測ります。 |

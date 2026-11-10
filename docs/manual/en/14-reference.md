@@ -90,7 +90,7 @@ manual. The others are tools for the developers of Mosa.
 
 | Command | What it does |
 | --- | --- |
-| `mosatest file` | Loads the facts `test(Name, Goal, Expected)` of the file and runs each goal. `Expected` is `true`, `fail`, `error(Formal)` or `solutions(List)`. Prints each goal that does not do what is expected, and ends with 1 if there is one. A folder runs each of its `.pl` files. |
+| `mosatest file` | Loads the facts `test(Name, Goal, Expected)` of the file and runs each goal. `Expected` is `true`, `fail`, `error(Formal)` or `solutions(List)`, where `List` gives every solution in order. Prints each goal that does not do what is expected, and ends with 1 if there is one. A folder runs each of its `.pl` files. |
 | `mosatest --suite folder --report file` | Runs the ISO conformance suite of the source tree. |
 | `mosatest --diff folder --report file` | Runs each test with `mosa` and with `mosac`, and compares the two. |
 | `mosatest --bench file --count n` | Times a program with `mosa` and with `mosac`. |

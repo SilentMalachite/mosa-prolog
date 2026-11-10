@@ -49,7 +49,8 @@ test(current_empty, current_predicate(none/1), true).
 test(current_builtin, current_predicate(true/0), fail).
 test(current_missing, current_predicate(no_such_pred_phase3/1), fail).
 test(current_order, (assertz(zz1(a)), assertz(zz2(b)), findall(P, current_predicate(P), L), zz_pair(L)), true).
-test(current_gen, current_predicate(N/0), solutions([N = quiet])).
+% このファイルの 0 引数の述語は quiet と halt_inside の 2 つ。列挙の順は処理系依存なので並べ替えて比べる。
+test(current_gen, (findall(N, current_predicate(N/0), Ns), sort(Ns, Sorted)), solutions([Sorted = [halt_inside, quiet]])).
 
 zz_pair([zz1/1, zz2/1|_]).
 zz_pair([zz1/1, zz2/1]).

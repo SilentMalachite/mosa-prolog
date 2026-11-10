@@ -173,6 +173,12 @@ target_include_directories(reconsult_test PRIVATE tests/cpp src)
 target_link_libraries(reconsult_test PRIVATE mosa_lib)
 target_compile_definitions(reconsult_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME reconsult COMMAND $<TARGET_FILE:reconsult_test>)
+# Muse のレビューの中。壊れた docs/agreement.json を捨てて書き直す。
+add_executable(agreement_json_test tests/cpp/agreement_json_test.cpp)
+target_include_directories(agreement_json_test PRIVATE tests/cpp src)
+target_compile_definitions(agreement_json_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(agreement_json_test PRIVATE mosa_lib)
+add_test(NAME agreement_json COMMAND $<TARGET_FILE:agreement_json_test>)
 # レビュー M21（ADR 0015 の改訂 2）。節の列の大きさ・順・写し。
 add_executable(clause_list_test tests/cpp/clause_list_test.cpp)
 target_include_directories(clause_list_test PRIVATE tests/cpp src)

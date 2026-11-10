@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <fstream>
 #include <functional>
 #include <iterator>
@@ -15,6 +16,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -67,12 +69,17 @@ std::optional<std::string> JsonReader::string() {
   return out;
 }
 
+// 書くのは 0 以上の整数だけ。符号や桁あふれは形が違うものとして捨てる。std::stoll だと例外で落ち、負の数は
+// std::size_t で巨大な件数になる（Muse のレビューの中）。
 std::optional<long long> JsonReader::number() {
   skip();
   std::size_t end = at_;
-  while (end < text_.size() && (std::isdigit(static_cast<unsigned char>(text_[end])) != 0 || text_[end] == '-')) ++end;
+  while (end < text_.size() && std::isdigit(static_cast<unsigned char>(text_[end])) != 0) ++end;
   if (end == at_) return std::nullopt;
-  const long long value = std::stoll(std::string{text_.substr(at_, end - at_)});
+  long long value = 0;
+  const std::string_view digits = text_.substr(at_, end - at_);
+  const auto [stop, error] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+  if (error != std::errc{} || stop != digits.data() + digits.size()) return std::nullopt;
   at_ = end;
   return value;
 }
@@ -269,12 +276,15 @@ bool write_agreement(const std::filesystem::path& json, std::string_view label, 
   sections.push_back(Section{std::string{label}, stats});
   std::sort(sections.begin(), sections.end(),
             [](const Section& left, const Section& right) { return left.label < right.label; });
+  // 書けないことが close で初めて分かることがある。デストラクタの close は結果を返さない。
   std::ofstream out_json{json, std::ios::binary | std::ios::trunc};
   if (!out_json) return false;
   write_json(out_json, sections);
+  out_json.close();
   std::ofstream out_md{std::filesystem::path{json}.replace_extension(".md"), std::ios::binary | std::ios::trunc};
   if (!out_md) return false;
   write_markdown(out_md, sections);
+  out_md.close();
   return static_cast<bool>(out_json) && static_cast<bool>(out_md);
 }
 

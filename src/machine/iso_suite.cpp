@@ -5,12 +5,15 @@
 #include "percent.hpp"
 
 #include "mosa/heap.hpp"
+#include "mosa/messages.hpp"
 #include "mosa/path_text.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <span>
 #include <sstream>
 #include <string>
@@ -90,10 +93,10 @@ int suite_status(int passed, int denominator) {
   return left >= right ? 0 : 1;
 }
 
-void write_report(const std::filesystem::path& path, int passed, int denominator,
+bool write_report(const std::filesystem::path& path, int passed, int denominator,
                   const std::vector<std::string>& failures, const std::vector<SideNote>& notes) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
-  if (!output) return;
+  if (!output) return false;
   output << "このファイルは自動生成である。手で編集しない。\n";
   output << "分母: " << denominator << '\n';
   output << "合格数: " << passed << '\n';
@@ -103,6 +106,8 @@ void write_report(const std::filesystem::path& path, int passed, int denominator
   for (const std::string& line : failures) output << line << '\n';
   output << "別欄:\n";
   for (const SideNote& note : notes) output << note.path << ' ' << note.detail << '\n';
+  output.close();
+  return static_cast<bool>(output);
 }
 
 // README のバッジは shields.io の endpoint 形式でこの JSON を読む。色の閾値 90 は SPEC 第9節の
@@ -115,9 +120,9 @@ std::string badge_color(int passed, int denominator) {
   return "red";
 }
 
-void write_badge(const std::filesystem::path& path, int passed, int denominator) {
+bool write_badge(const std::filesystem::path& path, int passed, int denominator) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
-  if (!output) return;
+  if (!output) return false;
   std::string message = "no tests";
   std::string color = "lightgrey";
   if (denominator > 0) {
@@ -127,6 +132,8 @@ void write_badge(const std::filesystem::path& path, int passed, int denominator)
   }
   output << R"({"schemaVersion":1,"label":"ISO conformance","message":")" << message << R"(","color":")" << color
          << "\"}\n";
+  output.close();
+  return static_cast<bool>(output);
 }
 
 std::string folder_of(std::string relative) {
@@ -221,9 +228,17 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
   });
   const int denominator = passed + failed;
   const std::filesystem::path report = path_from_utf8(report_path);
-  write_report(report, passed, denominator, failures, notes);
-  write_badge(std::filesystem::path{report}.replace_extension(".json"), passed, denominator);
-  return suite_status(passed, denominator);
+  const std::filesystem::path badge = std::filesystem::path{report}.replace_extension(".json");
+  // 書けなかった報告書は合格率がいくつでも失敗にする。黙って 0 で終えると、古い報告書とバッジが残る（Muse のレビューの中）。
+  bool written = true;
+  for (const auto& [path, ok] : {std::pair{report, write_report(report, passed, denominator, failures, notes)},
+                                 std::pair{badge, write_badge(badge, passed, denominator)}}) {
+    if (ok) continue;
+    std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write", std::array{utf8_from_path(path)})
+              << '\n';
+    written = false;
+  }
+  return written ? suite_status(passed, denominator) : 1;
 }
 
 }  // namespace mosa

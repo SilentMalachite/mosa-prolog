@@ -146,6 +146,40 @@ void check_fresh(const std::filesystem::path& root) {
   mosa_test::check(has_exact_line(body, "合格数: 2"), "fresh variables stay apart");
 }
 
+// Muse のレビューの中。forall/2 は \+ (Cond, \+ Action) なので、前の束縛を見て、終わった後も前の束縛を保つ。
+// 前は生成側の X が {X = 1} の X を未束縛のセルで隠し（forall_keeps_shadowed）、Action は {Y = b} の Y を
+// 見ず（forall_sees）、失敗した forall を連言が生成側ごと問い直し続けて止まらなかった（forall_fails）。
+// forall_keeps_outcome は、生成側が捨てたヒープの束縛を読まないことを見る。
+std::string forall_text() {
+  return "test(forall_no_leak, true) :-\n"
+         "    forall(member(X, [1, 2]), integer(X)),\n"
+         "    ^^assertion(var(X)).\n"
+         "test(forall_keeps_shadowed, true(X == 1)) :-\n"
+         "    {X = 1},\n"
+         "    forall(member(X, [1]), true).\n"
+         "test(forall_keeps_outcome, true(Y == b)) :-\n"
+         "    {Y = b},\n"
+         "    forall(member(_, [1]), true).\n"
+         "test(forall_sees, true) :-\n"
+         "    {Y = b},\n"
+         "    forall(member(X, [1, 2]), (integer(X), Y == b)).\n"
+         "test(forall_fails, fail) :-\n"
+         "    {Y = b},\n"
+         "    forall(member(X, [1, 2, 3]), X == 1).\n";
+}
+
+void check_forall(const std::filesystem::path& root) {
+  const auto suite = root / "forall";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "forall-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "term_variables_2" / "tests.lgt", forall_text()), "write forall");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  if (!has_exact_line(body, "合格数: 5")) show("forall report", body);
+  mosa_test::check(code == 0, "forall exits 0");
+  mosa_test::check(has_exact_line(body, "合格数: 5"), "forall sees and keeps the bindings before it");
+}
+
 }  // namespace
 
 int main() {
@@ -154,6 +188,7 @@ int main() {
     Fixture fixture(root);
     check_vars(root);
     check_fresh(root);
+    check_forall(root);
   }
   mosa_test::check(!std::filesystem::exists(root), "fixture removed");
   return mosa_test::failures();

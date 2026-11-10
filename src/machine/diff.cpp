@@ -267,7 +267,7 @@ std::vector<std::filesystem::path> diff_files(const std::filesystem::path& dir) 
   const std::filesystem::path prolog = dir / "logtalk" / "prolog";
   if (std::filesystem::is_directory(prolog, error) && !error) return lgt_suite_files(prolog);
   if (!std::filesystem::is_directory(dir, error) || error) return {};
-  return test_files(dir);
+  return test_files(dir).value_or(std::vector<std::filesystem::path>{});
 }
 
 DiffSource diff_source(const std::filesystem::path& file) {

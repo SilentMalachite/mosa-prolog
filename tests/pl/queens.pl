@@ -18,5 +18,6 @@ attack(Q, N, [_|Qs]) :- N1 is N + 1, attack(Q, N1, Qs).
 
 queens(N, Qs) :- range(1, N, Ns), perm(Ns, Qs), safe(Qs).
 
-test(queens4, queens(4, Qs), solutions([Qs = [2, 4, 1, 3]])).
-test(queens8, queens(8, Qs), solutions([Qs = [1, 5, 8, 6, 3, 7, 2, 4]])).
+% solutions/1 は解をすべて並べる。4 王妃の解は 2 つで、8 王妃は最初の解だけを見る。
+test(queens4, queens(4, Qs), solutions([Qs = [2, 4, 1, 3], Qs = [3, 1, 4, 2]])).
+test(queens8, once(queens(8, Qs)), solutions([Qs = [1, 5, 8, 6, 3, 7, 2, 4]])).

@@ -16,8 +16,10 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -117,14 +119,20 @@ bool read_test_file(Machine& machine, std::string_view source, std::string_view 
   return false;
 }
 
-std::vector<std::filesystem::path> test_files(const std::filesystem::path& dir) {
+// 例外の版は読めないフォルダで filesystem_error を投げ、mosatest が落ちる（Muse のレビューの低）。
+// 一覧を取れなければ nullopt を返し、呼び手が失敗にする。種類の分からない項目は流せないので飛ばす。
+std::optional<std::vector<std::filesystem::path>> test_files(const std::filesystem::path& dir) {
   std::vector<std::filesystem::path> files;
-  for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-    if (!entry.is_regular_file()) continue;
-    if (entry.path().extension() != ".pl") continue;
-    if (entry.path().filename() == "syntax.pl") continue;
-    files.push_back(entry.path());
+  std::error_code error;
+  std::filesystem::directory_iterator at(dir, error);
+  for (; !error && at != std::filesystem::directory_iterator{}; at.increment(error)) {
+    std::error_code kind;
+    if (!at->is_regular_file(kind) || kind) continue;
+    const std::filesystem::path& path = at->path();
+    if (path.extension() != ".pl" || path.filename() == "syntax.pl") continue;
+    files.push_back(path);
   }
+  if (error) return std::nullopt;
   std::sort(files.begin(), files.end());
   return files;
 }
@@ -281,7 +289,9 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
       if (current.kind != StopKind::Success) return false;
       if (!saved_matches(machine, current, rows[index])) return false;
     }
-    return true;
+    // 並べた解の後に解が残っていれば一致しない。空のリストはゴールが失敗するときだけ通る。
+    const Stop rest = rows.empty() ? stop : machine.next();
+    return rest.kind == StopKind::Failure;
   }
   error = exam.expect;
   return false;
@@ -318,15 +328,20 @@ int run_one(const std::filesystem::path& path) {
 
 int run_suite(std::string_view path) {
   const std::filesystem::path file = path_from_utf8(path);
-  if (std::filesystem::is_directory(file)) {
-    // 落ちたファイルで止めない。後ろのファイルの失敗が隠れ、直す前に失敗を見られなくなる。
-    int code = 0;
-    for (const auto& item : test_files(file)) {
-      if (run_one(item) != 0) code = 1;
-    }
-    return code;
+  std::error_code error;
+  if (!std::filesystem::is_directory(file, error)) return run_one(file);
+  const auto files = test_files(file);
+  if (!files) {
+    std::cerr << render_message_fresh(default_message_language(), "cannot_open_file", std::array{utf8_from_path(file)})
+              << '\n';
+    return 1;
   }
-  return run_one(file);
+  // 落ちたファイルで止めない。後ろのファイルの失敗が隠れ、直す前に失敗を見られなくなる。
+  int code = 0;
+  for (const auto& item : *files) {
+    if (run_one(item) != 0) code = 1;
+  }
+  return code;
 }
 
 }

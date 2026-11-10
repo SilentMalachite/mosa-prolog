@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -33,7 +34,7 @@ struct Exam {
 [[nodiscard]] bool read_test_file(Machine& machine, std::string_view source, std::string_view directory,
                                   std::string_view origin, std::vector<Exam>& exams, std::string& error);
 
-// run_suite が流すファイル。syntax.pl（往復の例）を除く *.pl を名前の順に並べる。
-[[nodiscard]] std::vector<std::filesystem::path> test_files(const std::filesystem::path& dir);
+// run_suite が流すファイル。syntax.pl（往復の例）を除く *.pl を名前の順に並べる。一覧を取れなければ nullopt。
+[[nodiscard]] std::optional<std::vector<std::filesystem::path>> test_files(const std::filesystem::path& dir);
 
 }  // namespace mosa

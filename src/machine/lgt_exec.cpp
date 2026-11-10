@@ -509,6 +509,10 @@ void exec_conj(Machine& machine, const Prog& prog, int index, Env& env) {
   retry_right(machine, prog, right, env);
 }
 
+// forall/2 は \+ (Cond, \+ Action) なので、生成側は前の束縛を見て動き、その束縛は Action の間だけ使う。
+// 終わったら前の束縛へ戻す。戻さないと、生成側と同じ名前の前の束縛が未束縛のセルに隠れる（Muse のレビューの中）。
+// 生成側の問い合わせはヒープを捨てるので、前の束縛は字面に写しておき、終わってから今のヒープへ読み直す
+// （exec_plain と同じ）。入れ子の forall が写しを上書きしても戻せるよう、写しはここでも持つ。
 void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
   const int generator = prog.nodes[static_cast<std::size_t>(index)].left;
   const int action = prog.nodes[static_cast<std::size_t>(index)].right;
@@ -516,28 +520,12 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
     env.tri = Tri::No;
     return;
   }
-  const std::string text = prog.nodes[static_cast<std::size_t>(generator)].text;
+  const std::string text = goal_with_saved(machine, prog.nodes[static_cast<std::size_t>(generator)].text, env.saved);
+  snapshot_bundle(machine, env);
+  const std::string bundle = env.bundle;
+  const std::vector<std::string> names = env.bundle_names;
   LgtStep step = lgt_ask(machine, text + full_stop_after(text));
-  env.stop = step.stop;
-  if (step.dead) {
-    env.tri = Tri::Dead;
-    return;
-  }
-  if (step.stop.kind == StopKind::Failure) {
-    env.live = false;
-    env.tri = Tri::Ok;
-    return;
-  }
-  if (step.stop.kind != StopKind::Success) {
-    env.tri = Tri::Throw;
-    return;
-  }
   while (true) {
-    env.live = true;
-    env.bindings = step.stop.bindings;
-    exec_at(machine, prog, action, env);
-    if (env.tri != Tri::Ok) return;
-    step = lgt_again(machine);
     env.stop = step.stop;
     if (step.dead) {
       env.tri = Tri::Dead;
@@ -546,12 +534,25 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
     if (step.stop.kind == StopKind::Failure) {
       env.live = false;
       env.tri = Tri::Ok;
+      env.bundle = bundle;
+      env.bundle_names = names;
+      rehydrate_bindings(machine, env);
       return;
     }
     if (step.stop.kind != StopKind::Success) {
       env.tri = Tri::Throw;
       return;
     }
+    env.live = true;
+    env.bindings = step.stop.bindings;
+    restore_saved(machine, env);
+    exec_at(machine, prog, action, env);
+    if (env.tri != Tri::Ok) {
+      // 失敗した forall に選択点は無い。開いたままだと、連言の retry_right がこの生成側を問い直し続けて止まらない。
+      if (env.tri == Tri::No) env.live = false;
+      return;
+    }
+    step = lgt_again(machine);
   }
 }
 

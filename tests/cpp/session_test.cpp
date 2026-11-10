@@ -388,6 +388,53 @@ void check_runner_answer_numbering() {
   mosa_test::check(text.find("h3") != std::string::npos, "two variables are not one shared variable");
 }
 
+// Muse のレビューの High。solutions は解をすべて並べる。並べた後にも解が残るゴール（e1）と、
+// 空のリストなのに成功するゴール（e2）は落ちる。ちょうど並べたゴールと、失敗するゴールの空のリストは通る。
+void check_runner_counts_every_solution() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_every_solution.pl";
+  {
+    std::ofstream file(path, std::ios::binary);
+    file << "p(1).\np(2).\np(3).\n"
+            "test(extra, (p(X), e1 = e1), solutions([X = 1, X = 2])).\n"
+            "test(empty_but_true, e2 = e2, solutions([])).\n"
+            "test(exact, p(X), solutions([X = 1, X = 2, X = 3])).\n"
+            "test(empty_fails, fail, solutions([])).\n";
+  }
+  std::ostringstream captured;
+  auto* saved = std::cerr.rdbuf(captured.rdbuf());
+  const int code = mosa::run_suite(path);
+  std::cerr.rdbuf(saved);
+  const std::string text = captured.str();
+  mosa_test::check(code == 1, "extra solutions fail");
+  mosa_test::check(text.find("e1") != std::string::npos, "a solution after the list fails: " + text);
+  mosa_test::check(text.find("e2") != std::string::npos, "an empty list needs a failing goal: " + text);
+  mosa_test::check(text.find("p(X)\n") == std::string::npos && text.find("fail\n") == std::string::npos,
+                   "exact lists pass: " + text);
+}
+
+// Muse のレビューの低。中を一覧できないフォルダは、filesystem_error で落ちずに 1 で終える。
+// 権限を外しても読めてしまう OS や root では確かめられないので、開けるかを先に試して飛ばす。
+void check_runner_unreadable_folder() {
+  const std::filesystem::path dir = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_unreadable";
+  std::error_code error;
+  std::filesystem::permissions(dir, std::filesystem::perms::owner_all, error);
+  std::filesystem::create_directories(dir, error);
+  std::ofstream(dir / "a.pl", std::ios::binary) << "test(a_ok, true, true).\n";
+  std::filesystem::permissions(dir, std::filesystem::perms::none, error);
+  std::error_code probe;
+  const std::filesystem::directory_iterator opened(dir, probe);
+  if (probe) {
+    std::ostringstream captured;
+    auto* saved = std::cerr.rdbuf(captured.rdbuf());
+    const int code = mosa::run_suite(dir.string());
+    std::cerr.rdbuf(saved);
+    mosa_test::check(code == 1, "unreadable folder fails");
+    mosa_test::check(captured.str().find("runner_unreadable") != std::string::npos,
+                     "unreadable folder is named: " + captured.str());
+  }
+  std::filesystem::permissions(dir, std::filesystem::perms::owner_all, error);
+}
+
 // ディレクトリを渡したら、落ちたファイルの後ろも流して全部の失敗を出す。先で止めると後ろの失敗が隠れる。
 void check_runner_reports_every_file() {
   const std::string dir = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_every";
@@ -757,6 +804,8 @@ int main(int argc, char** argv) {
   check_runner();
   check_runner_reports_every_file();
   check_runner_answer_numbering();
+  check_runner_counts_every_solution();
+  check_runner_unreadable_folder();
   check_uncaught_message("ja", "警告: ゴールは例外を送出しました: foo", "uncaught_ja");
   check_uncaught_message("en", "Warning: goal raised exception: foo", "uncaught_en");
   check_fullwidth_message_args();
