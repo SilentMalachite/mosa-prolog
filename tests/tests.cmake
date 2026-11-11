@@ -716,7 +716,7 @@ set(diff_bench_files bench_nrev.pl bench_queens.pl bench_zebra.pl bench_tak.pl b
 add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/pl -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_tests_pl
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"
-  "-DREQUIRE=japanese.pl;native.pl;dcg.pl;${diff_bench_files}" "-DATTACHED=native.pl;${diff_bench_files}" -DROOT=${CMAKE_SOURCE_DIR}
+  "-DREQUIRE=japanese.pl;native.pl;dcg.pl;lib_dcg.pl;modules.pl;${diff_bench_files}" "-DATTACHED=native.pl;${diff_bench_files}" -DROOT=${CMAKE_SOURCE_DIR}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/diff_test.cmake)
 set_tests_properties(diff_tests_pl PROPERTIES ENVIRONMENT "${mosatest_bench_env}" LABELS diff RESOURCE_LOCK "agreement;pl_tmp"
   TIMEOUT 3000)

@@ -10,3 +10,4 @@ test(expand_term_var_head, expand_term((_ --> [x]), _), error(instantiation_erro
 test(expand_term_bad_head, expand_term((1 --> [x]), _), error(type_error(callable, 1))).
 test(expand_term_bad_list, expand_term((a --> [x|_]), _), error(instantiation_error)).
 test(expand_term_pushback, (expand_term((a, [p] --> [x]), C), C = (a(S0, S) :- _), var(S0), var(S)), true).
+test(expand_term_pushback_body, (expand_term((a, [p] --> [x]), C), C = (a(S0, S) :- (S0 = [x|T1], S = [p|T2])), T1 == T2), true).

@@ -16,6 +16,12 @@ struct DcgOut {
   bool not_callable = false;
 };
 
+// 項が -->/2 か。ローダと '$dcg_translate'/2 が同じ判定を使う。
+[[nodiscard]] inline bool is_rule_arrow(const Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  return cell.tag() == Tag::Str && heap.functor_arity(cell) == 2 && heap.atoms().name(heap.functor_atom(cell)) == "-->";
+}
+
 // H --> B を H' :- B' に訳す。
 [[nodiscard]] DcgOut dcg_rule(Impl& machine, Cell rule);
 // 文法規則の本体 Body を、S0 から読み始めて S を残すゴールに訳す。

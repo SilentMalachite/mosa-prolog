@@ -1,7 +1,7 @@
 # 計画 Task 10。mosac build で作った実行ファイルが、lib/ も原文も無いディレクトリで、MOSA_LIB 無しに動くことを確かめる
 # （SPEC 第6節「実行ファイルは起動時に外部ファイルを一切要求しない」、ADR 0009 Review Focus 5）。
 # 原文は WORK/src に写してから build し、動かす前に消す。実行ファイルに翻訳した機械のパスが残らないことも見る。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<uncaught_message|use_lists|include|plain_use|subdir> -DSRC=<tests/mosac>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir> -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
 

@@ -24,11 +24,6 @@ std::filesystem::path prolog_source_path(const std::filesystem::path& file);
 
 namespace {
 
-bool is_rule_arrow(const Heap& heap, Cell cell) {
-  cell = heap.deref(cell);
-  return cell.tag() == Tag::Str && heap.functor_arity(cell) == 2 && heap.atoms().name(heap.functor_atom(cell)) == "-->";
-}
-
 struct SavedFlags {
   DoubleQuotes quotes = DoubleQuotes::Codes;
   bool unknown_fail = false;
