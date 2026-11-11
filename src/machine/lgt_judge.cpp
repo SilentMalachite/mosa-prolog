@@ -290,7 +290,7 @@ bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& nam
     return false;
   }
   if (name == "variant" && arity == 2) return check_variant(machine, cell, names, bindings);
-  if ((name == "subsumes" || name == "subsumes_term") && arity == 2) {
+  if (name == "subsumes" && arity == 2) {
     return check_subsumes(machine, cell, names, bindings);
   }
   if (arity == 2 && (name == "==" || name == "=~=" || name == "<" || name == "=<" || name == ">" || name == ">=")) {
@@ -373,7 +373,7 @@ bool special_call(const Heap& heap, Cell cell) {
   if (name == "forall" && arity == 2) return true;
   if (name == "^^") return true;
   if (name == "variant" && arity == 2) return true;
-  if ((name == "subsumes" || name == "subsumes_term") && arity == 2) return true;
+  if (name == "subsumes" && arity == 2) return true;
   return name == "=~=" && arity == 2;
 }
 

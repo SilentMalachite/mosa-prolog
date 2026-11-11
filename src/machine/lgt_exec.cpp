@@ -211,7 +211,7 @@ bool runner_functor(std::string_view name, std::uint16_t arity) {
   if (name == "assertion" && (arity == 1 || arity == 2)) return true;
   if (name == "forall" && arity == 2) return true;
   if (arity != 2) return false;
-  return name == "variant" || name == "subsumes" || name == "subsumes_term" || name == "=~=";
+  return name == "variant" || name == "subsumes" || name == "=~=";
 }
 
 bool update_functor(std::string_view name, std::uint16_t arity) {
@@ -314,7 +314,7 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
       else node.note = "^^/" + std::to_string(arity);
       return add_node(prog, std::move(node));
     }
-    if (arity == 2 && (name == "variant" || name == "subsumes" || name == "subsumes_term" || name == "=~=")) {
+    if (arity == 2 && (name == "variant" || name == "subsumes" || name == "=~=")) {
       Node node;
       node.text = write_term(heap, ops, cell, lgt_write_options(), names);
       if (name == "variant") node.kind = NodeKind::Variant;
