@@ -527,7 +527,6 @@ Mosa 0.1.2 の既知の制限は [CHANGELOG](../../../CHANGELOG.ja.md) に並べ
 
 - Windows のコンソールのウィンドウで日本語を打つことは未検証です。
 - `mosac build --debug` は、最適化して作った実行時ライブラリにつなぎます。ライブラリの節は出しません。
-- `f(f(f(…)))` のようにとても深く入れ子になった項がファイルにあると、Mosa は読む途中で落ちることがあります。Windows では 600 段ほどから、macOS と Linux では数千段からです。
 - Windows では、Smart App Control が有効だと Mosa は動きません（第 2 章）。
 
 ---

@@ -184,9 +184,12 @@ Mosa には次のライブラリが付いてきます。どれも `use_module(li
 | `between` | `between/3`、`succ/2`、`plus/3` |
 | `format` | `format/1`、`format/2`、`format/3` |
 | `strings` | `atomic_list_concat/2`、`atomic_list_concat/3`、`split_atom/4`、`upcase_atom/2` |
+| `dcg` | `expand_term/2` |
 | `japanese` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2` |
 
 `length/2` も `lists` に入っていますが、組み込みでもあるので、第 7 章のようにライブラリなしで使えます。`atom_length/2` や `forall/2` のような組み込みの述語は、モジュール `system` にあり、どのモジュールからも使えます。
+
+公開リストには、文法規則の非終端記号を `Name//Arity` と書けます。`greet//0` は `greet/2` を表します。
 
 ## 練習問題
 

@@ -221,10 +221,13 @@ These libraries come with Mosa. Each is loaded with `use_module(library(Name))`:
 | `between` | `between/3`, `succ/2`, `plus/3` |
 | `format` | `format/1`, `format/2`, `format/3` |
 | `strings` | `atomic_list_concat/2`, `atomic_list_concat/3`, `split_atom/4`, `upcase_atom/2` |
+| `dcg` | `expand_term/2` |
 | `japanese` | `ひらがな_カタカナ/2`, `全角_半角/2`, `読み幅/2` |
 
 `length/2` is in `lists` too, but it is also built in, so it works without the library, as in chapter 7. The built-in
 predicates, such as `atom_length/2` and `forall/2`, are in the module `system`, and every module can use them.
+
+An export list can name a non-terminal of a grammar rule as `Name//Arity`: `greet//0` stands for `greet/2`.
 
 ## Exercises
 

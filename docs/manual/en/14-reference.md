@@ -561,8 +561,6 @@ removed. Among them:
 
 - Typing Japanese in the console window of Windows has not been verified.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
-- A term nested very deeply in a file, such as `f(f(f(…)))`, can crash Mosa while it reads the file: from about 600
-  levels on Windows, and from a few thousand on macOS and Linux.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).
 
 ---
