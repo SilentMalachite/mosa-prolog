@@ -9,14 +9,14 @@
 ### 足したこと
 
 - `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）を組み込みました。`subsumes_term/2` は何も束縛しません。
-- 公開と取り込みの一覧、および `dynamic`、`discontiguous`、`multifile` のディレクティブで、`Name//Arity` を `Name/(Arity+2)` として読みます。`abolish/1` は ISO のままです。
+- 公開リストと取り込みリスト、および `dynamic`、`discontiguous`、`multifile` のディレクティブで、非終端記号の `Name//Arity` を `Name/(Arity+2)` として読みます。`abolish/1` は ISO のままです。
 - 文法規則の本体の `*->` はソフトカットです。
-- `library(dcg)` が `expand_term/2` を公開します。文法規則 `H --> B` を 1 つ節に訳し、ほかの項はそのまま返します。`:- use_module(library(dcg)).` で読み込みます。
+- `library(dcg)` が `expand_term/2` を公開します。文法規則 `H --> B` を 1 つの節に訳し、変数でないほかの項はそのまま返します。`:- use_module(library(dcg)).` で読み込みます。
 - とても深く入れ子になった項を、落ちずに読みます。1 MiB のスタックで、引数、リスト、前置演算子、`xfy` の項、括弧、波括弧、`|` の尾で、100 万段の項を読めます。
 
 ### 既知の制限
 
-0.1.2 の既知の制限は、このリリースでなくなった 4 つ（深く入れ子になった項で落ちること、`subsumes_term/2` と `acyclic_term/1` が無いこと、公開リストの `Name//Arity`、文法規則の本体の `*->`）を除いて、そのまま残ります。`assertz/1` に渡した文法規則は、先に `library(dcg)` の `expand_term/2` を呼んだときだけ訳します。`term_expansion/2` と `goal_expansion/2` は組み込みにありません。ソースの節が 10 万段入れ子になっていても `mosac build` は通りますが、clang は約 80 分と 1.2 GB を使います。
+0.1.2 の既知の制限は、このリリースでなくなった 4 つ（深く入れ子になった項で落ちること、`subsumes_term/2` と `acyclic_term/1` が無いこと、公開リストの `Name//Arity`、文法規則の本体の `*->`）を除いて、そのまま残ります。`assertz/1` は文法規則を訳しません。先に `library(dcg)` の `expand_term/2` で訳した節を渡します。`term_expansion/2` と `goal_expansion/2` はありません。ソースの節が 10 万段入れ子になっていても `mosac build` は通りますが、macOS では clang が約 80 分と 1.2 GB のメモリを使いました。
 
 ## 0.1.2（2026-11-11）
 
