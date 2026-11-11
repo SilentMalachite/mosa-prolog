@@ -6,6 +6,7 @@
 #include "mosa/lexer.hpp"
 #include "mosa/operator_table.hpp"
 
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
@@ -55,6 +56,20 @@ class Reader {
     Cell term{};
     int priority = 0;
     std::optional<SyntaxFailure> failure;
+    // 枠を積んで続きを待つ印。term はまだ無い。
+    bool pushed = false;
+  };
+
+  // 入れ子 1 段を C++ の 1 フレームでなく枠 1 つで持つ。1 MiB のスタックでも深い項が読める（ADR 0011 改訂 4）。
+  enum class FrameKind : std::uint8_t { Prefix, Infix, Args, List, ListTail, Paren, Curly };
+  struct Frame {
+    FrameKind kind;
+    int outer_max;            // この枠の結果が満たす最大優先順位
+    int want;                 // いま待つ被演算子の最大優先順位
+    OpDef op{};               // Prefix, Infix
+    Cell left{};              // Infix
+    std::string functor;      // Args
+    std::vector<Cell> items;  // Args, List
   };
 
   struct VarRec {
@@ -65,12 +80,13 @@ class Reader {
 
   [[nodiscard]] Scan peek();
   Scan consume();
-  [[nodiscard]] Parsed parse_expr(int max_priority);
-  [[nodiscard]] Parsed parse_prefix(int max_priority);
+  [[nodiscard]] Parsed parse_expr(int max_priority);          // 入口。ループを回す
+  [[nodiscard]] Parsed parse_primary(int want);               // 1 つの基本項。枠を積んだときは pushed を返す
+  [[nodiscard]] Parsed follow(Parsed have, int current_max);  // 中置・後置。中置なら Infix を積んで pushed
+  [[nodiscard]] Parsed reduce(Frame frame, Parsed have);      // 枠を 1 つ降ろして項を作る
   [[nodiscard]] Parsed parse_literal();
   [[nodiscard]] Parsed parse_name(int max_priority);
-  [[nodiscard]] Parsed apply_prefix(const OpDef& op);
-  [[nodiscard]] Parsed parse_rest(Parsed left, int max_priority);
+  [[nodiscard]] Parsed apply_prefix(const OpDef& op, int outer_max);
   [[nodiscard]] Parsed parse_paren();
   [[nodiscard]] Parsed parse_list();
   // [|] の | は原子にしない。直後が項なら字句を戻して今の読みに任せる。
@@ -104,6 +120,7 @@ class Reader {
   bool has_pending_ = false;
   std::vector<VarRec> vars_;
   std::vector<Cell> occurrences_;
+  std::vector<Frame> frames_;
 };
 
 }

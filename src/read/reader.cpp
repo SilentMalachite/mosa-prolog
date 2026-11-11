@@ -203,13 +203,12 @@ Reader::Parsed Reader::parse_literal() {
   return parsed;
 }
 
-Reader::Parsed Reader::apply_prefix(const OpDef& op) {
+Reader::Parsed Reader::apply_prefix(const OpDef& op, int outer_max) {
+  // 被演算子を再帰で読むと、前置の入れ子 1 段が C++ の 1 フレームになり 1 MiB で溢れる。枠に待たせ、項は reduce が作る。
   const int arg_max = op.specifier == Specifier::Fy ? op.priority : op.priority - 1;
-  Parsed arg = parse_expr(arg_max);
-  if (arg.failure) return arg;
+  frames_.push_back(Frame{FrameKind::Prefix, outer_max, arg_max, op, Cell{}, {}, {}});
   Parsed parsed;
-  parsed.term = heap_.structure(heap_.atoms().intern(op.name), std::array<Cell, 1>{arg.term});
-  parsed.priority = op.priority;
+  parsed.pushed = true;
   return parsed;
 }
 
@@ -234,12 +233,12 @@ Reader::Parsed Reader::parse_name(int max_priority) {
     return parsed;
   }
   if (const std::optional<OpDef> prefix = find_prefix(token.text, max_priority)) {
-    if (can_start(next.token)) return apply_prefix(*prefix);
+    if (can_start(next.token)) return apply_prefix(*prefix, max_priority);
   }
   return atom_named(token.text);
 }
 
-Reader::Parsed Reader::parse_prefix(int max_priority) {
+Reader::Parsed Reader::parse_primary(int want) {
   const Scan scan = peek();
   if (scan.failure) return failure_of(scan);
   const Token& token = scan.token;
@@ -258,36 +257,32 @@ Reader::Parsed Reader::parse_prefix(int max_priority) {
       (token.text == "," || (token.text == "|" && operators_.lookup(token.text).empty()))) {
     return bad_token(token);
   }
-  if (token.kind == TokenKind::Name || token.kind == TokenKind::Solo) return parse_name(max_priority);
+  if (token.kind == TokenKind::Name || token.kind == TokenKind::Solo) return parse_name(want);
   return bad_token(token);
 }
 
-Reader::Parsed Reader::parse_rest(Parsed left, int max_priority) {
-  while (!left.failure) {
+Reader::Parsed Reader::follow(Parsed have, int current_max) {
+  while (!have.failure) {
     const Scan scan = peek();
     if (scan.failure) return failure_of(scan);
-    if (scan.token.kind != TokenKind::Name && scan.token.kind != TokenKind::Solo) return left;
-    const std::optional<OpDef> op = find_follower(scan.token.text, left.priority, max_priority);
-    if (!op) return left;
+    if (scan.token.kind != TokenKind::Name && scan.token.kind != TokenKind::Solo) return have;
+    const std::optional<OpDef> op = find_follower(scan.token.text, have.priority, current_max);
+    if (!op) return have;
     consume();
+    // 後置は次の字句を待たないので、その場で畳む。
     if (is_postfix(op->specifier)) {
-      left.term = heap_.structure(heap_.atoms().intern(op->name), std::array<Cell, 1>{left.term});
-      left.priority = op->priority;
+      have.term = heap_.structure(heap_.atoms().intern(op->name), std::array<Cell, 1>{have.term});
+      have.priority = op->priority;
       continue;
     }
+    // 右の被演算子を再帰で読むと、xfy の右の入れ子 1 段が C++ の 1 フレームになる。枠に待たせ、項は reduce が作る。
     const int right_max = op->specifier == Specifier::Xfy ? op->priority : op->priority - 1;
-    Parsed right = parse_expr(right_max);
-    if (right.failure) return right;
-    left.term = compound(op->name, std::array<Cell, 2>{left.term, right.term});
-    left.priority = op->priority;
+    frames_.push_back(Frame{FrameKind::Infix, current_max, right_max, *op, have.term, {}, {}});
+    Parsed pushed;
+    pushed.pushed = true;
+    return pushed;
   }
-  return left;
-}
-
-Reader::Parsed Reader::parse_expr(int max_priority) {
-  Parsed left = parse_prefix(max_priority);
-  if (left.failure) return left;
-  return parse_rest(std::move(left), max_priority);
+  return have;
 }
 
 void Reader::absorb_full_stop(const Scan& offending) {

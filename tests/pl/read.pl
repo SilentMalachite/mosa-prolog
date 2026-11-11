@@ -64,6 +64,9 @@ test(read_bare_bar, (open_string('f((|)).', S), read(S, _)), error(syntax_error(
 test(read_bar_functional, (open_string('|(a, b).', S), read(S, _)), error(syntax_error(_))).
 test(read_bar_operator_atom, (op(1105, xfy, '|'), open_string('f((|)).', S), read(S, T), op(0, xfy, '|'), T == f('|')), true).
 test(read_quoted_comma_bar, (open_string('f(\',\', \'|\').', S), read(S, T), T == f(',', '|')), true).
+% ADR 0011 改訂 4。枠のスタックで読んでも、深い入れ子の中の誤りは浅いときと同じ Formal になる。
+test(read_error_deep_token, (open_string('f(g(h(i(j(,))))).', S), read(S, _)), error(syntax_error(_))).
+test(read_error_deep_unclosed, (open_string('f(g(h(i(j(a)))).', S), read(S, _)), error(syntax_error(_))).
 % 6.5 の quoted char に生の改行とタブは無い。このファイルにその字を書くと、読み込み自体が落ちる。
 test(quoted_raw_nl, (open_string([39, 97, 10, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
 test(quoted_raw_tab, (open_string([39, 97, 9, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
