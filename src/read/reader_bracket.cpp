@@ -20,10 +20,18 @@ bool solo(const Token& token, std::string_view text) {
 
 }  // namespace
 
-Reader::Parsed Reader::parse_paren() {
+// 括弧の読み（ADR 0011 改訂 4）。中の項を parse_expr の再帰で読むと、入れ子 1 段が C++ の 1 フレームになり、
+// 1 MiB のスタックで f(f(...)) や [[...]] は 600 段ほど、括弧は 1,000 段ほどで溢れた。開きを読んだら枠を積んで
+// 中の項を待ち、閉じと区切りは項が読めて枠を降ろしたとき reduce_* が見る。字句を見る順と検査は再帰のときと同じ
+// なので、誤りの位置とトークンは変わらない。
+
+Reader::Parsed Reader::parse_paren(int outer_max) {
   consume();
-  Parsed inner = parse_expr(1200);
-  if (inner.failure) return inner;
+  frames_.push_back(Frame{FrameKind::Paren, outer_max, 1200, OpDef{}, Cell{}, {}, {}});
+  return pushed_mark();
+}
+
+Reader::Parsed Reader::reduce_paren(Parsed inner) {
   const Scan scan = peek();
   if (scan.failure) return failure_of(scan);
   if (!solo(scan.token, ")")) return bad_token(scan.token);
@@ -33,27 +41,30 @@ Reader::Parsed Reader::parse_paren() {
   return inner;
 }
 
-Reader::Parsed Reader::call_or_atom(std::string name) {
+Reader::Parsed Reader::call_or_atom(std::string name, int outer_max) {
   const Scan next = peek();
   if (next.failure) return failure_of(next);
   // 空白を挟まない '(' だけが関数表記。[] (2,3) と {} (2,3) の '(' は括弧である。
   if (next.token.kind == TokenKind::Solo && next.token.text == "(" && !next.token.after_layout) {
     consume();
-    return parse_arguments(std::move(name));
+    return parse_arguments(std::move(name), outer_max);
   }
   return atom_named(name);
 }
 
-Reader::Parsed Reader::parse_curly() {
+Reader::Parsed Reader::parse_curly(int outer_max) {
   consume();
   const Scan scan = peek();
   if (scan.failure) return failure_of(scan);
   if (solo(scan.token, "}")) {
     consume();
-    return call_or_atom("{}");
+    return call_or_atom("{}", outer_max);
   }
-  Parsed inner = parse_expr(1200);
-  if (inner.failure) return inner;
+  frames_.push_back(Frame{FrameKind::Curly, outer_max, 1200, OpDef{}, Cell{}, {}, {}});
+  return pushed_mark();
+}
+
+Reader::Parsed Reader::reduce_curly(Parsed inner) {
   const Scan close = peek();
   if (close.failure) return failure_of(close);
   if (!solo(close.token, "}")) return bad_token(close.token);
@@ -74,35 +85,40 @@ Reader::Parsed Reader::reject_empty_comma() {
   return bad_token(scan.token);
 }
 
-Reader::Parsed Reader::parse_arguments(std::string functor) {
-  std::vector<Cell> args;
-  while (true) {
-    if (args.size() == 1024) {
-      const Scan extra = peek();
-      if (extra.failure) return failure_of(extra);
-      // 2^63 は字句で溢れにならないので、溢れを先にするのはここで決める（レビュー M1）。
-      if (extra.token.kind == TokenKind::Integer && extra.token.needs_minus) return bad_token(extra.token);
-      return max_arity(extra.token);
-    }
-    Parsed gap = reject_empty_comma();
-    if (gap.failure) return gap;
-    Parsed arg = parse_expr(999);
-    if (arg.failure) return arg;
-    args.push_back(arg.term);
-    const Scan scan = peek();
-    if (scan.failure) return failure_of(scan);
-    if (solo(scan.token, ",")) {
-      consume();
-      continue;
-    }
-    if (solo(scan.token, ")")) {
-      consume();
-      break;
-    }
-    return bad_token(scan.token);
+Reader::Parsed Reader::open_argument(std::size_t filled) {
+  if (filled == 1024) {
+    const Scan extra = peek();
+    if (extra.failure) return failure_of(extra);
+    // 2^63 は字句で溢れにならないので、溢れを先にするのはここで決める（レビュー M1）。
+    if (extra.token.kind == TokenKind::Integer && extra.token.needs_minus) return bad_token(extra.token);
+    return max_arity(extra.token);
   }
+  return reject_empty_comma();
+}
+
+Reader::Parsed Reader::parse_arguments(std::string functor, int outer_max) {
+  Parsed gap = open_argument(0);
+  if (gap.failure) return gap;
+  frames_.push_back(Frame{FrameKind::Args, outer_max, 999, OpDef{}, Cell{}, std::move(functor), {}});
+  return pushed_mark();
+}
+
+Reader::Parsed Reader::reduce_args(Frame frame, Parsed arg) {
+  frame.items.push_back(arg.term);
+  const Scan scan = peek();
+  if (scan.failure) return failure_of(scan);
+  if (solo(scan.token, ",")) {
+    consume();
+    Parsed gap = open_argument(frame.items.size());
+    if (gap.failure) return gap;
+    // ループは枠を降ろしてから reduce を呼ぶ。積み直すと、次の引数もこの枠の want の 999 で読む。
+    frames_.push_back(std::move(frame));
+    return pushed_mark();
+  }
+  if (!solo(scan.token, ")")) return bad_token(scan.token);
+  consume();
   Parsed parsed;
-  parsed.term = compound(functor, args);
+  parsed.term = compound(frame.functor, frame.items);
   return parsed;
 }
 
@@ -113,20 +129,25 @@ Cell Reader::compound(std::string_view name, std::span<const Cell> args) {
   return heap_.structure(heap_.atoms().intern(name), args);
 }
 
-Reader::Parsed Reader::take_bar_tail(Cell& tail) {
+Reader::Parsed Reader::take_bar_tail(Frame list) {
   consume();
   // 尾の先頭も槽と同じ。引用した ',' は Name なのでここを通る。
   Parsed gap = reject_empty_comma();
   if (gap.failure) return gap;
-  Parsed rest = parse_expr(999);
-  if (rest.failure) return rest;
-  const Scan again = peek();
-  if (again.failure) return failure_of(again);
-  // リストの | は演算子ではない。2 つ目は項の一部にせず不正トークンにする。
-  if (solo(again.token, "|")) return bad_token(again.token);
-  tail = rest.term;
-  Parsed ok;
-  return ok;
+  list.kind = FrameKind::ListTail;
+  frames_.push_back(std::move(list));
+  return pushed_mark();
+}
+
+Reader::Parsed Reader::reduce_list_tail(Frame frame, Parsed rest) {
+  const Scan close = peek();
+  if (close.failure) return failure_of(close);
+  // リストの | は演算子ではない。尾の後の 2 つ目の | も、] でないほかの字句と同じく不正トークンにする。
+  if (!solo(close.token, "]")) return bad_token(close.token);
+  consume();
+  Parsed parsed;
+  parsed.term = cons_all(heap_, frame.items, rest.term);
+  return parsed;
 }
 
 Reader::Parsed Reader::reject_headless_bar() {
@@ -152,47 +173,38 @@ Reader::Parsed Reader::reject_headless_bar() {
   return bad_token(after.token);
 }
 
-Reader::Parsed Reader::parse_list() {
+Reader::Parsed Reader::parse_list(int outer_max) {
   consume();
   const Scan scan = peek();
   if (scan.failure) return failure_of(scan);
   if (solo(scan.token, "]")) {
     consume();
-    return call_or_atom("[]");
+    return call_or_atom("[]", outer_max);
   }
   Parsed headless = reject_headless_bar();
   if (headless.failure) return headless;
-  std::vector<Cell> heads;
-  Cell tail;
-  bool barred = false;
-  while (!barred) {
+  Parsed gap = reject_empty_comma();
+  if (gap.failure) return gap;
+  frames_.push_back(Frame{FrameKind::List, outer_max, 999, OpDef{}, Cell{}, {}, {}});
+  return pushed_mark();
+}
+
+Reader::Parsed Reader::reduce_list(Frame frame, Parsed elem) {
+  frame.items.push_back(elem.term);
+  const Scan sep = peek();
+  if (sep.failure) return failure_of(sep);
+  if (solo(sep.token, ",")) {
+    consume();
     Parsed gap = reject_empty_comma();
     if (gap.failure) return gap;
-    Parsed elem = parse_expr(999);
-    if (elem.failure) return elem;
-    heads.push_back(elem.term);
-    const Scan sep = peek();
-    if (sep.failure) return failure_of(sep);
-    if (solo(sep.token, ",")) {
-      consume();
-      continue;
-    }
-    if (solo(sep.token, "|")) {
-      Parsed taken = take_bar_tail(tail);
-      if (taken.failure) return taken;
-      barred = true;
-      break;
-    }
-    if (solo(sep.token, "]")) break;
-    return bad_token(sep.token);
+    frames_.push_back(std::move(frame));
+    return pushed_mark();
   }
-  const Scan close = peek();
-  if (close.failure) return failure_of(close);
-  if (!solo(close.token, "]")) return bad_token(close.token);
+  if (solo(sep.token, "|")) return take_bar_tail(std::move(frame));
+  if (!solo(sep.token, "]")) return bad_token(sep.token);
   consume();
-  if (!barred) tail = heap_.atom(heap_.atoms().intern("[]"));
   Parsed parsed;
-  parsed.term = cons_all(heap_, heads, tail);
+  parsed.term = cons_all(heap_, frame.items, heap_.atom(heap_.atoms().intern("[]")));
   return parsed;
 }
 

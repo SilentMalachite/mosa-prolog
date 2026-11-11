@@ -59,6 +59,13 @@ add_test(NAME stack_deep_write COMMAND ${CMAKE_COMMAND}
   -DSUMMARY=1 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
 set_tests_properties(stack_deep_write PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
+# 1 MiB のスタックで、深さ 1,000,000 の 5 つの形（関数表記、リスト、前置、xfy、括弧）を読む（ADR 0011 改訂 4）。
+add_test(NAME stack_deep_read COMMAND ${CMAKE_COMMAND}
+  "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_read.pl"
+  -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_read.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_read PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 1 MiB のスタックで、深さ 1,000,000 の項に項を歩く組込を使う（ADR 0011、計画 Task 7）。
 add_test(NAME stack_deep_builtins COMMAND ${CMAKE_COMMAND}
   "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.pl"
@@ -628,6 +635,15 @@ add_test(NAME mosac_long_list COMMAND ${CMAKE_COMMAND}
   "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/long_list_test.cmake)
 set_tests_properties(mosac_long_list PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# mosac build で作った実行ファイルが、データのファイルの 100,000 段の項を 1 MiB のスタックで読む（ADR 0011 改訂 4）。
+add_test(NAME mosac_deep_file COMMAND ${CMAKE_COMMAND}
+  -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_deep_file
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/deep_file.cmake)
+set_tests_properties(mosac_deep_file PROPERTIES TIMEOUT 900
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
 # ヒープの上限（--heap-max / MOSA_HEAP_MAX）で止まる。mosac run は終了コード 2 と上限の MiB を出す。

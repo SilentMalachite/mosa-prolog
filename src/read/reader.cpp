@@ -207,9 +207,7 @@ Reader::Parsed Reader::apply_prefix(const OpDef& op, int outer_max) {
   // 被演算子を再帰で読むと、前置の入れ子 1 段が C++ の 1 フレームになり 1 MiB で溢れる。枠に待たせ、項は reduce が作る。
   const int arg_max = op.specifier == Specifier::Fy ? op.priority : op.priority - 1;
   frames_.push_back(Frame{FrameKind::Prefix, outer_max, arg_max, op, Cell{}, {}, {}});
-  Parsed parsed;
-  parsed.pushed = true;
-  return parsed;
+  return pushed_mark();
 }
 
 Reader::Parsed Reader::parse_name(int max_priority) {
@@ -219,7 +217,7 @@ Reader::Parsed Reader::parse_name(int max_priority) {
   // 空白を挟まない '(' だけが関数表記。`\+ (true, fail)` は前置の引数である。
   if (next.token.kind == TokenKind::Solo && next.token.text == "(" && !next.token.after_layout) {
     consume();
-    return parse_arguments(token.text);
+    return parse_arguments(token.text, max_priority);
   }
   // 6.3.4.1: 名前 - の次の数は、空白を挟んでも負の定数。前置演算子の -(1) は関数表記で上が取る。
   if (token.kind == TokenKind::Name && token.text == "-" &&
@@ -243,9 +241,9 @@ Reader::Parsed Reader::parse_primary(int want) {
   if (scan.failure) return failure_of(scan);
   const Token& token = scan.token;
   if (token.kind == TokenKind::End || token.kind == TokenKind::EndFullStop) return bad_token(token);
-  if (token.kind == TokenKind::Solo && token.text == "(") return parse_paren();
-  if (token.kind == TokenKind::Solo && token.text == "[") return parse_list();
-  if (token.kind == TokenKind::Solo && token.text == "{") return parse_curly();
+  if (token.kind == TokenKind::Solo && token.text == "(") return parse_paren(want);
+  if (token.kind == TokenKind::Solo && token.text == "[") return parse_list(want);
+  if (token.kind == TokenKind::Solo && token.text == "{") return parse_curly(want);
   if (token.kind == TokenKind::Integer || token.kind == TokenKind::Float ||
       token.kind == TokenKind::Variable || token.kind == TokenKind::String) {
     return parse_literal();
@@ -278,9 +276,7 @@ Reader::Parsed Reader::follow(Parsed have, int current_max) {
     // 右の被演算子を再帰で読むと、xfy の右の入れ子 1 段が C++ の 1 フレームになる。枠に待たせ、項は reduce が作る。
     const int right_max = op->specifier == Specifier::Xfy ? op->priority : op->priority - 1;
     frames_.push_back(Frame{FrameKind::Infix, current_max, right_max, *op, have.term, {}, {}});
-    Parsed pushed;
-    pushed.pushed = true;
-    return pushed;
+    return pushed_mark();
   }
   return have;
 }

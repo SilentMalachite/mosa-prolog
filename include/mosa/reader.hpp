@@ -69,7 +69,7 @@ class Reader {
     OpDef op{};               // Prefix, Infix
     Cell left{};              // Infix
     std::string functor;      // Args
-    std::vector<Cell> items;  // Args, List
+    std::vector<Cell> items;  // Args, List, ListTail
   };
 
   struct VarRec {
@@ -84,20 +84,29 @@ class Reader {
   [[nodiscard]] Parsed parse_primary(int want);               // 1 つの基本項。枠を積んだときは pushed を返す
   [[nodiscard]] Parsed follow(Parsed have, int current_max);  // 中置・後置。中置なら Infix を積んで pushed
   [[nodiscard]] Parsed reduce(Frame frame, Parsed have);      // 枠を 1 つ降ろして項を作る
+  [[nodiscard]] static Parsed pushed_mark();
   [[nodiscard]] Parsed parse_literal();
   [[nodiscard]] Parsed parse_name(int max_priority);
   [[nodiscard]] Parsed apply_prefix(const OpDef& op, int outer_max);
-  [[nodiscard]] Parsed parse_paren();
-  [[nodiscard]] Parsed parse_list();
+  // 括弧は開きを消費して枠を積み、pushed を返す。閉じと区切りは中の項が読めてから reduce_* が見る。
+  [[nodiscard]] Parsed parse_paren(int outer_max);
+  [[nodiscard]] Parsed parse_list(int outer_max);
   // [|] の | は原子にしない。直後が項なら字句を戻して今の読みに任せる。
   [[nodiscard]] Parsed reject_headless_bar();
   // 槽の先頭のコンマは原子にしない。区切りのままでは項が無い。
   [[nodiscard]] Parsed reject_empty_comma();
-  [[nodiscard]] Parsed take_bar_tail(Cell& tail);
-  [[nodiscard]] Parsed parse_curly();
-  [[nodiscard]] Parsed parse_arguments(std::string functor);
+  // 引数の槽の先頭。1024 個の後の槽は溢れ、先頭のコンマは項が無い。
+  [[nodiscard]] Parsed open_argument(std::size_t filled);
+  [[nodiscard]] Parsed take_bar_tail(Frame list);
+  [[nodiscard]] Parsed parse_curly(int outer_max);
+  [[nodiscard]] Parsed parse_arguments(std::string functor, int outer_max);
+  [[nodiscard]] Parsed reduce_args(Frame frame, Parsed arg);
+  [[nodiscard]] Parsed reduce_list(Frame frame, Parsed elem);
+  [[nodiscard]] Parsed reduce_list_tail(Frame frame, Parsed rest);
+  [[nodiscard]] Parsed reduce_paren(Parsed inner);
+  [[nodiscard]] Parsed reduce_curly(Parsed inner);
   [[nodiscard]] Cell compound(std::string_view name, std::span<const Cell> args);
-  [[nodiscard]] Parsed call_or_atom(std::string name);
+  [[nodiscard]] Parsed call_or_atom(std::string name, int outer_max);
   [[nodiscard]] Parsed atom_named(std::string_view name);
   [[nodiscard]] Cell intern_variable(std::string name);
   [[nodiscard]] Cell make_string(std::string_view text);

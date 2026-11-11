@@ -5,12 +5,13 @@
 #include <utility>
 
 // 読みのループと枠の還元（ADR 0011 改訂 4）。入れ子 1 段を C++ の 1 フレームにすると、1 MiB のスタックで
-// 前置 850 段、xfy 1,600 段ほどで溢れた。待っている被演算子を frames_ に積み、1 つのループで読む。
+// f(f(...)) や [[...]] は 600 段、前置 850 段、括弧 1,000 段、xfy 1,600 段ほどで溢れた。待っている被演算子と
+// 括弧の中身を frames_ に積み、1 つのループで読む。
 
 namespace mosa {
 
-// 括弧の中はまだ parse_expr を再帰で呼ぶ。入れ子のループどうしが frames_ を分け合えるよう、入口の底の印より
-// 上の枠だけをこのループの物とする。
+// 括弧も枠に載り、parse_expr を呼ぶのは next だけである。それでも入口の底の印より上の枠だけをこのループの物とし、
+// 出るときは frames_ を入口の形に戻す。この約束を 1 か所で守れば、呼び手は frames_ の中身を気にしなくてよい。
 Reader::Parsed Reader::parse_expr(int max_priority) {
   const std::size_t base = frames_.size();
   while (true) {
@@ -26,7 +27,8 @@ Reader::Parsed Reader::parse_expr(int max_priority) {
       have = reduce(std::move(frame), std::move(have));
     }
     if (have.failure) {
-      // 誤りの位置とトークンは have が持つ。積み残しを捨て、次の read/1 が古い枠を見ないようにする。
+      // 誤りの位置とトークンは have が持つ。積み残しを捨て、frames_ を入口の形に戻す。consult のファイルを読む
+      // Reader は終わりまで生きるので、捨てないと誤りの枠の引数や関数子がその間ずっと残る。
       frames_.resize(base);
       return have;
     }
@@ -34,6 +36,13 @@ Reader::Parsed Reader::parse_expr(int max_priority) {
   }
 }
 
+Reader::Parsed Reader::pushed_mark() {
+  Parsed parsed;
+  parsed.pushed = true;
+  return parsed;
+}
+
+// 括弧の枠は閉じか区切りを見る。区切りなら枠を積み直して pushed を返し、ループが次の項を読む。
 Reader::Parsed Reader::reduce(Frame frame, Parsed have) {
   switch (frame.kind) {
     case FrameKind::Prefix:
@@ -46,13 +55,17 @@ Reader::Parsed Reader::reduce(Frame frame, Parsed have) {
       have.priority = frame.op.priority;
       return have;
     case FrameKind::Args:
+      return reduce_args(std::move(frame), std::move(have));
     case FrameKind::List:
+      return reduce_list(std::move(frame), std::move(have));
     case FrameKind::ListTail:
+      return reduce_list_tail(std::move(frame), std::move(have));
     case FrameKind::Paren:
+      return reduce_paren(std::move(have));
     case FrameKind::Curly:
-      // 括弧の枠はまだ積まない。括弧は parse_expr を再帰で呼び、閉じまで自分で読む。
-      break;
+      return reduce_curly(std::move(have));
   }
+  // どの種類も上で返る。列挙の外の値は積まないが、switch の後に返さないと MSVC の C4715 が出る。
   return have;
 }
 

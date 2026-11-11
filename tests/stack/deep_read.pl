@@ -5,6 +5,14 @@
 
 depth(1000000).
 
+% 関数表記の入れ子は f(f(a)) と書かれ、1 段ごとに引数の枠を積む。
+nest_f(0, X, X) :- !.
+nest_f(N, X, Y) :- M is N - 1, nest_f(M, f(X), Y).
+
+% リストの入れ子は [[a]] と書かれ、1 段ごとにリストの枠を積む。
+nest_list(0, X, X) :- !.
+nest_list(N, X, Y) :- M is N - 1, nest_list(M, [X], Y).
+
 % 前置演算子の入れ子は - - -a と書かれる。-(1) は - (1) と括弧付きで書かれ括弧の読みを通るので、葉はアトムにする。
 nest_prefix(0, X, X) :- !.
 nest_prefix(N, X, Y) :- M is N - 1, nest_prefix(M, -(X), Y).
@@ -18,4 +26,12 @@ roundtrip(Name, T) :-
     open('deep_read.txt', read, R), read(R, T2), close(R),
     ( T == T2 -> write(Name), write(':ok') ; write(Name), write(':different') ), nl.
 
-main :- depth(D), nest_prefix(D, a, P), roundtrip(prefix, P), nest_xfy(D, a, X), roundtrip(xfy, X).
+% 括弧で包んだ項は括弧を残さない。writeq では書けないので、字面を put_char/2 で作る。
+put_n(0, _, _) :- !.
+put_n(N, W, C) :- put_char(W, C), M is N - 1, put_n(M, W, C).
+
+parens(N) :- open('deep_read.txt', write, W), put_n(N, W, '('), write(W, a), put_n(N, W, ')'), write(W, '.'), nl(W), close(W),
+    open('deep_read.txt', read, R), read(R, T), close(R), ( T == a -> write('paren:ok') ; write('paren:different') ), nl.
+
+main :- depth(D), nest_f(D, a, F), roundtrip(nested, F), nest_list(D, a, L), roundtrip(list, L),
+    nest_prefix(D, a, P), roundtrip(prefix, P), nest_xfy(D, a, X), roundtrip(xfy, X), parens(D).
