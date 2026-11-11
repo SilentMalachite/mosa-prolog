@@ -67,8 +67,9 @@ test(read_quoted_comma_bar, (open_string('f(\',\', \'|\').', S), read(S, T), T =
 % ADR 0011 改訂 4。枠のスタックで読んでも、深い入れ子の中の誤りは浅いときと同じ Formal になる。
 test(read_error_deep_token, (open_string('f(g(h(i(j(,))))).', S), read(S, _)), error(syntax_error(_))).
 test(read_error_deep_unclosed, (open_string('f(g(h(i(j(a)))).', S), read(S, _)), error(syntax_error(_))).
-% 演算子の枠を積んだまま誤りになっても、終止符まで読み飛ばし、同じストリームの次の項が読める。
-test(read_error_prefix_frames_recover, (open_string('- - - - ). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
+% 演算子の枠を積んだまま構文エラーになる（上の行は前置の枠を 4 つ積んだ所の f( の直後の `,`、下の行は中置の枠を
+% 4 つ積んだ所の `)`）。reader は終止符まで読み飛ばし、同じストリームの次の項が読める。
+test(read_error_prefix_frames_recover, (open_string('- - - - f(,). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
 test(read_error_xfy_frames_recover, (open_string('1:2:3:4: ). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
 % 6.5 の quoted char に生の改行とタブは無い。このファイルにその字を書くと、読み込み自体が落ちる。
 test(quoted_raw_nl, (open_string([39, 97, 10, 98, 39, 46], S), read(S, _)), error(syntax_error(_))).
