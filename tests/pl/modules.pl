@@ -178,3 +178,9 @@ test(m28_dot_alias_meta, predicate_property(m28_q(_, _), meta_predicate(M)), sol
 test(m28_dot_alias_call, m28_q(X = 1, _), solutions([X = 1])).
 test(m28_dot_back_meta, m28_back_meta(M), solutions([M = '.'(0, ?)])).
 test(m28_dot_back_call, m28_back_call(X), solutions([X = 1])).
+
+% 非終端記号の Name//Arity は Name/(Arity+2) の意味で書き出し・取り込みの表に書ける（ADR 0024 改訂 3）。
+:- use_module('modules/dcg_export.pl', [dcg_item//1]).
+test(mod_export_dcg_call, phrase(dcg_export:greet, [hello, world]), true).
+test(mod_import_dcg_list, phrase(dcg_item(world), [world]), true).
+test(mod_export_dcg_property, predicate_property(dcg_export:greet(_, _), exported), true).

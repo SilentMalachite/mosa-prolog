@@ -33,5 +33,9 @@ int main() {
   check_refused("a --> [x|_].\n", "instantiation_error");
   check_refused("a, x --> [a].\n", "type_error(list,x)");
   check_refused("a, [x|_] --> [a].\n", "instantiation_error");
+  // 書き出しの表の Name//Arity は Name/(Arity+2) と同じ検査を受ける（ADR 0024 改訂 3）。
+  check_refused(":- module(m_neg, [x//(-1)]).\n", "domain_error(not_less_than_zero,-1)");
+  check_refused(":- module(m_big, [x//1023]).\n", "representation_error(max_arity)");
+  check_refused(":- module(m_atom, [1//0]).\n", "type_error(atom,1)");
   return mosa_test::failures();
 }

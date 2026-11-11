@@ -79,6 +79,9 @@ void begin_definition(Machine::Impl& machine, Predicate& predicate, bool by_goal
                                                  std::string_view file);
 [[nodiscard]] std::optional<Cell> add_exports(Machine::Impl& machine, Cell indicators);
 [[nodiscard]] std::optional<Cell> read_indicator(Machine::Impl& machine, Cell cell, PredKey& key);
+// 述語指示子の形を見分ける。Name/Arity なら 0、Name//Arity（文法規則の非終端記号、ADR 0024 改訂 3）なら 2、
+// どちらでもなければ -1。読み込みの表と指令が同じ読み方をするよう、1 か所に置く。
+[[nodiscard]] int indicator_arity_shift(const Machine::Impl& machine, Cell cell);
 
 // use_module/2 の第 2 引数。All は use_module/1、Only は [PI, PI as Alias]、Except は except([PI])。
 struct ImportSpec {

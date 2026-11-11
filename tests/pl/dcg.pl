@@ -105,3 +105,17 @@ test(dcg_load_number_body, dcg_load(number_body, 'dcg_nb --> [a], 1.\n'), fail).
 test(dcg_load_bad_list, dcg_load(bad_list, 'dcg_bl --> [a|b].\n'), fail).
 test(dcg_load_bad_push, dcg_load(bad_push, 'dcg_bp, x --> [a].\n'), fail).
 test(dcg_load_qualified, dcg_load(qualified, 'user:(dcg_q --> [a]).\n'), fail).
+
+% 指令 dynamic/discontiguous/multifile は Name//Arity を Name/(Arity+2) として読む（ADR 0024 改訂 3）。
+:- dynamic(dyn_nt//1).
+:- discontiguous(disc_nt//0).
+:- multifile(multi_nt//0).
+disc_nt --> [d].
+disc_other --> [o].
+multi_nt --> [m].
+disc_nt --> [d].
+test(dcg_dynamic_slashslash, (predicate_property(dyn_nt(_, _, _), dynamic), assertz(dyn_nt(1, [x|S], S)), phrase(dyn_nt(1), [x])), true).
+test(dcg_discontiguous_slashslash, phrase(disc_nt, [d]), true).
+test(dcg_multifile_slashslash, predicate_property(multi_nt(_, _), multifile), true).
+% abolish/1 は ISO のまま、Name//Arity を受けない。
+test(dcg_abolish_keeps_iso, abolish(foo//1), error(type_error(predicate_indicator, foo//1))).

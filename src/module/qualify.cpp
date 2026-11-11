@@ -116,14 +116,20 @@ bool run_qualify(Impl& machine, const Goal& goal) {
   return true;
 }
 
-// abolish/1 と同じ順で PI を確かめる（8.9.4.3）。
+int indicator_arity_shift(const Machine::Impl& machine, Cell cell) {
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return -1;
+  const std::string_view name = machine.atoms.name(machine.heap.functor_atom(cell));
+  if (name == "/") return 0;
+  return name == "//" ? 2 : -1;
+}
+
+// abolish/1 と同じ順で PI を確かめる（8.9.4.3）。Name//Arity は Name/(Arity+2) として読む。
+// 上限は Arity+2 に対して調べる。素の Arity で調べると 1023 が通って 1025 引数になる。
 std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return formal_instantiation(machine);
-  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2 ||
-      machine.atoms.name(machine.heap.functor_atom(cell)) != "/") {
-    return formal_type(machine, "predicate_indicator", cell);
-  }
+  const int shift = indicator_arity_shift(machine, cell);
+  if (shift < 0) return formal_type(machine, "predicate_indicator", cell);
   const Cell name = machine.heap.deref(machine.heap.arg(cell, 0));
   const Cell arity = machine.heap.deref(machine.heap.arg(cell, 1));
   if (machine.heap.unbound(name) || machine.heap.unbound(arity)) return formal_instantiation(machine);
@@ -131,9 +137,9 @@ std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
   if (!is_integer(arity)) return formal_type(machine, "integer", arity);
   const auto value = machine.heap.integer_value(arity);
   if (value < 0) return formal_domain(machine, "not_less_than_zero", arity);
-  if (value > 1024) return formal_representation(machine, "max_arity");
+  if (value + shift > 1024) return formal_representation(machine, "max_arity");
   key.name = atom_of(name);
-  key.arity = static_cast<std::uint16_t>(value);
+  key.arity = static_cast<std::uint16_t>(value + shift);
   return std::nullopt;
 }
 

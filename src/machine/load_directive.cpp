@@ -95,21 +95,21 @@ bool apply_op(Impl& machine, Cell directive) {
   return define_op_names(machine, static_cast<int>(priority64), *specifier, machine.heap.arg(body, 2));
 }
 
-// M:N/A は M の述語を指す。M の誤りは節操作と同じ Formal を formal に入れる。
+// M:N/A は M の述語を指す。N//A は N/(A+2) の意味（ADR 0024 改訂 3）。M の誤りは節操作と同じ Formal を formal に入れる。
 bool one_indicator(Impl& machine, Cell cell, PredKey& key, std::optional<Cell>& formal) {
   key.module = machine.load_module;
   formal = strip_module(machine, cell, key.module);
   if (formal) return false;
-  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return false;
-  if (machine.atoms.name(machine.heap.functor_atom(cell)) != "/") return false;
+  const int shift = indicator_arity_shift(machine, cell);
+  if (shift < 0) return false;
   const Cell left = machine.heap.deref(machine.heap.arg(cell, 0));
   const Cell right = machine.heap.deref(machine.heap.arg(cell, 1));
   if (left.tag() != Tag::Atom) return false;
   if (right.tag() != Tag::Int && right.tag() != Tag::IntBox) return false;
   const auto value = machine.heap.integer_value(right);
-  if (value < 0 || value > 1024) return false;
+  if (value < 0 || value + shift > 1024) return false;
   key.name = static_cast<std::uint32_t>(left.raw() >> 3);
-  key.arity = static_cast<std::uint16_t>(value);
+  key.arity = static_cast<std::uint16_t>(value + shift);
   return true;
 }
 
