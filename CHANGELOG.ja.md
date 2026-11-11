@@ -4,6 +4,25 @@
 
 この文書は [英語版](CHANGELOG.md) の日本語訳です。食い違うときは英語版に従います。
 
+## 0.1.4（2026-11-11）
+
+Mosa の C++ のコード全体を見直した後の保守のリリースです。プログラムから見える違いは 0.1.3 とありません。動くコンピュータは 0.1.3 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。
+
+### 直したこと
+
+- Mosa の中にある UTF-8 のデコーダ 3 つ（書き出しに 2 つ、読み込みに 1 つ）が、サロゲート（U+D800〜U+DFFF）、過剰に長い列、U+10FFFF を超える値を 1 字としていました。字句の解析と同じく、これらを拒むようにしました。今のプログラムがここに届くことはありません。`atom_codes/2`、`char_code/2`、ファイルの読み込みが先にこれらの字を拒みます。
+
+### 既知の制限
+
+0.1.3 の既知の制限は、そのまま残ります。
+
+- `assertz/1` は文法規則を訳しません。先に `library(dcg)` の `expand_term/2` で訳した節を渡します。`term_expansion/2` と `goal_expansion/2` はありません。
+- `use_module/1` はファイルの中でしか使えません。`?-` のプロンプトで打つと、`existence_error(procedure,use_module/1)` の警告が出ます（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。
+- Windows のコンソールのウィンドウで日本語を打つこと（`chcp 932` と `chcp 437`）は未検証です。
+- `mosac build --debug` は、最適化して作った実行時ライブラリにつなぎます。ライブラリの節は出しません。
+- ソースの節が 10 万段入れ子になっていても `mosac build` は通りますが、macOS では clang が約 80 分と 1.2 GB のメモリを使いました。
+- Windows では、Smart App Control が有効だと Mosa は動きません（[第 2 章](docs/manual/ja/02-install.md)）。
+
 ## 0.1.3（2026-11-11）
 
 ISO の組み込みを足し、深く入れ子になった項を読めるようにしたリリースです。動くコンピュータは 0.1.2 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。

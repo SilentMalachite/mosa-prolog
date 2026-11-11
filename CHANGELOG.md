@@ -2,6 +2,32 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## 0.1.4 (2026-11-11)
+
+A maintenance release after a review of all of Mosa's C++ code. A program sees no change from 0.1.3. It runs on the
+same computers as 0.1.3 ([chapter 2](docs/manual/en/02-install.md)), and every example of the
+[manual](docs/manual/en/README.md) is checked against it.
+
+### Fixed
+
+- Three UTF-8 decoders inside Mosa, two in the writer and one in the reader, took a surrogate (U+D800 to U+DFFF), an
+  overlong form or a code point past U+10FFFF for one character. They now reject them, as the lexer does. No program
+  reaches them today: `atom_codes/2`, `char_code/2` and reading a file reject such characters first.
+
+### Known limits
+
+The known limits of 0.1.3 still hold:
+
+- `assertz/1` does not translate a grammar rule: translate it with `expand_term/2` of `library(dcg)` first, and assert
+  the clause it returns. `term_expansion/2` and `goal_expansion/2` do not exist.
+- `use_module/1` works only in a file: typed at the `?-` prompt, it gives a warning with
+  `existence_error(procedure,use_module/1)` ([chapter 12](docs/manual/en/12-modules-libraries.md)).
+- Typing Japanese in the console window of Windows (with `chcp 932` or `chcp 437`) has not been verified.
+- `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
+- `mosac build` of a source clause nested 100,000 deep works, but on macOS clang took about 80 minutes and 1.2 GB of
+  memory to compile it.
+- On Windows, Mosa does not start while Smart App Control is on ([chapter 2](docs/manual/en/02-install.md)).
+
 ## 0.1.3 (2026-11-11)
 
 A release that adds ISO built-ins and reads deeply nested terms. It runs on the same computers as 0.1.2
