@@ -45,6 +45,10 @@ class Lexer {
   bool release_failure();
   // 旗 japanese_punctuation。読み込みでは指令の次の節から効く。
   void set_fullwidth(bool on) { fullwidth_ = on; }
+  // source の最後の字が終止符の後ろの字（layout char か %）で、その前の字が終止符になりうるとき真。写像は next と
+  // 同じく conv と全角の旗で決める。標準入力の read が、足した字ごとでなく、ここが真のときだけ読み直すために使う。
+  // 引用や注釈の中かは見ないので真は多めに出るが、終止符で止まる所では必ず真になる（6.4.8）。
+  [[nodiscard]] static bool may_end_before_last(std::string_view source, const CharConv* conv, bool fullwidth);
 
  private:
   struct SourceChar {

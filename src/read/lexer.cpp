@@ -57,6 +57,16 @@ Decoded decode_four(unsigned char lead, std::string_view source, std::size_t ind
   return decoded_ok(code, 4);
 }
 
+// end の直前の字の先頭。継続バイトを 3 つまで戻る。壊れた並びでは先頭を取り違えるが、そのときは decode が失敗する。
+std::size_t scalar_start(std::string_view source, std::size_t end) {
+  std::size_t at = end;
+  for (int step = 0; step < 4 && at > 0; ++step) {
+    --at;
+    if ((static_cast<unsigned char>(source[at]) & 0xC0U) != 0x80U) return at;
+  }
+  return at;
+}
+
 Decoded decode_utf8(std::string_view source, std::size_t index) {
   if (index >= source.size()) return {};
   const auto lead = static_cast<unsigned char>(source[index]);
@@ -244,6 +254,20 @@ bool Lexer::ends_clause(SourceChar ch) const {
   if (ch.code == U'.') return end_follows(ch.bytes);
   // 。は小数点にしないので半角に写さない。. と同じく、トークンの先頭で後ろが空白か % か終わりのときだけ終止符。
   return fullwidth_ && ch.code == U'。' && end_follows(ch.bytes);
+}
+
+// 終止符の判定は ends_clause をそのまま使う。別に書くと、写像や全角の旗が変わったとき片方だけずれる。
+bool Lexer::may_end_before_last(std::string_view source, const CharConv* conv, bool fullwidth) {
+  const std::size_t last = scalar_start(source, source.size());
+  if (last == 0) return false;
+  Lexer lexer(source, conv);
+  lexer.fullwidth_ = fullwidth;
+  lexer.index_ = scalar_start(source, last);
+  const SourceChar end = lexer.peek_char();
+  const SourceChar follower = lexer.peek_char_at(last);
+  // ends_clause は終止符が入力の最後でも真を返す。後ろの字が揃って初めて終止符と決まるので、その字の長さも確かめる。
+  return end.valid && follower.valid && lexer.index_ + end.bytes == last && last + follower.bytes == source.size() &&
+         lexer.ends_clause(end);
 }
 
 Scan Lexer::scan_word(TokenKind kind) {

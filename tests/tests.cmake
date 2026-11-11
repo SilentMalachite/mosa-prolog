@@ -312,6 +312,12 @@ add_executable(stdin_read_test tests/cpp/stdin_read_test.cpp)
 target_include_directories(stdin_read_test PRIVATE tests/cpp)
 target_link_libraries(stdin_read_test PRIVATE mosa_lib)
 add_test(NAME stdin_read COMMAND $<TARGET_FILE:stdin_read_test>)
+add_executable(stdin_scale_test tests/cpp/stdin_scale_test.cpp)
+target_include_directories(stdin_scale_test PRIVATE tests/cpp)
+target_link_libraries(stdin_scale_test PRIVATE mosa_lib)
+add_test(NAME stdin_scale COMMAND $<TARGET_FILE:stdin_scale_test>)
+# 時間の比を測るので、ほかの試験と並べて走らせない（pred_scale と同じ）。
+set_tests_properties(stdin_scale PROPERTIES RUN_SERIAL TRUE)
 
 add_executable(machine_test tests/cpp/machine_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)

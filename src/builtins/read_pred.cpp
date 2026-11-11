@@ -17,12 +17,14 @@
 //   permission_error(input, past_end_of_stream),
 //   representation_error(character), syntax_error(Key)
 // 構文エラーの Key と Extra syntax(stream(S, Line, LinePos, CharNo), Token) は ADR 0007。テストは Formal を比べる。
-// テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp, tests/cpp/stdin_read_test.cpp
+// テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp, tests/cpp/stdin_read_test.cpp,
+//   tests/cpp/stdin_scale_test.cpp
 
 #include "../machine/internal.hpp"
 
 #include "mosa/console.hpp"
 
+#include "mosa/lexer.hpp"
 #include "mosa/reader.hpp"
 
 #include <algorithm>
@@ -408,9 +410,25 @@ void give_back(Stream& stream, std::size_t from) {
   }
 }
 
+// 標準入力から、足した字が終止符の後ろの字になりうるところ（Lexer::may_end_before_last）か終わりまで足す。
+// 足すたびに頭から読み直すと、時間が項の長さの 2 乗で伸びた（19 KB のリストで 8 秒、stdin_scale_test）。
+// 読み手が終止符で止まるのは、その後ろの字が届いたときだけなので、間の字で読み直しても結果は変わらない。
+// 終止符でない所で止まる誤りでも、長い入力を読めば同じ所で止まり、余りは give_back が返す。
+// 戻り値は 1 字でも足したか。終わりに当たれば ended を立て、もう読まない。
+bool pull_to_mark(const Impl& machine, Stream& stream, bool& ended) {
+  bool pulled = false;
+  while (pull_byte(stream)) {
+    pulled = true;
+    if (Lexer::may_end_before_last(rest(stream), &machine.char_conv, machine.japanese_punct)) return true;
+  }
+  ended = true;
+  return pulled;
+}
+
 // 演算子は呼び手の文脈モジュールの見え方で読む（ADR 0006）。
 Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
   const std::size_t had = stream.bytes.size();
+  bool ended = false;
   while (true) {
     const std::string_view slice = rest(stream);
     Reader reader(slice, machine.heap, op_view(machine, module), current_double_quotes(machine),
@@ -418,14 +436,15 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
     reader.set_fullwidth(machine.japanese_punct);
     ReadOutcome outcome = reader.next();
     const std::size_t consumed = reader.consumed();
-    // 標準入力は、読んだ先に字が残るか本当の終端まで 1 バイトずつ足す。項が閉じても終止符が切れ目の最後の字なら、
+    // 標準入力は、読んだ先に字が残るか本当の終端まで足す。項が閉じても終止符が切れ目の最後の字なら、
     // 次の字を見るまで終止符と決まらない（6.4.8、1. の次が 5 なら 1.5）。次の字が無ければ終端の前の終止符である。
     // 誤りでも返す。成功と失敗とで REPL に渡る字を変えない（Grok レビュー）。
     if (consumed < slice.size()) {
       give_back(stream, std::max(had, stream.cursor + consumed));
       return Intake{std::move(outcome), consumed};
     }
-    if (!pull_byte(stream)) {
+    // 終わりに当たった後は読み直した結果を返す。もう一度読むと、端末の Ctrl-D 1 回で 2 回終わりを見る。
+    if (ended || !pull_to_mark(machine, stream, ended)) {
       // 項が読めた後の終わりは終止符の区切りとしてだけ使う。印を残すと、端末で foo. の後の Ctrl-D が
       // REPL の次の行の読みまで終わらせる。パイプは下ろしても次の読みでまた終わりを見る。
       if (outcome.term && stream.kind == Stream::Kind::Standard) standard_input_clear();

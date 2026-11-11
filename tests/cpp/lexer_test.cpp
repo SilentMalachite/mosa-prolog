@@ -1,5 +1,6 @@
 #include "harness.hpp"
 #include "mosa/char_class.hpp"
+#include "mosa/char_conv.hpp"
 #include "mosa/lexer.hpp"
 
 #include <cstdint>
@@ -339,6 +340,31 @@ void test_float_range() {
   test_float_range_long_mantissa();
 }
 
+// 標準入力から 1 バイトずつ足して読むときの読み直しの目印（read_pred.cpp の intake_term）。最後の字が終止符の後ろに
+// 来うる字で、その前の字が終止符になりうるときだけ真。写像は next と同じく char_conversion と全角の旗で決める。
+void test_end_marks() {
+  const auto marks = [](std::string_view source, bool fullwidth = false, const mosa::CharConv* conv = nullptr) {
+    return mosa::Lexer::may_end_before_last(source, conv, fullwidth);
+  };
+  mosa_test::check(marks("a. ") && marks("a.\n") && marks("a.\t") && marks("a.%") && marks(". "),
+                   "dot then layout or percent marks an end");
+  mosa_test::check(marks("a.\r") && !marks("a.\r\n"), "the end is marked at the carriage return");
+  mosa_test::check(marks("a.\xE3\x80\x80"), "dot then an ideographic space marks an end");
+  mosa_test::check(!marks("a.\xE3\x80"), "an unfinished follower does not mark an end");
+  mosa_test::check(!marks("") && !marks(".") && !marks("a.") && !marks("1.5") && !marks("a b") && !marks("a.b"),
+                   "no dot and follower, no mark");
+  mosa_test::check(marks("a.\n", true), "an ascii end is marked under the flag too");
+  mosa_test::check(marks("\xE8\xA6\xAA\xE3\x80\x82\n", true) && !marks("\xE8\xA6\xAA\xE3\x80\x82\n", false),
+                   "kuten ends only under the flag");
+  mosa::CharConv conv;
+  conv.enabled = true;
+  conv.map.emplace_back(U'!', U'.');
+  mosa_test::check(marks("a!\n", false, &conv) && !marks("a!\n"), "a char converted to a dot marks an end");
+  conv.map.clear();
+  conv.map.emplace_back(U'.', U'x');
+  mosa_test::check(!marks("a.\n", false, &conv), "a dot converted away does not mark an end");
+}
+
 }  // namespace
 
 int main() {
@@ -351,5 +377,6 @@ int main() {
   test_radix_and_comment_end();
   test_fullwidth();
   test_graphic_full_stop();
+  test_end_marks();
   return mosa_test::failures();
 }

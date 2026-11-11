@@ -17,6 +17,12 @@ English | [日本語](CHANGELOG.ja.md)
 - Mosa reads terms nested very deeply without crashing: terms 1,000,000 deep in arguments, lists, prefix operators,
   `xfy` operands, parentheses, curly braces and `|` tails, under a stack of 1 MiB.
 
+### Fixed
+
+- `read/1` and `read_term/2,3` on a piped `user_input` take time in proportion to the term's length. They
+  read the term again from its start for each byte they added, so a 19 KB term took 8 seconds and a 60 KB one
+  81 seconds.
+
 ### Known limits
 
 The known limits of 0.1.2 still hold, except the four that this release removes (a term nested very deeply crashing

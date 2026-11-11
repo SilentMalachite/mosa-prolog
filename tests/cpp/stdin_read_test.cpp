@@ -1,5 +1,7 @@
-// レビュー M12。標準入力の read/1 は、項が閉じるまで 1 バイトずつ足して読み直す。足した途中で末尾がドットでも、
+// レビュー M12。標準入力の read/1 は、項が閉じるまで 1 バイトずつ足す。足した途中で末尾がドットでも、
 // 次の字を見るまでは終止符と決めない（6.4.8: end char の後ろは layout char か %）。1.5 の小数点で切らない。
+// 読み直すのは、足した字が終止符の後ろの字になりうるときと終わりだけ。その判定は字句と同じ写像を使うので、
+// 。と char_conversion の終止符と全角空白の後ろの字も確かめる（時間は stdin_scale_test）。
 // std::cin の入力元を差し替え、パイプと同じく端末でない入力として user_input に読ませる。
 #include "harness.hpp"
 #include "mosa/console.hpp"
@@ -171,6 +173,20 @@ void check_japanese() {
   check("親(1.5).\n", "read(T), T == 親(1.5).", "japanese functor with a float");
 }
 
+// 足した字ごとには読み直さないので、終止符を見落とすと次の終止符まで読み進む。写像した終止符でも 1 つずつ読めること。
+void check_mapped_ends() {
+  const std::string_view kuten = "set_prolog_flag(japanese_punctuation, true), read(A), A == 親(x), read(B), B == foo.";
+  check("親(x)。\nfoo.\n", kuten, "kuten then newline");
+  check_left("親(x)。\nfoo.\nz", kuten, "\nz", "newline after a kuten goes back");
+  const std::string_view bang =
+      "set_prolog_flag(char_conversion, on), char_conversion('!', '.'), read(A), A == a, read(B), B == b.";
+  check("a!\nb.\n", bang, "converted dot");
+  check("a.\u3000b.\n", "read(A), A == a, read(B), B == b.", "ideographic space after the end");
+  check("a.\r\nb.\r\n", "read(A), A == a, read(B), B == b.", "carriage return after the end");
+  check("'a. b'.\n", "read(A), A == 'a. b'.", "dot and space inside quotes");
+  check("/* a. */ b.\n", "read(B), B == b.", "dot and space inside a comment");
+}
+
 }  // namespace
 
 int main() {
@@ -180,5 +196,6 @@ int main() {
   check_lookahead_returned();
   check_failure_returned();
   check_end_cleared();
+  check_mapped_ends();
   return mosa_test::failures();
 }
