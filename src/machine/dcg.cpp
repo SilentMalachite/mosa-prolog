@@ -179,10 +179,17 @@ void Translator::leave(const Work& item) {
   }
   const Cell right = pop();
   const Cell left = pop();
-  const std::string_view name = item.step == Step::Conj   ? ","
-                                : item.step == Step::Disj ? ";"
-                                : item.step == Step::SoftIf ? "*->"
-                                                            : "->";
+  // default を置かない。Step を足したときに -Wswitch で、ここでの名前の決め忘れに気づけるようにする。
+  std::string_view name;
+  switch (item.step) {
+    case Step::Conj: name = ","; break;
+    case Step::Disj: name = ";"; break;
+    case Step::IfThen: name = "->"; break;
+    case Step::SoftIf: name = "*->"; break;
+    case Step::Enter:
+    case Step::Not:
+    case Step::Qualified: return;  // 上で処理済みで、ここには来ない
+  }
   done_.push_back(pair(name, left, right));
 }
 

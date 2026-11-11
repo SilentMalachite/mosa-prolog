@@ -132,3 +132,10 @@ test(dcg_soft_multi_a, phrase(soft_multi, [a, y]), true).
 test(dcg_soft_multi_b, phrase(soft_multi, [b, y]), true).
 test(dcg_soft_bare_fail, phrase(soft_multi, [c, y]), fail).
 test(dcg_phrase_soft_body, phrase(([x] *-> [y] ; [z]), [x, y]), true).
+
+% 条件が再試行されることと、条件が成功したら else を試さないことを見る。-> に訳すと落ちる。
+soft_retry --> (([a] ; []) *-> [a]).
+soft_nt2 --> ([x] *-> [y] ; [x, z]).
+test(dcg_soft_multi_all, findall(L, phrase(soft_multi, L), Ls), solutions([Ls = [[a, y], [b, y]]])).
+test(dcg_soft_retry_cond, phrase(soft_retry, [a]), true).
+test(dcg_soft_no_else_after_then, phrase(soft_nt2, [x, z]), fail).
