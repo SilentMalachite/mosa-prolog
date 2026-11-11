@@ -1,3 +1,8 @@
+// 8.4.1 ==/2、\==/2、@</2、@=</2、@>/2、@>=/2（@term, @term）。エラー無し。
+// 8.4.2 compare/3（?atom, @term, @term）
+//   type_error(atom), domain_error(order)
+// テスト: tests/pl/order.pl
+
 #include "../machine/internal.hpp"
 
 #include <cmath>

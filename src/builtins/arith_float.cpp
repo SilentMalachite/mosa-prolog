@@ -1,3 +1,6 @@
+// arith.cpp の式の評価（7.9）が使う浮動小数の評価可能関数の分担。述語のモードと誤りは arith.cpp の見出し。
+// テスト: tests/pl/arith.pl、tests/cpp/evaluable_test.cpp
+
 #include "../machine/internal.hpp"
 
 #include <cmath>
