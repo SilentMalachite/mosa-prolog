@@ -715,7 +715,7 @@ Cor.2 defines `subsumes_term/2` with `unify_with_occurs_check/2`. In Mosa that p
 
 A or B?: A: inherit the decision B of 8.2.2 and make such calls false. B: use the default unification and make them true (the same as SWI-Prolog and the suite).
 
-Until confirmed: B (`run_subsumes_term` in `src/builtins/subsumes.cpp`; tests `subsumes_cyclic_*` in `tests/pl/unify.pl`). If the owner chooses A, replace the unification with `unify_with_occurs_check` and rewrite the expected values of those rows to A.
+Until confirmed: B (`run_subsumes_term` in `src/builtins/subsumes.cpp`; tests `subsumes_cyclic_*` in `tests/pl/unify.pl`). If the owner chooses A, replace the unification with `unify_with_occurs_check`, which must also trail every binding below the call's heap mark as `unify_visible` does (a binding of a variable newer than the last choice point is otherwise not undone), and then rewrite the expected values of those rows to A.
 
 ## 8 is_list/1 (non-ISO) of a list with cyclic elements
 

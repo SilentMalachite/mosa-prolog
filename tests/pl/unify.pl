@@ -56,6 +56,9 @@ test(iso_subsumes_var_occurs, subsumes_term(X, f(X)), fail).
 test(iso_subsumes_chain, (subsumes_term(X, Y), subsumes_term(Y, f(X))), true).
 test(subsumes_no_binding, (subsumes_term(f(X), f(Y)), var(X), var(Y), X \== Y), true).
 test(subsumes_no_binding_general, (subsumes_term(X, a), var(X)), true).
+% 変数が最後の選択点より新しい場合も、成功して束縛を残してはならない。
+test(subsumes_no_binding_fresh, (copy_term(_, X), subsumes_term(X, a), var(X)), true).
+test(subsumes_no_binding_fresh_pair, (copy_term(_-_, X-Y), subsumes_term(X, Y), X \== Y), true).
 % 循環した項は iso-notes 8.2.4 の B（既定の単一化で判る）。
 test(subsumes_cyclic_specific, (X = f(X), subsumes_term(_, X)), true).
 test(subsumes_cyclic_in_arg, (X = f(X), subsumes_term(f(_), f(X))), true).

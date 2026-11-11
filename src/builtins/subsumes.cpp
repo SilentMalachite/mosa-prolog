@@ -33,7 +33,9 @@ bool run_subsumes_term(Impl& machine, const Goal& goal) {
   // unify_with_occurs_check/2 は使わない。8.2.2 の決定 B ですでに循環した項への束縛も失敗するため、
   // X = f(X) の後の subsumes_term(f(_), f(X)) が偽になり、SWI-Prolog と準拠スイートに合わない（iso-notes 8.2.4）。
   // 循環していない入力では、既定の単一化と変数の並びの比較で真偽は同じになる。
-  bool subsumes = do_unify(machine, general, specific);
+  // do_unify では足りない。束縛を巻き戻す記録（trail）は最後の選択点より古い変数にしか付かず、新しい変数の束縛は
+  // restore_state で戻らない。成功しても束縛を残さないので、この呼び出しの前からあるセルを全部 unify_visible で記録する。
+  bool subsumes = unify_visible(machine, heap_mark, general, specific);
   if (subsumes) subsumes = variables_unchanged(machine, before, term_variable_cells(machine, specific));
   restore_state(machine, heap_mark, trail_mark, extras_mark);
   if (!subsumes) {

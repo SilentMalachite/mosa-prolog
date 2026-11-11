@@ -240,7 +240,7 @@ and compound terms) and sort them.
 | `=/2` | 8.2.1 | Unifies two terms. |
 | `\=/2` | 8.2.3 | Succeeds when the two terms do not unify. |
 | `unify_with_occurs_check/2` | 8.2.2 | Unifies, but fails where `=` would make a term that holds itself, as in `X = f(X)`. |
-| `subsumes_term/2` | 8.2.4 | Succeeds when the first term can be made equal to the second by binding only variables of the first; it binds nothing. |
+| `subsumes_term/2` | 8.2.4 | Succeeds when the second term is an instance of the first: unifying them leaves the second term unchanged. It binds nothing. |
 | `==/2` | 8.4.1 | The two terms are the same, without binding anything. |
 | `\==/2` | 8.4.1 | The two terms are not the same. |
 | `@</2` | 8.4.1 | The first term comes before the second in the standard order. |
