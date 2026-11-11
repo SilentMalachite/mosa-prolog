@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
-分母: 2171
-合格数: 2136
+分母: 2185
+合格数: 2150
 合格率: 98.4
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
@@ -160,7 +160,12 @@ predicates/sub_atom_5 sics_sub_atom_5_29
 predicates/sub_atom_5 sics_sub_atom_5_30
 predicates/sub_atom_5 sics_sub_atom_5_31
 predicates/sub_atom_5 sics_sub_atom_5_32
-predicates/subsumes_term_2 20
+predicates/subsumes_term_2 lgt_subsumes_term_2_15
+predicates/subsumes_term_2 lgt_subsumes_term_2_15
+predicates/subsumes_term_2 lgt_subsumes_term_2_16
+predicates/subsumes_term_2 lgt_subsumes_term_2_16
+predicates/subsumes_term_2 lgt_subsumes_term_2_17
+predicates/subsumes_term_2 lgt_subsumes_term_2_17
 predicates/succ_2 11
 predicates/term_comparison lgt_term_comparison_38
 predicates/term_comparison lgt_term_comparison_38

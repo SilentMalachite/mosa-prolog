@@ -83,6 +83,7 @@ constexpr auto kPredicateTrue = std::to_array<std::string_view>({
     "setof_3",
     "stream_property_2",
     "sub_atom_5",
+    "subsumes_term_2",
     "term_comparison",
     "term_variables_2",
     "unify_2",
@@ -115,7 +116,6 @@ constexpr auto kPredicateFalse = std::to_array<std::string_view>({
     "predicate_property_2",
     "setup_call_cleanup_3",
     "sort_2",
-    "subsumes_term_2",
     "succ_2",
 });
 

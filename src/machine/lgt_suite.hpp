@@ -128,6 +128,7 @@ inline constexpr auto kPredicateScope = std::to_array<std::string_view>({
     "setof_3",
     "stream_property_2",
     "sub_atom_5",
+    "subsumes_term_2",
     "term_comparison",
     "term_variables_2",
     "unify_2",
