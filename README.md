@@ -6,7 +6,7 @@ English | [日本語](README.ja.md)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
 [![Phase](https://img.shields.io/badge/phase-9_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
-[![Version](https://img.shields.io/badge/version-0.1.2-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.3-blue)](CHANGELOG.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
 [![CMake](https://img.shields.io/badge/CMake-3.25%2B-064F8C?logo=cmake&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakePresets.json)
@@ -18,13 +18,13 @@ Mosa Prolog is a Prolog system that follows ISO/IEC 13211-1. It has three comman
 
 ## Download
 
-Mosa Prolog 0.1.2 is on the [Releases page](https://github.com/SilentMalachite/mosa-prolog/releases). Download the package for your computer:
+Mosa Prolog 0.1.3 is on the [Releases page](https://github.com/SilentMalachite/mosa-prolog/releases). Download the package for your computer:
 
 | Computer | Package |
 | --- | --- |
-| macOS on Apple Silicon | `mosa-0.1.2-macos-arm64.tar.gz` |
-| Linux on x86_64 | `mosa-0.1.2-linux-x86_64.tar.gz` |
-| Windows on x64 | `mosa-0.1.2-windows-x86_64.zip` |
+| macOS on Apple Silicon | `mosa-0.1.3-macos-arm64.tar.gz` |
+| Linux on x86_64 | `mosa-0.1.3-linux-x86_64.tar.gz` |
+| Windows on x64 | `mosa-0.1.3-windows-x86_64.zip` |
 
 The packages run on:
 
@@ -51,7 +51,7 @@ N = 5.
 
 ## Manual
 
-The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against Mosa 0.1.2; only installation steps and other things that depend on your machine are not run. What each release has, and its known limits, are in the [CHANGELOG](CHANGELOG.md).
+The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against Mosa 0.1.3; only installation steps and other things that depend on your machine are not run. What each release has, and its known limits, are in the [CHANGELOG](CHANGELOG.md).
 
 ## Build from source
 
