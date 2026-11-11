@@ -119,3 +119,16 @@ test(dcg_discontiguous_slashslash, phrase(disc_nt, [d]), true).
 test(dcg_multifile_slashslash, predicate_property(multi_nt(_, _), multifile), true).
 % abolish/1 は ISO のまま、Name//Arity を受けない。
 test(dcg_abolish_keeps_iso, abolish(foo//1), error(type_error(predicate_indicator, foo//1))).
+
+% 本体の *-> は -> と同じ形で、条件に S0 から S1、then に S1 から S を渡す（ADR 0024 改訂 3）。
+soft_nt --> ([x] *-> [y] ; [z]).
+soft_multi --> (one_of *-> [y]).
+one_of --> [a].
+one_of --> [b].
+test(dcg_soft_then, phrase(soft_nt, [x, y]), true).
+test(dcg_soft_else, phrase(soft_nt, [z]), true).
+test(dcg_soft_no_else_for_then, phrase(soft_nt, [x, z]), fail).
+test(dcg_soft_multi_a, phrase(soft_multi, [a, y]), true).
+test(dcg_soft_multi_b, phrase(soft_multi, [b, y]), true).
+test(dcg_soft_bare_fail, phrase(soft_multi, [c, y]), fail).
+test(dcg_phrase_soft_body, phrase(([x] *-> [y] ; [z]), [x, y]), true).

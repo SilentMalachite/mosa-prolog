@@ -21,7 +21,7 @@ namespace {
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
 
 // Enter は本体を 1 つ訳し始める。ほかは制御構造の子を訳し終えた後に、子の結果から制御構造を組み直す。
-enum class Step : std::uint8_t { Enter, Conj, Disj, IfThen, Not, Qualified };
+enum class Step : std::uint8_t { Enter, Conj, Disj, IfThen, SoftIf, Not, Qualified };
 
 struct Work {
   Step step = Step::Enter;
@@ -143,9 +143,11 @@ bool Translator::spread(Cell body, const Work& item) {
   const auto name = m_.atoms.name(m_.heap.functor_atom(body));
   const auto arity = m_.heap.functor_arity(body);
   const Cell left = arg(body, 0);
-  if (arity == 2 && (name == "," || name == "->")) {
+  if (arity == 2 && (name == "," || name == "->" || name == "*->")) {
+    // *-> も -> と同じく条件が S0 から S1、then が S1 から S。ソフトカットかどうかは実行時の意味で、訳し方は変わらない。
     const Cell mid = m_.heap.fresh_ref();
-    work_.push_back(Work{name == "," ? Step::Conj : Step::IfThen, {}, item.s0, item.s, body});
+    const Step step = name == "," ? Step::Conj : name == "->" ? Step::IfThen : Step::SoftIf;
+    work_.push_back(Work{step, {}, item.s0, item.s, body});
     work_.push_back(Work{Step::Enter, arg(body, 1), mid, item.s, {}});
     work_.push_back(Work{Step::Enter, left, item.s0, mid, {}});
   } else if (arity == 2 && (name == ";" || name == "|")) {
@@ -177,7 +179,10 @@ void Translator::leave(const Work& item) {
   }
   const Cell right = pop();
   const Cell left = pop();
-  const std::string_view name = item.step == Step::Conj ? "," : item.step == Step::Disj ? ";" : "->";
+  const std::string_view name = item.step == Step::Conj   ? ","
+                                : item.step == Step::Disj ? ";"
+                                : item.step == Step::SoftIf ? "*->"
+                                                            : "->";
   done_.push_back(pair(name, left, right));
 }
 
