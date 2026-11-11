@@ -201,7 +201,7 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 
 1. Lexical analysis (`lexer`): UTF-8 → token stream. Uses the character classification from section 4
 2. Parsing (`reader`): operator precedence parser (Pratt method). Full support for the `read_term/3` options (`variable_names`, `singletons`, `quoted`, etc.)
-3. Loading (`loader`): directive processing, module resolution, term expansion (`term_expansion/2` and `goal_expansion/2` are looked up in `user` and in the module being loaded)
+3. Loading (`loader`): directive processing, module resolution, term expansion (a later phase: `term_expansion/2` and `goal_expansion/2` will be looked up in `user` and in the module being loaded; today only grammar rules are translated, see section 3 and ADR 0024)
 4. Clause compilation (`clause_compiler`): lowers clauses to the IR (intermediate representation). The IR is the common input to the interpreter and `mosac`
 5. Execution: the interpreter interprets the IR directly. `mosac` generates C++20 from the IR
 

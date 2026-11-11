@@ -200,7 +200,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 1. 字句解析（`lexer`）: UTF-8 → トークン列。第 4 節の文字分類を使う
 2. 構文解析（`reader`）: 演算子優先順位パーサ（Pratt 法）。`read_term/3` のオプション（`variable_names`、`singletons`、`quoted` など）を完全サポート
-3. 読み込み（`loader`）: ディレクティブ処理、モジュール解決、項展開（`term_expansion/2`、`goal_expansion/2` は `user` と読み込み中モジュールで探す）
+3. 読み込み（`loader`）: ディレクティブ処理、モジュール解決、項展開（後のフェーズ: `term_expansion/2`、`goal_expansion/2` を `user` と読み込み中モジュールで探す。いまは文法規則だけを訳す。3 章と ADR 0024 を見る）
 4. 節コンパイル（`clause_compiler`）: 節を中間表現（IR）に落とす。IR はインタプリタと `mosac` の共通入力
 5. 実行: インタプリタは IR を直接解釈。`mosac` は IR から C++20 を生成
 
