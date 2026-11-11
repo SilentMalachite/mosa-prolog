@@ -227,7 +227,7 @@ These libraries come with Mosa. Each is loaded with `use_module(library(Name))`:
 `length/2` is in `lists` too, but it is also built in, so it works without the library, as in chapter 7. The built-in
 predicates, such as `atom_length/2` and `forall/2`, are in the module `system`, and every module can use them.
 
-An export list can name a non-terminal of a grammar rule as `Name//Arity`: `greet//0` stands for `greet/2`.
+Export and import lists, and the directives `dynamic`, `discontiguous` and `multifile`, can name a non-terminal of a grammar rule as `Name//Arity`: `greet//0` stands for `greet/2`.
 
 ## Exercises
 

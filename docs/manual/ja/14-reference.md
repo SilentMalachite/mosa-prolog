@@ -159,7 +159,7 @@ X = あいう.
 | `consult/1` | `:- consult(File).` は、プロンプトと同じようにファイルを読み込みます。`:- [File1, File2].` はいくつも読み込みます。 |
 | `initialization/1` | `:- initialization(Goal).` は、ファイルを読み込んだ後でゴールを 1 回実行します。 |
 | `initialization/2` | `:- initialization(main, main).` は、読み込んだ後で `main` を実行し、プログラムを終えます（第 13 章）。 |
-| `dynamic/1` | `:- dynamic(Name/Arity).` は、`assertz/1` や `retract/1` などで述語を変えられるようにします。 |
+| `dynamic/1` | `:- dynamic(Name/Arity).` は、`assertz/1` や `retract/1` などで述語を変えられるようにします。`Name//Arity` は非終端記号（`Name/(Arity+2)`）を表します。 |
 | `discontiguous/1` | `:- discontiguous(Name/Arity).` は、述語の節がファイルの中で離れていてもよいことにします。 |
 | `multifile/1` | `:- multifile(Name/Arity).` は、述語の節をいくつものファイルに書けるようにします。 |
 | `meta_predicate/1` | `:- meta_predicate(Spec).` は、述語のどの引数がゴールかを示します。そのゴールは呼び出した側のモジュールで実行されます。 |

@@ -189,7 +189,7 @@ Mosa には次のライブラリが付いてきます。どれも `use_module(li
 
 `length/2` も `lists` に入っていますが、組み込みでもあるので、第 7 章のようにライブラリなしで使えます。`atom_length/2` や `forall/2` のような組み込みの述語は、モジュール `system` にあり、どのモジュールからも使えます。
 
-公開リストには、文法規則の非終端記号を `Name//Arity` と書けます。`greet//0` は `greet/2` を表します。
+公開リストと取り込みリスト、および `dynamic`、`discontiguous`、`multifile` のディレクティブには、文法規則の非終端記号を `Name//Arity` と書けます。`greet//0` は `greet/2` を表します。
 
 ## 練習問題
 

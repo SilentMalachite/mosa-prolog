@@ -175,7 +175,7 @@ predicates too. `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_con
 | `consult/1` | `:- consult(File).` loads the file, as at the prompt. `:- [File1, File2].` loads several. |
 | `initialization/1` | `:- initialization(Goal).` runs the goal once, after the file has loaded. |
 | `initialization/2` | `:- initialization(main, main).` runs `main` after loading and then ends the program (chapter 13). |
-| `dynamic/1` | `:- dynamic(Name/Arity).` lets `assertz/1`, `retract/1` and the others change the predicate. |
+| `dynamic/1` | `:- dynamic(Name/Arity).` lets `assertz/1`, `retract/1` and the others change the predicate. `Name//Arity` names a non-terminal (`Name/(Arity+2)`). |
 | `discontiguous/1` | `:- discontiguous(Name/Arity).` allows the clauses of the predicate to be apart in the file. |
 | `multifile/1` | `:- multifile(Name/Arity).` allows clauses of the predicate in several files. |
 | `meta_predicate/1` | `:- meta_predicate(Spec).` marks which arguments of a predicate are goals, so that they run in the module of the caller. |

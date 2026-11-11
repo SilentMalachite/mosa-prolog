@@ -108,7 +108,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 完了 |
 | 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 完了 |
 | 8 | 文法規則（`-->`、`phrase/2,3`） | 完了 |
-| 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、`expand_term/2`） | 進行中 |
+| 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 進行中 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 

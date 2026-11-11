@@ -8,7 +8,7 @@
 
 ### 足したこと
 
-- `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）を組み込みました。`subsumes_term/2` は何も束縛しません。
+- `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）を組み込みました。`subsumes_term/2` は何も束縛しません。`subsumes_term/2` や `acyclic_term/1` を自分で定義していたプログラムは、その定義を消してください。読み込むと `permission_error(modify,static_procedure,subsumes_term/2)` になります。
 - 公開リストと取り込みリスト、および `dynamic`、`discontiguous`、`multifile` のディレクティブで、非終端記号の `Name//Arity` を `Name/(Arity+2)` として読みます。`abolish/1` は ISO のままです。
 - 文法規則の本体の `*->` はソフトカットです。
 - `library(dcg)` が `expand_term/2` を公開します。文法規則 `H --> B` を 1 つの節に訳し、変数でないほかの項はそのまま返します。`:- use_module(library(dcg)).` で読み込みます。

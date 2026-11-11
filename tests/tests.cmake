@@ -59,7 +59,7 @@ add_test(NAME stack_deep_write COMMAND ${CMAKE_COMMAND}
   -DSUMMARY=1 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
 set_tests_properties(stack_deep_write PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
-# 1 MiB のスタックで、深さ 1,000,000 の 5 つの形（関数表記、リスト、前置、xfy、括弧）を読む（ADR 0011 改訂 4）。
+# 1 MiB のスタックで、深さ 1,000,000 の 7 つの形（関数表記、リスト、前置、xfy、括弧、波括弧、| の尾）を読む（ADR 0011 改訂 4）。
 add_test(NAME stack_deep_read COMMAND ${CMAKE_COMMAND}
   "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_read.pl"
   -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_read.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack

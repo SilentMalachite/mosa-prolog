@@ -7,6 +7,8 @@ English | [日本語](CHANGELOG.ja.md)
 ### Added
 
 - `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are built in. `subsumes_term/2` binds nothing.
+  A program that defined its own `subsumes_term/2` or `acyclic_term/1` must drop that definition: loading it now gives
+  `permission_error(modify,static_procedure,subsumes_term/2)`.
 - `Name//Arity` names a non-terminal as `Name/(Arity+2)` in export and import lists, and in the `dynamic`,
   `discontiguous` and `multifile` directives. `abolish/1` stays ISO.
 - `*->` in a grammar body is a soft cut.

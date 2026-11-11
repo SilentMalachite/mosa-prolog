@@ -106,7 +106,7 @@ Phases 0–8 are done, and phase 9 (ISO completion and robustness) was opened on
 | 6 | `mosac` (Prolog to C++20 translation and build), differential tests | Done |
 | 7 | GC, manuals, `mosac dist`, release packages | Done |
 | 8 | Grammar rules (`-->`, `phrase/2,3`) | Done |
-| 9 | ISO completion and robustness (`subsumes_term/2`, `acyclic_term/1`, a frame-based reader, `Name//Arity`, `expand_term/2`) | In progress |
+| 9 | ISO completion and robustness (`subsumes_term/2`, `acyclic_term/1`, a frame-based reader, `Name//Arity`, `*->` in grammar bodies, `expand_term/2`) | In progress |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 
