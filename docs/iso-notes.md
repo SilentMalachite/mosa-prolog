@@ -709,6 +709,14 @@ A or B?: A: fail only when a binding makes a new cycle, as the 7.3.2 check does 
 
 Decision (2026-11-05): B. A was chosen first, but the adversarial review of L3 found that it makes the answer depend on the order of the bindings: after `X = f(X)`, `unify_with_occurs_check(g(A, A), g(X, f(A)))` succeeded and `unify_with_occurs_check(g(A, A), g(f(A), X))` failed, although the two solve the same equations; whether A stands for an infinite term does not depend on the order. Mosa unifies as `=` does, then walks the values of the variables this call bound, sharing what it has already walked, and fails, undoing the bindings, when one of them is cyclic (`occurs_unify` in `src/builtins/types.cpp`). A unification that fails is as cheap as with `=`, and a call that binds nothing succeeds without a walk. Tests: `l3_occurs_*` in `tests/pl/unify.pl` (`l3_occurs_cyclic_equal`, `l3_occurs_cyclic_unfolded`, `l3_occurs_bind_beside_old` and `l3_occurs_bind_inside_old` fail on 5dd9ed9; `l3_occurs_order_left` succeeded under A), `occurs_check_cyclic` in `tests/stack/deep_builtins.pl` (unchanged).
 
+## 8.2.4 subsumes_term/2 and cyclic terms
+
+Cor.2 defines `subsumes_term/2` with `unify_with_occurs_check/2`. In Mosa that predicate follows the decision B of 8.2.2 and also fails when a variable would be bound to a term that is already cyclic. Read literally, `X = f(X), subsumes_term(f(_), f(X))` would therefore be false, while SWI-Prolog and the bundled suite (`lgt_subsumes_term_2_15`, which expects true) say true. For inputs that are not cyclic, the default unification followed by a comparison of the variables of the specific term gives the same truth value.
+
+A or B?: A: inherit the decision B of 8.2.2 and make such calls false. B: use the default unification and make them true (the same as SWI-Prolog and the suite).
+
+Until confirmed: B (`run_subsumes_term` in `src/builtins/subsumes.cpp`; tests `subsumes_cyclic_*` in `tests/pl/unify.pl`). If the owner chooses A, replace the unification with `unify_with_occurs_check` and rewrite the expected values of those rows to A.
+
 ## 8 is_list/1 (non-ISO) of a list with cyclic elements
 
 `is_list/1` checked that the whole term was acyclic, so `X = [X], is_list(X)` and `X = f(X), is_list([X])` failed, and `format/2` and `msort/2`, which check their list arguments with it, raised errors for such lists (review L3).

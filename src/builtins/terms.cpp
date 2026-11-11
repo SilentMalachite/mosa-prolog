@@ -361,6 +361,8 @@ void run_numbervars(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
+std::vector<Cell> term_variable_cells(const Impl& machine, Cell term) { return collect_vars(machine, term); }
+
 bool run_terms(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "functor" && goal.arity == 3) {

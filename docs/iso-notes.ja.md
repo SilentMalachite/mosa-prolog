@@ -711,6 +711,14 @@ A か B か: A は 7.3.2 の検査と同じく、束縛が新しい循環を作�
 
 決定（2026-11-05）: B。初めは A を選んだが、L3 の敵対的レビューで、A では答えが束縛の順で変わると分かった。`X = f(X)` の後で、`unify_with_occurs_check(g(A, A), g(X, f(A)))` は成功し、`unify_with_occurs_check(g(A, A), g(f(A), X))` は失敗した。2 つは同じ方程式を解いている。A が無限の項を表すかは、順によらない。Mosa は `=` と同じく単一化してから、この呼び出しで束縛した変数の値を、辿り終えた部分を共有しながら辿る。どれかが循環していれば、束縛を戻して失敗する（`src/builtins/types.cpp` の `occurs_unify`）。失敗する単一化は `=` と同じ費用で済み、何も束縛しない呼び出しは何も辿らずに成功する。テスト: `tests/pl/unify.pl` の `l3_occurs_*`（`l3_occurs_cyclic_equal`、`l3_occurs_cyclic_unfolded`、`l3_occurs_bind_beside_old`、`l3_occurs_bind_inside_old` は 5dd9ed9 で失敗する。`l3_occurs_order_left` は A のとき成功していた）、`tests/stack/deep_builtins.pl` の `occurs_check_cyclic`（変えていない）。
 
+## 8.2.4 subsumes_term/2 と循環した項
+
+Cor.2 は `subsumes_term/2` を `unify_with_occurs_check/2` で定める。Mosa のそれは 8.2.2 の決定 B に従い、変数をすでに循環した項に束縛するときも失敗する。字面どおりなら `X = f(X), subsumes_term(f(_), f(X))` は偽になるが、SWI-Prolog と同梱のスイート（真を期待する `lgt_subsumes_term_2_15`）は真とする。循環していない入力では、既定の単一化と Specific の変数の並びの比較で、同じ真偽になる。
+
+A か B か: A は 8.2.2 の決定 B を継いで、そのような呼び出しを偽にする。B は既定の単一化で真にする（SWI-Prolog とスイートに同じ）。
+
+確認前は B（`src/builtins/subsumes.cpp` の `run_subsumes_term`。テストは `tests/pl/unify.pl` の `subsumes_cyclic_*`）。所有者が A を選んだら、単一化を `unify_with_occurs_check` に替え、これらの行の期待値を A の値に書き直す。
+
 ## 8 要素が循環するリストの is_list/1（ISO の外）
 
 `is_list/1` は項全体が循環していないかを調べていた。そのため `X = [X], is_list(X)` と `X = f(X), is_list([X])` は失敗し、これでリストの引数を調べる `format/2` と `msort/2` は、そのようなリストを誤りにした（レビュー L3）。

@@ -240,6 +240,7 @@ and compound terms) and sort them.
 | `=/2` | 8.2.1 | Unifies two terms. |
 | `\=/2` | 8.2.3 | Succeeds when the two terms do not unify. |
 | `unify_with_occurs_check/2` | 8.2.2 | Unifies, but fails where `=` would make a term that holds itself, as in `X = f(X)`. |
+| `subsumes_term/2` | 8.2.4 | Succeeds when the first term can be made equal to the second by binding only variables of the first; it binds nothing. |
 | `==/2` | 8.4.1 | The two terms are the same, without binding anything. |
 | `\==/2` | 8.4.1 | The two terms are not the same. |
 | `@</2` | 8.4.1 | The first term comes before the second in the standard order. |
@@ -535,7 +536,6 @@ Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO
 - Integers are 64-bit: there are no larger integers, and going past `max_integer` raises
   `evaluation_error(int_overflow)`. Floats are 64-bit, and Mosa writes the shortest text that reads back as the same
   float.
-- `subsumes_term/2` (8.2.4) is not built in.
 - `unknown` takes only `error` and `fail`, and the three `float_*` flags take only `error`.
 - Modules (chapter 12) use the syntax of part 2 of the standard (ISO/IEC 13211-2), and a module holds predicates and
   operators. Atoms are the same in every module.

@@ -142,6 +142,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/terms.cpp
   src/builtins/control.cpp
   src/builtins/phrase.cpp
+  src/builtins/subsumes.cpp
   src/builtins/arith.cpp
   src/builtins/arith_float.cpp
   src/builtins/atoms.cpp

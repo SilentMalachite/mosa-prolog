@@ -46,3 +46,19 @@ test(l3_occurs_through_earlier_binding, (X = f(X), unify_with_occurs_check(g(X, 
 % 同じ方程式は、どの束縛を先に作っても同じ答えになる（L3 の敵対的レビュー A1）。
 test(l3_occurs_order_left, (X = f(X), unify_with_occurs_check(g(A, A), g(X, f(A)))), fail).
 test(l3_occurs_order_right, (X = f(X), unify_with_occurs_check(g(A, A), g(f(A), X))), fail).
+% 8.2.4.4 subsumes_term/2（Cor.2）。Examples は tests/conformance/logtalk/prolog/predicates/subsumes_term_2 の
+% iso_subsumes_term_2_01..06 にある規格の行を写した。
+test(iso_subsumes_atom, subsumes_term(a, a), true).
+test(iso_subsumes_general, subsumes_term(f(X, Y), f(Z, Z)), true).
+test(iso_subsumes_specific, subsumes_term(f(Z, Z), f(X, Y)), fail).
+test(iso_subsumes_occurs, subsumes_term(g(X), g(f(X))), fail).
+test(iso_subsumes_var_occurs, subsumes_term(X, f(X)), fail).
+test(iso_subsumes_chain, (subsumes_term(X, Y), subsumes_term(Y, f(X))), true).
+test(subsumes_no_binding, (subsumes_term(f(X), f(Y)), var(X), var(Y), X \== Y), true).
+test(subsumes_no_binding_general, (subsumes_term(X, a), var(X)), true).
+% 循環した項は iso-notes 8.2.4 の B（既定の単一化で判る）。
+test(subsumes_cyclic_specific, (X = f(X), subsumes_term(_, X)), true).
+test(subsumes_cyclic_in_arg, (X = f(X), subsumes_term(f(_), f(X))), true).
+test(subsumes_cyclic_general, (X = f(X), subsumes_term(X, _)), fail).
+test(subsumes_cyclic_both, (X = f(X), Y = f(Y), subsumes_term(X, Y)), true).
+test(subsumes_alias_then_cycle, subsumes_term(f(V, V), f(W, g(W))), fail).

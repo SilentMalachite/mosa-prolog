@@ -256,6 +256,7 @@ bool run_control(Impl& machine, const Goal& goal) {
   if (name == "forall" && goal.arity == 2) return run_forall(machine, goal);
   if (name == "if" && goal.arity == 3) return run_if(machine, goal);
   if (name == "phrase" && (goal.arity == 2 || goal.arity == 3)) return run_phrase(machine, goal);
+  if (name == "subsumes_term" && goal.arity == 2) return run_subsumes_term(machine, goal);
   if (name == "halt" && goal.arity <= 1) return run_halt(machine, goal);
   return false;
 }
