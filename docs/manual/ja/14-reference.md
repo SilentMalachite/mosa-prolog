@@ -493,6 +493,13 @@ X = あいう.
 | `split_atom/4` | `split_atom(Text, Seps, Pad, Parts)`: Text を Seps のどの文字のところでも分け、分けたものの前後から Pad の文字を除きます。 |
 | `upcase_atom/2` | 原子の英字などを大文字にしたものです。 |
 
+### `library(dcg)`
+
+<!-- predicates: dcg -->
+| 述語 | すること |
+| --- | --- |
+| `expand_term/2` | `expand_term(T, E)`: 文法規則 `H --> B` を節 E に訳します。規則でない項はそのまま返します。T に値がなければ instantiation_error です。 |
+
 ### `library(japanese)`
 
 <!-- predicates: japanese -->

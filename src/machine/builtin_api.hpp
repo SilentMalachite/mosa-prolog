@@ -33,6 +33,7 @@ namespace mosa {
 [[nodiscard]] bool run_control(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_phrase(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_subsumes_term(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_dcg_translate(Impl& machine, const Goal& goal);
 // term_variables/2 と同じ並びの未束縛変数。subsumes_term/2 が単一化の前後で比べる。
 [[nodiscard]] std::vector<Cell> term_variable_cells(const Impl& machine, Cell term);
 [[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);

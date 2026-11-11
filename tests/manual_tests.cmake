@@ -51,7 +51,7 @@ add_test(NAME manual_fixture_bad_preds COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TAR
   "-DPATTERN_1=bad-preds/en/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
   "-DPATTERN_2=bad-preds/ja/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
   "-DPATTERN_3=bad-preds/en/14-reference\\.md:27: table of system differs from Mosa \\(not in Mosa \\[\\$call_cleanup/2 nope/0\\], not in the table \\[[^~]* =\\.\\./2 [^~]* call/1 call/2 call/3 call/4 call/5 call/6 call/7 call/8 halt/0 halt/1\\]\\)~"
-  "-DPATTERN_4=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, format, japanese, lists, strings~"
+  "-DPATTERN_4=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, dcg, format, japanese, lists, strings~"
   "-DPATTERN_5=bad-preds/en/15-tables\\.md and [^~]*bad-preds/ja/15-tables\\.md: predicate tables differ \\(between / \\)~"
   "-DPATTERN_6=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
 # 表と比べるライブラリは --mosa の隣の lib/ のもので、$MOSA_LIB は見ない。bad-preds/lib/between.pl は表の行と
@@ -72,7 +72,7 @@ if(NOT WIN32)
     -DLINK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_link -DLINK_LIB=${manual_fixture_dir}/bad-preds/lib
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_bad_preds_link -DLANG_VALUE=en_US.UTF-8 -DCODE=1
     "-DPATTERN_1=bad-preds/en/14-reference\\.md:16: table of between differs from Mosa \\(not in Mosa \\[nope/1\\], not in the table \\[succ/2\\]\\)~"
-    "-DPATTERN_2=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, format, japanese, lists, strings~"
+    "-DPATTERN_2=bad-preds/en/14-reference\\.md:38: no predicate list for messages_en; a table names system or one of apply, between, dcg, format, japanese, lists, strings~"
     "-DPATTERN_3=~manual: 2 checked, 0 skipped, 7 failed~$" -P ${manual_fixture_script})
 endif()
 # あるが読めないライブラリは、その名前とパスと読み込みの誤りを出す。置き場は mosa と lib/ に bad-lib/lib を足したもの
@@ -93,8 +93,8 @@ add_test(NAME manual_fixture_bad_lib COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGE
 add_test(NAME manual_fixture_all_tables COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
   -DMOSA=$<TARGET_FILE:mosa> -DDIR=${manual_fixture_dir}/good -DOPTIONS=--all-tables
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/manual_fixture_all_tables -DLANG_VALUE=en_US.UTF-8 -DCODE=1
-  "-DPATTERN_1=good/en: no predicates table for system apply format japanese lists strings~"
-  "-DPATTERN_2=good/ja: no predicates table for system apply format japanese lists strings~"
+  "-DPATTERN_1=good/en: no predicates table for system apply dcg format japanese lists strings~"
+  "-DPATTERN_2=good/ja: no predicates table for system apply dcg format japanese lists strings~"
   "-DPATTERN_3=~manual: 10 checked, 2 skipped, 2 failed~$" -P ${manual_fixture_script})
 # 組込の一覧は mosatest の中から取るので、版の違う --mosa とは比べずに 2 で止める。cmake --version は別の 1 行を
 # 出す（修正 1）。

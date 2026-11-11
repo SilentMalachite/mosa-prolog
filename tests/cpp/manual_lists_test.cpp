@@ -96,7 +96,7 @@ void manual_library_exports() {
 
 void manual_libraries_and_version() {
   const auto names = mosa::manual_libraries(beside_lib());
-  check(names == std::vector<std::string>{"apply", "between", "format", "japanese", "lists", "strings"},
+  check(names == std::vector<std::string>{"apply", "between", "dcg", "format", "japanese", "lists", "strings"},
         "libraries: the *.pl beside mosatest without messages_*");
   check(!mosa::manual_libraries(beside_lib() / "nope").has_value(), "libraries: unreadable directory");
   const std::string line = mosa::version_line();

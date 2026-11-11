@@ -137,6 +137,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/order.cpp
   src/builtins/lists.cpp
   src/builtins/format_float.cpp
+  src/builtins/dcg_translate.cpp
   src/builtins/case.cpp
   src/builtins/char_width.cpp
   src/builtins/terms.cpp

@@ -619,7 +619,7 @@ set_tests_properties(mosatest_bench PROPERTIES
 # 単独の実行ファイル（計画 Task 10、ADR 0009 Review Focus 5）。build した物を lib/ も原文も無いディレクトリで、
 # MOSA_LIB を外して動かす。翻訳のとき mosac は自分の隣の lib/ を読むので、build にも MOSA_LIB は要らない
 # （plain_use だけは台本が利用者のライブラリのディレクトリを MOSA_LIB で渡す）。
-foreach(standalone_case uncaught_message use_lists include plain_use subdir)
+foreach(standalone_case uncaught_message use_lists use_dcg include plain_use subdir)
   add_test(NAME standalone_${standalone_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${standalone_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/standalone_${standalone_case} "-DCXX=${mosac_build_cxx}"

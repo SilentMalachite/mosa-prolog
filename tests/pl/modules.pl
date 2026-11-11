@@ -165,6 +165,7 @@ test(lists_needs_use, append([a], [b], _), error(existence_error(procedure, appe
 test(apply_needs_use, maplist(integer, [1]), error(existence_error(procedure, maplist/2))).
 test(format_needs_use, format("x", []), error(existence_error(procedure, format/2))).
 test(strings_needs_use, atomic_list_concat([a], _), error(existence_error(procedure, atomic_list_concat/2))).
+test(dcg_needs_use, expand_term(foo, _), error(existence_error(procedure, expand_term/2))).
 test(japanese_needs_use, 読み幅(a, _), error(existence_error(procedure, 読み幅/2))).
 % 試験器はテストのモジュールへ 6 ライブラリを取り込むが、mosa の user は変えない。
 test(between_needs_use, between(1, 2, _), error(existence_error(procedure, between/3))).

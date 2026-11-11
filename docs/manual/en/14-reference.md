@@ -520,6 +520,13 @@ and `~|` set columns, and `~~` writes `~`.
 | `split_atom/4` | `split_atom(Text, Seps, Pad, Parts)`: splits Text at each character of Seps, and removes the characters of Pad around each part. |
 | `upcase_atom/2` | The atom with its letters made capital. |
 
+### `library(dcg)`
+
+<!-- predicates: dcg -->
+| Predicate | What it does |
+| --- | --- |
+| `expand_term/2` | `expand_term(T, E)`: translates the grammar rule `H --> B` into a clause E. A term that is not a rule comes back unchanged. An unbound T is an instantiation error. |
+
 ### `library(japanese)`
 
 <!-- predicates: japanese -->
