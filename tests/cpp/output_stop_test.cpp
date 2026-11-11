@@ -7,6 +7,7 @@
 #include "mosa/machine.hpp"
 #include "mosa/repl.hpp"
 
+#include <array>
 #include <cstddef>
 #include <fstream>
 #include <iostream>
@@ -149,9 +150,9 @@ void check_api_stop_abandons_query() {
                                          "portray(big) :- write(p), length(_, 100000000).")
                        .ok,
                    "abandon: load");
-  const char* const goals[] = {"(Y = 1 ; Y = 2), with_output_to(atom(A), (write(Y), deep(_))).",
-                               "(Z = a ; Z = b), print(f(big)).", "X = f(Y), deep(Y)."};
-  for (const char* goal : goals) {
+  constexpr std::array<std::string_view, 3> goals{"(Y = 1 ; Y = 2), with_output_to(atom(A), (write(Y), deep(_))).",
+                                                  "(Z = a ; Z = b), print(f(big)).", "X = f(Y), deep(Y)."};
+  for (const std::string_view goal : goals) {
     mosa_test::check(stops(*machine, goal), "abandon: stops");
     const mosa::Impl& impl = mosa::engine_impl(*machine);
     mosa_test::check(impl.stack.empty(), "abandon: no choice points left");

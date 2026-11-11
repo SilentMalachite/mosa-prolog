@@ -4,6 +4,7 @@
 #include "harness.hpp"
 #include "mosa/suite.hpp"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -95,8 +96,8 @@ std::string imports_text() {
          "    last([1,2], X).\n";
 }
 
-const char* const import_names[] = {"libs_between", "libs_curly", "libs_apply",
-                                    "libs_strings", "libs_msort", "libs_local_wins"};
+constexpr std::array<std::string_view, 6> import_names{"libs_between", "libs_curly",    "libs_apply",
+                                                       "libs_strings", "libs_msort",    "libs_local_wins"};
 
 void check_imports(const std::filesystem::path& root) {
   const auto suite = root / "imports";
@@ -110,7 +111,7 @@ void check_imports(const std::filesystem::path& root) {
   mosa_test::check(code == 0, "imports exits 0");
   mosa_test::check(has_exact_line(body, "分母: 6"), "imports denominator");
   mosa_test::check(has_exact_line(body, "合格数: 6"), "imports passed");
-  for (const char* name : import_names) {
+  for (const std::string_view name : import_names) {
     mosa_test::check(failed.find(std::string{name} + " ") == std::string::npos, name);
   }
 }

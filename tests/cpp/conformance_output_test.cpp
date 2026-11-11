@@ -4,6 +4,7 @@
 #include "harness.hpp"
 #include "mosa/suite.hpp"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -112,8 +113,10 @@ std::string output_text() {
          "    ^^text_output_contents(out, Cs).\n";
 }
 
-const char* const output_names[] = {"output_suppressed",      "output_suppressed_redirects", "output_restored", "output_contents",
-                                    "output_contents_closes", "output_contents_stream",      "output_contents_utf8"};
+constexpr std::array<std::string_view, 7> output_names{"output_suppressed",      "output_suppressed_redirects",
+                                                       "output_restored",        "output_contents",
+                                                       "output_contents_closes", "output_contents_stream",
+                                                       "output_contents_utf8"};
 
 void check_output(const std::filesystem::path& root) {
   const auto suite = root / "output";
@@ -128,7 +131,7 @@ void check_output(const std::filesystem::path& root) {
   mosa_test::check(code == 0, "output exits 0");
   mosa_test::check(has_exact_line(body, "分母: 7"), "output denominator");
   mosa_test::check(has_exact_line(body, "合格数: 7"), "output passed");
-  for (const char* name : output_names) {
+  for (const std::string_view name : output_names) {
     mosa_test::check(failed.find(std::string{name} + " ") == std::string::npos, name);
   }
 }
