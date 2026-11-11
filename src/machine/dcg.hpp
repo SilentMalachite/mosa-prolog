@@ -1,6 +1,6 @@
 #pragma once
 
-// 文法規則の変換（ADR 0024）。ローダ（load.cpp）と phrase/2,3（builtins/phrase.cpp）が使う。
+// 文法規則の変換（ADR 0024）。ローダ（load.cpp）、phrase/2,3（builtins/phrase.cpp）、expand_term/2 の下の '$dcg_translate'/2（builtins/dcg_translate.cpp）が使う。
 
 #include "internal.hpp"
 
