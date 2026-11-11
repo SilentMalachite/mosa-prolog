@@ -6,7 +6,7 @@
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
 [![Phase](https://img.shields.io/badge/phase-9_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
-[![Version](https://img.shields.io/badge/version-0.1.3-blue)](CHANGELOG.ja.md)
+[![Version](https://img.shields.io/badge/version-0.1.4-blue)](CHANGELOG.ja.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
 [![CMake](https://img.shields.io/badge/CMake-3.25%2B-064F8C?logo=cmake&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakePresets.json)
@@ -20,13 +20,13 @@ ISO/IEC 13211-1 に沿った Prolog 処理系です。コマンドは 3 つあ�
 
 ## ダウンロード
 
-Mosa Prolog 0.1.3 は [Releases のページ](https://github.com/SilentMalachite/mosa-prolog/releases) にあります。自分のコンピュータに合うパッケージをダウンロードしてください。
+Mosa Prolog 0.1.4 は [Releases のページ](https://github.com/SilentMalachite/mosa-prolog/releases) にあります。自分のコンピュータに合うパッケージをダウンロードしてください。
 
 | コンピュータ | パッケージ |
 | --- | --- |
-| macOS（Apple Silicon） | `mosa-0.1.3-macos-arm64.tar.gz` |
-| Linux（x86_64） | `mosa-0.1.3-linux-x86_64.tar.gz` |
-| Windows（x64） | `mosa-0.1.3-windows-x86_64.zip` |
+| macOS（Apple Silicon） | `mosa-0.1.4-macos-arm64.tar.gz` |
+| Linux（x86_64） | `mosa-0.1.4-linux-x86_64.tar.gz` |
+| Windows（x64） | `mosa-0.1.4-windows-x86_64.zip` |
 
 パッケージが動くのは、次のコンピュータです。
 
@@ -53,7 +53,7 @@ N = 5.
 
 ## マニュアル
 
-[マニュアル](docs/manual/ja/README.md)（[English](docs/manual/en/README.md)）は、Prolog を使ったことのない人に向けて書いています。Mosa の入手から始めて、プログラムを書くところ、`mosac` で実行ファイルを作るところまで進みます。第 14 章は、コマンド、フラグ、組み込みの述語を調べるためのリファレンスです。マニュアルの例はすべて Mosa 0.1.3 で確かめています。実行しないのは、インストールの手順のように、使う機械によって変わるものだけです。各リリースの中身と既知の制限は [CHANGELOG](CHANGELOG.ja.md) にあります。
+[マニュアル](docs/manual/ja/README.md)（[English](docs/manual/en/README.md)）は、Prolog を使ったことのない人に向けて書いています。Mosa の入手から始めて、プログラムを書くところ、`mosac` で実行ファイルを作るところまで進みます。第 14 章は、コマンド、フラグ、組み込みの述語を調べるためのリファレンスです。マニュアルの例はすべて Mosa 0.1.4 で確かめています。実行しないのは、インストールの手順のように、使う機械によって変わるものだけです。各リリースの中身と既知の制限は [CHANGELOG](CHANGELOG.ja.md) にあります。
 
 ## ソースからのビルド
 

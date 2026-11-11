@@ -6,7 +6,7 @@ In this chapter you download Mosa Prolog, unpack it, make your shell find it, an
 
 ## Before you start
 
-Mosa Prolog 0.1.3 runs on these computers:
+Mosa Prolog 0.1.4 runs on these computers:
 
 - macOS 26 or later on Apple Silicon.
 - Linux on x86_64 with the glibc of Ubuntu 24.04 or later.
@@ -28,13 +28,13 @@ settings.
 ## Steps
 
 1. Open the [Releases page](https://github.com/SilentMalachite/mosa-prolog/releases) of Mosa Prolog and download
-   the package of release 0.1.3 for your computer.
+   the package of release 0.1.4 for your computer.
 
 | Computer | Package |
 | --- | --- |
-| macOS on Apple Silicon | `mosa-0.1.3-macos-arm64.tar.gz` |
-| Linux on x86_64 | `mosa-0.1.3-linux-x86_64.tar.gz` |
-| Windows on x64 | `mosa-0.1.3-windows-x86_64.zip` |
+| macOS on Apple Silicon | `mosa-0.1.4-macos-arm64.tar.gz` |
+| Linux on x86_64 | `mosa-0.1.4-linux-x86_64.tar.gz` |
+| Windows on x64 | `mosa-0.1.4-windows-x86_64.zip` |
 
 2. Unpack the package in your home folder. Each package holds one folder with the same name as the package, and
    the programs are in the `bin` folder inside it. The commands below expect the package in your Downloads folder.
@@ -47,19 +47,19 @@ settings.
 <!-- skip: unpack-macos -->
 ```console
 $ cd ~
-$ tar -xzf ~/Downloads/mosa-0.1.3-macos-arm64.tar.gz
+$ tar -xzf ~/Downloads/mosa-0.1.4-macos-arm64.tar.gz
 ```
 
 Safari may have unpacked the package for you, when its setting "Open 'safe' files after downloading" is on. If your
-Downloads folder already holds the folder `mosa-0.1.3-macos-arm64`, do not run `tar`: move that folder to your home
-folder instead, with `mv ~/Downloads/mosa-0.1.3-macos-arm64 ~`. Step 3 is still needed.
+Downloads folder already holds the folder `mosa-0.1.4-macos-arm64`, do not run `tar`: move that folder to your home
+folder instead, with `mv ~/Downloads/mosa-0.1.4-macos-arm64 ~`. Step 3 is still needed.
 
 On Linux, open a terminal (on Ubuntu, press Ctrl-Alt-T) and type:
 
 <!-- skip: unpack-linux -->
 ```console
 $ cd ~
-$ tar -xzf ~/Downloads/mosa-0.1.3-linux-x86_64.tar.gz
+$ tar -xzf ~/Downloads/mosa-0.1.4-linux-x86_64.tar.gz
 ```
 
 On Windows, open PowerShell (open Start, type PowerShell, and choose Windows PowerShell) and type this line.
@@ -67,7 +67,7 @@ PowerShell shows its own prompt (`PS C:\Users\you>`), so this manual writes Powe
 
 <!-- skip: unpack-windows -->
 ```powershell
-Expand-Archive "$HOME\Downloads\mosa-0.1.3-windows-x86_64.zip" -DestinationPath $HOME
+Expand-Archive "$HOME\Downloads\mosa-0.1.4-windows-x86_64.zip" -DestinationPath $HOME
 ```
 
 3. On macOS only, remove the quarantine mark. macOS puts this mark on files downloaded with a web browser, and
@@ -78,7 +78,7 @@ Expand-Archive "$HOME\Downloads\mosa-0.1.3-windows-x86_64.zip" -DestinationPath 
 
 <!-- skip: quarantine-macos -->
 ```console
-$ xattr -dr com.apple.quarantine ~/mosa-0.1.3-macos-arm64
+$ xattr -dr com.apple.quarantine ~/mosa-0.1.4-macos-arm64
 ```
 
 4. Add the `bin` folder to your PATH. PATH is the list of folders your shell looks in when you type the name of a
@@ -86,14 +86,14 @@ $ xattr -dr com.apple.quarantine ~/mosa-0.1.3-macos-arm64
 
 <!-- skip: path-macos -->
 ```console
-$ echo 'export PATH="$HOME/mosa-0.1.3-macos-arm64/bin:$PATH"' >> ~/.zshrc
+$ echo 'export PATH="$HOME/mosa-0.1.4-macos-arm64/bin:$PATH"' >> ~/.zshrc
 ```
 
 On Linux, where the shell is usually bash:
 
 <!-- skip: path-linux -->
 ```console
-$ echo 'export PATH="$HOME/mosa-0.1.3-linux-x86_64/bin:$PATH"' >> ~/.bashrc
+$ echo 'export PATH="$HOME/mosa-0.1.4-linux-x86_64/bin:$PATH"' >> ~/.bashrc
 ```
 
 On Windows, type these three lines in PowerShell. Type each line whole, the `$` at its start included: in
@@ -101,14 +101,14 @@ PowerShell, `$bin` and `$old` are names that hold a value, not a prompt.
 
 <!-- skip: path-windows -->
 ```powershell
-$bin = "$HOME\mosa-0.1.3-windows-x86_64\bin"
+$bin = "$HOME\mosa-0.1.4-windows-x86_64\bin"
 $old = [Environment]::GetEnvironmentVariable("Path", "User")
 [Environment]::SetEnvironmentVariable("Path", "$old;$bin", "User")
 ```
 
 On Windows you can also do this in a dialog: open Start, search for "environment variables", choose "Edit
 environment variables for your account", select Path, click Edit, then New, and type the path of the `bin`
-folder, `C:\Users\<name>\mosa-0.1.3-windows-x86_64\bin`, with your user name for `<name>`. Then click OK in that
+folder, `C:\Users\<name>\mosa-0.1.4-windows-x86_64\bin`, with your user name for `<name>`. Then click OK in that
 dialog and OK in the Environment Variables dialog: closing them with the X discards the change. On every system,
 the new PATH applies only to windows opened afterwards, so close the terminal or PowerShell window and open a new
 one.
@@ -118,7 +118,7 @@ one.
 <!-- check: version -->
 ```console
 $ mosa --version
-mosa 0.1.3
+mosa 0.1.4
 ```
 
 If the shell says that it cannot find `mosa`, compare the folder name in step 4 with the folder that step 2 made,
