@@ -188,6 +188,7 @@ void Lexer::skip_bom() {
 
 std::optional<Scan> Lexer::skip_ignorable() {
   while (index_ < source_.size()) {
+    item_ = index_;
     const SourceChar ch = peek_char();
     if (!ch.valid) return std::nullopt;
     if (ch.code == U'/') {
@@ -212,8 +213,14 @@ std::optional<Scan> Lexer::skip_block_comment(Place start) {
   advance(slash.code, slash.bytes);
   const SourceChar star = peek_char();
   advance(star.code, star.bytes);
+  return block_body(start);
+}
+
+std::optional<Scan> Lexer::block_body(Place start) {
   const FlagScope raw(raw_, true);
+  unit_ = index_;
   while (index_ < source_.size()) {
+    unit_ = index_;
     // ネストしない。最初の */ で閉じ、中の /* は文字のまま捨てる。
     if (source_[index_] == '*' && index_ + 1 < source_.size() && source_[index_ + 1] == '/') {
       advance(U'*', 1);
@@ -224,20 +231,28 @@ std::optional<Scan> Lexer::skip_block_comment(Place start) {
     if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
     advance(ch.code, ch.bytes);
   }
+  cut_ = Inside::Block;
   return fail_at(SyntaxReason::UnterminatedComment, "/*", start);
 }
 
 std::optional<Scan> Lexer::skip_line_comment() {
   const SourceChar mark = peek_char();
   advance(mark.code, mark.bytes);
+  return line_body();
+}
+
+std::optional<Scan> Lexer::line_body() {
   const FlagScope raw(raw_, true);
+  unit_ = index_;
   while (index_ < source_.size()) {
+    unit_ = index_;
     const auto byte = static_cast<unsigned char>(source_[index_]);
     if (byte == '\n' || byte == '\r') return std::nullopt;
     const SourceChar ch = peek_char();
     if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
     advance(ch.code, ch.bytes);
   }
+  cut_ = Inside::Line;
   return std::nullopt;
 }
 
@@ -268,6 +283,56 @@ bool Lexer::may_end_before_last(std::string_view source, const CharConv* conv, b
   // ends_clause は終止符が入力の最後でも真を返す。後ろの字が揃って初めて終止符と決まるので、その字の長さも確かめる。
   return end.valid && follower.valid && lexer.index_ + end.bytes == last && last + follower.bytes == source.size() &&
          lexer.ends_clause(end);
+}
+
+// 読み手は止まるまで同じ字句を同じ順に読み、失敗は外して読み進める（Reader::absorb_full_stop）ので、字句だけで
+// 止まる所が分かる。source は layout char か % で終わり、引用と注釈のほかはどのトークンの先読みもその字を越えない。
+// 終わりで切れるのは引用か注釈か空白だけで、空白はその始まり item_ から、引用と注釈は中の unit_ から読み続ければ
+// 同じ字句が続く。終わりで切れていない失敗では読み手が止まることがあるので、真を返して読み手に決めさせる。
+bool Lexer::scout(std::string_view source, const CharConv* conv, bool fullwidth, Scout& state) {
+  Lexer lexer(source, conv);
+  lexer.fullwidth_ = fullwidth;
+  lexer.index_ = state.from;
+  lexer.item_ = state.from;
+  // 引用や注釈の中の失敗はトークンの始まりより後ろなので、頭から読んだときと同じく、外すときに 1 字捨てない。
+  lexer.attempt_ = std::string_view::npos;
+  std::optional<Scan> scan = lexer.resume(state);
+  while (true) {
+    if (lexer.cut_ != Inside::None) {
+      state = Scout{lexer.unit_, lexer.cut_, lexer.cut_quote_};
+      return false;
+    }
+    if (scan) {
+      if (scan->failure) return lexer.past_failure(state);
+      if (scan->token.kind == TokenKind::End) {
+        state = Scout{lexer.item_};
+        return false;
+      }
+      if (scan->token.kind == TokenKind::EndFullStop) return true;
+    }
+    scan = lexer.next();
+  }
+}
+
+std::optional<Scan> Lexer::resume(const Scout& state) {
+  switch (state.inside) {
+    case Inside::Quote:
+      return quoted_body(state.quote, here(), {});
+    case Inside::Block:
+      return block_body(here());
+    case Inside::Line:
+      return line_body();
+    case Inside::None:
+      break;
+  }
+  return std::nullopt;
+}
+
+// 読み手が止まらなければ、読み手と同じく外した後から下見を続ける。終わりで当たった失敗は、字が足されると
+// 起きないことがあるので、下見の位置を動かさない。
+bool Lexer::past_failure(Scout& state) {
+  if (index_ < source_.size() && release_failure()) state = Scout{index_};
+  return true;
 }
 
 Scan Lexer::scan_word(TokenKind kind) {

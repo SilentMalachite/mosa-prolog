@@ -375,9 +375,15 @@ Scan Lexer::scan_quoted() {
   std::string opener_text;
   append_code(opener_text, opener.code);
   advance(opener.code, opener.bytes);
+  return quoted_body(quote, start, opener_text);
+}
+
+Scan Lexer::quoted_body(char32_t quote, Place start, const std::string& opener_text) {
   const FlagScope raw(raw_, true);
   std::string text;
+  unit_ = index_;
   while (index_ < source_.size()) {
+    unit_ = index_;
     const SourceChar ch = peek_char();
     if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
     if (ch.code == quote) {
@@ -404,6 +410,8 @@ Scan Lexer::scan_quoted() {
     append_code(text, ch.code);
     advance(ch.code, ch.bytes);
   }
+  cut_ = Inside::Quote;
+  cut_quote_ = quote;
   return fail_at(SyntaxReason::UnterminatedQuote, opener_text, start);
 }
 

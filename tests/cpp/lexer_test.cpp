@@ -365,6 +365,63 @@ void test_end_marks() {
   mosa_test::check(!marks("a.\n", false, &conv), "a dot converted away does not mark an end");
 }
 
+// 標準入力の read の下見（read_pred.cpp の pull_to_mark）。読み手が止まりうる所があれば真。なければ、終わりで切れた
+// 空白の始まりか、引用か注釈の中で最後に読み始めた字か escape へ from を進め、その引用か注釈を inside に置く。
+using Inside = mosa::Lexer::Inside;
+using Scout = mosa::Lexer::Scout;
+
+struct Scouted {
+  bool stop = false;
+  Scout state;
+};
+
+Scouted scout(std::string_view source, Scout from = {}, bool fullwidth = false, const mosa::CharConv* conv = nullptr) {
+  Scouted seen{false, from};
+  seen.stop = mosa::Lexer::scout(source, conv, fullwidth, seen.state);
+  return seen;
+}
+
+bool waits(const Scouted& seen, std::size_t from, Inside inside = Inside::None, char32_t quote = 0) {
+  return !seen.stop && seen.state.from == from && seen.state.inside == inside && seen.state.quote == quote;
+}
+
+void test_scout() {
+  mosa_test::check(scout("a. ").stop && scout("f(x) .\n").stop && scout("a b. ").stop, "an end stops");
+  mosa_test::check(waits(scout("'a. "), 3, Inside::Quote, U'\'') && waits(scout("f('a. "), 5, Inside::Quote, U'\'') &&
+                       waits(scout("\"a. "), 3, Inside::Quote, U'"'),
+                   "an end inside quotes waits inside the quotes");
+  mosa_test::check(waits(scout("/* a. "), 5, Inside::Block), "an end inside a block comment waits inside it");
+  mosa_test::check(waits(scout("x % a. "), 6, Inside::Line), "an end inside a line comment waits inside it");
+  mosa_test::check(waits(scout("f(a, "), 4) && waits(scout("X =.. "), 5), "no end, read again from the layout");
+  const Scout quoted{5, Inside::Quote, U'\''};
+  const std::string_view two = "f('a. b', 'c. ";
+  mosa_test::check(scout("f('a. b'). ", quoted).stop && waits(scout(two, quoted), two.size() - 1, Inside::Quote, U'\''),
+                   "the next scout goes on inside the quotes");
+  mosa_test::check(waits(scout("'a\\'. "), 5, Inside::Quote, U'\'') && waits(scout("'a''. "), 5, Inside::Quote, U'\''),
+                   "escaped and doubled quotes do not close");
+  mosa_test::check(scout("'a\\'. b'. ", quoted).stop, "a later quote closes");
+  const Scouted carriage = scout("'a\\\r");
+  mosa_test::check(waits(carriage, 2, Inside::Quote, U'\''), "a continuation at the end is read again");
+  const Scouted joined = scout("'a\\\r\nb'. ", carriage.state);
+  mosa_test::check(joined.stop && joined.state.from == 2, "the read again continuation takes the line feed");
+  const Scouted star = scout("/* a *");
+  mosa_test::check(waits(star, 5, Inside::Block) && scout("/* a */ b. ", star.state).stop,
+                   "a star at the end is read again");
+  mosa_test::check(waits(scout("\xE3\x80\x8C" "a\xE3\x80\x82 ", {}, true), 7, Inside::Quote, U'\u300D'),
+                   "a corner bracket waits for its close under the flag");
+  mosa::CharConv conv;
+  conv.enabled = true;
+  conv.map.emplace_back(U'!', U'\'');
+  mosa_test::check(waits(scout("!a. ", {}, false, &conv), 3, Inside::Quote, U'\''),
+                   "a char converted to a quote opens quotes");
+  const Scouted broken = scout("'a\nb. ");
+  mosa_test::check(broken.stop && waits(Scouted{false, broken.state}, 2),
+                   "a failure stops, and the next scout starts after it");
+  const Scouted resumed = scout("'a\nb. ", Scout{2, Inside::Quote, U'\''});
+  mosa_test::check(resumed.stop && waits(Scouted{false, resumed.state}, 2),
+                   "a failure inside resumed quotes skips nothing");
+}
+
 }  // namespace
 
 int main() {
@@ -378,5 +435,6 @@ int main() {
   test_fullwidth();
   test_graphic_full_stop();
   test_end_marks();
+  test_scout();
   return mosa_test::failures();
 }

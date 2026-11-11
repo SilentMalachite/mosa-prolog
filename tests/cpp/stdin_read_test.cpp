@@ -185,6 +185,60 @@ void check_mapped_ends() {
   check("a.\r\nb.\r\n", "read(A), A == a, read(B), B == b.", "carriage return after the end");
   check("'a. b'.\n", "read(A), A == 'a. b'.", "dot and space inside quotes");
   check("/* a. */ b.\n", "read(B), B == b.", "dot and space inside a comment");
+  check("/* a. */ b. c.\n", "read(B), B == b, read(C), C == c.", "two terms after a comment");
+  check("% a. b.\nx.\n", "read(X), X == x.", "dots inside a line comment");
+  check("% a. b.\rx.\r", "read(X), X == x.", "a line comment closed by a carriage return");
+  check("f(a, % x. y.\n b).\n", "read(T), T == f(a, b).", "a line comment inside a term");
+  check("f('a. b', 'c. d').\n", "read(T), T == f('a. b', 'c. d').", "two quoted atoms with dots");
+  check("\"a. b\".\n", "set_prolog_flag(double_quotes, atom), read(T), T == 'a. b'.", "dots inside a string");
+  check("\u300Ca\u3002 b\u300D\u3002\n", "set_prolog_flag(japanese_punctuation, true), read(T), T == 'a\u3002 b'.",
+        "kuten inside corner brackets");
+}
+
+// 標準入力から取った字の数。終止符を見落とすと次の終止符か終わりまで取るが、終わりで読み直すので項も返す字も
+// 変わらず、見落としは取った字の数にしか出ない（端末では次の行を待って止まる）。返された字は空の入力元で捨てる。
+std::size_t pulled(std::string_view input, std::string_view goal, bool& ok) {
+  std::stringstream feed;
+  feed << input;
+  auto* old = std::cin.rdbuf(feed.rdbuf());
+  std::size_t taken = 0;
+  {
+    auto machine = mosa::Machine::create();
+    ok = machine->query(std::string{goal}).kind == mosa::StopKind::Success;
+    taken = static_cast<std::size_t>(feed.rdbuf()->pubseekoff(0, std::ios::cur, std::ios::in));
+    std::stringstream empty;
+    std::cin.rdbuf(empty.rdbuf());
+    while (mosa::standard_input_get() != EOF) {
+    }
+  }
+  std::cin.rdbuf(old);
+  std::cin.clear();
+  return taken;
+}
+
+// term は終止符の後ろの字まで。その先の z. は取らない。
+void check_pulled(std::string_view term, std::string_view goal, std::string_view label) {
+  bool ok = false;
+  const std::size_t taken = pulled(std::string{term} + "z. ", goal, ok);
+  mosa_test::check(ok, std::string{label} + " query");
+  mosa_test::check(taken == term.size(),
+                   std::string{label} + " took " + std::to_string(taken) + " of " + std::to_string(term.size()));
+}
+
+// 引用や注釈の中の終止符らしい並びは、下見が字句で見分けて読み直さない（Lexer::scout）。閉じる字を見落とすと、
+// 本当の終止符で止まらない。
+void check_scouted_ends() {
+  check_pulled("'a. b'.\n", "read(T), T == 'a. b'.", "quotes");
+  check_pulled("/* a. */ b.\n", "read(T), T == b.", "block comment");
+  check_pulled("% a. b.\nx.\n", "read(T), T == x.", "line comment");
+  check_pulled("% a. b.\rx.\r", "read(T), T == x.", "line comment closed by a carriage return");
+  check_pulled("f('a. b', % c. d.\n 'e. f').\n", "read(T), T == f('a. b', 'e. f').", "quotes and a comment");
+  check_pulled("\u300Ca\u3002 b\u300D\u3002\n",
+               "set_prolog_flag(japanese_punctuation, true), read(T), T == 'a\u3002 b'.", "corner brackets");
+  check_pulled("!a. b'.\n", "set_prolog_flag(char_conversion, on), char_conversion('!', ''''), read(T), T == 'a. b'.",
+               "a char converted to a quote");
+  check_pulled("f(a b).\n", "catch(read(_), error(syntax_error(_), _), true).", "syntax error");
+  check_pulled("f('a\nb. ", "catch(read(_), error(syntax_error(_), _), true).", "newline inside quotes");
 }
 
 }  // namespace
@@ -197,5 +251,6 @@ int main() {
   check_failure_returned();
   check_end_cleared();
   check_mapped_ends();
+  check_scouted_ends();
   return mosa_test::failures();
 }

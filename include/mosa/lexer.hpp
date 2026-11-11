@@ -49,6 +49,19 @@ class Lexer {
   // 同じく conv と全角の旗で決める。標準入力の read が、足した字ごとでなく、ここが真のときだけ読み直すために使う。
   // 引用や注釈の中かは見ないので真は多めに出るが、終止符で止まる所では必ず真になる（6.4.8）。
   [[nodiscard]] static bool may_end_before_last(std::string_view source, const CharConv* conv, bool fullwidth);
+  // 標準入力の read の下見の続き。from から読めば、頭から読んだときと同じ字句が続く。inside が None でなければ、
+  // from は入力の終わりで切れた引用（閉じる引用符は quote）か注釈の中の、最後に読んだ字か escape の始まりで、
+  // そこから中身として読み続ける。最後の字か escape を読み直すのは、\ と \r の行継続が次の \n も取るため。
+  enum class Inside : std::uint8_t { None, Quote, Block, Line };
+  struct Scout {
+    std::size_t from = 0;
+    Inside inside = Inside::None;
+    char32_t quote = 0;
+  };
+  // may_end_before_last が真の source を state.from から字句だけ読み、読み手が止まりうる所（終止符か、終わりで
+  // 切れていない失敗）があれば真。偽なら state を終わりで切れた所へ進める。終止符らしい並びのたびに頭から読み直すと、
+  // 引用や注釈の中にその並びが多い長い項で、時間が長さの 2 乗に戻った（stdin_scale_test、Muse のレビュー）。
+  [[nodiscard]] static bool scout(std::string_view source, const CharConv* conv, bool fullwidth, Scout& state);
 
  private:
   struct SourceChar {
@@ -125,9 +138,20 @@ class Lexer {
   [[nodiscard]] Scan fail_at(SyntaxReason reason, std::string token, Place place);
   [[nodiscard]] Scan token_at(TokenKind kind, Place place, std::string text = {});
   [[nodiscard]] bool skip_one();
+  [[nodiscard]] std::optional<Scan> resume(const Scout& state);
+  [[nodiscard]] bool past_failure(Scout& state);
+  [[nodiscard]] Scan quoted_body(char32_t quote, Place start, const std::string& opener_text);
+  [[nodiscard]] std::optional<Scan> block_body(Place start);
+  [[nodiscard]] std::optional<Scan> line_body();
 
   std::string_view source_;
   std::size_t index_ = 0;
+  // scout が、終わりで切れた所から読み続けるための印。item_ は読んでいる空白か注釈かトークンの始まり、unit_ は
+  // 引用か注釈の中で最後に読み始めた字か escape の始まり。cut_ は中身を読む途中で終わりに当たった引用か注釈。
+  std::size_t item_ = 0;
+  std::size_t unit_ = 0;
+  Inside cut_ = Inside::None;
+  char32_t cut_quote_ = 0;
   std::size_t line_ = 1;
   std::size_t column_ = 1;
   bool bom_checked_ = false;

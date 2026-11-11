@@ -2,6 +2,9 @@
 // 前は 1 バイト足すごとに項を頭から読み直し、時間が長さの 2 乗で伸びた（19 KB のリストで 8 秒。フェーズ 9 の
 // Codex レビューを確かめて見つけた）。読み直すのは、足した字が終止符の後ろの字になりうるときと終わりだけにした。
 // 形は 1 行のリスト、1 行に 1 要素のリスト、", " で区切ったリスト、深い f(…)。改行や空白ごとに読み直す直し方も落とす。
+// 引用や注釈の中の ". " も終止符に見える。そこで頭から読み直すと、文の多い長い引用や注釈で 2 乗に戻った（64 KB の
+// 引用で 3 秒、Muse のレビュー）。形は、長い引用のアトムと文字列、長い注釈、多くの行の注釈、引用のアトムのリスト。
+// 引用符が届くたびに引用の頭から読み直す直し方は、\' や '' の多い引用で 2 乗に戻った（Muse の再レビュー）ので、その形も測る。
 #include "harness.hpp"
 
 #include "mosa/console.hpp"
@@ -29,6 +32,12 @@ std::string list_text(std::size_t n, std::string_view separator) {
     text += std::to_string(i);
   }
   return text + "].\n";
+}
+
+std::string sentences(std::size_t n, std::string_view sentence = "ab. ") {
+  std::string text;
+  for (std::size_t i = 0; i < n; ++i) text += sentence;
+  return text;
 }
 
 std::string deep_text(std::size_t n) {
@@ -83,5 +92,24 @@ int main() {
   check_linear("list with one element a line", [](std::size_t n) { return list_text(n, ",\n"); }, 500);
   check_linear("list with spaces", [](std::size_t n) { return list_text(n, ", "); }, 500);
   check_linear("deep f(...)", deep_text, 500);
+  check_linear("quoted atom of sentences", [](std::size_t n) { return "'" + sentences(n) + "'.\n"; }, 1000);
+  check_linear("string of sentences", [](std::size_t n) { return "\"" + sentences(n) + "\".\n"; }, 1000);
+  check_linear("quoted atom with escaped quotes", [](std::size_t n) { return "'" + sentences(n, "ab\\'. ") + "'.\n"; },
+               1000);
+  check_linear("quoted atom with doubled quotes", [](std::size_t n) { return "'" + sentences(n, "ab''. ") + "'.\n"; },
+               1000);
+  check_linear("block comment with slashes", [](std::size_t n) { return "/* " + sentences(n, "a/b. ") + "*/ x.\n"; },
+               1000);
+  check_linear("block comment of sentences", [](std::size_t n) { return "/* " + sentences(n) + "*/ x.\n"; }, 1000);
+  check_linear("comment lines", [](std::size_t n) {
+    std::string text;
+    for (std::size_t i = 0; i < n; ++i) text += "% ab. cd.\n";
+    return text + "x.\n";
+  }, 1000);
+  check_linear("list of quoted sentences", [](std::size_t n) {
+    std::string text = "[";
+    for (std::size_t i = 0; i < n; ++i) text += i > 0 ? ", 'ab. cd'" : "'ab. cd'";
+    return text + "].\n";
+  }, 500);
   return mosa_test::failures();
 }
