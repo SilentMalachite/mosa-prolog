@@ -178,6 +178,9 @@ bool scalar_at(std::string_view text, std::size_t index, Scalar& out) {
     if ((unit & 0xC0U) != 0x80U) return false;
     code = (code << 6) | (unit & 0x3FU);
   }
+  // 過剰な列とサロゲートと範囲外は Unicode スカラー値ではない（chars.cpp の decode とそろえる）。
+  const char32_t min = width == 2 ? 0x80U : width == 3 ? 0x800U : 0x10000U;
+  if (code < min || code > 0x10FFFFU || (code >= 0xD800U && code <= 0xDFFFU)) return false;
   out = Scalar{code, width};
   return true;
 }

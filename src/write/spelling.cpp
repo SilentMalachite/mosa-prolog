@@ -40,12 +40,18 @@ Decoded decode_at(std::string_view text, std::size_t index) {
   const int second = continuation(text, index + 2);
   if (second < 0) return {};
   if (lead >= 0xE0U && lead <= 0xEFU) {
+    // 過剰な 3 バイト列とサロゲートは Unicode スカラー値ではない（字句側の decode とそろえる）。
+    if (lead == 0xE0U && first < 0x20) return {};
+    if (lead == 0xEDU && first >= 0x20) return {};
     const auto code = static_cast<char32_t>(((lead & 0x0FU) << 12) | (first << 6) | second);
     return Decoded{code, 3, true};
   }
   const int third = continuation(text, index + 3);
   if (third < 0 || lead < 0xF0U || lead > 0xF4U) return {};
+  if (lead == 0xF0U && first < 0x10) return {};
+  if (lead == 0xF4U && first >= 0x10) return {};
   const auto code = static_cast<char32_t>(((lead & 0x07U) << 18) | (first << 12) | (second << 6) | third);
+  if (code > 0x10FFFFU) return {};
   return Decoded{code, 4, true};
 }
 

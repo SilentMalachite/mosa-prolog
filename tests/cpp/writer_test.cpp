@@ -1,6 +1,7 @@
 #include "harness.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/writer.hpp"
+#include "write/spelling.hpp"
 
 #include <array>
 #include <cstdint>
@@ -352,6 +353,18 @@ void check_operand_priority() {
 }
 
 
+// サロゲートと過剰な列と範囲外は Unicode スカラー値ではない（「文字」は常にスカラー値 1 つ）。
+// 字句側の decode は拒むので、字面の判断もそろえる。
+void check_broken_spelling() {
+  mosa_test::check(mosa::spelling::first_cp("\xED\xA0\x80") == std::nullopt, "surrogate bytes are not a scalar");
+  mosa_test::check(mosa::spelling::first_cp("\xE0\x80\x80") == std::nullopt, "overlong three bytes are not a scalar");
+  mosa_test::check(mosa::spelling::first_cp("\xF0\x80\x80\x80") == std::nullopt, "overlong four bytes are not a scalar");
+  mosa_test::check(mosa::spelling::first_cp("\xF4\x90\x80\x80") == std::nullopt, "past U+10FFFF is not a scalar");
+  mosa_test::check(mosa::spelling::final_cp("\xED\xA0\x80") == std::nullopt, "final surrogate bytes are not a scalar");
+  mosa_test::check(mosa::spelling::first_cp("あ") == std::optional<char32_t>{U'あ'}, "a scalar stays a scalar");
+  mosa_test::check(!mosa::spelling::bare_atom("\xED\xA0\x80", false), "surrogate bytes need quoting");
+}
+
 }  // namespace
 
 int main() {
@@ -364,5 +377,6 @@ int main() {
   check_deep_terms();
   check_deep_lists();
   check_same_term_deep();
+  check_broken_spelling();
   return mosa_test::failures();
 }

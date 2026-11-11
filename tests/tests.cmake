@@ -41,7 +41,7 @@ target_link_libraries(reader_test PRIVATE mosa_lib)
 add_test(NAME reader COMMAND $<TARGET_FILE:reader_test>)
 
 add_executable(writer_test tests/cpp/writer_test.cpp)
-target_include_directories(writer_test PRIVATE tests/cpp)
+target_include_directories(writer_test PRIVATE tests/cpp src)
 target_link_libraries(writer_test PRIVATE mosa_lib)
 add_test(NAME writer COMMAND $<TARGET_FILE:writer_test>)
 
