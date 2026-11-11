@@ -26,7 +26,7 @@
 テスト: `tests/pl/dcg.pl`（本体の形ごとに 1 件、プッシュバック、カット、読み込み時のエラー、phrase/2,3 のエラーは `Formal` で比べる）と、`tests/pl/japanese.pl` の日本語の文法。どちらも `mosatest --diff` に掛ける。
 「文法規則は使えない」という制限は、フェーズ 8 が終わるとき CHANGELOG の既知の制限、マニュアル 14 章、STATUS から外す。13211-3 の本文の出どころは iso-notes（「13211-3」）に書く。
 
-## 改訂 3（2026-11-11、承認待ち）
+## 改訂 3（2026-11-11、2026-11-11 承認）
 
 背景: 非終端記号をエクスポートや宣言で `Name//Arity` と書けず（エクスポートの表では `type_error(predicate_indicator, greet//0)` になる）、制御構造 `*->` があるのに文法規則の本体に書けず、規則 1 つを実行時に訳す `expand_term/2` も無い。これらはリリース 0.1.2 の既知の制限だった。
 決定: (1) エクスポートの表、インポートの表（`use_module/2`）、ディレクティブ `dynamic/1`、`discontiguous/1`、`multifile/1` の `Name//Arity` は `Name/(Arity+2)` の意味とする。エクスポートとインポートの表ではエラーは `/` に従い（`instantiation_error`、`type_error(atom, N)`、`type_error(integer, A)`、`domain_error(not_less_than_zero, A)`、`A+2 > 1024` のとき `representation_error(max_arity)`）、3 つのディレクティブは、今の `N/A` の誤りを断るのと同じ方法で `N//A` の誤りを断る。`abolish/1` と `current_predicate/1` は `/` だけを受ける（8.9.4.3）ので、`abolish(foo//1)` は `type_error(predicate_indicator, foo//1)` のまま。読む所は `src/module/qualify.cpp` の `read_indicator`（エクスポート、インポート）と `src/machine/load_directive.cpp` の `one_indicator`（3 つのディレクティブ）で、`abolish/1` のものである `src/builtins/database.cpp` の `parse_indicator` ではない。

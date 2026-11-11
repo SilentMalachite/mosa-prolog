@@ -717,7 +717,7 @@ Cor.2 は `subsumes_term/2` を `unify_with_occurs_check/2` で定める。Mosa 
 
 A か B か: A は 8.2.2 の決定 B を継いで、そのような呼び出しを偽にする。B は既定の単一化で真にする（SWI-Prolog とスイートに同じ）。
 
-確認前は B（`src/builtins/subsumes.cpp` の `run_subsumes_term`。テストは `tests/pl/unify.pl` の `subsumes_cyclic_*`）。所有者が A を選んだら、単一化を `unify_with_occurs_check` に替える。そのとき、この呼び出しの前からあるセルへの束縛は、`unify_visible` と同じく全部記録しなければならない（最後の選択点より新しい変数の束縛は、そうしないと戻らない）。そのうえで、これらの行の期待値を A の値に書き直す。
+決定（2026-11-11）: 持ち主は B を選んだ。規格はすでに循環した項を未定義とする（7.3.3）ので、A は規格ではなく Mosa 自身の 8.2.2 の決定に従うだけになる。`src/builtins/subsumes.cpp` の `run_subsumes_term` は既定の単一化を使う。テストは `tests/pl/unify.pl` の `subsumes_cyclic_*`。
 
 ## 8 要素が循環するリストの is_list/1（ISO の外）
 

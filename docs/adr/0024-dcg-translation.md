@@ -26,7 +26,7 @@ A new IR instruction for terminals: it changes the IR of phase 2 for a gain that
 Tests: `tests/pl/dcg.pl` (one test per body form, pushback, the cut, load errors, phrase/2,3 errors by `Formal`), a Japanese grammar in `tests/pl/japanese.pl`, both under `mosatest --diff`.
 The limit "grammar rules are not supported" leaves the CHANGELOG's known limits, manual chapter 14 and STATUS when phase 8 ends; the source text of 13211-3 is noted in iso-notes ("13211-3").
 
-## Revision 3 (2026-11-11, approval pending)
+## Revision 3 (2026-11-11, approved 2026-11-11)
 
 Context: a text that exports or declares a non-terminal cannot name it as `Name//Arity` (an export list gives `type_error(predicate_indicator, greet//0)`), a grammar body cannot hold `*->` although the control construct exists, and there is no `expand_term/2` to translate one rule at run time. These were the known limits of release 0.1.2.
 Decision: (1) `Name//Arity` in export lists, import lists (`use_module/2`) and the directives `dynamic/1`, `discontiguous/1` and `multifile/1` means `Name/(Arity+2)`; in export and import lists the errors follow `/` (`instantiation_error`, `type_error(atom, N)`, `type_error(integer, A)`, `domain_error(not_less_than_zero, A)`, `representation_error(max_arity)` when `A+2 > 1024`), and the three directives reject a bad `N//A` the way they reject a bad `N/A` today. `abolish/1` and `current_predicate/1` keep only `/` (8.9.4.3), so `abolish(foo//1)` stays `type_error(predicate_indicator, foo//1)`. The code that reads them is `read_indicator` in `src/module/qualify.cpp` (export, import) and `one_indicator` in `src/machine/load_directive.cpp` (the three directives), not `parse_indicator` in `src/builtins/database.cpp`, which is `abolish/1`'s.

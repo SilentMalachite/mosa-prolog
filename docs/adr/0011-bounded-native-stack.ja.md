@@ -44,7 +44,7 @@ reader も繰り返しにする案。ソースで 1 万段の入れ子（`f(f(..
 決定: ゴールの木は写さずに共有する。`Clause::body` と `Compiled::term` を `std::shared_ptr<const IrTerm>` にし、`Extra::goal`/`then` と `Entry::else_goal`/`recovery` はその木の中を指す別名のポインタを持つ。`env` は共有するベクタにし、GC は 1 回の回収で 1 度だけ印を付けて書き換える。`launch_control` はポインタだけを写すので、`BorrowedExtra` と `extras_low`（改訂 1）は除く。`launch` は繰り返しにする。各制御構造は枠を積んだあと `launch` を呼ばず、最初の下位ゴールを返す。`Entry` は有効な catch を写さない。上に選択点を残したまま catch を抜けたときだけそれを記録に積み、各 `Entry` は記録の長さだけを持つ。その `Entry` へバックトラックすると、それより後に記録した catch を有効に戻す（オーナー、2026-10-31）。目標: 左にも右にも入れ子の、長さ 1,000,000 の `,` `;` `->` `*->` `catch/3` を、`call/1` と `assertz/1` を通して 1 MiB のスタックで、長さに比例する時間で扱う（`tests/stack/deep_builtins.pl`）。`mosatest --bench` は 5% 以内。
 退けた案: 動かすときにゴールを `Extra` から取り出す案（継続はバックトラックのあとにもう一度動きうるので、ゴールは残す必要がある）。`IrTerm` の中に参照の数やアリーナを持たせる案（IR を変える。ADR 0003）。深さの上限（ISO 7.1 は上限を置かない）。結果: IR は変えない。`Clause::body` を読む所（`clause/2`、`listing/1`、指紋、`mosac` のコード生成）はポインタを辿る。iso-notes 7.1 から右に入れ子の連言の 2 万段の制限を除く。
 
-## 改訂 4（2026-11-11、承認待ち）
+## 改訂 4（2026-11-11、2026-11-11 承認）
 
 背景: 改訂 1 と 2 は reader を再帰のまま残した（`parse_expr` がソースの入れ子 1 段ごとに自分を呼ぶ）。そのため 1 MiB のスタックでは、`f(f(...))` や `[[...]]` が約 600 段、前置演算子の入れ子が約 850 段、括弧の入れ子が約 1,000 段、右に入れ子の `xfy` の被演算子が約 1,600 段で SIGSEGV になる（iso-notes 7.1）。生成した文や深く入れ子になった文は読めない。
 決定: reader は `parse_expr` の相互再帰をやめ、`std::vector<Frame>` に積んだ枠（種類: `Prefix`、`Infix`、`Args`、`List`、`ListTail`、`Paren`、`Curly`）と 1 つのループで読む。各枠は「この枠の結果が満たす最大優先順位 `outer_max`」と「いま待つ被演算子の最大優先順位 `want`」を持つ。字句レベルの判断（`find_prefix`、`find_follower`、`can_start`、`bad_token`、`max_arity`、`needs_minus`）と括弧の検査 `reject_empty_comma`、`reject_headless_bar`、`take_bar_tail`、構文エラーのあとの回復 `absorb_full_stop`、構文エラーの位置・トークンは変えない。`parse_name` の判断（関数表記は直前に空白のない `(` のときだけ、数の前の `-` は負の数、前置演算子かアトムか）は保つが、関数は枠のループの上に移る。
