@@ -3,7 +3,8 @@
 // エラー: instantiation_error、type_error(atom, M)、existence_error(module, M)、type_error(callable, M:G)、
 //         permission_error(create, module, M)、type_error(list, L)、type_error(predicate_indicator, PI)、
 //         type_error(integer, A)、domain_error(not_less_than_zero, A)、representation_error(max_arity)。
-// テスト: tests/pl/modules.pl、tests/cpp/module_load_test.cpp
+// 述語指示子は Name//Arity も Name/(Arity+2) として受ける（ADR 0024 改訂 3）。
+// テスト: tests/pl/modules.pl、tests/cpp/module_load_test.cpp、tests/cpp/dcg_test.cpp
 #include "module.hpp"
 
 #include "../machine/internal.hpp"
@@ -116,20 +117,22 @@ bool run_qualify(Impl& machine, const Goal& goal) {
   return true;
 }
 
-int indicator_arity_shift(const Machine::Impl& machine, Cell cell) {
-  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return -1;
+std::optional<int> indicator_arity_shift(const Machine::Impl& machine, Cell cell) {
+  if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 2) return std::nullopt;
   const std::string_view name = machine.atoms.name(machine.heap.functor_atom(cell));
   if (name == "/") return 0;
-  return name == "//" ? 2 : -1;
+  if (name == "//") return 2;
+  return std::nullopt;
 }
 
 // abolish/1 と同じ順で PI を確かめる（8.9.4.3）。Name//Arity は Name/(Arity+2) として読む。
-// 上限は Arity+2 に対して調べる。素の Arity で調べると 1023 が通って 1025 引数になる。
+// 上限は Arity+2 に対して調べる（素の Arity で調べると 1023 が通って 1025 引数になる）。足し算は 64 ビットで
+// 桁あふれしうるので、上限の側から引いて比べる。
 std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return formal_instantiation(machine);
-  const int shift = indicator_arity_shift(machine, cell);
-  if (shift < 0) return formal_type(machine, "predicate_indicator", cell);
+  const auto shift = indicator_arity_shift(machine, cell);
+  if (!shift) return formal_type(machine, "predicate_indicator", cell);
   const Cell name = machine.heap.deref(machine.heap.arg(cell, 0));
   const Cell arity = machine.heap.deref(machine.heap.arg(cell, 1));
   if (machine.heap.unbound(name) || machine.heap.unbound(arity)) return formal_instantiation(machine);
@@ -137,9 +140,9 @@ std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
   if (!is_integer(arity)) return formal_type(machine, "integer", arity);
   const auto value = machine.heap.integer_value(arity);
   if (value < 0) return formal_domain(machine, "not_less_than_zero", arity);
-  if (value + shift > 1024) return formal_representation(machine, "max_arity");
+  if (value > 1024 - *shift) return formal_representation(machine, "max_arity");
   key.name = atom_of(name);
-  key.arity = static_cast<std::uint16_t>(value + shift);
+  key.arity = static_cast<std::uint16_t>(value + *shift);
   return std::nullopt;
 }
 

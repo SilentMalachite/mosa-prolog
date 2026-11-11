@@ -37,5 +37,11 @@ int main() {
   check_refused(":- module(m_neg, [x//(-1)]).\n", "domain_error(not_less_than_zero,-1)");
   check_refused(":- module(m_big, [x//1023]).\n", "representation_error(max_arity)");
   check_refused(":- module(m_atom, [1//0]).\n", "type_error(atom,1)");
+  // 64 ビット整数の上限では Arity+2 が桁あふれするので、境目の両側と指令の側も固定する。
+  check_refused(":- module(m_huge, [x//9223372036854775807]).\n", "representation_error(max_arity)");
+  check_refused(":- dynamic(x//1023).\n", "representation_error(max_arity)");
+  check_refused(":- dynamic(x//9223372036854775807).\n", "representation_error(max_arity)");
+  mosa_test::check(mosa::Machine::create()->load_program(":- module(m_edge, [x//1022]).\n").ok,
+                   "x//1022 is the largest accepted export");
   return mosa_test::failures();
 }

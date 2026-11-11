@@ -100,16 +100,21 @@ bool one_indicator(Impl& machine, Cell cell, PredKey& key, std::optional<Cell>& 
   key.module = machine.load_module;
   formal = strip_module(machine, cell, key.module);
   if (formal) return false;
-  const int shift = indicator_arity_shift(machine, cell);
-  if (shift < 0) return false;
+  const auto shift = indicator_arity_shift(machine, cell);
+  if (!shift) return false;
   const Cell left = machine.heap.deref(machine.heap.arg(cell, 0));
   const Cell right = machine.heap.deref(machine.heap.arg(cell, 1));
   if (left.tag() != Tag::Atom) return false;
   if (right.tag() != Tag::Int && right.tag() != Tag::IntBox) return false;
   const auto value = machine.heap.integer_value(right);
-  if (value < 0 || value + shift > 1024) return false;
+  if (value < 0) return false;
+  // Arity+2 を足してから比べると 64 ビットの上限で桁あふれするので、上限の側から引いて比べる。
+  if (value > 1024 - *shift) {
+    formal = formal_representation(machine, "max_arity");
+    return false;
+  }
   key.name = static_cast<std::uint32_t>(left.raw() >> 3);
-  key.arity = static_cast<std::uint16_t>(value + shift);
+  key.arity = static_cast<std::uint16_t>(value + *shift);
   return true;
 }
 
