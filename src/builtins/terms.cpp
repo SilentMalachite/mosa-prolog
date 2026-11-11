@@ -52,7 +52,6 @@ void decompose_functor(Impl& machine, const Goal& goal, Cell term) {
   Cell name = machine.heap.atom(0);
   Cell arity = machine.heap.integer(0);
   if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) {
-    name = term.tag() == Tag::Atom ? term : term;
     if (term.tag() == Tag::Atom) name = term;
     else if (is_int(term)) name = machine.heap.integer(machine.heap.integer_value(term));
     else name = machine.heap.floating(machine.heap.float_value(term));

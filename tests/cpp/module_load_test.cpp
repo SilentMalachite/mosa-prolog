@@ -185,7 +185,7 @@ void check_dynamic_after_import() {
 
 // 入れ子の初期化の例外で途中までしか読んでいないファイルは、次の use_module で読み直す。
 void check_half_read_is_reread() {
-  const auto init = temp_file("初期化.pl", ":- initialization(throw(初期化の例外)).\n");
+  temp_file("初期化.pl", ":- initialization(throw(初期化の例外)).\n");
   const auto half = temp_file("途中.pl", ":- module(途中, [p/0]).\n:- ['初期化.pl'].\np.\n");
   auto machine = mosa::Machine::create();
   mosa_test::check(!machine->consult(half), "nested initialization exception fails the consult");
