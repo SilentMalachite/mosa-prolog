@@ -2,18 +2,24 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.1.3 (2026-11-11)
+
+A release that adds ISO built-ins and reads deeply nested terms. It runs on the same computers as 0.1.2
+([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is checked
+against it.
 
 ### Added
 
-- `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are built in. `subsumes_term/2` binds nothing.
+- `subsumes_term/2` (8.2.4) and `acyclic_term/1` (8.3.11) are built in
+  ([chapter 14](docs/manual/en/14-reference.md)). `subsumes_term/2` binds nothing.
   A program that defined its own `subsumes_term/2` or `acyclic_term/1` must drop that definition: loading it now gives
   `permission_error(modify,static_procedure,subsumes_term/2)` (or `acyclic_term/1`).
 - `Name//Arity` names a non-terminal as `Name/(Arity+2)` in export and import lists, and in the `dynamic`,
   `discontiguous` and `multifile` directives. `abolish/1` stays ISO.
 - `*->` in a grammar body is a soft cut.
 - `library(dcg)` exports `expand_term/2`: it translates one grammar rule `H --> B` into a clause, and returns any
-  other term that is not a variable unchanged. Load it with `:- use_module(library(dcg)).`
+  other term that is not a variable unchanged ([chapter 12](docs/manual/en/12-modules-libraries.md)). Load it with
+  `:- use_module(library(dcg)).`
 - Mosa reads terms nested very deeply without crashing: terms 1,000,000 deep in arguments, lists, prefix operators,
   `xfy` operands, parentheses, curly braces and `|` tails, under a stack of 1 MiB.
 
@@ -26,10 +32,17 @@ English | [日本語](CHANGELOG.ja.md)
 ### Known limits
 
 The known limits of 0.1.2 still hold, except the four that this release removes (a term nested very deeply crashing
-Mosa, `subsumes_term/2` and `acyclic_term/1` missing, `Name//Arity` in an export list, `*->` in a grammar body).
-`assertz/1` does not translate a grammar rule: translate it with `expand_term/2` of `library(dcg)` first, and assert
-the clause it returns. `term_expansion/2` and `goal_expansion/2` do not exist. `mosac build` of a source clause nested
-100,000 deep works, but on macOS clang took about 80 minutes and 1.2 GB of memory to compile it.
+Mosa, `subsumes_term/2` and `acyclic_term/1` missing, `Name//Arity` in an export list, `*->` in a grammar body):
+
+- `assertz/1` does not translate a grammar rule: translate it with `expand_term/2` of `library(dcg)` first, and assert
+  the clause it returns. `term_expansion/2` and `goal_expansion/2` do not exist.
+- `use_module/1` works only in a file: typed at the `?-` prompt, it gives a warning with
+  `existence_error(procedure,use_module/1)` ([chapter 12](docs/manual/en/12-modules-libraries.md)).
+- Typing Japanese in the console window of Windows (with `chcp 932` or `chcp 437`) has not been verified.
+- `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
+- `mosac build` of a source clause nested 100,000 deep works, but on macOS clang took about 80 minutes and 1.2 GB of
+  memory to compile it.
+- On Windows, Mosa does not start while Smart App Control is on ([chapter 2](docs/manual/en/02-install.md)).
 
 ## 0.1.2 (2026-11-11)
 

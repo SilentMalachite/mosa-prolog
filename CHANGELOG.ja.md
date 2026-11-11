@@ -4,14 +4,16 @@
 
 この文書は [英語版](CHANGELOG.md) の日本語訳です。食い違うときは英語版に従います。
 
-## 未リリース
+## 0.1.3（2026-11-11）
+
+ISO の組み込みを足し、深く入れ子になった項を読めるようにしたリリースです。動くコンピュータは 0.1.2 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。
 
 ### 足したこと
 
-- `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）を組み込みました。`subsumes_term/2` は何も束縛しません。`subsumes_term/2` や `acyclic_term/1` を自分で定義していたプログラムは、その定義を消してください。読み込むと `permission_error(modify,static_procedure,subsumes_term/2)`（または `acyclic_term/1`）になります。
+- `subsumes_term/2`（8.2.4）と `acyclic_term/1`（8.3.11）を組み込みました（[第 14 章](docs/manual/ja/14-reference.md)）。`subsumes_term/2` は何も束縛しません。`subsumes_term/2` や `acyclic_term/1` を自分で定義していたプログラムは、その定義を消してください。読み込むと `permission_error(modify,static_procedure,subsumes_term/2)`（または `acyclic_term/1`）になります。
 - 公開リストと取り込みリスト、および `dynamic`、`discontiguous`、`multifile` のディレクティブで、非終端記号の `Name//Arity` を `Name/(Arity+2)` として読みます。`abolish/1` は ISO のままです。
 - 文法規則の本体の `*->` はソフトカットです。
-- `library(dcg)` が `expand_term/2` を公開します。文法規則 `H --> B` を 1 つの節に訳し、変数でないほかの項はそのまま返します。`:- use_module(library(dcg)).` で読み込みます。
+- `library(dcg)` が `expand_term/2` を公開します。文法規則 `H --> B` を 1 つの節に訳し、変数でないほかの項はそのまま返します（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。`:- use_module(library(dcg)).` で読み込みます。
 - とても深く入れ子になった項を、落ちずに読みます。1 MiB のスタックで、引数、リスト、前置演算子、`xfy` の項、括弧、波括弧、`|` の尾で、100 万段の項を読めます。
 
 ### 直したこと
@@ -20,7 +22,14 @@
 
 ### 既知の制限
 
-0.1.2 の既知の制限は、このリリースでなくなった 4 つ（深く入れ子になった項で落ちること、`subsumes_term/2` と `acyclic_term/1` が無いこと、公開リストの `Name//Arity`、文法規則の本体の `*->`）を除いて、そのまま残ります。`assertz/1` は文法規則を訳しません。先に `library(dcg)` の `expand_term/2` で訳した節を渡します。`term_expansion/2` と `goal_expansion/2` はありません。ソースの節が 10 万段入れ子になっていても `mosac build` は通りますが、macOS では clang が約 80 分と 1.2 GB のメモリを使いました。
+0.1.2 の既知の制限は、このリリースでなくなった 4 つ（深く入れ子になった項で落ちること、`subsumes_term/2` と `acyclic_term/1` が無いこと、公開リストの `Name//Arity`、文法規則の本体の `*->`）を除いて、そのまま残ります。
+
+- `assertz/1` は文法規則を訳しません。先に `library(dcg)` の `expand_term/2` で訳した節を渡します。`term_expansion/2` と `goal_expansion/2` はありません。
+- `use_module/1` はファイルの中でしか使えません。`?-` のプロンプトで打つと、`existence_error(procedure,use_module/1)` の警告が出ます（[第 12 章](docs/manual/ja/12-modules-libraries.md)）。
+- Windows のコンソールのウィンドウで日本語を打つこと（`chcp 932` と `chcp 437`）は未検証です。
+- `mosac build --debug` は、最適化して作った実行時ライブラリにつなぎます。ライブラリの節は出しません。
+- ソースの節が 10 万段入れ子になっていても `mosac build` は通りますが、macOS では clang が約 80 分と 1.2 GB のメモリを使いました。
+- Windows では、Smart App Control が有効だと Mosa は動きません（[第 2 章](docs/manual/ja/02-install.md)）。
 
 ## 0.1.2（2026-11-11）
 
