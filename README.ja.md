@@ -5,7 +5,7 @@
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-9_in_progress-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-9_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.1.2-blue)](CHANGELOG.ja.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -95,7 +95,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 0〜8 は終わっていて、フェーズ 9（ISO の穴埋めと堅牢性）を 2026-11-11 に始めました。フェーズ 9 は進行中で、作業はできました。残りは完了条件の確かめです。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
+フェーズ 0〜9 は終わっています。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -108,7 +108,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 6 | `mosac`（Prolog から C++20 への変換とビルド）、差分テスト | 完了 |
 | 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 完了 |
 | 8 | 文法規則（`-->`、`phrase/2,3`） | 完了 |
-| 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 進行中 |
+| 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 完了 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 
