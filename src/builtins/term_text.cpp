@@ -8,7 +8,9 @@
 //   syntax_error(Key)（ADR 0007。項が閉じる前に字面が終われば incomplete_term。空の字面も同じで、SWI-Prolog 9.3.5
 //   以降の end_of_string に当たる）。
 //   SWI-Prolog は [] を空の字面とみなすが、ISO の [] は原子なので、Mosa では字面 "[]" として読む。
-// テスト: tests/pl/utilities.pl、tests/pl/japanese.pl
+//   Atom の数は Big でもよい（フェーズ10）。文字コードのリストの Big は、範囲の外の int64 と同じく
+//   type_error(string, Atom)。
+// テスト: tests/pl/utilities.pl、tests/pl/japanese.pl、tests/pl/bigint.pl
 #include "../machine/internal.hpp"
 #include "../module/module.hpp"
 
@@ -42,6 +44,7 @@ std::optional<std::string> list_text(Impl& machine, const WalkedList& list) {
     const Cell cell = machine.heap.deref(item);
     char32_t code = 0;
     if (codes) {
+      // Big はどの符号でも Unicode の範囲の外にあり、範囲の外の int64 と同じく字面にならない。
       if (cell.tag() != Tag::Int && cell.tag() != Tag::IntBox) return std::nullopt;
       const std::int64_t value = machine.heap.integer_value(cell);
       if (!scalar_code(value)) return std::nullopt;
@@ -57,7 +60,7 @@ std::optional<std::string> list_text(Impl& machine, const WalkedList& list) {
 // 束縛された Atom の字面。誤りを投げたら nullopt。
 std::optional<std::string> source_text(Impl& machine, const Goal& goal, Cell source) {
   if (source.tag() == Tag::Atom) return std::string{machine.atoms.name(static_cast<std::uint32_t>(source.raw() >> 3))};
-  if (source.tag() == Tag::Int || source.tag() == Tag::IntBox || source.tag() == Tag::Float) {
+  if (is_integer_tag(source.tag()) || source.tag() == Tag::Float) {
     return written(machine, goal, source);
   }
   const WalkedList list = walk_list(machine, source);

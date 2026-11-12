@@ -18,13 +18,16 @@
 //   カーソルを動かすのは、その後。past_end は下ろす。
 //   instantiation_error, domain_error(stream_or_alias), existence_error(stream),
 //   domain_error(stream_position), permission_error(reposition, stream)
+//   位置の Big（フェーズ10、設計の 8）は大きすぎる int64 と同じ順で断る。負なら位置の項の検査で、正なら
+//   reposition の後に流れの上に無い位置として domain_error(stream_position)。
 // stream_property(?stream_or_alias, ?stream_property)
 //   domain_error(stream_or_alias), domain_error(stream_property), existence_error(stream)
 // 性質の順は file_name, mode, input または output, alias, position,
 // end_of_stream, eof_action, reposition, type, encoding。
 // input と output は項ではなくアトム。read なら input、write と append なら output。
 // 一つの流れはどちらか一つ。戻せない流れに position は出さない。
-// テスト: tests/pl/stream_prop.pl, tests/cpp/stream_test.cpp
+// '$stream'(N) の N が Big なら existence_error(stream)（stream_number）。
+// テスト: tests/pl/stream_prop.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -48,8 +51,6 @@ std::string_view atom_text(const Impl& machine, Cell cell) {
   return machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
 }
 
-bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
-
 bool find_alias(const Impl& machine, std::string_view name, std::size_t& index) {
   for (std::size_t at = 0; at < machine.streams.size(); ++at) {
     if (machine.streams[at].alias == name) {
@@ -70,13 +71,13 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
                       machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
   if (!shaped) return raise_domain(machine, goal, "stream_or_alias", cell);
   const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
-  if (!is_integer(arg)) return raise_domain(machine, goal, "stream_or_alias", cell);
-  const auto number = machine.heap.integer_value(arg);
-  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
+  if (!is_integer_tag(arg.tag())) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const auto number = stream_number(machine, arg);
+  if (!number) {
     raise_formal(machine, formal_existence(machine, "stream", cell), goal.name, goal.arity);
     return true;
   }
-  index = static_cast<std::size_t>(number);
+  index = *number;
   return false;
 }
 
@@ -176,7 +177,7 @@ bool position_shape(const Impl& machine, Cell cell) {
   if (machine.atoms.name(machine.heap.functor_atom(cell)) != "stream_position") return false;
   for (std::size_t index = 0; index < 3; ++index) {
     const Cell part = machine.heap.deref(machine.heap.arg(cell, index));
-    if (!machine.heap.unbound(part) && !is_integer(part)) return false;
+    if (!machine.heap.unbound(part) && !is_integer_tag(part.tag())) return false;
   }
   return true;
 }
@@ -303,6 +304,8 @@ struct Triple {
   std::size_t char_no = 0;
   std::size_t line = 1;
   std::size_t line_pos = 1;
+  // 正の Big の部分がある。どの流れの位置よりも先なので、locate は探さずに見つからないとする。
+  bool beyond = false;
 };
 
 enum class PosKind { Ok, Inst, Domain };
@@ -314,15 +317,23 @@ PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
     return PosKind::Domain;
   }
   std::array<std::size_t, 3> parts{};
+  // 行と行の中の位置の 0 は、3 つの部分の具体化と型を見た後で断る。
+  bool zero_line = false;
   for (std::size_t index = 0; index < parts.size(); ++index) {
     const Cell part = machine.heap.deref(machine.heap.arg(cell, index));
     if (machine.heap.unbound(part)) return PosKind::Inst;
-    if (!is_integer(part)) return PosKind::Domain;
+    if (!is_integer_tag(part.tag())) return PosKind::Domain;
+    if (part.tag() == Tag::Big) {
+      if (machine.heap.big_negative(part)) return PosKind::Domain;
+      triple.beyond = true;
+      continue;
+    }
     const auto value = machine.heap.integer_value(part);
     if (value < 0) return PosKind::Domain;
+    zero_line = zero_line || (index > 0 && value == 0);
     parts[index] = static_cast<std::size_t>(value);
   }
-  if (parts[1] == 0 || parts[2] == 0) return PosKind::Domain;
+  if (zero_line) return PosKind::Domain;
   triple.char_no = parts[0];
   triple.line = parts[1];
   triple.line_pos = parts[2];
@@ -330,6 +341,7 @@ PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
 }
 
 bool locate(const Stream& stream, const Triple& want, std::size_t& cursor) {
+  if (want.beyond) return false;
   Triple spot;
   while (true) {
     if (spot.char_no == want.char_no && spot.line == want.line && spot.line_pos == want.line_pos) {

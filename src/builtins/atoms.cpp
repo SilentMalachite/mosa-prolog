@@ -11,7 +11,9 @@
 //   type_error(integer), representation_error(character_code)
 // char_code(?character, ?character_code)
 //   instantiation_error, type_error(character), type_error(integer), representation_error(character_code)
-// テスト: tests/pl/atoms.pl, tests/pl/japanese.pl
+// Big（フェーズ10、設計の 8）は整数として型の検査を通る。文字コードの Big は representation_error(character_code)、
+// atom_length/2 の Big は負なら domain_error(not_less_than_zero)、正なら長さと合わずに失敗する。
+// テスト: tests/pl/atoms.pl, tests/pl/japanese.pl, tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
 
@@ -128,7 +130,13 @@ bool prove_concat(Impl& machine, const Goal& goal, std::size_t begin, std::size_
 }
 
 bool negative_int(const Impl& machine, Cell cell) {
+  if (cell.tag() == Tag::Big) return machine.heap.big_negative(cell);
   return is_int_cell(cell) && machine.heap.integer_value(cell) < 0;
+}
+
+// Big はどの符号でも Unicode の範囲の外にあり、範囲の外の int64 と同じく文字コードではない。
+bool code_cell(const Impl& machine, Cell cell) {
+  return is_int_cell(cell) && scalar_code(machine.heap.integer_value(cell));
 }
 
 bool has_var_item(const Impl& machine, const WalkedList& walked) {
@@ -141,11 +149,11 @@ bool has_var_item(const Impl& machine, const WalkedList& walked) {
 bool reject_codes(Impl& machine, const Goal& goal, const WalkedList& walked) {
   for (const Cell item : walked.items) {
     if (machine.heap.unbound(item)) continue;
-    if (!is_int_cell(item)) {
+    if (!is_integer_tag(item.tag())) {
       type_at(machine, goal, "integer", item);
       return true;
     }
-    if (!scalar_code(machine.heap.integer_value(item))) {
+    if (!code_cell(machine, item)) {
       raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
       return true;
     }
@@ -213,7 +221,7 @@ void run_atom_length(Impl& machine, const Goal& goal) {
     type_at(machine, goal, "atom", atom);
     return;
   }
-  if (!machine.heap.unbound(length) && !is_int_cell(length)) {
+  if (!machine.heap.unbound(length) && !is_integer_tag(length.tag())) {
     type_at(machine, goal, "integer", length);
     return;
   }
@@ -294,11 +302,11 @@ void run_char_code(Impl& machine, const Goal& goal) {
     type_at(machine, goal, "character", character);
     return;
   }
-  if (!code_var && !is_int_cell(code)) {
+  if (!code_var && !is_integer_tag(code.tag())) {
     type_at(machine, goal, "integer", code);
     return;
   }
-  if (!code_var && !scalar_code(machine.heap.integer_value(code))) {
+  if (!code_var && !code_cell(machine, code)) {
     raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
     return;
   }

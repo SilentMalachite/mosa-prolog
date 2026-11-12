@@ -2,9 +2,9 @@
 //   instantiation_error, type_error(callable), permission_error(access, private_procedure, PI)
 // 8.8.2 current_predicate/1 (?predicate_indicator)
 //   type_error(predicate_indicator), type_error(atom), type_error(integer),
-//   domain_error(not_less_than_zero)
+//   domain_error(not_less_than_zero)。項数の Big（フェーズ10）は負なら定義域の誤り、正なら表に無いので失敗。
 // 節と述語を読むだけの組込。節を変える組込は database.cpp にある。
-// テスト: tests/pl/database.pl, tests/pl/clause.pl
+// テスト: tests/pl/database.pl, tests/pl/clause.pl, tests/pl/bigint.pl
 
 #include "database_internal.hpp"
 
@@ -176,21 +176,21 @@ bool accept_indicator(Impl& machine, const Goal& goal, Cell pred, WantedPred& wa
     raise_type(machine, goal, "atom", name);
     return false;
   }
-  if (!machine.heap.unbound(arity) && arity.tag() != Tag::Int && arity.tag() != Tag::IntBox) {
+  if (!machine.heap.unbound(arity) && !is_integer_tag(arity.tag())) {
     raise_type(machine, goal, "integer", arity);
     return false;
   }
   if (!machine.heap.unbound(arity)) {
-    const auto value = machine.heap.integer_value(arity);
-    if (value < 0) {
+    const bool big = arity.tag() == Tag::Big;
+    if (big ? machine.heap.big_negative(arity) : machine.heap.integer_value(arity) < 0) {
       raise_formal(machine, formal_domain(machine, "not_less_than_zero", arity), goal.name, goal.arity);
       return false;
     }
-    // アリティは 16bit。超える述語は表に無く、検査順に表現エラーは無い。
-    if (value > 65535) wanted.arity_high = true;
+    // アリティは 16bit。超える述語は表に無く、検査順に表現エラーは無い。正の Big も超える側。
+    if (big || machine.heap.integer_value(arity) > 65535) wanted.arity_high = true;
     else {
       wanted.arity_set = true;
-      wanted.arity = static_cast<std::uint16_t>(value);
+      wanted.arity = static_cast<std::uint16_t>(machine.heap.integer_value(arity));
     }
   }
   if (!machine.heap.unbound(name)) {

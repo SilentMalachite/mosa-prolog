@@ -326,11 +326,10 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, c
       raise_formal(machine, formal_instantiation(machine), name, 1);
       return;
     }
-    if (value.tag() != Tag::Int && value.tag() != Tag::IntBox) {
-      raise_formal(machine, formal_type(machine, "integer", value), name, 1);
+    if (const auto problem = halt_code_problem(machine, value, code)) {
+      raise_formal(machine, *problem, name, 1);
       return;
     }
-    code = static_cast<int>(machine.heap.integer_value(value));
   }
   machine.halt_now = true;
   machine.halt_code = code;

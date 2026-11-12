@@ -1,7 +1,10 @@
 % フェーズ10（ADR 0025）。int64 に入らない整数（Big）のテスト。字句解析、reader、number_codes/2 の族が字面から
 % Big を作り、算術（タスク 6 と 7）が Big を計算する。値は == で比べ、int64 に収まる結果が Big にならないことも見る。
+% 整数の引数を取る組み込み（タスク 8）は、Big を整数として受け、範囲の外なら「大きすぎる int64」と同じ結果にする。
 % pow10 と pow2 は冪を * だけで作る。^ を通さないので、/ と丸めの行が ^ の誤りに引きずられない。
 :- use_module(library(between)).
+:- use_module(library(format)).
+:- use_module(library(lists)).
 pow10(0, 1) :- !.
 pow10(N, X) :- M is N - 1, pow10(M, Y), X is Y * 10.
 pow2(0, 1) :- !.
@@ -114,3 +117,73 @@ test(succ_or_zero_big, (A is succ_or_zero(2^70), A == 1180591620717411303425, B 
 test(succ_big, (succ(123456789012345678901234567890, N), N == 123456789012345678901234567891), true).
 test(bounded_flag, current_prolog_flag(bounded, false), true).
 test(bounded_max_integer, current_prolog_flag(max_integer, 9223372036854775807), true).
+% 整数の引数（タスク 8、設計の 8）。B = 1844674407370909797907654848955145546336677616 はスイートの big/1 と同じ値。
+% 正の B は「大きすぎる int64」と、-B は負の int64 と同じ結果になる。
+test(arg_big, arg(1844674407370909797907654848955145546336677616, t(1,2,3), _), fail).
+test(arg_big_neg, arg(-1844674407370909797907654848955145546336677616, t(1,2,3), _), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(arg_big_compound, arg(1844674407370909797907654848955145546336677616, a, _), error(type_error(compound, a))).
+test(functor_big, functor(_, t, 1844674407370909797907654848955145546336677616), error(representation_error(max_arity))).
+test(functor_big_neg, functor(_, t, -1844674407370909797907654848955145546336677616), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(char_code_big, char_code(_, 1844674407370909797907654848955145546336677616), error(representation_error(character_code))).
+test(char_code_big_neg, char_code(_, -1844674407370909797907654848955145546336677616), error(representation_error(character_code))).
+test(atom_length_big, atom_length(abc, 1844674407370909797907654848955145546336677616), fail).
+test(atom_length_big_neg, atom_length(abc, -1844674407370909797907654848955145546336677616), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(sub_atom_big, sub_atom(abc, 1844674407370909797907654848955145546336677616, _, _, _), fail).
+test(sub_atom_big_length, sub_atom(abc, _, 1844674407370909797907654848955145546336677616, _, _), fail).
+test(sub_atom_big_after, sub_atom(abc, _, _, 1844674407370909797907654848955145546336677616, _), fail).
+test(sub_atom_big_sub, sub_atom(abc, _, 1844674407370909797907654848955145546336677616, _, b), fail).
+test(sub_atom_big_neg, sub_atom(abc, _, -1844674407370909797907654848955145546336677616, _, _), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+% length(L, B) はヒープの上限で止まる（tests/cpp/bigint_limit_test.cpp の length_big）。閉じたリストなら失敗する。
+test(length_big, length(_, -1844674407370909797907654848955145546336677616), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(length_big_closed, length([a], 1844674407370909797907654848955145546336677616), fail).
+% B mod 26 = 0 なので、B と B + 1 の変数名は A と B に B // 26 を付けたもの。
+test(numbervars_big, (numbervars(f(X, Y), 1844674407370909797907654848955145546336677616, E), E =:= 1844674407370909797907654848955145546336677616 + 2, with_output_to(atom(A), writeq(f(X, Y))), A == 'f(A70949015668111915304140571113659444089872216,B70949015668111915304140571113659444089872216)'), true).
+% 番号が int64 を越えるところは Big になる（前は representation_error(max_integer)。iso-notes「Section 7 Stage G utilities」）。
+test(numbervars_cross, (numbervars(f(X, Y, Z), 9223372036854775806, E), X == '$VAR'(9223372036854775806), Y == '$VAR'(9223372036854775807), Z == '$VAR'(9223372036854775808), E == 9223372036854775809), true).
+test(numbervars_big_end, (numbervars(f(_), 1844674407370909797907654848955145546336677616, 1844674407370909797907654848955145546336677617), \+ numbervars(f(_), 1844674407370909797907654848955145546336677616, 1844674407370909797907654848955145546336677616)), true).
+test(numbervars_big_neg, (numbervars(f(X), -1844674407370909797907654848955145546336677616, E), X == '$VAR'(-1844674407370909797907654848955145546336677616), E == -1844674407370909797907654848955145546336677615), true).
+test(format_big, (with_output_to(atom(A), format('~d', [1844674407370909797907654848955145546336677616])), A == '1844674407370909797907654848955145546336677616'), true).
+test(format_float_big_neg, '$format_float'(f, -1844674407370909797907654848955145546336677616, 1.0, _), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(op_big, op(1844674407370909797907654848955145546336677616, xfx, foo), error(domain_error(operator_priority, 1844674407370909797907654848955145546336677616))).
+test(op_big_neg, op(-1844674407370909797907654848955145546336677616, xfx, foo), error(domain_error(operator_priority, -1844674407370909797907654848955145546336677616))).
+% 文字コードのリストの Big は、範囲の外の int64 と同じく representation_error(character_code)。
+test(atom_codes_big, atom_codes(_, [0'a, 1844674407370909797907654848955145546336677616]), error(representation_error(character_code))).
+test(number_codes_big, number_codes(_, [0'1, 1844674407370909797907654848955145546336677616]), error(representation_error(character_code))).
+test(open_string_big, open_string([0'a, 1844674407370909797907654848955145546336677616], _), error(representation_error(character_code))).
+test(char_width_big, '$char_width'(1844674407370909797907654848955145546336677616, _), error(representation_error(character_code))).
+test(get_code_big, peek_code(1844674407370909797907654848955145546336677616), error(representation_error(in_character_code))).
+test(put_code_big, put_code(-1844674407370909797907654848955145546336677616), error(representation_error(character_code))).
+test(term_to_atom_codes_big, term_to_atom(_, [0'1, 1844674407370909797907654848955145546336677616]), error(type_error(string, [0'1, 1844674407370909797907654848955145546336677616]))).
+test(position_property_big, (open_string(ab, S), \+ stream_property(S, position(stream_position(1844674407370909797907654848955145546336677616, _, _)))), true).
+test(position_big_line, (open_string(ab, S), set_stream_position(S, stream_position(0, 1844674407370909797907654848955145546336677616, 1))), error(domain_error(stream_position, stream_position(0, 1844674407370909797907654848955145546336677616, 1)))).
+test(term_to_atom_big, (term_to_atom(T, 1844674407370909797907654848955145546336677616), T == 1844674407370909797907654848955145546336677616), true).
+% 流れの項の Big は、流れの数を越える int64 と同じく existence_error(stream)。流れを読む 6 つのファイルを 1 行ずつ通る。
+test(stream_big_chars, put_char('$stream'(1844674407370909797907654848955145546336677616), a), error(existence_error(stream, '$stream'(1844674407370909797907654848955145546336677616)))).
+test(stream_big_bytes, put_byte('$stream'(-1844674407370909797907654848955145546336677616), 1), error(existence_error(stream, '$stream'(-1844674407370909797907654848955145546336677616)))).
+test(stream_big_prop, set_input('$stream'(1844674407370909797907654848955145546336677616)), error(existence_error(stream, '$stream'(1844674407370909797907654848955145546336677616)))).
+test(stream_big_read, read('$stream'(1844674407370909797907654848955145546336677616), _), error(existence_error(stream, '$stream'(1844674407370909797907654848955145546336677616)))).
+test(stream_big_write, write('$stream'(1844674407370909797907654848955145546336677616), a), error(existence_error(stream, '$stream'(1844674407370909797907654848955145546336677616)))).
+test(stream_big_close, close('$stream'(1844674407370909797907654848955145546336677616)), error(existence_error(stream, '$stream'(1844674407370909797907654848955145546336677616)))).
+% 位置の Big は流れの上に無い位置。戻せない流れでは、大きすぎる int64 と同じく reposition の許可を先に見る。
+test(position_big, (open_string(ab, S), set_stream_position(S, stream_position(1844674407370909797907654848955145546336677616, 1, 1))), error(domain_error(stream_position, stream_position(1844674407370909797907654848955145546336677616, 1, 1)))).
+test(position_big_reposition, set_stream_position(user_input, stream_position(1844674407370909797907654848955145546336677616, 1, 1)), error(permission_error(reposition, stream, user_input))).
+test(position_big_neg, set_stream_position(user_input, stream_position(-1844674407370909797907654848955145546336677616, 1, 1)), error(domain_error(stream_position, stream_position(-1844674407370909797907654848955145546336677616, 1, 1)))).
+test(sort4_big, sort(1844674407370909797907654848955145546336677616, @<, [f(a)], _), error(existence_error(argument, 1844674407370909797907654848955145546336677616, f(a)))).
+test(sort4_big_neg, sort(-1844674407370909797907654848955145546336677616, @<, [f(a)], _), error(domain_error(not_less_than_one, -1844674407370909797907654848955145546336677616))).
+test(sort4_big_empty, (sort(1844674407370909797907654848955145546336677616, @<, [], L), L == []), true).
+test(abolish_big, abolish(foo/1844674407370909797907654848955145546336677616), error(representation_error(max_arity))).
+test(abolish_big_neg, abolish(foo/(-1844674407370909797907654848955145546336677616)), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(current_predicate_big, current_predicate(foo/1844674407370909797907654848955145546336677616), fail).
+test(current_predicate_big_neg, current_predicate(foo/(-1844674407370909797907654848955145546336677616)), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+test(flag_big, set_prolog_flag(max_integer, 1844674407370909797907654848955145546336677616), error(permission_error(modify, flag, max_integer))).
+% Prolog で書いたライブラリ（付録 B の 5）は integer/1 と算術で Big をそのまま扱う。
+test(lib_big, (\+ nth0(1844674407370909797907654848955145546336677616, [a, b], _), \+ nth1(1844674407370909797907654848955145546336677616, [a, b], _), between(1, 1844674407370909797907654848955145546336677616, 3), between(1844674407370909797907654848955145546336677616, inf, X), !, X == 1844674407370909797907654848955145546336677616), true).
+% tab/1,2 は 0 以下なら何も書かない。正の Big は int64 の大きな数と同じく書き終わらないので、行にしない。
+test(tab_big_neg, (with_output_to(atom(A), tab(-1844674407370909797907654848955145546336677616)), A == ''), true).
+% halt/1 の終了状態は C++ の int に入る整数だけ（iso-notes「8.17.4 halt/1」の決定 A）。int の外の int64 も同じ。
+test(halt_big, halt(1844674407370909797907654848955145546336677616), error(representation_error(max_integer))).
+test(halt_big_neg, halt(-1844674407370909797907654848955145546336677616), error(representation_error(min_integer))).
+test(halt_big_call, (G = halt(1844674407370909797907654848955145546336677616), call(G)), error(representation_error(max_integer))).
+test(halt_big_system, system:halt(-1844674407370909797907654848955145546336677616), error(representation_error(min_integer))).
+test(halt_int, halt(2147483648), error(representation_error(max_integer))).
+test(halt_int_neg, halt(-2147483649), error(representation_error(min_integer))).

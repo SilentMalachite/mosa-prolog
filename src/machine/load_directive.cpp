@@ -11,6 +11,8 @@
 #include <vector>
 
 // 読み込みの指令（op、dynamic、discontiguous、multifile、initialization、旗、文字変換）を振り分ける。
+// 優先度と項数の Big（フェーズ10、設計の 8）は、範囲の外の int64 と同じ診断にする。優先度は「範囲外」、項数は
+// 正なら representation_error(max_arity)、負なら述語指示子でない。テスト: tests/cpp/bigint_heap_test.cpp
 namespace mosa {
 
 namespace {
@@ -80,15 +82,16 @@ bool apply_op(Impl& machine, Cell directive) {
   }
   const Cell priority_cell = machine.heap.deref(machine.heap.arg(body, 0));
   const Cell spec_cell = machine.heap.deref(machine.heap.arg(body, 1));
-  if (priority_cell.tag() != Tag::Int && priority_cell.tag() != Tag::IntBox) return false;
+  if (!is_integer_tag(priority_cell.tag())) return false;
   if (spec_cell.tag() != Tag::Atom) return false;
   const auto specifier = specifier_of(machine.atoms.name(static_cast<std::uint32_t>(spec_cell.raw() >> 3)));
   if (!specifier) {
     fail_load(machine, message_text(machine, op_failure_key(OpResult::BadSpecifier)));
     return false;
   }
-  const auto priority64 = machine.heap.integer_value(priority_cell);
-  if (priority64 < 0 || priority64 > 1200) {
+  const bool big = priority_cell.tag() == Tag::Big;
+  const auto priority64 = big ? std::int64_t{0} : machine.heap.integer_value(priority_cell);
+  if (big || priority64 < 0 || priority64 > 1200) {
     fail_load(machine, message_text(machine, op_failure_key(OpResult::BadPriority)));
     return false;
   }
@@ -105,16 +108,16 @@ bool one_indicator(Impl& machine, Cell cell, PredKey& key, std::optional<Cell>& 
   const Cell left = machine.heap.deref(machine.heap.arg(cell, 0));
   const Cell right = machine.heap.deref(machine.heap.arg(cell, 1));
   if (left.tag() != Tag::Atom) return false;
-  if (right.tag() != Tag::Int && right.tag() != Tag::IntBox) return false;
-  const auto value = machine.heap.integer_value(right);
-  if (value < 0) return false;
-  // Arity+2 を足してから比べると 64 ビットの上限で桁あふれするので、上限の側から引いて比べる。
-  if (value > 1024 - *shift) {
+  if (!is_integer_tag(right.tag())) return false;
+  const bool big = right.tag() == Tag::Big;
+  if (big ? machine.heap.big_negative(right) : machine.heap.integer_value(right) < 0) return false;
+  // Arity+2 を足してから比べると 64 ビットの上限で桁あふれするので、上限の側から引いて比べる。正の Big も上限の外。
+  if (big || machine.heap.integer_value(right) > 1024 - *shift) {
     formal = formal_representation(machine, "max_arity");
     return false;
   }
   key.name = static_cast<std::uint32_t>(left.raw() >> 3);
-  key.arity = static_cast<std::uint16_t>(value + *shift);
+  key.arity = static_cast<std::uint16_t>(machine.heap.integer_value(right) + *shift);
   return true;
 }
 

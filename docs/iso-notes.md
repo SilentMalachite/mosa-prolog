@@ -457,7 +457,7 @@ A or B?: A: implement them in phase 7, before the manuals and the release packag
 
 Decision (2026-11-03): A (review M11). The seven predicates go into `system` in phase 7, one predicate per commit, with their tests in `tests/pl/utilities.pl`; where SWI-Prolog's behaviour is not visible from its manual and source, the choice is written in the header comment of the predicate's file. SPEC section 7 now says `numbervars/3`.
 
-Implemented 2026-11-03 (`setup_call_cleanup/3` under ADR 0016). Where Mosa departs from SWI-Prolog: `nb_getval/2` gives a fresh copy on each call, since the heap is reclaimed on backtracking; `sort/4` takes only an integer Key and gives `type_error(sort_key, Key)` for SWI's dict keys and key paths, since Mosa has no dicts; `term_to_atom/2` reads `[]` as the atom `'[]'` and gives `syntax_error(incomplete_term)` for empty or unfinished text (SWI 9.3.5 and later: `end_of_string`); `numbervars/3` gives `representation_error(max_integer)` past 64-bit integers (SWI: `tagged_integer`); `setup_call_cleanup/3` runs no cleanup on `halt` or a heap-limit stop, drops the cleanup's exception when the goal raised (SWI keeps the more urgent one), runs every cleanup removed by one cut and then rethrows the first of their exceptions, and ignores a cleanup's exception when a new query of the embedding API closes the old one (a `-g` goal, a toplevel answer and `initialization(G, main)` are cut after their answer as in SWI, and their cleanup's exception is the goal's).
+Implemented 2026-11-03 (`setup_call_cleanup/3` under ADR 0016). Where Mosa departs from SWI-Prolog: `nb_getval/2` gives a fresh copy on each call, since the heap is reclaimed on backtracking; `sort/4` takes only an integer Key and gives `type_error(sort_key, Key)` for SWI's dict keys and key paths, since Mosa has no dicts; `term_to_atom/2` reads `[]` as the atom `'[]'` and gives `syntax_error(incomplete_term)` for empty or unfinished text (SWI 9.3.5 and later: `end_of_string`); `numbervars/3` has no upper bound since phase 10: a number past the 64-bit integers is a Big (phase 7 to 9 gave `representation_error(max_integer)` there; SWI: `representation_error(tagged_integer)`); `setup_call_cleanup/3` runs no cleanup on `halt` or a heap-limit stop, drops the cleanup's exception when the goal raised (SWI keeps the more urgent one), runs every cleanup removed by one cut and then rethrows the first of their exceptions, and ignores a cleanup's exception when a new query of the embedding API closes the old one (a `-g` goal, a toplevel answer and `initialization(G, main)` are cut after their answer as in SWI, and their cleanup's exception is the goal's).
 
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
@@ -776,3 +776,11 @@ The repository holds no text of ISO/IEC 13211-1. Phase 10 allows an integer too 
 A or B?: A: keep the rule of 9.3.8 (convert to a float), and raise `evaluation_error(float_overflow)` for a value that cannot be converted. B: compare exactly, so `2^2000 > 1.0` is true (this needs an exact comparison in `cmp_nums` and in `min/2` and `max/2`).
 
 Until the owner confirms: A.
+
+## 8.17.4 halt/1
+
+ISO/IEC 13211-1 8.17.4 takes an integer exit status but does not say what an integer the operating system cannot take does. The status reaches the OS as a C++ `int`, and before phase 10 Mosa cast the int64 to `int` without a check, so `halt(4294967296)` exited with status 0. Phase 10 adds integers beyond int64 (Bigs).
+
+A or B?: A: an integer outside C++ `int` gives `representation_error(max_integer)` when positive and `representation_error(min_integer)` when negative (the Flags of 7.12.2 g), the same for an int64 outside `int` and for a Big. B: pass the low bits of the integer to the OS.
+
+Decision (2026-11-13): A (owner decision A). B is rejected. `halt/1` and the compiled `halt/1` share one check (`halt_code_problem` in `src/builtins/control.cpp`; `src/machine/catch.cpp` `arm_halt`); the tests are `halt_*` in `tests/pl/bigint.pl`. An integer inside `int` still goes to the OS unchanged, which keeps its own low bits (for example 8 bits on POSIX).

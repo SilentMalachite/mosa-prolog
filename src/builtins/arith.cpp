@@ -3,7 +3,7 @@
 // type_error(integer, X), type_error(float, X), type_error(integer_expression, E)（tab/1,2 が使う
 // eval_int_expression）, evaluation_error(zero_divisor | undefined | int_overflow | float_overflow),
 // resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。整数に上限は無い（旗 bounded は false、ADR 0025）。
-// int_overflow を出すのは、無限大を整数にする丸めと、tab/1,2 の Big（タスク 8 まで）だけである。** はいつも float
+// int_overflow を出すのは、無限大を整数にする丸めだけである。** はいつも float
 // を返し、double にできない Big の引数と結果は float_overflow にする。ヒープに入らない大きさの結果は
 // ResourceLimit("heap_limit") で止める（check_room。<< と ^ と + - * は計算の前に見積もる）。テスト: tests/pl/arith.pl,
 // tests/pl/bigint.pl, tests/pl/native.pl, tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp,
@@ -468,7 +468,7 @@ bool run_arith(Impl& machine, const Goal& goal) {
   return false;
 }
 
-std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal, Cell cell) {
+std::optional<EvalInt> eval_int_expression(Impl& machine, const Goal& goal, Cell cell) {
   const arith::BigScope scope(machine);
   const arith::Ev value = arith::eval_expr(machine, goal, cell);
   if (!value.ok) return std::nullopt;
@@ -476,12 +476,11 @@ std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal,
     raise_formal(machine, formal_type(machine, "integer_expression", cell), goal.name, goal.arity);
     return std::nullopt;
   }
-  // tab/1,2 は int64 で数える。Big の数はタスク 8 まで、前と同じく int_overflow にする（ival は添字なので読まない）。
-  if (value.num.big) {
-    arith::fail_eval(machine, goal, "int_overflow");
-    return std::nullopt;
-  }
-  return value.num.ival;
+  EvalInt result;
+  // Big の ival は置き場の添字なので値として読まない。呼び手（tab/1,2）に要るのは int64 の外のどちら側かだけ。
+  if (value.num.big) result.big_sign = arith::int_negative(machine, value.num) ? -1 : 1;
+  else result.value = value.num.ival;
+  return result;
 }
 
 namespace rt {

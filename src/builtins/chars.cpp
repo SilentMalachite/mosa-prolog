@@ -23,7 +23,10 @@
 //   流れの誤りは nl/1 と同じ。加えて instantiation_error, type_error(evaluable, F/A),
 //   type_error(integer_expression, N)（値が整数でない。N は評価する前の式）と評価の誤り、
 //   resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）
-// テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/cpp/stream_test.cpp
+//   N が Big（フェーズ10、設計の 8）なら、負は何も書かず、正は int64 の大きな数と同じく書き終わらない。
+// コードの Big は範囲の外の int64 と同じく representation_error(in_character_code) か
+// representation_error(character_code)、'$stream'(N) の N が Big なら existence_error(stream)（stream_number）。
+// テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -173,12 +176,10 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
                       machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
   if (!shaped) return raise_domain(machine, goal, cell);
   const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
-  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return raise_domain(machine, goal, cell);
-  const auto number = machine.heap.integer_value(arg);
-  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
-    return raise_exists(machine, goal, cell);
-  }
-  index = static_cast<std::size_t>(number);
+  if (!is_integer_tag(arg.tag())) return raise_domain(machine, goal, cell);
+  const auto number = stream_number(machine, arg);
+  if (!number) return raise_exists(machine, goal, cell);
+  index = *number;
   return false;
 }
 
@@ -211,9 +212,11 @@ bool reject_output(Impl& machine, const Goal& goal, const Stream& stream, Cell c
 bool reject_in_code(Impl& machine, const Goal& goal, Cell cell) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return false;
-  if (cell.tag() != Tag::Int && cell.tag() != Tag::IntBox) return raise_type(machine, goal, "integer", cell);
-  const auto value = machine.heap.integer_value(cell);
-  if (value != -1 && !scalar_code(value)) {
+  if (!is_integer_tag(cell.tag())) return raise_type(machine, goal, "integer", cell);
+  // Big はどの符号でも -1 でも Unicode の範囲でもない。
+  const bool code = cell.tag() != Tag::Big &&
+                    (machine.heap.integer_value(cell) == -1 || scalar_code(machine.heap.integer_value(cell)));
+  if (!code) {
     raise_formal(machine, formal_representation(machine, "in_character_code"), goal.name, goal.arity);
     return true;
   }
@@ -233,13 +236,13 @@ bool reject_in_char(Impl& machine, const Goal& goal, Cell cell) {
 bool reject_put_code(Impl& machine, const Goal& goal, Cell cell, char32_t& code) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
-  if (cell.tag() != Tag::Int && cell.tag() != Tag::IntBox) return raise_type(machine, goal, "integer", cell);
-  const auto value = machine.heap.integer_value(cell);
-  if (!scalar_code(value)) {
+  if (!is_integer_tag(cell.tag())) return raise_type(machine, goal, "integer", cell);
+  // Big はどの符号でも Unicode の範囲の外にある。
+  if (cell.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(cell))) {
     raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
     return true;
   }
-  code = static_cast<char32_t>(value);
+  code = static_cast<char32_t>(machine.heap.integer_value(cell));
   return false;
 }
 
@@ -399,13 +402,16 @@ void run_tab(Impl& machine, const Goal& goal) {
   }
   const auto count = eval_int_expression(machine, goal, goal.arg(machine, goal.arity - 1));
   if (!count) return;
+  // 正の Big は数え終わらない数で、int64 の大きな数（tab(1 << 40) はメモリの流れをヒープの外で伸ばし続ける）と
+  // 同じく書き続ける。int64 の端へ丸めて数えると、別の数を書くことになる（設計の 8、黙った切り詰めの禁止）。
+  const bool endless = count->big_sign > 0;
   // place_bytes は途中の位置では 1 字だけを置き換えるので、流れには 1 字ずつ置く。emit_os は呼ぶたびに
   // 吐き出すので、標準の流れへは塊で渡す。
   constexpr std::int64_t kChunk = 256;
   const std::string spaces(static_cast<std::size_t>(kChunk), ' ');
   Stream& stream = machine.streams[index];
-  for (std::int64_t left = *count; left > 0; left -= kChunk) {
-    const auto size = static_cast<std::size_t>(left < kChunk ? left : kChunk);
+  for (std::int64_t left = count->value; endless || left > 0; left -= endless ? 0 : kChunk) {
+    const auto size = static_cast<std::size_t>(endless || left >= kChunk ? kChunk : left);
     if (stream.kind == Stream::Kind::Standard) emit_os(index, std::string_view{spaces.data(), size});
     for (std::size_t at = 0; at < size; ++at) {
       place_bytes(stream, std::string_view{spaces.data(), 1});

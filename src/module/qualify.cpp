@@ -3,8 +3,10 @@
 // エラー: instantiation_error、type_error(atom, M)、existence_error(module, M)、type_error(callable, M:G)、
 //         permission_error(create, module, M)、type_error(list, L)、type_error(predicate_indicator, PI)、
 //         type_error(integer, A)、domain_error(not_less_than_zero, A)、representation_error(max_arity)。
+//         A の Big（フェーズ10）は、負なら domain_error、正なら representation_error(max_arity)。
 // 述語指示子は Name//Arity も Name/(Arity+2) として受ける（ADR 0024 改訂 3）。
-// テスト: tests/pl/modules.pl、tests/cpp/module_load_test.cpp、tests/cpp/dcg_test.cpp
+// テスト: tests/pl/modules.pl、tests/pl/bigint.pl、tests/cpp/module_load_test.cpp、tests/cpp/dcg_test.cpp、
+//   tests/cpp/bigint_heap_test.cpp
 #include "module.hpp"
 
 #include "../machine/internal.hpp"
@@ -20,8 +22,6 @@ namespace {
 std::uint32_t atom_of(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
 
 bool is_callable(Cell cell) { return cell.tag() == Tag::Atom || cell.tag() == Tag::Str || cell.tag() == Tag::Lis; }
-
-bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool is_op_item(const Impl& machine, Cell cell) {
   cell = machine.heap.deref(cell);
@@ -137,12 +137,14 @@ std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
   const Cell arity = machine.heap.deref(machine.heap.arg(cell, 1));
   if (machine.heap.unbound(name) || machine.heap.unbound(arity)) return formal_instantiation(machine);
   if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
-  if (!is_integer(arity)) return formal_type(machine, "integer", arity);
-  const auto value = machine.heap.integer_value(arity);
-  if (value < 0) return formal_domain(machine, "not_less_than_zero", arity);
-  if (value > 1024 - *shift) return formal_representation(machine, "max_arity");
+  if (!is_integer_tag(arity.tag())) return formal_type(machine, "integer", arity);
+  const bool big = arity.tag() == Tag::Big;
+  if (big ? machine.heap.big_negative(arity) : machine.heap.integer_value(arity) < 0) {
+    return formal_domain(machine, "not_less_than_zero", arity);
+  }
+  if (big || machine.heap.integer_value(arity) > 1024 - *shift) return formal_representation(machine, "max_arity");
   key.name = atom_of(name);
-  key.arity = static_cast<std::uint16_t>(value + *shift);
+  key.arity = static_cast<std::uint16_t>(machine.heap.integer_value(arity) + *shift);
   return std::nullopt;
 }
 

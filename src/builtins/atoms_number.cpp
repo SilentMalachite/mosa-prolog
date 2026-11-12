@@ -9,8 +9,9 @@
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
 // 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
 // 0' の直後の空白だけは文字コードの本体なので、レイアウト文に数えない。
+// 文字コードのリストの Big は、範囲の外の int64 と同じく representation_error(character_code)（フェーズ10、設計の 8）。
 // テスト: tests/pl/atoms.pl（atom_number は atom_number_*）、int64 を越える数は tests/pl/bigint.pl（nc_big、
-// atom_number_big）と tests/pl/read.pl（m1_number_codes_*）
+// atom_number_big、number_codes_big）と tests/pl/read.pl（m1_number_codes_*）
 
 #include "../machine/internal.hpp"
 
@@ -28,9 +29,7 @@
 namespace mosa {
 namespace {
 
-bool is_int_cell(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
-
-// 数の引数は Big も数である（ADR 0025）。リストの要素の文字コードは is_int_cell のままで、Big はそこで拒む。
+// 数の引数は Big も数である（ADR 0025）。リストの要素の文字コードは、Big も整数として型の検査を通し、範囲で拒む。
 bool is_number_cell(Cell cell) { return is_integer_tag(cell.tag()) || cell.tag() == Tag::Float; }
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -56,11 +55,12 @@ bool reject_number_items(Impl& machine, const Goal& goal, const WalkedList& walk
   for (const Cell item : walked.items) {
     if (machine.heap.unbound(item)) continue;
     if (codes) {
-      if (!is_int_cell(item)) {
+      if (!is_integer_tag(item.tag())) {
         type_at(machine, goal, "integer", item);
         return true;
       }
-      if (!scalar_code(machine.heap.integer_value(item))) {
+      // Big はどの符号でも Unicode の範囲の外にある。
+      if (item.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(item))) {
         raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
         return true;
       }

@@ -7,7 +7,7 @@
 // open_string(+source, -stream)
 //   source はアトムかコードのリスト。文字のリストは受けない。
 //   instantiation_error, type_error(atom), type_error(list), type_error(integer),
-//   uninstantiation_error, representation_error(character_code)
+//   uninstantiation_error, representation_error(character_code)（コードの Big も。フェーズ10、設計の 8）
 // close(+stream_or_alias) / close(+stream_or_alias, +close_options)
 //   選択肢は force(true/false)。無いときは force(false)。
 //   書き戻しに失敗し force が false なら system_error。ストリームは開いたまま。
@@ -15,7 +15,8 @@
 // flush_output / flush_output(+stream_or_alias)
 //   入力ストリームは permission_error(output, stream, S)。
 // ファイルへの書き込みは close と flush のほかに、halt と Machine の終わりでも書き出す（レビュー M5）。
-// テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,
+// '$stream'(N) の N が Big なら、流れの数を越える int64 と同じく existence_error(stream)（stream_number）。
+// テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp,
 //   tests/cpp/file_flush_test.cpp
 
 #include "../machine/internal.hpp"
@@ -25,6 +26,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -344,13 +346,13 @@ void run_open(Impl& machine, const Goal& goal) {
 bool codes_of(Impl& machine, const Goal& goal, const WalkedList& walked, std::string& bytes) {
   for (const Cell item : walked.items) {
     if (machine.heap.unbound(item)) return raise_inst(machine, goal);
-    if (item.tag() != Tag::Int && item.tag() != Tag::IntBox) return raise_type(machine, goal, "integer", item);
-    const auto code = machine.heap.integer_value(item);
-    if (!scalar_code(code)) {
+    if (!is_integer_tag(item.tag())) return raise_type(machine, goal, "integer", item);
+    // Big はどの符号でも Unicode の範囲の外にあり、範囲の外の int64 と同じく文字コードではない。
+    if (item.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(item))) {
       raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
       return true;
     }
-    append_utf8_code(bytes, static_cast<char32_t>(code));
+    append_utf8_code(bytes, static_cast<char32_t>(machine.heap.integer_value(item)));
   }
   return false;
 }
@@ -409,13 +411,13 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
                       machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
   if (!shaped) return raise_domain(machine, goal, "stream_or_alias", cell);
   const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
-  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return raise_domain(machine, goal, "stream_or_alias", cell);
-  const auto number = machine.heap.integer_value(arg);
-  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
+  if (!is_integer_tag(arg.tag())) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const auto number = stream_number(machine, arg);
+  if (!number) {
     raise_formal(machine, formal_existence(machine, "stream", cell), goal.name, goal.arity);
     return true;
   }
-  index = static_cast<std::size_t>(number);
+  index = *number;
   return false;
 }
 
@@ -579,6 +581,14 @@ void run_close(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+std::optional<std::size_t> stream_number(const Impl& machine, Cell number) {
+  // Big は int64 の外にあり、流れの数（int64 に収まる）より大きいか負なので、どちらの側でも無い流れである。
+  if (number.tag() == Tag::Big) return std::nullopt;
+  const auto value = machine.heap.integer_value(number);
+  if (value < 0 || static_cast<std::uint64_t>(value) >= machine.streams.size()) return std::nullopt;
+  return static_cast<std::size_t>(value);
+}
 
 void flush_open_files(Impl& machine) {
   for (std::size_t index = 0; index < machine.streams.size(); ++index) {

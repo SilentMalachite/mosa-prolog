@@ -117,12 +117,10 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
                       machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
   if (!shaped) return raise_domain(machine, goal, "stream_or_alias", cell);
   const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
-  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return raise_domain(machine, goal, "stream_or_alias", cell);
-  const auto number = machine.heap.integer_value(arg);
-  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
-    return raise_exists(machine, goal, cell);
-  }
-  index = static_cast<std::size_t>(number);
+  if (!is_integer_tag(arg.tag())) return raise_domain(machine, goal, "stream_or_alias", cell);
+  const auto number = stream_number(machine, arg);
+  if (!number) return raise_exists(machine, goal, cell);
+  index = *number;
   return false;
 }
 

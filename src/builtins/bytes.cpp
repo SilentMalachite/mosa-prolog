@@ -9,7 +9,9 @@
 //   permission_error(input, past_end_of_stream),
 //   permission_error(output, stream), permission_error(output, text_stream)
 // 終端の印は -1。テキストのストリームでは読まない。
-// テスト: tests/pl/bytes.pl, tests/cpp/stream_test.cpp
+// Big（フェーズ10、設計の 8）: バイトの Big は範囲の外の int64 と同じく type_error(in_byte) か type_error(byte)、
+// '$stream'(N) の N が Big なら existence_error(stream)（stream_number）。
+// テスト: tests/pl/bytes.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -52,6 +54,7 @@ std::string_view atom_text(const Impl& machine, Cell cell) {
   return machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
 }
 
+// Big を含めない。バイトの Big は範囲の外の int64 と同じ型の誤りになるので、型と範囲を一緒に断ってよい。
 bool is_integer(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool find_alias(const Impl& machine, std::string_view name, std::size_t& index) {
@@ -75,12 +78,10 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
                       machine.atoms.name(machine.heap.functor_atom(cell)) == "$stream";
   if (!shaped) return raise_domain(machine, goal, cell);
   const Cell arg = machine.heap.deref(machine.heap.arg(cell, 0));
-  if (!is_integer(arg)) return raise_domain(machine, goal, cell);
-  const auto number = machine.heap.integer_value(arg);
-  if (number < 0 || static_cast<std::uint64_t>(number) >= machine.streams.size()) {
-    return raise_exists(machine, goal, cell);
-  }
-  index = static_cast<std::size_t>(number);
+  if (!is_integer_tag(arg.tag())) return raise_domain(machine, goal, cell);
+  const auto number = stream_number(machine, arg);
+  if (!number) return raise_exists(machine, goal, cell);
+  index = *number;
   return false;
 }
 

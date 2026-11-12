@@ -11,8 +11,8 @@
 // version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
 // message_language は ja と en。既定は LANG から決める（ADR 0007）。
 // trace_gc は true と false。既定は false。true なら GC のたびに標準エラーへ 1 行書く（非 ISO、Task 7）。
-// bounded は false（フェーズ10）。変えられない。
-// テスト: tests/pl/flags.pl、tests/pl/gc.pl
+// bounded は false（フェーズ10）。変えられない。整数の旗の領域は Big も含む整数で、Big の値も変えられない誤りになる。
+// テスト: tests/pl/flags.pl、tests/pl/gc.pl、tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
 
@@ -163,9 +163,7 @@ bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
 // 8.17.1.3 は領域が先で、変更できないのはその次。整数旗の領域は今の値ではなく整数である。
 bool value_admissible(Cell value, const Impl& machine, std::size_t index) {
   value = machine.heap.deref(value);
-  if (index == 2 || index == 3 || index == 4 || index == 17) {
-    return value.tag() == Tag::Int || value.tag() == Tag::IntBox;
-  }
+  if (index == 2 || index == 3 || index == 4 || index == 17) return is_integer_tag(value.tag());
   return flag_accepts(value, machine, index);
 }
 

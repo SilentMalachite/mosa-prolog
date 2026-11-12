@@ -1,11 +1,12 @@
 // 8.16.3 sub_atom(+atom, ?integer, ?integer, ?integer, ?atom)
 // エラー: instantiation_error, type_error(atom), type_error(integer), domain_error(not_less_than_zero)
+// Big（フェーズ10、設計の 8）: 負なら domain_error(not_less_than_zero)、正なら原子の長さを越えるので失敗する。
 // 束縛された引数が許す候補だけを試す（レビュー M32）。Before、Length、After のうち 2 つが決まれば残りも決まり、
 // 候補は 1 つ。1 つだけ決まれば残りの軸を動かす。Sub が決まれば Length も決まり、その字面が現れる位置だけを探す。
 // 前は (Before, Length) の組をすべて先頭から数え直して試したので、長さ N の原子で N の 3 乗かかった。
 // 解の順は 8.16.3 の通り Before の昇順、同じ Before では Length の昇順で、すべてを数え上げたときと同じ。
 // テスト: tests/pl/atoms.pl（sub_atom_*、m32_*）、tests/pl/japanese.pl（sub_atom_go_sho、m32_ja_*）、
-//   tests/cpp/sub_atom_scale_test.cpp
+//   tests/pl/bigint.pl（sub_atom_big*）、tests/cpp/sub_atom_scale_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -23,8 +24,6 @@ namespace {
 // internal.hpp の Entry::gen_kind の 2。
 constexpr std::uint8_t kSubGen = 2;
 
-bool is_int_cell(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
-
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
 
 void type_at(Impl& machine, const Goal& goal, std::string_view type, Cell culprit) {
@@ -36,13 +35,16 @@ void domain_at(Impl& machine, const Goal& goal, Cell culprit) {
 }
 
 bool reject_type(Impl& machine, const Goal& goal, Cell cell) {
-  if (machine.heap.unbound(cell) || is_int_cell(cell)) return false;
+  if (machine.heap.unbound(cell) || is_integer_tag(cell.tag())) return false;
   type_at(machine, goal, "integer", cell);
   return true;
 }
 
 bool reject_domain(Impl& machine, const Goal& goal, Cell cell) {
-  if (!is_int_cell(cell) || machine.heap.integer_value(cell) >= 0) return false;
+  if (machine.heap.unbound(cell)) return false;
+  const bool negative =
+      cell.tag() == Tag::Big ? machine.heap.big_negative(cell) : machine.heap.integer_value(cell) < 0;
+  if (!negative) return false;
   domain_at(machine, goal, cell);
   return true;
 }
@@ -411,6 +413,12 @@ void run_sub_atom(Impl& machine, const Goal& goal) {
   }
   if (reject_domain(machine, goal, before) || reject_domain(machine, goal, length) ||
       reject_domain(machine, goal, after)) {
+    return;
+  }
+  // ここで残る Big は正で、原子の長さ（int64 に収まる）を越えるので、どの候補にも合わない。bound_value は
+  // int64 だけを読むので、Big を渡さずにここで失敗させる。
+  if (before.tag() == Tag::Big || length.tag() == Tag::Big || after.tag() == Tag::Big) {
+    machine.failed = true;
     return;
   }
   const auto query = make_query(machine, goal);

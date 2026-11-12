@@ -1,6 +1,6 @@
 // フェーズ10 のタスク 3（ADR 0025）。ヒープの Big の箱と、それを受ける側（単一化、変種の照合、==、標準順序、writer、
 // 型の検査、functor/3、=../2、ExportedTerm の往復、評価で Big が値になること）。Big は bigint_support.hpp の
-// query_with_bigs で作る。
+// query_with_bigs で作る。読み込みの指令の優先度と項数の Big（タスク 8）は、字面の Big を範囲の外の int64 と比べる。
 
 #include "bigint_support.hpp"
 #include "harness.hpp"
@@ -302,6 +302,38 @@ void check_eval() {
   mosa_test::check(run(*machine, "'$big0' > 0", {big}) == mosa::StopKind::Success, "eval: '$big0' > 0 holds");
 }
 
+// 読み込みの指令の Big は、範囲の外の int64 と同じ診断になる（設計の 8）。op/3 の優先度は「範囲外」の文で、
+// 言語に依らず 1201 と同じ文かを比べる。dynamic/1 と module/2 の書き出し、use_module/2 の取り込みの項数は
+// representation_error(max_arity)。
+std::string load_message(std::string_view program) {
+  auto machine = mosa::Machine::create();
+  const mosa::LoadStatus status = machine->load_program(program);
+  return status.ok ? std::string{"<loaded>"} : status.message;
+}
+
+void check_directives() {
+  constexpr std::string_view big = "1844674407370909797907654848955145546336677616";
+  const std::string over = load_message(":- op(1201, xfx, foo).\n");
+  mosa_test::check(over != "<loaded>", "directives: op(1201, ...) is refused");
+  for (const std::string_view sign : {"", "-"}) {
+    const std::string program = ":- op(" + std::string{sign} + std::string{big} + ", xfx, foo).\n";
+    mosa_test::check(load_message(program) == over, "directives: " + program + " reads as op(1201, ...)");
+  }
+  for (const std::string_view head : {":- dynamic(foo/", ":- module(m_big, [foo/",
+                                      ":- use_module(library(lists), [append/"}) {
+    const std::string close = head.find('[') != std::string_view::npos ? "]).\n" : ").\n";
+    const std::string program = std::string{head} + std::string{big} + close;
+    const std::string message = load_message(program);
+    mosa_test::check(message.find("representation_error(max_arity)") != std::string::npos,
+                     "directives: " + program + " gives max_arity (" + message + ")");
+  }
+  // 負の項数は、負の int64 と同じく述語指示子でない（項数の検査の誤りの項は出さない）。
+  const std::string negative = load_message(":- dynamic(foo/(-1)).\n");
+  mosa_test::check(negative != "<loaded>", "directives: dynamic(foo/(-1)) is refused");
+  mosa_test::check(load_message(":- dynamic(foo/(-" + std::string{big} + ")).\n") == negative,
+                   "directives: dynamic(foo/(-B)) reads as dynamic(foo/(-1))");
+}
+
 }  // namespace
 
 int main() {
@@ -315,5 +347,6 @@ int main() {
   check_terms();
   check_exported();
   check_eval();
+  check_directives();
   return mosa_test::failures();
 }

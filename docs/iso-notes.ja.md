@@ -459,7 +459,7 @@ A か B か: A はフェーズ7で、マニュアルとリリースパッケー�
 
 決定（2026-11-03）: A（レビュー M11）。7 つの述語はフェーズ7で `system` に作り、1 述語ずつコミットし、テストは `tests/pl/utilities.pl` に置く。SWI-Prolog の振る舞いがマニュアルとソースから読み取れないところは、述語のファイルの見出しのコメントに選んだ形を書く。SPEC 第7節は `numbervars/3` と書く。
 
-2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` は 64 ビットの整数を超えると `representation_error(max_integer)`（SWI は `tagged_integer`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
+2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` の番号にはフェーズ10から上限が無く、64 ビットの整数を超えた番号は Big になる（フェーズ7〜9 はそこで `representation_error(max_integer)`。SWI は `representation_error(tagged_integer)`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
 
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
@@ -778,3 +778,11 @@ A か B か: A は旗を残し、int64 の境界（2^63-1 と -2^63）を返す�
 A か B か: A は 9.3.8 の規則（浮動小数点数に直す）のままにし、直せない値は `evaluation_error(float_overflow)` にする。B は正確に比べ、`2^2000 > 1.0` を真にする（`cmp_nums` と `min/2`、`max/2` に正確な比較が要る）。
 
 持ち主が確かめるまでは A。
+
+## 8.17.4 halt/1
+
+ISO/IEC 13211-1 の 8.17.4 は終了状態に整数を取るが、OS が受け取れない整数をどうするかは書いていない。終了状態は C++ の `int` で OS に渡る。フェーズ10 の前の Mosa は int64 を検査せずに `int` へ変えていたので、`halt(4294967296)` は終了状態 0 で終わった。フェーズ10 は int64 を越える整数（Big）を足す。
+
+A か B か: A は C++ の `int` の外の整数を、正なら `representation_error(max_integer)`、負なら `representation_error(min_integer)` にする（7.12.2 g の Flag）。`int` の外の int64 にも Big にも同じ規則を当てる。B は整数の下位のビットを OS に渡す。
+
+決定（2026-11-13）: A（所有者の決定 A）。B は採らない。`halt/1` と、翻訳した `halt/1` は 1 つの検査を共に使う（`src/builtins/control.cpp` の `halt_code_problem`。`src/machine/catch.cpp` の `arm_halt`）。テストは `tests/pl/bigint.pl` の `halt_*`。`int` の中の整数は今までどおりそのまま OS に渡り、OS がその下位のビットを取る（たとえば POSIX では 8 ビット）。

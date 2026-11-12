@@ -15,8 +15,9 @@
 // domain_error(operator_priority), domain_error(operator_specifier),
 // permission_error(modify, operator), permission_error(create, operator)
 // 表の変更は assert と同じく、バックトラックでも例外でも戻さない（iso-notes 8.14.3 の決定 A）。
+// 優先度の Big（フェーズ10、設計の 8）は整数として型の検査を通り、0〜1200 の外なので domain_error(operator_priority)。
 // テスト: tests/pl/operators.pl, tests/pl/charconv.pl, tests/pl/charconv_dir.pl,
-// tests/pl/curchar.pl, tests/pl/japanese.pl
+// tests/pl/curchar.pl, tests/pl/japanese.pl, tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
 
@@ -70,7 +71,7 @@ bool name_list_unbound(const Impl& machine, Cell names) {
 }
 
 std::optional<Cell> op_types(Impl& machine, Cell priority, Cell specifier, Cell names, WalkedList& walked) {
-  if (!is_int(priority)) return formal_type(machine, "integer", priority);
+  if (!is_integer_tag(priority.tag())) return formal_type(machine, "integer", priority);
   if (specifier.tag() != Tag::Atom) return formal_type(machine, "atom", specifier);
   if (names.tag() == Tag::Atom) return std::nullopt;
   walked = walk_list(machine, names);
@@ -81,9 +82,15 @@ std::optional<Cell> op_types(Impl& machine, Cell priority, Cell specifier, Cell 
   return std::nullopt;
 }
 
+// is_int に Big を含めないので、Big の優先度はここで範囲の外になる。
+bool priority_in_domain(const Impl& machine, Cell cell) {
+  if (!is_int(cell)) return false;
+  const auto value = machine.heap.integer_value(cell);
+  return value >= 0 && value <= 1200;
+}
+
 std::optional<Cell> op_domain(Impl& machine, Cell priority, Cell specifier, Specifier& spec) {
-  const auto value = machine.heap.integer_value(priority);
-  if (value < 0 || value > 1200) return formal_domain(machine, "operator_priority", priority);
+  if (!priority_in_domain(machine, priority)) return formal_domain(machine, "operator_priority", priority);
   const std::optional<Specifier> parsed = specifier_of(atom_text(machine, specifier));
   if (!parsed) return formal_domain(machine, "operator_specifier", specifier);
   spec = *parsed;
@@ -138,12 +145,6 @@ std::string_view specifier_name(Specifier specifier) {
     case Specifier::Fy: return "fy";
   }
   return "xfx";
-}
-
-bool priority_in_domain(const Impl& machine, Cell cell) {
-  if (!is_int(cell)) return false;
-  const auto value = machine.heap.integer_value(cell);
-  return value >= 0 && value <= 1200;
 }
 
 bool specifier_atom(const Impl& machine, Cell cell) {

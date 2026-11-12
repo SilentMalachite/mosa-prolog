@@ -3,6 +3,8 @@
 // ResourceLimit("heap_limit") を投げる（タスク 6）。huge_mul は止まることだけを見る。見積もりがないと、次の 2 乗
 // （上限の約 0.65 倍）をヒープの外で計算してから from_big で止まる。積を箱にせずに止めることは product_estimate で確かめる。
 // << と ^ も結果の大きさを先に見積もる（タスク 7）。huge_shift はその見積もりだけで、確保の前に止まることを見る。
+// 整数の引数の Big（タスク 8）。length/2 の正の Big の長さと、'$format_float'/4 の正の Big の桁数は、どのヒープにも
+// 入らないので、作り始める前に止まる（length_big）。
 #include "harness.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
@@ -127,9 +129,39 @@ void check_huge_shift() {
   mosa_test::check(!after.limited && after.kind == mosa::StopKind::Success, "huge_shift: the machine runs again");
 }
 
+// 大きすぎる int64 の長さは変数を作り続けて上限で止まり、ヒープを上限まで伸ばす。正の Big は作り始める前に止まる
+// ので、1 秒の中で止まり、ヒープの確保も伸びない。閉じたリストの長さとは合わないので、そちらは失敗する。
+void check_length_big() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program(k_program).ok, "length_big: load");
+  const Outcome warm = run(*machine, "length(L, 3), L = [_|_].");
+  mosa_test::check(!warm.limited && warm.kind == mosa::StopKind::Success, "length_big: warm up");
+  for (const std::string_view goal : {"length(L, 1844674407370909797907654848955145546336677616).",
+                                      "length([a, b|T], 1844674407370909797907654848955145546336677616).",
+                                      "'$format_float'(f, 1844674407370909797907654848955145546336677616, 1.0, A)."}) {
+    const std::string label = "length_big: " + std::string{goal};
+    const std::size_t capacity = machine->heap().capacity();
+    const auto started = std::chrono::steady_clock::now();
+    const Outcome outcome = run(*machine, goal);
+    const std::chrono::duration<double> took = std::chrono::steady_clock::now() - started;
+    mosa_test::check(outcome.limited, label + " stops at the heap limit");
+    mosa_test::check(took.count() < 1.0, label + " stops within 1 s (" + std::to_string(took.count()) + " s)");
+    mosa_test::check(machine->heap().capacity() == capacity, label + " leaves the heap capacity as it was");
+  }
+  const Outcome closed = run(*machine, "length([a], 1844674407370909797907654848955145546336677616).");
+  mosa_test::check(!closed.limited && closed.kind == mosa::StopKind::Failure, "length_big: a closed list fails");
+  // 無限大は桁数を使わないので、Big の桁数でも止まらずに 1 つの字面になる。
+  const Outcome infinite =
+      run(*machine, "X is inf, '$format_float'(f, 1844674407370909797907654848955145546336677616, X, A), A == '1.0Inf'.");
+  mosa_test::check(!infinite.limited && infinite.kind == mosa::StopKind::Success, "length_big: infinity ignores digits");
+  const Outcome after = run(*machine, "length(L, 2), L = [_, _].");
+  mosa_test::check(!after.limited && after.kind == mosa::StopKind::Success, "length_big: the machine runs again");
+}
+
 }  // namespace
 
 int main() {
+  check_length_big();
   check_huge_shift();
   check_nested_hold();
   check_settle_count();
