@@ -30,6 +30,11 @@ target_include_directories(cell_test PRIVATE tests/cpp)
 target_link_libraries(cell_test PRIVATE mosa_lib)
 add_test(NAME cell COMMAND $<TARGET_FILE:cell_test>)
 
+add_executable(bigint_test tests/cpp/bigint_test.cpp)
+target_include_directories(bigint_test PRIVATE tests/cpp)
+target_link_libraries(bigint_test PRIVATE mosa_lib)
+add_test(NAME bigint COMMAND $<TARGET_FILE:bigint_test>)
+
 add_executable(unify_test tests/cpp/unify_test.cpp)
 target_include_directories(unify_test PRIVATE tests/cpp)
 target_link_libraries(unify_test PRIVATE mosa_lib)
