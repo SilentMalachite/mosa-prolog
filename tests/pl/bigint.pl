@@ -4,7 +4,8 @@ test(lit_big, (X = 123456789012345678901234567890, Y = 1234567890123456789012345
 test(lit_distinct, (X = 123456789012345678901234567890, Y = 123456789012345678901234567891, X \== Y), true).
 test(lit_hex, (X = 0xffffffffffffffffffff, X == 1208925819614629174706175), true).
 test(lit_sep, (X = 1_000_000_000_000_000_000_000, X == 1000000000000000000000), true).
-test(neg_min, (X = -9223372036854775808, integer(X)), true).
+% -2^63 は int64 に入るので、Big ではなく min_integer と同じ IntBox になる（ADR 0025 の正規形）。
+test(neg_min, (X = -9223372036854775808, current_prolog_flag(min_integer, M), X == M), true).
 test(nc_big, (number_codes(X, "-1267650600228229401496703205376"), number_codes(X, C), atom_codes(A, C), A == '-1267650600228229401496703205376'), true).
 % 負の Big を演算子の引数に書いた字面は、読み戻すと元の項になる（7.10.5）。
 test(wq_neg_1, (X = -(-1267650600228229401496703205376), term_to_atom(X, A), term_to_atom(Y, A), Y == X), true).

@@ -9,7 +9,8 @@
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
 // 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
 // 0' の直後の空白だけは文字コードの本体なので、レイアウト文に数えない。
-// テスト: tests/pl/atoms.pl（atom_number は atom_number_*）
+// テスト: tests/pl/atoms.pl（atom_number は atom_number_*）、int64 を越える数は tests/pl/bigint.pl（nc_big、
+// atom_number_big）と tests/pl/read.pl（m1_number_codes_*）
 
 #include "../machine/internal.hpp"
 
