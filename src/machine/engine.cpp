@@ -377,7 +377,7 @@ bool goal_leaves_all(const IrTerm& root, GoalLeafOk ok) {
 }
 
 bool body_callable(const IrTerm& term) {
-  return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float && tag != IrTag::Anon; });
+  return goal_leaves_all(term, [](IrTag tag) { return !is_number_ir(tag) && tag != IrTag::Anon; });
 }
 
 Impl& engine_impl(Machine& machine) { return *machine.impl_; }
@@ -474,7 +474,8 @@ void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, co
       case IrTag::List: launch_list(machine, *goal, cont, cut, env, module); return;
       case IrTag::Anon:
       case IrTag::Int:
-      case IrTag::Float: reject_callable(machine, materialize(machine, *goal, env->cells)); return;
+      case IrTag::Float:
+      case IrTag::Big: reject_callable(machine, materialize(machine, *goal, env->cells)); return;
     }
     goal = std::move(next.goal);
     cont = next.cont;

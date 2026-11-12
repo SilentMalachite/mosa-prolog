@@ -194,7 +194,7 @@ bool reject_clause(Impl& machine, const Goal& goal, Cell term) {
 
 // 数はゴールにならない。変数と匿名は call できるので、ここでは許す。
 bool goal_form(const IrTerm& term) {
-  return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; });
+  return goal_leaves_all(term, [](IrTag tag) { return !is_number_ir(tag); });
 }
 
 // cursor が節の番号である選択点だけ。述語の番号（PredGen）や状態（Native）を節の番号と比べない。

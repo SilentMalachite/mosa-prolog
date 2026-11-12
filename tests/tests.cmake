@@ -41,6 +41,12 @@ target_link_libraries(bigint_heap_test PRIVATE mosa_lib)
 add_test(NAME bigint_heap COMMAND $<TARGET_FILE:bigint_heap_test>)
 set_tests_properties(bigint_heap PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
+add_executable(bigint_copy_test tests/cpp/bigint_copy_test.cpp)
+target_include_directories(bigint_copy_test PRIVATE tests/cpp src)
+target_link_libraries(bigint_copy_test PRIVATE mosa_lib)
+add_test(NAME bigint_copy COMMAND $<TARGET_FILE:bigint_copy_test>)
+set_tests_properties(bigint_copy PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 add_executable(unify_test tests/cpp/unify_test.cpp)
 target_include_directories(unify_test PRIVATE tests/cpp)
 target_link_libraries(unify_test PRIVATE mosa_lib)

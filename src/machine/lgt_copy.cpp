@@ -1,5 +1,6 @@
 // 表明は別機械で実行する。query は選択点も節も捨てるので使わない。
 // -2^63 を字面に戻すと正のトークンが溢れて変数になる。ゴールと同じセル写しで節を載せる。
+// テスト: tests/cpp/bigint_copy_test.cpp の check_scratch（Big の節とゴールの写し）
 
 #include "lgt_priv.hpp"
 #include "mosa/heap_option.hpp"
@@ -27,6 +28,7 @@ Cell copy_atom(Impl& dst, const Impl& src, Cell cell) {
 
 Cell copy_number(Impl& dst, const Impl& src, Cell cell) {
   if (cell.tag() == Tag::Float) return dst.heap.floating(src.heap.float_value(cell));
+  if (cell.tag() == Tag::Big) return dst.heap.big(src.heap.big_value(cell));
   return dst.heap.integer(src.heap.integer_value(cell));
 }
 
@@ -66,9 +68,8 @@ Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint6
     return fresh;
   }
   if (cell.tag() == Tag::Atom) return copy_atom(dst, src, cell);
-  if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox || cell.tag() == Tag::Float) {
-    return copy_number(dst, src, cell);
-  }
+  // Big を下の空のセルにすると、写した節とゴールが黙って別の項になる（ADR 0025）。
+  if (is_integer_tag(cell.tag()) || cell.tag() == Tag::Float) return copy_number(dst, src, cell);
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return {};
   return copy_compound(src, dst, cell, seen);
 }

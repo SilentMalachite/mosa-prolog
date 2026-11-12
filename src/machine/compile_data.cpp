@@ -1,7 +1,8 @@
 // 項をデータとして IR に写す Build の半分（compile.cpp から 800 行を超えないよう分けた）。読み込んだ節は木に写し
 // （copy_data）、assert の節は 2 度目に出会った部分項を共有の項にし（share_data、ADR 0022）、実行時のゴールは束縛済みの
 // 複合項を元の項のまま指す（place、レビュー M28）。
-// テスト: tests/pl/database.pl の m30_*、tests/cpp/assert_shared_test.cpp、tests/cpp/goal_shared_test.cpp
+// テスト: tests/pl/database.pl の m30_*、tests/cpp/assert_shared_test.cpp、tests/cpp/goal_shared_test.cpp、
+// tests/cpp/bigint_copy_test.cpp（Big の葉）
 
 #include "compile_build.hpp"
 
@@ -9,7 +10,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <optional>
 #include <vector>
 
@@ -98,8 +98,13 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
     term.floating = heap->float_value(cell);
     return term;
   }
-  // タスク 4 で IrTag::Big にする。それまでは下の既定の true の葉に化けさせず、届いた道を落ちて知らせる。
-  if (cell.tag() == Tag::Big) std::abort();
+  // 語の子も args に確保する IrTerm なので、確保する前に数える（Build::spend）。数えないと、ヒープに収まる Big が
+  // 上限の何倍もの IR になる。
+  if (cell.tag() == Tag::Big) {
+    const auto magnitude = heap->big_magnitude(cell);
+    spend(magnitude.size());
+    return big_ir(heap->big_negative(cell), magnitude);
+  }
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
   if (!open.contains(cell.raw())) return std::nullopt;
   // 節は env を持たないので、巡回は匿名に切る（巡回する節は 7.6.2 の外）。実行時のゴールはここに来ない（place）。
@@ -213,9 +218,10 @@ IrTerm Build::share_data(Cell root) {
         ShareFrame& parent = stack.back();
         parent.apart = parent.apart || variable || leaf->tag == IrTag::Anon ||
                        (leaf->tag == IrTag::Float && std::isnan(leaf->floating));
-        // 複合項から Var の葉ができたなら、それは共有の項を指す。
+        // 複合項から Var の葉ができたなら、それは共有の項を指す。Big の葉は語の子の分も節点に数える。
         const bool refers = leaf->tag == IrTag::Var && (next.tag() == Tag::Lis || next.tag() == Tag::Str);
-        parent.weight = std::min(kShareWeight, parent.weight + (refers ? seen[next.raw()].weight : 1));
+        const std::size_t weight = refers ? seen[next.raw()].weight : 1 + leaf->args.size();
+        parent.weight = static_cast<std::uint32_t>(std::min<std::size_t>(kShareWeight, parent.weight + weight));
         parent.data.term.args.push_back(std::move(*leaf));
       }
       continue;

@@ -1,6 +1,9 @@
 #include "compile_build.hpp"
 
+#include "mosa/bigint.hpp"
+
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -109,13 +112,14 @@ bool runs_late(const Heap& heap, const GoalFrame& frame, std::size_t index, Cell
   return is_connective(heap, child) && has_late_leaf(heap, child);
 }
 
-// 引数が原子だけの葉は今訳してもスロットを使わないので、後で訳すとかえって 1 つ使う。
+// 引数が原子だけの葉は今訳してもスロットを使わないので、後で訳すとかえって 1 つ使う。Big の引数は複合項と同じく
+// 元の箱を指すスロットを使う（Build::place）。
 bool slotless_leaf(const Heap& heap, Cell cell) {
   if (cell.tag() == Tag::Atom) return true;
   if (cell.tag() != Tag::Str) return false;
   for (std::uint16_t index = 0; index < heap.functor_arity(cell); ++index) {
     const Cell arg = heap.deref(heap.arg(cell, index));
-    if (heap.unbound(arg) || arg.tag() == Tag::Str || arg.tag() == Tag::Lis) return false;
+    if (heap.unbound(arg) || arg.tag() == Tag::Str || arg.tag() == Tag::Lis || arg.tag() == Tag::Big) return false;
   }
   return true;
 }
@@ -327,6 +331,10 @@ void set_key(Clause& clause) {
   } else if (first.tag == IrTag::Int) {
     clause.key = KeyKind::Int;
     clause.key_int = first.integer;
+  } else if (first.tag == IrTag::Big) {
+    // 鍵は値でなく big_key の指紋（ADR 0025）。索引は鍵の違う節を飛ばすだけで、合うかは頭の単一化が決める。
+    clause.key = KeyKind::Big;
+    clause.key_int = std::bit_cast<std::int64_t>(big_key(first.integer != 0, big_words(first)));
   } else if (first.tag == IrTag::Float) {
     clause.key = KeyKind::Float;
     clause.key_float = first.floating;
@@ -426,8 +434,7 @@ bool compile_into(Build& build, const Heap& heap, Cell cell, Clause& clause, std
   Cell right;
   if (dot_head(heap, head, left, right)) {
     set_dot_head(build, heap, clause, left, right);
-  } else if (heap.unbound(head) || head.tag() == Tag::Int || head.tag() == Tag::IntBox ||
-             head.tag() == Tag::Float) {
+  } else if (heap.unbound(head) || is_integer_tag(head.tag()) || head.tag() == Tag::Float) {
     return false;
   } else {
     build.head_copy = true;

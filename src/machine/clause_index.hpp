@@ -14,13 +14,15 @@
 namespace mosa {
 
 // Entry が走査の鍵を持つので 1 バイトにする（ADR 0015 の改訂）。
-enum class KeyKind : std::uint8_t { Any, None, Var, Atom, Int, Float, List, Fun };
+enum class KeyKind : std::uint8_t { Any, None, Var, Atom, Int, Float, List, Fun, Big };
 
 // 8 節より少ない述語は、全部の節の鍵を照らしても組を引くのと変わらない。索引の記憶と作る手間を省く。
 inline constexpr std::size_t kIndexMinClauses = 8;
 
 // Atom はアトムの番号、Int は値、Float はビット列（-0.0 は 0.0、どの NaN も一つの NaN に揃える）、List は 0、
-// Fun は名前の番号とアリティ。浮動小数点数もビット列で比べるので、NaN の鍵でも等しさが反射的になる。
+// Fun は名前の番号とアリティ。浮動小数点数もビット列で比べるので、NaN の鍵でも等しさが反射的になる。Big は値でなく
+// big_key の指紋（ADR 0025）なので、鍵の違う節を飛ばせるだけで、鍵が等しくても値が等しいとは限らない。合うかは頭の
+// 単一化が決める。kind が Int と分けるので、同じビットの整数の鍵とも等しくならない。
 // 走査の鍵（Entry::key）では、Any は全部の節（第1引数が未束縛）、None は鍵の無い節だけ（鍵の型でない値に束縛）。
 // どちらも節の鍵（clause_key）には現れないので、組を引いても見つからない。kind を後ろに置いて 16 バイトに収める。
 struct IndexKey {

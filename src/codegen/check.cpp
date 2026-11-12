@@ -46,7 +46,7 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
     case IrTag::Call: {
       if (goal.args.empty()) return;
       const IrTerm view = goal_view(machine, goal.args[0]);
-      if (!goal_leaves_all(view, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; })) return;
+      if (!goal_leaves_all(view, [](IrTag tag) { return !is_number_ir(tag); })) return;
       collect_goals(machine, view, module, out);
       return;
     }

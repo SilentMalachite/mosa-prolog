@@ -36,7 +36,8 @@ struct Fnv {
 
 bool names_atom(IrTag tag) { return tag == IrTag::Atom || tag == IrTag::Fun || tag == IrTag::Call; }
 
-// 前順にたどる。長いリストの原文でも C++ の呼び出しを積まないよう、手で積む。
+// 前順にたどる。長いリストの原文でも C++ の呼び出しを積まないよう、手で積む。Big の絶対値の語は Int の子なので
+// （ADR 0025）、子をたどるだけで値ごとに違う指紋になる。
 void hash_term(Fnv& hash, const AtomTable& atoms, const IrTerm& root) {
   std::vector<const IrTerm*> pending{&root};
   while (!pending.empty()) {
@@ -51,6 +52,18 @@ void hash_term(Fnv& hash, const AtomTable& atoms, const IrTerm& root) {
     hash.word(term->args.size());
     for (auto it = term->args.rbegin(); it != term->args.rend(); ++it) pending.push_back(&*it);
   }
+}
+
+// 頭と本体のどこかに Big の定数があるか。入れ子の引数の奥にもありうるので全体を手で積んでたどる（ADR 0011）。
+bool holds_big(const IrTerm& root) {
+  std::vector<const IrTerm*> pending{&root};
+  while (!pending.empty()) {
+    const IrTerm* term = pending.back();
+    pending.pop_back();
+    if (term->tag == IrTag::Big) return true;
+    for (const IrTerm& arg : term->args) pending.push_back(&arg);
+  }
+  return false;
 }
 
 bool same_key(const rt::NativeCall& call, const Predicate& predicate) {
@@ -174,9 +187,10 @@ bool native_eligible(const Impl& machine, const Predicate& predicate) {
   if (predicate.dynamic || predicate.abolished || predicate.clauses.empty()) return false;
   if (live_count(predicate) != predicate.clauses.size()) return false;
   // 生成コードはどのスロットも変数として読むので、共有の項（ADR 0022）を持つ節は IR のまま動かす。それを持つのは
-  // assert した動的な節だけで、ここには普通来ない。
+  // assert した動的な節だけで、ここには普通来ない。翻訳器はまだ Big の定数を書けないので、それを持つ節も IR のまま
+  // 動かす（フェーズ10 のタスク 10 で外す）。
   for (const Clause& clause : predicate.clauses) {
-    if (clause.shared) return false;
+    if (clause.shared || holds_big(clause.head) || holds_big(*clause.body)) return false;
   }
   return !is_builtin_procedure(machine, predicate.name, predicate.arity);
 }
