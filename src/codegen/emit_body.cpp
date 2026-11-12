@@ -181,6 +181,9 @@ bool translatable_body(const Impl& machine, const IrTerm& body) {
     case IrTag::Catch:
       return body.args.size() == 3 && translatable_body(machine, body.args[0]) &&
              translatable_body(machine, body.args[2]);
+    // 数はゴールにならない（7.6.2）。読み込みが本体の Big を断るので、ここへ来るのは \+ (true, Big) のようなデータの
+    // ゴールだけで、組み込みの \+/1 が呼ぶときに型エラーにする。
+    case IrTag::Big: return false;
     default: return false;
   }
 }

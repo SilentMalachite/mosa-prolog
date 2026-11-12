@@ -644,7 +644,7 @@ void check_initialization_live() {
 // レビュー M10（iso-notes 7.4 の決定 A）。組込述語と制御構造の節、本体が呼べない節は、assertz/1 と同じ Formal で
 // 読み込みを失敗させて節を戻す。両方に当たる節は、assertz/1 と同じく本体の誤りを先に出す（8.9.1.3）。
 void check_refused_clauses() {
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 12> cases{{
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 14> cases{{
       {"atom_length(_, 99).\n", "permission_error(modify,static_procedure,atom_length/2)"},
       {"call(_) :- write(mine).\n", "permission_error(modify,static_procedure,call/1)"},
       {"(a, b) :- true.\n", "permission_error(modify,static_procedure,(',')/2)"},
@@ -657,6 +657,9 @@ void check_refused_clauses() {
       {"foo :- (true, 1).\n", "type_error(callable,(true,1))"},
       {"p :- (q ; 2.5).\n", "type_error(callable,(q;2.5))"},
       {"atom_length(_, _) :- 1.\n", "type_error(callable,1)"},
+      // フェーズ10（ADR 0025）。int64 に入らない整数（Big）も数なので、本体に置けば呼べない（load_clauses.cpp の判定）。
+      {"foo :- 123456789012345678901234567890.\n", "type_error(callable,123456789012345678901234567890)"},
+      {"foo :- (true, 123456789012345678901234567890).\n", "type_error(callable,(true,123456789012345678901234567890))"},
   }};
   for (const auto& [text, formal] : cases) {
     auto machine = mosa::Machine::create();

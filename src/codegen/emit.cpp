@@ -157,7 +157,8 @@ bool same_key(const Clause& left, const Clause& right) {
   if (left.key != right.key) return false;
   switch (left.key) {
     case KeyKind::Atom: return left.key_atom == right.key_atom;
-    case KeyKind::Int: return left.key_int == right.key_int;
+    case KeyKind::Int:
+    case KeyKind::Big: return left.key_int == right.key_int;
     case KeyKind::Float: return same_float_value(left.key_float, right.key_float);
     case KeyKind::Fun: return left.key_atom == right.key_atom && left.key_arity == right.key_arity;
     default: return true;
@@ -172,6 +173,11 @@ std::string key_test(UnitTables& tables, const Clause& clause) {
     case KeyKind::Int:
       if (is_small_int(clause.key_int)) return "first.raw() == rt::small_int(" + int_literal(clause.key_int) + ").raw()";
       return "first.tag() == Tag::IntBox && *rt::cell_words(first) == std::uint64_t{" +
+             hex64(std::bit_cast<std::uint64_t>(clause.key_int)) + "}";
+    // Big の鍵は値でなく big_key の指紋（ADR 0025）。key_selects と同じく鍵の違う節を飛ばすだけで、合うかは頭部が決める。
+    // big_key_of は Big の箱だけを読むので、タグを先に見る。
+    case KeyKind::Big:
+      return "first.tag() == Tag::Big && rt::big_key_of(first) == std::uint64_t{" +
              hex64(std::bit_cast<std::uint64_t>(clause.key_int)) + "}";
     case KeyKind::Float: return "first.tag() == Tag::Float && same_float(first, " + float_literal(clause.key_float) + ")";
     case KeyKind::List: return "first.tag() == Tag::Lis";

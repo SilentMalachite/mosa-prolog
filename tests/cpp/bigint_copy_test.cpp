@@ -343,7 +343,8 @@ void check_fingerprint() {
         "fingerprint: nested B and B+1 differ");
 }
 
-// 生成コードはまだ Big の定数を書けない（タスク 10）。頭と本体の入れ子の引数の Big も見つける。
+// タスク 10 から生成コードが Big の定数を rt::put_big で書くので、Big を持つ節も生成関数を付ける述語に入る。
+// 頭と本体の入れ子の引数の Big でも外さない（タスク 4 の除外を外したことの守り）。
 void check_eligible() {
   auto machine = mosa::Machine::create();
   const mosa::Impl& impl = mosa::engine_impl(*machine);
@@ -352,9 +353,9 @@ void check_eligible() {
     return mosa::native_eligible(impl, static_predicate(*machine, texts, values));
   };
   check(eligible({"p(f([7]))", "(p(X) :- X = g(h(7)))"}), "eligible: int constants");
-  check(!eligible({"p('$big0')"}), "eligible: a Big first argument");
-  check(!eligible({"p(f(['$big0']))"}), "eligible: a Big nested in the head");
-  check(!eligible({"p(7)", "(p(X) :- X = g(h('$big0')))"}), "eligible: a Big nested in the second clause's body");
+  check(eligible({"p('$big0')"}), "eligible: a Big first argument");
+  check(eligible({"p(f(['$big0']))"}), "eligible: a Big nested in the head");
+  check(eligible({"p(7)", "(p(X) :- X = g(h('$big0')))"}), "eligible: a Big nested in the second clause's body");
 }
 
 }  // namespace
