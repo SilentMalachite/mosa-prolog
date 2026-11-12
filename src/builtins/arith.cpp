@@ -5,7 +5,7 @@
 // resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。テスト: tests/pl/arith.pl, tests/pl/native.pl,
 // tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp, tests/cpp/bigint_heap_test.cpp
 
-#include "../machine/internal.hpp"
+#include "arith_internal.hpp"
 #include "evaluable.hpp"
 #include "mosa/runtime.hpp"
 
@@ -24,25 +24,11 @@ namespace mosa {
 int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out,
              bool& as_int, std::int64_t& iout);
 
+namespace arith {
 namespace {
-
-struct Num {
-  bool flt = false;
-  std::int64_t ival = 0;
-  double fval = 0;
-};
-
-struct Ev {
-  bool ok = false;
-  Num num;
-};
 
 void fail_inst(Impl& machine, const Goal& goal) {
   raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
-}
-
-void fail_eval(Impl& machine, const Goal& goal, std::string_view which) {
-  raise_formal(machine, formal_evaluation(machine, which), goal.name, goal.arity);
 }
 
 void fail_evaluable(Impl& machine, const Goal& goal, Cell culprit) {
@@ -52,53 +38,6 @@ void fail_evaluable(Impl& machine, const Goal& goal, Cell culprit) {
 // 循環する式（7.3.3 は未定義）は resource_error(cyclic_term)（iso-notes 7.3.3、レビュー L20 の持ち主の決定 A）。
 void fail_cyclic(Impl& machine, const Goal& goal) {
   raise_formal(machine, formal_resource(machine, "cyclic_term"), goal.name, goal.arity);
-}
-
-void fail_integer(Impl& machine, const Goal& goal, Cell culprit) {
-  raise_formal(machine, formal_type(machine, "integer", culprit), goal.name, goal.arity);
-}
-
-double as_float(Num num) { return num.flt ? num.fval : static_cast<double>(num.ival); }
-
-bool add_i(std::int64_t a, std::int64_t b, std::int64_t& out) {
-  if ((b > 0 && a > std::numeric_limits<std::int64_t>::max() - b) ||
-      (b < 0 && a < std::numeric_limits<std::int64_t>::min() - b)) {
-    return false;
-  }
-  out = a + b;
-  return true;
-}
-
-bool sub_i(std::int64_t a, std::int64_t b, std::int64_t& out) {
-  if ((b < 0 && a > std::numeric_limits<std::int64_t>::max() + b) ||
-      (b > 0 && a < std::numeric_limits<std::int64_t>::min() + b)) {
-    return false;
-  }
-  out = a - b;
-  return true;
-}
-
-bool mul_i(std::int64_t a, std::int64_t b, std::int64_t& out) {
-  if (a == 0 || b == 0) {
-    out = 0;
-    return true;
-  }
-  if ((a == -1 && b == std::numeric_limits<std::int64_t>::min()) ||
-      (b == -1 && a == std::numeric_limits<std::int64_t>::min())) {
-    return false;
-  }
-  if (a > 0 && b > 0 && a > std::numeric_limits<std::int64_t>::max() / b) return false;
-  if (a > 0 && b < 0 && b < std::numeric_limits<std::int64_t>::min() / a) return false;
-  if (a < 0 && b > 0 && a < std::numeric_limits<std::int64_t>::min() / b) return false;
-  if (a < 0 && b < 0 && a < std::numeric_limits<std::int64_t>::max() / b) return false;
-  out = a * b;
-  return true;
-}
-
-bool need_int(Impl& machine, const Goal& goal, Num num) {
-  if (!num.flt) return true;
-  fail_integer(machine, goal, machine.heap.floating(num.fval));
-  return false;
 }
 
 Ev number_of(Impl& machine, Cell cell) {
@@ -119,28 +58,6 @@ Ev number_of(Impl& machine, Cell cell) {
 
 Cell indicator(Impl& machine, std::uint32_t name, std::uint16_t arity) {
   return cell_functor(machine, name, arity);
-}
-
-bool both_int(const std::vector<Num>& args) {
-  for (const Num& num : args) {
-    if (num.flt) return false;
-  }
-  return true;
-}
-
-Ev from_int(std::int64_t value) {
-  Ev ev;
-  ev.ok = true;
-  ev.num.ival = value;
-  return ev;
-}
-
-Ev from_float(double value) {
-  Ev ev;
-  ev.ok = true;
-  ev.num.flt = true;
-  ev.num.fval = value;
-  return ev;
 }
 
 bool float_bad(Impl& machine, const Goal& goal, double value, bool inputs_finite) {
@@ -183,34 +100,6 @@ double negative_base_pow(double base, std::int64_t exp) {
   return 1.0 / signed_value;
 }
 
-Ev shift_bits(Impl& machine, const Goal& goal, std::string_view name, std::int64_t value, std::int64_t count) {
-  if (count < 0) {
-    fail_eval(machine, goal, "undefined");
-    return {};
-  }
-  if (name == ">>") {
-    if (count >= 64) return from_int(value < 0 ? std::int64_t{-1} : 0);
-    return from_int(value >> static_cast<unsigned>(count));
-  }
-  if (count >= 64) {
-    if (value == 0) return from_int(0);
-    fail_eval(machine, goal, "int_overflow");
-    return {};
-  }
-  const auto shift = static_cast<unsigned>(count);
-  if (shift != 0) {
-    // 結果が int64 に収まらない左シフトだけを落とす。負数は二の補数のまま残す。
-    const bool overflow = value >= 0 ? value > (std::numeric_limits<std::int64_t>::max() >> shift)
-                                     : value < (std::numeric_limits<std::int64_t>::min() >> shift);
-    if (overflow) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-  }
-  const auto bits = static_cast<std::uint64_t>(value) << shift;
-  return from_int(static_cast<std::int64_t>(bits));
-}
-
 Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
   const double a = as_float(left);
   const double b = as_float(right);
@@ -250,93 +139,6 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
   return from_float(value);
 }
 
-std::int64_t floor_div(std::int64_t a, std::int64_t b) {
-  auto q = a / b;
-  const auto r = a % b;
-  if (r != 0 && ((a < 0) != (b < 0))) --q;
-  return q;
-}
-
-Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
-  if (!need_int(machine, goal, left) || !need_int(machine, goal, right)) return {};
-  const auto a = left.ival;
-  const auto b = right.ival;
-  if ((name == "//" || name == "rem" || name == "div" || name == "mod") && b == 0) {
-    fail_eval(machine, goal, "zero_divisor");
-    return {};
-  }
-  // a rem -1 と a mod -1 は 0。C++ の % は最小の整数 % -1 で桁あふれ（未定義動作）になるので先に返す（レビュー L1）。
-  if ((name == "rem" || name == "mod") && b == -1) return from_int(0);
-  if ((name == "//" || name == "div") && a == std::numeric_limits<std::int64_t>::min() && b == -1) {
-    fail_eval(machine, goal, "int_overflow");
-    return {};
-  }
-  std::int64_t out = 0;
-  if (name == "+") {
-    if (!add_i(a, b, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-  } else if (name == "-") {
-    if (!sub_i(a, b, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-  } else if (name == "*") {
-    if (!mul_i(a, b, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-  } else if (name == "//") out = a / b;
-  else if (name == "rem") out = a % b;
-  else if (name == "div") out = floor_div(a, b);
-  else if (name == "mod") {
-    // b * q は int64 に収まらないことがある。剰余の符号を直すと結果は必ず収まる。
-    auto rem = a % b;
-    if (rem != 0 && ((a < 0) != (b < 0))) rem += b;
-    out = rem;
-  }
-  else return {};
-  return from_int(out);
-}
-
-bool pow_int(std::int64_t base, std::int64_t exp, std::int64_t& out) {
-  if (exp < 0) return false;
-  std::int64_t acc = 1;
-  std::int64_t factor = base;
-  auto rest = exp;
-  while (rest > 0) {
-    if ((rest & 1) != 0 && !mul_i(acc, factor, acc)) return false;
-    rest >>= 1;
-    if (rest > 0 && !mul_i(factor, factor, factor)) return false;
-  }
-  out = acc;
-  return true;
-}
-
-Ev negative_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp) {
-  if (base == 0) {
-    fail_eval(machine, goal, "undefined");
-    return {};
-  }
-  if (base == 1) return from_int(1);
-  // -1 の負の冪は整数のまま。奇数なら -1、偶数なら 1。
-  if (base == -1) return from_int(exp % 2 == 0 ? 1 : -1);
-  // 結果が整数にならないので float の型エラー（iso-notes 9.3.10.3 の決定 B）。2^(-1) も同じ。
-  raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
-  return {};
-}
-
-Ev int_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp) {
-  if (exp < 0) return negative_hat(machine, goal, base, exp);
-  std::int64_t out = 0;
-  if (!pow_int(base, exp, out)) {
-    fail_eval(machine, goal, "int_overflow");
-    return {};
-  }
-  return from_int(out);
-}
-
 // 9.1.6 はこの 6 つを F → I または F → F と定める。整数を黙って float に直さず型エラーにする（iso-notes 9.1.6 の決定 A）。
 bool float_only(std::string_view name) {
   return name == "floor" || name == "ceiling" || name == "round" || name == "truncate" ||
@@ -362,115 +164,6 @@ Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const
   if (status < 0) return {};
   if (as_int) return from_int(ival);
   return from_float(value);
-}
-
-}  // namespace
-
-namespace {
-
-// 絶対値は符号なしで取る。-(-2^63) は int64 に収まらず未定義動作になる（レビュー L1）。値が 2^63 になる
-// gcd(最小の整数, 0) と gcd(最小の整数, 最小の整数) だけがあふれる。
-Ev gcd_of(Impl& machine, const Goal& goal, std::int64_t left, std::int64_t right) {
-  const auto magnitude = [](std::int64_t value) {
-    const auto bits = static_cast<std::uint64_t>(value);
-    return value < 0 ? std::uint64_t{0} - bits : bits;
-  };
-  std::uint64_t a = magnitude(left);
-  std::uint64_t b = magnitude(right);
-  while (b != 0) {
-    const auto next = a % b;
-    a = b;
-    b = next;
-  }
-  if (a > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-    fail_eval(machine, goal, "int_overflow");
-    return {};
-  }
-  return from_int(static_cast<std::int64_t>(a));
-}
-
-Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args);
-
-Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
-  auto one_int = [&](Num num) { return need_int(machine, goal, num); };
-  if (name == "abs" && args.size() == 1) {
-    if (args[0].flt) return from_float(std::fabs(args[0].fval));
-    std::int64_t out = 0;
-    if (!sub_i(0, args[0].ival < 0 ? args[0].ival : 0, out) && args[0].ival < 0) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-    return from_int(args[0].ival < 0 ? out : args[0].ival);
-  }
-  if (name == "sign" && args.size() == 1) {
-    if (args[0].flt) {
-      // NaN には符号の値が無いので、そのまま返す（IEEE 754 と SWI-Prolog と同じ。iso-notes 9.1.4 の決定 A）。
-      if (std::isnan(args[0].fval)) return from_float(args[0].fval);
-      if (args[0].fval == 0) return from_float(std::copysign(0.0, args[0].fval));
-      return from_float(std::copysign(1.0, args[0].fval));
-    }
-    if (args[0].ival < 0) return from_int(-1);
-    if (args[0].ival > 0) return from_int(1);
-    return from_int(0);
-  }
-  if ((name == "min" || name == "max") && args.size() == 2) {
-    // 型の違う引数は float に直して比べ、float を返す。値の型が値によらず、< と同じ比べ方になる（iso-notes 9.3.8 の
-    // 決定 B）。2^53 を超える整数は丸まるので、max(9007199254740993, 9007199254740992.0) は整数より小さい float になる。
-    // -0.0 と 0 は値が等しいが別の項なので、-0.0 を小さいとみなし、引数の順によらず max は 0.0、min は -0.0 にする
-    // （標準順序の -0.0 @< 0.0 と IEEE 754-2019 の maximum と同じ。iso-notes 9.3.8 の追記、L2 の敵対的レビュー A3）。
-    const double left = as_float(args[0]);
-    const double right = as_float(args[1]);
-    const bool signed_zero = left == 0 && right == 0 && std::signbit(left) && !std::signbit(right);
-    const bool left_smaller = both_int(args) ? args[0].ival < args[1].ival : (left < right || signed_zero);
-    const bool take_left = name == "min" ? left_smaller : !left_smaller;
-    if (both_int(args)) return from_int(take_left ? args[0].ival : args[1].ival);
-    return from_float(take_left ? left : right);
-  }
-  if (name == "gcd" && args.size() == 2) {
-    if (!one_int(args[0]) || !one_int(args[1])) return {};
-    return gcd_of(machine, goal, args[0].ival, args[1].ival);
-  }
-  return eval_int_rest(machine, goal, name, args);
-}
-
-Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
-  auto one_int = [&](Num num) { return need_int(machine, goal, num); };
-  if (name == "msb" && args.size() == 1) {
-    if (!one_int(args[0])) return {};
-    if (args[0].ival <= 0) {
-      fail_eval(machine, goal, "undefined");
-      return {};
-    }
-    int bits = 0;
-    auto value = static_cast<std::uint64_t>(args[0].ival);
-    while (value > 1) {
-      value >>= 1;
-      ++bits;
-    }
-    return from_int(bits);
-  }
-  if (name == "succ_or_zero" && args.size() == 1) {
-    if (!one_int(args[0])) return {};
-    if (args[0].ival < 0) return from_int(0);
-    std::int64_t out = 0;
-    if (!add_i(args[0].ival, 1, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-    return from_int(out);
-  }
-  if ((name == ">>" || name == "<<" || name == "/\\" || name == "\\/" || name == "xor") && args.size() == 2) {
-    if (!one_int(args[0]) || !one_int(args[1])) return {};
-    if (name == "/\\") return from_int(args[0].ival & args[1].ival);
-    if (name == "\\/") return from_int(args[0].ival | args[1].ival);
-    if (name == "xor") return from_int(args[0].ival ^ args[1].ival);
-    if (name == ">>" || name == "<<") return shift_bits(machine, goal, name, args[0].ival, args[1].ival);
-  }
-  if (name == "\\" && args.size() == 1) {
-    if (!one_int(args[0])) return {};
-    return from_int(~args[0].ival);
-  }
-  return {};
 }
 
 Ev eval_known(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
@@ -700,20 +393,21 @@ bool run_cmp(Impl& machine, const Goal& goal, int mode) {
 }
 
 }  // namespace
+}  // namespace arith
 
 bool run_arith(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "is" && goal.arity == 2) {
-    const Ev value = eval_expr(machine, goal, goal.arg(machine, 1));
+    const arith::Ev value = arith::eval_expr(machine, goal, goal.arg(machine, 1));
     if (!value.ok) return true;
-    if (!do_unify(machine, goal.arg(machine, 0), num_cell(machine, value.num))) machine.failed = true;
+    if (!do_unify(machine, goal.arg(machine, 0), arith::num_cell(machine, value.num))) machine.failed = true;
     else machine.ip = goal.cont;
     return true;
   }
   if (goal.arity != 2) return false;
-  if (name == "=:=") return run_cmp(machine, goal, 0);
+  if (name == "=:=") return arith::run_cmp(machine, goal, 0);
   if (name == "=\\=") {
-    if (!run_cmp(machine, goal, 0) || machine.exception || machine.eval_abort) return true;
+    if (!arith::run_cmp(machine, goal, 0) || machine.exception || machine.eval_abort) return true;
     if (machine.failed) {
       machine.failed = false;
       machine.ip = goal.cont;
@@ -722,15 +416,15 @@ bool run_arith(Impl& machine, const Goal& goal) {
     }
     return true;
   }
-  if (name == "<") return run_cmp(machine, goal, -2);
-  if (name == "=<") return run_cmp(machine, goal, -1);
-  if (name == ">") return run_cmp(machine, goal, 2);
-  if (name == ">=") return run_cmp(machine, goal, 1);
+  if (name == "<") return arith::run_cmp(machine, goal, -2);
+  if (name == "=<") return arith::run_cmp(machine, goal, -1);
+  if (name == ">") return arith::run_cmp(machine, goal, 2);
+  if (name == ">=") return arith::run_cmp(machine, goal, 1);
   return false;
 }
 
 std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal, Cell cell) {
-  const Ev value = eval_expr(machine, goal, cell);
+  const arith::Ev value = arith::eval_expr(machine, goal, cell);
   if (!value.ok) return std::nullopt;
   if (value.num.flt) {
     raise_formal(machine, formal_type(machine, "integer_expression", cell), goal.name, goal.arity);
@@ -755,9 +449,9 @@ Goal arith_goal(std::uint32_t name) {
 }  // namespace
 
 bool arith_is(Machine::Impl& machine, std::uint32_t name, Cell left, Cell right) {
-  const Ev value = eval_expr(machine, arith_goal(name), right);
+  const arith::Ev value = arith::eval_expr(machine, arith_goal(name), right);
   if (!value.ok) return false;
-  if (do_unify(machine, left, num_cell(machine, value.num))) return true;
+  if (do_unify(machine, left, arith::num_cell(machine, value.num))) return true;
   machine.failed = true;
   return false;
 }
@@ -766,12 +460,12 @@ bool arith_compare(Machine::Impl& machine, Compare op, std::uint32_t name, Cell 
   // Compare の順（Eq、Ne、Lt、Le、Gt、Ge）に run_cmp の mode を並べる。
   static constexpr std::array<int, 6> kModes{0, 0, -2, -1, 2, 1};
   const Goal goal = arith_goal(name);
-  const Ev lhs = eval_expr(machine, goal, left);
+  const arith::Ev lhs = arith::eval_expr(machine, goal, left);
   if (!lhs.ok) return false;
-  const Ev rhs = eval_expr(machine, goal, right);
+  const arith::Ev rhs = arith::eval_expr(machine, goal, right);
   if (!rhs.ok) return false;
   // =\= は =:= の否定（run_arith）。NaN はどちらとも比べられないので =\= だけが成り立つ（cmp_nums）。
-  const bool holds = cmp_nums(lhs.num, rhs.num, kModes[static_cast<std::size_t>(op)]) != (op == Compare::Ne);
+  const bool holds = arith::cmp_nums(lhs.num, rhs.num, kModes[static_cast<std::size_t>(op)]) != (op == Compare::Ne);
   if (!holds) machine.failed = true;
   return holds;
 }
