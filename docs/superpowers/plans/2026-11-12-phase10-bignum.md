@@ -156,8 +156,10 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
 - Modify: `src/machine/gc_mark.cpp:76-97`、`src/machine/gc_compact.cpp:72-78`
 - Modify: `src/core/unify.cpp:108-121`、`src/machine/native.cpp:238`、`src/builtins/order.cpp:21-91`、`src/write/term_equal.cpp:80-94`
 - Modify: `src/write/writer.cpp:400-406,416-428,472-481`（`'$VAR'(N)` の N が Big のときも含む）
-- Modify: `src/machine/index.cpp:36-48,175-184`、`src/machine/clause_index.hpp:17`
 - Modify: `src/builtins/types.cpp:20,24,182,190`（`integer/1`、`atomic/1`、`number/1`）、`src/builtins/arith.cpp:104-118`（`number_of`）
+- Modify: `src/builtins/terms.cpp:23,26,54-62,194`（`functor/3` の分解と `=..`。今は他のタグを構造として読む）
+- Modify: `src/machine/internal.hpp:252-265`、`src/machine/catch.cpp:39-48,136-138`（`ExportedTerm::Kind::Big`。テストの入口になるので、このタスクで入れる）
+- Create: `tests/cpp/bigint_support.hpp`（テストの補助）
 - Test: `tests/cpp/bigint_heap_test.cpp`（新規）、`tests/cpp/gc_test.cpp`（`check_big_relocation`）
 
 **Interfaces:**
@@ -167,18 +169,26 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
   - `[[nodiscard]] BigInt big_value(Cell cell) const`: Int、IntBox、Big のどれでも受ける。
   - `[[nodiscard]] std::span<const std::uint64_t> big_magnitude(Cell cell) const`: Big だけを受ける。
   - `[[nodiscard]] bool big_negative(Cell cell) const`: Big だけを受ける。
-  - `integer_value(Cell)` は Int と IntBox だけを受ける。前提を `assert` に書く。呼び手はすべて、先に Int か IntBox であることを確かめている（付録 B の 0）。
+  - `integer_value(Cell)` は Int と IntBox だけを受ける。Big を渡されたら `std::abort()` で止める。CI は Release だけを作るので、`assert` では効かない。黙って切り詰めるより、落ちて見つかる方がよい。
+- Produces（`tests/cpp/bigint_support.hpp`）:
+  - `mosa::Stop query_with_bigs(mosa::Machine& machine, std::string_view goal_text, std::span<const mosa::BigInt> values)`。
+  - 動き: `goal_text` を読んで `export_term` で `ExportedTerm` にする。アトム `'$big0'`、`'$big1'`、… の節点を、`values` の対応する値の `Kind::Big` の節点に替え、`query_exported` で走らせる。
+  - タスク 5 までは字面から Big を作れないので、タスク 3 と 4 のテストはこの入口を使う。
 
-- [ ] **Step 1: 失敗するテストを書く。** `tests/cpp/bigint_heap_test.cpp` にマシンを作り、次の検査を書く。
+- [ ] **Step 1: 失敗するテストを書く。** `tests/cpp/bigint_heap_test.cpp` にマシンを作り、次の検査を書く。B は 2^100 とする。
   - `heap.big(2^100)` の Cell が `Tag::Big` で、`big_value` が 2^100 に戻る。`heap.big(BigInt(INT64_MAX))` は IntBox、`heap.big(BigInt(5))` は Int になる。
-  - 別々に作った 2 つの 2^100 が `do_unify` で単一化でき、2^100 と 2^100+1 はできない。2^100 と IntBox の値も単一化できない。
-  - `compare/3` の順が −2^100 < −2^63 < 0 < 2^63−1 < 2^100 で、浮動小数点数はすべての整数より前になる。`==` が値で比べる。
-  - `write_canonical` が `-1267650600228229401496703205376` と書く。`writeq('$VAR'(Big))`（Big = 2^70）が `K45407370027592742439` と書く。
-  - `integer/1`、`number/1`、`atomic/1` が真、`var/1`、`compound/1` が偽になる。
-  - `X is Big + 0` が `evaluation_error(int_overflow)` になる（タスク 6 までの暫定）。
-  - 索引の検査: 第 1 引数が 2^100 と 2^100+1 の節を 8 つ以上持つ述語で、`p(2^100 の Cell, X)` が 2^100 の節だけを選ぶ。
+  - `query_with_bigs(m, "X = '$big0', Y = '$big1', X = Y", {B, B})` は成功し、`{B, B+1}` では失敗する。`{B, BigInt(INT64_MAX)}` でも失敗する。
+  - `msort(['$big0', '$big1', 0, '$big2', 1.0], L)`（値は −B、B、−2^63）の答えが `[1.0, -B, -9223372036854775808, 0, B]` の順になる。`'$big0' == '$big1'` は値で比べる。
+  - `write_canonical('$big0')`（−B）が `-1267650600228229401496703205376` と書く。`writeq('$VAR'('$big0'))`（2^70）が `K45407370027592742439` と書く。
+  - `integer('$big0')`、`number(...)`、`atomic(...)` が真、`var(...)`、`compound(...)` が偽になる。
+  - `functor('$big0', N, A)` が `N == B, A == 0` で、`'$big0' =.. L` が `L == [B]` になる。
+  - `catch(throw(e('$big0')), e(Z), true)` で、`Z == B` になる（`ExportedTerm` の往復）。
+  - `X is '$big0' + 0` が `evaluation_error(int_overflow)` になる（タスク 6 までの暫定）。
 
-  `gc_test.cpp` には `check_big_relocation` を足す。Big を持つ項を作り、間にごみを置いて `garbage_collect/0` を 3 回呼び、値が変わらないことを確かめる（`check_boxed_relocation` と同じ形）。
+  `gc_test.cpp` に `check_big_relocation` を足す。`check_boxed_relocation` と同じ形にする。違いは 3 つある。
+  - 項は `query_with_bigs` で `length(_, 2000), X = '$big0', Y = f('$big1')` として作る。
+  - `collect_garbage(impl)` のあとで、束縛の Cell が下へ移り、書き出しが同じであることを確かめる。
+  - 頭の語と全語が保たれていることも確かめる。
 - [ ] **Step 2: 走らせて失敗を確かめる。** `heap.big` が無いことでビルドが失敗する。
 - [ ] **Step 3: 実装する。**
   - `Heap::big` は `allocate(n + 1)` に頭の語と語の並びを書き、`tagged(pointer, Tag::Big)` を返す。
@@ -186,10 +196,11 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
   - 単一化と `==`: タグが両方 Big なら、頭の語と全語を比べる。片方だけ Big なら偽にする（正規形の規則による）。
   - 順序: `rank_of` で Big を整数の順位 2 にする。`compare_scalar` は、どちらかが Big なら `big_value` どうしを比べる。
   - writer: `to_text(big_value(c))` を書く。`unsigned_number` の判断は int64 と同じにする。
-  - 索引: `cell_key` と `clause_key` は、Big に `KeyKind::Big` と `big_key(...)` を返す。
+  - `functor/3` と `=..`: Big を原子的な項として扱う。
+  - `ExportedTerm`: 書き出しは Big を `Kind::Big` と Int の子にする。読み込みは `heap.big(BigInt::from_words(...))` で作る。
   - `number_of`: Big なら `int_overflow` にする（暫定）。
 - [ ] **Step 4: 走らせて通ることを確かめる。** `ctest --test-dir build -R 'bigint_heap|^gc$' --output-on-failure` が通り、`MOSA_GC_STRESS=1 ctest --test-dir build -R 'bigint_heap|^gc$'` も通る。そのあと ctest 全体が通る。
-- [ ] **Step 5: Commit.** メッセージは `[phase10] ヒープの Big の箱と GC・単一化・順序・writer・索引・型の検査（bigint_heap_test と gc_test、MOSA_GC_STRESS=1 でも通る）`。
+- [ ] **Step 5: Commit.** メッセージは `[phase10] ヒープの Big の箱と GC・単一化・順序・writer・型の検査・functor/3・ExportedTerm（bigint_heap_test と gc_test、MOSA_GC_STRESS=1 でも通る）`。
 
 ---
 
@@ -199,29 +210,29 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
 - Modify: `include/mosa/ir.hpp:10-29`（`IrTag::Big` を最後に足す）、`src/core/ir.cpp`（写しと移動で値を落とさない。子の持ち方なので変更は要らないはず。確かめる）
 - Modify: `src/machine/compile.cpp:198-225`（`data_leaf`）、`:640-649`（`set_key`）、`:746-747`（頭部の検査）。書き足す前に分ける（800 行）。
 - Modify: `src/machine/materialize.cpp:66-87`、`src/builtins/clause_term.cpp:116-117`、`src/machine/native.cpp:40-53`（`hash_term`）と `:173-182`（`native_eligible` は Big の定数を持つ節を外す）
-- Modify: `src/machine/internal.hpp:252-265`、`src/machine/catch.cpp:39-48,136-138`
+- Modify: `src/machine/index.cpp:36-48,175-184`、`src/machine/clause_index.hpp:17`（`KeyKind::Big`。Big の頭を持つ節が IR に入るのはこのタスクから）
 - Modify: `src/builtins/solutions_internal.hpp:14-23`、`src/builtins/solutions.cpp:384-397`、`src/builtins/solutions_answer.cpp:123-124`
 - Modify: 「呼び出せる項」の判定: `src/machine/engine.cpp:380`、`src/builtins/database.cpp:197`、`src/codegen/check.cpp:49`、`src/machine/load_clauses.cpp:60`
 - Modify: 勘定: `src/builtins/solutions.cpp:33,494`（`footprint`）、`src/machine/state_count.cpp:32-45`、`src/machine/compile.cpp:677-681`
 - Test: `tests/cpp/bigint_copy_test.cpp`（新規）
 
 **Interfaces:**
-- Consumes: タスク 3 の `Heap::big`、`big_value`、`big_magnitude`、`big_negative`
+- Consumes: タスク 3 の `Heap::big`、`big_value`、`big_magnitude`、`big_negative`、`query_with_bigs`
 - Produces:
   - `IrTag::Big`: `integer` は負なら 1。`args` は `IrTag::Int` の子で、絶対値の語を下位から持つ。
-  - `ExportedTerm::Kind::Big` と `sol::CopyKind::Big`: 同じ持ち方。
+  - `sol::CopyKind::Big`: 同じ持ち方（`ExportedTerm::Kind::Big` はタスク 3 で入れた）。
+  - `KeyKind::Big` と、`big_key(...)` を入れた `Clause::key_int`。
   - `native_eligible` が偽を返す条件に「節の IR に `IrTag::Big` がある」を足す（タスク 10 で外す）。
 
-- [ ] **Step 1: 失敗するテストを書く。** `tests/cpp/bigint_copy_test.cpp` で、Big = 2^100 と −2^100 の Cell を C++ から作り、`p(X)` の X に束縛して、次の道を通す。どの道でも `big_value` が元の値に戻ることを確かめる。
+- [ ] **Step 1: 失敗するテストを書く。** `tests/cpp/bigint_copy_test.cpp` で、`query_with_bigs` を使い、B = 2^100 と −2^100 を次の道に通す。どの道でも、値が元に戻ることを `==` で確かめる。
   - `copy_term/2`
   - `findall/3` と `bagof/3`（鍵に Big を持つ `bagof(X, member(K-X, L), Xs)`）
-  - `assertz(q(Big))` のあとの `q(Y)`
+  - `assertz(q('$big0'))` のあとの `q(Y)`
   - `clause(q(Y), true)`
-  - `retract(q(Big))`
-  - `nb_setval(k, f(Big))` のあとの `nb_getval(k, V)`
-  - `catch(throw(e(Big)), e(Z), true)`
-  - `assertz` した `q(Big)` に `call(Big)` を入れた節が `type_error(callable, _)` になること（「呼び出せる項」の判定）
-  - `index_big_first`: 第 1 引数が 2^100 と 2^100+1 の節を交互に 10 個 `assertz` し、`r(2^100 の Cell, N)` がちょうど 5 解を返す。
+  - `retract(q('$big0'))`
+  - `nb_setval(k, f('$big0'))` のあとの `nb_getval(k, V)`
+  - `assertz((s :- '$big0'))` が `type_error(callable, _)` になる（「呼び出せる項」の判定）
+  - `index_big_first`: 第 1 引数が 2^100 と 2^100+1 の節を交互に 10 個 `assertz` し、`r('$big0', N)` がちょうど 5 解を返す。
   - 節の指紋: 2^100 を持つ節と 2^100+1 を持つ節の指紋が違う。
 - [ ] **Step 2: 走らせて失敗を確かめる。** `ctest --test-dir build -R bigint_copy --output-on-failure` が失敗する（`data_leaf` の既定の枝が `true` を返すので、`q(Y)` が `q(true)` になる）。
 - [ ] **Step 3: 実装する。** 各場所で、Big の場合を `switch` か `if` の明示した枝に足す。`footprint` などの勘定は、子の節点を含めて数える（子の持ち方なので、今の節点の勘定がそのまま効く）。
@@ -251,8 +262,8 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
 
   `tests/pl/bigint.pl` には次の行を書く。
   - `lit_big`: `X = 123456789012345678901234567890, Y = 123456789012345678901234567890, X == Y`
-  - `lit_hex`: `X = 0xffffffffffffffffffff, X =:= 1208925819614629174706175`
-  - `lit_sep`: `X = 1_000_000_000_000_000_000_000, X == 1000000000000000000000000`
+  - `lit_hex`: `X = 0xffffffffffffffffffff, X == 1208925819614629174706175`（`=:=` はタスク 6 まで Big で `int_overflow` になるので使わない）
+  - `lit_sep`: `X = 1_000_000_000_000_000_000_000, X == 1000000000000000000000`（10^21）
   - `neg_min`: `X = -9223372036854775808, integer(X)`（IntBox の −2^63）
   - `nc_big`: `number_codes(X, "-1267650600228229401496703205376"), number_codes(X, C), atom_codes(A, C), A == '-1267650600228229401496703205376'`
   - `wq_neg_1`: `X = -(-1267650600228229401496703205376), term_to_atom(X, A), term_to_atom(Y, A), Y == X`
@@ -388,8 +399,8 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
   - `atom_length_big`: `atom_length(abc, B)` は失敗し、`atom_length(abc, -B)` は `domain_error(not_less_than_zero, -B)` になる
   - `sub_atom_big`: `sub_atom(abc, B, _, _, _)` が失敗する
   - `length_big`: `length(L, -B)` が `domain_error(not_less_than_zero, -B)` になる。`length(L, B)` は `bigint_limit_test.cpp` に足し、リストを作り始める前に `ResourceLimit` で止まることを確かめる。
-  - `numbervars_big`: `numbervars(f(X, Y), B, E)` のあと `E =:= B + 2`、`writeq(X)` が `'$VAR'(B)` の字母と番号で書く
-  - `format_big`: `use_module(library(format))`、`format(atom(A), '~d', [B])`、`A == '1844674407370909797907654848955145546336677616'`
+  - `numbervars_big`: `numbervars(f(X, Y), B, E)` のあと `E =:= B + 2` で、`with_output_to(atom(A), writeq(f(X, Y)))` が `A == 'f(A70949015668111915304140571113659444089872216,B70949015668111915304140571113659444089872216)'` になる（B mod 26 = 0）
+  - `format_big`: `use_module(library(format))`、`with_output_to(atom(A), format('~d', [B]))`、`A == '1844674407370909797907654848955145546336677616'`（`lib_format.pl` と同じ取り方）
   - `op_big`: `op(B, xfx, foo)` が `domain_error(operator_priority, B)` になる
   - `halt_big`: `halt(B)` が `representation_error(max_integer)` に、`halt(-B)` が `representation_error(min_integer)` になる。範囲は C++ の `int` で、7.12.2 g の Flag を使う（私の判断）。規格は終了状態の範囲を決めていないので、iso-notes に「8.17.4 halt/1 の範囲の外の整数」として A（この表現のエラー）か B（下位のビットを OS に渡す）かを書く。既定は A で、`int` の外の int64 にも同じ規則を当てる（今の黙った切り詰めを無くす）。
 - [ ] **Step 2: 走らせて失敗を確かめる。** `./build/mosatest tests/pl/bigint.pl` が新しい行で失敗する。
@@ -498,3 +509,30 @@ struct BigQuotient { BigInt quotient; BigInt remainder; };
 - [ ] **Step 3: CI を確かめる。** 所有者の依頼で push したあと、CI の全ジョブ（今は 10）が通ることを確かめる。
 - [ ] **Step 4: Commit.** メッセージは `[phase10] CHANGELOG・マニュアル・README・iso-notes を多倍長整数に合わせて閉じる（manual と mosatest --manual --all-tables が通る）`。
 - [ ] **Step 5: 止まる。** 完了条件 1〜5 の確かめた結果を STATUS に書き、所有者に「フェーズ10を閉じるか（A）、残すか（B）」を問う。
+
+---
+
+## 付録: 調べた場所とタスクの対応
+
+設計の付録 A の 6 と付録 B の 0 の場所を、どのタスクが直すかの表である。各タスクのレビューで、自分の行の場所がすべて直っていることを確かめる。新しい場所が見つかったら、この表に足す。
+
+| 場所 | 何が誤るか | タスク |
+| --- | --- | --- |
+| `gc_mark.cpp:78,95`、`gc_compact.cpp:74` | Big を即値として扱う | 3 |
+| `unify.cpp:48,121`、`term_equal.cpp:16,94`、`native.cpp:238` | 偽を返す | 3 |
+| `order.cpp:24,26` | 複合項の順位にする | 3 |
+| `writer.cpp:402,420,481` | 何も書かない | 3 |
+| `heap.cpp:138,142`（`integer_value`） | 先頭の語に切り詰める | 3（`std::abort()`） |
+| `types.cpp:20,24,182,190` | 整数と見なさない | 3 |
+| `terms.cpp:23,26,62,194`（分解と `=..`） | 構造として読む | 3 |
+| `catch.cpp:48,136-138`（`ExportedTerm`） | 構造と仮定する | 3 |
+| `compile.cpp:220`（`data_leaf`）、`materialize.cpp:66-87` | `true` になる | 4 |
+| `solutions.cpp:392`（`CopyNode`） | 浮動小数点数と仮定する | 4 |
+| `index.cpp:39-41,46,182`、`compile.cpp:640-649` | 鍵が無い | 4 |
+| `engine.cpp:380`、`database.cpp:197`、`codegen/check.cpp:49`、`load_clauses.cpp:60` | 呼び出せる項と誤る | 4 |
+| `native.cpp:40-53`（指紋）、`clause_term.cpp:116-117` | 値を落とす | 4 |
+| `atoms_number.cpp:31,33` | 字面にできない | 5 |
+| `flags.cpp:122,165` | 旗の値の比べ方 | 6 |
+| `terms.cpp`（`arg/3`、`functor/3` の引数）、`atoms_sub.cpp:26`、`atoms.cpp:36`、`qualify.cpp:24`、`format_float.cpp:25`、`operators.cpp:36`、`lists.cpp:32`、`bytes.cpp:55`、`stream_prop.cpp:51`、`char_width.cpp:11`、`roundtrip.cpp:97`、`read_pred.cpp:120`、`write_pred.cpp:129`、`streams.cpp:347,412`、`chars.cpp:176,214,236`、`database.cpp:561`、`database_scan.cpp:179`、`control.cpp:201`、`catch.cpp:280`、`load_directive.cpp:83,108`、`meta.cpp:34` | `type_error(integer, Big)` または切り詰め | 8 |
+| `lgt_copy.cpp:30`、`suite.cpp:149,155`、`lgt_io.cpp:155`、`lgt_judge.cpp:45`、`lgt_shape.cpp:23`、`lgt_approx.cpp:14,22` | ランナーが数を誤る | 9 |
+| `emit.cpp:163,178`、`emit_head.cpp:50,95,226` | `default:` の枝に落ちる | 10 |
