@@ -39,6 +39,10 @@ constexpr std::string_view k_tak =
     "  tak(X1, Y, Z, A1), tak(Y1, Z, X, A2), tak(Z1, X, Y, A3), tak(A1, A2, A3, A).";
 constexpr std::string_view k_make_list = "mk(0, []) :- !. mk(N, [N|T]) :- N1 is N - 1, mk(N1, T).";
 constexpr std::string_view k_member = "member(X, [X|_]). member(X, [_|T]) :- member(X, T).";
+// 1 回に 5 語の Big の箱（ADR 0025）を積むので、GC が箱を回収しなければ 13,108 回目までに 2^16 語の上限に当たる。
+// 作った Big を次の回で読むので、GC が箱を移し損ねると差が合わずに失敗する。
+constexpr std::string_view k_big_loop =
+    "loop(0, _) :- !. loop(N, P) :- X is 2^200 + N, P - X =:= 1, N1 is N - 1, loop(N1, X).";
 
 // 例外を通さずに問い合わせる。ResourceLimit は失敗として数える（GC が無ければここへ来る）。
 mosa::Stop ask(mosa::Machine& machine, std::string_view goal, bool& limited) {
@@ -56,19 +60,24 @@ std::string binding_text(mosa::Machine& machine, const mosa::Stop& stop, std::si
   return mosa::write_term(machine.heap(), machine.operators(), stop.bindings[index].variable, {}, {});
 }
 
-void check_loop(std::string_view label, std::string_view program) {
+void check_loop(std::string_view label, std::string_view program, std::string_view goal = "loop(1000000).") {
   auto machine = mosa::Machine::create(k_small);
   mosa_test::check(machine->load_program(program).ok, std::string{label} + ": load");
   auto& impl = mosa::engine_impl(*machine);
   const auto capacity = impl.gc_capacity;
   bool limited = false;
-  const auto stop = ask(*machine, "loop(1000000).", limited);
+  const auto stop = ask(*machine, goal, limited);
   mosa_test::check(!limited, std::string{label} + ": loop does not hit heap_limit");
   mosa_test::check(stop.kind == mosa::StopKind::Success, std::string{label} + ": loop succeeds");
   mosa_test::check(impl.gc_stats.count >= 1, std::string{label} + ": GC ran");
   mosa_test::check(impl.gc_capacity == capacity, std::string{label} + ": soft capacity unchanged");
   mosa_test::check(impl.extras.size() < 1000, std::string{label} + ": extras plateau");
   mosa_test::check(impl.trail.slots.size() < 1000, std::string{label} + ": trail plateau");
+}
+
+// 最初の K はループの間ずっと生きていて、最後に読む。安全点の GC が K の箱を詰め損ねても、後で見つかる。
+void check_big_loop() {
+  check_loop("big", k_big_loop, "K is 2^200 + 1000001, loop(1000000, K), K - 2^200 =:= 1000001.");
 }
 
 void check_tak() {
@@ -708,6 +717,7 @@ void check_trace_text() {
 int main() {
   check_loop("two goals", k_loop);
   check_loop("three goals", k_loop_three);
+  check_big_loop();
   check_tak();
   check_cyclic();
   check_long_live_list();
