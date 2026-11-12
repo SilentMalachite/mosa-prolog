@@ -91,19 +91,30 @@
    - 結果の大きさの事前の見積もり。
    - 同じタスクで `bounded` を `false` にする。`max_integer` と `min_integer` は問い 1 の決定に従う。
    - `flags.pl` の期待値を直し、`docs/conformance.md`・`conformance.json`・`agreement.json` を作り直す（下の「旗をタスク 6 で変える理由」）。
+   - 同じコミットで SPEC 第3節の 5 と 7 と処理系定義の表（日英）を書き替える。マニュアルの `check: limits` の塊と、第14章の旗の表の `bounded`・`max_integer`・`min_integer` の行（日英）も書き替える。main の文書がコードと食い違う期間を作らない。
+   - 暫定: タスク 7 の関数子（`gcd`、`^`、`>>`、`<<`、`/\`、`\/`、`xor`、`\`、`succ_or_zero`）は、タスク 7 まで今のまま動く。被演算子が Big なら `evaluation_error(int_overflow)` になる（タスク 3 の暫定と同じ）。int64 の結果があふれたときも `int_overflow` のままである。この食い違い（`bounded` が `false` なのに `2^100` があふれる）は STATUS に書く。
 7. 算術 2: `gcd`、`^`、`>>`、`<<`、`/\`、`\/`、`xor`、`\`（2 の補数で無限に符号を延ばす意味）、`succ_or_zero`。`arith.pl` と `lib_between.pl` の `int_overflow` の期待値 14 件と、`machine_test.cpp` の 1 件を直す（仕様の変更。`+ - *` の分はタスク 6 で直す）。
-8. 準拠スイート:
+8. 整数の引数を取る組み込み述語（付録 B の 5）:
+   - Big を型の検査で通す。範囲の外の正の値は「大きすぎる int64」と同じ結果にし、負の値は定義域エラーにする。
+   - 黙った `static_cast` を無くす（`sub_atom/5`、`length/2`、`set_stream_position/2`、`halt/1`、`op/3`）。
+   - `numbervars/3` の `representation_error(max_integer)` を無くし、`'$VAR'(N)` の書き出しを Big に広げる。
+   - `library(format)` の `~d` と桁の読み取りを確かめる。
+   - タスク 9 より先に置く。`unbounded/` の `arg_01`、`arg_04`、`functor_03` は、`arg/3` と `functor/3` が Big を受けてはじめて通る。
+9. 準拠スイート:
+   - ランナーの数の扱い（`lgt_shape.cpp`、`lgt_copy.cpp`、`lgt_approx.cpp`、`suite.cpp`、`lgt_judge.cpp`）を Big に広げる。範囲を広げる前に、同じタスクの中で行う。範囲内の今のファイルには 19 桁以上の字面が無い。`lgt_msb_1_07`・`08` は Big を実行時に `number_chars/2` で作るので、タスク 6 の時点ではランナーの写しを通らない。
    - `excluded_tree` から `unbounded` を外す。
-   - ランナーの数の扱い（`lgt_shape.cpp`、`lgt_copy.cpp`、`lgt_approx.cpp`、`suite.cpp`、`lgt_judge.cpp`）を Big に広げる。
    - `conformance_report_test.cpp` の固定値を直す。
    - `docs/conformance.md` と `conformance.json` を作り直す。
-9. 整数の引数を取る組み込み述語（付録 B の 5）: Big を型の検査で通し、範囲の外の正の値は「大きすぎる int64」と同じ結果にし、負の値は定義域エラーにする。黙った `static_cast` を無くす（`sub_atom/5`、`length/2`、`set_stream_position/2`、`halt/1`、`op/3`）。`numbervars/3` の `representation_error(max_integer)` を無くし、`'$VAR'(N)` の書き出しを Big に広げる。`library(format)` の `~d` と桁の読み取りを確かめる。
 10. `mosac`: Big の定数を頭部と本体に出す。索引の鍵の検査を足す。`runtime.hpp` に箱を作る関数を足す。タスク 4 の `native_eligible` の除外を外す。`tests/mosac/` に Big の字面を持つプログラムを 1 つ足す。
 11. GC と資源: `MOSA_GC_STRESS` の下で `tests/pl/bigint.pl` を通す。Big を作り続けるループでメモリが頭打ちになることを確かめる（フェーズ7の試験と同じ形）。巨大な結果（`1 << (1 << 62)`、`2^(2^62)`）が確保の前に止まることを確かめる。
 12. 速さ: `bench.md` に Big の行を足す（`7^7^7`、1000 の階乗とその書き出し）。int64 の道が遅くなっていないことを、0.1.4 と同じ機械で測って確かめる。
-13. 文書を閉じる: CHANGELOG（日英）、マニュアルの第6章・第9章・第14章（日英。`check: limits` の塊を含む）、SPEC 第3節の 5 と 7 と処理系定義の表（日英）、README の準拠率、iso-notes、STATUS。CI の全ジョブが通ることを確かめ、フェーズを閉じるかを所有者に問う。
+13. 文書を閉じる:
+    - CHANGELOG（日英）。
+    - マニュアルの第6章・第9章・第14章の残り（日英。タスク 6 で直した旗の行と `check: limits` の塊のほか）。
+    - README の準拠率、iso-notes、STATUS。
+    - CI の全ジョブが通ることを確かめ、フェーズを閉じるかを所有者に問う。
 
-タスク 7 と 9 は、所有者の判断で順を入れ替えてよい。タスク 8 は 6〜7 の後に置く（スイートの件が算術を使う）。タスク 10 は 4 と 5 の後ならいつでもよい。
+タスク 7 と 8 は、所有者の判断で順を入れ替えてよい。タスク 9 は 6〜8 の後に置く（スイートの件が算術と `arg/3`・`functor/3` を使う）。タスク 10 は 4 と 5 の後ならいつでもよい。タスク 4 の `native_eligible` の除外は、動的でない述語にも効く。`native_eligible` を外れた述語は、`mosac` が生成コードを出さずに IR のまま動かす（`src/codegen/emit.cpp:293`）。だから、タスク 5 で Big の字面を持つ `tests/pl` のファイルが増えても、`mosatest --diff` は崩れない。
 
 **旗をタスク 6 で変える理由（私の判断。設計のレビューで見つかった）**
 
@@ -195,7 +206,7 @@
 
 ### 10. 準拠スイートと完了条件
 
-数は、どれもコードを読んで数えた見積もりである。何も実行していない。タスク 8 で `mosatest --suite` を走らせて確かめる。
+数は、どれもコードを読んで数えた見積もりである。何も実行していない。タスク 6 と 9 で `mosatest --suite` を走らせて確かめる。
 
 - `unbounded/` は 111 件（`test/2` が 98 件、`test/3` が 13 件）。このうち 9 件は条件で別欄に行く（`succ`・`plus` の 5 件、`max_arity` の 4 件）。分母に入るのは約 102 件である（フェーズ9の設計の「111 件」は条件を数えていなかった）。
 - `bounded` を `false` にすると、今通っている範囲内の 15 件が条件で別欄に移る（`is_2` の 8 件と、`div_2` などの 7 件。どれも `int_overflow` を期待する件）。`lgt_msb_1_07`・`08` の 2 件が分母に入る。
@@ -207,9 +218,19 @@
 2. `mosatest --suite` が `unbounded/` を範囲に入れる。そこで動く件がすべて通るか、通らない件が iso-notes に解釈の違いとして書かれ、所有者が決めている。合格率は、実際の分母で 98.4% を下回らない。`docs/conformance.md` を作り直す。
 3. `MOSA_GC_STRESS` の下で `tests/pl/bigint.pl` が通る。Big を作り続けるループでメモリが頭打ちになる。`1 << (1 << 62)` が確保の前に止まる。
 4. ctest がすべて通る。CI の全ジョブ（今は 10）が通る。
-5. 0.1.4 と同じ機械で、インタプリタの `nrev` と `queens` が 0.1.4 より 5% を越えて遅くならない。`mosac` の `nrev` はインタプリタの 3 倍以上の速さのまま。測った値を `bench.md` に書く。
+5. 速さ。測り方は次のとおり。
+   - 同じ機械で、タグ `v0.1.4` とフェーズの最後のコミットを Release で作る。
+   - `mosatest --bench bench/nrev.pl` と `bench/queens.pl` を、`bench.json` と同じ N で、それぞれ 3 回ずつ走らせる（1 回の `--bench` は 5 回の中央値を出す）。
+   - 3 回の中央値どうしを比べる。
 
-SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍長整数: Big の箱（ADR 0025）、上限の無い算術と読み書き、`bounded` が `false`」で、完了条件は上の 1〜3 と 5 である。第1節の非目標から多倍長整数を外し、「GMP は使わない」は残す（タスク 1）。第3節の 5 と 7 と処理系定義の表は、`bounded` を `false` にしたあと、タスク 13 で書き替える。
+   条件は 3 つある。
+   - インタプリタの時間が、0.1.4 の 1.05 倍以下である。
+   - `mosac` の `nrev` が、インタプリタの 3 倍以上の速さのままである。
+   - 測った値を `bench.md` に書く。
+
+   CI の 20% の比の警告は、別に通る。
+
+SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍長整数: Big の箱（ADR 0025）、上限の無い算術と読み書き、`bounded` が `false`」で、完了条件は上の 1〜3 と 5 である。第1節の非目標から多倍長整数を外し、「GMP は使わない」は残す（タスク 1）。第3節の 5 と 7 と処理系定義の表は、`bounded` を `false` にするタスク 6 のコミットで書き替える。
 
 ## 仕様の変更で期待値が変わるテスト
 
@@ -220,9 +241,9 @@ SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍�
 | `evaluation_error(int_overflow)` が値になる（14 件） | `tests/pl/arith.pl` の 13・74・75・77〜79・87・128・129・134・135・168 行、`lib_between.pl` の 29・43 行、`tests/cpp/machine_test.cpp` の 446 行 | 6・7 |
 | `syntax_error(integer_overflow)` が読める（17 件） | `tests/pl/read.pl` の 135〜143・159・160・162・166・167・173・174 行（最後の 2 行は `syntax_error(max_arity)` になる見込み）、`atoms.pl` の 87 行、`tests/cpp/lexer_test.cpp` の 128〜145 行 | 5 |
 | `bounded` が `false`、`max_integer` と `min_integer` が問い 1 に従う | `tests/pl/flags.pl` の 1・3・4 行、`read.pl` の `m1_min` と 145 行（問い 1 が B のとき）、`lib_format.pl` の 26・27 行 | 6 |
-| `unbounded` が範囲に入る | `tests/cpp/conformance_report_test.cpp` の 164・165・351・374 行 | 8 |
-| `max+1` が `int_overflow` にならない | マニュアルの `<!-- check: limits -->`（`docs/manual/en/06-arithmetic.md` の 182〜185 行、`ja` の 155〜158 行） | 13（実際に壊れるのはタスク 6。そこで直す） |
-| `numbervars/3` の `representation_error(max_integer)` が無くなる | iso-notes の 460 行が指すテスト | 9 |
+| `unbounded` が範囲に入る | `tests/cpp/conformance_report_test.cpp` の 164・165・351・374 行 | 9 |
+| `max+1` が `int_overflow` にならない | マニュアルの `<!-- check: limits -->`（`docs/manual/en/06-arithmetic.md` の 182〜185 行、`ja` の 155〜158 行） | 6 |
+| `numbervars/3` の `representation_error(max_integer)` が無くなる | iso-notes の 460 行が指すテスト | 8 |
 
 `read.pl` の 147・163〜165 行（「あふれのあとに読み直せる」テスト）は通り続けるが、何も確かめなくなる。タスク 5 で、Big を読み直すテストに置き替える。
 
@@ -233,7 +254,7 @@ SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍�
 - Karatsuba の閾値。
 - IR の多倍長定数の形。どちらの形にするかを ADR 0025 で選ぶ。
 - 字句解析のトークンが Big をどう持つか。
-- タスク 9 の、述語ごとの範囲の外の扱い。規格の字面で決まらないものは iso-notes に書く。
+- タスク 8 の、述語ごとの範囲の外の扱い。規格の字面で決まらないものは iso-notes に書く。
 - `tests/pl/bigint.pl` の行の選び方。各評価可能関数子について、境界（2^63−1、2^63、2^64、−2^63、−2^63−1）と、大きな値と、符号の組み合わせを入れる。
 
 ## リスク
@@ -242,7 +263,7 @@ SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍�
 - GC の取りこぼし。Big を指す Cell が残っているのに箱を掃除すると、項が壊れる。フェーズ7と同じく、タスク 3 と 11 のレビュアーは opus で、`MOSA_GC_STRESS` の下で通すことをレビューの条件にする。
 - `7^7^7` の時間。Karatsuba で 1 件 1 秒未満を見込む（CI は Release だけを作る）。準拠スイートの時間が延びたら、所要時間を `bench.md` に書く。件を外すことはしない。
 - int64 の道が遅くなること。`Num` が大きくなり、`std::vector<Num>` の写しの費用が増える。タスク 6 のレビューで `bench` を測る。
-- 数は見積もりである（上の 10）。タスク 8 で実数に置き替え、この文書との違いを STATUS に書く。
+- 数は見積もりである（上の 10）。タスク 6 と 9 で実数に置き替え、この文書との違いを STATUS に書く。
 
 ## 付録 A: 項の表現の調べ（2026-11-12、読んだだけ）
 
