@@ -43,7 +43,9 @@
 - 期待値を実装に合わせて書き替えること。仕様の変更で期待値が変わるテスト（下の「仕様の変更で期待値が変わるテスト」）は、この文書の承認を根拠に、実装より先に新しい期待値へ直す（赤にしてから実装で緑にする）。それ以外の期待値は 1 つも変えない。
 - int64 の速さを落とすこと。例として、評価の値を毎回ヒープの外に確保する形にすることを含む。
 - 1 つのタスクの途中で、Big を作る側（字句解析、算術、`number_codes/2`）を、Big を受ける側より先に入れること。各セッションの終わりに ctest が通らなくなる。
-- 準拠率を守るために、スイートの件を別欄へ移したり、`unbounded/` の一部の件だけを範囲に入れたりすること。
+- 準拠率を守るために、スイートの件を手で別欄へ移したり、`unbounded/` の一部の件だけを範囲に入れたりすること。
+  - `bounded` が `false` になって、スイート自身の `condition` で件が移るのはこれに当たらない。
+  - スイートの結果を変えるコミットは、同じコミットで `docs/conformance.md`、`conformance.json`、`agreement.json` を作り直す。CI の「Check badges」がこの差分を見る。
 
 ## 制約
 
@@ -57,6 +59,7 @@
 - 識別子は英語、コメントとコミットメッセージは日本語で書く。文書は英語が正で、`*.ja.md` を同じコミットで直す。
 - 変えにくい決定（Big の箱の形、IR の多倍長定数、複製の節点、`mosac` の定数）は ADR 0025 に先に書き、所有者の承認を得てからコードに入る。
 - MSVC、GCC、Clang の 3 つで、`-Wall -Wextra -Wpedantic`（`/W4`）の警告ゼロを守る。
+- `src/builtins/arith.cpp`（776 行）と `src/machine/compile.cpp`（792 行）は 800 行の上限に近い。書き足す前に分ける。
 
 ## 所有者への問い（iso-notes に「A か B か」で書く。確認までは既定で進める）
 
@@ -80,16 +83,37 @@
 3. ヒープの Big の箱と、それを受ける側の 1 つ目: GC の印付けと移動、単一化、標準順序、`==` と変種、writer、第 1 引数の索引の鍵、型の検査（`integer/1`、`number/1`、`atomic/1`）。`integer_value` が Big を黙って切り詰めない形にする。評価で Big を読んだら、タスク 6 までの暫定として `evaluation_error(int_overflow)` にする（今の「int64 を越えた」と同じ見え方）。テストは C++ のハーネスで Big を直に作って行う。
 4. 受ける側の 2 つ目: 項から IR へ（`assertz`、consult、ゴール）、IR から項へ（`materialize`）、節の指紋、`clause/2`、`ExportedTerm`（`copy_term`、`nb_setval`、`throw`、`bagof` の鍵、`call_cleanup`）、`CopyNode`（`findall`）、`--heap-max` の勘定、「呼び出せる項」の判定 4 箇所。`mosac` はタスク 10 まで、Big の定数を持つ節を `native_eligible` から外す（ADR 0022 の共有項と同じ扱い）。
 5. Big を作る側の 1 つ目: 字句解析と reader、`number_codes/2`、`number_chars/2`、`atom_number/2`。2^63 以上の字面を Big として読む。`syntax_error(integer_overflow)` と `needs_minus` を無くす。`read.pl`、`atoms.pl`、`lexer_test.cpp` の期待値を直す（仕様の変更）。
-6. 算術 1: 評価の値の型、`+ - * // rem div mod abs sign min max`、比較 6 つ、整数と浮動小数点数の変換（`float/1`、`/`、浮動小数点数から整数への `truncate`、`round`、`ceiling`、`floor`、`integer`）、結果の大きさの事前の見積もり。
-7. 算術 2: `gcd`、`msb`、`^`、`>>`、`<<`、`/\`、`\/`、`xor`、`\`（2 の補数で無限に符号を延ばす意味）、`succ_or_zero`。`arith.pl` と `lib_between.pl` の `int_overflow` の期待値 14 件と、`machine_test.cpp` の 1 件を直す（仕様の変更）。
-8. 旗と準拠スイート: `bounded` を `false` にする。`max_integer` と `min_integer` は問い 1 の決定に従う。`excluded_tree` から `unbounded` を外す。ランナーの数の扱い（`lgt_shape.cpp`、`lgt_copy.cpp`、`lgt_approx.cpp`、`suite.cpp`、`lgt_judge.cpp`）を Big に広げる。`conformance_report_test.cpp` の固定値と `flags.pl` を直す。`docs/conformance.md` を作り直す。
+6. 算術 1 と旗:
+   - 評価の値の型。
+   - `+ - * // rem div mod abs sign min max msb`。
+   - 比較 6 つ。
+   - 整数と浮動小数点数の変換（`float/1`、`/`、浮動小数点数から整数への `truncate`、`round`、`ceiling`、`floor`、`integer`）。
+   - 結果の大きさの事前の見積もり。
+   - 同じタスクで `bounded` を `false` にする。`max_integer` と `min_integer` は問い 1 の決定に従う。
+   - `flags.pl` の期待値を直し、`docs/conformance.md`・`conformance.json`・`agreement.json` を作り直す（下の「旗をタスク 6 で変える理由」）。
+7. 算術 2: `gcd`、`^`、`>>`、`<<`、`/\`、`\/`、`xor`、`\`（2 の補数で無限に符号を延ばす意味）、`succ_or_zero`。`arith.pl` と `lib_between.pl` の `int_overflow` の期待値 14 件と、`machine_test.cpp` の 1 件を直す（仕様の変更。`+ - *` の分はタスク 6 で直す）。
+8. 準拠スイート:
+   - `excluded_tree` から `unbounded` を外す。
+   - ランナーの数の扱い（`lgt_shape.cpp`、`lgt_copy.cpp`、`lgt_approx.cpp`、`suite.cpp`、`lgt_judge.cpp`）を Big に広げる。
+   - `conformance_report_test.cpp` の固定値を直す。
+   - `docs/conformance.md` と `conformance.json` を作り直す。
 9. 整数の引数を取る組み込み述語（付録 B の 5）: Big を型の検査で通し、範囲の外の正の値は「大きすぎる int64」と同じ結果にし、負の値は定義域エラーにする。黙った `static_cast` を無くす（`sub_atom/5`、`length/2`、`set_stream_position/2`、`halt/1`、`op/3`）。`numbervars/3` の `representation_error(max_integer)` を無くし、`'$VAR'(N)` の書き出しを Big に広げる。`library(format)` の `~d` と桁の読み取りを確かめる。
 10. `mosac`: Big の定数を頭部と本体に出す。索引の鍵の検査を足す。`runtime.hpp` に箱を作る関数を足す。タスク 4 の `native_eligible` の除外を外す。`tests/mosac/` に Big の字面を持つプログラムを 1 つ足す。
 11. GC と資源: `MOSA_GC_STRESS` の下で `tests/pl/bigint.pl` を通す。Big を作り続けるループでメモリが頭打ちになることを確かめる（フェーズ7の試験と同じ形）。巨大な結果（`1 << (1 << 62)`、`2^(2^62)`）が確保の前に止まることを確かめる。
 12. 速さ: `bench.md` に Big の行を足す（`7^7^7`、1000 の階乗とその書き出し）。int64 の道が遅くなっていないことを、0.1.4 と同じ機械で測って確かめる。
 13. 文書を閉じる: CHANGELOG（日英）、マニュアルの第6章・第9章・第14章（日英。`check: limits` の塊を含む）、SPEC 第3節の 5 と 7 と処理系定義の表（日英）、README の準拠率、iso-notes、STATUS。CI の全ジョブが通ることを確かめ、フェーズを閉じるかを所有者に問う。
 
-タスク 6〜7 と 9 は、所有者の判断で順を入れ替えてよい。タスク 8 は 6〜7 の後に置く（スイートの件が算術を使う）。タスク 10 は 4 と 5 の後ならいつでもよい。
+タスク 7 と 9 は、所有者の判断で順を入れ替えてよい。タスク 8 は 6〜7 の後に置く（スイートの件が算術を使う）。タスク 10 は 4 と 5 の後ならいつでもよい。
+
+**旗をタスク 6 で変える理由（私の判断。設計のレビューで見つかった）**
+
+範囲内のスイートの件のうち 15 件は、`condition(current_prolog_flag(bounded, true))` の下で `int_overflow` を期待する（`iso_is_2_31` ほか。付録 C の 3）。
+
+整数があふれなくなるのに旗が `true` のままだと、この 15 件はタスク 6 から旗を変えるまでの間、不合格になる。合格率は約 97.7% に落ちる。ctest は通るが、CI の macOS のジョブの「Check badges」は `docs/conformance.json` の差分を見るので落ちる。
+
+旗を変えると、15 件はスイート自身の条件によって別欄に移る。旗は算術があふれなくなった時点で正しくなるので、算術と同じタスクで変える。これはアンチ目標の「件を手で別欄に移す」に当たらない。
+
+`bounded` が `false` で分母に入る `lgt_msb_1_07`・`08` が落ちないように、`msb` もタスク 6 に入れる。
 
 ## 決めたこと
 
@@ -113,7 +137,9 @@
 
 - `Num` に Big の種類を足す。int64 と double の道は今のまま、確保なしで通す。Big を持つときだけヒープの外の値を持つ。正確な形（`std::variant` か、種類と欄の組か）は実装者に任せる。
 - int64 の演算があふれたら、今の `int_overflow` の代わりに Big で計算し直す（`add_i`、`sub_i`、`mul_i` の失敗の道）。結果は正規形の規則で Int、IntBox、Big のどれかの Cell にする。
-- 評価の値がヒープの語を直に指したまま確保をしないこと。確保は GC を起こし、ヒープを動かす。`number_of` で Big を読むときは、語を `BigInt` に写す（私の判断。写さずに済ませるなら、確保をまたがないことを実装者が示す）。
+- `number_of` で Big を読むときは、語を `BigInt` に写す（私の判断）。
+  - 今の GC は、実行の 2 歩の間の安全点（`engine.cpp:572`）と `garbage_collect/0` でしか走らない。`Heap::grow` はその場で広げる（ADR 0010）。だから評価の途中でヒープは動かない。
+  - それでも写すのは、評価の値がヒープの語を指さない形にしておけば、この前提に頼らずに済むからである。
 - 結果の大きさの事前の見積もり: `<<`、`^`、`*` は、計算の前に結果の語数を見積もる。ヒープに入らないなら、計算も確保もせずに、ヒープの上限と同じ扱い（`ResourceLimit`。今のヒープの上限と同じく問い合わせを止める）にする（私の判断）。`1 << (1 << 62)` や `2^(2^62)` は確保の前に止まる。`7^7^7`（約 36,000 語、約 290 KB）は既定の `--heap-max` の中に収まる。
 - 浮動小数点数との混合: 整数を double に変える（問い 2 の既定 A）。Big の変換は正しい丸めで行う。double の範囲を越えたら `evaluation_error(float_overflow)` にする（スイートの `float_03` と `exp_01`）。`/` は今と同じく、整数どうしでも浮動小数点数を返す。`**` も今と同じく、いつも浮動小数点数である。
 - 浮動小数点数から整数へ（`truncate`、`round`、`ceiling`、`floor`、`integer`）: 有限の値は、正確な整数（必要なら Big）になる。例として `round(1.0e32)` は 100000000000000005366162204393472 になる。無限大と NaN は、今と同じエラーのままにする（私の判断）。
@@ -193,7 +219,7 @@ SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍�
 | --- | --- | --- |
 | `evaluation_error(int_overflow)` が値になる（14 件） | `tests/pl/arith.pl` の 13・74・75・77〜79・87・128・129・134・135・168 行、`lib_between.pl` の 29・43 行、`tests/cpp/machine_test.cpp` の 446 行 | 6・7 |
 | `syntax_error(integer_overflow)` が読める（17 件） | `tests/pl/read.pl` の 135〜143・159・160・162・166・167・173・174 行（最後の 2 行は `syntax_error(max_arity)` になる見込み）、`atoms.pl` の 87 行、`tests/cpp/lexer_test.cpp` の 128〜145 行 | 5 |
-| `bounded` が `false`、`max_integer` と `min_integer` が問い 1 に従う | `tests/pl/flags.pl` の 1・3・4 行、`read.pl` の `m1_min` と 145 行（問い 1 が B のとき）、`lib_format.pl` の 26・27 行 | 8 |
+| `bounded` が `false`、`max_integer` と `min_integer` が問い 1 に従う | `tests/pl/flags.pl` の 1・3・4 行、`read.pl` の `m1_min` と 145 行（問い 1 が B のとき）、`lib_format.pl` の 26・27 行 | 6 |
 | `unbounded` が範囲に入る | `tests/cpp/conformance_report_test.cpp` の 164・165・351・374 行 | 8 |
 | `max+1` が `int_overflow` にならない | マニュアルの `<!-- check: limits -->`（`docs/manual/en/06-arithmetic.md` の 182〜185 行、`ja` の 155〜158 行） | 13（実際に壊れるのはタスク 6。そこで直す） |
 | `numbervars/3` の `representation_error(max_integer)` が無くなる | iso-notes の 460 行が指すテスト | 9 |
@@ -214,8 +240,7 @@ SPEC 第9節の表に 10 行目を足す（タスク 1）。内容は「多倍�
 
 - 新しいタグを黙って誤る場所の見落とし。守りは 3 つある。付録 A の 6 の一覧を各タスクで潰すこと。`-Wswitch` で `default:` の無い `switch` を見つけること。往復のテスト（読む → 書く → 読む、`assertz` → `clause/2`、`findall`、`copy_term`、`nb_setval`、`throw` と `catch`、`mosac`）である。
 - GC の取りこぼし。Big を指す Cell が残っているのに箱を掃除すると、項が壊れる。フェーズ7と同じく、タスク 3 と 11 のレビュアーは opus で、`MOSA_GC_STRESS` の下で通すことをレビューの条件にする。
-- 評価の値がヒープを直に指したまま、確保で GC が起きること（上の 3）。
-- `7^7^7` の時間。Karatsuba で 1 件 1 秒未満を見込む。Debug の構成の CI で準拠スイートの時間が延びたら、所要時間を `bench.md` に書く。件を外すことはしない。
+- `7^7^7` の時間。Karatsuba で 1 件 1 秒未満を見込む（CI は Release だけを作る）。準拠スイートの時間が延びたら、所要時間を `bench.md` に書く。件を外すことはしない。
 - int64 の道が遅くなること。`Num` が大きくなり、`std::vector<Num>` の写しの費用が増える。タスク 6 のレビューで `bench` を測る。
 - 数は見積もりである（上の 10）。タスク 8 で実数に置き替え、この文書との違いを STATUS に書く。
 
