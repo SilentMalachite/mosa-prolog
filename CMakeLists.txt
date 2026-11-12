@@ -88,6 +88,7 @@ target_sources(mosa_lib PRIVATE
   src/module/library_path.cpp
   src/machine/load_path.cpp
   src/machine/compile.cpp
+  src/machine/compile_data.cpp
   src/machine/compile_shared.cpp
   src/machine/choice.cpp
   src/machine/cut.cpp
