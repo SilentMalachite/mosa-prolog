@@ -115,7 +115,7 @@ inline Ev from_num(Num num) {
 [[nodiscard]] int compare_int(const Impl& machine, Num left, Num right);
 // 結果の絶対値のビット数の見積もりが、ヒープの残りの語を越えるなら ResourceLimit("heap_limit") を投げる。
 void check_room(const Impl& machine, std::uint64_t bits);
-// + - * // rem div mod で、どちらかが Big のとき。引数はどちらも整数。
+// + - * // rem div mod と succ_or_zero のあふれ。引数はどちらも整数（int64 どうしでもよい）。
 [[nodiscard]] Ev big_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right);
 // 整数どうしの / で、どちらかが Big のとき。
 [[nodiscard]] Ev big_divide(Impl& machine, const Goal& goal, Num left, Num right);

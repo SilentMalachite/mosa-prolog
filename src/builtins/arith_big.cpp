@@ -233,7 +233,7 @@ Ev big_bits(Impl& machine, std::string_view name, Num left, Num right) {
   BigInt b_store;
   const BigInt& a = operand(machine, left, a_store);
   const BigInt& b = operand(machine, right, b_store);
-  // 2 の補数の幅は長い方より 1 語広いだけなので、+ と同じ見積もりで足りる。
+  // [-2^n, 2^n) の値どうしの /\ \/ xor は同じ範囲に収まるので、結果は n + 1 ビットで足り、+ と同じ見積もりでよい。
   check_room(machine, std::max(a.bit_length(), b.bit_length()) + 1);
   if (name == "/\\") return from_big(machine, bit_and(a, b));
   if (name == "\\/") return from_big(machine, bit_or(a, b));
