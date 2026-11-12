@@ -1,6 +1,6 @@
 % フェーズ10 タスク 10（ADR 0025）。mosac が Big の定数（頭部と本体）と第1引数の鍵を生成コードに書く（mosac_emit_bigint）。
-% index_big/2 は頭部に Big を持つ節が 8 つ以上あるので、インタプリタの索引（kIndexMinClauses）と生成コードの鍵の
-% 比べ（key_test）の両方を通る。2^63 と -(2^63)-1 は int64 のすぐ外、-(2^63) は int64 に入るので IntBox のまま。
+% index_big/2 は頭部に Big を持つ節が 8 つ以上あるので、生成コードの鍵の比べ（key_test）を通る。期待の答えはインタプリタの
+% 答えで、ctest は翻訳した実行ファイルだけを走らせる（インタプリタの Big の索引は bigint_copy_test の check_index）。2^63 と -(2^63)-1 は int64 のすぐ外、-(2^63) は int64 に入るので IntBox のまま。
 % 最後の節は鍵を持たないので、どの呼び出しの答えにも last が残る。
 :- initialization(main, main).
 
