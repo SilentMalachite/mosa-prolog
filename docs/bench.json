@@ -1,6 +1,7 @@
 {"generated":"mosatest --bench --report writes this file. Do not edit by hand.",
  "unit":"median wall-clock milliseconds of 5 runs per side; ratio = interpreter / translated",
  "programs":[
+  {"file":"bench/bigint.pl","count":12,"interpreter_ms":2150,"translated_ms":2115,"ratio":1.0},
   {"file":"bench/crypt.pl","count":300,"interpreter_ms":1216,"translated_ms":321,"ratio":3.8},
   {"file":"bench/deriv.pl","count":30000,"interpreter_ms":928,"translated_ms":127,"ratio":7.3},
   {"file":"bench/nrev.pl","count":20000,"interpreter_ms":3407,"translated_ms":128,"ratio":26.6},

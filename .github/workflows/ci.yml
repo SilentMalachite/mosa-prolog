@@ -8,7 +8,7 @@ on:
 # 差分テストは -LE diff / -L diff の 2 段に分け、全テストを 1 回ずつ流しつつ、一致率の行をログに出す（-V）。
 # 生成コードは diff_test.cmake と MOSA_WERROR=1 で警告を誤りにしてコンパイルする（「生成した C++ は常にコンパイルできる」）。
 # 持ち主の決定 3: mosac build した hello を成果物に上げ、別のジョブで落として動かす（ADR 0009 Review Focus 5）。
-# macOS では bench/ の 6 本を流し、比が docs/bench.json より 20% 以上下がれば警告にする（失敗にはしない、計画 Task 13）。
+# macOS では bench/ の 7 本を流し、比が docs/bench.json より 20% 以上下がれば警告にする（失敗にはしない、計画 Task 13）。
 # readme-linux と readme-windows は README の Build from source の手順を、README から取ってそのまま流す（持ち主の決定 A）。
 jobs:
   macos:
@@ -46,7 +46,7 @@ jobs:
       - name: Check badges
         shell: bash
         run: git diff --exit-code -- docs/conformance.json docs/agreement.json
-      # 計画 Task 13。bench/ の 6 本を docs/bench.json と同じ N で測り、プログラムごとの比（インタプリタ / 翻訳）が
+      # 計画 Task 13。bench/ の 7 本を docs/bench.json と同じ N で測り、プログラムごとの比（インタプリタ / 翻訳）が
       # コミット済みの比より 20% 以上下がれば警告にする。ランナーは表を測った機械（docs/bench.md）と違い、ミリ秒の
       # 絶対値どうしを比べると毎回 22-78% 遅いと出た（最終レビュー）。比は両側が同じ機械で測るので機械の速さが消える。
       # docs/bench.json は 1 行 1 プログラムなので、値は行から sed で抜く。比は小数 1 桁なので、awk で 10 倍の整数にして比べる。Actions の bash は
