@@ -21,6 +21,6 @@ Two's complement words: product and quotient are harder to write than with a sig
 
 ## Consequences
 
-`max_integer` and `min_integer` stay the int64 bounds (ADR 0001 gets one line; iso-notes asks "A or B?"); ADR 0002 gets one line that a Big box has a head word and is not scanned as terms.
-Tasks 3-8 of the phase 10 plan implement it (consumers first, producers after); `bounded` becomes `false` with the arithmetic in task 6; ADR 0001's "BIG reserved" becomes "BIG in use".
+`max_integer` and `min_integer` stay the int64 bounds (iso-notes asks "A or B?"); ADR 0001 and ADR 0002 each get an amendment section (the head word and the magnitude words are not terms).
+Tasks 3-8 and 10 of the phase 10 plan implement it (consumers first, producers after; the `mosac` part is task 10); `bounded` becomes `false` with the arithmetic in task 6; ADR 0001's "BIG reserved" becomes "BIG in use".
 Tests: `tests/pl/bigint.pl`, C++ tests of the box, copy and index, `MOSA_GC_STRESS` runs, and `mosatest --diff`.

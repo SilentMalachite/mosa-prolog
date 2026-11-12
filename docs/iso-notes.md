@@ -763,9 +763,9 @@ Decision (2026-11-05): A. On Windows, `prepare_console` (src/platform/console.cp
 
 ## 7.11.1.2 and 7.11.1.3 `max_integer` and `min_integer` when `bounded` is false
 
-The repository holds no text of ISO/IEC 13211-1, so this is not settled by its wording. Phase 10 makes the flag `bounded` false (7.11.1.1), and then 7.11.1.2 and 7.11.1.3 define `max_integer` and `min_integer` only for a bounded implementation. The conformance suite reads them only when `bounded` is true (`iso_current_prolog_flag_2_03`, `04`), and `tests/pl/read.pl` (the helper `m1_min`, 22 cases) and `flags.pl` read them as the int64 bounds. The phase 9 design said "dropped by 7.11.1.2", which was not checked against the text and is not relied on.
+The repository holds no text of ISO/IEC 13211-1, so this is not settled by its wording. Phase 10 makes the flag `bounded` false (7.11.1.1), and whether 7.11.1.2 and 7.11.1.3 define `max_integer` and `min_integer` when `bounded` is false cannot be settled without the text. The conformance suite reads them only when `bounded` is true (`iso_current_prolog_flag_2_03`, `04`), and `tests/pl/read.pl` (the helper `m1_min`, 22 cases) and `flags.pl` read them as the int64 bounds. The phase 9 design said "dropped by 7.11.1.2", which was not checked against the text and is not relied on.
 
-A or B?: A: keep the flags and return the int64 bounds (2^63-1 and -2^63), as SWI-Prolog and Scryer Prolog do. B: remove the flags, so `current_prolog_flag(max_integer, X)` fails.
+A or B?: A: keep the flags and return the int64 bounds (2^63-1 and -2^63), as SWI-Prolog and Scryer Prolog do. B: remove the flags, so `current_prolog_flag(max_integer, X)` raises `domain_error(prolog_flag, max_integer)` as for any unknown flag (8.17.2; `src/builtins/flags.cpp`).
 
 Until the owner confirms: A.
 

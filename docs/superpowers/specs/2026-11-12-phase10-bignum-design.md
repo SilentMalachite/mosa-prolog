@@ -67,7 +67,7 @@
 
 1. **`bounded` が `false` のときの `max_integer` と `min_integer`（7.11.1.2、7.11.1.3）**
    - A: 旗を残し、int64 の上限と下限を返す。SWI-Prolog と Scryer Prolog はこの形である。
-   - B: 旗を無くす。`current_prolog_flag(max_integer, X)` は失敗する。
+   - B: 旗を無くす。`current_prolog_flag(max_integer, X)` は `domain_error(prolog_flag, max_integer)` を投げる（8.17.2）。
    - 既定は A（私の判断）。理由は 2 つある。スイートは `bounded` が `true` のときにしかこの 2 つを読まない（`iso_current_prolog_flag_2_03`・`04`）。`tests/pl/read.pl` の補助述語 `m1_min` を使う 22 件と `flags.pl` がこの 2 つを読む。フェーズ9の設計の「7.11.1.2 により外す」は本文を確かめた記述ではないので、根拠にしない。A なら ADR 0001 の「`max_integer` は 2^63−1 のまま」は文として残り、意味を「int64 の境界」と書き足す。
 2. **double の範囲を越える整数と浮動小数点数の比較、`min/2` と `max/2`（8.7、9.3.8、9.3.9）**
    - A: 今の規則（整数を浮動小数点数に変えて比べる。9.3.8 の決定 B）のまま進める。変えられない値は `evaluation_error(float_overflow)` にする。

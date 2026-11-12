@@ -765,9 +765,9 @@ A か B か（レビュー L8）: Windows でも stdin、stdout、stderr を bin
 
 ## 7.11.1.2 と 7.11.1.3 `bounded` が false のときの `max_integer` と `min_integer`
 
-リポジトリに ISO/IEC 13211-1 の本文は無いので、字面では決まらない。フェーズ 10 は旗 `bounded` を false にし（7.11.1.1）、すると 7.11.1.2 と 7.11.1.3 は `max_integer` と `min_integer` を有界の処理系にだけ定める。準拠スイートがこの 2 つを読むのは `bounded` が true のときだけで（`iso_current_prolog_flag_2_03`、`04`）、`tests/pl/read.pl`（補助述語 `m1_min`、22 件）と `flags.pl` は int64 の境界として読む。フェーズ 9 の設計の「7.11.1.2 により外す」は本文を確かめた記述ではないので、根拠にしない。
+リポジトリに ISO/IEC 13211-1 の本文は無いので、字面では決まらない。フェーズ 10 は旗 `bounded` を false にし（7.11.1.1）、7.11.1.2 と 7.11.1.3 が `bounded` が false のときにも `max_integer` と `min_integer` を定めるかは、本文なしには決まらない。準拠スイートがこの 2 つを読むのは `bounded` が true のときだけで（`iso_current_prolog_flag_2_03`、`04`）、`tests/pl/read.pl`（補助述語 `m1_min`、22 件）と `flags.pl` は int64 の境界として読む。フェーズ 9 の設計の「7.11.1.2 により外す」は本文を確かめた記述ではないので、根拠にしない。
 
-A か B か: A は旗を残し、int64 の境界（2^63-1 と -2^63）を返す（SWI-Prolog と Scryer Prolog と同じ）。B は旗を無くし、`current_prolog_flag(max_integer, X)` を失敗させる。
+A か B か: A は旗を残し、int64 の境界（2^63-1 と -2^63）を返す（SWI-Prolog と Scryer Prolog と同じ）。B は旗を無くし、`current_prolog_flag(max_integer, X)` は、未知の旗と同じく `domain_error(prolog_flag, max_integer)` を投げる（8.17.2。`src/builtins/flags.cpp`）。
 
 持ち主が確かめるまでは A。
 

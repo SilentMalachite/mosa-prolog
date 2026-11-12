@@ -21,6 +21,6 @@ IR: `IrTag::Big` を足す。`integer` は負なら 1、正なら 0。`args` は
 
 ## 結果
 
-`max_integer` と `min_integer` は int64 の境界のまま（ADR 0001 に 1 行足す。iso-notes が「A か B か」を問う）。ADR 0002 には、Big の箱は頭の語を持ち、項として走査しないことを 1 行足す。
-実装はフェーズ 10 の計画のタスク 3〜8（受ける側が先、作る側が後）。`bounded` はタスク 6 で算術とともに `false` になる。ADR 0001 の「BIG は予約」は「BIG を使う」になる。
+`max_integer` と `min_integer` は int64 の境界のまま（iso-notes が「A か B か」を問う）。ADR 0001 と ADR 0002 には改訂の節を足す（頭の語と絶対値の語は項ではない）。
+実装はフェーズ 10 の計画のタスク 3〜8 と 10（受ける側が先、作る側が後。`mosac` の部分はタスク 10）。`bounded` はタスク 6 で算術とともに `false` になる。ADR 0001 の「BIG は予約」は「BIG を使う」になる。
 テスト: `tests/pl/bigint.pl`、箱と複製と索引の C++ テスト、`MOSA_GC_STRESS` での実行、`mosatest --diff`。
