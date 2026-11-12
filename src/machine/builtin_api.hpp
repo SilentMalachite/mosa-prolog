@@ -71,6 +71,11 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] Cell list_from_cells(Impl& machine, const std::vector<Cell>& items);
 [[nodiscard]] bool one_char_atom(const Impl& machine, Cell cell, char32_t& code);
 [[nodiscard]] bool scalar_code(std::int64_t code);
+// 整数のセル（Int、IntBox か Big）が負か。Big は int64 の外なので、符号だけで範囲の外のどちら側かが決まる（ADR 0025 の
+// 正規形）。整数でないセルを渡さない（integer_value が止まる）。範囲の検査を Big と int64 で 1 つの式にするために置く。
+[[nodiscard]] bool integer_negative(const Impl& machine, Cell cell);
+// セルが Unicode のスカラー値の int64 か。Big はどの符号でも範囲の外なので、範囲の外の int64 と同じく偽。
+[[nodiscard]] bool code_point_cell(const Impl& machine, Cell cell);
 // '$stream'(N) の N（Int、IntBox か Big）が指す流れの番号。負、流れの数以上、Big なら nullopt（existence_error）。
 [[nodiscard]] std::optional<std::size_t> stream_number(const Impl& machine, Cell number);
 // halt/1 の終了状態（8.17.4、iso-notes「8.17.4 halt/1」の決定 A）。code は束縛済み。整数でなければ type_error(integer)、

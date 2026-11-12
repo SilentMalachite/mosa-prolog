@@ -564,7 +564,7 @@ bool parse_indicator(Impl& machine, const Goal& goal, Cell pred, HeadName& indic
   }
   // Big は int64 の外なので、負なら負の int64 と、正なら上限を越える int64 と同じ誤りになる。
   const bool big = arity.tag() == Tag::Big;
-  if (big ? machine.heap.big_negative(arity) : machine.heap.integer_value(arity) < 0) {
+  if (integer_negative(machine, arity)) {
     raise_formal(machine, formal_domain(machine, "not_less_than_zero", arity), goal.name, goal.arity);
     return false;
   }

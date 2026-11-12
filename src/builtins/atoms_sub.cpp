@@ -42,9 +42,7 @@ bool reject_type(Impl& machine, const Goal& goal, Cell cell) {
 
 bool reject_domain(Impl& machine, const Goal& goal, Cell cell) {
   if (machine.heap.unbound(cell)) return false;
-  const bool negative =
-      cell.tag() == Tag::Big ? machine.heap.big_negative(cell) : machine.heap.integer_value(cell) < 0;
-  if (!negative) return false;
+  if (!integer_negative(machine, cell)) return false;
   domain_at(machine, goal, cell);
   return true;
 }

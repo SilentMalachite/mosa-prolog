@@ -139,7 +139,7 @@ std::optional<Cell> read_indicator(Impl& machine, Cell cell, PredKey& key) {
   if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
   if (!is_integer_tag(arity.tag())) return formal_type(machine, "integer", arity);
   const bool big = arity.tag() == Tag::Big;
-  if (big ? machine.heap.big_negative(arity) : machine.heap.integer_value(arity) < 0) {
+  if (integer_negative(machine, arity)) {
     return formal_domain(machine, "not_less_than_zero", arity);
   }
   if (big || machine.heap.integer_value(arity) > 1024 - *shift) return formal_representation(machine, "max_arity");

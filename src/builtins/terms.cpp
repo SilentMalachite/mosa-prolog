@@ -28,11 +28,6 @@ constexpr std::uint16_t kMaxArity = 1024;
 // int64 の整数だけ。integer_value で値を読む前の検査に使うので、Big を含めると読んだところで止まる。
 bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
-// is_integer_tag の整数が負か。Big は int64 の外なので、符号だけで範囲の外のどちら側かが決まる（ADR 0025 の正規形）。
-bool negative_integer(const Impl& machine, Cell cell) {
-  return cell.tag() == Tag::Big ? machine.heap.big_negative(cell) : machine.heap.integer_value(cell) < 0;
-}
-
 bool is_atomic(Cell cell) {
   return cell.tag() == Tag::Atom || is_integer_tag(cell.tag()) || cell.tag() == Tag::Float;
 }
@@ -98,7 +93,7 @@ Cell make_term(Impl& machine, Cell name, const std::vector<Cell>& args) {
 
 // 8.5.1.3 の順で、負の項数を上限より先に見る。正の Big はどの int64 より大きいので、上限を越える側に入る。
 std::optional<Cell> arity_problem(Impl& machine, Cell arity) {
-  if (negative_integer(machine, arity)) return formal_domain(machine, "not_less_than_zero", arity);
+  if (integer_negative(machine, arity)) return formal_domain(machine, "not_less_than_zero", arity);
   if (arity.tag() == Tag::Big || machine.heap.integer_value(arity) > kMaxArity) {
     return formal_representation(machine, "max_arity");
   }
@@ -169,7 +164,7 @@ void run_arg(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_type(machine, "integer", index), goal.name, goal.arity);
     return;
   }
-  if (negative_integer(machine, index)) {
+  if (integer_negative(machine, index)) {
     raise_formal(machine, formal_domain(machine, "not_less_than_zero", index), goal.name, goal.arity);
     return;
   }

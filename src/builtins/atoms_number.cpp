@@ -59,8 +59,7 @@ bool reject_number_items(Impl& machine, const Goal& goal, const WalkedList& walk
         type_at(machine, goal, "integer", item);
         return true;
       }
-      // Big はどの符号でも Unicode の範囲の外にある。
-      if (item.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(item))) {
+      if (!code_point_cell(machine, item)) {
         raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
         return true;
       }

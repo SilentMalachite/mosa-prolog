@@ -461,6 +461,10 @@ A か B か: A はフェーズ7で、マニュアルとリリースパッケー�
 
 2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` の番号にはフェーズ10から上限が無く、64 ビットの整数を超えた番号は Big になる（フェーズ7〜9 はそこで `representation_error(max_integer)`。SWI は `representation_error(tagged_integer)`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
 
+`tab/1,2` の int64 を越える数（フェーズ10、設計の 8）。正の Big は大きすぎる int64 と同じ結果になり、`tab(1 << 40)` はその数だけ空白を書く。だからフェーズ10 のタスク 8 から、正の Big は空白を終わりなく書く（`src/builtins/chars.cpp` の `run_tab`）。負の Big は負の数と同じく何も書かない（`tests/pl/bigint.pl` の `tab_big_neg`）。タスク 8 の前は、Big は `evaluation_error(int_overflow)` だった。SWI-Prolog はどちらの符号の Big にもこれを出す。
+
+A か B か: A は正の Big の終わらない出力を、大きすぎる int64 と同じく残す。既定で、今の振る舞いである。その代わり、`with_output_to/2` の中など記憶の流れでは、出力がヒープの上限の外で伸びる。そこでの `tab(1 << 40)` は 15 秒で RSS 11 GB に達した。だからプロセスは `--heap-max` で止まらず、メモリを使い切る。B はどちらの符号の Big も、SWI-Prolog の `evaluation_error(int_overflow)` のような誤りにする。`run_tab` の 1 行の変更で済む。確認までは A のままにする。
+
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
 SPEC 第5節は段階 F に `predicate_property/2` を挙げるが、頭部が変数のときと、無いモジュールを指したときを決めていない。
@@ -785,4 +789,4 @@ ISO/IEC 13211-1 の 8.17.4 は終了状態に整数を取るが、OS が受け�
 
 A か B か: A は C++ の `int` の外の整数を、正なら `representation_error(max_integer)`、負なら `representation_error(min_integer)` にする（7.12.2 g の Flag）。`int` の外の int64 にも Big にも同じ規則を当てる。B は整数の下位のビットを OS に渡す。
 
-決定（2026-11-13）: A（所有者の決定 A）。B は採らない。`halt/1` と、翻訳した `halt/1` は 1 つの検査を共に使う（`src/builtins/control.cpp` の `halt_code_problem`。`src/machine/catch.cpp` の `arm_halt`）。テストは `tests/pl/bigint.pl` の `halt_*`。`int` の中の整数は今までどおりそのまま OS に渡り、OS がその下位のビットを取る（たとえば POSIX では 8 ビット）。
+決定（2026-11-13）: A（所有者の決定 A）。B は採らない。IR の腕 `arm_halt`（`src/machine/catch.cpp`）と組み込みの入口 `run_halt`（`src/builtins/control.cpp`）は、1 つの検査 `halt_code_problem`（`control.cpp`）を共に使う。インタプリタの `compile.cpp` も mosac の codegen（`emit_body.cpp`）も `halt` を `IrTag::Halt` に下ろすので、解釈するコードと翻訳したコードはどちらも `arm_halt` を通る。テストは `tests/pl/bigint.pl` の `halt_*`。`int` の中の整数は今までどおりそのまま OS に渡り、OS がその下位のビットを取る（たとえば POSIX では 8 ビット）。

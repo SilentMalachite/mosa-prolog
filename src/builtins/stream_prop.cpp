@@ -323,13 +323,12 @@ PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
     const Cell part = machine.heap.deref(machine.heap.arg(cell, index));
     if (machine.heap.unbound(part)) return PosKind::Inst;
     if (!is_integer_tag(part.tag())) return PosKind::Domain;
+    if (integer_negative(machine, part)) return PosKind::Domain;
     if (part.tag() == Tag::Big) {
-      if (machine.heap.big_negative(part)) return PosKind::Domain;
       triple.beyond = true;
       continue;
     }
     const auto value = machine.heap.integer_value(part);
-    if (value < 0) return PosKind::Domain;
     zero_line = zero_line || (index > 0 && value == 0);
     parts[index] = static_cast<std::size_t>(value);
   }

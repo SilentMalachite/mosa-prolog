@@ -347,8 +347,7 @@ bool codes_of(Impl& machine, const Goal& goal, const WalkedList& walked, std::st
   for (const Cell item : walked.items) {
     if (machine.heap.unbound(item)) return raise_inst(machine, goal);
     if (!is_integer_tag(item.tag())) return raise_type(machine, goal, "integer", item);
-    // Big はどの符号でも Unicode の範囲の外にあり、範囲の外の int64 と同じく文字コードではない。
-    if (item.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(item))) {
+    if (!code_point_cell(machine, item)) {
       raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
       return true;
     }

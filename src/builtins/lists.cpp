@@ -94,13 +94,12 @@ std::optional<Cell> sort_key_problem(Impl& machine, Cell key, SortBy& by) {
   if (machine.heap.unbound(key)) return formal_instantiation(machine);
   if (!is_integer_tag(key.tag())) return formal_type(machine, "sort_key", key);
   by.key_cell = key;
+  if (integer_negative(machine, key)) return formal_domain(machine, "not_less_than_one", key);
   if (key.tag() == Tag::Big) {
-    if (machine.heap.big_negative(key)) return formal_domain(machine, "not_less_than_one", key);
     by.big_key = true;
     return std::nullopt;
   }
   by.key = machine.heap.integer_value(key);
-  if (by.key < 0) return formal_domain(machine, "not_less_than_one", key);
   return std::nullopt;
 }
 
@@ -188,9 +187,9 @@ std::optional<Cell> length_problem(Impl& machine, const Goal& goal, LengthShape&
   if (!machine.heap.unbound(count) && !is_integer_tag(count.tag())) return formal_type(machine, "integer", count);
   const WalkedList walked = walk_list(machine, list);
   if (walked.shape == ListShape::Bad) return formal_type(machine, "list", list);
-  const bool negative = count.tag() == Tag::Big ? machine.heap.big_negative(count)
-                                                : is_int(count) && machine.heap.integer_value(count) < 0;
-  if (negative) return formal_domain(machine, "not_less_than_zero", count);
+  if (!machine.heap.unbound(count) && integer_negative(machine, count)) {
+    return formal_domain(machine, "not_less_than_zero", count);
+  }
   shape.prefix = walked.items.size();
   if (walked.shape == ListShape::Variable) shape.tail = list;
   if (walked.shape == ListShape::Partial) shape.tail = walked.tail;

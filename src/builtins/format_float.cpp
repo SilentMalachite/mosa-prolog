@@ -33,9 +33,7 @@ std::optional<Cell> float_problem(Impl& machine, Cell kind, Cell digits, Cell va
   const auto name = machine.atoms.name(atom_id(kind));
   if (name != "f" && name != "e") return formal_domain(machine, "format_directive", kind);
   if (!is_integer_tag(digits.tag())) return formal_type(machine, "integer", digits);
-  const bool negative =
-      digits.tag() == Tag::Big ? machine.heap.big_negative(digits) : machine.heap.integer_value(digits) < 0;
-  if (negative) return formal_domain(machine, "not_less_than_zero", digits);
+  if (integer_negative(machine, digits)) return formal_domain(machine, "not_less_than_zero", digits);
   if (value.tag() != Tag::Float) return formal_type(machine, "float", value);
   return std::nullopt;
 }

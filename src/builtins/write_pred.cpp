@@ -17,7 +17,7 @@
 //   existence_error(stream),
 //   permission_error(output, stream), permission_error(output, binary_stream)
 // テスト: tests/pl/write.pl, tests/pl/print.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,
-//   tests/cpp/portray_halt_test.cpp
+//   tests/cpp/portray_halt_test.cpp, tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
 

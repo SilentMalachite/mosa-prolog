@@ -110,7 +110,7 @@ bool one_indicator(Impl& machine, Cell cell, PredKey& key, std::optional<Cell>& 
   if (left.tag() != Tag::Atom) return false;
   if (!is_integer_tag(right.tag())) return false;
   const bool big = right.tag() == Tag::Big;
-  if (big ? machine.heap.big_negative(right) : machine.heap.integer_value(right) < 0) return false;
+  if (integer_negative(machine, right)) return false;
   // Arity+2 を足してから比べると 64 ビットの上限で桁あふれするので、上限の側から引いて比べる。正の Big も上限の外。
   if (big || machine.heap.integer_value(right) > 1024 - *shift) {
     formal = formal_representation(machine, "max_arity");

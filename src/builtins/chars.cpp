@@ -213,9 +213,9 @@ bool reject_in_code(Impl& machine, const Goal& goal, Cell cell) {
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return false;
   if (!is_integer_tag(cell.tag())) return raise_type(machine, goal, "integer", cell);
-  // Big はどの符号でも -1 でも Unicode の範囲でもない。
-  const bool code = cell.tag() != Tag::Big &&
-                    (machine.heap.integer_value(cell) == -1 || scalar_code(machine.heap.integer_value(cell)));
+  // Big はどの符号でも -1 でも Unicode の範囲でもない。終端の印 -1 だけを code_point_cell の外で足す。
+  const bool code =
+      code_point_cell(machine, cell) || (cell.tag() != Tag::Big && machine.heap.integer_value(cell) == -1);
   if (!code) {
     raise_formal(machine, formal_representation(machine, "in_character_code"), goal.name, goal.arity);
     return true;
@@ -237,8 +237,7 @@ bool reject_put_code(Impl& machine, const Goal& goal, Cell cell, char32_t& code)
   cell = machine.heap.deref(cell);
   if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
   if (!is_integer_tag(cell.tag())) return raise_type(machine, goal, "integer", cell);
-  // Big はどの符号でも Unicode の範囲の外にある。
-  if (cell.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(cell))) {
+  if (!code_point_cell(machine, cell)) {
     raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
     return true;
   }

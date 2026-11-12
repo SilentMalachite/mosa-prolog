@@ -220,7 +220,7 @@ bool run_halt(Impl& machine, const Goal& goal) {
 std::optional<Cell> halt_code_problem(Impl& machine, Cell code, int& status) {
   if (!is_integer_tag(code.tag())) return formal_type(machine, "integer", code);
   const bool big = code.tag() == Tag::Big;
-  const bool negative = big ? machine.heap.big_negative(code) : machine.heap.integer_value(code) < 0;
+  const bool negative = integer_negative(machine, code);
   if (big || machine.heap.integer_value(code) > std::numeric_limits<int>::max() ||
       machine.heap.integer_value(code) < std::numeric_limits<int>::min()) {
     return formal_representation(machine, negative ? "min_integer" : "max_integer");

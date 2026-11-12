@@ -146,13 +146,18 @@ test(format_big, (with_output_to(atom(A), format('~d', [184467440737090979790765
 test(format_float_big_neg, '$format_float'(f, -1844674407370909797907654848955145546336677616, 1.0, _), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
 test(op_big, op(1844674407370909797907654848955145546336677616, xfx, foo), error(domain_error(operator_priority, 1844674407370909797907654848955145546336677616))).
 test(op_big_neg, op(-1844674407370909797907654848955145546336677616, xfx, foo), error(domain_error(operator_priority, -1844674407370909797907654848955145546336677616))).
+test(current_op_big, current_op(1844674407370909797907654848955145546336677616, xfx, _), error(domain_error(operator_priority, 1844674407370909797907654848955145546336677616))).
 % 文字コードのリストの Big は、範囲の外の int64 と同じく representation_error(character_code)。
 test(atom_codes_big, atom_codes(_, [0'a, 1844674407370909797907654848955145546336677616]), error(representation_error(character_code))).
 test(number_codes_big, number_codes(_, [0'1, 1844674407370909797907654848955145546336677616]), error(representation_error(character_code))).
 test(open_string_big, open_string([0'a, 1844674407370909797907654848955145546336677616], _), error(representation_error(character_code))).
 test(char_width_big, '$char_width'(1844674407370909797907654848955145546336677616, _), error(representation_error(character_code))).
-test(get_code_big, peek_code(1844674407370909797907654848955145546336677616), error(representation_error(in_character_code))).
+test(peek_code_big, peek_code(1844674407370909797907654848955145546336677616), error(representation_error(in_character_code))).
 test(put_code_big, put_code(-1844674407370909797907654848955145546336677616), error(representation_error(character_code))).
+% バイトの Big は、範囲の外の int64（put_byte(S, 256)、peek_byte(S, -2)）と同じく type_error(byte) と type_error(in_byte)。
+% 流れの検査はバイトの検査より先なので、バイナリの流れが要る。記憶の流れはテキストだけなので、tests/tmp のファイルを使う。
+test(put_byte_big, setup_call_cleanup(open('tests/tmp/bigint_bytes', write, S, [type(binary)]), put_byte(S, 1844674407370909797907654848955145546336677616), close(S)), error(type_error(byte, 1844674407370909797907654848955145546336677616))).
+test(peek_byte_big_neg, (setup_call_cleanup(open('tests/tmp/bigint_bytes', write, W, [type(binary)]), put_byte(W, 1), close(W)), setup_call_cleanup(open('tests/tmp/bigint_bytes', read, S, [type(binary)]), peek_byte(S, -1844674407370909797907654848955145546336677616), close(S))), error(type_error(in_byte, -1844674407370909797907654848955145546336677616))).
 test(term_to_atom_codes_big, term_to_atom(_, [0'1, 1844674407370909797907654848955145546336677616]), error(type_error(string, [0'1, 1844674407370909797907654848955145546336677616]))).
 test(position_property_big, (open_string(ab, S), \+ stream_property(S, position(stream_position(1844674407370909797907654848955145546336677616, _, _)))), true).
 test(position_big_line, (open_string(ab, S), set_stream_position(S, stream_position(0, 1844674407370909797907654848955145546336677616, 1))), error(domain_error(stream_position, stream_position(0, 1844674407370909797907654848955145546336677616, 1)))).

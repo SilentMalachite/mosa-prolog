@@ -182,7 +182,7 @@ bool accept_indicator(Impl& machine, const Goal& goal, Cell pred, WantedPred& wa
   }
   if (!machine.heap.unbound(arity)) {
     const bool big = arity.tag() == Tag::Big;
-    if (big ? machine.heap.big_negative(arity) : machine.heap.integer_value(arity) < 0) {
+    if (integer_negative(machine, arity)) {
       raise_formal(machine, formal_domain(machine, "not_less_than_zero", arity), goal.name, goal.arity);
       return false;
     }

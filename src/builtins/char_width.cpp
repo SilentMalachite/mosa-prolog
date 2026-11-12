@@ -18,8 +18,7 @@ void prove_char_width(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_type(machine, "integer", code), goal.name, goal.arity);
     return;
   }
-  // Big はどの符号でも Unicode の範囲の外にあり、範囲の外の int64 と同じく文字コードではない。
-  if (code.tag() == Tag::Big || !scalar_code(machine.heap.integer_value(code))) {
+  if (!code_point_cell(machine, code)) {
     raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
     return;
   }

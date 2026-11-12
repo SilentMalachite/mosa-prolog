@@ -129,16 +129,6 @@ bool prove_concat(Impl& machine, const Goal& goal, std::size_t begin, std::size_
   return false;
 }
 
-bool negative_int(const Impl& machine, Cell cell) {
-  if (cell.tag() == Tag::Big) return machine.heap.big_negative(cell);
-  return is_int_cell(cell) && machine.heap.integer_value(cell) < 0;
-}
-
-// Big はどの符号でも Unicode の範囲の外にあり、範囲の外の int64 と同じく文字コードではない。
-bool code_cell(const Impl& machine, Cell cell) {
-  return is_int_cell(cell) && scalar_code(machine.heap.integer_value(cell));
-}
-
 bool has_var_item(const Impl& machine, const WalkedList& walked) {
   for (const Cell item : walked.items) {
     if (machine.heap.unbound(item)) return true;
@@ -153,7 +143,7 @@ bool reject_codes(Impl& machine, const Goal& goal, const WalkedList& walked) {
       type_at(machine, goal, "integer", item);
       return true;
     }
-    if (!code_cell(machine, item)) {
+    if (!code_point_cell(machine, item)) {
       raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
       return true;
     }
@@ -225,7 +215,7 @@ void run_atom_length(Impl& machine, const Goal& goal) {
     type_at(machine, goal, "integer", length);
     return;
   }
-  if (negative_int(machine, length)) {
+  if (!machine.heap.unbound(length) && integer_negative(machine, length)) {
     domain_at(machine, goal, length);
     return;
   }
@@ -306,7 +296,7 @@ void run_char_code(Impl& machine, const Goal& goal) {
     type_at(machine, goal, "integer", code);
     return;
   }
-  if (!code_var && !code_cell(machine, code)) {
+  if (!code_var && !code_point_cell(machine, code)) {
     raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
     return;
   }
@@ -431,6 +421,14 @@ bool one_char_atom(const Impl& machine, Cell cell, char32_t& code) {
 
 bool scalar_code(std::int64_t code) {
   return code >= 0 && code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF);
+}
+
+bool integer_negative(const Impl& machine, Cell cell) {
+  return cell.tag() == Tag::Big ? machine.heap.big_negative(cell) : machine.heap.integer_value(cell) < 0;
+}
+
+bool code_point_cell(const Impl& machine, Cell cell) {
+  return is_int_cell(cell) && scalar_code(machine.heap.integer_value(cell));
 }
 
 bool redo_atoms(Impl& machine) {
