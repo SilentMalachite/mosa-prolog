@@ -40,7 +40,8 @@ constexpr std::string_view k_tak =
 constexpr std::string_view k_make_list = "mk(0, []) :- !. mk(N, [N|T]) :- N1 is N - 1, mk(N1, T).";
 constexpr std::string_view k_member = "member(X, [X|_]). member(X, [_|T]) :- member(X, T).";
 // 1 回に 5 語の Big の箱（ADR 0025）を積むので、GC が箱を回収しなければ 13,108 回目までに 2^16 語の上限に当たる。
-// 作った Big を次の回で読むので、GC が箱を移し損ねると差が合わずに失敗する。
+// 作った Big は次の回でも読むが、このテストが走る既定の閾値とストレス 1000 では、GC が箱を移し損ねたことを
+// 見つけるのは最初の K である（check_big_loop。前の回の Big で見つかるのはストレス 1 の tests/pl/gc.pl）。
 constexpr std::string_view k_big_loop =
     "loop(0, _) :- !. loop(N, P) :- X is 2^200 + N, P - X =:= 1, N1 is N - 1, loop(N1, X).";
 
