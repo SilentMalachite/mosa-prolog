@@ -350,6 +350,8 @@ void check_side_only(const std::filesystem::path& root) {
   mosa_test::check(!error, "ground dir");
   // unbounded は範囲の中（フェーズ10）。注釈の行しか無いので件は無く、範囲の外なら別欄に「unbounded 1」と出る。
   mosa_test::check(write_text(prolog / "unbounded" / "tests.lgt", "% test(nope, true).\n"), "write unbounded");
+  // 別欄は tests.lgt だけを数える。test( を含む別の名前のファイルは読まない（範囲の外の木でも）。
+  mosa_test::check(write_text(prolog / "unicode" / "encodings" / "skip.txt", "test(nope, true).\n"), "write skip");
   mosa_test::check(write_text(report, "OLD\n"), "seed report");
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   mosa_test::check(code == 1, "side returns 1");
@@ -373,6 +375,7 @@ void check_side_only(const std::filesystem::path& root) {
   mosa_test::check(body.find("soft_cut") == std::string::npos, "soft cut not listed");
   mosa_test::check(body.find("ground_1") == std::string::npos, "missing tests.lgt");
   mosa_test::check(body.find("unbounded") == std::string::npos, "unbounded in scope not side");
+  mosa_test::check(body.find("encodings") == std::string::npos, "no tests.lgt name");
   mosa_test::check(body.find("bomb") == std::string::npos, "body not copied");
   mosa_test::check(body.find("OLD") == std::string::npos, "overwritten");
 }

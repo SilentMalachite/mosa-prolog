@@ -158,6 +158,34 @@ void check_big(const std::filesystem::path& root) {
   mosa_test::check(failed.find("big_other ") != std::string::npos, "big_other fails");
 }
 
+// 判定器が自分で評価する表明（=~= を含む）の < =< > >= は、整数どうしなら正確に比べる。double を通すと 2^53+1 > 2^53 が
+// 偽になり、2^100 >= 2^100+1 が真になる（偽の合格）。big_ge_false は不合格が正しい。big_float_gt は浮動小数点数との対照。
+std::string order_text() {
+  return ":- uses(lgtunit, [op(700, xfx, =~=), (=~=)/2]).\n"
+         "test(big_gt, true((X =~= 1.2676506002282294e30, X > 1267650600228229401496703205375))) :- {X is 2^100}.\n"
+         "test(int_gt, true((X =~= 9.007199254740992e15, X > 9007199254740992))) :- {X is 2^53 + 1}.\n"
+         "test(big_float_gt, true((X =~= 1.2676506002282294e30, X > 1.0e30))) :- {X is 2^100}.\n"
+         "test(big_ge_false, true((X =~= 1.2676506002282294e30, X >= 1267650600228229401496703205377))) :-\n"
+         "    {X is 2^100}.\n";
+}
+
+void check_order(const std::filesystem::path& root) {
+  const auto suite = root / "order";
+  const auto report = root / "order-report.md";
+  mosa_test::check(write_text(suite / "logtalk" / "prolog" / "unbounded" / "tests.lgt", order_text()), "write order");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  if (!has_exact_line(body, "合格数: 3")) show("order report", body);
+  mosa_test::check(code != 0, "order reports failures");
+  mosa_test::check(has_exact_line(body, "分母: 4"), "order denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 3"), "order passed");
+  for (const std::string_view name : {"big_gt ", "int_gt ", "big_float_gt "}) {
+    mosa_test::check(failed.find(name) == std::string::npos, std::string{name});
+  }
+  mosa_test::check(failed.find("big_ge_false ") != std::string::npos, "big_ge_false fails");
+}
+
 }  // namespace
 
 int main() {
@@ -166,6 +194,7 @@ int main() {
     Fixture fixture(root);
     check_approx(root);
     check_big(root);
+    check_order(root);
   }
   return mosa_test::failures();
 }

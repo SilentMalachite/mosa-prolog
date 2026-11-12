@@ -6,6 +6,7 @@
 
 #include "internal.hpp"
 
+#include "mosa/bigint.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/heap_option.hpp"
 #include "mosa/reader.hpp"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <compare>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -231,12 +233,23 @@ bool terms_variant(Heap& heap, Cell left, Cell right) {
   return lgt_same_shape(heap, stamped_left, stamped_right);
 }
 
-bool ordered(std::string_view name, double left, double right) {
-  if (name == "<") return left < right;
-  if (name == "=<") return left <= right;
-  if (name == ">") return left > right;
-  if (name == ">=") return left >= right;
+// NaN との比較は unordered になり、どの比較も偽になる。double の < などと同じ結果である。
+bool ordered(std::string_view name, std::partial_ordering order) {
+  if (name == "<") return order < 0;
+  if (name == "=<") return order <= 0;
+  if (name == ">") return order > 0;
+  if (name == ">=") return order >= 0;
   return false;
+}
+
+// 整数どうしは lgtunit の算術の比較と同じく正確に比べる。double を通すと 2^53 を越える整数が丸まり、2^100 >= 2^100+1 が
+// 真になる（偽の合格）。int64 どうしは確保なしで比べ、Big を含むときだけ BigInt にする（integer_value は Big を読めない）。
+std::optional<std::strong_ordering> integer_order(const Heap& heap, Cell left, Cell right) {
+  left = heap.deref(left);
+  right = heap.deref(right);
+  if (!integer_cell(heap, left) || !integer_cell(heap, right)) return std::nullopt;
+  if (left.tag() != Tag::Big && right.tag() != Tag::Big) return heap.integer_value(left) <=> heap.integer_value(right);
+  return heap.big_value(left) <=> heap.big_value(right);
 }
 
 bool compare_args(Machine& machine, std::string_view name, Cell cell, const std::vector<VarName>& names,
@@ -245,10 +258,11 @@ bool compare_args(Machine& machine, std::string_view name, Cell cell, const std:
   const Cell right = resolved_arg(machine, cell, 1, names, bindings);
   if (name == "==") return lgt_same_shape(machine.heap(), left, right);
   if (name == "=~=") return approx(machine.heap(), left, right);
+  if (const auto order = integer_order(machine.heap(), left, right)) return ordered(name, *order);
   const auto first = lgt_as_number(machine.heap(), left);
   const auto second = lgt_as_number(machine.heap(), right);
   if (!first || !second) return false;
-  return ordered(name, *first, *second);
+  return ordered(name, *first <=> *second);
 }
 
 bool check_goal(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Binding>& bindings,

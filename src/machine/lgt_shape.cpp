@@ -23,12 +23,14 @@ bool integer_cell(const Heap& heap, Cell cell) {
   return is_integer_tag(cell.tag());
 }
 
-// integer_value は Big を読めない（ADR 0025）。正規形では int64 に収まる値は Big にならないので、片方が Big なら
-// BigInt で比べ、両方が int64 のときだけ確保の無い比べ方にする。
+// integer_value は Big を読めない（ADR 0025）。正規形では int64 に収まる値は Big にならないので、Big と int64 の組は
+// 値を作らずに偽とわかる。BigInt を作るのは Big どうしのときだけにする。
 bool same_integer(const Heap& heap, Cell left, Cell right) {
   left = heap.deref(left);
   right = heap.deref(right);
-  if (left.tag() == Tag::Big || right.tag() == Tag::Big) return heap.big_value(left) == heap.big_value(right);
+  if (left.tag() == Tag::Big || right.tag() == Tag::Big) {
+    return left.tag() == right.tag() && heap.big_value(left) == heap.big_value(right);
+  }
   return heap.integer_value(left) == heap.integer_value(right);
 }
 
