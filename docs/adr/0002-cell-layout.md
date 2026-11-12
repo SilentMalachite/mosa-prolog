@@ -25,7 +25,7 @@ Float and IntBox payloads, and functor words, are not terms.
 The phase 7 GC does not scan the heap linearly and treat words as terms.
 It follows tagged pointers.
 
-## Amendment 1 (2026-11-12, phase 10, ADR 0025; takes effect when ADR 0025 is approved)
+## Amendment 1 (2026-11-12, phase 10, ADR 0025; approved with ADR 0025 by the owner's decision A on 2026-11-12)
 
 A Big box has the head word `(n << 4) | (negative << 3)` before its n magnitude words.
 The head word and the magnitude words are not terms, like the Float and IntBox payloads and the functor words above.

@@ -28,4 +28,4 @@ ADR を連番で置く。各 ADR は「背景・決定・捨てた案・影響�
 | [0022](0022-shared-asserted-terms.ja.md) | assert した節は、繰り返す深い部分項を呼び出しごとに 1 度だけ組む | 承認済み（2026-11-07） |
 | [0023](0023-mosac-dist.ja.md) | `mosac dist`: 書庫は mosac が自分で書き、実行時ライブラリの LICENSE、NOTICE と README を入れる | 承認済み（2026-11-10） |
 | [0024](0024-dcg-translation.ja.md) | 文法規則: ローダが C++ で `-->` を訳す。終端記号は本体の単一化。`phrase/2,3` は `system` | 承認済み（2026-11-10） |
-| [0025](0025-bignum-box.ja.md) | 多倍長整数: Big の箱、その IR、索引の鍵、`mosac` の定数 | 提案（2026-11-12） |
+| [0025](0025-bignum-box.ja.md) | 多倍長整数: Big の箱、その IR、索引の鍵、`mosac` の定数 | 承認済み（2026-11-12） |

@@ -22,7 +22,7 @@ Phase 1 implements Cell with this representation.
 To change it, write a new ADR and get the project owner's approval.
 Phase 0 code does not implement Cell.
 
-## Amendment 1 (2026-11-12, phase 10, ADR 0025; takes effect when ADR 0025 is approved)
+## Amendment 1 (2026-11-12, phase 10, ADR 0025; approved with ADR 0025 by the owner's decision A on 2026-11-12)
 
 BIG is used as ADR 0025 says (a pointer to a head word and the magnitude words).
 `max_integer` and `min_integer` stay the int64 bounds (iso-notes 7.11.1.2, default A).

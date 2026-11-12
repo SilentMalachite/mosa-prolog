@@ -1,6 +1,6 @@
 English | [日本語](0025-bignum-box.ja.md)
 
-Status: Proposed (2026-11-12; phase 10 opened by the owner, decision A; waits for the owner's approval before any code). SPEC section 9 gives phase 10; this ADR fixes the heap shape of an integer outside int64 and how the IR, the index and `mosac` carry it.
+Status: Approved (2026-11-12; the owner opened phase 10 with decision A and approved this ADR with decision A). SPEC section 9 gives phase 10; this ADR fixes the heap shape of an integer outside int64 and how the IR, the index and `mosac` carry it.
 
 ## Context
 
