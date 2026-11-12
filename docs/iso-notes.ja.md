@@ -463,7 +463,7 @@ A か B か: A はフェーズ7で、マニュアルとリリースパッケー�
 
 `tab/1,2` の int64 を越える数（フェーズ10、設計の 8）。正の Big は大きすぎる int64 と同じ結果になり、`tab(1 << 40)` はその数だけ空白を書く。だからフェーズ10 のタスク 8 から、正の Big は空白を終わりなく書く（`src/builtins/chars.cpp` の `run_tab`）。負の Big は負の数と同じく何も書かない（`tests/pl/bigint.pl` の `tab_big_neg`）。タスク 8 の前は、Big は `evaluation_error(int_overflow)` だった。SWI-Prolog はどちらの符号の Big にもこれを出す。
 
-A か B か: A は正の Big の終わらない出力を、大きすぎる int64 と同じく残す。既定で、今の振る舞いである。その代わり、`with_output_to/2` の中など記憶の流れでは、出力がヒープの上限の外で伸びる。そこでの `tab(1 << 40)` は 15 秒で RSS 11 GB に達した。だからプロセスは `--heap-max` で止まらず、メモリを使い切る。B はどちらの符号の Big も、SWI-Prolog の `evaluation_error(int_overflow)` のような誤りにする。`run_tab` の 1 行の変更で済む。確認までは A のままにする。
+A か B か: A は正の Big の終わらない出力を、大きすぎる int64 と同じく残す。既定で、今の振る舞いである。その代わり、`with_output_to/2` の中などメモリの流れでは、出力がヒープの上限の外で伸びる。そこでの `tab(1 << 40)` は 15 秒で RSS 11 GB に達した。だからプロセスは `--heap-max` で止まらず、メモリを使い切る。B はどちらの符号の Big も、SWI-Prolog の `evaluation_error(int_overflow)` のような誤りにする。`run_tab` の 1 行の変更で済む。確認までは A のままにする。
 
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
