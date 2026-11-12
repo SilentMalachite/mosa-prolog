@@ -1,6 +1,6 @@
 English | [日本語](0007-messages.ja.md)
 
-Status: Approved (2026-10-28). Amendment 1 (2026-11-07; approved by the owner's choice on 2026-11-07): without `LANG`, Windows follows the display language
+Status: Approved (2026-10-28). Amendment 1 (2026-11-07; approved by the owner's choice on 2026-11-07): without `LANG`, Windows follows the display language. Amendment 2 (2026-11-13; records the phase 10 design approved by the owner's decision A on 2026-11-12): the key `integer_overflow` is removed
 
 ## Context
 
