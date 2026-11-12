@@ -461,7 +461,9 @@ Implemented 2026-11-03 (`setup_call_cleanup/3` under ADR 0016). Where Mosa depar
 
 `tab/1,2` with a count beyond int64 (phase 10, design section 8). A positive Big gets what a too-large int64 gets, and `tab(1 << 40)` writes that many spaces. So since phase 10 task 8, a positive Big writes spaces without end (`run_tab` in `src/builtins/chars.cpp`). A negative Big writes nothing, as a negative count does (`tab_big_neg` in `tests/pl/bigint.pl`). Before task 8, a Big gave `evaluation_error(int_overflow)`; SWI-Prolog gives that for a Big of either sign.
 
-A or B?: A: keep the endless output for a positive Big, the same as a too-large int64. This is the default and the current behaviour. Its cost is that inside `with_output_to/2`, or on any other memory stream, the output grows outside the heap limit: `tab(1 << 40)` there reached 11 GB RSS in 15 s. The process therefore runs out of memory instead of stopping at `--heap-max`. B: give an error for a Big of either sign, such as SWI-Prolog's `evaluation_error(int_overflow)`; this is a one-line change in `run_tab`. A stays until this is confirmed.
+A or B?: A: keep the endless output for a positive Big, the same as a too-large int64. This is the default and the current behaviour. Its cost is that inside `with_output_to/2`, or on any other memory stream, the output grows outside the heap limit: `tab(1 << 40)` there reached 11 GB RSS in 15 s. The process therefore runs out of memory instead of stopping at `--heap-max`. B: give an error for a Big of either sign, such as SWI-Prolog's `evaluation_error(int_overflow)`; this is a one-line change in `run_tab`.
+
+Decision (2026-11-13): A (owner decision A). B is rejected. A positive Big count writes spaces without end, the same as a too-large int64, and a negative Big writes nothing.
 
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
