@@ -115,8 +115,15 @@ void check_approx(const std::filesystem::path& root) {
 
 // big_over は double の範囲の外なので数として扱わず、big_other は別の Big なので、どちらも不合格が正しい。
 // -(2^63) は正規形の IntBox の -2^63 に合う。int64 で符号を反転すると合わなかった。
+// 優先順位が Big の op と、int に入らない 2^32+700 の op は定義しない（切り詰めると 700 になる）。small_op は対照。
+// Big を含むバイトの列は set_binary_input を失敗させる。どちらも integer_value に Big を渡すと止まる道である。
 std::string big_text() {
-  return ":- uses(lgtunit, [op(700, xfx, =~=), (=~=)/2]).\n"
+  return ":- uses(lgtunit, [op(700, xfx, =~=), (=~=)/2, op(700, xfx, <=>),\n"
+         "    op(1180591620717411303424, xfx, ===>), op(4294967996, xfx, ==>>)]).\n"
+         "test(small_op, true) :- {current_op(700, xfx, '<=>')}.\n"
+         "test(big_op, false) :- {current_op(_, _, '===>')}.\n"
+         "test(wide_op, false) :- {current_op(_, _, '==>>')}.\n"
+         "test(big_byte, false) :- ^^set_binary_input([1, 1267650600228229401496703205376]).\n"
          "test(big_approx, true(X =~= 1.2676506002282294e30)) :- {X is 2^100}.\n"
          "test(big_approx_neg, true(X =~= -(1267650600228229401496703205376))) :- {X is -(2.0**100)}.\n"
          "test(big_over, true(X =~= 1.0e308)) :- {X is 10^400}.\n"
@@ -139,12 +146,12 @@ void check_big(const std::filesystem::path& root) {
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   const std::string body = read_text(report);
   const std::string failed = between_headings(body, "不合格:", "別欄:");
-  if (!has_exact_line(body, "合格数: 6")) show("big report", body);
+  if (!has_exact_line(body, "合格数: 10")) show("big report", body);
   mosa_test::check(code != 0, "big reports failures");
-  mosa_test::check(has_exact_line(body, "分母: 8"), "big denominator");
-  mosa_test::check(has_exact_line(body, "合格数: 6"), "big passed");
-  for (const std::string_view name :
-       {"big_approx ", "big_approx_neg ", "big_variant ", "big_formal ", "big_folded ", "min_folded "}) {
+  mosa_test::check(has_exact_line(body, "分母: 12"), "big denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 10"), "big passed");
+  for (const std::string_view name : {"small_op ", "big_op ", "wide_op ", "big_byte ", "big_approx ", "big_approx_neg ",
+                                      "big_variant ", "big_formal ", "big_folded ", "min_folded "}) {
     mosa_test::check(failed.find(name) == std::string::npos, std::string{name});
   }
   mosa_test::check(failed.find("big_over ") != std::string::npos, "big_over fails");
