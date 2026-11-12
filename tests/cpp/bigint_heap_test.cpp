@@ -91,6 +91,10 @@ void check_box() {
   mosa_test::check(edge.tag() == mosa::Tag::Big && heap.big_magnitude(edge).size() == 1 &&
                        heap.big_magnitude(edge)[0] == (std::uint64_t{1} << 63),
                    "box: 2^63 is a one-word Big");
+  const mosa::Cell low = heap.big(BigInt(k_min) - BigInt(1));
+  mosa_test::check(low.tag() == mosa::Tag::Big && heap.big_negative(low) && heap.big_magnitude(low).size() == 1 &&
+                       heap.big_magnitude(low)[0] == (std::uint64_t{1} << 63) + 1,
+                   "box: -2^63-1 is a one-word negative Big");
   const mosa::Cell max = heap.big(BigInt(k_max));
   mosa_test::check(max.tag() == mosa::Tag::IntBox && heap.integer_value(max) == k_max, "box: INT64_MAX is an IntBox");
   const mosa::Cell min = heap.big(BigInt(k_min));
@@ -169,6 +173,7 @@ void check_order() {
   mosa_test::check(compared(*machine, {big, big + BigInt(1)}) == "<", "order: B < B+1");
   mosa_test::check(compared(*machine, {big, BigInt(5)}) == ">", "order: B > 5");
   mosa_test::check(compared(*machine, {-big, BigInt(k_min)}) == "<", "order: -B < -2^63");
+  mosa_test::check(compared(*machine, {BigInt(k_max) + BigInt(1), BigInt(k_max)}) == ">", "order: 2^63 > INT64_MAX");
   mosa_test::check(compared(*machine, {-big, big}) == "<", "order: -B < B");
   mosa_test::check(compared(*machine, {big, big}) == "=", "order: B = B");
   mosa_test::check(run(*machine, "1.0e40 @< '$big0', '$big0' @< a, '$big0' @< f(x)", {-big}) == mosa::StopKind::Success,
@@ -182,10 +187,11 @@ struct Shape {
   bool negative;
 };
 
-constexpr std::array<Shape, 12> k_shapes{{{"-(@)", false},
+constexpr std::array<Shape, 13> k_shapes{{{"-(@)", false},
                                           {"-(@)", true},
                                           {"1 - @", true},
                                           {"a- @", false},
+                                          {"a- @", true},
                                           {"2 ** @", true},
                                           {"@ ^ 2", true},
                                           {"- (- (@))", false},

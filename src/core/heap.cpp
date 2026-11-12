@@ -162,14 +162,15 @@ BigInt Heap::big_value(Cell cell) const {
   return BigInt::from_words(big_magnitude(cell), big_negative(cell));
 }
 
+// Big でないセルの頭の語を読むと、黙って別の値になる。integer_value と同じく Release でも止める（ADR 0025）。
 std::span<const std::uint64_t> Heap::big_magnitude(Cell cell) const {
-  assert(cell.tag() == Tag::Big);
+  if (cell.tag() != Tag::Big) [[unlikely]] std::abort();
   const std::uint64_t* head = pointer(cell);
   return {head + 1, static_cast<std::size_t>(big_header_words(*head))};
 }
 
 bool Heap::big_negative(Cell cell) const {
-  assert(cell.tag() == Tag::Big);
+  if (cell.tag() != Tag::Big) [[unlikely]] std::abort();
   return big_header_negative(*pointer(cell));
 }
 
