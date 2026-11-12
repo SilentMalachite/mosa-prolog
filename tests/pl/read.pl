@@ -114,9 +114,9 @@ test(read_neg_arg, (open_string('f(-1). ', S), read(S, T), T = f(A), integer(A))
 test(src_neg_layout, (X = - 1, integer(X)), true).
 test(src_neg_paren, (X = -(1), compound(X)), true).
 test(src_neg_int, (X = -1, integer(X)), true).
-% レビュー M1。6.3.4.1: - の直後の数は負の定数なので、-9223372036854775808 は min_integer として読める。符号を
-% 付ける前の 9223372036854775808 は int64 に入らないが、- の後ろでだけ許す。- の付かない 2^63 と、それより大きい
-% 負の数は今までどおり integer_overflow。writeq した min_integer は読み戻せる（7.10.5）。
+% レビュー M1。6.3.4.1: - の直後の数は負の定数なので、-9223372036854775808 は min_integer として読める。
+% フェーズ10（ADR 0025）から int64 に入らない整数の字面は Big として読むので、- の付かない 2^63 も、絶対値が
+% 2^63 を越える負の数も値になる。writeq した min_integer は読み戻せる（7.10.5）。
 m1_read(Text, T) :- open_string(Text, S), read(S, T).
 m1_min(M) :- current_prolog_flag(min_integer, M).
 m1_back(T) :- with_output_to(atom(A), (writeq(T), write('.'))), m1_read(A, U), U == T.
@@ -132,19 +132,19 @@ test(m1_read_octal, (m1_read('-0o1000000000000000000000.', X), m1_min(M), X == M
 test(m1_read_binary, (m1_read('-0b1000000000000000000000000000000000000000000000000000000000000000.', X), m1_min(M), X == M), true).
 test(m1_read_in_term, (m1_read('f(-9223372036854775808, [-9223372036854775808|T]).', X), m1_min(M), X = f(A, [B|T]), A == M, B == M, var(T)), true).
 test(m1_read_args, (m1_read('- 9223372036854775808 - -9223372036854775808.', X), m1_min(M), X = (A - B), A == M, B == M), true).
-test(m1_read_positive, m1_read('9223372036854775808.', _), error(syntax_error(integer_overflow))).
-test(m1_read_positive_hex, m1_read('0x8000000000000000.', _), error(syntax_error(integer_overflow))).
-test(m1_read_below, m1_read('-9223372036854775809.', _), error(syntax_error(integer_overflow))).
-test(m1_read_below_hex, m1_read('-0x8000000000000001.', _), error(syntax_error(integer_overflow))).
-test(m1_read_far_below, m1_read('-92233720368547758080.', _), error(syntax_error(integer_overflow))).
-test(m1_read_paren, m1_read('-(9223372036854775808).', _), error(syntax_error(integer_overflow))).
-test(m1_read_infix, m1_read('a - 9223372036854775808.', _), error(syntax_error(integer_overflow))).
-test(m1_read_arg, m1_read('f(9223372036854775808).', _), error(syntax_error(integer_overflow))).
-test(m1_read_prefix_op, m1_read('\\+ 9223372036854775808.', _), error(syntax_error(integer_overflow))).
+test(m1_read_positive, m1_read('9223372036854775808.', X), solutions([X = 9223372036854775808])).
+test(m1_read_positive_hex, m1_read('0x8000000000000000.', X), solutions([X = 9223372036854775808])).
+test(m1_read_below, m1_read('-9223372036854775809.', X), solutions([X = -9223372036854775809])).
+test(m1_read_below_hex, m1_read('-0x8000000000000001.', X), solutions([X = -9223372036854775809])).
+test(m1_read_far_below, m1_read('-92233720368547758080.', X), solutions([X = -92233720368547758080])).
+test(m1_read_paren, m1_read('-(9223372036854775808).', X), solutions([X = -(9223372036854775808)])).
+test(m1_read_infix, m1_read('a - 9223372036854775808.', X), solutions([X = a - 9223372036854775808])).
+test(m1_read_arg, m1_read('f(9223372036854775808).', X), solutions([X = f(9223372036854775808)])).
+test(m1_read_prefix_op, m1_read('\\+ 9223372036854775808.', X), solutions([X = (\+ 9223372036854775808)])).
 test(m1_read_float_kept, (m1_read('-9223372036854775808.0.', X), float(X), X =:= -9223372036854775808.0), true).
 test(m1_read_max_kept, (m1_read('-9223372036854775807.', X), current_prolog_flag(max_integer, Max), X =:= -Max), true).
 test(m1_read_next, (open_string('-9223372036854775808. a.', S), read(S, X), read(S, Y), m1_min(M), X == M, Y == a), true).
-test(m1_read_recovers, (open_string('9223372036854775808. a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
+test(m1_read_big_next, (open_string('9223372036854775808. a.', S), read(S, X), read(S, Y), X == 9223372036854775808, Y == a), true).
 test(m1_back_min, (m1_min(M), m1_back(M)), true).
 test(m1_back_minus_min, (m1_min(M), m1_back(-(M))), true).
 test(m1_back_sub, (m1_min(M), m1_back(1 - M)), true).
@@ -156,22 +156,23 @@ test(m1_source_cmp, (m1_min(M), M =:= -9223372036854775808), true).
 test(m1_number_codes, (number_codes(X, "-9223372036854775808"), m1_min(M), X == M), true).
 test(m1_number_codes_hex, (number_codes(X, "-0x8000000000000000"), m1_min(M), X == M), true).
 test(m1_atom_number_layout, (atom_number(' -9223372036854775808', X), m1_min(M), X == M), true).
-test(m1_number_codes_positive, number_codes(_, "9223372036854775808"), error(syntax_error(integer_overflow))).
-test(m1_number_codes_positive_hex, number_codes(_, "0x8000000000000000"), error(syntax_error(integer_overflow))).
+test(m1_number_codes_positive, number_codes(X, "9223372036854775808"), solutions([X = 9223372036854775808])).
+test(m1_number_codes_positive_hex, number_codes(X, "0x8000000000000000"), solutions([X = 9223372036854775808])).
 test(m1_number_codes_plus, number_codes(_, "+9223372036854775808"), error(syntax_error(_))).
-test(m1_number_codes_below, number_codes(_, "-9223372036854775809"), error(syntax_error(integer_overflow))).
-test(m1_read_recovers_arg, (open_string('f(9223372036854775808, x). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
-test(m1_read_recovers_paren, (open_string('-(0x8000000000000000). a.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == a), true).
-test(m1_read_recovers_last, (open_string('9223372036854775808.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == end_of_file), true).
-test(m1_read_after_operand, m1_read('a 9223372036854775808.', _), error(syntax_error(integer_overflow))).
-test(m1_read_after_operand_list, m1_read('[a 0x8000000000000000].', _), error(syntax_error(integer_overflow))).
+test(m1_number_codes_below, number_codes(X, "-9223372036854775809"), solutions([X = -9223372036854775809])).
+test(m1_read_big_arg_next, (open_string('f(9223372036854775808, x). a.', S), read(S, X), read(S, Y), X == f(9223372036854775808, x), Y == a), true).
+test(m1_read_big_paren_next, (open_string('-(0x8000000000000000). a.', S), read(S, X), read(S, Y), X == -(9223372036854775808), Y == a), true).
+test(m1_read_big_last, (open_string('9223372036854775808.', S), read(S, X), read(S, Y), X == 9223372036854775808, Y == end_of_file), true).
+% オペランドの後ろの数は、int64 に入る 'a 1.' と同じく unexpected_token になる。
+test(m1_read_after_operand, m1_read('a 9223372036854775808.', _), error(syntax_error(unexpected_token))).
+test(m1_read_after_operand_list, m1_read('[a 0x8000000000000000].', _), error(syntax_error(unexpected_token))).
 test(m1_read_after_operand_recovers, (open_string('f(a 9223372036854775808). b.', S), catch(read(S, _), error(syntax_error(_), _), true), read(S, Y), Y == b), true).
-% 1025 番目の引数が 2^63 なら、字句で溢れにしていたときと同じく max_arity より integer_overflow が先（Grok レビュー）。
+% 1025 番目の引数が Big でも、ほかの整数と同じく max_arity になる（フェーズ10で integer_overflow は無くなった）。
 m1_wide(0, Last, A) :- !, atom_concat(Last, ').', A).
 m1_wide(N, Last, A) :- M is N - 1, m1_wide(M, Last, B), atom_concat('0,', B, A).
 m1_wide_read(Last) :- m1_wide(1024, Last, Body), atom_concat('f(', Body, Text), m1_read(Text, _).
-test(m1_read_wide_min, m1_wide_read('9223372036854775808'), error(syntax_error(integer_overflow))).
-test(m1_read_wide_beyond, m1_wide_read('9223372036854775809'), error(syntax_error(integer_overflow))).
+test(m1_read_wide_min, m1_wide_read('9223372036854775808'), error(syntax_error(max_arity))).
+test(m1_read_wide_beyond, m1_wide_read('9223372036854775809'), error(syntax_error(max_arity))).
 test(m1_read_wide_plain, m1_wide_read('1'), error(syntax_error(max_arity))).
 % レビュー M2（持ち主は A を選んだ、iso-notes 6.4.5）。double に入らない浮動小数点数は inf.0 にせず、整数の溢れと
 % 同じく syntax_error(float_overflow) とし、read/1 は終止符まで読み飛ばす。下位の溢れは 0.0 のままである。
