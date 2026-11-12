@@ -18,6 +18,10 @@ namespace mosa {
   return left == right && std::signbit(left) == std::signbit(right);
 }
 
+// 単一化と変種の照合で同じ Big か（2 つともタグが Big のとき）。正規形の規則（ADR 0025）で同じ値は同じ語の並びに
+// なるので、値に直さずに符号と全語を比べる。ヒープが別でもよい（mosatest --roundtrip の照合）。
+[[nodiscard]] bool same_big_term(const Heap& left_heap, Cell left, const Heap& right_heap, Cell right);
+
 struct Trail {
   std::vector<std::uint64_t*> slots;
   // 選択点のヒープ水位。nullptr のときは、今回の呼び出し開始水位だけを境にする。

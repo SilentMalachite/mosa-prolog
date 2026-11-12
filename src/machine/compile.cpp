@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <span>
 #include <string>
@@ -217,6 +218,8 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
     term.floating = heap->float_value(cell);
     return term;
   }
+  // タスク 4 で IrTag::Big にする。それまでは下の既定の true の葉に化けさせず、届いた道を落ちて知らせる。
+  if (cell.tag() == Tag::Big) std::abort();
   if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return term;
   if (!open.contains(cell.raw())) return std::nullopt;
   // 節は env を持たないので、巡回は匿名に切る（巡回する節は 7.6.2 の外）。実行時のゴールはここに来ない（place）。
@@ -224,11 +227,11 @@ std::optional<IrTerm> Build::data_leaf(Cell cell) {
   return term;
 }
 
-// 実行時のゴールの束縛済みの複合項は、元の項を指す Var の葉にする。項は書き換わらず、中の変数も元のままなので、
-// 写した項と同じに動く。巡回する項も元の項のまま渡すので、巡回が残る。
+// 実行時のゴールの束縛済みの複合項と Big の箱は、元の項を指す Var の葉にする。項は書き換わらず、中の変数も元のまま
+// なので写した項と同じに動く。巡回する項も元の項のまま渡すので巡回が残り、Big も語を IR に写さずに済む（ADR 0025）。
 IrTerm Build::place(Cell cell) {
   cell = heap->deref(cell);
-  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return *data_leaf(cell);
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str && cell.tag() != Tag::Big) return *data_leaf(cell);
   IrTerm term;
   term.tag = IrTag::Var;
   term.slot = slot_of(cell);

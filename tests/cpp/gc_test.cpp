@@ -1,9 +1,11 @@
 // mark-and-compact の GC（ADR 0010、計画 Task 4）。ヒープ・extras・トレイルが頭打ちになり、生きている項が
 // 値も形も変わらずに残ること。特に断らない限り上限は 2^16 語で、GC が無ければ loop は heap_limit で止まる。
+#include "bigint_support.hpp"
 #include "harness.hpp"
 
 #include "machine/gc.hpp"
 #include "machine/internal.hpp"
+#include "mosa/bigint.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/writer.hpp"
@@ -23,6 +25,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -174,6 +177,55 @@ void check_boxed_relocation() {
   }
   mosa_test::check(texts[0] == "1.5e300" || texts[0] == "1.5e+300", "boxed: F text " + texts[0]);
   mosa_test::check(texts[1] == "4611686018427387904" && texts[2] == "-4611686018427387905", "boxed: integer texts");
+}
+
+// 箱の頭の語と絶対値の語がそのまま残っているか。GC が n+1 語を Raw として写していれば一致する。
+bool same_big_box(const mosa::Heap& heap, mosa::Cell cell, const mosa::BigInt& value) {
+  if (cell.tag() != mosa::Tag::Big) return false;
+  const std::vector<std::uint64_t> words = value.words();
+  const auto magnitude = heap.big_magnitude(cell);
+  return *heap.word(cell) == mosa::big_header(words.size(), value.negative()) &&
+         std::equal(magnitude.begin(), magnitude.end(), words.begin(), words.end());
+}
+
+// Big の箱（ADR 0025）も Float と IntBox と同じく下へ詰まり、頭の語と全語が保たれる。
+void check_big_relocation() {
+  auto machine = mosa::Machine::create(k_small);
+  auto& impl = mosa::engine_impl(*machine);
+  const mosa::BigInt x_value = mosa::shift_left(mosa::BigInt(1), 100);
+  const mosa::BigInt y_value = -(mosa::shift_left(mosa::BigInt(1), 190) + mosa::BigInt(5));
+  const std::array<mosa::BigInt, 2> values{x_value, y_value};
+  const auto stop = query_with_bigs(*machine, "length(_, 2000), X = '$big0', Y = f('$big1')", values);
+  mosa_test::check(stop.kind == mosa::StopKind::Success && stop.bindings.size() == 2, "big: query succeeds");
+  if (stop.bindings.size() != 2) return;
+  std::array<std::uint64_t, 2> before{};
+  std::array<std::string, 2> texts;
+  for (std::size_t index = 0; index < 2; ++index) {
+    before[index] = machine->heap().deref(impl.bindings[index].variable).raw();
+    texts[index] = binding_text(*machine, stop, index);
+  }
+  const auto y_arg = [&] {
+    const mosa::Heap& heap = machine->heap();
+    return heap.deref(heap.arg(heap.deref(impl.bindings[1].variable), 0));
+  };
+  mosa_test::check(same_big_box(machine->heap(), machine->heap().deref(impl.bindings[0].variable), x_value),
+                   "big: X is the Big box before GC");
+  mosa_test::check(same_big_box(machine->heap(), y_arg(), y_value), "big: Y's argument is the Big box before GC");
+  const std::uint64_t y_arg_before = y_arg().raw();
+  mosa::collect_garbage(impl);
+  mosa::Stop after;
+  after.bindings = impl.bindings;
+  for (std::size_t index = 0; index < 2; ++index) {
+    const auto label = "big " + std::string{impl.bindings[index].name};
+    mosa_test::check(machine->heap().deref(impl.bindings[index].variable).raw() < before[index], label + ": slid down");
+    mosa_test::check(binding_text(*machine, after, index) == texts[index], label + ": reads " + texts[index]);
+  }
+  mosa_test::check(y_arg().raw() < y_arg_before, "big: Y's argument box slid down");
+  mosa_test::check(same_big_box(machine->heap(), machine->heap().deref(impl.bindings[0].variable), x_value),
+                   "big: X keeps its header and words");
+  mosa_test::check(same_big_box(machine->heap(), y_arg(), y_value), "big: Y's argument keeps its header and words");
+  mosa_test::check(texts[0] == mosa::to_text(x_value) && texts[1] == "f(" + mosa::to_text(y_value) + ")",
+                   "big: texts " + texts[0] + " " + texts[1]);
 }
 
 void check_redo() {
@@ -663,6 +715,7 @@ int main() {
   check_mark_stack_flat();
   check_ball();
   check_boxed_relocation();
+  check_big_relocation();
   check_redo();
   check_tiny_limit();
   check_direct_collect();

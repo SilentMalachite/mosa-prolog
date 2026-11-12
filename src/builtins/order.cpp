@@ -1,11 +1,12 @@
 // 8.4.1 ==/2、\==/2、@</2、@=</2、@>/2、@>=/2（@term, @term）。エラー無し。
 // 8.4.2 compare/3（?atom, @term, @term）
 //   type_error(atom), domain_error(order)
-// テスト: tests/pl/order.pl
+// テスト: tests/pl/order.pl、tests/cpp/bigint_heap_test.cpp
 
 #include "../machine/internal.hpp"
 
 #include <cmath>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -18,10 +19,11 @@
 namespace mosa {
 namespace {
 
+// 7.2: 変数、浮動小数点数、整数、アトム、複合項の順。Big も整数の順位で、int64 の整数と値で並ぶ。
 int rank_of(const Impl& machine, Cell cell) {
   if (machine.heap.unbound(cell)) return 0;
   if (cell.tag() == Tag::Float) return 1;
-  if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox) return 2;
+  if (is_integer_tag(cell.tag())) return 2;
   if (cell.tag() == Tag::Atom) return 3;
   return 4;
 }
@@ -76,6 +78,11 @@ int compare_scalar(const Impl& machine, Cell left, Cell right, int rank) {
     return 0;
   }
   if (rank == 2) {
+    // 値の型に写すのは Big を含むときだけにし、int64 どうしは今のまま確保せずに比べる。
+    if (left.tag() == Tag::Big || right.tag() == Tag::Big) {
+      const std::strong_ordering order = machine.heap.big_value(left) <=> machine.heap.big_value(right);
+      return order < 0 ? -1 : (order > 0 ? 1 : 0);
+    }
     const auto a = machine.heap.integer_value(left);
     const auto b = machine.heap.integer_value(right);
     if (a < b) return -1;

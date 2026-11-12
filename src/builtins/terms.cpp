@@ -4,7 +4,7 @@
 //   instantiation_error（Start が変数）、type_error(integer, Start)、representation_error(max_integer)（番号が
 //   あふれる。SWI-Prolog はタグ付き整数の範囲で representation_error(tagged_integer) だが、Mosa の整数は 64 ビット）。
 //   End が整数でないか数が合わなければ、誤りにせず、変数を束縛せずに失敗する（SWI-Prolog の pl-prims.c も失敗）。
-// テスト: tests/pl/terms.pl、tests/pl/utilities.pl
+// テスト: tests/pl/terms.pl、tests/pl/utilities.pl、tests/cpp/bigint_heap_test.cpp
 #include "../machine/internal.hpp"
 
 #include <array>
@@ -20,10 +20,11 @@ namespace {
 // SPEC 第3節の max_arity。セルの 11bit は 2047 まで入るが、ここが上限である。
 constexpr std::uint16_t kMaxArity = 1024;
 
+// int64 の整数だけ。integer_value で値を読む前の検査に使うので、Big を含めると読んだところで止まる。
 bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool is_atomic(Cell cell) {
-  return cell.tag() == Tag::Atom || is_int(cell) || cell.tag() == Tag::Float;
+  return cell.tag() == Tag::Atom || is_integer_tag(cell.tag()) || cell.tag() == Tag::Float;
 }
 
 bool is_compound(Cell cell) { return cell.tag() == Tag::Str || cell.tag() == Tag::Lis; }
@@ -51,9 +52,10 @@ Cell list_from(Impl& machine, const std::vector<Cell>& items) {
 void decompose_functor(Impl& machine, const Goal& goal, Cell term) {
   Cell name = machine.heap.atom(0);
   Cell arity = machine.heap.integer(0);
-  if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) {
+  if (is_atomic(term)) {
     if (term.tag() == Tag::Atom) name = term;
     else if (is_int(term)) name = machine.heap.integer(machine.heap.integer_value(term));
+    else if (term.tag() == Tag::Big) name = machine.heap.big(machine.heap.big_value(term));
     else name = machine.heap.floating(machine.heap.float_value(term));
     arity = machine.heap.integer(0);
   } else if (term.tag() == Tag::Lis) {
@@ -109,7 +111,8 @@ void run_functor(Impl& machine, const Goal& goal) {
     return;
   }
   if (!term_var) {
-    if (!arity_var && !is_int(arity_cell)) {
+    // 分解は項数を読まずに単一化するだけなので、Big の項数も整数として通し、0 か 2 か元の項数と合わずに失敗させる。
+    if (!arity_var && !is_integer_tag(arity_cell.tag())) {
       raise_formal(machine, formal_type(machine, "integer", arity_cell), goal.name, goal.arity);
       return;
     }
@@ -191,7 +194,7 @@ ListRead proper_items(Impl& machine, Cell list, std::vector<Cell>& items) {
 
 void univ_from_term(Impl& machine, const Goal& goal, Cell term) {
   std::vector<Cell> items;
-  if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) items.push_back(term);
+  if (is_atomic(term)) items.push_back(term);
   else if (term.tag() == Tag::Lis) {
     items.push_back(machine.heap.atom(machine.atoms.intern(".")));
     items.push_back(machine.heap.list_head(term));

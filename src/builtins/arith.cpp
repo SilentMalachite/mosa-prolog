@@ -2,8 +2,8 @@
 // =:=(@evaluable, @evaluable) ほか。誤り: instantiation_error, type_error(evaluable, F/A),
 // type_error(integer, X), type_error(float, X), type_error(integer_expression, E)（tab/1,2 が使う
 // eval_int_expression）, evaluation_error(zero_divisor | undefined | int_overflow | float_overflow),
-// resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。
-// テスト: tests/pl/arith.pl, tests/pl/native.pl, tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp
+// resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。テスト: tests/pl/arith.pl, tests/pl/native.pl,
+// tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp, tests/cpp/bigint_heap_test.cpp
 
 #include "../machine/internal.hpp"
 #include "evaluable.hpp"
@@ -527,6 +527,11 @@ std::optional<Ev> eval_leaf(Impl& machine, const Goal& goal, Cell cell) {
     return Ev{};
   }
   if (const Ev num = number_of(machine, cell); num.ok) return num;
+  // 評価はまだ int64 だけを持つ（Big の算術はタスク 6）。int64 を越えた結果と同じ見え方にし、型の誤りにしない。
+  if (cell.tag() == Tag::Big) {
+    fail_eval(machine, goal, "int_overflow");
+    return Ev{};
+  }
   if (cell.tag() == Tag::Atom) {
     const auto text = machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
     if (const Ev constant = constant_of(text); constant.ok) return constant;
