@@ -411,7 +411,7 @@ bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& s
   return found;
 }
 
-// 開いている query を潰さない。-2^63 は字面にすると正のトークンが溢れて読めず、値が変数になる。
+// 開いている query を潰さない。ゴールは字面を通さずセルで写すので、Big も字にせず箱のまま渡る（lgt_copy.cpp）。
 bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
   const Parsed parsed = parse_term(main, goal);
   if (!parsed.ok) return false;
