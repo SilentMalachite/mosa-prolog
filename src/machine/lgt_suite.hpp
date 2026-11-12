@@ -153,8 +153,7 @@ inline constexpr auto kFunctionExcluded = std::to_array<std::string_view>({
 });
 
 inline bool excluded_tree(std::string_view path) {
-  return path_is_or_under(path, "unbounded") || path_is_or_under(path, "unicode/encodings") ||
-         path_is_or_under(path, "unicode/directives") ||
+  return path_is_or_under(path, "unicode/encodings") || path_is_or_under(path, "unicode/directives") ||
          path_is_or_under(path, "directives/conditional_compilation") ||
          path_is_or_under(path, "syntax/directives/meta_predicate_1");
 }
@@ -171,6 +170,8 @@ inline bool suite_in_scope(std::string_view relative_posix) {
   if (iso_scope::direct_child(relative_posix, "control")) return true;
   if (iso_scope::direct_child(relative_posix, "directives")) return true;
   if (relative_posix == "logical_update_semantics") return true;
+  // bounded が false なので多倍長の木は丸ごと範囲に入れる（フェーズ10）。一部だけを入れると準拠率を選べてしまう。
+  if (iso_scope::path_is_or_under(relative_posix, "unbounded")) return true;
   if (iso_scope::under(relative_posix, "syntax")) return true;
   if (iso_scope::unicode_leaf(relative_posix)) return true;
   if (iso_scope::direct_child(relative_posix, "functions")) {

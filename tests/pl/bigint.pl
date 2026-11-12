@@ -121,6 +121,10 @@ test(bounded_max_integer, current_prolog_flag(max_integer, 9223372036854775807),
 % 正の B は「大きすぎる int64」と、-B は負の int64 と同じ結果になる。
 test(arg_big, arg(1844674407370909797907654848955145546336677616, t(1,2,3), _), fail).
 test(arg_big_neg, arg(-1844674407370909797907654848955145546336677616, t(1,2,3), _), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).
+% 期待の -(B) は前置演算子の項のまま読まれる。ランナー（suite.cpp の fold_minus）が Big の符号を畳み、-(2^63) は
+% 正規形の min_integer に戻ることを見る（タスク 9）。
+test(arg_big_neg_folded, arg(-1844674407370909797907654848955145546336677616, t(1,2,3), _), error(domain_error(not_less_than_zero, -(1844674407370909797907654848955145546336677616)))).
+test(arg_min_folded, arg(-9223372036854775808, t(1,2,3), _), error(domain_error(not_less_than_zero, -(9223372036854775808)))).
 test(arg_big_compound, arg(1844674407370909797907654848955145546336677616, a, _), error(type_error(compound, a))).
 test(functor_big, functor(_, t, 1844674407370909797907654848955145546336677616), error(representation_error(max_arity))).
 test(functor_big_neg, functor(_, t, -1844674407370909797907654848955145546336677616), error(domain_error(not_less_than_zero, -1844674407370909797907654848955145546336677616))).

@@ -42,7 +42,7 @@ bool atom_is(const Heap& heap, Cell cell, std::string_view name) {
 
 bool integer_cell(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox;
+  return is_integer_tag(cell.tag());
 }
 
 struct Parsed {
@@ -562,10 +562,14 @@ bool take_op(Heap& heap, OperatorTable& operators, Cell cell, std::vector<LgtOp>
   const Cell specifier = heap.deref(heap.arg(cell, 1));
   const Cell name = heap.deref(heap.arg(cell, 2));
   if (!integer_cell(heap, priority) || specifier.tag() != Tag::Atom || name.tag() != Tag::Atom) return false;
+  // Big と int に入らない int64 は優先順位の範囲の外である。切り詰めると別の優先順位で定義してしまうので先に退ける。
+  if (priority.tag() == Tag::Big) return false;
+  const auto value = heap.integer_value(priority);
+  if (value < 0 || value > std::numeric_limits<int>::max()) return false;
   const auto parsed = specifier_of(atom_text(heap, specifier));
   if (!parsed) return false;
   LgtOp op;
-  op.priority = static_cast<int>(heap.integer_value(priority));
+  op.priority = static_cast<int>(value);
   op.specifier = *parsed;
   op.name = std::string{atom_text(heap, name)};
   if (operators.define(op.priority, op.specifier, op.name) != OpResult::Ok) return false;

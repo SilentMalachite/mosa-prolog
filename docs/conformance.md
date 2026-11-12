@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
-分母: 2172
-合格数: 2137
-合格率: 98.4
+分母: 2274
+合格数: 2239
+合格率: 98.5
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
@@ -253,7 +253,15 @@ predicates/write_term_3 lgt_write_term_3_144
 predicates/write_term_3 lgt_write_term_3_145
 syntax/directives/meta_predicate_1 3
 syntax/operators lgt_operators_57
-unbounded 111
+unbounded lgt_unbounded_arg_02
+unbounded lgt_unbounded_arg_03
+unbounded lgt_unbounded_functor_01
+unbounded lgt_unbounded_functor_02
+unbounded lgt_unbounded_plus_01
+unbounded lgt_unbounded_plus_02
+unbounded lgt_unbounded_plus_03
+unbounded lgt_unbounded_succ_01
+unbounded lgt_unbounded_succ_02
 unicode/builtins lgt_unicode_format_2_01
 unicode/directives/encoding_1 3
 unicode/encodings 49

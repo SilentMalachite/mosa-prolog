@@ -152,7 +152,7 @@ bool is_nil(const Heap& heap, Cell cell) {
   return cell.tag() == Tag::Atom && atom_text(heap, cell) == "[]";
 }
 
-bool is_int_cell(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+bool is_int_cell(Cell cell) { return is_integer_tag(cell.tag()); }
 
 void note_write_end(Stream& stream) {
   stream.cursor = stream.bytes.size();
@@ -201,7 +201,8 @@ bool byte_contents(const Heap& heap, Cell cell, std::string& out) {
   while (!is_nil(heap, cell)) {
     if (cell.tag() != Tag::Lis || ++guard > 100000) return false;
     const Cell item = heap.deref(heap.list_head(cell));
-    if (!is_int_cell(item)) return false;
+    // Big はバイトの範囲の外である。integer_value は Big を読めないので、値を読む前に退ける（ADR 0025）。
+    if (!is_int_cell(item) || item.tag() == Tag::Big) return false;
     const auto value = heap.integer_value(item);
     if (value < 0 || value > 255) return false;
     bytes.push_back(static_cast<char>(static_cast<unsigned char>(value)));

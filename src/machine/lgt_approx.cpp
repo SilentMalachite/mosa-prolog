@@ -2,16 +2,28 @@
 
 #include "lgt_priv.hpp"
 
+#include "mosa/bigint.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <optional>
 
 namespace mosa {
+namespace {
+
+// Big は評価の float/1 と同じ正しい丸め（最近接偶数）で double にする。double の範囲の外は無限大にせず数でないと
+// 扱い、表明は不成立になる。integer_value は Big を読めない（ADR 0025）。
+std::optional<double> integer_double(const Heap& heap, Cell cell) {
+  if (cell.tag() == Tag::Big) return to_double(heap.big_value(cell));
+  return static_cast<double>(heap.integer_value(cell));
+}
+
+}  // namespace
 
 std::optional<double> lgt_as_number(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox) return static_cast<double>(heap.integer_value(cell));
+  if (is_integer_tag(cell.tag())) return integer_double(heap, cell);
   if (cell.tag() == Tag::Float) return heap.float_value(cell);
   // 表明の -125.0 は前置のまま残る。=~= は算術なので、数の符号だけ畳む。
   if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return std::nullopt;
@@ -19,10 +31,9 @@ std::optional<double> lgt_as_number(const Heap& heap, Cell cell) {
   if (name != "-" && name != "+") return std::nullopt;
   const Cell arg = heap.deref(heap.arg(cell, 0));
   std::optional<double> inner;
-  if (arg.tag() == Tag::Int || arg.tag() == Tag::IntBox) inner = static_cast<double>(heap.integer_value(arg));
+  if (is_integer_tag(arg.tag())) inner = integer_double(heap, arg);
   else if (arg.tag() == Tag::Float) inner = heap.float_value(arg);
-  else return std::nullopt;
-  if (name == "+") return inner;
+  if (!inner || name == "+") return inner;
   return -*inner;
 }
 
