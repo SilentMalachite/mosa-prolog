@@ -209,7 +209,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 | 部品 | 設計 |
 | --- | --- |
-| セル表現 | 64bit タグ付き整数 `Cell`。下位 3bit がタグ: REF、ATOM、INT（61bit 即値）、STR（ヒープ内の関手セルへのポインタ）、LIS（リスト）、FLT（ボックス化 double）、BIG（将来予約）。61bit に収まらない整数は FLT と同様にボックス化し、`max_integer` は 2^63−1 のままにする |
+| セル表現 | 64bit タグ付き整数 `Cell`。下位 3bit がタグ: REF、ATOM、INT（61bit 即値）、STR（ヒープ内の関手セルへのポインタ）、LIS（リスト）、FLT（ボックス化 double）、BIG（int64 の外の整数。頭の語と絶対値の語を指す。フェーズ 10、ADR 0025）。61bit に収まらない int64 は FLT と同様にボックス化し、`max_integer` は 2^63−1 のままにする |
 | ヒープ | 単一の連続配列（起動時に上限までのアドレス空間を予約し、必要に応じて下から確保する。確保済みのセルは動かない。ADR 0010）。バックトラック時にトップを戻すだけで回収する |
 | トレイル | 束縛した REF のアドレスを積む。条件付きトレイル（選択点より古いセルのみ記録） |
 | 選択点スタック | 継続・トレイル位置・ヒープ位置・代替節へのポインタ・カット境界を保持 |
@@ -313,7 +313,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 - すべてのエラーは `throw(error(Formal, Context))` の形で投げる。`Context` は `context(PI, Extra)` とし、`PI` は述語指示子、`Extra` は追加情報（`syntax_error` なら `位置(Line, Col)` ではなく `syntax(stream(S, Line, LinePos, CharNo), Token)` の形。`Token` は問題のトークンの原子。ADR 0007）。`Context` に実装定義の項を置けるのは ISO が許している
 - 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `type_error(integer, foo)` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
 - C++ 側では `throw_error(m, Formal, PI)` の 1 系統のヘルパだけを使い、`Formal` の各種は `make_type_error(m, Type, Culprit)` のような関数で組む。文字列の直書きは禁止（アトム名のタイポを防ぐ）
-- 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、整数オーバーフローは `evaluation_error(int_overflow)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
+- 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。整数の結果はあふれない（フェーズ 10、ADR 0025）。ヒープに入らない大きさの結果はヒープの上限で止まり、`evaluation_error(int_overflow)` が残るのは無限大の浮動小数点数を整数に丸めるときだけである。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
 - トップレベルは捕捉されなかった例外を `警告: ゴールは例外を送出しました: error(...)` の形で日本語と英語（フラグ `message_language`、既定は環境変数 `LANG` から判定し、Windows で `LANG` が無いか空のときは Windows の表示言語から判定）で表示する。メッセージ文字列は `lib/messages_ja.pl`、`lib/messages_en.pl` の Prolog 事実として置き、C++ には埋め込まない
 
 ## 8. テスト戦略
@@ -337,7 +337,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 **ベンチマーク（合格率より後回しだが、退行の検知には使う）**
 
-- `bench/`: `nrev`（naive reverse、LIPS 計測）、`queens`、`zebra`、`tak`、`deriv`、`crypt`。インタプリタと `mosac` 変換物の両方で計測し、`docs/bench.md` に表で記録する
+- `bench/`: `nrev`（naive reverse、LIPS 計測）、`queens`、`zebra`、`tak`、`deriv`、`crypt`、`bigint`（多倍長整数、フェーズ 10）。インタプリタと `mosac` 変換物の両方で計測し、`docs/bench.md` に表で記録する
 - 目標値は置かない。前回比 20% 以上の悪化を CI で警告する
 
 ## 9. 開発フェーズとマイルストーン

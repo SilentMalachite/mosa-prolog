@@ -21,6 +21,8 @@
 
 決定（2026-10-29）: 持ち主は A を選んだ。`number_chars/2` と `number_codes/2` と共有する数の構文解析は、字面ではなく ADR 0007 の鍵で `syntax_error(Key)` を投げる。字句の誤りはその理由の鍵（`integer_overflow`、`bad_escape`、`unterminated_comment` など）、それ以外でちょうど 1 つの数でないものは `unexpected_token`。
 
+フェーズ 10（2026-11-12、ADR 0025）から、どれほど長い整数のトークンも数になるので、上の一覧の鍵 `integer_overflow` は無くなった。ほかの鍵は変わらない。
+
 決定（2026-10-29）: 持ち主は SWI の振る舞いではなく A を選んだ。具体の第一引数がアトムでなければ `type_error(atom, A)`、具体の第二引数が数でなければ `type_error(number, N)`。`number_chars/2` と同じく、どちらもアトムを読む前に調べる。
 
 ## 8.10 findall/4（非 ISO）
@@ -669,6 +671,8 @@ A か B か: A は整数の `syntax_error(integer_overflow)` と同じく `synta
 
 決定（2026-11-02）: A。最大の double より大きい浮動小数点数には、字句が ADR 0007 の新しい鍵 `float_overflow` を返す。最大の double に丸まる綴りは今までどおり数である。範囲外の値の向きは指数の符号ではなく値の桁（最初の 0 でない数字の位置と指数の和）で決めるので、`1<0 を 400 個>.0e-10` は上位に、`0.<0 を 400 個>1` は下位に溢れる。下位の溢れは変えない。`1.0e-400` は `0.0` と読み、`1.0e-310` のような非正規化数はそのまま残る（`tests/pl/read.pl` と `tests/pl/atoms.pl` の `m2_*`、`tests/cpp/lexer_test.cpp` の `test_float_range`）。
 
+フェーズ 10（2026-11-12、ADR 0025）から、整数のトークンの大きさに限りはなく、A が手本にした `syntax_error(integer_overflow)` は無くなった。範囲外の浮動小数点数のトークンは、今も `syntax_error(float_overflow)` になる。
+
 ## 6.4.5 NaN と無限大（ISO にない）
 
 下の決定の前は、writeq/1 などの書き手は NaN と無限大を `std::to_chars` の字面に `.0` を足して書いた（`src/write/spelling.cpp` の `format_float`）。`nan.0`、`inf.0`、`-inf.0` となり、符号の立った NaN（`X is -(nan)`、L2 からは `sign(-(nan))` も）は標準ライブラリ独自の字面で、macOS では `-nan(ind).0` だった。どれも読み戻せず、`term_to_atom(T, '-nan(ind).0')` も `term_to_atom(T, 'nan.0')` も `syntax_error(unexpected_token)` になる（レビュー L22）。ISO の浮動小数点数に NaN と無限大は無いので、規格はその字面を決めていない。SWI-Prolog と ECLiPSe は Joachim Schimpf の浮動小数点の core update の提案に沿って `1.0Inf`、`-1.0Inf`、`1.5NaN` と書き、読み戻す。
@@ -700,6 +704,8 @@ A か B か: A は丸めずに比べ、選んだ引数を型のまま返す（`m
 `-0.0` と `0.0` が別の項になったので（下の 7.2.2）、等しい値の決まりにより `max(-0.0, 0.0)` は `-0.0`、`max(0.0, -0.0)` は `0.0` になった（L2 の敵対的レビュー A3）。A か B か: A は `-0.0` を `0.0` と `0` より小さいとみなし、引数の順によらず `max` は `0.0`、`min` は `-0.0` を返す。標準順序と IEEE 754-2019 の maximum と minimum と同じ。B は等しい値の決まりのままにする。
 
 決定（2026-11-05）: A。NaN とほかの等しい値は決定 B のまま。テスト: `tests/pl/arith.pl` の `l2_max_zero_*` と `l2_min_zero_*`。
+
+フェーズ 10（2026-11-12、ADR 0025）から、double の範囲を越える整数は浮動小数点数に直せないので、それと浮動小数点数の `max/2` と `min/2` は `evaluation_error(float_overflow)` になる（下の 8.7、9.3.8 と 9.3.9。持ち主が確かめるまでの既定 A）。
 
 ## 6.3.3 複合項の名前としての `[]` と `{}`
 

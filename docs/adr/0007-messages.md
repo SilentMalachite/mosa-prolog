@@ -32,3 +32,7 @@ Context: on Windows `LANG` is normally unset, so `message_language` was always `
 Decision: a non-empty `LANG` decides as before (`ja` prefix gives Japanese); when `LANG` is absent or empty, Windows uses the display language (`GetUserDefaultUILanguage`, primary language Japanese gives Japanese); other systems give English. The decision is `message_language_from(lang, ui_japanese)`, and the OS call lives in `src/platform/ui_language.cpp`.
 Rejected: reading the console code page or the locale name (the user may change them for other reasons); keeping English until `LANG` is set (the default would not match the user's language).
 Consequences: SPEC Section 7 says so; a set `LANG` still wins, so `LANG=en` gives English on a Japanese Windows; tests pin `LANG` so they do not depend on the machine.
+
+## Amendment 2 (2026-11-12, phase 10, ADR 0025)
+
+ADR 0025 removed the key `integer_overflow`: an integer token of any length reads as a number, so no syntax error has that reason, and `messages_en.pl` and `messages_ja.pl` no longer hold it; the other keys and Extra are unchanged.

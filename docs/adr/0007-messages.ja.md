@@ -32,3 +32,7 @@ CMake は `session_test` を `LANG=ja_JP.UTF-8` で流し、今ある日本語�
 決定: 空でない `LANG` は今まで通り決める（`ja` で始まれば日本語）。`LANG` が無いか空のとき、Windows は表示言語（`GetUserDefaultUILanguage`。主言語が日本語なら日本語）で決め、ほかの OS は英語にする。決定は `message_language_from(lang, ui_japanese)` で行い、OS の呼び出しは `src/platform/ui_language.cpp` に置く。
 捨てた案: コンソールのコードページやロケール名を読む案（利用者がほかの理由で変えうる）。`LANG` が設定されるまで英語のままにする案（既定が利用者の言語に合わない）。
 影響: SPEC 第7節に書く。`LANG` が設定されていればそれが勝つので、日本語の Windows でも `LANG=en` なら英語になる。テストは `LANG` を固定し、機械に左右されない。
+
+## 改訂 2（2026-11-12、フェーズ10、ADR 0025）
+
+ADR 0025 が鍵 `integer_overflow` を無くした。どれほど長い整数のトークンも数として読むので、この理由の構文エラーは起きず、`messages_en.pl` と `messages_ja.pl` もこの鍵を持たない。ほかの鍵と Extra は変わらない。

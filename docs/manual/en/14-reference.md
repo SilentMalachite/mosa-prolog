@@ -442,7 +442,7 @@ These read and set flags, end Mosa, and look at memory and time.
 | `current_prolog_flag/2` | 8.17.2 | `current_prolog_flag(Flag, Value)`: the value of a flag. |
 | `set_prolog_flag/2` | 8.17.1 | Sets a flag that can change. |
 | `halt/0` | 8.17.3 | Ends Mosa, with exit status 0. |
-| `halt/1` | 8.17.4 | `halt(N)`: ends Mosa, with exit status N. |
+| `halt/1` | 8.17.4 | `halt(N)`: ends Mosa, with exit status N. An N that a C++ `int` cannot hold raises `representation_error(max_integer)`, or `representation_error(min_integer)` when N is negative. |
 | `nb_setval/2` | — | `nb_setval(Key, Value)`: keeps a copy of Value under the atom Key. Backtracking does not undo it. |
 | `nb_getval/2` | — | `nb_getval(Key, Value)`: a copy of what `nb_setval/2` keeps under Key. |
 | `garbage_collect/0` | — | Frees now the memory of terms that are no longer used. |
@@ -540,9 +540,11 @@ and `~|` set columns, and `~~` writes `~`.
 
 Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO leaves the choice to each system:
 
-- Integers are 64-bit: there are no larger integers, and going past `max_integer` raises
-  `evaluation_error(int_overflow)`. Floats are 64-bit, and Mosa writes the shortest text that reads back as the same
-  float.
+- Integers have no size limit, and the flag `bounded` is `false`. Only the memory limit (`--heap-max`) stops a
+  result: a result whose estimated size is more than the memory left stops the query before it is computed.
+  `max_integer` and `min_integer` stay the largest and the smallest 64-bit integers. An integer too large for a float
+  raises `evaluation_error(float_overflow)` where it meets a float: compared with a float, in `min/2` and `max/2`, and
+  in `float/1`. Floats are 64-bit, and Mosa writes the shortest text that reads back as the same float.
 - `unknown` takes only `error` and `fail`, and the three `float_*` flags take only `error`.
 - Modules (chapter 12) use the syntax of part 2 of the standard (ISO/IEC 13211-2), and a module holds predicates and
   operators. Atoms are the same in every module.
@@ -562,6 +564,12 @@ removed. Among them:
 - Typing Japanese in the console window of Windows has not been verified.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).
+- Before an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
+  counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage
+  collection would have made room.
+- Arithmetic works on copies of the big integers it reads, so the largest integer it can use is below the memory
+  limit: reading one, as in `A > 0` or `A mod 7`, stops once the integer takes about half of the limit, and an
+  operation with a result as large, as in `A + 0`, at about a third.
 
 ---
 

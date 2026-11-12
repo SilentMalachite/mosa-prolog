@@ -95,7 +95,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 0〜9 は終わっています。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
+フェーズ 0〜9 は終わっていて、フェーズ 10（多倍長整数）を 2026-11-12 に始めました。フェーズ 10 は進行中で、作業はできました。残りは完了条件の確かめです。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -196,7 +196,7 @@ X = 太郎.
 
 ## 準拠率
 
-同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）、フェーズ 5 の完了時点で 2135 件（98.3%）、0.1.0 で 2136 件（98.4%）が通りました。不合格の一覧は [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
+同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）、フェーズ 5 の完了時点で 2135 件（98.3%）、0.1.0 で 2136 件（98.4%）が通りました。フェーズ 10 では、スイートの `unbounded/` のテストを範囲に入れて、2274 件中 2239 件（98.5%）が通ります。不合格の一覧は [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
 
 準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 

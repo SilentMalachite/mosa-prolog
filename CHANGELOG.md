@@ -2,6 +2,46 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Integers have arbitrary precision: arithmetic, reading and writing keep an integer above 9223372036854775807 or
+  below -9223372036854775808 exact, and the built-in predicates that take an integer accept one. The flag `bounded` is
+  `false`. `max_integer` and `min_integer` stay 9223372036854775807 and -9223372036854775808.
+- Time: arithmetic on a big integer takes longer as the integer grows. Computing `7^7^7`, an integer of 2,311,978
+  bits, takes about 0.16 s, but turning it into decimal text with `number_codes/2` takes about 12 s, because that time
+  grows with the square of the length. In the benchmarks `nrev` and `queens`, which use only 64-bit integers, the
+  interpreter takes 0.9% and 3.1% longer than in 0.1.4, and the translated `queens` 8.1% longer (measured on one Mac,
+  [bench.md](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#cost-of-arbitrary-precision-integers)).
+
+### Changed
+
+- An integer result no longer raises `evaluation_error(int_overflow)`, and an integer of any length reads without
+  `syntax_error(integer_overflow)`, which no longer exists. The only limit on the size of an integer is the memory
+  limit (`--heap-max`): a result whose estimated size is more than the memory left stops the query with the
+  heap-limit message before it is computed. `evaluation_error(int_overflow)` is left only for rounding an infinite
+  float to an integer, as in `X is round(1.0Inf)`.
+- An integer too large for a float raises `evaluation_error(float_overflow)` where it meets a float: compared with a
+  float, in `min/2` and `max/2`, and in `float/1`.
+- `halt/1` with an integer that a C++ `int` cannot hold raises `representation_error(max_integer)`, or
+  `representation_error(min_integer)` when the integer is negative. Mosa 0.1.4 passed only the low bits on, so
+  `halt(4294967296)` ended with status 0.
+- `tab/1` and `tab/2` with a count above 9223372036854775807 write spaces without end, the same as a 64-bit count
+  too large to finish. Mosa 0.1.4 raised `evaluation_error(int_overflow)` for such a count, as in `tab(2^70)`. A
+  negative count of any size writes nothing.
+
+### Known limits
+
+The known limits of 0.1.4 still hold. Two come with big integers:
+
+- Before an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
+  counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage
+  collection would have made room.
+- Arithmetic works on copies of the big integers it reads, so the largest integer it can use is below the memory
+  limit: reading one, as in `A > 0` or `A mod 7`, stops once the integer takes about half of the limit, and an
+  operation with a result as large, as in `A + 0`, at about a third.
+
 ## 0.1.4 (2026-11-11)
 
 A maintenance release after a review of all of Mosa's C++ code. A program sees no change from 0.1.3. It runs on the

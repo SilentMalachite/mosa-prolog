@@ -146,7 +146,6 @@ far:
 | `type_error(Type, Culprit)` | `Culprit` is not of the type `Type`: `atom`, `integer`, `evaluable` and so on. |
 | `existence_error(procedure, Name/Arity)` | There is no predicate `Name/Arity`. |
 | `evaluation_error(zero_divisor)` | Arithmetic divided by zero. |
-| `evaluation_error(int_overflow)` | An integer result was too large (chapter 6). |
 
 To catch an error, write a catcher for its `Formal` and leave its `Context` to `_`, as `safe_div/3` does. The
 `Formal` says what went wrong, and the `Context` only helps you find where.

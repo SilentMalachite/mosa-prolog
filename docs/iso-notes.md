@@ -19,6 +19,8 @@ Decision (2026-10-25): Open question 2: A. Register `atom_number/2` and convert 
 
 Decision (2026-10-29): owner chose A. The number parsing shared with `number_chars/2` and `number_codes/2` gives `syntax_error(Key)` with the ADR 0007 keys instead of the text: a lexical failure gives its reason key (`integer_overflow`, `bad_escape`, `unterminated_comment`, …), anything else that is not exactly one number gives `unexpected_token`.
 
+Since phase 10 (2026-11-12, ADR 0025), an integer token of any length is a number, so the key `integer_overflow` in the list above no longer exists; the other keys are unchanged.
+
 Decision (2026-10-29): owner chose A over the SWI behaviour. A bound first argument that is not an atom gives `type_error(atom, A)`, and a bound second argument that is not a number gives `type_error(number, N)`. Both are checked before the atom is parsed, as `number_chars/2` does.
 
 ## 8.10 findall/4 (non-ISO)
@@ -667,6 +669,8 @@ A or B?: A: `syntax_error(float_overflow)`, the same way as `syntax_error(intege
 
 Decision (2026-11-02): A. The lexer reports the new ADR 0007 key `float_overflow` for a float above the largest double; a spelling that rounds to the largest double is still a number. The direction of an out-of-range value is taken from its magnitude (the place of the first non-zero digit plus the exponent), not from the sign of the exponent, so `1<400 zeros>.0e-10` overflows and `0.<400 zeros>1` underflows. Underflow is unchanged: `1.0e-400` reads as `0.0` and subnormals such as `1.0e-310` are kept (`tests/pl/read.pl` and `tests/pl/atoms.pl` `m2_*`, `tests/cpp/lexer_test.cpp` `test_float_range`).
 
+Since phase 10 (2026-11-12, ADR 0025), an integer token has no size limit, so `syntax_error(integer_overflow)`, which option A took as its model, no longer exists; a float token out of range still gives `syntax_error(float_overflow)`.
+
 ## 6.4.5 NaN and infinity (non-ISO)
 
 Before the decision below, writeq/1 and the other writers spelt a NaN or an infinity with the text of `std::to_chars` plus `.0` (`src/write/spelling.cpp` `format_float`): `nan.0`, `inf.0` and `-inf.0`, and for a NaN with its sign bit set the standard library's own text, `-nan(ind).0` on macOS (`X is -(nan)`, or `sign(-(nan))` since L2). None of them read back: `term_to_atom(T, '-nan(ind).0')` and `term_to_atom(T, 'nan.0')` raise `syntax_error(unexpected_token)` (review L22). ISO floats have no NaN and no infinity, so the standard says nothing about their text; SWI-Prolog and ECLiPSe write `1.0Inf`, `-1.0Inf` and `1.5NaN`, after Joachim Schimpf's proposal for a core update on floating point, and read them back.
@@ -698,6 +702,8 @@ Decision (2026-11-05): B. Nothing changes. A comparison with a NaN is false both
 Once `-0.0` and `0.0` became distinct terms (7.2.2 below), the rule for equal values made `max(-0.0, 0.0)` give `-0.0` and `max(0.0, -0.0)` give `0.0` (adversarial review of L2, A3). A or B?: A: take `-0.0` as smaller than `0.0` and `0`, so `max` gives `0.0` and `min` gives `-0.0` in either order, as the standard order and IEEE 754-2019 maximum and minimum do. B: keep the rule for equal values.
 
 Decision (2026-11-05): A. NaN and other equal values keep decision B. Tests: `l2_max_zero_*` and `l2_min_zero_*` in `tests/pl/arith.pl`.
+
+Since phase 10 (2026-11-12, ADR 0025), an integer beyond the double range cannot be converted, and `max/2` and `min/2` of it and a float raise `evaluation_error(float_overflow)` (8.7, 9.3.8 and 9.3.9 below, default A until the owner confirms).
 
 ## 6.3.3 `[]` and `{}` as the name of a compound term
 

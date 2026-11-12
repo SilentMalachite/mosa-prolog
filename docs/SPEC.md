@@ -210,7 +210,7 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 
 | Component | Design |
 | --- | --- |
-| Cell representation | 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (reserved for the future). Integers that do not fit in 61 bits are boxed like FLT, and `max_integer` stays 2^63−1 |
+| Cell representation | 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (an integer outside int64: a pointer to a head word and the magnitude words, phase 10, ADR 0025). An int64 that does not fit in 61 bits is boxed like FLT, and `max_integer` stays 2^63−1 |
 | Heap | A single contiguous array: address space up to the limit is reserved at start-up and committed from the bottom as needed, so committed cells never move (ADR 0010). Reclaimed on backtracking simply by resetting the top |
 | Trail | Pushes the addresses of bound REFs. Conditional trailing (records only cells older than the choice point) |
 | Choice point stack | Holds the continuation, trail position, heap position, pointer to the alternative clause, and cut barrier |
@@ -316,7 +316,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 - All errors are thrown in the form `throw(error(Formal, Context))`. `Context` is `context(PI, Extra)`, where `PI` is the predicate indicator and `Extra` is additional information (for `syntax_error`, the form `syntax(stream(S, Line, LinePos, CharNo), Token)` rather than `位置(Line, Col)`, with `Token` the offending token as an atom, ADR 0007). ISO permits implementation-defined terms in `Context`
 - The order of argument checks strictly follows each predicate's definition in ISO (the order listed in 8.x.y.3 Errors). For example, `atom_length(X, foo)` does not throw `type_error(integer, foo)`; it checks `X` first and throws `instantiation_error`. Order violations are detected by the conformance suite
 - On the C++ side, use only the single family of helpers `throw_error(m, Formal, PI)`, and build each kind of `Formal` with functions such as `make_type_error(m, Type, Culprit)`. Writing string literals directly is forbidden (to prevent typos in atom names)
-- Arithmetic errors: division by zero is `evaluation_error(zero_divisor)`, integer overflow is `evaluation_error(int_overflow)`, float overflow is `evaluation_error(float_overflow)`, and `sqrt(-1)` etc. is `evaluation_error(undefined)`. `inf`/`nan` are thrown when the `float_overflow`/`undefined` flag is `error`; otherwise IEEE 754 values are returned (SWI-compatible `float_overflow`, `float_zero_div`, `float_undefined` flags)
+- Arithmetic errors: division by zero is `evaluation_error(zero_divisor)`, float overflow is `evaluation_error(float_overflow)`, and `sqrt(-1)` etc. is `evaluation_error(undefined)`. An integer result does not overflow (phase 10, ADR 0025): one too large for the heap stops at the heap limit, and `evaluation_error(int_overflow)` is left only for rounding an infinite float to an integer. `inf`/`nan` are thrown when the `float_overflow`/`undefined` flag is `error`; otherwise IEEE 754 values are returned (SWI-compatible `float_overflow`, `float_zero_div`, `float_undefined` flags)
 - The top level displays uncaught exceptions in the form `警告: ゴールは例外を送出しました: error(...)` (Warning: goal raised exception: error(...)) in Japanese or English (flag `message_language`, whose default is determined from the environment variable `LANG`, or, on Windows when `LANG` is absent or empty, from the Windows display language). Message strings are placed as Prolog facts in `lib/messages_ja.pl` and `lib/messages_en.pl`, and are not embedded in C++
 
 ## 8. Test strategy
@@ -340,7 +340,7 @@ Tests have four layers. Two numbers, "conformance suite pass rate" and "interpre
 
 **Benchmarks (lower priority than pass rate, but used to detect regressions)**
 
-- `bench/`: `nrev` (naive reverse, LIPS measurement), `queens`, `zebra`, `tak`, `deriv`, `crypt`. Measured with both the interpreter and the `mosac` translation, and recorded as a table in `docs/bench.md`
+- `bench/`: `nrev` (naive reverse, LIPS measurement), `queens`, `zebra`, `tak`, `deriv`, `crypt`, `bigint` (arbitrary-precision integers, phase 10). Measured with both the interpreter and the `mosac` translation, and recorded as a table in `docs/bench.md`
 - No target values are set. CI warns on a regression of 20% or more compared with the previous run
 
 ## 9. Development phases and milestones
