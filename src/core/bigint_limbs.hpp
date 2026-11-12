@@ -1,7 +1,7 @@
 #pragma once
 
 // BigInt の実装のファイル（bigint.cpp、bigint_div.cpp、bigint_text.cpp）が共有する、絶対値の語の並びの道具。
-// 語の幅（32 ビット）を公開の見出し include/mosa/bigint.hpp に出さないため、ここに置く。
+// 語の並びを扱う道具を公開の見出し include/mosa/bigint.hpp に出さないため、ここに置く。
 // 語の並びはどれも下位が先。引数の LimbSpan は上位の 0 の語を持たない（trimmed の形）ことを前提にする。
 // テスト: tests/cpp/bigint_test.cpp
 

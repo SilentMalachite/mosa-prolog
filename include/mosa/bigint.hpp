@@ -58,6 +58,8 @@ struct BigQuotient {
 
 [[nodiscard]] BigQuotient divide_truncate(const BigInt& a, const BigInt& b);  // 前提 b ≠ 0。余りは a の符号
 [[nodiscard]] BigQuotient divide_floor(const BigInt& a, const BigInt& b);     // 前提 b ≠ 0。余りは b の符号
+// shift_left と power は結果の語を先に確保する。大きすぎる bits や exponent では std::bad_alloc か
+// std::length_error を投げるので、呼ぶ側（算術の組み込み）が結果の大きさを先に見積もって止める。
 [[nodiscard]] BigInt shift_left(const BigInt& a, std::uint64_t bits);
 [[nodiscard]] BigInt shift_right(const BigInt& a, std::uint64_t bits);  // 床に丸める（算術シフト）
 [[nodiscard]] BigInt bit_and(const BigInt& a, const BigInt& b);         // 以下 4 つは 2 の補数の意味
@@ -67,7 +69,7 @@ struct BigQuotient {
 [[nodiscard]] BigInt gcd(const BigInt& a, const BigInt& b);  // 非負
 [[nodiscard]] BigInt power(const BigInt& base, std::uint64_t exponent);
 [[nodiscard]] std::string to_text(const BigInt& value, unsigned radix = 10);  // 負なら '-' を先に。小文字。前提 2〜36
-// 数字だけ（符号、'_'、接頭辞なし）。radix は 2・8・10・16。数字でない字があれば nullopt。
+// 数字だけ（符号、'_'、接頭辞なし）。radix は 2〜36。空の字面、範囲外の radix、数字でない字は nullopt。
 [[nodiscard]] std::optional<BigInt> parse_magnitude(std::string_view digits, unsigned radix);
 [[nodiscard]] std::optional<double> to_double(const BigInt& value);  // 最近接偶数。範囲外は nullopt
 [[nodiscard]] BigInt from_integral_double(double value);             // 前提: 有限で整数値
