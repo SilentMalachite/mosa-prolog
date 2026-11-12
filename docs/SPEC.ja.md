@@ -62,9 +62,9 @@
 2. 項の表現・ユニフィケーション（7.3）。`unify_with_occurs_check/2` を含む。デフォルトのユニフィケーションでは出現検査を行わない
 3. 実行モデル（7.7）: 探索木、カット、`catch/3`・`throw/1`、`call/1..8` のカットの透過性（`call/N` 内のカットはローカル）
 4. エラー体系（7.12）: `error(Formal, Context)` の形式とすべての Formal 項（`instantiation_error`、`uninstantiation_error/1`、`type_error/2`、`domain_error/2`、`existence_error/2`、`permission_error/3`、`representation_error/1`、`evaluation_error/1`、`resource_error/1`、`syntax_error/1`、`system_error`）
-5. 算術（第 9 章）: 整数は 64bit 符号付き、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供し、オーバーフローは `evaluation_error(int_overflow)`。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
+5. 算術（第 9 章）: 整数は任意精度（フェーズ 10、ADR 0025。フラグ `bounded` は `false`）、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供する。整数の結果はあふれず、ヒープに入らない大きさの結果はヒープの上限で止まる。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
 6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
-7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
+7. フラグ（7.11）: `bounded`（`false`）、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
 8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
 
 **文法規則（フェーズ 8）**
@@ -82,6 +82,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | 文字列型 | 持たない。`"..."` は `double_quotes` フラグに従う（SWI の string 型は非目標） |
 | 浮動小数点の書式 | 最短往復表現（`std::to_chars`）。必ず `.` を含み、指数は `e`。NaN は `1.5NaN`、無限大は `1.0Inf` と `-1.0Inf` と SWI-Prolog・ECLiPSe と同じく書き、読み手が読み戻す（iso-notes 6.4.5、レビュー L22） |
 | 整数の構文 | `0b`、`0o`、`0x`、`0'c`、`_` 区切り（Cor.3 では未規定だが許可） |
+| 整数 | 任意精度。`bounded` は `false`（ADR 0025）。`max_integer` と `min_integer` は 2^63−1 と −2^63 のまま（iso-notes 7.11.1.2 の既定 A）。結果の大きさの見積もりがヒープの残りを超えるときは、計算の前にヒープの上限で止まる。double の範囲を超える整数と浮動小数点数との比較、`min/2` と `max/2`、`float/1` は `evaluation_error(float_overflow)`（iso-notes 8.7 の既定 A） |
 
 **ISO からの意図的な逸脱（すべてフラグまたは既定オフで、`iso` フラグ true のとき無効化される）**
 

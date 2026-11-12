@@ -132,9 +132,9 @@ A flag whose "Other values" says "none" cannot be changed.
 
 | Flag | Value at start | Other values | What it means |
 | --- | --- | --- | --- |
-| `bounded` | `true` | none | Integers have a smallest and a largest value. |
-| `max_integer` | `9223372036854775807` | none | The largest integer. A result beyond it raises `evaluation_error(int_overflow)`. |
-| `min_integer` | `-9223372036854775808` | none | The smallest integer. |
+| `bounded` | `false` | none | Integers have no smallest or largest value; only the memory limit (`--heap-max`) stops a result. |
+| `max_integer` | `9223372036854775807` | none | The largest 64-bit integer. Larger integers exist and a result beyond it stays exact. |
+| `min_integer` | `-9223372036854775808` | none | The smallest 64-bit integer. Smaller integers exist too. |
 | `integer_rounding_function` | `toward_zero` | none | How `//` rounds: `-7 // 2` is `-3`. |
 | `max_arity` | `1024` | none | The most arguments that a compound term can have. |
 | `double_quotes` | `codes` | `chars`, `atom` | What `"abc"` reads as: a list of character codes, a list of characters or an atom. |

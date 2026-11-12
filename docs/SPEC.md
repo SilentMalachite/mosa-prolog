@@ -61,9 +61,9 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 2. Term representation and unification (7.3), including `unify_with_occurs_check/2`. Default unification does not perform the occurs check
 3. Execution model (7.7): search tree, cut, `catch/3`/`throw/1`, cut transparency of `call/1..8` (a cut inside `call/N` is local)
 4. Error system (7.12): the `error(Formal, Context)` form and all Formal terms (`instantiation_error`, `uninstantiation_error/1`, `type_error/2`, `domain_error/2`, `existence_error/2`, `permission_error/3`, `representation_error/1`, `evaluation_error/1`, `resource_error/1`, `syntax_error/1`, `system_error`)
-5. Arithmetic (chapter 9): integers are 64-bit signed, floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; overflow raises `evaluation_error(int_overflow)`. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
+5. Arithmetic (chapter 9): integers have arbitrary precision (phase 10, ADR 0025; the flag `bounded` is `false`), floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; an integer result has no overflow, and one too large for the heap stops at the heap limit. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
 6. All built-in predicates (chapter 8). The list and stages are given in section 7
-7. Flags (7.11): `bounded`, `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
+7. Flags (7.11): `bounded` (`false`), `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
 8. Directives (7.4.2): `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`, `set_prolog_flag/2`, `include/1`, `ensure_loaded/1`
 
 **Grammar rules (phase 8)**
@@ -81,6 +81,7 @@ A clause `Head --> Body` in a Prolog text is translated to an ordinary clause wh
 | String type | None. `"..."` follows the `double_quotes` flag (SWI's string type is a non-goal) |
 | Float format | Shortest round-trip representation (`std::to_chars`). Always contains `.`, exponent written with `e`. NaN is written `1.5NaN` and infinities `1.0Inf` and `-1.0Inf`, as in SWI-Prolog and ECLiPSe, and the reader reads them back (iso-notes 6.4.5, review L22) |
 | Integer syntax | `0b`, `0o`, `0x`, `0'c`, `_` digit separators (not specified in Cor.3, but allowed) |
+| Integers | Arbitrary precision; `bounded` is `false` (ADR 0025). `max_integer` and `min_integer` stay 2^63−1 and −2^63 (iso-notes 7.11.1.2, default A). A result whose estimated size exceeds the heap left stops with the heap limit before it is computed. An integer beyond the double range against a float, in `min/2` and `max/2`, and in `float/1` raises `evaluation_error(float_overflow)` (iso-notes 8.7, default A) |
 
 **Intentional deviations from ISO (all are behind a flag or off by default, and are disabled when the `iso` flag is true)**
 

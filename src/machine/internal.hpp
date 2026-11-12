@@ -402,6 +402,8 @@ struct Machine::Impl {
   bool exception = false;
   // catch が評価の途中で例外を消しても、呼び出し元がヒープを読み続けないようにする。
   bool eval_abort = false;
+  // 式の評価の間だけ Big の値を置く（ADR 0025）。arith の Num は添字を持ち、入口を出るときに空にする（arith_internal.hpp）。
+  std::vector<BigInt> eval_bigs;
   // launch_var の中から launch_var に入った段数（レビュー M13）。深くなれば call/1 の枠にして run_loop に回す。
   int var_depth = 0;
   Cell ball{};

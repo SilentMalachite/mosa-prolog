@@ -11,6 +11,7 @@
 // version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
 // message_language は ja と en。既定は LANG から決める（ADR 0007）。
 // trace_gc は true と false。既定は false。true なら GC のたびに標準エラーへ 1 行書く（非 ISO、Task 7）。
+// bounded は false（フェーズ10）。変えられない。
 // テスト: tests/pl/flags.pl、tests/pl/gc.pl
 
 #include "../machine/internal.hpp"
@@ -85,7 +86,8 @@ Cell argv_list(Impl& machine) {
 
 Cell flag_value(Impl& machine, std::size_t index) {
   switch (index) {
-    case 0: return atom_named(machine, "true");
+    // 整数に上限は無い（7.11.1.1、ADR 0025）。max_integer と min_integer は int64 の境界のまま（iso-notes 7.11.1.2 の既定 A）。
+    case 0: return atom_named(machine, "false");
     case 1: return atom_named(machine, "toward_zero");
     case 2: return machine.heap.integer(std::numeric_limits<std::int64_t>::max());
     case 3: return machine.heap.integer(std::numeric_limits<std::int64_t>::min());

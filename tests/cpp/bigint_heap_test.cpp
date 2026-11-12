@@ -1,5 +1,5 @@
 // フェーズ10 のタスク 3（ADR 0025）。ヒープの Big の箱と、それを受ける側（単一化、変種の照合、==、標準順序、writer、
-// 型の検査、functor/3、=../2、ExportedTerm の往復、評価の暫定の int_overflow）。Big は bigint_support.hpp の
+// 型の検査、functor/3、=../2、ExportedTerm の往復、評価で Big が値になること）。Big は bigint_support.hpp の
 // query_with_bigs で作る。
 
 #include "bigint_support.hpp"
@@ -290,19 +290,16 @@ void check_exported() {
   }
 }
 
-std::string formal_of(mosa::Machine& machine, std::string_view goal, const std::vector<BigInt>& values) {
-  const mosa::Stop stop = query_with_bigs(machine, "catch((" + std::string{goal} + "), error(E, _), true)", values);
-  if (stop.kind != mosa::StopKind::Success) return "<no answer>";
-  return mosa::write_term(machine.heap(), machine.operators(), bound(machine, stop, "E"), {}, {});
-}
-
+// タスク 6 から Big は評価できる（タスク 3 の暫定の int_overflow はなくなった）。is の値は B そのもので、
+// それを == で確かめる。比較も Big のまま成り立つ。
 void check_eval() {
   auto machine = make_machine();
   const BigInt big = power_of_two(100);
-  for (const std::string_view goal : {"X is '$big0' + 0", "X is '$big0'", "'$big0' > 0"}) {
-    mosa_test::check(formal_of(*machine, goal, {big}) == "evaluation_error(int_overflow)",
-                     "eval: " + std::string{goal} + " is int_overflow");
+  for (const std::string_view goal : {"X is '$big0' + 0", "X is '$big0'"}) {
+    mosa_test::check(run(*machine, std::string{goal} + ", X == '$big1'", {big, big}) == mosa::StopKind::Success,
+                     "eval: " + std::string{goal} + " gives X == B");
   }
+  mosa_test::check(run(*machine, "'$big0' > 0", {big}) == mosa::StopKind::Success, "eval: '$big0' > 0 holds");
 }
 
 }  // namespace

@@ -132,6 +132,12 @@ target_include_directories(state_limit_test PRIVATE tests/cpp)
 target_link_libraries(state_limit_test PRIVATE mosa_lib)
 add_test(NAME state_limit COMMAND $<TARGET_FILE:state_limit_test>)
 set_tests_properties(state_limit PROPERTIES TIMEOUT 300)
+# フェーズ10（ADR 0025）。Big の算術は結果の大きさを先に見積もり、ヒープの上限で止まる。
+add_executable(bigint_limit_test tests/cpp/bigint_limit_test.cpp)
+target_include_directories(bigint_limit_test PRIVATE tests/cpp)
+target_link_libraries(bigint_limit_test PRIVATE mosa_lib)
+add_test(NAME bigint_limit COMMAND $<TARGET_FILE:bigint_limit_test>)
+set_tests_properties(bigint_limit PROPERTIES TIMEOUT 300)
 
 # mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
 add_executable(gc_test tests/cpp/gc_test.cpp)

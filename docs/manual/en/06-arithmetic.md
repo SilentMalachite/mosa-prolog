@@ -175,14 +175,14 @@ which is less than `400`, so that was the first answer. For `bread` it was `500`
 backtracked to the next fact. For `milk` it was `360`. `milk` is the last fact, so Mosa knew that there was nothing
 more to try and put a period after the answer.
 
-Numbers have limits. An integer is between -9223372036854775808 and 9223372036854775807, and a result outside that
-range gives a warning with `int_overflow`. A float is stored in binary with about 16 significant digits, so a
-decimal fraction such as `0.1` is not stored exactly, and a sum can show a tiny difference:
+An integer has no fixed limit: a result beyond 9223372036854775807 is still exact, and only the memory that terms may
+use (`--heap-max`, chapter 14) stops it. Floats have limits. A float is stored in binary with about 16 significant
+digits, so a decimal fraction such as `0.1` is not stored exactly, and a sum can show a tiny difference:
 
 <!-- check: limits -->
 ```text
 ?- X is 9223372036854775807 + 1.
-Warning: goal raised exception: error(evaluation_error(int_overflow),context((is)/2,_G1))
+X = 9223372036854775808.
 ?- X is 0.1 + 0.2.
 X = 0.30000000000000004.
 ```

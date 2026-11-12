@@ -443,8 +443,8 @@ void check_arith() {
   mosa_test::check(floor.kind == mosa::StopKind::Success && d == "-3", "floor div is -3");
   auto errors = mosa::Machine::create();
   mosa_test::check(errors->query("X is 1 / 0.").kind == mosa::StopKind::Exception, "zero divisor");
-  mosa_test::check(errors->query("X is 9223372036854775807 + 1.").kind == mosa::StopKind::Exception,
-                   "int overflow");
+  mosa_test::check(errors->query("X is 9223372036854775807 + 1.").kind == mosa::StopKind::Success,
+                   "past max_integer is a Big");
   mosa_test::check(errors->query("(1.0 =:= 1).").kind == mosa::StopKind::Success, "numeric equal");
 }
 

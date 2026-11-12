@@ -2,8 +2,12 @@
 // =:=(@evaluable, @evaluable) ほか。誤り: instantiation_error, type_error(evaluable, F/A),
 // type_error(integer, X), type_error(float, X), type_error(integer_expression, E)（tab/1,2 が使う
 // eval_int_expression）, evaluation_error(zero_divisor | undefined | int_overflow | float_overflow),
-// resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。テスト: tests/pl/arith.pl, tests/pl/native.pl,
-// tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp, tests/cpp/bigint_heap_test.cpp
+// resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。整数に上限は無い（旗 bounded は false、ADR 0025）。
+// int_overflow を出すのは、無限大を整数にする丸めと、タスク 7 までの暫定（^、**、gcd、succ_or_zero、ビット演算、
+// シフトが int64 を越えるか Big を受けたとき。big_pending）と、tab/1,2 の Big（タスク 8 まで）だけである。
+// ヒープに入らない大きさの結果は ResourceLimit("heap_limit") で止める（check_room）。テスト: tests/pl/arith.pl,
+// tests/pl/bigint.pl, tests/pl/native.pl, tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp,
+// tests/cpp/bigint_heap_test.cpp, tests/cpp/bigint_limit_test.cpp
 
 #include "arith_internal.hpp"
 #include "evaluable.hpp"
@@ -21,8 +25,9 @@
 
 namespace mosa {
 
+// as_int が真なら、out は整数にする有限の整数値（9.1.6 の丸めの結果）。
 int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out,
-             bool& as_int, std::int64_t& iout);
+             bool& as_int);
 
 namespace arith {
 namespace {
@@ -52,7 +57,10 @@ Ev number_of(Impl& machine, Cell cell) {
     ev.ok = true;
     ev.num.flt = true;
     ev.num.fval = machine.heap.float_value(cell);
+    return ev;
   }
+  // Big は評価の間ヒープの外に写して持つ。式の途中で箱を指したままにしない。
+  if (cell.tag() == Tag::Big) return from_big(machine, machine.heap.big_value(cell));
   return ev;
 }
 
@@ -101,8 +109,9 @@ double negative_base_pow(double base, std::int64_t exp) {
 }
 
 Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
-  const double a = as_float(left);
-  const double b = as_float(right);
+  double a = 0;
+  double b = 0;
+  if (!to_float(machine, goal, left, a) || !to_float(machine, goal, right, b)) return {};
   const bool finite = std::isfinite(a) && std::isfinite(b);
   double value = 0;
   if (name == "+") value = a + b;
@@ -149,43 +158,44 @@ Ev eval_float_wrap(Impl& machine, const Goal& goal, std::string_view name, const
   std::array<double, 2> inputs{};
   if (args.size() > inputs.size()) return {};
   if (args.size() == 1 && !args[0].flt && float_only(name)) {
-    raise_formal(machine, formal_type(machine, "float", machine.heap.integer(args[0].ival)), goal.name, goal.arity);
+    raise_formal(machine, formal_type(machine, "float", num_cell(machine, args[0])), goal.name, goal.arity);
     return {};
   }
   // integer/1 の整数はそのまま返す。double を通すと 2^53 を超える値が丸まり、max_integer は int_overflow になる
   // （L2 の敵対的レビュー A2）。
-  if (args.size() == 1 && !args[0].flt && name == "integer") return from_int(args[0].ival);
-  for (std::size_t index = 0; index < args.size(); ++index) inputs[index] = as_float(args[index]);
+  if (args.size() == 1 && !args[0].flt && name == "integer") return from_num(args[0]);
+  for (std::size_t index = 0; index < args.size(); ++index) {
+    if (!to_float(machine, goal, args[index], inputs[index])) return {};
+  }
   double value = 0;
   bool as_int = false;
-  std::int64_t ival = 0;
-  const int status = float_op(machine, goal, name, std::span<const double>{inputs.data(), args.size()}, value, as_int, ival);
+  const int status = float_op(machine, goal, name, std::span<const double>{inputs.data(), args.size()}, value, as_int);
   if (status == 0) return {};
   if (status < 0) return {};
-  if (as_int) return from_int(ival);
+  if (as_int) return from_integral(machine, value);
   return from_float(value);
 }
 
 Ev eval_known(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
-  if (name == "+" && args.size() == 1) return args[0].flt ? from_float(args[0].fval) : from_int(args[0].ival);
+  if (name == "+" && args.size() == 1) return from_num(args[0]);
   if (name == "-" && args.size() == 1) {
     if (args[0].flt) return from_float(args[0].fval == 0 ? std::copysign(0.0, -std::copysign(1.0, args[0].fval))
                                                          : -args[0].fval);
-    std::int64_t out = 0;
-    if (!sub_i(0, args[0].ival, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-    return from_int(out);
+    return negate_int(machine, args[0]);
   }
   if ((name == "+" || name == "-" || name == "*") && args.size() == 2) {
     if (both_int(args)) return eval_int_bin(machine, goal, name, args[0], args[1]);
     return eval_float_bin(machine, goal, name, args[0], args[1]);
   }
-  if (name == "/" && args.size() == 2) return eval_float_bin(machine, goal, name, args[0], args[1]);
+  if (name == "/" && args.size() == 2) {
+    // int64 どうしは前のまま double にしてから割る。Big を含む整数どうしは商を 1 回だけ丸める（big_divide）。
+    if (both_int(args) && (args[0].big || args[1].big)) return big_divide(machine, goal, args[0], args[1]);
+    return eval_float_bin(machine, goal, name, args[0], args[1]);
+  }
   if ((name == "//" || name == "rem" || name == "div" || name == "mod") && args.size() == 2) {
     return eval_int_bin(machine, goal, name, args[0], args[1]);
   }
+  if ((name == "^" || name == "**") && args.size() == 2 && big_pending(machine, goal, args)) return {};
   if (name == "^" && args.size() == 2 && !args[0].flt && !args[1].flt) {
     return int_hat(machine, goal, args[0].ival, args[1].ival);
   }
@@ -220,11 +230,6 @@ std::optional<Ev> eval_leaf(Impl& machine, const Goal& goal, Cell cell) {
     return Ev{};
   }
   if (const Ev num = number_of(machine, cell); num.ok) return num;
-  // 評価はまだ int64 だけを持つ（Big の算術はタスク 6）。int64 を越えた結果と同じ見え方にし、型の誤りにしない。
-  if (cell.tag() == Tag::Big) {
-    fail_eval(machine, goal, "int_overflow");
-    return Ev{};
-  }
   if (cell.tag() == Tag::Atom) {
     const auto text = machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
     if (const Ev constant = constant_of(text); constant.ok) return constant;
@@ -243,6 +248,23 @@ std::optional<Ev> eval_leaf(Impl& machine, const Goal& goal, Cell cell) {
   return std::nullopt;
 }
 
+// 複合項の値を求めたら、その引数の Big は要らない。値が Big ならそれだけを mark の位置へ寄せて残す。こうして
+// eval_bigs の長さは式の木の深さほどに収まり、Big の葉や途中の値をたくさん持つ式でも全部を積み続けない。
+// int64 の道では eval_bigs が伸びないので、比較 1 回で抜ける。
+Ev settle_bigs(Impl& machine, std::size_t mark, Ev ev) {
+  std::vector<BigInt>& pool = machine.eval_bigs;
+  if (pool.size() <= mark) return ev;
+  std::size_t keep = mark;
+  if (ev.ok && ev.num.big) {
+    const auto at = static_cast<std::size_t>(ev.num.ival);
+    if (at != mark) pool[mark] = std::move(pool[at]);
+    ev.num.ival = static_cast<std::int64_t>(mark);
+    keep = mark + 1;
+  }
+  pool.erase(pool.begin() + static_cast<std::ptrdiff_t>(keep), pool.end());
+  return ev;
+}
+
 // 引数を評価し終えた複合項に、その関数子を当てる。
 Ev eval_apply(Impl& machine, const Goal& goal, Cell cell, const std::vector<Num>& args) {
   const auto name = machine.atoms.name(machine.heap.functor_atom(cell));
@@ -256,6 +278,7 @@ Ev eval_apply(Impl& machine, const Goal& goal, Cell cell, const std::vector<Num>
 struct EvalFrame {
   Cell cell;
   std::size_t base;
+  std::size_t bigs;  // 入ったときの eval_bigs の長さ（settle_bigs の mark）
 };
 
 // この深さまでは C++ の再帰で評価する。より深い式は手で積んで評価する（ADR 0011 の改訂 2）。
@@ -303,7 +326,7 @@ struct CycleWatch {
 // 後順に評価する。引数は左から評価するので、最初に投げる誤りは再帰と同じになる。root は深さ depth で、
 // eval_at が見張りに入れ終えている。前は循環する式で stack が --heap-max の外で限りなく育った（レビュー L20）。
 Ev eval_deep(Impl& machine, const Goal& goal, Cell root, std::size_t depth, CycleWatch& watch) {
-  std::vector<EvalFrame> stack{{root, 0}};
+  std::vector<EvalFrame> stack{{root, 0, machine.eval_bigs.size()}};
   std::vector<Num> nums;
   while (true) {
     const EvalFrame top = stack.back();
@@ -314,7 +337,7 @@ Ev eval_deep(Impl& machine, const Goal& goal, Cell root, std::size_t depth, Cycl
         if (!leaf->ok) return {};
         nums.push_back(leaf->num);
       } else {
-        stack.push_back(EvalFrame{next, nums.size()});
+        stack.push_back(EvalFrame{next, nums.size(), machine.eval_bigs.size()});
         if (watch.enter(next, depth + stack.size() - 1)) {
           fail_cyclic(machine, goal);
           return {};
@@ -323,7 +346,7 @@ Ev eval_deep(Impl& machine, const Goal& goal, Cell root, std::size_t depth, Cycl
       continue;
     }
     const std::vector<Num> args(nums.begin() + static_cast<std::ptrdiff_t>(top.base), nums.end());
-    const Ev ev = eval_apply(machine, goal, top.cell, args);
+    const Ev ev = settle_bigs(machine, top.bigs, eval_apply(machine, goal, top.cell, args));
     if (!ev.ok) return ev;
     nums.resize(top.base);
     stack.pop_back();
@@ -343,6 +366,7 @@ Ev eval_at(Impl& machine, const Goal& goal, Cell cell, int depth, CycleWatch& wa
   }
   if (depth >= kShallow) return eval_deep(machine, goal, cell, level, watch);
   const auto arity = machine.heap.functor_arity(cell);
+  const std::size_t mark = machine.eval_bigs.size();
   std::vector<Num> args;
   args.reserve(arity);
   for (std::uint16_t index = 0; index < arity; ++index) {
@@ -351,7 +375,7 @@ Ev eval_at(Impl& machine, const Goal& goal, Cell cell, int depth, CycleWatch& wa
     watch.returned(cell, level);
     args.push_back(ev.num);
   }
-  return eval_apply(machine, goal, cell, args);
+  return settle_bigs(machine, mark, eval_apply(machine, goal, cell, args));
 }
 
 Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {
@@ -359,22 +383,7 @@ Ev eval_expr(Impl& machine, const Goal& goal, Cell cell) {
   return eval_at(machine, goal, cell, 0, watch);
 }
 
-Cell num_cell(Impl& machine, Num num) {
-  if (num.flt) return machine.heap.floating(num.fval);
-  return machine.heap.integer(num.ival);
-}
-
-bool cmp_nums(Num left, Num right, int mode) {
-  int order = 0;
-  if (left.flt || right.flt) {
-    const double a = as_float(left);
-    const double b = as_float(right);
-    // NaN との比較は大小も等号も成り立たない。=\= は =:= の否定なので、ここが失敗すれば成立する。
-    if (std::isnan(a) || std::isnan(b)) return false;
-    if (a < b) order = -1;
-    else if (a > b) order = 1;
-  } else if (left.ival < right.ival) order = -1;
-  else if (left.ival > right.ival) order = 1;
+bool order_holds(int order, int mode) {
   if (mode == -2) return order < 0;
   if (mode == -1) return order <= 0;
   if (mode == 0) return order == 0;
@@ -382,12 +391,37 @@ bool cmp_nums(Num left, Num right, int mode) {
   return order > 0;
 }
 
+// 比べた結果を holds に置く。Big を double にできずに誤りを投げたら false。
+bool cmp_nums(Impl& machine, const Goal& goal, Num left, Num right, int mode, bool& holds) {
+  int order = 0;
+  if (left.flt || right.flt) {
+    double a = 0;
+    double b = 0;
+    if (!to_float(machine, goal, left, a) || !to_float(machine, goal, right, b)) return false;
+    // NaN との比較は大小も等号も成り立たない。=\= は =:= の否定なので、ここが失敗すれば成立する。
+    if (std::isnan(a) || std::isnan(b)) {
+      holds = false;
+      return true;
+    }
+    if (a < b) order = -1;
+    else if (a > b) order = 1;
+  } else if (left.big || right.big) {
+    order = compare_int(machine, left, right);
+  } else if (left.ival < right.ival) order = -1;
+  else if (left.ival > right.ival) order = 1;
+  holds = order_holds(order, mode);
+  return true;
+}
+
 bool run_cmp(Impl& machine, const Goal& goal, int mode) {
+  const BigScope scope(machine);
   const Ev left = eval_expr(machine, goal, goal.arg(machine, 0));
   if (!left.ok) return true;
   const Ev right = eval_expr(machine, goal, goal.arg(machine, 1));
   if (!right.ok) return true;
-  if (cmp_nums(left.num, right.num, mode)) machine.ip = goal.cont;
+  bool holds = false;
+  if (!cmp_nums(machine, goal, left.num, right.num, mode, holds)) return true;
+  if (holds) machine.ip = goal.cont;
   else machine.failed = true;
   return true;
 }
@@ -398,6 +432,7 @@ bool run_cmp(Impl& machine, const Goal& goal, int mode) {
 bool run_arith(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "is" && goal.arity == 2) {
+    const arith::BigScope scope(machine);
     const arith::Ev value = arith::eval_expr(machine, goal, goal.arg(machine, 1));
     if (!value.ok) return true;
     if (!do_unify(machine, goal.arg(machine, 0), arith::num_cell(machine, value.num))) machine.failed = true;
@@ -424,10 +459,16 @@ bool run_arith(Impl& machine, const Goal& goal) {
 }
 
 std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal, Cell cell) {
+  const arith::BigScope scope(machine);
   const arith::Ev value = arith::eval_expr(machine, goal, cell);
   if (!value.ok) return std::nullopt;
   if (value.num.flt) {
     raise_formal(machine, formal_type(machine, "integer_expression", cell), goal.name, goal.arity);
+    return std::nullopt;
+  }
+  // tab/1,2 は int64 で数える。Big の数はタスク 8 まで、前と同じく int_overflow にする（ival は添字なので読まない）。
+  if (value.num.big) {
+    arith::fail_eval(machine, goal, "int_overflow");
     return std::nullopt;
   }
   return value.num.ival;
@@ -449,6 +490,7 @@ Goal arith_goal(std::uint32_t name) {
 }  // namespace
 
 bool arith_is(Machine::Impl& machine, std::uint32_t name, Cell left, Cell right) {
+  const arith::BigScope scope(machine);
   const arith::Ev value = arith::eval_expr(machine, arith_goal(name), right);
   if (!value.ok) return false;
   if (do_unify(machine, left, arith::num_cell(machine, value.num))) return true;
@@ -460,12 +502,15 @@ bool arith_compare(Machine::Impl& machine, Compare op, std::uint32_t name, Cell 
   // Compare の順（Eq、Ne、Lt、Le、Gt、Ge）に run_cmp の mode を並べる。
   static constexpr std::array<int, 6> kModes{0, 0, -2, -1, 2, 1};
   const Goal goal = arith_goal(name);
+  const arith::BigScope scope(machine);
   const arith::Ev lhs = arith::eval_expr(machine, goal, left);
   if (!lhs.ok) return false;
   const arith::Ev rhs = arith::eval_expr(machine, goal, right);
   if (!rhs.ok) return false;
+  bool compared = false;
+  if (!arith::cmp_nums(machine, goal, lhs.num, rhs.num, kModes[static_cast<std::size_t>(op)], compared)) return false;
   // =\= は =:= の否定（run_arith）。NaN はどちらとも比べられないので =\= だけが成り立つ（cmp_nums）。
-  const bool holds = arith::cmp_nums(lhs.num, rhs.num, kModes[static_cast<std::size_t>(op)]) != (op == Compare::Ne);
+  const bool holds = compared != (op == Compare::Ne);
   if (!holds) machine.failed = true;
   return holds;
 }

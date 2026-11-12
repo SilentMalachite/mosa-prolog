@@ -31,19 +31,12 @@ bool bad_float(Impl& machine, const Goal& goal, double value, bool finite_in) {
   return false;
 }
 
-bool to_int(Impl& machine, const Goal& goal, double value, std::int64_t& out) {
-  if (!std::isfinite(value)) {
-    fail_eval(machine, goal, std::isnan(value) ? "undefined" : "int_overflow");
-    return false;
-  }
-  const auto lo = static_cast<double>(std::numeric_limits<std::int64_t>::min());
-  // 2^63-1 を double にすると 2^63 に丸まる。2^63 以上は int64 に入らない。
-  if (value < lo || value >= 0x1p63) {
-    fail_eval(machine, goal, "int_overflow");
-    return false;
-  }
-  out = static_cast<std::int64_t>(value);
-  return true;
+// 有限の丸めの結果はどれも整数になる（int64 か Big かは arith_big.cpp の from_integral が選ぶ）。無限大と NaN だけは
+// 整数にならないので、前と同じく int_overflow と undefined にする。
+bool integral_ok(Impl& machine, const Goal& goal, double value) {
+  if (std::isfinite(value)) return true;
+  fail_eval(machine, goal, std::isnan(value) ? "undefined" : "int_overflow");
+  return false;
 }
 
 // 9.1.6 の round(x) = floor(x + 1/2)。x + 0.5 を浮動小数点で足すと 0.49999999999999994 や
@@ -53,10 +46,10 @@ double round_half_up(double value) {
   return value - base >= 0.5 ? base + 1.0 : base;
 }
 
-int float_round(Impl& machine, const Goal& goal, std::string_view name, double value, bool& as_int,
-                std::int64_t& iout) {
+int float_round(Impl& machine, const Goal& goal, std::string_view name, double value, double& out, bool& as_int) {
   auto integral = [&](double rounded) {
-    if (!to_int(machine, goal, rounded, iout)) return -1;
+    if (!integral_ok(machine, goal, rounded)) return -1;
+    out = rounded;
     as_int = true;
     return 1;
   };
@@ -120,7 +113,7 @@ int float_atan2(Impl& machine, const Goal& goal, std::span<const double> in, dou
 }  // namespace
 
 int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<const double> in, double& out,
-             bool& as_int, std::int64_t& iout) {
+             bool& as_int) {
   const std::size_t count = in.size();
   if (count == 1) {
     if (const int done = float_unary(machine, goal, name, in[0], out); done != 0) return done;
@@ -148,7 +141,7 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<c
     return 1;
   }
   if (name == "integer" || name == "truncate" || name == "floor" || name == "ceiling" || name == "round") {
-    return float_round(machine, goal, name, in[0], as_int, iout);
+    return float_round(machine, goal, name, in[0], out, as_int);
   }
   return 0;
 }
