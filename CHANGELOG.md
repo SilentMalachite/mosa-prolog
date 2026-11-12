@@ -22,10 +22,14 @@ English | [日本語](CHANGELOG.ja.md)
   limit (`--heap-max`): a result whose estimated size is more than the memory left stops the query with the
   heap-limit message before it is computed. `evaluation_error(int_overflow)` is left only for rounding an infinite
   float to an integer, as in `X is round(1.0Inf)`.
-- An integer too large for a float raises `evaluation_error(float_overflow)` where it meets a float: compared with a
-  float, in `min/2` and `max/2`, and in `float/1`.
-- `halt/1` with an integer that a C++ `int` cannot hold raises `representation_error(max_integer)`, or
-  `representation_error(min_integer)` when the integer is negative. Mosa 0.1.4 passed only the low bits on, so
+- An integer beyond the range of a float raises `evaluation_error(float_overflow)` wherever evaluation must turn it
+  into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`, `log/1`
+  and `sin/1`, in an arithmetic comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2` with a
+  float, and in `float/1`. `/` of two integers raises it only when the quotient is beyond that range: `2^2000 / 3`
+  raises it, and `2^2000 / 2^1999` is `2.0`. The standard order (`compare/3`, `@<`) compares such an integer with a
+  float without an error.
+- `halt/1` with an integer outside -2147483648 to 2147483647 (a C++ `int`) raises `representation_error(max_integer)`,
+  or `representation_error(min_integer)` when the integer is negative. Mosa 0.1.4 passed only the low bits on, so
   `halt(4294967296)` ended with status 0.
 - `tab/1` and `tab/2` with a count above 9223372036854775807 write spaces without end, the same as a 64-bit count
   too large to finish. Mosa 0.1.4 raised `evaluation_error(int_overflow)` for such a count, as in `tab(2^70)`. A

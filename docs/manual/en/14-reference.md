@@ -442,7 +442,7 @@ These read and set flags, end Mosa, and look at memory and time.
 | `current_prolog_flag/2` | 8.17.2 | `current_prolog_flag(Flag, Value)`: the value of a flag. |
 | `set_prolog_flag/2` | 8.17.1 | Sets a flag that can change. |
 | `halt/0` | 8.17.3 | Ends Mosa, with exit status 0. |
-| `halt/1` | 8.17.4 | `halt(N)`: ends Mosa, with exit status N. An N that a C++ `int` cannot hold raises `representation_error(max_integer)`, or `representation_error(min_integer)` when N is negative. |
+| `halt/1` | 8.17.4 | `halt(N)`: ends Mosa, with exit status N. An N outside -2147483648 to 2147483647 (a C++ `int`) raises `representation_error(max_integer)`, or `representation_error(min_integer)` when N is negative. |
 | `nb_setval/2` | — | `nb_setval(Key, Value)`: keeps a copy of Value under the atom Key. Backtracking does not undo it. |
 | `nb_getval/2` | — | `nb_getval(Key, Value)`: a copy of what `nb_setval/2` keeps under Key. |
 | `garbage_collect/0` | — | Frees now the memory of terms that are no longer used. |
@@ -542,9 +542,13 @@ Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO
 
 - Integers have no size limit, and the flag `bounded` is `false`. Only the memory limit (`--heap-max`) stops a
   result: a result whose estimated size is more than the memory left stops the query before it is computed.
-  `max_integer` and `min_integer` stay the largest and the smallest 64-bit integers. An integer too large for a float
-  raises `evaluation_error(float_overflow)` where it meets a float: compared with a float, in `min/2` and `max/2`, and
-  in `float/1`. Floats are 64-bit, and Mosa writes the shortest text that reads back as the same float.
+  `max_integer` and `min_integer` stay the largest and the smallest 64-bit integers. An integer beyond the range of a
+  float raises `evaluation_error(float_overflow)` wherever evaluation must turn it into a float: with a float in `+`,
+  `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`, `log/1` and `sin/1`, in an arithmetic
+  comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2` with a float, and in `float/1`. `/` of
+  two integers raises it only when the quotient is beyond that range: `2^2000 / 3` raises it, and `2^2000 / 2^1999` is
+  `2.0`. The standard order (`compare/3`, `@<`) compares such an integer with a float without an error. Floats are
+  64-bit, and Mosa writes the shortest text that reads back as the same float.
 - `unknown` takes only `error` and `fail`, and the three `float_*` flags take only `error`.
 - Modules (chapter 12) use the syntax of part 2 of the standard (ISO/IEC 13211-2), and a module holds predicates and
   operators. Atoms are the same in every module.
@@ -558,8 +562,8 @@ source tree.
 
 ## Known limits
 
-The [CHANGELOG](../../../CHANGELOG.md) lists the known limits of Mosa 0.1.4, and is updated when one is found or
-removed. Among them:
+The [CHANGELOG](../../../CHANGELOG.md) lists the known limits of the current version, and is updated when one is found
+or removed. Among them:
 
 - Typing Japanese in the console window of Windows has not been verified.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.

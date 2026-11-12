@@ -33,6 +33,6 @@ Decision: a non-empty `LANG` decides as before (`ja` prefix gives Japanese); whe
 Rejected: reading the console code page or the locale name (the user may change them for other reasons); keeping English until `LANG` is set (the default would not match the user's language).
 Consequences: SPEC Section 7 says so; a set `LANG` still wins, so `LANG=en` gives English on a Japanese Windows; tests pin `LANG` so they do not depend on the machine.
 
-## Amendment 2 (2026-11-12, phase 10, ADR 0025)
+## Amendment 2 (2026-11-13, phase 10; records the phase 10 design approved by the owner's decision A on 2026-11-12)
 
-ADR 0025 removed the key `integer_overflow`: an integer token of any length reads as a number, so no syntax error has that reason, and `messages_en.pl` and `messages_ja.pl` no longer hold it; the other keys and Extra are unchanged.
+The phase 10 design (section 4) removed the key `integer_overflow`: an integer token of any length reads as a number, so no syntax error has that reason, and `messages_en.pl` and `messages_ja.pl` no longer hold it; the other keys and Extra are unchanged.
