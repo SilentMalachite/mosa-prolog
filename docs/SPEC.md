@@ -21,9 +21,9 @@ Naming scheme: the commands are `mosa` (interpreter), `mosac` (translator), and 
 **Non-goals (not in scope this time)**
 
 - Constraint logic programming (CLP(FD) etc.), tabling, parallel execution
-- Arbitrary-precision integers (to be considered as an optional feature from Phase 6 onward; until then, 64-bit integers with `evaluation_error` on overflow)
+- GMP and other arbitrary-precision libraries (phase 10 implements arbitrary-precision integers with the standard library only)
 - GUI, IDE integration, and tools other than a debugger
-- Dependencies other than the C++20 standard library and CMake (no ICU, Boost, or GMP; GMP may become a future option)
+- Dependencies other than the C++20 standard library and CMake (no ICU, Boost, or GMP)
 - Dependencies on Windows-only or macOS-only APIs. OS-dependent code is isolated in `src/platform/` and kept within one file
 
 ## 2. Deliverables and supported environments
@@ -358,6 +358,7 @@ Move to the next phase only when the current phase's exit criteria are met. Exit
 | 7 | Finishing: GC, `garbage_collect/0`, `statistics/2`, manual (Japanese and English), mosac dist, release packages (binaries for each OS, bundled runtime) | Memory usage plateaus in long-running loops. A newcomer can build using only the steps in the README |
 | 8 | Grammar rules: `-->` translated when a text is loaded (ADR 0024), `phrase/2,3` in `system`, the same behavior under `mosac` | `tests/pl/dcg.pl` passes in `mosa`, with zero differences in `mosatest --diff`. The pass rate on the bundled Logtalk conformance suite does not go down |
 | 9 | ISO completion and robustness: `subsumes_term/2`, `acyclic_term/1`, a reader that runs on frames instead of recursion (ADR 0011 amendment 4), `Name//Arity`, `*->` in a grammar body, `expand_term/2` in `library(dcg)` (ADR 0024 revision 3) | The Examples of 8.2.4.4 and 8.3.11.4 pass in `tests/pl/unify.pl` and `types.pl`; `mosatest --suite` takes `predicates/subsumes_term_2` and `predicates/acyclic_term_1` into its range as directories (the STO items stay in their own column, item by item); the verdict on `subsumes_term` goes through the built-in; the pass rate does not fall below 98.4%; the ctest `stack_deep_read` passes under 1 MiB on 3 OSes; `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass and `mosatest --diff` shows zero differences |
+| 10 | Arbitrary-precision integers: the Big box (ADR 0025), unbounded arithmetic, reading and writing, `bounded` is `false` | `tests/pl/bigint.pl` and the tests it corrects pass under `mosa`, and `mosatest --diff` shows zero differences (including `japanese.pl`); `mosatest --suite` takes `unbounded/` into its range, every item that runs there passes or is written in iso-notes as a difference in interpretation that the owner has decided, the pass rate does not fall below 98.4% on the real denominator, and `docs/conformance.md` is regenerated; `tests/pl/bigint.pl` passes under `MOSA_GC_STRESS`, a loop that keeps making Bigs levels off in memory, and `1 << (1 << 62)` stops before it allocates; the interpreter time of `bench/nrev.pl` and `bench/queens.pl` (median of 3 runs, Release, same machine) is at most 1.05 times that of v0.1.4, `mosac`'s `nrev` stays at least 3 times faster than the interpreter, and the values are written in `bench.md` |
 
 **Prohibitions across phases**
 

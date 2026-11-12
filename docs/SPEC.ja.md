@@ -22,9 +22,9 @@
 **非目標（今回はやらない）**
 
 - 制約論理プログラミング（CLP(FD) など）、テーブリング、並列実行
-- 多倍長整数（Phase 6 以降に任意機能として検討。それまでは 64bit 整数とオーバーフロー時の `evaluation_error`）
+- GMP などの多倍長整数ライブラリ（フェーズ10は多倍長整数を標準ライブラリだけで実装する）
 - GUI、IDE 連携、デバッガ以外のツール
-- C++20 標準ライブラリと CMake 以外への依存（ICU、Boost、GMP は使わない。GMP は将来のオプション）
+- C++20 標準ライブラリと CMake 以外への依存（ICU、Boost、GMP は使わない）
 - Windows 専用／macOS 専用の API への依存。OS 依存コードは `src/platform/` に隔離し、1 ファイル以内に収める
 
 ## 2. 成果物と動作環境
@@ -355,6 +355,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | 7 | 仕上げ: GC、`garbage_collect/0`、`statistics/2`、マニュアル（日本語・英語）、mosac dist、リリース用パッケージ（各 OS のバイナリ、同梱ランタイム） | 長時間ループでメモリが頭打ちになる。README の手順だけで初見の人がビルドできる |
 | 8 | 文法規則: テキストの読み込み時に `-->` を訳す（ADR 0024）、`system` の `phrase/2,3`、`mosac` でも同じ動作 | `tests/pl/dcg.pl` が `mosa` で通り、`mosatest --diff` の差分がゼロ。同梱 Logtalk 準拠スイートの合格率が下がらない |
 | 9 | ISO の穴埋めと堅牢性: `subsumes_term/2`、`acyclic_term/1`、再帰でなく枠で動く reader（ADR 0011 改訂 4）、`Name//Arity`、文法規則の本体の `*->`、`library(dcg)` の `expand_term/2`（ADR 0024 改訂 3） | 8.2.4.4 と 8.3.11.4 の Examples が `tests/pl/unify.pl` と `types.pl` で通る。`mosatest --suite` が `predicates/subsumes_term_2` と `predicates/acyclic_term_1` をディレクトリとして範囲に入れる（STO の件は件ごとに別欄のまま）。`subsumes_term` の判定が組み込みを通る。合格率が 98.4% を下回らない。ctest `stack_deep_read` が 1 MiB の下で 3 OS で通る。`tests/pl/dcg.pl`、`lib_dcg.pl`、`modules.pl` が通り、`mosatest --diff` の差分が 0 |
+| 10 | 多倍長整数: Big の箱（ADR 0025）、上限の無い算術と読み書き、`bounded` が `false` | `tests/pl/bigint.pl` と直したテストが `mosa` で通り、`mosatest --diff` の差分が 0（`japanese.pl` を含む）。`mosatest --suite` が `unbounded/` を範囲に入れ、そこで動く件がすべて通るか、通らない件が iso-notes に解釈の違いとして書かれて持ち主が決めている。合格率は実際の分母で 98.4% を下回らず、`docs/conformance.md` を作り直す。`MOSA_GC_STRESS` の下で `tests/pl/bigint.pl` が通り、Big を作り続けるループでメモリが頭打ちになり、`1 << (1 << 62)` が確保の前に止まる。`bench/nrev.pl` と `bench/queens.pl` のインタプリタの時間（Release、同じ機械、3 回の中央値）が v0.1.4 の 1.05 倍以下で、`mosac` の `nrev` がインタプリタの 3 倍以上の速さのままで、測った値を `bench.md` に書く |
 
 **フェーズをまたぐ禁止事項**
 

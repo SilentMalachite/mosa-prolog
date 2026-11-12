@@ -5,7 +5,7 @@
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-9_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-10_in_progress-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.1.4-blue)](CHANGELOG.ja.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -109,6 +109,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 完了 |
 | 8 | 文法規則（`-->`、`phrase/2,3`） | 完了 |
 | 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 完了 |
+| 10 | 多倍長整数（Big の箱、上限の無い算術と読み書き） | 進行中 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 

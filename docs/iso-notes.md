@@ -760,3 +760,19 @@ Decision (2026-11-05): A. On Windows, `prepare_console` (src/platform/console.cp
 ## 13211-3 Grammar rules: the source text
 
 13211-1 has no grammar rules; SPEC section 3 takes ISO/IEC 13211-3 as the reference from phase 8. The repository holds no text of 13211-3, and ADR 0024 was written without it, from the behavior that Prolog systems share. So no clause number of 13211-3 is cited yet: the tests of `tests/pl/dcg.pl` are our own until the text is at hand, and its Examples are copied in then. A point where ADR 0024 and the text disagree gets its own entry here with the clause number.
+
+## 7.11.1.2 and 7.11.1.3 `max_integer` and `min_integer` when `bounded` is false
+
+The repository holds no text of ISO/IEC 13211-1, so this is not settled by its wording. Phase 10 makes the flag `bounded` false (7.11.1.1), and then 7.11.1.2 and 7.11.1.3 define `max_integer` and `min_integer` only for a bounded implementation. The conformance suite reads them only when `bounded` is true (`iso_current_prolog_flag_2_03`, `04`), and `tests/pl/read.pl` (the helper `m1_min`, 22 cases) and `flags.pl` read them as the int64 bounds. The phase 9 design said "dropped by 7.11.1.2", which was not checked against the text and is not relied on.
+
+A or B?: A: keep the flags and return the int64 bounds (2^63-1 and -2^63), as SWI-Prolog and Scryer Prolog do. B: remove the flags, so `current_prolog_flag(max_integer, X)` fails.
+
+Until the owner confirms: A.
+
+## 8.7, 9.3.8 and 9.3.9 an integer beyond the double range against a float
+
+The repository holds no text of ISO/IEC 13211-1. Phase 10 allows an integer too large for a double. Comparing it with a float, and `min/2` and `max/2` (decision B of 9.3.8 above), convert the integer to a float. The suite case `lgt_unbounded_float_03` (`float(7^7^7)`) expects `float_overflow`, and its 4 cases that mix floats (`+`, `-`, `*`, `/` with `13.42e+33`) stay inside the double range.
+
+A or B?: A: keep the rule of 9.3.8 (convert to a float), and raise `evaluation_error(float_overflow)` for a value that cannot be converted. B: compare exactly, so `2^2000 > 1.0` is true (this needs an exact comparison in `cmp_nums` and in `min/2` and `max/2`).
+
+Until the owner confirms: A.

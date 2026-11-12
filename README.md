@@ -5,7 +5,7 @@ English | [日本語](README.ja.md)
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-9_done-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phase-10_in_progress-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.1.4-blue)](CHANGELOG.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -107,6 +107,7 @@ Phases 0–9 are done. Phase 9 (ISO completion and robustness) was finished on 2
 | 7 | GC, manuals, `mosac dist`, release packages | Done |
 | 8 | Grammar rules (`-->`, `phrase/2,3`) | Done |
 | 9 | ISO completion and robustness (`subsumes_term/2`, `acyclic_term/1`, a frame-based reader, `Name//Arity`, `*->` in grammar bodies, `expand_term/2`) | Done |
+| 10 | Arbitrary-precision integers (the Big box, unbounded arithmetic, reading and writing) | In progress |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 

@@ -24,3 +24,4 @@ Do not make every word in the heap a valid Cell.
 Float and IntBox payloads, and functor words, are not terms.
 The phase 7 GC does not scan the heap linearly and treat words as terms.
 It follows tagged pointers.
+Phase 10 (ADR 0025): a Big box has a head word `(n << 4) | (negative << 3)` before its n magnitude words.

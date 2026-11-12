@@ -21,3 +21,4 @@ The instructions document lists no alternatives for comparison. This ADR does no
 Phase 1 implements Cell with this representation.
 To change it, write a new ADR and get the project owner's approval.
 Phase 0 code does not implement Cell.
+Phase 10 (ADR 0025): BIG is used as ADR 0025 says, and `max_integer` is the int64 bound.
