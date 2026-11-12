@@ -1,7 +1,7 @@
 // フェーズ10（ADR 0025）。Big の算術はヒープの上限で止まる。+ - * は結果の大きさを計算の前に見積もり（check_room）、
 // 式の途中で置き場に持つ Big の写しも上限に数える（from_big、レビュー Important 1）。越えるなら計算も確保もせずに
 // ResourceLimit("heap_limit") を投げる（タスク 6）。huge_mul は止まることだけを見る。見積もりがないと、次の 2 乗
-// （上限の約 1.3 倍）をヒープの外で計算してから止まる。積を箱にせずに止めることは product_estimate で確かめる。
+// （上限の約 0.65 倍）をヒープの外で計算してから from_big で止まる。積を箱にせずに止めることは product_estimate で確かめる。
 #include "harness.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
@@ -30,7 +30,10 @@ constexpr std::string_view k_program =
     "sqn(N, X, Y) :- M is N - 1, Z is X * X, sqn(M, Z, Y).\n"
     // max(A, max(A, ... 0)) の深さ N の入れ子。ヒープでは 1 段に数語だが、評価は段ごとに A の写しを持つ。
     "mnest(0, _, 0) :- !.\n"
-    "mnest(N, A, max(A, E)) :- M is N - 1, mnest(M, A, E).\n";
+    "mnest(N, A, max(A, E)) :- M is N - 1, mnest(M, A, E).\n"
+    // ((0 + A) + A) + ... の深さ N の入れ子。段ごとに途中の和を settle_bigs が寄せ、写しは 3 つほどで済む。
+    "lnest(0, _, 0) :- !.\n"
+    "lnest(N, A, E + A) :- M is N - 1, lnest(M, A, E).\n";
 
 constexpr std::string_view k_big_a = "pow10(400, P), sqn(12, P, A), garbage_collect, ";
 
@@ -76,6 +79,15 @@ void check_nested_hold() {
   }
 }
 
+// settle_bigs が消した写しの語を引かないと、勘定は段ごとに A の分だけ増え、十数段で上限に届く。深さ 200 の
+// 左の入れ子の和が入ることで、勘定の数え過ぎがないことを確かめる（レビューの再確認 Minor 3）。
+void check_settle_count() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program(k_program).ok, "settle_count: load");
+  const Outcome outcome = run(*machine, std::string{k_big_a} + "lnest(200, A, E), E > 0.");
+  mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success, "settle_count: depth 200 sum fits");
+}
+
 // A * A は葉の写し 2 つの後に約 170k 語を要り、上限を越える。比較で終えるので、num_cell の箱では止まらない。
 // A >= A は同じ写し 2 つを持つだけで入るので、止まる理由が積であることを示す。
 void check_product_estimate() {
@@ -91,6 +103,7 @@ void check_product_estimate() {
 
 int main() {
   check_nested_hold();
+  check_settle_count();
   check_product_estimate();
   check_huge_mul();
   return mosa_test::failures();
