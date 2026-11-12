@@ -33,14 +33,17 @@ struct Ev {
 
 // 評価の入口（is/2、算術比較、tab/1,2 の式、生成コードの入口）に 1 つ置く。比較は 2 つの式を評価してから比べるので、
 // 置き場は式ごとではなく入口ごとに要る。入口を出るとき（ResourceLimit で抜けるときも）、入ったときの長さへ戻す。
+// 入口の後に置いた値はみな消えるので、語数も入ったときの値に戻せばよい。数え直さないので、巻き戻しの中でも投げない。
 class BigScope {
  public:
-  explicit BigScope(Impl& machine) : machine_(machine), base_(machine.eval_bigs.size()) {}
+  explicit BigScope(Impl& machine)
+      : machine_(machine), base_(machine.eval_bigs.size()), words_(machine.eval_big_words) {}
   ~BigScope() {
     if (machine_.eval_bigs.size() > base_) {
       machine_.eval_bigs.erase(machine_.eval_bigs.begin() + static_cast<std::ptrdiff_t>(base_),
                                machine_.eval_bigs.end());
     }
+    machine_.eval_big_words = words_;
   }
   BigScope(const BigScope&) = delete;
   BigScope& operator=(const BigScope&) = delete;
@@ -48,7 +51,11 @@ class BigScope {
  private:
   Impl& machine_;
   std::size_t base_;
+  std::size_t words_;
 };
+
+// Big の値 1 つが置き場で占めると見なす語数。ヒープの箱と同じく、頭の語と端数の語を足す（check_room と同じ式）。
+inline std::size_t big_words(std::uint64_t bits) { return static_cast<std::size_t>(bits / 64 + 2); }
 
 inline void fail_eval(Impl& machine, const Goal& goal, std::string_view which) {
   raise_formal(machine, formal_evaluation(machine, which), goal.name, goal.arity);
@@ -93,8 +100,6 @@ inline Ev from_num(Num num) {
 }
 
 // arith_big.cpp
-// 整数の Num の値。int64 の Num は一時の BigInt にする。
-[[nodiscard]] BigInt big_of(const Impl& machine, Num num);
 // 正規形にする。int64 に収まれば int64 の Num、収まらなければ eval_bigs に置いた Big の Num。
 [[nodiscard]] Ev from_big(Impl& machine, BigInt value);
 // 数の Num を double にする。Big は最近接偶数に丸める。double の範囲の外なら、旗 float_overflow が error のときは

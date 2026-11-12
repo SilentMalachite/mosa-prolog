@@ -53,16 +53,30 @@ double quotient_magnitude(const BigInt& a, const BigInt& b) {
   return std::ldexp(static_cast<double>(kept + (up ? 1U : 0U)), static_cast<int>(drop - shift));
 }
 
-}  // namespace
-
-BigInt big_of(const Impl& machine, Num num) {
-  if (num.big) return big_ref(machine, num);
-  return BigInt(num.ival);
+// ヒープの確保（Heap::grow_for）と同じく、上限から持った語と使った語を引く。置き場の Big もヒープの外の実行状態
+// として引く（ADR 0010 の改訂 2）。
+std::size_t room_left(const Impl& machine) {
+  const Heap& heap = machine.heap;
+  const std::size_t taken = heap.size() + heap.held() + machine.eval_big_words;
+  return taken < heap.limit() ? heap.limit() - taken : 0;
 }
+
+// Big はその場の値を指し、int64 だけを store に作る。返す参照は次の push_back までに使い終える。
+const BigInt& operand(const Impl& machine, Num num, BigInt& store) {
+  if (num.big) return big_ref(machine, num);
+  store = BigInt(num.ival);
+  return store;
+}
+
+}  // namespace
 
 Ev from_big(Impl& machine, BigInt value) {
   if (const std::optional<std::int64_t> small = value.to_int64()) return from_int(*small);
+  // 葉の写しも途中の値も、置き場に入れる前に上限と比べる。max や単項の - は check_room を通らない。
+  const std::size_t words = big_words(value.bit_length());
+  if (words > room_left(machine)) throw ResourceLimit("heap_limit");
   machine.eval_bigs.push_back(std::move(value));
+  machine.eval_big_words += words;
   Ev ev;
   ev.ok = true;
   ev.num.big = true;
@@ -95,23 +109,24 @@ bool to_float(Impl& machine, const Goal& goal, Num num, double& out) {
 
 int compare_int(const Impl& machine, Num left, Num right) {
   if (!left.big && !right.big) return (left.ival > right.ival) - (left.ival < right.ival);
-  const std::strong_ordering order = big_of(machine, left) <=> big_of(machine, right);
+  BigInt left_store;
+  BigInt right_store;
+  const std::strong_ordering order =
+      operand(machine, left, left_store) <=> operand(machine, right, right_store);
   if (order < 0) return -1;
   return order > 0 ? 1 : 0;
 }
 
-// ヒープの確保（Heap::grow_for）と同じく、上限から持った語と使った語を引いた残りと比べる。頭の語と端数の語を足す。
+// 結果を計算する前に、その大きさの見積もりを残りと比べる。越えるなら計算もしない。
 void check_room(const Impl& machine, std::uint64_t bits) {
-  const Heap& heap = machine.heap;
-  const std::uint64_t words = bits / 64 + 2;
-  const std::size_t taken = heap.size() + heap.held();
-  const std::size_t room = taken < heap.limit() ? heap.limit() - taken : 0;
-  if (words > room) throw ResourceLimit("heap_limit");
+  if (big_words(bits) > room_left(machine)) throw ResourceLimit("heap_limit");
 }
 
 Ev big_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
-  const BigInt a = big_of(machine, left);
-  const BigInt b = big_of(machine, right);
+  BigInt a_store;
+  BigInt b_store;
+  const BigInt& a = operand(machine, left, a_store);
+  const BigInt& b = operand(machine, right, b_store);
   if (name == "+" || name == "-") {
     check_room(machine, std::max(a.bit_length(), b.bit_length()) + 1);
     return from_big(machine, name == "+" ? a + b : a - b);
@@ -137,8 +152,10 @@ Ev big_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num
 }
 
 Ev big_divide(Impl& machine, const Goal& goal, Num left, Num right) {
-  const BigInt a = big_of(machine, left);
-  const BigInt b = big_of(machine, right);
+  BigInt a_store;
+  BigInt b_store;
+  const BigInt& a = operand(machine, left, a_store);
+  const BigInt& b = operand(machine, right, b_store);
   if (b.is_zero()) {
     if (machine.float_zero_div_error) {
       fail_eval(machine, goal, "zero_divisor");

@@ -250,13 +250,16 @@ std::optional<Ev> eval_leaf(Impl& machine, const Goal& goal, Cell cell) {
 
 // 複合項の値を求めたら、その引数の Big は要らない。値が Big ならそれだけを mark の位置へ寄せて残す。こうして
 // eval_bigs の長さは式の木の深さほどに収まり、Big の葉や途中の値をたくさん持つ式でも全部を積み続けない。
-// int64 の道では eval_bigs が伸びないので、比較 1 回で抜ける。
+// int64 の道では eval_bigs が伸びないので、比較 1 回で抜ける。語数は、消す前の mark 以降の全部を引き、残す値の分を
+// 足し直す（上書きされる pool[mark] も引く側に入る）。
 Ev settle_bigs(Impl& machine, std::size_t mark, Ev ev) {
   std::vector<BigInt>& pool = machine.eval_bigs;
   if (pool.size() <= mark) return ev;
+  for (std::size_t i = mark; i < pool.size(); ++i) machine.eval_big_words -= arith::big_words(pool[i].bit_length());
   std::size_t keep = mark;
   if (ev.ok && ev.num.big) {
     const auto at = static_cast<std::size_t>(ev.num.ival);
+    machine.eval_big_words += arith::big_words(pool[at].bit_length());
     if (at != mark) pool[mark] = std::move(pool[at]);
     ev.num.ival = static_cast<std::int64_t>(mark);
     keep = mark + 1;

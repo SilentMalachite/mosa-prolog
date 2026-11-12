@@ -404,6 +404,8 @@ struct Machine::Impl {
   bool eval_abort = false;
   // 式の評価の間だけ Big の値を置く（ADR 0025）。arith の Num は添字を持ち、入口を出るときに空にする（arith_internal.hpp）。
   std::vector<BigInt> eval_bigs;
+  // eval_bigs の語数。ヒープの外の実行状態も上限に数える（ADR 0010 の改訂 2、タスク 6 のレビュー Important 1）。
+  std::size_t eval_big_words = 0;
   // launch_var の中から launch_var に入った段数（レビュー M13）。深くなれば call/1 の枠にして run_loop に回す。
   int var_depth = 0;
   Cell ball{};
