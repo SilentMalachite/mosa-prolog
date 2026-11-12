@@ -1,5 +1,6 @@
-// 7.9 の式の評価のうち整数の演算（9.1.3 の + - * と // rem div mod、9.3 の abs sign min max ほか、9.4 のビット演算
-// とシフト）。int64 の道を先に試し、あふれたときと Big の引数のときだけ arith_big.cpp の BigInt に回す。
+// 7.9 の式の評価のうち整数の演算（9.1.3 の + - * と // rem div mod、9.3 の abs sign min max ^ ほか、9.4 のビット
+// 演算とシフト、gcd、succ_or_zero）。int64 の道を先に試し、あふれたときと Big の引数のときだけ arith_big.cpp の
+// BigInt に回す。int64 の道は確保しない。
 // 述語のモードと誤りは arith.cpp の見出し。テスト: tests/pl/arith.pl、tests/pl/bigint.pl、tests/cpp/evaluable_test.cpp
 
 #include "arith_internal.hpp"
@@ -55,32 +56,28 @@ bool need_int(Impl& machine, const Goal& goal, Num num) {
   return false;
 }
 
-Ev shift_bits(Impl& machine, const Goal& goal, std::string_view name, std::int64_t value, std::int64_t count) {
-  if (count < 0) {
+// 負のシフトの数は、Big でも int64 と同じく undefined にする。符号を先に見るので、Big の数の 0 か -1 や上限の
+// 規則より前に止まる。
+Ev shift_bits(Impl& machine, const Goal& goal, std::string_view name, Num value, Num count) {
+  if (int_negative(machine, count)) {
     fail_eval(machine, goal, "undefined");
     return {};
   }
+  // 0 はいくつずらしても 0。シフトの数が Big でも見積もらずに返す。
+  if (!value.big && value.ival == 0) return from_int(0);
+  if (value.big || count.big) return big_shift(machine, name, value, count);
+  const std::int64_t bits = value.ival;
   if (name == ">>") {
-    if (count >= 64) return from_int(value < 0 ? std::int64_t{-1} : 0);
-    return from_int(value >> static_cast<unsigned>(count));
+    if (count.ival >= 64) return from_int(bits < 0 ? std::int64_t{-1} : 0);
+    return from_int(bits >> static_cast<unsigned>(count.ival));
   }
-  if (count >= 64) {
-    if (value == 0) return from_int(0);
-    fail_eval(machine, goal, "int_overflow");
-    return {};
-  }
-  const auto shift = static_cast<unsigned>(count);
-  if (shift != 0) {
-    // 結果が int64 に収まらない左シフトだけを落とす。負数は二の補数のまま残す。
-    const bool overflow = value >= 0 ? value > (std::numeric_limits<std::int64_t>::max() >> shift)
-                                     : value < (std::numeric_limits<std::int64_t>::min() >> shift);
-    if (overflow) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-  }
-  const auto bits = static_cast<std::uint64_t>(value) << shift;
-  return from_int(static_cast<std::int64_t>(bits));
+  if (count.ival >= 64) return big_shift(machine, name, value, count);
+  const auto shift = static_cast<unsigned>(count.ival);
+  // 結果が int64 に収まらない左シフトだけを BigInt で計算し直す。負数は二の補数のまま残す。
+  const bool overflow = bits >= 0 ? bits > (std::numeric_limits<std::int64_t>::max() >> shift)
+                                  : bits < (std::numeric_limits<std::int64_t>::min() >> shift);
+  if (overflow) return big_shift(machine, name, value, count);
+  return from_int(static_cast<std::int64_t>(static_cast<std::uint64_t>(bits) << shift));
 }
 
 std::int64_t floor_div(std::int64_t a, std::int64_t b) {
@@ -104,22 +101,23 @@ bool pow_int(std::int64_t base, std::int64_t exp, std::int64_t& out) {
   return true;
 }
 
-Ev negative_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp) {
-  if (base == 0) {
+// exp は負（Big を含む）。Big の底は 0 でも 1 でも -1 でもない。
+Ev negative_hat(Impl& machine, const Goal& goal, Num base, Num exp) {
+  if (!base.big && base.ival == 0) {
     fail_eval(machine, goal, "undefined");
     return {};
   }
-  if (base == 1) return from_int(1);
+  if (!base.big && base.ival == 1) return from_int(1);
   // -1 の負の冪は整数のまま。奇数なら -1、偶数なら 1。
-  if (base == -1) return from_int(exp % 2 == 0 ? 1 : -1);
+  if (!base.big && base.ival == -1) return from_int(int_odd(machine, exp) ? -1 : 1);
   // 結果が整数にならないので float の型エラー（iso-notes 9.3.10.3 の決定 B）。2^(-1) も同じ。
-  raise_formal(machine, formal_type(machine, "float", machine.heap.integer(base)), goal.name, goal.arity);
+  raise_formal(machine, formal_type(machine, "float", num_cell(machine, base)), goal.name, goal.arity);
   return {};
 }
 
 // 絶対値は符号なしで取る。-(-2^63) は int64 に収まらず未定義動作になる（レビュー L1）。値が 2^63 になる
-// gcd(最小の整数, 0) と gcd(最小の整数, 最小の整数) だけがあふれる。
-Ev gcd_of(Impl& machine, const Goal& goal, std::int64_t left, std::int64_t right) {
+// gcd(最小の整数, 0) と gcd(最小の整数, 最小の整数) だけが int64 を越え、2^63 の Big になる。
+Ev gcd_of(Impl& machine, std::int64_t left, std::int64_t right) {
   const auto magnitude = [](std::int64_t value) {
     const auto bits = static_cast<std::uint64_t>(value);
     return value < 0 ? std::uint64_t{0} - bits : bits;
@@ -132,8 +130,7 @@ Ev gcd_of(Impl& machine, const Goal& goal, std::int64_t left, std::int64_t right
     b = next;
   }
   if (a > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-    fail_eval(machine, goal, "int_overflow");
-    return {};
+    return from_big(machine, -BigInt(std::numeric_limits<std::int64_t>::min()));
   }
   return from_int(static_cast<std::int64_t>(a));
 }
@@ -163,40 +160,31 @@ Ev eval_int_rest(Impl& machine, const Goal& goal, std::string_view name, const s
     return from_int(bits);
   }
   if (name == "succ_or_zero" && args.size() == 1) {
-    if (big_pending(machine, goal, args) || !one_int(args[0])) return {};
-    if (args[0].ival < 0) return from_int(0);
+    if (!one_int(args[0])) return {};
+    if (int_negative(machine, args[0])) return from_int(0);
     std::int64_t out = 0;
-    if (!add_i(args[0].ival, 1, out)) {
-      fail_eval(machine, goal, "int_overflow");
-      return {};
-    }
-    return from_int(out);
+    if (!args[0].big && add_i(args[0].ival, 1, out)) return from_int(out);
+    return big_bin(machine, goal, "+", args[0], from_int(1).num);
   }
   if ((name == ">>" || name == "<<" || name == "/\\" || name == "\\/" || name == "xor") && args.size() == 2) {
-    if (big_pending(machine, goal, args) || !one_int(args[0]) || !one_int(args[1])) return {};
+    if (!one_int(args[0]) || !one_int(args[1])) return {};
+    if (name == ">>" || name == "<<") return shift_bits(machine, goal, name, args[0], args[1]);
+    if (args[0].big || args[1].big) return big_bits(machine, name, args[0], args[1]);
     if (name == "/\\") return from_int(args[0].ival & args[1].ival);
     if (name == "\\/") return from_int(args[0].ival | args[1].ival);
-    if (name == "xor") return from_int(args[0].ival ^ args[1].ival);
-    if (name == ">>" || name == "<<") return shift_bits(machine, goal, name, args[0].ival, args[1].ival);
+    return from_int(args[0].ival ^ args[1].ival);
   }
   if (name == "\\" && args.size() == 1) {
-    if (big_pending(machine, goal, args) || !one_int(args[0])) return {};
-    return from_int(~args[0].ival);
+    if (!one_int(args[0])) return {};
+    if (!args[0].big) return from_int(~args[0].ival);
+    // ~x = -x - 1 の絶対値は |x| + 1 以下なので、+ と同じ見積もりで足りる。
+    check_room(machine, big_ref(machine, args[0]).bit_length() + 1);
+    return from_big(machine, bit_not(big_ref(machine, args[0])));
   }
   return {};
 }
 
 }  // namespace
-
-bool big_pending(Impl& machine, const Goal& goal, const std::vector<Num>& args) {
-  for (const Num& num : args) {
-    if (num.big) {
-      fail_eval(machine, goal, "int_overflow");
-      return true;
-    }
-  }
-  return false;
-}
 
 Ev negate_int(Impl& machine, Num num) {
   if (num.big) return from_big(machine, -big_ref(machine, num));
@@ -242,22 +230,19 @@ Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left
   return from_int(out);
 }
 
-Ev int_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp) {
-  if (exp < 0) return negative_hat(machine, goal, base, exp);
+Ev int_hat(Impl& machine, const Goal& goal, Num base, Num exp) {
+  if (int_negative(machine, exp)) return negative_hat(machine, goal, base, exp);
   std::int64_t out = 0;
-  if (!pow_int(base, exp, out)) {
-    fail_eval(machine, goal, "int_overflow");
-    return {};
-  }
-  return from_int(out);
+  // int64 の冪は、あふれたときだけ BigInt で計算し直す（big_hat が大きさを先に見積もる）。
+  if (!base.big && !exp.big && pow_int(base.ival, exp.ival, out)) return from_int(out);
+  return big_hat(machine, base, exp);
 }
 
 Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args) {
   auto one_int = [&](Num num) { return need_int(machine, goal, num); };
   if (name == "abs" && args.size() == 1) {
     if (args[0].flt) return from_float(std::fabs(args[0].fval));
-    const bool negative = args[0].big ? big_ref(machine, args[0]).negative() : args[0].ival < 0;
-    return negative ? negate_int(machine, args[0]) : from_num(args[0]);
+    return int_negative(machine, args[0]) ? negate_int(machine, args[0]) : from_num(args[0]);
   }
   if (name == "sign" && args.size() == 1) {
     if (args[0].flt) {
@@ -291,8 +276,9 @@ Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std
     return from_float(take_left ? left : right);
   }
   if (name == "gcd" && args.size() == 2) {
-    if (big_pending(machine, goal, args) || !one_int(args[0]) || !one_int(args[1])) return {};
-    return gcd_of(machine, goal, args[0].ival, args[1].ival);
+    if (!one_int(args[0]) || !one_int(args[1])) return {};
+    if (args[0].big || args[1].big) return big_gcd(machine, args[0], args[1]);
+    return gcd_of(machine, args[0].ival, args[1].ival);
   }
   return eval_int_rest(machine, goal, name, args);
 }

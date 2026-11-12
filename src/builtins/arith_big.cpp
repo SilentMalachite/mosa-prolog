@@ -1,5 +1,6 @@
 // 7.9 の式の評価のうち、int64 に入らない整数（Big、ADR 0025）の置き場と遅い道。9.1.3 の + - * // rem div mod、
-// 9.1.4 の整数どうしの /、9.1.6 の float からの丸め、8.7 の比較が Big を受ける。評価の間は値をヒープの外
+// 9.1.4 の整数どうしの /、9.1.6 の float からの丸め、8.7 の比較、9.3.10 の ^、9.4 のビット演算とシフト、gcd が Big を
+// 受ける。<< と ^ と + - * は、結果の大きさを計算の前に見積もってヒープの上限と比べる。評価の間は値をヒープの外
 // （Impl::eval_bigs）に持ち、結果だけを num_cell が Heap::big で箱にする。述語のモードと誤りは arith.cpp の見出し。
 // テスト: tests/pl/bigint.pl、tests/pl/arith.pl、tests/cpp/bigint_limit_test.cpp
 
@@ -176,6 +177,67 @@ Ev big_divide(Impl& machine, const Goal& goal, Num left, Num right) {
     }
   }
   return from_float(signed_value);
+}
+
+bool int_odd(const Impl& machine, Num num) {
+  if (!num.big) return (num.ival & 1) != 0;
+  // Big は 0 でないので、最下位の語がある。
+  return (big_ref(machine, num).words().front() & 1U) != 0;
+}
+
+Ev big_hat(Impl& machine, Num base, Num exp) {
+  // 0、1、-1 の冪は大きくならないので、指数が Big でも見積もらずに値を決める。
+  if (!base.big && base.ival >= -1 && base.ival <= 1) {
+    if (base.ival == 0) return from_int(!exp.big && exp.ival == 0 ? 1 : 0);
+    return from_int(base.ival == -1 && int_odd(machine, exp) ? -1 : 1);
+  }
+  // 絶対値が 2 以上の底の Big 乗は 2^63 ビットを越え、どのヒープにも入らない。power に渡す前に止める。
+  if (exp.big) throw ResourceLimit("heap_limit");
+  BigInt store;
+  const BigInt& b = operand(machine, base, store);
+  // |底| < 2^n なら |底|^e < 2^(e*n)。積が 64 ビットを越えるなら、上限に張り付けて check_room で止める。
+  constexpr std::uint64_t kMax = std::numeric_limits<std::uint64_t>::max();
+  const std::uint64_t length = b.bit_length();
+  const auto e = static_cast<std::uint64_t>(exp.ival);
+  check_room(machine, e > kMax / length ? kMax : e * length);
+  return from_big(machine, power(b, e));
+}
+
+Ev big_shift(Impl& machine, std::string_view name, Num value, Num count) {
+  if (name == ">>") {
+    // Big のシフトの数は 2^63 以上で、どの値のビット数より大きいので、符号だけが残る。
+    if (count.big) return from_int(int_negative(machine, value) ? -1 : 0);
+    BigInt store;
+    // 右シフトは値より大きくならないので見積もらない。
+    return from_big(machine, shift_right(operand(machine, value, store), static_cast<std::uint64_t>(count.ival)));
+  }
+  // 0 でない値を 2^63 ビット以上ずらした結果は、どのヒープにも入らない。shift_left に渡す前に止める。
+  if (count.big) throw ResourceLimit("heap_limit");
+  BigInt store;
+  const BigInt& a = operand(machine, value, store);
+  const auto shift = static_cast<std::uint64_t>(count.ival);
+  // shift は 2^63 未満、ビット数はヒープの語数の 64 倍以下なので、和は 64 ビットに収まる。
+  check_room(machine, shift + a.bit_length());
+  return from_big(machine, shift_left(a, shift));
+}
+
+Ev big_gcd(Impl& machine, Num left, Num right) {
+  BigInt a_store;
+  BigInt b_store;
+  // gcd の絶対値は 0 でない方の引数の絶対値を越えないので見積もらない。
+  return from_big(machine, gcd(operand(machine, left, a_store), operand(machine, right, b_store)));
+}
+
+Ev big_bits(Impl& machine, std::string_view name, Num left, Num right) {
+  BigInt a_store;
+  BigInt b_store;
+  const BigInt& a = operand(machine, left, a_store);
+  const BigInt& b = operand(machine, right, b_store);
+  // 2 の補数の幅は長い方より 1 語広いだけなので、+ と同じ見積もりで足りる。
+  check_room(machine, std::max(a.bit_length(), b.bit_length()) + 1);
+  if (name == "/\\") return from_big(machine, bit_and(a, b));
+  if (name == "\\/") return from_big(machine, bit_or(a, b));
+  return from_big(machine, bit_xor(a, b));
 }
 
 Ev from_integral(Impl& machine, double value) {

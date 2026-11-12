@@ -84,7 +84,7 @@ test(shl_zero63, (X is 0 << 63), solutions([X = 0])).
 test(shr_one63, (X is 1 >> 63), solutions([X = 0])).
 test(shr_big, (X is 8 >> 100), solutions([X = 0])).
 test(shr_neg63, (X is -1 >> 63), solutions([X = -1])).
-test(shl_overflow, (X is 1 << 63), error(evaluation_error(int_overflow))).
+test(shl_overflow, (X is 1 << 63, X == 9223372036854775808), true).
 test(neg_pow_neg, (X is (-2) ** (-1)), solutions([X = -0.5])).
 test(neg_pow_half, (X is (-2) ** 0.5), error(evaluation_error(undefined))).
 test(sign_float, (X is sign(-2.5)), solutions([X = -1.0])).
@@ -127,12 +127,12 @@ test(l1_rem_min, (M is -9223372036854775807 - 1, X is M rem -1), solutions([X = 
 test(l1_mod_min, (M is -9223372036854775807 - 1, X is M mod -1), solutions([X = 0])).
 test(l1_quot_min, (M is -9223372036854775807 - 1, X is M // -1, X == 9223372036854775808), true).
 test(l1_div_min, (M is -9223372036854775807 - 1, X is div(M, -1), X == 9223372036854775808), true).
-% gcd は最小の整数を含んでも、値が収まれば返す。2^63 になるときだけあふれる。
+% gcd は最小の整数を含んでも、値が収まれば int64 で返す。2^63 になるときだけ int64 を越えて Big になる（フェーズ10）。
 test(l1_gcd_min_2, (M is -9223372036854775807 - 1, X is gcd(M, 2)), solutions([X = 2])).
 test(l1_gcd_2_min, (M is -9223372036854775807 - 1, X is gcd(-6, M)), solutions([X = 2])).
 test(l1_gcd_min_half, (M is -9223372036854775807 - 1, X is gcd(M, 4611686018427387904)), solutions([X = 4611686018427387904])).
-test(l1_gcd_min_0, (M is -9223372036854775807 - 1, X is gcd(M, 0)), error(evaluation_error(int_overflow))).
-test(l1_gcd_min_min, (M is -9223372036854775807 - 1, X is gcd(M, M)), error(evaluation_error(int_overflow))).
+test(l1_gcd_min_0, (M is -9223372036854775807 - 1, X is gcd(M, 0), X == 9223372036854775808), true).
+test(l1_gcd_min_min, (M is -9223372036854775807 - 1, X is gcd(M, M), X == 9223372036854775808), true).
 % max と min は、型の違う引数を float に直して比べ、float を返す（iso-notes 9.3.8 の決定 B）。値の型が値で変わらないので、
 % 丸めの関数にそのまま渡せる（9.1.6 の決定 A で floor は整数を受け付けない）。2^53 を超える整数は丸まる。
 test(l1_max_mixed_float, (X is max(2.0, 3)), solutions([X = 3.0])).

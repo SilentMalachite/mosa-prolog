@@ -99,6 +99,11 @@ inline Ev from_num(Num num) {
   return machine.eval_bigs[static_cast<std::size_t>(num.ival)];
 }
 
+// 整数の Num が負か。Big の ival は添字なので、置き場の値の符号を見る。
+[[nodiscard]] inline bool int_negative(const Impl& machine, Num num) {
+  return num.big ? big_ref(machine, num).negative() : num.ival < 0;
+}
+
 // arith_big.cpp
 // 正規形にする。int64 に収まれば int64 の Num、収まらなければ eval_bigs に置いた Big の Num。
 [[nodiscard]] Ev from_big(Impl& machine, BigInt value);
@@ -114,6 +119,16 @@ void check_room(const Impl& machine, std::uint64_t bits);
 [[nodiscard]] Ev big_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right);
 // 整数どうしの / で、どちらかが Big のとき。
 [[nodiscard]] Ev big_divide(Impl& machine, const Goal& goal, Num left, Num right);
+// 整数の Num が奇数か。Big は値の最下位のビットを見る。
+[[nodiscard]] bool int_odd(const Impl& machine, Num num);
+// 整数の ^ で、どちらかが Big か int64 の結果があふれたとき。exp は負でない。
+[[nodiscard]] Ev big_hat(Impl& machine, Num base, Num exp);
+// << と >> で、値かシフトの数が Big か int64 の左シフトがあふれたとき。count は負でなく、value は 0 でない。
+[[nodiscard]] Ev big_shift(Impl& machine, std::string_view name, Num value, Num count);
+// gcd で、どちらかが Big のとき。
+[[nodiscard]] Ev big_gcd(Impl& machine, Num left, Num right);
+// /\ \/ xor で、どちらかが Big のとき。
+[[nodiscard]] Ev big_bits(Impl& machine, std::string_view name, Num left, Num right);
 // 有限で整数値の double を整数の Num にする（9.1.6 の丸めの結果）。
 [[nodiscard]] Ev from_integral(Impl& machine, double value);
 // Num を項にする。Big の箱はここでだけ作る。
@@ -122,11 +137,9 @@ void check_room(const Impl& machine, std::uint64_t bits);
 // arith_int.cpp
 [[nodiscard]] Ev negate_int(Impl& machine, Num num);
 [[nodiscard]] Ev eval_int_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right);
-[[nodiscard]] Ev int_hat(Impl& machine, const Goal& goal, std::int64_t base, std::int64_t exp);
+// 整数どうしの ^。base と exp はどちらも整数（Big を含む）。
+[[nodiscard]] Ev int_hat(Impl& machine, const Goal& goal, Num base, Num exp);
 // abs、sign、min、max、gcd、msb、succ_or_zero、ビット演算、シフト。名前と引数の数が合わなければ ok でない Ev。
 [[nodiscard]] Ev eval_int_fn(Impl& machine, const Goal& goal, std::string_view name, const std::vector<Num>& args);
-// タスク 7 までの暫定。^、**、gcd、succ_or_zero、ビット演算、シフトはまだ Big を計算しないので、Big の引数は前と同じく
-// evaluation_error(int_overflow) にする（ival を添字のまま読まない）。投げたら真。
-[[nodiscard]] bool big_pending(Impl& machine, const Goal& goal, const std::vector<Num>& args);
 
 }  // namespace mosa::arith

@@ -3,9 +3,9 @@
 // type_error(integer, X), type_error(float, X), type_error(integer_expression, E)（tab/1,2 が使う
 // eval_int_expression）, evaluation_error(zero_divisor | undefined | int_overflow | float_overflow),
 // resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。整数に上限は無い（旗 bounded は false、ADR 0025）。
-// int_overflow を出すのは、無限大を整数にする丸めと、タスク 7 までの暫定（^、**、gcd、succ_or_zero、ビット演算、
-// シフトが int64 を越えるか Big を受けたとき。big_pending）と、tab/1,2 の Big（タスク 8 まで）だけである。
-// ヒープに入らない大きさの結果は ResourceLimit("heap_limit") で止める（check_room）。テスト: tests/pl/arith.pl,
+// int_overflow を出すのは、無限大を整数にする丸めと、tab/1,2 の Big（タスク 8 まで）だけである。** はいつも float
+// を返し、double にできない Big の引数と結果は float_overflow にする。ヒープに入らない大きさの結果は
+// ResourceLimit("heap_limit") で止める（check_room。<< と ^ と + - * は計算の前に見積もる）。テスト: tests/pl/arith.pl,
 // tests/pl/bigint.pl, tests/pl/native.pl, tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp,
 // tests/cpp/bigint_heap_test.cpp, tests/cpp/bigint_limit_test.cpp
 
@@ -95,17 +95,29 @@ bool integer_exponent(Num right, std::int64_t& exp) {
   return true;
 }
 
-double negative_base_pow(double base, std::int64_t exp) {
-  if (exp == 0) return 1.0;
-  // 負の底の整数乗は、絶対値のべきに符号を付けてから、負の指数は逆数にする。
-  const bool invert = exp < 0;
-  const auto mag = invert ? static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(exp)
-                          : static_cast<std::uint64_t>(exp);
-  const double raised = std::pow(std::fabs(base), static_cast<double>(mag));
-  const double signed_value = (mag % 2U) == 0U ? raised : -raised;
+// 負の底の整数乗は、絶対値のべきに符号を付けてから、負の指数は逆数にする。奇偶は指数の整数の値から取る
+// （mag は double なので、2^53 を越えるとどれも偶数に見える）。
+double negative_base_pow(double base, double mag, bool odd, bool invert) {
+  const double raised = std::pow(std::fabs(base), mag);
+  const double signed_value = odd ? -raised : raised;
   if (!invert) return signed_value;
   if (signed_value == 0) return std::copysign(std::numeric_limits<double>::infinity(), signed_value);
   return 1.0 / signed_value;
+}
+
+// 負の底 a の冪で、指数が整数値のとき。整数値でない指数は偽で、呼び手が undefined にする。b は right の double。
+bool negative_base_value(const Impl& machine, double a, Num right, double b, double& value) {
+  if (right.big) {
+    value = negative_base_pow(a, std::fabs(b), int_odd(machine, right), b < 0);
+    return true;
+  }
+  std::int64_t exp = 0;
+  if (!integer_exponent(right, exp)) return false;
+  const bool invert = exp < 0;
+  const auto mag = invert ? static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(exp)
+                          : static_cast<std::uint64_t>(exp);
+  value = negative_base_pow(a, static_cast<double>(mag), (mag % 2U) != 0U, invert);
+  return true;
 }
 
 Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num right) {
@@ -124,7 +136,6 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
     }
     value = a / b;
   } else if (name == "**" || name == "^") {
-    std::int64_t exp = 0;
     // 9.3.1.3 d の本文どおり、0 の負の冪は undefined（iso-notes 9.3.1.3 d の決定 A）。pow は無限大を返すので先に止める。
     if (a == 0 && b < 0) {
       if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());
@@ -132,12 +143,11 @@ Ev eval_float_bin(Impl& machine, const Goal& goal, std::string_view name, Num le
       return {};
     }
     if (a < 0) {
-      if (!integer_exponent(right, exp)) {
+      if (!negative_base_value(machine, a, right, b, value)) {
         if (!machine.float_undefined_error) return from_float(std::numeric_limits<double>::quiet_NaN());
         fail_eval(machine, goal, "undefined");
         return {};
       }
-      value = negative_base_pow(a, exp);
     } else {
       value = std::pow(a, b);
     }
@@ -195,10 +205,7 @@ Ev eval_known(Impl& machine, const Goal& goal, std::string_view name, const std:
   if ((name == "//" || name == "rem" || name == "div" || name == "mod") && args.size() == 2) {
     return eval_int_bin(machine, goal, name, args[0], args[1]);
   }
-  if ((name == "^" || name == "**") && args.size() == 2 && big_pending(machine, goal, args)) return {};
-  if (name == "^" && args.size() == 2 && !args[0].flt && !args[1].flt) {
-    return int_hat(machine, goal, args[0].ival, args[1].ival);
-  }
+  if (name == "^" && args.size() == 2 && !args[0].flt && !args[1].flt) return int_hat(machine, goal, args[0], args[1]);
   if ((name == "**" || name == "^") && args.size() == 2) {
     return eval_float_bin(machine, goal, "**", args[0], args[1]);
   }

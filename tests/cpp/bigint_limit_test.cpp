@@ -2,10 +2,12 @@
 // 式の途中で置き場に持つ Big の写しも上限に数える（from_big、レビュー Important 1）。越えるなら計算も確保もせずに
 // ResourceLimit("heap_limit") を投げる（タスク 6）。huge_mul は止まることだけを見る。見積もりがないと、次の 2 乗
 // （上限の約 0.65 倍）をヒープの外で計算してから from_big で止まる。積を箱にせずに止めることは product_estimate で確かめる。
+// << と ^ も結果の大きさを先に見積もる（タスク 7）。huge_shift はその見積もりだけで、確保の前に止まることを見る。
 #include "harness.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <initializer_list>
 #include <memory>
@@ -20,7 +22,7 @@ constexpr std::size_t k_limit = std::size_t{16} << 17;
 constexpr std::size_t k_small = std::size_t{5} << 16;
 
 constexpr std::string_view k_program =
-    // ^ の Big はタスク 7 なので、10^400 は * だけで作る。
+    // 10^400 は * だけで作る。積の見積もり（check_room）の行が ^ の見積もりに頼らない。
     "pow10(0, 1) :- !.\n"
     "pow10(N, X) :- M is N - 1, pow10(M, Y), X is Y * 10.\n"
     // 2 乗を限りなく続ける。語の数は 1 歩ごとに倍になる。
@@ -99,9 +101,36 @@ void check_product_estimate() {
   mosa_test::check(product.limited, "product_estimate: A * A > 0 stops at the heap limit");
 }
 
+// 1 << 2^62 と 2^(2^62) は 2^62 ビット（約 2^56 語）を越える。見積もりがなければ、shift_left と power が
+// 結果の語を確保しようとして std::bad_alloc か std::length_error を投げるか、長い時間をかける。見積もりで止まれば
+// 計算も確保もしないので、1 秒の中で止まり、ヒープの確保も伸びない。シフトの数と指数が Big の 2 行は、見積もりが
+// 上限に張り付く道を通る。(2^127)^(2^62) は見積もりの積 128 * 2^62 が 2^64 で 0 に折り返すので、張り付けなければ
+// power が走る。
+void check_huge_shift() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program(k_program).ok, "huge_shift: load");
+  // 最初の問い合わせで確保が伸びても、比べる前に済ませておく。
+  const Outcome warm = run(*machine, "X is 1 << 62, X > 0.");
+  mosa_test::check(!warm.limited && warm.kind == mosa::StopKind::Success, "huge_shift: warm up");
+  for (const std::string_view goal : {"X is 1 << (1 << 62).", "X is 2^(2^62).", "X is 1 << (2^70).", "X is 3^(2^70).",
+                                      "X is (1 << 127)^(1 << 62)."}) {
+    const std::string label = "huge_shift: " + std::string{goal};
+    const std::size_t capacity = machine->heap().capacity();
+    const auto started = std::chrono::steady_clock::now();
+    const Outcome outcome = run(*machine, goal);
+    const std::chrono::duration<double> took = std::chrono::steady_clock::now() - started;
+    mosa_test::check(outcome.limited, label + " stops at the heap limit");
+    mosa_test::check(took.count() < 1.0, label + " stops within 1 s (" + std::to_string(took.count()) + " s)");
+    mosa_test::check(machine->heap().capacity() == capacity, label + " leaves the heap capacity as it was");
+  }
+  const Outcome after = run(*machine, "X is 2^100, X > 0.");
+  mosa_test::check(!after.limited && after.kind == mosa::StopKind::Success, "huge_shift: the machine runs again");
+}
+
 }  // namespace
 
 int main() {
+  check_huge_shift();
   check_nested_hold();
   check_settle_count();
   check_product_estimate();
