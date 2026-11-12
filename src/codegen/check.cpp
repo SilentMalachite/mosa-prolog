@@ -62,6 +62,8 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
       }
       out.push_back(PredKey{module, goal.atom, static_cast<std::uint16_t>(goal.args.size())});
       return;
+    // Big は数なので述語を名指さない。呼べない葉は Call の節点で call/1 が拒む。
+    case IrTag::Big:
     default: return;
   }
 }

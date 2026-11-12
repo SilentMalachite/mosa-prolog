@@ -152,9 +152,12 @@ void check_assert() {
         "assert: q(Y) gives B, -B, 7");
   check(run(*machine, "q('$big0')", {big}) == mosa::StopKind::Success, "assert: q(B) holds");
   check(run(*machine, "q('$big0')", {big + BigInt(1)}) == mosa::StopKind::Failure, "assert: q(B+1) fails");
+  // 鍵の符号を、節の側（set_key）と呼ぶ側（cell_key）で同じに読むか。
+  check(run(*machine, "q('$big0')", {-big}) == mosa::StopKind::Success, "assert: q(-B) holds");
   const mosa::Stop shown = ask(*machine, "findall(Y, clause(q(Y), true), L)");
   const std::vector<mosa::Cell> clauses = list_items(machine->heap(), bound(*machine, shown, "L"));
-  check(clauses.size() == 3 && holds_big(*machine, clauses[0], big) && holds_big(*machine, clauses[1], -big),
+  check(clauses.size() == 3 && holds_big(*machine, clauses[0], big) && holds_big(*machine, clauses[1], -big) &&
+            holds_int(*machine, clauses[2], 7),
         "clause: q(Y) gives B, -B, 7");
   check(run(*machine, "retract(q('$big0'))", {big + BigInt(1)}) == mosa::StopKind::Failure, "retract: q(B+1) fails");
   check(run(*machine, "retract(q('$big0'))", {big}) == mosa::StopKind::Success, "retract: q(B)");
@@ -162,6 +165,8 @@ void check_assert() {
   const std::vector<mosa::Cell> rest = list_items(machine->heap(), bound(*machine, left, "L"));
   check(rest.size() == 2 && holds_big(*machine, rest[0], -big) && holds_int(*machine, rest[1], 7),
         "retract: -B and 7 are left");
+  check(run(*machine, "retract(q('$big0'))", {-big}) == mosa::StopKind::Success, "retract: q(-B)");
+  check(run(*machine, "q('$big0')", {-big}) == mosa::StopKind::Failure, "retract: q(-B) is gone");
 }
 
 // assert の写しは、木に広げて 64 節点以上の部分項を 2 度目から共有の項にする（ADR 0022）。100 語の Big の f(B) は語の子を

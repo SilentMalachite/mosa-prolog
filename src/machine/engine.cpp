@@ -359,6 +359,8 @@ bool leaves_at(const IrTerm& term, GoalLeafOk ok, int depth, std::vector<const I
     // なり（compile.cpp の runs_late、レビュー M15）、catch が動くときに call/1 が拒む。
     case IrTag::Catch: return term.args.size() >= 3;
     case IrTag::Call: return term.args.empty() || leaves_at(term.args[0], ok, depth + 1, later);
+    // Big は数の葉。呼べるかどうかは他の葉と同じく ok が決める（is_number_ir で拒む）。
+    case IrTag::Big:
     default: return ok(term.tag);
   }
 }
