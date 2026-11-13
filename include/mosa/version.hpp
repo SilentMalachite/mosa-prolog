@@ -5,8 +5,8 @@
 namespace mosa {
 // 旗 version、version_data と version_line が同じ番号を使う。CMakeLists.txt の project VERSION と揃える。
 inline constexpr int kVersionMajor = 0;
-inline constexpr int kVersionMinor = 1;
-inline constexpr int kVersionPatch = 4;
+inline constexpr int kVersionMinor = 2;
+inline constexpr int kVersionPatch = 0;
 
 [[nodiscard]] std::string version_line();
 }
