@@ -2,9 +2,10 @@ English | [日本語](../ja/14-reference.md)
 
 # 14. Reference
 
-This chapter lists what Mosa 0.2.0 has, so that you can look things up: the commands and their options, the
-environment variables, the flags, the directives, every built-in predicate and the predicates of each library. You
-do not need to read it in order.
+This chapter lists what this source tree has, so that you can look things up: the commands and their options,
+the environment variables, the flags, the directives, every built-in predicate and the predicates of each library.
+The latest release is 0.2.0; additions and changes since then are under Unreleased in the CHANGELOG. You do not
+need to read this chapter in order.
 
 ## Commands
 
@@ -90,7 +91,7 @@ manual. The others are tools for the developers of Mosa.
 
 | Command | What it does |
 | --- | --- |
-| `mosatest file` | Loads the facts `test(Name, Goal, Expected)` of the file and runs each goal. `Expected` is `true`, `fail`, `error(Formal)` or `solutions(List)`, where `List` gives every solution in order. Prints each goal that does not do what is expected, and ends with 1 if there is one. A folder runs each of its `.pl` files. |
+| `mosatest file` | Loads the facts `test(Name, Goal, Expected)` of the file and runs each goal. `Expected` is `true`, `fail`, `error(Formal)` or `solutions(List)`, where `List` gives every solution in order. Prints each goal that does not do what is expected, and ends with 1 if there is one. A folder runs each of its `.pl` files. A file with no tests, and a folder with no `.pl` files, also end with 1. |
 | `mosatest --suite folder --report file` | Runs the ISO conformance suite of the source tree. |
 | `mosatest --diff folder --report file` | Runs each test with `mosa` and with `mosac`, and compares the two. |
 | `mosatest --bench file --count n` | Times a program with `mosa` and with `mosac`. |
@@ -140,7 +141,7 @@ A flag whose "Other values" says "none" cannot be changed.
 | `double_quotes` | `codes` | `chars`, `atom` | What `"abc"` reads as: a list of character codes, a list of characters or an atom. |
 | `unknown` | `error` | `fail` | What a call of an undefined predicate does: raise `existence_error` or fail. |
 | `char_conversion` | `off` | `on` | Whether `char_conversion/2` changes characters as terms are read. |
-| `debug` | `off` | `on` | ISO asks for this flag. In Mosa 0.2.0, `on` changes nothing. |
+| `debug` | `off` | `on` | ISO asks for this flag. Setting it to `on` currently changes nothing. |
 | `encoding` | `utf8` | none | Text is UTF-8. |
 | `invalid_utf8` | `error` | `replace` | What reading bytes that are not UTF-8 does: raise `representation_error(character)`, or read U+FFFD instead. |
 | `japanese_punctuation` | `false` | `true` | Whether full-width punctuation is read as half-width (chapter 11). |
@@ -153,7 +154,7 @@ A flag whose "Other values" says "none" cannot be changed.
 | `version_data` | `mosa(0,2,0,[])` | none | The version as a term. |
 | `argv` | `[]` | none | The words after `--` on the command line of `mosa`, or after the name of an executable. |
 | `trace_gc` | `false` | `true` | With `true`, Mosa prints a line each time it collects memory. |
-| `iso` | `true` | none | The core semantics follow ISO. The deviations are off by default or appear only after an explicit import. |
+| `iso` | `true` | none | The core semantics follow ISO. The deviations are off by default or appear only after an explicit import. There is no separate strict-conformance mode. |
 
 The flags from `bounded` to `debug` are those of ISO clause 7.11, and the others are Mosa's. In a file,
 `double_quotes` and `japanese_punctuation` set by a directive last to the end of that file.
@@ -560,10 +561,11 @@ Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO
   the other predicates of the libraries are not built in, and need `use_module`.
 - Full-width punctuation is read as half-width only when the flag `japanese_punctuation` is `true` (chapter 11).
 - A file opened for reading is read as it is needed, not all at once when it is opened, and text another program
-  appends later can be read. What a stream has read counts against the memory limit (`--heap-max`), and reading
-  past it stops the query at that limit. Loading a Prolog text (`consult` and the others) takes a regular file
-  only, not a device or a pipe, under the same limit, and opening a file to append to it follows the same rule for
-  the text that is already there.
+  appends later can be read when more input is needed, including after a peek has seen the end of the file. What
+  all open streams have read counts against the memory limit (`--heap-max`) together with the heap, counted each
+  time more is read, and reading past it stops the query at that limit. Loading a Prolog text (`consult` and the
+  others) takes a regular file only, not a device or a pipe, under the same limit, and opening a file to append
+  to it follows the same rule for the text that is already there.
 
 The reasons for these choices, clause by clause, are in the
 [ISO interpretation notes](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/iso-notes.md) of the

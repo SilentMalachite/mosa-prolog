@@ -5,7 +5,7 @@ English | [日本語](README.ja.md)
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-10_in_progress-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phases-0--10_done-green)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -51,7 +51,7 @@ N = 5.
 
 ## Manual
 
-The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against Mosa 0.2.0; only installation steps and other things that depend on your machine are not run. What each release has, and its known limits, are in the [CHANGELOG](CHANGELOG.md).
+The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against a build from this source tree; only installation steps and other things that depend on your machine are not run. The installation chapter describes the latest release, 0.2.0. What each release has, what has changed since then, and the known limits are in the [CHANGELOG](CHANGELOG.md).
 
 ## Build from source
 
@@ -77,7 +77,7 @@ git clone https://github.com/SilentMalachite/mosa-prolog.git
 cd mosa-prolog
 ```
 
-Pick the preset for your OS: `macos-clang`, `linux-gcc`, `linux-clang`, or `windows-msvc`. On macOS:
+Pick the preset for your OS: `macos-clang`, `linux-gcc`, `linux-clang`, or `windows-msvc`. Linux Clang also has `linux-clang-asan`, a Debug build with AddressSanitizer and UndefinedBehaviorSanitizer, which writes to `build-asan/`. On macOS:
 
 ```sh
 cmake --preset macos-clang
@@ -93,7 +93,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–9 are done, and phase 10 (arbitrary-precision integers) was opened on 2026-11-12. Phase 10 is in progress: its work is done, and the check of its exit criteria is left. Phase 9 (ISO completion and robustness) was finished on 2026-11-11 after the check of its exit criteria: the Examples of 8.2.4.4 and 8.3.11.4 pass, the conformance pass rate stays at 98.4% (2150/2185), the ctest `stack_deep_read` passes under a 1 MiB stack, and `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass with zero differences under `mosatest --diff` (CI on macOS, Linux and Windows). Phase 8 (grammar rules: `-->` and `phrase/2,3`) was finished on 2026-11-11 after the check of its exit criteria: `tests/pl/dcg.pl` passes in `mosa` with zero differences under `mosatest --diff`, and the conformance pass rate did not go down (CI on macOS, Linux and Windows). Phase 7 (the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist`) was finished on 2026-11-10 after the check of its exit criteria: memory plateaus in long-running loops ([`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#memory-in-long-loops)), and the steps in this README alone build Mosa and pass its tests (in CI on Linux and Windows, and from a fresh clone on macOS). Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
+Phases 0–10 are done. Phase 10 (arbitrary-precision integers) was finished on 2026-11-13 after the check of its exit criteria, and Mosa 0.2.0 was released that day. Source after that release contains a whole-codebase review and a follow-up review's fixes; they are listed under Unreleased in the [CHANGELOG](CHANGELOG.md). Phase 9 (ISO completion and robustness) was finished on 2026-11-11 after the check of its exit criteria: the Examples of 8.2.4.4 and 8.3.11.4 pass, the conformance pass rate stays at 98.4% (2150/2185), the ctest `stack_deep_read` passes under a 1 MiB stack, and `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass with zero differences under `mosatest --diff` (CI on macOS, Linux and Windows). Phase 8 (grammar rules: `-->` and `phrase/2,3`) was finished on 2026-11-11 after the check of its exit criteria: `tests/pl/dcg.pl` passes in `mosa` with zero differences under `mosatest --diff`, and the conformance pass rate did not go down (CI on macOS, Linux and Windows). Phase 7 (the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist`) was finished on 2026-11-10 after the check of its exit criteria: memory plateaus in long-running loops ([`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#memory-in-long-loops)), and the steps in this README alone build Mosa and pass its tests (in CI on Linux and Windows, and from a fresh clone on macOS). Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ Phases 0–9 are done, and phase 10 (arbitrary-precision integers) was opened on
 | 7 | GC, manuals, `mosac dist`, release packages | Done |
 | 8 | Grammar rules (`-->`, `phrase/2,3`) | Done |
 | 9 | ISO completion and robustness (`subsumes_term/2`, `acyclic_term/1`, a frame-based reader, `Name//Arity`, `*->` in grammar bodies, `expand_term/2`) | Done |
-| 10 | Arbitrary-precision integers (the Big box, unbounded arithmetic, reading and writing) | In progress |
+| 10 | Arbitrary-precision integers (the Big box, unbounded arithmetic, reading and writing) | Done |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 
@@ -198,7 +198,7 @@ X = 太郎.
 
 The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logtalk/`) is shown by the badge above. At the end of phase 3, 2028 of 2171 tests (93.4%) passed; at the end of phase 4, 2041 (94.0%); at the end of phase 5, 2135 (98.3%); in 0.1.0, 2136 (98.4%); in phase 10, with the suite's `unbounded/` tests taken into its range, 2239 of 2274 (98.5%). The list of failures is in [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md). `mosatest --suite` writes that file and the badge data [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json) (shields.io endpoint format). Do not edit either by hand.
 
-The badge reads `docs/conformance.json` on `main`, so it changes with every commit that changes the file. CI runs the suite in all four jobs and puts the pass rate in the Job Summary; the macOS job fails if the generated JSON differs from the committed one. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON with it.
+The badge reads `docs/conformance.json` on `main`, so it changes with every commit that changes the file. CI runs the suite in the four OS jobs and the Linux sanitizer job; the OS jobs put the pass rate in the Job Summary, and the macOS job fails if the generated JSON differs from the committed one. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON with it.
 
 The "mosac diff" badge reads [`docs/agreement.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.json) on `main` in the same way. CI runs the differential tests on all three OSes (`ctest -L diff`, that is `mosatest --diff tests/pl` and `mosatest --diff tests/conformance`, with the generated C++ compiled with warnings as errors), puts the agreement in the Job Summary, and the macOS job fails if the generated JSON differs from the committed one. Each OS job also runs `mosac toolchain` and `mosac build tests/mosac/hello.pl`, and separate jobs download that executable and run it in a bare `ubuntu:24.04` container, check with `otool -L` on macOS that it depends only on `/usr/lib/` and `/System/`, and check with `dumpbin /dependents` on Windows that it depends only on OS DLLs. When a change alters the agreement, run `mosatest --diff tests/pl` and `mosatest --diff tests/conformance` and commit the JSON with it.
 
@@ -214,7 +214,7 @@ The "mosac diff" badge reads [`docs/agreement.json`](https://github.com/SilentMa
 
 ## Documents
 
-Each document below has a Japanese translation next to it, as `*.ja.md` (for the manual, `docs/manual/ja/`). The English version is authoritative.
+The prose documents below have a Japanese translation next to them, as `*.ja.md` (for the manual, `docs/manual/ja/`), except where a row says otherwise. The English version is authoritative. `docs/unicode-version.md` contains only a version number, so it has no translation.
 
 | Document | Contents |
 | --- | --- |
@@ -240,7 +240,7 @@ include/mosa/   Public headers
 src/            core, read, write, machine, builtins, module, codegen, platform (compile is reserved and empty)
 lib/            Standard library written in Prolog, and the message catalogs
 bench/          Benchmark programs for mosatest --bench
-tests/          cpp, pl, mosac, conformance, tmp
+tests/          cpp, pl, mosac, conformance, stack, manual, tmp
 tools/          Generator scripts for developers (not needed to build)
 docs/           Manual, spec, status, ADRs, interpretation notes
 ```

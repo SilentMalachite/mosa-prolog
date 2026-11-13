@@ -2,8 +2,9 @@ English | [日本語](../ja/README.md)
 
 # Mosa Prolog manual
 
-This manual is for Mosa Prolog 0.2.0. It is written for people who have never used Prolog. It starts with
-installing Mosa and goes on, one small step at a time, to writing programs and building executables.
+This manual documents Mosa Prolog in this source tree. The latest release is 0.2.0, and changes since that
+release are listed under Unreleased in the CHANGELOG. It is written for people who have never used Prolog. It
+starts with installing Mosa and goes on, one small step at a time, to writing programs and building executables.
 
 ## How to read this manual
 
@@ -14,9 +15,9 @@ installing Mosa and goes on, one small step at a time, to writing programs and b
   prints. A line that starts with `$ ` is a command for your shell (Terminal on macOS and Linux, PowerShell on
   Windows): you type the text after `$ `. Lines only for PowerShell are shown without a prompt: type each of them
   whole. A `$` at the start of such a line, as in `$bin = …`, is part of the command, so type it too.
-- Every example is run by `mosatest --manual` against Mosa 0.2.0, and the check fails if the output differs by a
-  single character. So what you see here is what Mosa prints. Only installation steps and other things that depend
-  on your machine are not run.
+- Every example is run by `mosatest --manual` against a build from this source tree, and the check fails if the
+  output differs by a single character. So what you see here is what that build prints. Only installation steps
+  and other things that depend on your machine are not run.
 
 ## Supported platforms
 
@@ -26,7 +27,8 @@ installing Mosa and goes on, one small step at a time, to writing programs and b
 
 The packages are not signed. [Chapter 2](02-install.md) shows how to start Mosa anyway on macOS and Windows.
 
-What Mosa 0.2.0 has, and its known limits, are in the [CHANGELOG](../../../CHANGELOG.md).
+What each release has, what has changed since the latest release, and the known limits are in the
+[CHANGELOG](../../../CHANGELOG.md).
 
 ## Chapters
 

@@ -5,7 +5,7 @@
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
-[![Phase](https://img.shields.io/badge/phase-10_in_progress-blue)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
+[![Phase](https://img.shields.io/badge/phases-0--10_done-green)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.ja.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
@@ -53,7 +53,7 @@ N = 5.
 
 ## マニュアル
 
-[マニュアル](docs/manual/ja/README.md)（[English](docs/manual/en/README.md)）は、Prolog を使ったことのない人に向けて書いています。Mosa の入手から始めて、プログラムを書くところ、`mosac` で実行ファイルを作るところまで進みます。第 14 章は、コマンド、フラグ、組み込みの述語を調べるためのリファレンスです。マニュアルの例はすべて Mosa 0.2.0 で確かめています。実行しないのは、インストールの手順のように、使う機械によって変わるものだけです。各リリースの中身と既知の制限は [CHANGELOG](CHANGELOG.ja.md) にあります。
+[マニュアル](docs/manual/ja/README.md)（[English](docs/manual/en/README.md)）は、Prolog を使ったことのない人に向けて書いています。Mosa の入手から始めて、プログラムを書くところ、`mosac` で実行ファイルを作るところまで進みます。第 14 章は、コマンド、フラグ、組み込みの述語を調べるためのリファレンスです。マニュアルの例はすべて、このソースの木から作ったビルドで確かめています。実行しないのは、インストールの手順のように、使う機械によって変わるものだけです。インストールの章で扱う最新のリリースは 0.2.0 です。各リリースの中身、その後の変更、既知の制限は [CHANGELOG](CHANGELOG.ja.md) にあります。
 
 ## ソースからのビルド
 
@@ -79,7 +79,7 @@ git clone https://github.com/SilentMalachite/mosa-prolog.git
 cd mosa-prolog
 ```
 
-OS に合うプリセットを選びます。プリセットは `macos-clang`、`linux-gcc`、`linux-clang`、`windows-msvc` の 4 つです。macOS では次のとおりです。
+OS に合うプリセットを選びます。プリセットは `macos-clang`、`linux-gcc`、`linux-clang`、`windows-msvc` の 4 つです。Linux の Clang には、AddressSanitizer と UndefinedBehaviorSanitizer を入れた Debug ビルドの `linux-clang-asan` もあり、`build-asan/` に出します。macOS では次のとおりです。
 
 ```sh
 cmake --preset macos-clang
@@ -95,7 +95,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 0〜9 は終わっていて、フェーズ 10（多倍長整数）を 2026-11-12 に始めました。フェーズ 10 は進行中で、作業はできました。残りは完了条件の確かめです。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
+フェーズ 0〜10 は終わっています。フェーズ 10（多倍長整数）は完了条件を確かめて 2026-11-13 に終え、同日に Mosa 0.2.0 をリリースしました。その後のソースには、全体レビューとその後のレビューの直しが入っています。これらは [CHANGELOG](CHANGELOG.ja.md) の「未リリース」にあります。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -109,7 +109,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 7 | GC、マニュアル、`mosac dist`、配布パッケージ | 完了 |
 | 8 | 文法規則（`-->`、`phrase/2,3`） | 完了 |
 | 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 完了 |
-| 10 | 多倍長整数（Big の箱、上限の無い算術と読み書き） | 進行中 |
+| 10 | 多倍長整数（Big の箱、上限の無い算術と読み書き） | 完了 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 
@@ -198,7 +198,7 @@ X = 太郎.
 
 同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）、フェーズ 5 の完了時点で 2135 件（98.3%）、0.1.0 で 2136 件（98.4%）が通りました。フェーズ 10 では、スイートの `unbounded/` のテストを範囲に入れて、2274 件中 2239 件（98.5%）が通ります。不合格の一覧は [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
 
-準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つのジョブすべてでスイートを実行して合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
+準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つの OS のジョブと Linux のサニタイザのジョブでスイートを実行します。OS のジョブは合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 
 「mosac diff」のバッジも同じ仕組みで `main` の [`docs/agreement.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.json) を読みます。CI は 3 つの OS で差分テスト（`ctest -L diff`、つまり `mosatest --diff tests/pl` と `mosatest --diff tests/conformance`。生成した C++ は警告を誤りにしてコンパイルします）を流して一致率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。各 OS のジョブは `mosac toolchain` と `mosac build tests/mosac/hello.pl` も実行し、別のジョブがその実行ファイルを落として、素の `ubuntu:24.04` コンテナで動かし、macOS では `otool -L` の依存が `/usr/lib/` と `/System/` だけ、Windows では `dumpbin /dependents` の依存が OS の DLL だけであることを確かめます。一致率が変わる変更では、`mosatest --diff tests/pl` と `mosatest --diff tests/conformance` を実行して JSON も一緒にコミットしてください。
 
@@ -214,7 +214,7 @@ X = 太郎.
 
 ## 文書
 
-英語版が正で、日本語訳は同じ場所に `*.ja.md` として置きます（マニュアルは `docs/manual/ja/`）。
+下の文章の文書には、行ごとに違うと書いたものを除き、日本語訳を同じ場所に `*.ja.md` として置きます（マニュアルは `docs/manual/ja/`）。英語版が正です。`docs/unicode-version.md` はバージョン番号だけなので、日本語訳はありません。
 
 | 文書 | 中身 |
 | --- | --- |
@@ -240,7 +240,7 @@ include/mosa/   公開ヘッダ
 src/            core, read, write, machine, builtins, module, codegen, platform（compile は予約で空）
 lib/            Prolog 製の標準ライブラリとメッセージカタログ
 bench/          mosatest --bench 用のベンチマークのプログラム
-tests/          cpp, pl, mosac, conformance, tmp
+tests/          cpp, pl, mosac, conformance, stack, manual, tmp
 tools/          開発者用の生成スクリプト（ビルドには不要）
 docs/           マニュアル、仕様、状態、ADR、解釈メモ
 ```

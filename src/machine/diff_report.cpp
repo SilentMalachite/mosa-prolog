@@ -211,10 +211,8 @@ void write_rendering_note(std::ostream& out) {
          "`T = t(_G1,_G2,_G1)`). As substitutions they agree, and the table above counts them as agreeing. For "
          "`solutions([...])` tests one more solution than expected is asked for on both sides.\n\n";
   out << "The term is written in canonical form (functional notation, lists in brackets, atoms and numbers quoted as "
-         "`writeq/1` does, a re-entered open structure as `_`) by an iterative walk rather than by `write_term/2`: "
-         "the writer recurses once per nesting level, and the answer of tests/pl/types.pl `ground_deep` "
-         "(`f/1` nested 30000 deep) overflows an 8 MB stack. CTest raises the stack limit of its children, which hides "
-         "the overflow there, but a run from a shell or on Windows would not survive it.\n";
+         "`writeq/1` does, a re-entered open structure as `_`) by an iterative walk rather than by `write_term/2`, so "
+         "the compared text does not depend on operator notation or on the names of the query variables.\n";
 }
 
 void write_markdown(std::ostream& out, const std::vector<Section>& sections) {

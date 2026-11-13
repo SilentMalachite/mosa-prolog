@@ -44,8 +44,9 @@ N = 5.
 
 ## What happened
 
-You read a query and its answer. Every example in this manual was run with Mosa 0.2.0 before the release, and the
-output under each query is what Mosa printed. The command `mosatest --manual` runs every example again and fails if
+You read a query and its answer. Every example in this manual is run against a build from this source tree, and
+the output under each query is what that build printed. The command `mosatest --manual` runs every example again
+and fails if
 a single character differs, so when you type an example, you should see exactly the same output. If you see
 something else, the difference is worth a closer look: it may be a typing mistake, or a
 [bug to report](https://github.com/SilentMalachite/mosa-prolog/issues).

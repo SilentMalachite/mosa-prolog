@@ -37,7 +37,7 @@ The body of the specification is in `docs/SPEC.md` (do not duplicate it in this 
 
 ### Ending a session (always, every time)
 
-1. Make `cmake --build build && ctest --test-dir build` pass. If you end in a state where it does not pass, write that fact and the reproduction steps in `STATUS.md`
+1. Make the OS preset build and tests pass (`cmake --build --preset <preset> && ctest --preset <preset>`; the test presets run CTest in parallel with per-test timeouts). If you end in a state where they do not pass, write that fact and the reproduction steps in `STATUS.md`
 2. Update `STATUS.md`: what was completed, the one next thing to do, and the points you were unsure about. If it exceeds 15 lines, delete older entries
 3. Commit changes one logical unit at a time. The message is one line in Japanese giving the phase, the content and how it was verified, like `[phase2] functor/3 を実装（8.5.1 の Examples 全通過）` ("implement functor/3 (all Examples in 8.5.1 pass)")
 
@@ -93,8 +93,8 @@ mosa-prolog/
 ├── README.ja.md              # Japanese translation of README.md
 ├── LICENSE                   # Apache-2.0
 ├── CMakeLists.txt
-├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / windows-msvc
-├── .github/workflows/ci.yml  # 3-OS matrix, warnings as errors, conformance rate in the Job Summary
+├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / linux-clang-asan / windows-msvc
+├── .github/workflows/ci.yml  # 3-OS matrix plus GC-stress and Linux sanitizer jobs, warnings as errors, conformance rate in the Job Summary
 ├── docs/
 │   ├── SPEC.md               # Specification (sections 1–9 of the instructions document)
 │   ├── SPEC.ja.md            # Japanese translation of SPEC.md
@@ -118,7 +118,10 @@ mosa-prolog/
 ├── lib/                      # Standard library written in Prolog (lists.pl, apply.pl, format.pl, japanese.pl, messages_ja.pl, messages_en.pl …)
 ├── tests/
 │   ├── cpp/                  # harness.hpp and component tests
-│   ├── pl/                   # Our own tests, per chapter. Includes japanese.pl and modules.pl
+│   ├── pl/                   # Our own tests, per chapter. Includes japanese.pl, modules.pl and consult fixtures in fixtures/
+│   ├── mosac/                # Inputs for translator/build tests
+│   ├── stack/                # Deep-term programs for the small-stack tests
+│   ├── manual/               # Fixtures for checking the manual checker itself
 │   ├── conformance/          # External suites (license files bundled)
 │   └── tmp/                  # .gitignore
 ├── bench/

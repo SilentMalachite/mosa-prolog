@@ -2,6 +2,37 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+Changes in the source tree since 0.2.0. They are not in the downloadable 0.2.0 packages.
+
+### Added
+
+- The read-only flag `iso` is `true`. Setting it to `true` or `false` gives `permission_error(modify, flag, iso)`;
+  another value gives `domain_error(flag_value, iso+Value)`. The flag states that the core semantics follow ISO;
+  there is no separate strict-conformance mode.
+
+### Changed
+
+- A file opened for reading is read in chunks as they are needed instead of all at once when it is opened. The bytes
+  kept by all open streams count against the memory limit together with the heap each time more is read, and a
+  query stops at that limit; bytes read in the stopping chunk stay in the stream, so a later query does not skip
+  them. Text appended by another program after a peek saw the end of the file can now be read. Loading a Prolog
+  text, and reading what is already in a file opened for append, accept regular files only under the same limit.
+- `mosatest` is stricter about empty and stopped tests: an own-test file with no `test/3` facts, and a folder with
+  no `.pl` files, now end with status 1. In the conformance-suite runner, a test that halts is a failure whatever
+  outcome it expected, and the report shows it as `halt(N)`. `mosatest --suite` also fails, without rewriting the
+  badge JSON, when the pass rate falls below the rate in the JSON already in the tree.
+- For developers, the CTest presets now run tests in parallel with a default per-test timeout. CI also has a Linux
+  Debug job built with AddressSanitizer and UndefinedBehaviorSanitizer.
+
+### Fixed
+
+- `=..`/2 on long or cyclic lists, reading a term with many different variables, and writing an answer with many
+  named or unnamed variables no longer take time quadratic in their size.
+- `docs/conformance.md` no longer embeds absolute paths from the machine that generated it.
+- `set_stream_position/2` counts a character split across an internally read chunk once, at its full width.
+
 ## 0.2.0 (2026-11-13)
 
 A release that makes integers arbitrary-precision: an integer result that raised `evaluation_error(int_overflow)` in

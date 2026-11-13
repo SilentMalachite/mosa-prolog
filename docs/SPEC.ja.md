@@ -33,10 +33,10 @@
 
 | 成果物 | 内容 | 形式 |
 | --- | --- | --- |
-| `libmosa` | 項表現・ユニフィケーション・ソルバ・組込述語・ストリーム・モジュール管理を含むランタイム | 静的ライブラリ（共有ライブラリは任意） |
+| `libmosa` | 項表現・ユニフィケーション・ソルバ・組込述語・ストリーム・モジュール管理を含むランタイム | 静的ライブラリ |
 | `mosa` | 対話的インタプリタ。REPL、`consult/1`、`-g Goal -t halt` 等のコマンドライン、スクリプト実行 | 実行ファイル |
 | `mosac` | Prolog → C++20 変換器。Prolog ファイルから単体実行ファイルを作るまでを一括で行う（build / run / emit / dist / toolchain の各サブコマンド）。C++ ソースの出力は中間段階 | 実行ファイル |
-| `mosatest` | テストランナー。Prolog で書かれたテストと準拠スイートを実行し、JUnit 形式で結果を出す | 実行ファイル（Prolog スクリプト + 薄いラッパ） |
+| `mosatest` | テストランナー。自前の Prolog テスト、準拠スイートと差分テスト、マニュアルの例、読み書き往復、ベンチマークを実行し、失敗を標準エラーへ出し、バッジに使う Markdown/JSON の報告書を書く | 実行ファイル |
 
 **ビルド環境（3 OS すべてで CI を通すこと）**
 
@@ -64,7 +64,7 @@
 4. エラー体系（7.12）: `error(Formal, Context)` の形式とすべての Formal 項（`instantiation_error`、`uninstantiation_error/1`、`type_error/2`、`domain_error/2`、`existence_error/2`、`permission_error/3`、`representation_error/1`、`evaluation_error/1`、`resource_error/1`、`syntax_error/1`、`system_error`）
 5. 算術（第 9 章）: 整数は任意精度（フェーズ 10、ADR 0025。フラグ `bounded` は `false`）、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供する。整数の結果はあふれず、ヒープに入らない大きさの結果はヒープの上限で止まる。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
 6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
-7. フラグ（7.11）: `bounded`（`false`）、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
+7. フラグ（7.11）: `bounded`（`false`）、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）、変更できない `iso`（`true`）
 8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
 
 **文法規則（フェーズ 8）**
@@ -89,6 +89,8 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 - モジュール（第 5 節）。13211-2 は実装例が少なく矛盾も指摘されているため、構文のみ採り、意味論は SWI-Prolog を参照する
 - 全角記号の受理（第 4 節、既定オフ）
 - `format/2,3`、`between/3`、`succ/2`、`msort/2`、`forall/2`、`nb_getval/2` 等の広く使われる非 ISO 述語を `library(lists)`、`library(apply)` 等のモジュールに置く。`user` モジュールの既定では見えず、`use_module` で取り込む
+
+これらの逸脱をまとめて無効にする、別の厳密適合モードはありません。読み取り専用の `iso` 旗は中核の意味が ISO に従うことを示すもので、モードの切り替えではありません（iso-notes「旗 iso」の持ち主の決定 A）。
 
 ## 4. 日本語・Unicode 対応の仕様
 
@@ -201,7 +203,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 1. 字句解析（`lexer`）: UTF-8 → トークン列。第 4 節の文字分類を使う
 2. 構文解析（`reader`）: 演算子優先順位パーサ（Pratt 法）。`read_term/3` のオプション（`variable_names`、`singletons`、`quoted` など）を完全サポート
-3. 読み込み（`loader`）: ディレクティブ処理、モジュール解決、項展開（後のフェーズ: `term_expansion/2`、`goal_expansion/2` を `user` と読み込み中モジュールで探す。いまは文法規則だけを訳す。3 章と ADR 0024 を見る）
+3. 読み込み（`loader`）: ディレクティブ処理、モジュール解決、文法規則の翻訳（`term_expansion/2` と `goal_expansion/2` は範囲に入れない。第 3 節と ADR 0024 を見る）
 4. 節コンパイル（`clause_compiler`）: 節を中間表現（IR）に落とす。IR はインタプリタと `mosac` の共通入力
 5. 実行: インタプリタは IR を直接解釈。`mosac` は IR から C++20 を生成
 
@@ -216,7 +218,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | GC | Phase 5 まで持たない（バックトラックによる回収のみ）。Phase 7 で、ステップの間の安全点でだけ走る sliding のマーク＆コンパクト型を追加（ADR 0010）。上限の近くで、空けた語が `limit / 32` より少ない GC が 3 回続くと、上限のメッセージで問い合わせを止める。`garbage_collect/0` を提供 |
 | アトムテーブル | UTF-8 バイト列 → 32bit アトム番号。スレッド非対応で良い（非目標） |
 | 例外 | Prolog の `throw/1` は C++ 例外を使わず、選択点スタックに `catch` フレームを積んで巻き戻す。C++ 例外はランタイム内部の致命的エラー（ヒープの上限などの `resource_error`）だけに使う。循環する式の評価が出す `resource_error(cyclic_term)` は致命的ではなく、ほかの誤りと同じく投げる（iso-notes 7.3.3） |
-| ストリーム | `Stream` 抽象クラス + ファイル／標準入出力／メモリ（`open_string` 相当）の実装。バッファリングとピーク（`peek_char/1`）を内蔵 |
+| ストリーム | ベクタの中の値型 `Stream` 構造体（抽象クラスにはしない、ADR 0005）。種別でファイル／標準入出力／メモリ（`open_string` 相当）を分け、ファイルの入力は開いた `std::ifstream` から要る分だけ塊で読む。バッファリングとピーク（`peek_char/1`）を内蔵 |
 
 **実行モデル: 二値化 + 明示的継続**
 
@@ -334,6 +336,8 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 - 日本語テスト（第 4 節）は層 2 に `tests/pl/japanese.pl` として置き、層 4 の差分テストにも必ず含める
 - 入出力のテストはメモリストリーム（`open_string`、`with_output_to/2` 相当の `system` 述語）で行い、一時ファイルは `tests/tmp/` 配下にだけ作る
 - Windows の CI では標準出力を UTF-8 で受けて比較する（`chcp 65001` をワークフローに入れる）
+- `docs/manual/en/` と `docs/manual/ja/` の例も `mosatest --manual` で実行し、CTest に登録する
+- CTest のプリセットは、テストを並列に動かし、テストごとの既定のタイムアウトを持つ。作業用のフォルダを共有するテストにはリソースロックを付け、時間の比を測るテストはひとりで走らせる。CI には GC ストレスのジョブと、AddressSanitizer と UndefinedBehaviorSanitizer を入れた Linux の Debug ジョブもある。サニタイザのジョブでは、サニタイザ無しで生成実行ファイルをリンクするテスト、時間の比を測るテスト、いちばん深いスタックのテストを外す
 
 **ベンチマーク（合格率より後回しだが、退行の検知には使う）**
 

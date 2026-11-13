@@ -32,10 +32,10 @@ The deliverables are three executables and one library. All are built from a sin
 
 | Deliverable | Contents | Form |
 | --- | --- | --- |
-| `libmosa` | Runtime containing term representation, unification, the solver, built-in predicates, streams, and module management | Static library (shared library optional) |
+| `libmosa` | Runtime containing term representation, unification, the solver, built-in predicates, streams, and module management | Static library |
 | `mosa` | Interactive interpreter. REPL, `consult/1`, command lines such as `-g Goal -t halt`, script execution | Executable |
 | `mosac` | Prolog → C++20 translator. Goes all the way from a Prolog file to a standalone executable in one step (subcommands build / run / emit / dist / toolchain). C++ source output is an intermediate stage | Executable |
-| `mosatest` | Test runner. Runs tests written in Prolog and the conformance suite, and reports results in JUnit format | Executable (Prolog script + thin wrapper) |
+| `mosatest` | Test runner. Runs own Prolog tests, the conformance and differential suites, manual examples, round-trip checks and benchmarks; prints failures to standard error and writes the generated Markdown/JSON reports used by the badges | Executable |
 
 **Build environments (CI must pass on all three OSes)**
 
@@ -63,7 +63,7 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 4. Error system (7.12): the `error(Formal, Context)` form and all Formal terms (`instantiation_error`, `uninstantiation_error/1`, `type_error/2`, `domain_error/2`, `existence_error/2`, `permission_error/3`, `representation_error/1`, `evaluation_error/1`, `resource_error/1`, `syntax_error/1`, `system_error`)
 5. Arithmetic (chapter 9): integers have arbitrary precision (phase 10, ADR 0025; the flag `bounded` is `false`), floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; an integer result has no overflow, and one too large for the heap stops at the heap limit. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
 6. All built-in predicates (chapter 8). The list and stages are given in section 7
-7. Flags (7.11): `bounded` (`false`), `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
+7. Flags (7.11): `bounded` (`false`), `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`), and the read-only `iso` (`true`)
 8. Directives (7.4.2): `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`, `set_prolog_flag/2`, `include/1`, `ensure_loaded/1`
 
 **Grammar rules (phase 8)**
@@ -88,6 +88,8 @@ A clause `Head --> Body` in a Prolog text is translated to an ordinary clause wh
 - Modules (section 5). 13211-2 has few implementations and known inconsistencies, so only its syntax is adopted; the semantics follow SWI-Prolog
 - Acceptance of full-width symbols (section 4, off by default)
 - Widely used non-ISO predicates such as `format/2,3`, `between/3`, `succ/2`, `msort/2`, `forall/2`, `nb_getval/2` are placed in modules such as `library(lists)` and `library(apply)`. They are not visible by default in the `user` module and are imported with `use_module`
+
+There is no separate strict-conformance mode that disables these deviations. The read-only `iso` flag states that the core semantics follow ISO; it is not a mode switch (owner decision A in iso-notes, Flag iso).
 
 ## 4. Japanese and Unicode support
 
@@ -202,7 +204,7 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 
 1. Lexical analysis (`lexer`): UTF-8 → token stream. Uses the character classification from section 4
 2. Parsing (`reader`): operator precedence parser (Pratt method). Full support for the `read_term/3` options (`variable_names`, `singletons`, `quoted`, etc.)
-3. Loading (`loader`): directive processing, module resolution, term expansion (a later phase: `term_expansion/2` and `goal_expansion/2` will be looked up in `user` and in the module being loaded; today only grammar rules are translated, see section 3 and ADR 0024)
+3. Loading (`loader`): directive processing, module resolution, and translation of grammar rules (`term_expansion/2` and `goal_expansion/2` are out of scope; see section 3 and ADR 0024)
 4. Clause compilation (`clause_compiler`): lowers clauses to the IR (intermediate representation). The IR is the common input to the interpreter and `mosac`
 5. Execution: the interpreter interprets the IR directly. `mosac` generates C++20 from the IR
 
@@ -217,7 +219,7 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 | GC | None until Phase 5 (only reclamation by backtracking). A sliding mark-and-compact collector that runs only at safe points between steps is added in Phase 7 (ADR 0010). Near the limit, 3 GCs in a row that each free fewer than `limit / 32` words stop the query with the heap-limit message. Provide `garbage_collect/0` |
 | Atom table | UTF-8 byte sequence → 32-bit atom number. Does not need to be thread-safe (non-goal) |
 | Exceptions | Prolog's `throw/1` does not use C++ exceptions; it pushes `catch` frames on the choice point stack and unwinds them. C++ exceptions are used only for fatal errors inside the runtime (`resource_error`, such as the heap limit). `resource_error(cyclic_term)` from evaluating a cyclic expression is not fatal: it is thrown like other errors (iso-notes 7.3.3) |
-| Streams | `Stream` abstract class + implementations for files / standard I/O / memory (equivalent to `open_string`). Buffering and peeking (`peek_char/1`) are built in |
+| Streams | A value `Stream` struct in a vector (no abstract class, ADR 0005), tagged by kind for files / standard I/O / memory (equivalent to `open_string`); file input is pulled in chunks from an open `std::ifstream` as needed. Buffering and peeking (`peek_char/1`) are built in |
 
 **Execution model: binarization + explicit continuations**
 
@@ -337,6 +339,8 @@ Tests have four layers. Two numbers, "conformance suite pass rate" and "interpre
 - Japanese tests (section 4) are placed in layer 2 as `tests/pl/japanese.pl` and must always be included in the layer 4 differential tests
 - Input/output tests use memory streams (`open_string`, and a `system` predicate equivalent to `with_output_to/2`), and temporary files are created only under `tests/tmp/`
 - On Windows CI, standard output is captured as UTF-8 for comparison (put `chcp 65001` in the workflow)
+- The examples in `docs/manual/en/` and `docs/manual/ja/` are also run with `mosatest --manual` and registered with CTest
+- The CTest presets run tests in parallel with a default per-test timeout. Tests that share a scratch directory use resource locks, and tests that measure time ratios run serially. CI also runs GC-stress jobs and a Linux Debug job with AddressSanitizer and UndefinedBehaviorSanitizer; the sanitizer job excludes tests that link generated executables without the sanitizer runtime, timing-ratio tests, and the deepest stack tests
 
 **Benchmarks (lower priority than pass rate, but used to detect regressions)**
 

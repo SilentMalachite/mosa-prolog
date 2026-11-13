@@ -37,7 +37,7 @@
 
 ### セッションの終わり方（毎回必ず）
 
-1. `cmake --build build && ctest --test-dir build` を通す。通らない状態で終えるときは `STATUS.md` にその旨と再現手順を書く
+1. OS のプリセットでビルドとテストを通す（`cmake --build --preset <プリセット> && ctest --preset <プリセット>`。テストのプリセットは CTest を並列に動かし、テストごとのタイムアウトを持つ）。通らない状態で終えるときは `STATUS.md` にその旨と再現手順を書く
 2. `STATUS.md` を更新する: 完了したこと、次にやること 1 つ、迷った点。15 行を超えたら古い記述を削る
 3. 変更を 1 つの論理単位ごとにコミットする。メッセージは `[phase2] functor/3 を実装（8.5.1 の Examples 全通過）` のように、フェーズ・内容・確認方法を日本語で 1 行
 
@@ -93,8 +93,8 @@ mosa-prolog/
 ├── README.ja.md              # README.md の日本語訳
 ├── LICENSE                   # Apache-2.0
 ├── CMakeLists.txt
-├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / windows-msvc
-├── .github/workflows/ci.yml  # 3 OS マトリクス、警告をエラー扱い、準拠率を Job Summary に出す
+├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / linux-clang-asan / windows-msvc
+├── .github/workflows/ci.yml  # 3 OS マトリクスと GC ストレス・Linux サニタイザのジョブ、警告をエラー扱い、準拠率を Job Summary に出す
 ├── docs/
 │   ├── SPEC.md               # 仕様（指示書の第 1〜9 節）
 │   ├── SPEC.ja.md            # SPEC.md の日本語訳
@@ -118,7 +118,10 @@ mosa-prolog/
 ├── lib/                      # Prolog 製の標準ライブラリ（lists.pl, apply.pl, format.pl, japanese.pl, messages_ja.pl, messages_en.pl …）
 ├── tests/
 │   ├── cpp/                  # harness.hpp と部品テスト
-│   ├── pl/                   # 章ごとの自前テスト。japanese.pl、modules.pl を含む
+│   ├── pl/                   # 章ごとの自前テスト。japanese.pl、modules.pl、fixtures/ の consult 部品を含む
+│   ├── mosac/                # 変換器とビルドのテスト入力
+│   ├── stack/                # 小さいスタックで流す深い項のプログラム
+│   ├── manual/               # マニュアル検査器自体のフィクスチャ
 │   ├── conformance/          # 外部スイート（ライセンスファイルを同梱）
 │   └── tmp/                  # .gitignore
 ├── bench/
