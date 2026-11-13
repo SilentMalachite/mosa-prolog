@@ -19,9 +19,12 @@ English | [日本語](CHANGELOG.ja.md)
 
 - An integer result no longer raises `evaluation_error(int_overflow)`, and an integer of any length reads without
   `syntax_error(integer_overflow)`, which no longer exists. The only limit on the size of an integer is the memory
-  limit (`--heap-max`): a result whose estimated size is more than the memory left stops the query with the
-  heap-limit message before it is computed. `evaluation_error(int_overflow)` is left only for rounding an infinite
-  float to an integer, as in `X is round(1.0Inf)`.
+  limit (`--heap-max`), and a result that does not fit in the memory left stops the query with the heap-limit
+  message. `^` and `<<`, and `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with a big integer
+  argument, estimate the size of the result first, and stop before computing it when the estimate is more than the
+  memory left. The other operations, such as `//`, `mod`, `gcd/2` and `abs/1`, compute the result first and stop
+  when it is stored. `evaluation_error(int_overflow)` is left only for rounding an infinite float to an integer, as
+  in `X is round(1.0Inf)`.
 - An integer beyond the range of a float raises `evaluation_error(float_overflow)` wherever evaluation must turn it
   into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`, `log/1`
   and `sin/1`, in an arithmetic comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2` with a
@@ -37,14 +40,17 @@ English | [日本語](CHANGELOG.ja.md)
 
 ### Known limits
 
-The known limits of 0.1.4 still hold. Two come with big integers:
+The known limits of 0.1.4 still hold. Three come with big integers:
 
-- Before an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
+- In an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
   counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage
   collection would have made room.
 - Arithmetic works on copies of the big integers it reads, so the largest integer it can use is below the memory
   limit: reading one, as in `A > 0` or `A mod 7`, stops once the integer takes about half of the limit, and an
   operation with a result as large, as in `A + 0`, at about a third.
+- An integer in a text that Mosa reads is turned into a number in full before it is compared with the memory limit.
+  So reading a very long integer takes several times the memory of its text before it stops at the limit: an integer
+  of 3,000,000 hexadecimal digits under `--heap-max 1` took 23 MB.
 
 ## 0.1.4 (2026-11-11)
 

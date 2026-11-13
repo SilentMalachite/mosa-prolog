@@ -149,8 +149,8 @@ A flag whose "Other values" says "none" cannot be changed.
 | `float_zero_div` | `error` | none | A float divided by zero raises `evaluation_error(zero_divisor)`. |
 | `float_undefined` | `error` | none | A float result that does not exist, as for `log(0)`, raises `evaluation_error(undefined)`. |
 | `dialect` | `mosa` | none | The name of this Prolog system. |
-| `version` | `103` | none | The version as one integer: 0.1.4. |
-| `version_data` | `mosa(0,1,1,[])` | none | The version as a term. |
+| `version` | `104` | none | The version as one integer: 0.1.4. |
+| `version_data` | `mosa(0,1,4,[])` | none | The version as a term. |
 | `argv` | `[]` | none | The words after `--` on the command line of `mosa`, or after the name of an executable. |
 | `trace_gc` | `false` | `true` | With `true`, Mosa prints a line each time it collects memory. |
 
@@ -541,14 +541,17 @@ and `~|` set columns, and `~~` writes `~`.
 Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO leaves the choice to each system:
 
 - Integers have no size limit, and the flag `bounded` is `false`. Only the memory limit (`--heap-max`) stops a
-  result: a result whose estimated size is more than the memory left stops the query before it is computed.
-  `max_integer` and `min_integer` stay the largest and the smallest 64-bit integers. An integer beyond the range of a
-  float raises `evaluation_error(float_overflow)` wherever evaluation must turn it into a float: with a float in `+`,
-  `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`, `log/1` and `sin/1`, in an arithmetic
-  comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2` with a float, and in `float/1`. `/` of
-  two integers raises it only when the quotient is beyond that range: `2^2000 / 3` raises it, and `2^2000 / 2^1999` is
-  `2.0`. The standard order (`compare/3`, `@<`) compares such an integer with a float without an error. Floats are
-  64-bit, and Mosa writes the shortest text that reads back as the same float.
+  result. `^` and `<<`, and `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with a big integer
+  argument, estimate the size of the result first, and stop the query before computing it when the estimate is more
+  than the memory left. The other operations, such as `//`, `mod`, `gcd/2` and `abs/1`, compute the result first and
+  stop the query when it is stored. `max_integer` and `min_integer` stay the largest and the smallest 64-bit
+  integers. An integer beyond the range of a float raises `evaluation_error(float_overflow)` wherever evaluation must
+  turn it into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`,
+  `log/1` and `sin/1`, in an arithmetic comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2`
+  with a float, and in `float/1`. `/` of two integers raises it only when the quotient is beyond that range:
+  `2^2000 / 3` raises it, and `2^2000 / 2^1999` is `2.0`. The standard order (`compare/3`, `@<`) compares such an
+  integer with a float without an error. Floats are 64-bit, and Mosa writes the shortest text that reads back as the
+  same float.
 - `unknown` takes only `error` and `fail`, and the three `float_*` flags take only `error`.
 - Modules (chapter 12) use the syntax of part 2 of the standard (ISO/IEC 13211-2), and a module holds predicates and
   operators. Atoms are the same in every module.
@@ -568,12 +571,15 @@ or removed. Among them:
 - Typing Japanese in the console window of Windows has not been verified.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).
-- Before an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
+- In an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
   counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage
   collection would have made room.
 - Arithmetic works on copies of the big integers it reads, so the largest integer it can use is below the memory
   limit: reading one, as in `A > 0` or `A mod 7`, stops once the integer takes about half of the limit, and an
   operation with a result as large, as in `A + 0`, at about a third.
+- An integer in a text that Mosa reads is turned into a number in full before it is compared with the memory limit.
+  So reading a very long integer takes several times the memory of its text before it stops at the limit: an integer
+  of 3,000,000 hexadecimal digits under `--heap-max 1` took 23 MB.
 
 ---
 
