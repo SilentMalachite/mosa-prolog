@@ -2,7 +2,12 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-13)
+
+A release that makes integers arbitrary-precision: an integer result that raised `evaluation_error(int_overflow)` in
+0.1.4, and an integer in a text that raised `syntax_error(integer_overflow)`, now give the exact integer (see
+Changed). It runs on the same computers as 0.1.4 ([chapter 2](docs/manual/en/02-install.md)), and every example of
+the [manual](docs/manual/en/README.md) is checked against it.
 
 ### Added
 

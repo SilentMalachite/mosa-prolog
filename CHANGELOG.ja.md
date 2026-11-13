@@ -4,7 +4,9 @@
 
 この文書は [英語版](CHANGELOG.md) の日本語訳です。食い違うときは英語版に従います。
 
-## 未リリース
+## 0.2.0（2026-11-13）
+
+整数を任意精度にしたリリースです。0.1.4 で `evaluation_error(int_overflow)` になった整数の結果と、`syntax_error(integer_overflow)` になった字の中の整数は、正確な整数になります（「変えたこと」）。動くコンピュータは 0.1.4 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。
 
 ### 足したこと
 
