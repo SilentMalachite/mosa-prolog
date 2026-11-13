@@ -578,8 +578,7 @@ or removed. Among them:
   limit: reading one, as in `A > 0` or `A mod 7`, stops once the integer takes about half of the limit, and an
   operation with a result as large, as in `A + 0`, at about a third.
 - An integer in a text that Mosa reads is turned into a number in full before it is compared with the memory limit.
-  So reading a very long integer takes several times the memory of its text before it stops at the limit: an integer
-  of 3,000,000 hexadecimal digits under `--heap-max 1` took 23 MB.
+  So reading a very long integer takes several times the memory of its text before it stops at the limit.
 
 ---
 
