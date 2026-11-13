@@ -541,17 +541,17 @@ and `~|` set columns, and `~~` writes `~`.
 Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO leaves the choice to each system:
 
 - Integers have no size limit, and the flag `bounded` is `false`. Only the memory limit (`--heap-max`) stops a
-  result. `^` and `<<`, and `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with a big integer
-  argument, estimate the size of the result first, and stop the query before computing it when the estimate is more
-  than the memory left. The other operations, such as `//`, `mod`, `gcd/2` and `abs/1`, compute the result first and
-  stop the query when it is stored. `max_integer` and `min_integer` stay the largest and the smallest 64-bit
-  integers. An integer beyond the range of a float raises `evaluation_error(float_overflow)` wherever evaluation must
-  turn it into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`,
-  `log/1` and `sin/1`, in an arithmetic comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2`
-  with a float, and in `float/1`. `/` of two integers raises it only when the quotient is beyond that range:
-  `2^2000 / 3` raises it, and `2^2000 / 2^1999` is `2.0`. The standard order (`compare/3`, `@<`) compares such an
-  integer with a float without an error. Floats are 64-bit, and Mosa writes the shortest text that reads back as the
-  same float.
+  result. `^` and `<<`, and the two-argument `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with a
+  big integer argument, estimate the size of the result first, and stop the query before computing it when the
+  estimate is more than the memory left. The other operations, such as `//`, `mod`, `gcd/2`, `abs/1` and `-` of one
+  argument, compute the result first and stop the query when it is stored. `max_integer` and `min_integer` stay the
+  largest and the smallest 64-bit integers. An integer beyond the range of a float raises
+  `evaluation_error(float_overflow)` wherever evaluation must turn it into a float: with a float in `+`, `-`, `*`, `/`
+  and `^`, in `**` and the float functions such as `sqrt/1`, `log/1` and `sin/1`, in an arithmetic comparison with a
+  float (`<`, `=:=` and the others), in `min/2` and `max/2` with a float, and in `float/1`. `/` of two integers raises
+  it only when the quotient is beyond that range: `2^2000 / 3` raises it, and `2^2000 / 2^1999` is `2.0`. The
+  standard order (`compare/3`, `@<`) compares such an integer with a float without an error. Floats are 64-bit, and
+  Mosa writes the shortest text that reads back as the same float.
 - `unknown` takes only `error` and `fail`, and the three `float_*` flags take only `error`.
 - Modules (chapter 12) use the syntax of part 2 of the standard (ISO/IEC 13211-2), and a module holds predicates and
   operators. Atoms are the same in every module.

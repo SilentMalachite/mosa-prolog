@@ -1,7 +1,8 @@
 // 7.9 の式の評価のうち、int64 に入らない整数（Big、ADR 0025）の置き場と遅い道。9.1.3 の + - * // rem div mod、
 // 9.1.4 の整数どうしの /、9.1.6 の float からの丸め、8.7 の比較、9.3.10 の ^、9.4 のビット演算とシフト、gcd が Big を
-// 受ける。<< と ^ と + - * は、結果の大きさを計算の前に見積もってヒープの上限と比べる。評価の間は値をヒープの外
-// （Impl::eval_bigs）に持ち、結果だけを num_cell が Heap::big で箱にする。述語のモードと誤りは arith.cpp の見出し。
+// 受ける。<< と ^ と 2 引数の + - * とビット演算（/\ \/ xor \）は、結果の大きさを計算の前に見積もってヒープの
+// 上限と比べる。評価の間は値をヒープの外（Impl::eval_bigs）に持ち、結果だけを num_cell が Heap::big で箱にする。
+// 述語のモードと誤りは arith.cpp の見出し。
 // テスト: tests/pl/bigint.pl、tests/pl/arith.pl、tests/cpp/bigint_limit_test.cpp
 
 #include "arith_internal.hpp"
@@ -31,8 +32,9 @@ double quotient_magnitude(const BigInt& a, const BigInt& b) {
   const std::int64_t shift = 55 - (a_bits - b_bits);
   const BigQuotient q = shift >= 0 ? divide_truncate(shift_left(a, static_cast<std::uint64_t>(shift)), b)
                                    : divide_truncate(a, shift_left(b, static_cast<std::uint64_t>(-shift)));
-  // 両方が 0 でなければ、ずらした後の |a| / |b| は 2^54 以上 2^56 未満なので、商はいつも int64 に入る。前提を破る
-  // 呼び出しが来ても未定義動作にせず、2^1024 以上と同じ無限大を返して、呼ぶ側の float_overflow の道に乗せる。
+  // 両方が 0 でなければ、ずらした後の |a| / |b| は 2^54 以上 2^56 未満なので、商はいつも int64 に入る（0 の被演算子は
+  // big_divide が先に除く。0 が来れば上のずらしと割り算が先に壊れる）。この確かめが捕まえるのは 2^56 の上限が
+  // 破れたときだけで、そのときは 2^1024 以上と同じ無限大を返して、呼ぶ側の float_overflow の道に乗せる。
   const std::optional<std::int64_t> scaled = q.quotient.to_int64();
   if (!scaled) return std::numeric_limits<double>::infinity();
   const auto bits = static_cast<std::uint64_t>(*scaled);

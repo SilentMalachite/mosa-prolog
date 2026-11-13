@@ -20,11 +20,11 @@ English | [日本語](CHANGELOG.ja.md)
 - An integer result no longer raises `evaluation_error(int_overflow)`, and an integer of any length reads without
   `syntax_error(integer_overflow)`, which no longer exists. The only limit on the size of an integer is the memory
   limit (`--heap-max`), and a result that does not fit in the memory left stops the query with the heap-limit
-  message. `^` and `<<`, and `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with a big integer
-  argument, estimate the size of the result first, and stop before computing it when the estimate is more than the
-  memory left. The other operations, such as `//`, `mod`, `gcd/2` and `abs/1`, compute the result first and stop
-  when it is stored. `evaluation_error(int_overflow)` is left only for rounding an infinite float to an integer, as
-  in `X is round(1.0Inf)`.
+  message. `^` and `<<`, and the two-argument `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with
+  a big integer argument, estimate the size of the result first, and stop before computing it when the estimate is
+  more than the memory left. The other operations, such as `//`, `mod`, `gcd/2`, `abs/1` and `-` of one argument,
+  compute the result first and stop when it is stored. `evaluation_error(int_overflow)` is left only for rounding an
+  infinite float to an integer, as in `X is round(1.0Inf)`.
 - An integer beyond the range of a float raises `evaluation_error(float_overflow)` wherever evaluation must turn it
   into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`, `log/1`
   and `sin/1`, in an arithmetic comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2` with a

@@ -5,7 +5,8 @@
 // resource_error(cyclic_term)（循環する式、iso-notes 7.3.3）。整数に上限は無い（旗 bounded は false、ADR 0025）。
 // int_overflow を出すのは、無限大を整数にする丸めだけである。** はいつも float
 // を返し、double にできない Big の引数と結果は float_overflow にする。ヒープに入らない大きさの結果は
-// ResourceLimit("heap_limit") で止める（check_room。<< と ^ と + - * は計算の前に見積もる）。テスト: tests/pl/arith.pl,
+// ResourceLimit("heap_limit") で止める（check_room。<< と ^ と 2 引数の + - * とビット演算は計算の前に見積もる）。
+// テスト: tests/pl/arith.pl,
 // tests/pl/bigint.pl, tests/pl/native.pl, tests/stack/deep_builtins.pl, tests/cpp/evaluable_test.cpp,
 // tests/cpp/bigint_heap_test.cpp, tests/cpp/bigint_limit_test.cpp
 
