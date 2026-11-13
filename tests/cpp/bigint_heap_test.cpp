@@ -176,6 +176,18 @@ void check_order() {
   mosa_test::check(compared(*machine, {BigInt(k_max) + BigInt(1), BigInt(k_max)}) == ">", "order: 2^63 > INT64_MAX");
   mosa_test::check(compared(*machine, {-big, big}) == "<", "order: -B < B");
   mosa_test::check(compared(*machine, {big, big}) == "=", "order: B = B");
+  // 箱の中で比べる道（最終レビューの Minor 4）。B と B+1 は同じ 2 語で下位の語だけが違う。負どうしは向きが逆になり、
+  // 語の数が違えば多い方の絶対値が大きい。high は上位の語が大きく下位の語が小さいので、下位から比べると向きを誤る。
+  const BigInt high = power_of_two(65);
+  const BigInt low_heavy = power_of_two(64) + BigInt(5);
+  mosa_test::check(compared(*machine, {-(big + BigInt(1)), -big}) == "<", "order: -(B+1) < -B");
+  mosa_test::check(compared(*machine, {-big, -(big + BigInt(1))}) == ">", "order: -B > -(B+1)");
+  mosa_test::check(compared(*machine, {-power_of_two(200), -big}) == "<", "order: -2^200 < -B");
+  mosa_test::check(compared(*machine, {big, power_of_two(200)}) == "<", "order: B < 2^200");
+  mosa_test::check(compared(*machine, {high, low_heavy}) == ">", "order: 2^65 > 2^64+5");
+  mosa_test::check(compared(*machine, {-high, -low_heavy}) == "<", "order: -2^65 < -(2^64+5)");
+  mosa_test::check(compared(*machine, {BigInt(5), -big}) == ">", "order: 5 > -B");
+  mosa_test::check(compared(*machine, {BigInt(k_min), big}) == "<", "order: -2^63 < B");
   mosa_test::check(run(*machine, "1.0e40 @< '$big0', '$big0' @< a, '$big0' @< f(x)", {-big}) == mosa::StopKind::Success,
                    "order: float < Big < atom < compound");
 }

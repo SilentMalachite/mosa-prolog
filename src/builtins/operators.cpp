@@ -34,7 +34,9 @@
 namespace mosa {
 namespace {
 
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+// int64 の整数だけ（Big を含めない）。integer_value で値を読む前の検査なので、Big を含めると読んだところで止まる。
+// Big の優先度は大きすぎる int64 と同じく範囲の外にする（ADR 0025、tests/pl/bigint.pl の op_big と op_big_neg）。
+bool is_int64(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 std::string_view atom_text(const Impl& machine, Cell cell) {
   return machine.atoms.name(static_cast<std::uint32_t>(cell.raw() >> 3));
@@ -82,9 +84,9 @@ std::optional<Cell> op_types(Impl& machine, Cell priority, Cell specifier, Cell 
   return std::nullopt;
 }
 
-// is_int に Big を含めないので、Big の優先度はここで範囲の外になる。
+// is_int64 に Big を含めないので、Big の優先度はここで範囲の外になる。
 bool priority_in_domain(const Impl& machine, Cell cell) {
-  if (!is_int(cell)) return false;
+  if (!is_int64(cell)) return false;
   const auto value = machine.heap.integer_value(cell);
   return value >= 0 && value <= 1200;
 }

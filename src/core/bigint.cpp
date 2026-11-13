@@ -216,8 +216,6 @@ Limbs subtract_magnitude(LimbSpan a, LimbSpan b) {
   return out;
 }
 
-Limbs multiply_magnitude(LimbSpan a, LimbSpan b) { return multiply_trimmed(trimmed(a), trimmed(b)); }
-
 // 32 ビットどうしの積に 32 ビットを足しても 64 ビットに収まるので、繰り上がりは 1 語で足りる。
 void multiply_add_small(Limbs& limbs, std::uint32_t factor, std::uint32_t addend) {
   std::uint64_t carry = addend;

@@ -32,7 +32,9 @@ constexpr std::uint8_t kLengthGen = 6;
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+// int64 の整数だけ（Big を含めない）。integer_value で値を読む前の検査なので、Big を含めると読んだところで止まる。
+// length/2 は Big を先に別の道で受ける（run_length、tests/pl/bigint.pl の length_big と length_big_closed）。
+bool is_int64(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool is_pair(const Impl& machine, Cell cell) {
   return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
@@ -235,7 +237,7 @@ void run_length(Impl& machine, const Goal& goal) {
   // 正の Big の長さのリストは、どのヒープの上限にも入らない。大きすぎる int64 は変数を作り続けて上限で止まるが、
   // 同じ止まり方を、作り始める前に出す（ヒープを伸ばさない。bigint_limit_test の length_big）。
   if (count.tag() == Tag::Big) throw ResourceLimit("heap_limit");
-  if (is_int(count)) {
+  if (is_int64(count)) {
     const auto wanted = static_cast<std::size_t>(machine.heap.integer_value(count));
     if (wanted >= shape.prefix && bind_length(machine, goal, shape, wanted)) succeed(machine, goal);
     else machine.failed = true;

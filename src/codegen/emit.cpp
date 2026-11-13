@@ -175,9 +175,10 @@ std::string key_test(UnitTables& tables, const Clause& clause) {
       return "first.tag() == Tag::IntBox && *rt::cell_words(first) == std::uint64_t{" +
              hex64(std::bit_cast<std::uint64_t>(clause.key_int)) + "}";
     // Big の鍵は値でなく big_key の指紋（ADR 0025）。key_selects と同じく鍵の違う節を飛ばすだけで、合うかは頭部が決める。
-    // big_key_of は Big の箱だけを読むので、タグを先に見る。
+    // 指紋は dispatch_text が first_big_key に 1 度だけ求める（最終レビューの Minor 6）。Big でない first では 0 になり、
+    // 指紋が 0 の Big の鍵と取り違えないよう、ここでもタグを先に見る。
     case KeyKind::Big:
-      return "first.tag() == Tag::Big && rt::big_key_of(first) == std::uint64_t{" +
+      return "first.tag() == Tag::Big && first_big_key == std::uint64_t{" +
              hex64(std::bit_cast<std::uint64_t>(clause.key_int)) + "}";
     case KeyKind::Float: return "first.tag() == Tag::Float && same_float(first, " + float_literal(clause.key_float) + ")";
     case KeyKind::List: return "first.tag() == Tag::Lis";
@@ -209,6 +210,7 @@ std::string dispatch_text(UnitTables& tables, const Predicate& predicate, const 
   if (predicate.arity == 0 || wraps_first(predicate)) return out + "  return " + call + "kAll);\n}\n\n";
   std::string tests;
   std::vector<std::size_t> leaders;
+  bool big_leader = false;
   for (std::size_t index = 0; index < clauses.size(); ++index) {
     if (any_key(clauses[index].key)) continue;
     bool fresh = true;
@@ -222,10 +224,14 @@ std::string dispatch_text(UnitTables& tables, const Predicate& predicate, const 
     out += states_array(name, chosen);
     tests += "  if (" + key_test(tables, clauses[index]) + ") return " + call + name + ");\n";
     leaders.push_back(index);
+    big_leader = big_leader || clauses[index].key == KeyKind::Big;
   }
   out += states_array("kOther", other);
   out += "  const Cell first = rt::deref(rt::arg(r, frame, 0));\n";
-  out += "  if (rt::unbound(first)) return " + call + "kAll);\n" + tests;
+  out += "  if (rt::unbound(first)) return " + call + "kAll);\n";
+  // Big の鍵の枝が無い述語に書くと、使わない変数の警告になる。
+  if (big_leader) out += "  const std::uint64_t first_big_key = first.tag() == Tag::Big ? rt::big_key_of(first) : 0;\n";
+  out += tests;
   return out + "  return " + call + "kOther);\n}\n\n";
 }
 

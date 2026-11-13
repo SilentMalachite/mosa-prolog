@@ -36,7 +36,6 @@ void trim(Limbs& limbs);
 [[nodiscard]] std::strong_ordering compare_magnitude(LimbSpan a, LimbSpan b);
 [[nodiscard]] Limbs add_magnitude(LimbSpan a, LimbSpan b);
 [[nodiscard]] Limbs subtract_magnitude(LimbSpan a, LimbSpan b);  // 前提 a ≥ b
-[[nodiscard]] Limbs multiply_magnitude(LimbSpan a, LimbSpan b);
 void multiply_add_small(Limbs& limbs, std::uint32_t factor, std::uint32_t addend);
 [[nodiscard]] ShiftedLimbs shift_right_magnitude(LimbSpan a, std::uint64_t bits);
 // 商をその場に残し（正規化して）、余りを返す。前提 divisor ≠ 0。

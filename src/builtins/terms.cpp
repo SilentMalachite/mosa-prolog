@@ -25,8 +25,10 @@ namespace {
 // SPEC 第3節の max_arity。セルの 11bit は 2047 まで入るが、ここが上限である。
 constexpr std::uint16_t kMaxArity = 1024;
 
-// int64 の整数だけ。integer_value で値を読む前の検査に使うので、Big を含めると読んだところで止まる。
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+// int64 の整数だけ（Big を含めない）。integer_value で値を読む前の検査に使うので、Big を含めると読んだところで止まる。
+// 呼び手は Big を別の枝で受ける（functor/3 の分解、numbervars/3 の number_vars_big）。名前を is_int にしないのは、
+// Big を含む types.cpp の is_int と取り違えないため。
+bool is_int64(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool is_atomic(Cell cell) {
   return cell.tag() == Tag::Atom || is_integer_tag(cell.tag()) || cell.tag() == Tag::Float;
@@ -59,7 +61,7 @@ void decompose_functor(Impl& machine, const Goal& goal, Cell term) {
   Cell arity = machine.heap.integer(0);
   if (is_atomic(term)) {
     if (term.tag() == Tag::Atom) name = term;
-    else if (is_int(term)) name = machine.heap.integer(machine.heap.integer_value(term));
+    else if (is_int64(term)) name = machine.heap.integer(machine.heap.integer_value(term));
     else if (term.tag() == Tag::Big) name = machine.heap.big(machine.heap.big_value(term));
     else name = machine.heap.floating(machine.heap.float_value(term));
     arity = machine.heap.integer(0);
@@ -352,7 +354,7 @@ void number_vars_small(Impl& machine, const Goal& goal, const std::vector<Cell>&
   // SWI-Prolog は束縛してから End を単一化して失敗する。ここでは同じ答えを、束縛する前に断って出す。
   // first + count は int64 に収まるので、Big の End はそれと等しくならない。
   const Cell end = machine.heap.deref(goal.arg(machine, 2));
-  if (!machine.heap.unbound(end) && (!is_int(end) || machine.heap.integer_value(end) != first + count)) {
+  if (!machine.heap.unbound(end) && (!is_int64(end) || machine.heap.integer_value(end) != first + count)) {
     machine.failed = true;
     return;
   }
@@ -395,7 +397,7 @@ void run_numbervars(Impl& machine, const Goal& goal) {
   }
   const std::vector<Cell> vars = collect_vars(machine, goal.arg(machine, 0));
   const auto count = static_cast<std::int64_t>(vars.size());
-  if (is_int(start) && machine.heap.integer_value(start) <= std::numeric_limits<std::int64_t>::max() - count) {
+  if (is_int64(start) && machine.heap.integer_value(start) <= std::numeric_limits<std::int64_t>::max() - count) {
     number_vars_small(machine, goal, vars, machine.heap.integer_value(start));
   } else {
     number_vars_big(machine, goal, vars, machine.heap.big_value(start));
