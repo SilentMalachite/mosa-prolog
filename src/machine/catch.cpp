@@ -35,11 +35,14 @@ void export_big_words(const Impl& machine, Cell cell, ExportedTerm& out, int id)
 
 // 1 つの項に番号を振る。複合項は番号だけ先に取って frames に積み、子は後で辿る。前の再帰と同じ前順の番号に
 // するため、子を 1 つ辿り終えるまで次の兄弟へ進まない。
+// Big も同じ箱の 2 度目からは Share にする。Big は変わらない値なので取り込みが 1 つの箱を共有してよく、出るたびに
+// 語を写すと、N 回出る Big の写しと取り込んだ箱が N 倍になる（最終レビューの Important 1）。
 int export_one(Impl& machine, Cell cell, ExportedTerm& out, std::unordered_map<std::uint64_t, int>& seen,
                std::vector<ExportFrame>& frames) {
   cell = machine.heap.deref(cell);
   const auto raw = cell.raw();
-  const bool shared = machine.heap.unbound(cell) || cell.tag() == Tag::Lis || cell.tag() == Tag::Str;
+  const bool shared = machine.heap.unbound(cell) || cell.tag() == Tag::Lis || cell.tag() == Tag::Str ||
+                      cell.tag() == Tag::Big;
   ExportedTerm::Node node;
   if (shared) {
     const auto found = seen.find(raw);

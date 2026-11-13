@@ -1,7 +1,8 @@
 // フェーズ10 のタスク 4（ADR 0025）。Big を写しと IR の道に通し、値が戻ることを確かめる。copy_term/2、nb_setval/2、
 // bagof/3 と setof/3 の像（sol::CopyKind::Big）、assertz/1 の節（IrTag::Big）とその呼び出し、clause/2、retract/1、
 // 本体の Big、呼び出せる項の判定、第 1 引数の索引（KeyKind::Big）、assert の IR の勘定、Logtalk の検査が下書きの機械へ
-// 節とゴールを写す道（lgt_copy.cpp）、節の指紋、native_eligible。
+// 節とゴールを写す道（lgt_copy.cpp）、節の指紋、native_eligible。項の中で何度も出る 1 つの Big の箱を、写しが 1 つの箱
+// のまま共有すること（最終レビューの Important 1）。
 // Big は bigint_support.hpp の query_with_bigs と term_with_bigs で作る。
 
 #include "bigint_support.hpp"
@@ -15,6 +16,7 @@
 #include "mosa/machine.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -137,6 +139,35 @@ void check_bagof() {
   check(items.size() == 3 && holds_big(*machine, items[0], -big) && holds_int(*machine, items[1], 7) &&
             holds_big(*machine, items[2], big),
         "setof: [-B, 7, B]");
+}
+
+// 同じ Big の箱を 4 回指すリストを copy で写し、写す前後のヒープの使用量の差（バイト）を返す。箱は B is … で 1 つだけ
+// 作る（'$big0' を 4 回書くと、入口が節点ごとに別の箱を作る）。throw の取り込みは catch の水位まで戻してからなので、
+// L は catch の前に作っておく。
+std::optional<std::int64_t> copy_growth(mosa::Machine& machine, std::string_view copy) {
+  const std::string goal = "B is 1 << 100000, L = [B, B, B, B], statistics(heap, [U0|_]), " + std::string{copy} +
+                           ", statistics(heap, [U1|_]), D is U1 - U0, C == L";
+  const mosa::Stop stop = ask(machine, goal);
+  if (stop.kind != mosa::StopKind::Success) return std::nullopt;
+  const mosa::Cell growth = bound(machine, stop, "D");
+  if (growth.tag() != mosa::Tag::Int && growth.tag() != mosa::Tag::IntBox) return std::nullopt;
+  return machine.heap().integer_value(growth);
+}
+
+// Big は変わらない値なので、写しは複合項と同じく 2 度目からは最初の写しを指す（最終レビューの Important 1）。前は出る
+// たびに箱を作り、4 回出る B で 4 箱分伸びた。上の限りだけを見る。MOSA_GC_STRESS=1 の回収は差を縮めることしかない。
+// copy_term/2、findall/3、throw/1、nb_setval/2 は export_term、bagof/3 は像（copy_cell）を通る。
+void check_shared_big() {
+  auto machine = make_machine();
+  const auto box = static_cast<std::int64_t>((power_of_two(100000).words().size() + 1) * sizeof(std::uint64_t));
+  constexpr std::array<std::string_view, 5> copies{"copy_term(L, C)", "findall(L, true, [C])", "bagof(L, true, [C])",
+                                                    "catch(throw(L), C, true)", "(nb_setval(k, L), nb_getval(k, C))"};
+  for (const std::string_view copy : copies) {
+    const std::optional<std::int64_t> growth = copy_growth(*machine, copy);
+    const std::string shown = growth ? std::to_string(*growth) : std::string{"no answer"};
+    check(growth.has_value() && *growth < 2 * box,
+          "shared Big: " + std::string{copy} + " copies one box of " + std::to_string(box) + " bytes, grew " + shown);
+  }
 }
 
 // q/1 は 8 節より少ないので、鍵は節の列を歩く道で照らす。
@@ -367,6 +398,7 @@ int main() {
   check_global();
   check_findall();
   check_bagof();
+  check_shared_big();
   check_assert();
   check_shared();
   check_body();

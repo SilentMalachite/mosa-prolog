@@ -448,14 +448,20 @@ int copy_var(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids
 }
 
 // 1 つの項に番号を振る。複合項は番号だけ先に取って frames に積む。前の再帰と同じ前順の番号になる。
+// Big も同じ箱の 2 度目からは最初の節点を指す。変わらない値なので取り込み（solutions_answer.cpp）が 1 つの箱を共有して
+// よく、出るたびに写すと像と取り込んだ箱が出る回数の倍だけ伸びる（最終レビューの Important 1）。
 int copy_one(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids, std::vector<CopyFrame>& frames) {
   cell = machine.heap.deref(cell);
   const bool compound = cell.tag() == Tag::Lis || cell.tag() == Tag::Str;
-  if (machine.heap.unbound(cell) || compound) {
+  if (machine.heap.unbound(cell) || compound || cell.tag() == Tag::Big) {
     if (const auto found = seen.find(cell.raw()); found != seen.end()) return found->second;
   }
   if (machine.heap.unbound(cell)) return copy_var(machine, cell, image, seen, ids);
-  if (!compound) return copy_scalar(machine, cell, image);
+  if (!compound) {
+    const int at = copy_scalar(machine, cell, image);
+    if (cell.tag() == Tag::Big) seen.emplace(cell.raw(), at);
+    return at;
+  }
   CopyNode node;
   std::uint16_t arity = 2;
   if (cell.tag() == Tag::Lis) {
