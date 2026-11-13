@@ -133,14 +133,17 @@ add_executable(state_limit_test tests/cpp/state_limit_test.cpp)
 target_include_directories(state_limit_test PRIVATE tests/cpp)
 target_link_libraries(state_limit_test PRIVATE mosa_lib)
 add_test(NAME state_limit COMMAND $<TARGET_FILE:state_limit_test>)
-# Debug + ASan では Release の何倍もかかる（CI の linux-asan で 300 秒を超えた）。上限だけなので通常の実行は変わらない。
-set_tests_properties(state_limit PROPERTIES TIMEOUT 1200)
+# Debug + ASan では Release の何倍もかかる（CI の linux-asan で 300 秒を超え、795 秒で通った次も 1200 秒を超えた）。
+# 長い CPU ループなので、並列の取り合いで壁時計が膨らまないよう、ひとりで走らせて上限も上げる。
+set_tests_properties(state_limit PROPERTIES RUN_SERIAL TRUE TIMEOUT 2400)
 # フェーズ10（ADR 0025）。Big の算術は結果の大きさを先に見積もり、ヒープの上限で止まる。
 add_executable(bigint_limit_test tests/cpp/bigint_limit_test.cpp)
 target_include_directories(bigint_limit_test PRIVATE tests/cpp)
 target_link_libraries(bigint_limit_test PRIVATE mosa_lib)
 add_test(NAME bigint_limit COMMAND $<TARGET_FILE:bigint_limit_test>)
-set_tests_properties(bigint_limit PROPERTIES TIMEOUT 300)
+# 300 万桁の解析など長い CPU ループ。並列の macos ジョブで 137 秒で通った次に 300 秒を超えたので、
+# ひとりで走らせて上限も上げる（state_limit と同じ）。
+set_tests_properties(bigint_limit PROPERTIES RUN_SERIAL TRUE TIMEOUT 900)
 
 # mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
 add_executable(gc_test tests/cpp/gc_test.cpp)
