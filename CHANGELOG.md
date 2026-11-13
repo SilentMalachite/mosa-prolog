@@ -2,9 +2,12 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-11-13)
 
-Changes in the source tree since 0.2.0. They are not in the downloadable 0.2.0 packages.
+A maintenance release after a review of all of Mosa and a follow-up review: file reading no longer loads a whole
+file at open, the read-only `iso` flag is implemented, several quadratic costs are gone, and `mosatest` no longer
+passes empty or halted tests. It runs on the same computers as 0.2.0 ([chapter 2](docs/manual/en/02-install.md)),
+and every example of the [manual](docs/manual/en/README.md) is checked against it.
 
 ### Added
 
