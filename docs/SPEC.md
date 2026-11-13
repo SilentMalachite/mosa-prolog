@@ -83,7 +83,7 @@ A clause `Head --> Body` in a Prolog text is translated to an ordinary clause wh
 | Integer syntax | `0b`, `0o`, `0x`, `0'c`, `_` digit separators (not specified in Cor.3, but allowed) |
 | Integers | Arbitrary precision; `bounded` is `false` (ADR 0025). `max_integer` and `min_integer` stay 2^63−1 and −2^63 (iso-notes 7.11.1.2, default A). `^` and `<<`, and `+`, `-`, `*`, `/\`, `\/`, `xor` and `\` with a Big argument, estimate the result's size first and stop with the heap limit before computing it when the estimate exceeds the heap left; the other operations (such as `//`, `rem`, `div`, `mod`, `gcd`, `>>`, `-` and `abs` of one argument, and the copies of Big operands) compute first and stop with the heap limit when the result is stored. An integer beyond the double range raises `evaluation_error(float_overflow)` wherever evaluation turns it into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions, in `float/1`, and with a float in an arithmetic comparison and in `min/2` and `max/2` (iso-notes 8.7, default A); `/` of two integers raises it only when the quotient is beyond the double range; the standard order compares it with a float without an error |
 
-**Intentional deviations from ISO (all are behind a flag or off by default, and are disabled when the `iso` flag is true)**
+**Intentional deviations from ISO (each is behind a flag, off by default, or visible only after an explicit import; the read-only `iso` flag is `true` and states that the core semantics follow ISO)**
 
 - Modules (section 5). 13211-2 has few implementations and known inconsistencies, so only its syntax is adopted; the semantics follow SWI-Prolog
 - Acceptance of full-width symbols (section 4, off by default)

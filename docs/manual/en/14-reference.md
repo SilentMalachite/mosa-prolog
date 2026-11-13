@@ -153,6 +153,7 @@ A flag whose "Other values" says "none" cannot be changed.
 | `version_data` | `mosa(0,2,0,[])` | none | The version as a term. |
 | `argv` | `[]` | none | The words after `--` on the command line of `mosa`, or after the name of an executable. |
 | `trace_gc` | `false` | `true` | With `true`, Mosa prints a line each time it collects memory. |
+| `iso` | `true` | none | The core semantics follow ISO. The deviations are off by default or appear only after an explicit import. |
 
 The flags from `bounded` to `debug` are those of ISO clause 7.11, and the others are Mosa's. In a file,
 `double_quotes` and `japanese_punctuation` set by a directive last to the end of that file.

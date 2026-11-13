@@ -217,7 +217,7 @@ Decision (2026-10-25): Open question 14: A. `version` is a read-only atom, and i
 
 ## Section 3 Flag iso
 
-Decision (2026-10-25): Open question 15: A. The default of `iso` is `true`, and it is read-only. Phase 3 adds no new behavior.
+Decision (2026-10-25): Open question 15: A. The default of `iso` is `true`, and it is read-only. Phase 3 adds no new behavior. Implemented after phase 10 (`src/builtins/flags.cpp`, `tests/pl/flags.pl`): `current_prolog_flag(iso, true)` holds and `set_prolog_flag(iso, _)` gives `permission_error(modify, flag, iso)` for `true` and `false`, and `domain_error(flag_value, iso+_)` for any other value.
 
 ## 8.12 Newlines in text
 
@@ -607,7 +607,7 @@ Decision (2026-10-28): B. The writer names every unnamed variable `_G` and a num
 
 A or B?: A: follow 9.1.6 and give `type_error(float, N)` for an integer argument to all six. B: keep accepting integers (the current behaviour). B until confirmed.
 
-Decision (2026-10-28): A. An integer argument to these six gives `type_error(float, N)`, where `N` is the evaluated value (`floor(4 + 5)` gives `type_error(float, 9)`). `integer/1` is not one of them and still accepts integers (`src/builtins/arith.cpp` `float_only`, `tests/pl/arith.pl`). Mosa has no `iso` flag yet, so this holds in every mode.
+Decision (2026-10-28): A. An integer argument to these six gives `type_error(float, N)`, where `N` is the evaluated value (`floor(4 + 5)` gives `type_error(float, 9)`). `integer/1` is not one of them and still accepts integers (`src/builtins/arith.cpp` `float_only`, `tests/pl/arith.pl`). The `iso` flag is read-only `true`, so this is the only mode.
 
 ## 9.1.6 round/1 of a negative half
 

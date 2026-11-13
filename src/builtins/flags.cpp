@@ -12,6 +12,7 @@
 // message_language は ja と en。既定は LANG から決める（ADR 0007）。
 // trace_gc は true と false。既定は false。true なら GC のたびに標準エラーへ 1 行書く（非 ISO、Task 7）。
 // bounded は false（フェーズ10）。変えられない。整数の旗の領域は Big も含む整数で、Big の値も変えられない誤りになる。
+// iso は true。変えられない（iso-notes「Section 3 Flag iso」の決定、2026-10-25）。中核の意味は ISO で、意図的逸脱は既定 off か取り込んだときだけ。
 // テスト: tests/pl/flags.pl、tests/pl/gc.pl、tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
@@ -29,7 +30,7 @@
 namespace mosa {
 namespace {
 
-constexpr std::size_t kFlagCount = 21;
+constexpr std::size_t kFlagCount = 22;
 constexpr std::uint8_t kFlagGen = 3;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
@@ -61,6 +62,7 @@ std::string_view flag_name(std::size_t index) {
     case 18: return "message_language";
     case 19: return "argv";
     case 20: return "trace_gc";
+    case 21: return "iso";
     default: return {};
   }
 }
@@ -112,6 +114,7 @@ Cell flag_value(Impl& machine, std::size_t index) {
     case 18: return atom_named(machine, machine.message_lang == MessageLanguage::Ja ? "ja" : "en");
     case 19: return argv_list(machine);
     case 20: return atom_named(machine, machine.trace_gc ? "true" : "false");
+    case 21: return atom_named(machine, "true");
     default: return atom_named(machine, "error");
   }
 }
@@ -128,7 +131,8 @@ bool same_int(const Impl& machine, Cell value, std::int64_t expected) {
 bool flag_accepts(Cell value, const Impl& machine, std::size_t index) {
   value = machine.heap.deref(value);
   switch (index) {
-    case 0: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
+    case 0:
+    case 21: return same_atom(machine, value, "true") || same_atom(machine, value, "false");
     // down も取りうる値なので、領域の誤りではなく変更の誤りにする（7.11.1.4、8.17.1.3、レビュー L4）。
     case 1: return same_atom(machine, value, "toward_zero") || same_atom(machine, value, "down");
     case 2: return same_int(machine, value, std::numeric_limits<std::int64_t>::max());

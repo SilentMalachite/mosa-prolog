@@ -41,6 +41,12 @@ test(flag_version, current_prolog_flag(version, 200), true).
 test(flag_version_listed, (current_prolog_flag(F, 200), F == version), true).
 test(flag_version_modify, set_prolog_flag(version, 2), error(permission_error(modify, flag, version))).
 test(flag_version_value, set_prolog_flag(version, x), error(domain_error(flag_value, version+x))).
+% iso-notes「Section 3 Flag iso」の決定（持ち主の決定 A、2026-10-25）。既定 true で変えられない。
+test(flag_iso, current_prolog_flag(iso, true), true).
+test(flag_iso_listed, (current_prolog_flag(F, true), F == iso), true).
+test(flag_iso_modify, set_prolog_flag(iso, false), error(permission_error(modify, flag, iso))).
+test(flag_iso_same, set_prolog_flag(iso, true), error(permission_error(modify, flag, iso))).
+test(flag_iso_value, set_prolog_flag(iso, foo), error(domain_error(flag_value, iso+foo))).
 % 旗 message_language（ADR 0007）。既定は LANG で決まるので、値は ja か en のどちらか。
 test(ml_current, (current_prolog_flag(message_language, V), (V == ja ; V == en)), true).
 test(ml_set, (current_prolog_flag(message_language, Old), set_prolog_flag(message_language, en), current_prolog_flag(message_language, V), set_prolog_flag(message_language, Old)), solutions([V = en])).

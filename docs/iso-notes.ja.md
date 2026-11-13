@@ -219,7 +219,7 @@ A か B か: A は並びを 1 文字として進めてから誤りを出す。�
 
 ## 第3節 旗 iso
 
-決定（2026-10-25）: 未決 15 は A。`iso` の既定は `true` で、読み取り専用である。フェーズ3で新しい挙動は足さない。
+決定（2026-10-25）: 未決 15 は A。`iso` の既定は `true` で、読み取り専用である。フェーズ3で新しい挙動は足さない。フェーズ10の後に実装した（`src/builtins/flags.cpp`、`tests/pl/flags.pl`）。`current_prolog_flag(iso, true)` が成り立ち、`set_prolog_flag(iso, _)` は `true` と `false` で `permission_error(modify, flag, iso)`、ほかの値で `domain_error(flag_value, iso+_)` になる。
 
 ## 8.12 テキストの改行
 
@@ -609,7 +609,7 @@ A か B か: A は 1 度だけ出る変数を `_` のままにする（今のラ
 
 A か B か: A は 9.1.6 に従い、6 つすべてで整数の引数に `type_error(float, N)` を投げる。B は今のまま整数を受け付ける。確認前は B のまま。
 
-決定（2026-10-28）: A。この 6 つに整数を渡すと `type_error(float, N)` を投げる。`N` は評価した後の値である（`floor(4 + 5)` は `type_error(float, 9)`）。`integer/1` はこの 6 つに含まれず、今も整数を受け付ける（`src/builtins/arith.cpp` の `float_only`、`tests/pl/arith.pl`）。Mosa にはまだ `iso` 旗が無いので、どのモードでもこの動きになる。
+決定（2026-10-28）: A。この 6 つに整数を渡すと `type_error(float, N)` を投げる。`N` は評価した後の値である（`floor(4 + 5)` は `type_error(float, 9)`）。`integer/1` はこの 6 つに含まれず、今も整数を受け付ける（`src/builtins/arith.cpp` の `float_only`、`tests/pl/arith.pl`）。`iso` 旗は読み取り専用の `true` なので、この動きだけである。
 
 ## 9.1.6 round/1 の負の半分
 
