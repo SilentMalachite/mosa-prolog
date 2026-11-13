@@ -126,14 +126,15 @@ add_executable(collect_limit_test tests/cpp/collect_limit_test.cpp)
 target_include_directories(collect_limit_test PRIVATE tests/cpp src)
 target_link_libraries(collect_limit_test PRIVATE mosa_lib)
 add_test(NAME collect_limit COMMAND $<TARGET_FILE:collect_limit_test>)
-# GC ストレスと並列のもとでは既定の 600 秒に近づく（前回の CI で 313 秒）。重いテストと同じ余裕にする。
-set_tests_properties(collect_limit PROPERTIES TIMEOUT 1800)
+# GC ストレスと並列のもとでは既定の 600 秒に近づき（前回の CI で 313 秒）、Debug + ASan では 1792 秒かかった。
+set_tests_properties(collect_limit PROPERTIES TIMEOUT 3600)
 # レビュー M17（ADR 0010 の改訂 3）。選択点のスタック、extras、env、実行時に訳したゴールを上限に数える。
 add_executable(state_limit_test tests/cpp/state_limit_test.cpp)
 target_include_directories(state_limit_test PRIVATE tests/cpp)
 target_link_libraries(state_limit_test PRIVATE mosa_lib)
 add_test(NAME state_limit COMMAND $<TARGET_FILE:state_limit_test>)
-set_tests_properties(state_limit PROPERTIES TIMEOUT 300)
+# Debug + ASan では Release の何倍もかかる（CI の linux-asan で 300 秒を超えた）。上限だけなので通常の実行は変わらない。
+set_tests_properties(state_limit PROPERTIES TIMEOUT 1200)
 # フェーズ10（ADR 0025）。Big の算術は結果の大きさを先に見積もり、ヒープの上限で止まる。
 add_executable(bigint_limit_test tests/cpp/bigint_limit_test.cpp)
 target_include_directories(bigint_limit_test PRIVATE tests/cpp)
@@ -237,7 +238,7 @@ add_test(NAME pred_scale COMMAND $<TARGET_FILE:pred_scale_test>)
 # 時間の比を測るので、並列の ctest -j でほかのテストと CPU を取り合うと落ちうる。ひとりで走らせる。
 set_tests_properties(pred_scale PROPERTIES RUN_SERIAL TRUE)
 # 百万要素のリストや loop を GC 付きで回す。ストレス（MOSA_GC_STRESS）では既定の 1500 秒を超えうる。
-set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 1800)
+set_tests_properties(gc heap_growth PROPERTIES TIMEOUT 3600)
 
 add_executable(full_stop_test tests/cpp/full_stop_test.cpp)
 target_include_directories(full_stop_test PRIVATE tests/cpp)
