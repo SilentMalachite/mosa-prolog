@@ -100,12 +100,13 @@ std::string_view mode_name(Stream::Mode mode) {
   return "append";
 }
 
-std::string_view end_name(const Stream& stream) {
+std::string_view end_name(Stream& stream) {
   if (stream.past_end) return "past";
   // 標準入力の長さは、まだ読んでいない先があるのでバッファでは決まらない。
   if (stream.mode != Stream::Mode::Read || stream.kind == Stream::Kind::Standard) return "not";
-  if (stream.cursor >= stream.bytes.size()) return "at";
-  return "not";
+  if (stream.cursor < stream.bytes.size()) return "not";
+  // ファイルは遅延読みなので、続きがあるか 1 塊だけ読み足して確かめる。足すだけでは位置は変わらない。
+  return pull_stream(stream) ? "not" : "at";
 }
 
 std::string_view eof_name(Stream::EofAction action) {
@@ -124,7 +125,7 @@ bool has_prop(const Stream& stream, int prop) {
   return true;
 }
 
-Cell prop_cell(Impl& machine, const Stream& stream, int prop) {
+Cell prop_cell(Impl& machine, Stream& stream, int prop) {
   switch (prop) {
     case FileName: return atom_arg(machine, "file_name", stream.path);
     case Mode: return atom_arg(machine, "mode", mode_name(stream.mode));
@@ -339,7 +340,7 @@ PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
   return PosKind::Ok;
 }
 
-bool locate(const Stream& stream, const Triple& want, std::size_t& cursor) {
+bool locate(Stream& stream, const Triple& want, std::size_t& cursor) {
   if (want.beyond) return false;
   Triple spot;
   while (true) {
@@ -347,7 +348,8 @@ bool locate(const Stream& stream, const Triple& want, std::size_t& cursor) {
       cursor = spot.cursor;
       return true;
     }
-    if (spot.cursor >= stream.bytes.size()) return false;
+    // まだ読んでいない先の位置は、届くまで読み足して探す。終わりまで足しても無ければ領域の外。
+    if (spot.cursor >= stream.bytes.size() && !pull_stream(stream)) return false;
     if (stream.data == Stream::Data::Binary) {
       spot.cursor += 1;
       spot.char_no += 1;

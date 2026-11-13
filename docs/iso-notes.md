@@ -660,6 +660,10 @@ Before the decision below, Mosa really closed `user_input`, `user_output` and `u
 A or B?: A: close/1,2 of a standard stream flushes it and succeeds without closing it, so it stays the current stream and stays writable. B: keep closing it (current behaviour). B until confirmed.
 
 Decision (2026-11-01): A. close/1,2 checks its arguments and options as before, flushes `user_output` and `user_error`, and leaves the three standard streams open (`src/builtins/streams.cpp` `run_close`, `tests/pl/close.pl` `close_std_*`, `tests/cpp/output_stop_test.cpp` `check_session_close_user_output`). `tests/cpp/stream_test.cpp` changes in the same commit: "close user_output" now expects the stream to stay open and current, and "closed current input" (now "closed input") closes a file stream instead of `user_input`.
+## 8.11 Reading a whole file at open and consult
+
+`open(File, read, S)` read the whole file into memory before it succeeded, and `consult` did the same with the source text, so `open('/dev/zero', read, S)` alone grew without bound (whole-review item 2). The owner chose B of the ways put to them (2026-11-13): a file opened for reading is read in chunks as the reading predicates need it (`pull_stream` in `src/builtins/streams.cpp`), keeping what was read so `set_stream_position/2` and `eof_action(reset)` work as before, and the bytes kept count against the `--heap-max` budget (`heap_byte_budget` in `include/mosa/heap.hpp`), stopping with the heap-limit stop past it. What another program appends to the file later becomes readable, where the old snapshot did not show it. `consult` and the other loads take a regular file only, under the same byte budget (`read_source` in `src/machine/load_path.cpp`); a device or pipe is `cannot_open_file`. Opening for append still reads the text that is already there (the position and saving machinery needs it), so it follows the consult rule: a regular file only, under the budget, and anything else is `permission_error(open, source_sink, File)`. Tests: `check_lazy_read` and `check_consult_source_limit` in `tests/cpp/stream_test.cpp`.
+
 
 ## 6.4.5 Float literal out of range
 

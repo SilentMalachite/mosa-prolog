@@ -14,12 +14,15 @@
 //   user_input・user_output・user_error は吐き出すだけで閉じない（iso-notes 8.11.6.1 の A）。
 // flush_output / flush_output(+stream_or_alias)
 //   入力ストリームは permission_error(output, stream, S)。
+// 読みのファイルは開くときに全体を読まず、読み取り口から必要な分だけ足す（全体レビュー推奨2、持ち主の選択 B）。
+// 追記は位置と保存の仕組みが元の中身を要するので、通常ファイルだけをヒープ上限のバイト予算の中で読む。
 // ファイルへの書き込みは close と flush のほかに、halt と Machine の終わりでも書き出す（レビュー M5）。
 // '$stream'(N) の N が Big なら、流れの数を越える int64 と同じく existence_error(stream)（stream_number）。
 // テスト: tests/pl/streams.pl, tests/pl/close.pl, tests/pl/japanese.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp,
 //   tests/cpp/file_flush_test.cpp
 
 #include "../machine/internal.hpp"
+#include "mosa/console.hpp"
 #include "mosa/path_text.hpp"
 
 #include <array>
@@ -49,7 +52,7 @@ struct OptionScan {
   WalkedList walked;
 };
 
-enum class FileLoad { Ok, Missing, Denied };
+enum class FileLoad { Ok, Missing, Denied, TooBig };
 
 struct FileLoadResult {
   FileLoad status = FileLoad::Missing;
@@ -82,7 +85,22 @@ bool item_unbound(const Impl& machine, const WalkedList& walked) {
   return false;
 }
 
-FileLoadResult load_bytes(const std::filesystem::path& path) {
+// ヒープ上限のバイト予算から、今のヒープと開いた流れの中身を引いた残り。新しい流れの bytes はこの中だけに
+// 伸びる（全体レビュー推奨2）。数えるときはあふれないよう丸める。
+std::size_t stream_byte_budget(const Impl& machine) {
+  const std::size_t total = heap_byte_budget(machine.heap.limit());
+  std::size_t used = heap_byte_budget(machine.heap.size());
+  for (const Stream& stream : machine.streams) {
+    if (stream.closed) continue;
+    used = stream.bytes.size() > total - std::min(total, used) ? total : used + stream.bytes.size();
+    if (used >= total) return 0;
+  }
+  return total - std::min(total, used);
+}
+
+// 追記が元の中身を読むときだけの全体読み。通常ファイルでないもの（装置や名前付きパイプ）は終わりが無い
+// ことがあるので、ディレクトリと同じく permission_error 側へ倒す。予算を超える大きさは TooBig。
+FileLoadResult load_bytes(const std::filesystem::path& path, std::size_t byte_limit) {
   FileLoadResult result;
   // macOS と Linux の ifstream はディレクトリも開け、読むと空になる。ディレクトリは開けないソースとして
   // permission_error にする（8.11.5.3 f、レビュー L5）。書き込みの create_empty は前からそうなる。
@@ -91,17 +109,35 @@ FileLoadResult load_bytes(const std::filesystem::path& path) {
     result.status = FileLoad::Denied;
     return result;
   }
+  std::error_code there_code;
+  const bool there = std::filesystem::exists(path, there_code) && !there_code;
+  if (there) {
+    std::error_code regular_code;
+    if (!std::filesystem::is_regular_file(path, regular_code) || regular_code) {
+      result.status = FileLoad::Denied;
+      return result;
+    }
+    std::error_code size_code;
+    const auto size = std::filesystem::file_size(path, size_code);
+    if (!size_code && size > byte_limit) {
+      result.status = FileLoad::TooBig;
+      return result;
+    }
+  }
   std::ifstream input(path, std::ios::binary);
   if (!input) {
-    std::error_code code;
-    const bool there = std::filesystem::exists(path, code);
-    result.status = there && !code ? FileLoad::Denied : FileLoad::Missing;
+    result.status = there ? FileLoad::Denied : FileLoad::Missing;
     return result;
   }
   std::ostringstream buffer;
   buffer << input.rdbuf();
-  result.status = FileLoad::Ok;
   result.bytes = buffer.str();
+  if (result.bytes.size() > byte_limit) {
+    result.status = FileLoad::TooBig;
+    result.bytes.clear();
+    return result;
+  }
+  result.status = FileLoad::Ok;
   return result;
 }
 
@@ -268,14 +304,21 @@ bool refuse_file(Impl& machine, const Goal& goal, Cell source) {
   return true;
 }
 
+// 読みは読み取り口を開くだけで、中身は読む述語が pull_stream で必要な分だけ足す。開けない理由の出し方は
+// 全体を読んでいたときと同じ（ディレクトリは permission_error、無ければ existence_error）。
 bool fill_read(Impl& machine, const Goal& goal, Cell source, const std::filesystem::path& path, Stream& made) {
-  const FileLoadResult loaded = load_bytes(path);
-  if (loaded.status == FileLoad::Missing) {
+  std::error_code kind;
+  if (std::filesystem::is_directory(path, kind) && !kind) return refuse_file(machine, goal, source);
+  auto input = std::make_unique<std::ifstream>(path, std::ios::binary);
+  if (!*input) {
+    std::error_code code;
+    const bool there = std::filesystem::exists(path, code) && !code;
+    if (there) return refuse_file(machine, goal, source);
     raise_formal(machine, formal_existence(machine, "source_sink", source), goal.name, goal.arity);
     return true;
   }
-  if (loaded.status == FileLoad::Denied) return refuse_file(machine, goal, source);
-  made.bytes = loaded.bytes;
+  made.source = std::move(input);
+  made.byte_limit = stream_byte_budget(machine);
   return false;
 }
 
@@ -284,7 +327,8 @@ bool fill_write(Impl& machine, const Goal& goal, Cell source, const std::filesys
     if (!create_empty(path)) return refuse_file(machine, goal, source);
     return false;
   }
-  const FileLoadResult loaded = load_bytes(path);
+  const FileLoadResult loaded = load_bytes(path, stream_byte_budget(machine));
+  if (loaded.status == FileLoad::TooBig) throw ResourceLimit("heap_limit");
   if (loaded.status == FileLoad::Denied) return refuse_file(machine, goal, source);
   // 読んだ中身はファイルと同じなので、保存はその続きから書く。
   if (loaded.status == FileLoad::Ok) {
@@ -492,6 +536,7 @@ void settle_same_file(Impl& machine, std::size_t index) {
 
 void mark_closed(Impl& machine, std::size_t index) {
   machine.streams[index].closed = true;
+  machine.streams[index].source.reset();
   // スロットは再利用しないので、中身を持ち続けると開け閉めのたびにメモリが増える。閉じた後は誤りしか返さない。
   std::string{}.swap(machine.streams[index].bytes);
   // 閉じた流れが現在入出力なら、標準の別名に戻す。
@@ -580,6 +625,40 @@ void run_close(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+bool pull_stream(Stream& stream) {
+  if (stream.mode != Stream::Mode::Read) return false;
+  if (stream.kind == Stream::Kind::Standard) {
+    const int byte = standard_input_get();
+    if (byte == std::char_traits<char>::eof()) return false;
+    stream.bytes.push_back(static_cast<char>(static_cast<unsigned char>(byte)));
+    return true;
+  }
+  if (stream.kind != Stream::Kind::File || !stream.source) return false;
+  // 塊は持っている分に合わせて倍に伸ばす。大きな項を読み直す read_term が、塊のたびに頭から読んでも
+  // 全体の仕事が長さの 2 倍ほどで済むため。短く読めたときは終わりと決めず、印を下ろして次で確かめる。
+  // 外で足された分もその次に見える。
+  const std::size_t want = std::min<std::size_t>(std::max<std::size_t>(65536, stream.bytes.size()), 8 * 1024 * 1024);
+  std::string chunk(want, '\0');
+  if (!stream.source->good()) {
+    // 短く読めて終わりの印が立った後は、読んだ分だけの位置へ置き直さないと、外で足された分を読み直さない
+    // 実装がある。置けない相手（パイプ）は印だけ下ろしてそのまま読む。
+    stream.source->clear();
+    stream.source->seekg(static_cast<std::streamoff>(stream.bytes.size()));
+    if (!stream.source->good()) stream.source->clear();
+  }
+  stream.source->read(chunk.data(), static_cast<std::streamsize>(chunk.size()));
+  const auto got = static_cast<std::size_t>(stream.source->gcount());
+  if (got == 0) {
+    stream.source.reset();
+    return false;
+  }
+  if (got > stream.byte_limit - std::min(stream.byte_limit, stream.bytes.size())) {
+    throw ResourceLimit("heap_limit");
+  }
+  stream.bytes.append(chunk.data(), got);
+  return true;
+}
 
 std::optional<std::size_t> stream_number(const Impl& machine, Cell number) {
   // Big は int64 の外にあり、流れの数（int64 に収まる）より大きいか負なので、どちらの側でも無い流れである。

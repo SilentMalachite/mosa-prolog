@@ -665,6 +665,53 @@ void check_close_standard() {
   mosa_test::check(kept.kind == mosa::StopKind::Success, "user_output stays open and current after close");
 }
 
+// 読みの流れは開くときに全体を読まない（全体レビュー推奨2、持ち主の選択 B）。開いた後に外で足した分が見え、
+// まだ読んでいない先への set_stream_position も、必要な分だけ読み足して届く。
+void check_lazy_read(const std::filesystem::path& path, const std::filesystem::path& big_path) {
+  write_bytes(path, "ab");
+  const std::string atom = path_atom(path);
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->query("open(" + atom + ", read, S, [type(binary)]), get_byte(S, 97).").kind ==
+                       mosa::StopKind::Success,
+                   "lazy first byte");
+  {
+    std::ofstream out(path, std::ios::binary | std::ios::app);
+    out << "c";
+  }
+  auto rest = machine->query("get_byte('$stream'(3), B), get_byte('$stream'(3), C), get_byte('$stream'(3), E).");
+  mosa_test::check(rest.kind == mosa::StopKind::Success, "lazy rest");
+  mosa_test::check(binding_named(*machine, rest, "B") == "98", "lazy second byte");
+  mosa_test::check(binding_named(*machine, rest, "C") == "99", "lazy sees the appended byte");
+  mosa_test::check(binding_named(*machine, rest, "E") == "-1", "lazy then ends");
+
+  write_bytes(big_path, std::string(200000, 'a') + "z");
+  const std::string big_atom = path_atom(big_path);
+  auto big = mosa::Machine::create();
+  auto sought = big->query("open(" + big_atom +
+                           ", read, S, [type(binary)]), set_stream_position(S, stream_position(200000, 1, 1)), "
+                           "get_byte(S, Z), at_end_of_stream(S).");
+  mosa_test::check(sought.kind == mosa::StopKind::Success, "lazy seek past the loaded part");
+  mosa_test::check(binding_named(*big, sought, "Z") == "122", "lazy seek byte");
+}
+
+// consult は通常ファイルだけを、ヒープ上限のバイト予算の中で読む（全体レビュー推奨2、持ち主の選択 B）。
+// 1 MiB の機械では、2 MiB の原文は中身が注釈だけでも上限で止まる。
+void check_consult_source_limit(const std::filesystem::path& big_path, const std::filesystem::path& small_path) {
+  write_bytes(big_path, "%" + std::string(2 * 1024 * 1024, 'x') + "\n");
+  write_bytes(small_path, "lazy_ok(1).\n");
+  auto machine = mosa::Machine::create(131072);
+  bool limited = false;
+  try {
+    (void)machine->consult(big_path.generic_string());
+  } catch (const mosa::ResourceLimit&) {
+    limited = true;
+  }
+  mosa_test::check(limited, "consult stops a source past the heap byte budget");
+  auto small = mosa::Machine::create(131072);
+  mosa_test::check(small->consult(small_path.generic_string()), "consult loads a small source under the budget");
+  mosa_test::check(small->query("lazy_ok(1).").kind == mosa::StopKind::Success, "consult small source answers");
+}
+
 void check_flush_failure(const std::filesystem::path& path) {
   write_bytes(path, "z");
   const std::string atom = path_atom(path);
@@ -729,6 +776,8 @@ int main() {
   check_set_output(dir / "phase3-set-output.txt");
   check_set_position(dir / "phase3-set-position.txt");
   check_at_end(dir / "phase3-at-end.txt");
+  check_lazy_read(dir / "phase3-lazy.txt", dir / "phase3-lazy-big.txt");
+  check_consult_source_limit(dir / "phase3-consult-big.pl", dir / "phase3-consult-small.pl");
   check_close_standard();
   check_standard_reset();
   check_flush_failure(dir / "phase3-flush-fail");

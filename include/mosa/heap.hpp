@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <span>
 
 namespace mosa {
@@ -34,6 +35,16 @@ class HeapReserveFailed : public ResourceLimit {
 // どちらも語の数。4 GiB は 2^29 語。起動時に commit する量は min(kInitialHeapCommit, 上限)。
 inline constexpr std::size_t kDefaultHeapMax = std::size_t{1} << 29;
 inline constexpr std::size_t kInitialHeapCommit = std::size_t{1} << 20;
+
+// 上限（語）をバイトの予算にする。ヒープ外に原文や流れの中身を持つ読み込みが、同じ上限をバイトで守るため
+// （全体レビュー推奨2）。あふれる上限は最大値に丸める。
+[[nodiscard]] inline std::size_t heap_byte_budget(std::size_t limit_words) {
+  constexpr std::size_t k_word_bytes = sizeof(std::uint64_t);
+  if (limit_words > std::numeric_limits<std::size_t>::max() / k_word_bytes) {
+    return std::numeric_limits<std::size_t>::max();
+  }
+  return limit_words * k_word_bytes;
+}
 
 class Heap {
  public:

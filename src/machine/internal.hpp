@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <initializer_list>
 #include <limits>
@@ -308,6 +309,9 @@ struct Stream {
   // bytes の先頭のうち、ファイルと同じだと分かっている長さ。保存はその続きだけを書き、append の元の中身を
   // 切り詰めない（Grok のレビューの Medium）。0 ならファイル全体を書き直す。
   std::size_t on_disk = 0;
+  // 読みのファイルは開いた読み取り口から必要な分だけ bytes へ足す（全体レビュー推奨2）。byte_limit は bytes の予算。
+  std::unique_ptr<std::ifstream> source;
+  std::size_t byte_limit = std::numeric_limits<std::size_t>::max();
   std::string alias;
   std::string path;
 };
@@ -612,6 +616,8 @@ void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanReco
 [[nodiscard]] std::size_t clause_from(const Predicate& predicate, std::size_t id);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
+// 流れの bytes へ続きを読み足す。標準入力は 1 バイト、ファイルは塊。予算を超えるなら ResourceLimit（streams.cpp）。
+bool pull_stream(Stream& stream);
 // bytes[index] から始まる壊れた UTF-8 の並びのうち、1 つの誤り（U+FFFD 1 つ）にするバイト数。index が範囲の外なら 0
 // （定義は chars.cpp）。
 [[nodiscard]] std::size_t ill_formed_width(std::string_view bytes, std::size_t index);

@@ -559,6 +559,11 @@ Mosa follows ISO/IEC 13211-1 and its corrigenda. Where it does not, or where ISO
 - The predicates marked with a dash above are additions to ISO. `format/2`, `between/3`, `member/2`, `append/3` and
   the other predicates of the libraries are not built in, and need `use_module`.
 - Full-width punctuation is read as half-width only when the flag `japanese_punctuation` is `true` (chapter 11).
+- A file opened for reading is read as it is needed, not all at once when it is opened, and text another program
+  appends later can be read. What a stream has read counts against the memory limit (`--heap-max`), and reading
+  past it stops the query at that limit. Loading a Prolog text (`consult` and the others) takes a regular file
+  only, not a device or a pipe, under the same limit, and opening a file to append to it follows the same rule for
+  the text that is already there.
 
 The reasons for these choices, clause by clause, are in the
 [ISO interpretation notes](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/iso-notes.md) of the

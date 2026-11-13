@@ -314,6 +314,7 @@ std::filesystem::path locate_file(const LgtIo& io, std::string_view name) {
 void close_index(Impl& machine, std::size_t index) {
   Stream& stream = machine.streams[index];
   stream.closed = true;
+  stream.source.reset();
   if (machine.current_in == index) machine.current_in = 0;
   if (machine.current_out == index) machine.current_out = 1;
 }
