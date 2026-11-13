@@ -317,6 +317,9 @@ target_include_directories(assert_shared_test PRIVATE tests/cpp)
 target_compile_definitions(assert_shared_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(assert_shared_test PRIVATE mosa_lib)
 add_test(NAME assert_shared COMMAND $<TARGET_FILE:assert_shared_test>)
+# head_first と chain_ratio は cputime の比で見るので、scale と同じくひとりで走らせる
+# （並列の readme-windows で比が崩れて落ちた）。
+set_tests_properties(assert_shared PROPERTIES RUN_SERIAL TRUE)
 # レビュー M28。実行時のゴールの共有の多い引数は写さずに指し、すべて写す最後の段はヒープの上限で止まる。
 add_executable(goal_shared_test tests/cpp/goal_shared_test.cpp)
 target_include_directories(goal_shared_test PRIVATE tests/cpp)
