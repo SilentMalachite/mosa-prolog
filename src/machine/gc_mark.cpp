@@ -1,6 +1,7 @@
 // ADR 0010 の印付け。C++ の再帰は使わず、セルの語と枠の 2 つのスタックで辿る。深いリストや長い継続の鎖でも
 // C++ のスタックを使い切らない。語の種類（WordKind）は、その語に最初に届いた道が決める。
-// 項: Str は関数語を Raw、引数を Cell。Lis は 2 語とも Cell。Float と IntBox は 1 語を Raw。Ref は語を Cell として値を辿る。
+// 項: Str は関数語を Raw、引数を Cell。Lis は 2 語とも Cell。Float と IntBox は 1 語を Raw。Big は頭の語と絶対値の
+// n 語をすべて Raw。Ref は語を Cell として値を辿る。
 // 枠: 語 0 が 0 でなければゴール枠、0 で語 1 の第 63 ビットが立てば Native 枠、ほかは制御枠（step と同じ見分け方）。
 
 #include "gc.hpp"
@@ -41,6 +42,7 @@ class Marker final : public GcVisitor {
   void mark_cell_word(std::size_t index);
   void mark_value(Cell value);
   void mark_structure(std::size_t at);
+  void mark_big(std::size_t at);
   void mark_frame(std::size_t at);
   void mark_extra(std::size_t index);
   [[nodiscard]] std::uint64_t word(std::size_t index) const { return machine_.heap.word_at(index); }
@@ -72,10 +74,20 @@ void Marker::mark_structure(std::size_t at) {
   for (std::size_t index = arity; index >= 1; --index) mark_cell_word(at + index);
 }
 
+// Big の箱は頭の語と絶対値の n 語（ADR 0025）。どれも項ではないので Raw にし、中を辿らない。頭の語の n だけで
+// 箱の大きさが決まるので、箱を指すセルから頭の語へ来れば全体に印が付く。
+void Marker::mark_big(std::size_t at) {
+  if (marked(at)) return;
+  const std::uint64_t words = big_header_words(word(at));
+  // 壊れた頭の語でヒープの外まで印を付けない。正しい箱は必ず used の内に収まる。
+  if (words >= marks_.used - at) return;
+  for (std::size_t index = 0; index <= words; ++index) set(at + index, WordKind::Raw);
+}
+
 // ヒープの外を指すセル（既定の Cell{} など）は項ではない。辿らず、詰め直しも書き換えない。
 void Marker::mark_value(Cell value) {
   const Tag tag = value.tag();
-  if (tag == Tag::Atom || tag == Tag::Int || tag == Tag::Big) return;
+  if (tag == Tag::Atom || tag == Tag::Int) return;
   const auto base = std::bit_cast<std::uint64_t>(machine_.heap.data());
   const std::uint64_t address = value.raw() & ~std::uint64_t{7};
   if (address < base || address - base >= marks_.used * sizeof(std::uint64_t)) return;
@@ -92,7 +104,9 @@ void Marker::mark_value(Cell value) {
     case Tag::IntBox:
       if (!marked(at)) set(at, WordKind::Raw);
       return;
-    default: return;
+    case Tag::Big: mark_big(at); return;
+    case Tag::Atom:
+    case Tag::Int: return;
   }
 }
 

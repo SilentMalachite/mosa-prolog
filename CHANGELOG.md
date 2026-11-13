@@ -2,6 +2,55 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Integers have arbitrary precision: arithmetic, reading and writing keep an integer above 9223372036854775807 or
+  below -9223372036854775808 exact, and the built-in predicates that take an integer accept one. The flag `bounded` is
+  `false`. `max_integer` and `min_integer` stay 9223372036854775807 and -9223372036854775808.
+- Time: arithmetic on a big integer takes longer as the integer grows. Computing `7^7^7`, an integer of 2,311,978
+  bits, takes about 0.16 s, but turning it into decimal text with `number_codes/2` takes about 12 s, because that time
+  grows with the square of the length. In the benchmarks `nrev` and `queens`, which use only 64-bit integers, the
+  interpreter takes 0.9% and 3.1% longer than in 0.1.4, and the translated `queens` 8.1% longer (measured on one Mac,
+  [bench.md](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#cost-of-arbitrary-precision-integers)).
+
+### Changed
+
+- An integer result no longer raises `evaluation_error(int_overflow)`, and an integer of any length reads without
+  `syntax_error(integer_overflow)`, which no longer exists. The only limit on the size of an integer is the memory
+  limit (`--heap-max`), and a result that does not fit in the memory left stops the query with the heap-limit
+  message. `^` and `<<`, and the two-argument `+`, `-`, `*` and the bit operations (`/\`, `\/`, `xor` and `\`) with
+  a big integer argument, estimate the size of the result first, and stop before computing it when the estimate is
+  more than the memory left. The other operations, such as `//`, `mod`, `gcd/2`, `abs/1` and `-` of one argument,
+  compute the result first and stop when it is stored. `evaluation_error(int_overflow)` is left only for rounding an
+  infinite float to an integer, as in `X is round(1.0Inf)`.
+- An integer beyond the range of a float raises `evaluation_error(float_overflow)` wherever evaluation must turn it
+  into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions such as `sqrt/1`, `log/1`
+  and `sin/1`, in an arithmetic comparison with a float (`<`, `=:=` and the others), in `min/2` and `max/2` with a
+  float, and in `float/1`. `/` of two integers raises it only when the quotient is beyond that range: `2^2000 / 3`
+  raises it, and `2^2000 / 2^1999` is `2.0`. The standard order (`compare/3`, `@<`) compares such an integer with a
+  float without an error.
+- `halt/1` with an integer outside -2147483648 to 2147483647 (a C++ `int`) raises `representation_error(max_integer)`,
+  or `representation_error(min_integer)` when the integer is negative. Mosa 0.1.4 passed only the low bits on, so
+  `halt(4294967296)` ended with status 0.
+- `tab/1` and `tab/2` with a count above 9223372036854775807 write spaces without end, the same as a 64-bit count
+  too large to finish. Mosa 0.1.4 raised `evaluation_error(int_overflow)` for such a count, as in `tab(2^70)`. A
+  negative count of any size writes nothing.
+
+### Known limits
+
+The known limits of 0.1.4 still hold. Three come with big integers:
+
+- In an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
+  counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage
+  collection would have made room.
+- Arithmetic works on copies of the big integers it reads, so the largest integer it can use is below the memory
+  limit: reading one, as in `A > 0` or `A mod 7`, stops once the integer takes about half of the limit, and an
+  operation with a result as large, as in `A + 0`, at about a third.
+- An integer in a text that Mosa reads is turned into a number in full before it is compared with the memory limit.
+  So reading a very long integer takes several times the memory of its text before it stops at the limit.
+
 ## 0.1.4 (2026-11-11)
 
 A maintenance release after a review of all of Mosa's C++ code. A program sees no change from 0.1.3. It runs on the

@@ -68,10 +68,11 @@ class Rewriter final : public GcVisitor {
     index = index < used_ && heap_.live(index) ? heap_.of(index) : std::numeric_limits<std::size_t>::max();
   }
 
-  // ポインタのタグの語だけを書き換える。ヒープの外を指すセルは項ではないので、そのまま残す。
+  // ポインタのタグの語だけを書き換える。ヒープの外を指すセルは項ではないので、そのまま残す。Big は箱の頭の語を
+  // 指すので（ADR 0025）、Float や IntBox と同じく移す。頭の語と絶対値の語は Raw として並んだまま写る。
   [[nodiscard]] std::uint64_t relocate(std::uint64_t raw) const {
     const auto tag = static_cast<Tag>(raw & 7U);
-    if (tag == Tag::Atom || tag == Tag::Int || tag == Tag::Big) return raw;
+    if (tag == Tag::Atom || tag == Tag::Int) return raw;
     const auto at = index_of(raw);
     if (!at) return raw;
     return (base_ + heap_.of(*at) * sizeof(std::uint64_t)) | (raw & 7U);

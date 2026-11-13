@@ -114,6 +114,13 @@ inline constexpr std::uint32_t kCall = 0;
   *slot = std::bit_cast<std::uint64_t>(value);
   return Cell{std::bit_cast<std::uint64_t>(slot) | static_cast<std::uint64_t>(Tag::Float)};
 }
+// int64 に入らない整数（ADR 0025）。slot から 1 + magnitude.size() 語を使う。Heap::big と同じ形に書くので、翻訳器は
+// 正規形（int64 に入る値は Big にしない、最上位の語は 0 でない）の IR の定数だけを渡す。
+[[nodiscard]] inline Cell put_big(std::uint64_t* slot, bool negative, std::span<const std::uint64_t> magnitude) {
+  slot[0] = big_header(magnitude.size(), negative);
+  for (std::size_t index = 0; index < magnitude.size(); ++index) slot[index + 1] = magnitude[index];
+  return Cell{std::bit_cast<std::uint64_t>(slot) | static_cast<std::uint64_t>(Tag::Big)};
+}
 
 // libmosa の外の呼び出しはこれだけ
 [[nodiscard]] bool install_unit(Machine& machine, const NativeUnit& unit);  // 表を作ってから source を読み、読み終えたら付ける
@@ -130,6 +137,8 @@ void push_alternative(Machine::Impl& machine, const Regs& regs, std::uint64_t fr
 void cut_to(Machine::Impl& machine, std::size_t barrier);
 // cut_to が setup_call_cleanup/3 の後始末を外して積んだか。積んだら生成コードは続きを次の歩みへ回す（ADR 0016）。
 [[nodiscard]] bool cleanup_pending(const Machine::Impl& machine);
+// Big のセルの索引の鍵（節の鍵と同じ big_key、ADR 0025）。生成コードの第1引数の選び方が、タグを確かめてから呼ぶ
+[[nodiscard]] std::uint64_t big_key_of(Cell cell);
 void proceed(Machine::Impl& machine, std::uint64_t cont);
 void fail(Machine::Impl& machine);
 void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t entry, std::uint64_t frame,

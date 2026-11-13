@@ -7,11 +7,11 @@
 // 8.9.4 abolish/1 (+predicate_indicator)
 //   instantiation_error, type_error(predicate_indicator), type_error(atom), type_error(integer),
 //   domain_error(not_less_than_zero), representation_error(max_arity),
-//   permission_error(modify, static_procedure, PI)
+//   permission_error(modify, static_procedure, PI)。項数の Big（フェーズ10）は負なら定義域、正なら表現の誤り。
 // 8.9.5 retractall/1 (@callable)（Cor.2）
 //   instantiation_error, type_error(callable), permission_error(modify, static_procedure, PI)
 // 7.4.2 dynamic/1 は指示だけ。読み込み側で受ける。
-// テスト: tests/pl/database.pl, tests/pl/clause.pl
+// テスト: tests/pl/database.pl, tests/pl/clause.pl, tests/pl/bigint.pl
 
 #include "database_internal.hpp"
 
@@ -194,7 +194,7 @@ bool reject_clause(Impl& machine, const Goal& goal, Cell term) {
 
 // 数はゴールにならない。変数と匿名は call できるので、ここでは許す。
 bool goal_form(const IrTerm& term) {
-  return goal_leaves_all(term, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; });
+  return goal_leaves_all(term, [](IrTag tag) { return !is_number_ir(tag); });
 }
 
 // cursor が節の番号である選択点だけ。述語の番号（PredGen）や状態（Native）を節の番号と比べない。
@@ -558,21 +558,22 @@ bool parse_indicator(Impl& machine, const Goal& goal, Cell pred, HeadName& indic
     raise_type(machine, goal, "atom", name);
     return false;
   }
-  if (arity.tag() != Tag::Int && arity.tag() != Tag::IntBox) {
+  if (!is_integer_tag(arity.tag())) {
     raise_type(machine, goal, "integer", arity);
     return false;
   }
-  const auto value = machine.heap.integer_value(arity);
-  if (value < 0) {
+  // Big は int64 の外なので、負なら負の int64 と、正なら上限を越える int64 と同じ誤りになる。
+  const bool big = arity.tag() == Tag::Big;
+  if (integer_negative(machine, arity)) {
     raise_formal(machine, formal_domain(machine, "not_less_than_zero", arity), goal.name, goal.arity);
     return false;
   }
-  if (value > 1024) {
+  if (big || machine.heap.integer_value(arity) > 1024) {
     raise_formal(machine, formal_representation(machine, "max_arity"), goal.name, goal.arity);
     return false;
   }
   indicator.name = static_cast<std::uint32_t>(name.raw() >> 3);
-  indicator.arity = static_cast<std::uint16_t>(value);
+  indicator.arity = static_cast<std::uint16_t>(machine.heap.integer_value(arity));
   return true;
 }
 

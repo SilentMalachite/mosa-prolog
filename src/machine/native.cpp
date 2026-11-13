@@ -5,6 +5,7 @@
 
 #include "../core/fnv.hpp"
 
+#include "mosa/bigint.hpp"
 #include "mosa/goal_word.hpp"
 #include "mosa/heap_option.hpp"
 #include "mosa/path_text.hpp"
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <bit>
 #include <cstdint>
+#include <cstdlib>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -36,7 +38,8 @@ struct Fnv {
 
 bool names_atom(IrTag tag) { return tag == IrTag::Atom || tag == IrTag::Fun || tag == IrTag::Call; }
 
-// 前順にたどる。長いリストの原文でも C++ の呼び出しを積まないよう、手で積む。
+// 前順にたどる。長いリストの原文でも C++ の呼び出しを積まないよう、手で積む。Big の絶対値の語は Int の子なので
+// （ADR 0025）、子をたどるだけで値ごとに違う指紋になる。
 void hash_term(Fnv& hash, const AtomTable& atoms, const IrTerm& root) {
   std::vector<const IrTerm*> pending{&root};
   while (!pending.empty()) {
@@ -174,7 +177,7 @@ bool native_eligible(const Impl& machine, const Predicate& predicate) {
   if (predicate.dynamic || predicate.abolished || predicate.clauses.empty()) return false;
   if (live_count(predicate) != predicate.clauses.size()) return false;
   // 生成コードはどのスロットも変数として読むので、共有の項（ADR 0022）を持つ節は IR のまま動かす。それを持つのは
-  // assert した動的な節だけで、ここには普通来ない。
+  // assert した動的な節だけで、ここには普通来ない。Big の定数は翻訳器が rt::put_big で書くので付ける（ADR 0025）。
   for (const Clause& clause : predicate.clauses) {
     if (clause.shared) return false;
   }
@@ -265,6 +268,13 @@ void call_goal(Machine::Impl& machine, const Regs& regs, std::uint32_t number, s
 void cut_to(Machine::Impl& machine, std::size_t barrier) { trim_stack(machine, barrier); }
 
 bool cleanup_pending(const Machine::Impl& machine) { return !machine.pending_cleanups.empty(); }
+
+// Big でないセルの頭の語を読むと、黙って別の鍵になる。Heap::big_magnitude と同じく Release でも止める。
+std::uint64_t big_key_of(Cell cell) {
+  if (cell.tag() != Tag::Big) [[unlikely]] std::abort();
+  const std::uint64_t* head = cell_words(cell);
+  return big_key(big_header_negative(*head), {head + 1, static_cast<std::size_t>(big_header_words(*head))});
+}
 
 void proceed(Machine::Impl& machine, std::uint64_t cont) { machine.ip = cont; }
 

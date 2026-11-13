@@ -21,9 +21,9 @@ Naming scheme: the commands are `mosa` (interpreter), `mosac` (translator), and 
 **Non-goals (not in scope this time)**
 
 - Constraint logic programming (CLP(FD) etc.), tabling, parallel execution
-- Arbitrary-precision integers (to be considered as an optional feature from Phase 6 onward; until then, 64-bit integers with `evaluation_error` on overflow)
+- GMP and other arbitrary-precision libraries (phase 10 implements arbitrary-precision integers with the standard library only)
 - GUI, IDE integration, and tools other than a debugger
-- Dependencies other than the C++20 standard library and CMake (no ICU, Boost, or GMP; GMP may become a future option)
+- Dependencies other than the C++20 standard library and CMake (no ICU, Boost, or GMP)
 - Dependencies on Windows-only or macOS-only APIs. OS-dependent code is isolated in `src/platform/` and kept within one file
 
 ## 2. Deliverables and supported environments
@@ -61,9 +61,9 @@ The "core" is 13211-1:1995 plus Cor.1 (2007), Cor.2 (2012), and Cor.3 (2017); wh
 2. Term representation and unification (7.3), including `unify_with_occurs_check/2`. Default unification does not perform the occurs check
 3. Execution model (7.7): search tree, cut, `catch/3`/`throw/1`, cut transparency of `call/1..8` (a cut inside `call/N` is local)
 4. Error system (7.12): the `error(Formal, Context)` form and all Formal terms (`instantiation_error`, `uninstantiation_error/1`, `type_error/2`, `domain_error/2`, `existence_error/2`, `permission_error/3`, `representation_error/1`, `evaluation_error/1`, `resource_error/1`, `syntax_error/1`, `system_error`)
-5. Arithmetic (chapter 9): integers are 64-bit signed, floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; overflow raises `evaluation_error(int_overflow)`. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
+5. Arithmetic (chapter 9): integers have arbitrary precision (phase 10, ADR 0025; the flag `bounded` is `false`), floats are IEEE 754 double precision. Provide the `max_integer`/`min_integer` flags; an integer result has no overflow, and one too large for the heap stops at the heap limit. Includes integer division, remainder, bitwise operations, trigonometric functions, `copysign`, and the functions added in Cor.2 such as `truncate`
 6. All built-in predicates (chapter 8). The list and stages are given in section 7
-7. Flags (7.11): `bounded`, `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
+7. Flags (7.11): `bounded` (`false`), `max_integer`, `min_integer`, `integer_rounding_function`, `char_conversion`, `debug`, `max_arity`, `unknown`, `double_quotes`. In addition, the implementation-defined flags `encoding` (always `utf8`), the read-only `version` (the integer `Major*10000 + Minor*100 + Patch`), `japanese_punctuation` (section 4), and the read-only `dialect` (`mosa`) and `version_data` (`mosa(Major, Minor, Patch, [])`)
 8. Directives (7.4.2): `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`, `set_prolog_flag/2`, `include/1`, `ensure_loaded/1`
 
 **Grammar rules (phase 8)**
@@ -81,6 +81,7 @@ A clause `Head --> Body` in a Prolog text is translated to an ordinary clause wh
 | String type | None. `"..."` follows the `double_quotes` flag (SWI's string type is a non-goal) |
 | Float format | Shortest round-trip representation (`std::to_chars`). Always contains `.`, exponent written with `e`. NaN is written `1.5NaN` and infinities `1.0Inf` and `-1.0Inf`, as in SWI-Prolog and ECLiPSe, and the reader reads them back (iso-notes 6.4.5, review L22) |
 | Integer syntax | `0b`, `0o`, `0x`, `0'c`, `_` digit separators (not specified in Cor.3, but allowed) |
+| Integers | Arbitrary precision; `bounded` is `false` (ADR 0025). `max_integer` and `min_integer` stay 2^63−1 and −2^63 (iso-notes 7.11.1.2, default A). `^` and `<<`, and `+`, `-`, `*`, `/\`, `\/`, `xor` and `\` with a Big argument, estimate the result's size first and stop with the heap limit before computing it when the estimate exceeds the heap left; the other operations (such as `//`, `rem`, `div`, `mod`, `gcd`, `>>`, `-` and `abs` of one argument, and the copies of Big operands) compute first and stop with the heap limit when the result is stored. An integer beyond the double range raises `evaluation_error(float_overflow)` wherever evaluation turns it into a float: with a float in `+`, `-`, `*`, `/` and `^`, in `**` and the float functions, in `float/1`, and with a float in an arithmetic comparison and in `min/2` and `max/2` (iso-notes 8.7, default A); `/` of two integers raises it only when the quotient is beyond the double range; the standard order compares it with a float without an error |
 
 **Intentional deviations from ISO (all are behind a flag or off by default, and are disabled when the `iso` flag is true)**
 
@@ -209,7 +210,7 @@ The interpreter and the translator share the same runtime (terms, heap, trail, b
 
 | Component | Design |
 | --- | --- |
-| Cell representation | 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (reserved for the future). Integers that do not fit in 61 bits are boxed like FLT, and `max_integer` stays 2^63−1 |
+| Cell representation | 64-bit tagged integer `Cell`. The low 3 bits are the tag: REF, ATOM, INT (61-bit immediate), STR (pointer to a functor cell in the heap), LIS (list), FLT (boxed double), BIG (an integer outside int64: a pointer to a head word and the magnitude words, phase 10, ADR 0025). An int64 that does not fit in 61 bits is boxed like FLT, and `max_integer` stays 2^63−1 |
 | Heap | A single contiguous array: address space up to the limit is reserved at start-up and committed from the bottom as needed, so committed cells never move (ADR 0010). Reclaimed on backtracking simply by resetting the top |
 | Trail | Pushes the addresses of bound REFs. Conditional trailing (records only cells older than the choice point) |
 | Choice point stack | Holds the continuation, trail position, heap position, pointer to the alternative clause, and cut barrier |
@@ -315,7 +316,7 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 - All errors are thrown in the form `throw(error(Formal, Context))`. `Context` is `context(PI, Extra)`, where `PI` is the predicate indicator and `Extra` is additional information (for `syntax_error`, the form `syntax(stream(S, Line, LinePos, CharNo), Token)` rather than `位置(Line, Col)`, with `Token` the offending token as an atom, ADR 0007). ISO permits implementation-defined terms in `Context`
 - The order of argument checks strictly follows each predicate's definition in ISO (the order listed in 8.x.y.3 Errors). For example, `atom_length(X, foo)` does not throw `type_error(integer, foo)`; it checks `X` first and throws `instantiation_error`. Order violations are detected by the conformance suite
 - On the C++ side, use only the single family of helpers `throw_error(m, Formal, PI)`, and build each kind of `Formal` with functions such as `make_type_error(m, Type, Culprit)`. Writing string literals directly is forbidden (to prevent typos in atom names)
-- Arithmetic errors: division by zero is `evaluation_error(zero_divisor)`, integer overflow is `evaluation_error(int_overflow)`, float overflow is `evaluation_error(float_overflow)`, and `sqrt(-1)` etc. is `evaluation_error(undefined)`. `inf`/`nan` are thrown when the `float_overflow`/`undefined` flag is `error`; otherwise IEEE 754 values are returned (SWI-compatible `float_overflow`, `float_zero_div`, `float_undefined` flags)
+- Arithmetic errors: division by zero is `evaluation_error(zero_divisor)`, float overflow is `evaluation_error(float_overflow)`, and `sqrt(-1)` etc. is `evaluation_error(undefined)`. An integer result does not overflow (phase 10, ADR 0025): one too large for the heap stops at the heap limit, and `evaluation_error(int_overflow)` is left only for rounding an infinite float to an integer. `inf`/`nan` are thrown when the `float_overflow`/`undefined` flag is `error`; otherwise IEEE 754 values are returned (SWI-compatible `float_overflow`, `float_zero_div`, `float_undefined` flags)
 - The top level displays uncaught exceptions in the form `警告: ゴールは例外を送出しました: error(...)` (Warning: goal raised exception: error(...)) in Japanese or English (flag `message_language`, whose default is determined from the environment variable `LANG`, or, on Windows when `LANG` is absent or empty, from the Windows display language). Message strings are placed as Prolog facts in `lib/messages_ja.pl` and `lib/messages_en.pl`, and are not embedded in C++
 
 ## 8. Test strategy
@@ -339,7 +340,7 @@ Tests have four layers. Two numbers, "conformance suite pass rate" and "interpre
 
 **Benchmarks (lower priority than pass rate, but used to detect regressions)**
 
-- `bench/`: `nrev` (naive reverse, LIPS measurement), `queens`, `zebra`, `tak`, `deriv`, `crypt`. Measured with both the interpreter and the `mosac` translation, and recorded as a table in `docs/bench.md`
+- `bench/`: `nrev` (naive reverse, LIPS measurement), `queens`, `zebra`, `tak`, `deriv`, `crypt`, `bigint` (arbitrary-precision integers, phase 10). Measured with both the interpreter and the `mosac` translation, and recorded as a table in `docs/bench.md`
 - No target values are set. CI warns on a regression of 20% or more compared with the previous run
 
 ## 9. Development phases and milestones
@@ -358,6 +359,7 @@ Move to the next phase only when the current phase's exit criteria are met. Exit
 | 7 | Finishing: GC, `garbage_collect/0`, `statistics/2`, manual (Japanese and English), mosac dist, release packages (binaries for each OS, bundled runtime) | Memory usage plateaus in long-running loops. A newcomer can build using only the steps in the README |
 | 8 | Grammar rules: `-->` translated when a text is loaded (ADR 0024), `phrase/2,3` in `system`, the same behavior under `mosac` | `tests/pl/dcg.pl` passes in `mosa`, with zero differences in `mosatest --diff`. The pass rate on the bundled Logtalk conformance suite does not go down |
 | 9 | ISO completion and robustness: `subsumes_term/2`, `acyclic_term/1`, a reader that runs on frames instead of recursion (ADR 0011 amendment 4), `Name//Arity`, `*->` in a grammar body, `expand_term/2` in `library(dcg)` (ADR 0024 revision 3) | The Examples of 8.2.4.4 and 8.3.11.4 pass in `tests/pl/unify.pl` and `types.pl`; `mosatest --suite` takes `predicates/subsumes_term_2` and `predicates/acyclic_term_1` into its range as directories (the STO items stay in their own column, item by item); the verdict on `subsumes_term` goes through the built-in; the pass rate does not fall below 98.4%; the ctest `stack_deep_read` passes under 1 MiB on 3 OSes; `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass and `mosatest --diff` shows zero differences |
+| 10 | Arbitrary-precision integers: the Big box (ADR 0025), unbounded arithmetic, reading and writing, `bounded` is `false` | `tests/pl/bigint.pl` and the tests whose expected values this change corrects pass under `mosa`, and `mosatest --diff` shows zero differences (including `japanese.pl`); `mosatest --suite` takes `unbounded/` into its range, every item that runs there passes or is written in iso-notes as a difference in interpretation that the owner has decided, the pass rate does not fall below 98.4% on the real denominator, and `docs/conformance.md` is regenerated; `tests/pl/bigint.pl` passes under `MOSA_GC_STRESS`, a loop that keeps making Bigs levels off in memory, and `1 << (1 << 62)` stops before it allocates; the interpreter time of `bench/nrev.pl` and `bench/queens.pl` (median of 3 runs, Release, same machine) is at most 1.05 times that of v0.1.4, `mosac`'s `nrev` stays at least 3 times faster than the interpreter, and the values are written in `bench.md` |
 
 **Prohibitions across phases**
 

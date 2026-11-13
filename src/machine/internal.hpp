@@ -250,7 +250,8 @@ struct EmbeddedSource {
 };
 
 struct ExportedTerm {
-  enum class Kind { Var, Atom, Int, Float, List, Str, Share };
+  // Big は integer が符号（負なら 1）で、kids が絶対値の語を下位から持つ Int の節点（ADR 0025 の持ち方）。
+  enum class Kind { Var, Atom, Int, Float, List, Str, Share, Big };
   struct Node {
     Kind kind = Kind::Atom;
     std::uint32_t atom = 0;
@@ -262,6 +263,12 @@ struct ExportedTerm {
   };
   std::vector<Node> nodes;
   int root = -1;
+};
+
+// 写したゴールの変数の名前。node は ExportedTerm::nodes の添字で、取り込んだその節点を答えの束縛にする。
+struct ExportedName {
+  std::string name;
+  int node = -1;
 };
 
 // カットで外した setup_call_cleanup/3 の後始末。run_loop が次の歩みの前に動かす（ADR 0016）。
@@ -395,6 +402,10 @@ struct Machine::Impl {
   bool exception = false;
   // catch が評価の途中で例外を消しても、呼び出し元がヒープを読み続けないようにする。
   bool eval_abort = false;
+  // 式の評価の間だけ Big の値を置く（ADR 0025）。arith の Num は添字を持ち、入口を出るときに空にする（arith_internal.hpp）。
+  std::vector<BigInt> eval_bigs;
+  // eval_bigs の語数。ヒープの外の実行状態も上限に数える（ADR 0010 の改訂 2、タスク 6 のレビュー Important 1）。
+  std::size_t eval_big_words = 0;
   // launch_var の中から launch_var に入った段数（レビュー M13）。深くなれば call/1 の枠にして run_loop に回す。
   int var_depth = 0;
   Cell ball{};
@@ -553,6 +564,8 @@ struct Compiled {
 [[nodiscard]] Stop query_written(Machine& machine, std::string_view goal_text);
 // export_term で写したゴールを戻して問い合わせる。字面を読まない（レビュー L23）。
 [[nodiscard]] Stop query_exported(Machine& machine, const ExportedTerm& goal);
+// 上と同じで、names の変数を答えの束縛にする。字面に書けない値を差し込むテストの入口（query_with_bigs）が使う。
+[[nodiscard]] Stop query_exported(Machine& machine, const ExportedTerm& goal, std::span<const ExportedName> names);
 
 [[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
@@ -685,6 +698,9 @@ using GoalLeafOk = bool (*)(IrTag tag);
 void enter_user(Impl& machine, const Goal& goal);
 [[nodiscard]] ExportedTerm export_term(Impl& machine, Cell cell);
 [[nodiscard]] Cell import_term(Impl& machine, const ExportedTerm& term);
+// 取り込んだ names の節点のセルを、名前と組にして bindings の後ろに足す。
+[[nodiscard]] Cell import_term(Impl& machine, const ExportedTerm& term, std::span<const ExportedName> names,
+                               std::vector<Binding>& bindings);
 void propagate_throw(Impl& machine, Cell ball);
 void raise_formal(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity);
 void raise_formal_extra(Impl& machine, Cell formal, std::uint32_t name, std::uint16_t arity, Cell extra);

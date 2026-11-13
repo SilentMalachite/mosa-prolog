@@ -19,7 +19,6 @@ message(illegal_character, 'illegal character').
 message(unterminated_quoted, 'unterminated quoted').
 message(unterminated_comment, 'unterminated comment').
 message(bad_escape, 'bad escape sequence').
-message(integer_overflow, 'integer out of range').
 message(float_overflow, 'float out of range').
 message(unexpected_token, 'unexpected token').
 message(max_arity, 'too many arguments').

@@ -15,7 +15,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -146,15 +145,16 @@ bool atom_named(const Heap& heap, Cell cell, std::string_view name) {
 
 bool numeric_cell(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox || cell.tag() == Tag::Float;
+  return is_integer_tag(cell.tag()) || cell.tag() == Tag::Float;
 }
 
+// -(-2^63) は Big の 2^63 に、-(2^63) は IntBox の -2^63 になる。int64 では反転できないので BigInt で反転し、
+// heap.big の正規形に戻す（ADR 0025）。エラーの項の数と同じ Cell になり、単一化で合う。
 Cell negate_number(Machine& machine, Cell cell) {
-  cell = machine.heap().deref(cell);
-  if (cell.tag() == Tag::Float) return machine.heap().floating(-machine.heap().float_value(cell));
-  const auto value = machine.heap().integer_value(cell);
-  if (value == std::numeric_limits<std::int64_t>::min()) return cell;
-  return machine.heap().integer(-value);
+  Heap& heap = machine.heap();
+  cell = heap.deref(cell);
+  if (cell.tag() == Tag::Float) return heap.floating(-heap.float_value(cell));
+  return heap.big(-heap.big_value(cell));
 }
 
 // 期待の `-1` は前置演算子で読まれる。エラーの項は整数なので、数の符号だけ畳む。

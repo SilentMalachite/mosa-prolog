@@ -4,7 +4,8 @@
 //   ヒープの上限で止まる（ResourceLimit）。
 //   instantiation_error、type_error(atom, Kind)、domain_error(format_directive, Kind)、
 //   type_error(integer, Digits)、domain_error(not_less_than_zero, Digits)、type_error(float, Float)
-// テスト: tests/pl/lib_format.pl
+//   Digits の Big（フェーズ10、設計の 8）は、負なら domain_error、正なら大きすぎる int64 と同じくヒープの上限で止まる。
+// テスト: tests/pl/lib_format.pl、tests/pl/bigint.pl、tests/cpp/bigint_limit_test.cpp
 #include "../machine/internal.hpp"
 #include "../write/spelling.hpp"
 
@@ -22,8 +23,6 @@ namespace {
 // to_chars には上限までを頼み、残りは 0 を足す。巨大な桁数でも緩衝域を桁数ぶん取らずに済む。
 constexpr std::int64_t kExactDigits = 1100;
 
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
-
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
 
 std::optional<Cell> float_problem(Impl& machine, Cell kind, Cell digits, Cell value) {
@@ -33,8 +32,8 @@ std::optional<Cell> float_problem(Impl& machine, Cell kind, Cell digits, Cell va
   if (kind.tag() != Tag::Atom) return formal_type(machine, "atom", kind);
   const auto name = machine.atoms.name(atom_id(kind));
   if (name != "f" && name != "e") return formal_domain(machine, "format_directive", kind);
-  if (!is_int(digits)) return formal_type(machine, "integer", digits);
-  if (machine.heap.integer_value(digits) < 0) return formal_domain(machine, "not_less_than_zero", digits);
+  if (!is_integer_tag(digits.tag())) return formal_type(machine, "integer", digits);
+  if (integer_negative(machine, digits)) return formal_domain(machine, "not_less_than_zero", digits);
   if (value.tag() != Tag::Float) return formal_type(machine, "float", value);
   return std::nullopt;
 }
@@ -67,11 +66,13 @@ void prove_format_float(Impl& machine, const Goal& goal) {
   }
   const bool scientific = machine.atoms.name(atom_id(kind)) == "e";
   const double number = machine.heap.float_value(value);
-  const std::int64_t count = machine.heap.integer_value(digits);
   // format.pl は答えの原子を atom_chars で字のリストにし、1 字にヒープの 2 語を使う（ADR 0001）。上限の語数より
   // 多い桁は、そのリストが必ず上限を超える。その前にヒープの外へ巨大な文字列を作らず、ここで上限に止める。
   // 2^63 - 1 桁では string::insert が length_error でプロセスごと落ちた（M29 の Codex 敵対的レビュー）。
-  if (std::isfinite(number) && static_cast<std::uint64_t>(count) > machine.heap.limit()) {
+  // 正の Big の桁数はどの上限より多い。無限大と NaN は桁数を使わないので、Big でも字面は 1 つに決まる。
+  const bool big = digits.tag() == Tag::Big;
+  const std::int64_t count = big ? 0 : machine.heap.integer_value(digits);
+  if (std::isfinite(number) && (big || static_cast<std::uint64_t>(count) > machine.heap.limit())) {
     throw ResourceLimit("heap_limit");
   }
   const std::string text = format_float(number, scientific, count);

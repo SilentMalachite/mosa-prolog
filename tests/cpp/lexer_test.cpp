@@ -1,8 +1,10 @@
 #include "harness.hpp"
+#include "mosa/bigint.hpp"
 #include "mosa/char_class.hpp"
 #include "mosa/char_conv.hpp"
 #include "mosa/lexer.hpp"
 
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -125,25 +127,42 @@ void test_numbers() {
                    "1. is integer and full stop");
   auto real = scan_all("1.5e-2.");
   mosa_test::check(real[0].kind == mosa::TokenKind::Float && real[0].floating == 1.5e-2, "float");
-  // レビュー M1。2^63 ちょうどは - の後ろでだけ数になる（6.3.4.1）。字句は印を付けて返し、読む側が決める。
-  auto edge = mosa::Lexer("9223372036854775808.");
-  auto edge_scan = edge.next();
-  mosa_test::check(!edge_scan.failure && edge_scan.token.kind == mosa::TokenKind::Integer &&
-                       edge_scan.token.needs_minus &&
-                       edge_scan.token.integer == std::numeric_limits<std::int64_t>::min(),
-                   "2^63 needs a minus");
-  auto edge_hex = mosa::Lexer("0x8000000000000000.");
-  auto edge_hex_scan = edge_hex.next();
-  mosa_test::check(!edge_hex_scan.failure && edge_hex_scan.token.needs_minus, "hex 2^63 needs a minus");
+}
+
+// フェーズ10（ADR 0025）。int64 に入らない整数の字面は溢れにせず、大きさを Big で持つ整数のトークンになる。
+// 2^63 も - の有無に依らず Big で、符号を付けて IntBox の min_integer に戻すのは読む側（6.3.4.1）。
+void test_big_numbers() {
   auto plain = scan_all("9223372036854775807.");
-  mosa_test::check(!plain[0].needs_minus && plain[0].integer == std::numeric_limits<std::int64_t>::max(),
+  mosa_test::check(plain.size() == 2 && !plain[0].big && plain[0].integer == std::numeric_limits<std::int64_t>::max(),
                    "max_integer is plain");
-  for (const char* text : {"9223372036854775809.", "92233720368547758080.", "0x8000000000000001."}) {
-    auto big = mosa::Lexer(text);
-    auto big_scan = big.next();
-    mosa_test::check(big_scan.failure && big_scan.failure->reason == mosa::SyntaxReason::IntegerOverflow,
-                     std::string("int64 overflow: ") + text);
+  auto zeros = scan_all("0009223372036854775807.");
+  mosa_test::check(zeros.size() == 2 && !zeros[0].big, "leading zeros keep max_integer plain");
+  struct Case {
+    std::string_view source;
+    std::string_view value;
+  };
+  const std::array<Case, 8> cases{{
+      {"9223372036854775808.", "9223372036854775808"},
+      {"0x8000000000000000.", "9223372036854775808"},
+      {"0o1000000000000000000000.", "9223372036854775808"},
+      {"0b10000000000000000000000000000000000000000000000000000000000000000.", "18446744073709551616"},
+      {"9223372036854775809.", "9223372036854775809"},
+      {"92233720368547758080.", "92233720368547758080"},
+      {"0xFFFF_ffff_FFFF_ffff_FFFF.", "1208925819614629174706175"},
+      {"1_000_000_000_000_000_000_000.", "1000000000000000000000"},
+  }};
+  for (const Case& item : cases) {
+    auto tokens = scan_all(item.source);
+    const bool ok = tokens.size() == 2 && tokens[0].kind == mosa::TokenKind::Integer && tokens[0].big &&
+                    !tokens[0].big->negative() && mosa::to_text(*tokens[0].big) == item.value &&
+                    tokens[1].kind == mosa::TokenKind::EndFullStop;
+    mosa_test::check(ok, std::string("big token: ") + std::string(item.source));
   }
+  // 整数部が int64 を越えても、小数部が続けば浮動小数点数である。
+  auto real = scan_all("92233720368547758080.5.");
+  mosa_test::check(real.size() == 2 && real[0].kind == mosa::TokenKind::Float && !real[0].big &&
+                       real[0].floating == 92233720368547758080.5,
+                   "big integer part of a float");
 }
 
 void test_quotes_and_comments() {
@@ -428,6 +447,7 @@ int main() {
   test_names_and_columns();
   test_invalid_utf8();
   test_numbers();
+  test_big_numbers();
   test_float_range();
   test_bad_underscores();
   test_quotes_and_comments();

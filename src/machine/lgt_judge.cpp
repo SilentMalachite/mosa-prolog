@@ -6,6 +6,7 @@
 
 #include "internal.hpp"
 
+#include "mosa/bigint.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/heap_option.hpp"
 #include "mosa/reader.hpp"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <compare>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -42,7 +44,7 @@ bool atom_is(const Heap& heap, Cell cell, std::string_view name) {
 
 bool integer_cell(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox;
+  return is_integer_tag(cell.tag());
 }
 
 struct Parsed {
@@ -231,12 +233,23 @@ bool terms_variant(Heap& heap, Cell left, Cell right) {
   return lgt_same_shape(heap, stamped_left, stamped_right);
 }
 
-bool ordered(std::string_view name, double left, double right) {
-  if (name == "<") return left < right;
-  if (name == "=<") return left <= right;
-  if (name == ">") return left > right;
-  if (name == ">=") return left >= right;
+// NaN との比較は unordered になり、どの比較も偽になる。double の < などと同じ結果である。
+bool ordered(std::string_view name, std::partial_ordering order) {
+  if (name == "<") return order < 0;
+  if (name == "=<") return order <= 0;
+  if (name == ">") return order > 0;
+  if (name == ">=") return order >= 0;
   return false;
+}
+
+// 整数どうしは lgtunit の算術の比較と同じく正確に比べる。double を通すと 2^53 を越える整数が丸まり、2^100 >= 2^100+1 が
+// 真になる（偽の合格）。int64 どうしは確保なしで比べ、Big を含むときだけ BigInt にする（integer_value は Big を読めない）。
+std::optional<std::strong_ordering> integer_order(const Heap& heap, Cell left, Cell right) {
+  left = heap.deref(left);
+  right = heap.deref(right);
+  if (!integer_cell(heap, left) || !integer_cell(heap, right)) return std::nullopt;
+  if (left.tag() != Tag::Big && right.tag() != Tag::Big) return heap.integer_value(left) <=> heap.integer_value(right);
+  return heap.big_value(left) <=> heap.big_value(right);
 }
 
 bool compare_args(Machine& machine, std::string_view name, Cell cell, const std::vector<VarName>& names,
@@ -245,10 +258,11 @@ bool compare_args(Machine& machine, std::string_view name, Cell cell, const std:
   const Cell right = resolved_arg(machine, cell, 1, names, bindings);
   if (name == "==") return lgt_same_shape(machine.heap(), left, right);
   if (name == "=~=") return approx(machine.heap(), left, right);
+  if (const auto order = integer_order(machine.heap(), left, right)) return ordered(name, *order);
   const auto first = lgt_as_number(machine.heap(), left);
   const auto second = lgt_as_number(machine.heap(), right);
   if (!first || !second) return false;
-  return ordered(name, *first, *second);
+  return ordered(name, *first <=> *second);
 }
 
 bool check_goal(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Binding>& bindings,
@@ -397,7 +411,7 @@ bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& s
   return found;
 }
 
-// 開いている query を潰さない。-2^63 は字面にすると正のトークンが溢れて読めず、値が変数になる。
+// 開いている query を潰さない。ゴールは字面を通さずセルで写すので、Big も字にせず箱のまま渡る（lgt_copy.cpp）。
 bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
   const Parsed parsed = parse_term(main, goal);
   if (!parsed.ok) return false;
@@ -562,10 +576,14 @@ bool take_op(Heap& heap, OperatorTable& operators, Cell cell, std::vector<LgtOp>
   const Cell specifier = heap.deref(heap.arg(cell, 1));
   const Cell name = heap.deref(heap.arg(cell, 2));
   if (!integer_cell(heap, priority) || specifier.tag() != Tag::Atom || name.tag() != Tag::Atom) return false;
+  // Big と int に入らない int64 は優先順位の範囲の外である。切り詰めると別の優先順位で定義してしまうので先に退ける。
+  if (priority.tag() == Tag::Big) return false;
+  const auto value = heap.integer_value(priority);
+  if (value < 0 || value > std::numeric_limits<int>::max()) return false;
   const auto parsed = specifier_of(atom_text(heap, specifier));
   if (!parsed) return false;
   LgtOp op;
-  op.priority = static_cast<int>(heap.integer_value(priority));
+  op.priority = static_cast<int>(value);
   op.specifier = *parsed;
   op.name = std::string{atom_text(heap, name)};
   if (operators.define(op.priority, op.specifier, op.name) != OpResult::Ok) return false;

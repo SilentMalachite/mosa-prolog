@@ -100,9 +100,7 @@ Reader::Parsed Reader::failure_of(const Scan& scan) const {
 
 Reader::Parsed Reader::bad_token(const Token& token) const {
   Parsed parsed;
-  auto reason = token.kind == TokenKind::End ? SyntaxReason::IncompleteTerm : SyntaxReason::UnexpectedToken;
-  // 2^63 は字句が数として返す。置けない位置でも、字句で溢れにしていたときと同じ理由にする（レビュー M1）。
-  if (token.kind == TokenKind::Integer && token.needs_minus) reason = SyntaxReason::IntegerOverflow;
+  const auto reason = token.kind == TokenKind::End ? SyntaxReason::IncompleteTerm : SyntaxReason::UnexpectedToken;
   parsed.failure = SyntaxFailure{token.line, token.column, token.text, reason, token.byte};
   return parsed;
 }
@@ -196,13 +194,10 @@ std::optional<OpDef> Reader::find_follower(std::string_view name, int left_prior
 }
 
 Reader::Parsed Reader::parse_literal() {
-  // 溢れにする 2^63 は消費しない。ほかの不正なトークンと同じく先読みに残すと、next が終止符まで読み飛ばす。
-  if (const Scan& ahead = peek(); ahead.token.kind == TokenKind::Integer && ahead.token.needs_minus) {
-    return bad_token(ahead.token);
-  }
   const Token token = consume().token;
   Parsed parsed;
-  if (token.kind == TokenKind::Integer) parsed.term = heap_.integer(token.integer);
+  if (token.kind == TokenKind::Integer && token.big) parsed.term = heap_.big(*token.big);
+  else if (token.kind == TokenKind::Integer) parsed.term = heap_.integer(token.integer);
   else if (token.kind == TokenKind::Float) parsed.term = heap_.floating(token.floating);
   else if (token.kind == TokenKind::Variable) parsed.term = intern_variable(token.text);
   else parsed.term = make_string(token.text);
@@ -230,8 +225,9 @@ Reader::Parsed Reader::parse_name(int max_priority) {
       (next.token.kind == TokenKind::Integer || next.token.kind == TokenKind::Float)) {
     const Token number = consume().token;
     Parsed parsed;
-    // 2^63 の印の付いた数は、integer がすでに min_integer である。符号を反転すると溢れる。
-    if (number.kind == TokenKind::Integer && number.needs_minus) parsed.term = heap_.integer(number.integer);
+    // 大きさ 2^63 は Big で来るので、反転して正規化すると IntBox の min_integer になる。int64 の大きさは
+    // 反転しても溢れない。
+    if (number.kind == TokenKind::Integer && number.big) parsed.term = heap_.big(-*number.big);
     else if (number.kind == TokenKind::Integer) parsed.term = heap_.integer(-number.integer);
     else parsed.term = heap_.floating(-number.floating);
     return parsed;

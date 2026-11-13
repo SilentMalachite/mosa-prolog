@@ -90,6 +90,7 @@ bool match_one(const Side& left_side, Cell left, const Side& right_side, Cell ri
     if (std::isnan(a) || std::isnan(b)) return std::isnan(a) && std::isnan(b);
     return same_float_term(a, b);
   }
+  if (left.tag() == Tag::Big) return same_big_term(left_heap, left, right_heap, right);
   if (left.tag() == Tag::Lis || left.tag() == Tag::Str) return push_children(left_side, left, right_side, right, todo);
   return false;
 }

@@ -2,10 +2,10 @@
 
 #include "lgt_suite.hpp"
 
+#include "mosa/bigint.hpp"
 #include "mosa/unify.hpp"
 
 #include <cstdint>
-#include <limits>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -20,7 +20,18 @@ std::string_view atom_text(const Heap& heap, Cell cell) {
 
 bool integer_cell(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox;
+  return is_integer_tag(cell.tag());
+}
+
+// integer_value は Big を読めない（ADR 0025）。正規形では int64 に収まる値は Big にならないので、Big と int64 の組は
+// 値を作らずに偽とわかる。BigInt を作るのは Big どうしのときだけにする。
+bool same_integer(const Heap& heap, Cell left, Cell right) {
+  left = heap.deref(left);
+  right = heap.deref(right);
+  if (left.tag() == Tag::Big || right.tag() == Tag::Big) {
+    return left.tag() == right.tag() && heap.big_value(left) == heap.big_value(right);
+  }
+  return heap.integer_value(left) == heap.integer_value(right);
 }
 
 // 一度合わせた項の再出現は、この形と変数セルで見る。名前の無い same_term は別の自由変数を同じにしてしまう。
@@ -30,9 +41,7 @@ bool same_shape(const Heap& heap, Cell left, Cell right) {
   if (heap.unbound(left) || heap.unbound(right)) {
     return heap.unbound(left) && heap.unbound(right) && left.raw() == right.raw();
   }
-  if (integer_cell(heap, left) && integer_cell(heap, right)) {
-    return heap.integer_value(left) == heap.integer_value(right);
-  }
+  if (integer_cell(heap, left) && integer_cell(heap, right)) return same_integer(heap, left, right);
   if (left.tag() != right.tag()) return false;
   if (left.tag() == Tag::Atom) return atom_text(heap, left) == atom_text(heap, right);
   // 単一化と同じく -0.0 と 0.0 を分ける（iso-notes 7.2.2 の決定 A、L2 の Codex レビュー）。
@@ -52,20 +61,16 @@ bool same_shape(const Heap& heap, Cell left, Cell right) {
 
 struct NumberValue {
   bool integer = false;
-  std::int64_t as_int = 0;
+  BigInt as_int;
   double as_float = 0.0;
 };
 
 bool fill_number(const Heap& heap, Cell cell, bool negative, NumberValue& out) {
   cell = heap.deref(cell);
   if (integer_cell(heap, cell)) {
-    auto value = heap.integer_value(cell);
-    if (negative) {
-      if (value == std::numeric_limits<std::int64_t>::min()) return false;
-      value = -value;
-    }
+    // -(-2^63) と Big の符号の反転は int64 に収まらないことがある。BigInt で反転すれば、どの整数も正確に揃う。
     out.integer = true;
-    out.as_int = value;
+    out.as_int = negative ? -heap.big_value(cell) : heap.big_value(cell);
     return true;
   }
   if (cell.tag() != Tag::Float) return false;
@@ -112,9 +117,7 @@ bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pa
     return true;
   }
   if (heap.unbound(specific)) return false;
-  if (integer_cell(heap, general) && integer_cell(heap, specific)) {
-    return heap.integer_value(general) == heap.integer_value(specific);
-  }
+  if (integer_cell(heap, general) && integer_cell(heap, specific)) return same_integer(heap, general, specific);
   // 期待の -1 は前置の複合項。投げた整数とタグが違うので、数の符号だけ揃える。
   if (sign_of_number(heap, general) || sign_of_number(heap, specific)) {
     const auto left = signed_number(heap, general);

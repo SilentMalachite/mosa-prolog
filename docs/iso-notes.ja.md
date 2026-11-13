@@ -21,6 +21,8 @@
 
 決定（2026-10-29）: 持ち主は A を選んだ。`number_chars/2` と `number_codes/2` と共有する数の構文解析は、字面ではなく ADR 0007 の鍵で `syntax_error(Key)` を投げる。字句の誤りはその理由の鍵（`integer_overflow`、`bad_escape`、`unterminated_comment` など）、それ以外でちょうど 1 つの数でないものは `unexpected_token`。
 
+フェーズ 10（2026-11-12、ADR 0025）から、どれほど長い整数のトークンも数になるので、上の一覧の鍵 `integer_overflow` は無くなった。ほかの鍵は変わらない。
+
 決定（2026-10-29）: 持ち主は SWI の振る舞いではなく A を選んだ。具体の第一引数がアトムでなければ `type_error(atom, A)`、具体の第二引数が数でなければ `type_error(number, N)`。`number_chars/2` と同じく、どちらもアトムを読む前に調べる。
 
 ## 8.10 findall/4（非 ISO）
@@ -459,7 +461,13 @@ A か B か: A はフェーズ7で、マニュアルとリリースパッケー�
 
 決定（2026-11-03）: A（レビュー M11）。7 つの述語はフェーズ7で `system` に作り、1 述語ずつコミットし、テストは `tests/pl/utilities.pl` に置く。SWI-Prolog の振る舞いがマニュアルとソースから読み取れないところは、述語のファイルの見出しのコメントに選んだ形を書く。SPEC 第7節は `numbervars/3` と書く。
 
-2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` は 64 ビットの整数を超えると `representation_error(max_integer)`（SWI は `tagged_integer`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
+2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` の番号にはフェーズ10から上限が無く、64 ビットの整数を超えた番号は Big になる（フェーズ7〜9 はそこで `representation_error(max_integer)`。SWI は `representation_error(tagged_integer)`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
+
+`tab/1,2` の int64 を越える数（フェーズ10、設計の 8）。正の Big は大きすぎる int64 と同じ結果になり、`tab(1 << 40)` はその数だけ空白を書く。だからフェーズ10 のタスク 8 から、正の Big は空白を終わりなく書く（`src/builtins/chars.cpp` の `run_tab`）。負の Big は負の数と同じく何も書かない（`tests/pl/bigint.pl` の `tab_big_neg`）。タスク 8 の前は、Big は `evaluation_error(int_overflow)` だった。SWI-Prolog はどちらの符号の Big にもこれを出す。
+
+A か B か: A は正の Big の終わらない出力を、大きすぎる int64 と同じく残す。既定で、今の振る舞いである。その代わり、`with_output_to/2` の中などメモリの流れでは、出力がヒープの上限の外で伸びる。そこでの `tab(1 << 40)` は 15 秒で RSS 11 GB に達した。だからプロセスは `--heap-max` で止まらず、メモリを使い切る。B はどちらの符号の Big も、SWI-Prolog の `evaluation_error(int_overflow)` のような誤りにする。`run_tab` の 1 行の変更で済む。
+
+決定（2026-11-13）: A（所有者の決定 A）。B は採らない。正の Big の数は大きすぎる int64 と同じく空白を終わりなく書き、負の Big は何も書かない。
 
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
@@ -663,6 +671,8 @@ A か B か: A は整数の `syntax_error(integer_overflow)` と同じく `synta
 
 決定（2026-11-02）: A。最大の double より大きい浮動小数点数には、字句が ADR 0007 の新しい鍵 `float_overflow` を返す。最大の double に丸まる綴りは今までどおり数である。範囲外の値の向きは指数の符号ではなく値の桁（最初の 0 でない数字の位置と指数の和）で決めるので、`1<0 を 400 個>.0e-10` は上位に、`0.<0 を 400 個>1` は下位に溢れる。下位の溢れは変えない。`1.0e-400` は `0.0` と読み、`1.0e-310` のような非正規化数はそのまま残る（`tests/pl/read.pl` と `tests/pl/atoms.pl` の `m2_*`、`tests/cpp/lexer_test.cpp` の `test_float_range`）。
 
+フェーズ 10（2026-11-12、ADR 0025）から、整数のトークンの大きさに限りはなく、A が手本にした `syntax_error(integer_overflow)` は無くなった。範囲外の浮動小数点数のトークンは、今も `syntax_error(float_overflow)` になる。
+
 ## 6.4.5 NaN と無限大（ISO にない）
 
 下の決定の前は、writeq/1 などの書き手は NaN と無限大を `std::to_chars` の字面に `.0` を足して書いた（`src/write/spelling.cpp` の `format_float`）。`nan.0`、`inf.0`、`-inf.0` となり、符号の立った NaN（`X is -(nan)`、L2 からは `sign(-(nan))` も）は標準ライブラリ独自の字面で、macOS では `-nan(ind).0` だった。どれも読み戻せず、`term_to_atom(T, '-nan(ind).0')` も `term_to_atom(T, 'nan.0')` も `syntax_error(unexpected_token)` になる（レビュー L22）。ISO の浮動小数点数に NaN と無限大は無いので、規格はその字面を決めていない。SWI-Prolog と ECLiPSe は Joachim Schimpf の浮動小数点の core update の提案に沿って `1.0Inf`、`-1.0Inf`、`1.5NaN` と書き、読み戻す。
@@ -694,6 +704,8 @@ A か B か: A は丸めずに比べ、選んだ引数を型のまま返す（`m
 `-0.0` と `0.0` が別の項になったので（下の 7.2.2）、等しい値の決まりにより `max(-0.0, 0.0)` は `-0.0`、`max(0.0, -0.0)` は `0.0` になった（L2 の敵対的レビュー A3）。A か B か: A は `-0.0` を `0.0` と `0` より小さいとみなし、引数の順によらず `max` は `0.0`、`min` は `-0.0` を返す。標準順序と IEEE 754-2019 の maximum と minimum と同じ。B は等しい値の決まりのままにする。
 
 決定（2026-11-05）: A。NaN とほかの等しい値は決定 B のまま。テスト: `tests/pl/arith.pl` の `l2_max_zero_*` と `l2_min_zero_*`。
+
+フェーズ 10（2026-11-12、ADR 0025）から、double の範囲を越える整数は浮動小数点数に直せないので、それと浮動小数点数の `max/2` と `min/2` は `evaluation_error(float_overflow)` になる（下の 8.7、9.3.8 と 9.3.9。持ち主が確かめるまでの既定 A）。
 
 ## 6.3.3 複合項の名前としての `[]` と `{}`
 
@@ -762,3 +774,27 @@ A か B か（レビュー L8）: Windows でも stdin、stdout、stderr を bin
 ## 13211-3 文法規則: 本文の出どころ
 
 13211-1 に文法規則は無い。SPEC 第 3 節はフェーズ 8 から ISO/IEC 13211-3 を拠り所にする。リポジトリに 13211-3 の本文は無く、ADR 0024 は本文なしで、Prolog の処理系に共通する動作から書いた。そのため 13211-3 の条番号はまだ引いていない。本文が手に入るまで `tests/pl/dcg.pl` のテストは自前のもので、手に入ったら Examples を写す。ADR 0024 と本文が食い違う点は、条番号を付けてここに 1 項目ずつ書く。
+
+## 7.11.1.2 と 7.11.1.3 `bounded` が false のときの `max_integer` と `min_integer`
+
+リポジトリに ISO/IEC 13211-1 の本文は無いので、字面では決まらない。フェーズ 10 は旗 `bounded` を false にし（7.11.1.1）、7.11.1.2 と 7.11.1.3 が `bounded` が false のときにも `max_integer` と `min_integer` を定めるかは、本文なしには決まらない。準拠スイートがこの 2 つを読むのは `bounded` が true のときだけで（`iso_current_prolog_flag_2_03`、`04`）、`tests/pl/read.pl`（補助述語 `m1_min`、22 件）と `flags.pl` は int64 の境界として読む。フェーズ 9 の設計の「7.11.1.2 により外す」は本文を確かめた記述ではないので、根拠にしない。
+
+A か B か: A は旗を残し、int64 の境界（2^63-1 と -2^63）を返す（SWI-Prolog と Scryer Prolog と同じ）。B は旗を無くし、`current_prolog_flag(max_integer, X)` は、未知の旗と同じく `domain_error(prolog_flag, max_integer)` を投げる（8.17.2。`src/builtins/flags.cpp`）。
+
+持ち主が確かめるまでは A。
+
+## 8.7、9.3.8 と 9.3.9 double の範囲を越える整数と浮動小数点数
+
+リポジトリに ISO/IEC 13211-1 の本文は無い。フェーズ 10 は double に収まらない大きさの整数を許す。それを浮動小数点数と比べるとき、および `min/2` と `max/2`（上の 9.3.8 の決定 B）では、整数を浮動小数点数に直す。スイートの `lgt_unbounded_float_03`（`float(7^7^7)`）は `float_overflow` を期待し、浮動小数点数を混ぜる 4 件（`13.42e+33` との `+`、`-`、`*`、`/`）は double の範囲の中にある。
+
+A か B か: A は 9.3.8 の規則（浮動小数点数に直す）のままにし、直せない値は `evaluation_error(float_overflow)` にする。B は正確に比べ、`2^2000 > 1.0` を真にする（`cmp_nums` と `min/2`、`max/2` に正確な比較が要る）。
+
+持ち主が確かめるまでは A。
+
+## 8.17.4 halt/1
+
+ISO/IEC 13211-1 の 8.17.4 は終了状態に整数を取るが、OS が受け取れない整数をどうするかは書いていない。終了状態は C++ の `int` で OS に渡る。フェーズ10 の前の Mosa は int64 を検査せずに `int` へ変えていたので、`halt(4294967296)` は終了状態 0 で終わった。フェーズ10 は int64 を越える整数（Big）を足す。
+
+A か B か: A は C++ の `int` の外の整数を、正なら `representation_error(max_integer)`、負なら `representation_error(min_integer)` にする（7.12.2 g の Flag）。`int` の外の int64 にも Big にも同じ規則を当てる。B は整数の下位のビットを OS に渡す。
+
+決定（2026-11-13）: A（所有者の決定 A）。B は採らない。IR の腕 `arm_halt`（`src/machine/catch.cpp`）と組み込みの入口 `run_halt`（`src/builtins/control.cpp`）は、1 つの検査 `halt_code_problem`（`control.cpp`）を共に使う。インタプリタの `compile.cpp` も mosac の codegen（`emit_body.cpp`）も `halt` を `IrTag::Halt` に下ろすので、解釈するコードと翻訳したコードはどちらも `arm_halt` を通る。テストは `tests/pl/bigint.pl` の `halt_*`。`int` の中の整数は今までどおりそのまま OS に渡り、OS がその下位のビットを取る（たとえば POSIX では 8 ビット）。

@@ -9,7 +9,9 @@
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
 // 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
 // 0' の直後の空白だけは文字コードの本体なので、レイアウト文に数えない。
-// テスト: tests/pl/atoms.pl（atom_number は atom_number_*）
+// 文字コードのリストの Big は、範囲の外の int64 と同じく representation_error(character_code)（フェーズ10、設計の 8）。
+// テスト: tests/pl/atoms.pl（atom_number は atom_number_*）、int64 を越える数は tests/pl/bigint.pl（nc_big、
+// atom_number_big、number_codes_big）と tests/pl/read.pl（m1_number_codes_*）
 
 #include "../machine/internal.hpp"
 
@@ -18,7 +20,6 @@
 #include "mosa/writer.hpp"
 
 #include <cstdint>
-#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -28,9 +29,8 @@
 namespace mosa {
 namespace {
 
-bool is_int_cell(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
-
-bool is_number_cell(Cell cell) { return is_int_cell(cell) || cell.tag() == Tag::Float; }
+// 数の引数は Big も数である（ADR 0025）。リストの要素の文字コードは、Big も整数として型の検査を通し、範囲で拒む。
+bool is_number_cell(Cell cell) { return is_integer_tag(cell.tag()) || cell.tag() == Tag::Float; }
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
 
@@ -55,11 +55,11 @@ bool reject_number_items(Impl& machine, const Goal& goal, const WalkedList& walk
   for (const Cell item : walked.items) {
     if (machine.heap.unbound(item)) continue;
     if (codes) {
-      if (!is_int_cell(item)) {
+      if (!is_integer_tag(item.tag())) {
         type_at(machine, goal, "integer", item);
         return true;
       }
-      if (!scalar_code(machine.heap.integer_value(item))) {
+      if (!code_point_cell(machine, item)) {
         raise_formal(machine, formal_representation(machine, "character_code"), goal.name, goal.arity);
         return true;
       }
@@ -182,12 +182,14 @@ Parsed parse_number(Impl& machine, std::string_view text) {
   const Scan end = lexer.next();
   if (end.failure) return Parsed{std::nullopt, end.failure->reason};
   if (!consumed_number(first, end, signed_text.body)) return {};
+  if (first.token.kind == TokenKind::Integer && first.token.big) {
+    // 大きさ 2^63 の負の数は、Big を反転して正規化すると IntBox の min_integer になる（reader の - N と同じ）。
+    const BigInt& magnitude = *first.token.big;
+    return Parsed{machine.heap.big(signed_text.negative ? -magnitude : magnitude)};
+  }
   if (first.token.kind == TokenKind::Integer) {
-    // 2^63 は - が付くときだけ数で、integer はすでに min_integer である（レビュー M1）。
-    if (first.token.needs_minus && !signed_text.negative) return Parsed{std::nullopt, SyntaxReason::IntegerOverflow};
-    auto value = first.token.integer;
-    if (signed_text.negative && value > 0) value = -value;
-    return Parsed{machine.heap.integer(value)};
+    const std::int64_t value = first.token.integer;
+    return Parsed{machine.heap.integer(signed_text.negative ? -value : value)};
   }
   double value = first.token.floating;
   if (signed_text.negative) value = -value;

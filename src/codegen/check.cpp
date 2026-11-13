@@ -46,7 +46,7 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
     case IrTag::Call: {
       if (goal.args.empty()) return;
       const IrTerm view = goal_view(machine, goal.args[0]);
-      if (!goal_leaves_all(view, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; })) return;
+      if (!goal_leaves_all(view, [](IrTag tag) { return !is_number_ir(tag); })) return;
       collect_goals(machine, view, module, out);
       return;
     }
@@ -62,6 +62,8 @@ void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module
       }
       out.push_back(PredKey{module, goal.atom, static_cast<std::uint16_t>(goal.args.size())});
       return;
+    // Big は数なので述語を名指さない。呼べない葉は Call の節点で call/1 が拒む。
+    case IrTag::Big:
     default: return;
   }
 }

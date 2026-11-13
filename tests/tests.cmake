@@ -30,6 +30,23 @@ target_include_directories(cell_test PRIVATE tests/cpp)
 target_link_libraries(cell_test PRIVATE mosa_lib)
 add_test(NAME cell COMMAND $<TARGET_FILE:cell_test>)
 
+add_executable(bigint_test tests/cpp/bigint_test.cpp)
+target_include_directories(bigint_test PRIVATE tests/cpp)
+target_link_libraries(bigint_test PRIVATE mosa_lib)
+add_test(NAME bigint COMMAND $<TARGET_FILE:bigint_test>)
+
+add_executable(bigint_heap_test tests/cpp/bigint_heap_test.cpp)
+target_include_directories(bigint_heap_test PRIVATE tests/cpp src)
+target_link_libraries(bigint_heap_test PRIVATE mosa_lib)
+add_test(NAME bigint_heap COMMAND $<TARGET_FILE:bigint_heap_test>)
+set_tests_properties(bigint_heap PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
+add_executable(bigint_copy_test tests/cpp/bigint_copy_test.cpp)
+target_include_directories(bigint_copy_test PRIVATE tests/cpp src)
+target_link_libraries(bigint_copy_test PRIVATE mosa_lib)
+add_test(NAME bigint_copy COMMAND $<TARGET_FILE:bigint_copy_test>)
+set_tests_properties(bigint_copy PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 add_executable(unify_test tests/cpp/unify_test.cpp)
 target_include_directories(unify_test PRIVATE tests/cpp)
 target_link_libraries(unify_test PRIVATE mosa_lib)
@@ -115,6 +132,12 @@ target_include_directories(state_limit_test PRIVATE tests/cpp)
 target_link_libraries(state_limit_test PRIVATE mosa_lib)
 add_test(NAME state_limit COMMAND $<TARGET_FILE:state_limit_test>)
 set_tests_properties(state_limit PROPERTIES TIMEOUT 300)
+# フェーズ10（ADR 0025）。Big の算術は結果の大きさを先に見積もり、ヒープの上限で止まる。
+add_executable(bigint_limit_test tests/cpp/bigint_limit_test.cpp)
+target_include_directories(bigint_limit_test PRIVATE tests/cpp)
+target_link_libraries(bigint_limit_test PRIVATE mosa_lib)
+add_test(NAME bigint_limit COMMAND $<TARGET_FILE:bigint_limit_test>)
+set_tests_properties(bigint_limit PROPERTIES TIMEOUT 300)
 
 # mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
 add_executable(gc_test tests/cpp/gc_test.cpp)
@@ -519,7 +542,7 @@ add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
 
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
 foreach(emit_case hello broken undefined undefined_catch undefined_quoted undefined_handled refused duplicate silent newop refused_op halt
-  trigraph)
+  trigraph bigint)
   add_test(NAME mosac_emit_${emit_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${emit_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_${emit_case} "-DGENERATOR=${CMAKE_GENERATOR}"
@@ -716,9 +739,10 @@ endif()
 # （翻訳側の configure を本体と同じ生成器、コンパイラ、旗で行う）。報告 docs/agreement.{json,md} は 2 つのテストが
 # 同じファイルに書くので、RESOURCE_LOCK で同時に走らせない。japanese.pl と native.pl が含まれることと、native.pl に
 # 生成関数が 1 つ以上付いたこと（ATTACHED）も確かめる。
-# bench/ の 6 本は tests/pl/bench_<名前>.pl が include し、最初の解の確かめと短い bench(N) を両方の側で比べる
+# bench/ の 7 本は tests/pl/bench_<名前>.pl が include し、最初の解の確かめと短い bench(N) を両方の側で比べる
 # （計画 Task 13）。どれも比べた一覧に出て、生成関数が付いたこと。
-set(diff_bench_files bench_nrev.pl bench_queens.pl bench_zebra.pl bench_tak.pl bench_deriv.pl bench_crypt.pl)
+set(diff_bench_files bench_nrev.pl bench_queens.pl bench_zebra.pl bench_tak.pl bench_deriv.pl bench_crypt.pl
+  bench_bigint.pl)
 add_test(NAME diff_tests_pl COMMAND ${CMAKE_COMMAND}
   -DMOSATEST=$<TARGET_FILE:mosatest> -DDIR=tests/pl -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/diff_tests_pl
   "-DCMAKE_PATH=${CMAKE_COMMAND}" "-DCONFIG=$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Release>"

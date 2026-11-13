@@ -4,15 +4,19 @@
 //   instantiation_error, type_error(callable, Goal)
 // 8.15.3 repeat/0
 // 8.17.3 halt/0、8.17.4 halt/1 (+integer)
-//   instantiation_error, type_error(integer, Code)
+//   instantiation_error, type_error(integer, Code)、representation_error(max_integer | min_integer)（Code が C++ の
+//   int の外。Big も int の外の int64 も同じ。iso-notes「8.17.4 halt/1」の決定 A。halt_code_problem は IR の
+//   halt/1（catch.cpp の arm_halt）と共に使う）
 // forall/2 (+callable_term, +callable_term) と if/3 (+callable_term, +callable_term, +callable_term) は非 ISO
 //   instantiation_error, type_error(callable, Goal)
 // phrase/2,3 は phrase.cpp（ここは振り分けだけ）
-// テスト: tests/pl/control.pl
+// テスト: tests/pl/control.pl、tests/pl/bigint.pl（halt_*）
 
 #include "../machine/internal.hpp"
 
 #include <array>
+#include <limits>
+#include <optional>
 #include <vector>
 
 namespace mosa {
@@ -198,17 +202,32 @@ bool run_halt(Impl& machine, const Goal& goal) {
     instantiation(machine, goal);
     return true;
   }
-  if (code.tag() != Tag::Int && code.tag() != Tag::IntBox) {
-    raise_formal(machine, formal_type(machine, "integer", code), goal.name, goal.arity);
+  int status = 0;
+  if (const auto problem = halt_code_problem(machine, code, status)) {
+    raise_formal(machine, *problem, goal.name, goal.arity);
     return true;
   }
   machine.halt_now = true;
-  machine.halt_code = static_cast<int>(machine.heap.integer_value(code));
+  machine.halt_code = status;
   machine.ip = kNoFrame;
   return true;
 }
 
 }  // namespace
+
+// 終了状態を OS に渡すのは C++ の int なので、その外の整数は切り詰めずに表現の誤りにする。7.12.2 g の Flag で、
+// 正の側は max_integer、負の側は min_integer（int の上限と下限の意味で使う）。Big は符号だけで側が決まる。
+std::optional<Cell> halt_code_problem(Impl& machine, Cell code, int& status) {
+  if (!is_integer_tag(code.tag())) return formal_type(machine, "integer", code);
+  const bool big = code.tag() == Tag::Big;
+  const bool negative = integer_negative(machine, code);
+  if (big || machine.heap.integer_value(code) > std::numeric_limits<int>::max() ||
+      machine.heap.integer_value(code) < std::numeric_limits<int>::min()) {
+    return formal_representation(machine, negative ? "min_integer" : "max_integer");
+  }
+  status = static_cast<int>(machine.heap.integer_value(code));
+  return std::nullopt;
+}
 
 // forall/2 は \+ (Cond, \+ Action) を呼び手の文脈で走らせる（iso-notes「Section 7 forall/2」の決定 A）。
 // (Cond, \+ Action) を一度だけ訳して調べる。\+ Action は呼べる葉なので、呼べない部分があればそれは Cond にあり、

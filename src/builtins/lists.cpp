@@ -4,6 +4,8 @@
 //   instantiation_error, type_error(list, Pairs), type_error(pair, E), type_error(list, Sorted)
 // length/2 (?list, ?integer)。13211-1 に条項は無く、SPEC 第5節の表で system に置き library(lists) が公開し直す。
 //   type_error(integer, N), type_error(list, List), domain_error(not_less_than_zero, N)
+//   N が Big（フェーズ10、設計の 8）なら、負は domain_error、正は閉じたリストで失敗し、開いたリストではリストを
+//   作る前にヒープの上限で止まる（ResourceLimit）。
 // sort(+integer, +atom, +list, -list)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog の pl-list.c に合わせる。
 //   Key が 0 なら要素全体、正の整数ならその番目の引数を鍵にする。Order は @< @=< @> @>= と同じ意味の < =< > >=。
 //   @< と @> は鍵の等しい要素のうち入力で最初のものだけを残し、@=< と @>= は等しい鍵の順を保つ。
@@ -11,8 +13,9 @@
 //   instantiation_error, domain_error(not_less_than_one, Key), type_error(sort_key, Key), type_error(atom, Order),
 //   domain_error(order, Order), type_error(list, List), type_error(compound, E), existence_error(argument, Key, E)。
 //   SWI-Prolog は原子の Key（辞書の鍵）とリストの Key（鍵の道）も受けるが、Mosa に辞書は無く、どちらも
-//   type_error(sort_key, Key) にする。
-// テスト: tests/pl/lib_lists.pl、tests/pl/utilities.pl
+//   type_error(sort_key, Key) にする。Key の Big（フェーズ10）は、負なら domain_error(not_less_than_one)、正なら
+//   どの項数より大きいので、大きすぎる int64 と同じく最初の要素で existence_error(argument, Key, E)。
+// テスト: tests/pl/lib_lists.pl、tests/pl/utilities.pl、tests/pl/bigint.pl、tests/cpp/bigint_limit_test.cpp
 #include "../machine/internal.hpp"
 
 #include <algorithm>
@@ -29,7 +32,9 @@ constexpr std::uint8_t kLengthGen = 6;
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+// int64 の整数だけ（Big を含めない）。integer_value で値を読む前の検査なので、Big を含めると読んだところで止まる。
+// length/2 は Big を先に別の道で受ける（run_length、tests/pl/bigint.pl の length_big と length_big_closed）。
+bool is_int64(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool is_pair(const Impl& machine, Cell cell) {
   return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
@@ -79,6 +84,9 @@ void run_sort(Impl& machine, const Goal& goal, bool keyed) {
 
 struct SortBy {
   std::int64_t key = 0;
+  // 正の Big の Key。key は読まず、どの要素にもその番目の引数は無い。誤りの項には元の Key を出す。
+  bool big_key = false;
+  Cell key_cell{};
   bool descending = false;
   bool unique = false;
 };
@@ -86,9 +94,14 @@ struct SortBy {
 std::optional<Cell> sort_key_problem(Impl& machine, Cell key, SortBy& by) {
   key = machine.heap.deref(key);
   if (machine.heap.unbound(key)) return formal_instantiation(machine);
-  if (!is_int(key)) return formal_type(machine, "sort_key", key);
+  if (!is_integer_tag(key.tag())) return formal_type(machine, "sort_key", key);
+  by.key_cell = key;
+  if (integer_negative(machine, key)) return formal_domain(machine, "not_less_than_one", key);
+  if (key.tag() == Tag::Big) {
+    by.big_key = true;
+    return std::nullopt;
+  }
   by.key = machine.heap.integer_value(key);
-  if (by.key < 0) return formal_domain(machine, "not_less_than_one", key);
   return std::nullopt;
 }
 
@@ -110,7 +123,7 @@ std::optional<Cell> sort_keys_problem(Impl& machine, const SortBy& by, const std
                                       std::vector<Cell>& keys) {
   keys.reserve(items.size());
   for (const Cell item : items) {
-    if (by.key == 0) {
+    if (by.key == 0 && !by.big_key) {
       keys.push_back(item);
       continue;
     }
@@ -118,7 +131,7 @@ std::optional<Cell> sort_keys_problem(Impl& machine, const SortBy& by, const std
     if (machine.heap.unbound(term)) return formal_instantiation(machine);
     if (term.tag() != Tag::Str && term.tag() != Tag::Lis) return formal_type(machine, "compound", term);
     const std::int64_t arity = term.tag() == Tag::Lis ? 2 : machine.heap.functor_arity(term);
-    if (by.key > arity) return formal_existence_at(machine, "argument", machine.heap.integer(by.key), term);
+    if (by.big_key || by.key > arity) return formal_existence_at(machine, "argument", by.key_cell, term);
     if (term.tag() == Tag::Lis) keys.push_back(by.key == 1 ? machine.heap.list_head(term) : machine.heap.list_tail(term));
     else keys.push_back(machine.heap.arg(term, static_cast<std::uint16_t>(by.key - 1)));
   }
@@ -173,10 +186,10 @@ struct LengthShape {
 std::optional<Cell> length_problem(Impl& machine, const Goal& goal, LengthShape& shape) {
   const Cell list = machine.heap.deref(goal.arg(machine, 0));
   const Cell count = machine.heap.deref(goal.arg(machine, 1));
-  if (!machine.heap.unbound(count) && !is_int(count)) return formal_type(machine, "integer", count);
+  if (!machine.heap.unbound(count) && !is_integer_tag(count.tag())) return formal_type(machine, "integer", count);
   const WalkedList walked = walk_list(machine, list);
   if (walked.shape == ListShape::Bad) return formal_type(machine, "list", list);
-  if (is_int(count) && machine.heap.integer_value(count) < 0) {
+  if (!machine.heap.unbound(count) && integer_negative(machine, count)) {
     return formal_domain(machine, "not_less_than_zero", count);
   }
   shape.prefix = walked.items.size();
@@ -221,7 +234,10 @@ void run_length(Impl& machine, const Goal& goal) {
     else machine.failed = true;
     return;
   }
-  if (is_int(count)) {
+  // 正の Big の長さのリストは、どのヒープの上限にも入らない。大きすぎる int64 は変数を作り続けて上限で止まるが、
+  // 同じ止まり方を、作り始める前に出す（ヒープを伸ばさない。bigint_limit_test の length_big）。
+  if (count.tag() == Tag::Big) throw ResourceLimit("heap_limit");
+  if (is_int64(count)) {
     const auto wanted = static_cast<std::size_t>(machine.heap.integer_value(count));
     if (wanted >= shape.prefix && bind_length(machine, goal, shape, wanted)) succeed(machine, goal);
     else machine.failed = true;

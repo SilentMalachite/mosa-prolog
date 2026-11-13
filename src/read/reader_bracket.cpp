@@ -89,8 +89,6 @@ Reader::Parsed Reader::open_argument(std::size_t filled) {
   if (filled == 1024) {
     const Scan extra = peek();
     if (extra.failure) return failure_of(extra);
-    // 2^63 は字句で溢れにならないので、溢れを先にするのはここで決める（レビュー M1）。
-    if (extra.token.kind == TokenKind::Integer && extra.token.needs_minus) return bad_token(extra.token);
     return max_arity(extra.token);
   }
   return reject_empty_comma();

@@ -1,14 +1,19 @@
 // 規格 8.5.1 functor/3、8.5.2 arg/3、8.5.3 =../2、8.5.4 copy_term/2、8.5.5 term_variables/2（Cor.2）。
 // numbervars(?term, +integer, ?integer)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog に合わせる。
 //   Term の変数を左からの前順に '$VAR'(Start)、'$VAR'(Start+1)… に束縛し、End を次の番号と単一化する。
-//   instantiation_error（Start が変数）、type_error(integer, Start)、representation_error(max_integer)（番号が
-//   あふれる。SWI-Prolog はタグ付き整数の範囲で representation_error(tagged_integer) だが、Mosa の整数は 64 ビット）。
+//   instantiation_error（Start が変数）、type_error(integer, Start)。番号に上限は無く、int64 を越えれば Big になる
+//   （フェーズ10。SWI-Prolog はタグ付き整数の範囲で representation_error(tagged_integer)）。
 //   End が整数でないか数が合わなければ、誤りにせず、変数を束縛せずに失敗する（SWI-Prolog の pl-prims.c も失敗）。
-// テスト: tests/pl/terms.pl、tests/pl/utilities.pl
+// 整数の引数の Big（フェーズ10、設計の 8）: functor/3 の項数は負なら domain_error(not_less_than_zero)、正なら
+//   representation_error(max_arity)。arg/3 の番号は負なら domain_error(not_less_than_zero)、正なら失敗する。
+// テスト: tests/pl/terms.pl、tests/pl/utilities.pl、tests/pl/bigint.pl、tests/cpp/bigint_heap_test.cpp
 #include "../machine/internal.hpp"
+
+#include "mosa/bigint.hpp"
 
 #include <array>
 #include <limits>
+#include <optional>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -20,10 +25,13 @@ namespace {
 // SPEC 第3節の max_arity。セルの 11bit は 2047 まで入るが、ここが上限である。
 constexpr std::uint16_t kMaxArity = 1024;
 
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+// int64 の整数だけ（Big を含めない）。integer_value で値を読む前の検査に使うので、Big を含めると読んだところで止まる。
+// 呼び手は Big を別の枝で受ける（functor/3 の分解、numbervars/3 の number_vars_big）。名前を is_int にしないのは、
+// Big を含む types.cpp の is_int と取り違えないため。
+bool is_int64(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
 
 bool is_atomic(Cell cell) {
-  return cell.tag() == Tag::Atom || is_int(cell) || cell.tag() == Tag::Float;
+  return cell.tag() == Tag::Atom || is_integer_tag(cell.tag()) || cell.tag() == Tag::Float;
 }
 
 bool is_compound(Cell cell) { return cell.tag() == Tag::Str || cell.tag() == Tag::Lis; }
@@ -51,9 +59,10 @@ Cell list_from(Impl& machine, const std::vector<Cell>& items) {
 void decompose_functor(Impl& machine, const Goal& goal, Cell term) {
   Cell name = machine.heap.atom(0);
   Cell arity = machine.heap.integer(0);
-  if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) {
+  if (is_atomic(term)) {
     if (term.tag() == Tag::Atom) name = term;
-    else if (is_int(term)) name = machine.heap.integer(machine.heap.integer_value(term));
+    else if (is_int64(term)) name = machine.heap.integer(machine.heap.integer_value(term));
+    else if (term.tag() == Tag::Big) name = machine.heap.big(machine.heap.big_value(term));
     else name = machine.heap.floating(machine.heap.float_value(term));
     arity = machine.heap.integer(0);
   } else if (term.tag() == Tag::Lis) {
@@ -84,6 +93,15 @@ Cell make_term(Impl& machine, Cell name, const std::vector<Cell>& args) {
   return machine.heap.structure(atom_id(name), args);
 }
 
+// 8.5.1.3 の順で、負の項数を上限より先に見る。正の Big はどの int64 より大きいので、上限を越える側に入る。
+std::optional<Cell> arity_problem(Impl& machine, Cell arity) {
+  if (integer_negative(machine, arity)) return formal_domain(machine, "not_less_than_zero", arity);
+  if (arity.tag() == Tag::Big || machine.heap.integer_value(arity) > kMaxArity) {
+    return formal_representation(machine, "max_arity");
+  }
+  return std::nullopt;
+}
+
 void construct_functor(Impl& machine, const Goal& goal, Cell name, std::int64_t arity) {
   if (arity == 0) {
     if (!do_unify(machine, goal.arg(machine, 0), name)) machine.failed = true;
@@ -109,7 +127,8 @@ void run_functor(Impl& machine, const Goal& goal) {
     return;
   }
   if (!term_var) {
-    if (!arity_var && !is_int(arity_cell)) {
+    // 分解は項数を読まずに単一化するだけなので、Big の項数も整数として通し、0 か 2 か元の項数と合わずに失敗させる。
+    if (!arity_var && !is_integer_tag(arity_cell.tag())) {
       raise_formal(machine, formal_type(machine, "integer", arity_cell), goal.name, goal.arity);
       return;
     }
@@ -120,19 +139,15 @@ void run_functor(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_type(machine, "atomic", name), goal.name, goal.arity);
     return;
   }
-  if (!is_int(arity_cell)) {
+  if (!is_integer_tag(arity_cell.tag())) {
     raise_formal(machine, formal_type(machine, "integer", arity_cell), goal.name, goal.arity);
     return;
   }
+  if (const auto problem = arity_problem(machine, arity_cell)) {
+    raise_formal(machine, *problem, goal.name, goal.arity);
+    return;
+  }
   const auto arity = machine.heap.integer_value(arity_cell);
-  if (arity < 0) {
-    raise_formal(machine, formal_domain(machine, "not_less_than_zero", arity_cell), goal.name, goal.arity);
-    return;
-  }
-  if (arity > kMaxArity) {
-    raise_formal(machine, formal_representation(machine, "max_arity"), goal.name, goal.arity);
-    return;
-  }
   if (arity > 0 && name.tag() != Tag::Atom) {
     raise_formal(machine, formal_type(machine, "atom", name), goal.name, goal.arity);
     return;
@@ -147,12 +162,11 @@ void run_arg(Impl& machine, const Goal& goal) {
     instantiation(machine, goal);
     return;
   }
-  if (!is_int(index)) {
+  if (!is_integer_tag(index.tag())) {
     raise_formal(machine, formal_type(machine, "integer", index), goal.name, goal.arity);
     return;
   }
-  const auto number = machine.heap.integer_value(index);
-  if (number < 0) {
+  if (integer_negative(machine, index)) {
     raise_formal(machine, formal_domain(machine, "not_less_than_zero", index), goal.name, goal.arity);
     return;
   }
@@ -160,6 +174,12 @@ void run_arg(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_type(machine, "compound", term), goal.name, goal.arity);
     return;
   }
+  // 正の Big はどの項数よりも大きい番号なので、大きすぎる int64 と同じく失敗する。
+  if (index.tag() == Tag::Big) {
+    machine.failed = true;
+    return;
+  }
+  const auto number = machine.heap.integer_value(index);
   const auto arity = term.tag() == Tag::Lis ? std::int64_t{2} : machine.heap.functor_arity(term);
   if (number == 0 || number > arity) {
     machine.failed = true;
@@ -191,7 +211,7 @@ ListRead proper_items(Impl& machine, Cell list, std::vector<Cell>& items) {
 
 void univ_from_term(Impl& machine, const Goal& goal, Cell term) {
   std::vector<Cell> items;
-  if (term.tag() == Tag::Atom || is_int(term) || term.tag() == Tag::Float) items.push_back(term);
+  if (is_atomic(term)) items.push_back(term);
   else if (term.tag() == Tag::Lis) {
     items.push_back(machine.heap.atom(machine.atoms.intern(".")));
     items.push_back(machine.heap.list_head(term));
@@ -328,23 +348,13 @@ void run_variables(Impl& machine, const Goal& goal) {
   else succeed(machine, goal);
 }
 
-void run_numbervars(Impl& machine, const Goal& goal) {
-  const Cell start = machine.heap.deref(goal.arg(machine, 1));
-  if (machine.heap.unbound(start)) return instantiation(machine, goal);
-  if (!is_int(start)) {
-    raise_formal(machine, formal_type(machine, "integer", start), goal.name, goal.arity);
-    return;
-  }
-  const std::int64_t first = machine.heap.integer_value(start);
-  const std::vector<Cell> vars = collect_vars(machine, goal.arg(machine, 0));
+// 番号が int64 に収まる間の道。箱を作らずに数える。
+void number_vars_small(Impl& machine, const Goal& goal, const std::vector<Cell>& vars, std::int64_t first) {
   const auto count = static_cast<std::int64_t>(vars.size());
-  if (first > std::numeric_limits<std::int64_t>::max() - count) {
-    raise_formal(machine, formal_representation(machine, "max_integer"), goal.name, goal.arity);
-    return;
-  }
   // SWI-Prolog は束縛してから End を単一化して失敗する。ここでは同じ答えを、束縛する前に断って出す。
+  // first + count は int64 に収まるので、Big の End はそれと等しくならない。
   const Cell end = machine.heap.deref(goal.arg(machine, 2));
-  if (!machine.heap.unbound(end) && (!is_int(end) || machine.heap.integer_value(end) != first + count)) {
+  if (!machine.heap.unbound(end) && (!is_int64(end) || machine.heap.integer_value(end) != first + count)) {
     machine.failed = true;
     return;
   }
@@ -356,6 +366,42 @@ void run_numbervars(Impl& machine, const Goal& goal) {
   }
   if (!do_unify(machine, goal.arg(machine, 2), machine.heap.integer(first + count))) machine.failed = true;
   else succeed(machine, goal);
+}
+
+// Start が Big か、番号が int64 を越える道。heap.big は int64 に収まる番号を Int か IntBox にするので、
+// 越える前の番号は小さい道と同じ項になる。
+void number_vars_big(Impl& machine, const Goal& goal, const std::vector<Cell>& vars, const BigInt& first) {
+  const BigInt last = first + BigInt(static_cast<std::int64_t>(vars.size()));
+  const Cell end = machine.heap.deref(goal.arg(machine, 2));
+  if (!machine.heap.unbound(end) && (!is_integer_tag(end.tag()) || machine.heap.big_value(end) != last)) {
+    machine.failed = true;
+    return;
+  }
+  const std::uint32_t name = machine.atoms.intern("$VAR");
+  BigInt number = first;
+  for (const Cell var : vars) {
+    const std::array<Cell, 1> args{machine.heap.big(number)};
+    static_cast<void>(do_unify(machine, var, machine.heap.structure(name, args)));
+    number = number + BigInt(1);
+  }
+  if (!do_unify(machine, goal.arg(machine, 2), machine.heap.big(last))) machine.failed = true;
+  else succeed(machine, goal);
+}
+
+void run_numbervars(Impl& machine, const Goal& goal) {
+  const Cell start = machine.heap.deref(goal.arg(machine, 1));
+  if (machine.heap.unbound(start)) return instantiation(machine, goal);
+  if (!is_integer_tag(start.tag())) {
+    raise_formal(machine, formal_type(machine, "integer", start), goal.name, goal.arity);
+    return;
+  }
+  const std::vector<Cell> vars = collect_vars(machine, goal.arg(machine, 0));
+  const auto count = static_cast<std::int64_t>(vars.size());
+  if (is_int64(start) && machine.heap.integer_value(start) <= std::numeric_limits<std::int64_t>::max() - count) {
+    number_vars_small(machine, goal, vars, machine.heap.integer_value(start));
+  } else {
+    number_vars_big(machine, goal, vars, machine.heap.big_value(start));
+  }
 }
 
 }  // namespace

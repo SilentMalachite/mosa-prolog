@@ -38,9 +38,14 @@ namespace mosa {
 [[nodiscard]] std::vector<Cell> term_variable_cells(const Impl& machine, Cell term);
 [[nodiscard]] bool run_qualify(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_arith(Impl& machine, const Goal& goal);
+// eval_int_expression の値。int64 に収まらない値（Big）は big_sign に符号（1 か -1）を置き、value は 0 のまま。
+struct EvalInt {
+  std::int64_t value = 0;
+  int big_sign = 0;
+};
 // 式を is/2 と同じく評価する。値が整数でなければ SWI-Prolog の PL_eval_expression_to_int64_ex と同じく
 // type_error(integer_expression, 元の式)。誤りを投げたら nullopt（tab/1,2）。
-[[nodiscard]] std::optional<std::int64_t> eval_int_expression(Impl& machine, const Goal& goal, Cell cell);
+[[nodiscard]] std::optional<EvalInt> eval_int_expression(Impl& machine, const Goal& goal, Cell cell);
 struct CodeText {
   std::string bytes;
   std::vector<char32_t> codes;
@@ -66,6 +71,16 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] Cell list_from_cells(Impl& machine, const std::vector<Cell>& items);
 [[nodiscard]] bool one_char_atom(const Impl& machine, Cell cell, char32_t& code);
 [[nodiscard]] bool scalar_code(std::int64_t code);
+// 整数のセル（Int、IntBox か Big）が負か。Big は int64 の外なので、符号だけで範囲の外のどちら側かが決まる（ADR 0025 の
+// 正規形）。整数でないセルを渡さない（integer_value が止まる）。範囲の検査を Big と int64 で 1 つの式にするために置く。
+[[nodiscard]] bool integer_negative(const Impl& machine, Cell cell);
+// セルが Unicode のスカラー値の int64 か。Big はどの符号でも範囲の外なので、範囲の外の int64 と同じく偽。
+[[nodiscard]] bool code_point_cell(const Impl& machine, Cell cell);
+// '$stream'(N) の N（Int、IntBox か Big）が指す流れの番号。負、流れの数以上、Big なら nullopt（existence_error）。
+[[nodiscard]] std::optional<std::size_t> stream_number(const Impl& machine, Cell number);
+// halt/1 の終了状態（8.17.4、iso-notes「8.17.4 halt/1」の決定 A）。code は束縛済み。整数でなければ type_error(integer)、
+// C++ の int の外なら正で representation_error(max_integer)、負で representation_error(min_integer) の Formal。
+[[nodiscard]] std::optional<Cell> halt_code_problem(Impl& machine, Cell code, int& status);
 [[nodiscard]] bool run_atoms(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);

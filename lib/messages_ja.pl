@@ -19,7 +19,6 @@ message(illegal_character, '使えない文字').
 message(unterminated_quoted, '引用が閉じていない').
 message(unterminated_comment, 'コメントが閉じていない').
 message(bad_escape, '不正なエスケープ').
-message(integer_overflow, '整数が範囲を超えている').
 message(float_overflow, '浮動小数点数が範囲を超えている').
 message(unexpected_token, '予期しないトークン').
 message(max_arity, '引数が多すぎる').

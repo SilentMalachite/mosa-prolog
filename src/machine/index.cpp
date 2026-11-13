@@ -1,6 +1,7 @@
 // 第1引数で節を選ぶ（ADR 0015 とその改訂）。線形に照らすときも索引を引くときも、clause_key と cell_key の鍵の
 // 等しさだけで決める。8 節より少ない述語と多い述語で答えと順が変わらないよう、等しさの定めを一つにする。候補は列に
 // せず、走査が一歩ごとに ClauseWalk で次の候補を探す（レビュー M20）。
+// テスト: tests/cpp/clause_scan_test.cpp、tests/cpp/bigint_copy_test.cpp（Big の鍵）
 
 #include "internal.hpp"
 
@@ -31,20 +32,23 @@ std::uint64_t float_bits(double value) {
   return std::bit_cast<std::uint64_t>(value);
 }
 
-// 呼び出しの束縛した第1引数の鍵。箱の整数も即値と同じ値の鍵になる。鍵の型でないセルは nullopt で、鍵の無い節
-// だけに合う。
+// 呼び出しの束縛した第1引数の鍵。箱の整数も即値と同じ値の鍵になる。Big は節の鍵（set_key）と同じ big_key の指紋。
+// 鍵の型でないセル（未束縛の Ref）は nullopt で、鍵の無い節だけに合う。
 std::optional<IndexKey> cell_key(const Impl& machine, Cell first) {
   switch (first.tag()) {
     case Tag::Atom: return key_of(KeyKind::Atom, static_cast<std::uint32_t>(first.raw() >> 3));
     case Tag::Int:
     case Tag::IntBox:
       return key_of(KeyKind::Int, std::bit_cast<std::uint64_t>(machine.heap.integer_value(first)));
+    case Tag::Big:
+      return key_of(KeyKind::Big, big_key(machine.heap.big_negative(first), machine.heap.big_magnitude(first)));
     case Tag::Float: return key_of(KeyKind::Float, float_bits(machine.heap.float_value(first)));
     case Tag::Lis: return key_of(KeyKind::List);
     case Tag::Str:
       return key_of(KeyKind::Fun, machine.heap.functor_atom(first), machine.heap.functor_arity(first));
-    default: return std::nullopt;
+    case Tag::Ref: return std::nullopt;
   }
+  return std::nullopt;
 }
 
 void build_index(const Predicate& predicate) {
@@ -176,11 +180,15 @@ std::optional<IndexKey> clause_key(const Clause& clause) {
   switch (clause.key) {
     case KeyKind::Atom: return key_of(KeyKind::Atom, clause.key_atom);
     case KeyKind::Int: return key_of(KeyKind::Int, std::bit_cast<std::uint64_t>(clause.key_int));
+    case KeyKind::Big: return key_of(KeyKind::Big, std::bit_cast<std::uint64_t>(clause.key_int));
     case KeyKind::Float: return key_of(KeyKind::Float, float_bits(clause.key_float));
     case KeyKind::List: return key_of(KeyKind::List);
     case KeyKind::Fun: return key_of(KeyKind::Fun, clause.key_atom, clause.key_arity);
-    default: return std::nullopt;
+    case KeyKind::Any:
+    case KeyKind::None:
+    case KeyKind::Var: return std::nullopt;
   }
+  return std::nullopt;
 }
 
 IndexKey first_key(const Impl& machine, Cell first) {

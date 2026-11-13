@@ -1,5 +1,11 @@
 #include "internal.hpp"
 
+#include "mosa/bigint.hpp"
+
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <span>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -14,13 +20,29 @@ struct ExportFrame {
   std::uint16_t next;
 };
 
+// Big の絶対値の語を Int の子の節点にする（ADR 0025）。語は項ではないので frames に積まず、その場で書き終える。
+void export_big_words(const Impl& machine, Cell cell, ExportedTerm& out, int id) {
+  const auto words = machine.heap.big_magnitude(cell);
+  out.nodes[static_cast<std::size_t>(id)].kids.reserve(words.size());
+  for (const std::uint64_t word : words) {
+    ExportedTerm::Node child;
+    child.kind = ExportedTerm::Kind::Int;
+    child.integer = std::bit_cast<std::int64_t>(word);
+    out.nodes.push_back(std::move(child));
+    out.nodes[static_cast<std::size_t>(id)].kids.push_back(static_cast<int>(out.nodes.size() - 1));
+  }
+}
+
 // 1 つの項に番号を振る。複合項は番号だけ先に取って frames に積み、子は後で辿る。前の再帰と同じ前順の番号に
 // するため、子を 1 つ辿り終えるまで次の兄弟へ進まない。
+// Big も同じ箱の 2 度目からは Share にする。Big は変わらない値なので取り込みが 1 つの箱を共有してよく、出るたびに
+// 語を写すと、N 回出る Big の写しと取り込んだ箱が N 倍になる（最終レビューの Important 1）。
 int export_one(Impl& machine, Cell cell, ExportedTerm& out, std::unordered_map<std::uint64_t, int>& seen,
                std::vector<ExportFrame>& frames) {
   cell = machine.heap.deref(cell);
   const auto raw = cell.raw();
-  const bool shared = machine.heap.unbound(cell) || cell.tag() == Tag::Lis || cell.tag() == Tag::Str;
+  const bool shared = machine.heap.unbound(cell) || cell.tag() == Tag::Lis || cell.tag() == Tag::Str ||
+                      cell.tag() == Tag::Big;
   ExportedTerm::Node node;
   if (shared) {
     const auto found = seen.find(raw);
@@ -42,6 +64,9 @@ int export_one(Impl& machine, Cell cell, ExportedTerm& out, std::unordered_map<s
   } else if (cell.tag() == Tag::Float) {
     node.kind = ExportedTerm::Kind::Float;
     node.floating = machine.heap.float_value(cell);
+  } else if (cell.tag() == Tag::Big) {
+    node.kind = ExportedTerm::Kind::Big;
+    node.integer = machine.heap.big_negative(cell) ? 1 : 0;
   } else if (cell.tag() == Tag::Lis) {
     node.kind = ExportedTerm::Kind::List;
     node.arity = 2;
@@ -55,10 +80,12 @@ int export_one(Impl& machine, Cell cell, ExportedTerm& out, std::unordered_map<s
   const std::uint16_t arity = node.arity;
   if (node.kind == ExportedTerm::Kind::List) node.arity = 0;
   if (compound) node.kids.reserve(arity);
+  const bool big = node.kind == ExportedTerm::Kind::Big;
   out.nodes.push_back(std::move(node));
   const int id = static_cast<int>(out.nodes.size() - 1);
   if (shared) seen.emplace(raw, id);
   if (compound) frames.push_back(ExportFrame{id, cell, 0});
+  if (big) export_big_words(machine, cell, out, id);
   return id;
 }
 
@@ -122,6 +149,10 @@ class Importer {
     return result;
   }
 
+  // run の後で、節点 index を取り込んだセル。根から届かない Share の節点（変数の名前の写し）も、指す先の節点の
+  // セルになる。変数と Share の節点だけを渡すこと（複合項は frames に積むだけで作り終えない）。
+  Cell cell_of(int index) { return start(index); }
+
  private:
   Cell start(int index) {
     if (index < 0) return {};
@@ -135,6 +166,7 @@ class Importer {
     else if (node.kind == ExportedTerm::Kind::Atom) cell = machine_.heap.atom(node.atom);
     else if (node.kind == ExportedTerm::Kind::Int) cell = machine_.heap.integer(node.integer);
     else if (node.kind == ExportedTerm::Kind::Float) cell = machine_.heap.floating(node.floating);
+    else if (node.kind == ExportedTerm::Kind::Big) cell = big(node);
     else {
       cell = machine_.heap.fresh_ref();
       std::vector<Cell> args;
@@ -143,6 +175,17 @@ class Importer {
     }
     made_[slot] = cell;
     return cell;
+  }
+
+  // 子の Int の節点は語として読むだけで、セルにはしない。heap.big が正規形に直すので、int64 に収まる値を
+  // 持つ節点（テストの入口が作る）も Int か IntBox になる。
+  Cell big(const ExportedTerm::Node& node) {
+    std::vector<std::uint64_t> words;
+    words.reserve(node.kids.size());
+    for (const int kid : node.kids) {
+      words.push_back(std::bit_cast<std::uint64_t>(term_.nodes[static_cast<std::size_t>(kid)].integer));
+    }
+    return machine_.heap.big(BigInt::from_words(words, node.integer != 0));
   }
 
   void finish(const ImportFrame& frame, const ExportedTerm::Node& node) {
@@ -170,6 +213,15 @@ Cell import_term(Impl& machine, const ExportedTerm& term) {
   if (term.root < 0) return {};
   Importer importer(machine, term);
   return importer.run(term.root);
+}
+
+Cell import_term(Impl& machine, const ExportedTerm& term, std::span<const ExportedName> names,
+                 std::vector<Binding>& bindings) {
+  if (term.root < 0) return {};
+  Importer importer(machine, term);
+  const Cell root = importer.run(term.root);
+  for (const ExportedName& name : names) bindings.push_back(Binding{name.name, importer.cell_of(name.node)});
+  return root;
 }
 
 void propagate_throw(Impl& machine, Cell ball) {
@@ -277,11 +329,10 @@ void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, c
       raise_formal(machine, formal_instantiation(machine), name, 1);
       return;
     }
-    if (value.tag() != Tag::Int && value.tag() != Tag::IntBox) {
-      raise_formal(machine, formal_type(machine, "integer", value), name, 1);
+    if (const auto problem = halt_code_problem(machine, value, code)) {
+      raise_formal(machine, *problem, name, 1);
       return;
     }
-    code = static_cast<int>(machine.heap.integer_value(value));
   }
   machine.halt_now = true;
   machine.halt_code = code;

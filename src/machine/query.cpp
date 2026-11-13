@@ -5,6 +5,7 @@
 
 #include "mosa/reader.hpp"
 
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -99,6 +100,16 @@ Stop query_written(Machine& machine, std::string_view goal_text) {
 Stop query_exported(Machine& machine, const ExportedTerm& goal) {
   Impl& impl = engine_impl(machine);
   return open_query(impl, [&impl, &goal] { return start_goal(impl, import_term(impl, goal)); });
+}
+
+// 束縛は取り込んだ直後、走り出す前に根（machine.bindings）へ入れる。GC が途中で動いても、名前の変数は新しい番地に
+// 付いていく。片付け（drop_run）は束縛を消すので、open_query の中で足す。
+Stop query_exported(Machine& machine, const ExportedTerm& goal, std::span<const ExportedName> names) {
+  Impl& impl = engine_impl(machine);
+  return open_query(impl, [&impl, &goal, names] {
+    const Cell term = import_term(impl, goal, names, impl.bindings);
+    return start_goal(impl, term);
+  });
 }
 
 Stop Machine::next() {

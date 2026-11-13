@@ -26,7 +26,7 @@ test(succ_type, succ(a, _), error(type_error(integer, a))).
 test(succ_type_2, succ(_, a), error(type_error(integer, a))).
 test(succ_neg, succ(_, -1), error(domain_error(not_less_than_zero, -1))).
 test(succ_neg_1, succ(-1, _), error(domain_error(not_less_than_zero, -1))).
-test(succ_overflow, (current_prolog_flag(max_integer, M), succ(M, _)), error(evaluation_error(int_overflow))).
+test(succ_overflow, (current_prolog_flag(max_integer, M), succ(M, N), N =:= M + 1), true).
 % plus/3。
 test(plus_modes, plus(1, X, 3), solutions([X = 2])).
 test(plus_sum, plus(1, 2, Z), solutions([Z = 3])).
@@ -40,4 +40,4 @@ test(plus_inst_3, plus(_, _, 1), error(instantiation_error)).
 test(plus_type, plus(a, 1, _), error(type_error(integer, a))).
 test(plus_type_2, plus(1, a, _), error(type_error(integer, a))).
 test(plus_type_3, plus(_, 1, a), error(type_error(integer, a))).
-test(plus_overflow, (current_prolog_flag(max_integer, M), plus(M, 1, _)), error(evaluation_error(int_overflow))).
+test(plus_overflow, (current_prolog_flag(max_integer, M), plus(M, 1, N), N =:= M + 1), true).

@@ -1,6 +1,9 @@
 #include "mosa/ir.hpp"
 
+#include <bit>
 #include <cstddef>
+#include <cstdint>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -96,6 +99,27 @@ IrTerm& IrTerm::operator=(IrTerm&& other) noexcept {
   floating = taken.floating;
   args.swap(taken.args);
   return *this;
+}
+
+// 語を Int の子にするのは ExportedTerm と同じ持ち方（ADR 0025）で、写しと破棄と指紋が子をたどるだけで語に届く。
+IrTerm big_ir(bool negative, std::span<const std::uint64_t> magnitude) {
+  IrTerm term;
+  term.tag = IrTag::Big;
+  term.integer = negative ? 1 : 0;
+  term.args.reserve(magnitude.size());
+  for (const std::uint64_t word : magnitude) {
+    IrTerm& child = term.args.emplace_back();
+    child.tag = IrTag::Int;
+    child.integer = std::bit_cast<std::int64_t>(word);
+  }
+  return term;
+}
+
+std::vector<std::uint64_t> big_words(const IrTerm& term) {
+  std::vector<std::uint64_t> words;
+  words.reserve(term.args.size());
+  for (const IrTerm& child : term.args) words.push_back(std::bit_cast<std::uint64_t>(child.integer));
+  return words;
 }
 
 }

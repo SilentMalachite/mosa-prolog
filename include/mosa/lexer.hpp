@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mosa/bigint.hpp"
 #include "mosa/char_conv.hpp"
 #include "mosa/syntax_error.hpp"
 
@@ -16,16 +17,16 @@ enum class TokenKind { End, Name, Variable, Integer, Float, String, Solo, EndFul
 struct Token {
   TokenKind kind = TokenKind::End;
   std::string text;
+  // 整数の大きさ（字句の整数は符号を持たない）。int64 に入る大きさは integer、入らない大きさは big が持つ（ADR 0025）。
+  // 2^63 も big で、- の後ろで符号を付けて正規化すると IntBox の min_integer に戻る（6.3.4.1）。
   std::int64_t integer = 0;
+  std::optional<BigInt> big;
   double floating = 0;
   std::size_t line = 1;
   std::size_t column = 1;
   std::size_t byte = 0;
   // 空白や注釈の直後の '(' は関数表記ではない。
   bool after_layout = false;
-  // 大きさがちょうど 2^63 の整数。- の後ろでだけ負の定数 min_integer になり（6.3.4.1、レビュー M1）、integer は
-  // そのとき使う値 min_integer を持つ。ほかの位置では読む側が integer_overflow にする。
-  bool needs_minus = false;
 };
 
 struct Scan {
@@ -78,7 +79,7 @@ class Lexer {
 
   struct Digits {
     std::string spelling;
-    // 大きさは 2^63 まで数える。符号を付けると min_integer になる 2^63 を、溢れと分けるため。
+    // 大きさは int64 の最大値まで数える。越えたら overflow を立て、整数のトークンを作るときに綴りから Big を読む。
     std::uint64_t value = 0;
     bool overflow = false;
     bool bad_separator = false;
@@ -119,7 +120,7 @@ class Lexer {
   [[nodiscard]] bool radix_ready(int base) const;
   [[nodiscard]] Scan scan_char_code(Place start);
   [[nodiscard]] Scan scan_radix(int base, char prefix, Place start);
-  [[nodiscard]] Scan integer_token(std::uint64_t magnitude, std::string spelling, Place start);
+  [[nodiscard]] Scan integer_token(const Digits& digits, int base, Place start);
   [[nodiscard]] Scan scan_decimal(Place start);
   [[nodiscard]] Digits read_digits(int base);
   [[nodiscard]] Scan finish_float(std::string spelling, Place start);

@@ -1,4 +1,4 @@
-// 型検査（8.3）と unify_with_occurs_check/2（8.2.2）、is_list/1。
+// 型検査（8.3）と unify_with_occurs_check/2（8.2.2）、is_list/1。Big の型検査は tests/cpp/bigint_heap_test.cpp。
 // ground/1 は Cor.2 の 8.3.10。ground(?term)。エラーは投げない。テストは tests/pl/types.pl、tests/pl/unify.pl、
 // tests/stack/deep_builtins.pl。
 // acyclic_term/1 は Cor.2 の 8.3.11。acyclic_term(@term)。エラーは投げない。テストは tests/pl/types.pl。
@@ -17,7 +17,8 @@
 namespace mosa {
 namespace {
 
-bool is_int(Cell cell) { return cell.tag() == Tag::Int || cell.tag() == Tag::IntBox; }
+// このファイルは整数の値を読まないので、int64 の外の Big も同じ整数として通す（ADR 0025）。
+bool is_int(Cell cell) { return is_integer_tag(cell.tag()); }
 
 bool is_atomic(const Impl& machine, Cell cell) {
   cell = machine.heap.deref(cell);

@@ -1,7 +1,7 @@
 // 8.4.1 ==/2、\==/2、@</2、@=</2、@>/2、@>=/2（@term, @term）。エラー無し。
 // 8.4.2 compare/3（?atom, @term, @term）
 //   type_error(atom), domain_error(order)
-// テスト: tests/pl/order.pl
+// テスト: tests/pl/order.pl、tests/cpp/bigint_heap_test.cpp
 
 #include "../machine/internal.hpp"
 
@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -18,10 +19,11 @@
 namespace mosa {
 namespace {
 
+// 7.2: 変数、浮動小数点数、整数、アトム、複合項の順。Big も整数の順位で、int64 の整数と値で並ぶ。
 int rank_of(const Impl& machine, Cell cell) {
   if (machine.heap.unbound(cell)) return 0;
   if (cell.tag() == Tag::Float) return 1;
-  if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox) return 2;
+  if (is_integer_tag(cell.tag())) return 2;
   if (cell.tag() == Tag::Atom) return 3;
   return 4;
 }
@@ -61,6 +63,34 @@ class PairSeen {
   std::optional<std::unordered_set<std::pair<std::uint64_t, std::uint64_t>, PairHash>> many_;
 };
 
+// 正規形の絶対値の語（下位が先、最上位の語は 0 でない）。語の数が違えば多い方が大きいので、同じ数のときだけ上位から比べる。
+int compare_magnitudes(std::span<const std::uint64_t> a, std::span<const std::uint64_t> b) {
+  if (a.size() != b.size()) return a.size() < b.size() ? -1 : 1;
+  for (std::size_t index = a.size(); index > 0; --index) {
+    if (a[index - 1] != b[index - 1]) return a[index - 1] < b[index - 1] ? -1 : 1;
+  }
+  return 0;
+}
+
+// 整数どうしの標準順序。Big は int64 に入らない（ADR 0025 の正規形）ので、片方だけが Big なら Big の符号で決まる。
+// 両方が Big なら符号、語の数、語の順に箱の中で比べ、BigInt を作らない。msort/2 や keysort/2 が比べるたびに確保しない
+// ためである（最終レビューの Minor 4）。負どうしは絶対値の大きい方が小さい。
+int compare_integers(const Impl& machine, Cell left, Cell right) {
+  const bool left_big = left.tag() == Tag::Big;
+  const bool right_big = right.tag() == Tag::Big;
+  if (!left_big && !right_big) {
+    const auto a = machine.heap.integer_value(left);
+    const auto b = machine.heap.integer_value(right);
+    return a < b ? -1 : (a > b ? 1 : 0);
+  }
+  if (!right_big) return machine.heap.big_negative(left) ? -1 : 1;
+  if (!left_big) return machine.heap.big_negative(right) ? 1 : -1;
+  const bool negative = machine.heap.big_negative(left);
+  if (negative != machine.heap.big_negative(right)) return negative ? -1 : 1;
+  const int magnitude = compare_magnitudes(machine.heap.big_magnitude(left), machine.heap.big_magnitude(right));
+  return negative ? -magnitude : magnitude;
+}
+
 int compare_scalar(const Impl& machine, Cell left, Cell right, int rank) {
   if (rank == 0) return left.raw() < right.raw() ? -1 : (left.raw() > right.raw() ? 1 : 0);
   if (rank == 1) {
@@ -75,13 +105,7 @@ int compare_scalar(const Impl& machine, Cell left, Cell right, int rank) {
     if (std::signbit(a) != std::signbit(b)) return std::signbit(a) ? -1 : 1;
     return 0;
   }
-  if (rank == 2) {
-    const auto a = machine.heap.integer_value(left);
-    const auto b = machine.heap.integer_value(right);
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
-  }
+  if (rank == 2) return compare_integers(machine, left, right);
   const auto a = machine.atoms.name(static_cast<std::uint32_t>(left.raw() >> 3));
   const auto b = machine.atoms.name(static_cast<std::uint32_t>(right.raw() >> 3));
   if (a < b) return -1;

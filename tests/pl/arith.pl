@@ -10,7 +10,7 @@ l20_shared(N, S, X, Y) :- M is N - 1, l20_shared(M, S, X+S, Y).
 test(quot, (X is -5 // 2), solutions([X = -2])).
 test(floor_div, (X is div(-5, 2)), solutions([X = -3])).
 test(zero, (X is 1 / 0), error(evaluation_error(zero_divisor))).
-test(overflow, (X is 9223372036854775807 + 1), error(evaluation_error(int_overflow))).
+test(overflow, (X is 9223372036854775807 + 1, X == 9223372036854775808), true).
 test(numeric_eq, (1.0 =:= 1), true).
 test(numeric_ne, (1.0 =\= 2), true).
 test(numeric_lt, (1 < 2.0), true).
@@ -71,12 +71,12 @@ test(nan_lt, (nan < 1), fail).
 test(nan_le, (nan =< 1), fail).
 test(nan_gt, (1 > nan), fail).
 test(nan_ge, (1 >= nan), fail).
-test(abs_min, (X is abs(-9223372036854775807 - 1)), error(evaluation_error(int_overflow))).
-test(neg_min, (X is -(-9223372036854775807 - 1)), error(evaluation_error(int_overflow))).
+test(abs_min, (X is abs(-9223372036854775807 - 1), X == 9223372036854775808), true).
+test(neg_min, (X is -(-9223372036854775807 - 1), X == 9223372036854775808), true).
 test(mod_edge, (X is (-9223372036854775807 - 1) mod 9223372036854775807), solutions([X = 9223372036854775806])).
-test(int_pow63, (X is integer(2.0 ** 63)), error(evaluation_error(int_overflow))).
-test(floor_pow63, (X is floor(2.0 ** 63)), error(evaluation_error(int_overflow))).
-test(trunc_pow63, (X is truncate(2.0 ** 63)), error(evaluation_error(int_overflow))).
+test(int_pow63, (X is integer(2.0 ** 63), X == 9223372036854775808), true).
+test(floor_pow63, (X is floor(2.0 ** 63), X == 9223372036854775808), true).
+test(trunc_pow63, (X is truncate(2.0 ** 63), X == 9223372036854775808), true).
 test(shl_neg1, (X is -1 << 1), solutions([X = -2])).
 test(shl_neg0, (X is -1 << 0), solutions([X = -1])).
 test(shl_neg63, (X is -1 << 63, X =:= -9223372036854775807 - 1), true).
@@ -84,7 +84,7 @@ test(shl_zero63, (X is 0 << 63), solutions([X = 0])).
 test(shr_one63, (X is 1 >> 63), solutions([X = 0])).
 test(shr_big, (X is 8 >> 100), solutions([X = 0])).
 test(shr_neg63, (X is -1 >> 63), solutions([X = -1])).
-test(shl_overflow, (X is 1 << 63), error(evaluation_error(int_overflow))).
+test(shl_overflow, (X is 1 << 63, X == 9223372036854775808), true).
 test(neg_pow_neg, (X is (-2) ** (-1)), solutions([X = -0.5])).
 test(neg_pow_half, (X is (-2) ** 0.5), error(evaluation_error(undefined))).
 test(sign_float, (X is sign(-2.5)), solutions([X = -1.0])).
@@ -122,17 +122,17 @@ test(eval_functor_arity, (X is sqrt(bar, 1)), error(type_error(evaluable, sqrt/2
 test(eval_arg_atom, (X is 1 + bar), error(type_error(evaluable, bar/0))).
 test(eval_known_functor_arg, (X is log(foo, 2)), error(type_error(evaluable, foo/0))).
 
-% レビュー L1。最小の整数を -1 で割った余りは 0 で、桁はあふれない（9.1.3）。商はあふれる。
+% レビュー L1。最小の整数を -1 で割った余りは 0 で、桁はあふれない（9.1.3）。商は int64 に入らない 2^63 になる（フェーズ10）。
 test(l1_rem_min, (M is -9223372036854775807 - 1, X is M rem -1), solutions([X = 0])).
 test(l1_mod_min, (M is -9223372036854775807 - 1, X is M mod -1), solutions([X = 0])).
-test(l1_quot_min, (M is -9223372036854775807 - 1, X is M // -1), error(evaluation_error(int_overflow))).
-test(l1_div_min, (M is -9223372036854775807 - 1, X is div(M, -1)), error(evaluation_error(int_overflow))).
-% gcd は最小の整数を含んでも、値が収まれば返す。2^63 になるときだけあふれる。
+test(l1_quot_min, (M is -9223372036854775807 - 1, X is M // -1, X == 9223372036854775808), true).
+test(l1_div_min, (M is -9223372036854775807 - 1, X is div(M, -1), X == 9223372036854775808), true).
+% gcd は最小の整数を含んでも、値が収まれば int64 で返す。2^63 になるときだけ int64 を越えて Big になる（フェーズ10）。
 test(l1_gcd_min_2, (M is -9223372036854775807 - 1, X is gcd(M, 2)), solutions([X = 2])).
 test(l1_gcd_2_min, (M is -9223372036854775807 - 1, X is gcd(-6, M)), solutions([X = 2])).
 test(l1_gcd_min_half, (M is -9223372036854775807 - 1, X is gcd(M, 4611686018427387904)), solutions([X = 4611686018427387904])).
-test(l1_gcd_min_0, (M is -9223372036854775807 - 1, X is gcd(M, 0)), error(evaluation_error(int_overflow))).
-test(l1_gcd_min_min, (M is -9223372036854775807 - 1, X is gcd(M, M)), error(evaluation_error(int_overflow))).
+test(l1_gcd_min_0, (M is -9223372036854775807 - 1, X is gcd(M, 0), X == 9223372036854775808), true).
+test(l1_gcd_min_min, (M is -9223372036854775807 - 1, X is gcd(M, M), X == 9223372036854775808), true).
 % max と min は、型の違う引数を float に直して比べ、float を返す（iso-notes 9.3.8 の決定 B）。値の型が値で変わらないので、
 % 丸めの関数にそのまま渡せる（9.1.6 の決定 A で floor は整数を受け付けない）。2^53 を超える整数は丸まる。
 test(l1_max_mixed_float, (X is max(2.0, 3)), solutions([X = 3.0])).
@@ -165,7 +165,7 @@ test(l2_integer_int, (X is integer(7)), solutions([X = 7])).
 test(l2_integer_int_exact, (X is integer(9007199254740993)), solutions([X = 9007199254740993])).
 test(l2_integer_int_max, (X is integer(9223372036854775807)), solutions([X = 9223372036854775807])).
 test(l2_integer_int_min, (M is -9223372036854775807 - 1, X is integer(M), X =:= M), true).
-test(l2_integer_overflow, (X is integer(1.0e300)), error(evaluation_error(int_overflow))).
+test(l2_integer_overflow, (X is integer(1.0e300), X == 1000000000000000052504760255204420248704468581108159154915854115511802457988908195786371375080447864043704443832883878176942523235360430575644792184786706982848387200926575803737830233794788090059368953234970799945081119038967640880074652742780142494579258788820056842838115669472196386865459400540160), true).
 test(l2_integer_nan, (X is integer(nan)), error(evaluation_error(undefined))).
 test(l2_round_neg_half, (X is round(-2.5)), solutions([X = -2])).
 % L2 の敵対的レビュー A3（iso-notes 9.3.8 の追記）。-0.0 は 0.0 と 0 より小さいとみなし、引数の順によらない。

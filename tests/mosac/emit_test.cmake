@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|undefined_handled|refused|duplicate|silent|newop|refused_op|halt|trigraph> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|undefined_handled|refused|duplicate|silent|newop|refused_op|halt|trigraph|bigint> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -162,6 +162,43 @@ elseif(CASE STREQUAL "halt")
   set(expected_code 3)
 elseif(CASE STREQUAL "trigraph")
   set(expected "a??=b??/c??(d??)e??!f??<g??>h??-i??'j\n")
+elseif(CASE STREQUAL "bigint")
+  # フェーズ10 タスク 10。値は mosa で同じ原文を動かした答えと同じ。
+  string(CONCAT expected
+    "p100=[a0,a2,a4,last]\n"
+    "p100_1=[a1,a3,a5,last]\n"
+    "neg_p100=[a6,last]\n"
+    "p63=[a7,last]\n"
+    "neg_p63_1=[a8,last]\n"
+    "min_int=[a9,last]\n"
+    "p62=[last]\n"
+    "float=[last]\n"
+    "computed=[a0,a2,a4,last]-[a1,a3,a5,last]\n"
+    "heads=[1267650600228229401496703205376,1267650600228229401496703205377,1267650600228229401496703205376,"
+    "1267650600228229401496703205377,1267650600228229401496703205376,1267650600228229401496703205377,"
+    "-1267650600228229401496703205376,9223372036854775808,-9223372036854775809,-9223372036854775808]\n"
+    "square=15241578753238836750495351562536198787501905199875019052100\n"
+    "boundary=[9223372036854775808,-9223372036854775809,18446744073709551616,-340282366920938463463374607431768211457]\n"
+    "boundary_2p64=yes\n"
+    "nested_out=[1267650600228229401496703205376,-9223372036854775809,ok]\n"
+    "nested_other=no\n"
+    "nested_build=f([1267650600228229401496703205376,-9223372036854775809])\n"
+    "twice=same\n"
+    "wrap=w(18446744073709551616,-18446744073709551616)\n"
+    "compare=yes\n"
+    "qualified=type_error(callable,user:123456789012345678901234567890)\n"
+    "negated=type_error(callable,(true,123456789012345678901234567890))\n")
+  # IR のまま動いても同じ答えになるので、Big の定数と鍵が生成コードに出て、どの述語も IR に回っていないことも見る。
+  file(READ "${out_dir}/muser.cpp" bigint_source)
+  foreach(want "rt::put_big(" "rt::big_key_of(first)")
+    string(FIND "${bigint_source}" "${want}" bigint_at)
+    if(bigint_at EQUAL -1)
+      message(FATAL_ERROR "bigint: ${want} is not in the generated code")
+    endif()
+  endforeach()
+  if(bigint_source MATCHES "IR のまま動かす|rt::interpret_clause\\(")
+    message(FATAL_ERROR "bigint: a predicate stays IR")
+  endif()
 elseif(CASE STREQUAL "undefined" OR CASE STREQUAL "undefined_quoted")
   # mosa と同じく、捕まえなかった existence_error で 2 で終わる。呼んだ述語の名前は文面の中に出る。
   set(expected "hello")

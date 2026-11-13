@@ -11,7 +11,8 @@
 namespace mosa {
 namespace sol {
 
-enum class CopyKind { Ext, Loc, Atom, Int, Float, List, Str };
+// Big は integer が符号（負なら 1）で、kids が絶対値の語を下位から持つ Int の節点（ADR 0025、ExportedTerm と同じ持ち方）。
+enum class CopyKind { Ext, Loc, Atom, Int, Float, List, Str, Big };
 
 struct CopyNode {
   CopyKind kind = CopyKind::Atom;

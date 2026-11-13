@@ -13,7 +13,6 @@ enum class SyntaxReason {
   UnterminatedQuote,
   UnterminatedComment,
   BadEscape,
-  IntegerOverflow,
   FloatOverflow,
   UnexpectedToken,
   MaxArity,
@@ -28,7 +27,6 @@ enum class SyntaxReason {
     case SyntaxReason::UnterminatedQuote: return "unterminated_quoted";
     case SyntaxReason::UnterminatedComment: return "unterminated_comment";
     case SyntaxReason::BadEscape: return "bad_escape";
-    case SyntaxReason::IntegerOverflow: return "integer_overflow";
     case SyntaxReason::FloatOverflow: return "float_overflow";
     case SyntaxReason::UnexpectedToken: return "unexpected_token";
     case SyntaxReason::MaxArity: return "max_arity";

@@ -59,6 +59,7 @@ target_sources(mosa_lib PRIVATE src/read/char_class.cpp src/read/fullwidth.cpp)
 target_sources(mosa_lib PRIVATE src/read/lexer.cpp src/read/lexer_literal.cpp)
 target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/ir.cpp src/core/unify.cpp)
+target_sources(mosa_lib PRIVATE src/core/bigint.cpp src/core/bigint_div.cpp src/core/bigint_text.cpp)
 target_sources(mosa_lib PRIVATE src/read/reader.cpp src/read/reader_bracket.cpp src/read/reader_frames.cpp)
 target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/spelling.cpp src/write/term_equal.cpp)
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
@@ -87,6 +88,7 @@ target_sources(mosa_lib PRIVATE
   src/module/library_path.cpp
   src/machine/load_path.cpp
   src/machine/compile.cpp
+  src/machine/compile_data.cpp
   src/machine/compile_shared.cpp
   src/machine/choice.cpp
   src/machine/cut.cpp
@@ -145,7 +147,9 @@ target_sources(mosa_lib PRIVATE
   src/builtins/phrase.cpp
   src/builtins/subsumes.cpp
   src/builtins/arith.cpp
+  src/builtins/arith_big.cpp
   src/builtins/arith_float.cpp
+  src/builtins/arith_int.cpp
   src/builtins/atoms.cpp
   src/builtins/atoms_number.cpp
   src/builtins/atoms_sub.cpp

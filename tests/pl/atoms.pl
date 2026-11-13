@@ -84,7 +84,8 @@ test(number_key_letter, number_chars(N, [a]), error(syntax_error(unexpected_toke
 test(number_key_empty, number_chars(N, []), error(syntax_error(unexpected_token))).
 test(number_key_trailing, number_chars(N, ['1', a]), error(syntax_error(unexpected_token))).
 test(number_key_inner_space, number_chars(N, [-, ' ', '1']), error(syntax_error(unexpected_token))).
-test(number_key_overflow, number_chars(N, ['9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9']), error(syntax_error(integer_overflow))).
+% int64 に入らない 20 桁は、フェーズ10（ADR 0025）から integer_overflow でなく Big の値になる。
+test(number_chars_beyond_int64, number_chars(N, ['9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9']), solutions([N = 99999999999999999999])).
 test(number_key_bad_escape, number_chars(N, ['0', '''', '\\', z]), error(syntax_error(bad_escape))).
 test(number_key_open_comment, number_codes(N, [47, 42, 32, 49]), error(syntax_error(unterminated_comment))).
 % atom_number/2（非 ISO、iso-notes 8.16 の決定 A）。規格の Examples は無いので、決定文の振る舞いを 1 行ずつ。

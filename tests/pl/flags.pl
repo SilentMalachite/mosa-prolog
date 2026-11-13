@@ -1,4 +1,4 @@
-test(flag_bounded, current_prolog_flag(bounded, true), true).
+test(flag_bounded, current_prolog_flag(bounded, false), true).
 test(flag_rounding, current_prolog_flag(integer_rounding_function, toward_zero), true).
 test(flag_max_integer, current_prolog_flag(max_integer, 9223372036854775807), true).
 test(flag_min_integer, (current_prolog_flag(min_integer, X), Y is -9223372036854775807 - 1, X =:= Y), true).

@@ -57,7 +57,7 @@ std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& claus
   term = machine.heap.deref(term);
   const bool rule = term.tag() == Tag::Str && machine.heap.functor_arity(term) == 2 &&
                     machine.atoms.name(machine.heap.functor_atom(term)) == ":-";
-  if (rule && !goal_leaves_all(*clause.body, [](IrTag tag) { return tag != IrTag::Int && tag != IrTag::Float; })) {
+  if (rule && !goal_leaves_all(*clause.body, [](IrTag tag) { return !is_number_ir(tag); })) {
     return formal_type(machine, "callable", machine.heap.deref(machine.heap.arg(term, 1)));
   }
   const auto name = head_name(clause);

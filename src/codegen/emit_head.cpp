@@ -5,6 +5,7 @@
 
 #include "emit_state.hpp"
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -37,7 +38,8 @@ void first_depths(const IrTerm& term, std::vector<int>& firsts) {
   });
 }
 
-// 組み立てに要るヒープの語の数。即値のアトムと整数と変数は語を取らない。
+// 組み立てに要るヒープの語の数。即値のアトムと整数と変数は語を取らない。Big は頭の語と絶対値の語を取り、子の Int は
+// 項ではなく語なので、たどらない（ADR 0025）。
 std::size_t build_words(const Impl& machine, const IrTerm& term) {
   std::size_t words = 0;
   walk_term(term, [&](const IrTerm& sub, int) {
@@ -45,6 +47,7 @@ std::size_t build_words(const Impl& machine, const IrTerm& term) {
       case IrTag::Anon:
       case IrTag::Float: words += 1; return false;
       case IrTag::Int: words += is_small_int(sub.integer) ? 0 : 1; return false;
+      case IrTag::Big: words += 1 + sub.args.size(); return false;
       case IrTag::List:
       case IrTag::Fun: words += sub.tag == IrTag::List || is_dot(machine, sub) ? 2 : 1 + sub.args.size(); return true;
       default: return false;
@@ -62,6 +65,18 @@ std::optional<std::string> atomic_expr(ClauseEmit& emit, const IrTerm& term) {
   if (term.tag == IrTag::Atom) return atom_expr(emit, term.atom);
   if (term.tag == IrTag::Int && is_small_int(term.integer)) return "rt::small_int(" + int_literal(term.integer) + ")";
   return std::nullopt;
+}
+
+// Big の絶対値の語を、関数の中の定数の配列として出し、その名前を返す。語は下位から（ADR 0025）。
+std::string big_words_array(ClauseEmit& emit, const IrTerm& term) {
+  const std::string name = emit.fresh("big");
+  std::string items;
+  for (const IrTerm& word : term.args) {
+    items += (items.empty() ? "" : ", ") + hex64(std::bit_cast<std::uint64_t>(word.integer)) + "ULL";
+  }
+  emit.line("static constexpr std::array<std::uint64_t, " + std::to_string(term.args.size()) + "> " + name + "{" +
+            items + "};");
+  return name;
 }
 
 std::string use_var(ClauseEmit& emit, std::uint32_t slot) {
@@ -92,6 +107,11 @@ std::optional<std::string> place_leaf(ClauseEmit& emit, const IrTerm& term, std:
     case IrTag::Anon: offset += 1; return "rt::put_ref(" + here + ")";
     case IrTag::Int: offset += 1; return "rt::put_int_box(" + here + ", " + int_literal(term.integer) + ")";
     case IrTag::Float: offset += 1; return "rt::put_float(" + here + ", " + float_literal(term.floating) + ")";
+    case IrTag::Big: {
+      offset += 1 + term.args.size();
+      const std::string words = big_words_array(emit, term);
+      return "rt::put_big(" + here + ", " + (term.integer != 0 ? "true" : "false") + ", " + words + ")";
+    }
     default: return std::nullopt;
   }
 }
@@ -165,7 +185,7 @@ void match_atomic(ClauseEmit& emit, const std::string& value, const std::string&
   emit.line("}");
 }
 
-// 組み立ててから単一化する。浮動小数と箱の整数は値で比べるので do_unify に任せる。
+// 組み立ててから単一化する。浮動小数と箱の整数と Big は値で比べるので do_unify に任せる。
 void match_built(ClauseEmit& emit, const IrTerm& term, const std::string& expr) {
   const std::string built = emit_build(emit, term);
   emit.line("if (!rt::unify(m, " + built + ", " + expr + ")) return rt::fail(m);");
@@ -217,7 +237,8 @@ void match(ClauseEmit& emit, const IrTerm& term, const std::string& expr, int de
     case IrTag::Int:
       if (is_small_int(term.integer)) return match_atomic(emit, "rt::small_int(" + int_literal(term.integer) + ")", expr);
       return match_built(emit, term, expr);
-    case IrTag::Float: return match_built(emit, term, expr);
+    case IrTag::Float:
+    case IrTag::Big: return match_built(emit, term, expr);
     case IrTag::List:
     case IrTag::Fun:
       if (depth >= kMatchDepth || build_words(emit.machine, term) > kMatchWords) return match_built(emit, term, expr);

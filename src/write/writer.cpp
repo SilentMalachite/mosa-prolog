@@ -1,5 +1,6 @@
 #include "mosa/writer.hpp"
 
+#include "mosa/bigint.hpp"
 #include "mosa/char_class.hpp"
 #include "spelling.hpp"
 
@@ -400,6 +401,8 @@ std::optional<OpDef> Printer::as_operator(Cell term) const {
 bool Printer::unsigned_number(Cell term) const {
   term = heap_.deref(term);
   if (term.tag() == Tag::Int || term.tag() == Tag::IntBox) return heap_.integer_value(term) >= 0;
+  // Big の字面も負なら - で始まるので、- 1 と -1 の空白と括弧の判断は int64 と同じになる。
+  if (term.tag() == Tag::Big) return !heap_.big_negative(term);
   if (term.tag() != Tag::Float) return false;
   const double value = heap_.float_value(term);
   return std::isnan(value) || !std::signbit(value);
@@ -413,10 +416,20 @@ bool Printer::operator_atom(Cell term) const {
   return !operators_.lookup(heap_.atoms().name(atom_of(term))).empty();
 }
 
+// 番号が int64 の外でも、int64 と同じく字母は N mod 26、続く番号は N / 26 にする（N は 2^63 以上なので番号は 0 でない）。
+std::optional<std::string> big_numbervar_text(const Heap& heap, Cell arg) {
+  if (heap.big_negative(arg)) return std::nullopt;
+  const BigQuotient parts = divide_truncate(heap.big_value(arg), BigInt(26));
+  std::string name(1, static_cast<char>('A' + parts.remainder.to_int64().value_or(0)));
+  name += to_text(parts.quotient);
+  return name;
+}
+
 std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
   if (term.tag() != Tag::Str || heap.functor_arity(term) != 1) return std::nullopt;
   if (heap.atoms().name(heap.functor_atom(term)) != "$VAR") return std::nullopt;
   const Cell arg = heap.deref(heap.arg(term, 0));
+  if (arg.tag() == Tag::Big) return big_numbervar_text(heap, arg);
   if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return std::nullopt;
   const auto value = heap.integer_value(arg);
   if (value < 0) return std::nullopt;
@@ -474,6 +487,8 @@ void Printer::render(const Work& item) {
     if (heap_.integer_value(term) == 0) zero_end_ = out_.size();
     return;
   }
+  // Big は 0 にならないので、0' と読み違える字面の印（zero_end_）は要らない。
+  if (term.tag() == Tag::Big) return emit(to_text(heap_.big_value(term)));
   if (term.tag() == Tag::Float) return emit(format_float(heap_.float_value(term)));
   // '$VAR'(N) は関数表記より先。N は 0 以上の整数だけが変数名になる。
   if (options_.numbervars) {

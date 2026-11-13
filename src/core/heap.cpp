@@ -5,9 +5,12 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
+#include <optional>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -139,7 +142,36 @@ std::int64_t Heap::integer_value(Cell cell) const {
     const auto cleared = static_cast<std::int64_t>(cell.raw() & ~std::uint64_t{7});
     return cleared >> 3;
   }
+  // Big の頭の語を値として読むと、黙って別の整数になる。CI は Release だけを作るので assert では止まらない。
+  // 取りこぼした道は、ここで落ちて見つかるようにする（ADR 0025）。即値の道には足さない。
+  if (cell.tag() == Tag::Big) [[unlikely]] std::abort();
   return std::bit_cast<std::int64_t>(*pointer(cell));
+}
+
+Cell Heap::big(const BigInt& value) {
+  if (const std::optional<std::int64_t> small = value.to_int64()) return integer(*small);
+  const std::vector<std::uint64_t> words = value.words();
+  auto* slot = allocate(words.size() + 1);
+  slot[0] = big_header(words.size(), value.negative());
+  std::copy(words.begin(), words.end(), slot + 1);
+  return Cell{tagged(std::bit_cast<std::uint64_t>(slot), Tag::Big)};
+}
+
+BigInt Heap::big_value(Cell cell) const {
+  if (cell.tag() != Tag::Big) return BigInt(integer_value(cell));
+  return BigInt::from_words(big_magnitude(cell), big_negative(cell));
+}
+
+// Big でないセルの頭の語を読むと、黙って別の値になる。integer_value と同じく Release でも止める（ADR 0025）。
+std::span<const std::uint64_t> Heap::big_magnitude(Cell cell) const {
+  if (cell.tag() != Tag::Big) [[unlikely]] std::abort();
+  const std::uint64_t* head = pointer(cell);
+  return {head + 1, static_cast<std::size_t>(big_header_words(*head))};
+}
+
+bool Heap::big_negative(Cell cell) const {
+  if (cell.tag() != Tag::Big) [[unlikely]] std::abort();
+  return big_header_negative(*pointer(cell));
 }
 
 Cell Heap::floating(double value) {

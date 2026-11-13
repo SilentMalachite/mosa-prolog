@@ -19,6 +19,8 @@ Decision (2026-10-25): Open question 2: A. Register `atom_number/2` and convert 
 
 Decision (2026-10-29): owner chose A. The number parsing shared with `number_chars/2` and `number_codes/2` gives `syntax_error(Key)` with the ADR 0007 keys instead of the text: a lexical failure gives its reason key (`integer_overflow`, `bad_escape`, `unterminated_comment`, …), anything else that is not exactly one number gives `unexpected_token`.
 
+Since phase 10 (2026-11-12, ADR 0025), an integer token of any length is a number, so the key `integer_overflow` in the list above no longer exists; the other keys are unchanged.
+
 Decision (2026-10-29): owner chose A over the SWI behaviour. A bound first argument that is not an atom gives `type_error(atom, A)`, and a bound second argument that is not a number gives `type_error(number, N)`. Both are checked before the atom is parsed, as `number_chars/2` does.
 
 ## 8.10 findall/4 (non-ISO)
@@ -457,7 +459,13 @@ A or B?: A: implement them in phase 7, before the manuals and the release packag
 
 Decision (2026-11-03): A (review M11). The seven predicates go into `system` in phase 7, one predicate per commit, with their tests in `tests/pl/utilities.pl`; where SWI-Prolog's behaviour is not visible from its manual and source, the choice is written in the header comment of the predicate's file. SPEC section 7 now says `numbervars/3`.
 
-Implemented 2026-11-03 (`setup_call_cleanup/3` under ADR 0016). Where Mosa departs from SWI-Prolog: `nb_getval/2` gives a fresh copy on each call, since the heap is reclaimed on backtracking; `sort/4` takes only an integer Key and gives `type_error(sort_key, Key)` for SWI's dict keys and key paths, since Mosa has no dicts; `term_to_atom/2` reads `[]` as the atom `'[]'` and gives `syntax_error(incomplete_term)` for empty or unfinished text (SWI 9.3.5 and later: `end_of_string`); `numbervars/3` gives `representation_error(max_integer)` past 64-bit integers (SWI: `tagged_integer`); `setup_call_cleanup/3` runs no cleanup on `halt` or a heap-limit stop, drops the cleanup's exception when the goal raised (SWI keeps the more urgent one), runs every cleanup removed by one cut and then rethrows the first of their exceptions, and ignores a cleanup's exception when a new query of the embedding API closes the old one (a `-g` goal, a toplevel answer and `initialization(G, main)` are cut after their answer as in SWI, and their cleanup's exception is the goal's).
+Implemented 2026-11-03 (`setup_call_cleanup/3` under ADR 0016). Where Mosa departs from SWI-Prolog: `nb_getval/2` gives a fresh copy on each call, since the heap is reclaimed on backtracking; `sort/4` takes only an integer Key and gives `type_error(sort_key, Key)` for SWI's dict keys and key paths, since Mosa has no dicts; `term_to_atom/2` reads `[]` as the atom `'[]'` and gives `syntax_error(incomplete_term)` for empty or unfinished text (SWI 9.3.5 and later: `end_of_string`); `numbervars/3` has no upper bound since phase 10: a number past the 64-bit integers is a Big (phase 7 to 9 gave `representation_error(max_integer)` there; SWI: `representation_error(tagged_integer)`); `setup_call_cleanup/3` runs no cleanup on `halt` or a heap-limit stop, drops the cleanup's exception when the goal raised (SWI keeps the more urgent one), runs every cleanup removed by one cut and then rethrows the first of their exceptions, and ignores a cleanup's exception when a new query of the embedding API closes the old one (a `-g` goal, a toplevel answer and `initialization(G, main)` are cut after their answer as in SWI, and their cleanup's exception is the goal's).
+
+`tab/1,2` with a count beyond int64 (phase 10, design section 8). A positive Big gets what a too-large int64 gets, and `tab(1 << 40)` writes that many spaces. So since phase 10 task 8, a positive Big writes spaces without end (`run_tab` in `src/builtins/chars.cpp`). A negative Big writes nothing, as a negative count does (`tab_big_neg` in `tests/pl/bigint.pl`). Before task 8, a Big gave `evaluation_error(int_overflow)`; SWI-Prolog gives that for a Big of either sign.
+
+A or B?: A: keep the endless output for a positive Big, the same as a too-large int64. This is the default and the current behaviour. Its cost is that inside `with_output_to/2`, or on any other memory stream, the output grows outside the heap limit: `tab(1 << 40)` there reached 11 GB RSS in 15 s. The process therefore runs out of memory instead of stopping at `--heap-max`. B: give an error for a Big of either sign, such as SWI-Prolog's `evaluation_error(int_overflow)`; this is a one-line change in `run_tab`.
+
+Decision (2026-11-13): A (owner decision A). B is rejected. A positive Big count writes spaces without end, the same as a too-large int64, and a negative Big writes nothing.
 
 ## ISO/IEC 13211-2 7.2.2 predicate_property/2
 
@@ -661,6 +669,8 @@ A or B?: A: `syntax_error(float_overflow)`, the same way as `syntax_error(intege
 
 Decision (2026-11-02): A. The lexer reports the new ADR 0007 key `float_overflow` for a float above the largest double; a spelling that rounds to the largest double is still a number. The direction of an out-of-range value is taken from its magnitude (the place of the first non-zero digit plus the exponent), not from the sign of the exponent, so `1<400 zeros>.0e-10` overflows and `0.<400 zeros>1` underflows. Underflow is unchanged: `1.0e-400` reads as `0.0` and subnormals such as `1.0e-310` are kept (`tests/pl/read.pl` and `tests/pl/atoms.pl` `m2_*`, `tests/cpp/lexer_test.cpp` `test_float_range`).
 
+Since phase 10 (2026-11-12, ADR 0025), an integer token has no size limit, so `syntax_error(integer_overflow)`, which option A took as its model, no longer exists; a float token out of range still gives `syntax_error(float_overflow)`.
+
 ## 6.4.5 NaN and infinity (non-ISO)
 
 Before the decision below, writeq/1 and the other writers spelt a NaN or an infinity with the text of `std::to_chars` plus `.0` (`src/write/spelling.cpp` `format_float`): `nan.0`, `inf.0` and `-inf.0`, and for a NaN with its sign bit set the standard library's own text, `-nan(ind).0` on macOS (`X is -(nan)`, or `sign(-(nan))` since L2). None of them read back: `term_to_atom(T, '-nan(ind).0')` and `term_to_atom(T, 'nan.0')` raise `syntax_error(unexpected_token)` (review L22). ISO floats have no NaN and no infinity, so the standard says nothing about their text; SWI-Prolog and ECLiPSe write `1.0Inf`, `-1.0Inf` and `1.5NaN`, after Joachim Schimpf's proposal for a core update on floating point, and read them back.
@@ -692,6 +702,8 @@ Decision (2026-11-05): B. Nothing changes. A comparison with a NaN is false both
 Once `-0.0` and `0.0` became distinct terms (7.2.2 below), the rule for equal values made `max(-0.0, 0.0)` give `-0.0` and `max(0.0, -0.0)` give `0.0` (adversarial review of L2, A3). A or B?: A: take `-0.0` as smaller than `0.0` and `0`, so `max` gives `0.0` and `min` gives `-0.0` in either order, as the standard order and IEEE 754-2019 maximum and minimum do. B: keep the rule for equal values.
 
 Decision (2026-11-05): A. NaN and other equal values keep decision B. Tests: `l2_max_zero_*` and `l2_min_zero_*` in `tests/pl/arith.pl`.
+
+Since phase 10 (2026-11-12, ADR 0025), an integer beyond the double range cannot be converted, and `max/2` and `min/2` of it and a float raise `evaluation_error(float_overflow)` (8.7, 9.3.8 and 9.3.9 below, default A until the owner confirms).
 
 ## 6.3.3 `[]` and `{}` as the name of a compound term
 
@@ -760,3 +772,27 @@ Decision (2026-11-05): A. On Windows, `prepare_console` (src/platform/console.cp
 ## 13211-3 Grammar rules: the source text
 
 13211-1 has no grammar rules; SPEC section 3 takes ISO/IEC 13211-3 as the reference from phase 8. The repository holds no text of 13211-3, and ADR 0024 was written without it, from the behavior that Prolog systems share. So no clause number of 13211-3 is cited yet: the tests of `tests/pl/dcg.pl` are our own until the text is at hand, and its Examples are copied in then. A point where ADR 0024 and the text disagree gets its own entry here with the clause number.
+
+## 7.11.1.2 and 7.11.1.3 `max_integer` and `min_integer` when `bounded` is false
+
+The repository holds no text of ISO/IEC 13211-1, so this is not settled by its wording. Phase 10 makes the flag `bounded` false (7.11.1.1), and whether 7.11.1.2 and 7.11.1.3 define `max_integer` and `min_integer` when `bounded` is false cannot be settled without the text. The conformance suite reads them only when `bounded` is true (`iso_current_prolog_flag_2_03`, `04`), and `tests/pl/read.pl` (the helper `m1_min`, 22 cases) and `flags.pl` read them as the int64 bounds. The phase 9 design said "dropped by 7.11.1.2", which was not checked against the text and is not relied on.
+
+A or B?: A: keep the flags and return the int64 bounds (2^63-1 and -2^63), as SWI-Prolog and Scryer Prolog do. B: remove the flags, so `current_prolog_flag(max_integer, X)` raises `domain_error(prolog_flag, max_integer)` as for any unknown flag (8.17.2; `src/builtins/flags.cpp`).
+
+Until the owner confirms: A.
+
+## 8.7, 9.3.8 and 9.3.9 an integer beyond the double range against a float
+
+The repository holds no text of ISO/IEC 13211-1. Phase 10 allows an integer too large for a double. Comparing it with a float, and `min/2` and `max/2` (decision B of 9.3.8 above), convert the integer to a float. The suite case `lgt_unbounded_float_03` (`float(7^7^7)`) expects `float_overflow`, and its 4 cases that mix floats (`+`, `-`, `*`, `/` with `13.42e+33`) stay inside the double range.
+
+A or B?: A: keep the rule of 9.3.8 (convert to a float), and raise `evaluation_error(float_overflow)` for a value that cannot be converted. B: compare exactly, so `2^2000 > 1.0` is true (this needs an exact comparison in `cmp_nums` and in `min/2` and `max/2`).
+
+Until the owner confirms: A.
+
+## 8.17.4 halt/1
+
+ISO/IEC 13211-1 8.17.4 takes an integer exit status but does not say what an integer the operating system cannot take does. The status reaches the OS as a C++ `int`, and before phase 10 Mosa cast the int64 to `int` without a check, so `halt(4294967296)` exited with status 0. Phase 10 adds integers beyond int64 (Bigs).
+
+A or B?: A: an integer outside C++ `int` gives `representation_error(max_integer)` when positive and `representation_error(min_integer)` when negative (the Flags of 7.12.2 g), the same for an int64 outside `int` and for a Big. B: pass the low bits of the integer to the OS.
+
+Decision (2026-11-13): A (owner decision A). B is rejected. One check, `halt_code_problem` in `src/builtins/control.cpp`, serves two places. The first is the IR arm `arm_halt` in `src/machine/catch.cpp`. Interpreted and translated code both reach it, because the interpreter's `compile.cpp` and mosac's codegen (`emit_body.cpp`) both lower `halt` to `IrTag::Halt`. The second is the built-in entry `run_halt` in `control.cpp`; the tests are `halt_*` in `tests/pl/bigint.pl`. An integer inside `int` still goes to the OS unchanged, which keeps its own low bits (for example 8 bits on POSIX).

@@ -22,9 +22,9 @@
 **非目標（今回はやらない）**
 
 - 制約論理プログラミング（CLP(FD) など）、テーブリング、並列実行
-- 多倍長整数（Phase 6 以降に任意機能として検討。それまでは 64bit 整数とオーバーフロー時の `evaluation_error`）
+- GMP などの多倍長整数ライブラリ（フェーズ10は多倍長整数を標準ライブラリだけで実装する）
 - GUI、IDE 連携、デバッガ以外のツール
-- C++20 標準ライブラリと CMake 以外への依存（ICU、Boost、GMP は使わない。GMP は将来のオプション）
+- C++20 標準ライブラリと CMake 以外への依存（ICU、Boost、GMP は使わない）
 - Windows 専用／macOS 専用の API への依存。OS 依存コードは `src/platform/` に隔離し、1 ファイル以内に収める
 
 ## 2. 成果物と動作環境
@@ -62,9 +62,9 @@
 2. 項の表現・ユニフィケーション（7.3）。`unify_with_occurs_check/2` を含む。デフォルトのユニフィケーションでは出現検査を行わない
 3. 実行モデル（7.7）: 探索木、カット、`catch/3`・`throw/1`、`call/1..8` のカットの透過性（`call/N` 内のカットはローカル）
 4. エラー体系（7.12）: `error(Formal, Context)` の形式とすべての Formal 項（`instantiation_error`、`uninstantiation_error/1`、`type_error/2`、`domain_error/2`、`existence_error/2`、`permission_error/3`、`representation_error/1`、`evaluation_error/1`、`resource_error/1`、`syntax_error/1`、`system_error`）
-5. 算術（第 9 章）: 整数は 64bit 符号付き、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供し、オーバーフローは `evaluation_error(int_overflow)`。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
+5. 算術（第 9 章）: 整数は任意精度（フェーズ 10、ADR 0025。フラグ `bounded` は `false`）、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供する。整数の結果はあふれず、ヒープに入らない大きさの結果はヒープの上限で止まる。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
 6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
-7. フラグ（7.11）: `bounded`、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
+7. フラグ（7.11）: `bounded`（`false`）、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）
 8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
 
 **文法規則（フェーズ 8）**
@@ -82,6 +82,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | 文字列型 | 持たない。`"..."` は `double_quotes` フラグに従う（SWI の string 型は非目標） |
 | 浮動小数点の書式 | 最短往復表現（`std::to_chars`）。必ず `.` を含み、指数は `e`。NaN は `1.5NaN`、無限大は `1.0Inf` と `-1.0Inf` と SWI-Prolog・ECLiPSe と同じく書き、読み手が読み戻す（iso-notes 6.4.5、レビュー L22） |
 | 整数の構文 | `0b`、`0o`、`0x`、`0'c`、`_` 区切り（Cor.3 では未規定だが許可） |
+| 整数 | 任意精度。`bounded` は `false`（ADR 0025）。`max_integer` と `min_integer` は 2^63−1 と −2^63 のまま（iso-notes 7.11.1.2 の既定 A）。`^` と `<<`、そして Big を引数にした `+`、`-`、`*`、`/\`、`\/`、`xor`、`\` は、先に結果の大きさを見積もり、見積もりがヒープの残りを超えるときは計算の前にヒープの上限で止まる。ほかの演算（`//`、`rem`、`div`、`mod`、`gcd`、`>>`、1 引数の `-` と `abs`、Big の被演算子の写しなど）は先に計算し、結果を置くときにヒープの上限で止まる。double の範囲を超える整数は、評価が浮動小数点数に直すところで `evaluation_error(float_overflow)` になる。浮動小数点数と組んだ `+`、`-`、`*`、`/`、`^`、`**` と浮動小数点数の関数、`float/1`、浮動小数点数との算術比較と、浮動小数点数との `min/2`、`max/2`（iso-notes 8.7 の既定 A）である。2 つの整数の `/` は商が double の範囲を超えるときだけで、標準順序は誤りなしに比べる |
 
 **ISO からの意図的な逸脱（すべてフラグまたは既定オフで、`iso` フラグ true のとき無効化される）**
 
@@ -208,7 +209,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 | 部品 | 設計 |
 | --- | --- |
-| セル表現 | 64bit タグ付き整数 `Cell`。下位 3bit がタグ: REF、ATOM、INT（61bit 即値）、STR（ヒープ内の関手セルへのポインタ）、LIS（リスト）、FLT（ボックス化 double）、BIG（将来予約）。61bit に収まらない整数は FLT と同様にボックス化し、`max_integer` は 2^63−1 のままにする |
+| セル表現 | 64bit タグ付き整数 `Cell`。下位 3bit がタグ: REF、ATOM、INT（61bit 即値）、STR（ヒープ内の関手セルへのポインタ）、LIS（リスト）、FLT（ボックス化 double）、BIG（int64 の外の整数。頭の語と絶対値の語を指す。フェーズ 10、ADR 0025）。61bit に収まらない int64 は FLT と同様にボックス化し、`max_integer` は 2^63−1 のままにする |
 | ヒープ | 単一の連続配列（起動時に上限までのアドレス空間を予約し、必要に応じて下から確保する。確保済みのセルは動かない。ADR 0010）。バックトラック時にトップを戻すだけで回収する |
 | トレイル | 束縛した REF のアドレスを積む。条件付きトレイル（選択点より古いセルのみ記録） |
 | 選択点スタック | 継続・トレイル位置・ヒープ位置・代替節へのポインタ・カット境界を保持 |
@@ -312,7 +313,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 - すべてのエラーは `throw(error(Formal, Context))` の形で投げる。`Context` は `context(PI, Extra)` とし、`PI` は述語指示子、`Extra` は追加情報（`syntax_error` なら `位置(Line, Col)` ではなく `syntax(stream(S, Line, LinePos, CharNo), Token)` の形。`Token` は問題のトークンの原子。ADR 0007）。`Context` に実装定義の項を置けるのは ISO が許している
 - 引数検査の順序は ISO の各述語の定義（8.x.y.3 Errors の列挙順）に厳密に従う。たとえば `atom_length(X, foo)` は `type_error(integer, foo)` ではなく、先に `X` を検査して `instantiation_error` を投げる。順序違反は準拠スイートで検出される
 - C++ 側では `throw_error(m, Formal, PI)` の 1 系統のヘルパだけを使い、`Formal` の各種は `make_type_error(m, Type, Culprit)` のような関数で組む。文字列の直書きは禁止（アトム名のタイポを防ぐ）
-- 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、整数オーバーフローは `evaluation_error(int_overflow)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
+- 算術エラー: ゼロ除算は `evaluation_error(zero_divisor)`、浮動小数点のオーバーフローは `evaluation_error(float_overflow)`、`sqrt(-1)` 等は `evaluation_error(undefined)`。整数の結果はあふれない（フェーズ 10、ADR 0025）。ヒープに入らない大きさの結果はヒープの上限で止まり、`evaluation_error(int_overflow)` が残るのは無限大の浮動小数点数を整数に丸めるときだけである。`inf`/`nan` は `float_overflow`/`undefined` フラグが `error` のとき投げ、それ以外は IEEE 754 の値を返す（SWI 互換の `float_overflow`、`float_zero_div`、`float_undefined` フラグ）
 - トップレベルは捕捉されなかった例外を `警告: ゴールは例外を送出しました: error(...)` の形で日本語と英語（フラグ `message_language`、既定は環境変数 `LANG` から判定し、Windows で `LANG` が無いか空のときは Windows の表示言語から判定）で表示する。メッセージ文字列は `lib/messages_ja.pl`、`lib/messages_en.pl` の Prolog 事実として置き、C++ には埋め込まない
 
 ## 8. テスト戦略
@@ -336,7 +337,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 **ベンチマーク（合格率より後回しだが、退行の検知には使う）**
 
-- `bench/`: `nrev`（naive reverse、LIPS 計測）、`queens`、`zebra`、`tak`、`deriv`、`crypt`。インタプリタと `mosac` 変換物の両方で計測し、`docs/bench.md` に表で記録する
+- `bench/`: `nrev`（naive reverse、LIPS 計測）、`queens`、`zebra`、`tak`、`deriv`、`crypt`、`bigint`（多倍長整数、フェーズ 10）。インタプリタと `mosac` 変換物の両方で計測し、`docs/bench.md` に表で記録する
 - 目標値は置かない。前回比 20% 以上の悪化を CI で警告する
 
 ## 9. 開発フェーズとマイルストーン
@@ -355,6 +356,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | 7 | 仕上げ: GC、`garbage_collect/0`、`statistics/2`、マニュアル（日本語・英語）、mosac dist、リリース用パッケージ（各 OS のバイナリ、同梱ランタイム） | 長時間ループでメモリが頭打ちになる。README の手順だけで初見の人がビルドできる |
 | 8 | 文法規則: テキストの読み込み時に `-->` を訳す（ADR 0024）、`system` の `phrase/2,3`、`mosac` でも同じ動作 | `tests/pl/dcg.pl` が `mosa` で通り、`mosatest --diff` の差分がゼロ。同梱 Logtalk 準拠スイートの合格率が下がらない |
 | 9 | ISO の穴埋めと堅牢性: `subsumes_term/2`、`acyclic_term/1`、再帰でなく枠で動く reader（ADR 0011 改訂 4）、`Name//Arity`、文法規則の本体の `*->`、`library(dcg)` の `expand_term/2`（ADR 0024 改訂 3） | 8.2.4.4 と 8.3.11.4 の Examples が `tests/pl/unify.pl` と `types.pl` で通る。`mosatest --suite` が `predicates/subsumes_term_2` と `predicates/acyclic_term_1` をディレクトリとして範囲に入れる（STO の件は件ごとに別欄のまま）。`subsumes_term` の判定が組み込みを通る。合格率が 98.4% を下回らない。ctest `stack_deep_read` が 1 MiB の下で 3 OS で通る。`tests/pl/dcg.pl`、`lib_dcg.pl`、`modules.pl` が通り、`mosatest --diff` の差分が 0 |
+| 10 | 多倍長整数: Big の箱（ADR 0025）、上限の無い算術と読み書き、`bounded` が `false` | `tests/pl/bigint.pl` と、期待値をこの変更で直したテストが `mosa` で通り、`mosatest --diff` の差分が 0（`japanese.pl` を含む）。`mosatest --suite` が `unbounded/` を範囲に入れ、そこで動く件がすべて通るか、通らない件が iso-notes に解釈の違いとして書かれて持ち主が決めている。合格率は実際の分母で 98.4% を下回らず、`docs/conformance.md` を作り直す。`MOSA_GC_STRESS` の下で `tests/pl/bigint.pl` が通り、Big を作り続けるループでメモリが頭打ちになり、`1 << (1 << 62)` が確保の前に止まる。`bench/nrev.pl` と `bench/queens.pl` のインタプリタの時間（Release、同じ機械、3 回の中央値）が v0.1.4 の 1.05 倍以下で、`mosac` の `nrev` がインタプリタの 3 倍以上の速さのままで、測った値を `bench.md` に書く |
 
 **フェーズをまたぐ禁止事項**
 

@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
-分母: 2185
-合格数: 2150
-合格率: 98.4
+分母: 2274
+合格数: 2239
+合格率: 98.5
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
@@ -51,10 +51,15 @@ functions/bitwise_left_shift_2 iso_bitwise_left_shift_2_03
 functions/bitwise_or_2 iso_bitwise_or_2_04
 functions/bitwise_right_shift_2 iso_bitwise_right_shift_2_03
 functions/cosh_1 6
+functions/div_2 lgt_div_2_10
+functions/integer_division_2 lgt_integer_division_2_12
+functions/integer_power_2 lgt_integer_power_2_18
 functions/log10_1 9
 functions/lsb_1 12
-functions/msb_1 lgt_msb_1_07
-functions/msb_1 lgt_msb_1_08
+functions/minus_1 lgt_minus_1_07
+functions/minus_2 lgt_minus_2_09
+functions/multiplication_2 lgt_multiplication_2_13
+functions/plus_2 lgt_plus_2_09
 functions/popcount_1 11
 functions/sinh_1 6
 functions/tanh_1 5
@@ -115,6 +120,14 @@ predicates/functor_3 lgt_functor_3_20
 predicates/functor_3 lgt_functor_3_21
 predicates/functor_3 lgt_functor_3_21
 predicates/ground_1 9
+predicates/is_2 iso_is_2_31
+predicates/is_2 iso_is_2_32
+predicates/is_2 iso_is_2_33
+predicates/is_2 iso_is_2_34
+predicates/is_2 iso_is_2_35
+predicates/is_2 lgt_is_2_44
+predicates/is_2 lgt_is_2_45
+predicates/is_2 lgt_is_2_46
 predicates/keysort_2 23
 predicates/length_2 29
 predicates/msort_2 16
@@ -240,7 +253,15 @@ predicates/write_term_3 lgt_write_term_3_144
 predicates/write_term_3 lgt_write_term_3_145
 syntax/directives/meta_predicate_1 3
 syntax/operators lgt_operators_57
-unbounded 111
+unbounded lgt_unbounded_arg_02
+unbounded lgt_unbounded_arg_03
+unbounded lgt_unbounded_functor_01
+unbounded lgt_unbounded_functor_02
+unbounded lgt_unbounded_plus_01
+unbounded lgt_unbounded_plus_02
+unbounded lgt_unbounded_plus_03
+unbounded lgt_unbounded_succ_01
+unbounded lgt_unbounded_succ_02
 unicode/builtins lgt_unicode_format_2_01
 unicode/directives/encoding_1 3
 unicode/encodings 49

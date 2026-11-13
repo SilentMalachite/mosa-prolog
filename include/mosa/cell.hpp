@@ -43,4 +43,24 @@ class Cell {
   return static_cast<std::uint32_t>(word >> 14);
 }
 
+// Big の箱の頭の語（ADR 0025）。関数語と同じく項ではない語なので（ADR 0002 の改訂 1）、下位 3bit を 0 にそろえる。
+// bit 3 が符号、bit 4 から上が絶対値の語数。GC は語数を読むだけで箱の大きさが分かる。
+[[nodiscard]] constexpr std::uint64_t big_header(std::uint64_t words, bool negative) {
+  return (words << 4) | (static_cast<std::uint64_t>(negative) << 3);
+}
+
+[[nodiscard]] constexpr std::uint64_t big_header_words(std::uint64_t header) { return header >> 4; }
+
+[[nodiscard]] constexpr bool big_header_negative(std::uint64_t header) { return ((header >> 3) & 1U) != 0; }
+
+// 整数の値を持つタグ。int64 の即値と箱、その外の Big の 3 つ（正規形の規則で、同じ値が 2 つのタグに分かれない）。
+[[nodiscard]] constexpr bool is_integer_tag(Tag tag) {
+  return tag == Tag::Int || tag == Tag::IntBox || tag == Tag::Big;
+}
+
+// 頭の語の配置を書き換えて ADR 0025 からずれれば、ここでコンパイルが止まる。
+static_assert(big_header(3, true) == 0x38U && (big_header(3, true) & 7U) == 0 &&
+              big_header_words(big_header(3, true)) == 3 && big_header_negative(big_header(3, true)) &&
+              !big_header_negative(big_header(2, false)) && is_integer_tag(Tag::Big) && !is_integer_tag(Tag::Float));
+
 }

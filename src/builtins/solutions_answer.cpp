@@ -3,6 +3,11 @@
 
 #include "solutions_internal.hpp"
 
+#include "mosa/bigint.hpp"
+
+#include <bit>
+#include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -122,6 +127,7 @@ struct Porter {
     else if (node.kind == CopyKind::Atom) cell = machine->heap.atom(node.atom);
     else if (node.kind == CopyKind::Int) cell = machine->heap.integer(node.integer);
     else if (node.kind == CopyKind::Float) cell = machine->heap.floating(node.floating);
+    else if (node.kind == CopyKind::Big) cell = big(node);
     else {
       cell = machine->heap.fresh_ref();
       std::vector<Cell> args;
@@ -130,6 +136,16 @@ struct Porter {
     }
     made[slot_at] = cell;
     return cell;
+  }
+
+  // 子の Int の節点は語として読むだけで、セルにはしない（catch.cpp の取り込みと同じ）。
+  Cell big(const CopyNode& node) {
+    std::vector<std::uint64_t> words;
+    words.reserve(node.kids.size());
+    for (const int kid : node.kids) {
+      words.push_back(std::bit_cast<std::uint64_t>(image->nodes[static_cast<std::size_t>(kid)].integer));
+    }
+    return machine->heap.big(BigInt::from_words(words, node.integer != 0));
   }
 };
 

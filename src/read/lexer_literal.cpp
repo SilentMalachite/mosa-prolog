@@ -1,5 +1,6 @@
 #include "mosa/lexer.hpp"
 
+#include "mosa/bigint.hpp"
 #include "mosa/char_class.hpp"
 
 #include <algorithm>
@@ -24,12 +25,13 @@ int digit_value(char32_t code, int base) {
   return value;
 }
 
-// 乗算の前に 2^63 を見る。超えた整数は浮動小数にしない。
-constexpr std::uint64_t kMinMagnitude = std::uint64_t{1} << 63U;
+// 乗算の前に int64 の最大値を見る。越えた大きさは Big にし（ADR 0025）、浮動小数にはしない。2^63 も越えた側に入れ、
+// - の後ろの min_integer は読む側が Big の符号を反転して正規化する（6.3.4.1）。
+constexpr auto kMaxMagnitude = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
 
 bool push_digit(std::uint64_t& value, int base, int digit) {
   const auto add = static_cast<std::uint64_t>(digit);
-  if (value > (kMinMagnitude - add) / static_cast<std::uint64_t>(base)) return false;
+  if (value > (kMaxMagnitude - add) / static_cast<std::uint64_t>(base)) return false;
   value = value * static_cast<std::uint64_t>(base) + add;
   return true;
 }
@@ -167,20 +169,22 @@ Scan Lexer::scan_decimal(Place start) {
     return fail_at(SyntaxReason::UnexpectedToken, whole.spelling + "._", start);
   }
   if (*fraction) return finish_float(whole.spelling, start);
-  if (whole.overflow) return fail_at(SyntaxReason::IntegerOverflow, whole.spelling, start);
-  return integer_token(whole.value, whole.spelling, start);
+  return integer_token(whole, 10, start);
 }
 
-// 2^63 の綴りは、- の後ろでないと読む側が溢れの誤りに使う。ほかの整数の綴りは今までどおり持たない。
-Scan Lexer::integer_token(std::uint64_t magnitude, std::string spelling, Place start) {
-  Scan scan = token_at(TokenKind::Integer, start);
-  if (magnitude == kMinMagnitude) {
-    scan.token.text = std::move(spelling);
-    scan.token.needs_minus = true;
-    scan.token.integer = std::numeric_limits<std::int64_t>::min();
-  } else {
-    scan.token.integer = static_cast<std::int64_t>(magnitude);
+// 溢れた桁の並びは、ここで綴り全体から Big に読み直す。read_digits で読むと、整数部が長い浮動小数点数でも Big を
+// 作ってしまう。桁の検査は read_digits が base で済ませているので、parse_magnitude が拒むのは綴りの取り違えだけで、
+// そのときも黙って 0 にせず構文の誤りにする（ADR 0025）。
+Scan Lexer::integer_token(const Digits& digits, int base, Place start) {
+  if (!digits.overflow) {
+    Scan scan = token_at(TokenKind::Integer, start);
+    scan.token.integer = static_cast<std::int64_t>(digits.value);
+    return scan;
   }
+  std::optional<BigInt> magnitude = parse_magnitude(without_separators(digits.spelling), static_cast<unsigned>(base));
+  if (!magnitude) return fail_at(SyntaxReason::UnexpectedToken, digits.spelling, start);
+  Scan scan = token_at(TokenKind::Integer, start);
+  scan.token.big = std::move(magnitude);
   return scan;
 }
 
@@ -195,8 +199,7 @@ Scan Lexer::scan_radix(int base, char prefix, Place start) {
   if (digits.bad_separator || !digits.any) {
     return fail_at(SyntaxReason::UnexpectedToken, std::move(spelling), start);
   }
-  if (digits.overflow) return fail_at(SyntaxReason::IntegerOverflow, std::move(spelling), start);
-  return integer_token(digits.value, std::move(spelling), start);
+  return integer_token(digits, base, start);
 }
 
 Scan Lexer::scan_char_code(Place start) {

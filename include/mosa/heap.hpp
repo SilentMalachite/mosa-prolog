@@ -5,6 +5,7 @@
 
 #include "mosa/address_range.hpp"
 #include "mosa/atom.hpp"
+#include "mosa/bigint.hpp"
 #include "mosa/cell.hpp"
 
 #include <cassert>
@@ -80,7 +81,14 @@ class Heap {
 
   [[nodiscard]] Cell atom(std::uint32_t id) const;
   [[nodiscard]] Cell integer(std::int64_t value);
+  // Int と IntBox だけを受ける。Big を渡すと std::abort() で止まる（切り詰めて別の値にしない。ADR 0025）。
   [[nodiscard]] std::int64_t integer_value(Cell cell) const;
+  // 正規形で作る（ADR 0025）。int64 に収まる値は integer と同じ Int か IntBox、収まらない値だけが Big の箱になる。
+  [[nodiscard]] Cell big(const BigInt& value);
+  [[nodiscard]] BigInt big_value(Cell cell) const;  // Int、IntBox、Big のどれでも受ける
+  // 以下 2 つは Big だけを受ける。絶対値の語は下位が先で、最上位の語は 0 でない。
+  [[nodiscard]] std::span<const std::uint64_t> big_magnitude(Cell cell) const;
+  [[nodiscard]] bool big_negative(Cell cell) const;
   [[nodiscard]] Cell floating(double value);
   [[nodiscard]] double float_value(Cell cell) const;
   [[nodiscard]] Cell structure(std::uint32_t functor, std::span<const Cell> args);

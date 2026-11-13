@@ -118,7 +118,6 @@ X = X.
 | `type_error(Type, Culprit)` | `Culprit` が、型 `Type`（`atom`、`integer`、`evaluable` など）でなかった。 |
 | `existence_error(procedure, Name/Arity)` | 名前が `Name` でアリティが `Arity` の述語がない。 |
 | `evaluation_error(zero_divisor)` | 算術で 0 で割った。 |
-| `evaluation_error(int_overflow)` | 整数の結果が大きすぎた（第 6 章）。 |
 
 エラーを捕まえるときは、`Catcher` に `Formal` の形を書き、`Context` は `_` にします。`割る/3` もそう書いています。何が起きたかは `Formal` が表し、`Context` はどこで起きたかを探す手がかりにすぎません。
 

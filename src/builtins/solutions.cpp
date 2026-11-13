@@ -5,15 +5,17 @@
 //   第1〜3引数の誤りは findall/3 と同じ。instantiation_error、
 //   type_error(callable, Goal)、type_error(list, List)
 //   第4引数が部分リストでもリストでもなければ type_error(list, Tail)
-// テスト: tests/pl/solutions.pl
+// テスト: tests/pl/solutions.pl、tests/cpp/bigint_copy_test.cpp（Big の答え）
 
 #include "../machine/gc.hpp"
 #include "../machine/internal.hpp"
 #include "solutions_internal.hpp"
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -381,7 +383,27 @@ int image_list(Image& image, std::uint32_t nil, const std::vector<int>& kids) {
   return tail;
 }
 
+// 語は項ではないので、子の節点をその場で書き終える。push_node が nodes を伸ばすので、親は添字で持つ。
+int copy_big(Impl& machine, Cell cell, Image& image) {
+  CopyNode node;
+  node.kind = CopyKind::Big;
+  node.integer = machine.heap.big_negative(cell) ? 1 : 0;
+  const auto words = machine.heap.big_magnitude(cell);
+  node.kids.reserve(words.size());
+  const int at = push_node(image, std::move(node));
+  for (const std::uint64_t word : words) {
+    CopyNode child;
+    child.kind = CopyKind::Int;
+    child.integer = std::bit_cast<std::int64_t>(word);
+    const int kid = push_node(image, std::move(child));
+    image.nodes[static_cast<std::size_t>(at)].kids.push_back(kid);
+  }
+  return at;
+}
+
+// 複合項でも変数でもない項。浮動小数点数を残りの枝にすると、新しい札の項を黙ってその値に読むので、札ごとに書く。
 int copy_scalar(Impl& machine, Cell cell, Image& image) {
+  if (cell.tag() == Tag::Big) return copy_big(machine, cell, image);
   CopyNode node;
   if (cell.tag() == Tag::Atom) {
     node.kind = CopyKind::Atom;
@@ -389,9 +411,12 @@ int copy_scalar(Impl& machine, Cell cell, Image& image) {
   } else if (cell.tag() == Tag::Int || cell.tag() == Tag::IntBox) {
     node.kind = CopyKind::Int;
     node.integer = machine.heap.integer_value(cell);
-  } else {
+  } else if (cell.tag() == Tag::Float) {
     node.kind = CopyKind::Float;
     node.floating = machine.heap.float_value(cell);
+  } else {
+    // 呼び手（copy_one）は未束縛の変数と複合項をここへ送らない。
+    std::abort();
   }
   return push_node(image, std::move(node));
 }
@@ -423,14 +448,20 @@ int copy_var(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids
 }
 
 // 1 つの項に番号を振る。複合項は番号だけ先に取って frames に積む。前の再帰と同じ前順の番号になる。
+// Big も同じ箱の 2 度目からは最初の節点を指す。変わらない値なので取り込み（solutions_answer.cpp）が 1 つの箱を共有して
+// よく、出るたびに写すと像と取り込んだ箱が出る回数の倍だけ伸びる（最終レビューの Important 1）。
 int copy_one(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids, std::vector<CopyFrame>& frames) {
   cell = machine.heap.deref(cell);
   const bool compound = cell.tag() == Tag::Lis || cell.tag() == Tag::Str;
-  if (machine.heap.unbound(cell) || compound) {
+  if (machine.heap.unbound(cell) || compound || cell.tag() == Tag::Big) {
     if (const auto found = seen.find(cell.raw()); found != seen.end()) return found->second;
   }
   if (machine.heap.unbound(cell)) return copy_var(machine, cell, image, seen, ids);
-  if (!compound) return copy_scalar(machine, cell, image);
+  if (!compound) {
+    const int at = copy_scalar(machine, cell, image);
+    if (cell.tag() == Tag::Big) seen.emplace(cell.raw(), at);
+    return at;
+  }
   CopyNode node;
   std::uint16_t arity = 2;
   if (cell.tag() == Tag::Lis) {
