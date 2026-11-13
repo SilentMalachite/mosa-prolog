@@ -102,6 +102,8 @@ inline constexpr std::uint32_t kCall = 0;
   return Cell{std::bit_cast<std::uint64_t>(slot) | static_cast<std::uint64_t>(Tag::Lis)};
 }
 [[nodiscard]] inline Cell put_struct(std::uint64_t* slot, std::uint32_t atom, std::span<const Cell> args) {
+  // Heap::structure と同じく、項数欄を超えたら黙って詰めずに止める（全体レビュー推奨4）。
+  if (args.size() > kMaxFunctorArity) throw ResourceLimit("heap_limit");
   slot[0] = pack_functor(atom, static_cast<std::uint16_t>(args.size()));
   for (std::size_t index = 0; index < args.size(); ++index) slot[index + 1] = args[index].raw();
   return Cell{std::bit_cast<std::uint64_t>(slot) | static_cast<std::uint64_t>(Tag::Str)};

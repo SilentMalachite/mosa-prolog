@@ -16,24 +16,22 @@ namespace mosa {
 namespace {
 
 // 答えに出た変数を shown に集める。C++ の再帰を使わず手で積む（ADR 0011）。seen は辿った複合項で、
-// 共有された部分項と循環を 1 度だけ辿る。
-void note_shown(const Heap& heap, Cell root, std::span<const VarName> names, std::vector<std::uint64_t>& shown) {
+// 共有された部分項と循環を 1 度だけ辿る。名前の有無と shown の所属は集合で引く。線形に探すと、
+// 束縛の多い答えの組み立てが 2 乗になる（全体レビュー推奨4）。
+void note_shown(const Heap& heap, Cell root, const std::unordered_set<std::uint64_t>& named,
+                std::unordered_set<std::uint64_t>& shown) {
   std::unordered_set<std::uint64_t> seen;
   std::vector<Cell> todo{root};
   while (!todo.empty()) {
     Cell term = todo.back();
     todo.pop_back();
-    if (term.tag() == Tag::Ref) {
-      const bool named = std::any_of(names.begin(), names.end(),
-                                     [term](const VarName& name) { return name.cell.raw() == term.raw(); });
-      if (named) {
-        shown.push_back(heap.deref(term).raw());
-        continue;
-      }
+    if (term.tag() == Tag::Ref && named.contains(term.raw())) {
+      shown.insert(heap.deref(term).raw());
+      continue;
     }
     term = heap.deref(term);
     if (heap.unbound(term)) {
-      shown.push_back(term.raw());
+      shown.insert(term.raw());
       continue;
     }
     if (term.tag() != Tag::Lis && term.tag() != Tag::Str) continue;
@@ -45,13 +43,6 @@ void note_shown(const Heap& heap, Cell root, std::span<const VarName> names, std
     }
     for (std::uint16_t index = heap.functor_arity(term); index > 0; --index) todo.push_back(heap.arg(term, index - 1U));
   }
-}
-
-bool already(const std::vector<std::uint64_t>& shown, std::uint64_t raw) {
-  for (const auto item : shown) {
-    if (item == raw) return true;
-  }
-  return false;
 }
 
 // 答えの「名前 = 右辺」の 1 つ。value が真なら右辺は値を書いた字面（Picked::values の次の項）、偽なら名前 alias。
@@ -67,11 +58,6 @@ struct Picked {
   std::vector<Cell> values;
 };
 
-bool own_variable(std::span<const Binding> bindings, Cell variable) {
-  return std::any_of(bindings.begin(), bindings.end(),
-                     [variable](const Binding& binding) { return binding.variable.raw() == variable.raw(); });
-}
-
 // ADR 0019。値が同じ未束縛の変数である名前の組は、鎖 N1 = N2, … で示す。前の束縛に出たかによらず示さないと、
 // 名前が消える。問い合わせの変数そのものでない変数は、ほかの値の中で組の最後の名前で書くよう names に足す。
 // 名前が 1 つの組は前と同じく、問い合わせの変数そのものが前の束縛に出ていれば書かない。作った名前で出た変数は、
@@ -85,25 +71,32 @@ Picked pick_bindings(const Heap& heap, std::span<const Binding> bindings, std::v
     if (heap.unbound(values.back())) classes[values.back().raw()].push_back(at);
   }
   Picked picked;
-  std::vector<std::uint64_t> shown;
+  std::unordered_set<std::uint64_t> shown;
+  std::unordered_set<std::uint64_t> named;
+  for (const VarName& name : names) named.insert(name.cell.raw());
+  std::unordered_set<std::uint64_t> own_vars;
+  for (const Binding& binding : bindings) own_vars.insert(binding.variable.raw());
   for (std::size_t at = 0; at < bindings.size(); ++at) {
     const Cell value = values[at];
     if (heap.unbound(value)) {
       const std::vector<std::size_t>& members = classes[value.raw()];
-      const bool own = own_variable(bindings, value);
+      const bool own = own_vars.contains(value.raw());
       if (members.size() > 1) {
-        if (!own && at == members.front()) names.push_back(VarName{bindings[members.back()].name, value});
+        if (!own && at == members.front()) {
+          names.push_back(VarName{bindings[members.back()].name, value});
+          named.insert(value.raw());
+        }
         const auto self = std::find(members.begin(), members.end(), at);
         if (self + 1 != members.end()) {
           picked.pieces.push_back(Piece{bindings[at].name, bindings[*(self + 1)].name, false});
         }
         continue;
       }
-      if (own && already(shown, value.raw())) continue;
+      if (own && shown.contains(value.raw())) continue;
     }
     picked.pieces.push_back(Piece{bindings[at].name, {}, true});
     picked.values.push_back(value);
-    note_shown(heap, value, names, shown);
+    note_shown(heap, value, named, shown);
   }
   return picked;
 }

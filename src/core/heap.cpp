@@ -144,7 +144,8 @@ std::int64_t Heap::integer_value(Cell cell) const {
   }
   // Big の頭の語を値として読むと、黙って別の整数になる。CI は Release だけを作るので assert では止まらない。
   // 取りこぼした道は、ここで落ちて見つかるようにする（ADR 0025）。即値の道には足さない。
-  if (cell.tag() == Tag::Big) [[unlikely]] std::abort();
+  // IntBox 以外（Atom や Float など）も同じく止める。前はそのまま語を読んでいた（全体レビュー推奨4）。
+  if (cell.tag() != Tag::IntBox) [[unlikely]] std::abort();
   return std::bit_cast<std::int64_t>(*pointer(cell));
 }
 
@@ -180,9 +181,15 @@ Cell Heap::floating(double value) {
   return Cell{tagged(std::bit_cast<std::uint64_t>(slot), Tag::Float)};
 }
 
-double Heap::float_value(Cell cell) const { return std::bit_cast<double>(*pointer(cell)); }
+// integer_value と同じく、タグが違うセルは黙って読まずに止める（全体レビュー推奨4）。
+double Heap::float_value(Cell cell) const {
+  if (cell.tag() != Tag::Float) [[unlikely]] std::abort();
+  return std::bit_cast<double>(*pointer(cell));
+}
 
 Cell Heap::structure(std::uint32_t functor, std::span<const Cell> args) {
+  // 項数欄を超えたら、slot_number と同じくヒープ上限の止め方にする（全体レビュー推奨4）。
+  if (args.size() > kMaxFunctorArity) throw ResourceLimit("heap_limit");
   auto* slot = allocate(1 + args.size());
   slot[0] = pack_functor(functor, static_cast<std::uint16_t>(args.size()));
   for (std::size_t index = 0; index < args.size(); ++index) slot[index + 1] = args[index].raw();

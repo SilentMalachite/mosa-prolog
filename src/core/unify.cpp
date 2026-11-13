@@ -132,13 +132,21 @@ void undo_attempt(Heap& heap, Attempt& attempt, std::size_t heap_mark) {
 bool unify_attempt(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t heap_mark, Cell left, Cell right,
                    Attempt& attempt) {
   attempt.boundary = trail.mark != nullptr ? trail.mark : heap.data() + heap_mark;
-  if (!unify_cells(heap, left, right, attempt, 0)) {
+  try {
+    if (!unify_cells(heap, left, right, attempt, 0)) {
+      undo_attempt(heap, attempt, heap_mark);
+      return false;
+    }
+    trail.slots.resize(trail_mark);
+    trail.slots.insert(trail.slots.end(), attempt.keep.begin(), attempt.keep.end());
+    return true;
+  } catch (...) {
+    // undo/keep の vector や辿り表の確保が bad_alloc で投げても、束縛した分を残さない（全体レビュー推奨4）。
+    // 上ではヒープ上限として止まり機械は使い続けるので、戻さないと次の問い合わせが束縛済みの変数を見る。
     undo_attempt(heap, attempt, heap_mark);
-    return false;
+    trail.slots.resize(trail_mark);
+    throw;
   }
-  trail.slots.resize(trail_mark);
-  trail.slots.insert(trail.slots.end(), attempt.keep.begin(), attempt.keep.end());
-  return true;
 }
 
 }  // namespace

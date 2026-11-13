@@ -92,6 +92,7 @@ class Printer final : public WriteHeld {
     for (const VarName& var : names) {
       if (var.name.starts_with("_G")) given_.insert(var.name);
     }
+    index_names();
   }
 
   void collect(Cell term);
@@ -126,6 +127,7 @@ class Printer final : public WriteHeld {
   [[nodiscard]] std::string spell(std::string_view name) const;
   [[nodiscard]] std::string spell_operator(std::string_view name) const;
   [[nodiscard]] std::string spell_functor(std::string_view name) const;
+  void index_names();
   [[nodiscard]] const VarName* var_name(Cell term) const;
   [[nodiscard]] std::string var_text(Cell term);
   [[nodiscard]] static bool glue(std::optional<char32_t> end, std::optional<char32_t> start);
@@ -136,6 +138,9 @@ class Printer final : public WriteHeld {
   WriteOptions options_;
   std::span<const VarName> names_;
   std::vector<VarName> own_names_;
+  // セルの生値から names_ の添字を引く表。線形に探すと、名前の多い答えの書き出しが 2 乗になる
+  // （全体レビュー推奨4）。GC でセルが動いた後は settle が作り直す。
+  std::unordered_map<std::uint64_t, std::size_t> name_index_;
   // 呼び手が付けた _G で始まる名前。作る名前はこれを飛ばす（レビュー M9）。
   std::unordered_set<std::string> given_;
   std::unordered_map<std::uint64_t, int> counts_;
@@ -192,6 +197,7 @@ void Printer::settle() {
   }
   held_counts_.clear();
   held_assigned_.clear();
+  index_names();
   // 祖先の集まりは積んだ Leave の項と同じなので、動いた番地で数え直す。
   open_.clear();
   for (const Work& item : work_) {
@@ -331,7 +337,17 @@ void Printer::push_comma(std::size_t id) {
   else push_text(",", Space::Glue, id);
 }
 
+void Printer::index_names() {
+  name_index_.clear();
+  for (std::size_t index = 0; index < names_.size(); ++index) name_index_.emplace(names_[index].cell.raw(), index);
+}
+
 const VarName* Printer::var_name(Cell term) const {
+  if (const auto found = name_index_.find(term.raw()); found != name_index_.end()) {
+    const VarName& var = names_[found->second];
+    if (var.cell.raw() == term.raw()) return &var;
+  }
+  // 表が古い道（settle を経ない移動）があっても、線形に探して正しくする。
   for (const VarName& var : names_) {
     if (var.cell.raw() == term.raw()) return &var;
   }

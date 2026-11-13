@@ -6,11 +6,13 @@
 #include "mosa/lexer.hpp"
 #include "mosa/operator_table.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace mosa {
@@ -128,6 +130,9 @@ class Reader {
   Scan pending_{};
   bool has_pending_ = false;
   std::vector<VarRec> vars_;
+  // 名前から vars_ の添字を引く表。vars_ を線形に探すと、相異なる変数の多い項の読みが 2 乗になる
+  // （全体レビュー推奨4）。vars_ と一緒に next() で空にする。
+  std::unordered_map<std::string, std::size_t> var_index_;
   std::vector<Cell> occurrences_;
   std::vector<Frame> frames_;
 };

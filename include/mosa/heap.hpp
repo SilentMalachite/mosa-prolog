@@ -92,7 +92,7 @@ class Heap {
 
   [[nodiscard]] Cell atom(std::uint32_t id) const;
   [[nodiscard]] Cell integer(std::int64_t value);
-  // Int と IntBox だけを受ける。Big を渡すと std::abort() で止まる（切り詰めて別の値にしない。ADR 0025）。
+  // Int と IntBox だけを受ける。それ以外を渡すと std::abort() で止まる（切り詰めて別の値にしない。ADR 0025）。
   [[nodiscard]] std::int64_t integer_value(Cell cell) const;
   // 正規形で作る（ADR 0025）。int64 に収まる値は integer と同じ Int か IntBox、収まらない値だけが Big の箱になる。
   [[nodiscard]] Cell big(const BigInt& value);
@@ -101,7 +101,9 @@ class Heap {
   [[nodiscard]] std::span<const std::uint64_t> big_magnitude(Cell cell) const;
   [[nodiscard]] bool big_negative(Cell cell) const;
   [[nodiscard]] Cell floating(double value);
+  // Float だけを受ける。それ以外は integer_value と同じく std::abort() で止まる。
   [[nodiscard]] double float_value(Cell cell) const;
+  // args が kMaxFunctorArity（関数語の項数欄）を超えたら ResourceLimit。黙って詰めると関数子が壊れる。
   [[nodiscard]] Cell structure(std::uint32_t functor, std::span<const Cell> args);
   [[nodiscard]] std::uint16_t functor_arity(Cell cell) const;
   [[nodiscard]] std::uint32_t functor_atom(Cell cell) const;

@@ -30,6 +30,9 @@ class Cell {
   std::uint64_t raw_ = 0;
 };
 
+// 項数欄は 11bit。これを超えて詰めるとアトム番号のビットへ溢れるので、作る側はここで止める。
+inline constexpr std::uint16_t kMaxFunctorArity = 0x7FFU;
+
 // 引数順はアトム番号、アリティ。下位 3bit は 0、続く 11bit がアリティ、続く 32bit がアトム番号。
 [[nodiscard]] constexpr std::uint64_t pack_functor(std::uint32_t atom, std::uint16_t arity) {
   return (static_cast<std::uint64_t>(atom) << 14) | (static_cast<std::uint64_t>(arity) << 3);

@@ -194,16 +194,24 @@ void run_arg(Impl& machine, const Goal& goal) {
 enum class ListRead { Ok, Partial, Bad };
 
 ListRead proper_items(Impl& machine, Cell list, std::vector<Cell>& items) {
-  std::vector<std::uint64_t> seen;
+  // 巡回は Brent の方法で見る（atoms.cpp の walk_list と同じ）。辿った節を全部と比べると、
+  // 長いリストの =../2 が 2 乗になる（全体レビュー推奨4）。
+  std::uint64_t mark = 0;
+  bool marked = false;
+  std::size_t power = 1;
+  std::size_t steps = 1;
   while (true) {
     list = machine.heap.deref(list);
     if (machine.heap.unbound(list)) return ListRead::Partial;
     if (is_nil(machine, list)) return ListRead::Ok;
-    if (list.tag() != Tag::Lis) return ListRead::Bad;
-    for (const auto raw : seen) {
-      if (raw == list.raw()) return ListRead::Bad;
+    if (list.tag() != Tag::Lis || (marked && list.raw() == mark)) return ListRead::Bad;
+    if (steps == power) {
+      mark = list.raw();
+      marked = true;
+      power *= 2;
+      steps = 0;
     }
-    seen.push_back(list.raw());
+    ++steps;
     items.push_back(machine.heap.list_head(list));
     list = machine.heap.list_tail(list);
   }

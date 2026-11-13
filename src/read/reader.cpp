@@ -124,11 +124,12 @@ Cell Reader::intern_variable(std::string name) {
     occurrences_.push_back(cell);
     return cell;
   }
-  for (VarRec& var : vars_) {
-    if (var.name != name) continue;
+  if (const auto found = var_index_.find(name); found != var_index_.end()) {
+    VarRec& var = vars_[found->second];
     var.count += 1;
     return var.cell;
   }
+  var_index_.emplace(name, vars_.size());
   VarRec created{std::move(name), heap_.fresh_ref(), 1};
   const Cell cell = created.cell;
   vars_.push_back(std::move(created));
@@ -306,6 +307,7 @@ void Reader::absorb_full_stop(const Scan& offending) {
 
 ReadOutcome Reader::next() {
   vars_.clear();
+  var_index_.clear();
   occurrences_.clear();
   const Scan first = peek();
   if (first.failure) {

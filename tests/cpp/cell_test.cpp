@@ -2,13 +2,16 @@
 #include "mosa/atom.hpp"
 #include "mosa/cell.hpp"
 #include "mosa/heap.hpp"
+#include "mosa/runtime.hpp"
 
 #include <array>
 #include <bit>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 void check_functor_and_atoms() {
   mosa_test::check(static_cast<unsigned>(mosa::Tag::Ref) == 0 && static_cast<unsigned>(mosa::Tag::Atom) == 1 &&
@@ -100,9 +103,40 @@ void check_numbers_and_terms() {
                    "box payload is a separate word");
 }
 
+// 全体レビュー推奨4。関数語の項数欄は 11bit。2048 以上を黙って詰めるとアトム番号のビットへ
+// 溢れて関数子まで壊れるので、上限超は ResourceLimit で止める（rt::put_struct も同じ）。
+void check_structure_limit() {
+  mosa::AtomTable atoms;
+  mosa::Heap heap(atoms);
+  const auto f = atoms.intern("f");
+  const std::vector<mosa::Cell> args(2048, heap.atom(atoms.intern("a")));
+  const auto maxed = heap.structure(f, std::span<const mosa::Cell>(args.data(), 2047));
+  mosa_test::check(heap.functor_arity(maxed) == 2047 && heap.functor_atom(maxed) == f, "arity 2047 fits the field");
+  bool threw = false;
+  try {
+    (void)heap.structure(f, args);
+  } catch (const mosa::ResourceLimit&) {
+    threw = true;
+  }
+  mosa_test::check(threw, "arity 2048 stops instead of overflowing into the atom");
+  std::vector<std::uint64_t> slot(2049, 0);
+  threw = false;
+  try {
+    (void)mosa::rt::put_struct(slot.data(), f, args);
+  } catch (const mosa::ResourceLimit&) {
+    threw = true;
+  }
+  mosa_test::check(threw, "put_struct arity 2048 stops");
+  const auto made = mosa::rt::put_struct(slot.data(), f, std::span<const mosa::Cell>(args.data(), 2047));
+  mosa_test::check(mosa::functor_arity(slot[0]) == 2047 && mosa::functor_atom_id(slot[0]) == f &&
+                       made.tag() == mosa::Tag::Str,
+                   "put_struct arity 2047 fits");
+}
+
 int main() {
   check_functor_and_atoms();
   check_heap_cap_and_ref();
   check_numbers_and_terms();
+  check_structure_limit();
   return mosa_test::failures();
 }

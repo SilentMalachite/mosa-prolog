@@ -1,5 +1,9 @@
 #include "mosa/atom.hpp"
 
+// ResourceLimit の宣言だけが要る（intern の上限）。Heap 本体は使わない。
+#include "mosa/heap.hpp"
+
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -50,6 +54,8 @@ std::uint32_t AtomTable::intern(std::string_view text) {
   const std::string owned{text};
   const auto found = ids_.find(owned);
   if (found != ids_.end()) return found->second;
+  // 2^32 個目で番号が巻き戻ると別の原子と同じ番号になる。slot_number と同じく止める（全体レビュー推奨4）。
+  if (names_.size() > std::numeric_limits<std::uint32_t>::max()) throw ResourceLimit("heap_limit");
   const auto id = static_cast<std::uint32_t>(names_.size());
   names_.push_back(owned);
   ascii_.push_back(all_ascii(owned) ? 1 : 0);

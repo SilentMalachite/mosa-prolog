@@ -190,6 +190,12 @@ target_link_libraries(sub_atom_scale_test PRIVATE mosa_lib)
 add_test(NAME sub_atom_scale COMMAND $<TARGET_FILE:sub_atom_scale_test>)
 # 時間の比を測るので、並列の ctest -j でほかのテストと CPU を取り合うと落ちうる。ひとりで走らせる。
 set_tests_properties(sub_atom_scale PROPERTIES RUN_SERIAL TRUE)
+# 全体レビュー推奨4。=../2 のリスト読みと読み書きの変数表が要素数に比例する範囲に収まる。
+add_executable(term_scale_test tests/cpp/term_scale_test.cpp)
+target_include_directories(term_scale_test PRIVATE tests/cpp)
+target_link_libraries(term_scale_test PRIVATE mosa_lib)
+add_test(NAME term_scale COMMAND $<TARGET_FILE:term_scale_test>)
+set_tests_properties(term_scale PROPERTIES RUN_SERIAL TRUE)
 # レビュー M3（ADR 0015）。未束縛の第1引数の呼び出し・retract・clause/2 の答えごとの more と、
 # 閉じた走査が残した節の消去。
 add_executable(clause_scan_test tests/cpp/clause_scan_test.cpp)
