@@ -217,6 +217,8 @@ A か B か: A は並びを 1 文字として進めてから誤りを出す。�
 
 決定（2026-10-25）: 未決 14 は A。`version` は読み取り専用のアトムで、文字列は `version_line()` と同じである。
 
+廃止: 実装した旗は読み取り専用の整数 Major*10000 + Minor*100 + Patch（仕様第3節の7、`src/builtins/flags.cpp`）で、現在は mosa 0.2.0 の `200`。上のアトムの形は実装しなかった。
+
 ## 第3節 旗 iso
 
 決定（2026-10-25）: 未決 15 は A。`iso` の既定は `true` で、読み取り専用である。フェーズ3で新しい挙動は足さない。フェーズ10の後に実装した（`src/builtins/flags.cpp`、`tests/pl/flags.pl`）。`current_prolog_flag(iso, true)` が成り立ち、`set_prolog_flag(iso, _)` は `true` と `false` で `permission_error(modify, flag, iso)`、ほかの値で `domain_error(flag_value, iso+_)` になる。
@@ -275,8 +277,8 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 
 決定（2026-10-26）: 許可は待たない。`inriasuite.pl` は再配布の許諾が無いので同梱しない。フェーズ3の準拠スイートは Logtalk の `tests/prolog` を、コミット `4decb64b598feff542a926a085eef01ec51f5a72` のまま `tests/conformance/logtalk/prolog` に置く。ライセンスはリポジトリと同じ Apache-2.0 で、著作権表示は残す。ファイルは改変しない。仕様第9節の 90% はこのスイートで測る。合格率はこの決定では出さない。
 
-
 決定（2026-10-28）: A。試験器が 6 ライブラリを取り込むようになったが、別欄のディレクトリ（`between_3`、`succ_2`、`plus_3`、`format_2`、`format_3`、`atomic_list_concat_2`、`atomic_list_concat_3`）はフェーズ5の間は実行しない。分母は 2171 のままにし、フェーズ5の出口は同じ基準値（2041）と比べる。これらの述語は `tests/pl/` のライブラリのテストが確かめる。
+
 ## 準拠スイート: テスト本体の Logtalk メッセージ送信
 
 記録（2026-11-13、全体レビュー推奨3）: 不合格の5件はテスト本体で `::/2` の Logtalk メッセージを送る。`lgt_soft_cut_2_3_22`（`lgtunit::deterministic/2`）、`logical_update_semantics_negation`（`integer::between/3`）、`lgt_open_4_41` から `43`（`os::ensure_file/1`）。`::/2` は Logtalk のオブジェクト構文で、ISO/IEC 13211 にはモジュール修飾 `:/2`（仕様第5節）しか無く、オブジェクトは無い。試験器はテスト本体を Prolog のゴールとして実行し（`^^` のスーパーコールは `src/machine/lgt_io.cpp` が受ける）、メッセージ送信は実装しないので、各件は主題が動く前に `existence_error(procedure, ::/2)` で終わる。主題そのものは別で確かめている。`*->/2`（仕様第7節の段階A、非ISO）、7.5.4 の論理更新の見え方（下の「7.5.4 開いた走査と retract」）、`open/4` の `eof_action/1` 繰り返し（7.10.2.11。後の選択肢が勝つことは「8.14 書き出しオプション」に記録した）。5件は Prolog の意味の違いではなく試験器の限界として不合格のままにする。
@@ -673,8 +675,8 @@ ADR 0010 の GC はヒープ、`extras`、trail を回収するが、アトム�
 
 A か B か: A は標準ストリームの close/1,2 で吐き出しだけして成功し、閉じない。現在の流れのまま書き込める。B は今のまま閉じる。確認前は B のまま。
 
-
 決定（2026-11-01）: A。close/1,2 は引数と選択肢を今までどおり検査し、`user_output` と `user_error` を吐き出し、三つの標準ストリームを開いたまま残す（`src/builtins/streams.cpp` の `run_close`、`tests/pl/close.pl` の `close_std_*`、`tests/cpp/output_stop_test.cpp` の `check_session_close_user_output`）。`tests/cpp/stream_test.cpp` は同じコミットで変える。「close user_output」は流れが開いたまま現在出力であることを期待し、「closed current input」（今は「closed input」）は `user_input` ではなくファイルの流れを閉じる。
+
 ## 8.11 開くと consult の全体読み
 
 `open(File, read, S)` は成功する前にファイル全体をメモリへ読んでいて、`consult` も原文で同じことをしていた。そのため `open('/dev/zero', read, S)` だけで限りなく膨らんだ（全体レビュー項目2）。持ち主は提示した方式のうち B を選んだ（2026-11-13）。読みで開いたファイルは、読む述語が必要な分だけ塊で読む（`src/builtins/streams.cpp` の `pull_stream`）。読んだ分は保持するので `set_stream_position/2` と `eof_action(reset)` は今までどおりで、保持したバイトは `--heap-max` のバイト予算に数え（`include/mosa/heap.hpp` の `heap_byte_budget`）、超えるとヒープ上限で止まる。後からほかのプログラムが足した分も読めるようになる（前は開いた時点の写ししか見えなかった）。`consult` などの読み込みは通常ファイルだけを同じバイト予算の中で読み（`src/machine/load_path.cpp` の `read_source`）、装置やパイプは開けないファイルになる。追記で開くときは位置と保存の仕組みが元の中身を要するので今までどおり読むが、consult と同じ規則にする。通常ファイルだけ、予算の中、それ以外は `permission_error(open, source_sink, File)` である。テストは `tests/cpp/stream_test.cpp` の `check_lazy_read` と `check_consult_source_limit`。

@@ -47,6 +47,18 @@
       }
     },
     {
+      "name": "linux-clang-asan",
+      "displayName": "Linux Clang Ninja Debug ASan+UBSan",
+      "inherits": "linux-clang",
+      "binaryDir": "${sourceDir}/build-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
       "name": "windows-msvc",
       "displayName": "Windows MSVC Visual Studio 17 2022",
       "generator": "Visual Studio 17 2022",
@@ -82,6 +94,12 @@
       "configuration": "Release"
     },
     {
+      "name": "linux-clang-asan",
+      "displayName": "Linux Clang Ninja Debug ASan+UBSan",
+      "configurePreset": "linux-clang-asan",
+      "configuration": "Debug"
+    },
+    {
       "name": "windows-msvc",
       "displayName": "Windows MSVC Visual Studio 17 2022",
       "configurePreset": "windows-msvc",
@@ -94,6 +112,10 @@
       "displayName": "macOS Clang Ninja Release",
       "configurePreset": "macos-clang",
       "configuration": "Release",
+      "execution": {
+        "jobs": 0,
+        "timeout": 600
+      },
       "output": {
         "outputOnFailure": true
       }
@@ -103,6 +125,10 @@
       "displayName": "Linux GCC Ninja Release",
       "configurePreset": "linux-gcc",
       "configuration": "Release",
+      "execution": {
+        "jobs": 0,
+        "timeout": 600
+      },
       "output": {
         "outputOnFailure": true
       }
@@ -112,6 +138,23 @@
       "displayName": "Linux Clang Ninja Release",
       "configurePreset": "linux-clang",
       "configuration": "Release",
+      "execution": {
+        "jobs": 0,
+        "timeout": 600
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-clang-asan",
+      "displayName": "Linux Clang Ninja Debug ASan+UBSan",
+      "configurePreset": "linux-clang-asan",
+      "configuration": "Debug",
+      "execution": {
+        "jobs": 0,
+        "timeout": 1200
+      },
       "output": {
         "outputOnFailure": true
       }
@@ -121,6 +164,10 @@
       "displayName": "Windows MSVC Visual Studio 17 2022",
       "configurePreset": "windows-msvc",
       "configuration": "Release",
+      "execution": {
+        "jobs": 0,
+        "timeout": 600
+      },
       "output": {
         "outputOnFailure": true
       }

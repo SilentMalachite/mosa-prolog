@@ -115,7 +115,7 @@ add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/t
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 # tests/pl の consult と close の試験は tests/tmp の同じパスに書いて読む。open/3 の write は開いた時点で空にするので、
 # 差分テスト（diff_tests_pl）と重なると、片方が書き終える前のファイルをもう片方が読みうる（Codex レビュー）。
-set_tests_properties(prolog_tests PROPERTIES RESOURCE_LOCK pl_tmp)
+set_tests_properties(prolog_tests PROPERTIES RESOURCE_LOCK pl_tmp TIMEOUT 900)
 
 add_executable(heap_growth_test tests/cpp/heap_growth_test.cpp)
 target_include_directories(heap_growth_test PRIVATE tests/cpp)
@@ -178,11 +178,14 @@ add_executable(index_scale_test tests/cpp/index_scale_test.cpp)
 target_include_directories(index_scale_test PRIVATE tests/cpp)
 target_link_libraries(index_scale_test PRIVATE mosa_lib)
 add_test(NAME index_scale COMMAND $<TARGET_FILE:index_scale_test>)
+# 時間の比を測るので、並列で CPU を取り合うと比が崩れる。ほかの scale と同じくひとりで走らせる（全体レビュー推奨5）。
+set_tests_properties(index_scale PROPERTIES RUN_SERIAL TRUE)
 # レビュー M7。リストを書く時間が要素の数に比例する範囲に収まる（背骨の巡回の先読みが祖先で止まる）。
 add_executable(write_scale_test tests/cpp/write_scale_test.cpp)
 target_include_directories(write_scale_test PRIVATE tests/cpp)
 target_link_libraries(write_scale_test PRIVATE mosa_lib)
 add_test(NAME write_scale COMMAND $<TARGET_FILE:write_scale_test>)
+set_tests_properties(write_scale PROPERTIES RUN_SERIAL TRUE)
 # レビュー M32。sub_atom/5 の 1 つの答えの時間が原子の長さに比例する範囲に収まる（束縛された引数で候補を絞る）。
 add_executable(sub_atom_scale_test tests/cpp/sub_atom_scale_test.cpp)
 target_include_directories(sub_atom_scale_test PRIVATE tests/cpp)
@@ -432,7 +435,6 @@ target_include_directories(suite_path_test PRIVATE tests/cpp)
 target_compile_definitions(suite_path_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(suite_path_test PRIVATE mosa_lib)
 add_test(NAME suite_path_test COMMAND $<TARGET_FILE:suite_path_test>)
-set_tests_properties(suite_path_test PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(suite_vars_test tests/cpp/suite_vars_test.cpp)
 target_include_directories(suite_vars_test PRIVATE tests/cpp)
@@ -462,9 +464,7 @@ add_executable(conformance_io_test tests/cpp/conformance_io_test.cpp)
 target_include_directories(conformance_io_test PRIVATE tests/cpp)
 target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(conformance_io_test PRIVATE mosa_lib)
-# tests/tmp/suite は tests.lgt を流す全てが共有する。空かどうかを見るこの 2 本と diff_conformance は同時に走らせない。
 add_test(NAME conformance_io_test COMMAND $<TARGET_FILE:conformance_io_test>)
-set_tests_properties(conformance_io_test PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(conformance_output_test tests/cpp/conformance_output_test.cpp)
 target_include_directories(conformance_output_test PRIVATE tests/cpp)
@@ -489,6 +489,14 @@ target_include_directories(suite_args_test PRIVATE tests/cpp)
 target_compile_definitions(suite_args_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(suite_args_test PRIVATE mosa_lib)
 add_test(NAME suite_args_test COMMAND $<TARGET_FILE:suite_args_test>)
+
+# tests/tmp/suite は tests.lgt を流す全てが共有する（lgt_io_context のスクラッチ）。空かどうかを見る
+# suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
+# 流す側すべてに同じロックを付ける（diff_conformance は下で別に付く。全体レビュー推奨5）。
+set_tests_properties(assert_shared suite_assert_test suite_if_test suite_imports_test suite_approx_test
+  suite_path_test suite_vars_test suite_encoding_test conformance_report_test conformance_io_test
+  conformance_output_test conformance_badge_test conformance_cwd_test
+  PROPERTIES RESOURCE_LOCK suite_scratch)
 
 add_executable(bench_report_test tests/cpp/bench_report_test.cpp)
 target_include_directories(bench_report_test PRIVATE tests/cpp src/machine)

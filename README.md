@@ -85,7 +85,7 @@ cmake --build --preset macos-clang
 ctest --preset macos-clang
 ```
 
-Executables go to `build/` (`build/Release/` on Windows). `ctest --preset` runs the tests one at a time, which takes several minutes. Do not add `-j`: two of the tests share a scratch folder and can fail when they run at the same time.
+Executables go to `build/` (`build/Release/` on Windows). `ctest --preset` runs the tests in parallel (the presets set the job count and a per-test timeout); tests that share a scratch folder are kept apart with resource locks, and tests that measure time ratios run alone.
 
 ## Name
 

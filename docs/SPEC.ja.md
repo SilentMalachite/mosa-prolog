@@ -163,9 +163,9 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 **解決規則（この順で検索し、最初に見つかった定義を使う）**
 
-1. 呼び出し元モジュールの自前の定義（ローカル述語とインポート済み述語は同じ名前空間。衝突は読み込み時の `permission_error(import_into, ...)`）
-2. そのモジュールの既定インポート元（通常は `user`、`user` の既定は `system`）
-3. `system` モジュール（すべての組込述語と制御構造。再定義は `permission_error(modify, static_procedure, PI)`）
+1. `system` モジュール（すべての組込述語と制御構造。再定義は `permission_error(modify, static_procedure, PI)`）
+2. 呼び出し元モジュールの自前の定義（ローカル述語とインポート済み述語は同じ名前空間。衝突は読み込み時の `permission_error(import_into, ...)`）
+3. そのモジュールの既定インポート元（通常は `user`、`user` の既定は `system`）。既定インポート元の鎖をたどる（ADR 0006。`src/module/module_table.cpp` の `resolve_pred` で、`system` の段はその前の組込の振り分け）
 
 - `Module:Goal` は `Goal` を `Module` の文脈で実行する。`Module` が未知なら `existence_error(module, Module)`
 - `dynamic/1`、`assertz/1` 等が作る述語は、宣言・追加したモジュールに属する。`assertz(家系:親(a, b))` のように限定もできる
@@ -279,10 +279,10 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | `src/core/` | Cell、ヒープ、トレイル、アトム、ユニフィケーション |
 | `src/read/` | lexer、reader、演算子テーブル、Unicode 表 |
 | `src/write/` | `write_term/3`、`writeq`、浮動小数点書式、引用判定 |
-| `src/machine/` | 実行ループ、選択点、catch/throw、IR 定義 |
+| `src/machine/` | 実行ループ、選択点、catch/throw、IR 定義、節コンパイラとインデクシング（`compile.cpp`、`index.cpp`） |
 | `src/builtins/` | 組込述語（ISO の章ごとに 1 ファイル。`control.cpp`、`arith.cpp`、`atoms.cpp`、`streams.cpp` …） |
 | `src/module/` | モジュールテーブル、インポート解決、meta\_predicate |
-| `src/compile/` | 節コンパイラ（IR 生成、インデクシング） |
+| `src/compile/` | 節コンパイラを置く予定の場所。今は空（節コンパイラは `src/machine/` にある） |
 | `src/codegen/` | IR → C++20 生成 |
 | `src/platform/` | OS 依存コード（Windows コンソール、パス変換）。ここ以外で `#ifdef _WIN32` を書かない |
 | `lib/` | Prolog で書いた標準ライブラリ |

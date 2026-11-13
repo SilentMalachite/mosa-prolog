@@ -1,4 +1,5 @@
 /build/
+/build-asan/
 /tests/tmp/*
 !/tests/tmp/README.md
 .DS_Store

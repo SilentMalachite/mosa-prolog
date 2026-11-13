@@ -87,7 +87,7 @@ cmake --build --preset macos-clang
 ctest --preset macos-clang
 ```
 
-実行ファイルは `build/` に出ます。Windows では `build/Release/` です。`ctest --preset` はテストを 1 つずつ動かすので、数分かかります。`-j` は付けないでください。2 つのテストが作業用のフォルダを共有していて、同時に動くと失敗することがあります。
+実行ファイルは `build/` に出ます。Windows では `build/Release/` です。`ctest --preset` はテストを並列に動かします（プリセットがジョブ数とテストごとのタイムアウトを持ちます）。作業用のフォルダを共有するテストはリソースロックで同時に走らせず、時間の比を測るテストはひとりで走らせます。
 
 ## 名前の由来
 

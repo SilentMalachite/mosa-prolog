@@ -164,9 +164,9 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 
 **Resolution rules (searched in this order; the first definition found is used)**
 
-1. The calling module's own definitions (local predicates and imported predicates share one namespace; a conflict raises `permission_error(import_into, ...)` at load time)
-2. That module's default import source (normally `user`; the default for `user` is `system`)
-3. The `system` module (all built-in predicates and control constructs; redefinition raises `permission_error(modify, static_procedure, PI)`)
+1. The `system` module (all built-in predicates and control constructs; redefining one raises `permission_error(modify, static_procedure, PI)`)
+2. The calling module's own definitions (local predicates and imported predicates share one namespace; a conflict raises `permission_error(import_into, ...)` at load time)
+3. That module's default import source (normally `user`; the default for `user` is `system`), following the chain of default import sources (ADR 0006; `resolve_pred` in `src/module/module_table.cpp`, with the `system` step done by the built-in dispatch before it)
 
 - `Module:Goal` runs `Goal` in the context of `Module`. If `Module` is unknown, `existence_error(module, Module)`
 - Predicates created by `dynamic/1`, `assertz/1`, etc. belong to the module that declared or added them. They can also be qualified, as in `assertz(家系:親(a, b))`
@@ -282,10 +282,10 @@ The default behavior of `mosac` is "take a Prolog file and produce a standalone 
 | `src/core/` | Cell, heap, trail, atoms, unification |
 | `src/read/` | lexer, reader, operator table, Unicode tables |
 | `src/write/` | `write_term/3`, `writeq`, float formatting, quoting decisions |
-| `src/machine/` | Execution loop, choice points, catch/throw, IR definitions |
+| `src/machine/` | Execution loop, choice points, catch/throw, IR definitions, clause compiler and indexing (`compile.cpp`, `index.cpp`) |
 | `src/builtins/` | Built-in predicates (one file per ISO chapter: `control.cpp`, `arith.cpp`, `atoms.cpp`, `streams.cpp`, ...) |
 | `src/module/` | Module table, import resolution, meta\_predicate |
-| `src/compile/` | Clause compiler (IR generation, indexing) |
+| `src/compile/` | Reserved for the clause compiler; currently empty (the clause compiler is in `src/machine/`) |
 | `src/codegen/` | IR → C++20 generation |
 | `src/platform/` | OS-dependent code (Windows console, path conversion). Do not write `#ifdef _WIN32` anywhere else |
 | `lib/` | Standard libraries written in Prolog |

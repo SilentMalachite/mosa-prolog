@@ -206,6 +206,29 @@ jobs:
           grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
+  # Debug + ASan/UBSan のジョブ（全体レビュー推奨5）。Release だけだと assert が効かず、メモリ誤りと未定義動作の検査も無い。
+  # mosac build と差分テストは、生成した実行ファイルを ASan 無しでリンクする（libmosa が ASan の記号を引く）ので外す。
+  # manual と package と mosa_std_binary もその経路を含む。scale は時間の比を測るので、Debug と ASan のもとでは意味が無い。
+  # stack_deep* と machine_deep は深さ 100 万の項で C++ のスタックを見るテストで、Debug + ASan では制限時間に収まらない
+  # （手元の macOS 同構成で stack_deep_read と stack_deep_builtins が 600 秒の内側の制限を超えた）。
+  # bigint_limit も Release 前提の TIMEOUT 300 を超えた。どちらもメモリの正しさは残りのテストが見る。
+  linux-asan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build cmake
+      - name: Configure
+        run: cmake --preset linux-clang-asan
+      - name: Build
+        run: cmake --build --preset linux-clang-asan
+      - name: Test
+        run: ctest --preset linux-clang-asan -E "mosac|standalone|diff|package|install|bench|manual|scale|stack_deep|machine_deep|bigint_limit|mosa_std_binary" --no-tests=error
+      - name: Conformance suite
+        run: ./build-asan/mosatest --suite tests/conformance
+
   windows:
     # windows-latest は 2026-06 以降 Visual Studio 2026 である。SPEC 第2節の MSVC 2022 と Visual Studio 17 2022 ジェネレータがある windows-2022 を使う。
     runs-on: windows-2022
