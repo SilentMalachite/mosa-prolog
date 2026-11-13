@@ -380,7 +380,7 @@ void check_side_only(const std::filesystem::path& root) {
   mosa_test::check(body.find("OLD") == std::string::npos, "overwritten");
 }
 
-// 指示と {ゴール} を含む。halt のあと、setup、cleanup、演算子が残ることをこの 12 件で見る。
+// 指示と {ゴール} を含む。halt の件は不合格で、その後も setup、cleanup、演算子が残ることをこの 12 件で見る。
 std::string true_0_text() {
   return R"lgt(p(1).
 :- object(tests, extends(lgtunit)).
@@ -416,13 +416,15 @@ void check_executes(const std::filesystem::path& root) {
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   const std::string body = read_text(report);
   const std::string failed = between_headings(body, "不合格:", "別欄:");
-  // 12*10 >= 13*9。計画の終了コード 1 は、仕様の整数比較に負ける。
-  mosa_test::check(code == 0, "twelve exits 0");
+  // halt(1) は不合格（全体レビュー推奨3）。前は halted も合格に数えて 12/13 だった。
+  // 11*10 < 13*9 なので終了コードは 1。halt の後の after/setup/cleanup/演算子の件は合格のまま。
+  mosa_test::check(code == 1, "halt row exits 1");
   mosa_test::check(has_exact_line(body, "分母: 13"), "denominator 13");
-  mosa_test::check(has_exact_line(body, "合格数: 12"), "passed 12");
-  mosa_test::check(has_exact_line(body, "合格率: 92.3"), "rate 92.3");
-  mosa_test::check(non_empty_lines(failed) == 1, "one failure");
+  mosa_test::check(has_exact_line(body, "合格数: 11"), "passed 11");
+  mosa_test::check(has_exact_line(body, "合格率: 84.6"), "rate 84.6");
+  mosa_test::check(non_empty_lines(failed) == 2, "two failures");
   mosa_test::check(has_exact_line(failed, "control/cut_0/tests.lgt"), "unreadable path");
+  mosa_test::check(has_exact_line(failed, "control/true_0/tests.lgt halted true halt(1)"), "halted row");
 }
 
 std::string eight_one() {

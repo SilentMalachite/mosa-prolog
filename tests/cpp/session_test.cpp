@@ -452,6 +452,35 @@ void check_runner_reports_every_file() {
   mosa_test::check(captured.str().find("b.pl: fail") != std::string::npos, "runner reports b.pl");
 }
 
+// 全体レビュー推奨3。試験が 0 件のファイルと、対象ファイルが 0 件のフォルダは失敗にする。
+// 前はどちらも 0 で終え、消えた試験に気づけなかった。
+void check_runner_empty_fails() {
+  const std::filesystem::path base = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/runner_empty";
+  std::error_code error;
+  std::filesystem::remove_all(base, error);
+  std::filesystem::create_directories(base / "bare", error);
+  std::filesystem::create_directories(base / "only_clauses", error);
+  std::ofstream(base / "no_exams.pl", std::ios::binary) << "helper(1).\n";
+  std::ofstream(base / "only_clauses" / "a.pl", std::ios::binary) << "helper(1).\n";
+  const auto run_captured = [](const std::filesystem::path& place, std::string& text) {
+    std::ostringstream captured;
+    auto* saved = std::cerr.rdbuf(captured.rdbuf());
+    const int code = mosa::run_suite(place.string());
+    std::cerr.rdbuf(saved);
+    text = captured.str();
+    return code;
+  };
+  std::string text;
+  mosa_test::check(run_captured(base / "no_exams.pl", text) == 1, "a file with no tests fails");
+  mosa_test::check(text.find("no_exams.pl") != std::string::npos, "the empty file is named: " + text);
+  mosa_test::check(run_captured(base / "only_clauses", text) == 1, "a folder of testless files fails");
+  mosa_test::check(text.find("a.pl") != std::string::npos, "the testless file is named: " + text);
+  mosa_test::check(run_captured(base / "bare", text) == 1, "a folder with no files fails");
+  mosa_test::check(text.find("bare") != std::string::npos, "the bare folder is named: " + text);
+  std::ofstream(base / "one.pl", std::ios::binary) << "test(one_ok, true, true).\n";
+  mosa_test::check(run_captured(base / "one.pl", text) == 0, "one passing test still passes");
+}
+
 // ADR 0007。捕まらなかった例外の文面は、旗で選んだ言語のカタログから引く。
 void check_uncaught_message(std::string_view lang, std::string_view phrase, std::string_view label) {
   const std::string arg0 = "mosa";
@@ -739,6 +768,7 @@ int main(int argc, char** argv) {
   check_answer_operands();
   check_runner();
   check_runner_reports_every_file();
+  check_runner_empty_fails();
   check_runner_answer_numbering();
   check_runner_counts_every_solution();
   check_runner_unreadable_folder();

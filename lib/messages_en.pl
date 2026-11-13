@@ -103,8 +103,10 @@ message(bench_not_found, 'mosatest: ~w not found').
 message(bench_run_failed, 'mosatest: ~w exited with code ~w').
 message(bench_step_failed, 'mosatest: ~w failed with code ~w (output in ~w)').
 message(bench_cannot_write, 'mosatest: cannot write ~w').
+message(conformance_regressed, 'mosatest: conformance pass rate went down: ~w -> ~w').
 message(diff_usage, 'usage: ~w <directory> [--report <file>]').
 message(diff_no_files, 'mosatest: no test files in ~w').
+message(suite_no_tests, 'mosatest: no tests in ~w').
 message(diff_not_emitted, '~w: not translated into this executable').
 message(diff_cannot_read, '~w: cannot assemble: ~w').
 message(diff_source_changed, '~w: source changed since mosac emit --units').

@@ -128,7 +128,13 @@ std::optional<std::vector<std::filesystem::path>> test_files(const std::filesyst
     std::error_code kind;
     if (!at->is_regular_file(kind) || kind) continue;
     const std::filesystem::path& path = at->path();
-    if (path.extension() != ".pl" || path.filename() == "syntax.pl") continue;
+    // syntax.pl は --roundtrip の入力、次の 3 本は control.pl と operators.pl が consult する部品で、
+    // どれも試験を持たない。試験 0 件を失敗にするので、対象から外す（全体レビュー推奨3）。
+    const auto name = path.filename();
+    if (path.extension() != ".pl" || name == "syntax.pl" || name == "catch_park_dir.pl" ||
+        name == "op_dir_backtrack.pl" || name == "op_keep_dir.pl") {
+      continue;
+    }
     files.push_back(path);
   }
   if (error) return std::nullopt;
@@ -314,6 +320,12 @@ int run_one(const std::filesystem::path& path) {
     std::cerr << utf8_from_path(path) << ": " << error << '\n';
     return 1;
   }
+  // 試験が 0 件なら何も確かめていない。前はそのまま 0 で終え、消えた試験に気づけなかった（全体レビュー推奨3）。
+  if (exams.empty()) {
+    std::cerr << render_message_fresh(default_message_language(), "suite_no_tests", std::array{utf8_from_path(path)})
+              << '\n';
+    return 1;
+  }
   int failures = 0;
   for (const Exam& exam : exams) {
     if (!run_exam(*machine, exam, error)) {
@@ -333,6 +345,11 @@ int run_suite(std::string_view path) {
   const auto files = test_files(file);
   if (!files) {
     std::cerr << render_message_fresh(default_message_language(), "cannot_open_file", std::array{utf8_from_path(file)})
+              << '\n';
+    return 1;
+  }
+  if (files->empty()) {
+    std::cerr << render_message_fresh(default_message_language(), "diff_no_files", std::array{utf8_from_path(file)})
               << '\n';
     return 1;
   }

@@ -103,8 +103,10 @@ message(bench_not_found, 'mosatest: ~w が見つかりません').
 message(bench_run_failed, 'mosatest: ~w が終了コード ~w で終わりました').
 message(bench_step_failed, 'mosatest: ~w が終了コード ~w で失敗しました（出力は ~w）').
 message(bench_cannot_write, 'mosatest: ~w に書けません').
+message(conformance_regressed, 'mosatest: 準拠の合格率が下がりました: ~w -> ~w').
 message(diff_usage, '使い方: ~w <ディレクトリ> [--report <ファイル>]').
 message(diff_no_files, 'mosatest: ~w に試験のファイルがありません').
+message(suite_no_tests, 'mosatest: ~w に試験がありません').
 message(diff_not_emitted, '~w: この実行ファイルには翻訳が入っていません').
 message(diff_cannot_read, '~w: 組み立てられません: ~w').
 message(diff_source_changed, '~w: mosac emit --units のあとで原文が変わりました').

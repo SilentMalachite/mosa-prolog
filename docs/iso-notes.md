@@ -273,7 +273,19 @@ Decision (2026-10-26): A. The memory stream created for `atom/1` and `codes/1` i
 
 Decision (2026-10-26): We do not wait for permission. `inriasuite.pl` has no redistribution permission, so it is not bundled. The Phase 3 conformance suite is Logtalk's `tests/prolog`, placed at commit `4decb64b598feff542a926a085eef01ec51f5a72` as is under `tests/conformance/logtalk/prolog`. Its license is Apache-2.0, the same as the repository, and the copyright notices are kept. The files are not modified. The 90% in Spec Section 9 is measured with this suite. This decision does not state a pass rate.
 
+
 Decision (2026-10-28): A. The side-column directories (`between_3`, `succ_2`, `plus_3`, `format_2`, `format_3`, `atomic_list_concat_2`, `atomic_list_concat_3`) stay out of the run through phase 5, although the runner now imports the six libraries. The denominator stays 2171, so the phase 5 exit compares against the same baseline (2041). Library tests in `tests/pl/` cover these predicates.
+## Conformance suite: Logtalk message sending in test bodies
+
+Recorded (2026-11-13, whole-review item 3): five failing rows send a Logtalk message with `::/2` in the test body: `lgt_soft_cut_2_3_22` (`lgtunit::deterministic/2`), `logical_update_semantics_negation` (`integer::between/3`), and `lgt_open_4_41` to `43` (`os::ensure_file/1`). `::/2` is Logtalk object syntax; ISO/IEC 13211 has module qualification `:/2` (SPEC section 5) and no objects. The runner executes test bodies as Prolog goals (with `^^` super calls served by `src/machine/lgt_io.cpp`) and does not implement message sending, so each row ends in `existence_error(procedure, ::/2)` before its subject runs. The subjects themselves are covered elsewhere: `*->/2` (SPEC section 7 stage A, non-ISO), the logical-update view of 7.5.4 ("7.5.4 Open scans and retract" below), and repeated `eof_action/1` options of `open/4` (7.10.2.11; "8.14 Write options" records that the later option wins). The five rows stay failing as a limit of the runner, not as a difference in Prolog semantics.
+
+## Conformance suite: os::operating_system_type/1 in a condition
+
+Recorded (2026-11-13, whole-review item 3): `lgt_open_4_31` (8.11.5 `open/4`) carries the condition `os::operating_system_type(unix)`. The condition evaluator (`src/machine/lgt_cond.cpp` `message_cond`) answers only the `windows` form (as not holding, which puts a row in the side column); any other operating-system name is `Bad`, and `apply_condition` (`src/machine/lgt_file.cpp`) then counts the row as failing with actual `unsupported`. The `errors([...])` outcome itself is supported (`LgtKind::Errors`), but the body never runs. The row stays failing as a limit of the runner: it does not determine an operating-system type for conditions.
+
+## Conformance suite: ignore/1 in lgt_catch_3_13
+
+Recorded (2026-11-13, whole-review item 3): `lgt_catch_3_13` (7.8.9 `catch/3`) calls `ignore({q})`. `ignore/1` is not in ISO/IEC 13211, is not among the non-ISO additions of SPEC section 3, and none of the six libraries the runner imports ("Section 5 Autoload") defines it, so the row ends in `existence_error(procedure, ignore/1)`. The row stays failing: `ignore/1` is outside the implemented scope, and `catch/3` itself is covered by the other rows of `control/catch_3` and by `tests/pl/control.pl`.
 
 ## License
 
@@ -659,11 +671,11 @@ Before the decision below, Mosa really closed `user_input`, `user_output` and `u
 
 A or B?: A: close/1,2 of a standard stream flushes it and succeeds without closing it, so it stays the current stream and stays writable. B: keep closing it (current behaviour). B until confirmed.
 
+
 Decision (2026-11-01): A. close/1,2 checks its arguments and options as before, flushes `user_output` and `user_error`, and leaves the three standard streams open (`src/builtins/streams.cpp` `run_close`, `tests/pl/close.pl` `close_std_*`, `tests/cpp/output_stop_test.cpp` `check_session_close_user_output`). `tests/cpp/stream_test.cpp` changes in the same commit: "close user_output" now expects the stream to stay open and current, and "closed current input" (now "closed input") closes a file stream instead of `user_input`.
 ## 8.11 Reading a whole file at open and consult
 
 `open(File, read, S)` read the whole file into memory before it succeeded, and `consult` did the same with the source text, so `open('/dev/zero', read, S)` alone grew without bound (whole-review item 2). The owner chose B of the ways put to them (2026-11-13): a file opened for reading is read in chunks as the reading predicates need it (`pull_stream` in `src/builtins/streams.cpp`), keeping what was read so `set_stream_position/2` and `eof_action(reset)` work as before, and the bytes kept count against the `--heap-max` budget (`heap_byte_budget` in `include/mosa/heap.hpp`), stopping with the heap-limit stop past it. What another program appends to the file later becomes readable, where the old snapshot did not show it. `consult` and the other loads take a regular file only, under the same byte budget (`read_source` in `src/machine/load_path.cpp`); a device or pipe is `cannot_open_file`. Opening for append still reads the text that is already there (the position and saving machinery needs it), so it follows the consult rule: a regular file only, under the budget, and anything else is `permission_error(open, source_sink, File)`. Tests: `check_lazy_read` and `check_consult_source_limit` in `tests/cpp/stream_test.cpp`.
-
 
 ## 6.4.5 Float literal out of range
 

@@ -86,7 +86,8 @@ Query run_goal(Machine& machine, std::string_view goal) {
 }
 
 std::string actual_text(const Machine& machine, const Stop& stop) {
-  if (stop.kind == StopKind::Success || stop.kind == StopKind::Halt) return "true";
+  if (stop.kind == StopKind::Halt) return "halt(" + std::to_string(stop.halt_code) + ")";
+  if (stop.kind == StopKind::Success) return "true";
   if (stop.kind != StopKind::Exception) return "fail";
   const Heap& heap = machine.heap();
   const Cell term = heap.deref(stop.exception);
@@ -97,8 +98,8 @@ std::string actual_text(const Machine& machine, const Stop& stop) {
 }
 
 bool succeeded(Machine& machine, const LgtWant& want, const Stop& stop) {
-  // halt はそのテストの成功にする。期待の形が違ってもプロセスは終わらせない。
-  if (stop.kind == StopKind::Halt) return true;
+  // halt を期待する期待形は無いので、halt は常に不合格（全体レビュー推奨3）。前は無条件に合格で、
+  // false や error 期待でも偽合格した。プロセスは run_goal が halt の印を戻すので次の件へ進む。
   if (want.kind == LgtKind::True || want.kind == LgtKind::Assert) return stop.kind == StopKind::Success;
   if (want.kind == LgtKind::False) return stop.kind == StopKind::Failure;
   if (want.kind != LgtKind::Error || stop.kind != StopKind::Exception) return false;

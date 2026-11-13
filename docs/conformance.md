@@ -35,8 +35,8 @@ unicode/builtins/tests.lgt lgt_unicode_stream_property_2_07 true fail
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_08 true domain_error(stream_property,bom(_))
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_09 true fail
 unicode/builtins/tests.lgt lgt_unicode_stream_property_2_10 true domain_error(stream_property,bom(_))
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
-unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'/Users/hiro/Projetct/GitHub/mosa-prolog/tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_11 true existence_error(source_sink,'tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
+unicode/builtins/tests.lgt lgt_unicode_stream_property_2_12 true existence_error(source_sink,'tests/tmp/suite/unicode/builtins/sample_utf_8_bom')
 unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Assertion) fail
 別欄:
 control/throw_1 lgt_throw_1_03

@@ -367,7 +367,8 @@ Step again(Machine& machine) {
 }
 
 std::string actual_of(const Machine& machine, const Stop& stop) {
-  if (stop.kind == StopKind::Success || stop.kind == StopKind::Halt) return "true";
+  if (stop.kind == StopKind::Halt) return "halt(" + std::to_string(stop.halt_code) + ")";
+  if (stop.kind == StopKind::Success) return "true";
   if (stop.kind != StopKind::Exception) return "fail";
   const Heap& heap = machine.heap();
   const Cell term = heap.deref(stop.exception);

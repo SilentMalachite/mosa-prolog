@@ -10,10 +10,12 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <string>
@@ -93,8 +95,83 @@ int suite_status(int passed, int denominator) {
   return left >= right ? 0 : 1;
 }
 
+std::string rate_text(int passed, int denominator) {
+  return percentage(passed, denominator) + "% (" + std::to_string(passed) + "/" + std::to_string(denominator) + ")";
+}
+
+struct Baseline {
+  int passed = 0;
+  int denominator = 0;
+};
+
+std::optional<int> count_in(std::string_view text) {
+  int value = 0;
+  const char* const last = text.data() + text.size();
+  const auto parsed = std::from_chars(text.data(), last, value);
+  if (parsed.ec != std::errc{} || parsed.ptr != last) return std::nullopt;
+  return value;
+}
+
+// 前回のバッジ JSON（write_badge が書く 1 行）から合格数と分母を読む。無い・読めない・形が違うときは
+// 物差しなしで、90% の下限だけが残る。
+std::optional<Baseline> read_baseline(const std::filesystem::path& badge) {
+  std::ifstream input(badge, std::ios::binary);
+  std::string line;
+  if (!input || !std::getline(input, line)) return std::nullopt;
+  const std::string_view text = line;
+  const auto open = text.find('(');
+  const auto slash = open == std::string_view::npos ? open : text.find('/', open);
+  const auto close = slash == std::string_view::npos ? slash : text.find(')', slash);
+  if (close == std::string_view::npos) return std::nullopt;
+  const auto passed = count_in(text.substr(open + 1, slash - open - 1));
+  const auto denominator = count_in(text.substr(slash + 1, close - slash - 1));
+  if (!passed || !denominator || *passed < 0 || *denominator <= 0 || *passed > *denominator) return std::nullopt;
+  return Baseline{*passed, *denominator};
+}
+
+// 合格率が物差しより下か。表示の丸めで比べると 1 件の後退を見逃すので、分数のまま掛け比べて比べる。
+bool regressed(int passed, int denominator, const Baseline& baseline) {
+  if (denominator <= 0) return false;
+  const auto left = static_cast<long long>(passed) * baseline.denominator;
+  const auto right = static_cast<long long>(baseline.passed) * denominator;
+  return left < right;
+}
+
+// 報告書はコミットする生成物。不合格行の絶対パス（^^file_path のスクラッチ等）を相対へ
+// 直さないと機械ごとに差分が出る（全体レビュー推奨3）。
+std::string relativized(std::string line, const std::vector<std::string>& bases) {
+  for (const std::string& base : bases) {
+    if (base.empty()) continue;
+    std::size_t at = 0;
+    while ((at = line.find(base, at)) != std::string::npos) line.erase(at, base.size());
+  }
+  return line;
+}
+
+std::vector<std::string> report_bases(const std::filesystem::path& prolog) {
+  std::vector<std::string> bases;
+  const auto add = [&bases](const std::filesystem::path& dir) {
+    if (!dir.empty()) bases.push_back(dir.generic_string() + "/");
+  };
+  std::error_code error;
+  add(std::filesystem::current_path(error));
+  // スクラッチは tests の下（lgt_io_context）。tests の親を落とせば tests/tmp/... の相対になる。
+  auto cursor = std::filesystem::absolute(prolog, error);
+  while (!error && !cursor.empty()) {
+    if (cursor.filename() == "tests") {
+      add(cursor.parent_path());
+      break;
+    }
+    const auto parent = cursor.parent_path();
+    if (parent == cursor) break;
+    cursor = parent;
+  }
+  return bases;
+}
+
 bool write_report(const std::filesystem::path& path, int passed, int denominator,
-                  const std::vector<std::string>& failures, const std::vector<SideNote>& notes) {
+                  const std::vector<std::string>& failures, const std::vector<SideNote>& notes,
+                  const std::vector<std::string>& bases) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   if (!output) return false;
   output << "このファイルは自動生成である。手で編集しない。\n";
@@ -103,7 +180,7 @@ bool write_report(const std::filesystem::path& path, int passed, int denominator
   if (denominator == 0) output << "合格率: 合格率なし\n";
   else output << "合格率: " << percentage(passed, denominator) << '\n';
   output << "不合格:\n";
-  for (const std::string& line : failures) output << line << '\n';
+  for (const std::string& line : failures) output << relativized(line, bases) << '\n';
   output << "別欄:\n";
   for (const SideNote& note : notes) output << note.path << ' ' << note.detail << '\n';
   output.close();
@@ -126,8 +203,7 @@ bool write_badge(const std::filesystem::path& path, int passed, int denominator)
   std::string message = "no tests";
   std::string color = "lightgrey";
   if (denominator > 0) {
-    message = percentage(passed, denominator) + "% (" + std::to_string(passed) + "/" + std::to_string(denominator) +
-              ")";
+    message = rate_text(passed, denominator);
     color = badge_color(passed, denominator);
   }
   output << R"({"schemaVersion":1,"label":"ISO conformance","message":")" << message << R"(","color":")" << color
@@ -216,6 +292,8 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
   const std::filesystem::path prolog = path_from_utf8(suite_dir) / "logtalk" / "prolog";
   std::error_code error;
   if (!std::filesystem::is_directory(prolog, error) || error) return 1;
+  // 実行中はカレントがスクラッチへ移るので、相対化の基準は走らせる前に取る。
+  const std::vector<std::string> bases = report_bases(prolog);
   std::vector<SideNote> notes;
   const std::vector<Pending> pending = sorted_pending(prolog, notes);
   int passed = 0;
@@ -229,16 +307,30 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
   const int denominator = passed + failed;
   const std::filesystem::path report = path_from_utf8(report_path);
   const std::filesystem::path badge = std::filesystem::path{report}.replace_extension(".json");
+  // 書き換える前の JSON が物差し。後退した回は報告書（不合格の一覧）だけ書いて JSON を残すので、
+  // 直すまで何度流しても失敗し、後退した値のコミットで通り抜けられない（SPEC 第8節）。
+  const std::optional<Baseline> baseline = read_baseline(badge);
+  const bool down = baseline && regressed(passed, denominator, *baseline);
   // 書けなかった報告書は合格率がいくつでも失敗にする。黙って 0 で終えると、古い報告書とバッジが残る（Muse のレビューの中）。
   bool written = true;
-  for (const auto& [path, ok] : {std::pair{report, write_report(report, passed, denominator, failures, notes)},
-                                 std::pair{badge, write_badge(badge, passed, denominator)}}) {
-    if (ok) continue;
-    std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write", std::array{utf8_from_path(path)})
+  if (!write_report(report, passed, denominator, failures, notes, bases)) {
+    std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write",
+                                      std::array{utf8_from_path(report)})
               << '\n';
     written = false;
   }
-  return written ? suite_status(passed, denominator) : 1;
+  if (down) {
+    std::cerr << render_message_fresh(default_message_language(), "conformance_regressed",
+                                      std::array{rate_text(baseline->passed, baseline->denominator),
+                                                 rate_text(passed, denominator)})
+              << '\n';
+  } else if (!write_badge(badge, passed, denominator)) {
+    std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write",
+                                      std::array{utf8_from_path(badge)})
+              << '\n';
+    written = false;
+  }
+  return written && !down ? suite_status(passed, denominator) : 1;
 }
 
 }  // namespace mosa
