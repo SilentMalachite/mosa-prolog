@@ -6,7 +6,7 @@ English | [日本語](README.ja.md)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
 [![Phase](https://img.shields.io/badge/phases-0--10_done-green)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue)](CHANGELOG.md)
 [![ISO/IEC 13211-1](https://img.shields.io/badge/ISO%2FIEC-13211--1-informational)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakeLists.txt)
 [![CMake](https://img.shields.io/badge/CMake-3.25%2B-064F8C?logo=cmake&logoColor=white)](https://github.com/SilentMalachite/mosa-prolog/blob/main/CMakePresets.json)
@@ -18,13 +18,13 @@ Mosa Prolog is a Prolog system that follows ISO/IEC 13211-1. It has three comman
 
 ## Download
 
-Mosa Prolog 0.2.0 is on the [Releases page](https://github.com/SilentMalachite/mosa-prolog/releases). Download the package for your computer:
+Mosa Prolog 0.2.1 is on the [Releases page](https://github.com/SilentMalachite/mosa-prolog/releases). Download the package for your computer:
 
 | Computer | Package |
 | --- | --- |
-| macOS on Apple Silicon | `mosa-0.2.0-macos-arm64.tar.gz` |
-| Linux on x86_64 | `mosa-0.2.0-linux-x86_64.tar.gz` |
-| Windows on x64 | `mosa-0.2.0-windows-x86_64.zip` |
+| macOS on Apple Silicon | `mosa-0.2.1-macos-arm64.tar.gz` |
+| Linux on x86_64 | `mosa-0.2.1-linux-x86_64.tar.gz` |
+| Windows on x64 | `mosa-0.2.1-windows-x86_64.zip` |
 
 The packages run on:
 
@@ -51,7 +51,7 @@ N = 5.
 
 ## Manual
 
-The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against a build from this source tree; only installation steps and other things that depend on your machine are not run. The installation chapter describes the latest release, 0.2.0. What each release has, what has changed since then, and the known limits are in the [CHANGELOG](CHANGELOG.md).
+The [manual](docs/manual/en/README.md) ([日本語](docs/manual/ja/README.md)) is written for people who have never used Prolog. It starts with installing Mosa and goes on to writing programs and building executables with `mosac`. Chapter 14 is a reference of the commands, flags and built-in predicates. Every example in the manual is checked against a build from this source tree; only installation steps and other things that depend on your machine are not run. The installation chapter describes the latest release, 0.2.1. What each release has, including what changed in 0.2.1, and the known limits are in the [CHANGELOG](CHANGELOG.md).
 
 ## Build from source
 
@@ -93,7 +93,7 @@ Mosa stands for **M**odular **O**ptimized **S**ymbolic **A**rchitecture. Mosa Pr
 
 ## Status
 
-Phases 0–10 are done. Phase 10 (arbitrary-precision integers) was finished on 2026-11-13 after the check of its exit criteria, and Mosa 0.2.0 was released that day. Source after that release contains a whole-codebase review and a follow-up review's fixes; they are listed under Unreleased in the [CHANGELOG](CHANGELOG.md). Phase 9 (ISO completion and robustness) was finished on 2026-11-11 after the check of its exit criteria: the Examples of 8.2.4.4 and 8.3.11.4 pass, the conformance pass rate stays at 98.4% (2150/2185), the ctest `stack_deep_read` passes under a 1 MiB stack, and `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass with zero differences under `mosatest --diff` (CI on macOS, Linux and Windows). Phase 8 (grammar rules: `-->` and `phrase/2,3`) was finished on 2026-11-11 after the check of its exit criteria: `tests/pl/dcg.pl` passes in `mosa` with zero differences under `mosatest --diff`, and the conformance pass rate did not go down (CI on macOS, Linux and Windows). Phase 7 (the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist`) was finished on 2026-11-10 after the check of its exit criteria: memory plateaus in long-running loops ([`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#memory-in-long-loops)), and the steps in this README alone build Mosa and pass its tests (in CI on Linux and Windows, and from a fresh clone on macOS). Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
+Phases 0–10 are done. Phase 10 (arbitrary-precision integers) was finished on 2026-11-13 after the check of its exit criteria, and Mosa 0.2.0 was released that day. Mosa 0.2.1 followed with a whole-codebase review and a follow-up review's fixes, listed in the [CHANGELOG](CHANGELOG.md). Phase 9 (ISO completion and robustness) was finished on 2026-11-11 after the check of its exit criteria: the Examples of 8.2.4.4 and 8.3.11.4 pass, the conformance pass rate stays at 98.4% (2150/2185), the ctest `stack_deep_read` passes under a 1 MiB stack, and `tests/pl/dcg.pl`, `lib_dcg.pl` and `modules.pl` pass with zero differences under `mosatest --diff` (CI on macOS, Linux and Windows). Phase 8 (grammar rules: `-->` and `phrase/2,3`) was finished on 2026-11-11 after the check of its exit criteria: `tests/pl/dcg.pl` passes in `mosa` with zero differences under `mosatest --diff`, and the conformance pass rate did not go down (CI on macOS, Linux and Windows). Phase 7 (the GC, the iterative writer and loader, the manuals, the release packages and `mosac dist`) was finished on 2026-11-10 after the check of its exit criteria: memory plateaus in long-running loops ([`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md#memory-in-long-loops)), and the steps in this README alone build Mosa and pass its tests (in CI on Linux and Windows, and from a fresh clone on macOS). Current progress is in [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md).
 
 | Phase | Scope | Status |
 | --- | --- | --- |

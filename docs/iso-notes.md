@@ -215,7 +215,7 @@ Decision (2026-10-28): ADR 0007 (owner approved). An implementation-defined flag
 
 Decision (2026-10-25): Open question 14: A. `version` is a read-only atom, and its text is the same as `version_line()`.
 
-Superseded: the implemented flag is the read-only integer Major*10000 + Minor*100 + Patch (SPEC section 3 item 7; `src/builtins/flags.cpp`), currently `200` for mosa 0.2.0. The atom form above was never implemented.
+Superseded: the implemented flag is the read-only integer Major*10000 + Minor*100 + Patch (SPEC section 3 item 7; `src/builtins/flags.cpp`), `200` in mosa 0.2.0. The atom form above was never implemented.
 
 ## Section 3 Flag iso
 

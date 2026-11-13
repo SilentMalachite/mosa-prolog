@@ -22,7 +22,7 @@ Linux（Ubuntu）では `g++` を入れます。`apt update` は、先に Ubuntu
 $ sudo apt update && sudo apt install g++
 ```
 
-Windows では、[Build Tools for Visual Studio 2022 のインストーラー](https://aka.ms/vs/17/release/vs_BuildTools.exe)をダウンロードして実行します。インストーラーで「C++ によるデスクトップ開発」のワークロードを選び、「インストール」を押します。特別なウィンドウは要りません。`mosac` は、ふつうの PowerShell のウィンドウからコンパイラを見つけます。インストーラーが終わったら、PowerShell を閉じて開き直します。Mosa 0.2.0 は Visual Studio 2022 で動作を確かめています。それより新しい Visual Studio も入っていると、`mosac` はいちばん新しいものを使いますが、その組み合わせは確かめていません。
+Windows では、[Build Tools for Visual Studio 2022 のインストーラー](https://aka.ms/vs/17/release/vs_BuildTools.exe)をダウンロードして実行します。インストーラーで「C++ によるデスクトップ開発」のワークロードを選び、「インストール」を押します。特別なウィンドウは要りません。`mosac` は、ふつうの PowerShell のウィンドウからコンパイラを見つけます。インストーラーが終わったら、PowerShell を閉じて開き直します。Mosa 0.2.1 は Visual Studio 2022 で動作を確かめています。それより新しい Visual Studio も入っていると、`mosac` はいちばん新しいものを使いますが、その組み合わせは確かめていません。
 
 2. `mosac` がコンパイラを見つけられるか確かめます。`mosac toolchain` は、コンパイラとそのバージョン、CMake、実行時ライブラリのフォルダを出します。CMake は、入っていれば `mosac` が使い、入っていなければ使わずに済ませるビルドの道具です。実行時ライブラリは、どの実行ファイルにも入る Mosa の一部です。これらの行には自分のコンピュータのフォルダ名が出るので、コンピュータごとに違います。コンパイラが見つからないときは、1 行目が `mosac: C++20 のコンパイラが見つかりません` になり、次の行に入れるものが出ます。Windows では、実行時ライブラリのパスか、`mosac build` が作るフォルダ `.mosac-cache`（手順 4）のパスに、日本語の字のような ASCII の外の文字があるときも、`mosac` は CMake を使いません。Visual Studio のコンパイラ向けの CMake のビルドは、そうした字を落とすことがあるので、`mosac` はコンパイラを直接呼びます。
 
@@ -130,7 +130,7 @@ Linux のパッケージには、`g++` 用の実行時ライブラリだけが�
 <!-- skip: clang-linux -->
 ```console
 $ mosac build こんにちは.pl -o こんにちは
-mosac: このコンパイラ用の実行時ライブラリがありません: /home/<名前>/mosa-0.2.0-linux-x86_64/lib/mosa/linux-x86_64-clang
+mosac: このコンパイラ用の実行時ライブラリがありません: /home/<名前>/mosa-0.2.1-linux-x86_64/lib/mosa/linux-x86_64-clang
 mosac と同じコンパイラを使うか、mosac build --runtime-source で同梱の源から作ってください（結果は .mosac-cache に残ります）
 ```
 

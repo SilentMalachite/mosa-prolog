@@ -4,7 +4,7 @@ English | [日本語](../ja/14-reference.md)
 
 This chapter lists what this source tree has, so that you can look things up: the commands and their options,
 the environment variables, the flags, the directives, every built-in predicate and the predicates of each library.
-The latest release is 0.2.0; additions and changes since then are under Unreleased in the CHANGELOG. You do not
+The latest release is 0.2.1; its additions and changes from 0.2.0 are in the CHANGELOG. You do not
 need to read this chapter in order.
 
 ## Commands
@@ -14,11 +14,11 @@ All three commands print the same version line:
 <!-- check: versions -->
 ```console
 $ mosa --version
-mosa 0.2.0
+mosa 0.2.1
 $ mosac --version
-mosa 0.2.0
+mosa 0.2.1
 $ mosatest --version
-mosa 0.2.0
+mosa 0.2.1
 ```
 
 ### `mosa`
@@ -32,7 +32,7 @@ the `?-` prompt (chapter 3).
 | `-g goal` | After the files, runs the goal once and prints its first answer as the prompt does. Several `-g` run in order. With `-t halt`, or when the input of `mosa` is not a terminal, the first one that fails or raises an error stops the rest; at a terminal without `-t halt`, every one runs. |
 | `-t halt` | Quits after the `-g` goals instead of showing the prompt. |
 | `--heap-max MiB` | The most memory that terms may use, in MiB (default 4096). A query that needs more stops with a message. This wins over `MOSA_HEAP_MAX`. |
-| `--version` | Prints `mosa 0.2.0` and quits. |
+| `--version` | Prints `mosa 0.2.1` and quits. |
 | `-- argument...` | Everything after `--` is not read as an option: it becomes the flag `argv`, a list of atoms. |
 
 Put a goal in single quotes, so that your shell passes it to `mosa` as one argument:
@@ -64,7 +64,7 @@ the same way, as `main` succeeds, fails or raises an error.
 | `mosac emit --library file -o folder` | Translates one library of the folder `lib`. The build of Mosa uses it. |
 | `mosac emit --units folder -o folder` | Translates a folder of tests. `mosatest --diff` uses it. |
 | `mosac toolchain` | Prints the compiler, CMake and the runtime library that `mosac` would use, or what to install. On Windows, when the path of the runtime library or of `.mosac-cache` has a character outside ASCII, `mosac` does not use CMake, and calls the compiler directly (chapter 13). |
-| `mosac --version` | Prints `mosa 0.2.0`. |
+| `mosac --version` | Prints `mosa 0.2.1`. |
 
 `mosac build`, `mosac run` and `mosac dist` take these options:
 
@@ -150,8 +150,8 @@ A flag whose "Other values" says "none" cannot be changed.
 | `float_zero_div` | `error` | none | A float divided by zero raises `evaluation_error(zero_divisor)`. |
 | `float_undefined` | `error` | none | A float result that does not exist, as for `log(0)`, raises `evaluation_error(undefined)`. |
 | `dialect` | `mosa` | none | The name of this Prolog system. |
-| `version` | `200` | none | The version as one integer: 0.2.0. |
-| `version_data` | `mosa(0,2,0,[])` | none | The version as a term. |
+| `version` | `201` | none | The version as one integer: 0.2.1. |
+| `version_data` | `mosa(0,2,1,[])` | none | The version as a term. |
 | `argv` | `[]` | none | The words after `--` on the command line of `mosa`, or after the name of an executable. |
 | `trace_gc` | `false` | `true` | With `true`, Mosa prints a line each time it collects memory. |
 | `iso` | `true` | none | The core semantics follow ISO. The deviations are off by default or appear only after an explicit import. There is no separate strict-conformance mode. |
