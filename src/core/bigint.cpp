@@ -291,6 +291,10 @@ std::uint64_t BigInt::bit_length() const {
          static_cast<std::uint64_t>(std::bit_width(limbs_.back()));
 }
 
+// 奇偶は最下位の語の 1 ビットで決まり、符号と絶対値で持つので負の数も同じ。(-1) ^ Big の符号のように Big の指数の
+// 奇偶だけが要るところで、絶対値全体を写さずに済ませる。
+bool BigInt::odd() const { return !limbs_.empty() && (limbs_.front() & 1U) != 0; }
+
 BigInt BigInt::operator-() const {
   BigInt out = *this;
   out.negative_ = !negative_ && !limbs_.empty();

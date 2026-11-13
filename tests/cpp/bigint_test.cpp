@@ -150,6 +150,17 @@ void check_int64_edges() {
                    "int64_edges ordering");
 }
 
+// odd() は最下位の語だけを見る。0 は偶数、負の数は絶対値の奇偶、上位の語だけが 1 の 2^32 と 2^100 は偶数
+// （Muse レビュー Minor 5）。
+void check_parity() {
+  mosa_test::check(!BigInt().odd() && BigInt(1).odd() && !BigInt(2).odd() && BigInt(-3).odd() && !BigInt(-4).odd(),
+                   "parity small");
+  mosa_test::check(BigInt(kMax).odd() && !BigInt(kMin).odd() && !pow2(32).odd() && (pow2(32) + BigInt(1)).odd(),
+                   "parity int64 edges and limb boundary");
+  const BigInt p = pow2(100);
+  mosa_test::check(!p.odd() && (p + BigInt(1)).odd() && (-(p + BigInt(1))).odd() && !(-p).odd(), "parity big");
+}
+
 void expect_division_identity(const BigInt& a, const BigInt& b, std::string_view label) {
   const auto t = mosa::divide_truncate(a, b);
   const auto f = mosa::divide_floor(a, b);
@@ -338,6 +349,7 @@ void check_key() {
 int main() {
   check_round_trip();
   check_int64_edges();
+  check_parity();
   check_div_signs();
   check_shifts();
   check_bits();

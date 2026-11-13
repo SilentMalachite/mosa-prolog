@@ -2,6 +2,7 @@
 // 式の途中で置き場に持つ Big の写しも上限に数える（from_big、レビュー Important 1）。越えるなら計算も確保もせずに
 // ResourceLimit("heap_limit") を投げる（タスク 6）。huge_mul は止まることだけを見る。見積もりがないと、次の 2 乗
 // （上限の約 0.65 倍）をヒープの外で計算してから from_big で止まる。積を箱にせずに止めることは product_estimate で確かめる。
+// 0 を掛けた積は見積もらずに 0 にするので、上限の近くでも止まらない（zero_product）。
 // << と ^ も結果の大きさを先に見積もる（タスク 7）。huge_shift はその見積もりだけで、確保の前に止まることを見る。
 // 整数の引数の Big（タスク 8）。length/2 の正の Big の長さと、'$format_float'/4 の正の Big の桁数は、どのヒープにも
 // 入らないので、作り始める前に止まる（length_big）。
@@ -103,6 +104,24 @@ void check_product_estimate() {
   mosa_test::check(product.limited, "product_estimate: A * A > 0 stops at the heap limit");
 }
 
+// 0 を掛けた積は 0 なので、見積もり（check_room）より前に決める（Muse レビュー Minor 1）。A（約 120k 語）は箱と写し 1 つ
+// （約 240k 語）なら入る。積を見積もると A と同じ大きさをさらに残りに求め、上限（327,680 語）を越えて止まる。A * 1 が
+// 止まることで、0 でない被乗数の見積もりは残っていることを示す。
+void check_zero_product() {
+  auto machine = mosa::Machine::create(k_small);
+  mosa_test::check(machine->load_program(k_program).ok, "zero_product: load");
+  constexpr std::string_view k_a = "A is 1 << 7680000, ";
+  const Outcome held = run(*machine, std::string{k_a} + "A > 0.");
+  mosa_test::check(!held.limited && held.kind == mosa::StopKind::Success, "zero_product: A > 0 fits");
+  for (const std::string_view product : {"X is A * 0, X == 0.", "X is 0 * A, X == 0."}) {
+    const Outcome outcome = run(*machine, std::string{k_a} + std::string{product});
+    const std::string label = "zero_product: " + std::string{product};
+    mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success, label + " gives 0");
+  }
+  const Outcome one = run(*machine, std::string{k_a} + "A * 1 > 0.");
+  mosa_test::check(one.limited, "zero_product: A * 1 > 0 stops at the heap limit");
+}
+
 // 1 << 2^62 と 2^(2^62) は 2^62 ビット（約 2^56 語）を越える。見積もりがなければ、shift_left と power が
 // 結果の語を確保しようとして std::bad_alloc か std::length_error を投げるか、長い時間をかける。見積もりで止まれば
 // 計算も確保もしないので、1 秒の中で止まり、ヒープの確保も伸びない。シフトの数と指数が Big の 2 行は、見積もらずに
@@ -166,6 +185,7 @@ int main() {
   check_nested_hold();
   check_settle_count();
   check_product_estimate();
+  check_zero_product();
   check_huge_mul();
   return mosa_test::failures();
 }

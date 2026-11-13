@@ -31,7 +31,11 @@ double quotient_magnitude(const BigInt& a, const BigInt& b) {
   const std::int64_t shift = 55 - (a_bits - b_bits);
   const BigQuotient q = shift >= 0 ? divide_truncate(shift_left(a, static_cast<std::uint64_t>(shift)), b)
                                    : divide_truncate(a, shift_left(b, static_cast<std::uint64_t>(-shift)));
-  const auto bits = static_cast<std::uint64_t>(*q.quotient.to_int64());
+  // 両方が 0 でなければ、ずらした後の |a| / |b| は 2^54 以上 2^56 未満なので、商はいつも int64 に入る。前提を破る
+  // 呼び出しが来ても未定義動作にせず、2^1024 以上と同じ無限大を返して、呼ぶ側の float_overflow の道に乗せる。
+  const std::optional<std::int64_t> scaled = q.quotient.to_int64();
+  if (!scaled) return std::numeric_limits<double>::infinity();
+  const auto bits = static_cast<std::uint64_t>(*scaled);
   const bool sticky = !q.remainder.is_zero();
   const int length = std::bit_width(bits);
   // 値は [2^exponent, 2^(exponent+1)) にある。
@@ -133,6 +137,9 @@ Ev big_bin(Impl& machine, const Goal& goal, std::string_view name, Num left, Num
     return from_big(machine, name == "+" ? a + b : a - b);
   }
   if (name == "*") {
+    // 積が 0 なら見積もらずに決める。見積もりは被乗数が 0 でももう一方のビット数を求めるので、上限の近くでは
+    // 0 の結果まで断ってしまう（Muse レビュー Minor 1）。
+    if (a.is_zero() || b.is_zero()) return from_int(0);
     check_room(machine, a.bit_length() + b.bit_length());
     return from_big(machine, a * b);
   }
@@ -181,8 +188,8 @@ Ev big_divide(Impl& machine, const Goal& goal, Num left, Num right) {
 
 bool int_odd(const Impl& machine, Num num) {
   if (!num.big) return (num.ival & 1) != 0;
-  // Big は 0 でないので、最下位の語がある。
-  return (big_ref(machine, num).words().front() & 1U) != 0;
+  // words() は絶対値全体を写すので、最下位のビットだけを読む odd() で決める（Muse レビュー Minor 5）。
+  return big_ref(machine, num).odd();
 }
 
 Ev big_hat(Impl& machine, Num base, Num exp) {

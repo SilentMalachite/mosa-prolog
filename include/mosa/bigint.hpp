@@ -36,6 +36,7 @@ class BigInt {
   [[nodiscard]] std::optional<std::int64_t> to_int64() const;
   [[nodiscard]] std::vector<std::uint64_t> words() const;  // 絶対値。下位が先、上位の 0 なし、0 は空
   [[nodiscard]] std::uint64_t bit_length() const;          // 絶対値のビット数。0 は 0
+  [[nodiscard]] bool odd() const;                          // 奇数か。words() と違って語を写さない
   [[nodiscard]] BigInt operator-() const;
   friend bool operator==(const BigInt&, const BigInt&) = default;
   friend std::strong_ordering operator<=>(const BigInt& a, const BigInt& b);
