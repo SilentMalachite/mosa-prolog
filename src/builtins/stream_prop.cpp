@@ -100,13 +100,13 @@ std::string_view mode_name(Stream::Mode mode) {
   return "append";
 }
 
-std::string_view end_name(Stream& stream) {
+std::string_view end_name(const Impl& machine, Stream& stream) {
   if (stream.past_end) return "past";
   // 標準入力の長さは、まだ読んでいない先があるのでバッファでは決まらない。
   if (stream.mode != Stream::Mode::Read || stream.kind == Stream::Kind::Standard) return "not";
   if (stream.cursor < stream.bytes.size()) return "not";
   // ファイルは遅延読みなので、続きがあるか 1 塊だけ読み足して確かめる。足すだけでは位置は変わらない。
-  return pull_stream(stream) ? "not" : "at";
+  return pull_stream(machine, stream) ? "not" : "at";
 }
 
 std::string_view eof_name(Stream::EofAction action) {
@@ -132,7 +132,7 @@ Cell prop_cell(Impl& machine, Stream& stream, int prop) {
     case Input: return machine.heap.atom(machine.atoms.intern("input"));
     case Output: return machine.heap.atom(machine.atoms.intern("output"));
     case Alias: return atom_arg(machine, "alias", stream.alias);
-    case End: return atom_arg(machine, "end_of_stream", end_name(stream));
+    case End: return atom_arg(machine, "end_of_stream", end_name(machine, stream));
     case Eof: return atom_arg(machine, "eof_action", eof_name(stream.eof_action));
     case Reposition: return atom_arg(machine, "reposition", stream.reposition ? "true" : "false");
     case Type: return atom_arg(machine, "type", stream.data == Stream::Data::Text ? "text" : "binary");
@@ -340,7 +340,7 @@ PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
   return PosKind::Ok;
 }
 
-bool locate(Stream& stream, const Triple& want, std::size_t& cursor) {
+bool locate(const Impl& machine, Stream& stream, const Triple& want, std::size_t& cursor) {
   if (want.beyond) return false;
   Triple spot;
   while (true) {
@@ -349,7 +349,12 @@ bool locate(Stream& stream, const Triple& want, std::size_t& cursor) {
       return true;
     }
     // まだ読んでいない先の位置は、届くまで読み足して探す。終わりまで足しても無ければ領域の外。
-    if (spot.cursor >= stream.bytes.size() && !pull_stream(stream)) return false;
+    if (spot.cursor >= stream.bytes.size() && !pull_stream(machine, stream)) return false;
+    // 塊の境目で字が切れていたら、幅を決める前に足してから数え直す（Claude のレビューの L5）。
+    if (stream.data != Stream::Data::Binary && text_needs_more(stream.bytes, spot.cursor) &&
+        pull_stream(machine, stream)) {
+      continue;
+    }
     if (stream.data == Stream::Data::Binary) {
       spot.cursor += 1;
       spot.char_no += 1;
@@ -442,7 +447,7 @@ void run_set_position(Impl& machine, const Goal& goal) {
     return;
   }
   std::size_t cursor = 0;
-  if (!locate(machine.streams[index], triple, cursor)) {
+  if (!locate(machine, machine.streams[index], triple, cursor)) {
     raise_formal(machine, formal_domain(machine, "stream_position", position), goal.name, goal.arity);
     return;
   }
@@ -472,7 +477,7 @@ void run_at_end(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_existence(machine, "stream", spec), goal.name, goal.arity);
     return;
   }
-  const auto end = end_name(machine.streams[index]);
+  const auto end = end_name(machine, machine.streams[index]);
   if (end != "at" && end != "past") {
     machine.failed = true;
     return;

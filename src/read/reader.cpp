@@ -129,10 +129,12 @@ Cell Reader::intern_variable(std::string name) {
     var.count += 1;
     return var.cell;
   }
-  var_index_.emplace(name, vars_.size());
-  VarRec created{std::move(name), heap_.fresh_ref(), 1};
+  // fresh_ref が投げても、vars_ の外を指す添字が表に残らないよう、表へは push_back の後で入れる（L8）。
+  const std::size_t slot = vars_.size();
+  VarRec created{name, heap_.fresh_ref(), 1};
   const Cell cell = created.cell;
   vars_.push_back(std::move(created));
+  var_index_.emplace(std::move(name), slot);
   occurrences_.push_back(cell);
   return cell;
 }

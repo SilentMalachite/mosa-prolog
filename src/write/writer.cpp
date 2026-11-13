@@ -343,15 +343,13 @@ void Printer::index_names() {
 }
 
 const VarName* Printer::var_name(Cell term) const {
-  if (const auto found = name_index_.find(term.raw()); found != name_index_.end()) {
-    const VarName& var = names_[found->second];
-    if (var.cell.raw() == term.raw()) return &var;
-  }
-  // 表が古い道（settle を経ない移動）があっても、線形に探して正しくする。
-  for (const VarName& var : names_) {
-    if (var.cell.raw() == term.raw()) return &var;
-  }
-  return nullptr;
+  // 表を作るのは構築時と settle（GC でセルが動いた後）だけなので、引けなければ名前は無い。
+  // 前の線形の保険は、名前の無い変数のたびに表を全走査して答えの書き出しを 2 乗にしていた
+  // （Claude のレビューの M3）。
+  const auto found = name_index_.find(term.raw());
+  if (found == name_index_.end()) return nullptr;
+  const VarName& var = names_[found->second];
+  return var.cell.raw() == term.raw() ? &var : nullptr;
 }
 
 std::string Printer::var_text(Cell term) {

@@ -85,17 +85,24 @@ bool item_unbound(const Impl& machine, const WalkedList& walked) {
   return false;
 }
 
-// ヒープ上限のバイト予算から、今のヒープと開いた流れの中身を引いた残り。新しい流れの bytes はこの中だけに
-// 伸びる（全体レビュー推奨2）。数えるときはあふれないよう丸める。
-std::size_t stream_byte_budget(const Impl& machine) {
-  const std::size_t total = heap_byte_budget(machine.heap.limit());
+// 今のヒープ（バイト換算）と開いた流れの中身の合計。数えるときはあふれないよう飽和させる。
+std::size_t stream_bytes_used(const Impl& machine) {
   std::size_t used = heap_byte_budget(machine.heap.size());
   for (const Stream& stream : machine.streams) {
     if (stream.closed) continue;
-    used = stream.bytes.size() > total - std::min(total, used) ? total : used + stream.bytes.size();
-    if (used >= total) return 0;
+    const std::size_t room = std::numeric_limits<std::size_t>::max() - used;
+    used += std::min(room, stream.bytes.size());
   }
-  return total - std::min(total, used);
+  return used;
+}
+
+// ヒープ上限のバイト予算の残り。pull_stream と追記の全体読みが、呼ぶたびにこれで数える
+// （全体レビュー推奨2。開いた時点で流れに固定すると、開いた直後の空の流れが互いに引かれず、
+// 合わせて予算の何倍も保持できた。Claude のレビューの M1）。
+std::size_t stream_byte_budget(const Impl& machine) {
+  const std::size_t total = heap_byte_budget(machine.heap.limit());
+  const std::size_t used = stream_bytes_used(machine);
+  return used >= total ? 0 : total - used;
 }
 
 // 追記が元の中身を読むときだけの全体読み。通常ファイルでないもの（装置や名前付きパイプ）は終わりが無い
@@ -318,7 +325,6 @@ bool fill_read(Impl& machine, const Goal& goal, Cell source, const std::filesyst
     return true;
   }
   made.source = std::move(input);
-  made.byte_limit = stream_byte_budget(machine);
   return false;
 }
 
@@ -626,37 +632,43 @@ void run_close(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
-bool pull_stream(Stream& stream) {
+bool pull_stream(const Impl& machine, Stream& stream) {
   if (stream.mode != Stream::Mode::Read) return false;
+  // 予算は呼ぶたびに全体から数える（M1）。すでに超えているなら、読まずに止める。ちょうど上限のときは
+  // 1 バイトだけ試して終わりかどうかを見る。読んだ分は足してから超えたら投げるので、止まった後で
+  // 読み直しても中身は抜けない（Claude のレビューの L2）。
+  const std::size_t total = heap_byte_budget(machine.heap.limit());
+  const std::size_t used = stream_bytes_used(machine);
+  if (used > total) throw ResourceLimit("heap_limit");
+  const std::size_t remaining = total - used;
   if (stream.kind == Stream::Kind::Standard) {
     const int byte = standard_input_get();
     if (byte == std::char_traits<char>::eof()) return false;
     stream.bytes.push_back(static_cast<char>(static_cast<unsigned char>(byte)));
+    if (remaining == 0) throw ResourceLimit("heap_limit");
     return true;
   }
   if (stream.kind != Stream::Kind::File || !stream.source) return false;
   // 塊は持っている分に合わせて倍に伸ばす。大きな項を読み直す read_term が、塊のたびに頭から読んでも
   // 全体の仕事が長さの 2 倍ほどで済むため。短く読めたときは終わりと決めず、印を下ろして次で確かめる。
-  // 外で足された分もその次に見える。
+  // 外で足された分もその次に見える。読み取り口は終わりでも残し、後で足された分も読めるようにする（L3）。
   const std::size_t want = std::min<std::size_t>(std::max<std::size_t>(65536, stream.bytes.size()), 8 * 1024 * 1024);
-  std::string chunk(want, '\0');
+  const std::size_t take = remaining >= want ? want : remaining + 1;
+  std::string chunk(take, '\0');
   if (!stream.source->good()) {
     // 短く読めて終わりの印が立った後は、読んだ分だけの位置へ置き直さないと、外で足された分を読み直さない
-    // 実装がある。置けない相手（パイプ）は印だけ下ろしてそのまま読む。
+    // 実装がある。置く位置は bytes ではなく pulled（splice で bytes の長さが変わるため）。
+    // 置けない相手（パイプ）は印だけ下ろしてそのまま読む。
     stream.source->clear();
-    stream.source->seekg(static_cast<std::streamoff>(stream.bytes.size()));
+    stream.source->seekg(static_cast<std::streamoff>(stream.pulled));
     if (!stream.source->good()) stream.source->clear();
   }
   stream.source->read(chunk.data(), static_cast<std::streamsize>(chunk.size()));
   const auto got = static_cast<std::size_t>(stream.source->gcount());
-  if (got == 0) {
-    stream.source.reset();
-    return false;
-  }
-  if (got > stream.byte_limit - std::min(stream.byte_limit, stream.bytes.size())) {
-    throw ResourceLimit("heap_limit");
-  }
+  if (got == 0) return false;
+  stream.pulled += got;
   stream.bytes.append(chunk.data(), got);
+  if (got > remaining) throw ResourceLimit("heap_limit");
   return true;
 }
 

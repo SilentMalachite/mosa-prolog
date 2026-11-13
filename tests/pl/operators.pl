@@ -154,7 +154,7 @@ test(op_armed_catch_clear, op(0, fx, aa), true).
 test(op_throw_keeps, (catch((op(100, fx, cc), throw(1)), _, true), current_op(100, fx, cc), op(0, fx, cc)), true).
 
 % ctest も直接実行も、作業ディレクトリはリポジトリの根。
-consult_dd :- consult('tests/pl/op_keep_dir.pl').
+consult_dd :- consult('tests/pl/fixtures/op_keep_dir.pl').
 
 % 選択点より後ろの op/3 も、その後の :- op も、失敗で戻らない。
 test(op_directive_survives, (
@@ -165,7 +165,7 @@ test(op_directive_survives, (
 test(op_directive_clear, (op(0, xfx, dd), op(0, fx, zz2)), true).
 
 % 指令の中で、生きた選択点の後ろの op/3 も戻らない（レビュー M4 の A2）。指令の実行は印 0 の Cleanup の上に積む。
-consult_dir_backtrack :- consult('tests/pl/op_dir_backtrack.pl').
+consult_dir_backtrack :- consult('tests/pl/fixtures/op_dir_backtrack.pl').
 test(m4_directive_backtrack, (consult_dir_backtrack, current_op(700, xfx, zz3), op(0, xfx, zz3)), true).
 
 % レビュー M4（iso-notes 8.14.3 の決定 A）。op/3 は assertz と同じ副作用で、バックトラック、例外、findall、

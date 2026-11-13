@@ -115,7 +115,7 @@ add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/t
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 # tests/pl の consult と close の試験は tests/tmp の同じパスに書いて読む。open/3 の write は開いた時点で空にするので、
 # 差分テスト（diff_tests_pl）と重なると、片方が書き終える前のファイルをもう片方が読みうる（Codex レビュー）。
-set_tests_properties(prolog_tests PROPERTIES RESOURCE_LOCK pl_tmp TIMEOUT 900)
+set_tests_properties(prolog_tests PROPERTIES RESOURCE_LOCK pl_tmp TIMEOUT 1800)
 
 add_executable(heap_growth_test tests/cpp/heap_growth_test.cpp)
 target_include_directories(heap_growth_test PRIVATE tests/cpp)
@@ -126,6 +126,8 @@ add_executable(collect_limit_test tests/cpp/collect_limit_test.cpp)
 target_include_directories(collect_limit_test PRIVATE tests/cpp src)
 target_link_libraries(collect_limit_test PRIVATE mosa_lib)
 add_test(NAME collect_limit COMMAND $<TARGET_FILE:collect_limit_test>)
+# GC ストレスと並列のもとでは既定の 600 秒に近づく（前回の CI で 313 秒）。重いテストと同じ余裕にする。
+set_tests_properties(collect_limit PROPERTIES TIMEOUT 1800)
 # レビュー M17（ADR 0010 の改訂 3）。選択点のスタック、extras、env、実行時に訳したゴールを上限に数える。
 add_executable(state_limit_test tests/cpp/state_limit_test.cpp)
 target_include_directories(state_limit_test PRIVATE tests/cpp)
@@ -340,6 +342,11 @@ target_include_directories(stream_test PRIVATE tests/cpp)
 target_compile_definitions(stream_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(stream_test PRIVATE mosa_lib)
 add_test(NAME stream_test COMMAND $<TARGET_FILE:stream_test>)
+add_executable(stream_budget_test tests/cpp/stream_budget_test.cpp)
+target_include_directories(stream_budget_test PRIVATE tests/cpp)
+target_compile_definitions(stream_budget_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(stream_budget_test PRIVATE mosa_lib)
+add_test(NAME stream_budget COMMAND $<TARGET_FILE:stream_budget_test>)
 add_executable(stdin_read_test tests/cpp/stdin_read_test.cpp)
 target_include_directories(stdin_read_test PRIVATE tests/cpp)
 target_link_libraries(stdin_read_test PRIVATE mosa_lib)

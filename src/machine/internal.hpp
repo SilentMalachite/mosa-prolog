@@ -309,9 +309,10 @@ struct Stream {
   // bytes の先頭のうち、ファイルと同じだと分かっている長さ。保存はその続きだけを書き、append の元の中身を
   // 切り詰めない（Grok のレビューの Medium）。0 ならファイル全体を書き直す。
   std::size_t on_disk = 0;
-  // 読みのファイルは開いた読み取り口から必要な分だけ bytes へ足す（全体レビュー推奨2）。byte_limit は bytes の予算。
+  // 読みのファイルは開いた読み取り口から必要な分だけ bytes へ足す（全体レビュー推奨2）。pulled は読み取り口から
+  // 読んだ累計で、bytes を書き換える splice の後でもファイルの位置を失わない（Claude のレビューの L3）。
   std::unique_ptr<std::ifstream> source;
-  std::size_t byte_limit = std::numeric_limits<std::size_t>::max();
+  std::size_t pulled = 0;
   std::string alias;
   std::string path;
 };
@@ -616,13 +617,14 @@ void sweep_clauses(Predicate& predicate, const std::vector<bool>& held, ScanReco
 [[nodiscard]] std::size_t clause_from(const Predicate& predicate, std::size_t id);
 [[nodiscard]] std::size_t live_count(const Predicate& predicate);
 void reset_at_end(Stream& stream);
-// 流れの bytes へ続きを読み足す。標準入力は 1 バイト、ファイルは塊。予算を超えるなら ResourceLimit（streams.cpp）。
-bool pull_stream(Stream& stream);
-// bytes[index] から始まる壊れた UTF-8 の並びのうち、1 つの誤り（U+FFFD 1 つ）にするバイト数。index が範囲の外なら 0
-// （定義は chars.cpp）。
+// 流れの bytes へ続きを読み足す（予算は呼ぶたびに全体から数え、超えたら ResourceLimit。streams.cpp）。
+bool pull_stream(const Impl& machine, Stream& stream);
+// bytes[index] から始まる壊れた UTF-8 の並びのうち、1 つの誤り（U+FFFD 1 つ）にするバイト数。範囲の外なら 0（chars.cpp）。
 [[nodiscard]] std::size_t ill_formed_width(std::string_view bytes, std::size_t index);
 // get_char が bytes[index] から 1 文字として進めるバイト数。index が範囲の外なら 0（定義は chars.cpp）。
 [[nodiscard]] std::size_t text_char_width(std::string_view bytes, std::size_t index);
+// bytes[index] の字が末尾で切れていて、続きを足さないと幅が決まらないか（定義は chars.cpp）。
+[[nodiscard]] bool text_needs_more(std::string_view bytes, std::size_t index);
 // 開いた走査が届かない死んだ節を一度に消す（定義は database.cpp、ADR 0015）。述語は消さない。
 void sweep_dead(Impl& machine, Predicate& predicate);
 // 生きた節を全部消す（abolish と、読み込みが述語を置き換えるとき）。開いた走査がまだ試す節は死んだ節で残す。

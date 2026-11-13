@@ -150,8 +150,9 @@ std::string relativized(std::string line, const std::vector<std::string>& bases)
 
 std::vector<std::string> report_bases(const std::filesystem::path& prolog) {
   std::vector<std::string> bases;
+  // generic_string は Windows で ANSI コードページへ変換し、不合格行（UTF-8）に当たらなくなる（L7）。
   const auto add = [&bases](const std::filesystem::path& dir) {
-    if (!dir.empty()) bases.push_back(dir.generic_string() + "/");
+    if (!dir.empty()) bases.push_back(utf8_from_path(dir) + "/");
   };
   std::error_code error;
   add(std::filesystem::current_path(error));
@@ -166,6 +167,8 @@ std::vector<std::string> report_bases(const std::filesystem::path& prolog) {
     if (parent == cursor) break;
     cursor = parent;
   }
+  // 長い基準から消す。カレントがリポジトリの親だと、短い方が先に消えて途中までのパスが残る（L7）。
+  std::sort(bases.begin(), bases.end(), [](const std::string& a, const std::string& b) { return a.size() > b.size(); });
   return bases;
 }
 

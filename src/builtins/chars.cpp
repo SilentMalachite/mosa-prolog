@@ -125,13 +125,13 @@ Got classify(std::string_view bytes, std::size_t cursor) {
   return got;
 }
 
-bool pull_byte(Stream& stream) { return pull_stream(stream); }
+bool pull_byte(const Impl& machine, Stream& stream) { return pull_stream(machine, stream); }
 
-Got next_scalar(Stream& stream) {
+Got next_scalar(const Impl& machine, Stream& stream) {
   while (true) {
     Got got = classify(stream.bytes, stream.cursor);
     if (got.step != Step::Need) return got;
-    if (pull_byte(stream)) continue;
+    if (pull_byte(machine, stream)) continue;
     got.step = stream.cursor >= stream.bytes.size() ? Step::Eof : Step::Bad;
     return got;
   }
@@ -255,7 +255,7 @@ bool take_char(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
     eof = true;
     return false;
   }
-  const Got got = next_scalar(stream);
+  const Got got = next_scalar(machine, stream);
   if (got.step == Step::Bad) {
     // 壊れた並びは 1 文字として進めてから、error なら誤りを出し、replace なら U+FFFD を返す。error で進めないと、
     // 誤りを捕えて読み続けるループが同じ誤りを出し続けた（レビュー L6）。peek は位置を変えない。
@@ -455,6 +455,10 @@ std::size_t text_char_width(std::string_view bytes, std::size_t index) {
   const Got got = classify(bytes, index);
   if (got.step == Step::Char) return got.width;
   return ill_formed_width(bytes, index);
+}
+
+bool text_needs_more(std::string_view bytes, std::size_t index) {
+  return index < bytes.size() && classify(bytes, index).step == Step::Need;
 }
 
 // eof_action(reset)。ファイルと記憶の流れは先頭へ戻す。標準入力は読んだ分を巻き戻さず、

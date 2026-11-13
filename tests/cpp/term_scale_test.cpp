@@ -71,5 +71,8 @@ int main() {
   check_linear("reader variables", "length(" + var_list(4000) + ", 4000).", "length(" + var_list(16000) + ", 16000).",
                false);
   check_linear("writer variables", "Z = " + var_list(4000) + ".", "Z = " + var_list(16000) + ".", true);
+  // 名前の無い変数が多い答え。名前表に無い変数でも表引きが線形に落ちないこと（Claude のレビューの M3）。
+  check_linear("writer unnamed", "Z = " + var_list(4000) + ", length(L, 4000).",
+               "Z = " + var_list(16000) + ", length(L, 16000).", true);
   return mosa_test::failures();
 }

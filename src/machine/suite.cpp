@@ -128,13 +128,9 @@ std::optional<std::vector<std::filesystem::path>> test_files(const std::filesyst
     std::error_code kind;
     if (!at->is_regular_file(kind) || kind) continue;
     const std::filesystem::path& path = at->path();
-    // syntax.pl は --roundtrip の入力、次の 3 本は control.pl と operators.pl が consult する部品で、
-    // どれも試験を持たない。試験 0 件を失敗にするので、対象から外す（全体レビュー推奨3）。
-    const auto name = path.filename();
-    if (path.extension() != ".pl" || name == "syntax.pl" || name == "catch_park_dir.pl" ||
-        name == "op_dir_backtrack.pl" || name == "op_keep_dir.pl") {
-      continue;
-    }
+    // syntax.pl は --roundtrip の入力で試験を持たない。consult される部品は下位ディレクトリに置き、
+    // ここでは名前で外さない（利用者のディレクトリでも同じ名前を黙って外してしまう。Claude のレビューの L6）。
+    if (path.extension() != ".pl" || path.filename() == "syntax.pl") continue;
     files.push_back(path);
   }
   if (error) return std::nullopt;

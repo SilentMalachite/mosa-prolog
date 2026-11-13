@@ -143,6 +143,7 @@ jobs:
   # write_scale（レビュー M7）も時間の比を測る。20 万要素のリストを作る間の安全点ごとの GC がヒープ全体をなめて 2 乗になる。
   # 巡回するリストを書く正しさは tests/pl の m7_* が N=1 で見る。
   # pred_scale（ADR 0018）も時間の比を測る。述語表の索引の正しさは pred_table と tests/pl が N=1 で見る。
+  # term_scale（全体レビュー推奨4）も同じく時間の比で、cyclic の項目が append/3 を 80000 回呼ぶので、GC ごとのなめで比が 16.1 になって落ちる（Claude のレビューの High、手元 macOS 実測）。
   # goal_shared（レビュー M28）は 32 MiB のヒープに長さ 64 の循環 1 万個を置き、安全点ごとの GC がそれをなめて 2 乗になる
   # （手元で N=1 は 89 分で終わらず、N=1000 は 24 秒）。ゴールを訳す途中の GC は tests/pl/control.pl の m28_* が N=1 で見る。
   # assert_shared（レビュー M30）は時間の比も測り、安全点ごとの GC が節の大きな IR を数えるので比が崩れる（手元で N=1 は 10 分
@@ -165,7 +166,7 @@ jobs:
       - name: Tests and differential tests with MOSA_GC_STRESS=1
         env:
           MOSA_GC_STRESS: 1
-        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|sub_atom_scale|goal_shared|assert_shared|stack_deep_read|mosac_deep_file)$|install|bench|package" --no-tests=error
+        run: ctest --preset linux-gcc -E "^(gc|heap_growth|mosac_heap_limit|state_limit|long_literal|mosac_long_list|machine_deep|stack_deep_write|stack_deep_builtins|stack_deep_collect|mosac_deep_collect|index_scale|write_scale|pred_scale|sub_atom_scale|term_scale|goal_shared|assert_shared|stack_deep_read|mosac_deep_file)$|install|bench|package" --no-tests=error
       - name: Heavy GC tests with MOSA_GC_STRESS=1000
         env:
           MOSA_GC_STRESS: 1000
@@ -225,7 +226,7 @@ jobs:
       - name: Build
         run: cmake --build --preset linux-clang-asan
       - name: Test
-        run: ctest --preset linux-clang-asan -E "mosac|standalone|diff|package|install|bench|manual|scale|stack_deep|machine_deep|bigint_limit|mosa_std_binary" --no-tests=error
+        run: ctest --preset linux-clang-asan -E "mosac|standalone|diff|package|install|mosatest_bench|manual|scale|stack_deep|machine_deep|bigint_limit|mosa_std_binary" --no-tests=error
       - name: Conformance suite
         run: ./build-asan/mosatest --suite tests/conformance
 

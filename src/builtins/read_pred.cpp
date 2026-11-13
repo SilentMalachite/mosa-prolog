@@ -142,7 +142,7 @@ bool reject_input(Impl& machine, const Goal& goal, const Stream& stream, Cell cu
   return false;
 }
 
-bool pull_byte(Stream& stream) { return pull_stream(stream); }
+bool pull_byte(const Impl& machine, Stream& stream) { return pull_stream(machine, stream); }
 
 std::string_view rest(const Stream& stream) {
   if (stream.cursor > stream.bytes.size()) return {};
@@ -410,7 +410,7 @@ void give_back(Stream& stream, std::size_t from) {
 // 立て、もう読まない。
 bool pull_to_mark(const Impl& machine, Stream& stream, bool& ended, Lexer::Scout& scout) {
   bool pulled = false;
-  while (pull_byte(stream)) {
+  while (pull_byte(machine, stream)) {
     pulled = true;
     const std::string_view source = rest(stream);
     if (Lexer::may_end_before_last(source, &machine.char_conv, machine.japanese_punct) &&

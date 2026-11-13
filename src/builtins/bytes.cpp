@@ -128,9 +128,9 @@ bool reject_put_byte(Impl& machine, const Goal& goal, Cell cell, unsigned char& 
   return false;
 }
 
-bool pull_byte(Stream& stream) {
+bool pull_byte(const Impl& machine, Stream& stream) {
   if (stream.cursor < stream.bytes.size()) return true;
-  return pull_stream(stream);
+  return pull_stream(machine, stream);
 }
 
 // バイナリの行番号は動かさない。文字数はバイトの個数。
@@ -149,7 +149,7 @@ bool take_byte(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
     value = -1;
     return false;
   }
-  if (!pull_byte(stream)) {
+  if (!pull_byte(machine, stream)) {
     value = -1;
     // peek は終端の印を返すだけで、past にはしない。
     if (!peek) stream.past_end = true;

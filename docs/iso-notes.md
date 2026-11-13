@@ -221,6 +221,8 @@ Superseded: the implemented flag is the read-only integer Major*10000 + Minor*10
 
 Decision (2026-10-25): Open question 15: A. The default of `iso` is `true`, and it is read-only. Phase 3 adds no new behavior. Implemented after phase 10 (`src/builtins/flags.cpp`, `tests/pl/flags.pl`): `current_prolog_flag(iso, true)` holds and `set_prolog_flag(iso, _)` gives `permission_error(modify, flag, iso)` for `true` and `false`, and `domain_error(flag_value, iso+_)` for any other value.
 
+Decision (2026-11-13, the Muse review's L13; owner confirmed): A. SPEC section 3 used to say the intentional deviations are "disabled when the `iso` flag is true", which cannot hold for a read-only `true` flag with no second mode; commit 2723dc6 aligned the sentence to the implementation (deviations behind flags that default off, or visible only after an explicit import) without recording the question here first. Mosa has no strict-conformance mode: the read-only `true` flag only states that the core semantics follow ISO. The repository still holds no text of 13211-1 5.1 e, so this decision does not by itself settle whether that clause would require such a mode; revisit B (a writable mode that turns the deviations off) if external certification or a user need for rejecting extensions arises.
+
 ## 8.12 Newlines in text
 
 Decision (2026-10-25): Open question 16: A. In text files and memory streams alike, on every OS, a newline is a single U+000A. It is not left to C++ text mode.

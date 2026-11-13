@@ -51,7 +51,7 @@ test(soft_exit_consult, (consult('tests/pl/modules/redef_a.pl'), (true *-> true 
 % catch を、外の選択点へ戻ったときに有効に戻してはいけない（ADR 0011 の改訂 3）。
 test(catch_parked_rearm,
      (catch(true, _, fail), catch(true, _, fail), (X = 1 ; X = 2),
-      (X == 1 -> consult('tests/pl/catch_park_dir.pl') ; true), X == 2, throw(boom)),
+      (X == 1 -> consult('tests/pl/fixtures/catch_park_dir.pl') ; true), X == 2, throw(boom)),
      error(boom)).
 test(if_cut_local, ((!, fail) -> true ; true), true).
 test(var_goal_cut, (G = !, (G, fail ; true)), true).
