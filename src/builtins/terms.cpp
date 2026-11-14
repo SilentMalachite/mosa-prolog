@@ -1,9 +1,10 @@
 // 規格 8.5.1 functor/3、8.5.2 arg/3、8.5.3 =../2、8.5.4 copy_term/2、8.5.5 term_variables/2（Cor.2）。
 // numbervars(?term, +integer, ?integer)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog に合わせる。
 //   Term の変数を左からの前順に '$VAR'(Start)、'$VAR'(Start+1)… に束縛し、End を次の番号と単一化する。
-//   instantiation_error（Start が変数）、type_error(integer, Start)。番号に上限は無く、int64 を越えれば Big になる
+//   instantiation_error（Start が変数）、type_error(integer, Start)、type_error(integer, End)。番号に上限は無く、int64 を越えれば Big になる
 //   （フェーズ10。SWI-Prolog はタグ付き整数の範囲で representation_error(tagged_integer)）。
-//   End が整数でないか数が合わなければ、誤りにせず、変数を束縛せずに失敗する（SWI-Prolog の pl-prims.c も失敗）。
+//   End が変数でも整数でもなければ type_error(integer, End)（同梱スイートの commons_numbervars_3_15 の期待）。
+//   End が整数で数が合わなければ、誤りにせず、変数を束縛せずに失敗する。
 // 整数の引数の Big（フェーズ10、設計の 8）: functor/3 の項数は負なら domain_error(not_less_than_zero)、正なら
 //   representation_error(max_arity)。arg/3 の番号は負なら domain_error(not_less_than_zero)、正なら失敗する。
 // テスト: tests/pl/terms.pl、tests/pl/utilities.pl、tests/pl/bigint.pl、tests/cpp/bigint_heap_test.cpp
@@ -401,6 +402,12 @@ void run_numbervars(Impl& machine, const Goal& goal) {
   if (machine.heap.unbound(start)) return instantiation(machine, goal);
   if (!is_integer_tag(start.tag())) {
     raise_formal(machine, formal_type(machine, "integer", start), goal.name, goal.arity);
+    return;
+  }
+  // End の型は束縛の前に確かめる（引数の検査を先に、束縛は後に）
+  const Cell end = machine.heap.deref(goal.arg(machine, 2));
+  if (!machine.heap.unbound(end) && !is_integer_tag(end.tag())) {
+    raise_formal(machine, formal_type(machine, "integer", end), goal.name, goal.arity);
     return;
   }
   const std::vector<Cell> vars = collect_vars(machine, goal.arg(machine, 0));

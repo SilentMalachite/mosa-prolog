@@ -32,7 +32,11 @@ test(numbervars_negative, (numbervars(f(X), -1, E), X == '$VAR'(-1), E == 0), tr
 test(numbervars_end_bound, numbervars(f(_, _), 0, 2), true).
 test(numbervars_end_differs, numbervars(f(_), 0, 5), fail).
 test(numbervars_end_differs_unbound, (\+ numbervars(f(X), 0, 5), var(X)), true).
-test(numbervars_end_atom, (\+ numbervars(f(X), 0, a), var(X)), true).
+test(numbervars_end_atom, (catch(numbervars(f(X), 0, a), error(type_error(integer, a), _), true), var(X)), true).
+test(numbervars_end_bound_one, numbervars(f(_), 0, 1), true).
+test(numbervars_end_short, numbervars(f(_), 0, 2), fail).
+test(numbervars_end_type, numbervars(_, 1, a), error(type_error(integer, a))).
+test(numbervars_end_type_term, numbervars(f(_), 1, a), error(type_error(integer, a))).
 test(numbervars_end_shared, numbervars(f(E), 0, E), fail).
 test(numbervars_existing, (T = f('$VAR'(1), '$VAR'(X)), numbervars(T, 0, E), T == f('$VAR'(1), '$VAR'('$VAR'(0))), E == 1), true).
 test(numbervars_write, (T = f(X, Y, X), numbervars(T, 0, _), with_output_to(atom(A), write(T))), solutions([A = 'f(A,B,A)'])).
