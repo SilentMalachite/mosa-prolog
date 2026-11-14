@@ -120,6 +120,10 @@ test(fmt_plus_newline_arg, with_output_to(atom(A), format("~5|~w~3+.", ['ab\ncd'
 % 今の振る舞いを留める。~| は改行の前の埋め所も埋める。字が桁止めを越えた後の ~+ は、字の終わりの桁から数える。
 test(fmt_plus_newline_bar, with_output_to(atom(A), format("~tab\ncd~6|.", [])), solutions([A = '    ab\ncd.'])).
 test(fmt_plus_past_next, with_output_to(atom(A), format("abcdefghij~t~8+x~t~4+|", [])), solutions([A = 'abcdefghijx   |'])).
+% 今の振る舞いを留める。~n と、改行を書く ~N（ここでは桁 2 にあるので書く）は区切りを確定するので、その前の ~t は
+% 埋めず、~6| は cd の後を埋める（書式の字の改行とも SWI-Prolog とも違う。iso-notes「Section 5 format/2,3」）。
+test(fmt_bar_after_n, with_output_to(atom(A), format("~tab~ncd~6|.", [])), solutions([A = 'ab\ncd    .'])).
+test(fmt_bar_after_N, with_output_to(atom(A), format("~tab~Ncd~6|.", [])), solutions([A = 'ab\ncd    .'])).
 % ~i、~k、~W、~p、~N（フェーズ11のタスク6）。入力と期待値はスイートの format_2・format_3 の件と同じ。
 test(fmt_i, with_output_to(atom(A), format("~a~i~a", [a, b, c])), solutions([A = ac])).
 test(fmt_i_count, with_output_to(atom(A), format("~a~3i~a", [a, b, c])), solutions([A = ac])).
