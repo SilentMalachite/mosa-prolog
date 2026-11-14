@@ -1,5 +1,7 @@
 // tester.lgt に直接書かれた節と dynamic・multifile の指令は、テストの前に user へ読む（lgtunit は tester.lgt を
-// 読み込んでからテストを流す）。initialization の中身（logtalk_load と halt）は今と同じく走らせない。
+// 読み込んでからテストを流す）。initialization は今と同じく走らせず、:- if から :- endif の中の項は読まない。
+// initialization を走らせないことは assertz(ran) の initialization で確かめる。logtalk_load と halt の
+// initialization は、logtalk_load がどこにも無いので走っても halt に届かず、それだけでは確かめられない。
 // 一時ファイルは tests/tmp/suite-tester。
 
 #include "harness.hpp"
@@ -62,19 +64,40 @@ struct Fixture {
   }
 };
 
-// format_2 と format_3 の tester.lgt と同じ形（節、multifile と dynamic、logtalk_load と halt を呼ぶ initialization）。
+// 3〜6 行目は format_2 と format_3 の tester.lgt と同じ形（節、multifile と dynamic、logtalk_load と halt を呼ぶ
+// initialization）。前の 2 行は走れば跡が残る initialization で、mosa は読み込みの initialization の 1 つが例外を
+// 投げると残りを走らせないので、logtalk_load の initialization より前に置く。後ろの 3 行は条件の中の節。
 std::string tester_text() {
-  return ":- multifile(portray/1).\n"
+  return ":- dynamic(ran/0).\n"
+         ":- initialization(assertz(ran)).\n"
+         ":- multifile(portray/1).\n"
          ":- dynamic(portray/1).\n"
          "portray(X) :- X == zz, write(yy).\n"
-         ":- initialization((logtalk_load(lgtunit(loader)), halt)).\n";
+         ":- initialization((logtalk_load(lgtunit(loader)), halt)).\n"
+         ":- if(true).\n"
+         "inside_if.\n"
+         ":- endif.\n";
 }
 
 std::string tests_text() {
   return ":- object(tests, extends(lgtunit)).\n"
          "\ttest(t1, true) :- {clause(portray(zz), _)}.\n"
          "\ttest(t2, true) :- {predicate_property(portray(_), dynamic)}.\n"
+         "\ttest(t3, true) :- {predicate_property(portray(_), multifile)}.\n"
+         "\ttest(t4, fail) :- {ran}.\n"
+         "\ttest(t5, fail) :- {current_predicate(inside_if/0)}.\n"
          ":- end_object.\n";
+}
+
+std::string failed_section(std::string_view text) {
+  const auto begin = text.find("不合格:");
+  if (begin == std::string_view::npos) return {};
+  const auto end = text.find("別欄:", begin);
+  return std::string{text.substr(begin, end == std::string_view::npos ? std::string_view::npos : end - begin)};
+}
+
+bool case_failed(std::string_view failed, std::string_view name) {
+  return failed.find(std::string{"tests.lgt "} + std::string{name} + " ") != std::string_view::npos;
 }
 
 void check_tester_clauses(const std::filesystem::path& root) {
@@ -85,10 +108,15 @@ void check_tester_clauses(const std::filesystem::path& root) {
   mosa_test::check(write_text(dir / "tests.lgt", tests_text()), "write tests.lgt");
   const int code = mosa::run_iso_suite(suite.string(), report.string());
   const std::string body = read_text(report);
-  if (code != 0 || !has_exact_line(body, "合格数: 2")) std::cerr << "tester report\n" << body << '\n';
-  mosa_test::check(has_exact_line(body, "分母: 2"), "tester denominator");
-  mosa_test::check(has_exact_line(body, "合格数: 2"), "tester clause and dynamic directive are loaded");
-  // halt が走れば次の件は halt の結果になり、合格数が 2 にならない。終了コードも 0 のまま。
+  const std::string failed = failed_section(body);
+  if (code != 0 || !has_exact_line(body, "合格数: 5")) std::cerr << "tester report\n" << body << '\n';
+  mosa_test::check(has_exact_line(body, "分母: 5"), "tester denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 5"), "tester passes all");
+  mosa_test::check(!case_failed(failed, "t1"), "tester clause is loaded");
+  mosa_test::check(!case_failed(failed, "t2"), "dynamic directive is honored");
+  mosa_test::check(!case_failed(failed, "t3"), "multifile directive is honored");
+  mosa_test::check(!case_failed(failed, "t4"), "initialization does not run");
+  mosa_test::check(!case_failed(failed, "t5"), "clause inside :- if is not loaded");
   mosa_test::check(code == 0, "tester exits 0");
 }
 
