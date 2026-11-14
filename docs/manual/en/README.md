@@ -2,7 +2,7 @@ English | [日本語](../ja/README.md)
 
 # Mosa Prolog manual
 
-This manual documents Mosa Prolog in this source tree. The latest release is 0.2.1; what changed in it is listed in the CHANGELOG. It is written for people who have never used Prolog. It
+This manual documents Mosa Prolog in this source tree. The latest release is 0.2.2; what changed in it is listed in the CHANGELOG. It is written for people who have never used Prolog. It
 starts with installing Mosa and goes on, one small step at a time, to writing programs and building executables.
 
 ## How to read this manual
@@ -26,7 +26,7 @@ starts with installing Mosa and goes on, one small step at a time, to writing pr
 
 The packages are not signed. [Chapter 2](02-install.md) shows how to start Mosa anyway on macOS and Windows.
 
-What each release has, including 0.2.1, and the known limits are in the [CHANGELOG](../../../CHANGELOG.md).
+What each release has, including 0.2.2, and the known limits are in the [CHANGELOG](../../../CHANGELOG.md).
 
 ## Chapters
 
