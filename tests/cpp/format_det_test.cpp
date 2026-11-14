@@ -12,7 +12,7 @@
 
 namespace {
 
-// 指示ごとに通る道が違う（~Nd は decimal_chars/3 で、0 で埋める道と負の数がある。~t と ~| は column_stop/3 で、
+// 指示ごとに通る道が違う（~Nd は decimal_chars/3 で、0 で埋める道と負の数がある。~t と ~| は column_stop/4 で、
 // 埋め所が 1 つと 2 つ）。どれも最後は expand/5 を通る。text の項目が無い書式は 0.1.0 でも選択点を残さないので、
 // 埋め所の書式にも ~w を入れる（敵対的レビュー A2）。
 constexpr auto k_goals = std::to_array<std::string_view>({
@@ -59,6 +59,9 @@ constexpr auto k_goals = std::to_array<std::string_view>({
     "format(\"~E\", [1.5])",
     "format(\"~g\", [0.00000123])",
     "format(\"~2G\", [392.65])",
+    // フェーズ11のタスク9。~+ は ~| と同じ column_stop を通る。埋め所が 1 つと 2 つ。
+    "format(\"~a~t~8+~w\", [ab, c])",
+    "format(\"~t~w~t~+\", [ab])",
 });
 
 void check_goal(mosa::Machine& machine, std::string_view goal) {

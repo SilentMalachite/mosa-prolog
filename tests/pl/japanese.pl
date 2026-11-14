@@ -185,6 +185,9 @@ test(fmt_wide_fill_even, with_output_to(atom(A), format("~`漢t~4|x", [])), solu
 test(fmt_wide_fill_odd, with_output_to(atom(A), format("~`漢t~5|x", [])), solutions([A = '漢漢 x'])).
 test(fmt_wide_fill_after_text, with_output_to(atom(A), format("ab~`漢t~6|x", [])), solutions([A = 'ab漢漢x'])).
 test(fmt_wide_fill_two, with_output_to(atom(A), format("~`漢t~w~`漢t~7|", [ab])), solutions([A = '漢ab漢 '])).
+% ~+ の桁も東アジア幅で数える（フェーズ11のタスク9）。日本 は幅 4 なので 8 桁まで 4 桁、日a は幅 3 なので 6 桁まで 3 桁埋める。
+test(fmt_plus_wide_1, with_output_to(atom(A), format("~a~t~8+|", ['日本'])), solutions([A = '日本    |'])).
+test(fmt_plus_wide_2, with_output_to(atom(A), format("~t~a~6+|", ['日a'])), solutions([A = '   日a|'])).
 % SPEC 第4節。日本語のファイル名を書いて consult できる（計画 Task 15）。パスはリポジトリの根から。
 test(consult_japanese_name, (open('tests/tmp/日本語の読込.pl', write, S), write(S, '読込済(はい).'), nl(S), close(S), consult('tests/tmp/日本語の読込.pl'), 読込済(はい)), true).
 % term_to_atom/2 は日本語の原子と変数名を読み書きする（レビュー M11）。

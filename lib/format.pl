@@ -1,9 +1,9 @@
 % library(format)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_format.pl と、選択点を残さないことを見る
 % tests/cpp/format_det_test.cpp。
-% 指示は ~w ~p ~q ~k ~W ~a ~d ~D ~r ~R ~f ~e ~E ~g ~G ~s ~c ~i ~n ~N ~t ~| ~~ だけ。誤りは iso-notes の Section 5
+% 指示は ~w ~p ~q ~k ~W ~a ~d ~D ~r ~R ~f ~e ~E ~g ~G ~s ~c ~i ~n ~N ~t ~| ~+ ~~ だけ。誤りは iso-notes の Section 5
 % format/2 errors の決定 A。出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
-% ~N だけは出力先の流れを見る（format/1,2 は呼んだときの現在出力、format/3 は引数の流れ）。~t と ~| の桁は今までと
-% 同じく呼び出しの始まりを 0 とする（フェーズ11の設計の非目標）。
+% ~N だけは出力先の流れを見る（format/1,2 は呼んだときの現在出力、format/3 は引数の流れ）。~t、~|、~+ の桁は
+% 今までと同じく呼び出しの始まりを 0 とする（フェーズ11の設計の非目標）。
 :- module(format, [format/1, format/2, format/3]).
 :- use_module(library(lists)).
 
@@ -247,7 +247,10 @@ directive(t, Count, Args, Args, _, st(Col, Seg, Out), st(Col, [fill(C)|Seg], Out
     ).
 directive('|', Count, Args, Args, _, St0, St) :-
     !,
-    column_stop(Count, St0, St).
+    column_stop(absolute, Count, St0, St).
+directive('+', Count, Args, Args, _, St0, St) :-
+    !,
+    column_stop(relative, Count, St0, St).
 directive(D, _, _, _, PI, _, _) :-
     throw(error(domain_error(format_directive, D), context(PI, _))).
 
@@ -366,7 +369,7 @@ repeat_char(N, C, [C|Cs]) :-
     repeat_char(N1, C, Cs).
 
 % 状態は st(区切りの始まりの桁, 区切りの中の項目の逆順, 確定した出力の逆順)。
-% 項目は text(文字のリスト) か fill(埋める文字)。~| と ~n で区切りを確定する。
+% 項目は text(文字のリスト) か fill(埋める文字)。~|、~+、~n（と改行を出した ~N）で区切りを確定する。
 emit_atom(A, St0, St) :-
     atom_chars(A, Chars),
     emit(Chars, St0, St).
@@ -377,18 +380,28 @@ flush(st(Col, Seg, Out), St) :-
     reverse(Seg, Items),
     place(Items, 0, Col, Out, St).
 
-% 桁は東アジア幅で数える。幅の表は 読み幅/2 と同じ '$char_width'/2（src/unicode_tables.inc）。
-column_stop(Count, st(Col, Seg, Out), St) :-
+% 桁は東アジア幅で数える。幅の表は 読み幅/2 と同じ '$char_width'/2（src/unicode_tables.inc）。~| と ~+ は
+% 桁止めの位置の決め方だけが違う。埋め方と幅の数え方を 1 つの道で通し、2 つの指示の結果が食い違わないようにする。
+column_stop(Kind, Count, st(Col, Seg, Out), St) :-
     reverse(Seg, Items0),
     items_text(Items0, Text),
     column_after(Text, Col, Here),
-    default(Count, Here, Target),
+    stop_target(Kind, Count, Col, Here, Target),
     Pad is max(0, Target - Here),
     (   member(fill(_), Items0)
     ->  Items = Items0
     ;   append(Items0, [fill(' ')], Items)
     ),
     place(Items, Pad, Col, Out, St).
+
+% ~N| は呼び出しの始まりから N 桁目で、N が無ければ今の桁（埋めずに区切りを確定する）。~N+ は前の桁止め、つまり
+% 区切りの始まりの桁から N 桁先で、N が無ければ 8 桁先（スイートの default_column_boundary の件）。前の桁止めは
+% place/5 が返す桁なので、区切りの字が桁止めを越えたときは越えた後の桁から数える。
+stop_target(absolute, Count, _, Here, Target) :-
+    default(Count, Here, Target).
+stop_target(relative, Count, Col, _, Target) :-
+    default(Count, 8, N),
+    Target is Col + N.
 
 % 余りは後ろの埋め所から 1 つずつ足す（Logtalk の pip_0110 の例と同じ）。
 place(Items, Pad, Col, Out0, st(Col1, [], Out)) :-

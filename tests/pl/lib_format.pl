@@ -61,6 +61,8 @@ test(fmt_g_zero, with_output_to(atom(A), format("~0g", [0.39265e+3])), solutions
 test(fmt_G, with_output_to(atom(A), format("~G", [0.00000123])), solutions([A = '1.23E-06'])).
 test(fmt_G_places, with_output_to(atom(A), format("~2G", [0.39265e+3])), solutions([A = '3.9E+02'])).
 test(fmt_G_fixed, with_output_to(atom(A), format("~G", [0.39265e+3])), solutions([A = '392.65'])).
+% %g の固定と指数の切り替えと符号（タスク 8 のレビューの裁定 16）。-0.0 は符号を残し、精度 6 の指数が 6 なら指数の形にする。
+test(fmt_g_switch, with_output_to(atom(A), format("~g|~G|~g", [-0.0, 1234567.0, 100000.0])), solutions([A = '-0|1.23457E+06|100000'])).
 test(fmt_g_inf, (X is inf, with_output_to(atom(A), format("~g", [X]))), solutions([A = '1.0Inf'])).
 % 無限大と NaN は大文字の指示でも writeq と同じ字面のままにする（Inf と NaN を大文字にしない）。
 test(fmt_G_inf, (X is -inf, Y is nan, with_output_to(atom(A), format("~G ~E ~G", [X, X, Y]))), solutions([A = '-1.0Inf -1.0Inf 1.5NaN'])).
@@ -100,6 +102,14 @@ test(fmt_col_second, with_output_to(atom(A), format("~w~t~4|~t~w~8|", [a, b])), 
 test(fmt_col_after_nl, with_output_to(atom(A), format("abc~nx~t~3|y", [])), solutions([A = 'abc\nx  y'])).
 % SPEC 第4節。漢字 は幅 4 なので桁 4 で埋め草は無い。フェーズ4の文字数で数えた期待値 '漢字  x' を Task 13 で直した。
 test(fmt_col_kanji, with_output_to(atom(A), format("~w~t~4|x", [漢字])), solutions([A = '漢字x'])).
+% ~+（フェーズ11のタスク9）。前の桁止めから N 桁（無ければ 8）先に桁止めを置く。埋め方は ~| と同じ。入力と期待値は
+% スイートの format_2・format_3 の件と同じ。
+test(fmt_plus, (with_output_to(atom(A), format("~|~a~t~+", [abcd])), with_output_to(atom(B), format("~|~a~t~8+", [abcd])), with_output_to(atom(C), format("~t~a~t~8+", [abcd]))), solutions([(A = 'abcd    ', B = 'abcd    ', C = '  abcd  ')])).
+test(fmt_plus_text, (with_output_to(atom(A), format("left~10+next", [])), with_output_to(atom(B), format("~tright~10+next", [])), with_output_to(atom(C), format("^~|~ta~tb~tc~t~10+$", []))), solutions([(A = 'left      next', B = '     rightnext', C = '^ a  b  c  $')])).
+test(fmt_plus_chain, (with_output_to(atom(A), format("~*+.~n~3+.~n~*+.~n", [3, 3])), with_output_to(atom(B), format("~t~a~10|~t~a~t~13+~a~t~10+", ['Alpha', 'and', 'Omega']))), solutions([(A = '   .\n   .\n   .\n', B = '     Alpha     and     Omega     ')])).
+test(fmt_plus_radix, with_output_to(atom(A), format("~`0t~2r~16+", [0xFF])), solutions([A = '0000000011111111'])).
+% 区切りの字が桁止めを越えれば、~| と同じく埋めない。
+test(fmt_plus_past, with_output_to(atom(A), format("abcdefghij~t~8+x", [])), solutions([A = abcdefghijx])).
 % ~i、~k、~W、~p、~N（フェーズ11のタスク6）。入力と期待値はスイートの format_2・format_3 の件と同じ。
 test(fmt_i, with_output_to(atom(A), format("~a~i~a", [a, b, c])), solutions([A = ac])).
 test(fmt_i_count, with_output_to(atom(A), format("~a~3i~a", [a, b, c])), solutions([A = ac])).
