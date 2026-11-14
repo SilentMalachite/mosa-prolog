@@ -6,7 +6,7 @@
 
 ## 0.2.2（2026-11-14）
 
-フェーズ 11（準拠率の範囲と `format`）のリリースです。`format/1,2,3` に指示 `~i`、`~k`、`~W`、`~p`、`~N`、`~r`、`~R`、`~D`、`~E`、`~g`、`~G`、`~+` を足し、`numbervars/3` は End が整数でも変数でもないとき `type_error(integer, End)` を投げます。準拠スイートの試験器は各ディレクトリの `tester.lgt` も読み、報告書はライブラリの述語を ISO の率とは別の欄で数えます。動くコンピュータは 0.2.1 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。
+フェーズ 11（準拠率の範囲と `format`）のリリースです。`format/1,2,3` に指示 `~i`、`~k`、`~W`、`~p`、`~N`、`~r`、`~R`、`~D`、`~E`、`~g`、`~G`、`~+` を足し、`numbervars/3` は End が整数でも変数でもないとき `type_error(integer, End)` を投げます。準拠スイートの ISO の欄に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` が入り、試験器は各ディレクトリの補助の述語を読み、報告書はライブラリの述語を ISO の率とは別の欄で数えます。動くコンピュータは 0.2.1 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。
 
 ### 足したこと
 

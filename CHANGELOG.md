@@ -6,10 +6,11 @@ English | [日本語](CHANGELOG.ja.md)
 
 The release of phase 11 (conformance scope and `format`): `format/1,2,3` gains the directives `~i`, `~k`, `~W`, `~p`,
 `~N`, `~r`, `~R`, `~D`, `~E`, `~g`, `~G` and `~+`; `numbervars/3` raises `type_error(integer, End)` when End is
-neither an integer nor a variable; the conformance runner also reads each suite directory's `tester.lgt`; and the
-report counts the library predicates in a column of their own, apart from the ISO rate. It runs on the same computers
-as 0.2.1 ([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is
-checked against it.
+neither an integer nor a variable; the ISO column of the conformance suite gains `sort_2`, `keysort_2`, `ground_1` and
+`not_unifiable_2`, the conformance runner reads each suite directory's helper predicates, and the report counts the
+library predicates in a column of their own, apart from the ISO rate. It runs on the same computers as 0.2.1
+([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is checked
+against it.
 
 ### Added
 

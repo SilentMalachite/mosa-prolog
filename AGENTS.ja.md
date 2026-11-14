@@ -104,7 +104,9 @@ mosa-prolog/
 │   ├── iso-notes.ja.md       # iso-notes.md の日本語訳
 │   ├── conformance.md        # 自動生成。手で編集しない
 │   ├── conformance.json      # ISO の欄のバッジの元データ。conformance.md と同じく自動生成
-│   ├── conformance-library.json # ライブラリ欄のバッジの元データ。conformance.md と同じく自動生成
+│   ├── conformance-*.json    # conformance-library.json: ライブラリ欄のバッジの元データ。conformance.md と同じく自動生成
+│   ├── agreement.md          # インタプリタと mosac の一致率。mosatest --diff が自動生成。手で編集しない
+│   ├── agreement.json        # 一致率のバッジの元データ。agreement.md と同じく自動生成
 │   ├── bench.md
 │   ├── unicode-version.md
 │   └── manual/               # ja/ と en/。Phase 7
