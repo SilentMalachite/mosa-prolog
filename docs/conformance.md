@@ -297,10 +297,9 @@ unicode/builtins lgt_unicode_format_2_01
 unicode/directives/encoding_1 3
 unicode/encodings 49
 ライブラリ欄の分母: 566
-ライブラリ欄の合格数: 369
-ライブラリ欄の合格率: 65.2
+ライブラリ欄の合格数: 377
+ライブラリ欄の合格率: 66.6
 ライブラリ欄の不合格:
-predicates/format_2/tests.lgt lgt_format_2_write_numbervars true(Assertion) fail
 predicates/format_2/tests.lgt lgt_format_2_canonical_operators true(Assertion) domain_error(format_directive,k)
 predicates/format_2/tests.lgt lgt_format_2_canonical_quotes true(Assertion) domain_error(format_directive,k)
 predicates/format_2/tests.lgt lgt_format_2_print_default true(Assertion) domain_error(format_directive,p)
@@ -395,7 +394,6 @@ predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_23 true(Assertion)
 predicates/format_2/tests.lgt lgt_format_2_write_term_default true(Assertion) domain_error(format_directive,'W')
 predicates/format_2/tests.lgt lgt_format_2_write_term_quoted true(Assertion) domain_error(format_directive,'W')
 predicates/format_2/tests.lgt lgt_format_2_write_term_canonical true(Assertion) domain_error(format_directive,'W')
-predicates/format_3/tests.lgt lgt_format_3_write_numbervars true(Assertion) fail
 predicates/format_3/tests.lgt lgt_format_3_canonical_operators true(Assertion) domain_error(format_directive,k)
 predicates/format_3/tests.lgt lgt_format_3_canonical_quotes true(Assertion) domain_error(format_directive,k)
 predicates/format_3/tests.lgt lgt_format_3_print_default true(Assertion) domain_error(format_directive,p)
@@ -489,11 +487,5 @@ predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_23 true(Assertion)
 predicates/format_3/tests.lgt lgt_format_3_write_term_default true(Assertion) domain_error(format_directive,'W')
 predicates/format_3/tests.lgt lgt_format_3_write_term_quoted true(Assertion) domain_error(format_directive,'W')
 predicates/format_3/tests.lgt lgt_format_3_write_term_canonical true(Assertion) domain_error(format_directive,'W')
-predicates/length_2/tests.lgt commons_length_2_06 deterministic variant/2
-predicates/numbervars_3/tests.lgt commons_numbervars_3_08 true assertion
-predicates/numbervars_3/tests.lgt commons_numbervars_3_09 true assertion
-predicates/numbervars_3/tests.lgt commons_numbervars_3_10 true assertion
-predicates/numbervars_3/tests.lgt commons_numbervars_3_11 true assertion
-predicates/numbervars_3/tests.lgt commons_numbervars_3_12 true assertion
 predicates/numbervars_3/tests.lgt commons_numbervars_3_15 error(type_error(integer,a)) fail
 predicates/setup_call_cleanup_3/tests.lgt lgt_setup_call_cleanup_3_26 true(var(Deterministic)) fail

@@ -197,11 +197,14 @@ int add_node(Prog& prog, Node node) {
   return static_cast<int>(prog.nodes.size() - 1);
 }
 
-bool assertion_term(const Heap& heap, Cell cell) {
+// lgtunit 自身の述語のうち、ランナーが判定するもの（assertion/1、assertion/2、variant/2）。
+bool lgtunit_check_term(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
-  if (cell.tag() != Tag::Str || heap.atoms().name(heap.functor_atom(cell)) != "assertion") return false;
+  if (cell.tag() != Tag::Str) return false;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
-  return arity == 1 || arity == 2;
+  if (name == "assertion") return arity == 1 || arity == 2;
+  return name == "variant" && arity == 2;
 }
 
 enum class GoalMix { Plain, Update, Runner };
@@ -270,6 +273,8 @@ int build_runner_if(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell
 // 左がランナーの -> でない ; は -1。else を同じ節点に置き、成功した条件が切れるようにする。
 int build_runner_soft(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell,
                       const std::vector<VarName>& names);
+// ランナー目標を含む連言。隣り合うランナー目標の無い項は 1 つの query にまとめる。
+int build_conj(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names);
 
 int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
   cell = heap.deref(cell);
@@ -289,9 +294,10 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
       plain.text = write_term(heap, ops, cell, lgt_write_options(), names);
       return add_node(prog, std::move(plain));
     }
-    if ((name == "," || name == ";" || name == "forall") && arity == 2) {
+    if (name == "," && arity == 2) return build_conj(prog, heap, ops, cell, names);
+    if ((name == ";" || name == "forall") && arity == 2) {
       Node node;
-      node.kind = name == "," ? NodeKind::Conj : name == ";" ? NodeKind::Disj : NodeKind::Forall;
+      node.kind = name == ";" ? NodeKind::Disj : NodeKind::Forall;
       node.left = build_node(prog, heap, ops, heap.arg(cell, 0), names);
       node.right = build_node(prog, heap, ops, heap.arg(cell, 1), names);
       return add_node(prog, std::move(node));
@@ -304,8 +310,8 @@ int build_node(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell
       return add_node(prog, std::move(node));
     }
     if (name == "^^") {
-      // 入出力表に渡すと未知の assertion/N になり、前のゴールの束縛が表明に届かない。
-      if (arity == 1 && assertion_term(heap, heap.arg(cell, 0))) {
+      // 入出力表に渡すと未知の assertion/N や variant/2 になり、前のゴールの束縛が表明に届かない。
+      if (arity == 1 && lgtunit_check_term(heap, heap.arg(cell, 0))) {
         return build_node(prog, heap, ops, heap.arg(cell, 0), names);
       }
       Node node;
@@ -354,6 +360,56 @@ int build_runner_soft(Prog& prog, const Heap& heap, const OperatorTable& ops, Ce
   node.right = build_node(prog, heap, ops, heap.arg(arrow, 1), names);
   node.other = build_node(prog, heap, ops, heap.arg(cell, 1), names);
   return add_node(prog, std::move(node));
+}
+
+bool runner_item(const Heap& heap, Cell cell) {
+  std::vector<std::uint64_t> seen;
+  return mix_of(heap, cell, seen) == GoalMix::Runner;
+}
+
+// 名前のある変数は本体の names で書くので、項ごとに書いて貼っても同じ変数のまま。名前の無い変数は _ で 1 度しか出ない。
+int plain_run(Prog& prog, const Heap& heap, const OperatorTable& ops, const std::vector<Cell>& items,
+              std::size_t begin, std::size_t end, const std::vector<VarName>& names) {
+  Node plain;
+  for (std::size_t index = begin; index < end; ++index) {
+    if (index > begin) plain.text += ", ";
+    plain.text += "(" + write_term(heap, ops, items[index], lgt_write_options(), names) + ")";
+  }
+  return add_node(prog, std::move(plain));
+}
+
+// lgtunit は本体を 1 つの節として流す。前のゴールが値の中の変数に付けた束縛（{numbervars(T, 0, N)} の後の T）は、
+// query を分けると字面で残した前の値へ戻らない。ランナー目標の間の項の並びだけを 1 つの query にし、ランナー目標で
+// 分ける形と右へ入れ子の Conj は今のままにする。
+int build_conj(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
+  std::vector<Cell> items;
+  cell = heap.deref(cell);
+  while (lgt_functor_is(heap, cell, ",", 2)) {
+    items.push_back(heap.arg(cell, 0));
+    cell = heap.deref(heap.arg(cell, 1));
+  }
+  items.push_back(cell);
+  std::vector<int> parts;
+  std::size_t index = 0;
+  while (index < items.size()) {
+    std::size_t end = index + 1;
+    if (!runner_item(heap, items[index])) {
+      while (end < items.size() && !runner_item(heap, items[end])) ++end;
+    }
+    // 1 項だけの並びは前と同じ節点にする。
+    parts.push_back(end - index == 1 ? build_node(prog, heap, ops, items[index], names)
+                                     : plain_run(prog, heap, ops, items, index, end, names));
+    index = end;
+  }
+  int right = parts.back();
+  for (std::size_t at = parts.size() - 1; at-- > 0;) {
+    Node node;
+    node.kind = NodeKind::Conj;
+    node.left = parts[at];
+    node.right = right;
+    right = add_node(prog, std::move(node));
+  }
+  return right;
 }
 
 void exec_at(Machine& machine, const Prog& prog, int index, Env& env);

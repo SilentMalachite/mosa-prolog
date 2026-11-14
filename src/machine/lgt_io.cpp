@@ -130,6 +130,45 @@ std::vector<std::string> prolog_files(std::string_view source) {
   return files;
 }
 
+// :- if から :- endif までの深さの増減。elif と else は深さを変えない。
+int conditional_step(const Heap& heap, Cell term) {
+  if (!functor_is(heap, term, ":-", 1)) return 0;
+  const Cell inner = heap.deref(heap.arg(heap.deref(term), 0));
+  if (functor_is(heap, inner, "if", 1)) return 1;
+  return inner.tag() == Tag::Atom && atom_text(heap, inner) == "endif" ? -1 : 0;
+}
+
+// 節と dynamic・multifile の指令だけを読む。ほかの指令（initialization、use_module、条件の指令）は実行しない。
+bool tester_keeps(const Heap& heap, Cell term) {
+  if (functor_is(heap, term, "?-", 1)) return false;
+  if (!functor_is(heap, term, ":-", 1)) return true;
+  const Cell inner = heap.deref(heap.arg(heap.deref(term), 0));
+  return functor_is(heap, inner, "dynamic", 1) || functor_is(heap, inner, "multifile", 1);
+}
+
+// 条件の枝は評価しないので、if の中の項は読まない（節を持つ tester.lgt は format_2 と format_3 だけで、どちらも
+// 条件の外に書いている）。読めない項の後は読まない。
+std::string tester_program(std::string_view source) {
+  std::string program;
+  AtomTable atoms;
+  Heap heap(atoms);
+  OperatorTable operators = OperatorTable::iso_core();
+  if (operators.define(600, Specifier::Xfy, "::") != OpResult::Ok) return program;
+  Reader reader(source, heap, operators);
+  int depth = 0;
+  while (true) {
+    const ReadOutcome outcome = reader.next();
+    if (outcome.failure || !outcome.term) break;
+    const Cell term = heap.deref(outcome.term->term);
+    const int step = conditional_step(heap, term);
+    depth += step;
+    if (step != 0 || depth > 0 || !tester_keeps(heap, term)) continue;
+    const std::string text = write_term(heap, operators, term, WriteOptions{}, outcome.term->names);
+    program += text + full_stop_after(text) + "\n";
+  }
+  return program;
+}
+
 std::string indicator(const Heap& heap, Cell goal) {
   goal = heap.deref(goal);
   if (goal.tag() == Tag::Atom) return std::string{atom_text(heap, goal)} + "/0";
@@ -628,10 +667,16 @@ void lgt_load_tester(Machine& machine, const LgtIo& io) {
   std::error_code error;
   if (!std::filesystem::is_regular_file(tester, error) || error) return;
   // Logtalk としては実行しない。logtalk_load はファイル名を作らないので無視する。
-  for (const std::string& name : lgtio::prolog_files(lgtio::file_text(tester))) {
+  const std::string source = lgtio::file_text(tester);
+  for (const std::string& name : lgtio::prolog_files(source)) {
     // 読めなくてもファイル全体は落とさない。呼ぶテストが存在エラーになる。
     if (!machine.consult(utf8_from_path(io.tests_dir / name))) continue;
   }
+  // lgtunit は tester.lgt を読んでからテストを流すので、直接書いた節（format_2 の portray/1）もテストから見える。
+  const std::string program = lgtio::tester_program(source);
+  if (program.empty()) return;
+  // 読めなくてもファイル全体は落とさない。その節を見るテストが失敗する。
+  if (!machine.load_program(program).ok) return;
 }
 
 LgtSuper lgt_run_super(Machine& machine, const LgtIo& io, std::string_view goal) {

@@ -358,7 +358,7 @@ LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string
   }
   // =~= はこのファイルの機械だけ。読み込みの節には入れない。
   install_lgt_ops(*machine, file.operators);
-  // テストより先に隣の Prolog を載せる。tester.lgt 自体は実行しない。
+  // テストより先に隣の Prolog と tester.lgt の節・dynamic・multifile を載せる。tester.lgt の initialization は実行しない。
   lgt_load_tester(*machine, clean.io);
   // 隣の Prolog の定義も見てから取り込む。同じ名前はテスト側を残す。
   lgt_import_libraries(*machine);

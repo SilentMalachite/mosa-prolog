@@ -1,5 +1,6 @@
 // true(Goal) は、テスト機械にある利用者の節を見てから実行する。
 // 組込だけを足した機械では seen/1 が見えない。無い述語は失敗のまま。
+// {} の中で付いた束縛は、外の ^^assertion と ^^variant に届く（check_outside_bindings）。
 // 一時ファイルは tests/tmp/suite-assert。
 
 #include "harness.hpp"
@@ -112,6 +113,40 @@ void check_assert(const std::filesystem::path& root) {
   mosa_test::check(failed.find("aux_atom") == std::string::npos, "builtin atom/1 still passes");
 }
 
+// スイートの 3 件をそのまま写す（numbervars_3、length_2、format_2）。{} の中のゴールが付けた束縛は、
+// lgtunit と同じく外の ^^assertion、^^variant、出力の表明へ届く。
+std::string outside_text() {
+  return ":- object(tests, extends(lgtunit)).\n"
+         "\ttest(commons_numbervars_3_08, true) :-\n"
+         "\t\tT = a(_X,_Y,_Z),\n"
+         "\t\t{numbervars(T, 0, N)},\n"
+         "\t\t^^assertion(ground(T)),\n"
+         "\t\t^^assertion(N == 3).\n"
+         "\ttest(commons_length_2_06, deterministic) :-\n"
+         "\t\t{length(List, 3)},\n"
+         "\t\t^^variant(List, [_, _, _]).\n"
+         "\ttest(lgt_format_2_write_numbervars, true(Assertion)) :-\n"
+         "\t\t^^set_text_output(''),\n"
+         "\t\tTerm = a(_),\n"
+         "\t\t{numbervars(Term, 0, _)},\n"
+         "\t\t{format(\"~w\", [Term])},\n"
+         "\t\t^^text_output_assertion('a(A)', Assertion).\n"
+         ":- end_object.\n";
+}
+
+void check_outside_bindings(const std::filesystem::path& root) {
+  const auto suite = root / "outside";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "outside-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_1" / "tests.lgt", outside_text()), "write outside");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  if (code != 0 || !has_exact_line(body, "合格数: 3")) show("outside report", body);
+  mosa_test::check(has_exact_line(body, "分母: 3"), "outside denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 3"), "bindings inside {} reach the goals outside");
+  mosa_test::check(code == 0, "outside exits 0");
+}
+
 }  // namespace
 
 int main() {
@@ -119,6 +154,7 @@ int main() {
   {
     Fixture fixture(root);
     check_assert(root);
+    check_outside_bindings(root);
   }
   mosa_test::check(!std::filesystem::exists(root), "fixture removed");
   return mosa_test::failures();
