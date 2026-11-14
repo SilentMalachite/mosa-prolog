@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
+[![library conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance-library.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
 [![Phase](https://img.shields.io/badge/phase-11_in_progress-yellow)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.2.1-blue)](CHANGELOG.ja.md)
@@ -170,8 +171,8 @@ mosac toolchain                    # コンパイラ、CMake、同梱の実行�
 
 ```sh
 mosatest tests/pl/                    # 自前テスト（tests/pl/*.pl）
-mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md と .json を書き出す
-mosatest --suite <ディレクトリ> --report tests/tmp/x.md   # 別のスイート。x.md と x.json を書き出す
+mosatest --suite tests/conformance    # 準拠スイート。docs/conformance.md、.json、-library.json を書き出す
+mosatest --suite <ディレクトリ> --report tests/tmp/x.md   # 別のスイート。x.md、x.json、x-library.json を書き出す
 mosatest --roundtrip tests/pl/syntax.pl   # 読み書きの往復
 mosatest --diff tests/pl              # インタプリタと mosac の出力を比べる。docs/agreement.md と .json を書き出す
 mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # インタプリタと mosac の時間（5 回の中央値）
@@ -197,9 +198,9 @@ X = 太郎.
 
 ## 準拠率
 
-同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）、フェーズ 5 の完了時点で 2135 件（98.3%）、0.1.0 で 2136 件（98.4%）が通りました。フェーズ 10 では、スイートの `unbounded/` のテストを範囲に入れて、2274 件中 2239 件（98.5%）が通ります。不合格の一覧は [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json)（shields.io の endpoint 形式）を書き出します。どちらも手で編集しません。
+同梱した Logtalk の準拠スイート（`tests/conformance/logtalk/`）の合格率は上のバッジのとおりです。フェーズ 3 の完了時点で 2171 件中 2028 件（93.4%）、フェーズ 4 の完了時点で 2041 件（94.0%）、フェーズ 5 の完了時点で 2135 件（98.3%）、0.1.0 で 2136 件（98.4%）が通りました。フェーズ 10 では、スイートの `unbounded/` のテストを範囲に入れて、2274 件中 2239 件（98.5%）が通りました。フェーズ 11 では `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` を足して、2326 件中 2291 件（98.5%）が通ります。mosa が提供する ISO 外のライブラリ述語（`format/2,3`、`between/3`、`length/2` など）は別のライブラリ欄で数え、ISO の率には混ぜません。フェーズ 11 を始めた時点で 566 件中 369 件（65.2%）でした。不合格の一覧は [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) にあります。`mosatest --suite` はこのファイルと、バッジ用の [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json) と [`docs/conformance-library.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance-library.json)（shields.io の endpoint 形式）を書き出します。どれも手で編集しません。
 
-準拠率のバッジは `main` の `docs/conformance.json` を読むので、コミットするたびに自動で変わります。CI は 4 つの OS のジョブと Linux のサニタイザのジョブでスイートを実行します。OS のジョブは合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
+準拠率のバッジは `main` の `docs/conformance.json` と `docs/conformance-library.json` を読むので、コミットするたびに自動で変わります。CI は 4 つの OS のジョブと Linux のサニタイザのジョブでスイートを実行します。OS のジョブは 2 つの合格率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。`mosatest --suite` は、どちらかの率がコミット済みの JSON より下がったときも失敗します。90% の下限は ISO の欄だけに掛かります。スイートの結果が変わる変更では、`mosatest --suite tests/conformance` を実行して JSON も一緒にコミットしてください。
 
 「mosac diff」のバッジも同じ仕組みで `main` の [`docs/agreement.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.json) を読みます。CI は 3 つの OS で差分テスト（`ctest -L diff`、つまり `mosatest --diff tests/pl` と `mosatest --diff tests/conformance`。生成した C++ は警告を誤りにしてコンパイルします）を流して一致率を Job Summary に出し、macOS のジョブでは生成した JSON がコミット済みのものと違えば失敗します。各 OS のジョブは `mosac toolchain` と `mosac build tests/mosac/hello.pl` も実行し、別のジョブがその実行ファイルを落として、素の `ubuntu:24.04` コンテナで動かし、macOS では `otool -L` の依存が `/usr/lib/` と `/System/` だけ、Windows では `dumpbin /dependents` の依存が OS の DLL だけであることを確かめます。一致率が変わる変更では、`mosatest --diff tests/pl` と `mosatest --diff tests/conformance` を実行して JSON も一緒にコミットしてください。
 
@@ -227,6 +228,7 @@ X = 太郎.
 | [`docs/iso-notes.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/iso-notes.ja.md) | 規格の解釈メモ（条番号付き） |
 | [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) | 準拠スイートの結果（自動生成、日本語のみ） |
 | [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json) | 準拠率バッジの元データ（自動生成） |
+| [`docs/conformance-library.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance-library.json) | ライブラリ欄の準拠率バッジの元データ（自動生成） |
 | [`docs/agreement.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md) | `mosatest --diff` が測ったインタプリタと翻訳の一致（自動生成） |
 | [`docs/agreement.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.json) | 一致率バッジの元データ（自動生成） |
 | [`docs/unicode-version.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/unicode-version.md) | 文字分類表が使う Unicode の版 |

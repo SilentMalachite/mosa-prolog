@@ -39,14 +39,38 @@ std::string badge(std::string_view message, std::string_view color) {
          R"(","color":")" + std::string{color} + "\"}\n";
 }
 
-// 1 つのフォルダに合格 passed 件と不合格 failed 件を置き、終了コードを返す。
-int run_code(const std::filesystem::path& root, std::string_view name, int passed, int failed) {
-  const auto suite = root / name;
+std::string library_badge(std::string_view message, std::string_view color) {
+  return std::string{R"({"schemaVersion":1,"label":"library conformance","message":")"} + std::string{message} +
+         R"(","color":")" + std::string{color} + "\"}\n";
+}
+
+// predicates/<dir> に合格 passed 件と不合格 failed 件を置く。
+void write_cases(const std::filesystem::path& suite, std::string_view dir, int passed, int failed) {
   std::string body;
   for (int index = 0; index < passed; ++index) body += "test(ok" + std::to_string(index) + ", true) :- {true}.\n";
   for (int index = 0; index < failed; ++index) body += "test(ng" + std::to_string(index) + ", true) :- {fail}.\n";
-  mosa_test::check(write_text(suite / "logtalk" / "prolog" / "predicates" / "atom_length_2" / "tests.lgt", body),
-                   "write tests");
+  mosa_test::check(write_text(suite / "logtalk" / "prolog" / "predicates" / dir / "tests.lgt", body),
+                   "write tests " + std::string{dir});
+}
+
+// 1 つのフォルダに合格 passed 件と不合格 failed 件を置き、終了コードを返す。
+int run_code(const std::filesystem::path& root, std::string_view name, int passed, int failed) {
+  const auto suite = root / name;
+  write_cases(suite, "atom_length_2", passed, failed);
+  const auto report = root / (std::string{name} + ".md");
+  return mosa::run_iso_suite(suite.string(), report.string());
+}
+
+struct Counts {
+  int passed = 0;
+  int failed = 0;
+};
+
+// 本欄（atom_length_2）とライブラリ欄（between_3）に件を置き、終了コードを返す。
+int run_columns(const std::filesystem::path& root, std::string_view name, Counts iso, Counts library) {
+  const auto suite = root / name;
+  write_cases(suite, "atom_length_2", iso.passed, iso.failed);
+  write_cases(suite, "between_3", library.passed, library.failed);
   const auto report = root / (std::string{name} + ".md");
   return mosa::run_iso_suite(suite.string(), report.string());
 }
@@ -79,6 +103,23 @@ void check_regression(const std::filesystem::path& root) {
   mosa_test::check(write_text(root / "broken.json", "not a badge\n"), "seed broken badge");
   mosa_test::check(run_code(root, "broken", 9, 1) == 0, "unreadable baseline only keeps the 90 floor");
   mosa_test::check(read_text(root / "broken.json") == badge("90.0% (9/10)", "brightgreen"), "broken badge replaced");
+}
+
+// ライブラリ欄は本欄と混ぜず、<報告書>-library.json に書く。90% の下限は掛けないが、後退の判定は本欄と同じ形で掛ける
+// （フェーズ11の設計「報告書と後退の判定」）。check_regression の gate.json と混ざらないよう別のフォルダで流す。
+void check_library_gate(const std::filesystem::path& root) {
+  const auto dir = root / "library";
+  mosa_test::check(run_columns(dir, "gate", {9, 1}, {1, 1}) == 0, "library 50 percent has no 90 floor");
+  mosa_test::check(read_text(dir / "gate.json") == badge("90.0% (9/10)", "brightgreen"), "iso badge counts iso only");
+  mosa_test::check(read_text(dir / "gate-library.json") == library_badge("50.0% (1/2)", "red"),
+                   "library badge written: " + read_text(dir / "gate-library.json"));
+  // 本欄の物差しを同じ率の別の分数にしておく。書き換われば 9/10 に戻るので、書き換えたことが見える。
+  mosa_test::check(write_text(dir / "gate.json", badge("90.0% (18/20)", "brightgreen")), "seed equal iso baseline");
+  mosa_test::check(run_columns(dir, "gate", {9, 1}, {0, 2}) == 1, "library regression fails");
+  mosa_test::check(read_text(dir / "gate-library.json") == library_badge("50.0% (1/2)", "red"),
+                   "library baseline kept: " + read_text(dir / "gate-library.json"));
+  mosa_test::check(read_text(dir / "gate.json") == badge("90.0% (9/10)", "brightgreen"),
+                   "iso badge rewritten at an equal rate: " + read_text(dir / "gate.json"));
 }
 
 // 報告書は生成物でコミットする。^^file_path の絶対パスが不合格行へそのまま出ると、
@@ -142,6 +183,7 @@ int main() {
   std::filesystem::remove_all(root, error);
   check_colors(root);
   check_regression(root);
+  check_library_gate(root);
   check_report_paths(root);
   check_halt_rows(root);
   check_absent(root);

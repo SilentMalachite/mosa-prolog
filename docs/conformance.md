@@ -1,6 +1,6 @@
 このファイルは自動生成である。手で編集しない。
-分母: 2274
-合格数: 2239
+分母: 2326
+合格数: 2291
 合格率: 98.5
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
@@ -82,12 +82,9 @@ predicates/atom_concat_3 sics_atom_concat_3_13
 predicates/atom_concat_3 sics_atom_concat_3_14
 predicates/atom_length_2 sics_atom_length_2_09
 predicates/atomic_concat_3 8
-predicates/atomic_list_concat_2 7
-predicates/atomic_list_concat_3 10
 predicates/bagof_3 iso_bagof_3_09
 predicates/bagof_3 lgt_bagof_3_22
 predicates/bagof_3 lgt_bagof_3_22
-predicates/between_3 13
 predicates/call_nth_2 11
 predicates/clause_2 iso_clause_2_11
 predicates/clause_2 iso_clause_2_11
@@ -112,14 +109,26 @@ predicates/current_prolog_flag_2 lgt_current_prolog_flag_2_21
 predicates/evaluable_property_2 16
 predicates/findall_3 lgt_findall_3_11
 predicates/findall_3 lgt_findall_3_11
-predicates/forall_2 0
-predicates/format_2 205
-predicates/format_3 207
+predicates/format_2 lgt_format_2_new_line
+predicates/format_2 lgt_format_2_new_line_if_not_beginning_of_line
+predicates/format_2 lgt_format_2_new_line_if_not_beginning_of_line_ignore_count
+predicates/format_2 lgt_format_2_new_line_n
+predicates/format_2 lgt_format_2_tab_table_left_aligned
+predicates/format_2 lgt_format_2_tab_table_pip_0110_23
+predicates/format_2 lgt_format_2_tab_table_right_aligned
+predicates/format_3 lgt_format_3_new_line
+predicates/format_3 lgt_format_3_new_line_if_not_beginning_of_line
+predicates/format_3 lgt_format_3_new_line_if_not_beginning_of_line_ignore_count
+predicates/format_3 lgt_format_3_new_line_n
+predicates/format_3 lgt_format_3_tab_table_left_aligned
+predicates/format_3 lgt_format_3_tab_table_pip_0110_23
+predicates/format_3 lgt_format_3_tab_table_right_aligned
 predicates/functor_3 lgt_functor_3_20
 predicates/functor_3 lgt_functor_3_20
 predicates/functor_3 lgt_functor_3_21
 predicates/functor_3 lgt_functor_3_21
-predicates/ground_1 9
+predicates/ground_1 lgt_ground_1_08
+predicates/ground_1 lgt_ground_1_08
 predicates/is_2 iso_is_2_31
 predicates/is_2 iso_is_2_32
 predicates/is_2 iso_is_2_33
@@ -128,16 +137,37 @@ predicates/is_2 iso_is_2_35
 predicates/is_2 lgt_is_2_44
 predicates/is_2 lgt_is_2_45
 predicates/is_2 lgt_is_2_46
-predicates/keysort_2 23
-predicates/length_2 29
-predicates/msort_2 16
+predicates/keysort_2 iso_keysort_2_04
+predicates/keysort_2 iso_keysort_2_05
+predicates/keysort_2 iso_keysort_2_05
+predicates/keysort_2 lgt_keysort_2_21
+predicates/keysort_2 lgt_keysort_2_21
+predicates/length_2 commons_length_2_25
+predicates/length_2 commons_length_2_26
+predicates/length_2 commons_length_2_26
+predicates/length_2 commons_length_2_27
+predicates/length_2 commons_length_2_27
+predicates/msort_2 lgt_msort_2_04
+predicates/msort_2 lgt_msort_2_04
 predicates/nl_1 lgt_nl_0_01
 predicates/nl_1 lgt_nl_1_07
 predicates/not_1 iso_not_1_08
 predicates/not_1 iso_not_1_08
-predicates/not_unifiable_2 20
+predicates/not_unifiable_2 iso_not_unifiable_2_11
+predicates/not_unifiable_2 iso_not_unifiable_2_11
+predicates/not_unifiable_2 iso_not_unifiable_2_12
+predicates/not_unifiable_2 iso_not_unifiable_2_12
+predicates/not_unifiable_2 iso_not_unifiable_2_13
+predicates/not_unifiable_2 iso_not_unifiable_2_13
+predicates/not_unifiable_2 iso_not_unifiable_2_14
+predicates/not_unifiable_2 iso_not_unifiable_2_14
+predicates/not_unifiable_2 iso_not_unifiable_2_15
+predicates/not_unifiable_2 iso_not_unifiable_2_15
 predicates/number_chars_2 sics_number_chars_2_28
-predicates/numbervars_3 19
+predicates/numbervars_3 lgt_numbervars_3_16
+predicates/numbervars_3 lgt_numbervars_3_16
+predicates/numbervars_3 lgt_numbervars_3_17
+predicates/numbervars_3 lgt_numbervars_3_17
 predicates/once_1 iso_once_1_05
 predicates/once_1 iso_once_1_05
 predicates/op_3 iso_op_3_10
@@ -148,9 +178,8 @@ predicates/open_4 lgt_open_4_28
 predicates/open_4 lgt_open_4_29
 predicates/open_4 lgt_open_4_30
 predicates/open_4 lgt_open_4_40
-predicates/plus_3 16
+predicates/plus_3 lgt_plus_3_16
 predicates/portray_1 2
-predicates/predicate_property_2 29
 predicates/retract_1 iso_retract_1_07
 predicates/retract_1 iso_retract_1_07
 predicates/set_prolog_flag_2 lgt_set_prolog_flag_2_14
@@ -164,8 +193,10 @@ predicates/setof_3 eddbali_setof_3_25
 predicates/setof_3 iso_setof_3_11
 predicates/setof_3 lgt_setof_3_36
 predicates/setof_3 lgt_setof_3_36
-predicates/setup_call_cleanup_3 31
-predicates/sort_2 21
+predicates/sort_2 iso_sort_2_04
+predicates/sort_2 iso_sort_2_04
+predicates/sort_2 lgt_sort_2_18
+predicates/sort_2 lgt_sort_2_18
 predicates/stream_property_2 lgt_stream_property_2_09b
 predicates/stream_property_2 lgt_stream_property_2_10b
 predicates/stream_property_2 sics_stream_property_2_06c
@@ -179,7 +210,7 @@ predicates/subsumes_term_2 lgt_subsumes_term_2_16
 predicates/subsumes_term_2 lgt_subsumes_term_2_16
 predicates/subsumes_term_2 lgt_subsumes_term_2_17
 predicates/subsumes_term_2 lgt_subsumes_term_2_17
-predicates/succ_2 11
+predicates/succ_2 lgt_succ_2_11
 predicates/term_comparison lgt_term_comparison_38
 predicates/term_comparison lgt_term_comparison_38
 predicates/term_comparison lgt_term_comparison_39
@@ -265,3 +296,204 @@ unbounded lgt_unbounded_succ_02
 unicode/builtins lgt_unicode_format_2_01
 unicode/directives/encoding_1 3
 unicode/encodings 49
+ライブラリ欄の分母: 566
+ライブラリ欄の合格数: 369
+ライブラリ欄の合格率: 65.2
+ライブラリ欄の不合格:
+predicates/format_2/tests.lgt lgt_format_2_write_numbervars true(Assertion) fail
+predicates/format_2/tests.lgt lgt_format_2_canonical_operators true(Assertion) domain_error(format_directive,k)
+predicates/format_2/tests.lgt lgt_format_2_canonical_quotes true(Assertion) domain_error(format_directive,k)
+predicates/format_2/tests.lgt lgt_format_2_print_default true(Assertion) domain_error(format_directive,p)
+predicates/format_2/tests.lgt lgt_format_2_print_portray_01 true(Assertion) domain_error(format_directive,p)
+predicates/format_2/tests.lgt lgt_format_2_print_portray_02 true(Assertion) domain_error(format_directive,p)
+predicates/format_2/tests.lgt lgt_format_2_print_portray_03 true(Assertion) domain_error(format_directive,p)
+predicates/format_2/tests.lgt lgt_format_2_print_portray_04 true(Assertion) domain_error(format_directive,p)
+predicates/format_2/tests.lgt lgt_format_2_new_line_if_not_beginning_of_line true(Assertion) domain_error(format_directive,'N')
+predicates/format_2/tests.lgt lgt_format_2_new_line_if_not_beginning_of_line_ignore_count true(Assertion) domain_error(format_directive,'N')
+predicates/format_2/tests.lgt lgt_format_2_ignore true(Assertion) domain_error(format_directive,i)
+predicates/format_2/tests.lgt lgt_format_2_ignore_fixed_count true(Assertion) domain_error(format_directive,i)
+predicates/format_2/tests.lgt lgt_format_2_ignore_start_count true(Assertion) domain_error(format_directive,i)
+predicates/format_2/tests.lgt lgt_format_2_ignore_expression_count true(Assertion) domain_error(format_directive,i)
+predicates/format_2/tests.lgt lgt_format_2_decimal_group true(Assertion) domain_error(format_directive,'D')
+predicates/format_2/tests.lgt lgt_format_2_decimal_group_n true(Assertion) domain_error(format_directive,'D')
+predicates/format_2/tests.lgt lgt_format_2_decimal_group_star true(Assertion) domain_error(format_directive,'D')
+predicates/format_2/tests.lgt lgt_format_2_decimal_invalid_02 error(instantiation_error) domain_error(format_directive,'D')
+predicates/format_2/tests.lgt lgt_format_2_decimal_invalid_08 error(type_error(integer,123.0)) domain_error(format_directive,'D')
+predicates/format_2/tests.lgt lgt_format_2_decimal_invalid_10 error(type_error(evaluable,foo/1)) domain_error(format_directive,'D')
+predicates/format_2/tests.lgt lgt_format_2_radix_2 true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_8 true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_10 true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_16 true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_36 true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_36_expression true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_star true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_upper_case_2 true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_upper_case_8 true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_upper_case_16 true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_upper_case_36 true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_upper_case_36_expression true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_upper_case_star true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_default true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_default_upper_case true(Assertion) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_invalid_01 error(instantiation_error) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_invalid_02 error(instantiation_error) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_invalid_07 error(type_error(integer,123.0)) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_invalid_08 error(type_error(integer,123.0)) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_radix_invalid_09 error(type_error(evaluable,foo/1)) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_radix_invalid_10 error(type_error(evaluable,foo/1)) domain_error(format_directive,'R')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case true(Assertion) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case_expression true(Assertion) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_n_places_upper_case true(Assertion) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case_star_places true(Assertion) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case_zero_places true(Assertion) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case_invalid_01 error(instantiation_error) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case_invalid_03 error(instantiation_error) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_exponential_notation_upper_case_invalid_04 error(type_error(evaluable,foo/1)) domain_error(format_directive,'E')
+predicates/format_2/tests.lgt lgt_format_2_float_best_e true(Assertion) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_ne true(Assertion) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_f true(Assertion) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_nf true(Assertion) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_invalid_01 error(instantiation_error) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_invalid_03 error(instantiation_error) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_invalid_04 error(type_error(evaluable,foo/1)) domain_error(format_directive,g)
+predicates/format_2/tests.lgt lgt_format_2_float_best_e_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_float_best_ne_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_float_best_f_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_float_best_nf_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_float_best_upper_case_invalid_01 error(instantiation_error) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_float_best_upper_case_invalid_03 error(instantiation_error) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_float_best_upper_case_invalid_04 error(type_error(evaluable,foo/1)) domain_error(format_directive,'G')
+predicates/format_2/tests.lgt lgt_format_2_tab_atom_left_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_atom_left_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_integer_left_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_integer_left_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_atom_center_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_atom_center_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_integer_center_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_integer_center_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_all_alignments_in true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_all_alignments_out true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_left_aligned true(Assertion) existence_error(procedure,:: /2)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_right_aligned true(Assertion) existence_error(procedure,:: /2)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_fill_character true(Assertion) domain_error(format_directive,r)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_06 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_07 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_08 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_09 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_10 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_12 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_14 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_15 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_16 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_17 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_18 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_19 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_20 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_21 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_22 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_tab_table_pip_0110_23 true(Assertion) domain_error(format_directive,+)
+predicates/format_2/tests.lgt lgt_format_2_write_term_default true(Assertion) domain_error(format_directive,'W')
+predicates/format_2/tests.lgt lgt_format_2_write_term_quoted true(Assertion) domain_error(format_directive,'W')
+predicates/format_2/tests.lgt lgt_format_2_write_term_canonical true(Assertion) domain_error(format_directive,'W')
+predicates/format_3/tests.lgt lgt_format_3_write_numbervars true(Assertion) fail
+predicates/format_3/tests.lgt lgt_format_3_canonical_operators true(Assertion) domain_error(format_directive,k)
+predicates/format_3/tests.lgt lgt_format_3_canonical_quotes true(Assertion) domain_error(format_directive,k)
+predicates/format_3/tests.lgt lgt_format_3_print_default true(Assertion) domain_error(format_directive,p)
+predicates/format_3/tests.lgt lgt_format_3_print_portray_01 true(Assertion) domain_error(format_directive,p)
+predicates/format_3/tests.lgt lgt_format_3_print_portray_02 true(Assertion) domain_error(format_directive,p)
+predicates/format_3/tests.lgt lgt_format_3_print_portray_03 true(Assertion) domain_error(format_directive,p)
+predicates/format_3/tests.lgt lgt_format_3_print_portray_04 true(Assertion) domain_error(format_directive,p)
+predicates/format_3/tests.lgt lgt_format_3_new_line_if_not_beginning_of_line true(Assertion) domain_error(format_directive,'N')
+predicates/format_3/tests.lgt lgt_format_3_new_line_if_not_beginning_of_line_ignore_count true(Assertion) domain_error(format_directive,'N')
+predicates/format_3/tests.lgt lgt_format_3_ignore true(Assertion) domain_error(format_directive,i)
+predicates/format_3/tests.lgt lgt_format_3_ignore_fixed_count true(Assertion) domain_error(format_directive,i)
+predicates/format_3/tests.lgt lgt_format_3_ignore_star_count true(Assertion) domain_error(format_directive,i)
+predicates/format_3/tests.lgt lgt_format_3_ignore_expresion_count true(Assertion) domain_error(format_directive,i)
+predicates/format_3/tests.lgt lgt_format_3_decimal_group true(Assertion) domain_error(format_directive,'D')
+predicates/format_3/tests.lgt lgt_format_3_decimal_group_n true(Assertion) domain_error(format_directive,'D')
+predicates/format_3/tests.lgt lgt_format_3_decimal_group_star true(Assertion) domain_error(format_directive,'D')
+predicates/format_3/tests.lgt lgt_format_3_decimal_invalid_02 error(instantiation_error) domain_error(format_directive,'D')
+predicates/format_3/tests.lgt lgt_format_3_decimal_invalid_08 error(type_error(integer,123.0)) domain_error(format_directive,'D')
+predicates/format_3/tests.lgt lgt_format_3_decimal_invalid_10 error(type_error(evaluable,foo/1)) domain_error(format_directive,'D')
+predicates/format_3/tests.lgt lgt_format_3_radix_2 true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_8 true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_10 true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_16 true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_36 true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_36_expression true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_star true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_upper_case_2 true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_upper_case_8 true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_upper_case_16 true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_upper_case_36 true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_upper_case_36_expression true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_upper_case_star true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_default true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_default_upper_case true(Assertion) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_invalid_01 error(instantiation_error) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_invalid_02 error(instantiation_error) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_invalid_07 error(type_error(integer,123.0)) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_invalid_08 error(type_error(integer,123.0)) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_radix_invalid_09 error(type_error(evaluable,foo/1)) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_radix_invalid_10 error(type_error(evaluable,foo/1)) domain_error(format_directive,'R')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case true(Assertion) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case_expression true(Assertion) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_n_places_upper_case true(Assertion) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case_star_places true(Assertion) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case_zero_places true(Assertion) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case_invalid_01 error(instantiation_error) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case_invalid_03 error(instantiation_error) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_exponential_notation_upper_case_invalid_04 error(type_error(evaluable,foo/1)) domain_error(format_directive,'E')
+predicates/format_3/tests.lgt lgt_format_3_float_best_e true(Assertion) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_ne true(Assertion) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_f true(Assertion) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_nf true(Assertion) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_invalid_01 error(instantiation_error) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_invalid_03 error(instantiation_error) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_invalid_04 error(type_error(evaluable,foo/1)) domain_error(format_directive,g)
+predicates/format_3/tests.lgt lgt_format_3_float_best_e_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_float_best_ne_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_float_best_f_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_float_best_nf_upper_case true(Assertion) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_float_best_upper_case_invalid_01 error(instantiation_error) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_float_best_upper_case_invalid_03 error(instantiation_error) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_float_best_upper_case_invalid_04 error(type_error(evaluable,foo/1)) domain_error(format_directive,'G')
+predicates/format_3/tests.lgt lgt_format_3_tab_atom_left_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_atom_left_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_integer_left_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_integer_left_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_atom_center_aligned_default_column_boundary true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_atom_center_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_integer_center_aligned true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_all_alignments_in true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_all_alignments_out true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_left_aligned true(Assertion) existence_error(procedure,:: /2)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_right_aligned true(Assertion) existence_error(procedure,:: /2)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_fill_character true(Assertion) domain_error(format_directive,r)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_06 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_07 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_08 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_09 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_10 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_12 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_14 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_15 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_16 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_17 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_18 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_19 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_20 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_21 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_22 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_tab_table_pip_0110_23 true(Assertion) domain_error(format_directive,+)
+predicates/format_3/tests.lgt lgt_format_3_write_term_default true(Assertion) domain_error(format_directive,'W')
+predicates/format_3/tests.lgt lgt_format_3_write_term_quoted true(Assertion) domain_error(format_directive,'W')
+predicates/format_3/tests.lgt lgt_format_3_write_term_canonical true(Assertion) domain_error(format_directive,'W')
+predicates/length_2/tests.lgt commons_length_2_06 deterministic variant/2
+predicates/numbervars_3/tests.lgt commons_numbervars_3_08 true assertion
+predicates/numbervars_3/tests.lgt commons_numbervars_3_09 true assertion
+predicates/numbervars_3/tests.lgt commons_numbervars_3_10 true assertion
+predicates/numbervars_3/tests.lgt commons_numbervars_3_11 true assertion
+predicates/numbervars_3/tests.lgt commons_numbervars_3_12 true assertion
+predicates/numbervars_3/tests.lgt commons_numbervars_3_15 error(type_error(integer,a)) fail
+predicates/setup_call_cleanup_3/tests.lgt lgt_setup_call_cleanup_3_26 true(var(Deterministic)) fail

@@ -6,7 +6,7 @@ Each test file is loaded twice from the same bytes: as IR by the interpreter, an
 
 | Directory | Files | Compared | Agree | Differences | Translated goals | Translated predicates | Attached |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| tests/conformance | 157 | 2471 | 2471 | 0 | 1496 | 596/597 (99.8%) | 596/596 |
+| tests/conformance | 174 | 3359 | 3359 | 0 | 1674 | 647/648 (99.8%) | 647/647 |
 | tests/pl | 51 | 3304 | 3304 | 0 | 3253 | 671/674 (99.6%) | 671/671 |
 
 "Attached" is the number of those procedures that `install_unit` actually attached at run time (fingerprint match); a file with fewer attached than emitted counts as a difference.
@@ -23,7 +23,7 @@ Goals that cannot take the shape `'$mosa_diff_goal'(K, Vars) :- Goal.` run as pl
 
 | Directory | Shape | Count |
 | --- | --- | ---: |
-| tests/conformance | judge | 838 |
+| tests/conformance | judge | 1280 |
 
 - `judge`: the expected outcome is not one of true/false/error/assertion (deterministic, variant, subsumes, ball, exists, all), or the body uses Logtalk-only calls; the Logtalk runner judges these with its own machinery on both sides, so the goal text is not rewritten (the file's own predicates still run natively on the translated side).
 - `unsupported`: an outcome kind the Logtalk runner does not handle.

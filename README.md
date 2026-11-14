@@ -4,6 +4,7 @@ English | [日本語](README.ja.md)
 
 [![CI](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SilentMalachite/mosa-prolog/actions/workflows/ci.yml)
 [![ISO conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
+[![library conformance](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fconformance-library.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md)
 [![mosac diff](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSilentMalachite%2Fmosa-prolog%2Fmain%2Fdocs%2Fagreement.json)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md)
 [![Phase](https://img.shields.io/badge/phase-11_in_progress-yellow)](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md)
 [![Version](https://img.shields.io/badge/version-0.2.1-blue)](CHANGELOG.md)
@@ -168,8 +169,8 @@ The compiler is taken from `--cxx`, then `MOSA_CXX`, then `CXX`, then the OS def
 
 ```sh
 mosatest tests/pl/                    # Own tests (tests/pl/*.pl)
-mosatest --suite tests/conformance    # Conformance suite; writes docs/conformance.md and .json
-mosatest --suite <dir> --report tests/tmp/x.md   # Another suite; writes x.md and x.json
+mosatest --suite tests/conformance    # Conformance suite; writes docs/conformance.md, .json and -library.json
+mosatest --suite <dir> --report tests/tmp/x.md   # Another suite; writes x.md, x.json and x-library.json
 mosatest --roundtrip tests/pl/syntax.pl   # Read/write round trip
 mosatest --diff tests/pl              # Interpreter against mosac output; writes docs/agreement.md and .json
 mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # Interpreter and mosac timings, median of 5
@@ -197,9 +198,9 @@ X = 太郎.
 
 ## Conformance
 
-The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logtalk/`) is shown by the badge above. At the end of phase 3, 2028 of 2171 tests (93.4%) passed; at the end of phase 4, 2041 (94.0%); at the end of phase 5, 2135 (98.3%); in 0.1.0, 2136 (98.4%); in phase 10, with the suite's `unbounded/` tests taken into its range, 2239 of 2274 (98.5%). The list of failures is in [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md). `mosatest --suite` writes that file and the badge data [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json) (shields.io endpoint format). Do not edit either by hand.
+The pass rate on the bundled Logtalk conformance suite (`tests/conformance/logtalk/`) is shown by the badge above. At the end of phase 3, 2028 of 2171 tests (93.4%) passed; at the end of phase 4, 2041 (94.0%); at the end of phase 5, 2135 (98.3%); in 0.1.0, 2136 (98.4%); in phase 10, with the suite's `unbounded/` tests taken into its range, 2239 of 2274 (98.5%); in phase 11, with `sort_2`, `keysort_2`, `ground_1` and `not_unifiable_2` added, 2291 of 2326 (98.5%). The library predicates Mosa provides outside ISO (such as `format/2,3`, `between/3` and `length/2`) are counted in a separate library column, which never enters the ISO rate: 369 of 566 (65.2%) when phase 11 opened. The list of failures is in [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md). `mosatest --suite` writes that file and the badge data [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json) and [`docs/conformance-library.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance-library.json) (shields.io endpoint format). Do not edit any of them by hand.
 
-The badge reads `docs/conformance.json` on `main`, so it changes with every commit that changes the file. CI runs the suite in the four OS jobs and the Linux sanitizer job; the OS jobs put the pass rate in the Job Summary, and the macOS job fails if the generated JSON differs from the committed one. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON with it.
+The badges read `docs/conformance.json` and `docs/conformance-library.json` on `main`, so they change with every commit that changes the files. CI runs the suite in the four OS jobs and the Linux sanitizer job; the OS jobs put both pass rates in the Job Summary, and the macOS job fails if a generated JSON differs from the committed one. `mosatest --suite` also fails when either rate went down against the committed JSON; only the ISO column has the 90% floor. When a change alters suite results, run `mosatest --suite tests/conformance` and commit the JSON files with it.
 
 The "mosac diff" badge reads [`docs/agreement.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.json) on `main` in the same way. CI runs the differential tests on all three OSes (`ctest -L diff`, that is `mosatest --diff tests/pl` and `mosatest --diff tests/conformance`, with the generated C++ compiled with warnings as errors), puts the agreement in the Job Summary, and the macOS job fails if the generated JSON differs from the committed one. Each OS job also runs `mosac toolchain` and `mosac build tests/mosac/hello.pl`, and separate jobs download that executable and run it in a bare `ubuntu:24.04` container, check with `otool -L` on macOS that it depends only on `/usr/lib/` and `/System/`, and check with `dumpbin /dependents` on Windows that it depends only on OS DLLs. When a change alters the agreement, run `mosatest --diff tests/pl` and `mosatest --diff tests/conformance` and commit the JSON with it.
 
@@ -227,6 +228,7 @@ The prose documents below have a Japanese translation next to them, as `*.ja.md`
 | [`docs/iso-notes.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/iso-notes.md) | Interpretation notes on the standard, by clause number |
 | [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) | Conformance suite results (generated, Japanese headings) |
 | [`docs/conformance.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.json) | Badge data for the pass rate (generated) |
+| [`docs/conformance-library.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance-library.json) | Badge data for the library column pass rate (generated) |
 | [`docs/agreement.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md) | Interpreter / translated agreement measured by `mosatest --diff` (generated) |
 | [`docs/agreement.json`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.json) | Badge data for the agreement (generated) |
 | [`docs/unicode-version.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/unicode-version.md) | Unicode version used by the character tables |

@@ -104,6 +104,7 @@ message(bench_run_failed, 'mosatest: ~w が終了コード ~w で終わりまし
 message(bench_step_failed, 'mosatest: ~w が終了コード ~w で失敗しました（出力は ~w）').
 message(bench_cannot_write, 'mosatest: ~w に書けません').
 message(conformance_regressed, 'mosatest: 準拠の合格率が下がりました: ~w -> ~w').
+message(library_conformance_regressed, 'mosatest: ライブラリ欄の合格率が下がりました: ~w -> ~w').
 message(diff_usage, '使い方: ~w <ディレクトリ> [--report <ファイル>]').
 message(diff_no_files, 'mosatest: ~w に試験のファイルがありません').
 message(suite_no_tests, 'mosatest: ~w に試験がありません').

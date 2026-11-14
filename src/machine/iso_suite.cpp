@@ -35,6 +35,15 @@ struct SideNote {
 struct Pending {
   std::string relative;
   std::filesystem::path file;
+  SuiteColumn column = SuiteColumn::Iso;
+};
+
+// 欄ごとの集計。本欄とライブラリ欄は分母も不合格の一覧も別に持つ（フェーズ11の設計のアンチ目標）。
+struct Tally {
+  int passed = 0;
+  int failed = 0;
+  std::vector<std::string> failures;
+  [[nodiscard]] int denominator() const { return passed + failed; }
 };
 
 // 別欄は項にしない。test( を含む行だけ数える。読めなければ件数は無い。
@@ -58,8 +67,8 @@ void consider_directory(const std::filesystem::path& dir, const std::filesystem:
   if (posix.empty() || posix == ".") return;
   const auto tests = dir / "tests.lgt";
   if (!std::filesystem::is_regular_file(tests, error) || error) return;
-  if (suite_in_scope(posix)) {
-    pending.push_back(Pending{posix + "/tests.lgt", tests});
+  if (const std::optional<SuiteColumn> column = suite_column(posix)) {
+    pending.push_back(Pending{posix + "/tests.lgt", tests, *column});
     return;
   }
   const int count = count_test_lines(tests);
@@ -172,20 +181,29 @@ std::vector<std::string> report_bases(const std::filesystem::path& prolog) {
   return bases;
 }
 
-bool write_report(const std::filesystem::path& path, int passed, int denominator,
-                  const std::vector<std::string>& failures, const std::vector<SideNote>& notes,
+// 本欄は見出しに前置きを付けない。ライブラリ欄は「ライブラリ欄の」を付け、行頭の「合格率:」が本欄だけになる
+// （CI の Job Summary が grep -m 1 '^合格率:' で読む）。
+void write_column(std::ostream& output, std::string_view prefix, const Tally& tally,
                   const std::vector<std::string>& bases) {
+  const int denominator = tally.denominator();
+  output << prefix << "分母: " << denominator << '\n';
+  output << prefix << "合格数: " << tally.passed << '\n';
+  if (denominator == 0) output << prefix << "合格率: 合格率なし\n";
+  else output << prefix << "合格率: " << percentage(tally.passed, denominator) << '\n';
+  output << prefix << "不合格:\n";
+  for (const std::string& line : tally.failures) output << relativized(line, bases) << '\n';
+}
+
+// ライブラリ欄は本欄の節と別欄の一覧の後ろに置く。前からの節の並びと読み方を変えない。別欄は両方の欄の分をまとめる。
+bool write_report(const std::filesystem::path& path, const Tally& iso, const Tally& library,
+                  const std::vector<SideNote>& notes, const std::vector<std::string>& bases) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   if (!output) return false;
   output << "このファイルは自動生成である。手で編集しない。\n";
-  output << "分母: " << denominator << '\n';
-  output << "合格数: " << passed << '\n';
-  if (denominator == 0) output << "合格率: 合格率なし\n";
-  else output << "合格率: " << percentage(passed, denominator) << '\n';
-  output << "不合格:\n";
-  for (const std::string& line : failures) output << relativized(line, bases) << '\n';
+  write_column(output, "", iso, bases);
   output << "別欄:\n";
   for (const SideNote& note : notes) output << note.path << ' ' << note.detail << '\n';
+  write_column(output, "ライブラリ欄の", library, bases);
   output.close();
   return static_cast<bool>(output);
 }
@@ -200,7 +218,7 @@ std::string badge_color(int passed, int denominator) {
   return "red";
 }
 
-bool write_badge(const std::filesystem::path& path, int passed, int denominator) {
+bool write_badge(const std::filesystem::path& path, std::string_view label, int passed, int denominator) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   if (!output) return false;
   std::string message = "no tests";
@@ -209,10 +227,55 @@ bool write_badge(const std::filesystem::path& path, int passed, int denominator)
     message = rate_text(passed, denominator);
     color = badge_color(passed, denominator);
   }
-  output << R"({"schemaVersion":1,"label":"ISO conformance","message":")" << message << R"(","color":")" << color
-         << "\"}\n";
+  output << R"({"schemaVersion":1,"label":")" << label << R"(","message":")" << message << R"(","color":")"
+         << color << "\"}\n";
   output.close();
   return static_cast<bool>(output);
+}
+
+void say_unwritable(const std::filesystem::path& path) {
+  std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write", std::array{utf8_from_path(path)})
+            << '\n';
+}
+
+// 欄ごとのバッジ JSON と後退の判定。本欄とライブラリ欄で同じ形にする（フェーズ11の設計）。
+struct BadgeGate {
+  std::filesystem::path path;
+  std::string_view label;
+  std::string_view regressed_key;
+  std::optional<Baseline> baseline;
+};
+
+// 書き換える前の JSON が物差し。報告書の名前によっては同じファイルを指しうるので、報告書を書く前に読む。
+BadgeGate open_gate(std::filesystem::path path, std::string_view label, std::string_view regressed_key) {
+  const std::optional<Baseline> baseline = read_baseline(path);
+  return BadgeGate{std::move(path), label, regressed_key, baseline};
+}
+
+// 後退した回は報告書（不合格の一覧）だけ書いて JSON を残すので、直すまで何度流しても失敗し、
+// 後退した値のコミットで通り抜けられない（SPEC 第8節）。後退したら真を返す。
+bool close_gate(const BadgeGate& gate, const Tally& tally, bool& written) {
+  const int denominator = tally.denominator();
+  if (gate.baseline && regressed(tally.passed, denominator, *gate.baseline)) {
+    std::cerr << render_message_fresh(default_message_language(), gate.regressed_key,
+                                      std::array{rate_text(gate.baseline->passed, gate.baseline->denominator),
+                                                 rate_text(tally.passed, denominator)})
+              << '\n';
+    return true;
+  }
+  if (!write_badge(gate.path, gate.label, tally.passed, denominator)) {
+    say_unwritable(gate.path);
+    written = false;
+  }
+  return false;
+}
+
+// 報告書の隣の <名前>-library.json。同梱スイートなら docs/conformance-library.json。
+// 文字列で組まず path のまま足す。generic_string は Windows で ANSI コードページへ変換する（L7）。
+std::filesystem::path library_badge_path(const std::filesystem::path& report) {
+  std::filesystem::path name = report.stem();
+  name += "-library.json";
+  return std::filesystem::path{report}.replace_filename(name);
 }
 
 std::string folder_of(std::string relative) {
@@ -223,33 +286,32 @@ std::string folder_of(std::string relative) {
   return relative;
 }
 
-void run_file(const Pending& item, int& passed, int& failed, std::vector<std::string>& failures,
-              std::vector<SideNote>& notes) {
+void run_file(const Pending& item, Tally& tally, std::vector<SideNote>& notes) {
   try {
     std::ifstream input(item.file, std::ios::binary);
     if (!input) {
-      failures.push_back(item.relative);
-      ++failed;
+      tally.failures.push_back(item.relative);
+      ++tally.failed;
       return;
     }
     std::ostringstream buffer;
     buffer << input.rdbuf();
     const LgtFile lgt = read_lgt_file(buffer.str());
     if (!lgt.error.empty()) {
-      failures.push_back(item.relative);
-      ++failed;
+      tally.failures.push_back(item.relative);
+      ++tally.failed;
       return;
     }
     const LgtRun run = execute_lgt(lgt, utf8_from_path(item.file), folder_of(item.relative), {});
-    passed += run.passed;
-    failed += run.failed;
-    for (const std::string& line : run.failures) failures.push_back(item.relative + " " + line);
+    tally.passed += run.passed;
+    tally.failed += run.failed;
+    for (const std::string& line : run.failures) tally.failures.push_back(item.relative + " " + line);
     const std::string folder = folder_of(item.relative);
     for (const std::string& name : run.outside) notes.push_back(SideNote{folder, name});
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
-    failures.push_back(item.relative);
-    ++failed;
+    tally.failures.push_back(item.relative);
+    ++tally.failed;
   }
 }
 
@@ -299,41 +361,29 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
   const std::vector<std::string> bases = report_bases(prolog);
   std::vector<SideNote> notes;
   const std::vector<Pending> pending = sorted_pending(prolog, notes);
-  int passed = 0;
-  int failed = 0;
-  std::vector<std::string> failures;
-  for (const Pending& item : pending) run_file(item, passed, failed, failures, notes);
+  Tally iso;
+  Tally library;
+  for (const Pending& item : pending) run_file(item, item.column == SuiteColumn::Library ? library : iso, notes);
   std::sort(notes.begin(), notes.end(), [](const SideNote& left, const SideNote& right) {
     if (left.path != right.path) return left.path < right.path;
     return left.detail < right.detail;
   });
-  const int denominator = passed + failed;
   const std::filesystem::path report = path_from_utf8(report_path);
-  const std::filesystem::path badge = std::filesystem::path{report}.replace_extension(".json");
-  // 書き換える前の JSON が物差し。後退した回は報告書（不合格の一覧）だけ書いて JSON を残すので、
-  // 直すまで何度流しても失敗し、後退した値のコミットで通り抜けられない（SPEC 第8節）。
-  const std::optional<Baseline> baseline = read_baseline(badge);
-  const bool down = baseline && regressed(passed, denominator, *baseline);
+  const BadgeGate iso_gate =
+      open_gate(std::filesystem::path{report}.replace_extension(".json"), "ISO conformance", "conformance_regressed");
+  const BadgeGate library_gate =
+      open_gate(library_badge_path(report), "library conformance", "library_conformance_regressed");
   // 書けなかった報告書は合格率がいくつでも失敗にする。黙って 0 で終えると、古い報告書とバッジが残る（Muse のレビューの中）。
   bool written = true;
-  if (!write_report(report, passed, denominator, failures, notes, bases)) {
-    std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write",
-                                      std::array{utf8_from_path(report)})
-              << '\n';
+  if (!write_report(report, iso, library, notes, bases)) {
+    say_unwritable(report);
     written = false;
   }
-  if (down) {
-    std::cerr << render_message_fresh(default_message_language(), "conformance_regressed",
-                                      std::array{rate_text(baseline->passed, baseline->denominator),
-                                                 rate_text(passed, denominator)})
-              << '\n';
-  } else if (!write_badge(badge, passed, denominator)) {
-    std::cerr << render_message_fresh(default_message_language(), "bench_cannot_write",
-                                      std::array{utf8_from_path(badge)})
-              << '\n';
-    written = false;
-  }
-  return written && !down ? suite_status(passed, denominator) : 1;
+  const bool iso_down = close_gate(iso_gate, iso, written);
+  const bool library_down = close_gate(library_gate, library, written);
+  // ライブラリ欄には 90% の下限を掛けない（フェーズ11の初めは 65% 前後）。掛けるのは後退の判定だけ。
+  if (!written || iso_down || library_down) return 1;
+  return suite_status(iso.passed, iso.denominator());
 }
 
 }  // namespace mosa

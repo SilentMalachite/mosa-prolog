@@ -1,7 +1,7 @@
 #pragma once
 
 // 分母は logtalk/prolog より下だけ。区切りは /。先頭と末尾の / は無い。
-// 一覧に無いパスは別欄。実行しない。
+// 欄は本欄（ISO）とライブラリ欄の 2 つ。どちらの一覧にも無いパスは別欄。実行しない。
 
 #include "test_loader.hpp"
 
@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -139,6 +140,32 @@ inline constexpr auto kPredicateScope = std::to_array<std::string_view>({
     "not_1",
 });
 
+// 段階表の外にあったが、マニュアル第14章の表が 13211-1 の節番号を付けている述語（フェーズ11の範囲の規則）。
+inline constexpr auto kIsoExtraScope = std::to_array<std::string_view>({
+    "sort_2",           // 8.4.3
+    "keysort_2",        // 8.4.4
+    "ground_1",         // 8.3.10
+    "not_unifiable_2",  // (\=)/2、8.2.3
+});
+
+// 13211-1 に無いが mosa が system か同梱のライブラリで提供する述語。本欄の率と混ぜず、ライブラリ欄で数える。
+// 合格率を見て足し引きしない（フェーズ11の設計の範囲の規則）。length_2 は iso-notes の問い 1 が B なら本欄へ移す。
+inline constexpr auto kLibraryScope = std::to_array<std::string_view>({
+    "atomic_list_concat_2",  // library(strings)
+    "atomic_list_concat_3",  // library(strings)
+    "between_3",             // library(between)
+    "format_2",              // library(format)
+    "format_3",              // library(format)
+    "forall_2",              // system
+    "length_2",              // system（library(lists) が再エクスポート）
+    "msort_2",               // library(lists)
+    "numbervars_3",          // system
+    "plus_3",                // library(between)
+    "predicate_property_2",  // system
+    "setup_call_cleanup_3",  // system
+    "succ_2",                // library(between)
+});
+
 // 段階 B の表に無い 9 個。integer_power_2 は (^)/2 なので外さない。
 inline constexpr auto kFunctionExcluded = std::to_array<std::string_view>({
     "acosh_1",
@@ -162,28 +189,44 @@ inline bool unicode_leaf(std::string_view path) {
   return path == "unicode/builtins" || path == "unicode/case_variables" || path == "unicode/escape_sequences";
 }
 
-}  // namespace iso_scope
-
 // 除外を先に見る。syntax/ と directives/ の例外は、親の許可より狭い。
-inline bool suite_in_scope(std::string_view relative_posix) {
-  if (iso_scope::excluded_tree(relative_posix)) return false;
-  if (iso_scope::direct_child(relative_posix, "control")) return true;
-  if (iso_scope::direct_child(relative_posix, "directives")) return true;
+inline bool iso_column(std::string_view relative_posix) {
+  if (excluded_tree(relative_posix)) return false;
+  if (direct_child(relative_posix, "control")) return true;
+  if (direct_child(relative_posix, "directives")) return true;
   if (relative_posix == "logical_update_semantics") return true;
   // bounded が false なので多倍長の木は丸ごと範囲に入れる（フェーズ10）。一部だけを入れると準拠率を選べてしまう。
-  if (iso_scope::path_is_or_under(relative_posix, "unbounded")) return true;
-  if (iso_scope::under(relative_posix, "syntax")) return true;
-  if (iso_scope::unicode_leaf(relative_posix)) return true;
-  if (iso_scope::direct_child(relative_posix, "functions")) {
-    const auto name = iso_scope::child_name(relative_posix, "functions");
-    return !iso_scope::listed(iso_scope::kFunctionExcluded, name);
+  if (path_is_or_under(relative_posix, "unbounded")) return true;
+  if (under(relative_posix, "syntax")) return true;
+  if (unicode_leaf(relative_posix)) return true;
+  if (direct_child(relative_posix, "functions")) {
+    return !listed(kFunctionExcluded, child_name(relative_posix, "functions"));
   }
-  if (iso_scope::direct_child(relative_posix, "predicates")) {
-    const auto name = iso_scope::child_name(relative_posix, "predicates");
-    return iso_scope::listed(iso_scope::kPredicateScope, name);
+  if (direct_child(relative_posix, "predicates")) {
+    const auto name = child_name(relative_posix, "predicates");
+    return listed(kPredicateScope, name) || listed(kIsoExtraScope, name);
   }
   return false;
 }
+
+inline bool library_column(std::string_view relative_posix) {
+  return direct_child(relative_posix, "predicates") &&
+         listed(kLibraryScope, child_name(relative_posix, "predicates"));
+}
+
+}  // namespace iso_scope
+
+// 本欄は ISO の率とバッジ、ライブラリ欄は別の率と JSON。2 つを混ぜない（フェーズ11の設計のアンチ目標）。
+enum class SuiteColumn { Iso, Library };
+
+[[nodiscard]] inline std::optional<SuiteColumn> suite_column(std::string_view relative_posix) {
+  if (iso_scope::iso_column(relative_posix)) return SuiteColumn::Iso;
+  if (iso_scope::library_column(relative_posix)) return SuiteColumn::Library;
+  return std::nullopt;
+}
+
+// 実行するディレクトリか。差分テスト（lgt_suite_files）は両方の欄を流す。
+inline bool suite_in_scope(std::string_view relative_posix) { return suite_column(relative_posix).has_value(); }
 
 struct LgtGuard {
   int group = -1;

@@ -141,7 +141,8 @@ void check_side_only(const std::filesystem::path& root) {
   const auto suite = root / "tree";
   const auto prolog = suite / "logtalk" / "prolog";
   const auto report = root / "report.md";
-  mosa_test::check(write_text(prolog / "predicates" / "format_2" / "tests.lgt",
+  // 範囲の外に残るのは mosa に無い述語のディレクトリ（フェーズ11の範囲の規則）。format_2 などはライブラリ欄に入った。
+  mosa_test::check(write_text(prolog / "predicates" / "call_nth_2" / "tests.lgt",
                               "% kept\ntest(bomb, true) :- {throw(1)}.\n"),
                    "write bomb");
   mosa_test::check(write_text(prolog / "predicates" / "atom_length_2" / "tests.lgt",
@@ -149,13 +150,13 @@ void check_side_only(const std::filesystem::path& root) {
                    "write in scope");
   mosa_test::check(write_text(prolog / "control" / "soft_cut_2_3" / "tests.lgt", "test(cut, true) :- {true}.\n"),
                    "write soft cut");
-  mosa_test::check(write_text(prolog / "predicates" / "sort_2" / "tests.lgt",
+  mosa_test::check(write_text(prolog / "predicates" / "clause_references" / "tests.lgt",
                               "note.\ntest(a, false).\ntest(b, true).\n"),
-                   "write sort");
-  mosa_test::check(write_text(prolog / "predicates" / "length_2" / "tests.lgt", ""), "write empty");
+                   "write clause references");
+  mosa_test::check(write_text(prolog / "predicates" / "evaluable_property_2" / "tests.lgt", ""), "write empty");
   std::error_code error;
-  std::filesystem::create_directories(prolog / "predicates" / "ground_1", error);
-  mosa_test::check(!error, "ground dir");
+  std::filesystem::create_directories(prolog / "predicates" / "portray_1", error);
+  mosa_test::check(!error, "portray dir");
   // unbounded は範囲の中（フェーズ10）。注釈の行しか無いので件は無く、範囲の外なら別欄に「unbounded 1」と出る。
   mosa_test::check(write_text(prolog / "unbounded" / "tests.lgt", "% test(nope, true).\n"), "write unbounded");
   // 別欄は tests.lgt だけを数える。test( を含む別の名前のファイルは読まない（範囲の外の木でも）。
@@ -174,14 +175,14 @@ void check_side_only(const std::filesystem::path& root) {
   mosa_test::check(body.find('%') == std::string::npos, "no percent sign");
   mosa_test::check(has_exact_line(body, "不合格:"), "failure heading");
   mosa_test::check(has_exact_line(body, "別欄:"), "side heading");
-  mosa_test::check(report_has(body, "predicates/format_2", "1"), "format_2 count");
-  mosa_test::check(report_has(body, "predicates/sort_2", "2"), "sort_2 count");
-  mosa_test::check(report_has(body, "predicates/length_2", "0"), "length_2 count");
+  mosa_test::check(report_has(body, "predicates/call_nth_2", "1"), "call_nth_2 count");
+  mosa_test::check(report_has(body, "predicates/clause_references", "2"), "clause_references count");
+  mosa_test::check(report_has(body, "predicates/evaluable_property_2", "0"), "evaluable_property_2 count");
   mosa_test::check(failed.find("atom_length_2") != std::string::npos, "in scope executed");
   mosa_test::check(side.find("atom_length_2") == std::string::npos, "in scope not side");
-  mosa_test::check(failed.find("format_2") == std::string::npos, "format not executed");
+  mosa_test::check(failed.find("call_nth_2") == std::string::npos, "call_nth not executed");
   mosa_test::check(body.find("soft_cut") == std::string::npos, "soft cut not listed");
-  mosa_test::check(body.find("ground_1") == std::string::npos, "missing tests.lgt");
+  mosa_test::check(body.find("portray_1") == std::string::npos, "missing tests.lgt");
   mosa_test::check(body.find("unbounded") == std::string::npos, "unbounded in scope not side");
   mosa_test::check(body.find("encodings") == std::string::npos, "no tests.lgt name");
   mosa_test::check(body.find("bomb") == std::string::npos, "body not copied");
@@ -266,7 +267,7 @@ void check_zero_rate(const std::filesystem::path& root) {
   const auto suite = root / "zero";
   const auto prolog = suite / "logtalk" / "prolog";
   const auto report = root / "zero-report.md";
-  mosa_test::check(write_text(prolog / "predicates" / "format_2" / "tests.lgt",
+  mosa_test::check(write_text(prolog / "predicates" / "call_nth_2" / "tests.lgt",
                               "test(bomb, true) :- {throw(1)}.\n"),
                    "write zero bomb");
   const int code = mosa::run_iso_suite(suite.string(), report.string());
@@ -560,6 +561,55 @@ void check_outside(const std::filesystem::path& root) {
   mosa_test::check(report_has(body, "control/call_1", "skip"), "outside side");
 }
 
+std::string cases_text(int passed, int failed) {
+  std::string text;
+  for (int index = 0; index < passed; ++index) text += "test(ok" + std::to_string(index) + ", true) :- {true}.\n";
+  for (int index = 0; index < failed; ++index) text += "test(ng" + std::to_string(index) + ", true) :- {fail}.\n";
+  return text;
+}
+
+// CI の Job Summary と同じく grep -m 1 '^合格率:' で読む行。
+std::string first_line_with_prefix(std::string_view text, std::string_view prefix) {
+  std::size_t start = 0;
+  while (start < text.size()) {
+    const auto line = line_at(text, start);
+    if (line.starts_with(prefix)) return std::string{line};
+    const auto end = text.find('\n', start);
+    if (end == std::string_view::npos) break;
+    start = end + 1;
+  }
+  return {};
+}
+
+// ライブラリ欄は本欄の節と別欄の一覧の後ろに、同じ並びで書く。先頭の合格率の行は本欄のまま（フェーズ11の設計）。
+void check_library_section(const std::filesystem::path& root) {
+  const auto suite = root / "columns";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "columns-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_length_2" / "tests.lgt", cases_text(9, 1)), "write iso");
+  mosa_test::check(write_text(prolog / "predicates" / "between_3" / "tests.lgt", cases_text(1, 1)), "write library");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  const std::string library_failed = after_heading(body, "ライブラリ欄の不合格:");
+  mosa_test::check(code == 0, "iso 90 percent exits 0 whatever the library rate");
+  mosa_test::check(first_line_with_prefix(body, "合格率:") == "合格率: 90.0", "first rate is the iso rate: " + body);
+  mosa_test::check(has_exact_line(body, "分母: 10"), "iso denominator");
+  mosa_test::check(has_exact_line(body, "ライブラリ欄の分母: 2"), "library denominator: " + body);
+  mosa_test::check(has_exact_line(body, "ライブラリ欄の合格数: 1"), "library passed");
+  mosa_test::check(has_exact_line(body, "ライブラリ欄の合格率: 50.0"), "library rate");
+  mosa_test::check(has_exact_line(body, "ライブラリ欄の不合格:"), "library failure heading");
+  const auto side_at = body.find("\n別欄:\n");
+  const auto library_at = body.find("\nライブラリ欄の分母:");
+  mosa_test::check(side_at != std::string::npos && library_at != std::string::npos && side_at < library_at,
+                   "library section after the side list");
+  mosa_test::check(report_has(library_failed, "predicates/between_3/tests.lgt", "ng0"), "library failure row");
+  mosa_test::check(non_empty_lines(library_failed) == 1, "one library failure");
+  mosa_test::check(failed.find("between_3") == std::string::npos, "library failure not in the iso list");
+  mosa_test::check(report_has(failed, "predicates/atom_length_2/tests.lgt", "ng0"), "iso failure row");
+  mosa_test::check(library_failed.find("atom_length_2") == std::string::npos, "iso failure not in the library list");
+}
+
 }  // namespace
 
 int main() {
@@ -573,6 +623,7 @@ int main() {
     check_executes(root);
     check_rate(root);
     check_outside(root);
+    check_library_section(root);
     check_shared_var(root);
     check_judgments(root);
     check_machine_body(root);

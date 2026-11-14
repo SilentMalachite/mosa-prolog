@@ -40,12 +40,13 @@ jobs:
         shell: bash
         run: |
           grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          grep -m 1 '^ライブラリ欄の合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
-      # README のバッジは main の conformance.json と agreement.json を読む。照合を macOS だけにするのは、開発者が
-      # 生成してコミットする環境に合わせ、OS ごとの差でバッジの値が揺れないようにするため。
+      # README のバッジは main の conformance.json、conformance-library.json、agreement.json を読む。
+      # 照合を macOS だけにするのは、開発者が生成してコミットする環境に合わせ、OS ごとの差でバッジの値が揺れないようにするため。
       - name: Check badges
         shell: bash
-        run: git diff --exit-code -- docs/conformance.json docs/agreement.json
+        run: git diff --exit-code -- docs/conformance.json docs/conformance-library.json docs/agreement.json
       # 計画 Task 13。bench/ の 7 本を docs/bench.json と同じ N で測り、プログラムごとの比（インタプリタ / 翻訳）が
       # コミット済みの比より 20% 以上下がれば警告にする。ランナーは表を測った機械（docs/bench.md）と違い、ミリ秒の
       # 絶対値どうしを比べると毎回 22-78% 遅いと出た（最終レビュー）。比は両側が同じ機械で測るので機械の速さが消える。
@@ -126,6 +127,7 @@ jobs:
         shell: bash
         run: |
           grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          grep -m 1 '^ライブラリ欄の合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
   # 取りこぼした GC の根を落ちとして見つけるジョブ（ADR 0010、計画 Task 6）。MOSA_GC_STRESS=N は N 回の安全点ごとに GC を走らせる。
@@ -205,6 +207,7 @@ jobs:
         shell: bash
         run: |
           grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          grep -m 1 '^ライブラリ欄の合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
   # Debug + ASan/UBSan のジョブ（全体レビュー推奨5）。Release だけだと assert が効かず、メモリ誤りと未定義動作の検査も無い。
@@ -283,6 +286,7 @@ jobs:
         shell: bash
         run: |
           grep -m 1 '^合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
+          grep -m 1 '^ライブラリ欄の合格率:' docs/conformance.md >> "$GITHUB_STEP_SUMMARY"
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
 
   # 単独の実行ファイル（持ち主の決定 3）。素の ubuntu:24.04 には libmosa も lib/*.pl も無い。成果物は実行権限を失うので付け直す。

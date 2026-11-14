@@ -1,4 +1,4 @@
-// 準拠スイートの範囲の規則（mosa::suite_in_scope）の検査。どのディレクトリを分母に入れるかを固定する。
+// 準拠スイートの範囲の規則（mosa::suite_in_scope、mosa::suite_column）の検査。どのディレクトリをどの欄の分母に入れるかを固定する。
 // ファイルは作らない。スクラッチも使わないので資源のロックは要らない。
 
 #include "harness.hpp"
@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -90,29 +91,38 @@ constexpr auto kPredicateTrue = std::to_array<std::string_view>({
     "not_1",
 });
 
+// 本欄にもライブラリ欄にも入らない。mosa に無い述語と、非目標の portray_1（フェーズ11の範囲の規則）。
 constexpr auto kPredicateFalse = std::to_array<std::string_view>({
     "atomic_concat_3",
-    "atomic_list_concat_2",
-    "atomic_list_concat_3",
-    "between_3",
     "call_nth_2",
     "clause_references",
     "evaluable_property_2",
-    "forall_2",
+    "portray_1",
+});
+
+// mosa が system か同梱のライブラリで提供する 13 個。ライブラリ欄で数える（フェーズ11の範囲の規則）。
+constexpr auto kLibrary = std::to_array<std::string_view>({
+    "atomic_list_concat_2",
+    "atomic_list_concat_3",
+    "between_3",
     "format_2",
     "format_3",
-    "ground_1",
-    "keysort_2",
+    "forall_2",
     "length_2",
     "msort_2",
-    "not_unifiable_2",
     "numbervars_3",
     "plus_3",
-    "portray_1",
     "predicate_property_2",
     "setup_call_cleanup_3",
-    "sort_2",
     "succ_2",
+});
+
+// 13211-1 の節番号を持つのに段階表の外にあった 4 つ。フェーズ11で本欄に入る。
+constexpr auto kIsoExtra = std::to_array<std::string_view>({
+    "sort_2",
+    "keysort_2",
+    "ground_1",
+    "not_unifiable_2",
 });
 
 constexpr auto kFunctionFalse = std::to_array<std::string_view>({
@@ -186,11 +196,12 @@ void expect_children(std::string_view parent, const std::array<std::string_view,
 
 void check_scope() {
   expect_scope("predicates/atom_length_2", true);
-  expect_scope("predicates/format_2", false);
-  expect_scope("predicates/ground_1", false);
-  expect_scope("predicates/sort_2", false);
-  expect_scope("predicates/length_2", false);
-  expect_scope("predicates/keysort_2", false);
+  // 差分テストは両方の欄を流すので、ライブラリ欄も suite_in_scope では真（フェーズ11）。
+  expect_scope("predicates/format_2", true);
+  expect_scope("predicates/ground_1", true);
+  expect_scope("predicates/sort_2", true);
+  expect_scope("predicates/length_2", true);
+  expect_scope("predicates/keysort_2", true);
   expect_scope("functions/log10_1", false);
   expect_scope("control/soft_cut_2_3", true);
   expect_scope("predicates/not_1", true);
@@ -202,11 +213,57 @@ void check_scope() {
   expect_children("predicates", kPredicateFalse, false);
   expect_children("functions", kFunctionTrue, true);
   expect_children("functions", kFunctionFalse, false);
+  expect_children("predicates", kIsoExtra, true);
+  expect_children("predicates", kLibrary, true);
+}
+
+std::string column_text(std::optional<mosa::SuiteColumn> column) {
+  if (!column) return "none";
+  return *column == mosa::SuiteColumn::Iso ? "iso" : "library";
+}
+
+void expect_column(std::string_view path, std::optional<mosa::SuiteColumn> expected) {
+  const auto actual = mosa::suite_column(path);
+  mosa_test::check(actual == expected,
+                   std::string{path} + " wants " + column_text(expected) + ", got " + column_text(actual));
+}
+
+template <std::size_t N>
+void expect_column_children(const std::array<std::string_view, N>& names, std::optional<mosa::SuiteColumn> expected) {
+  for (const std::string_view name : names) expect_column("predicates/" + std::string{name}, expected);
+}
+
+// 本欄とライブラリ欄を混ぜない（フェーズ11の設計のアンチ目標）。どの欄に入るかを固定する。
+void check_columns() {
+  using mosa::SuiteColumn;
+  expect_column("predicates/sort_2", SuiteColumn::Iso);
+  expect_column("predicates/keysort_2", SuiteColumn::Iso);
+  expect_column("predicates/ground_1", SuiteColumn::Iso);
+  expect_column("predicates/not_unifiable_2", SuiteColumn::Iso);
+  expect_column("predicates/atom_length_2", SuiteColumn::Iso);
+  expect_column("predicates/format_2", SuiteColumn::Library);
+  expect_column("predicates/length_2", SuiteColumn::Library);
+  expect_column("predicates/between_3", SuiteColumn::Library);
+  expect_column("predicates/call_nth_2", std::nullopt);
+  expect_column("predicates/clause_references", std::nullopt);
+  expect_column("predicates/evaluable_property_2", std::nullopt);
+  expect_column("predicates/atomic_concat_3", std::nullopt);
+  expect_column("predicates/portray_1", std::nullopt);
+  expect_column("directives/conditional_compilation", std::nullopt);
+  expect_column("functions/log10_1", std::nullopt);
+  expect_column("control/true_0", SuiteColumn::Iso);
+  expect_column_children(kLibrary, SuiteColumn::Library);
+  expect_column_children(mosa::iso_scope::kLibraryScope, SuiteColumn::Library);
+  expect_column_children(kIsoExtra, SuiteColumn::Iso);
+  expect_column_children(kPredicateTrue, SuiteColumn::Iso);
+  expect_column_children(kPredicateFalse, std::nullopt);
+  mosa_test::check(mosa::iso_scope::kLibraryScope.size() == 13, "library scope lists 13 directories");
 }
 
 }  // namespace
 
 int main() {
   check_scope();
+  check_columns();
   return mosa_test::failures();
 }

@@ -320,13 +320,13 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 ## 8. テスト戦略
 
-テストは 4 層。「準拠スイートの合格率」と「インタプリタと変換器の一致率」の 2 つの数値を README のバッジとして毎コミットで更新する。
+テストは 4 層。「準拠スイートの本欄の合格率」「準拠スイートのライブラリ欄の合格率」「インタプリタと変換器の一致率」の 3 つの数値を README のバッジとして毎コミットで更新する。
 
 | 層 | 中身 | 実行方法 |
 | --- | --- | --- |
 | 1. C++ 単体テスト | Cell・アトム・lexer・ユニフィケーション・UTF-8 変換など、Prolog を起動する前の部品 | 外部フレームワークを入れず、`tests/cpp/` に `assert` ベースの最小ランナー（`tests/cpp/harness.hpp`、50 行以内）。CTest に登録 |
 | 2. Prolog 自前テスト | `tests/pl/<章>.pl`。`test(名前, ゴール, 期待)` の事実として書き、`mosatest` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`solutions([X=1, X=2])` の 4 種 | `mosatest tests/pl/` |
-| 3. ISO 準拠スイート | Logtalk の Prolog 準拠テストを `tests/conformance/logtalk/` に改変せず置く。リポジトリと同じ Apache-2.0 で、著作権表示はそこの `NOTICE.txt` に残す。INRIA Suite（`inriasuite.pl`）は再配布の許諾が無いので同梱しない。Ulrich Neumerkel の表はコピーしない。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない。その機械的な部分として、`mosatest --suite` は書き換える前の木にある `docs/conformance.json` と合格率を比べ、下がった回は JSON を書き換えずに失敗する（90% の下限とは別に）。バッジを再生成し忘れた後退はこれで落ちる（macOS ジョブは JSON の差分も見る）。同じコミットでバッジ自体を下げるのは JSON の見える変更であり、この比較ではなくレビューで捕まえる |
+| 3. ISO 準拠スイート | Logtalk の Prolog 準拠テストを `tests/conformance/logtalk/` に改変せず置く。リポジトリと同じ Apache-2.0 で、著作権表示はそこの `NOTICE.txt` に残す。INRIA Suite（`inriasuite.pl`）は再配布の許諾が無いので同梱しない。Ulrich Neumerkel の表はコピーしない。`mosatest --suite` で実行し、合格数／総数と不合格一覧を `docs/conformance.md` に書き出す | CI で毎回。合格率が下がる変更はマージしない。その機械的な部分として、`mosatest --suite` は書き換える前の木にある `docs/conformance.json` と合格率を比べ、下がった回は JSON を書き換えずに失敗する（90% の下限とは別に）。バッジを再生成し忘れた後退はこれで落ちる（macOS ジョブは JSON の差分も見る）。同じコミットでバッジ自体を下げるのは JSON の見える変更であり、この比較ではなくレビューで捕まえる。ライブラリ欄（mosa が提供する 13211-1 に無いライブラリ述語。フェーズ11から ISO の率と分けて数える）も、`docs/conformance-library.json` と同じ形で比べる。90% の下限は掛けない |
 | 4. 差分テスト | 層 2・3 の全ゴールを `mosac` run で変換・ビルド・実行し、インタプリタの出力（解・エラー項・標準出力）とバイト単位で比較する | `mosatest --diff`。Phase 6 以降は CI 必須 |
 
 **テストの書き方の規則**
