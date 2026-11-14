@@ -512,9 +512,9 @@ and zeros at the end of the fraction are left out; `~G` does the same with a cap
 `~16r`) writes an integer in that radix, from 2 to 36 (8 without the number), with small letters for the digits above
 9, and `~R` with a number before the `R` (as in `~16R`) does the same with capital letters. `~n` writes a new line, and
 `~N` writes one only when the output is not already at the start of a line. `~t` and `~|` set columns, and `~+` with
-a number before the `+` (as in `~10+`) sets a column that many columns after the one the previous `~|` or `~+` set, or
-after the start (8 without the number). Columns count a wide East Asian character, such as a kanji, as 2. `~~` writes
-`~`.
+a number before the `+` (as in `~10+`) sets a column that many columns after the previous column stop, which is the
+column the last `~|` or `~+` set or the start of the line, whichever is later (8 without the number). Columns count a
+wide East Asian character, such as a kanji, as 2. `~~` writes `~`.
 
 For example, with a file `fmt.pl` that holds this one line, loaded as in chapter 12:
 

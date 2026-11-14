@@ -386,7 +386,7 @@ column_stop(Kind, Count, st(Col, Seg, Out), St) :-
     reverse(Seg, Items0),
     items_text(Items0, Text),
     column_after(Text, Col, Here),
-    stop_target(Kind, Count, Col, Here, Target),
+    stop_target(Kind, Count, Col, Text, Here, Target),
     Pad is max(0, Target - Here),
     (   member(fill(_), Items0)
     ->  Items = Items0
@@ -394,14 +394,20 @@ column_stop(Kind, Count, st(Col, Seg, Out), St) :-
     ),
     place(Items, Pad, Col, Out, St).
 
-% ~N| は呼び出しの始まりから N 桁目で、N が無ければ今の桁（埋めずに区切りを確定する）。~N+ は前の桁止め、つまり
-% 区切りの始まりの桁から N 桁先で、N が無ければ 8 桁先（スイートの default_column_boundary の件）。前の桁止めは
-% place/5 が返す桁なので、区切りの字が桁止めを越えたときは越えた後の桁から数える。
-stop_target(absolute, Count, _, Here, Target) :-
+% ~N| は呼び出しの始まりから N 桁目で、N が無ければ今の桁（埋めずに区切りを確定する）。~N+ は前の桁止めから N 桁先で、
+% N が無ければ 8 桁先（スイートの default_column_boundary の件）。前の桁止めはふつう区切りの始まりの桁（place/5 が
+% 返す桁なので、字が桁止めを越えたときは越えた後の桁）だが、行の頭も桁止めとする（タスク 9 の裁定 17）。区切りの字に
+% 改行があれば、それが書式の字でも引数の字でも桁 0 から数える。改行は区切りを確定しないので、Col のままでは前の行の
+% 桁から数えてしまい、改行の後の桁を column_after/3 で数える ~| と食い違う。
+stop_target(absolute, Count, _, _, Here, Target) :-
     default(Count, Here, Target).
-stop_target(relative, Count, Col, _, Target) :-
+stop_target(relative, Count, Col, Text, _, Target) :-
     default(Count, 8, N),
-    Target is Col + N.
+    (   member('\n', Text)
+    ->  Base = 0
+    ;   Base = Col
+    ),
+    Target is Base + N.
 
 % 余りは後ろの埋め所から 1 つずつ足す（Logtalk の pip_0110 の例と同じ）。
 place(Items, Pad, Col, Out0, st(Col1, [], Out)) :-

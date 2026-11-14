@@ -110,6 +110,16 @@ test(fmt_plus_chain, (with_output_to(atom(A), format("~*+.~n~3+.~n~*+.~n", [3, 3
 test(fmt_plus_radix, with_output_to(atom(A), format("~`0t~2r~16+", [0xFF])), solutions([A = '0000000011111111'])).
 % 区切りの字が桁止めを越えれば、~| と同じく埋めない。
 test(fmt_plus_past, with_output_to(atom(A), format("abcdefghij~t~8+x", [])), solutions([A = abcdefghijx])).
+% 行の頭も桁止めなので、区切りの字に改行があれば ~+ は行の頭（桁 0）から数える（タスク 9 の裁定 17）。改行が書式の字か
+% 引数の字か、~N が改行を出さなかったかによらない。~| と ~n で書いたときと同じ字面になる。
+test(fmt_plus_newline, with_output_to(atom(A), format("~5|ab\n~3+.", [])), solutions([A = '     ab\n   .'])).
+test(fmt_plus_newline_N, with_output_to(atom(A), format("~5|ab\n~N~3+.", [])), solutions([A = '     ab\n   .'])).
+test(fmt_plus_newline_table, with_output_to(atom(A), format("~w~t~10+~w\n~w~t~10+~w\n", [a, b, c, d])), solutions([A = 'a         b\nc         d\n'])).
+% 裁定 17 の A。引数の字の改行でも桁 0 から数えるので、cd の後は桁 3 まで 1 桁埋める。
+test(fmt_plus_newline_arg, with_output_to(atom(A), format("~5|~w~3+.", ['ab\ncd'])), solutions([A = '     ab\ncd .'])).
+% 今の振る舞いを留める。~| は改行の前の埋め所も埋める。字が桁止めを越えた後の ~+ は、字の終わりの桁から数える。
+test(fmt_plus_newline_bar, with_output_to(atom(A), format("~tab\ncd~6|.", [])), solutions([A = '    ab\ncd.'])).
+test(fmt_plus_past_next, with_output_to(atom(A), format("abcdefghij~t~8+x~t~4+|", [])), solutions([A = 'abcdefghijx   |'])).
 % ~i、~k、~W、~p、~N（フェーズ11のタスク6）。入力と期待値はスイートの format_2・format_3 の件と同じ。
 test(fmt_i, with_output_to(atom(A), format("~a~i~a", [a, b, c])), solutions([A = ac])).
 test(fmt_i_count, with_output_to(atom(A), format("~a~3i~a", [a, b, c])), solutions([A = ac])).
