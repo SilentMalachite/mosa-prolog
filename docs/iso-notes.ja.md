@@ -139,7 +139,7 @@ A か B か: A は決定のまま（指示子かリストだけ。5 行は不合
 
 ## 7.4.2 initialization/1
 
-決定（2026-10-26）: A。節は例外のときも残す。指示だけである。ゴールはテキストを準備したあとに、ソースの順で一度実行する。引数が変数なら `instantiation_error`、callable でなければ `type_error(callable, Goal)`。この二つは読み込みを失敗させ、節を戻し、ゴールは実行しない。失敗はエラーにしない。読み込みは成功し、節は残り、後の初期化ゴールも実行する。失敗より前の副作用は残る。捕捉されない例外は、`error/2` ならその Formal、それ以外は投げた項を診断にして読み込みを失敗させる。後の初期化ゴールは実行しない。節と、例外より前の副作用は残す。
+決定（2026-10-26）: A。節は例外のときも残す。指示だけである。ゴールはテキストを準備したあとに、ソースの順で一度実行する。引数が変数なら `instantiation_error`、callable でなければ `type_error(callable, Goal)`。この二つは読み込みを失敗させ、節を戻し、ゴールは実行しない。失敗はエラーにしない。読み込みは成功し、節は残り、後の初期化ゴールも実行する。失敗より前の副作用は残る。捕捉されない例外は、`error/2` ならその Formal、それ以外は投げた項を診断にして読み込みを失敗させる。後の初期化ゴールは実行しない。節と、例外より前の副作用は残す。SWI-Prolog 10.0.2 は違う。二つの初期化ゴールの最初が投げると、エラー（「Initialization goal raised exception」）を出して後のゴールを実行し、`consult/1` は成功する。Mosa は 2026-10-26 の決定のままにする。
 
 ## 7.4.2 include/1
 
@@ -843,8 +843,8 @@ A か B か: A は ADR 0016 のままにする。この 1 件（`lgt_setup_call_
 
 - `~r` と `~R` の基数が 2〜36 の外なら `domain_error(radix, N)` を投げる。スイートは `domain_error(_, _)` ならよい。
 - `~t~|` と `~+` の桁は、出力先の流れの今の桁ではなく、`format` の呼び出しの始まりを桁 0 として数える。既知の制限である。流れが数えるのは字の数で東アジア幅ではないので、その桁はそのまま使えない。桁は、`~t~|` が今そうしているとおり（「第4節 format/2 の埋め草の字を幅で数える」）、東アジア幅（W と F を 2）で数える。
-- 行の頭も桁止めである。区切りの字に改行があれば、`~+` は前の桁止めからではなく桁 0 から数える。改行が書式の字にあっても引数の字にあっても同じである。これは `~|` が改行の後の桁を数えるやり方（`lib/format.pl` の `column_after/3`）と同じで、SWI-Prolog の `format/2` の文書の「A tab stop is assumed at the start of each line.」に従う。引数の字の改行では SWI-Prolog の実装（10.0.2）と違う。SWI-Prolog は前の桁止めから数えるので、`format("~5|~w~3+.", ['ab\ncd'])` は Mosa では `'     ab\ncd .'`、SWI-Prolog では `'     ab\ncd      .'` になる。書式の字の改行なら、`format("~5|ab\n~3+.")` はどちらでも `'     ab\n   .'` になる。テストは `tests/pl/lib_format.pl` の `fmt_plus_newline*`。
-- `~n` は区切りを確定するが、書式の字の改行は確定しないので、待っている埋め所の埋め方が違う。`format("~tab~ncd~6|.")` は `'ab\ncd    .'` になる。`~n` の前の `~t` は埋めず、`~6|` は `cd` の後を埋める。`format("~tab\ncd~6|.")` は `'    ab\ncd.'` になる。SWI-Prolog 10.0.2 では、どちらも `'    ab\ncd.'` になる。既知の違いとしてここに記録し、振る舞いは変えない。`~n` の決まりはフェーズ11より前からある（フェーズ4で `library(format)` と共に入った）。`~N` も改行を書くときは同じく区切りを確定する（`tests/pl/lib_format.pl` の `fmt_N_column`）ので、`format("~tab~Ncd~6|.")` も Mosa では `'ab\ncd    .'` になり、SWI-Prolog では `'    ab\ncd.'` になる。
+- 行の頭も桁止めである。区切りの字に改行があれば、`~+` は前の桁止めからではなく桁 0 から数える。改行が書式の字にあっても引数の字にあっても同じである。これは `~|` が改行の後の桁を数えるやり方（`lib/format.pl` の `column_after/3`）と同じで、SWI-Prolog の `format/2` の文書の「A tab stop is assumed at the start of each line.」に従う。引数の字の改行では SWI-Prolog の実装（10.0.2）と違う。SWI-Prolog は前の桁止めから数えるので、`format("~5|~w~3+.", ['ab\ncd'])` は Mosa では `'     ab\ncd .'`、SWI-Prolog では `'     ab\ncd      .'` になる。書式の字の改行なら、`format("~5|ab\n~3+.")` はどちらでも `'     ab\n   .'` になる。テストは `tests/pl/lib_format.pl` の `fmt_plus_newline*`。引数の字の改行では `~|` にも同じ既知の違いがある。`format("~tab~w~6|.", ['\ncd'])` は、Mosa では書式の字の改行と同じくその改行の後の行の頭から桁止めまでを数えるので `'    ab\ncd.'` になり、SWI-Prolog 10.0.2 では引数の改行で桁が戻らないので `'  ab\ncd.'` になる。
+- `~n` は区切りを確定するが、書式の字の改行は確定しないので、待っている埋め所の埋め方が違う。`format("~tab~ncd~6|.")` は `'ab\ncd    .'` になる。`~n` の前の `~t` は埋めず、`~6|` は `cd` の後を埋める。`format("~tab\ncd~6|.")` は `'    ab\ncd.'` になる。SWI-Prolog 10.0.2 では、どちらも `'    ab\ncd.'` になる。既知の違いとしてここに記録し、振る舞いは変えない。`~n` の決まりはフェーズ11より前からある（フェーズ4で `library(format)` と共に入った）。`~N` も改行を書くときは同じく区切りを確定する（`tests/pl/lib_format.pl` の `fmt_N_column`）ので、`format("~tab~Ncd~6|.")` も Mosa では `'ab\ncd    .'` になり、SWI-Prolog では `'    ab\ncd.'` になる。この二つは `tests/pl/lib_format.pl` の `fmt_bar_after_n` と `fmt_bar_after_N` が留める。`fmt_N_column` そのもの、`format("~tab~N~w~t~4|x", [c])` は、Mosa では `'ab\nc   x'`、SWI-Prolog 10.0.2 では `' ab\nc  x'` になる。SWI-Prolog も改行から桁を数えるが、`~N` の改行が区切りを確定しないので、`ab` の前の `~t` が `c` の後の `~t` と埋め草を分け合う。
 - ディレクトリ `portray_1` は範囲の外である。`portray/1` は組み込みにしない。8.14 の決定（上の「print/1 と print/2」）のままである。
 
 ## 第9節 フェーズ11: ライブラリ欄に残る不合格
