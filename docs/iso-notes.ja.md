@@ -701,7 +701,7 @@ A か B か: A: NaN は符号の立ち方や標準ライブラリによらずす
 
 決定（2026-11-06）: B。NaN はどれも `1.5NaN` と書き、符号と中身は書かない。`==` と compare/3 はもとからどの NaN も同じ項に見る。字句は `<桁>.<桁>Inf` を正の無限大（SWI と同じく桁は何でもよい）、`<桁>.<桁>NaN` を、桁の値が 1.0 以上 2.0 未満（SWI が書く `1.xxx`）のとき NaN と読む。範囲は丸めた double でなく小数点の前の桁（前の 0 を除いて `1`）で決めるので、`1.99999999999999999NaN` は NaN で、`0.99999999999999999NaN` は NaN でない。前の `-` は、ほかの浮動小数点数と同じく負の数にする。`Inf` や `NaN` の直後に名前の字が続くもの（`1.0Info`、`1.0Inf_`）、指数の付くもの（`1.0e5Inf`）、小文字（`1.0inf`）、ほかの NaN の仮数（`2.0NaN`）は、今までどおり浮動小数点数と変数に分かれて構文の誤りになる。ISO のテキストでは数の直後に変数は来ないので、規格に合うテキストの意味は変わらない。これらは溢れではないので、`float_overflow` が `error` でも読める。`1.0e400` は M2 のとおり `syntax_error(float_overflow)` のまま。read/1、consult、number_codes/2、number_chars/2、atom_number/2 はどれもこの字句解析を使う。符号の立った NaN の `-(X)` を writeq すると `- (1.5NaN)` と書き、複合項として読み戻す。`mosatest --roundtrip` は NaN 同士を同じ項に見る（`src/write/term_equal.cpp`）。テスト: `tests/pl/write.pl`、`tests/pl/read.pl`、`tests/pl/atoms.pl` の `l22_*` と、`tests/pl/syntax.pl` の `float_inf`、`float_nan`、`float_special_args` などの場合。
 
-レビュー M29 から、format/2 の `~e` と `~f`（`'$format_float'/4`）も、無限大と NaN を桁の数と標準ライブラリによらずこの同じ字面で書き、0 で埋めない（`tests/pl/lib_format.pl` の `m29_*`）。
+レビュー M29 から、format/2 の `~e` と `~f`（`'$format_float'/4`）も、フェーズ11からは `~E`、`~g`、`~G` も、無限大と NaN を桁の数と標準ライブラリによらずこの同じ字面で書き、0 で埋めない。大文字の指示でも字の大きさは変えない（`tests/pl/lib_format.pl` の `m29_*`、`fmt_g_inf`、`fmt_G_inf`）。
 
 ## 6.4.2 終止符の前の記号文字の字句
 

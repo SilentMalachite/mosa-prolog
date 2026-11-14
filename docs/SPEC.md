@@ -191,7 +191,7 @@ The syntax adopts the common subset of ISO/IEC 13211-2 and SWI-Prolog, and the s
 | `library(lists)` | `append/3`, `member/2`, `memberchk/2`, `length/2` (ISO core, so placed in system and re-exported), `nth0/3`, `nth1/3`, `last/2`, `reverse/2`, `msort/2`, `sum_list/2`, `max_list/2`, `list_to_set/2` |
 | `library(apply)` | `maplist/2..5`, `foldl/4..6`, `include/3`, `exclude/3` |
 | `library(between)` | `between/3`, `succ/2`, `plus/3` |
-| `library(format)` | `format/1,2,3` (`~w`, `~p`, `~q`, `~k`, `~W`, `~a`, `~d`, `~D`, `~r`, `~R`, `~f`, `~e`, `~s`, `~c`, `~i`, `~n`, `~N`, `~t`, `~\|`) |
+| `library(format)` | `format/1,2,3` (`~w`, `~p`, `~q`, `~k`, `~W`, `~a`, `~d`, `~D`, `~r`, `~R`, `~f`, `~e`, `~E`, `~g`, `~G`, `~s`, `~c`, `~i`, `~n`, `~N`, `~t`, `~\|`) |
 | `library(strings)` | `atomic_list_concat/2,3`, `split_atom/4`, `upcase_atom/2` (Unicode uppercasing uses simple case mapping only) |
 | `library(dcg)` | `expand_term/2` (translates one grammar rule `H --> B`; a non-variable term that is not `-->/2` comes back unchanged; an unbound first argument is `instantiation_error`) |
 | `library(japanese)` | `ひらがな_カタカナ/2` (hiragana/katakana), `全角_半角/2` (full-width/half-width), `読み幅/2` (display width calculation). Implemented with the generated tables |

@@ -55,6 +55,10 @@ constexpr auto k_goals = std::to_array<std::string_view>({
     "format(\"~2D\", [5])",
     "format(\"~D\", [12])",
     "format(\"~D\", [2^70])",
+    // フェーズ11のタスク8。~E、~g、~G は ~e と同じく float_directive/7 を通る。
+    "format(\"~E\", [1.5])",
+    "format(\"~g\", [0.00000123])",
+    "format(\"~2G\", [392.65])",
 });
 
 void check_goal(mosa::Machine& machine, std::string_view goal) {

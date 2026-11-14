@@ -58,5 +58,11 @@ int main() {
   check_succeeds("inf max", "X is inf, '$format_float'(e, 9223372036854775807, X, A), A == '1.0Inf'.");
   check_succeeds("-inf max", "X is -inf, '$format_float'(f, 9223372036854775807, X, A), A == '-1.0Inf'.");
   check_succeeds("nan max", "X is -(nan), '$format_float'(e, 9223372036854775807, X, A), A == '1.5NaN'.");
+  // フェーズ11のタスク8。~E は ~e と同じく 0 を足すので上限で止まる。~g と ~G は末尾の 0 を落とすので、字面は桁数に
+  // よらず短く、上限で止めずに作る。
+  check_stops("E max", "'$format_float'('E', 9223372036854775807, 1.0, _).");
+  check_stops("E above", "'$format_float'('E', 1048577, 1.0, _).");
+  check_succeeds("g max", "'$format_float'(g, 9223372036854775807, 1.0, A), A == '1'.");
+  check_succeeds("G big", "X is 2^100, '$format_float'('G', X, 0.5, A), A == '0.5'.");
   return mosa_test::failures();
 }

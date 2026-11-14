@@ -1,6 +1,6 @@
 % library(format)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_format.pl と、選択点を残さないことを見る
 % tests/cpp/format_det_test.cpp。
-% 指示は ~w ~p ~q ~k ~W ~a ~d ~D ~r ~R ~f ~e ~s ~c ~i ~n ~N ~t ~| ~~ だけ。誤りは iso-notes の Section 5
+% 指示は ~w ~p ~q ~k ~W ~a ~d ~D ~r ~R ~f ~e ~E ~g ~G ~s ~c ~i ~n ~N ~t ~| ~~ だけ。誤りは iso-notes の Section 5
 % format/2 errors の決定 A。出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
 % ~N だけは出力先の流れを見る（format/1,2 は呼んだときの現在出力、format/3 は引数の流れ）。~t と ~| の桁は今までと
 % 同じく呼び出しの始まりを 0 とする（フェーズ11の設計の非目標）。
@@ -204,6 +204,15 @@ directive(f, Count, Args0, Args, PI, St0, St) :-
 directive(e, Count, Args0, Args, PI, St0, St) :-
     !,
     float_directive(e, Count, Args0, Args, PI, St0, St).
+directive('E', Count, Args0, Args, PI, St0, St) :-
+    !,
+    float_directive('E', Count, Args0, Args, PI, St0, St).
+directive(g, Count, Args0, Args, PI, St0, St) :-
+    !,
+    float_directive(g, Count, Args0, Args, PI, St0, St).
+directive('G', Count, Args0, Args, PI, St0, St) :-
+    !,
+    float_directive('G', Count, Args0, Args, PI, St0, St).
 directive(s, Count, Args0, Args, PI, St0, St) :-
     !,
     next_arg(Args0, PI, X, Args),

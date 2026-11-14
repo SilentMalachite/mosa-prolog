@@ -47,6 +47,27 @@ test(fmt_e3, with_output_to(atom(A), format("~3e", [1.333333])), solutions([A = 
 test(fmt_e0, with_output_to(atom(A), format("~0e", [1.333333])), solutions([A = '1e+00'])).
 test(fmt_e_big, with_output_to(atom(A), format("~2e", [12345.0])), solutions([A = '1.23e+04'])).
 test(fmt_e_inst, format("~e", [_]), error(instantiation_error)).
+% フェーズ11のタスク8。~E は ~e の指数の字を E にする。~g と ~G は C の %g と %G と同じく、指数の大きさで小数点表記と
+% 指数表記を選び、末尾の 0 を落とす。桁の数は有効数字の桁数で、0 は 1 と同じになる。
+test(fmt_E, with_output_to(atom(A), format("~E", [1.333333])), solutions([A = '1.333333E+00'])).
+test(fmt_E_expr, with_output_to(atom(A), format("~E", [1.333333+1])), solutions([A = '2.333333E+00'])).
+test(fmt_E_places, (with_output_to(atom(A), format("~3E", [1.333333])), with_output_to(atom(B), format("~*E", [3, 1.333333]))), solutions([(A = '1.333E+00', B = '1.333E+00')])).
+test(fmt_E_zero, with_output_to(atom(A), format("~0E", [1.333333])), solutions([A = '1E+00'])).
+test(fmt_g, with_output_to(atom(A), format("~g", [0.00000123])), solutions([A = '1.23e-06'])).
+test(fmt_g_places, with_output_to(atom(A), format("~2g", [0.00000123])), solutions([A = '1.2e-06'])).
+test(fmt_g_fixed, with_output_to(atom(A), format("~g", [0.39265e+3])), solutions([A = '392.65'])).
+test(fmt_g_fixed_places, with_output_to(atom(A), format("~2g", [0.39265e+3])), solutions([A = '3.9e+02'])).
+test(fmt_g_zero, with_output_to(atom(A), format("~0g", [0.39265e+3])), solutions([A = '4e+02'])).
+test(fmt_G, with_output_to(atom(A), format("~G", [0.00000123])), solutions([A = '1.23E-06'])).
+test(fmt_G_places, with_output_to(atom(A), format("~2G", [0.39265e+3])), solutions([A = '3.9E+02'])).
+test(fmt_G_fixed, with_output_to(atom(A), format("~G", [0.39265e+3])), solutions([A = '392.65'])).
+test(fmt_g_inf, (X is inf, with_output_to(atom(A), format("~g", [X]))), solutions([A = '1.0Inf'])).
+% 無限大と NaN は大文字の指示でも writeq と同じ字面のままにする（Inf と NaN を大文字にしない）。
+test(fmt_G_inf, (X is -inf, Y is nan, with_output_to(atom(A), format("~G ~E ~G", [X, X, Y]))), solutions([A = '-1.0Inf -1.0Inf 1.5NaN'])).
+test(fmt_g_big, format("~g", [2^2000]), error(evaluation_error(float_overflow))).
+test(fmt_g_errors_inst, format("~g", [_]), error(instantiation_error)).
+test(fmt_g_errors_star_inst, format("~*G", [5, _]), error(instantiation_error)).
+test(fmt_g_errors_evaluable, format("~g", [foo(bar)]), error(type_error(evaluable, foo/1))).
 % ~s。
 test(fmt_s_codes, with_output_to(atom(A), format("~s", [[65, 66, 67]])), solutions([A = 'ABC'])).
 test(fmt_s_chars, with_output_to(atom(A), format("~s", [['A', 'B']])), solutions([A = 'AB'])).
@@ -137,6 +158,11 @@ test(fmt_D_small, with_output_to(atom(A), format("~2D", [5])), solutions([A = '0
 test(fmt_D_errors_inst, format("~D", [_]), error(instantiation_error)).
 test(fmt_D_errors_float, format("~D", [123.0]), error(type_error(integer, 123.0))).
 test(fmt_D_errors_neg_count, format("~*D", [-1, 123]), error(domain_error(not_less_than_zero, -1))).
+% タスク7のレビュー（Ruling 15）。小数部が区切りの 3 桁にまたがる数、負の数のちょうど 2 組、int64 の最小の数。
+% 最小の数の abs は int64 にあふれるので、符号を字から外す道を見る。
+test(fmt_D_places_grouped, with_output_to(atom(A), format("~4D", [123456789])), solutions([A = '12,345.6789'])).
+test(fmt_D_neg_groups, with_output_to(atom(A), format("~D", [-123456])), solutions([A = '-123,456'])).
+test(fmt_D_min_integer, (current_prolog_flag(min_integer, M), with_output_to(atom(A), format("~D", [M]))), solutions([A = '-9,223,372,036,854,775,808'])).
 % '$format_radix'/4 は system にある。format を通らない誤り（基数と英字の大きさ）はここで見る。
 test(format_radix_lower, '$format_radix'(255, 16, lower, A), solutions([A = ff])).
 test(format_radix_upper, '$format_radix'(-255, 16, upper, A), solutions([A = '-FF'])).
@@ -168,6 +194,9 @@ test(fmt_float_f, '$format_float'(f, 2, 2.5, A), solutions([A = '2.50'])).
 test(fmt_float_e, '$format_float'(e, 1, 2.5, A), solutions([A = '2.5e+00'])).
 test(fmt_float_type, '$format_float'(f, 2, 1, _), error(type_error(float, 1))).
 test(fmt_float_neg, '$format_float'(f, -1, 1.0, _), error(domain_error(not_less_than_zero, -1))).
+test(fmt_float_E, '$format_float'('E', 1, 2.5, A), solutions([A = '2.5E+00'])).
+test(fmt_float_g, ('$format_float'(g, 3, 2.5, A), '$format_float'('G', 2, 1.5e-7, B)), solutions([(A = '2.5', B = '1.5E-07')])).
+test(format_float_kind, '$format_float'(x, 6, 1.0, _), error(domain_error(format_directive, x))).
 % レビュー L20。~d は引数を is/2 と同じく評価するので、循環する式の誤りも is/2 のものになる。
 test(l20_fmt_cyclic_d, (X = X+1, format("~d", [X])), error(resource_error(cyclic_term))).
 test(l20_fmt_cyclic_e, (X = X+1, format("~e", [X])), error(resource_error(cyclic_term))).
@@ -212,3 +241,8 @@ test(m29_float_f_nan, (X is -(nan), '$format_float'(f, 1200, X, A)), solutions([
 % 書いたときの sub_atom/5 は長い原子で候補をすべて数え上げて遅かったので使っていない（レビュー M32 で直した）。
 test(m29_fmt_e_many_finite, (with_output_to(atom(Z), format("~`0t~1200|", [])), atom_concat('1.', Z, P), atom_concat(P, 'e+00', E), with_output_to(atom(A), format("~1200e", [1.0])), A == E), true).
 test(m29_fmt_f_many_finite, (with_output_to(atom(Z), format("~`0t~1199|", [])), atom_concat('0.5', Z, E), with_output_to(atom(A), format("~1200f", [0.5])), A == E), true).
+% フェーズ11のタスク8。~E も 1100 桁を超えると指数の前に 0 を足す。~g と ~G は末尾の 0 を落とす書式なので 0 を足さず、
+% 桁の数が 1100 を超えても多倍長でも、double の 2 進展開を書き尽くした字面になる。
+test(fmt_E_many_finite, (with_output_to(atom(Z), format("~`0t~1200|", [])), atom_concat('1.', Z, P), atom_concat(P, 'E+00', E), with_output_to(atom(A), format("~1200E", [1.0])), A == E), true).
+test(fmt_g_many, (with_output_to(atom(A), format("~1200g", [0.5])), with_output_to(atom(B), format("~1200G", [0.1]))), solutions([(A = '0.5', B = '0.1000000000000000055511151231257827021181583404541015625')])).
+test(fmt_g_digits_big, with_output_to(atom(A), format("~*g", [2^70, 0.5])), solutions([A = '0.5'])).

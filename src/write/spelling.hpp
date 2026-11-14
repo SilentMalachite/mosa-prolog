@@ -1,7 +1,7 @@
 #pragma once
 
 // writer.cpp が使う字面の判断。項を知らないので、writer の外の字句の判断と混ざらないよう名前空間を分ける。
-// format_float は '$format_float'/4（src/builtins/format_float.cpp）も無限大と NaN に使い、~e と ~f を writeq にそろえる。
+// format_float は '$format_float'/4（src/builtins/format_float.cpp）も無限大と NaN に使い、~f ~e ~E ~g ~G を writeq にそろえる。
 
 #include <optional>
 #include <string>
