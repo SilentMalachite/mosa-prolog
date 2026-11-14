@@ -12,7 +12,7 @@ namespace mosa {
 // 報告書の拡張子を .json に替えた場所へ本欄のバッジ用の JSON を、報告書の名前に -library.json を付けた場所へ
 // ライブラリ欄のバッジ用の JSON を書く（同梱スイートなら docs/conformance.json と docs/conformance-library.json）。
 // 欄ごとに前回の JSON があれば合格率の物差しにし、下がった回は 1 で終えて JSON を書き換えない（全体レビュー推奨3、
-// SPEC 第8節）。
+// SPEC 第8節）。物差しのある欄で 1 件も流れなかった回も、下がった回として扱う。
 [[nodiscard]] int run_iso_suite(std::string_view suite_dir, std::string_view report_path);
 
 struct SuiteArgs {

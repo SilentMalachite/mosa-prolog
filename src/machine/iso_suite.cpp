@@ -139,8 +139,10 @@ std::optional<Baseline> read_baseline(const std::filesystem::path& badge) {
 }
 
 // 合格率が物差しより下か。表示の丸めで比べると 1 件の後退を見逃すので、分数のまま掛け比べて比べる。
+// 物差しがあるのに 1 件も流れなかった欄も後退とみなす。no tests で上書きすると物差しが消え、ライブラリ欄は 90% の
+// 下限も無いので、欄のディレクトリが消えたり範囲から外れたりした回が 0 で通ってしまう（Muse のレビューの指摘 2）。
 bool regressed(int passed, int denominator, const Baseline& baseline) {
-  if (denominator <= 0) return false;
+  if (denominator <= 0) return true;
   const auto left = static_cast<long long>(passed) * baseline.denominator;
   const auto right = static_cast<long long>(baseline.passed) * denominator;
   return left < right;
@@ -253,7 +255,8 @@ BadgeGate open_gate(std::filesystem::path path, std::string_view label, std::str
 }
 
 // 後退した回は報告書（不合格の一覧）だけ書いて JSON を残すので、直すまで何度流しても失敗し、
-// 後退した値のコミットで通り抜けられない（SPEC 第8節）。後退したら真を返す。
+// 後退した値のコミットで通り抜けられない（SPEC 第8節）。後退したら真を返す。物差しが無い回だけは、分母 0 でも
+// no tests のバッジを書く（物差しを失うものが無い）。
 bool close_gate(const BadgeGate& gate, const Tally& tally, bool& written) {
   const int denominator = tally.denominator();
   if (gate.baseline && regressed(tally.passed, denominator, *gate.baseline)) {

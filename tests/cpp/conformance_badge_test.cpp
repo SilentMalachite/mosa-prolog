@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -122,6 +123,40 @@ void check_library_gate(const std::filesystem::path& root) {
                    "iso badge rewritten at an equal rate: " + read_text(dir / "gate.json"));
 }
 
+// 後退の知らせは std::cerr に出る。言語によらず比べられるよう、引数の率の字面だけを見る。
+int run_capturing(const std::filesystem::path& suite, const std::filesystem::path& report, std::string& said) {
+  std::ostringstream captured;
+  std::streambuf* const saved = std::cerr.rdbuf(captured.rdbuf());
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  std::cerr.rdbuf(saved);
+  said = captured.str();
+  return code;
+}
+
+// Muse のレビューの指摘 2。物差しのある欄で 1 件も流れなかった回は後退とみなし、JSON を書き換えずに 1 で終える。
+// 前は分母 0 を後退と見ずに no tests で上書きした。ライブラリ欄は 90% の下限も無いので 0 で終え、物差しが消えた。
+// 物差しが無ければ今までどおり no tests を書く（check_colors の zero denominator）。
+void check_empty_column(const std::filesystem::path& root) {
+  const auto dir = root / "empty";
+  std::string said;
+  const std::string library = library_badge("99.1% (561/566)", "brightgreen");
+  mosa_test::check(write_text(dir / "libgone-library.json", library), "seed library baseline");
+  write_cases(dir / "libgone", "atom_length_2", 9, 1);
+  mosa_test::check(run_capturing(dir / "libgone", dir / "libgone.md", said) == 1, "empty library column fails");
+  mosa_test::check(read_text(dir / "libgone-library.json") == library,
+                   "library baseline kept: " + read_text(dir / "libgone-library.json"));
+  mosa_test::check(said.find("99.1% (561/566) -> 0.0% (0/0)") != std::string::npos, "library regression said: " + said);
+  mosa_test::check(read_text(dir / "libgone.json") == badge("90.0% (9/10)", "brightgreen"), "iso badge still written");
+  const std::string iso = badge("95.0% (19/20)", "brightgreen");
+  mosa_test::check(write_text(dir / "isogone.json", iso), "seed iso baseline");
+  write_cases(dir / "isogone", "between_3", 1, 1);
+  mosa_test::check(run_capturing(dir / "isogone", dir / "isogone.md", said) == 1, "empty iso column fails");
+  mosa_test::check(read_text(dir / "isogone.json") == iso, "iso baseline kept: " + read_text(dir / "isogone.json"));
+  mosa_test::check(said.find("95.0% (19/20) -> 0.0% (0/0)") != std::string::npos, "iso regression said: " + said);
+  mosa_test::check(read_text(dir / "isogone-library.json") == library_badge("50.0% (1/2)", "red"),
+                   "library badge still written: " + read_text(dir / "isogone-library.json"));
+}
+
 // 報告書は生成物でコミットする。^^file_path の絶対パスが不合格行へそのまま出ると、
 // 機械ごとに差分が出て再現しない（全体レビュー推奨3）。書く前に相対へ直す。
 void check_report_paths(const std::filesystem::path& root) {
@@ -184,6 +219,7 @@ int main() {
   check_colors(root);
   check_regression(root);
   check_library_gate(root);
+  check_empty_column(root);
   check_report_paths(root);
   check_halt_rows(root);
   check_absent(root);
