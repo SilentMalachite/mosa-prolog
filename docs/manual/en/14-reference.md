@@ -286,7 +286,7 @@ These take terms apart and build them.
 | `=../2` | 8.5.3 | `T =.. L`: L is the name of T followed by its arguments, as in `f(a, b) =.. [f, a, b]`. |
 | `copy_term/2` | 8.5.4 | A copy of a term, with new variables. |
 | `term_variables/2` | 8.5.5 | The list of the variables of a term, from left to right, each once. |
-| `numbervars/3` | — | `numbervars(T, Start, End)`: binds the variables of T to `'$VAR'(Start)`, `'$VAR'(Start+1)` and so on, which `write/1` shows as `A`, `B`, …. |
+| `numbervars/3` | — | `numbervars(T, Start, End)`: binds the variables of T to `'$VAR'(Start)`, `'$VAR'(Start+1)` and so on, which `write/1` shows as `A`, `B`, …. End is Start plus the number of variables. An End that is neither an integer nor a variable raises `type_error(integer, End)`. |
 | `length/2` | — | `length(L, N)`: N is the number of elements of L. With L unbound, makes a list of N new variables (chapter 7). |
 
 ### Arithmetic

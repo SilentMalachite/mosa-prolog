@@ -42,6 +42,17 @@ checked against it.
   run compares against, and for the library column, which has no 90% floor, it exited 0. A column with no earlier
   rate still gets the `no tests` badge.
 
+### Known limits
+
+The known limits of 0.2.0 still hold. Two come with the new `format` directives:
+
+- At the `?-` prompt, Mosa writes the answer and the next prompt past `user_output`, so the line position that `~N`
+  reads stays where the query's own output left it. After a query whose output does not end with a new line, as
+  `?- write(a).`, a `~N` at the start of the next query's output writes an empty line.
+- `~r` and `~R` build the digits of a big integer as text before they write it, and that text is memory the memory
+  limit does not count. So writing a big integer near the limit in radix 2 takes several times its size in memory
+  outside the limit, as `~d` does.
+
 ## 0.2.1 (2026-11-13)
 
 A maintenance release after a review of all of Mosa and a follow-up review: file reading no longer loads a whole

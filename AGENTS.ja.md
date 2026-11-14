@@ -89,12 +89,12 @@ mosa-prolog/
 ├── AGENTS.md                 # 英語の本体。Grok Build と Claude Code が読む
 ├── AGENTS.ja.md              # このファイル。人が読む日本語訳。エージェントは読み込まない
 ├── CLAUDE.md                 # 1 行: @AGENTS.md
-├── README.md                 # ビルド手順、日本語変数の規則、準拠率バッジ
+├── README.md                 # ビルド手順、日本語変数の規則、2 つの準拠率バッジ
 ├── README.ja.md              # README.md の日本語訳
 ├── LICENSE                   # Apache-2.0
 ├── CMakeLists.txt
 ├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / linux-clang-asan / windows-msvc
-├── .github/workflows/ci.yml  # 3 OS マトリクスと GC ストレス・Linux サニタイザのジョブ、警告をエラー扱い、準拠率を Job Summary に出す
+├── .github/workflows/ci.yml  # 3 OS マトリクスと GC ストレス・Linux サニタイザのジョブ、警告をエラー扱い、2 つの準拠率を Job Summary に出す
 ├── docs/
 │   ├── SPEC.md               # 仕様（指示書の第 1〜9 節）
 │   ├── SPEC.ja.md            # SPEC.md の日本語訳
@@ -103,6 +103,8 @@ mosa-prolog/
 │   ├── iso-notes.md          # 規格の解釈メモ（条番号付き）
 │   ├── iso-notes.ja.md       # iso-notes.md の日本語訳
 │   ├── conformance.md        # 自動生成。手で編集しない
+│   ├── conformance.json      # ISO の欄のバッジの元データ。conformance.md と同じく自動生成
+│   ├── conformance-library.json # ライブラリ欄のバッジの元データ。conformance.md と同じく自動生成
 │   ├── bench.md
 │   ├── unicode-version.md
 │   └── manual/               # ja/ と en/。Phase 7

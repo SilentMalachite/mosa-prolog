@@ -89,12 +89,12 @@ mosa-prolog/
 ├── AGENTS.md                 # This file. The body read by Grok Build and Claude Code
 ├── AGENTS.ja.md              # Japanese translation for humans. Agents do not load it
 ├── CLAUDE.md                 # 1 line: @AGENTS.md
-├── README.md                 # Build steps, rules for Japanese variable names, conformance badge
+├── README.md                 # Build steps, rules for Japanese variable names, conformance badges
 ├── README.ja.md              # Japanese translation of README.md
 ├── LICENSE                   # Apache-2.0
 ├── CMakeLists.txt
 ├── CMakePresets.json         # macos-clang / linux-gcc / linux-clang / linux-clang-asan / windows-msvc
-├── .github/workflows/ci.yml  # 3-OS matrix plus GC-stress and Linux sanitizer jobs, warnings as errors, conformance rate in the Job Summary
+├── .github/workflows/ci.yml  # 3-OS matrix plus GC-stress and Linux sanitizer jobs, warnings as errors, both conformance rates in the Job Summary
 ├── docs/
 │   ├── SPEC.md               # Specification (sections 1–9 of the instructions document)
 │   ├── SPEC.ja.md            # Japanese translation of SPEC.md
@@ -103,6 +103,8 @@ mosa-prolog/
 │   ├── iso-notes.md          # Notes on interpreting the standard (with clause numbers)
 │   ├── iso-notes.ja.md       # Japanese translation of iso-notes.md
 │   ├── conformance.md        # Generated automatically. Do not edit by hand
+│   ├── conformance.json      # Badge data of the ISO column. Generated, like conformance.md
+│   ├── conformance-library.json # Badge data of the library column. Generated, like conformance.md
 │   ├── bench.md
 │   ├── unicode-version.md
 │   └── manual/               # ja/ and en/. Phase 7

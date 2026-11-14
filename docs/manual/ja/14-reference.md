@@ -263,7 +263,7 @@ X = あいう.
 | `=../2` | 8.5.3 | `T =.. L`: L は、T の名前の後に引数を並べたリストです。`f(a, b) =.. [f, a, b]` のようになります。 |
 | `copy_term/2` | 8.5.4 | 新しい変数を使った、項の写しです。 |
 | `term_variables/2` | 8.5.5 | 項の中の変数を、左から 1 回ずつ並べたリストです。 |
-| `numbervars/3` | — | `numbervars(T, Start, End)`: T の変数を `'$VAR'(Start)`、`'$VAR'(Start+1)` などに束縛します。`write/1` はそれを `A`、`B` などと書きます。 |
+| `numbervars/3` | — | `numbervars(T, Start, End)`: T の変数を `'$VAR'(Start)`、`'$VAR'(Start+1)` などに束縛します。`write/1` はそれを `A`、`B` などと書きます。End は Start に変数の数を足した数です。End が整数でも変数でもないと `type_error(integer, End)` になります。 |
 | `length/2` | — | `length(L, N)`: N は L の要素の数です。L に値がなければ、N 個の新しい変数のリストを作ります（第 7 章）。 |
 
 ### 算術
