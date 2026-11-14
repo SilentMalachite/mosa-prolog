@@ -30,10 +30,10 @@ English | [日本語](CHANGELOG.ja.md)
   2326 cases pass (98.5%), where 2239 of 2274 passed in 0.2.1. The conformance runner now reads the clauses and the
   `dynamic` and `multifile` directives of each directory's `tester.lgt`, which hold the helper predicates the tests
   call, and a binding a test body makes inside `{}` now reaches the goals after it.
-- For developers, `mosatest --suite` now also fails when a column that has a badge JSON from an earlier run ran no
-  tests, and keeps that JSON. It used to overwrite the JSON with `no tests`, losing the rate the next run compares
-  against, and for the library column, which has no 90% floor, it exited 0. A column with no earlier rate still gets
-  the `no tests` badge.
+- For developers, `mosatest --suite` now also fails when a column ran no tests although a badge JSON with a rate from
+  an earlier run exists, and keeps that JSON. It used to overwrite the JSON with `no tests`, losing the rate the next
+  run compares against, and for the library column, which has no 90% floor, it exited 0. A column with no earlier
+  rate still gets the `no tests` badge.
 
 ## 0.2.1 (2026-11-13)
 
