@@ -70,7 +70,7 @@
    - 決定: A（所有者、2026-11-15）。私の推した理由: 規則が 1 つで済み、M10（拒んだ節）と M24（入れ子の読み込みの失敗）のテストが確かめている「ゴールの `consult/1` は失敗する」を変えない。また、iso-notes の「7.4.2 ensure_loaded/1」の「`existence_error(source_sink, File)` は使わない」とも揃う。B は SWI-Prolog に近いが、読み込みの誤りが 2 通りの知らせ方に分かれる。
    - 前提の訂正（決定の後に分かった）: 問いを書いたときは「今は何も出ない」としていた。実際には、問い合わせ全体が失敗すれば、トップレベルが `Machine::diagnostic()` を `user_error` に書く。理由が出ないのは、`;`、`findall/3`、`\+` が失敗を吸ったときだけである。決定 A はそのまま入れる。そのうえで、トップレベルは、ゴールがすでに書いた診断をもう一度書かない。`Machine::diagnostic()` は今と同じく最後の読み込みの診断を返す（公開の API の振る舞いは変えない。私の判断）。
 2. **`mosac` が同梱するライブラリ**
-   - A: 翻訳の読み込みで、節の本体に字面で書かれた `use_module(library(Name))` と `use_module(library(Name), _)` を見つけたら、そのライブラリも同梱の閉包に入れる。`Name` が変数のときは入れず、実行時に `$MOSA_LIB` と `lib/` を探す。
+   - A: 翻訳の読み込みで、節の本体に字面で書かれた `use_module(library(Name))` と `use_module(library(Name), _)` を見つけたら（一般の指令と `initialization/1` のゴールも見る。「決めたこと」の `mosac` の節）、そのライブラリも同梱の閉包に入れる。`Name` が変数のときは入れず、実行時に `$MOSA_LIB` と `lib/` を探す。
      - 問いを出したときは `ensure_loaded(library(Name))` も例に挙げていた。しかし `ensure_loaded/1` は原子しか受け付けない（iso-notes「7.4.2 ensure_loaded/1」。`:- ensure_loaded(library(lists))` は `type_error(atom, library(lists))`）。そのため例から外した（私の判断）。`ensure_loaded/1` の引数の規則は変えない。
    - B: 同梱するのは、今と同じく指令の閉包だけにする。ゴールで読むライブラリは、実行時に `$MOSA_LIB` と `lib/` だけを探す。既知の制限として書く。
    - 決定: A（所有者、2026-11-15）。私の推した理由: フェーズ6の「`mosac build` の実行ファイルは、コンパイラも mosac も無い環境で動く」を、ゴールで読むライブラリにも広げる。B だと、`mosac dist` で配った実行ファイルの中で `use_module(library(lists))` が見つからず、インタプリタと結果が分かれる。
@@ -127,11 +127,18 @@
 
 - `predicate_property/2` には、`imported_from(M)` の値のほかは手を入れない。`current_predicate/1` には手を入れない。
 - `import/1` は PI を 1 つだけ取る。リストは受け付けない（私の判断。リストが要るなら `use_module/2` を使う）。
+- `module_property(M, file(F))` の `F` は `Module::file` をそのまま返す。`mosac build` の実行ファイルでは、同梱したファイルの `F` は同梱の鍵（擬似ディレクトリ `library/` の下のパス）になり、インタプリタの実際のパスと違う。テストでは、同梱したファイルの `F` の全体を比べない。この違いは iso-notes に書く（私の判断）。
+
+### 新しく `system` に入る名前
+
+- `use_module/1,2`、`ensure_loaded/1`、`strip_module/3`、`context_module/1`、`module_property/2`、`import/1` は組み込みになる。SPEC 第5節の解決の 1 段目により、利用者がどのモジュールでこの名前の節を書いても、`permission_error(modify, static_procedure, PI)` になる。今は利用者が `user:import/1` などを定義できるので、これは振る舞いの変化である。CHANGELOG に書く。
+- 2026-11-15 に `tests/conformance`、`tests/pl`、`bench`、`lib`、`docs/manual` を探した。この名前を頭に持つ節は 1 つも無かった。
 
 ### `mosac`
 
 - 生成コードは、新しい組み込みを今の組み込みと同じく `rt::call_goal` で呼ぶ。訳す側に新しい制御は要らない。
-- 問い 2 の決定 A により、上の字面のゴールを見つける場所は翻訳の読み込みの後（`src/codegen/check.cpp` が本体を見て未定義の呼び出しを探すのと同じ段）にし、見つけたライブラリを `TranslationLog::library_opens` と同じ形で閉包に足す。置き場所は実装者に任せる。
+- 問い 2 の決定 A により、翻訳の読み込みの後で字面のゴールを探す。探す段は、`src/codegen/check.cpp` が本体を見て未定義の呼び出しを探すのと同じ段にする。見つけたライブラリは、`TranslationLog::library_opens` と同じ形で閉包に足す。置き場所は実装者に任せる。
+- 探す範囲は、節の本体に加えて、一般の指令 `:- G` のゴールと `initialization/1` のゴールである。翻訳の読み込みは一般の指令を呼ばず（`run_directive_goal` は `skipped_goal` の印だけを付ける）、それらのゴールは実行ファイルの起動時の読み込みが呼ぶ。だから、指令に書いた `use_module(library(Name))` を拾わないと、同梱から漏れる。
 
 ### ADR 0026（ゴールの読み込みと再公開）
 
@@ -168,7 +175,7 @@
 
 1. `tests/pl/modules.pl` の新しい行と `tests/pl/japanese.pl` が `mosa` で通る。対象はゴールの `use_module/1,2`・`ensure_loaded/1`、`reexport/1,2`、`strip_module/3`、`context_module/1`、`module_property/2`、`import/1` である。さらに `mosatest --diff` の差分が 0 である。
 2. ゴールの読み込みが `;`、`findall/3`、`\+` の中で失敗したとき、その診断が `user_error` に 1 回だけ出るテストが通る。たとえば `consult(F), findall(x, consult(F), L)` で、`L = []` と `F: 実行中の述語は置き換えられない` が 1 行出ること。問い合わせ全体が失敗したときに診断が二重に出ないテストも通る。`check_consult_failure_reports` は、期待値を変えずに通る。
-3. ゴールで `use_module(library(lists))` を呼ぶプログラムを `mosac build` で作り、その実行ファイルが `$MOSA_LIB` の無い、隣に `lib/` も無い場所で動く（ctest）。
+3. ゴールで `use_module(library(lists))` を呼ぶプログラムを `mosac build` で作る。呼ぶ場所は、節の本体と `initialization/1` のゴールの 2 通りにする。そのうえで、その実行ファイルが `$MOSA_LIB` の無い、隣に `lib/` も無い場所で動く（ctest）。
 4. `mosatest --suite tests/conformance` の本欄の合格率が 98.4% を、ライブラリ欄の合格率が 98.0% を下回らない。
 5. `mosatest --manual docs/manual --all-tables` が通る。
 6. CI の全ジョブが 3 OS で通る。
