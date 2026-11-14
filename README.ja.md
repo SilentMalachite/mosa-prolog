@@ -96,7 +96,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 
 ## 現在の状態
 
-フェーズ 0〜10 は終わっています。フェーズ 11（準拠率の範囲と `format`）は 2026-11-14 に始めました。フェーズ 11 は進行中です。作業は終わり、完了条件を macOS で確かめました。ISO の合格率は 98.5%（2291/2326）、ライブラリ欄は 566 件中 561 件（99.1%）が通り、`mosatest --diff` の違いは 0 です。macOS、Linux、Windows の CI も通りました（a7eb09d の実行 43578807042）。持ち主はフェーズを閉じる前にいくつかの点を直すことを選び、フェーズ 11 は持ち主がその直しを確かめ、その CI が通った後に閉じます。フェーズ 10（多倍長整数）は完了条件を確かめて 2026-11-13 に終え、同日に Mosa 0.2.0 をリリースしました。その後、全体レビューとその後のレビューの直しを入れた Mosa 0.2.1 をリリースしました。内容は [CHANGELOG](CHANGELOG.ja.md) にあります。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
+フェーズ 0〜11 は終わっています。フェーズ 11（準拠率の範囲と `format`）は、完了条件を確かめて 2026-11-14 に終えました。ISO の合格率は 98.5%（2291/2326）、ライブラリ欄は 566 件中 561 件（99.1%）が通り、`mosatest --diff` の違いは 0 です（macOS、Linux、Windows の CI）。閉じる前に持ち主はいくつかの点を直すことを選び、その直しにも CI が通りました（2299d8d の実行 43590811519）。フェーズ 10（多倍長整数）は完了条件を確かめて 2026-11-13 に終え、同日に Mosa 0.2.0 をリリースしました。その後、全体レビューとその後のレビューの直しを入れた Mosa 0.2.1 をリリースしました。内容は [CHANGELOG](CHANGELOG.ja.md) にあります。フェーズ 9（ISO の穴埋めと堅牢性）は、完了条件を確かめて 2026-11-11 に終えました。8.2.4.4 と 8.3.11.4 の Examples が通ること、準拠率が 98.4%（2150/2185）のままであること、ctest `stack_deep_read` が 1 MiB のスタックで通ること、`tests/pl/dcg.pl` と `lib_dcg.pl` と `modules.pl` が通って `mosatest --diff` の差分がゼロであることを確かめています（macOS、Linux、Windows の CI）。フェーズ 8（文法規則: `-->` と `phrase/2,3`）は、完了条件を確かめて 2026-11-11 に終えました。`tests/pl/dcg.pl` が `mosa` で通って `mosatest --diff` の差分がゼロであることと、準拠率が下がらないこと（macOS、Linux、Windows の CI）を確かめています。フェーズ 7（GC、ライタとローダの反復化、マニュアル、配布パッケージ、`mosac dist`）は、完了条件を確かめて 2026-11-10 に終えました。長時間ループでメモリが頭打ちになること（[`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md#長いループのメモリ)）と、この README の手順だけで Mosa をビルドしてテストが通ること（Linux と Windows は CI、macOS は新しい clone）を確かめています。進み具合は [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) にあります。
 
 | フェーズ | 内容 | 状態 |
 | --- | --- | --- |
@@ -111,7 +111,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 8 | 文法規則（`-->`、`phrase/2,3`） | 完了 |
 | 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 完了 |
 | 10 | 多倍長整数（Big の箱、上限の無い算術と読み書き） | 完了 |
-| 11 | 準拠率の範囲の拡大（ISO の 4 ディレクトリと、実装したライブラリのディレクトリ）と `format` の指示 | 進行中 |
+| 11 | 準拠率の範囲の拡大（ISO の 4 ディレクトリと、実装したライブラリのディレクトリ）と `format` の指示 | 完了 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 
