@@ -108,7 +108,7 @@ Phases 0–10 are done, and phase 11 (conformance scope and `format`) was opened
 | 8 | Grammar rules (`-->`, `phrase/2,3`) | Done |
 | 9 | ISO completion and robustness (`subsumes_term/2`, `acyclic_term/1`, a frame-based reader, `Name//Arity`, `*->` in grammar bodies, `expand_term/2`) | Done |
 | 10 | Arbitrary-precision integers (the Big box, unbounded arithmetic, reading and writing) | Done |
-| 11 | Wider conformance scope (the implemented library directories) and `format` directives | In progress |
+| 11 | Wider conformance scope (four ISO directories and the implemented library directories) and `format` directives | In progress |
 
 The "mosac diff" badge is the agreement between the interpreter and the `mosac`-translated code that `mosatest --diff` measures over `tests/pl` and `tests/conformance` (`docs/agreement.md`, generated).
 

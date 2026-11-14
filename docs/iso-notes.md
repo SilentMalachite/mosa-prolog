@@ -819,17 +819,17 @@ Decision (2026-11-13): A (owner decision A). B is rejected. One check, `halt_cod
 
 ## Section 5 `length/2`: ISO or not
 
-SPEC section 5 lists `length/2` as "ISO core", while chapter 14 of the manual gives it the clause number "—". The repository holds no text of 13211-1, so this is not settled by its wording. It decides which column the 24 conformance cases of `length_2` count in: the ISO column, or the library column of SPEC section 8.
+SPEC section 5 lists `length/2` as "ISO core", while chapter 14 of the manual gives it the clause number "—". The repository holds no text of 13211-1, so this is not settled by its wording. It decides which column the 24 conformance cases of `length_2` count in: the ISO column, or the library column (SPEC section 9, row 11).
 
-A or B?: A: the manual is right. Fix the wording of SPEC section 5 to "not in 13211-1, kept in `system`" (en/ja); the place (`system`) does not change, and `length_2` counts in the library column. B: SPEC is right. Write the clause number in the table of manual chapter 14 (en/ja), and `length_2` counts in the ISO column (the ISO rate moves from 2291/2326 to 2314/2350, so the regression gate's yardstick is rebuilt in that commit).
+A or B?: A: the manual is right. Fix the wording of SPEC section 5 to "not in 13211-1, kept in `system`" (en/ja); the place (`system`) does not change, and `length_2` counts in the library column. B: SPEC is right. Write the clause number in the table of manual chapter 14 (en/ja), and `length_2` counts in the ISO column (the ISO column is 2291/2326 once Task 3 adds the four ISO directories, today 2239/2274, and moves to 2314/2350, so the regression gate's yardstick is rebuilt in that commit).
 
 Until the owner confirms: A. The wording of SPEC section 5 is not touched, and `length_2` counts in the library column.
 
 ## Section 7 Stage G `setup_call_cleanup/3`: bindings of a cleanup that a cut runs
 
-The suite case `lgt_setup_call_cleanup_3_26` runs `setup_call_cleanup(true, ndet(_), D = true)` and then expects `var(D)`. The runner builds the goal of a test as `(Body, !), (Check)` (`goal_text` in `src/machine/lgt_file.cpp`). The cut there removes the choice point of `ndet(_)` and so runs the cleanup, and under ADR 0016 the bindings a cleanup makes are kept, so `D` is `true` and the check `var(D)` fails. The case therefore fails for the rule of ADR 0016, not for a bug in the runner.
+The suite case `lgt_setup_call_cleanup_3_26` runs `setup_call_cleanup(true, ndet(_), D = true)` and then expects `var(D)`. Logtalk's lgtunit (the pinned commit 4decb64, `tools/lgtunit/lgtunit.lgt`) runs a `true(Assertion)` test as `(Goal, (\+ \+ catch(Assertion, ...) -> true ; throw(assertion_failure(Assertion))))`, so it checks the assertion right after the body, while the choice point of `ndet(_)` is still alive and the cleanup has not run; `var(D)` holds (cases 25 and 26 are a pair that tests deterministic against nondeterministic). Mosa's runner builds the goal of a `true(Assertion)` test (`LgtKind::Assert`) as `(Body, !), (Check)` (`goal_text` in `src/machine/lgt_file.cpp`), which lgtunit does not do. The cut removes the choice point of `ndet(_)` and so runs the cleanup, and under ADR 0016 the bindings a cleanup makes are kept, so `D` is `true` and `var(D)` fails. The departure is the runner's early cut; ADR 0016 only decides what that cut leaves behind. The design chose not to change the runner's goal shape, because that would change the flow of every in-scope `true(Assertion)` case and could move the ISO column.
 
-A or B?: A: keep ADR 0016 as it is; the one case stays failing (`lgt_setup_call_cleanup_3_26`, recorded as "a difference in interpreting the specification"). B: change ADR 0016 so that the bindings of a cleanup run by a cut are undone (this needs a new ADR that replaces 0016 on the engine's cleanup frame, and touches `trim_stack` and the generated code's cut).
+A or B?: A: keep ADR 0016 as it is; the one case stays failing (`lgt_setup_call_cleanup_3_26`, kept failing for the reason above, and recorded in this note). B: change ADR 0016 so that the bindings of a cleanup run by a cut are undone (this needs a new ADR that replaces 0016, and touches the engine's cleanup frame, `trim_stack` and the generated code's cut).
 
 Until the owner confirms: A. ADR 0016 is not changed.
 

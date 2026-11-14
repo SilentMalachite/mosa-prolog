@@ -110,7 +110,7 @@ Mosa は **M**odular **O**ptimized **S**ymbolic **A**rchitecture の略です。
 | 8 | 文法規則（`-->`、`phrase/2,3`） | 完了 |
 | 9 | ISO の穴埋めと堅牢性（`subsumes_term/2`、`acyclic_term/1`、枠で動く reader、`Name//Arity`、文法規則の本体の `*->`、`expand_term/2`） | 完了 |
 | 10 | 多倍長整数（Big の箱、上限の無い算術と読み書き） | 完了 |
-| 11 | 準拠率の範囲の拡大（実装したライブラリのディレクトリ）と `format` の指示 | 進行中 |
+| 11 | 準拠率の範囲の拡大（ISO の 4 ディレクトリと、実装したライブラリのディレクトリ）と `format` の指示 | 進行中 |
 
 「mosac diff」のバッジは、`mosatest --diff` が `tests/pl` と `tests/conformance` で測った、インタプリタと `mosac` の翻訳の一致率です（生成物 `docs/agreement.md`）。
 
