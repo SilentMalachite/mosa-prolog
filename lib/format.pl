@@ -1,7 +1,7 @@
 % library(format)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_format.pl と、選択点を残さないことを見る
 % tests/cpp/format_det_test.cpp。
-% 指示は ~w ~p ~q ~k ~W ~a ~d ~f ~e ~s ~c ~i ~n ~N ~t ~| ~~ だけ。誤りは iso-notes の Section 5 format/2 errors の
-% 決定 A。出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
+% 指示は ~w ~p ~q ~k ~W ~a ~d ~D ~r ~R ~f ~e ~s ~c ~i ~n ~N ~t ~| ~~ だけ。誤りは iso-notes の Section 5
+% format/2 errors の決定 A。出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
 % ~N だけは出力先の流れを見る（format/1,2 は呼んだときの現在出力、format/3 は引数の流れ）。~t と ~| の桁は今までと
 % 同じく呼び出しの始まりを 0 とする（フェーズ11の設計の非目標）。
 :- module(format, [format/1, format/2, format/3]).
@@ -188,11 +188,16 @@ directive(a, _, Args0, Args, PI, St0, St) :-
     ).
 directive(d, Count, Args0, Args, PI, St0, St) :-
     !,
-    next_arg(Args0, PI, X, Args),
-    evaluate_integer(X, PI, N),
-    default(Count, 0, Places),
-    decimal_chars(N, Places, Chars),
-    emit(Chars, St0, St).
+    decimal_directive(plain, Count, Args0, Args, PI, St0, St).
+directive('D', Count, Args0, Args, PI, St0, St) :-
+    !,
+    decimal_directive(grouped, Count, Args0, Args, PI, St0, St).
+directive(r, Count, Args0, Args, PI, St0, St) :-
+    !,
+    radix_directive(lower, Count, Args0, Args, PI, St0, St).
+directive('R', Count, Args0, Args, PI, St0, St) :-
+    !,
+    radix_directive(upper, Count, Args0, Args, PI, St0, St).
 directive(f, Count, Args0, Args, PI, St0, St) :-
     !,
     float_directive(f, Count, Args0, Args, PI, St0, St).
@@ -259,15 +264,10 @@ line_start(st(_, Seg, Out), Stream, PI) :-
 
 % 区切りの項目は新しいものが先にある。埋め草と空の text は字を出していないので飛ばす。
 last_text_char([text(Chars)|_], C) :-
-    last_char(Chars, C),
+    last(Chars, C),
     !.
 last_text_char([_|Items], C) :-
     last_text_char(Items, C).
-
-last_char([C], C) :-
-    !.
-last_char([_|Cs], C) :-
-    last_char(Cs, C).
 
 % 流れの誤りの文脈は '$stream_column'/2 でなく format の述語指示子にする。
 stream_column(Stream, PI, Col) :-
@@ -281,30 +281,67 @@ float_directive(Kind, Count, Args0, Args, PI, St0, St) :-
     '$format_float'(Kind, Digits, F, A),
     emit_atom(A, St0, St).
 
-% ~Nd は右から N 桁目の前に小数点を置く。桁が足りなければ 0 で埋める。
-decimal_chars(N, 0, Chars) :-
-    !,
-    number_chars(N, Chars).
-% 最小の整数の abs はあふれるので、符号は字から外す（レビュー L7）。
-decimal_chars(N, Places, Chars) :-
-    number_chars(N, Chars0),
-    (   Chars0 = ['-'|Digits0]
-    ->  true
-    ;   Digits0 = Chars0
-    ),
-    length(Digits0, Len),
-    Zeros is max(0, Places + 1 - Len),
-    repeat_char(Zeros, '0', Pad),
-    append(Pad, Digits0, Digits),
-    % 整数部の長さを先に決める。Int が未束縛のまま append/3 で分けると選択点が残る（0.1.1）。
-    IntLen is Len + Zeros - Places,
-    length(Int, IntLen),
+% ~d と ~D は桁の数を小数部の桁の数にする。~D は整数部だけを区切るので、符号と整数部と小数部を分けて組む。
+decimal_directive(Group, Count, Args0, Args, PI, St0, St) :-
+    next_arg(Args0, PI, X, Args),
+    evaluate_integer(X, PI, N),
+    default(Count, 0, Places),
+    decimal_parts(N, Places, Int0, Frac),
+    group_digits(Group, Int0, Int),
     append(Int, Frac, Digits),
-    append(Int, ['.'|Frac], Body),
     (   N < 0
-    ->  Chars = ['-'|Body]
-    ;   Chars = Body
+    ->  Chars = ['-'|Digits]
+    ;   Chars = Digits
+    ),
+    emit(Chars, St0, St).
+
+% ~Nd は右から N 桁目の前に小数点を置く。桁が足りなければ 0 で埋める。Int は整数部の数字、Frac は小数点からの字
+% （N が 0 なら []）。最小の整数の abs はあふれるので、符号は字から外す（レビュー L7）。
+decimal_parts(N, Places, Int, Frac) :-
+    number_chars(N, Chars),
+    (   Chars = ['-'|Digits0]
+    ->  true
+    ;   Digits0 = Chars
+    ),
+    (   Places =:= 0
+    ->  Int = Digits0,
+        Frac = []
+    ;   length(Digits0, Len),
+        Zeros is max(0, Places + 1 - Len),
+        repeat_char(Zeros, '0', Pad),
+        append(Pad, Digits0, Digits),
+        % 整数部の長さを先に決める。Int が未束縛のまま append/3 で分けると選択点が残る（0.1.1）。
+        IntLen is Len + Zeros - Places,
+        length(Int, IntLen),
+        append(Int, FracDigits, Digits),
+        Frac = ['.'|FracDigits]
     ).
+
+% ~D は整数部を右から 3 桁ごとに , で区切る。区切りは右から数えるので、逆にしてから前から 3 桁ずつ区切る。
+group_digits(plain, Int, Int).
+group_digits(grouped, Int0, Int) :-
+    reverse(Int0, Rev0),
+    group_reversed(Rev0, Rev),
+    reverse(Rev, Int).
+
+group_reversed([A, B, C, D|Ds], [A, B, C, ','|Rest]) :-
+    !,
+    group_reversed([D|Ds], Rest).
+group_reversed(Ds, Ds).
+
+% ~r と ~R は桁の数を基数にする。無ければ 8（スイートの radix_default が 16 に 20 を期待する）。基数の誤りは
+% 書式だけで決まるので、引数を読む前に確かめる。
+radix_directive(Case, Count, Args0, Args, PI, St0, St) :-
+    default(Count, 8, Radix),
+    (   Radix >= 2,
+        Radix =< 36
+    ->  true
+    ;   throw(error(domain_error(radix, Radix), context(PI, _)))
+    ),
+    next_arg(Args0, PI, X, Args),
+    evaluate_integer(X, PI, N),
+    '$format_radix'(N, Radix, Case, A),
+    emit_atom(A, St0, St).
 
 take_padded(0, _, []) :- !.
 take_padded(N, [C|Cs], [C|Rest]) :-

@@ -103,6 +103,8 @@ test(fmt_N_stream, with_output_to(atom(A), (write(x), current_output(S), format(
 test(fmt_N_after_text_nl, with_output_to(atom(A), format("a\n~Nb~n~Nc", [])), solutions([A = 'a\nb\nc'])).
 % ~N の改行も ~n と同じく区切りを確定するので、後の ~| は改行の後から数える。
 test(fmt_N_column, with_output_to(atom(A), format("~tab~N~w~t~4|x", [c])), solutions([A = 'ab\nc   x'])).
+% 行の頭の ~N は区切りを確定しないので、前の ~t は後の ~| で埋める（タスク 6 のレビューの裁定 14）。
+test(fmt_N_keeps_fill, with_output_to(atom(A), format("~t~N~w~4|", [a])), solutions([A = '   a'])).
 test(fmt3_input_stream, format(user_input, "x", []), error(permission_error(output, stream, user_input))).
 % '$stream_column'/2 は put_char/2 と同じ検査をして、最後の改行から書いた字の数を返す。
 test(stream_column, with_output_to(atom(_), (write(abc), current_output(S), '$stream_column'(S, C))), solutions([C = 3])).
@@ -110,6 +112,45 @@ test(stream_column_line, with_output_to(atom(_), (write('ab\nc'), current_output
 test(stream_column_inst, '$stream_column'(_, _), error(instantiation_error)).
 test(stream_column_domain, '$stream_column'(foo, _), error(domain_error(stream_or_alias, foo))).
 test(stream_column_input, '$stream_column'(user_input, _), error(permission_error(output, stream, user_input))).
+% ~r、~R、~D（フェーズ11のタスク7）。入力と期待値はスイートの format_2・format_3 の件と同じ。基数の既定は 8
+% （スイートの radix_default）。多倍長と負の数も書く（レビューの焦点 2）。
+test(fmt_r, with_output_to(atom(A), format("~16r", [127])), solutions([A = '7f'])).
+test(fmt_R, with_output_to(atom(A), format("~16R", [127])), solutions([A = '7F'])).
+test(fmt_r_default, (with_output_to(atom(A), format("~r", [16])), with_output_to(atom(B), format("~R", [16]))), solutions([(A = '20', B = '20')])).
+test(fmt_r_36, with_output_to(atom(A), format("~36r", [35])), solutions([A = z])).
+test(fmt_r_big, with_output_to(atom(A), format("~16r", [2^100])), solutions([A = '10000000000000000000000000'])).
+test(fmt_r_neg, with_output_to(atom(A), format("~16r", [-255])), solutions([A = '-ff'])).
+test(fmt_r_errors_radix_0, format("~0r", [16]), error(domain_error(radix, 0))).
+test(fmt_r_errors_radix_1, format("~1R", [16]), error(domain_error(radix, 1))).
+test(fmt_r_errors_radix_37, format("~37r", [16]), error(domain_error(radix, 37))).
+test(fmt_r_errors_inst, format("~r", [_]), error(instantiation_error)).
+test(fmt_r_errors_float, format("~r", [123.0]), error(type_error(integer, 123.0))).
+test(fmt_r_errors_evaluable, format("~r", [foo(bar)]), error(type_error(evaluable, foo/1))).
+% 誤りのときは何も書かない（レビューの焦点 3）。
+test(fmt_r_atomic, with_output_to(atom(A), catch(format("ab~r", [foo]), _, true)), solutions([A = ''])).
+test(fmt_D, with_output_to(atom(A), format("~D", [123456789])), solutions([A = '123,456,789'])).
+test(fmt_D_places, (with_output_to(atom(A), format("~2D", [123456789])), with_output_to(atom(B), format("~*D", [2, 123456789]))), solutions([(A = '1,234,567.89', B = '1,234,567.89')])).
+test(fmt_D_short, with_output_to(atom(A), format("~D", [123])), solutions([A = '123'])).
+test(fmt_D_neg, with_output_to(atom(A), format("~D", [-1234567])), solutions([A = '-1,234,567'])).
+test(fmt_D_big, with_output_to(atom(A), format("~D", [2^70])), solutions([A = '1,180,591,620,717,411,303,424'])).
+test(fmt_D_small, with_output_to(atom(A), format("~2D", [5])), solutions([A = '0.05'])).
+test(fmt_D_errors_inst, format("~D", [_]), error(instantiation_error)).
+test(fmt_D_errors_float, format("~D", [123.0]), error(type_error(integer, 123.0))).
+test(fmt_D_errors_neg_count, format("~*D", [-1, 123]), error(domain_error(not_less_than_zero, -1))).
+% '$format_radix'/4 は system にある。format を通らない誤り（基数と英字の大きさ）はここで見る。
+test(format_radix_lower, '$format_radix'(255, 16, lower, A), solutions([A = ff])).
+test(format_radix_upper, '$format_radix'(-255, 16, upper, A), solutions([A = '-FF'])).
+test(format_radix_big_upper, (X is 36^20 - 1, '$format_radix'(X, 36, upper, A)), solutions([A = 'ZZZZZZZZZZZZZZZZZZZZ'])).
+test(format_radix_min_integer, (current_prolog_flag(min_integer, M), '$format_radix'(M, 2, lower, A), atom_length(A, L)), solutions([L = 65])).
+test(format_radix_inst, '$format_radix'(_, 16, lower, _), error(instantiation_error)).
+test(format_radix_inst_radix, '$format_radix'(1, _, lower, _), error(instantiation_error)).
+test(format_radix_inst_case, '$format_radix'(1, 16, _, _), error(instantiation_error)).
+test(format_radix_type, '$format_radix'(1.0, 16, lower, _), error(type_error(integer, 1.0))).
+test(format_radix_type_radix, '$format_radix'(1, a, lower, _), error(type_error(integer, a))).
+test(format_radix_domain, '$format_radix'(1, 37, lower, _), error(domain_error(radix, 37))).
+test(format_radix_domain_big, (X is 2^100, '$format_radix'(1, X, lower, _)), error(domain_error(radix, 1267650600228229401496703205376))).
+test(format_radix_case, '$format_radix'(1, 16, middle, _), error(domain_error(letter_case, middle))).
+test(format_radix_case_type, '$format_radix'(1, 16, 42, _), error(domain_error(letter_case, 42))).
 % 引数の誤り。
 test(fmt_args_short, format("~a", []), error(domain_error(non_empty_list, []))).
 test(fmt_args_extra, format("abc", [def]), error(domain_error(empty_list, [def]))).

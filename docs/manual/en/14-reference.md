@@ -504,9 +504,27 @@ in `maplist(atom_length, [ab, c], L)`, and each call adds the elements as its la
 The format text holds directives that start with `~`. `~w` writes an argument as `write/1`, `~p` as `print/1` (which
 calls your `portray/1`), `~q` as `writeq/1` and `~k` as `write_canonical/1`; `~W` takes two arguments, a term and a
 list of write options, and writes the term as `write_term/2` does. `~a` writes an atom, `~d` an integer, `~f` and `~e`
-a float, `~s` a list of codes and `~c` a character code, and `~i` skips an argument. `~n` writes a new line, and `~N`
-writes one only when the output is not already at the start of a line. `~t` and `~|` set columns, and `~~` writes
-`~`.
+a float, `~s` a list of codes and `~c` a character code, and `~i` skips an argument. `~D` writes an integer as `~d`
+does, with a `,` between each group of three digits of its integer part. `~Nr` writes an integer in radix N, from 2 to
+36 (8 without N), with small letters for the digits above 9, and `~NR` with capital letters. `~n` writes a new line,
+and `~N` writes one only when the output is not already at the start of a line. `~t` and `~|` set columns, and `~~`
+writes `~`.
+
+For example, with a file `fmt.pl` that holds this one line, loaded as in chapter 12:
+
+<!-- file: format-file fmt.pl -->
+```prolog
+:- use_module(library(format)).
+```
+
+<!-- check: format-group -->
+```text
+?- consult('fmt.pl').
+true.
+?- format("~D~n", [1234567]).
+1,234,567
+true.
+```
 
 <!-- predicates: format -->
 | Predicate | What it does |

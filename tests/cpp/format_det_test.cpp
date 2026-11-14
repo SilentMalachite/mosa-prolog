@@ -45,6 +45,16 @@ constexpr auto k_goals = std::to_array<std::string_view>({
     "format(\"~N~w~N~N\", [a])",
     "format(\"~t~w~N~t~w~6|\", [a, b])",
     "format(user_output, \"~N~w~n\", [a])",
+    // フェーズ11のタスク7。~D は整数部を 3 桁ごとに区切る道を通る。区切りの無い短い数と多倍長も見る。
+    "format(\"~16r\", [127])",
+    "format(\"~R\", [-16])",
+    "format(\"~16r\", [2^100])",
+    "format(\"~D\", [123456789])",
+    "format(\"~D\", [-1234567])",
+    "format(\"~2D\", [123456789])",
+    "format(\"~2D\", [5])",
+    "format(\"~D\", [12])",
+    "format(\"~D\", [2^70])",
 });
 
 void check_goal(mosa::Machine& machine, std::string_view goal) {
