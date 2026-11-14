@@ -882,7 +882,7 @@ A か B か: A は、読み込みの診断を、コマンド行から読んだ�
 
 A か B か: A は、翻訳の読み込みの後で、プログラムに字面で書いた `use_module(library(Name))` と `use_module(library(Name), _)` を探す。一般の指示 `:- G` と `initialization/1` のゴールも見る（翻訳の読み込みはそれらを呼ばない）。見つけたライブラリは同梱の閉包に入れる。`Name` が変数なら何も入れず、実行ファイルが実行時に `$MOSA_LIB` と `lib/` を探す。B は、今と同じく指示の閉包だけを同梱する。ゴールで読むライブラリは、実行時に `$MOSA_LIB` と `lib/` だけを探す。これを既知の制限として書く。
 
-決定（2026-11-15）: A（所有者の決定 A）。B は採らない。A は、フェーズ 6 の「`mosac build` の実行ファイルは、コンパイラも `mosac` も無い環境で動く」を、ゴールで読むライブラリにも広げる。B だと、`mosac dist` で配った実行ファイルの中で `use_module(library(lists))` が見つからず、インタプリタと結果が分かれる。問いでは `ensure_loaded(library(Name))` も例に挙げていた。しかし `ensure_loaded/1` は原子しか受け付けない（上の「7.4.2 ensure_loaded/1」。`:- ensure_loaded(library(lists))` は `type_error(atom, library(lists))`）。そのため例から外し、`ensure_loaded/1` の引数の規則も変えない。フェーズ 12 の計画は、探す範囲を、本体の制御構造だけでなく、読んだ項の全体の部分項にした。そうして見つけた名前は、ライブラリがあれば同梱が増えるだけで、無ければ何も言わずに飛ばす。翻訳は止めない。`mosatest --diff` の翻訳（`units.cpp` の `translate_one`）は変えない。差分の訳した側は、ゴールで読むライブラリを同じディスクの `lib/` から読むので、結果は同じになる。
+決定（2026-11-15）: A（所有者の決定 A）。B は採らない。A は、フェーズ 6 の「`mosac build` の実行ファイルは、コンパイラも `mosac` も無い環境で動く」を、ゴールで読むライブラリにも広げる。B だと、`mosac dist` で配った実行ファイルの中で `use_module(library(apply))` が見つからず、インタプリタと結果が分かれる。問いでは `ensure_loaded(library(Name))` も例に挙げていた。しかし `ensure_loaded/1` は原子しか受け付けない（上の「7.4.2 ensure_loaded/1」。`:- ensure_loaded(library(lists))` は `type_error(atom, library(lists))`）。そのため例から外し、`ensure_loaded/1` の引数の規則も変えない。フェーズ 12 の計画は、探す範囲を、本体の制御構造だけでなく、読んだ項の全体の部分項にした。そうして見つけた名前は、ライブラリがあれば同梱が増えるだけで、無ければ何も言わずに飛ばす。翻訳は止めない。`mosatest --diff` の翻訳（`units.cpp` の `translate_one`）は変えない。差分の訳した側は、ゴールで読むライブラリを同じディスクの `lib/` から読むので、結果は同じになる。
 
 ## 第5節 `@/2` と `add_import_module/3`
 
