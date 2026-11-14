@@ -190,7 +190,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | `library(lists)` | `append/3`、`member/2`、`memberchk/2`、`length/2`（ISO コアなので system に置き re-export）、`nth0/3`、`nth1/3`、`last/2`、`reverse/2`、`msort/2`、`sum_list/2`、`max_list/2`、`list_to_set/2` |
 | `library(apply)` | `maplist/2..5`、`foldl/4..6`、`include/3`、`exclude/3` |
 | `library(between)` | `between/3`、`succ/2`、`plus/3` |
-| `library(format)` | `format/1,2,3`（`~w`、`~q`、`~a`、`~d`、`~f`、`~e`、`~s`、`~c`、`~n`、`~t`、`~\|`） |
+| `library(format)` | `format/1,2,3`（`~w`、`~p`、`~q`、`~k`、`~W`、`~a`、`~d`、`~f`、`~e`、`~s`、`~c`、`~i`、`~n`、`~N`、`~t`、`~\|`） |
 | `library(strings)` | `atomic_list_concat/2,3`、`split_atom/4`、`upcase_atom/2`（Unicode 大文字化は simple case mapping のみ） |
 | `library(dcg)` | `expand_term/2`（文法規則 `H --> B` を 1 つ訳す。変数でなく `-->/2` でもない項はそのまま返り、第 1 引数が未束縛なら `instantiation_error`） |
 | `library(japanese)` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2`（表示幅の計算）。生成テーブルで実装 |

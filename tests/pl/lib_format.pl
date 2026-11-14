@@ -79,6 +79,37 @@ test(fmt_col_second, with_output_to(atom(A), format("~w~t~4|~t~w~8|", [a, b])), 
 test(fmt_col_after_nl, with_output_to(atom(A), format("abc~nx~t~3|y", [])), solutions([A = 'abc\nx  y'])).
 % SPEC 第4節。漢字 は幅 4 なので桁 4 で埋め草は無い。フェーズ4の文字数で数えた期待値 '漢字  x' を Task 13 で直した。
 test(fmt_col_kanji, with_output_to(atom(A), format("~w~t~4|x", [漢字])), solutions([A = '漢字x'])).
+% ~i、~k、~W、~p、~N（フェーズ11のタスク6）。入力と期待値はスイートの format_2・format_3 の件と同じ。
+test(fmt_i, with_output_to(atom(A), format("~a~i~a", [a, b, c])), solutions([A = ac])).
+test(fmt_i_count, with_output_to(atom(A), format("~a~3i~a", [a, b, c])), solutions([A = ac])).
+test(fmt_i_star, with_output_to(atom(A), format("~a~*i~a", [a, 3, b, c])), solutions([A = ac])).
+test(fmt_k, with_output_to(atom(A), format("~k", ['A' + 'B'])), solutions([A = '+(\'A\',\'B\')'])).
+test(fmt_k_prefix, with_output_to(atom(A), format("~k", [(:- a)])), solutions([A = ':-(a)'])).
+test(fmt_W, with_output_to(atom(A), format("~W", [a + 'B', [quoted(true)]])), solutions([A = 'a+\'B\''])).
+test(fmt_W_canonical, with_output_to(atom(A), format("~W", [a + 'B', [quoted(true), ignore_ops(true)]])), solutions([A = '+(a,\'B\')'])).
+test(fmt_W_bad, format("~W", [a, foo]), error(type_error(list, foo))).
+test(fmt_W_short, format("~W", [a]), error(domain_error(non_empty_list, []))).
+test(fmt_W_no_output, with_output_to(atom(A), catch(format("ab~W", [a, foo]), _, true)), solutions([A = ''])).
+test(fmt_p, with_output_to(atom(A), format("~p", [42])), solutions([A = '42'])).
+% portray/1 は fmt_portray_me だけに合うので、このファイルのほかの print と ~p の字面は変わらない。
+portray(fmt_portray_me) :- write(seen).
+test(fmt_p_portray, with_output_to(atom(A), format("~p", [f(fmt_portray_me)])), solutions([A = 'f(seen)'])).
+test(fmt_N, with_output_to(atom(A), format("~Nbegin~N~Nend", [])), solutions([A = 'begin\nend'])).
+test(fmt_N_count, with_output_to(atom(A), format("~Nbegin~3N~Nend", [])), solutions([A = 'begin\nend'])).
+% 行の途中から始まる ~N は改行を出す（レビューの焦点 1）。行の頭から始まれば出さない。
+test(fmt_N_midline, with_output_to(atom(A), (write(x), format("~Nb", []))), solutions([A = 'x\nb'])).
+test(fmt_N_line_start, with_output_to(atom(A), (write('x\n'), format("~Nb", []))), solutions([A = 'x\nb'])).
+test(fmt_N_stream, with_output_to(atom(A), (write(x), current_output(S), format(S, "~Nb", []))), solutions([A = 'x\nb'])).
+test(fmt_N_after_text_nl, with_output_to(atom(A), format("a\n~Nb~n~Nc", [])), solutions([A = 'a\nb\nc'])).
+% ~N の改行も ~n と同じく区切りを確定するので、後の ~| は改行の後から数える。
+test(fmt_N_column, with_output_to(atom(A), format("~tab~N~w~t~4|x", [c])), solutions([A = 'ab\nc   x'])).
+test(fmt3_input_stream, format(user_input, "x", []), error(permission_error(output, stream, user_input))).
+% '$stream_column'/2 は put_char/2 と同じ検査をして、最後の改行から書いた字の数を返す。
+test(stream_column, with_output_to(atom(_), (write(abc), current_output(S), '$stream_column'(S, C))), solutions([C = 3])).
+test(stream_column_line, with_output_to(atom(_), (write('ab\nc'), current_output(S), '$stream_column'(S, C))), solutions([C = 1])).
+test(stream_column_inst, '$stream_column'(_, _), error(instantiation_error)).
+test(stream_column_domain, '$stream_column'(foo, _), error(domain_error(stream_or_alias, foo))).
+test(stream_column_input, '$stream_column'(user_input, _), error(permission_error(output, stream, user_input))).
 % 引数の誤り。
 test(fmt_args_short, format("~a", []), error(domain_error(non_empty_list, []))).
 test(fmt_args_extra, format("abc", [def]), error(domain_error(empty_list, [def]))).

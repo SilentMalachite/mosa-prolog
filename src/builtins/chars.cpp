@@ -416,6 +416,13 @@ void run_tab(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
+// nl/1 と同じ順（流れの形と別名、閉じた流れ、出力の流れか）で調べる。'$stream_column'/2 が使う。検査の写しを
+// 別のファイルにもう 1 つ作らないため、ここから出す。
+bool select_output_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& index) {
+  if (resolve_stream(machine, goal, term, index)) return true;
+  return reject_closed(machine, goal, index, term) || reject_output(machine, goal, machine.streams[index], term);
+}
+
 // 壊れた並びは、正しい並びの頭として通る最長の部分（maximal subpart）を 1 つの誤りとする（Unicode 15.0 の 3.9 節、
 // 表 3-7）。前は先頭の 1 バイトだけを 1 つとし、末尾で切れた E3 81 が U+FFFD 2 つになった（レビュー L6）。
 std::size_t ill_formed_width(std::string_view bytes, std::size_t index) {

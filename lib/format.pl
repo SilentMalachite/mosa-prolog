@@ -1,27 +1,31 @@
 % library(format)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_format.pl と、選択点を残さないことを見る
 % tests/cpp/format_det_test.cpp。
-% 指示は ~w ~q ~a ~d ~f ~e ~s ~c ~n ~t ~| ~~ だけ。誤りは iso-notes の Section 5 format/2 errors の決定 A。
-% 出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
+% 指示は ~w ~p ~q ~k ~W ~a ~d ~f ~e ~s ~c ~i ~n ~N ~t ~| ~~ だけ。誤りは iso-notes の Section 5 format/2 errors の
+% 決定 A。出力を全部組んでから一度に書く。途中で誤りが出ても、半端な出力を残さない。
+% ~N だけは出力先の流れを見る（format/1,2 は呼んだときの現在出力、format/3 は引数の流れ）。~t と ~| の桁は今までと
+% 同じく呼び出しの始まりを 0 とする（フェーズ11の設計の非目標）。
 :- module(format, [format/1, format/2, format/3]).
 :- use_module(library(lists)).
 
 
 format(Format) :-
-    format_atom(Format, [], format/1, Text),
+    current_output(Stream),
+    format_atom(Format, [], Stream, format/1, Text),
     write(Text).
 
 format(Format, Args) :-
-    format_atom(Format, Args, format/2, Text),
+    current_output(Stream),
+    format_atom(Format, Args, Stream, format/2, Text),
     write(Text).
 
 format(Stream, Format, Args) :-
-    format_atom(Format, Args, format/3, Text),
+    format_atom(Format, Args, Stream, format/3, Text),
     write(Stream, Text).
 
-format_atom(Format, Args, PI, Text) :-
+format_atom(Format, Args, Stream, PI, Text) :-
     text_chars(Format, PI, Chars),
     must_be_list(Args, PI),
-    directives(Chars, Args, PI, st(0, [], []), Out),
+    directives(Chars, Args, Stream, PI, st(0, [], []), Out),
     atom_chars(Text, Out).
 
 % 書式と ~s の引数は、原子、文字のリスト、文字コードのリストのどれでもよい。
@@ -69,24 +73,28 @@ must_be_list(List, PI) :-
     catch(length(List, _), error(Formal, _), throw(error(Formal, context(PI, _)))),
     throw(error(instantiation_error, context(PI, _))).
 
-directives([], Args, PI, St, Out) :-
+% ~N だけが流れを要るので、directive/7 に流れを通さず、ここで分ける。
+directives([], Args, _, PI, St, Out) :-
     (   Args == []
     ->  true
     ;   throw(error(domain_error(empty_list, Args), context(PI, _)))
     ),
     flush(St, st(_, _, Rev)),
     reverse(Rev, Out).
-directives(['~'|Cs0], Args0, PI, St0, Out) :-
+directives(['~'|Cs0], Args0, Stream, PI, St0, Out) :-
     !,
     count(Cs0, Args0, PI, Cs1, Args1, Count),
-    (   Cs1 = [D|Cs]
+    (   Cs1 = ['N'|Cs]
+    ->  Args = Args1,
+        fresh_line(Stream, PI, St0, St)
+    ;   Cs1 = [D|Cs]
     ->  directive(D, Count, Args1, Args, PI, St0, St)
     ;   throw(error(domain_error(format_directive, '~'), context(PI, _)))
     ),
-    directives(Cs, Args, PI, St, Out).
-directives([C|Cs], Args, PI, St0, Out) :-
+    directives(Cs, Args, Stream, PI, St, Out).
+directives([C|Cs], Args, Stream, PI, St0, Out) :-
     emit([C], St0, St),
-    directives(Cs, Args, PI, St, Out).
+    directives(Cs, Args, Stream, PI, St, Out).
 
 % ~N、~*、~`c の 3 つの書き方。無ければ none。
 count(['*'|Cs], Args0, PI, Cs, Args, N) :-
@@ -147,6 +155,28 @@ directive(q, _, Args0, Args, PI, St0, St) :-
     next_arg(Args0, PI, X, Args),
     with_output_to(atom(A), writeq(X)),
     emit_atom(A, St0, St).
+directive(k, _, Args0, Args, PI, St0, St) :-
+    !,
+    next_arg(Args0, PI, X, Args),
+    with_output_to(atom(A), write_canonical(X)),
+    emit_atom(A, St0, St).
+% 選択肢は write_term/2 が調べるので、その誤りは write_term/2 のものになる（~d の誤りが is/2 のものであるのと同じ）。
+directive('W', _, Args0, Args, PI, St0, St) :-
+    !,
+    next_arg(Args0, PI, X, Args1),
+    next_arg(Args1, PI, Options, Args),
+    with_output_to(atom(A), write_term(X, Options)),
+    emit_atom(A, St0, St).
+% print/1 は利用者の portray/1 を呼ぶ（iso-notes 8.14 の決定）。portray が現在出力へ書いた字も A に入る。
+directive(p, _, Args0, Args, PI, St0, St) :-
+    !,
+    next_arg(Args0, PI, X, Args),
+    with_output_to(atom(A), print(X)),
+    emit_atom(A, St0, St).
+% ~i は引数を 1 つ読み飛ばす。桁の数は使わない。
+directive(i, _, Args0, Args, PI, St, St) :-
+    !,
+    next_arg(Args0, PI, _, Args).
 directive(a, _, Args0, Args, PI, St0, St) :-
     !,
     next_arg(Args0, PI, X, Args),
@@ -206,6 +236,42 @@ directive('|', Count, Args, Args, _, St0, St) :-
     column_stop(Count, St0, St).
 directive(D, _, _, _, PI, _, _) :-
     throw(error(domain_error(format_directive, D), context(PI, _))).
+
+% ~N は、行の頭にいれば何も出さず、そうでなければ ~n と同じく改行を出して区切りを確定する。桁の数は使わない。
+% 何も出さないときは区切りを確定しない。確定すると、前の ~t が後の ~| で埋めるはずの桁を失う。
+fresh_line(Stream, PI, St0, St) :-
+    (   line_start(St0, Stream, PI)
+    ->  St = St0
+    ;   emit(['\n'], St0, St1),
+        flush(St1, St)
+    ).
+
+% 組んだ出力の最後の字が改行なら行の頭。何も組んでいなければ、流れの始まりの桁が 0 かで決める。流れの桁は
+% 何も組んでいないときにだけ読むので、~N の無い書式で流れの誤りが書式の誤りより先に出ることは無い。
+line_start(st(_, Seg, Out), Stream, PI) :-
+    (   last_text_char(Seg, C)
+    ->  C == '\n'
+    ;   Out = [C|_]
+    ->  C == '\n'
+    ;   stream_column(Stream, PI, Col),
+        Col =:= 0
+    ).
+
+% 区切りの項目は新しいものが先にある。埋め草と空の text は字を出していないので飛ばす。
+last_text_char([text(Chars)|_], C) :-
+    last_char(Chars, C),
+    !.
+last_text_char([_|Items], C) :-
+    last_text_char(Items, C).
+
+last_char([C], C) :-
+    !.
+last_char([_|Cs], C) :-
+    last_char(Cs, C).
+
+% 流れの誤りの文脈は '$stream_column'/2 でなく format の述語指示子にする。
+stream_column(Stream, PI, Col) :-
+    catch('$stream_column'(Stream, Col), error(Formal, _), throw(error(Formal, context(PI, _)))).
 
 float_directive(Kind, Count, Args0, Args, PI, St0, St) :-
     next_arg(Args0, PI, X, Args),

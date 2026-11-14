@@ -134,6 +134,9 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_lists(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_length_gen(Impl& machine);
 [[nodiscard]] bool run_format_float(Impl& machine, const Goal& goal);
+[[nodiscard]] bool run_format_support(Impl& machine, const Goal& goal);
+// put_char/2 と同じ検査で、流れの項か別名 term を出力の流れの番号にする（chars.cpp）。誤りを投げたら真。
+[[nodiscard]] bool select_output_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& index);
 [[nodiscard]] bool run_case(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_char_width(Impl& machine, const Goal& goal);
 int apply_char_conv_directive(Impl& machine, Cell directive);

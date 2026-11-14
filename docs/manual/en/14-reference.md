@@ -501,9 +501,12 @@ in `maplist(atom_length, [ab, c], L)`, and each call adds the elements as its la
 
 ### `library(format)`
 
-The format text holds directives that start with `~`: `~w` writes an argument as `write/1`, `~q` as `writeq/1`, `~a`
-an atom, `~d` an integer, `~f` and `~e` a float, `~s` a list of codes, `~c` a character code, `~n` a new line, `~t`
-and `~|` set columns, and `~~` writes `~`.
+The format text holds directives that start with `~`. `~w` writes an argument as `write/1`, `~p` as `print/1` (which
+calls your `portray/1`), `~q` as `writeq/1` and `~k` as `write_canonical/1`; `~W` takes two arguments, a term and a
+list of write options, and writes the term as `write_term/2` does. `~a` writes an atom, `~d` an integer, `~f` and `~e`
+a float, `~s` a list of codes and `~c` a character code, and `~i` skips an argument. `~n` writes a new line, and `~N`
+writes one only when the output is not already at the start of a line. `~t` and `~|` set columns, and `~~` writes
+`~`.
 
 <!-- predicates: format -->
 | Predicate | What it does |

@@ -37,6 +37,14 @@ constexpr auto k_goals = std::to_array<std::string_view>({
     "format(\"~~\")",
     "format(\"~*c\", [3, 0'x])",
     "format(user_output, \"~w\", [a])",
+    // フェーズ11のタスク6。~N は何も組んでいなければ '$stream_column'/2 を catch/3 の中で呼ぶ。
+    "format(\"~a~i~a\", [a, b, c])",
+    "format(\"~k\", ['A'])",
+    "format(\"~W\", [a, [quoted(true)]])",
+    "format(\"~p\", [a])",
+    "format(\"~N~w~N~N\", [a])",
+    "format(\"~t~w~N~t~w~6|\", [a, b])",
+    "format(user_output, \"~N~w~n\", [a])",
 });
 
 void check_goal(mosa::Machine& machine, std::string_view goal) {
