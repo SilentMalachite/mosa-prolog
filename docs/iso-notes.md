@@ -816,3 +816,27 @@ ISO/IEC 13211-1 8.17.4 takes an integer exit status but does not say what an int
 A or B?: A: an integer outside C++ `int` gives `representation_error(max_integer)` when positive and `representation_error(min_integer)` when negative (the Flags of 7.12.2 g), the same for an int64 outside `int` and for a Big. B: pass the low bits of the integer to the OS.
 
 Decision (2026-11-13): A (owner decision A). B is rejected. One check, `halt_code_problem` in `src/builtins/control.cpp`, serves two places. The first is the IR arm `arm_halt` in `src/machine/catch.cpp`. Interpreted and translated code both reach it, because the interpreter's `compile.cpp` and mosac's codegen (`emit_body.cpp`) both lower `halt` to `IrTag::Halt`. The second is the built-in entry `run_halt` in `control.cpp`; the tests are `halt_*` in `tests/pl/bigint.pl`. An integer inside `int` still goes to the OS unchanged, which keeps its own low bits (for example 8 bits on POSIX).
+
+## Section 5 `length/2`: ISO or not
+
+SPEC section 5 lists `length/2` as "ISO core", while chapter 14 of the manual gives it the clause number "—". The repository holds no text of 13211-1, so this is not settled by its wording. It decides which column the 24 conformance cases of `length_2` count in: the ISO column, or the library column of SPEC section 8.
+
+A or B?: A: the manual is right. Fix the wording of SPEC section 5 to "not in 13211-1, kept in `system`" (en/ja); the place (`system`) does not change, and `length_2` counts in the library column. B: SPEC is right. Write the clause number in the table of manual chapter 14 (en/ja), and `length_2` counts in the ISO column (the ISO rate moves from 2291/2326 to 2314/2350, so the regression gate's yardstick is rebuilt in that commit).
+
+Until the owner confirms: A. The wording of SPEC section 5 is not touched, and `length_2` counts in the library column.
+
+## Section 7 Stage G `setup_call_cleanup/3`: bindings of a cleanup that a cut runs
+
+The suite case `lgt_setup_call_cleanup_3_26` runs `setup_call_cleanup(true, ndet(_), D = true)` and then expects `var(D)`. The runner builds the goal of a test as `(Body, !), (Check)` (`goal_text` in `src/machine/lgt_file.cpp`). The cut there removes the choice point of `ndet(_)` and so runs the cleanup, and under ADR 0016 the bindings a cleanup makes are kept, so `D` is `true` and the check `var(D)` fails. The case therefore fails for the rule of ADR 0016, not for a bug in the runner.
+
+A or B?: A: keep ADR 0016 as it is; the one case stays failing (`lgt_setup_call_cleanup_3_26`, recorded as "a difference in interpreting the specification"). B: change ADR 0016 so that the bindings of a cleanup run by a cut are undone (this needs a new ADR that replaces 0016 on the engine's cleanup frame, and touches `trim_stack` and the generated code's cut).
+
+Until the owner confirms: A. ADR 0016 is not changed.
+
+## Section 5 `format/2,3`: reference for the phase 11 directives
+
+13211-1 has no `format/2,3`, so the reference for the directives that phase 11 adds (`~+ ~r ~R ~E ~g ~G ~D ~p ~i ~W ~k ~N`) is the cases of the bundled suite, `format_2` and `format_3`. A point the cases do not decide follows the documentation of SWI-Prolog's `format/2`; where the suite and SWI-Prolog disagree, the suite wins (for example, the default radix of `~r` is 8).
+
+- `~r` and `~R` with a radix outside 2 to 36 raise `domain_error(radix, N)`; the suite accepts any `domain_error(_, _)`.
+- The columns of `~t~|` and `~+` are counted from the start of the `format` call as column 0, not from the current column of the output stream. This is a known limit: the stream counts characters, not East Asian width, so its column cannot be used as it is. The columns are counted with East Asian width (W and F as 2), as `~t~|` already does ("Section 4 format/2 fill characters by width").
+- The directory `portray_1` is out of scope. `portray/1` is not made a built-in; the decision of 8.14 ("print/1 and print/2" above) stands.

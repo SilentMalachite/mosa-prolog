@@ -818,3 +818,27 @@ ISO/IEC 13211-1 の 8.17.4 は終了状態に整数を取るが、OS が受け�
 A か B か: A は C++ の `int` の外の整数を、正なら `representation_error(max_integer)`、負なら `representation_error(min_integer)` にする（7.12.2 g の Flag）。`int` の外の int64 にも Big にも同じ規則を当てる。B は整数の下位のビットを OS に渡す。
 
 決定（2026-11-13）: A（所有者の決定 A）。B は採らない。IR の腕 `arm_halt`（`src/machine/catch.cpp`）と組み込みの入口 `run_halt`（`src/builtins/control.cpp`）は、1 つの検査 `halt_code_problem`（`control.cpp`）を共に使う。インタプリタの `compile.cpp` も mosac の codegen（`emit_body.cpp`）も `halt` を `IrTag::Halt` に下ろすので、解釈するコードと翻訳したコードはどちらも `arm_halt` を通る。テストは `tests/pl/bigint.pl` の `halt_*`。`int` の中の整数は今までどおりそのまま OS に渡り、OS がその下位のビットを取る（たとえば POSIX では 8 ビット）。
+
+## 第5節 `length/2`: ISO か否か
+
+SPEC 第5節は `length/2` を「ISO core」としているが、マニュアル第14章は節番号を「—」としている。このリポジトリに 13211-1 の本文は無いので、文言では決まらない。これは `length_2` の準拠試験 24 件をどの欄で数えるか（ISO 欄か、SPEC 第8節のライブラリ欄か）を決める。
+
+A か B か: A はマニュアルが正しい。SPEC 第5節の文言を「13211-1 に無いが `system` に置く」に直し（日英）、置き場所（`system`）は変えない。`length_2` はライブラリ欄で数える。B は SPEC が正しい。マニュアル第14章の表に節番号を書き（日英）、`length_2` を ISO 欄で数える（ISO 欄の率は 2291/2326 から 2314/2350 に動くので、後退の判定の物差しをその回に作り直す）。
+
+持ち主が確かめるまでは A。SPEC 第5節の文言には触れず、`length_2` はライブラリ欄で数える。
+
+## 第7節 段階 G `setup_call_cleanup/3`: カットが動かす後始末の束縛
+
+スイートの `lgt_setup_call_cleanup_3_26` は、`setup_call_cleanup(true, ndet(_), D = true)` を動かしたあとに `var(D)` を期待する。試験器は 1 件の試験のゴールを `(本体, !), (確かめ)` と組む（`src/machine/lgt_file.cpp` の `goal_text`）。そこのカットが `ndet(_)` の選択点を外して後始末を動かし、ADR 0016 では後始末の作る束縛は残るので、`D` は `true` になり、確かめの `var(D)` が落ちる。つまりこの 1 件は試験器の誤りではなく、ADR 0016 の規則で落ちる。
+
+A か B か: A は ADR 0016 のままにする。この 1 件（`lgt_setup_call_cleanup_3_26`）は不合格のままにし、「仕様の解釈の違い」として記録する。B は ADR 0016 を改め、カットが動かした後始末の束縛を戻す（0016 に代わる新しい ADR が要り、エンジンの後始末の枠、`trim_stack` と生成コードのカットに触る）。
+
+持ち主が確かめるまでは A。ADR 0016 は変えない。
+
+## 第5節 `format/2,3`: フェーズ11の指示の参照
+
+13211-1 に `format/2,3` は無いので、フェーズ11が足す指示（`~+ ~r ~R ~E ~g ~G ~D ~p ~i ~W ~k ~N`）の参照は、同梱のスイートの `format_2` と `format_3` の件である。件が決めない点は SWI-Prolog の `format/2` の文書に従い、スイートと SWI-Prolog が食い違うところはスイートに従う（例: `~r` の既定の基数は 8）。
+
+- `~r` と `~R` の基数が 2〜36 の外なら `domain_error(radix, N)` を投げる。スイートは `domain_error(_, _)` ならよい。
+- `~t~|` と `~+` の桁は、出力先の流れの今の桁ではなく、`format` の呼び出しの始まりを桁 0 として数える。既知の制限である。流れが数えるのは字の数で東アジア幅ではないので、その桁はそのまま使えない。桁は、`~t~|` が今そうしているとおり（「第4節 format/2 の埋め草の字を幅で数える」）、東アジア幅（W と F を 2）で数える。
+- ディレクトリ `portray_1` は範囲の外である。`portray/1` は組み込みにしない。8.14 の決定（上の「print/1 と print/2」）のままである。
