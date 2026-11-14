@@ -12,13 +12,13 @@
 - ISO の組み込み述語のディレクトリのうち 4 つ（`sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2`。最後の 1 つの中身は `\=/2`）は分母の外にある。この 4 つの 52 件はすべて合格する。
 - mosa が実装している ISO 外の述語のディレクトリは 566 件ある。合格は 369 件（65.2%）である。不合格の大半は `format/2,3` の 189 件で、そのうち 183 件は SPEC 第5節の表に無い指示（`~+` `~r` `~R` `~E` `~g` `~G` `~D` `~p` `~i` `~W` `~k` `~N`）によるものである。
 
-このフェーズでは、ISO の 4 つと、SPEC が ISO の組み込みとしている `length/2` のディレクトリ（`length_2`。所有者への問い 1）を本欄の分母に入れる。実装済みのライブラリ述語は、ISO の率と混ぜずに別の欄（ライブラリ欄）で測る。そのうえで、ライブラリ欄の不合格を直す。中心は `format/2,3` の指示をスイートが試す範囲までそろえることである。
+このフェーズでは、ISO の 4 つを本欄の分母に入れる。実装済みのライブラリ述語は、ISO の率と混ぜずに別の欄（ライブラリ欄）で測る。そのうえで、ライブラリ欄の不合格を直す。中心は `format/2,3` の指示をスイートが試す範囲までそろえることである。
 
-読む人は、このあと実装計画を書き、実装するエージェントである。所有者がこの文書を承認するまで、計画は書いても実装はしない。
+読む人は、このあと実装計画を書き、実装するエージェントである。所有者がこの文書を承認したあとに、SPEC 第9節の 11 行目と実装計画を書く。承認までは計画も実装もしない。
 
 ## 目標
 
-- 本欄（ISO）の分母に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` と、問い 1 の決定に従って `length_2` が入る。
+- 本欄（ISO）の分母に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` が入る。
 - ライブラリ欄が `docs/conformance.md` に入り、独自の分母、合格数、合格率、不合格の一覧を持つ。ライブラリ欄の率にも後退の判定がかかる。
 - ライブラリ欄の `format_2`・`format_3` に、`domain_error(format_directive, _)` の不合格が 1 件も残らない。
 - `numbervars/3`、`length/2`、`setup_call_cleanup/3` の不合格を直す。直さないものは、理由を iso-notes に書く。
@@ -65,11 +65,11 @@
 
 どちらも既定のまま進めても、このフェーズは閉じられる。
 
-1. **`length/2` は ISO の組み込みか（SPEC 第5節）**
-   - SPEC 第5節のライブラリ表は「`length/2`（ISO core なので system に置き、再エクスポートする）」と書いている。私の理解では、13211-1 と Cor.1〜3 の組み込み述語に `length/2` は無い。リポジトリに本文が無いので確かめられない（AGENTS.md の「SPEC が規格と食い違うときは iso-notes に書いて問う」に当たる）。
-   - A: SPEC のとおり ISO の組み込みとして扱い、`length_2` を本欄で数える。
-   - B: SPEC 第5節の「ISO core」の文言を「13211-1 に無いが system に置く」に直し（日英）、`length_2` をライブラリ欄で数える。置き場所（system）は変えない。
-   - 既定は A（私の判断）。AGENTS.md は、確かめるまで SPEC をその場で直さないとしている。本欄に 13211-1 に無い述語が入るのは `print/1,2` と `findall/4` と同じ扱いである（非目標）。B に決まってもあとで外せる。外すと本欄の率は上がる（2314/2350 から 2291/2326）ので、後退の判定には掛からない。
+1. **`length/2` は ISO の組み込みか（SPEC 第5節とマニュアル第14章の食い違い）**
+   - SPEC 第5節のライブラリ表は「`length/2`（ISO core なので system に置き、再エクスポートする）」と書いている。一方、マニュアル第14章の組み込み述語の表は、`length/2` の節番号を「—」（13211-1 に無い）としている。私の理解でも、13211-1 と Cor.1〜3 の組み込み述語に `length/2` は無い。リポジトリに本文が無いので確かめられない（AGENTS.md の「SPEC が規格と食い違うときは iso-notes に書いて問う」に当たる）。
+   - A: マニュアルが正しい。SPEC 第5節の「ISO core」の文言を「13211-1 に無いが system に置く」に直す（日英）。置き場所（system）は変えない。`length_2` はライブラリ欄で数える。
+   - B: SPEC が正しい。マニュアル第14章の表に節番号を書き（日英）、`length_2` を本欄で数える。
+   - 既定は A（私の判断）。確認までは SPEC の文言に触れず、`length_2` は下の「範囲の規則」どおりライブラリ欄で数える（所有者が作り方 3 を選んだときに見た分け方と同じ）。B に決まれば本欄に移す。移すと本欄の率は 2291/2326 から 2314/2350 になり、分数としてわずかに下がるので、その回は後退の判定の物差しを作り直す。
 2. **カットが走らせた後始末の束縛（ADR 0016）**
    - スイートの `lgt_setup_call_cleanup_3_26` は、`setup_call_cleanup(true, ndet(_), D = true)` のあとに `var(D)` を期待する。試験器はゴールを `(本体, !), (確かめ)` と組む（`src/machine/lgt_file.cpp` の `goal_text`）。このカットが後始末を走らせ、ADR 0016 では後始末の束縛は残るので、`D` は `true` になって落ちる。
    - A: ADR 0016 のまま。この 1 件は不合格のまま、理由を iso-notes に書く。
@@ -78,8 +78,8 @@
 
 ## 範囲の規則（私の判断）
 
-- **本欄**: 今の範囲（SPEC 第7節の段階 A〜E のディレクトリ）に加えて、名前の述語を SPEC かマニュアル第14章が 13211-1（Cor.1〜3 を含む）の組み込み述語として扱っているディレクトリ。このフェーズで足すのは `predicates/sort_2`（8.4.3。SPEC 段階 G「ISO core なので system」）、`keysort_2`（8.4.4。同じ）、`ground_1`（8.3.10、Cor.2。マニュアル第14章の表）、`not_unifiable_2`（中身は `\=/2`。SPEC 段階 A）、`length_2`（SPEC 第5節「ISO core」。問い 1 が B ならライブラリ欄）である。
-- **ライブラリ欄**: `predicates/` の直下のディレクトリのうち、本欄に入らず、名前の述語を mosa が `system` か同梱のライブラリ（`lib/*.pl`）で提供しているもの。2026-11-14 の時点では `atomic_list_concat_2`、`atomic_list_concat_3`、`between_3`、`format_2`、`format_3`、`forall_2`（0 件）、`msort_2`、`numbervars_3`、`plus_3`、`predicate_property_2`、`setup_call_cleanup_3`、`succ_2` の 12 個である（問い 1 が B なら `length_2` を足して 13 個）。
+- **本欄**: 今の範囲（SPEC 第7節の段階 A〜E のディレクトリ）に加えて、名前の述語にマニュアル第14章の表が 13211-1（Cor.1〜3 を含む）の節番号を付けているディレクトリ。このフェーズで足すのは `predicates/sort_2`（8.4.3）、`keysort_2`（8.4.4）、`ground_1`（8.3.10）、`not_unifiable_2`（中身は `\=/2`、8.2.3）の 4 つである。
+- **ライブラリ欄**: `predicates/` の直下のディレクトリのうち、本欄に入らず、名前の述語を mosa が `system` か同梱のライブラリ（`lib/*.pl`）で提供しているもの。2026-11-14 の時点では `atomic_list_concat_2`、`atomic_list_concat_3`、`between_3`、`format_2`、`format_3`、`forall_2`（0 件）、`length_2`（問い 1 が B なら本欄）、`msort_2`、`numbervars_3`、`plus_3`、`predicate_property_2`、`setup_call_cleanup_3`、`succ_2` の 13 個である。
 - 規則は一覧として `lgt_suite.hpp` に書き、一覧の各行に、その述語の置き場所（`system` かライブラリ名）を注釈で添える。
 - 範囲の外のままのもの: 上の非目標に挙げたディレクトリ、`directives/conditional_compilation`、`unicode/encodings`、`unicode/directives`、`syntax/directives/meta_predicate_1`、`functions/` の 9 つ。
 - 試験器が `user` に取り込む 6 つのライブラリ（`lgt_libs.cpp`）は変えない。ライブラリ欄の述語はこの取り込みで見える。
@@ -127,7 +127,7 @@
 付録 A の不合格 9 件（`format` の 189 件を除く）と、`format` の `print_portray` の 8 件を 1 件ずつ調べる。原因が mosa にあれば直す。試験器（Logtalk の `^^variant/2` などの補助を読めない）にあれば、試験器を直す。直せないものは iso-notes に理由を書く。試験器を直すときは、Logtalk の lgtunit が同じ件をどう流すかに合わせる。期待値を mosa に合わせて変える形にはしない。
 
 - `numbervars_3` の 6 件: `commons_numbervars_3_08`〜`12`（`^^assertion` を含む本体）と `_15`（`numbervars(_, 1, a)` に `type_error(integer, a)` を期待。今は失敗する）。
-- `length_2` の 1 件: `commons_length_2_06`（`deterministic` と `^^variant/2`）。本欄に入るので、タスク 4 までは本欄の不合格が 1 件増える。
+- `length_2` の 1 件: `commons_length_2_06`（`deterministic` と `^^variant/2`）。
 - `setup_call_cleanup_3` の 1 件: `lgt_setup_call_cleanup_3_26`。問い 2 を参照。既定の A なら直さない。
 - `format_2`・`format_3` の `write_numbervars` 2 件: mosa の `format("~w", [T])` は `numbervars/3` の後の `a(_)` を `a(A)` と書くのに、スイートでは失敗する。原因は試験器の側にあると見ている（未確認）。
 - `format_2`・`format_3` の `print_portray_01`〜`04` の 8 件: `portray/1` の節が `tester.lgt` に直接書かれていて、試験器が読まない。`~p` を足したうえで、試験器が `tester.lgt` の節と `dynamic`・`multifile` の指令を読むようにする。`initialization` の指令（`logtalk_load` を呼ぶ）は今と同じく読まない。
@@ -138,7 +138,7 @@
 
 1. フェーズを開く（文書だけ）: SPEC 第9節の 11 行目、第5節の `library(format)` の指示の一覧、第8節の数の文（日英）。iso-notes に問い 1 と問い 2、非目標の `portray_1` と `~|` の始まりの桁、`format` の参照の決め方。
 2. `tests/cpp/conformance_report_test.cpp`（778 行）を、振る舞いを変えずに 2 つのファイルに分ける。
-3. 範囲と報告書: 本欄に 5 つのディレクトリ（問い 1 が B なら 4 つ）を足す。ライブラリ欄の一覧、報告書の節、JSON、後退の判定、CI の Job Summary と「Check badges」、README の 2 つ目のバッジ（日英）。`conformance.md`・JSON・`agreement` を作り直す。
+3. 範囲と報告書: 本欄に 4 つのディレクトリ（問い 1 が B なら `length_2` も）を足す。ライブラリ欄の一覧、報告書の節、JSON、後退の判定、CI の Job Summary と「Check badges」、README の 2 つ目のバッジ（日英）。`conformance.md`・JSON・`agreement` を作り直す。
 4. 試験器の不足を調べて直す（`^^variant/2`、`numbervars_3` の `^^assertion`、`write_numbervars`、`tester.lgt` に直接書かれた節）。`print_portray` の 8 件は `~p` が入るタスク 6 で通る。
 5. ライブラリ述語の誤りを直す（`numbervars/3`、タスク 4 で mosa の側と分かったもの）。問い 2 が B なら、ADR 0016 の改訂（承認待ちで止まる）と `setup_call_cleanup/3` の直しを別のタスクとしてここに足す。
 6. `format` 1: `~i`、`~k`、`~W`、`~p`、`~N`（`'$stream_column'/2`）。
@@ -151,13 +151,13 @@
 
 ## 完了条件（SPEC 第9節の 11 行目にする）
 
-1. `mosatest --suite tests/conformance` の本欄の分母に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` と、問い 1 の決定に従って `length_2` が入り、本欄の合格率が 98.4% を下回らない。
+1. `mosatest --suite tests/conformance` の本欄の分母に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` が入り（問い 1 が B なら `length_2` も）、本欄の合格率が 98.4% を下回らない。
 2. `docs/conformance.md` にライブラリ欄があり、範囲の規則のディレクトリがすべて入っている。`format_2`・`format_3` に `domain_error(format_directive, _)` の不合格が無い。ライブラリ欄の残りの不合格はすべて iso-notes に理由がある。ライブラリ欄の合格率が 98.0% 以上である。
 3. `tests/pl/lib_format.pl` の新しい指示のテストと、`tests/pl/japanese.pl` が `mosa` で通り、`mosatest --diff` の差分が 0 である（ライブラリ欄のディレクトリと `japanese.pl` を含む）。
 4. `mosatest --manual --all-tables` が通る。
 5. CI の全ジョブが 3 OS で通る。
 
-完了条件 2 の 98.0% の見込み: ライブラリ欄 542 件（問い 1 が A のとき）のうち、残る見込みの不合格は Logtalk の `::` を使う 4 件（`tab_table_left_aligned`・`right_aligned`。試験器では動かない）と、問い 2 が A のときの `lgt_setup_call_cleanup_3_26` の 1 件である。全部で 5 件なら 537/542（99.1%）になる。下限を 98.0% にしたのは、タスク 4 で直せない試験器の不足が見つかったときの余地である（約 10 件）。
+完了条件 2 の 98.0% の見込み: ライブラリ欄 566 件（問い 1 が A のとき）のうち、残る見込みの不合格は Logtalk の `::` を使う 4 件（`tab_table_left_aligned`・`right_aligned`。試験器では動かない）と、問い 2 が A のときの `lgt_setup_call_cleanup_3_26` の 1 件である。全部で 5 件なら 561/566（99.1%）になる。下限を 98.0% にしたのは、タスク 4 で直せない試験器の不足が見つかったときの余地である（約 10 件）。
 
 ## 実装者に任せること
 
@@ -170,7 +170,8 @@
 
 - 試験器の不足が思ったより多いと、タスク 4 が膨らむ。膨らんだら、タスク 4 を「調べて iso-notes に書く」と「直す」の 2 つに割る。
 - `~g` の字面は、標準ライブラリの `std::to_chars` に依る。3 OS で同じ字面になるかを、タスク 8 の CI で確かめる（`'$format_float'/4` は今も `to_chars` で 3 OS が一致している）。
-- `mosatest --diff` の件数が増えるので、ctest の `diff_conformance` が長くなる。CI の時間切れに近ければ、タスク 3 で制限時間を見直す。
+- `mosatest --diff` の件数が増えるので（付録 A で 887 件）、ctest の `diff_conformance` が長くなる。CI の時間切れに近ければ、タスク 3 で制限時間を見直す。タスク 3 で差分が出たら、そこで止めて原因を調べる。
+- 付録 A の数は、ディレクトリを `functions/` の下に写して測った値である。本来の場所で流すと、相対パスに依る件の結果が変わりうる。本欄の後退の判定は分数で比べるので、予想外の不合格が 1 件でも出ると判定に掛かる。タスク 3 では、範囲を広げた直後に本来の場所で流し、付録 A と同じ数になることを確かめてから物差しを作り直す。
 
 ## 付録 A: 範囲の外のディレクトリの測定（2026-11-14、HEAD 688ba14、読んだだけ）
 
@@ -182,7 +183,7 @@
 | `keysort_2` | 18 | 18 | 5 | 本欄 |
 | `ground_1` | 7 | 7 | 2 | 本欄 |
 | `not_unifiable_2`（`\=/2`） | 10 | 10 | 10 | 本欄 |
-| `length_2` | 24 | 23 | 5 | 本欄（問い 1 が B ならライブラリ） |
+| `length_2` | 24 | 23 | 5 | ライブラリ（問い 1 が B なら本欄） |
 | `atomic_list_concat_2` | 7 | 7 | 0 | ライブラリ |
 | `atomic_list_concat_3` | 10 | 10 | 0 | ライブラリ |
 | `between_3` | 13 | 13 | 0 | ライブラリ |
@@ -202,7 +203,9 @@
 | `portray_1` | 2 | 0 | 0 | 外（非目標） |
 | `directives/conditional_compilation` | 39 | 0 | 0 | 外（未実装） |
 
-- 本欄に `length_2` を含む 5 つを足すと 2314/2350（98.47%）になる（今は 2239/2274 で 98.46%。後退の判定は分数で比べるが、上がる側なので掛からない）。`length_2` を除く 4 つなら 2291/2326（98.50%）。
-- ライブラリ欄は `length_2` を除いて 542 件中 346 件（63.8%）、含めて 566 件中 369 件（65.2%）。
+- 本欄に 4 つを足すと 2291/2326（98.50%）になる（今は 2239/2274 で 98.46%）。問い 1 が B で `length_2` も足すと 2314/2350（98.47%）。
+- ライブラリ欄は `length_2` を含めて 566 件中 369 件（65.2%）。
+- 差分テスト: 上の表の本欄とライブラリ欄の 16 ディレクトリ（`forall_2` を除く）をスクラッチに写し、`mosatest --diff` を流した。887/887 件が一致し、違いは 0 件、翻訳した述語は 47/47 だった（今のコード。新しい指示はまだ無い）。
+- 出力の桁: 文字の書き込み（`chars.cpp` の `advance`。`put_char/1`、`nl/0`、`tab/1`）と項の書き込み（`write_pred.cpp` の `advance_out`）の両方が `line_pos` を進める。`print/1` は `with_output_to/2` の中でも利用者の `portray/1` を呼ぶ（`portray(X) :- atom(X), write(X), write(X).` のもとで `print(f(foo))` は `f(foofoo)`）。
 - `format_2`・`format_3` の不合格 189 件の内訳: 知らない指示が 183 件（`~+` 51、`~r` 24、`~R` 20、`~E` 16、`~g` 14、`~G` 14、`~D` 12、`~p` 10、`~i` 8、`~W` 6、`~k` 4、`~N` 4）、Logtalk の `::` が 4 件、`write_numbervars` が 2 件。
-- 出力の桁: `Stream` は書き込みでも `line_pos` を進める（`advance_out`）。`stream_property(user_output, position(P))` は失敗するので、`~N` には内部述語が要る。
+- `stream_property(user_output, position(P))` は失敗するので、`~N` には内部述語が要る。
