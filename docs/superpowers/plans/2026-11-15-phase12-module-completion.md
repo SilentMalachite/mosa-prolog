@@ -27,7 +27,7 @@
 ## Global Constraints
 
 - 依存は C++20 標準ライブラリと CMake 3.25 以上だけにする。`-Wall -Wextra -Wpedantic`（MSVC は `/W4`）の警告はエラーとして扱う。3 OS（macOS、Linux の GCC と Clang、Windows の MSVC）で通す。
-- 生の `new`/`delete`、`reinterpret_cast`、C 配列、マクロ、コンパイラ拡張を使わない。関数は 60 行以内、ファイルは 800 行以内にする。`src/machine/internal.hpp`（800 行）には、タスク 2 で分けてから足す。次のファイルには足さない: `src/builtins/write_pred.cpp`（799）、`src/builtins/database.cpp`（762）、`tests/cpp/stream_test.cpp`（785）、`tests/cpp/machine_test.cpp`（778）。`tests/cpp/session_test.cpp`（792）には宣言と呼び出しの行だけを足し、本体は `tests/cpp/session_goals_test.cpp` に書く。
+- 生の `new`/`delete`、`reinterpret_cast`、C 配列、マクロ、コンパイラ拡張を使わない。関数は 60 行以内、ファイルは 800 行以内にする。`src/machine/internal.hpp`（800 行）には、タスク 2 で分けてから足す。次のファイルには足さない: `src/builtins/write_pred.cpp`（799）、`src/builtins/database.cpp`（762）、`tests/cpp/stream_test.cpp`（785）、`tests/cpp/machine_test.cpp`（778）。`tests/cpp/session_test.cpp`（792）には、タスク 3 と 4 の入口関数（`check_goal_load_reports()` と `check_goal_use_session()`）の宣言と呼び出しの 4 行だけを足す。個々の確かめは `tests/cpp/session_goals_test.cpp` に書き、入口関数から呼ぶ。
 - エラーは `raise_formal` と `formal_*` の族だけで作る。アトムの名前を文字列で直に書かない（今の `formal_type(machine, "atom", …)` の形はよい）。
 - 組み込み述語の C++ は、引数の検査、本体、束縛の順に書く。ファイルの頭のコメントには、節番号、引数のモード、投げうる誤り、テストのファイル名を書く。新しい述語の節番号は「13211-1 に条項は無い。13211-2 での位置は未確認」と書く。
 - テストを先に書き、赤を確かめてから緑にする。エラーのテストは `Formal` だけを比べる。期待値を実装に合わせて変えない（例外は「設計との違い」1 の 2 件だけ）。
@@ -95,7 +95,7 @@
 **Files:**
 - Modify: `src/machine/internal.hpp`（`Impl` に 2 つ。`std::function<void(std::string_view)> load_report;` と `std::string reported_diagnostic;`）
 - Modify: `src/machine/consult.cpp`、`src/machine/load_api.hpp`、`src/machine/query.cpp:80`、`src/machine/session.cpp`
-- Test: `tests/cpp/session_goals_test.cpp`（本体）、`tests/cpp/session_test.cpp`（宣言と `main` の呼び出しだけ）
+- Test: `tests/cpp/session_goals_test.cpp`（入口 `check_goal_load_reports()` と 3 つの確かめ）、`tests/cpp/session_test.cpp`（宣言と `main` の呼び出しの 2 行）、`tests/tests.cmake:333`（`session_test` の include に `src` を足す。`machine/std_capture.hpp` を使うため。`codegen_test` と同じ形）
 
 **Interfaces:**
 - Produces: `void report_goal_load_failure(Impl& machine);`（`load_api.hpp`、定義は `consult.cpp`）。`machine.diagnostic + "\n"` を、`load_report` があればそれへ、無ければ `std::cerr` へ書いて吐き出す。`reported_diagnostic = machine.diagnostic` にする。タスク 4 の `run_load_goal` も、失敗のたびにこれを呼ぶ。
@@ -132,11 +132,11 @@
   - `[[nodiscard]] LoadStatus load_goal_term(Impl& machine, Cell directive);`（`load.cpp`）。`directive` は `:-(G)`。`G` は `use_module/1,2` か `ensure_loaded/1` で、引数は検査済み。相対パスの基準は作業ディレクトリ（`directory` は空）。開いたファイルは根のテキストとして読み（`note_syntax` の `nested` を偽にする）、診断には「設計との違い」6 の字面を付ける。字句の旗（`double_quotes` と全角の記号）は、ファイルの consult と同じく戻す。取り込み先は `machine.load_module`。タスク 5 も使う。
   - `[[nodiscard]] bool run_load_goal(Impl& machine, const Goal& goal);`（`consult.cpp`）。引数の誤りは `raise_formal` で投げる（`ensure_loaded` は変数で `instantiation_error`、原子でなければ `type_error(atom, F)`。`Imports` は `parse_imports` の Formal）。そのあと `run_consult` と同じ形で読む: `RootScope` に goal と項を登録し、`load_module` を `goal.module` にし、`mark_seen`/`restore_seen` を通す。失敗なら `report_goal_load_failure` を呼んで失敗する。成功なら選択点を残さずに `ip = goal.cont`。
 
-- [ ] **Step 1: 失敗するテストを書く（`modules.pl`。ゴールのパスは根から）。** `gx_c(local).` を `modules.pl` に置き、`:- consult('modules/goal_ctx.pl').` を先に読む。
+- [ ] **Step 1: 失敗するテストを書く（`modules.pl`。ゴールのパスは根から）。** `gx_c(local).` を `modules.pl` に置き、`:- consult('modules/goal_ctx.pl').` を先に読む。`user` には `lists` を取り込まない。`modules.pl:163` の `lists_needs_use` が、`user` に `append/3` が無いことを確かめているからである。そのため、ライブラリを読むゴールには `goal_ctx:` を付ける。
   - 振る舞い:
     - `goal_use_before`: `predicate_property(goal_ctx:last(_, _), imported_from(_))` は `fail`（`user` が `lists` を取り込んでいても、`goal_ctx` 自身の取り込みは無い）
     - `goal_use_context`: `(goal_ctx:use_module(library(lists)), predicate_property(goal_ctx:last(_, _), imported_from(M)), goal_ctx:last([1, 2], X))` は `solutions([(M = lists, X = 2)])`
-    - `goal_use_det`: `findall(x, use_module(library(lists)), L)` は `solutions([L = [x]])`
+    - `goal_use_det`: `findall(x, goal_ctx:use_module(library(lists)), L)` は `solutions([L = [x]])`
     - `goal_use_bound`: `(N = lists, goal_ctx:use_module(library(N), [last/2 as goal_last]), goal_ctx:goal_last([a], X))` は `solutions([X = a])`
     - `goal_use_list`: `(use_module('tests/pl/modules/goal_pick.pl', [gp_a/1]), gp_a(X))` は `solutions([X = 1])`
     - `goal_use_list_hidden`: `gp_b(_)` は `error(existence_error(procedure, gp_b/1))`
@@ -166,7 +166,7 @@
     - `goal_ensure_lib`: `ensure_loaded(library(lists))` は `type_error(atom, library(lists))`
   - 静的: `goal_use_static` は `assertz(use_module(x))` で `error(permission_error(modify, static_procedure, use_module/1))`。`goal_ensure_static` は `ensure_loaded/1` で同じ形。
   - 期待を変える 2 件（「設計との違い」1）: `directives.pl` の `ensure_goal` と `japanese.pl` の `ensure_ha` を `fail` にし、上のコメント（「指示だけ」）を改訂に合わせる。
-- [ ] **Step 2: C++ のテストを書く（`session_goals_test.cpp`）。**
+- [ ] **Step 2: C++ のテストを書く（`session_goals_test.cpp`、入口 `check_goal_use_session()` から呼ぶ）。**
   - `check_goal_use_at_prompt`: `run_session({"mosa"}, "use_module(library(lists)).\nlast([1, 2], X).\n", true)` の `out` に `X = 2`。ctest の `session` に `MOSA_LIB` が無ければ `tests.cmake` で `MOSA_LIB=${CMAKE_SOURCE_DIR}/lib` を足す。
   - `check_goal_use_reports_file`: `tests/tmp/p12_fail.pl` に `:- module(p12_fail, []).\n:- fail.\n` を書く。`-g "use_module('<path>')."` の `err` に `"<path>: この指示のゴールは失敗した: :-fail"` が 1 回。`tests/tmp/p12_syntax.pl` に `:- module(p12_syntax, []).\nr :- .\n` を書くと、`"<path>:2:"` で始まる行が 1 回。`-g "use_module(library(p12_none))."` は `"library(p12_none): existence_error(source_sink,library(p12_none))"` が 1 回。
   - `check_goal_ensure_busy`: `tests/tmp/p12_busy_a.pl` に `p12_p(1).`、`p12_busy_b.pl` に `p12_p(2).` を書く。`mosa <a> -g "((true ; fail), ensure_loaded('<b>'))."` の `code == 1`。`"<b>: 実行中の述語は置き換えられない"` が 1 回。
@@ -175,7 +175,7 @@
 - [ ] **Step 5: マニュアルを直す（日英）。**
   - 第12章の手順 1 は「プロンプトで `use_module/1` を打てば読める」にする。`no-library` の塊は、`append/3` の警告、`?- use_module(library(lists)).` の `true.`、`?- append([a, b], [c, d], X).` の `X = [a,b,c,d].` にする。
   - 手順 2 の `libs.pl` は「読み込むたびにライブラリを使うプログラムは、指令としてファイルに書く」という案内に変える。手順 3 の `check: append` の塊は変えない。
-  - 第14章の表に `use_module/1`、`use_module/2`、`ensure_loaded/1` のゴールの行を足す。
+  - 第14章: 組み込みの表（193 行より後。`--all-tables` が `builtin_procedures()` と突き合わせる）に、`use_module/1`、`use_module/2`、`ensure_loaded/1` のゴールとしての行を足す。指令の表（172〜175 行）の行は残し、ゴールでも呼べることを 1 文足す。
 - [ ] **Step 6: 緑を確かめる。** `./build/mosatest tests/pl/modules.pl tests/pl/directives.pl tests/pl/japanese.pl` と `./build/mosatest --manual docs/manual --all-tables` と `ctest --preset macos-clang` が全部通る。`ctest -L diff` も通るので、`docs/agreement.*` を作り直す。スイートの 2 つの欄が下がらない。
 - [ ] **Step 7: Commit.** `[phase12] use_module/1,2 と ensure_loaded/1 をゴールで呼べるようにする（ADR 0026。modules.pl の新しい行、ensure_goal と ensure_ha は iso-notes 7.4.2 の改訂で fail、session 3 件、manual 0 failed、ctest -L diff 0 差分）`
 
@@ -315,7 +315,7 @@
     - `mp_order`: `(findall(P, module_property(rx_some, P), [file(_), exports([rs_a/1])]))` は `true`
     - `mp_user`: `module_property(user, _)` は `fail`
     - `mp_system`: `module_property(system, _)` は `fail`
-    - `mp_enum`: `(findall(M, module_property(M, exports(_)), Ms), memberchk(rx_all, Ms), \+ memberchk(user, Ms))` は `true`
+    - `mp_enum`: `findall(M, (module_property(M, exports(_)), (M == rx_all ; M == user)), Ms)` は `solutions([Ms = [rx_all]])`（`user` は `lists` を取り込まないので、ライブラリの述語を使わない）
   - `module_property/2` の誤り:
     - `mp_type`: `module_property(1, _)` は `error(type_error(atom, 1))`
     - `mp_domain`: `module_property(user, foo)` は `error(domain_error(module_property, foo))`
