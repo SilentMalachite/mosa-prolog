@@ -50,7 +50,7 @@
 ### コードの書き方
 
 - 識別子は英語。コードのコメントとコミットメッセージは日本語。ドキュメントは英語が正本である。英語のファイルが本来の名前（`README.md`、`docs/SPEC.md` …）を持ち、日本語訳は `*.ja.md` としてその隣に置く。片方を変えたら、同じコミットでもう片方も更新する。両者が食い違うときは英語版に従う。1 行だけのディレクトリの README は、同じファイルに英語の文を先に、その下に日本語の文を書く。`docs/STATUS.md` は英語だけで書き、`docs/conformance.md` は生成物なのでツールが書いたままにし、`docs/unicode-version.md` は Unicode のバージョン番号だけなので日本語版を作らない。コメントには「何をしているか」ではなく「なぜこの順序・この方法か」を書く
-- 1 関数は 60 行以内、1 ファイルは 800 行以内。超えるなら分割を先にやる。道具が書くファイルはファイルの上限の対象外で、上限に合わせるために手で直さない: `src/unicode_tables.inc`（`tools/gen_unicode_tables.py` が生成）、`docs/conformance.md` と `docs/conformance.json`（`mosatest --suite`）、`docs/agreement.md` と `docs/agreement.json`（`mosatest --diff`）
+- 1 関数は 60 行以内、1 ファイルは 800 行以内。超えるなら分割を先にやる。道具が書くファイルはファイルの上限の対象外で、上限に合わせるために手で直さない: `src/unicode_tables.inc`（`tools/gen_unicode_tables.py` が生成）、`docs/conformance.md` と `docs/conformance.json` と `docs/conformance-library.json`（`mosatest --suite`）、`docs/agreement.md` と `docs/agreement.json`（`mosatest --diff`）
 - 生の `new`/`delete`、`reinterpret_cast`、C 配列、マクロは使わない。`std::span`、`std::string_view`、`std::expected` 相当（`std::optional` + エラー型）を使う。例外は `docs/SPEC.md` 第 6 節の規則に従う（Prolog の `throw/1` に C++ 例外を使わない）
 - 組込述語の C++ 関数は、引数検査 → 本処理 → 束縛、の順に書き、途中で束縛してから失敗する書き方をしない
 - 組込述語のファイル先頭コメントには「規格の条番号・引数のモード・投げうるエラー・テストファイル名」を書く
