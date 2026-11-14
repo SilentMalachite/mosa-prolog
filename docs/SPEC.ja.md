@@ -135,7 +135,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 - すべてのストリームは `encoding` オプションを持ち、既定は `utf8`。`text` モードのストリームは不正な UTF-8 列に対して `representation_error(character)` を投げるか、フラグ `invalid_utf8` が `replace` なら U+FFFD に置換する
 - 標準入出力は Windows でも UTF-8 で動かす。`src/platform/console.cpp` で `SetConsoleCP(65001)`、`SetConsoleOutputCP(65001)` を呼び、コンソール入力は `ReadConsoleW` で UTF-16 を受けて UTF-8 に変換する。コマンドと `mosac` が作る実行ファイルは、何かを読み書きする前に stdin、stdout、stderr を binary にする。macOS や Linux と同じく、改行は LF だけで書き、0x1A のバイトで入力を終わらせず、パイプからの CRLF は CR と LF としてプログラムに届く（レビュー L8、iso-notes「7.10.2 と 8.12」）。libmosa を組み込むプログラムでは、そのプログラムが決めたモードのままにする。ファイルは `std::filesystem::path` 経由で開き、日本語のパス名を扱えること
 - `read_term/2,3` の `syntax_error` メッセージは、行番号・列番号（コードポイント単位）・問題のトークンを含む。列は全角文字でも 1 文字 1 列で数える
-- `format/2,3` の `~t~|` 桁揃えは東アジアの幅（`East_Asian_Width` の W/F を幅 2）を考慮する。これも生成テーブルに含める
+- `format/2,3` の `~t~|` と `~+` の桁揃えは東アジアの幅（`East_Asian_Width` の W/F を幅 2）を考慮する。これも生成テーブルに含める
 
 **日本語テストの最低セット（`tests/pl/japanese.pl`）**
 

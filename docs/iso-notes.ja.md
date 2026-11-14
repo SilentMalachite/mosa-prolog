@@ -461,6 +461,8 @@ A か B か: A はフェーズ4の Task 12 で `keysort/2` と並べて `sort/2`
 
 決定（2026-10-28）: A。`sort/2` はフェーズ4の Task 12 で `keysort/2` と並べて `system` に作り、8.4.3.4 の Examples をテストにする。SPEC 第7節の段階 G に載せた。
 
+フェーズ11からは、同梱スイートの `sort_2` と `keysort_2` のディレクトリは `docs/conformance.md` の本欄で数える（`src/machine/lgt_suite.hpp` の `kIsoExtraScope`）。この 2 つのディレクトリの行で別欄に残るのは、ほかのディレクトリと同じく試験器が脇に置く件だけである（たとえば条件付きコンパイルの枝の中の `iso_sort_2_04`）。
+
 ## 第7節 forall/2
 
 `forall/2` は SPEC 第7節の段階 G（「非 ISO の便利述語（`library(*)`、第5節の表）」）に載り、第5節もモジュールを跨いで動くべき述語に挙げるが、第5節の表の 6 モジュールのどれも公開していない。
@@ -477,7 +479,7 @@ A か B か: A はフェーズ7で、マニュアルとリリースパッケー�
 
 決定（2026-11-03）: A（レビュー M11）。7 つの述語はフェーズ7で `system` に作り、1 述語ずつコミットし、テストは `tests/pl/utilities.pl` に置く。SWI-Prolog の振る舞いがマニュアルとソースから読み取れないところは、述語のファイルの見出しのコメントに選んだ形を書く。SPEC 第7節は `numbervars/3` と書く。
 
-2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` の番号にはフェーズ10から上限が無く、64 ビットの整数を超えた番号は Big になる（フェーズ7〜9 はそこで `representation_error(max_integer)`。SWI は `representation_error(tagged_integer)`）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
+2026-11-03 に実装した（`setup_call_cleanup/3` は ADR 0016）。SWI-Prolog と違うところ: `nb_getval/2` はヒープが後戻りで巻き戻るので、呼ぶたびに写しを返す。`sort/4` は整数の Key だけを受け、SWI の辞書の鍵と鍵の道は Mosa に辞書が無いので `type_error(sort_key, Key)` にする。`term_to_atom/2` は `[]` を原子 `'[]'` として読み、空の字面と閉じない字面は `syntax_error(incomplete_term)` にする（SWI 9.3.5 以降は `end_of_string`）。`numbervars/3` の番号にはフェーズ10から上限が無く、64 ビットの整数を超えた番号は Big になる（フェーズ7〜9 はそこで `representation_error(max_integer)`。SWI は `representation_error(tagged_integer)`）。フェーズ11からは、End が整数でも変数でもなければ、同梱スイートの `commons_numbervars_3_15` の期待どおり `type_error(integer, End)` を投げる（SWI-Prolog 10.0.2 はそこで失敗し、前の Mosa も失敗した）。`setup_call_cleanup/3` は `halt` とヒープの上限での停止では後始末を動かさず、ゴールが例外を投げたときは後始末の例外を捨て（SWI は急ぐ方を残す）、1 回のカットが外した後始末は全部動かしてから、その例外のうち最初のものを投げ直し、埋め込みの API で新しい問い合わせが古いものを閉じるときの後始末の例外は無視する（`-g` のゴール、トップレベルの答え、`initialization(G, main)` は SWI と同じく答えの後で切り、その後始末の例外はゴールの例外になる）。
 
 `tab/1,2` の int64 を越える数（フェーズ10、設計の 8）。正の Big は大きすぎる int64 と同じ結果になり、`tab(1 << 40)` はその数だけ空白を書く。だからフェーズ10 のタスク 8 から、正の Big は空白を終わりなく書く（`src/builtins/chars.cpp` の `run_tab`）。負の Big は負の数と同じく何も書かない（`tests/pl/bigint.pl` の `tab_big_neg`）。タスク 8 の前は、Big は `evaluation_error(int_overflow)` だった。SWI-Prolog はどちらの符号の Big にもこれを出す。
 
@@ -701,7 +703,7 @@ A か B か: A: NaN は符号の立ち方や標準ライブラリによらずす
 
 決定（2026-11-06）: B。NaN はどれも `1.5NaN` と書き、符号と中身は書かない。`==` と compare/3 はもとからどの NaN も同じ項に見る。字句は `<桁>.<桁>Inf` を正の無限大（SWI と同じく桁は何でもよい）、`<桁>.<桁>NaN` を、桁の値が 1.0 以上 2.0 未満（SWI が書く `1.xxx`）のとき NaN と読む。範囲は丸めた double でなく小数点の前の桁（前の 0 を除いて `1`）で決めるので、`1.99999999999999999NaN` は NaN で、`0.99999999999999999NaN` は NaN でない。前の `-` は、ほかの浮動小数点数と同じく負の数にする。`Inf` や `NaN` の直後に名前の字が続くもの（`1.0Info`、`1.0Inf_`）、指数の付くもの（`1.0e5Inf`）、小文字（`1.0inf`）、ほかの NaN の仮数（`2.0NaN`）は、今までどおり浮動小数点数と変数に分かれて構文の誤りになる。ISO のテキストでは数の直後に変数は来ないので、規格に合うテキストの意味は変わらない。これらは溢れではないので、`float_overflow` が `error` でも読める。`1.0e400` は M2 のとおり `syntax_error(float_overflow)` のまま。read/1、consult、number_codes/2、number_chars/2、atom_number/2 はどれもこの字句解析を使う。符号の立った NaN の `-(X)` を writeq すると `- (1.5NaN)` と書き、複合項として読み戻す。`mosatest --roundtrip` は NaN 同士を同じ項に見る（`src/write/term_equal.cpp`）。テスト: `tests/pl/write.pl`、`tests/pl/read.pl`、`tests/pl/atoms.pl` の `l22_*` と、`tests/pl/syntax.pl` の `float_inf`、`float_nan`、`float_special_args` などの場合。
 
-レビュー M29 から、format/2 の `~e` と `~f`（`'$format_float'/4`）も、フェーズ11からは `~E`、`~g`、`~G` も、無限大と NaN を桁の数と標準ライブラリによらずこの同じ字面で書き、0 で埋めない。大文字の指示でも字の大きさは変えない（`tests/pl/lib_format.pl` の `m29_*`、`fmt_g_inf`、`fmt_G_inf`）。
+レビュー M29 から、format/2 の `~e` と `~f`（`'$format_float'/4`）も、フェーズ11からは `~E`、`~g`、`~G` も、無限大と NaN を桁の数と標準ライブラリによらずこの同じ字面で書き、0 で埋めない。大文字の指示でも `Inf` と `NaN` の字を大文字にしない（`tests/pl/lib_format.pl` の `m29_*`、`fmt_g_inf`、`fmt_G_inf`）。
 
 ## 6.4.2 終止符の前の記号文字の字句
 
@@ -823,15 +825,15 @@ A か B か: A は C++ の `int` の外の整数を、正なら `representation_
 
 SPEC 第5節は `length/2` を「ISO core」としているが、マニュアル第14章は節番号を「—」としている。このリポジトリに 13211-1 の本文は無いので、文言では決まらない。これは `length_2` の準拠試験 24 件をどの欄で数えるか（本欄か、ライブラリ欄（SPEC 第9節の 11 行目）か）を決める。
 
-A か B か: A はマニュアルが正しい。SPEC 第5節の文言を「13211-1 に無いが `system` に置く」に直し（日英）、置き場所（`system`）は変えない。`length_2` はライブラリ欄で数える。B は SPEC が正しい。マニュアル第14章の表に節番号を書き（日英）、`length_2` を本欄で数える（本欄の率は、タスク 3 が ISO の 4 ディレクトリを足した 2291/2326（今は 2239/2274）から 2314/2350 に動くので、後退の判定の物差しをその回に作り直す）。
+A か B か: A はマニュアルが正しい。SPEC 第5節の文言を「13211-1 に無いが `system` に置く」に直し（日英）、置き場所（`system`）は変えない。`length_2` はライブラリ欄で数える。B は SPEC が正しい。マニュアル第14章の表に節番号を書き（日英）、`length_2` を本欄で数える。本欄はタスク 3 が ISO の 4 ディレクトリを足して 2291/2326 になり、そこから 2315/2350 に動く（タスク 4 から `length_2` の 24 件はすべて通る）ので、後退の判定の物差しをその回に作り直す。
 
 持ち主が確かめるまでは A。SPEC 第5節の文言には触れず、`length_2` はライブラリ欄で数える。
 
 ## 第7節 段階 G `setup_call_cleanup/3`: カットが動かす後始末の束縛
 
-スイートの `lgt_setup_call_cleanup_3_26` は、`setup_call_cleanup(true, ndet(_), D = true)` を動かしたあとに `var(D)` を期待する。Logtalk の lgtunit（固定したコミット 4decb64 の `tools/lgtunit/lgtunit.lgt`）は `true(Assertion)` の試験を `(Goal, (\+ \+ catch(Assertion, ...) -> true ; throw(assertion_failure(Assertion))))` と動かす。本体の直後、`ndet(_)` の選択点がまだ生きていて後始末が動く前に確かめるので、`var(D)` は成り立つ（25 件と 26 件は、決定的と非決定的を試す対である）。Mosa の試験器は `true(Assertion)` の試験（`LgtKind::Assert`）のゴールを `(本体, !), (確かめ)` と組む（`src/machine/lgt_file.cpp` の `goal_text`）。lgtunit はこうしない。そのカットが `ndet(_)` の選択点を外して後始末を動かし、ADR 0016 では後始末の作る束縛は残るので、`D` は `true` になり `var(D)` が落ちる。外れているのは試験器の早いカットで、ADR 0016 はそのカットが何を残すかを決めるだけである。設計は試験器のゴールの形を変えないことにした。変えると範囲に入る `true(Assertion)` の全件の流れが変わり、本欄の率が動きうるからである。
+スイートの `lgt_setup_call_cleanup_3_26` は、`setup_call_cleanup(true, ndet(_), D = true)` を動かしたあとに `var(D)` を期待する。Logtalk の lgtunit（固定したコミット 4decb64 の `tools/lgtunit/lgtunit.lgt`）は `true(Assertion)` の試験を `(Goal, (\+ \+ catch(Assertion, ...) -> true ; throw(assertion_failure(Assertion))))` と動かす。本体の直後、`ndet(_)` の選択点がまだ生きていて後始末が動く前に確かめるので、`var(D)` は成り立つ（`lgt_setup_call_cleanup_3_25` と `_26` は、決定的と非決定的を試す対である）。Mosa の試験器は `true(Assertion)` の試験（`LgtKind::Assert`）のゴールを `(本体, !), (確かめ)` と組む（`src/machine/lgt_file.cpp` の `goal_text`）。lgtunit はこうしない。そのカットが `ndet(_)` の選択点を外して後始末を動かし、ADR 0016 では後始末の作る束縛は残るので、`D` は `true` になり `var(D)` が落ちる。外れているのは試験器の早いカットで、ADR 0016 はそのカットが何を残すかを決めるだけである。設計は試験器のゴールの形を変えないことにした。変えると範囲に入る `true(Assertion)` の全件の流れが変わり、本欄の率が動きうるからである。
 
-A か B か: A は ADR 0016 のままにする。この 1 件（`lgt_setup_call_cleanup_3_26`）は不合格のままにし、上の理由で不合格のままにし、この節に記録する。B は ADR 0016 を改め、カットが動かした後始末の束縛を戻す（0016 に代わる新しい ADR が要り、エンジンの後始末の枠、`trim_stack` と生成コードのカットに触る）。
+A か B か: A は ADR 0016 のままにする。この 1 件（`lgt_setup_call_cleanup_3_26`）は上の理由で不合格のままにし、この節に記録する。B は ADR 0016 を改め、カットが動かした後始末の束縛を戻す（0016 に代わる新しい ADR が要り、エンジンの後始末の枠、`trim_stack` と生成コードのカットに触る）。
 
 持ち主が確かめるまでは A。ADR 0016 は変えない。
 
@@ -842,3 +844,10 @@ A か B か: A は ADR 0016 のままにする。この 1 件（`lgt_setup_call_
 - `~r` と `~R` の基数が 2〜36 の外なら `domain_error(radix, N)` を投げる。スイートは `domain_error(_, _)` ならよい。
 - `~t~|` と `~+` の桁は、出力先の流れの今の桁ではなく、`format` の呼び出しの始まりを桁 0 として数える。既知の制限である。流れが数えるのは字の数で東アジア幅ではないので、その桁はそのまま使えない。桁は、`~t~|` が今そうしているとおり（「第4節 format/2 の埋め草の字を幅で数える」）、東アジア幅（W と F を 2）で数える。
 - ディレクトリ `portray_1` は範囲の外である。`portray/1` は組み込みにしない。8.14 の決定（上の「print/1 と print/2」）のままである。
+
+## 第9節 フェーズ11: ライブラリ欄に残る不合格
+
+記録（2026-11-14、フェーズ11のタスク 10）。フェーズ11の後、`docs/conformance.md` のライブラリ欄は 566 件中 561 件が通る。残る不合格は次の 5 件で、それぞれの理由を書く。
+
+- `lgt_format_2_tab_table_left_aligned`、`lgt_format_2_tab_table_right_aligned`、`lgt_format_3_tab_table_left_aligned`、`lgt_format_3_tab_table_right_aligned`（実際は `existence_error(procedure, ::/2)`）。どの本体も `forall(list::member(Line, Rows), {format(...)})` で表の行をたどる。`list::member/2` は Logtalk のライブラリのオブジェクト `list` へのメッセージ送信で、試験器はメッセージ送信を実装していない（上の「準拠スイート: テスト本体の Logtalk メッセージ送信」）。だからどの件も `format` が動く前に止まる。試す中身は動く。`list::member/2` を `member/2` に替えた同じ呼び出しは、`format/2` なら `with_output_to/2` を通して、`format/3` なら別名 `out` の流れを通して、どの件も期待どおりの字を書く（2026-11-14 に `mosa` で手で確かめた）。`~|` と `~+` で揃える表の桁は、`tests/pl/lib_format.pl` の `fmt_plus_chain` と `fmt_plus_newline_table`、そして通っている `format_2` と `format_3` のほかの `tab_*` の件が確かめる。この 4 件は `format` の違いではなく試験器の制限として、不合格のままにする。
+- `lgt_setup_call_cleanup_3_26`（実際は `fail`）。試験器は `var(D)` を確かめる前に本体を切り、ADR 0016 ではそのカットが動かす後始末の束縛は残る（上の「第7節 段階 G `setup_call_cleanup/3`: カットが動かす後始末の束縛」）。持ち主が確かめるまでは、その問いの既定 A のとおり不合格のままにする。

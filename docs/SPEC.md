@@ -134,7 +134,7 @@ When true, the lexer treats the following full-width symbols as identical to the
 - Every stream has an `encoding` option, defaulting to `utf8`. A `text` mode stream throws `representation_error(character)` on an invalid UTF-8 sequence, or replaces it with U+FFFD if the flag `invalid_utf8` is `replace`
 - Standard input/output works in UTF-8 on Windows as well. `src/platform/console.cpp` calls `SetConsoleCP(65001)` and `SetConsoleOutputCP(65001)`, and console input is received as UTF-16 via `ReadConsoleW` and converted to UTF-8. Before anything is read or written, the commands and the executables `mosac` builds put stdin, stdout and stderr in binary mode, as on macOS and Linux: a newline is written as LF alone, a 0x1A byte does not end the input, and a CRLF from a pipe reaches the program as CR and LF (review L8; iso-notes "7.10.2 and 8.12"). A program that embeds libmosa keeps the modes it set. Files are opened through `std::filesystem::path` and must support Japanese path names
 - `syntax_error` messages from `read_term/2,3` include the line number, the column number (in code points), and the offending token. Columns count one column per character, including full-width characters
-- `~t~|` column alignment in `format/2,3` takes East Asian width into account (`East_Asian_Width` W/F count as width 2). This is also included in the generated tables
+- `~t~|` and `~+` column alignment in `format/2,3` takes East Asian width into account (`East_Asian_Width` W/F count as width 2). This is also included in the generated tables
 
 **Minimum set of Japanese tests (`tests/pl/japanese.pl`)**
 

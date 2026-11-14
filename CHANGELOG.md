@@ -2,6 +2,35 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `format/1,2,3` (`library(format)`) has twelve more directives, the ones the bundled conformance suite tests. `~p`
+  writes an argument as `print/1`, `~k` as `write_canonical/1`, and `~W` takes a term and a list of write options;
+  `~i` skips an argument; `~N` writes a new line only when the output is not already at the start of a line; `~r`
+  and `~R` write an integer in a radix from 2 to 36 (8 without a number), with small or capital letters, as in
+  `~16r` giving `ff`; `~D` writes an integer with a `,` between each group of three digits, as in `1,234,567`; `~E`
+  writes a float as `~e` does, with a capital `E`; `~g` and `~G` write a float as the C format `%g` does; and `~+`
+  sets a column a number of columns after the previous column stop (8 without a number). `~+` counts a wide East
+  Asian character as 2 columns, as `~t~|` does. A radix outside 2 to 36 raises `domain_error(radix, N)`.
+- For developers, the conformance report `docs/conformance.md` has a second column, the library column. It counts the
+  13 suite directories of the library predicates Mosa provides outside ISO/IEC 13211-1, such as `format_2`,
+  `between_3` and `length_2`, and never enters the ISO rate. It has its own pass rate, its own badge data
+  `docs/conformance-library.json` and a second badge in the README, and `mosatest --suite` also fails when that rate
+  goes down (the 90% floor is for the ISO rate only). 561 of the 566 cases pass; `docs/iso-notes.md` gives the reason
+  for each of the five left.
+
+### Changed
+
+- `numbervars/3` raises `type_error(integer, End)` when End is neither an integer nor a variable, as the bundled
+  conformance suite expects. Mosa 0.2.1 failed there.
+- For developers, the ISO column of the conformance suite now also counts `sort_2`, `keysort_2`, `ground_1` and
+  `not_unifiable_2`, the tests of ISO predicates (8.4.3, 8.4.4, 8.3.10 and 8.2.3) that were left out of it: 2291 of
+  2326 cases pass (98.5%), where 2239 of 2274 passed in 0.2.1. The conformance runner now reads the clauses and the
+  `dynamic` and `multifile` directives of each directory's `tester.lgt`, which hold the helper predicates the tests
+  call, and a binding a test body makes inside `{}` now reaches the goals after it.
+
 ## 0.2.1 (2026-11-13)
 
 A maintenance release after a review of all of Mosa and a follow-up review: file reading no longer loads a whole
