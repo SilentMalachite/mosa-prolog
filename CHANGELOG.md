@@ -11,9 +11,9 @@ English | [日本語](CHANGELOG.ja.md)
   `~i` skips an argument; `~N` writes a new line only when the output is not already at the start of a line; `~r`
   and `~R` write an integer in a radix from 2 to 36 (8 without a number), with small or capital letters, as in
   `~16r` giving `ff`; `~D` writes an integer with a `,` between each group of three digits, as in `1,234,567`; `~E`
-  writes a float as `~e` does, with a capital `E`; `~g` and `~G` write a float as the C format `%g` does; and `~+`
-  sets a column a number of columns after the previous column stop (8 without a number). `~+` counts a wide East
-  Asian character as 2 columns, as `~t~|` does. A radix outside 2 to 36 raises `domain_error(radix, N)`.
+  writes a float as `~e` does, with a capital `E`; `~g` and `~G` write a float as the C formats `%g` and `%G` do;
+  and `~+` sets a column a number of columns after the previous column stop (8 without a number). `~+` counts a wide
+  East Asian character as 2 columns, as `~t~|` does. A radix outside 2 to 36 raises `domain_error(radix, N)`.
 - For developers, the conformance report `docs/conformance.md` has a second column, the library column. It counts the
   13 suite directories of the library predicates Mosa provides outside ISO/IEC 13211-1, such as `format_2`,
   `between_3` and `length_2`, and never enters the ISO rate. It has its own pass rate, its own badge data

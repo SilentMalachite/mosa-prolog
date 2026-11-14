@@ -396,9 +396,9 @@ column_stop(Kind, Count, st(Col, Seg, Out), St) :-
 
 % ~N| は呼び出しの始まりから N 桁目で、N が無ければ今の桁（埋めずに区切りを確定する）。~N+ は前の桁止めから N 桁先で、
 % N が無ければ 8 桁先（スイートの default_column_boundary の件）。前の桁止めはふつう区切りの始まりの桁（place/5 が
-% 返す桁なので、字が桁止めを越えたときは越えた後の桁）だが、行の頭も桁止めとする（タスク 9 の裁定 17）。区切りの字に
-% 改行があれば、それが書式の字でも引数の字でも桁 0 から数える。改行は区切りを確定しないので、Col のままでは前の行の
-% 桁から数えてしまい、改行の後の桁を column_after/3 で数える ~| と食い違う。
+% 返す桁なので、字が桁止めを越えたときは越えた後の桁）だが、行の頭も桁止めとする（iso-notes「Section 5 format/2,3」の
+% ~+ と改行の項）。区切りの字に改行があれば、それが書式の字でも引数の字でも桁 0 から数える。改行は区切りを確定しない
+% ので、Col のままでは前の行の桁から数えてしまい、改行の後の桁を column_after/3 で数える ~| と食い違う。
 stop_target(absolute, Count, _, _, Here, Target) :-
     default(Count, Here, Target).
 stop_target(relative, Count, Col, Text, _, Target) :-

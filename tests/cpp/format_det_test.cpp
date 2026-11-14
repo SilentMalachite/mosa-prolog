@@ -62,7 +62,7 @@ constexpr auto k_goals = std::to_array<std::string_view>({
     // フェーズ11のタスク9。~+ は ~| と同じ column_stop を通る。埋め所が 1 つと 2 つ。
     "format(\"~a~t~8+~w\", [ab, c])",
     "format(\"~t~w~t~+\", [ab])",
-    // 区切りに改行があれば ~+ は桁 0 から数える（裁定 17）。改行を探す道も選択点を残さない。
+    // 区切りに改行があれば ~+ は桁 0 から数える（iso-notes「Section 5 format/2,3」）。改行を探す道も選択点を残さない。
     "format(\"~w~t~8+~w\\n~w~t~8+~w\", [a, b, c, d])",
 });
 

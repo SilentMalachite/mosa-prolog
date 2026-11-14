@@ -61,7 +61,7 @@ test(fmt_g_zero, with_output_to(atom(A), format("~0g", [0.39265e+3])), solutions
 test(fmt_G, with_output_to(atom(A), format("~G", [0.00000123])), solutions([A = '1.23E-06'])).
 test(fmt_G_places, with_output_to(atom(A), format("~2G", [0.39265e+3])), solutions([A = '3.9E+02'])).
 test(fmt_G_fixed, with_output_to(atom(A), format("~G", [0.39265e+3])), solutions([A = '392.65'])).
-% %g の固定と指数の切り替えと符号（タスク 8 のレビューの裁定 16）。-0.0 は符号を残し、精度 6 の指数が 6 なら指数の形にする。
+% %g の固定と指数の切り替えと符号を 3 つの OS の CI で留める。-0.0 は符号を残し、精度 6 の指数が 6 なら指数の形にする。
 test(fmt_g_switch, with_output_to(atom(A), format("~g|~G|~g", [-0.0, 1234567.0, 100000.0])), solutions([A = '-0|1.23457E+06|100000'])).
 test(fmt_g_inf, (X is inf, with_output_to(atom(A), format("~g", [X]))), solutions([A = '1.0Inf'])).
 % 無限大と NaN は大文字の指示でも writeq と同じ字面のままにする（Inf と NaN を大文字にしない）。
@@ -110,12 +110,12 @@ test(fmt_plus_chain, (with_output_to(atom(A), format("~*+.~n~3+.~n~*+.~n", [3, 3
 test(fmt_plus_radix, with_output_to(atom(A), format("~`0t~2r~16+", [0xFF])), solutions([A = '0000000011111111'])).
 % 区切りの字が桁止めを越えれば、~| と同じく埋めない。
 test(fmt_plus_past, with_output_to(atom(A), format("abcdefghij~t~8+x", [])), solutions([A = abcdefghijx])).
-% 行の頭も桁止めなので、区切りの字に改行があれば ~+ は行の頭（桁 0）から数える（タスク 9 の裁定 17）。改行が書式の字か
-% 引数の字か、~N が改行を出さなかったかによらない。~| と ~n で書いたときと同じ字面になる。
+% 行の頭も桁止めなので、区切りの字に改行があれば ~+ は行の頭（桁 0）から数える（iso-notes「Section 5 format/2,3」）。
+% 改行が書式の字か引数の字か、~N が改行を出さなかったかによらない。~| と ~n で書いたときと同じ字面になる。
 test(fmt_plus_newline, with_output_to(atom(A), format("~5|ab\n~3+.", [])), solutions([A = '     ab\n   .'])).
 test(fmt_plus_newline_N, with_output_to(atom(A), format("~5|ab\n~N~3+.", [])), solutions([A = '     ab\n   .'])).
 test(fmt_plus_newline_table, with_output_to(atom(A), format("~w~t~10+~w\n~w~t~10+~w\n", [a, b, c, d])), solutions([A = 'a         b\nc         d\n'])).
-% 裁定 17 の A。引数の字の改行でも桁 0 から数えるので、cd の後は桁 3 まで 1 桁埋める。
+% 引数の字の改行でも桁 0 から数えるので、cd の後は桁 3 まで 1 桁埋める（SWI-Prolog の実装とは違う。iso-notes「Section 5 format/2,3」）。
 test(fmt_plus_newline_arg, with_output_to(atom(A), format("~5|~w~3+.", ['ab\ncd'])), solutions([A = '     ab\ncd .'])).
 % 今の振る舞いを留める。~| は改行の前の埋め所も埋める。字が桁止めを越えた後の ~+ は、字の終わりの桁から数える。
 test(fmt_plus_newline_bar, with_output_to(atom(A), format("~tab\ncd~6|.", [])), solutions([A = '    ab\ncd.'])).
@@ -144,7 +144,7 @@ test(fmt_N_stream, with_output_to(atom(A), (write(x), current_output(S), format(
 test(fmt_N_after_text_nl, with_output_to(atom(A), format("a\n~Nb~n~Nc", [])), solutions([A = 'a\nb\nc'])).
 % ~N の改行も ~n と同じく区切りを確定するので、後の ~| は改行の後から数える。
 test(fmt_N_column, with_output_to(atom(A), format("~tab~N~w~t~4|x", [c])), solutions([A = 'ab\nc   x'])).
-% 行の頭の ~N は区切りを確定しないので、前の ~t は後の ~| で埋める（タスク 6 のレビューの裁定 14）。
+% 行の頭の ~N は区切りを確定しないので、前の ~t は後の ~| で埋める。
 test(fmt_N_keeps_fill, with_output_to(atom(A), format("~t~N~w~4|", [a])), solutions([A = '   a'])).
 test(fmt3_input_stream, format(user_input, "x", []), error(permission_error(output, stream, user_input))).
 % '$stream_column'/2 は put_char/2 と同じ検査をして、最後の改行から書いた字の数を返す。
@@ -178,7 +178,7 @@ test(fmt_D_small, with_output_to(atom(A), format("~2D", [5])), solutions([A = '0
 test(fmt_D_errors_inst, format("~D", [_]), error(instantiation_error)).
 test(fmt_D_errors_float, format("~D", [123.0]), error(type_error(integer, 123.0))).
 test(fmt_D_errors_neg_count, format("~*D", [-1, 123]), error(domain_error(not_less_than_zero, -1))).
-% タスク7のレビュー（Ruling 15）。小数部が区切りの 3 桁にまたがる数、負の数のちょうど 2 組、int64 の最小の数。
+% ~D の区切りの端を見る。小数部が区切りの 3 桁にまたがる数、負の数のちょうど 2 組、int64 の最小の数。
 % 最小の数の abs は int64 にあふれるので、符号を字から外す道を見る。
 test(fmt_D_places_grouped, with_output_to(atom(A), format("~4D", [123456789])), solutions([A = '12,345.6789'])).
 test(fmt_D_neg_groups, with_output_to(atom(A), format("~D", [-123456])), solutions([A = '-123,456'])).
