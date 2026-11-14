@@ -9,7 +9,8 @@
 //   Integer（多倍長も）を Radix 進（2〜36）で書いた原子。負なら '-' が先。Case が lower なら英字の桁は小文字、
 //   upper なら大文字。
 //   instantiation_error（どれかが未束縛）、type_error(integer, Integer)、type_error(integer, Radix)、
-//   domain_error(radix, Radix)、domain_error(letter_case, Case)（原子でない Case も、lower と upper だけを受ける）
+//   domain_error(radix, Radix)、domain_error(letter_case, Case)（原子でない Case も、lower と upper だけを受ける）、
+//   system_error（std::to_chars が緩衝域に書けなかったとき。緩衝域は足りる大きさに取るので、届く入力は無い）
 // テスト: tests/pl/lib_format.pl、tests/cpp/format_det_test.cpp
 #include "../machine/internal.hpp"
 
@@ -22,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace mosa {
 namespace {
@@ -59,12 +61,14 @@ std::optional<Cell> radix_problem(Impl& machine, Cell value, Cell radix, Cell le
 }
 
 // int64 は BigInt を作らずに to_chars で書く。最小の整数も 2 進で符号と 64 桁に収まる。どちらも英字は小文字で、
-// 負なら '-' が先なので、Big と int64 で字面の形がそろう。
-std::string radix_text(const Impl& machine, Cell value, int radix) {
+// 負なら '-' が先なので、Big と int64 で字面の形がそろう。to_chars が書けなかったときは nullopt（届く入力は無い）。
+std::optional<std::string> radix_text(const Impl& machine, Cell value, int radix) {
   if (value.tag() == Tag::Big) return to_text(machine.heap.big_value(value), static_cast<unsigned>(radix));
   std::array<char, 65> buffer{};
   const std::int64_t number = machine.heap.integer_value(value);
   const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), number, radix);
+  // 失敗した to_chars は ptr に末尾を返す。そのまま組むと中身の決まらない緩衝域が原子になる。
+  if (result.ec != std::errc{}) return std::nullopt;
   return std::string(buffer.data(), result.ptr);
 }
 
@@ -83,9 +87,15 @@ void prove_format_radix(Impl& machine, const Goal& goal) {
     raise_formal(machine, *problem, goal.name, goal.arity);
     return;
   }
-  std::string text = radix_text(machine, value, static_cast<int>(machine.heap.integer_value(radix)));
-  if (machine.atoms.name(atom_id(letter_case)) == "upper") make_upper(text);
-  const Cell atom = machine.heap.atom(machine.atoms.intern(text));
+  std::optional<std::string> text = radix_text(machine, value, static_cast<int>(machine.heap.integer_value(radix)));
+  // 引数はどれも検査を通っており、ユーザが上げられる上限でもないので、処理系の内側の誤りとして system_error に
+  // する（7.12.2 j）。resource_error は資源の名前を新たに作ることになる。束縛はまだ何もしていない。
+  if (!text) {
+    raise_formal(machine, formal_system(machine), goal.name, goal.arity);
+    return;
+  }
+  if (machine.atoms.name(atom_id(letter_case)) == "upper") make_upper(*text);
+  const Cell atom = machine.heap.atom(machine.atoms.intern(*text));
   if (do_unify(machine, goal.arg(machine, 3), atom)) machine.ip = goal.cont;
   else machine.failed = true;
 }

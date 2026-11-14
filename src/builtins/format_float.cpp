@@ -5,7 +5,8 @@
 //   なる。f、e、E の有限の数で Digits がヒープの上限の語数を超えれば、ヒープの上限で止まる（ResourceLimit）。
 //   g と G の字面は桁数によらず 1100 字ほどで尽きるので、止めずに作る。
 //   instantiation_error、type_error(atom, Kind)、domain_error(format_directive, Kind)、
-//   type_error(integer, Digits)、domain_error(not_less_than_zero, Digits)、type_error(float, Float)
+//   type_error(integer, Digits)、domain_error(not_less_than_zero, Digits)、type_error(float, Float)、
+//   system_error（std::to_chars が緩衝域に書けなかったとき。緩衝域は足りる大きさに取るので、届く入力は無い）
 //   Digits の Big（フェーズ10、設計の 8）は、負なら domain_error、正なら f、e、E では大きすぎる int64 と同じくヒープの
 //   上限で止まり、g と G では 1100 桁と同じ字面になる。
 // テスト: tests/pl/lib_format.pl、tests/pl/bigint.pl、tests/cpp/bigint_limit_test.cpp、tests/cpp/format_digits_test.cpp
@@ -19,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace mosa {
 namespace {
@@ -56,7 +58,8 @@ std::optional<Cell> float_problem(Impl& machine, Cell kind, Cell digits, Cell va
   return std::nullopt;
 }
 
-std::string format_float(double value, FloatKind kind, std::int64_t digits) {
+// to_chars が書けなかったときは nullopt。緩衝域は足りる見込みなので、そうなるのは見込みが外れたときだけ。
+std::optional<std::string> format_float(double value, FloatKind kind, std::int64_t digits) {
   // to_chars の無限大と NaN は標準ライブラリごとに字面が違い（-nan(ind) など）、指数の e も無いので
   // 0 を足す位置も無い。writeq と同じ字面にして、桁数によらず一つの字面にする（レビュー M29、iso-notes 6.4.5）。
   // 大文字の指示でもここで返すので、Inf と NaN の字は大文字にならない。
@@ -65,6 +68,8 @@ std::string format_float(double value, FloatKind kind, std::int64_t digits) {
   // 小数点の前は最大 309 桁、指数は 5 文字、符号と小数点で 2 文字。g の小数点表記の先頭の 0 も 330 字に収まる。
   std::string text(static_cast<std::size_t>(precision) + 330, '\0');
   const auto result = std::to_chars(text.data(), text.data() + text.size(), value, kind.format, precision);
+  // 失敗した to_chars は ptr に末尾を返す。そのまま縮めると中身の決まらない緩衝域（NUL の詰め物）が原子になる。
+  if (result.ec != std::errc{}) return std::nullopt;
   text.resize(static_cast<std::size_t>(result.ptr - text.data()));
   // g は末尾の 0 を落とす書式なので、上限より先の桁は足しても落ちる。足さない。g の小数点表記には e が無く、
   // find が npos を返すので、e を探す前に g を外す（npos への insert は out_of_range で落ちる）。
@@ -99,8 +104,15 @@ void prove_format_float(Impl& machine, const Goal& goal) {
   if (std::isfinite(number) && padded && (big || static_cast<std::uint64_t>(count) > machine.heap.limit())) {
     throw ResourceLimit("heap_limit");
   }
-  const std::string text = format_float(number, style, count);
-  const Cell atom = machine.heap.atom(machine.atoms.intern(text));
+  const std::optional<std::string> text = format_float(number, style, count);
+  // 引数はどれも検査を通っており、ユーザが上げられる上限でもないので、処理系の内側の誤りとして system_error に
+  // する（7.12.2 j）。resource_error は資源の名前を新たに作ることになり、ヒープの上限で止めると原因を偽る。
+  // 束縛はまだ何もしていない。
+  if (!text) {
+    raise_formal(machine, formal_system(machine), goal.name, goal.arity);
+    return;
+  }
+  const Cell atom = machine.heap.atom(machine.atoms.intern(*text));
   if (do_unify(machine, goal.arg(machine, 3), atom)) machine.ip = goal.cont;
   else machine.failed = true;
 }
