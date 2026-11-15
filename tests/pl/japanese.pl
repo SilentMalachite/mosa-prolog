@@ -219,3 +219,5 @@ test(dcg_japanese_codes, (atom_codes('二', Cs), phrase(漢数字(N), Cs)), solu
 :- use_module('modules/窓口.pl').
 test(再公開_別名, 照会(X), solutions([X = 100])).
 test(再公開_取り込み元, predicate_property(照会(_), imported_from(M)), solutions([M = 元帳])).
+% フェーズ12 Task 8。module_property/2 の exports は、再公開した項目を公開した名前で並べる。
+test(再公開_公開, module_property(窓口, exports(L)), solutions([L = [照会/1]])).

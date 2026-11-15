@@ -88,7 +88,10 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);
-// strip_module/3 と context_module/1（module_goal.cpp）。フェーズ12 Task 8 の述語も同じファイルに置く。
+// 候補を (T = C1 ; T = C2 ; ...) にして走らせる（module_prop.cpp）。候補が無ければ失敗する。性質を列挙する組込が
+// 選択点と束縛の戻しを選言に任せるため、1 か所に置く。
+void offer_choices(Impl& machine, const Goal& goal, Cell target, const std::vector<Cell>& choices);
+// strip_module/3、context_module/1、module_property/2、import/1（module_goal.cpp）。
 [[nodiscard]] bool run_module_goal(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 // ヒープの外に写した項の C++ での大きさ（バイト）。findall の答えと nb_setval/2 の値が Heap::held に数える。
@@ -132,6 +135,8 @@ void run_stream_property(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_term_text(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_operators(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_current_op(Impl& machine);
+// 指定子のアトムの名前（operators.cpp）。current_op/3 と module_property/2 の op(P, T, N) が同じ名前を書く。
+[[nodiscard]] std::string_view specifier_name(Specifier specifier);
 [[nodiscard]] bool redo_current_char_conversion(Impl& machine);
 [[nodiscard]] bool run_lists(Impl& machine, const Goal& goal);
 [[nodiscard]] bool redo_length_gen(Impl& machine);

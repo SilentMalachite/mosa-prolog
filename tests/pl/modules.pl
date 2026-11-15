@@ -268,3 +268,42 @@ test(cm_qualified, ctx:context_module(M), solutions([M = ctx])).
 % 組み込みになったので、節を足せない。
 test(sm_static, assertz(strip_module(a, b, c)), error(permission_error(modify, static_procedure, strip_module/3))).
 test(cm_static, assertz(context_module(a)), error(permission_error(modify, static_procedure, context_module/1))).
+% フェーズ12 Task 8（SPEC 第5節）。module_property/2 の性質は file(F)、exports(L)、exported_operators(L) の順。
+% module/2 で作ったモジュールだけが性質を持つ。exports は再公開の項目も公開した順に並べる。
+% import/1 は公開述語 1 つを文脈モジュールへ取り込む。M: が無ければ自分からの取り込みで、何も変えない。
+:- consult('modules/imp_ctx.pl').
+test(mp_file, (module_property(rx_base, file(F)), sub_atom(F, _, _, 0, 'rx_base.pl')), true).
+test(mp_exports, module_property(rx_all, exports(L)), solutions([L = [ra_own/1, rb_a/1, rb_b/1, (===>)/2]])).
+test(mp_exports_alias, module_property(rx_some, exports(L)), solutions([L = [rs_a/1]])).
+test(mp_exports_except, module_property(rx_except, exports(L)), solutions([L = [rb_a/1, (===>)/2]])).
+test(mp_ops, module_property(rx_base, exported_operators(L)), solutions([L = [op(700, xfx, ===>)]])).
+test(mp_ops_reexported, module_property(rx_all, exported_operators(L)), solutions([L = [op(700, xfx, ===>)]])).
+test(mp_ops_none, module_property(rx_some, exported_operators(_)), fail).
+test(mp_order, (findall(P, module_property(rx_some, P), [file(_), exports([rs_a/1])])), true).
+test(mp_user, module_property(user, _), fail).
+test(mp_system, module_property(system, _), fail).
+% user は lists を取り込まないので、ライブラリの述語を使わない。
+test(mp_enum, findall(M, (module_property(M, exports(_)), (M == rx_all ; M == user)), Ms), solutions([Ms = [rx_all]])).
+% 誤りは M の型、P の領域、M があるか、の順に確かめる。
+test(mp_type, module_property(1, _), error(type_error(atom, 1))).
+test(mp_domain, module_property(user, foo), error(domain_error(module_property, foo))).
+test(mp_domain_first, module_property(nomod, foo), error(domain_error(module_property, foo))).
+test(mp_no_module, module_property(nomod, _), error(existence_error(module, nomod))).
+test(imp_basic, (imp_ctx:import(rx_base:rb_b/1), imp_ctx:rb_b(X)), solutions([X = 2])).
+test(imp_reexported, (imp_ctx:import(rx_some:rs_a/1), predicate_property(imp_ctx:rs_a(_), imported_from(M))), solutions([M = rx_base])).
+% M1:M2:PI は内側の M2 から取り込む。外側の foo はモジュールでなくてよい。
+test(imp_nested, imp_ctx:import(foo:rx_base:rb_b/1), true).
+test(imp_unqualified, import(rb_a/1), true).
+test(imp_var, import(_), error(instantiation_error)).
+test(imp_module_var, import(_:p/1), error(instantiation_error)).
+test(imp_module_type, import(1:p/1), error(type_error(atom, 1))).
+test(imp_no_module, import(nomod:p/1), error(existence_error(module, nomod))).
+test(imp_pi_var, import(rx_base:_), error(instantiation_error)).
+test(imp_pi_type, import(rx_base:foo), error(type_error(predicate_indicator, foo))).
+test(imp_as, import(rx_base:(rb_a/1 as x)), error(type_error(predicate_indicator, rb_a/1 as x))).
+test(imp_not_exported, import(rx_base:nope/0), error(existence_error(procedure, rx_base:nope/0))).
+% imp_ctx は自分の rb_a/1 を持つ。
+test(imp_conflict, imp_ctx:import(rx_base:rb_a/1), error(permission_error(import_into, procedure, rx_base:rb_a/1))).
+% 組み込みになったので、節を足せない。
+test(mp_static, assertz(module_property(a, b)), error(permission_error(modify, static_procedure, module_property/2))).
+test(imp_static, assertz(import(a)), error(permission_error(modify, static_procedure, import/1))).

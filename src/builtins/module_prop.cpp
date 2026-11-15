@@ -25,23 +25,6 @@ Cell unary(Impl& machine, std::string_view name, Cell arg) {
 
 void raise(Impl& machine, const Goal& goal, Cell formal) { raise_formal(machine, formal, goal.name, goal.arity); }
 
-// 候補を (T = C1 ; T = C2 ; ...) にして走らせる。選択点と束縛の戻しは選言に任せる。
-void offer(Impl& machine, const Goal& goal, Cell target, const std::vector<Cell>& choices) {
-  if (choices.empty()) {
-    machine.failed = true;
-    return;
-  }
-  const auto equals = machine.atoms.intern("=");
-  const auto either = machine.atoms.intern(";");
-  Cell term = machine.heap.structure(equals, std::array<Cell, 2>{target, choices.back()});
-  for (auto it = choices.rbegin() + 1; it != choices.rend(); ++it) {
-    const Cell head = machine.heap.structure(equals, std::array<Cell, 2>{target, *it});
-    term = machine.heap.structure(either, std::array<Cell, 2>{head, term});
-  }
-  const Compiled compiled = compile_goal(machine.heap, term);
-  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
-}
-
 bool run_current_module(Impl& machine, const Goal& goal) {
   const Cell module = machine.heap.deref(goal.arg(machine, 0));
   if (!machine.heap.unbound(module) && module.tag() != Tag::Atom) {
@@ -50,7 +33,7 @@ bool run_current_module(Impl& machine, const Goal& goal) {
   }
   std::vector<Cell> names;
   for (const Module& item : machine.modules) names.push_back(machine.heap.atom(item.name));
-  offer(machine, goal, module, names);
+  offer_choices(machine, goal, module, names);
   return true;
 }
 
@@ -144,7 +127,7 @@ bool run_predicate_property(Impl& machine, const Goal& goal) {
     if (const auto meta = builtin_meta_head(machine, name, arity)) {
       found.push_back(unary(machine, "meta_predicate", *meta));
     }
-    offer(machine, goal, property, found);
+    offer_choices(machine, goal, property, found);
     return true;
   }
   const Predicate* predicate = resolve_pred(machine, module, name, arity);
@@ -152,11 +135,28 @@ bool run_predicate_property(Impl& machine, const Goal& goal) {
     machine.failed = true;
     return true;
   }
-  offer(machine, goal, property, user_properties(machine, module, *predicate, name));
+  offer_choices(machine, goal, property, user_properties(machine, module, *predicate, name));
   return true;
 }
 
 }  // namespace
+
+// 候補を (T = C1 ; T = C2 ; ...) にして走らせる。選択点と束縛の戻しは選言に任せる。
+void offer_choices(Impl& machine, const Goal& goal, Cell target, const std::vector<Cell>& choices) {
+  if (choices.empty()) {
+    machine.failed = true;
+    return;
+  }
+  const auto equals = machine.atoms.intern("=");
+  const auto either = machine.atoms.intern(";");
+  Cell term = machine.heap.structure(equals, std::array<Cell, 2>{target, choices.back()});
+  for (auto it = choices.rbegin() + 1; it != choices.rend(); ++it) {
+    const Cell head = machine.heap.structure(equals, std::array<Cell, 2>{target, *it});
+    term = machine.heap.structure(either, std::array<Cell, 2>{head, term});
+  }
+  const Compiled compiled = compile_goal(machine.heap, term);
+  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
+}
 
 bool run_module_prop(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);

@@ -313,6 +313,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"current_module", 1},
     {"strip_module", 3},
     {"context_module", 1},
+    {"module_property", 2},
+    {"import", 1},
     {"forall", 2},
     {"if", 3},
     {"phrase", 2},

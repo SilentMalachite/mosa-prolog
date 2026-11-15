@@ -136,19 +136,6 @@ void run_op(Impl& machine, const Goal& goal) {
 
 constexpr std::uint8_t kOpGen = 4;
 
-std::string_view specifier_name(Specifier specifier) {
-  switch (specifier) {
-    case Specifier::Xf: return "xf";
-    case Specifier::Yf: return "yf";
-    case Specifier::Xfx: return "xfx";
-    case Specifier::Xfy: return "xfy";
-    case Specifier::Yfx: return "yfx";
-    case Specifier::Fx: return "fx";
-    case Specifier::Fy: return "fy";
-  }
-  return "xfx";
-}
-
 bool specifier_atom(const Impl& machine, Cell cell) {
   return cell.tag() == Tag::Atom && specifier_of(atom_text(machine, cell)).has_value();
 }
@@ -336,6 +323,19 @@ void run_current_char_conversion(Impl& machine, const Goal& goal) {
 }
 
 }  // namespace
+
+std::string_view specifier_name(Specifier specifier) {
+  switch (specifier) {
+    case Specifier::Xf: return "xf";
+    case Specifier::Yf: return "yf";
+    case Specifier::Xfx: return "xfx";
+    case Specifier::Xfy: return "xfy";
+    case Specifier::Yfx: return "yfx";
+    case Specifier::Fx: return "fx";
+    case Specifier::Fy: return "fy";
+  }
+  return "xfx";
+}
 
 std::optional<Cell> read_op_request(Impl& machine, Cell priority, Cell specifier, Cell names, OpRequest& request) {
   priority = machine.heap.deref(priority);
