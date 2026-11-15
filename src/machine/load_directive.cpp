@@ -74,28 +74,31 @@ bool define_op_names(Impl& machine, int priority, Specifier specifier, Cell name
   return true;
 }
 
-bool apply_op(Impl& machine, Cell directive) {
+// ほかの指令と同じく 0（op/3 の形でない。一般の指令へ回す）、1（定義した）、-1（断った）を返す。断ったことを
+// machine.diagnostic が空でないことで知らせると、前の指令の中で吸われたゴールの読み込みの失敗が残した字面を
+// op/3 の誤りと取り違える（フェーズ12 Task 3b）。diagnostic は Machine::diagnostic() が返すので消さない。
+int apply_op(Impl& machine, Cell directive) {
   const Cell body = machine.heap.deref(machine.heap.arg(directive, 0));
   if (!(body.tag() == Tag::Str && machine.heap.functor_arity(body) == 3 &&
         machine.atoms.name(machine.heap.functor_atom(body)) == "op")) {
-    return false;
+    return 0;
   }
   const Cell priority_cell = machine.heap.deref(machine.heap.arg(body, 0));
   const Cell spec_cell = machine.heap.deref(machine.heap.arg(body, 1));
-  if (!is_integer_tag(priority_cell.tag())) return false;
-  if (spec_cell.tag() != Tag::Atom) return false;
+  if (!is_integer_tag(priority_cell.tag())) return 0;
+  if (spec_cell.tag() != Tag::Atom) return 0;
   const auto specifier = specifier_of(machine.atoms.name(static_cast<std::uint32_t>(spec_cell.raw() >> 3)));
   if (!specifier) {
     fail_load(machine, message_text(machine, op_failure_key(OpResult::BadSpecifier)));
-    return false;
+    return -1;
   }
   const bool big = priority_cell.tag() == Tag::Big;
   const auto priority64 = big ? std::int64_t{0} : machine.heap.integer_value(priority_cell);
   if (big || priority64 < 0 || priority64 > 1200) {
     fail_load(machine, message_text(machine, op_failure_key(OpResult::BadPriority)));
-    return false;
+    return -1;
   }
-  return define_op_names(machine, static_cast<int>(priority64), *specifier, machine.heap.arg(body, 2));
+  return define_op_names(machine, static_cast<int>(priority64), *specifier, machine.heap.arg(body, 2)) ? 1 : -1;
 }
 
 // M:N/A は M の述語を指す。N//A は N/(A+2) の意味（ADR 0024 改訂 3）。M の誤りは節操作と同じ Formal を formal に入れる。
@@ -678,8 +681,9 @@ int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& s
   const int conversion = apply_char_conv_directive(machine, term);
   if (conversion < 0) return -1;
   if (conversion > 0) return 1;
-  if (apply_op(machine, machine.heap.deref(term))) return 1;
-  if (!machine.diagnostic.empty()) return -1;
+  const int op_directive = apply_op(machine, machine.heap.deref(term));
+  if (op_directive < 0) return -1;
+  if (op_directive > 0) return 1;
   return run_directive_goal(machine, term);
 }
 

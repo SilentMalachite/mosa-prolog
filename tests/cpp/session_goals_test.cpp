@@ -136,10 +136,82 @@ void check_goal_load_report_embedded() {
                    "embedded consult failure prints once to std::cerr only: [" + text + "]");
 }
 
+// フェーズ12 Task 3b。指令の中で吸われたゴールの読み込みの失敗は、その行を 1 回出すだけで、後の指令と外側の読み込みを
+// 落とさない。前は残った診断の字面を、次の一般の指令が op/3 の誤りと取り違え、外側の読み込みごと失敗させていた。
+constexpr std::string_view kSwallowed = ":- (consult('/no/such/p12.pl') -> true ; true).\n";
+
+std::string write_fixture(std::string_view name, std::string_view body) {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/" + std::string{name};
+  std::ofstream file(path, std::ios::binary);
+  file << body;
+  return path;
+}
+
+// goal が空なら -g を付けず、読み込みだけで終える（読み込みの失敗は 1）。
+mosa::SessionResult run_file(const std::string& path, std::string_view goal) {
+  std::vector<std::string_view> args{std::string_view{"mosa"}, path};
+  if (!goal.empty()) {
+    args.emplace_back("-g");
+    args.push_back(goal);
+  }
+  return mosa::run_session(args, "", false);
+}
+
+// 期待する行はマシンに作らせて、err を丸ごと比べる。文面は LANG で変わるが、同じプロセスのマシンは同じ言語で書くので、
+// 言語に依らない。丸ごと比べれば行の数も決まり、外側のパスを付けた 2 行目や重複も落ちる。
+std::string consult_line(const std::string& path) {
+  auto machine = mosa::Machine::create();
+  const bool loaded = machine->consult(path);
+  return loaded ? std::string{"<loaded>"} : std::string{machine->diagnostic()};
+}
+
+std::string load_reason(std::string_view program) {
+  const mosa::LoadStatus status = mosa::Machine::create()->load_program(program);
+  return status.ok ? std::string{"<loaded>"} : status.message;
+}
+
+void check_goal_load_recovered_in_directive() {
+  const std::string path = write_fixture("p12_recover.pl", std::string{kSwallowed} + ":- X = 1, X == 1.\np12_r(1).\n");
+  const auto result = run_file(path, "p12_r(X).");
+  mosa_test::check(result.code == 0 && result.out == "X = 1.\n",
+                   "swallowed consult failure keeps later directives and the outer load: [" + result.out + "]");
+  mosa_test::check(result.err == consult_line("/no/such/p12.pl") + "\n",
+                   "swallowed consult failure prints only its own line once: [" + result.err + "]");
+}
+
+// write の出力は SessionResult に入らない（check_load_then_exit）ので、演算子は答えの行で見る。
+void check_goal_load_recovered_then_op() {
+  const std::string path = write_fixture("p12_recover_op.pl", std::string{kSwallowed} + ":- op(700, xfx, ===>).\n");
+  const auto result = run_file(path, "X = (a ===> b).");
+  mosa_test::check(result.code == 0 && result.out == "X = (a===>b).\n",
+                   "op/3 after a swallowed consult failure is defined: [" + result.out + "]");
+  mosa_test::check(result.err == consult_line("/no/such/p12.pl") + "\n",
+                   "op/3 after a swallowed consult failure prints only the consult line: [" + result.err + "]");
+}
+
+// apply_op が断る形（優先度の範囲外）と受けない形（優先度が数でない）。吸われた失敗の後でも、単独のときと同じ文で
+// 外側の読み込みを落とす。受けない形は前、残った consult の字面を外側の診断にしていた。
+void check_bad_op_still_fails() {
+  for (const std::string_view directive : {":- op(1201, xfx, foo).\n", ":- op(foo, xfx, bar).\n"}) {
+    const std::string reason = load_reason(directive);
+    const std::string alone = write_fixture("p12_bad_op.pl", directive);
+    const auto plain = run_file(alone, "");
+    mosa_test::check(plain.code == 1 && plain.err == alone + ": " + reason + "\n",
+                     "bad op alone fails the load: [" + plain.err + "]");
+    const std::string after = write_fixture("p12_recover_bad_op.pl", std::string{kSwallowed} + std::string{directive});
+    const auto late = run_file(after, "");
+    mosa_test::check(late.code == 1 && late.err == consult_line("/no/such/p12.pl") + "\n" + after + ": " + reason + "\n",
+                     "bad op after a swallowed consult failure keeps its own diagnostic: [" + late.err + "]");
+  }
+}
+
 }  // namespace
 
 void check_goal_load_reports() {
   check_goal_load_report_count();
   check_goal_load_report_once();
   check_goal_load_report_embedded();
+  check_goal_load_recovered_in_directive();
+  check_goal_load_recovered_then_op();
+  check_bad_op_still_fails();
 }
