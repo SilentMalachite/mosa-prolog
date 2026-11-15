@@ -95,7 +95,7 @@ A か B か: A は catch/3 の Goal と Recovery を、実行時に束縛され�
 
 決定（2026-11-03）: A（レビュー M7）。`X = (a, X), assertz((p :- X))` は `p :- a, call(_)` を足し（clause/2 はその本体を返す）、`X = (Y = 1 ; X)` を本体にした `p(Y)` は `Y = 1` の後に `instantiation_error` になる。戻る所ごとに別の変数になり、制御構造を含むデータの引数はデータとして写してその中の巡回を切る（`X = (q(X), true)` は `q((q(_), true)), true` を足す）。テスト: `tests/pl/database.pl` の `m7_assert_*`。
 
-`strip_module/3`（フェーズ 12 のタスク 7）にも巡回の検査は無い。`X = a:X` は出現検査の対象（STO）で、巡回する項を作る。その項への `strip_module(X, _, _)` は終わらない。この繰り返しは何も割り当てないので、`--heap-max` でも止まらない。節操作の C++ の `skip_module`（`src/module/target.cpp`）も同じように回り続ける。同じファイルの C++ の `strip_module` が回り続けるのは、巡回の中の原子が今あるモジュールを名指すとき（`X = user:X, assertz(X)`）だけで、そうでなければ `existence_error(module, M)` を投げる（`X = nomod:X, assertz(X)`）。2026-11-15 に 3 秒の上限を付けて手で確かめた。
+`strip_module/3`（フェーズ 12 のタスク 7）にも巡回の検査は無い。`X = a:X` は出現検査の対象（STO）で、巡回する項を作る。その項への `strip_module(X, _, _)` は終わらない。この繰り返しは何も割り当てないので、`--heap-max` でも止まらない。節操作の C++ の `skip_module`（`src/module/target.cpp`）も同じように回り続ける。同じファイルの C++ の `strip_module` が回り続けるのは、巡回の中の原子が今あるモジュールを名指すとき（`X = user:X, assertz(X)`）だけで、そうでなければ `existence_error(module, M)` を投げる（`X = nomod:X, assertz(X)`）。2026-11-15 に 3 秒の上限を付けて手で確かめた。`import/1`（フェーズ 12 のタスク 8）も同じように回り続ける。`import_source`（`src/builtins/module_goal.cpp`）が巡回の検査なしに `M:` の層を外すので、`X = a:X, import(X)` は終わらず、`--heap-max` でも止まらない（フェーズ 12 の Muse レビューで見つけ、2026-11-15 に 5 秒の上限を付けて手で確かめた）。
 
 ## 7.3.3 循環する式の評価
 
