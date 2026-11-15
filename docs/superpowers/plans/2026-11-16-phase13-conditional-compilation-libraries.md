@@ -20,7 +20,7 @@
 2. 根でない単位は、すべて新しい `rt::install_loaded_unit` で付ける（設計は「全部か、分岐の中で初めて読んだ物だけか」を任せた）。根の単位は今の `rt::install_unit` のままにする。今の実行ファイルでは、根の読み込みが成功すれば根でない単位のファイルはどれも読み終えているので、振る舞いは変わらない。
 3. `reexport(library(N))` と `reexport(library(N), _)` は、`use_module` と同じく全部の項から拾う（設計は範囲を任せた）。指令の `reexport` は今も翻訳の読み込みが辿るので、拾っても同梱は増えない。
 4. 「分岐の中で初めて読んだ」は、ファイルを開いた時に、読んでいるテキストのどれかにまだ閉じていない `if` があることとする（`TranslationLog::open_conditions > 0`）。ファイルは取った分岐の中でしか開かれないので、これで足りる。
-5. 「取らなかった分岐を持つファイル」は、条件で読み飛ばした項が 1 つでもあるファイルとする。空の分岐は数えない。`skipped_goal` と同じく `~FileNote` で外のファイルにも移す。include の外のファイルの公開も警告になりうるが、ビルドを止めるか警告かが違うだけで、実行の結果は変わらない。
+5. 「取らなかった分岐を持つファイル」は、条件で読み飛ばした項が 1 つでもあるファイルとする。空の分岐は数えない。`skipped_goal` と同じく `~FileNote` で外のファイルにも移す。`~FileNote` は入れ子の読み込みのたびに動くので、印は include だけでなく、`use_module` で読んだファイルやライブラリから、それを読んだファイルへも上がる。そのため、条件を持つファイルを読んだモジュールの公開の未定義も警告になる。ビルドを止めるか警告かが違うだけで、実行の結果は変わらない。
 6. 完了条件 2 の後半（分岐が同じなら取った分岐の述語だけを訳す）は、`mosac emit` を走らせる CMake の台本ではなく、`codegen_test` で `translate_program` の出力を見て確かめる。`mosac emit` が呼ぶのと同じ関数で、C++ のビルドが要らない。
 7. 条件付きコンパイルの診断（対の誤りの字面、条件の誤りの Formal、`halt` の終了コード）は、新しい `tests/cpp/cond_compile_test.cpp` で確かめる。`tests/pl` の行では「読み込みが失敗する」ことしか見られない。
 8. `cond_export` の単独実行のテストでは、台本の「未定義の呼び出しの警告があれば落とす」検査を外し、代わりに公開の警告があることを求める。取らなかった分岐だけが定義する述語の呼び出しは警告になる（設計の既知の制限 3）。今の 10 件の検査は変えない。
@@ -33,6 +33,7 @@
 - エラーは `throw_error`/`make_*_error` の族と今の `formal_*` の助け手だけで作る。アトムの名前を文字列で直に書かない。ライブラリの Prolog の誤りは、`lib/between.pl` と同じく `throw(error(Formal, context(Name/Arity, _)))` で投げる。
 - ライブラリのファイルの頭のコメントは `lib/strings.pl` の形にする。SPEC 第5節の表を指し、テストのファイル名と、名前と誤りを合わせた SWI-Prolog のマニュアルの版（10.1.20、2026-11-16 に読んだ）を書く。SWI-Prolog のソースを写さない。
 - テストを先に書き、赤を確かめてから緑にする。エラーのテストは `Formal` だけを比べる。期待値を実装に合わせて変えない。例外は設計のアンチ目標の 2 つ（`conformance_scope_test.cpp` の範囲の変更と、`lib/` のライブラリの一覧の 2 か所）だけで、どちらも範囲を変える、またはライブラリを足す同じコミットで直す。
+- `tests/pl` の行の `solutions([…])` は、リストの要素 1 つが解 1 つである。1 つの解に 2 つ以上の束縛を書くときは、`solutions([(K = [a, b], V = [1, 2])])` のように括弧でまとめる（`tests/pl/arith.pl:162` の形）。並べた変数のほかの束縛は比べない。
 - `tests/pl` の相対パスは、ゴールではリポジトリの根（ctest の作業ディレクトリ）から、指令では `tests/pl` から開く。読み込み先の固定のファイルは `tests/pl/fixtures/cond_*.pl` に置く。テストが書き出すファイルは `tests/tmp/` の下に置く。
 - `tests/pl` の行を足すか変えるコミットでは、`ctest --preset macos-clang -L diff` を流す。`docs/agreement.md` と `docs/agreement.json` を同じコミットに入れる。タスク 3 と 5 では `./build/mosatest --suite tests/conformance` も流し、結果が変われば `docs/conformance.md`、`docs/conformance.json`、`docs/conformance-library.json` を入れる。本欄 98.4%、ライブラリ欄 98.0% を下回らず、本欄の分母は 2326 のまま。
 - 決定は変えない。条件の指令になるのは `if/1`、`elif/1`、`else/0`、`endif/0` の 4 つの形だけで、`reserved_directive` には足さない。`:- if(C, T, E)` は今と同じく一般の指令として組み込みの `if/3` を呼ぶ。`:- module/2` は今と同じくファイルの最初の項でなければならない。翻訳の読み込みが呼ぶ利用者のゴールは、条件だけにする。
@@ -106,7 +107,7 @@
 **Interfaces:**
 - Consumes: タスク 2 の `load_internal.hpp`。
 - Produces（`load_internal.hpp`、定義は `load_cond.cpp`。2 つ目と 3 つ目は `load_directive.cpp`）:
-  - `[[nodiscard]] int run_condition(Impl& machine, Cell goal);` 1 は真、0 は偽、-1 は読み込みの失敗（診断は書いた）。`in_load_module` で包んで `run_parked` で解く。`Exception` は -1（`run_aside` が Formal の診断を書く）。`Halt` は `machine.load_kept = true` にして -1（`run_directive_goal` と同じ）。翻訳の読み込みの扱いはタスク 4 で足す。
+  - `[[nodiscard]] int run_condition(Impl& machine, Cell goal);` 1 は真、0 は偽、-1 は読み込みの失敗（診断は書いた）。`in_load_module` で包んで `run_parked` で解く。`Exception` は -1（`run_aside` が Formal の診断を書く）。`Halt` は `machine.load_kept = true` にして -1（`run_directive_goal` と同じ）。`Success` と `Failure` は読み込みを続けるので、どちらも `machine.load_kept = false` にする（`run_directive_goal` の成功と同じ理由。条件の中の consult が残した印を持ち越さない）。翻訳の読み込みの扱いはタスク 4 で足す。
   - `[[nodiscard]] StopKind run_parked(Impl& machine, Cell goal);`（今の定義を名前空間の外へ）
   - `[[nodiscard]] Cell in_load_module(Impl& machine, Cell goal);` 読み込み中のモジュールが `user` でなければ `M:Goal` を返す。
   - `class CondFrames`:
@@ -174,7 +175,7 @@
 - Modify: `src/machine/internal.hpp`（`TranslationLog` に 3 つの欄）、`src/machine/load_cond.cpp`（翻訳の読み込みの扱い）、`src/machine/load_note.cpp`（`FileNote` の 2 つの印）、`src/machine/goal_libraries.cpp`（`reexport` の 2 つの形）
 - Modify: `include/mosa/runtime.hpp` と `src/machine/native.cpp`（`install_loaded_unit`）、`src/codegen/project_main.cpp`（`main_body`）、`src/codegen/project.cpp`（`startup_modules` と `export_warnings` の呼び方）、`src/codegen/check.cpp` と `src/codegen/project.hpp`（`export_warnings`）
 - Create: `tests/mosac/cond_late_lib.pl`、`cond_build_mod.pl`、`cond_init_mod.pl`、`cond_skip_op.pl`、`cond_export.pl`、`cond_export_mod.pl`
-- Modify: `tests/mosac/standalone_test.cmake`（4 つの CASE）、`tests/tests.cmake:595`（CASE の並び）、`tests/cpp/codegen_test.cpp`
+- Modify: `tests/mosac/standalone_test.cmake`（4 つの CASE）、`tests/tests.cmake:595`（CASE の並び）、`tests/cpp/codegen_test.cpp`、`tests/cpp/native_test.cpp`
 
 **Interfaces:**
 - Consumes: タスク 3 の `run_condition`、`CondFrames`。
@@ -184,7 +185,7 @@
   - `run_condition` は、`machine.translation` があるとき、`Exception` と `Halt` を 0 にする。そのとき `machine.diagnostic` を空にし、`machine.halt_now` を偽に、`machine.halt_code` を 0 に戻す。`load_kept` は立てない。
   - `FileNote` は、新しい `File` を作るときに `in_branch = log->open_conditions > 0` とし、デストラクタで `untaken_branch` を `skipped_goal` と同じく外のファイルへ移す。
   - `note_goal_libraries` は `reexport(library(N))` と `reexport(library(N), _)` も拾う（「設計との違い」3）。
-  - `[[nodiscard]] bool rt::install_loaded_unit(Machine& machine, const NativeUnit& unit);` 単位のファイルが埋め込みにあり、起動時の読み込みがまだ読んでいない（`Impl::prepared` に無い）なら、読まず、付けず、`true` を返す。それ以外は `install_unit` と同じ。`main_body` は `plan.units[0]` に `install_unit`、残りに `install_loaded_unit` を出す。`diff_main.cpp` の `load_unit` の道は変えない。
+  - `[[nodiscard]] bool rt::install_loaded_unit(Machine& machine, const NativeUnit& unit);` 単位のファイルが埋め込みにあり、起動時の読み込みがまだ読んでいない（`Impl::prepared` に無い）なら、読まず、付けず、`true` を返す。それ以外は `install_unit` と同じ。`prepared` は `enter_file`（`read_terms` の入口、`load.cpp:428`）が書くので、`use_module`、`ensure_loaded`、`reexport`、`consult`、`[F]`、`include` のどの道で読んだファイルも入る。失敗した読み込みの分は `reject_load` が戻す。`main_body` は `plan.units[0]` に `install_unit`、残りに `install_loaded_unit` を出す。`diff_main.cpp` の `load_unit` の道は変えない。
   - `translate_program` の `impl.startup_modules` は、`Module::file` が `log_file` で `in_branch` のファイルを指すモジュールを除いた一覧にする。
   - `std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& log, const DisplayNames& names, bool untaken);` `untaken_branch == untaken` のファイルのモジュールだけを見る。`translate_program` は `false` の結果でビルドを止め、`true` の結果を `project.warnings` の前に足す（`any_opaque` でも足す）。
 
@@ -195,16 +196,20 @@
     - `cond_halt.pl`（Review Focus 4）: `":- if(halt).\nhaltedpred.\n:- endif.\nafterhalt.\n"` は `ok` で `pafterhalt_0` がある。
     - `cond_dialect.pl`（Review Focus 5）: `":- if(current_prolog_flag(dialect, swi)).\n:- use_module(library(clpfd)).\n:- else.\nmosapred.\n:- endif.\n"` は `ok` で `pmosapred_0` がある。
     - `cond_syntax.pl`: `":- if(fail).\nx(1r3).\n:- endif.\nysyntax.\n"` は `ok` で `pysyntax_0` がある。
+    - `cond_op_only.pl`: `":- if(fail).\n:- op(700, xfx, ===>).\n:- endif.\nr(a ===> b).\n"` は `ok` で、`muser.cpp` に `"NativeEntry{"` が無い（`project_opaque` と同じ見方）。前に一般の指令が無いので、取らなかった分岐の指令が `skipped_goal` を立てなければ翻訳が止まる。
+  - `native_test.cpp` の `check_loaded_unit`（`install_loaded_unit` の 2 つの道）。`native_list_machine` と同じ単位を、名前を `tests/tmp/p13_native_list.pl` の絶対パスにして作り、`rt::embed` で同じパスに `kListSource` を埋め込む。
+    - 読んでいない: `install_loaded_unit` は `true` を返し、`app/3` が定義されない（`app(X, Y, [1])` は `existence_error`）。
+    - 読んだ: 先に `load_program(":- ensure_loaded('<そのパス>').\n")` で読んでから `install_loaded_unit` を呼ぶと `true` で、`app/3` の述語の `native` が空でない（`engine_impl` と `find_pred` で見る）。付け忘れはこちらで赤になる。
   - `check_cond_log`。`TranslationLog` を付けた機械で `load_program` に `":- if(fail).\n:- use_module(library(strings)).\n:- reexport(library(between)).\n:- endif.\n"` を渡す。`log.goal_libraries == {"strings", "between"}`、`log.open_conditions == 0`。
   - 単独実行の 4 つ（`tests/mosac/`）。どれも頭に `:- initialization(main, main).` を置く。期待の出力は `./build/mosa <ファイル>` の出力と同じであることを、書いた後に手で確かめる。
     - `cond_late_lib`（起動時に取る分岐だけがライブラリを読む）: `:- assertz(cond_flag).`、`:- if(cond_flag).`、`:- use_module(library(strings)).`、`:- endif.`、`main :- strings:upcase_atom(abc, X), write(X), nl.`。出力は `ABC\n`、標準エラーは空。
     - `cond_build_mod`（ビルド時に取る分岐だけがモジュールのファイルを読む）: `:- dynamic(cond_skip/0).`、`:- assertz(cond_skip).`、`:- if(\+ cond_skip).`、`:- use_module(cond_init_mod).`、`:- endif.`、`main :- catch(cond_init_mod:hello, error(E, _), (write(E), nl)), catch(hello, error(F, _), (write(F), nl)).`。`cond_init_mod.pl` は `:- module(cond_init_mod, [hello/0]).`、`:- initialization((write(init_ran), nl)).`、`hello :- write(hello), nl.`。出力は `existence_error(module,cond_init_mod)\nexistence_error(procedure,hello/0)\n`。
     - `cond_skip_op`（取らなかった分岐の `op/3` を後ろの項が使う）: `:- assertz(cond_op).`、`:- if(cond_op).`、`:- op(700, xfx, ===>).`、`:- endif.`、`r(a ===> b).`、`main :- r(X), write(X), nl.`。出力は `a===>b\n`。
-    - `cond_export`（公開した述語を、取らなかった分岐だけが定義する）: `:- use_module(cond_export_mod).`、`main :- answer(X), write(X), nl.`。`cond_export_mod.pl` は `:- module(cond_export_mod, [answer/1]).`、`:- assertz(cond_mod_ready).`、`:- if(cond_mod_ready).`、`answer(42).`、`:- endif.`。出力は `42\n`。build の標準エラーに `answer/1` を含む行があることを求め、未定義の呼び出しの警告の検査はこの CASE だけ外す（「設計との違い」8）。
-- [ ] **Step 2: 赤を確かめる。** `ctest --preset macos-clang -R 'codegen|standalone_cond'` が落ちる。`cond_late_lib` は同梱が無く読み込みが失敗する。`cond_build_mod` は `init_ran` と `hello` を書く。`cond_skip_op` と `cond_export` は build が止まる。`check_cond_translation` の `cond_throw.pl` と `cond_halt.pl` も翻訳が止まる。
+    - `cond_export`（公開した述語を、取らなかった分岐だけが定義する）: `:- use_module(cond_export_mod).`、`main :- answer(X), write(X), nl.`。`cond_export_mod.pl` は `:- module(cond_export_mod, [answer/1]).`、`:- assertz(cond_mod_ready).`、`:- if(cond_mod_ready).`、`answer(42).`、`:- endif.`。出力は `42\n`。build の標準エラーが `mosac_export_undefined` の字面（`answer/1 を export したが定義が無い` か `exported procedure answer/1 is not defined`）に合うことを求め、未定義の呼び出しの警告の検査はこの CASE だけ外す（「設計との違い」8）。
+- [ ] **Step 2: 赤を確かめる。** `ctest --preset macos-clang -R 'codegen|native|standalone_cond'` が落ちる（`native` と `check_cond_log` は新しい名前が無いのでビルドで落ちる）。`cond_late_lib` は同梱が無く読み込みが失敗する。`cond_build_mod` は `init_ran` と `hello` を書く。`cond_skip_op` と `cond_export` は build が止まる。`check_cond_translation` の `cond_throw.pl` と `cond_halt.pl` も翻訳が止まる。
 - [ ] **Step 3: 実装する（上の Interfaces どおり）。**
 - [ ] **Step 4: 緑を確かめる。**
-  - `ctest --preset macos-clang -R 'codegen|standalone|mosac'` が全部通る。そのあと `ctest --preset macos-clang` 全体も通る（今の実行ファイルの `install_unit` の道が変わらないこと。設計のリスクの節）。
+  - `ctest --preset macos-clang -R 'codegen|native|standalone|mosac'` が全部通る。そのあと `ctest --preset macos-clang` 全体も通る（今の実行ファイルの `install_unit` の道が変わらないこと。設計のリスクの節）。
   - `MOSA_GC_STRESS=1 ctest --preset macos-clang -R 'codegen|cond_compile'` が通る（翻訳の読み込みで解いた条件の後の GC の根。設計のリスクの節）。
   - `ctest --preset macos-clang -L diff` が通る。結果が変われば `docs/agreement.*` を入れる。
 - [ ] **Step 5: Commit.** `[phase13] mosac が条件をビルド時にも評価し、起動時の分岐と食い違っても mosa と同じ結果にする（ADR 0027。standalone_cond の 4 件、codegen の 2 件、ctest 全件）`
@@ -216,7 +221,7 @@
 **Files:**
 - Modify: `src/machine/lgt_suite.hpp:212-215`（`library_column`）
 - Modify: `tests/cpp/conformance_scope_test.cpp`（3 か所）
-- Modify（作り直す）: `docs/conformance.md`、`docs/conformance.json`、`docs/conformance-library.json`
+- Modify（作り直す）: `docs/conformance.md`、`docs/conformance.json`、`docs/conformance-library.json`、`docs/agreement.md`、`docs/agreement.json`（差分テストの suite の側は `suite_in_scope` の `lgt_suite_files` で両方の欄を流すので、39 件が差分にも入る）
 
 **Interfaces:**
 - Consumes: タスク 3 のローダー。
@@ -228,8 +233,8 @@
 - [ ] **Step 4: 緑を確かめ、表を作り直す。**
   - `ctest --preset macos-clang -R conformance_scope` が通る。
   - `./build/mosatest --suite tests/conformance` を流す。`docs/conformance.md` の `directives/conditional_compilation` の行が 39 件全部の合格を示す。ライブラリ欄の分母が 605、合格率が 98.0% 以上。本欄の分母が 2326 のまま、合格率が 98.4% 以上。
-  - `ctest --preset macos-clang` が全部通る。
-- [ ] **Step 5: Commit.** `[phase13] suite のライブラリ欄が directives/conditional_compilation の 39 件を数える（問い 2 の A。39/39、ライブラリ欄 605 件、本欄 2326 件のまま）`
+  - `ctest --preset macos-clang` が全部通る。`ctest --preset macos-clang -L diff` も通り、`conditional_compilation` の 39 件が両側で同じ結果なので、`docs/agreement.*` を作り直す。
+- [ ] **Step 5: Commit.** `[phase13] suite のライブラリ欄が directives/conditional_compilation の 39 件を数える（問い 2 の A。39/39、ライブラリ欄 605 件、本欄 2326 件のまま、ctest -L diff 0 差分）`
 
 ---
 
@@ -243,12 +248,12 @@
 - Produces: `:- module(pairs, [pairs_keys_values/3, pairs_keys/2, pairs_values/2, group_pairs_by_key/2, transpose_pairs/2, map_list_to_pairs/3]).` と `:- meta_predicate map_list_to_pairs(2, ?, ?).`。`transpose_pairs/2` は組を入れ替えて `keysort/2` する。`group_pairs_by_key/2` は連続して `==` の鍵だけをまとめる。
 
 - [ ] **Step 1: 失敗するテストを書く（`tests/pl/lib_pairs.pl`、頭に `:- use_module(library(pairs)).`）。**
-  - `pkv_split`: `pairs_keys_values([a-1, b-2], K, V)` は `solutions([K = [a, b], V = [1, 2]])`
+  - `pkv_split`: `pairs_keys_values([a-1, b-2], K, V)` は `solutions([(K = [a, b], V = [1, 2])])`
   - `pkv_join`: `pairs_keys_values(P, [a, b], [1, 2])` は `solutions([P = [a-1, b-2]])`
-  - `pkv_empty`: `pairs_keys_values([], K, V)` は `solutions([K = [], V = []])`
+  - `pkv_empty`: `pairs_keys_values([], K, V)` は `solutions([(K = [], V = [])])`
   - `pk_keys`: `pairs_keys([a-1, b-2], K)` は `solutions([K = [a, b]])`。`pv_values`: `pairs_values([a-1, b-2], V)` は `solutions([V = [1, 2]])`
   - `gpk_doc`（マニュアルの例）: `group_pairs_by_key([a-2, a-1, b-4, a-3], X)` は `solutions([X = [a-[2, 1], b-[4], a-[3]]])`
-  - `gpk_doc_largest`（マニュアルの例）: `(sort(1, @>=, [a-1, b-2, c-3, a-4, a-5, c-6], Ps), group_pairs_by_key(Ps, [K-Vs|_]))` は `solutions([K = c, Vs = [3, 6]])`
+  - `gpk_doc_largest`（マニュアルの例）: `(sort(1, @>=, [a-1, b-2, c-3, a-4, a-5, c-6], Ps), group_pairs_by_key(Ps, [K-Vs|_]))` は `solutions([(K = c, Vs = [3, 6])])`
   - `gpk_strict`: `group_pairs_by_key([1-a, 1.0-b], G)` は `solutions([G = [1-[a], 1.0-[b]]])`。`gpk_empty`: `group_pairs_by_key([], G)` は `solutions([G = []])`
   - `tp_sorted`: `transpose_pairs([a-2, b-1, c-2], T)` は `solutions([T = [1-b, 2-a, 2-c]])`
   - `mlp_length`: `map_list_to_pairs(atom_length, [abc, d], P)` は `solutions([P = [3-abc, 1-d]])`
@@ -279,7 +284,7 @@
   - `os_disjoint`: `ord_disjoint([a], [b])` は `true`、`os_disjoint_not`: `ord_disjoint([a, b], [b])` は `fail`
   - `os_inter2`: `ord_intersection([[a, b, c], [b, c, d], [b, c]], I)` は `solutions([I = [b, c]])`。`os_inter2_empty`: `ord_intersection([], _)` は `fail`
   - `os_inter3`: `ord_intersection([a, b, c], [b, c, d], I)` は `solutions([I = [b, c]])`
-  - `os_inter4`: `ord_intersection([a, b, c], [b, c, d], I, D)` は `solutions([I = [b, c], D = [d]])`
+  - `os_inter4`: `ord_intersection([a, b, c], [b, c, d], I, D)` は `solutions([(I = [b, c], D = [d])])`
   - `os_add`: `ord_add_element([a, c], b, S)` は `solutions([S = [a, b, c]])`。`os_add_present`: `ord_add_element([a, c], c, S)` は `solutions([S = [a, c]])`
   - `os_del`: `ord_del_element([a, b, c], b, S)` は `solutions([S = [a, c]])`。`os_del_absent`: `ord_del_element([a, c], b, S)` は `solutions([S = [a, c]])`
   - `os_selectchk`: `ord_selectchk(b, [a, b, c], R)` は `solutions([R = [a, c]])`。`os_selectchk_absent`: `ord_selectchk(d, [a, b, c], _)` は `fail`
@@ -289,7 +294,7 @@
   - `os_subtract`: `ord_subtract([a, b, c], [b], D)` は `solutions([D = [a, c]])`
   - `os_union2`: `ord_union([[c], [a, b], [b, d]], U)` は `solutions([U = [a, b, c, d]])`
   - `os_union3`: `ord_union([a, c], [b, c], U)` は `solutions([U = [a, b, c]])`
-  - `os_union4`: `ord_union([a, c], [b, c], U, N)` は `solutions([U = [a, b, c], N = [b]])`
+  - `os_union4`: `ord_union([a, c], [b, c], U, N)` は `solutions([(U = [a, b, c], N = [b])])`
   - `os_symdiff_doc`（マニュアルの例）: `ord_symdiff([1, 2], [2, 3], X)` は `solutions([X = [1, 3]])`
   - `japanese.pl`: `ordsets_ja`: `ord_union([みかん], [りんご], U)` は `solutions([U = [みかん, りんご]])`。`ordsets_ja_sort`: `list_to_ord_set([りんご, みかん], S)` は `solutions([S = [みかん, りんご]])`
 - [ ] **Step 2〜4:** タスク 6 と同じ（一覧は `… lists, ordsets, pairs, strings`）。
@@ -313,13 +318,13 @@
   - `as_ord`: `(ord_list_to_assoc([a-1, b-2], O), assoc_to_keys(O, K))` は `solutions([K = [a, b]])`
   - `as_ord_unsorted`: `ord_list_to_assoc([b-1, a-2], _)` は `error(domain_error(key_ordered_pairs, [b-1, a-2]))`。`as_ord_dup`: `ord_list_to_assoc([a-1, a-2], _)` は `error(domain_error(key_ordered_pairs, [a-1, a-2]))`
   - `as_get`: `get_assoc(b, A, V)` は `solutions([V = 2])`。`as_get_absent`: `get_assoc(d, A, _)` は `fail`
-  - `as_get5`: `(get_assoc(a, A, Old, A2, 9), assoc_to_list(A2, L))` は `solutions([Old = 1, L = [a-9, b-2, c-3]])`。`as_get5_absent`: `get_assoc(d, A, _, _, 9)` は `fail`
+  - `as_get5`: `(get_assoc(a, A, Old, A2, 9), assoc_to_list(A2, L))` は `solutions([(Old = 1, L = [a-9, b-2, c-3])])`。`as_get5_absent`: `get_assoc(d, A, _, _, 9)` は `fail`
   - `as_put`: `(empty_assoc(E), put_assoc(k, E, 1, A1), put_assoc(k, A1, 2, A2), assoc_to_list(A2, L))` は `solutions([L = [k-2]])`
   - `as_put_keeps_old`: `(put_assoc(a, A, 7, _), get_assoc(a, A, V))` は `solutions([V = 1])`
-  - `as_max`: `max_assoc(A, K, V)` は `solutions([K = c, V = 3])`。`as_min`: `min_assoc(A, K, V)` は `solutions([K = a, V = 1])`。`as_max_empty`: `(empty_assoc(E), max_assoc(E, _, _))` は `fail`
+  - `as_max`: `max_assoc(A, K, V)` は `solutions([(K = c, V = 3)])`。`as_min`: `min_assoc(A, K, V)` は `solutions([(K = a, V = 1)])`。`as_max_empty`: `(empty_assoc(E), max_assoc(E, _, _))` は `fail`
   - `as_gen`: `findall(K-V, gen_assoc(K, A, V), L)` は `solutions([L = [a-1, b-2, c-3]])`
-  - `as_del`: `(del_assoc(b, A, V, A2), assoc_to_list(A2, L))` は `solutions([V = 2, L = [a-1, c-3]])`。`as_del_absent`: `del_assoc(d, A, _, _)` は `fail`
-  - `as_del_min`: `(del_min_assoc(A, K, V, A2), assoc_to_list(A2, L))` は `solutions([K = a, V = 1, L = [b-2, c-3]])`。`as_del_max` は `K = c, V = 3, L = [a-1, b-2]`
+  - `as_del`: `(del_assoc(b, A, V, A2), assoc_to_list(A2, L))` は `solutions([(V = 2, L = [a-1, c-3])])`。`as_del_absent`: `del_assoc(d, A, _, _)` は `fail`
+  - `as_del_min`: `(del_min_assoc(A, K, V, A2), assoc_to_list(A2, L))` は `solutions([(K = a, V = 1, L = [b-2, c-3])])`。`as_del_max` は `solutions([(K = c, V = 3, L = [a-1, b-2])])`
   - `as_del_min_empty`: `(empty_assoc(E), del_min_assoc(E, _, _, _))` は `fail`。`as_del_max_empty` も `fail`（iso-notes と第14章の違い）
   - `as_keys`: `assoc_to_keys(A, K)` は `solutions([K = [a, b, c]])`。`as_values`: `assoc_to_values(A, V)` は `solutions([V = [1, 2, 3]])`
   - `as_is`: `is_assoc(A)` は `true`。`as_is_empty`: `(empty_assoc(E), is_assoc(E))` は `true`。`as_is_not`: `is_assoc(foo)` は `fail`
