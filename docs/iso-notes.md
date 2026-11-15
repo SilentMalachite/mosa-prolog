@@ -900,4 +900,4 @@ Phase 12 (Task 6, fix round 1) makes importing a module's own predicate back no 
 
 A or B?: A: keep both paths as they are. B: make the direct path read the items, so that the alias is stored and a PI that is not exported is an error, as on any other import.
 
-Until the owner confirms: A.
+Decision (2026-11-15): A (owner decision A). B is rejected. Importing a module's own predicate under an alias is rare, and `q(X) :- p(X).` gives the same name in one clause. B would also change `import/1` with no `M:`, which SPEC section 5 lets succeed and change nothing through the same `from == into` guard, unless the alias case were treated apart. The two paths keep their results, and no test or document changes. B can be taken up again if a program needs it.
