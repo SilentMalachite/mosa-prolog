@@ -11,6 +11,7 @@
 #include "machine/internal.hpp"
 #include "mosa/path_text.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -445,6 +446,31 @@ void check_goal_library_deep() {
   check(log.goal_libraries == std::vector<std::string>{"dcg"}, "goal library in a deep term");
 }
 
+// 読めないライブラリ（モジュールでない原文だけの同梱ライブラリと、どこにも無いライブラリ）は翻訳を止めない。診断は
+// 前の値に戻り、翻訳の記録にもその原文と節を残さない（残すと原文を埋め込み、その鍵がプログラムのファイルの鍵と
+// ぶつかると翻訳を止める）。後ろの apply は読めて記録に入る。前の値は目印にする（apply を読むと診断は空になるので）。
+void check_goal_library_failure() {
+  mosa::rt::bundle_library("goal_library_plain", "goal_library_plain(1).\n");
+  auto machine = Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa::TranslationLog log;
+  impl.translation = &log;
+  log.goal_libraries = {"goal_library_plain", "goal_library_nope", "apply"};
+  impl.diagnostic = "kept";
+  impl.syntax_diag = true;
+  mosa::load_goal_libraries(impl);
+  impl.translation = nullptr;
+  check(impl.diagnostic == "kept" && impl.syntax_diag, "goal libraries keep the diagnostic: " + impl.diagnostic);
+  const auto logged = [&log](std::string_view part) {
+    return std::any_of(log.files.begin(), log.files.end(), [part](const auto& file) { return has(file.key, part); });
+  };
+  const std::uint32_t plain = impl.atoms.intern("goal_library_plain");
+  const bool plain_site =
+      std::any_of(log.sites.begin(), log.sites.end(), [plain](const auto& site) { return site.pred.name == plain; });
+  check(!logged("goal_library_plain") && !plain_site, "a failed goal library leaves nothing in the log");
+  check(logged("apply"), "goal libraries go on past a failure");
+}
+
 // Windows の NMake は cl へのインラインの応答ファイルを ANSI の符号ページで書き、ASCII の外の文字を落とす
 // （ci run 42438279645 の「展開 先」）。どの OS でも、UTF-8 で 0x80 以上のバイトが 1 つでもあれば渡せないと答える。
 void nmake_paths() {
@@ -484,6 +510,7 @@ int main() {
   project_opaque();
   check_goal_library_names();
   check_goal_library_deep();
+  check_goal_library_failure();
   nmake_paths();
   return mosa_test::failures() == 0 ? 0 : 1;
 }
