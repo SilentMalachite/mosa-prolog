@@ -123,8 +123,10 @@ grandchildren, as `show_grandchildren/1` of chapter 12 did.
 main :- forall(grandparent(tom, Z), format('~w is a grandchild of tom~n', [Z])).
 ```
 
-7. Build it and run it. `mosac` puts every file that the program loads with `use_module/1` into the executable, the
-   libraries included.
+7. Build it and run it. `mosac` puts every file that the program loads with a `use_module/1` directive into the
+   executable, the libraries included, and also every library that a goal names literally as `library(Name)`. A file
+   that a goal names by a plain path, such as `use_module(helper)` in the body of a clause, is not put in: the
+   executable reads it relative to the working directory when the goal runs.
 
 <!-- check: build-modules -->
 ```console

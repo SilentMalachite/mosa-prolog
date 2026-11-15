@@ -275,11 +275,12 @@ the new name. `reexport` is a directive only: typed at the prompt, it is an unkn
 
 ### Looking at modules
 
-Four built-in predicates look at modules from a program:
+Four built-in predicates look at modules from a program or import from them:
 
 - `module_property(M, P)` gives the properties of a module made by `module/2`: `file(F)`, the file it was loaded
-  from; `exports(L)`, the predicates it exports, re-exported ones included; and `exported_operators(L)`, the
-  operators it exports, when there are any.
+  from (in an executable built by `mosac`, the file's embed key resolved against the working directory, one of the
+  known limits in the [CHANGELOG](../../../CHANGELOG.md)); `exports(L)`, the predicates it exports, re-exported ones
+  included; and `exported_operators(L)`, the operators it exports, when there are any.
 - `strip_module(Term, M, Plain)` takes `M:` off the front of `Term`. When `Term` has none, `M` is the module of the
   goal.
 - `context_module(M)` gives the module of the goal: `user` at the prompt, and `family` in

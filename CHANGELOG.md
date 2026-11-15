@@ -36,10 +36,11 @@ English | [日本語](CHANGELOG.ja.md)
   `module_property/2` and `import/1` are now built-in predicates. A clause for one of them, in any module, now gives
   `permission_error(modify, static_procedure, PI)`. Mosa 0.2.2 let a program define them, for example `user:import/1`.
 - A goal load that fails writes its reason to `user_error` at the moment it fails, once, also when `;`, `findall/3`
-  or `\+` absorbs the failure; this covers `consult/1` called as a goal and the three goals above. Mosa 0.2.2 wrote
-  the reason only when the whole query failed, and lost it when the failure was absorbed. The text is the one
-  `mosa F` prints, such as `F: reason`, and when the whole query then fails, the toplevel does not write it again. In
-  a program that embeds Mosa, the line goes to standard error, and `Machine::diagnostic()` still returns it.
+  or `\+` absorbs the failure; this covers `consult/1`, `use_module/1,2` and `ensure_loaded/1` called as goals.
+  Mosa 0.2.2 wrote the reason only when the whole query failed, and lost it when the failure was absorbed. The text
+  is the one `mosa F` prints, such as `F: reason`, and when the whole query then fails, the toplevel does not write
+  it again. In a program that embeds Mosa, the line goes to standard error, and `Machine::diagnostic()` still returns
+  it.
 - `ensure_loaded/1` called as a goal loads the file, or writes the reason and fails. Mosa 0.2.2 raised
   `existence_error(procedure, ensure_loaded/1)`.
 - For developers, five expected values of the tests changed with these rulings (iso-notes "7.4.2 ensure_loaded/1"
@@ -54,21 +55,28 @@ English | [日本語](CHANGELOG.ja.md)
 - A directive that calls `consult/1` and absorbs its failure, as `:- (consult(F) -> true ; true).` does, no longer
   makes a later directive `:- G` fail the whole load with the absorbed reason, and a later `set_prolog_flag/2`
   directive that fails no longer reports the line and column of a syntax error in the absorbed file.
+- In an executable built by `mosac`, a call `M:G` into a library that the program does not load, such as
+  `lists:append(...)` or `format:format(...)`, now raises `existence_error(module, M)`, as `mosa` does. Mosa 0.2.2
+  raised `existence_error(procedure, M:Name/Arity)` there.
 
 ### Known limits
 
-The known limits of 0.2.2 still hold. Four come with the module changes:
+The known limits of 0.2.2 still hold. Five come with the module changes:
 
 - The reason that a failed goal load writes goes past the `user_error` stream, as Mosa's warnings do, so the column
   that stream counts does not move.
 - In an executable built by `mosac build`, `module_property(M, file(F))` gives the file's embed key resolved against
   the working directory: `library/Name.pl` for a bundled library, and the path relative to the main file's directory
-  for the program's own module files. This is not the path that the interpreter gives.
+  for the program's own module files. It can differ from the path that the interpreter gives.
 - After `use_module(library(apply))` as a goal, `mosac` still warns that an unqualified call such as `maplist/3` is
   undefined, although the executable runs correctly: the translator reads a library named in a goal without importing
   it anywhere, as `use_module(library(apply), [])`.
-- A call `M:G` into a module that the program loads only from a goal goes through `:/2` at run time in an executable
-  built by `mosac`, and is not bound in place. The result is the same; the call is only slower.
+- A call `M:G` into a module that the program does not load by a directive (one that it loads only from a goal, or a
+  library such as `lists` that it does not load at all) goes through `:/2` at run time in an executable built by
+  `mosac`, and is not bound in place. The result is the same as in `mosa`; the call is only slower.
+- `mosac` does not bundle a file that a goal load names by a plain path, such as `use_module(helper)` in the body of
+  a clause: the executable reads it relative to the working directory when the goal runs. Of the files named in
+  goals, only the libraries named literally as `library(Name)` are bundled.
 
 ## 0.2.2 (2026-11-14)
 

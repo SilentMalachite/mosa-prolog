@@ -323,7 +323,7 @@ X = あいう.
 | `ensure_loaded/1` | — | `ensure_loaded(File)`: ディレクティブと同じく、まだ読み込んでいなければファイルを読み込みます。 |
 | `strip_module/3` | — | `strip_module(Term, M, Plain)`: Term の頭の `M:` を、M が原子である間だけ外します。M はそのうち一番内側のモジュールで、Term に `M:` が無ければゴールのモジュールです。Plain は残りです。`strip_module(a:b:f(x), M, P)` は `M = b, P = f(x)` になります。 |
 | `context_module/1` | — | `context_module(M)`: M はゴールのモジュールです。プロンプトでは `user`、モジュール `m` の節の中では `m`、`meta_predicate` の引数に渡したゴールでは呼び手のモジュールです。 |
-| `module_property/2` | — | `module_property(M, P)`: P は `module/2` で作ったモジュールの性質です。`file(F)` は読み込んだファイル、`exports(L)` は公開している述語の `Name/Arity` のリスト（再公開したものも含め、公開した順）、`exported_operators(L)` は演算子を公開しているときの `op(P, T, N)` のリストです。`user` と `system` には性質がありません。 |
+| `module_property/2` | — | `module_property(M, P)`: P は `module/2` で作ったモジュールの性質です。`file(F)` は読み込んだファイル（`mosac` で作った実行ファイルでは、ファイルの埋め込みの鍵を作業ディレクトリに対して解決したパス。[CHANGELOG](../../../CHANGELOG.ja.md) の既知の制限の 1 つです）、`exports(L)` は公開している述語の `Name/Arity` のリスト（再公開したものも含め、公開した順）、`exported_operators(L)` は演算子を公開しているときの `op(P, T, N)` のリストです。`user` と `system` には性質がありません。 |
 | `import/1` | — | `import(M:Name/Arity)`: M が公開している述語を 1 つ、ゴールのモジュールに取り込みます。`use_module/2` のリストの 1 項目と同じです。`as` は使えません。`M:` が無ければ、ゴールのモジュールが自分から取り込むので、何も変わりません。`M1:M2:Name/Arity` は内側の `M2` から取り込みます。 |
 
 ### すべての解

@@ -1,8 +1,8 @@
 // フェーズ12 Task 5（iso-notes の問い 2 の A、SPEC 第5節と第6節）。mosac の翻訳の読み込みは指令だけを辿って同梱の
 // 閉包を作るので、節の本体や initialization/1 のゴールにだけ書いた use_module(library(N)) のライブラリを実行ファイルが
 // 見つけられなかった。読んだ項からその N を書き留め、翻訳の読み込みの最後に読んで閉包に入れる。
-// テスト: tests/cpp/codegen_test.cpp（check_goal_library_names、check_goal_library_deep）、
-//         tests/mosac/standalone_test.cmake（goal_use_body、goal_use_init）
+// テスト: tests/cpp/codegen_test.cpp（check_goal_library_names、check_goal_library_deep、check_goal_library_failure）、
+//         tests/mosac/standalone_test.cmake（goal_use_body、goal_use_init、goal_use_late）
 #include "internal.hpp"
 
 #include <algorithm>

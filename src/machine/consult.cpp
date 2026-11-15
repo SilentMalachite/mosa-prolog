@@ -309,7 +309,10 @@ bool run_consult(Impl& machine, const Goal& call) {
 
 namespace {
 
-// 指令と同じ Formal を、ファイルを探す前に出す。Spec を先に、Imports を後に見る（指令の apply_use と同じ順）。
+// 指令と同じ Formal を、ファイルを探す前に出す。Spec を先に、Imports を後に見る。ゴールでは引数の誤りは例外で、
+// ライブラリが無いことは診断を書いて失敗するだけなので、引数を全部見てから探す。指令の apply_use は Spec の検査と
+// Imports の検査の間でライブラリを探すので、順が違う。use_module(library(nope), foo) はゴールなら
+// type_error(list, foo)、指令なら existence_error(source_sink, library(nope)) になる。
 std::optional<Cell> load_goal_problem(Impl& machine, const Goal& call) {
   if (machine.atoms.name(call.name) == "ensure_loaded") {
     const Cell file = machine.heap.deref(call.arg(machine, 0));
