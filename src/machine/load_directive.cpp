@@ -581,7 +581,11 @@ StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
     }
   } catch (...) {
     // C++ の例外（ヒープの上限）でも、積んだ束縛と項を外の水位まで戻してから投げ直す。後始末は、問い合わせが同じ例外で
-    // 抜けるとき（drop_run）と同じく呼ばない。外のスタックは run_parked が戻す。
+    // 抜けるとき（drop_run）と同じく呼ばない。カットが外して待たせた後始末と、次の歩みに渡した生成関数の呼び先も、
+    // drop_run と同じく捨てる。残すと、外の問い合わせの next() が、切り詰めたヒープの上の項でそれを動かす。外の
+    // スタックは run_parked が戻す。
+    machine.pending_cleanups.clear();
+    machine.native_next = nullptr;
     restore_state(machine, heap_mark, saved.trail_size, saved.extras_mark);
     throw;
   }
