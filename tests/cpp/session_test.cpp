@@ -740,6 +740,7 @@ void check_argv_after_dashes() {
 void check_load_then_exit();
 void check_repeated_goals();
 void check_goal_load_reports();
+void check_goal_use_session();
 
 int main(int argc, char** argv) {
   if (argc > 1 && std::string_view{argv[1]} == "english") {
@@ -756,6 +757,7 @@ int main(int argc, char** argv) {
   check_consult_keeps_query();
   check_consult_failure_reports();
   check_goal_load_reports();
+  check_goal_use_session();
   check_consult_flag_rolls_back();
   check_consult_invalid_utf8_rolls_back();
   check_dynamic_builtin_rejected();

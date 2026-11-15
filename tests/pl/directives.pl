@@ -136,10 +136,10 @@ test(general_directive_order, (findall(X, gd_seen(X), L), L == [first, second]),
 
 test(include_goal, include(missing), error(existence_error(procedure, include/1))).
 
-% 7.4.2 ensure_loaded/1。指示だけ。同じパスは一度だけ読む。
-% ファイルが要る確認は tests/cpp/ensure_test.cpp。ここはゴールではないことだけ。
+% 7.4.2 ensure_loaded/1。同じパスは一度だけ読む。iso-notes の 7.4.2 ensure_loaded/1 の改訂（フェーズ12）で、ゴールでも
+% 呼べる。ファイルが要る確認は tests/cpp/ensure_test.cpp。ここは、無いファイルのゴールが診断を書いて失敗することだけ。
 
-test(ensure_goal, ensure_loaded(missing), error(existence_error(procedure, ensure_loaded/1))).
+test(ensure_goal, ensure_loaded(missing), fail).
 
 % 7.4.2 [File]。リストの各アトムを consult と同じ手続きで読む。
 % ファイルが要る確認は tests/cpp/files_test.cpp。空リストは何も読まない。

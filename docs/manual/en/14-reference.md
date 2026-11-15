@@ -163,8 +163,10 @@ The flags from `bounded` to `debug` are those of ISO clause 7.11, and the others
 
 A directive is a line `:- Goal.` in a file, run while the file loads. Most of these are not predicates and work only
 in a file, not at the `?-` prompt; `consult/1`, `op/3`, `char_conversion/2` and `set_prolog_flag/2` are built-in
-predicates too. `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`, `initialization/1`,
-`include/1`, `ensure_loaded/1` and `set_prolog_flag/2` are the directives of ISO clause 7.4.2.
+predicates too. `use_module/1`, `use_module/2` and `ensure_loaded/1` can also be called as goals, at the prompt too:
+a goal opens a relative name from the current folder, not from the folder of the file being loaded, and imports into
+the module of the goal. `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `char_conversion/2`,
+`initialization/1`, `include/1`, `ensure_loaded/1` and `set_prolog_flag/2` are the directives of ISO clause 7.4.2.
 
 | Directive | What it does |
 | --- | --- |
@@ -339,6 +341,9 @@ These look at the clauses of predicates and change them, and look at modules.
 | `predicate_property/2` | 13211-2 7.2.2 | `predicate_property(Head, P)`: P is a property of the predicate, such as `built_in`, `dynamic` or `exported`. |
 | `current_module/1` | 13211-2 7.2.1 | A module that exists. |
 | `consult/1` | — | Loads a file (chapter 4). The name needs its `.pl`. |
+| `use_module/1` | — | `use_module(File)`: as the directive, loads a module once and imports all that it exports, into the module of the goal (chapter 12). If the load fails, Mosa writes the reason and the goal fails. |
+| `use_module/2` | — | `use_module(File, Imports)`: as the directive, imports only the predicates in the list. |
+| `ensure_loaded/1` | — | `ensure_loaded(File)`: as the directive, loads the file unless it was already loaded. |
 
 ### All solutions
 

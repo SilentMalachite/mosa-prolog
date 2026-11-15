@@ -49,7 +49,12 @@ void manual_builtin_indicators() {
   check(has_indicator(all, "halt", 0) && has_indicator(all, "halt", 1), "builtins: halt/0 and halt/1");
   check(has_indicator(all, ",", 2) && has_indicator(all, "length", 2), "builtins: ,/2 and length/2");
   check(has_indicator(all, ":", 2), "builtins: :/2");
-  check(!has_indicator(all, "use_module", 1) && !has_indicator(all, "dynamic", 1), "builtins: no load directives");
+  // フェーズ12（ADR 0026）。読み込みの 3 つはゴールにもなったので組込に入り、指令だけの名前は入らない。
+  check(has_indicator(all, "use_module", 1) && has_indicator(all, "use_module", 2) &&
+            has_indicator(all, "ensure_loaded", 1),
+        "builtins: use_module/1,2 and ensure_loaded/1 are goals too");
+  check(!has_indicator(all, "dynamic", 1) && !has_indicator(all, "module", 2) && !has_indicator(all, "include", 1),
+        "builtins: no directive-only names");
   bool internal = false;
   for (const mosa::PredicateIndicator& item : all) internal = internal || item.name.starts_with('$');
   check(!internal, "builtins: no $ helpers");

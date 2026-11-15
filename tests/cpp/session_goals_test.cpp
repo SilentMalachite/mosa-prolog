@@ -217,7 +217,62 @@ void check_goal_load_recovered_then_flag() {
                    "bad flag after a swallowed syntax error has no stale line and column: [" + result.err + "]");
 }
 
+// フェーズ12 Task 4。use_module/1,2 と ensure_loaded/1 のゴール。プロンプトで読めることと、失敗の診断の字面（計画の
+// 「設計との違い」6）が 1 回だけ出ることを見る。
+void check_goal_use_at_prompt() {
+  const std::vector<std::string_view> args{std::string_view{"mosa"}};
+  const auto result = mosa::run_session(args, "use_module(library(lists)).\nlast([1, 2], X).\n", true);
+  mosa_test::check(result.out.find("X = 2") != std::string::npos,
+                   "use_module at the prompt loads lists: [" + result.out + "][" + result.err + "]");
+}
+
+// prefix で始まる行の数。構文の誤りの桁は読み手の数え方に依るので、行の頭だけを見る。
+std::size_t lines_starting(std::string_view text, std::string_view prefix) {
+  std::size_t count = 0;
+  for (std::size_t at = 0; at < text.size();) {
+    const auto end = text.find('\n', at);
+    const auto line = text.substr(at, end == std::string_view::npos ? std::string_view::npos : end - at);
+    if (line.starts_with(prefix)) ++count;
+    if (end == std::string_view::npos) break;
+    at = end + 1;
+  }
+  return count;
+}
+
+void check_goal_use_reports_file() {
+  const std::string failing = write_fixture("p12_fail.pl", ":- module(p12_fail, []).\n:- fail.\n");
+  const auto failed = run_goal("use_module('" + failing + "').");
+  // 開いたファイルの中の誤りは「F: 理由」（ja では「F: この指示のゴールは失敗した: :-fail」）。理由は同じプロセスの
+  // マシンに作らせ、言語に依らない。
+  const std::string reason = load_reason(":- fail.\n");
+  mosa_test::check(failed.code == 1 && count_of(failed.err, failing + ": " + reason + "\n") == 1,
+                   "failing directive in a goal use_module prints its line once: [" + failed.err + "]");
+  const std::string broken = write_fixture("p12_syntax.pl", ":- module(p12_syntax, []).\nr :- .\n");
+  const auto syntax = run_goal("use_module('" + broken + "').");
+  mosa_test::check(syntax.code == 1 && lines_starting(syntax.err, broken + ":2:") == 1,
+                   "syntax error in a goal use_module prints path:line once: [" + syntax.err + "]");
+  const auto library = run_goal("use_module(library(p12_none)).");
+  mosa_test::check(library.code == 1 &&
+                       count_of(library.err, "library(p12_none): existence_error(source_sink,library(p12_none))") == 1,
+                   "missing library in a goal use_module prints the spec once: [" + library.err + "]");
+}
+
+void check_goal_ensure_busy() {
+  const std::string first = write_fixture("p12_busy_a.pl", "p12_p(1).\n");
+  const std::string second = write_fixture("p12_busy_b.pl", "p12_p(2).\n");
+  const auto result = run_file(first, "((true ; fail), ensure_loaded('" + second + "')).");
+  // 文面は ctest が LANG=ja_JP.UTF-8 に固定するのに頼る（tests/tests.cmake の ENVIRONMENT_MODIFICATION）。
+  mosa_test::check(result.code == 1 && count_of(result.err, second + ": 実行中の述語は置き換えられない") == 1,
+                   "refused ensure_loaded under a choice point prints its line once: [" + result.err + "]");
+}
+
 }  // namespace
+
+void check_goal_use_session() {
+  check_goal_use_at_prompt();
+  check_goal_use_reports_file();
+  check_goal_ensure_busy();
+}
 
 void check_goal_load_reports() {
   check_goal_load_report_count();

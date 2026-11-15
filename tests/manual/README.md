@@ -173,7 +173,7 @@ same version. `LIB` means the export list of `lib/LIB.pl` beside `--mosa` (besid
 symbolic link, as `mosa` itself looks there), loaded by its absolute path in a fresh machine; `$MOSA_LIB` is ignored,
 as it is for the `mosa` that runs the examples. A library that is present but cannot be loaded (a syntax error, no
 `module/2`, a module with another name) fails with its name, its path and the load error. Directives such as
-`use_module/1` and `dynamic/1` are not built-in predicates, so list them in a table without a marker. Both editions of
+`module/2` and `dynamic/1` are not built-in predicates, so list them in a table without a marker. Both editions of
 a chapter have the same sequence of `predicates:` markers.
 
 With `--all-tables`, each edition must also have a section for `system` and for every library in that `lib/`; the

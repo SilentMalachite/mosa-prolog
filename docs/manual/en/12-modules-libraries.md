@@ -10,21 +10,23 @@ write a module of your own.
 1. Move into the folder `prolog` with the `cd` line of chapter 4, and start `mosa`. Join two lists with `append/3`,
    which works like your `app/3` of chapter 7. Mosa answers with the warning of chapter 3: there is no such predicate
    yet. `append/3` is in a library, a file of predicates written in Prolog that comes with Mosa. Its predicates are
-   there only after the library is loaded with `use_module/1`, and `use_module/1` works only in a file: typed at the
-   `?-` prompt, it gives the same kind of warning.
+   there only after the library is loaded with `use_module/1`. Type `use_module(library(lists))` at the `?-` prompt:
+   it loads the library named `lists`, and the two lists join. `library(lists)` tells Mosa to look for it in the
+   folder `lib` beside `mosa`, which is why chapter 2 asked you to keep the folder of Mosa together.
 
 <!-- check: no-library -->
 ```text
 ?- append([a, b], [c, d], X).
 Warning: goal raised exception: error(existence_error(procedure,append/3),context(append/3,_G1))
 ?- use_module(library(lists)).
-Warning: goal raised exception: error(existence_error(procedure,use_module/1),context(use_module/1,_G1))
+true.
+?- append([a, b], [c, d], X).
+X = [a,b,c,d].
 ```
 
-2. Create a file `libs.pl` in the folder `prolog` with this one line. It is a directive, as in chapter 11: while
-   Mosa loads the file, it runs `use_module(library(lists))`, which loads the library named `lists`.
-   `library(lists)` tells Mosa to look for it in the folder `lib` beside `mosa`, which is why chapter 2 asked you to
-   keep the folder of Mosa together.
+2. A library loaded at the prompt stays until you quit Mosa. A program that uses a library each time it is loaded
+   writes `use_module/1` in its file, as a directive, as in chapter 11: while Mosa loads the file, it runs
+   `use_module(library(lists))`. Create a file `libs.pl` in the folder `prolog` with this one line.
 
 <!-- file: libs-file libs.pl -->
 ```prolog

@@ -6,17 +6,19 @@
 
 ## 手順
 
-1. 第 4 章の `cd` の行でフォルダ `prolog` に移り、`mosa` を起動します。`append/3` で 2 つのリストをつなげてみます。`append/3` は、第 7 章で書いた `app/3` と同じ働きをする述語です。ところが Mosa は、第 3 章と同じ警告を出します。この述語はまだないからです。`append/3` はライブラリに入っています。ライブラリは、Mosa に付いてくる、Prolog で書いた述語のファイルです。ライブラリの述語は、`use_module/1` でライブラリを読み込んでから使えるようになります。ただし `use_module/1` はファイルの中でしか使えません。`?-` のプロンプトで打つと、同じような警告が出ます。
+1. 第 4 章の `cd` の行でフォルダ `prolog` に移り、`mosa` を起動します。`append/3` で 2 つのリストをつなげてみます。`append/3` は、第 7 章で書いた `app/3` と同じ働きをする述語です。ところが Mosa は、第 3 章と同じ警告を出します。この述語はまだないからです。`append/3` はライブラリに入っています。ライブラリは、Mosa に付いてくる、Prolog で書いた述語のファイルです。ライブラリの述語は、`use_module/1` でライブラリを読み込んでから使えるようになります。`?-` のプロンプトで `use_module(library(lists))` と打つと、`lists` という名前のライブラリが読み込まれ、2 つのリストがつながります。`library(lists)` と書くと、Mosa は `mosa` の隣のフォルダ `lib` でライブラリを探します。第 2 章で Mosa のフォルダをそのままの形で置いておくように書いたのは、このためです。
 
 <!-- check: no-library -->
 ```text
 ?- append([赤, 緑], [青], X).
 警告: ゴールは例外を送出しました: error(existence_error(procedure,append/3),context(append/3,_G1))
 ?- use_module(library(lists)).
-警告: ゴールは例外を送出しました: error(existence_error(procedure,use_module/1),context(use_module/1,_G1))
+true.
+?- append([赤, 緑], [青], X).
+X = [赤,緑,青].
 ```
 
-2. フォルダ `prolog` に `ライブラリ.pl` というファイルを作り、次の 1 行を書きます。この行は、第 11 章と同じくディレクティブです。Mosa はファイルを読み込む途中で `use_module(library(lists))` を実行し、`lists` という名前のライブラリを読み込みます。`library(lists)` と書くと、Mosa は `mosa` の隣のフォルダ `lib` でライブラリを探します。第 2 章で Mosa のフォルダをそのままの形で置いておくように書いたのは、このためです。
+2. プロンプトで読み込んだライブラリは、Mosa を終えるまで使えます。読み込むたびにライブラリを使うプログラムは、`use_module/1` をディレクティブとしてファイルに書きます。第 11 章と同じく、Mosa はファイルを読み込む途中で `use_module(library(lists))` を実行します。フォルダ `prolog` に `ライブラリ.pl` というファイルを作り、次の 1 行を書きます。
 
 <!-- file: libs-file ライブラリ.pl -->
 ```prolog

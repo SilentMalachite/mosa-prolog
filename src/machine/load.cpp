@@ -119,6 +119,8 @@ struct LoadScan {
   std::vector<Cell>& inits;
   std::optional<PredKey>& last;
   std::vector<std::string>& opening;
+  // open_prolog_file が開けたファイルの数。ゴールの読み込みの診断が、開けなかったのが根のファイルかを見分ける。
+  std::size_t opened = 0;
 };
 
 struct CycleGuard {
@@ -191,6 +193,7 @@ int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan&
     fail_load(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
     return -1;
   }
+  ++scan.opened;
   // 同じ走査に足す。別の load にすると、節の置き換えと初期化の区切りが変わる。
   if (!read_terms(machine, *text, utf8_from_path(file.parent_path()), utf8_from_path(file), scan, role)) return -1;
   return 1;
@@ -248,11 +251,9 @@ bool names_library(const Impl& machine, Cell arg) {
 // 素のパスは擬似ディレクトリ library/ に解決するので、それも同じ一覧で引く。
 std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directory, std::filesystem::path& file,
                                std::optional<std::string>& bundled) {
-  if (machine.heap.unbound(arg)) return formal_instantiation(machine);
+  if (const auto formal = check_use_spec(machine, arg)) return formal;
   if (names_library(machine, arg)) {
     const Cell name = machine.heap.deref(machine.heap.arg(arg, 0));
-    if (machine.heap.unbound(name)) return formal_instantiation(machine);
-    if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
     const std::string_view text = machine.atoms.name(static_cast<std::uint32_t>(name.raw() >> 3));
     if (const auto embedded = locate_bundled_library(machine, text)) {
       file = *embedded;
@@ -268,10 +269,31 @@ std::optional<Cell> locate_use(Impl& machine, Cell arg, std::string_view directo
     }
     return std::nullopt;
   }
-  if (arg.tag() != Tag::Atom) return formal_type(machine, "atom", arg);
   file = source_path(machine, resolve_include(directory, machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3))));
   bundled = locate_bundled_plain(machine, file);
   return std::nullopt;
+}
+
+// locate_use で見つけたファイルを、準備済みでなければ読み、spec のとおり取り込む。指令は読み込み中のテキストの入れ子
+// として、ゴールは根のテキストとして読む（nested）。arg は呼び手が GC の根に登録した変数で、読んだ後も使う。
+int use_file(Impl& machine, const Cell& arg, const std::filesystem::path& file,
+             const std::optional<std::string>& bundled, const ImportSpec& spec, LoadScan& scan, bool nested) {
+  if (!file_ready(machine, scan, file)) {
+    // library(...) で見つけたファイルは、利用者の表でなく ISO の核と自分のモジュールの演算子で読む（ADR 0006 の
+    // 改訂 1）。利用者が -> や :- を変えた後でも、ライブラリの節を別の項に読まない。
+    std::optional<CoreOperatorScope> core;
+    if (names_library(machine, arg)) core.emplace(machine);
+    if (open_prolog_file(machine, file, scan, TextRole{nested, false, true}) < 0) return -1;
+    if (core) core->finish();
+    // 同梱ライブラリの翻訳済みの単位は、原文を読み終えてから付ける（ADR 0009）。
+    if (bundled) attach_bundled_library(machine, *bundled);
+  }
+  const Module* module = module_of_file(machine, file);
+  if (module == nullptr) return fail_formal(machine, formal_permission(machine, "load", "source_sink", arg));
+  if (const auto formal = apply_imports(machine, module->name, machine.load_module, spec)) {
+    return fail_formal(machine, *formal);
+  }
+  return 1;
 }
 
 // use_module/1,2。ensure_loaded と同じく読むのは 1 回だけで、取り込みは呼ぶたびに足す。
@@ -290,22 +312,13 @@ int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& sc
       return fail_formal(machine, *formal);
     }
   }
-  if (!file_ready(machine, scan, file)) {
-    // library(...) で見つけたファイルは、利用者の表でなく ISO の核と自分のモジュールの演算子で読む（ADR 0006 の
-    // 改訂 1）。利用者が -> や :- を変えた後でも、ライブラリの節を別の項に読まない。
-    std::optional<CoreOperatorScope> core;
-    if (names_library(machine, arg)) core.emplace(machine);
-    if (open_prolog_file(machine, file, scan, TextRole{true, false, true}) < 0) return -1;
-    if (core) core->finish();
-    // 同梱ライブラリの翻訳済みの単位は、原文を読み終えてから付ける（ADR 0009）。
-    if (bundled) attach_bundled_library(machine, *bundled);
-  }
-  const Module* module = module_of_file(machine, file);
-  if (module == nullptr) return fail_formal(machine, formal_permission(machine, "load", "source_sink", arg));
-  if (const auto formal = apply_imports(machine, module->name, machine.load_module, spec)) {
-    return fail_formal(machine, *formal);
-  }
-  return 1;
+  return use_file(machine, arg, file, bundled, spec, scan, true);
+}
+
+// ensure_loaded のファイル。準備済みなら節も初期化も足さず、公開述語だけを取り込み直す。
+int ensure_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, bool nested) {
+  if (file_ready(machine, scan, file)) return import_ready(machine, file);
+  return open_prolog_file(machine, file, scan, TextRole{nested, true, true});
 }
 
 int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& scan, std::string_view functor,
@@ -325,8 +338,58 @@ int apply_file(Impl& machine, Cell term, std::string_view directory, LoadScan& s
   const auto name = machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3));
   const auto file = source_path(machine, resolve_include(directory, name));
   // include は毎回足す。ensure_loaded は、準備済みのパスを節も初期化も足さない。
-  if (once && file_ready(machine, scan, file)) return import_ready(machine, file);
-  return open_prolog_file(machine, file, scan, TextRole{true, true, once});
+  if (once) return ensure_file(machine, file, scan, true);
+  return open_prolog_file(machine, file, scan, TextRole{true, true, false});
+}
+
+// ゴールの読み込み 1 回（ADR 0026）。body は呼び手が GC の根に登録した use_module(...) か ensure_loaded(...)。file は
+// 開いたパス。prefix_file は、失敗の診断に「file: 」を付けること（計画の「設計との違い」6）。
+struct GoalLoad {
+  Cell& body;
+  std::filesystem::path file;
+  bool prefix_file = true;
+};
+
+// 根のファイルが開けなかったときだけ、run_consult と同じく cannot_open_file の文面にパスを重ねない。準備済みの
+// ファイルは開かずに取り込みで失敗したので、パスを付ける。
+bool goal_failed(GoalLoad& load, const LoadScan& scan, bool ready) {
+  load.prefix_file = ready || scan.opened > 0;
+  return false;
+}
+
+// ゴールの use_module/1,2。相対パスは作業ディレクトリから開き（directory は空）、ファイルは根のテキストとして読む。
+// 引数は run_load_goal が検査済みなので、locate_use の誤りはライブラリが見つからないことだけである。
+bool goal_use(Impl& machine, GoalLoad& load, LoadScan& scan) {
+  Cell arg = machine.heap.deref(machine.heap.arg(load.body, 0));
+  const RootScope roots(machine, [&arg](GcVisitor& visitor) { visitor.cell(arg); });
+  std::optional<std::string> bundled;
+  if (const auto formal = locate_use(machine, arg, {}, load.file, bundled)) {
+    // ファイルを探す前の誤りには、開いたパスが無いので Spec を書いた字面を付ける。
+    const std::string spec_text = write_term(machine.heap, machine.operators, arg, {}, {});
+    fail_formal(machine, *formal);
+    machine.diagnostic = spec_text + ": " + machine.diagnostic;
+    load.prefix_file = false;
+    return false;
+  }
+  ImportSpec spec;
+  if (machine.heap.functor_arity(load.body) == 2) {
+    if (const auto formal = parse_imports(machine, machine.heap.arg(load.body, 1), spec)) {
+      load.prefix_file = false;
+      return fail_formal(machine, *formal) > 0;
+    }
+  }
+  const bool ready = file_ready(machine, scan, load.file);
+  if (use_file(machine, arg, load.file, bundled, spec, scan, false) > 0) return true;
+  return goal_failed(load, scan, ready);
+}
+
+// ゴールの ensure_loaded/1。パスの基準と読み方は goal_use と同じ。引数は検査済みの原子である。
+bool goal_ensure(Impl& machine, GoalLoad& load, LoadScan& scan) {
+  const Cell arg = machine.heap.deref(machine.heap.arg(load.body, 0));
+  load.file = source_path(machine, resolve_include({}, machine.atoms.name(static_cast<std::uint32_t>(arg.raw() >> 3))));
+  const bool ready = file_ready(machine, scan, load.file);
+  if (ensure_file(machine, load.file, scan, false) > 0) return true;
+  return goal_failed(load, scan, ready);
 }
 
 // 開き済みのファイルをもう一度開くと、読み込みが終わらない。
@@ -589,7 +652,7 @@ LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* sha
   std::optional<PredKey> last;
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
-  LoadScan scan{snapshots, apart, inits, last, opening};
+  LoadScan scan{snapshots, apart, inits, last, opening, 0};
   if (!read(scan)) {
     if (machine.load_kept) {
       if (file_text) restore_file_flags(machine, saved_flags);
@@ -623,6 +686,35 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   return run_load(machine, !origin.empty(), shared_opening, [&](LoadScan& scan) {
     return read_terms(machine, source, directory, origin, scan, TextRole{false, true, true});
   });
+}
+
+std::optional<Cell> check_use_spec(Impl& machine, Cell spec) {
+  spec = machine.heap.deref(spec);
+  if (machine.heap.unbound(spec)) return formal_instantiation(machine);
+  if (names_library(machine, spec)) {
+    const Cell name = machine.heap.deref(machine.heap.arg(spec, 0));
+    if (machine.heap.unbound(name)) return formal_instantiation(machine);
+    if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
+    return std::nullopt;
+  }
+  if (spec.tag() != Tag::Atom) return formal_type(machine, "atom", spec);
+  return std::nullopt;
+}
+
+LoadStatus load_goal_term(Impl& machine, Cell directive) {
+  Cell body = machine.heap.deref(machine.heap.arg(machine.heap.deref(directive), 0));
+  // ファイルの指示と初期化のゴールが GC を起こしうる。読んだ後の取り込みで body の引数を使うので登録する。
+  const RootScope roots(machine, [&body](GcVisitor& visitor) { visitor.cell(body); });
+  const bool ensure = machine.atoms.name(machine.heap.functor_atom(body)) == "ensure_loaded";
+  GoalLoad load{body, {}, true};
+  // 読んだファイルの字句の旗は、ファイルの consult と同じく戻す（file_text）。
+  const LoadStatus status = run_load(machine, true, nullptr, [&machine, &load, ensure](LoadScan& scan) {
+    return ensure ? goal_ensure(machine, load, scan) : goal_use(machine, load, scan);
+  });
+  if (status.ok || !load.prefix_file) return status;
+  // 開いたファイルの中の誤りと読んだ後の誤りは、mosa F と同じく開いたパスを付ける（構文の誤りなら行と桁も）。
+  prefix_consult_diagnostic(machine, utf8_from_path(load.file));
+  return LoadStatus{false, machine.diagnostic};
 }
 
 LoadStatus Machine::load_program(std::string_view source) {

@@ -1,9 +1,18 @@
+// ゴールの読み込み: consult/1（ISO に無い）と、フェーズ12の use_module/1,2・ensure_loaded/1（ADR 0026、SPEC 第5節）。
+// use_module と ensure_loaded のゴールは 13211-1 に条項は無い。13211-2 での位置は未確認。
+// モード: consult(+atom)、use_module(+Spec)、use_module(+Spec, +Imports)、ensure_loaded(+atom)。
+//         Spec は library(Name) か原子。
+// エラー: instantiation_error、type_error(atom, X)、type_error(list, L)、type_error(predicate_indicator, PI)。
+//         ほかの失敗は診断を user_error に書いて失敗する（iso-notes の問い 1 の A）。
+// テスト: tests/pl/modules.pl、tests/pl/directives.pl、tests/pl/japanese.pl、tests/pl/failed_load.pl、
+//         tests/cpp/session_goals_test.cpp
 #include "internal.hpp"
 
 #include "mosa/writer.hpp"
 #include "mosa/path_text.hpp"
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -274,6 +283,63 @@ bool run_consult(Impl& machine, const Goal& call) {
   machine.load_module = outer;
   if (!status.ok) {
     prefix_consult_diagnostic(machine, text);
+    report_goal_load_failure(machine);
+    machine.failed = true;
+    return true;
+  }
+  machine.diagnostic.clear();
+  machine.ip = goal.cont;
+  return true;
+}
+
+namespace {
+
+// 指令と同じ Formal を、ファイルを探す前に出す。Spec を先に、Imports を後に見る（指令の apply_use と同じ順）。
+std::optional<Cell> load_goal_problem(Impl& machine, const Goal& call) {
+  if (machine.atoms.name(call.name) == "ensure_loaded") {
+    const Cell file = machine.heap.deref(call.arg(machine, 0));
+    if (machine.heap.unbound(file)) return formal_instantiation(machine);
+    if (file.tag() != Tag::Atom) return formal_type(machine, "atom", file);
+    return std::nullopt;
+  }
+  if (const auto formal = check_use_spec(machine, call.arg(machine, 0))) return formal;
+  if (call.arity != 2) return std::nullopt;
+  ImportSpec spec;
+  return parse_imports(machine, call.arg(machine, 1), spec);
+}
+
+// 検査したゴールを :-(G) にする。束縛済みの引数（use_module(library(N)) の N）は、そのまま項の中で deref される。
+Cell goal_directive(Impl& machine, const Goal& call) {
+  std::vector<Cell> args;
+  args.reserve(call.arity);
+  for (std::size_t index = 0; index < call.arity; ++index) args.push_back(call.arg(machine, index));
+  const std::array<Cell, 1> body{machine.heap.structure(call.name, args)};
+  return machine.heap.structure(machine.atoms.intern(":-"), body);
+}
+
+}  // namespace
+
+bool run_load_goal(Impl& machine, const Goal& call) {
+  if (const auto formal = load_goal_problem(machine, call)) {
+    raise_formal(machine, *formal, call.name, call.arity);
+    return true;
+  }
+  // 読み込みの指示は入れ子の run_loop で動き、GC が枠と項を動かす。読んだ後は登録した写し goal を使う。
+  Goal goal = call;
+  Cell directive = goal_directive(machine, call);
+  const RootScope roots(machine, [&goal, &directive](GcVisitor& visitor) {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+    visitor.cell(directive);
+  });
+  // 取り込み先はゴールの文脈モジュール。印は run_consult と同じく、読み込みの中から呼ばれたときのために戻す。
+  const auto outer = machine.load_module;
+  machine.load_module = goal.module;
+  const auto saved = mark_seen(machine);
+  const LoadStatus status = load_goal_term(machine, directive);
+  restore_seen(machine, saved);
+  machine.load_module = outer;
+  if (!status.ok) {
     report_goal_load_failure(machine);
     machine.failed = true;
     return true;

@@ -147,7 +147,7 @@ X = あいう.
 
 ## ディレクティブ
 
-ディレクティブは、ファイルに書く `:- Goal.` の行で、ファイルを読み込む途中で実行されます。ほとんどは述語ではなく、ファイルの中でしか使えません。`?-` のプロンプトでは使えません。ただし `consult/1`、`op/3`、`char_conversion/2`、`set_prolog_flag/2` は組み込みの述語でもあります。`dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`include/1`、`ensure_loaded/1`、`set_prolog_flag/2` は、ISO の 7.4.2 節のディレクティブです。
+ディレクティブは、ファイルに書く `:- Goal.` の行で、ファイルを読み込む途中で実行されます。ほとんどは述語ではなく、ファイルの中でしか使えません。`?-` のプロンプトでは使えません。ただし `consult/1`、`op/3`、`char_conversion/2`、`set_prolog_flag/2` は組み込みの述語でもあります。`use_module/1`、`use_module/2`、`ensure_loaded/1` もゴールとして呼べ、プロンプトでも使えます。ゴールは相対の名前を、読み込み中のファイルのフォルダでなく今のフォルダから開き、ゴールのモジュールに取り込みます。`dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`include/1`、`ensure_loaded/1`、`set_prolog_flag/2` は、ISO の 7.4.2 節のディレクティブです。
 
 | ディレクティブ | すること |
 | --- | --- |
@@ -316,6 +316,9 @@ X = あいう.
 | `predicate_property/2` | 13211-2 7.2.2 | `predicate_property(Head, P)`: P は、`built_in`、`dynamic`、`exported` のような、述語の性質です。 |
 | `current_module/1` | 13211-2 7.2.1 | あるモジュールです。 |
 | `consult/1` | — | ファイルを読み込みます（第 4 章）。名前には `.pl` が要ります。 |
+| `use_module/1` | — | `use_module(File)`: ディレクティブと同じく、モジュールを 1 回だけ読み込み、公開された述語を全部、ゴールのモジュールに取り込みます（第 12 章）。読み込みが失敗すると、Mosa は理由を書き、ゴールは失敗します。 |
+| `use_module/2` | — | `use_module(File, Imports)`: ディレクティブと同じく、リストの述語だけを取り込みます。 |
+| `ensure_loaded/1` | — | `ensure_loaded(File)`: ディレクティブと同じく、まだ読み込んでいなければファイルを読み込みます。 |
 
 ### すべての解
 

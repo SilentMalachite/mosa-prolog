@@ -54,7 +54,9 @@ test(init_ha, 初, true).
 
 test(include_ha, include(含む), error(existence_error(procedure, include/1))).
 
-test(ensure_ha, ensure_loaded(含む), error(existence_error(procedure, ensure_loaded/1))).
+% ensure_loaded/1 はゴールでも呼べる（iso-notes の 7.4.2 ensure_loaded/1 の改訂）。作業ディレクトリに 含む は無いので、
+% 診断を書いて失敗する。
+test(ensure_ha, ensure_loaded(含む), fail).
 % library(japanese)。どちらの述語も、第1引数が決まっていれば前向き、第2引数だけ決まっていれば逆向きに写す。
 % 入力は原子か数、結果は変数か原子（library(strings) と同じ）。
 test(hk_basic, ひらがな_カタカナ(さくら, X), solutions([X = サクラ])).

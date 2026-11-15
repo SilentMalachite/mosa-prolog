@@ -169,7 +169,7 @@ void step(Impl& machine) {
 constexpr std::uint16_t kCallArityMax = 8;
 constexpr std::uint16_t kHaltArityMax = 1;
 
-// call/1..8、halt/0..1、findall、open、close、at_end_of_stream、get_char、get_code、peek_char、
+// call/1..8、halt/0..1、use_module、findall、open、close、at_end_of_stream、get_char、get_code、peek_char、
 // peek_code、put_char、put_code、nl、get_byte、peek_byte、put_byte、read_term、read、
 // write_term、write、writeq、write_canonical、print はアリティが二つ以上。
 // 制御構文は goal と launch が先に取る。
@@ -180,6 +180,9 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"fail", 0},
     {"false", 0},
     {"consult", 1},
+    {"use_module", 1},
+    {"use_module", 2},
+    {"ensure_loaded", 1},
     {"!", 0},
     {"var", 1},
     {"nonvar", 1},
@@ -533,6 +536,10 @@ bool run_builtin(Impl& machine, const Goal& goal) {
     return true;
   }
   if (text == "consult" && goal.arity == 1) return run_consult(machine, goal);
+  // reexport/1,2 は指令だけなので、ここには振り分けない（フェーズ12 Task 6）。
+  if ((text == "use_module" && (goal.arity == 1 || goal.arity == 2)) || (text == "ensure_loaded" && goal.arity == 1)) {
+    return run_load_goal(machine, goal);
+  }
   if (text == "!" && goal.arity == 0) {
     trim_stack(machine, goal.cut);
     machine.ip = goal.cont;

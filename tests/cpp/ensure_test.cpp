@@ -1,4 +1,4 @@
-// 7.4.2 ensure_loaded/1。指示だけ。同じパスは一度だけ節にする。
+// 7.4.2 ensure_loaded/1。同じパスは一度だけ節にする。フェーズ12 からゴールでも呼べる（iso-notes の改訂）。
 // include/1 は二度入れる。開けないファイルの診断は「ファイルを開けません」。
 // 一時ファイルは tests/tmp/ensure1。
 
@@ -302,9 +302,14 @@ void check_ensure_suffix(const std::filesystem::path& dir) {
   std::filesystem::remove_all(box, error);
 }
 
+// フェーズ12（iso-notes の 7.4.2 ensure_loaded/1 の改訂、ADR 0026）。ゴールでも呼べ、開けないファイルは診断を書いて
+// 失敗する。書いた行は埋め込みなら std::cerr に出る（session_goals_test.cpp が回数を見る）。ここは失敗と、その診断が
+// Machine::diagnostic() に残ることを見る。相対パスは作業ディレクトリから開く。
 void check_ensure_goal() {
   auto machine = mosa::Machine::create();
-  mosa_test::check(machine->query("ensure_loaded(missing).").kind == mosa::StopKind::Exception, "not a goal");
+  mosa_test::check(machine->query("ensure_loaded(missing).").kind == mosa::StopKind::Failure,
+                   "goal with a missing file fails");
+  mosa_test::check(machine->diagnostic() == "missing: ファイルを開けません", "goal keeps the cannot-open diagnostic");
 }
 
 void check_ensure_fact() {

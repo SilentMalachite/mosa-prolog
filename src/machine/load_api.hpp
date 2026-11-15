@@ -24,6 +24,16 @@ namespace mosa {
 [[nodiscard]] int apply_file_list(Impl& machine, Cell term, std::string_view directory,
                                   std::vector<std::string>& opening);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
+// 定義は load.cpp。use_module の Spec の形だけを見る（library(Name) か原子）。指令の locate_use とゴールの
+// run_load_goal が呼び、同じ Formal（instantiation_error、type_error(atom, _)）を出す。
+[[nodiscard]] std::optional<Cell> check_use_spec(Impl& machine, Cell spec);
+// 定義は load.cpp。directive は :-(G) で、G は引数を検査済みの use_module/1,2 か ensure_loaded/1。外側の読み込み 1 回と
+// して machine.load_module へ読む（ADR 0026）。相対パスは作業ディレクトリから開き、開いたファイルは根のテキストとして
+// 読み、字句の旗はファイルの consult と同じく戻す。失敗の診断には計画の「設計との違い」6 の字面を付ける。
+[[nodiscard]] LoadStatus load_goal_term(Impl& machine, Cell directive);
+// 定義は consult.cpp。use_module/1,2 と ensure_loaded/1 のゴール。引数の誤りは例外にし、ほかの失敗は
+// report_goal_load_failure で診断を書いて失敗する。成功なら選択点を残さない。
+[[nodiscard]] bool run_load_goal(Impl& machine, const Goal& goal);
 // 定義は load_path.cpp。読み込みのファイルの鍵（Module::file、prepared、埋め込み）にする正規化したパス。
 [[nodiscard]] std::filesystem::path canonical_key(const std::filesystem::path& file);
 // 埋め込みの原文を先に引き、無ければファイルを読む。開けなければ nullopt。

@@ -185,3 +185,43 @@ test(m28_dot_back_call, m28_back_call(X), solutions([X = 1])).
 test(mod_export_dcg_call, phrase(dcg_export:greet, [hello, world]), true).
 test(mod_import_dcg_list, phrase(dcg_item(world), [world]), true).
 test(mod_export_dcg_property, predicate_property(dcg_export:greet(_, _), exported), true).
+
+% フェーズ12 Task 4（ADR 0026、SPEC 第5節）。use_module/1,2 と ensure_loaded/1 はゴールでも呼べる。ゴールの相対パスは
+% 作業ディレクトリ（リポジトリの根）から開く。lists_needs_use が user に append/3 が無いことを確かめるので、user には
+% lists を取り込まない。ライブラリを読むゴールは goal_ctx の中で呼ぶ。
+:- consult('modules/goal_ctx.pl').
+% goal_conflict.pl の公開する gx_c/1 と衝突させる、user の局所の述語。
+gx_c(local).
+test(goal_use_before, predicate_property(goal_ctx:last(_, _), imported_from(_)), fail).
+test(goal_use_context, (goal_ctx:use_module(library(lists)), predicate_property(goal_ctx:last(_, _), imported_from(M)), goal_ctx:last([1, 2], X)), solutions([(M = lists, X = 2)])).
+test(goal_use_det, findall(x, goal_ctx:use_module(library(lists)), L), solutions([L = [x]])).
+test(goal_use_bound, (N = lists, goal_ctx:use_module(library(N), [last/2 as goal_last]), goal_ctx:goal_last([a], X)), solutions([X = a])).
+test(goal_use_list, (use_module('tests/pl/modules/goal_pick.pl', [gp_a/1]), gp_a(X)), solutions([X = 1])).
+test(goal_use_list_hidden, gp_b(_), error(existence_error(procedure, gp_b/1))).
+test(goal_use_as, (use_module('tests/pl/modules/goal_pick.pl', [gp_b/1 as gp_bee]), gp_bee(X)), solutions([X = 2])).
+test(goal_use_flags, (current_prolog_flag(double_quotes, B), use_module('tests/pl/modules/goal_flags.pl'), current_prolog_flag(double_quotes, A), A == B), true).
+test(goal_use_flags_module, (gf(X), atom(X)), true).
+test(goal_ensure_loaded, (ensure_loaded('tests/pl/modules/goal_plain'), ensure_loaded('tests/pl/modules/goal_plain'), findall(X, gpl_fact(X), L)), solutions([L = [1]])).
+% 失敗は、診断を user_error に 1 回書いて失敗する（問い 1 の A）。字面は tests/cpp/session_goals_test.cpp が見る。
+test(goal_use_not_module, use_module('tests/pl/modules/goal_plain.pl'), fail).
+test(goal_use_not_exported, use_module('tests/pl/modules/goal_pick.pl', [gp_hidden/0]), fail).
+test(goal_use_missing, use_module('tests/tmp/p12_no_such.pl'), fail).
+test(goal_use_lib_missing, use_module(library(p12_no_such)), fail).
+% 読んだ後の衝突で失敗した読み込みは、モジュールも準備済みの印も残さない（ADR 0017）。直した取り込みで読み直せる。
+test(goal_use_conflict, use_module('tests/pl/modules/goal_conflict.pl'), fail).
+test(goal_use_conflict_left, current_module(goal_conflict), fail).
+test(goal_use_conflict_retry, (use_module('tests/pl/modules/goal_conflict.pl', [gx_d/1]), gx_d(X)), solutions([X = 1])).
+% 引数の誤りは、指令と同じ Formal を例外にする。
+test(goal_use_var, use_module(_), error(instantiation_error)).
+test(goal_use_type, use_module(1), error(type_error(atom, 1))).
+test(goal_use_lib_var, use_module(library(_)), error(instantiation_error)).
+test(goal_use_lib_type, use_module(library(1)), error(type_error(atom, 1))).
+test(goal_use_imports_var, use_module(library(lists), _), error(instantiation_error)).
+test(goal_use_imports_type, use_module(library(lists), foo), error(type_error(list, foo))).
+test(goal_use_pi_type, use_module(library(lists), [foo]), error(type_error(predicate_indicator, foo))).
+test(goal_use_alias_type, use_module(library(lists), [last/2 as 1]), error(type_error(atom, 1))).
+test(goal_ensure_var, ensure_loaded(_), error(instantiation_error)).
+test(goal_ensure_lib, ensure_loaded(library(lists)), error(type_error(atom, library(lists)))).
+% 組み込みになったので、節を足せない。
+test(goal_use_static, assertz(use_module(x)), error(permission_error(modify, static_procedure, use_module/1))).
+test(goal_ensure_static, assertz(ensure_loaded(x)), error(permission_error(modify, static_procedure, ensure_loaded/1))).
