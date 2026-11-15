@@ -567,11 +567,12 @@ StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
   cleanup.heap_mark = heap_mark;
   cleanup.trail_mark = saved.trail_size;
   cleanup.extras_mark = saved.extras_mark;
-  machine.stack.push_back(std::move(cleanup));
-  count_vectors(machine);
-  launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   Stop stop;
+  // launch は extras を積みヒープを確保するので、そこで上限に当たっても下の catch で戻す（Opus 再レビュー A4）。
   try {
+    machine.stack.push_back(std::move(cleanup));
+    count_vectors(machine);
+    launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
     stop = run_loop(machine);
     // 指示は 1 回だけ解く。残った選択点を捨てる前に切り、setup_call_cleanup/3 の後始末の例外は指示の例外にする
     // （ADR 0016）。

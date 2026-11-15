@@ -653,8 +653,10 @@ bool read_or_reject(Impl& machine, const SavedLoad& saved, const LoadSnapshots& 
 }
 
 // 初期化のゴールを呼び、その後で写しを渡す。そのゴールが読んだ孫の写しも、この写しへ渡されている（2 度目の Codex
-// レビュー P2）。初期化のゴールが失敗しても節は戻さないが、親が失敗すれば親が戻す。C++ の例外で抜けるときも、Prolog の
-// 例外と同じく節を残して渡す。渡さないと、同じ例外で抜ける親の巻き戻しが、この読み込みの置き換えた節を戻せない。
+// レビュー P2）。初期化のゴールが失敗しても節は戻さないが、親が失敗すれば親が戻す。C++ の例外（ヒープの上限）で
+// 抜けるときも、Prolog の例外と同じくヒープを水位まで戻し、節を残して写しを渡す。渡さないと、同じ例外で抜ける親の
+// 巻き戻しが、この読み込みの置き換えた節を戻せない。load_kept は立てない。親は同じ例外を受けて自分の分ごと戻すので、
+// 親に節を残させる印は要らない。
 LoadStatus finish_and_hand_over(Impl& machine, const std::size_t& heap_base, const std::vector<Cell>& inits,
                                 LoadSnapshots* parent, LoadSnapshots& snapshots, std::uint64_t started_at) {
   const auto hand_over = [&] {
@@ -665,6 +667,7 @@ LoadStatus finish_and_hand_over(Impl& machine, const std::size_t& heap_base, con
   try {
     status = finish_load(machine, heap_base, inits);
   } catch (...) {
+    machine.heap.truncate(heap_base);
     hand_over();
     throw;
   }

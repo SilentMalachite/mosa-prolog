@@ -233,19 +233,14 @@ class LoadModuleScope {
 
 // 公開述語は、ゴールを呼んだ文脈モジュールへ取り込む。読み込みの中の指示から呼ぶと、子の読み込みが親の印を落とす。
 // [File] と同じく戻す（M19 で見つけた不具合）。戻さないと、親の次の節が自分の前の節を置き換え、dynamic の宣言も
-// 忘れる。読み込みの外では印は使わない。C++ の例外で抜けるときも戻す。読み込みの中で例外を受けて読み続ける所が
-// あれば、戻さない印で親の次の節が置き換えになる。restore_seen は確保するので、デストラクタでなく catch で戻す。
+// 忘れる。読み込みの外では印は使わない。C++ の例外（ヒープの上限）で抜けるときは consult_one と同じく戻さない。
+// その例外を受けて読み込みを続ける所は無く（親の read_or_reject も戻して投げ直す）、次の読み込みは load_once の
+// 入口で印を全部落とすので、戻さなかった印を読む者がいない。
 template <typename Load>
 bool load_in_module(Impl& machine, std::uint32_t module, const Load& load) {
   const LoadModuleScope scope(machine, module);
   const auto saved = mark_seen(machine);
-  bool loaded = false;
-  try {
-    loaded = load();
-  } catch (...) {
-    restore_seen(machine, saved);
-    throw;
-  }
+  const bool loaded = load();
   restore_seen(machine, saved);
   return loaded;
 }
