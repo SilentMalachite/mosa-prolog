@@ -10,7 +10,7 @@
 
 - `use_module/1`、`use_module/2`、`ensure_loaded/1` を、`?-` のプロンプトや節の本体で、ゴールとしても呼べるようにしました。どれも同じ形のディレクティブと同じ意味で、1 つのファイルを読むのは今までどおり 1 回だけです。取り込み先はゴールのモジュールで、プロンプトでは `user`、モジュール `m` の節の中では `m` です。相対の名前は、ファイルを読み込んでいる途中で動くゴールでも、作業ディレクトリから開きます。引数の誤りは、`type_error(atom, _)` のように、ディレクティブと同じ誤りとして投げます。ほかの失敗では、理由を `user_error` に書き（「変えたこと」を見てください）、ゴールは失敗します。
 - ディレクティブ `reexport/1` と `reexport/2` を足しました。`:- reexport(File).` は、`use_module/1` と同じようにモジュールを読み込んで取り込み、取り込んだものを、読み込み中のモジュールの公開リストに足します。`:- reexport(File, Imports).` は、リストに書いた述語について同じことをし、`as` で名前を変えた述語は新しい名前で公開します。`reexport/1` と `except(List)` は、公開の演算子も受け渡します。再公開された述語を取り込むモジュールは、その述語を定義したモジュールから取り込みます。そのため `predicate_property(P, imported_from(M))` はそのモジュールを返し、同じ述語に 2 つの道で着いても取り込みの衝突になりません。
-- 組み込みの述語 `strip_module/3`、`context_module/1`、`module_property/2`、`import/1` を足しました。`strip_module(Term, M, Plain)` は項の頭の `M:` を外し、`context_module(M)` はゴールのモジュールを返します。`module_property(M, P)` は、`module/2` で作ったモジュールの性質 `file(F)`、`exports(L)`、`exported_operators(L)` を返し、`import(M:Name/Arity)` は `M` が公開している述語を 1 つ取り込みます。マニュアルの [第 12 章](docs/manual/ja/12-modules-libraries.md) にこれらと `reexport` の例があり、第 14 章にそれぞれの誤りがあります。
+- 組み込みの述語 `strip_module/3`、`context_module/1`、`module_property/2`、`import/1` を足しました。`strip_module(Term, M, Plain)` は項の頭の `M:` を外し、`context_module(M)` はゴールのモジュールを返します。`module_property(M, P)` は、`module/2` で作ったモジュールの性質 `file(F)`、`exports(L)`、`exported_operators(L)` を返し、`import(M:Name/Arity)` は `M` が公開している述語を 1 つ取り込みます。マニュアルの [第 12 章](docs/manual/ja/12-modules-libraries.md) にこれらと `reexport` の例があり、第 14 章の表にこれらが載っています。これらが投げる誤りは、ソースの木の [仕様](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md) の第 5 節にあります。
 - `mosac` は、プログラムがゴールの中に `use_module(library(Name))` や `use_module(library(Name), Imports)` と字面で書いたライブラリも同梱します。節の本体、ディレクティブ `:- G`、`initialization/1` のゴールのどれに書いても同じです。そのため実行ファイルは、`$MOSA_LIB` が無く、隣に `lib/` が無くても、それらのライブラリを見つけます。名前が変数のライブラリは、今までどおり実行時に `$MOSA_LIB`、次に `lib/` で探します。
 
 ### 変えたこと
@@ -29,7 +29,7 @@
 0.2.2 の既知の制限は、そのまま残ります。モジュールの変更とともに 4 つ増えました。
 
 - 失敗したゴールの読み込みが書く理由は、Mosa の警告と同じく `user_error` の流れを通さずに出ます。そのため、その流れが数える桁は進みません。
-- `mosac build` で作った実行ファイルでは、同梱したファイルの `module_property(M, file(F))` の `F` は同梱の鍵（`library/` の下のパス）になり、インタプリタが返すパスとは違います。
+- `mosac build` で作った実行ファイルでは、`module_property(M, file(F))` の `F` は、ファイルの埋め込みの鍵を作業ディレクトリに対して解決したパスになります。鍵は、同梱したライブラリなら `library/Name.pl`、プログラム自身のモジュールのファイルならメインのファイルのディレクトリからの相対のパスです。これはインタプリタが返すパスとは違います。
 - `use_module(library(apply))` をゴールで呼んでも、`mosac` は `maplist/3` のような修飾の無い呼び出しを未定義だと警告します。実行ファイルは正しく動きます。翻訳器は、ゴールに書いたライブラリを、どこにも取り込まない形（`use_module(library(apply), [])`）で読むためです。
 - `mosac` で作った実行ファイルでは、プログラムがゴールからしか読み込まないモジュールへの呼び出し `M:G` は、その場で結ばれず、実行時に `:/2` を通ります。結果は同じで、呼び出しが遅くなるだけです。
 

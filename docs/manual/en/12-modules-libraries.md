@@ -315,7 +315,7 @@ X = c.
 Warning: goal raised exception: error(existence_error(procedure,member/2),context(member/2,_G1))
 ```
 
-[Chapter 14](14-reference.md) lists these predicates with the errors they raise.
+[Chapter 14](14-reference.md) lists these predicates with the other built-in predicates.
 
 ## Exercises
 

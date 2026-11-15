@@ -266,7 +266,7 @@ X = 青.
 警告: ゴールは例外を送出しました: error(existence_error(procedure,member/2),context(member/2,_G1))
 ```
 
-これらの述語が投げる誤りは、[第 14 章](14-reference.md) の表にあります。
+これらの述語は、ほかの組み込みの述語と一緒に [第 14 章](14-reference.md) の表に載っています。
 
 ## 練習問題
 

@@ -894,7 +894,7 @@ A か B か: A は、翻訳の読み込みの後で、プログラムに字面�
 
 ## 第5節 mosac での `module_property/2` の `file(F)`
 
-`module_property(M, file(F))`（フェーズ 12 のタスク 8）は `Module::file` をそのまま返す。`mosac build` で作った実行ファイルは、同梱したファイルを自分の中の写しから consult する（SPEC 第6節）。そのため同梱したファイルの `F` は同梱の鍵（擬似ディレクトリ `library/` の下のパス）になり、インタプリタが返す実際のパスと違う。これはインタプリタと実行ファイルの既知の違いである。テストでは、同梱したファイルの `F` の全体を比べない。
+`module_property(M, file(F))`（フェーズ 12 のタスク 8）は `Module::file` をそのまま返す。`mosac build` で作った実行ファイルは、プログラム自身のファイルと同梱したライブラリを、自分の中の写しから consult する（SPEC 第6節）。写しはそれぞれの埋め込みの鍵（`src/codegen/project.cpp` の `embed_keys`）の名前で読む。鍵は、同梱したライブラリなら擬似ディレクトリ `library/` の下の `library/Name.pl`、プログラム自身のファイルならメインのファイルのディレクトリからの相対のパスである。`F` はその鍵を作業ディレクトリに対して解決したパスになるので、インタプリタが返す実際のパスと違い、そこにファイルがあるとは限らない。確かめ（2026-11-15、フェーズ 12 のタスク 9 の直しの 1 回目）では、`src/` に置いたプログラムがモジュールのファイル `sub/mm.pl`（モジュール `mm`）と `library(between)` を読み込み、その実行ファイルを `elsewhere/deep` から動かした。実行ファイルは `mm-'<root>/elsewhere/deep/sub/mm.pl'` と `between-'<root>/elsewhere/deep/library/between.pl'` を書き、`mosa` は `<root>/src/sub/mm.pl` と `<build>/lib/between.pl` を書いた。これはインタプリタと実行ファイルの既知の違いである。テストは `F` の末尾だけを比べ（`tests/pl/modules.pl` の `mp_file`）、`mosac build` の実行ファイルで `module_property/2` を呼ぶテストは無い。
 
 ## 第5節 自分の述語を別名で取り込み直す
 

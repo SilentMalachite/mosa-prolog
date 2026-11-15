@@ -22,7 +22,9 @@ English | [日本語](CHANGELOG.ja.md)
   `strip_module(Term, M, Plain)` takes the leading `M:` off a term; `context_module(M)` gives the module of the goal;
   `module_property(M, P)` gives the properties `file(F)`, `exports(L)` and `exported_operators(L)` of a module made by
   `module/2`; and `import(M:Name/Arity)` imports one predicate that `M` exports. The manual shows them and
-  `reexport` in [chapter 12](docs/manual/en/12-modules-libraries.md), and chapter 14 lists their errors.
+  `reexport` in [chapter 12](docs/manual/en/12-modules-libraries.md) and lists them in chapter 14. The errors they
+  raise are in section 5 of the [specification](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md)
+  in the source tree.
 - `mosac` also bundles the libraries that a program names literally as `use_module(library(Name))` or
   `use_module(library(Name), Imports)` in a goal: in the body of a clause, in a directive `:- G` or in an
   `initialization/1` goal. The executable then finds them with no `$MOSA_LIB` and no `lib/` beside it. A library whose
@@ -59,8 +61,9 @@ The known limits of 0.2.2 still hold. Four come with the module changes:
 
 - The reason that a failed goal load writes goes past the `user_error` stream, as Mosa's warnings do, so the column
   that stream counts does not move.
-- In an executable built by `mosac build`, `module_property(M, file(F))` gives for a bundled file its bundle key, a
-  path under `library/`, not the path that the interpreter gives.
+- In an executable built by `mosac build`, `module_property(M, file(F))` gives the file's embed key resolved against
+  the working directory: `library/Name.pl` for a bundled library, and the path relative to the main file's directory
+  for the program's own module files. This is not the path that the interpreter gives.
 - After `use_module(library(apply))` as a goal, `mosac` still warns that an unqualified call such as `maplist/3` is
   undefined, although the executable runs correctly: the translator reads a library named in a goal without importing
   it anywhere, as `use_module(library(apply), [])`.
