@@ -26,7 +26,8 @@ struct Case {
   std::string_view warning;
 };
 
-void check_case(const std::string& dir, const Case& item) {
+// 結果を返すのは、警告の行の数まで見る件があるため。
+mosa::SessionResult check_case(const std::string& dir, const Case& item) {
   const std::string arg0 = "mosa";
   std::vector<std::string> paths;
   for (const Source& source : item.files) {
@@ -46,6 +47,7 @@ void check_case(const std::string& dir, const Case& item) {
   } else {
     mosa_test::check(result.err.find(item.warning) != std::string::npos, seen);
   }
+  return result;
 }
 
 }  // namespace
@@ -103,9 +105,13 @@ int main() {
   std::ofstream(mosa::path_from_utf8(dir + "/rejected_main.pl"), std::ios::binary)
       << ":- initialization(bad_main, main).\nfoo( .\n";
   const std::string outer = "bad_main :- halt(7).\n:- (consult('" + dir + "/rejected_main.pl') -> true ; true).\n";
-  // 吸われたゴールの consult も診断を標準エラーに 1 回書く（フェーズ12の問い 1 の決定 A、iso-notes「7.4.2 A goal load
-  // that fails: the diagnostic」）。確かめること（終了コード 0、拒んだファイルの main は動かない）は変えない。
-  check_case(dir,
-             Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, "rejected_main.pl:2:6: 予期しないトークン"});
+  // 吸われたゴールの consult も診断を標準エラーに 1 行だけ書く（フェーズ12の問い 1 の決定 A、iso-notes「7.4.2 A goal
+  // load that fails: the diagnostic」）。理由の文面は LANG で変わるので、パスと行と桁の頭で見る。二重の行やほかの行を
+  // 見逃さないよう、標準エラーがその 1 行だけであることも見る。確かめること（終了コード 0、拒んだファイルの main は
+  // 動かない）は変えない。
+  const std::string head = dir + "/rejected_main.pl:2:6: ";
+  const auto rejected = check_case(dir, Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, head});
+  mosa_test::check(rejected.err.starts_with(head) && rejected.err.find('\n') + 1 == rejected.err.size(),
+                   "rejected load drops main writes only its diagnostic line: [" + rejected.err + "]");
   return mosa_test::failures();
 }

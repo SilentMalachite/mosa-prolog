@@ -130,7 +130,10 @@ void check_goal_load_report_embedded() {
     text = capture.text();
   }
   mosa_test::check(kind == mosa::StopKind::Success, "embedded swallowed consult failure succeeds");
-  mosa_test::check(count_of(text, kMissingLine) == 1, "embedded consult failure prints to std::cerr once");
+  // text は標準出力と標準エラーを流れの名前付きで繋ぐので、全体を比べて、標準出力が空で標準エラーがその 1 行だけで
+  // あることを見る。数えるだけだと、std::cout に書き違えても通る。
+  mosa_test::check(text == "\nstderr: " + std::string{kMissingLine} + "\n",
+                   "embedded consult failure prints once to std::cerr only: [" + text + "]");
 }
 
 }  // namespace
