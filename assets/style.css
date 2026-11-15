@@ -496,14 +496,16 @@ kbd {
   line-height: 1.7;
 }
 
-/* 一度だけの堆積の演出 */
+/* 一度だけの堆積の演出。
+   .motion は最初の描画フレームで付く。描画が進まない環境（印刷、画面外の取得など）では
+   付かないので、図は最初から見えたままになる。 */
 @media (prefers-reduced-motion: no-preference) {
-  .stratum {
+  .motion .stratum {
     animation: deposit 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
     animation-delay: calc(var(--i, 0) * 170ms + 150ms);
   }
 
-  .s-answer .line {
+  .motion .s-answer .line {
     display: inline-block;
     animation: settle 0.4s ease-out both;
     animation-delay: calc(var(--j, 0) * 260ms + 900ms);
