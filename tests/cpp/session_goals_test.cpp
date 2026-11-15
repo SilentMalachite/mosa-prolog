@@ -217,6 +217,63 @@ void check_goal_load_recovered_then_flag() {
                    "bad flag after a swallowed syntax error has no stale line and column: [" + result.err + "]");
 }
 
+// フェーズ12の最終レビュー Important 1。ゴールで読んだファイルが halt/0,1 で止めたのは読み込みの失敗ではないので、理由の
+// 行を出さない。前は空の理由にパスを付けた「F: 」の行を出していた（c842021 も指令の :- use_module(F). も出さない）。
+// ファイルが書く hi は std::cout に出て SessionResult に入らないので、捕まえて全体を比べる。std::cerr に出た行も落ちる。
+struct HaltedRun {
+  mosa::SessionResult result;
+  std::string captured;
+};
+
+HaltedRun run_halting(const std::string& goal) {
+  HaltedRun run;
+  const mosa::StdCapture capture;
+  run.result = run_goal(goal);
+  run.captured = capture.text();
+  return run;
+}
+
+// 終了コードは前から halt の値なので、赤くなるのは行の検査だけ。分けて、どちらが落ちたかを見せる。
+void check_halting_goal(const std::string& goal, int code, const std::string& label) {
+  const HaltedRun run = run_halting(goal);
+  mosa_test::check(run.result.code == code && run.result.out.empty(),
+                   label + " exits with the halt value: [" + std::to_string(run.result.code) + "][" + run.result.out + "]");
+  mosa_test::check(run.result.err.empty(), label + " writes no reason line: [" + run.result.err + "]");
+  mosa_test::check(run.captured == "\nstdout: hi\n", label + " keeps only the file's own output: [" + run.captured + "]");
+}
+
+// 埋め込み（セッションが無い）では理由の行は std::cerr に出る。mosac の実行ファイルも同じ書き先を通る。
+void check_halting_goal_embedded(const std::string& path) {
+  mosa::Stop stop;
+  std::string text;
+  {
+    const mosa::StdCapture capture;
+    auto machine = mosa::Machine::create();
+    stop = machine->query("consult('" + path + "').");
+    text = capture.text();
+  }
+  mosa_test::check(stop.kind == mosa::StopKind::Halt && stop.halt_code == 4, "embedded goal consult of a halting file halts");
+  mosa_test::check(text == "\nstdout: hi\n", "embedded goal consult of a halting file writes no reason line: [" + text + "]");
+}
+
+// :- halt(N). と initialization の halt は run_load の別の道で抜けるので、両方を通す。halt/0 は 0 で終え、答えも出さない。
+void check_goal_load_halts() {
+  const std::string plain = write_fixture("p12_halt_c.pl", ":- write(hi), nl.\n:- halt(4).\n");
+  check_halting_goal("consult('" + plain + "').", 4, "goal consult of a file that halts");
+  const std::string module =
+      write_fixture("p12_halt_m.pl", ":- module(p12_halt_m, []).\n:- initialization((write(hi), nl, halt(3))).\n");
+  check_halting_goal("use_module('" + module + "').", 3, "goal use_module/1 of a file whose initialization halts");
+  check_halting_goal("use_module('" + module + "', []).", 3, "goal use_module/2 of a file whose initialization halts");
+  const std::string ensured = write_fixture("p12_halt_e.pl", ":- write(hi), nl.\n:- halt.\n");
+  check_halting_goal("ensure_loaded('" + ensured + "').", 0, "goal ensure_loaded of a file that halts");
+  check_halting_goal_embedded(plain);
+  // 吸われた失敗の字面が残ったまま halt しても、それに外側のパスを付けた 2 行目を出さない（台帳 L74 のセッションの側）。
+  const std::string swallowed = write_fixture("p12_halt_swallow.pl", std::string{kSwallowed} + ":- halt(3).\n");
+  const auto result = run_goal("consult('" + swallowed + "').");
+  mosa_test::check(result.code == 3 && result.err == consult_line("/no/such/p12.pl") + "\n",
+                   "halt after a swallowed consult failure prints only the swallowed line: [" + result.err + "]");
+}
+
 // フェーズ12 Task 4。use_module/1,2 と ensure_loaded/1 のゴール。プロンプトで読めることと、失敗の診断の字面（計画の
 // 「設計との違い」6）が 1 回だけ出ることを見る。
 void check_goal_use_at_prompt() {
@@ -282,4 +339,5 @@ void check_goal_load_reports() {
   check_goal_load_recovered_then_op();
   check_bad_op_still_fails();
   check_goal_load_recovered_then_flag();
+  check_goal_load_halts();
 }

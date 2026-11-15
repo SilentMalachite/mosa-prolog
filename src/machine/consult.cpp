@@ -234,7 +234,10 @@ bool load_from_goal(Impl& machine, const Goal& call, Cell* extra, const Load& lo
   restore_seen(machine, saved);
   machine.load_module = outer;
   if (!loaded) {
-    report_goal_load_failure(machine);
+    // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は空か、吸われた前の失敗の字面が残っているだけである。
+    // 書けば「F: 」や二重の行になる。指令の読み込み（consult_files、load_outcome）と同じく halt_now を先に見る。
+    // failed を立てても、run_loop は halt_now を先に見て止まる。
+    if (!machine.halt_now) report_goal_load_failure(machine);
     machine.failed = true;
     return true;
   }
