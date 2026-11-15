@@ -50,6 +50,23 @@ mosa::SessionResult check_case(const std::string& dir, const Case& item) {
   return result;
 }
 
+// Muse のレビューの中。構文エラーで取り消した読み込みの initialization(G, main) は残さない。
+// ゴールが consult の失敗から立ち直って外の読み込みが成功しても、取り消したファイルの G は動かない。
+// 引数に渡すのは外のファイルだけ。取り消すファイルは consult で読む。main の 60 行の上限で分けた。
+void check_rejected_load_drops_main(const std::string& dir) {
+  std::ofstream(mosa::path_from_utf8(dir + "/rejected_main.pl"), std::ios::binary)
+      << ":- initialization(bad_main, main).\nfoo( .\n";
+  const std::string outer = "bad_main :- halt(7).\n:- (consult('" + dir + "/rejected_main.pl') -> true ; true).\n";
+  // 吸われたゴールの consult も診断を標準エラーに 1 行だけ書く（フェーズ12の問い 1 の決定 A、iso-notes「7.4.2 A goal
+  // load that fails: the diagnostic」）。理由の文面は LANG で変わるので、パスと行と桁の頭で見る。二重の行やほかの行を
+  // 見逃さないよう、標準エラーがその 1 行だけであることも見る。確かめること（終了コード 0、拒んだファイルの main は
+  // 動かない）は変えない。
+  const std::string head = dir + "/rejected_main.pl:2:6: ";
+  const auto rejected = check_case(dir, Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, head});
+  mosa_test::check(rejected.err.starts_with(head) && rejected.err.find('\n') + 1 == rejected.err.size(),
+                   "rejected load drops main writes only its diagnostic line: [" + rejected.err + "]");
+}
+
 }  // namespace
 
 int main() {
@@ -99,19 +116,6 @@ int main() {
        {}},
   };
   for (const Case& item : cases) check_case(dir, item);
-  // Muse のレビューの中。構文エラーで取り消した読み込みの initialization(G, main) は残さない。
-  // ゴールが consult の失敗から立ち直って外の読み込みが成功しても、取り消したファイルの G は動かない。
-  // 引数に渡すのは外のファイルだけ。取り消すファイルは consult で読む。
-  std::ofstream(mosa::path_from_utf8(dir + "/rejected_main.pl"), std::ios::binary)
-      << ":- initialization(bad_main, main).\nfoo( .\n";
-  const std::string outer = "bad_main :- halt(7).\n:- (consult('" + dir + "/rejected_main.pl') -> true ; true).\n";
-  // 吸われたゴールの consult も診断を標準エラーに 1 行だけ書く（フェーズ12の問い 1 の決定 A、iso-notes「7.4.2 A goal
-  // load that fails: the diagnostic」）。理由の文面は LANG で変わるので、パスと行と桁の頭で見る。二重の行やほかの行を
-  // 見逃さないよう、標準エラーがその 1 行だけであることも見る。確かめること（終了コード 0、拒んだファイルの main は
-  // 動かない）は変えない。
-  const std::string head = dir + "/rejected_main.pl:2:6: ";
-  const auto rejected = check_case(dir, Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, head});
-  mosa_test::check(rejected.err.starts_with(head) && rejected.err.find('\n') + 1 == rejected.err.size(),
-                   "rejected load drops main writes only its diagnostic line: [" + rejected.err + "]");
+  check_rejected_load_drops_main(dir);
   return mosa_test::failures();
 }
