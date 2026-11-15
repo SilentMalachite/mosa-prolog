@@ -269,9 +269,8 @@ bool Machine::consult(std::string_view path) {
   Impl& impl = engine_impl(*this);
   // 問い合わせと同じく、前の分の空きを生まない GC の数を持ち越さない（ADR 0010 の改訂 B）。
   reset_gc_judgement(impl);
-  // 前に halt で止まった印を持ち越すと、この読み込みの誤りを halt と取り違えて診断を消す（open_query と同じく消す）。
-  // consult_files は、この読み込みが立てた halt_now だけを見る。
-  impl.halt_now = false;
+  // 前の問い合わせが halt で止まった印は、読み込みの間だけ脇に置き、抜けるとき戻す（HaltSetAside）。
+  const HaltSetAside set_aside(impl);
   const auto text = read_source(impl, path_from_utf8(path));
   if (!text) {
     impl.diagnostic = message_text(impl, "cannot_open_file", {path});

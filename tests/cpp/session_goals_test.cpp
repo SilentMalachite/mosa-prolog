@@ -324,6 +324,49 @@ void check_embedded_entries_halt(const std::string& plain, const std::string& mo
                    "a load_program after a halted query reports its own syntax error: [" + text + "]");
 }
 
+// 入口で halt の印を消すと、halt で止めた問い合わせの後始末が次の問い合わせで動き（ADR 0016）、next() がその問い合わせへ
+// 戻る。読み込みの間だけ脇に置き、抜けるとき戻す（このバグの作業のレビューの Critical。2 つの入口のどちらでも見る）。
+struct AfterHalt {
+  bool cleanup_skipped = false;
+  mosa::StopKind next_kind = mosa::StopKind::Success;
+  std::string captured;
+};
+
+template <typename Load>
+AfterHalt load_after_halt(const Load& load) {
+  AfterHalt after;
+  {
+    const mosa::StdCapture capture;
+    // 埋め込みの機械は library(lists) を読まないので、member/2 ではなく ; で選択点を作る。
+    {
+      auto armed = mosa::Machine::create();
+      (void)armed->query("nb_setval(p12_k, none).");
+      (void)armed->query("setup_call_cleanup(true, (true ; true), nb_setval(p12_k, ran)), halt.");
+      load(*armed);
+      after.cleanup_skipped = armed->query("nb_getval(p12_k, none).").kind == mosa::StopKind::Success;
+      auto resumed = mosa::Machine::create();
+      (void)resumed->query("(X = 1 ; X = 2 ; X = 3), X >= 2, write(x(X)), nl, halt.");
+      load(*resumed);
+      after.next_kind = resumed->next().kind;
+    }
+    after.captured = capture.text();
+  }
+  return after;
+}
+
+void check_after_halt(const AfterHalt& after, const std::string& entry) {
+  mosa_test::check(after.cleanup_skipped, entry + " after a halted query does not run its cleanup");
+  mosa_test::check(after.next_kind == mosa::StopKind::Halt && after.captured == "\nstdout: x(2)\n",
+                   "next() after a halted query and " + entry + " stays halted: [" + after.captured + "]");
+}
+
+void check_halt_survives_loads() {
+  const std::string fact = write_fixture("p12_fact.pl", "p12_fact.\n");
+  check_after_halt(load_after_halt([&fact](mosa::Machine& machine) { (void)machine.consult(fact); }), "consult");
+  check_after_halt(load_after_halt([](mosa::Machine& machine) { (void)machine.load_program("p12_fact.\n"); }),
+                   "load_program");
+}
+
 // :- halt(N). と initialization の halt は run_load の別の道で抜けるので、両方を通す。halt/0 は 0 で終え、答えも出さない。
 void check_goal_load_halts() {
   const std::string plain = write_fixture("p12_halt_c.pl", ":- write(hi), nl.\n:- halt(4).\n");
@@ -342,6 +385,11 @@ void check_goal_load_halts() {
                    "halt after a swallowed consult failure prints only the swallowed line: [" + result.err + "]");
   check_embedded_consult_halts(plain, swallowed);
   check_embedded_entries_halt(plain, module, write_fixture("p12_halt_syntax.pl", "r :- .\n"));
+  // 入れ子の読み込み（[F] の指令）が halt しても、親は「P: F: 」を残さない。
+  const EmbeddedLoad listed = consult_embedded(write_fixture("p12_halt_list.pl", ":- ['" + plain + "'].\n"));
+  mosa_test::check(!listed.ok && listed.diagnostic.empty(),
+                   "embedded consult of a [F] list that halts leaves no diagnostic: [" + listed.diagnostic + "]");
+  check_halt_survives_loads();
 }
 
 // フェーズ12 Task 4。use_module/1,2 と ensure_loaded/1 のゴール。プロンプトで読めることと、失敗の診断の字面（計画の

@@ -742,8 +742,8 @@ LoadStatus load_goal_term(Impl& machine, Cell directive) {
 LoadStatus Machine::load_program(std::string_view source) {
   // 問い合わせと同じく、前の分の空きを生まない GC の数を持ち越さない（ADR 0010 の改訂 B）。
   reset_gc_judgement(*impl_);
-  // 前に halt で止まった印を持ち越すと、この読み込みの誤りを halt と取り違えて診断を消す（open_query と同じく消す）。
-  impl_->halt_now = false;
+  // 前の問い合わせが halt で止まった印は、読み込みの間だけ脇に置き、抜けるとき戻す（HaltSetAside）。
+  const HaltSetAside set_aside(*impl_);
   return load_source(*impl_, source);
 }
 

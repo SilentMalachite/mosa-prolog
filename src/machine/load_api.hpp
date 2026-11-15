@@ -14,6 +14,21 @@
 
 namespace mosa {
 
+// 公開の入口（Machine::consult、load_program）の読み込みの間だけ、前の問い合わせが halt で止まった印を脇に置く。
+// 残すと、この読み込みの誤りを halt と取り違えて診断を消す（run_load）。抜けるとき戻すのは、次の問い合わせが止まった
+// 問い合わせの後始末を動かさず（ADR 0016、open_query）、next() がその問い合わせへ戻らないためである。
+class HaltSetAside {
+ public:
+  explicit HaltSetAside(Impl& machine) : machine_(machine), saved_(machine.halt_now) { machine.halt_now = false; }
+  ~HaltSetAside() { machine_.halt_now = machine_.halt_now || saved_; }
+  HaltSetAside(const HaltSetAside&) = delete;
+  HaltSetAside& operator=(const HaltSetAside&) = delete;
+
+ private:
+  Impl& machine_;
+  bool saved_;
+};
+
 // directory が空でなければ、相対の include はそのディレクトリから開く。
 // origin は循環の検出に使う。空なら、このテキスト自体はファイルではない。
 // shared_opening は、入れ子の consult が親と同じ循環を見るため。
