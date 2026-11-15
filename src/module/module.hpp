@@ -30,7 +30,18 @@ struct PredKey {
   std::uint16_t arity = 0;
 };
 
-// alias は as の別名。別名が無いときは name と同じ値を入れる。
+// 公開の一覧の 1 項目（ADR 0026）。name は公開した名前、from と from_name は定義したモジュールとそこでの名前。
+// 自分の述語は from が自分、from_name が name。reexport は定義したモジュールを指す項目を足すので、取り込んだ側は
+// 再公開を何段重ねても定義したモジュールから取り込む。
+struct Export {
+  std::uint32_t name = 0;
+  std::uint16_t arity = 0;
+  std::uint32_t from = 0;
+  std::uint32_t from_name = 0;
+};
+
+// alias は as の別名。別名が無いときは name と同じ値を入れる。表の取り込みでは、name と from は定義したモジュールと
+// そこでの名前である。
 struct Import {
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
@@ -48,7 +59,7 @@ struct PendingMeta {
 struct Module {
   std::uint32_t name = 0;
   std::uint32_t default_import = 0;
-  std::vector<PredKey> exports;
+  std::vector<Export> exports;
   std::vector<Import> imports;
   // 正規化したパス。use_module がファイルからモジュールを引く。ファイルでないテキストは空。
   std::string file;
@@ -97,6 +108,10 @@ struct ImportSpec {
 [[nodiscard]] std::optional<Cell> apply_imports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into,
                                                 const ImportSpec& spec);
 [[nodiscard]] std::optional<Cell> import_exports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into);
+// reexport/1,2。apply_imports が取り込んだのと同じ項目を into の公開に足す（同じ名前と項数の項目は置き換える）。
+// All と Except では from の公開の演算子も into の公開に足す（重ねない）。into が user なら何もしない。
+[[nodiscard]] std::optional<Cell> add_reexports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into,
+                                                const ImportSpec& spec);
 // 局所の述語を作る前に呼ぶ。同じ名前を取り込み済みなら permission_error(import_into, ...) を返す。
 [[nodiscard]] std::optional<Cell> check_local(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
                                               std::uint16_t arity);

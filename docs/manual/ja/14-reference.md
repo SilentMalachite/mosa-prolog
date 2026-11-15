@@ -154,6 +154,8 @@ X = あいう.
 | `module/2` | 最初の行の `:- module(Name, Exports).` は、そのファイルをモジュール `Name` にし、リストの述語を公開します（第 12 章）。 |
 | `use_module/1` | `:- use_module(File).` はモジュールを 1 回だけ読み込み、公開されたものをすべて取り込みます。`File` は `library(Name)` か、自分で書いたファイルです（第 12 章）。 |
 | `use_module/2` | `:- use_module(File, Imports).` はリストの述語だけを取り込みます。`Name/Arity as New` は新しい名前を付け、`except(List)` はリストのもの以外をすべて取り込みます。 |
+| `reexport/1` | `:- reexport(File).` は、`use_module/1` と同じくモジュールを読み込んで取り込み、取り込んだものをすべて、読み込み中のモジュールが公開するものに足します。 |
+| `reexport/2` | `:- reexport(File, Imports).` は、`use_module/2` と同じように取り込み、取り込んだものを公開します。`as` で新しい名前を付けた述語は、その名前で公開します。 |
 | `export/1` | `:- export(Name/Arity).` は、モジュールが公開する述語を足します。 |
 | `ensure_loaded/1` | `:- ensure_loaded(File).` は、まだ読み込まれていなければ、ファイルの節をここに入れます。 |
 | `include/1` | `:- include(File).` は、そのたびにファイルの節をここに入れます。 |

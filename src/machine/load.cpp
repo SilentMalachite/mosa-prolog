@@ -204,12 +204,13 @@ int fail_formal(Impl& machine, Cell formal) {
   return -1;
 }
 
+// 指令の use_module/1,2 と reexport/1,2 の本体。reexport は指令だけで、ゴールには振り分けない（ADR 0026）。
 std::optional<Cell> use_body(Impl& machine, Cell term) {
   if (!is_directive(machine.heap, term)) return std::nullopt;
   const Cell body = machine.heap.deref(machine.heap.arg(machine.heap.deref(term), 0));
-  if (body.tag() != Tag::Str || machine.atoms.name(machine.heap.functor_atom(body)) != "use_module") {
-    return std::nullopt;
-  }
+  if (body.tag() != Tag::Str) return std::nullopt;
+  const std::string_view name = machine.atoms.name(machine.heap.functor_atom(body));
+  if (name != "use_module" && name != "reexport") return std::nullopt;
   const auto arity = machine.heap.functor_arity(body);
   if (arity != 1 && arity != 2) return std::nullopt;
   return body;
@@ -296,10 +297,12 @@ int use_file(Impl& machine, const Cell& arg, const std::filesystem::path& file,
   return 1;
 }
 
-// use_module/1,2。ensure_loaded と同じく読むのは 1 回だけで、取り込みは呼ぶたびに足す。
+// use_module/1,2 と reexport/1,2。ensure_loaded と同じく読むのは 1 回だけで、取り込みは呼ぶたびに足す。
 int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& scan) {
   const auto body = use_body(machine, term);
   if (!body) return 0;
+  // 根に登録するのは arg だけなので、読む前に見分けておく。読んだ後は body を見ない。
+  const bool reexport = machine.atoms.name(machine.heap.functor_atom(*body)) == "reexport";
   Cell arg = machine.heap.deref(machine.heap.arg(*body, 0));
   // 読み込むファイルの指示が GC を起こしうる。読んだ後の permission_error で arg を使うので登録する。
   const RootScope roots(machine, [&arg](GcVisitor& visitor) { visitor.cell(arg); });
@@ -312,7 +315,12 @@ int apply_use(Impl& machine, Cell term, std::string_view directory, LoadScan& sc
       return fail_formal(machine, *formal);
     }
   }
-  return use_file(machine, arg, file, bundled, spec, scan, true);
+  const int used = use_file(machine, arg, file, bundled, spec, scan, true);
+  if (used < 0 || !reexport) return used;
+  // 取り込めたので、同じ項目を読み込み中のモジュールの公開に足す。use_file が成功したならモジュールのファイルである。
+  const std::uint32_t from = module_of_file(machine, file)->name;
+  if (const auto formal = add_reexports(machine, from, machine.load_module, spec)) return fail_formal(machine, *formal);
+  return 1;
 }
 
 // ensure_loaded のファイル。準備済みなら節も初期化も足さず、公開述語だけを取り込み直す。

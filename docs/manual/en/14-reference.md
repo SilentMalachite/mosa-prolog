@@ -173,6 +173,8 @@ the module of the goal. `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `
 | `module/2` | `:- module(Name, Exports).` as the first line makes the file the module `Name`, which exports the predicates in the list (chapter 12). |
 | `use_module/1` | `:- use_module(File).` loads a module once and imports all that it exports. `File` is `library(Name)` or a file of your own (chapter 12). |
 | `use_module/2` | `:- use_module(File, Imports).` imports only the predicates in the list. `Name/Arity as New` gives one a new name, and `except(List)` imports all but those. |
+| `reexport/1` | `:- reexport(File).` loads and imports a module as `use_module/1` does, and adds all that it imports to the exports of the module being loaded. |
+| `reexport/2` | `:- reexport(File, Imports).` imports as `use_module/2` does and exports what it imports. A predicate given a new name with `as` is exported under that name. |
 | `export/1` | `:- export(Name/Arity).` adds a predicate to the exports of the module. |
 | `ensure_loaded/1` | `:- ensure_loaded(File).` puts the clauses of the file here, unless it was already loaded. |
 | `include/1` | `:- include(File).` puts the clauses of the file here, each time. |

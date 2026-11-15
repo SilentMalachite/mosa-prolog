@@ -225,3 +225,22 @@ test(goal_ensure_lib, ensure_loaded(library(lists)), error(type_error(atom, libr
 % 組み込みになったので、節を足せない。
 test(goal_use_static, assertz(use_module(x)), error(permission_error(modify, static_procedure, use_module/1))).
 test(goal_ensure_static, assertz(ensure_loaded(x)), error(permission_error(modify, static_procedure, ensure_loaded/1))).
+% フェーズ12 Task 6（ADR 0026、SPEC 第5節）。reexport/1,2 は取り込んだ述語を読み込み中のモジュールの公開に足す。公開の
+% 項目は定義したモジュールとそこでの名前を持つ。rx_except は rb_a/1 と ===> を rx_all に続く 2 つ目の道で取り込むので、
+% この読み込みが通ることが、同じ定義に着く 2 つの取り込みを衝突にしないことの確かめになる。
+:- use_module('modules/rx_all.pl').
+:- use_module('modules/rx_some.pl').
+:- use_module('modules/rx_except.pl').
+test(rx_call, rb_a(X), solutions([X = 1])).
+test(rx_call_b, rb_b(X), solutions([X = 2])).
+test(rx_own, ra_own(X), solutions([X = 0])).
+test(rx_imported_from, predicate_property(rb_a(_), imported_from(M)), solutions([M = rx_base])).
+test(rx_alias, rs_a(X), solutions([X = 1])).
+test(rx_alias_from, predicate_property(rs_a(_), imported_from(M)), solutions([M = rx_base])).
+test(rx_op, (X = (a ===> b), X =.. L), solutions([L = [(===>), a, b]])).
+% 同じ名前の違う述語は、今までどおり import_into の衝突になる。ゴールの use_module は診断を書いて失敗する。
+test(rx_conflict, use_module('tests/pl/modules/rx_clash.pl'), fail).
+test(rx_plain, (consult('tests/pl/modules/rx_plain.pl'), 残高(X)), solutions([X = 100])).
+% reexport は指令だけで、ゴールには無い。
+test(rx_goal, reexport(rx_base), error(existence_error(procedure, reexport/1))).
+test(rx_goal_2, reexport(rx_base, []), error(existence_error(procedure, reexport/2))).

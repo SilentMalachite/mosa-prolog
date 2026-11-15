@@ -575,7 +575,7 @@ LibraryExports library_exports(std::string_view library, const std::filesystem::
     return result;
   }
   std::vector<PredicateIndicator> exports;
-  for (const PredKey& key : module->exports) {
+  for (const Export& key : module->exports) {
     exports.push_back(PredicateIndicator{std::string{impl.atoms.name(key.name)}, key.arity});
   }
   result.exports = std::move(exports);

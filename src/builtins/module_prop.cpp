@@ -71,8 +71,11 @@ bool known_property(const Impl& machine, Cell property) {
 bool exported_by(const Impl& machine, const Predicate& predicate) {
   const Module* owner = find_module(machine, predicate.module);
   if (owner == nullptr) return false;
-  for (const PredKey& key : owner->exports) {
-    if (key.name == predicate.name && key.arity == predicate.arity) return true;
+  // 持ち主の公開に、この述語を指す項目があるときだけ。再公開の項目はほかのモジュールの述語を指す（ADR 0026）。
+  for (const Export& entry : owner->exports) {
+    if (entry.from == predicate.module && entry.from_name == predicate.name && entry.arity == predicate.arity) {
+      return true;
+    }
   }
   return false;
 }

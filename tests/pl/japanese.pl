@@ -214,3 +214,8 @@ test(m32_ja_scalar_sub, sub_atom('野𠮷野𠮷', B, _, A, '𠮷'), solutions([
 test(dcg_japanese, phrase(挨拶, [こんにちは, 花子]), true).
 test(dcg_japanese_all, phrase(挨拶, L), solutions([L = [こんにちは, 太郎], L = [こんにちは, 花子]])).
 test(dcg_japanese_codes, (atom_codes('二', Cs), phrase(漢数字(N), Cs)), solutions([N = 2])).
+% フェーズ12 Task 6。日本語の名前のモジュールの再公開。窓口 は 元帳 の 残高/1 を 照会 の名前で公開し、取り込んだ側は
+% 定義した 元帳 から取り込む（ADR 0026）。
+:- use_module('modules/窓口.pl').
+test(再公開_別名, 照会(X), solutions([X = 100])).
+test(再公開_取り込み元, predicate_property(照会(_), imported_from(M)), solutions([M = 元帳])).

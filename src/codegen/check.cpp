@@ -100,16 +100,19 @@ std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& lo
     const auto file = log_file(log, module.file);
     // 読めなかったファイルのモジュールは、定義が翻訳器に見えないので確かめない。
     if (!file || log.files[*file].library || log.files[*file].opaque) continue;
-    for (const PredKey& exported : module.exports) {
-      const PredKey key{module.name, exported.name, exported.arity};
+    for (const Export& exported : module.exports) {
+      // 定義は公開の項目が指す、定義したモジュールとそこでの名前で確かめる。reexport の項目はほかのモジュールの
+      // 述語を指す（ADR 0026）。警告は、このモジュールが公開した名前で出す。
+      const PredKey key{exported.from, exported.from_name, exported.arity};
       // 組込を公開し直す export（library(lists) の length/2。SPEC 第5節の表）は定義がある物とみなす。
       if (find_pred(machine, key) != nullptr || declared_only(machine, key.module, key.name, key.arity) ||
           is_builtin_procedure(machine, key.name, key.arity)) {
         continue;
       }
+      const PredKey shown{module.name, exported.name, exported.arity};
       const auto& place = log.files[*file];
       lines.push_back(names[*file] + ":" + std::to_string(place.line) + ":" + std::to_string(place.column) + ": " +
-                      message_text(machine, "mosac_export_undefined", {indicator(machine, key)}));
+                      message_text(machine, "mosac_export_undefined", {indicator(machine, shown)}));
     }
   }
   return lines;

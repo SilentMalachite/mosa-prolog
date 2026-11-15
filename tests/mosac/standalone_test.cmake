@@ -2,7 +2,8 @@
 # （SPEC 第6節「実行ファイルは起動時に外部ファイルを一切要求しない」、ADR 0009 Review Focus 5）。
 # 原文は WORK/src に写してから build し、動かす前に消す。実行ファイルに翻訳した機械のパスが残らないことも見る。
 # 使い方: cmake -DMOSAC=<mosac>
-#   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late>
+#   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
+#           reexport>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -51,6 +52,9 @@ elseif(CASE STREQUAL "goal_use_init")
 elseif(CASE STREQUAL "goal_use_late")
   set(sources late_uses_apply.pl)
   set(program late_uses_apply)
+elseif(CASE STREQUAL "reexport")
+  set(sources uses_rx.pl rx_lib.pl rx_mid.pl)
+  set(program uses_rx)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -165,6 +169,12 @@ elseif(CASE STREQUAL "goal_use_late")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "existence_error(module,apply)\nexistence_error(module,lists)\n"
      OR NOT err STREQUAL "")
     fail("a qualified call into a module loaded after the program's own load")
+  endif()
+elseif(CASE STREQUAL "reexport")
+  # rx_mid が reexport で開いた rx_lib.pl も同梱の閉包に入る（SPEC 第5節）。公開の項目は定義した rx_lib を指すので、
+  # export_warnings は build を止めず、lib_p/1 の呼び出しも未定義の警告にならない（ADR 0026）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "42\n" OR NOT err STREQUAL "")
+    fail("a predicate re-exported through rx_mid")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。

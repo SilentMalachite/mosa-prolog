@@ -60,11 +60,12 @@ std::optional<Cell> read_indicators(Impl& machine, Cell cell, std::uint32_t modu
   return std::nullopt;
 }
 
+// module/2 と export/1 の項目は自分の述語を指す。同じ名前と項数の項目が既にあれば（前の reexport のものも）残す。
 void add_keys(Module& module, const std::vector<PredKey>& keys) {
   for (const PredKey& key : keys) {
     bool known = false;
-    for (const PredKey& old : module.exports) known = known || (old.name == key.name && old.arity == key.arity);
-    if (!known) module.exports.push_back(key);
+    for (const Export& old : module.exports) known = known || (old.name == key.name && old.arity == key.arity);
+    if (!known) module.exports.push_back(Export{key.name, key.arity, module.name, key.name});
   }
 }
 
