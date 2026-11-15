@@ -241,6 +241,8 @@ struct TranslationLog {
   std::vector<File> files;
   std::vector<Site> sites;
   std::vector<LibraryOpen> library_opens;
+  // 読んだ項のどこかに字面で書いた use_module(library(N)) と use_module(library(N), _) の N（問い 2 の A）。
+  std::vector<std::string> goal_libraries;
   std::size_t current = static_cast<std::size_t>(-1);  // 読んでいるファイルの files の添字
 };
 

@@ -1,7 +1,8 @@
 # 計画 Task 10。mosac build で作った実行ファイルが、lib/ も原文も無いディレクトリで、MOSA_LIB 無しに動くことを確かめる
 # （SPEC 第6節「実行ファイルは起動時に外部ファイルを一切要求しない」、ADR 0009 Review Focus 5）。
 # 原文は WORK/src に写してから build し、動かす前に消す。実行ファイルに翻訳した機械のパスが残らないことも見る。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir> -DSRC=<tests/mosac>
+# 使い方: cmake -DMOSAC=<mosac>
+#   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init> -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
 
@@ -40,6 +41,12 @@ elseif(CASE STREQUAL "subdir")
   set(program uses_bar)
   file(COPY "${SRC}/mylib" DESTINATION "${WORK}/src")
   set(library_env "MOSA_LIB=${WORK}/src/mylib")
+elseif(CASE STREQUAL "goal_use_body")
+  set(sources goal_uses_apply.pl)
+  set(program goal_uses_apply)
+elseif(CASE STREQUAL "goal_use_init")
+  set(sources init_uses_apply.pl)
+  set(program init_uses_apply)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -71,6 +78,11 @@ endif()
 # library(lists) は mosac の隣の lib/lists.pl と同じ原文なので、翻訳済みの単位 pl/ の書庫を結ぶ。
 if(CASE STREQUAL "use_lists" AND NOT err MATCHES "mosac: 結ぶ翻訳済みライブラリ: [^\n]*mosa_pl_lists")
   fail("library(lists) must be linked as a translated archive")
+endif()
+# 節の本体と initialization/1 のゴールにだけ書いた library(apply) も同梱の閉包に入り、翻訳済みの単位を結ぶ（問い 2 の A）。
+if((CASE STREQUAL "goal_use_body" OR CASE STREQUAL "goal_use_init") AND
+   NOT err MATCHES "mosac: 結ぶ翻訳済みライブラリ: [^\n]*mosa_pl_apply")
+  fail("library(apply) named in a goal must be linked as a translated archive")
 endif()
 # 利用者のライブラリは同梱の lib/ に無いので、原文だけを同梱する。その旨を --verbose で出す。
 if(CASE STREQUAL "plain_use" AND NOT err MATCHES "mosac: 原文だけを同梱するライブラリ[^\n]*: [^\n]*foo[^\n]*util")
@@ -133,6 +145,15 @@ elseif(CASE STREQUAL "plain_use")
   # foo の中の素のパスの use_module(util) も、ディスクに library/ が無いまま埋め込みから引く。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "42\n")
     fail("a plain-path use_module inside a bundled library")
+  endif()
+elseif(CASE STREQUAL "goal_use_body")
+  # 隣に lib/ が無いので、同梱していなければ use_module のゴールが診断を書いて失敗し、main も失敗する。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "[2,1]\n" OR NOT err STREQUAL "")
+    fail("library(apply) loaded from a clause body")
+  endif()
+elseif(CASE STREQUAL "goal_use_init")
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "[3]\n" OR NOT err STREQUAL "")
+    fail("library(apply) loaded from an initialization/1 goal")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。

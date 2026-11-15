@@ -284,6 +284,9 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
     if (!options.library && !load_catalogs(*machine)) {
       return fail_with(message_text(impl, "mosac_catalog_missing", {std::string{machine->diagnostic()}}));
     }
+    // ゴールに字面で書いた library(N) も同梱の閉包に入れる（問い 2 の A）。--library の単位は use_module した先を
+    // 出さないので読まない。ヒープの上限はほかの読み込みと同じく下で受ける。--diff の translate_one は変えない。
+    if (!options.library) load_goal_libraries(impl);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
     return fail_with(heap_limit_text(impl));

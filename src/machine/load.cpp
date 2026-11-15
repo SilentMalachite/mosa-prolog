@@ -485,6 +485,7 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
     if (translated.formal) return fail_formal(machine, *translated.formal) > 0;
     term = translated.term;
   }
+  note_goal_libraries(machine, term);
   const int included = apply_file(machine, term, directory, scan, "include", false);
   if (included != 0) return included > 0;
   const int ensured = apply_file(machine, term, directory, scan, "ensure_loaded", true);

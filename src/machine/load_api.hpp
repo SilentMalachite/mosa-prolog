@@ -31,6 +31,12 @@ namespace mosa {
 // して machine.load_module へ読む（ADR 0026）。相対パスは作業ディレクトリから開き、開いたファイルは根のテキストとして
 // 読み、字句の旗はファイルの consult と同じく戻す。失敗の診断には計画の「設計との違い」6 の字面を付ける。
 [[nodiscard]] LoadStatus load_goal_term(Impl& machine, Cell directive);
+// 定義は goal_libraries.cpp。翻訳の読み込み（machine.translation が在る間）だけ、term の部分項の
+// use_module(library(N)) と use_module(library(N), _) の N（原子のもの）を TranslationLog::goal_libraries に足す。
+void note_goal_libraries(Impl& machine, Cell term);
+// 定義は goal_libraries.cpp。goal_libraries のライブラリを user へ取り込みなしで読み、同梱の閉包に入れる（問い 2 の A）。
+// 失敗しても止めず、診断も残さない。
+void load_goal_libraries(Impl& machine);
 // 定義は consult.cpp。use_module/1,2 と ensure_loaded/1 のゴール。引数の誤りは例外にし、ほかの失敗は
 // report_goal_load_failure で診断を書いて失敗する。成功なら選択点を残さない。
 [[nodiscard]] bool run_load_goal(Impl& machine, const Goal& goal);

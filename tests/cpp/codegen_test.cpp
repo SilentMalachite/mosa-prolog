@@ -11,12 +11,15 @@
 #include "machine/internal.hpp"
 #include "mosa/path_text.hpp"
 
+#include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -407,6 +410,41 @@ void project_opaque() {
   check(cmake != nullptr && has(cmake->text, "project(app "), "reserved target name");
 }
 
+// フェーズ12 Task 5（問い 2 の A）。翻訳の読み込みは、節の本体（m: の下や catch の中も）と initialization/1 の
+// ゴールに字面で書いた use_module(library(N)) の N を書き留める。N が変数の物は書き留めない。
+void check_goal_library_names() {
+  auto machine = Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa::TranslationLog log;
+  impl.translation = &log;
+  const auto loaded = machine->load_program(
+      "p :- catch(m:use_module(library(apply)), _, true).\n"
+      "q(N) :- use_module(library(N)).\n"
+      ":- initialization(use_module(library(between), [between/3])).\n");
+  impl.translation = nullptr;
+  check(loaded.ok, "goal library names load: " + loaded.message);
+  check(log.goal_libraries == std::vector<std::string>{"apply", "between"}, "goal library names");
+}
+
+// 1,000,000 段の f(…) の奥の use_module(library(dcg)) も、C++ のスタックを使い切らずに書き留める。
+void check_goal_library_deep() {
+  auto machine = Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa::TranslationLog log;
+  impl.translation = &log;
+  const std::array<mosa::Cell, 1> name{impl.heap.atom(impl.atoms.intern("dcg"))};
+  const std::array<mosa::Cell, 1> spec{impl.heap.structure(impl.atoms.intern("library"), name)};
+  mosa::Cell term = impl.heap.structure(impl.atoms.intern("use_module"), spec);
+  const std::uint32_t wrapper = impl.atoms.intern("f");
+  for (int depth = 0; depth < 1'000'000; ++depth) {
+    const std::array<mosa::Cell, 1> inner{term};
+    term = impl.heap.structure(wrapper, inner);
+  }
+  mosa::note_goal_libraries(impl, term);
+  impl.translation = nullptr;
+  check(log.goal_libraries == std::vector<std::string>{"dcg"}, "goal library in a deep term");
+}
+
 // Windows の NMake は cl へのインラインの応答ファイルを ANSI の符号ページで書き、ASCII の外の文字を落とす
 // （ci run 42438279645 の「展開 先」）。どの OS でも、UTF-8 で 0x80 以上のバイトが 1 つでもあれば渡せないと答える。
 void nmake_paths() {
@@ -444,6 +482,8 @@ int main() {
   comment_backslash();
   project_modules();
   project_opaque();
+  check_goal_library_names();
+  check_goal_library_deep();
   nmake_paths();
   return mosa_test::failures() == 0 ? 0 : 1;
 }
