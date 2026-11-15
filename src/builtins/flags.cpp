@@ -310,6 +310,9 @@ int apply_flag_directive(Impl& machine, Cell directive) {
   if (!is_set_flag(machine, directive, flag, value)) return 0;
   if (const std::optional<Cell> problem = set_problem(machine, flag, value)) {
     machine.diagnostic = write_term(machine.heap, machine.operators, *problem, {}, {});
+    // 前の指令の中で吸われたゴールの consult の構文エラーが印を残していると、外側のパスに中のファイルの行と桁が付く
+    // （フェーズ12 Task 3b）。char_conversion/2 の指令と同じく、この診断は構文エラーではないと書く。
+    machine.syntax_diag = false;
     return -1;
   }
   flag_store(machine, static_cast<std::size_t>(find_flag(machine, flag)), value);

@@ -205,6 +205,18 @@ void check_bad_op_still_fails() {
   }
 }
 
+// 吸われたゴールの consult が構文エラーで失敗すると、行と桁を付ける印が残る。後の set_prolog_flag/2 の指令の誤りが
+// その印を引き継ぐと、外側のパスに中のファイルの行と桁が付く。単独のときと同じ「パス: 理由」の 1 行であることを見る。
+void check_goal_load_recovered_then_flag() {
+  const std::string broken = write_fixture("p12_broken.pl", "p(.\n");
+  const std::string path = write_fixture("p12_recover_flag.pl", ":- (consult('" + broken + "') -> true ; true).\n"
+                                                                ":- set_prolog_flag(bogus, 1).\n");
+  const auto result = run_file(path, "");
+  const std::string reason = load_reason(":- set_prolog_flag(bogus, 1).\n");
+  mosa_test::check(result.code == 1 && result.err == consult_line(broken) + "\n" + path + ": " + reason + "\n",
+                   "bad flag after a swallowed syntax error has no stale line and column: [" + result.err + "]");
+}
+
 }  // namespace
 
 void check_goal_load_reports() {
@@ -214,4 +226,5 @@ void check_goal_load_reports() {
   check_goal_load_recovered_in_directive();
   check_goal_load_recovered_then_op();
   check_bad_op_still_fails();
+  check_goal_load_recovered_then_flag();
 }
