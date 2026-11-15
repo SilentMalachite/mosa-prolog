@@ -82,6 +82,9 @@ message(clauses_apart, 'clauses of ~w are not together').
 message(predicate_running, 'cannot replace a predicate that is running').
 message(directive_unsupported, 'directive not supported: ~w').
 message(directive_failed, 'directive goal failed: ~w').
+message(cond_unmatched, 'no matching if: ~w').
+message(cond_after_else, 'not allowed after else: ~w').
+message(cond_unclosed, 'if without a matching endif').
 message(not_predicate_indicator, 'not a predicate indicator').
 message(static_to_dynamic, 'a static predicate cannot become dynamic').
 message(op_bad_priority, 'operator priority out of range').

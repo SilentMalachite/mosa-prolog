@@ -221,3 +221,10 @@ test(再公開_別名, 照会(X), solutions([X = 100])).
 test(再公開_取り込み元, predicate_property(照会(_), imported_from(M)), solutions([M = 元帳])).
 % フェーズ12 Task 8。module_property/2 の exports は、再公開した項目を公開した名前で並べる。
 test(再公開_公開, module_property(窓口, exports(L)), solutions([L = [照会/1]])).
+% フェーズ13 Task 3。日本語の名前の述語を、条件付きコンパイルの取った分岐だけで定義する（ADR 0027）。
+:- if(true).
+条件の果物(りんご).
+:- else.
+条件の果物(みかん).
+:- endif.
+test(cond_ja, findall(X, 条件の果物(X), L), solutions([L = [りんご]])).

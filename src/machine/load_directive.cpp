@@ -596,7 +596,10 @@ StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
   return stop.kind;
 }
 
-// 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。
+}  // namespace
+
+// 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。条件付きコンパイルの条件も同じ形で解くので
+// （load_cond.cpp）、名前空間の外に置く。
 StopKind run_parked(Impl& machine, Cell goal) {
   SavedExec saved = park_exec(machine);
   StopKind kind = StopKind::Failure;
@@ -612,6 +615,14 @@ StopKind run_parked(Impl& machine, Cell goal) {
   unpark_exec(machine, saved, true);
   return kind;
 }
+
+Cell in_load_module(Impl& machine, Cell goal) {
+  if (machine.load_module == machine.user_module) return goal;
+  const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
+  return machine.heap.structure(machine.atoms.intern(":"), parts);
+}
+
+namespace {
 
 // 失敗はエラーにしない。節は呼び出し側が戻さない。halt/0,1 は残りの初期化を呼ばずに止める。
 bool run_init_goal(Impl& machine, Cell goal) {
@@ -644,11 +655,7 @@ int run_directive_goal(Impl& machine, Cell term) {
     if (log->current < log->files.size()) log->files[log->current].skipped_goal = true;
     return 1;
   }
-  if (machine.load_module != machine.user_module) {
-    const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), goal};
-    goal = machine.heap.structure(machine.atoms.intern(":"), parts);
-  }
-  const StopKind kind = run_parked(machine, goal);
+  const StopKind kind = run_parked(machine, in_load_module(machine, goal));
   if (kind == StopKind::Exception) return -1;
   // halt/0,1 は読み込みをその場で止める。halt_now は残り、mosa と実行ファイルがその値で終わる。
   if (kind == StopKind::Halt) {

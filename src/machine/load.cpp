@@ -525,6 +525,8 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   const OwnerScope owner{machine, file};
   const FileNote note{machine, origin, source};
   ModuleScope scope{machine};
+  // if と endif の対はテキストごとに閉じる（ADR 0027）。include したテキストも自分の積みを持つ。
+  CondFrames cond{machine};
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
   reader.set_fullwidth(machine.japanese_punct);
   bool first = true;
@@ -533,12 +535,15 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     reader.set_operators(op_view(machine, machine.load_module));
     const std::size_t before = reader.consumed();
     const ReadOutcome outcome = reader.next();
-    if (outcome.failure && !note.tolerate_syntax()) {
+    // 読み飛ばし中の構文の誤りは、診断を出さずに下の読み飛ばしの道へ進む（問い 3 の A）。tolerate_syntax より先に
+    // 見て、翻訳の印（opaque）も付けない。
+    if (outcome.failure && !cond.skipping() && !note.tolerate_syntax()) {
       return note_syntax(machine, origin, role.nested, *outcome.failure);
     }
     // 読み飛ばしが進まなければ、そこで終わりにする。同じ誤りを読み続けない。
     if (outcome.failure && reader.consumed() > before) continue;
     if (!outcome.term) {
+      if (!cond.close()) return false;
       guard.finished = true;
       if (!scope.close(role.import_all)) return false;
       // 読み終えたファイルだけが、前に定義して今は定義しない述語を失う。include したテキストは読んだファイルの分。
@@ -546,7 +551,11 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
       return true;
     }
     note.first_term(*outcome.term);
-    if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan)) return false;
+    // 条件の指令と読み飛ばす項は take_term へ渡さない。mosatest の横取り（term_hook）と文法規則の変換より先に見る。
+    // どちらの後も、module/2 はもうファイルの最初の項ではない。
+    const int stepped = cond.step(outcome.term->term);
+    if (stepped < 0) return false;
+    if (stepped == 0 && !take_term(machine, reader, *outcome.term, directory, origin, first, scan)) return false;
     first = false;
   }
 }

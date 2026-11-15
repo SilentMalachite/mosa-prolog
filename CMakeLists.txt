@@ -80,6 +80,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/native_library.cpp
   src/machine/load_directive.cpp
   src/machine/load_note.cpp
+  src/machine/load_cond.cpp
   src/module/module_table.cpp
   src/module/qualify.cpp
   src/module/target.cpp

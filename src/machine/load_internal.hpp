@@ -1,6 +1,6 @@
 #pragma once
 
-// load.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
+// load.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp、load_cond.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"
@@ -131,6 +131,47 @@ void apply_file_notes(Impl& machine, FileNotes& notes, std::uint64_t started_at)
 [[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& snapshots,
                                     std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,
                                     std::string_view origin);
+
+// 定義は load_directive.cpp。入れ子のスタックで goal を 1 回解き、選択点を切って束縛を戻す。例外なら Formal を診断に
+// 書く。失敗と成功の扱いは呼び手が決める。
+[[nodiscard]] StopKind run_parked(Impl& machine, Cell goal);
+// 定義は load_directive.cpp。読み込み中のモジュールが user でなければ M:Goal を返す。指令のゴールと条件をその
+// モジュールの文脈で呼ぶ。
+[[nodiscard]] Cell in_load_module(Impl& machine, Cell goal);
+
+// 定義は load_cond.cpp。条件付きコンパイルの条件を、一般の指令と同じく読み込み中のモジュールで 1 回解く（ADR 0027）。
+// 1 は真、0 は偽、-1 は読み込みの失敗（診断は書いた）。
+[[nodiscard]] int run_condition(Impl& machine, Cell goal);
+
+// 条件付きコンパイル :- if/1、elif/1、else/0、endif/0 の節の積み（SPEC 第3節、ADR 0027）。if と endif の対は
+// テキストごとに閉じるので、read_terms がテキスト 1 つにつき 1 つ持つ。項は持たない。定義は load_cond.cpp。
+class CondFrames {
+ public:
+  explicit CondFrames(Impl& machine);
+  // term が条件の指令なら扱って 1 か -1（読み込みの失敗。診断は書いた）。そうでなく読み飛ばし中なら項を捨てて 1。
+  // どちらでもなければ 0 で、呼び手が take_term へ渡す。読み飛ばし中の if は、条件を呼ばずに節を積む。
+  [[nodiscard]] int step(Cell term);
+  [[nodiscard]] bool skipping() const;
+  // テキストの終わり。閉じない if があれば cond_unclosed の診断を書いて偽。
+  [[nodiscard]] bool close();
+
+ private:
+  // 条件の節 1 つ。outer_skipping は開いた時に外が読み飛ばし中だったこと、taken はこの節で分岐を取ったこと、
+  // seen_else は else を見たこと、reading は今の分岐を読むこと。
+  struct Frame {
+    bool outer_skipping = false;
+    bool taken = false;
+    bool seen_else = false;
+    bool reading = false;
+  };
+  [[nodiscard]] int open(Cell goal);
+  [[nodiscard]] int next_branch(Cell term, Cell goal);
+  [[nodiscard]] int otherwise(Cell term);
+  [[nodiscard]] int finish(Cell term);
+
+  Impl& machine_;
+  std::vector<Frame> frames_;
+};
 
 // 翻訳のときだけ、足した節の位置を書き留める。どこにも定義の無い述語を呼ぶ警告がこの行を出す。
 // key は add_clause が節を足した述語。定義は load_note.cpp。

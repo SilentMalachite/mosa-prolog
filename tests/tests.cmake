@@ -334,6 +334,13 @@ target_include_directories(load_throw_test PRIVATE tests/cpp)
 target_compile_definitions(load_throw_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(load_throw_test PRIVATE mosa_lib)
 add_test(NAME load_throw COMMAND $<TARGET_FILE:load_throw_test>)
+# フェーズ13 Task 3。条件付きコンパイルの診断（対の誤りの字面、条件の誤りの Formal、halt の終了コード）。期待の
+# 字面は message_text で作るので、machine/internal.hpp を読む src も足す。
+add_executable(cond_compile_test tests/cpp/cond_compile_test.cpp)
+target_include_directories(cond_compile_test PRIVATE tests/cpp src)
+target_compile_definitions(cond_compile_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(cond_compile_test PRIVATE mosa_lib)
+add_test(NAME cond_compile COMMAND $<TARGET_FILE:cond_compile_test>)
 
 add_executable(session_test tests/cpp/session_test.cpp tests/cpp/session_goals_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp src)

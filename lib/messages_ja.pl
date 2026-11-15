@@ -82,6 +82,9 @@ message(clauses_apart, '述語 ~w の節が離れている').
 message(predicate_running, '実行中の述語は置き換えられない').
 message(directive_unsupported, 'この指示はフェーズ2では使えない: ~w').
 message(directive_failed, 'この指示のゴールは失敗した: ~w').
+message(cond_unmatched, '対応する if が無い: ~w').
+message(cond_after_else, 'else の後ろには置けない: ~w').
+message(cond_unclosed, 'endif で閉じていない if がある').
 message(not_predicate_indicator, '述語指示子ではありません').
 message(static_to_dynamic, '静的な述語は動的にできない').
 message(op_bad_priority, '優先度が範囲外です').
