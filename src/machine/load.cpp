@@ -554,10 +554,10 @@ void keep_notes(Impl& machine, LoadSnapshots* parent, LoadSnapshots& own, std::u
   else hand_up_notes(*parent, own);
 }
 
-}  // namespace
-
-LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
-                       std::string_view origin, std::vector<std::string>* shared_opening) {
+// 読み込み 1 回の退避と巻き戻し（ADR 0017）。read がこの読み込みのテキストを scan へ読み、偽なら読み込みは失敗する。
+// file_text は、読んだテキストがファイルであること。ファイルの字句の旗だけを、読み終えたら戻す（SPEC 第5節）。
+template <typename Read>
+LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* shared_opening, const Read& read) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   std::size_t heap_base = machine.heap.size();
   machine.diagnostic.clear();
@@ -590,9 +590,9 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening};
-  if (!read_terms(machine, source, directory, origin, scan, TextRole{false, true, true})) {
+  if (!read(scan)) {
     if (machine.load_kept) {
-      if (!origin.empty()) restore_file_flags(machine, saved_flags);
+      if (file_text) restore_file_flags(machine, saved_flags);
       machine.heap.truncate(heap_base);
       // 初期化の例外で残した節も、成功した読み込みの節と同じく持ち主を付け、古い述語を消す（L11 の敵対的レビュー A3）。
       keep_notes(machine, shot_scope.parent(), snapshots, started_at);
@@ -601,9 +601,8 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
     return reject_load(machine, saved_ops, saved_flags, snapshots, previous_serial, heap_base, saved_declared,
                        saved_prepared, saved_modules);
   }
-  // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
   // initialization のゴールより先に戻す（iso-notes 7.4.2.8 の決定 B）。
-  if (!origin.empty()) restore_file_flags(machine, saved_flags);
+  if (file_text) restore_file_flags(machine, saved_flags);
   // 古い述語を消すのは一番外の読み込みだけで、初期化のゴールより先（ADR 0020）。入れ子の読み込みが消すと、後で外の
   // 読み込みが失敗したとき戻せない。初期化のゴールが consult したファイルの分は、ゴールの後でもう一度使う。
   const bool outermost = shot_scope.parent() == nullptr;
@@ -614,6 +613,16 @@ LoadStatus load_source(Impl& machine, std::string_view source, std::string_view 
   if (outermost) apply_file_notes(machine, snapshots.notes(), started_at);
   else hand_up_snapshots(*shot_scope.parent(), snapshots);
   return status;
+}
+
+}  // namespace
+
+LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
+                       std::string_view origin, std::vector<std::string>* shared_opening) {
+  // 文字だけの読み込み（mosatest の指令の断片など）はファイルではないので、旗を戻さない。
+  return run_load(machine, !origin.empty(), shared_opening, [&](LoadScan& scan) {
+    return read_terms(machine, source, directory, origin, scan, TextRole{false, true, true});
+  });
 }
 
 LoadStatus Machine::load_program(std::string_view source) {
