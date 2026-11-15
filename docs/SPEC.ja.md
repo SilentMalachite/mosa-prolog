@@ -65,11 +65,30 @@
 5. 算術（第 9 章）: 整数は任意精度（フェーズ 10、ADR 0025。フラグ `bounded` は `false`）、浮動小数点は IEEE 754 倍精度。`max_integer`/`min_integer` フラグを提供する。整数の結果はあふれず、ヒープに入らない大きさの結果はヒープの上限で止まる。整数除算・剰余・ビット演算・三角関数・`copysign`、`truncate` 等 Cor.2 で追加された関数を含む
 6. 組込述語（第 8 章）すべて。一覧と各段階は第 7 節に示す
 7. フラグ（7.11）: `bounded`（`false`）、`max_integer`、`min_integer`、`integer_rounding_function`、`char_conversion`、`debug`、`max_arity`、`unknown`、`double_quotes`。加えて実装定義フラグ `encoding`（常に `utf8`）、変更できない `version`（整数 `Major*10000 + Minor*100 + Patch`）、`japanese_punctuation`（第 4 節）、変更できない `dialect`（`mosa`）と `version_data`（`mosa(Major, Minor, Patch, [])`）、変更できない `iso`（`true`）
-8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`
+8. ディレクティブ（7.4.2）: `dynamic/1`、`discontiguous/1`、`multifile/1`、`op/3`、`char_conversion/2`、`initialization/1`、`set_prolog_flag/2`、`include/1`、`ensure_loaded/1`。13211-1 の外では、条件付きコンパイルの指令 `if/1`、`elif/1`、`else/0`、`endif/0`（フェーズ 13、下の「条件付きコンパイル」）
 
 **文法規則（フェーズ 8）**
 
 Prolog テキストの `Head --> Body` の節は、テキストを読み込むとき通常の節に訳す。`phrase/2,3` は `system` に置く。13211-1 は文法規則を定めていないので、規格の文法規則の部である ISO/IEC 13211-3 を拠り所にする（本文の出どころは `docs/iso-notes.md` の「13211-3」）。変換は ADR 0024 で決める。フェーズ 9 で、エクスポートの表、インポートの表、ディレクティブ `dynamic/1`、`discontiguous/1`、`multifile/1` の `Name//Arity`（`Name/(Arity+2)` の意味）と、文法規則の本体の `*->` を足す。`expand_term/2` はフェーズ 9 で `library(dcg)` に足す（文法規則 1 つを訳す。`term_expansion/2` と `goal_expansion/2` は範囲に入れない）。
+
+**条件付きコンパイル（フェーズ 13、ADR 0027）**
+
+13211-1 に条件付きコンパイルは無い。次の 4 つの指令は SWI-Prolog のマニュアル（4.3.1.2 Conditional compilation。SWI-Prolog 10.1.20 の版を 2026-11-16 に読んだ）に従い、違えるところは iso-notes「条件付きコンパイル（13211-1 に無い）」に書く。この指令は、テキストを読むすべての道で使える。コマンド行と `consult/1`、`[File]`、ゴールの `use_module/1,2` と `ensure_loaded/1`、`include/1`、ライブラリ、`Machine::load_program`、`mosac build` の実行ファイルの起動時の読み込み（第 6 節）である。
+
+| 指令 | 意味 |
+| --- | --- |
+| `:- if(Goal)` | 新しい条件の塊を開く。外側が読み飛ばし中でなければ `Goal` を呼ぶ。成功すればその後ろを読み、失敗すればその塊の次の `elif`、`else`、`endif` まで読み飛ばす |
+| `:- elif(Goal)` | 同じ塊のそれまでの分岐をどれも取っていなければ `Goal` を呼び、成功すればその後ろを読む。前の分岐を取っていれば、`Goal` を呼ばずに `endif` まで読み飛ばす |
+| `:- else` | その塊のそれまでの分岐をどれも取っていなければ、その後ろを読む |
+| `:- endif` | 条件の塊を閉じる |
+
+- 条件は、一般の指令 `:- G` と同じく、読み込み中のモジュールで 1 回だけ解く（iso-notes「7.4.2 そのほかの指示（`:- G`）」）。そのモジュールが `user` でなければ `M:Goal` として呼ぶ。選択点は切り、束縛は戻す。`Goal` は書いたまま呼ぶ。SWI-Prolog は先に `expand_goal/2` にかけるが、Mosa にはゴールの展開が無い
+- 失敗した条件は偽とする。例外を投げた条件は、一般の指令と同じく、その Formal を診断にして読み込みを失敗させる。だから `Goal` が変数なら `instantiation_error`、数なら `type_error(callable, _)` になる。条件の中の `halt/0,1` は、一般の指令と同じく読み込みをその場で止める。SWI-Prolog は誤りを表示して条件を偽とする（iso-notes）
+- 読み飛ばす部分も、今の演算子と旗で項として読む。入れ子の `if` と `endif` を数えるためである。その中の指令（`op/3`、`dynamic/1`、`module/2`、`include/1`、`use_module/1,2` も）は動かさず、節も足さない。読み飛ばす部分は、演算子、旗、節、モジュール、取り込みのどれも変えない。読み飛ばすかどうかは、ほかの何よりも先に決める。だから読み飛ばす項は、`mosatest` の `test/3` の横取りにも文法規則の変換にも渡らず、その変換の誤りも起こさない
+- 読み飛ばす部分の構文の誤りは、診断を出さずに飛ばし、次の終止符の後から読み続ける（iso-notes の問い 3、決定 A）。`mosac` の翻訳の読み込みでも同じにする。誤りのせいで `:- endif` が飲み込まれれば、塊を開いたままテキストの終わりに着くので、下のとおり読み込みが失敗する。読む分岐の構文の誤りは、ほかの場所と同じく読み込みを失敗させる
+- `if` と `endif` の対は、ファイル（読み込むテキスト）ごとに閉じる。`include/1` したファイルも、自分が開いた塊を自分で閉じる。1 つのファイルで開いた塊を、別のファイルで閉じることはできない。`if` の無い `elif`、`else`、`endif`、`else` の後ろの `elif`、2 つ目の `else`、閉じないままテキストの終わりに着いた `if` は、専用のメッセージの鍵の診断で読み込みを失敗させる。この構造の誤りは、読み飛ばし中でも、取らない分岐の中の入れ子の塊でも、読み込みを失敗させる（iso-notes）
+- 条件の指令になるのは、`if/1`、`elif/1`、`else/0`、`endif/0` の 4 つの形だけである。ほかの項数は今と同じく一般の指令なので、`:- if(C, T, E)` は今も組み込みの `if/3` を呼ぶ。フェーズ 13 の前は、この 4 つの指令が利用者の `if/1`、`elif/1`、`else/0`、`endif/0` を呼んでいた。これは振る舞いの変化なので CHANGELOG に書く。4 つはゴールではない。プロンプトで `?- if(true).` と打てば、今と同じく `existence_error(procedure, if/1)` になる
+- `:- module/2` は今と同じくファイルの最初の項でなければならず、条件の塊はこの決まりを変えない。ファイルが `:- if` で始まれば、その塊の中の `:- module/2` は、最初の項でないほかの `:- module/2` と同じ誤りになる
 
 **実装定義事項の決定**
 
@@ -220,6 +239,11 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | `library(strings)` | `atomic_list_concat/2,3`、`split_atom/4`、`upcase_atom/2`（Unicode 大文字化は simple case mapping のみ） |
 | `library(dcg)` | `expand_term/2`（文法規則 `H --> B` を 1 つ訳す。変数でなく `-->/2` でもない項はそのまま返り、第 1 引数が未束縛なら `instantiation_error`） |
 | `library(japanese)` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2`（表示幅の計算）。生成テーブルで実装 |
+| `library(pairs)` | `pairs_keys_values/3`、`pairs_keys/2`、`pairs_values/2`、`group_pairs_by_key/2`、`transpose_pairs/2`、`map_list_to_pairs/3`（フェーズ 13。文書にある誤りは無い。`group_pairs_by_key/2` は隣り合う `==` の鍵だけをまとめる。`transpose_pairs/2` は `keysort/2` で新しい鍵の順に並べる。`map_list_to_pairs/3` は `meta_predicate map_list_to_pairs(2, ?, ?)`） |
+| `library(assoc)` | `empty_assoc/1`、`list_to_assoc/2`、`ord_list_to_assoc/2`、`get_assoc/3`、`get_assoc/5`、`max_assoc/3`、`min_assoc/3`、`gen_assoc/3`、`put_assoc/4`、`del_assoc/4`、`del_min_assoc/4`、`del_max_assoc/4`、`assoc_to_list/2`、`assoc_to_keys/2`、`assoc_to_values/2`、`is_assoc/1`、`map_assoc/2`、`map_assoc/3`（フェーズ 13。AVL 木で、項の形は公開の決まりに入れない。`list_to_assoc/2` は鍵が重なれば `domain_error(unique_key_pairs, List)`、`ord_list_to_assoc/2` は鍵が狭義の昇順でなければ `domain_error(key_ordered_pairs, List)`。`gen_assoc/3` は鍵の昇順に列挙する。`del_min_assoc/4` と `del_max_assoc/4` は空の連想リストで失敗する（iso-notes）。`map_assoc/2,3` は `meta_predicate` で `1` と `2`。鍵は基底項でなければならないが、検査はしない） |
+| `library(ordsets)` | `is_ordset/1`、`ord_empty/1`、`ord_seteq/2`、`list_to_ord_set/2`、`ord_intersect/2`、`ord_disjoint/2`、`ord_intersection/2`、`ord_intersection/3`、`ord_intersection/4`、`ord_add_element/3`、`ord_del_element/3`、`ord_selectchk/3`、`ord_memberchk/2`、`ord_range/4`、`ord_subset/2`、`ord_subtract/3`、`ord_union/2`、`ord_union/3`、`ord_union/4`、`ord_symdiff/3`（フェーズ 13。文書にある誤りは無い。`ord_intersection/2` は空のリストで失敗する。順序集合でない入力の振る舞いは、文書と同じく決めない） |
+
+フェーズ 13 の 3 つのライブラリは新しく書き、SWI-Prolog のソースを写さない。述語名、引数の順、文書にある誤りは、SWI-Prolog のマニュアル（節 `pairs`、`assoc`、`ordsets`。SWI-Prolog 10.1.20 の版を 2026-11-16 に読んだ）に合わせる。文書に無い使い方（リストでない引数など）には誤りを足さない。誤りは `library(between)` と同じく `error(Formal, context(Name/Arity, _))` で投げる。そのマニュアルが非推奨とする `ord_intersect/3` は用意しない。
 
 ## 6. アーキテクチャ（ランタイム・インタプリタ・C++20変換）
 
@@ -229,7 +253,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 1. 字句解析（`lexer`）: UTF-8 → トークン列。第 4 節の文字分類を使う
 2. 構文解析（`reader`）: 演算子優先順位パーサ（Pratt 法）。`read_term/3` のオプション（`variable_names`、`singletons`、`quoted` など）を完全サポート
-3. 読み込み（`loader`）: ディレクティブ処理、モジュール解決、文法規則の翻訳（`term_expansion/2` と `goal_expansion/2` は範囲に入れない。第 3 節と ADR 0024 を見る）
+3. 読み込み（`loader`）: ディレクティブ処理、条件付きコンパイル（第 3 節、フェーズ 13）、モジュール解決、文法規則の翻訳（`term_expansion/2` と `goal_expansion/2` は範囲に入れない。第 3 節と ADR 0024 を見る）
 4. 節コンパイル（`clause_compiler`）: 節を中間表現（IR）に落とす。IR はインタプリタと `mosac` の共通入力
 5. 実行: インタプリタは IR を直接解釈。`mosac` は IR から C++20 を生成
 
@@ -288,7 +312,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 
 **エラーの扱い（誰の責任かで出し分ける）**
 
-- 利用者の Prolog の問題（構文エラー、エクスポート不整合）→ 変換段階で止め、Prolog の行番号付きで報告する。コンパイラは起動しない
+- 利用者の Prolog の問題（構文エラー、エクスポート不整合）→ 変換段階で止め、Prolog の行番号付きで報告する。コンパイラは起動しない。ただし、ビルド時に取らない条件の分岐を持つモジュールでは、定義の無い公開述語は警告にとどめる（下の「`mosac` での条件付きコンパイル」）
 - どこにも定義の無い述語の呼び出し → Prolog の行番号付きの警告として報告し、変換を続ける。実行ファイルは `mosa` と同じく、ゴールが動くときに `existence_error` を投げるか、旗 `unknown` に従う（レビュー L12、iso-notes 7.7.7）
 - 生成した C++ がコンパイルできない → `mosac` のバグとして扱う。「内部エラー: 生成コードがコンパイルできません。`.mosac-cache/<hash>/` を添えて報告してください」とだけ出し、コンパイラの生エラーは `--verbose` のときだけ表示する。CI では「生成 C++ は必ずコンパイルできる」を不変条件とし、差分テストの全ケースで確認する
 - コンパイラ未検出、ディスク不足、権限 → 環境の問題として、対処法付きで報告する
@@ -299,6 +323,26 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 - コマンドライン引数はフラグ `argv`（アトムのリスト）で受け取る
 - `mosac build --interactive` で作ると、変換済みコードを読み込んだ状態で REPL が立ち上がる実行ファイルになる（変換コードとインタプリタの共存は上記の通り）。`--interactive` は `build` だけが受ける（`-o` は通常どおり使える。`mosac run` は受けない）。`:- initialization(main, main).` は実行せず、REPL を立ち上げる（オーナー決定、2026-10-30）
 - 実行ファイルは起動時に外部ファイルを一切要求しない。同梱したライブラリはすべてリンク済みで、`use_module(library(X))` は第5節の探索より先に同梱の一覧で解決する。同梱していないライブラリ（プログラムの字面で `Name` が変数のものなど）は、実行時にその探索へ進み、`$MOSA_LIB`、次に実行ファイルの隣の `lib/` を探す
+
+**`mosac` での条件付きコンパイル（フェーズ 13、ADR 0027。iso-notes の問い 1、決定 A）**
+
+- 翻訳の読み込みは宣言だけを実行し、一般の指令 `:- G` は呼ばない（iso-notes「7.4.2 そのほかの指示（`:- G`）」）。`if` と `elif` の条件はその例外で、翻訳の読み込みが呼ぶ唯一の利用者のゴールである。条件は第 3 節のとおりに解く。取った分岐で、訳す節が決まる。取った分岐の `use_module`、`include`、`ensure_loaded`、`reexport` は、今と同じ道でファイルを同梱の閉包に入れる
+- 翻訳の読み込みでは、例外を投げた条件も `halt/0,1` を呼んだ条件も、「その分岐を取らない」とだけ扱う。翻訳は止めず、その条件が残した診断と halt の求めは消す。本当の扱いは、実行ファイル自身の読み込みが決める。そこでは `mosa` と同じく読み込みが失敗する
+- 実行ファイルの起動時の読み込みは、どの条件も評価し直す。だから、同じ実行で `mosa` が取るのと同じ分岐を取る。翻訳と違う分岐を取ったときは、指紋の合わない述語と訳していない述語が IR のまま動く（ADR 0009）。結果は `mosa` と同じで、遅くなるだけであり、警告は出さない。`initialization(main, main)` の入口は、起動時の読み込みが書き留めたものになる。だから分岐の中のものは、起動時にその分岐を取ったときだけ効く
+- ゴールに字面で書いたライブラリの探索（第 5 節）は、翻訳の読み込みが読み飛ばした項も見る。また、どの項でも、2 つの `use_module` の形に加えて `reexport(library(Name))` と `reexport(library(Name), _)` を拾う。こうして見つけたライブラリは、存在すれば同梱し、無ければ黙って飛ばす。だからライブラリは、どちらの分岐に書いても同梱される
+
+翻訳の読み込みが起動時の読み込みより多く読む場合、実行ファイルは次のようにして `mosa` と同じ結果を保つ。
+
+- メインのファイルのほかの、プログラムのモジュールのファイルの単位は、起動時の読み込みがそのファイルを読んだときだけ付く。実行ファイルは、同梱したモジュールのファイルを単独では読まず、読まなかったファイルには訳したコードを付けない。だから、起動時に取らない分岐だけが読むモジュールは、その指令と初期化のゴールが動かず、公開述語も取り込まれない。`mosa` と同じである。条件の塊の無いプログラムの実行ファイルでは、メインのファイルの読み込みが成功すれば、そうした単位のファイルはどれも読み終えている。だから振る舞いは変わらない
+- 翻訳の読み込みが条件の分岐の中で初めて読んだモジュール（プログラムのファイルもライブラリも）は、生成コードがその場で結ばない。そのモジュールへの `M:G` は、実行時に `:/2` を通る。起動時の読み込みが `M` を読まなかったときは、`mosa` と同じく `existence_error(module, M)` になる
+- 翻訳の読み込みで取らなかった分岐に指令が 1 つでもあれば、飛ばした一般の指令と同じに扱う。その分岐の `op/3` が後の項の読みを変えうるからである。後で構文の誤りに当たってもビルドは止めず、そのファイルを IR のまま動かし、判定を起動時の読み込みに任せる。たとえば `:- if(getenv('X', _)). :- op(700, xfx, ===>). :- endif. a ===> b.` は、`X` の無い所でもビルドできる
+- 定義の無い公開述語はビルドを止める（上の「エラーの扱い」）。ただし、ビルド時に取らなかった分岐を持つファイルのモジュールでは、同じ字面の警告にとどめる。その分岐が定義するかもしれず、そのとき実行ファイルは `mosa` と同じく動くからである。ファイルが取らなかった分岐を持つとは、条件がその項を 1 つでも読み飛ばしたことをいう（空の分岐は数えない）。この印は、`include/1` でも `use_module` でもライブラリでも、そのファイルを読んだファイルへ上がる。だから、そうしたファイルを読んだモジュールも警告になる。変わるのはビルドの判定だけで、実行ファイルの結果は変わらない
+
+既知の制限（CHANGELOG と iso-notes にも書く）:
+
+- ビルド時に取らなかった分岐の中の、素のパスで名指したファイル（`include(foo)`、`use_module(foo)`、`ensure_loaded(foo)`）は同梱しない。起動時にその分岐を取れば、実行ファイルはそのファイルを作業ディレクトリから読む。ゴールの読み込みが素のパスで名指したファイルと同じである（フェーズ 12）
+- 条件はビルド時にも動く。だから何かを書く条件は、`mosac build` の出力にも書く
+- ビルド時に取らなかった分岐だけが定義する述語への呼び出しは、`mosac` の未定義の呼び出しの警告になる
 
 **ソースの対応関係**
 
@@ -389,6 +433,7 @@ Prolog テキストの `Head --> Body` の節は、テキストを読み込む�
 | 10 | 多倍長整数: Big の箱（ADR 0025）、上限の無い算術と読み書き、`bounded` が `false` | `tests/pl/bigint.pl` と、期待値をこの変更で直したテストが `mosa` で通り、`mosatest --diff` の差分が 0（`japanese.pl` を含む）。`mosatest --suite` が `unbounded/` を範囲に入れ、そこで動く件がすべて通るか、通らない件が iso-notes に解釈の違いとして書かれて持ち主が決めている。合格率は実際の分母で 98.4% を下回らず、`docs/conformance.md` を作り直す。`MOSA_GC_STRESS` の下で `tests/pl/bigint.pl` が通り、Big を作り続けるループでメモリが頭打ちになり、`1 << (1 << 62)` が確保の前に止まる。`bench/nrev.pl` と `bench/queens.pl` のインタプリタの時間（Release、同じ機械、3 回の中央値）が v0.1.4 の 1.05 倍以下で、`mosac` の `nrev` がインタプリタの 3 倍以上の速さのままで、測った値を `bench.md` に書く |
 | 11 | 準拠率の範囲と `format/2,3`: 分母の外にあった ISO のディレクトリ（`sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2`）を本欄に入れ、mosa が提供するライブラリ述語を別のライブラリ欄で数え、同梱スイートが試す `format` の指示（`~i ~k ~W ~p ~N ~r ~R ~D ~E ~g ~G ~+`）をそろえる | `mosatest --suite` の本欄に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` が入り（所有者が `length/2` を ISO と決めれば `length_2` も。iso-notes）、本欄の合格率が 98.4% を下回らない。`docs/conformance.md` にライブラリ欄があり、フェーズ11の設計の範囲の規則が挙げるディレクトリをすべて持ち、`format_2` と `format_3` に `domain_error(format_directive, _)` の不合格が無く、残りの不合格はすべて `docs/iso-notes.md` に理由があり、ライブラリ欄の合格率が 98.0% 以上。`tests/pl/lib_format.pl` と `tests/pl/japanese.pl` の新しい指示のテストが `mosa` で通り、`mosatest --diff` の差分が 0（ライブラリ欄のディレクトリと `japanese.pl` を含む）。`mosatest --manual --all-tables` が通る。CI が 3 OS で通る |
 | 12 | モジュールの仕上げ: ゴールとしての `use_module/1,2` と `ensure_loaded/1`（プロンプトでも）、失敗したゴールの読み込みの診断、`reexport/1,2`、`system` の `strip_module/3`、`context_module/1`、`module_property/2`、`import/1`（第5節、ADR 0026） | `tests/pl/modules.pl` の新しい行と `tests/pl/japanese.pl` が `mosa` で通る（対象はゴールの `use_module/1,2`・`ensure_loaded/1`、`reexport/1,2`、`strip_module/3`、`context_module/1`、`module_property/2`、`import/1`）。さらに `mosatest --diff` の差分が 0。ゴールの読み込みが `;`、`findall/3`、`\+` の中で失敗したとき、その診断が `user_error` に 1 回だけ出るテストが通る（たとえば `consult(F), findall(x, consult(F), L)` で、`L = []` と `F: 実行中の述語は置き換えられない`（鍵 `predicate_running`）が 1 行出る）。問い合わせ全体が失敗したときに診断が二重に出ないテストも通る。`check_consult_failure_reports` は期待値を変えずに通る。ゴールで `use_module(library(apply))` を呼ぶプログラムを、節の本体で呼ぶ形と `initialization/1` のゴールで呼ぶ形の 2 通りで `mosac build` で作り、その実行ファイルが `$MOSA_LIB` の無い、隣に `lib/` も無い場所で動く（ctest）。`mosatest --suite tests/conformance` の本欄の合格率が 98.4% を、ライブラリ欄の合格率が 98.0% を下回らない。`mosatest --manual docs/manual --all-tables` が通る。CI の全ジョブが 3 OS で通る |
+| 13 | 条件付きコンパイルとライブラリ: テキストを読むすべての道の指令 `:- if(Goal)`、`:- elif(Goal)`、`:- else`、`:- endif`（`mosac` はビルド時に条件を評価し、実行ファイルは起動時に評価し直す。第 3 節と第 6 節、ADR 0027）、`library(pairs)`、`library(assoc)`、`library(ordsets)`（第 5 節） | 条件付きコンパイルの新しいテストのファイル `tests/pl/cond_compile.pl`、`tests/pl/lib_pairs.pl`、`lib_assoc.pl`、`lib_ordsets.pl`、`tests/pl/japanese.pl` の新しい行が `mosa` で通り、`mosatest --diff` の差分が 0。ビルド時と起動時で分岐が違う次の 4 つのプログラムを `mosac build` で作り、どの実行ファイルも、`$MOSA_LIB` の無い、隣に `lib/` も無い場所で `mosa` と同じ出力を出す（ctest）。起動時に取る分岐だけがライブラリを読むもの、ビルド時に取る分岐だけがモジュールのファイルを読むもの（そのモジュールの初期化が動かず、`M:G` が `existence_error(module, M)` になる）、取らなかった分岐の `op/3` の演算子を後ろの項が使うもの、公開した述語を取らなかった分岐だけが定義するもの。分岐が同じなら、`translate_program` の出力が取った分岐の述語だけを訳す（ctest の `codegen`）。`mosatest --suite tests/conformance` のライブラリ欄が `directives/conditional_compilation` の 39 件を数えてすべて通り、ライブラリ欄の合格率が 98.0% を、本欄の合格率が 98.4% を下回らず、本欄の分母は 2326 のまま変わらない。`mosatest --manual docs/manual --all-tables` が通る。CI の全ジョブが 3 OS で通る |
 
 **フェーズをまたぐ禁止事項**
 

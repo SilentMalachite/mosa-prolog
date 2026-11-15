@@ -30,3 +30,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0024](0024-dcg-translation.md) | Grammar rules: the loader translates `-->` in C++; terminals are body unifications; `phrase/2,3` in `system` | Approved (2026-11-10) |
 | [0025](0025-bignum-box.md) | Arbitrary-precision integers: the Big box, its IR, index key and `mosac` constants | Approved (2026-11-12) |
 | [0026](0026-goal-load-and-reexport.md) | Loading from a goal and re-export: one outer load into the context module; an export entry names the defining module | Approved (2026-11-15) |
+| [0027](0027-conditional-compilation.md) | Conditional compilation: the loader handles `if/elif/else/endif` per file; the translation load calls the conditions, and the executable evaluates them again at start-up | Approved (2026-11-16) |
