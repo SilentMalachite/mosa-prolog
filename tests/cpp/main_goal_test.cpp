@@ -103,6 +103,9 @@ int main() {
   std::ofstream(mosa::path_from_utf8(dir + "/rejected_main.pl"), std::ios::binary)
       << ":- initialization(bad_main, main).\nfoo( .\n";
   const std::string outer = "bad_main :- halt(7).\n:- (consult('" + dir + "/rejected_main.pl') -> true ; true).\n";
-  check_case(dir, Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, {}});
+  // 吸われたゴールの consult も診断を標準エラーに 1 回書く（フェーズ12の問い 1 の決定 A、iso-notes「7.4.2 A goal load
+  // that fails: the diagnostic」）。確かめること（終了コード 0、拒んだファイルの main は動かない）は変えない。
+  check_case(dir,
+             Case{"rejected load drops main", {{"outer_main.pl", outer}}, 0, "rejected_main.pl:2:6: 予期しないトークン"});
   return mosa_test::failures();
 }

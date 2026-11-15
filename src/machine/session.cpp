@@ -218,9 +218,10 @@ int play_goal(Machine& machine, std::string goal, bool written, bool interactive
         return interactive ? 0 : 2;
       }
       if (stop.kind == StopKind::Failure) {
-        // consult/1 の失敗は、ゴールを失敗させる前にパス付きの理由を出す。
+        // consult/1 の失敗は、ゴールを失敗させる前にパス付きの理由を出す。ゴールがその場で書いた理由は繰り返さない
+        // （フェーズ12の問い 1 の A）。
         const auto diag = machine.diagnostic();
-        if (!diag.empty()) {
+        if (!diag.empty() && diag != engine_impl(machine).reported_diagnostic) {
           echo.warn(diag);
           echo.warn("\n");
         }
@@ -427,6 +428,8 @@ void run_with_machine(const Options& options, std::string_view input, bool tty, 
   cursor.from_cin = tty && input.empty();
   auto machine = Machine::create(limit);
   engine_impl(*machine).program_argv = options.program_args;
+  // ファイルの指令や main のゴールの consult/1 も書くので、読み込みより前に向ける。機械は echo より先に消える。
+  engine_impl(*machine).load_report = [&echo](std::string_view text) { echo.warn(text); };
   if (const auto code = consult_files(*machine, options.files, echo)) {
     result.code = *code;
     return;
@@ -453,6 +456,21 @@ void run_with_machine(const Options& options, std::string_view input, bool tty, 
   if (interactive) prompt_loop(*machine, cursor, echo);
 }
 
+// 呼び手の機械はこのセッションより長く生きる（finish_interactive はヒープの上限の例外を受けた後も使う）。抜けるとき、
+// 例外でも書き先を空に戻さないと、後のゴールの読み込みの失敗が消えた echo へ書く。
+class LoadReportScope {
+ public:
+  LoadReportScope(Impl& machine, const Echo& echo) : machine_(machine) {
+    machine_.load_report = [&echo](std::string_view text) { echo.warn(text); };
+  }
+  ~LoadReportScope() { machine_.load_report = nullptr; }
+  LoadReportScope(const LoadReportScope&) = delete;
+  LoadReportScope& operator=(const LoadReportScope&) = delete;
+
+ private:
+  Impl& machine_;
+};
+
 }  // namespace
 
 SessionResult run_prepared_session(Machine& machine, std::ostream* live_out, std::ostream* live_err) {
@@ -461,6 +479,7 @@ SessionResult run_prepared_session(Machine& machine, std::ostream* live_out, std
   echo.result = &result;
   echo.out = live_out;
   echo.err = live_err;
+  const LoadReportScope report(engine_impl(machine), echo);
   Cursor cursor;
   cursor.from_cin = true;
   prompt_loop(machine, cursor, echo);

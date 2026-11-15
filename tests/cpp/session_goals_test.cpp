@@ -1,7 +1,11 @@
-// session_test.cpp の続き（800 行の上限で分けた）。-g の繰り返しと、読み込みだけで終える形を見る。
+// session_test.cpp の続き（800 行の上限で分けた）。-g の繰り返しと、読み込みだけで終える形と、ゴールの読み込みの
+// 失敗の知らせ方を見る。
 #include "harness.hpp"
+#include "machine/std_capture.hpp"
+#include "mosa/machine.hpp"
 #include "mosa/repl.hpp"
 
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -74,4 +78,65 @@ void check_repeated_goals() {
   const auto talk = run_goals({"fail.", "Y = 2."}, true, false);
   mosa_test::check(talk.code == 0 && talk.out.find("false.\nY = 2.\n?- ") != std::string::npos,
                    "tty runs every -g then prompts");
+}
+
+// フェーズ12の問い 1 の A。ゴールの consult/1 が失敗したら、その時点で診断を user_error に 1 回だけ出す。;、findall/3、
+// \+ が失敗を吸っても出し、問い合わせ全体が失敗したときにトップレベルが同じ行を繰り返さないことを、回数で見る。
+namespace {
+
+constexpr std::string_view kMissingLine = "/no/such/p12.pl: ファイルを開けません";
+
+// 有無ではなく回数を数える。find では、出ないことと二重に出ることの片方しか捕まえられない。
+std::size_t count_of(std::string_view text, std::string_view line) {
+  std::size_t count = 0;
+  for (auto at = text.find(line); at != std::string_view::npos; at = text.find(line, at + line.size())) ++count;
+  return count;
+}
+
+mosa::SessionResult run_goal(std::string_view goal) {
+  const std::vector<std::string_view> args{std::string_view{"mosa"}, std::string_view{"-g"}, goal};
+  return mosa::run_session(args, "", false);
+}
+
+void check_goal_load_report_count() {
+  const auto both = run_goal("(\\+ consult('/no/such/p12.pl'), \\+ consult('/no/such/p12.pl')).");
+  mosa_test::check(both.code == 0 && both.out.find("true.") != std::string::npos, "swallowed consult failures succeed");
+  mosa_test::check(count_of(both.err, kMissingLine) == 2, "each swallowed consult failure prints its line");
+}
+
+void check_goal_load_report_once() {
+  const auto plain = run_goal("consult('/no/such/p12.pl').");
+  mosa_test::check(plain.code == 1, "failed goal consult exits 1");
+  mosa_test::check(count_of(plain.err, kMissingLine) == 1, "toplevel does not repeat the goal's line");
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/p12_busy.pl";
+  std::ofstream file(path, std::ios::binary);
+  file << "p(1).\n";
+  file.close();
+  const std::string goal = "(consult('" + path + "'), findall(x, consult('" + path + "'), L), L == []).";
+  const auto busy = run_goal(goal);
+  mosa_test::check(busy.code == 0, "refused reload inside findall succeeds");
+  mosa_test::check(count_of(busy.err, path + ": 実行中の述語は置き換えられない") == 1,
+                   "refused reload inside findall prints its line once");
+}
+
+// 埋め込み（セッションが無い）では std::cerr に書く。harness の FAIL: も std::cerr に出るので、捕まえを閉じてから比べる。
+void check_goal_load_report_embedded() {
+  mosa::StopKind kind = mosa::StopKind::Failure;
+  std::string text;
+  {
+    const mosa::StdCapture capture;
+    auto machine = mosa::Machine::create();
+    kind = machine->query("\\+ consult('/no/such/p12.pl').").kind;
+    text = capture.text();
+  }
+  mosa_test::check(kind == mosa::StopKind::Success, "embedded swallowed consult failure succeeds");
+  mosa_test::check(count_of(text, kMissingLine) == 1, "embedded consult failure prints to std::cerr once");
+}
+
+}  // namespace
+
+void check_goal_load_reports() {
+  check_goal_load_report_count();
+  check_goal_load_report_once();
+  check_goal_load_report_embedded();
 }

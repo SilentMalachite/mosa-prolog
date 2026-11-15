@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <iostream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -19,6 +20,19 @@ void prefix_consult_diagnostic(Impl& machine, std::string_view path) {
     return;
   }
   machine.diagnostic = std::string{path} + ": " + machine.diagnostic;
+}
+
+// 埋め込み（セッションが無い）では書き先が無いので std::cerr に書く。どちらも user_error の流れを通らないので、その
+// 桁は進まない（Echo::warn と同じ）。覚えた字面は、問い合わせ全体が失敗したときにトップレベルが繰り返さないために使う。
+void report_goal_load_failure(Impl& machine) {
+  const std::string line = machine.diagnostic + "\n";
+  if (machine.load_report) {
+    machine.load_report(line);
+  } else {
+    std::cerr << line;
+    std::cerr.flush();
+  }
+  machine.reported_diagnostic = machine.diagnostic;
 }
 
 namespace {
@@ -239,6 +253,7 @@ bool run_consult(Impl& machine, const Goal& call) {
   const auto source = read_source(machine, path_from_utf8(text));
   if (!source) {
     machine.diagnostic = message_text(machine, "cannot_open_file", {text});
+    report_goal_load_failure(machine);
     machine.failed = true;
     return true;
   }
@@ -259,6 +274,7 @@ bool run_consult(Impl& machine, const Goal& call) {
   machine.load_module = outer;
   if (!status.ok) {
     prefix_consult_diagnostic(machine, text);
+    report_goal_load_failure(machine);
     machine.failed = true;
     return true;
   }

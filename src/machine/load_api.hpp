@@ -32,6 +32,9 @@ namespace mosa {
 [[nodiscard]] std::filesystem::path source_path(const Impl& machine, const std::filesystem::path& file);
 // 定義は consult.cpp。読み込みの診断にパスと、構文エラーなら行と列を付ける。
 void prefix_consult_diagnostic(Impl& machine, std::string_view path);
+// 定義は consult.cpp。ゴールの読み込みが失敗するたびに、machine.diagnostic の 1 行を load_report（無ければ std::cerr）へ
+// 書き、reported_diagnostic に覚える。;、findall/3、\+ が失敗を吸っても理由が残るように、その場で書く（問い 1 の A）。
+void report_goal_load_failure(Impl& machine);
 // 定義は native.cpp。単位の name が埋め込んだパスならそのファイルとして、ほかは文字だけで source を読む。
 // 差分テスト（計画 Task 11）のインタプリタ側は、表の無い単位でこれを呼んで翻訳側と同じ読み方をする。
 [[nodiscard]] bool load_unit(Impl& machine, const rt::NativeUnit& unit);

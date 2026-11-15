@@ -78,6 +78,8 @@ Stop open_query(Impl& machine, Start start) {
   // 空きを生まない GC の連続は 1 つの問い合わせの中だけで数える（ADR 0010 の改訂 B）。
   reset_gc_judgement(machine);
   machine.diagnostic.clear();
+  // 前の問い合わせで書いた診断を覚えたままにすると、この問い合わせの同じ字面の失敗をトップレベルが黙らせる。
+  machine.reported_diagnostic.clear();
   return drop_on_throw(machine, start);
 }
 

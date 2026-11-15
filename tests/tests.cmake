@@ -330,7 +330,7 @@ target_link_libraries(goal_shared_test PRIVATE mosa_lib)
 add_test(NAME goal_shared COMMAND $<TARGET_FILE:goal_shared_test>)
 
 add_executable(session_test tests/cpp/session_test.cpp tests/cpp/session_goals_test.cpp)
-target_include_directories(session_test PRIVATE tests/cpp)
+target_include_directories(session_test PRIVATE tests/cpp src)
 target_compile_definitions(session_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(session_test PRIVATE mosa_lib)
 add_test(NAME session COMMAND $<TARGET_FILE:session_test>)

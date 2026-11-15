@@ -418,6 +418,10 @@ struct Machine::Impl {
   bool halt_pending = false;
   int halt_code = 0;
   std::string diagnostic;
+  // ゴールの読み込みの失敗の診断の書き先（フェーズ12の問い 1 の A）。セッションは自分の標準エラーへ向け、空なら std::cerr。
+  std::function<void(std::string_view)> load_report;
+  // ゴールがその場で書いた最後の診断。問い合わせが失敗したとき、トップレベルが同じ行をもう一度書かないために覚える。
+  std::string reported_diagnostic;
   bool syntax_diag = false;
   std::size_t diag_line = 1;
   std::size_t diag_column = 1;
