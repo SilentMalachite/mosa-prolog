@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mosa Prolog</title>
+<meta name="description" content="Mosa Prolog is a Prolog system that follows ISO/IEC 13211-1. Names can be in Japanese, and mosac turns a program into a standalone executable. Runs on macOS, Linux and Windows.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mosa Prolog">
+<meta property="og:description" content="Write rules, even in Japanese, and ask Prolog for answers. A Prolog system that follows ISO/IEC 13211-1.">
+<meta property="og:locale" content="en_US">
+<meta name="color-scheme" content="light dark">
+<link rel="alternate" hreflang="ja" href="../">
+<link rel="alternate" hreflang="en" href="./">
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=M+PLUS+1+Code:wght@400;700&family=Shippori+Mincho:wght@700;800&display=swap">
+<link rel="stylesheet" href="../assets/style.css">
+<script>document.documentElement.classList.add("js");</script>
+<script src="../assets/main.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="../assets/mark.svg" alt="" width="28" height="28">Mosa Prolog</a>
+    <nav class="site-nav" aria-label="On this page">
+      <a class="opt" href="#how">How Prolog works</a>
+      <a class="opt" href="#japanese">Writing in Japanese</a>
+      <a href="#start">Get started</a>
+      <a class="opt" href="https://github.com/SilentMalachite/mosa-prolog">GitHub</a>
+      <a class="lang" href="../" hreflang="ja" lang="ja">日本語</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <div>
+      <h1 id="hero-title">Write rules, even in Japanese, and ask Prolog for answers</h1>
+      <p class="hero-lead">Mosa Prolog is a system that runs programs written in the Prolog language. In Prolog you do not write steps; you write what is true. Write down facts and rules, ask a question, and Mosa follows the rules to find the answers. Names can be in Japanese, so rules written in Japanese read as plain Japanese.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Download the latest release</a>
+        <a class="btn btn-secondary" href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/README.md">Read the manual</a>
+      </div>
+      <p class="hero-meta">This page describes 0.2.2, released on 14 November 2026. It runs on macOS, Linux and Windows, under the <span class="nw">Apache-2.0</span> license.</p>
+    </div>
+
+    <figure class="column" aria-labelledby="column-cap">
+      <div class="column-head"><span>The file <code>家族.pl</code>, and a terminal that loads it</span></div>
+      <div class="strata">
+        <div class="stratum s-fact" style="--i:0">
+          <div class="stratum-body"><pre><code>親(太郎, 一郎).
+親(太郎, 花子).
+親(一郎, 桃子).
+親(一郎, 次郎).
+親(次郎, 三郎).</code></pre></div>
+          <div class="stratum-key"><b>Facts</b><span>say what is true</span></div>
+        </div>
+        <div class="stratum s-rule" style="--i:1">
+          <div class="stratum-body"><pre><code>祖父母(X, Z) <span class="k">:-</span> 親(X, Y), 親(Y, Z).</code></pre></div>
+          <div class="stratum-key"><b>Rule</b><span>say what follows from them</span></div>
+        </div>
+        <div class="stratum s-query" style="--i:2">
+          <div class="stratum-body"><pre><code><span class="k">$</span> mosa 家族.pl
+<span class="k">?-</span> 祖父母(太郎, X).</code></pre></div>
+          <div class="stratum-key"><b>Query</b><span>ask after <code>?-</code></span></div>
+        </div>
+        <div class="stratum s-answer" style="--i:3">
+          <div class="stratum-body"><pre><code><span class="line" style="--j:0">X = 桃子;</span>
+
+<span class="line" style="--j:1">X = 次郎;</span>
+
+<span class="line" style="--j:2">false.</span></code></pre></div>
+          <div class="stratum-key"><b>Answers</b><span><code>;</code> for the next, <code>false.</code> when there are no more</span></div>
+        </div>
+      </div>
+      <figcaption id="column-cap">From chapter 4 of the Japanese manual. <code>親</code> means parent and <code>祖父母</code> grandparent; <code>太郎</code>, <code>一郎</code> and the rest are names. No fact says who is whose grandparent, yet Mosa follows the rule and finds both of 太郎’s grandchildren.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="section" id="how" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="section-head prose">
+      <h2 id="how-title">Prolog searches for the answer when you ask</h2>
+      <p>Most programs are a list of steps: do this, then do that. In Prolog you write what is true (facts) and what follows from it (rules). Then you ask a question, and Prolog takes care of how to search for the answer.</p>
+    </div>
+    <div class="two-col">
+      <div class="prose">
+        <p>If a query holds, the answer is <code>true.</code> If Mosa finds no way to make it hold, the answer is <code>false.</code> It never makes up a plausible answer when there is none.</p>
+        <p>A name that starts with an upper-case letter or an underscore, like <code>X</code>, is a variable. Put a variable in a query and Mosa shows the values that make it true. When there is more than one answer, each <code>;</code> you type shows the next one.</p>
+        <p>Prolog suits work like this:</p>
+        <ul class="fit-list">
+          <li>the rules behind a decision can be written down</li>
+          <li>a mistake is costly, and you must be able to explain why a result came out</li>
+          <li>the job is to search many combinations for the ones that fit</li>
+        </ul>
+        <p>If the work is mostly totalling large amounts of data, SQL and similar tools fit better.</p>
+      </div>
+      <div>
+        <div class="code">
+          <div class="code-head"><span>Asking about a fact</span></div>
+          <pre><code><span class="k">?-</span> 親(太郎, 花子).
+true.
+<span class="k">?-</span> 親(花子, 太郎).
+false.</code></pre>
+        </div>
+        <div class="code">
+          <div class="code-head"><span>Asking with a variable</span></div>
+          <pre><code><span class="k">?-</span> 親(太郎, X).
+X = 一郎;
+
+X = 花子.
+<span class="k">?-</span> 親(X, 三郎).
+X = 次郎.</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tint" id="commands" aria-labelledby="commands-title">
+  <div class="wrap">
+    <div class="section-head prose">
+      <h2 id="commands-title">Three commands</h2>
+      <p>They are in the <code>bin</code> folder of the package. To start with, <code>mosa</code> is all you need.</p>
+    </div>
+    <div class="cmds">
+      <div class="cmd">
+        <h3><code>mosa</code></h3>
+        <p class="role">Run Prolog interactively</p>
+        <p>Type queries at the <code>?-</code> prompt, or load and run files. Nothing else needs to be installed.</p>
+        <div class="code"><pre><code><span class="k">$</span> mosa 家族.pl</code></pre></div>
+      </div>
+      <div class="cmd">
+        <h3><code>mosac</code></h3>
+        <p class="role">Build an executable</p>
+        <p>Translates a Prolog program to C++, compiles it, and produces one file that runs on computers without Mosa.</p>
+        <div class="code"><pre><code><span class="k">$</span> mosac build app.pl -o app</code></pre></div>
+      </div>
+      <div class="cmd">
+        <h3><code>mosatest</code></h3>
+        <p class="role">Run tests</p>
+        <p>Runs tests written in Prolog. With <code>--diff</code>, it checks that <code>mosa</code> and <code>mosac</code> give the same answers.</p>
+        <div class="code"><pre><code><span class="k">$</span> mosatest tests/pl/</code></pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="japanese" aria-labelledby="japanese-title">
+  <div class="wrap">
+    <div class="section-head prose">
+      <h2 id="japanese-title">Write it in Japanese</h2>
+      <p>Mosa reads and writes UTF-8. Atoms (names of things, like <code>東京</code>), predicates (names of relations, like <code>親</code>) and variables can all be Japanese, and errors and warnings can be in Japanese too.</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <h3>Variables start with an underscore</h3>
+        <p class="prose">Japanese has no upper and lower case, so <code>太郎</code> is an atom. A variable with a Japanese name starts with an underscore, as in <code>_太郎</code>.</p>
+        <div class="code">
+          <pre><code><span class="k">?-</span> 名前 = 太郎.
+false.
+<span class="k">?-</span> _名前 = 太郎.
+_名前 = 太郎.</code></pre>
+        </div>
+        <div class="code">
+          <div class="code-head"><span><code>家系.pl</code></span></div>
+          <pre><code>親(太郎, 一郎).
+親(一郎, 花子).
+祖父母(_祖, _孫) <span class="k">:-</span> 親(_祖, _親), 親(_親, _孫).</code></pre>
+        </div>
+        <div class="code">
+          <pre><code><span class="k">$</span> mosa 家系.pl -g "祖父母(X, 花子)." -t halt
+X = 太郎.</code></pre>
+        </div>
+      </div>
+
+      <div class="feature">
+        <h3>One character counts as one</h3>
+        <p class="prose">Mosa counts each Unicode character as one. Even <code>𠮷</code>, which lies outside the Basic Multilingual Plane, is a single character.</p>
+        <div class="code">
+          <pre><code><span class="k">?-</span> atom_length(東京, N).
+N = 2.
+<span class="k">?-</span> atom_length('𠮷野家', N).
+N = 3.
+<span class="k">?-</span> atom_chars(日本語, L).
+L = [日,本,語].</code></pre>
+        </div>
+      </div>
+
+      <div class="feature">
+        <h3>Full-width punctuation works too</h3>
+        <p class="prose">With a Japanese input method switched on, you type <code>（</code>, <code>、</code> and <code>。</code> instead of <code>(</code>, <code>,</code> and <code>.</code>. Mosa normally rejects them, but with the flag <code>japanese_punctuation</code> set to <code>true</code> it reads them as their ASCII counterparts. The corner brackets <code>「」</code> act as single quotes.</p>
+        <div class="code">
+          <pre><code><span class="k">?-</span> X = 親（子）。
+Syntax error: line 1 column 6: unexpected token （
+<span class="k">?-</span> set_prolog_flag(japanese_punctuation, true).
+true.
+<span class="k">?-</span> X = 親（太郎、一郎）。
+X = 親(太郎,一郎).
+<span class="k">?-</span> X = 「東 京」。
+X = '東 京'.</code></pre>
+        </div>
+      </div>
+
+      <div class="feature">
+        <h3>Files in full-width punctuation</h3>
+        <p class="prose">A directive on the first line turns the mode on until the end of the file. That one line is written in ASCII.</p>
+        <div class="code">
+          <div class="code-head"><span><code>capital.pl</code></span></div>
+          <pre><code>:- set_prolog_flag(japanese_punctuation, true).
+
+capital（日本、東京）。
+capital（フランス、パリ）。
+capital（アメリカ、「ワシントン D.C.」）。</code></pre>
+        </div>
+        <div class="code">
+          <pre><code><span class="k">?-</span> consult('capital.pl').
+true.
+<span class="k">?-</span> capital(X, Y).
+X = 日本, Y = 東京;
+
+X = フランス, Y = パリ;
+
+X = アメリカ, Y = 'ワシントン D.C.'.</code></pre>
+        </div>
+      </div>
+    </div>
+    <p class="note prose">Messages are in Japanese when the <code>LANG</code> environment variable starts with <code>ja</code>, and in English otherwise. The flag <code>message_language</code> switches them too. <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/11-japanese.md">Chapter 11 of the manual</a> has the details.</p>
+  </div>
+</section>
+
+<section class="section section-tint" id="mosac" aria-labelledby="mosac-title">
+  <div class="wrap two-col">
+    <div class="prose">
+      <h2 id="mosac-title">Turn a program into one executable you can hand over</h2>
+      <p style="margin-top:16px"><code>mosac</code> translates a Prolog program to C++ and calls a compiler to build an executable. The result runs on a computer with no Mosa, no Prolog files and no compiler, so a set of rules can be shipped as a small tool that makes decisions.</p>
+      <p>A C++ compiler is needed only when you build with <code>mosac</code>: Xcode Command Line Tools on macOS, g++ on Linux, and Build Tools for Visual Studio 2022 on Windows.</p>
+      <p>As a rough guide to speed, on seven benchmark programs the executables ran 1.0 to 26.6 times as fast as the interpreter (Apple M1 Max, measured in November 2026; see the <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md">benchmark record</a>).</p>
+    </div>
+    <div>
+      <div class="code">
+        <div class="code-head"><span><code>hello.pl</code></span></div>
+        <pre><code>:- initialization(main, main).
+
+main :- write(hello), nl.</code></pre>
+      </div>
+      <div class="code">
+        <pre><code><span class="k">$</span> mosac build hello.pl -o hello
+<span class="k">$</span> ./hello
+hello</code></pre>
+      </div>
+      <p class="note">The first line, <code>initialization(main, main)</code>, tells Mosa to run <code>main</code> after loading the file and then exit. <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/13-mosac.md">Chapter 13 of the manual</a> walks through it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="verified" aria-labelledby="verified-title">
+  <div class="wrap">
+    <div class="section-head prose">
+      <h2 id="verified-title">How closely it follows the standard, in published numbers</h2>
+      <p>Prolog has an international standard, ISO/IEC 13211-1. Mosa is built to follow it, and the results of the tests that measure how closely it does are public. The tests run on macOS, Linux and Windows CI on every change.</p>
+    </div>
+    <div class="record-wrap">
+      <table class="record">
+        <caption>Results as of 0.2.2 (14 November 2026)</caption>
+        <thead>
+          <tr><th scope="col">What is checked</th><th scope="col">Result</th><th scope="col">How</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Behaves as the ISO standard says</th>
+            <td><span class="big">98.5%</span><span class="sub">2,291 of 2,326 pass</span></td>
+            <td>The bundled Logtalk conformance suite, run by <code>mosatest --suite</code> (<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md">list of failures</a>)</td>
+          </tr>
+          <tr>
+            <th scope="row">Library predicates outside the standard (<code>format/2</code> and others)</th>
+            <td><span class="big">99.1%</span><span class="sub">561 of 566 pass</span></td>
+            <td>Counted in a separate column of the same suite and kept out of the ISO rate</td>
+          </tr>
+          <tr>
+            <th scope="row"><code>mosa</code> and <code>mosac</code> give the same answers</th>
+            <td><span class="big">0 differences</span><span class="sub">6,579 lines compared byte by byte</span></td>
+            <td><code>mosatest --diff</code> compares answers, errors and output (<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md">agreement record</a>)</td>
+          </tr>
+          <tr>
+            <th scope="row">Manual examples run as written</th>
+            <td><span class="big">All checked</span><span class="sub">English and Japanese editions</span></td>
+            <td>Run by <code>mosatest --manual</code>, except examples that depend on the machine, such as installation steps</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note prose">Design decisions that are hard to change later are written down as <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.md">architecture decision records (ADRs)</a> before they are implemented; there are 25 as of 0.2.2. What Mosa cannot do yet is listed under known limitations in the <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
+  </div>
+</section>
+
+<section class="section section-tint" id="llm" aria-labelledby="llm-title">
+  <div class="wrap two-col">
+    <div class="prose">
+      <h2 id="llm-title">Let an LLM draft the rules, and let people check them</h2>
+      <p style="margin-top:16px">LLMs are good with language, but they do not always give the same answer to the same question, and their reasons are hard to trace. Prolog runs written rules the same way every time and answers <code>false</code> when the rules do not support a claim. The two can share the work.</p>
+      <ol class="flow">
+        <li><b>An LLM drafts the rules</b><span>It turns rules written in prose into Prolog facts and rules.</span></li>
+        <li><b>People read the rules and correct them</b><span>When the rules are written in Japanese, experts in the field can read them as they are.</span></li>
+        <li><b>Mosa decides by the rules</b><span>The same input gives the same answer. Built with <code>mosac</code>, the rules ship as a standalone checker.</span></li>
+      </ol>
+    </div>
+    <div>
+      <div class="code">
+        <div class="code-head"><span>A rule that checks a record of excavated layers</span></div>
+        <pre><code>直接上位(a層, b層).
+直接上位(b層, c層).
+
+より上(A, B) <span class="k">:-</span> 直接上位(A, B).
+より上(A, B) <span class="k">:-</span> 直接上位(A, C), より上(C, B).
+
+矛盾 <span class="k">:-</span> より上(X, X).  <span class="c">% 自分より上にある層があれば記録の矛盾</span></code></pre>
+      </div>
+      <p class="note"><code>直接上位</code> means directly above, <code>より上</code> above, and <code>矛盾</code> contradiction. The comment says that if a layer lies above itself, the record contradicts itself.</p>
+      <p class="caveat">Prolog can promise only that it answers by the rules as written. If a rule is wrong, so is the answer. That is why the rules are kept in a form people can read.</p>
+      <p class="note">The author’s article <a href="https://qiita.com/silentmalachite/items/872caaf80f6baed7ed6c" hreflang="ja">Prologは死んだのか？ ― LLM時代における論理プログラミングの現在地</a> (in Japanese) discusses this in depth.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="start" aria-labelledby="start-title" data-os-scope data-current-os="mac">
+  <div class="wrap">
+    <div class="section-head prose">
+      <h2 id="start-title">From download to your first query</h2>
+      <p>Unpack the prebuilt package and make it callable from your shell. <code>mosa</code> needs nothing else installed.</p>
+    </div>
+
+    <dl class="req">
+      <dt>macOS</dt><dd>macOS 26 or later (Apple Silicon)</dd>
+      <dt>Linux</dt><dd>x86_64, with glibc the same as Ubuntu 24.04 or newer</dd>
+      <dt>Windows</dt><dd>Windows 10 22H2 or later, and Windows 11 (x64), with Smart App Control turned off</dd>
+      <dt>Note</dt><dd>The packages are not signed. <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/02-install.md">Chapter 2 of the manual</a> explains what to do when the OS blocks them.</dd>
+    </dl>
+
+    <div class="os-pick" role="group" aria-label="Choose your computer">
+      <button type="button" data-os-value="mac" aria-pressed="true">macOS</button>
+      <button type="button" data-os-value="linux" aria-pressed="false">Linux</button>
+      <button type="button" data-os-value="win" aria-pressed="false">Windows</button>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <h3>Download the package</h3>
+        <p>From the <a href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Releases page</a>, download the package for your computer. The file names and commands below are for 0.2.2; if you download a newer release, change the version number to match.</p>
+        <div class="pkg-wrap">
+          <table class="pkg">
+            <thead><tr><th scope="col">Computer</th><th scope="col">Package</th></tr></thead>
+            <tbody>
+              <tr data-os="mac"><td>macOS (Apple Silicon)</td><td><code>mosa-0.2.2-macos-arm64.tar.gz</code></td></tr>
+              <tr data-os="linux"><td>Linux (x86_64)</td><td><code>mosa-0.2.2-linux-x86_64.tar.gz</code></td></tr>
+              <tr data-os="win"><td>Windows (x64)</td><td><code>mosa-0.2.2-windows-x86_64.zip</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </li>
+
+      <li>
+        <h3>Unpack it in your home folder</h3>
+        <p>The commands assume the package is in your Downloads folder.</p>
+        <div data-os="mac">
+          <span class="os-label">macOS (Terminal)</span>
+          <div class="code copyable">
+            <div class="code-head"><span>Terminal</span></div>
+            <pre class="console"><code>$ cd ~
+$ tar -xzf ~/Downloads/mosa-0.2.2-macos-arm64.tar.gz</code></pre>
+          </div>
+        </div>
+        <div data-os="linux">
+          <span class="os-label">Linux (terminal)</span>
+          <div class="code copyable">
+            <div class="code-head"><span>Terminal</span></div>
+            <pre class="console"><code>$ cd ~
+$ tar -xzf ~/Downloads/mosa-0.2.2-linux-x86_64.tar.gz</code></pre>
+          </div>
+        </div>
+        <div data-os="win">
+          <span class="os-label">Windows (PowerShell)</span>
+          <div class="code copyable">
+            <div class="code-head"><span>PowerShell</span></div>
+            <pre><code>Expand-Archive "$HOME\Downloads\mosa-0.2.2-windows-x86_64.zip" -DestinationPath $HOME</code></pre>
+          </div>
+        </div>
+      </li>
+
+      <li data-os="mac">
+        <h3>Remove the quarantine mark (macOS only)</h3>
+        <p>macOS marks files downloaded with a web browser as quarantined, and does not open unsigned programs that carry the mark. This command removes it from the folder and every file in it.</p>
+        <div class="code copyable">
+          <div class="code-head"><span>Terminal</span></div>
+          <pre class="console"><code>$ xattr -dr com.apple.quarantine ~/mosa-0.2.2-macos-arm64</code></pre>
+        </div>
+      </li>
+
+      <li>
+        <h3>Add the <code>bin</code> folder to PATH</h3>
+        <p>PATH is the list of folders your shell searches when you type a command name. The change takes effect in windows you open afterwards.</p>
+        <div data-os="mac">
+          <span class="os-label">macOS (zsh)</span>
+          <div class="code copyable">
+            <div class="code-head"><span>Terminal (zsh)</span></div>
+            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.2.2-macos-arm64/bin:$PATH"' &gt;&gt; ~/.zshrc</code></pre>
+          </div>
+        </div>
+        <div data-os="linux">
+          <span class="os-label">Linux (bash)</span>
+          <div class="code copyable">
+            <div class="code-head"><span>Terminal (bash)</span></div>
+            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.2.2-linux-x86_64/bin:$PATH"' &gt;&gt; ~/.bashrc</code></pre>
+          </div>
+        </div>
+        <div data-os="win">
+          <span class="os-label">Windows (PowerShell)</span>
+          <div class="code copyable">
+            <div class="code-head"><span>PowerShell (type one line at a time)</span></div>
+            <pre><code>$bin = "$HOME\mosa-0.2.2-windows-x86_64\bin"
+$old = [Environment]::GetEnvironmentVariable("Path", "User")
+[Environment]::SetEnvironmentVariable("Path", "$old;$bin", "User")</code></pre>
+          </div>
+        </div>
+      </li>
+
+      <li>
+        <h3>Check that your shell finds Mosa</h3>
+        <p>Open a new window and type <code>mosa --version</code>. If it prints the version, you are ready.</p>
+        <div class="code copyable">
+          <div class="code-head"><span>Shell</span></div>
+          <pre class="console"><code>$ mosa --version
+<span class="o">mosa 0.2.2</span></code></pre>
+        </div>
+      </li>
+
+      <li>
+        <h3>Make your first query</h3>
+        <p>Type <code>mosa</code> to get the <code>?-</code> prompt. Type one query at a time and press Enter. Every query ends with a period, and <code>halt.</code> quits.</p>
+        <div class="code">
+          <pre><code><span class="k">$</span> mosa
+<span class="k">?-</span> X = こんにちは.
+X = こんにちは.
+<span class="k">?-</span> atom_length(こんにちは, N).
+N = 5.
+<span class="k">?-</span> halt.</code></pre>
+        </div>
+        <p class="note" data-os="win">Typing Japanese in a Windows console window has not been tested yet (see the known limitations in the <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.md">CHANGELOG</a>). If it does not work, write the Japanese text in a file and load that.</p>
+      </li>
+    </ol>
+
+    <p class="help prose">If something goes wrong, see <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/02-install.md">chapter 2 of the manual, Getting and starting Mosa</a>. It covers macOS refusing to open the program, the blue protection screen on Windows, and a shell that cannot find <code>mosa</code>.</p>
+  </div>
+</section>
+
+<section class="section section-tint" id="next" aria-labelledby="next-title">
+  <div class="wrap">
+    <div class="section-head prose">
+      <h2 id="next-title">Further reading</h2>
+    </div>
+    <ul class="reading">
+      <li class="main">
+        <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/README.md">The manual (14 chapters)</a>
+        <p>Written for people who have never used Prolog. It starts with your first query and moves through facts and rules, lists, errors, Japanese and modules, up to building executables with <code>mosac</code>. <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/ja/README.md" hreflang="ja" lang="ja">日本語版</a></p>
+      </li>
+      <li>
+        <a href="https://qiita.com/silentmalachite/items/872caaf80f6baed7ed6c" hreflang="ja" lang="ja">Prologは死んだのか？ ― LLM時代における論理プログラミングの現在地</a>
+        <p>An article on Qiita, in Japanese, about what LLMs and Prolog are each good at and how to combine them.</p>
+      </li>
+      <li>
+        <a href="https://qiita.com/silentmalachite/items/b594a33e3e5f2339d218" hreflang="ja" lang="ja">AIエージェントと協働でISO Prolog処理系を作り、0.1.0を出すまでに詰まったところ</a>
+        <p>An article on Qiita, in Japanese, about where building Mosa got stuck: the stack, garbage collection, Windows I/O and checking the release packages.</p>
+      </li>
+      <li>
+        <a href="https://github.com/SilentMalachite/mosa-prolog">The GitHub repository</a>
+        <p>Source code, instructions for building from source, the specification and the design records.</p>
+      </li>
+      <li>
+        <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.md">CHANGELOG</a>
+        <p>What each release contains, supported systems, known limitations and differences from ISO.</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <p>Mosa stands for Modular Optimized Symbolic Architecture.</p>
+      <p><a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/LICENSE">Apache License 2.0</a>. Made by <a href="https://github.com/SilentMalachite">SilentMalachite</a>.</p>
+    </div>
+    <p><a href="../" hreflang="ja" lang="ja">日本語</a></p>
+  </div>
+</footer>
+</body>
+</html>
