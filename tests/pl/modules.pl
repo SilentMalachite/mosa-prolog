@@ -199,6 +199,10 @@ test(goal_use_bound, (N = lists, goal_ctx:use_module(library(N), [last/2 as goal
 test(goal_use_list, (use_module('tests/pl/modules/goal_pick.pl', [gp_a/1]), gp_a(X)), solutions([X = 1])).
 test(goal_use_list_hidden, gp_b(_), error(existence_error(procedure, gp_b/1))).
 test(goal_use_as, (use_module('tests/pl/modules/goal_pick.pl', [gp_b/1 as gp_bee]), gp_bee(X)), solutions([X = 2])).
+% 空のリストは何も取り込まず、except(List) は List の外を取り込む（指令と同じ parse_imports。Muse レビュー Minor 11）。
+% goal_ctx への取り込みは predicate_property の imported_from で見る（user の述語は imported_from に出ない）。
+test(goal_use_empty, (goal_ctx:use_module('tests/pl/modules/goal_pick.pl', []), \+ predicate_property(goal_ctx:gp_b(_), imported_from(_))), true).
+test(goal_use_except, (goal_ctx:use_module('tests/pl/modules/goal_pick.pl', except([gp_a/1])), predicate_property(goal_ctx:gp_b(_), imported_from(M)), \+ predicate_property(goal_ctx:gp_a(_), imported_from(_))), solutions([M = goal_pick])).
 test(goal_use_flags, (current_prolog_flag(double_quotes, B), use_module('tests/pl/modules/goal_flags.pl'), current_prolog_flag(double_quotes, A), A == B), true).
 test(goal_use_flags_module, (gf(X), atom(X)), true).
 test(goal_ensure_loaded, (ensure_loaded('tests/pl/modules/goal_plain'), ensure_loaded('tests/pl/modules/goal_plain'), findall(X, gpl_fact(X), L)), solutions([L = [1]])).
@@ -220,6 +224,8 @@ test(goal_use_imports_var, use_module(library(lists), _), error(instantiation_er
 test(goal_use_imports_type, use_module(library(lists), foo), error(type_error(list, foo))).
 test(goal_use_pi_type, use_module(library(lists), [foo]), error(type_error(predicate_indicator, foo))).
 test(goal_use_alias_type, use_module(library(lists), [last/2 as 1]), error(type_error(atom, 1))).
+% ゴールは引数を全部見てから探すので、Imports の誤りが無いライブラリより先に出る（consult.cpp の load_goal_problem）。
+test(goal_use_imports_first, use_module(library(p12_no_such), foo), error(type_error(list, foo))).
 test(goal_ensure_var, ensure_loaded(_), error(instantiation_error)).
 test(goal_ensure_lib, ensure_loaded(library(lists)), error(type_error(atom, library(lists)))).
 % 組み込みになったので、節を足せない。
@@ -246,6 +252,11 @@ test(rx_plain, (consult('tests/pl/modules/rx_plain.pl'), 残高(X)), solutions([
 test(rx_self, rx_base:use_module('tests/pl/modules/rx_all.pl'), true).
 test(rx_self_call, rx_base:rb_a(X), solutions([X = 1])).
 test(rx_cycle, (use_module('tests/pl/modules/rx_cyc_x.pl'), rcx_p(X)), solutions([X = 1])).
+% 再公開の 2 段（rx_two → rx_all → rx_base）。取り込み元は定義したモジュールに着く（SPEC 第5節、Muse レビュー Minor 14）。
+:- use_module('modules/rx_two_user.pl').
+test(rx_two_exports, module_property(rx_two, exports(L)), solutions([L = [ra_own/1, rb_a/1, rb_b/1, (===>)/2]])).
+test(rx_two_from, (predicate_property(rx_two_user:rb_b(_), imported_from(M)), predicate_property(rx_two_user:ra_own(_), imported_from(N))), solutions([(M = rx_base, N = rx_all)])).
+test(rx_two_call, rx_two_user:rb_b(X), solutions([X = 2])).
 % reexport は指令だけで、ゴールには無い。
 test(rx_goal, reexport(rx_base), error(existence_error(procedure, reexport/1))).
 test(rx_goal_2, reexport(rx_base, []), error(existence_error(procedure, reexport/2))).
@@ -291,15 +302,23 @@ test(mp_domain_first, module_property(nomod, foo), error(domain_error(module_pro
 test(mp_no_module, module_property(nomod, _), error(existence_error(module, nomod))).
 test(imp_basic, (imp_ctx:import(rx_base:rb_b/1), imp_ctx:rb_b(X)), solutions([X = 2])).
 test(imp_reexported, (imp_ctx:import(rx_some:rs_a/1), predicate_property(imp_ctx:rs_a(_), imported_from(M))), solutions([M = rx_base])).
-% M1:M2:PI は内側の M2 から取り込む。外側の foo はモジュールでなくてよい。
-test(imp_nested, imp_ctx:import(foo:rx_base:rb_b/1), true).
-test(imp_unqualified, import(rb_a/1), true).
+% M1:M2:PI は内側の M2 から取り込む。外側の foo はモジュールでなくてよい。imp_basic がまだ取り込んでいない ===> で、
+% 取り込みが起きたことを見る（Muse レビュー Minor 10）。
+test(imp_nested, (imp_ctx:import(foo:rx_base:(===>)/2), predicate_property(imp_ctx:'===>'(_, _), imported_from(M))), solutions([M = rx_base])).
+% M: が無ければ自分からの取り込みで、何も変えない。取り込み済みの述語の取り込み元も、無い述語も、そのまま。
+test(imp_unqualified, (import(rb_a/1), predicate_property(rb_a(_), imported_from(M))), solutions([M = rx_base])).
+test(imp_unqualified_none, (import(p12_none/3), \+ predicate_property(p12_none(_, _, _), _)), true).
 test(imp_var, import(_), error(instantiation_error)).
 test(imp_module_var, import(_:p/1), error(instantiation_error)).
 test(imp_module_type, import(1:p/1), error(type_error(atom, 1))).
 test(imp_no_module, import(nomod:p/1), error(existence_error(module, nomod))).
 test(imp_pi_var, import(rx_base:_), error(instantiation_error)).
 test(imp_pi_type, import(rx_base:foo), error(type_error(predicate_indicator, foo))).
+% PI の名前と引数の数の誤りは use_module/2 の項目と同じ read_indicator が出す（Muse レビュー Minor 12）。
+test(imp_name_type, import(rx_base:(1/2)), error(type_error(atom, 1))).
+test(imp_arity_type, import(rx_base:(p/x)), error(type_error(integer, x))).
+test(imp_arity_negative, import(rx_base:(p/(-1))), error(domain_error(not_less_than_zero, -1))).
+test(imp_arity_max, import(rx_base:(p/1025)), error(representation_error(max_arity))).
 test(imp_as, import(rx_base:(rb_a/1 as x)), error(type_error(predicate_indicator, rb_a/1 as x))).
 test(imp_not_exported, import(rx_base:nope/0), error(existence_error(procedure, rx_base:nope/0))).
 % imp_ctx は自分の rb_a/1 を持つ。

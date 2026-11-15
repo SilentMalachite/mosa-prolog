@@ -41,6 +41,10 @@ void check_module_text() {
   mosa_test::check(succeeds(*machine, "p(1)."), "export imported into user");
   mosa_test::check(succeeds(*machine, "m:q(2)."), "private reachable with m:");
   mosa_test::check(machine->query("q(2).").kind == mosa::StopKind::Exception, "private hidden from user");
+  // フェーズ12 の Muse レビュー（Minor 9）。ファイルの無いテキストの module/2 も exports を持ち、file(F) だけを持たない
+  // （SPEC 第5節 module_property/2）。tests/pl の mp_ の行はどれもファイルから読んだモジュールを見る。
+  mosa_test::check(succeeds(*machine, "findall(P, module_property(m, P), [exports([p/1])])."),
+                   "a module from text has exports and no file");
 }
 
 void check_not_first() {
