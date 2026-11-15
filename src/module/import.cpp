@@ -112,6 +112,10 @@ bool same_op(const OpDef& left, const OpDef& right) {
 }
 
 std::optional<Cell> add_import(Impl& machine, std::uint32_t into, const Import& item) {
+  // 公開の項目は定義したモジュールを指すので、再公開の輪や再公開した側からの取り込みでは取り込み元が into 自身になる。
+  // 同じ名前なら into の定義そのものであり、同じ定義に着く取り込みは衝突でない（ADR 0026）。表に入れずに捨てる。
+  // 入れると、節が先なら上の find_pred が、節が後なら check_local が断り、結果が読む順で変わる。別名なら残す。
+  if (item.from == into && item.name == item.alias) return std::nullopt;
   if (find_pred(machine, PredKey{into, item.alias, item.arity}) != nullptr) {
     return conflict(machine, item.from, item.name, item.arity);
   }

@@ -241,6 +241,11 @@ test(rx_op, (X = (a ===> b), X =.. L), solutions([L = [(===>), a, b]])).
 % 同じ名前の違う述語は、今までどおり import_into の衝突になる。ゴールの use_module は診断を書いて失敗する。
 test(rx_conflict, use_module('tests/pl/modules/rx_clash.pl'), fail).
 test(rx_plain, (consult('tests/pl/modules/rx_plain.pl'), 残高(X)), solutions([X = 100])).
+% 公開の項目の取り込み元が取り込む側のモジュール自身なら、それは自分の定義なので衝突でない（ADR 0026）。rx_base が
+% rx_all を取り込むと、rx_all が再公開した rb_a/1 は rx_base 自身を指す。輪の rx_cyc_x は、節より先に取り込む。
+test(rx_self, rx_base:use_module('tests/pl/modules/rx_all.pl'), true).
+test(rx_self_call, rx_base:rb_a(X), solutions([X = 1])).
+test(rx_cycle, (use_module('tests/pl/modules/rx_cyc_x.pl'), rcx_p(X)), solutions([X = 1])).
 % reexport は指令だけで、ゴールには無い。
 test(rx_goal, reexport(rx_base), error(existence_error(procedure, reexport/1))).
 test(rx_goal_2, reexport(rx_base, []), error(existence_error(procedure, reexport/2))).
