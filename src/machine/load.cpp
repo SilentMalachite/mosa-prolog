@@ -431,69 +431,6 @@ bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGua
   return true;
 }
 
-// 翻訳のときだけ、足した節の位置を書き留める。どこにも定義の無い述語を呼ぶ警告がこの行を出す。
-// key は add_clause が節を足した述語。
-void note_site(Impl& machine, PredKey key, std::size_t line) {
-  TranslationLog* log = machine.translation;
-  if (log == nullptr || log->current >= log->files.size()) return;
-  const Predicate* found = find_pred(machine, key);
-  if (found == nullptr) return;
-  const Predicate& predicate = *found;
-  log->sites.push_back(TranslationLog::Site{PredKey{predicate.module, predicate.name, predicate.arity},
-                                            predicate.clauses.size() - 1, log->current, line});
-}
-
-// 飛ばしたゴールの op/3 は後の項の読みを変えうるので、翻訳の読みで誤りになった項も起動時には読めるかもしれない
-// （計画 Task 5）。誤りにせず、このファイルの述語を IR のまま動かす印を付ける。飛ばしたゴールが無ければ誤りのまま。
-bool mark_opaque(TranslationLog* log) {
-  if (log == nullptr || log->current >= log->files.size() || !log->files[log->current].skipped_goal) return false;
-  log->files[log->current].opaque = true;
-  return true;
-}
-
-// 翻訳のときに開いたファイルの原文を書き留め、読み終えるまで節の行き先にする。include を 2 回読んでも 1 つ。
-// library(_) で開いたファイルと、そこから開いたファイルはライブラリとして印を付ける（翻訳は Task 10）。
-struct FileNote {
-  TranslationLog* log = nullptr;
-  std::size_t outer = 0;
-  FileNote(Impl& machine, std::string_view origin, std::string_view source) : log(machine.translation) {
-    if (log == nullptr) return;
-    outer = log->current;
-    if (origin.empty()) return;
-    const auto key = utf8_from_path(canonical_key(path_from_utf8(origin)));
-    for (std::size_t index = 0; index < log->files.size(); ++index) {
-      if (log->files[index].key == key) log->current = index;
-    }
-    if (log->current != outer) return;
-    // library(Name) で開いた物はその探索の根、ライブラリから素のパスや include で開いた物は親と同じ根。
-    std::string root;
-    for (const TranslationLog::LibraryOpen& open : log->library_opens) {
-      if (open.key == key) root = open.root;
-    }
-    if (root.empty() && outer < log->files.size()) root = log->files[outer].library_root;
-    TranslationLog::File file{key, std::string{source}, 0, 0, !root.empty()};
-    file.library_root = std::move(root);
-    log->files.push_back(std::move(file));
-    log->current = log->files.size() - 1;
-  }
-  FileNote(const FileNote&) = delete;
-  FileNote& operator=(const FileNote&) = delete;
-  // include した先で飛ばしたゴールの op/3 は、読み込んだ側のテキストにも効く。
-  ~FileNote() {
-    if (log == nullptr) return;
-    if (log->current < log->files.size() && outer < log->files.size() && log->files[log->current].skipped_goal) {
-      log->files[outer].skipped_goal = true;
-    }
-    log->current = outer;
-  }
-  [[nodiscard]] bool tolerate_syntax() const { return mark_opaque(log); }
-  void first_term(const ReadTerm& read) const {
-    if (log == nullptr || log->current >= log->files.size() || log->files[log->current].line != 0) return;
-    log->files[log->current].line = read.line;
-    log->files[log->current].column = read.column;
-  }
-};
-
 bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_view directory,
                std::string_view origin, bool first, LoadScan& scan) {
   // mosatest の test/3 は節にせず横取りする（suite.cpp）。指示より先に見るので、横取りした項は何も変えない。

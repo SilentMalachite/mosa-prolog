@@ -1,6 +1,6 @@
 #pragma once
 
-// load.cpp と load_directive.cpp だけが共有する。読み込みの外からは使わない。
+// load.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"
@@ -131,5 +131,26 @@ void apply_file_notes(Impl& machine, FileNotes& notes, std::uint64_t started_at)
 [[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& snapshots,
                                     std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,
                                     std::string_view origin);
+
+// 翻訳のときだけ、足した節の位置を書き留める。どこにも定義の無い述語を呼ぶ警告がこの行を出す。
+// key は add_clause が節を足した述語。定義は load_note.cpp。
+void note_site(Impl& machine, PredKey key, std::size_t line);
+// 飛ばしたゴールの op/3 は後の項の読みを変えうるので、翻訳の読みで誤りになった項も起動時には読めるかもしれない
+// （計画 Task 5）。誤りにせず、このファイルの述語を IR のまま動かす印を付ける。飛ばしたゴールが無ければ誤りのまま。
+[[nodiscard]] bool mark_opaque(TranslationLog* log);
+
+// 翻訳のときに開いたファイルの原文を書き留め、読み終えるまで節の行き先にする。include を 2 回読んでも 1 つ。
+// library(_) で開いたファイルと、そこから開いたファイルはライブラリとして印を付ける（翻訳は Task 10）。
+// 定義は load_note.cpp。
+struct FileNote {
+  TranslationLog* log = nullptr;
+  std::size_t outer = 0;
+  FileNote(Impl& machine, std::string_view origin, std::string_view source);
+  FileNote(const FileNote&) = delete;
+  FileNote& operator=(const FileNote&) = delete;
+  ~FileNote();
+  [[nodiscard]] bool tolerate_syntax() const;
+  void first_term(const ReadTerm& read) const;
+};
 
 }
