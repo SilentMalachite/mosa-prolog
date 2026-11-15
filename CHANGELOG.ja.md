@@ -24,6 +24,7 @@
 
 - `:- (consult(F) -> true ; true).` のように、`consult/1` を呼んでその失敗を吸うディレクティブがあっても、後のディレクティブ `:- G` が、吸われた理由で読み込み全体を失敗させることはなくなりました。また、後の `set_prolog_flag/2` のディレクティブが失敗したとき、吸われたファイルの構文エラーの行と桁を付けることもなくなりました。
 - `mosac` で作った実行ファイルで、プログラムが読み込まないライブラリへの呼び出し `M:G`（`lists:append(...)` や `format:format(...)` など）は、`mosa` と同じく `existence_error(module, M)` を投げるようになりました。Mosa 0.2.2 はそこで `existence_error(procedure, M:Name/Arity)` を投げました。
+- 埋め込み用の C++ API の `Machine::consult` や `Machine::load_program` で読んだテキストが `halt/0,1` で止まったときは、halt は失敗ではないので、偽を返して `diagnostic()`（と `LoadStatus` の文）を空にするようになりました。Mosa 0.2.2 はそこに、パスと `: ` か、ディレクティブが吸った失敗の字面を残しました。halt したゴールの読み込みも `diagnostic()` を空にします。
 
 ### 既知の制限
 

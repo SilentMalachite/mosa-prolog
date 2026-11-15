@@ -23,6 +23,8 @@
 namespace mosa {
 
 void prefix_consult_diagnostic(Impl& machine, std::string_view path) {
+  // halt で止まった読み込みの診断は run_load が空にした。パスだけを付けると「F: 」になる。
+  if (machine.halt_now) return;
   if (machine.syntax_diag) {
     machine.diagnostic = std::string{path} + ":" + std::to_string(machine.diag_line) + ":" +
                          std::to_string(machine.diag_column) + ": " + machine.diagnostic;
@@ -234,8 +236,8 @@ bool load_from_goal(Impl& machine, const Goal& call, Cell* extra, const Load& lo
   restore_seen(machine, saved);
   machine.load_module = outer;
   if (!loaded) {
-    // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は空か、吸われた前の失敗の字面が残っているだけである。
-    // 書けば「F: 」や二重の行になる。指令の読み込み（consult_files、load_outcome）と同じく halt_now を先に見る。
+    // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は run_load が空にした。書けば空の行になる。
+    // 指令の読み込み（consult_files、load_outcome）と同じく halt_now を先に見る。
     // failed を立てても、run_loop は halt_now を先に見て止まる。
     if (!machine.halt_now) report_goal_load_failure(machine);
     machine.failed = true;
@@ -267,6 +269,9 @@ bool Machine::consult(std::string_view path) {
   Impl& impl = engine_impl(*this);
   // 問い合わせと同じく、前の分の空きを生まない GC の数を持ち越さない（ADR 0010 の改訂 B）。
   reset_gc_judgement(impl);
+  // 前に halt で止まった印を持ち越すと、この読み込みの誤りを halt と取り違えて診断を消す（open_query と同じく消す）。
+  // consult_files は、この読み込みが立てた halt_now だけを見る。
+  impl.halt_now = false;
   const auto text = read_source(impl, path_from_utf8(path));
   if (!text) {
     impl.diagnostic = message_text(impl, "cannot_open_file", {path});

@@ -58,6 +58,10 @@ English | [日本語](CHANGELOG.ja.md)
 - In an executable built by `mosac`, a call `M:G` into a library that the program does not load, such as
   `lists:append(...)` or `format:format(...)`, now raises `existence_error(module, M)`, as `mosa` does. Mosa 0.2.2
   raised `existence_error(procedure, M:Name/Arity)` there.
+- When a text read by the C++ embedding API's `Machine::consult` or `Machine::load_program` stops with `halt/0,1`, the
+  call returns false with an empty `diagnostic()` (and an empty `LoadStatus` message), since a halt is not a failure.
+  Mosa 0.2.2 left the path followed by `: ` there, or the text of a failure that a directive had absorbed. A goal load
+  that halts also leaves `diagnostic()` empty.
 
 ### Known limits
 

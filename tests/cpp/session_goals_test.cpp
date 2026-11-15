@@ -256,6 +256,74 @@ void check_halting_goal_embedded(const std::string& path) {
   mosa_test::check(text == "\nstdout: hi\n", "embedded goal consult of a halting file writes no reason line: [" + text + "]");
 }
 
+// フェーズ12のバグの作業（最終レビューの台帳 L74）。埋め込みの入口で halt/0,1 で止まった読み込みは、失敗ではなく終わり
+// なので、diagnostic() を空にする（セッションの consult_files と実行ファイルの load_outcome は halt_now を先に見る）。
+// 前は「F: 」や、吸われた失敗の字面に外側のパスを付けた物が残った。捕まえを閉じてから比べる（harness の FAIL: も std::cerr）。
+struct EmbeddedLoad {
+  bool ok = true;
+  std::string diagnostic;
+  std::string captured;
+};
+
+EmbeddedLoad consult_embedded(const std::string& path) {
+  EmbeddedLoad load;
+  const mosa::StdCapture capture;
+  auto machine = mosa::Machine::create();
+  load.ok = machine->consult(path);
+  load.diagnostic = std::string{machine->diagnostic()};
+  load.captured = capture.text();
+  return load;
+}
+
+void check_embedded_consult_halts(const std::string& plain, const std::string& swallowed) {
+  const EmbeddedLoad halted = consult_embedded(plain);
+  mosa_test::check(!halted.ok, "embedded consult of a halting file returns false");
+  mosa_test::check(halted.diagnostic.empty(), "embedded consult of a halting file leaves no diagnostic: [" +
+                                                  halted.diagnostic + "]");
+  mosa_test::check(halted.captured == "\nstdout: hi\n", "embedded consult of a halting file: [" + halted.captured + "]");
+  const EmbeddedLoad after = consult_embedded(swallowed);
+  mosa_test::check(!after.ok && after.diagnostic.empty(),
+                   "embedded consult that halts after a swallowed failure leaves no diagnostic: [" + after.diagnostic + "]");
+  mosa_test::check(after.captured == "\nstderr: " + consult_line("/no/such/p12.pl") + "\n",
+                   "the swallowed failure still prints once: [" + after.captured + "]");
+}
+
+// 問い合わせの入口と load_program も同じ。halt の後の読み込みは halt_now が残っていても、次の読み込みの診断を正しく出す。
+void check_embedded_entries_halt(const std::string& plain, const std::string& module, const std::string& syntax) {
+  mosa::Stop consulted;
+  mosa::Stop used;
+  mosa::LoadStatus program;
+  mosa::LoadStatus bad_program;
+  bool broken = true;
+  std::vector<std::string> seen;
+  std::string text;
+  {
+    const mosa::StdCapture capture;
+    auto machine = mosa::Machine::create();
+    consulted = machine->query("consult('" + plain + "').");
+    seen.emplace_back(machine->diagnostic());
+    used = machine->query("use_module('" + module + "').");
+    seen.emplace_back(machine->diagnostic());
+    program = machine->load_program(std::string{kSwallowed} + ":- halt(5).\n");
+    seen.emplace_back(machine->diagnostic());
+    broken = machine->consult(syntax);
+    seen.emplace_back(machine->diagnostic());
+    (void)machine->query("halt.");
+    bad_program = machine->load_program("r :- .\n");
+    text = capture.text();
+  }
+  mosa_test::check(consulted.kind == mosa::StopKind::Halt && seen[0].empty(),
+                   "goal consult that halts leaves no diagnostic: [" + seen[0] + "]");
+  mosa_test::check(used.kind == mosa::StopKind::Halt && seen[1].empty(),
+                   "goal use_module that halts leaves no diagnostic: [" + seen[1] + "]");
+  mosa_test::check(!program.ok && program.message.empty() && seen[2].empty(),
+                   "load_program that halts after a swallowed failure: [" + program.message + "][" + seen[2] + "]");
+  mosa_test::check(!broken && seen[3].starts_with(syntax + ":1:"),
+                   "a consult after a halted load reports its own syntax error: [" + seen[3] + "][" + text + "]");
+  mosa_test::check(!bad_program.ok && !bad_program.message.empty(),
+                   "a load_program after a halted query reports its own syntax error: [" + text + "]");
+}
+
 // :- halt(N). と initialization の halt は run_load の別の道で抜けるので、両方を通す。halt/0 は 0 で終え、答えも出さない。
 void check_goal_load_halts() {
   const std::string plain = write_fixture("p12_halt_c.pl", ":- write(hi), nl.\n:- halt(4).\n");
@@ -272,6 +340,8 @@ void check_goal_load_halts() {
   const auto result = run_goal("consult('" + swallowed + "').");
   mosa_test::check(result.code == 3 && result.err == consult_line("/no/such/p12.pl") + "\n",
                    "halt after a swallowed consult failure prints only the swallowed line: [" + result.err + "]");
+  check_embedded_consult_halts(plain, swallowed);
+  check_embedded_entries_halt(plain, module, write_fixture("p12_halt_syntax.pl", "r :- .\n"));
 }
 
 // フェーズ12 Task 4。use_module/1,2 と ensure_loaded/1 のゴール。プロンプトで読めることと、失敗の診断の字面（計画の

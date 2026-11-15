@@ -629,7 +629,7 @@ void keep_notes(Impl& machine, LoadSnapshots* parent, LoadSnapshots& own, std::u
 // 読み込み 1 回の退避と巻き戻し（ADR 0017）。read がこの読み込みのテキストを scan へ読み、偽なら読み込みは失敗する。
 // file_text は、読んだテキストがファイルであること。ファイルの字句の旗だけを、読み終えたら戻す（SPEC 第5節）。
 template <typename Read>
-LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* shared_opening, const Read& read) {
+LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* shared_opening, const Read& read) {
   // 実行中の consult は、クエリの変数と継続枠より上だけを捨てる。
   std::size_t heap_base = machine.heap.size();
   machine.diagnostic.clear();
@@ -687,6 +687,19 @@ LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* sha
   return status;
 }
 
+// halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は空か、指令が吸った前の失敗の字面が残っているだけである。
+// どの入口（Machine::consult、load_program、ゴールの読み込み）にも残さないよう、読み込みの出口 1 か所で空にする
+// （台帳 L74。前は「F: 」や、吸われた字面に外側のパスを付けた物が diagnostic() に残った）。
+template <typename Read>
+LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* shared_opening, const Read& read) {
+  LoadStatus status = load_once(machine, file_text, shared_opening, read);
+  if (status.ok || !machine.halt_now) return status;
+  machine.diagnostic.clear();
+  machine.syntax_diag = false;
+  status.message.clear();
+  return status;
+}
+
 }  // namespace
 
 LoadStatus load_source(Impl& machine, std::string_view source, std::string_view directory,
@@ -729,6 +742,8 @@ LoadStatus load_goal_term(Impl& machine, Cell directive) {
 LoadStatus Machine::load_program(std::string_view source) {
   // 問い合わせと同じく、前の分の空きを生まない GC の数を持ち越さない（ADR 0010 の改訂 B）。
   reset_gc_judgement(*impl_);
+  // 前に halt で止まった印を持ち越すと、この読み込みの誤りを halt と取り違えて診断を消す（open_query と同じく消す）。
+  impl_->halt_now = false;
   return load_source(*impl_, source);
 }
 
