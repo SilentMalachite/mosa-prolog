@@ -193,6 +193,81 @@ Mosa には次のライブラリが付いてきます。どれも `use_module(li
 
 公開リストと取り込みリスト、および `dynamic`、`discontiguous`、`multifile` のディレクティブには、文法規則の非終端記号を `Name//Arity` と書けます。`greet//0` は `greet/2` を表します。
 
+### `reexport` で述語を受け渡す
+
+モジュールは、取り込んだ述語をさらに公開できます。これを再公開と呼びます。`:- reexport(File).` は、`use_module/1` と同じようにモジュールを読み込んで取り込み、取り込んだ述語を、そのディレクティブを書いたモジュールの公開リストに加えます。ですから、このモジュールを読み込んだファイルにも、それらの述語が届きます。フォルダ `prolog` に `家族.pl` というファイルを作り、次の行を書きます。
+
+<!-- file: reexport-file 家族.pl -->
+```prolog
+:- module(家族, [孫/2]).
+:- reexport(家系).
+
+孫(Z, X) :- 祖父母(X, Z).
+```
+
+`家族` を読み込むだけで、`孫/2` に加えて `家系` の `祖父母/2` も使えるようになります。プロンプトでは、`家族` のような名前だけのものは、`mosa` を起動したフォルダで探します。
+
+<!-- check: reexport
+use_module(家族).
+祖父母(X, 三郎).
+;
+孫(三郎, X).
+;
+-->
+```text
+?- use_module(家族).
+true.
+?- 祖父母(X, 三郎).
+X = 一郎;
+
+false.
+?- 孫(三郎, X).
+X = 一郎;
+
+false.
+```
+
+`:- reexport(File, Imports).` はリストに書いた述語だけを再公開し、`Name/Arity as New` と書いた述語は新しい名前で再公開します。`reexport` はディレクティブとしてだけ使えます。プロンプトで打つと、未知の述語になります。
+
+### モジュールを調べる
+
+プログラムからモジュールを調べる組み込みの述語が 4 つあります。
+
+- `module_property(M, P)` は、`module/2` で作ったモジュールの性質を返します。`file(F)` は読み込んだファイル、`exports(L)` は公開している述語（再公開したものも含む）、`exported_operators(L)` は公開している演算子です（あるときだけ）。
+- `strip_module(Term, M, Plain)` は、`Term` の頭の `M:` を外します。`Term` に `M:` が無ければ、`M` はゴールのモジュールです。
+- `context_module(M)` は、ゴールのモジュールを返します。プロンプトでは `user`、`家族:context_module(M)` では `家族` です。
+- `import(M:Name/Arity)` は、`M` が公開している述語を 1 つだけ取り込みます。
+
+<!-- check: introspect -->
+```text
+?- use_module(家族).
+true.
+?- module_property(家族, exports(L)).
+L = [孫/2,祖父母/2].
+?- strip_module(家系:親(太郎, 一郎), M, G).
+M = 家系, G = 親(太郎,一郎).
+?- context_module(M).
+M = user.
+?- 家族:context_module(M).
+M = 家族.
+```
+
+`use_module/2` は、取り込む述語のリストを取ります。`[]` を渡すと、`lists` を読み込みますが、述語は 1 つも取り込みません。そのあと `import/1` で `last/2` だけを取り込むので、`member/2` はまだ未知のままです。
+
+<!-- check: import -->
+```text
+?- use_module(library(lists), []).
+true.
+?- import(lists:last/2).
+true.
+?- last([赤, 緑, 青], X).
+X = 青.
+?- member(緑, [赤, 緑, 青]).
+警告: ゴールは例外を送出しました: error(existence_error(procedure,member/2),context(member/2,_G1))
+```
+
+これらの述語が投げる誤りは、[第 14 章](14-reference.md) の表にあります。
+
 ## 練習問題
 
 1. `ライブラリ.pl` を読み込み、`library(lists)` の `reverse/2` で、リスト `[1, 2, 3]` を逆の順に並べてください。

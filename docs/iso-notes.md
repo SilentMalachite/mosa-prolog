@@ -93,6 +93,8 @@ A clause has no environment to point back into, so a cyclic body given to assert
 
 Decision (2026-11-03): A (review M7). `X = (a, X), assertz((p :- X))` stores `p :- a, call(_)` (clause/2 shows that body), `X = (Y = 1 ; X)` as the body of `p(Y)` gives `Y = 1` and then `instantiation_error`, each point that leads back gets its own variable, and a data argument that contains the construct is copied as data with its own cycle cut (`X = (q(X), true)` stores `q((q(_), true)), true`). Tests: `tests/pl/database.pl` `m7_assert_*`.
 
+`strip_module/3` (phase 12 Task 7) has no cycle check either. `X = a:X` is subject to occurs check (STO) and makes a cyclic term, and `strip_module(X, _, _)` on it does not end; the loop allocates nothing, so `--heap-max` does not stop it. The C++ `skip_module` of the clause operations (`src/module/target.cpp`) loops the same way, while the C++ `strip_module` there loops only when the atom in the cycle names an existing module (`X = user:X, assertz(X)`) and otherwise raises `existence_error(module, M)` (`X = nomod:X, assertz(X)`). Checked by hand on 2026-11-15 with a 3-second limit.
+
 ## 7.3.3 Evaluating a cyclic expression
 
 The evaluator keeps the subterms it is working on in a stack of its own, outside the heap, so `X = X+1, Y is X` grew without end and past `--heap-max` (16 GB RSS in 10 seconds under `--heap-max 64`); since review L3, `format("~d", [X])` reached it too (review L20). 7.3.3 leaves cyclic terms undefined, and 7.9.1 evaluates an expression as a finite tree. A or B?: A detects the cycle and raises `resource_error(cyclic_term)` (7.12.2 h), which `catch/3` receives; B counts that stack against the heap limit, so the query stops there as the cyclic goals of "7.3.3 Calling a cyclic goal" do, and no `catch/3` receives it.
@@ -405,7 +407,9 @@ A or B?: A: the second import fails the load with `permission_error(import_into,
 
 Decision (2026-10-28): A. Two sources for one name are a conflict, with the same Formal as a local definition that meets an import.
 
-Reading (2026-11-15, phase 12, ADR 0026): with `reexport/1,2`, one predicate can reach a module along two paths, for example when the module imports `lists` directly and also imports `lists:append/3` from a module that re-exports it. "Source" in the decision above is read as the module that defines the predicate, not the module that the import names. An export entry holds the defining module and its name there (ADR 0026), so both imports record `lists` as the source; they are the same predicate and not a conflict. A different predicate under the same name is still `permission_error(import_into, procedure, From:Name/Arity)`. The decision of 2026-10-28 does not change.
+Reading (2026-11-15, phase 12, ADR 0026): with `reexport/1,2`, one predicate can reach a module along two paths, for example when the module imports `lists` directly and also imports `lists:append/3` from a module that re-exports it. "Source" in the decision above is read as the module that defines the predicate, not the module that the import names. An export entry holds the defining module and its name there (from phase 12 Task 6, ADR 0026), so both imports record `lists` as the source; they are the same predicate and not a conflict. A different predicate under the same name is still `permission_error(import_into, procedure, From:Name/Arity)`. The decision of 2026-10-28 does not change.
+
+Culprit (2026-11-15, phase 12 Task 6): when a different predicate is already visible under the same name, the culprit in `permission_error(import_into, procedure, Culprit)` is the module that defines the incoming predicate and the predicate's name there (`From:N/A`), not the module named in `use_module`. A re-exported predicate is reported this way too: with `rb_a/1` of `rx_clash` imported into `user`, `use_module(rx_all)`, where `rx_all` re-exports `rx_base`, reports `rx_base:rb_a/1`, and a predicate that `c1` defines as `p/1` and another module re-exports as `p/1 as q` is reported as `c1:p/1`, not under the alias.
 
 ## Section 5 Importing a predicate that is not exported
 
@@ -889,3 +893,11 @@ Phase 12 does not add `@/2`, `add_import_module/3` or `delete_import_module/2` (
 ## Section 5 `module_property/2` `file(F)` under mosac
 
 `module_property(M, file(F))` (phase 12 Task 8) returns `Module::file` as it is. An executable built by `mosac build` consults a bundled file from its own copy (SPEC section 6), so for a bundled file `F` is the bundle key, a path under the pseudo directory `library/`, and differs from the real path that the interpreter gives. This is a known difference between the interpreter and the executable. Tests do not compare the whole `F` of a bundled file.
+
+## Section 5 Importing a module's own predicate back under an alias
+
+Phase 12 (Task 6, fix round 1) makes importing a module's own predicate back no conflict ("Section 5 Conflict between two imports" above). With an alias given by `as`, the result then depends on the path. Through a re-export, the alias is stored: `rx_base:use_module(rx_some)`, where `rx_some` re-exports `rb_a/1 as rs_a`, makes `rx_base:rs_a(X)` give `X = 1`. Through a direct `m:use_module(File, [p/1 as q])`, where `File` is the file of `m` itself, nothing is imported: `apply_imports` (`src/module/import.cpp`) returns at its guard `from == into` before it reads the items, so `m:q(X)` still raises `existence_error(procedure, m:q/1)`, and a PI that `m` does not export, such as `[nope/3]`, gives no `existence_error(procedure, m:nope/3)` either (checked by hand on 2026-11-15).
+
+A or B?: A: keep both paths as they are. B: make the direct path read the items, so that the alias is stored and a PI that is not exported is an error, as on any other import.
+
+Until the owner confirms: A.

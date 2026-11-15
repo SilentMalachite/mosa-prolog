@@ -232,6 +232,91 @@ predicates, such as `atom_length/2` and `forall/2`, are in the module `system`, 
 Export and import lists, and the directives `dynamic`, `discontiguous` and `multifile`, can name a non-terminal of a
 grammar rule as `Name//Arity`: `greet//0` stands for `greet/2`.
 
+### Passing predicates on with `reexport`
+
+A module can pass on the predicates it imports, that is, re-export them. `:- reexport(File).` loads and imports a
+module as `use_module/1` does, and adds what it imports to the export list of the module that holds the directive, so
+a file that loads this module gets those predicates too. Create a file `family.pl` in the folder `prolog` with these
+lines.
+
+<!-- file: reexport-file family.pl -->
+```prolog
+:- module(family, [grandchild/2]).
+:- reexport(family_tree).
+
+grandchild(Z, X) :- grandparent(X, Z).
+```
+
+Loading `family` alone makes `grandparent/2` of `family_tree` usable as well as `grandchild/2`. At the prompt, a plain
+name such as `family` is looked for in the folder where you started `mosa`.
+
+<!-- check: reexport
+use_module(family).
+grandparent(X, jim).
+;
+grandchild(jim, X).
+;
+-->
+```text
+?- use_module(family).
+true.
+?- grandparent(X, jim).
+X = bob;
+
+false.
+?- grandchild(jim, X).
+X = bob;
+
+false.
+```
+
+`:- reexport(File, Imports).` passes on only the predicates in the list, and `Name/Arity as New` passes one on under
+the new name. `reexport` is a directive only: typed at the prompt, it is an unknown predicate.
+
+### Looking at modules
+
+Four built-in predicates look at modules from a program:
+
+- `module_property(M, P)` gives the properties of a module made by `module/2`: `file(F)`, the file it was loaded
+  from; `exports(L)`, the predicates it exports, re-exported ones included; and `exported_operators(L)`, the
+  operators it exports, when there are any.
+- `strip_module(Term, M, Plain)` takes `M:` off the front of `Term`. When `Term` has none, `M` is the module of the
+  goal.
+- `context_module(M)` gives the module of the goal: `user` at the prompt, and `family` in
+  `family:context_module(M)`.
+- `import(M:Name/Arity)` imports one predicate that `M` exports.
+
+<!-- check: introspect -->
+```text
+?- use_module(family).
+true.
+?- module_property(family, exports(L)).
+L = [grandchild/2,grandparent/2].
+?- strip_module(family_tree:parent(tom, bob), M, G).
+M = family_tree, G = parent(tom,bob).
+?- context_module(M).
+M = user.
+?- family:context_module(M).
+M = family.
+```
+
+`use_module/2` takes the list of the predicates to import, and with `[]` it loads `lists` but imports none of them.
+`import/1` then imports `last/2` alone, so `member/2` is still unknown.
+
+<!-- check: import -->
+```text
+?- use_module(library(lists), []).
+true.
+?- import(lists:last/2).
+true.
+?- last([a, b, c], X).
+X = c.
+?- member(b, [a, b, c]).
+Warning: goal raised exception: error(existence_error(procedure,member/2),context(member/2,_G1))
+```
+
+[Chapter 14](14-reference.md) lists these predicates with the errors they raise.
+
 ## Exercises
 
 1. Load `libs.pl`, and reverse the list `[1, 2, 3]` with `reverse/2` from `library(lists)`.

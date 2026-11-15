@@ -15,6 +15,8 @@
 //   instantiation_error、type_error(atom, M)、type_error(predicate_indicator, PI)、existence_error(module, M)、
 //   existence_error(procedure, M:N/A)、permission_error(import_into, procedure, From:N/A)。M の形、PI の形、
 //   M があるか、取り込めるか、の順に確かめる。
+//   PI の誤りは use_module/2 の項目と同じ（read_indicator）で、ほかに type_error(atom, N)、type_error(integer, A)、
+//   domain_error(not_less_than_zero, A)、representation_error(max_arity) を投げる。
 // module_property/2 は候補を選言にして選択点を残す。ほかは決定的。
 // テスト: tests/pl/modules.pl（tests/pl/modules/ctx.pl、tests/pl/modules/imp_ctx.pl）、tests/pl/japanese.pl
 #include "../machine/internal.hpp"

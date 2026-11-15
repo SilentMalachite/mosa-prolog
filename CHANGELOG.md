@@ -2,6 +2,71 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `use_module/1`, `use_module/2` and `ensure_loaded/1` can also be called as goals, at the `?-` prompt and in the
+  body of a clause. Each means the same as the directive of the same form, and a file is still read only once. The
+  imports go into the module of the goal: `user` at the prompt, `m` in a clause of module `m`. A relative name is
+  opened from the working directory, also when the goal runs while a file is being loaded. An error in the arguments
+  is thrown with the directive's error, such as `type_error(atom, _)`; any other failure writes the reason to
+  `user_error` (see Changed) and the goal fails.
+- The directives `reexport/1` and `reexport/2`. `:- reexport(File).` loads and imports a module as `use_module/1`
+  does, and adds what it imports to the export list of the module being loaded. `:- reexport(File, Imports).` does
+  that for the predicates in the list, and a predicate renamed with `as` is exported under its new name.
+  `reexport/1` and `except(List)` pass on the exported operators too. A module that imports a re-exported predicate
+  imports it from the module that defines it, so `predicate_property(P, imported_from(M))` names that module, and the
+  same predicate reached along two paths is not an import conflict.
+- The built-in predicates `strip_module/3`, `context_module/1`, `module_property/2` and `import/1`.
+  `strip_module(Term, M, Plain)` takes the leading `M:` off a term; `context_module(M)` gives the module of the goal;
+  `module_property(M, P)` gives the properties `file(F)`, `exports(L)` and `exported_operators(L)` of a module made by
+  `module/2`; and `import(M:Name/Arity)` imports one predicate that `M` exports. The manual shows them and
+  `reexport` in [chapter 12](docs/manual/en/12-modules-libraries.md), and chapter 14 lists their errors.
+- `mosac` also bundles the libraries that a program names literally as `use_module(library(Name))` or
+  `use_module(library(Name), Imports)` in a goal: in the body of a clause, in a directive `:- G` or in an
+  `initialization/1` goal. The executable then finds them with no `$MOSA_LIB` and no `lib/` beside it. A library whose
+  name is a variable is still looked for at run time, in `$MOSA_LIB` and then in `lib/`.
+
+### Changed
+
+- Six names enter the module `system`: `use_module/1,2`, `ensure_loaded/1`, `strip_module/3`, `context_module/1`,
+  `module_property/2` and `import/1` are now built-in predicates. A clause for one of them, in any module, now gives
+  `permission_error(modify, static_procedure, PI)`. Mosa 0.2.2 let a program define them, for example `user:import/1`.
+- A goal load that fails writes its reason to `user_error` at the moment it fails, once, also when `;`, `findall/3`
+  or `\+` absorbs the failure; this covers `consult/1` called as a goal and the three goals above. Mosa 0.2.2 wrote
+  the reason only when the whole query failed, and lost it when the failure was absorbed. The text is the one
+  `mosa F` prints, such as `F: reason`, and when the whole query then fails, the toplevel does not write it again. In
+  a program that embeds Mosa, the line goes to standard error, and `Machine::diagnostic()` still returns it.
+- `ensure_loaded/1` called as a goal loads the file, or writes the reason and fails. Mosa 0.2.2 raised
+  `existence_error(procedure, ensure_loaded/1)`.
+- For developers, five expected values of the tests changed with these rulings (iso-notes "7.4.2 ensure_loaded/1"
+  and "7.4.2 A goal load that fails: the diagnostic"): `ensure_goal` in `tests/pl/directives.pl` and `ensure_ha` in
+  `tests/pl/japanese.pl` now expect `fail`; `check_ensure_goal` in `tests/cpp/ensure_test.cpp` expects the failure and
+  its diagnostic; the check of the built-in list in `tests/cpp/manual_lists_test.cpp` expects the three load
+  predicates among the built-ins; and the case "rejected load drops main" of `tests/cpp/main_goal_test.cpp` expects
+  the diagnostic of the rejected load on standard error, where it expected no output.
+
+### Fixed
+
+- A directive that calls `consult/1` and absorbs its failure, as `:- (consult(F) -> true ; true).` does, no longer
+  makes a later directive `:- G` fail the whole load with the absorbed reason, and a later `set_prolog_flag/2`
+  directive that fails no longer reports the line and column of a syntax error in the absorbed file.
+
+### Known limits
+
+The known limits of 0.2.2 still hold. Four come with the module changes:
+
+- The reason that a failed goal load writes goes past the `user_error` stream, as Mosa's warnings do, so the column
+  that stream counts does not move.
+- In an executable built by `mosac build`, `module_property(M, file(F))` gives for a bundled file its bundle key, a
+  path under `library/`, not the path that the interpreter gives.
+- After `use_module(library(apply))` as a goal, `mosac` still warns that an unqualified call such as `maplist/3` is
+  undefined, although the executable runs correctly: the translator reads a library named in a goal without importing
+  it anywhere, as `use_module(library(apply), [])`.
+- A call `M:G` into a module that the program loads only from a goal goes through `:/2` at run time in an executable
+  built by `mosac`, and is not bound in place. The result is the same; the call is only slower.
+
 ## 0.2.2 (2026-11-14)
 
 The release of phase 11 (conformance scope and `format`): `format/1,2,3` gains the directives `~i`, `~k`, `~W`, `~p`,

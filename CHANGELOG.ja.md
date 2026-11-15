@@ -4,6 +4,35 @@
 
 この文書は [英語版](CHANGELOG.md) の日本語訳です。食い違うときは英語版に従います。
 
+## 未リリース
+
+### 足したこと
+
+- `use_module/1`、`use_module/2`、`ensure_loaded/1` を、`?-` のプロンプトや節の本体で、ゴールとしても呼べるようにしました。どれも同じ形のディレクティブと同じ意味で、1 つのファイルを読むのは今までどおり 1 回だけです。取り込み先はゴールのモジュールで、プロンプトでは `user`、モジュール `m` の節の中では `m` です。相対の名前は、ファイルを読み込んでいる途中で動くゴールでも、作業ディレクトリから開きます。引数の誤りは、`type_error(atom, _)` のように、ディレクティブと同じ誤りとして投げます。ほかの失敗では、理由を `user_error` に書き（「変えたこと」を見てください）、ゴールは失敗します。
+- ディレクティブ `reexport/1` と `reexport/2` を足しました。`:- reexport(File).` は、`use_module/1` と同じようにモジュールを読み込んで取り込み、取り込んだものを、読み込み中のモジュールの公開リストに足します。`:- reexport(File, Imports).` は、リストに書いた述語について同じことをし、`as` で名前を変えた述語は新しい名前で公開します。`reexport/1` と `except(List)` は、公開の演算子も受け渡します。再公開された述語を取り込むモジュールは、その述語を定義したモジュールから取り込みます。そのため `predicate_property(P, imported_from(M))` はそのモジュールを返し、同じ述語に 2 つの道で着いても取り込みの衝突になりません。
+- 組み込みの述語 `strip_module/3`、`context_module/1`、`module_property/2`、`import/1` を足しました。`strip_module(Term, M, Plain)` は項の頭の `M:` を外し、`context_module(M)` はゴールのモジュールを返します。`module_property(M, P)` は、`module/2` で作ったモジュールの性質 `file(F)`、`exports(L)`、`exported_operators(L)` を返し、`import(M:Name/Arity)` は `M` が公開している述語を 1 つ取り込みます。マニュアルの [第 12 章](docs/manual/ja/12-modules-libraries.md) にこれらと `reexport` の例があり、第 14 章にそれぞれの誤りがあります。
+- `mosac` は、プログラムがゴールの中に `use_module(library(Name))` や `use_module(library(Name), Imports)` と字面で書いたライブラリも同梱します。節の本体、ディレクティブ `:- G`、`initialization/1` のゴールのどれに書いても同じです。そのため実行ファイルは、`$MOSA_LIB` が無く、隣に `lib/` が無くても、それらのライブラリを見つけます。名前が変数のライブラリは、今までどおり実行時に `$MOSA_LIB`、次に `lib/` で探します。
+
+### 変えたこと
+
+- モジュール `system` に 6 つの名前が入ります。`use_module/1,2`、`ensure_loaded/1`、`strip_module/3`、`context_module/1`、`module_property/2`、`import/1` が組み込みの述語になりました。どのモジュールでも、これらの名前の節を書くと `permission_error(modify, static_procedure, PI)` になります。Mosa 0.2.2 では、プログラムがこれらを定義できました（たとえば `user:import/1`）。
+- 失敗したゴールの読み込みは、失敗したその時に、理由を `user_error` に 1 回だけ書きます。`;`、`findall/3`、`\+` が失敗を吸っても書きます。ゴールとして呼んだ `consult/1` と、上の 3 つのゴールが対象です。Mosa 0.2.2 は、問い合わせ全体が失敗したときにだけ理由を書き、失敗が吸われると理由は失われました。字面は `mosa F` が出すものと同じで、たとえば `F: 理由` です。その後で問い合わせ全体が失敗しても、トップレベルは同じ理由をもう一度書きません。Mosa を組み込んだプログラムでは、その行は標準エラーに出て、`Machine::diagnostic()` も今までどおりそれを返します。
+- ゴールとして呼んだ `ensure_loaded/1` は、ファイルを読み込むか、理由を書いて失敗します。Mosa 0.2.2 は `existence_error(procedure, ensure_loaded/1)` を投げました。
+- 開発者向けには、これらの決定に合わせて、テストの期待値を 5 つ変えました（iso-notes「7.4.2 ensure_loaded/1」と「7.4.2 失敗したゴールの読み込みの診断」）。`tests/pl/directives.pl` の `ensure_goal` と `tests/pl/japanese.pl` の `ensure_ha` は `fail` を期待します。`tests/cpp/ensure_test.cpp` の `check_ensure_goal` は、失敗とその診断を期待します。`tests/cpp/manual_lists_test.cpp` の組み込みの一覧の確かめは、読み込みの 3 つの述語を組み込みに数えます。`tests/cpp/main_goal_test.cpp` の場合 "rejected load drops main" は、何も出ないことの代わりに、断った読み込みの診断が標準エラーに出ることを期待します。
+
+### 直したこと
+
+- `:- (consult(F) -> true ; true).` のように、`consult/1` を呼んでその失敗を吸うディレクティブがあっても、後のディレクティブ `:- G` が、吸われた理由で読み込み全体を失敗させることはなくなりました。また、後の `set_prolog_flag/2` のディレクティブが失敗したとき、吸われたファイルの構文エラーの行と桁を付けることもなくなりました。
+
+### 既知の制限
+
+0.2.2 の既知の制限は、そのまま残ります。モジュールの変更とともに 4 つ増えました。
+
+- 失敗したゴールの読み込みが書く理由は、Mosa の警告と同じく `user_error` の流れを通さずに出ます。そのため、その流れが数える桁は進みません。
+- `mosac build` で作った実行ファイルでは、同梱したファイルの `module_property(M, file(F))` の `F` は同梱の鍵（`library/` の下のパス）になり、インタプリタが返すパスとは違います。
+- `use_module(library(apply))` をゴールで呼んでも、`mosac` は `maplist/3` のような修飾の無い呼び出しを未定義だと警告します。実行ファイルは正しく動きます。翻訳器は、ゴールに書いたライブラリを、どこにも取り込まない形（`use_module(library(apply), [])`）で読むためです。
+- `mosac` で作った実行ファイルでは、プログラムがゴールからしか読み込まないモジュールへの呼び出し `M:G` は、その場で結ばれず、実行時に `:/2` を通ります。結果は同じで、呼び出しが遅くなるだけです。
+
 ## 0.2.2（2026-11-14）
 
 フェーズ 11（準拠率の範囲と `format`）のリリースです。`format/1,2,3` に指示 `~i`、`~k`、`~W`、`~p`、`~N`、`~r`、`~R`、`~D`、`~E`、`~g`、`~G`、`~+` を足し、`numbervars/3` は End が整数でも変数でもないとき `type_error(integer, End)` を投げます。準拠スイートの ISO の欄に `sort_2`、`keysort_2`、`ground_1`、`not_unifiable_2` が入り、試験器は各ディレクトリの補助の述語を読み、報告書はライブラリの述語を ISO の率とは別の欄で数えます。動くコンピュータは 0.2.1 と同じです（[第 2 章](docs/manual/ja/02-install.md)）。[マニュアル](docs/manual/ja/README.md) の例は、どれもこのリリースで確かめています。
