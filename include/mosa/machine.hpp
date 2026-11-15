@@ -61,6 +61,7 @@ class Machine {
   [[nodiscard]] std::size_t choice_depth() const;
   [[nodiscard]] std::string_view diagnostic() const;
   // halt/0,1 で止まった読み込みは偽を返し、diagnostic() は空にする（失敗ではないので理由が無い）。load_program も同じ。
+  // ヒープの上限で ResourceLimit を投げて抜けるときも、diagnostic() は空にする（理由は例外が持つ）。
   [[nodiscard]] bool consult(std::string_view path);
 
   explicit Machine(std::size_t heap_limit);

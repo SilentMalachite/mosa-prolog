@@ -68,11 +68,15 @@ English | [日本語](CHANGELOG.ja.md)
   half-read module. Later clauses and imports go where they went before the load, not into the module of the goal
   that started it. A query that was open while a directive stopped this way keeps its choice points, so `next()`
   gives its next answer. A file whose `initialization/1` goal stops this way keeps what it read, as when that goal
-  raises an error. The goal of a file loaded by `:- use_module`, `:- ensure_loaded` or `:- reexport` runs after the
-  loading file has been read, so both files are kept. The goal of a file loaded by `:- consult(File)`, `:- [File]` or
-  a load called as a goal inside another directive runs while the loading file is still being read, so the loading
-  file is undone as a whole. Mosa 0.2.2 did none of this for `consult/1` called as a goal or for a load from a
-  directive.
+  raises an error, unless a load that is still reading its text encloses it: the exception leaves that load's
+  reading, so that load is undone with every file it read. The goal of a file loaded by `:- use_module`,
+  `:- ensure_loaded` or `:- reexport` runs after the loading file has been read, so both files are kept, unless the
+  loading file was itself loaded by a file still being read (by `:- consult(File)`, for example). The goal of a file
+  loaded by `:- consult(File)`, `:- [File]` or a load called as a goal inside another directive runs while the
+  loading file is still being read, so the loading file is undone as a whole. After a load stops this way,
+  `Machine::diagnostic()` is empty, since the exception carries the reason. Mosa 0.2.2 did none of this for
+  `consult/1` called as a goal or for a load from a directive, and could leave in `diagnostic()` the text of a
+  failure that a directive had absorbed.
 
 ### Known limits
 

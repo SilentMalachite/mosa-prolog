@@ -5,7 +5,7 @@
 // エラー: instantiation_error、type_error(atom, X)、type_error(list, L)、type_error(predicate_indicator, PI)。
 //         ほかの失敗は診断を user_error に書いて失敗する（iso-notes の問い 1 の A）。
 // テスト: tests/pl/modules.pl、tests/pl/directives.pl、tests/pl/japanese.pl、tests/pl/failed_load.pl、
-//         tests/cpp/session_goals_test.cpp
+//         tests/cpp/session_goals_test.cpp、tests/cpp/load_throw_test.cpp
 #include "internal.hpp"
 
 #include "mosa/writer.hpp"

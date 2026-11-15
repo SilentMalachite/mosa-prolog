@@ -726,10 +726,19 @@ LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* sh
 
 // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は空か、指令が吸った前の失敗の字面が残っているだけである。
 // どの入口（Machine::consult、load_program、ゴールの読み込み）にも残さないよう、読み込みの出口 1 か所で空にする
-// （台帳 L74。前は「F: 」や、吸われた字面に外側のパスを付けた物が diagnostic() に残った）。
+// （台帳 L74。前は「F: 」や、吸われた字面に外側のパスを付けた物が diagnostic() に残った）。C++ の例外（ヒープの上限）
+// で抜ける読み込みも同じく空にする。理由は例外が持ち、残っているのは指示が吸った失敗の字面だけである（2 度目の Muse
+// レビュー）。
 template <typename Read>
 LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* shared_opening, const Read& read) {
-  LoadStatus status = load_once(machine, file_text, shared_opening, read);
+  LoadStatus status;
+  try {
+    status = load_once(machine, file_text, shared_opening, read);
+  } catch (...) {
+    machine.diagnostic.clear();
+    machine.syntax_diag = false;
+    throw;
+  }
   if (status.ok || !machine.halt_now) return status;
   machine.diagnostic.clear();
   machine.syntax_diag = false;

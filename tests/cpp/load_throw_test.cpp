@@ -5,6 +5,8 @@
 // 埋め込み側の next() が指示の中へ戻った。どれもゴールの consult/1 と指示の読み込みでは 0.2.2 から同じで、
 // フェーズ12 がゴールの use_module/1,2 と ensure_loaded/1 に広げた。上限は 8 MiB。
 // 固定の字面はファイルに置かず、ここで tests/tmp/load_throw/ に書く（tests/pl の読み込みと --diff に拾わせない）。
+// 節と取り込みを残すことの確かめ（check_init_goal の節、check_shared_scan_init）は戻し過ぎの番で、修正の前の、
+// 例外で何も戻さなかった道でも緑になる（2 度目の Muse レビュー）。修正を確かめるのは、残さないことの確かめの方である。
 #include "harness.hpp"
 #include "mosa/machine.hpp"
 
@@ -44,9 +46,15 @@ void write_fixtures() {
   write_file("pi_new.pl", "pi(new).\n" + init_goal);
   write_file("outer.pl", ":- consult('pi_new.pl').\n");
   write_file("outer_list.pl", ":- ['pi_new.pl'].\n");
+  write_file("pi_plain.pl", "pi(new).\n");
+  write_file("outer_pair.pl", ":- ['pi_plain.pl', 'heavy.pl'].\n");
   for (const std::string verb : {"use_module", "ensure_loaded", "reexport"}) {
     write_file("wi_" + verb + ".pl", ":- module(wi, []).\n:- " + verb + "('hinit.pl').\n");
   }
+  write_file("outer_wi.pl", ":- consult('wi_use_module.pl').\n");
+  // 開けない consult の失敗を指示が吸い、診断に字面を残してから、次の指示が上限に当たる。
+  write_file("absorb.pl", ":- (consult('" + fixture("nowhere.pl") + "') -> true ; true).\n" +
+                              ":- (user:heavy -> length(_, 100000000) ; true).\n");
   // 連言にくるむと、指示の読み込みではなくゴールの読み込み（load_from_goal）として run_parked の中で動く。
   // ゴールの読み込みは作業ディレクトリから開くので、絶対パスで書く。
   write_file("outer_goal.pl", ":- (true, consult('" + fixture("pi_new.pl") + "')).\n");
@@ -70,6 +78,15 @@ bool succeeds(mosa::Machine& machine, const std::string& goal) { return run(mach
 bool consult_throws(mosa::Machine& machine, const std::string& path) {
   try {
     (void)machine.consult(path);
+  } catch (const mosa::ResourceLimit&) {
+    return true;
+  }
+  return false;
+}
+
+bool load_throws(mosa::Machine& machine, std::string_view text) {
+  try {
+    (void)machine.load_program(text);
   } catch (const mosa::ResourceLimit&) {
     return true;
   }
@@ -141,11 +158,52 @@ void check_shared_scan_init(std::string_view verb) {
   auto machine = mosa::Machine::create(k_limit);
   mosa_test::check(succeeds(*machine, "assertz(user:heavy)."), label + "heavy is set");
   const std::string file = fixture("wi_" + std::string(verb) + ".pl");
+  const std::size_t before = machine->heap().size();
   mosa_test::check(consult_throws(*machine, file), label + "consult stops at the heap limit");
+  // finish_and_hand_over の catch がヒープを水位へ戻す。Machine::consult の外には戻す者がいない。
+  mosa_test::check(machine->heap().size() <= before, label + "the heap is back at the load's mark");
   mosa_test::check(succeeds(*machine, "current_module(wi)."), label + "the parent module is kept");
   mosa_test::check(succeeds(*machine, "hinit:hi(2)."), label + "the child keeps its clauses");
   mosa_test::check(succeeds(*machine, "predicate_property(wi:hi(_), imported_from(hinit))."),
                    label + "the parent keeps the child's imports");
+}
+
+// 同じ走査の子の初期化のゴールでも、その親を consult で読んでいる外の読み込みは、ゴールが動くときまだ自分の
+// テキストの途中にある。例外はその読みを抜けるので、外の読み込みごと親も子も戻す。両方を残すのは、読み終えていない
+// 外の読み込みが無いときだけである。
+void check_shared_init_under_consult() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(succeeds(*machine, "assertz(user:heavy)."), "shared init under consult: heavy is set");
+  mosa_test::check(consult_throws(*machine, fixture("outer_wi.pl")),
+                   "shared init under consult: consult stops at the heap limit");
+  mosa_test::check(!succeeds(*machine, "current_module(wi)."), "shared init under consult: the parent is undone");
+  mosa_test::check(!succeeds(*machine, "current_module(hinit)."), "shared init under consult: the child is undone");
+  mosa_test::check(succeeds(*machine, "retract(user:heavy)."), "shared init under consult: heavy is cleared");
+  mosa_test::check(machine->consult(fixture("outer_wi.pl")), "shared init under consult: consult runs again");
+  mosa_test::check(succeeds(*machine, "hinit:hi(2)."), "shared init under consult: the second load reads the child");
+}
+
+// [a, b] の b が読む途中で上限に当たる。a が置き換えた pi/1 は、a が成功して親へ渡した写しから親の巻き戻しが戻す。
+void check_list_second_throws() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->consult(fixture("pi_old.pl")), "list: pi_old loads");
+  mosa_test::check(succeeds(*machine, "assertz(user:heavy)."), "list: heavy is set");
+  mosa_test::check(consult_throws(*machine, fixture("outer_pair.pl")), "list: consult stops at the heap limit");
+  mosa_test::check(succeeds(*machine, "pi(old)."), "list: the parent puts back the first file's pi/1");
+  mosa_test::check(!succeeds(*machine, "catch(pi(new), _, fail)."), "list: the first file's pi(new) is gone");
+  mosa_test::check(!succeeds(*machine, "current_module(heavy)."), "list: the second file's module is not left");
+}
+
+// 例外で抜けた読み込みは diagnostic() を空にする。理由は例外が持つ。前は、指示が吸った失敗の字面が残った。
+void check_diagnostic_cleared() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(succeeds(*machine, "assertz(user:heavy)."), "diagnostic: heavy is set");
+  mosa_test::check(consult_throws(*machine, fixture("absorb.pl")), "diagnostic: consult stops at the heap limit");
+  mosa_test::check(machine->diagnostic().empty(), "diagnostic: diagnostic() is empty after the exception");
+  mosa_test::check(load_throws(*machine, ":- (consult('" + fixture("nowhere.pl") + "') -> true ; true).\n" +
+                                             ":- (user:heavy -> length(_, 100000000) ; true).\n"),
+                   "diagnostic: load_program stops at the heap limit");
+  mosa_test::check(machine->diagnostic().empty(), "diagnostic: load_program leaves it empty too");
 }
 
 // 指示の中のゴールの読み込みが上限で止まると、子を戻し、親の指示の run_aside が実行の状態を戻し、run_parked が
@@ -166,15 +224,6 @@ void check_nested_parked() {
   mosa_test::check(machine->consult(fixture("nest.pl")), "nested parked: consult runs again");
   mosa_test::check(succeeds(*machine, "nest:n(2)."), "nested parked: the second load reads the outer file");
   mosa_test::check(succeeds(*machine, "heavy:h2(2)."), "nested parked: the second load reads the inner file");
-}
-
-bool load_throws(mosa::Machine& machine, std::string_view text) {
-  try {
-    (void)machine.load_program(text);
-  } catch (const mosa::ResourceLimit&) {
-    return true;
-  }
-  return false;
 }
 
 // 指示は、開いた問い合わせの実行を脇に置いて動く（run_parked）。例外で抜けても戻すので、next() は元の問い合わせの
@@ -210,6 +259,9 @@ int main() {
   check_shared_scan_init("use_module");
   check_shared_scan_init("ensure_loaded");
   check_shared_scan_init("reexport");
+  check_shared_init_under_consult();
+  check_list_second_throws();
+  check_diagnostic_cleared();
   check_nested_parked();
   check_parked_query();
   return mosa_test::failures();
