@@ -214,6 +214,36 @@ int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<st
   return -1;
 }
 
+// ゴールの読み込みの間だけ load_module を替え、抜けるとき戻す。C++ の例外（ヒープの上限）で抜けても戻す。前は通常の
+// 道でだけ戻したので、例外の後の節と取り込みが、ゴールを呼んだ文脈のモジュールへ入った（フェーズ12 の Muse レビュー
+// Major 1。ゴールの consult/1 では 0.2.2 から）。印（restore_seen）は確保するので戻すのは通常の道だけにする。例外は
+// 外の読み込みを全部抜け、次の一番外の読み込みが印を付け直すので残っても使われない。
+class LoadModuleScope {
+ public:
+  LoadModuleScope(Impl& machine, std::uint32_t module) : machine_(machine), outer_(machine.load_module) {
+    machine.load_module = module;
+  }
+  ~LoadModuleScope() { machine_.load_module = outer_; }
+  LoadModuleScope(const LoadModuleScope&) = delete;
+  LoadModuleScope& operator=(const LoadModuleScope&) = delete;
+
+ private:
+  Impl& machine_;
+  std::uint32_t outer_;
+};
+
+// 公開述語は、ゴールを呼んだ文脈モジュールへ取り込む。読み込みの中の指示から呼ぶと、子の読み込みが親の印を落とす。
+// [File] と同じく戻す（M19 で見つけた不具合）。戻さないと、親の次の節が自分の前の節を置き換え、dynamic の宣言も
+// 忘れる。読み込みの外では印は使わない。
+template <typename Load>
+bool load_in_module(Impl& machine, std::uint32_t module, const Load& load) {
+  const LoadModuleScope scope(machine, module);
+  const auto saved = mark_seen(machine);
+  const bool loaded = load();
+  restore_seen(machine, saved);
+  return loaded;
+}
+
 // ゴールの読み込み（consult/1、use_module/1,2、ensure_loaded/1）の共通の手順。片方だけを直して、二つのゴールの読み方が
 // ずれないように 1 か所に置く。load は読み込み 1 回を動かし、失敗なら診断の字面を整えて偽を返す。extra は、読み込みの
 // 間だけ GC の根にする項（無ければ null）。
@@ -226,15 +256,7 @@ bool load_from_goal(Impl& machine, const Goal& call, Cell* extra, const Load& lo
     visitor.frame(goal.cont);
     if (extra != nullptr) visitor.cell(*extra);
   });
-  // 公開述語は、ゴールを呼んだ文脈モジュールへ取り込む。
-  const auto outer = machine.load_module;
-  machine.load_module = goal.module;
-  // 読み込みの中の指示から呼ぶと、子の読み込みが親の印を落とす。[File] と同じく戻す（M19 で見つけた不具合）。
-  // 戻さないと、親の次の節が自分の前の節を置き換え、dynamic の宣言も忘れる。読み込みの外では印は使わない。
-  const auto saved = mark_seen(machine);
-  const bool loaded = load();
-  restore_seen(machine, saved);
-  machine.load_module = outer;
+  const bool loaded = load_in_module(machine, goal.module, load);
   if (!loaded) {
     // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は run_load が空にした。書けば空の行になる。
     // 指令の読み込み（consult_files、load_outcome）と同じく halt_now を先に見る。

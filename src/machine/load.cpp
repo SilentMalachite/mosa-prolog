@@ -81,18 +81,30 @@ struct SavedOps {
   std::vector<OperatorTable> aside;
 };
 
-LoadStatus reject_load(Impl& machine, const SavedOps& saved_ops, const SavedFlags& saved_flags,
-                       const LoadSnapshots& snapshots, std::size_t previous_serial,
-                       std::size_t heap_base, const std::vector<SharedPred>& saved_declared,
-                       const std::vector<std::string>& saved_prepared, const std::vector<Module>& saved_modules) {
-  machine.operators = saved_ops.table;
-  machine.set_aside_ops = saved_ops.aside;
+// 読み込みの前の状態。失敗した読み込みは、ここへ戻す（ADR 0017）。
+struct SavedLoad {
+  SavedOps ops;
+  SavedFlags flags;
+  std::vector<SharedPred> declared;
+  std::vector<std::string> prepared;
+  std::vector<Module> modules;
+  std::size_t serial = 0;
+};
+
+SavedLoad save_load(const Impl& machine) {
+  return SavedLoad{SavedOps{machine.operators, machine.set_aside_ops}, save_flags(machine), machine.declared,
+                   machine.prepared, machine.modules, machine.pred_serial};
+}
+
+LoadStatus reject_load(Impl& machine, const SavedLoad& saved, const LoadSnapshots& snapshots, std::size_t heap_base) {
+  machine.operators = saved.ops.table;
+  machine.set_aside_ops = saved.ops.aside;
   // 途中で作ったモジュールと取り込みを残さない。半分だけ登録されたモジュールが見えると解決が変わる。
-  machine.modules = saved_modules;
-  restore_flags(machine, saved_flags);
-  machine.declared = saved_declared;
-  machine.prepared = saved_prepared;
-  rollback_preds(machine, snapshots, previous_serial);
+  machine.modules = saved.modules;
+  restore_flags(machine, saved.flags);
+  machine.declared = saved.declared;
+  machine.prepared = saved.prepared;
+  rollback_preds(machine, snapshots, saved.serial);
   machine.heap.truncate(heap_base);
   return LoadStatus{false, machine.diagnostic};
 }
@@ -626,6 +638,40 @@ void keep_notes(Impl& machine, LoadSnapshots* parent, LoadSnapshots& own, std::u
   else hand_up_notes(*parent, own);
 }
 
+// C++ の例外（ヒープの上限）でテキストの読みを抜けるときも、失敗した読み込みと同じく戻してから投げ直す。前は戻さず、
+// 途中まで読んだモジュールと節と準備済みの印が残り、次の use_module がその半分の読み込みを読み直さずに使った
+// （フェーズ12 の Muse レビュー Major 1、0.2.2 から）。入れ子なら、外の読み込みも同じ例外を受けて自分の分を戻す。
+template <typename Read>
+bool read_or_reject(Impl& machine, const SavedLoad& saved, const LoadSnapshots& snapshots,
+                    const std::size_t& heap_base, const Read& read, LoadScan& scan) {
+  try {
+    return read(scan);
+  } catch (...) {
+    (void)reject_load(machine, saved, snapshots, heap_base);
+    throw;
+  }
+}
+
+// 初期化のゴールを呼び、その後で写しを渡す。そのゴールが読んだ孫の写しも、この写しへ渡されている（2 度目の Codex
+// レビュー P2）。初期化のゴールが失敗しても節は戻さないが、親が失敗すれば親が戻す。C++ の例外で抜けるときも、Prolog の
+// 例外と同じく節を残して渡す。渡さないと、同じ例外で抜ける親の巻き戻しが、この読み込みの置き換えた節を戻せない。
+LoadStatus finish_and_hand_over(Impl& machine, const std::size_t& heap_base, const std::vector<Cell>& inits,
+                                LoadSnapshots* parent, LoadSnapshots& snapshots, std::uint64_t started_at) {
+  const auto hand_over = [&] {
+    if (parent == nullptr) apply_file_notes(machine, snapshots.notes(), started_at);
+    else hand_up_snapshots(*parent, snapshots);
+  };
+  LoadStatus status;
+  try {
+    status = finish_load(machine, heap_base, inits);
+  } catch (...) {
+    hand_over();
+    throw;
+  }
+  hand_over();
+  return status;
+}
+
 // 読み込み 1 回の退避と巻き戻し（ADR 0017）。read がこの読み込みのテキストを scan へ読み、偽なら読み込みは失敗する。
 // file_text は、読んだテキストがファイルであること。ファイルの字句の旗だけを、読み終えたら戻す（SPEC 第5節）。
 template <typename Read>
@@ -640,11 +686,7 @@ LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* sh
     predicate.dynamic_declared = false;
     predicate.meta_declared = false;
   }
-  const SavedOps saved_ops{machine.operators, machine.set_aside_ops};
-  const SavedFlags saved_flags = save_flags(machine);
-  const auto saved_declared = machine.declared;
-  const auto saved_prepared = machine.prepared;
-  const auto saved_modules = machine.modules;
+  const SavedLoad saved = save_load(machine);
   LoadSnapshots snapshots;
   const SnapshotScope shot_scope(machine, snapshots);
   // 次の読み込みには渡さない。宣言の無い述語は、これまでどおり置き換える。
@@ -656,35 +698,27 @@ LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* sh
     visitor.heap_mark(heap_base);
     for (Cell& goal : inits) visitor.cell(goal);
   });
-  const auto previous_serial = machine.pred_serial;
   const auto started_at = machine.db_generation;
   std::optional<PredKey> last;
   std::vector<std::string> local_opening;
   std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
   LoadScan scan{snapshots, apart, inits, last, opening, 0};
-  if (!read(scan)) {
+  if (!read_or_reject(machine, saved, snapshots, heap_base, read, scan)) {
     if (machine.load_kept) {
-      if (file_text) restore_file_flags(machine, saved_flags);
+      if (file_text) restore_file_flags(machine, saved.flags);
       machine.heap.truncate(heap_base);
       // 初期化の例外で残した節も、成功した読み込みの節と同じく持ち主を付け、古い述語を消す（L11 の敵対的レビュー A3）。
       keep_notes(machine, shot_scope.parent(), snapshots, started_at);
       return LoadStatus{false, machine.diagnostic};
     }
-    return reject_load(machine, saved_ops, saved_flags, snapshots, previous_serial, heap_base, saved_declared,
-                       saved_prepared, saved_modules);
+    return reject_load(machine, saved, snapshots, heap_base);
   }
   // initialization のゴールより先に戻す（iso-notes 7.4.2.8 の決定 B）。
-  if (file_text) restore_file_flags(machine, saved_flags);
+  if (file_text) restore_file_flags(machine, saved.flags);
   // 古い述語を消すのは一番外の読み込みだけで、初期化のゴールより先（ADR 0020）。入れ子の読み込みが消すと、後で外の
   // 読み込みが失敗したとき戻せない。初期化のゴールが consult したファイルの分は、ゴールの後でもう一度使う。
-  const bool outermost = shot_scope.parent() == nullptr;
-  if (outermost) apply_file_notes(machine, snapshots.notes(), started_at);
-  const LoadStatus status = finish_load(machine, heap_base, inits);
-  // 初期化のゴールの後で渡す。そのゴールが読んだ孫の写しも、この写しへ渡されている（2 度目の Codex レビュー P2）。
-  // 初期化のゴールが失敗しても節は戻さないが、親が失敗すれば親が戻す。
-  if (outermost) apply_file_notes(machine, snapshots.notes(), started_at);
-  else hand_up_snapshots(*shot_scope.parent(), snapshots);
-  return status;
+  if (shot_scope.parent() == nullptr) apply_file_notes(machine, snapshots.notes(), started_at);
+  return finish_and_hand_over(machine, heap_base, inits, shot_scope.parent(), snapshots, started_at);
 }
 
 // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は空か、指令が吸った前の失敗の字面が残っているだけである。

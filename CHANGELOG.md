@@ -62,6 +62,12 @@ English | [日本語](CHANGELOG.ja.md)
   call returns false with an empty `diagnostic()` (and an empty `LoadStatus` message), since a halt is not a failure.
   Mosa 0.2.2 left the path followed by `: ` there, or the text of a failure that a directive had absorbed. A goal load
   that halts also leaves `diagnostic()` empty.
+- A load that stops at the heap limit, which the C++ embedding API passes on as an exception and the interactive
+  toplevel reports before it goes on, is now undone as a failed load is. No half-read module, clause or mark of a
+  loaded file is left, so a later `use_module` of the same file reads it again in full instead of using the
+  half-read module. Later clauses and imports go where they went before the load, not into the module of the goal
+  that started it. A query that was open while a directive stopped this way keeps its choice points, so `next()`
+  gives its next answer. Mosa 0.2.2 did none of this for `consult/1` called as a goal or for a load from a directive.
 
 ### Known limits
 

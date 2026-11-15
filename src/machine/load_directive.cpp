@@ -570,11 +570,20 @@ StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
   machine.stack.push_back(std::move(cleanup));
   count_vectors(machine);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
-  Stop stop = run_loop(machine);
-  // 指示は 1 回だけ解く。残った選択点を捨てる前に切り、setup_call_cleanup/3 の後始末の例外は指示の例外にする（ADR 0016）。
-  if (stop.kind == StopKind::Success) {
-    Stop closed = close_cleanups(machine, 0);
-    if (closed.kind == StopKind::Exception || closed.kind == StopKind::Halt) stop = std::move(closed);
+  Stop stop;
+  try {
+    stop = run_loop(machine);
+    // 指示は 1 回だけ解く。残った選択点を捨てる前に切り、setup_call_cleanup/3 の後始末の例外は指示の例外にする
+    // （ADR 0016）。
+    if (stop.kind == StopKind::Success) {
+      Stop closed = close_cleanups(machine, 0);
+      if (closed.kind == StopKind::Exception || closed.kind == StopKind::Halt) stop = std::move(closed);
+    }
+  } catch (...) {
+    // C++ の例外（ヒープの上限）でも、積んだ束縛と項を外の水位まで戻してから投げ直す。後始末は、問い合わせが同じ例外で
+    // 抜けるとき（drop_run）と同じく呼ばない。外のスタックは run_parked が戻す。
+    restore_state(machine, heap_mark, saved.trail_size, saved.extras_mark);
+    throw;
   }
   // stop.exception は run_loop が返した直後の ball なので、GC の前に読む。
   if (stop.kind == StopKind::Exception) fail_load(machine, formal_text(machine, stop.exception));
@@ -585,7 +594,16 @@ StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
 // 例外の Formal だけを診断に残す。失敗と成功の扱いは呼び手が決める。
 StopKind run_parked(Impl& machine, Cell goal) {
   SavedExec saved = park_exec(machine);
-  const StopKind kind = run_aside(machine, saved, goal);
+  StopKind kind = StopKind::Failure;
+  try {
+    kind = run_aside(machine, saved, goal);
+  } catch (...) {
+    // 脇に置いた実行は、C++ の例外で抜けても戻してから投げ直す。前は戻さず、指示の実行のスタックと後始末が残り、
+    // 脇に置いた問い合わせは失われて、埋め込み側の next() が指示の中へ戻った（フェーズ12 の Muse レビュー Major 1、
+    // 0.2.2 から）。
+    unpark_exec(machine, saved, true);
+    throw;
+  }
   unpark_exec(machine, saved, true);
   return kind;
 }

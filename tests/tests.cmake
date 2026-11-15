@@ -328,6 +328,12 @@ add_executable(goal_shared_test tests/cpp/goal_shared_test.cpp)
 target_include_directories(goal_shared_test PRIVATE tests/cpp)
 target_link_libraries(goal_shared_test PRIVATE mosa_lib)
 add_test(NAME goal_shared COMMAND $<TARGET_FILE:goal_shared_test>)
+# フェーズ12 の Muse レビュー（Major 1）。読み込みの途中でヒープの上限の例外が抜けても、読み込みの状態を残さない。
+add_executable(load_throw_test tests/cpp/load_throw_test.cpp)
+target_include_directories(load_throw_test PRIVATE tests/cpp)
+target_compile_definitions(load_throw_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(load_throw_test PRIVATE mosa_lib)
+add_test(NAME load_throw COMMAND $<TARGET_FILE:load_throw_test>)
 
 add_executable(session_test tests/cpp/session_test.cpp tests/cpp/session_goals_test.cpp)
 target_include_directories(session_test PRIVATE tests/cpp src)
