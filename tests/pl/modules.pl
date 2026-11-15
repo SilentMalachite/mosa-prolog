@@ -249,3 +249,22 @@ test(rx_cycle, (use_module('tests/pl/modules/rx_cyc_x.pl'), rcx_p(X)), solutions
 % reexport は指令だけで、ゴールには無い。
 test(rx_goal, reexport(rx_base), error(existence_error(procedure, reexport/1))).
 test(rx_goal_2, reexport(rx_base, []), error(existence_error(procedure, reexport/2))).
+% フェーズ12 Task 7（SPEC 第5節）。strip_module/3 は M: を M が原子である間だけ外し、無ければ文脈モジュールを返す。
+% context_module/1 は文脈モジュール。ctx の節の中では ctx、meta_predicate の引数では呼び手のモジュールになる。
+:- use_module('modules/ctx.pl').
+test(sm_nested, strip_module(a:b:c(x), M, P), solutions([(M = b, P = c(x))])).
+test(sm_plain, strip_module(foo, M, P), solutions([(M = user, P = foo)])).
+test(sm_var_module, (strip_module(X:foo, M, P), P == X:foo), solutions([M = user])).
+test(sm_number_module, strip_module(1:foo, M, P), solutions([(M = user, P = 1:foo)])).
+test(sm_var_term, (strip_module(T, M, P), P == T), solutions([M = user])).
+test(sm_check, strip_module(a:b, a, P), solutions([P = b])).
+test(sm_check_fail, strip_module(a:b, c, _), fail).
+test(sm_in_module, ctx_strip(x, R), solutions([R = ctx-x])).
+test(sm_in_module_qualified, ctx_strip(q:x, R), solutions([R = q-x])).
+test(cm_user, context_module(M), solutions([M = user])).
+test(cm_module, ctx_here(M), solutions([M = ctx])).
+test(cm_meta, ctx_call(context_module(M)), solutions([M = user])).
+test(cm_qualified, ctx:context_module(M), solutions([M = ctx])).
+% 組み込みになったので、節を足せない。
+test(sm_static, assertz(strip_module(a, b, c)), error(permission_error(modify, static_procedure, strip_module/3))).
+test(cm_static, assertz(context_module(a)), error(permission_error(modify, static_procedure, context_module/1))).

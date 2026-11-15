@@ -321,6 +321,8 @@ X = あいう.
 | `use_module/1` | — | `use_module(File)`: ディレクティブと同じく、モジュールを 1 回だけ読み込み、公開された述語を全部、ゴールのモジュールに取り込みます（第 12 章）。読み込みが失敗すると、Mosa は理由を書き、ゴールは失敗します。 |
 | `use_module/2` | — | `use_module(File, Imports)`: ディレクティブと同じく、リストの述語だけを取り込みます。 |
 | `ensure_loaded/1` | — | `ensure_loaded(File)`: ディレクティブと同じく、まだ読み込んでいなければファイルを読み込みます。 |
+| `strip_module/3` | — | `strip_module(Term, M, Plain)`: Term の頭の `M:` を、M が原子である間だけ外します。M はそのうち一番内側のモジュールで、Term に `M:` が無ければゴールのモジュールです。Plain は残りです。`strip_module(a:b:f(x), M, P)` は `M = b, P = f(x)` になります。 |
+| `context_module/1` | — | `context_module(M)`: M はゴールのモジュールです。プロンプトでは `user`、モジュール `m` の節の中では `m`、`meta_predicate` の引数に渡したゴールでは呼び手のモジュールです。 |
 
 ### すべての解
 

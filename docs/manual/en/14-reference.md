@@ -346,6 +346,8 @@ These look at the clauses of predicates and change them, and look at modules.
 | `use_module/1` | — | `use_module(File)`: as the directive, loads a module once and imports all that it exports, into the module of the goal (chapter 12). If the load fails, Mosa writes the reason and the goal fails. |
 | `use_module/2` | — | `use_module(File, Imports)`: as the directive, imports only the predicates in the list. |
 | `ensure_loaded/1` | — | `ensure_loaded(File)`: as the directive, loads the file unless it was already loaded. |
+| `strip_module/3` | — | `strip_module(Term, M, Plain)`: takes the leading `M:` off Term while M is an atom. M is the innermost such module, or the module of the goal when Term has none, and Plain is the rest: `strip_module(a:b:f(x), M, P)` gives `M = b, P = f(x)`. |
+| `context_module/1` | — | `context_module(M)`: M is the module of the goal: `user` at the prompt, `m` in a clause of module `m`, and the caller's module in a goal passed as a `meta_predicate` argument. |
 
 ### All solutions
 

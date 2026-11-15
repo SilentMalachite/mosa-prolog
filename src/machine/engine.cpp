@@ -311,6 +311,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"*->", 2},
     {":", 2},
     {"current_module", 1},
+    {"strip_module", 3},
+    {"context_module", 1},
     {"forall", 2},
     {"if", 3},
     {"phrase", 2},
@@ -548,6 +550,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
   if (run_types(machine, goal) || run_order(machine, goal) || run_terms(machine, goal) ||
       run_control(machine, goal) || run_qualify(machine, goal) || run_arith(machine, goal) || run_atoms(machine, goal) ||
       run_flags(machine, goal) || run_statistics(machine, goal) || run_database(machine, goal) || run_module_prop(machine, goal) ||
+      run_module_goal(machine, goal) ||
       run_lists(machine, goal) || run_format_float(machine, goal) || run_format_support(machine, goal) ||
       run_case(machine, goal) || run_char_width(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||

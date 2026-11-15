@@ -88,6 +88,8 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);
+// strip_module/3 と context_module/1（module_goal.cpp）。フェーズ12 Task 8 の述語も同じファイルに置く。
+[[nodiscard]] bool run_module_goal(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_solutions(Impl& machine, const Goal& goal);
 // ヒープの外に写した項の C++ での大きさ（バイト）。findall の答えと nb_setval/2 の値が Heap::held に数える。
 [[nodiscard]] std::size_t footprint(const ExportedTerm& term);
