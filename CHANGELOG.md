@@ -2,7 +2,14 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-16)
+
+The release of phase 12 (module completion): `use_module/1,2` and `ensure_loaded/1` can be called as goals, at the
+prompt too, and a goal load that fails writes its reason once; the directives `reexport/1,2` and the built-in
+predicates `strip_module/3`, `context_module/1`, `module_property/2` and `import/1` are added; `mosac` bundles the
+libraries that goals name literally; and a load that stops at the heap limit is undone as a failed load is. It runs on
+the same computers as 0.2.2 ([chapter 2](docs/manual/en/02-install.md)), and every example of the
+[manual](docs/manual/en/README.md) is checked against it.
 
 ### Added
 
