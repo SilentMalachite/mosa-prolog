@@ -211,8 +211,8 @@ holds the directive. In `report.pl` that is `user`, so `grandparent/2` was usabl
 
 `use_module/1` loads a file only once. If you change `family_tree.pl` and load `report.pl` again, Mosa does not read
 `family_tree.pl` again, so the change does not show. Quit Mosa and start it again, or load the module file itself
-with `consult('family_tree.pl')`. `use_module/1` cannot be typed at the prompt, so to use a library there, put the
-directive in a file, as `libs.pl` does, and load that file.
+with `consult('family_tree.pl')`. `use_module/1` can also be typed at the prompt, as in step 1, and there too it
+loads a file only once.
 
 These libraries come with Mosa. Each is loaded with `use_module(library(Name))`:
 

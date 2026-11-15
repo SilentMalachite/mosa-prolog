@@ -212,6 +212,37 @@ int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<st
   return -1;
 }
 
+// ゴールの読み込み（consult/1、use_module/1,2、ensure_loaded/1）の共通の手順。片方だけを直して、二つのゴールの読み方が
+// ずれないように 1 か所に置く。load は読み込み 1 回を動かし、失敗なら診断の字面を整えて偽を返す。extra は、読み込みの
+// 間だけ GC の根にする項（無ければ null）。
+template <typename Load>
+bool load_from_goal(Impl& machine, const Goal& call, Cell* extra, const Load& load) {
+  // 読み込みの指示は入れ子の run_loop で動き、GC が枠と項を動かす。読んだ後は登録した写し goal を使う。
+  Goal goal = call;
+  const RootScope roots(machine, [&goal, extra](GcVisitor& visitor) {
+    visitor.frame(goal.at);
+    visitor.frame(goal.cont);
+    if (extra != nullptr) visitor.cell(*extra);
+  });
+  // 公開述語は、ゴールを呼んだ文脈モジュールへ取り込む。
+  const auto outer = machine.load_module;
+  machine.load_module = goal.module;
+  // 読み込みの中の指示から呼ぶと、子の読み込みが親の印を落とす。[File] と同じく戻す（M19 で見つけた不具合）。
+  // 戻さないと、親の次の節が自分の前の節を置き換え、dynamic の宣言も忘れる。読み込みの外では印は使わない。
+  const auto saved = mark_seen(machine);
+  const bool loaded = load();
+  restore_seen(machine, saved);
+  machine.load_module = outer;
+  if (!loaded) {
+    report_goal_load_failure(machine);
+    machine.failed = true;
+    return true;
+  }
+  machine.diagnostic.clear();
+  machine.ip = goal.cont;
+  return true;
+}
+
 }  // namespace
 
 int apply_file_list(Impl& machine, Cell term, std::string_view directory, std::vector<std::string>& opening) {
@@ -266,30 +297,11 @@ bool run_consult(Impl& machine, const Goal& call) {
     machine.failed = true;
     return true;
   }
-  // 読み込みの指示は入れ子の run_loop で動き、GC が枠を動かす。読んだ後は登録した写し goal を使う。
-  Goal goal = call;
-  const RootScope roots(machine, [&goal](GcVisitor& visitor) {
-    visitor.frame(goal.at);
-    visitor.frame(goal.cont);
-  });
-  // 公開述語は consult を呼んだ文脈モジュールへ取り込む。
-  const auto outer = machine.load_module;
-  machine.load_module = goal.module;
-  // 読み込みの中の指示から呼ぶと、子の読み込みが親の印を落とす。[File] と同じく戻す（M19 で見つけた不具合）。
-  // 戻さないと、親の次の節が自分の前の節を置き換え、dynamic の宣言も忘れる。読み込みの外では印は使わない。
-  const auto saved = mark_seen(machine);
-  const LoadStatus status = load_consulted(machine, text, *source);
-  restore_seen(machine, saved);
-  machine.load_module = outer;
-  if (!status.ok) {
+  return load_from_goal(machine, call, nullptr, [&machine, &text, &source] {
+    if (load_consulted(machine, text, *source).ok) return true;
     prefix_consult_diagnostic(machine, text);
-    report_goal_load_failure(machine);
-    machine.failed = true;
-    return true;
-  }
-  machine.diagnostic.clear();
-  machine.ip = goal.cont;
-  return true;
+    return false;
+  });
 }
 
 namespace {
@@ -324,29 +336,10 @@ bool run_load_goal(Impl& machine, const Goal& call) {
     raise_formal(machine, *formal, call.name, call.arity);
     return true;
   }
-  // 読み込みの指示は入れ子の run_loop で動き、GC が枠と項を動かす。読んだ後は登録した写し goal を使う。
-  Goal goal = call;
+  // 項は読み込みの間だけ GC の根にする。診断の字面は load_goal_term が付ける。
   Cell directive = goal_directive(machine, call);
-  const RootScope roots(machine, [&goal, &directive](GcVisitor& visitor) {
-    visitor.frame(goal.at);
-    visitor.frame(goal.cont);
-    visitor.cell(directive);
-  });
-  // 取り込み先はゴールの文脈モジュール。印は run_consult と同じく、読み込みの中から呼ばれたときのために戻す。
-  const auto outer = machine.load_module;
-  machine.load_module = goal.module;
-  const auto saved = mark_seen(machine);
-  const LoadStatus status = load_goal_term(machine, directive);
-  restore_seen(machine, saved);
-  machine.load_module = outer;
-  if (!status.ok) {
-    report_goal_load_failure(machine);
-    machine.failed = true;
-    return true;
-  }
-  machine.diagnostic.clear();
-  machine.ip = goal.cont;
-  return true;
+  return load_from_goal(machine, call, &directive,
+                        [&machine, &directive] { return load_goal_term(machine, directive).ok; });
 }
 
 }
