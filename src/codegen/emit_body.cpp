@@ -8,6 +8,7 @@
 
 #include "../module/module.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -266,11 +267,19 @@ const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term) {
   return is_name(ctx.machine, term, "\\+", 1) ? owned_goal(ctx, term.args[0]) : nullptr;
 }
 
-// M:G の G。M が翻訳のときに読み込み済みのモジュールのときだけ。無いモジュールや変数の M は、組み込みの :/2 が
-// 呼び出しのときに確かめる（existence_error(module, M) など）。
+// 実行ファイルが起動時に読むモジュールか。翻訳の機械はプログラムの後に文面の表とゴールのライブラリも読むが、
+// 実行ファイルはそれを起動時に読まない（Impl::startup_modules）。
+bool startup_module(const Impl& machine, std::uint32_t name) {
+  if (find_module(machine, name) == nullptr) return false;
+  const auto& known = machine.startup_modules;
+  return !known || std::find(known->begin(), known->end(), name) != known->end();
+}
+
+// M:G の G。M が起動時に読み込み済みのモジュールのときだけ。無いモジュール、変数の M、後で読むモジュールは、
+// 組み込みの :/2 が呼び出しのときに確かめる（mosa と同じ existence_error(module, M) など）。
 const IrTerm* qualified_goal(ClauseCtx& ctx, const IrTerm& term) {
   if (!is_name(ctx.machine, term, ":", 2) || term.args[0].tag != IrTag::Atom) return nullptr;
-  if (find_module(ctx.machine, term.args[0].atom) == nullptr) return nullptr;
+  if (!startup_module(ctx.machine, term.args[0].atom)) return nullptr;
   return owned_goal(ctx, term.args[1]);
 }
 

@@ -464,6 +464,10 @@ struct Machine::Impl {
   rt::NativeProc native_next = nullptr;
   std::size_t native_cut = 0;
   TranslationLog* translation = nullptr;
+  // mosac の translate_program だけが入れる。プログラム自身の読み込みの後にあったモジュール（実行ファイルが起動時に読む物）。
+  // 生成コードが M:G をその場で結ぶのは、この M だけ（emit_body.cpp の qualified_goal）。nullopt（--diff の translate_one
+  // など、プログラムの後に何も読まない翻訳）なら、読み込み済みのモジュールすべて。
+  std::optional<std::vector<std::uint32_t>> startup_modules;
   // mosatest の test/3 の横取り（suite.cpp）。読み込み器が項を節にする前に呼び、真を返した項は節にしない。
   // 指示はこの読み込みの中で順に 1 回ずつ動くので、:- true, op(...) の op も後の項の読みに効き、include した
   // ファイルのゴールも 1 回だけ、前の節がそろった所で動く。origin は読んでいるファイルで、include の先は別の値。

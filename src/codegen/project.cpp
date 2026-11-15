@@ -171,6 +171,12 @@ Project fail_with(std::string diagnostic) {
   return project;
 }
 
+std::vector<std::uint32_t> module_names(const Impl& machine) {
+  std::vector<std::uint32_t> names;
+  for (const Module& module : machine.modules) names.push_back(module.name);
+  return names;
+}
+
 bool any_opaque(const TranslationLog& log) {
   return std::any_of(log.files.begin(), log.files.end(), [](const TranslationLog::File& file) { return file.opaque; });
 }
@@ -281,6 +287,10 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   impl.translation = &log;
   try {
     if (!machine->consult(path)) return fail_with(std::string{machine->diagnostic()});
+    // 実行ファイルが起動時に読むのは、プログラム自身の読み込みが読んだ物だけ。下の文面の表とゴールのライブラリは、
+    // 実行時には呼ばれたときに読む。そのモジュールへの M:G を生成コードが結ぶと、mosa なら existence_error(module, M)
+    // の呼び出しが existence_error(procedure, M:G) になるので、結ぶのはここまでにあったモジュールだけにする。
+    impl.startup_modules = module_names(impl);
     if (!options.library && !load_catalogs(*machine)) {
       return fail_with(message_text(impl, "mosac_catalog_missing", {std::string{machine->diagnostic()}}));
     }

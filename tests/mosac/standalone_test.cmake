@@ -2,7 +2,8 @@
 # （SPEC 第6節「実行ファイルは起動時に外部ファイルを一切要求しない」、ADR 0009 Review Focus 5）。
 # 原文は WORK/src に写してから build し、動かす前に消す。実行ファイルに翻訳した機械のパスが残らないことも見る。
 # 使い方: cmake -DMOSAC=<mosac>
-#   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init> -DSRC=<tests/mosac>
+#   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late>
+#   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
 
@@ -47,6 +48,9 @@ elseif(CASE STREQUAL "goal_use_body")
 elseif(CASE STREQUAL "goal_use_init")
   set(sources init_uses_apply.pl)
   set(program init_uses_apply)
+elseif(CASE STREQUAL "goal_use_late")
+  set(sources late_uses_apply.pl)
+  set(program late_uses_apply)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -80,7 +84,7 @@ if(CASE STREQUAL "use_lists" AND NOT err MATCHES "mosac: 結ぶ翻訳済みラ�
   fail("library(lists) must be linked as a translated archive")
 endif()
 # 節の本体と initialization/1 のゴールにだけ書いた library(apply) も同梱の閉包に入り、翻訳済みの単位を結ぶ（問い 2 の A）。
-if((CASE STREQUAL "goal_use_body" OR CASE STREQUAL "goal_use_init") AND
+if((CASE STREQUAL "goal_use_body" OR CASE STREQUAL "goal_use_init" OR CASE STREQUAL "goal_use_late") AND
    NOT err MATCHES "mosac: 結ぶ翻訳済みライブラリ: [^\n]*mosa_pl_apply")
   fail("library(apply) named in a goal must be linked as a translated archive")
 endif()
@@ -154,6 +158,13 @@ elseif(CASE STREQUAL "goal_use_body")
 elseif(CASE STREQUAL "goal_use_init")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "[3]\n" OR NOT err STREQUAL "")
     fail("library(apply) loaded from an initialization/1 goal")
+  endif()
+elseif(CASE STREQUAL "goal_use_late")
+  # apply（ゴールでだけ読む）も lists（文面の表が読む）も、実行ファイルは起動時に読まない。M:G は呼び出しのときに
+  # :/2 が確かめ、mosa と同じ existence_error(module, M) になる。生成コードがその場で結ぶと procedure の誤りになる。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "existence_error(module,apply)\nexistence_error(module,lists)\n"
+     OR NOT err STREQUAL "")
+    fail("a qualified call into a module loaded after the program's own load")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。
