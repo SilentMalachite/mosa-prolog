@@ -206,6 +206,21 @@ void check_diagnostic_cleared() {
   mosa_test::check(machine->diagnostic().empty(), "diagnostic: load_program leaves it empty too");
 }
 
+// 上限のバイト予算を超えるファイルは、read_source が run_load に入る前に ResourceLimit を投げる。入口が読む前に診断を
+// 空にしないと、前の読み込みの字面が残る（2 度目の Muse レビューの修正の Opus 再レビュー A2）。ゴールの consult/1 も同じ。
+void check_oversized_source() {
+  constexpr std::size_t small = std::size_t{1} << 16;
+  write_file("big.pl", "%" + std::string(small * 8, 'x') + "\n");
+  auto machine = mosa::Machine::create(small);
+  mosa_test::check(!machine->consult(fixture("nowhere.pl")) && !machine->diagnostic().empty(),
+                   "oversized: a missing file leaves a diagnostic");
+  mosa_test::check(consult_throws(*machine, fixture("big.pl")), "oversized: consult stops at the heap limit");
+  mosa_test::check(machine->diagnostic().empty(), "oversized: consult leaves diagnostic() empty");
+  const std::string goal = "(consult('" + fixture("nowhere.pl") + "') ; true), consult('" + fixture("big.pl") + "').";
+  mosa_test::check(run(*machine, goal) == Outcome::Limited, "oversized: the goal consult stops at the heap limit");
+  mosa_test::check(machine->diagnostic().empty(), "oversized: the goal consult leaves diagnostic() empty");
+}
+
 // 指示の中のゴールの読み込みが上限で止まると、子を戻し、親の指示の run_aside が実行の状態を戻し、run_parked が
 // 脇に置いた問い合わせを戻し、親を戻す。wrap.pl は同じ走査の道、outer.pl は consult_one の道なので、run_parked を
 // 越える入れ子はここで確かめる。
@@ -262,6 +277,7 @@ int main() {
   check_shared_init_under_consult();
   check_list_second_throws();
   check_diagnostic_cleared();
+  check_oversized_source();
   check_nested_parked();
   check_parked_query();
   return mosa_test::failures();

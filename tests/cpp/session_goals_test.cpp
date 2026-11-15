@@ -401,6 +401,17 @@ void check_goal_use_at_prompt() {
                    "use_module at the prompt loads lists: [" + result.out + "][" + result.err + "]");
 }
 
+// プロンプトに打った指示がヒープの上限に当たっても、ゴールと同じく知らせてから次の入力へ進む。前は run_session の
+// catch まで抜け、対話を 2 で終えた（2 度目の Muse レビューの修正の Opus 再レビュー A1）。
+void check_directive_heap_at_prompt() {
+  const std::vector<std::string_view> args{std::string_view{"mosa"}, std::string_view{"--heap-max"},
+                                           std::string_view{"8"}};
+  const auto result = mosa::run_session(args, ":- length(_, 100000000).\nX = 1.\n", true);
+  mosa_test::check(result.code == 0 && result.out.find("X = 1") != std::string::npos && !result.err.empty(),
+                   "a prompt directive at the heap limit reports and goes on: [" + std::to_string(result.code) +
+                       "][" + result.out + "][" + result.err + "]");
+}
+
 // prefix で始まる行の数。構文の誤りの桁は読み手の数え方に依るので、行の頭だけを見る。
 std::size_t lines_starting(std::string_view text, std::string_view prefix) {
   std::size_t count = 0;
@@ -445,6 +456,7 @@ void check_goal_ensure_busy() {
 
 void check_goal_use_session() {
   check_goal_use_at_prompt();
+  check_directive_heap_at_prompt();
   check_goal_use_reports_file();
   check_goal_ensure_busy();
 }

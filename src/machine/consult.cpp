@@ -294,6 +294,10 @@ bool Machine::consult(std::string_view path) {
   reset_gc_judgement(impl);
   // 前の問い合わせが halt で止まった印は、読み込みの間だけ脇に置き、抜けるとき戻す（HaltSetAside）。
   const HaltSetAside set_aside(impl);
+  // read_source は予算を超えるファイルで、run_load に入る前に ResourceLimit を投げる。その前に空にしないと、前の
+  // 読み込みの字面が diagnostic() に残る（2 度目の Muse レビューの修正の Opus 再レビュー A2）。
+  impl.diagnostic.clear();
+  impl.syntax_diag = false;
   const auto text = read_source(impl, path_from_utf8(path));
   if (!text) {
     impl.diagnostic = message_text(impl, "cannot_open_file", {path});
@@ -320,6 +324,9 @@ bool run_consult(Impl& machine, const Goal& call) {
     return true;
   }
   const auto text = std::string{machine.atoms.name(static_cast<std::uint32_t>(path.raw() >> 3))};
+  // Machine::consult と同じく、read_source の例外の前に、前のゴールの読み込みの字面を消す（Opus 再レビュー A2）。
+  machine.diagnostic.clear();
+  machine.syntax_diag = false;
   const auto source = read_source(machine, path_from_utf8(text));
   if (!source) {
     machine.diagnostic = message_text(machine, "cannot_open_file", {text});

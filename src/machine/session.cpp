@@ -309,9 +309,18 @@ std::string goal_text(const Machine& machine, Cell term, std::span<const VarName
 }
 
 // 指示の halt/0,1 は読み込みを止める。ファイルの指示（consult_files）と同じく、その値で終える。
-// 止まった読み込みの診断は空なので、警告にしない。終えるなら true。
+// 止まった読み込みの診断は空なので、警告にしない。終えるなら true。ヒープの上限で止まった指示は、読み込みを
+// load_program が巻き戻したので、ゴール（play_goal）と同じく知らせて次の入力へ進む。前は run_session の catch まで
+// 抜け、対話を 2 で終えた（2 度目の Muse レビューの修正の Opus 再レビュー A1）。
 bool prompt_directive(Machine& machine, std::string_view text, Echo& echo) {
-  if (directive_text(machine, text)) return false;
+  try {
+    if (directive_text(machine, text)) return false;
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    recover_heap(machine);
+    warn_resource(machine, echo);
+    return false;
+  }
   if (engine_impl(machine).halt_now) {
     echo.result->code = engine_impl(machine).halt_code;
     return true;
