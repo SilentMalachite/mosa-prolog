@@ -598,7 +598,16 @@ void check_cond_failure_export() {
   write_file(dir / "cond_untaken_rc.pl", ":- module(cond_untaken_rc, [p/0]).\n:- if(fail).\np.\n:- endif.\n");
   write_file(dir / "cond_untaken_ra.pl", ":- module(cond_untaken_ra, []).\n:- reexport(cond_untaken_rc).\n");
   write_file(dir / "cond_untaken_rb.pl", ":- module(cond_untaken_rb, []).\n:- reexport(cond_untaken_rc).\n");
-  (void)cond_unit("cond_untaken_reexport.pl", ":- use_module(cond_untaken_ra).\n:- use_module(cond_untaken_rb).\n");
+  write_file(dir / "cond_untaken_reexport.pl", ":- use_module(cond_untaken_ra).\n:- use_module(cond_untaken_rb).\n");
+  const auto untaken = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "cond_untaken_reexport.pl"), {});
+  check(untaken.ok && untaken.diagnostic.empty() && has(untaken.warnings, "cond_untaken_rb.pl:1:1: ") &&
+            has(untaken.warnings, "p/0"),
+        "a second reexport of a module with a branch not taken warns: " + untaken.warnings);
+  // 自分のモジュールを持つファイルが、限定した頭（cond_qual_r:p）でほかのモジュールの公開述語を定義する節を任せた
+  // ときは、そのモジュールのファイルにも印を付ける（直し 4 回目のレビュー A3。d86485b で印を上げなくなった退行）。
+  write_file(dir / "cond_qual_m.pl", ":- module(cond_qual_m, []).\n" + branch + "cond_qual_r:p :- 1.\n:- endif.\n");
+  write_file(dir / "cond_qual_r.pl", ":- module(cond_qual_r, [p/0]).\n:- use_module(cond_qual_m).\n");
+  (void)cond_unit("cond_qual.pl", skip + ":- use_module(cond_qual_r).\n");
 }
 
 // I2 の直し 4 回目（持ち主の選択 A）。起動時には別の分岐を取りうるブロックを閉じた後は、その分岐が残した物で節を足せ

@@ -252,6 +252,9 @@ struct TranslationLog {
   // 起動時には別の分岐を取りうるブロック（CondFrames::Frame::doubtful）を、この読み込みのどこかで閉じた。その後は
   // 節の並びと取り込みが起動時と違いうる（I2 の直し 4 回目）。
   bool closed_doubtful = false;
+  // take_term が読んでいる節の行き先のモジュール。限定した頭（r:p）の節を起動時に任せるとき、r を宣言したファイルにも
+  // 印を付けるのに使う（I2 の直し 4 回目のレビュー A3）。指令と、節にならなかった項では空。
+  std::optional<std::uint32_t> clause_module;
 };
 
 // 実行ファイルに埋め込んだ原文。include/1 などはファイルシステムより先にこれを正規化したパスで引く。

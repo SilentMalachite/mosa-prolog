@@ -437,6 +437,7 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
                std::string_view origin, bool first, LoadScan& scan) {
   // mosatest の test/3 は節にせず横取りする（suite.cpp）。指示より先に見るので、横取りした項は何も変えない。
   if (machine.term_hook && machine.term_hook(read, origin)) return true;
+  if (machine.translation != nullptr) machine.translation->clause_module.reset();
   Cell term = read.term;
   // 文法規則は訳した節として、以下の節と同じ道を通す（ADR 0024）。
   if (is_rule_arrow(machine.heap, term)) {
@@ -458,6 +459,7 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
   if (directed != 0) return directed > 0;
   std::uint32_t module = machine.load_module;
   if (const auto formal = strip_clause(machine, term, module)) return fail_formal(machine, *formal) > 0;
+  if (machine.translation != nullptr) machine.translation->clause_module = module;
   // M:(:- G) と M:(H --> B) は節ではない。外す前と同じく受けない。
   if (is_rule_arrow(machine.heap, term) || is_directive(machine.heap, term)) {
     fail_load(machine, message_text(machine, "directive_unsupported",
@@ -565,7 +567,9 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
       // 翻訳の読みで、起動時には取らないかもしれない分岐の指令か節が失敗したら、起動時の読み込みに任せる（I2）。
       // 開いたファイルの数は、その項の指令がファイルを開く前に取る。
       const auto tolerable = cond.tolerable();
-      if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan) && !cond.tolerate(tolerable)) {
+      const bool clause = !is_directive(machine.heap, outcome.term->term);
+      if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan) &&
+          !cond.tolerate(tolerable, clause)) {
         return false;
       }
     }

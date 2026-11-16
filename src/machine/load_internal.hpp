@@ -167,8 +167,9 @@ class CondFrames {
   // の数を返す。項が開くファイルを数えないよう、take_term へ渡す前に呼ぶ。
   [[nodiscard]] std::optional<std::size_t> tolerable() const;
   // tolerable が数を返した項の失敗なら、このファイルとその項（指令）が開いたファイルを IR のまま動かす印にし、診断を
-  // 消して真。数が無ければ偽で、呼び手は読み込みを失敗させる。
-  [[nodiscard]] bool tolerate(std::optional<std::size_t> known);
+  // 消して真。clause なら、節の行き先のモジュールを宣言したファイルにも印を付ける。数が無ければ偽で、呼び手は読み込みを
+  // 失敗させる。
+  [[nodiscard]] bool tolerate(std::optional<std::size_t> known, bool clause = false);
 
  private:
   // 条件の節 1 つ。outer_skipping は開いた時に外が読み飛ばし中だったこと、taken はこの節で分岐を取ったこと、

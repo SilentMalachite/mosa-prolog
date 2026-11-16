@@ -86,6 +86,16 @@ std::size_t skipped_files(const TranslationLog* log) {
                                                 [](const TranslationLog::File& file) { return file.skipped_goal; }));
 }
 
+// 限定した頭（r:p）の節は r に入る。r の公開の確かめは r を宣言したファイルの印を見るので、そのファイルにも印を
+// 付ける。付けないと、任せた節が定義するはずの r の公開述語でビルドが止まる（I2 の直し 4 回目のレビュー A3）。
+void mark_module_file(const Impl& machine, TranslationLog& log, std::uint32_t name) {
+  const Module* module = find_module(machine, name);
+  if (module == nullptr || module->file.empty()) return;
+  for (TranslationLog::File& file : log.files) {
+    if (file.key == module->file) file.opaque = true;
+  }
+}
+
 }  // namespace
 
 int run_condition(Impl& machine, Cell goal) {
@@ -235,9 +245,10 @@ std::optional<std::size_t> CondFrames::tolerable() const {
 // いないファイルの印は、翻訳の読み込みでは CycleGuard が外すので、後ろの分岐の外の use_module が読み直し、起動時にも
 // 起きるその失敗で止まる。読み終えたファイルの印は残し、同じ読み込みで 2 度読んで節が離れていると誤らない。
 // 原文の無いテキスト（load_program）は印を付ける所が無いので任せない。
-bool CondFrames::tolerate(std::optional<std::size_t> known) {
+bool CondFrames::tolerate(std::optional<std::size_t> known, bool clause) {
   if (!known || log_->current >= log_->files.size()) return false;
   log_->files[log_->current].opaque = true;
+  if (clause && log_->clause_module) mark_module_file(machine_, *log_, *log_->clause_module);
   for (std::size_t index = *known; index < log_->files.size(); ++index) log_->files[index].opaque = true;
   forget_failure(machine_);
   return true;
