@@ -142,6 +142,8 @@ constexpr auto kRuleTrue = std::to_array<std::string_view>({
     "control/true_0",
     "directives/op_3",
     "directives/include_1",
+    "directives/conditional_compilation",
+    "directives/conditional_compilation/nested",
     "logical_update_semantics",
     "syntax/atoms",
     "syntax/directives",
@@ -157,8 +159,6 @@ constexpr auto kRuleFalse = std::to_array<std::string_view>({
     "control",
     "control/soft_cut_2_3/extra",
     "directives",
-    "directives/conditional_compilation",
-    "directives/conditional_compilation/nested",
     "logical_update_semantics/child",
     "syntax",
     "syntax/directives/meta_predicate_1",
@@ -249,7 +249,8 @@ void check_columns() {
   expect_column("predicates/evaluable_property_2", std::nullopt);
   expect_column("predicates/atomic_concat_3", std::nullopt);
   expect_column("predicates/portray_1", std::nullopt);
-  expect_column("directives/conditional_compilation", std::nullopt);
+  expect_column("directives/conditional_compilation", SuiteColumn::Library);
+  expect_column("directives/conditional_compilation/nested", SuiteColumn::Library);
   expect_column("functions/log10_1", std::nullopt);
   expect_column("control/true_0", SuiteColumn::Iso);
   expect_column_children(kLibrary, SuiteColumn::Library);

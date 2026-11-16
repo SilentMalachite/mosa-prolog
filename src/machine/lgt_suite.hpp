@@ -2,6 +2,7 @@
 
 // 分母は logtalk/prolog より下だけ。区切りは /。先頭と末尾の / は無い。
 // 欄は本欄（ISO）とライブラリ欄の 2 つ。どちらの一覧にも無いパスは別欄。実行しない。
+// ライブラリ欄には 13211-1 に無い述語に加え、directives/conditional_compilation の木も入る（フェーズ13の問い 2 の A）。
 
 #include "test_loader.hpp"
 
@@ -209,7 +210,10 @@ inline bool iso_column(std::string_view relative_posix) {
   return false;
 }
 
+// 条件付きコンパイル（:- if/elif/else/endif）は 13211-1 に無いので本欄には入れず、ライブラリ欄で数える
+// （フェーズ13の問い 2 の A）。excluded_tree はそのままなので iso_column は偽のまま。
 inline bool library_column(std::string_view relative_posix) {
+  if (path_is_or_under(relative_posix, "directives/conditional_compilation")) return true;
   return direct_child(relative_posix, "predicates") &&
          listed(kLibraryScope, child_name(relative_posix, "predicates"));
 }

@@ -41,7 +41,6 @@ unicode/escape_sequences/tests.lgt lgt_unicode_escape_sequence_full_05 true(Asse
 別欄:
 control/throw_1 lgt_throw_1_03
 control/throw_1 lgt_throw_1_03
-directives/conditional_compilation 39
 functions/acosh_1 6
 functions/asinh_1 5
 functions/atanh_1 9
@@ -296,9 +295,9 @@ unbounded lgt_unbounded_succ_02
 unicode/builtins lgt_unicode_format_2_01
 unicode/directives/encoding_1 3
 unicode/encodings 49
-ライブラリ欄の分母: 566
-ライブラリ欄の合格数: 561
-ライブラリ欄の合格率: 99.1
+ライブラリ欄の分母: 605
+ライブラリ欄の合格数: 600
+ライブラリ欄の合格率: 99.2
 ライブラリ欄の不合格:
 predicates/format_2/tests.lgt lgt_format_2_tab_table_left_aligned true(Assertion) existence_error(procedure,:: /2)
 predicates/format_2/tests.lgt lgt_format_2_tab_table_right_aligned true(Assertion) existence_error(procedure,:: /2)
