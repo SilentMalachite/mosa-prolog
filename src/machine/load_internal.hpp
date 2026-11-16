@@ -158,12 +158,12 @@ class CondFrames {
   [[nodiscard]] bool skipping() const;
   // テキストの終わり。閉じない if があれば cond_unclosed の診断を書いて偽。
   [[nodiscard]] bool close();
-  // 翻訳の読み込みで、term の失敗を起動時の読み込みに任せてよいか（I2、持ち主の選択 A）。term が指令で、読んでいる
-  // 分岐の条件より前に飛ばしたゴールがあるときだけ、そこまでに開いたファイルの数を返す。take_term の中の GC で項が
-  // 動きうるので、渡す前に呼ぶ。
-  [[nodiscard]] std::optional<std::size_t> tolerable(Cell term) const;
-  // tolerable が数を返した項の失敗なら、このファイルとその指令が開いたファイルを IR のまま動かす印にし、診断を消して
-  // 真。数が無ければ偽で、呼び手は読み込みを失敗させる。
+  // 翻訳の読み込みで、次の項の失敗（指令、節、構文の誤り）を起動時の読み込みに任せてよいか（I2、持ち主の選択 A。
+  // 節と構文の誤りは直し 3 回目）。読んでいる分岐の条件より前に飛ばしたゴールがあるときだけ、そこまでに開いたファイル
+  // の数を返す。項が開くファイルを数えないよう、take_term へ渡す前に呼ぶ。
+  [[nodiscard]] std::optional<std::size_t> tolerable() const;
+  // tolerable が数を返した項の失敗なら、このファイルとその項（指令）が開いたファイルを IR のまま動かす印にし、診断を
+  // 消して真。数が無ければ偽で、呼び手は読み込みを失敗させる。
   [[nodiscard]] bool tolerate(std::optional<std::size_t> known);
 
  private:
@@ -204,7 +204,9 @@ void note_site(Impl& machine, PredKey key, std::size_t line);
 struct FileNote {
   TranslationLog* log = nullptr;
   std::size_t outer = 0;
-  FileNote(Impl& machine, std::string_view origin, std::string_view source);
+  // include したテキスト。読んだ側のファイルの一部なので、IR のまま動かす印（opaque）もそこへ上げる。
+  bool included = false;
+  FileNote(Impl& machine, std::string_view origin, std::string_view source, bool included);
   FileNote(const FileNote&) = delete;
   FileNote& operator=(const FileNote&) = delete;
   ~FileNote();

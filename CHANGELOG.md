@@ -23,9 +23,10 @@ English | [日本語](CHANGELOG.ja.md)
   as IR. A condition that raises an error or calls `halt/0,1` at build time only means that its branch is not taken
   there. A library named literally in a `use_module` or `reexport` of any branch, or of a condition, is bundled when
   it exists. An exported predicate with no definition is a warning, not an error, in a module whose file has a
-  branch not taken at build time. A directive that fails in a branch taken at build time does not stop the build
-  when a goal was skipped before that branch's condition, since the branch may not be taken at start-up: the file
-  runs as IR and the load at start-up decides. Chapter 13 of the [manual](docs/manual/en/13-mosac.md) describes this.
+  branch not taken at build time. A directive or clause that fails in a branch taken at build time, or a syntax error
+  there, does not stop the build when a goal was skipped before that branch's condition, since the branch may not be
+  taken at start-up: the file runs as IR and the load at start-up decides. Chapter 13 of the
+  [manual](docs/manual/en/13-mosac.md) describes this.
 - The libraries `library(pairs)` (6 predicates, such as `pairs_keys_values/3` and `group_pairs_by_key/2`),
   `library(assoc)` (18 predicates on an AVL tree, such as `list_to_assoc/2`, `get_assoc/3` and `put_assoc/4`) and
   `library(ordsets)` (20 predicates, such as `ord_union/3`, `ord_subtract/3` and `ord_memberchk/2`). They are written

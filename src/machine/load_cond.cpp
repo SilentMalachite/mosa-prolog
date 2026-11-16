@@ -6,10 +6,11 @@
 // 条件の例外はその Formal、halt/0,1 は読み込みをその場で止める。
 // 翻訳の読み込み（mosac、Impl::translation がある）も条件を解く。そこでは例外と halt は「その分岐を取らない」とだけ
 // 扱い、読み飛ばした項からライブラリの名前と印を書き留める（問い 1 の A、SPEC 第6節）。条件より前に飛ばしたゴールが
-// ある分岐の中で指令が失敗しても、翻訳を止めずに起動時の読み込みに任せる（I2、持ち主の選択 A）。
+// ある分岐の中で指令か節が失敗しても、構文の誤りがあっても、翻訳を止めずに起動時の読み込みに任せる（I2、持ち主の
+// 選択 A）。
 // テスト: tests/pl/cond_compile.pl、tests/pl/japanese.pl、tests/cpp/cond_compile_test.cpp、翻訳の読み込みは
 //         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_build_failure、check_cond_failure_chain、
-//         check_cond_failure_prepared、check_cond_log）と
+//         check_cond_failure_prepared、check_cond_failure_clause、check_cond_log）と
 //         tests/mosac/standalone_test.cmake（cond_*）
 #include "load_internal.hpp"
 
@@ -218,15 +219,15 @@ bool CondFrames::close() {
 
 // 一番内の節だけを見る。外の節の条件はそれより前に解いたので、そこまでに飛ばしたゴールは内の節の doubtful にも入る。
 // else の分岐は、前の条件が全部偽だったから読むので、if と解いた elif の値を持ち越す。分岐の外と、条件を解いた後で
-// 飛ばしたゴールしか無い分岐の失敗は、起動時にも同じく起きるので任せない。
-std::optional<std::size_t> CondFrames::tolerable(Cell term) const {
-  if (log_ == nullptr || frames_.empty() || !frames_.back().doubtful || !is_directive(machine_.heap, term)) {
-    return std::nullopt;
-  }
+// 飛ばしたゴールしか無い分岐の失敗は、起動時にも同じく起きるので任せない。指令に限らないのは、起動時に分岐を取らな
+// ければ節の誤りも構文の誤りも起きないからである（直し 3 回目。前は節と構文の誤りを今のファイルの mark_opaque だけ
+// で見たので、include したファイルの分岐と文法規則の誤りで翻訳が止まった）。
+std::optional<std::size_t> CondFrames::tolerable() const {
+  if (log_ == nullptr || frames_.empty() || !frames_.back().doubtful) return std::nullopt;
   return log_->files.size();
 }
 
-// ビルド時に取った分岐を起動時には取らないかもしれないので、失敗した指令の後ろも読み続け、判定を起動時の読み込みに
+// ビルド時に取った分岐を起動時には取らないかもしれないので、失敗した項の後ろも読み続け、判定を起動時の読み込みに
 // 任せる。指令が開いたファイル（分岐の中の use_module(m) の m と、m が読んだファイル）も同じ印にする。半分だけ読んだ
 // 節から生成関数を出さず、定義の無いままの公開で翻訳を止めない。準備済みの印はここでは触らない。途中までしか読んで
 // いないファイルの印は、翻訳の読み込みでは CycleGuard が外すので、後ろの分岐の外の use_module が読み直し、起動時にも

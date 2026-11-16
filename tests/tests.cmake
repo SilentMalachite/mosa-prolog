@@ -602,7 +602,7 @@ set_tests_properties(mosatest_bench PROPERTIES
 foreach(standalone_case uncaught_message use_lists use_dcg include plain_use subdir goal_use_body goal_use_init
     goal_use_late reexport cond_late_lib cond_build_mod cond_skip_op cond_export
     cond_goal_mod cond_goal_lib cond_build_fail cond_else_build cond_consult_if cond_consult_elif cond_half_main
-    cond_half_lib)
+    cond_half_lib cond_clause_fail cond_clause_late)
   add_test(NAME standalone_${standalone_case} COMMAND ${CMAKE_COMMAND}
     -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${standalone_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/standalone_${standalone_case} "-DCXX=${mosac_build_cxx}"

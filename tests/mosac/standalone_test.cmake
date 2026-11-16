@@ -5,7 +5,7 @@
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
 #           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif|
-#           cond_half_main|cond_half_lib>
+#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -93,6 +93,12 @@ elseif(CASE STREQUAL "cond_half_main")
 elseif(CASE STREQUAL "cond_half_lib")
   set(sources cond_half_lib.pl cond_half_lib_m.pl)
   set(program cond_half_lib)
+elseif(CASE STREQUAL "cond_clause_fail")
+  set(sources cond_clause_fail.pl cond_clause_fail_part.pl)
+  set(program cond_clause_fail)
+elseif(CASE STREQUAL "cond_clause_late")
+  set(sources cond_clause_late.pl cond_clause_late_part.pl)
+  set(program cond_clause_late)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -267,6 +273,20 @@ elseif(CASE STREQUAL "cond_else_build" OR CASE STREQUAL "cond_consult_if" OR CAS
   # 起動時は分岐を取らずに mosa と同じく ran を書く（I2 の直し 1 回目）。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "ran\n" OR NOT err STREQUAL "")
     fail("a failing directive in a branch whose condition a skipped goal can change")
+  endif()
+elseif(CASE STREQUAL "cond_clause_fail")
+  # include した cond_clause_fail_part.pl の分岐は、ビルド時には :- assertz(skip) を呼ばないので取る。その中の断る節、
+  # 構文の誤り、文法規則の誤りは、親のファイルで飛ばしたゴールがあるので build を止めず、起動時の読み込みに任せる。
+  # 起動時は分岐を取らず、mosa と同じく ran を書いて 0 で終わる（I2 の直し 3 回目）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "ran\n" OR NOT err STREQUAL "")
+    fail("a bad clause in a branch of an included file taken only at build time")
+  endif()
+elseif(CASE STREQUAL "cond_clause_late")
+  # :- retract(skip) も呼ばないので、ビルド時は cond_clause_fail と同じく断る節を任せる。起動時は skip が偽になって
+  # 分岐を取り、mosa と同じ診断で読み込みが失敗する。main は動かない（任せた判定を起動時の読み込みが下す）。
+  if(code EQUAL 0 OR NOT out STREQUAL "" OR
+     NOT err MATCHES "cond_clause_late\\.pl: permission_error\\(modify,static_procedure,atom_length/2\\)\n$")
+    fail("a bad clause in a branch of an included file taken at start-up too")
   endif()
 elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")
   # 分岐の中の use_module が途中で失敗したモジュールのファイルは、その前に別のモジュール（cond_half_q と

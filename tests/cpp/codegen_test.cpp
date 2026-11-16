@@ -536,6 +536,46 @@ void check_cond_failure_prepared() {
   (void)cond_stop("cond_fail_twice.pl", skip + block + block + ":- use_module(cond_fail_twice_m).\n", "no_such_helper");
 }
 
+// I2 の直し 3 回目。条件より前に飛ばしたゴールがあれば、分岐の中の節の誤りと構文の誤りも指令と同じく任せる。前は
+// 今のファイルの印（mark_opaque）だけを見たので、include したファイルの分岐と、文法規則の誤りでは止まった。
+// 分岐の外と、飛ばしたゴールの無い分岐では今までどおり止める。
+void check_cond_failure_clause() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  std::filesystem::create_directories(dir);
+  const std::string skip = ":- dynamic(skip/0).\n:- assertz(skip).\n";
+  const std::string branch = ":- if(\\+ skip).\n";
+  // 親のファイルの節は親の印のまま訳すので、ここでは翻訳が止まらないことだけを見る（cond_fail_include と同じ）。
+  const auto included = [&](std::string_view name, const std::string& head, const std::string& body) {
+    const std::string part = std::string{name} + "_part";
+    write_file(dir / (part + ".pl"), branch + body + ":- endif.\n");
+    return cond_unit(std::string{name} + ".pl", skip + head + ":- include(" + part + ").\nq.\n");
+  };
+  (void)included("cond_clause_refused", "", "atom_length(a, 1).\n");
+  (void)included("cond_clause_syntax", "", "a ===> b.\n");
+  (void)included("cond_clause_dcg", "", "a --> 1.\n");
+  // 節が離れて足せなかった後も続きの節を読み、分岐を閉じる。その節のある r/1 は IR のまま動く。
+  const std::string apart = included("cond_clause_apart", "p(1).\nq0.\n", "p(2).\nr(1).\nr(2).\n");
+  check(!apart.empty() && !has(apart, "pr_1"), "the clauses after a clause apart run as IR");
+  const std::string same = cond_unit("cond_clause_dcg_same.pl", skip + branch + "a --> 1.\n:- endif.\nq.\n");
+  check(!same.empty() && !has(same, "NativeEntry{"), "a bad grammar rule after a skipped goal leaves the file as IR");
+  // モジュールのファイルが include した部品で任せた失敗は、モジュールのファイルにも印を付ける。公開の未定義の確かめは
+  // モジュールを宣言したファイルを見るので、部品だけに付けると、そこでしか定義しない公開述語で止まった（直し 3 回目の
+  // Opus レビュー A1。節でも、直し 1 回目からの指令でも）。
+  const auto exported = [&](std::string_view name, const std::string& body) {
+    const std::string module = std::string{name} + "_m";
+    write_file(dir / (module + "_part.pl"), ":- if(\\+ user:skip).\n" + body + ":- endif.\n");
+    write_file(dir / (module + ".pl"),
+               ":- module(" + module + ", [p/0]).\n:- include(" + module + "_part).\n");
+    (void)cond_unit(std::string{name} + ".pl", skip + ":- use_module(" + module + ").\n");
+  };
+  exported("cond_clause_export", "p :- 1.\n");
+  exported("cond_clause_export_dir", ":- include(no_such_part).\n");
+  write_file(dir / "cond_clause_out_part.pl", "atom_length(a, 1).\n");
+  (void)cond_stop("cond_clause_out.pl", skip + ":- include(cond_clause_out_part).\n", "atom_length/2");
+  (void)cond_stop("cond_clause_sure.pl", ":- if(true).\natom_length(a, 1).\n:- endif.\n", "atom_length/2");
+  (void)cond_stop("cond_clause_sure_dcg.pl", ":- if(true).\na --> 1.\n:- endif.\n", "type_error(callable,1)");
+}
+
 // 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
 // 読み終えれば 0 に戻る。
 void check_cond_log() {
@@ -661,6 +701,7 @@ int main() {
   check_cond_build_failure();
   check_cond_failure_chain();
   check_cond_failure_prepared();
+  check_cond_failure_clause();
   check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();

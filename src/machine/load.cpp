@@ -525,7 +525,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   if (!enter_file(machine, origin, scan, guard)) return false;
   const std::uint32_t file = !role.owns ? machine.load_owner : origin.empty() ? 0 : file_number(machine, guard.key);
   const OwnerScope owner{machine, file};
-  const FileNote note{machine, origin, source};
+  const FileNote note{machine, origin, source, !role.owns};
   ModuleScope scope{machine};
   // if と endif の対はテキストごとに閉じる（ADR 0027）。include したテキストも自分の積みを持つ。
   CondFrames cond{machine};
@@ -538,8 +538,8 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const std::size_t before = reader.consumed();
     const ReadOutcome outcome = reader.next();
     // 読み飛ばし中の構文の誤りは、診断を出さずに下の読み飛ばしの道へ進む（問い 3 の A）。tolerate_syntax より先に
-    // 見て、翻訳の印（opaque）も付けない。
-    if (outcome.failure && !cond.skipping() && !note.tolerate_syntax()) {
+    // 見て、翻訳の印（opaque）も付けない。起動時には取らないかもしれない分岐の中なら、節の誤りと同じく任せる（I2）。
+    if (outcome.failure && !cond.skipping() && !note.tolerate_syntax() && !cond.tolerate(cond.tolerable())) {
       return note_syntax(machine, origin, role.nested, *outcome.failure);
     }
     // 読み飛ばしが進まなければ、そこで終わりにする。同じ誤りを読み続けない。
@@ -558,9 +558,9 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     const int stepped = cond.step(outcome.term->term);
     if (stepped < 0) return false;
     if (stepped == 0) {
-      // 翻訳の読みで、起動時には取らないかもしれない分岐の指令が失敗したら、起動時の読み込みに任せる（I2）。
-      // 任せてよいかは、take_term の中の GC（入れ子の条件の run_loop）が項を動かす前に見る。
-      const auto tolerable = cond.tolerable(outcome.term->term);
+      // 翻訳の読みで、起動時には取らないかもしれない分岐の指令か節が失敗したら、起動時の読み込みに任せる（I2）。
+      // 開いたファイルの数は、その項の指令がファイルを開く前に取る。
+      const auto tolerable = cond.tolerable();
       if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan) && !cond.tolerate(tolerable)) {
         return false;
       }

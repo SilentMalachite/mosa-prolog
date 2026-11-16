@@ -183,10 +183,10 @@ as `mosa` would at that moment. When the two runs read different branches, the p
 - A call to a predicate that only a branch not read while building defines gets the warning of `mosac build` that
   the predicate is not defined. The executable still runs it when it reads that branch.
 
-Because `mosac build` does not run a directive that is an ordinary goal, such as `:- assertz(…)`, a directive that
-fails in a branch read while building, as `:- use_module(helper).` does with no `helper.pl`, does not stop
-`mosac build` when such a goal comes before the branch's condition: the executable decides when it starts, as `mosa`
-does.
+Because `mosac build` does not run a directive that is an ordinary goal, such as `:- assertz(…)`, a directive or a
+clause that fails in a branch read while building, as `:- use_module(helper).` does with no `helper.pl`, does not
+stop `mosac build` when such a goal comes before the branch's condition, and neither does a line there that does not
+read: the executable decides when it starts, as `mosa` does.
 
 `mosac` looks for a compiler in the usual places: `clang++` on macOS, `g++` and then `clang++` on Linux, and the
 compiler of Visual Studio on Windows. After you change a file, run `mosac build` again, and it takes a second or two

@@ -222,7 +222,8 @@ struct TranslationLog {
     std::size_t column = 0;
     bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（同梱の単位として結ぶ。Task 10）
     bool skipped_goal = false;  // 飛ばした指示のゴールがある。そのゴールの op/3 が後の項の読みを変えうる
-    bool opaque = false;        // 飛ばしたゴールの後の構文エラーか、起動時に任せた指令の失敗。述語は IR のまま動かす
+    // 飛ばしたゴールの後の構文エラーか、起動時に任せた項の失敗（include した先のものも）。述語は IR のまま動かす
+    bool opaque = false;
     bool untaken_branch = false;  // このファイルか、ここから開いたファイルで、条件が項を読み飛ばした（ADR 0027）
     bool in_branch = false;       // 開いた時に、読んでいるテキストのどれかに閉じていない if があった（ADR 0027）
     // ライブラリなら、その根（library(Name) を見つけた $MOSA_LIB か lib/）の正規化したパス。埋め込みの鍵は
