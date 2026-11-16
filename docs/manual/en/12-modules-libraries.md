@@ -225,6 +225,9 @@ These libraries come with Mosa. Each is loaded with `use_module(library(Name))`:
 | `strings` | `atomic_list_concat/2`, `atomic_list_concat/3`, `split_atom/4`, `upcase_atom/2` |
 | `dcg` | `expand_term/2` |
 | `japanese` | `ひらがな_カタカナ/2`, `全角_半角/2`, `読み幅/2` |
+| `pairs` | `pairs_keys_values/3`, `pairs_keys/2`, `pairs_values/2`, `group_pairs_by_key/2`, `transpose_pairs/2` |
+| `assoc` | `list_to_assoc/2`, `get_assoc/3`, `put_assoc/4`, `del_assoc/4`, `assoc_to_list/2`, `assoc_to_keys/2` |
+| `ordsets` | `list_to_ord_set/2`, `ord_union/3`, `ord_intersection/3`, `ord_subtract/3`, `ord_memberchk/2`, `ord_subset/2` |
 
 `length/2` is in `lists` too, but it is also built in, so it works without the library, as in chapter 7. The built-in
 predicates, such as `atom_length/2` and `forall/2`, are in the module `system`, and every module can use them.

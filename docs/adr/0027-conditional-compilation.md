@@ -11,7 +11,7 @@ Two places rely on the load at start-up reading all that the translation load re
 ## Decision
 
 The loader handles `if/elif/else/endif` per file, and a condition is solved once in the module being loaded, as `:- G` is. The translation load calls the conditions too, the only user goals it calls, and there an exception or a `halt` only means that the branch is not taken; libraries named literally in skipped terms are bundled when they exist; the executable's load at start-up evaluates the conditions again.
-A module file that the load at start-up did not read gets no unit and is not read on its own; a `M:G` into a module first read inside a branch is not bound in place; a directive in a branch not taken counts as a skipped goal; an undefined export in a file with a branch not taken is a warning, not a stop.
+A module file that the load at start-up did not read gets no unit and is not read on its own; a `M:G` into a module first read inside a branch is not bound in place; a directive in a branch not taken counts as a skipped goal; an undefined export in a file with a branch not taken is a warning, not a stop. A file opened while the condition of an `if` or `elif` is being evaluated counts as opened inside a branch, and libraries named literally in the conditions of `if` and `elif` are bundled when they exist.
 
 ## Rejected alternatives
 

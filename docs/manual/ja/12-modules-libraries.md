@@ -188,6 +188,9 @@ Mosa には次のライブラリが付いてきます。どれも `use_module(li
 | `strings` | `atomic_list_concat/2`、`atomic_list_concat/3`、`split_atom/4`、`upcase_atom/2` |
 | `dcg` | `expand_term/2` |
 | `japanese` | `ひらがな_カタカナ/2`、`全角_半角/2`、`読み幅/2` |
+| `pairs` | `pairs_keys_values/3`、`pairs_keys/2`、`pairs_values/2`、`group_pairs_by_key/2`、`transpose_pairs/2` |
+| `assoc` | `list_to_assoc/2`、`get_assoc/3`、`put_assoc/4`、`del_assoc/4`、`assoc_to_list/2`、`assoc_to_keys/2` |
+| `ordsets` | `list_to_ord_set/2`、`ord_union/3`、`ord_intersection/3`、`ord_subtract/3`、`ord_memberchk/2`、`ord_subset/2` |
 
 `length/2` も `lists` に入っていますが、組み込みでもあるので、第 7 章のようにライブラリなしで使えます。`atom_length/2` や `forall/2` のような組み込みの述語は、モジュール `system` にあり、どのモジュールからも使えます。
 

@@ -188,6 +188,18 @@ the module of the goal. `dynamic/1`, `discontiguous/1`, `multifile/1`, `op/3`, `
 | `op/3` | `:- op(Priority, Type, Name).` defines an operator for the rest of the file. |
 | `char_conversion/2` | `:- char_conversion(A, B).` reads the character A as B, when the flag `char_conversion` is `on`. |
 | `set_prolog_flag/2` | `:- set_prolog_flag(Flag, Value).` sets a flag. |
+| `if/1` | `:- if(Goal).` opens a conditional block. When `Goal` succeeds, the lines after it are read, and otherwise they are skipped up to the next `elif`, `else` or `endif` of the block. `Goal` runs once, as any other directive does. |
+| `elif/1` | `:- elif(Goal).` reads the lines after it when no earlier branch of the block was read and `Goal` succeeds. When an earlier branch was read, `Goal` is not called. |
+| `else/0` | `:- else.` reads the lines after it when no earlier branch of the block was read. |
+| `endif/0` | `:- endif.` closes the block. Each `if` is closed by an `endif` in the same file. |
+
+A skipped part is still read term by term, so that each `if` and `endif` in it pairs up, but none of its directives
+runs and none of its clauses is added. A syntax error in a skipped part is passed over without a message, so a branch
+can hold the syntax of another Prolog system; a syntax error in a part that is read stops the load, as anywhere else.
+An `elif`, `else` or `endif` with no open `if`, an `elif` after `else`, a second `else`, and an `if` still open at the
+end of the file stop the load, also inside a skipped part. If `Goal` fails, the branch is skipped; if it raises an
+error, the file does not load. These four directives are not in ISO and are not predicates: `?- if(true).` at the
+prompt raises `existence_error(procedure, if/1)`. `mosac build` runs the conditions too (chapter 13).
 
 Any other `:- Goal.` runs the goal once at that point of the file. If it fails or raises an error, the file does not
 load.
@@ -501,15 +513,6 @@ in `maplist(atom_length, [ab, c], L)`, and each call adds the elements as its la
 | `include/3` | `include(G, L, In)`: In is the list of the elements of L for which G succeeds. |
 | `exclude/3` | `exclude(G, L, Out)`: Out is the list of the elements of L for which G fails. |
 
-### `library(between)`
-
-<!-- predicates: between -->
-| Predicate | What it does |
-| --- | --- |
-| `between/3` | `between(Low, High, X)`: X is each integer from Low to High in turn. |
-| `succ/2` | `succ(X, Y)`: Y is X + 1, with X 0 or more. |
-| `plus/3` | `plus(X, Y, Z)`: Z is X + Y. Any one of the three may be unbound. |
-
 ### `library(assoc)`
 
 <!-- predicates: assoc -->
@@ -525,14 +528,23 @@ in `maplist(atom_length, [ab, c], L)`, and each call adds the elements as its la
 | `gen_assoc/3` | `gen_assoc(Key, Assoc, Value)`: each Key-Value pair in turn, in ascending order of key. A ground Key is looked up instead, with no choice point. |
 | `put_assoc/4` | `put_assoc(Key, Assoc0, Value, Assoc)`: Assoc is Assoc0 with Value stored under Key, replacing the old value. |
 | `del_assoc/4` | `del_assoc(Key, Assoc0, Value, Assoc)`: Value is the value under Key, and Assoc is Assoc0 without that pair. Fails if Key is absent. |
-| `del_min_assoc/4` | `del_min_assoc(Assoc0, Key, Value, Assoc)`: Key-Value is the pair with the smallest key, and Assoc is Assoc0 without it. Fails on an empty Assoc0 (the SWI-Prolog manual leaves that case undetermined). |
-| `del_max_assoc/4` | `del_max_assoc(Assoc0, Key, Value, Assoc)`: the same for the largest key. Fails on an empty Assoc0 (the SWI-Prolog manual leaves that case undetermined). |
+| `del_min_assoc/4` | `del_min_assoc(Assoc0, Key, Value, Assoc)`: Key-Value is the pair with the smallest key, and Assoc is Assoc0 without it. Fails on an empty Assoc0 (the SWI-Prolog manual notes that there it succeeds without binding anything). |
+| `del_max_assoc/4` | `del_max_assoc(Assoc0, Key, Value, Assoc)`: the same for the largest key. Fails on an empty Assoc0 (the SWI-Prolog manual notes that there it succeeds without binding anything). |
 | `assoc_to_list/2` | `assoc_to_list(Assoc, Pairs)`: Pairs is the list of the Key-Value pairs, in ascending order of key. |
 | `assoc_to_keys/2` | `assoc_to_keys(Assoc, Keys)`: Keys is the list of the keys, in ascending order. |
 | `assoc_to_values/2` | `assoc_to_values(Assoc, Values)`: Values is the list of the values, in the order of their keys. |
 | `is_assoc/1` | `is_assoc(Assoc)`: Assoc is a valid AVL tree: keys rise strictly, each balance mark matches the heights, and the heights of the two sides differ by at most 1. |
 | `map_assoc/2` | `map_assoc(G, Assoc)`: the goal G succeeds for every value, called as `call(G, Value)` in key order. |
 | `map_assoc/3` | `map_assoc(G, Assoc0, Assoc)`: Assoc has the same keys as Assoc0, and each value is the Y for which `call(G, X, Y)` holds, X being the value in Assoc0. |
+
+### `library(between)`
+
+<!-- predicates: between -->
+| Predicate | What it does |
+| --- | --- |
+| `between/3` | `between(Low, High, X)`: X is each integer from Low to High in turn. |
+| `succ/2` | `succ(X, Y)`: Y is X + 1, with X 0 or more. |
+| `plus/3` | `plus(X, Y, Z)`: Z is X + Y. Any one of the three may be unbound. |
 
 ### `library(format)`
 
@@ -601,7 +613,7 @@ true.
 | `ord_range/4` | `ord_range(Set, Low, High, Range)`: Range holds the elements of Set from Low to High, both ends included. |
 | `ord_subset/2` | `ord_subset(Sub, Super)`: every element of Sub is in Super. |
 | `ord_subtract/3` | `ord_subtract(Set, Remove, Rest)`: Rest holds the elements of Set that are not in Remove. |
-| `ord_union/2` | `ord_union(Sets, Union)`: Union holds the elements of every set of the list Sets. |
+| `ord_union/2` | `ord_union(Sets, Union)`: Union holds the elements that are in at least one set of the list Sets. |
 | `ord_union/3` | `ord_union(Set1, Set2, Union)`: Union holds the elements of either set. |
 | `ord_union/4` | `ord_union(Set1, Set2, Union, New)`: as `ord_union/3`, and New is `ord_subtract(Set2, Set1, New)`. |
 | `ord_symdiff/3` | `ord_symdiff(Set1, Set2, Difference)`: Difference holds the elements that are in exactly one of the two sets. For example `ord_symdiff([1, 2], [2, 3], X)` gives `X = [1, 3]`. |
@@ -614,7 +626,7 @@ true.
 | `pairs_keys_values/3` | `pairs_keys_values(Pairs, Keys, Values)`: Pairs is the list of `Key-Value` terms whose keys are Keys and whose values are Values. Works in either direction. |
 | `pairs_keys/2` | `pairs_keys(Pairs, Keys)`: Keys is the list of the keys of Pairs. |
 | `pairs_values/2` | `pairs_values(Pairs, Values)`: Values is the list of the values of Pairs. |
-| `group_pairs_by_key/2` | `group_pairs_by_key(Pairs, Groups)`: joins neighbouring pairs whose keys are `==` into one `Key-Values` term. Sort Pairs first to gather every key. |
+| `group_pairs_by_key/2` | `group_pairs_by_key(Pairs, Groups)`: joins neighbouring pairs whose keys are `==` into one `Key-Values` term. To gather every key, sort Pairs first with `keysort/2`, which keeps pairs that are the same, unlike `sort/2`. |
 | `transpose_pairs/2` | `transpose_pairs(Pairs, Transposed)`: swaps key and value in each pair and orders the result by the new keys with `keysort/2`. |
 | `map_list_to_pairs/3` | `map_list_to_pairs(F, List, Pairs)`: Pairs holds `Key-X` for each X of List, where `call(F, X, Key)` gives the key. |
 

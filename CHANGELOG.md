@@ -2,6 +2,58 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Added
+
+- The conditional compilation directives `:- if(Goal)`, `:- elif(Goal)`, `:- else` and `:- endif`, which are not in
+  ISO/IEC 13211-1 and follow the SWI-Prolog manual (4.3.1.2 Conditional compilation). They work on every path that
+  reads a text: the command line, `consult/1`, `[File]`, `use_module/1,2` and `ensure_loaded/1` as directives and as
+  goals, `include/1`, the libraries, `Machine::load_program` and the load at start-up of an executable built by
+  `mosac build`. A condition is solved once in the module being loaded, as a directive `:- G` is, and one that
+  raises an error fails the load, as such a directive does (SWI-Prolog prints the error and takes the condition as
+  false). A skipped part is read term by term, so that the blocks nested in it pair up, but none of its directives
+  runs and none of its clauses is added, and a syntax error in it is passed over without a message. Each `if` is
+  closed by an `endif` in the same file; an `elif`, `else` or `endif` with no open `if`, an `elif` after `else`, a
+  second `else` and an `if` left open fail the load, also inside a skipped part. Chapter 14 of the
+  [manual](docs/manual/en/14-reference.md) describes them.
+- `mosac build` evaluates the conditions at build time, to choose the clauses to translate and the files to bundle,
+  and the executable evaluates them again at start-up, so it takes the branches that `mosa` would take. When the two
+  take different branches, the result is still `mosa`'s, only slower, since the predicates that do not match run
+  as IR. A condition that raises an error or calls `halt/0,1` at build time only means that its branch is not taken
+  there. A library named literally in a `use_module` or `reexport` of any branch, or of a condition, is bundled when
+  it exists. An exported predicate with no definition is a warning, not an error, in a module whose file has a
+  branch not taken at build time. Chapter 13 of the [manual](docs/manual/en/13-mosac.md) describes this.
+- The libraries `library(pairs)` (6 predicates, such as `pairs_keys_values/3` and `group_pairs_by_key/2`),
+  `library(assoc)` (18 predicates on an AVL tree, such as `list_to_assoc/2`, `get_assoc/3` and `put_assoc/4`) and
+  `library(ordsets)` (20 predicates, such as `ord_union/3`, `ord_subtract/3` and `ord_memberchk/2`). They are written
+  anew, and their names, argument order and documented errors follow the SWI-Prolog manual. `del_min_assoc/4` and
+  `del_max_assoc/4` fail on an empty assoc, where the SWI-Prolog manual notes that they succeed without binding
+  anything. Chapter 14 of the manual lists every predicate, and `mosac build` bundles them as it does the other
+  libraries.
+- For developers, the library column of `mosatest --suite` counts the 39 cases of the suite directory
+  `directives/conditional_compilation`, and all of them pass: 600 of the 605 cases of that column pass. The ISO
+  column stays at 2291 of 2326.
+
+### Changed
+
+- `:- if(G)`, `:- elif(G)`, `:- else` and `:- endif` are now conditional directives, and no longer call a predicate
+  `if/1`, `elif/1`, `else/0` or `endif/0` that the program defines, as Mosa 0.3.0 did. Other arities are general
+  directives as before, so `:- if(C, T, E)` still calls the built-in `if/3`. The four are not goals:
+  `?- if(true).` at the prompt still raises `existence_error(procedure, if/1)`.
+
+### Known limits
+
+The known limits of 0.3.0 still hold. Three come with conditional compilation under `mosac`:
+
+- A file named by a plain path (`include(foo)`, `use_module(foo)`, `ensure_loaded(foo)`) inside a branch not taken
+  at build time is not bundled. If the executable takes that branch at start-up, it reads the file from the working
+  directory, as it does for a file that a goal load names by a plain path.
+- The conditions run at build time too, so a condition that writes output writes it in the output of `mosac build`
+  as well.
+- A call to a predicate that only a branch not taken at build time defines gets the undefined-call warning of
+  `mosac`.
+
 ## 0.3.0 (2026-11-16)
 
 The release of phase 12 (module completion): `use_module/1,2` and `ensure_loaded/1` can be called as goals, at the

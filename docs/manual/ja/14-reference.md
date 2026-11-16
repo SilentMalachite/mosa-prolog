@@ -169,6 +169,12 @@ X = あいう.
 | `op/3` | `:- op(Priority, Type, Name).` は、ファイルの残りで使う演算子を定義します。 |
 | `char_conversion/2` | `:- char_conversion(A, B).` は、フラグ `char_conversion` が `on` のとき、文字 A を B として読みます。 |
 | `set_prolog_flag/2` | `:- set_prolog_flag(Flag, Value).` はフラグを設定します。 |
+| `if/1` | `:- if(Goal).` は条件の塊を開きます。`Goal` が成功すればその後ろの行を読み、そうでなければ、塊の次の `elif`、`else`、`endif` まで読み飛ばします。`Goal` は、ほかのディレクティブと同じく 1 回だけ実行します。 |
+| `elif/1` | `:- elif(Goal).` は、塊のそれまでの分岐をどれも読んでおらず、`Goal` が成功すれば、その後ろの行を読みます。前の分岐を読んでいれば、`Goal` は呼びません。 |
+| `else/0` | `:- else.` は、塊のそれまでの分岐をどれも読んでいなければ、その後ろの行を読みます。 |
+| `endif/0` | `:- endif.` は塊を閉じます。どの `if` も、同じファイルの `endif` で閉じます。 |
+
+読み飛ばす部分も項ごとに読むので、中の `if` と `endif` も対になります。しかし、そのディレクティブはどれも実行せず、節も足しません。読み飛ばす部分の構文の誤りは、何も出さずに読み飛ばします。ですから、分岐にほかの Prolog の処理系の構文を書けます。読む部分の構文の誤りは、ほかの場所と同じく読み込みを止めます。`if` の無い `elif`、`else`、`endif`、`else` の後ろの `elif`、2 つ目の `else`、ファイルの終わりで閉じていない `if` は、読み飛ばす部分の中でも読み込みを止めます。`Goal` が失敗すれば、その分岐を読み飛ばします。`Goal` がエラーを起こすと、ファイルは読み込まれません。この 4 つのディレクティブは ISO になく、述語でもありません。`?- if(true).` とプロンプトで打つと `existence_error(procedure, if/1)` になります。`mosac build` も条件を実行します（第 13 章）。
 
 ほかの `:- Goal.` は、ファイルのその場所でゴールを 1 回実行します。ゴールが失敗するかエラーを起こすと、ファイルは読み込まれません。
 
@@ -473,15 +479,6 @@ X = あいう.
 | `include/3` | `include(G, L, In)`: In は、L の要素のうち G が成功するもののリストです。 |
 | `exclude/3` | `exclude(G, L, Out)`: Out は、L の要素のうち G が失敗するもののリストです。 |
 
-### `library(between)`
-
-<!-- predicates: between -->
-| 述語 | すること |
-| --- | --- |
-| `between/3` | `between(Low, High, X)`: X は Low から High までの整数で、1 つずつ答えます。 |
-| `succ/2` | `succ(X, Y)`: Y は X + 1 です。X は 0 以上です。 |
-| `plus/3` | `plus(X, Y, Z)`: Z は X + Y です。3 つのうちどれか 1 つは値がなくてもかまいません。 |
-
 ### `library(assoc)`
 
 <!-- predicates: assoc -->
@@ -497,14 +494,23 @@ X = あいう.
 | `gen_assoc/3` | `gen_assoc(Key, Assoc, Value)`: 鍵の昇順に、Key-Value の組を 1 つずつ返します。Key が基底なら、引くだけで選択点を残しません。 |
 | `put_assoc/4` | `put_assoc(Key, Assoc0, Value, Assoc)`: Assoc は、Assoc0 の Key のところに Value を入れたものです。古い値は置き換わります。 |
 | `del_assoc/4` | `del_assoc(Key, Assoc0, Value, Assoc)`: Value は Key のところにある値で、Assoc は、その組を除いた Assoc0 です。Key が無ければ失敗します。 |
-| `del_min_assoc/4` | `del_min_assoc(Assoc0, Key, Value, Assoc)`: Key-Value は鍵が最小の組で、Assoc は、それを除いた Assoc0 です。Assoc0 が空なら失敗します（SWI-Prolog のマニュアルはこの場合の結果を決めていません）。 |
-| `del_max_assoc/4` | `del_max_assoc(Assoc0, Key, Value, Assoc)`: 鍵が最大の組について同じことをします。Assoc0 が空なら失敗します（SWI-Prolog のマニュアルはこの場合の結果を決めていません）。 |
+| `del_min_assoc/4` | `del_min_assoc(Assoc0, Key, Value, Assoc)`: Key-Value は鍵が最小の組で、Assoc は、それを除いた Assoc0 です。Assoc0 が空なら失敗します（SWI-Prolog のマニュアルは注意書きで、この場合は何も束縛せずに成功すると書いています）。 |
+| `del_max_assoc/4` | `del_max_assoc(Assoc0, Key, Value, Assoc)`: 鍵が最大の組について同じことをします。Assoc0 が空なら失敗します（SWI-Prolog のマニュアルは注意書きで、この場合は何も束縛せずに成功すると書いています）。 |
 | `assoc_to_list/2` | `assoc_to_list(Assoc, Pairs)`: Pairs は、Key-Value の組を鍵の昇順に並べたリストです。 |
 | `assoc_to_keys/2` | `assoc_to_keys(Assoc, Keys)`: Keys は、鍵を昇順に並べたリストです。 |
 | `assoc_to_values/2` | `assoc_to_values(Assoc, Values)`: Values は、値を鍵の順に並べたリストです。 |
 | `is_assoc/1` | `is_assoc(Assoc)`: Assoc は正しい AVL 木です。鍵が厳密に昇り、各節の Balance が高さと合い、左右の高さの差が 1 以下です。 |
 | `map_assoc/2` | `map_assoc(G, Assoc)`: すべての値について、鍵の順に `call(G, Value)` が成り立ちます。 |
 | `map_assoc/3` | `map_assoc(G, Assoc0, Assoc)`: Assoc は Assoc0 と同じ鍵を持ち、各値は、Assoc0 の値 X に対して `call(G, X, Y)` が成り立つ Y です。 |
+
+### `library(between)`
+
+<!-- predicates: between -->
+| 述語 | すること |
+| --- | --- |
+| `between/3` | `between(Low, High, X)`: X は Low から High までの整数で、1 つずつ答えます。 |
+| `succ/2` | `succ(X, Y)`: Y は X + 1 です。X は 0 以上です。 |
+| `plus/3` | `plus(X, Y, Z)`: Z は X + Y です。3 つのうちどれか 1 つは値がなくてもかまいません。 |
 
 ### `library(format)`
 
@@ -544,7 +550,7 @@ true.
 <!-- predicates: ordsets -->
 | 述語 | すること |
 | --- | --- |
-| `is_ordset/1` | `is_ordset(Set)`: Set は、要素が標準順序で厳密に昇る、きちんとしたリストです。 |
+| `is_ordset/1` | `is_ordset(Set)`: Set は、要素が標準順序で厳密に昇る、真のリストです。 |
 | `ord_empty/1` | `ord_empty(Set)`: Set は空の順序集合 `[]` です。 |
 | `ord_seteq/2` | `ord_seteq(Set1, Set2)`: 2 つの集合が等しい（`==`）ことを確かめます。 |
 | `list_to_ord_set/2` | `list_to_ord_set(List, Set)`: Set は、List を並べ替えて重なりを除いたものです。 |
@@ -573,7 +579,7 @@ true.
 | `pairs_keys_values/3` | `pairs_keys_values(Pairs, Keys, Values)`: Pairs は、鍵が Keys、値が Values の `Key-Value` のリストです。どちら向きにも使えます。 |
 | `pairs_keys/2` | `pairs_keys(Pairs, Keys)`: Keys は、Pairs の鍵のリストです。 |
 | `pairs_values/2` | `pairs_values(Pairs, Values)`: Values は、Pairs の値のリストです。 |
-| `group_pairs_by_key/2` | `group_pairs_by_key(Pairs, Groups)`: 鍵が `==` で隣り合う組を、1 つの `Key-Values` にまとめます。鍵をすべて集めるには、先に Pairs を並べ替えます。 |
+| `group_pairs_by_key/2` | `group_pairs_by_key(Pairs, Groups)`: 鍵が `==` で隣り合う組を、1 つの `Key-Values` にまとめます。鍵をすべて集めるには、先に Pairs を `keysort/2` で並べ替えます。`keysort/2` は、`sort/2` と違って同じ組も残します。 |
 | `transpose_pairs/2` | `transpose_pairs(Pairs, Transposed)`: 各組の鍵と値を入れ替え、新しい鍵で `keysort/2` した結果にします。 |
 | `map_list_to_pairs/3` | `map_list_to_pairs(F, List, Pairs)`: Pairs は、List の各 X について `Key-X` を並べたものです。鍵は `call(F, X, Key)` で求めます。 |
 

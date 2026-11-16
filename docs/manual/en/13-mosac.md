@@ -169,6 +169,20 @@ once, and prints nothing.
 An executable picks the language of its messages as `mosa` does (chapter 11): from `LANG`, or, when `LANG` is not
 set, from the Windows display language. So the warning of step 8 is in Japanese when `LANG` starts with `ja`.
 
+A file can choose which of its lines to read with the directives `:- if(Goal)`, `:- elif(Goal)`, `:- else` and
+`:- endif` (chapter 14). `mosac build` runs these conditions while it builds, to choose the clauses to translate and
+the files to put in the executable, and the executable runs them again when it starts, so it reads the same branches
+as `mosa` would at that moment. When the two runs read different branches, the program still gives the results of
+`mosa`, only more slowly. Three things come from this:
+
+- A file named without `library(…)`, as in `:- use_module(helper).`, inside a branch not read while building is not
+  put in the executable. If the executable reads that branch when it starts, it opens the file from the current
+  folder.
+- The conditions run while building, so a condition that prints something prints it in the output of `mosac build`
+  too.
+- A call to a predicate that only a branch not read while building defines gets the warning of `mosac build` that
+  the predicate is not defined. The executable still runs it when it reads that branch.
+
 `mosac` looks for a compiler in the usual places: `clang++` on macOS, `g++` and then `clang++` on Linux, and the
 compiler of Visual Studio on Windows. After you change a file, run `mosac build` again, and it takes a second or two
 again. For a program that has not changed, it reuses what is in `.mosac-cache` and is done almost at once.
