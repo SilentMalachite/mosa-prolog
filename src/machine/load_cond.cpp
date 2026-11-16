@@ -10,7 +10,7 @@
 // 選択 A）。
 // テスト: tests/pl/cond_compile.pl、tests/pl/japanese.pl、tests/cpp/cond_compile_test.cpp、翻訳の読み込みは
 //         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_build_failure、check_cond_failure_chain、
-//         check_cond_failure_prepared、check_cond_failure_clause、check_cond_log）と
+//         check_cond_failure_prepared、check_cond_failure_clause、check_cond_failure_export、check_cond_log）と
 //         tests/mosac/standalone_test.cmake（cond_*）
 #include "load_internal.hpp"
 
