@@ -561,7 +561,7 @@ true.
 | `ord_intersection/4` | `ord_intersection(Set1, Set2, Intersection, Difference)`: `ord_intersection/3` と同じで、Difference は `ord_subtract(Set2, Set1, Difference)` です。 |
 | `ord_add_element/3` | `ord_add_element(Set, Element, NewSet)`: NewSet は、Set に Element を加えたものです。 |
 | `ord_del_element/3` | `ord_del_element(Set, Element, NewSet)`: NewSet は、Set から Element を除いたものです。 |
-| `ord_selectchk/3` | `ord_selectchk(Element, Set, Rest)`: Rest は、Set から Element を除いたものです。Set に Element が無ければ失敗します。 |
+| `ord_selectchk/3` | `ord_selectchk(Element, Set, Rest)`: Rest は、Set から Element を除いたものです。Set に Element が無ければ失敗します。2 つの集合は、どちらを束縛しないでおいてもかまいません。Set が束縛されていなければ、Set は Rest に Element を加えたものになり、Rest に Element が既にあれば失敗します。 |
 | `ord_memberchk/2` | `ord_memberchk(Element, Set)`: Element が Set にあります（`compare/3` で確かめ、選択点を残しません）。 |
 | `ord_range/4` | `ord_range(Set, Low, High, Range)`: Range は、Set の要素のうち Low から High まで（両端を含む）です。 |
 | `ord_subset/2` | `ord_subset(Sub, Super)`: Sub の要素はすべて Super にあります。 |

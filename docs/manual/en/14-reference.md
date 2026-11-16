@@ -608,7 +608,7 @@ true.
 | `ord_intersection/4` | `ord_intersection(Set1, Set2, Intersection, Difference)`: as `ord_intersection/3`, and Difference is `ord_subtract(Set2, Set1, Difference)`. |
 | `ord_add_element/3` | `ord_add_element(Set, Element, NewSet)`: NewSet is Set with Element added. |
 | `ord_del_element/3` | `ord_del_element(Set, Element, NewSet)`: NewSet is Set without Element. |
-| `ord_selectchk/3` | `ord_selectchk(Element, Set, Rest)`: Rest is Set without Element. Fails if Element is not in Set. |
+| `ord_selectchk/3` | `ord_selectchk(Element, Set, Rest)`: Rest is Set without Element. Fails if Element is not in Set. Either set may be the unbound one: when Set is unbound, Set is Rest with Element added, and the call fails if Element is already in Rest. |
 | `ord_memberchk/2` | `ord_memberchk(Element, Set)`: Element is in Set (a test by `compare/3`, with no choice point). |
 | `ord_range/4` | `ord_range(Set, Low, High, Range)`: Range holds the elements of Set from Low to High, both ends included. |
 | `ord_subset/2` | `ord_subset(Sub, Super)`: every element of Sub is in Super. |

@@ -23,6 +23,10 @@ test(os_del, ord_del_element([a, b, c], b, S), solutions([S = [a, c]])).
 test(os_del_absent, ord_del_element([a, c], b, S), solutions([S = [a, c]])).
 test(os_selectchk, ord_selectchk(b, [a, b, c], R), solutions([R = [a, c]])).
 test(os_selectchk_absent, ord_selectchk(d, [a, b, c], _), fail).
+% Set1 が変数なら、Item を Set2 に差し込んで Set1 を作る（マニュアルの ord_selectchk(+Item, ?Set1, ?Set2)）。
+test(os_selectchk_build, ord_selectchk(b, S, [a, c]), solutions([S = [a, b, c]])).
+test(os_selectchk_build_end, ord_selectchk(d, S, [a, c]), solutions([S = [a, c, d]])).
+test(os_selectchk_build_present, ord_selectchk(a, _, [a, c]), fail).
 test(os_memberchk, ord_memberchk(b, [a, b, c]), true).
 test(os_memberchk_not, ord_memberchk(d, [a, b, c]), fail).
 test(os_range, ord_range([1, 3, 5, 7], 2, 6, R), solutions([R = [3, 5]])).

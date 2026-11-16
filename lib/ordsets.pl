@@ -84,15 +84,39 @@ ord_add_element(Set, Element, NewSet) :-
 ord_del_element(Set, Element, NewSet) :-
     ord_subtract(Set, [Element], NewSet).
 
-% 見つからなければ失敗する。要素より大きいところまで進んだら探すのをやめる。
+% マニュアルの性質 ord_memberchk(X, Set) かつ \+ ord_memberchk(X, Rest) から、Set が変数なら Rest に要素を
+% 差し込んで Set を作り、Rest に要素が既にあれば失敗する。Set を [Head|Tail] と束縛してから比べると、変数の Head
+% より要素がいつも大きくなって作れないので、先に分ける。
 ord_selectchk(Element, Set, Rest) :-
+    (   var(Set)
+    ->  insert_absent(Rest, Element, Set)
+    ;   select_present(Set, Element, Rest)
+    ).
+
+% 見つからなければ失敗する。要素より大きいところまで進んだら探すのをやめる。
+select_present(Set, Element, Rest) :-
     Set = [Head|Tail],
     compare(Order, Element, Head),
     (   Order = (=)
     ->  Rest = Tail
     ;   Order = (>),
         Rest = [Head|More],
-        ord_selectchk(Element, Tail, More)
+        select_present(Tail, Element, More)
+    ).
+
+% Rest も変数なら作る集合が決まらないので失敗する。要素と同じものに当たれば失敗する。
+insert_absent(Rest, Element, Set) :-
+    nonvar(Rest),
+    (   Rest == []
+    ->  Set = [Element]
+    ;   Rest = [Head|Tail],
+        compare(Order, Element, Head),
+        (   Order = (<)
+        ->  Set = [Element|Rest]
+        ;   Order = (>),
+            Set = [Head|More],
+            insert_absent(Tail, Element, More)
+        )
     ).
 
 ord_memberchk(Element, Set) :-
