@@ -510,6 +510,30 @@ in `maplist(atom_length, [ab, c], L)`, and each call adds the elements as its la
 | `succ/2` | `succ(X, Y)`: Y is X + 1, with X 0 or more. |
 | `plus/3` | `plus(X, Y, Z)`: Z is X + Y. Any one of the three may be unbound. |
 
+### `library(assoc)`
+
+<!-- predicates: assoc -->
+| Predicate | What it does |
+| --- | --- |
+| `empty_assoc/1` | `empty_assoc(Assoc)`: Assoc is an empty association (an AVL tree). |
+| `list_to_assoc/2` | `list_to_assoc(Pairs, Assoc)`: Assoc holds the Key-Value pairs of the list. Raises `domain_error(unique_key_pairs, Pairs)` when two pairs share a key. |
+| `ord_list_to_assoc/2` | `ord_list_to_assoc(Pairs, Assoc)`: as `list_to_assoc/2` for pairs whose keys rise strictly in the standard order. Raises `domain_error(key_ordered_pairs, Pairs)` otherwise. |
+| `get_assoc/3` | `get_assoc(Key, Assoc, Value)`: Value is the value stored under Key. Fails if there is none. |
+| `get_assoc/5` | `get_assoc(Key, Assoc0, Old, Assoc, New)`: Old is the value under Key in Assoc0, and Assoc is Assoc0 with New stored there. Fails if Key is absent. |
+| `max_assoc/3` | `max_assoc(Assoc, Key, Value)`: Key-Value is the pair with the largest key. Fails on an empty Assoc. |
+| `min_assoc/3` | `min_assoc(Assoc, Key, Value)`: Key-Value is the pair with the smallest key. Fails on an empty Assoc. |
+| `gen_assoc/3` | `gen_assoc(Key, Assoc, Value)`: each Key-Value pair in turn, in ascending order of key. A ground Key is looked up instead, with no choice point. |
+| `put_assoc/4` | `put_assoc(Key, Assoc0, Value, Assoc)`: Assoc is Assoc0 with Value stored under Key, replacing the old value. |
+| `del_assoc/4` | `del_assoc(Key, Assoc0, Value, Assoc)`: Value is the value under Key, and Assoc is Assoc0 without that pair. Fails if Key is absent. |
+| `del_min_assoc/4` | `del_min_assoc(Assoc0, Key, Value, Assoc)`: Key-Value is the pair with the smallest key, and Assoc is Assoc0 without it. Fails on an empty Assoc0 (the SWI-Prolog manual leaves that case undetermined). |
+| `del_max_assoc/4` | `del_max_assoc(Assoc0, Key, Value, Assoc)`: the same for the largest key. Fails on an empty Assoc0 (the SWI-Prolog manual leaves that case undetermined). |
+| `assoc_to_list/2` | `assoc_to_list(Assoc, Pairs)`: Pairs is the list of the Key-Value pairs, in ascending order of key. |
+| `assoc_to_keys/2` | `assoc_to_keys(Assoc, Keys)`: Keys is the list of the keys, in ascending order. |
+| `assoc_to_values/2` | `assoc_to_values(Assoc, Values)`: Values is the list of the values, in the order of their keys. |
+| `is_assoc/1` | `is_assoc(Assoc)`: Assoc is a valid AVL tree: keys rise strictly, each balance mark matches the heights, and the heights of the two sides differ by at most 1. |
+| `map_assoc/2` | `map_assoc(G, Assoc)`: the goal G succeeds for every value, called as `call(G, Value)` in key order. |
+| `map_assoc/3` | `map_assoc(G, Assoc0, Assoc)`: Assoc has the same keys as Assoc0, and each value is the Y for which `call(G, X, Y)` holds, X being the value in Assoc0. |
+
 ### `library(format)`
 
 The format text holds directives that start with `~`. `~w` writes an argument as `write/1`, `~p` as `print/1` (which

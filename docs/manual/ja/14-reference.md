@@ -482,6 +482,30 @@ X = あいう.
 | `succ/2` | `succ(X, Y)`: Y は X + 1 です。X は 0 以上です。 |
 | `plus/3` | `plus(X, Y, Z)`: Z は X + Y です。3 つのうちどれか 1 つは値がなくてもかまいません。 |
 
+### `library(assoc)`
+
+<!-- predicates: assoc -->
+| 述語 | すること |
+| --- | --- |
+| `empty_assoc/1` | `empty_assoc(Assoc)`: Assoc は空の連想配列（AVL 木）です。 |
+| `list_to_assoc/2` | `list_to_assoc(Pairs, Assoc)`: Assoc は、リストの Key-Value の組を持ちます。2 つの組が同じ鍵を持つと `domain_error(unique_key_pairs, Pairs)` になります。 |
+| `ord_list_to_assoc/2` | `ord_list_to_assoc(Pairs, Assoc)`: 鍵が標準順序で厳密に昇る組に対する `list_to_assoc/2` です。そうでなければ `domain_error(key_ordered_pairs, Pairs)` になります。 |
+| `get_assoc/3` | `get_assoc(Key, Assoc, Value)`: Value は、Key のところにある値です。無ければ失敗します。 |
+| `get_assoc/5` | `get_assoc(Key, Assoc0, Old, Assoc, New)`: Old は Assoc0 の Key の値で、Assoc は、そこに New を入れた Assoc0 です。Key が無ければ失敗します。 |
+| `max_assoc/3` | `max_assoc(Assoc, Key, Value)`: Key-Value は、鍵が最大の組です。Assoc が空なら失敗します。 |
+| `min_assoc/3` | `min_assoc(Assoc, Key, Value)`: Key-Value は、鍵が最小の組です。Assoc が空なら失敗します。 |
+| `gen_assoc/3` | `gen_assoc(Key, Assoc, Value)`: 鍵の昇順に、Key-Value の組を 1 つずつ返します。Key が基底なら、引くだけで選択点を残しません。 |
+| `put_assoc/4` | `put_assoc(Key, Assoc0, Value, Assoc)`: Assoc は、Assoc0 の Key のところに Value を入れたものです。古い値は置き換わります。 |
+| `del_assoc/4` | `del_assoc(Key, Assoc0, Value, Assoc)`: Value は Key のところにある値で、Assoc は、その組を除いた Assoc0 です。Key が無ければ失敗します。 |
+| `del_min_assoc/4` | `del_min_assoc(Assoc0, Key, Value, Assoc)`: Key-Value は鍵が最小の組で、Assoc は、それを除いた Assoc0 です。Assoc0 が空なら失敗します（SWI-Prolog のマニュアルはこの場合の結果を決めていません）。 |
+| `del_max_assoc/4` | `del_max_assoc(Assoc0, Key, Value, Assoc)`: 鍵が最大の組について同じことをします。Assoc0 が空なら失敗します（SWI-Prolog のマニュアルはこの場合の結果を決めていません）。 |
+| `assoc_to_list/2` | `assoc_to_list(Assoc, Pairs)`: Pairs は、Key-Value の組を鍵の昇順に並べたリストです。 |
+| `assoc_to_keys/2` | `assoc_to_keys(Assoc, Keys)`: Keys は、鍵を昇順に並べたリストです。 |
+| `assoc_to_values/2` | `assoc_to_values(Assoc, Values)`: Values は、値を鍵の順に並べたリストです。 |
+| `is_assoc/1` | `is_assoc(Assoc)`: Assoc は正しい AVL 木です。鍵が厳密に昇り、各節の Balance が高さと合い、左右の高さの差が 1 以下です。 |
+| `map_assoc/2` | `map_assoc(G, Assoc)`: すべての値について、鍵の順に `call(G, Value)` が成り立ちます。 |
+| `map_assoc/3` | `map_assoc(G, Assoc0, Assoc)`: Assoc は Assoc0 と同じ鍵を持ち、各値は、Assoc0 の値 X に対して `call(G, X, Y)` が成り立つ Y です。 |
+
 ### `library(format)`
 
 書式のテキストには、`~` で始まる指示を書きます。`~w` は引数を `write/1` のように、`~p` は `print/1` のように（自分で書いた `portray/1` を呼びます）、`~q` は `writeq/1` のように、`~k` は `write_canonical/1` のように書きます。`~W` は項と書き出しの選択肢のリストの 2 つの引数をとり、項を `write_term/2` のように書きます。`~a` は原子、`~d` は整数、`~f` と `~e` は浮動小数点数、`~s` はコードのリスト、`~c` は文字コードを書き、`~i` は引数を 1 つ読み飛ばします。`~E` は `~e` と同じく浮動小数点数を書き、指数の前の字を `E` にします。`~g` は C の書式 `%g` と同じく浮動小数点数を書きます。`g` の前の数（無ければ 6）が有効数字の桁数で、指数の大きさによって `~f` と `~e` のどちらの形にするかが決まり、小数部の末尾の 0 は書きません。`~G` は同じことをして、指数の前の字を `E` にします。`~D` は `~d` と同じく整数を書き、整数部を 3 桁ごとに `,` で区切ります。`r` の前に数を書いた `~r`（`~16r` など）は、整数をその数を基数（2〜36、数が無ければ 8）として書き、9 より上の桁を英小文字で書きます。`R` の前に数を書いた `~R`（`~16R` など）は、同じことを英大文字でします。`~n` は改行を書き、`~N` は出力がまだ行の頭になければ改行を書きます。`~t` と `~|` は桁をそろえます。`+` の前に数を書いた `~+`（`~10+` など）は、前の桁止め（前の `~|` か `~+` でそろえた桁と、行の頭のうち後のほう）から、その数だけ先の桁にそろえます（数が無ければ 8）。桁は、漢字などの東アジアの幅の広い字を 2 と数えます。`~~` は `~` を書きます。
