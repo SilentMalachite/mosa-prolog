@@ -35,8 +35,7 @@ bool mark_opaque(TranslationLog* log) {
   return true;
 }
 
-FileNote::FileNote(Impl& machine, std::string_view origin, std::string_view source, bool included)
-    : log(machine.translation), included(included) {
+FileNote::FileNote(Impl& machine, std::string_view origin, std::string_view source) : log(machine.translation) {
   if (log == nullptr) return;
   outer = log->current;
   if (origin.empty()) return;
@@ -61,16 +60,16 @@ FileNote::FileNote(Impl& machine, std::string_view origin, std::string_view sour
 
 // include した先で飛ばしたゴールの op/3 は、読み込んだ側のテキストにも効く。取らなかった分岐の印も同じく外へ移す。
 // include でも use_module でも、開いたファイルの取らなかった分岐が、読んだ側のモジュールの公開する述語を定義しうる
-// （計画の「設計との違い」5）。include した先を IR のまま動かすなら、読んだ側も同じにする。公開の未定義の確かめは
-// モジュールを宣言したファイルの印を見るので、部品にだけ付けると、任せた失敗の項が定義するはずの公開述語で止まる
-// （I2 の直し 3 回目の Opus レビュー A1）。use_module で開いたファイルは別の単位なので上げない。
+// （計画の「設計との違い」5）。同じ理由で、開いたファイルを IR のまま動かすなら読んだ側も同じにする。公開の未定義の
+// 確かめはモジュールを宣言したファイルの印を見るので、部品にだけ付けると、任せた失敗の項が定義するはずの公開述語で
+// 止まる（I2 の直し 3 回目の Opus レビュー A1。include でも ensure_loaded でも）。読んだ側が遅くなるだけで、答えは同じ。
 FileNote::~FileNote() {
   if (log == nullptr) return;
   if (log->current < log->files.size() && outer < log->files.size()) {
     const TranslationLog::File& inner = log->files[log->current];
     if (inner.skipped_goal) log->files[outer].skipped_goal = true;
     if (inner.untaken_branch) log->files[outer].untaken_branch = true;
-    if (included && inner.opaque) log->files[outer].opaque = true;
+    if (inner.opaque) log->files[outer].opaque = true;
   }
   log->current = outer;
 }

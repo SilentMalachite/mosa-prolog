@@ -525,7 +525,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   if (!enter_file(machine, origin, scan, guard)) return false;
   const std::uint32_t file = !role.owns ? machine.load_owner : origin.empty() ? 0 : file_number(machine, guard.key);
   const OwnerScope owner{machine, file};
-  const FileNote note{machine, origin, source, !role.owns};
+  const FileNote note{machine, origin, source};
   ModuleScope scope{machine};
   // if と endif の対はテキストごとに閉じる（ADR 0027）。include したテキストも自分の積みを持つ。
   CondFrames cond{machine};

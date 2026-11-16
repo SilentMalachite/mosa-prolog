@@ -204,9 +204,7 @@ void note_site(Impl& machine, PredKey key, std::size_t line);
 struct FileNote {
   TranslationLog* log = nullptr;
   std::size_t outer = 0;
-  // include したテキスト。読んだ側のファイルの一部なので、IR のまま動かす印（opaque）もそこへ上げる。
-  bool included = false;
-  FileNote(Impl& machine, std::string_view origin, std::string_view source, bool included);
+  FileNote(Impl& machine, std::string_view origin, std::string_view source);
   FileNote(const FileNote&) = delete;
   FileNote& operator=(const FileNote&) = delete;
   ~FileNote();

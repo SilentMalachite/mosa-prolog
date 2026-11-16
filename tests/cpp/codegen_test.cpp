@@ -558,18 +558,19 @@ void check_cond_failure_clause() {
   check(!apart.empty() && !has(apart, "pr_1"), "the clauses after a clause apart run as IR");
   const std::string same = cond_unit("cond_clause_dcg_same.pl", skip + branch + "a --> 1.\n:- endif.\nq.\n");
   check(!same.empty() && !has(same, "NativeEntry{"), "a bad grammar rule after a skipped goal leaves the file as IR");
-  // モジュールのファイルが include した部品で任せた失敗は、モジュールのファイルにも印を付ける。公開の未定義の確かめは
-  // モジュールを宣言したファイルを見るので、部品だけに付けると、そこでしか定義しない公開述語で止まった（直し 3 回目の
-  // Opus レビュー A1。節でも、直し 1 回目からの指令でも）。
-  const auto exported = [&](std::string_view name, const std::string& body) {
+  // モジュールのファイルが include か ensure_loaded で読んだ部品で任せた失敗は、モジュールのファイルにも印を付ける。
+  // 公開の未定義の確かめはモジュールを宣言したファイルを見るので、部品だけに付けると、そこでしか定義しない公開述語で
+  // 止まった（直し 3 回目の Opus レビュー A1。節でも、直し 1 回目からの指令でも）。
+  const auto exported = [&](std::string_view name, std::string_view load, const std::string& body) {
     const std::string module = std::string{name} + "_m";
     write_file(dir / (module + "_part.pl"), ":- if(\\+ user:skip).\n" + body + ":- endif.\n");
-    write_file(dir / (module + ".pl"),
-               ":- module(" + module + ", [p/0]).\n:- include(" + module + "_part).\n");
+    write_file(dir / (module + ".pl"), ":- module(" + module + ", [p/0]).\n:- " + std::string{load} + "(" + module +
+                                           "_part).\n");
     (void)cond_unit(std::string{name} + ".pl", skip + ":- use_module(" + module + ").\n");
   };
-  exported("cond_clause_export", "p :- 1.\n");
-  exported("cond_clause_export_dir", ":- include(no_such_part).\n");
+  exported("cond_clause_export", "include", "p :- 1.\n");
+  exported("cond_clause_export_dir", "include", ":- include(no_such_part).\n");
+  exported("cond_clause_export_ensure", "ensure_loaded", "p :- 1.\n");
   write_file(dir / "cond_clause_out_part.pl", "atom_length(a, 1).\n");
   (void)cond_stop("cond_clause_out.pl", skip + ":- include(cond_clause_out_part).\n", "atom_length/2");
   (void)cond_stop("cond_clause_sure.pl", ":- if(true).\natom_length(a, 1).\n:- endif.\n", "atom_length/2");
