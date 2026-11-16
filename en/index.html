@@ -47,7 +47,7 @@
         <a class="btn btn-primary" href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Download the latest release</a>
         <a class="btn btn-secondary" href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/README.md">Read the manual</a>
       </div>
-      <p class="hero-meta">This page describes 0.3.0, released on 16 November 2026; see the <a href="https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.3.0">release notes</a> for what changed. It runs on macOS, Linux and Windows, under the <span class="nw">Apache-2.0</span> license.</p>
+      <p class="hero-meta">This page describes 0.4.0, released on 17 November 2026; see the <a href="https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.4.0">release notes</a> for what changed. It runs on macOS, Linux and Windows, under the <span class="nw">Apache-2.0</span> license.</p>
     </div>
 
     <figure class="column" aria-labelledby="column-cap">
@@ -269,7 +269,7 @@ hello</code></pre>
     </div>
     <div class="record-wrap">
       <table class="record">
-        <caption>Results as of 0.3.0 (16 November 2026)</caption>
+        <caption>Results as of 0.4.0 (17 November 2026)</caption>
         <thead>
           <tr><th scope="col">What is checked</th><th scope="col">Result</th><th scope="col">How</th></tr>
         </thead>
@@ -281,12 +281,12 @@ hello</code></pre>
           </tr>
           <tr>
             <th scope="row">Library predicates outside the standard (<code>format/2</code> and others)</th>
-            <td><span class="big">99.1%</span><span class="sub">561 of 566 pass</span></td>
+            <td><span class="big">99.2%</span><span class="sub">600 of 605 pass</span></td>
             <td>Counted in a separate column of the same suite and kept out of the ISO rate</td>
           </tr>
           <tr>
             <th scope="row"><code>mosa</code> and <code>mosac</code> give the same answers</th>
-            <td><span class="big">0 differences</span><span class="sub">6,681 lines compared byte by byte</span></td>
+            <td><span class="big">0 differences</span><span class="sub">6,867 lines compared byte by byte</span></td>
             <td><code>mosatest --diff</code> compares answers, errors and output (<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md">agreement record</a>)</td>
           </tr>
           <tr>
@@ -297,7 +297,7 @@ hello</code></pre>
         </tbody>
       </table>
     </div>
-    <p class="note prose">Design decisions that are hard to change later are written down as <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.md">architecture decision records (ADRs)</a> before they are implemented; there are 26 as of 0.3.0. What Mosa cannot do yet is listed under known limitations in the <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
+    <p class="note prose">Design decisions that are hard to change later are written down as <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.md">architecture decision records (ADRs)</a> before they are implemented; there are 27 as of 0.4.0. What Mosa cannot do yet is listed under known limitations in the <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.md">CHANGELOG</a>.</p>
   </div>
 </section>
 
@@ -353,14 +353,14 @@ hello</code></pre>
     <ol class="steps">
       <li>
         <h3>Download the package</h3>
-        <p>Download the package for your computer. Each file name below is a direct download of the 0.3.0 package, and the commands that follow are for 0.3.0 too. If a newer release is out, get it from the <a href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Releases page</a> and change the version number to match.</p>
+        <p>Download the package for your computer. Each file name below is a direct download of the 0.4.0 package, and the commands that follow are for 0.4.0 too. If a newer release is out, get it from the <a href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Releases page</a> and change the version number to match.</p>
         <div class="pkg-wrap">
           <table class="pkg">
             <thead><tr><th scope="col">Computer</th><th scope="col">Package</th></tr></thead>
             <tbody>
-              <tr data-os="mac"><td>macOS (Apple Silicon)</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.3.0/mosa-0.3.0-macos-arm64.tar.gz"><code>mosa-0.3.0-macos-arm64.tar.gz</code></a></td></tr>
-              <tr data-os="linux"><td>Linux (x86_64)</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.3.0/mosa-0.3.0-linux-x86_64.tar.gz"><code>mosa-0.3.0-linux-x86_64.tar.gz</code></a></td></tr>
-              <tr data-os="win"><td>Windows (x64)</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.3.0/mosa-0.3.0-windows-x86_64.zip"><code>mosa-0.3.0-windows-x86_64.zip</code></a></td></tr>
+              <tr data-os="mac"><td>macOS (Apple Silicon)</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.4.0/mosa-0.4.0-macos-arm64.tar.gz"><code>mosa-0.4.0-macos-arm64.tar.gz</code></a></td></tr>
+              <tr data-os="linux"><td>Linux (x86_64)</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.4.0/mosa-0.4.0-linux-x86_64.tar.gz"><code>mosa-0.4.0-linux-x86_64.tar.gz</code></a></td></tr>
+              <tr data-os="win"><td>Windows (x64)</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.4.0/mosa-0.4.0-windows-x86_64.zip"><code>mosa-0.4.0-windows-x86_64.zip</code></a></td></tr>
             </tbody>
           </table>
         </div>
@@ -374,7 +374,7 @@ hello</code></pre>
           <div class="code copyable">
             <div class="code-head"><span>Terminal</span></div>
             <pre class="console"><code>$ cd ~
-$ tar -xzf ~/Downloads/mosa-0.3.0-macos-arm64.tar.gz</code></pre>
+$ tar -xzf ~/Downloads/mosa-0.4.0-macos-arm64.tar.gz</code></pre>
           </div>
         </div>
         <div data-os="linux">
@@ -382,14 +382,14 @@ $ tar -xzf ~/Downloads/mosa-0.3.0-macos-arm64.tar.gz</code></pre>
           <div class="code copyable">
             <div class="code-head"><span>Terminal</span></div>
             <pre class="console"><code>$ cd ~
-$ tar -xzf ~/Downloads/mosa-0.3.0-linux-x86_64.tar.gz</code></pre>
+$ tar -xzf ~/Downloads/mosa-0.4.0-linux-x86_64.tar.gz</code></pre>
           </div>
         </div>
         <div data-os="win">
           <span class="os-label">Windows (PowerShell)</span>
           <div class="code copyable">
             <div class="code-head"><span>PowerShell</span></div>
-            <pre><code>Expand-Archive "$HOME\Downloads\mosa-0.3.0-windows-x86_64.zip" -DestinationPath $HOME</code></pre>
+            <pre><code>Expand-Archive "$HOME\Downloads\mosa-0.4.0-windows-x86_64.zip" -DestinationPath $HOME</code></pre>
           </div>
         </div>
       </li>
@@ -399,7 +399,7 @@ $ tar -xzf ~/Downloads/mosa-0.3.0-linux-x86_64.tar.gz</code></pre>
         <p>macOS marks files downloaded with a web browser as quarantined, and does not open unsigned programs that carry the mark. This command removes it from the folder and every file in it.</p>
         <div class="code copyable">
           <div class="code-head"><span>Terminal</span></div>
-          <pre class="console"><code>$ xattr -dr com.apple.quarantine ~/mosa-0.3.0-macos-arm64</code></pre>
+          <pre class="console"><code>$ xattr -dr com.apple.quarantine ~/mosa-0.4.0-macos-arm64</code></pre>
         </div>
       </li>
 
@@ -410,21 +410,21 @@ $ tar -xzf ~/Downloads/mosa-0.3.0-linux-x86_64.tar.gz</code></pre>
           <span class="os-label">macOS (zsh)</span>
           <div class="code copyable">
             <div class="code-head"><span>Terminal (zsh)</span></div>
-            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.3.0-macos-arm64/bin:$PATH"' &gt;&gt; ~/.zshrc</code></pre>
+            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.4.0-macos-arm64/bin:$PATH"' &gt;&gt; ~/.zshrc</code></pre>
           </div>
         </div>
         <div data-os="linux">
           <span class="os-label">Linux (bash)</span>
           <div class="code copyable">
             <div class="code-head"><span>Terminal (bash)</span></div>
-            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.3.0-linux-x86_64/bin:$PATH"' &gt;&gt; ~/.bashrc</code></pre>
+            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.4.0-linux-x86_64/bin:$PATH"' &gt;&gt; ~/.bashrc</code></pre>
           </div>
         </div>
         <div data-os="win">
           <span class="os-label">Windows (PowerShell)</span>
           <div class="code copyable">
             <div class="code-head"><span>PowerShell (type one line at a time)</span></div>
-            <pre><code>$bin = "$HOME\mosa-0.3.0-windows-x86_64\bin"
+            <pre><code>$bin = "$HOME\mosa-0.4.0-windows-x86_64\bin"
 $old = [Environment]::GetEnvironmentVariable("Path", "User")
 [Environment]::SetEnvironmentVariable("Path", "$old;$bin", "User")</code></pre>
           </div>
@@ -437,7 +437,7 @@ $old = [Environment]::GetEnvironmentVariable("Path", "User")
         <div class="code copyable">
           <div class="code-head"><span>Shell</span></div>
           <pre class="console"><code>$ mosa --version
-<span class="o">mosa 0.3.0</span></code></pre>
+<span class="o">mosa 0.4.0</span></code></pre>
         </div>
       </li>
 
