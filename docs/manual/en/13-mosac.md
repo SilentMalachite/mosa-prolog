@@ -176,8 +176,8 @@ as `mosa` would at that moment. When the two runs read different branches, the p
 `mosa`, only more slowly. Three things come from this:
 
 - A file named without `library(…)`, as in `:- use_module(helper).`, inside a branch not read while building is not
-  put in the executable. If the executable reads that branch when it starts, it opens the file from the current
-  folder.
+  put in the executable. If the executable reads that branch when it starts, it opens the file from the working
+  directory.
 - The conditions run while building, so a condition that prints something prints it in the output of `mosac build`
   too.
 - A call to a predicate that only a branch not read while building defines gets the warning of `mosac build` that

@@ -39,8 +39,9 @@ English | [日本語](CHANGELOG.ja.md)
 
 - `:- if(G)`, `:- elif(G)`, `:- else` and `:- endif` are now conditional directives, and no longer call a predicate
   `if/1`, `elif/1`, `else/0` or `endif/0` that the program defines, as Mosa 0.3.0 did. Other arities are general
-  directives as before, so `:- if(C, T, E)` still calls the built-in `if/3`. The four are not goals:
-  `?- if(true).` at the prompt still raises `existence_error(procedure, if/1)`.
+  directives as before, so `:- if(C, T, E)` still calls the built-in `if/3`. The four are not built-in goals: when
+  the program defines no `if/1`, `?- if(true).` at the prompt still raises `existence_error(procedure, if/1)`. A
+  program's own `if/1` can still be called as a goal; only the directive form `:- if(...)` is taken by the loader.
 
 ### Known limits
 
