@@ -20,6 +20,6 @@ Not evaluating the conditions at build time: the translator could not decide whi
 
 ## Consequences
 
-The conditions also run at build time. When the branches differ, the answer is still `mosa`'s, only slower, since the predicates that do not match run as IR; a file named by a plain path in a branch not taken at build time is read from the working directory at run time.
+The conditions also run at build time. When the branches differ, the answer is still `mosa`'s, only slower, since the predicates that do not match run as IR; a file named by a plain path in a branch not taken at build time is read from the working directory at run time. A directive that fails in a branch taken at build time, with a goal skipped before that branch's condition, does not stop the build: the file runs as IR and the load at start-up decides (I2, owner's choice A).
 Task 3 of the phase 13 plan puts the conditions into the loader and Task 4 into `mosac`; iso-notes "Conditional compilation (not in 13211-1)" records the three questions and their decisions.
 Tests: `tests/pl/cond_compile.pl` with files in `tests/pl/fixtures/cond_*.pl`, `tests/cpp/cond_compile_test.cpp`, the `mosac build` ctests of SPEC section 9 row 13, `codegen`, and `mosatest --diff`.

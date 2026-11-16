@@ -173,7 +173,10 @@ A file can choose which of its lines to read with the directives `:- if(Goal)`, 
 `:- endif` (chapter 14). `mosac build` runs these conditions while it builds, to choose the clauses to translate and
 the files to put in the executable, and the executable runs them again when it starts, so it reads the same branches
 as `mosa` would at that moment. When the two runs read different branches, the program still gives the results of
-`mosa`, only more slowly. Three things come from this:
+`mosa`, only more slowly. Because `mosac build` does not run a directive that is an ordinary goal, such as
+`:- assertz(…)`, a directive that fails in a branch read while building, as `:- use_module(helper).` does with no
+`helper.pl`, does not stop `mosac build` when such a goal comes before the branch's condition: the executable decides
+when it starts, as `mosa` does. Three things come from this:
 
 - A file named without `library(…)`, as in `:- use_module(helper).`, inside a branch not read while building is not
   put in the executable. If the executable reads that branch when it starts, it opens the file from the working
