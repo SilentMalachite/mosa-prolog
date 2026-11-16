@@ -168,8 +168,8 @@ class CondFrames {
 
  private:
   // 条件の節 1 つ。outer_skipping は開いた時に外が読み飛ばし中だったこと、taken はこの節で分岐を取ったこと、
-  // seen_else は else を見たこと、reading は今の分岐を読むこと。doubtful は、翻訳の読み込みで最後に解いた条件までに
-  // 飛ばしたゴールがあったこと（起動時にはその条件の答えが違いうる）。
+  // seen_else は else を見たこと、reading は今の分岐を読むこと。doubtful は、翻訳の読み込みで if の条件を解くまでか、
+  // 解いた elif の条件のゴールの中で、飛ばしたゴールがあったこと（起動時にはその条件の答えが違いうる）。
   struct Frame {
     bool outer_skipping = false;
     bool taken = false;

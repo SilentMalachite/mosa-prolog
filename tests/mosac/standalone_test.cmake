@@ -4,7 +4,7 @@
 # 使い方: cmake -DMOSAC=<mosac>
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
-#           cond_goal_mod|cond_goal_lib|cond_build_fail>
+#           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -77,6 +77,15 @@ elseif(CASE STREQUAL "cond_goal_lib")
 elseif(CASE STREQUAL "cond_build_fail")
   set(sources cond_build_fail.pl)
   set(program cond_build_fail)
+elseif(CASE STREQUAL "cond_else_build")
+  set(sources cond_else_build.pl)
+  set(program cond_else_build)
+elseif(CASE STREQUAL "cond_consult_if")
+  set(sources cond_consult_if.pl cond_qf.pl)
+  set(program cond_consult_if)
+elseif(CASE STREQUAL "cond_consult_elif")
+  set(sources cond_consult_elif.pl cond_qf.pl)
+  set(program cond_consult_elif)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -243,6 +252,14 @@ elseif(CASE STREQUAL "cond_build_fail")
   # あるので build は止めず、起動時の読み込みに任せる。起動時は分岐を取らず、mosa と同じく ran を書いて 0 で終わる（I2）。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "ran\n" OR NOT err STREQUAL "")
     fail("a directive that fails in a branch taken only at build time")
+  endif()
+elseif(CASE STREQUAL "cond_else_build" OR CASE STREQUAL "cond_consult_if" OR CASE STREQUAL "cond_consult_elif")
+  # cond_else_build は、if の条件より前に飛ばしたゴールがあり、ビルド時にだけ else を取る。cond_consult_if と
+  # cond_consult_elif は、条件のゴールが読んだ cond_qf.pl の中で飛ばしたゴールが、その条件を起動時に偽にする
+  # （if と elif。前の分岐で飛ばしたゴールは数えないが、elif の条件そのものの中の物は数える）。どれも build は止めず、
+  # 起動時は分岐を取らずに mosa と同じく ran を書く（I2 の直し 1 回目）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "ran\n" OR NOT err STREQUAL "")
+    fail("a failing directive in a branch whose condition a skipped goal can change")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。

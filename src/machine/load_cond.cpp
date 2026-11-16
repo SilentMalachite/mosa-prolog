@@ -75,11 +75,12 @@ void forget_failure(Impl& machine) {
   machine.load_kept = false;
 }
 
-// 翻訳の読み込みがここまでに飛ばしたゴールがあるか。前のファイルの assertz/1 も後ろのファイルの条件を変えうるので、
-// 今のファイル（と読み終えた子）だけを見る mark_opaque より広く、記録の全部のファイルを見る。
-bool skipped_any(const TranslationLog* log) {
-  return log != nullptr && std::any_of(log->files.begin(), log->files.end(),
-                                       [](const TranslationLog::File& file) { return file.skipped_goal; });
+// 翻訳の読み込みで、飛ばしたゴールの印があるファイルの数。前のファイルの assertz/1 も後ろのファイルの条件を変えうる
+// ので、今のファイル（と読み終えた子）だけを見る mark_opaque より広く、記録の全部のファイルを数える。
+std::size_t skipped_files(const TranslationLog* log) {
+  if (log == nullptr) return 0;
+  return static_cast<std::size_t>(std::count_if(log->files.begin(), log->files.end(),
+                                                [](const TranslationLog::File& file) { return file.skipped_goal; }));
 }
 
 }  // namespace
@@ -167,7 +168,7 @@ int CondFrames::open(Cell goal) {
   if (holds < 0) return -1;
   // 飛ばしたゴールは条件を解いた後で見る。条件のゴールが読んだファイル（:- if(consult(f)).）の中で飛ばしたゴールも、
   // 起動時にはその条件の答えを変えうる。
-  push(Frame{false, holds == 1, false, holds == 1, skipped_any(log_)});
+  push(Frame{false, holds == 1, false, holds == 1, skipped_files(log_) > 0});
   return 1;
 }
 
@@ -179,11 +180,14 @@ int CondFrames::next_branch(Cell term, Cell goal) {
     frames_.back().reading = false;
     return 1;
   }
+  // 同じ if の前の分岐で読み飛ばした指令（note_skipped の印）は、この条件を変えない。起動時にその分岐を取れば、この
+  // elif は読まない。だから if の時の値に、この条件のゴールが読んだファイルで新しく付いた印だけを足す。
+  const std::size_t before = skipped_files(log_);
   const int holds = run_condition(machine_, goal);
   if (holds < 0) return -1;
   frames_.back().taken = holds == 1;
   frames_.back().reading = holds == 1;
-  frames_.back().doubtful = skipped_any(log_);
+  frames_.back().doubtful = frames_.back().doubtful || skipped_files(log_) > before;
   return 1;
 }
 
@@ -212,7 +216,7 @@ bool CondFrames::close() {
 }
 
 // 一番内の節だけを見る。外の節の条件はそれより前に解いたので、そこまでに飛ばしたゴールは内の節の doubtful にも入る。
-// else の分岐は、前の条件が全部偽だったから読む。最後に解いた条件の値を持ち越す。分岐の外と、条件を解いた後で
+// else の分岐は、前の条件が全部偽だったから読むので、if と解いた elif の値を持ち越す。分岐の外と、条件を解いた後で
 // 飛ばしたゴールしか無い分岐の失敗は、起動時にも同じく起きるので任せない。
 std::optional<std::size_t> CondFrames::tolerable(Cell term) const {
   if (log_ == nullptr || frames_.empty() || !frames_.back().doubtful || !is_directive(machine_.heap, term)) {
@@ -223,12 +227,17 @@ std::optional<std::size_t> CondFrames::tolerable(Cell term) const {
 
 // ビルド時に取った分岐を起動時には取らないかもしれないので、失敗した指令の後ろも読み続け、判定を起動時の読み込みに
 // 任せる。指令が開いて途中で失敗したファイル（分岐の中の use_module(m) の m）も同じ印にする。半分だけ読んだ節から
-// 生成関数を出さず、定義の無いままの公開で翻訳を止めない。原文の無いテキスト（load_program）は印を付ける所が無いので
-// 任せない。
+// 生成関数を出さず、定義の無いままの公開で翻訳を止めない。そのファイルは準備済みの印も外す（CycleGuard が節を残す
+// 失敗でするのと同じ）。残すと、後ろの分岐の外の use_module が読み直さずに済ませ、起動時にも起きるその失敗を隠す。
+// 原文の無いテキスト（load_program）は印を付ける所が無いので任せない。
 bool CondFrames::tolerate(std::optional<std::size_t> known) {
   if (!known || log_->current >= log_->files.size()) return false;
   log_->files[log_->current].opaque = true;
-  for (std::size_t index = *known; index < log_->files.size(); ++index) log_->files[index].opaque = true;
+  auto& prepared = machine_.prepared;
+  for (std::size_t index = *known; index < log_->files.size(); ++index) {
+    log_->files[index].opaque = true;
+    prepared.erase(std::remove(prepared.begin(), prepared.end(), log_->files[index].key), prepared.end());
+  }
   forget_failure(machine_);
   return true;
 }

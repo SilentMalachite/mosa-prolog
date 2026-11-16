@@ -497,6 +497,23 @@ void check_cond_build_failure() {
   check(has(failed, "pfailpin_0"), "a :- fail. in a branch is skipped at build time");
 }
 
+// I2 の直し 1 回目。同じ if の前の分岐で読み飛ばした指令は、後ろの elif の条件を変えない（起動時にその分岐を取れば、
+// elif は読まない）ので数えない。空の elif を挟んでも else と同じく止める。分岐の中で途中まで読んで失敗したファイルは、
+// 後ろの分岐の外の use_module がもう一度読み、そこで止める。
+void check_cond_failure_chain() {
+  const std::string tail = ":- use_module(no_such_helper).\n:- endif.\n";
+  (void)cond_stop("cond_fail_elif.pl", ":- if(fail).\n:- foo.\n:- elif(true).\n" + tail, "no_such_helper");
+  (void)cond_stop("cond_fail_elif_else.pl", ":- if(fail).\n:- foo.\n:- elif(fail).\n:- else.\n" + tail,
+                  "no_such_helper");
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  write_file(dir / "cond_fail_again_m.pl",
+             ":- module(cond_fail_again_m, [p/0]).\n:- use_module(no_such_helper).\np.\n");
+  (void)cond_stop("cond_fail_again.pl",
+                  ":- dynamic(skip/0).\n:- assertz(skip).\n:- if(\\+ skip).\n:- use_module(cond_fail_again_m).\n"
+                  ":- endif.\n:- use_module(cond_fail_again_m).\n",
+                  "no_such_helper");
+}
+
 // 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
 // 読み終えれば 0 に戻る。
 void check_cond_log() {
@@ -620,6 +637,7 @@ int main() {
   project_opaque();
   check_cond_translation();
   check_cond_build_failure();
+  check_cond_failure_chain();
   check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();
