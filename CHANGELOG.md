@@ -2,7 +2,14 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.4.0 (2026-11-17)
+
+The release of phase 13 (conditional compilation and libraries): the directives `:- if(Goal)`, `:- elif(Goal)`,
+`:- else` and `:- endif` work on every path that reads a text; `mosac build` evaluates their conditions at build time
+and the executable evaluates them again at start-up, so it takes the same branches as `mosa`; and the libraries
+`pairs`, `assoc` and `ordsets` are added. It runs on the same computers as 0.3.0
+([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is checked
+against it.
 
 ### Added
 
