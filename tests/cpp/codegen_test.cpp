@@ -544,11 +544,13 @@ void check_cond_failure_clause() {
   std::filesystem::create_directories(dir);
   const std::string skip = ":- dynamic(skip/0).\n:- assertz(skip).\n";
   const std::string branch = ":- if(\\+ skip).\n";
-  // 親のファイルの節は親の印のまま訳すので、ここでは翻訳が止まらないことだけを見る（cond_fail_include と同じ）。
+  // include した部品は読んだ側のファイルの一部なので、部品の印は親にも付き、親の q/0 も IR のまま動く。
   const auto included = [&](std::string_view name, const std::string& head, const std::string& body) {
     const std::string part = std::string{name} + "_part";
     write_file(dir / (part + ".pl"), branch + body + ":- endif.\n");
-    return cond_unit(std::string{name} + ".pl", skip + head + ":- include(" + part + ").\nq.\n");
+    const std::string unit = cond_unit(std::string{name} + ".pl", skip + head + ":- include(" + part + ").\nq.\n");
+    check(!unit.empty() && !has(unit, "NativeEntry{"), std::string{name} + " leaves the including file as IR");
+    return unit;
   };
   (void)included("cond_clause_refused", "", "atom_length(a, 1).\n");
   (void)included("cond_clause_syntax", "", "a ===> b.\n");
@@ -558,12 +560,24 @@ void check_cond_failure_clause() {
   check(!apart.empty() && !has(apart, "pr_1"), "the clauses after a clause apart run as IR");
   const std::string same = cond_unit("cond_clause_dcg_same.pl", skip + branch + "a --> 1.\n:- endif.\nq.\n");
   check(!same.empty() && !has(same, "NativeEntry{"), "a bad grammar rule after a skipped goal leaves the file as IR");
-  // モジュールのファイルが include か ensure_loaded で読んだ部品で任せた失敗は、モジュールのファイルにも印を付ける。
-  // 公開の未定義の確かめはモジュールを宣言したファイルを見るので、部品だけに付けると、そこでしか定義しない公開述語で
-  // 止まった（直し 3 回目の Opus レビュー A1。節でも、直し 1 回目からの指令でも）。
+  write_file(dir / "cond_clause_out_part.pl", "atom_length(a, 1).\n");
+  (void)cond_stop("cond_clause_out.pl", skip + ":- include(cond_clause_out_part).\n", "atom_length/2");
+  (void)cond_stop("cond_clause_sure.pl", ":- if(true).\natom_length(a, 1).\n:- endif.\n", "atom_length/2");
+  (void)cond_stop("cond_clause_sure_dcg.pl", ":- if(true).\na --> 1.\n:- endif.\n", "type_error(callable,1)");
+}
+
+// 直し 3 回目の Opus レビュー A1 と、その続きのレビューの A1・A2。任せた失敗の項が定義するはずだった公開述語では
+// 止めない。モジュールのファイルが include か ensure_loaded で読んだ部品の印はモジュールのファイルへ上げ、reexport
+// の公開は定義したモジュールのファイルの印でも確かめる（2 つ目の reexport は読み直さないので、印が上がらない）。
+// 自分のモジュールを持つファイルの印は読んだ側へ上げず、読んだ側の公開の誤りは今までどおり止める。
+void check_cond_failure_export() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  std::filesystem::create_directories(dir);
+  const std::string skip = ":- dynamic(skip/0).\n:- assertz(skip).\n";
+  const std::string branch = ":- if(\\+ user:skip).\n";
   const auto exported = [&](std::string_view name, std::string_view load, const std::string& body) {
     const std::string module = std::string{name} + "_m";
-    write_file(dir / (module + "_part.pl"), ":- if(\\+ user:skip).\n" + body + ":- endif.\n");
+    write_file(dir / (module + "_part.pl"), branch + body + ":- endif.\n");
     write_file(dir / (module + ".pl"), ":- module(" + module + ", [p/0]).\n:- " + std::string{load} + "(" + module +
                                            "_part).\n");
     (void)cond_unit(std::string{name} + ".pl", skip + ":- use_module(" + module + ").\n");
@@ -571,10 +585,20 @@ void check_cond_failure_clause() {
   exported("cond_clause_export", "include", "p :- 1.\n");
   exported("cond_clause_export_dir", "include", ":- include(no_such_part).\n");
   exported("cond_clause_export_ensure", "ensure_loaded", "p :- 1.\n");
-  write_file(dir / "cond_clause_out_part.pl", "atom_length(a, 1).\n");
-  (void)cond_stop("cond_clause_out.pl", skip + ":- include(cond_clause_out_part).\n", "atom_length/2");
-  (void)cond_stop("cond_clause_sure.pl", ":- if(true).\natom_length(a, 1).\n:- endif.\n", "atom_length/2");
-  (void)cond_stop("cond_clause_sure_dcg.pl", ":- if(true).\na --> 1.\n:- endif.\n", "type_error(callable,1)");
+  write_file(dir / "cond_clause_rc.pl", ":- module(cond_clause_rc, [p/0]).\n" + branch + "p :- 1.\n:- endif.\n");
+  write_file(dir / "cond_clause_ra.pl", ":- module(cond_clause_ra, []).\n:- reexport(cond_clause_rc).\n");
+  write_file(dir / "cond_clause_rb.pl", ":- module(cond_clause_rb, []).\n:- reexport(cond_clause_rc).\n");
+  (void)cond_unit("cond_clause_reexport.pl", skip + ":- use_module(cond_clause_ra).\n:- use_module(cond_clause_rb).\n");
+  write_file(dir / "cond_clause_typo_h.pl",
+             ":- module(cond_clause_typo_h, []).\n" + branch + ":- include(no_such_part).\n:- endif.\n");
+  write_file(dir / "cond_clause_typo_r.pl",
+             ":- module(cond_clause_typo_r, [typo/0]).\n:- use_module(cond_clause_typo_h).\n");
+  (void)cond_stop("cond_clause_typo.pl", skip + ":- use_module(cond_clause_typo_r).\n", "typo/0");
+  // 取らなかった分岐の印も同じ。2 つ目に reexport した側も、誤りでなく警告にする（Task 4 から、同じレビュー）。
+  write_file(dir / "cond_untaken_rc.pl", ":- module(cond_untaken_rc, [p/0]).\n:- if(fail).\np.\n:- endif.\n");
+  write_file(dir / "cond_untaken_ra.pl", ":- module(cond_untaken_ra, []).\n:- reexport(cond_untaken_rc).\n");
+  write_file(dir / "cond_untaken_rb.pl", ":- module(cond_untaken_rb, []).\n:- reexport(cond_untaken_rc).\n");
+  (void)cond_unit("cond_untaken_reexport.pl", ":- use_module(cond_untaken_ra).\n:- use_module(cond_untaken_rb).\n");
 }
 
 // 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
@@ -703,6 +727,7 @@ int main() {
   check_cond_failure_chain();
   check_cond_failure_prepared();
   check_cond_failure_clause();
+  check_cond_failure_export();
   check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();

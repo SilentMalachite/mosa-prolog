@@ -59,11 +59,11 @@ The known limits of 0.3.0 still hold. Five come with conditional compilation und
   `mosac`.
 - The conditions are solved where `mosac build` runs. A condition that looks at the files there or at the flag
   `argv` can take a branch that the executable would not take where it runs, and a directive or clause that fails
-  in that branch stops the build, as it would stop `mosa` in the same place, unless a goal was skipped before the
-  condition.
+  in that branch stops the build, as it would stop `mosa` in the same place, unless the rule above leaves it to
+  start-up.
 - A condition that calls `halt/0,1` stops `mosa` and the executable at start-up, but at build time it only means that
-  its branch is not taken, so a directive or clause after it that fails stops the build, although the program halts
-  before reaching it.
+  its branch is not taken, so a directive or clause after it that fails can stop the build, although the program
+  halts before reaching it.
 
 ## 0.3.0 (2026-11-16)
 

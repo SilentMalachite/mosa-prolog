@@ -284,8 +284,8 @@ elseif(CASE STREQUAL "cond_clause_fail")
 elseif(CASE STREQUAL "cond_clause_late")
   # :- retract(skip) も呼ばないので、ビルド時は cond_clause_fail と同じく断る節を任せる。起動時は skip が偽になって
   # 分岐を取り、mosa と同じ診断で読み込みが失敗する。main は動かない（任せた判定を起動時の読み込みが下す）。
-  if(code EQUAL 0 OR NOT out STREQUAL "" OR
-     NOT err MATCHES "cond_clause_late\\.pl: permission_error\\(modify,static_procedure,atom_length/2\\)\n$")
+  if(NOT code EQUAL 1 OR NOT out STREQUAL "" OR
+     NOT err MATCHES "^[^\n]*cond_clause_late\\.pl: permission_error\\(modify,static_procedure,atom_length/2\\)\n$")
     fail("a bad clause in a branch of an included file taken at start-up too")
   endif()
 elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")

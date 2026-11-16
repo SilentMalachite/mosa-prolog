@@ -204,6 +204,9 @@ void note_site(Impl& machine, PredKey key, std::size_t line);
 struct FileNote {
   TranslationLog* log = nullptr;
   std::size_t outer = 0;
+  // このテキストが module/2 で自分のモジュールを持ったこと。持たないテキスト（include した部品、モジュールの無い
+  // ファイルの ensure_loaded）の節は読んだ側のモジュールに入るので、IR のまま動かす印（opaque）を読んだ側へ上げる。
+  bool own_module = false;
   FileNote(Impl& machine, std::string_view origin, std::string_view source);
   FileNote(const FileNote&) = delete;
   FileNote& operator=(const FileNote&) = delete;

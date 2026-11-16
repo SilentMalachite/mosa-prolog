@@ -92,10 +92,19 @@ bool defined(Impl& machine, const PredKey& key) {
   return declared_only(machine, key.module, key.name, key.arity);
 }
 
+// name のモジュールのファイルの記録。原文の無いモジュール（user、system）には無い。
+const TranslationLog::File* module_file(const Impl& machine, const TranslationLog& log, std::uint32_t name) {
+  const Module* module = find_module(machine, name);
+  if (module == nullptr) return nullptr;
+  const auto file = log_file(log, module->file);
+  return file ? &log.files[*file] : nullptr;
+}
+
 }  // namespace
 
 // ビルド時に取らなかった分岐を持つファイルのモジュールは、その分岐が定義するかもしれないので、呼び手が止めずに
-// 警告にする。untaken でその 2 つを分けて答える（ADR 0027）。
+// 警告にする。untaken でその 2 つを分けて答える（ADR 0027）。reexport した述語は、定義したモジュールのファイルの
+// 取らなかった分岐でも警告の側に入れる。
 std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& log, const DisplayNames& names,
                                          bool untaken) {
   std::vector<std::string> lines;
@@ -103,11 +112,16 @@ std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& lo
     const auto file = log_file(log, module.file);
     // 読めなかったファイルのモジュールは、定義が翻訳器に見えないので確かめない。
     if (!file || log.files[*file].library || log.files[*file].opaque) continue;
-    if (log.files[*file].untaken_branch != untaken) continue;
     for (const Export& exported : module.exports) {
       // 定義は公開の項目が指す、定義したモジュールとそこでの名前で確かめる。reexport の項目はほかのモジュールの
       // 述語を指す（ADR 0026）。警告は、このモジュールが公開した名前で出す。
       const PredKey key{exported.from, exported.from_name, exported.arity};
+      // reexport した述語は、定義したモジュールのファイルの印でも見る。同じモジュールを 2 つ目に reexport した側は
+      // そのファイルを読み直さないので、印が上がってこない（I2 の直し 3 回目の続きのレビュー A1）。
+      const TranslationLog::File* from =
+          exported.from == module.name ? nullptr : module_file(machine, log, exported.from);
+      if (from != nullptr && from->opaque) continue;
+      if ((log.files[*file].untaken_branch || (from != nullptr && from->untaken_branch)) != untaken) continue;
       // 組込を公開し直す export（library(lists) の length/2。SPEC 第5節の表）は定義がある物とみなす。
       if (find_pred(machine, key) != nullptr || declared_only(machine, key.module, key.name, key.arity) ||
           is_builtin_procedure(machine, key.name, key.arity)) {

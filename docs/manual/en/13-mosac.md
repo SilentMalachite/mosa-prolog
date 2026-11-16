@@ -187,7 +187,7 @@ as `mosa` would at that moment. When the two runs read different branches, the p
   or a clause in that branch fails, `mosac build` stops, as `mosa` would stop there, unless an ordinary goal comes
   before the condition (see the next paragraph).
 - A condition that calls `halt` ends `mosa` and the executable when they start, but `mosac build` only skips its
-  branch and reads on. So a directive or a clause after it that fails stops `mosac build`, although the program
+  branch and reads on. So a directive or a clause after it that fails can stop `mosac build`, although the program
   never gets there.
 
 Because `mosac build` does not run a directive that is an ordinary goal, such as `:- assertz(…)`, a directive or a
