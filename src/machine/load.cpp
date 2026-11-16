@@ -147,7 +147,9 @@ struct CycleGuard {
     if (opening != nullptr && !opening->empty()) opening->pop_back();
     // 入れ子の初期化の例外では節を戻さないので、reject_load も prepared を戻さない。
     // 途中までしか読んでいないファイルの印だけを外し、次の use_module と ensure_loaded で読み直す。
-    if (machine == nullptr || finished || !machine->load_kept) return;
+    // 翻訳の読み込みでは、分岐の中の指令の失敗を任せて読み続けることがある（CondFrames::tolerate、I2）。そのときも
+    // 途中までのファイルだけを読み直させる。任せない失敗は、外の reject_load が prepared を読み込みの前へ戻す。
+    if (machine == nullptr || finished || (!machine->load_kept && machine->translation == nullptr)) return;
     auto& prepared = machine->prepared;
     prepared.erase(std::remove(prepared.begin(), prepared.end(), key), prepared.end());
   }

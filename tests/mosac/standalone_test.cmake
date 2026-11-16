@@ -4,7 +4,8 @@
 # 使い方: cmake -DMOSAC=<mosac>
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
-#           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif>
+#           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif|
+#           cond_half_main|cond_half_lib>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -86,6 +87,12 @@ elseif(CASE STREQUAL "cond_consult_if")
 elseif(CASE STREQUAL "cond_consult_elif")
   set(sources cond_consult_elif.pl cond_qf.pl)
   set(program cond_consult_elif)
+elseif(CASE STREQUAL "cond_half_main")
+  set(sources cond_half_main.pl cond_half_m.pl cond_half_q.pl)
+  set(program cond_half_main)
+elseif(CASE STREQUAL "cond_half_lib")
+  set(sources cond_half_lib.pl cond_half_lib_m.pl)
+  set(program cond_half_lib)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -260,6 +267,18 @@ elseif(CASE STREQUAL "cond_else_build" OR CASE STREQUAL "cond_consult_if" OR CAS
   # 起動時は分岐を取らずに mosa と同じく ran を書く（I2 の直し 1 回目）。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "ran\n" OR NOT err STREQUAL "")
     fail("a failing directive in a branch whose condition a skipped goal can change")
+  endif()
+elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")
+  # 分岐の中の use_module が途中で失敗したモジュールのファイルは、その前に別のモジュール（cond_half_q と
+  # library(lists)）を読み終えている。読み終えたファイルは準備済みのまま残るので、分岐の外の use_module が
+  # 同じ読み込みでもう一度読んで節が離れていると誤ることはない。起動時は分岐を取らず、mosa と同じ答えを書く
+  # （I2 の直し 2 回目）。
+  set(expected "[1-a,1-b,2-a,2-b]\n")
+  if(CASE STREQUAL "cond_half_lib")
+    set(expected "[a,b]-b\n")
+  endif()
+  if(NOT code EQUAL 0 OR NOT out STREQUAL expected OR NOT err STREQUAL "")
+    fail("a module read in full by a file that fails half way in a branch")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。

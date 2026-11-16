@@ -514,6 +514,27 @@ void check_cond_failure_chain() {
                   "no_such_helper");
 }
 
+// I2 の直し 2 回目。任せた指令が途中まで読んで失敗したファイルだけが準備済みの印を失う。その中で読み終えたモジュール
+// （節が 2 つずつの述語を持つ cond_fail_q と library(lists)）は印を残し、分岐の外の use_module が同じ読み込みで
+// 読み直して節が離れていると誤らない。同じファイルを 2 つの分岐で任せた後でも、分岐の外の use_module は読み直して止める。
+void check_cond_failure_prepared() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  const std::string skip = ":- dynamic(skip/0).\n:- assertz(skip).\n";
+  write_file(dir / "cond_fail_q.pl", ":- module(cond_fail_q, [q/1, r/1]).\nq(1).\nq(2).\nr(a).\nr(b).\n");
+  write_file(dir / "cond_fail_qm.pl",
+             ":- module(cond_fail_qm, [p/0]).\n:- use_module(cond_fail_q).\n:- use_module(no_such_helper).\np.\n");
+  (void)cond_unit("cond_fail_q_main.pl", skip + ":- if(\\+ skip).\n:- use_module(cond_fail_qm).\n:- endif.\n"
+                                                ":- use_module(cond_fail_q).\nmain :- q(_), r(_).\n");
+  write_file(dir / "cond_fail_lm.pl", ":- module(cond_fail_lm, [p/0]).\n:- use_module(library(lists)).\n"
+                                      ":- use_module(no_such_helper).\np.\n");
+  (void)cond_unit("cond_fail_l_main.pl", skip + ":- if(\\+ skip).\n:- use_module(cond_fail_lm).\n:- endif.\n"
+                                                ":- use_module(library(lists)).\nmain :- append([a], [b], _).\n");
+  write_file(dir / "cond_fail_twice_m.pl",
+             ":- module(cond_fail_twice_m, [p/0]).\n:- use_module(no_such_helper).\np.\n");
+  const std::string block = ":- if(\\+ skip).\n:- use_module(cond_fail_twice_m).\n:- endif.\n";
+  (void)cond_stop("cond_fail_twice.pl", skip + block + block + ":- use_module(cond_fail_twice_m).\n", "no_such_helper");
+}
+
 // 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
 // 読み終えれば 0 に戻る。
 void check_cond_log() {
@@ -638,6 +659,7 @@ int main() {
   check_cond_translation();
   check_cond_build_failure();
   check_cond_failure_chain();
+  check_cond_failure_prepared();
   check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();

@@ -226,18 +226,15 @@ std::optional<std::size_t> CondFrames::tolerable(Cell term) const {
 }
 
 // ビルド時に取った分岐を起動時には取らないかもしれないので、失敗した指令の後ろも読み続け、判定を起動時の読み込みに
-// 任せる。指令が開いて途中で失敗したファイル（分岐の中の use_module(m) の m）も同じ印にする。半分だけ読んだ節から
-// 生成関数を出さず、定義の無いままの公開で翻訳を止めない。そのファイルは準備済みの印も外す（CycleGuard が節を残す
-// 失敗でするのと同じ）。残すと、後ろの分岐の外の use_module が読み直さずに済ませ、起動時にも起きるその失敗を隠す。
+// 任せる。指令が開いたファイル（分岐の中の use_module(m) の m と、m が読んだファイル）も同じ印にする。半分だけ読んだ
+// 節から生成関数を出さず、定義の無いままの公開で翻訳を止めない。準備済みの印はここでは触らない。途中までしか読んで
+// いないファイルの印は、翻訳の読み込みでは CycleGuard が外すので、後ろの分岐の外の use_module が読み直し、起動時にも
+// 起きるその失敗で止まる。読み終えたファイルの印は残し、同じ読み込みで 2 度読んで節が離れていると誤らない。
 // 原文の無いテキスト（load_program）は印を付ける所が無いので任せない。
 bool CondFrames::tolerate(std::optional<std::size_t> known) {
   if (!known || log_->current >= log_->files.size()) return false;
   log_->files[log_->current].opaque = true;
-  auto& prepared = machine_.prepared;
-  for (std::size_t index = *known; index < log_->files.size(); ++index) {
-    log_->files[index].opaque = true;
-    prepared.erase(std::remove(prepared.begin(), prepared.end(), log_->files[index].key), prepared.end());
-  }
+  for (std::size_t index = *known; index < log_->files.size(); ++index) log_->files[index].opaque = true;
   forget_failure(machine_);
   return true;
 }
