@@ -126,6 +126,9 @@ inline constexpr std::uint32_t kCall = 0;
 
 // libmosa の外の呼び出しはこれだけ
 [[nodiscard]] bool install_unit(Machine& machine, const NativeUnit& unit);  // 表を作ってから source を読み、読み終えたら付ける
+// 根でない単位（ADR 0027）。単位のファイルが埋め込みにあり、起動時の読み込みがまだ読んでいなければ、読まず、付けず、真。
+// それ以外は install_unit と同じ。条件の分岐がビルド時と違っても、mosa が読まないファイルを実行ファイルも読まない。
+[[nodiscard]] bool install_loaded_unit(Machine& machine, const NativeUnit& unit);
 [[nodiscard]] Regs regs(Machine::Impl& machine, const UnitTag& unit);       // 1 回の起動に 1 回。tag の番地で単位を引く
 [[nodiscard]] std::uint64_t* alloc(Machine::Impl& machine, std::size_t count);  // 節ごとに 1 塊
 void bind(Machine::Impl& machine, Cell variable, Cell value);                 // 最新の選択点より古ければトレイル
@@ -171,7 +174,8 @@ enum class Compare : std::uint8_t { Eq, Ne, Lt, Le, Gt, Ge };
 [[nodiscard]] std::unique_ptr<Machine> create_machine();
 
 // mosac の main.cpp（計画 Task 5）。start で引数を入れ、embed で原文を置き、install_unit で読んで付け、finish で返す。
-// 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。
+// 単位の name が embed したパスなら、install_unit はそのファイルとして読む（読み済みなら付けるだけ）。根の単位だけを
+// install_unit で読み、残りは install_loaded_unit で、根の読み込みが読んだファイルの単位だけを付ける。
 void start(Machine& machine, int argc, char** argv);  // コンソールを UTF-8 にし、argv[1] 以降を旗 argv にする
 void embed(Machine& machine, std::string_view path, std::string_view source);  // include/1 などがファイルより先に引く
 // 同梱ライブラリ（計画 Task 10）。use_module(library(Name)) は SPEC 第5節の探索（$MOSA_LIB、実行ファイルの横の lib/）

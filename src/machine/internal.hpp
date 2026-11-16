@@ -223,6 +223,8 @@ struct TranslationLog {
     bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（同梱の単位として結ぶ。Task 10）
     bool skipped_goal = false;  // 飛ばした指示のゴールがある。そのゴールの op/3 が後の項の読みを変えうる
     bool opaque = false;        // 飛ばしたゴールの後で構文エラーがあった。このファイルの述語は IR のまま動かす
+    bool untaken_branch = false;  // このファイルか、ここから開いたファイルで、条件が項を読み飛ばした（ADR 0027）
+    bool in_branch = false;       // 開いた時に、読んでいるテキストのどれかに閉じていない if があった（ADR 0027）
     // ライブラリなら、その根（library(Name) を見つけた $MOSA_LIB か lib/）の正規化したパス。埋め込みの鍵は
     // この根からの相対を擬似ディレクトリ library/ の下に置いた物（library/sub/util.pl）。プログラムのファイルは空。
     std::string library_root{};
@@ -244,6 +246,7 @@ struct TranslationLog {
   // 読んだ項のどこかに字面で書いた use_module(library(N)) と use_module(library(N), _) の N（問い 2 の A）。
   std::vector<std::string> goal_libraries;
   std::size_t current = static_cast<std::size_t>(-1);  // 読んでいるファイルの files の添字
+  std::size_t open_conditions = 0;  // 読んでいるテキスト全部の、閉じていない if の数（CondFrames が足し引きする）
 };
 
 // 実行ファイルに埋め込んだ原文。include/1 などはファイルシステムより先にこれを正規化したパスで引く。

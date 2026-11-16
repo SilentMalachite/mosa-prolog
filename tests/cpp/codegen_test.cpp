@@ -411,6 +411,64 @@ void project_opaque() {
   check(cmake != nullptr && has(cmake->text, "project(app "), "reserved target name");
 }
 
+// フェーズ13 Task 4（問い 1 の A、ADR 0027）。name のファイルに text を書いて訳し、muser.cpp の本文を返す。
+// 翻訳が止まれば診断を添えて落とし、空を返す。診断が残っていても落とす（条件の例外と halt が残した物）。
+std::string cond_unit(std::string_view name, std::string_view text) {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  std::filesystem::create_directories(dir);
+  write_file(dir / name, text);
+  const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / name), {});
+  check(project.ok && project.diagnostic.empty(), std::string{name} + " translates: " + project.diagnostic);
+  const auto* unit = find_file(project, "muser.cpp");
+  check(unit != nullptr, std::string{name} + " has muser.cpp");
+  return unit == nullptr ? std::string{} : unit->text;
+}
+
+// mosac は条件をビルド時にも解き、取った分岐の節だけを訳す。条件の例外と halt は「取らない」とだけ扱って翻訳を
+// 止めない（Review Focus 4）。取らなかった分岐の無いライブラリ（Review Focus 5）と構文の誤りでも止まらない。
+// 取らなかった分岐の指令は飛ばしたゴールと同じ印になり、その op/3 を使う後ろの項はファイルを IR のままにする。
+void check_cond_translation() {
+  const std::string emit = cond_unit("cond_emit.pl", ":- if(true).\nthenpred.\n:- else.\nelsepred.\n:- endif.\n");
+  check(has(emit, "pthenpred_0") && !has(emit, "pelsepred_0"), "only the branch taken is translated");
+  const std::string thrown = cond_unit("cond_throw.pl", ":- if(nope).\nskippedpred.\n:- endif.\nlaterpred.\n");
+  check(has(thrown, "platerpred_0") && !has(thrown, "pskippedpred_0"), "a condition that throws is not taken");
+  const std::string halted = cond_unit("cond_halt.pl", ":- if(halt).\nhaltedpred.\n:- endif.\nafterhalt.\n");
+  check(has(halted, "pafterhalt_0"), "a condition that halts does not stop the translation");
+  const std::string dialect = cond_unit(
+      "cond_dialect.pl",
+      ":- if(current_prolog_flag(dialect, swi)).\n:- use_module(library(clpfd)).\n:- else.\nmosapred.\n:- endif.\n");
+  check(has(dialect, "pmosapred_0"), "a missing library in a branch not taken does not stop the translation");
+  const std::string syntax = cond_unit("cond_syntax.pl", ":- if(fail).\nx(1r3).\n:- endif.\nysyntax.\n");
+  check(has(syntax, "pysyntax_0"), "a syntax error in a branch not taken is passed over");
+  // 前に一般の指令が無いので、取らなかった分岐の指令が skipped_goal を立てなければ翻訳が止まる。
+  const std::string op_only =
+      cond_unit("cond_op_only.pl", ":- if(fail).\n:- op(700, xfx, ===>).\n:- endif.\nr(a ===> b).\n");
+  check(!op_only.empty() && !has(op_only, "NativeEntry{"), "an op/3 in a branch not taken leaves the file as IR");
+}
+
+// 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
+// 読み終えれば 0 に戻る。
+void check_cond_log() {
+  auto machine = Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa::TranslationLog log;
+  impl.translation = &log;
+  const auto loaded = machine->load_program(
+      ":- if(fail).\n:- use_module(library(strings)).\n:- reexport(library(between)).\n:- endif.\n");
+  impl.translation = nullptr;
+  check(loaded.ok, "cond log load: " + loaded.message);
+  check(log.goal_libraries == std::vector<std::string>{"strings", "between"}, "libraries named in skipped terms");
+  check(log.open_conditions == 0, "no condition stays open after the load");
+  // 条件のゴールに字面で書いたライブラリも、解いても（if）解かなくても（取った分岐の後ろの elif）書き留める。
+  mosa::TranslationLog goals;
+  impl.translation = &goals;
+  const auto conditions = machine->load_program(
+      ":- if((fail, use_module(library(apply)))).\n:- elif(true).\n:- elif(use_module(library(dcg))).\n:- endif.\n");
+  impl.translation = nullptr;
+  check(conditions.ok, "cond goal log load: " + conditions.message);
+  check(goals.goal_libraries == std::vector<std::string>{"apply", "dcg"}, "libraries named in condition goals");
+}
+
 // フェーズ12 Task 5（問い 2 の A）。翻訳の読み込みは、節の本体（m: の下や catch の中も）と initialization/1 の
 // ゴールに字面で書いた use_module(library(N)) の N を書き留める。N が変数の物は書き留めない。
 void check_goal_library_names() {
@@ -508,6 +566,8 @@ int main() {
   comment_backslash();
   project_modules();
   project_opaque();
+  check_cond_translation();
+  check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();
   check_goal_library_failure();

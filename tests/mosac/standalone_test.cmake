@@ -3,7 +3,8 @@
 # 原文は WORK/src に写してから build し、動かす前に消す。実行ファイルに翻訳した機械のパスが残らないことも見る。
 # 使い方: cmake -DMOSAC=<mosac>
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
-#           reexport>
+#           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
+#           cond_goal_mod|cond_goal_lib>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -55,6 +56,24 @@ elseif(CASE STREQUAL "goal_use_late")
 elseif(CASE STREQUAL "reexport")
   set(sources uses_rx.pl rx_lib.pl rx_mid.pl)
   set(program uses_rx)
+elseif(CASE STREQUAL "cond_late_lib")
+  set(sources cond_late_lib.pl)
+  set(program cond_late_lib)
+elseif(CASE STREQUAL "cond_build_mod")
+  set(sources cond_build_mod.pl cond_init_mod.pl)
+  set(program cond_build_mod)
+elseif(CASE STREQUAL "cond_skip_op")
+  set(sources cond_skip_op.pl)
+  set(program cond_skip_op)
+elseif(CASE STREQUAL "cond_export")
+  set(sources cond_export.pl cond_export_mod.pl)
+  set(program cond_export)
+elseif(CASE STREQUAL "cond_goal_mod")
+  set(sources cond_goal_mod.pl cond_goal_m.pl)
+  set(program cond_goal_mod)
+elseif(CASE STREQUAL "cond_goal_lib")
+  set(sources cond_goal_lib.pl)
+  set(program cond_goal_lib)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -79,8 +98,14 @@ endif()
 string(REPLACE "\r\n" "\n" err "${err}")
 # 取り込みと include の述語は定義済みと見え、未定義の呼び出しの警告は出ない。警告は build を止めないので、
 # 誤った警告はここで見る（L12 の敵対的レビュー A1）。頭は文面の言語で変わる。
-if(err MATCHES "\\.pl:[0-9]+: (Warning|警告): ")
+# cond_export だけは見ない。answer/1 はビルド時に取らなかった分岐だけが定義するので、その呼び出しは警告になる
+# （設計の既知の制限 3、計画の「設計との違い」8）。代わりに、公開の未定義が build を止めず警告になったことを見る。
+if(NOT CASE STREQUAL "cond_export" AND err MATCHES "\\.pl:[0-9]+: (Warning|警告): ")
   fail("unexpected undefined-call warning")
+endif()
+if(CASE STREQUAL "cond_export" AND NOT err MATCHES "answer/1 を export したが定義が無い" AND
+   NOT err MATCHES "exported procedure answer/1 is not defined")
+  fail("an undefined export in a file with a branch not taken must be a warning")
 endif()
 
 # library(lists) は mosac の隣の lib/lists.pl と同じ原文なので、翻訳済みの単位 pl/ の書庫を結ぶ。
@@ -175,6 +200,40 @@ elseif(CASE STREQUAL "reexport")
   # export_warnings は build を止めず、lib_p/1 の呼び出しも未定義の警告にならない（ADR 0026）。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "42\n" OR NOT err STREQUAL "")
     fail("a predicate re-exported through rx_mid")
+  endif()
+elseif(CASE STREQUAL "cond_late_lib")
+  # ビルド時は :- assertz(cond_flag) を呼ばないので条件が例外になり、分岐を取らない。読み飛ばした項の library(strings) も
+  # 同梱の閉包に入り、起動時に取った分岐の use_module が埋め込みから引く（ADR 0027）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "ABC\n" OR NOT err STREQUAL "")
+    fail("a library named only in a branch taken at start-up")
+  endif()
+elseif(CASE STREQUAL "cond_build_mod")
+  # ビルド時にだけ取る分岐が読んだモジュールのファイルは、起動時には読まない。初期化のゴール（init_ran）は動かず、
+  # cond_init_mod:hello は :/2 が確かめ、取り込みも無い。どちらも mosa と同じ誤りになる。
+  if(NOT code EQUAL 0 OR
+     NOT out STREQUAL "existence_error(module,cond_init_mod)\nexistence_error(procedure,hello/0)\n" OR
+     NOT err STREQUAL "")
+    fail("a module file read only in a branch taken at build time")
+  endif()
+elseif(CASE STREQUAL "cond_skip_op")
+  # ビルド時に取らなかった分岐の op/3 を後ろの項が使う。build は止まらず、ファイルは IR のまま動く。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "a===>b\n" OR NOT err STREQUAL "")
+    fail("an op/3 in a branch not taken at build time")
+  endif()
+elseif(CASE STREQUAL "cond_export")
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "42\n" OR NOT err STREQUAL "")
+    fail("an exported predicate defined only in a branch taken at start-up")
+  endif()
+elseif(CASE STREQUAL "cond_goal_mod")
+  # 条件のゴールそのものが、ビルド時にだけモジュールのファイルを読む。解いている間の if も閉じていない if に数えるので、
+  # cond_goal_m:hello はその場で結ばれず、mosa と同じ module の誤りになる（procedure の誤りにならない）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "existence_error(module,cond_goal_m)\n" OR NOT err STREQUAL "")
+    fail("a module file read only by a condition goal at build time")
+  endif()
+elseif(CASE STREQUAL "cond_goal_lib")
+  # 条件のゴールに字面で書いた library(strings) は、ビルド時の評価がそこへ届かなくても同梱する（フェーズ12 の問い 2 の A）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "ABC\n" OR NOT err STREQUAL "")
+    fail("a library named only in a condition goal")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。

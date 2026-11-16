@@ -286,6 +286,28 @@ void check_embedded_first() {
         "module read once");
 }
 
+// フェーズ13 Task 4（ADR 0027）。根でない単位は install_loaded_unit で付ける。埋め込みにあるファイルを起動時の読み込みが
+// 読んでいなければ（ビルド時にだけ取った分岐のモジュール）、読まず、付けない。読んでいれば install_unit と同じく付ける。
+void check_loaded_unit() {
+  static const std::vector<NativeEntry> entries = list_entries();
+  const auto file = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "p13_native_list.pl";
+  const std::string path = mosa::utf8_from_path(file);
+  const mosa::rt::NativeUnit unit{path, native_units::kListSource, &native_units::list_tag(), entries,
+                                  native_units::list_atoms(), native_units::list_calls()};
+  auto unread = Machine::create();
+  mosa::rt::embed(*unread, path, native_units::kListSource);
+  check(mosa::rt::install_loaded_unit(*unread, unit), "a unit whose file was not read installs as nothing");
+  check(answers(*unread, "app(X, Y, [1]).").find("existence_error") != std::string::npos,
+        "the unread unit defines nothing");
+  auto read = Machine::create();
+  mosa::rt::embed(*read, path, native_units::kListSource);
+  check(read->load_program(":- ensure_loaded(" + prolog_path(file) + ").\n").ok, "the start-up load reads the file");
+  check(mosa::rt::install_loaded_unit(*read, unit), "a unit whose file was read installs");
+  auto& impl = mosa::engine_impl(*read);
+  const auto* app = mosa::find_pred(impl, mosa::PredKey{impl.user_module, impl.atoms.intern("app"), 3});
+  check(app != nullptr && app->native != nullptr, "the read unit attaches app/3");
+}
+
 // 計画 Task 10。実行ファイルに同梱したライブラリは use_module(library(Name)) が SPEC 第5節の探索より先に引く。
 // 一覧はプロセスで 1 つなので、後から作ったマシンも同じ物を読む。単位は原文を読み終えてから指紋の合う述語に付く。
 // bx/1 の proc は付いたことだけを見るので呼ばない（same_1 は別の述語の生成関数で、番地が要るだけ）。
@@ -337,6 +359,7 @@ int main() {
   check_fingerprint_mismatch();
   check_meta_attached();
   check_embedded_first();
+  check_loaded_unit();
   check_bundled_library();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

@@ -41,8 +41,9 @@ struct ProjectPlan {
 };
 
 [[nodiscard]] std::optional<std::size_t> log_file(const TranslationLog& log, std::string_view key);
+// untaken_branch が untaken のファイルのモジュールだけを見る。偽の結果は翻訳を止め、真の結果は警告にする（ADR 0027）。
 [[nodiscard]] std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& log,
-                                                       const DisplayNames& names);
+                                                       const DisplayNames& names, bool untaken);
 [[nodiscard]] std::vector<std::string> call_warnings(Impl& machine, const TranslationLog& log,
                                                      const DisplayNames& names);
 

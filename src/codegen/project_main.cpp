@@ -1,5 +1,6 @@
 // 計画 Task 5、Task 10。mosac emit の main.cpp と CMakeLists.txt の文面。
-// main は rt::start、同梱ライブラリの bundle_library、embed、install_unit、finish の順（runtime.hpp）。
+// main は rt::start、同梱ライブラリの bundle_library、embed、install_unit（根でない単位は install_loaded_unit）、
+// finish の順（runtime.hpp）。
 // 同梱ライブラリの単位は mosac emit --library が lib/<名前>.pl から出した物で、名前空間はモジュールと同じ
 // mosa_gen::m<mangle(モジュール)>。main.cpp はその unit() を自分で宣言し、見出しは要らない。
 
@@ -72,9 +73,13 @@ std::string main_body(const Impl& machine, const TranslationLog& log, const Proj
   std::string out = "int main(int argc, char** argv) {\n" + source_lines(machine, log, plan);
   out += "  auto machine = mosa::rt::create_machine();\n  mosa::rt::start(*machine, argc, argv);\n";
   out += embed_lines(log, plan) + "  bool loaded = true;\n";
-  for (const UnitPlan& unit : plan.units) {
-    out += "  loaded = loaded && mosa::rt::install_unit(*machine, mosa_gen::" + unit_stem(machine, unit.module) +
-           "::unit(file" + std::to_string(unit.file) + "));\n";
+  // 根の単位だけが読む。残りの単位は、根の読み込みが読んだファイルの物だけを付ける（ADR 0027）。条件の分岐が
+  // ビルド時と違って読まれなかったモジュールのファイルを、ここで単独に読まない。
+  for (std::size_t index = 0; index < plan.units.size(); ++index) {
+    const UnitPlan& unit = plan.units[index];
+    out += std::string{"  loaded = loaded && mosa::rt::"} + (index == 0 ? "install_unit" : "install_loaded_unit") +
+           "(*machine, mosa_gen::" + unit_stem(machine, unit.module) + "::unit(file" + std::to_string(unit.file) +
+           "));\n";
   }
   // --interactive は読み込みのあと REPL に入る（計画 Task 14）。initialization(main, main) の main は動かさない。
   // 持ち主の決定 A（2026-10-30、SPEC 第6節）: main を飛ばして REPL に入る（B の「main を動かしてから REPL」は採らない）。

@@ -115,6 +115,11 @@ void attach_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& unit) {
   }
 }
 
+bool is_embedded(const Impl& machine, std::string_view key) {
+  return std::any_of(machine.embedded.begin(), machine.embedded.end(),
+                     [&](const EmbeddedSource& source) { return source.key == key; });
+}
+
 }  // namespace
 
 // 埋め込んだファイルの単位は、そのパスのファイルとして読む（計画 Task 5）。根の単位の include/1 や
@@ -122,9 +127,7 @@ void attach_unit(Impl& machine, std::size_t slot, const rt::NativeUnit& unit) {
 // 差分テスト（計画 Task 11）のインタプリタ側は空の単位でこれを呼び、翻訳側と同じ読み方で付ける物の無い読み込みをする。
 bool load_unit(Impl& machine, const rt::NativeUnit& unit) {
   const auto key = utf8_from_path(canonical_key(path_from_utf8(unit.name)));
-  const bool embedded = std::any_of(machine.embedded.begin(), machine.embedded.end(),
-                                    [&](const EmbeddedSource& source) { return source.key == key; });
-  if (!embedded) return load_source(machine, unit.source).ok;
+  if (!is_embedded(machine, key)) return load_source(machine, unit.source).ok;
   if (std::find(machine.prepared.begin(), machine.prepared.end(), key) != machine.prepared.end()) return true;
   try {
     if (load_source(machine, unit.source, utf8_from_path(path_from_utf8(key).parent_path()), key).ok) return true;
@@ -211,6 +214,18 @@ bool install_unit(Machine& machine, const NativeUnit& unit) {
   if (!load_unit(impl, unit)) return false;
   attach_native_unit(impl, slot, unit);
   return true;
+}
+
+// 根でない単位（フェーズ13、ADR 0027）。ビルド時にだけ取った分岐が読んだモジュールのファイルは、起動時の読み込みが
+// 読んでいない。ここで単独に読むと、mosa なら動かない指令と初期化のゴールが動き、公開の述語も定義されてしまう。
+// 読んだかは prepared で見る。enter_file が書くので、use_module、ensure_loaded、reexport、consult、[F]、include の
+// どの道で読んだファイルも入り、失敗した読み込みの分は reject_load が戻している。表も作らない（付ける述語が無い）。
+bool install_loaded_unit(Machine& machine, const NativeUnit& unit) {
+  const Impl& impl = engine_impl(machine);
+  const auto key = utf8_from_path(canonical_key(path_from_utf8(unit.name)));
+  const bool read = std::find(impl.prepared.begin(), impl.prepared.end(), key) != impl.prepared.end();
+  if (is_embedded(impl, key) && !read) return true;
+  return install_unit(machine, unit);
 }
 
 Regs regs(Machine::Impl& machine, const UnitTag& unit) {

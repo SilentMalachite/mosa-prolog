@@ -2,7 +2,8 @@
 // 閉包を作るので、節の本体や initialization/1 のゴールにだけ書いた use_module(library(N)) のライブラリを実行ファイルが
 // 見つけられなかった。読んだ項からその N を書き留め、翻訳の読み込みの最後に読んで閉包に入れる。
 // テスト: tests/cpp/codegen_test.cpp（check_goal_library_names、check_goal_library_deep、check_goal_library_failure）、
-//         tests/mosac/standalone_test.cmake（goal_use_body、goal_use_init、goal_use_late）
+//         tests/mosac/standalone_test.cmake（goal_use_body、goal_use_init、goal_use_late、cond_late_lib）、
+//         読み飛ばした項と reexport は tests/cpp/codegen_test.cpp の check_cond_log
 #include "internal.hpp"
 
 #include <algorithm>
@@ -21,9 +22,11 @@ bool named(const Impl& machine, Cell term, std::string_view name, std::uint16_t 
   return machine.heap.functor_arity(term) == arity && machine.atoms.name(machine.heap.functor_atom(term)) == name;
 }
 
-// term（複合項）が use_module(library(N)) か use_module(library(N), _) で、N が原子なら N。
+// term（複合項）が use_module(library(N)) か use_module(library(N), _)、または同じ 2 つの形の reexport で、N が原子なら N。
+// 指令の reexport は翻訳の読み込みが辿るが、条件で読み飛ばした項の物はここでしか拾えない（フェーズ13、ADR 0027）。
 std::optional<std::string_view> goal_library_name(const Impl& machine, Cell term) {
-  if (!named(machine, term, "use_module", 1) && !named(machine, term, "use_module", 2)) return std::nullopt;
+  const bool use = named(machine, term, "use_module", 1) || named(machine, term, "use_module", 2);
+  if (!use && !named(machine, term, "reexport", 1) && !named(machine, term, "reexport", 2)) return std::nullopt;
   const Cell spec = machine.heap.deref(machine.heap.arg(term, 0));
   if (spec.tag() != Tag::Str || !named(machine, spec, "library", 1)) return std::nullopt;
   const Cell name = machine.heap.deref(machine.heap.arg(spec, 0));

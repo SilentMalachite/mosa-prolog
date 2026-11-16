@@ -52,15 +52,21 @@ FileNote::FileNote(Impl& machine, std::string_view origin, std::string_view sour
   if (root.empty() && outer < log->files.size()) root = log->files[outer].library_root;
   TranslationLog::File file{key, std::string{source}, 0, 0, !root.empty()};
   file.library_root = std::move(root);
+  // 分岐の中で初めて開いたファイルは、起動時の読み込みが読むとは限らない（ADR 0027、計画の「設計との違い」4）。
+  file.in_branch = log->open_conditions > 0;
   log->files.push_back(std::move(file));
   log->current = log->files.size() - 1;
 }
 
-// include した先で飛ばしたゴールの op/3 は、読み込んだ側のテキストにも効く。
+// include した先で飛ばしたゴールの op/3 は、読み込んだ側のテキストにも効く。取らなかった分岐の印も同じく外へ移す。
+// include でも use_module でも、開いたファイルの取らなかった分岐が、読んだ側のモジュールの公開する述語を定義しうる
+// （計画の「設計との違い」5）。
 FileNote::~FileNote() {
   if (log == nullptr) return;
-  if (log->current < log->files.size() && outer < log->files.size() && log->files[log->current].skipped_goal) {
-    log->files[outer].skipped_goal = true;
+  if (log->current < log->files.size() && outer < log->files.size()) {
+    const TranslationLog::File& inner = log->files[log->current];
+    if (inner.skipped_goal) log->files[outer].skipped_goal = true;
+    if (inner.untaken_branch) log->files[outer].untaken_branch = true;
   }
   log->current = outer;
 }

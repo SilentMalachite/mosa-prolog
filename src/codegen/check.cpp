@@ -94,12 +94,16 @@ bool defined(Impl& machine, const PredKey& key) {
 
 }  // namespace
 
-std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& log, const DisplayNames& names) {
+// ビルド時に取らなかった分岐を持つファイルのモジュールは、その分岐が定義するかもしれないので、呼び手が止めずに
+// 警告にする。untaken でその 2 つを分けて答える（ADR 0027）。
+std::vector<std::string> export_warnings(Impl& machine, const TranslationLog& log, const DisplayNames& names,
+                                         bool untaken) {
   std::vector<std::string> lines;
   for (const Module& module : machine.modules) {
     const auto file = log_file(log, module.file);
     // 読めなかったファイルのモジュールは、定義が翻訳器に見えないので確かめない。
     if (!file || log.files[*file].library || log.files[*file].opaque) continue;
+    if (log.files[*file].untaken_branch != untaken) continue;
     for (const Export& exported : module.exports) {
       // 定義は公開の項目が指す、定義したモジュールとそこでの名前で確かめる。reexport の項目はほかのモジュールの
       // 述語を指す（ADR 0026）。警告は、このモジュールが公開した名前で出す。

@@ -148,6 +148,10 @@ void apply_file_notes(Impl& machine, FileNotes& notes, std::uint64_t started_at)
 class CondFrames {
  public:
   explicit CondFrames(Impl& machine);
+  CondFrames(const CondFrames&) = delete;
+  CondFrames& operator=(const CondFrames&) = delete;
+  // 翻訳の読み込みでは、積んだままの節の数を TranslationLog::open_conditions から引く。失敗で抜けても数を残さない。
+  ~CondFrames();
   // term が条件の指令なら扱って 1 か -1（読み込みの失敗。診断は書いた）。そうでなく読み飛ばし中なら項を捨てて 1。
   // どちらでもなければ 0 で、呼び手が take_term へ渡す。読み飛ばし中の if は、条件を呼ばずに節を積む。
   [[nodiscard]] int step(Cell term);
@@ -168,8 +172,13 @@ class CondFrames {
   [[nodiscard]] int next_branch(Cell term, Cell goal);
   [[nodiscard]] int otherwise(Cell term);
   [[nodiscard]] int finish(Cell term);
+  void push(Frame frame);
+  // 翻訳の読み込みで読み飛ばした項を書き留める（ライブラリの名前、取らなかった分岐の印、指令なら飛ばしたゴールの印）。
+  void note_skipped(Cell term);
 
   Impl& machine_;
+  // 作った時の翻訳の記録。積んだ数を引く相手を、読み込みの途中で付け替えられても取り違えない。
+  TranslationLog* log_ = nullptr;
   std::vector<Frame> frames_;
 };
 

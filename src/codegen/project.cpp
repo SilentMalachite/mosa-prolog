@@ -171,9 +171,15 @@ Project fail_with(std::string diagnostic) {
   return project;
 }
 
-std::vector<std::uint32_t> module_names(const Impl& machine) {
+// 実行ファイルが起動時に読むモジュール。条件の分岐の中で初めて開いたファイルのモジュール（プログラムのファイルも
+// ライブラリも）は、起動時に別の分岐を取れば読まれないので入れない（ADR 0027）。
+std::vector<std::uint32_t> startup_module_names(const Impl& machine, const TranslationLog& log) {
   std::vector<std::uint32_t> names;
-  for (const Module& module : machine.modules) names.push_back(module.name);
+  for (const Module& module : machine.modules) {
+    const auto file = log_file(log, module.file);
+    if (file && log.files[*file].in_branch) continue;
+    names.push_back(module.name);
+  }
   return names;
 }
 
@@ -290,7 +296,7 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
     // 実行ファイルが起動時に読むのは、プログラム自身の読み込みが読んだ物だけ。下の文面の表とゴールのライブラリは、
     // 実行時には呼ばれたときに読む。そのモジュールへの M:G を生成コードが結ぶと、mosa なら existence_error(module, M)
     // の呼び出しが existence_error(procedure, M:G) になるので、結ぶのはここまでにあったモジュールだけにする。
-    impl.startup_modules = module_names(impl);
+    impl.startup_modules = startup_module_names(impl, log);
     if (!options.library && !load_catalogs(*machine)) {
       return fail_with(message_text(impl, "mosac_catalog_missing", {std::string{machine->diagnostic()}}));
     }
@@ -306,13 +312,16 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   // export の不整合はプログラムの誤りなので止める。未定義の呼び出しは警告にして翻訳を続け、実行ファイルは mosa と
   // 同じく呼んだときに existence_error か unknown の旗のとおりに動く（レビュー L12、持ち主の決定 A）。
   const std::string warnings = call_warning_text(impl, log, path, options);
-  std::string diagnostic = joined(export_warnings(impl, log, display_names(log, path)));
+  // 取らなかった分岐を持つファイルのモジュールの公開の未定義は、その分岐が定義するかもしれないので止めずに
+  // 警告にする（ADR 0027）。読めなかった項があって呼び出しの警告を出さないときも、これは出す。
+  const std::string untaken = joined(export_warnings(impl, log, display_names(log, path), true));
+  std::string diagnostic = joined(export_warnings(impl, log, display_names(log, path), false));
   Project project = !diagnostic.empty() ? fail_with(std::move(diagnostic))
                     : options.library   ? build_library(*machine, log, path)
                                         : build_project(*machine, log, path, options);
   // 止まったときは止めた理由を先に読ませ、呼び出しの警告はその後ろに足す（L12 の敵対的レビュー A8）。
   if (!project.ok && !warnings.empty()) project.diagnostic += "\n" + warnings;
-  if (project.ok) project.warnings = warnings;
+  if (project.ok) project.warnings = untaken + (untaken.empty() || warnings.empty() ? "" : "\n") + warnings;
   return project;
 }
 
