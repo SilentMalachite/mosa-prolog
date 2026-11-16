@@ -467,6 +467,7 @@ void check_cond_log() {
   impl.translation = nullptr;
   check(conditions.ok, "cond goal log load: " + conditions.message);
   check(goals.goal_libraries == std::vector<std::string>{"apply", "dcg"}, "libraries named in condition goals");
+  check(goals.open_conditions == 0, "no condition stays open after the second load");
 }
 
 // フェーズ12 Task 5（問い 2 の A）。翻訳の読み込みは、節の本体（m: の下や catch の中も）と initialization/1 の

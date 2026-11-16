@@ -38,3 +38,14 @@ test(os_union2, ord_union([[c], [a, b], [b, d]], U), solutions([U = [a, b, c, d]
 test(os_union3, ord_union([a, c], [b, c], U), solutions([U = [a, b, c]])).
 test(os_union4, ord_union([a, c], [b, c], U, N), solutions([(U = [a, b, c], N = [b])])).
 test(os_symdiff_doc, ord_symdiff([1, 2], [2, 3], X), solutions([X = [1, 3]])).
+% setup_call_cleanup/3 の後始末は、ゴールが選択点を残さずに成功したときだけ、その直後に走る（atoms.pl の m32_det と同じ）。
+os_det(Goal) :- setup_call_cleanup(true, Goal, Det = yes), Det == yes.
+test(os_union3_det, (os_det(ord_union([a, c], [b, c, d], U)), U == [a, b, c, d]), true).
+test(os_subtract_det, (os_det(ord_subtract([a, b, c], [b, d], D)), D == [a, c]), true).
+test(os_inter3_det, (os_det(ord_intersection([a, b, c], [b, c, d], I)), I == [b, c]), true).
+test(os_add_det, (os_det(ord_add_element([a, c], b, S)), S == [a, b, c]), true).
+test(os_del_det, (os_det(ord_del_element([a, b, c], b, S)), S == [a, c]), true).
+test(os_from_list_det, (os_det(list_to_ord_set([c, a, b, a], S)), S == [a, b, c]), true).
+test(os_symdiff_det, (os_det(ord_symdiff([1, 2], [2, 3], X)), X == [1, 3]), true).
+test(os_selectchk_det, (os_det(ord_selectchk(b, [a, b, c], R)), R == [a, c]), true).
+test(os_selectchk_build_det, (os_det(ord_selectchk(b, S, [a, c])), S == [a, b, c]), true).

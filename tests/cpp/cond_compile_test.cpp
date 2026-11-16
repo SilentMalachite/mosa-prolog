@@ -62,6 +62,9 @@ void check_cond_halt() {
   mosa_test::check(!status.ok, "halt: the load stops");
   mosa_test::check(impl.halt_now, "halt: halt_now is set");
   mosa_test::check(impl.halt_code == 3, "halt: the exit code is 3");
+  // 問い合わせの入口は halt_now を消すので、halt の旗を見た後で問う。
+  mosa_test::check(machine->query("current_predicate(cond_after_halt/0).").kind == mosa::StopKind::Failure,
+                   "halt: the clause after the halt is not loaded");
 }
 
 // 読み飛ばす部分の構文の誤りは、診断を出さずに読み飛ばす（問い 3 の A）。
