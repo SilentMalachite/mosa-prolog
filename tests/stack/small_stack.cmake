@@ -3,8 +3,12 @@
 # SUMMARY が真なら、出力の各行を「長さ|先頭 12 バイト|末尾 12 バイト」に縮めてから比べる。深い項の全文を
 # 期待のファイルに置かないため。
 # 使い方: cmake "-DCOMMAND=<;区切りのコマンド>" -DEXPECTED=<期待の出力のファイル> -DWORK=<作業ディレクトリ>
-#   [-DSUMMARY=1] -P small_stack.cmake
+#   [-DSUMMARY=1] [-DTIME_LIMIT=<秒>] -P small_stack.cmake
+# TIME_LIMIT の既定は 600 秒。ランナーで既定に近い時間がかかるテストだけ、呼ぶ側で延ばす。
 
+if(NOT DEFINED TIME_LIMIT)
+  set(TIME_LIMIT 600)
+endif()
 file(MAKE_DIRECTORY "${WORK}")
 if(CMAKE_HOST_WIN32)
   set(run ${COMMAND})
@@ -14,7 +18,7 @@ else()
 endif()
 # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND ${run} WORKING_DIRECTORY "${WORK}"
-  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT ${TIME_LIMIT} ENCODING UTF-8)
 string(REPLACE "\r\n" "\n" out "${out}")
 if(SUMMARY AND code EQUAL 0)
   set(summary "")

@@ -84,11 +84,13 @@ add_test(NAME stack_deep_read COMMAND ${CMAKE_COMMAND}
 set_tests_properties(stack_deep_read PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
 # 1 MiB のスタックで、深さ 1,000,000 の項に項を歩く組込を使う（ADR 0011、計画 Task 7）。
+# macOS のランナーでは 250〜510 秒かかり、ae22e43 の push の 2 回が 600 秒の既定を超えた（別の項目で止まり、機能の失敗は無し）。
+# 持ち主の A で、このテストだけ上限を 1200 秒に延ばし、ctest の上限はそれより上に置く。
 add_test(NAME stack_deep_builtins COMMAND ${CMAKE_COMMAND}
   "-DCOMMAND=$<TARGET_FILE:mosa>;${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.pl"
   -DEXPECTED=${CMAKE_SOURCE_DIR}/tests/stack/deep_builtins.expected -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stack
-  -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
-set_tests_properties(stack_deep_builtins PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+  -DTIME_LIMIT=1200 -P ${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake)
+set_tests_properties(stack_deep_builtins PROPERTIES TIMEOUT 1500 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
 # 1 MiB のスタックで、findall/3・findall/4・bagof/3・setof/3 を 100,000 段入れ子にする（ADR 0013、レビュー H4）。
 add_test(NAME stack_deep_collect COMMAND ${CMAKE_COMMAND}
