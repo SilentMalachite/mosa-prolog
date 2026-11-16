@@ -10,7 +10,8 @@
 // 選択 A）。
 // テスト: tests/pl/cond_compile.pl、tests/pl/japanese.pl、tests/cpp/cond_compile_test.cpp、翻訳の読み込みは
 //         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_build_failure、check_cond_failure_chain、
-//         check_cond_failure_prepared、check_cond_failure_clause、check_cond_failure_export、check_cond_log）と
+//         check_cond_failure_prepared、check_cond_failure_clause、check_cond_failure_export、
+//         check_cond_failure_after、check_cond_log）と
 //         tests/mosac/standalone_test.cmake（cond_*）
 #include "load_internal.hpp"
 
@@ -205,6 +206,7 @@ int CondFrames::otherwise(Cell term) {
 
 int CondFrames::finish(Cell term) {
   if (frames_.empty()) return fail_cond(machine_, "cond_unmatched", term);
+  if (log_ != nullptr && frames_.back().doubtful) log_->closed_doubtful = true;
   frames_.pop_back();
   if (log_ != nullptr) --log_->open_conditions;
   return 1;
@@ -238,6 +240,17 @@ bool CondFrames::tolerate(std::optional<std::size_t> known) {
   log_->files[log_->current].opaque = true;
   for (std::size_t index = *known; index < log_->files.size(); ++index) log_->files[index].opaque = true;
   forget_failure(machine_);
+  return true;
+}
+
+// ビルド時に取った分岐か取らなかった分岐が、後ろの節の並び（discontiguous/1 も）と取り込みを起動時と違えうる。
+// 起動時には足せるかもしれないので、ファイルを IR のまま動かし、判定を起動時の読み込みに任せる。節の形そのものの
+// 誤り（文法規則、呼べない本体）は分岐に関わらず起動時にも起きるので、add_clause の失敗だけをここへ通す。
+bool tolerate_after_block(Impl& machine) {
+  TranslationLog* log = machine.translation;
+  if (log == nullptr || !log->closed_doubtful || log->current >= log->files.size()) return false;
+  log->files[log->current].opaque = true;
+  forget_failure(machine);
   return true;
 }
 

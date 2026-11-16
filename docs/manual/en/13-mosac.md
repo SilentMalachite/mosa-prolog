@@ -193,7 +193,9 @@ as `mosa` would at that moment. When the two runs read different branches, the p
 Because `mosac build` does not run a directive that is an ordinary goal, such as `:- assertz(…)`, a directive or a
 clause that fails in a branch read while building, as `:- use_module(helper).` does with no `helper.pl`, does not
 stop `mosac build` when such a goal comes before the branch's condition, and neither does a line there that does not
-read: the executable decides when it starts, as `mosa` does.
+read: the executable decides when it starts, as `mosa` does. The same goes for a clause after such a branch that
+`mosac build` cannot add because of what the branch read, as when `q(1).` comes before the branch, the branch
+defines `p/1`, and `q(2).` comes after it.
 
 `mosac` looks for a compiler in the usual places: `clang++` on macOS, `g++` and then `clang++` on Linux, and the
 compiler of Visual Studio on Windows. After you change a file, run `mosac build` again, and it takes a second or two

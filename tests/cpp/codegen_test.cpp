@@ -601,6 +601,33 @@ void check_cond_failure_export() {
   (void)cond_unit("cond_untaken_reexport.pl", ":- use_module(cond_untaken_ra).\n:- use_module(cond_untaken_rb).\n");
 }
 
+// I2 の直し 4 回目（持ち主の選択 A）。起動時には別の分岐を取りうるブロックを閉じた後は、その分岐が残した物で節を足せ
+// なくても（節が離れている、取り込んだ述語との衝突）、起動時の読み込みに任せる。include の先でも元でも、取らなかった
+// 分岐の discontiguous/1 でも同じ。ブロックより前の誤りと、分岐に関わらない誤り（文法規則）は今までどおり止める。
+void check_cond_failure_after() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  std::filesystem::create_directories(dir);
+  const std::string skip = ":- dynamic(skip/0).\n:- assertz(skip).\n";
+  const std::string block = ":- if(\\+ skip).\np(1).\n:- endif.\n";
+  const auto builds = [&](std::string_view name, const std::string& text) {
+    const std::string unit = cond_unit(name, text);
+    check(!unit.empty() && !has(unit, "NativeEntry{"), std::string{name} + " leaves the file as IR");
+  };
+  builds("cond_after_apart.pl", skip + "q(1).\n" + block + "q(2).\nq(3).\nr.\n");
+  write_file(dir / "cond_after_down_part.pl", "q(2).\nq(3).\n");
+  builds("cond_after_down.pl", skip + "q(1).\n" + block + ":- include(cond_after_down_part).\nr.\n");
+  write_file(dir / "cond_after_up_part.pl", block);
+  // 部品の p/1 は部品の印のまま訳してよい。足せなかった q/1 のある読んだ側だけが IR になる。
+  const std::string up = cond_unit("cond_after_up.pl", skip + "q(1).\n:- include(cond_after_up_part).\nq(2).\n");
+  check(!up.empty() && !has(up, "pq_1"), "a clause apart after an included block leaves its predicate as IR");
+  write_file(dir / "cond_after_h.pl", ":- module(cond_after_h, [p/0]).\np.\n");
+  builds("cond_after_clash.pl", skip + ":- if(\\+ skip).\n:- use_module(cond_after_h).\n:- endif.\np.\n");
+  builds("cond_after_discont.pl", skip + ":- if(skip).\n:- discontiguous(q/1).\n:- endif.\nq(1).\np.\nq(2).\n");
+  (void)cond_stop("cond_after_before.pl", skip + "q(1).\np(1).\nq(2).\n" + block, "q/1");
+  (void)cond_stop("cond_after_dcg.pl", skip + block + "a --> 1.\n", "type_error(callable,1)");
+  (void)cond_stop("cond_after_sure.pl", "q(1).\n:- if(true).\np(1).\n:- endif.\nq(2).\n", "q/1");
+}
+
 // 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
 // 読み終えれば 0 に戻る。
 void check_cond_log() {
@@ -728,6 +755,7 @@ int main() {
   check_cond_failure_prepared();
   check_cond_failure_clause();
   check_cond_failure_export();
+  check_cond_failure_after();
   check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();

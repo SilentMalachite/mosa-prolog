@@ -476,7 +476,10 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
     if (mark_opaque(machine.translation)) return true;
     return fail_formal(machine, *formal) > 0;
   }
-  if (!add_clause(machine, module, std::move(clause), scan.snapshots, scan.last, scan.apart)) return false;
+  // 分岐が残した物で足せない節は、起動時には足せるかもしれない（I2 の直し 4 回目）。
+  if (!add_clause(machine, module, std::move(clause), scan.snapshots, scan.last, scan.apart)) {
+    return tolerate_after_block(machine);
+  }
   if (scan.last) note_site(machine, *scan.last, read.line);
   return true;
 }

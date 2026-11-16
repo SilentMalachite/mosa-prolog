@@ -222,7 +222,8 @@ struct TranslationLog {
     std::size_t column = 0;
     bool library = false;  // library(_) で開いたファイルと、そこから開いたファイル（同梱の単位として結ぶ。Task 10）
     bool skipped_goal = false;  // 飛ばした指示のゴールがある。そのゴールの op/3 が後の項の読みを変えうる
-    // 飛ばしたゴールの後の構文エラーか、起動時に任せた項の失敗（自分のモジュールを持たない、読んだテキストのものも）。述語は IR のまま動かす
+    // 飛ばしたゴールの後の構文エラーか、起動時に任せた項の失敗（自分のモジュールを持たない、読んだテキストのものも）。
+    // 述語は IR のまま動かす
     bool opaque = false;
     bool untaken_branch = false;  // このファイルか、ここから開いたファイルで、条件が項を読み飛ばした（ADR 0027）
     bool in_branch = false;       // 開いた時に、読んでいるテキストのどれかに閉じていない if があった（ADR 0027）
@@ -248,6 +249,9 @@ struct TranslationLog {
   std::vector<std::string> goal_libraries;
   std::size_t current = static_cast<std::size_t>(-1);  // 読んでいるファイルの files の添字
   std::size_t open_conditions = 0;  // 読んでいるテキスト全部の、閉じていない if の数（CondFrames が足し引きする）
+  // 起動時には別の分岐を取りうるブロック（CondFrames::Frame::doubtful）を、この読み込みのどこかで閉じた。その後は
+  // 節の並びと取り込みが起動時と違いうる（I2 の直し 4 回目）。
+  bool closed_doubtful = false;
 };
 
 // 実行ファイルに埋め込んだ原文。include/1 などはファイルシステムより先にこれを正規化したパスで引く。

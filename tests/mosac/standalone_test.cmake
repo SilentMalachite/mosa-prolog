@@ -5,7 +5,7 @@
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
 #           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif|
-#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late>
+#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late|cond_after_apart>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -99,6 +99,9 @@ elseif(CASE STREQUAL "cond_clause_fail")
 elseif(CASE STREQUAL "cond_clause_late")
   set(sources cond_clause_late.pl cond_clause_late_part.pl)
   set(program cond_clause_late)
+elseif(CASE STREQUAL "cond_after_apart")
+  set(sources cond_after_apart.pl)
+  set(program cond_after_apart)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -287,6 +290,12 @@ elseif(CASE STREQUAL "cond_clause_late")
   if(NOT code EQUAL 1 OR NOT out STREQUAL "" OR
      NOT err MATCHES "^[^\n]*cond_clause_late\\.pl: permission_error\\(modify,static_procedure,atom_length/2\\)\n$")
     fail("a bad clause in a branch of an included file taken at start-up too")
+  endif()
+elseif(CASE STREQUAL "cond_after_apart")
+  # ビルド時は分岐を取って p(1) を足すので、後ろの q(2) は q(1) から離れる。そのブロックは起動時には別の分岐を取り
+  # うるので build は止めず、起動時は分岐を取らずに q(2) が q(1) に続き、mosa と同じ答えを書く（I2 の直し 4 回目）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "[1,2]\n" OR NOT err STREQUAL "")
+    fail("a clause apart only after a branch taken at build time")
   endif()
 elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")
   # 分岐の中の use_module が途中で失敗したモジュールのファイルは、その前に別のモジュール（cond_half_q と

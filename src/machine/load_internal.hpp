@@ -143,6 +143,10 @@ void apply_file_notes(Impl& machine, FileNotes& notes, std::uint64_t started_at)
 // 1 は真、0 は偽、-1 は読み込みの失敗（診断は書いた）。
 [[nodiscard]] int run_condition(Impl& machine, Cell goal);
 
+// 定義は load_cond.cpp。翻訳の読み込みで、起動時には別の分岐を取りうるブロックを閉じた後に add_clause が失敗したら、
+// このファイルを IR のまま動かす印にし、診断を消して真（I2 の直し 4 回目）。そうでなければ偽。
+[[nodiscard]] bool tolerate_after_block(Impl& machine);
+
 // 条件付きコンパイル :- if/1、elif/1、else/0、endif/0 の節の積み（SPEC 第3節、ADR 0027）。if と endif の対は
 // テキストごとに閉じるので、read_terms がテキスト 1 つにつき 1 つ持つ。項は持たない。定義は load_cond.cpp。
 class CondFrames {
