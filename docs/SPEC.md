@@ -347,6 +347,8 @@ Known limits (also written in the CHANGELOG and iso-notes):
 - A file named by a plain path (`include(foo)`, `use_module(foo)`, `ensure_loaded(foo)`) inside a branch not taken at build time is not bundled. If the executable takes that branch at start-up, it reads the file from the working directory, as it does for a file that a goal load names by a plain path (phase 12)
 - The conditions run at build time too, so a condition that writes output writes it in the output of `mosac build` as well
 - A call to a predicate that only a branch not taken at build time defines gets the undefined-call warning of `mosac`
+- The conditions are solved where `mosac build` runs. A condition that reads the files there or the flag `argv` can take a branch that the executable would not take where it runs; a directive or clause that fails in that branch stops the build, as it would stop `mosa` in the same place, unless a goal was skipped before the condition (I2)
+- A condition that calls `halt/0,1` stops the load at start-up (section 3), but in the translation load it only means that its branch is not taken, so a directive or clause after it that fails stops the build, although `mosa` and the executable halt before reaching it
 
 **Source layout**
 

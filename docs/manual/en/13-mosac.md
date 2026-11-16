@@ -173,7 +173,7 @@ A file can choose which of its lines to read with the directives `:- if(Goal)`, 
 `:- endif` (chapter 14). `mosac build` runs these conditions while it builds, to choose the clauses to translate and
 the files to put in the executable, and the executable runs them again when it starts, so it reads the same branches
 as `mosa` would at that moment. When the two runs read different branches, the program still gives the results of
-`mosa`, only more slowly. Three things come from this:
+`mosa`, only more slowly. Five things come from this:
 
 - A file named without `library(…)`, as in `:- use_module(helper).`, inside a branch not read while building is not
   put in the executable. If the executable reads that branch when it starts, it opens the file from the working
@@ -182,6 +182,13 @@ as `mosa` would at that moment. When the two runs read different branches, the p
   too.
 - A call to a predicate that only a branch not read while building defines gets the warning of `mosac build` that
   the predicate is not defined. The executable still runs it when it reads that branch.
+- `mosac build` runs the conditions where you build. A condition that looks at the files there, or at the command
+  line through the flag `argv`, can read a branch that the executable would not read where it runs. If a directive
+  or a clause in that branch fails, `mosac build` stops, as `mosa` would stop there, unless an ordinary goal comes
+  before the condition (see the next paragraph).
+- A condition that calls `halt` ends `mosa` and the executable when they start, but `mosac build` only skips its
+  branch and reads on. So a directive or a clause after it that fails stops `mosac build`, although the program
+  never gets there.
 
 Because `mosac build` does not run a directive that is an ordinary goal, such as `:- assertz(…)`, a directive or a
 clause that fails in a branch read while building, as `:- use_module(helper).` does with no `helper.pl`, does not

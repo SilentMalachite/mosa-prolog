@@ -48,7 +48,7 @@ English | [日本語](CHANGELOG.ja.md)
 
 ### Known limits
 
-The known limits of 0.3.0 still hold. Three come with conditional compilation under `mosac`:
+The known limits of 0.3.0 still hold. Five come with conditional compilation under `mosac`:
 
 - A file named by a plain path (`include(foo)`, `use_module(foo)`, `ensure_loaded(foo)`) inside a branch not taken
   at build time is not bundled. If the executable takes that branch at start-up, it reads the file from the working
@@ -57,6 +57,13 @@ The known limits of 0.3.0 still hold. Three come with conditional compilation un
   as well.
 - A call to a predicate that only a branch not taken at build time defines gets the undefined-call warning of
   `mosac`.
+- The conditions are solved where `mosac build` runs. A condition that looks at the files there or at the flag
+  `argv` can take a branch that the executable would not take where it runs, and a directive or clause that fails
+  in that branch stops the build, as it would stop `mosa` in the same place, unless a goal was skipped before the
+  condition.
+- A condition that calls `halt/0,1` stops `mosa` and the executable at start-up, but at build time it only means that
+  its branch is not taken, so a directive or clause after it that fails stops the build, although the program halts
+  before reaching it.
 
 ## 0.3.0 (2026-11-16)
 
