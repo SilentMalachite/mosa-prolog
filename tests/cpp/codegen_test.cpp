@@ -446,6 +446,57 @@ void check_cond_translation() {
   check(!op_only.empty() && !has(op_only, "NativeEntry{"), "an op/3 in a branch not taken leaves the file as IR");
 }
 
+// name のファイルに text を書いて訳し、翻訳が止まって診断に part が入ることを見る。診断を返す。
+std::string cond_stop(std::string_view name, std::string_view text, std::string_view part) {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  std::filesystem::create_directories(dir);
+  write_file(dir / name, text);
+  const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / name), {});
+  check(!project.ok && has(project.diagnostic, part),
+        std::string{name} + " stops the translation: " + project.diagnostic);
+  return project.diagnostic;
+}
+
+// I2（持ち主の選択 A、ADR 0027）。ビルド時に取った分岐の中で指令が失敗しても、その条件より前に飛ばしたゴールが
+// あれば翻訳を止めない。起動時はそのゴールが条件を変え、分岐を取らないかもしれない。ファイルは IR のまま動く。
+// 前のファイルで飛ばしたゴールも数え、分岐の中で読んで途中で失敗したモジュールの公開の未定義でも止めない。
+void check_cond_build_failure() {
+  const std::string skip = ":- dynamic(skip/0).\n:- assertz(skip).\n";
+  const std::string branch = skip + ":- if(\\+ skip).\n";
+  const std::string plain =
+      cond_unit("cond_fail_plain.pl", branch + ":- use_module(no_such_helper).\n:- endif.\nq.\n");
+  check(!plain.empty() && !has(plain, "NativeEntry{"),
+        "a failing use_module after a skipped goal leaves the file as IR");
+  const std::string lib =
+      cond_unit("cond_fail_lib.pl", branch + ":- use_module(library(no_such_lib)).\n:- endif.\nq.\n");
+  check(!lib.empty() && !has(lib, "NativeEntry{"), "a missing library after a skipped goal leaves the file as IR");
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
+  write_file(dir / "cond_fail_part.pl", ":- if(\\+ skip).\n:- use_module(no_such_helper).\n:- endif.\n");
+  (void)cond_unit("cond_fail_include.pl", skip + ":- include(cond_fail_part).\n");
+  write_file(dir / "cond_fail_helper.pl", ":- module(cond_fail_helper, [p/0]).\n:- use_module(no_such_helper).\np.\n");
+  (void)cond_unit("cond_fail_module.pl", branch + ":- use_module(cond_fail_helper).\n:- endif.\n");
+  // 起動時の結果が変わりえなければ、今までどおり止める。分岐の外、飛ばしたゴールの無い分岐、条件を解いた後で
+  // 飛ばしたゴールしか無い分岐（そのゴールはもう解いた条件を変えない）。
+  // 診断の頭は根のファイルのパスなので、それを外して比べる。
+  const auto reason = [&dir](const std::string& diagnostic, std::string_view name) {
+    const std::string head = mosa::utf8_from_path(dir / name) + ": ";
+    return diagnostic.starts_with(head) ? diagnostic.substr(head.size()) : diagnostic;
+  };
+  const std::string outside =
+      cond_stop("cond_fail_outside.pl", skip + ":- use_module(no_such_helper).\n", "no_such_helper");
+  const std::string unskipped = cond_stop("cond_fail_unskipped.pl",
+                                          ":- if(true).\n:- use_module(no_such_helper).\n:- endif.\n", "no_such_helper");
+  check(reason(outside, "cond_fail_outside.pl") == reason(unskipped, "cond_fail_unskipped.pl"),
+        "the same reason outside and inside a branch: " + outside + " / " + unskipped);
+  (void)cond_stop("cond_fail_unskipped_lib.pl", ":- if(true).\n:- use_module(library(no_such_lib)).\n:- endif.\n",
+                  "existence_error(source_sink,library(no_such_lib))");
+  (void)cond_stop("cond_fail_late.pl", ":- if(true).\n:- assertz(x).\n:- use_module(no_such_helper).\n:- endif.\n",
+                  "no_such_helper");
+  // :- fail. は翻訳の読み込みでは呼ばない一般の指令で、分岐の中でも失敗しない。ファイルは今までどおり訳す。
+  const std::string failed = cond_unit("cond_fail_goal.pl", ":- if(true).\n:- fail.\n:- endif.\nfailpin.\n");
+  check(has(failed, "pfailpin_0"), "a :- fail. in a branch is skipped at build time");
+}
+
 // 読み飛ばした項のライブラリも書き留める。reexport の 2 つの形も拾う（計画の「設計との違い」3）。積んだ条件の節の数は
 // 読み終えれば 0 に戻る。
 void check_cond_log() {
@@ -568,6 +619,7 @@ int main() {
   project_modules();
   project_opaque();
   check_cond_translation();
+  check_cond_build_failure();
   check_cond_log();
   check_goal_library_names();
   check_goal_library_deep();

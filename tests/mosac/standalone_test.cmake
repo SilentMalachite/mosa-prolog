@@ -4,7 +4,7 @@
 # 使い方: cmake -DMOSAC=<mosac>
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
-#           cond_goal_mod|cond_goal_lib>
+#           cond_goal_mod|cond_goal_lib|cond_build_fail>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -74,6 +74,9 @@ elseif(CASE STREQUAL "cond_goal_mod")
 elseif(CASE STREQUAL "cond_goal_lib")
   set(sources cond_goal_lib.pl)
   set(program cond_goal_lib)
+elseif(CASE STREQUAL "cond_build_fail")
+  set(sources cond_build_fail.pl)
+  set(program cond_build_fail)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -234,6 +237,12 @@ elseif(CASE STREQUAL "cond_goal_lib")
   # 条件のゴールに字面で書いた library(strings) は、ビルド時の評価がそこへ届かなくても同梱する（フェーズ12 の問い 2 の A）。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "ABC\n" OR NOT err STREQUAL "")
     fail("a library named only in a condition goal")
+  endif()
+elseif(CASE STREQUAL "cond_build_fail")
+  # ビルド時は :- assertz(skip) を呼ばないので分岐を取り、無いファイルの use_module が失敗する。その前に飛ばしたゴールが
+  # あるので build は止めず、起動時の読み込みに任せる。起動時は分岐を取らず、mosa と同じく ran を書いて 0 で終わる（I2）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "ran\n" OR NOT err STREQUAL "")
+    fail("a directive that fails in a branch taken only at build time")
   endif()
 else()
   # bar の中の use_module('sub/deep') は library/sub/deep.pl を引き、プログラムの library('sub/deep') も同じ物を指す。

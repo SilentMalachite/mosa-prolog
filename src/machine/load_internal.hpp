@@ -158,15 +158,24 @@ class CondFrames {
   [[nodiscard]] bool skipping() const;
   // テキストの終わり。閉じない if があれば cond_unclosed の診断を書いて偽。
   [[nodiscard]] bool close();
+  // 翻訳の読み込みで、term の失敗を起動時の読み込みに任せてよいか（I2、持ち主の選択 A）。term が指令で、読んでいる
+  // 分岐の条件より前に飛ばしたゴールがあるときだけ、そこまでに開いたファイルの数を返す。take_term の中の GC で項が
+  // 動きうるので、渡す前に呼ぶ。
+  [[nodiscard]] std::optional<std::size_t> tolerable(Cell term) const;
+  // tolerable が数を返した項の失敗なら、このファイルとその指令が開いたファイルを IR のまま動かす印にし、診断を消して
+  // 真。数が無ければ偽で、呼び手は読み込みを失敗させる。
+  [[nodiscard]] bool tolerate(std::optional<std::size_t> known);
 
  private:
   // 条件の節 1 つ。outer_skipping は開いた時に外が読み飛ばし中だったこと、taken はこの節で分岐を取ったこと、
-  // seen_else は else を見たこと、reading は今の分岐を読むこと。
+  // seen_else は else を見たこと、reading は今の分岐を読むこと。doubtful は、翻訳の読み込みで最後に解いた条件までに
+  // 飛ばしたゴールがあったこと（起動時にはその条件の答えが違いうる）。
   struct Frame {
     bool outer_skipping = false;
     bool taken = false;
     bool seen_else = false;
     bool reading = false;
+    bool doubtful = false;
   };
   [[nodiscard]] int open(Cell goal);
   [[nodiscard]] int next_branch(Cell term, Cell goal);

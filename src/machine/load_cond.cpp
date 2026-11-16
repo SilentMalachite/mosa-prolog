@@ -5,13 +5,16 @@
 // if は cond_unclosed（どれも読み込みの失敗で、読み飛ばし中の入れ子の節でも失敗させる。計画の「設計との違い」1）。
 // 条件の例外はその Formal、halt/0,1 は読み込みをその場で止める。
 // 翻訳の読み込み（mosac、Impl::translation がある）も条件を解く。そこでは例外と halt は「その分岐を取らない」とだけ
-// 扱い、読み飛ばした項からライブラリの名前と印を書き留める（問い 1 の A、SPEC 第6節）。
+// 扱い、読み飛ばした項からライブラリの名前と印を書き留める（問い 1 の A、SPEC 第6節）。条件より前に飛ばしたゴールが
+// ある分岐の中で指令が失敗しても、翻訳を止めずに起動時の読み込みに任せる（I2、持ち主の選択 A）。
 // テスト: tests/pl/cond_compile.pl、tests/pl/japanese.pl、tests/cpp/cond_compile_test.cpp、翻訳の読み込みは
-//         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_log）と tests/mosac/standalone_test.cmake（cond_*）
+//         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_build_failure、check_cond_log）と
+//         tests/mosac/standalone_test.cmake（cond_*）
 #include "load_internal.hpp"
 
 #include "mosa/writer.hpp"
 
+#include <algorithm>
 #include <string_view>
 
 namespace mosa {
@@ -62,20 +65,31 @@ class Evaluating {
   TranslationLog* log_;
 };
 
+// 翻訳を止めずに読み続ける失敗の跡を消す。run_aside と読み込みの指令が書いた診断と halt の求めを残すと、翻訳の後の段
+// （translate_program）がプログラムの失敗や終了と取り違える。条件の中の consult が残した印（load_kept）も持ち越さない。
+void forget_failure(Impl& machine) {
+  machine.diagnostic.clear();
+  machine.syntax_diag = false;
+  machine.halt_now = false;
+  machine.halt_code = 0;
+  machine.load_kept = false;
+}
+
+// 翻訳の読み込みがここまでに飛ばしたゴールがあるか。前のファイルの assertz/1 も後ろのファイルの条件を変えうるので、
+// 今のファイル（と読み終えた子）だけを見る mark_opaque より広く、記録の全部のファイルを見る。
+bool skipped_any(const TranslationLog* log) {
+  return log != nullptr && std::any_of(log->files.begin(), log->files.end(),
+                                       [](const TranslationLog::File& file) { return file.skipped_goal; });
+}
+
 }  // namespace
 
 int run_condition(Impl& machine, Cell goal) {
   const StopKind kind = run_parked(machine, in_load_module(machine, goal));
   // 翻訳の読み込みでは、例外も halt も「その分岐を取らない」とだけ扱い、翻訳を止めない（ADR 0027）。本当の扱いは
-  // 実行ファイルの起動時の読み込みが決める。run_aside が書いた診断と halt の求めを残すと、翻訳の後の段
-  // （translate_program）がプログラムの失敗や終了と取り違えるので、ここで消す。
+  // 実行ファイルの起動時の読み込みが決める。
   if (machine.translation != nullptr && (kind == StopKind::Exception || kind == StopKind::Halt)) {
-    machine.diagnostic.clear();
-    machine.syntax_diag = false;
-    machine.halt_now = false;
-    machine.halt_code = 0;
-    // 読み続けるので、成功と失敗のときと同じ理由で、条件の中の consult が残した印を持ち越さない。
-    machine.load_kept = false;
+    forget_failure(machine);
     return 0;
   }
   // 例外の Formal は run_aside が診断に書いた。SWI-Prolog は偽として読み続けるが、Mosa は一般の指令と同じく読み込みを
@@ -151,7 +165,9 @@ int CondFrames::open(Cell goal) {
     holds = run_condition(machine_, goal);
   }
   if (holds < 0) return -1;
-  push(Frame{false, holds == 1, false, holds == 1});
+  // 飛ばしたゴールは条件を解いた後で見る。条件のゴールが読んだファイル（:- if(consult(f)).）の中で飛ばしたゴールも、
+  // 起動時にはその条件の答えを変えうる。
+  push(Frame{false, holds == 1, false, holds == 1, skipped_any(log_)});
   return 1;
 }
 
@@ -167,6 +183,7 @@ int CondFrames::next_branch(Cell term, Cell goal) {
   if (holds < 0) return -1;
   frames_.back().taken = holds == 1;
   frames_.back().reading = holds == 1;
+  frames_.back().doubtful = skipped_any(log_);
   return 1;
 }
 
@@ -192,6 +209,28 @@ bool CondFrames::close() {
   if (frames_.empty()) return true;
   fail_load(machine_, message_text(machine_, "cond_unclosed"));
   return false;
+}
+
+// 一番内の節だけを見る。外の節の条件はそれより前に解いたので、そこまでに飛ばしたゴールは内の節の doubtful にも入る。
+// else の分岐は、前の条件が全部偽だったから読む。最後に解いた条件の値を持ち越す。分岐の外と、条件を解いた後で
+// 飛ばしたゴールしか無い分岐の失敗は、起動時にも同じく起きるので任せない。
+std::optional<std::size_t> CondFrames::tolerable(Cell term) const {
+  if (log_ == nullptr || frames_.empty() || !frames_.back().doubtful || !is_directive(machine_.heap, term)) {
+    return std::nullopt;
+  }
+  return log_->files.size();
+}
+
+// ビルド時に取った分岐を起動時には取らないかもしれないので、失敗した指令の後ろも読み続け、判定を起動時の読み込みに
+// 任せる。指令が開いて途中で失敗したファイル（分岐の中の use_module(m) の m）も同じ印にする。半分だけ読んだ節から
+// 生成関数を出さず、定義の無いままの公開で翻訳を止めない。原文の無いテキスト（load_program）は印を付ける所が無いので
+// 任せない。
+bool CondFrames::tolerate(std::optional<std::size_t> known) {
+  if (!known || log_->current >= log_->files.size()) return false;
+  log_->files[log_->current].opaque = true;
+  for (std::size_t index = *known; index < log_->files.size(); ++index) log_->files[index].opaque = true;
+  forget_failure(machine_);
+  return true;
 }
 
 }  // namespace mosa

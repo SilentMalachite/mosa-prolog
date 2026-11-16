@@ -555,7 +555,14 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
     // どちらの後も、module/2 はもうファイルの最初の項ではない。
     const int stepped = cond.step(outcome.term->term);
     if (stepped < 0) return false;
-    if (stepped == 0 && !take_term(machine, reader, *outcome.term, directory, origin, first, scan)) return false;
+    if (stepped == 0) {
+      // 翻訳の読みで、起動時には取らないかもしれない分岐の指令が失敗したら、起動時の読み込みに任せる（I2）。
+      // 任せてよいかは、take_term の中の GC（入れ子の条件の run_loop）が項を動かす前に見る。
+      const auto tolerable = cond.tolerable(outcome.term->term);
+      if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan) && !cond.tolerate(tolerable)) {
+        return false;
+      }
+    }
     first = false;
   }
 }
