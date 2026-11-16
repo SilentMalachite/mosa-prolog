@@ -515,6 +515,18 @@ true.
 | `format/2` | `format(F, Args)`: F を書きます。指示のところには、リスト Args の要素を書きます。 |
 | `format/3` | `format(S, F, Args)`: 同じことをストリーム S に行います。 |
 
+### `library(pairs)`
+
+<!-- predicates: pairs -->
+| 述語 | すること |
+| --- | --- |
+| `pairs_keys_values/3` | `pairs_keys_values(Pairs, Keys, Values)`: Pairs は、鍵が Keys、値が Values の `Key-Value` のリストです。どちら向きにも使えます。 |
+| `pairs_keys/2` | `pairs_keys(Pairs, Keys)`: Keys は、Pairs の鍵のリストです。 |
+| `pairs_values/2` | `pairs_values(Pairs, Values)`: Values は、Pairs の値のリストです。 |
+| `group_pairs_by_key/2` | `group_pairs_by_key(Pairs, Groups)`: 鍵が `==` で隣り合う組を、1 つの `Key-Values` にまとめます。鍵をすべて集めるには、先に Pairs を並べ替えます。 |
+| `transpose_pairs/2` | `transpose_pairs(Pairs, Transposed)`: 各組の鍵と値を入れ替え、新しい鍵で `keysort/2` した結果にします。 |
+| `map_list_to_pairs/3` | `map_list_to_pairs(F, List, Pairs)`: Pairs は、List の各 X について `Key-X` を並べたものです。鍵は `call(F, X, Key)` で求めます。 |
+
 ### `library(strings)`
 
 <!-- predicates: strings -->

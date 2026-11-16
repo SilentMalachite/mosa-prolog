@@ -556,6 +556,18 @@ true.
 | `format/2` | `format(F, Args)`: writes F, with the elements of the list Args in place of its directives. |
 | `format/3` | `format(S, F, Args)`: the same on the stream S. |
 
+### `library(pairs)`
+
+<!-- predicates: pairs -->
+| Predicate | What it does |
+| --- | --- |
+| `pairs_keys_values/3` | `pairs_keys_values(Pairs, Keys, Values)`: Pairs is the list of `Key-Value` terms whose keys are Keys and whose values are Values. Works in either direction. |
+| `pairs_keys/2` | `pairs_keys(Pairs, Keys)`: Keys is the list of the keys of Pairs. |
+| `pairs_values/2` | `pairs_values(Pairs, Values)`: Values is the list of the values of Pairs. |
+| `group_pairs_by_key/2` | `group_pairs_by_key(Pairs, Groups)`: joins neighbouring pairs whose keys are `==` into one `Key-Values` term. Sort Pairs first to gather every key. |
+| `transpose_pairs/2` | `transpose_pairs(Pairs, Transposed)`: swaps key and value in each pair and orders the result by the new keys with `keysort/2`. |
+| `map_list_to_pairs/3` | `map_list_to_pairs(F, List, Pairs)`: Pairs holds `Key-X` for each X of List, where `call(F, X, Key)` gives the key. |
+
 ### `library(strings)`
 
 <!-- predicates: strings -->
