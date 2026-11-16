@@ -503,6 +503,7 @@ void check_cond_build_failure() {
 void check_cond_failure_chain() {
   const std::string tail = ":- use_module(no_such_helper).\n:- endif.\n";
   (void)cond_stop("cond_fail_elif.pl", ":- if(fail).\n:- foo.\n:- elif(true).\n" + tail, "no_such_helper");
+  (void)cond_stop("cond_fail_else.pl", ":- if(fail).\n:- foo.\n:- else.\n" + tail, "no_such_helper");
   (void)cond_stop("cond_fail_elif_else.pl", ":- if(fail).\n:- foo.\n:- elif(fail).\n:- else.\n" + tail,
                   "no_such_helper");
   const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";

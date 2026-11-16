@@ -8,7 +8,8 @@
 // 扱い、読み飛ばした項からライブラリの名前と印を書き留める（問い 1 の A、SPEC 第6節）。条件より前に飛ばしたゴールが
 // ある分岐の中で指令が失敗しても、翻訳を止めずに起動時の読み込みに任せる（I2、持ち主の選択 A）。
 // テスト: tests/pl/cond_compile.pl、tests/pl/japanese.pl、tests/cpp/cond_compile_test.cpp、翻訳の読み込みは
-//         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_build_failure、check_cond_log）と
+//         tests/cpp/codegen_test.cpp（check_cond_translation、check_cond_build_failure、check_cond_failure_chain、
+//         check_cond_failure_prepared、check_cond_log）と
 //         tests/mosac/standalone_test.cmake（cond_*）
 #include "load_internal.hpp"
 
