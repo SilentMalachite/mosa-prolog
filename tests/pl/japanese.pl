@@ -7,6 +7,7 @@
 % - 全角記号の旗の有無で読みの結果が同じ: fw_same_term
 :- use_module(library(japanese)).
 :- use_module(library(format)).
+:- use_module(library(ordsets)).
 :- use_module(library(pairs)).
 test(atom_length_hiragana, atom_length('あ', 1), true).
 test(atom_length_scalar, atom_length('𠮷', 1), true).
@@ -230,3 +231,5 @@ test(再公開_公開, module_property(窓口, exports(L)), solutions([L = [照�
 :- endif.
 test(cond_ja, findall(X, 条件の果物(X), L), solutions([L = [りんご]])).
 test(pairs_ja, pairs_keys_values(P, [りんご, みかん], [1, 2]), solutions([P = [りんご-1, みかん-2]])).
+test(ordsets_ja, ord_union([みかん], [りんご], U), solutions([U = [みかん, りんご]])).
+test(ordsets_ja_sort, list_to_ord_set([りんご, みかん], S), solutions([S = [みかん, りんご]])).

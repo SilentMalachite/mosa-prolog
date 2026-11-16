@@ -515,6 +515,32 @@ true.
 | `format/2` | `format(F, Args)`: F を書きます。指示のところには、リスト Args の要素を書きます。 |
 | `format/3` | `format(S, F, Args)`: 同じことをストリーム S に行います。 |
 
+### `library(ordsets)`
+
+<!-- predicates: ordsets -->
+| 述語 | すること |
+| --- | --- |
+| `is_ordset/1` | `is_ordset(Set)`: Set は、要素が標準順序で厳密に昇る、きちんとしたリストです。 |
+| `ord_empty/1` | `ord_empty(Set)`: Set は空の順序集合 `[]` です。 |
+| `ord_seteq/2` | `ord_seteq(Set1, Set2)`: 2 つの集合が等しい（`==`）ことを確かめます。 |
+| `list_to_ord_set/2` | `list_to_ord_set(List, Set)`: Set は、List を並べ替えて重なりを除いたものです。 |
+| `ord_intersect/2` | `ord_intersect(Set1, Set2)`: 2 つの集合に共通の要素が 1 つ以上あります。 |
+| `ord_disjoint/2` | `ord_disjoint(Set1, Set2)`: 2 つの集合に共通の要素がありません。 |
+| `ord_intersection/2` | `ord_intersection(Sets, Intersection)`: Intersection は、リスト Sets のどの集合にもある要素です。Sets が `[]` のときは失敗します。 |
+| `ord_intersection/3` | `ord_intersection(Set1, Set2, Intersection)`: Intersection は、両方の集合にある要素です。 |
+| `ord_intersection/4` | `ord_intersection(Set1, Set2, Intersection, Difference)`: `ord_intersection/3` と同じで、Difference は `ord_subtract(Set2, Set1, Difference)` です。 |
+| `ord_add_element/3` | `ord_add_element(Set, Element, NewSet)`: NewSet は、Set に Element を加えたものです。 |
+| `ord_del_element/3` | `ord_del_element(Set, Element, NewSet)`: NewSet は、Set から Element を除いたものです。 |
+| `ord_selectchk/3` | `ord_selectchk(Element, Set, Rest)`: Rest は、Set から Element を除いたものです。Set に Element が無ければ失敗します。 |
+| `ord_memberchk/2` | `ord_memberchk(Element, Set)`: Element が Set にあります（`compare/3` で確かめ、選択点を残しません）。 |
+| `ord_range/4` | `ord_range(Set, Low, High, Range)`: Range は、Set の要素のうち Low から High まで（両端を含む）です。 |
+| `ord_subset/2` | `ord_subset(Sub, Super)`: Sub の要素はすべて Super にあります。 |
+| `ord_subtract/3` | `ord_subtract(Set, Remove, Rest)`: Rest は、Set の要素のうち Remove に無いものです。 |
+| `ord_union/2` | `ord_union(Sets, Union)`: Union は、リスト Sets のどれかの集合にある要素です。 |
+| `ord_union/3` | `ord_union(Set1, Set2, Union)`: Union は、どちらかの集合にある要素です。 |
+| `ord_union/4` | `ord_union(Set1, Set2, Union, New)`: `ord_union/3` と同じで、New は `ord_subtract(Set2, Set1, New)` です。 |
+| `ord_symdiff/3` | `ord_symdiff(Set1, Set2, Difference)`: Difference は、どちらか一方だけにある要素です。例えば `ord_symdiff([1, 2], [2, 3], X)` は `X = [1, 3]` になります。 |
+
 ### `library(pairs)`
 
 <!-- predicates: pairs -->

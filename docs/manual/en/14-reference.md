@@ -556,6 +556,32 @@ true.
 | `format/2` | `format(F, Args)`: writes F, with the elements of the list Args in place of its directives. |
 | `format/3` | `format(S, F, Args)`: the same on the stream S. |
 
+### `library(ordsets)`
+
+<!-- predicates: ordsets -->
+| Predicate | What it does |
+| --- | --- |
+| `is_ordset/1` | `is_ordset(Set)`: Set is a proper list whose elements rise strictly in the standard order. |
+| `ord_empty/1` | `ord_empty(Set)`: Set is the empty ordered set `[]`. |
+| `ord_seteq/2` | `ord_seteq(Set1, Set2)`: the two sets are equal (`==`). |
+| `list_to_ord_set/2` | `list_to_ord_set(List, Set)`: Set is List sorted, with duplicates removed. |
+| `ord_intersect/2` | `ord_intersect(Set1, Set2)`: the two sets share at least one element. |
+| `ord_disjoint/2` | `ord_disjoint(Set1, Set2)`: the two sets share no element. |
+| `ord_intersection/2` | `ord_intersection(Sets, Intersection)`: Intersection holds the elements in every set of the list Sets. Fails when Sets is `[]`. |
+| `ord_intersection/3` | `ord_intersection(Set1, Set2, Intersection)`: Intersection holds the elements of both sets. |
+| `ord_intersection/4` | `ord_intersection(Set1, Set2, Intersection, Difference)`: as `ord_intersection/3`, and Difference is `ord_subtract(Set2, Set1, Difference)`. |
+| `ord_add_element/3` | `ord_add_element(Set, Element, NewSet)`: NewSet is Set with Element added. |
+| `ord_del_element/3` | `ord_del_element(Set, Element, NewSet)`: NewSet is Set without Element. |
+| `ord_selectchk/3` | `ord_selectchk(Element, Set, Rest)`: Rest is Set without Element. Fails if Element is not in Set. |
+| `ord_memberchk/2` | `ord_memberchk(Element, Set)`: Element is in Set (a test by `compare/3`, with no choice point). |
+| `ord_range/4` | `ord_range(Set, Low, High, Range)`: Range holds the elements of Set from Low to High, both ends included. |
+| `ord_subset/2` | `ord_subset(Sub, Super)`: every element of Sub is in Super. |
+| `ord_subtract/3` | `ord_subtract(Set, Remove, Rest)`: Rest holds the elements of Set that are not in Remove. |
+| `ord_union/2` | `ord_union(Sets, Union)`: Union holds the elements of every set of the list Sets. |
+| `ord_union/3` | `ord_union(Set1, Set2, Union)`: Union holds the elements of either set. |
+| `ord_union/4` | `ord_union(Set1, Set2, Union, New)`: as `ord_union/3`, and New is `ord_subtract(Set2, Set1, New)`. |
+| `ord_symdiff/3` | `ord_symdiff(Set1, Set2, Difference)`: Difference holds the elements that are in exactly one of the two sets. For example `ord_symdiff([1, 2], [2, 3], X)` gives `X = [1, 3]`. |
+
 ### `library(pairs)`
 
 <!-- predicates: pairs -->
