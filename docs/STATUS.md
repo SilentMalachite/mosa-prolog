@@ -1,13 +1,12 @@
 # Status
 
 - **Phase:** 0–13 done. Phase 13 closed 2026-11-17 and is in main; SPEC section 9 has no row 14.
-- **Release:** `mosa 0.4.0`, released 2026-11-17 (latest). Earlier releases are in CHANGELOG.
+- **Release:** the tree is `mosa 0.4.1`; 0.4.0 (2026-11-17) is latest until 0.4.1 is published.
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
-- **In progress:** none.
-- **Last done:** a cycle from an `if/3` argument back to that `if/3` raises
-  `resource_error(cyclic_term)` (owner's A, 2026-11-17, iso-notes 7.3.3).
-  Pushed 2026-11-18; CI run 44111341448 on d5f8581 passed all 11 jobs.
-- **Next:** ask the owner for the next work.
+- **In progress:** release 0.4.1 (owner's request, 2026-11-18): version, CHANGELOG, CI, a trial
+  `release.yml` run, tag `v0.4.1`, draft check, publish, then the landing page on `gh-pages`.
+- **Last done:** STATUS split into STATUS and open-items (f954bab, owner's request).
+- **Next:** finish the release steps above, then ask the owner for the next work.
 - **Questions to the owner:** four A-or-B questions in iso-notes run on default A (open-items).
 - **Split first:** `src/builtins/write_pred.cpp` (799 lines) and four test files near 800 lines.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
