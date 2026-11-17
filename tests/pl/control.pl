@@ -308,6 +308,8 @@ test(m13_if_else_self, (X = if(fail, true, X), call(X)), error(resource_error(cy
 test(m13_if_once_two, (X = once(if(true, X, true)), call(X)), error(resource_error(cyclic_term))).
 test(m13_if_qualified, (X = if(true, user:X, true), call(X)), error(resource_error(cyclic_term))).
 test(m13_if_var_cond, (X = if(_, X, true), call(X)), error(resource_error(cyclic_term))).
+% 引数が同じ別のセルの if/3 は == でも X と同じ項なので、巡回の上に無くても同じ if/3 として誤りにする（レビューの A1）。
+test(m13_if_same_term, (X = if(fail, X, true), call(if(fail, X, true))), error(resource_error(cyclic_term))).
 % 兄弟の引数がどれほど深くても、戻りを見落とさない（2026-11-17 の敵対的レビューの A1）。
 test(m13_if_long_cond, (m13_calls(62, true, C), X = if(C, X, true), call(X)), error(resource_error(cyclic_term))).
 test(m13_if_deep_cond, (m13_ifs(22, true, C), X = if(C, X, true), call(X)), error(resource_error(cyclic_term))).

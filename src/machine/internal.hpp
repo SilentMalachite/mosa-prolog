@@ -602,7 +602,8 @@ inline constexpr std::uint16_t kCallArityMax = 8;
 [[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
 // if/3 が動かす (C *-> T ; E) を訳す。args は動いている if/3 の引数を deref したもので、同じ 3 つの引数の if/3 に
 // 出会えば、その if/3 に戻る巡回とする（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。Goal は元の項を持たないので
-// 引数で見分ける。巡回しない項では、その if/3 は自分の引数の中にあり、同じ引数を持つことはできない。
+// 引数で見分ける。巡回しない項では、その if/3 は自分の引数の中にあり、同じ引数を持つことはできない。引数が同じ別の
+// セルの if/3 は == でも同じ項なので、巡回の上に無いセルでも同じ if/3 とする（2026-11-17 の敵対的レビューの A1）。
 [[nodiscard]] Compiled compile_if_goal(Heap& heap, Cell cell, const std::array<Cell, 3>& args);
 // 制御構造が巡回するゴールなら、name/arity の文脈で resource_error(cyclic_term) を投げて真（iso-notes 7.3.3、
 // 2026-11-17 の持ち主の決定 A）。compile_goal と呼べるかの検査（body_callable、7.8.3.3 とレビュー M16）の後、何も
