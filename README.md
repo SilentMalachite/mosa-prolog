@@ -226,6 +226,7 @@ The prose documents below have a Japanese translation next to them, as `*.ja.md`
 | [`CHANGELOG.md`](CHANGELOG.md) | What each release has, its supported platforms, known limits and differences from ISO |
 | [`docs/SPEC.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.md) | The specification (goals, ISO scope, Japanese support, modules, architecture, tests, phases) |
 | [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) | Current phase and next task (English only) |
+| [`docs/open-items.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/open-items.md) | Unsure points, owner decisions in force and known limits behind STATUS (English only) |
 | [`docs/adr/`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.md) | Architecture decision records for choices that are hard to change later |
 | [`docs/iso-notes.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/iso-notes.md) | Interpretation notes on the standard, by clause number |
 | [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) | Conformance suite results (generated, Japanese headings) |

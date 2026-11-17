@@ -226,6 +226,7 @@ X = 太郎.
 | [`CHANGELOG.ja.md`](CHANGELOG.ja.md) | 各リリースの中身、動作環境、既知の制限、ISO との違い |
 | [`docs/SPEC.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/SPEC.ja.md) | 仕様の本文（目的、ISO の範囲、日本語、モジュール、アーキテクチャ、テスト、フェーズ） |
 | [`docs/STATUS.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/STATUS.md) | 今のフェーズと次の作業（英語のみ） |
+| [`docs/open-items.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/open-items.md) | STATUS の細目。迷った点、効いている持ち主の決定、既知の制限（英語のみ） |
 | [`docs/adr/`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.ja.md) | 後から変えにくい設計の決定記録 |
 | [`docs/iso-notes.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/iso-notes.ja.md) | 規格の解釈メモ（条番号付き） |
 | [`docs/conformance.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/conformance.md) | 準拠スイートの結果（自動生成、日本語のみ） |
