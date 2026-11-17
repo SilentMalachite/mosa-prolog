@@ -114,8 +114,17 @@ bool read_test_file(Machine& machine, std::string_view source, std::string_view 
     return true;
   };
   if (load_source(impl, source, directory, origin).ok) return true;
-  error = std::string{machine.diagnostic()};
+  // 試験は読み終わっていないので、halt で止まっても理由を書いて失敗にする。空のままだと mosatest F は「F: 」だけを
+  // 書き、--diff は組み立てた扱いで先へ進み、試験を 1 件も流さずに一致と数えた（全体の Muse レビュー）。
+  error = halt_reason(machine);
+  if (error.empty()) error = std::string{machine.diagnostic()};
   return false;
+}
+
+std::string halt_reason(Machine& machine) {
+  const Impl& impl = engine_impl(machine);
+  if (!impl.halt_now) return {};
+  return message_text(impl, "suite_halted", {std::to_string(impl.halt_code)});
 }
 
 // 例外の版は読めないフォルダで filesystem_error を投げ、mosatest が落ちる（Muse のレビューの低）。

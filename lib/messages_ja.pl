@@ -111,6 +111,7 @@ message(library_conformance_regressed, 'mosatest: ライブラリ欄の合格率
 message(diff_usage, '使い方: ~w <ディレクトリ> [--report <ファイル>]').
 message(diff_no_files, 'mosatest: ~w に試験のファイルがありません').
 message(suite_no_tests, 'mosatest: ~w に試験がありません').
+message(suite_halted, '読み込みが halt(~w) で止まりました').
 message(diff_not_emitted, '~w: この実行ファイルには翻訳が入っていません').
 message(diff_cannot_read, '~w: 組み立てられません: ~w').
 message(diff_source_changed, '~w: mosac emit --units のあとで原文が変わりました').

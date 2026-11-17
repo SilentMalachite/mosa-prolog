@@ -111,6 +111,7 @@ message(library_conformance_regressed, 'mosatest: library conformance pass rate 
 message(diff_usage, 'usage: ~w <directory> [--report <file>]').
 message(diff_no_files, 'mosatest: no test files in ~w').
 message(suite_no_tests, 'mosatest: no tests in ~w').
+message(suite_halted, 'the load stopped at halt(~w)').
 message(diff_not_emitted, '~w: not translated into this executable').
 message(diff_cannot_read, '~w: cannot assemble: ~w').
 message(diff_source_changed, '~w: source changed since mosac emit --units').

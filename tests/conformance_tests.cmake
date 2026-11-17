@@ -89,6 +89,12 @@ target_compile_definitions(suite_args_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(suite_args_test PRIVATE mosa_lib)
 add_test(NAME suite_args_test COMMAND $<TARGET_FILE:suite_args_test>)
 
+add_executable(suite_halt_test tests/cpp/suite_halt_test.cpp)
+target_include_directories(suite_halt_test PRIVATE tests/cpp src/machine)
+target_compile_definitions(suite_halt_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_halt_test PRIVATE mosa_lib)
+add_test(NAME suite_halt_test COMMAND $<TARGET_FILE:suite_halt_test>)
+
 # tests/tmp/suite は tests.lgt を流す全てが共有する（lgt_io_context のスクラッチ）。空かどうかを見る
 # suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
 # 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/tests.cmake で付く。全体レビュー推奨5）。

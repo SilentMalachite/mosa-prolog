@@ -34,6 +34,10 @@ struct Exam {
 [[nodiscard]] bool read_test_file(Machine& machine, std::string_view source, std::string_view directory,
                                   std::string_view origin, std::vector<Exam>& exams, std::string& error);
 
+// 読み込みが halt/0,1 で止まっていればその理由、止まっていなければ空。読み込みの出口は halt の診断を空にする（台帳 L74）
+// ので、試験のファイルを読む側（read_test_file と diff.cpp の .lgt）はこれで止まった理由を補う。
+[[nodiscard]] std::string halt_reason(Machine& machine);
+
 // run_suite が流すファイル。syntax.pl（往復の例）を除く *.pl を名前の順に並べる。一覧を取れなければ nullopt。
 [[nodiscard]] std::optional<std::vector<std::filesystem::path>> test_files(const std::filesystem::path& dir);
 

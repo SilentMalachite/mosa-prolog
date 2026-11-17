@@ -145,7 +145,9 @@ DiffSource lgt_source(const std::string& bytes) {
     // 読めない原文（古い形の succeeds/1 の節が離れているファイルなど）は両方の側が同じに読めない。
     // 節を足しても意味が無いので、読み込みの失敗の字面だけを比べる。
     if (!scratch->load_program(out.source).ok) {
-      out.loads = false;
+      // halt で止まった原文は読めない原文ではない。両方の側の同じ空振りを一致と数えず、組み立てられない理由にする。
+      out.error = halt_reason(*scratch);
+      if (out.error.empty()) out.loads = false;
       return out;
     }
     install_lgt_ops(*scratch, out.file.operators);

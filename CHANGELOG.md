@@ -2,6 +2,16 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `mosatest F` with a test file whose load stops at `halt/0,1` now writes the reason, as in
+  `F: the load stopped at halt(3)`, and still exits with 1; Mosa 0.4.0 wrote only `F: `. `mosatest --diff` now
+  reports such a `.pl` or `.lgt` file as one it cannot assemble and counts a difference, and `mosac emit --units`
+  writes `mosac: F is not translated: the load stopped at halt(3)` and makes no unit for it. Mosa 0.4.0 ran none of
+  the file's tests and counted it as agreeing.
+
 ## 0.4.0 (2026-11-17)
 
 The release of phase 13 (conditional compilation and libraries): the directives `:- if(Goal)`, `:- elif(Goal)`,
