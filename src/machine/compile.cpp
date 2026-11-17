@@ -24,6 +24,9 @@ namespace {
 // なってヒープの上限で止まるので残す（M31 の Codex 敵対的レビュー）。値は M28 のまま。
 constexpr std::size_t kDeferAt = 63488;
 
+// 葉の中のゴールをたどる歩みの上限（Build::wraps_back）。これより長い周期の、葉だけの巡回は前のとおり動く。
+constexpr std::size_t kWrapWalk = 63;
+
 // 組み立て途中の制御構造。子のゴール（catch/3 の 2 番目だけはデータ）を term.args に集め終えたら閉じる。
 struct GoalFrame {
   Cell cell;
@@ -48,6 +51,18 @@ std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
   else return std::nullopt;
   frame.term.args.reserve(arity);
   return frame;
+}
+
+// 動くときに中のゴールを訳す葉（\+ G、once(G)、call(G, ...)、M:G）なら、その G。巡回を見る Build::wraps_back が使う。
+// call/9 からは利用者の述語なので、第 1 引数はデータである。
+std::optional<Cell> wrapped_goal(const Heap& heap, Cell cell) {
+  if (cell.tag() != Tag::Str) return std::nullopt;
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  const auto arity = heap.functor_arity(cell);
+  if (arity == 2 && name == ":") return heap.deref(heap.arg(cell, 1));
+  const bool call = name == "call" && arity <= kCallArityMax;
+  if ((arity == 1 && (name == "\\+" || name == "once")) || call) return heap.deref(heap.arg(cell, 0));
+  return std::nullopt;
 }
 
 // catch/3 の 2 番目は捕まえる型であり、ゴールではない。
@@ -140,6 +155,7 @@ namespace ir_build {
 // call/1 の葉。clause/2 は Call を中の項として見せる（clause_term.cpp の expose_start）。
 // 実行時のゴールは元の項を env から指す。写すと、入れ子の catch が段ごとに残り全体を写して 2 乗になる。
 IrTerm Build::late_goal(Cell cell) {
+  note_back(heap->deref(cell));
   spend(1);
   IrTerm term;
   term.tag = IrTag::Call;
@@ -200,6 +216,24 @@ bool Build::goal_loops(Cell cell) const {
   return deep_open.contains(cell.raw()) || std::find(goal_path.begin(), goal_path.end(), cell.raw()) != goal_path.end();
 }
 
+// 葉の G をたどり、今訳している制御構造に戻るか、葉どうしで回れば巡回（X = call(X)、X = user:X、周期 2 の
+// X = call(Y), Y = call(X)）。G が制御構造なら止める。その中から戻る巡回は、葉が動いて G を訳す時に道の上で見つかる。
+// 歩くのは kWrapWalk 歩まで。葉は動くたびに中を訳し直すので、端までたどると深さ 1,000,000 の user:…:p が層ごとに
+// 残りを歩き直して 2 乗になる（machine_deep が 600 秒で時間切れ）。63 歩の Brent は周期 32 までの巡回を見つける。
+bool Build::wraps_back(Cell cell) const {
+  LayerWatch watch(cell);
+  std::size_t steps = 0;
+  for (auto next = wrapped_goal(*heap, cell); next && steps < kWrapWalk; next = wrapped_goal(*heap, *next), ++steps) {
+    if (goal_loops(*next) || watch.returned_to(*next)) return true;
+  }
+  return false;
+}
+
+// 後で訳す葉と、子を持たない葉の巡回を印す。節（keep が偽）は前のとおり戻り先を変数のゴールに切る（M7）。
+void Build::note_back(Cell cell) {
+  if (keep && (goal_loops(cell) || wraps_back(cell))) cyclic = true;
+}
+
 // 節の戻り先は、頭や引数のデータの巡回を匿名に切るのと同じく、名前のない変数のゴールに切る（オーナー決定 A、
 // iso-notes 7.3.3）。変数は戻り先の制御構造ごとに 1 つ。ゴールの位置にしか現れず誰も束縛しないので、
 // 共有しても動きは同じで、戻り辺ごとに振ると共有の多い本体でスロットが 2^n 個要る（M7 の敵対的レビュー A2）。
@@ -208,6 +242,7 @@ IrTerm Build::goal_back(Cell cell) {
   IrTerm term;
   term.tag = IrTag::Var;
   if (keep) {
+    cyclic = true;
     term.slot = slot_of(cell);
     return term;
   }
@@ -243,6 +278,7 @@ IrTerm Build::goal_deep(Cell root) {
         // 積むと top は無効になる。
         stack.push_back(std::move(*frame));
       } else {
+        note_back(next);
         top.term.args.push_back(goal_leaf(next));
       }
       continue;
@@ -259,7 +295,10 @@ IrTerm Build::goal_deep(Cell root) {
 IrTerm Build::goal_at(Cell cell, int depth) {
   cell = heap->deref(cell);
   auto frame = goal_frame(*heap, cell);
-  if (!frame) return goal_leaf(cell);
+  if (!frame) {
+    note_back(cell);
+    return goal_leaf(cell);
+  }
   if (goal_loops(cell)) return goal_back(cell);
   if (depth >= kShallow) return goal_deep(cell);
   spend(frame->count);
@@ -384,6 +423,7 @@ Compiled compile_goal(Heap& heap, Cell cell) {
   Compiled compiled;
   compiled.term = make_run_goal(heap, std::move(term));
   compiled.env = make_env(heap, std::move(build.env));
+  compiled.cyclic = build.cyclic;
   return compiled;
 }
 

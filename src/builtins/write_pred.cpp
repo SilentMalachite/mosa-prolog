@@ -581,7 +581,7 @@ bool reject_goal(Impl& machine, const Goal& goal, Cell cell) {
   if (!callable_cell(machine, cell)) return raise_type(machine, goal, "callable", cell);
   const Compiled compiled = compile_goal(machine.heap, cell);
   if (!body_callable(*compiled.term)) return raise_type(machine, goal, "callable", cell);
-  return false;
+  return raise_cyclic_goal(machine, compiled, goal.name, goal.arity);
 }
 
 int prepare_capture(Impl& machine, const Goal& goal, Cell cell, Sink& sink) {

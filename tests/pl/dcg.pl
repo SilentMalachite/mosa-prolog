@@ -78,10 +78,12 @@ test(dcg_phrase_cut_local, dcg_cut_local(X), solutions([X = 1, X = 2])).
 test(dcg_phrase_cut_inside, phrase((!, [a] ; [b]), L), solutions([L = [a]])).
 test(dcg_phrase_call, phrase(call(dcg_tail, y), [y]), true).
 test(dcg_phrase_qualified, phrase(user:greeting, [hello, world]), true).
-% 巡回する本体の戻り先は、call/1 と同じく呼ぶときに訳す（Codex のレビューの P1）。共有しているだけの部分項は
-% 祖先ではないのでその場で訳し、中のカットは外の選言まで切る。
-test(dcg_phrase_cyclic_disj, (G = ([a] ; G), once(phrase(G, [a]))), true).
-test(dcg_phrase_cyclic_conj, (G = ([a], ([] ; G)), once(phrase(G, [a, a, a]))), true).
+% 巡回する本体は C++ のスタックで落ちない（Codex のレビューの P1）。前は戻り先を call/1 と同じく呼ぶときに訳して
+% 展開したが、2026-11-17 の持ち主の決定 A（iso-notes 7.3.3）から、何も動かす前に resource_error(cyclic_term) になる。
+% 共有しているだけの部分項は祖先ではないのでその場で訳し、中のカットは外の選言まで切る。
+test(dcg_phrase_cyclic_disj, (G = ([a] ; G), once(phrase(G, [a]))), error(resource_error(cyclic_term))).
+test(dcg_phrase_cyclic_conj, (G = ([a], ([] ; G)), once(phrase(G, [a, a, a]))), error(resource_error(cyclic_term))).
+test(dcg_phrase_cyclic_action, (G = ({write(a)}, G), with_output_to(atom(A), catch(phrase(G, []), _, true))), solutions([A = ''])).
 test(dcg_phrase_shared_cut, (S = (!, []), phrase(((S, [x]) ; (S, [y])), L)), solutions([L = [x]])).
 
 % phrase/2,3 のエラー。

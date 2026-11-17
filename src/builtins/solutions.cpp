@@ -3,7 +3,8 @@
 // 8.10.2 bagof/3 (+term, +callable_term, ?list)
 // 8.10.3 setof/3 (+term, +callable_term, ?list)
 //   第1〜3引数の誤りは findall/3 と同じ。instantiation_error、
-//   type_error(callable, Goal)、type_error(list, List)
+//   type_error(callable, Goal)、type_error(list, List)、Goal の制御構造が巡回すれば resource_error(cyclic_term)
+//   （iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）
 //   第4引数が部分リストでもリストでもなければ type_error(list, Tail)
 // テスト: tests/pl/solutions.pl、tests/cpp/bigint_copy_test.cpp（Big の答え）
 
@@ -197,9 +198,11 @@ bool goal_shape_ok(Impl& machine, const Goal& goal, Cell cell) {
 bool goal_body_ok(Impl& machine, const Goal& goal, Cell cell, Compiled& compiled) {
   if (!goal_shape_ok(machine, goal, cell)) return false;
   compiled = compile_goal(machine.heap, cell);
-  if (body_callable(*compiled.term)) return true;
-  raise_formal(machine, formal_type(machine, "callable", cell), goal.name, goal.arity);
-  return false;
+  if (!body_callable(*compiled.term)) {
+    raise_formal(machine, formal_type(machine, "callable", cell), goal.name, goal.arity);
+    return false;
+  }
+  return !raise_cyclic_goal(machine, compiled, goal.name, goal.arity);
 }
 
 // 部分リストは 8.10 の type_error(list) に含まれない。

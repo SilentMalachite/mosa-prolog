@@ -14,6 +14,10 @@ struct DcgOut {
   // 渡された本体全体に替える（call/1 と同じく、7.8.3.3）。
   std::optional<Cell> formal;
   bool not_callable = false;
+  // 本体の制御構造が自分に戻った（戻り辺は phrase(V, S0, S) に訳してある）。phrase/2,3 はこれで
+  // resource_error(cyclic_term) を投げる（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。文法規則は節を作るので、
+  // assertz/1 の節（レビュー M7）と同じく見ない。
+  bool cyclic = false;
 };
 
 // 項が -->/2 か。ローダと '$dcg_translate'/2 が同じ判定を使う。

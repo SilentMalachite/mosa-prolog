@@ -44,6 +44,7 @@ class Translator {
     if (term) out.term = *term;
     out.formal = formal_;
     out.not_callable = not_callable_;
+    out.cyclic = cyclic_;
     return out;
   }
 
@@ -51,6 +52,7 @@ class Translator {
   Impl& m_;
   std::optional<Cell> formal_;
   bool not_callable_ = false;
+  bool cyclic_ = false;
   std::vector<Work> work_;
   std::vector<Cell> done_;
   // 訳している途中の制御構造（今の本体の祖先）。巡回する本体の戻り先を見つける。
@@ -127,6 +129,7 @@ bool Translator::enter(const Work& item) {
   // 祖先と同じ制御構造に戻ったら巡回である。共有しているだけの部分項は祖先ではないので、ふつうに訳す（そこで
   // 遅らせると、中のカットが phrase に閉じて意味が変わる）。
   if (body.tag() == Tag::Str && path_.contains(body.raw())) {
+    cyclic_ = true;
     done_.push_back(late(body, item.s0, item.s));
     return true;
   }

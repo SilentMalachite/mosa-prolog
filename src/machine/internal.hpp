@@ -574,6 +574,8 @@ struct Goal {
 struct Compiled {
   GoalRef term;
   EnvRef env;
+  // 制御構造が巡回するゴール（Build::cyclic）。呼び手は raise_cyclic_goal で何も動かす前に誤りにする。
+  bool cyclic = false;
 };
 
 // 読み込み中の診断の文面（ADR 0007）。読み込んでいるマシンでは問い合わせを動かせないので、新しいマシンで作る。
@@ -593,7 +595,16 @@ struct Compiled {
 // 上と同じで、names の変数を答えの束縛にする。字面に書けない値を差し込むテストの入口（query_with_bigs）が使う。
 [[nodiscard]] Stop query_exported(Machine& machine, const ExportedTerm& goal, std::span<const ExportedName> names);
 
+// 組み込みの call/N の N の上限。call/9 からは利用者が定義できる。engine.cpp の組み込みの表と、巡回を見る
+// compile.cpp の wrapped_goal が同じ値を使う。
+inline constexpr std::uint16_t kCallArityMax = 8;
+
 [[nodiscard]] Compiled compile_goal(Heap& heap, Cell cell);
+// 制御構造が巡回するゴールなら、name/arity の文脈で resource_error(cyclic_term) を投げて真（iso-notes 7.3.3、
+// 2026-11-17 の持ち主の決定 A）。compile_goal と呼べるかの検査（body_callable、7.8.3.3 とレビュー M16）の後、何も
+// 動かす前に呼ぶ。呼ばない呼び手でも、戻り辺の葉が動くと
+// 変数ゴール（launch_var）がここを通るので、巡回は回り続けずに誤りになる。
+[[nodiscard]] bool raise_cyclic_goal(Impl& machine, const Compiled& compiled, std::uint32_t name, std::uint16_t arity);
 [[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
 // ADR 0022（レビュー M30）。asserta/1 と assertz/1 の節。繰り返す部分項を Clause::shared にし、組む IR は
 // compile_goal と同じくヒープの上限で止める（ResourceLimit）。

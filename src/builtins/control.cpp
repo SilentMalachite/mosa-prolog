@@ -2,6 +2,8 @@
 //   instantiation_error, type_error(callable, Goal)
 // 8.15.1 (\+)/1 (+callable_term)、8.15.2 once/1 (+callable_term)
 //   instantiation_error, type_error(callable, Goal)
+// どれも、Goal の制御構造か M: の層が巡回すれば、何も動かす前に resource_error(cyclic_term)（iso-notes 7.3.3、
+//   2026-11-17 の持ち主の決定 A。呼べるかの検査の後）。if/3 も同じ
 // 8.15.3 repeat/0
 // 8.17.3 halt/0、8.17.4 halt/1 (+integer)
 //   instantiation_error, type_error(integer, Code)、representation_error(max_integer | min_integer)（Code が C++ の
@@ -40,10 +42,15 @@ bool is_qualified(const Impl& machine, Cell cell) {
          machine.atoms.name(machine.heap.functor_atom(cell)) == ":";
 }
 
-// M:G の G。引数を足す相手であり、callable かどうかもこれで決まる。
-Cell unqualified(const Impl& machine, Cell goal) {
+// M:G の G。引数を足す相手であり、callable かどうかもこれで決まる。M: の層が巡回すれば nullopt（iso-notes 7.3.3、
+// 2026-11-17 の持ち主の決定 A）。前は回り続けた。
+std::optional<Cell> unqualified(const Impl& machine, Cell goal) {
   goal = machine.heap.deref(goal);
-  while (is_qualified(machine, goal)) goal = machine.heap.deref(machine.heap.arg(goal, 1));
+  LayerWatch watch(goal);
+  while (is_qualified(machine, goal)) {
+    goal = machine.heap.deref(machine.heap.arg(goal, 1));
+    if (watch.returned_to(goal)) return std::nullopt;
+  }
   return goal;
 }
 
@@ -92,7 +99,12 @@ bool run_call(Impl& machine, const Goal& goal) {
   }
   Cell callable = head;
   if (goal.arity > 1) {
-    const Cell target = unqualified(machine, head);
+    const auto bare = unqualified(machine, head);
+    if (!bare) {
+      raise_formal(machine, formal_resource(machine, "cyclic_term"), goal.name, goal.arity);
+      return true;
+    }
+    const Cell target = *bare;
     if (machine.heap.unbound(target)) {
       instantiation(machine, goal);
       return true;
@@ -114,6 +126,7 @@ bool run_call(Impl& machine, const Goal& goal) {
     not_callable(machine, goal, callable);
     return true;
   }
+  if (raise_cyclic_goal(machine, compiled, goal.name, goal.arity)) return true;
   launch(machine, compiled.term, goal.cont, boundary, compiled.env, goal.module);
   return true;
 }
@@ -134,6 +147,7 @@ bool called_goal(Impl& machine, const Goal& goal, Cell inner, Cell culprit, Comp
     not_callable(machine, goal, culprit);
     return false;
   }
+  if (raise_cyclic_goal(machine, out, goal.name, goal.arity)) return false;
   return true;
 }
 
@@ -262,6 +276,7 @@ bool run_if(Impl& machine, const Goal& goal) {
     not_callable(machine, goal, machine.heap.structure(goal.name, parts));
     return true;
   }
+  if (raise_cyclic_goal(machine, compiled, goal.name, goal.arity)) return true;
   launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
   return true;
 }

@@ -37,10 +37,14 @@ struct Build {
   std::unordered_set<std::uint64_t> open;
   std::vector<Cell> env;
   // 今訳している制御構造（レビュー M13、M7）。浅い部分は goal_at の道、深い部分は goal_deep の枠。
-  // 実行時のゴールは、巡回の戻り先を元の項を指す Var の葉にし、call/1 として動くときに訳す。巡回は無限に
-  // 展開した項として動く。節は env を持たないので、戻り先ごとに新しい名前のない変数のゴールにする。
+  // 実行時のゴールは、巡回の戻り先を元の項を指す Var の葉にし、cyclic を立てる。呼び手は何も動かす前に
+  // resource_error(cyclic_term) にする（2026-11-17 の持ち主の決定 A。前は無限に展開した項として動いた）。
+  // 節は env を持たないので、戻り先ごとに新しい名前のない変数のゴールにする。
   std::vector<std::uint64_t> goal_path;
   std::unordered_set<std::uint64_t> deep_open;
+  // 実行時のゴールの制御構造が巡回していた（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。戻り辺は前と同じ葉に
+  // するので木は組み終わり、compile_goal の呼び手が何も動かす前に resource_error(cyclic_term) にする。
+  bool cyclic = false;
   // 実行時のゴール。束縛された複合項の引数は、写さずに元の項を env から指す（レビュー M28）。木として写すと、
   // 共有の多い項は写しも組み立ても共有を広げた大きさになる。スロットは 32 ビットなので溢れない（ADR 0021）。
   bool keep = false;
@@ -117,6 +121,8 @@ struct Build {
   [[nodiscard]] IrTerm place_root(Cell cell);
   [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
   [[nodiscard]] bool goal_loops(Cell cell) const;
+  [[nodiscard]] bool wraps_back(Cell cell) const;
+  void note_back(Cell cell);
   [[nodiscard]] IrTerm goal_back(Cell cell);
   [[nodiscard]] IrTerm goal_leaf(Cell cell);
   [[nodiscard]] IrTerm goal_deep(Cell cell);

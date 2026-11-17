@@ -34,3 +34,10 @@
 (3) `expand_term/2` は `system` ではなく `library(dcg)`（`lib/dcg.pl`、`:- module(dcg, [expand_term/2]).`）に置く。SPEC 第 3 節は ISO でない述語を `library(*)` に置く。`expand_term/2` は隠しの組み込み `'$dcg_translate'/2`（`library(format)` と `'$format_float'/4` と同じ形）を呼び、それがローダの訳（`src/machine/dcg.cpp` の `dcg_rule`）を実行時に動かす。変数でなく `-->/2` でもない項はそのまま返り、第 1 引数が未束縛なら `instantiation_error` になる。
 却下した案: `expand_term/2` を `system` に置く（SPEC 第 3 節に例外が増える）。`abolish/1` でも `//` を受ける（8.9.4.3 は `type_error(predicate_indicator)` と言う）。`term_expansion/2` の下で Prolog で訳す（元の決定と同じく、その仕組みが無い）。
 結果: `term_expansion/2` と `goal_expansion/2` は範囲に入れず、`assertz/1` は今までどおり訳さない。コードが入ったとき、`Name//Arity` と `*->` の制限は CHANGELOG の既知の制限から外し、`assertz/1` の制限は `library(dcg)` の `expand_term/2` を指す書き方に直し、`term_expansion/2` と `goal_expansion/2` が無いことは載せたままにする。テストは `tests/pl/modules.pl`、`tests/pl/dcg.pl`、`tests/pl/lib_dcg.pl`、`tests/cpp/dcg_test.cpp`。
+
+## 改訂 4（2026-11-17、レビュー M13 についての持ち主の決定 A）
+
+背景: phrase/2,3 に渡した本体の中で、自分の中にまた出会った制御構造は `phrase(V, S0, S)` になった。なので巡回する本体は、レビュー M13 の call/1 と同じく展開して動いた（`X = ({write(a)}, X), phrase(X, [])` は終わらずに書き続け、`X = (X, [])` はヒープの上限で止まった）。
+決定: 翻訳器はその葉を今までどおり作るが、本体に印を付ける（`DcgOut::cyclic`）。phrase/2,3 は、翻訳のほかの誤りの後、何も動かす前に `resource_error(cyclic_term)` を投げる（iso-notes 7.3.3、今の call/1 と同じ）。文法規則は節を作るので、assertz/1 に渡した巡回する本体（レビュー M7）と同じく翻訳を変えない。
+却下した案: 規則でも翻訳器で投げる（ローダと `expand_term/2` が残す物が変わる）。phrase/2,3 だけ展開を残す（call/1 と食い違う）。
+結果: `tests/pl/dcg.pl` の `dcg_phrase_cyclic_disj` と `dcg_phrase_cyclic_conj` はその誤りを期待するようになり、`dcg_phrase_cyclic_action` は何も動かないことを見る。

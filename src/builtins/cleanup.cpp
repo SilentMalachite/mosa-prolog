@@ -6,7 +6,8 @@
 //   例外を捨てて Goal の例外を投げ直し、ほかのときは Cleanup の例外がそのまま出る。halt とヒープの上限での停止は
 //   Cleanup を動かさない。
 //   Setup の誤りは once/1 が出す。Cleanup の instantiation_error と type_error(callable, Cleanup)（M: を外して見る）は
-//   Setup の後で仕掛ける前、Goal の誤りは仕掛けた後に出るので、そのときは Cleanup が動く。
+//   Setup の後で仕掛ける前、Goal の誤りは仕掛けた後に出るので、そのときは Cleanup が動く。Goal や Cleanup の M: の層、
+//   Goal の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
 // テスト: tests/pl/utilities.pl、tests/pl/cleanup_dir.pl
 #include "../machine/internal.hpp"
 
@@ -64,11 +65,14 @@ bool callable_cell(Cell cell) {
 }
 
 // M:G の G。SWI-Prolog の mustBeCallable と同じく、修飾を外した項で呼べるかを見る。
-Cell unqualified(const Impl& machine, Cell cell) {
+// M: の層が巡回すれば nullopt（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。前は回り続けた。
+std::optional<Cell> unqualified(const Impl& machine, Cell cell) {
   cell = machine.heap.deref(cell);
+  LayerWatch watch(cell);
   while (cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
          machine.atoms.name(machine.heap.functor_atom(cell)) == ":") {
     cell = machine.heap.deref(machine.heap.arg(cell, 1));
+    if (watch.returned_to(cell)) return std::nullopt;
   }
   return cell;
 }
@@ -96,6 +100,7 @@ void run_setup(Impl& machine, const Goal& goal) {
   const Cell once = structure(machine, "once", std::array<Cell, 1>{goal.arg(machine, 0)});
   const Cell arm = structure(machine, "$call_cleanup", std::array<Cell, 2>{goal.arg(machine, 1), goal.arg(machine, 2)});
   const Compiled compiled = compile_goal(machine.heap, structure(machine, ",", std::array<Cell, 2>{once, arm}));
+  if (raise_cyclic_goal(machine, compiled, goal.name, goal.arity)) return;
   launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
 }
 
@@ -103,7 +108,9 @@ void run_setup(Impl& machine, const Goal& goal) {
 // propagate_throw が Entry に着いて Cleanup を動かす。
 void run_arm(Impl& machine, const Goal& goal) {
   const Cell cleanup = goal.arg(machine, 1);
-  const Cell bare = unqualified(machine, cleanup);
+  const auto stripped = unqualified(machine, cleanup);
+  if (!stripped) return raise(machine, formal_resource(machine, "cyclic_term"));
+  const Cell bare = *stripped;
   if (machine.heap.unbound(bare)) return raise(machine, formal_instantiation(machine));
   if (!callable_cell(bare)) return raise(machine, formal_type(machine, "callable", bare));
   Entry entry;
@@ -123,6 +130,7 @@ void run_arm(Impl& machine, const Goal& goal) {
   if (!callable_cell(inner)) return raise(machine, formal_type(machine, "callable", inner));
   const Compiled compiled = compile_goal(machine.heap, inner);
   if (!body_callable(*compiled.term)) return raise(machine, formal_type(machine, "callable", inner));
+  if (raise_cyclic_goal(machine, compiled, machine.atoms.intern("setup_call_cleanup"), 3)) return;
   launch(machine, compiled.term, at, machine.stack.size(), compiled.env, goal.module);
 }
 

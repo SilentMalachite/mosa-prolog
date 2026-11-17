@@ -138,9 +138,20 @@ void launch_var(Impl& machine, const IrTerm& goal, std::uint64_t cont, const Env
     reject_callable(machine, cell);
     return;
   }
+  if (raise_cyclic_goal(machine, compiled, machine.atoms.intern("call"), 1)) return;
   const VarNest nest(machine);
   launch(machine, compiled.term, cont, machine.stack.size(), compiled.env, module);
 }
+
+}  // namespace
+
+bool raise_cyclic_goal(Impl& machine, const Compiled& compiled, std::uint32_t name, std::uint16_t arity) {
+  if (!compiled.cyclic) return false;
+  raise_formal(machine, formal_resource(machine, "cyclic_term"), name, arity);
+  return true;
+}
+
+namespace {
 
 void step(Impl& machine) {
   machine.eval_abort = false;
@@ -166,7 +177,6 @@ void step(Impl& machine) {
 }
 
 // call/N と halt/N は表に置かず、引数の数の範囲で引く。is_builtin_procedure と builtin_procedures が同じ値を使う。
-constexpr std::uint16_t kCallArityMax = 8;
 constexpr std::uint16_t kHaltArityMax = 1;
 
 // call/1..8、halt/0..1、use_module、findall、open、close、at_end_of_stream、get_char、get_code、peek_char、

@@ -4,6 +4,19 @@ English | [日本語](CHANGELOG.ja.md)
 
 ## Unreleased
 
+### Changed
+
+- A goal built at run time whose control structure leads back to itself, as in `X = (true, X), call(X)`,
+  `X = (fail ; X)`, `X = (X, true)`, `X = call(X)` or `X = user:X`, now raises `resource_error(cyclic_term)` before
+  any part of it runs, as is/2 does for a cyclic expression. Mosa 0.4.0 ran such a goal as its infinite unfolding:
+  `X = (a, X)` called `a`, `X = (Y = 1 ; X)` gave `Y = 1` on each retry, some goals ran without end, and others
+  stopped at the heap limit, which `catch/3` could not receive. This holds for `call/N`, `\+/1`, `once/1`, a variable
+  goal, `M:G`, `findall/3` and the other predicates that take a goal, for the `M:` layers that `call/N`, `phrase/2,3`
+  and `setup_call_cleanup/3` take off, and for a cyclic grammar body given to `phrase/2,3`, which 0.4.0 also unfolded.
+  A goal with a part that is not callable still raises `type_error(callable, Goal)` first. A goal whose arguments
+  alone are cyclic, such as `X = f(X), call(p(X))`, is still an ordinary call, and a cyclic body given to `assertz/1`
+  is still cut as before.
+
 ### Fixed
 
 - `mosatest F` with a test file whose load stops at `halt/0,1` now writes the reason, as in
@@ -15,8 +28,12 @@ English | [日本語](CHANGELOG.ja.md)
   `clause/2`, `abolish/1`) and `predicate_property/2` now raise `resource_error(cyclic_term)` when the `M:` layers of
   their argument form a cycle, as in `X = a:X, strip_module(X, M, P)`, as is/2 does for a cyclic expression. Mosa 0.4.0
   looped there without end, and `--heap-max` did not stop it. In the clause operations and `predicate_property/2` a
-  layer that names a module that does not exist still raises `existence_error(module, M)` first. Calls such as `call/2`
-  and `phrase/2` of `X = user:X` still do not end.
+  layer that names a module that does not exist still raises `existence_error(module, M)` first.
+
+### Known limits
+
+- A cycle made only of the leaves `call/N`, `\+/1`, `once/1` and `M:G`, with no `,` `;` `->` `*->` or `catch/3` in it,
+  is found only when its period is at most 32; a longer one runs as in Mosa 0.4.0.
 
 ## 0.4.0 (2026-11-17)
 

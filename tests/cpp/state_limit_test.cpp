@@ -1,7 +1,8 @@
 // レビュー M17（ADR 0010 の改訂 3）。選択点のスタック、extras、節と call/1 の env、実行時に訳したゴールは
 // ヒープの外の C++ の物だが、上限には数える。上限は 16 MiB（2^21 語）。
 // 旧コードは alt と巡回する X = (X ; true) を止めず（ヒープは伸びないので RSS だけが伸び続ける）、deep と down は
-// ヒープが上限に着くまで、数えない物を上限の数倍持ったまま進んだ。
+// ヒープが上限に着くまで、数えない物を上限の数倍持ったまま進んだ。巡回するゴールは、2026-11-17 の持ち主の決定 A
+// （iso-notes 7.3.3）から上限に着く前に resource_error(cyclic_term) を投げるので、check_cyclic_stops で見る。
 #include "harness.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
@@ -105,6 +106,15 @@ void check_stops_near(std::string_view label, std::string_view goal, long low, l
   check_after_stop(*machine, label);
 }
 
+// 前は選択点が上限に着いて止まった。今は訳す時に巡回を見つけ、上限に届かずに catch/3 が受ける。
+void check_cyclic_stops(std::string_view label, std::string_view goal) {
+  auto machine = loaded(label);
+  const std::string query = "catch((" + std::string{goal} + "), error(resource_error(cyclic_term), _), true).";
+  const Outcome outcome = run(*machine, query);
+  mosa_test::check(!outcome.limited && outcome.kind == mosa::StopKind::Success,
+                   std::string{label} + ": raises resource_error(cyclic_term) before the limit");
+}
+
 void check_runaway(std::string_view label, std::string_view goal) {
   auto machine = loaded(label);
   const Outcome outcome = run(*machine, goal);
@@ -184,8 +194,8 @@ int main() {
   check_stops_near("deep", "deep(0).", 20000, 50000);
   check_stops_near("down", "down(0).", 40000, 100000);
   check_runaway("alt", "alt.");
-  check_runaway("cyclic or", "X = (X ; true), call(X).");
-  check_runaway("cyclic and", "X = (X, true), call(X).");
+  check_cyclic_stops("cyclic or", "X = (X ; true), call(X)");
+  check_cyclic_stops("cyclic and", "X = (X, true), call(X)");
   check_candidates();
   check_bucket_holds_no_list();
   check_nested_give_back();

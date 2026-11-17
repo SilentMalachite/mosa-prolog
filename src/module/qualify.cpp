@@ -4,6 +4,7 @@
 //         permission_error(create, module, M)、type_error(list, L)、type_error(predicate_indicator, PI)、
 //         type_error(integer, A)、domain_error(not_less_than_zero, A)、representation_error(max_arity)。
 //         A の Big（フェーズ10）は、負なら domain_error、正なら representation_error(max_arity)。
+//         M:G の G の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
 // 述語指示子は Name//Arity も Name/(Arity+2) として受ける（ADR 0024 改訂 3）。
 // テスト: tests/pl/modules.pl、tests/pl/bigint.pl、tests/cpp/module_load_test.cpp、tests/cpp/dcg_test.cpp、
 //   tests/cpp/bigint_heap_test.cpp
@@ -113,6 +114,7 @@ bool run_qualify(Impl& machine, const Goal& goal) {
     raise_formal(machine, formal_type(machine, "callable", culprit), goal.name, goal.arity);
     return true;
   }
+  if (raise_cyclic_goal(machine, compiled, goal.name, goal.arity)) return true;
   // 枠のカットの境界をそのまま渡す。M:G はカットに透明である（iso-notes の決定 A）。
   launch(machine, compiled.term, goal.cont, goal.cut, compiled.env, atom_of(module));
   return true;

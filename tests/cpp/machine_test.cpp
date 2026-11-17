@@ -130,21 +130,22 @@ void check_catch() {
   }
 }
 
-// レビュー M13。左の子から自分に戻る巡回するゴールは、無限の左再帰として動く。C++ の再帰で積まずに、
-// ヒープの上限で止まる（SIGSEGV で落ちない）。catch、->、\+ の段は選択点も積むので、止まるまでの RSS は
-// 上限の何倍にもなる（--heap-max 64 で 1.6 GB）。(X ; true) は除く。ヒープの語が増えず、巡回しない
-// p :- (p ; true) と同じく上限で止まらない。どちらもレビュー M17。
-void check_cyclic_goal_limit() {
-  for (const char* goal : {"X = (X, true), call(X).", "X = catch(X, _, true), call(X).",
-                           "X = (X -> true ; true), call(X).", "X = (\\+ X), call(X).", "X = (X, true), X."}) {
+// レビュー M13。左の子から自分に戻る巡回するゴールは、前は無限の左再帰として動き、ヒープの上限で止まった（catch で
+// 受けられない）。2026-11-17 の持ち主の決定 A（iso-notes 7.3.3）から、訳す時に resource_error(cyclic_term) を投げ、
+// 小さなヒープでも上限に届かずに catch で受けられる。(X ; true) も同じ（前は上限で止まらなかった、レビュー M17）。
+void check_cyclic_goal_error() {
+  for (const char* goal : {"X = (X, true), call(X)", "X = catch(X, _, true), call(X)",
+                           "X = (X -> true ; true), call(X)", "X = (\\+ X), call(X)", "X = (X, true), X",
+                           "X = (X ; true), call(X)"}) {
     auto tiny = mosa::Machine::create(std::size_t{1} << 16);
-    bool limited = false;
+    const std::string query = "catch((" + std::string{goal} + "), error(resource_error(cyclic_term), _), true).";
+    bool caught = false;
     try {
-      (void)tiny->query(goal);
+      caught = tiny->query(query).kind == mosa::StopKind::Success;
     } catch (const mosa::ResourceLimit&) {
-      limited = true;
+      caught = false;
     }
-    mosa_test::check(limited, std::string{goal} + ": hits the heap limit");
+    mosa_test::check(caught, std::string{goal} + ": raises resource_error(cyclic_term)");
   }
 }
 
@@ -753,7 +754,7 @@ int main() {
   check_types();
   check_order();
   check_length_limit();
-  check_cyclic_goal_limit();
+  check_cyclic_goal_error();
   check_terms();
   check_answer_and_consult();
   check_discontiguous();
