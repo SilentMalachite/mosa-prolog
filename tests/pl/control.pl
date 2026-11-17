@@ -300,6 +300,28 @@ test(m13_not_through, (X = (\+ (write(a), X)), with_output_to(atom(A), catch(X, 
 test(m13_call_n_qualified, (X = user:X, call(X, a)), error(resource_error(cyclic_term))).
 test(m13_phrase_qualified, (X = user:X, phrase(X, [])), error(resource_error(cyclic_term))).
 test(m13_cleanup_qualified, (X = user:X, setup_call_cleanup(true, X, true)), error(resource_error(cyclic_term))).
+% if(C, T, E) が動くときに訳す (C *-> T ; E) から、その if/3 に戻れば巡回（持ち主の決定 A、2026-11-17、
+% iso-notes 7.3.3）。前は then の側が末尾の呼び出しになって終わらず、--heap-max でも止まらなかった。
+test(m13_if_then_self, (X = if(true, X, true), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_cond_self, (X = if(X, true, true), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_else_self, (X = if(fail, true, X), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_once_two, (X = once(if(true, X, true)), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_qualified, (X = if(true, user:X, true), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_var_cond, (X = if(_, X, true), call(X)), error(resource_error(cyclic_term))).
+% 兄弟の引数がどれほど深くても、戻りを見落とさない（2026-11-17 の敵対的レビューの A1）。
+test(m13_if_long_cond, (m13_calls(62, true, C), X = if(C, X, true), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_deep_cond, (m13_ifs(22, true, C), X = if(C, X, true), call(X)), error(resource_error(cyclic_term))).
+test(m13_if_shared_else, (D1 = if(true, true, true), D2 = if(D1, D1, D1), D3 = if(D2, D2, D2), X = if(fail, D3, X), call(X)), error(resource_error(cyclic_term))).
+% 呼べない引数があれば、*-> と同じく巡回より先に type_error(callable, _)（同じレビューの A3）。
+test(m13_if_cond_number, (X = if(1, X, true), call(X)), error(type_error(callable, _))).
+test(m13_if_else_number, (X = if(true, X, 1), call(X)), error(type_error(callable, _))).
+% 中の制御構造を通る巡回は、if/3 が中を訳す時に見つける。条件の write(a) は動かない。
+test(m13_if_through, (X = if(write(a), (true, X), true), with_output_to(atom(A), catch(X, error(resource_error(cyclic_term), _), true))), solutions([A = ''])).
+% 同じ項を 3 つの引数で共有するだけの if/3 や、深く入れ子にした if/3 は巡回ではない。
+m13_ifs(0, G, G) :- !.
+m13_ifs(N, G, if(true, W, fail)) :- M is N - 1, m13_ifs(M, G, W).
+test(m13_if_shared, (G = once(true), X = if(G, G, G), call(X)), true).
+test(m13_if_deep, (m13_ifs(100, Y = 1, G), call(G)), solutions([Y = 1])).
 % レビュー M16。\+ G と once(G) は G を call/1 として動かす（8.15.1.1、8.15.2.1）。呼べない部分があれば、何も動かす
 % 前に type_error(callable, G) になる（7.8.3.3）。forall/2 は \+ (Cond, \+ Action) なので、Cond は動かす前に
 % 調べる。Action を調べるのは Cond が成功して Action を動かすときで、そのときも Action の何かが動く前に型エラーに

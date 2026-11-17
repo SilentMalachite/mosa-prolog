@@ -6,6 +6,7 @@
 
 #include "internal.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -45,6 +46,8 @@ struct Build {
   // 実行時のゴールの制御構造が巡回していた（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。戻り辺は前と同じ葉に
   // するので木は組み終わり、compile_goal の呼び手が何も動かす前に resource_error(cyclic_term) にする。
   bool cyclic = false;
+  // 動いている if/3 の引数を deref した raw（compile_if_goal だけが置く）。同じ引数の if/3 は、そこへ戻る辺である。
+  std::optional<std::array<std::uint64_t, 3>> running_if;
   // 実行時のゴール。束縛された複合項の引数は、写さずに元の項を env から指す（レビュー M28）。木として写すと、
   // 共有の多い項は写しも組み立ても共有を広げた大きさになる。スロットは 32 ビットなので溢れない（ADR 0021）。
   bool keep = false;
@@ -122,6 +125,7 @@ struct Build {
   [[nodiscard]] std::optional<IrTerm> data_leaf(Cell cell);
   [[nodiscard]] bool goal_loops(Cell cell) const;
   [[nodiscard]] bool wraps_back(Cell cell) const;
+  [[nodiscard]] bool runs_back(Cell cell) const;
   void note_back(Cell cell);
   [[nodiscard]] IrTerm goal_back(Cell cell);
   [[nodiscard]] IrTerm goal_leaf(Cell cell);

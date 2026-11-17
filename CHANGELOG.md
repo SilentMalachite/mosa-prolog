@@ -7,15 +7,15 @@ English | [日本語](CHANGELOG.ja.md)
 ### Changed
 
 - A goal built at run time whose control structure leads back to itself, as in `X = (true, X), call(X)`,
-  `X = (fail ; X)`, `X = (X, true)`, `X = call(X)` or `X = user:X`, now raises `resource_error(cyclic_term)` before
-  any part of it runs, as is/2 does for a cyclic expression. Mosa 0.4.0 ran such a goal as its infinite unfolding:
-  `X = (a, X)` called `a`, `X = (Y = 1 ; X)` gave `Y = 1` on each retry, some goals ran without end, and others
-  stopped at the heap limit, which `catch/3` could not receive. This holds for `call/N`, `\+/1`, `once/1`, a variable
-  goal, `M:G`, `findall/3` and the other predicates that take a goal, for the `M:` layers that `call/N`, `phrase/2,3`
-  and `setup_call_cleanup/3` take off, and for a cyclic grammar body given to `phrase/2,3`, which 0.4.0 also unfolded.
-  A goal with a part that is not callable still raises `type_error(callable, Goal)` first. A goal whose arguments
-  alone are cyclic, such as `X = f(X), call(p(X))`, is still an ordinary call, and a cyclic body given to `assertz/1`
-  is still cut as before.
+  `X = (fail ; X)`, `X = (X, true)`, `X = call(X)`, `X = if(true, X, true)` or `X = user:X`, now raises
+  `resource_error(cyclic_term)` before any part of it runs, as is/2 does for a cyclic expression. Mosa 0.4.0 ran
+  such a goal as its infinite unfolding: `X = (a, X)` called `a`, `X = (Y = 1 ; X)` gave `Y = 1` on each retry,
+  some goals ran without end, and others stopped at the heap limit, which `catch/3` could not receive. This holds for
+  `call/N`, `\+/1`, `once/1`, a variable goal, `M:G`, `findall/3` and the other predicates that take a goal, for the
+  `M:` layers that `call/N`, `phrase/2,3` and `setup_call_cleanup/3` take off, and for a cyclic grammar body given to
+  `phrase/2,3`, which 0.4.0 also unfolded. A goal with a part that is not callable still raises
+  `type_error(callable, Goal)` first. A goal whose arguments alone are cyclic, such as `X = f(X), call(p(X))`, is
+  still an ordinary call, and a cyclic body given to `assertz/1` is still cut as before.
 
 ### Fixed
 

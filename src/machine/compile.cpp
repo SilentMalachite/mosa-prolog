@@ -3,6 +3,7 @@
 #include "mosa/bigint.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstdint>
 #include <optional>
@@ -224,14 +225,25 @@ bool Build::wraps_back(Cell cell) const {
   LayerWatch watch(cell);
   std::size_t steps = 0;
   for (auto next = wrapped_goal(*heap, cell); next && steps < kWrapWalk; next = wrapped_goal(*heap, *next), ++steps) {
-    if (goal_loops(*next) || watch.returned_to(*next)) return true;
+    if (goal_loops(*next) || runs_back(*next) || watch.returned_to(*next)) return true;
   }
   return false;
 }
 
+// 動いている if/3 に戻ったか（compile_if_goal）。葉と葉の中のたどりで見る。if/3 の引数の中までは外からたどらない。
+// 外からたどると、引数の兄弟の枝が歩みを使い切って戻りを見落とし、その if/3 が呼べない引数で出す
+// type_error(callable, _) より先に巡回の誤りを出す（2026-11-17 の敵対的レビューの A1 と A3）。
+bool Build::runs_back(Cell cell) const {
+  if (!running_if || !is_name(cell, "if", 3)) return false;
+  for (std::uint16_t index = 0; index < running_if->size(); ++index) {
+    if (heap->deref(heap->arg(cell, index)).raw() != (*running_if)[index]) return false;
+  }
+  return true;
+}
+
 // 後で訳す葉と、子を持たない葉の巡回を印す。節（keep が偽）は前のとおり戻り先を変数のゴールに切る（M7）。
 void Build::note_back(Cell cell) {
-  if (keep && (goal_loops(cell) || wraps_back(cell))) cyclic = true;
+  if (keep && (goal_loops(cell) || runs_back(cell) || wraps_back(cell))) cyclic = true;
 }
 
 // 節の戻り先は、頭や引数のデータの巡回を匿名に切るのと同じく、名前のない変数のゴールに切る（オーナー決定 A、
@@ -414,17 +426,30 @@ std::size_t ir_budget(const Heap& heap) {
 
 // 束縛された複合項の引数はどれも元の項を指すので、変数の無い引数ごとにもスロットが要る。スロットは 32 ビットなので、
 // 前のように溢れたら写し直す段は要らない（ADR 0021）。
-Compiled compile_goal(Heap& heap, Cell cell) {
+namespace {
+
+Compiled compile_run_goal(Heap& heap, Cell cell, std::optional<std::array<std::uint64_t, 3>> running_if) {
   Build build;
   build.heap = &heap;
   build.keep = true;
   build.node_budget = ir_budget(heap);
+  build.running_if = running_if;
   IrTerm term = build.goal(cell);
   Compiled compiled;
   compiled.term = make_run_goal(heap, std::move(term));
   compiled.env = make_env(heap, std::move(build.env));
   compiled.cyclic = build.cyclic;
   return compiled;
+}
+
+}  // namespace
+
+Compiled compile_goal(Heap& heap, Cell cell) { return compile_run_goal(heap, cell, std::nullopt); }
+
+Compiled compile_if_goal(Heap& heap, Cell cell, const std::array<Cell, 3>& args) {
+  std::array<std::uint64_t, 3> raws{};
+  for (std::size_t index = 0; index < args.size(); ++index) raws[index] = heap.deref(args[index]).raw();
+  return compile_run_goal(heap, cell, raws);
 }
 
 bool dot_head(const Heap& heap, Cell head, Cell& left, Cell& right) {

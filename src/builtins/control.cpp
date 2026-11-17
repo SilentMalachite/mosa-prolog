@@ -266,12 +266,14 @@ bool run_forall(Impl& machine, const Goal& goal) {
 
 // if/3 は (Cond *-> Then ; Else) を呼び手の文脈で走らせる（iso-notes「Section 3 if/3」の決定 B）。
 // 述語なので call/1 と同じく切断は内側に閉じる。呼べない引数の誤りは、call/1 と同じく渡された項全体で出す。
+// 作る *-> と ; は新しい項なので、引数からこの if/3 に戻っても道の上に無い。compile_if_goal に引数を渡し、同じ引数の
+// if/3 を戻り辺として見つける（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A。前は then を通る巡回が終わらなかった）。
 bool run_if(Impl& machine, const Goal& goal) {
   const std::array<Cell, 3> parts{machine.heap.deref(goal.arg(machine, 0)), machine.heap.deref(goal.arg(machine, 1)),
                                   machine.heap.deref(goal.arg(machine, 2))};
   const Cell soft = machine.heap.structure(machine.atoms.intern("*->"), std::array<Cell, 2>{parts[0], parts[1]});
   const Cell term = machine.heap.structure(machine.atoms.intern(";"), std::array<Cell, 2>{soft, parts[2]});
-  const Compiled compiled = compile_goal(machine.heap, term);
+  const Compiled compiled = compile_if_goal(machine.heap, term, parts);
   if (!body_callable(*compiled.term)) {
     not_callable(machine, goal, machine.heap.structure(goal.name, parts));
     return true;
