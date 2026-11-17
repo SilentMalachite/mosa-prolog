@@ -326,3 +326,29 @@ test(imp_conflict, imp_ctx:import(rx_base:rb_a/1), error(permission_error(import
 % 組み込みになったので、節を足せない。
 test(mp_static, assertz(module_property(a, b)), error(permission_error(modify, static_procedure, module_property/2))).
 test(imp_static, assertz(import(a)), error(permission_error(modify, static_procedure, import/1))).
+% 循環する M: の連なり（7.3.3 は未定義）は resource_error(cyclic_term) を投げて止まる（iso-notes 7.3.3、持ち主の決定 A、
+% 2026-11-17）。前は何も割り当てずに回り続け、--heap-max でも止まらなかった。周期 1 と 2、周期の前に層のある形を見る。
+test(cyc_sm_self, (X = a:X, strip_module(X, _, _)), error(resource_error(cyclic_term))).
+test(cyc_sm_two, (X = a:Y, Y = b:X, strip_module(X, _, _)), error(resource_error(cyclic_term))).
+test(cyc_sm_tail, (X = a:b:c:Y, Y = d:e:f:Y, strip_module(X, _, _)), error(resource_error(cyclic_term))).
+% 循環しない長い連なりは、今までどおり一番内側を返す。2,000 層で見張りの窓は 10 回動く。100,000 層にすると、
+% 連なりを作る節が GC ストレス（MOSA_GC_STRESS=1）の下で深さの 2 乗の時間を食い、このファイルが 265 秒かかった（Opus レビュー A1）。
+cyc_chain(0, T, T) :- !.
+cyc_chain(N, T0, T) :- N1 is N - 1, cyc_chain(N1, m:T0, T).
+test(cyc_sm_long, (cyc_chain(2000, x, T), strip_module(T, M, P)), solutions([(M = m, P = x)])).
+% 節操作と述語の性質は target.cpp の strip_module を通る。各層の検査が先なので、無いモジュールはその誤りになる。
+test(cyc_assertz, (X = user:X, assertz(X)), error(resource_error(cyclic_term))).
+test(cyc_asserta_head, (X = user:X, asserta((X :- true))), error(resource_error(cyclic_term))).
+test(cyc_retract, (X = user:X, retract(X)), error(resource_error(cyclic_term))).
+test(cyc_retractall, (X = user:X, retractall(X)), error(resource_error(cyclic_term))).
+test(cyc_clause, (X = user:X, clause(X, _)), error(resource_error(cyclic_term))).
+test(cyc_abolish, (X = user:X, abolish(X)), error(resource_error(cyclic_term))).
+test(cyc_pred_prop, (X = user:X, predicate_property(X, _)), error(resource_error(cyclic_term))).
+test(cyc_no_module_first, (X = nomod:X, assertz(X)), error(existence_error(module, nomod))).
+test(cyc_assertz_two_tail, (Y = user:user:Y, X = user:Y, assertz(X)), error(resource_error(cyclic_term))).
+test(cyc_no_module_in_cycle, (Y = user:nomod:Y, X = user:Y, assertz(X)), error(existence_error(module, nomod))).
+test(cyc_retract_head, (X = user:X, retract((X :- true))), error(resource_error(cyclic_term))).
+test(cyc_pred_prop_no_module, (X = nomod:X, predicate_property(X, _)), error(existence_error(module, nomod))).
+test(cyc_import, (X = a:X, import(X)), error(resource_error(cyclic_term))).
+test(cyc_import_two, (X = a:Y, Y = b:X, import(X)), error(resource_error(cyclic_term))).
+test(cyc_import_var_first, (X = a:_:X, import(X)), error(instantiation_error)).

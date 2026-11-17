@@ -2,7 +2,8 @@
 //   type_error(atom, M)
 // ISO/IEC 13211-2 7.2.2 predicate_property/2 (+callable, ?property)
 //   instantiation_error, type_error(callable, H), domain_error(predicate_property, P),
-//   type_error(atom, M), existence_error(module, M)
+//   type_error(atom, M), existence_error(module, M),
+//   resource_error(cyclic_term)（巡回する M: の連なり、iso-notes 7.3.3 の持ち主の決定 A）
 // 性質は built_in、defined、dynamic、static、exported、imported_from(M)、multifile、meta_predicate(H)、
 // number_of_clauses(N)。
 // テスト: tests/pl/modules.pl

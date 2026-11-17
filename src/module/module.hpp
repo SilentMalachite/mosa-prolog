@@ -116,7 +116,31 @@ struct ImportSpec {
 [[nodiscard]] std::optional<Cell> check_local(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
                                               std::uint16_t arity);
 
+// M: の層を外側からたどるときの巡回の見張り（7.3.3 は未定義、iso-notes 7.3.3 の持ち主の決定 A）。次の層は今の層だけで
+// 決まるので、前に見た層に戻れば巡回で、巡回しない連なりでは戻らない。見張る層を 1、2、4、… 歩みごとに先へ移す
+// Brent の方法で、何も割り当てずに、巡回の前の層の数と周期の数倍の歩みで見つける（式の評価の CycleWatch と同じ考え）。
+class LayerWatch {
+ public:
+  explicit LayerWatch(Cell first) : watched_(first) {}
+  // 次の層 cell へ進んだ。見張っている層に戻ったら真。
+  [[nodiscard]] bool returned_to(Cell cell) {
+    if (cell.raw() == watched_.raw()) return true;
+    if (++steps_ == window_) {
+      watched_ = cell;
+      steps_ = 0;
+      window_ *= 2;
+    }
+    return false;
+  }
+
+ private:
+  Cell watched_;
+  std::size_t steps_ = 0;
+  std::size_t window_ = 1;
+};
+
 // 節操作の M:Term。term と module を内側の値に置き換える。M: が無ければどちらも変えない。
+// 連なりが巡回すれば resource_error(cyclic_term)。各層の検査が先で、無いモジュールの層はその誤りになる。
 [[nodiscard]] std::optional<Cell> strip_module(Machine::Impl& machine, Cell& term, std::uint32_t& module);
 // M:(H :- B) と (M:H :- B) の両方を、修飾の無い節とそのモジュールにする。
 [[nodiscard]] std::optional<Cell> strip_clause(Machine::Impl& machine, Cell& term, std::uint32_t& module);

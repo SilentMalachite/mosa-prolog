@@ -11,6 +11,12 @@ English | [日本語](CHANGELOG.ja.md)
   reports such a `.pl` or `.lgt` file as one it cannot assemble and counts a difference, and `mosac emit --units`
   writes `mosac: F is not translated: the load stopped at halt(3)` and makes no unit for it. Mosa 0.4.0 ran none of
   the file's tests and counted it as agreeing.
+- `strip_module/3`, `import/1` and the clause operations (`assertz/1`, `asserta/1`, `retract/1`, `retractall/1`,
+  `clause/2`, `abolish/1`) and `predicate_property/2` now raise `resource_error(cyclic_term)` when the `M:` layers of
+  their argument form a cycle, as in `X = a:X, strip_module(X, M, P)`, as is/2 does for a cyclic expression. Mosa 0.4.0
+  looped there without end, and `--heap-max` did not stop it. In the clause operations and `predicate_property/2` a
+  layer that names a module that does not exist still raises `existence_error(module, M)` first. Calls such as `call/2`
+  and `phrase/2` of `X = user:X` still do not end.
 
 ## 0.4.0 (2026-11-17)
 

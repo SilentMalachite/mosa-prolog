@@ -9,6 +9,7 @@
 ### 直したこと
 
 - 読み込みが `halt/0,1` で止まる試験のファイルを `mosatest F` に渡すと、`F: 読み込みが halt(3) で止まりました` のように理由を書くようになりました。終了コードは前と同じ 1 です。Mosa 0.4.0 は `F: ` だけを書きました。`mosatest --diff` は、そのような `.pl` や `.lgt` のファイルを組み立てられないファイルとして報告し、違いに数えるようになりました。`mosac emit --units` は `mosac: F は翻訳しません: 読み込みが halt(3) で止まりました` を書き、そのファイルの単位を作りません。Mosa 0.4.0 はそのファイルの試験を 1 件も流さず、一致として数えました。
+- `strip_module/3`、`import/1`、節操作（`assertz/1`、`asserta/1`、`retract/1`、`retractall/1`、`clause/2`、`abolish/1`）と `predicate_property/2` は、`X = a:X, strip_module(X, M, P)` のように引数の `M:` の層が巡回するとき、is/2 が巡回する式に投げるのと同じ `resource_error(cyclic_term)` を投げるようになりました。Mosa 0.4.0 はそこで終わらずに回り続け、`--heap-max` でも止まりませんでした。節操作と `predicate_property/2` では、無いモジュールを名指す層が今までどおり先に `existence_error(module, M)` を投げます。`X = user:X` の `call/2` や `phrase/2` などの呼び出しは、今も終わりません。
 
 ## 0.4.0（2026-11-17）
 

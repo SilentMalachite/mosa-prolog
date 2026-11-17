@@ -1,7 +1,7 @@
 // モジュールを見るゴールの組み込み（SPEC 第5節、フェーズ12）。13211-1 に条項は無い。13211-2 での位置は未確認。
 // strip_module(?Term, ?Module, ?Plain)
 //   Term の頭の M: を、M が原子である間だけ外す。Module は一番内側のその M、M: が無ければ文脈モジュール。Plain は残り。
-//   誤りは投げない（SWI-Prolog と同じ）。
+//   誤りは、外す M: の連なりが巡回するときの resource_error(cyclic_term) だけ（iso-notes 7.3.3 の持ち主の決定 A）。
 // context_module(?M)
 //   文脈モジュール（ゴール枠のモジュール）。誤りは投げない。
 // module_property(?M, ?P)
@@ -14,7 +14,7 @@
 //   M: が無ければ文脈モジュール自身からの取り込みで、何も変えずに成功する。M1:M2:PI は内側の M2 から取り込む。
 //   instantiation_error、type_error(atom, M)、type_error(predicate_indicator, PI)、existence_error(module, M)、
 //   existence_error(procedure, M:N/A)、permission_error(import_into, procedure, From:N/A)。M の形、PI の形、
-//   M があるか、取り込めるか、の順に確かめる。
+//   M があるか、取り込めるか、の順に確かめる。M: の連なりが巡回すれば resource_error(cyclic_term)（M の形の検査の後）。
 //   PI の誤りは use_module/2 の項目と同じ（read_indicator）で、ほかに type_error(atom, N)、type_error(integer, A)、
 //   domain_error(not_less_than_zero, A)、representation_error(max_arity) を投げる。
 // module_property/2 は候補を選言にして選択点を残す。ほかは決定的。
@@ -54,9 +54,15 @@ void finish(Impl& machine, const Goal& goal, bool unified) {
 void prove_strip_module(Impl& machine, const Goal& goal) {
   Cell term = machine.heap.deref(goal.arg(machine, 0));
   std::uint32_t module = goal.module;
+  LayerWatch watch(term);
   while (atom_qualified(machine, term)) {
     module = atom_id(machine.heap.deref(machine.heap.arg(term, 0)));
     term = machine.heap.deref(machine.heap.arg(term, 1));
+    // 一番内側の M が無いので答えが無い。前は何も割り当てずに回り続け、--heap-max でも止まらなかった。
+    if (watch.returned_to(term)) {
+      raise(machine, goal, formal_resource(machine, "cyclic_term"));
+      return;
+    }
   }
   finish(machine, goal,
          do_unify(machine, goal.arg(machine, 1), machine.heap.atom(module)) &&
@@ -135,12 +141,14 @@ void prove_module_property(Impl& machine, const Goal& goal) {
 // 外側から M: を外し、一番内側の M を取り込み元にする。取り込むのは内側からなので、外側の M があるかは見ない。
 std::optional<Cell> import_source(Impl& machine, Cell& indicator, std::uint32_t& from) {
   indicator = machine.heap.deref(indicator);
+  LayerWatch watch(indicator);
   while (colon_term(machine, indicator)) {
     const Cell name = machine.heap.deref(machine.heap.arg(indicator, 0));
     if (machine.heap.unbound(name)) return formal_instantiation(machine);
     if (name.tag() != Tag::Atom) return formal_type(machine, "atom", name);
     from = atom_id(name);
     indicator = machine.heap.deref(machine.heap.arg(indicator, 1));
+    if (watch.returned_to(indicator)) return formal_resource(machine, "cyclic_term");
   }
   return std::nullopt;
 }

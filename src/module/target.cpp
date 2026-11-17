@@ -1,6 +1,7 @@
 // 節操作と宣言が受ける M: 付きの項（SPEC 第5節、iso-notes 第5節の節操作の決定）。
 // モード: M:Term の M は +atom。重なった M: は一番内側が勝つ。
-// エラー: instantiation_error、type_error(atom, M)、existence_error(module, M)。
+// エラー: instantiation_error、type_error(atom, M)、existence_error(module, M)、
+//   resource_error(cyclic_term)（巡回する M: の連なり、iso-notes 7.3.3 の持ち主の決定 A）。
 // テスト: tests/pl/modules.pl
 #include "module.hpp"
 
@@ -49,6 +50,7 @@ Cell rename_head(Impl& machine, Cell head, std::uint32_t name) {
 
 std::optional<Cell> strip_module(Impl& machine, Cell& term, std::uint32_t& module) {
   term = machine.heap.deref(term);
+  LayerWatch watch(term);
   while (qualified(machine, term)) {
     const Cell name = machine.heap.deref(machine.heap.arg(term, 0));
     if (machine.heap.unbound(name)) return formal_instantiation(machine);
@@ -59,6 +61,8 @@ std::optional<Cell> strip_module(Impl& machine, Cell& term, std::uint32_t& modul
     }
     module = static_cast<std::uint32_t>(name.raw() >> 3);
     term = machine.heap.deref(machine.heap.arg(term, 1));
+    // 戻った層の検査はもう通っているので、層の検査の後に見ても誤りの順は変わらない。前は回り続けた。
+    if (watch.returned_to(term)) return formal_resource(machine, "cyclic_term");
   }
   return std::nullopt;
 }
@@ -75,6 +79,7 @@ std::optional<Cell> strip_clause(Impl& machine, Cell& term, std::uint32_t& modul
   return std::nullopt;
 }
 
+// 見張りは要らない。受ける項はどれも先に strip_module（strip_target）を通り、巡回すればそこで誤りになっている。
 Cell skip_module(const Impl& machine, Cell term) {
   term = machine.heap.deref(term);
   while (qualified(machine, term)) term = machine.heap.deref(machine.heap.arg(term, 1));
