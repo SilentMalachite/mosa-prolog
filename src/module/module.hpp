@@ -116,7 +116,7 @@ struct ImportSpec {
 [[nodiscard]] std::optional<Cell> check_local(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
                                               std::uint16_t arity);
 
-// M: の層を外側からたどるときの巡回の見張り（7.3.3 は未定義、iso-notes 7.3.3 の持ち主の決定 A）。次の層は今の層だけで
+// 層（M:、bagof/setof の先頭の ^、葉の中のゴール）を外側からたどるときの巡回の見張り（iso-notes 7.3.3）。次の層は今の層だけで
 // 決まるので、前に見た層に戻れば巡回で、巡回しない連なりでは戻らない。見張る層を 1、2、4、… 歩みごとに先へ移す
 // Brent の方法で、何も割り当てずに、巡回の前の層の数と周期の数倍の歩みで見つける（式の評価の CycleWatch と同じ考え）。
 class LayerWatch {

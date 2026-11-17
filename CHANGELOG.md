@@ -29,6 +29,8 @@ English | [日本語](CHANGELOG.ja.md)
   their argument form a cycle, as in `X = a:X, strip_module(X, M, P)`, as is/2 does for a cyclic expression. Mosa 0.4.0
   looped there without end, and `--heap-max` did not stop it. In the clause operations and `predicate_property/2` a
   layer that names a module that does not exist still raises `existence_error(module, M)` first.
+- `bagof/3` and `setof/3` now raise `resource_error(cyclic_term)` when the leading `^` layers of their goal form
+  a cycle, as in `X = (_^X), bagof(a, X, L)`. Mosa 0.4.0 looped there without end, and `--heap-max` did not stop it.
 
 ### Known limits
 

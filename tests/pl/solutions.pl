@@ -33,6 +33,18 @@ test(bagof_free_alias, (
 test(setof_sort, setof(X, (X = b; X = a; X = b), L), solutions([L = [a, b]])).
 test(setof_group, setof(X, d(X, Y), L), solutions([(Y = a, L = [1, 3]), (Y = b, L = [2])])).
 test(setof_exist, setof(X, Y^d(X, Y), L), solutions([L = [1, 2, 3]])).
+% 先頭の ^ の連なりが巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3）。前は strip_caret が
+% 回り続け、--heap-max でも止まらなかった（レビュー、2026-11-17）。
+test(bagof_caret_cycle, (X = (_^X), bagof(a, X, _)), error(resource_error(cyclic_term))).
+test(bagof_caret_cycle_two, (X = (_^Y), Y = (_^X), bagof(a, X, _)), error(resource_error(cyclic_term))).
+test(setof_caret_cycle, (X = (_^X), setof(a, X, _)), error(resource_error(cyclic_term))).
+% 巡回の前に巡回しない 2 層があり周期が 3 なので、Brent の見張りが先へ動いてから戻りを見つける。
+test(bagof_caret_cycle_prefix, (Y = (_^(_^(_^Y))), X = (_^(_^Y)), bagof(a, X, _)),
+     error(resource_error(cyclic_term))).
+% ゴールの検査は第3引数の検査より先（有限の bagof(a, _^1, foo) で type_error(callable, 1) が先に出るのと同じ順）。
+test(bagof_caret_cycle_list, (X = (_^X), bagof(a, X, foo)), error(resource_error(cyclic_term))).
+% 巡回しない 3 層の連なりを巡回と取り違えない。
+test(setof_caret_chain, setof(X, Y^Z^W^(d(X, Y), Z = W), L), solutions([L = [1, 2, 3]])).
 
 q(A, _, A).
 q(_, A, A).

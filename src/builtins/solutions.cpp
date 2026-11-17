@@ -3,8 +3,8 @@
 // 8.10.2 bagof/3 (+term, +callable_term, ?list)
 // 8.10.3 setof/3 (+term, +callable_term, ?list)
 //   第1〜3引数の誤りは findall/3 と同じ。instantiation_error、
-//   type_error(callable, Goal)、type_error(list, List)、Goal の制御構造が巡回すれば resource_error(cyclic_term)
-//   （iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）
+//   type_error(callable, Goal)、type_error(list, List)、Goal の制御構造や先頭の ^ の連なりが巡回すれば
+//   resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A とそのレビュー）
 //   第4引数が部分リストでもリストでもなければ type_error(list, Tail)
 // テスト: tests/pl/solutions.pl、tests/cpp/bigint_copy_test.cpp（Big の答え）
 
@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -153,15 +154,19 @@ bool is_caret(const Impl& machine, Cell cell) {
   return machine.atoms.name(machine.heap.functor_atom(cell)) == "^";
 }
 
-// 先頭に並んだ ^/2 だけを外す。中のゴールに埋まった ^ は量化ではない。
-Cell strip_caret(Impl& machine, Cell goal, std::vector<Cell>& hidden) {
+// 先頭に並んだ ^/2 だけを外し、goal を残りにする。中のゴールに埋まった ^ は量化ではない。
+// 連なりが巡回すれば誤りの Formal（iso-notes 7.3.3）。次の層は今の層だけで決まるので、M: と同じ見張りで足りる。
+// 前はヒープに数えない物だけを触って回り続け、--heap-max でも止まらなかった（レビュー、2026-11-17）。
+std::optional<Cell> strip_caret(Impl& machine, Cell& goal, std::vector<Cell>& hidden) {
   goal = machine.heap.deref(goal);
+  LayerWatch watch(goal);
   while (is_caret(machine, goal)) {
     std::unordered_set<std::uint64_t> seen;
     collect_free(machine, machine.heap.arg(goal, 0), hidden, seen);
     goal = machine.heap.deref(machine.heap.arg(goal, 1));
+    if (watch.returned_to(goal)) return formal_resource(machine, "cyclic_term");
   }
-  return goal;
+  return std::nullopt;
 }
 
 std::vector<Cell> witness_vars(const std::vector<Cell>& goal_vars, const std::vector<Cell>& templ,
@@ -682,7 +687,12 @@ bool run_solutions(Impl& machine, const Goal& call) {
   if (which != Which::Findall && !goal_shape_ok(machine, call, given)) return true;
   std::vector<Cell> hidden;
   Cell runnable = given;
-  if (which != Which::Findall) runnable = strip_caret(machine, given, hidden);
+  if (which != Which::Findall) {
+    if (const auto formal = strip_caret(machine, runnable, hidden)) {
+      raise_formal(machine, *formal, call.name, call.arity);
+      return true;
+    }
+  }
   Compiled compiled;
   if (!goal_body_ok(machine, call, runnable, compiled)) return true;
   if (bad_list(machine, call)) return true;
