@@ -2,7 +2,13 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
-## Unreleased
+## 0.4.1 (2026-11-18)
+
+A maintenance release after reviews of 0.4.0: a goal built at run time whose control structure leads back to
+itself now raises `resource_error(cyclic_term)` instead of running as its infinite unfolding, cyclic `M:` and `^`
+layers no longer loop without end, and `mosatest` writes the reason when the load of a test file stops at
+`halt/0,1`. It runs on the same computers as 0.4.0 ([chapter 2](docs/manual/en/02-install.md)), and every example
+of the [manual](docs/manual/en/README.md) is checked against it.
 
 ### Changed
 
@@ -33,6 +39,8 @@ English | [日本語](CHANGELOG.ja.md)
   a cycle, as in `X = (_^X), bagof(a, X, L)`. Mosa 0.4.0 looped there without end, and `--heap-max` did not stop it.
 
 ### Known limits
+
+The known limits of 0.4.0 still hold. One comes with the check for cyclic goals:
 
 - A cycle made only of the leaves `call/N`, `\+/1`, `once/1` and `M:G`, with no `,` `;` `->` `*->` or `catch/3` in it,
   is found only when its period is at most 32; a longer one runs as in Mosa 0.4.0.

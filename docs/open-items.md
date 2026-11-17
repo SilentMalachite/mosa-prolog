@@ -52,7 +52,7 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - A cycle through a control construct inside a leaf in an argument still runs without end.
 - `call/N`'s extra arguments (`X = call(call, X)`) are not followed (older than the decision).
 - A cycle of leaves alone (`call/N`, `\+/1`, `once/1`, `M:G`) is found only up to a period of 32,
-  as `wraps_back` walks 63 steps with Brent (CHANGELOG Unreleased, Known limits).
+  as `wraps_back` walks 63 steps with Brent (CHANGELOG 0.4.1, Known limits).
 - From the Opus review of 748c831:
   - A1, kept as the decision's reading (row `m13_if_same_term`): another cell with the same three
     arguments is the same term by `==` and also raises, as in
