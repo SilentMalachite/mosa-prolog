@@ -486,7 +486,7 @@ define a predicate with the same name and arity (`permission_error(modify, stati
 | Predicate | ISO | What it does |
 | --- | --- | --- |
 | `trace/0` | — | Turns the debugger on and makes it show every port; it stops at the ports that `leash/1` chooses (all five by default). |
-| `notrace/0` | — | Stops stopping at every call. The debugger stays on, so it still stops at spy points. |
+| `notrace/0` | — | Stops showing every port: the debugger leaps. It does not turn the debugger off, so it still stops at spy points. |
 | `debug/0` | — | Turns the debugger on. It stops only at spy points. The flag `debug` becomes `on`. |
 | `nodebug/0` | — | Turns the debugger off. The spy points stay. The flag `debug` becomes `off`. |
 | `spy/1` | — | `spy(Spec)`: puts a spy point on a predicate and turns the debugger on. Spec is `Name/Arity`, `Module:Name/Arity`, a `Name` alone (every predicate of that name that the context module can see) or a list of these. A `Name/Arity` (or `Module:Name/Arity` with a module that exists) may name a predicate that is not defined yet; a bare `Name` reaches only predicates that already exist. A goal that has no ports (a control construct, `call/1` to `call/8`, `true`, the debugger's own predicates) gets no spy point, and `spy/1` says so; when it sets none at all, the debugger stays as it was. |
