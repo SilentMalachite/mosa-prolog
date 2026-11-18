@@ -59,4 +59,19 @@ true.
 % Leashed ports: call exit redo fail exception
 % Spy point removed from lists:dbg_hidden/1
 true.
+[debug] ?- spy(''/0), spy((+++)/1), spy('.'/2), debugging, nospy(''/0), nospy((+++)/1), nospy('.'/2).
+% Spy point on ''/0
+% Spy point on +++ /1
+% Spy point on '.'/2
+% Debug mode: on (leap)
+% Spy points: (=)/2, ''/0, +++ /1, '.'/2
+% Leashed ports: call exit redo fail exception
+% Spy point removed from ''/0
+% Spy point removed from +++ /1
+% Spy point removed from '.'/2
+true.
+[debug] ?- op(1100, xfx, /), spy((dbg_op/1)), nospy((dbg_op/1)), op(400, yfx, /).
+% Spy point on (dbg_op/1)
+% Spy point removed from (dbg_op/1)
+true.
 [debug] ?- 

@@ -89,6 +89,9 @@ std::string indicator_text(Impl& machine, const SpyKey& key) {
   }
   WriteOptions options;
   options.fullwidth = machine.japanese_punct;
+  // 字面は nospy/1 などの引数に貼り直すので、引数の優先度 999 で書く。利用者が / や : を 999 より上の演算子にしても
+  // 括弧が付き、構文エラーにならない（Muse のレビュー）。既定の表では字面は変わらない。
+  options.operand_priority = 999;
   return write_term(heap, machine.operators, term, options, {});
 }
 

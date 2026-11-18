@@ -2,3 +2,4 @@ spy(true/0).
 spy('no such').
 spy((-)/1), nospy((-)/1).
 spy(長さ/2).
+set_prolog_flag(japanese_punctuation, true), spy('、'/0), spy('：'/1), nospy('、'/0), nospy('：'/1).
