@@ -67,6 +67,8 @@ struct Work {
   Cell anchor{};
   std::size_t lap = 0;
   std::size_t power = 1;
+  // 書く項の深さ（全体が 1）。max_depth の判定に使う。ListRest では、次に書く要素の 1 つ手前の要素の深さ。
+  int depth = 1;
 };
 
 // 待ち: 直前の字句と、この後に最初に書く字句の間の空白。古い writer の glue(左の字面, 右の字面) と同じく、
@@ -112,7 +114,7 @@ class Printer final : public WriteHeld {
   [[nodiscard]] Cell spine_entry(Cell list) const;
   void push_bar(Cell rest);
   void push_functor(Cell term, std::string_view name);
-  void push_term(Cell term, int parent, bool allow_equal, bool allow_hook = true);
+  void push_term(Cell term, int parent, bool allow_equal, bool allow_hook = true, int below = 1);
   void push_text(std::string text, Space then = Space::None, std::size_t id = 0);
   void push_clear(std::size_t id);
   void push_comma(std::size_t id);
@@ -156,6 +158,8 @@ class Printer final : public WriteHeld {
   WriteReplace replace_ = nullptr;
   void* context_ = nullptr;
   bool aborted_ = false;
+  // run が今動かしている仕事の深さ。push_term と push_list が子の深さをこれから決める。
+  int depth_ = 1;
   // replace に渡している項。GC の訪問が書き換える。
   Cell hooked_{};
   // replace の間に GC が来たら真。鍵の写しを訪ね、戻った後で settle が表を作り直す。
@@ -241,6 +245,8 @@ std::string Printer::print(Cell term) {
   pending_ = Pending{};
   zero_end_ = std::string::npos;
   // 被演算子として書くときは、演算子の中の被演算子と同じ道を通り、演算子の原子も括弧に入れる（レビュー M27）。
+  // 全体は深さ 1。push_term は depth_ より 1 深く積むので、最初だけ 0 から始める。
+  depth_ = 0;
   if (options_.operand_priority) push_operand(term, *options_.operand_priority, true);
   else push_term(term, 1200, true);
   while (!work_.empty() && !aborted_) {
@@ -252,6 +258,7 @@ std::string Printer::print(Cell term) {
 }
 
 void Printer::run(Work& item) {
+  depth_ = item.depth;
   switch (item.step) {
     case Step::Term: render(item); return;
     case Step::Text:
@@ -306,8 +313,10 @@ bool Printer::zero_quote(std::string_view next) const {
   return !next.empty() && next.front() == '\'' && zero_end_ == out_.size();
 }
 
-void Printer::push_term(Cell term, int parent, bool allow_equal, bool allow_hook) {
+// below は今書いている仕事の深さからの差。引数と演算子の被演算子は 1 つ深く、括弧を足し直す再入は同じ深さ。
+void Printer::push_term(Cell term, int parent, bool allow_equal, bool allow_hook, int below) {
   Work item;
+  item.depth = depth_ + below;
   item.term = term;
   item.parent = parent;
   item.allow_equal = allow_equal;
@@ -475,6 +484,8 @@ bool Printer::leftmost_unsigned_number(Cell term, int priority, bool allow_equal
 
 void Printer::render(const Work& item) {
   Cell term = item.term;
+  // 上限を越えた部分項は中を見ない。portray も呼ばない。0 は制限なし。
+  if (options_.max_depth > 0 && item.depth > options_.max_depth) return emit("...");
   if (item.allow_hook && replace_ != nullptr) {
     std::string swapped;
     // replace は GC を走らせうる。訪問が hooked_ を新しい番地に直すので、戻った後はそちらを読む。
@@ -519,7 +530,7 @@ void Printer::render_compound(Cell term, int parent, bool allow_equal) {
     // この項の portray はもう失敗している。括弧の中でもう一度呼ぶと副作用が二重になる。
     emit("(");
     push_text(")");
-    push_term(term, 1200, true, false);
+    push_term(term, 1200, true, false, 0);
     return;
   }
   open_.insert(term.raw());
@@ -600,8 +611,9 @@ void Printer::push_list(Cell term) {
   rest.back = spine_entry(term);
   rest.passed = rest.back.raw() == term.raw();
   rest.anchor = term;
+  rest.depth = depth_;
   work_.push_back(std::move(rest));
-  push_term(heap_.list_head(term), 999, true);
+  push_term(heap_.list_head(term), 999, true, true, 0);
 }
 
 // 背骨の巡回の入口（Floyd の方法）。巡回しなければ list を返す。背骨のセルを祖先の集まりに足すと、長い
@@ -649,12 +661,15 @@ void Printer::list_rest(const Work& item) {
   if (open_.contains(tail.raw()) || (item.passed && tail.raw() == item.back.raw())) return emit("|_]");
   if (tail.raw() == item.anchor.raw()) return emit("|_]");
   if (tail.tag() != Tag::Lis) return push_bar(tail);
+  // i 番目の要素は深さ d+i-1 にあるとみなす。次の要素が上限を越えるなら、そこから後ろを |... で閉じる。
+  if (options_.max_depth > 0 && item.depth + 1 > options_.max_depth) return emit("|...]");
   Work rest;
   rest.step = Step::ListRest;
   rest.term = tail;
   rest.back = item.back;
   rest.passed = item.passed || tail.raw() == item.back.raw();
   rest.anchor = item.anchor;
+  rest.depth = item.depth + 1;
   rest.lap = item.lap + 1;
   rest.power = item.power;
   if (rest.lap == rest.power) {

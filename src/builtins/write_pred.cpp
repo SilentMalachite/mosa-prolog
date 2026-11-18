@@ -49,6 +49,7 @@ struct Chosen {
   bool quoted = false;
   bool ignore_ops = false;
   bool numbervars = false;
+  int max_depth = 0;
   std::vector<VarName> names;
 };
 
@@ -358,11 +359,23 @@ bool apply_flag(Impl& machine, const Goal& goal, Cell item, std::string_view nam
   return false;
 }
 
+// max_depth(N): N は 0 以上の整数。変数は instantiation_error、それ以外は domain_error（suite は type_error も許す）。
+bool take_depth(Impl& machine, const Goal& goal, Cell item, Cell arg, Chosen& chosen) {
+  arg = machine.heap.deref(arg);
+  if (machine.heap.unbound(arg)) return raise_inst(machine, goal);
+  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return raise_domain(machine, goal, "write_option", item);
+  const auto value = machine.heap.integer_value(arg);
+  if (value < 0) return raise_domain(machine, goal, "write_option", item);
+  chosen.max_depth = value > 0x7fffffff ? 0x7fffffff : static_cast<int>(value);
+  return false;
+}
+
 bool apply_option(Impl& machine, const Goal& goal, Cell item, Chosen& chosen) {
   std::string_view name;
   Cell arg{};
   if (!compound_named(machine, item, name, arg)) return raise_domain(machine, goal, "write_option", item);
   if (name == "variable_names") return take_names(machine, goal, item, arg, chosen);
+  if (name == "max_depth") return take_depth(machine, goal, item, arg, chosen);
   if (name == "quoted" || name == "ignore_ops" || name == "numbervars") {
     return apply_flag(machine, goal, item, name, arg, chosen);
   }
@@ -555,6 +568,7 @@ void run_out(Impl& machine, const Goal& call, Kind kind) {
   options.quoted = chosen.quoted;
   options.ignore_ops = chosen.ignore_ops;
   options.numbervars = chosen.numbervars;
+  options.max_depth = chosen.max_depth;
   options.fullwidth = machine.japanese_punct;
   if (!emit_written(machine, goal.module, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
   machine.ip = goal.cont;

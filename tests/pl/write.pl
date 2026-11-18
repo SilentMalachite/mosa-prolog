@@ -213,3 +213,22 @@ test(l22_args, (X is -(nan), Y is -inf, with_output_to(atom(A), writeq(f(X, Y, [
 % 字面の最後が英字なので、英字の演算子や引用した名前の前でも読み手は別の字句に分ける。
 test(l22_alpha_op, (X is inf, with_output_to(atom(A), writeq(X mod 2))), solutions([A = '1.0Inf mod 2'])).
 test(l22_quoted_op, (X is inf, quoted_op_round(xf, 'x y'(X), A)), solutions([A = '1.0Inf''x y'''])).
+% write_term の max_depth/1（iso-notes のデバッガの節の決定 A）。suite の write_term_3_123〜136 の 14 件の写し。
+wd_deep(a(b(c(d(e))))).
+wd_long([1,2,3,4,5]).
+wd_text(T, Opts, A) :- with_output_to(atom(A), write_term(T, Opts)).
+test(wd_inst, write_term(1, [max_depth(_)]), error(instantiation_error)).
+test(wd_foo, write_term(1, [max_depth(foo)]), error(domain_error(write_option, max_depth(foo)))).
+test(wd_neg, write_term(1, [max_depth(-1)]), error(domain_error(write_option, max_depth(-1)))).
+test(wd_foo_silent, with_output_to(atom(A), catch(write_term(1, [max_depth(foo)]), _, true)), solutions([A = ''])).
+test(wd_zero, wd_text(1, [max_depth(0)], A), solutions([A = '1'])).
+test(wd_ten, wd_text(1, [max_depth(10)], A), solutions([A = '1'])).
+test(wd_deep6, (wd_deep(T), wd_text(T, [max_depth(6)], A)), solutions([A = 'a(b(c(d(e))))'])).
+test(wd_list6, (wd_long(T), wd_text(T, [max_depth(6)], A)), solutions([A = '[1,2,3,4,5]'])).
+test(wd_deep3, (wd_deep(T), wd_text(T, [max_depth(3)], A)), solutions([A = 'a(b(c(...)))'])).
+test(wd_list3, (wd_long(T), wd_text(T, [max_depth(3)], A)), solutions([A = '[1,2,3|...]'])).
+test(wd_deep1, (wd_deep(T), wd_text(T, [max_depth(1)], A)), solutions([A = 'a(...)'])).
+test(wd_list1, (wd_long(T), wd_text(T, [max_depth(1)], A)), solutions([A = '[1|...]'])).
+test(wd_zero_deep, (T = a(b(c(d(e(f(g(h(i(j(k(l(m)))))))))))), wd_text(T, [max_depth(0)], A)), solutions([A = 'a(b(c(d(e(f(g(h(i(j(k(l(m))))))))))))'])).
+test(wd_zero_list, (T = [1,2,3,4,5,6,7,8,9,10,11,12,13], wd_text(T, [max_depth(0)], A)), solutions([A = '[1,2,3,4,5,6,7,8,9,10,11,12,13]'])).
+test(wd_with_quoted, wd_text('A'(b(c)), [quoted(true), max_depth(2)], A), solutions([A = '\'A\'(b(...))'])).
