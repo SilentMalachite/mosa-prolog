@@ -11,8 +11,8 @@ backtracking that you met with `;`.
 ## Steps
 
 1. Move into the folder `prolog`, and start `mosa`. Create a file `len.pl` with a predicate `len/2` that gives the
-   length of a list, written like `count/2` of chapter 7. Its first clause says the empty list has length 0. Its second clause
-   counts the tail first, and then adds one.
+   length of a list, written like `count/2` of chapter 7. Its first clause says the empty list has length 0. Its
+   second clause counts the tail first, and then adds one.
 
 <!-- file: len-file len.pl -->
 ```prolog
@@ -491,9 +491,10 @@ true.
 
 - A `mosa` whose input is not a terminal does not read commands. It writes the port lines and goes on, so you can
   keep a record of a run:
-  `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log`. On Windows, run the same line in Command
-  Prompt (cmd.exe) with `< NUL` in place of `< /dev/null`, because PowerShell has no `<` redirect. If its input is a
-  terminal, it waits at the first port instead.
+  `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log`. On Windows, run this line in Command
+  Prompt (cmd.exe), because PowerShell has no `<` redirect:
+  `mosa len.pl -g "trace, len([a], N)" -t halt < NUL 2> trace.log`.
+  If its input is a terminal, it waits at the first port instead.
 - The debugger predicates `trace/0`, `notrace/0`, `debug/0`, `nodebug/0`, `spy/1`, `nospy/1`, `nospyall/0`,
   `leash/1` and `debugging/0` belong to Mosa, so a file of yours cannot define a predicate with one of those names
   and arities.
