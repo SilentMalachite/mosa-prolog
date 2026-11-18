@@ -7,7 +7,7 @@
 //         M:G の G の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
 // 述語指示子は Name//Arity も Name/(Arity+2) として受ける（ADR 0024 改訂 3）。
 // テスト: tests/pl/modules.pl、tests/pl/bigint.pl、tests/cpp/module_load_test.cpp、tests/cpp/dcg_test.cpp、
-//   tests/cpp/bigint_heap_test.cpp
+//   tests/cpp/bigint_heap_test.cpp、tests/cpp/debugger_test.cpp（ライブラリの外で書いた Lib:G の箱、ADR 0028）
 #include "module.hpp"
 
 #include "../machine/internal.hpp"

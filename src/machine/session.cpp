@@ -184,8 +184,8 @@ void warn_syntax(Machine& machine, const SyntaxFailure& failure, Echo& echo) {
 }
 
 // abort で止まった問い合わせは、ここで捨てる（ADR 0028）。abort_now を残すと、次のプロンプトの指令（load_program）の
-// 入れ子の run_loop がそれを見て止まる。drop_run は選択点を戻さずに捨てるので、後始末は halt と同じく動かない。
-// 知らせは 1 度だけ書く。文面は message_text で引く（render_message は同じ機械で問い合わせを動かす）。
+// 入れ子の run_loop がそれを見て止まる。後始末は abort が止まる前に run_loop が動かし終えている（ADR 0028）ので、
+// drop_run は残りを選択点ごと捨てる。知らせは 1 度だけ書く。文面は message_text で引く。
 void report_abort(Machine& machine, Echo& echo) {
   drop_run(engine_impl(machine));
   echo.warn(message_text(engine_impl(machine), "debug_aborted") + "\n");
