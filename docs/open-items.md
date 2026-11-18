@@ -124,6 +124,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   Redo, `f` at Fail, `r` at Call, `w` at Exception, an uncaught exception under trace); `check_skip_dropped` through a
   scripted `s` instead of injected state. The `.out` port sequences also have no oracle outside the
   implementation and the manual's checked examples.
+- A cleanup that throws while `r` or `f` trims the stack above a box (Muse review of the fixes,
+  2026-11-19): neither a double run nor a stray Exception port is tested.
 
 ## Runner and judge (`mosatest`)
 
