@@ -172,6 +172,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/bytes.cpp
   src/builtins/read_pred.cpp
   src/builtins/write_pred.cpp
+  src/builtins/write_capture.cpp
   src/builtins/term_text.cpp
   src/builtins/global_vars.cpp
   src/builtins/cleanup.cpp

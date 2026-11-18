@@ -566,7 +566,7 @@ bool run_builtin(Impl& machine, const Goal& goal) {
       run_lists(machine, goal) || run_format_float(machine, goal) || run_format_support(machine, goal) ||
       run_case(machine, goal) || run_char_width(machine, goal) || run_solutions(machine, goal) ||
       run_streams(machine, goal) || run_char_io(machine, goal) || run_byte_io(machine, goal) ||
-      run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) || run_term_text(machine, goal) ||
+      run_with_output(machine, goal) || run_write(machine, goal) || run_read(machine, goal) || run_operators(machine, goal) || run_term_text(machine, goal) ||
       run_global_vars(machine, goal) || run_cleanup(machine, goal)) {
     return true;
   }

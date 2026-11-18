@@ -3,8 +3,7 @@
 // 複合項の引数は再び print する。portray/1 は組込にしない。write は portray を見ない。
 // portray/1 の中の halt では、それまでの字面（portray が現在出力へ書いた分を含む）を書いてから止まる（レビュー L14）。
 // 例外では、その print の分を何も書かない。
-// with_output_to/2 は ADR 0005。最初の成功だけ取り、現在出力は必ず戻す。
-// atom/1 と codes/1 のために作ったメモリは、成功・失敗・例外・停止のあと閉じる。渡された流れは閉じない。
+// with_output_to/2 は write_capture.cpp にある（portray/1 の道と run_goal、OutputScope を分け合う）。
 // write_term(+stream_or_alias, @term, +write_options_list)
 // write_term(@term, +write_options_list) は現在の出力。
 //   write と print は numbervars(true)。writeq は quoted(true) と numbervars(true)。
@@ -19,6 +18,8 @@
 // テスト: tests/pl/write.pl, tests/pl/print.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,
 //   tests/cpp/portray_halt_test.cpp, tests/pl/bigint.pl
 
+#include "write_internal.hpp"
+
 #include "../machine/internal.hpp"
 
 #include "mosa/char_class.hpp"
@@ -31,12 +32,11 @@
 #include <vector>
 
 namespace mosa {
+using namespace write_internal;
 namespace {
 
 enum class Kind { Term, Write, Quoted, Canonical, Print };
 enum class OptShape { Ok, Inst, Type };
-enum class SinkKind { Atom, Codes, Stream };
-enum class Ran { Ok, Fail, Threw, Halted };
 
 struct Spec {
   bool has_stream = false;
@@ -50,12 +50,6 @@ struct Chosen {
   bool ignore_ops = false;
   bool numbervars = false;
   std::vector<VarName> names;
-};
-
-struct Sink {
-  SinkKind kind = SinkKind::Stream;
-  std::size_t index = 0;
-  Cell slot{};
 };
 
 struct Snap {
@@ -74,6 +68,10 @@ struct Scalar {
   std::size_t width = 0;
 };
 
+}  // namespace
+
+namespace write_internal {
+
 bool raise_inst(Impl& machine, const Goal& goal) {
   raise_formal(machine, formal_instantiation(machine), goal.name, goal.arity);
   return true;
@@ -83,6 +81,10 @@ bool raise_type(Impl& machine, const Goal& goal, std::string_view type, Cell cul
   raise_formal(machine, formal_type(machine, type, culprit), goal.name, goal.arity);
   return true;
 }
+
+}  // namespace write_internal
+
+namespace {
 
 bool raise_domain(Impl& machine, const Goal& goal, std::string_view domain, Cell culprit) {
   raise_formal(machine, formal_domain(machine, domain, culprit), goal.name, goal.arity);
@@ -113,6 +115,10 @@ bool find_alias(const Impl& machine, std::string_view name, std::size_t& index) 
   return false;
 }
 
+}  // namespace
+
+namespace write_internal {
+
 bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& index) {
   const Cell cell = machine.heap.deref(term);
   if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
@@ -133,12 +139,20 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
   return false;
 }
 
+}  // namespace write_internal
+
+namespace {
+
 Cell stream_named(Impl& machine, std::size_t index) {
   const Stream& stream = machine.streams[index];
   if (!stream.alias.empty()) return machine.heap.atom(machine.atoms.intern(stream.alias));
   return machine.heap.structure(machine.atoms.intern("$stream"),
                                 std::vector<Cell>{machine.heap.integer(static_cast<std::int64_t>(index))});
 }
+
+}  // namespace
+
+namespace write_internal {
 
 bool reject_closed(Impl& machine, const Goal& goal, std::size_t index, Cell culprit) {
   if (!machine.streams[index].closed) return false;
@@ -150,6 +164,10 @@ bool reject_output(Impl& machine, const Goal& goal, const Stream& stream, Cell c
   if (stream.data == Stream::Data::Binary) return raise_permit(machine, goal, "binary_stream", culprit);
   return false;
 }
+
+}  // namespace write_internal
+
+namespace {
 
 bool scalar_at(std::string_view text, std::size_t index, Scalar& out) {
   if (index >= text.size()) return false;
@@ -258,6 +276,10 @@ OptShape scan_options(const Impl& machine, Cell options, std::vector<Cell>& item
   return OptShape::Ok;
 }
 
+}  // namespace
+
+namespace write_internal {
+
 bool compound_named(const Impl& machine, Cell cell, std::string_view& name, Cell& arg) {
   cell = machine.heap.deref(cell);
   if (cell.tag() != Tag::Str || machine.heap.functor_arity(cell) != 1) return false;
@@ -265,6 +287,10 @@ bool compound_named(const Impl& machine, Cell cell, std::string_view& name, Cell
   arg = machine.heap.arg(cell, 0);
   return true;
 }
+
+}  // namespace write_internal
+
+namespace {
 
 int flag_bit(const Impl& machine, Cell arg, bool& value) {
   arg = machine.heap.deref(arg);
@@ -385,39 +411,6 @@ struct StreamSpot {
   bool past_end = false;
 };
 
-// 現在出力をその間だけ差し替える。ヒープの上限は C++ の例外（ResourceLimit）で run_goal を越えて抜けるので、
-// 戻すのを後ろに書くと飛ばされる（レビュー H6）。owns なら捕獲用のメモリも閉じる。呼ぶ前の流れが中で閉じられたら、
-// close/1 と同じく user_output へ戻す（8.11.6.1）。
-class OutputScope {
- public:
-  OutputScope(Impl& machine, std::size_t index, bool owns)
-      : machine_(machine), saved_(machine.current_out), index_(index), owns_(owns) {
-    machine.current_out = index;
-  }
-  OutputScope(const OutputScope&) = delete;
-  OutputScope& operator=(const OutputScope&) = delete;
-  ~OutputScope() {
-    restore();
-    if (!owns_) return;
-    // 束縛の後か例外で抜けるときに来る。閉じたスロットは再利用しないので、捕獲した中身をここで手放す。
-    machine_.streams[index_].closed = true;
-    std::string{}.swap(machine_.streams[index_].bytes);
-  }
-
-  void restore() {
-    if (restored_) return;
-    restored_ = true;
-    machine_.current_out = machine_.streams[saved_].closed ? 1 : saved_;
-  }
-
- private:
-  Impl& machine_;
-  std::size_t saved_;
-  std::size_t index_;
-  bool owns_;
-  bool restored_ = false;
-};
-
 struct PortrayHook {
   Impl* machine = nullptr;
   std::uint32_t name = 0;
@@ -474,9 +467,6 @@ IrTerm portray_call(std::uint32_t name) {
   goal.args.push_back(arg);
   return goal;
 }
-
-std::size_t push_memory(Impl& machine);
-Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module);
 
 // writer の訪問を GC の訪問へつなぐ。名前の無い変数の表は弱い参照の番地で持つ。
 class HeldRoots final : public WriteRoots {
@@ -570,64 +560,6 @@ void run_out(Impl& machine, const Goal& call, Kind kind) {
   machine.ip = goal.cont;
 }
 
-bool callable_cell(const Impl& machine, Cell cell) {
-  cell = machine.heap.deref(cell);
-  return cell.tag() == Tag::Atom || cell.tag() == Tag::Str || cell.tag() == Tag::Lis;
-}
-
-bool reject_goal(Impl& machine, const Goal& goal, Cell cell) {
-  cell = machine.heap.deref(cell);
-  if (machine.heap.unbound(cell)) return raise_inst(machine, goal);
-  if (!callable_cell(machine, cell)) return raise_type(machine, goal, "callable", cell);
-  const Compiled compiled = compile_goal(machine.heap, cell);
-  if (!body_callable(*compiled.term)) return raise_type(machine, goal, "callable", cell);
-  return raise_cyclic_goal(machine, compiled, goal.name, goal.arity);
-}
-
-int prepare_capture(Impl& machine, const Goal& goal, Cell cell, Sink& sink) {
-  std::string_view name;
-  Cell arg{};
-  if (!compound_named(machine, cell, name, arg)) return 0;
-  if (name != "atom" && name != "codes") return 0;
-  arg = machine.heap.deref(arg);
-  if (name == "atom") {
-    if (!machine.heap.unbound(arg) && arg.tag() != Tag::Atom) {
-      raise_type(machine, goal, "atom", arg);
-      return 1;
-    }
-    sink.kind = SinkKind::Atom;
-    sink.slot = arg;
-    return 2;
-  }
-  if (!machine.heap.unbound(arg)) {
-    const WalkedList walked = walk_list(machine, arg);
-    if (walked.shape == ListShape::Partial) {
-      raise_inst(machine, goal);
-      return 1;
-    }
-    if (walked.shape != ListShape::Proper) {
-      raise_type(machine, goal, "list", arg);
-      return 1;
-    }
-  }
-  sink.kind = SinkKind::Codes;
-  sink.slot = arg;
-  return 2;
-}
-
-bool prepare_with(Impl& machine, const Goal& goal, Sink& sink) {
-  const Cell sink_cell = machine.heap.deref(goal.arg(machine, 0));
-  if (machine.heap.unbound(sink_cell)) return raise_inst(machine, goal);
-  if (reject_goal(machine, goal, goal.arg(machine, 1))) return true;
-  const int captured = prepare_capture(machine, goal, sink_cell, sink);
-  if (captured == 1) return true;
-  if (captured == 2) return false;
-  if (resolve_stream(machine, goal, sink_cell, sink.index)) return true;
-  const Cell culprit = goal.arg(machine, 0);
-  return reject_closed(machine, goal, sink.index, culprit) ||
-         reject_output(machine, goal, machine.streams[sink.index], culprit);
-}
-
 Snap take_snap(const Impl& machine) {
   Snap saved;
   saved.stack = machine.stack;
@@ -659,6 +591,10 @@ void visit_snap(GcVisitor& visitor, Snap& saved) {
   visitor.trail_mark(saved.trail_mark);
   visitor.extras_mark(saved.extras_mark);
 }
+
+}  // namespace
+
+namespace write_internal {
 
 Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module) {
   Snap saved = take_snap(machine);
@@ -720,59 +656,14 @@ std::size_t push_memory(Impl& machine) {
   return machine.streams.size() - 1;
 }
 
-void bind_capture(Impl& machine, const Goal& goal, const Sink& sink, std::size_t index) {
-  const std::string& bytes = machine.streams[index].bytes;
-  Cell value = machine.heap.atom(machine.atoms.intern(bytes));
-  if (sink.kind == SinkKind::Codes) {
-    const CodeText codes = decode_codes(bytes);
-    std::vector<Cell> items;
-    items.reserve(codes.codes.size());
-    for (const char32_t code : codes.codes) items.push_back(machine.heap.integer(static_cast<std::int64_t>(code)));
-    value = list_from_cells(machine, items);
-  }
-  if (!do_unify(machine, sink.slot, value)) {
-    machine.failed = true;
-    return;
-  }
-  machine.ip = goal.cont;
-}
+}  // namespace write_internal
 
-void finish_with(Impl& machine, const Goal& goal, const Sink& sink, std::size_t index, Ran ran) {
-  if (ran == Ran::Ok) {
-    if (sink.kind == SinkKind::Stream) machine.ip = goal.cont;
-    else bind_capture(machine, goal, sink, index);
-  }
-}
-
-void run_with(Impl& machine, const Goal& call) {
-  Sink sink;
-  if (prepare_with(machine, call, sink)) return;
-  std::size_t index = sink.index;
-  if (sink.kind != SinkKind::Stream) index = push_memory(machine);
-  // 捕獲用のメモリは呼んだ側の流れではない。開いたまま残すと stream_property が拾い、その後も書き込める。
-  // scope が抜けるとき（束縛の後、または例外で）閉じ、スロットは再利用しない。
-  OutputScope scope(machine, index, sink.kind != SinkKind::Stream);
-  const Compiled compiled = compile_goal(machine.heap, machine.heap.deref(call.arg(machine, 1)));
-  // 入れ子の GC は枠とセルを動かす。run_goal の後は、登録した写し goal と sink.slot だけを使う。
-  Goal goal = call;
-  const RootScope roots(machine, [&goal, &sink](GcVisitor& visitor) {
-    visitor.frame(goal.at);
-    visitor.frame(goal.cont);
-    visitor.cell(sink.slot);
-  });
-  const Ran ran = run_goal(machine, compiled.term, compiled.env, goal.module);
-  scope.restore();
-  finish_with(machine, goal, sink, index, ran);
-}
+namespace {
 
 }  // namespace
 
 bool run_write(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
-  if (name == "with_output_to" && goal.arity == 2) {
-    run_with(machine, goal);
-    return true;
-  }
   if (name == "write_term" && (goal.arity == 2 || goal.arity == 3)) {
     run_out(machine, goal, Kind::Term);
     return true;
