@@ -283,10 +283,10 @@ void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witn
     parts.push_back(eq_term(eq, 0, list_slot));
     branches.push_back(fold(IrTag::And, parts));
   }
-  // 束縛は収集が例外なく終わったあと。残りの証人は選択点で返す。
+  // 束縛は収集が例外なく終わったあと。残りの証人は選択点で返す。単一化は = だけで、= は文脈モジュールを見ないので、
+  // system の文脈で動かす。デバッガはそこから出る呼び出しに箱を作らない（組込の中には入らない。ADR 0028）。
   launch(machine, make_run_goal(machine.heap, fold(IrTag::Or, branches)), goal.cont, machine.stack.size(),
-         make_env(machine.heap, std::move(env)),
-         goal.module);
+         make_env(machine.heap, std::move(env)), machine.system_module);
 }
 
 // 空の findall/3 は []。空の findall/4 は List と Tail を同じにし、Tail を [] にしない。

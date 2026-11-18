@@ -12,6 +12,8 @@
 // forall/2 (+callable_term, +callable_term) と if/3 (+callable_term, +callable_term, +callable_term) は非 ISO
 //   instantiation_error, type_error(callable, Goal)
 // phrase/2,3 は phrase.cpp（ここは振り分けだけ）
+// '$once'/1 と '$not'/1 は 13211-1 に無い（ADR 0028）。setup_call_cleanup/3 と forall/2 が自分のために積む once/1 と
+//   (\+)/1 の別名で、働きも誤りも元の述語と同じ。デバッガが組込の中のゴールに箱を作らないようにする
 // テスト: tests/pl/control.pl、tests/pl/bigint.pl（halt_*）
 
 #include "../machine/internal.hpp"
@@ -256,7 +258,8 @@ bool run_forall(Impl& machine, const Goal& goal) {
     not_callable(machine, goal, parts[0]);
     return true;
   }
-  const auto negation = machine.atoms.intern("\\+");
+  // 内側の否定は forall/2 が自分のために積むので、$ の名前の別名にしてデバッガの箱を持たせない（ADR 0028）。
+  const auto negation = machine.atoms.intern("$not");
   parts[1] = machine.heap.structure(negation, std::array<Cell, 1>{parts[1]});
   const Cell both = machine.heap.structure(machine.atoms.intern(","), parts);
   Compiled compiled;
@@ -283,6 +286,18 @@ bool run_if(Impl& machine, const Goal& goal) {
   return true;
 }
 
+namespace {
+
+// 組込が自分のために積む once/1 と \+/1（setup_call_cleanup/3 の Setup、forall/2 の Action）の別名。働きも誤りの
+// 文脈も元の述語と同じにするため、元の名前の Goal で動かす。名前が $ で始まるので、デバッガは箱を作らない（ADR 0028）。
+Goal named_as(Impl& machine, const Goal& goal, std::string_view name) {
+  Goal renamed = goal;
+  renamed.name = machine.atoms.intern(name);
+  return renamed;
+}
+
+}  // namespace
+
 bool run_control(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "call" && goal.arity >= 1 && goal.arity <= 8) return run_call(machine, goal);
@@ -295,6 +310,11 @@ bool run_control(Impl& machine, const Goal& goal) {
   if (name == "subsumes_term" && goal.arity == 2) return run_subsumes_term(machine, goal);
   if (name == "$dcg_translate" && goal.arity == 2) return run_dcg_translate(machine, goal);
   if (name == "halt" && goal.arity <= 1) return run_halt(machine, goal);
+  // 利用者の述語の呼び出しもここを通るので、別名の比べは $ の名前だけにする。
+  if (name.starts_with('$') && goal.arity == 1) {
+    if (name == "$once") return run_once(machine, named_as(machine, goal, "once"));
+    if (name == "$not") return run_not(machine, named_as(machine, goal, "\\+"));
+  }
   return false;
 }
 

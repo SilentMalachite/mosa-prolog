@@ -100,21 +100,33 @@ void check_trace_same_answers() {
   }
 }
 
-// 決定的な問い合わせを追った後、番兵も DebugRedo も残らない。
+// 決定的な問い合わせを追った後、番兵も DebugRedo も残らない。catch/3 と *-> の中で抜ける箱も見る。どちらも上に
+// 選択点が無いかを stack.size() で決める（disarm_catch、SoftCommit）ので、番兵が残れば選択点も残る。
 void check_trace_choice_depth() {
-  auto plain = make_machine();
-  auto traced = make_machine();
-  Console console;
-  give_console(*traced, console);
-  const mosa::Stop plain_stop = plain->query("len([a,b], N).");
-  const mosa::Stop traced_stop = traced->query("trace, len([a,b], N).");
-  mosa_test::check(plain_stop.kind == mosa::StopKind::Success && traced_stop.kind == mosa::StopKind::Success,
-                   "depth: both succeed");
-  mosa_test::check(plain->choice_depth() == traced->choice_depth(),
-                   "depth: " + std::to_string(plain->choice_depth()) + " plain, " +
-                       std::to_string(traced->choice_depth()) + " traced");
-  mosa_test::check(console.text.find(" Exit: (1) len([a,b],2) ? ") != std::string::npos,
-                   "depth: the exit port of the outer box, got [" + console.text + "]");
+  constexpr std::array<std::string_view, 3> goals{
+      "len([a,b], N)",
+      "catch(len([a],N), _, true)",
+      "(len([a],N) *-> true ; true)",
+  };
+  for (const std::string_view goal : goals) {
+    auto plain = make_machine();
+    auto traced = make_machine();
+    Console console;
+    give_console(*traced, console);
+    const std::string label{goal};
+    const mosa::Stop plain_stop = plain->query(label + ".");
+    const mosa::Stop traced_stop = traced->query("trace, " + label + ".");
+    mosa_test::check(plain_stop.kind == mosa::StopKind::Success && traced_stop.kind == mosa::StopKind::Success,
+                     label + ": both succeed");
+    mosa_test::check(plain->choice_depth() == traced->choice_depth(),
+                     label + ": depth " + std::to_string(plain->choice_depth()) + " plain, " +
+                         std::to_string(traced->choice_depth()) + " traced");
+    mosa_test::check(console.writes > 0, label + ": ports were written");
+    if (goal == goals[0]) {
+      mosa_test::check(console.text.find(" Exit: (1) len([a,b],2) ? ") != std::string::npos,
+                       label + ": the exit port of the outer box, got [" + console.text + "]");
+    }
+  }
 }
 
 // 口が無ければ、trace の後もポートの行はどこにも出ず、箱の番号も 1 つも使わない。

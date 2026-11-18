@@ -350,6 +350,8 @@ constexpr auto kBuiltins = std::to_array<BuiltinPi>({
     {"$dcg_translate", 2},
     {"$upcase_atom", 2},
     {"$char_width", 2},
+    {"$once", 1},
+    {"$not", 1},
     {"garbage_collect", 0},
     {"statistics", 2},
     {"trace", 0},

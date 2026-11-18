@@ -480,14 +480,16 @@ foreach(transcript_case query more read order ja)
     -DLANG_VALUE=${transcript_lang} -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake)
 endforeach()
 
-# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl）を読ませる。根で動かすのは、.in の中の
-# 相対パスをリポジトリの根から開くため。
-foreach(debug_case creep creep_ja more fail library)
+# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl、redo_nested は nested.pl）を読ませる。
+# 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
+foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner)
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
   if(debug_case STREQUAL "creep_ja")
     set(debug_lang ja_JP.UTF-8)
     set(debug_program ja.pl)
+  elseif(debug_case STREQUAL "redo_nested")
+    set(debug_program nested.pl)
   endif()
   add_test(NAME transcript_debug_${debug_case} COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
     -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_${debug_case}

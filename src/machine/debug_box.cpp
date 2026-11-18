@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -66,19 +67,24 @@ void push_redo(Impl& machine, std::size_t box_index, std::uint64_t number) {
 }
 
 // 再試行の印を外し、次に戻る選択点の水位まで束縛を戻してから再試行のポートを出す（計画の設計との違い 4。SWI-Prolog
-// と同じく c(_G1) と見える）。印の下には必ず箱の中の選択点があるので、その水位は番兵の水位より上にある。
+// と同じく c(_G1) と見える）。続けて積まれた印は入れ子の箱のもので、一番上が一番外の箱である（外の箱が抜けたのは
+// 中の箱が抜けた後）。印の水位はそれぞれが抜けたときのものなので、まとめて外し、その下の本当の選択点の水位まで
+// 1 度で戻す。1 つずつ戻すと、外の箱のポートが中の箱の束縛を見せる。ポートは外の箱から出す。
 bool redo_box(Impl& machine) {
-  const std::size_t box_index = machine.stack.back().cut;
-  const std::uint64_t number = machine.stack.back().next;
-  machine.stack.pop_back();
+  std::vector<std::size_t> boxes;
+  while (!machine.stack.empty() && machine.stack.back().pick == Pick::DebugRedo) {
+    const Entry& top = machine.stack.back();
+    if (box_at(machine, top.cut, top.next)) boxes.push_back(top.cut);
+    machine.stack.pop_back();
+  }
   if (!machine.stack.empty()) {
     const Entry& next = machine.stack.back();
     restore_state(machine, next.heap_mark, next.trail_mark, next.extras_mark);
   }
-  if (box_at(machine, box_index, number)) {
-    machine.stack[box_index].armed = true;
+  for (const std::size_t index : boxes) machine.stack[index].armed = true;
+  for (const std::size_t index : boxes) {
     // 今の debug_port は Go だけを返す。
-    static_cast<void>(debug_port(machine, DebugPort::Redo, box_index, nullptr));
+    static_cast<void>(debug_port(machine, DebugPort::Redo, index, nullptr));
   }
   return false;
 }
@@ -98,6 +104,8 @@ bool fail_box(Impl& machine) {
 bool debug_wants_box(Impl& machine, const Goal& goal) {
   // skip と leap の箱はまだ作らない。
   if (machine.debug.mode != DebugMode::Creep) return false;
+  // system の文脈は組込が自分のために動かすゴール（findall/3 の答えの単一化など）。組込の中には入らない。
+  if (goal.module == machine.system_module) return false;
   const Module* module = find_module(machine, goal.module);
   if (module != nullptr && module->library) return false;
   return !unboxed(machine.atoms.name(goal.name), goal.arity);

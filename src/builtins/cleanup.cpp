@@ -88,16 +88,18 @@ std::uint64_t chain_cleanups(Impl& machine, std::span<const PendingCleanup> pend
   std::vector<Cell> errors;
   errors.reserve(pending.size());
   for (std::size_t index = 0; index < pending.size(); ++index) errors.push_back(machine.heap.fresh_ref());
-  cont = frame_of(machine, rethrow_first(machine, errors), cont, machine.user_module);
+  // 投げ直しの試しは利用者のゴールではない。system の文脈で動かし、デバッガの箱を作らせない（ADR 0028）。
+  cont = frame_of(machine, rethrow_first(machine, errors), cont, machine.system_module);
   for (std::size_t index = pending.size(); index-- > 0;) {
     cont = frame_of(machine, guarded(machine, pending[index].goal, errors[index]), cont, pending[index].module);
   }
   return cont;
 }
 
-// once(Setup) の後に '$call_cleanup'(Goal, Cleanup) を動かす。Setup の誤りと失敗は once/1 のものになる。
+// once(Setup) の後に '$call_cleanup'(Goal, Cleanup) を動かす。Setup の誤りと失敗は once/1 のものになる。once は
+// '$once'/1（once/1 と同じ働きと誤り）で積み、デバッガに組込の中のゴールとして箱を作らせない（ADR 0028）。
 void run_setup(Impl& machine, const Goal& goal) {
-  const Cell once = structure(machine, "once", std::array<Cell, 1>{goal.arg(machine, 0)});
+  const Cell once = structure(machine, "$once", std::array<Cell, 1>{goal.arg(machine, 0)});
   const Cell arm = structure(machine, "$call_cleanup", std::array<Cell, 2>{goal.arg(machine, 1), goal.arg(machine, 2)});
   const Compiled compiled = compile_goal(machine.heap, structure(machine, ",", std::array<Cell, 2>{once, arm}));
   if (raise_cyclic_goal(machine, compiled, goal.name, goal.arity)) return;

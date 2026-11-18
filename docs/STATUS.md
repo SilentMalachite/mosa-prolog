@@ -5,7 +5,7 @@
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
 - **In progress:** phase 14 Task 5 done, Task 6 not started. Phase 14 plan, 10 tasks:
   `docs/superpowers/plans/2026-11-18-phase14-debugger.md`.
-- **Last done:** phase 14 Task 5: the debugger box and the call, exit, redo and fail ports (creep).
+- **Last done:** phase 14 Task 5 and its review fix: the debugger box, the call/exit/redo/fail ports.
 - **Next:** plan Task 6: the exception port, commands s l f r n, leash, leap.
 - **Questions to the owner:** four A-or-B questions in iso-notes run on default A (open-items).
 - **Split first:** four tests (`internal.hpp` now 725, `write_pred.cpp` 704).

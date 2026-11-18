@@ -1,0 +1,29 @@
+?- trace, r(X).
+ Call: (1) r(_G1) ? 
+ Call: (2) c(_G1) ? 
+ Exit: (2) c(1) ? 
+ Exit: (1) r(1) ? 
+X = 1;
+
+ Redo: (1) r(_G1) ? 
+ Redo: (2) c(_G1) ? 
+ Exit: (2) c(2) ? 
+ Exit: (1) r(2) ? 
+X = 2.
+[trace] ?- trace, setup_call_cleanup(true, c(X), true), X > 1.
+ Call: (1) setup_call_cleanup(true,c(_G1),true) ? 
+ Call: (2) c(_G1) ? 
+ Exit: (2) c(1) ? 
+ Exit: (1) setup_call_cleanup(true,c(1),true) ? 
+ Call: (1) 1>1 ? 
+ Fail: (1) 1>1 ? 
+ Redo: (1) setup_call_cleanup(true,c(_G1),true) ? 
+ Redo: (2) c(_G1) ? 
+ Exit: (2) c(2) ? 
+ Exit: (1) setup_call_cleanup(true,c(2),true) ? 
+ Call: (1) 2>1 ? 
+ Exit: (1) 2>1 ? 
+X = 2.
+[trace] ?- notrace, nodebug.
+true.
+?- 

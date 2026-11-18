@@ -1,0 +1,13 @@
+trace, consult('tests/cpp/data/debugger/reload.pl').
+
+
+trace, consult('tests/cpp/data/debugger/reload.pl').
+
+
+foo(X).
+
+
+;
+
+
+notrace, nodebug.

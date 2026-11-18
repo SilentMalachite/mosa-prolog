@@ -1,0 +1,30 @@
+?- trace, findall(X, member(X, [1,2]), L).
+ Call: (1) findall(_G1,member(_G1,[1,2]),_G2) ? 
+ Call: (2) member(_G1,[1,2]) ? 
+ Exit: (2) member(1,[1,2]) ? 
+ Redo: (2) member(_G1,[1,2]) ? 
+ Exit: (2) member(2,[1,2]) ? 
+ Redo: (2) member(_G1,[1,2]) ? 
+ Fail: (2) member(_G1,[1,2]) ? 
+ Exit: (1) findall(_G1,member(_G1,[1,2]),[1,2]) ? 
+X = X, L = [1,2].
+[trace] ?- trace, forall(member(X, [1]), X > 0).
+ Call: (1) forall(member(_G1,[1]),_G1>0) ? 
+ Call: (2) member(_G1,[1]) ? 
+ Exit: (2) member(1,[1]) ? 
+ Call: (2) 1>0 ? 
+ Exit: (2) 1>0 ? 
+ Redo: (2) member(_G1,[1]) ? 
+ Fail: (2) member(_G1,[1]) ? 
+ Exit: (1) forall(member(_G1,[1]),_G1>0) ? 
+X = X.
+[trace] ?- trace, setup_call_cleanup(true, c(X), true).
+ Call: (1) setup_call_cleanup(true,c(_G1),true) ? 
+ Call: (2) c(_G1) ? 
+ Exit: (2) c(1) ? 
+ Exit: (1) setup_call_cleanup(true,c(1),true) ? 
+X = 1
+.
+[trace] ?- notrace, nodebug.
+true.
+?- 

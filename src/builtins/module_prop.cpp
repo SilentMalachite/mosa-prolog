@@ -156,7 +156,8 @@ void offer_choices(Impl& machine, const Goal& goal, Cell target, const std::vect
     term = machine.heap.structure(either, std::array<Cell, 2>{head, term});
   }
   const Compiled compiled = compile_goal(machine.heap, term);
-  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, goal.module);
+  // = は文脈モジュールを見ない。system の文脈で動かし、デバッガに組込の中のゴールとして箱を作らせない（ADR 0028）。
+  launch(machine, compiled.term, goal.cont, machine.stack.size(), compiled.env, machine.system_module);
 }
 
 bool run_module_prop(Impl& machine, const Goal& goal) {

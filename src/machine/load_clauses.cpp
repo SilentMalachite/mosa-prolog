@@ -34,6 +34,9 @@ bool keeps_clauses(const Impl& machine, std::uint32_t module, std::uint32_t name
 bool take_over(Impl& machine, Predicate& predicate, PredKey key) {
   for (const Entry& entry : machine.stack) {
     if (entry.pick == Pick::Cleanup || entry.pick == Pick::Catch || entry.pick == Pick::CallCleanup) continue;
+    // デバッガの番兵は consult/1 自身の箱でもあり、走っている述語ではない（ADR 0028）。再試行の印の下には本当の選択点が
+    // あるので、それはその選択点で断る。
+    if (entry.pick == Pick::DebugBox || entry.pick == Pick::DebugRedo) continue;
     fail_load(machine, message_text(machine, "predicate_running"));
     return false;
   }

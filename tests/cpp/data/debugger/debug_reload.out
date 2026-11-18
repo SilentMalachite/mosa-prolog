@@ -1,0 +1,19 @@
+?- trace, consult('tests/cpp/data/debugger/reload.pl').
+ Call: (1) consult('tests/cpp/data/debugger/reload.pl') ? 
+ Exit: (1) consult('tests/cpp/data/debugger/reload.pl') ? 
+true.
+[trace] ?- trace, consult('tests/cpp/data/debugger/reload.pl').
+ Call: (1) consult('tests/cpp/data/debugger/reload.pl') ? 
+ Exit: (1) consult('tests/cpp/data/debugger/reload.pl') ? 
+true.
+[trace] ?- foo(X).
+ Call: (1) foo(_G1) ? 
+ Exit: (1) foo(1) ? 
+X = 1;
+
+ Redo: (1) foo(_G1) ? 
+ Exit: (1) foo(2) ? 
+X = 2.
+[trace] ?- notrace, nodebug.
+true.
+?- 

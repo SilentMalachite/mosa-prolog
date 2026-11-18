@@ -1,0 +1,24 @@
+trace, r(X).
+
+
+
+
+;
+
+
+
+
+trace, setup_call_cleanup(true, c(X), true), X > 1.
+
+
+
+
+
+
+
+
+
+
+
+
+notrace, nodebug.

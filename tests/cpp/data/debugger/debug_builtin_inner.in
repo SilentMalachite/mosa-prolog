@@ -1,0 +1,25 @@
+trace, findall(X, member(X, [1,2]), L).
+
+
+
+
+
+
+
+
+trace, forall(member(X, [1]), X > 0).
+
+
+
+
+
+
+
+
+trace, setup_call_cleanup(true, c(X), true).
+
+
+
+
+
+notrace, nodebug.
