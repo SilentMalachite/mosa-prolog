@@ -8,7 +8,7 @@
 - **Last done:** phase 14 Task 1 (open the phase): SPEC row 14, iso-notes, ADR 0028; docs only.
 - **Next:** plan Task 2 splits `internal.hpp` and `write_pred.cpp` (both near 800 lines).
 - **Questions to the owner:** four A-or-B questions in iso-notes run on default A (open-items).
-- **Split first:** `src/builtins/write_pred.cpp` (799 lines) and four test files near 800 lines.
+- **Split first:** `src/machine/internal.hpp` (794), `src/builtins/write_pred.cpp` (799), four tests.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

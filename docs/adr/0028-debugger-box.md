@@ -10,14 +10,14 @@ Port lines and commands need I/O that only the `mosa` session has, and `mosatest
 
 ## Decision
 
-When `step` has read a goal to show, and only when the session gave the machine a `DebugConsole`, it pushes a sentinel `Pick::DebugBox`, an exit frame `Ctrl::DebugExit` and a copy of the goal frame whose word 3 is that exit frame, and runs the copy in the same step (`run_boxed`), so `Impl` keeps no heap address over a safe point. Exit is caught at `DebugExit` (with a `Pick::DebugRedo` for redo when a choice point is left inside), fail when backtracking reaches the sentinel, exception when `propagate_throw` removes it.
+When `step` has read a goal to show, and only when the session gave the machine a `DebugConsole`, it pushes a sentinel `Pick::DebugBox`, an exit frame `Ctrl::DebugExit` and a copy of the goal frame whose word 3 is that exit frame, and runs the copy in the same step (`run_boxed`), so `Impl` keeps no heap address over a safe point. Exit is caught at `DebugExit` (with a `Pick::DebugRedo` for redo when a choice point is left inside), fail when backtracking reaches the sentinel, exception when `propagate_throw` removes a sentinel that has not yet exited (an exited sentinel and `Pick::DebugRedo` are removed silently).
 `r` and `f` cut above the sentinel with `trim_stack` and leave the rest to backtracking, and cleanups run as in ADR 0016; `nodebug/0` and `n` return to leap. Control constructs, `call/1..8`, the nine debugger predicates, `$` names and calls from library modules have no box; in leap only a spied predicate gets one.
 `abort` is a new stop kind, `StopKind::Abort`, of the same form as `halt`, seen by `run_loop` right after `halt_now`; in a load it rolls the load back as a load error does.
 
 ## Rejected alternatives
 
-A meta-interpreter for the traced goals: the same clause would run in two ways, which differ in cut, cleanups and errors, against goal 5 of SPEC section 1 (the same results).
-Rewriting clauses to call port goals: the database changes (`clause/2`, `listing/1`) and the cost stays when the debugger is off.
+A meta-interpreter for the traced goals: the same clause would run in two ways, which may differ in cut, cleanups and errors, against goal 5 of SPEC section 1 (the same results).
+Rewriting clauses to call port goals: the database changes (`clause/2`) and the cost stays when the debugger is off.
 Swapping only the `cont` of `Goal`: it does not reach `DebugExit` on the paths that read word 3 again.
 
 ## Consequences
