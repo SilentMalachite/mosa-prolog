@@ -135,6 +135,18 @@ bool fail_box(Impl& machine) {
   return false;
 }
 
+// 外の開いている箱の深さに 1 を足す。箱の外側の開いている箱は、その箱が開いている間は変わらない（中の箱が先に抜け、
+// 外の箱を開き直すバックトラックは先に中の番兵を外す）。だから開くときに 1 度だけ決めて番兵に持つ。ポートのたびに
+// 数え直すと、末尾呼び出しでも残る箱の数だけかかり、トレースが回数の 2 乗になる（PR #4 の敵対的レビュー）。
+// 指令は外のスタックを脇に置くので、指令の中ではその中で開いた箱だけを数える。
+std::size_t open_depth(const Impl& machine) {
+  for (std::size_t index = machine.stack.size(); index-- > 0;) {
+    const Entry& entry = machine.stack[index];
+    if (entry.pick == Pick::DebugBox && entry.armed) return entry.cursor + 1;
+  }
+  return 1;
+}
+
 bool in_library(Impl& machine, std::uint32_t module_name) {
   const Module* module = find_module(machine, module_name);
   return module != nullptr && module->library;
@@ -177,6 +189,7 @@ void debug_box_qualified(Impl& machine, std::uint32_t caller) {
 
 void open_box(Impl& machine, const Goal& goal) {
   Entry box;
+  box.cursor = open_depth(machine);
   box.pick = Pick::DebugBox;
   box.redo_goal = goal.at;
   box.next = machine.debug.next_box++;

@@ -42,15 +42,8 @@ const std::string& port_name(Impl& machine, DebugPort port) {
   return state.port_names[static_cast<std::size_t>(port)];
 }
 
-// 開いている（まだ抜けていない）箱の数。指令の中では、その指令が脇に置いたスタックの箱だけを数える。
-std::size_t box_depth(const Impl& machine, std::size_t box_index) {
-  std::size_t depth = 0;
-  for (std::size_t index = 0; index <= box_index && index < machine.stack.size(); ++index) {
-    const Entry& entry = machine.stack[index];
-    if (entry.pick == Pick::DebugBox && entry.armed) ++depth;
-  }
-  return depth;
-}
+// 開いている（まだ抜けていない）箱の数。番兵が開いたときに決めて持つ（debug_box.cpp の open_depth）。
+std::size_t box_depth(const Impl& machine, std::size_t box_index) { return machine.stack[box_index].cursor; }
 
 // 枠の引数を今の束縛のまま項にする。項はヒープの上の捨て物で、次の GC か巻き戻しで消える。
 Cell goal_term(Impl& machine, const Goal& goal) {

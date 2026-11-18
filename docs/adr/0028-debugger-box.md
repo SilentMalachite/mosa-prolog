@@ -23,5 +23,5 @@ Swapping only the `cont` of `Goal`: it does not reach `DebugExit` on the paths t
 ## Consequences
 
 With the debugger off, or with no `DebugConsole`, `step` costs one branch; in leap only spied calls get a box, so a run up to a spy point is near normal speed (owner question 2, decision A; the bench must stay within 1.2 times).
-While tracing, a tail call keeps its box and a deep recursion uses memory in proportion to its depth; the depth and `g` count only open boxes, and inside a directive only those opened in it.
+While tracing, a tail call keeps its box and a deep recursion uses memory in proportion to its depth; the depth and `g` count only open boxes, and inside a directive only those opened in it; a box keeps the depth it had when it opened, since the open boxes outside it cannot change while it is open, so no port scans the stack.
 Tests: transcripts under `tests/cpp/data/` (`transcript_test.cmake`), `tests/pl/debugger.pl`, the `check_*` functions in the C++ tests, `MOSA_GC_STRESS`, the `mosac` standalone ctest; phase 14 plan Tasks 2 to 10.

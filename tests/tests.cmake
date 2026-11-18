@@ -509,6 +509,12 @@ add_executable(debugger_test tests/cpp/debugger_test.cpp)
 target_include_directories(debugger_test PRIVATE tests/cpp src)
 target_link_libraries(debugger_test PRIVATE mosa_lib)
 add_test(NAME debugger COMMAND $<TARGET_FILE:debugger_test>)
+# PR #4 の敵対的レビュー。トレースの時間が回数に比例する範囲に収まる。ほかの scale と同じくひとりで走らせる。
+add_executable(debugger_scale_test tests/cpp/debugger_scale_test.cpp)
+target_include_directories(debugger_scale_test PRIVATE tests/cpp src)
+target_link_libraries(debugger_scale_test PRIVATE mosa_lib)
+add_test(NAME debugger_scale COMMAND $<TARGET_FILE:debugger_scale_test>)
+set_tests_properties(debugger_scale PROPERTIES RUN_SERIAL TRUE)
 set_tests_properties(debugger PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
 # 手書きの生成関数は runtime.hpp だけを見る。internal.hpp を見るのは指紋を出す側の native_test.cpp だけ。

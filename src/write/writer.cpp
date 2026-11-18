@@ -4,8 +4,10 @@
 #include "mosa/char_class.hpp"
 #include "spelling.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -630,9 +632,15 @@ Cell Printer::spine_entry(Cell list) const {
     if (tail.tag() != Tag::Lis || open_.contains(tail.raw())) return std::nullopt;
     return tail;
   };
+  // max_depth(N) で書く要素の数には限りがある。巡回がその先で閉じるなら、list_rest は入口に着く前に |...] で閉じる。
+  // 巡回の始まりまでと一周の長さの和がこの数以下なら、slow がこの数だけ進む間に fast と出会う。出会わなければ書く範囲に
+  // 巡回は無い。限らないと、深さで切るポートの行でも長いリストを毎回なめ、トレースが 2 乗になる（PR #4 の敵対的レビュー）。
+  std::size_t steps = std::numeric_limits<std::size_t>::max();
+  if (options_.max_depth > 0) steps = static_cast<std::size_t>(std::max(options_.max_depth - depth_, 0)) + 2;
   Cell slow = list;
   Cell fast = list;
   while (true) {
+    if (steps-- == 0) return list;
     const std::optional<Cell> one = next(fast);
     if (!one) return list;
     const std::optional<Cell> two = next(*one);
