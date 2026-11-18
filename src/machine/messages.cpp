@@ -147,10 +147,10 @@ std::string render_here(Machine& machine, std::string_view key, std::span<const 
     // ゴールは読み込みより先に、利用者の表で字面にする。args は GC の根に無いので、読み込みの指示が GC を起こすと
     // 動いた後の番地を指す（L19 の Codex レビュー）。ヒープに項を作るので、溢れたときは下の catch が受ける。
     const std::string goal = goal_text(machine, key, args);
-    // 読み込みは指示でしか書けないので、問い合わせの前に済ませる。カタログは何も公開しないので、
-    // use_module でも user の名前は増えない。2 度目からは読み直さない。
+    // 読み込みは指示でしか書けないので、問い合わせの前に済ませる。machine は文面のための新しい機械なので、表と
+    // library(format) と library(lists) はここに読み、利用者の機械には読まない（ADR 0007 の改訂 3）。
     // 指示の字面も Mosa のものなので、ISO の核で読む。カタログと library(format) は、use_module が library(...) の
-    // ファイルとして ISO の核で読む（レビュー L19、ADR 0006 の改訂 1）。利用者が先に読んだライブラリも同じく読まれている。
+    // ファイルとして ISO の核で読む（レビュー L19、ADR 0006 の改訂 1）。
     {
       CoreOperatorScope core(engine_impl(machine));
       if (!machine.load_program(":- use_module(library(" + catalog_module(machine) + ")).\n").ok) return fallback;

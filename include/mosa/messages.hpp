@@ -20,7 +20,8 @@ enum class MessageLanguage { Ja, En };
 // LANG があれば（空でなければ）その先頭で決め、無いか空なら OS の表示言語が日本語かで決める（ADR 0007 改訂 1）。
 [[nodiscard]] MessageLanguage message_language_from(std::optional<std::string_view> lang, bool ui_japanese);
 [[nodiscard]] MessageLanguage default_message_language();
-// 旗の言語のカタログで Key を書式にする。改行は付けない。machine のヒープと束縛は捨てる。
+// 旗の言語のカタログで Key を書式にする。改行は付けない。文面は新しい機械で作り、machine には何も読まない
+// （ADR 0007 の改訂 3）。
 [[nodiscard]] std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args);
 // 使えるマシンが無いときの表示。新しいマシンを作ってカタログを読む。引数は原子として ~w に渡す。
 [[nodiscard]] std::string render_message_fresh(MessageLanguage language, std::string_view key,
