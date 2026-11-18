@@ -53,6 +53,25 @@ void check_gc_during_load() {
   check_shown({"true.", "throw(f(g(1), h(2), [a, b, c])).", "Warning: goal raised exception: f(g(1),h(2),[a,b,c])"});
 }
 
+// 文面を作る機械へ写した引数も、利用者の機械で書いたときと同じ字面になる（ADR 0007 の改訂 3、Muse のレビュー）。
+// 共有する部分、浮動小数点数、大きな整数、符号、引用、深い項、部分リスト。字面は写す前の版で書いたものと同じ。
+void check_carried() {
+  const std::array<Shown, 8> cases{{
+      {"true.", "Y = h(Z), throw(k(Y, Y, Z, \"ab\", [1,2|T])).",
+       "Warning: goal raised exception: k(h(_G1),h(_G1),_G1,[97,98],[1,2|_G2])\n"},
+      {"true.", "X = f(X, Y, Y), throw(X).", "Warning: goal raised exception: f(_G1,_G2,_G2)\n"},
+      {"true.", "throw(g(1.5, -0.0, 1.0e300)).", "Warning: goal raised exception: g(1.5,-0.0,1.0e+300)\n"},
+      {"true.", "throw(123456789012345678901234567890).",
+       "Warning: goal raised exception: 123456789012345678901234567890\n"},
+      {"true.", "throw(-(1)).", "Warning: goal raised exception: - (1)\n"},
+      {"true.", "throw('hello world').", "Warning: goal raised exception: 'hello world'\n"},
+      {"true.", "throw(f(f(f(f(f(f(f(f(f(f(f(f(a))))))))))))).",
+       "Warning: goal raised exception: f(f(f(f(f(f(f(f(f(f(f(f(a))))))))))))\n"},
+      {"true.", "length(L, 3), throw(L).", "Warning: goal raised exception: [_G1,_G2,_G3]\n"},
+  }};
+  for (const Shown& item : cases) check_shown(item);
+}
+
 // 文面を作る機械も利用者のヒープの上限を越えない（ADR 0007 の改訂 3、Muse のレビュー）。4 MiB では 60000 個の要素の
 // リストの文面が作れず、利用者の機械で作っていた前と同じく鍵の形に落ちる。前の新しい機械は既定の上限を持ったので、
 // --heap-max を越えてヒープを使い、文面も前と変わった。
@@ -95,5 +114,6 @@ int main(int argc, char** argv) {
   check_japanese();
   check_table_restored();
   check_heap_limit_kept();
+  check_carried();
   return mosa_test::failures();
 }
