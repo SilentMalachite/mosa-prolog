@@ -263,9 +263,10 @@ void run_abort_cleanups(Impl& machine) {
     ~Restore() {
       machine_.debug_on = debug_on_;
       machine_.debug.mode = mode_;
-      // ヒープの上限の C++ の例外で抜けるときは、その止まり方が abort に代わるので印を立て直さない。立てると、
-      // drop_run を通らない読み込みでは印が残り、後の指令の失敗が abort と書かれた（PR #4 の 2 度目の敵対的レビュー）。
-      if (std::uncaught_exceptions() == unwinding_) machine_.abort_now = true;
+      // ヒープの上限の C++ の例外で抜けるときは、その止まり方が abort に代わるので印を下ろす。残すと、drop_run を
+      // 通らない読み込みでは後の指令の失敗が abort と書かれた（PR #4 の 2 度目の敵対的レビュー）。後始末の項を作る
+      // 確保は、印を下ろす run_aborted より前に抜けうるので、立て直さないだけでは印が残る（その修正への Muse のレビュー）。
+      machine_.abort_now = std::uncaught_exceptions() == unwinding_;
     }
 
    private:

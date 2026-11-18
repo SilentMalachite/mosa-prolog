@@ -217,6 +217,34 @@ void check_abort_cleanup_heap_limit() {
                    "abort_heap_limit: the next query is not stopped as an abort");
 }
 
+// ヒープが満ちたまま abort の後始末に入る。最初の後始末の項を作るところで ResourceLimit が抜け、run_aborted が印を
+// 下ろす前に止まる。上と同じくヒープの止まり方が abort に代わるので、印は残さない。前は Restore が抜けるときに何も
+// せず、ポートの a が立てた印が残った（PR #4 の 2 度目の修正への Muse のレビュー）。
+void check_abort_cleanup_heap_full() {
+  auto machine = mosa::Machine::create(std::size_t{2} << 20);
+  auto& impl = mosa::engine_impl(*machine);
+  const mosa::Cell goal = impl.heap.atom(impl.atoms.intern("true"));
+  impl.pending_cleanups.push_back(mosa::PendingCleanup{goal, impl.user_module});
+  // ポートの a と同じく印を立ててから呼ぶ（debug_port.cpp の ask）。
+  impl.abort_now = true;
+  bool full = false;
+  try {
+    for (;;) static_cast<void>(impl.heap.fresh_ref());
+  } catch (const mosa::ResourceLimit&) {
+    full = true;
+  }
+  bool limited = false;
+  try {
+    mosa::run_abort_cleanups(impl);
+  } catch (const mosa::ResourceLimit&) {
+    limited = true;
+  }
+  machine->heap().truncate(0);
+  mosa_test::check(full && limited, "abort_heap_full: the first cleanup term reached the limit");
+  mosa_test::check(!impl.abort_now, "abort_heap_full: abort_now is clear after the heap stop");
+  mosa_test::check(machine->query("true.").kind == mosa::StopKind::Success, "abort_heap_full: the next query runs");
+}
+
 // 指令の中の a。指令が脇に置いたスタックの後始末を動かしてから読み込みを戻す。大域変数は読み込みの巻き戻しに
 // 戻されないので、後始末が動いたことが見える。
 void check_abort_directive_cleanup() {
@@ -264,6 +292,7 @@ int main() {
   check_abort_cleanup_bindings();
   check_abort_cleanup_uncaught();
   check_abort_cleanup_heap_limit();
+  check_abort_cleanup_heap_full();
   check_abort_pending_cleanup();
   check_abort_init();
   return mosa_test::failures() == 0 ? 0 : 1;
