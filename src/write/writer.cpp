@@ -126,6 +126,7 @@ class Printer final : public WriteHeld {
   [[nodiscard]] bool zero_quote(std::string_view next) const;
   [[nodiscard]] std::optional<OpDef> as_operator(Cell term) const;
   [[nodiscard]] bool operator_atom(Cell term) const;
+  [[nodiscard]] bool cut_at(int depth) const;
   [[nodiscard]] bool unsigned_number(Cell term) const;
   [[nodiscard]] bool leftmost_unsigned_number(Cell term, int priority, bool allow_equal) const;
   [[nodiscard]] std::string spell(std::string_view name) const;
@@ -382,12 +383,17 @@ bool Printer::glue(std::optional<char32_t> end, std::optional<char32_t> start) {
   return continues_name(*end) && continues_name(*start);
 }
 
+// max_depth(N) で、深さ depth の部分項を ... と書くか（render と同じ判定）。
+bool Printer::cut_at(int depth) const { return options_.max_depth > 0 && depth > options_.max_depth; }
+
 bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
   if (allow_equal) return priority > parent;
   return priority >= parent;
 }
 
 std::string Printer::spell(std::string_view name) const {
+  // 深さで切った字面 ... と原子 '...' を分ける。max_depth は ISO に無いので、制限が無ければ writeq のまま。
+  if (options_.quoted && options_.max_depth > 0 && name == "...") return quote_atom(name);
   if (!options_.quoted || bare_atom(name, options_.fullwidth)) return std::string{name};
   return quote_atom(name);
 }
@@ -470,7 +476,9 @@ std::optional<std::string> numbervar_text(const Heap& heap, Cell term) {
 // writer はそこに _ を書く。portray が置き換える字面は見ない（7.10.5 で portray の出力は利用者が決める）。
 bool Printer::leftmost_unsigned_number(Cell term, int priority, bool allow_equal) const {
   std::unordered_set<std::uint64_t> seen;
-  while (true) {
+  // 被演算子は depth_ より 1 深い。深さで切る所から先は ... と書くので、数では始まらない。
+  for (int depth = depth_ + 1;; ++depth) {
+    if (cut_at(depth)) return false;
     if (term.tag() == Tag::Ref && var_name(term) != nullptr) return false;
     term = heap_.deref(term);
     if (unsigned_number(term)) return true;
@@ -574,7 +582,8 @@ void Printer::push_op(const OpDef& op, Cell term) {
 // 6.3.4.2: 演算子のアトムは演算子の被演算子になれない。括弧に入れないと、読み手は (-)/1 の - /1 を
 // 前置演算子の項として読もうとして拒む（7.10.5 の往復）。引数とリストの要素は 6.3.3.1 で許されるので付けない。
 void Printer::push_operand(Cell arg, int priority, bool allow_equal) {
-  const bool wrap = operator_atom(arg);
+  // 深さで切る被演算子は ... で、演算子の原子ではない。括弧を付けると、隠した中身が演算子の原子だと分かってしまう。
+  const bool wrap = !cut_at(depth_ + 1) && operator_atom(arg);
   if (wrap) push_text(")");
   push_term(arg, priority, allow_equal);
   if (wrap) push_text("(");
@@ -585,7 +594,7 @@ void Printer::push_prefix(const OpDef& op, Cell term, std::string name) {
   // 空白だけだと次の字が演算子になり、引数のアトムとして読み戻せない。
   // 6.3.4.1: `- 1` も負の数と読まれる。-(1) は数を括弧で包んで前置演算子のまま読み戻す。
   // 字面が数で始まる被演算子も同じ。-(1^2) を -1^2 と書くと (-1)^2 と読まれる（7.10.5 の往復）。
-  const bool wrap = operator_atom(arg) ||
+  const bool wrap = (!cut_at(depth_ + 1) && operator_atom(arg)) ||
                     (op.name == "-" && leftmost_unsigned_number(arg, op.priority, op.specifier == Specifier::Fy));
   const std::size_t id = next_id_++;
   push_clear(id);
@@ -598,13 +607,16 @@ void Printer::push_prefix(const OpDef& op, Cell term, std::string name) {
 
 void Printer::push_list(Cell term) {
   if (options_.ignore_ops) {
+    // 演算子を使うときと同じく、i 番目の要素を深さ d+i-1 とみなす。頭はリストと同じ深さ、尾のセルは 1 つ深く、
+    // 終わりの [] は切らない（list_rest が ] を深さより先に見るのと同じ）。
     emit(spell_functor(".") + "(");
     const std::size_t id = next_id_++;
     push_text(")");
     push_clear(id);
-    push_term(heap_.list_tail(term), 999, true);
+    const Cell tail = heap_.list_tail(term);
+    push_term(tail, 999, true, true, is_nil(heap_, heap_.deref(tail)) ? 0 : 1);
     push_comma(id);
-    return push_term(heap_.list_head(term), 999, true);
+    return push_term(heap_.list_head(term), 999, true, true, 0);
   }
   emit("[");
   Work rest;

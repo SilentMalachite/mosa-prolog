@@ -15,6 +15,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
+- `max_depth` (iso-notes "Debugger"). Default A: a cut part is never put in parentheses, lists
+  with `ignore_ops(true)` keep the d+i-1 rule, and `quoted(true)` quotes the atom `'...'` while a
+  depth is set. The `wd_minus_*`, `wd_*operator_atom_cut`, `wd_ignore_ops_*`, `wd_dots_*` rows.
 - How the cleanups that `a` runs behave (ADR 0028). Default A: the bindings of the moment, as a
   query closed after its answer (B would undo to the end of Setup, as an exception does); no
   ports; failures and errors dropped (`check_abort_cleanup_errors`); the debugger's on/off and
@@ -247,8 +250,7 @@ Debugger, left from the 2026-11-18 adversarial review of PR #4 (all Low; 1–3 w
 - `debugging/0` writes names unquoted and without module (`a, b/1` for `'a, b'/1`).
 - CHANGELOG ("undone, together with ... on/off switch and mode") omits the leashed ports.
 - `load.cpp` says typed choices survive a failed load; `n` and `l` do not (as documented).
-- `max_depth`: `-(1)` and `- a` cut differently; `ignore_ops(true)` lists count depth per cell;
-  the atom `'...'` reads like a cut. Leap runs `find_module` before the cheap spy check.
+- Leap runs `find_module` before the cheap spy check.
 - Tests: `dbg_rollback_on` holds either way; `dbg_redefine` does not tell a missing fixture;
   transcripts merge stdout and stderr, so "port lines go to stderr" is unchecked.
 

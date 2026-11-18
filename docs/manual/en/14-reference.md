@@ -442,7 +442,7 @@ These read and write whole terms, and define operators (chapter 10).
 | `read_term/3` | 8.14.1 | The same from a stream. |
 | `read/1` | 8.14.1 | Reads a term, or `end_of_file` at the end. |
 | `read/2` | 8.14.1 | The same from a stream. |
-| `write_term/2` | 8.14.2 | `write_term(T, Options)`: writes a term, with options such as `quoted(true)`. `max_depth(N)` writes a term below depth `N` as `...`; `0` is no limit (not in the standard). |
+| `write_term/2` | 8.14.2 | `write_term(T, Options)`: writes a term, with options such as `quoted(true)`. `max_depth(N)` writes a term below depth `N` as `...`; `0` is no limit (not in the standard). With `quoted(true)` and a depth, the atom `'...'` is written quoted. |
 | `write_term/3` | 8.14.2 | The same on a stream. |
 | `write/1` | 8.14.2 | Writes a term as text. |
 | `write/2` | 8.14.2 | The same on a stream. |

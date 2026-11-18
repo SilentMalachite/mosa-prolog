@@ -16,6 +16,7 @@ Phase 14 adds a debugger to `mosa`. It is written in [chapter 15 of the manual](
   cleanups of `setup_call_cleanup/3` that the query leaves. When the input of `mosa` is not a terminal, it writes
   the port lines and reads no commands.
 - The option `max_depth(N)` of `write_term/2,3`: a term below depth `N` is written as `...`, and `0` means no limit.
+  With `quoted(true)`, the atom `'...'` is then written quoted, so that it differs from a cut part.
   The port lines use it with depth 10. It is not in ISO 13211-1 (see `docs/iso-notes.md`).
 - `bench/nrev_debug.pl` and `bench/queens_debug.pl`, which run `nrev` and `queens` with the debugger on and a spy
   point that is never reached ([bench.md](docs/bench.md)).

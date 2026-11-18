@@ -242,3 +242,19 @@ test(wd_cyclic_list_cut, (X = [a,b|X], wd_text(X, [max_depth(2)], A)), solutions
 test(wd_cyclic_list_within, (X = [a|X], wd_text(X, [max_depth(5)], A)), solutions([A = '[a|_]'])).
 test(wd_cyclic_compound_cut, (X = f(X), wd_text(X, [max_depth(1)], A)), solutions([A = 'f(...)'])).
 test(wd_cyclic_list_no_limit, (X = [a,b|X], wd_text(X, [max_depth(0)], A)), solutions([A = '[a,b|_]'])).
+% 深さで切った被演算子は ... で、数でも演算子の原子でもない。括弧の有無で隠した中身が分からないようにする
+% （PR #4 の敵対的レビュー）。深さの内なら、前と同じく数と演算子の原子を括弧に入れる。
+test(wd_minus_number_cut, wd_text(-(1), [max_depth(1)], A), solutions([A = '- ...'])).
+test(wd_minus_atom_cut, wd_text(-(a), [max_depth(1)], A), solutions([A = '- ...'])).
+test(wd_minus_number_shown, wd_text(-(1), [max_depth(2)], A), solutions([A = '- (1)'])).
+test(wd_minus_left_number_cut, wd_text(-(1^2), [max_depth(2)], A), solutions([A = '- ... ^ ...'])).
+test(wd_minus_left_number_shown, wd_text(-(1^2), [max_depth(3)], A), solutions([A = '- (1^2)'])).
+test(wd_operator_atom_cut, wd_text(-(-), [max_depth(1)], A), solutions([A = '- ...'])).
+test(wd_infix_operator_atom_cut, wd_text((-) = a, [max_depth(1)], A), solutions([A = '... = ...'])).
+% ignore_ops(true) のリストも、i 番目の要素を深さ d+i-1 とみなす（演算子を使うときの [a,b|...] と同じ所で切る）。
+test(wd_ignore_ops_list_cut, wd_text([a,b,c], [ignore_ops(true), max_depth(2)], A), solutions([A = '.(a,.(b,...))'])).
+test(wd_ignore_ops_list_end, wd_text([a,b], [ignore_ops(true), max_depth(2)], A), solutions([A = '.(a,.(b,[]))'])).
+test(wd_ignore_ops_list_tail, wd_text([a|b], [ignore_ops(true), max_depth(1)], A), solutions([A = '.(a,...)'])).
+% quoted(true) と max_depth(N>0) では、原子 '...' を引用して、深さで切った字面と分ける。深さの制限が無ければ ISO の writeq。
+test(wd_dots_atom_quoted, wd_text(f('...'), [quoted(true), max_depth(5)], A), solutions([A = 'f(\'...\')'])).
+test(wd_dots_atom_no_limit, wd_text(f('...'), [quoted(true)], A), solutions([A = 'f(...)'])).
