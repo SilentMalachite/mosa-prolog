@@ -27,7 +27,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   (checked by hand: `halt(3)` exits 3).
 - How a message is made without loading on the user's machine (ADR 0007 amendment 3). Default A:
   on a fresh `render_only` machine, with the arguments, the operators and `japanese_punctuation`
-  copied; the warnings keep their text (checked against the text before, in ja and en).
+  copied; the warnings keep their text (checked against the text before, in ja and en, and pinned by
+  `transcript_debug_spy_after_warning` and `_ja`).
 ## Owner decisions in force
 
 - Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):

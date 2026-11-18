@@ -2,12 +2,12 @@
 # 分けた（PR #4 の敵対的レビューの Low の直しの前）。名前は ci.yml の正規表現が見るので変えない。
 
 # フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja と spy_ja は ja.pl、redo_nested は nested.pl、
-# spy_after_warning は plain.pl）を読ませる。
+# spy_after_warning と spy_after_warning_ja は plain.pl）を読ませる。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 set(debug_cases creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
-    directive_depth spy_ja help eof)
+    spy_after_warning_ja directive_depth spy_ja help eof)
 foreach(debug_case ${debug_cases})
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
@@ -16,9 +16,13 @@ foreach(debug_case ${debug_cases})
     set(debug_program ja.pl)
   elseif(debug_case STREQUAL "redo_nested")
     set(debug_program nested.pl)
-  elseif(debug_case STREQUAL "spy_after_warning")
+  elseif(debug_case STREQUAL "spy_after_warning" OR debug_case STREQUAL "spy_after_warning_ja")
     # 警告の文面を作っても library(lists) が読まれないことを見るので、ライブラリを読まない plain.pl にする（ADR 0007 の改訂 3）。
+    # _ja は日本語の表で同じことを見る（Muse のレビュー）。
     set(debug_program plain.pl)
+    if(debug_case STREQUAL "spy_after_warning_ja")
+      set(debug_lang ja_JP.UTF-8)
+    endif()
   endif()
   add_test(NAME transcript_debug_${debug_case} COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
     -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_${debug_case}

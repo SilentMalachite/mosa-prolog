@@ -1,0 +1,11 @@
+?- spy(lists:zz/1).
+警告: ゴールは例外を送出しました: error(existence_error(module,lists),context(spy/1,_G1))
+?- X is foo + 1.
+警告: ゴールは例外を送出しました: error(type_error(evaluable,foo/0),context((is)/2,_G1))
+?- spy(lists:zz/1).
+警告: ゴールは例外を送出しました: error(existence_error(module,lists),context(spy/1,_G1))
+?- (current_module(lists) -> A = y ; A = n), (current_module(format) -> B = y ; B = n), (current_module(messages_en) -> C = y ; C = n), (current_module(messages_ja) -> D = y ; D = n).
+A = n, B = n, C = n, D = n.
+?- catch(lists:append([a], [b], Y), error(E, _), true).
+Y = Y, E = existence_error(module,lists).
+?- 
