@@ -242,6 +242,11 @@ test(wd_cyclic_list_cut, (X = [a,b|X], wd_text(X, [max_depth(2)], A)), solutions
 test(wd_cyclic_list_within, (X = [a|X], wd_text(X, [max_depth(5)], A)), solutions([A = '[a|_]'])).
 test(wd_cyclic_compound_cut, (X = f(X), wd_text(X, [max_depth(1)], A)), solutions([A = 'f(...)'])).
 test(wd_cyclic_list_no_limit, (X = [a,b|X], wd_text(X, [max_depth(0)], A)), solutions([A = '[a,b|_]'])).
+% 途中から巡回するリスト。巡回の始まりまで（4）と一周（3）の和が書く要素の数ちょうどなら、深さの内なので _ になる。
+% spine_entry が先読みを限る数を 4 減らすと、深さ 8 の行が [p,q,r,s,a,b,c,a|...] に変わって落ちる（PR #4 の 2 度目の
+% 敵対的レビュー）。
+test(wd_cyclic_prefix_within, (Y = [a,b,c|Y], X = [p,q,r,s|Y], wd_text(X, [max_depth(8)], A)), solutions([A = '[p,q,r,s,a,b,c|_]'])).
+test(wd_cyclic_prefix_cut, (Y = [a,b,c|Y], X = [p,q,r,s|Y], wd_text(X, [max_depth(7)], A)), solutions([A = '[p,q,r,s,a,b,c|...]'])).
 % 深さで切った被演算子は ... で、数でも演算子の原子でもない。括弧の有無で隠した中身が分からないようにする
 % （PR #4 の敵対的レビュー）。深さの内なら、前と同じく数と演算子の原子を括弧に入れる。
 test(wd_minus_number_cut, wd_text(-(1), [max_depth(1)], A), solutions([A = '- ...'])).
