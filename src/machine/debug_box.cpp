@@ -222,7 +222,7 @@ PortAction throw_box(Impl& machine, std::size_t box_index, const ExportedTerm& b
   if (!debug_port_shown(machine, box_index)) return PortAction::Go;
   const Cell term = import_term(machine, ball);
   const PortAction action = debug_port(machine, DebugPort::Exception, box_index, &term);
-  // a では propagate_throw も巻き戻しを止めて戻る。catch/3 にも後始末にも着かない（halt と同じ）。
+  // a では propagate_throw も巻き戻しを止めて戻り、catch/3 に着かない。後始末は止まる前に run_loop が動かす。
   if (action != PortAction::Fail && action != PortAction::Retry) return action;
   // 巻き戻しを止める。r は番兵を残して開き直しの印を付け、run_loop のバックトラックが番兵に着いて箱を開き直す。
   // f は番兵ごと切って失敗させる。失敗のポートは出さない（計画の設計との違い 6）。上の枠は巻き戻しが外し終えている。

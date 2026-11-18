@@ -14,8 +14,9 @@
   `nospyall/0`、`leash/1`、`debugging/0`。`mosa` では、トレース中のゴールがポート call、exit、redo、fail、
   exception を示し、`leash/1` で指したポートで止まります。ポートでのコマンドは、Enter と `c`（creep）、
   `s`（skip）、`l`（leap）、`f`（fail）、`r`（retry）、`a`（abort）、`n`（nodebug）、`g`（開いている箱）、
-  `w`（ゴールを省かずに書く）、`+` と `-`（スパイポイントの設定と解除）、`h` と `?`（一覧）です。`mosa` の入力が
-  端末でないときは、ポートの行を書き、コマンドは読みません。
+  `w`（ゴールを省かずに書く）、`+` と `-`（スパイポイントの設定と解除）、`h` と `?`（一覧）です。`a` は、問い合わせに
+  残った `setup_call_cleanup/3` の後始末を、先にポートを出さずに動かします。`mosa` の入力が端末でないときは、
+  ポートの行を書き、コマンドは読みません。
 - `write_term/2,3` のオプション `max_depth(N)`: 深さ `N` より下の項を `...` と書き、`0` は制限なしです。ポートの
   行は深さ 10 で使います。ISO 13211-1 にはありません（`docs/iso-notes.ja.md` を参照）。
 - `bench/nrev_debug.pl` と `bench/queens_debug.pl`: デバッガを入れ、到達しないスパイポイントを一つ置いて `nrev` と

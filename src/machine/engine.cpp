@@ -598,7 +598,9 @@ Stop run_loop(Impl& machine) {
   while (true) {
     // 2 つの印は隣り合う。止まらない歩みでは、どちらも偽と見るだけで済ませる。
     if (machine.halt_now || machine.abort_now) {
-      // abort（ADR 0028）は問い合わせを止めるだけで、プロセスは続く。書き出しは halt だけにする。
+      // abort（ADR 0028）は問い合わせを止めるだけで、プロセスは続く。止める前にこの実行の後始末を動かす（改訂、持ち主の
+      // 決定 A）。書き出しは halt だけにする。後始末の中の halt はプロセスを終えるので、下の halt の道へ進む。
+      if (!machine.halt_now) run_abort_cleanups(machine);
       if (!machine.halt_now) return Stop{StopKind::Abort, 0, {}, {}, false};
       // 埋め込みでは halt の後も Machine が生きるので、終わりを待たずにここで書き出す（レビュー M5）。
       flush_open_files(machine);

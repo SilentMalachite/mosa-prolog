@@ -57,7 +57,7 @@ Stop open_query(Impl& machine, Start start) {
     return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
   }
   // halt で止まった問い合わせの後始末は、次の問い合わせが閉じるときも動かさない（ADR 0016、敵対的レビュー A5）。
-  // abort で止まった問い合わせも halt に揃える（ADR 0028）。abort_now は下の drop_run が消す。
+  // abort で止まった問い合わせの後始末は、止まる前に run_loop が動かし終えている（ADR 0028）。abort_now は下の drop_run が消す。
   const bool halted = machine.halt_now || machine.abort_now;
   machine.halt_now = false;
   // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。

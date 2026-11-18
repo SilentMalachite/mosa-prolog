@@ -22,6 +22,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
     the on/off bit and the mode. Spy points stay.
   - `a` in an `initialization/1` goal keeps the clauses (A), also in a file a directive loaded, in
     either form. `check_abort_init` and `transcript_debug_abort_nested_*` pin it.
+  - `a` runs the cleanups that the run leaves (A, adversarial review): innermost run first, with no
+    ports, with the bindings of the moment as a closed query; failures and errors are dropped, a
+    `halt` in them ends the process. `check_abort_*cleanup` pin it; the `halt` case has no test.
   - A cyclic term beyond `max_depth(N)` is written as `...` (A): the depth wins for lists too;
     within the depth a cycle is still `_`. The `wd_cyclic_*` rows of `tests/pl/write.pl` pin it.
 

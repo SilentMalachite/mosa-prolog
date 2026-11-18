@@ -123,6 +123,8 @@ void throw_through_cleanup(Impl& machine, const Entry& entry, const ExportedTerm
 // stack[floor] から上に Pick::CallCleanup があれば、そこまで切って後始末を動かす。無ければ何もせず Success。
 [[nodiscard]] bool has_cleanup_entries(const Impl& machine, std::size_t floor);
 [[nodiscard]] Stop close_cleanups(Impl& machine, std::size_t floor);
+// デバッガの a（ADR 0028 の改訂）。run_loop が止まる前に、この実行の床より上の後始末をポート無しで動かす。
+void run_abort_cleanups(Impl& machine);
 // 答えの後で問い合わせを切る close_cleanups(machine, 0)。C++ の例外で抜けたら drop_run してから投げ直す。
 [[nodiscard]] Stop close_query(Impl& machine);
 // 問い合わせ 1 つ分の実行状態（スタック、トレイル、ヒープ、束縛、積んだ後始末）を戻さずに捨てる（engine.cpp）。

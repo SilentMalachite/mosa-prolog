@@ -4,7 +4,7 @@
 //   切られたときに、Cleanup を once/1 として 1 回動かす。Cleanup の成否は見ない。抜けたときと切られたときは Goal の
 //   束縛が見え、Cleanup の束縛も残る。失敗と例外のときは Setup の直後まで戻した状態で動く。例外のときは Cleanup の
 //   例外を捨てて Goal の例外を投げ直し、ほかのときは Cleanup の例外がそのまま出る。halt とヒープの上限での停止は
-//   Cleanup を動かさない。
+//   Cleanup を動かさない。デバッガの a は止まる前に動かす（ADR 0028 の改訂）。
 //   Setup の誤りは once/1 が出す。Cleanup の instantiation_error と type_error(callable, Cleanup)（M: を外して見る）は
 //   Setup の後で仕掛ける前、Goal の誤りは仕掛けた後に出るので、そのときは Cleanup が動く。Goal や Cleanup の M: の層、
 //   Goal の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
@@ -197,6 +197,42 @@ Stop close_cleanups(Impl& machine, std::size_t floor) {
   machine.failed = false;
   machine.exception = false;
   return run_loop(machine);
+}
+
+// 2026-11-18 の持ち主の決定 A。abort は答えの後に閉じる問い合わせと同じく、切って今の束縛のまま後始末を動かす。床は
+// 入れ子の run_loop（portray、with_output_to/2）の Barrier の上で、その下は外の run_loop が自分で動かすので内側が先になる。
+// 後始末はポートを出さない。打った a の後でまた止まらないためである。その失敗と誤りは捨て、abort を続ける。
+void run_abort_cleanups(Impl& machine) {
+  std::size_t floor = machine.stack.size();
+  while (floor > 0 && machine.stack[floor - 1].pick != Pick::Barrier) --floor;
+  if (machine.pending_cleanups.empty() && !has_cleanup_entries(machine, floor)) return;
+  // 入れ子の run_loop はヒープの上限で C++ の例外を投げうる。デバッグの入り切りと abort の印は抜け方によらず戻す。
+  class Restore {
+   public:
+    explicit Restore(Impl& machine) : machine_(machine), debug_on_(machine.debug_on) {}
+    Restore(const Restore&) = delete;
+    Restore& operator=(const Restore&) = delete;
+    ~Restore() {
+      machine_.debug_on = debug_on_;
+      machine_.abort_now = true;
+    }
+
+   private:
+    Impl& machine_;
+    bool debug_on_;
+  };
+  const Restore restore{machine};
+  machine.abort_now = false;
+  machine.debug_on = false;
+  trim_stack(machine, floor);
+  // 例外のポートの a は巻き戻しの途中で戻る。印を残すと settle_cleanups が古い ball を投げ直す。
+  machine.ip = kNoFrame;
+  machine.native_next = nullptr;
+  machine.failed = false;
+  machine.exception = false;
+  static_cast<void>(run_loop(machine));
+  machine.failed = false;
+  machine.exception = false;
 }
 
 Stop close_query(Impl& machine) {

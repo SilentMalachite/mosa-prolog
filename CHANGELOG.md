@@ -12,8 +12,9 @@ Phase 14 adds a debugger to `mosa`. It is written in [chapter 15 of the manual](
   `nospyall/0`, `leash/1` and `debugging/0`. In the `mosa` command, a traced goal shows the ports call, exit, redo,
   fail and exception, and stops at the ports that `leash/1` names. The commands at a port are Enter and `c` (creep),
   `s` (skip), `l` (leap), `f` (fail), `r` (retry), `a` (abort), `n` (nodebug), `g` (the open boxes), `w` (write the
-  goal in full), `+` and `-` (a spy point on or off), and `h` or `?` (the list). When the input of `mosa` is not a
-  terminal, it writes the port lines and reads no commands.
+  goal in full), `+` and `-` (a spy point on or off), and `h` or `?` (the list). `a` first runs, with no ports, the
+  cleanups of `setup_call_cleanup/3` that the query leaves. When the input of `mosa` is not a terminal, it writes
+  the port lines and reads no commands.
 - The option `max_depth(N)` of `write_term/2,3`: a term below depth `N` is written as `...`, and `0` means no limit.
   The port lines use it with depth 10. It is not in ISO 13211-1 (see `docs/iso-notes.md`).
 - `bench/nrev_debug.pl` and `bench/queens_debug.pl`, which run `nrev` and `queens` with the debugger on and a spy

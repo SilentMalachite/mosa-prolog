@@ -304,7 +304,7 @@ commands:
 | `l` | leap: run until a port of a predicate with a spy point. |
 | `f` | fail: make this goal fail, and show its Fail port. At an exception port, the goal fails without a Fail port. |
 | `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. |
-| `a` | abort: stop the query. The debugger keeps its mode, so the prompt is `[trace] ?- `, `[debug] ?- ` or `?- ` as that mode says. |
+| `a` | abort: stop the query. The cleanups of `setup_call_cleanup/3` that it leaves run first, with no ports. The debugger keeps its mode, so the prompt is `[trace] ?- `, `[debug] ?- ` or `?- ` as that mode says. |
 | `n` | nodebug: turn the debugger off and go on. |
 | `g` | write the open boxes, from the innermost one, with their depth, and ask again. |
 | `w` | write the goal with no depth limit, and ask again. |

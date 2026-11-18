@@ -2,7 +2,8 @@
 // 決定的な問い合わせの後に番兵が残らないこと（has_more は箱の選択点を数えないので、; の問いでは見つからない）、
 // DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと、
 // setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）、
-// a が StopKind::Abort で問い合わせを止め、後始末を動かさず、デバッグの状態を変えないこと（タスク 7）、
+// a が StopKind::Abort で問い合わせを止め、デバッグの状態を変えないこと（タスク 7）、a が止める実行ごとに内側から
+// 後始末をポート無しで 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A、ADR 0028 の改訂）、
 // 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
 #include "harness.hpp"
@@ -319,13 +320,60 @@ void check_abort_stop() {
   mosa_test::check(!impl.abort_now, "abort_stop: the next query cleared abort_now");
 }
 
-// abort は halt と同じく、setup_call_cleanup/3 の後始末を動かさない。次の問い合わせが前を閉じるときも動かさない。
+// abort は halt と違い、止まる前に setup_call_cleanup/3 の後始末を切って動かす（2026-11-18 の持ち主の決定 A）。後始末は
+// ポートを出さない。次の問い合わせが前を閉じるときにはもう残っていないので、数は 1 回になる。
 void check_abort_cleanup() {
   std::string answer;
   std::string ports;
   const std::string count = run_cleanup_case({"abort_cleanup", "trace, r", " Exit: (1) r ? ", "a"}, answer, ports);
   mosa_test::check(answer == "abort", "abort_cleanup: Abort, got [" + answer + "]");
-  mosa_test::check(count.find("N = 0") != std::string::npos, "abort_cleanup: N = 0, got [" + count + "]");
+  mosa_test::check(count.find("N = 1") != std::string::npos, "abort_cleanup: N = 1, got [" + count + "]");
+  // ポートの行は「 Call: (N) ゴール」。上の箱のゴールの字面にも assertz が入るので、行の形で数える。
+  mosa_test::check(occurrences(ports, ") assertz(") == 0, "abort_cleanup: no port in the cleanup, [" + ports + "]");
+}
+
+constexpr std::string_view k_abort_program =
+    ":- dynamic(log/1).\n"
+    "t.\n"
+    "w :- setup_call_cleanup(true, with_output_to(atom(_), setup_call_cleanup(true, t, assertz(log(inner)))),\n"
+    "    assertz(log(outer))).\n";
+
+// with_output_to/2 の入れ子の実行の中の a。内側の実行が床（Barrier）より上の後始末を先に動かし、外の実行が残りを
+// 動かす。どちらも 1 回だけで、デバッグの状態と abort_now は残る。
+void check_abort_nested_cleanup() {
+  auto machine = mosa::Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(machine->load_program(k_abort_program).ok, "abort_nested_cleanup: load the program");
+  impl.message_lang = mosa::MessageLanguage::En;
+  Scripted script{" Call: (5) t ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query("trace, w.");
+  mosa_test::check(stop.kind == mosa::StopKind::Abort,
+                   "abort_nested_cleanup: Abort, got [" + stop_text(*machine, stop) + "], ports [" + script.text + "]");
+  mosa_test::check(impl.abort_now, "abort_nested_cleanup: abort_now is kept");
+  mosa_test::check(impl.debug_on && impl.debug.mode == mosa::DebugMode::Creep, "abort_nested_cleanup: state kept");
+  mosa_test::check(occurrences(script.text, ") assertz(") == 0,
+                   "abort_nested_cleanup: no port in the cleanups, [" + script.text + "]");
+  const mosa::Stop logged = machine->query("nodebug, findall(X, log(X), L).");
+  const std::string text = stop_text(*machine, logged);
+  mosa_test::check(text.find("L = [inner,outer]") != std::string::npos,
+                   "abort_nested_cleanup: inner then outer, once each, got [" + text + "]");
+}
+
+// 指令の中の a。指令が脇に置いたスタックの後始末を動かしてから読み込みを戻す。大域変数は読み込みの巻き戻しに
+// 戻されないので、後始末が動いたことが見える。
+void check_abort_directive_cleanup() {
+  auto machine = make_machine();
+  Scripted script{" Call: (1) dbg_t ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  mosa_test::check(machine->query("nb_setval(dbg_k, none).").kind == mosa::StopKind::Success,
+                   "abort_directive_cleanup: nb_setval");
+  const mosa::LoadStatus status =
+      machine->load_program("dbg_t.\n:- setup_call_cleanup(true, (trace, dbg_t), nb_setval(dbg_k, done)).\n");
+  mosa_test::check(!status.ok && script.used, "abort_directive_cleanup: the load is aborted, [" + script.text + "]");
+  const mosa::Stop got = machine->query("nodebug, nb_getval(dbg_k, V).");
+  const std::string text = stop_text(*machine, got);
+  mosa_test::check(text.find("V = done") != std::string::npos, "abort_directive_cleanup: ran, got [" + text + "]");
 }
 
 // initialization/1 のゴールの abort。例外と同じく読み込みは失敗し、後の初期化は動かない。診断は書かない。節は
@@ -421,6 +469,8 @@ int main() {
   check_library_redefine();
   check_abort_stop();
   check_abort_cleanup();
+  check_abort_nested_cleanup();
+  check_abort_directive_cleanup();
   check_abort_init();
   check_leash_rollback();
   check_skip_dropped();
