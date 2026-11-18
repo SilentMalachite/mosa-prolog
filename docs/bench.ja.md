@@ -294,11 +294,11 @@ repeat:  repeat, retract(cnt(k, I)), I1 is I + 1, assertz(cnt(k, I1)), mk(20, I,
 | プログラム | N | 3 回 (ms) | 中央値 (ms) | 比べる相手 | 比 |
 | --- | ---: | --- | ---: | --- | ---: |
 | nrev、`OLD` | 20000 | 2929, 2911, 2918 | 2918 | | |
-| nrev、`HEAD` | 20000 | 3005, 2972, 2972 | 2972 | `OLD` | 1.018 |
+| nrev、`HEAD` | 20000 | 3005, 2972, 2972 | 2972 | `OLD` | 1.019 |
 | nrev_debug、`HEAD` | 20000 | 3056, 3045, 3041 | 3045 | `HEAD` の nrev | 1.025 |
 | queens、`OLD` | 80 | 2282, 2278, 2276 | 2278 | | |
 | queens、`HEAD` | 80 | 2301, 2293, 2292 | 2293 | `OLD` | 1.007 |
-| queens_debug、`HEAD` | 80 | 2357, 2349, 2345 | 2349 | `HEAD` の queens | 1.025 |
+| queens_debug、`HEAD` | 80 | 2357, 2349, 2345 | 2349 | `HEAD` の queens | 1.024 |
 
 翻訳した `nrev` は `HEAD` で 132 ms（`OLD` は 131 ms、`nrev_debug.pl` は 134 ms。そこでは `:- debug.` と `spy/1` が状態を変えるだけである）で、比は 22.5 と 3 を超える。翻訳した `queens` は `HEAD` で 445 ms、`OLD` で 446 ms だった。[結果](#結果)の表の行は測り直しておらず、`bench.json` も変えていない。測り直すには、`build/mosatest --bench bench/nrev_debug.pl --count 20000 --work tests/tmp/bench` を走らせ、`queens_debug.pl` も `--count 80` で同じにする。`--report` は付けない。
 

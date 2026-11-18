@@ -92,8 +92,7 @@ named `_G1`, `_G2` and so on, in the order in which they appear in that line. Th
 different name in the next line, so do not compare names between lines.
 
 A goal that your own predicates call is shown, and so is a built-in predicate such as `is/2` or `write/1`, but Mosa
-does not go inside a built-in. A call that a library predicate makes is not shown either, so `append/3`, for
-example, is one box, and its inner recursion is hidden. The control constructs (`,`, `;`, `->`, `!`, `catch/3`)
+does not go inside a built-in. A call that a library predicate makes inside itself is not shown either, so `append/3`, for example, is one box, and its inner recursion is hidden; a goal of yours that it calls, as `maplist/2` does, is shown. The control constructs (`,`, `;`, `->`, `!`, `catch/3`)
 have no ports of their own. `\+` has them, as a box around the goal that it negates.
 
 The lines go to the error stream, so they are not mixed with what your program writes.
@@ -491,9 +490,7 @@ true.
 
 - A `mosa` whose input is not a terminal does not read commands. It writes the port lines and goes on, so you can
   keep a record of a run:
-  `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log`. On Windows, run this line in Command
-  Prompt (cmd.exe), because PowerShell has no `<` redirect:
-  `mosa len.pl -g "trace, len([a], N)" -t halt < NUL 2> trace.log`.
+  `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log`. On Windows, run this line in Command Prompt (cmd.exe), with a pipe, because Mosa takes the `NUL` device for a terminal and a `< NUL` redirect would stop it at the first port: `type nul | mosa len.pl -g "trace, len([a], N)" -t halt 2> trace.log`.
   If its input is a terminal, it waits at the first port instead.
 - The debugger predicates `trace/0`, `notrace/0`, `debug/0`, `nodebug/0`, `spy/1`, `nospy/1`, `nospyall/0`,
   `leash/1` and `debugging/0` belong to Mosa, so a file of yours cannot define a predicate with one of those names

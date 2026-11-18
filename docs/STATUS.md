@@ -5,11 +5,11 @@
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
 - **In progress:** none. Plan: `docs/superpowers/plans/2026-11-18-phase14-debugger.md`.
 - **Last done:** phase 14 Task 10: CHANGELOG, README, iso-notes, SPEC, ADR 0028, bench (debug off
-  1.018x/1.007x of 0.4.1, leap 1.025x, mosac nrev 22.5x). Tests, suite, manual pass locally.
-- **Next:** owner OK to push `phase14` and run CI on 3 OSes (pending); then the question
+  1.019x/1.007x of 0.4.1, leap 1.025x/1.024x, mosac nrev 22.5x). Tests, suite, manual pass locally.
+- **Next:** owner OK to push `phase14` and run CI on 3 OSes and GC-stress (pending); then the question
   whether to close phase 14.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** five tests (`internal.hpp` 729, `tests.cmake` 778, session/stream tests).
+- **Split first:** six files (`tests.cmake` 778, `internal.hpp` 729, four C++ tests).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

@@ -752,14 +752,15 @@ or removed. Among them:
 - While Mosa traces, a tail call keeps its box, so a deep recursion uses more memory.
 - `r` (retry) does not undo side effects, such as output.
 - A program that `mosac build` makes shows no ports. `trace` and the others only change the state, and
-  `mosac build --debug` (a trace of clauses, chapter 13) is a different thing.
+  `mosac build --debug` (a trace of clauses, chapter 13) is a different thing. `mosatest` and an embedded `Machine` have no console either, so the debugger predicates only change state there.
 - A grammar rule that `phrase/2,3` calls shows the unifications of the translated body, as in `[a,a]=[a|_G1]`.
-- A goal that you write as `system:Goal` is not traced.
+- A goal that you write as `system:Goal`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced. Your own goals that a library predicate calls, as `maplist/2` does, are traced.
+- On Windows, a `mosa` whose input is the `NUL` device is taken for a terminal and stops at the first port, so
+  record a run through a pipe (chapter 15).
 - Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes
   `[trace]`.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a
-  goal does. In a `:- Goal` directive, the load is undone, and so is any debugger state that the directive changed, for
-  example a `:- trace, foo.` directive.
+  goal does. In a `:- Goal` directive, the load is undone, and so are the on/off switch and the mode of the debugger that the directive changed, as in `:- trace, foo.`; spy points stay.
 - The depth limit 10 of the port lines is that of `write_term/2,3` `max_depth/1`, so a list nested in the first
   element is not cut, however deeply: element i of a list counts as depth d+i-1.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).

@@ -292,11 +292,11 @@ Measured on 2026-11-18 (phase 14 Task 10) on the same machine, one tree after th
 | Program | N | Runs (ms) | Median (ms) | Against | Ratio |
 | --- | ---: | --- | ---: | --- | ---: |
 | nrev, `OLD` | 20000 | 2929, 2911, 2918 | 2918 | | |
-| nrev, `HEAD` | 20000 | 3005, 2972, 2972 | 2972 | `OLD` | 1.018 |
+| nrev, `HEAD` | 20000 | 3005, 2972, 2972 | 2972 | `OLD` | 1.019 |
 | nrev_debug, `HEAD` | 20000 | 3056, 3045, 3041 | 3045 | `HEAD` nrev | 1.025 |
 | queens, `OLD` | 80 | 2282, 2278, 2276 | 2278 | | |
 | queens, `HEAD` | 80 | 2301, 2293, 2292 | 2293 | `OLD` | 1.007 |
-| queens_debug, `HEAD` | 80 | 2357, 2349, 2345 | 2349 | `HEAD` queens | 1.025 |
+| queens_debug, `HEAD` | 80 | 2357, 2349, 2345 | 2349 | `HEAD` queens | 1.024 |
 
 The translated `nrev` took 132 ms on `HEAD` (131 ms on `OLD`; 134 ms for `nrev_debug.pl`, where `:- debug.` and `spy/1` only change state), so the ratio is 22.5, above 3. The translated `queens` took 445 ms on `HEAD` and 446 ms on `OLD`. The first rows of the table in [Results](#results) are not measured again, and `bench.json` is unchanged. To measure again, run `build/mosatest --bench bench/nrev_debug.pl --count 20000 --work tests/tmp/bench` and the same for `queens_debug.pl` with `--count 80`, without `--report`.
 

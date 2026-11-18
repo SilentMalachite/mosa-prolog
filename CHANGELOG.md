@@ -35,20 +35,16 @@ Phase 14 adds a debugger to `mosa`. It is written in [chapter 15 of the manual](
 
 ### Known limits
 
-The known limits of 0.4.1 still hold. The debugger adds these (the manual lists them in
-[chapter 14](docs/manual/en/14-reference.md)):
+The known limits of 0.4.1 still hold. The debugger adds these (the manual lists them in [chapter 14](docs/manual/en/14-reference.md)):
 
 - The debugger works only in the `mosa` command. A program that `mosac build` makes shows no ports, and `mosatest`
   and an embedded `Machine` do not change their output.
 - Variables are numbered per line, so `_G1` in two port lines, including the lines of `g`, may be different variables.
-- In leap, only a call of a predicate with a spy point opens a box, so the depth and `g` leave out the calls made
-  during the leap, and Enter at a port reached in leap switches to creep.
+- In leap, only a call of a predicate with a spy point opens a box, so the depth and `g` leave out the calls made during the leap (boxes opened earlier, in creep, are still counted). In a directive or an `initialization/1` goal while a file loads, they count only the boxes opened in that directive. Enter at a port reached in leap switches to creep.
 - While tracing, a tail call keeps its box, so a deep recursion uses more memory. `r` does not undo side effects.
-- A goal written as `system:Goal`, the goals that built-ins run for themselves, and the calls made from the
-  libraries are not traced. A grammar rule that `phrase/2,3` calls shows the unifications of its translated body.
+- A goal written as `system:Goal`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced (your own goals that it calls, as `maplist/2` does, are traced). A grammar rule that `phrase/2,3` calls shows the unifications of its translated body.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses already read, as an error in
-  such a goal does; in a `:- Goal` directive the load is undone, together with any debugger state that the directive
-  changed.
+  such a goal does; in a `:- Goal` directive the load is undone, together with the debugger's on/off switch and mode that the directive changed (spy points stay).
 - The depth limit of a list is that of the suite (element i counts as depth d+i-1), so a list nested in the first
   element is not cut however deeply.
 - On Windows, a `mosa` whose input is `NUL` is taken for a terminal and stops at the first port; use a pipe.
