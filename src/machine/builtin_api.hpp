@@ -85,6 +85,14 @@ void append_utf8_code(std::string& text, char32_t code);
 [[nodiscard]] bool redo_atoms(Impl& machine);
 [[nodiscard]] bool run_flags(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_statistics(Impl& machine, const Goal& goal);
+// trace/0、notrace/0、debug/0、nodebug/0、spy/1、nospy/1、nospyall/0、leash/1、debugging/0（debugger_pred.cpp、ADR 0028）。
+[[nodiscard]] bool run_debugger(Impl& machine, const Goal& goal);
+// デバッグを入り切りして進み方を決める。trace/0、debug/0、nodebug/0、notrace/0 と旗 debug が同じ働きを共有する。
+void set_debug(Impl& machine, bool on, DebugMode mode);
+// スパイポイントの組に述語があるか。leap が箱を作るかを決める。
+[[nodiscard]] bool spied(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
+// スパイポイントを 1 つ置く（on）か外す。変わったときだけ真。spy/1、nospy/1 と、コマンドの + と - が使う。
+[[nodiscard]] bool set_spy(Impl& machine, const SpyKey& key, bool on);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);

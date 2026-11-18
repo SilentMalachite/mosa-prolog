@@ -166,3 +166,13 @@ message(manual_expected, 'expected:').
 message(manual_actual, 'actual:').
 message(manual_no_newline, '(no newline at end)').
 message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').
+
+% デバッガ（フェーズ14、ADR 0028）。スパイポイントの知らせと debugging/0 の字面。
+message(debug_spy_set, '% Spy point on ~w').
+message(debug_spy_removed, '% Spy point removed from ~w').
+message(debug_spy_none, '% No predicate named ~w').
+message(debug_status_off, '% Debug mode: off').
+message(debug_status_on, '% Debug mode: on (~w)').
+message(debug_status_spies, '% Spy points: ~w').
+message(debug_status_leash, '% Leashed ports: ~w').
+message(debug_status_none, 'none').

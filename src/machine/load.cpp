@@ -305,6 +305,8 @@ int use_file(Impl& machine, const Cell& arg, const std::filesystem::path& file,
   }
   const Module* module = module_of_file(machine, file);
   if (module == nullptr) return fail_formal(machine, formal_permission(machine, "load", "source_sink", arg));
+  // デバッガがライブラリの中の呼び出しを見せないための印（ADR 0028）。
+  if (names_library(machine, arg) || bundled) find_module(machine, module->name)->library = true;
   if (const auto formal = apply_imports(machine, module->name, machine.load_module, spec)) {
     return fail_formal(machine, *formal);
   }

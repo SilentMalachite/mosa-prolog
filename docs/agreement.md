@@ -7,7 +7,7 @@ Each test file is loaded twice from the same bytes: as IR by the interpreter, an
 | Directory | Files | Compared | Agree | Differences | Translated goals | Translated predicates | Attached |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | tests/conformance | 175 | 3207 | 3207 | 0 | 1713 | 648/649 (99.8%) | 648/648 |
-| tests/pl | 55 | 3733 | 3733 | 0 | 3678 | 718/721 (99.6%) | 718/718 |
+| tests/pl | 56 | 3775 | 3775 | 0 | 3719 | 722/725 (99.6%) | 722/722 |
 
 "Attached" is the number of those procedures that `install_unit` actually attached at run time (fingerprint match); a file with fewer attached than emitted counts as a difference.
 

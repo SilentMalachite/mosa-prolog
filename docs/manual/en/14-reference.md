@@ -141,7 +141,7 @@ A flag whose "Other values" says "none" cannot be changed.
 | `double_quotes` | `codes` | `chars`, `atom` | What `"abc"` reads as: a list of character codes, a list of characters or an atom. |
 | `unknown` | `error` | `fail` | What a call of an undefined predicate does: raise `existence_error` or fail. |
 | `char_conversion` | `off` | `on` | Whether `char_conversion/2` changes characters as terms are read. |
-| `debug` | `off` | `on` | ISO asks for this flag. Setting it to `on` currently changes nothing. |
+| `debug` | `off` | `on` | ISO asks for this flag. Setting it to `on` does what `debug/0` does, and `off` what `nodebug/0` does. |
 | `encoding` | `utf8` | none | Text is UTF-8. |
 | `invalid_utf8` | `error` | `replace` | What reading bytes that are not UTF-8 does: raise `representation_error(character)`, or read U+FFFD instead. |
 | `japanese_punctuation` | `false` | `true` | Whether full-width punctuation is read as half-width (chapter 11). |
@@ -472,6 +472,26 @@ These read and set flags, end Mosa, and look at memory and time.
 | `nb_getval/2` | — | `nb_getval(Key, Value)`: a copy of what `nb_setval/2` keeps under Key. |
 | `garbage_collect/0` | — | Frees now the memory of terms that are no longer used. |
 | `statistics/2` | — | `statistics(Key, Value)`: numbers on time (`runtime`, `walltime`, `cputime`), memory (`heap`) and its collection (`garbage_collection`). |
+
+### Debugging
+
+These turn the debugger's state on and off and choose what it stops at. Today they only keep that state: the
+port lines that a stopped program shows come in a later step, and in a program that `mosac` built they never appear.
+A name that begins with a lowercase letter, such as `trace`, is a built-in predicate, so a file of your own cannot
+define a predicate with the same name and arity (`permission_error(modify, static_procedure, debug/0)`).
+
+<!-- predicates: system -->
+| Predicate | ISO | What it does |
+| --- | --- | --- |
+| `trace/0` | — | Turns the debugger on and makes it stop at every call it shows. |
+| `notrace/0` | — | Stops stopping at every call. The debugger stays on, so it still stops at spy points. |
+| `debug/0` | — | Turns the debugger on. It stops only at spy points. The flag `debug` becomes `on`. |
+| `nodebug/0` | — | Turns the debugger off. The spy points stay. The flag `debug` becomes `off`. |
+| `spy/1` | — | `spy(Spec)`: puts a spy point on a predicate and turns the debugger on. Spec is `Name/Arity`, `Module:Name/Arity`, a `Name` alone (every predicate of that name that the context module can see) or a list of these. It may name a predicate that is not defined yet. |
+| `nospy/1` | — | `nospy(Spec)`: takes off the spy points that `spy(Spec)` puts. |
+| `nospyall/0` | — | Takes off every spy point. |
+| `leash/1` | — | `leash(Ports)`: chooses the ports where the debugger stops. Ports is `all`, `none`, `call`, `exit`, `redo`, `fail`, `exception`, `+Port` (add one), `-Port` (remove one) or a list of these, applied from the left. The default is all five. |
+| `debugging/0` | — | Writes the state of the debugger, its spy points and the ports it stops at, to `user_error`. |
 
 ## Libraries
 

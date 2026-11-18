@@ -167,3 +167,13 @@ message(manual_actual, '実際の出力:').
 message(manual_no_newline, '（最後に改行がありません）').
 % 件数の 1 行は英語と同じ字にする。スクリプトがどちらの言語でも同じ形で読めるように（Task 4 の修正）。
 message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').
+
+% デバッガ（フェーズ14、ADR 0028）。スパイポイントの知らせと debugging/0 の字面。
+message(debug_spy_set, '% ~w にスパイポイントを置きました').
+message(debug_spy_removed, '% ~w のスパイポイントを外しました').
+message(debug_spy_none, '% ~w という名前の述語はありません').
+message(debug_status_off, '% デバッグ: 切り').
+message(debug_status_on, '% デバッグ: 入り（~w）').
+message(debug_status_spies, '% スパイポイント: ~w').
+message(debug_status_leash, '% 止まるポート: ~w').
+message(debug_status_none, 'なし').

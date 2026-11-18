@@ -63,6 +63,8 @@ struct Module {
   std::vector<Import> imports;
   // 正規化したパス。use_module がファイルからモジュールを引く。ファイルでないテキストは空。
   std::string file;
+  // library(Name) を解決して読んだモジュール。デバッガはこの中から出る呼び出しを見せない（ADR 0028）。
+  bool library = false;
   std::vector<PendingMeta> pending_meta;
   // 固有層の演算子。優先度 0 は下の層を隠す印。export_ops は公開リストの op(P, T, N) を名前ごとに開いたもの。
   OperatorTable ops;

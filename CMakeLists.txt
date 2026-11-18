@@ -159,6 +159,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/atoms_sub.cpp
   src/builtins/flags.cpp
   src/builtins/statistics.cpp
+  src/builtins/debugger_pred.cpp
   src/builtins/database.cpp
   src/builtins/database_scan.cpp
   src/builtins/module_prop.cpp

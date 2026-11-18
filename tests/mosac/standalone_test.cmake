@@ -5,7 +5,7 @@
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
 #           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif|
-#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late|cond_after_apart|cond_after_late>
+#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late|cond_after_apart|cond_after_late|debugger_state>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -105,6 +105,9 @@ elseif(CASE STREQUAL "cond_after_apart")
 elseif(CASE STREQUAL "cond_after_late")
   set(sources cond_after_late.pl)
   set(program cond_after_late)
+elseif(CASE STREQUAL "debugger_state")
+  set(sources debugger_state.pl)
+  set(program debugger_state)
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -306,6 +309,12 @@ elseif(CASE STREQUAL "cond_after_late")
   if(NOT code EQUAL 1 OR NOT out STREQUAL "" OR
      NOT err MATCHES "^[^\n]*cond_after_late\\.pl: [^\n]*q/1[^\n]*\n$")
     fail("a clause apart after a block, apart at start-up too")
+  endif()
+elseif(CASE STREQUAL "debugger_state")
+  # 実行ファイルにはデバッガの口が無いので、述語は状態を変えるだけで、ポートの行は出ない。標準エラーは
+  # debugging/0 と知らせが書くので比べない（ADR 0028）。
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "1\noff\n")
+    fail("the debugger predicates only change state in a standalone executable")
   endif()
 elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")
   # 分岐の中の use_module が途中で失敗したモジュールのファイルは、その前に別のモジュール（cond_half_q と

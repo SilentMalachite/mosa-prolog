@@ -128,7 +128,7 @@ X = あいう.
 | `double_quotes` | `codes` | `chars`、`atom` | `"abc"` を、文字コードのリスト、文字のリスト、原子のどれとして読むかです。 |
 | `unknown` | `error` | `fail` | 定義されていない述語を呼んだとき、`existence_error` を起こすか、失敗するかです。 |
 | `char_conversion` | `off` | `on` | 項を読むときに、`char_conversion/2` で文字を変えるかどうかです。 |
-| `debug` | `off` | `on` | ISO が求めるフラグです。今は `on` にしても何も変わりません。 |
+| `debug` | `off` | `on` | ISO が求めるフラグです。`on` にすると `debug/0` と、`off` にすると `nodebug/0` と同じことをします。 |
 | `encoding` | `utf8` | なし | テキストは UTF-8 です。 |
 | `invalid_utf8` | `error` | `replace` | UTF-8 でないバイトを読んだとき、`representation_error(character)` を起こすか、代わりに U+FFFD を読むかです。 |
 | `japanese_punctuation` | `false` | `true` | 全角の記号を半角として読むかどうかです（第 11 章）。 |
@@ -439,6 +439,25 @@ X = あいう.
 | `nb_getval/2` | — | `nb_getval(Key, Value)`: `nb_setval/2` が Key の下に置いたものの写しです。 |
 | `garbage_collect/0` | — | もう使われていない項のメモリを、今すぐ回収します。 |
 | `statistics/2` | — | `statistics(Key, Value)`: 時間（`runtime`、`walltime`、`cputime`）、メモリ（`heap`）、その回収（`garbage_collection`）についての数です。 |
+
+### デバッグ
+
+デバッガの状態を入り切りし、どこで止まるかを決めます。今は、その状態を持つだけです。止まったプログラムが見せるポートの行は
+あとの段階で入り、`mosac` で作ったプログラムには出ません。`trace` のような名前は組み込み述語なので、自分のファイルで同じ名前と
+引数の数の述語を定義すると、`permission_error(modify, static_procedure, debug/0)` で読み込みが止まります。
+
+<!-- predicates: system -->
+| 述語 | ISO | すること |
+| --- | --- | --- |
+| `trace/0` | — | デバッガを入れ、見せる呼び出しのたびに止まるようにします。 |
+| `notrace/0` | — | 呼び出しのたびに止まるのをやめます。デバッガは入ったままなので、スパイポイントでは止まります。 |
+| `debug/0` | — | デバッガを入れます。スパイポイントでだけ止まります。フラグ `debug` は `on` になります。 |
+| `nodebug/0` | — | デバッガを切ります。スパイポイントは残ります。フラグ `debug` は `off` になります。 |
+| `spy/1` | — | `spy(Spec)`: 述語にスパイポイントを置き、デバッガを入れます。Spec は `Name/Arity`、`Module:Name/Arity`、名前だけの `Name`（文脈のモジュールから見えるその名前の述語すべて）、またはそれらのリストです。まだ定義していない述語も指せます。 |
+| `nospy/1` | — | `nospy(Spec)`: `spy(Spec)` が置いたスパイポイントを外します。 |
+| `nospyall/0` | — | スパイポイントをすべて外します。 |
+| `leash/1` | — | `leash(Ports)`: デバッガが止まるポートを決めます。Ports は `all`、`none`、`call`、`exit`、`redo`、`fail`、`exception`、`+Port`（足す）、`-Port`（外す）、またはそれらのリストで、左から順に当てます。既定は 5 つすべてです。 |
+| `debugging/0` | — | デバッガの状態、スパイポイント、止まるポートを `user_error` に書きます。 |
 
 ## ライブラリ
 

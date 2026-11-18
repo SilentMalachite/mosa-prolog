@@ -5,7 +5,7 @@
 //   type_error(atom), domain_error(prolog_flag)
 // char_conversion は on と off。既定は off。warning と error 以外の浮動小数旗も受け付けない。
 // invalid_utf8 は error と replace。既定は error。replace は壊れたバイトを U+FFFD にする。
-// debug は on と off。既定は off。値を覚えるだけで、節の追跡はしない。
+// debug は on と off。既定は off。on は debug/0、off は nodebug/0 と同じ働き（ADR 0028）。
 // japanese_punctuation は true と false。字句解析器は次に読む項から全角記号を半角に読む（iso-notes 第4節）。
 // dialect は mosa、version_data は mosa(Major, Minor, Patch, [])。どちらも変えられない（iso-notes 第3節の決定 B）。
 // version は Major*10000 + Minor*100 + Patch の整数。変えられない（SPEC 第3節 7）。
@@ -183,7 +183,7 @@ void flag_store(Impl& machine, std::size_t index, Cell value) {
   if (index == 8) machine.japanese_punct = text == "true";
   if (index == 12) machine.char_conv.enabled = text == "on";
   if (index == 13) machine.utf8_replace = text == "replace";
-  if (index == 14) machine.debug_on = text == "on";
+  if (index == 14) set_debug(machine, text == "on", DebugMode::Leap);
   if (index == 20) machine.trace_gc = text == "true";
   if (index == 18) machine.message_lang = text == "ja" ? MessageLanguage::Ja : MessageLanguage::En;
 }

@@ -11,6 +11,7 @@
 #include "../module/module.hpp"
 #include "clause_index.hpp"
 #include "clause_list.hpp"
+#include "debug_state.hpp"
 #include "gc.hpp"
 #include "pred_table.hpp"
 #include "state_alloc.hpp"
@@ -365,8 +366,9 @@ struct Machine::Impl {
   bool float_overflow_error = true;
   bool float_zero_div_error = true;
   bool float_undefined_error = true;
-  // 旗 debug は値だけ持つ。on でも追跡しない。既定は off。
+  // 旗 debug。デバッグの入り切りで、デバッガのほかの状態は debug に持つ（ADR 0028）。既定は off。
   bool debug_on = false;
+  DebugState debug;
   // 旗 japanese_punctuation。Reader::set_fullwidth で字句解析に渡す。既定は false。
   bool japanese_punct = false;
   // 旗 message_language。文面のカタログを選ぶ（ADR 0007）。
