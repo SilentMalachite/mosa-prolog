@@ -8,4 +8,16 @@ X = f(f(f(f(f(f(f(f(f(f(f(a))))))))))).
 true.
 [debug] ?- nodebug.
 true.
+?- op(700, xfx, ===>).
+true.
+?- assertz((A ===> B :- B = A)).
+A = A, B = B.
+?- trace, (p - q) ===> X.
+ Call: (1) p-q===>_G1 ? 
+ Call: (2) _G1=p-q ? 
+ Exit: (2) p-q=p-q ? 
+ Exit: (1) p-q===>p-q ? 
+X = p-q.
+[trace] ?- nodebug.
+true.
 ?- 

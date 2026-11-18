@@ -4,3 +4,11 @@ w
 
 notrace.
 nodebug.
+op(700, xfx, ===>).
+assertz((A ===> B :- B = A)).
+trace, (p - q) ===> X.
+
+
+
+
+nodebug.
