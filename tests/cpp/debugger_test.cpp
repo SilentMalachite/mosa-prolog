@@ -142,6 +142,35 @@ void check_open_boxes_given_back() {
                    "open_boxes: a box opened after a GC inside outer is at depth 2, got [" + console.text + "]");
 }
 
+// 例外のポートで取り込んだ投げられた項は、ポートを書いたら捨てる。巻き戻しは 1 歩の中で箱をみな通るので、前は
+// 箱の数だけ写しが積もり、8 MiB では 400 段の再帰が投げた 3000 要素のリストが、追うときだけヒープの上限で問い合わせ
+// ごと止まった（深さ 318 の例外のポートの後、敵対的レビュー、2026-11-19）。追っても追わなくても catch/3 が受ける。
+void check_exception_ports_leave_no_copies() {
+  constexpr std::string_view program =
+      "d(0) :- length(L, 3000), throw(big(L)).\n"
+      "d(N) :- N > 0, M is N - 1, d(M).\n";
+  for (const std::string_view prefix : {"", "trace, "}) {
+    auto machine = mosa::Machine::create(std::size_t{8} << 17);
+    mosa_test::check(machine->load_program(program).ok, "exception copies: load");
+    mosa::engine_impl(*machine).message_lang = mosa::MessageLanguage::En;
+    Console console;
+    give_console(*machine, console);
+    const std::string label = "exception copies [" + std::string{prefix} + "]";
+    bool caught = false;
+    try {
+      const mosa::Stop stop =
+          machine->query("catch((" + std::string{prefix} + "d(400)), E, true), notrace, E = big(_), nodebug.");
+      caught = stop.kind == mosa::StopKind::Success;
+    } catch (...) {
+      // 前の実装では、ヒープの上限が query の外へ出た。
+    }
+    mosa_test::check(caught, label + ": caught under 8 MiB");
+    if (!prefix.empty()) {
+      mosa_test::check(occurrences(console.text, " Exception: (") >= 400, label + ": the exception ports were written");
+    }
+  }
+}
+
 // spy/1 の知らせの項は書いたらヒープから捨てる。前は鍵の数だけ積もり（1 つ 3 語）、--heap-max 1 では 14000 個の
 // foo/1 のリストで上限に当たって、置いて知らせたのにデバッガは切れたままになった（敵対的レビュー、2026-11-19）。
 // 14000 個の知らせは 1 つずつ文面の機械を作るので遅い。100 個で spy/1 の前後のヒープの差を見る。前は 2400 バイト。
@@ -434,6 +463,7 @@ int main() {
   check_no_console();
   check_open_boxes_given_back();
   check_spy_notices_leave_no_garbage();
+  check_exception_ports_leave_no_copies();
   check_retry_cleanup();
   check_redo_retry_cleanup();
   check_redo_fail_cleanup();

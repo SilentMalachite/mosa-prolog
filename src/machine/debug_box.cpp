@@ -285,8 +285,13 @@ PortAction throw_box(Impl& machine, std::size_t box_index, const ExportedTerm& b
   // 巻き戻しは armed の箱ごとにここを通る。書かないポート（n の後、leap と skip が隠す箱）では項を取り込まない
   // （コントローラの裁定 17）。debug_port も同じ判定をもう一度するが、状態を変えないので 2 度聞いても同じ。
   if (!debug_port_shown(machine, box_index)) return PortAction::Go;
+  // 取り込んだ項と行のゴールの項は、ポートを書いたら捨てる。巻き戻しは 1 歩の中で箱をみな通り、間に GC の安全点が
+  // 無いので、捨てないと箱の数だけ写しが積もり、追わなければ catch/3 が受ける例外がヒープの上限で問い合わせごと
+  // 止まった（敵対的レビュー、2026-11-19）。ポートのコマンドは書くか状態を変えるだけで、項を束縛も保持もしない。
+  const std::size_t mark = machine.heap.size();
   const Cell term = import_term(machine, ball);
   const PortAction action = debug_port(machine, DebugPort::Exception, box_index, &term);
+  if (machine.heap.size() >= mark) machine.heap.truncate(mark);
   // a では propagate_throw も巻き戻しを止めて戻り、catch/3 に着かない。後始末は止まる前に run_loop が動かす。
   if (action != PortAction::Fail && action != PortAction::Retry) return action;
   // 巻き戻しを止める。r は番兵を残して開き直しの印を付け、run_loop のバックトラックが番兵に着いて箱を開き直す。
