@@ -172,13 +172,17 @@ bool mode_wants_box(Impl& machine, const Goal& goal) {
 // 安い判定から順に見る。leap の速さ（ADR 0028 の 1.2 倍）を守るためである。どの判定も状態を変えないので、順は
 // 答えを変えない（コントローラの裁定 17）。
 bool debug_wants_box(Impl& machine, const Goal& goal) {
-  if (machine.debug.mode == DebugMode::Skip) return false;
+  const DebugMode mode = machine.debug.mode;
+  if (mode == DebugMode::Skip) return false;
+  // leap はスパイポイントの名前を先に見る。名前の合わない呼び出しは、置いた数だけの比較で外れ、モジュールの表を
+  // 引かない（PR #4 の敵対的レビュー）。名前が合えば述語を引き当てるが、それはスパイポイントの呼び出しだけである。
+  if (mode == DebugMode::Leap && !spied_call(machine, goal.module, goal.name, goal.arity)) return false;
   // system の文脈は組込が自分のために動かすゴール（findall/3 の答えの単一化など）。組込の中には入らない。
   if (goal.module == machine.system_module) return false;
   // 文脈が library なら、ライブラリの中の呼び出し。leap でも、user から呼んだスパイポイントの append/3 には箱を作り、
   // その中の呼び出しには作らない。利用者が Lib:G と書いた呼び出しは debug_box_qualified が先に箱を作る。
   if (in_library(machine, goal.module)) return false;
-  return mode_wants_box(machine, goal);
+  return !unboxed(machine.atoms.name(goal.name), goal.arity);
 }
 
 // run_qualify が M:G の G を 1 つのゴール枠として ip に置いた直後。G の文脈はライブラリになるが、呼んだのはライブラリ

@@ -250,7 +250,6 @@ Debugger, left from the 2026-11-18 adversarial review of PR #4 (all Low; 1–3 w
 
 - CHANGELOG ("undone, together with ... on/off switch and mode") omits the leashed ports.
 - `load.cpp` says typed choices survive a failed load; `n` and `l` do not (as documented).
-- Leap runs `find_module` before the cheap spy check.
 - Tests: `dbg_rollback_on` holds either way; `dbg_redefine` does not tell a missing fixture;
   transcripts merge stdout and stderr, so "port lines go to stderr" is unchecked.
 
