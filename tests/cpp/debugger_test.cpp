@@ -133,6 +133,13 @@ void check_open_boxes_given_back() {
   mosa_test::check(impl.debug.open_boxes.capacity() <= 64,
                    "open_boxes: given back, " + std::to_string(grown) + " then " +
                        std::to_string(impl.debug.open_boxes.capacity()));
+  // 開いている箱の行は捨てない。容量だけを見ると、GC が表を空にする壊し方でも通る。空にすると、GC の後に開く箱は外の
+  // 箱を見つけず深さ 1 になる（敵対的レビュー、2026-11-19）。
+  mosa_test::check(machine->load_program("outer :- garbage_collect, len([a], _).\n").ok, "open_boxes: load outer/0");
+  console.text.clear();
+  mosa_test::check(machine->query("trace, outer.").kind == mosa::StopKind::Success, "open_boxes: trace outer");
+  mosa_test::check(console.text.find(" Call: (2) len([a],") != std::string::npos,
+                   "open_boxes: a box opened after a GC inside outer is at depth 2, got [" + console.text + "]");
 }
 
 // spy/1 の知らせの項は書いたらヒープから捨てる。前は鍵の数だけ積もり（1 つ 3 語）、--heap-max 1 では 14000 個の
