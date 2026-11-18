@@ -114,7 +114,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 Near the 800-line limit (`wc -l`, 2026-11-18):
 
-- `src/builtins/write_pred.cpp` (799)
+- `tests/tests.cmake` (778)
+- `src/machine/internal.hpp` (729)
 - `tests/cpp/session_test.cpp` (796)
 - `tests/cpp/stream_test.cpp` (785)
 - `tests/cpp/conformance_io_test.cpp` (781)
@@ -139,6 +140,14 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - Debugger: a goal whose context module is `system` gets no box, since that context means a goal a
   builtin runs for itself (findall/3's answer unification and the like). So `system:Goal` written
   by a user is not traced either.
+- Debugger on Windows: `_isatty` is true for the NUL device (`src/platform/terminal.cpp:15`), so
+  `mosa < NUL` is taken for a terminal and stops at the first port. The manual's recording line uses
+  a pipe (`type nul | mosa ...`). Not run on Windows yet: the quoted `-DARGS` of the transcript tests.
+- Debugger: `spy(nomod:foo/1)` raises `existence_error(module, nomod)` though the manual says a
+  Spec may name an undefined predicate. A spy placed before and after a module loads can be listed
+  twice. Notices (`% Spy point on ...`, abort) do not start on a fresh line after partial output.
+- Debugger: the session-side abort branches (`-g` exit 1, init main, startup file, `:- if`
+  roll-back, reconsult restore) and the mode roll-back are checked by hand, not by a C++ test.
 
 ## Not run yet
 

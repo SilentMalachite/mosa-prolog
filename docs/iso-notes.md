@@ -950,6 +950,13 @@ A or B?: A: add `max_depth(N)` to the options of `write_term/2,3` (the same name
 
 Decision (2026-11-18): A (owner decision A). Accepting an option beyond ISO is a first, so it is recorded here that it falls under the implementation-specific features that ISO (5.5) allows: the meaning and the errors of the ISO options do not change, and only a name that was a `domain_error` before is now accepted. Tests: the `max_depth` rows of `tests/pl/write.pl` (phase 14 Task 3). The ISO denominator stays 2326.
 
+Decided during the implementation (none of them is in 13211-1; the reading of the standard they touch is named):
+
+- `abort` (the command `a`) in an `initialization/1` goal follows the rule of "7.4.2 `initialization/1`" above (2026-10-26): the load fails, the clauses already read stay, and the later initialization goals are skipped. A `:- G` or `:- if(G)` directive is rolled back, as a load error does there. A reconsult cannot restore predicates that ADR 0020 has already removed before the goals run. The owner may choose to roll the load back in both cases (open-items, "Questions to the owner"); the default in force is this reading.
+- A failed load restores the debugger's on/off bit and its mode together, so an abort of `:- trace, foo.` leaves the debugger as it was before the load (the flag `debug` and `debug/0`, `nodebug/0` act as one switch; the 7.11.2 wording above is unchanged).
+- The depth rule of `max_depth(N)` for lists is the one the suite fixes (`lgt_write_term_3_123` to `136`): element i of a list is written at depth d+i-1, so `[1,2,3|...]` is what depth 3 gives, and a list nested in the first element is not cut however deeply. It is a known limit, not a reading of ISO.
+- A clause for one of the nine debugger predicates, `'$once'/1` or `'$not'/1` raises the error that ISO 13211-1 prescribes for a built-in (`permission_error(modify, static_procedure, PI)`); they are built-ins of `system`.
+
 ## library(assoc) `del_min_assoc/4` and `del_max_assoc/4` on an empty assoc
 
 The SWI-Prolog manual (the section `assoc`, the SWI-Prolog 10.1.20 version, read on 2026-11-16) notes that on an empty assoc these two predicates succeed without binding anything. Then what the last argument, the assoc that is left, holds is not determined.

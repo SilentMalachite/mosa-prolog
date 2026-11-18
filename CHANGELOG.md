@@ -2,6 +2,57 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## Unreleased
+
+Phase 14 adds a debugger to `mosa`. It is written in [chapter 15 of the manual](docs/manual/en/15-debugger.md).
+
+### Added
+
+- Nine built-in predicates in `system`: `trace/0`, `notrace/0`, `debug/0`, `nodebug/0`, `spy/1`, `nospy/1`,
+  `nospyall/0`, `leash/1` and `debugging/0`. In the `mosa` command, a traced goal shows the ports call, exit, redo,
+  fail and exception, and stops at the ports that `leash/1` names. The commands at a port are Enter and `c` (creep),
+  `s` (skip), `l` (leap), `f` (fail), `r` (retry), `a` (abort), `n` (nodebug), `g` (the open boxes), `w` (write the
+  goal in full), `+` and `-` (a spy point on or off), and `h` or `?` (the list). When the input of `mosa` is not a
+  terminal, it writes the port lines and reads no commands.
+- The option `max_depth(N)` of `write_term/2,3`: a term below depth `N` is written as `...`, and `0` means no limit.
+  The port lines use it with depth 10. It is not in ISO 13211-1 (see `docs/iso-notes.md`).
+- `bench/nrev_debug.pl` and `bench/queens_debug.pl`, which run `nrev` and `queens` with the debugger on and a spy
+  point that is never reached ([bench.md](docs/bench.md)).
+
+### Changed
+
+- A file can no longer define a predicate with the name and arity of one of the nine debugger predicates, such as
+  `trace/0` or `spy/1`: they are built-ins of `system`, and a clause for one raises the same error as for any other
+  built-in. Mosa 0.4.1 let a user predicate with such a name work.
+- The flag `debug` now acts in `mosa`: `set_prolog_flag(debug, on)` does what `debug/0` does and `off` what
+  `nodebug/0` does, and `current_prolog_flag(debug, V)` shows the switch. In 0.4.1 it kept its value and nothing read
+  it.
+- `'$once'/1` and `'$not'/1` are now reserved built-ins of the engine, which the control constructs use for the goals
+  that built-ins run for themselves. A user could define them or call them in 0.4.1 (a call raised
+  `existence_error`); now they are built-ins, and a clause for either is refused.
+- With the debugger off, `mosa` runs as before: `bench/nrev.pl` and `bench/queens.pl` take within 5% of the time
+  of 0.4.1 ([bench.md](docs/bench.md)).
+
+### Known limits
+
+The known limits of 0.4.1 still hold. The debugger adds these (the manual lists them in
+[chapter 14](docs/manual/en/14-reference.md)):
+
+- The debugger works only in the `mosa` command. A program that `mosac build` makes shows no ports, and `mosatest`
+  and an embedded `Machine` do not change their output.
+- Variables are numbered per line, so `_G1` in two port lines, including the lines of `g`, may be different variables.
+- In leap, only a call of a predicate with a spy point opens a box, so the depth and `g` leave out the calls made
+  during the leap, and Enter at a port reached in leap switches to creep.
+- While tracing, a tail call keeps its box, so a deep recursion uses more memory. `r` does not undo side effects.
+- A goal written as `system:Goal`, the goals that built-ins run for themselves, and the calls made from the
+  libraries are not traced. A grammar rule that `phrase/2,3` calls shows the unifications of its translated body.
+- `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses already read, as an error in
+  such a goal does; in a `:- Goal` directive the load is undone, together with any debugger state that the directive
+  changed.
+- The depth limit of a list is that of the suite (element i counts as depth d+i-1), so a list nested in the first
+  element is not cut however deeply.
+- On Windows, a `mosa` whose input is `NUL` is taken for a terminal and stops at the first port; use a pipe.
+
 ## 0.4.1 (2026-11-18)
 
 A maintenance release after reviews of 0.4.0: a goal built at run time whose control structure leads back to
