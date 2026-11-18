@@ -6,8 +6,8 @@
 - **In progress:** none.
 - **Last done:** second adversarial review of PR #4, all 10 findings; the first message no longer
   loads `lists` (owner B, ADR 0007 amendment 3). ctest 233/233. Two box gaps are known limits.
-- **Next:** push the local commits after `5383fee4` to PR #4 (none pushed yet), CI on 3 OSes and
-  GC-stress, then whether to close phase 14.
+- **Next:** keep the commits after `5383fee4` local (owner B, 2026-11-19); when the owner asks,
+  push them to PR #4, then CI on 3 OSes and GC-stress, then whether to close phase 14.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 17 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in

@@ -44,6 +44,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
     (B, adversarial review of PR #4, fixed in phase 14). `transcript_debug_spy_after_warning`.
   - A cyclic term beyond `max_depth(N)` is written as `...` (A): the depth wins for lists too;
     within the depth a cycle is still `_`. The `wd_cyclic_*` rows of `tests/pl/write.pl` pin it.
+  - The commits after `5383fee4` (both adversarial reviews) stay local until the owner asks
+    for the push (B, 2026-11-19).
 
 - Phase 13, questions 1–3 (all A, 2026-11-16; iso-notes "Conditional compilation (not in
   13211-1)"; ADR 0027 approved):
