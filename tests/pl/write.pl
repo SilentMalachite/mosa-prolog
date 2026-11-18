@@ -263,3 +263,5 @@ test(wd_ignore_ops_list_tail, wd_text([a|b], [ignore_ops(true), max_depth(1)], A
 % quoted(true) と max_depth(N>0) では、原子 '...' を引用して、深さで切った字面と分ける。深さの制限が無ければ ISO の writeq。
 test(wd_dots_atom_quoted, wd_text(f('...'), [quoted(true), max_depth(5)], A), solutions([A = 'f(\'...\')'])).
 test(wd_dots_atom_no_limit, wd_text(f('...'), [quoted(true)], A), solutions([A = 'f(...)'])).
+% max_depth(0) は制限なしなので、選択肢があっても引用しない（Muse のレビュー。選択肢の有無で決めると落ちる）。
+test(wd_dots_atom_zero, wd_text(f('...'), [quoted(true), max_depth(0)], A), solutions([A = 'f(...)'])).
