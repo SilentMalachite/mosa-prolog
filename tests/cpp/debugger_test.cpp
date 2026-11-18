@@ -399,6 +399,49 @@ void check_abort_cleanup_keeps_mode() {
   mosa_test::check(text.find("L = [nodebug]") != std::string::npos, "abort_keeps_mode: the cleanup ran, got [" + text + "]");
 }
 
+constexpr std::string_view k_abort_bindings_program =
+    ":- dynamic(log/1).\n"
+    "t.\n"
+    "b(X) :- setup_call_cleanup(S = s, (X = g, t), assertz(log(S-X))).\n"
+    "n(X) :- setup_call_cleanup(true, setup_call_cleanup(true, (X = g, t), X = inner), assertz(log(X))).\n"
+    "c :- catch(setup_call_cleanup(true, t, throw(oops)), _, assertz(log(caught))), assertz(log(went_on)).\n";
+
+// goal を target のポートの a で止め、log を question で読んだ答えの字面を返す。
+std::string abort_log(std::string_view label, std::string_view goal, std::string_view target, std::string_view question) {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(k_abort_bindings_program).ok, std::string{label} + ": load the program");
+  mosa::engine_impl(*machine).message_lang = mosa::MessageLanguage::En;
+  Scripted script{std::string{target}, "a", {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query(std::string{goal} + ".");
+  mosa_test::check(stop.kind == mosa::StopKind::Abort && script.used,
+                   std::string{label} + ": Abort, got [" + stop_text(*machine, stop) + "], ports [" + script.text + "]");
+  return stop_text(*machine, machine->query(std::string{question} + "."));
+}
+
+// abort の後始末は、例外が通るときと同じ束縛を見る（2026-11-18 の持ち主の決定 B）。Setup の束縛 S = s は見え、Goal の
+// 束縛 X = g は見えない。入れ子なら内側の後始末の束縛 X = inner も、外側の後始末の前に戻る。前は abort の時点の束縛の
+// まま動き、log(s-g) と log(g) が残った。
+void check_abort_cleanup_bindings() {
+  const std::string single = abort_log("abort_bindings", "trace, b(X)", " Call: (3) t ? ",
+                                       "nodebug, findall(S-V, (log(S-X), (var(X) -> V = unbound ; V = X)), L)");
+  mosa_test::check(single.find("L = [s-unbound]") != std::string::npos,
+                   "abort_bindings: Setup's binding stays, Goal's is undone, got [" + single + "]");
+  const std::string nested = abort_log("abort_bindings_nested", "trace, n(X)", " Call: (4) t ? ",
+                                       "nodebug, findall(V, (log(X), (var(X) -> V = unbound ; V = X)), L)");
+  mosa_test::check(nested.find("L = [unbound]") != std::string::npos,
+                   "abort_bindings_nested: the inner cleanup's binding is undone too, got [" + nested + "]");
+}
+
+// abort の後始末の誤りは、下に残る catch/3 にも捕まらない。後始末を Entry の上で動かすので、受けずに投げると catch/3 が
+// 捕まえ、止めたはずの c が先へ進んでしまう。
+void check_abort_cleanup_uncaught() {
+  const std::string text =
+      abort_log("abort_uncaught", "trace, c", " Call: (3) t ? ", "nodebug, findall(X, log(X), L)");
+  mosa_test::check(text.find("L = []") != std::string::npos,
+                   "abort_uncaught: no catch/3 saw the cleanup's error, got [" + text + "]");
+}
+
 // 指令の中の a。指令が脇に置いたスタックの後始末を動かしてから読み込みを戻す。大域変数は読み込みの巻き戻しに
 // 戻されないので、後始末が動いたことが見える。
 void check_abort_directive_cleanup() {
@@ -584,6 +627,8 @@ int main() {
   check_abort_directive_cleanup();
   check_abort_cleanup_errors();
   check_abort_cleanup_keeps_mode();
+  check_abort_cleanup_bindings();
+  check_abort_cleanup_uncaught();
   check_abort_init();
   check_leash_rollback();
   check_directive_nodebug_rollback();

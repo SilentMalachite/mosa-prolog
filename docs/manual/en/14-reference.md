@@ -506,7 +506,7 @@ At a port where the debugger stops, `mosa` reads one line, and the first charact
 | `l` | leap: run until a port of a predicate with a spy point. |
 | `f` | fail: make the call fail. Its Fail port is shown; at an exception port the call fails without a Fail port. |
 | `r` | retry: go back to the Call port of the call and undo its bindings. Side effects are not undone. |
-| `a` | abort: stop the query and return to the prompt. `catch/3` cannot catch it. The cleanups of `setup_call_cleanup/3` that it leaves run first, with no ports; their failures and errors are dropped, and a `nodebug/0` or `trace/0` in them does not change the debugger after the abort. |
+| `a` | abort: stop the query and return to the prompt. `catch/3` cannot catch it. The cleanups of `setup_call_cleanup/3` that it leaves run first, with no ports; as with an exception, each sees the bindings of its Setup but not those of its Goal; their failures and errors are dropped, and a `nodebug/0` or `trace/0` in them does not change the debugger after the abort. |
 | `n` | nodebug: turn the debugger off and go on. Also what the end of the input does. |
 | `g` | write the open calls, innermost first, with their depth, and ask again. |
 | `w` | write the goal with no depth limit, and ask again. |

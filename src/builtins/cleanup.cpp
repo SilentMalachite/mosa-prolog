@@ -4,7 +4,7 @@
 //   切られたときに、Cleanup を once/1 として 1 回動かす。Cleanup の成否は見ない。抜けたときと切られたときは Goal の
 //   束縛が見え、Cleanup の束縛も残る。失敗と例外のときは Setup の直後まで戻した状態で動く。例外のときは Cleanup の
 //   例外を捨てて Goal の例外を投げ直し、ほかのときは Cleanup の例外がそのまま出る。halt とヒープの上限での停止は
-//   Cleanup を動かさない。デバッガの a は止まる前に動かす（ADR 0028 の改訂）。
+//   Cleanup を動かさない。デバッガの a は止まる前に、例外のときと同じ束縛で動かす（ADR 0028 の改訂）。
 //   Setup の誤りは once/1 が出す。Cleanup の instantiation_error と type_error(callable, Cleanup)（M: を外して見る）は
 //   Setup の後で仕掛ける前、Goal の誤りは仕掛けた後に出るので、そのときは Cleanup が動く。Goal や Cleanup の M: の層、
 //   Goal の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
@@ -136,6 +136,45 @@ void run_arm(Impl& machine, const Goal& goal) {
   launch(machine, compiled.term, at, machine.stack.size(), compiled.env, goal.module);
 }
 
+// abort の後始末を、それぞれ自分の catch/3 の中で順に動かす。下にまだ Entry が残るので、受けずに投げると利用者の
+// catch/3 が後始末の誤りを捕まえ、止めたはずのプログラムが先へ進んでしまう。失敗しても次へ進む。
+void run_aborted(Impl& machine, std::span<const PendingCleanup> cleanups) {
+  std::uint64_t cont = kNoFrame;
+  for (std::size_t index = cleanups.size(); index-- > 0;) {
+    const Cell goal = guarded(machine, cleanups[index].goal, machine.heap.fresh_ref());
+    cont = frame_of(machine, goal, cont, cleanups[index].module);
+  }
+  machine.ip = cont;
+  // 例外のポートの a は巻き戻しの途中で戻る。印を残すと settle_cleanups が古い ball を投げ直す。
+  machine.native_next = nullptr;
+  machine.failed = false;
+  machine.exception = false;
+  // 後始末の中で trace を入れて打った a は、入れ子の run_abort_cleanups が残りの Entry を動かす。
+  machine.abort_now = false;
+  static_cast<void>(run_loop(machine));
+  machine.failed = false;
+  machine.exception = false;
+}
+
+// 床より上の Entry の後始末を上から 1 つずつ、その Entry の印まで戻してから動かす。throw_through_cleanup と同じく
+// Setup の束縛は見え、Goal と内側の後始末の束縛は見えない（2026-11-18 の持ち主の決定 B）。印を先に集めず Entry を
+// スタックに残したまま外すのは、後始末の中の GC が Entry の印と項は直しても、集めた写しは直さないからである。
+void unwind_aborted(Impl& machine, std::size_t floor) {
+  while (!machine.halt_now) {
+    std::size_t index = machine.stack.size();
+    while (index > floor && machine.stack[index - 1].pick != Pick::CallCleanup) --index;
+    if (index == floor) return;
+    // 上に CallCleanup は無いので、この切り詰めは後始末を積まない。
+    trim_stack(machine, index);
+    const Entry entry = std::move(machine.stack.back());
+    machine.stack.pop_back();
+    prune_catch_log(machine);
+    restore_state(machine, entry.heap_mark, entry.trail_mark, entry.extras_mark);
+    const std::array<PendingCleanup, 1> one{PendingCleanup{entry.pattern, entry.module}};
+    run_aborted(machine, one);
+  }
+}
+
 }  // namespace
 
 bool run_cleanup(Impl& machine, const Goal& goal) {
@@ -199,10 +238,10 @@ Stop close_cleanups(Impl& machine, std::size_t floor) {
   return run_loop(machine);
 }
 
-// abort が後始末を動かすのは 2026-11-18 の持ち主の決定 A、動かし方は既定 A（open-items）。答えの後に閉じる問い合わせと
-// 同じく、切って今の束縛のまま動かす。床は
-// 入れ子の run_loop（portray、with_output_to/2）の Barrier の上で、その下は外の run_loop が自分で動かすので内側が先になる。
-// 後始末はポートを出さない。打った a の後でまた止まらないためである。その失敗と誤りは捨て、abort を続ける。
+// abort が後始末を動かすのは 2026-11-18 の持ち主の決定 A、例外のときと同じ束縛で動かすのは同じ日の決定 B、ほかは
+// 既定 A（open-items）。床は入れ子の run_loop（portray、with_output_to/2）の Barrier の上で、その下は外の run_loop が
+// 自分で動かすので内側が先になる。後始末はポートを出さない。打った a の後でまた止まらないためである。その失敗と誤りは
+// 捨て、abort を続ける。後始末の中の halt はプロセスを終えるので、残りを動かさずに halt の道へ返す。
 void run_abort_cleanups(Impl& machine) {
   std::size_t floor = machine.stack.size();
   while (floor > 0 && machine.stack[floor - 1].pick != Pick::Barrier) --floor;
@@ -228,17 +267,17 @@ void run_abort_cleanups(Impl& machine) {
     DebugMode mode_;
   };
   const Restore restore{machine};
-  machine.abort_now = false;
   machine.debug_on = false;
+  // カットがもう積んだ後始末は、propagate_throw と同じく巻き戻す前に、カットのときの束縛で動かす。
+  if (!machine.pending_cleanups.empty()) {
+    std::vector<PendingCleanup> pending;
+    pending.swap(machine.pending_cleanups);
+    run_aborted(machine, pending);
+  }
+  unwind_aborted(machine, floor);
+  if (machine.halt_now) return;
   trim_stack(machine, floor);
-  // 例外のポートの a は巻き戻しの途中で戻る。印を残すと settle_cleanups が古い ball を投げ直す。
   machine.ip = kNoFrame;
-  machine.native_next = nullptr;
-  machine.failed = false;
-  machine.exception = false;
-  static_cast<void>(run_loop(machine));
-  machine.failed = false;
-  machine.exception = false;
 }
 
 Stop close_query(Impl& machine) {
