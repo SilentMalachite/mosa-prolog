@@ -1,11 +1,13 @@
 # tests/tests.cmake から include する。フェーズ 14 のデバッガ（ADR 0028）のテスト。tests.cmake が 800 行に近づいたので
 # 分けた（PR #4 の敵対的レビューの Low の直しの前）。名前は ci.yml の正規表現が見るので変えない。
 
-# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl、redo_nested は nested.pl）を読ませる。
+# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl、redo_nested は nested.pl、
+# spy_after_warning は plain.pl）を読ませる。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
-    abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms help eof)
+    abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
+    help eof)
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
   if(debug_case STREQUAL "creep_ja")
@@ -13,6 +15,9 @@ foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_i
     set(debug_program ja.pl)
   elseif(debug_case STREQUAL "redo_nested")
     set(debug_program nested.pl)
+  elseif(debug_case STREQUAL "spy_after_warning")
+    # 警告の文面を作っても library(lists) が読まれないことを見るので、ライブラリを読まない plain.pl にする（ADR 0007 の改訂 3）。
+    set(debug_program plain.pl)
   endif()
   add_test(NAME transcript_debug_${debug_case} COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
     -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_${debug_case}

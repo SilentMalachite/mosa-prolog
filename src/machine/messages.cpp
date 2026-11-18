@@ -1,5 +1,6 @@
 // 利用者向けの文面（ADR 0007、SPEC 第7節）。文面は lib/messages_ja.pl と lib/messages_en.pl の事実に置く。
-// テスト: tests/cpp/session_test.cpp、tests/cpp/full_stop_test.cpp（char_conversion の下の文面）
+// テスト: tests/cpp/session_test.cpp、tests/cpp/full_stop_test.cpp（char_conversion の下の文面）、
+//   tests/cpp/data/debugger（transcript_debug_spy_after_warning。文面が利用者の機械に何も読まないこと）
 #include "mosa/messages.hpp"
 
 #include "internal.hpp"
@@ -123,7 +124,22 @@ MessageLanguage message_language_from(std::optional<std::string_view> lang, bool
   return ui_japanese ? MessageLanguage::Ja : MessageLanguage::En;
 }
 
-std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args) {
+namespace {
+
+// 利用者の機械の項を、文面を作る機械へ写す。原子の番号は機械ごとなので、名前で引き直す。共有する部分と巡回は
+// ExportedTerm の Share の節点が保つ。
+Cell carry_term(Impl& from, Impl& to, Cell term) {
+  ExportedTerm copy = export_term(from, term);
+  for (ExportedTerm::Node& node : copy.nodes) {
+    if (node.kind == ExportedTerm::Kind::Atom || node.kind == ExportedTerm::Kind::Str) {
+      node.atom = to.atoms.intern(from.atoms.name(node.atom));
+    }
+  }
+  return import_term(to, copy);
+}
+
+// 文面の表を machine に読み、そこで format/3 を動かす。machine は render_only の機械である。
+std::string render_here(Machine& machine, std::string_view key, std::span<const Cell> args) {
   const std::string fallback = fallback_text(machine, key, args);
   const ConversionPause pause(engine_impl(machine).char_conv);
   const DebugPause quiet(engine_impl(machine));
@@ -153,6 +169,32 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
     // 小さいヒープでカタログが読めなくても、表示は落とさない。
   }
   return fallback;
+}
+
+}  // namespace
+
+// 利用者の機械には文面の表を読まない（ADR 0007 の改訂 3）。表は library(format) を、それは library(lists) を読むので、
+// 読むと最初の警告の後だけ lists:append/3 や spy(lists:foo/1) が通るようになる（PR #4 の敵対的レビュー、持ち主の決定 B）。
+// 新しい render_only の機械に、書き出しが見る演算子の表と旗 japanese_punctuation を写すので、文面は前と変わらない。
+std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args) {
+  Impl& impl = engine_impl(machine);
+  if (impl.render_only) return render_here(machine, key, args);
+  try {
+    auto renderer = Machine::create();
+    Impl& other = engine_impl(*renderer);
+    other.message_lang = impl.message_lang;
+    other.render_only = true;
+    other.operators = impl.operators;
+    other.japanese_punct = impl.japanese_punct;
+    // 写した項は GC の根に無い。render_here は読み込みの前に字面にするので、その間に GC は起きない。
+    std::vector<Cell> cells;
+    cells.reserve(args.size());
+    for (const Cell arg : args) cells.push_back(carry_term(impl, other, arg));
+    return render_here(*renderer, key, cells);
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    return fallback_text(machine, key, args);
+  }
 }
 
 std::string render_message_fresh(MessageLanguage language, std::string_view key, std::span<const std::string> args) {

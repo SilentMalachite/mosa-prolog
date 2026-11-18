@@ -25,6 +25,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   ports; failures and errors dropped (`check_abort_cleanup_errors`); the debugger's on/off and
   mode kept as at the `a` (`check_abort_cleanup_keeps_mode`); a `halt` in them ends the process
   (checked by hand: `halt(3)` exits 3).
+- How a message is made without loading on the user's machine (ADR 0007 amendment 3). Default A:
+  on a fresh `render_only` machine, with the arguments, the operators and `japanese_punctuation`
+  copied; the warnings keep their text (checked against the text before, in ja and en).
 ## Owner decisions in force
 
 - Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):
@@ -37,6 +40,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   - Those cleanups see the bindings as an exception leaves them (B): each entry is undone to its
     marks first, so Setup's bindings show and Goal's do not, and no `catch/3` below sees their
     errors. `check_abort_cleanup_bindings` and `check_abort_cleanup_uncaught`.
+  - The first message no longer loads `lists`, `format` and the message table into the program
+    (B, adversarial review of PR #4, fixed in phase 14). `transcript_debug_spy_after_warning`.
   - A cyclic term beyond `max_depth(N)` is written as `...` (A): the depth wins for lists too;
     within the depth a cycle is still `_`. The `wd_cyclic_*` rows of `tests/pl/write.pl` pin it.
 

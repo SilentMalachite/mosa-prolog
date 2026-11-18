@@ -1,6 +1,6 @@
 English | [日本語](0007-messages.ja.md)
 
-Status: Approved (2026-10-28). Amendment 1 (2026-11-07; approved by the owner's choice on 2026-11-07): without `LANG`, Windows follows the display language. Amendment 2 (2026-11-13; records the phase 10 design approved by the owner's decision A on 2026-11-12): the key `integer_overflow` is removed
+Status: Approved (2026-10-28). Amendment 1 (2026-11-07; approved by the owner's choice on 2026-11-07): without `LANG`, Windows follows the display language. Amendment 2 (2026-11-13; records the phase 10 design approved by the owner's decision A on 2026-11-12): the key `integer_overflow` is removed. Amendment 3 (2026-11-19; the owner chose B, to fix it in phase 14, after the adversarial review of PR #4; the method is a default A in open-items): a render never loads anything on the user's machine
 
 ## Context
 
@@ -36,3 +36,10 @@ Consequences: SPEC Section 7 says so; a set `LANG` still wins, so `LANG=en` give
 ## Amendment 2 (2026-11-13, phase 10; records the phase 10 design approved by the owner's decision A on 2026-11-12)
 
 The phase 10 design (section 4) removed the key `integer_overflow`: an integer token of any length reads as a number, so no syntax error has that reason, and `messages_en.pl` and `messages_ja.pl` no longer hold it; the other keys and Extra are unchanged.
+
+## Amendment 3 (2026-11-19; the owner chose B, to fix it in phase 14, after the adversarial review of PR #4; the method is a default A in open-items)
+
+Context: loading the catalog on the user's machine also loads `library(format)` and, through it, `library(lists)`, so after the first warning `lists:append/3`, `spy(lists:foo/1)` and `current_module(lists)` act as if the program had loaded `lists`; before it they give `existence_error(module, lists)` or fail.
+Decision: `render_message` on a machine that is not `render_only` copies the arguments (atoms by name, with shared and cyclic parts kept), the operator table and the `japanese_punctuation` flag to a fresh `render_only` machine and renders there, so the text is the same as before and the user's machine loads nothing.
+Rejected: loading the catalogs at start-up (every `Machine` would load four files, and `lists` would exist before the program loads it); marking the modules a render loads as hidden (every module lookup would need two meanings); a renderer kept in `Impl` (`internal.hpp` must be split first, and a fresh machine costs about 1 ms per message).
+Consequences: the transcript `transcript_debug_spy_after_warning` checks that after a warning `lists`, `format` and both catalogs are still unknown, and the warnings it writes keep their text; ctest took 115.3 s against 114.2 s before, and CI's GC-stress selection 1808 s against 1805 s.

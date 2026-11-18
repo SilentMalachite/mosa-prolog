@@ -40,6 +40,14 @@ Phase 14 adds a debugger to `mosa`. It is written in [chapter 15 of the manual](
 - With the debugger off, `mosa` runs as before: `bench/nrev.pl` and `bench/queens.pl` take within 5% of the time
   of 0.4.1 ([bench.md](docs/bench.md)).
 
+### Fixed
+
+- The first message of a session (an uncaught exception, a syntax error, `help`) no longer loads `library(lists)`,
+  `library(format)` and the message table into the program. In 0.4.1 the text was made on the program's machine, so
+  after the first warning `lists:append/3`, `spy(lists:Name/Arity)` and `current_module(lists)` acted as if the
+  program had loaded `lists`, and before it they raised `existence_error(module, lists)` or failed. The text of the
+  messages does not change.
+
 ### Known limits
 
 The known limits of 0.4.1 still hold. The debugger adds these (the manual lists them in [chapter 14](docs/manual/en/14-reference.md)):

@@ -41,6 +41,13 @@
 - デバッガを切った状態の `mosa` は、これまでと同じに動きます。`bench/nrev.pl` と `bench/queens.pl` は 0.4.1 の
   5% 以内の時間です（[bench.ja.md](docs/bench.ja.md)）。
 
+### 直したこと
+
+- セッションの最初の文面（捕まえなかった例外、構文エラー、`help`）が、`library(lists)`、`library(format)`、文面の表を
+  プログラムに読み込まなくなりました。0.4.1 ではプログラムの機械で文面を作ったので、最初の警告の後は
+  `lists:append/3`、`spy(lists:Name/Arity)`、`current_module(lists)` が、プログラムが `lists` を読んだときと同じに動き、
+  警告の前は `existence_error(module, lists)` になるか失敗しました。文面の字面は変わりません。
+
 ### 既知の制限
 
 0.4.1 の既知の制限は、そのまま残ります。デバッガで次が増えました（マニュアルの

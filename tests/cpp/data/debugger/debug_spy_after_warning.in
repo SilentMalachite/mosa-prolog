@@ -1,0 +1,5 @@
+spy(lists:zz/1).
+X is foo + 1.
+spy(lists:zz/1).
+(current_module(lists) -> A = y ; A = n), (current_module(format) -> B = y ; B = n), (current_module(messages_en) -> C = y ; C = n), (current_module(messages_ja) -> D = y ; D = n).
+catch(lists:append([a], [b], Y), error(E, _), true).
