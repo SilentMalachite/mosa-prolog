@@ -89,6 +89,20 @@ class ConversionPause {
   bool was_;
 };
 
+// 文面を作る問い合わせと読み込みは、利用者のゴールではない。デバッグ中でも箱を作らず、ポートの行を出さない（ADR 0028）。
+// 止めないと、トレース中に投げられた例外の警告を作るゴール（with_output_to/2 と format/2）までが追われる。
+class DebugPause {
+ public:
+  explicit DebugPause(Impl& machine) : machine_(machine), was_(machine.debug_on) { machine_.debug_on = false; }
+  ~DebugPause() { machine_.debug_on = was_; }
+  DebugPause(const DebugPause&) = delete;
+  DebugPause& operator=(const DebugPause&) = delete;
+
+ private:
+  Impl& machine_;
+  bool was_;
+};
+
 }  // namespace
 
 MessageLanguage language_from_lang(std::optional<std::string_view> lang) {
@@ -112,6 +126,7 @@ MessageLanguage message_language_from(std::optional<std::string_view> lang, bool
 std::string render_message(Machine& machine, std::string_view key, std::span<const Cell> args) {
   const std::string fallback = fallback_text(machine, key, args);
   const ConversionPause pause(engine_impl(machine).char_conv);
+  const DebugPause quiet(engine_impl(machine));
   try {
     // ゴールは読み込みより先に、利用者の表で字面にする。args は GC の根に無いので、読み込みの指示が GC を起こすと
     // 動いた後の番地を指す（L19 の Codex レビュー）。ヒープに項を作るので、溢れたときは下の catch が受ける。

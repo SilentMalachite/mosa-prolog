@@ -177,3 +177,9 @@ message(debug_status_on, '% デバッグ: 入り（~w）').
 message(debug_status_spies, '% スパイポイント: ~w').
 message(debug_status_leash, '% 止まるポート: ~w').
 message(debug_status_none, 'なし').
+% ポートの名前。行の形（" 名前: (深さ) ゴール"）は debug_port.cpp が組む。
+message(debug_port_call, '呼出').
+message(debug_port_exit, '成功').
+message(debug_port_redo, '再試行').
+message(debug_port_fail, '失敗').
+message(debug_port_exception, '例外').

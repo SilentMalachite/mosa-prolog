@@ -128,6 +128,9 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - `to_text` of 7^7^7 takes 12 s, and `parse_magnitude` of 3,000,000 hex digits 103 s
   (both quadratic, a design non-goal).
 - Not in scope: output with no final newline runs into the answer (`?- write(a).` gives `atrue.`).
+- Debugger: a `DebugExit` reached after its sentinel was cut (plan deviation 7) writes no exit port,
+  since only the sentinel points at the original goal frame. Only translated code (`rt::cut_to`)
+  can cut below a sentinel from inside its box, and executables have no `DebugConsole`.
 
 ## Not run yet
 

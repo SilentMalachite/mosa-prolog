@@ -1,0 +1,15 @@
+?- trace, append([1], [2], L).
+ Call: (1) append([1],[2],_G1) ? 
+ Exit: (1) append([1],[2],[1,2]) ? 
+L = [1,2].
+[trace] ?- trace, maplist(double, [1], L).
+ Call: (1) maplist(double,[1],_G1) ? 
+ Call: (2) double(1,_G1) ? 
+ Call: (3) _G1 is 1*2 ? 
+ Exit: (3) 2 is 1*2 ? 
+ Exit: (2) double(1,2) ? 
+ Exit: (1) maplist(double,[1],[2]) ? 
+L = [2].
+[trace] ?- notrace, nodebug.
+true.
+?- 

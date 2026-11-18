@@ -480,6 +480,28 @@ foreach(transcript_case query more read order ja)
     -DLANG_VALUE=${transcript_lang} -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake)
 endforeach()
 
+# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl）を読ませる。根で動かすのは、.in の中の
+# 相対パスをリポジトリの根から開くため。
+foreach(debug_case creep creep_ja more fail library)
+  set(debug_lang en_US.UTF-8)
+  set(debug_program dbg.pl)
+  if(debug_case STREQUAL "creep_ja")
+    set(debug_lang ja_JP.UTF-8)
+    set(debug_program ja.pl)
+  endif()
+  add_test(NAME transcript_debug_${debug_case} COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+    -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_${debug_case}
+    -DPROGRAM=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger/${debug_program} -DLANG_VALUE=${debug_lang}
+    -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+endforeach()
+
+# 追跡しても答えと選択点の深さが変わらず、DebugConsole の無い機械は箱を作らない（ADR 0028）。
+add_executable(debugger_test tests/cpp/debugger_test.cpp)
+target_include_directories(debugger_test PRIVATE tests/cpp src)
+target_link_libraries(debugger_test PRIVATE mosa_lib)
+add_test(NAME debugger COMMAND $<TARGET_FILE:debugger_test>)
+set_tests_properties(debugger PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 手書きの生成関数は runtime.hpp だけを見る。internal.hpp を見るのは指紋を出す側の native_test.cpp だけ。
 add_executable(native_test tests/cpp/native_test.cpp tests/cpp/native_units.cpp)
 target_include_directories(native_test PRIVATE tests/cpp src)

@@ -1,0 +1,7 @@
+trace, c(X).
+
+
+;
+
+
+notrace, nodebug.

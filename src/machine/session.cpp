@@ -329,9 +329,16 @@ bool prompt_directive(Machine& machine, std::string_view text, Echo& echo) {
   return false;
 }
 
+// 促し。デバッグ中は、今どの進み方かを学ぶ人に見せる（creep は [trace]、leap と skip は [debug]。ADR 0028）。
+std::string prompt_text(const Machine& machine) {
+  const Impl& impl = engine_impl(machine);
+  if (!impl.debug_on) return "?- ";
+  return impl.debug.mode == DebugMode::Creep ? "[trace] ?- " : "[debug] ?- ";
+}
+
 void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   std::string buffer;
-  echo.say("?- ");
+  echo.say(prompt_text(machine));
   while (true) {
     std::string line;
     if (!cursor.line(line)) return;
@@ -348,14 +355,14 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
       recover_heap(machine);
       warn_resource(machine, echo);
       buffer.clear();
-      echo.say("?- ");
+      echo.say(prompt_text(machine));
       continue;
     }
     if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
     if (outcome.failure) warn_syntax(machine, *outcome.failure, echo);
     if (outcome.failure || !outcome.term) {
       buffer.clear();
-      echo.say("?- ");
+      echo.say(prompt_text(machine));
       continue;
     }
     const std::string text = buffer;
@@ -364,7 +371,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     // help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。
     if (term.tag() == Tag::Atom && machine.atoms().name(static_cast<std::uint32_t>(term.raw() >> 3)) == "help") {
       echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
-      echo.say("?- ");
+      echo.say(prompt_text(machine));
       continue;
     }
     const bool directive = term.tag() == Tag::Str && machine.heap().functor_arity(machine.heap().deref(term)) == 1 &&
@@ -381,7 +388,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
         return;
       }
     }
-    echo.say("?- ");
+    echo.say(prompt_text(machine));
   }
 }
 
@@ -439,6 +446,12 @@ void run_with_machine(const Options& options, std::string_view input, bool tty, 
   engine_impl(*machine).program_argv = options.program_args;
   // ファイルの指令や main のゴールの consult/1 も書くので、読み込みより前に向ける。機械は echo より先に消える。
   engine_impl(*machine).load_report = [&echo](std::string_view text) { echo.warn(text); };
+  // デバッガの口（ADR 0028）。ポートの行は警告と同じ所に書く。コマンドは ; の問いと同じ Cursor から、端末のときだけ
+  // 読む。端末でない標準入力は user_input の物なので、先に読まない。機械は cursor と echo より先に消える。
+  DebugConsole console;
+  console.write = [&echo](std::string_view text) { echo.warn(text); };
+  if (tty) console.read_line = [&cursor](std::string& line) { return cursor.line(line); };
+  engine_impl(*machine).debug.console = std::move(console);
   if (const auto code = consult_files(*machine, options.files, echo)) {
     result.code = *code;
     return;

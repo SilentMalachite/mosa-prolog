@@ -176,3 +176,9 @@ message(debug_status_on, '% Debug mode: on (~w)').
 message(debug_status_spies, '% Spy points: ~w').
 message(debug_status_leash, '% Leashed ports: ~w').
 message(debug_status_none, 'none').
+% ポートの名前。行の形（" 名前: (深さ) ゴール"）は debug_port.cpp が組む。
+message(debug_port_call, 'Call').
+message(debug_port_exit, 'Exit').
+message(debug_port_redo, 'Redo').
+message(debug_port_fail, 'Fail').
+message(debug_port_exception, 'Exception').

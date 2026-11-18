@@ -86,6 +86,10 @@ void step_control(Impl& machine) {
     exit_cleanup(machine, trim_to, cont);
     return;
   }
+  if (ctrl == Ctrl::DebugExit) {
+    exit_box(machine, index);
+    return;
+  }
   trim_stack(machine, trim_to);
   machine.ip = cont;
 }
@@ -172,6 +176,11 @@ void step(Impl& machine) {
     return;
   }
   const Goal goal = read_goal(machine, machine.ip);
+  // デバッガの口が無ければ（mosatest、mosac の実行ファイル、埋め込み）、デバッグ中でも箱を作らない（ADR 0028）。
+  if (machine.debug_on && machine.debug.console && debug_wants_box(machine, goal)) {
+    open_box(machine, goal);
+    return;
+  }
   if (run_builtin(machine, goal)) return;
   enter_user(machine, goal);
 }

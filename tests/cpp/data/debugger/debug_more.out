@@ -1,0 +1,11 @@
+?- trace, c(X).
+ Call: (1) c(_G1) ? 
+ Exit: (1) c(1) ? 
+X = 1;
+
+ Redo: (1) c(_G1) ? 
+ Exit: (1) c(2) ? 
+X = 2.
+[trace] ?- notrace, nodebug.
+true.
+?- 

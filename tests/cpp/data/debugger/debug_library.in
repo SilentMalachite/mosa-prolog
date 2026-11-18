@@ -1,0 +1,11 @@
+trace, append([1], [2], L).
+
+
+trace, maplist(double, [1], L).
+
+
+
+
+
+
+notrace, nodebug.

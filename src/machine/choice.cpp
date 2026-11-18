@@ -303,6 +303,11 @@ bool backtrack(Impl& machine) {
       finish_collect(machine);
       return true;
     }
+    // デバッガの番兵と再試行の印（ADR 0028）。ポートを出して外し、バックトラックを続ける。
+    if (pick == Pick::DebugBox || pick == Pick::DebugRedo) {
+      if (backtrack_box(machine)) return true;
+      continue;
+    }
     if (pick == Pick::Catch || pick == Pick::Cleanup || pick == Pick::Once) {
       machine.stack.pop_back();
       continue;

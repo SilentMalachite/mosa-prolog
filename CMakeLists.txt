@@ -95,6 +95,8 @@ target_sources(mosa_lib PRIVATE
   src/machine/choice.cpp
   src/machine/cut.cpp
   src/machine/catch.cpp
+  src/machine/debug_box.cpp
+  src/machine/debug_port.cpp
   src/machine/state_count.cpp
   src/machine/index.cpp
   src/machine/clause_list.cpp

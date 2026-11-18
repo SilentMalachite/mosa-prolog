@@ -2,14 +2,21 @@
 # マニュアルの検査（mosatest --manual）は stdout と stderr を一つにした出力を、端末に映る表示（端末が打った字を映す）と
 # 突き合わせるので、その二つが同じになることを確かめる。期待値は macOS の script(1) で端末の表示を記録し、\r と
 # 端末が映す ^D を除いたもの。入力の終わりで mosa は何も足さず、出力は最後の促し "?- "（改行なし）で終わる。
-# 使い方: cmake -DMOSA=<mosa> -DDATA=<tests/cpp/data/transcript> -DCASE=<名前> -DLANG_VALUE=<LANG> -P transcript_test.cmake
+# 使い方: cmake -DMOSA=<mosa> -DDATA=<tests/cpp/data/transcript> -DCASE=<名前> -DLANG_VALUE=<LANG> [-DPROGRAM=<.pl>]
+#   -P transcript_test.cmake
+# PROGRAM があれば mosa の引数にして先に読ませる（フェーズ 14 のデバッガの場合。tests/cpp/data/debugger）。
+
+set(program_args)
+if(DEFINED PROGRAM)
+  set(program_args "${PROGRAM}")
+endif()
 
 # 同じ変数に stdout と stderr を受けると、CMake は一つの管にまとめ、書かれた順のまま読む。
 function(run_mosa transcript out_var code_var)
   set(ENV{MOSA_TRANSCRIPT} "${transcript}")
   set(ENV{LANG} "${LANG_VALUE}")
   # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
-  execute_process(COMMAND "${MOSA}"
+  execute_process(COMMAND "${MOSA}" ${program_args}
     INPUT_FILE "${DATA}/${CASE}.in"
     OUTPUT_VARIABLE merged
     ERROR_VARIABLE merged

@@ -103,7 +103,12 @@ enum class Pick {
   // 動いている findall・bagof・setof（ADR 0013）。ここへ戻ればゴールの解は尽きたので、答えを束ねる。
   Collect,
   // setup_call_cleanup/3 の後始末（ADR 0016）。pattern が Cleanup、module がその文脈。解ではない。
-  CallCleanup
+  CallCleanup,
+  // デバッガの箱の番兵（ADR 0028）。redo_goal が元のゴール枠、next が箱の番号、armed が「まだ抜けていない」。水位は
+  // 写しの枠と出口の枠を積む前。soft_id は 0 のままにし、armed と cond_ok を *-> の else として読ませない。解ではない。
+  DebugBox,
+  // 中に選択点を残して抜けた箱の再試行の印（ADR 0028）。next が箱の番号、cut が番兵の添字。解ではない。
+  DebugRedo
 };
 
 // 動いている収集の状態（ADR 0013）。Pick::Collect の Entry が持つ。中身は solutions.cpp だけが知る。
@@ -175,7 +180,8 @@ struct Entry {
 };
 
 // Native は extras に載せない。語 1 の第 63 ビットが立った制御枠で、ヒープに関数と節の変数を持つ（ADR 0009）。
-enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native, Collect, CleanupExit };
+// DebugExit はデバッガの箱の出口（ADR 0028）。trim_to が番兵の添字、soft_id が箱の番号、cont が元の継続。
+enum class Ctrl { Interpret, Commit, SoftCommit, NegDone, OnceDone, CatchExit, Native, Collect, CleanupExit, DebugExit };
 
 struct Extra {
   Ctrl ctrl = Ctrl::Interpret;
@@ -681,6 +687,16 @@ void throw_ball(Impl& machine, Cell ball);
 // 上に選択点が無ければ、戻ってくる選択点も無いので記録しない。
 void disarm_catch(Impl& machine, std::size_t index);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, const SharedTable* shared);
+// デバッガの箱（ADR 0028、debug_box.cpp）。step は DebugConsole があってデバッグ中のときだけ debug_wants_box を見る。
+[[nodiscard]] bool debug_wants_box(Impl& machine, const Goal& goal);
+// 番兵を積み、run_boxed で同じ歩みのうちにゴールを動かす。
+void open_box(Impl& machine, const Goal& goal);
+// stack[box_index] の番兵の元の枠を、語 3 を出口の枠にした写しにして、呼出のポートの後に run_builtin か enter_user へ渡す。
+void run_boxed(Impl& machine, std::size_t box_index);
+// Ctrl::DebugExit に着いた。成功のポートを出し、番兵を外すか、中に選択点が残れば再試行の印を積む。
+void exit_box(Impl& machine, std::size_t extra_index);
+// backtrack の一番上が DebugBox か DebugRedo のときに呼ぶ。真なら backtrack も真を返す。
+[[nodiscard]] bool backtrack_box(Impl& machine);
 // slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。共有の項（ADR 0022）のスロットは、最初の出現で
 // その項を組んで置く。
 [[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal,
