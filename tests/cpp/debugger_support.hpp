@@ -8,6 +8,7 @@
 
 #include "machine/internal.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/writer.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -34,7 +35,11 @@ inline std::string stop_text(const mosa::Machine& machine, const mosa::Stop& sto
   if (stop.kind == mosa::StopKind::Success) return mosa::format_answer(machine, stop) + (stop.more ? " ;" : " .");
   if (stop.kind == mosa::StopKind::Failure) return "false";
   if (stop.kind == mosa::StopKind::Abort) return "abort";
-  return stop.kind == mosa::StopKind::Exception ? "exception" : "halt";
+  // 投げられた項も書く。違う誤りが同じ字面にならないため（Muse のレビュー）。
+  if (stop.kind == mosa::StopKind::Exception) {
+    return "exception " + mosa::write_term(machine.heap(), mosa::OperatorView{machine.operators()}, stop.exception, {}, {});
+  }
+  return "halt";
 }
 
 constexpr std::string_view k_cleanup_program =
@@ -82,6 +87,10 @@ inline std::string cleanup_count(mosa::Machine& machine) {
   const mosa::Stop stop = machine.query("nodebug, findall(x, cleaned, L), length(L, N).");
   return stop_text(machine, stop);
 }
+
+// cleanup_count の答えの N が n か。字面の途中を探すと N = 20 も N = 2 に合うので、答えの終わりで比べる（Muse の
+// レビュー）。
+inline bool count_is(const std::string& count, int n) { return count.ends_with("N = " + std::to_string(n) + " ."); }
 
 struct CleanupCase {
   std::string_view label;

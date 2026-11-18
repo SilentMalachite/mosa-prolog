@@ -50,7 +50,7 @@ void check_abort_cleanup() {
   std::string ports;
   const std::string count = run_cleanup_case({"abort_cleanup", "trace, r", " Exit: (1) r ? ", "a"}, answer, ports);
   mosa_test::check(answer == "abort", "abort_cleanup: Abort, got [" + answer + "]");
-  mosa_test::check(count.find("N = 1") != std::string::npos, "abort_cleanup: N = 1, got [" + count + "]");
+  mosa_test::check(count_is(count, 1), "abort_cleanup: N = 1, got [" + count + "]");
   // ポートの行は「 Call: (N) ゴール」。上の箱のゴールの字面にも assertz が入るので、行の形で数える。
   mosa_test::check(occurrences(ports, ") assertz(") == 0, "abort_cleanup: no port in the cleanup, [" + ports + "]");
 }
@@ -125,7 +125,8 @@ constexpr std::string_view k_abort_bindings_program =
     "t.\n"
     "b(X) :- setup_call_cleanup(S = s, (X = g, t), assertz(log(S-X))).\n"
     "n(X) :- setup_call_cleanup(true, setup_call_cleanup(true, (X = g, t), X = inner), assertz(log(X))).\n"
-    "c :- catch(setup_call_cleanup(true, t, throw(oops)), _, assertz(log(caught))), assertz(log(went_on)).\n"
+    "c :- catch(setup_call_cleanup(true, t, (assertz(log(ran)), throw(oops))), _, assertz(log(caught))),\n"
+    "    assertz(log(went_on)).\n"
     "boom :- throw(e).\n"
     "x(X) :- setup_call_cleanup(S = s, (X = g, boom), assertz(log(S-X))).\n"
     "o(X) :- setup_call_cleanup(S = s, (X = g, with_output_to(atom(_),\n"
@@ -176,8 +177,9 @@ void check_abort_cleanup_bindings() {
 void check_abort_cleanup_uncaught() {
   const std::string text =
       abort_log("abort_uncaught", "trace, c", " Call: (3) t ? ", "nodebug, findall(X, log(X), L)");
-  mosa_test::check(text.find("L = []") != std::string::npos,
-                   "abort_uncaught: no catch/3 saw the cleanup's error, got [" + text + "]");
+  // 後始末は投げる前に log(ran) を残す。空の答えだけでは、後始末が動かなかったときと区別できない（Muse のレビュー）。
+  mosa_test::check(text.find("L = [ran]") != std::string::npos,
+                   "abort_uncaught: the cleanup ran and no catch/3 saw its error, got [" + text + "]");
 }
 
 // カットが積んだまま abort に会った後始末（pending_cleanups）も動かす。解釈する節では、積んだ歩みの後、次のポートの

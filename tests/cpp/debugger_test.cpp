@@ -46,11 +46,14 @@ void give_console(mosa::Machine& machine, Console& console) {
 std::vector<std::string> all_answers(mosa::Machine& machine, const std::string& goal) {
   std::vector<std::string> texts;
   mosa::Stop stop = machine.query(goal + ".");
-  for (int count = 0; count < 8; ++count) {
+  bool ended = false;
+  for (int count = 0; count < 8 && !ended; ++count) {
     texts.push_back(stop_text(machine, stop));
-    if (stop.kind != mosa::StopKind::Success || !stop.more) break;
-    stop = machine.next();
+    ended = stop.kind != mosa::StopKind::Success || !stop.more;
+    if (!ended) stop = machine.next();
   }
+  // 上限で切ると、9 個目からの違いを見落とす。比べるゴールはどれも 8 個より少ない答えで尽きる（Muse のレビュー）。
+  mosa_test::check(ended, goal + ": the answers end within 8");
   return texts;
 }
 
@@ -158,7 +161,7 @@ void check_retry_cleanup() {
   std::string answer;
   std::string ports;
   const std::string count = run_cleanup_case({"retry_cleanup", "trace, r", " Exit: (1) r ? ", "r"}, answer, ports);
-  mosa_test::check(count.find("N = 2") != std::string::npos, "retry_cleanup: N = 2, got [" + count + "]");
+  mosa_test::check(count_is(count, 2), "retry_cleanup: N = 2, got [" + count + "]");
   mosa_test::check(answer.ends_with(" ;"), "retry_cleanup: answer with more, got [" + answer + "]");
   mosa_test::check(occurrences(ports, " Call: (1) r ? ") == 2, "retry_cleanup: the box was reopened, [" + ports + "]");
 }
@@ -169,7 +172,7 @@ void check_redo_retry_cleanup() {
   std::string ports;
   const std::string count =
       run_cleanup_case({"redo_retry_cleanup", "trace, s, fail", " Redo: (1) s ? ", "r"}, answer, ports);
-  mosa_test::check(count.find("N = 2") != std::string::npos, "redo_retry_cleanup: N = 2, got [" + count + "]");
+  mosa_test::check(count_is(count, 2), "redo_retry_cleanup: N = 2, got [" + count + "]");
   mosa_test::check(answer == "false", "redo_retry_cleanup: false, got [" + answer + "]");
 }
 
@@ -180,7 +183,7 @@ void check_redo_fail_cleanup() {
   std::string ports;
   const std::string count =
       run_cleanup_case({"redo_fail_cleanup", "trace, s, fail", " Redo: (1) s ? ", "f"}, answer, ports);
-  mosa_test::check(count.find("N = 1") != std::string::npos, "redo_fail_cleanup: N = 1, got [" + count + "]");
+  mosa_test::check(count_is(count, 1), "redo_fail_cleanup: N = 1, got [" + count + "]");
   mosa_test::check(answer == "false", "redo_fail_cleanup: false, got [" + answer + "]");
   mosa_test::check(occurrences(ports, " Exit: (1) s ? ") == 1, "redo_fail_cleanup: one exit of s, [" + ports + "]");
   mosa_test::check(occurrences(ports, " Fail: (1) s ? ") == 1, "redo_fail_cleanup: one fail of s, [" + ports + "]");
@@ -193,7 +196,7 @@ void check_exception_fail_cleanup() {
   std::string ports;
   const std::string count = run_cleanup_case(
       {"exception_fail_cleanup", "trace, catch(e, _, true)", " Exception: (1) e oops ? ", "f"}, answer, ports);
-  mosa_test::check(count.find("N = 1") != std::string::npos, "exception_fail_cleanup: N = 1, got [" + count + "]");
+  mosa_test::check(count_is(count, 1), "exception_fail_cleanup: N = 1, got [" + count + "]");
   mosa_test::check(answer == "false", "exception_fail_cleanup: false, got [" + answer + "]");
   mosa_test::check(occurrences(ports, " Exception: (1) e oops ? ") == 1,
                    "exception_fail_cleanup: one exception of e, [" + ports + "]");
@@ -206,7 +209,7 @@ void check_exception_retry_cleanup() {
   std::string ports;
   const std::string count = run_cleanup_case(
       {"exception_retry_cleanup", "trace, catch(e, _, true)", " Exception: (1) e oops ? ", "r"}, answer, ports);
-  mosa_test::check(count.find("N = 2") != std::string::npos, "exception_retry_cleanup: N = 2, got [" + count + "]");
+  mosa_test::check(count_is(count, 2), "exception_retry_cleanup: N = 2, got [" + count + "]");
   mosa_test::check(answer != "false", "exception_retry_cleanup: caught, got [" + answer + "]");
   mosa_test::check(occurrences(ports, " Call: (1) e ? ") == 2,
                    "exception_retry_cleanup: the box was reopened, [" + ports + "]");
@@ -303,6 +306,13 @@ void check_skip_dropped() {
   mosa_test::check(machine->query("true.").kind == mosa::StopKind::Success, "skip_dropped: the query succeeds");
   mosa_test::check(impl.debug.mode == mosa::DebugMode::Creep && impl.debug.skip_box == 0,
                    "skip_dropped: drop_run returns skip to creep");
+  // trace を呼ばずに次の問い合わせを追う。trace は進み方を creep にするので、呼ぶと古い skip を見落とす（Muse のレビュー）。
+  Console console;
+  give_console(*machine, console);
+  mosa_test::check(machine->query("len([], N).").kind == mosa::StopKind::Success, "skip_dropped: the next query");
+  mosa_test::check(console.text.find(" Call: (1) len([],_G1) ? ") != std::string::npos &&
+                       console.text.find(" Exit: (1) len([],0) ? ") != std::string::npos,
+                   "skip_dropped: the next query writes its ports, [" + console.text + "]");
 }
 
 // コントローラの裁定 17。読み込む前に置いたスパイポイントは (user, append, 3) で覚えられ、use_module の後の呼び出しは
@@ -376,6 +386,10 @@ void check_library_qualified() {
   const Traced leap = trace_goal("spy(lists:append/3), lists:append([a], [b], L)");
   mosa_test::check(leap.ports.find(" Call: (1) append([a],[b],_G1) ? ") != std::string::npos,
                    "qualified: leap stops at the spy point, [" + leap.ports + "]");
+  // 箱を見せた後も答えは同じ。ポートだけを見ると、箱を作ったゴールが失敗しても通る（Muse のレビュー）。
+  for (const Traced* traced : {&top, &body, &called, &extra, &leap}) {
+    mosa_test::check(traced->answers == "[L = [a,b] .]", "qualified: the answer is kept, " + traced->answers);
+  }
 }
 
 // Lib:G の箱のやり直し。答えごとに Redo と Exit が出て、最後に Fail が 1 回出る。system:G は見せない。
