@@ -142,6 +142,37 @@ void check_open_boxes_given_back() {
                    "open_boxes: a box opened after a GC inside outer is at depth 2, got [" + console.text + "]");
 }
 
+// spy/1、nospy/1、leash/1 が置いた組そのもの。tests/pl/debugger.pl の行は成功しか見ないので、引数を無視する壊し方や、
+// 誤りの前に一部を置く壊し方でも通る（敵対的レビュー、2026-11-19）。ポートの bit は call、exit、redo、fail、exception。
+void check_spy_and_leash_state() {
+  auto machine = make_machine();
+  auto& impl = mosa::engine_impl(*machine);
+  const auto leashed_after = [&](std::string_view goal) {
+    mosa_test::check(machine->query(std::string{goal} + ".").kind == mosa::StopKind::Success, std::string{goal});
+    return static_cast<int>(impl.debug.leashed);
+  };
+  mosa_test::check(leashed_after("leash([none, +call, exit])") == 0b00011, "leash: none, then +call and exit");
+  mosa_test::check(leashed_after("leash(all), leash(-exit)") == 0b11101, "leash: -exit after all");
+  mosa_test::check(leashed_after("leash(none), leash(+exit), leash(-exit), leash(+exit)") == 0b00010,
+                   "leash: +exit after -exit");
+  mosa_test::check(leashed_after("leash([])") == 0b00010, "leash: [] keeps the set");
+  mosa_test::check(leashed_after("catch(leash([fail, nope]), _, true)") == 0b00010, "leash: an error changes nothing");
+  std::ostringstream err;
+  std::streambuf* saved_err = std::cerr.rdbuf(err.rdbuf());
+  const mosa::Stop bad =
+      machine->query("catch(spy([len/2, 3]), E, true), E = error(type_error(predicate_indicator, 3), _).");
+  const bool none_placed = impl.debug.spies.empty() && !impl.debug_on;
+  const mosa::Stop named = machine->query("spy(len).");
+  const std::vector<mosa::SpyKey> placed = impl.debug.spies;
+  const mosa::Stop removed = machine->query("nospy(len).");
+  std::cerr.rdbuf(saved_err);
+  mosa_test::check(bad.kind == mosa::StopKind::Success && none_placed, "spy: an error in the list places nothing");
+  mosa_test::check(named.kind == mosa::StopKind::Success && placed.size() == 1 && placed[0].arity == 2 &&
+                       placed[0].name == impl.atoms.intern("len") && placed[0].module == impl.user_module,
+                   "spy: a bare name places len/2 in user");
+  mosa_test::check(removed.kind == mosa::StopKind::Success && impl.debug.spies.empty(), "nospy: a bare name takes it off");
+}
+
 // 例外のポートで取り込んだ投げられた項は、ポートを書いたら捨てる。巻き戻しは 1 歩の中で箱をみな通るので、前は
 // 箱の数だけ写しが積もり、8 MiB では 400 段の再帰が投げた 3000 要素のリストが、追うときだけヒープの上限で問い合わせ
 // ごと止まった（深さ 318 の例外のポートの後、敵対的レビュー、2026-11-19）。追っても追わなくても catch/3 が受ける。
@@ -464,6 +495,7 @@ int main() {
   check_open_boxes_given_back();
   check_spy_notices_leave_no_garbage();
   check_exception_ports_leave_no_copies();
+  check_spy_and_leash_state();
   check_retry_cleanup();
   check_redo_retry_cleanup();
   check_redo_fail_cleanup();

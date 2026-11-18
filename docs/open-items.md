@@ -117,13 +117,12 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   only; the `.lgt` half of `--diff` was read from code.
 - codegen's per-clause 16-bit resume limit and the close failures of `mosac emit` have no test.
 - Debugger test gaps from the 2026-11-18 review (next test task, one at a time): a leap transcript
-  for each `spy/1` form other than `Name/Arity` (bare name, list, qualified — `tests/pl/debugger.pl`
-  only sees them succeed); a multibyte unknown port command (`first_char` in `debug_port.cpp`);
-  the leash exception bit, `+exit` after `-exit`, and `leash([])`;
-  degenerate command-at-port pairs (`s` at
-  Redo, `f` at Fail, `r` at Call, `w` at Exception, an uncaught exception under trace); `check_skip_dropped` through a
-  scripted `s` instead of injected state. The `.out` port sequences also have no oracle outside the
-  implementation and the manual's checked examples.
+  for each `spy/1` form other than `Name/Arity` (bare name, list, qualified; `check_spy_and_leash_state`
+  pins only the set a bare name places); a multibyte unknown port command (`first_char` in
+  `debug_port.cpp`); a port that stops only by the leash exception bit; degenerate command-at-port
+  pairs (`s` at Redo, `f` at Fail, `r` at Call, `w` at Exception, an uncaught exception under
+  trace); `check_skip_dropped` through a scripted `s` instead of injected state. The `.out` port
+  sequences also have no oracle outside the implementation and the manual's checked examples.
 - A cleanup that throws while `r` or `f` trims the stack above a box (Muse review of the fixes,
   2026-11-19): neither a double run nor a stray Exception port is tested.
 - The message machine's heap limit is capped at the default (`render_message`, adversarial review
