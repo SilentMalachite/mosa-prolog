@@ -334,6 +334,19 @@ void check_spy_before_load() {
   mosa_test::check(impl.debug.spies.empty(), "spy_before_load: nospy removes the early spy point");
 }
 
+// spy を読み込みの前後で二度置いても、同じ述語の鍵は一つだけ。
+void check_spy_twice_one_key() {
+  auto machine = mosa::Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  impl.message_lang = mosa::MessageLanguage::En;
+  Console console;
+  give_console(*machine, console);
+  mosa_test::check(machine->query("spy(append/3), use_module(library(lists)), spy(append/3).").kind ==
+                       mosa::StopKind::Success,
+                   "spy_twice: query");
+  mosa_test::check(impl.debug.spies.size() == 1, "spy_twice: one key, got " + std::to_string(impl.debug.spies.size()));
+}
+
 }  // namespace
 
 int main() {
@@ -348,5 +361,6 @@ int main() {
   check_abort_init();
   check_skip_dropped();
   check_spy_before_load();
+  check_spy_twice_one_key();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

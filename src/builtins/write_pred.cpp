@@ -11,8 +11,9 @@
 //   同じ選択肢を繰り返したら後の方が勝つ（iso-notes 8.14 Write options の決定 B）。どれも検査はする。
 //   エラー順は、流れの変数、選択肢の具体化、流れのドメイン、リスト型、
 //   write_option、存在、出力許可、それから書き出す。
+//   max_depth(N) は 13211-1 に無い（ADR 0028、iso-notes のデバッガの節）。N は 0 以上の整数で、0 は切らない。
 //   instantiation_error, domain_error(stream_or_alias), domain_error(write_option),
-//   type_error(list), type_error(callable), type_error(atom),
+//   type_error(list),
 //   existence_error(stream),
 //   permission_error(output, stream), permission_error(output, binary_stream)
 // テスト: tests/pl/write.pl, tests/pl/print.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,

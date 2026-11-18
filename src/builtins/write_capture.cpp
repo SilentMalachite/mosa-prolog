@@ -4,7 +4,8 @@
 //   instantiation_error, type_error(callable), type_error(atom), type_error(list),
 //   domain_error(stream_or_alias), existence_error(stream),
 //   permission_error(output, stream), permission_error(output, binary_stream)
-// テスト: tests/pl/write.pl, tests/cpp/stream_test.cpp
+// テスト: tests/pl/write.pl, tests/pl/control.pl, tests/pl/close.pl, tests/cpp/output_stop_test.cpp, tests/cpp/gc_test.cpp,
+//   tests/cpp/file_flush_test.cpp
 // write_pred.cpp から分けた（ファイルの行数の上限のため）。移しただけで、振る舞いは変えない。
 
 #include "write_internal.hpp"

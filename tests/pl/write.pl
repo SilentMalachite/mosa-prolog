@@ -232,3 +232,5 @@ test(wd_list1, (wd_long(T), wd_text(T, [max_depth(1)], A)), solutions([A = '[1|.
 test(wd_zero_deep, (T = a(b(c(d(e(f(g(h(i(j(k(l(m)))))))))))), wd_text(T, [max_depth(0)], A)), solutions([A = 'a(b(c(d(e(f(g(h(i(j(k(l(m))))))))))))'])).
 test(wd_zero_list, (T = [1,2,3,4,5,6,7,8,9,10,11,12,13], wd_text(T, [max_depth(0)], A)), solutions([A = '[1,2,3,4,5,6,7,8,9,10,11,12,13]'])).
 test(wd_with_quoted, wd_text('A'(b(c)), [quoted(true), max_depth(2)], A), solutions([A = '\'A\'(b(...))'])).
+% リストの要素 i は深さ d+i-1 と数えるので、先頭の要素に入れ子にしたリストは深さ 1 でも切れない。
+test(wd_list_nested_first, wd_text([[[[a]]]], [max_depth(1)], A), solutions([A = '[[[[a]]]]'])).

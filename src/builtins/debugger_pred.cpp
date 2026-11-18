@@ -17,9 +17,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <initializer_list>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace mosa {
 namespace {
@@ -71,7 +76,10 @@ bool same_spy(Impl& machine, const SpyKey& placed, const SpyKey& key) {
 
 // spy/1 と + が置く。置いてあっても知らせは同じ。知らせの行を返す。
 std::string place_key(Impl& machine, const SpyKey& key) {
-  static_cast<void>(set_spy(machine, key, true));
+  // spy(append/3)、use_module(library(lists))、spy(append/3) で同じ述語の鍵が二つ入らないよう、引き直して同じなら足さない。
+  const bool already = std::any_of(machine.debug.spies.begin(), machine.debug.spies.end(),
+                                   [&](const SpyKey& placed) { return same_spy(machine, placed, key); });
+  if (!already) static_cast<void>(set_spy(machine, key, true));
   return message_text(machine, "debug_spy_set", {indicator_text(machine, key)});
 }
 
