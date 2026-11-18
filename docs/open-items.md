@@ -172,7 +172,10 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
   in `r :- p, q, !.`, aborting in `q`'s cleanup skips `p`'s.
 - Debugger: `Lib:G` from a non-library context gets a box only when `G` is one goal (`run_qualify`
   opens it, since later steps no longer know the caller). `lists:(G1, G2)` and a `lists:` closure
-  that a library predicate calls (`maplist(lists:append([a]), Ls, Rs)`) stay hidden.
+  that a library predicate calls (`maplist(lists:append([a]), Ls, Rs)`) stay hidden. So do
+  `lists:lists:append(...)` (the inner `:` already runs in `lists`) and the goal that a built-in
+  called as `lists:findall(X, G, L)` or `lists:once(G)` runs, since `G` then runs in `lists`.
+  Changing that would change how `M1:M2:G` resolves or the box rule (ADR level); not in phase 14.
 - Debugger: a goal whose context module is `system` gets no box, since that context means a goal a
   builtin runs for itself (findall/3's answer unification and the like). So `system:Goal` written
   by a user is not traced either.
