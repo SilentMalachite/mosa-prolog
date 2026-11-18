@@ -691,6 +691,8 @@ void disarm_catch(Impl& machine, std::size_t index);
 void arm_halt(Impl& machine, const IrTerm& goal, const std::vector<Cell>& env, const SharedTable* shared);
 // デバッガの箱（ADR 0028、debug_box.cpp）。step は DebugConsole があってデバッグ中のときだけ debug_wants_box を見る。
 [[nodiscard]] bool debug_wants_box(Impl& machine, const Goal& goal);
+// run_qualify が caller の文脈から置いた Lib:G の G（ip のゴール枠）に箱を作る。
+void debug_box_qualified(Impl& machine, std::uint32_t caller);
 // 番兵を積み、run_boxed で同じ歩みのうちにゴールを動かす。
 void open_box(Impl& machine, const Goal& goal);
 // stack[box_index] の番兵の元の枠を、語 3 を出口の枠にした写しにして、呼出のポートの後に run_builtin か enter_user へ渡す。

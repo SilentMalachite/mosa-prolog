@@ -4,7 +4,8 @@
 // setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）、
 // a が StopKind::Abort で問い合わせを止め、デバッグの状態を変えないこと（タスク 7）、a が止める実行ごとに内側から
 // 後始末をポート無しで 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A、ADR 0028 の改訂）、
-// 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）。
+// 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）、利用者が Lib:G と
+// 書いたライブラリの呼び出しが 1 つの箱になること（ADR 0028 の改訂）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
 #include "harness.hpp"
 
@@ -455,6 +456,57 @@ void check_spy_twice_one_key() {
   mosa_test::check(impl.debug.spies.size() == 1, "spy_twice: one key, got " + std::to_string(impl.debug.spies.size()));
 }
 
+struct Traced {
+  std::string ports;
+  std::string answers;
+};
+
+// creep で答えを尽きるまで聞き、ポートの行と答えを返す。
+Traced trace_goal(const std::string& goal) {
+  auto machine = make_machine();
+  mosa_test::check(machine->load_program("qa(L) :- lists:append([a], [b], L).\n").ok, "qualified: load qa/1");
+  Console console;
+  give_console(*machine, console);
+  const std::string answers = joined(all_answers(*machine, goal));
+  return Traced{console.text, answers};
+}
+
+// 利用者の文脈から Lib:G と書いたライブラリの呼び出しも、修飾しない append/3 と同じく 1 つの箱で、中の再帰は見せない
+// （ADR 0028 の改訂、敵対的レビュー）。トップレベル、節の本体、call/1、call/N、leap のスパイポイントで同じになる。
+void check_library_qualified() {
+  const Traced top = trace_goal("trace, lists:append([a], [b], L)");
+  mosa_test::check(top.ports.find(" Call: (1) append([a],[b],_G1) ? ") != std::string::npos &&
+                       top.ports.find(" Exit: (1) append([a],[b],[a,b]) ? ") != std::string::npos &&
+                       occurrences(top.ports, " Call: ") == 1,
+                   "qualified: one box at the top, [" + top.ports + "]");
+  const Traced body = trace_goal("trace, qa(L)");
+  mosa_test::check(body.ports.find(" Call: (2) append([a],[b],_G1) ? ") != std::string::npos &&
+                       occurrences(body.ports, " Call: ") == 2,
+                   "qualified: one box in a clause body, [" + body.ports + "]");
+  const Traced called = trace_goal("trace, call(lists:append([a], [b], L))");
+  mosa_test::check(called.ports.find(" Call: (1) append([a],[b],_G1) ? ") != std::string::npos &&
+                       occurrences(called.ports, " Call: ") == 1,
+                   "qualified: one box through call/1, [" + called.ports + "]");
+  const Traced extra = trace_goal("trace, call(lists:append([a]), [b], L)");
+  mosa_test::check(extra.ports.find(" Call: (1) append([a],[b],_G1) ? ") != std::string::npos &&
+                       occurrences(extra.ports, " Call: ") == 1,
+                   "qualified: one box through call/3, [" + extra.ports + "]");
+  const Traced leap = trace_goal("spy(lists:append/3), lists:append([a], [b], L)");
+  mosa_test::check(leap.ports.find(" Call: (1) append([a],[b],_G1) ? ") != std::string::npos,
+                   "qualified: leap stops at the spy point, [" + leap.ports + "]");
+}
+
+// Lib:G の箱のやり直し。答えごとに Redo と Exit が出て、最後に Fail が 1 回出る。system:G は見せない。
+void check_library_qualified_redo() {
+  const Traced redo = trace_goal("trace, lists:append(X, Y, [a])");
+  mosa_test::check(occurrences(redo.ports, " Call: ") == 1 && occurrences(redo.ports, " Redo: (1) append(") == 2 &&
+                       occurrences(redo.ports, " Exit: (1) append(") == 2 &&
+                       occurrences(redo.ports, " Fail: (1) append(_G1,_G2,[a]) ? ") == 1,
+                   "qualified: redo of the box, [" + redo.ports + "] " + redo.answers);
+  const Traced hidden = trace_goal("trace, system:atom_length(abc, N)");
+  mosa_test::check(hidden.ports.empty(), "qualified: system:G has no box, [" + hidden.ports + "]");
+}
+
 }  // namespace
 
 int main() {
@@ -476,5 +528,7 @@ int main() {
   check_skip_dropped();
   check_spy_before_load();
   check_spy_twice_one_key();
+  check_library_qualified();
+  check_library_qualified_redo();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

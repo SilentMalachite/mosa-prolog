@@ -135,23 +135,44 @@ bool fail_box(Impl& machine) {
   return false;
 }
 
+bool in_library(Impl& machine, std::uint32_t module_name) {
+  const Module* module = find_module(machine, module_name);
+  return module != nullptr && module->library;
+}
+
+// 進み方とゴールの名前で決まる分。skip 中は新しい箱を作らない。leap はスパイポイントの述語の呼び出しだけに作る
+// （問い 2 の決定 A）。名前が合えば述語を引き当てるので後に見る。
+bool mode_wants_box(Impl& machine, const Goal& goal) {
+  const DebugMode mode = machine.debug.mode;
+  if (mode == DebugMode::Skip) return false;
+  if (mode == DebugMode::Leap && !spied_call(machine, goal.module, goal.name, goal.arity)) return false;
+  return !unboxed(machine.atoms.name(goal.name), goal.arity);
+}
+
 }  // namespace
 
 // 安い判定から順に見る。leap の速さ（ADR 0028 の 1.2 倍）を守るためである。どの判定も状態を変えないので、順は
 // 答えを変えない（コントローラの裁定 17）。
 bool debug_wants_box(Impl& machine, const Goal& goal) {
-  const DebugMode mode = machine.debug.mode;
-  // skip 中は新しい箱を作らない。
-  if (mode == DebugMode::Skip) return false;
+  if (machine.debug.mode == DebugMode::Skip) return false;
   // system の文脈は組込が自分のために動かすゴール（findall/3 の答えの単一化など）。組込の中には入らない。
   if (goal.module == machine.system_module) return false;
   // 文脈が library なら、ライブラリの中の呼び出し。leap でも、user から呼んだスパイポイントの append/3 には箱を作り、
-  // その中の呼び出しには作らない。
-  const Module* module = find_module(machine, goal.module);
-  if (module != nullptr && module->library) return false;
-  // leap はスパイポイントの述語の呼び出しだけに作る（問い 2 の決定 A）。名前が合えば述語を引き当てるので後に見る。
-  if (mode == DebugMode::Leap && !spied_call(machine, goal.module, goal.name, goal.arity)) return false;
-  return !unboxed(machine.atoms.name(goal.name), goal.arity);
+  // その中の呼び出しには作らない。利用者が Lib:G と書いた呼び出しは debug_box_qualified が先に箱を作る。
+  if (in_library(machine, goal.module)) return false;
+  return mode_wants_box(machine, goal);
+}
+
+// run_qualify が M:G の G を 1 つのゴール枠として ip に置いた直後。G の文脈はライブラリになるが、呼んだのはライブラリ
+// でも system でもない文脈なので、修飾しない呼び出しと同じく箱を作る（ADR 0028 の改訂、敵対的レビュー）。G の後の
+// 歩みはもう呼び手の文脈を知らないので、ここで開く。制御構造の G の中のゴールは作らない（open-items の既知の制限）。
+void debug_box_qualified(Impl& machine, std::uint32_t caller) {
+  if (!machine.debug_on || !machine.debug.console) return;
+  if (machine.failed || machine.exception || machine.ip == kNoFrame || machine.heap.word_at(machine.ip) == 0) return;
+  if (caller == machine.system_module || in_library(machine, caller)) return;
+  const Goal goal = read_goal(machine, machine.ip);
+  if (!in_library(machine, goal.module) || !mode_wants_box(machine, goal)) return;
+  open_box(machine, goal);
 }
 
 void open_box(Impl& machine, const Goal& goal) {

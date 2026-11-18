@@ -116,7 +116,10 @@ bool run_qualify(Impl& machine, const Goal& goal) {
   }
   if (raise_cyclic_goal(machine, compiled, goal.name, goal.arity)) return true;
   // 枠のカットの境界をそのまま渡す。M:G はカットに透明である（iso-notes の決定 A）。
+  const bool single = compiled.term->tag == IrTag::Atom || compiled.term->tag == IrTag::Fun;
   launch(machine, compiled.term, goal.cont, goal.cut, compiled.env, atom_of(module));
+  // 利用者がライブラリのモジュールで修飾したゴールにも箱を作る（ADR 0028 の改訂）。デバッグを切っていれば分岐 1 つ。
+  if (single && machine.debug_on) debug_box_qualified(machine, goal.module);
   return true;
 }
 

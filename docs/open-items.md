@@ -152,6 +152,9 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - Debugger: a `DebugExit` reached after its sentinel was cut (plan deviation 7) writes no exit port,
   since only the sentinel points at the original goal frame. Only translated code (`rt::cut_to`)
   can cut below a sentinel from inside its box, and executables have no `DebugConsole`.
+- Debugger: `Lib:G` from a non-library context gets a box only when `G` is one goal (`run_qualify`
+  opens it, since later steps no longer know the caller). `lists:(G1, G2)` and a `lists:` closure
+  that a library predicate calls (`maplist(lists:append([a]), Ls, Rs)`) stay hidden.
 - Debugger: a goal whose context module is `system` gets no box, since that context means a goal a
   builtin runs for itself (findall/3's answer unification and the like). So `system:Goal` written
   by a user is not traced either.
