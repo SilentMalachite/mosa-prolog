@@ -1,0 +1,7 @@
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? f
+ Fail: (1) len([a],_G1) ? 
+false.
+[trace] ?- notrace, nodebug.
+true.
+?- 

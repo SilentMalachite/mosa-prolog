@@ -1,6 +1,7 @@
 // フェーズ 14（ADR 0028）。追跡しても答えが変わらないこと（カット、findall/3、catch/3、setup_call_cleanup/3、call/N）、
 // 決定的な問い合わせの後に番兵が残らないこと（has_more は箱の選択点を数えないので、; の問いでは見つからない）、
-// DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと。
+// DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと、
+// setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
 #include "harness.hpp"
 
@@ -150,11 +151,114 @@ void check_no_console() {
   mosa_test::check(bare->choice_depth() == plain->choice_depth(), "no console: same choice depth");
 }
 
+constexpr std::string_view k_cleanup_program =
+    ":- use_module(library(lists)).\n"
+    ":- dynamic(cleaned/0).\n"
+    "r :- setup_call_cleanup(true, member(_, [1,2]), assertz(cleaned)).\n"
+    "s :- setup_call_cleanup(true, member(_, [1,2]), assertz(cleaned)).\n";
+
+// 直前に書かれた行が target のときに 1 回だけ command を返し、ほかは空の行を返す。2 回目からも返すと、再試行が
+// 同じポートに戻るたびに同じコマンドを読んで終わらない。
+struct Scripted {
+  std::string target;
+  std::string command;
+  std::string last;
+  std::string text;
+  bool used = false;
+};
+
+void give_script(mosa::Machine& machine, Scripted& script) {
+  mosa::DebugConsole made;
+  made.write = [&script](std::string_view text) {
+    script.last = std::string{text};
+    script.text += text;
+  };
+  made.read_line = [&script](std::string& line) {
+    line.clear();
+    if (!script.used && script.last == script.target) {
+      script.used = true;
+      line = script.command;
+    }
+    return true;
+  };
+  mosa::engine_impl(machine).debug.console = std::move(made);
+}
+
+std::size_t occurrences(const std::string& text, std::string_view part) {
+  std::size_t count = 0;
+  for (std::size_t at = text.find(part); at != std::string::npos; at = text.find(part, at + part.size())) ++count;
+  return count;
+}
+
+// 後始末の回数。この問い合わせは前の問い合わせを閉じるので、閉じたときの後始末も数に入る。
+std::string cleanup_count(mosa::Machine& machine) {
+  const mosa::Stop stop = machine.query("nodebug, findall(x, cleaned, L), length(L, N).");
+  return stop_text(machine, stop);
+}
+
+struct CleanupCase {
+  std::string_view label;
+  std::string_view goal;
+  std::string_view target;
+  std::string_view command;
+};
+
+// Review Focus 4。setup_call_cleanup/3 の選択点を中に残した箱を r か f で切っても、後始末は外された回数だけ動く。
+std::string run_cleanup_case(const CleanupCase& item, std::string& answer, std::string& ports) {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(k_cleanup_program).ok, std::string{item.label} + ": load the program");
+  mosa::engine_impl(*machine).message_lang = mosa::MessageLanguage::En;
+  Scripted script{std::string{item.target}, std::string{item.command}, {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query(std::string{item.goal} + ".");
+  answer = stop_text(*machine, stop);
+  const std::string count = cleanup_count(*machine);
+  mosa_test::check(script.used, std::string{item.label} + ": the command was read, ports [" + script.text + "]");
+  ports = script.text;
+  return count;
+}
+
+// 成功のポートで r。再試行で番兵より上を切るので 1 回、閉じて 1 回。
+void check_retry_cleanup() {
+  std::string answer;
+  std::string ports;
+  const std::string count = run_cleanup_case({"retry_cleanup", "trace, r", " Exit: (1) r ? ", "r"}, answer, ports);
+  mosa_test::check(count.find("N = 2") != std::string::npos, "retry_cleanup: N = 2, got [" + count + "]");
+  mosa_test::check(answer.ends_with(" ;"), "retry_cleanup: answer with more, got [" + answer + "]");
+  mosa_test::check(occurrences(ports, " Call: (1) r ? ") == 2, "retry_cleanup: the box was reopened, [" + ports + "]");
+}
+
+// 最初の再試行のポートで r。切り詰めで 1 回、2 回目の s が member を使い切って 1 回。
+void check_redo_retry_cleanup() {
+  std::string answer;
+  std::string ports;
+  const std::string count =
+      run_cleanup_case({"redo_retry_cleanup", "trace, s, fail", " Redo: (1) s ? ", "r"}, answer, ports);
+  mosa_test::check(count.find("N = 2") != std::string::npos, "redo_retry_cleanup: N = 2, got [" + count + "]");
+  mosa_test::check(answer == "false", "redo_retry_cleanup: false, got [" + answer + "]");
+}
+
+// 最初の再試行のポートで f。切り詰めで 1 回だけ。f を creep と読むと 2 つ目の答えの成功のポートが出るので、
+// s の成功のポートが 1 回だけであることも見る。
+void check_redo_fail_cleanup() {
+  std::string answer;
+  std::string ports;
+  const std::string count =
+      run_cleanup_case({"redo_fail_cleanup", "trace, s, fail", " Redo: (1) s ? ", "f"}, answer, ports);
+  mosa_test::check(count.find("N = 1") != std::string::npos, "redo_fail_cleanup: N = 1, got [" + count + "]");
+  mosa_test::check(answer == "false", "redo_fail_cleanup: false, got [" + answer + "]");
+  mosa_test::check(occurrences(ports, " Exit: (1) s ? ") == 1, "redo_fail_cleanup: one exit of s, [" + ports + "]");
+  mosa_test::check(occurrences(ports, " Fail: (1) s ? ") == 1, "redo_fail_cleanup: one fail of s, [" + ports + "]");
+}
+
 }  // namespace
 
 int main() {
   check_trace_same_answers();
   check_trace_choice_depth();
   check_no_console();
+  check_retry_cleanup();
+  check_redo_retry_cleanup();
+  check_redo_fail_cleanup();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

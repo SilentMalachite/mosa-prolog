@@ -1,0 +1,17 @@
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? 
+ Call: (2) len([],_G1) ? 
+ Exit: (2) len([],0) ? 
+ Call: (2) _G1 is 0+1 ? 
+ Exit: (2) 1 is 0+1 ? 
+ Exit: (1) len([a],1) ? r
+ Call: (1) len([a],_G1) ? 
+ Call: (2) len([],_G1) ? 
+ Exit: (2) len([],0) ? 
+ Call: (2) _G1 is 0+1 ? 
+ Exit: (2) 1 is 0+1 ? 
+ Exit: (1) len([a],1) ? 
+N = 1.
+[trace] ?- notrace, nodebug.
+true.
+?- 

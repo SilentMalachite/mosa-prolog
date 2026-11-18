@@ -1,0 +1,10 @@
+?- spy(append/3).
+% Spy point on append/3
+true.
+[debug] ?- len([a], N), append([a], [b], L).
+ Call: (1) append([a],[b],_G1) ? l
+ Exit: (1) append([a],[b],[a,b]) ? l
+N = 1, L = [a,b].
+[debug] ?- nospyall, nodebug.
+true.
+?- 

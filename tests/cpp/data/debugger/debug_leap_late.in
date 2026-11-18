@@ -1,0 +1,6 @@
+spy(late/0).
+assertz(late).
+late.
+l
+l
+nospyall, nodebug.

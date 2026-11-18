@@ -482,7 +482,8 @@ endforeach()
 
 # フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl、redo_nested は nested.pl）を読ませる。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
-foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner)
+foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
+    force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry)
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
   if(debug_case STREQUAL "creep_ja")

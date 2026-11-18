@@ -1,8 +1,11 @@
 // 13211-1 に無い（ADR 0028）。デバッガの箱。番兵の選択点 Pick::DebugBox、出口の枠 Ctrl::DebugExit、語 3 を出口の枠に
 // した元のゴール枠の写し、中に選択点を残して抜けたときの再試行の印 Pick::DebugRedo で、1 つの呼び出しの出入りを
-// 捕まえる。catch/3 の open_catch と disarm_catch（ADR 0012）と同じ形にしてある。
+// 捕まえる。catch/3 の open_catch と disarm_catch（ADR 0012）と同じ形にしてある。例外は propagate_throw が番兵を外す
+// 前に throw_box で捕まえる。コマンドの r と f は番兵より上を trim_stack で切って失敗させ、r は番兵に cond_ok（開き
+// 直し）の印を付ける（計画の設計との違い 5 と 6）。
 // 投げる誤りは無い（箱の中のゴールの誤りは、そのゴールが投げる）。
 // テスト: tests/cpp/data/debugger（transcript_debug_*）、tests/cpp/debugger_test.cpp
+#include "builtin_api.hpp"
 #include "debug_port.hpp"
 #include "internal.hpp"
 
@@ -56,6 +59,29 @@ std::uint64_t copy_frame(Impl& machine, std::uint64_t original, std::uint64_t ex
   return at;
 }
 
+// f と r を受けた。番兵より上を切り、失敗させてバックトラックに番兵まで戻らせる。番兵の水位まで戻すのは
+// backtrack に任せる。ここで戻すと、切った setup_call_cleanup/3 の後始末の項が載ったヒープを、run_loop が後始末を
+// 動かす前に切り詰めてしまう（ADR 0016、敵対的レビュー A1）。r は番兵に cond_ok を付け、backtrack が着いたら失敗の
+// ポートを出さずに開き直す。
+bool undo_box(Impl& machine, std::size_t box_index, PortAction action) {
+  if (action != PortAction::Fail && action != PortAction::Retry) return false;
+  trim_stack(machine, box_index + 1);
+  machine.stack[box_index].cond_ok = action == PortAction::Retry;
+  machine.failed = true;
+  return true;
+}
+
+// 箱を呼出のポートから開き直す。backtrack が番兵の水位まで戻した後なので、束縛は呼んだときに戻っている。切った
+// 選択点のやり直しが有効に戻すはずだった catch/3 は、ここで有効に戻す。箱の中のゴールにまた入るからである。
+bool reopen_box(Impl& machine, std::size_t box_index) {
+  Entry& box = machine.stack[box_index];
+  box.cond_ok = false;
+  box.armed = true;
+  apply_catches(machine, box);
+  run_boxed(machine, box_index);
+  return true;
+}
+
 void push_redo(Impl& machine, std::size_t box_index, std::uint64_t number) {
   Entry redo;
   redo.pick = Pick::DebugRedo;
@@ -82,18 +108,23 @@ bool redo_box(Impl& machine) {
     restore_state(machine, next.heap_mark, next.trail_mark, next.extras_mark);
   }
   for (const std::size_t index : boxes) machine.stack[index].armed = true;
+  // r か f で切ったら、内の箱はもう無いので、残りの再試行のポートは出さない。
   for (const std::size_t index : boxes) {
-    // 今の debug_port は Go だけを返す。
-    static_cast<void>(debug_port(machine, DebugPort::Redo, index, nullptr));
+    if (undo_box(machine, index, debug_port(machine, DebugPort::Redo, index, nullptr))) return true;
   }
   return false;
 }
 
 // 箱の中に試す物が残っていない。backtrack が番兵の水位まで戻した後なので、ゴールは呼んだときの形に見える。
 // 抜けた番兵には必ず上に再試行の印があり、それを先に外して armed に戻すので、抜けたまま着くことは無い。
+// 例外のポートの f は armed を外さずに番兵ごと切るので、ここへは来ない。
 bool fail_box(Impl& machine) {
   const std::size_t box_index = machine.stack.size() - 1;
-  if (machine.stack.back().armed) static_cast<void>(debug_port(machine, DebugPort::Fail, box_index, nullptr));
+  if (machine.stack.back().cond_ok) return reopen_box(machine, box_index);
+  // 失敗のポートの r は、上に切る物が無いのでその場で開き直す。
+  if (machine.stack.back().armed && debug_port(machine, DebugPort::Fail, box_index, nullptr) == PortAction::Retry) {
+    return reopen_box(machine, box_index);
+  }
   machine.stack.pop_back();
   return false;
 }
@@ -102,10 +133,14 @@ bool fail_box(Impl& machine) {
 
 // 安い判定から順に見る。leap の速さ（ADR 0028 の 1.2 倍）を守るためである。
 bool debug_wants_box(Impl& machine, const Goal& goal) {
-  // skip と leap の箱はまだ作らない。
-  if (machine.debug.mode != DebugMode::Creep) return false;
+  const DebugMode mode = machine.debug.mode;
+  // skip 中は新しい箱を作らない。leap はスパイポイントの述語の呼び出しだけに作る（問い 2 の決定 A）。
+  if (mode == DebugMode::Skip) return false;
+  if (mode == DebugMode::Leap && !spied_call(machine, goal.module, goal.name, goal.arity)) return false;
   // system の文脈は組込が自分のために動かすゴール（findall/3 の答えの単一化など）。組込の中には入らない。
   if (goal.module == machine.system_module) return false;
+  // 文脈が library なら、ライブラリの中の呼び出し。leap でも、user から呼んだスパイポイントの append/3 には箱を作り、
+  // その中の呼び出しには作らない。
   const Module* module = find_module(machine, goal.module);
   if (module != nullptr && module->library) return false;
   return !unboxed(machine.atoms.name(goal.name), goal.arity);
@@ -134,8 +169,11 @@ void run_boxed(Impl& machine, std::size_t box_index) {
   exit.cont = read_goal(machine, original).cont;
   const std::uint64_t exit_frame = push_extra(machine, std::move(exit));
   const std::uint64_t copy = copy_frame(machine, original, exit_frame);
-  // 今の debug_port は Go だけを返す。
-  static_cast<void>(debug_port(machine, DebugPort::Call, box_index, nullptr));
+  // f は中を動かさずに失敗させる。上に選択点はまだ無いので切る物は無く、backtrack が番兵に着いて失敗のポートを出す。
+  if (debug_port(machine, DebugPort::Call, box_index, nullptr) == PortAction::Fail) {
+    machine.failed = true;
+    return;
+  }
   machine.ip = copy;
   const Goal boxed = read_goal(machine, copy);
   if (run_builtin(machine, boxed)) return;
@@ -149,8 +187,7 @@ void exit_box(Impl& machine, std::size_t extra_index) {
   machine.ip = extra.cont;
   // 番兵が切られた後（計画の設計との違い 7）は外す物が無い。元の枠を指すのは番兵だけなので、行も書けない。
   if (!box_at(machine, box_index, number)) return;
-  // 今の debug_port は Go だけを返す。
-  static_cast<void>(debug_port(machine, DebugPort::Exit, box_index, nullptr));
+  if (undo_box(machine, box_index, debug_port(machine, DebugPort::Exit, box_index, nullptr))) return;
   // 上に選択点が無ければ箱の中へ戻る道は無い。外して、決定的な答えに選択点を残さない（disarm_catch と同じ）。
   if (box_index + 1 == machine.stack.size()) {
     trim_stack(machine, box_index);
@@ -163,6 +200,22 @@ void exit_box(Impl& machine, std::size_t extra_index) {
 bool backtrack_box(Impl& machine) {
   if (machine.stack.back().pick == Pick::DebugRedo) return redo_box(machine);
   return fail_box(machine);
+}
+
+// 番兵を外す前に呼ばれるので、深さは今の箱まで数えられる。投げられた項は巻き戻しが写しにしてあるので、ヒープに
+// 取り込んでから書く。項はこの歩みの中だけで使い、GC の安全点をまたいで持たない。
+PortAction throw_box(Impl& machine, std::size_t box_index, const ExportedTerm& ball) {
+  const Cell term = import_term(machine, ball);
+  const PortAction action = debug_port(machine, DebugPort::Exception, box_index, &term);
+  if (action != PortAction::Fail && action != PortAction::Retry) return action;
+  // 巻き戻しを止める。r は番兵を残して開き直しの印を付け、run_loop のバックトラックが番兵に着いて箱を開き直す。
+  // f は番兵ごと切って失敗させる。失敗のポートは出さない（計画の設計との違い 6）。上の枠は巻き戻しが外し終えている。
+  if (action == PortAction::Retry) machine.stack[box_index].cond_ok = true;
+  else trim_stack(machine, box_index);
+  machine.exception = false;
+  machine.failed = true;
+  machine.ip = kNoFrame;
+  return action;
 }
 
 }  // namespace mosa

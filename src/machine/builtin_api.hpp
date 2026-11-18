@@ -91,6 +91,9 @@ void append_utf8_code(std::string& text, char32_t code);
 void set_debug(Impl& machine, bool on, DebugMode mode);
 // スパイポイントの組に述語があるか。leap が箱を作るかを決める。
 [[nodiscard]] bool spied(const Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
+// 文脈 context からの呼び出しにスパイポイントがあるか。spy/1 と同じく、組込は system、定義があれば定義したモジュール、
+// 無ければ context の鍵で引く。leap の箱とポートが使う。
+[[nodiscard]] bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity);
 // スパイポイントを 1 つ置く（on）か外す。変わったときだけ真。spy/1、nospy/1 と、コマンドの + と - が使う。
 [[nodiscard]] bool set_spy(Impl& machine, const SpyKey& key, bool on);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);

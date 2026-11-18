@@ -1,0 +1,4 @@
+trace, len([a], N).
+n
+spy(c/1), len([], N).
+nospyall, nodebug.

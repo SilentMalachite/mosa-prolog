@@ -3,12 +3,12 @@
 - **Phase:** 0–13 done. Phase 14 (debugger) is open: SPEC section 9 row 14 and ADR 0028 exist.
 - **Release:** `mosa 0.4.1`, released 2026-11-18 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
-- **In progress:** phase 14 Task 5 done, Task 6 not started. Phase 14 plan, 10 tasks:
+- **In progress:** phase 14 Task 6 done, Task 7 not started. Phase 14 plan, 10 tasks:
   `docs/superpowers/plans/2026-11-18-phase14-debugger.md`.
-- **Last done:** phase 14 Task 5 and its review fix: the debugger box, the call/exit/redo/fail ports.
-- **Next:** plan Task 6: the exception port, commands s l f r n, leash, leap.
+- **Last done:** phase 14 Task 6: the exception port, commands s l f r n (a reads as abort), leash, leap.
+- **Next:** plan Task 7: abort (`StopKind::Abort`, the `a` command, undoing a load).
 - **Questions to the owner:** four A-or-B questions in iso-notes run on default A (open-items).
-- **Split first:** four tests (`internal.hpp` now 725, `write_pred.cpp` 704).
+- **Split first:** four tests (`internal.hpp` now 727, `write_pred.cpp` 704).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

@@ -1,0 +1,12 @@
+?- trace, catch(t(X), E, true), fail.
+ Call: (1) t(_G1) ? 
+ Exit: (1) t(1) ? 
+ Redo: (1) t(_G1) ? r
+ Call: (1) t(_G1) ? 
+ Exit: (1) t(1) ? 
+ Redo: (1) t(_G1) ? 
+ Exception: (1) t(_G1) oops ? 
+false.
+[trace] ?- notrace, nodebug.
+true.
+?- 

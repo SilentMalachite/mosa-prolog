@@ -241,6 +241,11 @@ void propagate_throw(Impl& machine, Cell ball) {
   while (!machine.stack.empty()) {
     // 入れ子の run_loop の床で止める。下の節走査は assert が直した添字のまま、呼び出し側がやり直す。
     if (machine.stack.back().pick == Pick::Barrier) break;
+    // デバッガの例外のポート（ADR 0028）。外す前に呼ぶので深さは今の箱まで数える。r と f は巻き戻しを止める。
+    if (machine.stack.back().pick == Pick::DebugBox && machine.stack.back().armed) {
+      const PortAction action = throw_box(machine, machine.stack.size() - 1, copy);
+      if (action == PortAction::Retry || action == PortAction::Fail) return;
+    }
     const Entry top = std::move(machine.stack.back());
     machine.stack.pop_back();
     prune_catch_log(machine);

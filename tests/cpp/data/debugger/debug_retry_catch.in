@@ -1,0 +1,9 @@
+trace, catch(t(X), E, true), fail.
+
+
+r
+
+
+
+
+notrace, nodebug.

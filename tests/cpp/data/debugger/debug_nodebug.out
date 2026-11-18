@@ -1,0 +1,9 @@
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? n
+N = 1.
+?- spy(c/1), len([], N).
+% Spy point on c/1
+N = 0.
+[debug] ?- nospyall, nodebug.
+true.
+?- 

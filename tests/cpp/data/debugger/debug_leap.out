@@ -1,0 +1,12 @@
+?- spy(len/2).
+% Spy point on len/2
+true.
+[debug] ?- len([a], N).
+ Call: (1) len([a],_G1) ? l
+ Call: (2) len([],_G1) ? l
+ Exit: (2) len([],0) ? l
+ Exit: (1) len([a],1) ? l
+N = 1.
+[debug] ?- nospyall, nodebug.
+true.
+?- 

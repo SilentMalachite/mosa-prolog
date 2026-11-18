@@ -1,0 +1,5 @@
+spy(append/3).
+len([a], N), append([a], [b], L).
+l
+l
+nospyall, nodebug.

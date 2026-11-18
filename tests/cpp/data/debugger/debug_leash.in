@@ -1,0 +1,4 @@
+leash(-exit).
+trace, len([], N).
+
+leash(all), notrace, nodebug.

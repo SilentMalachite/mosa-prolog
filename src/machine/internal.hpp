@@ -697,6 +697,8 @@ void run_boxed(Impl& machine, std::size_t box_index);
 void exit_box(Impl& machine, std::size_t extra_index);
 // backtrack の一番上が DebugBox か DebugRedo のときに呼ぶ。真なら backtrack も真を返す。
 [[nodiscard]] bool backtrack_box(Impl& machine);
+// propagate_throw が一番上の armed の番兵を外す前に呼ぶ。例外のポートを出し、Retry と Fail なら巻き戻しを止めた。
+[[nodiscard]] PortAction throw_box(Impl& machine, std::size_t box_index, const ExportedTerm& ball);
 // slots[n] はスロット n の最初の出現で作る。匿名は slots を使わない。共有の項（ADR 0022）のスロットは、最初の出現で
 // その項を組んで置く。
 [[nodiscard]] Cell ir_to_term(Impl& machine, const IrTerm& term, std::vector<Cell>& slots, bool as_goal,

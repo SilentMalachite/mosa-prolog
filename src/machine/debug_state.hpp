@@ -18,6 +18,9 @@ namespace mosa {
 enum class DebugMode : std::uint8_t { Creep, Skip, Leap };
 enum class DebugPort : std::uint8_t { Call, Exit, Redo, Fail, Exception };
 
+// 止まったポートで読んだコマンドの働き。debug_port が返し、箱の出入り（debug_box.cpp）と propagate_throw が受ける。
+enum class PortAction : std::uint8_t { Go, Fail, Retry, Abort };
+
 // leashed の 1 ビットが 1 つのポート。ビットは 1 << static_cast<int>(port)。
 inline constexpr std::uint8_t kAllPorts = 0x1F;
 

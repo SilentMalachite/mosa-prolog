@@ -1,0 +1,9 @@
+?- trace, c(3).
+ Call: (1) c(3) ? 
+ Fail: (1) c(3) ? r
+ Call: (1) c(3) ? 
+ Fail: (1) c(3) ? 
+false.
+[trace] ?- notrace, nodebug.
+true.
+?- 

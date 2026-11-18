@@ -1,0 +1,12 @@
+?- spy(late/0).
+% Spy point on late/0
+true.
+[debug] ?- assertz(late).
+true.
+[debug] ?- late.
+ Call: (1) late ? l
+ Exit: (1) late ? l
+true.
+[debug] ?- nospyall, nodebug.
+true.
+?- 

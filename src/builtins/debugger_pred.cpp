@@ -285,6 +285,18 @@ bool spied(const Impl& machine, std::uint32_t module, std::uint32_t name, std::u
   });
 }
 
+// 呼び出しの鍵は spy/1 と同じ key_for で作る。置いた時と呼んだ時で引き当てがずれないように 1 つの関数にしてある。
+// 定義の前に置いたスパイポイントも、同じモジュールに定義されれば合う。名前と引数の数が合う鍵が無ければ述語を
+// 引き当てずに返す。leap は見せるゴールのたびにここを通る（ADR 0028 の 1.2 倍）。
+bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
+  const auto& spies = machine.debug.spies;
+  const bool named = std::any_of(spies.begin(), spies.end(),
+                                 [&](const SpyKey& key) { return key.name == name && key.arity == arity; });
+  if (!named) return false;
+  const SpyKey key = key_for(machine, context, name, arity);
+  return spied(machine, key.module, key.name, key.arity);
+}
+
 bool set_spy(Impl& machine, const SpyKey& key, bool on) {
   auto& spies = machine.debug.spies;
   const auto same = [&](const SpyKey& other) {

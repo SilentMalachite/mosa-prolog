@@ -8,3 +8,5 @@ double(X, Y) :- Y is X * 2.
 deep(f(f(f(f(f(f(f(f(f(f(f(a)))))))))))).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
+t(1).
+t(_) :- throw(oops).
