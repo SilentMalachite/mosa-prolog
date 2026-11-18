@@ -15,6 +15,11 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
+- How the cleanups that `a` runs behave (ADR 0028). Default A: the bindings of the moment, as a
+  query closed after its answer (B would undo to the end of Setup, as an exception does); no
+  ports; failures and errors dropped (`check_abort_cleanup_errors`); the debugger's on/off and
+  mode kept as at the `a` (`check_abort_cleanup_keeps_mode`); a `halt` in them ends the process
+  (checked by hand: `halt(3)` exits 3).
 ## Owner decisions in force
 
 - Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):
@@ -22,9 +27,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
     the on/off bit and the mode. Spy points stay.
   - `a` in an `initialization/1` goal keeps the clauses (A), also in a file a directive loaded, in
     either form. `check_abort_init` and `transcript_debug_abort_nested_*` pin it.
-  - `a` runs the cleanups that the run leaves (A, adversarial review): innermost run first, with no
-    ports, with the bindings of the moment as a closed query; failures and errors are dropped, a
-    `halt` in them ends the process. `check_abort_*cleanup` pin it; the `halt` case has no test.
+  - `a` runs the cleanups that the run leaves (A, adversarial review of PR #4), innermost run
+    first. `check_abort_cleanup`, `check_abort_nested_cleanup` and `check_abort_directive_cleanup`.
   - A cyclic term beyond `max_depth(N)` is written as `...` (A): the depth wins for lists too;
     within the depth a cycle is still `_`. The `wd_cyclic_*` rows of `tests/pl/write.pl` pin it.
 

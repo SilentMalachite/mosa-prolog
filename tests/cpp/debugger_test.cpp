@@ -3,7 +3,8 @@
 // DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと、
 // setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）、
 // a が StopKind::Abort で問い合わせを止め、デバッグの状態を変えないこと（タスク 7）、a が止める実行ごとに内側から
-// 後始末をポート無しで 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A、ADR 0028 の改訂）、
+// 後始末を 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A）と、その動かし方（ポート無し、誤りを捨てる、デバッガの
+// 状態を変えない。open-items の既定 A）、
 // 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）、利用者が Lib:G と
 // 書いたライブラリの呼び出しが 1 つの箱になること（ADR 0028 の改訂）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
@@ -361,6 +362,43 @@ void check_abort_nested_cleanup() {
                    "abort_nested_cleanup: inner then outer, once each, got [" + text + "]");
 }
 
+constexpr std::string_view k_abort_rules_program =
+    ":- dynamic(log/1).\n"
+    "t.\n"
+    "e :- setup_call_cleanup(true, setup_call_cleanup(true, setup_call_cleanup(true, t, fail), throw(oops)),\n"
+    "    assertz(log(after))).\n"
+    "d :- setup_call_cleanup(true, t, (nodebug, assertz(log(nodebug)))).\n";
+
+// abort の後始末の失敗と誤りは捨て、残りの後始末も動かして abort を続ける（既定 A、open-items）。
+void check_abort_cleanup_errors() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(k_abort_rules_program).ok, "abort_cleanup_errors: load the program");
+  mosa::engine_impl(*machine).message_lang = mosa::MessageLanguage::En;
+  Scripted script{" Call: (5) t ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query("trace, e.");
+  mosa_test::check(stop.kind == mosa::StopKind::Abort,
+                   "abort_cleanup_errors: Abort, got [" + stop_text(*machine, stop) + "], ports [" + script.text + "]");
+  const std::string text = stop_text(*machine, machine->query("nodebug, findall(X, log(X), L)."));
+  mosa_test::check(text.find("L = [after]") != std::string::npos, "abort_cleanup_errors: the rest ran, got [" + text + "]");
+}
+
+// 後始末がデバッガを切っても、abort の後のデバッガは打ったときのまま（マニュアルの「モードはそのまま」、既定 A）。
+void check_abort_cleanup_keeps_mode() {
+  auto machine = mosa::Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(machine->load_program(k_abort_rules_program).ok, "abort_keeps_mode: load the program");
+  impl.message_lang = mosa::MessageLanguage::En;
+  Scripted script{" Call: (3) t ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query("trace, d.");
+  mosa_test::check(stop.kind == mosa::StopKind::Abort, "abort_keeps_mode: Abort, ports [" + script.text + "]");
+  mosa_test::check(impl.debug_on && impl.debug.mode == mosa::DebugMode::Creep,
+                   "abort_keeps_mode: still creep after a cleanup that ran nodebug");
+  const std::string text = stop_text(*machine, machine->query("nodebug, findall(X, log(X), L)."));
+  mosa_test::check(text.find("L = [nodebug]") != std::string::npos, "abort_keeps_mode: the cleanup ran, got [" + text + "]");
+}
+
 // 指令の中の a。指令が脇に置いたスタックの後始末を動かしてから読み込みを戻す。大域変数は読み込みの巻き戻しに
 // 戻されないので、後始末が動いたことが見える。
 void check_abort_directive_cleanup() {
@@ -523,6 +561,8 @@ int main() {
   check_abort_cleanup();
   check_abort_nested_cleanup();
   check_abort_directive_cleanup();
+  check_abort_cleanup_errors();
+  check_abort_cleanup_keeps_mode();
   check_abort_init();
   check_leash_rollback();
   check_skip_dropped();

@@ -199,27 +199,33 @@ Stop close_cleanups(Impl& machine, std::size_t floor) {
   return run_loop(machine);
 }
 
-// 2026-11-18 の持ち主の決定 A。abort は答えの後に閉じる問い合わせと同じく、切って今の束縛のまま後始末を動かす。床は
+// abort が後始末を動かすのは 2026-11-18 の持ち主の決定 A、動かし方は既定 A（open-items）。答えの後に閉じる問い合わせと
+// 同じく、切って今の束縛のまま動かす。床は
 // 入れ子の run_loop（portray、with_output_to/2）の Barrier の上で、その下は外の run_loop が自分で動かすので内側が先になる。
 // 後始末はポートを出さない。打った a の後でまた止まらないためである。その失敗と誤りは捨て、abort を続ける。
 void run_abort_cleanups(Impl& machine) {
   std::size_t floor = machine.stack.size();
   while (floor > 0 && machine.stack[floor - 1].pick != Pick::Barrier) --floor;
   if (machine.pending_cleanups.empty() && !has_cleanup_entries(machine, floor)) return;
-  // 入れ子の run_loop はヒープの上限で C++ の例外を投げうる。デバッグの入り切りと abort の印は抜け方によらず戻す。
+  // abort の後もデバッガは打ったときの入り切りと進み方のまま（マニュアルの a の行）。後始末の nodebug や trace はそれを
+  // 変えない。leash とスパイポイントは、ほかのゴールが変えたときと同じく残る。入れ子の run_loop はヒープの上限で C++ の
+  // 例外を投げうるので、抜け方によらず戻す。
   class Restore {
    public:
-    explicit Restore(Impl& machine) : machine_(machine), debug_on_(machine.debug_on) {}
+    explicit Restore(Impl& machine)
+        : machine_(machine), debug_on_(machine.debug_on), mode_(machine.debug.mode) {}
     Restore(const Restore&) = delete;
     Restore& operator=(const Restore&) = delete;
     ~Restore() {
       machine_.debug_on = debug_on_;
+      machine_.debug.mode = mode_;
       machine_.abort_now = true;
     }
 
    private:
     Impl& machine_;
     bool debug_on_;
+    DebugMode mode_;
   };
   const Restore restore{machine};
   machine.abort_now = false;
