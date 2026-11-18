@@ -131,6 +131,9 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - Debugger: a `DebugExit` reached after its sentinel was cut (plan deviation 7) writes no exit port,
   since only the sentinel points at the original goal frame. Only translated code (`rt::cut_to`)
   can cut below a sentinel from inside its box, and executables have no `DebugConsole`.
+- Debugger: a goal whose context module is `system` gets no box, since that context means a goal a
+  builtin runs for itself (findall/3's answer unification and the like). So `system:Goal` written
+  by a user is not traced either.
 
 ## Not run yet
 

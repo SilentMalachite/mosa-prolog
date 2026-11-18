@@ -55,14 +55,18 @@ std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
 }
 
 // 動くときに中のゴールを訳す葉（\+ G、once(G)、call(G, ...)、M:G）なら、その G。巡回を見る Build::wraps_back が使う。
-// call/9 からは利用者の述語なので、第 1 引数はデータである。
+// call/9 からは利用者の述語なので、第 1 引数はデータである。'$not'/1 と '$once'/1 は forall/2 と setup_call_cleanup/3 が
+// 積む (\+)/1 と once/1 の別名（ADR 0028）なので同じに辿る。辿らないと、外の訳が巡回を見逃し、Cond や Setup の後で
+// 内側の別名がやっと誤りにする（iso-notes 7.3.3 の決定 A は何も動かす前）。
 std::optional<Cell> wrapped_goal(const Heap& heap, Cell cell) {
   if (cell.tag() != Tag::Str) return std::nullopt;
   const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
   if (arity == 2 && name == ":") return heap.deref(heap.arg(cell, 1));
   const bool call = name == "call" && arity <= kCallArityMax;
-  if ((arity == 1 && (name == "\\+" || name == "once")) || call) return heap.deref(heap.arg(cell, 0));
+  const bool negation = name == "\\+" || name == "$not";
+  const bool once = name == "once" || name == "$once";
+  if ((arity == 1 && (negation || once)) || call) return heap.deref(heap.arg(cell, 0));
   return std::nullopt;
 }
 

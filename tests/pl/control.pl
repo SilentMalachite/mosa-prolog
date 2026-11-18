@@ -300,6 +300,14 @@ test(m13_not_through, (X = (\+ (write(a), X)), with_output_to(atom(A), catch(X, 
 test(m13_call_n_qualified, (X = user:X, call(X, a)), error(resource_error(cyclic_term))).
 test(m13_phrase_qualified, (X = user:X, phrase(X, [])), error(resource_error(cyclic_term))).
 test(m13_cleanup_qualified, (X = user:X, setup_call_cleanup(true, X, true)), error(resource_error(cyclic_term))).
+% forall/2 と setup_call_cleanup/3 が自分のために積む '$not'/1 と '$once'/1（ADR 0028）も、巡回の確かめが辿る。何も動かす
+% 前に、forall/2 と setup_call_cleanup/3 の誤りにする（0.4.1 と同じ）。前は Cond が先に動き、文脈が (\+)/1 と once/1 になった。
+test(m13_forall_action_self, (A = call(A), forall(write(x1), A)), error(resource_error(cyclic_term))).
+test(m13_forall_action_first, (A = call(A), with_output_to(atom(Out), catch(forall(write(x1), A), error(resource_error(cyclic_term), _), true))), solutions([Out = ''])).
+test(m13_forall_action_context, (A = call(A), catch(forall(true, A), error(resource_error(cyclic_term), context(C, _)), true)), solutions([C = forall/2])).
+test(m13_cleanup_setup_self, (S = once(S), setup_call_cleanup(S, true, true)), error(resource_error(cyclic_term))).
+test(m13_cleanup_setup_context, (S = once(S), catch(setup_call_cleanup(S, true, true), error(resource_error(cyclic_term), context(C, _)), true)), solutions([C = setup_call_cleanup/3])).
+test(m13_cleanup_setup_call_context, (S = call(S), catch(setup_call_cleanup(S, true, true), error(resource_error(cyclic_term), context(C, _)), true)), solutions([C = setup_call_cleanup/3])).
 % if(C, T, E) が動くときに訳す (C *-> T ; E) から、その if/3 に戻れば巡回（持ち主の決定 A、2026-11-17、
 % iso-notes 7.3.3）。前は then の側が末尾の呼び出しになって終わらず、--heap-max でも止まらなかった。
 test(m13_if_then_self, (X = if(true, X, true), call(X)), error(resource_error(cyclic_term))).
