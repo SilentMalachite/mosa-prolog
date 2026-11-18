@@ -31,3 +31,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0025](0025-bignum-box.md) | Arbitrary-precision integers: the Big box, its IR, index key and `mosac` constants | Approved (2026-11-12) |
 | [0026](0026-goal-load-and-reexport.md) | Loading from a goal and re-export: one outer load into the context module; an export entry names the defining module | Approved (2026-11-15) |
 | [0027](0027-conditional-compilation.md) | Conditional compilation: the loader handles `if/elif/else/endif` per file; the translation load calls the conditions, and the executable evaluates them again at start-up | Approved (2026-11-16) |
+| [0028](0028-debugger-box.md) | Debugger: a sentinel, an exit frame and a copy of the goal frame make a box in `step`, only where the `mosa` session gives a `DebugConsole`; `StopKind::Abort` | Approved (2026-11-18) |

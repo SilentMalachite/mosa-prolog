@@ -938,6 +938,18 @@ Decision (2026-11-16, phase 13 design): a condition that throws fails the load. 
 
 Decision (2026-11-16, phase 13 plan): a structural error fails the load even while a part is being skipped. The structural errors are an `elif`, `else` or `endif` with no open `if`, an `elif` after `else`, and a second `else` (SPEC section 3); this holds in a block nested inside a branch not taken as well. The design did not say. If whether a wrongly closed block is seen depended on the value of a condition, a program would first break on another machine. The conditional directives are counted in every branch, skipped or not, so unlike another system's syntax (question 3) a mistake in them is seen whatever the conditions give.
 
+## Debugger (not in 13211-1)
+
+Phase 14 adds the debugger (SPEC sections 3, 6 and 7, ADR 0028): `trace/0`, `notrace/0`, `debug/0`, `nodebug/0`, `spy/1`, `nospy/1`, `nospyall/0`, `leash/1` and `debugging/0` in `system`, the ports call, exit, redo, fail and exception in `mosa`, and the option `max_depth/1` of `write_term/2,3`. 13211-1 has no debugger and no such predicates. Like any feature beyond 13211-1 they are an implementation-specific feature, which ISO (5.5) allows ("7.4.2 Other directives (`:- G`)" above says the same of directives); a strictly conforming mode would have to reject them, and no such mode is implemented.
+
+The flag `debug` (7.11.2, flag `debug`) has the values `on` and `off`, and the standard leaves its meaning to the implementation. Until phase 13 Mosa kept the value and nothing read it. From phase 14, `set_prolog_flag(debug, on)` does what `debug/0` does, and `off` what `nodebug/0` does; `current_prolog_flag(debug, V)` shows the switch. Only the number of the clause is unconfirmed: the standard's text is not in the repository and no source was read for it, so the clause is written as "7.11.2 (flag `debug`)".
+
+Question 1: whether `write_term/2,3` gets the option `max_depth(N)`. `write_term/2,3` takes only the options of ISO 8.14.2 and raises `domain_error(write_option, _)` for any other.
+
+A or B?: A: add `max_depth(N)` to the options of `write_term/2,3` (the same name as SWI-Prolog). Its meaning follows the 14 items of the suite (`lgt_write_term_3_123` to `136`), whose expectations are copied one row each into `tests/pl/write.pl`; the debugger uses the same function. The suite condition `max_depth_option_supported` stays false and the 14 items stay in their own column, because the column is chosen per directory and making the condition true would move the 14 items into the ISO column and change the denominator. B: cut the depth only inside the writer, for the port lines of the debugger, and keep `write_term/2,3` to the ISO options.
+
+Decision (2026-11-18): A (owner decision A). Accepting an option beyond ISO is a first, so it is recorded here that it falls under the implementation-specific features that ISO (5.5) allows: the meaning and the errors of the ISO options do not change, and only a name that was a `domain_error` before is now accepted. Tests: the `max_depth` rows of `tests/pl/write.pl` (phase 14 Task 3). The ISO denominator stays 2326.
+
 ## library(assoc) `del_min_assoc/4` and `del_max_assoc/4` on an empty assoc
 
 The SWI-Prolog manual (the section `assoc`, the SWI-Prolog 10.1.20 version, read on 2026-11-16) notes that on an empty assoc these two predicates succeed without binding anything. Then what the last argument, the assoc that is left, holds is not determined.
