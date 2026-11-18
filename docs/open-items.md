@@ -21,8 +21,7 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - `max_depth` (iso-notes "Debugger"). Default A: a cut part is never put in parentheses, lists
   with `ignore_ops(true)` keep the d+i-1 rule, and `quoted(true)` quotes the atom `'...'` while a
   depth is set. The `wd_minus_*`, `wd_*operator_atom_cut`, `wd_ignore_ops_*`, `wd_dots_*` rows.
-- How the cleanups that `a` runs behave (ADR 0028). Default A: the bindings of the moment, as a
-  query closed after its answer (B would undo to the end of Setup, as an exception does); no
+- How the cleanups that `a` runs behave (ADR 0028), apart from their bindings. Default A: no
   ports; failures and errors dropped (`check_abort_cleanup_errors`); the debugger's on/off and
   mode kept as at the `a` (`check_abort_cleanup_keeps_mode`); a `halt` in them ends the process
   (checked by hand: `halt(3)` exits 3).
@@ -35,6 +34,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
     either form. `check_abort_init` and `transcript_debug_abort_nested_*` pin it.
   - `a` runs the cleanups that the run leaves (A, adversarial review of PR #4), innermost run
     first. `check_abort_cleanup`, `check_abort_nested_cleanup` and `check_abort_directive_cleanup`.
+  - Those cleanups see the bindings as an exception leaves them (B): each entry is undone to its
+    marks first, so Setup's bindings show and Goal's do not, and no `catch/3` below sees their
+    errors. `check_abort_cleanup_bindings` and `check_abort_cleanup_uncaught`.
   - A cyclic term beyond `max_depth(N)` is written as `...` (A): the depth wins for lists too;
     within the depth a cycle is still `_`. The `wd_cyclic_*` rows of `tests/pl/write.pl` pin it.
 
