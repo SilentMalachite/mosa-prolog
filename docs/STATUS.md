@@ -6,8 +6,8 @@
 - **In progress:** none. Plan: `docs/superpowers/plans/2026-11-18-phase14-debugger.md`.
 - **Last done:** phase 14 Task 10 (CHANGELOG, README, iso-notes, SPEC, ADR 0028, bench), then the
   final-review fixes (header comments, duplicate spy keys, no-port goal list, write.pl row, notes).
-- **Next:** owner OK to push `phase14` and run CI on 3 OSes and GC-stress (pending); then the question
-  whether to close phase 14.
+- **Next:** fix the `n`-after-failed-load sentence (open-items "Unsure"), then owner OK to push
+  `phase14` and run CI on 3 OSes and GC-stress; then the question whether to close phase 14.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** six files (`tests.cmake` 778, `internal.hpp` 729, four C++ tests).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in

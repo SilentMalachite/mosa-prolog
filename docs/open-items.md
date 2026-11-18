@@ -144,8 +144,14 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
   `mosa < NUL` is taken for a terminal and stops at the first port. The manual's recording line uses
   a pipe (`type nul | mosa ...`). Not run on Windows yet: the quoted `-DARGS` of the transcript tests.
 - Debugger: `spy(nomod:foo/1)` raises `existence_error(module, nomod)` though the manual says a
-  Spec may name an undefined predicate. A spy placed before and after a module loads can be listed
-  twice. Notices (`% Spy point on ...`, abort) do not start on a fresh line after partial output.
+  Spec may name an undefined predicate. Notices (`% Spy point on ...`, abort) and port lines do not
+  start on a fresh line after partial output.
+- Debugger docs, to fix before merge: the sentence "a load that fails also undoes an `n`" in
+  `CHANGELOG.md` (and `.ja.md`) and `docs/manual/{en,ja}/14-reference.md` Known limits is too broad.
+  It holds when a `:- Goal` directive raises an error (checked); not when an `initialization/1`
+  goal fails (the kept load restores only `quotes` and `japanese_punct`, so the `n` stays; checked).
+  To verify: a directive that only fails. The debugger returns to its state before the load, which
+  is not always "on". Proposed: "a load that is undone also undoes an `n` typed inside it".
 - Debugger: the session-side abort branches (`-g` exit 1, init main, startup file, `:- if`
   roll-back, reconsult restore) and the mode roll-back are checked by hand, not by a C++ test.
 
