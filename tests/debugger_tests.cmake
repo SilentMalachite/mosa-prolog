@@ -30,6 +30,12 @@ add_test(NAME transcript_debug_batch COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FI
   -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_batch -DTRANSCRIPT=0 -DSPLIT=1 -DLANG_VALUE=en_US.UTF-8
   "-DARGS=tests/cpp/data/debugger/dbg.pl -g \"trace, len([a], N)\" -t halt"
   -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+# a が動かす後始末がヒープの上限で止まっても、後の指令の失敗を abort と書かない（PR #4 の 2 度目の敵対的レビュー）。
+# 指令は問い合わせと違い drop_run を通らないので、印が残ると間の指令を越えて届いた。
+add_test(NAME transcript_debug_abort_heap_limit COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_abort_heap_limit -DLANG_VALUE=en_US.UTF-8
+  "-DARGS=--heap-max 16"
+  -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # 追跡しても答えと選択点の深さが変わらず、DebugConsole の無い機械は箱を作らない（ADR 0028）。
 add_executable(debugger_test tests/cpp/debugger_test.cpp)

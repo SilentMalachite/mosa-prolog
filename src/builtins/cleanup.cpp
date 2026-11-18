@@ -8,11 +8,13 @@
 //   Setup の誤りは once/1 が出す。Cleanup の instantiation_error と type_error(callable, Cleanup)（M: を外して見る）は
 //   Setup の後で仕掛ける前、Goal の誤りは仕掛けた後に出るので、そのときは Cleanup が動く。Goal や Cleanup の M: の層、
 //   Goal の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
-// テスト: tests/pl/utilities.pl、tests/pl/cleanup_dir.pl
+// テスト: tests/pl/utilities.pl、tests/pl/cleanup_dir.pl、tests/cpp/debugger_test.cpp（デバッガの a が動かす後始末）、
+//   tests/cpp/data/debugger（transcript_debug_abort_heap_limit）
 #include "../machine/internal.hpp"
 
 #include <array>
 #include <cstdint>
+#include <exception>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -252,19 +254,25 @@ void run_abort_cleanups(Impl& machine) {
   class Restore {
    public:
     explicit Restore(Impl& machine)
-        : machine_(machine), debug_on_(machine.debug_on), mode_(machine.debug.mode) {}
+        : machine_(machine),
+          debug_on_(machine.debug_on),
+          mode_(machine.debug.mode),
+          unwinding_(std::uncaught_exceptions()) {}
     Restore(const Restore&) = delete;
     Restore& operator=(const Restore&) = delete;
     ~Restore() {
       machine_.debug_on = debug_on_;
       machine_.debug.mode = mode_;
-      machine_.abort_now = true;
+      // ヒープの上限の C++ の例外で抜けるときは、その止まり方が abort に代わるので印を立て直さない。立てると、
+      // drop_run を通らない読み込みでは印が残り、後の指令の失敗が abort と書かれた（PR #4 の 2 度目の敵対的レビュー）。
+      if (std::uncaught_exceptions() == unwinding_) machine_.abort_now = true;
     }
 
    private:
     Impl& machine_;
     bool debug_on_;
     DebugMode mode_;
+    int unwinding_;
   };
   const Restore restore{machine};
   machine.debug_on = false;

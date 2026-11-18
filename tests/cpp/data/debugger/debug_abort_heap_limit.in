@@ -1,0 +1,5 @@
+assertz(t).
+:- setup_call_cleanup(true, (trace, t), (length(L, 50000000), write(made), nl)).
+a
+:- true.
+:- fail.

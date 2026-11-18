@@ -1,0 +1,9 @@
+?- assertz(t).
+true.
+?- :- setup_call_cleanup(true, (trace, t), (length(L, 50000000), write(made), nl)).
+ Call: (1) t ? a
+The heap reached its limit (16 MiB); the query was stopped
+?- :- true.
+?- :- fail.
+directive goal failed: :-fail
+?- 

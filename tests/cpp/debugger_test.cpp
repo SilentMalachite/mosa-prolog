@@ -459,6 +459,34 @@ void check_abort_cleanup_uncaught() {
                    "abort_uncaught: no catch/3 saw the cleanup's error, got [" + text + "]");
 }
 
+// 指令の中の a の後始末がヒープの上限で止まる（C++ の例外で抜ける）。ヒープの止まり方が abort に代わるので abort_now は
+// 立たない。前は印が読み込みの後も残り、セッションは後の :- fail. を abort と書いた（PR #4 の 2 度目の敵対的レビュー。
+// その字面は transcript_debug_abort_heap_limit が見る）。問い合わせの道は drop_run が印を消すので、読み込みの道で見る。
+// 後の指令と問い合わせがふつうに動くことも見る。
+void check_abort_cleanup_heap_limit() {
+  auto machine = mosa::Machine::create(std::size_t{16} << 20);
+  auto& impl = mosa::engine_impl(*machine);
+  impl.message_lang = mosa::MessageLanguage::En;
+  mosa_test::check(machine->load_program("t.\n").ok, "abort_heap_limit: load t/0");
+  Scripted script{" Call: (1) t ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  // 上限は ResourceLimit で load_program の外へ抜ける。セッションと同じく受けてヒープを空ける（recover_heap）。
+  bool limited = false;
+  try {
+    (void)machine->load_program(":- setup_call_cleanup(true, (trace, t), (length(L, 50000000), L = [_|_])).\n");
+  } catch (const mosa::ResourceLimit&) {
+    limited = true;
+    machine->heap().truncate(0);
+  }
+  mosa_test::check(limited && script.used, "abort_heap_limit: the cleanup reached the limit, [" + script.text + "]");
+  mosa_test::check(!impl.abort_now, "abort_heap_limit: abort_now stays clear after the heap stop");
+  const mosa::LoadStatus next = machine->load_program(":- fail.\n");
+  mosa_test::check(!next.ok && next.message.find("directive goal failed") != std::string::npos,
+                   "abort_heap_limit: a later failed directive is a failure, got [" + next.message + "]");
+  mosa_test::check(machine->query("true.").kind == mosa::StopKind::Success,
+                   "abort_heap_limit: the next query is not stopped as an abort");
+}
+
 // 指令の中の a。指令が脇に置いたスタックの後始末を動かしてから読み込みを戻す。大域変数は読み込みの巻き戻しに
 // 戻されないので、後始末が動いたことが見える。
 void check_abort_directive_cleanup() {
@@ -646,6 +674,7 @@ int main() {
   check_abort_cleanup_keeps_mode();
   check_abort_cleanup_bindings();
   check_abort_cleanup_uncaught();
+  check_abort_cleanup_heap_limit();
   check_abort_init();
   check_leash_rollback();
   check_directive_nodebug_rollback();
