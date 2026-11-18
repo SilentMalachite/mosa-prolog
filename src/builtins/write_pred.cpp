@@ -680,10 +680,6 @@ std::size_t push_memory(Impl& machine) {
 
 }  // namespace write_internal
 
-namespace {
-
-}  // namespace
-
 bool run_write(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
   if (name == "write_term" && (goal.arity == 2 || goal.arity == 3)) {

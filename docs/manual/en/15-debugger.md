@@ -92,7 +92,7 @@ named `_G1`, `_G2` and so on, in the order in which they appear in that line. Th
 different name in the next line, so do not compare names between lines.
 
 A goal that your own predicates call is shown, and so is a built-in predicate such as `is/2` or `write/1`, but Mosa
-does not go inside a built-in. A call that a library predicate makes inside itself is not shown either, so `append/3`, for example, is one box, and its inner recursion is hidden, also when you write it as `lists:append(X, Y, Z)`; a goal of yours that it calls, as `maplist/2` does, is shown. Two cases stay hidden: the goals of a control construct after a library's name, as in `lists:(append(X, Y, Z), member(A, Z))`, and a goal with a library's name that a library predicate calls for you, as in `maplist(lists:append([a]), Ls, Rs)`. The control constructs (`,`, `;`, `->`, `*->`, `!`, `catch/3`) and a few other goals
+does not go inside a built-in; only a goal that you give a built-in to run, as with `findall/3`, `forall/2` or `setup_call_cleanup/3`, is shown, one level deeper. A call that a library predicate makes inside itself is not shown either, so `append/3`, for example, is one box, and its inner recursion is hidden, also when you write it as `lists:append(X, Y, Z)`; a goal of yours that it calls, as `maplist/2` does, is shown. Two cases stay hidden: the goals of a control construct after a library's name, as in `lists:(append(X, Y, Z), member(A, Z))`, and a goal with a library's name that a library predicate calls for you, as in `maplist(lists:append([a]), Ls, Rs)`. The control constructs (`,`, `;`, `->`, `*->`, `!`, `catch/3`) and a few other goals
 (`call/1` to `call/8`, `true`, `fail`, `false`, `throw/1`, `halt/0,1`, `M:Goal`, and the debugger's own predicates) have no ports of their own. `\+` has them, as a box around the goal that it negates.
 
 The lines go to the error stream, so they are not mixed with what your program writes.
@@ -303,11 +303,11 @@ commands:
 | `s` | skip: at a Call or Redo port, run the goal without stopping until the next port of this same box. At the other ports it is the same as creep. |
 | `l` | leap: run until a port of a predicate with a spy point. |
 | `f` | fail: make this goal fail, and show its Fail port. At an exception port, the goal fails without a Fail port. |
-| `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. |
+| `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. At the Call port itself, it is the same as creep. |
 | `a` | abort: stop the query. The cleanups of `setup_call_cleanup/3` that it leaves run first, with no ports. The debugger keeps its mode, so the prompt is `[trace] ?- `, `[debug] ?- ` or `?- ` as that mode says. |
 | `n` | nodebug: turn the debugger off and go on. |
 | `g` | write the open boxes, from the innermost one, with their depth, and ask again. |
-| `w` | write the goal with no depth limit, and ask again. |
+| `w` | write the goal with no depth limit (at an Exception port, and the term thrown), and ask again. |
 | `+`, `-` | put a spy point on this goal's predicate, or take it off. Ask again. |
 | `h`, `?` | write this list, and ask again. |
 

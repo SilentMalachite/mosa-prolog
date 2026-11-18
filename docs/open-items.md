@@ -173,9 +173,8 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - Debugger on Windows: `_isatty` is true for the NUL device (`src/platform/terminal.cpp:15`), so
   `mosa < NUL` is taken for a terminal and stops at the first port. The manual's recording line uses
   a pipe (`type nul | mosa ...`). Not run on Windows yet: the quoted `-DARGS` of the transcript tests.
-- Debugger: `spy(nomod:foo/1)` raises `existence_error(module, nomod)` though the manual says a
-  Spec may name an undefined predicate. Notices (`% Spy point on ...`, abort) and port lines do not
-  start on a fresh line after partial output.
+- Debugger: notices (`% Spy point on ...`, abort) and port lines do not start on a fresh line after
+  partial output.
 - Debugger: the session-side abort branches (`-g` exit 1, init main, startup file, `:- if`
   roll-back, reconsult restore) and the mode roll-back are checked by hand, not by a C++ test.
 - Debugger: in a translation load, `Abort` alone is not treated like `Halt` (`load_cond.cpp`,
@@ -248,8 +247,6 @@ Phase 13: see CHANGELOG 0.4.0, Known limits.
 
 Debugger, left from the 2026-11-18 adversarial review of PR #4 (all Low; 1–3 were fixed):
 
-- CHANGELOG ("undone, together with ... on/off switch and mode") omits the leashed ports.
-- `load.cpp` says typed choices survive a failed load; `n` and `l` do not (as documented).
 - Tests: `dbg_rollback_on` holds either way; `dbg_redefine` does not tell a missing fixture;
   transcripts merge stdout and stderr, so "port lines go to stderr" is unchecked.
 

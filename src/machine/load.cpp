@@ -66,7 +66,8 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.char_conv.enabled = saved.char_conv_on;
   machine.utf8_replace = saved.utf8_replace;
   // 入り切りと進み方は組で戻す。片方だけ戻すと、後の spy/1 が creep で動き出す（ADR 0028）。
-  // 止まるポートの組も同じ組で戻す。ファイルの中の leash/1 だけが変えられるので、対話の選択は消えない。
+  // 止まるポートの組も同じ組で戻す（持ち主の決定 B）。読み込みの中のポートで打った n と l もこの組を変えるので、
+  // それも戻る（CHANGELOG の既知の制限）。ポートのコマンドは leash を変えないので、止まるポートの組は対話では変わらない。
   machine.debug_on = saved.debug_on;
   machine.debug.mode = saved.debug_mode;
   machine.debug.leashed = saved.debug_leashed;
