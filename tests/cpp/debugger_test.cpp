@@ -6,10 +6,12 @@
 // 後始末を 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A）と、例外のときと同じ束縛で動かすこと（同じ日の決定 B）と、
 // その動かし方（ポート無し、誤りを捨てる、デバッガの状態を変えない。open-items の既定 A）、
 // 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）、利用者が Lib:G と
-// 書いたライブラリの呼び出しが 1 つの箱になること（ADR 0028 の改訂）。
+// 書いたライブラリの呼び出しが 1 つの箱になること（ADR 0028 の改訂）、デバッガの述語の節は permission_error で読み込みを
+// 止めること（SPEC 第5節）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
 #include "harness.hpp"
 
+#include "machine/builtin_api.hpp"
 #include "machine/internal.hpp"
 #include "mosa/machine.hpp"
 
@@ -303,6 +305,32 @@ void check_library_redefine() {
   mosa_test::check(!is_library("lists"), "library_redefine: the mark is gone after the redeclaration");
 }
 
+// デバッガの 9 つの述語は system の述語なので、利用者の節は permission_error で読み込みを止める（SPEC 第5節）。
+// tests/pl/debugger.pl の dbg_redefine は consult の失敗しか見ないので、誤りの形はここで見る（PR #4 の 2 度目の
+// 敵対的レビュー）。
+void check_redefine_permission() {
+  struct Case {
+    std::string_view clause;
+    std::string_view indicator;
+  };
+  constexpr std::array<Case, 9> cases{{{"trace.", "trace/0"},
+                                       {"notrace.", "notrace/0"},
+                                       {"debug.", "debug/0"},
+                                       {"nodebug.", "nodebug/0"},
+                                       {"spy(_).", "spy/1"},
+                                       {"nospy(_).", "nospy/1"},
+                                       {"nospyall.", "nospyall/0"},
+                                       {"leash(_).", "leash/1"},
+                                       {"debugging.", "debugging/0"}}};
+  for (const Case& item : cases) {
+    auto machine = mosa::Machine::create();
+    const mosa::LoadStatus status = machine->load_program(std::string{item.clause} + "\n");
+    const std::string want = "permission_error(modify,static_procedure," + std::string{item.indicator} + ")";
+    mosa_test::check(!status.ok && status.message.find(want) != std::string::npos,
+                     "redefine_permission: " + std::string{item.clause} + " got [" + status.message + "]");
+  }
+}
+
 // タスク 7。呼出のポートの a で問い合わせは Abort で止まり、デバッグの状態は変えない。印は次の問い合わせの
 // drop_run が消す。その前の load_program の指令は、残った印で止まらない（HaltSetAside が脇に置く）。
 void check_abort_stop() {
@@ -457,6 +485,24 @@ void check_abort_cleanup_uncaught() {
       abort_log("abort_uncaught", "trace, c", " Call: (3) t ? ", "nodebug, findall(X, log(X), L)");
   mosa_test::check(text.find("L = []") != std::string::npos,
                    "abort_uncaught: no catch/3 saw the cleanup's error, got [" + text + "]");
+}
+
+// カットが積んだまま abort に会った後始末（pending_cleanups）も動かす。解釈する節では、積んだ歩みの後、次のポートの
+// 歩みより前に settle_cleanups が動かすので、ポートの a はこの枝に届かない。だから機械に直接積んで呼ぶ（PR #4 の 2 度目の
+// 敵対的レビュー）。枝を外すと、積んだ後始末は捨てられ log(cut) が残らない。
+void check_abort_pending_cleanup() {
+  auto machine = mosa::Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(machine->load_program(":- dynamic(log/1).\n").ok, "abort_pending: load");
+  const std::array<mosa::Cell, 1> cut{impl.heap.atom(impl.atoms.intern("cut"))};
+  const std::array<mosa::Cell, 1> logged{impl.heap.structure(impl.atoms.intern("log"), cut)};
+  const mosa::Cell goal = impl.heap.structure(impl.atoms.intern("assertz"), logged);
+  impl.pending_cleanups.push_back(mosa::PendingCleanup{goal, impl.user_module});
+  mosa::run_abort_cleanups(impl);
+  mosa_test::check(impl.pending_cleanups.empty() && impl.abort_now, "abort_pending: taken, and the abort goes on");
+  const mosa::Stop got = machine->query("log(X).");
+  const std::string text = stop_text(*machine, got);
+  mosa_test::check(text.find("X = cut") != std::string::npos, "abort_pending: the cleanup ran, got [" + text + "]");
 }
 
 // 指令の中の a の後始末がヒープの上限で止まる（C++ の例外で抜ける）。ヒープの止まり方が abort に代わるので abort_now は
@@ -666,6 +712,7 @@ int main() {
   check_exception_fail_cleanup();
   check_exception_retry_cleanup();
   check_library_redefine();
+  check_redefine_permission();
   check_abort_stop();
   check_abort_cleanup();
   check_abort_nested_cleanup();
@@ -675,6 +722,7 @@ int main() {
   check_abort_cleanup_bindings();
   check_abort_cleanup_uncaught();
   check_abort_cleanup_heap_limit();
+  check_abort_pending_cleanup();
   check_abort_init();
   check_leash_rollback();
   check_directive_nodebug_rollback();
