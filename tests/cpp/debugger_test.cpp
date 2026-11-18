@@ -300,6 +300,19 @@ void check_abort_init() {
                    "abort_init: clauses kept, no later init, got [" + stop_text(*machine, kept) + "]");
 }
 
+// コントローラの裁定 16。skip のまま捨てた問い合わせの skip_box はもうポートを出さない。次の問い合わせの drop_run
+// が creep に戻さないと、次の trace まで箱が 1 つも作られない。
+void check_skip_dropped() {
+  auto machine = make_machine();
+  auto& impl = mosa::engine_impl(*machine);
+  impl.debug_on = true;
+  impl.debug.mode = mosa::DebugMode::Skip;
+  impl.debug.skip_box = 7;
+  mosa_test::check(machine->query("true.").kind == mosa::StopKind::Success, "skip_dropped: the query succeeds");
+  mosa_test::check(impl.debug.mode == mosa::DebugMode::Creep && impl.debug.skip_box == 0,
+                   "skip_dropped: drop_run returns skip to creep");
+}
+
 }  // namespace
 
 int main() {
@@ -312,5 +325,6 @@ int main() {
   check_abort_stop();
   check_abort_cleanup();
   check_abort_init();
+  check_skip_dropped();
   return mosa_test::failures() == 0 ? 0 : 1;
 }
