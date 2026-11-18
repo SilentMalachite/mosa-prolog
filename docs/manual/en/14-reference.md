@@ -754,6 +754,7 @@ or removed. Among them:
 - A program that `mosac build` makes shows no ports. `trace` and the others only change the state, and
   `mosac build --debug` (a trace of clauses, chapter 13) is a different thing. `mosatest` and an embedded `Machine` have no console either, so the debugger predicates only change state there.
 - A grammar rule that `phrase/2,3` calls shows the unifications of the translated body, as in `[a,a]=[a|_G1]`.
+- `a` typed at a port inside a cleanup of `setup_call_cleanup/3` that is running stops that cleanup and the cleanups that the same cut runs after it.
 - A goal that you write as `system:Goal`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced. Your own goals that a library predicate calls, as `maplist/2` does, are traced, and so is a single goal that you write with a library's name, as `lists:append(X, Y, Z)`; the goals of a control construct after `lists:` and a `lists:` goal that a library predicate calls for you are not.
 - On Windows, a `mosa` whose input is the `NUL` device is taken for a terminal and stops at the first port, so
   record a run through a pipe (chapter 15).

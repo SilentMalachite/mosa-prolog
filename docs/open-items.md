@@ -129,8 +129,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 Near the 800-line limit (`wc -l`, 2026-11-18):
 
-- `tests/tests.cmake` (778)
-- `src/machine/internal.hpp` (729)
+- `tests/tests.cmake` (784; grew by the `debugger_scale` test before it was split)
+- `src/machine/internal.hpp` (732)
 - `tests/cpp/session_test.cpp` (796)
 - `tests/cpp/stream_test.cpp` (785)
 - `tests/cpp/conformance_io_test.cpp` (781)
@@ -152,6 +152,9 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - Debugger: a `DebugExit` reached after its sentinel was cut (plan deviation 7) writes no exit port,
   since only the sentinel points at the original goal frame. Only translated code (`rt::cut_to`)
   can cut below a sentinel from inside its box, and executables have no `DebugConsole`.
+- Debugger: an `a` typed in a cleanup that a cut or a closing query is running stops the cleanups
+  chained after it from the same cut (they are frames in the continuation, not entries any more);
+  in `r :- p, q, !.`, aborting in `q`'s cleanup skips `p`'s.
 - Debugger: `Lib:G` from a non-library context gets a box only when `G` is one goal (`run_qualify`
   opens it, since later steps no longer know the caller). `lists:(G1, G2)` and a `lists:` closure
   that a library predicate calls (`maplist(lists:append([a]), Ls, Rs)`) stay hidden.
@@ -233,6 +236,18 @@ Phase 12 (CHANGELOG 0.3.0, Known limits):
   it from the working directory.
 
 Phase 13: see CHANGELOG 0.4.0, Known limits.
+
+Debugger, left from the 2026-11-18 adversarial review of PR #4 (all Low; 1–3 were fixed):
+
+- `spy/1` accepts goals that have no port (`true/0`, `','/2`, `call/1`) and says it set them.
+- `spy([])` and a `spy(foo)` that set nothing still turn the debugger on.
+- `debugging/0` writes names unquoted and without module (`a, b/1` for `'a, b'/1`).
+- CHANGELOG ("undone, together with ... on/off switch and mode") omits the leashed ports.
+- `load.cpp` says typed choices survive a failed load; `n` and `l` do not (as documented).
+- `max_depth`: `-(1)` and `- a` cut differently; `ignore_ops(true)` lists count depth per cell;
+  the atom `'...'` reads like a cut. Leap runs `find_module` before the cheap spy check.
+- Tests: `dbg_rollback_on` holds either way; `dbg_redefine` does not tell a missing fixture;
+  transcripts merge stdout and stderr, so "port lines go to stderr" is unchecked.
 
 ## Tests
 
