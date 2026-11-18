@@ -311,9 +311,12 @@ elseif(CASE STREQUAL "cond_after_late")
     fail("a clause apart after a block, apart at start-up too")
   endif()
 elseif(CASE STREQUAL "debugger_state")
-  # 実行ファイルにはデバッガの口が無いので、述語は状態を変えるだけで、ポートの行は出ない。標準エラーは
-  # debugging/0 と知らせが書くので比べない（ADR 0028）。
-  if(NOT code EQUAL 0 OR NOT out STREQUAL "1\noff\n")
+  # 実行ファイルにはデバッガの口が無いので、述語は状態を変えるだけで、ポートの行は出ない（ADR 0028）。標準エラーには
+  # spy/1 の知らせと debugging/0 の 3 行だけが出る。ポートの行が混ざれば違う字面になる（PR #4 の敵対的レビュー）。
+  # LANG は上の ja_JP.UTF-8 なので、文面は messages_ja のもの。
+  set(expected_err "% p/1 にスパイポイントを置きました\n% デバッグ: 切り\n% スパイポイント: p/1\n")
+  string(APPEND expected_err "% 止まるポート: call exit redo fail exception\n")
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "1\noff\n" OR NOT err STREQUAL expected_err)
     fail("the debugger predicates only change state in a standalone executable")
   endif()
 elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")

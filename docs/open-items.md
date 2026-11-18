@@ -108,12 +108,10 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - codegen's per-clause 16-bit resume limit and the close failures of `mosac emit` have no test.
 - Debugger test gaps from the 2026-11-18 review (next test task, one at a time): a leap transcript
   for each `spy/1` form other than `Name/Arity` (bare name, list, qualified — `tests/pl/debugger.pl`
-  only sees them succeed); a multibyte unknown port command (`first_char` in `debug_port.cpp`); a
-  C++ check that a failed load rolls the mode back (the leashed set is pinned by
-  `check_leash_rollback`); the leash exception bit, `+exit` after `-exit`, and `leash([])`;
+  only sees them succeed); a multibyte unknown port command (`first_char` in `debug_port.cpp`);
+  the leash exception bit, `+exit` after `-exit`, and `leash([])`;
   degenerate command-at-port pairs (`s` at
-  Redo, `f` at Fail, `r` at Call, `w` at Exception, an uncaught exception under trace); a negative
-  check that standalone executables write no port lines to stderr; `check_skip_dropped` through a
+  Redo, `f` at Fail, `r` at Call, `w` at Exception, an uncaught exception under trace); `check_skip_dropped` through a
   scripted `s` instead of injected state. The `.out` port sequences also have no oracle outside the
   implementation and the manual's checked examples.
 
@@ -176,7 +174,8 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
 - Debugger: notices (`% Spy point on ...`, abort) and port lines do not start on a fresh line after
   partial output.
 - Debugger: the session-side abort branches (`-g` exit 1, init main, startup file, `:- if`
-  roll-back, reconsult restore) and the mode roll-back are checked by hand, not by a C++ test.
+  roll-back, reconsult restore) are checked by hand, not by a C++ test (the mode roll-back has
+  `check_directive_nodebug_rollback`).
 - Debugger: in a translation load, `Abort` alone is not treated like `Halt` (`load_cond.cpp`,
   `forget_failure` keeps `abort_now`). Unreachable today, since no translation has a console; noted
   by the 2026-11-18 review as a latent asymmetry, not fixed.
@@ -244,11 +243,6 @@ Phase 12 (CHANGELOG 0.3.0, Known limits):
   it from the working directory.
 
 Phase 13: see CHANGELOG 0.4.0, Known limits.
-
-Debugger, left from the 2026-11-18 adversarial review of PR #4 (all Low; 1–3 were fixed):
-
-- Tests: `dbg_rollback_on` holds either way; `dbg_redefine` does not tell a missing fixture;
-  transcripts merge stdout and stderr, so "port lines go to stderr" is unchecked.
 
 ## Tests
 

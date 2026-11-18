@@ -448,6 +448,27 @@ void check_leash_rollback() {
   mosa_test::check(kept.ok && impl.debug.leashed == 0x00, "leash_rollback: a good load keeps the change");
 }
 
+// 失敗した :- Goal の指令の中で打った n は、読み込みの巻き戻しで取り消される（CHANGELOG の既知の制限、持ち主の決定 B）。
+// 対照に、同じ n を成功する指令の中で打てば残ることを見る。
+bool nodebug_in_directive(std::string_view label, std::string_view text, bool& loaded) {
+  auto machine = make_machine();
+  const auto& impl = mosa::engine_impl(*machine);
+  Scripted script{" Call: (1) dbg_t ? ", "n", {}, {}, false};
+  give_script(*machine, script);
+  mosa_test::check(machine->query("trace.").kind == mosa::StopKind::Success, std::string{label} + ": trace");
+  loaded = machine->load_program(text).ok;
+  mosa_test::check(script.used, std::string{label} + ": n was typed, [" + script.text + "]");
+  return impl.debug_on && impl.debug.mode == mosa::DebugMode::Creep;
+}
+
+void check_directive_nodebug_rollback() {
+  bool loaded = true;
+  const bool undone = nodebug_in_directive("nodebug_rollback", "dbg_t.\n:- dbg_t, fail.\n", loaded);
+  mosa_test::check(!loaded && undone, "nodebug_rollback: a failed directive undoes n");
+  const bool kept_on = nodebug_in_directive("nodebug_kept", "dbg_t.\n:- dbg_t.\n", loaded);
+  mosa_test::check(loaded && !kept_on, "nodebug_kept: n stays after a good load");
+}
+
 // コントローラの裁定 16。skip のまま捨てた問い合わせの skip_box はもうポートを出さない。次の問い合わせの drop_run
 // が creep に戻さないと、次の trace まで箱が 1 つも作られない。
 void check_skip_dropped() {
@@ -565,6 +586,7 @@ int main() {
   check_abort_cleanup_keeps_mode();
   check_abort_init();
   check_leash_rollback();
+  check_directive_nodebug_rollback();
   check_skip_dropped();
   check_spy_before_load();
   check_spy_twice_one_key();

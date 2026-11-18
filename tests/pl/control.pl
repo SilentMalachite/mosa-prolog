@@ -308,6 +308,9 @@ test(m13_forall_action_context, (A = call(A), catch(forall(true, A), error(resou
 test(m13_cleanup_setup_self, (S = once(S), setup_call_cleanup(S, true, true)), error(resource_error(cyclic_term))).
 test(m13_cleanup_setup_context, (S = once(S), catch(setup_call_cleanup(S, true, true), error(resource_error(cyclic_term), context(C, _)), true)), solutions([C = setup_call_cleanup/3])).
 test(m13_cleanup_setup_call_context, (S = call(S), catch(setup_call_cleanup(S, true, true), error(resource_error(cyclic_term), context(C, _)), true)), solutions([C = setup_call_cleanup/3])).
+% '$once'/1 と '$not'/1 は 0.4.1 では利用者が定義できたが、今は制御構文が使う組込なので節を拒む（CHANGELOG の Changed）。
+test(dbg_once_reserved, assertz('$once'(1)), error(permission_error(modify, static_procedure, '$once'/1))).
+test(dbg_not_reserved, assertz('$not'(1)), error(permission_error(modify, static_procedure, '$not'/1))).
 % if(C, T, E) が動くときに訳す (C *-> T ; E) から、その if/3 に戻れば巡回（持ち主の決定 A、2026-11-17、
 % iso-notes 7.3.3）。前は then の側が末尾の呼び出しになって終わらず、--heap-max でも止まらなかった。
 test(m13_if_then_self, (X = if(true, X, true), call(X)), error(resource_error(cyclic_term))).

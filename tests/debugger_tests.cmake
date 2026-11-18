@@ -20,8 +20,9 @@ foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_i
     -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endforeach()
 # 端末でない mosa はコマンドを読まず、どのポートも止まらない行として書く（MOSA_TRANSCRIPT なし、設計の「コマンド」）。
+# ポートの行は stderr、答えは stdout に出るので、分けて比べる（SPLIT=1）。
 add_test(NAME transcript_debug_batch COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
-  -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_batch -DTRANSCRIPT=0 -DLANG_VALUE=en_US.UTF-8
+  -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_batch -DTRANSCRIPT=0 -DSPLIT=1 -DLANG_VALUE=en_US.UTF-8
   "-DARGS=tests/cpp/data/debugger/dbg.pl -g \"trace, len([a], N)\" -t halt"
   -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 

@@ -3,10 +3,13 @@
 # 突き合わせるので、その二つが同じになることを確かめる。期待値は macOS の script(1) で端末の表示を記録し、\r と
 # 端末が映す ^D を除いたもの。入力の終わりで mosa は何も足さず、出力は最後の促し "?- "（改行なし）で終わる。
 # 使い方: cmake -DMOSA=<mosa> -DDATA=<tests/cpp/data/transcript> -DCASE=<名前> -DLANG_VALUE=<LANG> [-DPROGRAM=<.pl>]
-#   [-DARGS=<引数>] [-DTRANSCRIPT=0] -P transcript_test.cmake
+#   [-DARGS=<引数>] [-DTRANSCRIPT=0] [-DSPLIT=1] -P transcript_test.cmake
 # PROGRAM があれば mosa の引数にして先に読ませる（フェーズ 14 のデバッガの場合。tests/cpp/data/debugger）。
 # ARGS があれば PROGRAM の代わりに mosa の引数にする。シェルと同じく空白で区切り、"..." は 1 つの引数にする。
 # TRANSCRIPT=0 なら MOSA_TRANSCRIPT を 1 にせず、端末でない標準入力のまま動かす（端末でない mosa のデバッガ）。
+# SPLIT=1 なら stdout を <CASE>.out と、stderr を <CASE>.err と別々に比べる。デバッガのポートの行が stderr に出て、
+# プログラムの出力と混ざらないことを見る（PR #4 の敵対的レビュー）。マニュアルの検査は一つにした出力を見るので、
+# ほかの場合は今までどおり一つにして比べる。
 
 set(program_args)
 if(DEFINED ARGS)
@@ -34,6 +37,26 @@ function(run_mosa transcript out_var code_var)
   set(${out_var} "${merged}" PARENT_SCOPE)
   set(${code_var} "${code}" PARENT_SCOPE)
 endfunction()
+
+if(SPLIT)
+  set(ENV{MOSA_TRANSCRIPT} "${transcript_value}")
+  set(ENV{LANG} "${LANG_VALUE}")
+  execute_process(COMMAND "${MOSA}" ${program_args}
+    INPUT_FILE "${DATA}/${CASE}.in"
+    OUTPUT_VARIABLE out
+    ERROR_VARIABLE err
+    RESULT_VARIABLE code
+    TIMEOUT 20 ENCODING UTF-8)
+  foreach(stream out err)
+    string(REPLACE "\r" "" ${stream} "${${stream}}")
+    file(READ "${DATA}/${CASE}.${stream}" expected)
+    string(REPLACE "\r" "" expected "${expected}")
+    if(NOT code EQUAL 0 OR NOT "${${stream}}" STREQUAL expected)
+      message(FATAL_ERROR "${CASE} (${stream}): code=${code}\nexpected=[${expected}]\nactual=[${${stream}}]")
+    endif()
+  endforeach()
+  return()
+endif()
 
 run_mosa(${transcript_value} actual code)
 file(READ "${DATA}/${CASE}.out" expected)
