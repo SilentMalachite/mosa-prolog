@@ -283,6 +283,8 @@ struct SavedExec {
   // 入れ子は空のスタックから積むので、Catch と節の走査の位置が外と重なる。記録もスタックと一緒に退避する。
   std::vector<CatchRecord> catch_log;
   std::vector<ScanRecord> scan_log;
+  // 脇に置いたスタックの開いている箱。指令の中では、その中で開いた箱だけを数える（ADR 0028）。
+  std::vector<OpenBox> open_boxes;
   // 脇に置いた stack と scan_log の要素の数の最高。戻したときに数え直す（ADR 0010 の改訂 3）。
   CountedVectors counted;
   std::size_t extras_mark = 0;
@@ -305,6 +307,7 @@ SavedExec park_exec(Impl& machine) {
   saved.stack.swap(machine.stack);
   saved.catch_log.swap(machine.catch_log);
   saved.scan_log.swap(machine.scan_log);
+  saved.open_boxes.swap(machine.debug.open_boxes);
   // 脇に置いたスタックは数えない（ADR 0010 の改訂 3）。指示の間の機械のベクタだけを数える。
   saved.counted = machine.counted_vectors;
   mark_parked_vectors(machine, 0, 0);
@@ -354,6 +357,7 @@ void unpark_exec(Impl& machine, SavedExec& saved, bool keep_halt) {
   machine.stack.swap(saved.stack);
   machine.catch_log.swap(saved.catch_log);
   machine.scan_log.swap(saved.scan_log);
+  machine.debug.open_boxes.swap(saved.open_boxes);
   mark_parked_vectors(machine, std::max(saved.counted.stack, machine.stack.size()),
                       std::max(saved.counted.scan_log, machine.scan_log.size()));
   machine.trail.mark = saved.trail_mark;

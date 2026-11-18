@@ -1,6 +1,7 @@
 // PR #4 の敵対的レビュー（ADR 0028）。トレースとスパイポイントの leap で、再帰の時間が回数に比例する範囲（4 倍の回数で
-// 8 倍 + 30 ms）に収まること。ポートの行の深さをポートのたびにスタックの箱を数え直して出すと、末尾呼び出しでも残る箱の
-// 数だけかかり、回数の 2 乗になる（手元で leap の cnt(40000) が 2.8 秒）。ポートの行は書くだけで止まらない口に渡す。
+// 8 倍 + 30 ms）に収まること。選択点を残す再帰の中のスパイポイントも同じ。ポートの行の深さをポートのたびにスタックの
+// 箱を数え直して出すと、末尾呼び出しでも残る箱の数だけかかり、回数の 2 乗になる（手元で leap の cnt(40000) が 2.8 秒）。
+// ポートの行は書くだけで止まらない口に渡す。
 #include "harness.hpp"
 
 #include "machine/internal.hpp"
@@ -19,12 +20,15 @@
 
 namespace {
 
-// cnt/1 は末尾再帰、len/2 は末尾でない再帰。リストはトレースの前に作る。
+// cnt/1 は末尾再帰、len/2 は末尾でない再帰。リストはトレースの前に作る。gen/1 は段ごとに選択点を 1 つ残して t を呼ぶ。
 constexpr std::string_view k_program =
     "cnt(0) :- !.\n"
     "cnt(K) :- K1 is K - 1, cnt(K1).\n"
     "len([], 0).\n"
-    "len([_|T], N) :- len(T, M), N is M + 1.\n";
+    "len([_|T], N) :- len(T, M), N is M + 1.\n"
+    "t.\n"
+    "gen(0) :- !.\n"
+    "gen(K) :- (t ; true), K1 is K - 1, gen(K1).\n";
 
 constexpr int k_runs = 2;
 constexpr double k_slack_ms = 30.0;
@@ -85,5 +89,8 @@ int main() {
   check_linear("trace, non-tail recursion", "true.", "length(L, N), trace, len(L, _).", 5000);
   // spy/1 の知らせは user_error に書くので、測る前に 1 回だけ置く。
   check_linear("leap to a spied tail recursion", "spy(cnt/1).", "cnt(N).", 5000);
+  // leap では箱が少ない。箱を開くたびに一番近い開いた箱をスタックの下へ探すと、選択点の数だけかかる（PR #4 の 2 度目の
+  // 敵対的レビュー。手元で gen(80000) が gen(20000) の 16.6 倍）。
+  check_linear("leap to a spied call under choice points", "spy(t/0).", "gen(N).", 5000);
   return mosa_test::failures();
 }

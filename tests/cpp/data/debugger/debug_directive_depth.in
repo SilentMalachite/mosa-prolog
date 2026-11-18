@@ -1,0 +1,9 @@
+trace, findall(x, (consult('tests/cpp/data/debugger/load.pl'), dbg_init), _).
+
+
+
+
+
+
+
+

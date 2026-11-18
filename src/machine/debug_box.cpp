@@ -54,6 +54,13 @@ bool box_at(const Impl& machine, std::size_t box_index, std::uint64_t number) {
          machine.stack[box_index].next == number;
 }
 
+// 開いた（開き直した）番兵を open_boxes に積む。それより上の行の箱は、番兵より上が切られた後なのでもう無い。
+void note_open(Impl& machine, std::size_t box_index) {
+  std::vector<OpenBox>& boxes = machine.debug.open_boxes;
+  while (!boxes.empty() && boxes.back().index >= box_index) boxes.pop_back();
+  boxes.push_back(OpenBox{box_index, machine.stack[box_index].next});
+}
+
 // 元の枠の語 3 だけを出口の枠にした写し。継続は Goal の値ではなく枠の語 3 から読み直される所がある（節に入るとき、
 // 節と非決定的な組込のやり直し）ので、写しの語 3 を替える。元の枠は書き換えない。repeat と \+ が同じ枠を動かし直す
 // とき、古い出口の枠を指したまま残らないようにするため。
@@ -85,6 +92,7 @@ bool reopen_box(Impl& machine, std::size_t box_index) {
   Entry& box = machine.stack[box_index];
   box.cond_ok = false;
   box.armed = true;
+  note_open(machine, box_index);
   apply_catches(machine, box);
   run_boxed(machine, box_index);
   return true;
@@ -116,6 +124,10 @@ bool redo_box(Impl& machine) {
     restore_state(machine, next.heap_mark, next.trail_mark, next.extras_mark);
   }
   for (const std::size_t index : boxes) machine.stack[index].armed = true;
+  // 表は下から順なので、添字の小さい（外の）箱から積む。
+  std::vector<std::size_t> rising = boxes;
+  std::sort(rising.begin(), rising.end());
+  for (const std::size_t index : rising) note_open(machine, index);
   // r か f で切ったら、内の箱はもう無いので、残りの再試行のポートは出さない。a はバックトラックごと止める。
   for (const std::size_t index : boxes) {
     const PortAction action = debug_port(machine, DebugPort::Redo, index, nullptr);
@@ -144,11 +156,16 @@ bool fail_box(Impl& machine) {
 // 外の開いている箱の深さに 1 を足す。箱の外側の開いている箱は、その箱が開いている間は変わらない（中の箱が先に抜け、
 // 外の箱を開き直すバックトラックは先に中の番兵を外す）。だから開くときに 1 度だけ決めて番兵に持つ。ポートのたびに
 // 数え直すと、末尾呼び出しでも残る箱の数だけかかり、トレースが回数の 2 乗になる（PR #4 の敵対的レビュー）。
-// 指令は外のスタックを脇に置くので、指令の中ではその中で開いた箱だけを数える。
-std::size_t open_depth(const Impl& machine) {
-  for (std::size_t index = machine.stack.size(); index-- > 0;) {
-    const Entry& entry = machine.stack[index];
-    if (entry.pick == Pick::DebugBox && entry.armed) return entry.cursor + 1;
+// 一番近い開いた箱は DebugState::open_boxes の一番上から引く。もう開いていない行は捨てるので、捨てる数は積んだ数を
+// 越えない。指令は外のスタックとこの表を脇に置くので、指令の中ではその中で開いた箱だけを数える。
+std::size_t open_depth(Impl& machine) {
+  std::vector<OpenBox>& boxes = machine.debug.open_boxes;
+  while (!boxes.empty()) {
+    const OpenBox& top = boxes.back();
+    if (box_at(machine, top.index, top.number) && machine.stack[top.index].armed) {
+      return machine.stack[top.index].cursor + 1;
+    }
+    boxes.pop_back();
   }
   return 1;
 }
@@ -210,6 +227,7 @@ void open_box(Impl& machine, const Goal& goal) {
   box.heap_mark = machine.heap.size();
   box.trail_mark = machine.trail.slots.size();
   push_frame(machine, std::move(box));
+  note_open(machine, machine.stack.size() - 1);
   run_boxed(machine, machine.stack.size() - 1);
 }
 

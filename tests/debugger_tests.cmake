@@ -7,7 +7,7 @@
 foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
-    help eof)
+    directive_depth help eof)
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
   if(debug_case STREQUAL "creep_ja")

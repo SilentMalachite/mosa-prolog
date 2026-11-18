@@ -1,0 +1,11 @@
+?- trace, findall(x, (consult('tests/cpp/data/debugger/load.pl'), dbg_init), _).
+ Call: (1) findall(x,(consult('tests/cpp/data/debugger/load.pl'),dbg_init),_G1) ? 
+ Call: (2) consult('tests/cpp/data/debugger/load.pl') ? 
+ Call: (1) dbg_init ? 
+ Exit: (1) dbg_init ? 
+ Exit: (2) consult('tests/cpp/data/debugger/load.pl') ? 
+ Call: (2) dbg_init ? 
+ Exit: (2) dbg_init ? 
+ Exit: (1) findall(x,(consult('tests/cpp/data/debugger/load.pl'),dbg_init),[x]) ? 
+true.
+[trace] ?- 
