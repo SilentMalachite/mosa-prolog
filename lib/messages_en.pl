@@ -184,3 +184,6 @@ message(debug_port_fail, 'Fail').
 message(debug_port_exception, 'Exception').
 % デバッガの a で問い合わせを止めたときの知らせ（ADR 0028）。
 message(debug_aborted, '% Execution aborted').
+% 止まったポートの h と ? が書くコマンドの一覧（1 行に 1 つ）と、知らない入力の知らせ。~w は打った最初の字。
+message(debug_help, 'c, Enter  creep: stop at the next port~ns         skip: at Call and Redo, do not stop until the next port of this call~nl         leap: do not stop until a port of a spy point~nf         fail: make this call fail~nr         retry: go back to the Call port of this call~na         abort: stop the query~nn         nodebug: switch debugging off and go on~ng         goals: write the open calls, innermost first~nw         write: write the goal without the depth limit~n+, -      spy: place or remove a spy point on this predicate~nh, ?      help: write this list').
+message(debug_unknown_command, 'Unknown command: ~w (h for help)').

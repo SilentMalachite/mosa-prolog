@@ -1,0 +1,11 @@
+?- trace, deep(X).
+ Call: (1) deep(_G1) ? 
+ Exit: (1) deep(f(f(f(f(f(f(f(f(f(...)))))))))) ? w
+deep(f(f(f(f(f(f(f(f(f(f(f(a))))))))))))
+ Exit: (1) deep(f(f(f(f(f(f(f(f(f(...)))))))))) ? 
+X = f(f(f(f(f(f(f(f(f(f(f(a))))))))))).
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+?- 

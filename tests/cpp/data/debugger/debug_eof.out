@@ -1,0 +1,4 @@
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? 
+N = 1.
+?- 

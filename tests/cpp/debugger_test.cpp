@@ -2,7 +2,8 @@
 // 決定的な問い合わせの後に番兵が残らないこと（has_more は箱の選択点を数えないので、; の問いでは見つからない）、
 // DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと、
 // setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）、
-// a が StopKind::Abort で問い合わせを止め、後始末を動かさず、デバッグの状態を変えないこと（タスク 7）。
+// a が StopKind::Abort で問い合わせを止め、後始末を動かさず、デバッグの状態を変えないこと（タスク 7）、
+// 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
 #include "harness.hpp"
 
@@ -313,6 +314,26 @@ void check_skip_dropped() {
                    "skip_dropped: drop_run returns skip to creep");
 }
 
+// コントローラの裁定 17。読み込む前に置いたスパイポイントは (user, append, 3) で覚えられ、use_module の後の呼び出しは
+// (lists, append, 3) に引き当たる。置いた鍵を今引き直して合わせるので、leap はその呼び出しで止まる。nospy/1 も
+// 同じ引き直しで外す。
+void check_spy_before_load() {
+  auto machine = mosa::Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  impl.message_lang = mosa::MessageLanguage::En;
+  Console console;
+  give_console(*machine, console);
+  mosa_test::check(machine->query("spy(append/3).").kind == mosa::StopKind::Success, "spy_before_load: spy");
+  mosa_test::check(machine->query("use_module(library(lists)).").kind == mosa::StopKind::Success,
+                   "spy_before_load: use_module");
+  const mosa::Stop stop = machine->query("append([a], [b], L).");
+  mosa_test::check(stop.kind == mosa::StopKind::Success, "spy_before_load: append succeeds");
+  mosa_test::check(console.text.find(" Call: (1) append([a],[b],_G1) ? ") != std::string::npos,
+                   "spy_before_load: leap stops at append, [" + console.text + "]");
+  mosa_test::check(machine->query("nospy(append/3).").kind == mosa::StopKind::Success, "spy_before_load: nospy");
+  mosa_test::check(impl.debug.spies.empty(), "spy_before_load: nospy removes the early spy point");
+}
+
 }  // namespace
 
 int main() {
@@ -326,5 +347,6 @@ int main() {
   check_abort_cleanup();
   check_abort_init();
   check_skip_dropped();
+  check_spy_before_load();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

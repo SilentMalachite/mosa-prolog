@@ -185,3 +185,6 @@ message(debug_port_fail, '失敗').
 message(debug_port_exception, '例外').
 % デバッガの a で問い合わせを止めたときの知らせ（ADR 0028）。
 message(debug_aborted, '% 実行を中断しました').
+% 止まったポートの h と ? が書くコマンドの一覧（1 行に 1 つ）と、知らない入力の知らせ。~w は打った最初の字。
+message(debug_help, 'c、Enter  creep: 次のポートで止まる~ns         skip: 呼出と再試行では、この呼び出しの次のポートまで止まらない~nl         leap: スパイポイントの述語のポートまで止まらない~nf         fail: この呼び出しを失敗させる~nr         retry: この呼び出しの呼出のポートに戻る~na         abort: 問い合わせを止める~nn         nodebug: デバッグを切って続ける~ng         goals: 開いている呼び出しを内側から書く~nw         write: ゴールを深さを切らずに書く~n+、-      spy: この述語にスパイポイントを置く、外す~nh、?      help: この一覧を書く').
+message(debug_unknown_command, '知らないコマンドです: ~w（h で一覧）').

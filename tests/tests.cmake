@@ -484,7 +484,7 @@ endforeach()
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
-    abort abort_load abort_catch)
+    abort abort_load abort_catch goals write spy_toggle help eof)
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
   if(debug_case STREQUAL "creep_ja")
@@ -498,6 +498,11 @@ foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_i
     -DPROGRAM=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger/${debug_program} -DLANG_VALUE=${debug_lang}
     -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endforeach()
+# 端末でない mosa はコマンドを読まず、どのポートも止まらない行として書く（MOSA_TRANSCRIPT なし、設計の「コマンド」）。
+add_test(NAME transcript_debug_batch COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_batch -DTRANSCRIPT=0 -DLANG_VALUE=en_US.UTF-8
+  "-DARGS=tests/cpp/data/debugger/dbg.pl -g \"trace, len([a], N)\" -t halt"
+  -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # 追跡しても答えと選択点の深さが変わらず、DebugConsole の無い機械は箱を作らない（ADR 0028）。
 add_executable(debugger_test tests/cpp/debugger_test.cpp)

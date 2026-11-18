@@ -1,0 +1,30 @@
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? h
+c, Enter  creep: stop at the next port
+s         skip: at Call and Redo, do not stop until the next port of this call
+l         leap: do not stop until a port of a spy point
+f         fail: make this call fail
+r         retry: go back to the Call port of this call
+a         abort: stop the query
+n         nodebug: switch debugging off and go on
+g         goals: write the open calls, innermost first
+w         write: write the goal without the depth limit
++, -      spy: place or remove a spy point on this predicate
+h, ?      help: write this list
+ Call: (1) len([a],_G1) ? ?
+c, Enter  creep: stop at the next port
+s         skip: at Call and Redo, do not stop until the next port of this call
+l         leap: do not stop until a port of a spy point
+f         fail: make this call fail
+r         retry: go back to the Call port of this call
+a         abort: stop the query
+n         nodebug: switch debugging off and go on
+g         goals: write the open calls, innermost first
+w         write: write the goal without the depth limit
++, -      spy: place or remove a spy point on this predicate
+h, ?      help: write this list
+ Call: (1) len([a],_G1) ? x
+Unknown command: x (h for help)
+ Call: (1) len([a],_G1) ? n
+N = 1.
+?- 

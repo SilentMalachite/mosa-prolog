@@ -1,0 +1,6 @@
+trace, deep(X).
+
+w
+
+notrace.
+nodebug.

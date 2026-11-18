@@ -96,6 +96,10 @@ void set_debug(Impl& machine, bool on, DebugMode mode);
 [[nodiscard]] bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity);
 // スパイポイントを 1 つ置く（on）か外す。変わったときだけ真。spy/1、nospy/1 と、コマンドの + と - が使う。
 [[nodiscard]] bool set_spy(Impl& machine, const SpyKey& key, bool on);
+// ポートのコマンドの + と -。文脈 context から見た name/arity に、spy/1 と nospy/1 の Name/Arity と同じ引き当てで
+// スパイポイントを置くか外し、同じ文面の知らせの行（改行付き）を返す。外す物が無ければ空。
+[[nodiscard]] std::string spy_command(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity,
+                                      bool on);
 [[nodiscard]] bool redo_flag_gen(Impl& machine);
 [[nodiscard]] bool run_database(Impl& machine, const Goal& goal);
 [[nodiscard]] bool run_module_prop(Impl& machine, const Goal& goal);

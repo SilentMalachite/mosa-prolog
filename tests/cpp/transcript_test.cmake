@@ -3,12 +3,20 @@
 # 突き合わせるので、その二つが同じになることを確かめる。期待値は macOS の script(1) で端末の表示を記録し、\r と
 # 端末が映す ^D を除いたもの。入力の終わりで mosa は何も足さず、出力は最後の促し "?- "（改行なし）で終わる。
 # 使い方: cmake -DMOSA=<mosa> -DDATA=<tests/cpp/data/transcript> -DCASE=<名前> -DLANG_VALUE=<LANG> [-DPROGRAM=<.pl>]
-#   -P transcript_test.cmake
+#   [-DARGS=<引数>] [-DTRANSCRIPT=0] -P transcript_test.cmake
 # PROGRAM があれば mosa の引数にして先に読ませる（フェーズ 14 のデバッガの場合。tests/cpp/data/debugger）。
+# ARGS があれば PROGRAM の代わりに mosa の引数にする。シェルと同じく空白で区切り、"..." は 1 つの引数にする。
+# TRANSCRIPT=0 なら MOSA_TRANSCRIPT を 1 にせず、端末でない標準入力のまま動かす（端末でない mosa のデバッガ）。
 
 set(program_args)
-if(DEFINED PROGRAM)
+if(DEFINED ARGS)
+  separate_arguments(program_args UNIX_COMMAND "${ARGS}")
+elseif(DEFINED PROGRAM)
   set(program_args "${PROGRAM}")
+endif()
+set(transcript_value 1)
+if(DEFINED TRANSCRIPT)
+  set(transcript_value "${TRANSCRIPT}")
 endif()
 
 # 同じ変数に stdout と stderr を受けると、CMake は一つの管にまとめ、書かれた順のまま読む。
@@ -27,7 +35,7 @@ function(run_mosa transcript out_var code_var)
   set(${code_var} "${code}" PARENT_SCOPE)
 endfunction()
 
-run_mosa(1 actual code)
+run_mosa(${transcript_value} actual code)
 file(READ "${DATA}/${CASE}.out" expected)
 string(REPLACE "\r" "" expected "${expected}")
 if(NOT code EQUAL 0 OR NOT actual STREQUAL expected)

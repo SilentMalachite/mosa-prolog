@@ -3,7 +3,8 @@
 // 捕まえる。catch/3 の open_catch と disarm_catch（ADR 0012）と同じ形にしてある。例外は propagate_throw が番兵を外す
 // 前に throw_box で捕まえる。コマンドの r と f は番兵より上を trim_stack で切って失敗させ、r は番兵に cond_ok（開き
 // 直し）の印を付ける（計画の設計との違い 5 と 6）。a は debug_port が abort_now を立て、どのポートでもその歩みで
-// それ以上何も動かさずに戻る（タスク 7）。
+// それ以上何も動かさずに戻る（タスク 7）。g w + - h ? は debug_port の中で済み、箱には Go か働きのあるコマンドだけが
+// 返る（タスク 8）。
 // 投げる誤りは無い（箱の中のゴールの誤りは、そのゴールが投げる）。
 // テスト: tests/cpp/data/debugger（transcript_debug_*）、tests/cpp/debugger_test.cpp
 #include "builtin_api.hpp"
@@ -136,18 +137,20 @@ bool fail_box(Impl& machine) {
 
 }  // namespace
 
-// 安い判定から順に見る。leap の速さ（ADR 0028 の 1.2 倍）を守るためである。
+// 安い判定から順に見る。leap の速さ（ADR 0028 の 1.2 倍）を守るためである。どの判定も状態を変えないので、順は
+// 答えを変えない（コントローラの裁定 17）。
 bool debug_wants_box(Impl& machine, const Goal& goal) {
   const DebugMode mode = machine.debug.mode;
-  // skip 中は新しい箱を作らない。leap はスパイポイントの述語の呼び出しだけに作る（問い 2 の決定 A）。
+  // skip 中は新しい箱を作らない。
   if (mode == DebugMode::Skip) return false;
-  if (mode == DebugMode::Leap && !spied_call(machine, goal.module, goal.name, goal.arity)) return false;
   // system の文脈は組込が自分のために動かすゴール（findall/3 の答えの単一化など）。組込の中には入らない。
   if (goal.module == machine.system_module) return false;
   // 文脈が library なら、ライブラリの中の呼び出し。leap でも、user から呼んだスパイポイントの append/3 には箱を作り、
   // その中の呼び出しには作らない。
   const Module* module = find_module(machine, goal.module);
   if (module != nullptr && module->library) return false;
+  // leap はスパイポイントの述語の呼び出しだけに作る（問い 2 の決定 A）。名前が合えば述語を引き当てるので後に見る。
+  if (mode == DebugMode::Leap && !spied_call(machine, goal.module, goal.name, goal.arity)) return false;
   return !unboxed(machine.atoms.name(goal.name), goal.arity);
 }
 
@@ -214,6 +217,9 @@ bool backtrack_box(Impl& machine) {
 // 番兵を外す前に呼ばれるので、深さは今の箱まで数えられる。投げられた項は巻き戻しが写しにしてあるので、ヒープに
 // 取り込んでから書く。項はこの歩みの中だけで使い、GC の安全点をまたいで持たない。
 PortAction throw_box(Impl& machine, std::size_t box_index, const ExportedTerm& ball) {
+  // 巻き戻しは armed の箱ごとにここを通る。書かないポート（n の後、leap と skip が隠す箱）では項を取り込まない
+  // （コントローラの裁定 17）。debug_port も同じ判定をもう一度するが、状態を変えないので 2 度聞いても同じ。
+  if (!debug_port_shown(machine, box_index)) return PortAction::Go;
   const Cell term = import_term(machine, ball);
   const PortAction action = debug_port(machine, DebugPort::Exception, box_index, &term);
   // a では propagate_throw も巻き戻しを止めて戻る。catch/3 にも後始末にも着かない（halt と同じ）。
