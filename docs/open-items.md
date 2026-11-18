@@ -142,14 +142,18 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Files to split before their next edit
 
-Near the 800-line limit (`wc -l`, 2026-11-18):
+Code and test files at 730 lines or more (`wc -l`, 2026-11-19; generated files and docs aside):
 
-- `src/machine/internal.hpp` (732)
-- `src/write/writer.cpp` (759)
-- `tests/cpp/session_test.cpp` (796)
-- `tests/cpp/stream_test.cpp` (785)
-- `tests/cpp/conformance_io_test.cpp` (781)
-- `tests/cpp/machine_test.cpp` (779)
+- `tests/cpp/session_test.cpp` (796), `tests/cpp/stream_test.cpp` (785),
+  `tests/cpp/conformance_io_test.cpp` (781), `tests/cpp/machine_test.cpp` (779),
+  `tests/cpp/codegen_test.cpp` (774), `tests/cpp/gc_test.cpp` (751),
+  `tests/cpp/manual_parse_test.cpp` (748), `tests/tests.cmake` (749),
+  `tests/cpp/debugger_test.cpp` (735)
+- `src/machine/load.cpp` (771), `src/machine/lgt_exec.cpp` (765), `src/builtins/database.cpp`
+  (762), `src/write/writer.cpp` (759), `src/builtins/streams.cpp` (751),
+  `src/machine/load_directive.cpp` (733), `src/machine/internal.hpp` (732)
+
+Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 
 ## Unsure
 
