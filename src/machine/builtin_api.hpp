@@ -94,6 +94,8 @@ void set_debug(Impl& machine, bool on, DebugMode mode);
 // 文脈 context からの呼び出しにスパイポイントがあるか。spy/1 と同じく、組込は system、定義があれば定義したモジュール、
 // 無ければ context の鍵で引く。leap の箱とポートが使う。
 [[nodiscard]] bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity);
+// 同じ名前と引数の数のスパイポイントがあるか。述語を引き当てない。leap が spied_call の前に安く外すために使う。
+[[nodiscard]] bool spied_name(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 // スパイポイントを 1 つ置く（on）か外す。変わったときだけ真。spy/1、nospy/1 と、コマンドの + と - が使う。
 [[nodiscard]] bool set_spy(Impl& machine, const SpyKey& key, bool on);
 // ポートのコマンドの + と -。文脈 context から見た name/arity に、spy/1 と nospy/1 の Name/Arity と同じ引き当てで

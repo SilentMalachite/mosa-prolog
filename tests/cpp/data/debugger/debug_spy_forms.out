@@ -30,4 +30,11 @@ true.
 true.
 [debug] ?- nospyall.
 true.
+[debug] ?- spy(pairs_keys/2), use_module(library(pairs)), debugging, nospy(pairs_keys/2).
+% Spy point on pairs_keys/2
+% Debug mode: on (leap)
+% Spy points: pairs_keys/2
+% Leashed ports: call exit redo fail exception
+% Spy point removed from pairs_keys/2
+true.
 [debug] ?- 

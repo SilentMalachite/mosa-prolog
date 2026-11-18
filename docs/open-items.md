@@ -138,6 +138,7 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 Near the 800-line limit (`wc -l`, 2026-11-18):
 
 - `src/machine/internal.hpp` (732)
+- `src/write/writer.cpp` (759)
 - `tests/cpp/session_test.cpp` (796)
 - `tests/cpp/stream_test.cpp` (785)
 - `tests/cpp/conformance_io_test.cpp` (781)

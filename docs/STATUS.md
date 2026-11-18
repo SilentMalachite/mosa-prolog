@@ -9,7 +9,7 @@
 - **Next:** push the fixes to PR #4 (not pushed yet), CI on 3 OSes and GC-stress, then whether to
   close phase 14.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** five files (`internal.hpp` 732, four C++ tests).
+- **Split first:** six files (`internal.hpp` 732, `writer.cpp` 759, four C++ tests).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

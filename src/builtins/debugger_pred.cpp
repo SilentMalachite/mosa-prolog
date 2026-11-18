@@ -71,11 +71,14 @@ std::string name_text(const Impl& machine, std::uint32_t name) {
 
 // 知らせと debugging/0 の字面。名前は writeq と同じく引用し、user から Name/Arity で引くと別の述語になる鍵には
 // モジュールを付ける。spy(lists:foo/1) と spy(foo/1)、'a, b'/1 と区切りの「, 」が同じ字面にならないため
-// （PR #4 の敵対的レビュー）。user から見える述語と組込は今までどおり Name/Arity だけになる。
+// （PR #4 の敵対的レビュー）。user から見える述語と組込は今までどおり Name/Arity だけになる。置いたときに定義が
+// まだ見えなかった鍵（spy(append/3) の後の use_module(library(lists))）は、same_spy と同じく自分のモジュールから
+// 今引き直した述語で比べる。置いたときの知らせと、後の debugging/0 と nospy/1 の字面を揃えるためである。
 std::string indicator_text(Impl& machine, const SpyKey& key) {
   std::string text = name_text(machine, key.name) + "/" + std::to_string(key.arity);
-  if (key_for(machine, machine.user_module, key.name, key.arity).module == key.module) return text;
-  return name_text(machine, key.module) + ":" + text;
+  const std::uint32_t module = key_for(machine, key.module, key.name, key.arity).module;
+  if (key_for(machine, machine.user_module, key.name, key.arity).module == module) return text;
+  return name_text(machine, module) + ":" + text;
 }
 
 // 置いた鍵 placed が、今引き当てた鍵 key と同じ述語を指すか。置いた時にまだ定義が見えなかった鍵（spy(append/3) の
@@ -339,11 +342,15 @@ bool spied(const Impl& machine, std::uint32_t module, std::uint32_t name, std::u
 // 呼び出しの鍵は spy/1 と同じ key_for で作る。置いた時と呼んだ時で引き当てがずれないように 1 つの関数にしてある。
 // 定義の前に置いたスパイポイントも、同じモジュールに定義されるか、後で取り込めば合う（same_spy）。名前と引数の数が
 // 合う鍵が無ければ述語を引き当てずに返す。leap は見せるゴールのたびにここを通る（ADR 0028 の 1.2 倍）。
-bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
+bool spied_name(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
   const auto& spies = machine.debug.spies;
-  const bool named = std::any_of(spies.begin(), spies.end(),
-                                 [&](const SpyKey& key) { return key.name == name && key.arity == arity; });
-  if (!named) return false;
+  return std::any_of(spies.begin(), spies.end(),
+                     [&](const SpyKey& key) { return key.name == name && key.arity == arity; });
+}
+
+bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
+  if (!spied_name(machine, name, arity)) return false;
+  const auto& spies = machine.debug.spies;
   const SpyKey key = key_for(machine, context, name, arity);
   if (spied(machine, key.module, key.name, key.arity)) return true;
   return std::any_of(spies.begin(), spies.end(), [&](const SpyKey& placed) { return same_spy(machine, placed, key); });
