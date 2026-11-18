@@ -456,7 +456,7 @@ X = あいう.
 | `spy/1` | — | `spy(Spec)`: 述語にスパイポイントを置き、デバッガを入れます。Spec は `Name/Arity`、`Module:Name/Arity`、名前だけの `Name`（文脈のモジュールから見えるその名前の述語すべて）、またはそれらのリストです。まだ定義していない述語も指せます。 |
 | `nospy/1` | — | `nospy(Spec)`: `spy(Spec)` が置いたスパイポイントを外します。 |
 | `nospyall/0` | — | スパイポイントをすべて外します。 |
-| `leash/1` | — | `leash(Ports)`: デバッガが止まるポートを決めます。Ports は `all`、`none`、`call`、`exit`、`redo`、`fail`、`exception`、`+Port`（足す）、`-Port`（外す）、またはそれらのリストで、左から順に当てます。既定は 5 つすべてです。 |
+| `leash/1` | — | `leash(Ports)`: デバッガが止まるポートを決めます。Ports は `all`、`none`、`call`、`exit`、`redo`、`fail`、`exception`、`+Port` と、`+` を付けないポート名（そのポートを今の組に足す）、`-Port`（外す）、またはそれらのリストで、左から順に当てます。`all` と `none` は組を全部入れるか空にします。決めたポートだけで止めるには、`leash([none, call, fail])` のように `none` から始めます。既定は 5 つすべてです。 |
 | `debugging/0` | — | デバッガの状態、スパイポイント、止まるポートを `user_error` に書きます。 |
 
 ## ライブラリ

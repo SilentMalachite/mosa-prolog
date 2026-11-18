@@ -477,7 +477,7 @@ These read and set flags, end Mosa, and look at memory and time.
 
 These turn the debugger's state on and off and choose what it stops at. Today they only keep that state: the
 port lines that a stopped program shows come in a later step, and in a program that `mosac` built they never appear.
-A name that begins with a lowercase letter, such as `trace`, is a built-in predicate, so a file of your own cannot
+These names, such as `trace`, are built-in predicates, so a file of your own cannot
 define a predicate with the same name and arity (`permission_error(modify, static_procedure, debug/0)`).
 
 <!-- predicates: system -->
@@ -490,7 +490,7 @@ define a predicate with the same name and arity (`permission_error(modify, stati
 | `spy/1` | — | `spy(Spec)`: puts a spy point on a predicate and turns the debugger on. Spec is `Name/Arity`, `Module:Name/Arity`, a `Name` alone (every predicate of that name that the context module can see) or a list of these. It may name a predicate that is not defined yet. |
 | `nospy/1` | — | `nospy(Spec)`: takes off the spy points that `spy(Spec)` puts. |
 | `nospyall/0` | — | Takes off every spy point. |
-| `leash/1` | — | `leash(Ports)`: chooses the ports where the debugger stops. Ports is `all`, `none`, `call`, `exit`, `redo`, `fail`, `exception`, `+Port` (add one), `-Port` (remove one) or a list of these, applied from the left. The default is all five. |
+| `leash/1` | — | `leash(Ports)`: chooses the ports where the debugger stops. Ports is `all`, `none`, `call`, `exit`, `redo`, `fail`, `exception`, `+Port` or a bare port name (add that port to the set), `-Port` (remove it) or a list of these, applied from the left. `all` and `none` fill or empty the set. To stop at exactly some ports, start from `none`, as in `leash([none, call, fail])`. The default is all five. |
 | `debugging/0` | — | Writes the state of the debugger, its spy points and the ports it stops at, to `user_error`. |
 
 ## Libraries

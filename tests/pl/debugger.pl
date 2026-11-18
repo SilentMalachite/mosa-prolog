@@ -43,3 +43,8 @@ test(dbg_leash_partial, leash([call|_]), error(instantiation_error)).
 test(dbg_leash_item_inst, leash([call, _]), error(instantiation_error)).
 % 定義し直しは、system の述語への permission_error で読み込みが止まる（SPEC 第5節）。
 test(dbg_redefine, consult('tests/pl/fixtures/dbg_redefine.pl'), fail).
+% 知らせは user_error の流れを通るので、行の頭に戻る（流れの位置が進む）。
+test(dbg_notice_column, (write(user_error, x), debugging, '$stream_column'(user_error, C), nodebug, nospyall, leash(all)), solutions([C = 0])).
+% 読み込みが失敗したら、入り切りと進み方は読み込みの前に戻る。進み方は debugging/0 の字面でだけ見える。
+test(dbg_rollback_off, (consult('tests/pl/fixtures/dbg_rollback.pl') -> fail ; current_prolog_flag(debug, off)), true).
+test(dbg_rollback_on, (trace, (consult('tests/pl/fixtures/dbg_rollback.pl') -> fail ; current_prolog_flag(debug, on)), nodebug, nospyall, leash(all)), true).

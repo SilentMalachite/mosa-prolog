@@ -33,6 +33,7 @@ struct SavedFlags {
   bool char_conv_on = false;
   bool utf8_replace = false;  // 失敗した読み込みは、途中の set_prolog_flag を残さない。
   bool debug_on = false;
+  DebugMode debug_mode = DebugMode::Leap;
   bool japanese_punct = false;
   std::vector<std::pair<char32_t, char32_t>> char_map;
   // 旗ではないが同じく、失敗した読み込みの initialization(G, main) を残さない。残すと取り消したファイルの G が動く。
@@ -48,6 +49,7 @@ SavedFlags save_flags(const Impl& machine) {
                     machine.char_conv.enabled,
                     machine.utf8_replace,
                     machine.debug_on,
+                    machine.debug.mode,
                     machine.japanese_punct,
                     machine.char_conv.map,
                     machine.main_goal};
@@ -61,7 +63,9 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.float_undefined_error = saved.float_undefined_error;
   machine.char_conv.enabled = saved.char_conv_on;
   machine.utf8_replace = saved.utf8_replace;
+  // 入り切りと進み方は組で戻す。片方だけ戻すと、後の spy/1 が creep で動き出す（ADR 0028）。
   machine.debug_on = saved.debug_on;
+  machine.debug.mode = saved.debug_mode;
   machine.japanese_punct = saved.japanese_punct;
   machine.char_conv.map = saved.char_map;
   machine.main_goal = saved.main_goal;

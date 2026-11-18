@@ -11,10 +11,10 @@
 //   instantiation_error、type_error(atom, X)、type_error(list, L)、domain_error(port, X)。
 // テスト: tests/pl/debugger.pl、tests/pl/japanese.pl、tests/mosac/debugger_state.pl
 #include "../machine/internal.hpp"
+#include "write_internal.hpp"
 
 #include <algorithm>
 #include <array>
-#include <iostream>
 #include <set>
 #include <string>
 #include <string_view>
@@ -39,9 +39,9 @@ void raise(Impl& machine, const Goal& goal, Cell formal) { raise_formal(machine,
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
 // 知らせと debugging/0 は user_error に書く。mosac の実行ファイルでも同じ所に出る（計画の設計との違い 2）。
-void say(const Impl& machine, std::string_view key, std::initializer_list<std::string_view> args = {}) {
-  std::cerr << message_text(machine, key, args) << '\n';
-  std::cerr.flush();
+// user_error は番号 2。流れを通すので、後の ~N や '$stream_column'/2 が知らせの終わりの位置を見る。
+void say(Impl& machine, std::string_view key, std::initializer_list<std::string_view> args = {}) {
+  write_internal::emit_to_stream(machine, 2, message_text(machine, key, args) + "\n");
 }
 
 // 組込は system、定義がある述語は定義したモジュール、無ければ文脈のモジュールに置く。

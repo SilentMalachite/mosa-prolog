@@ -701,4 +701,9 @@ bool run_write(Impl& machine, const Goal& goal) {
   return false;
 }
 
+// 流れの項を作らずに、組込が流れの番号へ書く（デバッガの知らせ）。位置と字数も進める。
+namespace write_internal {
+void emit_to_stream(Impl& machine, std::size_t index, std::string_view text) { emit_text(machine, index, text); }
+}  // namespace write_internal
+
 }  // namespace mosa
