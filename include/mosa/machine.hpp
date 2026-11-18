@@ -16,7 +16,8 @@
 
 namespace mosa {
 
-// Abort はデバッガの a で止まった問い合わせ（ADR 0028）。halt と同じく catch/3 を通らず、後始末も動かさない。
+// Abort はデバッガの a で止まった問い合わせ（ADR 0028）。halt と同じく catch/3 を通らない。halt と違い、止まる前に
+// setup_call_cleanup/3 の後始末を、例外のときと同じ束縛で動かす（2026-11-18 の持ち主の決定 A と B）。
 enum class StopKind { Success, Failure, Exception, Halt, Abort };
 
 struct Binding {

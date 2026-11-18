@@ -3,8 +3,8 @@
 // DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと、
 // setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）、
 // a が StopKind::Abort で問い合わせを止め、デバッグの状態を変えないこと（タスク 7）、a が止める実行ごとに内側から
-// 後始末を 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A）と、その動かし方（ポート無し、誤りを捨てる、デバッガの
-// 状態を変えない。open-items の既定 A）、
+// 後始末を 1 回ずつ動かすこと（2026-11-18 の持ち主の決定 A）と、例外のときと同じ束縛で動かすこと（同じ日の決定 B）と、
+// その動かし方（ポート無し、誤りを捨てる、デバッガの状態を変えない。open-items の既定 A）、
 // 定義が見える前に置いたスパイポイントが、後で読み込んだ述語の呼び出しで止まること（タスク 8）、利用者が Lib:G と
 // 書いたライブラリの呼び出しが 1 つの箱になること（ADR 0028 の改訂）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
@@ -406,7 +406,9 @@ constexpr std::string_view k_abort_bindings_program =
     "n(X) :- setup_call_cleanup(true, setup_call_cleanup(true, (X = g, t), X = inner), assertz(log(X))).\n"
     "c :- catch(setup_call_cleanup(true, t, throw(oops)), _, assertz(log(caught))), assertz(log(went_on)).\n"
     "boom :- throw(e).\n"
-    "x(X) :- setup_call_cleanup(S = s, (X = g, boom), assertz(log(S-X))).\n";
+    "x(X) :- setup_call_cleanup(S = s, (X = g, boom), assertz(log(S-X))).\n"
+    "o(X) :- setup_call_cleanup(S = s, (X = g, with_output_to(atom(_),\n"
+    "    setup_call_cleanup(true, (Y = h, t), assertz(log(in(X-Y)))))), assertz(log(out(S-X)))).\n";
 
 // goal を target のポートの a で止め、log を question で読んだ答えの字面を返す。
 std::string abort_log(std::string_view label, std::string_view goal, std::string_view target, std::string_view question) {
@@ -438,6 +440,14 @@ void check_abort_cleanup_bindings() {
                                        "nodebug, findall(S-V, (log(S-X), (var(X) -> V = unbound ; V = X)), L)");
   mosa_test::check(thrown.find("L = [s-unbound]") != std::string::npos,
                    "abort_bindings_thrown: once, with Setup's binding only, got [" + thrown + "]");
+  // with_output_to/2 の入れ子の実行をまたぐ変数。内側の後始末には、内側の Setup より前に外で付いた X = g は見え、内側の
+  // Goal の Y = h は見えない。外の実行は内側のスタックを戻した後で自分の Entry を戻すので、外の後始末には X = g も見えない。
+  const std::string crossed =
+      abort_log("abort_bindings_barrier", "trace, o(X)", " Call: (5) t ? ",
+                "nodebug, findall(K-P-Q, (log(E), E =.. [K, P0-Q0], (var(P0) -> P = u ; P = P0),"
+                " (var(Q0) -> Q = u ; Q = Q0)), L)");
+  mosa_test::check(crossed.find("L = [in-g-u,out-s-u]") != std::string::npos,
+                   "abort_bindings_barrier: each run undoes to its own entries, got [" + crossed + "]");
 }
 
 // abort の後始末の誤りは、下に残る catch/3 にも捕まらない。後始末を Entry の上で動かすので、受けずに投げると catch/3 が
