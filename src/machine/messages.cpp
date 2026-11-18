@@ -1,5 +1,6 @@
 // 利用者向けの文面（ADR 0007、SPEC 第7節）。文面は lib/messages_ja.pl と lib/messages_en.pl の事実に置く。
 // テスト: tests/cpp/session_test.cpp、tests/cpp/full_stop_test.cpp（char_conversion の下の文面）、
+//   tests/cpp/message_ops_test.cpp（利用者の演算子、写した引数、ヒープの上限）、
 //   tests/cpp/data/debugger（transcript_debug_spy_after_warning。文面が利用者の機械に何も読まないこと）
 #include "mosa/messages.hpp"
 
@@ -181,8 +182,9 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
   Impl& impl = engine_impl(machine);
   if (impl.render_only) return render_here(machine, key, args);
   try {
-    // ヒープの上限は利用者の機械と同じにする。--heap-max は mosa が使うヒープの上限なので、文面のための機械も越えない
-    // （Muse のレビュー）。予約が断られたときも、下の catch がヒープの尽きとして受ける。
+    // ヒープの上限は利用者の機械と同じにする。引数の項は利用者の上限の中で作られたので、写して書くのにも同じ上限を使い、
+    // --heap-max を越えない（Muse のレビュー）。原子だけの文面（message_text）は小さいので、既定の上限の機械で作る。
+    // 予約が断られたときも、下の catch がヒープの尽きとして受ける。
     auto renderer = Machine::create(impl.heap.limit());
     Impl& other = engine_impl(*renderer);
     other.message_lang = impl.message_lang;

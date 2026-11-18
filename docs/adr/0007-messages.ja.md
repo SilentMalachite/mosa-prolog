@@ -40,6 +40,6 @@ CMake は `session_test` を `LANG=ja_JP.UTF-8` で流し、今ある日本語�
 ## 改訂 3（2026-11-19。PR #4 の敵対的レビューの後、持ち主がフェーズ 14 で直す B を選んだ。直し方は open-items の既定 A）
 
 背景: 利用者の機械に文面の表を読むと、`library(format)` と、それを通して `library(lists)` も読む。そのため最初の警告の後は、`lists:append/3`、`spy(lists:foo/1)`、`current_module(lists)` が、プログラムが `lists` を読んだときと同じに動く。警告の前は `existence_error(module, lists)` になるか、失敗する。
-決定: `render_only` でない機械の `render_message` は、引数（1 つずつ、原子は名前で、共有と巡回は保つ）と演算子の表と旗 `japanese_punctuation` を、ヒープの上限が同じ新しい `render_only` の機械へ写し（`--heap-max` は文面を作るときも効く）、そこで文面を作る。文面は前と同じで、利用者の機械は何も読まない。
+決定: `render_only` でない機械の `render_message` は、引数（1 つずつ、原子は名前で、共有と巡回は保つ）と演算子の表と旗 `japanese_punctuation` を、ヒープの上限が同じ新しい `render_only` の機械へ写し（項の引数を書くときも `--heap-max` が効く。原子だけの文面を作る `message_text` は、今も既定の上限の機械を使う）、そこで文面を作る。文面は前と同じで、利用者の機械は何も読まない。
 退けた案: 起動のときに表を読む（どの `Machine` も 4 つのファイルを読み、プログラムが読む前から `lists` がある）。文面のために読んだモジュールを隠す（モジュールを引くところがどれも 2 つの意味を持つ）。文面を作る機械を `Impl` に持つ（先に `internal.hpp` を分けなければならず、新しい機械は 1 つの文面に約 1 ms しかかからない）。
-影響: トランスクリプト `transcript_debug_spy_after_warning` と `_ja` が、警告の後も `lists`、`format`、2 つの表が知られていないことと、書いた警告の字面が変わらないことを確かめる。`message_ops` は、`--heap-max 4` で作れない文面が前と同じく鍵の形に落ちることを確かめる。ctest は前の 114.2 秒に対して 115.3 秒、CI の GC-stress の選んだテストは前の 1805 秒に対して 1808 秒だった。
+影響: トランスクリプト `transcript_debug_spy_after_warning` と `_ja` が、警告の後も `lists`、`format`、2 つの表が知られていないことと、書いた警告の字面が変わらないことを確かめる。`message_ops` は、`--heap-max 8` で作れない文面が前と同じく鍵の形に落ちることを確かめる。ctest は前の 114.2 秒に対して 115.3 秒、CI の GC-stress の選んだテストは前の 1805 秒に対して 1808 秒だった。
