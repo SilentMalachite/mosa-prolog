@@ -127,7 +127,8 @@ MessageLanguage message_language_from(std::optional<std::string_view> lang, bool
 namespace {
 
 // 利用者の機械の項を、文面を作る機械へ写す。原子の番号は機械ごとなので、名前で引き直す。共有する部分と巡回は
-// ExportedTerm の Share の節点が保つ。
+// ExportedTerm の Share の節点が保つ。引数ごとに写すので、引数をまたぐ変数は別の変数になる。それでも字面は変わらない。
+// format/2 の ~q と ~w も代わりの表示も、引数ごとに変数の名前を _G1 から付け直すからである（Muse のレビュー）。
 Cell carry_term(Impl& from, Impl& to, Cell term) {
   ExportedTerm copy = export_term(from, term);
   for (ExportedTerm::Node& node : copy.nodes) {
