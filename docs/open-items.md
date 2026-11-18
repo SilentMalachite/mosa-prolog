@@ -133,7 +133,6 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 Near the 800-line limit (`wc -l`, 2026-11-18):
 
-- `tests/tests.cmake` (784; grew by the `debugger_scale` test before it was split)
 - `src/machine/internal.hpp` (732)
 - `tests/cpp/session_test.cpp` (796)
 - `tests/cpp/stream_test.cpp` (785)
