@@ -115,6 +115,23 @@ void check_trace_choice_depth() {
   }
 }
 
+// 深い再帰を追った後の GC は、抜けた箱の行を開いている箱の表から捨て、伸びた容量を返す。表は Heap::state に
+// 数えないので、返さないと一番深かったときの大きさを持ち続ける（Muse のレビュー）。
+void check_open_boxes_given_back() {
+  auto machine = make_machine();
+  Console console;
+  give_console(*machine, console);
+  const auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(machine->query("length(L, 5000), trace, len(L, _).").kind == mosa::StopKind::Success,
+                   "open_boxes: trace a deep recursion");
+  const std::size_t grown = impl.debug.open_boxes.capacity();
+  mosa_test::check(machine->query("nodebug, garbage_collect.").kind == mosa::StopKind::Success, "open_boxes: collect");
+  // MOSA_GC_STRESS=1 では問い合わせの中の GC がもう返しているので、伸びた大きさは確かめない。
+  mosa_test::check(impl.debug.open_boxes.capacity() <= 64,
+                   "open_boxes: given back, " + std::to_string(grown) + " then " +
+                       std::to_string(impl.debug.open_boxes.capacity()));
+}
+
 // 口が無ければ、trace の後もポートの行はどこにも出ず、箱の番号も 1 つも使わない。
 void check_no_console() {
   auto plain = make_machine();
@@ -378,6 +395,7 @@ int main() {
   check_trace_same_answers();
   check_trace_choice_depth();
   check_no_console();
+  check_open_boxes_given_back();
   check_retry_cleanup();
   check_redo_retry_cleanup();
   check_redo_fail_cleanup();

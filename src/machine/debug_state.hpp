@@ -51,8 +51,9 @@ struct DebugState {
   std::uint64_t skip_box = 0;            // 0 は skip の対象なし
   // 開いている箱を下から順に並べる。箱を開くときは一番上の生きている行だけを見て深さを決め、スタックを辿らない。leap では
   // 箱が少ないので、辿ると選択点の数だけかかり、選択点の下でスパイポイントを呼ぶ再帰が回数の 2 乗になる（PR #4 の敵対的
-  // レビュー）。抜けた箱、切った箱、捨てた問い合わせの箱の行は、次に開くときに上から捨てる。指令は脇に置くスタックと一緒に
-  // この表も脇に置く（load_directive.cpp の park_exec）。
+  // レビュー）。抜けた箱、切った箱、捨てた問い合わせの箱の行は、次に開くときに上から捨てる。GC もスタックより上の行を
+  // 捨てて容量を返す（state_count.cpp の give_back_vectors）。指令は脇に置くスタックと一緒にこの表も脇に置く
+  // （load_directive.cpp の park_exec）。
   std::vector<OpenBox> open_boxes;
   std::array<std::string, 5> port_names;  // 文面の表から 1 度だけ引く
   std::optional<MessageLanguage> names_lang;

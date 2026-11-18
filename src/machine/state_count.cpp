@@ -130,6 +130,13 @@ void give_back_vectors(Impl& machine) {
   if (give_back(machine.stack)) counted.stack = machine.stack.size();
   if (give_back(machine.extras)) counted.extras = machine.extras.size();
   if (give_back(machine.scan_log)) counted.scan_log = machine.scan_log.size();
+  // 開いている箱の表は数えない。行はスタックの添字の昇順に並ぶので、今のスタックより上の行（抜けた箱、切った箱）を
+  // 捨てれば、行はスタックの Entry より多くならず、1 行は Entry より小さい。だから表は数えたスタックより小さく収まる。
+  // 捨てずに返さないと、一番深かったときの大きさを持ち続けた（Muse のレビュー）。
+  static_assert(sizeof(OpenBox) < sizeof(Entry));
+  std::vector<OpenBox>& boxes = machine.debug.open_boxes;
+  while (!boxes.empty() && boxes.back().index >= machine.stack.size()) boxes.pop_back();
+  static_cast<void>(give_back(boxes));
   recount_vectors(machine);
 }
 
