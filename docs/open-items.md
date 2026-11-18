@@ -293,6 +293,21 @@ Load rollback:
 - That no catch that takes the heap limit goes on reading a load (the premise of A6) was checked
   over all 46 `catch` sites on 2026-11-15.
 
+Left from the Muse review of the second-review fixes (`run-mwmjtumy-zmw1rd`, 2026-11-19; numbers are
+its Low findings):
+
+- Deferred, real: 25, `writeq_minus_postfix` in `tests/pl/write.pl` leaks `op(200, xf, '~~')` if
+  the read-back throws (phase 7 test); 34, ADR 0007 amendment 2 has no Context/Decision labels
+  (phase 10 text); 35, a comment in `load_directive.cpp` that says what, not why (file on the split
+  list).
+- Not reproduced: 9, a skip left after a heap stop in a directive; the failed load restores the
+  debugger's on/off and mode (owner B), with the debugger off or on before the directive.
+- By design or already covered: 5, a shared (DAG) term written in full is exponential in any
+  `writeq`; 7, the fallback writes each argument by itself, as ADR 0007 says; 10, a non-heap throw
+  from the port-name renderer was not shown to happen; 15, the scale bound (per-run port counts were
+  added for Medium 2); 16, `check_abort_pending_cleanup`'s comment says why it is white box; 36,
+  "Review Focus N" names the section of the phase plan, as in other tests.
+
 Platforms and locales:
 
 - `mosac dist` zips with Japanese names were read by `cmake -E tar` and `unzip -t` only,
