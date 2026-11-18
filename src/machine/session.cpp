@@ -483,7 +483,15 @@ void run_with_machine(const Options& options, std::string_view input, bool tty, 
   // 読む。端末でない標準入力は user_input の物なので、先に読まない。機械は cursor と echo より先に消える。
   DebugConsole console;
   console.write = [&echo](std::string_view text) { echo.warn(text); };
-  if (tty) console.read_line = [&cursor](std::string& line) { return cursor.line(line); };
+  // read/1 が終止符を確かめて返した字（foo. の後の改行）はコマンドではないので、; の促しと同じく先に捨てる
+  // （レビュー L15）。捨てないと read/1 の次の止まるポートがその改行を creep と読み、止まらなかった（敵対的レビュー、
+  // 2026-11-19）。get_char/1 などが読み残した行の残りは返された字ではないので、; の促しと同じくコマンドとして読む。
+  if (tty) {
+    console.read_line = [&cursor](std::string& line) {
+      if (cursor.from_cin) standard_input_drop_returned_line();
+      return cursor.line(line);
+    };
+  }
   engine_impl(*machine).debug.console = std::move(console);
   if (const auto code = consult_files(*machine, options.files, echo)) {
     result.code = *code;

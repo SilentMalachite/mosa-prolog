@@ -1,0 +1,8 @@
+?- trace, read(X), c(Y).
+ Call: (1) read(_G1) ? 
+foo.
+ Exit: (1) read(foo) ? 
+ Call: (1) c(_G1) ? 
+ Exit: (1) c(1) ? 
+X = foo, Y = 1.
+[trace] ?- 

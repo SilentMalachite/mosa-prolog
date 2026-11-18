@@ -195,6 +195,9 @@ Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
   a pipe (`type nul | mosa ...`). Not run on Windows yet: the quoted `-DARGS` of the transcript tests.
 - Debugger: notices (`% Spy point on ...`, abort) and port lines do not start on a fresh line after
   partial output.
+- Debugger: a stopping port reads what `get_char/1` and the like left of a line as its command, as
+  the `;` prompt does: `na` typed for `trace, get_char(C)` aborts at the Exit port with `a`. Only
+  the characters `read/1` handed back are dropped (`transcript_debug_read_line`, 2026-11-19).
 - Debugger: the session-side abort branches (`-g` exit 1, init main, startup file, `:- if`
   roll-back, reconsult restore) are checked by hand, not by a C++ test (the mode roll-back has
   `check_directive_nodebug_rollback`).
