@@ -4,10 +4,11 @@
 # フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja と spy_ja は ja.pl、redo_nested は nested.pl、
 # spy_after_warning は plain.pl）を読ませる。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
-foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
+set(debug_cases creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
     directive_depth spy_ja help eof)
+foreach(debug_case ${debug_cases})
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
   if(debug_case STREQUAL "creep_ja" OR debug_case STREQUAL "spy_ja")
@@ -36,6 +37,19 @@ add_test(NAME transcript_debug_abort_heap_limit COMMAND ${CMAKE_COMMAND} -DMOSA=
   -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_abort_heap_limit -DLANG_VALUE=en_US.UTF-8
   "-DARGS=--heap-max 16"
   -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+# data/debugger の debug_*.in はどれも上で登録し、.out を持つ。一覧に足し忘れた組は黙って走らないので、構成で止める
+# （Muse のレビュー）。
+set(debug_data ${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger)
+file(GLOB debug_inputs CONFIGURE_DEPENDS RELATIVE ${debug_data} ${debug_data}/debug_*.in)
+foreach(debug_input ${debug_inputs})
+  string(REGEX REPLACE "^debug_(.*)\\.in$" "\\1" debug_name "${debug_input}")
+  if(NOT debug_name IN_LIST debug_cases AND NOT debug_name STREQUAL "batch" AND NOT debug_name STREQUAL "abort_heap_limit")
+    message(FATAL_ERROR "tests/cpp/data/debugger/${debug_input} is not registered in tests/debugger_tests.cmake")
+  endif()
+  if(NOT EXISTS ${debug_data}/debug_${debug_name}.out)
+    message(FATAL_ERROR "tests/cpp/data/debugger/${debug_input} has no debug_${debug_name}.out")
+  endif()
+endforeach()
 
 # 追跡しても答えと選択点の深さが変わらず、DebugConsole の無い機械は箱を作らない（ADR 0028）。
 add_executable(debugger_test tests/cpp/debugger_test.cpp)
