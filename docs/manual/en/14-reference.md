@@ -477,7 +477,8 @@ These read and set flags, end Mosa, and look at memory and time.
 
 These turn the debugger on and off and choose what it stops at. Chapter 15 shows how to use them. In `mosa`, a
 goal that runs while the debugger is on writes a line at each port, and at a port where it stops it reads one line
-from you. While it leaps, only the ports of the predicates with spy points are written. In a program that `mosac` built, they only keep the state, and no port line appears.
+from you. While it leaps, only the ports of the predicates with spy points are written. In a program that `mosac`
+built, they only keep the state, and no port line appears.
 These names, such as `trace`, are built-in predicates, so a file of your own cannot
 define a predicate with the same name and arity (`permission_error(modify, static_procedure, debug/0)`).
 
@@ -754,7 +755,8 @@ or removed. Among them:
   `mosac build --debug` (a trace of clauses, chapter 13) is a different thing.
 - A grammar rule that `phrase/2,3` calls shows the unifications of the translated body, as in `[a,a]=[a|_G1]`.
 - A goal that you write as `system:Goal` is not traced.
-- Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes `[trace]`.
+- Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes
+  `[trace]`.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a
   goal does. In a `:- Goal` directive, the load is undone, and so is any debugger state that the directive changed, for
   example a `:- trace, foo.` directive.

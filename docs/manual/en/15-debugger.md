@@ -11,8 +11,8 @@ backtracking that you met with `;`.
 ## Steps
 
 1. Move into the folder `prolog`, and start `mosa`. Create a file `len.pl` with a predicate `len/2` that gives the
-   length of a list, written like `count/2` of chapter 7. Its first clause says the empty list has length 0. Its second clause counts the
-   tail first, and then adds one.
+   length of a list, written like `count/2` of chapter 7. Its first clause says the empty list has length 0. Its second clause
+   counts the tail first, and then adds one.
 
 <!-- file: len-file len.pl -->
 ```prolog
@@ -289,8 +289,9 @@ true.
 
    Because Mosa opened no box for `path/3`, depth is always `(1)` here: while Mosa leaps, it opens a box only for a
    call of a predicate with a spy point, so the calls it makes during the leap are left out of the depth and out of
-   the list that `g` writes. The boxes that were opened earlier, in creep, are still counted. If you press Enter instead of `l`, the debugger goes back to creep, which
-   means that Mosa stops everywhere, and the prompt becomes `[trace]`.
+   the list that `g` writes. The boxes that were opened earlier, in creep, are still counted. If you press Enter
+   instead of `l`, the debugger goes back to creep, which means that Mosa stops everywhere, and the prompt becomes
+   `[trace]`.
 
 ## What you can type at a stop
 
@@ -304,7 +305,7 @@ commands:
 | `l` | leap: run until a port of a predicate with a spy point. |
 | `f` | fail: make this goal fail, and show its Fail port. |
 | `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. |
-| `a` | abort: stop the query. The prompt comes back as it was: `[trace] ?- `, `[debug] ?- ` or `?- `. |
+| `a` | abort: stop the query. The debugger keeps its mode, so the prompt is `[trace] ?- `, `[debug] ?- ` or `?- ` as that mode says. |
 | `n` | nodebug: turn the debugger off and go on. |
 | `g` | write the open boxes, from the innermost one, with their depth, and ask again. |
 | `w` | write the goal with no depth limit, and ask again. |
@@ -488,9 +489,11 @@ true.
 
 ## Things to know
 
-- A program that you run without a terminal does not read commands. When its input is not a terminal, Mosa writes the port lines and goes on, so
-  you can keep a record of a run: `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log` (on
-  Windows, `< NUL`). If its input is a terminal, it waits at the first port instead.
+- A `mosa` whose input is not a terminal does not read commands. It writes the port lines and goes on, so you can
+  keep a record of a run:
+  `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log`. On Windows, run the same line in Command
+  Prompt (cmd.exe) with `< NUL` in place of `< /dev/null`, because PowerShell has no `<` redirect. If its input is a
+  terminal, it waits at the first port instead.
 - The debugger predicates `trace/0`, `notrace/0`, `debug/0`, `nodebug/0`, `spy/1`, `nospy/1`, `nospyall/0`,
   `leash/1` and `debugging/0` belong to Mosa, so a file of yours cannot define a predicate with one of those names
   and arities.
