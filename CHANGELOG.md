@@ -45,7 +45,9 @@ The known limits of 0.4.1 still hold. The debugger adds these (the manual lists 
 - A goal written as `system:Goal`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced (your own goals that it calls, as `maplist/2` does, are traced). A grammar rule that `phrase/2,3` calls shows the unifications of its translated body.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses already read, as an error in
   such a goal does; in a `:- Goal` directive the load is undone, together with the debugger's on/off switch and mode that the directive changed (spy points stay).
-- A load that fails also undoes an `n` (nodebug) typed inside it: the debugger's on/off switch and mode are restored to what they were before the load, so after the failed load the debugger is on again.
+- When a `:- Goal` directive fails or raises an error, the load is undone, and so is an `n` (nodebug) typed inside
+  it: the debugger's on/off switch and mode return to what they were before the load. When an `initialization/1`
+  goal fails, the load keeps its clauses and the `n` stays.
 - The depth limit of a list is that of the suite (element i counts as depth d+i-1), so a list nested in the first
   element is not cut however deeply.
 - On Windows, a `mosa` whose input is `NUL` is taken for a terminal and stops at the first port; use a pipe.

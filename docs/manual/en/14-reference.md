@@ -761,7 +761,9 @@ or removed. Among them:
   `[trace]`.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a
   goal does. In a `:- Goal` directive, the load is undone, and so are the on/off switch and the mode of the debugger that the directive changed, as in `:- trace, foo.`; spy points stay.
-- A load that fails also undoes an `n` (nodebug) typed inside it: the on/off switch and the mode of the debugger return to what they were before the load, so after the failed load the debugger is on again.
+- When a `:- Goal` directive fails or raises an error, the load is undone, and so is an `n` (nodebug) typed inside
+  it: the on/off switch and the mode of the debugger return to what they were before the load. When an
+  `initialization/1` goal fails, the load keeps its clauses and the `n` stays.
 - The depth limit 10 of the port lines is that of `write_term/2,3` `max_depth/1`, so a list nested in the first
   element is not cut, however deeply: element i of a list counts as depth d+i-1.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).
