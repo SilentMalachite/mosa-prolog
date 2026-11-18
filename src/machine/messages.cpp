@@ -13,6 +13,7 @@
 #include "mosa/ui_language.hpp"
 #include "mosa/writer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <initializer_list>
 #include <string>
@@ -184,8 +185,10 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
   try {
     // ヒープの上限は利用者の機械と同じにする。引数の項は利用者の上限の中で作られたので、写して書くのにも同じ上限を使い、
     // --heap-max を越えない（Muse のレビュー）。原子だけの文面（message_text）は小さいので、既定の上限の機械で作る。
+    // ただし既定より大きくはしない。ヒープは上限の分だけ番地を予約するので、--heap-max 70000000 では 2 つ目の予約が
+    // 番地の空間に入らず、利用者の機械は動くのに項の文面だけが鍵の形に落ちた（敵対的レビュー、2026-11-19）。
     // 予約が断られたときも、下の catch がヒープの尽きとして受ける。
-    auto renderer = Machine::create(impl.heap.limit());
+    auto renderer = Machine::create(std::min(impl.heap.limit(), kDefaultHeapMax));
     Impl& other = engine_impl(*renderer);
     other.message_lang = impl.message_lang;
     other.render_only = true;

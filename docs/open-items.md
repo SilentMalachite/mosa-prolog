@@ -126,6 +126,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   implementation and the manual's checked examples.
 - A cleanup that throws while `r` or `f` trims the stack above a box (Muse review of the fixes,
   2026-11-19): neither a double run nor a stray Exception port is tested.
+- The message machine's heap limit is capped at the default (`render_message`, adversarial review
+  2026-11-19): `--heap-max 70000000` and `130000000` were checked by hand on macOS only, since a
+  test would depend on the address space.
 
 ## Runner and judge (`mosatest`)
 
