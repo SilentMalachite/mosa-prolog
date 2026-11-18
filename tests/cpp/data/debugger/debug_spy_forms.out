@@ -52,4 +52,11 @@ true.
 [debug] ?- spy('no such').
 % No predicate named 'no such'
 true.
+[debug] ?- spy(lists:dbg_hidden/1), nospy(dbg_hidden), debugging, nospy(lists:dbg_hidden/1).
+% Spy point on lists:dbg_hidden/1
+% Debug mode: on (leap)
+% Spy points: (=)/2, lists:dbg_hidden/1
+% Leashed ports: call exit redo fail exception
+% Spy point removed from lists:dbg_hidden/1
+true.
 [debug] ?- 
