@@ -29,6 +29,15 @@ void check_abort_stop() {
   mosa_test::check(occurrences(script.text, " Exit: ") == 0, "abort_stop: no port after a, [" + script.text + "]");
   mosa_test::check(machine->load_program(":- true.\n").ok, "abort_stop: a directive after the abort runs");
   mosa_test::check(impl.abort_now, "abort_stop: load_program keeps the mark of the aborted query");
+  // ポートを出す指令も、残った印に止められずに最後まで動き、デバッガは creep のままポートを書く。true にはポートが
+  // 無いので、それだけでは指令の中のポートを見ていなかった（Muse のレビュー）。
+  const std::size_t before = script.text.size();
+  mosa_test::check(machine->load_program(":- len([], 0).\n").ok, "abort_stop: a traced directive after the abort runs");
+  const std::string directive_ports = script.text.substr(before);
+  mosa_test::check(occurrences(directive_ports, " Call: (1) len([],0) ? ") == 1 &&
+                       occurrences(directive_ports, " Exit: (1) len([],0) ? ") == 1,
+                   "abort_stop: the directive's ports are written, [" + directive_ports + "]");
+  mosa_test::check(impl.abort_now, "abort_stop: the traced directive keeps the mark too");
   const mosa::Stop next = machine->query("true.");
   mosa_test::check(next.kind == mosa::StopKind::Success, "abort_stop: the next query succeeds");
   mosa_test::check(!impl.abort_now, "abort_stop: the next query cleared abort_now");
