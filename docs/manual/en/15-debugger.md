@@ -93,7 +93,7 @@ different name in the next line, so do not compare names between lines.
 
 A goal that your own predicates call is shown, and so is a built-in predicate such as `is/2` or `write/1`, but Mosa
 does not go inside a built-in; only a goal that you give a built-in to run, as with `findall/3`, `forall/2` or `setup_call_cleanup/3`, is shown, one level deeper. A call that a library predicate makes inside itself is not shown either, so `append/3`, for example, is one box, and its inner recursion is hidden, also when you write it as `lists:append(X, Y, Z)`; a goal of yours that it calls, as `maplist/2` does, is shown. These stay hidden: the goals of a control construct after a library's name, as in `lists:(append(X, Y, Z), member(A, Z))`; a goal with a library's name that a library predicate calls for you, as in `maplist(lists:append([a]), Ls, Rs)`; a goal after two library names, as in `lists:lists:append(X, Y, Z)`; and a goal that you give a built-in written after a library's name, as in `lists:findall(X, member(X, L), Xs)` or `lists:once(G)`, since that goal then runs inside the library. The control constructs (`,`, `;`, `->`, `*->`, `!`, `catch/3`) and a few other goals
-(`call/1` to `call/8`, `true`, `fail`, `false`, `throw/1`, `halt/0,1`, `M:Goal`, and the debugger's own predicates) have no ports of their own. `\+` has them, as a box around the goal that it negates.
+(`call/1` to `call/8`, `true`, `fail`, `false`, `throw/1`, `halt/0,1`, `M:Goal`, the debugger's own predicates, and every predicate whose name starts with `$`) have no ports of their own. `\+` has them, as a box around the goal that it negates.
 
 The lines go to the error stream, so they are not mixed with what your program writes.
 
