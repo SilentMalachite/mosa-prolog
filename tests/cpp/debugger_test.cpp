@@ -135,6 +135,22 @@ void check_open_boxes_given_back() {
                        std::to_string(impl.debug.open_boxes.capacity()));
 }
 
+// spy/1 の知らせの項は書いたらヒープから捨てる。前は鍵の数だけ積もり（1 つ 3 語）、--heap-max 1 では 14000 個の
+// foo/1 のリストで上限に当たって、置いて知らせたのにデバッガは切れたままになった（敵対的レビュー、2026-11-19）。
+// 14000 個の知らせは 1 つずつ文面の機械を作るので遅い。100 個で spy/1 の前後のヒープの差を見る。前は 2400 バイト。
+void check_spy_notices_leave_no_garbage() {
+  auto machine = make_machine();
+  mosa_test::check(machine->load_program("foo(1).\nfill([]).\nfill([foo/1|T]) :- fill(T).\n").ok, "spy heap: load");
+  std::ostringstream err;
+  std::streambuf* saved_err = std::cerr.rdbuf(err.rdbuf());
+  const mosa::Stop stop = machine->query(
+      "length(L, 100), fill(L), statistics(heap, [H0|_]), spy(L), statistics(heap, [H1|_]), D is H1 - H0, D < 800.");
+  std::cerr.rdbuf(saved_err);
+  mosa_test::check(stop.kind == mosa::StopKind::Success, "spy heap: 100 notices leave under 800 bytes, got " +
+                                                              stop_text(*machine, stop));
+  mosa_test::check(mosa::engine_impl(*machine).debug_on, "spy heap: the debugger is on");
+}
+
 // 口が無ければ、trace の後もポートの行はどこにも出ず、箱の番号も 1 つも使わない。
 void check_no_console() {
   auto plain = make_machine();
@@ -410,6 +426,7 @@ int main() {
   check_trace_choice_depth();
   check_no_console();
   check_open_boxes_given_back();
+  check_spy_notices_leave_no_garbage();
   check_retry_cleanup();
   check_redo_retry_cleanup();
   check_redo_fail_cleanup();

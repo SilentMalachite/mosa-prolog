@@ -78,8 +78,11 @@ std::string name_text(const Impl& machine, std::uint32_t name) {
 // 今引き直した述語で比べる。置いたときの知らせと、後の debugging/0 と nospy/1 の字面を揃えるためである。
 // 項 Name/Arity（要れば M:Name/Arity）を作って writeq と同じく書くので、演算子の名前も (=)/2 と括弧に入る。名前だけを
 // 引用して / を足すと =/2 になり、知らせの字面を nospy/1 に貼り直すと構文エラーになった（PR #4 の 2 度目の敵対的レビュー）。
+// 項は書いたら要らないので、作る前の大きさへヒープを戻す。組込の中では GC が動かないので、spy/1 のリストの鍵の数だけ
+// 項が積もり、リストはヒープに収まるのに知らせの項だけで上限に当たった（敵対的レビュー、2026-11-19）。束縛はしない。
 std::string indicator_text(Impl& machine, const SpyKey& key) {
   Heap& heap = machine.heap;
+  const std::size_t mark = heap.size();
   const std::array<Cell, 2> parts{heap.atom(key.name), heap.integer(key.arity)};
   Cell term = heap.structure(machine.atoms.intern("/"), parts);
   const std::uint32_t module = key_for(machine, key.module, key.name, key.arity).module;
@@ -92,7 +95,9 @@ std::string indicator_text(Impl& machine, const SpyKey& key) {
   // 字面は nospy/1 などの引数に貼り直すので、引数の優先度 999 で書く。利用者が / や : を 999 より上の演算子にしても
   // 括弧が付き、構文エラーにならない（Muse のレビュー）。既定の表では字面は変わらない。
   options.operand_priority = 999;
-  return write_term(heap, machine.operators, term, options, {});
+  std::string text = write_term(heap, machine.operators, term, options, {});
+  heap.truncate(mark);
+  return text;
 }
 
 // 置いた鍵 placed が、今引き当てた鍵 key と同じ述語を指すか。置いた時にまだ定義が見えなかった鍵（spy(append/3) の
@@ -210,10 +215,11 @@ std::vector<SpyKey> expand(Impl& machine, const SpyTarget& target) {
 }
 
 // ポートの無い述語には置かず、そう知らせる。1 つも置かなければデバッガは入れない（PR #4 の敵対的レビュー、既定 A）。
+// デバッガは鍵を 1 つ置くたびにすぐ入れる。ループの後で入れると、後の鍵の字面でヒープの上限に当たったときに、置いて
+// 知らせたのにデバッガは切れたままの形が残った（敵対的レビュー、2026-11-19）。
 void run_spy(Impl& machine, const Goal& goal) {
   std::vector<SpyTarget> targets;
   if (!parse_specs(machine, goal, targets)) return;
-  bool placed = false;
   for (const SpyTarget& target : targets) {
     const auto keys = expand(machine, target);
     if (keys.empty()) say(machine, "debug_spy_none", {name_text(machine, target.name)});
@@ -222,11 +228,11 @@ void run_spy(Impl& machine, const Goal& goal) {
         say(machine, "debug_spy_no_ports", {indicator_text(machine, key)});
         continue;
       }
-      say_line(machine, place_key(machine, key));
-      placed = true;
+      const std::string line = place_key(machine, key);
+      machine.debug_on = true;
+      say_line(machine, line);
     }
   }
-  if (placed) machine.debug_on = true;
   succeed(machine, goal);
 }
 
