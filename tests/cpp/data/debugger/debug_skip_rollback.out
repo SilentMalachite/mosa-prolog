@@ -1,0 +1,10 @@
+?- trace, (consult('tests/cpp/data/debugger/skip_rollback.pl') ; true), c(X).
+ Call: (1) consult('tests/cpp/data/debugger/skip_rollback.pl') ? s
+ Call: (1) c(_G1) ? s
+ Exit: (1) c(1) ? 
+tests/cpp/data/debugger/skip_rollback.pl: permission_error(modify,static_procedure,debug/0)
+ Fail: (1) consult('tests/cpp/data/debugger/skip_rollback.pl') ? 
+ Call: (1) c(_G1) ? 
+ Exit: (1) c(1) ? 
+X = 1.
+[trace] ?- 

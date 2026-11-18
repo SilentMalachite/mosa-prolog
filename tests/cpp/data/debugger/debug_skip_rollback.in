@@ -1,0 +1,7 @@
+trace, (consult('tests/cpp/data/debugger/skip_rollback.pl') ; true), c(X).
+s
+s
+
+
+
+

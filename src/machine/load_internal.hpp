@@ -232,6 +232,7 @@ struct SavedFlags {
   bool utf8_replace = false;  // 失敗した読み込みは、途中の set_prolog_flag を残さない。
   bool debug_on = false;
   DebugMode debug_mode = DebugMode::Leap;
+  std::uint64_t debug_skip_box = 0;  // skip の箱。進み方と組で戻す
   std::uint8_t debug_leashed = kAllPorts;
   bool japanese_punct = false;
   std::vector<std::pair<char32_t, char32_t>> char_map;

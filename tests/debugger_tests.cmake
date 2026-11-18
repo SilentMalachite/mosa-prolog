@@ -3,12 +3,13 @@
 
 # フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja と spy_ja は ja.pl、redo_nested は nested.pl、
 # spy_after_warning と spy_after_warning_ja は plain.pl）を読ませる。read_line は read/1 が返した改行をポートの
-# コマンドに読まないことを見る（敵対的レビュー、2026-11-19）。
+# コマンドに読まないことを見る（敵対的レビュー、2026-11-19）。skip_rollback は skip_rollback.pl を consult し、取り消した
+# 読み込みが外の skip の箱を戻すことを見る（同じレビュー）。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 set(debug_cases creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
-    spy_after_warning_ja directive_depth spy_ja help eof read_line)
+    spy_after_warning_ja directive_depth spy_ja help eof read_line skip_rollback)
 foreach(debug_case ${debug_cases})
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)

@@ -1,6 +1,6 @@
 // 読み込みの前の旗の退避と戻し（ADR 0017）。load.cpp が 800 行に近づいたので分けた（敵対的レビュー、2026-11-19。
 // skip の箱の番号を旗の組に足す前）。投げる誤りは無い。テスト: tests/pl/debugger.pl（dbg_rollback_*）、
-//   tests/cpp/debugger_test.cpp（check_directive_nodebug_rollback）
+//   tests/cpp/debugger_test.cpp（check_directive_nodebug_rollback）、tests/cpp/data/debugger（transcript_debug_skip_rollback）
 #include "load_internal.hpp"
 
 namespace mosa {
@@ -15,6 +15,7 @@ SavedFlags save_flags(const Impl& machine) {
                     machine.utf8_replace,
                     machine.debug_on,
                     machine.debug.mode,
+                    machine.debug.skip_box,
                     machine.debug.leashed,
                     machine.japanese_punct,
                     machine.char_conv.map,
@@ -34,6 +35,9 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   // それも戻る（CHANGELOG の既知の制限）。ポートのコマンドは leash を変えないので、止まるポートの組は対話では変わらない。
   machine.debug_on = saved.debug_on;
   machine.debug.mode = saved.debug_mode;
+  // skip の箱も進み方と組で戻す。読み込みの中の skip が終わると番号は 0 になり、戻した skip がどの箱も見せず、
+  // consult の箱のポートも問い合わせの残りのポートも出なかった（敵対的レビュー、2026-11-19）。
+  machine.debug.skip_box = saved.debug_skip_box;
   machine.debug.leashed = saved.debug_leashed;
   machine.japanese_punct = saved.japanese_punct;
   machine.char_conv.map = saved.char_map;
