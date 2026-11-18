@@ -104,19 +104,22 @@ bool same_spy(Impl& machine, const SpyKey& placed, const SpyKey& key) {
   return key_for(machine, placed.module, placed.name, placed.arity).module == key.module;
 }
 
-// spy/1 と + が置く。置いてあっても知らせは同じ。知らせの行を返す。
+// spy/1 と + が置く。置いてあっても知らせは同じ。知らせの行を返す。字面は鍵を足す前に作る。字面の項は利用者の
+// ヒープに作るので、上限で抜けても、置いたのに知らせない形を残さない（Muse のレビュー）。remove_key も同じ。
 std::string place_key(Impl& machine, const SpyKey& key) {
+  const std::string text = indicator_text(machine, key);
   // spy(append/3)、use_module(library(lists))、spy(append/3) で同じ述語の鍵が二つ入らないよう、引き直して同じなら足さない。
   const bool already = std::any_of(machine.debug.spies.begin(), machine.debug.spies.end(),
                                    [&](const SpyKey& placed) { return same_spy(machine, placed, key); });
   if (!already) static_cast<void>(set_spy(machine, key, true));
-  return message_text(machine, "debug_spy_set", {indicator_text(machine, key)});
+  return message_text(machine, "debug_spy_set", {text});
 }
 
 // nospy/1 と - が外す。外したときだけ知らせの行を返す。
 std::optional<std::string> remove_key(Impl& machine, const SpyKey& key) {
+  const std::string text = indicator_text(machine, key);
   if (!set_spy(machine, key, false)) return std::nullopt;
-  return message_text(machine, "debug_spy_removed", {indicator_text(machine, key)});
+  return message_text(machine, "debug_spy_removed", {text});
 }
 
 // 文脈のモジュールから見える Name/_ の鍵。表にある述語と組込の arity を集め、見えるものだけ残す。
