@@ -485,7 +485,7 @@ define a predicate with the same name and arity (`permission_error(modify, stati
 <!-- predicates: system -->
 | Predicate | ISO | What it does |
 | --- | --- | --- |
-| `trace/0` | — | Turns the debugger on and makes it stop at every call it shows. |
+| `trace/0` | — | Turns the debugger on and makes it show every port; it stops at the ports that `leash/1` chooses (all five by default). |
 | `notrace/0` | — | Stops stopping at every call. The debugger stays on, so it still stops at spy points. |
 | `debug/0` | — | Turns the debugger on. It stops only at spy points. The flag `debug` becomes `on`. |
 | `nodebug/0` | — | Turns the debugger off. The spy points stay. The flag `debug` becomes `off`. |
@@ -504,19 +504,19 @@ At a port where the debugger stops, `mosa` reads one line, and the first charact
 | Enter, `c` | creep: go on to the next port that is shown, and stop there. |
 | `s` | skip: at Call and Redo, run until the next port of the same call. At the other ports it is creep. |
 | `l` | leap: run until a port of a predicate with a spy point. |
-| `f` | fail: make the call fail. Its Fail port is shown; at an exception port the call fails without a Fail port. |
-| `r` | retry: go back to the Call port of the call and undo its bindings. Side effects are not undone. |
+| `f` | fail: make the call fail. Its Fail port is shown; at an exception port the call fails without a Fail port. At a Fail port it is creep. |
+| `r` | retry: go back to the Call port of the call and undo its bindings. Side effects are not undone. At a Call port it is creep. |
 | `a` | abort: stop the query and return to the prompt. `catch/3` cannot catch it. The cleanups of `setup_call_cleanup/3` that it leaves run first, with no ports; as with an exception, each sees the bindings of its Setup but not those of its Goal; their failures and errors are dropped, and a `nodebug/0` or `trace/0` in them does not change the debugger after the abort. |
 | `n` | nodebug: turn the debugger off and go on. Also what the end of the input does. |
 | `g` | write the open calls, innermost first, with their depth, and ask again. |
-| `w` | write the goal with no depth limit, and ask again. |
+| `w` | write the goal (at an exception port, also the thrown term) with no depth limit, and ask again. |
 | `+`, `-` | put a spy point on the predicate of this call, or take it off, and ask again. |
 | `h`, `?` | write the list of commands, and ask again. |
 | anything else | write "Unknown command" and a hint to type `h`, and ask again. |
 
 The prompt is `[trace] ?- ` while the debugger creeps, `[debug] ?- ` while it leaps or skips, and `?- ` when it is off.
 A port line is the port name, the depth, and the goal written like `writeq` with the depth limit 10, as in
-` Call: (2) len([],_G1) ? `. It ends with `? ` where the debugger stops. The lines go to `user_error`.
+` Call: (2) len([],_G1) ? `. At an exception port the thrown term follows the goal, as in ` Exception: (1) boom e ? `. It ends with `? ` where the debugger stops. The lines go to `user_error`.
 
 ## Libraries
 

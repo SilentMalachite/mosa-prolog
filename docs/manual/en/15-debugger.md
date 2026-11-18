@@ -228,7 +228,7 @@ true.
 ## Jumping into a large search
 
 `trace` stops at every port, and that is too many once a program grows. A spy point asks Mosa to stop only at a
-predicate you care about. `spy(Name/Arity)` puts a spy point on the predicate, and it also turns the debugger on.
+predicate you care about. `spy(Name/Arity)` puts a spy point on the predicate, and when it puts one, it also turns the debugger on.
 Between spy points, Mosa runs without stopping, which Prolog people call leaping.
 
 5. Write a file `route.pl`. `path/3` finds the way from one city to another along the `edge/2` roads:
