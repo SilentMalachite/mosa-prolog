@@ -215,6 +215,8 @@ true.
 X = X, L = [liz,ann,jim], N = 3.
 ```
 
+To watch Mosa run a goal one step at a time, see chapter 15, the debugger.
+
 ---
 
 [Index](README.md) · Previous: [7. Lists and recursion](07-lists-recursion.md) · Next:

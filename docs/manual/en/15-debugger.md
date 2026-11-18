@@ -1,0 +1,581 @@
+English | [日本語](../ja/15-debugger.md)
+
+# 15. The debugger
+
+In this chapter you watch Mosa run a goal one step at a time, see where it enters and leaves each predicate, and
+jump straight to the predicate you care about in a larger search.
+
+You can read this chapter at any time after chapter 8. It uses facts, rules, lists and recursion, and the
+backtracking that you met with `;`.
+
+## Steps
+
+1. Move into the folder `prolog`, and start `mosa`. Create a file `len.pl` with the predicate `len/2` of chapter 7,
+   which gives the length of a list. Its first clause says the empty list has length 0. Its second clause counts the
+   tail first, and then adds one.
+
+<!-- file: len-file len.pl -->
+```prolog
+len([], 0).
+len([_|T], N) :- len(T, M), N is M + 1.
+```
+
+2. Load it, and run `len([a], N)` after `trace`. `trace` turns the debugger on, and Mosa now stops each time it
+   calls a goal or leaves one. Each stop is one line. At the end of the line, Mosa waits for you to press Enter.
+   Press Enter on every line, and watch the goals go by. At the end, the answer comes as usual, and the prompt is
+   `[trace] ?- ` while the debugger is on. Type `notrace.` and `nodebug.` to turn it off.
+
+<!-- check: creep
+consult('len.pl').
+trace, len([a], N).
+
+
+
+
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? 
+ Call: (2) len([],_G1) ? 
+ Exit: (2) len([],0) ? 
+ Call: (2) _G1 is 0+1 ? 
+ Exit: (2) 1 is 0+1 ? 
+ Exit: (1) len([a],1) ? 
+N = 1.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+   In this transcript, the empty lines that you cannot see are the times you pressed Enter at the end of a port
+   line.
+
+3. Read the lines from the top. ` Call: (1) len([a],_G1) ? ` says that Mosa is calling `len([a], N)`, and it is
+   the first call that is open, the `(1)`. `_G1` is the unbound variable `N`. The next line, `(2) len([],_G1)`,
+   is the call of the second clause's `len(T, M)`, one level deeper. Then ` Exit: (2) len([],0) ` shows that this
+   call succeeded and that its variable now has the value 0. After the addition, the line ` Exit: (1) len([a],1) `
+   shows the first call finishing with `N = 1`.
+
+## What happened
+
+Every goal that your program calls is a box. Mosa draws a line each time the run crosses one of the four sides of
+the box, and each of those sides is called a port:
+
+<!-- skip: ports-diagram -->
+```text
+            +-----------------------+
+   Call --> |                       | --> Exit
+            |         goal          |
+   Fail <-- |                       | <-- Redo
+            +-----------------------+
+```
+
+- **Call**: Mosa starts the goal.
+- **Exit**: the goal succeeded. It may have left choices that Mosa has not tried yet.
+- **Redo**: something after the goal failed, so Mosa comes back to the goal to look for another answer.
+- **Fail**: the goal has no more answers.
+- **Exception**: the goal raised an exception, and the exception passes through the box (the line also gives the
+  error term that was thrown).
+
+The number in the parentheses is the depth: how many boxes are open now, this one included. A box shows the
+goal as Mosa writes it with `writeq`, cut at depth 10 (`w` writes it whole, as you will see below). Variables are
+named `_G1`, `_G2` and so on, in the order in which they appear in that line. The same variable can have a
+different name in the next line, so do not compare names between lines.
+
+A goal that your own predicates call is shown, and so is a built-in predicate such as `is/2` or `write/1`, but Mosa
+does not go inside a built-in. A call that a library predicate makes is not shown either, so `append/3`, for
+example, is one box, and its inner recursion is hidden. The control constructs (`,`, `;`, `->`, `\+`, `!`, `catch/3`)
+have no ports of their own.
+
+The lines go to the error stream, so they are not mixed with what your program writes.
+
+Here are the ports that the first run did not show. Write a file `ports.pl` with two facts, and a predicate `bad/0` that
+raises an error with `throw/1`:
+
+<!-- file: ports-file ports.pl -->
+```prolog
+c(1).
+c(2).
+bad :- throw(oops).
+```
+
+Ask for a fact that does not exist, and the goal fails right away:
+
+<!-- check: fail-port
+consult('ports.pl').
+trace, c(3).
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('ports.pl').
+true.
+?- trace, c(3).
+ Call: (1) c(3) ? 
+ Fail: (1) c(3) ? 
+false.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+When the goal after `c(X)` fails, Mosa backtracks into `c(X)`, and you see Redo and then the next answer:
+
+<!-- check: redo-port
+consult('ports.pl').
+trace, (c(X), X > 1).
+
+
+
+
+
+
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('ports.pl').
+true.
+?- trace, (c(X), X > 1).
+ Call: (1) c(_G1) ? 
+ Exit: (1) c(1) ? 
+ Call: (1) 1>1 ? 
+ Fail: (1) 1>1 ? 
+ Redo: (1) c(_G1) ? 
+ Exit: (1) c(2) ? 
+ Call: (1) 2>1 ? 
+ Exit: (1) 2>1 ? 
+X = 2.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+An error shows up as an Exception line, and then the error is passed on to the caller. Here `catch/3` catches it,
+so the query goes on to the answer:
+
+<!-- check: exception-port
+consult('ports.pl').
+trace, catch(bad, E, true).
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('ports.pl').
+true.
+?- trace, catch(bad, E, true).
+ Call: (1) bad ? 
+ Exception: (1) bad oops ? 
+E = oops.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+## Going back for another answer
+
+4. With `;` you ask Mosa for the next answer of a query. The debugger shows the same thing from the inside: the
+   answer comes after an Exit, and `;` turns into a Redo.
+
+<!-- check: retry-more
+consult('ports.pl').
+trace, c(X).
+
+
+;
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('ports.pl').
+true.
+?- trace, c(X).
+ Call: (1) c(_G1) ? 
+ Exit: (1) c(1) ? 
+X = 1;
+
+ Redo: (1) c(_G1) ? 
+ Exit: (1) c(2) ? 
+X = 2.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+   The first answer `X = 1` comes after the Exit line. You typed `;`, so the next stop is the Redo line, and then
+   the Exit with `c(2)`. The query had no more choices, so Mosa wrote the answer with a period.
+
+## Jumping into a large search
+
+`trace` stops at every port, and that is too many once a program grows. A spy point asks Mosa to stop only at a
+predicate you care about. `spy(Name/Arity)` puts a spy point on the predicate, and it also turns the debugger on.
+Between spy points, Mosa runs without stopping, which Prolog people call leaping.
+
+5. Write a file `route.pl`. `path/3` finds the way from one city to another along the `edge/2` roads:
+
+<!-- file: route-file route.pl -->
+```prolog
+edge(a, b).
+edge(a, c).
+edge(b, d).
+edge(c, d).
+edge(d, e).
+
+path(X, X, [X]).
+path(X, Z, [X|P]) :- edge(X, Y), path(Y, Z, P).
+```
+
+6. Put a spy point on `edge/2`, and ask for the path from `a` to `e`. At each stop type `l`, the command that
+   leaps to the next spy point. Mosa shows only the `edge/2` ports. The prompt is `[debug] ?- ` now, because
+   the debugger is on but it is not stopping everywhere. Press Enter at the last answer to end the query, then
+   remove the spy point and turn the debugger off.
+
+<!-- check: leap
+consult('route.pl').
+spy(edge/2).
+path(a, e, P).
+l
+l
+l
+l
+l
+l
+
+nospy(edge/2).
+nodebug.
+-->
+```text
+?- consult('route.pl').
+true.
+?- spy(edge/2).
+% Spy point on edge/2
+true.
+[debug] ?- path(a, e, P).
+ Call: (1) edge(a,_G1) ? l
+ Exit: (1) edge(a,b) ? l
+ Call: (1) edge(b,_G1) ? l
+ Exit: (1) edge(b,d) ? l
+ Call: (1) edge(d,_G1) ? l
+ Exit: (1) edge(d,e) ? l
+P = [a,b,d,e]
+.
+[debug] ?- nospy(edge/2).
+% Spy point removed from edge/2
+true.
+[debug] ?- nodebug.
+true.
+```
+
+   Because Mosa did not stop at `path/3`, depth is always `(1)` here: when you leap, Mosa counts only the boxes
+   that it opened since the leap began. If you press Enter instead of `l`, the debugger goes back to creep, which
+   means that Mosa stops everywhere, and the prompt becomes `[trace]`.
+
+## What you can type at a stop
+
+At a port that stops, Mosa reads one line. The first character that is not a space says what to do. Here are the
+commands:
+
+| You type | What it does |
+| --- | --- |
+| Enter, `c` | creep: go to the next port, and stop there. |
+| `s` | skip: at a Call or Redo port, run the goal without stopping until the next port of this same box. At the other ports it is the same as creep. |
+| `l` | leap: run until a port of a predicate with a spy point. |
+| `f` | fail: make this goal fail, and show its Fail port. |
+| `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. |
+| `a` | abort: stop the query. At the prompt, you are back at `?- ` or `[trace] ?- `. |
+| `n` | nodebug: turn the debugger off and go on. |
+| `g` | write the open boxes, from the innermost one, with their depth, and ask again. |
+| `w` | write the goal with no depth limit, and ask again. |
+| `+`, `-` | put a spy point on this goal's predicate, or take it off. Ask again. |
+| `h`, `?` | write this list, and ask again. |
+
+Any other input is answered with "Unknown command" and a hint to type `h`. At the end of the input (Ctrl-D in a
+terminal), Mosa does what `n` does.
+
+7. Try `g` and `s`. `g` writes the boxes that are open, and `s` at a Call port runs the goal without showing what
+   happens inside, so the next stop is its Exit:
+
+<!-- check: cmd-goals
+consult('len.pl').
+trace, len([a], N).
+
+g
+s
+l
+notrace.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? 
+ Call: (2) len([],_G1) ? g
+ (2) len([],_G1)
+ (1) len([a],_G1)
+ Call: (2) len([],_G1) ? s
+ Exit: (2) len([],0) ? l
+N = 1.
+[debug] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+8. `f` fails a goal on purpose, and `r` goes back to the Call port, so that you can watch a step again:
+
+<!-- check: cmd-fail
+consult('len.pl').
+trace, len([], N).
+f
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- trace, len([], N).
+ Call: (1) len([],_G1) ? f
+ Fail: (1) len([],_G1) ? 
+false.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+<!-- check: cmd-retry
+consult('len.pl').
+trace, len([], N).
+
+r
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- trace, len([], N).
+ Call: (1) len([],_G1) ? 
+ Exit: (1) len([],0) ? r
+ Call: (1) len([],_G1) ? 
+ Exit: (1) len([],0) ? 
+N = 0.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+9. `w` writes the whole goal. `a` stops the whole query, and Mosa tells you, "Execution aborted":
+
+<!-- check: cmd-write
+consult('len.pl').
+trace, len([a], N).
+
+w
+a
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? 
+ Call: (2) len([],_G1) ? w
+len([],_G1)
+ Call: (2) len([],_G1) ? a
+% Execution aborted
+[trace] ?- nodebug.
+true.
+```
+
+## Choosing the ports and looking at the state
+
+`leash(Ports)` chooses where Mosa stops. `leash([none, fail])` stops only at the Fail ports, and `leash(all)` goes
+back to the five ports. The other ports are still written, only without waiting for you:
+
+<!-- check: leash
+consult('ports.pl').
+leash([none, fail]).
+trace, (c(X), X > 1).
+
+leash(all).
+notrace.
+nodebug.
+-->
+```text
+?- consult('ports.pl').
+true.
+?- leash([none, fail]).
+true.
+?- trace, (c(X), X > 1).
+ Call: (1) c(_G1)
+ Exit: (1) c(1)
+ Call: (1) 1>1
+ Fail: (1) 1>1 ? 
+ Redo: (1) c(_G1)
+ Exit: (1) c(2)
+ Call: (1) 2>1
+ Exit: (1) 2>1
+X = 2.
+[trace] ?- leash(all).
+true.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+`debugging/0` writes the state: whether the debugger is on, how it moves, the spy points and the leashed ports.
+`nospy(Spec)` removes one spy point, and `nospyall/0` removes all of them:
+
+<!-- check: debugging
+consult('len.pl').
+spy(len/2).
+debugging.
+nospy(len/2).
+debugging.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- spy(len/2).
+% Spy point on len/2
+true.
+[debug] ?- debugging.
+% Debug mode: on (leap)
+% Spy points: len/2
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nospy(len/2).
+% Spy point removed from len/2
+true.
+[debug] ?- debugging.
+% Debug mode: on (leap)
+% Spy points: none
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nodebug.
+true.
+```
+
+## Things to know
+
+- A program that you run without a terminal does not read commands. Mosa writes the port lines and goes on, so
+  you can keep a record of a run: `mosa file.pl -g 'trace, main' -t halt 2> trace.log`.
+- The names of the nine debugger predicates (`trace`, `notrace`, `debug`, `nodebug`, `spy`, `nospy`, `nospyall`,
+  `leash`, `debugging`) belong to Mosa, so a file of yours cannot define a predicate with one of those names.
+- A program that `mosac build` makes shows no ports. See chapter 13.
+- The other limits are listed in chapter 14, under "Known limits".
+
+## Exercises
+
+1. Run `len([a, b], N)` after `trace`, and press Enter at each port. How many Call lines are there, and what is
+   the greatest depth?
+2. Put a spy point on `len/2`, run `len([a, b], N)`, and type `l` at each stop. Which ports do you see?
+
+### Answers
+
+1. `len([a, b], N)` makes three calls of `len/2` and two of `is/2`, so five Call lines. The greatest depth is 3:
+   the third `len/2` is inside the second, and that is inside the first.
+
+<!-- check: exercise-trace
+consult('len.pl').
+trace, len([a,b], N).
+
+
+
+
+
+
+
+
+
+
+notrace.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- trace, len([a,b], N).
+ Call: (1) len([a,b],_G1) ? 
+ Call: (2) len([b],_G1) ? 
+ Call: (3) len([],_G1) ? 
+ Exit: (3) len([],0) ? 
+ Call: (3) _G1 is 0+1 ? 
+ Exit: (3) 1 is 0+1 ? 
+ Exit: (2) len([b],1) ? 
+ Call: (2) _G1 is 1+1 ? 
+ Exit: (2) 2 is 1+1 ? 
+ Exit: (1) len([a,b],2) ? 
+N = 2.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+2. Only the ports of `len/2`: three Call lines and three Exit lines. `is/2` is not a spy point, so the
+   leap passes it.
+
+<!-- check: exercise-spy
+consult('len.pl').
+spy(len/2).
+len([a,b], N).
+l
+l
+l
+l
+l
+l
+nospyall.
+nodebug.
+-->
+```text
+?- consult('len.pl').
+true.
+?- spy(len/2).
+% Spy point on len/2
+true.
+[debug] ?- len([a,b], N).
+ Call: (1) len([a,b],_G1) ? l
+ Call: (2) len([b],_G1) ? l
+ Call: (3) len([],_G1) ? l
+ Exit: (3) len([],0) ? l
+ Exit: (2) len([b],1) ? l
+ Exit: (1) len([a,b],2) ? l
+N = 2.
+[debug] ?- nospyall.
+true.
+[debug] ?- nodebug.
+true.
+```
+
+---
+
+[Index](README.md) · Previous: [14. Reference](14-reference.md)

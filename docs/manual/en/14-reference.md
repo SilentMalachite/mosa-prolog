@@ -475,8 +475,9 @@ These read and set flags, end Mosa, and look at memory and time.
 
 ### Debugging
 
-These turn the debugger's state on and off and choose what it stops at. Today they only keep that state: the
-port lines that a stopped program shows come in a later step, and in a program that `mosac` built they never appear.
+These turn the debugger on and off and choose what it stops at. Chapter 15 shows how to use them. In `mosa`, a
+goal that runs while the debugger is on writes a line at each port, and at a port where it stops it reads one line
+from you. In a program that `mosac` built, they only keep the state, and no port line appears.
 These names, such as `trace`, are built-in predicates, so a file of your own cannot
 define a predicate with the same name and arity (`permission_error(modify, static_procedure, debug/0)`).
 
@@ -492,6 +493,28 @@ define a predicate with the same name and arity (`permission_error(modify, stati
 | `nospyall/0` | — | Takes off every spy point. |
 | `leash/1` | — | `leash(Ports)`: chooses the ports where the debugger stops. Ports is `all`, `none`, `call`, `exit`, `redo`, `fail`, `exception`, `+Port` or a bare port name (add that port to the set), `-Port` (remove it) or a list of these, applied from the left. `all` and `none` fill or empty the set. To stop at exactly some ports, start from `none`, as in `leash([none, call, fail])`. The default is all five. |
 | `debugging/0` | — | Writes the state of the debugger, its spy points and the ports it stops at, to `user_error`. |
+
+#### Commands at a port
+
+At a port where the debugger stops, `mosa` reads one line, and the first character that is not a space is the command:
+
+| You type | What it does |
+| --- | --- |
+| Enter, `c` | creep: go on to the next port that is shown, and stop there. |
+| `s` | skip: at Call and Redo, run until the next port of the same call. At the other ports it is creep. |
+| `l` | leap: run until a port of a predicate with a spy point. |
+| `f` | fail: make the call fail. Its Fail port is shown. |
+| `r` | retry: go back to the Call port of the call and undo its bindings. Side effects are not undone. |
+| `a` | abort: stop the query and return to the prompt. `catch/3` cannot catch it. |
+| `n` | nodebug: turn the debugger off and go on. Also what the end of the input does. |
+| `g` | write the open calls, innermost first, with their depth, and ask again. |
+| `w` | write the goal with no depth limit, and ask again. |
+| `+`, `-` | put a spy point on the predicate of this call, or take it off, and ask again. |
+| `h`, `?` | write the list of commands, and ask again. |
+
+The prompt is `[trace] ?- ` while the debugger creeps, `[debug] ?- ` while it leaps or skips, and `?- ` when it is off.
+A port line is the port name, the depth, and the goal written like `writeq` with the depth limit 10, as in
+` Call: (2) len([],_G1) ? `. It ends with `? ` where the debugger stops. The lines go to `user_error`.
 
 ## Libraries
 
@@ -716,6 +739,24 @@ or removed. Among them:
 
 - Typing Japanese in the console window of Windows has not been verified.
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
+- The debugger (chapter 15) numbers variables per line, so `_G1` in two port lines, including the lines that `g` writes,
+  may be different variables.
+- In leap mode, the depth and the list of `g` count only the boxes opened during the leap, which are the boxes of
+  spy points. The boxes opened in creep are not shown while Mosa leaps. In a directive, or an `initialization/1` goal,
+  while a file loads, they count only the boxes opened in that directive.
+- A `mosa` whose input is not a terminal reads no commands: it writes the port lines and goes on.
+- A file of yours cannot define a predicate with the name of one of the nine debugger predicates.
+- While Mosa traces, a tail call keeps its box, so a deep recursion uses more memory.
+- `r` (retry) does not undo side effects, such as output.
+- A program that `mosac build` makes shows no ports. `trace` and the others only change the state, and
+  `mosac build --debug` (a trace of clauses, chapter 13) is a different thing.
+- A grammar rule that `phrase/2,3` calls shows the unifications of the translated body, as in `[a,a]=[a|_G1]`.
+- A goal that you write as `system:Goal` is not traced.
+- Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes `[trace]`.
+- `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a
+  goal does. In a `:- Goal` directive, the load is undone.
+- The depth limit 10 of the port lines is that of `write_term/2,3` `max_depth/1`, so a list nested in the first
+  element, such as `[[[[a]]]]`, is not cut: element i of a list counts as depth d+i-1.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).
 - In an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
   counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage
@@ -728,4 +769,4 @@ or removed. Among them:
 
 ---
 
-[Index](README.md) · Previous: [13. Building executables with `mosac`](13-mosac.md)
+[Index](README.md) · Previous: [13. Building executables with `mosac`](13-mosac.md) · Next: [15. The debugger](15-debugger.md)

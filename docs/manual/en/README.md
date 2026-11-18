@@ -30,7 +30,7 @@ What each release has, including 0.4.1, and the known limits are in the [CHANGEL
 
 ## Chapters
 
-Chapters 1 to 13 are meant to be read in order. Chapter 14 is a reference to look things up in.
+Chapters 1 to 13 are meant to be read in order. Chapter 14 is a reference to look things up in. Chapter 15 can be read any time after chapter 8.
 
 1. [Introduction](01-introduction.md)
 2. [Getting and starting Mosa](02-install.md)
@@ -46,3 +46,4 @@ Chapters 1 to 13 are meant to be read in order. Chapter 14 is a reference to loo
 12. [Modules and libraries](12-modules-libraries.md)
 13. [Building executables with `mosac`](13-mosac.md)
 14. [Reference](14-reference.md)
+15. [The debugger](15-debugger.md)
