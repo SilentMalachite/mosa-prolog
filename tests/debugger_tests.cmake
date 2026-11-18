@@ -1,16 +1,16 @@
 # tests/tests.cmake から include する。フェーズ 14 のデバッガ（ADR 0028）のテスト。tests.cmake が 800 行に近づいたので
 # 分けた（PR #4 の敵対的レビューの Low の直しの前）。名前は ci.yml の正規表現が見るので変えない。
 
-# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja は ja.pl、redo_nested は nested.pl、
+# フェーズ 14 のデバッガのポートの行（ADR 0028）。mosa に dbg.pl（creep_ja と spy_ja は ja.pl、redo_nested は nested.pl、
 # spy_after_warning は plain.pl）を読ませる。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 foreach(debug_case creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
-    directive_depth help eof)
+    directive_depth spy_ja help eof)
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
-  if(debug_case STREQUAL "creep_ja")
+  if(debug_case STREQUAL "creep_ja" OR debug_case STREQUAL "spy_ja")
     set(debug_lang ja_JP.UTF-8)
     set(debug_program ja.pl)
   elseif(debug_case STREQUAL "redo_nested")

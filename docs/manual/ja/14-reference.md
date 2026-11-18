@@ -455,7 +455,7 @@ X = あいう.
 | `nospy/1` | — | `nospy(Spec)`: `spy(Spec)` が置いたスパイポイントを外します。名前だけの `Name` は、その名前のスパイポイントをすべて外します。まだ定義していない述語に置いたものも外します。 |
 | `nospyall/0` | — | スパイポイントをすべて外します。 |
 | `leash/1` | — | `leash(Ports)`: デバッガが止まるポートを決めます。Ports は `all`、`none`、`call`、`exit`、`redo`、`fail`、`exception`、`+Port` と、`+` を付けないポート名（そのポートを今の組に足す）、`-Port`（外す）、またはそれらのリストで、左から順に当てます。`all` と `none` は組を全部入れるか空にします。決めたポートだけで止めるには、`leash([none, call, fail])` のように `none` から始めます。既定は 5 つすべてです。 |
-| `debugging/0` | — | デバッガの状態、スパイポイント、止まるポートを `user_error` に書きます。名前は `writeq/1` と同じく引用し、`user` から `Name/Arity` で届かない述語は `Module:Name/Arity` と書きます。`spy/1` と `nospy/1` の知らせも同じ書き方です。 |
+| `debugging/0` | — | デバッガの状態、スパイポイント、止まるポートを `user_error` に書きます。述語は `writeq/1` が項 `Name/Arity` を書くのと同じに書くので、演算子の名前は括弧に入り（`(=)/2`）、名前は引用されます（`'a, b'/1`）。`user` から `Name/Arity` で届かない述語は `Module:Name/Arity` と書きます。`spy/1` と `nospy/1` の知らせも同じ書き方です。 |
 
 #### ポートでのコマンド
 

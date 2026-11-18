@@ -493,7 +493,7 @@ define a predicate with the same name and arity (`permission_error(modify, stati
 | `nospy/1` | — | `nospy(Spec)`: takes off the spy points that `spy(Spec)` puts. A bare `Name` takes off every spy point of that name, also one on a predicate that is not defined. |
 | `nospyall/0` | — | Takes off every spy point. |
 | `leash/1` | — | `leash(Ports)`: chooses the ports where the debugger stops. Ports is `all`, `none`, `call`, `exit`, `redo`, `fail`, `exception`, `+Port` or a bare port name (add that port to the set), `-Port` (remove it) or a list of these, applied from the left. `all` and `none` fill or empty the set. To stop at exactly some ports, start from `none`, as in `leash([none, call, fail])`. The default is all five. |
-| `debugging/0` | — | Writes the state of the debugger, its spy points and the ports it stops at, to `user_error`. A name is quoted as `writeq/1` quotes it, and a predicate that `user` would not reach by `Name/Arity` is shown as `Module:Name/Arity`; the notices of `spy/1` and `nospy/1` write them in the same way. |
+| `debugging/0` | — | Writes the state of the debugger, its spy points and the ports it stops at, to `user_error`. Each predicate is written as `writeq/1` writes the term `Name/Arity`, so an operator name is in brackets (`(=)/2`) and a name is quoted (`'a, b'/1`), and a predicate that `user` would not reach by `Name/Arity` is shown as `Module:Name/Arity`; the notices of `spy/1` and `nospy/1` write them in the same way. |
 
 #### Commands at a port
 

@@ -1,0 +1,4 @@
+spy(true/0).
+spy('no such').
+spy((-)/1), nospy((-)/1).
+spy(長さ/2).

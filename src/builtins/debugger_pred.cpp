@@ -12,10 +12,12 @@
 //   instantiation_error、type_error(atom, X)、type_error(list, L)、domain_error(port, X)。
 // ポートのコマンドの + と - も、ここの Name/Arity と同じ置き方を使う（spy_command）。
 // テスト: tests/pl/debugger.pl、tests/pl/japanese.pl、tests/mosac/debugger_state.pl、tests/cpp/debugger_test.cpp、
-//   tests/cpp/data/debugger（transcript_debug_spy_toggle）
+//   tests/cpp/data/debugger（transcript_debug_spy_toggle、transcript_debug_spy_forms、transcript_debug_spy_ja、
+//   transcript_debug_spy_after_warning）
 #include "../machine/debug_port.hpp"
 #include "../machine/internal.hpp"
 #include "../write/spelling.hpp"
+#include "mosa/writer.hpp"
 #include "write_internal.hpp"
 
 #include <algorithm>
@@ -74,11 +76,20 @@ std::string name_text(const Impl& machine, std::uint32_t name) {
 // （PR #4 の敵対的レビュー）。user から見える述語と組込は今までどおり Name/Arity だけになる。置いたときに定義が
 // まだ見えなかった鍵（spy(append/3) の後の use_module(library(lists))）は、same_spy と同じく自分のモジュールから
 // 今引き直した述語で比べる。置いたときの知らせと、後の debugging/0 と nospy/1 の字面を揃えるためである。
+// 項 Name/Arity（要れば M:Name/Arity）を作って writeq と同じく書くので、演算子の名前も (=)/2 と括弧に入る。名前だけを
+// 引用して / を足すと =/2 になり、知らせの字面を nospy/1 に貼り直すと構文エラーになった（PR #4 の 2 度目の敵対的レビュー）。
 std::string indicator_text(Impl& machine, const SpyKey& key) {
-  std::string text = name_text(machine, key.name) + "/" + std::to_string(key.arity);
+  Heap& heap = machine.heap;
+  const std::array<Cell, 2> parts{heap.atom(key.name), heap.integer(key.arity)};
+  Cell term = heap.structure(machine.atoms.intern("/"), parts);
   const std::uint32_t module = key_for(machine, key.module, key.name, key.arity).module;
-  if (key_for(machine, machine.user_module, key.name, key.arity).module == module) return text;
-  return name_text(machine, module) + ":" + text;
+  if (key_for(machine, machine.user_module, key.name, key.arity).module != module) {
+    const std::array<Cell, 2> qualified{heap.atom(module), term};
+    term = heap.structure(machine.atoms.intern(":"), qualified);
+  }
+  WriteOptions options;
+  options.fullwidth = machine.japanese_punct;
+  return write_term(heap, machine.operators, term, options, {});
 }
 
 // 置いた鍵 placed が、今引き当てた鍵 key と同じ述語を指すか。置いた時にまだ定義が見えなかった鍵（spy(append/3) の

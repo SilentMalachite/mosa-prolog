@@ -9,3 +9,6 @@ spy(dbg_hidden/1).
 debugging.
 nospyall.
 spy(pairs_keys/2), use_module(library(pairs)), debugging, nospy(pairs_keys/2).
+spy((-)/1), spy((=)/2), debugging, nospy((-)/1).
+spy(lists:dbg_hidden/1), nospy(lists:dbg_hidden/1).
+spy('no such').

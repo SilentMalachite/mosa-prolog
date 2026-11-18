@@ -37,4 +37,19 @@ true.
 % Leashed ports: call exit redo fail exception
 % Spy point removed from pairs_keys/2
 true.
+[debug] ?- spy((-)/1), spy((=)/2), debugging, nospy((-)/1).
+% Spy point on (-)/1
+% Spy point on (=)/2
+% Debug mode: on (leap)
+% Spy points: (-)/1, (=)/2
+% Leashed ports: call exit redo fail exception
+% Spy point removed from (-)/1
+true.
+[debug] ?- spy(lists:dbg_hidden/1), nospy(lists:dbg_hidden/1).
+% Spy point on lists:dbg_hidden/1
+% Spy point removed from lists:dbg_hidden/1
+true.
+[debug] ?- spy('no such').
+% No predicate named 'no such'
+true.
 [debug] ?- 
