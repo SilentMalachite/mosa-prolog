@@ -47,17 +47,25 @@ std::unique_ptr<mosa::Machine> make_machine(Sink& sink) {
   return machine;
 }
 
-// 1 回目は割り当てや GC の始まりを含みうる。最小を取り、偶然の遅れで落ちないようにする。
-double time_goal(mosa::Machine& machine, const std::string& goal) {
-  double best = std::numeric_limits<double>::infinity();
+struct Timed {
+  double ms = 0;
+  std::size_t lines = 0;
+};
+
+// 1 回目は割り当てや GC の始まりを含みうる。最小を取り、偶然の遅れで落ちないようにする。書いた行は最後の回の数を
+// 返す。1 回目は trace の前のゴールがまだ箱を持たないので、行が少し少ない。
+Timed time_goal(mosa::Machine& machine, Sink& sink, const std::string& goal) {
+  Timed timed{std::numeric_limits<double>::infinity(), 0};
   for (int run = 0; run < k_runs; ++run) {
+    const std::size_t before = sink.lines;
     const auto started = std::chrono::steady_clock::now();
     const auto stop = machine.query(goal);
     const std::chrono::duration<double, std::milli> took = std::chrono::steady_clock::now() - started;
     mosa_test::check(stop.kind == mosa::StopKind::Success, goal + " succeeds");
-    best = std::min(best, took.count());
+    timed.ms = std::min(timed.ms, took.count());
+    timed.lines = sink.lines - before;
   }
-  return best;
+  return timed;
 }
 
 // goal の中の N を回数に置き換えて測る。setup は測る前に 1 回だけ問う。
@@ -70,9 +78,15 @@ void check_linear(std::string_view label, std::string_view setup, std::string_vi
     text.replace(text.find('N'), 1, std::to_string(n));
     return text;
   };
-  const double small = time_goal(*machine, with(small_n));
-  const double large = time_goal(*machine, with(small_n * 4));
-  mosa_test::check(sink.lines > small_n, std::string{label} + ": the ports were written");
+  const Timed small_run = time_goal(*machine, sink, with(small_n));
+  const Timed large_run = time_goal(*machine, sink, with(small_n * 4));
+  const double small = small_run.ms;
+  const double large = large_run.ms;
+  // 4 倍の回数では行もほぼ 4 倍になる。深いところでポートを書かなくなる誤りは速くなって時間の検査を通るので、大きい
+  // 回の行を小さい回と比べる（Muse のレビュー）。前は数を全部の回で足したので、小さい回だけで通った。
+  mosa_test::check(small_run.lines >= small_n && large_run.lines * 10 >= small_run.lines * 39,
+                   std::string{label} + ": the ports were written in each run, " + std::to_string(small_run.lines) +
+                       " then " + std::to_string(large_run.lines));
   std::ostringstream text;
   text << std::fixed << std::setprecision(1) << label << ": t(" << small_n * 4 << ") = " << large << " ms, t("
        << small_n << ") = " << small << " ms, ratio " << (small > 0 ? large / small : 0.0) << " (limit 8 x + "
