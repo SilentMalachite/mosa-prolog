@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 namespace mosa {
 
@@ -19,5 +20,9 @@ namespace mosa {
 // stack[box_index] の箱のポートを debug_port が書くか。状態は変えない（skip の箱に着いて creep に戻すのは
 // debug_port）。throw_box が投げられた項を取り込む前に聞く。
 [[nodiscard]] bool debug_port_shown(Impl& machine, std::size_t box_index);
+
+// Name/Arity のゴールが箱を持ちうるか（制御構文、call/1..8、デバッガの述語、$ の名前は持たない）。spy/1 は持たない
+// 述語にスパイポイントを置かない。止まりようが無いので、置いたと知らせると誤る。
+[[nodiscard]] bool debug_has_ports(std::string_view name, std::uint16_t arity);
 
 }  // namespace mosa

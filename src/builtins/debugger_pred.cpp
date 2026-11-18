@@ -6,13 +6,16 @@
 //   instantiation_error（Spec か Arity か Name が変数、リストの尾か要素が変数）、type_error(predicate_indicator, S)、
 //   type_error(atom, Name)、type_error(integer, Arity)、domain_error(not_less_than_zero, Arity)、
 //   representation_error(max_arity)、type_error(list, L)、strip_module の誤り（M が変数、無いモジュール）。
+//   spy/1 はポートの無い述語（debug_has_ports）に置かず、1 つも置かなければデバッガを入れない。
 // leash(+Ports)
 //   Ports は all、none、Port、+Port、-Port、そのリスト。
 //   instantiation_error、type_error(atom, X)、type_error(list, L)、domain_error(port, X)。
 // ポートのコマンドの + と - も、ここの Name/Arity と同じ置き方を使う（spy_command）。
 // テスト: tests/pl/debugger.pl、tests/pl/japanese.pl、tests/mosac/debugger_state.pl、tests/cpp/debugger_test.cpp、
 //   tests/cpp/data/debugger（transcript_debug_spy_toggle）
+#include "../machine/debug_port.hpp"
 #include "../machine/internal.hpp"
+#include "../write/spelling.hpp"
 #include "write_internal.hpp"
 
 #include <algorithm>
@@ -61,8 +64,18 @@ SpyKey key_for(Impl& machine, std::uint32_t context, std::uint32_t name, std::ui
   return SpyKey{context, name, arity};
 }
 
-std::string indicator_text(const Impl& machine, const SpyKey& key) {
-  return std::string{machine.atoms.name(key.name)} + "/" + std::to_string(key.arity);
+std::string name_text(const Impl& machine, std::uint32_t name) {
+  const std::string_view text = machine.atoms.name(name);
+  return spelling::bare_atom(text, machine.japanese_punct) ? std::string{text} : spelling::quote_atom(text);
+}
+
+// 知らせと debugging/0 の字面。名前は writeq と同じく引用し、user から Name/Arity で引くと別の述語になる鍵には
+// モジュールを付ける。spy(lists:foo/1) と spy(foo/1)、'a, b'/1 と区切りの「, 」が同じ字面にならないため
+// （PR #4 の敵対的レビュー）。user から見える述語と組込は今までどおり Name/Arity だけになる。
+std::string indicator_text(Impl& machine, const SpyKey& key) {
+  std::string text = name_text(machine, key.name) + "/" + std::to_string(key.arity);
+  if (key_for(machine, machine.user_module, key.name, key.arity).module == key.module) return text;
+  return name_text(machine, key.module) + ":" + text;
 }
 
 // 置いた鍵 placed が、今引き当てた鍵 key と同じ述語を指すか。置いた時にまだ定義が見えなかった鍵（spy(append/3) の
@@ -176,15 +189,24 @@ std::vector<SpyKey> expand(Impl& machine, const SpyTarget& target) {
   return visible_keys(machine, target);
 }
 
+// ポートの無い述語には置かず、そう知らせる。1 つも置かなければデバッガは入れない（PR #4 の敵対的レビュー、既定 A）。
 void run_spy(Impl& machine, const Goal& goal) {
   std::vector<SpyTarget> targets;
   if (!parse_specs(machine, goal, targets)) return;
+  bool placed = false;
   for (const SpyTarget& target : targets) {
     const auto keys = expand(machine, target);
-    if (keys.empty()) say(machine, "debug_spy_none", {machine.atoms.name(target.name)});
-    for (const SpyKey& key : keys) say_line(machine, place_key(machine, key));
+    if (keys.empty()) say(machine, "debug_spy_none", {name_text(machine, target.name)});
+    for (const SpyKey& key : keys) {
+      if (!debug_has_ports(machine.atoms.name(key.name), key.arity)) {
+        say(machine, "debug_spy_no_ports", {indicator_text(machine, key)});
+        continue;
+      }
+      say_line(machine, place_key(machine, key));
+      placed = true;
+    }
   }
-  machine.debug_on = true;
+  if (placed) machine.debug_on = true;
   succeed(machine, goal);
 }
 
@@ -271,7 +293,7 @@ std::string_view mode_name(DebugMode mode) {
   return mode == DebugMode::Skip ? "skip" : "leap";
 }
 
-std::string join_spies(const Impl& machine) {
+std::string join_spies(Impl& machine) {
   std::string text;
   for (const SpyKey& key : machine.debug.spies) {
     if (!text.empty()) text += ", ";

@@ -171,6 +171,7 @@ message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').
 message(debug_spy_set, '% Spy point on ~w').
 message(debug_spy_removed, '% Spy point removed from ~w').
 message(debug_spy_none, '% No predicate named ~w').
+message(debug_spy_no_ports, '% ~w has no ports, so it gets no spy point').
 message(debug_status_off, '% Debug mode: off').
 message(debug_status_on, '% Debug mode: on (~w)').
 message(debug_status_spies, '% Spy points: ~w').

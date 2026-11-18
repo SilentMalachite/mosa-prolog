@@ -42,6 +42,12 @@ bool unboxed(std::string_view name, std::uint16_t arity) {
                      [&](const Unboxed& item) { return item.arity == arity && item.name == name; });
 }
 
+}  // namespace
+
+bool debug_has_ports(std::string_view name, std::uint16_t arity) { return !unboxed(name, arity); }
+
+namespace {
+
 // stack[box_index] が箱 number の番兵か。番兵が外れた後、同じ位置に別の枠が積まれうるので番号も照らす。
 bool box_at(const Impl& machine, std::size_t box_index, std::uint64_t number) {
   return box_index < machine.stack.size() && machine.stack[box_index].pick == Pick::DebugBox &&

@@ -172,6 +172,7 @@ message(manual_summary, 'manual: ~w checked, ~w skipped, ~w failed').
 message(debug_spy_set, '% ~w にスパイポイントを置きました').
 message(debug_spy_removed, '% ~w のスパイポイントを外しました').
 message(debug_spy_none, '% ~w という名前の述語はありません').
+message(debug_spy_no_ports, '% ~w にはポートが無いので、スパイポイントを置きません').
 message(debug_status_off, '% デバッグ: 切り').
 message(debug_status_on, '% デバッグ: 入り（~w）').
 message(debug_status_spies, '% スパイポイント: ~w').

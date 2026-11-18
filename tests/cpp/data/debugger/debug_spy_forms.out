@@ -1,0 +1,33 @@
+?- spy(true/0).
+% true/0 has no ports, so it gets no spy point
+true.
+?- spy([]).
+true.
+?- spy(dbg_no_such).
+% No predicate named dbg_no_such
+true.
+?- debugging.
+% Debug mode: off
+% Spy points: none
+% Leashed ports: call exit redo fail exception
+true.
+?- spy(call/1).
+% call/1 has no ports, so it gets no spy point
+true.
+?- spy(('a, b')/1).
+% Spy point on 'a, b'/1
+true.
+[debug] ?- spy(lists:dbg_hidden/1).
+% Spy point on lists:dbg_hidden/1
+true.
+[debug] ?- spy(dbg_hidden/1).
+% Spy point on dbg_hidden/1
+true.
+[debug] ?- debugging.
+% Debug mode: on (leap)
+% Spy points: 'a, b'/1, lists:dbg_hidden/1, dbg_hidden/1
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nospyall.
+true.
+[debug] ?- 

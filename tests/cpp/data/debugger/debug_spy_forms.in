@@ -1,0 +1,10 @@
+spy(true/0).
+spy([]).
+spy(dbg_no_such).
+debugging.
+spy(call/1).
+spy(('a, b')/1).
+spy(lists:dbg_hidden/1).
+spy(dbg_hidden/1).
+debugging.
+nospyall.

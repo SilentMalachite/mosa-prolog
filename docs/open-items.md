@@ -15,6 +15,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
+- `spy/1` and `debugging/0`. Default A: no spy point on a goal with no ports (`debug_has_ports`),
+  the debugger turned on only when one is set, names quoted, and `M:` where `user` would reach
+  another predicate. `transcript_debug_spy_forms` and the `dbg_spy_*_off` rows pin it.
 - `max_depth` (iso-notes "Debugger"). Default A: a cut part is never put in parentheses, lists
   with `ignore_ops(true)` keep the d+i-1 rule, and `quoted(true)` quotes the atom `'...'` while a
   depth is set. The `wd_minus_*`, `wd_*operator_atom_cut`, `wd_ignore_ops_*`, `wd_dots_*` rows.
@@ -245,9 +248,6 @@ Phase 13: see CHANGELOG 0.4.0, Known limits.
 
 Debugger, left from the 2026-11-18 adversarial review of PR #4 (all Low; 1–3 were fixed):
 
-- `spy/1` accepts goals that have no port (`true/0`, `','/2`, `call/1`) and says it set them.
-- `spy([])` and a `spy(foo)` that set nothing still turn the debugger on.
-- `debugging/0` writes names unquoted and without module (`a, b/1` for `'a, b'/1`).
 - CHANGELOG ("undone, together with ... on/off switch and mode") omits the leashed ports.
 - `load.cpp` says typed choices survive a failed load; `n` and `l` do not (as documented).
 - Leap runs `find_module` before the cheap spy check.
