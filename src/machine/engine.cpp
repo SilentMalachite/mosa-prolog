@@ -596,7 +596,10 @@ bool run_builtin(Impl& machine, const Goal& goal) {
 
 Stop run_loop(Impl& machine) {
   while (true) {
-    if (machine.halt_now) {
+    // 2 つの印は隣り合う。止まらない歩みでは、どちらも偽と見るだけで済ませる。
+    if (machine.halt_now || machine.abort_now) {
+      // abort（ADR 0028）は問い合わせを止めるだけで、プロセスは続く。書き出しは halt だけにする。
+      if (!machine.halt_now) return Stop{StopKind::Abort, 0, {}, {}, false};
       // 埋め込みでは halt の後も Machine が生きるので、終わりを待たずにここで書き出す（レビュー M5）。
       flush_open_files(machine);
       return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
@@ -680,6 +683,9 @@ void drop_run(Impl& machine) {
   machine.ip = kNoFrame;
   machine.bindings.clear();
   machine.pending_cleanups.clear();
+  // abort の印は捨てた問い合わせのものである。skip の箱ももうポートを出さないので creep に戻す（ADR 0028）。
+  machine.abort_now = false;
+  end_skip(machine.debug);
 }
 
 }

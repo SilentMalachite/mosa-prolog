@@ -1,7 +1,8 @@
 // フェーズ 14（ADR 0028）。追跡しても答えが変わらないこと（カット、findall/3、catch/3、setup_call_cleanup/3、call/N）、
 // 決定的な問い合わせの後に番兵が残らないこと（has_more は箱の選択点を数えないので、; の問いでは見つからない）、
 // DebugConsole の無い機械（mosatest、mosac の実行ファイル、埋め込み）は trace の後も箱を作らないこと、
-// setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）。
+// setup_call_cleanup/3 の選択点を中に残した箱を r と f で切っても後始末が外された回数だけ動くこと（タスク 6）、
+// a が StopKind::Abort で問い合わせを止め、後始末を動かさず、デバッグの状態を変えないこと（タスク 7）。
 // ポートの行そのものはトランスクリプト（tests/cpp/data/debugger）で確かめる。
 #include "harness.hpp"
 
@@ -54,6 +55,7 @@ void give_console(mosa::Machine& machine, Console& console) {
 std::string stop_text(const mosa::Machine& machine, const mosa::Stop& stop) {
   if (stop.kind == mosa::StopKind::Success) return mosa::format_answer(machine, stop) + (stop.more ? " ;" : " .");
   if (stop.kind == mosa::StopKind::Failure) return "false";
+  if (stop.kind == mosa::StopKind::Abort) return "abort";
   return stop.kind == mosa::StopKind::Exception ? "exception" : "halt";
 }
 
@@ -251,6 +253,53 @@ void check_redo_fail_cleanup() {
   mosa_test::check(occurrences(ports, " Fail: (1) s ? ") == 1, "redo_fail_cleanup: one fail of s, [" + ports + "]");
 }
 
+// タスク 7。呼出のポートの a で問い合わせは Abort で止まり、デバッグの状態は変えない。印は次の問い合わせの
+// drop_run が消す。その前の load_program の指令は、残った印で止まらない（HaltSetAside が脇に置く）。
+void check_abort_stop() {
+  auto machine = make_machine();
+  Scripted script{" Call: (2) len([],_G1) ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query("trace, len([a], N).");
+  const auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(stop.kind == mosa::StopKind::Abort, "abort_stop: Abort, got [" + stop_text(*machine, stop) + "]");
+  mosa_test::check(impl.abort_now, "abort_stop: abort_now is set until the next query");
+  mosa_test::check(impl.debug_on && impl.debug.mode == mosa::DebugMode::Creep, "abort_stop: the debug state is kept");
+  mosa_test::check(occurrences(script.text, " Exit: ") == 0, "abort_stop: no port after a, [" + script.text + "]");
+  mosa_test::check(machine->load_program(":- true.\n").ok, "abort_stop: a directive after the abort runs");
+  mosa_test::check(impl.abort_now, "abort_stop: load_program keeps the mark of the aborted query");
+  const mosa::Stop next = machine->query("true.");
+  mosa_test::check(next.kind == mosa::StopKind::Success, "abort_stop: the next query succeeds");
+  mosa_test::check(!impl.abort_now, "abort_stop: the next query cleared abort_now");
+}
+
+// abort は halt と同じく、setup_call_cleanup/3 の後始末を動かさない。次の問い合わせが前を閉じるときも動かさない。
+void check_abort_cleanup() {
+  std::string answer;
+  std::string ports;
+  const std::string count = run_cleanup_case({"abort_cleanup", "trace, r", " Exit: (1) r ? ", "a"}, answer, ports);
+  mosa_test::check(answer == "abort", "abort_cleanup: Abort, got [" + answer + "]");
+  mosa_test::check(count.find("N = 0") != std::string::npos, "abort_cleanup: N = 0, got [" + count + "]");
+}
+
+// initialization/1 のゴールの abort。例外と同じく読み込みは失敗し、後の初期化は動かない。診断は書かない。節は
+// 例外のときと同じく残る（2026-10-26 の決定 A。設計の「元に戻す」との食い違いは open-items の問い）。
+void check_abort_init() {
+  auto machine = make_machine();
+  Scripted script{" Call: (1) dbg_init ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  mosa_test::check(machine->query("trace.").kind == mosa::StopKind::Success, "abort_init: trace");
+  const mosa::LoadStatus status = machine->load_program(
+      "dbg_init.\nloaded(1).\n:- initialization(dbg_init).\n:- initialization(assertz(second_init)).\n");
+  const auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(!status.ok && status.message.empty(),
+                   "abort_init: fails with no diagnostic, [" + status.message + "]");
+  mosa_test::check(impl.abort_now, "abort_init: abort_now is kept for the caller");
+  const mosa::Stop kept =
+      machine->query("notrace, nodebug, current_predicate(loaded/1), \\+ current_predicate(second_init/0).");
+  mosa_test::check(kept.kind == mosa::StopKind::Success,
+                   "abort_init: clauses kept, no later init, got [" + stop_text(*machine, kept) + "]");
+}
+
 }  // namespace
 
 int main() {
@@ -260,5 +309,8 @@ int main() {
   check_retry_cleanup();
   check_redo_retry_cleanup();
   check_redo_fail_cleanup();
+  check_abort_stop();
+  check_abort_cleanup();
+  check_abort_init();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

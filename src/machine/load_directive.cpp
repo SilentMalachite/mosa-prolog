@@ -294,6 +294,7 @@ struct SavedExec {
   bool eval_abort = false;
   bool halt_now = false;
   int halt_code = 0;
+  // abort_now は退避しない。指令の中の abort は外の問い合わせも止めるので、印は戻した後も残す（ADR 0028）。
   Cell ball{};
   std::vector<Binding> bindings;
 };
@@ -578,7 +579,9 @@ StopKind run_aside(Impl& machine, SavedExec& saved, Cell goal) {
     // （ADR 0016）。
     if (stop.kind == StopKind::Success) {
       Stop closed = close_cleanups(machine, 0);
-      if (closed.kind == StopKind::Exception || closed.kind == StopKind::Halt) stop = std::move(closed);
+      if (closed.kind == StopKind::Exception || closed.kind == StopKind::Halt || closed.kind == StopKind::Abort) {
+        stop = std::move(closed);
+      }
     }
   } catch (...) {
     // C++ の例外（ヒープの上限）でも、積んだ束縛と項を外の水位まで戻してから投げ直す。後始末は、問い合わせが同じ例外で
@@ -624,10 +627,11 @@ Cell in_load_module(Impl& machine, Cell goal) {
 
 namespace {
 
-// 失敗はエラーにしない。節は呼び出し側が戻さない。halt/0,1 は残りの初期化を呼ばずに止める。
+// 失敗はエラーにしない。節は呼び出し側が戻さない。halt/0,1 とデバッガの a は残りの初期化を呼ばずに止める。a は
+// 例外と同じく読み込みを失敗させ、節は残す（iso-notes 7.4.2 initialization/1 の決定 A。open-items の問い）。
 bool run_init_goal(Impl& machine, Cell goal) {
   const StopKind kind = run_parked(machine, goal);
-  return kind != StopKind::Exception && kind != StopKind::Halt;
+  return kind == StopKind::Success || kind == StopKind::Failure;
 }
 
 // 読み込みの指示の名前。ここまで来たものは形が合わない（include(a, b) など）ので、ゴールとして呼ばず今までどおり受けない。
@@ -660,6 +664,12 @@ int run_directive_goal(Impl& machine, Cell term) {
   // halt/0,1 は読み込みをその場で止める。halt_now は残り、mosa と実行ファイルがその値で終わる。
   if (kind == StopKind::Halt) {
     machine.load_kept = true;
+    return -1;
+  }
+  // デバッガの a は、失敗と同じく読み込みを戻す（設計の「コマンド」、iso-notes 7.4.2 Other directives の決定 A）。
+  // 診断は書かない。入れ子の consult が残した印は消し、節を戻す。abort_now は残り、外の run_loop が見て止まる。
+  if (kind == StopKind::Abort) {
+    machine.load_kept = false;
     return -1;
   }
   if (kind != StopKind::Failure) {

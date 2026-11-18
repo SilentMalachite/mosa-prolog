@@ -23,8 +23,8 @@
 namespace mosa {
 
 void prefix_consult_diagnostic(Impl& machine, std::string_view path) {
-  // halt で止まった読み込みの診断は run_load が空にした。パスだけを付けると「F: 」になる。
-  if (machine.halt_now) return;
+  // halt と abort で止まった読み込みの診断は run_load が空にした。パスだけを付けると「F: 」になる。
+  if (machine.halt_now || machine.abort_now) return;
   if (machine.syntax_diag) {
     machine.diagnostic = std::string{path} + ":" + std::to_string(machine.diag_line) + ":" +
                          std::to_string(machine.diag_column) + ": " + machine.diagnostic;
@@ -261,8 +261,8 @@ bool load_from_goal(Impl& machine, const Goal& call, Cell* extra, const Load& lo
   if (!loaded) {
     // halt/0,1 で止まった読み込みは失敗ではなく終わりで、診断は run_load が空にした。書けば空の行になる。
     // 指令の読み込み（consult_files、load_outcome）と同じく halt_now を先に見る。
-    // failed を立てても、run_loop は halt_now を先に見て止まる。
-    if (!machine.halt_now) report_goal_load_failure(machine);
+    // failed を立てても、run_loop は halt_now を先に見て止まる。デバッガの a（abort_now）も同じである。
+    if (!machine.halt_now && !machine.abort_now) report_goal_load_failure(machine);
     machine.failed = true;
     return true;
   }

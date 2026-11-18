@@ -182,3 +182,5 @@ message(debug_port_exit, 'Exit').
 message(debug_port_redo, 'Redo').
 message(debug_port_fail, 'Fail').
 message(debug_port_exception, 'Exception').
+% デバッガの a で問い合わせを止めたときの知らせ（ADR 0028）。
+message(debug_aborted, '% Execution aborted').

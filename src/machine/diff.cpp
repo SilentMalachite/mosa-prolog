@@ -173,7 +173,8 @@ DiffSource lgt_source(const std::string& bytes) {
 // 字面は write_term ではなく answer_text（深い項でも C++ のスタックを使わない。answer_text.hpp の注）。
 std::string render(Machine& machine, const Stop& stop) {
   if (stop.kind == StopKind::Halt) return "halt(" + std::to_string(stop.halt_code) + ")";
-  if (stop.kind == StopKind::Failure) return "false";
+  // mosatest にはデバッガの口が無いので abort は起きない。起きれば失敗と同じに書く（ADR 0028）。
+  if (stop.kind == StopKind::Failure || stop.kind == StopKind::Abort) return "false";
   Impl& impl = engine_impl(machine);
   if (stop.kind == StopKind::Exception) {
     return "exception: " + answer_text(impl.heap, impl.operators, stop.exception);

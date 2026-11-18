@@ -57,7 +57,8 @@ Stop open_query(Impl& machine, Start start) {
     return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
   }
   // halt で止まった問い合わせの後始末は、次の問い合わせが閉じるときも動かさない（ADR 0016、敵対的レビュー A5）。
-  const bool halted = machine.halt_now;
+  // abort で止まった問い合わせも halt に揃える（ADR 0028）。abort_now は下の drop_run が消す。
+  const bool halted = machine.halt_now || machine.abort_now;
   machine.halt_now = false;
   // 差し替えはどれも抜けるとき戻す（レビュー H6）。それでも閉じた流れを指して来たら、標準の流れから始める。
   // 開いた流れは set_output/1 が問い合わせをまたいで持ち越したものなので戻さない。load_program と next は見ない。
@@ -69,7 +70,8 @@ Stop open_query(Impl& machine, Start start) {
   // 前の問い合わせが選択点を残していれば、捨てる前に setup_call_cleanup/3 の後始末を動かす。その例外は返す先が無い。
   if (!halted && has_cleanup_entries(machine, 0)) {
     const Stop closed = close_query(machine);
-    if (closed.kind == StopKind::Halt) {
+    // 前の問い合わせの後始末のポートで a を打てば、この問い合わせも始めない。
+    if (closed.kind == StopKind::Halt || closed.kind == StopKind::Abort) {
       drop_run(machine);
       return closed;
     }
@@ -117,6 +119,8 @@ Stop query_exported(Machine& machine, const ExportedTerm& goal, std::span<const 
 Stop Machine::next() {
   Impl& machine = *impl_;
   if (machine.halt_now) return Stop{StopKind::Halt, machine.halt_code, {}, {}, false};
+  // バックトラックに進むと、abort で残った番兵が失敗のポートを書き、コマンドを読んでしまう。
+  if (machine.abort_now) return Stop{StopKind::Abort, 0, {}, {}, false};
   return drop_on_throw(machine, [&machine] {
     if (!backtrack(machine)) return Stop{StopKind::Failure, 0, {}, {}, false};
     return run_loop(machine);

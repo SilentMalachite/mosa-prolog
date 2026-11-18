@@ -46,4 +46,12 @@ struct DebugState {
   std::optional<MessageLanguage> names_lang;
 };
 
+// skip はその箱のポートに着くまでの、1 つの問い合わせの中だけの進み方である。問い合わせを捨てるか abort すると
+// その箱はもうポートを出さず、skip のままだと次の trace まで箱が 1 つも作られない（コントローラの裁定 16）。
+inline void end_skip(DebugState& state) {
+  if (state.mode != DebugMode::Skip) return;
+  state.mode = DebugMode::Creep;
+  state.skip_box = 0;
+}
+
 }  // namespace mosa

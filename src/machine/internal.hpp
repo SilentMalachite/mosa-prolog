@@ -348,6 +348,8 @@ struct Machine::Impl {
   int var_depth = 0;
   Cell ball{};
   bool halt_now = false;
+  // デバッガの a（ADR 0028）。run_loop が halt_now の次に見る。消すのは drop_run（HaltSetAside は読む間だけ退ける）。
+  bool abort_now = false;
   bool halt_pending = false;
   int halt_code = 0;
   std::string diagnostic;

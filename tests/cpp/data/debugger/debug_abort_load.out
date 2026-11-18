@@ -1,0 +1,7 @@
+?- trace, consult('tests/cpp/data/debugger/load.pl').
+ Call: (1) consult('tests/cpp/data/debugger/load.pl') ? 
+ Call: (1) dbg_init ? a
+% Execution aborted
+[trace] ?- notrace, nodebug, current_predicate(loaded/1).
+false.
+?- 

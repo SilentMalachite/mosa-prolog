@@ -1,0 +1,9 @@
+?- trace, catch(q, E, true).
+ Call: (1) q ? 
+ Call: (2) p ? 
+ Exception: (2) p oops ? a
+% Execution aborted
+[trace] ?- :- true.
+[trace] ?- notrace, nodebug.
+true.
+?- 

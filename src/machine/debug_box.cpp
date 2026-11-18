@@ -2,7 +2,8 @@
 // した元のゴール枠の写し、中に選択点を残して抜けたときの再試行の印 Pick::DebugRedo で、1 つの呼び出しの出入りを
 // 捕まえる。catch/3 の open_catch と disarm_catch（ADR 0012）と同じ形にしてある。例外は propagate_throw が番兵を外す
 // 前に throw_box で捕まえる。コマンドの r と f は番兵より上を trim_stack で切って失敗させ、r は番兵に cond_ok（開き
-// 直し）の印を付ける（計画の設計との違い 5 と 6）。
+// 直し）の印を付ける（計画の設計との違い 5 と 6）。a は debug_port が abort_now を立て、どのポートでもその歩みで
+// それ以上何も動かさずに戻る（タスク 7）。
 // 投げる誤りは無い（箱の中のゴールの誤りは、そのゴールが投げる）。
 // テスト: tests/cpp/data/debugger（transcript_debug_*）、tests/cpp/debugger_test.cpp
 #include "builtin_api.hpp"
@@ -108,9 +109,10 @@ bool redo_box(Impl& machine) {
     restore_state(machine, next.heap_mark, next.trail_mark, next.extras_mark);
   }
   for (const std::size_t index : boxes) machine.stack[index].armed = true;
-  // r か f で切ったら、内の箱はもう無いので、残りの再試行のポートは出さない。
+  // r か f で切ったら、内の箱はもう無いので、残りの再試行のポートは出さない。a はバックトラックごと止める。
   for (const std::size_t index : boxes) {
-    if (undo_box(machine, index, debug_port(machine, DebugPort::Redo, index, nullptr))) return true;
+    const PortAction action = debug_port(machine, DebugPort::Redo, index, nullptr);
+    if (action == PortAction::Abort || undo_box(machine, index, action)) return true;
   }
   return false;
 }
@@ -121,9 +123,12 @@ bool redo_box(Impl& machine) {
 bool fail_box(Impl& machine) {
   const std::size_t box_index = machine.stack.size() - 1;
   if (machine.stack.back().cond_ok) return reopen_box(machine, box_index);
-  // 失敗のポートの r は、上に切る物が無いのでその場で開き直す。
-  if (machine.stack.back().armed && debug_port(machine, DebugPort::Fail, box_index, nullptr) == PortAction::Retry) {
-    return reopen_box(machine, box_index);
+  // 失敗のポートの r は、上に切る物が無いのでその場で開き直す。a は真を返してバックトラックを止める。偽を返すと
+  // 下の選択点へ進み、外の箱の失敗のポートを書いてコマンドを読むか、問い合わせを失敗で返す。
+  if (machine.stack.back().armed) {
+    const PortAction action = debug_port(machine, DebugPort::Fail, box_index, nullptr);
+    if (action == PortAction::Abort) return true;
+    if (action == PortAction::Retry) return reopen_box(machine, box_index);
   }
   machine.stack.pop_back();
   return false;
@@ -170,7 +175,10 @@ void run_boxed(Impl& machine, std::size_t box_index) {
   const std::uint64_t exit_frame = push_extra(machine, std::move(exit));
   const std::uint64_t copy = copy_frame(machine, original, exit_frame);
   // f は中を動かさずに失敗させる。上に選択点はまだ無いので切る物は無く、backtrack が番兵に着いて失敗のポートを出す。
-  if (debug_port(machine, DebugPort::Call, box_index, nullptr) == PortAction::Fail) {
+  // a も中を動かさない。consult/1 の呼出のポートの a でファイルを読まないように。
+  const PortAction action = debug_port(machine, DebugPort::Call, box_index, nullptr);
+  if (action == PortAction::Abort) return;
+  if (action == PortAction::Fail) {
     machine.failed = true;
     return;
   }
@@ -187,7 +195,8 @@ void exit_box(Impl& machine, std::size_t extra_index) {
   machine.ip = extra.cont;
   // 番兵が切られた後（計画の設計との違い 7）は外す物が無い。元の枠を指すのは番兵だけなので、行も書けない。
   if (!box_at(machine, box_index, number)) return;
-  if (undo_box(machine, box_index, debug_port(machine, DebugPort::Exit, box_index, nullptr))) return;
+  const PortAction action = debug_port(machine, DebugPort::Exit, box_index, nullptr);
+  if (action == PortAction::Abort || undo_box(machine, box_index, action)) return;
   // 上に選択点が無ければ箱の中へ戻る道は無い。外して、決定的な答えに選択点を残さない（disarm_catch と同じ）。
   if (box_index + 1 == machine.stack.size()) {
     trim_stack(machine, box_index);
@@ -207,6 +216,7 @@ bool backtrack_box(Impl& machine) {
 PortAction throw_box(Impl& machine, std::size_t box_index, const ExportedTerm& ball) {
   const Cell term = import_term(machine, ball);
   const PortAction action = debug_port(machine, DebugPort::Exception, box_index, &term);
+  // a では propagate_throw も巻き戻しを止めて戻る。catch/3 にも後始末にも着かない（halt と同じ）。
   if (action != PortAction::Fail && action != PortAction::Retry) return action;
   // 巻き戻しを止める。r は番兵を残して開き直しの印を付け、run_loop のバックトラックが番兵に着いて箱を開き直す。
   // f は番兵ごと切って失敗させる。失敗のポートは出さない（計画の設計との違い 6）。上の枠は巻き戻しが外し終えている。

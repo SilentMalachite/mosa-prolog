@@ -708,7 +708,8 @@ LoadStatus run_load(Impl& machine, bool file_text, std::vector<std::string>* sha
     machine.syntax_diag = false;
     throw;
   }
-  if (status.ok || !machine.halt_now) return status;
+  // デバッガの a で止まった読み込みも同じく空にする。知らせはセッションが 1 度だけ書く（ADR 0028）。
+  if (status.ok || !(machine.halt_now || machine.abort_now)) return status;
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   status.message.clear();

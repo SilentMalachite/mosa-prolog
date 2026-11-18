@@ -16,7 +16,8 @@
 
 namespace mosa {
 
-enum class StopKind { Success, Failure, Exception, Halt };
+// Abort はデバッガの a で止まった問い合わせ（ADR 0028）。halt と同じく catch/3 を通らず、後始末も動かさない。
+enum class StopKind { Success, Failure, Exception, Halt, Abort };
 
 struct Binding {
   std::string name;

@@ -1,0 +1,13 @@
+?- trace, len([a], N).
+ Call: (1) len([a],_G1) ? 
+ Call: (2) len([],_G1) ? a
+% Execution aborted
+[trace] ?- len([], N).
+ Call: (1) len([],_G1) ? 
+ Exit: (1) len([],0) ? 
+N = 0.
+[trace] ?- notrace.
+true.
+[debug] ?- nodebug.
+true.
+?- 

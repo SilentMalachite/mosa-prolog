@@ -1,0 +1,8 @@
+trace, len([a], N).
+
+a
+len([], N).
+
+
+notrace.
+nodebug.

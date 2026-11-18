@@ -183,3 +183,5 @@ message(debug_port_exit, '成功').
 message(debug_port_redo, '再試行').
 message(debug_port_fail, '失敗').
 message(debug_port_exception, '例外').
+% デバッガの a で問い合わせを止めたときの知らせ（ADR 0028）。
+message(debug_aborted, '% 実行を中断しました').

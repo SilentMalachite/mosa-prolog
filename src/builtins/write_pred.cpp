@@ -641,10 +641,11 @@ Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_
     propagate_throw(machine, import_term(machine, ball));
     return Ran::Threw;
   }
-  if (stop.kind == StopKind::Halt) {
+  // portray/1 の中のデバッガの a も、halt と同じく書くのを止める。abort_now は立ったまま外の run_loop に届く。
+  if (stop.kind == StopKind::Halt || stop.kind == StopKind::Abort) {
     machine.failed = false;
     machine.exception = false;
-    machine.halt_now = true;
+    if (stop.kind == StopKind::Halt) machine.halt_now = true;
     return Ran::Halted;
   }
   if (stop.kind != StopKind::Success) {

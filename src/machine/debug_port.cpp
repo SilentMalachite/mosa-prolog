@@ -1,5 +1,5 @@
 // 13211-1 に無い（ADR 0028）。デバッガのポートの行、深さ、ポートの名前の取り置き、進み方（creep、skip、leap）と
-// leash による見せ方、止まったポートで読むコマンド（c s l f r a n）。
+// leash による見せ方、止まったポートで読むコマンド（c s l f r a n。a は Impl::abort_now を立てる）。
 // 行は「空白、ポートの名前、": ("、深さ、") "、ゴール」。止まるポートは " ? " で終えて 1 行読み、止まらないポートは
 // 改行で終える。ゴールは writeq と同じく quoted(true)、numbervars(true) に max_depth(10) を足して書く。
 // 投げる誤りは無い。テスト: tests/cpp/data/debugger（transcript_debug_*）、tests/cpp/debugger_test.cpp
@@ -143,7 +143,15 @@ PortAction debug_port(Impl& machine, DebugPort port, std::size_t box_index, cons
     if (console.write) console.write("\n");
     return PortAction::Go;
   }
-  return apply_command(machine, port, box_index, command_char(command));
+  const PortAction action = apply_command(machine, port, box_index, command_char(command));
+  // abort は halt と同じ形で止める。印は run_loop が次の歩みの前に見る。呼び手（箱の出入り、propagate_throw）は
+  // この歩みでそれ以上何も動かさずに戻る。
+  if (action == PortAction::Abort) {
+    machine.abort_now = true;
+    machine.ip = kNoFrame;
+    end_skip(machine.debug);
+  }
+  return action;
 }
 
 }  // namespace mosa

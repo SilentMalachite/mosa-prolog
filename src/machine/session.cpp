@@ -183,6 +183,14 @@ void warn_syntax(Machine& machine, const SyntaxFailure& failure, Echo& echo) {
   echo.warn(render_message(machine, failure.token.empty() ? "syntax_error_at_end" : "syntax_error", args) + "\n");
 }
 
+// abort で止まった問い合わせは、ここで捨てる（ADR 0028）。abort_now を残すと、次のプロンプトの指令（load_program）の
+// 入れ子の run_loop がそれを見て止まる。drop_run は選択点を戻さずに捨てるので、後始末は halt と同じく動かない。
+// 知らせは 1 度だけ書く。文面は message_text で引く（render_message は同じ機械で問い合わせを動かす）。
+void report_abort(Machine& machine, Echo& echo) {
+  drop_run(engine_impl(machine));
+  echo.warn(message_text(engine_impl(machine), "debug_aborted") + "\n");
+}
+
 bool directive_text(Machine& machine, std::string_view text) {
   return machine.load_program(text).ok;
 }
@@ -194,6 +202,11 @@ int close_answer(Machine& machine, bool interactive, Echo& echo, bool& halted) {
   if (closed.kind == StopKind::Halt) {
     halted = true;
     return closed.halt_code;
+  }
+  // 後始末のゴールのポートの a。ゴールが失敗したのと同じ値にする（-g の一括は 1 で終わる）。
+  if (closed.kind == StopKind::Abort) {
+    report_abort(machine, echo);
+    return 1;
   }
   if (closed.kind == StopKind::Exception) {
     warn_exception(machine, closed, echo);
@@ -212,6 +225,11 @@ int play_goal(Machine& machine, std::string goal, bool written, bool interactive
       if (stop.kind == StopKind::Halt) {
         halted = true;
         return stop.halt_code;
+      }
+      // -g のゴールの abort は、そのゴールの失敗と同じに扱う（設計の「コマンド」）。答えの行は書かない。
+      if (stop.kind == StopKind::Abort) {
+        report_abort(machine, echo);
+        return 1;
       }
       if (stop.kind == StopKind::Exception) {
         warn_exception(machine, stop, echo);
@@ -325,6 +343,11 @@ bool prompt_directive(Machine& machine, std::string_view text, Echo& echo) {
     echo.result->code = engine_impl(machine).halt_code;
     return true;
   }
+  // 指令の中の abort は読み込みを戻し、診断は空にしてある。空の行の代わりに知らせを書いて次の入力へ進む。
+  if (engine_impl(machine).abort_now) {
+    report_abort(machine, echo);
+    return false;
+  }
   echo.warn(std::string{machine.diagnostic()} + "\n");
   return false;
 }
@@ -398,6 +421,11 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
     try {
       if (machine.consult(file)) continue;
       if (engine_impl(machine).halt_now) return engine_impl(machine).halt_code;
+      // 起動時の読み込みの abort は、読み込みの失敗と同じ値で終わる。診断は空なので、代わりに知らせを書く。
+      if (engine_impl(machine).abort_now) {
+        report_abort(machine, echo);
+        return 1;
+      }
       echo.warn(std::string{machine.diagnostic()} + "\n");
       return 1;
     } catch (...) {
@@ -412,7 +440,7 @@ std::optional<int> consult_files(Machine& machine, const std::vector<std::string
 
 }  // namespace
 
-// initialization(G, main) の入口。成功は 0、失敗は 1、例外は文面を出して 2、halt/1 の値はそのまま。
+// initialization(G, main) の入口。成功は 0、失敗と abort は 1、例外は文面を出して 2、halt/1 の値はそのまま。
 // 答えの行は出さない。実行ファイルと同じ出力にするため。
 int run_main_goal(Machine& machine, const ExportedTerm& goal, std::string& warning) {
   try {
@@ -421,6 +449,11 @@ int run_main_goal(Machine& machine, const ExportedTerm& goal, std::string& warni
     // 選択点を残した成功も答えの後で切り、後始末を動かす（ADR 0016、敵対的レビュー A3）。
     if (stop.kind == StopKind::Success) stop = close_query(engine_impl(machine));
     if (stop.kind == StopKind::Halt) return stop.halt_code;
+    // 入口の abort は、入口の失敗と同じく 1 で終わる（設計の「コマンド」）。実行ファイルには口が無いので起きない。
+    if (stop.kind == StopKind::Abort) {
+      warning += message_text(engine_impl(machine), "debug_aborted") + "\n";
+      return 1;
+    }
     if (stop.kind == StopKind::Exception) {
       const std::array<Cell, 1> args{stop.exception};
       warning += render_message(machine, "goal_raised", args) + "\n";

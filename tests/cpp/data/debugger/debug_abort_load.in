@@ -1,0 +1,4 @@
+trace, consult('tests/cpp/data/debugger/load.pl').
+
+a
+notrace, nodebug, current_predicate(loaded/1).

@@ -15,6 +15,11 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
+- Debugger `a` inside an `initialization/1` goal (phase 14 Task 7). A: the load fails and keeps its
+  clauses, as an exception there does (iso-notes 7.4.2 initialization/1). B: roll the load back, as
+  SPEC section 6 and ADR 0028 say. B cannot restore predicates a reconsult has already removed:
+  ADR 0020 removes them before the goals run, and `abolish_stale` erases them. Default A is built and
+  pinned by `check_abort_init` in `tests/cpp/debugger_test.cpp`. A `:- G` directive rolls back.
 
 ## Owner decisions in force
 

@@ -114,6 +114,11 @@ int run_condition(Impl& machine, Cell goal) {
     machine.load_kept = true;
     return -1;
   }
+  // デバッガの a は run_directive_goal と同じく読み込みを戻し、診断は書かない。翻訳の読み込みには口が無いので起きない。
+  if (kind == StopKind::Abort) {
+    machine.load_kept = false;
+    return -1;
+  }
   // 成功も失敗も読み込みを続ける。条件の中の consult が初期化の例外で残した印を持ち越すと、この読み込みの後の
   // 構文の誤りで、取り消すはずの節が残る（run_directive_goal の成功と同じ理由）。
   machine.load_kept = false;
