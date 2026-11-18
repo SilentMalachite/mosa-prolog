@@ -8,7 +8,7 @@
 //   Setup の誤りは once/1 が出す。Cleanup の instantiation_error と type_error(callable, Cleanup)（M: を外して見る）は
 //   Setup の後で仕掛ける前、Goal の誤りは仕掛けた後に出るので、そのときは Cleanup が動く。Goal や Cleanup の M: の層、
 //   Goal の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
-// テスト: tests/pl/utilities.pl、tests/pl/cleanup_dir.pl、tests/cpp/debugger_test.cpp（デバッガの a が動かす後始末）、
+// テスト: tests/pl/utilities.pl、tests/pl/cleanup_dir.pl、tests/cpp/debugger_abort_test.cpp（デバッガの a が動かす後始末）、
 //   tests/cpp/data/debugger（transcript_debug_abort_heap_limit）
 #include "../machine/internal.hpp"
 

@@ -9,7 +9,7 @@
 - **Next:** keep the commits after `5383fee4` local (owner B, 2026-11-19); when the owner asks,
   push them to PR #4, then CI on 3 OSes and GC-stress, then whether to close phase 14.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** 17 code and test files at 730 lines or more, listed in open-items.
+- **Split first:** 16 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

@@ -5,7 +5,8 @@
 //   入力の終わり（端末の Ctrl-D）: 改行を 1 つ書いて n と同じにする（計画の設計との違い 8）。
 // 行は「空白、ポートの名前、": ("、深さ、") "、ゴール」。止まるポートは " ? " で終えて 1 行読み、止まらないポートは
 // 改行で終える。ゴールは writeq と同じく quoted(true)、numbervars(true) に max_depth(10) を足して書く。
-// 投げる誤りは無い。テスト: tests/cpp/data/debugger（transcript_debug_*）、tests/cpp/debugger_test.cpp
+// 投げる誤りは無い。テスト: tests/cpp/data/debugger（transcript_debug_*）、tests/cpp/debugger_test.cpp、
+//   tests/cpp/debugger_abort_test.cpp（a）
 #include "debug_port.hpp"
 
 #include "builtin_api.hpp"
