@@ -322,7 +322,7 @@ void check_abort_stop() {
   mosa_test::check(!impl.abort_now, "abort_stop: the next query cleared abort_now");
 }
 
-// abort は halt と違い、止まる前に setup_call_cleanup/3 の後始末を切って動かす（2026-11-18 の持ち主の決定 A）。後始末は
+// abort は halt と違い、止まる前に setup_call_cleanup/3 の後始末を動かす（2026-11-18 の持ち主の決定 A）。後始末は
 // ポートを出さない。次の問い合わせが前を閉じるときにはもう残っていないので、数は 1 回になる。
 void check_abort_cleanup() {
   std::string answer;
@@ -404,7 +404,9 @@ constexpr std::string_view k_abort_bindings_program =
     "t.\n"
     "b(X) :- setup_call_cleanup(S = s, (X = g, t), assertz(log(S-X))).\n"
     "n(X) :- setup_call_cleanup(true, setup_call_cleanup(true, (X = g, t), X = inner), assertz(log(X))).\n"
-    "c :- catch(setup_call_cleanup(true, t, throw(oops)), _, assertz(log(caught))), assertz(log(went_on)).\n";
+    "c :- catch(setup_call_cleanup(true, t, throw(oops)), _, assertz(log(caught))), assertz(log(went_on)).\n"
+    "boom :- throw(e).\n"
+    "x(X) :- setup_call_cleanup(S = s, (X = g, boom), assertz(log(S-X))).\n";
 
 // goal を target のポートの a で止め、log を question で読んだ答えの字面を返す。
 std::string abort_log(std::string_view label, std::string_view goal, std::string_view target, std::string_view question) {
@@ -431,6 +433,11 @@ void check_abort_cleanup_bindings() {
                                        "nodebug, findall(V, (log(X), (var(X) -> V = unbound ; V = X)), L)");
   mosa_test::check(nested.find("L = [unbound]") != std::string::npos,
                    "abort_bindings_nested: the inner cleanup's binding is undone too, got [" + nested + "]");
+  // 例外のポートの a。propagate_throw が Entry に着く前に止まるので、後始末は abort が 1 回だけ、同じ束縛で動かす。
+  const std::string thrown = abort_log("abort_bindings_thrown", "trace, x(X)", " Exception: (3) boom e ? ",
+                                       "nodebug, findall(S-V, (log(S-X), (var(X) -> V = unbound ; V = X)), L)");
+  mosa_test::check(thrown.find("L = [s-unbound]") != std::string::npos,
+                   "abort_bindings_thrown: once, with Setup's binding only, got [" + thrown + "]");
 }
 
 // abort の後始末の誤りは、下に残る catch/3 にも捕まらない。後始末を Entry の上で動かすので、受けずに投げると catch/3 が

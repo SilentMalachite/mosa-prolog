@@ -18,8 +18,7 @@ When `step` has read a goal to show, and only when the session gave the machine 
 
 A meta-interpreter for the traced goals: the same clause would run in two ways, which may differ in cut, cleanups and errors, against goal 5 of SPEC section 1 (the same results).
 Rewriting clauses to call port goals: the database changes (`clause/2`) and the cost stays when the debugger is off.
-Swapping only the `cont` of `Goal`: it does not reach `DebugExit` on the paths that read word 3 again.
-Cleanups of `abort` with the bindings of the moment (as a closed query): what they see would depend on the port where `a` was typed.
+Swapping only the `cont` of `Goal`: it does not reach `DebugExit` on the paths that read word 3 again; running the cleanups of `abort` with the bindings of the moment (as a closed query): what they see would depend on the port where `a` was typed.
 
 ## Consequences
 
