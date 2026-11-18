@@ -245,7 +245,7 @@ the person may have to start it as chapter 2 shows for `mosa`. On macOS and Linu
 `NOTICE` or `README.txt`, in capitals or not, cannot be packed, because its executable would take the place of that
 file; `mosac` says so, and you rename the source file.
 
-The debugger of chapter 15 is not in the executable: the executable prints no port lines and never waits for a
+The debugger of chapter 15 does not work in the executable: the executable prints no port lines and never waits for a
 command, although `trace` and the other debugger predicates still work in it, and only change the state that
 `debugging/0` writes. This is not what `mosac build --debug` does. That option makes the program print each clause
 of your own files as it runs it, and the debugger is not involved.

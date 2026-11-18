@@ -477,7 +477,7 @@ These read and set flags, end Mosa, and look at memory and time.
 
 These turn the debugger on and off and choose what it stops at. Chapter 15 shows how to use them. In `mosa`, a
 goal that runs while the debugger is on writes a line at each port, and at a port where it stops it reads one line
-from you. In a program that `mosac` built, they only keep the state, and no port line appears.
+from you. While it leaps, only the ports of the predicates with spy points are written. In a program that `mosac` built, they only keep the state, and no port line appears.
 These names, such as `trace`, are built-in predicates, so a file of your own cannot
 define a predicate with the same name and arity (`permission_error(modify, static_procedure, debug/0)`).
 
@@ -511,6 +511,7 @@ At a port where the debugger stops, `mosa` reads one line, and the first charact
 | `w` | write the goal with no depth limit, and ask again. |
 | `+`, `-` | put a spy point on the predicate of this call, or take it off, and ask again. |
 | `h`, `?` | write the list of commands, and ask again. |
+| anything else | write "Unknown command" and a hint to type `h`, and ask again. |
 
 The prompt is `[trace] ?- ` while the debugger creeps, `[debug] ?- ` while it leaps or skips, and `?- ` when it is off.
 A port line is the port name, the depth, and the goal written like `writeq` with the depth limit 10, as in
@@ -741,11 +742,12 @@ or removed. Among them:
 - `mosac build --debug` links the runtime library built with optimization, and the libraries are not traced.
 - The debugger (chapter 15) numbers variables per line, so `_G1` in two port lines, including the lines that `g` writes,
   may be different variables.
-- In leap mode, the depth and the list of `g` count only the boxes opened during the leap, which are the boxes of
-  spy points. The boxes opened in creep are not shown while Mosa leaps. In a directive, or an `initialization/1` goal,
-  while a file loads, they count only the boxes opened in that directive.
+- While Mosa leaps, it opens a box only for a call of a predicate with a spy point, so the depth and the list of `g`
+  leave out the calls made during the leap. Boxes opened earlier, in creep, are still counted. In a directive, or an
+  `initialization/1` goal, while a file loads, they count only the boxes opened in that directive.
 - A `mosa` whose input is not a terminal reads no commands: it writes the port lines and goes on.
-- A file of yours cannot define a predicate with the name of one of the nine debugger predicates.
+- A file of yours cannot define a predicate with the name and arity of one of the nine debugger predicates, such as
+  `trace/0` or `spy/1`.
 - While Mosa traces, a tail call keeps its box, so a deep recursion uses more memory.
 - `r` (retry) does not undo side effects, such as output.
 - A program that `mosac build` makes shows no ports. `trace` and the others only change the state, and
@@ -754,9 +756,10 @@ or removed. Among them:
 - A goal that you write as `system:Goal` is not traced.
 - Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes `[trace]`.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a
-  goal does. In a `:- Goal` directive, the load is undone.
+  goal does. In a `:- Goal` directive, the load is undone, and so is any debugger state that the directive changed, for
+  example a `:- trace, foo.` directive.
 - The depth limit 10 of the port lines is that of `write_term/2,3` `max_depth/1`, so a list nested in the first
-  element, such as `[[[[a]]]]`, is not cut: element i of a list counts as depth d+i-1.
+  element is not cut, however deeply: element i of a list counts as depth d+i-1.
 - On Windows, Mosa does not start while Smart App Control is on (chapter 2).
 - In an arithmetic step with big integers, Mosa checks that the result fits in the memory left, and that check
   counts the memory of terms no longer used as taken. So such a step can stop at the memory limit although a garbage

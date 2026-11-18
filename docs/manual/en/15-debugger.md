@@ -10,8 +10,8 @@ backtracking that you met with `;`.
 
 ## Steps
 
-1. Move into the folder `prolog`, and start `mosa`. Create a file `len.pl` with the predicate `len/2` of chapter 7,
-   which gives the length of a list. Its first clause says the empty list has length 0. Its second clause counts the
+1. Move into the folder `prolog`, and start `mosa`. Create a file `len.pl` with a predicate `len/2` that gives the
+   length of a list, written like `count/2` of chapter 7. Its first clause says the empty list has length 0. Its second clause counts the
    tail first, and then adds one.
 
 <!-- file: len-file len.pl -->
@@ -54,8 +54,7 @@ true.
 true.
 ```
 
-   In this transcript, the empty lines that you cannot see are the times you pressed Enter at the end of a port
-   line.
+   In this transcript, where a line ends in `?`, you pressed Enter. The empty input does not show.
 
 3. Read the lines from the top. ` Call: (1) len([a],_G1) ? ` says that Mosa is calling `len([a], N)`, and it is
    the first call that is open, the `(1)`. `_G1` is the unbound variable `N`. The next line, `(2) len([],_G1)`,
@@ -66,7 +65,7 @@ true.
 ## What happened
 
 Every goal that your program calls is a box. Mosa draws a line each time the run crosses one of the four sides of
-the box, and each of those sides is called a port:
+the box, or leaves it through the bottom with an error. Each of these is called a port:
 
 <!-- skip: ports-diagram -->
 ```text
@@ -75,6 +74,9 @@ the box, and each of those sides is called a port:
             |         goal          |
    Fail <-- |                       | <-- Redo
             +-----------------------+
+                       |
+                       v
+                   Exception
 ```
 
 - **Call**: Mosa starts the goal.
@@ -82,7 +84,7 @@ the box, and each of those sides is called a port:
 - **Redo**: something after the goal failed, so Mosa comes back to the goal to look for another answer.
 - **Fail**: the goal has no more answers.
 - **Exception**: the goal raised an exception, and the exception passes through the box (the line also gives the
-  error term that was thrown).
+  term that was thrown).
 
 The number in the parentheses is the depth: how many boxes are open now, this one included. A box shows the
 goal as Mosa writes it with `writeq`, cut at depth 10 (`w` writes it whole, as you will see below). Variables are
@@ -91,8 +93,8 @@ different name in the next line, so do not compare names between lines.
 
 A goal that your own predicates call is shown, and so is a built-in predicate such as `is/2` or `write/1`, but Mosa
 does not go inside a built-in. A call that a library predicate makes is not shown either, so `append/3`, for
-example, is one box, and its inner recursion is hidden. The control constructs (`,`, `;`, `->`, `\+`, `!`, `catch/3`)
-have no ports of their own.
+example, is one box, and its inner recursion is hidden. The control constructs (`,`, `;`, `->`, `!`, `catch/3`)
+have no ports of their own. `\+` has them, as a box around the goal that it negates.
 
 The lines go to the error stream, so they are not mixed with what your program writes.
 
@@ -285,8 +287,9 @@ true.
 true.
 ```
 
-   Because Mosa did not stop at `path/3`, depth is always `(1)` here: when you leap, Mosa counts only the boxes
-   that it opened since the leap began. If you press Enter instead of `l`, the debugger goes back to creep, which
+   Because Mosa opened no box for `path/3`, depth is always `(1)` here: while Mosa leaps, it opens a box only for a
+   call of a predicate with a spy point, so the calls it makes during the leap are left out of the depth and out of
+   the list that `g` writes. The boxes that were opened earlier, in creep, are still counted. If you press Enter instead of `l`, the debugger goes back to creep, which
    means that Mosa stops everywhere, and the prompt becomes `[trace]`.
 
 ## What you can type at a stop
@@ -301,7 +304,7 @@ commands:
 | `l` | leap: run until a port of a predicate with a spy point. |
 | `f` | fail: make this goal fail, and show its Fail port. |
 | `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. |
-| `a` | abort: stop the query. At the prompt, you are back at `?- ` or `[trace] ?- `. |
+| `a` | abort: stop the query. The prompt comes back as it was: `[trace] ?- `, `[debug] ?- ` or `?- `. |
 | `n` | nodebug: turn the debugger off and go on. |
 | `g` | write the open boxes, from the innermost one, with their depth, and ask again. |
 | `w` | write the goal with no depth limit, and ask again. |
@@ -485,10 +488,12 @@ true.
 
 ## Things to know
 
-- A program that you run without a terminal does not read commands. Mosa writes the port lines and goes on, so
-  you can keep a record of a run: `mosa file.pl -g 'trace, main' -t halt 2> trace.log`.
-- The names of the nine debugger predicates (`trace`, `notrace`, `debug`, `nodebug`, `spy`, `nospy`, `nospyall`,
-  `leash`, `debugging`) belong to Mosa, so a file of yours cannot define a predicate with one of those names.
+- A program that you run without a terminal does not read commands. When its input is not a terminal, Mosa writes the port lines and goes on, so
+  you can keep a record of a run: `mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log` (on
+  Windows, `< NUL`). If its input is a terminal, it waits at the first port instead.
+- The debugger predicates `trace/0`, `notrace/0`, `debug/0`, `nodebug/0`, `spy/1`, `nospy/1`, `nospyall/0`,
+  `leash/1` and `debugging/0` belong to Mosa, so a file of yours cannot define a predicate with one of those names
+  and arities.
 - A program that `mosac build` makes shows no ports. See chapter 13.
 - The other limits are listed in chapter 14, under "Known limits".
 
