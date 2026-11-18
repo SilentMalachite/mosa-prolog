@@ -1,6 +1,6 @@
 #pragma once
 
-// load.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp、load_cond.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
+// load.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp、load_cond.cpp、load_flags.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"
@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace mosa {
@@ -219,5 +220,28 @@ struct FileNote {
   [[nodiscard]] bool tolerate_syntax() const;
   void first_term(const ReadTerm& read) const;
 };
+
+// 読み込みの前の旗。失敗した読み込みは、ここへ戻す（ADR 0017）。定義は load_flags.cpp。
+struct SavedFlags {
+  DoubleQuotes quotes = DoubleQuotes::Codes;
+  bool unknown_fail = false;
+  bool float_overflow_error = true;
+  bool float_zero_div_error = true;
+  bool float_undefined_error = true;
+  bool char_conv_on = false;
+  bool utf8_replace = false;  // 失敗した読み込みは、途中の set_prolog_flag を残さない。
+  bool debug_on = false;
+  DebugMode debug_mode = DebugMode::Leap;
+  std::uint8_t debug_leashed = kAllPorts;
+  bool japanese_punct = false;
+  std::vector<std::pair<char32_t, char32_t>> char_map;
+  // 旗ではないが同じく、失敗した読み込みの initialization(G, main) を残さない。残すと取り消したファイルの G が動く。
+  std::optional<ExportedTerm> main_goal;
+};
+
+[[nodiscard]] SavedFlags save_flags(const Impl& machine);
+void restore_flags(Impl& machine, const SavedFlags& saved);
+// ファイルの字句の旗だけを戻す（SPEC 第5節）。
+void restore_file_flags(Impl& machine, const SavedFlags& saved);
 
 }
