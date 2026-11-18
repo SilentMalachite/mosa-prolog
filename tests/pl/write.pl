@@ -220,6 +220,9 @@ wd_text(T, Opts, A) :- with_output_to(atom(A), write_term(T, Opts)).
 test(wd_inst, write_term(1, [max_depth(_)]), error(instantiation_error)).
 test(wd_foo, write_term(1, [max_depth(foo)]), error(domain_error(write_option, max_depth(foo)))).
 test(wd_neg, write_term(1, [max_depth(-1)]), error(domain_error(write_option, max_depth(-1)))).
+test(wd_neg_big, write_term(1, [max_depth(-9223372036854775809)]), error(domain_error(write_option, max_depth(-9223372036854775809)))).
+% 正の Big は 0 以上の整数なので、上限に切り詰めて受理する（切らないのと同じ結果になる）。
+test(wd_big, (wd_deep(T), wd_text(T, [max_depth(9223372036854775808)], A)), solutions([A = 'a(b(c(d(e))))'])).
 test(wd_foo_silent, with_output_to(atom(A), catch(write_term(1, [max_depth(foo)]), _, true)), solutions([A = ''])).
 test(wd_zero, wd_text(1, [max_depth(0)], A), solutions([A = '1'])).
 test(wd_ten, wd_text(1, [max_depth(10)], A), solutions([A = '1'])).
@@ -234,3 +237,8 @@ test(wd_zero_list, (T = [1,2,3,4,5,6,7,8,9,10,11,12,13], wd_text(T, [max_depth(0
 test(wd_with_quoted, wd_text('A'(b(c)), [quoted(true), max_depth(2)], A), solutions([A = '\'A\'(b(...))'])).
 % リストの要素 i は深さ d+i-1 と数えるので、先頭の要素に入れ子にしたリストは深さ 1 でも切れない。
 test(wd_list_nested_first, wd_text([[[[a]]]], [max_depth(1)], A), solutions([A = '[[[[a]]]]'])).
+% 循環と深さが両方当てはまるときは深さが勝つ（2026-11-18 の持ち主の決定 A）。深さの内なら循環の _ のまま。
+test(wd_cyclic_list_cut, (X = [a,b|X], wd_text(X, [max_depth(2)], A)), solutions([A = '[a,b|...]'])).
+test(wd_cyclic_list_within, (X = [a|X], wd_text(X, [max_depth(5)], A)), solutions([A = '[a|_]'])).
+test(wd_cyclic_compound_cut, (X = f(X), wd_text(X, [max_depth(1)], A)), solutions([A = 'f(...)'])).
+test(wd_cyclic_list_no_limit, (X = [a,b|X], wd_text(X, [max_depth(0)], A)), solutions([A = '[a,b|_]'])).

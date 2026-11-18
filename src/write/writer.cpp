@@ -656,13 +656,14 @@ void Printer::list_rest(const Work& item) {
   if (raw_tail.tag() == Tag::Ref && var_name(raw_tail) != nullptr) return push_bar(raw_tail);
   const Cell tail = heap_.deref(raw_tail);
   if (is_nil(heap_, tail)) return emit("]");
+  // i 番目の要素は深さ d+i-1 にあるとみなす。次の要素が上限を越えるなら、そこから後ろを |... で閉じる。
+  // 循環より先に深さを見る（複合項の render と同じ順、2026-11-18 の持ち主の決定 A）。深さの内なら循環が止める。
+  if (options_.max_depth > 0 && item.depth + 1 > options_.max_depth && tail.tag() == Tag::Lis) return emit("|...]");
   // 背骨の入口は、書き終えた後に戻ってきたら祖先である。背骨が変わらなければ、最初に戻るセルは入口なので
   // 安全網の anchor より先にこちらが止める。anchor で止まるのは portray が背骨を変えたときだけである。
   if (open_.contains(tail.raw()) || (item.passed && tail.raw() == item.back.raw())) return emit("|_]");
   if (tail.raw() == item.anchor.raw()) return emit("|_]");
   if (tail.tag() != Tag::Lis) return push_bar(tail);
-  // i 番目の要素は深さ d+i-1 にあるとみなす。次の要素が上限を越えるなら、そこから後ろを |... で閉じる。
-  if (options_.max_depth > 0 && item.depth + 1 > options_.max_depth) return emit("|...]");
   Work rest;
   rest.step = Step::ListRest;
   rest.term = tail;

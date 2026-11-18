@@ -30,6 +30,9 @@ Phase 14 adds a debugger to `mosa`. It is written in [chapter 15 of the manual](
 - `'$once'/1` and `'$not'/1` are now reserved built-ins of the engine, which the control constructs use for the goals
   that built-ins run for themselves. A user could define them or call them in 0.4.1 (a call raised
   `existence_error`); now they are built-ins, and a clause for either is refused.
+- The public enumeration `mosa::StopKind` (`include/mosa/machine.hpp`) has a new value, `Abort`, for a query that
+  the port command `a` stopped. An embedded `Machine` never returns it (it has no debug console), but a `switch`
+  that names every value needs a case for it.
 - With the debugger off, `mosa` runs as before: `bench/nrev.pl` and `bench/queens.pl` take within 5% of the time
   of 0.4.1 ([bench.md](docs/bench.md)).
 

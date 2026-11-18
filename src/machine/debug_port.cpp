@@ -62,7 +62,8 @@ Cell goal_term(Impl& machine, const Goal& goal) {
 }
 
 // portray/1 は呼ばない。ポートの中で利用者のゴールを動かさないため。演算子はゴールの文脈モジュールの見え方で書く
-// （emit_written と同じ、ADR 0006）。ゴールと投げられた項は 1 つの番号付けで書き、同じ変数は同じ _G の名前になる。
+// （emit_written と同じ、ADR 0006）。ゴールと投げられた項は 1 つの番号付けで書くが、投げられた項は複写なので、
+// ゴール側と同じ変数でも _G の番号は分かれる（q(_G1) ball(_G2) のように）。
 std::string goal_text(Impl& machine, std::size_t box_index, const Cell* ball, int depth) {
   const Goal goal = read_goal(machine, machine.stack[box_index].redo_goal);
   WriteOptions options;

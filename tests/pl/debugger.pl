@@ -31,7 +31,8 @@ test(dbg_spy_arity_inst, spy(dbg_p/_), error(instantiation_error)).
 test(dbg_spy_arity_type, spy(dbg_p/a), error(type_error(integer, a))).
 test(dbg_spy_arity_neg, spy(dbg_p/(-1)), error(domain_error(not_less_than_zero, -1))).
 test(dbg_spy_name_type, spy(1/2), error(type_error(atom, 1))).
-test(dbg_spy_list_bad, (spy([dbg_p/1, 1]), nodebug, nospyall), error(type_error(predicate_indicator, 1))).
+% 後始末は catch の外に置く。誤りで終わる形では後段が走らず、部分適用が次の行へ漏れても検出も掃除もできないため。
+test(dbg_spy_list_bad, (catch(spy([dbg_p/1, 1]), E, true), E = error(type_error(predicate_indicator, 1), _), current_prolog_flag(debug, off), nodebug, nospyall), true).
 test(dbg_spy_list_partial, spy([dbg_p/1|_]), error(instantiation_error)).
 test(dbg_nospy_inst, nospy(_), error(instantiation_error)).
 test(dbg_leash_inst, leash(_), error(instantiation_error)).

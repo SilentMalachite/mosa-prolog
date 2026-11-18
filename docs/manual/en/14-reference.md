@@ -442,7 +442,7 @@ These read and write whole terms, and define operators (chapter 10).
 | `read_term/3` | 8.14.1 | The same from a stream. |
 | `read/1` | 8.14.1 | Reads a term, or `end_of_file` at the end. |
 | `read/2` | 8.14.1 | The same from a stream. |
-| `write_term/2` | 8.14.2 | `write_term(T, Options)`: writes a term, with options such as `quoted(true)`. |
+| `write_term/2` | 8.14.2 | `write_term(T, Options)`: writes a term, with options such as `quoted(true)`. `max_depth(N)` writes a term below depth `N` as `...`; `0` is no limit (not in the standard). |
 | `write_term/3` | 8.14.2 | The same on a stream. |
 | `write/1` | 8.14.2 | Writes a term as text. |
 | `write/2` | 8.14.2 | The same on a stream. |
@@ -489,7 +489,7 @@ define a predicate with the same name and arity (`permission_error(modify, stati
 | `notrace/0` | — | Stops stopping at every call. The debugger stays on, so it still stops at spy points. |
 | `debug/0` | — | Turns the debugger on. It stops only at spy points. The flag `debug` becomes `on`. |
 | `nodebug/0` | — | Turns the debugger off. The spy points stay. The flag `debug` becomes `off`. |
-| `spy/1` | — | `spy(Spec)`: puts a spy point on a predicate and turns the debugger on. Spec is `Name/Arity`, `Module:Name/Arity`, a `Name` alone (every predicate of that name that the context module can see) or a list of these. It may name a predicate that is not defined yet. |
+| `spy/1` | — | `spy(Spec)`: puts a spy point on a predicate and turns the debugger on. Spec is `Name/Arity`, `Module:Name/Arity`, a `Name` alone (every predicate of that name that the context module can see) or a list of these. A `Name/Arity` (or `Module:Name/Arity` with a module that exists) may name a predicate that is not defined yet; a bare `Name` reaches only predicates that already exist. |
 | `nospy/1` | — | `nospy(Spec)`: takes off the spy points that `spy(Spec)` puts. |
 | `nospyall/0` | — | Takes off every spy point. |
 | `leash/1` | — | `leash(Ports)`: chooses the ports where the debugger stops. Ports is `all`, `none`, `call`, `exit`, `redo`, `fail`, `exception`, `+Port` or a bare port name (add that port to the set), `-Port` (remove it) or a list of these, applied from the left. `all` and `none` fill or empty the set. To stop at exactly some ports, start from `none`, as in `leash([none, call, fail])`. The default is all five. |
@@ -504,7 +504,7 @@ At a port where the debugger stops, `mosa` reads one line, and the first charact
 | Enter, `c` | creep: go on to the next port that is shown, and stop there. |
 | `s` | skip: at Call and Redo, run until the next port of the same call. At the other ports it is creep. |
 | `l` | leap: run until a port of a predicate with a spy point. |
-| `f` | fail: make the call fail. Its Fail port is shown. |
+| `f` | fail: make the call fail. Its Fail port is shown; at an exception port the call fails without a Fail port. |
 | `r` | retry: go back to the Call port of the call and undo its bindings. Side effects are not undone. |
 | `a` | abort: stop the query and return to the prompt. `catch/3` cannot catch it. |
 | `n` | nodebug: turn the debugger off and go on. Also what the end of the input does. |
@@ -760,9 +760,9 @@ or removed. Among them:
 - Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes
   `[trace]`.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a
-  goal does. In a `:- Goal` directive, the load is undone, and so are the on/off switch and the mode of the debugger that the directive changed, as in `:- trace, foo.`; spy points stay.
+  goal does. The same holds in a file that a directive loaded, in either form. In a `:- Goal` directive, the load is undone, and so are the on/off switch, the mode and the leashed ports of the debugger that the directive changed, as in `:- trace, foo.`; spy points stay.
 - When a `:- Goal` directive fails or raises an error, the load is undone, and so is an `n` (nodebug) typed inside
-  it: the on/off switch and the mode of the debugger return to what they were before the load. When an
+  it: the on/off switch, the mode and the leashed ports of the debugger return to what they were before the load. When an
   `initialization/1` goal fails, the load keeps its clauses and the `n` stays.
 - The depth limit 10 of the port lines is that of `write_term/2,3` `max_depth/1`, so a list nested in the first
   element is not cut, however deeply: element i of a list counts as depth d+i-1.

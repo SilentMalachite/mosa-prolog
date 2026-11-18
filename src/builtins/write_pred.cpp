@@ -361,12 +361,18 @@ bool apply_flag(Impl& machine, const Goal& goal, Cell item, std::string_view nam
 }
 
 // max_depth(N): N は 0 以上の整数。変数は instantiation_error、それ以外は domain_error（suite は type_error も許す）。
+// 正の Big は int64 に入らないだけで不正ではないので、integer_value を呼ばず上限に切り詰める。
 bool take_depth(Impl& machine, const Goal& goal, Cell item, Cell arg, Chosen& chosen) {
   arg = machine.heap.deref(arg);
   if (machine.heap.unbound(arg)) return raise_inst(machine, goal);
-  if (arg.tag() != Tag::Int && arg.tag() != Tag::IntBox) return raise_domain(machine, goal, "write_option", item);
+  if (!is_integer_tag(arg.tag()) || integer_negative(machine, arg)) {
+    return raise_domain(machine, goal, "write_option", item);
+  }
+  if (arg.tag() == Tag::Big) {
+    chosen.max_depth = 0x7fffffff;
+    return false;
+  }
   const auto value = machine.heap.integer_value(arg);
-  if (value < 0) return raise_domain(machine, goal, "write_option", item);
   chosen.max_depth = value > 0x7fffffff ? 0x7fffffff : static_cast<int>(value);
   return false;
 }

@@ -302,7 +302,7 @@ commands:
 | Enter, `c` | creep: go to the next port, and stop there. |
 | `s` | skip: at a Call or Redo port, run the goal without stopping until the next port of this same box. At the other ports it is the same as creep. |
 | `l` | leap: run until a port of a predicate with a spy point. |
-| `f` | fail: make this goal fail, and show its Fail port. |
+| `f` | fail: make this goal fail, and show its Fail port. At an exception port, the goal fails without a Fail port. |
 | `r` | retry: go back to this goal's Call port, and undo the bindings. Side effects, such as output, are not undone. |
 | `a` | abort: stop the query. The debugger keeps its mode, so the prompt is `[trace] ?- `, `[debug] ?- ` or `?- ` as that mode says. |
 | `n` | nodebug: turn the debugger off and go on. |

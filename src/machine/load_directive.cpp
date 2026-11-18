@@ -628,7 +628,7 @@ Cell in_load_module(Impl& machine, Cell goal) {
 namespace {
 
 // 失敗はエラーにしない。節は呼び出し側が戻さない。halt/0,1 とデバッガの a は残りの初期化を呼ばずに止める。a は
-// 例外と同じく読み込みを失敗させ、節は残す（iso-notes 7.4.2 initialization/1 の決定 A。open-items の問い）。
+// 例外と同じく読み込みを失敗させ、節は残す（iso-notes 7.4.2 initialization/1。持ち主の決定 A、2026-11-18）。
 bool run_init_goal(Impl& machine, Cell goal) {
   const StopKind kind = run_parked(machine, goal);
   return kind == StopKind::Success || kind == StopKind::Failure;
@@ -667,11 +667,10 @@ int run_directive_goal(Impl& machine, Cell term) {
     return -1;
   }
   // デバッガの a は、失敗と同じく読み込みを戻す（設計の「コマンド」、iso-notes 7.4.2 Other directives の決定 A）。
-  // 診断は書かない。入れ子の consult が残した印は消し、節を戻す。abort_now は残り、外の run_loop が見て止まる。
-  if (kind == StopKind::Abort) {
-    machine.load_kept = false;
-    return -1;
-  }
+  // 診断は書かない。ただし入れ子の読み込みの初期化の中で止まった a は、その読み込みが例外と同じく節を残した
+  // 印（load_kept）を消さない（2026-11-18 の持ち主の決定 A）。消すと、:- [File] の形だけが残してこの形だけが戻す、
+  // という書き方による差になる。abort_now は残り、外の run_loop が見て止まる。
+  if (kind == StopKind::Abort) return -1;
   if (kind != StopKind::Failure) {
     // ゴールの中の consult が初期化の例外で失敗しても、ゴールが立ち直ったならその印を持ち越さない。
     // 持ち越すと、この読み込みの後の構文エラーで、取り消すはずの節が残る（Muse のレビューの中）。

@@ -17,9 +17,9 @@
   `w`（ゴールを省かずに書く）、`+` と `-`（スパイポイントの設定と解除）、`h` と `?`（一覧）です。`mosa` の入力が
   端末でないときは、ポートの行を書き、コマンドは読みません。
 - `write_term/2,3` のオプション `max_depth(N)`: 深さ `N` より下の項を `...` と書き、`0` は制限なしです。ポートの
-  行は深さ 10 で使います。ISO 13211-1 にはありません（`docs/iso-notes.md` を参照）。
+  行は深さ 10 で使います。ISO 13211-1 にはありません（`docs/iso-notes.ja.md` を参照）。
 - `bench/nrev_debug.pl` と `bench/queens_debug.pl`: デバッガを入れ、到達しないスパイポイントを一つ置いて `nrev` と
-  `queens` を走らせます（[bench.md](docs/bench.md)）。
+  `queens` を走らせます（[bench.ja.md](docs/bench.ja.md)）。
 
 ### 変えたこと
 
@@ -32,8 +32,11 @@
 - `'$once'/1` と `'$not'/1` は、エンジンの予約された組み込みになりました。制御構造が、組み込みが自分のために走らせる
   ゴールに使います。0.4.1 では利用者が定義でき、呼ぶこともできました（呼ぶと `existence_error`）。今は組み込みで、
   どちらの節も拒みます。
+- 公開されている列挙型 `mosa::StopKind`（`include/mosa/machine.hpp`）に、ポートのコマンド `a` で止まった問い合わせを
+  表す値 `Abort` が増えました。埋め込まれた `Machine` が返すことはありません（デバッグ用の口がありません）が、
+  全ての値を並べた `switch` には、その場合分けが要ります。
 - デバッガを切った状態の `mosa` は、これまでと同じに動きます。`bench/nrev.pl` と `bench/queens.pl` は 0.4.1 の
-  5% 以内の時間です（[bench.md](docs/bench.md)）。
+  5% 以内の時間です（[bench.ja.md](docs/bench.ja.md)）。
 
 ### 既知の制限
 

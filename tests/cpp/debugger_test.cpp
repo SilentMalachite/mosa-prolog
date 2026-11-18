@@ -158,7 +158,8 @@ constexpr std::string_view k_cleanup_program =
     ":- use_module(library(lists)).\n"
     ":- dynamic(cleaned/0).\n"
     "r :- setup_call_cleanup(true, member(_, [1,2]), assertz(cleaned)).\n"
-    "s :- setup_call_cleanup(true, member(_, [1,2]), assertz(cleaned)).\n";
+    "s :- setup_call_cleanup(true, member(_, [1,2]), assertz(cleaned)).\n"
+    "e :- setup_call_cleanup(true, (member(_, [1,2]), throw(oops)), assertz(cleaned)).\n";
 
 // 直前に書かれた行が target のときに 1 回だけ command を返し、ほかは空の行を返す。2 回目からも返すと、再試行が
 // 同じポートに戻るたびに同じコマンドを読んで終わらない。
@@ -254,6 +255,51 @@ void check_redo_fail_cleanup() {
   mosa_test::check(occurrences(ports, " Fail: (1) s ? ") == 1, "redo_fail_cleanup: one fail of s, [" + ports + "]");
 }
 
+// 例外のポートで f。巻き戻しで後始末が 1 回動き、失敗に変えても二度目は動かない。例外は失敗になるので
+// catch/3 には届かず、問い合わせは失敗する。
+void check_exception_fail_cleanup() {
+  std::string answer;
+  std::string ports;
+  const std::string count = run_cleanup_case(
+      {"exception_fail_cleanup", "trace, catch(e, _, true)", " Exception: (1) e oops ? ", "f"}, answer, ports);
+  mosa_test::check(count.find("N = 1") != std::string::npos, "exception_fail_cleanup: N = 1, got [" + count + "]");
+  mosa_test::check(answer == "false", "exception_fail_cleanup: false, got [" + answer + "]");
+  mosa_test::check(occurrences(ports, " Exception: (1) e oops ? ") == 1,
+                   "exception_fail_cleanup: one exception of e, [" + ports + "]");
+}
+
+// 例外のポートで r。1 回目の巻き戻しの後始末と、やり直してまた投げたときの後始末で 2 回。二度目の例外は
+// catch/3 が受ける。
+void check_exception_retry_cleanup() {
+  std::string answer;
+  std::string ports;
+  const std::string count = run_cleanup_case(
+      {"exception_retry_cleanup", "trace, catch(e, _, true)", " Exception: (1) e oops ? ", "r"}, answer, ports);
+  mosa_test::check(count.find("N = 2") != std::string::npos, "exception_retry_cleanup: N = 2, got [" + count + "]");
+  mosa_test::check(answer != "false", "exception_retry_cleanup: caught, got [" + answer + "]");
+  mosa_test::check(occurrences(ports, " Call: (1) e ? ") == 2,
+                   "exception_retry_cleanup: the box was reopened, [" + ports + "]");
+  mosa_test::check(occurrences(ports, " Exception: (1) e oops ? ") == 2,
+                   "exception_retry_cleanup: two exceptions of e, [" + ports + "]");
+}
+
+// library(Name) で読んだモジュールを、利用者のテキストが同じ名前で宣言し直したら、ライブラリの印は戻る。
+// 印が残ると、再定義した側の中の呼び出しまでトレースから隠れる。
+void check_library_redefine() {
+  auto machine = make_machine();
+  const auto& impl = mosa::engine_impl(*machine);
+  const auto is_library = [&impl](std::string_view name) {
+    for (const mosa::Module& module : impl.modules) {
+      if (impl.atoms.name(module.name) == name) return module.library;
+    }
+    return false;
+  };
+  mosa_test::check(is_library("lists"), "library_redefine: library(lists) is marked");
+  mosa_test::check(machine->load_program(":- module(lists, [mine/1]).\nmine(a).\n").ok,
+                   "library_redefine: the user text redeclares lists");
+  mosa_test::check(!is_library("lists"), "library_redefine: the mark is gone after the redeclaration");
+}
+
 // タスク 7。呼出のポートの a で問い合わせは Abort で止まり、デバッグの状態は変えない。印は次の問い合わせの
 // drop_run が消す。その前の load_program の指令は、残った印で止まらない（HaltSetAside が脇に置く）。
 void check_abort_stop() {
@@ -283,7 +329,7 @@ void check_abort_cleanup() {
 }
 
 // initialization/1 のゴールの abort。例外と同じく読み込みは失敗し、後の初期化は動かない。診断は書かない。節は
-// 例外のときと同じく残る（2026-10-26 の決定 A。設計の「元に戻す」との食い違いは open-items の問い）。
+// 例外のときと同じく残る（持ち主の決定 A、2026-11-18）。指令で読んだファイルの分は abort_nested_* の記録で確かめる。
 void check_abort_init() {
   auto machine = make_machine();
   Scripted script{" Call: (1) dbg_init ? ", "a", {}, {}, false};
@@ -299,6 +345,20 @@ void check_abort_init() {
       machine->query("notrace, nodebug, current_predicate(loaded/1), \\+ current_predicate(second_init/0).");
   mosa_test::check(kept.kind == mosa::StopKind::Success,
                    "abort_init: clauses kept, no later init, got [" + stop_text(*machine, kept) + "]");
+}
+
+// 失敗した読み込みは leash/1 の変更も残さない（2026-11-18 の持ち主の決定 B。入り切りと進み方と同じ組で戻す）。
+// 成功した読み込みの変更は実行の旗と同じく残る。
+void check_leash_rollback() {
+  auto machine = make_machine();
+  const auto& impl = mosa::engine_impl(*machine);
+  mosa_test::check(machine->query("leash([none, call]).").kind == mosa::StopKind::Success,
+                   "leash_rollback: set call only");
+  const mosa::LoadStatus failed = machine->load_program(":- leash(all).\n:- fail.\n");
+  mosa_test::check(!failed.ok, "leash_rollback: the load fails");
+  mosa_test::check(impl.debug.leashed == 0x01, "leash_rollback: back to call only");
+  const mosa::LoadStatus kept = machine->load_program(":- leash(-call).\n");
+  mosa_test::check(kept.ok && impl.debug.leashed == 0x00, "leash_rollback: a good load keeps the change");
 }
 
 // コントローラの裁定 16。skip のまま捨てた問い合わせの skip_box はもうポートを出さない。次の問い合わせの drop_run
@@ -356,9 +416,13 @@ int main() {
   check_retry_cleanup();
   check_redo_retry_cleanup();
   check_redo_fail_cleanup();
+  check_exception_fail_cleanup();
+  check_exception_retry_cleanup();
+  check_library_redefine();
   check_abort_stop();
   check_abort_cleanup();
   check_abort_init();
+  check_leash_rollback();
   check_skip_dropped();
   check_spy_before_load();
   check_spy_twice_one_key();

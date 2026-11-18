@@ -15,13 +15,15 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
-- Debugger `a` inside an `initialization/1` goal (phase 14 Task 7). A: the load fails and keeps its
-  clauses, as an exception there does (iso-notes 7.4.2 initialization/1). B: roll the load back, as
-  a `:- G` directive does. B cannot restore predicates a reconsult has already removed:
-  ADR 0020 removes them before the goals run, and `abolish_stale` erases them. Default A is built and
-  pinned by `check_abort_init` in `tests/cpp/debugger_test.cpp`. A `:- G` directive rolls back.
-
 ## Owner decisions in force
+
+- Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):
+  - A failed load also rolls `leash/1` back (B): the leashed set is in `SavedFlags`, restored with
+    the on/off bit and the mode. Spy points stay.
+  - `a` in an `initialization/1` goal keeps the clauses (A), also in a file a directive loaded, in
+    either form. `check_abort_init` and `transcript_debug_abort_nested_*` pin it.
+  - A cyclic term beyond `max_depth(N)` is written as `...` (A): the depth wins for lists too;
+    within the depth a cycle is still `_`. The `wd_cyclic_*` rows of `tests/pl/write.pl` pin it.
 
 - Phase 13, questions 1–3 (all A, 2026-11-16; iso-notes "Conditional compilation (not in
   13211-1)"; ADR 0027 approved):
@@ -91,6 +93,16 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `:- if(halt(3)).` are untested; `mosac emit --units` and `run_file` are checked by hand
   only; the `.lgt` half of `--diff` was read from code.
 - codegen's per-clause 16-bit resume limit and the close failures of `mosac emit` have no test.
+- Debugger test gaps from the 2026-11-18 review (next test task, one at a time): a leap transcript
+  for each `spy/1` form other than `Name/Arity` (bare name, list, qualified — `tests/pl/debugger.pl`
+  only sees them succeed); a multibyte unknown port command (`first_char` in `debug_port.cpp`); a
+  C++ check that a failed load rolls the mode back (the leashed set is pinned by
+  `check_leash_rollback`); the leash exception bit, `+exit` after `-exit`, and `leash([])`;
+  degenerate command-at-port pairs (`s` at
+  Redo, `f` at Fail, `r` at Call, `w` at Exception, an uncaught exception under trace); a negative
+  check that standalone executables write no port lines to stderr; `check_skip_dropped` through a
+  scripted `s` instead of injected state. The `.out` port sequences also have no oracle outside the
+  implementation and the manual's checked examples.
 
 ## Runner and judge (`mosatest`)
 
@@ -148,6 +160,9 @@ Near the 800-line limit (`wc -l`, 2026-11-18):
   start on a fresh line after partial output.
 - Debugger: the session-side abort branches (`-g` exit 1, init main, startup file, `:- if`
   roll-back, reconsult restore) and the mode roll-back are checked by hand, not by a C++ test.
+- Debugger: in a translation load, `Abort` alone is not treated like `Halt` (`load_cond.cpp`,
+  `forget_failure` keeps `abort_now`). Unreachable today, since no translation has a console; noted
+  by the 2026-11-18 review as a latent asymmetry, not fixed.
 
 ## Not run yet
 

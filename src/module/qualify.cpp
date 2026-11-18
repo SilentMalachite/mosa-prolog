@@ -176,6 +176,8 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   module->pending_meta.clear();
   module->ops = OperatorTable{};
   module->export_ops.clear();
+  // ライブラリの印も戻す。library(Name) の読み込みでは use_file が後で付け直すが、利用者の再定義では付かない。
+  module->library = false;
   module->file = std::string{file};
   // 同じファイルを別の名前で読み直したら、古いモジュールはもうそのファイルのものではない。
   for (Module& other : machine.modules) {

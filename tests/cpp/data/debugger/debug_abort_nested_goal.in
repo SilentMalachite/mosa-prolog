@@ -1,0 +1,5 @@
+trace, consult('tests/cpp/data/debugger/outer_goal.pl').
+
+
+a
+notrace, nodebug, current_predicate(outer_loaded/1), current_predicate(inner_loaded/1).
