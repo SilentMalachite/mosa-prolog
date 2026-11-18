@@ -53,6 +53,19 @@ void check_gc_during_load() {
   check_shown({"true.", "throw(f(g(1), h(2), [a, b, c])).", "Warning: goal raised exception: f(g(1),h(2),[a,b,c])"});
 }
 
+// 文面を作る機械も利用者のヒープの上限を越えない（ADR 0007 の改訂 3、Muse のレビュー）。4 MiB では 60000 個の要素の
+// リストの文面が作れず、利用者の機械で作っていた前と同じく鍵の形に落ちる。前の新しい機械は既定の上限を持ったので、
+// --heap-max を越えてヒープを使い、文面も前と変わった。
+void check_heap_limit_kept() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  auto result = mosa::run_session(args, "set_prolog_flag(message_language, en).\nlength(L, 60000), throw(L).\n", true,
+                                  std::size_t{4} << 17);
+  mosa_test::check(result.err.find("goal_raised: [_G1,_G2,") != std::string::npos &&
+                       result.err.find("Warning: goal raised exception:") == std::string::npos,
+                   "the renderer keeps the 4 MiB heap limit -> " + result.err.substr(0, 120));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -81,5 +94,6 @@ int main(int argc, char** argv) {
   for (const Shown& item : cases) check_shown(item);
   check_japanese();
   check_table_restored();
+  check_heap_limit_kept();
   return mosa_test::failures();
 }

@@ -180,7 +180,9 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
   Impl& impl = engine_impl(machine);
   if (impl.render_only) return render_here(machine, key, args);
   try {
-    auto renderer = Machine::create();
+    // ヒープの上限は利用者の機械と同じにする。--heap-max は mosa が使うヒープの上限なので、文面のための機械も越えない
+    // （Muse のレビュー）。予約が断られたときも、下の catch がヒープの尽きとして受ける。
+    auto renderer = Machine::create(impl.heap.limit());
     Impl& other = engine_impl(*renderer);
     other.message_lang = impl.message_lang;
     other.render_only = true;
