@@ -47,7 +47,7 @@
         <a class="btn btn-primary" href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">最新版をダウンロード</a>
         <a class="btn btn-secondary" href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/ja/README.md">マニュアルを読む</a>
       </div>
-      <p class="hero-meta">このページは 0.4.1（2026 年 11 月 18 日公開）に合わせて書いています。0.4.1 の変更点は<a href="https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.4.1">リリースノート</a>にあります。macOS、Linux、Windows で動き、<span class="nw">Apache-2.0</span> ライセンスで配布しています。</p>
+      <p class="hero-meta">このページは 0.5.0（2026 年 11 月 19 日公開）に合わせて書いています。0.5.0 の変更点は<a href="https://github.com/SilentMalachite/mosa-prolog/releases/tag/v0.5.0">リリースノート</a>にあります。macOS、Linux、Windows で動き、<span class="nw">Apache-2.0</span> ライセンスで配布しています。</p>
     </div>
 
     <figure class="column" aria-labelledby="column-cap">
@@ -134,7 +134,7 @@ X = 次郎.</code></pre>
       <div class="cmd">
         <h3><code>mosa</code></h3>
         <p class="role">対話しながら動かす</p>
-        <p><code>?-</code> のプロンプトに問い合わせを打つか、ファイルを読み込んで動かします。ほかに入れるものはありません。</p>
+        <p><code>?-</code> のプロンプトに問い合わせを打つか、ファイルを読み込んで動かします。ほかに入れるものはありません。<code>trace</code> と打てば、デバッガでゴールの動きを 1 歩ずつ追えます。</p>
         <div class="code"><pre><code><span class="k">$</span> mosa 家族.pl</code></pre></div>
       </div>
       <div class="cmd">
@@ -268,7 +268,7 @@ main :- write(こんにちは), nl.</code></pre>
     </div>
     <div class="record-wrap">
       <table class="record">
-        <caption>0.4.1（2026 年 11 月 18 日）時点の記録</caption>
+        <caption>0.5.0（2026 年 11 月 19 日）時点の記録</caption>
         <thead>
           <tr><th scope="col">確かめていること</th><th scope="col">結果</th><th scope="col">測り方</th></tr>
         </thead>
@@ -285,7 +285,7 @@ main :- write(こんにちは), nl.</code></pre>
           </tr>
           <tr>
             <th scope="row"><code>mosa</code> と <code>mosac</code> が同じ答えを返すか</th>
-            <td><span class="big">違い 0</span><span class="sub">6925 行を 1 バイトずつ比べた</span></td>
+            <td><span class="big">違い 0</span><span class="sub">7020 行を 1 バイトずつ比べた</span></td>
             <td><code>mosatest --diff</code> で、答え、エラー、出力を比べる（<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/agreement.md">一致の記録</a>）</td>
           </tr>
           <tr>
@@ -296,7 +296,7 @@ main :- write(こんにちは), nl.</code></pre>
         </tbody>
       </table>
     </div>
-    <p class="note prose">あとから変えにくい設計は、実装する前に<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.ja.md">設計の決定記録（ADR）</a>に書いています。0.4.1 の時点で 27 件です。まだできないことは <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.ja.md">CHANGELOG</a> の「既知の制限」にまとめています。</p>
+    <p class="note prose">あとから変えにくい設計は、実装する前に<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/adr/README.ja.md">設計の決定記録（ADR）</a>に書いています。0.5.0 の時点で 28 件です。まだできないことは <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/CHANGELOG.ja.md">CHANGELOG</a> の「既知の制限」にまとめています。</p>
   </div>
 </section>
 
@@ -351,14 +351,14 @@ main :- write(こんにちは), nl.</code></pre>
     <ol class="steps">
       <li>
         <h3>パッケージをダウンロードする</h3>
-        <p>自分のコンピュータに合うパッケージをダウンロードします。下のファイル名を押すと、0.4.1 のパッケージを直接ダウンロードできます。このあとのコマンドも 0.4.1 のものです。もっと新しい版が出ていたら、<a href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Releases のページ</a>から落として、版の番号を読み替えてください。</p>
+        <p>自分のコンピュータに合うパッケージをダウンロードします。下のファイル名を押すと、0.5.0 のパッケージを直接ダウンロードできます。このあとのコマンドも 0.5.0 のものです。もっと新しい版が出ていたら、<a href="https://github.com/SilentMalachite/mosa-prolog/releases/latest">Releases のページ</a>から落として、版の番号を読み替えてください。</p>
         <div class="pkg-wrap">
           <table class="pkg">
             <thead><tr><th scope="col">コンピュータ</th><th scope="col">パッケージ</th></tr></thead>
             <tbody>
-              <tr data-os="mac"><td>macOS（Apple Silicon）</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.4.1/mosa-0.4.1-macos-arm64.tar.gz"><code>mosa-0.4.1-macos-arm64.tar.gz</code></a></td></tr>
-              <tr data-os="linux"><td>Linux（x86_64）</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.4.1/mosa-0.4.1-linux-x86_64.tar.gz"><code>mosa-0.4.1-linux-x86_64.tar.gz</code></a></td></tr>
-              <tr data-os="win"><td>Windows（x64）</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.4.1/mosa-0.4.1-windows-x86_64.zip"><code>mosa-0.4.1-windows-x86_64.zip</code></a></td></tr>
+              <tr data-os="mac"><td>macOS（Apple Silicon）</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.5.0/mosa-0.5.0-macos-arm64.tar.gz"><code>mosa-0.5.0-macos-arm64.tar.gz</code></a></td></tr>
+              <tr data-os="linux"><td>Linux（x86_64）</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.5.0/mosa-0.5.0-linux-x86_64.tar.gz"><code>mosa-0.5.0-linux-x86_64.tar.gz</code></a></td></tr>
+              <tr data-os="win"><td>Windows（x64）</td><td><a href="https://github.com/SilentMalachite/mosa-prolog/releases/download/v0.5.0/mosa-0.5.0-windows-x86_64.zip"><code>mosa-0.5.0-windows-x86_64.zip</code></a></td></tr>
             </tbody>
           </table>
         </div>
@@ -372,7 +372,7 @@ main :- write(こんにちは), nl.</code></pre>
           <div class="code copyable">
             <div class="code-head"><span>ターミナル</span></div>
             <pre class="console"><code>$ cd ~
-$ tar -xzf ~/Downloads/mosa-0.4.1-macos-arm64.tar.gz</code></pre>
+$ tar -xzf ~/Downloads/mosa-0.5.0-macos-arm64.tar.gz</code></pre>
           </div>
         </div>
         <div data-os="linux">
@@ -380,14 +380,14 @@ $ tar -xzf ~/Downloads/mosa-0.4.1-macos-arm64.tar.gz</code></pre>
           <div class="code copyable">
             <div class="code-head"><span>端末</span></div>
             <pre class="console"><code>$ cd ~
-$ tar -xzf ~/Downloads/mosa-0.4.1-linux-x86_64.tar.gz</code></pre>
+$ tar -xzf ~/Downloads/mosa-0.5.0-linux-x86_64.tar.gz</code></pre>
           </div>
         </div>
         <div data-os="win">
           <span class="os-label">Windows（PowerShell）</span>
           <div class="code copyable">
             <div class="code-head"><span>PowerShell</span></div>
-            <pre><code>Expand-Archive "$HOME\Downloads\mosa-0.4.1-windows-x86_64.zip" -DestinationPath $HOME</code></pre>
+            <pre><code>Expand-Archive "$HOME\Downloads\mosa-0.5.0-windows-x86_64.zip" -DestinationPath $HOME</code></pre>
           </div>
         </div>
       </li>
@@ -397,7 +397,7 @@ $ tar -xzf ~/Downloads/mosa-0.4.1-linux-x86_64.tar.gz</code></pre>
         <p>macOS は、ブラウザでダウンロードしたファイルに隔離の印を付け、署名のないプログラムを開きません。次のコマンドで、フォルダとその中のすべてのファイルから印を外します。</p>
         <div class="code copyable">
           <div class="code-head"><span>ターミナル</span></div>
-          <pre class="console"><code>$ xattr -dr com.apple.quarantine ~/mosa-0.4.1-macos-arm64</code></pre>
+          <pre class="console"><code>$ xattr -dr com.apple.quarantine ~/mosa-0.5.0-macos-arm64</code></pre>
         </div>
       </li>
 
@@ -408,21 +408,21 @@ $ tar -xzf ~/Downloads/mosa-0.4.1-linux-x86_64.tar.gz</code></pre>
           <span class="os-label">macOS（zsh）</span>
           <div class="code copyable">
             <div class="code-head"><span>ターミナル（zsh）</span></div>
-            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.4.1-macos-arm64/bin:$PATH"' &gt;&gt; ~/.zshrc</code></pre>
+            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.5.0-macos-arm64/bin:$PATH"' &gt;&gt; ~/.zshrc</code></pre>
           </div>
         </div>
         <div data-os="linux">
           <span class="os-label">Linux（bash）</span>
           <div class="code copyable">
             <div class="code-head"><span>端末（bash）</span></div>
-            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.4.1-linux-x86_64/bin:$PATH"' &gt;&gt; ~/.bashrc</code></pre>
+            <pre class="console"><code>$ echo 'export PATH="$HOME/mosa-0.5.0-linux-x86_64/bin:$PATH"' &gt;&gt; ~/.bashrc</code></pre>
           </div>
         </div>
         <div data-os="win">
           <span class="os-label">Windows（PowerShell）</span>
           <div class="code copyable">
             <div class="code-head"><span>PowerShell（1 行ずつ打つ）</span></div>
-            <pre><code>$bin = "$HOME\mosa-0.4.1-windows-x86_64\bin"
+            <pre><code>$bin = "$HOME\mosa-0.5.0-windows-x86_64\bin"
 $old = [Environment]::GetEnvironmentVariable("Path", "User")
 [Environment]::SetEnvironmentVariable("Path", "$old;$bin", "User")</code></pre>
           </div>
@@ -435,7 +435,7 @@ $old = [Environment]::GetEnvironmentVariable("Path", "User")
         <div class="code copyable">
           <div class="code-head"><span>シェル</span></div>
           <pre class="console"><code>$ mosa --version
-<span class="o">mosa 0.4.1</span></code></pre>
+<span class="o">mosa 0.5.0</span></code></pre>
         </div>
       </li>
 
@@ -465,8 +465,8 @@ N = 5.
     </div>
     <ul class="reading">
       <li class="main">
-        <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/ja/README.md">マニュアル（全 14 章）</a>
-        <p>Prolog を使ったことのない人に向けて書いています。最初の問い合わせから、事実と規則、リスト、エラー、日本語、モジュールへ進み、<code>mosac</code> で実行ファイルを作るところまで順に扱います。<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/README.md" hreflang="en" lang="en">English version</a></p>
+        <a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/ja/README.md">マニュアル（全 15 章）</a>
+        <p>Prolog を使ったことのない人に向けて書いています。最初の問い合わせから、事実と規則、リスト、エラー、日本語、モジュールへ進み、<code>mosac</code> で実行ファイルを作るところ、デバッガでゴールの動きを追うところまで順に扱います。<a href="https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/manual/en/README.md" hreflang="en" lang="en">English version</a></p>
       </li>
       <li>
         <a href="https://qiita.com/silentmalachite/items/872caaf80f6baed7ed6c">Prologは死んだのか？ ― LLM時代における論理プログラミングの現在地</a>
