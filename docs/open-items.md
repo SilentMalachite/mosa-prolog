@@ -278,6 +278,15 @@ Phase 13: see CHANGELOG 0.4.0, Known limits.
 - Time ratios remain load-sensitive. index_scale's scan ratio failed once serially on a macOS
   runner (release run 42878532812, attempt 1).
 - The slowest deep and scale tests run at `MOSA_GC_STRESS=1000`, or not under stress.
+- `tests/cpp/transcript_test.cmake` gave each mosa 20 s. Debugger transcripts went over it on CI
+  with their full output: Windows (run 44292746612), linux-gc-stress (44268611104), and
+  linux-asan (36 and 23 tests in 44428606659 and 44428614255). Since `7868abab` the limit is 180 s.
+  In the green runs 44435291291 and 44435300641 the slowest was 44 s (linux-asan, `spy_forms`),
+  and Windows takes about 80 s per test. A hang at end of input is not ruled out until more
+  Windows runs pass, since one Windows failure had its full output.
+- On linux-asan, message_ops went from 21 s (`5383fee4`) to 79 s while the runner was about 1.5×
+  slower overall. A likely cause is the fresh render machine per message (`f8000797`, ADR 0007
+  amendment 3). `debugger` takes 122–135 s of its 600 s on linux-asan and linux-gc-stress.
 
 ## Doubts
 
