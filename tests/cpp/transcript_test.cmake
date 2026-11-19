@@ -22,6 +22,12 @@ if(DEFINED TRANSCRIPT)
   set(transcript_value "${TRANSCRIPT}")
 endif()
 
+# 子の上限は止まったままの mosa を落とすためで、速さは見ない。20 秒では CI で時間切れが出た（期待どおりの出力のまま）。
+# 通った実行でも linux-gc-stress の debug_help が 15.4 秒（手元は 0.45 秒）、Windows は 1 件ごとに 58〜64 秒で
+# 何十秒も止まる間がある（run 44292737538、落ちたのは 44292746612 と 44268611104）。180 秒は ctest の 600 秒より下に置き、
+# 止まったときも expected と actual を出す。期待値は変えないので、出力の違いも止まったままの mosa も今までどおり落ちる。
+set(child_timeout 180)
+
 # 同じ変数に stdout と stderr を受けると、CMake は一つの管にまとめ、書かれた順のまま読む。
 function(run_mosa transcript out_var code_var)
   set(ENV{MOSA_TRANSCRIPT} "${transcript}")
@@ -32,7 +38,7 @@ function(run_mosa transcript out_var code_var)
     OUTPUT_VARIABLE merged
     ERROR_VARIABLE merged
     RESULT_VARIABLE code
-    TIMEOUT 20 ENCODING UTF-8)
+    TIMEOUT ${child_timeout} ENCODING UTF-8)
   string(REPLACE "\r" "" merged "${merged}")
   set(${out_var} "${merged}" PARENT_SCOPE)
   set(${code_var} "${code}" PARENT_SCOPE)
@@ -46,7 +52,7 @@ if(SPLIT)
     OUTPUT_VARIABLE out
     ERROR_VARIABLE err
     RESULT_VARIABLE code
-    TIMEOUT 20 ENCODING UTF-8)
+    TIMEOUT ${child_timeout} ENCODING UTF-8)
   foreach(stream out err)
     string(REPLACE "\r" "" ${stream} "${${stream}}")
     file(READ "${DATA}/${CASE}.${stream}" expected)
