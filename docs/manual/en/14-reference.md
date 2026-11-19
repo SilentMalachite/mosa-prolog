@@ -755,7 +755,9 @@ or removed. Among them:
   `mosac build --debug` (a trace of clauses, chapter 13) is a different thing. `mosatest` and an embedded `Machine` have no console either, so the debugger predicates only change state there.
 - A grammar rule that `phrase/2,3` calls shows the unifications of the translated body, as in `[a,a]=[a|_G1]`.
 - `a` typed at a port inside a cleanup of `setup_call_cleanup/3` that is running stops that cleanup and the cleanups that the same cut runs after it.
-- A goal that you write as `system:Goal`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced. Your own goals that a library predicate calls, as `maplist/2` does, are traced, and so is a single goal that you write with a library's name, as `lists:append(X, Y, Z)`; the goals of a control construct after `lists:` and a `lists:` goal that a library predicate calls for you are not.
+- A goal that you write as `system:Goal`, a predicate whose name starts with `$`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced. Your own goals that a library predicate calls, as `maplist/2` does, are traced, and so is a single goal that you write with a library's name, as `lists:append(X, Y, Z)`; the goals of a control construct after `lists:` and a `lists:` goal that a library predicate calls for you are not.
+- A port that stops reads, as its command, what `get_char/1` and the like left of the line, as the `;` prompt does:
+  `na` typed for `trace, get_char(C)` aborts at the Exit port. Only the end of the line that `read/1` leaves is dropped.
 - On Windows, a `mosa` whose input is the `NUL` device is taken for a terminal and stops at the first port, so
   record a run through a pipe (chapter 15).
 - Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes
