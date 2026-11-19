@@ -5,7 +5,7 @@
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
 - **In progress:** none.
 - **Last done:** adversarial review of `main..HEAD` (2 Medium, 9 Low fixed; older doubts in
-  open-items); pushed to PR #4 at `7868abab`, CI green in all jobs. ctest 237/237.
+  open-items); pushed to PR #4 at `9083f681`, CI green in all jobs. ctest 237/237.
 - **Next:** the owner decides whether to close phase 14. Known box gaps: `lists:(G1, G2)`,
   `lists:findall/3`'s goal. CI timing notes (transcript limit, ASan) are in open-items Tests.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).

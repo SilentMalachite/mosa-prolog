@@ -284,6 +284,9 @@ Phase 13: see CHANGELOG 0.4.0, Known limits.
   In the green runs 44435291291 and 44435300641 the slowest was 44 s (linux-asan, `spy_forms`),
   and Windows takes about 80 s per test. A hang at end of input is not ruled out until more
   Windows runs pass, since one Windows failure had its full output.
+- `mosa_stdin`, `mosa_utf8_pipe` and `mosa_japanese_arg` also had a 20 s child limit; the first
+  two timed out mid-output on Windows (run 44442297643). Since `9083f681` they have 180 s too;
+  runs 44449589046 and 44449596124 were green in all jobs.
 - On linux-asan, message_ops went from 21 s (`5383fee4`) to 79 s while the runner was about 1.5×
   slower overall. A likely cause is the fresh render machine per message (`f8000797`, ADR 0007
   amendment 3). `debugger` takes 122–135 s of its 600 s on linux-asan and linux-gc-stress.
