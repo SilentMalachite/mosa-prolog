@@ -5,12 +5,13 @@
 file(MAKE_DIRECTORY "${WORK}")
 set(source "${WORK}/日本語の引数.pl")
 file(WRITE "${source}" "読込済(はい).\n")
+# 上限は止まった mosa を落とすためで速さは見ない。20 秒では Windows の CI が何十秒も止まる間に打ち切られた（run 44442297643、transcript_test.cmake と同じ）。
 # ENCODING UTF-8: 子は UTF-8 で書く。Windows の既定は CMP0176（3.31）が NEW でなければ AUTO で、コンソールのコードページで読み、932 などでは化ける。
 execute_process(COMMAND "${MOSA}" "${source}" -g "読込済(X), write(X), nl." -t halt
   OUTPUT_VARIABLE out
   ERROR_VARIABLE err
   RESULT_VARIABLE code
-  TIMEOUT 20 ENCODING UTF-8)
+  TIMEOUT 180 ENCODING UTF-8)
 file(REMOVE "${source}")
 string(FIND "${out}" "はい\n" at)
 if(NOT code EQUAL 0 OR at EQUAL -1)
