@@ -130,16 +130,16 @@ bool leaf_blocks(const Heap& heap, Cell cell) {
   return cell.tag() == Tag::Atom && heap.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "!";
 }
 
-// , ; -> *-> の下のゴール位置に、未束縛の変数か呼べない項があるか（7.6.2 が変換するのはこの 4 つだけ）。
+// , ; -> *-> の下のゴール位置に、呼べない項か（vars なら）未束縛の変数があるか（7.6.2 が変換するのはこの 4 つだけ）。
 // 入れ子の catch/3 は自分で決めるので入らない。見た節点を覚え、巡回するゴールでもこの歩き手は止まる
 // （ゴールの翻訳はレビュー M13）。
-bool has_late_leaf(const Heap& heap, Cell root) {
+bool has_late_leaf(const Heap& heap, Cell root, bool vars = true) {
   std::vector<Cell> pending{root};
   std::unordered_set<std::uint64_t> seen;
   while (!pending.empty()) {
     const Cell cell = heap.deref(pending.back());
     pending.pop_back();
-    if (heap.unbound(cell) || non_callable(heap, cell)) return true;
+    if ((vars && heap.unbound(cell)) || non_callable(heap, cell)) return true;
     if (!is_connective(heap, cell) || !seen.insert(cell.raw()).second) continue;
     pending.push_back(heap.arg(cell, 1));
     pending.push_back(heap.arg(cell, 0));
@@ -207,15 +207,19 @@ IrTerm Build::late_goal(Cell cell) {
 // レビュー H-09（2026-11-21、持ち主の B）。catch/3 の後で訳す Goal と Recovery を、その場で訳すときと同じく今の道の上で
 // 歩いてから葉にする。根だけを見ると、catch を通って戻る巡回は catch が動いて Goal を訳すときに見つかり、その catch が
 // 受けた（iso-notes 7.3.3 の決定 A は何も動かす前）。
+// 呼べない部分のある Goal は歩かない。call/1 は訳す前に type_error(callable, Goal) を出し（7.8.3.3）、その誤りは catch が
+// 受ける（M15）。巡回の誤りはその検査の後（M16）なので、外で先に出すと順が逆になる。
 IrTerm Build::late_catch(Cell cell) {
-  if (keep) probe_late(heap->deref(cell));
+  const Cell goal = heap->deref(cell);
+  if (keep && !(is_connective(*heap, goal) && has_late_leaf(*heap, goal, false))) probe_late(goal);
   return late_goal(cell);
 }
 
 // goal_at と同じ制御構造を歩き、同じく枠は goal_loops で、葉は note_back で見る。歩いている枠は deep_open に置き、
 // 抜けるときに外す。入れ子の後で訳す Goal は根だけを見る。中まで歩くと、その Goal を訳す段の翻訳もまた下の段を
-// すべて歩くので、入れ子の後で訳す catch が段の数の 2 乗になる（tests/stack/deep_builtins.pl の 100 万段）。歩く節点は
-// node_budget までにする。その場で訳すときに組む IR の節点の数と同じだけで、超えたら見つけずに終える。
+// すべて歩くので、入れ子の後で訳す catch が段の数の 2 乗になる（tests/stack/deep_builtins.pl の 100 万段）。歩き終えた
+// 枠は覚えて 2 度歩かない。共有を広げて歩くと、共有の多い骨組みが木の大きさだけかかる（深さ 40 の (T, T) は 2^40）。
+// そのため、ほかの道から先に歩いた枠の中から、葉の中を通ってその後の道へ戻る辺は見えず、catch が動くときに見つかる。
 void Build::probe_late(Cell root) {
   struct Step {
     Cell cell;
@@ -225,8 +229,9 @@ void Build::probe_late(Cell root) {
   const auto root_tag = frame_tag(*heap, root);
   if (!root_tag || goal_loops(root)) return;
   std::vector<Step> stack{{root, *root_tag, 0}};
+  std::unordered_set<std::uint64_t> walked{root.raw()};
   deep_open.insert(root.raw());
-  for (std::size_t steps = 0; !stack.empty() && !cyclic && steps < node_budget; ++steps) {
+  while (!stack.empty() && !cyclic) {
     Step& top = stack.back();
     if (top.index == heap->functor_arity(top.cell)) {
       deep_open.erase(top.cell.raw());
@@ -242,7 +247,7 @@ void Build::probe_late(Cell root) {
       note_back(child);
     } else if (goal_loops(child)) {
       cyclic = true;
-    } else {
+    } else if (walked.insert(child.raw()).second) {
       deep_open.insert(child.raw());
       // 積むと top は無効になる。
       stack.push_back({child, *tag, 0});

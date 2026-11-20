@@ -103,6 +103,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   as `wraps_back` walks 63 steps with Brent (CHANGELOG 0.4.1, Known limits).
 - Review H-09 (owner's B): a late catch/3 Goal nested in another is checked at its root only, so a
   back edge from inside it is found when the outer catch runs, and that catch receives the error.
+  The walk visits each construct once, so a back edge through a leaf to a construct it first met on
+  another path is found the same way; a late Goal with a non-callable part is not walked (M15, M16).
 - Cost of review H-08: past 63,488 slots a translation walks the goals of a part it would defer,
   also inside `call/N`, `\+/1`, `once/1` and catch/3, so k nested `call/1` layers that each pass
   the limit walk about k^2/2 layers: 16 layers of 64,000 goals take 1.4 s (0.6 s before), 32 4.6 s

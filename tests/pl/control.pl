@@ -539,6 +539,17 @@ test(h09_written_leaf, (G = catch(call((true, G)), C, true), catch(call(G), _, t
 test(h09_nested_late, (G = catch((_, catch((_, G), _, true)), C, true), catch(call(G), _, true), nonvar(C)), true).
 % 翻訳の後の束縛が作る巡回は、catch が動いて Goal を訳すときに初めて見えるので、その catch が受ける。
 test(h09_bound_later, (G = (X = G, catch((X, true), C, true)), catch(call(G), _, true), nonvar(C)), true).
+% 呼べない部分のある Goal は歩かない。call/1 が訳す前に出す type_error(callable, _) を catch が受け（M15）、巡回の誤りは
+% その後（M16）。Recovery は動かないので何も起きない。
+test(h09_noncallable,
+     (G = catch((G, 1), C, true), catch(call(G), _, true), nonvar(C), C = error(type_error(callable, _), _)), true).
+test(h09_noncallable_recovery, (G = catch(true, _, (G, 1)), call(G)), true).
+% 歩き終えた枠は 2 度歩かない。共有を広げると深さ 40 の (T, T) で 2^40 個を歩く。共有項は答えの変数に出さない
+% （差分テストが答えを書くと 2^40 個になる）。
+h09_shared(0, true) :- !.
+h09_shared(N, (T, T)) :- M is N - 1, h09_shared(M, T).
+h09_shared_run :- h09_shared(40, S), \+ call((fail, catch((_, S), _, true))).
+test(h09_shared, h09_shared_run, true).
 
 % レビュー M31（ADR 0021）。スロットの番号は 32 ビット。前は 16 ビットで、変数 70000 個の節は番号が 2^16 で折り返して
 % env の外を指し、プロセスごと落ちた。どちらも組込の数歩で済むので、MOSA_GC_STRESS=1 でも重くない。bagof/3 の
