@@ -5,7 +5,7 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W2 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** C-01 (3fe92a8c): goal consult/1 sees open files; W1 done but H-39 (question).
+- **Last done:** C-01 (3fe92a8c, 6080d441): open files seen, loads 64 deep; W1 done but H-39.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
 - **Next:** C-02 (bagof/3 and setof/3 keep Template variables as the caller's cells).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).

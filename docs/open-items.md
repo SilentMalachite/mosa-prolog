@@ -7,10 +7,9 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 19 open questions of [review-2026-11-20.md](review-2026-11-20.md): C-01 (its
-  `initialization/1` form), H-09, H-12, H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26,
-  M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry gives its A or B; default A, which keeps
-  the current behaviour.
+- The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12,
+  H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27,
+  L-33. Each entry gives its A or B; default A, which keeps the current behaviour.
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
@@ -44,6 +43,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Review M-50 (B, 2026-11-20): an object's `setup/0` and `cleanup/0` run once, before and after
   all its tests, as `run/0` in lgtunit.lgt does (c30993db). A `setup/0` that fails or throws fails
   every test of the file with actual `setup`, and `cleanup/0` then does not run.
+- Review C-01 (B, 2026-11-20, 6080d441): at most 64 loads are open at once; a deeper one fails with
+  `load_too_deep` (iso-notes 7.1), which also ends a file whose `initialization/1` goal
+  consults the file itself.
 - Review H-41 (A, 2026-11-20): tests/pl has a fifth expectation, `ball(Ball)`, which subsumes a
   whole thrown term (SPEC section 8); the eight raw-ball rows keep their goals byte for byte.
 - Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):
