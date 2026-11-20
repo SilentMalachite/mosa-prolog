@@ -161,6 +161,10 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - A `forall/2` after a goal that leaves a choice point replaces that open query, so the choice
   point is dropped: `test(t, false) :- member(X, [1, 2]), (forall(true, assertion(true)) ; true),
   X == 2.` passes, while Prolog gives `true` (found during M-49, older than it; no suite case).
+- A gate or case condition decides `predicate_property/2` from the term as read, before the query
+  runs, so a callable bound by an earlier goal is not seen: `(P = atom_length(_, _),
+  predicate_property(P, built_in))` is false (`lgt_cond.cpp`; seen in a probe run; older than
+  M-52; no suite case).
 - The judge's `<`, `=<`, `>` and `>=` still compare an integer written as a `+(N)` or `-(N)`
   compound as a double (no suite item has one).
 - Halts in the Logtalk paths give no reason (Opus re-review 2026-11-17, from code; no suite case):
