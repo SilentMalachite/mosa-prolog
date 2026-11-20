@@ -452,6 +452,15 @@ m28_run(if_then_late_shallow) :-
     m28_tree_goal((a = a -> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
 m28_run(soft_if_late_shallow) :-
     m28_tree_goal(((a = a) *-> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
+% 葉の中の ! はその葉に閉じるが、残りのじかの位置にも ! があれば、残りは後で訳せない（H-08 で巡回を探す歩みが葉の
+% 中へ入るようになっても、同じ ! の答えを葉の中のものに取り違えない）。
+m28_run(many_compound_args_call_cut) :-
+    m28_wide_goal(a, (call(!), !), V, G), findall(Y, call((V = v, (Y = 1 ; Y = 2), G)), L), L == [1].
+% 巡回が後で訳す部分の中だけにあっても、その場で訳して何も動かす前に見つける（レビュー H-08）。直す前は後で訳す
+% 部分が動くときに見つかり、その前の assertz(m28_seen) と 64 個のゴールが先に動いた。
+m28_run(late_inner_cycle) :-
+    H = (true, call(H)), m28_wide_goal(a, H, V, G), retractall(m28_seen),
+    catch(call((assertz(m28_seen), V = v, G)), error(resource_error(cyclic_term), _), true), \+ m28_seen.
 test(m28_call_dag, m28_run(call), true).
 test(m28_call_built_dag, m28_run(call_built), true).
 test(m28_var_goal_dag, m28_run(var_goal), true).
@@ -476,11 +485,40 @@ test(m28_if_then_late, m28_run(if_then_late), true).
 test(m28_soft_if_late, m28_run(soft_if_late), true).
 test(m28_if_then_late_shallow, m28_run(if_then_late_shallow), true).
 test(m28_soft_if_late_shallow, m28_run(soft_if_late_shallow), true).
+test(m28_many_compound_args_call_cut, m28_run(many_compound_args_call_cut), true).
+test(m28_late_inner_cycle, m28_run(late_inner_cycle), true).
 % 元の項を指しても、中の変数は同じ変数のまま。ゴールの中で束縛すれば、指した項からも見える。
 test(m28_inner_var, (X = f(Y), call((Y = 1, X == f(1)))), true).
 test(m28_inner_var_later, (X = g(f(Y)), call((X = g(Z), Y = 2, Z == f(2)))), true).
 test(m28_inner_var_undo, (X = f(Y), call(((Y = 1, fail) ; var(Y))), X = f(Z), var(Z)), true).
 test(m28_cyclic_arg, (X = f(X), call(X = f(Y)), Y == X), true).
+
+% レビュー H-08。63,488 スロットを超えた残りは後で訳すが、その残りが call/N、catch/3、once/1、\+/1、if/3 の中を通って
+% 自分へ戻るなら、その場で訳す。後で訳すと新しい道から訳し始めるので戻り辺が見えず、巡回が見つからないまま何度でも
+% 動いた。h08_step は 3 度目に失敗するので、直す前もゴールは止まり、誤りを出さずに失敗した。誤りは何も動かす前に
+% 出て（数は 0）、if/3 だけは決定どおりその if/3 が動くときに出る（数は 1。ゴールが小さいときも同じ）。
+:- dynamic(h08_c/1).
+h08_step :- retract(h08_c(C)), C1 is C + 1, assertz(h08_c(C1)), C1 < 3.
+h08_tail(call, G, call(G)).
+h08_tail(catch, G, catch(G, _, true)).
+h08_tail(once, G, once(G)).
+h08_tail(not, G, \+ G).
+h08_tail(if, G, if(true, G, true)).
+h08_body(deep, Last, V, G) :- m28_wide_goal(a, Last, V, G).
+h08_body(shallow, Last, V, G) :- m28_tree_goal(Last, V, G).
+% 巡回する G は答えに出さない。差分テストが答えを書いて比べる。
+h08_run(Kind, Shape, N) :-
+    h08_tail(Kind, G, Last), h08_body(Shape, Last, V, Body), G = (h08_step, V = v, Body),
+    retractall(h08_c(_)), assertz(h08_c(0)),
+    catch(call(G), error(resource_error(cyclic_term), _), true), h08_c(N).
+test(h08_call_deep, h08_run(call, deep, N), solutions([N = 0])).
+test(h08_catch_deep, h08_run(catch, deep, N), solutions([N = 0])).
+test(h08_once_deep, h08_run(once, deep, N), solutions([N = 0])).
+test(h08_not_deep, h08_run(not, deep, N), solutions([N = 0])).
+test(h08_if_deep, h08_run(if, deep, N), solutions([N = 1])).
+test(h08_call_shallow, h08_run(call, shallow, N), solutions([N = 0])).
+test(h08_catch_shallow, h08_run(catch, shallow, N), solutions([N = 0])).
+test(h08_if_shallow, h08_run(if, shallow, N), solutions([N = 1])).
 
 % レビュー M31（ADR 0021）。スロットの番号は 32 ビット。前は 16 ビットで、変数 70000 個の節は番号が 2^16 で折り返して
 % env の外を指し、プロセスごと落ちた。どちらも組込の数歩で済むので、MOSA_GC_STRESS=1 でも重くない。bagof/3 の

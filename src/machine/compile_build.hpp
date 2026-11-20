@@ -53,6 +53,8 @@ struct Build {
   bool keep = false;
   // ゴールの骨組みの節点ごとの、後で訳せないかの答え（Build::blocks）。同じ部分木を 2 度歩かない。
   std::unordered_map<std::uint64_t, std::uint8_t> skeleton;
+  // 節点ごとの、葉の中のゴールも通って巡回に届くかの答え（Build::reaches_cycle、レビュー H-08）。
+  std::unordered_map<std::uint64_t, std::uint8_t> cycle_reach;
   // 組む IR の節点の数の上限。実行時のゴールと assert の節は、compile_goal と compile_asserted がヒープの上限で決める
   // （レビュー M28、M30）。読み込んだ節は読んだとおりの木なので決めない。
   std::size_t node_budget = SIZE_MAX;
@@ -135,6 +137,7 @@ struct Build {
   [[nodiscard]] IrTerm late_goal(Cell cell);
   [[nodiscard]] bool defers(Cell cell);
   [[nodiscard]] bool blocks(Cell root);
+  [[nodiscard]] bool reaches_cycle(Cell root);
 };
 
 }  // namespace mosa::ir_build

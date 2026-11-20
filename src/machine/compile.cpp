@@ -96,6 +96,50 @@ std::vector<Cell> skeleton_children(const Heap& heap, Cell cell) {
   return {};
 }
 
+// 巡回を探す歩みの子（レビュー H-08）。骨組みの子に加え、葉が動くときに訳す中のゴール（wrapped_goal）と、catch/3 の
+// Goal と Recovery。if/3 の引数には入らない（iso-notes 7.3.3 の決定 B）。動いている if/3 へ戻る辺は葉で見る。
+std::vector<Cell> goal_children(const Heap& heap, Cell cell) {
+  if (const auto inner = wrapped_goal(heap, cell)) return {*inner};
+  if (is_connective(heap, cell)) return {heap.deref(heap.arg(cell, 0)), heap.deref(heap.arg(cell, 1))};
+  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 3) return {};
+  if (heap.atoms().name(heap.functor_atom(cell)) != "catch") return {};
+  return {heap.deref(heap.arg(cell, 0)), heap.deref(heap.arg(cell, 2))};
+}
+
+// 後順に歩いて節点ごとの答えを memo に覚え、同じ部分木を 2 度歩かない。葉は leaf で決め、子を持つ節点は子のどれかが
+// kFree でなければ塞がる。開いたままの節点（歩いている道の上）へ戻る子も塞がるので、巡回に届く節点はどれも塞がる。
+// 答えは道によらないので、後の呼び出しが覚えた答えを使ってよい。
+enum : std::uint8_t { kOpen, kFree, kBlocked };
+template <class Children, class Leaf>
+bool walk_blocks(const Heap& heap, std::unordered_map<std::uint64_t, std::uint8_t>& memo, Cell root,
+                 Children children, Leaf leaf) {
+  std::vector<std::pair<Cell, bool>> stack{{heap.deref(root), false}};
+  while (!stack.empty()) {
+    const auto [cell, expanded] = stack.back();
+    if (!expanded) {
+      if (memo.contains(cell.raw())) {
+        stack.pop_back();
+        continue;
+      }
+      const std::vector<Cell> next = children(cell);
+      if (next.empty()) {
+        memo[cell.raw()] = leaf(cell) ? kBlocked : kFree;
+        stack.pop_back();
+        continue;
+      }
+      memo[cell.raw()] = kOpen;
+      stack.back().second = true;
+      for (const Cell child : next) stack.emplace_back(child, false);
+      continue;
+    }
+    bool blocked = false;
+    for (const Cell child : children(cell)) blocked = blocked || memo[child.raw()] != kFree;
+    memo[cell.raw()] = blocked ? kBlocked : kFree;
+    stack.pop_back();
+  }
+  return memo[heap.deref(root).raw()] != kFree;
+}
+
 // 骨組みの葉が後で訳せないか。! は call/1 の中では局所になる。未束縛の変数は今なら call(X) だが、後で訳すとその時の
 // 束縛で分類が変わる。呼べない項は、call/1 が何も動かす前に出す type_error(callable, Goal)（7.8.3.3）が遅れる。
 bool leaf_blocks(const Heap& heap, Cell cell) {
@@ -177,42 +221,29 @@ IrTerm Build::late_goal(Cell cell) {
   return term;
 }
 
-// 骨組みに後で訳せない葉があるか。後順に歩いて節点ごとに覚える。巡回する骨組みも後で訳せないとみなす。
+// 骨組みに後で訳せない葉があるか。巡回する骨組みも後で訳せないとみなす。
 bool Build::blocks(Cell root) {
-  enum : std::uint8_t { kOpen, kFree, kBlocked };
-  std::vector<std::pair<Cell, bool>> stack{{heap->deref(root), false}};
-  while (!stack.empty()) {
-    const auto [cell, expanded] = stack.back();
-    if (!expanded) {
-      if (skeleton.contains(cell.raw())) {
-        stack.pop_back();
-        continue;
-      }
-      const std::vector<Cell> children = skeleton_children(*heap, cell);
-      if (children.empty()) {
-        skeleton[cell.raw()] = leaf_blocks(*heap, cell) ? kBlocked : kFree;
-        stack.pop_back();
-        continue;
-      }
-      skeleton[cell.raw()] = kOpen;
-      stack.back().second = true;
-      for (const Cell child : children) stack.emplace_back(child, false);
-      continue;
-    }
-    bool blocked = false;
-    for (const Cell child : skeleton_children(*heap, cell)) blocked = blocked || skeleton[child.raw()] != kFree;
-    skeleton[cell.raw()] = blocked ? kBlocked : kFree;
-    stack.pop_back();
-  }
-  return skeleton[heap->deref(root).raw()] != kFree;
+  return walk_blocks(
+      *heap, skeleton, root, [this](Cell cell) { return skeleton_children(*heap, cell); },
+      [this](Cell cell) { return leaf_blocks(*heap, cell); });
+}
+
+// 葉の中のゴールも通って、巡回に届くか（レビュー H-08）。道の上の祖先へ戻る巡回も、祖先からこの部分木へ下りる辺を
+// 通って部分木へ戻るので、道を見ずに見つかる。
+bool Build::reaches_cycle(Cell root) {
+  return walk_blocks(
+      *heap, cycle_reach, root, [this](Cell cell) { return goal_children(*heap, cell); },
+      [this](Cell cell) { return runs_back(cell); });
 }
 
 // スロットが kDeferAt を超えたら、残りのゴールを元の項を指す call/1 の葉にし、動くときに新しいスロットで訳す（M28 の
 // Codex 敵対的レビュー、M31 の Codex 敵対的レビュー）。動かない残りは訳さない。後で訳せない部分木は、その子ごとに決める。
+// 巡回に届く部分木もその場で訳す。後で訳すと新しい道から訳し始めるので、call/N や catch/3 の中を通って戻る辺が見えず、
+// 何度でも動いた（レビュー H-08）。その場で訳せば、ゴールが小さいときと同じ所で巡回の誤りになる。
 bool Build::defers(Cell cell) {
   if (!keep || refs.size() < kDeferAt) return false;
   cell = heap->deref(cell);
-  return !slotless_leaf(*heap, cell) && !blocks(cell);
+  return !slotless_leaf(*heap, cell) && !blocks(cell) && !reaches_cycle(cell);
 }
 
 // 後順に訳す。子は左から訳すので、変数の番号は浅いときの再帰と同じ順に振られる。

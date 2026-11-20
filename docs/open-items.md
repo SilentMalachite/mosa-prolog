@@ -101,6 +101,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - `call/N`'s extra arguments (`X = call(call, X)`) are not followed (older than the decision).
 - A cycle of leaves alone (`call/N`, `\+/1`, `once/1`, `M:G`) is found only up to a period of 32,
   as `wraps_back` walks 63 steps with Brent (CHANGELOG 0.4.1, Known limits).
+- Cost of review H-08: past 63,488 slots a translation walks the goals of a part it would defer,
+  also inside `call/N`, `\+/1`, `once/1` and catch/3, so k nested `call/1` layers that each pass
+  the limit walk about k^2/2 layers: 16 layers of 64,000 goals take 1.7 s (0.6 s before), 32 take 5.9 s.
 - From the Opus review of 748c831:
   - A1, kept as the decision's reading (row `m13_if_same_term`): another cell with the same three
     arguments is the same term by `==` and also raises, as in
