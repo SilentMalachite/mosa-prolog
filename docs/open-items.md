@@ -126,6 +126,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Checked by hand only, or not tested
 
+- `mosatest F` does not catch `ResourceLimit` in `run_exam` or `run_one` (`suite.cpp`), so a heap
+  stop in one test would end the run. Its machine has the default 4 GiB heap, so this was not
+  reached (review M-53, from code).
 - A test file whose load stops at `halt/0,1` (86ac58e): `include`, nested consult and
   `:- if(halt(3)).` are untested; `mosac emit --units` and `run_file` are checked by hand
   only; the `.lgt` half of `--diff` was read from code.
