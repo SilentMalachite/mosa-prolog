@@ -3,7 +3,12 @@
 # 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|build_fails>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -DROOT=<リポジトリの根> -DOS_ARCH=<macos-arm64 など> -DARCHIVE_EXT=<.tar.gz か .zip>
-#   -P dist_test.cmake
+#   -DVERSION=<project VERSION> -P dist_test.cmake
+
+if(NOT DEFINED VERSION OR VERSION STREQUAL "")
+  # 空のままだと、README.txt の版をどれでも受けてしまう（レビュー L-46）。
+  message(FATAL_ERROR "VERSION is empty: pass -DVERSION=\${PROJECT_VERSION}")
+endif()
 
 file(REMOVE_RECURSE "${WORK}")
 file(MAKE_DIRECTORY "${WORK}")
@@ -71,7 +76,7 @@ function(expect_unpacked archive stem)
     endif()
   endforeach()
   file(READ "${folder}/README.txt" readme)
-  foreach(part "Mosa Prolog 0.5.0" "Apache License, Version 2.0" "このプログラムは Mosa Prolog 0.5.0 で作りました")
+  foreach(part "Mosa Prolog ${VERSION}" "Apache License, Version 2.0" "このプログラムは Mosa Prolog ${VERSION} で作りました")
     string(FIND "${readme}" "${part}" at)
     if(at LESS 0)
       fail("README.txt must contain [${part}]: [${readme}]")

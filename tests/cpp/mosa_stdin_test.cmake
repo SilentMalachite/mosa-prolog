@@ -1,8 +1,13 @@
 # mosa の標準入力。端末でない入力は Prolog の user_input のもので、mosa 自身が先に読み切らない。
 # 先に読み切ると read/1 が end_of_file になり、閉じない入力では --version も返らない。
 # 閉じない入力は移植性のある形で作れないので、入力が残っていることを read/1 で確かめる。
-# 使い方: cmake -DMOSA=<mosa> -DWORK=<一時ディレクトリ> -P mosa_stdin_test.cmake
+# 使い方: cmake -DMOSA=<mosa> -DVERSION=<project VERSION> -DWORK=<一時ディレクトリ> -P mosa_stdin_test.cmake
 
+if(NOT DEFINED VERSION OR VERSION STREQUAL "")
+  # 空のままだと、どの版の行にも合ってしまう（レビュー L-46）。
+  message(FATAL_ERROR "VERSION is empty: pass -DVERSION=\${PROJECT_VERSION}")
+endif()
+string(REPLACE "." "\\." version_regex "${VERSION}")
 file(MAKE_DIRECTORY "${WORK}")
 set(input "${WORK}/mosa_stdin_input.txt")
 file(WRITE "${input}" "foo.\nbar.\n")
@@ -22,7 +27,7 @@ function(expect_output label regex)
 endfunction()
 
 expect_output("read from stdin" "X = foo, Y = bar\\." -g "read(X), read(Y)." -t halt)
-expect_output("version ignores stdin" "^mosa 0\\.5\\.0" --version)
+expect_output("version ignores stdin" "^mosa ${version_regex}" --version)
 # レビュー M12。パイプの read/1 は 1.5 の小数点を終止符にしない。
 file(WRITE "${input}" "X = 1.5.\nfoo(2.25).\n")
 # = の項は = の右の被演算子として括弧に入る（レビュー M27）。

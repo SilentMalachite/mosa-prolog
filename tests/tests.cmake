@@ -429,13 +429,16 @@ target_compile_definitions(bench_report_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SO
 target_link_libraries(bench_report_test PRIVATE mosa_lib)
 add_test(NAME bench_report_test COMMAND $<TARGET_FILE:bench_report_test>)
 
-# \r と \n は CMake のエスケープで CR と LF にする。\\r のままだと文字 r になり、1 行の版表示に一致しない。
-set(version_pass_regex "^mosa 0\\.5\\.0\r?\n?$")
-add_test(NAME mosa_version COMMAND $<TARGET_FILE:mosa> --version)
-add_test(NAME mosac_version COMMAND $<TARGET_FILE:mosac> --version)
-add_test(NAME mosatest_version COMMAND $<TARGET_FILE:mosatest> --version)
-set_tests_properties(mosa_version mosac_version mosatest_version PROPERTIES
-  PASS_REGULAR_EXPRESSION "${version_pass_regex}")
+# 版表示は終了コードと 1 行の出力の両方を見る。PASS_REGULAR_EXPRESSION だと CTest は終了コードを見ず、版も手で
+# 書くことになった（レビュー L-46）。version_check_self は、その検査が 1 で終わる版表示を落とすことを確かめる。
+foreach(version_program mosa mosac mosatest)
+  add_test(NAME ${version_program}_version COMMAND ${CMAKE_COMMAND}
+    "-DCOMMAND=$<TARGET_FILE:${version_program}>;--version" -DVERSION=${PROJECT_VERSION}
+    -P ${CMAKE_SOURCE_DIR}/tests/cpp/version_check.cmake)
+endforeach()
+add_test(NAME version_check_self COMMAND ${CMAKE_COMMAND}
+  -DCHECK=${CMAKE_SOURCE_DIR}/tests/cpp/version_check.cmake -DVERSION=${PROJECT_VERSION}
+  -P ${CMAKE_SOURCE_DIR}/tests/cpp/version_check_test.cmake)
 
 add_executable(console_test tests/cpp/console_test.cpp)
 target_include_directories(console_test PRIVATE tests/cpp)
@@ -452,7 +455,7 @@ add_test(NAME mosa_utf8_pipe COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
 add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_japanese_arg_test.cmake)
 
-add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa> -DVERSION=${PROJECT_VERSION}
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
 
 # MOSA_TRANSCRIPT=1 の管の出力が端末の表示と同じになる（リリース 0.1.0 Task 3、マニュアルの検査の土台）。
