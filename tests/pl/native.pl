@@ -153,10 +153,10 @@ throw_after(X) :- X = 1, throw(got(X)).
 % 条件が呼び出し無しに throw で終わる構文は、その throw と同じ
 throw_cond(X) :- (throw(cond) -> X = 1 ; X = 2).
 
-test(native_throw, throw_ball(oops), error(oops)).
+test(native_throw, throw_ball(oops), ball(oops)).
 test(native_throw_inst, throw_ball(_), error(instantiation_error)).
-test(native_throw_after, throw_after(_), error(got(1))).
-test(native_throw_cond, throw_cond(_), error(cond)).
+test(native_throw_after, throw_after(_), ball(got(1))).
+test(native_throw_cond, throw_cond(_), ball(cond)).
 
 % catch/3。ゴールの例外を捕らえ、ボールが合えば回復ゴールへ、合わなければ外へ
 catch_it(G, R) :- catch(G, E, R = caught(E)).
@@ -173,8 +173,8 @@ catch_goal_cut(X) :- (X = 1 ; X = 2), catch(!, _, true).
 
 test(native_catch, catch_it(throw(oops), R), solutions([R = caught(oops)])).
 test(native_catch_ok, findall(C, catch_it(color(C), _), L), solutions([L = [red, green, blue]])).
-test(native_catch_pass, catch_pass(_), error(inner)).
-test(native_catch_after, catch_after(_), error(late)).
+test(native_catch_pass, catch_pass(_), ball(inner)).
+test(native_catch_after, catch_after(_), ball(late)).
 test(native_catch_rearm, catch_rearm(X), solutions([X = none])).
 test(native_catch_recover_cut, findall(X, catch_recover_cut(X), L), solutions([L = [2]])).
 test(native_catch_copy, (catch_copy(X, Z), var(X)), solutions([Z = 1])).

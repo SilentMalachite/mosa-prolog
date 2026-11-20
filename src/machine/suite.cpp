@@ -2,10 +2,10 @@
 #include "mosa/path_text.hpp"
 
 #include "internal.hpp"
+#include "lgt_suite.hpp"
 #include "test_file.hpp"
 #include "mosa/machine.hpp"
 #include "mosa/reader.hpp"
-#include "mosa/unify.hpp"
 #include "mosa/writer.hpp"
 
 #include <algorithm>
@@ -186,13 +186,15 @@ Cell fold_minus(Machine& machine, Cell cell) {
   return heap.structure(heap.functor_atom(cell), args);
 }
 
-bool unify_formal(Machine& machine, Cell actual, Cell expected) {
-  auto saved = machine.heap().size();
-  // 公開の query を介さず、既存の単一化は機械の外では印付きで呼ぶ。
-  Trail trail;
-  const bool ok = unify(machine.heap(), trail, trail.slots.size(), machine.heap().size(), actual, expected);
-  if (!ok) machine.heap().truncate(saved);
-  return ok;
+// 期待の Formal が、投げた error(F, _) の F を包摂するか。前は両向きの単一化で、変数や一部が変数の F も合い、
+// error/2 でない投げた項は項ごと比べたので、生の type_error(integer, a) も合った（レビュー H-41）。
+// Context は比べない（AGENTS.md）。包摂は Logtalk の判定と同じ lgt_subsumes で、束縛を残さない。
+bool thrown_formal_matches(const Heap& heap, Cell ball, Cell expected) {
+  ball = heap.deref(ball);
+  if (ball.tag() != Tag::Str || heap.functor_arity(ball) != 2 || heap.atoms().name(heap.functor_atom(ball)) != "error") {
+    return false;
+  }
+  return lgt_subsumes(heap, expected, heap.arg(ball, 0));
 }
 
 // 期待の (Name = Value, ...) から名前と値の組を拾う。値はまだ書かない（freeze_answers が 1 つの番号付けで書く）。
@@ -283,12 +285,13 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
   if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "error" &&
       machine.heap().functor_arity(expect) == 1) {
     if (stop.kind != StopKind::Exception) return false;
-    Cell actual = machine.heap().deref(stop.exception);
-    if (actual.tag() == Tag::Str && machine.heap().functor_arity(actual) == 2 &&
-        machine.atoms().name(machine.heap().functor_atom(actual)) == "error") {
-      actual = machine.heap().arg(actual, 0);
-    }
-    return unify_formal(machine, actual, fold_minus(machine, machine.heap().arg(expect, 0)));
+    return thrown_formal_matches(machine.heap(), stop.exception, fold_minus(machine, machine.heap().arg(expect, 0)));
+  }
+  // error/2 でない投げた項は ball(Ball) で期待する。投げた項そのものを包摂で比べる（レビュー H-41）。
+  if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "ball" &&
+      machine.heap().functor_arity(expect) == 1) {
+    if (stop.kind != StopKind::Exception) return false;
+    return lgt_subsumes(machine.heap(), fold_minus(machine, machine.heap().arg(expect, 0)), stop.exception);
   }
   if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "solutions") {
     const auto wanted = list_items(machine.heap(), machine.heap().arg(expect, 0));

@@ -1,4 +1,4 @@
-Prolog tests, one file per chapter. Each file lists `test(Name, Goal, Expected)` facts, which `mosatest tests/pl/` loads and runs. `Expected` is one of `true`, `fail`, `error(Formal)`, or `solutions([X = 1, X = 2])`, which lists every solution in order (an empty list means the goal fails); errors compare only the `Formal` term.
+Prolog tests, one file per chapter. Each file lists `test(Name, Goal, Expected)` facts, which `mosatest tests/pl/` loads and runs. `Expected` is one of `true`, `fail`, `error(Formal)`, `ball(Ball)`, or `solutions([X = 1, X = 2])`, which lists every solution in order (an empty list means the goal fails); errors compare only the `Formal` term, which must subsume the `F` of a thrown `error(F, _)`, and `ball(Ball)` subsumes a whole thrown term that is not `error/2`.
 
 - `runner.pl` checks `mosatest` itself
 - `japanese.pl` tests Japanese text and scalar-value counting; it is also part of the phase 6 differential tests
@@ -9,7 +9,7 @@ Prolog tests, one file per chapter. Each file lists `test(Name, Goal, Expected)`
 - `fixtures/` holds directive-only files that `control.pl` and `operators.pl` consult; they contain no tests
 - `modules/` holds the files that `modules.pl`, `japanese.pl`, `control.pl` and `include_goal_dir.pl` load; `mosatest tests/pl` does not run them as tests
 
-章ごとの Prolog 自前テストを置く。各ファイルは `test(名前, ゴール, 期待)` の事実を並べ、`mosatest tests/pl/` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`solutions([X = 1, X = 2])` の 4 種で、エラーは Formal 項だけを比べる。`solutions` は解をすべて順に並べ、空のリストはゴールが失敗することを表す。
+章ごとの Prolog 自前テストを置く。各ファイルは `test(名前, ゴール, 期待)` の事実を並べ、`mosatest tests/pl/` が読み込んで実行する。期待は `true`、`fail`、`error(Formal)`、`ball(Ball)`、`solutions([X = 1, X = 2])` の 5 種で、エラーは Formal 項だけを比べ、Formal が投げた `error(F, _)` の `F` を包摂しなければならない。`ball(Ball)` は、`error/2` でない投げた項の全体を包摂で比べる。`solutions` は解をすべて順に並べ、空のリストはゴールが失敗することを表す。
 
 - `runner.pl` は `mosatest` 自体の動作確認である
 - `japanese.pl` は日本語とスカラー値の数え方のテストで、フェーズ6の差分テストにも含める

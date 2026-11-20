@@ -10,7 +10,7 @@ call_one(1).
 test(iso_call_1_12, (call_one(One), call(One)), error(type_error(callable, 1))).
 test(call_var, call(X), error(instantiation_error)).
 test(catch_ball, catch(throw(a), a, true), true).
-test(catch_miss, catch(throw(b), a, true), error(b)).
+test(catch_miss, catch(throw(b), a, true), ball(b)).
 :- op(600, xfy, *->).
 p(1).
 p(2).
@@ -29,7 +29,7 @@ test(iso_call_cut, (call(!), fail ; true), true).
 test(iso_catch_bind, catch(throw(a), X, true), solutions([X = a])).
 test(error_neg, throw(error(domain_error(not_less_than_zero, -1), _)), error(domain_error(not_less_than_zero, -1))).
 test(throw_keeps_ball, catch((X = a, throw(f(X))), Y, Y == f(a)), true).
-test(catch_after, (catch(true, _, true), throw(x)), error(x)).
+test(catch_after, (catch(true, _, true), throw(x)), ball(x)).
 % ADR 0012: 決定的に抜けた catch/3 と *-> の Entry は外す。選択点が残るときと外したときで、見える動きが変わらないこと。
 test(catch_redo, catch(p(X), _, true), solutions([X = 1, X = 2])).
 test(catch_redo_after, catch((catch(p(X), _, fail), X == 2, throw(t)), t, true), true).
@@ -52,7 +52,7 @@ test(soft_exit_consult, (consult('tests/pl/modules/redef_a.pl'), (true *-> true 
 test(catch_parked_rearm,
      (catch(true, _, fail), catch(true, _, fail), (X = 1 ; X = 2),
       (X == 1 -> consult('tests/pl/fixtures/catch_park_dir.pl') ; true), X == 2, throw(boom)),
-     error(boom)).
+     ball(boom)).
 test(if_cut_local, ((!, fail) -> true ; true), true).
 test(var_goal_cut, (G = !, (G, fail ; true)), true).
 test(call_conj_num, call((fail, 1)), error(type_error(callable, (fail, 1)))).

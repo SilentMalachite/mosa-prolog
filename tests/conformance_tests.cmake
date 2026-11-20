@@ -109,6 +109,13 @@ target_compile_definitions(suite_halt_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(suite_halt_test PRIVATE mosa_lib)
 add_test(NAME suite_halt_test COMMAND $<TARGET_FILE:suite_halt_test>)
 
+# レビュー 2026-11-20 の H-41。tests/pl の error(Formal) は、投げた error(F, _) の F が Formal の具体化かで見る。
+add_executable(suite_exam_test tests/cpp/suite_exam_test.cpp)
+target_include_directories(suite_exam_test PRIVATE tests/cpp)
+target_compile_definitions(suite_exam_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_exam_test PRIVATE mosa_lib)
+add_test(NAME suite_exam_test COMMAND $<TARGET_FILE:suite_exam_test>)
+
 # tests/tmp/suite は tests.lgt を流す全てが共有する（lgt_io_context のスクラッチ）。空かどうかを見る
 # suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
 # 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/mosac_tests.cmake で付く。全体レビュー推奨5）。
