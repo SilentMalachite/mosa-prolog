@@ -151,7 +151,10 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   (no suite case has this shape).
 - After a goal that leaves a choice point, the runner runs later plain goals in a scratch machine.
   Their exceptions and halts come back (the ball as text, read again); a heap stop there aborts
-  the test, as in the main machine (review H-36).
+  the test, as in the main machine (review H-36). Their bindings do not come back: in
+  `test(t, true(Y == 1)) :- member(X, [1, 2]), assertion(true), Y = X.` the outcome does not see
+  `Y`, so the test fails (found during M-49; not in the review; no suite case has this shape).
+  Only after the open query's last solution do later goals run on the main machine again.
 - The judge's `<`, `=<`, `>` and `>=` still compare an integer written as a `+(N)` or `-(N)`
   compound as a double (no suite item has one).
 - Halts in the Logtalk paths give no reason (Opus re-review 2026-11-17, from code; no suite case):
