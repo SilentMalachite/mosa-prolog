@@ -105,6 +105,10 @@ void reset_gc_judgement(Machine::Impl& machine);
 // ADR 0010 の改訂 2。収集が答えを外に持つたびに語数を足し、上限を超えれば ResourceLimit("heap_limit")。
 // 返すのは Collecting の破棄（Heap::release）で、安全点が trigger を直す。
 void hold_answer_words(Machine::Impl& machine, std::size_t words);
+// 問い合わせの後も残る値（nb_setval/2）の持った語を drop から add へ替える前に呼ぶ。替えた和が上限を超えるなら、
+// 何も変えずに同じ ResourceLimit("heap_limit") を投げる。持った語は止めた後も返らないので、先に確かめる（レビュー
+// H-03）。drop は今持っている語の一部である。
+void check_held_swap(const Machine::Impl& machine, std::size_t drop, std::size_t add);
 // Impl の構築で呼ぶ。柔らかい容量と閾値を上限から決め、MOSA_GC_STRESS を読む。
 void init_gc(Machine::Impl& machine);
 // 旗 trace_gc の 1 行（改行なし）。numbers は回数・前後の KiB・容量の KiB・ミリ秒の 5 つで、鍵 gc_trace の ~w に入る。

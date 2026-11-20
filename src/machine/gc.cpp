@@ -251,14 +251,25 @@ void gc_safe_point(Impl& machine) {
   judge_collection(machine, at_cap);
 }
 
+namespace {
+
+// 持った語が held のとき、ヒープの語との和が上限を超えるか。
+bool held_past_limit(const Heap& heap, std::size_t held) {
+  const std::size_t limit = heap.limit();
+  return held > limit || heap.size() > limit - held;
+}
+
+}  // namespace
+
 // 答えを足したあと。ヒープの語と持った語の和が上限を超えれば、ヒープの確保と同じ停止にする。
 void hold_answer_words(Impl& machine, std::size_t words) {
   machine.heap.hold(words);
   retune(machine);
-  const std::size_t limit = machine.heap.limit();
-  if (machine.heap.held() > limit || machine.heap.size() > limit - machine.heap.held()) {
-    throw ResourceLimit("heap_limit");
-  }
+  if (held_past_limit(machine.heap, machine.heap.held())) throw ResourceLimit("heap_limit");
+}
+
+void check_held_swap(const Impl& machine, std::size_t drop, std::size_t add) {
+  if (held_past_limit(machine.heap, machine.heap.held() - drop + add)) throw ResourceLimit("heap_limit");
 }
 
 // 前の問い合わせや読み込みの GC の空きを、次の判定に持ち越さない。
