@@ -152,6 +152,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Runner and judge (`mosatest`)
 
+- The `solutions([...])` judge compares each named variable's value as text, so it sees which
+  way two variables are aliased: `X = Z` passes when `X` points to `Z`, not the other way.
+  `bagof_rename` depends on it; review C-03 kept its answer by the choice of witness.
 - A plain goal after a runner goal that binds variables inside an older saved value still
   does not carry back to that value (no suite case needs it).
 - A merged plain run that leaves a choice point can pass a `deterministic` test that lgtunit
@@ -259,6 +262,9 @@ Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 
 General:
 
+- setof/3 orders groups whose witnesses differ only in variables by the caller's cells (7.2.1
+  leaves the order of variables implementation dependent). `wg17_setof_3_47` wants solution
+  order or its reverse; it passes because the last witness stands for an aliased class (C-03).
 - `mosac build` of a source clause nested 100,000 deep works, but clang takes about 80 minutes
   and 1.2 GB on it (iso-notes 7.1).
 - Grammar rules given to assertz/1 are translated only through `expand_term/2` of

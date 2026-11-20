@@ -3,11 +3,11 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** none; W2 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
+- **In progress:** none; W3 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** C-02 (d684804c): bagof/setof copy Template variables; C-01; W1 done but H-39.
+- **Last done:** C-03 (664d632b): aliased witnesses group by witness order; W2 done; W1 but H-39.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** C-03 (witnesses aliased in opposite directions split a group); test both directions.
+- **Next:** H-01 (IrTerm destruction allocates inside noexcept), the first item of W3.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 14 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
