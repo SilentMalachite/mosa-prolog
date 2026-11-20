@@ -22,7 +22,22 @@ using NodeKind = LgtNodeKind;
 using Node = LgtNode;
 using Prog = LgtProg;
 
+// Throw は例外か halt で止まったこと。どちらかは env.stop が持つ。halt を No にすると、false と all の試験が
+// 失敗と数えて通る（レビュー H-36）。
 enum class Tri { Ok, No, Abort, Throw, Dead };
+
+// 成功は呼び手が先に見る。失敗だけが No で、ほかの止まり方は Throw。
+Tri stopped(StopKind kind) { return kind == StopKind::Failure ? Tri::No : Tri::Throw; }
+
+Tri scratch_tri(LgtScratchKind kind) {
+  switch (kind) {
+    case LgtScratchKind::Ok: return Tri::Ok;
+    case LgtScratchKind::No: return Tri::No;
+    case LgtScratchKind::Stopped: return Tri::Throw;
+    case LgtScratchKind::Dead: return Tri::Dead;
+  }
+  return Tri::Dead;
+}
 
 struct Saved {
   std::string name;
@@ -227,7 +242,9 @@ void rehydrate_bindings(Machine& machine, Env& env) {
 void exec_plain(Machine& machine, const Node& node, Env& env) {
   // 既に解を開いているときは query しない。選択点が消える。
   if (env.live) {
-    env.tri = lgt_scratch_ok(machine, node.text, env.bindings) ? Tri::Ok : Tri::No;
+    const LgtScratch ran = lgt_scratch_run(machine, node.text, env.bindings);
+    env.tri = scratch_tri(ran.kind);
+    if (ran.kind == LgtScratchKind::Stopped) env.stop = ran.stop;
     return;
   }
   const std::string text = goal_with_saved(machine, node.text, env.saved);
@@ -244,7 +261,7 @@ void exec_plain(Machine& machine, const Node& node, Env& env) {
     return;
   }
   env.live = false;
-  env.tri = step.stop.kind == StopKind::Exception ? Tri::Throw : Tri::No;
+  env.tri = stopped(step.stop.kind);
   if (env.tri == Tri::No) rehydrate_bindings(machine, env);
 }
 
@@ -316,7 +333,7 @@ void retry_right(Machine& machine, const Prog& prog, int right, Env& env) {
     }
     if (step.stop.kind != StopKind::Success) {
       env.live = false;
-      env.tri = step.stop.kind == StopKind::Exception ? Tri::Throw : Tri::No;
+      env.tri = stopped(step.stop.kind);
       return;
     }
     env.bindings = step.stop.bindings;
@@ -365,7 +382,7 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
       return;
     }
     if (step.stop.kind != StopKind::Success) {
-      env.tri = Tri::Throw;
+      env.tri = stopped(step.stop.kind);
       return;
     }
     env.live = true;
@@ -462,8 +479,8 @@ bool error_ball(const Heap& heap, Cell ball, Cell formal) {
 // 次の query はヒープを捨てる。自由なままの Stream は別の犯人まで包摂するので、残した字面を戻す。
 // listed のときだけ列を歩く。error/1 の項がリストでも、候補の一つにはしない。
 bool thrown_error(Machine& machine, const Env& env, std::string_view detail, bool listed) {
-  // Tri::Throw は forall/2 の生成側の halt でも立つ。そのとき exception は空の番地なので、読むとプロセスが落ちる
-  // （レビュー C-04）。投げられた項が無ければ誤りに当たらず、呼び手が halt(N) を実際として書く。
+  // Tri::Throw は halt でも立つ。そのとき exception は空の番地なので、読むとプロセスが落ちる（レビュー C-04）。
+  // 投げられた項が無ければ誤りに当たらず、呼び手が halt(N) を実際として書く。
   if (env.stop.kind != StopKind::Exception) return false;
   const LgtParsed parsed = lgt_parse_term(machine, detail);
   if (!parsed.ok) return false;

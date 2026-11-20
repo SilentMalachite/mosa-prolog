@@ -31,9 +31,19 @@ struct LgtStep {
 [[nodiscard]] LgtParsed lgt_parse_term(Machine& machine, std::string_view text);
 [[nodiscard]] bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<Binding>& bindings,
                                   std::string& note);
-[[nodiscard]] bool lgt_scratch_ok(Machine& machine, std::string_view goal, const std::vector<Binding>& bindings);
+// スクラッチの機械で動かした結果。Stopped は例外か halt で止まったことで、どちらかは stop が持つ。例外の項は
+// 元の機械のヒープに読み直してある。例外と halt を失敗に潰すと false と all の試験が通る（レビュー H-36）。
+// Dead は結果を持ち帰れなかった（ヒープの上限、読み直せない項）。主の機械の上限と同じく打ち切りにする。
+enum class LgtScratchKind { Ok, No, Stopped, Dead };
+
+struct LgtScratch {
+  LgtScratchKind kind = LgtScratchKind::No;
+  Stop stop;
+};
+
+[[nodiscard]] LgtScratch lgt_scratch_run(Machine& machine, std::string_view goal, const std::vector<Binding>& bindings);
 // 開いている query は潰さない。ゴールも利用者の節もセルのまま写す。
-[[nodiscard]] bool lgt_run_copied_goal(Machine& main, Machine& scratch, Cell goal);
+[[nodiscard]] LgtScratch lgt_run_copied_goal(Machine& main, Machine& scratch, Cell goal);
 [[nodiscard]] LgtStep lgt_ask(Machine& machine, std::string_view goal);
 [[nodiscard]] LgtStep lgt_again(Machine& machine);
 [[nodiscard]] std::string lgt_actual_of(const Machine& machine, const Stop& stop);

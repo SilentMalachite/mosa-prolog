@@ -413,9 +413,9 @@ bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& s
 }
 
 // 開いている query を潰さない。ゴールは字面を通さずセルで写すので、Big も字にせず箱のまま渡る（lgt_copy.cpp）。
-bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
+LgtScratch scratch_run(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
   const Parsed parsed = parse_term(main, goal);
-  if (!parsed.ok) return false;
+  if (!parsed.ok) return {};
   std::vector<std::uint64_t> stack;
   const Cell resolved = resolve_term(main.heap(), parsed.term, parsed.names, bindings, stack);
   auto scratch = Machine::create();
@@ -426,8 +426,15 @@ bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>
     return lgt_run_copied_goal(main, *scratch, resolved);
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
-    return false;
+    LgtScratch dead;
+    dead.kind = LgtScratchKind::Dead;
+    return dead;
   }
+}
+
+// 表明の判定は成否だけを見る。表明の中の例外と halt は、今までどおり不合格になる。
+bool scratch_ok(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
+  return scratch_run(main, goal, bindings).kind == LgtScratchKind::Ok;
 }
 
 bool holds(Machine& machine, const LgtWant& want, const Stop& stop) {
@@ -614,8 +621,8 @@ bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<B
   return check_text(machine, text, bindings, note);
 }
 
-bool lgt_scratch_ok(Machine& machine, std::string_view goal, const std::vector<Binding>& bindings) {
-  return scratch_ok(machine, goal, bindings);
+LgtScratch lgt_scratch_run(Machine& machine, std::string_view goal, const std::vector<Binding>& bindings) {
+  return scratch_run(machine, goal, bindings);
 }
 
 LgtStep lgt_ask(Machine& machine, std::string_view goal) {

@@ -29,7 +29,7 @@
 //   load.cpp の load_source（heap_base・inits）と apply_use（arg）、consult.cpp の run_consult（goal）。
 //   write_pred.cpp の run_goal（Snap）、run_out（goal）、apply_portray（writer の
 //     積んだ仕事・名前・番地の表。WriteHeld 経由、ADR 0011）。write_capture.cpp の run_with（goal・sink.slot）。
-//   lgt_copy.cpp の copied_succeeds は何も持たない（コメント参照）。
+//   lgt_copy.cpp の copied_stop は何も持たない（コメント参照）。
 
 #include "mosa/cell.hpp"
 #include "mosa/machine.hpp"

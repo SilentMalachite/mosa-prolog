@@ -336,7 +336,8 @@ void check_scratch() {
         "scratch: assert q(B) and v/1");
   const auto copied = [&](std::string_view goal, const std::vector<BigInt>& values) {
     auto scratch = mosa::Machine::create();
-    return mosa::lgt_run_copied_goal(*main, *scratch, term_with_bigs(*main, goal, values));
+    return mosa::lgt_run_copied_goal(*main, *scratch, term_with_bigs(*main, goal, values)).kind ==
+           mosa::LgtScratchKind::Ok;
   };
   check(copied("(q(X), X == '$big0', v(Y), Y == f('$big1'))", {big, -big}), "scratch: q(B) and v(f(-B)) are copied");
   check(!copied("q('$big0')", {big + BigInt(1)}), "scratch: q(B+1) fails in the copy");

@@ -144,6 +144,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `test(x, deterministic) :- member(X, [1,2]), X == 1, ^^variant(X, 1).` passes
   (no suite case has this shape).
 - After a goal that leaves a choice point, the runner runs later plain goals in a scratch machine.
+  Their exceptions and halts come back (the ball as text, read again); a heap stop there aborts
+  the test, as in the main machine (review H-36).
 - The judge's `<`, `=<`, `>` and `>=` still compare an integer written as a `+(N)` or `-(N)`
   compound as a double (no suite item has one).
 - Halts in the Logtalk paths give no reason (Opus re-review 2026-11-17, from code; no suite case):

@@ -75,7 +75,7 @@ Cell copy_goal(Impl& src, Impl& dst, Cell cell, std::vector<std::pair<std::uint6
   return copy_compound(src, dst, cell, seen);
 }
 
-bool copied_succeeds(Machine& scratch, Cell goal) {
+Stop copied_stop(Machine& scratch, Cell goal) {
   Impl& machine = engine_impl(scratch);
   // RootScope は要らない。この run_loop は scratch の外の問い合わせの中ではなく、scratch の
   // ヒープの値で run_loop の後に読むものも無い（goal は launch までで使い終わり、水位は stack の cleanup が持つ）。
@@ -89,7 +89,24 @@ bool copied_succeeds(Machine& scratch, Cell goal) {
   count_vectors(machine);
   const Compiled compiled = compile_goal(machine.heap, goal);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
-  return run_loop(machine).kind == StopKind::Success;
+  return run_loop(machine);
+}
+
+// 例外の項は scratch と一緒に消えるので、字面にして元の機械で読み直す。読めない項は数え違えず打ち切りにする。
+LgtScratch carried_back(Machine& main, Machine& scratch, const Stop& stop) {
+  LgtScratch ran;
+  if (stop.kind == StopKind::Success) ran.kind = LgtScratchKind::Ok;
+  if (stop.kind == StopKind::Success || stop.kind == StopKind::Failure) return ran;
+  ran.kind = LgtScratchKind::Stopped;
+  ran.stop.kind = stop.kind;
+  ran.stop.halt_code = stop.halt_code;
+  if (stop.kind != StopKind::Exception) return ran;
+  const std::string text =
+      write_term(scratch.heap(), scratch.operators(), stop.exception, lgt_write_options(), {});
+  const LgtParsed parsed = lgt_parse_term(main, text);
+  if (!parsed.ok) ran.kind = LgtScratchKind::Dead;
+  ran.stop.exception = parsed.term;
+  return ran;
 }
 
 bool keep_predicate(const Impl& src, const Predicate& predicate) {
@@ -158,13 +175,13 @@ void plant_user_clauses(Impl& src, Impl& dst) {
 
 }  // namespace
 
-bool lgt_run_copied_goal(Machine& main, Machine& scratch, Cell goal) {
+LgtScratch lgt_run_copied_goal(Machine& main, Machine& scratch, Cell goal) {
   Impl& src = engine_impl(main);
   Impl& dst = engine_impl(scratch);
   plant_user_clauses(src, dst);
   std::vector<std::pair<std::uint64_t, Cell>> seen;
   const Cell copied = copy_goal(src, dst, goal, seen);
-  return copied_succeeds(scratch, copied);
+  return carried_back(main, scratch, copied_stop(scratch, copied));
 }
 
 }  // namespace mosa
