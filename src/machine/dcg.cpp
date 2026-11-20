@@ -1,6 +1,6 @@
 // 文法規則（-->）を節に、文法規則の本体をゴールに訳す（ADR 0024）。13211-3 の本文は手元に無い（iso-notes「13211-3」）。
 //   instantiation_error（頭部、プッシュバック、終端記号のリストの末尾が変数）、type_error(callable, Culprit)、
-//   type_error(list, Culprit)
+//   type_error(list, Culprit)、representation_error(max_arity)（S0 と S を足すと項数が 1024 を超える、7.11.2.1）
 // テスト: tests/pl/dcg.pl、tests/cpp/dcg_test.cpp、tests/stack/deep_builtins.pl
 //
 // 本体は再帰せず、明示したスタックで訳す。phrase/2,3 は実行時に組み立てた本体を受けるので、制御構造の入れ子の深さで
@@ -19,6 +19,9 @@ namespace mosa {
 namespace {
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
+
+// SPEC 第3節の max_arity（terms.cpp と同じ値）。非終端記号は S0 と S の 2 つを足すので、それより 2 つ少ない項数まで。
+constexpr std::size_t kMaxArity = 1024;
 
 // Enter は本体を 1 つ訳し始める。ほかは制御構造の子を訳し終えた後に、子の結果から制御構造を組み直す。
 enum class Step : std::uint8_t { Enter, Conj, Disj, IfThen, SoftIf, Not, Qualified };
@@ -63,7 +66,7 @@ class Translator {
   void leave(const Work& item);
   std::optional<Cell> single(Cell body, Cell s0, Cell s);
   std::optional<Cell> terminals(Cell list, Cell s0, Cell s);
-  Cell nonterminal(Cell callable, Cell s0, Cell s);
+  std::optional<Cell> nonterminal(Cell callable, Cell s0, Cell s);
 
   Cell deref(Cell cell) const { return m_.heap.deref(cell); }
   Cell arg(Cell cell, std::size_t index) const { return m_.heap.arg(cell, index); }
@@ -217,7 +220,14 @@ std::optional<Cell> Translator::terminals(Cell list, Cell s0, Cell s) {
   return unify(s0, appended(walked->items, s));
 }
 
-Cell Translator::nonterminal(Cell callable, Cell s0, Cell s) {
+// '.'/2 はいつもリストのセルである（ヒープは Str の '.'/2 を作らない）。前は非終端記号 '.' を Str の '.'(S0, S) に
+// 訳し、[S0|S] と単一化しなかった（レビュー H-11）。項数の上限は組む前に見る。
+std::optional<Cell> Translator::nonterminal(Cell callable, Cell s0, Cell s) {
+  std::size_t arity = 0;
+  if (callable.tag() == Tag::Lis) arity = 2;
+  if (callable.tag() == Tag::Str) arity = m_.heap.functor_arity(callable);
+  if (arity + 2 > kMaxArity) return fail(formal_representation(m_, "max_arity"));
+  if (callable.tag() == Tag::Atom && m_.atoms.name(atom_id(callable)) == ".") return m_.heap.list(s0, s);
   std::vector<Cell> args;
   std::uint32_t name = 0;
   if (callable.tag() == Tag::Atom) {
@@ -249,18 +259,21 @@ DcgOut Translator::rule(Cell term) {
   if (head.tag() != Tag::Atom && head.tag() != Tag::Str && head.tag() != Tag::Lis) {
     return result(fail(formal_type(m_, "callable", head), true));
   }
+  const Cell s0 = m_.heap.fresh_ref();
+  const Cell s = m_.heap.fresh_ref();
+  // 頭部の項数もプッシュバックと本体より先に見る。
+  const auto translated_head = nonterminal(head, s0, s);
+  if (!translated_head) return result(std::nullopt);
   std::optional<WalkedList> pushed;
   if (pushback) {
     pushed = proper(*pushback);
     if (!pushed) return result(std::nullopt);
   }
-  const Cell s0 = m_.heap.fresh_ref();
-  const Cell s = m_.heap.fresh_ref();
   const Cell end = pushed ? m_.heap.fresh_ref() : s;
   auto goal = translate(arg(term, 1), s0, end);
   if (!goal) return result(std::nullopt);
   if (pushed) goal = pair(",", *goal, unify(s, appended(pushed->items, end)));
-  return result(pair(":-", nonterminal(head, s0, s), *goal));
+  return result(pair(":-", *translated_head, *goal));
 }
 
 }  // namespace

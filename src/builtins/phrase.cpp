@@ -1,7 +1,8 @@
 // phrase/2 (+callable_term, ?list)、phrase/3 (+callable_term, ?list, ?list)。13211-3 の文法規則の部（本文は
 // 手元に無い。iso-notes「13211-3」）。ADR 0024。本体を文法規則の本体として訳し、call/1 と同じく呼ぶ。
 //   instantiation_error, type_error(callable, GRBody), type_error(list, S0), type_error(list, S)、
-//   GRBody の M: の層か訳した本体の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3）
+//   GRBody の M: の層か訳した本体の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3）、
+//   非終端記号に S0 と S を足すと項数が 1024 を超えれば representation_error(max_arity)（7.11.2.1、レビュー H-11）
 // テスト: tests/pl/dcg.pl
 
 #include "../machine/dcg.hpp"

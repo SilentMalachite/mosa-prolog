@@ -142,3 +142,11 @@ soft_nt2 --> ([x] *-> [y] ; [x, z]).
 test(dcg_soft_multi_all, findall(L, phrase(soft_multi, L), Ls), solutions([Ls = [[a, y], [b, y]]])).
 test(dcg_soft_retry_cond, phrase(soft_retry, [a]), true).
 test(dcg_soft_no_else_after_then, phrase(soft_nt2, [x, z]), fail).
+
+% レビュー H-11。phrase/2,3 が訳す非終端記号も、S0 と S を足して 1024 を超えると representation_error(max_arity)。
+% 前は f/1025 を探して existence_error(procedure, f/1025) になった。
+test(h11_phrase_arity, (functor(T, f, 1023), phrase(T, [a])), error(representation_error(max_arity))).
+% 読み込みも同じ誤りで失敗する。前は h11_wide/1025 を定義した。
+test(h11_load_arity,
+     (functor(F, h11_wide, 1023), with_output_to(atom(A), (writeq((F --> [a])), write('.\n'))),
+      dcg_load(h11_arity, A)), fail).

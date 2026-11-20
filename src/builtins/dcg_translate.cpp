@@ -1,7 +1,7 @@
 // '$dcg_translate'(+term, ?term)。13211-1 に条項は無い（文法規則は 13211-3。ADR 0024 改訂 3）。
 // library(dcg) の expand_term/2 の実体。文法規則 H --> B を 1 つ訳し、規則でない項はそのまま返す。
 // エラー:
-//   instantiation_error、type_error(callable, Culprit)、type_error(list, Culprit)
+//   instantiation_error、type_error(callable, Culprit)、type_error(list, Culprit)、representation_error(max_arity)
 // テスト: tests/pl/lib_dcg.pl
 #include "../machine/dcg.hpp"
 #include "../machine/internal.hpp"
