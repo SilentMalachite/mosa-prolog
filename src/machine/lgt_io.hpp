@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace mosa {
 
@@ -18,11 +19,20 @@ struct LgtIo {
 
 enum class LgtSuperKind { Ok, No, Unknown };
 
+// 本体の ^^ の単一化が束縛した、名前付きの変数。
+struct LgtBound {
+  std::string name;
+  Cell value{};
+};
+
 struct LgtSuper {
   LgtSuperKind kind = LgtSuperKind::Unknown;
   std::string note;
-  std::string binding_name;
-  Cell binding{};
+  // 補助が出力引数 slot に返す値。単一化は呼び手がする。本体と節で、変数の在りかが違う。
+  bool output = false;
+  Cell slot{};
+  Cell value{};
+  std::vector<LgtBound> bindings;
 };
 
 [[nodiscard]] LgtIo lgt_io_context(std::string_view tests_path, std::string_view relative_dir);

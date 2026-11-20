@@ -53,8 +53,8 @@ struct Env {
   std::string note;
   Stop stop;
   const LgtIo* io = nullptr;
-  std::string minted_var;
-  std::string minted_term;
+  // ^^ が束縛した変数の字面。本体の最後に読み直す。
+  std::vector<Saved> minted;
 };
 
 void remember_saved(std::vector<Saved>& saved, std::string name, std::string term) {
@@ -440,18 +440,24 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
   }
 }
 
-void remember_super(Machine& machine, const LgtSuper& ran, Env& env) {
-  if (ran.binding_name.empty()) return;
-  // 次の query がヒープを捨てても、表明の項を文字列で残す。
-  env.minted_var = ran.binding_name;
-  env.minted_term = write_term(machine.heap(), machine.operators(), ran.binding, lgt_write_options(), {});
-  remember_saved(env.saved, ran.binding_name, env.minted_term);
-  for (Binding& binding : env.bindings) {
-    if (binding.name != ran.binding_name) continue;
-    binding.variable = ran.binding;
+void set_binding(std::vector<Binding>& bindings, const std::string& name, Cell value) {
+  for (Binding& binding : bindings) {
+    if (binding.name != name) continue;
+    binding.variable = value;
     return;
   }
-  env.bindings.push_back(Binding{ran.binding_name, ran.binding});
+  bindings.push_back(Binding{name, value});
+}
+
+// 値の入った出力引数を単一化すると、中の変数がいくつも束縛されうる。どれも同じく残す（レビュー M-54）。
+void remember_super(Machine& machine, const LgtSuper& ran, Env& env) {
+  for (const LgtBound& bound : ran.bindings) {
+    // 次の query がヒープを捨てても、表明の項を文字列で残す。
+    const std::string term = write_term(machine.heap(), machine.operators(), bound.value, lgt_write_options(), {});
+    remember_saved(env.minted, bound.name, term);
+    remember_saved(env.saved, bound.name, term);
+    set_binding(env.bindings, bound.name, bound.value);
+  }
 }
 
 void exec_super(Machine& machine, const Node& node, Env& env) {
@@ -498,15 +504,12 @@ void exec_at(Machine& machine, const Prog& prog, int index, Env& env) {
 }
 
 void remint(Machine& machine, Env& env) {
-  if (env.minted_var.empty() || env.minted_term.empty()) return;
-  const LgtParsed parsed = lgt_parse_term(machine, env.minted_term);
-  if (!parsed.ok) return;
-  for (Binding& binding : env.bindings) {
-    if (binding.name != env.minted_var) continue;
-    binding.variable = parsed.term;
-    return;
+  for (const Saved& slot : env.minted) {
+    if (slot.term.empty()) continue;
+    const LgtParsed parsed = lgt_parse_term(machine, slot.term);
+    if (!parsed.ok) continue;
+    set_binding(env.bindings, slot.name, parsed.term);
   }
-  env.bindings.push_back(Binding{env.minted_var, parsed.term});
 }
 
 bool error_ball(const Heap& heap, Cell ball, Cell formal) {

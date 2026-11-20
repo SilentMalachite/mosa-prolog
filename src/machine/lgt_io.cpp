@@ -9,6 +9,7 @@
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"
+#include "mosa/unify.hpp"
 #include "mosa/writer.hpp"
 
 #include <array>
@@ -175,15 +176,6 @@ std::string indicator(const Heap& heap, Cell goal) {
   if (goal.tag() != Tag::Str) return "^^/1";
   return std::string{heap.atoms().name(heap.functor_atom(goal))} + "/" +
          std::to_string(heap.functor_arity(goal));
-}
-
-std::string var_name(const Heap& heap, Cell cell, const std::vector<VarName>& names) {
-  cell = heap.deref(cell);
-  if (!heap.unbound(cell)) return {};
-  for (const VarName& var : names) {
-    if (var.cell.raw() == cell.raw()) return var.name;
-  }
-  return {};
 }
 
 bool is_nil(const Heap& heap, Cell cell) {
@@ -403,12 +395,13 @@ LgtSuper bound_no() {
   return result;
 }
 
-LgtSuper bind_slot(Machine& machine, Cell slot, Cell value, const std::vector<VarName>& names) {
-  const std::string name = var_name(machine.heap(), slot, names);
-  if (name.empty()) return bound_no();
+// lgtunit の補助は普通の述語なので、出力引数は返す値と単一化する。値の入った引数なら比べることになる。
+// 前は名前の付いた未束縛の変数しか受けず、値の入った引数と _ では失敗した（レビュー M-54）。
+LgtSuper bind_slot(Cell slot, Cell value) {
   LgtSuper result = bound_ok();
-  result.binding_name = name;
-  result.binding = value;
+  result.output = true;
+  result.slot = slot;
+  result.value = value;
   return result;
 }
 
@@ -500,7 +493,7 @@ LgtSuper clean_dir(Machine& machine, const LgtIo& io, Cell goal) {
   return bound_ok();
 }
 
-LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal, const std::vector<VarName>& names) {
+LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal) {
   const Heap& heap = machine.heap();
   const Cell file = heap.deref(heap.arg(goal, 0));
   if (file.tag() != Tag::Atom) return bound_no();
@@ -510,7 +503,7 @@ LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal, const std::
   std::error_code error;
   std::filesystem::create_directories(path.parent_path(), error);
   if (error || !copy_absent_sibling(io, name, path)) return bound_no();
-  return bind_slot(machine, heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_from_path(path))), names);
+  return bind_slot(heap.arg(goal, 1), heap.atom(heap.atoms().intern(utf8_from_path(path))));
 }
 
 LgtSuper create_obs(Machine& machine, const LgtIo& io, Cell goal, bool binary) {
@@ -531,8 +524,7 @@ Cell stream_cell(Heap& heap, std::size_t index) {
   return heap.structure(heap.atoms().intern("$stream"), args);
 }
 
-LgtSuper closed_obs(Machine& machine, const LgtIo& io, Cell goal, Stream::Mode mode,
-                    const std::vector<VarName>& names) {
+LgtSuper closed_obs(Machine& machine, const LgtIo& io, Cell goal, Stream::Mode mode) {
   IoOpt opt;
   if (!read_options(machine.heap(), machine.heap().arg(goal, 1), opt)) return bound_no();
   const auto path = locate_file(io, "temporary_file");
@@ -550,14 +542,14 @@ LgtSuper closed_obs(Machine& machine, const LgtIo& io, Cell goal, Stream::Mode m
   impl.streams.push_back(std::move(made));
   std::error_code error;
   std::filesystem::remove(path, error);
-  return bind_slot(machine, machine.heap().arg(goal, 0), stream_cell(machine.heap(), impl.streams.size() - 1), names);
+  return bind_slot(machine.heap().arg(goal, 0), stream_cell(machine.heap(), impl.streams.size() - 1));
 }
 
-LgtSuper position_obs(Machine& machine, Cell goal, const std::vector<VarName>& names) {
+LgtSuper position_obs(Machine& machine, Cell goal) {
   Heap& heap = machine.heap();
   const std::array<Cell, 3> args{heap.integer(0), heap.integer(1), heap.integer(1)};
   const Cell position = heap.structure(heap.atoms().intern("stream_position"), args);
-  return bind_slot(machine, heap.arg(goal, 0), position, names);
+  return bind_slot(heap.arg(goal, 0), position);
 }
 
 bool named_goal(const Heap& heap, Cell cell, std::string_view name, int& arity) {
@@ -576,7 +568,7 @@ LgtSuper open_named(Machine& machine, const LgtIo& io, Cell term, int arity, std
   return open_obs(machine, io, term, arity, file, mode, data, bytes) ? bound_ok() : bound_no();
 }
 
-LgtSuper observe(Machine& machine, const LgtIo& io, Cell term, const std::vector<VarName>& names) {
+LgtSuper observe(Machine& machine, const LgtIo& io, Cell term) {
   const Heap& heap = machine.heap();
   int arity = 0;
   if (named_goal(heap, term, "set_text_output", arity) && arity >= 1 && arity <= 3) {
@@ -591,9 +583,9 @@ LgtSuper observe(Machine& machine, const LgtIo& io, Cell term, const std::vector
   if (named_goal(heap, term, "set_binary_input", arity) && arity >= 1 && arity <= 3) {
     return open_named(machine, io, term, arity, "test_input.binary", Stream::Mode::Read, Stream::Data::Binary, true);
   }
-  const LgtSuper contents = observe_contents(machine, io, term, names);
+  const LgtSuper contents = observe_contents(machine, io, term);
   if (contents.kind != LgtSuperKind::Unknown) return contents;
-  if (named_goal(heap, term, "file_path", arity) && arity == 2) return file_path_obs(machine, io, term, names);
+  if (named_goal(heap, term, "file_path", arity) && arity == 2) return file_path_obs(machine, io, term);
   if (named_goal(heap, term, "create_text_file", arity) && arity == 2) return create_obs(machine, io, term, false);
   if (named_goal(heap, term, "create_binary_file", arity) && arity == 2) return create_obs(machine, io, term, true);
   if (named_goal(heap, term, "clean_text_input", arity) && arity == 0) return clean_named(machine, io, "test_input.text");
@@ -607,13 +599,28 @@ LgtSuper observe(Machine& machine, const LgtIo& io, Cell term, const std::vector
   }
   if (named_goal(heap, term, "clean_directory", arity) && arity == 1) return clean_dir(machine, io, term);
   if (named_goal(heap, term, "closed_input_stream", arity) && arity == 2) {
-    return closed_obs(machine, io, term, Stream::Mode::Read, names);
+    return closed_obs(machine, io, term, Stream::Mode::Read);
   }
   if (named_goal(heap, term, "closed_output_stream", arity) && arity == 2) {
-    return closed_obs(machine, io, term, Stream::Mode::Write, names);
+    return closed_obs(machine, io, term, Stream::Mode::Write);
   }
-  if (named_goal(heap, term, "stream_position", arity) && arity == 1) return position_obs(machine, term, names);
+  if (named_goal(heap, term, "stream_position", arity) && arity == 1) return position_obs(machine, term);
   return {};
+}
+
+// 本体の ^^ は読み直した字面なので、ゴールの変数は次の query へ名前で渡す。単一化が束縛した名前付きの変数を
+// すべて返す。値の入った引数の中の変数も束縛されうる（text_output_contents([C|_]) の C）。この字面は使い捨てなので、
+// 手元の trail で単一化して戻さない。
+bool settle_output(Machine& machine, const std::vector<VarName>& names, LgtSuper& ran) {
+  Heap& heap = machine.heap();
+  Trail trail;
+  if (!unify(heap, trail, 0, heap.size(), ran.slot, ran.value)) return false;
+  for (const VarName& var : names) {
+    const Cell value = heap.deref(var.cell);
+    if (heap.unbound(value)) continue;
+    ran.bindings.push_back(LgtBound{var.name, value});
+  }
+  return true;
 }
 
 }  // namespace lgtio
@@ -640,11 +647,14 @@ void lgt_io_cleanup(const LgtIo& io) {
   lgtio::remove_empty_up(start, io.suite);
 }
 
+// 節の ^^ は生きたゴールをそのまま見て、出力引数を機械の単一化で束縛する。後戻りすれば外れる。前は名前の無い字面に
+// 書いて読み直したので、出力の変数を見つけられずに失敗し、呼び手の変数にも届かなかった（レビュー M-54）。
 static SuiteSuper suite_super_call(Machine& machine, const LgtIo& io, Cell goal) {
-  const std::string text = write_term(machine.heap(), machine.operators(), machine.heap().deref(goal), lgt_write_options(), {});
-  const LgtSuper ran = lgt_run_super(machine, io, text);
+  const LgtSuper ran = lgtio::observe(machine, io, machine.heap().deref(goal));
   if (ran.kind == LgtSuperKind::Unknown) return SuiteSuper::Skip;
-  return ran.kind == LgtSuperKind::Ok ? SuiteSuper::Ok : SuiteSuper::No;
+  if (ran.kind != LgtSuperKind::Ok) return SuiteSuper::No;
+  if (ran.output && !do_unify(engine_impl(machine), ran.slot, ran.value)) return SuiteSuper::No;
+  return SuiteSuper::Ok;
 }
 
 void lgt_arm_super(Machine& machine, const LgtIo& io) {
@@ -687,10 +697,15 @@ LgtSuper lgt_run_super(Machine& machine, const LgtIo& io, std::string_view goal)
     return result;
   }
   const Cell term = machine.heap().deref(parsed.term);
-  const LgtSuper ran = lgtio::observe(machine, io, term, parsed.names);
-  if (ran.kind != LgtSuperKind::Unknown) return ran;
-  result.note = lgtio::indicator(machine.heap(), term);
-  return result;
+  LgtSuper ran = lgtio::observe(machine, io, term);
+  if (ran.kind == LgtSuperKind::Unknown) {
+    result.note = lgtio::indicator(machine.heap(), term);
+    return result;
+  }
+  if (ran.kind == LgtSuperKind::Ok && ran.output && !lgtio::settle_output(machine, parsed.names, ran)) {
+    return lgtio::bound_no();
+  }
+  return ran;
 }
 
 }  // namespace mosa

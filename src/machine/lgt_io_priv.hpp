@@ -32,11 +32,9 @@ void close_path(Impl& machine, std::string_view path);
 void drop_file(Impl& machine, const std::filesystem::path& path);
 [[nodiscard]] LgtSuper bound_ok();
 [[nodiscard]] LgtSuper bound_no();
-[[nodiscard]] std::string var_name(const Heap& heap, Cell cell, const std::vector<VarName>& names);
-[[nodiscard]] LgtSuper bind_slot(Machine& machine, Cell slot, Cell value, const std::vector<VarName>& names);
+[[nodiscard]] LgtSuper bind_slot(Cell slot, Cell value);
 [[nodiscard]] bool named_goal(const Heap& heap, Cell cell, std::string_view name, int& arity);
 // 読み書きした中身の表明。扱わない名前は Unknown を返す。lgt_output.cpp。
-[[nodiscard]] LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term,
-                                        const std::vector<VarName>& names);
+[[nodiscard]] LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term);
 
 }  // namespace mosa::lgtio

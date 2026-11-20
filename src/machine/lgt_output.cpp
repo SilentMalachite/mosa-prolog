@@ -42,15 +42,14 @@ std::string rest_bytes(const Stream& stream) {
   return stream.bytes.substr(stream.cursor);
 }
 
-LgtSuper assert_bytes(Machine& machine, Cell expected, Cell slot, std::string bytes, bool as_text,
-                      const std::vector<VarName>& names) {
+LgtSuper assert_bytes(Machine& machine, Cell expected, Cell slot, std::string bytes, bool as_text) {
   Heap& heap = machine.heap();
   const Cell right = as_text ? heap.atom(heap.atoms().intern(bytes)) : byte_list(heap, bytes);
-  return bind_slot(machine, slot, eq_cell(heap, heap.deref(expected), right), names);
+  return bind_slot(slot, eq_cell(heap, heap.deref(expected), right));
 }
 
 LgtSuper take_assertion(Machine& machine, const LgtIo& io, Cell goal, int arity, std::string_view file, bool input,
-                        bool as_text, const std::vector<VarName>& names) {
+                        bool as_text) {
   Impl& impl = engine_impl(machine);
   const int stream_arity = arity == 2 ? 1 : arity - 1;
   const auto index = stream_at(impl, goal, stream_arity, input);
@@ -69,7 +68,7 @@ LgtSuper take_assertion(Machine& machine, const LgtIo& io, Cell goal, int arity,
   const Cell slot = machine.heap().arg(goal, static_cast<std::uint16_t>(slot_arg));
   const auto path = stream.path.empty() ? locate_file(io, file) : path_from_utf8(stream.path);
   if (!path.empty()) drop_file(impl, path);
-  return assert_bytes(machine, expected, slot, bytes, as_text, names);
+  return assert_bytes(machine, expected, slot, bytes, as_text);
 }
 
 LgtSuper check_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::string_view file, bool input,
@@ -115,7 +114,7 @@ Cell char_list(Heap& heap, std::string_view bytes) {
 }
 
 // lgtunit と同じく、流れを閉じてから中身を文字のリストで返す。閉じれば現在の出力は user_output へ戻る。
-LgtSuper contents_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, const std::vector<VarName>& names) {
+LgtSuper contents_obs(Machine& machine, const LgtIo& io, Cell goal, int arity) {
   Impl& impl = engine_impl(machine);
   const auto index = stream_at(impl, goal, arity == 1 ? 1 : 2, false);
   if (!index || *index >= impl.streams.size()) return bound_no();
@@ -129,28 +128,26 @@ LgtSuper contents_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, c
   const auto path = stream.path.empty() ? locate_file(io, "test_output.text") : path_from_utf8(stream.path);
   if (!path.empty()) drop_file(impl, path);
   Heap& heap = machine.heap();
-  const Cell slot = heap.arg(goal, arity == 1 ? 0 : 1);
-  // text_output_contents(_) は中身を捨てるだけ。名前の無い変数には束縛を返さない。
-  if (heap.unbound(heap.deref(slot)) && var_name(heap, slot, names).empty()) return bound_ok();
-  return bind_slot(machine, slot, char_list(heap, bytes), names);
+  // text_output_contents(_) も同じく単一化する。名前の無い変数の束縛は、本体の ^^ では返さない。
+  return bind_slot(heap.arg(goal, arity == 1 ? 0 : 1), char_list(heap, bytes));
 }
 
 }  // namespace
 
-LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term, const std::vector<VarName>& names) {
+LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term) {
   const Heap& heap = machine.heap();
   int arity = 0;
   if (named_goal(heap, term, "text_output_assertion", arity) && arity >= 2 && arity <= 4) {
-    return take_assertion(machine, io, term, arity, "test_output.text", false, true, names);
+    return take_assertion(machine, io, term, arity, "test_output.text", false, true);
   }
   if (named_goal(heap, term, "text_input_assertion", arity) && (arity == 2 || arity == 3)) {
-    return take_assertion(machine, io, term, arity, "test_input.text", true, true, names);
+    return take_assertion(machine, io, term, arity, "test_input.text", true, true);
   }
   if (named_goal(heap, term, "binary_output_assertion", arity) && (arity == 2 || arity == 3)) {
-    return take_assertion(machine, io, term, arity, "test_output.binary", false, false, names);
+    return take_assertion(machine, io, term, arity, "test_output.binary", false, false);
   }
   if (named_goal(heap, term, "binary_input_assertion", arity) && (arity == 2 || arity == 3)) {
-    return take_assertion(machine, io, term, arity, "test_input.binary", true, false, names);
+    return take_assertion(machine, io, term, arity, "test_input.binary", true, false);
   }
   if (named_goal(heap, term, "check_text_input", arity) && (arity == 1 || arity == 2)) {
     return check_obs(machine, io, term, arity, "test_input.text", true, true);
@@ -160,7 +157,7 @@ LgtSuper observe_contents(Machine& machine, const LgtIo& io, Cell term, const st
   }
   if (named_goal(heap, term, "suppress_text_output", arity) && arity == 0) return suppress_obs(machine);
   if (named_goal(heap, term, "text_output_contents", arity) && arity >= 1 && arity <= 3) {
-    return contents_obs(machine, io, term, arity, names);
+    return contents_obs(machine, io, term, arity);
   }
   return {};
 }
