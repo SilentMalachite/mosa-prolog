@@ -1,6 +1,8 @@
 # ヒープの上限（ADR 0010）。MOSA_HEAP_MAX=16 の mosac run は終了コード 2 で、標準エラーに「16 MiB」を出す。
 # mosa の --heap-max 16 も同じ文面で止まり、REPL は止まったあとの次の問い合わせに答える。
 # mosa の main は端末でない入力を読まないので、REPL は repl_ref（同じ run_session）で動かす。
+# mosa の -g には -t halt を付けて一括で動かす。付けないと、ctest を端末から流したとき標準入力が端末のまま渡り、
+# -g の後で REPL に入って促しで止まる（レビュー H-34。session.cpp は端末で -t halt の無いときだけ対話にする）。
 # 使い方: cmake -DMOSA=<mosa> -DMOSAC=<mosac> -DREF=<repl_ref> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DCXX=<コンパイラ。空なら mosac の既定> -DMOSA_LIB=<lib/> -DEXE_SUFFIX=<.exe など> -P heap_limit_test.cmake
 
@@ -31,14 +33,14 @@ if(NOT code EQUAL 2 OR NOT err MATCHES "16 MiB")
   fail("mosac run must stop with exit code 2 and say 16 MiB")
 endif()
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g main heap_grow.pl
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g main -t halt heap_grow.pl
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 2 OR NOT err MATCHES "16 MiB")
   fail("mosa --heap-max 16 -g must stop with exit code 2 and say 16 MiB")
 endif()
 
 # 環境変数より --heap-max が先。環境は 16、オプションは 8。
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=16" "${MOSA}" --heap-max 8 -g main heap_grow.pl
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "MOSA_HEAP_MAX=16" "${MOSA}" --heap-max 8 -g main -t halt heap_grow.pl
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 2 OR NOT err MATCHES "8 MiB")
   fail("--heap-max must beat MOSA_HEAP_MAX")
@@ -46,7 +48,7 @@ endif()
 
 # findall が外に持つ答えも上限に数える（レビュー M6、ADR 0010 の改訂 2）。mosa も mosac の実行ファイルも止まる。
 file(COPY "${SRC}/heap_answers.pl" DESTINATION "${WORK}")
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g answers heap_answers.pl
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g answers -t halt heap_answers.pl
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 2 OR NOT err MATCHES "16 MiB")
   fail("mosa --heap-max 16 must stop a findall whose held answers pass the limit")
@@ -62,7 +64,7 @@ endif()
 
 # 生きた選択点もヒープの外の状態として上限に数える（レビュー M17、ADR 0010 の改訂 3）。どちらも 10 万歩より前に止まる。
 file(COPY "${SRC}/heap_choices.pl" DESTINATION "${WORK}")
-execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g choices heap_choices.pl
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 16 -g choices -t halt heap_choices.pl
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 if(NOT code EQUAL 2 OR NOT err MATCHES "16 MiB" OR out MATCHES "100000")
   fail("mosa --heap-max 16 must count live choice points against the limit")
@@ -104,7 +106,7 @@ endif()
 # 改訂の前は、確保が上限に当たるまで何百回も GC が続いた。trace_gc の行を数えて規則で止まったことを見る。
 # GC の回数を数えるので、CI の MOSA_GC_STRESS はここだけ外す。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "--unset=MOSA_GC_STRESS" "MOSA_LIB=${MOSA_LIB}" "${MOSA}" --heap-max 1
-  -g "set_prolog_flag(trace_gc, true), thrash" heap_near_limit.pl
+  -g "set_prolog_flag(trace_gc, true), thrash" -t halt heap_near_limit.pl
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
 string(REGEX MATCHALL "% GC" gc_lines "${err}")
 list(LENGTH gc_lines gc_count)
