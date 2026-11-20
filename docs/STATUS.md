@@ -5,7 +5,7 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W4 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W4 H-09 (8221b310, owner's B: late catch Goals walked), H-08 (272aefeb), H-07, H-05;
+- **Last done:** W4 H-09 (8221b310, 05c817cf; owner's B: late catch Goals walked), H-08, H-07, H-05;
   W3 and W2 done; W1 but H-39. W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
 - **Next:** H-11 (W4: DCG translation builds a `Str` `'.'/2` and goes past `max_arity`).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
