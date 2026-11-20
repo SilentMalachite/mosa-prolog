@@ -39,13 +39,18 @@ std::string written(const Heap& heap, const OperatorTable& ops, Cell term, const
   return write_term(heap, ops, term, {}, names);
 }
 
-std::vector<Cell> list_items(const Heap& heap, Cell list) {
+// 期待の solutions(L) の L は閉じたリストに限る。前はリストでない尾で止まったので、typo は空のリストに、
+// [X = 1|bad] と [X = 1|_] は [X = 1] になって通った（レビュー M-53）。
+std::optional<std::vector<Cell>> list_items(const Heap& heap, Cell list) {
   std::vector<Cell> items;
   while (true) {
     list = heap.deref(list);
     if (list.tag() != Tag::Lis) break;
     items.push_back(heap.list_head(list));
     list = heap.list_tail(list);
+  }
+  if (list.tag() != Tag::Atom || heap.atoms().name(static_cast<std::uint32_t>(list.raw() >> 3)) != "[]") {
+    return std::nullopt;
   }
   return items;
 }
@@ -90,7 +95,8 @@ Exam make_exam(const Machine& machine, Cell term, const std::vector<VarName>& na
   }
   if (expect.tag() == Tag::Str && heap.functor_arity(expect) == 1 &&
       heap.atoms().name(heap.functor_atom(expect)) == "solutions") {
-    exam.solutions = std::max<std::size_t>(1, list_items(heap, heap.arg(expect, 0)).size());
+    const auto items = list_items(heap, heap.arg(expect, 0));
+    exam.solutions = std::max<std::size_t>(1, items ? items->size() : 0);
     exam.enumerate = true;
   }
   return exam;
@@ -198,14 +204,13 @@ bool thrown_formal_matches(const Heap& heap, Cell ball, Cell expected) {
 }
 
 // 期待の (Name = Value, ...) から名前と値の組を拾う。値はまだ書かない（freeze_answers が 1 つの番号付けで書く）。
-void binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::string, Cell>>& pairs,
+// = でない項は書き損じとして偽を返す。前は黙って捨てたので、(X = 1, Y == 2) は X だけを比べて通った（レビュー M-53）。
+bool binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::string, Cell>>& pairs,
                    const std::vector<VarName>& names) {
   term = heap.deref(term);
   if (term.tag() == Tag::Str && heap.functor_arity(term) == 2 &&
       heap.atoms().name(heap.functor_atom(term)) == ",") {
-    binding_pairs(heap, heap.arg(term, 0), pairs, names);
-    binding_pairs(heap, heap.arg(term, 1), pairs, names);
-    return;
+    return binding_pairs(heap, heap.arg(term, 0), pairs, names) && binding_pairs(heap, heap.arg(term, 1), pairs, names);
   }
   if (term.tag() == Tag::Str && heap.functor_arity(term) == 2 &&
       heap.atoms().name(heap.functor_atom(term)) == "=") {
@@ -216,7 +221,9 @@ void binding_pairs(const Heap& heap, Cell term, std::vector<std::pair<std::strin
     }
     if (name.empty() && left.tag() == Tag::Ref) name = "V";
     pairs.emplace_back(name, heap.arg(term, 1));
+    return true;
   }
+  return false;
 }
 
 std::vector<VarName> stop_names(const Stop& stop) {
@@ -232,9 +239,8 @@ bool freeze_answers(const Machine& machine, const std::vector<Cell>& items, cons
   rows.reserve(items.size());
   for (const Cell item : items) {
     std::vector<std::pair<std::string, Cell>> found;
-    binding_pairs(machine.heap(), item, found, names);
     // 組が無い答えは、切れた項を成功と見なさない。
-    if (found.empty()) return false;
+    if (!binding_pairs(machine.heap(), item, found, names) || found.empty()) return false;
     std::vector<Cell> values;
     values.reserve(found.size());
     for (const auto& pair : found) values.push_back(pair.second);
@@ -295,8 +301,12 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
   }
   if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "solutions") {
     const auto wanted = list_items(machine.heap(), machine.heap().arg(expect, 0));
+    if (!wanted) {
+      error = exam.expect;
+      return false;
+    }
     std::vector<std::vector<std::pair<std::string, std::string>>> rows;
-    if (!freeze_answers(machine, wanted, outcome.term->names, rows)) return false;
+    if (!freeze_answers(machine, *wanted, outcome.term->names, rows)) return false;
     Stop current = stop;
     for (std::size_t index = 0; index < rows.size(); ++index) {
       if (index > 0) current = machine.next();

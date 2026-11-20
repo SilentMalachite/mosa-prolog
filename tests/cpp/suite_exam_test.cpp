@@ -2,6 +2,9 @@
 // 具体化であるかで見る（レビュー 2026-11-20 の H-41）。前は両向きの単一化だったので、変数や一部が変数の F も
 // 合い、error/2 でない投げた項は項ごと Formal と比べたので、生の type_error(integer, a) も合った。
 // error/2 でない投げた項は、5 つ目の期待 ball(Ball) で、投げた項そのものを包摂で比べる。
+// solutions(L) の L は閉じたリストで、要素は Name = Value を , でつないだ組でなければならない（レビュー M-53）。前は
+// リストでない尾で止まり、= でない項を捨てたので、typo は空のリストに、[X = 1|bad] は [X = 1] になり、
+// (X = 1, Y == 2) は X だけを比べて通った。書き損じた期待は、どの答えにも合わないものとして落とす。
 // 1 件ごとに 1 ファイルを tests/tmp/suite_exam に書き、run_suite の終了コードを見る。
 
 #include "harness.hpp"
@@ -53,7 +56,7 @@ void check_exam(const Exam& item) {
 }  // namespace
 
 int main() {
-  const std::array<Exam, 13> exams{{
+  const std::array<Exam, 23> exams{{
       // 投げた Formal が変数か一部が変数なら、期待の Formal を満たしたことにならない。
       {"h41_var", "test(t, throw(error(_, _)), error(type_error(integer, a))).", false},
       {"h41_partial", "test(t, throw(error(type_error(_, _), _)), error(type_error(integer, a))).", false},
@@ -71,6 +74,18 @@ int main() {
       {"h41_ball_success", "test(t, true, ball(b)).", false},
       {"h41_ball_error", "test(t, throw(error(b, _)), ball(b)).", false},
       {"h41_ball_unbound", "test(t, throw(f(_)), ball(f(1))).", false},
+      // 直す前は通った書き損じ。リストでない項、リストでない尾、閉じていない尾、= でない組。
+      {"m53_not_list", "test(t, fail, solutions(typo)).", false},
+      {"m53_bad_tail", "test(t, X = 1, solutions([X = 1|bad])).", false},
+      {"m53_open_tail", "test(t, X = 1, solutions([X = 1|_])).", false},
+      {"m53_not_pair", "test(t, (X = 1, Y = 3), solutions([(X = 1, Y == 2)])).", false},
+      {"m53_not_pair_held", "test(t, (X = 1, Y = 2), solutions([(X = 1, Y == 2)])).", false},
+      // 前後で同じ守り。空のリストは失敗するゴールだけに合い、組と解の数は全部比べる。
+      {"m53_empty", "test(t, fail, solutions([])).", true},
+      {"m53_empty_success", "test(t, true, solutions([])).", false},
+      {"m53_two", "test(t, (X = 1 ; X = 2), solutions([X = 1, X = 2])).", true},
+      {"m53_pairs", "test(t, (X = 1, Y = 3), solutions([(X = 1, Y = 3)])).", true},
+      {"m53_pairs_differ", "test(t, (X = 1, Y = 3), solutions([(X = 1, Y = 2)])).", false},
   }};
   for (const Exam& item : exams) check_exam(item);
   return mosa_test::failures();
