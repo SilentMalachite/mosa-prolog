@@ -7,11 +7,9 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 19 `open, question` items of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12,
-  H-18, H-39, H-40, M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27,
-  L-33. Each entry gives its A or B; default A, which keeps the current behaviour except in H-40.
-  H-40 is the first one due (W1): counting the 7 dropped `test/1` tests moves the ISO
-  denominator from 2326 (SPEC phase 13) to 2333. Default A: count them.
+- The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12,
+  H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27,
+  L-33. Each entry gives its A or B; default A, which keeps the current behaviour.
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
   Default A: keep the int64 bounds.
 - A Big beyond double range against a float (iso-notes 8.7). Default A: convert, `float_overflow`.
@@ -36,6 +34,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `transcript_debug_spy_after_warning` and `_ja`).
 ## Owner decisions in force
 
+- Review H-40 (A, 2026-11-20): `test/1` counts as `test(Name, true)`, so the ISO denominator moves
+  from 2326 (SPEC phase 13) to 2333; the three multifile_1 failures get their iso-notes line.
 - Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):
   - A failed load also rolls `leash/1` back (B): the leashed set is in `SavedFlags`, restored with
     the on/off bit and the mode. Spy points stay.
