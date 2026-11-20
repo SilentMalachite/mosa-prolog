@@ -7,7 +7,7 @@
 //   置かないので、古い値が残る。
 //   instantiation_error（鍵が変数）、type_error(atom, Key)、existence_error(variable, Key)（nb_getval で置いていない鍵。
 //   SWI-Prolog の user:exception/3 の口は無い）。
-// テスト: tests/pl/utilities.pl
+// テスト: tests/pl/utilities.pl、tests/cpp/global_limit_test.cpp
 #include "../machine/internal.hpp"
 
 #include <cstdint>

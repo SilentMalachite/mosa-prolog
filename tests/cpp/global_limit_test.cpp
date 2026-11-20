@@ -2,8 +2,9 @@
 // 新しい値を置き、古い値の語を返してから数えたので、上限で投げても新しい値と持った語が残った。持った語だけで上限を
 // 超えると、その後は最初の安全点ですべての問い合わせが止まり、nb_setval(k, small) でも戻せなかった。今は置く前に
 // 確かめ、超えるなら古い値も持った語も変えずに 1 度だけ止める。
-// 上限は 16 MiB（2^21 語）。変数だけのリストは外の写しで 1 要素 200 バイトほどに数えるので、10 万要素の値は上限を超え、
-// 2 万要素なら収まる。どちらもヒープでは上限の 1/4 に届かない。
+// 上限は 16 MiB（2^21 語）。変数だけのリストは外の写しで、ちょうどの大きさなら 1 要素 17 語（節点 2 つと子の添字 2 つ）
+// に数え、ベクタの容量で伸びた分も足す。20 万要素の値は伸び方によらず上限の 1.6 倍を超え、2 万要素は容量が 2 倍に
+// 伸びても上限の 1/3 に届かない。どちらもヒープでは上限の半分に届かない。
 #include "harness.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
@@ -15,6 +16,10 @@
 namespace {
 
 constexpr std::size_t k_limit = std::size_t{16} << 17;
+
+// 1,000 要素の値を鍵 '1'、'2'、... に置き続け、上限で止まる。
+constexpr std::string_view k_program =
+    "fill(I) :- number_codes(I, C), atom_codes(K, C), length(L, 1000), nb_setval(K, L), I1 is I + 1, fill(I1).\n";
 
 struct Outcome {
   bool limited = false;
@@ -44,6 +49,19 @@ void check_stops(mosa::Machine& machine, std::string_view goal) {
   check_runs(machine, "X = f(Y), Y = 1, X == f(1).");
 }
 
+// 守り。上限のすぐ下まで正しく置いた値でも、機械は止まったままにならない。小さな問い合わせが動き、値を替えれば
+// 語を返す。
+void check_filled() {
+  auto machine = mosa::Machine::create(k_limit);
+  mosa_test::check(machine->load_program(k_program).ok, "fill: load");
+  mosa_test::check(run(*machine, "fill(1).").limited, "fill: stops at the heap limit");
+  const std::size_t held = machine->heap().held();
+  check_runs(*machine, "X = f(Y), Y = 1, X == f(1).");
+  check_runs(*machine, "nb_getval('1', V), length(V, 1000).");
+  check_runs(*machine, "nb_setval('1', small).");
+  mosa_test::check(machine->heap().held() < held, "fill: a small value gives the words back");
+}
+
 }  // namespace
 
 int main() {
@@ -51,10 +69,10 @@ int main() {
   check_runs(*machine, "nb_setval(h03_k, old).");
   const std::size_t held = machine->heap().held();
   // 上限を超える値は置かない。古い値が残る。
-  check_stops(*machine, "length(L, 100000), nb_setval(h03_k, L).");
+  check_stops(*machine, "length(L, 200000), nb_setval(h03_k, L).");
   check_runs(*machine, "nb_getval(h03_k, V), V == old.");
   // 置いていない鍵は、止まった後も置いていないまま。
-  check_stops(*machine, "length(L, 100000), nb_setval(h03_new, L).");
+  check_stops(*machine, "length(L, 200000), nb_setval(h03_new, L).");
   check_runs(*machine, "catch((nb_getval(h03_new, _), fail), error(existence_error(variable, h03_new), _), true).");
   // 守り。収まる値は前と同じく置けて読み戻せ、小さな値に替えれば語を返す。
   check_runs(*machine, "length(L, 20000), nb_setval(h03_k, L).");
@@ -62,5 +80,6 @@ int main() {
   check_runs(*machine, "nb_getval(h03_k, V), length(V, 20000).");
   check_runs(*machine, "nb_setval(h03_k, small).");
   mosa_test::check(machine->heap().held() == held, "a small value gives the words back");
+  check_filled();
   return mosa_test::failures();
 }
