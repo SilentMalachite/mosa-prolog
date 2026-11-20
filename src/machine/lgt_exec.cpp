@@ -476,18 +476,22 @@ bool error_ball(const Heap& heap, Cell ball, Cell formal) {
   return lgt_subsumes(heap, formal, heap.arg(ball, 0));
 }
 
+bool expects_throw(LgtKind kind) { return kind == LgtKind::Error || kind == LgtKind::Errors || kind == LgtKind::Ball; }
+
 // 次の query はヒープを捨てる。自由なままの Stream は別の犯人まで包摂するので、残した字面を戻す。
-// listed のときだけ列を歩く。error/1 の項がリストでも、候補の一つにはしない。
-bool thrown_error(Machine& machine, const Env& env, std::string_view detail, bool listed) {
+// errors/1 のときだけ列を歩く。error/1 の項がリストでも、候補の一つにはしない。
+// ball/1 は error(Formal, _) に限らず、投げられた項そのものを包摂で比べる（judge_query の thrown_ok と同じ）。
+bool thrown_expected(Machine& machine, const Env& env, const LgtWant& want) {
   // Tri::Throw は halt でも立つ。そのとき exception は空の番地なので、読むとプロセスが落ちる（レビュー C-04）。
-  // 投げられた項が無ければ誤りに当たらず、呼び手が halt(N) を実際として書く。
+  // 投げられた項が無ければ期待に当たらず、呼び手が halt(N) を実際として書く。
   if (env.stop.kind != StopKind::Exception) return false;
-  const LgtParsed parsed = lgt_parse_term(machine, detail);
+  const LgtParsed parsed = lgt_parse_term(machine, want.detail);
   if (!parsed.ok) return false;
   std::vector<std::uint64_t> stack;
   const Cell expected = swap_saved(machine, parsed.term, parsed.names, env.saved, stack);
   const Heap& heap = machine.heap();
-  if (!listed) return error_ball(heap, env.stop.exception, expected);
+  if (want.kind == LgtKind::Ball) return lgt_subsumes(heap, expected, env.stop.exception);
+  if (want.kind == LgtKind::Error) return error_ball(heap, env.stop.exception, expected);
   Cell list = heap.deref(expected);
   while (list.tag() == Tag::Lis) {
     if (error_ball(heap, env.stop.exception, heap.list_head(list))) return true;
@@ -510,8 +514,7 @@ LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
     return end;
   }
   if (env.tri == Tri::Throw) {
-    const bool listed = want.kind == LgtKind::Errors;
-    if ((want.kind == LgtKind::Error || listed) && thrown_error(machine, env, want.detail, listed)) {
+    if (expects_throw(want.kind) && thrown_expected(machine, env, want)) {
       end.pass = true;
       return end;
     }
@@ -520,6 +523,11 @@ LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
   if (env.tri != Tri::Ok) {
     if (want.kind == LgtKind::All && env.tri == Tri::No) end.pass = true;
     else end.actual = "fail";
+    return end;
+  }
+  // 投げるはずの本体が成功した。lgt_finish に回すと期待の項をゴールとして走らせ、ball(true) が通る（レビュー H-37）。
+  if (expects_throw(want.kind)) {
+    end.actual = "true";
     return end;
   }
   restore_saved(machine, env);

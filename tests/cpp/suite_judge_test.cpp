@@ -2,6 +2,7 @@
 // 1 件ごとに 1 ファイルのスイートを tests/tmp/suite-judge に書いて run_iso_suite で流し、報告の不合格の行を見る。
 // C-04: 誤りを期待する試験で forall/2 の生成側が halt すると、例外の項の無い Stop を読んでプロセスが落ちた。
 // H-36: halt と、選択点の後でスクラッチの機械に回したゴールの例外と halt が失敗と数えられ、false と all が通った。
+// H-37: assertion のある本体では、ball/1 が正しく投げても通らず、成功した本体が ball/1 と error/1 で通った。
 
 #include "harness.hpp"
 #include "mosa/suite.hpp"
@@ -125,6 +126,22 @@ void check_stops_are_not_failures(const std::filesystem::path& root) {
                "atom_length(f(x), _).");
 }
 
+// 本体が成功したら、期待の項をゴールとして走らせない。期待どおりに投げなかったので、実際は true である。
+// ball/1 は投げられた項そのものを包摂で比べる。halt には投げられた項が無いので、読まずに halt(0) と書く。
+void check_thrown_outcomes(const std::filesystem::path& root) {
+  const std::array<Case, 5> cases{{
+      {"h37_ball_true", "\ttest(h37_ball_true, ball(true)) :- assertion(true).", "h37_ball_true ball(true) true"},
+      {"h37_error_true", "\ttest(h37_error_true, error(true)) :- assertion(true).", "h37_error_true error(true) true"},
+      {"h37_errors_true", "\ttest(h37_errors_true, errors([true])) :- assertion(true).",
+       "h37_errors_true errors([true]) true"},
+      {"h37_ball_wrong", "\ttest(h37_ball_wrong, ball(y)) :- assertion(true), throw(x).", "h37_ball_wrong ball(y) x"},
+      {"h37_ball_halt", "\ttest(h37_ball_halt, ball(_)) :- assertion(true), halt(0).", "h37_ball_halt ball(_) halt(0)"},
+  }};
+  for (const Case& item : cases) check_fails(root, item);
+  check_passes(root, "h37_ball", "\ttest(h37_ball, ball(x)) :- assertion(true), throw(x).");
+  check_passes(root, "h37_ball_pattern", "\ttest(h37_ball_pattern, ball(f(_))) :- assertion(true), throw(f(1)).");
+}
+
 }  // namespace
 
 int main() {
@@ -133,6 +150,7 @@ int main() {
     Fixture fixture(root);
     check_halt_in_forall(root);
     check_stops_are_not_failures(root);
+    check_thrown_outcomes(root);
   }
   return mosa_test::failures();
 }
