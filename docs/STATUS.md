@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** H-36 (cd7d940a): halts and scratch errors are no failures; C-04, H-33–H-35.
+- **Last done:** H-37 (00b0c8ba): mixed-path ball/1 matches; success fails error/ball; C-04, H-33–H-36.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-37 (from_env lets error/ball tests pass on success; ball/1 never passes).
+- **Next:** H-38 (a top-level `;` in a true(Assertion) test body escapes the cut in goal_text).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
