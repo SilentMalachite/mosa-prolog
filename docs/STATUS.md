@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-52 (bf879c1a): condition evaluator; C-04, H-33–H-38, H-40–H-42, M-49–M-51.
+- **Last done:** M-53 (76a5862c): `solutions(...)` checks; C-04, H-33–H-38, H-40–H-42, M-49–M-52.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** M-53 (`solutions(...)` in tests/pl accepts a non-list, a partial list, pairs not `=`).
+- **Next:** M-54 (a `^^` helper called from a clause, or with a bound output argument, fails).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
