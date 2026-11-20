@@ -284,7 +284,8 @@ constexpr std::size_t kLoadDepthMax = 64;
 // 読むので循環にならず、前は落ちた（レビュー C-01、持ち主の決定 B）。
 bool too_deep(Impl& machine, std::size_t depth) {
   if (depth < kLoadDepthMax) return false;
-  machine.diagnostic = message_text(machine, "load_too_deep", {std::to_string(kLoadDepthMax)});
+  // ほかの読み込みの誤りと同じく、前の構文の誤りの行と桁を残さない。指示の道は load_once のように先に消さない。
+  fail_load(machine, message_text(machine, "load_too_deep", {std::to_string(kLoadDepthMax)}));
   return true;
 }
 

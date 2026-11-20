@@ -48,7 +48,7 @@ class HaltSetAside {
 [[nodiscard]] int apply_file_list(Impl& machine, Cell term, std::string_view directory,
                                   std::vector<std::string>& opening);
 [[nodiscard]] bool run_consult(Impl& machine, const Goal& goal);
-// 定義は load.cpp。use_module の Spec の形だけを見る（library(Name) か原子）。指令の locate_use とゴールの
+// 定義は load_use.cpp。use_module の Spec の形だけを見る（library(Name) か原子）。指令の locate_use とゴールの
 // run_load_goal が呼び、同じ Formal（instantiation_error、type_error(atom, _)）を出す。
 [[nodiscard]] std::optional<Cell> check_use_spec(Impl& machine, Cell spec);
 // 定義は load.cpp。directive は :-(G) で、G は引数を検査済みの use_module/1,2 か ensure_loaded/1。外側の読み込み 1 回と

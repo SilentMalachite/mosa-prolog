@@ -188,12 +188,12 @@ void check_self_init(const std::filesystem::path& dir) {
   mosa_test::check(holds(*machine, "i(1)."), "selfi: clause kept");
 }
 
-// 別々のファイルの鎖の 1 段。最後の段は葉の述語を定義する。指示の use_module/1 の鎖はモジュールのファイルにし、葉の
-// モジュールだけが葉を公開する。
+// 別々のファイルの鎖の 1 段。最後の段は葉の述語を定義する。指示の use_module/1 と reexport/1 の鎖はモジュールの
+// ファイルにし、葉のモジュールだけが葉を公開する。
 std::string chain_text(const std::string& stem, int index, int files, std::string_view form, bool directive,
                        const std::filesystem::path& next) {
   const std::string leaf = "leaf" + std::to_string(files);
-  const bool modules = directive && form == "use_module";
+  const bool modules = directive && (form == "use_module" || form == "reexport");
   const std::string head = modules ? ":- module(" + stem + std::to_string(index) + ", [" +
                                          (index == files ? leaf + "/1" : std::string{}) + "]).\n"
                                    : std::string{};
@@ -204,7 +204,7 @@ std::string chain_text(const std::string& stem, int index, int files, std::strin
 
 // 別々のファイルの鎖。64 段までは読め、65 段目で失敗する。数えるのは同時に開いているファイルの読み込みで、ゴールの
 // consult/1、use_module/1,2、ensure_loaded/1、指示の [F]、それらを呼ぶ初期化のゴール、指示の include/1、
-// ensure_loaded/1、use_module/1,2（iso-notes 7.1）。指示の 3 つは今の読み込みの中で読むので、前は数えず、
+// ensure_loaded/1、use_module/1,2、reexport/1,2（iso-notes 7.1）。指示の 3 つは今の読み込みの中で読むので、前は数えず、
 // 1 MiB のスタックで 437 段まで重ねると落ちた（C-01 の 2 つ目の持ち主の決定 B）。mixed は指示の ensure_loaded/1 と
 // ゴールの consult/1 を交互に重ね、両方を 1 つの数で数えることを見る。
 void check_chain(const std::filesystem::path& dir, int files, bool loads, std::string_view form = "consult",
@@ -224,18 +224,19 @@ void check_chain(const std::filesystem::path& dir, int files, bool loads, std::s
                    label + "outcome [" + asked.err.substr(0, 200) + "]");
   mosa_test::check(has_deep(asked) != loads, label + "depth phrase");
   const std::string leaf = "leaf" + std::to_string(files) + "(1)";
-  const std::string called = directive && form == "use_module" ? stem + std::to_string(files) + ":" + leaf : leaf;
+  const bool modules = directive && (form == "use_module" || form == "reexport");
+  const std::string called = modules ? stem + std::to_string(files) + ":" + leaf : leaf;
   mosa_test::check(holds(*machine, "catch(" + called + ", _, fail).") == loads, label + "leaf");
   // 上限はファイルを探す前に止めるので、ゴールの ensure_loaded/1 はパスを付けない。前は「: 」を前に付けた。
   if (!loads && form == "ensure_loaded" && !directive) {
     const bool bare = asked.err.rfind(kDeep, 0) == 0 || asked.err.find("\n" + std::string{kDeep}) != std::string::npos;
     mosa_test::check(bare, label + "no empty path [" + asked.err.substr(0, 200) + "]");
   }
-  // 指示で止まった段は、ほかの指示の誤りと同じく、止まったファイルのパスを前に付ける。空のパスは付けない。
+  // 指示で止まった鎖は根の consult ごと失敗するので、診断の前には根のファイルのパスが付く。空のパスは付けない。
   if (!loads && directive) {
-    mosa_test::check(asked.err.find(": " + std::string{kDeep}) != std::string::npos &&
+    mosa_test::check(asked.err.find(stem + "1.pl: " + std::string{kDeep}) != std::string::npos &&
                          asked.err.find("\n: ") == std::string::npos && asked.err.rfind(": ", 0) != 0,
-                     label + "path before the phrase [" + asked.err.substr(0, 300) + "]");
+                     label + "root path before the phrase [" + asked.err.substr(0, 300) + "]");
   }
 }
 
@@ -262,6 +263,8 @@ int main() {
   check_chain(dir, 65, false, "ensure_loaded", true);
   check_chain(dir, 64, true, "use_module", true);
   check_chain(dir, 65, false, "use_module", true);
+  check_chain(dir, 64, true, "reexport", true);
+  check_chain(dir, 65, false, "reexport", true);
   check_chain(dir, 64, true, "mixed");
   check_chain(dir, 65, false, "mixed");
   check_self_init(dir);
