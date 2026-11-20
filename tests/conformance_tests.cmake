@@ -97,7 +97,7 @@ add_test(NAME suite_halt_test COMMAND $<TARGET_FILE:suite_halt_test>)
 
 # tests/tmp/suite は tests.lgt を流す全てが共有する（lgt_io_context のスクラッチ）。空かどうかを見る
 # suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
-# 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/tests.cmake で付く。全体レビュー推奨5）。
+# 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/mosac_tests.cmake で付く。全体レビュー推奨5）。
 set_tests_properties(assert_shared suite_assert_test suite_if_test suite_imports_test suite_approx_test
   suite_path_test suite_vars_test suite_encoding_test suite_tester_test conformance_report_test conformance_io_test
   conformance_output_test conformance_badge_test conformance_cwd_test

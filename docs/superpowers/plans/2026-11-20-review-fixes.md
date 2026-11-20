@@ -89,7 +89,7 @@ open-items の「Files to split before their next edit」のうち、この計�
 | `src/write/writer.cpp` (759) | H-16、H-19、H-25 |
 | `src/builtins/streams.cpp` (751) | H-21、H-22、H-26 |
 | `src/builtins/database.cpp` (762) | H-05、M-26、L-24 |
-| `tests/tests.cmake` (749) | H-34、H-35、L-46 |
+| ~~`tests/tests.cmake` (749)~~ 割った（515 行と `tests/mosac_tests.cmake` 240 行） | H-34、H-35、L-46 |
 
 新しい検査を足す先の 730 行以上のテストファイル（`tests/pl/database.pl`、`tests/cpp/stream_test.cpp` ほか）も、足す前に割る。
 

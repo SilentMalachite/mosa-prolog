@@ -6,7 +6,7 @@
 #   -DLIB_PREFIX=<lib など> -DLIB_SUFFIX=<.a など> -P installed_layout_test.cmake
 
 # runtime の部品は Release だけ入れる（CMakeLists.txt の CONFIGURATIONS Release）。ほかの構成の木には確かめる物が
-# 無いので、理由を出して飛ばす（tests.cmake の SKIP_REGULAR_EXPRESSION がこの文を skip と数える）。
+# 無いので、理由を出して飛ばす（tests/mosac_tests.cmake の SKIP_REGULAR_EXPRESSION がこの文を skip と数える）。
 if(NOT CONFIG STREQUAL "Release")
   message(STATUS "skipped: the runtime component is installed only for Release (this build's config is '${CONFIG}')")
   return()

@@ -4,7 +4,7 @@
 # 使い方: cmake -DMOSATEST=<mosatest> -DDIR=<tests/pl> -DWORK=<一時ディレクトリ> -DCMAKE_PATH=<cmake>
 #   -DCONFIG=<構成> -DREQUIRE=<japanese.pl;native.pl> -DATTACHED=<native.pl> -DROOT=<リポジトリの根> -P diff_test.cmake
 # 翻訳側の configure は本体と同じ生成器、コンパイラ、旗で行う。CMake は環境変数 CMAKE_GENERATOR、CXX、CXXFLAGS、
-# LDFLAGS を読むので、tests.cmake が ENVIRONMENT で渡す。生成コードは警告なしで通ること（MOSA_WERROR=1）。
+# LDFLAGS を読むので、tests/mosac_tests.cmake が ENVIRONMENT で渡す。生成コードは警告なしで通ること（MOSA_WERROR=1）。
 
 foreach(name MOSATEST DIR WORK CMAKE_PATH CONFIG ROOT)
   if(NOT DEFINED ${name})

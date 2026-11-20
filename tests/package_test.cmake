@@ -6,7 +6,7 @@
 #   -DVERSION=<0.1.0 など> -DWORK=<tests/tmp/package> -DEXE_SUFFIX=<.exe など> -P package_test.cmake
 
 # runtime の部品は Release だけ入れる。ほかの構成のパッケージには mosac build に要る物が無いので、
-# mosac_installed_layout と同じ文で飛ばす（tests.cmake の SKIP_REGULAR_EXPRESSION がこの文を skip と数える）。
+# mosac_installed_layout と同じ文で飛ばす（tests/mosac_tests.cmake の SKIP_REGULAR_EXPRESSION がこの文を skip と数える）。
 if(NOT CONFIG STREQUAL "Release")
   message(STATUS "skipped: the runtime component is installed only for Release (this build's config is '${CONFIG}')")
   return()
@@ -75,8 +75,8 @@ foreach(expected
   endif()
 endforeach()
 
-# 展開した木の mosatest は、--mosa を省けば隣の mosa を使う。MOSA_LIB は tests.cmake が外す。2 回流す。
-# 1 回目は tests.cmake が PATH の先に置いたビルドの cmake で、mosac の CMake の道を通す。CMake の無い読者
+# 展開した木の mosatest は、--mosa を省けば隣の mosa を使う。MOSA_LIB は tests/mosac_tests.cmake が外す。2 回流す。
+# 1 回目は tests/mosac_tests.cmake が PATH の先に置いたビルドの cmake で、mosac の CMake の道を通す。CMake の無い読者
 # （Xcode の CLT だけ、g++ だけ）の mosac はコンパイラを直に呼ぶので、2 回目は MOSA_NO_CMAKE=1 でその道を、
 # 空白と日本語を含む実行時ライブラリのパスで通す。
 # 1 つの道が失敗しても、もう 1 つの道も流してから止める。どちらで壊れるかが、原因を分ける手がかりになる。

@@ -4,7 +4,7 @@
 # ワークフロー）、名前と中身の形をこの台本だけで決めるため。版と鍵 <OS>-<arch>-<compiler> は BUILD_DIR の
 # CMakeCache.txt から読む。最後の行に書庫のパスを標準出力へ書く（ワークフローがそれを拾う）。
 # 使い方: cmake -DBUILD_DIR=<ビルド木> -DCONFIG=<Release> -DOUT=<出力のディレクトリ> -P cmake/package.cmake
-# テスト: package_layout（tests/tests.cmake、tests/package_test.cmake）。
+# テスト: package_layout（tests/mosac_tests.cmake、tests/package_test.cmake）。
 
 foreach(required BUILD_DIR CONFIG OUT)
   if(NOT ${required})

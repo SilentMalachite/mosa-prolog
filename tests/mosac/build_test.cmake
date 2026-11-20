@@ -164,7 +164,7 @@ elseif(CASE STREQUAL "internal_error")
     endif()
     set(compiler_env "MOSA_CXX=${FAKE_CXX}" "INCLUDE=${WORK}")
   endif()
-  # Windows の偽物は cl.exe の名（tests.cmake）なので、MOSA_NO_CMAKE=0 なら CMake の道を通る。偽の cl では CMake の
+  # Windows の偽物は cl.exe の名（tests/mosac_tests.cmake）なので、MOSA_NO_CMAKE=0 なら CMake の道を通る。偽の cl では CMake の
   # configure（コンパイラの確かめ）が通らず、それは内部エラーでなく環境の問題として出ること。生成コードの段の
   # 内部エラーは直接の道（mosac_internal_error_direct）で確かめる。
   if(PATH_KIND STREQUAL "cmake" AND CMAKE_HOST_WIN32)

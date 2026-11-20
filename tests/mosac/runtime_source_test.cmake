@@ -1,7 +1,7 @@
 # 計画 Task 10（直し 1）。mosac build --runtime-source を同じ場所で 3 回動かす。1 回目は同梱の源から実行時ライブラリを
 # 作り、2 回目は作り直さずにキャッシュの物を使い、3 回目は --clean で消してから作り直す。鍵は源の 4 か所
 # （CMakeLists.txt、src/、include/、lib/）だけから取るので、ビルド木の形（mosac の親がリポジトリの根）でも
-# .mosac-cache 自身や build/ の変化で外れない。libmosa を 2 回作るので遅い。tests.cmake は MOSA_SLOW_TESTS=ON の
+# .mosac-cache 自身や build/ の変化で外れない。libmosa を 2 回作るので遅い。tests/mosac_tests.cmake は MOSA_SLOW_TESTS=ON の
 # ときだけ登録する。
 # 使い方: cmake -DMOSAC=<mosac> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定>
 #   -DEXE_SUFFIX=<.exe など> -P runtime_source_test.cmake
