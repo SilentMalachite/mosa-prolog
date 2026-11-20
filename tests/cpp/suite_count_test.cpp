@@ -87,6 +87,24 @@ void check_count(const std::filesystem::path& root, const Count& item) {
   }
 }
 
+void check_ends(const std::filesystem::path& root, std::string_view name_view, std::string_view text,
+                const std::vector<std::string_view>& lines) {
+  const std::string name{name_view};
+  const auto suite = root / name;
+  mosa_test::check(write_text(suite / "logtalk" / "prolog" / "predicates" / "atom_1" / "tests.lgt", text),
+                   name + ": write the suite");
+  const auto report = root / (name + "-report.md");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  mosa_test::check(code == 1, name + ": the suite fails in\n" + body);
+  const std::string failed = failed_lines(body);
+  for (const std::string_view line : lines) {
+    const std::string full =
+        line.empty() ? std::string{"predicates/atom_1/tests.lgt\n"} : "predicates/atom_1/tests.lgt " + std::string{line} + "\n";
+    mosa_test::check(failed.find(full) != std::string::npos, name + ": " + full + " in\n" + body);
+  }
+}
+
 std::string object(std::string_view clauses) {
   return ":- object(tests, extends(lgtunit)).\n" + std::string{clauses} + "\n:- end_object.\n";
 }
@@ -113,6 +131,10 @@ void check_read_error() {
                      object("\t:- if(fail).\n\ttest(d, true).\n\t:- else.\n\ttest(e, true).\n\t:- endif.\n"
                             "\ttest(f, true) :- ).\n"),
                      2, 0, {"", "e true unexpected_token"}});
+  // 終止符そのものが誤りの項でも終わる。読み手が進まない誤りで回り続けると、ここで ctest の時間切れまで止まる。
+  // 分母は H-15 を直すと c の分だけ増えるので見ず、読めた a と、ファイルの行だけを見る。
+  check_ends(root, "read_stuck", object("\ttest(a, true).\n\ttest(b, true) :- foo(.\n\ttest(c).\n"),
+             {"", "a true unexpected_token"});
   // if と endif の釣り合わないファイルは、どの case を数えるかも決まらないので、今までどおり 1 件。
   check_count(root, {"read_unbalanced", object("\t:- if(true).\n\ttest(g, true).\n"), 1, 0, {""}});
 }

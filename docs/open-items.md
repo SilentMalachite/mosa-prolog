@@ -39,7 +39,7 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 ## Owner decisions in force
 
 - Review H-40 (A, 2026-11-20): `test/1` counts as `test(Name, true)`, so the ISO denominator moves
-  from 2326 (SPEC phase 13) to 2333; the three multifile_1 failures get their iso-notes line.
+  from 2326 (SPEC phase 13) to 2333; the three multifile_1 failures have their iso-notes line.
 - Phase 14 review questions (2026-11-18; iso-notes "Debugger (not in 13211-1)"):
   - A failed load also rolls `leash/1` back (B): the leashed set is in `SavedFlags`, restored with
     the on/off bit and the mode. Spy points stay.
