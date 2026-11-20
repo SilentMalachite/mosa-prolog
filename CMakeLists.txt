@@ -169,6 +169,7 @@ target_sources(mosa_lib PRIVATE
   src/builtins/debugger_pred.cpp
   src/builtins/database.cpp
   src/builtins/database_scan.cpp
+  src/builtins/database_sweep.cpp
   src/builtins/module_prop.cpp
   src/builtins/module_goal.cpp
   src/builtins/clause_term.cpp

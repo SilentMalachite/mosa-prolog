@@ -1,6 +1,6 @@
 #pragma once
 
-// database.cpp と database_scan.cpp だけが共有する。ほかの組込からは使わない。
+// database.cpp、database_scan.cpp、database_sweep.cpp だけが共有する。ほかの組込からは使わない。
 #include "../machine/internal.hpp"
 
 #include <cstddef>
@@ -25,6 +25,13 @@ void succeed(Impl& machine, const Goal& goal);
 [[nodiscard]] bool strip_target(Impl& machine, const Goal& goal, Cell& term, std::uint32_t& module, bool clause);
 void run_clause(Impl& machine, const Goal& goal);
 void run_current_predicate(Impl& machine, const Goal& goal);
+
+// 消した節の寿命（database_sweep.cpp）。述語を表から消し、開いた走査を尽きた印にする。
+void erase_predicate(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity);
+// 番号 id の節に消した世代を付け、届く走査の無い端の節ならすぐ消す。
+void kill_clause(Impl& machine, Predicate& predicate, PredKey key, std::size_t id);
+// 変更の前の掃除。節が尽きた abolish 済みの述語は表からも消し、null を返す。
+[[nodiscard]] Predicate* purge_dead(Impl& machine, Predicate* predicate);
 
 // retract と clause/2 の走査（ADR 0015 とその改訂）。候補は列にせず、第1引数の鍵（未束縛なら Any）で次に合う節を
 // 探しながらカーソルで進む。どちらも次の答えの節があるときだけ選択点を積む。
