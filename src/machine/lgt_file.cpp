@@ -123,11 +123,6 @@ bool keeps_bindings(LgtKind kind, bool pass) {
   return (kind == LgtKind::Variant || kind == LgtKind::Subsumes) && pass;
 }
 
-bool call_hook(Machine& machine, bool enabled, std::string_view goal) {
-  if (!enabled) return true;
-  return !run_goal(machine, goal).dead;
-}
-
 // 本体を流して判定する。成功したときの束縛は、次の問い合わせがヒープを捨てる前に字面にして返す。
 CaseEnd run_body(Machine& machine, const LgtCase& item, const LgtWant& want, const LgtIo* io) {
   CaseEnd end;
@@ -176,19 +171,11 @@ bool run_cleanup_option(Machine& machine, const LgtCase& item, const std::vector
   return !run_goal(machine, goal + full_stop_after(goal)).dead;
 }
 
-CaseEnd run_one(Machine& machine, const LgtCase& original, bool setup, bool cleanup, const LgtIo* io) {
+CaseEnd run_one(Machine& machine, const LgtCase& original, const LgtIo* io) {
   CaseEnd end;
   try {
-    if (!call_hook(machine, setup, "setup.")) {
-      end.dead = true;
-      end.actual = "aborted";
-      return end;
-    }
     LgtCase item = original;
-    if (auto failed = run_setup_option(machine, item)) {
-      if (!call_hook(machine, cleanup, "cleanup.")) failed->dead = true;
-      return *failed;
-    }
+    if (auto failed = run_setup_option(machine, item)) return *failed;
     LgtWant want = classify_lgt_outcome(machine, item.outcome);
     want.keep = !item.cleanup.empty();
     if (want.kind == LgtKind::Other) {
@@ -198,7 +185,6 @@ CaseEnd run_one(Machine& machine, const LgtCase& original, bool setup, bool clea
       if (!keeps_bindings(want.kind, end.pass)) end.kept.clear();
     }
     if (!end.dead && !run_cleanup_option(machine, item, end.kept)) end.dead = true;
-    if (!call_hook(machine, cleanup, "cleanup.")) end.dead = true;
     return end;
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
@@ -312,14 +298,13 @@ void restore_current(Machine& machine, const CurrentStreams& saved) {
 
 // 1 件を流し、結果の字面を run.results に残す。標準出力と標準エラーはその間だけ受けて字面に付ける
 // （差分テストが両側で比べる。スイートの実行では件の出力が端末に出なくなるだけで、合否は変わらない）。
-void run_case(Machine& machine, const LgtCase& item, bool setup, bool cleanup, const LgtIo* io, LgtRun& run,
-              bool& dead) {
+void run_case(Machine& machine, const LgtCase& item, const LgtIo* io, LgtRun& run, bool& dead) {
   const CurrentStreams saved = save_current(machine);
   CaseEnd end;
   std::string output;
   {
     StdCapture capture;
-    end = run_one(machine, item, setup, cleanup, io);
+    end = run_one(machine, item, io);
     output = capture.text();
   }
   restore_current(machine, saved);
@@ -329,23 +314,38 @@ void run_case(Machine& machine, const LgtCase& item, bool setup, bool cleanup, c
   dead = end.dead;
 }
 
+// オブジェクトの setup/0 と cleanup/0 は、全部の試験の前と後に 1 回ずつ動かす（4decb64b の lgtunit.lgt の run/0、
+// レビュー M-50）。前は試験ごとに動かし、cleanup(Goal) を読まないことを隠していた。出力は受けて捨てる。前も件の
+// 出力に入って端末には出なかった。setup/0 が失敗するか投げると lgtunit は試験を飛ばすが、分母から消さずに
+// どの試験も実際 setup で不合格にする（H-40 の決定と同じく、壊れたファイルを分母から落とさない）。
+std::string run_object_hook(Machine& machine, bool enabled, std::string_view goal) {
+  if (!enabled) return {};
+  StdCapture capture;
+  const Query query = run_goal(machine, goal);
+  if (query.dead) return "aborted";
+  return query.stop.kind == StopKind::Success ? std::string{} : std::string{"setup"};
+}
+
 void run_cases(Machine& machine, const LgtFile& file, const std::vector<int>& chosen, bool setup, bool cleanup,
                const LgtIo* io, LgtRun& run) {
-  bool dead = false;
+  const std::string unrun = run_object_hook(machine, setup, "setup.");
+  bool dead = unrun == "aborted";
   for (const LgtCase& item : file.cases) {
     if (!guard_holds(item.guard, chosen) || item.outside) {
       run.outside.push_back(item.name);
       continue;
     }
-    if (dead) {
-      note_failure(run, item, "aborted");
+    if (dead || !unrun.empty()) {
+      note_failure(run, item, dead ? "aborted" : unrun);
       continue;
     }
     bool skip = false;
     apply_condition(machine, item, dead, skip, run);
     if (skip) continue;
-    run_case(machine, item, setup, cleanup, io, run, dead);
+    run_case(machine, item, io, run, dead);
   }
+  // cleanup/0 の失敗と例外は、lgtunit の run_cleanup と同じく結果を変えない。
+  if (!dead && unrun.empty()) (void)run_object_hook(machine, cleanup, "cleanup.");
 }
 
 }  // namespace

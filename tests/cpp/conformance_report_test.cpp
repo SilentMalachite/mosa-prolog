@@ -189,7 +189,9 @@ void check_side_only(const std::filesystem::path& root) {
   mosa_test::check(body.find("OLD") == std::string::npos, "overwritten");
 }
 
-// 指示と {ゴール} を含む。halt の件は不合格で、その後も setup、cleanup、演算子が残ることをこの 12 件で見る。
+// 指示と {ゴール} を含む。halt の件は不合格で、その後も setup の事実と演算子が残ることをこの 12 件で見る。
+// setup/0 は全部の試験の前に 1 回、cleanup/0 は後に 1 回だけ動く（lgtunit の run/0、レビュー M-50 の持ち主の決定 B）。
+// 前は試験ごとに動いたので、tick_b はもう一度足された tick(1) を、mark_b は mark_a の後の marker(1) を見ていた。
 std::string true_0_text() {
   return R"lgt(p(1).
 :- object(tests, extends(lgtunit)).
@@ -203,10 +205,11 @@ test(halted, true) :- {halt(1)}.
 test(after, true) :- {p(1)}.
 setup :- assertz(tick(1)).
 test(tick_a, true) :- {retract(tick(1))}.
-test(tick_b, true) :- {retract(tick(1))}.
+test(tick_b, true) :- {\+ tick(1)}.
 cleanup :- assertz(marker(1)).
+:- dynamic(marker/1).
 test(mark_a, true) :- {true}.
-test(mark_b, true) :- {marker(1)}.
+test(mark_b, true) :- {\+ marker(1)}.
 test(op_def, true) :- {op(100, xfx, qq)}.
 test(op_see, true) :- {current_op(100, xfx, qq)}.
 :- end_object.
@@ -226,7 +229,7 @@ void check_executes(const std::filesystem::path& root) {
   const std::string body = read_text(report);
   const std::string failed = between_headings(body, "不合格:", "別欄:");
   // halt(1) は不合格（全体レビュー推奨3）。前は halted も合格に数えて 12/13 だった。
-  // 11*10 < 13*9 なので終了コードは 1。halt の後の after/setup/cleanup/演算子の件は合格のまま。
+  // 11*10 < 13*9 なので終了コードは 1。halt の後の after/tick/mark/演算子の件は合格のまま。
   mosa_test::check(code == 1, "halt row exits 1");
   mosa_test::check(has_exact_line(body, "分母: 13"), "denominator 13");
   mosa_test::check(has_exact_line(body, "合格数: 11"), "passed 11");

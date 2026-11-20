@@ -133,6 +133,19 @@ void check_curly_helpers(const std::filesystem::path& root) {
                      3, 3, {}});
 }
 
+// オブジェクトの setup/0 は全部の試験の前に 1 回、cleanup/0 は後に 1 回動く（lgtunit の run/0）。前は試験ごとに動いた。
+// setup/0 が失敗するか投げると、lgtunit は試験を飛ばす。Mosa は分母から落とさず、どの試験も実際 setup で不合格にする。
+void check_object_hooks(const std::filesystem::path& root) {
+  check_suite(root, {"hooks_once",
+                     "\t:- dynamic(ran/0).\n\t:- dynamic(flag/0).\n\tsetup :- assertz(ran).\n\tcleanup :- retractall(flag).\n"
+                     "\ttest(o1, true) :- assertz(flag).\n"
+                     "\ttest(o2, true) :- flag, findall(x, ran, L), length(L, 1).\n",
+                     2, 1 + 1, {}});
+  check_suite(root, {"hooks_setup_fails", "\tsetup :- fail.\n\ttest(o3, true) :- true.\n\ttest(o4, false) :- fail.\n", 2, 0,
+                     {"o3 true setup", "o4 false setup"}});
+  check_suite(root, {"hooks_setup_throws", "\tsetup :- throw(x).\n\ttest(o5, true) :- true.\n", 1, 0, {"o5 true setup"}});
+}
+
 }  // namespace
 
 int main() {
@@ -142,6 +155,7 @@ int main() {
     check_setup(root);
     check_cleanup(root);
     check_curly_helpers(root);
+    check_object_hooks(root);
   }
   return mosa_test::failures();
 }
