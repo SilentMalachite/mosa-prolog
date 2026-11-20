@@ -29,6 +29,9 @@ struct LgtStep {
 [[nodiscard]] std::optional<double> lgt_as_number(const Heap& heap, Cell cell);
 [[nodiscard]] bool approx(const Heap& heap, Cell left, Cell right);
 [[nodiscard]] LgtParsed lgt_parse_term(Machine& machine, std::string_view text);
+// 読み直した項の名前のある変数を、解の束縛のセルへ戻す（lgt_judge.cpp）。表明の判定（lgt_check.cpp）も使う。
+[[nodiscard]] Cell lgt_resolve_term(Heap& heap, Cell cell, const std::vector<VarName>& names,
+                                    const std::vector<Binding>& bindings);
 [[nodiscard]] bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<Binding>& bindings,
                                   std::string& note);
 // スクラッチの機械で動かした結果。Stopped は例外か halt で止まったことで、どちらかは stop が持つ。例外の項は
