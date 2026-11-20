@@ -58,15 +58,19 @@ std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
 // call/9 からは利用者の述語なので、第 1 引数はデータである。'$not'/1 と '$once'/1 は forall/2 と setup_call_cleanup/3 が
 // 積む (\+)/1 と once/1 の別名（ADR 0028）なので同じに辿る。辿らないと、外の訳が巡回を見逃し、Cond や Setup の後で
 // 内側の別名がやっと誤りにする（iso-notes 7.3.3 の決定 A は何も動かす前）。
+bool wraps_first(std::string_view name, std::uint16_t arity) {
+  const bool call = name == "call" && arity <= kCallArityMax;
+  const bool negation = name == "\\+" || name == "$not";
+  const bool once = name == "once" || name == "$once";
+  return (arity == 1 && (negation || once)) || call;
+}
+
 std::optional<Cell> wrapped_goal(const Heap& heap, Cell cell) {
   if (cell.tag() != Tag::Str) return std::nullopt;
   const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
   if (arity == 2 && name == ":") return heap.deref(heap.arg(cell, 1));
-  const bool call = name == "call" && arity <= kCallArityMax;
-  const bool negation = name == "\\+" || name == "$not";
-  const bool once = name == "once" || name == "$once";
-  if ((arity == 1 && (negation || once)) || call) return heap.deref(heap.arg(cell, 0));
+  if (wraps_first(name, arity)) return heap.deref(heap.arg(cell, 0));
   return std::nullopt;
 }
 
@@ -87,58 +91,32 @@ bool non_callable(const Heap& heap, Cell cell) {
   return !heap.unbound(cell) && tag != Tag::Atom && tag != Tag::Str && tag != Tag::Lis;
 }
 
-// カットの効く位置の子（, ; -> *-> の両方と、M:G の G）。M:G は文脈のカットの壁を引き継ぐ（run_qualify）。
-std::vector<Cell> skeleton_children(const Heap& heap, Cell cell) {
-  if (is_connective(heap, cell)) return {heap.deref(heap.arg(cell, 0)), heap.deref(heap.arg(cell, 1))};
-  if (cell.tag() == Tag::Str && heap.functor_arity(cell) == 2 && heap.atoms().name(heap.functor_atom(cell)) == ":") {
-    return {heap.deref(heap.arg(cell, 1))};
-  }
+// 後で訳すかを決める歩み（Build::blocks）の節点の子。, ; -> *-> の両方、葉が動くときに訳す中のゴール（M:G の G と
+// wrapped_goal の G）、catch/3 の Goal と Recovery。skeletal はカットの効く位置の子（, ; -> *-> と M:G。M:G は文脈の
+// カットの壁を引き継ぐ、run_qualify）で、その子だけが葉の答えを親へ渡し、ほかの子は巡回だけを渡す（レビュー H-08）。
+// if/3 の引数には入らない（iso-notes 7.3.3 の決定 B）。動いている if/3 へ戻る辺は葉で見る。子は多くて 2 つなので配列に
+// 置く。節点ごとに vector を確保すると、100 万個の連言の実行が 1.3 秒から 1.8 秒に延びた。
+struct GoalKids {
+  std::array<Cell, 2> cells{};
+  std::uint8_t count = 0;
+  bool skeletal = false;
+};
+
+GoalKids goal_children(const Heap& heap, Cell cell) {
+  if (cell.tag() != Tag::Str) return {};
+  const auto name = heap.atoms().name(heap.functor_atom(cell));
+  const auto arity = heap.functor_arity(cell);
+  const auto arg = [&](std::uint16_t index) { return heap.deref(heap.arg(cell, index)); };
+  if (arity == 2 && (name == "," || name == ";" || name == "->" || name == "*->")) return {{arg(0), arg(1)}, 2, true};
+  if (arity == 2 && name == ":") return {{arg(1), Cell{}}, 1, true};
+  if (arity == 3 && name == "catch") return {{arg(0), arg(2)}, 2, false};
+  if (wraps_first(name, arity)) return {{arg(0), Cell{}}, 1, false};
   return {};
 }
 
-// 巡回を探す歩みの子（レビュー H-08）。骨組みの子に加え、葉が動くときに訳す中のゴール（wrapped_goal）と、catch/3 の
-// Goal と Recovery。if/3 の引数には入らない（iso-notes 7.3.3 の決定 B）。動いている if/3 へ戻る辺は葉で見る。
-std::vector<Cell> goal_children(const Heap& heap, Cell cell) {
-  if (const auto inner = wrapped_goal(heap, cell)) return {*inner};
-  if (is_connective(heap, cell)) return {heap.deref(heap.arg(cell, 0)), heap.deref(heap.arg(cell, 1))};
-  if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 3) return {};
-  if (heap.atoms().name(heap.functor_atom(cell)) != "catch") return {};
-  return {heap.deref(heap.arg(cell, 0)), heap.deref(heap.arg(cell, 2))};
-}
-
-// 後順に歩いて節点ごとの答えを memo に覚え、同じ部分木を 2 度歩かない。葉は leaf で決め、子を持つ節点は子のどれかが
-// kFree でなければ塞がる。開いたままの節点（歩いている道の上）へ戻る子も塞がるので、巡回に届く節点はどれも塞がる。
-// 答えは道によらないので、後の呼び出しが覚えた答えを使ってよい。
-enum : std::uint8_t { kOpen, kFree, kBlocked };
-template <class Children, class Leaf>
-bool walk_blocks(const Heap& heap, std::unordered_map<std::uint64_t, std::uint8_t>& memo, Cell root,
-                 Children children, Leaf leaf) {
-  std::vector<std::pair<Cell, bool>> stack{{heap.deref(root), false}};
-  while (!stack.empty()) {
-    const auto [cell, expanded] = stack.back();
-    if (!expanded) {
-      if (memo.contains(cell.raw())) {
-        stack.pop_back();
-        continue;
-      }
-      const std::vector<Cell> next = children(cell);
-      if (next.empty()) {
-        memo[cell.raw()] = leaf(cell) ? kBlocked : kFree;
-        stack.pop_back();
-        continue;
-      }
-      memo[cell.raw()] = kOpen;
-      stack.back().second = true;
-      for (const Cell child : next) stack.emplace_back(child, false);
-      continue;
-    }
-    bool blocked = false;
-    for (const Cell child : children(cell)) blocked = blocked || memo[child.raw()] != kFree;
-    memo[cell.raw()] = blocked ? kBlocked : kFree;
-    stack.pop_back();
-  }
-  return memo[heap.deref(root).raw()] != kFree;
-}
+// Build::blocks が節点ごとに覚える答え。kOpen は歩いている道の上。kLeaf は骨組みに後で訳せない葉がある。kCycle は巡回に
+// 届く。0 なら後で訳してよい。
+enum : std::uint8_t { kOpen = 1, kLeaf = 2, kCycle = 4 };
 
 // 骨組みの葉が後で訳せないか。! は call/1 の中では局所になる。未束縛の変数は今なら call(X) だが、後で訳すとその時の
 // 束縛で分類が変わる。呼べない項は、call/1 が何も動かす前に出す type_error(callable, Goal)（7.8.3.3）が遅れる。
@@ -221,19 +199,42 @@ IrTerm Build::late_goal(Cell cell) {
   return term;
 }
 
-// 骨組みに後で訳せない葉があるか。巡回する骨組みも後で訳せないとみなす。
+// 後で訳せない部分木か。骨組みに後で訳せない葉があるか、葉の中のゴールも通って巡回に届けば塞がる（巡回はレビュー H-08）。
+// 後順に歩いて節点ごとに覚え、同じ部分木を 2 度歩かない。開いたままの節点（歩いている道の上）へ戻る子は巡回である。道の
+// 上の祖先へ戻る巡回も、祖先からこの部分木へ下りた辺を通って部分木へ戻るので、答えは道によらず、後の呼び出しが使ってよい。
+// 骨組みと巡回は 1 度の歩みで決める。分けると後で訳す回ごとに残りを 2 度歩き、100 万個の連言が 1.6 秒から 2.8 秒になった。
 bool Build::blocks(Cell root) {
-  return walk_blocks(
-      *heap, skeleton, root, [this](Cell cell) { return skeleton_children(*heap, cell); },
-      [this](Cell cell) { return leaf_blocks(*heap, cell); });
-}
-
-// 葉の中のゴールも通って、巡回に届くか（レビュー H-08）。道の上の祖先へ戻る巡回も、祖先からこの部分木へ下りる辺を
-// 通って部分木へ戻るので、道を見ずに見つかる。
-bool Build::reaches_cycle(Cell root) {
-  return walk_blocks(
-      *heap, cycle_reach, root, [this](Cell cell) { return goal_children(*heap, cell); },
-      [this](Cell cell) { return runs_back(cell); });
+  // 子を歩き終えた節点（子の無い葉も）の答え。
+  const auto settle = [this](Cell cell, const GoalKids& kids) {
+    if (kids.count == 0) {
+      return static_cast<std::uint8_t>((leaf_blocks(*heap, cell) ? kLeaf : 0) | (runs_back(cell) ? kCycle : 0));
+    }
+    std::uint8_t state = 0;
+    for (std::uint8_t index = 0; index < kids.count; ++index) {
+      const std::uint8_t seen = skeleton[kids.cells[index].raw()];
+      if (seen == kOpen || (seen & kCycle) != 0) state |= kCycle;
+      if (kids.skeletal && (seen & kLeaf) != 0) state |= kLeaf;
+    }
+    return state;
+  };
+  std::vector<std::pair<Cell, bool>> stack{{heap->deref(root), false}};
+  while (!stack.empty()) {
+    const auto [cell, expanded] = stack.back();
+    if (!expanded && skeleton.contains(cell.raw())) {
+      stack.pop_back();
+      continue;
+    }
+    const GoalKids kids = goal_children(*heap, cell);
+    if (expanded || kids.count == 0) {
+      skeleton[cell.raw()] = settle(cell, kids);
+      stack.pop_back();
+      continue;
+    }
+    skeleton[cell.raw()] = kOpen;
+    stack.back().second = true;
+    for (std::uint8_t index = 0; index < kids.count; ++index) stack.emplace_back(kids.cells[index], false);
+  }
+  return skeleton[heap->deref(root).raw()] != 0;
 }
 
 // スロットが kDeferAt を超えたら、残りのゴールを元の項を指す call/1 の葉にし、動くときに新しいスロットで訳す（M28 の
@@ -243,7 +244,7 @@ bool Build::reaches_cycle(Cell root) {
 bool Build::defers(Cell cell) {
   if (!keep || refs.size() < kDeferAt) return false;
   cell = heap->deref(cell);
-  return !slotless_leaf(*heap, cell) && !blocks(cell) && !reaches_cycle(cell);
+  return !slotless_leaf(*heap, cell) && !blocks(cell);
 }
 
 // 後順に訳す。子は左から訳すので、変数の番号は浅いときの再帰と同じ順に振られる。

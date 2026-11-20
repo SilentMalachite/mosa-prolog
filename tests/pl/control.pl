@@ -452,10 +452,11 @@ m28_run(if_then_late_shallow) :-
     m28_tree_goal((a = a -> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
 m28_run(soft_if_late_shallow) :-
     m28_tree_goal(((a = a) *-> fail ; !, assertz(m28_seen)), V, G), retractall(m28_seen), \+ call((V = v, G)), \+ m28_seen.
-% 葉の中の ! はその葉に閉じるが、残りのじかの位置にも ! があれば、残りは後で訳せない（H-08 で巡回を探す歩みが葉の
-% 中へ入るようになっても、同じ ! の答えを葉の中のものに取り違えない）。
+% 葉の中の ! はその葉に閉じるが、残りのじかの位置にも ! があれば、残りは後で訳せない（H-08 で後で訳すかを決める
+% 歩みが葉の中へ入るようになっても、同じ ! の答えを葉の中のものに取り違えない）。歩みは右の子から見るので、葉を右に
+% 置く。葉の中で会った ! を後で訳せる物と覚える歩みは、この順で不合格になり、逆の順では通ってしまった。
 m28_run(many_compound_args_call_cut) :-
-    m28_wide_goal(a, (call(!), !), V, G), findall(Y, call((V = v, (Y = 1 ; Y = 2), G)), L), L == [1].
+    m28_wide_goal(a, (!, call(!)), V, G), findall(Y, call((V = v, (Y = 1 ; Y = 2), G)), L), L == [1].
 % 巡回が後で訳す部分の中だけにあっても、その場で訳して何も動かす前に見つける（レビュー H-08）。直す前は後で訳す
 % 部分が動くときに見つかり、その前の assertz(m28_seen) と 64 個のゴールが先に動いた。
 m28_run(late_inner_cycle) :-
