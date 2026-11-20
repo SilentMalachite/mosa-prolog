@@ -447,6 +447,14 @@ A か B か: A は、読み込みを `permission_error(load, source_sink, File)`
 
 決定（2026-10-28）: A。`use_module/1,2` はモジュールのファイルだけを受ける。
 
+## 第5節 名前が `user` か `system` の `module/2`
+
+SPEC 第5節は `user` と `system` を初めからあるモジュールとするが、ファイルがその名前を宣言してよいかは書いていない。`declare_module` は既にあるモジュールを使い直し、読み直しと同じく中を空にした。consult したファイルの `:- module(user, [p/0]).` は、それまでの `user` の取り込みをすべて消したので、`use_module(library(lists))` の後の `append/3` が `existence_error` になった。`:- module(system, [p/0]). p.` は利用者の述語を `system` に置き、どのモジュールからも呼べた（レビュー H-12。`system` の部分は L-24 の欠陥で、どちらの答えでも断る）。
+
+A か B か（レビュー H-12、2026-11-20）: A は `module(user, Exports)` を受けるが `user` の取り込みは残す。B は `system` と同じく `permission_error(create, module, user)` で断る。
+
+決定（2026-11-21）: B（持ち主）。名前が `user` か `system` の `module/2` は、引数の検査の後で `permission_error(create, module, Name)` を出す。最初の項でない `module/2` と同じで、読み込みは失敗し、どちらのモジュールも変わらない。テスト: `tests/pl/modules.pl` の `h12_*`。
+
 ## 第5節 初期化の例外で途中までしか読まれていないファイル
 
 入れ子の読み込みの `initialization/1` のゴールが例外を投げると、それまでに読んだ節は残り、外側のファイルはその指令で読むのをやめる。外側のファイルには読み込み済みの印が残るので、後の `use_module/1,2` や `ensure_loaded/1` は残りを読まず、作りかけのモジュールが見えていた。

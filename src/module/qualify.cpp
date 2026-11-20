@@ -1,7 +1,8 @@
 // :/2 限定ゴールと、読み込みの指令 module/2、export/1（SPEC 第5節、ADR 0006）。
 // モード: :(+atom, +callable)、module(+atom, +list)、export(+predicate_indicator_or_list)。
 // エラー: instantiation_error、type_error(atom, M)、existence_error(module, M)、type_error(callable, M:G)、
-//         permission_error(create, module, M)、type_error(list, L)、type_error(predicate_indicator, PI)、
+//         permission_error(create, module, M)（最初の項でない module/2、M が user か system）、type_error(list, L)、
+//         type_error(predicate_indicator, PI)、
 //         type_error(integer, A)、domain_error(not_less_than_zero, A)、representation_error(max_arity)。
 //         A の Big（フェーズ10）は、負なら domain_error、正なら representation_error(max_arity)。
 //         M:G の G の制御構造が巡回すれば resource_error(cyclic_term)（iso-notes 7.3.3、2026-11-17 の持ち主の決定 A）。
@@ -165,6 +166,11 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   std::vector<OpRequest> ops;
   if (const auto formal = read_indicators(machine, exports, atom_of(name), keys, &ops)) return formal;
   if (!first) return formal_permission(machine, "create", "module", name);
+  // 初めからある user と system は宣言できない（レビュー H-12、2026-11-21 の持ち主の B、iso-notes 第5節）。使い直すと
+  // 読み直しと同じく中を空にするので、user の取り込みが消え、system には利用者の述語が入った。
+  if (atom_of(name) == machine.user_module || atom_of(name) == machine.system_module) {
+    return formal_permission(machine, "create", "module", name);
+  }
   Module* module = find_module(machine, atom_of(name));
   if (module == nullptr) {
     Module created;

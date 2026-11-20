@@ -445,6 +445,14 @@ A or B?: A: the load fails with `permission_error(load, source_sink, File)` and 
 
 Decision (2026-10-28): A. `use_module/1,2` accepts module files only.
 
+## Section 5 `module/2` with the name `user` or `system`
+
+SPEC section 5 has `user` and `system` as the modules that exist from the start, but does not say whether a file may declare one of them. `declare_module` reused the existing module and cleared it as for a reconsult: `:- module(user, [p/0]).` in a consulted file dropped every earlier import of `user`, so `use_module(library(lists))` then `append/3` raised `existence_error`, and `:- module(system, [p/0]). p.` put a user predicate in `system`, callable from every module (review H-12; the `system` part is the defect of L-24 and is refused under either answer).
+
+A or B? (review H-12, 2026-11-20): A accepts `module(user, Exports)` but keeps `user`'s imports; B refuses it with `permission_error(create, module, user)`, as for `system`.
+
+Decision (2026-11-21): B (the owner). `module/2` with the name `user` or `system` raises `permission_error(create, module, Name)` after the checks of its arguments, as a `module/2` that is not the first term does, and the load fails, so neither module changes. Tests: `h12_*` in `tests/pl/modules.pl`.
+
 ## Section 5 A file left half-read by an initialization exception
 
 When a nested load's `initialization/1` goal throws, the clauses read so far are kept and the outer file stops at that directive. The outer file stayed marked as loaded, so a later `use_module/1,2` or `ensure_loaded/1` did not read the rest and saw a half-built module.

@@ -363,3 +363,16 @@ h10_m(G) :- call(G).
 test(h10_order_comma, predicate_property(h10_c(_), meta_predicate(M)), solutions([M = h10_c(:)])).
 test(h10_order_list, predicate_property(h10_l(_), meta_predicate(M)), solutions([M = h10_l(0)])).
 test(h10_order_mixed, predicate_property(h10_m(_), meta_predicate(M)), solutions([M = h10_m(:)])).
+
+% レビュー H-12（2026-11-21、持ち主の B）。名前が user か system の module/2 は permission_error(create, module, Name)
+% で読み込みを失敗にする（Formal は tests/cpp/module_load_test.cpp が診断の文で見る）。前は user の取り込みを読み直しと
+% 同じくすべて消し（その後の append/3 が existence_error）、system は利用者の述語をどのモジュールからも呼べるようにした。
+h12_load(Name, Text) :-
+    atom_concat('tests/tmp/h12_', Name, Base), atom_concat(Base, '.pl', Path),
+    open(Path, write, S), write(S, Text), close(S), consult(Path).
+test(h12_user,
+     (use_module(library(lists)), \+ h12_load(user, ':- module(user, [h12_p/0]).\nh12_p.\n'),
+      append([a], [b], L), L == [a, b], \+ current_predicate(h12_p/0)), true).
+test(h12_system,
+     (\+ h12_load(system, ':- module(system, [h12_q/0]).\nh12_q.\n'),
+      catch(h12_q, error(existence_error(procedure, _), _), true)), true).

@@ -54,6 +54,21 @@ void check_not_first() {
   mosa_test::check(machine->query("m:true.").kind == mosa::StopKind::Exception, "rejected module is not created");
 }
 
+// レビュー H-12（2026-11-21、持ち主の B）。初めからある user と system は、ファイルが宣言できない。前は user の取り込みを
+// 消し、system に利用者の述語を置いた。引数の誤りは先に出る（module(user, [foo]) は predicate_indicator の type_error）。
+void check_reserved_module_names() {
+  for (const std::string name : {"user", "system"}) {
+    auto machine = mosa::Machine::create();
+    mosa_test::check(!machine->load_program(":- module(" + name + ", [h12_p/0]).\nh12_p.\n").ok, name + " is refused");
+    mosa_test::check(mentions(*machine, "permission_error(create,module," + name + ")"),
+                     "permission_error(create, module, " + name + ")");
+    mosa_test::check(machine->query("h12_p.").kind == mosa::StopKind::Exception, name + ": the clause is not loaded");
+    auto bad = mosa::Machine::create();
+    mosa_test::check(!bad->load_program(":- module(" + name + ", [foo]).").ok, name + " with a bad export fails");
+    mosa_test::check(mentions(*bad, "type_error(predicate_indicator,foo)"), name + ": the export error comes first");
+  }
+}
+
 void check_bad_module_name() {
   auto machine = mosa::Machine::create();
   mosa_test::check(!machine->load_program(":- module(1, []).").ok, "module name 1 fails");
@@ -339,6 +354,7 @@ void check_init_after_flag_restore() {
 int main() {
   check_module_text();
   check_not_first();
+  check_reserved_module_names();
   check_bad_module_name();
   check_bad_export();
   check_rollback();
