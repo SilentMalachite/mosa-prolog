@@ -336,19 +336,60 @@ void retry_right(Machine& machine, const Prog& prog, int right, Env& env) {
       env.tri = stopped(step.stop.kind);
       return;
     }
-    env.bindings = step.stop.bindings;
+    // 次の解で束縛の写しと live も書き直す。前は束縛だけを替え、字面の写しが最初の解のまま残った（レビュー M-49）。
+    remember_stop(machine, step.stop, env);
     exec_at(machine, prog, right, env);
   }
+}
+
+// 開いた query のやり直しは、その query を開いた連言だけが行う。後ろの連言がやり直すと、query より後でその連言
+// より前に動いた目標（assertion など）を新しい解で動かし直さない（レビュー M-49）。owner は左の前に live でないこと。
+void run_then(Machine& machine, const Prog& prog, int first, int rest, bool owner, Env& env) {
+  exec_at(machine, prog, first, env);
+  if (env.tri != Tri::Ok) return;
+  exec_at(machine, prog, rest, env);
+  if (env.tri != Tri::No || !owner) return;
+  retry_right(machine, prog, rest, env);
+}
+
+// (A ; B), C は、A の解で C を動かし、尽きたら B の解で C を動かす。前は exec_disj が A の成功で返り、C が失敗しても
+// B へ戻らなかった（レビュー M-49）。B の前に、A の前の束縛を字面の写しから読み直す（exec_forall と同じ）。
+// A の表明の失敗の後も B を試すのは、exec_disj の take_else と同じ。
+void exec_disj_then(Machine& machine, const Prog& prog, int disj, int rest, Env& env) {
+  const Node& node = prog.nodes[static_cast<std::size_t>(disj)];
+  const bool live = env.live;
+  snapshot_bundle(machine, env);
+  const std::string bundle = env.bundle;
+  const std::vector<std::string> names = env.bundle_names;
+  const std::vector<Saved> saved = env.saved;
+  run_then(machine, prog, node.left, rest, !live, env);
+  const Tri first = env.tri;
+  if (first == Tri::Ok || first == Tri::Dead || first == Tri::Throw) return;
+  const std::string note = env.note;
+  env.live = live;
+  env.bundle = bundle;
+  env.bundle_names = names;
+  env.saved = saved;
+  rehydrate_bindings(machine, env);
+  if (env.tri == Tri::Dead) return;
+  run_then(machine, prog, node.right, rest, !live, env);
+  if (env.tri == Tri::Ok || env.tri == Tri::Dead || env.tri == Tri::Throw) return;
+  if (first == Tri::Abort || env.tri == Tri::Abort) {
+    if (env.tri != Tri::Abort) env.note = note;
+    env.tri = Tri::Abort;
+    return;
+  }
+  env.tri = Tri::No;
 }
 
 void exec_conj(Machine& machine, const Prog& prog, int index, Env& env) {
   const int left = prog.nodes[static_cast<std::size_t>(index)].left;
   const int right = prog.nodes[static_cast<std::size_t>(index)].right;
-  exec_at(machine, prog, left, env);
-  if (env.tri != Tri::Ok) return;
-  exec_at(machine, prog, right, env);
-  if (env.tri != Tri::No) return;
-  retry_right(machine, prog, right, env);
+  if (prog.nodes[static_cast<std::size_t>(left)].kind == NodeKind::Disj) {
+    exec_disj_then(machine, prog, left, right, env);
+    return;
+  }
+  run_then(machine, prog, left, right, !env.live, env);
 }
 
 // forall/2 は \+ (Cond, \+ Action) なので、生成側は前の束縛を見て動き、その束縛は Action の間だけ使う。
@@ -358,8 +399,10 @@ void exec_conj(Machine& machine, const Prog& prog, int index, Env& env) {
 void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
   const int generator = prog.nodes[static_cast<std::size_t>(index)].left;
   const int action = prog.nodes[static_cast<std::size_t>(index)].right;
+  // ランナー目標を含む生成側は解を並べられない。前は失敗にしたので、false の試験が偽合格した（レビュー M-49）。
   if (generator < 0 || prog.nodes[static_cast<std::size_t>(generator)].kind != NodeKind::Plain) {
-    env.tri = Tri::No;
+    env.note = "unsupported";
+    env.tri = Tri::Abort;
     return;
   }
   const std::string text = goal_with_saved(machine, prog.nodes[static_cast<std::size_t>(generator)].text, env.saved);

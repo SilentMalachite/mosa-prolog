@@ -4,6 +4,7 @@
 // H-36: halt と、選択点の後でスクラッチの機械に回したゴールの例外と halt が失敗と数えられ、false と all が通った。
 // H-37: assertion のある本体では、ball/1 が正しく投げても通らず、成功した本体が ball/1 と error/1 で通った。
 // H-38: true(Assertion) の本体の最上位の ; が切りの外に出て、表明が失敗すると本体の次の解で通った。
+// M-49: ランナー目標の無い ; が Disj になって右の枝へ戻らず、やり直しは query を開いていない連言も行った。
 
 #include "harness.hpp"
 #include "mosa/suite.hpp"
@@ -153,6 +154,33 @@ void check_first_solution_only(const std::filesystem::path& root) {
   check_passes(root, "h38_conjunction", "\ttest(h38_conjunction, true(Y == 3)) :- X = 1, Y is X + 2.");
 }
 
+// 選言とやり直しは Prolog の意味のとおり。forall/2 の生成側の ; も、右の枝の解まで並べる。
+void check_disjunctions(const std::filesystem::path& root) {
+  check_passes(root, "m49_forall", "\ttest(m49_forall, true) :- forall((X = 1 ; X = 2), integer(X)).");
+  check_passes(root, "m49_forall_atom", "\ttest(m49_forall_atom, false) :- forall((X = 1 ; X = 2), atom(X)).");
+  check_passes(root, "m49_retry", "\ttest(m49_retry, true) :- (X = 1 ; X = 2), assertion(true), X == 2.");
+  // ランナー目標を含む左の枝が成功しても、後ろが失敗すれば右の枝へ戻る。
+  check_passes(root, "m49_runner_disj", "\ttest(m49_runner_disj, true) :- (X = 1, assertion(true) ; X = 2), X == 2.");
+  // やり直した解で束縛の写しも替わるので、後ろのゴールが最初の解の X を読まない。
+  check_passes(root, "m49_saved",
+               "\ttest(m49_saved, true(Y == 2)) :- (X = 1 ; X = 2), assertion(true), X == 2, Y = X.");
+  const std::array<Case, 5> cases{{
+      {"m49_forall_false", "\ttest(m49_forall_false, false) :- forall((X = 1 ; X = 2), integer(X)).",
+       "m49_forall_false false true"},
+      {"m49_retry_false", "\ttest(m49_retry_false, false) :- (X = 1 ; X = 2), assertion(true), X == 2.",
+       "m49_retry_false false true"},
+      {"m49_runner_disj_false", "\ttest(m49_runner_disj_false, false) :- (X = 1, assertion(true) ; X = 2), X == 2.",
+       "m49_runner_disj_false false true"},
+      // 前の query を開いた連言がやり直すので、間の assertion も次の解で動かし直して落ちる。
+      {"m49_reassert", "\ttest(m49_reassert, true) :- (X = 1 ; X = 2), assertion(X == 1), X == 2.",
+       "m49_reassert true assertion"},
+      // ランナー目標を含む生成側は並べられない。失敗と数えると false の試験が通るので、unsupported で落とす。
+      {"m49_generator", "\ttest(m49_generator, false) :- forall((X = 1, assertion(true)), integer(X)).",
+       "m49_generator false unsupported"},
+  }};
+  for (const Case& item : cases) check_fails(root, item);
+}
+
 }  // namespace
 
 int main() {
@@ -163,6 +191,7 @@ int main() {
     check_stops_are_not_failures(root);
     check_thrown_outcomes(root);
     check_first_solution_only(root);
+    check_disjunctions(root);
   }
   return mosa_test::failures();
 }
