@@ -35,6 +35,13 @@ target_compile_definitions(suite_vars_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(suite_vars_test PRIVATE mosa_lib)
 add_test(NAME suite_vars_test COMMAND $<TARGET_FILE:suite_vars_test>)
 
+# レビュー 2026-11-20 の W1。落ちるべき試験を判定器が不合格にし、プロセスごと落ちないこと（C-04 から）。
+add_executable(suite_judge_test tests/cpp/suite_judge_test.cpp)
+target_include_directories(suite_judge_test PRIVATE tests/cpp)
+target_compile_definitions(suite_judge_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_judge_test PRIVATE mosa_lib)
+add_test(NAME suite_judge_test COMMAND $<TARGET_FILE:suite_judge_test>)
+
 add_executable(suite_encoding_test tests/cpp/suite_encoding_test.cpp)
 target_include_directories(suite_encoding_test PRIVATE tests/cpp)
 target_compile_definitions(suite_encoding_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -99,7 +106,8 @@ add_test(NAME suite_halt_test COMMAND $<TARGET_FILE:suite_halt_test>)
 # suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
 # 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/mosac_tests.cmake で付く。全体レビュー推奨5）。
 set_tests_properties(assert_shared suite_assert_test suite_if_test suite_imports_test suite_approx_test
-  suite_path_test suite_vars_test suite_encoding_test suite_tester_test conformance_report_test conformance_io_test
+  suite_path_test suite_vars_test suite_encoding_test suite_tester_test suite_judge_test conformance_report_test
+  conformance_io_test
   conformance_output_test conformance_badge_test conformance_cwd_test
   PROPERTIES RESOURCE_LOCK suite_scratch)
 

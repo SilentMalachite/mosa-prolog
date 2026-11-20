@@ -462,6 +462,9 @@ bool error_ball(const Heap& heap, Cell ball, Cell formal) {
 // 次の query はヒープを捨てる。自由なままの Stream は別の犯人まで包摂するので、残した字面を戻す。
 // listed のときだけ列を歩く。error/1 の項がリストでも、候補の一つにはしない。
 bool thrown_error(Machine& machine, const Env& env, std::string_view detail, bool listed) {
+  // Tri::Throw は forall/2 の生成側の halt でも立つ。そのとき exception は空の番地なので、読むとプロセスが落ちる
+  // （レビュー C-04）。投げられた項が無ければ誤りに当たらず、呼び手が halt(N) を実際として書く。
+  if (env.stop.kind != StopKind::Exception) return false;
   const LgtParsed parsed = lgt_parse_term(machine, detail);
   if (!parsed.ok) return false;
   std::vector<std::uint64_t> stack;
