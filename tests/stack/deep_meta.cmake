@@ -1,6 +1,8 @@
 # レビュー 2026-11-20 の H-10。:- meta_predicate の頭は「,」でつないでも、リストに入れてもよい。その頭を集める
 # collect_heads が「,」とリストの要素ごとに C++ で再帰し、30,000 段の左に入れ子の連言と、30,000 段に入れ子の
 # リストで、1 MiB のスタックがあふれた（SIGSEGV）。同じ項を事実の引数に書けば読めるので、reader ではない。
+# 読み手が作るふつうの右に入れ子の連言は、Release で 2 つ目の再帰が末尾呼び出しになって読めていただけなので、
+# それも 30,000 個で見る（Debug と ASan のビルドを流す CI のため）。
 # 大きな原文は tests に置かず、ここで WORK に作ってから small_stack.cmake に渡す。
 # 使い方: cmake -DMOSA=<mosa> -DWORK=<作業ディレクトリ> -DSMALL_STACK=<small_stack.cmake> -P deep_meta.cmake
 
@@ -13,17 +15,22 @@ set(conjunction "${opens}a(0)${middle},z(0))")
 string(REPEAT "[" 30000 list_opens)
 string(REPEAT "]" 30000 list_closes)
 set(nested "${list_opens}b(0)${list_closes}")
+# (r(0), r(0), ..., r(0)) は右に入れ子の 30,000 個の頭。
+string(REPEAT "r(0)," 29999 right)
+set(right "(${right}r(0))")
 file(WRITE "${WORK}/deep_meta.pl" ":- initialization(main, main).
 :- meta_predicate ${conjunction}.
 :- meta_predicate ${nested}.
+:- meta_predicate ${right}.
 a(G) :- call(G).
 q(G) :- call(G).
 z(G) :- call(G).
 b(G) :- call(G).
+r(G) :- call(G).
 show(P) :- ( predicate_property(P, meta_predicate(M)) -> write(M) ; write(none(P)) ), nl.
-main :- show(a(_)), show(q(_)), show(z(_)), show(b(_)).
+main :- show(a(_)), show(q(_)), show(z(_)), show(b(_)), show(r(_)).
 ")
-file(WRITE "${WORK}/deep_meta.expected" "a(0)\nq(0)\nz(0)\nb(0)\n")
+file(WRITE "${WORK}/deep_meta.expected" "a(0)\nq(0)\nz(0)\nb(0)\nr(0)\n")
 set(COMMAND "${MOSA};${WORK}/deep_meta.pl")
 set(EXPECTED "${WORK}/deep_meta.expected")
 include("${SMALL_STACK}")

@@ -352,3 +352,14 @@ test(cyc_pred_prop_no_module, (X = nomod:X, predicate_property(X, _)), error(exi
 test(cyc_import, (X = a:X, import(X)), error(resource_error(cyclic_term))).
 test(cyc_import_two, (X = a:Y, Y = b:X, import(X)), error(resource_error(cyclic_term))).
 test(cyc_import_var_first, (X = a:_:X, import(X)), error(instantiation_error)).
+% レビュー H-10。:- meta_predicate の頭は、「,」でつないでもリストに入れても、左から右の順に宣言する。同じ述語を
+% 2 度宣言すると後の宣言が残るので、残った形で順が分かる（手で積む collect_heads が子を積む順を見る）。
+:- meta_predicate (h10_c(0), h10_c(:)).
+:- meta_predicate [h10_l(:), h10_l(0)].
+:- meta_predicate (([h10_m(0)], h10_m(^)), [h10_m(:)]).
+h10_c(G) :- call(G).
+h10_l(G) :- call(G).
+h10_m(G) :- call(G).
+test(h10_order_comma, predicate_property(h10_c(_), meta_predicate(M)), solutions([M = h10_c(:)])).
+test(h10_order_list, predicate_property(h10_l(_), meta_predicate(M)), solutions([M = h10_l(0)])).
+test(h10_order_mixed, predicate_property(h10_m(_), meta_predicate(M)), solutions([M = h10_m(:)])).
