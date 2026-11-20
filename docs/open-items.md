@@ -10,6 +10,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12,
   H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27,
   L-33. Each entry gives its A or B; default A, which keeps the current behaviour.
+- Review H-41, the fifth tests/pl expectation (SPEC section 8). Default A: `ball(Ball)` subsumes a
+  whole thrown term, and the eight raw-ball rows keep their goals (B: four kinds only, and those
+  rows are rewritten with `catch/3` and `solutions`).
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).

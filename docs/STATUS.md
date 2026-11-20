@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** H-40 (557fc63a, 8d8a9a20): test/1 and unreadable files counted; C-04, H-33–H-38.
+- **Last done:** H-41 (c3f55110): error(Formal) subsumes; raw balls use ball/1; C-04, H-33–H-38, H-40.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-41 (the tests/pl runner matches the error by unification and accepts a raw ball).
+- **Next:** H-42 (`--diff` counts a module file as agreeing without running its tests).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
