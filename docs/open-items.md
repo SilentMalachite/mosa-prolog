@@ -268,6 +268,13 @@ General:
   cells would make `=` and `==` linear; not shown to keep `compare/3`'s order. Left for later.
 - Under `--heap-max 16`, `length(L, 300000)` reaches 48 MB RSS, and with a recursive fill and
   `copy_term/2` 151 MB: something outside the heap that the limit does not count (seen in H-02).
+- The standard order of cyclic terms (ADR 0029, review H-04): a comparison that decides after
+  passing a shared subterm also compares the levels above that difference, and an equal or
+  undecided depth-first walk of a deep term keeps 32 bytes a pair for its path and frames (counted
+  past the heap words in use). Measured: `L == M` of two 1,000,000-integer lists peaks at 361 MB RSS
+  under `--heap-max 64` (360 MB before, from building the lists); the p=2000 `X == Y` of H-02 stops
+  at 17 MB RSS under `--heap-max 16` (32 MB before). `mosatest --bench` was not run for H-04; three
+  micro benchmarks (`==` of copies, sorts of compound terms, sorts sharing a subterm) were.
 - setof/3 orders groups whose witnesses differ only in variables by the caller's cells (7.2.1
   leaves the order of variables implementation dependent). `wg17_setof_3_47` wants solution
   order or its reverse; it passes because the last witness stands for an aliased class (C-03).

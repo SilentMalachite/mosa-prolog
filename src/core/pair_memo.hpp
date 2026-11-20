@@ -30,13 +30,18 @@ struct PairHash {
   }
 };
 
-// pairs 組目を足したとき。単一化と比較はヒープに割り当てないので、heap.size() は歩みの間ずっと同じである。
-inline void charge(const Heap& heap, std::size_t pairs, std::size_t pair_bytes) {
-  const std::size_t free_pairs = heap.size();
-  if (pairs <= free_pairs) return;
-  const std::size_t words = ((pairs - free_pairs) * pair_bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t);
+// 表がヒープの外に bytes を持つとき。free_bytes までは数えない。単一化と比較はヒープに割り当てないので、heap.size() は
+// 歩みの間ずっと同じである。
+inline void charge_bytes(const Heap& heap, std::size_t bytes, std::size_t free_bytes) {
+  if (bytes <= free_bytes) return;
+  const std::size_t words = (bytes - free_bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t);
   const std::size_t used = heap.size() + heap.held() + heap.state();
   if (used >= heap.limit() || words > heap.limit() - used) throw ResourceLimit("heap_limit");
+}
+
+// pairs 組目を足したとき。使っているヒープの語の数までの組は数えない。
+inline void charge(const Heap& heap, std::size_t pairs, std::size_t pair_bytes) {
+  charge_bytes(heap, pairs * pair_bytes, heap.size() * pair_bytes);
 }
 
 }  // namespace pair_detail
@@ -74,16 +79,17 @@ class PairMemo {
 // 節点を確保し、番号を足すと節点が大きくなって、大きな写しの == が 3 割遅くなった。そこで 1 本の配列に開番地で置く。
 class PairNumbers {
  public:
-  // 表は半分までしか埋めないので、1 組に枠 2 つ分を数える。
-  static constexpr std::size_t kPairBytes = 2 * 3 * sizeof(std::uint64_t);
+  // 歩みが組ごとに表の外に持つ物（道の番号 1 つと、深い所の枠 1 つ）の目安。
+  static constexpr std::size_t kWalkBytes = 32;
 
   // 新しい組なら number で覚えて空を返す。前に入った組なら、その番号を返す。
   std::optional<std::uint64_t> enter(const Heap& heap, std::uint64_t left, std::uint64_t right, std::uint64_t number) {
-    if ((count_ + 1) * 2 > slots_.size()) grow();
+    if ((count_ + 1) * 2 > slots_.size()) grow(heap);
     Slot& slot = find(slots_, left, right);
     if (slot.mark != 0) return slot.mark - 1;
     slot = {left, right, number + 1};
-    pair_detail::charge(heap, ++count_, kPairBytes);
+    ++count_;
+    charge(heap, slots_.size());
     return std::nullopt;
   }
 
@@ -98,6 +104,13 @@ class PairNumbers {
   };
 
   static constexpr std::size_t kFirstSlots = 1024;
+  // 使っているヒープの語の数までの組は、1 組 48 バイト（枠 2 つ）として数えない（ADR 0010 の改訂 4）。
+  static constexpr std::size_t kFreePairBytes = 2 * sizeof(Slot);
+
+  // 確保した枠の数で数える。表は半分までしか埋めず、倍に広げる間は古い枠も残る。
+  void charge(const Heap& heap, std::size_t slots) const {
+    pair_detail::charge_bytes(heap, slots * sizeof(Slot) + count_ * kWalkBytes, heap.size() * kFreePairBytes);
+  }
 
   // その組の枠か、組が無ければ置くべき空の枠。枠の数は 2 の冪で、半分より多くは埋まらない。
   static Slot& find(std::vector<Slot>& slots, std::uint64_t left, std::uint64_t right) {
@@ -109,8 +122,10 @@ class PairNumbers {
     return slots[at];
   }
 
-  void grow() {
-    std::vector<Slot> wider(slots_.empty() ? kFirstSlots : slots_.size() * 2, Slot{0, 0, 0});
+  void grow(const Heap& heap) {
+    const std::size_t size = slots_.empty() ? kFirstSlots : slots_.size() * 2;
+    charge(heap, size + slots_.size());
+    std::vector<Slot> wider(size, Slot{0, 0, 0});
     for (const Slot& slot : slots_) {
       if (slot.mark != 0) find(wider, slot.left, slot.right) = slot;
     }

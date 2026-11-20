@@ -63,6 +63,21 @@ h04_shared(N, O) :-
     h04_wrap(N, p(Z1, Z1, k(b), a), L), h04_wrap(N, p(Z2, Z2, k(a), b), R), compare(O, L, R).
 test(h04_shared_shallow, h04_shared(10, O), solutions([O = (>)])).
 test(h04_shared_deep, h04_shared(100, O), solutions([O = (>)])).
+% 256 組を超えて表へ移った後も、比べ終えた組と途中の組を取り違えない。h04_shared(400) は比べ終えた組にまた会い、
+% 途中とみなせば < になる。周期 30 と 31 の輪は 930 組の後に途中の組にまた会い、いちばん浅い違い d 対 b で > になる。
+% 比べ終えたとみなせば、歩みは最後の組の b 対 c で < にする。
+h04_ring(P, Index, Mark, First) :- length(Ns, P), Ns = [First|_], h04_ring_bind(Ns, 0, Index, Mark, First).
+h04_ring_bind([N], I, Index, Mark, First) :- !, h04_label(I, Index, Mark, L), N = f(First, L).
+h04_ring_bind([N, Next|T], I, Index, Mark, First) :-
+    h04_label(I, Index, Mark, L), N = f(Next, L), I1 is I + 1, h04_ring_bind([Next|T], I1, Index, Mark, First).
+h04_label(Index, Index, Mark, Mark) :- !.
+h04_label(_, _, _, b).
+test(h04_shared_table, h04_shared(400, O), solutions([O = (>)])).
+test(h04_rings, (h04_ring(30, 0, d, N), h04_ring(31, 30, c, M), compare(O, N, M)), solutions([O = (>)])).
+% 深さ 64 より深い所でも、共有の部分項を飛ばした後に決めた答えは共有に依らない。
+test(h04_shared_wrapped, (X = f(X), Z = g(c), h04_wrap(100, f(X, k(b), a), L1), h04_wrap(100, f(X, k(a), b), R1),
+                          h04_wrap(100, f(Z, k(b), a), L2), h04_wrap(100, f(Z, k(a), b), R2),
+                          compare(O1, L1, R1), compare(O2, L2, R2)), solutions([(O1 = (<), O2 = (>))])).
 % 決まった擬似乱数で、節点 4 つのグラフを 12 個作る。節点は f/2、g/1、a、b のどれかで、子は同じグラフの節点。同じ形を
 % 2 組の節点に交互に置いた写しは周期が 2 倍で、展開した木は元と同じになる。集まりを並べた後のどの 2 つも < で、> は
 % 逆で、= は単一化が成り立つ組だけ。写しは元と同じ答えになる。
