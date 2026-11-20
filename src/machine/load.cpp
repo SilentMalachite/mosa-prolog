@@ -593,6 +593,7 @@ LoadStatus finish_and_hand_over(Impl& machine, const std::size_t& heap_base, con
 // 同時に開いている読み込みの数の上限（iso-notes 7.1）。入れ子の読み込みは、指示と初期化のゴールごとに run_loop を
 // 入れ子にして C++ のスタックを使う。1 MiB のスタックで、ゴールの consult/1 の鎖は 226 段まで、[F] は 318 段まで、
 // initialization/1 は 393 段まで通り、その先で落ちた（Release、macOS、2026-11-20）。一番浅いものに 3 倍余りの余裕を置く。
+// 数えるのは load_once の入れ子。指示の include/1、ensure_loaded/1、use_module/1,2 は今の読み込みの中で読むので数えない。
 constexpr std::size_t kLoadDepthMax = 64;
 
 // 上限を超える読み込みは何もせずに失敗する。自分の初期化のゴールで自分を consult するファイルは、テキストを閉じた後に
@@ -716,7 +717,8 @@ LoadStatus load_goal_term(Impl& machine, Cell directive) {
   const LoadStatus status = run_load(machine, true, nullptr, [&machine, &load, ensure](LoadScan& scan) {
     return ensure ? goal_ensure(machine, load, scan) : goal_use(machine, load, scan);
   });
-  if (status.ok || !load.prefix_file) return status;
+  // 入れ子の深さの上限は、ファイルを探す前に読み込みを止める。パスが無いので付けない（前は「: 」が残った）。
+  if (status.ok || !load.prefix_file || load.file.empty()) return status;
   // 開いたファイルの中の誤りと読んだ後の誤りは、mosa F と同じく開いたパスを付ける（構文の誤りなら行と桁も）。
   prefix_consult_diagnostic(machine, utf8_from_path(load.file));
   return LoadStatus{false, machine.diagnostic};

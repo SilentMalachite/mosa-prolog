@@ -188,14 +188,16 @@ void check_self_init(const std::filesystem::path& dir) {
   mosa_test::check(holds(*machine, "i(1)."), "selfi: clause kept");
 }
 
-// 別々のファイルの鎖。64 段までは読め、65 段目で失敗する。どの形の入れ子も同じく数える。
-void check_chain(const std::filesystem::path& dir, int files, bool loads) {
-  const std::string stem = "chain" + std::to_string(files) + "_";
+// 別々のファイルの鎖。64 段までは読め、65 段目で失敗する。数えるのは読み込み 1 回ずつの入れ子で、ゴールの consult/1、
+// use_module/1,2、ensure_loaded/1、指示の [F] と、それらを呼ぶ初期化のゴール。指示の include/1、ensure_loaded/1、
+// use_module/1,2 は同じ読み込みの中で読むので数えない（iso-notes 7.1）。
+void check_chain(const std::filesystem::path& dir, int files, bool loads, std::string_view form = "consult") {
+  const std::string stem = std::string{form} + std::to_string(files) + "_";
   for (int index = 1; index <= files; ++index) {
     const auto file = dir / (stem + std::to_string(index) + ".pl");
     const auto next = dir / (stem + std::to_string(index + 1) + ".pl");
     const std::string text = index == files ? "leaf" + std::to_string(files) + "(1).\n"
-                                            : ":- (true, consult(" + prolog_path(next) + ")).\n";
+                                            : ":- (true, " + std::string{form} + "(" + prolog_path(next) + ")).\n";
     mosa_test::check(write_text(file, text), "write " + stem);
   }
   auto machine = mosa::Machine::create();
@@ -205,6 +207,11 @@ void check_chain(const std::filesystem::path& dir, int files, bool loads) {
                    label + "outcome [" + asked.err.substr(0, 200) + "]");
   mosa_test::check(has_deep(asked) != loads, label + "depth phrase");
   mosa_test::check(holds(*machine, "catch(leaf" + std::to_string(files) + "(1), _, fail).") == loads, label + "leaf");
+  // 上限はファイルを探す前に止めるので、ゴールの ensure_loaded/1 はパスを付けない。前は「: 」を前に付けた。
+  if (!loads && form == "ensure_loaded") {
+    const bool bare = asked.err.rfind(kDeep, 0) == 0 || asked.err.find("\n" + std::string{kDeep}) != std::string::npos;
+    mosa_test::check(bare, label + "no empty path [" + asked.err.substr(0, 200) + "]");
+  }
 }
 
 }  // namespace
@@ -224,6 +231,7 @@ int main() {
   check_outer(dir);
   check_chain(dir, 64, true);
   check_chain(dir, 65, false);
+  check_chain(dir, 65, false, "ensure_loaded");
   check_self_init(dir);
   std::filesystem::remove_all(dir, error);
   return mosa_test::failures();
