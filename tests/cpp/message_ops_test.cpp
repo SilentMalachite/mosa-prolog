@@ -48,9 +48,11 @@ void check_table_restored() {
 }
 
 // ctest の message_ops_gc が、読み込みの指示で GC を起こすカタログを MOSA_LIB に置いて呼ぶ。前は引数をカタログを
-// 読んだ後で書いたので、GC が動かした例外の項の古い番地を読んだ（L19 の Codex レビュー）。
+// 読んだ後で書いたので、GC が動かした例外の項の古い番地を読んだ（L19 の Codex レビュー）。そのカタログの文面は
+// lib/messages_en.pl と違うので、カタログが読まれず代わりの表示に落ちたときも落ちる（レビュー H-35）。
 void check_gc_during_load() {
-  check_shown({"true.", "throw(f(g(1), h(2), [a, b, c])).", "Warning: goal raised exception: f(g(1),h(2),[a,b,c])"});
+  check_shown({"true.", "throw(f(g(1), h(2), [a, b, c])).",
+               "Warning (messages_gc catalog): goal raised exception: f(g(1),h(2),[a,b,c])"});
 }
 
 // 文面を作る機械へ写した引数も、利用者の機械で書いたときと同じ字面になる（ADR 0007 の改訂 3、Muse のレビュー）。

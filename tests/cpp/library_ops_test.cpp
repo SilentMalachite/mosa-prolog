@@ -29,7 +29,7 @@ void check_session(const Session& item) {
 }  // namespace
 
 int main() {
-  const std::string plain = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/library_ops/plain.pl";
+  const std::string plain = std::string(MOSA_SOURCE_DIR) + "/tests/cpp/data/library_ops/plain.pl";
   const std::string consult = "op(700, xfx, ===).\nconsult('" + plain + "').\nq(X), X = (a === b).\n";
   const std::array<Session, 14> cases{{
       // user の -> を変えてからライブラリを読む。前は uselib.pl の節が読めなかった。
@@ -61,8 +61,10 @@ int main() {
       // 順に入れるので、後置を消してから中置を足すのは通る。
       {"op(300, yf, ===).\n:- use_module(library(swapops)).\nX = (a === b), write(X), nl.\n", "a===b", ""},
       // 断られた読み込みは、退けた利用者の表に入れた user:op/3 も戻す。ライブラリの中で consult したファイルも同じ。
+      // その consult が開けずに失敗しても戻す物が無いまま通るので、断られた文面も見る（レビュー H-35）。
       {":- use_module(library(rejectops)).\ncurrent_op(P, T, ===).\n", "false.", ""},
-      {":- use_module(library(nestops)).\ncurrent_op(P, T, ===).\n", "false.", ""},
+      {":- use_module(library(nestops)).\ncurrent_op(P, T, ===).\n", "false.",
+       "badops.pl: permission_error(modify,static_procedure,atom_length/2)"},
   }};
   for (const Session& item : cases) check_session(item);
   return mosa_test::failures();

@@ -256,35 +256,21 @@ target_include_directories(message_ops_test PRIVATE tests/cpp)
 target_link_libraries(message_ops_test PRIVATE mosa_lib)
 add_test(NAME message_ops COMMAND $<TARGET_FILE:message_ops_test>)
 # 読み込みの指示が GC を起こすカタログ。文面の引数は、カタログを読む前に字面にしておく（L19 の Codex レビュー）。
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_gc/messages_en.pl
-  ":- module(messages_en, []).\n:- use_module(library(format)).\n:- garbage_collect.\n"
-  "message(goal_raised, 'Warning: goal raised exception: ~q').\n")
+# 入力のファイルは tests/cpp/data に置いて追跡する。前は configure のときに git の無視する tests/tmp に書いたので、
+# tests/tmp を空にすると configure し直すまで試験が落ちるか、黙って代わりの表示で通った（レビュー H-35）。
 add_test(NAME message_ops_gc COMMAND $<TARGET_FILE:message_ops_test> gc)
-set_tests_properties(message_ops_gc PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_gc")
+set_tests_properties(message_ops_gc PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/cpp/data/messages_gc")
 
 # ADR 0006 の改訂 1。library(...) のファイルは ISO の核と自分のモジュールの演算子で読む。plain.pl はパスで読む。
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/uselib.pl
-  ":- module(uselib, [pick/2]).\npick(X, Y) :- ( X > 0 -> Y = pos ; Y = neg ).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/userops.pl ":- module(userops, []).\n:- user:op(700, xfx, ===).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/rmops.pl ":- module(rmops, []).\n:- user:op(0, xfx, =..).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/localops.pl
-  ":- module(localops, [t/1]).\n:- op(700, xfx, ~~).\nt(a ~~ b).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/plain.pl "q(a === b).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/resetops.pl
-     ":- module(resetops, []).\n:- user:op(1050, xfy, ->).\n:- user:op(0, xfx, ===).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/swapops.pl
-     ":- module(swapops, []).\n:- user:op(0, yf, ===).\n:- user:op(700, xfx, ===).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/rejectops.pl
-     ":- module(rejectops, []).\n:- user:op(700, xfx, ===).\natom_length(a, 1).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/nestops.pl
-     ":- module(nestops, []).\n:- ( consult('${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/badops.pl') -> true ; true ).\n")
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/library_ops/badops.pl ":- user:op(700, xfx, ===).\natom_length(a, 1).\n")
+# 入力のファイルは tests/cpp/data/library_ops にある（レビュー H-35）。nestops.pl のゴールの consult は相対パスを
+# 作業ディレクトリから開くので、リポジトリの根で動かす。
 add_executable(library_ops_test tests/cpp/library_ops_test.cpp)
 target_include_directories(library_ops_test PRIVATE tests/cpp)
 target_compile_definitions(library_ops_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(library_ops_test PRIVATE mosa_lib)
 add_test(NAME library_ops COMMAND $<TARGET_FILE:library_ops_test>)
-set_tests_properties(library_ops PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/library_ops")
+set_tests_properties(library_ops PROPERTIES ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/cpp/data/library_ops"
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # レビュー L21 の Codex 敵対的レビュー。共有の多い要素を持つリストを、8 MiB の上限で format/2 と
 # atomic_list_concat/2,3 に渡す。背骨の検査が \+ でリストを写すと、上限で止まる。
@@ -351,11 +337,11 @@ target_link_libraries(session_test PRIVATE mosa_lib)
 add_test(NAME session COMMAND $<TARGET_FILE:session_test>)
 # 今ある日本語の文面の確認を、流す機械の LANG に左右させない（ADR 0007）。
 set_tests_properties(session PROPERTIES ENVIRONMENT "LANG=ja_JP.UTF-8")
-# MOSA_LIB は実行ファイルの lib/ より先に探す。鍵の無い messages_en.pl で、代わりの表示を確かめる。
-file(WRITE ${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty/messages_en.pl ":- module(messages_en, []).\n")
+# MOSA_LIB は実行ファイルの lib/ より先に探す。鍵の無い messages_en.pl（tests/cpp/data/messages_empty）で、
+# 代わりの表示を確かめる。
 add_test(NAME session_messages_missing COMMAND $<TARGET_FILE:session_test> missing)
 set_tests_properties(session_messages_missing PROPERTIES
-  ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/tmp/messages_empty")
+  ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/tests/cpp/data/messages_empty")
 add_test(NAME session_english COMMAND $<TARGET_FILE:session_test> english)
 set_tests_properties(session_english PROPERTIES ENVIRONMENT "LANG=C")
 
