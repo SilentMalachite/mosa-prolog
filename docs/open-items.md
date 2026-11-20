@@ -7,9 +7,10 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12,
-  H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27,
-  L-33. Each entry gives its A or B; default A, which keeps the current behaviour.
+- The 19 open questions of [review-2026-11-20.md](review-2026-11-20.md): C-01 (its
+  `initialization/1` form), H-09, H-12, H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26,
+  M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry gives its A or B; default A, which keeps
+  the current behaviour.
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
