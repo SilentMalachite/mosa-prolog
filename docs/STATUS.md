@@ -5,7 +5,7 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W3 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** C-03 (664d632b): aliased witnesses group by witness order; W2 done; W1 but H-39.
+- **Last done:** C-01 second B (0aaf32bf): directive loads count toward the 64 bound; C-03; W2 done.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
 - **Next:** H-01 (IrTerm destruction allocates inside noexcept), the first item of W3.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
