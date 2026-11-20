@@ -8,6 +8,8 @@
 #include <cmath>
 #include <cstdint>
 #include <optional>
+#include <set>
+#include <utility>
 
 namespace mosa {
 namespace {
@@ -55,15 +57,14 @@ bool is_nil(const Heap& heap, Cell cell) {
   return cell.tag() == Tag::Atom && heap.atoms().name(static_cast<std::uint32_t>(cell.raw() >> 3)) == "[]";
 }
 
-}  // namespace
-
-// lgtunit の (=~=)/2 は数どうしか、同じ長さの数のリストどうしを要素ごとに比べる。
-// 変数と数でないものは lgtunit では誤りを投げるが、表明としてはどちらも不成立なので偽を返す。
-bool approx(const Heap& heap, Cell left, Cell right) {
+// 循環するリストは、同じセルの組に戻ったら成り立つとみる。前は止まらなかった（レビュー M-51）。組は一度通った
+// ものだけを持つ。前に通った組の結果は、偽ならそこで全体が偽になっているので、真とみてよい。
+bool approx_walk(const Heap& heap, Cell left, Cell right, std::set<std::pair<std::uint64_t, std::uint64_t>>& seen) {
   left = heap.deref(left);
   right = heap.deref(right);
   while (left.tag() == Tag::Lis && right.tag() == Tag::Lis) {
-    if (!approx(heap, heap.list_head(left), heap.list_head(right))) return false;
+    if (!seen.emplace(left.raw(), right.raw()).second) return true;
+    if (!approx_walk(heap, heap.list_head(left), heap.list_head(right), seen)) return false;
     left = heap.deref(heap.list_tail(left));
     right = heap.deref(heap.list_tail(right));
   }
@@ -72,6 +73,15 @@ bool approx(const Heap& heap, Cell left, Cell right) {
   const auto second = lgt_as_number(heap, right);
   if (!first || !second) return false;
   return approx_number(*first, *second);
+}
+
+}  // namespace
+
+// lgtunit の (=~=)/2 は数どうしか、同じ長さの数のリストどうしを要素ごとに比べる。
+// 変数と数でないものは lgtunit では誤りを投げるが、表明としてはどちらも不成立なので偽を返す。
+bool approx(const Heap& heap, Cell left, Cell right) {
+  std::set<std::pair<std::uint64_t, std::uint64_t>> seen;
+  return approx_walk(heap, left, right, seen);
 }
 
 }  // namespace mosa

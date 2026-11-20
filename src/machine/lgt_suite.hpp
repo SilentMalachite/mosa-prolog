@@ -357,6 +357,7 @@ struct LgtIo;
 // 包摂は同じ変数セルを同じ項にする。same_term は名前の無い変数を別物にしてしまう。
 [[nodiscard]] bool lgt_same_shape(const Heap& heap, Cell left, Cell right);
 [[nodiscard]] bool lgt_subsumes(const Heap& heap, Cell general, Cell specific);
+[[nodiscard]] bool lgt_variant(const Heap& heap, Cell left, Cell right);
 bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, std::vector<LgtOp>& ops);
 void install_lgt_ops(Machine& machine, const std::vector<LgtOp>& ops);
 

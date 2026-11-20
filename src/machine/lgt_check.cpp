@@ -30,75 +30,9 @@ bool integer_cell(const Heap& heap, Cell cell) {
   return is_integer_tag(cell.tag());
 }
 
-bool on_stack(const std::vector<std::uint64_t>& stack, std::uint64_t raw) {
-  for (const auto seen : stack) {
-    if (seen == raw) return true;
-  }
-  return false;
-}
-
 Cell resolved_arg(Machine& machine, Cell cell, std::size_t index, const std::vector<VarName>& names,
                   const std::vector<Binding>& bindings) {
   return lgt_resolve_term(machine.heap(), machine.heap().arg(cell, index), names, bindings);
-}
-
-int stamp_id(std::vector<std::pair<std::uint64_t, int>>& map, std::uint64_t raw, int& next) {
-  for (const auto& [id, number] : map) {
-    if (id == raw) return number;
-  }
-  const int number = next;
-  ++next;
-  map.emplace_back(raw, number);
-  return number;
-}
-
-Cell stamp_compound(Heap& heap, Cell cell, std::vector<std::pair<std::uint64_t, int>>& map, int& next,
-                    std::vector<std::uint64_t>& stack);
-
-// 番号を整数のまま置くと、項の中の整数と区別できない。コピーなので解の変数は残る。
-Cell stamp_term(Heap& heap, Cell cell, std::vector<std::pair<std::uint64_t, int>>& map, int& next,
-                std::vector<std::uint64_t>& stack) {
-  cell = heap.deref(cell);
-  if (heap.unbound(cell)) {
-    const std::array<Cell, 1> args{heap.integer(stamp_id(map, cell.raw(), next))};
-    return heap.structure(heap.atoms().intern("$n"), args);
-  }
-  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
-  if (on_stack(stack, cell.raw())) return cell;
-  return stamp_compound(heap, cell, map, next, stack);
-}
-
-Cell stamp_compound(Heap& heap, Cell cell, std::vector<std::pair<std::uint64_t, int>>& map, int& next,
-                    std::vector<std::uint64_t>& stack) {
-  stack.push_back(cell.raw());
-  Cell built;
-  if (cell.tag() == Tag::Lis) {
-    const Cell head = stamp_term(heap, heap.list_head(cell), map, next, stack);
-    const Cell tail = stamp_term(heap, heap.list_tail(cell), map, next, stack);
-    built = heap.list(head, tail);
-  } else {
-    const auto arity = heap.functor_arity(cell);
-    std::vector<Cell> args;
-    args.reserve(arity);
-    for (std::uint16_t index = 0; index < arity; ++index) {
-      args.push_back(stamp_term(heap, heap.arg(cell, index), map, next, stack));
-    }
-    built = heap.structure(heap.functor_atom(cell), args);
-  }
-  stack.pop_back();
-  return built;
-}
-
-bool terms_variant(Heap& heap, Cell left, Cell right) {
-  std::vector<std::pair<std::uint64_t, int>> left_map;
-  std::vector<std::pair<std::uint64_t, int>> right_map;
-  std::vector<std::uint64_t> stack;
-  int left_next = 0;
-  int right_next = 0;
-  const Cell stamped_left = stamp_term(heap, left, left_map, left_next, stack);
-  stack.clear();
-  const Cell stamped_right = stamp_term(heap, right, right_map, right_next, stack);
-  return lgt_same_shape(heap, stamped_left, stamped_right);
 }
 
 // NaN との比較は unordered になり、どの比較も偽になる。double の < などと同じ結果である。
@@ -140,7 +74,7 @@ bool check_variant(Machine& machine, Cell cell, const std::vector<VarName>& name
                    const std::vector<Binding>& bindings) {
   const Cell left = resolved_arg(machine, cell, 0, names, bindings);
   const Cell right = resolved_arg(machine, cell, 1, names, bindings);
-  return terms_variant(machine.heap(), left, right);
+  return lgt_variant(machine.heap(), left, right);
 }
 
 bool check_subsumes(Machine& machine, Cell cell, const std::vector<VarName>& names,
@@ -148,6 +82,13 @@ bool check_subsumes(Machine& machine, Cell cell, const std::vector<VarName>& nam
   const Cell general = resolved_arg(machine, cell, 0, names, bindings);
   const Cell specific = resolved_arg(machine, cell, 1, names, bindings);
   return lgt_subsumes(machine.heap(), general, specific);
+}
+
+// ランナーが判定しないゴールは、解の束縛でスクラッチの機械に問う。前は偽にしたので、true((X == 1, atom(a),
+// variant(X, 1))) のような表明が落ちた（レビュー M-51）。
+bool plain_holds(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Binding>& bindings) {
+  const std::string text = write_term(machine.heap(), machine.operators(), cell, lgt_write_options(), names);
+  return lgt_scratch_run(machine, text, bindings).kind == LgtScratchKind::Ok;
 }
 
 bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& names,
@@ -178,7 +119,7 @@ bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& nam
   if (arity == 2 && (name == "==" || name == "=~=" || name == "<" || name == "=<" || name == ">" || name == ">=")) {
     return compare_args(machine, name, cell, names, bindings);
   }
-  return false;
+  return plain_holds(machine, cell, names, bindings);
 }
 
 bool check_goal(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Binding>& bindings,
@@ -187,6 +128,7 @@ bool check_goal(Machine& machine, Cell cell, const std::vector<VarName>& names, 
   cell = heap.deref(cell);
   if (atom_is(heap, cell, "true")) return true;
   if (atom_is(heap, cell, "fail") || atom_is(heap, cell, "false")) return false;
+  if (cell.tag() == Tag::Atom) return plain_holds(machine, cell, names, bindings);
   if (cell.tag() != Tag::Str) return false;
   return check_compound(machine, cell, names, bindings, note);
 }

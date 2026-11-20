@@ -5,6 +5,8 @@
 // H-37: assertion のある本体では、ball/1 が正しく投げても通らず、成功した本体が ball/1 と error/1 で通った。
 // H-38: true(Assertion) の本体の最上位の ; が切りの外に出て、表明が失敗すると本体の次の解で通った。
 // M-49: ランナー目標の無い ; が Disj になって右の枝へ戻らず、やり直しは query を開いていない連言も行った。
+// M-51: 判定器の比べ方。variant の印が本物の '$n'(0) と重なり、包摂は具体の側の変数を束縛し、+(1) を 1 に畳み、
+// スクラッチは既定の旗で始め、表明の中のふつうのゴールを偽にし、循環するリストの =~= が止まらなかった。
 
 #include "harness.hpp"
 #include "mosa/suite.hpp"
@@ -184,6 +186,28 @@ void check_disjunctions(const std::filesystem::path& root) {
   for (const Case& item : cases) check_fails(root, item);
 }
 
+void check_comparisons(const std::filesystem::path& root) {
+  check_passes(root, "m51_variant_ok", "\ttest(m51_variant_ok, variant(f(_X, _Y), f(_A, _B))) :- true.");
+  check_passes(root, "m51_subsumes_ok", "\ttest(m51_subsumes_ok, subsumes(f(_), f(a))) :- true.");
+  check_passes(root, "m51_minus", "\ttest(m51_minus, error(type_error(integer, -1))) :- throw(error(type_error(integer, -1), _)).");
+  check_passes(root, "m51_mixed", "\ttest(m51_mixed, true((X == 1, atom(a), variant(X, 1)))) :- X = 1.");
+  check_passes(root, "m51_cyclic",
+               "\t:- uses(lgtunit, [op(700, xfx, =~=)]).\n\ttest(m51_cyclic, true(L =~= L)) :- L = [1|L].");
+  const std::array<Case, 6> cases{{
+      {"m51_variant", "\ttest(m51_variant, variant(f(_X), f('$n'(0)))) :- true.", "m51_variant variant(f(_X),f('$n'(0))) fail"},
+      {"m51_variant_shared", "\ttest(m51_variant_shared, variant(f(X, X), f(_A, _B))) :- true.",
+       "m51_variant_shared variant(f(X,X),f(_A,_B)) fail"},
+      // 8.2.4 の subsumes_term/2 は具体の側の変数を束縛しない。
+      {"m51_occurs", "\ttest(m51_occurs, subsumes(X, f(X))) :- true.", "m51_occurs subsumes(X,f(X)) fail"},
+      {"m51_swap", "\ttest(m51_swap, subsumes(f(X, Y), f(Y, X))) :- true.", "m51_swap subsumes(f(X,Y),f(Y,X)) fail"},
+      {"m51_plus", "\ttest(m51_plus, error(type_error(integer, +(1)))) :- throw(error(type_error(integer, 1), _)).",
+       "m51_plus error(type_error(integer,+1)) type_error(integer,1)"},
+      {"m51_flags", "\ttest(m51_flags, all(current_prolog_flag(unknown, error))) :- set_prolog_flag(unknown, fail).",
+       "m51_flags all(current_prolog_flag(unknown,error)) fail"},
+  }};
+  for (const Case& item : cases) check_fails(root, item);
+}
+
 }  // namespace
 
 int main() {
@@ -195,6 +219,7 @@ int main() {
     check_thrown_outcomes(root);
     check_first_solution_only(root);
     check_disjunctions(root);
+    check_comparisons(root);
   }
   return mosa_test::failures();
 }

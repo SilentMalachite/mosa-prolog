@@ -5,6 +5,7 @@
 #include "mosa/bigint.hpp"
 #include "mosa/unify.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -79,14 +80,14 @@ bool fill_number(const Heap& heap, Cell cell, bool negative, NumberValue& out) {
   return true;
 }
 
-// 数そのものか、その前の + と - だけ。式は評価しない。
+// 数そのものか、その前の - だけ。式は評価しない。+(1) は 1 と別の項なので畳まない（レビュー M-51）。
 std::optional<NumberValue> signed_number(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
   NumberValue out;
   if (fill_number(heap, cell, false, out)) return out;
   if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return std::nullopt;
   const auto name = heap.atoms().name(heap.functor_atom(cell));
-  if (name != "+" && name != "-") return std::nullopt;
+  if (name != "-") return std::nullopt;
   if (!fill_number(heap, heap.arg(cell, 0), name == "-", out)) return std::nullopt;
   return out;
 }
@@ -95,7 +96,7 @@ bool sign_of_number(const Heap& heap, Cell cell) {
   cell = heap.deref(cell);
   if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 1) return false;
   const auto name = heap.atoms().name(heap.functor_atom(cell));
-  if (name != "+" && name != "-") return false;
+  if (name != "-") return false;
   const Cell arg = heap.deref(heap.arg(cell, 0));
   return integer_cell(heap, arg) || arg.tag() == Tag::Float;
 }
@@ -106,14 +107,41 @@ bool same_number(const NumberValue& left, const NumberValue& right) {
   return same_float_term(left.as_float, right.as_float);
 }
 
-bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pair<std::uint64_t, Cell>>& bound) {
+// 具体の側の変数。一般の側の変数が両方に出るときは、自分自身にしか合わない（下の subsumes）。
+void term_vars(const Heap& heap, Cell cell, std::vector<std::uint64_t>& vars, std::vector<std::uint64_t>& stack) {
+  cell = heap.deref(cell);
+  if (heap.unbound(cell)) {
+    if (std::find(vars.begin(), vars.end(), cell.raw()) == vars.end()) vars.push_back(cell.raw());
+    return;
+  }
+  if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return;
+  if (std::find(stack.begin(), stack.end(), cell.raw()) != stack.end()) return;
+  stack.push_back(cell.raw());
+  if (cell.tag() == Tag::Lis) {
+    term_vars(heap, heap.list_head(cell), vars, stack);
+    term_vars(heap, heap.list_tail(cell), vars, stack);
+  } else {
+    for (std::uint16_t index = 0; index < heap.functor_arity(cell); ++index) term_vars(heap, heap.arg(cell, index), vars, stack);
+  }
+  stack.pop_back();
+}
+
+struct Subsume {
+  std::vector<std::pair<std::uint64_t, Cell>> bound;
+  std::vector<std::uint64_t> specific_vars;
+};
+
+bool subsumes(const Heap& heap, Cell general, Cell specific, Subsume& state) {
   general = heap.deref(general);
   specific = heap.deref(specific);
   if (heap.unbound(general)) {
-    for (const auto& [id, value] : bound) {
+    for (const auto& [id, value] : state.bound) {
       if (id == general.raw()) return same_shape(heap, value, specific);
     }
-    bound.emplace_back(general.raw(), specific);
+    // 8.2.4（subsumes_term/2）は具体の側の変数を束縛しない。前は subsumes(X, f(X)) が通った（レビュー M-51）。
+    const auto& vars = state.specific_vars;
+    if (std::find(vars.begin(), vars.end(), general.raw()) != vars.end() && specific.raw() != general.raw()) return false;
+    state.bound.emplace_back(general.raw(), specific);
     return true;
   }
   if (heap.unbound(specific)) return false;
@@ -128,16 +156,51 @@ bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pa
   if (general.tag() == Tag::Atom) return atom_text(heap, general) == atom_text(heap, specific);
   if (general.tag() == Tag::Float) return same_float_term(heap.float_value(general), heap.float_value(specific));
   if (general.tag() == Tag::Lis) {
-    return subsumes(heap, heap.list_head(general), heap.list_head(specific), bound) &&
-           subsumes(heap, heap.list_tail(general), heap.list_tail(specific), bound);
+    return subsumes(heap, heap.list_head(general), heap.list_head(specific), state) &&
+           subsumes(heap, heap.list_tail(general), heap.list_tail(specific), state);
   }
   if (general.tag() != Tag::Str || heap.functor_arity(general) != heap.functor_arity(specific)) return false;
   if (heap.atoms().name(heap.functor_atom(general)) != heap.atoms().name(heap.functor_atom(specific))) return false;
   const auto arity = heap.functor_arity(general);
   for (std::uint16_t index = 0; index < arity; ++index) {
-    if (!subsumes(heap, heap.arg(general, index), heap.arg(specific, index), bound)) return false;
+    if (!subsumes(heap, heap.arg(general, index), heap.arg(specific, index), state)) return false;
   }
   return true;
+}
+
+// 変数の対応が 1 対 1 なら variant。前は変数を '$n'(K) に置き換えて比べたので、本物の '$n'(0) と区別できなかった
+// （レビュー M-51）。数とアトムの比べ方は same_shape と同じ。循環する項は、同じ組に戻ったら成り立つとみる。
+bool variant(const Heap& heap, Cell left, Cell right, std::vector<std::pair<std::uint64_t, std::uint64_t>>& pairs,
+             std::vector<std::pair<std::uint64_t, std::uint64_t>>& stack) {
+  left = heap.deref(left);
+  right = heap.deref(right);
+  if (heap.unbound(left) || heap.unbound(right)) {
+    if (!heap.unbound(left) || !heap.unbound(right)) return false;
+    for (const auto& [from, to] : pairs) {
+      if (from == left.raw() || to == right.raw()) return from == left.raw() && to == right.raw();
+    }
+    pairs.emplace_back(left.raw(), right.raw());
+    return true;
+  }
+  if (left.tag() != Tag::Lis && left.tag() != Tag::Str) return same_shape(heap, left, right);
+  if (left.tag() != right.tag()) return false;
+  const std::pair<std::uint64_t, std::uint64_t> here{left.raw(), right.raw()};
+  if (std::find(stack.begin(), stack.end(), here) != stack.end()) return true;
+  stack.push_back(here);
+  bool same = true;
+  if (left.tag() == Tag::Lis) {
+    same = variant(heap, heap.list_head(left), heap.list_head(right), pairs, stack) &&
+           variant(heap, heap.list_tail(left), heap.list_tail(right), pairs, stack);
+  } else if (heap.functor_arity(left) != heap.functor_arity(right) ||
+             heap.atoms().name(heap.functor_atom(left)) != heap.atoms().name(heap.functor_atom(right))) {
+    same = false;
+  } else {
+    for (std::uint16_t index = 0; index < heap.functor_arity(left) && same; ++index) {
+      same = variant(heap, heap.arg(left, index), heap.arg(right, index), pairs, stack);
+    }
+  }
+  stack.pop_back();
+  return same;
 }
 
 }  // namespace
@@ -145,8 +208,16 @@ bool subsumes(const Heap& heap, Cell general, Cell specific, std::vector<std::pa
 bool lgt_same_shape(const Heap& heap, Cell left, Cell right) { return same_shape(heap, left, right); }
 
 bool lgt_subsumes(const Heap& heap, Cell general, Cell specific) {
-  std::vector<std::pair<std::uint64_t, Cell>> bound;
-  return subsumes(heap, general, specific, bound);
+  Subsume state;
+  std::vector<std::uint64_t> stack;
+  term_vars(heap, specific, state.specific_vars, stack);
+  return subsumes(heap, general, specific, state);
+}
+
+bool lgt_variant(const Heap& heap, Cell left, Cell right) {
+  std::vector<std::pair<std::uint64_t, std::uint64_t>> pairs;
+  std::vector<std::pair<std::uint64_t, std::uint64_t>> stack;
+  return variant(heap, left, right, pairs, stack);
 }
 
 }  // namespace mosa

@@ -251,6 +251,20 @@ bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& s
   return found;
 }
 
+// 試験が変えた Prolog の旗をスクラッチの機械にも写す。前は既定の旗で始め、set_prolog_flag(unknown, fail) の後の
+// all(current_prolog_flag(unknown, error)) が通った（レビュー M-51）。デバッガの状態は写さない。
+void copy_prolog_flags(const Machine& main, Machine& scratch) {
+  const Impl& from = engine_impl(main);
+  Impl& to = engine_impl(scratch);
+  to.quotes = from.quotes;
+  to.unknown_fail = from.unknown_fail;
+  to.utf8_replace = from.utf8_replace;
+  to.float_overflow_error = from.float_overflow_error;
+  to.float_zero_div_error = from.float_zero_div_error;
+  to.float_undefined_error = from.float_undefined_error;
+  to.japanese_punct = from.japanese_punct;
+}
+
 // 開いている query を潰さない。ゴールは字面を通さずセルで写すので、Big も字にせず箱のまま渡る（lgt_copy.cpp）。
 LgtScratch scratch_run(Machine& main, std::string_view goal, const std::vector<Binding>& bindings) {
   const Parsed parsed = parse_term(main, goal);
@@ -261,6 +275,7 @@ LgtScratch scratch_run(Machine& main, std::string_view goal, const std::vector<B
   for (const OpDef& op : main.operators().entries()) {
     if (scratch->operators().define(op.priority, op.specifier, op.name) != OpResult::Ok) continue;
   }
+  copy_prolog_flags(main, *scratch);
   try {
     return lgt_run_copied_goal(main, *scratch, resolved);
   } catch (...) {
