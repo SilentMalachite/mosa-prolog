@@ -305,6 +305,10 @@ A か B か: A は 7.4.2 のまま `existence_error`。B は指示だけで手�
 
 記録（2026-11-13、全体レビュー推奨3）: `lgt_catch_3_13`（7.8.9 の `catch/3`）は `ignore({q})` を呼ぶ。`ignore/1` は ISO/IEC 13211 に無く、仕様第3節の非ISOの追加にも無く、試験器が取り込む 6 ライブラリ（「第5節 自動取り込み」）のどれも定義しないので、`existence_error(procedure, ignore/1)` で終わる。`ignore/1` は実装範囲の外としてこの件は不合格のままにし、`catch/3` 自体は `control/catch_3` の他の件と `tests/pl/control.pl` が確かめる。
 
+## 準拠スイート: multifile_1 と節の無い述語の predicate_property/2
+
+記録（2026-11-20、レビュー H-40、所有者の決定 A）: 試験器は `test/1` を `test(Name, true)` として数えるようになった。ISO の欄には 7 件（`dynamic_1` の 3 件、`multifile_1` の 3 件、`iso_operators_15`）が加わり、2291/2326 から 2295/2333 になる。`multifile_1` の 3 件（`multifile_1_single`、`multifile_1_conjunction`、`multifile_1_list`）は不合格になる。この 3 件は、指令だけで節の無い述語について `predicate_property(a, multifile)` が成り立つことを期待する。「7.4.2 multifile/1」では宣言だけでは手続きを作らず、「7.8.3 call/1 と節の無い multifile・discontiguous」の決定 B で変わるのは呼び出しだけである。そのため `predicate_property/2`（仕様第5節、13211-1 に無い）は、`current_predicate/1` と同じく何も報告しない。節が 1 つあれば `multifile` を報告する。節の無い `dynamic/1` の述語は報告する。`dynamic/1` は手続きを作るからである。3 件は試験器の限界ではなく、規格の読みの違いとして不合格のままにする。
+
 ## ライセンス
 
 決定（2026-10-26）: リポジトリは Apache-2.0 に揃える。本文は `LICENSE`。Mosa の著作権表示は `Copyright 2026 Mosa Prolog contributors` で、`NOTICE` に置く。Logtalk のテストも同じライセンスで、著作権は Paulo Moura の表示のままである。

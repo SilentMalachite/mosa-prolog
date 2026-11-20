@@ -264,7 +264,12 @@ std::string condition_of(Heap& heap, const OperatorTable& operators, Cell list, 
   return text;
 }
 
+// test/1 は lgtunit で test(Name, true) と同じ。前は読まずに節として捨て、分母にも不合格にも出なかった（レビュー H-40）。
 bool test_arity(const Heap& heap, Cell head, int& arity) {
+  if (functor_is(heap, head, "test", 1)) {
+    arity = 1;
+    return true;
+  }
   if (functor_is(heap, head, "test", 2)) {
     arity = 2;
     return true;
@@ -334,7 +339,8 @@ void add_case(Heap& heap, const OperatorTable& operators, Cell looked, bool rule
   item.guard = parse.stack;
   const Cell head = heap.deref(looked);
   item.name = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 0)), names, false);
-  item.outcome = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 1)), names, false);
+  item.outcome = arity == 1 ? std::string{"true"}
+                            : machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 1)), names, false);
   if (arity == 3) item.condition = condition_of(heap, operators, heap.arg(head, 2), names);
   const Cell goal = rule ? unwrap_curlies(heap, body) : heap.atom(heap.atoms().intern("true"));
   item.body = machine_text(heap, operators, strip_user_scope(heap, goal), names, false);

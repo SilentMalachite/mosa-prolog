@@ -303,6 +303,10 @@ Recorded (2026-11-13, whole-review item 3): `lgt_open_4_31` (8.11.5 `open/4`) ca
 
 Recorded (2026-11-13, whole-review item 3): `lgt_catch_3_13` (7.8.9 `catch/3`) calls `ignore({q})`. `ignore/1` is not in ISO/IEC 13211, is not among the non-ISO additions of SPEC section 3, and none of the six libraries the runner imports ("Section 5 Autoload") defines it, so the row ends in `existence_error(procedure, ignore/1)`. The row stays failing: `ignore/1` is outside the implemented scope, and `catch/3` itself is covered by the other rows of `control/catch_3` and by `tests/pl/control.pl`.
 
+## Conformance suite: multifile_1 and predicate_property/2 with no clauses
+
+Recorded (2026-11-20, review H-40, owner decision A): the runner now counts `test/1` as `test(Name, true)`, so the ISO column takes in seven more rows (`dynamic_1` ×3, `multifile_1` ×3, `iso_operators_15`) and moves from 2291/2326 to 2295/2333. The three `multifile_1` rows (`multifile_1_single`, `multifile_1_conjunction`, `multifile_1_list`) fail. They expect `predicate_property(a, multifile)` to hold for a predicate that has the directive and no clauses. Under "7.4.2 multifile/1" the declaration alone does not create a procedure, and under decision B of "7.8.3 call/1 and multifile/discontiguous predicates with no clauses" only the call changes. So `predicate_property/2` (SPEC section 5, not in 13211-1) reports nothing for it, as `current_predicate/1` does. Once the predicate has a clause, `multifile` is reported. A `dynamic/1` predicate with no clauses is reported, because `dynamic/1` creates the procedure. The three rows stay failing as a difference in reading the standard, not as a limit of the runner.
+
 ## License
 
 Decision (2026-10-26): The repository is unified under Apache-2.0. The text is in `LICENSE`. Mosa's copyright notice is `Copyright 2026 Mosa Prolog contributors`, placed in `NOTICE`. The Logtalk tests are under the same license, and their copyright stays as Paulo Moura's notice.

@@ -1,7 +1,7 @@
 このファイルは自動生成である。手で編集しない。
-分母: 2326
-合格数: 2291
-合格率: 98.5
+分母: 2333
+合格数: 2295
+合格率: 98.4
 不合格:
 control/catch_3/tests.lgt lgt_catch_3_13 true(Assertion) existence_error(procedure,ignore/1)
 control/soft_cut_2_3/tests.lgt lgt_soft_cut_2_3_22 true(Deterministic==false) existence_error(procedure,:: /2)
@@ -16,6 +16,9 @@ predicates/open_4/tests.lgt lgt_open_4_42 true(Action==reset) existence_error(pr
 predicates/open_4/tests.lgt lgt_open_4_43 true(Action==error) existence_error(procedure,:: /2)
 predicates/set_stream_position_2/tests.lgt sics_set_stream_position_2_06 error(permission_error(reposition,stream,Stream)) fail
 predicates/stream_property_2/tests.lgt sics_stream_property_2_03 error(domain_error(stream,foo)) domain_error(stream_or_alias,foo)
+syntax/directives/multifile_1/tests.lgt multifile_1_single true fail
+syntax/directives/multifile_1/tests.lgt multifile_1_conjunction true fail
+syntax/directives/multifile_1/tests.lgt multifile_1_list true fail
 unicode/builtins/tests.lgt lgt_unicode_current_prolog_flag_2_02 true(valid(Encoding)) fail
 unicode/builtins/tests.lgt lgt_unicode_get_char_2_03 true(Char==a) fail
 unicode/builtins/tests.lgt lgt_unicode_open_4_01 true domain_error(stream_option,encoding('UTF-8'))
