@@ -1,6 +1,6 @@
 #pragma once
 
-// load.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp、load_cond.cpp、load_flags.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
+// load.cpp、load_use.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp、load_cond.cpp、load_flags.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"

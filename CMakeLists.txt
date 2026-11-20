@@ -71,6 +71,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/gc_mark.cpp
   src/machine/gc_compact.cpp
   src/machine/load.cpp
+  src/machine/load_use.cpp
   src/machine/load_clauses.cpp
   src/machine/dcg.cpp
   src/machine/native.cpp
