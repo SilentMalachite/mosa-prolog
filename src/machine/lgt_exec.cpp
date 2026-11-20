@@ -366,7 +366,8 @@ void exec_disj_then(Machine& machine, const Prog& prog, int disj, int rest, Env&
   const Tri first = env.tri;
   if (first == Tri::Ok || first == Tri::Dead || first == Tri::Throw) return;
   const std::string note = env.note;
-  env.live = live;
+  // A の中の forall/2 は開いた query を置き換える（open-items）。尽きた query を live に戻して問い直さない。
+  env.live = live && env.live;
   env.bundle = bundle;
   env.bundle_names = names;
   env.saved = saved;

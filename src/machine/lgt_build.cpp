@@ -204,14 +204,22 @@ int plain_run(Prog& prog, const Heap& heap, const OperatorTable& ops, const std:
 // lgtunit は本体を 1 つの節として流す。前のゴールが値の中の変数に付けた束縛（{numbervars(T, 0, N)} の後の T）は、
 // query を分けると字面で残した前の値へ戻らない。ランナー目標の間の項の並びだけを 1 つの query にし、ランナー目標で
 // 分ける形と右へ入れ子の Conj は今のままにする。
-int build_conj(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
-  std::vector<Cell> items;
+// 左に入れ子の連言も平らにする。(A, B), C のままだと外の連言が A の query のやり直しを持ち、B の assertion を次の解で
+// 動かし直さない（レビュー M-49）。連言は結合的で、括弧の中のカットも節のカットなので、並べ直しても意味は変わらない。
+void conj_items(const Heap& heap, Cell cell, std::vector<Cell>& items) {
   cell = heap.deref(cell);
   while (lgt_functor_is(heap, cell, ",", 2)) {
-    items.push_back(heap.arg(cell, 0));
+    const Cell first = heap.deref(heap.arg(cell, 0));
+    if (lgt_functor_is(heap, first, ",", 2)) conj_items(heap, first, items);
+    else items.push_back(first);
     cell = heap.deref(heap.arg(cell, 1));
   }
   items.push_back(cell);
+}
+
+int build_conj(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, const std::vector<VarName>& names) {
+  std::vector<Cell> items;
+  conj_items(heap, cell, items);
   std::vector<int> parts;
   std::size_t index = 0;
   while (index < items.size()) {

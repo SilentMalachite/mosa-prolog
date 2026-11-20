@@ -164,7 +164,7 @@ void check_disjunctions(const std::filesystem::path& root) {
   // やり直した解で束縛の写しも替わるので、後ろのゴールが最初の解の X を読まない。
   check_passes(root, "m49_saved",
                "\ttest(m49_saved, true(Y == 2)) :- (X = 1 ; X = 2), assertion(true), X == 2, Y = X.");
-  const std::array<Case, 5> cases{{
+  const std::array<Case, 6> cases{{
       {"m49_forall_false", "\ttest(m49_forall_false, false) :- forall((X = 1 ; X = 2), integer(X)).",
        "m49_forall_false false true"},
       {"m49_retry_false", "\ttest(m49_retry_false, false) :- (X = 1 ; X = 2), assertion(true), X == 2.",
@@ -174,6 +174,9 @@ void check_disjunctions(const std::filesystem::path& root) {
       // 前の query を開いた連言がやり直すので、間の assertion も次の解で動かし直して落ちる。
       {"m49_reassert", "\ttest(m49_reassert, true) :- (X = 1 ; X = 2), assertion(X == 1), X == 2.",
        "m49_reassert true assertion"},
+      // 左に入れ子の連言でも、query を開いた連言がやり直す。
+      {"m49_nested_reassert", "\ttest(m49_nested_reassert, true) :- (member(X, [1, 2]), assertion(X == 1)), X == 2.",
+       "m49_nested_reassert true assertion"},
       // ランナー目標を含む生成側は並べられない。失敗と数えると false の試験が通るので、unsupported で落とす。
       {"m49_generator", "\ttest(m49_generator, false) :- forall((X = 1, assertion(true)), integer(X)).",
        "m49_generator false unsupported"},
