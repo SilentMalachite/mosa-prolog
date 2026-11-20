@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W4 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W4 H-11 (f3af3bf5: DCG `'.'` and max_arity), H-09 (owner's B), H-08, H-07, H-05;
+- **Last done:** W4 H-12 (4a436bac, owner's B: `module(user|system, _)` refused), H-11, H-09, H-08;
   W3 and W2 done; W1 but H-39. W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-12 (W4, question: `module/2` takes `user` and `system`; `module(user, _)` wipes imports).
+- **Next:** H-13 (W4: `^` meta arguments qualified outside the `^` chain; bagof/setof wrappers fail).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 11 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
