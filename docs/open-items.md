@@ -155,6 +155,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `test(t, true(Y == 1)) :- member(X, [1, 2]), assertion(true), Y = X.` the outcome does not see
   `Y`, so the test fails (found during M-49; not in the review; no suite case has this shape).
   Only after the open query's last solution do later goals run on the main machine again.
+- A `forall/2` after a goal that leaves a choice point replaces that open query, so the choice
+  point is dropped: `test(t, false) :- member(X, [1, 2]), (forall(true, assertion(true)) ; true),
+  X == 2.` passes, while Prolog gives `true` (found during M-49, older than it; no suite case).
 - The judge's `<`, `=<`, `>` and `>=` still compare an integer written as a `+(N)` or `-(N)`
   compound as a double (no suite item has one).
 - Halts in the Logtalk paths give no reason (Opus re-review 2026-11-17, from code; no suite case):
