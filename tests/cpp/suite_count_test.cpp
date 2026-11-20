@@ -1,6 +1,7 @@
 // Logtalk のスイートの分母は、ファイルに書かれた試験をすべて数える（レビュー 2026-11-20 の H-40）。
 // 1 件ごとに 1 ファイルのスイートを tests/tmp/suite-count に書いて run_iso_suite で流し、報告の分母と合格数と不合格の行を見る。
 // test/1 は test(Name, true) と同じで、前は読む側が黙って捨てていたので分母にも不合格にも出なかった。
+// 読めない項のあるファイルは、前は case を捨てて不合格 1 件だった。試験が 3 件でも分母は 1 になった。
 
 #include "harness.hpp"
 #include "mosa/suite.hpp"
@@ -78,8 +79,10 @@ void check_count(const std::filesystem::path& root, const Count& item) {
   mosa_test::check(body.find("\n合格数: " + std::to_string(item.passed) + "\n") != std::string::npos,
                    name + ": passed " + std::to_string(item.passed) + label);
   const std::string failed = failed_lines(body);
+  // 空の行は、名前の無い「ファイルだけ」の不合格の行。
   for (const std::string_view line : item.failed) {
-    const std::string full = "predicates/atom_1/tests.lgt " + std::string{line} + "\n";
+    const std::string full =
+        line.empty() ? std::string{"predicates/atom_1/tests.lgt\n"} : "predicates/atom_1/tests.lgt " + std::string{line} + "\n";
     mosa_test::check(failed.find(full) != std::string::npos, name + ": " + full + label);
   }
 }
@@ -98,9 +101,26 @@ void check_test_1() {
                      {"d true load", "e true load"}});
 }
 
+// 読めない項は飛ばし、読めた case をすべて読めなかった理由で不合格にする。読めない項そのものは、ファイルの行で 1 件と数える。
+// 選ばなかった枝の case は、読み込みが落ちたときと同じく別欄に置く。終止符そのものが誤りの項（foo(.）の後は、
+// 読み手が終止符を手放さず先へ進まない（レビュー H-15）ので、そこで読むのを止める。数えるのは読めた分だけの下限。
+void check_read_error() {
+  const std::filesystem::path root = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "suite-count";
+  Fixture fixture(root);
+  check_count(root, {"read_error", object("\ttest(a, true).\n\ttest(b, true) :- foo(a b).\n\ttest(c).\n"), 3, 0,
+                     {"", "a true unexpected_token", "c true unexpected_token"}});
+  check_count(root, {"read_error_guard",
+                     object("\t:- if(fail).\n\ttest(d, true).\n\t:- else.\n\ttest(e, true).\n\t:- endif.\n"
+                            "\ttest(f, true) :- ).\n"),
+                     2, 0, {"", "e true unexpected_token"}});
+  // if と endif の釣り合わないファイルは、どの case を数えるかも決まらないので、今までどおり 1 件。
+  check_count(root, {"read_unbalanced", object("\t:- if(true).\n\ttest(g, true).\n"), 1, 0, {""}});
+}
+
 }  // namespace
 
 int main() {
   check_test_1();
+  check_read_error();
   return mosa_test::failures();
 }

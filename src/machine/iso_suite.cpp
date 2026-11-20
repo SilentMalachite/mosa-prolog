@@ -300,10 +300,12 @@ void run_file(const Pending& item, Tally& tally, std::vector<SideNote>& notes) {
     std::ostringstream buffer;
     buffer << input.rdbuf();
     const LgtFile lgt = read_lgt_file(buffer.str());
+    // 読めない項は、試験かどうか分からないのでファイルの行で 1 件と数える。読めた case は execute_lgt が
+    // 不合格にするので、壊れたファイルで分母が縮まない（レビュー H-40）。
     if (!lgt.error.empty()) {
       tally.failures.push_back(item.relative);
       ++tally.failed;
-      return;
+      if (lgt.cases.empty()) return;
     }
     const LgtRun run = execute_lgt(lgt, utf8_from_path(item.file), folder_of(item.relative), {});
     tally.passed += run.passed;

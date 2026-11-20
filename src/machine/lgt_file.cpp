@@ -219,9 +219,10 @@ bool choose_gates(Machine& machine, const LgtFile& file, std::vector<int>& chose
   return true;
 }
 
-void mark_load(LgtRun& run, const LgtCase& item, bool held) {
+// 動かさなかった case。選ばなかった枝と - の付いた case は別欄に、残りは actual の理由で不合格にする。
+void mark_unrun(LgtRun& run, const LgtCase& item, bool held, std::string_view actual) {
   if (!held || item.outside) run.outside.push_back(item.name);
-  else note_failure(run, item, "load");
+  else note_failure(run, item, actual);
 }
 
 void apply_condition(Machine& machine, const LgtCase& item, bool& dead, bool& skip, LgtRun& run) {
@@ -350,10 +351,15 @@ LgtRun execute_lgt(const LgtFile& file, std::string_view tests_path, std::string
     for (const LgtCase& item : file.cases) note_failure(run, item, "aborted");
     return run;
   }
+  // 読めない項のあるファイルは動かさない。読めた case は読めなかった理由で不合格にする（レビュー H-40）。
+  if (!file.error.empty()) {
+    for (const LgtCase& item : file.cases) mark_unrun(run, item, guard_holds(item.guard, chosen), file.error);
+    return run;
+  }
   // 読み方は呼び手が選ぶ（計画 Task 11）。差分テストはインタプリタと翻訳で同じ原文を別の読み方で読む。
   const bool loaded = loader ? loader(*machine, path_from_utf8(tests_path)) : load_ok(*machine, selected_text(file, chosen));
   if (!loaded) {
-    for (const LgtCase& item : file.cases) mark_load(run, item, guard_holds(item.guard, chosen));
+    for (const LgtCase& item : file.cases) mark_unrun(run, item, guard_holds(item.guard, chosen), "load");
     run.results.push_back("load failed " + std::string{machine->diagnostic()});
     return run;
   }

@@ -376,6 +376,40 @@ void wipe_read(LgtFile& file, std::string reason) {
   file.error = std::move(reason);
 }
 
+// 読めない項は、読み手が終止符まで進めるので飛ばして先を読む。前はファイルを不合格 1 件にして、試験が 3 件でも
+// 分母が 1 になった（レビュー H-40）。読めた case は呼び手が読めなかった理由で不合格にし、原文は動かさないので捨てる。
+void read_terms(Reader& reader, Heap& heap, OperatorTable& operators, std::string_view source, LgtFile& file) {
+  Parse parse;
+  std::string unread;
+  while (true) {
+    const auto begin = reader.consumed();
+    const ReadOutcome outcome = reader.next();
+    if (outcome.failure) {
+      if (unread.empty()) {
+        unread = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "incomplete_term" : "unexpected_token";
+      }
+      // 読み手が進まない誤りで回り続けない。
+      if (reader.consumed() == begin) break;
+      continue;
+    }
+    if (!outcome.term) break;
+    keep_term(heap, operators, source, begin, *outcome.term, parse, file);
+    if (!file.error.empty()) {
+      wipe_read(file, file.error);
+      return;
+    }
+  }
+  // endif が無いと、選ばなかった枝の終わりが無く、どの case を数えるかも決まらない。ファイル全体を不合格 1 件にする。
+  if (!parse.stack.empty()) {
+    wipe_read(file, "incomplete_term");
+    return;
+  }
+  if (unread.empty()) return;
+  file.program.clear();
+  file.pieces.clear();
+  file.error = std::move(unread);
+}
+
 }  // namespace
 
 Cell lgt_unwrap_curlies(Heap& heap, Cell cell) { return unwrap_curlies(heap, cell); }
@@ -402,24 +436,7 @@ LgtFile read_lgt_file(std::string_view source) {
       return file;
     }
     Reader reader(source, heap, operators);
-    Parse parse;
-    while (true) {
-      const auto begin = reader.consumed();
-      const ReadOutcome outcome = reader.next();
-      if (outcome.failure) {
-        const auto reason = outcome.failure->reason == SyntaxReason::IncompleteTerm ? "incomplete_term" : "unexpected_token";
-        wipe_read(file, reason);
-        return file;
-      }
-      if (!outcome.term) break;
-      keep_term(heap, operators, source, begin, *outcome.term, parse, file);
-      if (!file.error.empty()) {
-        wipe_read(file, file.error);
-        return file;
-      }
-    }
-    // endif が無いと、選ばなかった枝の終わりが無い。ファイル全体を不合格 1 件にする。
-    if (!parse.stack.empty()) wipe_read(file, "incomplete_term");
+    read_terms(reader, heap, operators, source, file);
     return file;
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
