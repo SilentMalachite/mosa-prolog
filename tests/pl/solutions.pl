@@ -129,3 +129,25 @@ test(c02_caret_group, (findall(Y-L, bagof(T, A^(Y = f(T); Y = f(A)), L), R), R =
                        P == Q, var(S), S \== P), true).
 % 守り。証人 U が自由なままの w(f(T), U) と w(f(U), U) は変種でないので、2 つの組のまま。
 test(c02_free_witness_two, (findall(Y-L, bagof(T, (Y = f(T); Y = f(U)), L), R), R = [_, _], var(U)), true).
+
+% 8.10.2.1 と 8.10.3.1。証人のセル同士が結び付いたとき、どちらの向きで結び付いても w(V, V) は互いに変種なので、
+% 1 つの組になる（レビュー 2026-11-20 の C-03）。前は結び付いた先のセルで番号を振ったので、Y = Z と Z = Y で
+% 鍵が分かれた。今の (=)/2 は左を右へ結ぶので、両方の向きを 1 つのゴールに置く。L-06 で古いセルへ結ぶ向きに
+% 揃えると、この再現は向きを作れなくなるので、L-06 より先にここで押さえる。
+test(c03_setof_both, (findall(Y-Z-L, setof(1, (Y = Z; Z = Y), L), R), R = [P-Q-[1]], P == Q, var(P)), true).
+test(c03_bagof_both, (findall(Y-Z-L, bagof(1, (Y = Z; Z = Y), L), R), R = [P-Q-[1, 1]], P == Q, var(P)), true).
+test(c03_bagof_flip, (findall(Y-Z-L, bagof(1, (Z = Y; Y = Z), L), R), R = [P-Q-[1, 1]], P == Q, var(P)), true).
+test(c03_three, (findall(X-Y-Z-L, bagof(1, (X = Y, Y = Z; Z = Y, Y = X; Y = X, Z = Y), L), R),
+                 R = [P-Q-S-[1, 1, 1]], P == Q, Q == S, var(P)), true).
+test(c03_template, (findall(Y-Z-L, bagof(T, (Y = Z, T = Y; Z = Y, T = Z), L), R), R = [P-Q-[A, B]],
+                    P == Q, A == P, B == P, var(P)), true).
+test(c03_via_local, (findall(Y-Z-L, bagof(1, V^(Y = V, V = Z; Z = V, V = Y), L), R), R = [P-Q-[1, 1]], P == Q),
+     true).
+test(c03_answer_binds, (bagof(1, (Y = Z; Z = Y), L), L == [1, 1], Y == Z, var(Y)), true).
+% 守り。同じ向きの 2 つは前から 1 つの組。w(V, V) と w(V, U) は変種でないので、2 つの組のまま。
+test(c03_same_way, (findall(Y-Z-L, bagof(1, (Y = Z; Y = Z), L), R), R = [P-Q-[1, 1]], P == Q), true).
+test(c03_apart, (findall(Y-Z-L, bagof(1, (Y = Z; true), L), R), R = [P-Q-[1], S-U-[1]], P == Q, S \== U), true).
+% 鍵だけでなく Template の像も同じ証人の番号で写す。鍵だけを揃えると組は 1 つになるが、並べて重なりを除くのは
+% 証人を束縛する前なので、f(Y) と f(Z) が 2 つ残った。
+test(c03_setof_template, (findall(Y-Z-L, setof(T, (Y = Z, T = f(Y); Z = Y, T = f(Y)), L), R), R = [P-Q-[f(S)]],
+                          P == Q, S == P, var(P)), true).

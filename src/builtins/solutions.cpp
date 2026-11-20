@@ -51,7 +51,7 @@ struct Home {
   bool live = false;
 };
 
-// 呼び出し前の自由変数は解をまたいで同じ番号。存在量化と、ゴールが作った変数は解ごとに 0 から振り直す。
+// 証人は解をまたいで同じ番号。Template の変数、^ の変数、ゴールが作った変数は解ごとに 0 から振り直す（レビュー C-02）。
 struct VarIds {
   std::size_t base = 0;
   int stable_next = 0;
@@ -60,7 +60,7 @@ struct VarIds {
   std::vector<std::pair<std::size_t, int>> local;
   std::vector<std::uint64_t> ext_raw;
   std::vector<Home> homes;
-  // 証人でない未束縛セルを、最初にそこへ結び付いた証人の番号へ戻す。
+  // 解の後に証人が指す未束縛セルを、そこを指す証人のうち並びで最後のものの番号へ写す（note_alias）。
   std::vector<std::pair<std::uint64_t, int>> alias;
 
   void reset_local() {
@@ -104,17 +104,6 @@ bool listed(const std::vector<Cell>& vars, Cell cell) {
     if (var.raw() == cell.raw()) return true;
   }
   return false;
-}
-
-bool home_cell(const VarIds& ids, std::uint64_t raw);
-
-// 呼び手のセルのまま返すのは、呼ぶ前から未束縛だった証人だけ。8.10.2.1 は反復するゴールを findall/3 で写すので、
-// 呼ぶ前からあった Template の変数も ^ の変数も、解ごとに新しい。前は ^ の下に無い呼ぶ前からの変数を全部呼び手の
-// セルにしたので、bagof(X, true, X) が X = [X] になり、setof(B, (true ; true), L) が 1 つに縮んだ（レビュー C-02）。
-// 証人に結び付いた変数は、ここへ来る前に note_alias の alias が証人の番号へ戻す。
-bool as_local(const VarIds& ids, std::size_t index, Cell cell) {
-  if (index >= ids.base) return true;
-  return !home_cell(ids, cell.raw());
 }
 
 // 1 つの項を見る。変数なら vars に足し、まだ見ていない複合項なら子を右から pending に積む。右から積むので、
@@ -247,13 +236,6 @@ int kept_id(VarIds& ids, int home) {
   return ids.id_of(kept.index, kept.raw, false);
 }
 
-bool home_cell(const VarIds& ids, std::uint64_t raw) {
-  for (const Home& home : ids.homes) {
-    if (home.live && home.raw == raw) return true;
-  }
-  return false;
-}
-
 void note_homes(const Impl& machine, const std::vector<Cell>& witnesses, VarIds& ids) {
   ids.homes.clear();
   for (const Cell& var : witnesses) {
@@ -268,15 +250,20 @@ void note_homes(const Impl& machine, const std::vector<Cell>& witnesses, VarIds&
   }
 }
 
-// (=)/2 は対称である。自由変数がテンプレート側へ結び付いても、具体化 W は証人のセルで数える。
+// 呼び手のセルのまま返すのは、呼ぶ前から未束縛だった証人だけ。8.10.2.1 は反復するゴールを findall/3 で写すので、
+// 呼ぶ前からあった Template の変数も ^ の変数も、解ごとに新しい（レビュー C-02）。証人が指す未束縛セルは、
+// 結び付いた先が証人のセルでも、そこを指す証人の番号で数える。(=)/2 は左を右へ結ぶので、Y = Z の後は両方が Z の
+// セルを、Z = Y の後は両方が Y のセルを指す。指す先のセルで数えると、変種の w(V, V) が 2 つの組に分かれた
+// （レビュー C-03）。証人の並びで決めれば、どの証人を選んでも束縛の向きに依らず、組み分けは同じになる。
+// 選んだ証人のセルが答えでその組を表す。並びで最後の証人にすると、今あるテストの答えは前と変わらない。
+// 最初の証人にすると bagof_rename の X = Z が Z = X に変わり、wg17_setof_3_47 の setof の組の並びが変わった。
 void note_alias(const Impl& machine, VarIds& ids) {
   ids.alias.clear();
-  for (int index = 0; index < static_cast<int>(ids.homes.size()); ++index) {
+  for (int index = static_cast<int>(ids.homes.size()) - 1; index >= 0; --index) {
     const Home& home = ids.homes[static_cast<std::size_t>(index)];
     if (!home.live) continue;
     const Cell value = machine.heap.deref(Cell{home.raw});
-    if (!machine.heap.unbound(value) || value.raw() == home.raw || home_cell(ids, value.raw())) continue;
-    if (ids.outside(value.raw()) >= 0) continue;
+    if (!machine.heap.unbound(value) || ids.outside(value.raw()) >= 0) continue;
     ids.alias.emplace_back(value.raw(), index);
   }
 }
@@ -313,10 +300,8 @@ struct Encoder {
       if (const int home = ids.outside(cell.raw()); home >= 0) {
         return marker_for(machine, external, kept_id(ids, home));
       }
-      const auto index = heap_index(machine, cell);
-      const bool local = as_local(ids, index, cell);
-      const auto name = local ? renaming : external;
-      return marker_for(machine, name, ids.id_of(index, cell.raw(), local));
+      // 証人が指さない変数は、どれもこの解だけのもの。
+      return marker_for(machine, renaming, ids.id_of(heap_index(machine, cell), cell.raw(), true));
     }
     if (cell.tag() != Tag::Lis && cell.tag() != Tag::Str) return cell;
     if (const auto found = seen.find(cell.raw()); found != seen.end()) return found->second;
@@ -450,10 +435,8 @@ int copy_var(Impl& machine, Cell cell, Image& image, NodeSeen& seen, VarIds& ids
     node.kind = CopyKind::Ext;
     node.id = kept_id(ids, home);
   } else {
-    const auto index = heap_index(machine, cell);
-    const bool local = as_local(ids, index, cell);
-    node.kind = local ? CopyKind::Loc : CopyKind::Ext;
-    node.id = ids.id_of(index, cell.raw(), local);
+    node.kind = CopyKind::Loc;
+    node.id = ids.id_of(heap_index(machine, cell), cell.raw(), true);
   }
   const int at = push_node(image, std::move(node));
   seen.emplace(cell.raw(), at);
