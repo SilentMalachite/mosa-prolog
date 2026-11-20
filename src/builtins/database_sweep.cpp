@@ -21,9 +21,11 @@ using database::purge_dead;
 
 namespace {
 
-// cursor が節の番号である選択点だけ。述語の番号（PredGen）や状態（Native）を節の番号と比べない。
+// cursor が節の番号である選択点だけ。述語の番号（PredGen）を節の番号と比べない。生成関数の選択点（Native）の cursor
+// は、生成関数を外すときに記録した残りの節の選択点だけが節の番号で、ほかは kNoClause なのでどの節にも届かない
+// （native.cpp の hold_native_scans、レビュー H-05）。
 bool scans_clauses(Pick pick) {
-  return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan;
+  return pick == Pick::Clauses || pick == Pick::Retract || pick == Pick::ClauseScan || pick == Pick::Native;
 }
 
 // 同じ名前の述語はモジュールごとにある。番号はどの述語も同じ所から振るので、名前だけで比べると別のモジュールの
@@ -211,7 +213,9 @@ void abolish_stale(Impl& machine, const std::vector<PredKey>& keys, const std::v
   }
   if (erased.empty()) return;
   std::sort(erased.begin(), erased.end(), less);
-  const auto gone = [&erased, &less](PredKey key) { return std::binary_search(erased.begin(), erased.end(), key, less); };
+  const auto gone = [&erased, &less](PredKey key) {
+    return std::binary_search(erased.begin(), erased.end(), key, less);
+  };
   // erase_predicate と同じく、開いた走査を尽きた印にする。作り直した述語の節を指さない。
   const auto exhaust = [&gone](std::vector<Entry>& stack) {
     for (Entry& entry : stack) {

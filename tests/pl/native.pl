@@ -242,3 +242,60 @@ test(native_var_head, (T = t(X, W, Y), app([X], [], [Y]), X @> W, T = t(_, _, _)
 test(native_l20_is_cyclic, (X = X+1, l20_eval(X, _)), error(resource_error(cyclic_term))).
 test(native_l20_compare_cyclic, (X = 1+X, l20_less(X)), error(resource_error(cyclic_term))).
 test(native_l20_is_plain, l20_eval(1+2, Y), solutions([Y = 3])).
+
+% レビュー H-05。指令の中の読み直し（:- consult(F), true. は外の走査を脇に置いて動く）は、脇に置いた生成関数の
+% 選択点がまだ試す古い節を残す（7.5.4、レビュー M19）。本体に halt のある節は、生成コードが rt::interpret_clause で
+% インタプリタの節に入る。前は古い節を消し、やり直しが新しい定義の同じ位置の節を動かすか（[1, 20, 3]、[1, 30, 4]）、
+% その位置に節が無くて黙って失敗した（[1, 2]、[1, 2, 3]）。読み込みが失敗して戻した定義の節は、元の節として入る。
+h05_write(Path, Text) :- open(Path, write, S), write(S, Text), close(S).
+h05_reload(Name, Text) :-
+    atom_concat('tests/tmp/h05_', Name, Base),
+    atom_concat(Base, '_new.pl', New),
+    atom_concat(Base, '_dir.pl', Dir),
+    h05_write(New, Text),
+    atom_concat(':- consult(\'', New, Head),
+    atom_concat(Head, '\'), true.\n', Directive),
+    h05_write(Dir, Directive),
+    consult(Dir).
+% 1 で読み直し、残りの答えを集める。読み込みの失敗は L2 が示すので、ここでは答えを落とさない。
+h05_run(Goal, X, Name, Text, L) :-
+    findall(X, (call(Goal), (X =:= 1 -> (h05_reload(Name, Text) -> true ; true) ; true)), L).
+h05_mid(1).
+h05_mid(2) :- ( fail -> halt ; true ).
+h05_mid(3).
+h05_last(1).
+h05_last(2).
+h05_last(3) :- ( fail -> halt ; true ).
+h05_key(a, 1).
+h05_key(b, 2).
+h05_key(a, 3) :- ( fail -> halt ; true ).
+h05_key(a, 4).
+h05_two(1).
+h05_two(2).
+h05_two(3).
+h05_two(4) :- ( fail -> halt ; true ).
+h05_back(1).
+h05_back(2) :- ( fail -> halt ; true ).
+h05_back(3).
+
+test(native_h05_middle,
+     (h05_run(h05_mid(X), X, mid, 'h05_mid(10).\nh05_mid(20).\nh05_mid(30).\n', L), findall(Y, h05_mid(Y), L2)),
+     solutions([(L = [1, 2, 3], L2 = [10, 20, 30])])).
+test(native_h05_fewer,
+     (h05_run(h05_last(X), X, last, 'h05_last(10).\n', L), findall(Y, h05_last(Y), L2)),
+     solutions([(L = [1, 2, 3], L2 = [10])])).
+test(native_h05_key,
+     (h05_run(h05_key(a, X), X, key, 'h05_key(a, 10).\nh05_key(a, 20).\nh05_key(a, 30).\nh05_key(a, 40).\n', L),
+      findall(Y, h05_key(a, Y), L2)),
+     solutions([(L = [1, 3, 4], L2 = [10, 20, 30, 40])])).
+% 2 で 2 度目を読み直す。2 度目の置き換えも、1 度目の前からの選択点が試す節を残す。
+test(native_h05_twice,
+     (findall(X, (h05_two(X), (X =:= 1 -> h05_reload(two_a, 'h05_two(10).\n')
+                              ; X =:= 2 -> h05_reload(two_b, 'h05_two(20).\nh05_two(30).\n')
+                              ; true)), L),
+      findall(Y, h05_two(Y), L2)),
+     solutions([(L = [1, 2, 3, 4], L2 = [20, 30])])).
+% 組込の述語の節で読み込みが失敗し、置き換えた定義を戻す。
+test(native_h05_rollback,
+     (h05_run(h05_back(X), X, back, 'h05_back(10).\natom_length(_, 9).\n', L), findall(Y, h05_back(Y), L2)),
+     solutions([(L = [1, 2, 3], L2 = [1, 2, 3])])).

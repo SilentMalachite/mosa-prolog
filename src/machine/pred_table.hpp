@@ -87,6 +87,10 @@ struct Predicate {
   std::uint64_t goal_changed_at = 0;
   // ADR 0009。指紋が合った静的述語の生成関数。節か meta を書けば detach_native が外し、付け直さない。
   rt::NativeProc native = nullptr;
+  // 外したときの節の番号（Clause::id）を、生成コードの節の番号（付けたときの位置に 1 を足した数）の順に持つ。外す前に
+  // 始めた呼び出しの選択点は付けたときの定義を試し続けるので、interpret_clause はこれで古い節を引く（レビュー H-05）。
+  // 付けている間と、外す前に付けていなかった述語は空。
+  std::vector<std::size_t> native_ids;
 };
 
 // 述語表の伸長が節を写す形に戻れば、移動が noexcept でない標準ライブラリの CI がここで落ちる。

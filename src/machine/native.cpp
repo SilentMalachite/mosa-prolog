@@ -12,8 +12,10 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -86,6 +88,8 @@ bool attachable(const Impl& machine, const Predicate* predicate, std::uint64_t f
 
 void attach(Impl& machine, Predicate& predicate, rt::NativeProc proc) {
   predicate.native = proc;
+  // 付けている間は位置で引く。前に外したときの番号は、指紋の同じ今の定義の位置と同じ節を指す。
+  predicate.native_ids.clear();
   for (rt::UnitState& unit : machine.native_units) {
     for (rt::NativeCall& call : unit.calls) {
       if (same_key(call, predicate)) call.proc = proc;
@@ -150,6 +154,66 @@ std::uint64_t* writable(Impl& machine, std::size_t at) {
   return const_cast<std::uint64_t*>(machine.heap.data()) + at;
 }
 
+// proc の述語の呼び出しが残りの節のために積んだ選択点（rt::push_alternative）。同じ生成関数の push_branch と
+// push_soft の枠は節の中の選言で、枠は継続枠（語 1 に kNativeBit）、状態は節の頭ではない。
+bool clause_alternative(const Impl& machine, const Entry& entry, rt::NativeProc proc) {
+  if (entry.pick != Pick::Native || entry.native != proc || entry.next >= entry.candidates.size()) return false;
+  if ((machine.heap.word_at(entry.redo_goal + 1) & rt::kNativeBit) != 0) return false;
+  return (entry.candidates[entry.next] & 0xFFFFU) == 0;
+}
+
+// stack の、述語 predicate の残りの節の選択点を、次に試す節からの節の走査として log に記録する（scan_reaches）。
+// 鍵は Any にし、生成コードが鍵で外した節も残す。掃除が遅れるだけで、選択点が試す節は変わらない。
+void hold_alternatives(Impl& machine, const Predicate& predicate, std::vector<Entry>& stack,
+                       std::vector<ScanRecord>& log) {
+  const std::size_t before = log.size();
+  for (std::size_t index = 0; index < stack.size(); ++index) {
+    Entry& entry = stack[index];
+    if (!clause_alternative(machine, entry, predicate.native)) continue;
+    // 状態の上位 16 ビットが 1 から数えた節の番号（rt::state_of）。
+    const std::size_t number = entry.candidates[entry.next] >> 16U;
+    if (number == 0 || number > predicate.native_ids.size()) continue;
+    entry.pred_module = predicate.module;
+    entry.pred_name = predicate.name;
+    entry.pred_arity = predicate.arity;
+    entry.generation = machine.db_generation;
+    entry.cursor = predicate.native_ids[number - 1];
+    entry.key = IndexKey{};
+    log.push_back(ScanRecord{index, entry.effect_id});
+  }
+  // 記録は位置の昇順に並ぶ（note_scan）。外した枠を指す古い記録もそのまま残し、位置と effect_id で見分ける。
+  const auto by_index = [](const ScanRecord& a, const ScanRecord& b) { return a.index < b.index; };
+  std::inplace_merge(log.begin(), log.begin() + static_cast<std::ptrdiff_t>(before), log.end(), by_index);
+}
+
+// レビュー H-05。外す前に始めた呼び出しの選択点は、外した後も付けたときの定義の節を試す（7.5.4、ADR 0009）。生成
+// コードの節はそのまま動くが、interpret_clause が入る節はインタプリタの節なので、読み直しが消すと別の節を引くか、
+// 黙って失敗する。外すときに位置ごとの節の番号を覚え、選択点を節の走査として記録して、消した節を残させる。脇に置いた
+// スタックの選択点も記録する（レビュー M19）。外した後の呼び出しはインタプリタが動かすので、外すときに一度だけでよい。
+// 読み込みの置き換えは脇に置いた選択点の下で通るので、消した世代を付ける前に呼ぶ（take_over）。
+void hold_native_scans(Impl& machine, Predicate& predicate) {
+  predicate.native_ids.clear();
+  for (const Clause& clause : predicate.clauses) predicate.native_ids.push_back(clause.id);
+  for (const ParkedScans& parked : machine.parked) {
+    hold_alternatives(machine, predicate, *parked.stack, *parked.scan_log);
+  }
+  hold_alternatives(machine, predicate, machine.stack, machine.scan_log);
+  count_vectors(machine);
+}
+
+// 生成コードの節の番号 clause（1 から）の節の位置。付けている間は節が付けたときの並びのままなので、番号がそのまま
+// 位置になる。外した後は外したときの番号で引く。その節が掃除で消えていれば、作り直した述語（番号を覚えていない）と
+// 同じく無い。
+std::optional<std::size_t> native_position(const Predicate& predicate, std::uint32_t clause) {
+  if (clause == 0) return std::nullopt;
+  if (predicate.native != nullptr) {
+    if (clause > predicate.clauses.size()) return std::nullopt;
+    return clause - 1;
+  }
+  if (clause > predicate.native_ids.size()) return std::nullopt;
+  return clause_position(predicate, predicate.native_ids[clause - 1]);
+}
+
 }  // namespace
 
 std::uint64_t clause_fingerprint(const AtomTable& atoms, const Predicate& predicate) {
@@ -189,6 +253,7 @@ bool native_eligible(const Impl& machine, const Predicate& predicate) {
 
 void detach_native(Impl& machine, Predicate& predicate) {
   if (predicate.native == nullptr) return;
+  hold_native_scans(machine, predicate);
   predicate.native = nullptr;
   for (rt::UnitState& unit : machine.native_units) {
     for (rt::NativeCall& call : unit.calls) {
@@ -298,12 +363,15 @@ void fail(Machine::Impl& machine) { machine.failed = true; }
 void interpret_clause(Machine::Impl& machine, const Regs& regs, std::uint32_t entry, std::uint64_t frame,
                       std::uint32_t clause) {
   const Predicate* predicate = find_pred(machine, regs.unit->entries[entry]);
-  // 付けたあとで述語が書き換わっても、残った選択点はここへ来る。無い節は redo_clause と同じく失敗にする。
-  if (predicate == nullptr || clause == 0 || clause > predicate->clauses.size()) {
+  // 外したあとも、外す前に始めた呼び出しの選択点はここへ来る。その節は消した節でも試す（7.5.4、レビュー H-05）。
+  // 無い節は redo_clause と同じく失敗にする。
+  const std::optional<std::size_t> position =
+      predicate == nullptr ? std::nullopt : native_position(*predicate, clause);
+  if (!position) {
     machine.failed = true;
     return;
   }
-  enter_clause(machine, *predicate, clause - 1, frame, regs.cut);
+  enter_clause(machine, *predicate, *position, frame, regs.cut);
 }
 
 }  // namespace rt

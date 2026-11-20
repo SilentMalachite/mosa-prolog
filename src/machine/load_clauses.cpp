@@ -43,7 +43,9 @@ bool take_over(Impl& machine, Predicate& predicate, PredKey key) {
   // 宣言が残っている述語は足す。無い述語は、これまでどおり置き換える。
   if (keeps_clauses(machine, key.module, key.name, key.arity)) return true;
   // 消すのは retract と同じく世代を付けてから。consult の指示と初期化のゴールの間は外の走査が脇に置かれていて
-  // （Impl::parked）、それがまだ試す節は残る（レビュー M19）。今のスタックの選択点は上で断っている。
+  // （Impl::parked）、それがまだ試す節は残る（レビュー M19）。今のスタックの選択点は上で断っている。生成関数は
+  // 世代を付ける前に外す。外すときに脇に置いた生成関数の選択点を走査として記録し、その節も残す（レビュー H-05）。
+  detach_native(machine, predicate);
   retire_clauses(machine, predicate);
   // 宣言が無い読み込みは、以前動的でも置き換えた述語を静的に戻す。
   if (!predicate.dynamic_declared) predicate.dynamic = false;
