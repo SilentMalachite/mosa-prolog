@@ -7,7 +7,9 @@
 #include "mosa/writer.hpp"
 #include "mosa/heap_option.hpp"
 
+#include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -30,7 +32,10 @@ bool atom_is(const Heap& heap, Cell cell, std::string_view name) {
   return cell.tag() == Tag::Atom && atom_text(heap, cell) == name;
 }
 
-enum class Verdict { Yes, No, Bad, Dead, Throw };
+enum class Verdict { Yes, No, Bad, Dead };
+
+// 実行しない Logtalk のゴールの印。そこを通ったときだけ未対応にする。通らない枝の :: は数えない。
+constexpr std::string_view unsupported_ball = "$mosa_condition_unsupported";
 
 Verdict ask_text(Machine& machine, std::string_view goal) {
   Stop stop;
@@ -45,7 +50,9 @@ Verdict ask_text(Machine& machine, std::string_view goal) {
   impl.halt_now = false;
   impl.halt_pending = false;
   if (stop.kind == StopKind::Success) return Verdict::Yes;
-  if (stop.kind == StopKind::Exception) return Verdict::Throw;
+  if (stop.kind == StopKind::Exception && atom_is(machine.heap(), stop.exception, unsupported_ball)) {
+    return Verdict::Bad;
+  }
   return Verdict::No;
 }
 
@@ -68,11 +75,6 @@ bool calls_special(const Heap& heap, Cell cell) {
     return calls_special(heap, heap.arg(cell, 0)) || calls_special(heap, heap.arg(cell, 2));
   }
   return false;
-}
-
-Verdict ask_cell(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  const std::string text = write_term(heap, ops, cell, lgt_write_options(), {});
-  return ask_text(machine, text + full_stop_after(text));
 }
 
 Verdict property_cond(Machine& machine, const Heap& heap, Cell cell) {
@@ -102,67 +104,70 @@ Verdict message_cond(const Heap& heap, Cell cell) {
   return Verdict::No;
 }
 
-Verdict eval_goal(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell);
-
-Verdict eval_and(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  const Verdict left = eval_goal(machine, heap, ops, heap.arg(cell, 0));
-  // 左が失敗したら右は実行しない。旗の右で存在エラーを起こさない。
-  if (left != Verdict::Yes) return left;
-  return eval_goal(machine, heap, ops, heap.arg(cell, 1));
+Cell make(Heap& heap, std::string_view name, std::span<const Cell> args) {
+  return heap.structure(heap.atoms().intern(name), args);
 }
 
-Verdict eval_or(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  const Verdict left = eval_goal(machine, heap, ops, heap.arg(cell, 0));
-  if (left != Verdict::No) return left;
-  return eval_goal(machine, heap, ops, heap.arg(cell, 1));
+Cell unsupported(Heap& heap) {
+  return make(heap, "throw", std::array<Cell, 1>{heap.atom(heap.atoms().intern(unsupported_ball))});
 }
 
-Verdict eval_not(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  const Verdict inner = eval_goal(machine, heap, ops, heap.arg(cell, 0));
-  if (inner == Verdict::Yes) return Verdict::No;
-  if (inner == Verdict::No) return Verdict::Yes;
-  return inner;
+Cell rewrite(Machine& machine, Heap& heap, Cell cell);
+
+// 印は変数の捕まえ手にも捕まえさせない。ほかの球は ISO の catch/3 のとおり捕まえ手と単一化し、合わなければ投げ直す。
+// 回復は call/1 で包み、元の catch/3 と同じく切りを外へ出さない。
+Cell guarded_catch(Machine& machine, Heap& heap, Cell cell) {
+  const Cell goal = rewrite(machine, heap, heap.arg(cell, 0));
+  const Cell recovery = rewrite(machine, heap, heap.arg(cell, 2));
+  const Cell ball = heap.fresh_ref();
+  const Cell marker = heap.atom(heap.atoms().intern(unsupported_ball));
+  const Cell other = make(heap, "\\==", std::array<Cell, 2>{ball, marker});
+  const Cell caught = make(heap, "=", std::array<Cell, 2>{ball, heap.arg(cell, 1)});
+  const Cell test = make(heap, ",", std::array<Cell, 2>{other, caught});
+  const Cell then = make(heap, "->", std::array<Cell, 2>{test, make(heap, "call", std::array<Cell, 1>{recovery})});
+  const Cell choose = make(heap, ";", std::array<Cell, 2>{then, make(heap, "throw", std::array<Cell, 1>{ball})});
+  return make(heap, "catch", std::array<Cell, 3>{goal, ball, choose});
 }
 
-Verdict eval_if(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  const Verdict cond = eval_goal(machine, heap, ops, heap.arg(cell, 0));
-  if (cond != Verdict::Yes) return cond == Verdict::No ? Verdict::No : cond;
-  return eval_goal(machine, heap, ops, heap.arg(cell, 1));
-}
-
-Verdict eval_catch(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  if (!calls_special(heap, heap.arg(cell, 0)) && !calls_special(heap, heap.arg(cell, 2))) {
-    return ask_cell(machine, heap, ops, cell);
-  }
-  const Verdict ran = eval_goal(machine, heap, ops, heap.arg(cell, 0));
-  if (ran != Verdict::Throw) return ran;
-  if (!heap.unbound(heap.deref(heap.arg(cell, 1)))) return Verdict::Throw;
-  return eval_goal(machine, heap, ops, heap.arg(cell, 2));
-}
-
-Verdict eval_goal(Machine& machine, const Heap& heap, const OperatorTable& ops, Cell cell) {
-  cell = heap.deref(cell);
-  if (atom_is(heap, cell, "true")) return Verdict::Yes;
-  if (atom_is(heap, cell, "fail") || atom_is(heap, cell, "false")) return Verdict::No;
-  // 旗も :: も無いゴールは一つの query。分けると束縛が消え、(-> ; ) の else が走る。
-  if (!calls_special(heap, cell)) return ask_cell(machine, heap, ops, cell);
-  if (cell.tag() != Tag::Str) return ask_cell(machine, heap, ops, cell);
-  const auto name = heap.atoms().name(heap.functor_atom(cell));
-  const auto arity = heap.functor_arity(cell);
-  if (name == "," && arity == 2) return eval_and(machine, heap, ops, cell);
-  if (name == ";" && arity == 2) return eval_or(machine, heap, ops, cell);
-  if ((name == "->" || name == "*->") && arity == 2) return eval_if(machine, heap, ops, cell);
-  if (name == "\\+" && arity == 1) return eval_not(machine, heap, ops, cell);
-  if ((name == "call" || name == "once" || name == "{}") && arity == 1) {
-    return eval_goal(machine, heap, ops, heap.arg(cell, 0));
-  }
-  if (name == "catch" && arity == 3) return eval_catch(machine, heap, ops, cell);
+Cell rewrite_special(Machine& machine, Heap& heap, Cell cell, std::string_view name, std::uint16_t arity) {
+  const Cell yes = heap.atom(heap.atoms().intern("true"));
+  const Cell no = heap.atom(heap.atoms().intern("fail"));
   // 旗は実行しない。失敗であり、存在エラーではない。
-  if (name == "current_logtalk_flag" && arity == 2) return Verdict::No;
-  if (name == "::") return message_cond(heap, cell);
-  if (name == "^^") return Verdict::Bad;
-  if (name == "predicate_property" && arity == 2) return property_cond(machine, heap, cell);
-  return ask_cell(machine, heap, ops, cell);
+  if (name == "current_logtalk_flag" && arity == 2) return no;
+  if (name == "::") return message_cond(heap, cell) == Verdict::No ? no : unsupported(heap);
+  if (name == "predicate_property" && arity == 2) return property_cond(machine, heap, cell) == Verdict::Yes ? yes : no;
+  return unsupported(heap);
+}
+
+// 旗、:: と predicate_property/2 は実行せずに真偽を決め、true か fail か印を投げるゴールに置き換える。残りは
+// 一つの問いにする。部分ごとに問うと左の束縛が右に届かず、(C -> T ; E) は T の失敗で E へ進んだ（レビュー M-52）。
+Cell rewrite(Machine& machine, Heap& heap, Cell cell) {
+  cell = heap.deref(cell);
+  if (!calls_special(heap, cell)) return cell;
+  const std::uint32_t functor = heap.functor_atom(cell);
+  const std::string name{heap.atoms().name(functor)};
+  const auto arity = heap.functor_arity(cell);
+  if ((name == "," || name == ";" || name == "->" || name == "*->") && arity == 2) {
+    const Cell left = rewrite(machine, heap, heap.arg(cell, 0));
+    const Cell right = rewrite(machine, heap, heap.arg(cell, 1));
+    return heap.structure(functor, std::array<Cell, 2>{left, right});
+  }
+  if ((name == "\\+" || name == "call" || name == "once") && arity == 1) {
+    return heap.structure(functor, std::array<Cell, 1>{rewrite(machine, heap, heap.arg(cell, 0))});
+  }
+  // {Goal} は中を Prolog のゴールとして呼ぶ。ここでは call/1 に置き換えて切りを外へ出さない。前の評価も中を別の問い
+  // にしていたので、切りは外へ届かなかった。
+  if (name == "{}" && arity == 1) {
+    return make(heap, "call", std::array<Cell, 1>{rewrite(machine, heap, heap.arg(cell, 0))});
+  }
+  if (name == "catch" && arity == 3) return guarded_catch(machine, heap, cell);
+  return rewrite_special(machine, heap, cell, name, arity);
+}
+
+Verdict eval_goal(Machine& machine, Heap& heap, const OperatorTable& ops, Cell cell) {
+  const Cell goal = rewrite(machine, heap, cell);
+  const std::string text = write_term(heap, ops, goal, lgt_write_options(), {});
+  return ask_text(machine, text + full_stop_after(text));
 }
 
 LgtCond publish_cond(Verdict verdict) {

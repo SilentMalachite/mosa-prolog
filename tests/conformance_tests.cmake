@@ -56,6 +56,13 @@ target_compile_definitions(suite_option_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SO
 target_link_libraries(suite_option_test PRIVATE mosa_lib)
 add_test(NAME suite_option_test COMMAND $<TARGET_FILE:suite_option_test>)
 
+# レビュー 2026-11-20 の M-52。:- if と condition/1 の条件は一つのゴールとして動き、(C -> T ; E) と束縛を守る。
+add_executable(suite_cond_test tests/cpp/suite_cond_test.cpp)
+target_include_directories(suite_cond_test PRIVATE tests/cpp)
+target_compile_definitions(suite_cond_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(suite_cond_test PRIVATE mosa_lib)
+add_test(NAME suite_cond_test COMMAND $<TARGET_FILE:suite_cond_test>)
+
 add_executable(suite_encoding_test tests/cpp/suite_encoding_test.cpp)
 target_include_directories(suite_encoding_test PRIVATE tests/cpp)
 target_compile_definitions(suite_encoding_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
@@ -134,7 +141,7 @@ add_test(NAME diff_module_test COMMAND $<TARGET_FILE:diff_module_test>)
 # suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
 # 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/mosac_tests.cmake で付く。全体レビュー推奨5）。
 set_tests_properties(assert_shared suite_assert_test suite_if_test suite_imports_test suite_approx_test
-  suite_path_test suite_vars_test suite_encoding_test suite_tester_test suite_judge_test suite_count_test suite_option_test conformance_report_test
+  suite_path_test suite_vars_test suite_encoding_test suite_tester_test suite_judge_test suite_count_test suite_option_test suite_cond_test conformance_report_test
   conformance_io_test
   conformance_output_test conformance_badge_test conformance_cwd_test
   PROPERTIES RESOURCE_LOCK suite_scratch)
