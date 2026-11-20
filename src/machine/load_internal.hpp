@@ -89,10 +89,14 @@ class LoadSnapshots {
   [[nodiscard]] std::size_t earlier(std::size_t at) const { return earlier_[at]; }
   void push_back(Snapshot shot);
   [[nodiscard]] FileNotes& notes() { return notes_; }
+  // この読み込みが開いているファイルの積み。入れ子の読み込みが親の積みを継ぐために持つ（レビュー C-01）。
+  void set_opening(std::vector<std::string>& opening) { opening_ = &opening; }
+  [[nodiscard]] std::vector<std::string>* opening() const { return opening_; }
 
  private:
   std::vector<Snapshot> shots_;
   FileNotes notes_;
+  std::vector<std::string>* opening_ = nullptr;
   std::vector<std::size_t> earlier_;
   KeyIndex<Snapshot> index_;
 };

@@ -618,8 +618,13 @@ LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* sh
   });
   const auto started_at = machine.db_generation;
   std::optional<PredKey> last;
+  // 入れ子の読み込みは、積みを渡されなくても親の積みを継ぐ。ゴールの consult/1 が空の積みから始めると、外が開いて
+  // いるファイルを見ずに自分を読み続け、C++ のスタックが尽きて落ちた（レビュー C-01）。一番外だけが自分の積みを持つ。
   std::vector<std::string> local_opening;
-  std::vector<std::string>& opening = shared_opening == nullptr ? local_opening : *shared_opening;
+  std::vector<std::string>* inherited = shared_opening;
+  if (inherited == nullptr && shot_scope.parent() != nullptr) inherited = shot_scope.parent()->opening();
+  std::vector<std::string>& opening = inherited == nullptr ? local_opening : *inherited;
+  snapshots.set_opening(opening);
   LoadScan scan{snapshots, apart, inits, last, opening, 0};
   if (!read_or_reject(machine, saved, snapshots, heap_base, read, scan)) {
     if (machine.load_kept) {

@@ -1,0 +1,188 @@
+// 7.4.2 と SPEC 第5節。ゴールの consult/1 も、外の読み込みが開いているファイルの積みを継ぐ（レビュー 2026-11-20 の
+// C-01、ADR 0026 の「読み込み中のゴールの読み込みは入れ子の読み込み」）。前は空の積みから始めたので、指示のゴールが
+// 自分を consult するファイルは読み込みが終わらず、C++ のスタックが尽きて落ちた（CLI で rc=139、既定のスタックでも）。
+// 期待は、同じ形で無いファイルを consult したときの今の動きから取る。違うのは診断の句だけ。
+// initialization/1 のゴールはテキストを閉じた後に動くので、ここでは扱わない（守りの g だけ置く）。
+// 一時ファイルは tests/tmp/consult_cycle。
+
+#include "harness.hpp"
+#include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
+
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+
+namespace {
+
+constexpr std::string_view kCycle = "ファイルが循環しています";
+
+bool write_text(const std::filesystem::path& path, std::string_view text) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output << text;
+  return static_cast<bool>(output);
+}
+
+std::string prolog_path(const std::filesystem::path& path) {
+  std::string out = "'";
+  // 原子は UTF-8 で書く。Windows の generic_string は ANSI コードページで、日本語の名前が化ける。
+  for (char unit : mosa::utf8_from_path(path)) {
+    if (unit == '\'') out += "''";
+    else if (unit == '\\') out += "\\\\";
+    else out.push_back(unit);
+  }
+  out.push_back('\'');
+  return out;
+}
+
+class CerrRedirect {
+ public:
+  explicit CerrRedirect(std::ostringstream& sink) : saved_(std::cerr.rdbuf(sink.rdbuf())) {}
+  ~CerrRedirect() { std::cerr.rdbuf(saved_); }
+  CerrRedirect(const CerrRedirect&) = delete;
+  CerrRedirect& operator=(const CerrRedirect&) = delete;
+
+ private:
+  std::streambuf* saved_;
+};
+
+struct Asked {
+  mosa::StopKind kind = mosa::StopKind::Failure;
+  std::string err;
+};
+
+Asked ask(mosa::Machine& machine, const std::string& goal) {
+  std::ostringstream captured;
+  Asked asked;
+  {
+    const CerrRedirect redirect(captured);
+    asked.kind = machine.query(goal).kind;
+  }
+  asked.err = captured.str();
+  return asked;
+}
+
+bool holds(mosa::Machine& machine, const std::string& goal) {
+  return ask(machine, goal).kind == mosa::StopKind::Success;
+}
+
+bool has_cycle(const Asked& asked) { return asked.err.find(kCycle) != std::string::npos; }
+
+std::string consult_of(const std::filesystem::path& file) { return "consult(" + prolog_path(file) + ")."; }
+
+// 指示のゴールが自分を consult する。無いファイルの対と同じく、指示が失敗して consult も失敗する。
+void check_self(const std::filesystem::path& dir) {
+  const auto self = dir / "self.pl";
+  mosa_test::check(write_text(self, ":- (true, consult(" + prolog_path(self) + ")).\np(1).\n"), "write self");
+  auto machine = mosa::Machine::create();
+  const Asked asked = ask(*machine, consult_of(self));
+  mosa_test::check(asked.kind == mosa::StopKind::Failure, "self: consult fails");
+  mosa_test::check(has_cycle(asked), "self: cycle phrase in [" + asked.err + "]");
+  // 同じ機械で、関係の無いファイルは読めて、同じ循環はもう一度同じ診断になる。積みが残っていない。
+  const auto leaf = dir / "leaf.pl";
+  mosa_test::check(write_text(leaf, "l(1).\n"), "write leaf");
+  const Asked after = ask(*machine, consult_of(leaf));
+  mosa_test::check(after.kind == mosa::StopKind::Success && !has_cycle(after),
+                   "self: leaf loads after [" + after.err + "]");
+  mosa_test::check(holds(*machine, "l(1)."), "self: leaf clause");
+  const Asked again = ask(*machine, consult_of(self));
+  mosa_test::check(again.kind == mosa::StopKind::Failure && has_cycle(again), "self: same cycle again");
+}
+
+// :- if の条件で自分を consult する。条件は偽になり、if の中は読まず、後ろは読む。
+void check_self_if(const std::filesystem::path& dir) {
+  const auto self = dir / "selfif.pl";
+  mosa_test::check(write_text(self, ":- if(consult(" + prolog_path(self) + ")).\nq(1).\n:- endif.\nr(1).\n"),
+                   "write selfif");
+  auto machine = mosa::Machine::create();
+  const Asked asked = ask(*machine, consult_of(self));
+  mosa_test::check(asked.kind == mosa::StopKind::Success, "selfif: consult succeeds [" + asked.err + "]");
+  mosa_test::check(has_cycle(asked), "selfif: cycle phrase in [" + asked.err + "]");
+  mosa_test::check(holds(*machine, "r(1)."), "selfif: after endif");
+  mosa_test::check(!holds(*machine, "catch(q(1), _, fail)."), "selfif: inside if skipped");
+}
+
+// a が b を、b が a を、指示のゴールで consult する。
+void check_mutual(const std::filesystem::path& dir) {
+  const auto a = dir / "a.pl";
+  const auto b = dir / "b.pl";
+  mosa_test::check(write_text(a, ":- (true, consult(" + prolog_path(b) + ")).\na(1).\n"), "write a");
+  mosa_test::check(write_text(b, ":- (true, consult(" + prolog_path(a) + ")).\nb(1).\n"), "write b");
+  auto machine = mosa::Machine::create();
+  const Asked asked = ask(*machine, consult_of(a));
+  mosa_test::check(asked.kind == mosa::StopKind::Failure, "mutual: consult fails");
+  mosa_test::check(has_cycle(asked), "mutual: cycle phrase in [" + asked.err + "]");
+}
+
+// 外のファイルが指示 [F] で開いた selfn.pl が、ゴールで自分を consult する。積みには外が積んだ selfn.pl がある。
+void check_outer(const std::filesystem::path& dir) {
+  const auto outer = dir / "outer.pl";
+  const auto selfn = dir / "selfn.pl";
+  mosa_test::check(write_text(outer, ":- [" + prolog_path(selfn) + "].\no(1).\n"), "write outer");
+  mosa_test::check(write_text(selfn, ":- (true, consult(" + prolog_path(selfn) + ")).\nn(1).\n"), "write selfn");
+  auto machine = mosa::Machine::create();
+  const Asked asked = ask(*machine, consult_of(outer));
+  mosa_test::check(asked.kind == mosa::StopKind::Failure, "outer: consult fails");
+  mosa_test::check(has_cycle(asked), "outer: cycle phrase in [" + asked.err + "]");
+}
+
+// 守り。循環しないゴールの consult と、入れ子でなく続けて 2 回読むことは、前後とも通る。
+void check_guards(const std::filesystem::path& dir) {
+  const auto leaf = dir / "leaf2.pl";
+  const auto main = dir / "main.pl";
+  mosa_test::check(write_text(leaf, "l2(1).\n"), "write leaf2");
+  const std::string load = ":- (true, consult(" + prolog_path(leaf) + ")).\n";
+  mosa_test::check(write_text(main, load + load + "m(1).\n"), "write main");
+  auto machine = mosa::Machine::create();
+  const Asked asked = ask(*machine, consult_of(main));
+  mosa_test::check(asked.kind == mosa::StopKind::Success && !has_cycle(asked),
+                   "guard: twice loads [" + asked.err + "]");
+  mosa_test::check(holds(*machine, "l2(1).") && holds(*machine, "m(1)."), "guard: both clauses");
+  // 初期化のゴールが外の状態で守って 1 回だけ自分を読み直す。テキストを閉じた後なので、今は循環にしない。
+  const auto again = dir / "g.pl";
+  mosa_test::check(write_text(again, ":- initialization((catch(seen, _, fail) -> true ; assertz(seen), consult(" +
+                                         prolog_path(again) + "))).\ng(1).\n"),
+                   "write g");
+  const Asked init = ask(*machine, consult_of(again));
+  mosa_test::check(init.kind == mosa::StopKind::Success && !has_cycle(init), "guard: init reload [" + init.err + "]");
+  mosa_test::check(holds(*machine, "g(1)."), "guard: init reload clause");
+}
+
+// 入れ子の読み込みが構文の誤りで終わった後も、積みにそのファイルは残らない。直接読むと、元の誤りになる。
+void check_after_error(const std::filesystem::path& dir) {
+  const auto broken = dir / "broken.pl";
+  const auto caller = dir / "caller.pl";
+  mosa_test::check(write_text(broken, "x(.\n"), "write broken");
+  mosa_test::check(write_text(caller, ":- (true, consult(" + prolog_path(broken) + ")).\nk(1).\n"), "write caller");
+  auto machine = mosa::Machine::create();
+  const Asked nested = ask(*machine, consult_of(caller));
+  mosa_test::check(!has_cycle(nested), "error: nested gives no cycle [" + nested.err + "]");
+  const Asked direct = ask(*machine, consult_of(broken));
+  mosa_test::check(direct.kind == mosa::StopKind::Failure && !has_cycle(direct), "error: direct is the syntax error");
+  mosa_test::check(direct.err.find("broken.pl") != std::string::npos,
+                   "error: direct names the file [" + direct.err + "]");
+}
+
+}  // namespace
+
+int main() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "consult_cycle";
+  std::error_code error;
+  std::filesystem::remove_all(dir, error);
+  std::filesystem::create_directories(dir, error);
+  mosa_test::check(!error, "make tmp dir");
+  // 守りを先に流す。直す前は、循環の件で実行ファイルごと落ちる。
+  check_guards(dir);
+  check_after_error(dir);
+  check_self(dir);
+  check_self_if(dir);
+  check_mutual(dir);
+  check_outer(dir);
+  std::filesystem::remove_all(dir, error);
+  return mosa_test::failures();
+}
