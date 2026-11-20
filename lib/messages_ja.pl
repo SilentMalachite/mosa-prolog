@@ -114,6 +114,7 @@ message(suite_no_tests, 'mosatest: ~w に試験がありません').
 message(suite_halted, '読み込みが halt(~w) で止まりました').
 message(diff_not_emitted, '~w: この実行ファイルには翻訳が入っていません').
 message(diff_cannot_read, '~w: 組み立てられません: ~w').
+message(diff_module_file, 'モジュール ~w のファイルなので、足した試験のゴールが user に入りません').
 message(diff_source_changed, '~w: mosac emit --units のあとで原文が変わりました').
 message(diff_mismatch, '~w ~w: 出力が違います').
 message(diff_interpreter, '  インタプリタ: ~w').

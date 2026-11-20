@@ -8,6 +8,7 @@
 
 #include "answer_text.hpp"
 #include "internal.hpp"
+#include "load_api.hpp"
 #include "std_capture.hpp"
 #include "test_file.hpp"
 
@@ -68,6 +69,18 @@ WriteOptions canonical_options() {
   return options;
 }
 
+// 足した '$mosa_diff_goal' の節は、ファイルの終わりで効いているモジュールに入る。module/2 はファイルの最初の項なので、
+// このファイルがモジュールを作ったなら節はそこに入り、user からの問い合わせは両方の側で同じ existence_error になって
+// 試験を流さずに一致と数える（レビュー H-42）。ファイルの中で節を user に置く道は無い（SPEC 第 5 節）ので組み立てない。
+std::optional<std::string> module_of_file(Machine& machine, const std::filesystem::path& file) {
+  const Impl& impl = engine_impl(machine);
+  const std::string key = utf8_from_path(canonical_key(file));
+  for (const Module& module : impl.modules) {
+    if (!module.file.empty() && module.file == key) return std::string{impl.atoms.name(module.name)};
+  }
+  return std::nullopt;
+}
+
 DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes) {
   DiffSource out;
   auto scratch = Machine::create();
@@ -81,6 +94,10 @@ DiffSource pl_source(const std::filesystem::path& file, const std::string& bytes
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
     out.error = heap_limit_text(engine_impl(*scratch));
+    return out;
+  }
+  if (const auto module = module_of_file(*scratch, file)) {
+    out.error = render_message_fresh(default_message_language(), "diff_module_file", std::array{*module});
     return out;
   }
   std::vector<Clause> clauses;

@@ -114,6 +114,7 @@ message(suite_no_tests, 'mosatest: no tests in ~w').
 message(suite_halted, 'the load stopped at halt(~w)').
 message(diff_not_emitted, '~w: not translated into this executable').
 message(diff_cannot_read, '~w: cannot assemble: ~w').
+message(diff_module_file, 'it is a file of module ~w, so the added test goals would not be in user').
 message(diff_source_changed, '~w: source changed since mosac emit --units').
 message(diff_mismatch, '~w ~w: outputs differ').
 message(diff_interpreter, '  interpreter: ~w').

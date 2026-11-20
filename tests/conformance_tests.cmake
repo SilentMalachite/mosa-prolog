@@ -116,6 +116,13 @@ target_compile_definitions(suite_exam_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOUR
 target_link_libraries(suite_exam_test PRIVATE mosa_lib)
 add_test(NAME suite_exam_test COMMAND $<TARGET_FILE:suite_exam_test>)
 
+# レビュー 2026-11-20 の H-42。mosatest --diff は、足した節が user に入らないモジュールのファイルを組み立てない。
+add_executable(diff_module_test tests/cpp/diff_module_test.cpp)
+target_include_directories(diff_module_test PRIVATE tests/cpp src/machine)
+target_compile_definitions(diff_module_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(diff_module_test PRIVATE mosa_lib)
+add_test(NAME diff_module_test COMMAND $<TARGET_FILE:diff_module_test>)
+
 # tests/tmp/suite は tests.lgt を流す全てが共有する（lgt_io_context のスクラッチ）。空かどうかを見る
 # suite_path_test と conformance_io_test が、ほかの実行中スクラッチで ctest -j のとき落ちていたので、
 # 流す側すべてに同じロックを付ける（diff_conformance のロックは tests/mosac_tests.cmake で付く。全体レビュー推奨5）。
