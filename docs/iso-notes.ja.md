@@ -683,7 +683,7 @@ A か B か（レビュー L12）: `unknown` を `fail` にするか `existence_
 
 ## 7.1 項の入れ子の深さ（実装の上限）
 
-writer、loader（節の組み立て、`IrTerm` の複製と破棄、実体化）、単一化と、項を辿る組込（`copy_term/2`、`findall/3`、`bagof/3`、`setof/3`、`compare/3`、`==`、`term_variables/2`、`clause/2`、`unify_with_occurs_check/2`、`is_list/1`）は、深い部分項を手で積むスタックに置く（ADR 0011）。1 MiB のスタックの下で、深さ 1,000,000 の項と 200,000 要素のリストのリテラルを扱える（ctest `stack_deep_write`、`stack_deep_builtins`、`long_literal`）。実行時に組み立てたゴールと算術式（`call/1`、`assertz/1`、`is/2` と比較）にも深さの上限はない（ADR 0011 の改訂 2 と 3）。式と、左にも右にも入れ子の `,` `;` `->` `*->` `catch/3` を深さ 1,000,000 で 1 MiB のスタックで確かめ、長さに比例する時間で動く。
+writer、loader（節の組み立て、`IrTerm` の複製と破棄、実体化）、単一化と、項を辿る組込（`copy_term/2`、`findall/3`、`bagof/3`、`setof/3`、`compare/3`、`==`、`term_variables/2`、`clause/2`、`unify_with_occurs_check/2`、`is_list/1`）は、深い部分項を手で積むスタックに置く（ADR 0011）。1 MiB のスタックの下で、深さ 1,000,000 の項と 200,000 要素のリストのリテラルを扱える（ctest `stack_deep_write`、`stack_deep_builtins`、`long_literal`）。実行時に組み立てたゴールと算術式（`call/1`、`assertz/1`、`is/2` と比較）にも深さの上限はない（ADR 0011 の改訂 2 と 3）。式と、左にも右にも入れ子の `,` `;` `->` `*->` `catch/3` を深さ 1,000,000 で 1 MiB のスタックで確かめ、長さに比例する時間で動く。`:- meta_predicate` の頭は、`,` でつないでもリストに入れてもよく、レビュー H-10 から同じく手で積んで集める。30,000 段の左に入れ子の `,` と、30,000 段に入れ子のリストは、1 MiB のスタックで読み込める（ctest `stack_deep_meta`）。前は SIGSEGV で落ちた。
 
 入れ子の `findall/3`、`findall/4`、`bagof/3`、`setof/3` は呼び手のループの中で動き、ネイティブのスタックを使わない（ADR 0013、レビュー H4）。1 MiB のスタックで 100,000 段を、mosa と mosac の実行ファイルの両方で確かめる（ctest `stack_deep_collect`、`mosac_deep_collect`）。portray のフック、`with_output_to/2`、指令は今も 1 段ごとに入れ子の `run_loop` を始めるので、それらどうしの入れ子や、それらと収集を交互にした入れ子はネイティブのスタックで抑えられる。`w(N) :- M is N-1, findall(x, with_output_to(atom(_), w(M)), [x]).` は 1 MiB の下で 500 段は通り、1,000 段で SIGSEGV になる。
 

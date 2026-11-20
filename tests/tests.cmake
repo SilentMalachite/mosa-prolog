@@ -105,6 +105,12 @@ add_test(NAME long_literal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -P ${CMAKE_SOURCE_DIR}/tests/stack/long_literal.cmake)
 set_tests_properties(long_literal PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
 
+# 1 MiB のスタックで、30,000 段に入れ子の :- meta_predicate の頭を集める（レビュー H-10、ADR 0011）。
+add_test(NAME stack_deep_meta COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/deep_meta -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/deep_meta.cmake)
+set_tests_properties(stack_deep_meta PROPERTIES TIMEOUT 900 ENVIRONMENT "MOSA_LIB=${CMAKE_SOURCE_DIR}/lib")
+
 # 差分テストの答えの字面（計画 Task 11）。深い項を既定のスタックで書けることまで見る。
 add_executable(answer_text_test tests/cpp/answer_text_test.cpp)
 target_include_directories(answer_text_test PRIVATE tests/cpp src/machine)

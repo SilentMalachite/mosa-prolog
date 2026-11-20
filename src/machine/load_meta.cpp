@@ -1,5 +1,6 @@
 // :- meta_predicate と :- module/2、:- export/1 の指令（load_directive.cpp の consume_directive が振り分ける）。
 // load_directive.cpp が 800 行に近づいたので分けた（レビュー H-10 の前）。
+// テスト: tests/pl/modules.pl、tests/pl/failed_load.pl、tests/stack/deep_meta.cmake（1 MiB のスタックで 30,000 段の入れ子の頭）。
 #include "load_internal.hpp"
 
 #include "mosa/path_text.hpp"
@@ -25,21 +26,27 @@ std::optional<Cell> directive_body(Impl& machine, Cell directive, std::string_vi
   return body;
 }
 
-// meta_predicate A, B と meta_predicate [A, B] の両方を受ける。
+// meta_predicate A, B と meta_predicate [A, B] の両方を受け、入れ子にしてもよい。C++ の再帰でなく手で積んで辿る
+// （ADR 0011）。前は「,」とリストの要素ごとに再帰し、30,000 段の入れ子で 1 MiB のスタックがあふれた（レビュー H-10）。
+// 左から右の順に頭を集めるよう、子は逆順に積む。
 void collect_heads(Impl& machine, Cell cell, std::vector<Cell>& heads) {
-  cell = machine.heap.deref(cell);
-  if (cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 2 &&
-      machine.atoms.name(machine.heap.functor_atom(cell)) == ",") {
-    collect_heads(machine, machine.heap.arg(cell, 0), heads);
-    collect_heads(machine, machine.heap.arg(cell, 1), heads);
-    return;
+  std::vector<Cell> todo{cell};
+  while (!todo.empty()) {
+    const Cell current = machine.heap.deref(todo.back());
+    todo.pop_back();
+    if (current.tag() == Tag::Str && machine.heap.functor_arity(current) == 2 &&
+        machine.atoms.name(machine.heap.functor_atom(current)) == ",") {
+      todo.push_back(machine.heap.arg(current, 1));
+      todo.push_back(machine.heap.arg(current, 0));
+      continue;
+    }
+    const WalkedList walked = walk_list(machine, current);
+    if (current.tag() == Tag::Lis && walked.shape == ListShape::Proper) {
+      todo.insert(todo.end(), walked.items.rbegin(), walked.items.rend());
+      continue;
+    }
+    heads.push_back(current);
   }
-  const WalkedList walked = walk_list(machine, cell);
-  if (cell.tag() == Tag::Lis && walked.shape == ListShape::Proper) {
-    for (const Cell item : walked.items) collect_heads(machine, item, heads);
-    return;
-  }
-  heads.push_back(cell);
 }
 
 bool fail_with(Impl& machine, Cell formal) {
@@ -65,7 +72,9 @@ bool declare_meta(Impl& machine, LoadSnapshots& snapshots, Cell head) {
   }
   Predicate* predicate = find_pred(machine, key);
   if (predicate == nullptr) {
-    if (const auto conflict = check_local(machine, key.module, key.name, key.arity)) return fail_with(machine, *conflict);
+    if (const auto conflict = check_local(machine, key.module, key.name, key.arity)) {
+      return fail_with(machine, *conflict);
+    }
     // 宣言は手続きを作らない。読み込みの失敗はモジュール表ごと戻すので、保留の表も戻る。
     Module* module = find_module(machine, key.module);
     if (module == nullptr) return true;
