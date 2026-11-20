@@ -140,6 +140,8 @@ void check_thrown_outcomes(const std::filesystem::path& root) {
   for (const Case& item : cases) check_fails(root, item);
   check_passes(root, "h37_ball", "\ttest(h37_ball, ball(x)) :- assertion(true), throw(x).");
   check_passes(root, "h37_ball_pattern", "\ttest(h37_ball_pattern, ball(f(_))) :- assertion(true), throw(f(1)).");
+  // member/2 の選択点の後なので、球はスクラッチの機械で投げられ、字面で元の機械に読み直してから比べる。
+  check_passes(root, "h37_live_ball", "\ttest(h37_live_ball, ball(x)) :- member(_X, [1, 2]), assertion(true), throw(x).");
 }
 
 }  // namespace
