@@ -3,16 +3,14 @@
 //   type_error(atom), domain_error(order)
 // テスト: tests/pl/order.pl、tests/cpp/bigint_heap_test.cpp
 
+#include "../core/pair_memo.hpp"
 #include "../machine/internal.hpp"
 
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
-#include <optional>
 #include <span>
 #include <string_view>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -28,12 +26,6 @@ int rank_of(const Impl& machine, Cell cell) {
   return 4;
 }
 
-struct PairHash {
-  std::size_t operator()(const std::pair<std::uint64_t, std::uint64_t>& pair) const {
-    return std::hash<std::uint64_t>{}(pair.first ^ (pair.second * 0x9E3779B97F4A7C15ULL));
-  }
-};
-
 // 比べ始めた複合項の組を全部覚える。前と同じく、覚えた組に再び来たら等しいとみなす。小さい比較は線形の
 // 表で済ませ、この数を超えたら探すのが定数時間の表へ移す。深い項でも比較が 2 乗の時間にならない。
 constexpr std::size_t kFewPairs = 256;
@@ -42,9 +34,11 @@ constexpr int kShallow = 64;
 
 class PairSeen {
  public:
+  explicit PairSeen(const Heap& heap) : heap_(heap) {}
+
   // 前に比べ始めた組なら true を返す。新しい組は覚える。
   bool check(std::uint64_t left, std::uint64_t right) {
-    if (!many_) {
+    if (!many_.active()) {
       for (const auto& item : few_) {
         if (item.first == left && item.second == right) return true;
       }
@@ -52,15 +46,16 @@ class PairSeen {
         few_.emplace_back(left, right);
         return false;
       }
-      many_.emplace(few_.begin(), few_.end());
+      for (const auto& item : few_) many_.insert(heap_, item.first, item.second);
     }
-    return !many_->emplace(left, right).second;
+    return !many_.insert(heap_, left, right);
   }
 
  private:
+  const Heap& heap_;
   std::vector<std::pair<std::uint64_t, std::uint64_t>> few_;
-  // 処理系によっては空の表でも確保するので、比べるたびに作らないよう要る時まで持たない。
-  std::optional<std::unordered_set<std::pair<std::uint64_t, std::uint64_t>, PairHash>> many_;
+  // 使っているヒープの語の数を超えた組は上限に数える（PairMemo、ADR 0010 の改訂 4）。
+  PairMemo many_;
 };
 
 // 正規形の絶対値の語（下位が先、最上位の語は 0 でない）。語の数が違えば多い方が大きいので、同じ数のときだけ上位から比べる。
@@ -182,7 +177,7 @@ int compare_seen(const Impl& machine, Cell left, Cell right, PairSeen& seen, int
 }
 
 int compare_now(const Impl& machine, Cell left, Cell right) {
-  PairSeen seen;
+  PairSeen seen{machine.heap};
   return compare_seen(machine, left, right, seen, 0);
 }
 
@@ -220,7 +215,7 @@ void run_compare(Impl& machine, const Goal& goal) {
 }  // namespace
 
 int compare_cells(const Impl& machine, Cell left, Cell right) {
-  PairSeen seen;
+  PairSeen seen{machine.heap};
   return compare_seen(machine, left, right, seen, 0);
 }
 

@@ -1,23 +1,16 @@
 #include "mosa/unify.hpp"
 
+#include "pair_memo.hpp"
+
 #include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
-#include <optional>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
 namespace mosa {
 namespace {
-
-struct PairHash {
-  std::size_t operator()(const std::pair<std::uint64_t, std::uint64_t>& pair) const {
-    return std::hash<std::uint64_t>{}(pair.first ^ (pair.second * 0x9E3779B97F4A7C15ULL));
-  }
-};
 
 // 辿った複合項の組を表に入れ始めるまでの数。小さい単一化では表を作らない。巡回する項もこの数の後は
 // 同じ組を 2 度辿らないので止まる。
@@ -31,16 +24,15 @@ struct Attempt {
   // 失敗時に戻す分。選択点より新しい節の変数も、呼び出し開始より前ならヒープ切り詰めでは消えない。
   std::vector<std::uint64_t*> undo;
   std::vector<std::uint64_t*> keep;
-  // この単一化で辿った複合項の組。祖先に限らず全部を覚えても、余帰納的に同じ答えになる。処理系によっては
-  // 空の表でも確保するので、単一化のたびに作らないよう kSeenAfter を超えるまで持たない。
-  std::optional<std::unordered_set<std::pair<std::uint64_t, std::uint64_t>, PairHash>> seen;
+  // この単一化で辿った複合項の組。祖先に限らず全部を覚えても、余帰納的に同じ答えになる。kSeenAfter を超えるまで
+  // 表を作らない。使っているヒープの語の数を超えた組は上限に数える（PairMemo、ADR 0010 の改訂 4）。
+  PairMemo seen;
   std::size_t compounds = 0;
 
   // 辿り始めてよい組なら true。kSeenAfter を超えた後は、前に辿った組を false にする。
-  bool first_visit(Cell left, Cell right) {
+  bool first_visit(const Heap& heap, Cell left, Cell right) {
     if (++compounds <= kSeenAfter) return true;
-    if (!seen) seen.emplace();
-    return seen->emplace(left.raw(), right.raw()).second;
+    return seen.insert(heap, left.raw(), right.raw());
   }
 };
 
@@ -71,7 +63,7 @@ bool unify_deep(Heap& heap, Cell left, Cell right, Attempt& attempt) {
       if (!unify_cells(heap, l, r, attempt, kShallow)) return false;
       continue;
     }
-    if (!attempt.first_visit(l, r)) continue;
+    if (!attempt.first_visit(heap, l, r)) continue;
     if (l.tag() == Tag::Lis) {
       todo.emplace_back(heap.list_tail(l), heap.list_tail(r));
       todo.emplace_back(heap.list_head(l), heap.list_head(r));
@@ -87,7 +79,7 @@ bool unify_deep(Heap& heap, Cell left, Cell right, Attempt& attempt) {
 
 bool unify_compound(Heap& heap, Cell left, Cell right, Attempt& attempt, int depth) {
   if (depth >= kShallow) return unify_deep(heap, left, right, attempt);
-  if (!attempt.first_visit(left, right)) return true;
+  if (!attempt.first_visit(heap, left, right)) return true;
   if (left.tag() == Tag::Lis) {
     return unify_cells(heap, heap.list_head(left), heap.list_head(right), attempt, depth + 1) &&
            unify_cells(heap, heap.list_tail(left), heap.list_tail(right), attempt, depth + 1);
@@ -141,7 +133,8 @@ bool unify_attempt(Heap& heap, Trail& trail, std::size_t trail_mark, std::size_t
     trail.slots.insert(trail.slots.end(), attempt.keep.begin(), attempt.keep.end());
     return true;
   } catch (...) {
-    // undo/keep の vector や辿り表の確保が bad_alloc で投げても、束縛した分を残さない（全体レビュー推奨4）。
+    // undo/keep の vector や辿り表の確保が bad_alloc で投げても、辿り表が上限で投げても（ADR 0010 の改訂 4）、
+    // 束縛した分を残さない（全体レビュー推奨4）。
     // 上ではヒープ上限として止まり機械は使い続けるので、戻さないと次の問い合わせが束縛済みの変数を見る。
     undo_attempt(heap, attempt, heap_mark);
     trail.slots.resize(trail_mark);
