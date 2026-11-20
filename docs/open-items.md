@@ -137,6 +137,10 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `:- if(halt(3)).` are untested; `mosac emit --units` and `run_file` are checked by hand
   only; the `.lgt` half of `--diff` was read from code.
 - codegen's per-clause 16-bit resume limit and the close failures of `mosac emit` have no test.
+- H-05 (f4c48d4a), read from code only: `hold_native_scans` on the live stack and through
+  `abolish_stale` and `retire_older` (files written at run time are never native, so no test file
+  reaches them). `run_goal` (`write_pred.cpp`) restores the stack from a copy, so a reload inside a
+  portray hook drops the marks, and the old clause can be swept before the redo.
 - Debugger test gaps from the 2026-11-18 review (next test task, one at a time): a leap transcript
   for each `spy/1` form other than `Name/Arity` (bare name, list, qualified; `check_spy_and_leash_state`
   pins only the set a bare name places); a multibyte unknown port command (`first_char` in

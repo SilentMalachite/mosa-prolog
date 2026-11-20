@@ -299,3 +299,14 @@ test(native_h05_twice,
 test(native_h05_rollback,
      (h05_run(h05_back(X), X, back, 'h05_back(10).\natom_length(_, 9).\n', L), findall(Y, h05_back(Y), L2)),
      solutions([(L = [1, 2, 3], L2 = [1, 2, 3])])).
+% 読み直した直後に、外の選択点が開いたまま新しい定義を呼ぶ。インタプリタの呼び出しは、記録した選択点がまだ届く
+% 古い節を消さない（purge_static）。
+h05_live(1).
+h05_live(2) :- ( fail -> halt ; true ).
+h05_live(3).
+test(native_h05_call_new,
+     (findall(X-N, (h05_live(X),
+                    (X =:= 1 -> (h05_reload(live, 'h05_live(10).\nh05_live(20).\nh05_live(30).\n') -> true ; true),
+                                findall(Z, h05_live(Z), N)
+                    ; N = [])), L)),
+     solutions([L = [1-[10, 20, 30], 2-[], 3-[]]])).
