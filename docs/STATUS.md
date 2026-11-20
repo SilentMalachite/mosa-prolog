@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** H-41 (c3f55110): error(Formal) subsumes; raw balls use ball/1; C-04, H-33–H-38, H-40.
+- **Last done:** H-42 (1265a0a3): --diff rejects a module file; C-04, H-33–H-38, H-40, H-41.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-42 (`--diff` counts a module file as agreeing without running its tests).
+- **Next:** M-49 (a `;` without runner goals becomes a Disj node that never retries its right branch).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
