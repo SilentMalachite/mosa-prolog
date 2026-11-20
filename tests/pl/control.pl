@@ -521,6 +521,25 @@ test(h08_call_shallow, h08_run(call, shallow, N), solutions([N = 0])).
 test(h08_catch_shallow, h08_run(catch, shallow, N), solutions([N = 0])).
 test(h08_if_shallow, h08_run(if, shallow, N), solutions([N = 1])).
 
+% レビュー H-09（2026-11-21、持ち主の B）。ゴールの位置に変数のある catch/3 の Goal は後で訳すが、外の翻訳がその制御構造
+% も歩くので、catch を通って戻る巡回は catch を有効にする前に誤りになる。前は catch が動いて Goal を訳すときに見つかり、
+% catch 自身が受けた（C が束縛され、外の catch は何も受けなかった）。
+test(h09_self,
+     (G = catch((X, G), C, true), catch(call(G), error(resource_error(cyclic_term), _), true), var(C), var(X)), true).
+test(h09_nothing_runs,
+     (retractall(m28_seen), G = (assertz(m28_seen), catch((_, G), _, true)),
+      catch(call(G), error(resource_error(cyclic_term), _), true), \+ m28_seen), true).
+% Recovery も同じ。Goal が成功して Recovery が動かなくても、その場で訳すときと同じく誤りになる。
+test(h09_recovery,
+     (G = catch(true, _, (_, G)), catch(call(G), error(resource_error(cyclic_term), _), R = raised), R == raised), true).
+% 書いた葉の中の制御構造を通る巡回は、前と同じく葉が動くときに見つかり、その catch が受ける（葉の規則）。
+test(h09_written_leaf, (G = catch(call((true, G)), C, true), catch(call(G), _, true), nonvar(C)), true).
+% 入れ子の後で訳す Goal は根だけを見る。中から戻る辺は外の catch が動くときに見つかり、その catch が受ける。中まで歩くと
+% tests/stack/deep_builtins.pl の 100 万段の入れ子が 2 乗になる（iso-notes 7.3.3）。
+test(h09_nested_late, (G = catch((_, catch((_, G), _, true)), C, true), catch(call(G), _, true), nonvar(C)), true).
+% 翻訳の後の束縛が作る巡回は、catch が動いて Goal を訳すときに初めて見えるので、その catch が受ける。
+test(h09_bound_later, (G = (X = G, catch((X, true), C, true)), catch(call(G), _, true), nonvar(C)), true).
+
 % レビュー M31（ADR 0021）。スロットの番号は 32 ビット。前は 16 ビットで、変数 70000 個の節は番号が 2^16 で折り返して
 % env の外を指し、プロセスごと落ちた。どちらも組込の数歩で済むので、MOSA_GC_STRESS=1 でも重くない。bagof/3 の
 % 証人の検査は、答えを結ぶ = を証人ごとに 1 歩ずつ動かすので、ストレスを 1000 にする ctest goal_shared に置く。

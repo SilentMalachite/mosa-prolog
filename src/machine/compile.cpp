@@ -38,19 +38,26 @@ struct GoalFrame {
 // この深さまでは C++ の再帰で訳す。より深い制御構造は手で積んで訳す（ADR 0011 の改訂 2）。
 constexpr int kShallow = 64;
 
-// 子のゴールを持つ制御構造（, ; -> *-> catch/3）なら、子を除いた頭の枠を返す。
-std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
+// 子のゴールを持つ制御構造（, ; -> *-> catch/3）なら、その IR の札。
+std::optional<IrTag> frame_tag(const Heap& heap, Cell cell) {
   if (cell.tag() != Tag::Str) return std::nullopt;
   const auto name = heap.atoms().name(heap.functor_atom(cell));
   const auto arity = heap.functor_arity(cell);
-  GoalFrame frame{cell, IrTerm{}, arity};
-  if (arity == 2 && name == ",") frame.term.tag = IrTag::And;
-  else if (arity == 2 && name == ";") frame.term.tag = IrTag::Or;
-  else if (arity == 2 && name == "->") frame.term.tag = IrTag::IfThen;
-  else if (arity == 2 && name == "*->") frame.term.tag = IrTag::SoftIf;
-  else if (arity == 3 && name == "catch") frame.term.tag = IrTag::Catch;
-  else return std::nullopt;
-  frame.term.args.reserve(arity);
+  if (arity == 2 && name == ",") return IrTag::And;
+  if (arity == 2 && name == ";") return IrTag::Or;
+  if (arity == 2 && name == "->") return IrTag::IfThen;
+  if (arity == 2 && name == "*->") return IrTag::SoftIf;
+  if (arity == 3 && name == "catch") return IrTag::Catch;
+  return std::nullopt;
+}
+
+// 子のゴールを持つ制御構造なら、子を除いた頭の枠を返す。
+std::optional<GoalFrame> goal_frame(const Heap& heap, Cell cell) {
+  const auto tag = frame_tag(heap, cell);
+  if (!tag) return std::nullopt;
+  GoalFrame frame{cell, IrTerm{}, heap.functor_arity(cell)};
+  frame.term.tag = *tag;
+  frame.term.args.reserve(frame.count);
   return frame;
 }
 
@@ -75,9 +82,7 @@ std::optional<Cell> wrapped_goal(const Heap& heap, Cell cell) {
 }
 
 // catch/3 の 2 番目は捕まえる型であり、ゴールではない。
-bool child_is_data(const GoalFrame& frame, std::size_t index) {
-  return frame.term.tag == IrTag::Catch && index == 1;
-}
+bool child_is_data(IrTag parent, std::size_t index) { return parent == IrTag::Catch && index == 1; }
 
 bool is_connective(const Heap& heap, Cell cell) {
   if (cell.tag() != Tag::Str || heap.functor_arity(cell) != 2) return false;
@@ -147,8 +152,8 @@ bool has_late_leaf(const Heap& heap, Cell root) {
 // 変数 1 つだけのゴールは Var の葉が同じく call(X) として動くので、今のまま訳す。
 // 呼べない部分のあるゴールも Call にする（レビュー M15）。call/1 が何も動かす前に type_error(callable, Goal) を
 // 出す（7.8.3.3）。今訳すと前のゴールが先に動き、外の call/1 や assertz/1 が catch/3 ごと拒む。
-bool runs_late(const Heap& heap, const GoalFrame& frame, std::size_t index, Cell child) {
-  if (frame.term.tag != IrTag::Catch || index == 1) return false;
+bool runs_late(const Heap& heap, IrTag parent, std::size_t index, Cell child) {
+  if (parent != IrTag::Catch || index == 1) return false;
   child = heap.deref(child);
   if (non_callable(heap, child)) return true;
   return is_connective(heap, child) && has_late_leaf(heap, child);
@@ -197,6 +202,53 @@ IrTerm Build::late_goal(Cell cell) {
     term.args.push_back(data(cell));
   }
   return term;
+}
+
+// レビュー H-09（2026-11-21、持ち主の B）。catch/3 の後で訳す Goal と Recovery を、その場で訳すときと同じく今の道の上で
+// 歩いてから葉にする。根だけを見ると、catch を通って戻る巡回は catch が動いて Goal を訳すときに見つかり、その catch が
+// 受けた（iso-notes 7.3.3 の決定 A は何も動かす前）。
+IrTerm Build::late_catch(Cell cell) {
+  if (keep) probe_late(heap->deref(cell));
+  return late_goal(cell);
+}
+
+// goal_at と同じ制御構造を歩き、同じく枠は goal_loops で、葉は note_back で見る。歩いている枠は deep_open に置き、
+// 抜けるときに外す。入れ子の後で訳す Goal は根だけを見る。中まで歩くと、その Goal を訳す段の翻訳もまた下の段を
+// すべて歩くので、入れ子の後で訳す catch が段の数の 2 乗になる（tests/stack/deep_builtins.pl の 100 万段）。歩く節点は
+// node_budget までにする。その場で訳すときに組む IR の節点の数と同じだけで、超えたら見つけずに終える。
+void Build::probe_late(Cell root) {
+  struct Step {
+    Cell cell;
+    IrTag tag;
+    std::uint16_t index;
+  };
+  const auto root_tag = frame_tag(*heap, root);
+  if (!root_tag || goal_loops(root)) return;
+  std::vector<Step> stack{{root, *root_tag, 0}};
+  deep_open.insert(root.raw());
+  for (std::size_t steps = 0; !stack.empty() && !cyclic && steps < node_budget; ++steps) {
+    Step& top = stack.back();
+    if (top.index == heap->functor_arity(top.cell)) {
+      deep_open.erase(top.cell.raw());
+      stack.pop_back();
+      continue;
+    }
+    const std::uint16_t index = top.index++;
+    const IrTag parent = top.tag;
+    const Cell child = heap->deref(heap->arg(top.cell, index));
+    if (child_is_data(parent, index)) continue;
+    const auto tag = frame_tag(*heap, child);
+    if (!tag || runs_late(*heap, parent, index, child)) {
+      note_back(child);
+    } else if (goal_loops(child)) {
+      cyclic = true;
+    } else {
+      deep_open.insert(child.raw());
+      // 積むと top は無効になる。
+      stack.push_back({child, *tag, 0});
+    }
+  }
+  for (const Step& step : stack) deep_open.erase(step.cell.raw());
 }
 
 // 後で訳せない部分木か。骨組みに後で訳せない葉があるか、葉の中のゴールも通って巡回に届けば塞がる（巡回はレビュー H-08）。
@@ -310,10 +362,10 @@ IrTerm Build::goal_deep(Cell root) {
     const std::size_t index = top.term.args.size();
     if (index < top.count) {
       const Cell next = heap->deref(heap->arg(top.cell, static_cast<std::uint16_t>(index)));
-      if (child_is_data(top, index)) {
+      if (child_is_data(top.term.tag, index)) {
         top.term.args.push_back(data(next));
-      } else if (runs_late(*heap, top, index, next)) {
-        top.term.args.push_back(late_goal(next));
+      } else if (runs_late(*heap, top.term.tag, index, next)) {
+        top.term.args.push_back(late_catch(next));
       } else if (!tags_parent(*heap, top, index, next) && defers(next)) {
         top.term.args.push_back(late_goal(next));
       } else if (auto frame = goal_frame(*heap, next)) {
@@ -353,8 +405,8 @@ IrTerm Build::goal_at(Cell cell, int depth) {
   goal_path.push_back(cell.raw());
   for (std::size_t index = 0; index < frame->count; ++index) {
     const Cell next = heap->arg(cell, static_cast<std::uint16_t>(index));
-    if (child_is_data(*frame, index)) frame->term.args.push_back(data(next));
-    else if (runs_late(*heap, *frame, index, next)) frame->term.args.push_back(late_goal(next));
+    if (child_is_data(frame->term.tag, index)) frame->term.args.push_back(data(next));
+    else if (runs_late(*heap, frame->term.tag, index, next)) frame->term.args.push_back(late_catch(next));
     else if (!tags_parent(*heap, *frame, index, next) && defers(next)) frame->term.args.push_back(late_goal(next));
     else frame->term.args.push_back(goal_at(next, depth + 1));
   }

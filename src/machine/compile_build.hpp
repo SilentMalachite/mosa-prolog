@@ -133,6 +133,8 @@ struct Build {
   [[nodiscard]] IrTerm goal_at(Cell cell, int depth);
   [[nodiscard]] IrTerm goal(Cell cell);
   [[nodiscard]] IrTerm late_goal(Cell cell);
+  [[nodiscard]] IrTerm late_catch(Cell cell);
+  void probe_late(Cell root);
   [[nodiscard]] bool defers(Cell cell);
   [[nodiscard]] bool blocks(Cell root);
 };

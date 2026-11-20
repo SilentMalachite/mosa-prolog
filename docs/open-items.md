@@ -7,9 +7,9 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12, H-18, H-39,
+- The 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-12, H-18, H-39,
   M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry
-  gives its A or B; default A, which keeps the current behaviour.
+  gives its A or B; default A, which keeps the current behaviour (H-09: the owner chose B).
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
@@ -101,6 +101,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - `call/N`'s extra arguments (`X = call(call, X)`) are not followed (older than the decision).
 - A cycle of leaves alone (`call/N`, `\+/1`, `once/1`, `M:G`) is found only up to a period of 32,
   as `wraps_back` walks 63 steps with Brent (CHANGELOG 0.4.1, Known limits).
+- Review H-09 (owner's B): a late catch/3 Goal nested in another is checked at its root only, so a
+  back edge from inside it is found when the outer catch runs, and that catch receives the error.
 - Cost of review H-08: past 63,488 slots a translation walks the goals of a part it would defer,
   also inside `call/N`, `\+/1`, `once/1` and catch/3, so k nested `call/1` layers that each pass
   the limit walk about k^2/2 layers: 16 layers of 64,000 goals take 1.4 s (0.6 s before), 32 4.6 s
