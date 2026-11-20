@@ -1,6 +1,6 @@
 #pragma once
 
-// load.cpp、load_use.cpp、load_clauses.cpp、load_directive.cpp、load_note.cpp、load_cond.cpp、load_flags.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
+// load.cpp、load_use.cpp、load_clauses.cpp、load_directive.cpp、load_meta.cpp、load_note.cpp、load_cond.cpp、load_flags.cpp が共有する。tests/cpp/ の部品のテストも読む。それ以外の読み込みの外からは使わない。
 #include "internal.hpp"
 
 #include "mosa/reader.hpp"
@@ -140,6 +140,11 @@ void apply_file_notes(Impl& machine, FileNotes& notes, std::uint64_t started_at)
 [[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& snapshots,
                                     std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,
                                     std::string_view origin);
+
+// 定義は load_meta.cpp。:- meta_predicate と :- module/2、:- export/1 の指令。ほかの指令と同じく 0（この指令でない）、
+// 1（受けた）、-1（読み込みの失敗。診断は書いた）を返す。first は、この項がファイルの最初の項であること。
+[[nodiscard]] int apply_meta_directive(Impl& machine, Cell directive, LoadSnapshots& snapshots);
+[[nodiscard]] int apply_module_directive(Impl& machine, Cell directive, bool first, std::string_view origin);
 
 // 定義は load_directive.cpp。入れ子のスタックで goal を 1 回解き、選択点を切って束縛を戻す。例外なら Formal を診断に
 // 書く。失敗と成功の扱いは呼び手が決める。
