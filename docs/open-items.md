@@ -10,6 +10,13 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-09, H-12,
   H-18, H-39, M-06, M-08, M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27,
   L-33. Each entry gives its A or B; default A, which keeps the current behaviour.
+- Review M-50, when `setup/0` and `cleanup/0` run. Default A: around each test, as now, which
+  `conformance_report_test` pins (`tick_a`, `tick_b`, `mark_a`, `mark_b`). B: once per object, as
+  `run/0` in the lgtunit.lgt of the suite's commit; those four rows are rewritten, a `setup/0` that
+  fails or throws fails every test of the file with actual `setup`, and the two
+  `lgt_unicode_stream_property_2_1x` actuals change (rates measured unchanged). The change is
+  about 30 lines in `lgt_file.cpp`: `run_cases` calls the hooks through one `run_object_hook`
+  (output captured and dropped) and `run_one`/`run_case` lose their hook arguments.
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
