@@ -112,3 +112,20 @@ test(collect_bagof_of_findall, bagof(Y-L, ((Y = a; Y = b), findall(X, d(X, Y), L
      solutions([R = [a-[1, 3], b-[2]]])).
 test(collect_update_view, (retractall(lv_q(_)), assertz(lv_q(a)), assertz(lv_q(b)),
                            findall(X, (lv_q(X), assertz(lv_q(n))), L)), solutions([L = [a, b]])).
+
+% 8.10.2.1 と 8.10.3.1。反復するゴールは findall/3 で写すので、呼ぶ前からあった Template の変数も解ごとに新しい
+% （レビュー 2026-11-20 の C-02）。前は ^ の下に無い呼ぶ前からの変数を全部、呼び手のセルのまま返した。
+% 呼び手のセルのまま返すのは証人の変数だけ（bagof_free_alias が守る）。
+test(c02_self_list, (bagof(X, true, X), X = [Y], var(Y)), true).
+test(c02_fresh_each, (bagof(A, (true; true), [P, Q]), P \== Q, P \== A, Q \== A), true).
+test(c02_setof_two, (setof(B, (true; true), L), L = [_, _]), true).
+test(c02_later_bindings, (bagof(f(C, D), (C = a; D = b), L), C = 1, D = 2, L = [f(a, P), f(Q, b)], var(P), var(Q)),
+     true).
+test(c02_caret_both, (bagof(X, Y^(Y = X; Y = X), [P, Q]), P \== Q, P \== X), true).
+test(c02_caret_flip, (bagof(X, Y^(X = Y; X = Y), [P, Q]), P \== Q, P \== X), true).
+test(c02_pair_fresh, (bagof(X-Y, (X = 1; X = 2), [1-P, 2-Q]), P \== Q, P \== Y, Q \== Y), true).
+% 証人 Y の具体化 f(T) と f(A) は変種なので 1 つの組になる。Y は 1 つ目の T と同じ変数で、2 つ目の T は新しい。
+test(c02_caret_group, (findall(Y-L, bagof(T, A^(Y = f(T); Y = f(A)), L), R), R = [f(P)-[Q, S]],
+                       P == Q, var(S), S \== P), true).
+% 守り。証人 U が自由なままの w(f(T), U) と w(f(U), U) は変種でないので、2 つの組のまま。
+test(c02_free_witness_two, (findall(Y-L, bagof(T, (Y = f(T); Y = f(U)), L), R), R = [_, _], var(U)), true).

@@ -56,7 +56,6 @@ struct VarIds {
   std::size_t base = 0;
   int stable_next = 0;
   int local_next = 0;
-  const std::vector<Cell>* hidden = nullptr;
   std::vector<std::pair<std::size_t, int>> stable;
   std::vector<std::pair<std::size_t, int>> local;
   std::vector<std::uint64_t> ext_raw;
@@ -107,9 +106,15 @@ bool listed(const std::vector<Cell>& vars, Cell cell) {
   return false;
 }
 
+bool home_cell(const VarIds& ids, std::uint64_t raw);
+
+// 呼び手のセルのまま返すのは、呼ぶ前から未束縛だった証人だけ。8.10.2.1 は反復するゴールを findall/3 で写すので、
+// 呼ぶ前からあった Template の変数も ^ の変数も、解ごとに新しい。前は ^ の下に無い呼ぶ前からの変数を全部呼び手の
+// セルにしたので、bagof(X, true, X) が X = [X] になり、setof(B, (true ; true), L) が 1 つに縮んだ（レビュー C-02）。
+// 証人に結び付いた変数は、ここへ来る前に note_alias の alias が証人の番号へ戻す。
 bool as_local(const VarIds& ids, std::size_t index, Cell cell) {
   if (index >= ids.base) return true;
-  return ids.hidden != nullptr && listed(*ids.hidden, cell);
+  return !home_cell(ids, cell.raw());
 }
 
 // 1 つの項を見る。変数なら vars に足し、まだ見ていない複合項なら子を右から pending に積む。右から積むので、
@@ -632,7 +637,6 @@ void start_collect(Impl& machine, const Compiled& compiled, std::shared_ptr<Coll
   entry.heap_mark = machine.heap.size();
   entry.trail_mark = machine.trail.slots.size();
   state->ids.base = entry.heap_mark;
-  state->ids.hidden = &state->hidden;
   note_homes(machine, state->witnesses, state->ids);
   const std::uint32_t module = state->goal.module;
   entry.collect = std::move(state);
