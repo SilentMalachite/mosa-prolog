@@ -84,7 +84,7 @@ open-items の「Files to split before their next edit」のうち、この計�
 
 | ファイル | 触る ID |
 | --- | --- |
-| `src/machine/lgt_exec.cpp` (765) | C-04、H-36、M-49 |
+| ~~`src/machine/lgt_exec.cpp` (765)~~ 割った（534 行と `lgt_build.cpp` 248 行、`lgt_prog.hpp`） | C-04、H-36、M-49 |
 | `src/machine/load_directive.cpp` (733) | H-05、H-10、H-12、M-14、L-16、L-17 |
 | `src/write/writer.cpp` (759) | H-16、H-19、H-25 |
 | `src/builtins/streams.cpp` (751) | H-21、H-22、H-26 |

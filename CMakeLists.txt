@@ -118,6 +118,7 @@ target_sources(mosa_lib PRIVATE
   src/machine/lgt_approx.cpp
   src/machine/lgt_copy.cpp
   src/machine/lgt_exec.cpp
+  src/machine/lgt_build.cpp
   src/machine/lgt_cond.cpp
   src/machine/lgt_io.cpp
   src/machine/lgt_output.cpp

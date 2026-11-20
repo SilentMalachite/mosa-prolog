@@ -9,7 +9,7 @@
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
 - **Next:** split `src/machine/lgt_exec.cpp` (765 lines) before C-04, H-36, H-37 and M-49; then C-04.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** 14 code and test files at 730 lines or more, listed in open-items.
+- **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

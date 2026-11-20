@@ -160,7 +160,7 @@ Code and test files at 730 lines or more (`wc -l`, 2026-11-19; generated files a
   `tests/cpp/conformance_io_test.cpp` (781), `tests/cpp/machine_test.cpp` (779),
   `tests/cpp/codegen_test.cpp` (774), `tests/cpp/gc_test.cpp` (751),
   `tests/cpp/manual_parse_test.cpp` (748)
-- `src/machine/lgt_exec.cpp` (765), `src/builtins/database.cpp` (762), `src/write/writer.cpp`
+- `src/builtins/database.cpp` (762), `src/write/writer.cpp`
   (759), `src/builtins/streams.cpp` (751), `src/machine/load_directive.cpp` (733),
   `src/machine/internal.hpp` (732)
 
