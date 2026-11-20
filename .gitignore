@@ -3,3 +3,4 @@
 /tests/tmp/*
 !/tests/tmp/README.md
 .DS_Store
+/.mosac-cache/
