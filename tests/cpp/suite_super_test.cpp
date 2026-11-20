@@ -116,6 +116,16 @@ void check_bound(const std::filesystem::path& root) {
                      5, 3, {"b2 true fail", "b5 true fail"}});
 }
 
+// 本体の ^^ の束縛は、後戻りで外れた枝のものを最後に読み直さない。前は最後の ^^ の束縛だけを別に持って読み直したので、
+// 外れた枝の ^^ が最後になる r2 が落ちた。r1 は束縛を全部持つと落ちる守りで、r3 は前後で同じ守り。
+void check_backtrack(const std::filesystem::path& root) {
+  check_suite(root, {"super_backtrack",
+                     "\ttest(r1, true(var(P))) :- (^^file_path(foo, P), fail ; true), ^^file_path(bar, Q), atom(Q).\n"
+                     "\ttest(r2, true(var(P))) :- (^^file_path(foo, P), fail ; true), atom(a).\n"
+                     "\ttest(r3, true) :- (^^file_path(foo, P), fail ; true), var(P).\n",
+                     3, 3, {}});
+}
+
 }  // namespace
 
 int main() {
@@ -124,6 +134,7 @@ int main() {
     Fixture fixture(root);
     check_clause(root);
     check_bound(root);
+    check_backtrack(root);
   }
   return mosa_test::failures();
 }

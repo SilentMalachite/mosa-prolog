@@ -9,6 +9,7 @@
 
 #include "mosa/writer.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -53,8 +54,8 @@ struct Env {
   std::string note;
   Stop stop;
   const LgtIo* io = nullptr;
-  // ^^ が束縛した変数の字面。本体の最後に読み直す。
-  std::vector<Saved> minted;
+  // ^^ が束縛した変数の名前。本体の最後に saved の字面から読み直す。
+  std::vector<std::string> minted;
 };
 
 void remember_saved(std::vector<Saved>& saved, std::string name, std::string term) {
@@ -453,9 +454,11 @@ void set_binding(std::vector<Binding>& bindings, const std::string& name, Cell v
 void remember_super(Machine& machine, const LgtSuper& ran, Env& env) {
   for (const LgtBound& bound : ran.bindings) {
     // 次の query がヒープを捨てても、表明の項を文字列で残す。
-    const std::string term = write_term(machine.heap(), machine.operators(), bound.value, lgt_write_options(), {});
-    remember_saved(env.minted, bound.name, term);
-    remember_saved(env.saved, bound.name, term);
+    remember_saved(env.saved, bound.name,
+                   write_term(machine.heap(), machine.operators(), bound.value, lgt_write_options(), {}));
+    if (std::find(env.minted.begin(), env.minted.end(), bound.name) == env.minted.end()) {
+      env.minted.push_back(bound.name);
+    }
     set_binding(env.bindings, bound.name, bound.value);
   }
 }
@@ -503,12 +506,15 @@ void exec_at(Machine& machine, const Prog& prog, int index, Env& env) {
   }
 }
 
+// 字面は saved から読む。後戻りで saved を戻すと、外れた枝の ^^ の名前はそこから消えるので、読み直さない。
+// 字面を名前と一緒に別に持つと、(^^file_path(foo, P), fail ; true) の後でも P が束縛されて戻った（レビュー M-54）。
 void remint(Machine& machine, Env& env) {
-  for (const Saved& slot : env.minted) {
-    if (slot.term.empty()) continue;
-    const LgtParsed parsed = lgt_parse_term(machine, slot.term);
+  for (const std::string& name : env.minted) {
+    const Saved* slot = find_saved(env.saved, name);
+    if (slot == nullptr || slot->term.empty()) continue;
+    const LgtParsed parsed = lgt_parse_term(machine, slot->term);
     if (!parsed.ok) continue;
-    set_binding(env.bindings, slot.name, parsed.term);
+    set_binding(env.bindings, name, parsed.term);
   }
 }
 
