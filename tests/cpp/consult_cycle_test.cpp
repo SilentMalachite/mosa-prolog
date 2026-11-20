@@ -2,7 +2,8 @@
 // C-01、ADR 0026 の「読み込み中のゴールの読み込みは入れ子の読み込み」）。前は空の積みから始めたので、指示のゴールが
 // 自分を consult するファイルは読み込みが終わらず、C++ のスタックが尽きて落ちた（CLI で rc=139、既定のスタックでも）。
 // 期待は、同じ形で無いファイルを consult したときの今の動きから取る。違うのは診断の句だけ。
-// initialization/1 のゴールはテキストを閉じた後に動くので、ここでは扱わない（守りの g だけ置く）。
+// initialization/1 のゴールはテキストを閉じた後に動くので、循環にはしない。代わりに入れ子の読み込みを 64 段までにし、
+// 自分の初期化のゴールで自分を consult するファイルも、落ちずに読み込みの失敗で終える（C-01 の持ち主の決定 B）。
 // 一時ファイルは tests/tmp/consult_cycle。
 
 #include "harness.hpp"
@@ -21,6 +22,7 @@
 namespace {
 
 constexpr std::string_view kCycle = "ファイルが循環しています";
+constexpr std::string_view kDeep = "読み込みの入れ子が深すぎます";
 
 bool write_text(const std::filesystem::path& path, std::string_view text) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
@@ -168,6 +170,43 @@ void check_after_error(const std::filesystem::path& dir) {
                    "error: direct names the file [" + direct.err + "]");
 }
 
+bool has_deep(const Asked& asked) { return asked.err.find(kDeep) != std::string::npos; }
+
+// 自分の初期化のゴールで自分を consult する。前は落ちた。64 段目の読み込みが失敗し、各段の初期化のゴールが失敗する。
+// 初期化のゴールの失敗は警告だけなので、無いファイルを consult する対と同じく、一番外の consult は成功する。
+void check_self_init(const std::filesystem::path& dir) {
+  const auto self = dir / "selfi.pl";
+  const auto missing = dir / "missing_init.pl";
+  mosa_test::check(write_text(self, ":- initialization(consult(" + prolog_path(self) + ")).\ni(1).\n"), "write selfi");
+  mosa_test::check(write_text(missing, ":- initialization(consult(" + prolog_path(dir / "none.pl") + ")).\nj(1).\n"),
+                   "write missing_init");
+  auto machine = mosa::Machine::create();
+  const Asked pair = ask(*machine, consult_of(missing));
+  const Asked asked = ask(*machine, consult_of(self));
+  mosa_test::check(asked.kind == pair.kind, "selfi: same outcome as a missing file");
+  mosa_test::check(has_deep(asked) && !has_cycle(asked), "selfi: depth phrase");
+  mosa_test::check(holds(*machine, "i(1)."), "selfi: clause kept");
+}
+
+// 別々のファイルの鎖。64 段までは読め、65 段目で失敗する。どの形の入れ子も同じく数える。
+void check_chain(const std::filesystem::path& dir, int files, bool loads) {
+  const std::string stem = "chain" + std::to_string(files) + "_";
+  for (int index = 1; index <= files; ++index) {
+    const auto file = dir / (stem + std::to_string(index) + ".pl");
+    const auto next = dir / (stem + std::to_string(index + 1) + ".pl");
+    const std::string text = index == files ? "leaf" + std::to_string(files) + "(1).\n"
+                                            : ":- (true, consult(" + prolog_path(next) + ")).\n";
+    mosa_test::check(write_text(file, text), "write " + stem);
+  }
+  auto machine = mosa::Machine::create();
+  const Asked asked = ask(*machine, consult_of(dir / (stem + "1.pl")));
+  const std::string label = "chain " + std::to_string(files) + ": ";
+  mosa_test::check((asked.kind == mosa::StopKind::Success) == loads,
+                   label + "outcome [" + asked.err.substr(0, 200) + "]");
+  mosa_test::check(has_deep(asked) != loads, label + "depth phrase");
+  mosa_test::check(holds(*machine, "catch(leaf" + std::to_string(files) + "(1), _, fail).") == loads, label + "leaf");
+}
+
 }  // namespace
 
 int main() {
@@ -183,6 +222,9 @@ int main() {
   check_self_if(dir);
   check_mutual(dir);
   check_outer(dir);
+  check_chain(dir, 64, true);
+  check_chain(dir, 65, false);
+  check_self_init(dir);
   std::filesystem::remove_all(dir, error);
   return mosa_test::failures();
 }

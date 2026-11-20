@@ -92,11 +92,15 @@ class LoadSnapshots {
   // この読み込みが開いているファイルの積み。入れ子の読み込みが親の積みを継ぐために持つ（レビュー C-01）。
   void set_opening(std::vector<std::string>& opening) { opening_ = &opening; }
   [[nodiscard]] std::vector<std::string>* opening() const { return opening_; }
+  // 一番外の読み込みが 0。入れ子の読み込みの深さの上限に使う（C-01 の持ち主の決定 B）。
+  void set_depth(std::size_t depth) { depth_ = depth; }
+  [[nodiscard]] std::size_t depth() const { return depth_; }
 
  private:
   std::vector<Snapshot> shots_;
   FileNotes notes_;
   std::vector<std::string>* opening_ = nullptr;
+  std::size_t depth_ = 0;
   std::vector<std::size_t> earlier_;
   KeyIndex<Snapshot> index_;
 };

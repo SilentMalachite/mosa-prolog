@@ -78,6 +78,7 @@ message(mosac_duplicate_key, 'mosac: ~w と ~w は同じ名前 ~w で埋め込�
 
 message(cannot_open_file, '~w: ファイルを開けません').
 message(file_cycle, '~w: ファイルが循環しています').
+message(load_too_deep, '読み込みの入れ子が深すぎます（~w 段まで）').
 message(clauses_apart, '述語 ~w の節が離れている').
 message(predicate_running, '実行中の述語は置き換えられない').
 message(directive_unsupported, 'この指示はフェーズ2では使えない: ~w').

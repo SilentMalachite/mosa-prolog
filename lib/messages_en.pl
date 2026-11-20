@@ -78,6 +78,7 @@ message(mosac_duplicate_key, 'mosac: ~w and ~w would both be embedded as ~w. The
 
 message(cannot_open_file, '~w: cannot open file').
 message(file_cycle, '~w: files load each other in a cycle').
+message(load_too_deep, 'loads are nested too deep (at most ~w)').
 message(clauses_apart, 'clauses of ~w are not together').
 message(predicate_running, 'cannot replace a predicate that is running').
 message(directive_unsupported, 'directive not supported: ~w').

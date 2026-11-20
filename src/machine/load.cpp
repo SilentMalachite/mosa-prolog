@@ -590,6 +590,19 @@ LoadStatus finish_and_hand_over(Impl& machine, const std::size_t& heap_base, con
   return status;
 }
 
+// 同時に開いている読み込みの数の上限（iso-notes 7.1）。入れ子の読み込みは、指示と初期化のゴールごとに run_loop を
+// 入れ子にして C++ のスタックを使う。1 MiB のスタックで、ゴールの consult/1 の鎖は 226 段まで、[F] は 318 段まで、
+// initialization/1 は 393 段まで通り、その先で落ちた（Release、macOS、2026-11-20）。一番浅いものに 3 倍余りの余裕を置く。
+constexpr std::size_t kLoadDepthMax = 64;
+
+// 上限を超える読み込みは何もせずに失敗する。自分の初期化のゴールで自分を consult するファイルは、テキストを閉じた後に
+// 読むので循環にならず、前は落ちた（レビュー C-01、持ち主の決定 B）。
+bool too_deep(Impl& machine, std::size_t depth) {
+  if (depth < kLoadDepthMax) return false;
+  machine.diagnostic = message_text(machine, "load_too_deep", {std::to_string(kLoadDepthMax)});
+  return true;
+}
+
 // 読み込み 1 回の退避と巻き戻し（ADR 0017）。read がこの読み込みのテキストを scan へ読み、偽なら読み込みは失敗する。
 // file_text は、読んだテキストがファイルであること。ファイルの字句の旗だけを、読み終えたら戻す（SPEC 第5節）。
 template <typename Read>
@@ -599,6 +612,8 @@ LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* sh
   machine.diagnostic.clear();
   machine.syntax_diag = false;
   machine.load_kept = false;
+  const std::size_t depth = machine.load_snapshots == nullptr ? 0 : machine.load_snapshots->depth() + 1;
+  if (too_deep(machine, depth)) return LoadStatus{false, machine.diagnostic};
   for (Predicate& predicate : machine.predicates) {
     predicate.seen = false;
     predicate.dynamic_declared = false;
@@ -625,6 +640,7 @@ LoadStatus load_once(Impl& machine, bool file_text, std::vector<std::string>* sh
   if (inherited == nullptr && shot_scope.parent() != nullptr) inherited = shot_scope.parent()->opening();
   std::vector<std::string>& opening = inherited == nullptr ? local_opening : *inherited;
   snapshots.set_opening(opening);
+  snapshots.set_depth(depth);
   LoadScan scan{snapshots, apart, inits, last, opening, 0};
   if (!read_or_reject(machine, saved, snapshots, heap_base, read, scan)) {
     if (machine.load_kept) {
