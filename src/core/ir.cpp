@@ -42,15 +42,30 @@ void copy_deep(const IrTerm& from, IrTerm& to) {
   }
 }
 
-// 深い所の args を手で積んで壊す。子の args を外に出して積むので、子の ~IrTerm は空の args だけを見る。
-void release_deep(std::vector<IrTerm>&& root) {
-  std::vector<std::vector<IrTerm>> pending;
-  pending.push_back(std::move(root));
-  while (!pending.empty()) {
-    std::vector<IrTerm> batch = std::move(pending.back());
-    pending.pop_back();
-    for (IrTerm& child : batch) {
-      if (!child.args.empty()) pending.push_back(std::move(child.args));
+// 深い所の args を、確保せずに後ろの子から壊す。破棄は noexcept の中で動くので、作業の列を確保すると bad_alloc が
+// std::terminate になる（レビュー H-01、ADR 0010）。前は std::vector<std::vector<IrTerm>> を積んだ。子を持つ節点へ
+// 下りるときは、その子の列を取り出した節点を戻り先の印にし、上の残りの列をその args に預ける。印は残りの列の最後に
+// いるので、今の列を壊し終えたら印から一つ上の列を取り戻し、印を外す。動くのは vector の swap と pop_back だけで、
+// 外す節点の args はいつも空なので、~IrTerm も再帰しない。
+void release_deep(std::vector<IrTerm>& root) noexcept {
+  std::vector<IrTerm> current;
+  current.swap(root);
+  std::vector<IrTerm> above;
+  while (!current.empty()) {
+    IrTerm& last = current.back();
+    if (!last.args.empty()) {
+      std::vector<IrTerm> kids;
+      kids.swap(last.args);
+      last.args.swap(above);
+      above.swap(current);
+      current.swap(kids);
+      continue;
+    }
+    current.pop_back();
+    while (current.empty() && !above.empty()) {
+      current.swap(above);
+      above.swap(current.back().args);
+      current.pop_back();
     }
   }
 }
@@ -65,7 +80,7 @@ void IrTerm::copy_args(const IrTerm& other, Depth depth) {
 
 // 後ろの子から、子の木を壊してから子を外す。既定の破棄と同じ順で解放する。
 void IrTerm::release(int depth) noexcept {
-  if (depth >= kShallow) return release_deep(std::move(args));
+  if (depth >= kShallow) return release_deep(args);
   while (!args.empty()) {
     IrTerm& last = args.back();
     if (!last.args.empty()) last.release(depth + 1);
