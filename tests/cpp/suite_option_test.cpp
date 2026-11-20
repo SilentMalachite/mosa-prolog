@@ -121,6 +121,18 @@ void check_cleanup(const std::filesystem::path& root) {
                      2, 2, {}});
 }
 
+// 補助の節の本体の {Goal} は、Logtalk でただの Prolog の呼び出し。前は外さずに読み込み、呼ぶと {}/1 の
+// existence_error になった。setup :- {retractall(v(_))}. の setup/0 は、試験ごとに動かして失敗を捨てていたので隠れた。
+// DCG の {} と、データとしての {} は残す。
+void check_curly_helpers(const std::filesystem::path& root) {
+  check_suite(root, {"curly_helper",
+                     "\t:- dynamic(v/1).\n\thelper :- {assertz(v(1))}, {v(1)}.\n\tdata(X) :- X = {a}.\n"
+                     "\tgreeting --> {true}, [hello].\n"
+                     "\ttest(h1, true) :- helper.\n\ttest(h2, true(X == {a})) :- data(X).\n"
+                     "\ttest(h3, true) :- phrase(greeting, [hello]).\n",
+                     3, 3, {}});
+}
+
 }  // namespace
 
 int main() {
@@ -129,6 +141,7 @@ int main() {
     Fixture fixture(root);
     check_setup(root);
     check_cleanup(root);
+    check_curly_helpers(root);
   }
   return mosa_test::failures();
 }

@@ -12,6 +12,7 @@
 #include "mosa/syntax_error.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -335,9 +336,18 @@ bool dropped_import_uses(const Heap& heap, Cell term) {
   return true;
 }
 
+// 節の本体の {Goal} は Logtalk でただの Prolog の呼び出しなので外す。前は外さず、呼ぶと {}/1 の existence_error に
+// なった（M-50 で setup/0 を 1 回にして見えた）。外すのは呼び出しの位置だけで、DCG の --> と頭とデータの {} は残す。
+Cell unwrap_rule_body(Heap& heap, Cell term) {
+  term = heap.deref(term);
+  if (!functor_is(heap, term, ":-", 2)) return term;
+  const std::array<Cell, 2> args{heap.arg(term, 0), unwrap_curlies(heap, heap.arg(term, 1))};
+  return heap.structure(heap.functor_atom(term), args);
+}
+
 void add_piece(Heap& heap, const OperatorTable& operators, Cell term, const std::vector<VarName>& names,
                const Parse& parse, LgtFile& file) {
-  const Cell prepared = strip_user_scope(heap, silence_flag(heap, term));
+  const Cell prepared = unwrap_rule_body(heap, strip_user_scope(heap, silence_flag(heap, term)));
   std::string text = machine_text(heap, operators, prepared, names, true);
   text += full_stop_after(text);
   text += '\n';
