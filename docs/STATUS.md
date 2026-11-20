@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-50 options (691536d1, afc75043); C-04, H-33–H-38, H-40–H-42, M-49.
+- **Last done:** M-50 (c30993db): test options; hooks once per object; C-04, H-33–H-38, H-40–H-42, M-49.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** M-51 (judge comparisons); M-50's hook timing waits on an owner question (open-items).
+- **Next:** M-51 (judge comparisons); split `lgt_judge.cpp` (727 lines) first.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
