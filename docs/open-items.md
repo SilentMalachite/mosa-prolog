@@ -265,7 +265,7 @@ General:
 
 - Two cyclic terms with coprime periods still unify or compare in time quadratic in the periods,
   until the pairs pass the heap limit (ADR 0010 amendment 4, review H-02). Union-find over compound
-  cells would make `=` and `==` linear but not the order of `compare/3`; left for a later item.
+  cells would make `=` and `==` linear; not shown to keep `compare/3`'s order. Left for later.
 - Under `--heap-max 16`, `length(L, 300000)` reaches 48 MB RSS, and with a recursive fill and
   `copy_term/2` 151 MB: something outside the heap that the limit does not count (seen in H-02).
 - setof/3 orders groups whose witnesses differ only in variables by the caller's cells (7.2.1
