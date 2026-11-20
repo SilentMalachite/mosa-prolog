@@ -1,14 +1,19 @@
 // 8.4.1 ==/2、\==/2、@</2、@=</2、@>/2、@>=/2（@term, @term）。エラー無し。
 // 8.4.2 compare/3（?atom, @term, @term）
 //   type_error(atom), domain_error(order)
-// テスト: tests/pl/order.pl、tests/cpp/bigint_heap_test.cpp
+// 巡回する項の順序は ADR 0029（7.2 は有限の項だけを定め、7.3.3 は巡回する項を定めない）。
+// テスト: tests/pl/order.pl、tests/cpp/bigint_heap_test.cpp、tests/cpp/pair_limit_test.cpp
 
 #include "../core/pair_memo.hpp"
 #include "../machine/internal.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -26,36 +31,81 @@ int rank_of(const Impl& machine, Cell cell) {
   return 4;
 }
 
-// 比べ始めた複合項の組を全部覚える。前と同じく、覚えた組に再び来たら等しいとみなす。小さい比較は線形の
-// 表で済ませ、この数を超えたら探すのが定数時間の表へ移す。深い項でも比較が 2 乗の時間にならない。
+// 深さ優先の歩みが、比べている途中の組にまた会ったときの印（ADR 0029）。2 つの項の深さ優先の節点の並びは、そこから
+// いつまでも等しく続く。比べた答え（-1、0、1）とは別の値で、compare_terms の外には出さない。
+constexpr int kEndless = 2;
+// 比べ始めた同じ関数子の組を全部覚える。小さい比較は線形の表で済ませ、この数を超えたら探すのが定数時間の表へ移す。
+// 深い項でも比較が 2 乗の時間にならない。
 constexpr std::size_t kFewPairs = 256;
 // この深さまでは C++ の再帰で子を比べる。より深い部分木は、その場で手で積んで比べ終えてから戻る（ADR 0011）。
 constexpr int kShallow = 64;
 
+// 入った組が、新しいか、比べている途中か、比べ終えて等しかったか。
+enum class PairVisit { New, Open, Done };
+
+// 組ごとに入った順の番号を覚え、今の道（比べている途中の組）の番号を昇順に積む。比べ終えた組にまた会えば等しい（共有
+// した部分項）。途中の組にまた会えば、深さ優先の比べは終わらない（ADR 0029）。途中かは道の番号を二分探索して見る。
+// 比べ終えるときは道から外すだけで、表を引き直さない。比べ終えた印を表に書くと、大きな写しの == が 3 割遅くなった。
 class PairSeen {
  public:
-  explicit PairSeen(const Heap& heap) : heap_(heap) {}
+  // collect があれば、飛ばした共有の部分項をそこに集める。
+  explicit PairSeen(const Heap& heap, std::vector<Cell>* collect = nullptr) : heap_(heap), collect_(collect) {}
 
-  // 前に比べ始めた組なら true を返す。新しい組は覚える。
-  bool check(std::uint64_t left, std::uint64_t right) {
-    if (!many_.active()) {
-      for (const auto& item : few_) {
-        if (item.first == left && item.second == right) return true;
-      }
-      if (few_.size() < kFewPairs) {
-        few_.emplace_back(left, right);
-        return false;
-      }
-      for (const auto& item : few_) many_.insert(heap_, item.first, item.second);
+  PairVisit enter(std::uint64_t left, std::uint64_t right) {
+    const std::optional<std::uint64_t> known = find_or_add(left, right);
+    if (!known) {
+      path_.push_back(next_++);
+      return PairVisit::New;
     }
-    return !many_.insert(heap_, left, right);
+    return std::binary_search(path_.begin(), path_.end(), *known) ? PairVisit::Open : PairVisit::Done;
   }
 
+  // 入った組の子を全部比べて等しかった。深さ優先なので、それは道のいちばん上の組である。
+  void finish() { path_.pop_back(); }
+
+  // 2 つの項が共有する（同じセルの）複合項を、等しいとして飛ばした。違いで決めたときに、巡回しないかを確かめる。
+  void share(Cell cell) {
+    shared_ = true;
+    if (collect_ != nullptr) collect_->push_back(cell);
+  }
+  [[nodiscard]] bool shared() const { return shared_; }
+  // 違いで決めた節点の深さ（根が 0）。
+  void decide(std::size_t depth) { decided_ = depth; }
+  [[nodiscard]] std::size_t decided() const { return decided_; }
+
  private:
+  struct Entry {
+    std::uint64_t left;
+    std::uint64_t right;
+    std::uint64_t number;
+  };
+
+  // 前に入った組ならその番号。新しい組は今の番号で覚えて空を返す。
+  std::optional<std::uint64_t> find_or_add(std::uint64_t left, std::uint64_t right) {
+    if (!many_.active()) {
+      for (std::size_t index = 0; index < few_count_; ++index) {
+        if (few_[index].left == left && few_[index].right == right) return few_[index].number;
+      }
+      if (few_count_ < few_.size()) {
+        few_[few_count_++] = {left, right, next_};
+        return std::nullopt;
+      }
+      for (const Entry& item : few_) many_.enter(heap_, item.left, item.right, item.number);
+    }
+    return many_.enter(heap_, left, right, next_);
+  }
+
   const Heap& heap_;
-  std::vector<std::pair<std::uint64_t, std::uint64_t>> few_;
-  // 使っているヒープの語の数を超えた組は上限に数える（PairMemo、ADR 0010 の改訂 4）。
-  PairMemo many_;
+  std::vector<Cell>* collect_;
+  // 小さい比較はヒープの外に確保しない。
+  std::array<Entry, kFewPairs> few_;
+  std::size_t few_count_ = 0;
+  std::vector<std::uint64_t> path_;
+  std::uint64_t next_ = 0;
+  bool shared_ = false;
+  std::size_t decided_ = 0;
+  // 使っているヒープの語の数を超えた組は上限に数える（PairNumbers、ADR 0010 の改訂 4）。
+  PairNumbers many_;
 };
 
 // 正規形の絶対値の語（下位が先、最上位の語は 0 でない）。語の数が違えば多い方が大きいので、同じ数のときだけ上位から比べる。
@@ -108,8 +158,9 @@ int compare_scalar(const Impl& machine, Cell left, Cell right, int rank) {
   return 0;
 }
 
-// 組の頭だけを比べる。子を比べる必要があるときだけその数を返し、それ以外は order に答えを置いて 0 を返す。
-std::uint16_t compare_head(const Impl& machine, Cell& left, Cell& right, PairSeen& seen, int& order) {
+// 組の頭だけを比べる。同じ関数子の複合項で子を比べる必要があるときだけその数を返し、それ以外は order に答えを置いて
+// 0 を返す。同じセルは等しい。
+std::uint16_t compare_head(const Impl& machine, Cell& left, Cell& right, int& order) {
   order = 0;
   left = machine.heap.deref(left);
   right = machine.heap.deref(right);
@@ -124,7 +175,6 @@ std::uint16_t compare_head(const Impl& machine, Cell& left, Cell& right, PairSee
     order = compare_scalar(machine, left, right, left_rank);
     return 0;
   }
-  if (seen.check(left.raw(), right.raw())) return 0;
   const bool left_list = left.tag() == Tag::Lis;
   const bool right_list = right.tag() == Tag::Lis;
   const auto left_arity = left_list ? std::uint16_t{2} : machine.heap.functor_arity(left);
@@ -133,6 +183,11 @@ std::uint16_t compare_head(const Impl& machine, Cell& left, Cell& right, PairSee
     order = left_arity < right_arity ? -1 : 1;
     return 0;
   }
+  // 同じアトムなら名前も同じなので、文字列を比べない。
+  if (!left_list && !right_list && machine.heap.functor_atom(left) == machine.heap.functor_atom(right)) {
+    return left_arity;
+  }
+  if (left_list && right_list) return left_arity;
   const std::string_view left_text =
       left_list ? std::string_view{"."} : machine.atoms.name(machine.heap.functor_atom(left));
   const std::string_view right_text =
@@ -149,42 +204,199 @@ Cell child_of(const Impl& machine, Cell cell, std::uint16_t index) {
   return machine.heap.arg(cell, index);
 }
 
-// 部分木を手で積んで比べる。子は左から比べるよう逆順に積むので、比べる順は前の再帰と同じになる。
-int compare_deep(const Impl& machine, Cell left, Cell right, PairSeen& seen) {
-  std::vector<std::pair<Cell, Cell>> todo{{left, right}};
-  while (!todo.empty()) {
-    auto [a, b] = todo.back();
-    todo.pop_back();
-    int order = 0;
-    const std::uint16_t arity = compare_head(machine, a, b, seen, order);
+bool is_compound(Cell cell) { return cell.tag() == Tag::Str || cell.tag() == Tag::Lis; }
+
+std::uint16_t arity_of(const Impl& machine, Cell cell) {
+  return cell.tag() == Tag::Lis ? std::uint16_t{2} : machine.heap.functor_arity(cell);
+}
+
+// 深さ優先の歩みが組に入る。新しい組なら子の数を返す。比べ終えて等しかった組は 0（等しい）、比べている途中の組なら
+// order に kEndless を置いて 0 を返す。同じセルの複合項は等しいとして飛ばし、覚えておく。
+std::uint16_t enter_pair(const Impl& machine, Cell& left, Cell& right, PairSeen& seen, std::size_t depth, int& order) {
+  const std::uint16_t arity = compare_head(machine, left, right, order);
+  if (arity == 0) {
+    if (order == 0 && left.raw() == right.raw() && is_compound(left)) seen.share(left);
+    if (order != 0) seen.decide(depth);
+    return 0;
+  }
+  const PairVisit visit = seen.enter(left.raw(), right.raw());
+  if (visit == PairVisit::New) return arity;
+  if (visit == PairVisit::Open) order = kEndless;
+  return 0;
+}
+
+// 部分木を手で積んで比べる。枠は組と次に比べる子を持ち、子を全部比べ終えた組を道から外す。比べる順は前の再帰と
+// 同じになる。
+int compare_deep(const Impl& machine, Cell left, Cell right, PairSeen& seen, std::size_t depth) {
+  struct Frame {
+    Cell left;
+    Cell right;
+    std::uint16_t next;
+    std::uint16_t arity;
+  };
+  int order = 0;
+  const std::uint16_t arity = enter_pair(machine, left, right, seen, depth, order);
+  if (arity == 0) return order;
+  std::vector<Frame> frames{{left, right, 0, arity}};
+  while (!frames.empty()) {
+    Frame& top = frames.back();
+    if (top.next == top.arity) {
+      seen.finish();
+      frames.pop_back();
+      continue;
+    }
+    Cell a = child_of(machine, top.left, top.next);
+    Cell b = child_of(machine, top.right, top.next);
+    ++top.next;
+    const std::uint16_t kids = enter_pair(machine, a, b, seen, depth + frames.size(), order);
     if (order != 0) return order;
-    for (std::uint16_t index = arity; index > 0; --index) {
-      const auto at = static_cast<std::uint16_t>(index - 1);
-      todo.emplace_back(child_of(machine, a, at), child_of(machine, b, at));
+    if (kids != 0) frames.push_back({a, b, 0, kids});
+  }
+  return 0;
+}
+
+// 1 つ目の鍵（ADR 0029）。展開した木を深さ優先に、左から右に比べる。
+int compare_seen(const Impl& machine, Cell left, Cell right, PairSeen& seen, int depth) {
+  if (depth >= kShallow) return compare_deep(machine, left, right, seen, static_cast<std::size_t>(depth));
+  int order = 0;
+  const std::uint16_t arity = enter_pair(machine, left, right, seen, static_cast<std::size_t>(depth), order);
+  for (std::uint16_t index = 0; index < arity && order == 0; ++index) {
+    order = compare_seen(machine, child_of(machine, left, index), child_of(machine, right, index), seen, depth + 1);
+  }
+  if (arity != 0 && order == 0) seen.finish();
+  return order;
+}
+
+// 幅優先の歩みが積んだ組。PairSeen と同じく、小さい比較は線形の表で済ませる。大きい表は待ち行列の 1 組の分も数える。
+class PairOnce {
+ public:
+  explicit PairOnce(const Heap& heap) : heap_(heap) {}
+
+  // 新しい組なら覚えて true。
+  bool insert(std::uint64_t left, std::uint64_t right) {
+    if (!many_.active()) {
+      for (const auto& item : few_) {
+        if (item.first == left && item.second == right) return false;
+      }
+      if (few_.size() < kFewPairs) {
+        few_.emplace_back(left, right);
+        return true;
+      }
+      for (const auto& item : few_) many_.insert(heap_, item.first, item.second);
+    }
+    return many_.insert(heap_, left, right);
+  }
+
+ private:
+  const Heap& heap_;
+  std::vector<std::pair<std::uint64_t, std::uint64_t>> few_;
+  PairMemo many_{sizeof(std::pair<Cell, Cell>)};
+};
+
+// 2 つ目の鍵（ADR 0029）。与えられた 2 つの項を上から段ごとに、左から右に比べ、最初の違いで決める。待ち行列は前から
+// 読むだけなので、段の順、段の中では左からの順に並ぶ。同じ組は 2 度積まない。共有の部分項（同じセル）の中には入らない。
+// 深さ limit より深い節点は比べない（違いが無ければ 0）。
+constexpr std::size_t kAnyDepth = std::numeric_limits<std::size_t>::max();
+
+int compare_wide(const Impl& machine, Cell left, Cell right, std::size_t limit = kAnyDepth) {
+  PairOnce queued{machine.heap};
+  left = machine.heap.deref(left);
+  right = machine.heap.deref(right);
+  queued.insert(left.raw(), right.raw());
+  std::vector<std::pair<Cell, Cell>> queue{{left, right}};
+  std::size_t depth = 0;
+  std::size_t level_end = 1;
+  for (std::size_t at = 0; at < queue.size(); ++at) {
+    if (at == level_end) {
+      if (++depth > limit) return 0;
+      level_end = queue.size();
+    }
+    auto [a, b] = queue[at];
+    int order = 0;
+    const std::uint16_t arity = compare_head(machine, a, b, order);
+    if (order != 0) return order;
+    for (std::uint16_t index = 0; index < arity; ++index) {
+      const Cell x = machine.heap.deref(child_of(machine, a, index));
+      const Cell y = machine.heap.deref(child_of(machine, b, index));
+      if (queued.insert(x.raw(), y.raw())) queue.emplace_back(x, y);
     }
   }
   return 0;
 }
 
-int compare_seen(const Impl& machine, Cell left, Cell right, PairSeen& seen, int depth) {
-  if (depth >= kShallow) return compare_deep(machine, left, right, seen);
-  int order = 0;
-  const std::uint16_t arity = compare_head(machine, left, right, seen, order);
-  for (std::uint16_t index = 0; index < arity && order == 0; ++index) {
-    order = compare_seen(machine, child_of(machine, left, index), child_of(machine, right, index), seen, depth + 1);
+// roots のどれかから閉路に着くか。根ごとに深さ優先で辿り、辿っている途中の複合項にまた会えば閉路である。辿り終えた
+// 複合項は共有されていても辿り直さない。表は PairSeen に (セル, 0) の組として覚え、上限に数える。
+bool any_cyclic(const Impl& machine, const std::vector<Cell>& roots) {
+  struct Frame {
+    Cell term;
+    std::uint16_t next;
+    std::uint16_t arity;
+  };
+  PairSeen marks{machine.heap};
+  std::vector<Frame> frames;
+  const auto enter = [&](Cell cell) {
+    cell = machine.heap.deref(cell);
+    if (!is_compound(cell)) return false;
+    const PairVisit visit = marks.enter(cell.raw(), 0);
+    if (visit == PairVisit::New) frames.push_back({cell, 0, arity_of(machine, cell)});
+    return visit == PairVisit::Open;
+  };
+  for (const Cell root : roots) {
+    if (enter(root)) return true;
+    while (!frames.empty()) {
+      Frame& top = frames.back();
+      if (top.next == top.arity) {
+        marks.finish();
+        frames.pop_back();
+        continue;
+      }
+      const Cell child = child_of(machine, top.term, top.next);
+      ++top.next;
+      if (enter(child)) return true;
+    }
   }
-  return order;
+  return false;
 }
 
-int compare_now(const Impl& machine, Cell left, Cell right) {
-  PairSeen seen{machine.heap};
-  return compare_seen(machine, left, right, seen, 0);
+// 共有の部分項を飛ばした後に、深さ depth の違いで order と決めた。飛ばした部分項が巡回すれば、1 つ目の鍵はそこで
+// 先へ進まず、答えは 2 つ目の鍵のものになる（ADR 0029）。深さ優先の歩みは違いより左をもう等しいと見たので、2 つ目の鍵が
+// 違う答えになるのは、depth より浅い所に違いがあるときだけである。そこを比べて同じ答えか違いが無ければ、巡回しても
+// しなくても答えは同じなので、共有の部分項を辿らない。毎回辿ると、大きな部分項を共有する項の並べ替えが 300 倍遅く
+// なった（p(C, M) を 1 万個、C は 1,000 要素のリスト）。食い違ったときだけ、歩み直して飛ばした部分項を集める。
+int settle_shared(const Impl& machine, Cell left, Cell right, int order, std::size_t depth) {
+  if (depth <= 1) return order;
+  const int wide = compare_wide(machine, left, right, depth - 1);
+  if (wide == 0 || wide == order) return order;
+  std::vector<Cell> passed;
+  {
+    PairSeen seen{machine.heap, &passed};
+    compare_seen(machine, left, right, seen, 0);
+  }
+  return any_cyclic(machine, passed) ? wide : order;
 }
+
+// 1 つ目の鍵がいつまでも等しく続くときだけ、2 つ目の鍵で比べる。深さ優先の組の表は、幅優先に移る前に返す。
+// 等しく終わった比較は、共有の部分項を確かめない（X == X は辿らない）。
+int compare_terms(const Impl& machine, Cell left, Cell right) {
+  int order = 0;
+  bool shared = false;
+  std::size_t depth = 0;
+  {
+    PairSeen seen{machine.heap};
+    order = compare_seen(machine, left, right, seen, 0);
+    shared = seen.shared();
+    depth = seen.decided();
+  }
+  if (order == kEndless) return compare_wide(machine, left, right);
+  if (order == 0 || !shared) return order;
+  return settle_shared(machine, left, right, order, depth);
+}
+
 
 void succeed(Impl& machine, const Goal& goal) { machine.ip = goal.cont; }
 
 bool ordered(Impl& machine, const Goal& goal, int mode) {
-  const int order = compare_now(machine, goal.arg(machine, 0), goal.arg(machine, 1));
+  const int order = compare_terms(machine, goal.arg(machine, 0), goal.arg(machine, 1));
   const bool yes = (mode == -2 && order < 0) || (mode == -1 && order <= 0) || (mode == 0 && order == 0) ||
                    (mode == 1 && order >= 0) || (mode == 2 && order > 0);
   if (yes) succeed(machine, goal);
@@ -205,7 +417,7 @@ void run_compare(Impl& machine, const Goal& goal) {
       return;
     }
   }
-  const int order = compare_now(machine, goal.arg(machine, 1), goal.arg(machine, 2));
+  const int order = compare_terms(machine, goal.arg(machine, 1), goal.arg(machine, 2));
   const char* text = order < 0 ? "<" : (order > 0 ? ">" : "=");
   const Cell symbol = machine.heap.atom(machine.atoms.intern(text));
   if (!do_unify(machine, goal.arg(machine, 0), symbol)) machine.failed = true;
@@ -214,10 +426,7 @@ void run_compare(Impl& machine, const Goal& goal) {
 
 }  // namespace
 
-int compare_cells(const Impl& machine, Cell left, Cell right) {
-  PairSeen seen{machine.heap};
-  return compare_seen(machine, left, right, seen, 0);
-}
+int compare_cells(const Impl& machine, Cell left, Cell right) { return compare_terms(machine, left, right); }
 
 bool run_order(Impl& machine, const Goal& goal) {
   const auto name = machine.atoms.name(goal.name);
@@ -227,7 +436,7 @@ bool run_order(Impl& machine, const Goal& goal) {
   if (name == "@>=" && goal.arity == 2) return ordered(machine, goal, 1);
   if (name == "@>" && goal.arity == 2) return ordered(machine, goal, 2);
   if (name == "\\==" && goal.arity == 2) {
-    const int order = compare_now(machine, goal.arg(machine, 0), goal.arg(machine, 1));
+    const int order = compare_terms(machine, goal.arg(machine, 0), goal.arg(machine, 1));
     if (order != 0) succeed(machine, goal);
     else machine.failed = true;
     return true;

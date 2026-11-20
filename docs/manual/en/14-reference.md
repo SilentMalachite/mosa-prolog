@@ -250,7 +250,8 @@ built-in predicates; the row gives 6.5.2, the clause that turns a module-qualifi
 ### Unification and comparison
 
 These unify terms (chapter 5), compare them in the standard order of terms (variables first, then numbers, atoms
-and compound terms) and sort them.
+and compound terms) and sort them. Cyclic terms are compared node by node, depth first; when two of them go on equal
+forever that way, the shallowest difference, then the leftmost, decides.
 
 <!-- predicates: system -->
 | Predicate | ISO | What it does |
