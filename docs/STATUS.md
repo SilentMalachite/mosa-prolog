@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-54 (d6be69db, 74bfcee7): `^^` output args unify; C-04, H-33–H-42 but H-39, M-49–M-53.
+- **Last done:** L-46 (c9905a0a): version tests check the exit code; W1 done but H-39 (question, A).
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** L-46 (the version tests ignore the exit code, and the version is hard-coded in 3 files).
+- **Next:** W2, C-01 (a file that consults itself crashes); wait for the owner before starting.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
