@@ -5,11 +5,15 @@
 # spy_after_warning と spy_after_warning_ja は plain.pl）を読ませる。read_line は read/1 が返した改行をポートの
 # コマンドに読まないことを見る（敵対的レビュー、2026-11-19）。skip_rollback は skip_rollback.pl を consult し、取り消した
 # 読み込みが外の skip の箱を戻すことを見る（同じレビュー）。
+# redo_r_catch と redo_f_catch は再試行のポートの r と f が箱の中の後始末を動かしても、外の catch/3 がその例外を捕らえる
+# ことを見る（レビュー 2026-11-20 の H-07）。期待値は同じ入力の r と f を creep にした出力で、そこだけ違う。
+# redo_inner_catch は、再試行のポートが箱の中で抜けた catch/3 を戻さず、やり直しの後の例外を外の catch/3 が受けることを見る。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 set(debug_cases creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
-    spy_after_warning_ja directive_depth spy_ja help eof read_line skip_rollback)
+    spy_after_warning_ja directive_depth spy_ja help eof read_line skip_rollback redo_r_catch redo_f_catch
+    redo_inner_catch)
 foreach(debug_case ${debug_cases})
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)

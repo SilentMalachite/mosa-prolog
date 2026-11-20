@@ -1,0 +1,20 @@
+trace, catch((inner_catch(Y), Y > 1, throw(late)), E, (write(outer(E)), nl)).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+notrace, nodebug.

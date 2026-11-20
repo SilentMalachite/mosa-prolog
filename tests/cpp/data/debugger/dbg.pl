@@ -10,3 +10,4 @@ deep(f(f(f(f(f(f(f(f(f(f(f(a)))))))))))).
 :- use_module(library(lists)).
 t(1).
 t(_) :- throw(oops).
+inner_catch(Y) :- catch(c(_), _, (write(inner), nl)), c(Y).

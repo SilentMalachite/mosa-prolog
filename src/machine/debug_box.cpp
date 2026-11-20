@@ -116,6 +116,11 @@ bool redo_box(Impl& machine) {
   std::vector<std::size_t> boxes;
   while (!machine.stack.empty() && machine.stack.back().pick == Pick::DebugRedo) {
     const Entry& top = machine.stack.back();
+    // 印も選択点なので、ほかの選択点のやり直しと同じく、箱が抜けた後に無効にした catch/3 を有効に戻す。箱にまた
+    // 入るからである。r と f は箱の中を切って後始末を積み、run_loop は次のやり直しより先にそれを動かすので、後で
+    // 戻すと、後始末の例外が外の catch/3 を素通りする（レビュー 2026-11-20 の H-07）。印は箱が抜けたときに積むので、
+    // 箱の中で抜けた catch/3 は戻さない。
+    apply_catches(machine, top);
     if (box_at(machine, top.cut, top.next)) boxes.push_back(top.cut);
     machine.stack.pop_back();
   }

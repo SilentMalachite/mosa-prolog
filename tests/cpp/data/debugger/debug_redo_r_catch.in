@@ -1,0 +1,10 @@
+trace, catch(setup_call_cleanup(true, (true;true), throw(boom)), boom, (write(caught), nl)), fail.
+
+
+r
+
+
+
+
+
+notrace, nodebug.

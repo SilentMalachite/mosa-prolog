@@ -1,0 +1,24 @@
+?- trace, catch((inner_catch(Y), Y > 1, throw(late)), E, (write(outer(E)), nl)).
+ Call: (1) inner_catch(_G1) ? 
+ Call: (2) c(_G1) ? 
+ Exit: (2) c(1) ? 
+ Call: (2) c(_G1) ? 
+ Exit: (2) c(1) ? 
+ Exit: (1) inner_catch(1) ? 
+ Call: (1) 1>1 ? 
+ Fail: (1) 1>1 ? 
+ Redo: (1) inner_catch(_G1) ? 
+ Redo: (2) c(_G1) ? 
+ Exit: (2) c(2) ? 
+ Exit: (1) inner_catch(2) ? 
+ Call: (1) 2>1 ? 
+ Exit: (1) 2>1 ? 
+ Call: (1) write(outer(late)) ? 
+outer(late) Exit: (1) write(outer(late)) ? 
+ Call: (1) nl ? 
+
+ Exit: (1) nl ? 
+Y = Y, E = late.
+[trace] ?- notrace, nodebug.
+true.
+?- 

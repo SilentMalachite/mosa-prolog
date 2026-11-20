@@ -1,0 +1,14 @@
+?- trace, catch(setup_call_cleanup(true, (true;true), throw(boom)), boom, (write(caught), nl)), fail.
+ Call: (1) setup_call_cleanup(true,(true;true),throw(boom)) ? 
+ Exit: (1) setup_call_cleanup(true,(true;true),throw(boom)) ? 
+ Redo: (1) setup_call_cleanup(true,(true;true),throw(boom)) ? r
+ Exception: (1) setup_call_cleanup(true,(true;true),throw(boom)) boom ? 
+ Call: (1) write(caught) ? 
+caught Exit: (1) write(caught) ? 
+ Call: (1) nl ? 
+
+ Exit: (1) nl ? 
+false.
+[trace] ?- notrace, nodebug.
+true.
+?- 

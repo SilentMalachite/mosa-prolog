@@ -149,7 +149,10 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   trace); `check_skip_dropped` through a scripted `s` instead of injected state. The `.out` port
   sequences also have no oracle outside the implementation and the manual's checked examples.
 - A cleanup that throws while `r` or `f` trims the stack above a box (Muse review of the fixes,
-  2026-11-19): neither a double run nor a stray Exception port is tested.
+  2026-11-19): tested at the Redo port only (`transcript_debug_redo_r_catch` and `_f_catch`, H-07:
+  one run, one Exception port, the outer catch/3 catches it), not at the Exit port.
+- `backtrack` runs no `apply_catches` when it reaches `Pick::CallCleanup` (`choice.cpp`). The H-07
+  triage found no way to reach it without first retrying an inner choice point, which re-arms.
 - The message machine's heap limit is capped at the default (`render_message`, adversarial review
   2026-11-19): `--heap-max 70000000` and `130000000` were checked by hand on macOS only, since a
   test would depend on the address space.
