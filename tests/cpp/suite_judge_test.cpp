@@ -3,6 +3,7 @@
 // C-04: 誤りを期待する試験で forall/2 の生成側が halt すると、例外の項の無い Stop を読んでプロセスが落ちた。
 // H-36: halt と、選択点の後でスクラッチの機械に回したゴールの例外と halt が失敗と数えられ、false と all が通った。
 // H-37: assertion のある本体では、ball/1 が正しく投げても通らず、成功した本体が ball/1 と error/1 で通った。
+// H-38: true(Assertion) の本体の最上位の ; が切りの外に出て、表明が失敗すると本体の次の解で通った。
 
 #include "harness.hpp"
 #include "mosa/suite.hpp"
@@ -144,6 +145,14 @@ void check_thrown_outcomes(const std::filesystem::path& root) {
   check_passes(root, "h37_live_ball", "\ttest(h37_live_ball, ball(x)) :- member(_X, [1, 2]), assertion(true), throw(x).");
 }
 
+// 平たい道の true(Assertion) は、本体の最初の解だけで表明を見る。最上位の ; も、その切りの内に入れる。
+void check_first_solution_only(const std::filesystem::path& root) {
+  check_fails(root, {"h38_disjunction", "\ttest(h38_disjunction, true(X == 1)) :- X = 2 ; X = 1.",
+                     "h38_disjunction true(X==1) fail"});
+  check_passes(root, "h38_first", "\ttest(h38_first, true(X == 2)) :- X = 2 ; X = 1.");
+  check_passes(root, "h38_conjunction", "\ttest(h38_conjunction, true(Y == 3)) :- X = 1, Y is X + 2.");
+}
+
 }  // namespace
 
 int main() {
@@ -153,6 +162,7 @@ int main() {
     check_halt_in_forall(root);
     check_stops_are_not_failures(root);
     check_thrown_outcomes(root);
+    check_first_solution_only(root);
   }
   return mosa_test::failures();
 }

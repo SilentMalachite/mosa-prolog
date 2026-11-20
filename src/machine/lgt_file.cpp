@@ -39,8 +39,9 @@ bool thrown_matches(Machine& machine, Cell ball, std::string_view formal) {
 
 std::string goal_text(const LgtCase& item, const LgtWant& want) {
   std::string goal = item.body;
-  // 表明が失敗しても、本体の次の解は試さない。
-  if (want.kind == LgtKind::Assert) goal = "(" + item.body + ", !), (" + want.detail + ")";
+  // 表明が失敗しても、本体の次の解は試さない。本体を括弧で包まないと、最上位の ; が
+  // (A ; (B, !)) と読まれて切りの外に出て、表明が失敗すると A の次の解に戻る（レビュー H-38）。
+  if (want.kind == LgtKind::Assert) goal = "((" + item.body + "), !), (" + want.detail + ")";
   return goal + full_stop_after(goal);
 }
 
