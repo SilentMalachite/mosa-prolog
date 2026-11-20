@@ -242,6 +242,9 @@ struct LgtCase {
   std::string outcome;
   std::string body;
   std::string condition;
+  // test/3 の setup(Goal) と cleanup(Goal) のゴールの字面。本体と同じ変数の名前で書く。無ければ空（レビュー M-50）。
+  std::string setup;
+  std::string cleanup;
   std::vector<LgtGuard> guard;
   bool outside = false;
   // 差分テスト（計画 Task 11）の問い合わせ '$mosa_diff_goal'(K, ...)。diff.cpp が本体を節にしたときだけ埋め、
@@ -303,12 +306,23 @@ enum class LgtKind {
 struct LgtWant {
   LgtKind kind = LgtKind::Other;
   std::string detail;
+  // cleanup(Goal) のある試験だけ、本体の束縛を字面にして LgtEnd::kept に返す。共有の深い項（深さ 40 の f(T, T)）は
+  // 字面にすると 2^40 の節点になるので、要らない試験では書かない（assert_shared_test、レビュー M-50）。
+  bool keep = false;
+};
+
+// 変数の名前と、その値を書いた字面。次の問い合わせがヒープを捨てても、字面で同じ値を貼り直せる。
+struct LgtValue {
+  std::string name;
+  std::string term;
 };
 
 struct LgtEnd {
   bool pass = false;
   bool dead = false;
   std::string actual;
+  // 本体が成功したときの束縛。cleanup(Goal) に貼る。失敗、例外、all/1 では lgtunit も束縛を戻すので空（M-50）。
+  std::vector<LgtValue> kept;
 };
 
 struct LgtRun {

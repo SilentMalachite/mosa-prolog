@@ -2,6 +2,7 @@
 // halt はプロセスを終えず、印を戻してから次のテストへ進む。
 
 #include "lgt_suite.hpp"
+#include "lgt_priv.hpp"
 
 #include "lgt_io.hpp"
 #include "internal.hpp"
@@ -16,6 +17,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -111,14 +113,70 @@ struct CaseEnd {
   bool pass = false;
   bool dead = false;
   std::string actual;
+  std::vector<LgtValue> kept;
 };
+
+// lgtunit は失敗、例外、false/0、all/1 で本体の束縛を戻す。表明のある形は、表明が成り立ったときだけ残す。
+bool keeps_bindings(LgtKind kind, bool pass) {
+  if (kind == LgtKind::True || kind == LgtKind::Det) return true;
+  if (kind == LgtKind::Assert || kind == LgtKind::DetAssert || kind == LgtKind::Exists) return pass;
+  return (kind == LgtKind::Variant || kind == LgtKind::Subsumes) && pass;
+}
 
 bool call_hook(Machine& machine, bool enabled, std::string_view goal) {
   if (!enabled) return true;
   return !run_goal(machine, goal).dead;
 }
 
-CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup, const LgtIo* io) {
+// 本体を流して判定する。成功したときの束縛は、次の問い合わせがヒープを捨てる前に字面にして返す。
+CaseEnd run_body(Machine& machine, const LgtCase& item, const LgtWant& want, const LgtIo* io) {
+  CaseEnd end;
+  if (routes_to_judge(machine, item.body, want)) {
+    LgtEnd judged = judge_lgt_case(machine, item.body, want, io);
+    end.pass = judged.pass;
+    end.dead = judged.dead;
+    end.actual = judged.actual;
+    end.kept = std::move(judged.kept);
+    return end;
+  }
+  // 差分テストは本体を節 '$mosa_diff_goal'(K, ...) にしてあるので、その問い合わせを流す（計画 Task 11）。
+  const Query query = run_goal(machine, item.diff_goal.empty() ? goal_text(item, want)
+                                                               : item.diff_goal + full_stop_after(item.diff_goal));
+  if (query.dead) {
+    end.dead = true;
+    end.actual = "aborted";
+    return end;
+  }
+  end.pass = succeeded(machine, want, query.stop);
+  if (!end.pass) end.actual = actual_text(machine, query.stop);
+  if (want.keep && query.stop.kind == StopKind::Success) end.kept = lgt_values_of(machine, query.stop.bindings);
+  return end;
+}
+
+// setup(Goal) は本体の前に主の機械で動かす。失敗か例外なら不合格で、本体も cleanup も動かさない（lgtunit の
+// run_test_setup、レビュー M-50）。成功した束縛は、変数を共有する本体と期待と cleanup に貼る。
+std::optional<CaseEnd> run_setup_option(Machine& machine, LgtCase& item) {
+  if (item.setup.empty()) return std::nullopt;
+  const Query query = run_goal(machine, item.setup + full_stop_after(item.setup));
+  CaseEnd end;
+  end.dead = query.dead;
+  end.actual = query.dead ? "aborted" : "setup";
+  if (query.dead || query.stop.kind != StopKind::Success) return end;
+  const std::vector<LgtValue> values = lgt_values_of(machine, query.stop.bindings);
+  item.body = lgt_paste_values(machine, item.body, values);
+  item.outcome = lgt_paste_values(machine, item.outcome, values);
+  item.cleanup = lgt_paste_values(machine, item.cleanup, values);
+  return std::nullopt;
+}
+
+// cleanup(Goal) は結果が決まった後に主の機械で動かす。失敗と例外は結果を変えない（lgtunit の run_test_cleanup）。
+bool run_cleanup_option(Machine& machine, const LgtCase& item, const std::vector<LgtValue>& kept) {
+  if (item.cleanup.empty()) return true;
+  const std::string goal = lgt_paste_values(machine, item.cleanup, kept);
+  return !run_goal(machine, goal + full_stop_after(goal)).dead;
+}
+
+CaseEnd run_one(Machine& machine, const LgtCase& original, bool setup, bool cleanup, const LgtIo* io) {
   CaseEnd end;
   try {
     if (!call_hook(machine, setup, "setup.")) {
@@ -126,32 +184,20 @@ CaseEnd run_one(Machine& machine, const LgtCase& item, bool setup, bool cleanup,
       end.actual = "aborted";
       return end;
     }
-    const LgtWant want = classify_lgt_outcome(machine, item.outcome);
+    LgtCase item = original;
+    if (auto failed = run_setup_option(machine, item)) {
+      if (!call_hook(machine, cleanup, "cleanup.")) failed->dead = true;
+      return *failed;
+    }
+    LgtWant want = classify_lgt_outcome(machine, item.outcome);
+    want.keep = !item.cleanup.empty();
     if (want.kind == LgtKind::Other) {
       end.actual = "unsupported";
-      end.dead = !call_hook(machine, cleanup, "cleanup.");
-      return end;
+    } else {
+      end = run_body(machine, item, want, io);
+      if (!keeps_bindings(want.kind, end.pass)) end.kept.clear();
     }
-    if (routes_to_judge(machine, item.body, want)) {
-      const LgtEnd judged = judge_lgt_case(machine, item.body, want, io);
-      end.pass = judged.pass;
-      end.dead = judged.dead;
-      end.actual = judged.actual;
-      if (!call_hook(machine, cleanup, "cleanup.")) end.dead = true;
-      return end;
-    }
-    // 差分テストは本体を節 '$mosa_diff_goal'(K, ...) にしてあるので、その問い合わせを流す（計画 Task 11）。
-    const Query query =
-        run_goal(machine, item.diff_goal.empty()
-                              ? goal_text(item, want)
-                              : item.diff_goal + full_stop_after(item.diff_goal));
-    if (query.dead) {
-      end.dead = true;
-      end.actual = "aborted";
-      return end;
-    }
-    end.pass = succeeded(machine, want, query.stop);
-    if (!end.pass) end.actual = actual_text(machine, query.stop);
+    if (!end.dead && !run_cleanup_option(machine, item, end.kept)) end.dead = true;
     if (!call_hook(machine, cleanup, "cleanup.")) end.dead = true;
     return end;
   } catch (...) {

@@ -1,0 +1,134 @@
+// test/3 の選択肢 setup(Goal) と cleanup(Goal) は、lgtunit のとおり試験ごとに動く（レビュー 2026-11-20 の M-50）。
+// lgtunit.lgt（スイートと同じ 4decb64b）の run_test/3 は condition、setup、本体、cleanup の順で、setup が失敗するか
+// 投げると試験は不合格で本体も cleanup も動かず、cleanup は本体の成否によらず動き、その失敗は結果を変えない。
+// 選択肢のゴールは本体と変数を共有する。前は condition/1 しか読まず、setup と cleanup を黙って捨てた。
+// 1 件ごとに 1 ファイルのスイートを tests/tmp/suite-option に書いて run_iso_suite で流し、分母と合格数と不合格の行を見る。
+
+#include "harness.hpp"
+#include "mosa/suite.hpp"
+
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <vector>
+
+namespace {
+
+bool write_text(const std::filesystem::path& path, std::string_view text) {
+  std::error_code error;
+  std::filesystem::create_directories(path.parent_path(), error);
+  if (error) return false;
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(text.data(), static_cast<std::streamsize>(text.size()));
+  return static_cast<bool>(output);
+}
+
+std::string read_text(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+std::string failed_lines(std::string_view report) {
+  const auto begin = report.find("不合格:\n");
+  if (begin == std::string_view::npos) return {};
+  const auto start = begin + std::string_view{"不合格:\n"}.size();
+  const auto stop = report.find("別欄:", start);
+  return std::string{report.substr(start, stop == std::string_view::npos ? std::string_view::npos : stop - start)};
+}
+
+struct Fixture {
+  std::filesystem::path path;
+  explicit Fixture(std::filesystem::path root) : path(std::move(root)) {
+    std::error_code error;
+    std::filesystem::remove_all(path, error);
+  }
+  Fixture(const Fixture&) = delete;
+  Fixture& operator=(const Fixture&) = delete;
+  ~Fixture() {
+    std::error_code error;
+    std::filesystem::remove_all(path, error);
+  }
+};
+
+struct Suite {
+  std::string_view name;
+  std::string_view clauses;
+  int denominator;
+  int passed;
+  std::vector<std::string_view> failed;
+};
+
+void check_suite(const std::filesystem::path& root, const Suite& item) {
+  const std::string name{item.name};
+  const auto suite = root / name;
+  const std::string text = ":- object(tests, extends(lgtunit)).\n" + std::string{item.clauses} + "\n:- end_object.\n";
+  mosa_test::check(write_text(suite / "logtalk" / "prolog" / "predicates" / "atom_1" / "tests.lgt", text),
+                   name + ": write the suite");
+  const auto report = root / (name + "-report.md");
+  const int code = mosa::run_iso_suite(suite.string(), report.string());
+  const std::string body = read_text(report);
+  const std::string shown = " in\n" + body;
+  mosa_test::check(code == (item.failed.empty() ? 0 : 1), name + ": exit code" + shown);
+  mosa_test::check(body.find("\n分母: " + std::to_string(item.denominator) + "\n") != std::string::npos,
+                   name + ": denominator " + std::to_string(item.denominator) + shown);
+  mosa_test::check(body.find("\n合格数: " + std::to_string(item.passed) + "\n") != std::string::npos,
+                   name + ": passed " + std::to_string(item.passed) + shown);
+  const std::string failed = failed_lines(body);
+  for (const std::string_view line : item.failed) {
+    const std::string full = "predicates/atom_1/tests.lgt " + std::string{line} + "\n";
+    mosa_test::check(failed.find(full) != std::string::npos, name + ": " + full + shown);
+  }
+}
+
+// setup は本体の前に動き、その束縛は本体と期待に届く。失敗か例外なら不合格で、本体は動かない。
+void check_setup(const std::filesystem::path& root) {
+  check_suite(root, {"setup_runs", "\t:- dynamic(flag_set/0).\n\ttest(s1, true, [setup(assertz(flag_set))]) :- flag_set.\n",
+                     1, 1, {}});
+  check_suite(root, {"setup_binds", "\ttest(s2, false, [setup(X = 1)]) :- X == 1.\n", 1, 0, {"s2 false true"}});
+  check_suite(root, {"setup_fails",
+                     "\t:- dynamic(ran/0).\n\ttest(s3, false, [setup(fail)]) :- assertz(ran).\n"
+                     "\ttest(s4, true, [setup(throw(x))]) :- true.\n\ttest(s5, false) :- ran.\n",
+                     3, 1, {"s3 false setup", "s4 true setup"}});
+}
+
+// cleanup は本体の後に、本体の束縛で動く。ストリームは字面で写しても同じものを指すので、同じ別名を次の試験が開ける。
+// 本体が失敗しても動き、cleanup 自体の失敗と例外は結果を変えない。
+void check_cleanup(const std::filesystem::path& root) {
+  check_suite(root, {"cleanup_runs",
+                     "\t:- dynamic(left_over/0).\n\ttest(c1, true, [cleanup(retract(left_over))]) :- assertz(left_over).\n"
+                     "\ttest(c2, false) :- left_over.\n",
+                     2, 2, {}});
+  // 平たい道、判定器の道（deterministic は judge_query）、ランナー目標のある本体の道の 3 つ。
+  check_suite(root, {"cleanup_streams",
+                     "\ttest(c3, true, [cleanup(close(S))]) :- open(opt_a, write, S, [alias(opt_a)]).\n"
+                     "\ttest(c4, true, [cleanup(close(S))]) :- open(opt_a, write, S, [alias(opt_a)]).\n"
+                     "\ttest(c5, deterministic, [cleanup(close(S))]) :- open(opt_b, write, S, [alias(opt_b)]).\n"
+                     "\ttest(c6, deterministic, [cleanup(close(S))]) :- open(opt_b, write, S, [alias(opt_b)]).\n"
+                     "\ttest(c7, true, [cleanup(close(S))]) :- assertion(true), open(opt_c, write, S, [alias(opt_c)]).\n"
+                     "\ttest(c8, true, [cleanup(close(S))]) :- assertion(true), open(opt_c, write, S, [alias(opt_c)]).\n",
+                     6, 6, {}});
+  check_suite(root, {"cleanup_after_failure",
+                     "\ttest(c9, false, [cleanup(close(opt_d))]) :- open(opt_d, write, _, [alias(opt_d)]), fail.\n"
+                     "\ttest(c10, true, [cleanup(close(opt_d))]) :- open(opt_d, write, _, [alias(opt_d)]).\n",
+                     2, 2, {}});
+  check_suite(root, {"cleanup_broken",
+                     "\ttest(c11, true, [cleanup(fail)]) :- true.\n\ttest(c12, true, [cleanup(throw(x))]) :- true.\n",
+                     2, 2, {}});
+}
+
+}  // namespace
+
+int main() {
+  const std::filesystem::path root = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "suite-option";
+  {
+    Fixture fixture(root);
+    check_setup(root);
+    check_cleanup(root);
+  }
+  return mosa_test::failures();
+}

@@ -131,7 +131,8 @@ void lgt_case(Machine& machine, LgtCase& item, std::size_t index, DiffSource& ou
   const LgtWant want = classify_lgt_outcome(machine, item.outcome);
   if (want.kind == LgtKind::Other) {
     goal.shape = "unsupported";
-  } else if (lgt_routes_to_judge(machine, item.body, want)) {
+  } else if (lgt_routes_to_judge(machine, item.body, want) || !item.setup.empty()) {
+    // setup(Goal) の束縛は流すときに本体へ貼るので、前もって節にできない（レビュー M-50）。
     goal.shape = "judge";
   } else if (auto clause = lgt_clause(machine, index, lgt_goal_text(item, want), goal.query)) {
     clauses.push_back(std::move(*clause));

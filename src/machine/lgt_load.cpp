@@ -264,6 +264,19 @@ std::string condition_of(Heap& heap, const OperatorTable& operators, Cell list, 
   return text;
 }
 
+// setup(Goal) と cleanup(Goal) は最初の 1 つだけを取る。lgtunit の parse_test_options は 2 つ目を同じ補助述語の
+// 頭に単一化しようとして失敗する（レビュー M-50）。前は condition/1 しか読まず、この 2 つを黙って捨てた。
+std::string option_goal(Heap& heap, const OperatorTable& operators, Cell list, const std::vector<VarName>& names,
+                        std::string_view name) {
+  list = heap.deref(list);
+  while (list.tag() == Tag::Lis) {
+    const Cell item = heap.deref(heap.list_head(list));
+    if (functor_is(heap, item, name, 1)) return written_goal(heap, operators, heap.arg(item, 0), names);
+    list = heap.deref(heap.list_tail(list));
+  }
+  return {};
+}
+
 // test/1 は lgtunit で test(Name, true) と同じ。前は読まずに節として捨て、分母にも不合格にも出なかった（レビュー H-40）。
 bool test_arity(const Heap& heap, Cell head, int& arity) {
   if (functor_is(heap, head, "test", 1)) {
@@ -341,7 +354,11 @@ void add_case(Heap& heap, const OperatorTable& operators, Cell looked, bool rule
   item.name = machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 0)), names, false);
   item.outcome = arity == 1 ? std::string{"true"}
                             : machine_text(heap, operators, strip_user_scope(heap, heap.arg(head, 1)), names, false);
-  if (arity == 3) item.condition = condition_of(heap, operators, heap.arg(head, 2), names);
+  if (arity == 3) {
+    item.condition = condition_of(heap, operators, heap.arg(head, 2), names);
+    item.setup = option_goal(heap, operators, heap.arg(head, 2), names, "setup");
+    item.cleanup = option_goal(heap, operators, heap.arg(head, 2), names, "cleanup");
+  }
   const Cell goal = rule ? unwrap_curlies(heap, body) : heap.atom(heap.atoms().intern("true"));
   item.body = machine_text(heap, operators, strip_user_scope(heap, goal), names, false);
   file.cases.push_back(std::move(item));

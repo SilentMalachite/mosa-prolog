@@ -39,10 +39,8 @@ Tri scratch_tri(LgtScratchKind kind) {
   return Tri::Dead;
 }
 
-struct Saved {
-  std::string name;
-  std::string term;
-};
+// 名前と値の字面。cleanup(Goal) に貼る束縛（LgtEnd::kept）も同じ形で返す。
+using Saved = LgtValue;
 
 struct Env {
   Tri tri = Tri::No;
@@ -578,12 +576,16 @@ LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
   remint(machine, env);
   if (want.kind == LgtKind::True) {
     end.pass = true;
+    if (want.keep) end.kept = env.saved;
     return end;
   }
   Stop synthetic;
   synthetic.kind = StopKind::Success;
   synthetic.bindings = env.bindings;
-  return lgt_finish(machine, want, synthetic);
+  end = lgt_finish(machine, want, synthetic);
+  // 本体の束縛は字面の写しにある。cleanup(Goal) に貼る（レビュー M-50）。
+  if (want.keep) end.kept = env.saved;
+  return end;
 }
 
 }  // namespace
@@ -601,6 +603,19 @@ LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& w
   env.io = io;
   exec_at(machine, prog, root, env);
   return from_env(machine, want, env);
+}
+
+std::vector<LgtValue> lgt_values_of(Machine& machine, const std::vector<Binding>& bindings) {
+  Stop stop;
+  stop.kind = StopKind::Success;
+  stop.bindings = bindings;
+  Env env;
+  remember_stop(machine, stop, env);
+  return env.saved;
+}
+
+std::string lgt_paste_values(Machine& machine, std::string_view goal, const std::vector<LgtValue>& values) {
+  return goal_with_saved(machine, goal, values);
 }
 
 }  // namespace mosa

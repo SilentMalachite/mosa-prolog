@@ -50,6 +50,10 @@ struct LgtScratch {
 [[nodiscard]] LgtEnd lgt_aborted();
 [[nodiscard]] LgtEnd lgt_failed_step(const Machine& machine, const LgtStep& step);
 [[nodiscard]] LgtEnd lgt_finish(Machine& machine, const LgtWant& want, const Stop& stop);
+// 束縛を名前と字面にする。束縛をまたぐ同じ自由変数は 1 つの _G で残す（lgt_exec.cpp の remember_stop と同じ）。
+[[nodiscard]] std::vector<LgtValue> lgt_values_of(Machine& machine, const std::vector<Binding>& bindings);
+// ゴールの字面の名前のある変数に、値の字面を貼る（lgt_exec.cpp の goal_with_saved）。
+[[nodiscard]] std::string lgt_paste_values(Machine& machine, std::string_view goal, const std::vector<LgtValue>& values);
 struct LgtIo;
 
 [[nodiscard]] LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& want, const LgtIo* io);

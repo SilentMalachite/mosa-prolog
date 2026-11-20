@@ -563,7 +563,11 @@ LgtEnd judge_query(Machine& machine, std::string_view body, const LgtWant& want)
     return end;
   }
   if (step.stop.kind != StopKind::Success) return failed_step(machine, step);
-  return finish_success(machine, want, step.stop);
+  // 次の解を求めて巻き戻す前に、本体の束縛を字面にする。cleanup(Goal) に貼る（レビュー M-50）。
+  std::vector<LgtValue> kept = want.keep ? lgt_values_of(machine, step.stop.bindings) : std::vector<LgtValue>{};
+  LgtEnd end = finish_success(machine, want, step.stop);
+  end.kept = std::move(kept);
+  return end;
 }
 
 std::optional<Specifier> specifier_of(std::string_view text) {
