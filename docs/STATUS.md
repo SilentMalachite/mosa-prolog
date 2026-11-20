@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2291/2326 (98.5%), library column 600/605 (99.2%).
 - **In progress:** none; W1 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** H-35 (f3ac48e8): tracked fixtures in tests/cpp/data; H-34, H-33, tests.cmake split.
+- **Last done:** C-04 (eaa6c77b): no crash on halt in forall/2; lgt_exec.cpp split; H-33–H-35.
   W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** split `src/machine/lgt_exec.cpp` (765 lines) before C-04, H-36, H-37 and M-49; then C-04.
+- **Next:** H-36 (halt and scratch errors counted as failure); cases go in suite_judge_test.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 13 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
