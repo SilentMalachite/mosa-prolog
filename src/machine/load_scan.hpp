@@ -42,6 +42,8 @@ struct GoalLoad {
 // 定義は load.cpp。テキスト 1 つを scan へ読む。include したテキストも use_module したファイルもここを通る。
 bool read_terms(Impl& machine, std::string_view source, std::string_view directory, std::string_view origin,
                 LoadScan& scan, TextRole role);
+// 定義は load.cpp。深さ depth の読み込みが上限を超えるなら、診断を書いて真を返す（iso-notes 7.1）。
+bool too_deep(Impl& machine, std::size_t depth);
 
 // 以下の定義は load_use.cpp。指示の入口は、その指示でなければ 0、成功なら 1、失敗なら -1 を返す。
 int fail_formal(Impl& machine, Cell formal);

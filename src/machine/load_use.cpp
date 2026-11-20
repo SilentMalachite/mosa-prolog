@@ -40,7 +40,30 @@ bool file_ready(const Impl& machine, const LoadScan& scan, const std::filesystem
   return std::find(machine.prepared.begin(), machine.prepared.end(), key) != machine.prepared.end();
 }
 
+// 指示で読むファイルを読む間だけ、この読み込みの深さを 1 つ上げる。その中のゴールの読み込みは、その上に数える。
+class NestedDepth {
+ public:
+  explicit NestedDepth(LoadSnapshots& snapshots) : snapshots_(snapshots), outer_(snapshots.depth()) {
+    snapshots.set_depth(outer_ + 1);
+  }
+  ~NestedDepth() { snapshots_.set_depth(outer_); }
+  NestedDepth(const NestedDepth&) = delete;
+  NestedDepth& operator=(const NestedDepth&) = delete;
+
+ private:
+  LoadSnapshots& snapshots_;
+  std::size_t outer_;
+};
+
+// 指示の include/1、ensure_loaded/1、use_module/1,2 が読むファイルも、同時に開いている読み込みに数える。今の読み込みの
+// 中で読み、load_once の入れ子にならないので、前は数えず、その鎖は 1 MiB のスタックで 437 段で落ちた（レビュー C-01 の
+// 2 つ目の持ち主の決定 B）。ゴールが読む根のテキスト（nested が偽）は、そのゴールの load_once が数えている。
 int open_prolog_file(Impl& machine, const std::filesystem::path& file, LoadScan& scan, TextRole role) {
+  std::optional<NestedDepth> depth;
+  if (role.nested) {
+    if (too_deep(machine, scan.snapshots.depth() + 1)) return -1;
+    depth.emplace(scan.snapshots);
+  }
   const auto text = read_source(machine, file);
   if (!text) {
     fail_load(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));

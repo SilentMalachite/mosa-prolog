@@ -274,6 +274,20 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   }
 }
 
+// 同時に開いている読み込みの数の上限（iso-notes 7.1）。入れ子の読み込みは、指示と初期化のゴールごとに run_loop を
+// 入れ子にして C++ のスタックを使う。1 MiB のスタックで、ゴールの consult/1 の鎖は 226 段まで、[F] は 318 段まで、
+// initialization/1 は 393 段まで、指示の include/1 などは 425 段まで通り、その先で落ちた（Release、macOS、2026-11-20）。
+// 一番浅いものに 3 倍余りの余裕を置く。数えるのは load_once の入れ子と、指示で読むファイル（open_prolog_file）。
+constexpr std::size_t kLoadDepthMax = 64;
+
+// 上限を超える読み込みは何もせずに失敗する。自分の初期化のゴールで自分を consult するファイルは、テキストを閉じた後に
+// 読むので循環にならず、前は落ちた（レビュー C-01、持ち主の決定 B）。
+bool too_deep(Impl& machine, std::size_t depth) {
+  if (depth < kLoadDepthMax) return false;
+  machine.diagnostic = message_text(machine, "load_too_deep", {std::to_string(kLoadDepthMax)});
+  return true;
+}
+
 namespace {
 
 // 読み込みの間だけ Impl::load_snapshots をこの読み込みの写しにし、抜けるときに親のものへ戻す。[File] と
@@ -335,20 +349,6 @@ LoadStatus finish_and_hand_over(Impl& machine, const std::size_t& heap_base, con
   }
   hand_over();
   return status;
-}
-
-// 同時に開いている読み込みの数の上限（iso-notes 7.1）。入れ子の読み込みは、指示と初期化のゴールごとに run_loop を
-// 入れ子にして C++ のスタックを使う。1 MiB のスタックで、ゴールの consult/1 の鎖は 226 段まで、[F] は 318 段まで、
-// initialization/1 は 393 段まで通り、その先で落ちた（Release、macOS、2026-11-20）。一番浅いものに 3 倍余りの余裕を置く。
-// 数えるのは load_once の入れ子。指示の include/1、ensure_loaded/1、use_module/1,2 は今の読み込みの中で読むので数えない。
-constexpr std::size_t kLoadDepthMax = 64;
-
-// 上限を超える読み込みは何もせずに失敗する。自分の初期化のゴールで自分を consult するファイルは、テキストを閉じた後に
-// 読むので循環にならず、前は落ちた（レビュー C-01、持ち主の決定 B）。
-bool too_deep(Impl& machine, std::size_t depth) {
-  if (depth < kLoadDepthMax) return false;
-  machine.diagnostic = message_text(machine, "load_too_deep", {std::to_string(kLoadDepthMax)});
-  return true;
 }
 
 // 読み込み 1 回の退避と巻き戻し（ADR 0017）。read がこの読み込みのテキストを scan へ読み、偽なら読み込みは失敗する。

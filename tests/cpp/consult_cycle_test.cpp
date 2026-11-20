@@ -188,29 +188,54 @@ void check_self_init(const std::filesystem::path& dir) {
   mosa_test::check(holds(*machine, "i(1)."), "selfi: clause kept");
 }
 
-// 別々のファイルの鎖。64 段までは読め、65 段目で失敗する。数えるのは読み込み 1 回ずつの入れ子で、ゴールの consult/1、
-// use_module/1,2、ensure_loaded/1、指示の [F] と、それらを呼ぶ初期化のゴール。指示の include/1、ensure_loaded/1、
-// use_module/1,2 は同じ読み込みの中で読むので数えない（iso-notes 7.1）。
-void check_chain(const std::filesystem::path& dir, int files, bool loads, std::string_view form = "consult") {
-  const std::string stem = std::string{form} + std::to_string(files) + "_";
+// 別々のファイルの鎖の 1 段。最後の段は葉の述語を定義する。指示の use_module/1 の鎖はモジュールのファイルにし、葉の
+// モジュールだけが葉を公開する。
+std::string chain_text(const std::string& stem, int index, int files, std::string_view form, bool directive,
+                       const std::filesystem::path& next) {
+  const std::string leaf = "leaf" + std::to_string(files);
+  const bool modules = directive && form == "use_module";
+  const std::string head = modules ? ":- module(" + stem + std::to_string(index) + ", [" +
+                                         (index == files ? leaf + "/1" : std::string{}) + "]).\n"
+                                   : std::string{};
+  if (index == files) return head + leaf + "(1).\n";
+  const std::string call = std::string{form} + "(" + prolog_path(next) + ")";
+  return head + (directive ? ":- " + call + ".\n" : ":- (true, " + call + ").\n");
+}
+
+// 別々のファイルの鎖。64 段までは読め、65 段目で失敗する。数えるのは同時に開いているファイルの読み込みで、ゴールの
+// consult/1、use_module/1,2、ensure_loaded/1、指示の [F]、それらを呼ぶ初期化のゴール、指示の include/1、
+// ensure_loaded/1、use_module/1,2（iso-notes 7.1）。指示の 3 つは今の読み込みの中で読むので、前は数えず、
+// 1 MiB のスタックで 437 段まで重ねると落ちた（C-01 の 2 つ目の持ち主の決定 B）。mixed は指示の ensure_loaded/1 と
+// ゴールの consult/1 を交互に重ね、両方を 1 つの数で数えることを見る。
+void check_chain(const std::filesystem::path& dir, int files, bool loads, std::string_view form = "consult",
+                 bool directive = false) {
+  const std::string stem = std::string{form} + (directive ? "d" : "") + std::to_string(files) + "_";
+  const bool mixed = form == "mixed";
   for (int index = 1; index <= files; ++index) {
-    const auto file = dir / (stem + std::to_string(index) + ".pl");
     const auto next = dir / (stem + std::to_string(index + 1) + ".pl");
-    const std::string text = index == files ? "leaf" + std::to_string(files) + "(1).\n"
-                                            : ":- (true, " + std::string{form} + "(" + prolog_path(next) + ")).\n";
-    mosa_test::check(write_text(file, text), "write " + stem);
+    const std::string_view step = mixed ? (index % 2 == 1 ? "ensure_loaded" : "consult") : form;
+    const std::string text = chain_text(stem, index, files, step, directive || (mixed && index % 2 == 1), next);
+    mosa_test::check(write_text(dir / (stem + std::to_string(index) + ".pl"), text), "write " + stem);
   }
   auto machine = mosa::Machine::create();
   const Asked asked = ask(*machine, consult_of(dir / (stem + "1.pl")));
-  const std::string label = "chain " + std::to_string(files) + ": ";
+  const std::string label = "chain " + stem + ": ";
   mosa_test::check((asked.kind == mosa::StopKind::Success) == loads,
                    label + "outcome [" + asked.err.substr(0, 200) + "]");
   mosa_test::check(has_deep(asked) != loads, label + "depth phrase");
-  mosa_test::check(holds(*machine, "catch(leaf" + std::to_string(files) + "(1), _, fail).") == loads, label + "leaf");
+  const std::string leaf = "leaf" + std::to_string(files) + "(1)";
+  const std::string called = directive && form == "use_module" ? stem + std::to_string(files) + ":" + leaf : leaf;
+  mosa_test::check(holds(*machine, "catch(" + called + ", _, fail).") == loads, label + "leaf");
   // 上限はファイルを探す前に止めるので、ゴールの ensure_loaded/1 はパスを付けない。前は「: 」を前に付けた。
-  if (!loads && form == "ensure_loaded") {
+  if (!loads && form == "ensure_loaded" && !directive) {
     const bool bare = asked.err.rfind(kDeep, 0) == 0 || asked.err.find("\n" + std::string{kDeep}) != std::string::npos;
     mosa_test::check(bare, label + "no empty path [" + asked.err.substr(0, 200) + "]");
+  }
+  // 指示で止まった段は、ほかの指示の誤りと同じく、止まったファイルのパスを前に付ける。空のパスは付けない。
+  if (!loads && directive) {
+    mosa_test::check(asked.err.find(": " + std::string{kDeep}) != std::string::npos &&
+                         asked.err.find("\n: ") == std::string::npos && asked.err.rfind(": ", 0) != 0,
+                     label + "path before the phrase [" + asked.err.substr(0, 300) + "]");
   }
 }
 
@@ -232,6 +257,13 @@ int main() {
   check_chain(dir, 64, true);
   check_chain(dir, 65, false);
   check_chain(dir, 65, false, "ensure_loaded");
+  check_chain(dir, 64, true, "include", true);
+  check_chain(dir, 65, false, "include", true);
+  check_chain(dir, 65, false, "ensure_loaded", true);
+  check_chain(dir, 64, true, "use_module", true);
+  check_chain(dir, 65, false, "use_module", true);
+  check_chain(dir, 64, true, "mixed");
+  check_chain(dir, 65, false, "mixed");
   check_self_init(dir);
   std::filesystem::remove_all(dir, error);
   return mosa_test::failures();
