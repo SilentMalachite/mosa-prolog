@@ -33,3 +33,4 @@ ADRs are numbered sequentially. Each ADR gives "Context, Decision, Rejected alte
 | [0027](0027-conditional-compilation.md) | Conditional compilation: the loader handles `if/elif/else/endif` per file; the translation load calls the conditions, and the executable evaluates them again at start-up | Approved (2026-11-16) |
 | [0028](0028-debugger-box.md) | Debugger: a sentinel, an exit frame and a copy of the goal frame make a box in `step`, only where the `mosa` session gives a `DebugConsole`; `StopKind::Abort` | Approved (2026-11-18) |
 | [0029](0029-cyclic-term-order.md) | Standard order of cyclic terms: the depth-first sequence of nodes, then, when both go on equal forever, the level-by-level sequence | Approved (2026-11-20) |
+| [0030](0030-unit-names.md) | Generated unit names: a program unit is `mosa_gen::u<k>` and `u<k>.cpp` by its position; a prebuilt library unit keeps `m<mangle(module)>` | Approved (2026-11-21) |
