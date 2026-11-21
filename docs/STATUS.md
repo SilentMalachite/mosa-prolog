@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W6 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W6 H-23 (a1a241e9: read/1 from a file pulls chunks only up to the first full stop),
-  H-21, H-22; W5 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-24 (W6: a `portray/1` in another module makes print/1 and `~p` raise existence_error).
+- **Last done:** W6 H-24 (8bcc8378: only a `portray/1` seen from `user` is the print/1 hook),
+  H-21 to H-23; W5 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** H-25 (W6: print/1 keeps the bindings that portray/1 makes, also on bound terms).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 9 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
