@@ -250,7 +250,7 @@ test(h17_back_not, (h17_back(\+(';'(a, b, c)), A, B), B == \+(';'(a, b, c))), so
 test(h17_back_minus3, (h17_back(-(';'(a, b, c)), A, B), B == -(';'(a, b, c))), solutions([A = '-;(a,b,c)'])).
 test(h17_back_minus1, (h17_back(-(';'(a)), A, B), B == -(';'(a))), solutions([A = '-;(a)'])).
 % 関数表記でない ; は今までどおり。前置はアトムになって中置の ; の左に入り、空白を挟んだ ( は括弧である。
-% 被演算子の前の ; も中置のまま。裸の演算子のアトムを被演算子に取るかはレビュー H-18 の問いに残す。
+% 被演算子の前の ; も中置のまま。裸の演算子のアトムを被演算子に取る緩い読みはレビュー H-18 の 1 つ目で残す。
 test(h17_bare_semicolon, h17_read('\\+ ; b', T), solutions([T = ';'(\+, b)])).
 test(h17_spaced_paren, h17_read('- ; (a)', T), solutions([T = ';'(-, a)])).
 test(h17_infix_call, h17_read('a ;(b)', T), solutions([T = ';'(a, b)])).

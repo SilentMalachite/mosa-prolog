@@ -243,7 +243,7 @@ Reader::Parsed Reader::parse_name(int max_priority) {
 
 // 6.4.2: ; は名前の字句なので、直後に空白なく ( が続けば関数表記の項を始め（6.3.3）、前置演算子の被演算子になる。
 // 前は始められず、\+ ;(a, b) の \+ をアトムにして ;(\+, (a, b)) と読んだ（レビュー H-17）。単独の ; は今までどおり
-// 前置をアトムにして中置で読む。裸の演算子のアトムを被演算子に取るかはレビュー H-18 の問いで、ここでは変えない。
+// 前置をアトムにして中置で読む。裸の演算子のアトムを被演算子に取る緩い読みはレビュー H-18 の 1 つ目で残す。
 bool Reader::semicolon_call(const Token& token) {
   if (token.kind != TokenKind::Solo || token.text != ";") return false;
   // ( は ; の次の字句なので、読み手の状態ごと写して先読みし、戻す（reject_headless_bar と同じ）。
