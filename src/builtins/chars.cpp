@@ -255,6 +255,7 @@ bool take_char(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
     eof = true;
     return false;
   }
+  drop_consumed(stream);
   const Got got = next_scalar(machine, stream);
   if (got.step == Step::Bad) {
     // 壊れた並びは 1 文字として進めてから、error なら誤りを出し、replace なら U+FFFD を返す。error で進めないと、
@@ -299,6 +300,7 @@ void emit_os(std::size_t index, std::string_view chunk) {
 }
 
 void place_bytes(Stream& stream, std::string_view chunk) {
+  if (!keeps_written(stream)) return;
   if (stream.cursor > stream.bytes.size()) stream.cursor = stream.bytes.size();
   note_edit(stream);
   if (stream.cursor == stream.bytes.size()) {

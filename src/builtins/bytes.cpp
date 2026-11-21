@@ -149,6 +149,7 @@ bool take_byte(Impl& machine, const Goal& goal, Stream& stream, Cell culprit, bo
     value = -1;
     return false;
   }
+  drop_consumed(stream);
   if (!pull_byte(machine, stream)) {
     value = -1;
     // peek は終端の印を返すだけで、past にはしない。
@@ -175,6 +176,10 @@ void emit_os(std::size_t index, unsigned char byte) {
 }
 
 void place_byte(Stream& stream, unsigned char byte) {
+  if (!keeps_written(stream)) {
+    advance_byte(stream);
+    return;
+  }
   if (stream.cursor > stream.bytes.size()) stream.cursor = stream.bytes.size();
   note_edit(stream);
   if (stream.cursor == stream.bytes.size()) stream.bytes.push_back(static_cast<char>(byte));

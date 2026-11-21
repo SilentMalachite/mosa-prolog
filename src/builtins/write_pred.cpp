@@ -206,6 +206,7 @@ bool scalar_at(std::string_view text, std::size_t index, Scalar& out) {
 }
 
 void place_one(Stream& stream, std::string_view chunk) {
+  if (!keeps_written(stream)) return;
   if (stream.cursor > stream.bytes.size()) stream.cursor = stream.bytes.size();
   note_edit(stream);
   if (stream.cursor == stream.bytes.size()) {

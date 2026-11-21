@@ -542,6 +542,7 @@ void run_one(Impl& machine, const Goal& goal, bool term_pred) {
     bind_read(machine, goal, term_cell, chosen, eof_term(machine));
     return;
   }
+  drop_consumed(stream);
   const std::size_t heap_mark = machine.heap.size();
   deliver(machine, goal, stream, heap_mark, intake_term(machine, stream, goal.module), term_cell, chosen, culprit);
 }

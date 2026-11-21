@@ -1,7 +1,8 @@
 #pragma once
-// 入出力の流れの値（Stream）と note_edit。internal.hpp を 800 行の上限の内に保つため分けた。
-// 移しただけで、振る舞いは変えない。
+// 入出力の流れの値（Stream）と note_edit、標準の流れの字を持たないための keeps_written と drop_consumed。
+// internal.hpp を 800 行の上限の内に保つため分けた。
 
+#include <algorithm>
 #include <cstddef>
 #include <fstream>
 #include <memory>
@@ -44,6 +45,20 @@ struct Stream {
   std::optional<std::string> alias;
   std::string path;
 };
+
+// 標準の流れ（user_input、user_output、user_error）は位置を持たない（reposition(false)、position の性質も無い）ので、
+// 通った字を後で見る道が無い。前は bytes に持ち続け、通った量だけメモリと、ファイルの読みと分け合うヒープ上限の
+// バイト予算（stream_bytes_used）を食った（レビュー 2026-11-20 の H-26）。書きは OS へ渡すだけで bytes に置かない。
+// cursor と行の数え（format の ~N が見る line_pos）は今までどおり進む。
+inline bool keeps_written(const Stream& stream) { return stream.kind != Stream::Kind::Standard; }
+
+// 標準入力の読み終えた字（cursor の前）を捨てる。読む述語の頭でだけ呼ぶ。read の途中で捨てると、give_back の had や
+// U+FFFD の置き換え（read_pred.cpp の deliver）の持つ位置がずれる。peek で取り込んだ字は cursor の後ろなので残る。
+inline void drop_consumed(Stream& stream) {
+  if (stream.kind != Stream::Kind::Standard || stream.cursor == 0) return;
+  stream.bytes.erase(0, std::min(stream.cursor, stream.bytes.size()));
+  stream.cursor = 0;
+}
 
 // 書き込みの前、cursor を末尾までに収めた後に呼ぶ。cursor から後ろはファイルと違ってくる。
 inline void note_edit(Stream& stream) {
