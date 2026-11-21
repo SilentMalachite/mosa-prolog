@@ -80,6 +80,10 @@ cond_third(1r3).
 :- endif.
 cond_after_syntax.
 test(cond_skip_syntax, cond_after_syntax, true).
+% レビュー H-15。終止符そのものが誤りの項でも同じ。前は読み手が終止符を持ったまま進まず、読み込みが
+% 「endif で閉じていない if がある」で失敗した。
+test(h15_skip_stop, (consult('tests/pl/fixtures/cond_skip_stop.pl'), cond_skip_stop), true).
+test(h15_skip_stop_body, (consult('tests/pl/fixtures/cond_skip_stop_body.pl'), cond_skip_stop_body), true).
 % 方言の分岐（Review Focus 5）。dialect は mosa なので else の分岐を取り、無い library(clpfd) は読まない。
 :- if(current_prolog_flag(dialect, swi)).
 :- use_module(library(clpfd)).

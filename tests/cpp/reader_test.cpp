@@ -240,6 +240,42 @@ void check_errors_and_operator() {
   check_term("/* c */ foo.", foo_ok, "comment");
 }
 
+// 1 つの Reader で、誤り、ok、終わりの順に読めること。どの呼び出しも進むか終わりを返す。
+void check_resumes(std::string_view source, const char* label) {
+  Fix fix;
+  mosa::Reader reader(source, fix.heap, fix.ops);
+  const auto bad = reader.next();
+  const auto after_bad = reader.consumed();
+  const auto good = reader.next();
+  const auto after_good = reader.consumed();
+  const auto ended = reader.next();
+  mosa_test::check(bad.failure && !bad.term && !bad.eof, std::string{label} + ": failure first");
+  mosa_test::check(good.term && named(fix, good.term->term, "ok") && after_good > after_bad,
+                   std::string{label} + ": ok next");
+  mosa_test::check(ended.eof && !ended.failure, std::string{label} + ": eof last");
+}
+
+// レビュー H-15。終止符そのものが誤りの項の後も、次の読みは終止符の先から始まる。前は読み手が終止符を持ったままで、
+// 次の読みも同じ終止符で落ち、何も進まなかった。終わりで止まる誤りは、次の読みが終わりを返す。
+void check_after_full_stop() {
+  check_resumes("f(a. ok.", "open argument");
+  check_resumes(". ok.", "bare full stop");
+  check_resumes("f(a) :- . ok.", "empty body");
+  check_resumes("f(a b). ok.", "error before the full stop");
+  Fix fix;
+  mosa::Reader reader("f(a.", fix.heap, fix.ops);
+  const auto bad = reader.next();
+  const auto ended = reader.next();
+  mosa_test::check(bad.failure && ended.eof && !ended.failure, "full stop at the end: eof next");
+  Fix open;
+  mosa::Reader unfinished("f(a", open.heap, open.ops);
+  const auto incomplete = unfinished.next();
+  const auto stays = unfinished.next();
+  mosa_test::check(incomplete.failure && incomplete.failure->reason == mosa::SyntaxReason::IncompleteTerm &&
+                       stays.eof,
+                   "no full stop: eof next");
+}
+
 }  // namespace
 
 int main() {
@@ -248,5 +284,6 @@ int main() {
   check_variables();
   check_quotes_and_eof();
   check_errors_and_operator();
+  check_after_full_stop();
   return mosa_test::failures();
 }

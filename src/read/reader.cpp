@@ -287,12 +287,12 @@ Reader::Parsed Reader::follow(Parsed have, int current_max) {
 }
 
 void Reader::absorb_full_stop(const Scan& offending) {
-  // 終止符そのものが不正なら、字句はドットだけ消費し確認の空白を残してある。
-  if (!offending.failure &&
-      (offending.token.kind == TokenKind::End || offending.token.kind == TokenKind::EndFullStop)) {
-    return;
-  }
+  // テキストの終わりは持ったままにし、次の読みが終わりを返す。
+  if (!offending.failure && offending.token.kind == TokenKind::End) return;
   has_pending_ = false;
+  // 終止符そのものが不正なら、字句はドットだけ消費し確認の空白を残してある。終止符を手放すだけで次の読みは
+  // その先から始まる。前は持ったままにしたので、次の読みも同じ終止符で落ちて何も進まなかった（レビュー H-15）。
+  if (!offending.failure && offending.token.kind == TokenKind::EndFullStop) return;
   // 数の失敗はドットの上で張り付く。外さないと、そのドットが次の項に残る。
   if (offending.failure && !lexer_.release_failure()) return;
   while (true) {
