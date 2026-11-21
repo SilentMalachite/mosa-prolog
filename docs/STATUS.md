@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W6 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W6 H-22 (f8bd7f95: a flushed stream rewrites its whole file after another saved it)
-  and H-21; W5 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-23 (W6: the first read/1 from a file stream pulls in the whole file).
+- **Last done:** W6 H-23 (a1a241e9: read/1 from a file pulls chunks only up to the first full stop),
+  H-21, H-22; W5 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** H-24 (W6: a `portray/1` in another module makes print/1 and `~p` raise existence_error).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 9 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
