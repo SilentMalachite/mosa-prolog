@@ -259,9 +259,6 @@ Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 
 ## Not run yet
 
-- CI on `fix/review-2026-11-20` past f6135db6. Run 44849948624 (at f6135db6) failed `ir_release` on
-  GCC and MSVC; the test fix bf7601e0 is unconfirmed there. The steps after the failing one were
-  skipped (linux-gcc and windows: diff, conformance, standalone hello; gc-stress: N=1000 tests).
 - The 64-load bound (review C-01) was measured on macOS Release only. `consult_cycle_test` goes
   64 loads deep (goal, directive and mixed chains) on the Windows runner (1 MiB default stack)
   and under ASan; seen only after a push.
