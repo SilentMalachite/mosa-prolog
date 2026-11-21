@@ -319,6 +319,13 @@ void check_flushed_stream_rewrites_whole() {
                             "-t", "halt"});
   mosa_test::check(third.code == 0 && holds(appended, "x,aaaacc"),
                    "h22: append rewrites whole, got " + shown(appended));
+  // 追記の流れは開いたときから元の中身の長さを on_disk に持つので、flush しなくても同じ。前は BBcc を残した。
+  const auto opened = tmp_path("h22_append_open.txt");
+  put_file(opened, "x,");
+  const auto fifth = batch({"-g", "open('" + opened + "', append, A), open('" + opened +
+                                      "', write, B), write(B, 'BBBBBB'), close(B), write(A, cc), close(A).", "-t",
+                            "halt"});
+  mosa_test::check(fifth.code == 0 && holds(opened, "x,cc"), "h22: an opened append stream, got " + shown(opened));
   // 守り。保存の後に書かない流れは、終わりで相手の保存を戻さない。
   const auto idle = tmp_path("h22_idle.txt");
   fresh(idle);
