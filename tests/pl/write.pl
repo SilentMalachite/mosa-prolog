@@ -265,3 +265,35 @@ test(wd_dots_atom_quoted, wd_text(f('...'), [quoted(true), max_depth(5)], A), so
 test(wd_dots_atom_no_limit, wd_text(f('...'), [quoted(true)], A), solutions([A = 'f(...)'])).
 % max_depth(0) は制限なしなので、選択肢があっても引用しない（Muse のレビュー。選択肢の有無で決めると落ちる）。
 test(wd_dots_atom_zero, wd_text(f('...'), [quoted(true), max_depth(0)], A), solutions([A = 'f(...)'])).
+% レビュー H-16。同じ優先度の fy と xfy の項は右の被演算子に同じ優先度を許すので、右の端が開いている。yfx と yf の
+% 左に裸で書くと、読み手が続く演算子を右の被演算子へ取り込み、別の項に読み戻した（6.3.4.2、7.10.5）。
+% 書いた字面と、読み戻した項の両方を見る。演算子は行の中で定義し、cleanup で外す。
+h16_ops(P) :- op(P, fy, h16fy), op(P, xfy, h16xfy), op(P, yfx, h16yfx), op(P, yf, h16yf).
+h16_back(Ops, T, A, Back) :-
+    setup_call_cleanup(call(Ops, 200),
+                       ( with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', Text),
+                         open_string(Text, S), read(S, Back), close(S) ),
+                       call(Ops, 0)).
+test(h16_xfy_under_yfx, (h16_back(h16_ops, h16yfx(h16xfy(1, 2), 3), A, B), B == h16yfx(h16xfy(1, 2), 3)),
+     solutions([A = '(1 h16xfy 2)h16yfx 3'])).
+test(h16_fy_under_yf, (h16_back(h16_ops, h16yf(h16fy(a)), A, B), B == h16yf(h16fy(a))),
+     solutions([A = '(h16fy a)h16yf'])).
+test(h16_fy_under_yfx, (h16_back(h16_ops, h16yfx(h16fy(a), b), A, B), B == h16yfx(h16fy(a), b)),
+     solutions([A = '(h16fy a)h16yfx b'])).
+test(h16_xfy_under_yf, (h16_back(h16_ops, h16yf(h16xfy(a, b)), A, B), B == h16yf(h16xfy(a, b))),
+     solutions([A = '(a h16xfy b)h16yf'])).
+% fy が既定の + と同じ 500 のとき。h16_back が渡す 200 の代わりに 500 で定義する。
+h16_ops500(P) :- ( P =:= 0 -> op(0, fy, h16fy) ; op(500, fy, h16fy) ).
+test(h16_fy_under_plus, (h16_back(h16_ops500, h16fy(a) + b, A, B), B == h16fy(a) + b),
+     solutions([A = '(h16fy a)+b'])).
+% - の後ろが数で始まるかの判断も、括弧を付けた左の被演算子で止まる。前は括弧の無い 1 まで降りて -(...) で包んだ。
+test(h16_minus_number, (h16_back(h16_ops, -(h16yfx(h16xfy(1, 2), 3)), A, B), B == -(h16yfx(h16xfy(1, 2), 3))),
+     solutions([A = '- (1 h16xfy 2)h16yfx 3'])).
+% 右の端が開いていない形は、今までどおり括弧を付けない。
+test(h16_yf_under_xfy, (h16_back(h16_ops, h16xfy(a, h16yf(b)), A, B), B == h16xfy(a, h16yf(b))),
+     solutions([A = 'a h16xfy b h16yf'])).
+test(h16_yfx_under_fy, (h16_back(h16_ops, h16fy(h16yfx(a, b)), A, B), B == h16fy(h16yfx(a, b))),
+     solutions([A = 'h16fy a h16yfx b'])).
+test(h16_yfx_chain, (h16_back(h16_ops, h16yfx(h16yfx(a, b), c), A, B), B == h16yfx(h16yfx(a, b), c)),
+     solutions([A = 'a h16yfx b h16yfx c'])).
+test(h16_lower_prefix, (with_output_to(atom(A), writeq(-(a) + b))), solutions([A = '-a+b'])).

@@ -256,6 +256,16 @@ bool Printer::needs_paren(int priority, int parent, bool allow_equal) {
   return priority >= parent;
 }
 
+// 6.3.4.2: yfx と yf の左の被演算子は同じ優先度を許す。ただし同じ優先度の fy と xfy の項は右の被演算子にも同じ
+// 優先度を許し、右の端が開いている。裸で書くと読み手が続く演算子を右の被演算子へ取り込み、別の項に読み戻すので、
+// その左だけは等しい優先度を許さない（レビュー H-16）。優先度の低い項の右の端は、続く演算子より低いので閉じている。
+bool Printer::left_allows_equal(const OpDef& op, Cell left) const {
+  if (op.specifier != Specifier::Yfx && op.specifier != Specifier::Yf) return false;
+  const std::optional<OpDef> inner = as_operator(heap_.deref(left));
+  return !inner || inner->priority != op.priority ||
+         (inner->specifier != Specifier::Fy && inner->specifier != Specifier::Xfy);
+}
+
 std::string Printer::spell(std::string_view name) const {
   // 深さで切った字面 ... と原子 '...' を分ける。max_depth は ISO に無いので、制限が無ければ writeq のまま。
   if (options_.quoted && options_.max_depth > 0 && name == "...") return quote_atom(name);
@@ -356,7 +366,7 @@ bool Printer::leftmost_unsigned_number(Cell term, int priority, bool allow_equal
     const std::optional<OpDef> op = as_operator(term);
     if (!op || is_prefix(op->specifier) || needs_paren(op->priority, priority, allow_equal)) return false;
     priority = op->priority;
-    allow_equal = op->specifier == Specifier::Yfx || op->specifier == Specifier::Yf;
+    allow_equal = left_allows_equal(*op, heap_.arg(term, 0));
     term = heap_.arg(term, 0);
   }
 }
@@ -437,7 +447,7 @@ void Printer::push_op(const OpDef& op, Cell term) {
   if (is_postfix(op.specifier)) {
     tail.step = Step::Postfix;
     work_.push_back(std::move(tail));
-    return push_operand(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yf);
+    return push_operand(heap_.arg(term, 0), op.priority, left_allows_equal(op, heap_.arg(term, 0)));
   }
   const std::size_t id = next_id_++;
   push_clear(id);
@@ -445,7 +455,7 @@ void Printer::push_op(const OpDef& op, Cell term) {
   tail.step = Step::Infix;
   tail.id = id;
   work_.push_back(std::move(tail));
-  push_operand(heap_.arg(term, 0), op.priority, op.specifier == Specifier::Yfx);
+  push_operand(heap_.arg(term, 0), op.priority, left_allows_equal(op, heap_.arg(term, 0)));
 }
 
 // 6.3.4.2: 演算子のアトムは演算子の被演算子になれない。括弧に入れないと、読み手は (-)/1 の - /1 を

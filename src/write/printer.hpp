@@ -119,6 +119,7 @@ class Printer final : public WriteHeld {
   [[nodiscard]] std::string var_text(Cell term);
   [[nodiscard]] static bool glue(std::optional<char32_t> end, std::optional<char32_t> start);
   [[nodiscard]] static bool needs_paren(int priority, int parent, bool allow_equal);
+  [[nodiscard]] bool left_allows_equal(const OpDef& op, Cell left) const;
 
   const Heap& heap_;
   OperatorView operators_;
