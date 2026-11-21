@@ -30,6 +30,9 @@ struct TranslationLog {
     // ライブラリなら、その根（library(Name) を見つけた $MOSA_LIB か lib/）の正規化したパス。埋め込みの鍵は
     // この根からの相対を擬似ディレクトリ library/ の下に置いた物（library/sub/util.pl）。プログラムのファイルは空。
     std::string library_root{};
+    // このファイルが module/2 で宣言したモジュール（読んだ機械の原子）。別のファイルが後で同じ名前を宣言して奪っても
+    // 残る（Module::file は奪った側に替わる）。同梱ライブラリの単位の名前空間はこれから作る（H-28 の敵対的レビュー A1）。
+    std::optional<std::uint32_t> module{};
   };
   // library(Name) で開いたファイルと、その探索の根。FileNote が開いたファイルを library と印を付けるのに使う。
   struct LibraryOpen {

@@ -152,34 +152,20 @@ bool shipped_identical(const ProjectOptions& options, std::string_view name, std
   return bytes == text;
 }
 
-// 文面の表を読んだ別の機械（read_catalogs）のライブラリのファイルの鍵と、そのモジュール名をこの機械の原子にした物。
-// プログラムの機械にそのモジュールは無い（レビュー 2026-11-20 の H-28）ので、module_of_key では引けない。
-struct SideModule {
-  std::string key;
-  std::uint32_t module = 0;
-};
-
-std::optional<std::uint32_t> library_module(const Impl& machine, std::span<const SideModule> side,
-                                            std::string_view key) {
-  if (const auto module = module_of_key(machine, key)) return module;
-  for (const SideModule& entry : side) {
-    if (entry.key == key) return entry.module;
-  }
-  return std::nullopt;
-}
-
 // ライブラリとして開いたモジュールのファイル（library(_) の物と、そこから素のパスで開いた物）が同梱ライブラリ。名前は
-// 鍵から（library_name）。文面の表（messages_ja、messages_en）は別の機械で読み、そのファイルは side から引く。
+// 鍵から（library_name）、単位の名前空間はそのファイルが宣言したモジュールから（TranslationLog::File::module）。
+// Module::file から引かないのは、プログラムのファイルが後でそのモジュールを宣言して奪っても、元のファイルは起動時の
+// library(_) が読むからである（前は同梱から落ちた。レビュー 2026-11-20 の H-28 の敵対的レビュー A1）。文面の表を
+// 読んだ別の機械のファイルの module は、read_catalogs がこの機械の原子に写してある。
 // 名前の順に並べ、同じプログラムからいつも同じ目録を出す（キャッシュの鍵）。
-std::vector<LibraryPlan> plan_libraries(const Impl& machine, const TranslationLog& log, const ProjectOptions& options,
-                                        std::span<const std::string> keys, std::span<const SideModule> side) {
+std::vector<LibraryPlan> plan_libraries(const TranslationLog& log, const ProjectOptions& options,
+                                        std::span<const std::string> keys) {
   std::vector<LibraryPlan> libraries;
   for (std::size_t index = 0; index < log.files.size(); ++index) {
     const TranslationLog::File& file = log.files[index];
-    const auto module = library_module(machine, side, file.key);
-    if (!file.library || !module) continue;
+    if (!file.library || !file.module) continue;
     const std::string name = library_name(keys[index]);
-    libraries.push_back(LibraryPlan{name, index, *module, shipped_identical(options, name, file.text)});
+    libraries.push_back(LibraryPlan{name, index, *file.module, shipped_identical(options, name, file.text)});
   }
   std::sort(libraries.begin(), libraries.end(),
             [](const LibraryPlan& left, const LibraryPlan& right) { return left.name < right.name; });
@@ -235,10 +221,10 @@ std::string call_warning_text(Impl& machine, const TranslationLog& log, std::str
 }
 
 Project build_project(Machine& machine, const TranslationLog& log, std::string_view path,
-                      const ProjectOptions& options, std::span<const SideModule> side) {
+                      const ProjectOptions& options) {
   const Impl& impl = engine_impl(machine);
   ProjectPlan plan{plan_units(impl, log), {}, embed_keys(log)};
-  plan.libraries = plan_libraries(impl, log, options, plan.keys, side);
+  plan.libraries = plan_libraries(log, options, plan.keys);
   if (const auto duplicate = duplicate_diagnostic(impl, plan, display_names(log, path))) return fail_with(*duplicate);
   const std::vector<PredKey> interpreted = opaque_preds(log);
   Project project;
@@ -314,23 +300,24 @@ namespace {
 
 // 文面の表はプログラムの機械では読まない。読むと利用者のモジュール lists、format、messages_* を lib/ の物が置き換え、
 // plan_units がそれをライブラリとして飛ばすので、利用者のモジュールの単位が出なかった（レビュー 2026-11-20 の H-28）。
-// 実行時も文面は別の render_only の機械で作る（ADR 0007 の改訂 3）。別の機械で読み、プログラムがまだ開いていない
-// ファイルだけを記録の後ろに足し、そのモジュール名をこの機械の原子にして side に入れる。節の位置（sites）は足さない。
-// ライブラリのファイルの位置は警告が飛ばし（check.cpp）、別の機械の原子で書いた PredKey はこの機械では読めない。
-std::optional<std::string> read_catalogs(Impl& program, TranslationLog& log, std::vector<SideModule>& side) {
+// 実行時も文面は別の render_only の機械で作る（ADR 0007 の改訂 3）。別の機械で表と、表の節に字面で書いたゴールの
+// ライブラリ（問い 2 の A。実行時の文面の機械がその節を動かす。前は捨てた。H-28 の敵対的レビュー A5）を読み、
+// プログラムがまだ開いていないファイルだけを記録の後ろに足す。ファイルのモジュール名はこの機械の原子に写す。
+// 節の位置（sites）は足さない。ライブラリのファイルの位置は警告が飛ばし（check.cpp）、別の機械の原子で書いた PredKey は
+// この機械では読めない。
+std::optional<std::string> read_catalogs(Impl& program, TranslationLog& log) {
   TranslationLog catalog_log;  // 機械より先に作り、機械が先に消えるようにする（機械は記録を指している）
   auto machine = Machine::create();
   Impl& impl = engine_impl(*machine);
   impl.translation = &catalog_log;
   const bool loaded = load_catalogs(*machine);
+  if (loaded) load_goal_libraries(impl);
   impl.translation = nullptr;
   if (!loaded) return message_text(program, "mosac_catalog_missing", {std::string{machine->diagnostic()}});
-  for (const TranslationLog::File& file : catalog_log.files) {
+  for (TranslationLog::File& file : catalog_log.files) {
     if (!file.library || log_file(log, file.key)) continue;
-    if (const auto module = module_of_key(impl, file.key)) {
-      side.push_back(SideModule{file.key, program.atoms.intern(impl.atoms.name(*module))});
-    }
-    log.files.push_back(file);
+    if (file.module) file.module = program.atoms.intern(impl.atoms.name(*file.module));
+    log.files.push_back(std::move(file));
   }
   return std::nullopt;
 }
@@ -341,7 +328,6 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   auto machine = Machine::create();
   Impl& impl = engine_impl(*machine);
   TranslationLog log;
-  std::vector<SideModule> side;
   impl.translation = &log;
   try {
     if (!machine->consult(path)) return fail_with(std::string{machine->diagnostic()});
@@ -354,7 +340,7 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
     // 実行時もそのゴールはプログラムの機械に読むので、この機械で読む。文面の表は別の機械で読む（H-28）。
     if (!options.library) load_goal_libraries(impl);
     if (!options.library) {
-      if (auto missing = read_catalogs(impl, log, side)) return fail_with(std::move(*missing));
+      if (auto missing = read_catalogs(impl, log)) return fail_with(std::move(*missing));
     }
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
@@ -371,7 +357,7 @@ Project translate_program(std::string_view path, const ProjectOptions& options) 
   std::string diagnostic = joined(export_warnings(impl, log, display_names(log, path), false));
   Project project = !diagnostic.empty() ? fail_with(std::move(diagnostic))
                     : options.library   ? build_library(*machine, log, path)
-                                        : build_project(*machine, log, path, options, side);
+                                        : build_project(*machine, log, path, options);
   // 止まったときは止めた理由を先に読ませ、呼び出しの警告はその後ろに足す（L12 の敵対的レビュー A8）。
   if (!project.ok && !warnings.empty()) project.diagnostic += "\n" + warnings;
   if (project.ok) project.warnings = untaken + (untaken.empty() || warnings.empty() ? "" : "\n") + warnings;

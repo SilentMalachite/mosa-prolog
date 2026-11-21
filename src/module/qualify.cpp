@@ -25,6 +25,16 @@ std::uint32_t atom_of(Cell cell) { return static_cast<std::uint32_t>(cell.raw() 
 
 bool is_callable(Cell cell) { return cell.tag() == Tag::Atom || cell.tag() == Tag::Str || cell.tag() == Tag::Lis; }
 
+// mosac の翻訳の記録にも、ファイルが宣言したモジュールを書き留める。後で別のファイルが同じ名前を宣言して奪うと
+// Module::file からは引けなくなるが、奪われたライブラリのファイルは起動時の最初の library(_) が読むので同梱が要る
+// （レビュー 2026-11-20 の H-28 の敵対的レビュー A1）。
+void note_module_file(Impl& machine, std::string_view file, std::uint32_t module) {
+  if (machine.translation == nullptr || file.empty()) return;
+  for (TranslationLog::File& logged : machine.translation->files) {
+    if (logged.key == file) logged.module = module;
+  }
+}
+
 bool is_op_item(const Impl& machine, Cell cell) {
   cell = machine.heap.deref(cell);
   return cell.tag() == Tag::Str && machine.heap.functor_arity(cell) == 3 &&
@@ -189,6 +199,7 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   // ライブラリの印も戻す。library(Name) の読み込みでは use_file が後で付け直すが、利用者の再定義では付かない。
   module->library = false;
   module->file = std::string{file};
+  note_module_file(machine, file, module->name);
   // 同じファイルを別の名前で読み直したら、古いモジュールはもうそのファイルのものではない。
   for (Module& other : machine.modules) {
     if (!file.empty() && other.name != module->name && other.file == file) other.file.clear();

@@ -5,7 +5,8 @@
 #   -DCASE=<uncaught_message|use_lists|use_dcg|include|plain_use|subdir|goal_use_body|goal_use_init|goal_use_late|
 #           reexport|cond_late_lib|cond_build_mod|cond_skip_op|cond_export|
 #           cond_goal_mod|cond_goal_lib|cond_build_fail|cond_else_build|cond_consult_if|cond_consult_elif|
-#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late|cond_after_apart|cond_after_late|debugger_state>
+#           cond_half_main|cond_half_lib|cond_clause_fail|cond_clause_late|cond_after_apart|cond_after_late|debugger_state|
+#           takeover_lists|takeover_apply|catalog_goal_lib>
 #   -DSRC=<tests/mosac>
 #   -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など> -P standalone_test.cmake
 # CTest は MOSA_LIB を外し（ENVIRONMENT_MODIFICATION）、LANG=ja_JP.UTF-8 を与える。
@@ -108,6 +109,18 @@ elseif(CASE STREQUAL "cond_after_late")
 elseif(CASE STREQUAL "debugger_state")
   set(sources debugger_state.pl)
   set(program debugger_state)
+elseif(CASE STREQUAL "takeover_lists")
+  set(sources takeover_lists.pl takeover_lists_mod.pl)
+  set(program takeover_lists)
+elseif(CASE STREQUAL "takeover_apply")
+  set(sources takeover_apply.pl takeover_apply_mod.pl)
+  set(program takeover_apply)
+elseif(CASE STREQUAL "catalog_goal_lib")
+  # 独自の文面の表 messages_ja を MOSA_LIB で渡す。ほかのライブラリ（messages_en、format、apply）は mosac の隣の lib/ から読む。
+  set(sources raises.pl)
+  set(program raises)
+  file(COPY "${SRC}/catlib" DESTINATION "${WORK}/src")
+  set(library_env "MOSA_LIB=${WORK}/src/catlib")
 else()
   message(FATAL_ERROR "unknown case ${CASE}")
 endif()
@@ -137,6 +150,8 @@ string(REPLACE "\r\n" "\n" err "${err}")
 # goal_use_late も見方を変える。lists:append/3 の lists はプログラムがどこでも読まないので（mosa でも
 # existence_error(module, lists)）、その 1 行だけが警告になる。前は翻訳が文面の表を同じ機械で読み、その lists で
 # 黙っていた（レビュー 2026-11-20 の H-28）。ゴールでだけ読む apply の apply:maplist/3 には今までどおり出ない。
+# 翻訳は呼ばれない節 never の use_module(library(apply)) もゴールのライブラリとして読むので、apply は翻訳の機械にある
+# （実行時は existence_error(module, apply) になるが、警告は見落とす側に倒れる）。
 if(CASE STREQUAL "goal_use_late")
   string(REGEX MATCHALL "\\.pl:[0-9]+: (Warning|警告): [^\n]*" warnings "${err}")
   list(LENGTH warnings warning_count)
@@ -327,6 +342,24 @@ elseif(CASE STREQUAL "debugger_state")
   string(APPEND expected_err "% 止まるポート: call exit redo fail exception\n")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "1\noff\n" OR NOT err STREQUAL expected_err)
     fail("the debugger predicates only change state in a standalone executable")
+  endif()
+elseif(CASE STREQUAL "takeover_lists" OR CASE STREQUAL "takeover_apply")
+  # 利用者のファイルが奪ったモジュールの元のライブラリも同梱する。前は lib/ のファイルが持ち主のモジュールを失ったので
+  # 同梱されず、起動時の最初の use_module(library(_)) が existence_error(source_sink, _) で止まった（mosa は動く。
+  # レビュー 2026-11-20 の H-28 の敵対的レビュー A1）。lists の方は、捕まえない例外の文面が同梱の表と
+  # library(format) から library(lists) を読んで作れることも見る（鍵の形に落ちない）。
+  if(CASE STREQUAL "takeover_lists" AND (NOT code EQUAL 2 OR NOT out STREQUAL "1\n" OR
+     NOT err MATCHES "^警告: ゴールは例外を送出しました: error\\(instantiation_error,"))
+    fail("a library module taken over by the program's own file")
+  endif()
+  if(CASE STREQUAL "takeover_apply" AND (NOT code EQUAL 0 OR NOT out STREQUAL "2\n" OR NOT err STREQUAL ""))
+    fail("a library module taken over by the program's own file")
+  endif()
+elseif(CASE STREQUAL "catalog_goal_lib")
+  # 独自の文面の表の節の本体だけが読む library(apply) も同梱する。前は翻訳が文面の表を読んだ別の機械のゴールの
+  # ライブラリを捨てたので、実行ファイルは apply を読めず、文面は鍵の形に落ちた（H-28 の敵対的レビュー A5）。
+  if(NOT code EQUAL 2 OR NOT out STREQUAL "" OR NOT err MATCHES "^独自の表: oops")
+    fail("a library loaded only by a clause body of a MOSA_LIB message catalog")
   endif()
 elseif(CASE STREQUAL "cond_half_main" OR CASE STREQUAL "cond_half_lib")
   # 分岐の中の use_module が途中で失敗したモジュールのファイルは、その前に別のモジュール（cond_half_q と

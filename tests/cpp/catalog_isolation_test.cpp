@@ -96,9 +96,26 @@ void program_loads_lists() {
   check(file_text(project, "u1.cpp") == nullptr, "own lists: library(lists) is not a program unit");
 }
 
-// 節の本体にだけ書いた library(lists) は、ゴールのライブラリとしてプログラムの機械に読む（実行時と同じ）。文面の表を
-// 別の機械で読むのはその後で、同じファイルは記録に足さない。順が逆なら lib/lists.pl を 2 度記録し、mosac_duplicate_key
-// で翻訳が止まる。
+// プログラムが library(N) を読んだ後に、自分のファイルでモジュール N を宣言して奪う（H-28 の敵対的レビュー A1）。
+// lib/N.pl はもうどのモジュールのファイルでもないが、起動時の最初の指示が読むので同梱し、奪った利用者のモジュールは
+// 単位 u1 になる。前は同梱から落ち、実行ファイルが existence_error(source_sink, library(N)) で止まった。lists の形は
+// その前の実装（文面の表を同じ機械で読んだ）では mosac_catalog_missing で翻訳が止まった。
+void program_takes_over(std::string_view library) {
+  const std::string name{library};
+  const auto dir = base() / ("takeover_" + name);
+  write_file(dir / "mine.pl", ":- module(" + name + ", [mine/1]).\nmine(1).\n");
+  write_file(dir / "main.pl", ":- use_module(library(" + name + ")).\n:- use_module(mine).\nmain :- mine(X), write(X).\n");
+  const Project project = translate(dir / "main.pl");
+  const std::string label = "takeover " + name;
+  check(project.ok && project.warnings.empty(), label + ": translated: " + project.diagnostic + project.warnings);
+  check(bundled(project, name) == 1, label + ": the library whose module was taken over is still bundled");
+  const std::string* main_file = file_text(project, "main.cpp");
+  check(main_file != nullptr && has(*main_file, "#include \"u1.hpp\"  // " + name), label + ": u1 is the user's module");
+}
+
+// 節の本体にだけ書いた library(lists) は、ゴールのライブラリとしてプログラムの機械に読む。文面の表を別の機械で
+// 読むのはその後で、プログラムがもう開いたファイル（lib/lists.pl）は read_catalogs が記録に足さないので、
+// 同じ鍵が 2 度入って mosac_duplicate_key で翻訳が止まることはない（順が逆でも FileNote が記録の項目を使い直す）。
 void goal_loads_lists() {
   const auto dir = base() / "goal_lists";
   write_file(dir / "main.pl", "main :- use_module(library(lists)), lists:append([a], [b], L), write(L), nl.\n");
@@ -122,6 +139,8 @@ int main() {
   std::filesystem::remove_all(base());
   user_modules();
   program_loads_lists();
+  program_takes_over("lists");
+  program_takes_over("apply");
   goal_loads_lists();
   program_machine_untouched();
   return mosa_test::failures();
