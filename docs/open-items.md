@@ -301,6 +301,9 @@ General:
 - Undefined-call warnings show the clause line, not the goal line, and can name another file
   after a nested consult replaces that predicate's clauses (M23 A2).
 - Library units are not traced under `--debug`.
+- A goal `use_module(library(N))` is still read on the program's machine at translation, as at
+  run time. A user module named like N or like a library N loads (`lists` through `format`) is
+  replaced there and runs as IR. Only the message catalogs moved to a separate machine (H-28).
 - Only Release is installed.
 - The REPL writes prompts and answers past `user_output`, so its line position stays where the
   query left it. After a query whose output has no final newline, the next query's leading `~N`

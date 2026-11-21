@@ -1,7 +1,7 @@
 # 計画 Task 9。mosac build と mosac run を、作業場所 WORK（.mosac-cache はその下にできる）で動かして確かめる。
 # CMake の道と直接の道（MOSA_NO_CMAKE=1）の両方で同じ確かめを流す。どちらの道かは PATH_KIND で受ける。
 # 使い方: cmake -DMOSAC=<mosac>
-#   -DCASE=<build_hello|run_exit_code|run_args|cache_reuse|internal_error|debug_trace|module_names>
+#   -DCASE=<build_hello|run_exit_code|run_args|cache_reuse|internal_error|debug_trace|module_names|catalog_names>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定>
 #   -DFAKE_CXX=<生成コードだけ失敗するコンパイラ> -DFAILING_CXX=<いつも失敗するコンパイラ>
 #   -DEXE_SUFFIX=<.exe など> -DMOSA_LIB=<lib/> -DPATH_KIND=<cmake|direct> -P build_test.cmake
@@ -199,6 +199,22 @@ elseif(CASE STREQUAL "module_names")
   if(NOT code EQUAL 0 OR NOT out STREQUAL "1\n2\n3-4\n5\n6\n")
     fail("module names")
   endif()
+elseif(CASE STREQUAL "catalog_names")
+  # レビュー 2026-11-20 の H-28。文面の表が読むモジュールと同じ名前の利用者のモジュール lists、format、messages_ja
+  # （catalog_main.pl）も単位になり、--debug の追跡にその節が出る。前は翻訳が lib/ の物で置き換えて単位を出さず、
+  # 3 つの節は IR のまま動いて追跡に出なかった。捕まえない例外の文面は同梱の文面の表から作り（鍵の goal_raised のままに
+  # ならない）、mosa と同じに 2 で終わる。
+  mosac(run --debug "${SRC}/catalog_main.pl")
+  if(NOT code EQUAL 2 OR NOT out STREQUAL "1-2-3\n" OR
+     NOT err MATCHES "(ゴールは例外を送出しました|goal raised exception): error\\(instantiation_error,")
+    fail("catalog names")
+  endif()
+  foreach(clause "l(1)." "f(2)." "m(3).")
+    string(FIND "\n${err}" "\n${clause}\n" at)
+    if(at EQUAL -1)
+      fail("the clause ${clause} must be traced")
+    endif()
+  endforeach()
 elseif(CASE STREQUAL "debug_trace")
   # 生成関数が節に入るたびに、その節のコメントと同じ文を標準エラーに書く。
   mosac(run --debug "${SRC}/hello.pl")

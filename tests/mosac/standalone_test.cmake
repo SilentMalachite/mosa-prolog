@@ -134,7 +134,16 @@ string(REPLACE "\r\n" "\n" err "${err}")
 # 誤った警告はここで見る（L12 の敵対的レビュー A1）。頭は文面の言語で変わる。
 # cond_export だけは見ない。answer/1 はビルド時に取らなかった分岐だけが定義するので、その呼び出しは警告になる
 # （設計の既知の制限 3、計画の「設計との違い」8）。代わりに、公開の未定義が build を止めず警告になったことを見る。
-if(NOT CASE STREQUAL "cond_export" AND err MATCHES "\\.pl:[0-9]+: (Warning|警告): ")
+# goal_use_late も見方を変える。lists:append/3 の lists はプログラムがどこでも読まないので（mosa でも
+# existence_error(module, lists)）、その 1 行だけが警告になる。前は翻訳が文面の表を同じ機械で読み、その lists で
+# 黙っていた（レビュー 2026-11-20 の H-28）。ゴールでだけ読む apply の apply:maplist/3 には今までどおり出ない。
+if(CASE STREQUAL "goal_use_late")
+  string(REGEX MATCHALL "\\.pl:[0-9]+: (Warning|警告): [^\n]*" warnings "${err}")
+  list(LENGTH warnings warning_count)
+  if(NOT warning_count EQUAL 1 OR NOT warnings MATCHES "lists:append/3" OR warnings MATCHES "maplist")
+    fail("only the call to lists:append/3 must be warned about")
+  endif()
+elseif(NOT CASE STREQUAL "cond_export" AND err MATCHES "\\.pl:[0-9]+: (Warning|警告): ")
   fail("unexpected undefined-call warning")
 endif()
 if(CASE STREQUAL "cond_export" AND NOT err MATCHES "answer/1 を export したが定義が無い" AND
@@ -223,8 +232,8 @@ elseif(CASE STREQUAL "goal_use_init")
     fail("library(apply) loaded from an initialization/1 goal")
   endif()
 elseif(CASE STREQUAL "goal_use_late")
-  # apply（ゴールでだけ読む）も lists（文面の表が読む）も、実行ファイルは起動時に読まない。M:G は呼び出しのときに
-  # :/2 が確かめ、mosa と同じ existence_error(module, M) になる。生成コードがその場で結ぶと procedure の誤りになる。
+  # apply（ゴールでだけ読む）も lists（文面の表が別の機械で読む。H-28）も、実行ファイルは起動時に読まない。
+  # M:G は呼び出しのときに :/2 が確かめ、mosa と同じ existence_error(module, M) になる。生成コードがその場で結ぶと procedure の誤りになる。
   if(NOT code EQUAL 0 OR NOT out STREQUAL "existence_error(module,apply)\nexistence_error(module,lists)\n"
      OR NOT err STREQUAL "")
     fail("a qualified call into a module loaded after the program's own load")
