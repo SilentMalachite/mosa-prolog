@@ -3,7 +3,7 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** none; W7 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
+- **In progress:** H-30 (ADR 0011 amendment 5, then code); W7, branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** H-29 (54072d2d: the CMake bracket arguments pick their `=` count); H-28 (4e7f6b13,
   review fixes cff8b592); H-27; W6–W2; W1 but H-39. Triage: [review-2026-11-20.md](review-2026-11-20.md).
