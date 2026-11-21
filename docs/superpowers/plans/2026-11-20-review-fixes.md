@@ -87,7 +87,7 @@ open-items の「Files to split before their next edit」のうち、この計�
 | ~~`src/machine/lgt_exec.cpp` (765)~~ 割った（534 行と `lgt_build.cpp` 248 行、`lgt_prog.hpp`） | C-04、H-36、M-49 |
 | ~~`src/machine/load_directive.cpp` (733)~~ 割った（635 行と `load_meta.cpp` 117 行、bb97f7b8） | H-05、H-10、H-12、M-14、L-16、L-17 |
 | ~~`src/write/writer.cpp` (759)~~ 割った（519 行と `writer_list.cpp` 124 行、宣言は `printer.hpp` 156 行） | H-16、H-19、H-25 |
-| `src/builtins/streams.cpp` (751) | H-21、H-22、H-26 |
+| ~~`src/builtins/streams.cpp` (751)~~ 割った（551 行と `stream_close.cpp` 239 行、宣言は `stream_internal.hpp`） | H-21、H-22、H-26 |
 | ~~`src/builtins/database.cpp` (762)~~ 割った（499 行と `database_sweep.cpp` 286 行） | H-05、M-26、L-24 |
 | ~~`tests/tests.cmake` (749)~~ 割った（515 行と `tests/mosac_tests.cmake` 240 行） | H-34、H-35、L-46 |
 

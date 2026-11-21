@@ -719,7 +719,7 @@ ADR 0010 の GC はヒープ、`extras`、trail を回収するが、アトム�
 
 A か B か: A は標準ストリームの close/1,2 で吐き出しだけして成功し、閉じない。現在の流れのまま書き込める。B は今のまま閉じる。確認前は B のまま。
 
-決定（2026-11-01）: A。close/1,2 は引数と選択肢を今までどおり検査し、`user_output` と `user_error` を吐き出し、三つの標準ストリームを開いたまま残す（`src/builtins/streams.cpp` の `run_close`、`tests/pl/close.pl` の `close_std_*`、`tests/cpp/output_stop_test.cpp` の `check_session_close_user_output`）。`tests/cpp/stream_test.cpp` は同じコミットで変える。「close user_output」は流れが開いたまま現在出力であることを期待し、「closed current input」（今は「closed input」）は `user_input` ではなくファイルの流れを閉じる。
+決定（2026-11-01）: A。close/1,2 は引数と選択肢を今までどおり検査し、`user_output` と `user_error` を吐き出し、三つの標準ストリームを開いたまま残す（`src/builtins/stream_close.cpp` の `run_close`、`tests/pl/close.pl` の `close_std_*`、`tests/cpp/output_stop_test.cpp` の `check_session_close_user_output`）。`tests/cpp/stream_test.cpp` は同じコミットで変える。「close user_output」は流れが開いたまま現在出力であることを期待し、「closed current input」（今は「closed input」）は `user_input` ではなくファイルの流れを閉じる。
 
 ## 8.11 開くと consult の全体読み
 
