@@ -61,7 +61,8 @@ target_sources(mosa_lib PRIVATE src/read/operator_table.cpp)
 target_sources(mosa_lib PRIVATE src/core/atom.cpp src/core/heap.cpp src/core/ir.cpp src/core/unify.cpp)
 target_sources(mosa_lib PRIVATE src/core/bigint.cpp src/core/bigint_div.cpp src/core/bigint_text.cpp)
 target_sources(mosa_lib PRIVATE src/read/reader.cpp src/read/reader_bracket.cpp src/read/reader_frames.cpp)
-target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/spelling.cpp src/write/term_equal.cpp)
+target_sources(mosa_lib PRIVATE src/write/writer.cpp src/write/writer_list.cpp)
+target_sources(mosa_lib PRIVATE src/write/spelling.cpp src/write/term_equal.cpp)
 target_sources(mosa_lib PRIVATE src/read/roundtrip.cpp)
 target_sources(mosa_lib PRIVATE
   src/machine/engine.cpp

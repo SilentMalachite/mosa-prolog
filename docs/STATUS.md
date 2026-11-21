@@ -9,7 +9,7 @@
   W3 and W2 done; W1 but H-39. W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
 - **Next:** H-16 (W5: writeq leaves an fy or xfy left operand of yfx or yf of the same priority bare).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** 11 code and test files at 730 lines or more, listed in open-items.
+- **Split first:** 10 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).
