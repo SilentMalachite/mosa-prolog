@@ -375,7 +375,7 @@ std::string banner(const Impl& machine, std::uint32_t module, std::string_view u
          " から出した（ADR 0009）。手で直さない。\n";
 }
 
-// 名前空間。既定はモジュールから。mosac emit --units（Task 11）はファイルごとの名前を渡す。
+// 名前空間。既定は翻訳済みの同梱ライブラリのモジュールから。プログラムの単位は位置から付けた名前を渡す（ADR 0030）。
 std::string unit_space(const Impl& machine, std::uint32_t module, std::string_view space) {
   if (!space.empty()) return "mosa_gen::" + std::string{space};
   return "mosa_gen::m" + mangle(machine.atoms.name(module));

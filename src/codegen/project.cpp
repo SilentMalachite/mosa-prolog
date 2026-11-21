@@ -1,9 +1,13 @@
 // 計画 Task 5、Task 10。mosac emit の目録を作る。翻訳のときの読み込みは宣言だけを実行し（TranslationLog）、
 // 開いたファイルの原文を main.cpp に埋め込む。単位はモジュールごとに 1 つで、名前は C++ の名前空間
-// mosa_gen::m<モジュール> になる。同じモジュールの単位は 1 つしか出さないので、unit() の名前はぶつからない。
+// mosa_gen::u<位置> になる。位置は単位ごとに違うので、unit() の名前はぶつからない。
 //
 // 単位の名前の決め方（Task 5 と Task 10 の持ち越し。すべて単射）
-//  - C++ の名前空間: mosa_gen::m<mangle(モジュール名)>。mangle は _ を _5f、ほかの非英数字を _xx にするので __ を作らない
+//  - プログラムの単位の C++ の名前空間とファイル: plan_units の位置 k から mosa_gen::u<k> と u<k>.cpp、u<k>.hpp
+//    （ADR 0030）。モジュール名から作ると、キーワード、入口の main.cpp、大文字小文字だけ違う名前、長すぎるファイル名に
+//    なりえた（レビュー 2026-11-20 の H-27）
+//  - 翻訳済みの同梱ライブラリの名前空間: mosa_gen::m<mangle(モジュール名)>。mangle は _ を _5f、ほかの非英数字を _xx に
+//    するので __ を作らない
 //  - プログラムの単位の NativeUnit::name と埋め込みの鍵: 根のファイルのディレクトリからの相対パス（embed_keys）
 //  - 同梱ライブラリ: 埋め込みの鍵は、そのライブラリの根（library(Name) を見つけた $MOSA_LIB か lib/）からの相対パスを
 //    擬似ディレクトリ library/ の下に置いた物（library/Name.pl、library/sub/util.pl。モジュールも include した物も同じ）。
@@ -222,17 +226,19 @@ Project build_project(Machine& machine, const TranslationLog& log, std::string_v
   const std::vector<PredKey> interpreted = opaque_preds(log);
   Project project;
   project.ok = true;
-  for (const UnitPlan& unit : plan.units) {
-    const EmitResult emitted = emit_module(machine, unit.module, plan.keys[unit.file], interpreted, options.trace);
-    const std::string stem = unit_stem(impl, unit.module);
-    project.files.push_back(ProjectFile{stem + ".cpp", emitted.source});
-    project.files.push_back(ProjectFile{stem + ".hpp", emitted.header});
+  for (std::size_t index = 0; index < plan.units.size(); ++index) {
+    const UnitPlan& unit = plan.units[index];
+    const std::string space = program_unit(index);
+    const EmitResult emitted =
+        emit_module(machine, unit.module, plan.keys[unit.file], interpreted, options.trace, space);
+    project.files.push_back(ProjectFile{space + ".cpp", emitted.source});
+    project.files.push_back(ProjectFile{space + ".hpp", emitted.header});
   }
   for (const LibraryPlan& library : plan.libraries) {
     (library.prebuilt ? project.libraries : project.source_only).push_back(library.name);
   }
   project.files.push_back(ProjectFile{"main.cpp", main_text(impl, log, plan, options.interactive)});
-  project.files.push_back(ProjectFile{"CMakeLists.txt", cmake_text(impl, plan, target_name(path), options.runtime_dir)});
+  project.files.push_back(ProjectFile{"CMakeLists.txt", cmake_text(plan, target_name(path), options.runtime_dir)});
   return project;
 }
 

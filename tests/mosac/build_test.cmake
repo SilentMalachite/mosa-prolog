@@ -1,6 +1,7 @@
 # 計画 Task 9。mosac build と mosac run を、作業場所 WORK（.mosac-cache はその下にできる）で動かして確かめる。
 # CMake の道と直接の道（MOSA_NO_CMAKE=1）の両方で同じ確かめを流す。どちらの道かは PATH_KIND で受ける。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<build_hello|run_exit_code|run_args|cache_reuse|internal_error|debug_trace>
+# 使い方: cmake -DMOSAC=<mosac>
+#   -DCASE=<build_hello|run_exit_code|run_args|cache_reuse|internal_error|debug_trace|module_names>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定>
 #   -DFAKE_CXX=<生成コードだけ失敗するコンパイラ> -DFAILING_CXX=<いつも失敗するコンパイラ>
 #   -DEXE_SUFFIX=<.exe など> -DMOSA_LIB=<lib/> -DPATH_KIND=<cmake|direct> -P build_test.cmake
@@ -190,6 +191,13 @@ elseif(CASE STREQUAL "internal_error")
     if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: CMake の構成に失敗しました" OR err MATCHES "内部エラー")
       fail("configure failure")
     endif()
+  endif()
+elseif(CASE STREQUAL "module_names")
+  # レビュー 2026-11-20 の H-27（ADR 0030）。単位の名前をモジュール名から作るとビルドが壊れる 6 つのモジュール
+  # （names_main.pl）を読むプログラムも、mosa と同じに書く。
+  mosac(run "${SRC}/names_main.pl")
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "1\n2\n3-4\n5\n6\n")
+    fail("module names")
   endif()
 elseif(CASE STREQUAL "debug_trace")
   # 生成関数が節に入るたびに、その節のコメントと同じ文を標準エラーに書く。

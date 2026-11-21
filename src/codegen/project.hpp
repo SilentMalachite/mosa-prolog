@@ -18,6 +18,7 @@ namespace mosa::codegen {
 using DisplayNames = std::vector<std::string>;
 
 // 起動時に install_unit で付ける単位。プログラムのモジュールごとに 1 つで、根のファイルのモジュールが先。
+// 名前は並びの位置 k から program_unit(k) で付ける（ADR 0030）。
 struct UnitPlan {
   std::uint32_t module = 0;
   std::size_t file = 0;
@@ -54,15 +55,18 @@ struct ProjectPlan {
 [[nodiscard]] std::vector<PredKey> opaque_preds(const TranslationLog& log);
 [[nodiscard]] bool load_catalogs(Machine& machine);
 
-// 定義は project_main.cpp。
-[[nodiscard]] std::string unit_stem(const Impl& machine, std::uint32_t module);
+// 定義は project_main.cpp。program_unit はプログラムの単位の名前空間（mosa_gen:: の後）とファイルの語幹 u<position>。
+// モジュール名から作らないので、キーワード（utable の mutable）、入口の main.cpp、大文字小文字だけ違う名前、長すぎる
+// ファイル名のどれにもならない（レビュー 2026-11-20 の H-27、ADR 0030）。library_unit は翻訳済みの同梱ライブラリの
+// 名前空間 m<mangle(モジュール)>。libmosa と一緒に先に作るので位置を持たず、来るのは lib/ のモジュールだけである。
+[[nodiscard]] std::string program_unit(std::size_t position);
+[[nodiscard]] std::string library_unit(const Impl& machine, std::uint32_t module);
 // 原文 text を constexpr std::array<std::string_view, N> kFile<index> の断片の並びにする（MSVC の字面の上限のため）。
 [[nodiscard]] std::string source_array(std::size_t index, std::string_view text);
 // 同梱ライブラリの単位を結ばない CMakeLists.txt。sources は空白で区切った原文の名前（mosac emit --units、Task 11）。
 [[nodiscard]] std::string cmake_plain_text(std::string_view target, std::string_view sources, std::string_view runtime_dir);
 [[nodiscard]] std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan,
                                         bool interactive = false);
-[[nodiscard]] std::string cmake_text(const Impl& machine, const ProjectPlan& plan, std::string_view target,
-                                     std::string_view runtime_dir);
+[[nodiscard]] std::string cmake_text(const ProjectPlan& plan, std::string_view target, std::string_view runtime_dir);
 
 }  // namespace mosa::codegen

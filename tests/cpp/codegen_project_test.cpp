@@ -55,11 +55,12 @@ void project_modules() {
   write_file(dir / "two.pl", ":- module(two, [twice/2]).\ntwice(X, Y) :- Y is X * 2.\n");
   const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "app.pl"), {});
   check(project.ok && project.warnings.empty(), "project ok: " + project.diagnostic + project.warnings);
-  check(find_file(project, "muser.cpp") != nullptr && find_file(project, "mtwo.cpp") != nullptr, "unit per module");
+  // 単位の名前は位置から u<k>（ADR 0030。前は muser と mtwo）。根の user が u0、two が u1。
+  check(find_file(project, "u0.cpp") != nullptr && find_file(project, "u1.cpp") != nullptr, "unit per module");
   const auto* main_file = find_file(project, "main.cpp");
   check(main_file != nullptr && has(main_file->text, "part.pl"), "include embedded");
-  const auto user_at = main_file == nullptr ? std::string::npos : main_file->text.find("muser::unit(");
-  const auto two_at = main_file == nullptr ? std::string::npos : main_file->text.find("mtwo::unit(");
+  const auto user_at = main_file == nullptr ? std::string::npos : main_file->text.find("u0::unit(");
+  const auto two_at = main_file == nullptr ? std::string::npos : main_file->text.find("u1::unit(");
   check(user_at != std::string::npos && two_at != std::string::npos && user_at < two_at, "root unit first");
   write_file(dir / "skip.pl", ":- assertz(seen(1)).\nmain :- seen(1).\n");
   const auto skipped = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "skip.pl"), {});
@@ -87,7 +88,7 @@ void project_opaque() {
   write_file(dir / "newop.pl", "fast(1).\n:- true, op(700, xfx, ===>).\nr(a ===> b).\n");
   const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "newop.pl"), {});
   check(project.ok, "opaque ok: " + project.diagnostic);
-  const auto* unit = find_file(project, "muser.cpp");
+  const auto* unit = find_file(project, "u0.cpp");
   check(unit != nullptr && !has(unit->text, "pfast_1") && !has(unit->text, "NativeEntry{"), "opaque has no entries");
   write_file(dir / "plain_broken.pl", "r(a ===> b).\n:- true, op(700, xfx, ===>).\n");
   const auto broken = mosa::codegen::translate_program(mosa::utf8_from_path(dir / "plain_broken.pl"), {});
@@ -108,7 +109,7 @@ void project_opaque() {
   check(cmake != nullptr && has(cmake->text, "project(app "), "reserved target name");
 }
 
-// フェーズ13 Task 4（問い 1 の A、ADR 0027）。name のファイルに text を書いて訳し、muser.cpp の本文を返す。
+// フェーズ13 Task 4（問い 1 の A、ADR 0027）。name のファイルに text を書いて訳し、根の単位 u0.cpp（ADR 0030）の本文を返す。
 // 翻訳が止まれば診断を添えて落とし、空を返す。診断が残っていても落とす（条件の例外と halt が残した物）。
 std::string cond_unit(std::string_view name, std::string_view text) {
   const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_cond";
@@ -116,8 +117,8 @@ std::string cond_unit(std::string_view name, std::string_view text) {
   write_file(dir / name, text);
   const auto project = mosa::codegen::translate_program(mosa::utf8_from_path(dir / name), {});
   check(project.ok && project.diagnostic.empty(), std::string{name} + " translates: " + project.diagnostic);
-  const auto* unit = find_file(project, "muser.cpp");
-  check(unit != nullptr, std::string{name} + " has muser.cpp");
+  const auto* unit = find_file(project, "u0.cpp");
+  check(unit != nullptr, std::string{name} + " has u0.cpp");
   return unit == nullptr ? std::string{} : unit->text;
 }
 

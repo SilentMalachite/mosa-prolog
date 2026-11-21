@@ -1,6 +1,8 @@
 // 計画 Task 11。mosac emit --units <ディレクトリ>。試験のファイルごとに差分の原文（src/machine/diff.hpp の diff_source）を
 // 組み立て、翻訳のときの読み込み（TranslationLog）で読んで、モジュールごとの単位を出す。どのファイルもモジュール user
-// なので、名前空間は mosa_gen::u<N>_m<モジュール>（N はディレクトリの中の番号）で分け、unit() の名前をぶつけない。
+// なので、名前空間とファイルは mosa_gen::u<N>_<i> と u<N>_<i>.cpp（N はディレクトリの中の番号、i はその試験が読んだ
+// プログラムのファイルの位置で 0 が試験のファイル）で分け、unit() の名前をぶつけない。モジュール名から作らないのは
+// mosac emit の単位と同じ理由である（レビュー 2026-11-20 の H-27、ADR 0030）。
 // main.cpp は原文の断片と単位の表（rt::DiffEntry）を constexpr で持ち、rt::diff_main に渡すだけである。
 // 同梱ライブラリは原文だけ。bundle_library の一覧はプロセスで 1 つなので、翻訳済みを渡すとインタプリタ側にも付いてしまう。
 // 埋め込みの鍵は今のディレクトリからの相対で、実行ファイルを同じディレクトリ（リポジトリ直下）で動かす前提である。
@@ -83,8 +85,7 @@ bool read_for_translation(Machine& machine, const std::filesystem::path& file, c
 
 void emit_unit(Machine& machine, std::uint32_t module, std::span<const PredKey> interpreted, std::size_t number,
                Project& project, Entry& entry, std::size_t index) {
-  const Impl& impl = engine_impl(machine);
-  const std::string space = "u" + std::to_string(number) + "_" + unit_stem(impl, module);
+  const std::string space = "u" + std::to_string(number) + "_" + std::to_string(index);
   const EmitResult emitted = emit_module(machine, module, entry.keys[index], interpreted, false, space);
   project.files.push_back(ProjectFile{space + ".cpp", emitted.source});
   project.files.push_back(ProjectFile{space + ".hpp", emitted.header});

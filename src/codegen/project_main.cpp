@@ -1,6 +1,7 @@
 // 計画 Task 5、Task 10。mosac emit の main.cpp と CMakeLists.txt の文面。
 // main は rt::start、同梱ライブラリの bundle_library、embed、install_unit（根でない単位は install_loaded_unit）、
 // finish の順（runtime.hpp）。
+// プログラムの単位は位置から mosa_gen::u<k> と u<k>.cpp、u<k>.hpp（ADR 0030）。#include の行にモジュール名を書き添える。
 // 同梱ライブラリの単位は mosac emit --library が lib/<名前>.pl から出した物で、名前空間はモジュールと同じ
 // mosa_gen::m<mangle(モジュール)>。main.cpp はその unit() を自分で宣言し、見出しは要らない。
 
@@ -51,8 +52,8 @@ std::string source_lines(const Impl& machine, const TranslationLog& log, const P
     const std::string name = "file" + std::to_string(index);
     out += "  const std::string " + name + " = joined(kFile" + std::to_string(index) + ");\n";
     if (const LibraryPlan* library = library_of(plan, index)) {
-      const std::string unit = library->prebuilt ? "mosa_gen::" + unit_stem(machine, library->module) + "::unit(" + name + ")"
-                                                 : name;
+      const std::string unit =
+          library->prebuilt ? "mosa_gen::" + library_unit(machine, library->module) + "::unit(" + name + ")" : name;
       out += "  mosa::rt::bundle_library(" + string_literal(library->name) + ", " + unit + ");\n";
     }
   }
@@ -78,7 +79,7 @@ std::string main_body(const Impl& machine, const TranslationLog& log, const Proj
   for (std::size_t index = 0; index < plan.units.size(); ++index) {
     const UnitPlan& unit = plan.units[index];
     out += std::string{"  loaded = loaded && mosa::rt::"} + (index == 0 ? "install_unit" : "install_loaded_unit") +
-           "(*machine, mosa_gen::" + unit_stem(machine, unit.module) + "::unit(file" + std::to_string(unit.file) +
+           "(*machine, mosa_gen::" + program_unit(index) + "::unit(file" + std::to_string(unit.file) +
            "));\n";
   }
   // --interactive は読み込みのあと REPL に入る（計画 Task 14）。initialization(main, main) の main は動かさない。
@@ -91,7 +92,7 @@ std::string library_declarations(const Impl& machine, const ProjectPlan& plan) {
   for (const LibraryPlan& library : plan.libraries) {
     if (!library.prebuilt) continue;
     if (out.empty()) out = "// 同梱ライブラリの単位の入口（計画 Task 10）。mosac emit --library が lib/<名前>.pl から出した。\n";
-    out += "namespace mosa_gen::" + unit_stem(machine, library.module) +
+    out += "namespace mosa_gen::" + library_unit(machine, library.module) +
            " {\n[[nodiscard]] mosa::rt::NativeUnit unit(std::string_view source);\n}\n";
   }
   return out.empty() ? out : out + "\n";
@@ -168,11 +169,16 @@ std::string cmake_tail(const std::string& name) {
 
 }  // namespace
 
-std::string unit_stem(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
+std::string program_unit(std::size_t position) { return "u" + std::to_string(position); }
+
+std::string library_unit(const Impl& machine, std::uint32_t module) { return "m" + mangle(machine.atoms.name(module)); }
 
 std::string main_text(const Impl& machine, const TranslationLog& log, const ProjectPlan& plan, bool interactive) {
   std::string out = "// mosac が出した実行ファイルの入口（計画 Task 5、Task 10）。手で直さない。\n\n";
-  for (const UnitPlan& unit : plan.units) out += "#include \"" + unit_stem(machine, unit.module) + ".hpp\"\n";
+  for (std::size_t index = 0; index < plan.units.size(); ++index) {
+    out += "#include \"" + program_unit(index) + ".hpp\"  // " +
+           comment_safe(machine.atoms.name(plan.units[index].module)) + "\n";
+  }
   out += "\n#include \"mosa/runtime.hpp\"\n\n" + library_declarations(machine, plan);
   out += "namespace {\n\n// 読み込んだファイルの原文。鍵は根のファイルからの相対か、同梱ライブラリの library/<名前>.pl である。\n";
   for (std::size_t index = 0; index < log.files.size(); ++index) out += source_array(index, log.files[index].text);
@@ -181,11 +187,10 @@ std::string main_text(const Impl& machine, const TranslationLog& log, const Proj
   return out + main_body(machine, log, plan, interactive);
 }
 
-std::string cmake_text(const Impl& machine, const ProjectPlan& plan, std::string_view target,
-                       std::string_view runtime_dir) {
+std::string cmake_text(const ProjectPlan& plan, std::string_view target, std::string_view runtime_dir) {
   const std::string name{target};
   std::string sources = "main.cpp";
-  for (const UnitPlan& unit : plan.units) sources += " " + unit_stem(machine, unit.module) + ".cpp";
+  for (std::size_t index = 0; index < plan.units.size(); ++index) sources += " " + program_unit(index) + ".cpp";
   return cmake_head(name, sources, runtime_dir) + cmake_units(plan, name) + cmake_tail(name);
 }
 

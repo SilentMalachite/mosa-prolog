@@ -189,7 +189,7 @@ elseif(CASE STREQUAL "bigint")
     "qualified=type_error(callable,user:123456789012345678901234567890)\n"
     "negated=type_error(callable,(true,123456789012345678901234567890))\n")
   # IR のまま動いても同じ答えになるので、Big の定数と鍵が生成コードに出て、どの述語も IR に回っていないことも見る。
-  file(READ "${out_dir}/muser.cpp" bigint_source)
+  file(READ "${out_dir}/u0.cpp" bigint_source)
   foreach(want "rt::put_big(" "rt::big_key_of(first)")
     string(FIND "${bigint_source}" "${want}" bigint_at)
     if(bigint_at EQUAL -1)

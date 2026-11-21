@@ -23,6 +23,13 @@ target_compile_definitions(codegen_project_test PRIVATE MOSA_SOURCE_DIR="${CMAKE
 target_link_libraries(codegen_project_test PRIVATE mosa_lib)
 add_test(NAME codegen_project COMMAND $<TARGET_FILE:codegen_project_test>)
 
+# レビュー 2026-11-20 の H-27（ADR 0030）。単位の名前空間とファイル名は位置から付け、どのモジュール名でも壊れない。
+add_executable(unit_names_test tests/cpp/unit_names_test.cpp)
+target_include_directories(unit_names_test PRIVATE tests/cpp src)
+target_compile_definitions(unit_names_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(unit_names_test PRIVATE mosa_lib)
+add_test(NAME unit_names COMMAND $<TARGET_FILE:unit_names_test>)
+
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
 foreach(emit_case hello broken undefined undefined_catch undefined_quoted undefined_handled refused duplicate silent newop refused_op halt
   trigraph bigint)
@@ -74,7 +81,7 @@ foreach(fake mosac_fake_cxx mosac_fake_cxx_forward)
   endif()
 endforeach()
 get_filename_component(mosac_cmake_dir "${CMAKE_COMMAND}" DIRECTORY)
-foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error debug_trace)
+foreach(build_case build_hello run_exit_code run_args cache_reuse internal_error debug_trace module_names)
   foreach(path_kind cmake direct)
     set(build_test mosac_${build_case})
     if(path_kind STREQUAL "direct")
