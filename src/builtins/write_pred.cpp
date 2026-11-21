@@ -17,7 +17,7 @@
 //   existence_error(stream),
 //   permission_error(output, stream), permission_error(output, binary_stream)
 // テスト: tests/pl/write.pl, tests/pl/print.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp,
-//   tests/cpp/portray_halt_test.cpp, tests/pl/bigint.pl
+//   tests/cpp/portray_halt_test.cpp, tests/pl/bigint.pl, tests/pl/print_module.pl
 
 #include "write_internal.hpp"
 
@@ -465,14 +465,15 @@ void rewind_spot(Stream& stream, const StreamSpot& spot) {
   stream.past_end = spot.past_end;
 }
 
-bool portray_ready(const Impl& machine, std::uint32_t& name) {
-  for (const Predicate& predicate : machine.predicates) {
-    if (predicate.arity != 1 || predicate.abolished || live_count(predicate) == 0) continue;
-    if (machine.atoms.name(predicate.name) != "portray") continue;
-    name = predicate.name;
-    return true;
-  }
-  return false;
+// apply_portray は portray/1 を user から呼ぶので、同じ引き当てで user から見える portray/1（user の定義か取り込み）
+// だけを見る。前はどのモジュールの portray/1 も見たので、user から見えない portray/1 があると user から呼んで
+// existence_error になった（レビュー 2026-11-20 の H-24）。
+bool portray_ready(Impl& machine, std::uint32_t& name) {
+  const std::uint32_t portray = machine.atoms.intern("portray");
+  const Predicate* predicate = resolve_pred(machine, machine.user_module, portray, 1);
+  if (predicate == nullptr || predicate->abolished || live_count(*predicate) == 0) return false;
+  name = portray;
+  return true;
 }
 
 IrTerm portray_call(std::uint32_t name) {

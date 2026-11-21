@@ -37,6 +37,8 @@ Decision (2026-10-27): The B above is withdrawn. When `portray/1` has clauses an
 
 Review L14 (2026-11-05, not an owner decision): when `portray` halts, the text of the term written so far, with what `portray` wrote to current output, is written to the stream before the halt, as with `write/1` followed by `halt`. As before, `print` writes its text in one piece after the term is done, so what `portray` writes to another stream by name comes first. When `portray` raises an exception, nothing of that `print` is written, as before, because a `catch` may go on writing.
 
+Review H-24 (2026-11-21, not an owner decision): "`portray/1` has clauses" in the decision above means the `portray/1` that a call `portray(T)` from `user` reaches: one defined in `user` or imported into it. print/1 always calls the hook from `user`. A `portray/1` in another module that `user` does not import is not the hook, and print/1 writes as when `portray/1` has no clauses. Before, any module's `portray/1` made print/1 and `~p` call `portray/1` from `user`, which gave `existence_error(procedure, portray/1)` (`portray_ready` in `src/builtins/write_pred.cpp`, `tests/pl/print_module.pl`).
+
 ## 8.14 Write options
 
 Decision (2026-10-25): `write/1,2` and `print/1,2` use `numbervars(true)`. `writeq/1,2` uses `quoted(true)` and `numbervars(true)`. `write_canonical/1,2` uses `quoted(true)` and `ignore_ops(true)`. In `write_term` all three default to false. When values of the same boolean option conflict, `domain_error(write_option, LaterTerm)`. `variable_names` is taken once; if a name is not a variable spelling, `domain_error(write_option, ThatPair)`. A Var that is already bound is ignored.
