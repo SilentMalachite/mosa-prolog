@@ -5,11 +5,11 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W6 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W5 (H-20 abce1905: stdin scout and a quote closed by the last byte; H-15 to H-19);
-  W4 to W2 done; W1 but H-39. W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-21 (W6: the empty atom `''` names every stream that has no alias).
+- **Last done:** W6 H-21 (847138d1: `''` is an alias like any other; split `streams.cpp` deb791d8);
+  W5 to W2 done; W1 but H-39. W0 triage is in [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** H-22 (W6: a stream flushed before another rewrote its file saves only its tail).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** 10 code and test files at 730 lines or more, listed in open-items.
+- **Split first:** 9 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

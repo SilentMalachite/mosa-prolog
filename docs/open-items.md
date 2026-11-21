@@ -276,6 +276,9 @@ Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 
 General:
 
+- A `stream_property/2` redo replays the hits saved by the first call (`prove_props` in
+  `stream_prop.cpp`), so it still reports a stream closed in between. Since H-21 it skips only an
+  alias the stream lost when a new stream took it; the other properties come back as before.
 - Two cyclic terms with coprime periods still unify or compare in time quadratic in the periods,
   until the pairs pass the heap limit (ADR 0010 amendment 4, review H-02). Union-find over compound
   cells would make `=` and `==` linear; not shown to keep `compare/3`'s order. Left for later.
