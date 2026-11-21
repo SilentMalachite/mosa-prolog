@@ -236,9 +236,27 @@ Reader::Parsed Reader::parse_name(int max_priority) {
     return parsed;
   }
   if (const std::optional<OpDef> prefix = find_prefix(token.text, max_priority)) {
-    if (can_start(next.token)) return apply_prefix(*prefix, max_priority);
+    if (can_start(next.token) || semicolon_call(next.token)) return apply_prefix(*prefix, max_priority);
   }
   return atom_named(token.text);
+}
+
+// 6.4.2: ; は名前の字句なので、直後に空白なく ( が続けば関数表記の項を始め（6.3.3）、前置演算子の被演算子になる。
+// 前は始められず、\+ ;(a, b) の \+ をアトムにして ;(\+, (a, b)) と読んだ（レビュー H-17）。単独の ; は今までどおり
+// 前置をアトムにして中置で読む。裸の演算子のアトムを被演算子に取るかはレビュー H-18 の問いで、ここでは変えない。
+bool Reader::semicolon_call(const Token& token) {
+  if (token.kind != TokenKind::Solo || token.text != ";") return false;
+  // ( は ; の次の字句なので、読み手の状態ごと写して先読みし、戻す（reject_headless_bar と同じ）。
+  const Lexer saved = lexer_;
+  const Scan saved_pending = pending_;
+  const bool saved_has = has_pending_;
+  consume();
+  const Scan after = peek();
+  lexer_ = saved;
+  pending_ = saved_pending;
+  has_pending_ = saved_has;
+  return !after.failure && after.token.kind == TokenKind::Solo && after.token.text == "(" &&
+         !after.token.after_layout;
 }
 
 Reader::Parsed Reader::parse_primary(int want) {

@@ -240,3 +240,18 @@ test(m28_read_dot_nested, (open_string('f(\'.\'(a, \'.\'(b, []))).', S), read(S,
 test(m28_read_dot_partial, (open_string('\'.\'(a, T).', S), read(S, L), L = [H|_]), solutions([H = a])).
 test(m28_read_dot_three, (open_string('\'.\'(a, b, c).', S), read(S, T), functor(T, N, A)), solutions([(N = '.', A = 3)])).
 test(m28_read_dot_infix, (op(200, xfy, '.'), open_string('x \'.\' y.', S), read(S, T), op(0, xfy, '.'), T = [H|R]), solutions([(H = x, R = y)])).
+% レビュー H-17。; は名前の字句（6.4.2）で、直後に空白なく ( が続けば関数表記の項を始める（6.3.3）。前置演算子の
+% 被演算子にもなる。前は前置がアトムになり、\+ ;(a, b) を ;(\+, (a, b)) と読んで、writeq の \+;(a,b,c) も読み戻せなかった。
+h17_read(Text, T) :- atom_concat(Text, ' .', Full), open_string(Full, S), read(S, T), close(S).
+h17_back(T, A, B) :- with_output_to(atom(A), writeq(T)), h17_read(A, B).
+test(h17_not_call, (h17_read('X = (\\+ ;(a, b))', T), T = (_ = R)), solutions([R = \+(';'(a, b))])).
+test(h17_minus_call, (h17_read('X = (- ;(a))', T), T = (_ = R)), solutions([R = -(';'(a))])).
+test(h17_back_not, (h17_back(\+(';'(a, b, c)), A, B), B == \+(';'(a, b, c))), solutions([A = '\\+;(a,b,c)'])).
+test(h17_back_minus3, (h17_back(-(';'(a, b, c)), A, B), B == -(';'(a, b, c))), solutions([A = '-;(a,b,c)'])).
+test(h17_back_minus1, (h17_back(-(';'(a)), A, B), B == -(';'(a))), solutions([A = '-;(a)'])).
+% 関数表記でない ; は今までどおり。前置はアトムになって中置の ; の左に入り、空白を挟んだ ( は括弧である。
+% 被演算子の前の ; も中置のまま。裸の演算子のアトムを被演算子に取るかはレビュー H-18 の問いに残す。
+test(h17_bare_semicolon, h17_read('\\+ ; b', T), solutions([T = ';'(\+, b)])).
+test(h17_spaced_paren, h17_read('- ; (a)', T), solutions([T = ';'(-, a)])).
+test(h17_infix_call, h17_read('a ;(b)', T), solutions([T = ';'(a, b)])).
+test(h17_bracketed, h17_read('\\+ (;)', T), solutions([T = \+(;)])).

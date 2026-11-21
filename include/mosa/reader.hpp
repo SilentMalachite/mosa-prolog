@@ -113,6 +113,7 @@ class Reader {
   [[nodiscard]] Cell intern_variable(std::string name);
   [[nodiscard]] Cell make_string(std::string_view text);
   [[nodiscard]] bool can_start(const Token& token) const;
+  [[nodiscard]] bool semicolon_call(const Token& token);
   [[nodiscard]] std::optional<OpDef> find_prefix(std::string_view name, int max_priority) const;
   [[nodiscard]] std::optional<OpDef> find_follower(std::string_view name, int left_priority,
                                                    int max_priority) const;
