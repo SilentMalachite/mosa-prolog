@@ -455,6 +455,10 @@ A か B か（レビュー H-12、2026-11-20）: A は `module(user, Exports)` �
 
 決定（2026-11-21）: B（持ち主）。名前が `user` か `system` の `module/2` は、引数の検査の後で `permission_error(create, module, Name)` を出す。最初の項でない `module/2` と同じで、読み込みは失敗し、どちらのモジュールも変わらない。テスト: `tests/pl/modules.pl` の `h12_*`。
 
+## 第5節 `^` のメタ引数
+
+SPEC 第5節は、`:`、`0`〜`9`、`^`、`//` を指定した引数を `モジュール:引数` に包むとする。`^` ではこれが `M:(V^G)` になり、bagof/3 と setof/3 は先頭の `^` の鎖しか外さない（open-items「Findings not taken」）ので外せず、`my_bagof(?, ^, -)` と宣言した包む述語は必ず `existence_error(procedure, (^)/2)` になった（レビュー H-13）。13211-2 7.2.2 はここでは確かめていない。読み（2026-11-21、レビュー H-13）: `^` の引数は、先頭の `^` の鎖の内側のゴールを包んで `V^(M:G)` にする。インタプリタ（`meta_argument`）と生成コード（`rt::qualify_caret`）の両方で同じ。`^` の無い引数は前と同じく包み、鎖の内側がもう `M:` を持つゴールはそのまま残し、巡回する鎖は変えずに渡すので、bagof/3 は包まないときと同じく `resource_error(cyclic_term)` を出す。利用者が書いた `M:(V^G)` は今も外さない。テスト: `tests/pl/native.pl` の `native_meta_caret*`、`native_meta_bagof*`、`native_meta_setof`。
+
 ## 第5節 初期化の例外で途中までしか読まれていないファイル
 
 入れ子の読み込みの `initialization/1` のゴールが例外を投げると、それまでに読んだ節は残り、外側のファイルはその指令で読むのをやめる。外側のファイルには読み込み済みの印が残るので、後の `use_module/1,2` や `ensure_loaded/1` は残りを読まず、作りかけのモジュールが見えていた。

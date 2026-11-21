@@ -161,6 +161,8 @@ void push_catch(Machine::Impl& machine, Cell pattern, std::uint64_t recovery, st
 void catch_exit(Machine::Impl& machine, std::size_t index);  // ゴールを抜けた。index の Catch が一番上なら外し、そうでなければ無効にする
 // meta_predicate で限定する引数。M: が無ければ context:actual にする（enter_clause の meta_argument）
 [[nodiscard]] Cell qualify(Machine::Impl& machine, Cell actual, std::uint32_t context);
+// meta_predicate の ^ の引数。先頭の ^ の鎖の内側を包む（meta_argument と同じ、レビュー H-13）
+[[nodiscard]] Cell qualify_caret(Machine::Impl& machine, Cell actual, std::uint32_t context);
 
 // is/2 と算術比較（8.6.1、8.7.1）。生成コードが call_goal を通さず直に呼び、true なら同じ関数で続きを進める。
 // 失敗と例外は機械に記してあるので、false なら生成コードは戻るだけでよい。name は誤りの文脈（context(is/2, _) など）に

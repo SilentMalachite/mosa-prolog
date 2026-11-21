@@ -453,6 +453,10 @@ A or B? (review H-12, 2026-11-20): A accepts `module(user, Exports)` but keeps `
 
 Decision (2026-11-21): B (the owner). `module/2` with the name `user` or `system` raises `permission_error(create, module, Name)` after the checks of its arguments, as a `module/2` that is not the first term does, and the load fails, so neither module changes. Tests: `h12_*` in `tests/pl/modules.pl`.
 
+## Section 5 The `^` meta argument
+
+SPEC section 5 says an argument specified with `:`, `0`–`9`, `^` or `//` is wrapped as `Module:Argument`. For `^` this gave `M:(V^G)`, which bagof/3 and setof/3 cannot take apart, since they take off only a leading `^` chain (open-items, "Findings not taken"), so a wrapper declared `my_bagof(?, ^, -)` always raised `existence_error(procedure, (^)/2)` (review H-13). 13211-2 7.2.2 is not checked here. Reading (2026-11-21, review H-13): a `^` argument has the goal inside its leading `^` chain wrapped, `V^(M:G)`, in the interpreter (`meta_argument`) and in generated code (`rt::qualify_caret`); an argument without `^` is wrapped as before, a goal that already has `M:` inside the chain is kept, and a cyclic chain is passed unchanged, so bagof/3 raises `resource_error(cyclic_term)` as it does without the wrapper. A user-written `M:(V^G)` is still not taken apart. Tests: `native_meta_caret*`, `native_meta_bagof*` and `native_meta_setof` in `tests/pl/native.pl`.
+
 ## Section 5 A file left half-read by an initialization exception
 
 When a nested load's `initialization/1` goal throws, the clauses read so far are kept and the outer file stops at that directive. The outer file stayed marked as loaded, so a later `use_module/1,2` or `ensure_loaded/1` did not read the rest and saw a half-built module.

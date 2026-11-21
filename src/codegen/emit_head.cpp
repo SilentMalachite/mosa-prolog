@@ -288,7 +288,10 @@ void emit_head(ClauseEmit& emit, const IrTerm& head, const Predicate& predicate)
   for (std::size_t index = 0; index < head.args.size(); ++index) {
     std::string actual = "rt::arg(r, frame, " + std::to_string(index) + ")";
     if (index < predicate.meta.size() && predicate.meta[index].kind != MetaArg::Kind::None) {
-      actual = "rt::qualify(m, " + actual + ", rt::frame_module(r, frame))";
+      // ^ の引数は鎖の内側を包む（レビュー H-13）。
+      const std::string_view call =
+          predicate.meta[index].kind == MetaArg::Kind::Caret ? "rt::qualify_caret(m, " : "rt::qualify(m, ";
+      actual = std::string{call} + actual + ", rt::frame_module(r, frame))";
     }
     match(emit, head.args[index], actual, 0);
   }

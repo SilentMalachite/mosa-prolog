@@ -84,4 +84,8 @@ Cell qualify(Machine::Impl& machine, Cell actual, std::uint32_t context) {
   return qualify_goal(machine, context, actual);
 }
 
+Cell qualify_caret(Machine::Impl& machine, Cell actual, std::uint32_t context) {
+  return mosa::qualify_caret(machine, context, actual);
+}
+
 }  // namespace mosa::rt

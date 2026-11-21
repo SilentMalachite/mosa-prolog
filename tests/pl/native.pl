@@ -205,6 +205,19 @@ test(native_meta_inside, kept_inside(Q), solutions([Q = native_meta:foo])).
 test(native_meta_already, keep_goal(other:foo, Q), solutions([Q = other:foo])).
 test(native_meta_qualified_call, native_meta:keep_goal(foo, Q), solutions([Q = native_meta:foo])).
 test(native_meta_call, call_kept(color(C)), solutions([C = red, C = green, C = blue])).
+% レビュー H-13。^ の引数は鎖の内側のゴールだけを包むので、包む述語から呼ぶ bagof/3 と setof/3 も鎖を外せる。前は
+% user:(Y^G) と外を包み、bagof/3 が ^/2 を呼んで existence_error(procedure, (^)/2) になった。
+test(native_meta_caret, (keep_caret(Y^foo(Y), Q), Q = (V^(M:G)), V == Y, M == user, G == foo(Y)), true).
+test(native_meta_caret_two,
+     (keep_caret(A^B^foo(A, B), Q), Q = (A1^(B1^(user:G))), A1 == A, B1 == B, G == foo(A, B)), true).
+test(native_meta_caret_already, (keep_caret(Y^other:foo(Y), Q), Q == Y^other:foo(Y)), true).
+test(native_meta_caret_plain, keep_caret(foo, Q), solutions([Q = user:foo])).
+test(native_meta_bagof, h13_bagof(C, Y^(color(C), Y = 1), L), solutions([L = [red, green, blue]])).
+test(native_meta_setof, h13_setof(C, Y^(color(C), Y = 1), L), solutions([L = [blue, green, red]])).
+test(native_meta_bagof_free, h13_bagof(C, (color(C), Y = 1), L), solutions([(Y = 1, L = [red, green, blue])])).
+% 巡回する ^ の鎖は包まずに渡し、bagof/3 がふつうと同じく resource_error(cyclic_term) を出す（iso-notes 7.3.3）。
+test(native_meta_caret_cycle,
+     (G = _^G, catch(h13_bagof(_, G, _), error(E, _), true), E == resource_error(cyclic_term)), true).
 
 % is/2 と算術比較。組み込みの C++ を直に呼び、同じ関数で続きを進める。誤りは組み込みと同じ文脈で投げる
 inc(X, Y) :- Y is X + 1.

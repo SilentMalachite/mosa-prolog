@@ -8,6 +8,7 @@
 
 #include <array>
 #include <string_view>
+#include <vector>
 
 namespace mosa {
 
@@ -128,9 +129,34 @@ Cell qualify_goal(Impl& machine, std::uint32_t context, Cell actual) {
   return machine.heap.structure(machine.atoms.intern(":"), parts);
 }
 
+// レビュー H-13。^ の引数（bagof/3 と setof/3 の Goal）は、先頭の ^ の鎖の内側のゴールを包む。外を包むと M:(V^G) に
+// なり、bagof/3 は先頭の ^ しか外さない（open-items「Findings not taken」）ので ^/2 を呼んでいた。巡回する鎖は包まずに
+// 返し、bagof/3 がふつうと同じく resource_error(cyclic_term) を出す（iso-notes 7.3.3）。鎖は深くなりうるので、再帰せずに
+// 外した変数を覚えて内から組み直す。内側がもう M: を持てば、qualify_goal と同じく元のまま返す。
+Cell qualify_caret(Impl& machine, std::uint32_t context, Cell actual) {
+  std::vector<Cell> vars;
+  Cell inner = machine.heap.deref(actual);
+  LayerWatch watch(inner);
+  while (inner.tag() == Tag::Str && machine.heap.functor_arity(inner) == 2 &&
+         machine.atoms.name(machine.heap.functor_atom(inner)) == "^") {
+    vars.push_back(machine.heap.arg(inner, 0));
+    inner = machine.heap.deref(machine.heap.arg(inner, 1));
+    if (watch.returned_to(inner)) return actual;
+  }
+  if (vars.empty()) return qualify_goal(machine, context, actual);
+  if (qualified(machine, inner)) return actual;
+  Cell goal = qualify_goal(machine, context, inner);
+  const std::uint32_t caret = machine.atoms.intern("^");
+  for (auto var = vars.rbegin(); var != vars.rend(); ++var) {
+    goal = machine.heap.structure(caret, std::array<Cell, 2>{*var, goal});
+  }
+  return goal;
+}
+
 Cell meta_argument(Impl& machine, const Predicate& predicate, std::uint32_t context, std::size_t index,
                    Cell actual) {
   if (index >= predicate.meta.size() || predicate.meta[index].kind == MetaArg::Kind::None) return actual;
+  if (predicate.meta[index].kind == MetaArg::Kind::Caret) return qualify_caret(machine, context, actual);
   return qualify_goal(machine, context, actual);
 }
 

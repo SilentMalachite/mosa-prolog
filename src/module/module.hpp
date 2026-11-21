@@ -162,6 +162,8 @@ class LayerWatch {
                                  std::size_t index, Cell actual);
 // 限定そのもの。生成コード（rt::qualify）は頭部で限定する引数を知っているので、述語を見ずにこれを呼ぶ。
 [[nodiscard]] Cell qualify_goal(Machine::Impl& machine, std::uint32_t context, Cell actual);
+// ^ の引数の限定（レビュー H-13）。先頭の ^ の鎖の内側のゴールを qualify_goal で包む。生成コードは rt::qualify_caret。
+[[nodiscard]] Cell qualify_caret(Machine::Impl& machine, std::uint32_t context, Cell actual);
 // 第1引数を限定するなら真。節の第1引数の索引は、限定の前の値では引けない。
 [[nodiscard]] bool wraps_first(const Predicate& predicate);
 // 述語を作った直後に呼ぶ。保留の宣言があれば述語へ移す。
