@@ -2,6 +2,7 @@
 
 #include "mosa/char_class.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -283,6 +284,26 @@ bool Lexer::may_end_before_last(std::string_view source, const CharConv* conv, b
   // ends_clause は終止符が入力の最後でも真を返す。後ろの字が揃って初めて終止符と決まるので、その字の長さも確かめる。
   return end.valid && follower.valid && lexer.index_ + end.bytes == last && last + follower.bytes == source.size() &&
          lexer.ends_clause(end);
+}
+
+// ファイルの塊は終止符の後ろの字の所で切れるとは限らないので、足した所の 1 字前から各字を終止符として試す。
+// 後ろの字が届いていない終止符は数えない（may_end_before_last と同じ判定）。
+std::optional<std::size_t> Lexer::next_mark(std::string_view source, std::size_t from, const CharConv* conv,
+                                            bool fullwidth) {
+  Lexer lexer(source, conv);
+  lexer.fullwidth_ = fullwidth;
+  std::size_t at = scalar_start(source, std::min(from, source.size()));
+  while (at < source.size()) {
+    lexer.index_ = at;
+    const SourceChar end = lexer.peek_char();
+    const std::size_t next = at + std::max<std::size_t>(end.bytes, 1);
+    if (end.valid && next < source.size()) {
+      const SourceChar follower = lexer.peek_char_at(next);
+      if (follower.valid && lexer.ends_clause(end)) return next + follower.bytes;
+    }
+    at = next;
+  }
+  return std::nullopt;
 }
 
 // 読み手は止まるまで同じ字句を同じ順に読み、失敗は外して読み進める（Reader::absorb_full_stop）ので、字句だけで

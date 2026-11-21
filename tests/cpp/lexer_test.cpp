@@ -384,6 +384,27 @@ void test_end_marks() {
   mosa_test::check(!marks("a.\n", false, &conv), "a dot converted away does not mark an end");
 }
 
+// レビュー 2026-11-20 の H-23。ファイルの塊の中の読み直しの目印（read_pred.cpp の pull_to_mark）。from の 1 字前より
+// 後ろで終わり、may_end_before_last が真になる最短の長さ。引用や注釈の中かは見ず、それは下見が決める。
+void test_next_marks() {
+  const auto mark = [](std::string_view source, std::size_t from, bool fullwidth = false,
+                       const mosa::CharConv* conv = nullptr) {
+    return mosa::Lexer::next_mark(source, from, conv, fullwidth);
+  };
+  mosa_test::check(mark("a. b. ", 0) == 3u && mark("a. b. ", 3) == 6u, "marks come in order from from");
+  mosa_test::check(mark("a. ", 2) == 3u, "a dot just before from with its follower after from marks");
+  mosa_test::check(!mark("a. b", 3), "a mark that ends at or before from is not found again");
+  mosa_test::check(!mark("a.", 0) && !mark("1.5", 0) && !mark("a.b", 0) && !mark("", 0), "no follower, no mark");
+  mosa_test::check(!mark("a.\xE3\x80", 0) && mark("a.\xE3\x80\x80", 0) == 5u, "the follower must be whole");
+  mosa_test::check(mark("\xE8\xA6\xAA\xE3\x80\x82\n", 4, true) == 7u && !mark("\xE8\xA6\xAA\xE3\x80\x82\n", 4),
+                   "from inside the kuten starts at the kuten, which ends only under the flag");
+  mosa_test::check(mark("'a. b'", 0) == 4u, "a dot inside quotes still marks, the scout decides");
+  mosa::CharConv conv;
+  conv.enabled = true;
+  conv.map.emplace_back(U'!', U'.');
+  mosa_test::check(mark("a!\n", 0, false, &conv) == 3u && !mark("a!\n", 0), "a char converted to a dot marks");
+}
+
 // 標準入力の read の下見（read_pred.cpp の pull_to_mark）。読み手が止まりうる所があれば真。なければ、終わりで切れた
 // 空白の始まりか、引用か注釈の中で最後に読み始めた字か escape へ from を進め、その引用か注釈を inside に置く。
 using Inside = mosa::Lexer::Inside;
@@ -455,6 +476,7 @@ int main() {
   test_fullwidth();
   test_graphic_full_stop();
   test_end_marks();
+  test_next_marks();
   test_scout();
   return mosa_test::failures();
 }

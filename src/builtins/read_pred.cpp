@@ -18,7 +18,7 @@
 //   representation_error(character), syntax_error(Key)
 // 構文エラーの Key と Extra syntax(stream(S, Line, LinePos, CharNo), Token) は ADR 0007。テストは Formal を比べる。
 // テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp, tests/cpp/stdin_read_test.cpp,
-//   tests/cpp/stdin_scale_test.cpp, tests/pl/bigint.pl
+//   tests/cpp/stdin_scale_test.cpp, tests/cpp/stream_budget_test.cpp, tests/cpp/lexer_test.cpp, tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
 
@@ -408,8 +408,27 @@ void give_back(Stream& stream, std::size_t from) {
 // 中かは、下見が前の下見の切れた所（引用や注釈の中でも）から字句だけ読んで見分ける。終止符でない所で止まる誤りでも、
 // 長い入力を読めば同じ所で止まり、余りは give_back が返す。戻り値は 1 字でも足したか。終わりに当たれば ended を
 // 立て、もう読まない。
+// ファイルは塊で足すので、塊の中で may_end_before_last が真になる長さ（Lexer::next_mark）ごとに同じ下見をする。
+// 足した分の最後の 2 字だけを見ると、塊の切れ目がたまたま終止符の後ろに来るかファイルが終わるまで足し続け、最初の
+// read がファイル全体を読み込んだ（レビュー 2026-11-20 の H-23）。下見を挟まず塊ごとに読み直すと、塊の上限 8 MiB を
+// 越える項で頭から読む仕事が積もった（引用に . と空白の並ぶ 28 MB のリストで 2.0 秒から 4.0 秒）。
 bool pull_to_mark(const Impl& machine, Stream& stream, bool& ended, Lexer::Scout& scout) {
   bool pulled = false;
+  const CharConv* conv = &machine.char_conv;
+  if (stream.kind != Stream::Kind::Standard) {
+    while (true) {
+      std::size_t from = rest(stream).size();
+      if (!pull_byte(machine, stream)) break;
+      pulled = true;
+      const std::string_view source = rest(stream);
+      while (const std::optional<std::size_t> mark = Lexer::next_mark(source, from, conv, machine.japanese_punct)) {
+        if (Lexer::scout(source.substr(0, *mark), conv, machine.japanese_punct, scout)) return true;
+        from = *mark;
+      }
+    }
+    ended = true;
+    return pulled;
+  }
   while (pull_byte(machine, stream)) {
     pulled = true;
     const std::string_view source = rest(stream);

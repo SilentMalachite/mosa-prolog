@@ -117,6 +117,78 @@ void check_two_streams_share(const std::filesystem::path& path) {
   mosa_test::check(second_limited, "second stream shares the same budget");
 }
 
+// レビュー 2026-11-20 の H-23。ファイルの流れへの最初の read は、最初の項の終止符を含む塊までしか読まない。前は足した
+// 分の最後の 2 字だけで終止符を探したので、塊の切れ目がたまたま終止符の後ろに来るかファイルが終わるまで足し続け、
+// 予算の小さい Machine では最初の項 a も読めずに止まった。
+void check_first_read_stays_small(const std::filesystem::path& path) {
+  std::string data = "a.\n";
+  while (data.size() < 1024 * 1024) data += "b(xxxxxxxxxxxxxxxxxxxx).\n";
+  write_bytes(path, data);
+  auto machine = mosa::Machine::create(16384);
+  bool limited = false;
+  std::string term;
+  try {
+    const auto stop = machine->query("open(" + path_atom(path) + ", read, S), read(S, T).");
+    if (stop.kind == mosa::StopKind::Success) term = binding_named(*machine, stop, "T");
+  } catch (const mosa::ResourceLimit&) {
+    limited = true;
+  }
+  mosa_test::check(!limited && term == "a", "h23: the first read stays within the first chunk, got " + term);
+}
+
+// 守り。塊ごとに読み直しても、塊の切れ目にまたがる項は 1 つに読む。切れ目は読みの塊の大きさ（64 KiB から、持って
+// いる分に合わせて倍）に合わせ、浮動小数点数、終止符らしい並びを含む引用と注釈、切れ目の直後の空白で決まる終止符、
+// UTF-8 の字の途中を置く。
+class ChunkText {
+ public:
+  // end の手前まで空白で埋める。埋め草を節にすると読んだ項のリストが大きくなり、CI の MOSA_GC_STRESS=1 では
+  // GC のたびにそれをなめて遅すぎた。塊の切れ目にまたがる項は add で置く。
+  void fill_to(std::size_t end) {
+    while (data_.size() < end) data_ += data_.size() % 80 == 79 ? '\n' : ' ';
+  }
+  void add(std::string_view text, int terms) {
+    data_ += text;
+    count_ += terms;
+  }
+  [[nodiscard]] const std::string& data() const { return data_; }
+  [[nodiscard]] int count() const { return count_; }
+
+ private:
+  std::string data_;
+  int count_ = 0;
+};
+
+void check_reads_across_chunks(const std::filesystem::path& path) {
+  ChunkText text;
+  text.add("a.\n", 1);
+  text.fill_to(65536 - 4);
+  text.add("c(1.5).\n", 1);
+  text.fill_to(131072 - 7);
+  text.add("q('ab. cd').\n", 1);
+  text.fill_to(262144 - 6);
+  text.add("/* x. y */ g.\n", 1);
+  text.fill_to(524288 - 2);
+  text.add("e.\n", 1);
+  text.fill_to(1048576 - 4);
+  text.add("j('日本').\n", 1);
+  text.add("z.", 1);
+  write_bytes(path, text.data());
+  auto machine = mosa::Machine::create();
+  // library(lists) を読まずに済むよう、照合の補助もここで定義する。
+  const auto loaded = machine->load_program(
+      "all(S, L) :- read(S, T), (T == end_of_file -> L = [] ; L = [T|R], all(S, R)).\n"
+      "in(X, [Y|T]) :- (X == Y -> true ; in(X, T)).\n"
+      "final([X], X) :- !.\nfinal([_|T], X) :- final(T, X).\n");
+  mosa_test::check(loaded.ok, "h23: reader helpers load");
+  const auto stop = machine->query("open(" + path_atom(path) + ", read, S), all(S, L), close(S), length(L, N), "
+                                   "in(c(1.5), L), in(q('ab. cd'), L), in(g, L), in(e, L), in(j('日本'), L), "
+                                   "final(L, z).");
+  mosa_test::check(stop.kind == mosa::StopKind::Success, "h23: terms across chunk edges read whole");
+  if (stop.kind == mosa::StopKind::Success) {
+    mosa_test::check(binding_named(*machine, stop, "N") == std::to_string(text.count()), "h23: every term read once");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -125,5 +197,7 @@ int main() {
   std::filesystem::create_directories(dir);
   check_flow_budget(dir / "stream-budget-flow.txt", dir / "stream-budget-eof.txt");
   check_two_streams_share(dir / "stream-budget-two.txt");
+  check_first_read_stays_small(dir / "h23-first-read.txt");
+  check_reads_across_chunks(dir / "h23-chunks.txt");
   return mosa_test::failures();
 }
