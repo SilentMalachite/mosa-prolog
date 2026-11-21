@@ -5,11 +5,11 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W7 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W6 done, last H-26 (19955ba3: standard streams keep none of their traffic);
-  W5 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-27 (W7, ADR first: module names that mangle to `mutable`, `main` or case twins).
+- **Last done:** H-27 (ADR 0030 29f695ba, code 3eb87040: program units named `u<k>` by position);
+  W6 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** H-28 (W7: the catalog load replaces the user's module `lists`, so it is not translated).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** 9 code and test files at 730 lines or more, listed in open-items.
+- **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).
