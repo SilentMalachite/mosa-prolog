@@ -16,6 +16,13 @@ target_compile_definitions(codegen_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_
 target_link_libraries(codegen_test PRIVATE mosa_lib)
 add_test(NAME codegen COMMAND $<TARGET_FILE:codegen_test>)
 
+# 目録と翻訳の読み込みの書き留め。codegen_test.cpp が 800 行の上限に近づいたので分けた。
+add_executable(codegen_project_test tests/cpp/codegen_project_test.cpp)
+target_include_directories(codegen_project_test PRIVATE tests/cpp src)
+target_compile_definitions(codegen_project_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(codegen_project_test PRIVATE mosa_lib)
+add_test(NAME codegen_project COMMAND $<TARGET_FILE:codegen_project_test>)
+
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
 foreach(emit_case hello broken undefined undefined_catch undefined_quoted undefined_handled refused duplicate silent newop refused_op halt
   trigraph bigint)

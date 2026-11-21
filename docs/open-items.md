@@ -208,8 +208,7 @@ Code and test files at 730 lines or more (`wc -l`, 2026-11-19; generated files a
 
 - `tests/cpp/session_test.cpp` (796), `tests/cpp/stream_test.cpp` (785),
   `tests/cpp/conformance_io_test.cpp` (781), `tests/cpp/machine_test.cpp` (779),
-  `tests/cpp/codegen_test.cpp` (774), `tests/cpp/gc_test.cpp` (751),
-  `tests/cpp/manual_parse_test.cpp` (748)
+  `tests/cpp/gc_test.cpp` (751), `tests/cpp/manual_parse_test.cpp` (748)
 - `src/machine/internal.hpp` (732)
 
 Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
