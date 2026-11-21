@@ -119,13 +119,17 @@ bool same_file(const Stream& left, const Stream& right) {
 
 // close と flush_output で保存したファイルは、それより前に書いて放置した別の流れに終わりで戻されない
 // （Grok のレビューの High）。その流れがまた書けば unsaved が立ち、全体を書き直す。
+// 前に保存した流れも on_disk を 0 にする。ファイルはもう相手の中身なので、続きだけを書くと相手の文の上に自分の
+// 続きを足してしまう（レビュー 2026-11-20 の H-22）。続きだけを書くのは、外で変えられたファイルに限る。
 // 読む流れは何も書かないので、同じファイルへ書いて放置した流れの中身を消してはいけない。
 void settle_same_file(Impl& machine, std::size_t index) {
   const Stream& saved = machine.streams[index];
   if (saved.kind != Stream::Kind::File || saved.mode == Stream::Mode::Read) return;
   for (std::size_t other = 0; other < machine.streams.size(); ++other) {
     Stream& stream = machine.streams[other];
-    if (other == index || stream.closed || !stream.unsaved || stream.kind != Stream::Kind::File) continue;
+    if (other == index || stream.closed || stream.kind != Stream::Kind::File) continue;
+    // 戻す物の無い流れは、ファイルを比べずに飛ばす（same_file はファイルシステムに尋ねる）。
+    if (stream.mode == Stream::Mode::Read || (!stream.unsaved && stream.on_disk == 0)) continue;
     if (!same_file(saved, stream)) continue;
     stream.unsaved = false;
     stream.on_disk = 0;

@@ -297,6 +297,37 @@ void check_save_beats_older_edits() {
   mosa_test::check(third.code == 0 && holds(later, "draft+late"), "an edit after the save wins, got " + shown(later));
 }
 
+// レビュー 2026-11-20 の H-22。flush で一度保存した流れも、同じファイルを別の流れが保存した後に書けば、続きだけで
+// なく全体を書き直す。続きだけを書くと相手の文の上に自分の続きを足し、flush しない場合（aaaacc）と結果が変わる。
+void check_flushed_stream_rewrites_whole() {
+  const auto closed = tmp_path("h22_close.txt");
+  fresh(closed);
+  const auto first = batch({"-g", "open('" + closed + "', write, A), write(A, aaaa), flush_output(A), open('" + closed +
+                                      "', write, B), write(B, 'BBBBBB'), close(B), write(A, cc), close(A).", "-t",
+                            "halt"});
+  mosa_test::check(first.code == 0 && holds(closed, "aaaacc"), "h22: close rewrites whole, got " + shown(closed));
+  const auto halted = tmp_path("h22_halt.txt");
+  fresh(halted);
+  const auto second = batch({"-g", "open('" + halted + "', write, A), write(A, aaaa), flush_output(A), open('" +
+                                       halted + "', write, B), write(B, 'BBBBBB'), close(B), write(A, cc), halt."});
+  mosa_test::check(second.code == 0 && holds(halted, "aaaacc"), "h22: halt rewrites whole, got " + shown(halted));
+  // 追記の流れも同じ。開いたときの中身から全体を書く。
+  const auto appended = tmp_path("h22_append.txt");
+  put_file(appended, "x,");
+  const auto third = batch({"-g", "open('" + appended + "', append, A), write(A, aaaa), flush_output(A), open('" +
+                                      appended + "', write, B), write(B, 'BBBBBB'), close(B), write(A, cc), close(A).",
+                            "-t", "halt"});
+  mosa_test::check(third.code == 0 && holds(appended, "x,aaaacc"),
+                   "h22: append rewrites whole, got " + shown(appended));
+  // 守り。保存の後に書かない流れは、終わりで相手の保存を戻さない。
+  const auto idle = tmp_path("h22_idle.txt");
+  fresh(idle);
+  const auto fourth = batch({"-g", "open('" + idle + "', write, A), write(A, aaaa), flush_output(A), open('" + idle +
+                                       "', write, B), write(B, 'BBBBBB'), close(B), halt."});
+  mosa_test::check(fourth.code == 0 && holds(idle, "BBBBBB"), "h22: an idle flushed stream stays out, got " +
+                                                                  shown(idle));
+}
+
 // Muse のレビューの High。同じファイルを読む流れを閉じても、何も保存していないので、書いて放置した流れは halt で残る。
 void check_reader_close_keeps_edits() {
   const auto path = tmp_path("m5_reader_close.txt");
@@ -358,6 +389,7 @@ int main() {
   check_embedded_leaves_others();
   check_only_unsaved_streams();
   check_save_beats_older_edits();
+  check_flushed_stream_rewrites_whole();
   check_reader_close_keeps_edits();
   check_save_writes_only_the_rest();
   return mosa_test::failures();
