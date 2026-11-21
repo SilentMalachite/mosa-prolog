@@ -10,9 +10,11 @@
 #include <cstdint>
 #include <deque>
 #include <map>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -68,8 +70,11 @@ struct ClauseName {
 struct ClauseCode {
   std::string functions;
   std::vector<std::pair<std::uint32_t, std::string>> cases;
-  // 使った再開点の番号の次（ClauseCtx::next_state）。state_of の 16 ビットに入るかを呼び手が見る。
+  // 使った再開点の番号の次（ClauseCtx::next_state）。
   std::uint32_t next_state = 1;
+  // 再開点の番号が state_of の 16 ビットに入らないか、継続枠の変数が kFrameCells を超えた。呼び手は生成コードを捨てて
+  // IR のまま動かす。
+  bool oversized = false;
 };
 
 // 本体のゴール 1 つと、それを動かす文脈モジュール（ADR 0006）。M:G は G の並びを M で置く。
@@ -85,9 +90,24 @@ struct BodyEnv {
   std::string cont;
 };
 
+// rt::state_of は節の番号と再開点の番号を 16 ビットずつに詰める（ADR 0009）。入らない番号を出すと case が重なり、
+// 生成した C++ が組み立てられないか、別の再開関数へ飛ぶ（Muse のレビューの中）。
+inline constexpr std::uint32_t kStateField = 0xFFFF;
+
+// 今の関数の中に出す入れ子（条件、素の ; の左、\+ と catch/3 のゴール、M:G のゴール）の深さの上限。これより深い節は
+// IR のまま動かす（ADR 0011 の改訂 5。改訂 1 の自前の再帰の深さと同じ 64）。
+inline constexpr int kInlineDepth = 64;
+
+// 節の継続枠が運ぶ変数のセルの合計（並びの接尾ごとの生きた変数の数の和）の上限。継続枠はその後の本体が使う変数を
+// すべて運ぶので、入れ子の 1 段ごとに新しい変数が増える本体（catch(_, _, catch(_, _, ...)) の _）は、深さの 2 乗の
+// 生成コードと覚えになる（16,000 段で 6.9 GB の C++ と 23 GB のメモリ）。超えた節は出すのを止め、IR のまま動かす
+// （ADR 0011 の改訂 5）。2^20 のセルの生成コードは数十 MB で、コンパイラが扱える大きさを既に超えている。
+inline constexpr std::size_t kFrameCells = std::size_t{1} << 20;
+
 // 再開の状態 1 つの中身。枠の変数の先頭 skip 個は制御用の整数セルで、prologue がそれを読む。
 struct StateSpec {
-  std::vector<GoalRef> goals;
+  // 節が持つ並び（ClauseCtx::lists）の接尾。状態は待ち行列から出すので、出すまで並びが生きている必要がある。
+  std::span<const GoalRef> goals;
   std::size_t skip = 0;
   std::string prologue;
   // 回復ゴールのように、カットの境界を状態に入った時点の選択点の高さにする。
@@ -98,9 +118,25 @@ struct StateSpec {
   bool prologue_cuts = false;
 };
 
+// 状態を共有する鍵のうち、並びの先頭の番地のほかの部分（ADR 0011 の改訂 5）。状態の関数は仕様の全体だけで決まる。
+using StateRest = std::tuple<std::size_t, std::size_t, std::string, bool, bool, bool>;
+
+// 番号を振ってまだ関数を出していない状態。
+struct PendingState {
+  StateSpec spec;
+  std::uint32_t state = 0;
+  std::vector<std::uint32_t> live;
+};
+
 // 1 つの節を訳す間に共有する。状態の番号は節の中の再開の点を 1 から順に数える。ADR 0009 の
 // 「ゴール g のあと」は、入れ子の構文があるので「g 番目の再開の点」と読む。番号は生成関数の中だけで意味を持つ。
+// 表はどれも ADR 0011 の改訂 5 のためにある。本体の長さや深さで C++ の呼び出しを重ねず、同じ物を 2 度作らない。
 struct ClauseCtx {
+  // 表が多いので、集成体の初期化で全部を並べずに済むよう、参照の 5 つだけを受ける（-Wmissing-field-initializers）。
+  ClauseCtx(const Impl& machine_in, UnitTables& tables_in, const Predicate& predicate_in, ClauseName name_in,
+            ClauseCode& code_in)
+      : machine(machine_in), tables(tables_in), predicate(predicate_in), name(std::move(name_in)), code(code_in) {}
+
   const Impl& machine;
   UnitTables& tables;
   const Predicate& predicate;
@@ -109,9 +145,25 @@ struct ClauseCtx {
   std::uint32_t next_state = 1;
   // \+ と M:G の中のゴール。IR はデータの形で持つので、ゴールの形に直した項をここに置いて指す。
   std::deque<IrTerm> owned;
-  // ゴールの並びだけで決まる状態（make_rest と枝の枠）の番号と、枠が運ぶ変数。同じ並びは 1 つの状態にまとめる。
-  std::map<std::vector<std::pair<const IrTerm*, std::uint32_t>>, std::pair<std::uint32_t, std::vector<std::uint32_t>>>
-      plain_states;
+  // データの形のゴール（\+ G と M:G の G）の元の節点ごとに、直した物（owned の中）。直せない形は nullptr。
+  std::map<const IrTerm*, const IrTerm*> owned_of;
+  // 平らにした並び。項とモジュールごとに 1 度だけ作る（flat）。状態の仕様と生きたスロットの覚えは、この中を指す。
+  std::deque<std::vector<GoalRef>> lists;
+  std::map<const IrTerm*, std::map<std::uint32_t, std::span<const GoalRef>>> flat;
+  // 条件が呼び出し無しに fail で終わる構文の代わりに置く fail（1 つを共有する）。
+  const IrTerm* fail_goal = nullptr;
+  // 継続枠が始まりうる接尾（並びの先頭と、算術でないゴールの後）の先頭の番地ごとに、その接尾が使う変数（昇順）。並びは
+  // 終わりから 1 度に覚え（filled に先頭の番地を置く）、list_of_end は接尾の終わりの番地からその並びの全体を引く。
+  // live_cells は覚えた変数の数の和で、kFrameCells を超えたら oversized を立てて覚えるのを止める。
+  std::map<const GoalRef*, std::vector<std::uint32_t>> live;
+  std::map<const GoalRef*, std::span<const GoalRef>> list_of_end;
+  std::set<const GoalRef*> filled;
+  std::size_t live_cells = 0;
+  bool oversized = false;
+  // 状態の番号と枠が運ぶ変数。仕様の全体が同じ状態は 1 つにまとめる。
+  std::map<const GoalRef*, std::map<StateRest, std::pair<std::uint32_t, std::vector<std::uint32_t>>>> states;
+  // まだ関数を出していない状態。emit_clause が空になるまで出す。
+  std::deque<PendingState> queue;
 };
 
 // 文字列の補助（emit.cpp）。
@@ -144,18 +196,28 @@ void emit_head(ClauseEmit& emit, const IrTerm& head, const Predicate& predicate)
 [[nodiscard]] std::string emit_build(ClauseEmit& emit, const IrTerm& term);
 [[nodiscard]] std::string var_name(std::uint32_t slot);
 
-// emit_body.cpp
+// emit_walk.cpp。本体を判定し、平らにし、変数を数える歩き。どれも手で積むスタックで動く（ADR 0011 の改訂 5）。
 // 本体の全部を生成コードで動かせるか。動かせない節は interpret_clause に回す。
 [[nodiscard]] bool translatable_body(const Impl& machine, const IrTerm& body);
+// 今の関数の中に出す入れ子が kInlineDepth 段に収まるか。収まらない節も interpret_clause に回す。
+[[nodiscard]] bool inline_nesting_fits(const Impl& machine, const IrTerm& body);
 // compile.cpp の Build::goal と同じ変換。データの形の項（\+ の引数、M:G の G）をゴールの形にする。
 [[nodiscard]] IrTerm goal_view(const Impl& machine, const IrTerm& data);
-// 連言を呼ぶ順に並べる。true は飛ばし、fail と throw のあとは届かないので切る。
-void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vector<GoalRef>& out);
+// 連言を呼ぶ順に並べた並び（ctx.lists の中）。true は飛ばし、fail と throw のあとは届かないので切る。
+[[nodiscard]] std::span<const GoalRef> flat_list(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module);
 // body が呼び出しを 1 つも経ずに終わるなら、その fail か throw のゴール（! だけを挟んでよい）。他は nullptr。
 // そのような並びは継続を使わないので、成功の側の継続枠を作ると未使用の変数で生成コードが通らない。
 [[nodiscard]] const IrTerm* dead_end(ClauseCtx& ctx, const IrTerm& body, std::uint32_t module);
-// goals が使う変数を、発出と同じ順に数える。
+// \+ の中を生成コードに展開できるなら、ゴールの形に直した中身。組み込みの \+/1 に任せる形は nullptr。
+[[nodiscard]] const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term);
+// goals が使う変数を、出現の数で数える（節の入口の変数の計画）。
 void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>& counts);
+// goals（ctx.lists の中の並びの接尾）が使う変数を昇順に。継続枠が運ぶ変数で、接尾ごとに 1 度だけ求める。
+[[nodiscard]] const std::vector<std::uint32_t>& live_of(ClauseCtx& ctx, std::span<const GoalRef> goals);
+
+// emit_body.cpp
+// is/2 と算術比較か。発出はその場で動かして同じ関数で続けるので、その後ろからは継続枠が始まらない（live_of）。
+[[nodiscard]] bool arith_goal(const Impl& machine, const IrTerm& goal);
 // goals のあとに動くものを置く状態の継続の式。goals が空なら env.cont をそのまま返す。
 [[nodiscard]] std::string make_rest(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> rest,
                                     const BodyEnv& env);
@@ -175,8 +237,6 @@ void yield_after_cut(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> 
                                      const ClauseName& name);
 
 // emit_control.cpp。どれも rest（構文のあとのゴール）まで出し切り、呼び手は戻るだけ。
-// 構文の枝（連言）が使う変数を数える。
-void count_branch(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module, std::vector<int>& counts);
 void emit_or(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,
              const BodyEnv& env);
 void emit_if_then(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,

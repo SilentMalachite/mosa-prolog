@@ -185,6 +185,16 @@ add_test(NAME mosac_deep_file COMMAND ${CMAKE_COMMAND}
 set_tests_properties(mosac_deep_file PROPERTIES TIMEOUT 900
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
+# 節の本体の 100,000 ゴールの連言と 100,000 段の入れ子を、mosac emit が 1 MiB のスタックで訳す。64 段の上限の両側の
+# 形はビルドし、1 MiB で動かした出力を mosa と比べる（ADR 0011 改訂 5、レビュー 2026-11-20 の H-30）。
+add_test(NAME mosac_deep_body COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_deep_body
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -DSMALL_STACK=${CMAKE_SOURCE_DIR}/tests/stack/small_stack.cmake
+  -P ${CMAKE_SOURCE_DIR}/tests/stack/deep_body.cmake)
+set_tests_properties(mosac_deep_body PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # ヒープの上限（--heap-max / MOSA_HEAP_MAX）で止まる。mosac run は終了コード 2 と上限の MiB を出す。
 # REPL は repl_ref（端末でなくても REPL にする）で、止まったあとの次の問い合わせに答える。
 add_test(NAME mosac_heap_limit COMMAND ${CMAKE_COMMAND}

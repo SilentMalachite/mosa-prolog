@@ -14,10 +14,9 @@
 namespace mosa::codegen {
 namespace {
 
-std::vector<GoalRef> branch_goals(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module) {
-  std::vector<GoalRef> goals;
-  flatten(ctx, branch, module, goals);
-  return goals;
+// 枝の並び。節の中で 1 度だけ平らにした物を指す（ADR 0011 の改訂 5）。同じ枝の状態はこの並びで 1 つにまとまる。
+std::span<const GoalRef> branch_goals(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module) {
+  return flat_list(ctx, branch, module);
 }
 
 // 枝を動かす状態の継続枠。枝の変数を運び、終わったら cont へ続く。
@@ -82,11 +81,6 @@ void emit_soft_else(ClauseCtx& ctx, ClauseEmit& emit, const IrTerm& soft, const 
 }
 
 }  // namespace
-
-void count_branch(ClauseCtx& ctx, const IrTerm& branch, std::uint32_t module, std::vector<int>& counts) {
-  const auto goals = branch_goals(ctx, branch, module);
-  count_body(ctx, goals, counts);
-}
 
 // (A ; B)。else の枝 B を選択点に積んでから A を続ける（launch_or）。どちらの枝のカットも節の境界まで切る。
 void emit_or(ClauseCtx& ctx, ClauseEmit& emit, const GoalRef& goal, std::span<const GoalRef> rest,

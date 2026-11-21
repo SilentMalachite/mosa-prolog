@@ -1,7 +1,8 @@
 # mosac build で作った実行ファイルが、データのファイルの 100,000 段の f(f(...)) を 1 MiB のスタックで read/1 で読む
-# （ADR 0011 改訂 4）。翻訳器の emit_body と check は再帰のまま（改訂 2）なので、深い項はプログラムの原文に置かず、
-# 実行時にデータのファイルから読ませる。翻訳とコンパイルは既定のスタックで行い、実行ファイルだけを small_stack.cmake
-# で動かす（コンパイラを 1 MiB で動かさないため）。大きな原文は tests に置かず、ここで WORK に作る。
+# （ADR 0011 改訂 4）。深い項はプログラムの原文に置かず、実行時にデータのファイルから読ませる（書いた頃は翻訳器の
+# emit_body と check が再帰のままだった。改訂 5 で手で積むスタックにした。節の本体の深さは deep_body.cmake が見る）。
+# 翻訳とコンパイルは既定のスタックで行い、実行ファイルだけを small_stack.cmake で動かす（コンパイラを 1 MiB で動かさない
+# ため）。大きな原文は tests に置かず、ここで WORK に作る。
 # 使い方: cmake -DMOSAC=<mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DMOSA_LIB=<lib/>
 #   -DEXE_SUFFIX=<.exe など> -DSMALL_STACK=<small_stack.cmake> -P deep_file.cmake
 

@@ -10,6 +10,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <deque>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,48 +26,87 @@ std::string indicator(const Impl& machine, const PredKey& key) {
   return text + std::string{machine.atoms.name(key.name)} + "/" + std::to_string(key.arity);
 }
 
-// 本体の中で、その場で呼ぶゴールだけを集める。meta 引数（findall/3 のゴールなど）と変数のゴールは、
-// 何を呼ぶか読み込みの時点では決まらないので見ない。M:G は M で引く。\+ の中は翻訳器（emit_body.cpp）が
-// 生成コードに展開するので、同じようにゴールの形に直して見る。
-void collect_goals(const Impl& machine, const IrTerm& goal, std::uint32_t module, std::vector<PredKey>& out) {
-  switch (goal.tag) {
-    case IrTag::And:
-    case IrTag::Or:
-    case IrTag::IfThen:
-    case IrTag::SoftIf:
-      collect_goals(machine, goal.args[0], module, out);
-      collect_goals(machine, goal.args[1], module, out);
-      return;
-    case IrTag::Catch:
-      collect_goals(machine, goal.args[0], module, out);
-      collect_goals(machine, goal.args[2], module, out);
-      return;
-    // ADR 0014。ゴール位置に変数を含む catch/3 の Goal と Recovery。中身は catch が動くときに訳すが、字面で名指す
-    // 述語は今と同じに見る。変数は goal_view の後も Var のままで、何も集めない。
-    // 呼べない部分（数）のあるゴールは call/1 が何も動かす前に拒むので（レビュー M15）、名指す述語は呼ばれない。
-    // 1 回だけ現れる変数（Anon）は束縛で呼べるかが決まるので、ここでは拒まない。
-    case IrTag::Call: {
-      if (goal.args.empty()) return;
-      const IrTerm view = goal_view(machine, goal.args[0]);
-      if (!goal_leaves_all(view, [](IrTag tag) { return !is_number_ir(tag); })) return;
-      collect_goals(machine, view, module, out);
-      return;
+// collect_goals が辿る項。data は \+ の中のデータの形の項で、goal_view がゴールの形に直す位置にある。
+struct Collected {
+  const IrTerm* goal = nullptr;
+  std::uint32_t module = 0;
+  bool data = false;
+};
+
+// 辿るときの印。data の項は goal_view と同じに読む（, ; -> *-> と catch/3 は構文、true fail false ! halt と throw/1
+// halt/1 は何も名指さないので True にする）。ゴールの形の項はそのまま。
+IrTag collected_tag(const Impl& machine, const IrTerm& goal, bool data) {
+  if (!data || (goal.tag != IrTag::Atom && goal.tag != IrTag::Fun)) return goal.tag;
+  const auto name = machine.atoms.name(goal.atom);
+  if (goal.tag == IrTag::Atom) {
+    const bool control = name == "true" || name == "fail" || name == "false" || name == "!" || name == "halt";
+    return control ? IrTag::True : IrTag::Atom;
+  }
+  const std::size_t arity = goal.args.size();
+  if (arity == 2 && name == ",") return IrTag::And;
+  if (arity == 2 && name == ";") return IrTag::Or;
+  if (arity == 2 && name == "->") return IrTag::IfThen;
+  if (arity == 2 && name == "*->") return IrTag::SoftIf;
+  if (arity == 3 && name == "catch") return IrTag::Catch;
+  if (arity == 1 && (name == "throw" || name == "halt")) return IrTag::True;
+  return IrTag::Fun;
+}
+
+// 本体の中で、その場で呼ぶゴールだけを、本体に現れる順に集める。meta 引数（findall/3 のゴールなど）と変数のゴールは、
+// 何を呼ぶか読み込みの時点では決まらないので見ない。M:G は M で引く。\+ の中は翻訳器（emit_walk.cpp）が
+// 生成コードに展開するので、同じようにゴールの形として読む。手で積むスタックで辿り、\+ の中も写さずにその場で読む
+// （前は 1 段ごとに C++ の呼び出しと goal_view の写しを重ね、深い本体で落ちた。ADR 0011 の改訂 5）。
+void collect_goals(const Impl& machine, const IrTerm& root, std::uint32_t root_module, std::vector<PredKey>& out) {
+  std::deque<IrTerm> views;  // Call の中をゴールの形に直した物
+  std::vector<Collected> pending{Collected{&root, root_module, false}};
+  while (!pending.empty()) {
+    const Collected item = pending.back();
+    pending.pop_back();
+    const IrTerm& goal = *item.goal;
+    const auto push = [&pending](const IrTerm& sub, std::uint32_t module, bool data) {
+      pending.push_back(Collected{&sub, module, data});
+    };
+    switch (collected_tag(machine, goal, item.data)) {
+      case IrTag::And:
+      case IrTag::Or:
+      case IrTag::IfThen:
+      case IrTag::SoftIf:
+        push(goal.args[1], item.module, item.data);
+        push(goal.args[0], item.module, item.data);
+        continue;
+      case IrTag::Catch:
+        push(goal.args[2], item.module, item.data);
+        push(goal.args[0], item.module, item.data);
+        continue;
+      // ADR 0014。ゴール位置に変数を含む catch/3 の Goal と Recovery。中身は catch が動くときに訳すが、字面で名指す
+      // 述語は今と同じに見る。変数は goal_view の後も Var のままで、何も集めない。
+      // 呼べない部分（数）のあるゴールは call/1 が何も動かす前に拒むので（レビュー M15）、名指す述語は呼ばれない。
+      // 1 回だけ現れる変数（Anon）は束縛で呼べるかが決まるので、ここでは拒まない。
+      case IrTag::Call:
+        if (goal.args.empty()) continue;
+        views.push_back(goal_view(machine, goal.args[0]));
+        if (!goal_leaves_all(views.back(), [](IrTag tag) { return !is_number_ir(tag); })) {
+          views.pop_back();
+          continue;
+        }
+        push(views.back(), item.module, false);
+        continue;
+      case IrTag::Atom: out.push_back(PredKey{item.module, goal.atom, 0}); continue;
+      case IrTag::Fun:
+        if (machine.atoms.name(goal.atom) == ":" && goal.args.size() == 2 && goal.args[0].tag == IrTag::Atom) {
+          push(goal.args[1], goal.args[0].atom, false);
+          continue;
+        }
+        if (is_name(machine, goal, "\\+", 1) && (goal.args[0].tag == IrTag::Atom || goal.args[0].tag == IrTag::Fun)) {
+          push(goal.args[0], item.module, true);
+          continue;
+        }
+        out.push_back(PredKey{item.module, goal.atom, static_cast<std::uint16_t>(goal.args.size())});
+        continue;
+      // Big は数なので述語を名指さない。呼べない葉は Call の節点で call/1 が拒む。
+      case IrTag::Big:
+      default: continue;
     }
-    case IrTag::Atom: out.push_back(PredKey{module, goal.atom, 0}); return;
-    case IrTag::Fun:
-      if (machine.atoms.name(goal.atom) == ":" && goal.args.size() == 2 && goal.args[0].tag == IrTag::Atom) {
-        collect_goals(machine, goal.args[1], goal.args[0].atom, out);
-        return;
-      }
-      if (is_name(machine, goal, "\\+", 1) && (goal.args[0].tag == IrTag::Atom || goal.args[0].tag == IrTag::Fun)) {
-        collect_goals(machine, goal_view(machine, goal.args[0]), module, out);
-        return;
-      }
-      out.push_back(PredKey{module, goal.atom, static_cast<std::uint16_t>(goal.args.size())});
-      return;
-    // Big は数なので述語を名指さない。呼べない葉は Call の節点で call/1 が拒む。
-    case IrTag::Big:
-    default: return;
   }
 }
 

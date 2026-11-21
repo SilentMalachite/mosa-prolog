@@ -295,6 +295,14 @@ General:
   order or its reverse; it passes because the last witness stands for an aliased class (C-03).
 - `mosac build` of a source clause nested 100,000 deep works, but clang takes about 80 minutes
   and 1.2 GB on it (iso-notes 7.1).
+- A clause runs as IR, not generated code, when the goals mosac writes into one function (a
+  condition, the left of `;`, the goal of `\+`, `catch/3` or `M:G`) nest more than 64 deep, when
+  it has over 65,535 resume points, or when its frames carry over 2^20 variable cells (H-30).
+  A frame carries every variable the rest of the body uses, so a body whose deeper levels each
+  add a variable (nested `catch(G, _, R)`) makes code that grows with the square of its depth.
+- A `catch/3` recovery that throws again nests natively in the interpreter: under a 1 MiB stack,
+  `catch(throw(x), _, catch(throw(x), _, ...))` 2,000 deep ends in SIGSEGV in mosa (1,000 passes,
+  2026-11-22, found during H-30). A mosac executable crashed on the same clause, which it runs as IR.
 - Grammar rules given to assertz/1 are translated only through `expand_term/2` of
   `library(dcg)`; `term_expansion/2` and `goal_expansion/2` do not exist.
 - A Debug (/MTd) libmosa does not link with `mosac build` on MSVC.

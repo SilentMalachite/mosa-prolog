@@ -195,6 +195,7 @@ target_sources(mosa_lib PRIVATE
   src/codegen/emit_head.cpp
   src/codegen/emit_body.cpp
   src/codegen/emit_control.cpp
+  src/codegen/emit_walk.cpp
   src/codegen/mangle.cpp
   src/codegen/project.cpp
   src/codegen/project_main.cpp

@@ -283,10 +283,6 @@ std::string pred_label(const Impl& machine, const Predicate& predicate) {
   return comment_safe(machine.atoms.name(predicate.name)) + "/" + std::to_string(predicate.arity);
 }
 
-// rt::state_of は節の番号と再開点の番号を 16 ビットずつに詰める（ADR 0009）。入らない番号を出すと case が重なり、
-// 生成した C++ が組み立てられないか、別の再開関数へ飛ぶ（Muse のレビューの中）。
-constexpr std::uint32_t kStateField = 0xFFFF;
-
 std::pair<std::uint32_t, std::string> interpreted_case(std::uint32_t clause, const std::string& entry) {
   return {rt::state_of(clause, 0),
           "return rt::interpret_clause(m, r, " + entry + ", frame, " + std::to_string(clause) + ");"};
@@ -309,10 +305,11 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   }
   std::vector<bool> plans;
   std::size_t native = 0;
-  // 節の番号が 16 ビットに入らない述語は、丸ごと IR のまま動かす。
+  // 節の番号が 16 ビットに入らない述語は、丸ごと IR のまま動かす。今の関数の中に出す入れ子が kInlineDepth 段を超える
+  // 節も IR のまま動かす。発出がその深さで C++ の呼び出しを重ねるからで、IR は深さによらず動く（ADR 0011 の改訂 5）。
   const bool fits = predicate.clauses.size() <= kStateField;
   for (const Clause& clause : predicate.clauses) {
-    plans.push_back(fits && translatable_body(machine, *clause.body));
+    plans.push_back(fits && translatable_body(machine, *clause.body) && inline_nesting_fits(machine, *clause.body));
     native += plans.back() ? 1 : 0;
   }
   if (native == 0) {
@@ -331,8 +328,8 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
       continue;
     }
     ClauseCode code = emit_clause(machine, tables, predicate, ClauseName{proc, clause});
-    // 再開点の番号が 16 ビットに入らない節は、生成コードを捨てて IR のまま動かす。
-    if (code.next_state > kStateField + 1) {
+    // 再開点の番号が 16 ビットに入らない節と、継続枠の変数が kFrameCells を超えた節は、生成コードを捨てて IR のまま動かす。
+    if (code.oversized) {
       native -= 1;
       cases.push_back(interpreted_case(clause, entry));
       continue;

@@ -6,9 +6,6 @@
 
 #include "emit_state.hpp"
 
-#include "../module/module.hpp"
-
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -21,24 +18,6 @@
 
 namespace mosa::codegen {
 namespace {
-
-void mark_slots(const IrTerm& term, std::vector<int>& counts) {
-  walk_term(term, [&](const IrTerm& sub, int) {
-    if (sub.tag == IrTag::Var && sub.slot < counts.size()) counts[sub.slot] += 1;
-    return true;
-  });
-}
-
-// goals が使う変数をスロットの順に。継続枠の語 5 から先にこの順で置き、状態の関数も同じ順で読む。
-std::vector<std::uint32_t> live_slots(ClauseCtx& ctx, std::span<const GoalRef> goals, std::size_t vars) {
-  std::vector<int> counts(vars, 0);
-  count_body(ctx, goals, counts);
-  std::vector<std::uint32_t> live;
-  for (std::size_t slot = 0; slot < vars; ++slot) {
-    if (counts[slot] > 0) live.push_back(static_cast<std::uint32_t>(slot));
-  }
-  return live;
-}
 
 std::string cell_list(ClauseEmit& emit, std::string_view stem, const std::vector<std::string>& items) {
   if (items.empty()) return "{}";
@@ -64,13 +43,13 @@ std::string state_function(const ClauseCtx& ctx, std::uint32_t state) {
   return ctx.name.proc + "_c" + std::to_string(ctx.name.clause) + "_s" + std::to_string(state);
 }
 
-// spec の状態の関数を出す。枠の変数は skip 個の整数セルのあとに、使う変数がスロットの順で並ぶ。
-// 再開の状態ではカットの境界は継続枠の語 2 で、regs.cut は状態 0 と節の入口でだけ正しい（ADR 0009）。
-std::vector<std::uint32_t> emit_state(ClauseCtx& ctx, const StateSpec& spec, std::uint32_t state) {
+// spec の状態の関数を出す。枠の変数は skip 個の整数セルのあとに、使う変数 live がスロットの順で並ぶ（継続枠の語 5 から
+// 先にこの順で置く）。再開の状態ではカットの境界は継続枠の語 2 で、regs.cut は状態 0 と節の入口でだけ正しい（ADR 0009）。
+// 待ち行列から呼ぶ（emit_clause）。中で作る状態はまた待ち行列に入るので、C++ の呼び出しは状態の連なりで重ならない。
+void emit_state(ClauseCtx& ctx, const StateSpec& spec, std::uint32_t state, const std::vector<std::uint32_t>& live) {
   const Clause& clause = ctx.predicate.clauses[ctx.name.clause - 1];
   ClauseEmit fn{ctx.machine, ctx.tables, {}, {}, 0, 1};
   fn.slots.assign(clause.vars, SlotState{});
-  const auto live = live_slots(ctx, spec.goals, clause.vars);
   for (std::size_t index = 0; index < live.size(); ++index) {
     fn.line("const Cell " + var_name(live[index]) + " = rt::var(r, frame, " + std::to_string(spec.skip + index) + ");");
   }
@@ -93,7 +72,6 @@ std::vector<std::uint32_t> emit_state(ClauseCtx& ctx, const StateSpec& spec, std
   const std::string function = state_function(ctx, state);
   ctx.code.functions += function_text(function, fn.out);
   ctx.code.cases.emplace_back(rt::state_of(ctx.name.clause, state), "return " + function + "(m, r, frame);");
-  return live;
 }
 
 // ゴールを呼ぶ。続きがあれば次の状態の継続枠を作り、無ければ今の継続へ直に返す。
@@ -146,6 +124,8 @@ void emit_arith(ClauseEmit& emit, const IrTerm& goal, std::string_view op) {
 
 }  // namespace
 
+bool arith_goal(const Impl& machine, const IrTerm& goal) { return arith_op(machine, goal).has_value(); }
+
 bool uses_identifier(std::string_view text, std::string_view ident) {
   std::size_t at = 0;
   while (at < text.size()) {
@@ -160,244 +140,27 @@ bool uses_identifier(std::string_view text, std::string_view ident) {
   return false;
 }
 
-bool translatable_body(const Impl& machine, const IrTerm& body) {
-  switch (body.tag) {
-    case IrTag::True:
-    case IrTag::Fail:
-    case IrTag::Cut:
-    case IrTag::Atom:
-    case IrTag::Fun:
-    case IrTag::Var:
-    case IrTag::List:
-    case IrTag::Throw:
-    case IrTag::Call: return true;
-    case IrTag::And:
-      return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
-             translatable_body(machine, body.args[1]);
-    case IrTag::Or:
-    case IrTag::IfThen:
-    case IrTag::SoftIf:
-      return body.args.size() == 2 && translatable_body(machine, body.args[0]) &&
-             translatable_body(machine, body.args[1]);
-    case IrTag::Catch:
-      return body.args.size() == 3 && translatable_body(machine, body.args[0]) &&
-             translatable_body(machine, body.args[2]);
-    // 数はゴールにならない（7.6.2）。読み込みが本体の Big を断るので、ここへ来るのは \+ (true, Big) のようなデータの
-    // ゴールだけで、組み込みの \+/1 が呼ぶときに型エラーにする。
-    case IrTag::Big: return false;
-    default: return false;
-  }
-}
-
-IrTerm goal_view(const Impl& machine, const IrTerm& data) {
-  IrTerm goal;
-  if (data.tag == IrTag::Atom) {
-    const auto name = machine.atoms.name(data.atom);
-    if (name == "true") goal.tag = IrTag::True;
-    else if (name == "fail" || name == "false") goal.tag = IrTag::Fail;
-    else if (name == "!") goal.tag = IrTag::Cut;
-    else if (name == "halt") goal.tag = IrTag::Halt;
-    else return data;
-    return goal;
-  }
-  if (data.tag != IrTag::Fun) return data;
-  const auto name = machine.atoms.name(data.atom);
-  const std::size_t arity = data.args.size();
-  if (arity == 2 && (name == "," || name == ";" || name == "->" || name == "*->")) {
-    if (name == ",") goal.tag = IrTag::And;
-    else if (name == ";") goal.tag = IrTag::Or;
-    else if (name == "->") goal.tag = IrTag::IfThen;
-    else goal.tag = IrTag::SoftIf;
-    goal.args.push_back(goal_view(machine, data.args[0]));
-    goal.args.push_back(goal_view(machine, data.args[1]));
-  } else if (arity == 3 && name == "catch") {
-    goal.tag = IrTag::Catch;
-    goal.args.push_back(goal_view(machine, data.args[0]));
-    goal.args.push_back(data.args[1]);
-    goal.args.push_back(goal_view(machine, data.args[2]));
-  } else if (arity == 1 && name == "throw") {
-    goal.tag = IrTag::Throw;
-    goal.args.push_back(data.args[0]);
-  } else if (arity == 1 && name == "halt") {
-    goal.tag = IrTag::Halt;
-    goal.args.push_back(data.args[0]);
-  } else {
-    return data;
-  }
-  return goal;
-}
-
-namespace {
-
-// ADR 0014。データのゴールは組み込みが動くときに、そのときの束縛で訳される。goal_view がゴールとして訳す位置
-// （, ; -> *-> の下と catch/3 の Goal と Recovery）に変数があれば、そのとき ! になりうるので先に訳さない。
-bool goal_var_below(const Impl& machine, const IrTerm& root) {
-  std::vector<const IrTerm*> pending{&root};
-  while (!pending.empty()) {
-    const IrTerm* term = pending.back();
-    pending.pop_back();
-    if (term->tag == IrTag::Var) return true;
-    if (term->tag != IrTag::Fun) continue;
-    const auto name = machine.atoms.name(term->atom);
-    const std::size_t arity = term->args.size();
-    if (arity == 2 && (name == "," || name == ";" || name == "->" || name == "*->")) {
-      pending.push_back(&term->args[1]);
-      pending.push_back(&term->args[0]);
-    } else if (arity == 3 && name == "catch") {
-      pending.push_back(&term->args[2]);
-      pending.push_back(&term->args[0]);
-    }
-  }
-  return false;
-}
-
-// データの形で持つゴール（\+ の中、M:G の G）をゴールの形に直して ctx.owned に置く。変数や数や、(true, 1) のように
-// 動かせないゴールを含む形は、呼び出しのときに組み込みが確かめる（instantiation_error、type_error）ので nullptr。
-const IrTerm* owned_goal(ClauseCtx& ctx, const IrTerm& data) {
-  if (data.tag != IrTag::Atom && data.tag != IrTag::Fun) return nullptr;
-  if (goal_var_below(ctx.machine, data)) return nullptr;
-  IrTerm goal = goal_view(ctx.machine, data);
-  if (!translatable_body(ctx.machine, goal)) return nullptr;
-  ctx.owned.push_back(std::move(goal));
-  return &ctx.owned.back();
-}
-
-// \+ の中。組み込みの \+/1 に任せる形は nullptr。
-const IrTerm* negated_goal(ClauseCtx& ctx, const IrTerm& term) {
-  return is_name(ctx.machine, term, "\\+", 1) ? owned_goal(ctx, term.args[0]) : nullptr;
-}
-
-// 実行ファイルが起動時に読むモジュールか。翻訳の機械はプログラムの後に文面の表とゴールのライブラリも読むが、
-// 実行ファイルはそれを起動時に読まない（Impl::startup_modules）。
-bool startup_module(const Impl& machine, std::uint32_t name) {
-  if (find_module(machine, name) == nullptr) return false;
-  const auto& known = machine.startup_modules;
-  return !known || std::find(known->begin(), known->end(), name) != known->end();
-}
-
-// M:G の G。M が起動時に読み込み済みのモジュールのときだけ。無いモジュール、変数の M、後で読むモジュールは、
-// 組み込みの :/2 が呼び出しのときに確かめる（mosa と同じ existence_error(module, M) など）。
-const IrTerm* qualified_goal(ClauseCtx& ctx, const IrTerm& term) {
-  if (!is_name(ctx.machine, term, ":", 2) || term.args[0].tag != IrTag::Atom) return nullptr;
-  if (!startup_module(ctx.machine, term.args[0].atom)) return nullptr;
-  return owned_goal(ctx, term.args[1]);
-}
-
-// 構文の「条件」。-> と *-> の左、それを左に持つ選言の左の左、\+ の中、catch のゴール。他は nullptr。
-const IrTerm* condition_of(ClauseCtx& ctx, const IrTerm& term) {
-  const IrTerm* construct = &term;
-  if (term.tag == IrTag::Or && term.args.size() == 2) construct = &term.args[0];
-  if ((construct->tag == IrTag::IfThen || construct->tag == IrTag::SoftIf) && construct->args.size() == 2) {
-    return &construct->args[0];
-  }
-  if (term.tag == IrTag::Catch && term.args.size() == 3) return &term.args[0];
-  return negated_goal(ctx, term);
-}
-
-}  // namespace
-
-const IrTerm* dead_end(ClauseCtx& ctx, const IrTerm& body, std::uint32_t module) {
-  std::vector<GoalRef> goals;
-  flatten(ctx, body, module, goals);
-  for (const GoalRef& ref : goals) {
-    if (ref.term->tag == IrTag::Fail || ref.term->tag == IrTag::Throw) return ref.term;
-    if (ref.term->tag != IrTag::Cut) return nullptr;
-  }
-  return nullptr;
-}
-
-void flatten(ClauseCtx& ctx, const IrTerm& term, std::uint32_t module, std::vector<GoalRef>& out) {
-  // fail と throw のあとに届かないゴールは、変数を数える側も発出も見ない。見ると使わない変数を宣言してしまう。
-  if (!out.empty() && (out.back().term->tag == IrTag::Fail || out.back().term->tag == IrTag::Throw)) return;
-  if (term.tag == IrTag::True) return;
-  if (term.tag == IrTag::And && term.args.size() == 2) {
-    flatten(ctx, term.args[0], module, out);
-    flatten(ctx, term.args[1], module, out);
-    return;
-  }
-  // M:G は G の並びを M の文脈で置く（run_qualify、ADR 0006）。カットに透明なので境界はそのまま。
-  if (const IrTerm* inner = qualified_goal(ctx, term); inner != nullptr) {
-    return flatten(ctx, *inner, term.args[0].atom, out);
-  }
-  // 条件が呼び出し無しに終わる構文は、条件の中のカットが条件に閉じるので（7.8.7、7.8.8、8.15.1）、throw で終われば
-  // その throw、fail で終われば else があればその枝、\+ なら true、他は fail と同じ。数える側と発出が同じ並びを
-  // 見るように、ここで置き換える。
-  const IrTerm* condition = condition_of(ctx, term);
-  const IrTerm* end = condition != nullptr ? dead_end(ctx, *condition, module) : nullptr;
-  // catch のゴールが throw で終わるのは例外を捕らえる普通の形。構文を残し、emit_catch が抜ける枠を作らない。
-  if (end != nullptr && !(term.tag == IrTag::Catch && end->tag == IrTag::Throw)) {
-    if (end->tag == IrTag::Throw) return out.push_back(GoalRef{end, module});
-    if (term.tag == IrTag::Or) return flatten(ctx, term.args[1], module, out);
-    if (term.tag == IrTag::Fun) return;
-    // 指示付き初期化は GCC 13 と Clang 17 が -Wmissing-field-initializers を出すので、既定で作ってから tag を替える。
-    IrTerm fail;
-    fail.tag = IrTag::Fail;
-    ctx.owned.push_back(std::move(fail));
-    out.push_back(GoalRef{&ctx.owned.back(), module});
-    return;
-  }
-  out.push_back(GoalRef{&term, module});
-}
-
-void count_body(ClauseCtx& ctx, std::span<const GoalRef> goals, std::vector<int>& counts) {
-  for (const GoalRef& ref : goals) {
-    const IrTerm& goal = *ref.term;
-    switch (goal.tag) {
-      case IrTag::Fail:
-      case IrTag::Cut: continue;
-      case IrTag::Or: {
-        // (A -> B ; C) と (A *-> B ; C) は 3 つの枝。then と else の枠は構文の入口で作るので、全部を数える。
-        const IrTerm& left = goal.args[0];
-        if (left.tag == IrTag::IfThen || left.tag == IrTag::SoftIf) {
-          count_branch(ctx, left.args[0], ref.module, counts);
-          count_branch(ctx, left.args[1], ref.module, counts);
-        } else {
-          count_branch(ctx, left, ref.module, counts);
-        }
-        count_branch(ctx, goal.args[1], ref.module, counts);
-        continue;
-      }
-      case IrTag::IfThen:
-      case IrTag::SoftIf:
-        count_branch(ctx, goal.args[0], ref.module, counts);
-        count_branch(ctx, goal.args[1], ref.module, counts);
-        continue;
-      case IrTag::Catch:
-        count_branch(ctx, goal.args[0], ref.module, counts);
-        mark_slots(goal.args[1], counts);
-        count_branch(ctx, goal.args[2], ref.module, counts);
-        continue;
-      default:
-        if (const IrTerm* inner = negated_goal(ctx, goal); inner != nullptr) {
-          count_branch(ctx, *inner, ref.module, counts);
-        } else {
-          mark_slots(goal, counts);
-        }
-    }
-  }
-}
-
 std::string make_rest(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> rest, const BodyEnv& env) {
   if (rest.empty()) return env.cont;
   StateSpec spec;
-  spec.goals.assign(rest.begin(), rest.end());
+  spec.goals = rest;
   return make_frame(ctx, emit, "next", spec, env.cut, env.cont, {});
 }
 
 namespace {
 
-// spec の状態の番号と、枠が運ぶ変数。ゴールの並びだけで決まる状態は、同じ並びなら 1 つを使い回す。カットの後で
-// 後始末へ譲る枠（yield_after_cut）はその場で続ける道と同じ続きを指すので、まとめないとカットごとに状態が倍に増える。
+// spec の状態の番号と、枠が運ぶ変数。仕様の全体が同じ状態は 1 つを使い回す（ADR 0011 の改訂 5）。状態の関数は仕様だけで
+// 決まり、並びは ctx.lists の中の接尾なので、先頭の番地と長さで比べられる。カットの後で後始末へ譲る枠
+// （yield_after_cut）はその場で続ける道と同じ続きを指し、入れ子の -> の then はそこへ至る道ごとに作られるので、
+// まとめないと状態が段の数の 2 乗に増え、どれも部分木を数えて 3 乗の時間になった（H-30）。関数は待ち行列から出す。
 std::pair<std::uint32_t, std::vector<std::uint32_t>> state_of_spec(ClauseCtx& ctx, const StateSpec& spec) {
-  const bool plain = spec.skip == 0 && spec.prologue.empty() && !spec.local_cut && !spec.fails;
-  std::vector<std::pair<const IrTerm*, std::uint32_t>> key;
-  if (plain) {
-    for (const GoalRef& goal : spec.goals) key.emplace_back(goal.term, goal.module);
-    if (const auto found = ctx.plain_states.find(key); found != ctx.plain_states.end()) return found->second;
-  }
+  auto& by_rest = ctx.states[spec.goals.data()];
+  StateRest rest{spec.goals.size(), spec.skip, spec.prologue, spec.local_cut, spec.fails, spec.prologue_cuts};
+  if (const auto found = by_rest.find(rest); found != by_rest.end()) return found->second;
   const std::uint32_t state = ctx.next_state++;
-  std::pair<std::uint32_t, std::vector<std::uint32_t>> made{state, emit_state(ctx, spec, state)};
-  if (plain) ctx.plain_states.emplace(std::move(key), made);
+  std::pair<std::uint32_t, std::vector<std::uint32_t>> made{state, live_of(ctx, spec.goals)};
+  ctx.queue.push_back(PendingState{spec, state, made.second});
+  by_rest.emplace(std::move(rest), made);
   return made;
 }
 
@@ -488,9 +251,8 @@ void emit_seq(ClauseCtx& ctx, ClauseEmit& emit, std::span<const GoalRef> goals, 
 ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate& predicate, const ClauseName& name) {
   ClauseCode code;
   const Clause& clause = predicate.clauses[name.clause - 1];
-  ClauseCtx ctx{machine, tables, predicate, name, code, 1, {}, {}};
-  std::vector<GoalRef> goals;
-  flatten(ctx, *clause.body, predicate.module, goals);
+  ClauseCtx ctx{machine, tables, predicate, name, code};
+  const std::span<const GoalRef> goals = flat_list(ctx, *clause.body, predicate.module);
   const auto entry_state = rt::state_of(name.clause, 0);
   // 頭部の単一化は束縛を残さずに失敗するか、本体の fail で戻るだけなので、本体がすぐ失敗する節は頭部を見ない。
   if (goals.size() == 1 && goals[0].term->tag == IrTag::Fail) {
@@ -507,7 +269,16 @@ ClauseCode emit_clause(const Impl& machine, UnitTables& tables, const Predicate&
   const std::string entry = name.proc + "_c" + std::to_string(name.clause);
   code.functions += function_text(entry, emit.out);
   code.cases.emplace_back(entry_state, "return " + entry + "(m, r, frame);");
+  // 状態は作った順に出す。出す間に作った状態も後ろに並ぶ。番号が 16 ビットに入らなくなった節と、継続枠の変数が
+  // kFrameCells を超えた節は呼び手が生成コードを捨てるので、そこで止める（捨てる状態の関数を書き続けない）。
+  const auto oversized = [&ctx] { return ctx.oversized || ctx.next_state > kStateField + 1; };
+  while (!ctx.queue.empty() && !oversized()) {
+    const PendingState item = std::move(ctx.queue.front());
+    ctx.queue.pop_front();
+    emit_state(ctx, item.spec, item.state, item.live);
+  }
   code.next_state = ctx.next_state;
+  code.oversized = oversized();
   return code;
 }
 
