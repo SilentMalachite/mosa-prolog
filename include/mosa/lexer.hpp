@@ -47,14 +47,15 @@ class Lexer {
   // 旗 japanese_punctuation。読み込みでは指令の次の節から効く。
   void set_fullwidth(bool on) { fullwidth_ = on; }
   // source の最後の字が終止符の後ろの字（layout char か %）で、その前の字が終止符になりうるとき真。写像は next と
-  // 同じく conv と全角の旗で決める。標準入力の read が、足した字ごとでなく、ここが真のときだけ読み直すために使う。
+  // 同じく conv と全角の旗で決める。標準入力の read が、足した字ごとでなく、ここが真のときだけ読み直すために使う
+  // （ファイルの塊の中では next_mark が、ここが真になる長さを探す）。
   // 引用や注釈の中かは見ないので真は多めに出るが、終止符で止まる所では必ず真になる（6.4.8）。
   [[nodiscard]] static bool may_end_before_last(std::string_view source, const CharConv* conv, bool fullwidth);
   // source の頭からの長さのうち、from の 1 字前より後ろで終わり、may_end_before_last が真になる最短のもの。無ければ
   // nullopt。ファイルの read は塊で足すので、塊の中のこの長さごとに scout へ渡す。
   [[nodiscard]] static std::optional<std::size_t> next_mark(std::string_view source, std::size_t from,
                                                             const CharConv* conv, bool fullwidth);
-  // 標準入力の read の下見の続き。from から読めば、頭から読んだときと同じ字句が続く。inside が None でなければ、
+  // read の下見（標準入力とファイル）の続き。from から読めば、頭から読んだときと同じ字句が続く。inside が None でなければ、
   // from は入力の終わりで切れた引用（閉じる引用符は quote）か注釈の中の、最後に読んだ字か escape の始まりで、
   // そこから中身として読み続ける。最後の字で閉じた引用なら from はその閉じる引用符で、'' の半分かを読み直す。最後の字か escape を読み直すのは、\ と \r の行継続が次の \n も取るため。
   enum class Inside : std::uint8_t { None, Quote, Block, Line };

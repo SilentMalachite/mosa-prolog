@@ -405,7 +405,7 @@ void test_next_marks() {
   mosa_test::check(mark("a!\n", 0, false, &conv) == 3u && !mark("a!\n", 0), "a char converted to a dot marks");
 }
 
-// 標準入力の read の下見（read_pred.cpp の pull_to_mark）。読み手が止まりうる所があれば真。なければ、終わりで切れた
+// read の下見（標準入力とファイル、read_pred.cpp の pull_to_mark）。読み手が止まりうる所があれば真。なければ、終わりで切れた
 // 空白の始まりか、引用か注釈の中で最後に読み始めた字か escape へ from を進め、その引用か注釈を inside に置く。
 using Inside = mosa::Lexer::Inside;
 using Scout = mosa::Lexer::Scout;
