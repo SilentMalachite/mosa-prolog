@@ -36,6 +36,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `transcript_debug_spy_after_warning` and `_ja`).
 ## Owner decisions in force
 
+- Review H-30 (A, 2026-11-22): the cap of 2^20 variable cells in a clause's resume frames stays
+  (ADR 0011 amendment 5, added while implementing); a clause past it runs as IR. B (a higher cap)
+  and C (no cap) were declined.
 - Review H-40 (A, 2026-11-20): `test/1` counts as `test(Name, true)`, so the ISO denominator moves
   from 2326 (SPEC phase 13) to 2333; the three multifile_1 failures have their iso-notes line.
   A file with an unreadable term (A, 2026-11-20): every readable case fails with the reason, and
