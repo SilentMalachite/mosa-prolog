@@ -5,6 +5,7 @@
 
 #include "../machine/internal.hpp"
 
+#include <cstdint>
 #include <string_view>
 
 namespace mosa::write_internal {
@@ -58,7 +59,9 @@ bool reject_closed(Impl& machine, const Goal& goal, std::size_t index, Cell culp
 bool reject_output(Impl& machine, const Goal& goal, const Stream& stream, Cell culprit);
 bool compound_named(const Impl& machine, Cell cell, std::string_view& name, Cell& arg);
 std::size_t push_memory(Impl& machine);
-Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module);
+// 成功したゴールの束縛を残すか。with_output_to/2 は残し、portray/1 は字面を取った後に戻す（print/1 は @term）。
+enum class Bindings : std::uint8_t { Keep, Undo };
+Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module, Bindings bindings);
 // 流れの番号へ書き、位置と字数を進める。標準の流れは OS にも出す（write_pred.cpp の emit_text）。
 void emit_to_stream(Impl& machine, std::size_t index, std::string_view text);
 

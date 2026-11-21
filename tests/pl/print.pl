@@ -46,10 +46,22 @@ test(print_portray_gc, (
   retractall(portray(_)),
   P == W
 ), true).
-% レビュー M7: portray が書く途中で束縛し、リストの残りを後から巡回させても止まる。
+% レビュー M7: portray が書く途中で束縛し、リストの残りを巡回させても止まる。H-25 からは portray の束縛を字面を
+% 取った後に戻すので、リストの残りは束縛の無い T のままで、巡回はそもそも見えない（前は '[hh,g,a' で始まった）。
 test(m7_print_portray_cycles, (
   assertz((portray(m7_h(T)) :- var(T), M = [a|M], T = M, write(hh))),
   L = [m7_h(T), g|T],
   with_output_to(atom(A), print(L)),
   retractall(portray(_)),
-  atom_concat('[hh,g,a', _, A)), true).
+  A == '[hh,g|_G1]', var(T)), true).
+% レビュー 2026-11-20 の H-25。print/1 は何も束縛しない（@term）。portray/1 は変数では呼ばず、字面を取った後に
+% portray/1 の束縛を戻す。前は変数にも portray を呼んで束縛を残し、束縛済みの項の中の変数も束縛したままにした。
+test(h25_var_rule, (assertz((portray(date(Y, M, D)) :- write(Y/M/D))),
+  with_output_to(atom(A), print(f(V))), retractall(portray(_)), A == 'f(_G1)', var(V)), true).
+test(h25_var_fact, (assertz(portray(date(2026, 1, 1))),
+  with_output_to(atom(A), print(f(V))), retractall(portray(_)), A == 'f(_G1)', var(V)), true).
+test(h25_bound_undone, (assertz((portray(f(1)) :- write(one))),
+  with_output_to(atom(A), print(g(f(X), X))), retractall(portray(_)), A == 'g(one,_G1)', var(X)), true).
+% 束縛の後に GC が走っても、戻す印は GC が直すので、同じく戻る。
+test(h25_undone_after_gc, (assertz((portray(f(X)) :- X = 1, garbage_collect, write(one))),
+  with_output_to(atom(A), print(g(f(Y), Y))), retractall(portray(_)), A == 'g(one,_G1)', var(Y)), true).

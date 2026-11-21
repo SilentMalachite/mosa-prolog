@@ -41,6 +41,8 @@
 
 レビュー H-24（2026-11-21。持ち主の決定ではない）: 上の決定の「`portray/1` に節がある」は、`user` から `portray(T)` を呼んで届く `portray/1`、つまり `user` で定義したか `user` に取り込んだものを指す。print/1 はいつも `user` から掛け金を呼ぶ。`user` が取り込まない別のモジュールの `portray/1` は掛け金ではなく、print/1 は `portray/1` に節が無いときと同じく書く。前はどのモジュールの `portray/1` でも、print/1 と `~p` が `user` から `portray/1` を呼び、`existence_error(procedure, portray/1)` になった（`src/builtins/write_pred.cpp` の `portray_ready`、`tests/pl/print_module.pl`）。
 
+レビュー H-25（2026-11-21。持ち主の決定ではない）: print/1 は、モードの `@term` のとおり何も束縛しない。束縛の無い変数には `portray/1` を呼ばず、`write/1` と同じく書く。成功した `portray/1` の束縛は、その字面を取った後に戻すので、項の残りと呼び手には変数が束縛の無いまま見える。前は変数にも `portray/1` を呼び、束縛済みの項に合った節の束縛も呼び手に残した（`src/builtins/write_pred.cpp` の `apply_portray` と `run_goal`、`tests/pl/print.pl` の `h25_` の行）。`m7_print_portray_cycles` の行は同じコミットで変える。その `portray` が作る巡回するリストは項の残りから見えなくなり、`[hh,g|_G1]` と書く。
+
 ## 8.14 書き出しオプション
 
 決定（2026-10-25）: `write/1,2` と `print/1,2` は `numbervars(true)`。`writeq/1,2` は `quoted(true)` と `numbervars(true)`。`write_canonical/1,2` は `quoted(true)` と `ignore_ops(true)`。`write_term` の既定は三つとも偽。同じ論理オプションの値が食い違うときは `domain_error(write_option, 後の項)`。`variable_names` は一回で、名前が変数の綴りでなければ `domain_error(write_option, その対)`。束縛済みの Var は無視する。

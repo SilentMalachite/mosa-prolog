@@ -119,7 +119,7 @@ void run_with(Impl& machine, const Goal& call) {
     visitor.frame(goal.cont);
     visitor.cell(sink.slot);
   });
-  const Ran ran = run_goal(machine, compiled.term, compiled.env, goal.module);
+  const Ran ran = run_goal(machine, compiled.term, compiled.env, goal.module, Bindings::Keep);
   scope.restore();
   finish_with(machine, goal, sink, index, ran);
 }

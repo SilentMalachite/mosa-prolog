@@ -504,6 +504,10 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
   auto* hook = static_cast<PortrayHook*>(raw);
   if (hook->stop) return WriteCut::Stop;
   Impl& machine = *hook->machine;
+  // 変数には portray を呼ばない。呼ぶと、どの節の頭にも合って束縛を作り、変数の字面の代わりにその書き出しが出た
+  // （レビュー 2026-11-20 の H-25）。writer の掛け金は変数でも呼ぶ（lgt_exec の paste_saved が変数を差し替える）ので、
+  // ここで外す。
+  if (machine.heap.unbound(machine.heap.deref(term))) return WriteCut::Keep;
   if (!hook->have_scratch) {
     hook->scratch = push_memory(machine);
     hook->have_scratch = true;
@@ -517,8 +521,10 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
     HeldRoots adapter(visitor);
     held.visit(adapter);
   });
+  // print/1 は何も束縛しない（@term）ので、portray/1 の束縛は字面を取った後に戻す（レビュー 2026-11-20 の H-25）。
+  // 残すと、portray/1 に合った束縛済みの項の中の変数まで呼び手の側で束縛された。
   const Ran ran = run_goal(machine, make_run_goal(machine.heap, portray_call(hook->name)),
-                           make_env(machine.heap, {term}), machine.user_module);
+                           make_env(machine.heap, {term}), machine.user_module, Bindings::Undo);
   scope.restore();
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
@@ -618,7 +624,7 @@ void visit_snap(GcVisitor& visitor, Snap& saved) {
 
 namespace write_internal {
 
-Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module) {
+Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module, Bindings bindings) {
   Snap saved = take_snap(machine);
   const RootScope roots(machine, [&saved](GcVisitor& visitor) { visit_snap(visitor, saved); });
   disarm(machine, machine.stack.size());
@@ -663,6 +669,8 @@ Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_
     machine.ball = saved.ball;
     return Ran::Fail;
   }
+  // 床まで失敗で戻ったときと同じ戻し方をする。印は入れ子の GC が saved ごと直してある（visit_snap）。
+  if (bindings == Bindings::Undo) restore_state(machine, saved.heap_mark, saved.trail_mark, saved.extras_mark);
   machine.failed = false;
   machine.exception = false;
   machine.eval_abort = false;
