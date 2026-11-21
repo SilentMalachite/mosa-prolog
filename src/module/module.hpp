@@ -61,6 +61,10 @@ struct Module {
   std::uint32_t default_import = 0;
   std::vector<Export> exports;
   std::vector<Import> imports;
+  // imports に as の別名（alias が name と違う項目）があれば必ず真。偽なら別名は無い。デバッガの leap が、名前の合わない
+  // 呼び出しのたびに imports をなめないために見る（レビュー H-14）。足す add_import が立て、空にする declare_module が
+  // 落とす。add_all が失敗で前の表に戻しても落とさない（真のままでも、なめる分が増えるだけで答えは変わらない）。
+  bool aliased = false;
   // 正規化したパス。use_module がファイルからモジュールを引く。ファイルでないテキストは空。
   std::string file;
   // library(Name) を解決して読んだモジュール。デバッガはこの中から出る呼び出しを見せない（ADR 0028）。

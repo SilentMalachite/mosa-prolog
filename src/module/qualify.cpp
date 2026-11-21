@@ -182,6 +182,7 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
   // 読み直しは公開と取り込みを作り直す。取り込みはこの後の use_module/1,2 がもう一度足す。
   module->exports.clear();
   module->imports.clear();
+  module->aliased = false;
   module->pending_meta.clear();
   module->ops = OperatorTable{};
   module->export_ops.clear();

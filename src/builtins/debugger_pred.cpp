@@ -13,7 +13,7 @@
 // ポートのコマンドの + と - も、ここの Name/Arity と同じ置き方を使う（spy_command）。
 // テスト: tests/pl/debugger.pl、tests/pl/japanese.pl、tests/mosac/debugger_state.pl、tests/cpp/debugger_test.cpp、
 //   tests/cpp/data/debugger（transcript_debug_spy_toggle、transcript_debug_spy_forms、transcript_debug_spy_ja、
-//   transcript_debug_spy_after_warning）
+//   transcript_debug_spy_after_warning、transcript_debug_spy_alias）
 #include "../machine/debug_port.hpp"
 #include "../machine/internal.hpp"
 #include "../write/spelling.hpp"
@@ -58,11 +58,12 @@ void say(Impl& machine, std::string_view key, std::initializer_list<std::string_
   say_line(machine, message_text(machine, key, args));
 }
 
-// 組込は system、定義がある述語は定義したモジュール、無ければ文脈のモジュールに置く。
+// 組込は system、定義がある述語は定義したモジュールとそこでの名前、無ければ文脈のモジュールに置く。as の別名で
+// 取り込んだ述語も定義の名前で持つ（レビュー H-14）。前は別名の名前で持ち、定義したモジュールの同じ名前の別の述語を指した。
 SpyKey key_for(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
   if (is_builtin_procedure(machine, name, arity)) return SpyKey{machine.system_module, name, arity};
   const Predicate* found = resolve_pred(machine, context, name, arity);
-  if (found != nullptr && !found->abolished) return SpyKey{found->module, name, arity};
+  if (found != nullptr && !found->abolished) return SpyKey{found->module, found->name, arity};
   return SpyKey{context, name, arity};
 }
 
@@ -102,11 +103,13 @@ std::string indicator_text(Impl& machine, const SpyKey& key) {
 
 // 置いた鍵 placed が、今引き当てた鍵 key と同じ述語を指すか。置いた時にまだ定義が見えなかった鍵（spy(append/3) の
 // 後の use_module(library(lists))）は文脈のモジュールのままなので、そのモジュールから今引き直して比べる（コントローラの
-// 裁定 17）。leap の照合と、nospy/1 と - が外す鍵で同じ判定を使う。
+// 裁定 17）。leap の照合と、nospy/1 と - が外す鍵で同じ判定を使う。後で別名で取り込めば、引き直した鍵は定義の名前に
+// なるので、名前でなく引き直した鍵の全体で比べる（レビュー H-14）。
 bool same_spy(Impl& machine, const SpyKey& placed, const SpyKey& key) {
-  if (placed.name != key.name || placed.arity != key.arity) return false;
-  if (placed.module == key.module) return true;
-  return key_for(machine, placed.module, placed.name, placed.arity).module == key.module;
+  if (placed.arity != key.arity) return false;
+  if (placed.module == key.module && placed.name == key.name) return true;
+  const SpyKey now = key_for(machine, placed.module, placed.name, placed.arity);
+  return now.module == key.module && now.name == key.name;
 }
 
 // spy/1 と + が置く。置いてあっても知らせは同じ。知らせの行を返す。字面は鍵を足す前に作る。字面の項は利用者の
@@ -127,11 +130,17 @@ std::optional<std::string> remove_key(Impl& machine, const SpyKey& key) {
   return message_text(machine, "debug_spy_removed", {text});
 }
 
-// 文脈のモジュールから見える Name/_ の鍵。表にある述語と組込の arity を集め、見えるものだけ残す。
+// 文脈のモジュールから見える Name/_ の鍵。表にある述語、as の別名の取り込み（レビュー H-14）と組込の arity を集め、
+// 見えるものだけ残す。
 std::vector<SpyKey> visible_keys(Impl& machine, const SpyTarget& target) {
   std::set<std::uint16_t> arities;
   for (const Predicate& predicate : machine.predicates) {
     if (!predicate.abolished && predicate.name == target.name) arities.insert(predicate.arity);
+  }
+  for (const Module& module : machine.modules) {
+    for (const Import& item : module.imports) {
+      if (item.alias == target.name) arities.insert(item.arity);
+    }
   }
   for (const BuiltinPi& builtin : builtin_procedures()) {
     if (builtin.name == machine.atoms.name(target.name)) arities.insert(builtin.arity);
@@ -241,9 +250,10 @@ void run_spy(Impl& machine, const Goal& goal) {
 std::vector<SpyKey> placed_keys(Impl& machine, const SpyTarget& target) {
   std::vector<SpyKey> keys;
   const auto placed = machine.debug.spies;
+  // 鍵は定義の名前で持つので、別名の Spec（nospy(q/1)）は名前でなく、Spec を引き当てた鍵で比べる（レビュー H-14）。
   for (const SpyKey& key : placed) {
-    if (key.name != target.name || (target.arity && key.arity != *target.arity)) continue;
-    if (same_spy(machine, key, key_for(machine, target.module, key.name, key.arity))) keys.push_back(key);
+    if (target.arity && key.arity != *target.arity) continue;
+    if (same_spy(machine, key, key_for(machine, target.module, target.name, key.arity))) keys.push_back(key);
   }
   return keys;
 }
@@ -362,17 +372,39 @@ bool spied(const Impl& machine, std::uint32_t module, std::uint32_t name, std::u
   });
 }
 
+// 文脈から既定の取り込み元をたどる道（resolve_pred と同じ）に、name/arity を別の名前の述語の別名として取り込んだ
+// モジュールがあるか。自分の定義が別名を隠す場合も真を返す。spied_call が正しく引き当てるので、多めに通してよい。
+bool alias_call(const Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
+  std::uint32_t current = context;
+  for (std::size_t step = 0; step <= machine.modules.size(); ++step) {
+    const Module* module = find_module(machine, current);
+    if (module == nullptr) return false;
+    // 別名の無いモジュールの表はなめない（Module::aliased）。なめずに先へ進むと多めに通すだけである。
+    if (module->aliased) {
+      for (const Import& item : module->imports) {
+        if (item.alias == name && item.arity == arity) return item.name != name;
+      }
+    }
+    if (module->default_import == current) return false;
+    current = module->default_import;
+  }
+  return false;
+}
+
 // 呼び出しの鍵は spy/1 と同じ key_for で作る。置いた時と呼んだ時で引き当てがずれないように 1 つの関数にしてある。
 // 定義の前に置いたスパイポイントも、同じモジュールに定義されるか、後で取り込めば合う（same_spy）。名前と引数の数が
-// 合う鍵が無ければ述語を引き当てずに返す。leap は見せるゴールのたびにここを通る（ADR 0028 の 1.2 倍）。
-bool spied_name(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
+// 合う鍵が無ければ述語を引き当てずに返す。leap は見せるゴールのたびにここを通る（ADR 0028 の 1.2 倍）。鍵は定義の
+// 名前なので、別名で呼ぶ述語は名前が合わない。そのときだけ文脈の取り込みの別名を見る（レビュー H-14）。
+bool spied_name(const Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
   const auto& spies = machine.debug.spies;
-  return std::any_of(spies.begin(), spies.end(),
-                     [&](const SpyKey& key) { return key.name == name && key.arity == arity; });
+  if (spies.empty()) return false;
+  const bool named = std::any_of(spies.begin(), spies.end(),
+                                 [&](const SpyKey& key) { return key.name == name && key.arity == arity; });
+  return named || alias_call(machine, context, name, arity);
 }
 
 bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
-  if (!spied_name(machine, name, arity)) return false;
+  if (!spied_name(machine, context, name, arity)) return false;
   const auto& spies = machine.debug.spies;
   const SpyKey key = key_for(machine, context, name, arity);
   if (spied(machine, key.module, key.name, key.arity)) return true;

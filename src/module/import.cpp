@@ -130,6 +130,7 @@ std::optional<Cell> add_import(Impl& machine, std::uint32_t into, const Import& 
     return conflict(machine, item.from, item.name, item.arity);
   }
   target->imports.push_back(item);
+  if (item.alias != item.name) target->aliased = true;
   return std::nullopt;
 }
 
