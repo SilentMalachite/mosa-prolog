@@ -3,11 +3,11 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** none; W7 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
+- **In progress:** H-29 (`]==]` in mosac's directory); W7, branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** H-28 (4e7f6b13: mosac reads the message catalogs on a separate machine); H-27;
-  W6 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-29 (W7: a `]==]` in mosac's own directory breaks the generated CMakeLists.txt).
+- **Last done:** H-28 (4e7f6b13, review fixes cff8b592: a taken-over library stays bundled);
+  H-27; W6 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** H-30 (W7, gate ADR: mosac crashes on deep bodies; amend ADR 0011 amendment 2 first).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
