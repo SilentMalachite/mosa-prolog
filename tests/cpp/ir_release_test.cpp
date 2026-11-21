@@ -80,8 +80,11 @@ void check_release(const std::string& label, int depth, bool tail_last, bool sma
   else term.reset();
   const std::size_t news = g_news - before;
   term.reset();
+  // 数は文言を作る前に読む。label + "..." の std::string も operator new を通り、引数の評価の順は決まっていない。
+  // 右から評価する GCC（x86-64）と MSVC では、数を読む前に文言の確保が 1 つ増え、CI の linux-gcc と windows で落ちた。
+  const bool returned = g_live == live;
   mosa_test::check(news == 0, label + ": allocated " + std::to_string(news) + " times while releasing");
-  mosa_test::check(g_live == live, label + ": every block returned");
+  mosa_test::check(returned, label + ": every block returned");
 }
 
 // 自分の子からのムーブ代入（term = std::move(term.args[1])）は、頭の節点だけを壊して残りを受け取る。
