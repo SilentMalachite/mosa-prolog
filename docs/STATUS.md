@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W7 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** H-27 (ADR 0030 29f695ba, code 3eb87040: program units named `u<k>` by position);
+- **Last done:** H-28 (4e7f6b13: mosac reads the message catalogs on a separate machine); H-27;
   W6 to W2 done; W1 but H-39. W0 triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** H-28 (W7: the catalog load replaces the user's module `lists`, so it is not translated).
+- **Next:** H-29 (W7: a `]==]` in mosac's own directory breaks the generated CMakeLists.txt).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
