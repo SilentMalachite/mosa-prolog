@@ -121,7 +121,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | C-02 | W2 |  | done (d684804c) ✔ | bagof/3 と setof/3 が、呼ぶ前からあった Template の変数を呼び手のセルのまま返す |
 | C-03 | W2 |  | done (664d632b) ✔ | 同じ証人を逆の向きで結んだ 2 つの解が、別の群の鍵になる |
 | C-04 | W1 |  | done (eaa6c77b) ✔ | 誤りを期待する試験で `forall/2` の生成側が `halt` すると `mosatest` が落ちる |
-| H-01 | W3 |  | done (b16573d6) | IrTerm の破棄が noexcept の中で確保するので、そこでの bad_alloc がプロセスを終わらせる |
+| H-01 | W3 |  | done (b16573d6、試験は bf7601e0) | IrTerm の破棄が noexcept の中で確保するので、そこでの bad_alloc がプロセスを終わらせる |
 | H-02 | W3 | ADR | done (977a7fa2、c266c770、ADR 0010 の改訂 4) ✔ | 循環項の単一化がヒープの外に組の表を持ち、O(p·q) で --heap-max を越えて伸びる |
 | H-03 | W3 |  | done (950f8bbb) ✔ | 上限を超えた nb_setval/2 が値と持った語を残し、その後の問い合わせがすべて止まる |
 | H-04 | W3 | ADR | done (a5148eed、9eecebd3、3ad5c4b2、c1113c90、7f6bfa20、ADR 0029) ✔ | 循環項の標準順序が推移的でなく、sort/2 の結果が入力の順に依る |
