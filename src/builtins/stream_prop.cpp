@@ -117,7 +117,7 @@ std::string_view eof_name(Stream::EofAction action) {
 
 bool has_prop(const Stream& stream, int prop) {
   if (prop == FileName) return stream.kind == Stream::Kind::File && !stream.path.empty();
-  if (prop == Alias) return !stream.alias.empty();
+  if (prop == Alias) return stream.alias.has_value();
   if (prop == Position) return stream.reposition;
   // 閉じた流れは collect が除く。開いていればモードで一つだけ持つ。
   if (prop == Input) return stream.mode == Stream::Mode::Read;
@@ -131,7 +131,7 @@ Cell prop_cell(Impl& machine, Stream& stream, int prop) {
     case Mode: return atom_arg(machine, "mode", mode_name(stream.mode));
     case Input: return machine.heap.atom(machine.atoms.intern("input"));
     case Output: return machine.heap.atom(machine.atoms.intern("output"));
-    case Alias: return atom_arg(machine, "alias", stream.alias);
+    case Alias: return atom_arg(machine, "alias", *stream.alias);
     case End: return atom_arg(machine, "end_of_stream", end_name(machine, stream));
     case Eof: return atom_arg(machine, "eof_action", eof_name(stream.eof_action));
     case Reposition: return atom_arg(machine, "reposition", stream.reposition ? "true" : "false");
@@ -227,6 +227,9 @@ std::size_t pack_hit(std::size_t stream, int prop) {
 bool bind_hit(Impl& machine, const Goal& goal, std::size_t packed) {
   const auto stream = packed / static_cast<std::size_t>(Count);
   const auto prop = static_cast<int>(packed % static_cast<std::size_t>(Count));
+  // 集めた後で閉じ、別名を新しい流れに譲った流れは、やり直しで別名を返さない（レビュー 2026-11-20 の H-21）。
+  // 別名の無い流れの alias は nullopt なので、確かめずに prop_cell が読んではいけない。
+  if (!has_prop(machine.streams[stream], prop)) return false;
   const Cell spec = machine.heap.deref(goal.arg(machine, 0));
   // 別名は照合済み。変数のときだけ '$stream'(N) を束縛する。
   if (machine.heap.unbound(spec) && !do_unify(machine, goal.arg(machine, 0), stream_term(machine, stream))) {

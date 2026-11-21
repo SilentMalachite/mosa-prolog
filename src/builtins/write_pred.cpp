@@ -147,7 +147,7 @@ namespace {
 
 Cell stream_named(Impl& machine, std::size_t index) {
   const Stream& stream = machine.streams[index];
-  if (!stream.alias.empty()) return machine.heap.atom(machine.atoms.intern(stream.alias));
+  if (stream.alias) return machine.heap.atom(machine.atoms.intern(*stream.alias));
   return machine.heap.structure(machine.atoms.intern("$stream"),
                                 std::vector<Cell>{machine.heap.integer(static_cast<std::int64_t>(index))});
 }

@@ -366,7 +366,7 @@ void finish_open(Impl& machine, const Goal& goal, Cell source, Cell slot, const 
   // 失敗した open が消すと、その別名の誤りが existence_error から domain_error に変わる。
   if (choice.has_alias) {
     for (Stream& old : machine.streams) {
-      if (old.closed && old.alias == choice.alias) old.alias.clear();
+      if (old.closed && old.alias == choice.alias) old.alias.reset();
     }
   }
   bind_new(machine, goal, slot, std::move(made));

@@ -88,7 +88,7 @@ bool resolve_stream(Impl& machine, const Goal& goal, Cell term, std::size_t& ind
 Cell stream_culprit(Impl& machine, const Goal& goal, std::size_t index) {
   if (goal.arity == 2) return goal.arg(machine, 0);
   const Stream& stream = machine.streams[index];
-  if (!stream.alias.empty()) return machine.heap.atom(machine.atoms.intern(stream.alias));
+  if (stream.alias) return machine.heap.atom(machine.atoms.intern(*stream.alias));
   return machine.heap.structure(machine.atoms.intern("$stream"),
                                 std::array<Cell, 1>{machine.heap.integer(static_cast<std::int64_t>(index))});
 }

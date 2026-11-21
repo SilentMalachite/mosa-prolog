@@ -359,7 +359,6 @@ void close_path(Impl& machine, std::string_view path) {
 }
 
 void close_alias(Impl& machine, std::string_view alias) {
-  if (alias.empty()) return;
   for (std::size_t index = 0; index < machine.streams.size(); ++index) {
     Stream& stream = machine.streams[index];
     if (stream.closed || stream.alias != alias) continue;
@@ -368,10 +367,9 @@ void close_alias(Impl& machine, std::string_view alias) {
 }
 
 void release_closed_alias(Impl& machine, std::string_view alias) {
-  if (alias.empty()) return;
   // 閉じた流れが同じ別名を持ったままだと、新しい流れに届かない。
   for (Stream& old : machine.streams) {
-    if (old.closed && old.alias == alias) old.alias.clear();
+    if (old.closed && old.alias == alias) old.alias.reset();
   }
 }
 
@@ -439,7 +437,9 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
   } else if (!text_contents(heap, body, bytes)) {
     return false;
   }
-  std::string alias_name;
+  // 別名を渡さない開き方は別名の無い流れを作り、ほかの流れの別名に触らない。'' も別名なので、空かどうかでは
+  // 分けない（レビュー 2026-11-20 の H-21）。
+  std::optional<std::string> alias_name;
   if (alias >= 0) {
     const Cell alias_cell = heap.deref(heap.arg(goal, static_cast<std::uint16_t>(alias)));
     if (alias_cell.tag() != Tag::Atom) return false;
@@ -449,9 +449,9 @@ bool open_obs(Machine& machine, const LgtIo& io, Cell goal, int arity, std::stri
   if (path.empty() || !write_bytes(path, bytes)) return false;
   Impl& impl = engine_impl(machine);
   const std::string key = utf8_from_path(path);
-  close_alias(impl, alias_name);
+  if (alias_name) close_alias(impl, *alias_name);
   close_path(impl, key);
-  release_closed_alias(impl, alias_name);
+  if (alias_name) release_closed_alias(impl, *alias_name);
   Stream made;
   made.kind = Stream::Kind::File;
   made.data = opt.data;

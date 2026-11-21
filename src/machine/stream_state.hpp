@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace mosa {
@@ -38,7 +39,9 @@ struct Stream {
   // 読んだ累計で、bytes を書き換える splice の後でもファイルの位置を失わない（Claude のレビューの L3）。
   std::unique_ptr<std::ifstream> source;
   std::size_t pulled = 0;
-  std::string alias;
+  // 別名の無い流れは nullopt。前は "" で表したので '' が別名の無い最初の流れを指した（レビュー 2026-11-20 の H-21）。
+  // 引き当て（各ファイルの find_alias）は optional の == で比べるので、別名の無い流れには当たらない。
+  std::optional<std::string> alias;
   std::string path;
 };
 

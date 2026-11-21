@@ -46,3 +46,42 @@ test(l5_open_dir_read, open('tests/pl', read, S), error(permission_error(open, s
 test(l5_open_dir_append, open('tests/pl', append, S), error(permission_error(open, source_sink, 'tests/pl'))).
 test(l5_open_dir_write, open('tests/pl', write, S), error(permission_error(open, source_sink, 'tests/pl'))).
 test(l5_open_dir_options, open('tests/pl', read, S, [type(binary)]), error(permission_error(open, source_sink, 'tests/pl'))).
+% レビュー 2026-11-20 の H-21。前は別名の無い流れを別名 "" で表したので、'' が別名の無い最初の流れを指し、
+% 関係の無い流れを読んで閉じた。'' もほかのアトムと同じ別名で、知らなければ domain_error(stream_or_alias, '')。
+% 行ごとに別名の無い流れを開いてから '' を渡し、その流れが手つかずで残ることも見る。組込のファイルごとに
+% 別名を引く写しがあるので、写しごとに 1 行置く（chars、bytes、read_pred、write_pred、stream_close、stream_prop）。
+% 閉じた流れも別名を持ち続け、閉じた後の '' は existence_error(stream, '') になるので、alias('') で開く行より前に置く。
+h21_unknown(Goal, E, C) :-
+  open_string(secret, S),
+  catch(Goal, error(E, _), true),
+  get_char(S, C),
+  close(S).
+test(h21_get_char, (h21_unknown(get_char('', _), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+test(h21_get_byte, (h21_unknown(get_byte('', _), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+test(h21_read, (h21_unknown(read('', _), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+test(h21_write, (h21_unknown(write('', x), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+test(h21_close, (h21_unknown(close(''), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+test(h21_flush, (h21_unknown(flush_output(''), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+test(h21_set_input, (h21_unknown(set_input(''), E, C), E == domain_error(stream_or_alias, ''), C == s), true).
+% alias('') は、別名の無い流れが開いていても受け、stream_property/2 が alias('') を返し、'' で読み書きできる。
+% 2 つ目の alias('') は、ほかの別名と同じく permission_error。失敗しても '' を開いたまま残さないよう後始末で閉じる。
+h21_given(A, B, E) :-
+  setup_call_cleanup(open_string(abc, U),
+    setup_call_cleanup(open('tests/tmp/h21_alias.txt', write, T, [alias('')]),
+      ( stream_property(T, alias(A)), stream_property(B, alias('')), B == T, write('', hi),
+        catch(open('tests/tmp/h21_alias_2.txt', write, _, [alias('')]), error(E, _), true) ),
+      close(T)),
+    close(U)).
+test(h21_alias_given, (h21_given(A, B, E), A == '', nonvar(B), E == permission_error(open, source_sink, alias('')),
+  open('tests/tmp/h21_alias.txt', read, R), get_char(R, C1), get_char(R, C2), get_char(R, C3), close(R),
+  [C1, C2, C3] == [h, i, end_of_file]), true).
+% 集めた後で閉じて別名を新しい流れに譲った流れは、やり直しで alias を返さない。前は alias('') を返した。
+h21_moved(Hits) :-
+  open('tests/tmp/h21_moved.txt', write, S1, [alias(h21_moved)]),
+  findall(A-T, ( stream_property(T, alias(A)),
+                 ( A == user_input -> close(S1), h21_reopen ; true ) ),
+          Hits),
+  close(h21_moved).
+h21_reopen :- open('tests/tmp/h21_moved.txt', write, _, [alias(h21_moved)]).
+test(h21_alias_moved, (h21_moved(Hits),
+  Hits == [user_input-'$stream'(0), user_output-'$stream'(1), user_error-'$stream'(2)]), true).
