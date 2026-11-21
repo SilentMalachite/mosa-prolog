@@ -274,8 +274,10 @@ std::string Printer::spell(std::string_view name) const {
 }
 
 std::string Printer::spell_operator(std::string_view name) const {
-  // アトムの ',' と '|' と '.' は引用する。演算子の位置まで引用すると字面が変わる。
-  if (name == "," || name == "|" || name == ".") return std::string{name};
+  // アトムの ',' と '|' は引用する。演算子の位置まで引用すると字面が変わる。
+  if (name == "," || name == "|") return std::string{name};
+  // 演算子の '.' は引用する。裸の . は続く空白と終わりの字句になり（6.4.8）、後置の a. や前置の . (-a) の所で
+  // 節が終わる（レビュー H-19）。引用した '.' も演算子のまま読める。'.'/2 はリストなので、ここに来るのは前置と後置。
   return spell(name);
 }
 

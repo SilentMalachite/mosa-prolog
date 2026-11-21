@@ -297,3 +297,18 @@ test(h16_yfx_under_fy, (h16_back(h16_ops, h16fy(h16yfx(a, b)), A, B), B == h16fy
 test(h16_yfx_chain, (h16_back(h16_ops, h16yfx(h16yfx(a, b), c), A, B), B == h16yfx(h16yfx(a, b), c)),
      solutions([A = 'a h16yfx b h16yfx c'])).
 test(h16_lower_prefix, (with_output_to(atom(A), writeq(-(a) + b))), solutions([A = '-a+b'])).
+% レビュー H-19。前置と後置の演算子に定めた '.' も、quoted(true) なら引用する。裸の . は続く空白と終わりの字句に
+% なるので、前は後置の a. や前置の . (-a) を書くと、読み戻すとそこで節が終わった（6.4.8、7.10.5）。
+h19_back(Spec, T, A, B) :-
+    setup_call_cleanup(op(100, Spec, '.'),
+                       ( with_output_to(atom(A), writeq(T)), atom_concat(A, ' .', Text),
+                         open_string(Text, S), read(S, B), close(S) ),
+                       op(0, Spec, '.')).
+test(h19_postfix_eq, (h19_back(xf, '.'(a) = b, A, B), B == ('.'(a) = b)), solutions([A = 'a\'.\'=b'])).
+test(h19_postfix, (h19_back(xf, '.'(a), A, B), B == '.'(a)), solutions([A = 'a\'.\''])).
+test(h19_prefix_minus, (h19_back(fy, '.'(-(a)), A, B), B == '.'(-(a))), solutions([A = '\'.\' (-a)'])).
+test(h19_prefix_conj, (h19_back(fy, '.'((a, b)), A, B), B == '.'((a, b))), solutions([A = '\'.\' (a,b)'])).
+test(h19_prefix_atom, (h19_back(fy, '.'(-), A, B), B == '.'(-)), solutions([A = '\'.\' (-)'])).
+% quoted(false) の write は読み戻す字面ではないので、今までどおり引用しない。
+test(h19_write_plain, setup_call_cleanup(op(100, xf, '.'), with_output_to(atom(A), write('.'(a))), op(0, xf, '.')),
+     solutions([A = 'a.'])).
