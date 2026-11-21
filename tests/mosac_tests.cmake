@@ -51,6 +51,14 @@ foreach(emit_case hello broken undefined undefined_catch undefined_quoted undefi
   set_tests_properties(mosac_emit_${emit_case} PROPERTIES ENVIRONMENT "MOSA_WERROR=1")
 endforeach()
 
+# mosac 自身のディレクトリの名前に ]==] や改行があっても、生成した CMakeLists.txt の角括弧の引数が破れない
+# （レビュー 2026-11-20 の H-29）。configure だけを本体と同じ生成器とコンパイラで流す。
+add_test(NAME mosac_bracket_path COMMAND ${CMAKE_COMMAND}
+  -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_bracket_path "-DGENERATOR=${CMAKE_GENERATOR}"
+  "-DPLATFORM=${CMAKE_GENERATOR_PLATFORM}" "-DCXX=${CMAKE_CXX_COMPILER}" "-DBUILD_TYPE=${CMAKE_BUILD_TYPE}"
+  -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -P ${CMAKE_SOURCE_DIR}/tests/mosac/bracket_path_test.cmake)
+
 # 同梱の lib/*.pl を訳しても、未定義の呼び出しの警告が出ない（L12 の敵対的レビュー A4。警告はビルドを止めない）。
 add_test(NAME mosac_library_clean COMMAND ${CMAKE_COMMAND}
   -DMOSAC=$<TARGET_FILE:mosac> -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_library_clean

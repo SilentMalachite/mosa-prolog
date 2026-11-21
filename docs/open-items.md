@@ -307,6 +307,9 @@ General:
   through `format`) is replaced there and runs as IR; output is unchanged. Only the message
   catalogs moved to a separate machine (H-28). The other order, a program file that takes over a
   library's module after loading it, keeps the library bundled (H-28's adversarial review).
+- A newline in mosac's own directory name no longer breaks the generated CMakeLists.txt (H-29),
+  but CMake cuts cache values at a newline. The first configure of a build tree finds the runtime;
+  a later configure of the same tree reads the cut `MOSA_RUNTIME_DIR` and `MOSA_RUNTIME_LIBRARY`.
 - Only Release is installed.
 - The REPL writes prompts and answers past `user_output`, so its line position stays where the
   query left it. After a query whose output has no final newline, the next query's leading `~N`

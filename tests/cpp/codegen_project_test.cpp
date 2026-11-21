@@ -1,7 +1,8 @@
 // 計画 Task 5 と Task 10 の目録（translate_program）、フェーズ12 と 13 の翻訳の読み込みの書き留め（TranslationLog）を
 // 文面で確かめる。codegen_test.cpp が 800 行の上限に近づいたので分けた（レビュー 2026-11-20 の H-27 の前）。
-// 終わりの nmake_paths だけは翻訳ではなく、build.hpp の nmake_safe_path（Windows の MSVC で NMake の道に渡せるパスか）を
+// nmake_paths だけは翻訳ではなく、build.hpp の nmake_safe_path（Windows の MSVC で NMake の道に渡せるパスか）を
 // 見る（リリース 0.1.0 Task 10）。コンパイラを起こさずに、どの OS でも確かめられるので、ここに置く。
+// 終わりの cmake_bracket_paths は、目録の CMakeLists.txt が mosac のディレクトリを書く角括弧の引数を見る（H-29）。
 
 #include "harness.hpp"
 
@@ -430,6 +431,53 @@ void nmake_paths() {
   check(!nmake_safe_path("C:/work/\xf0\x9f\x98\x80/x"), "an emoji (U+1F600) is not NMake-safe");
 }
 
+// CMake の角括弧の引数（[ と = の並びと [ から、同じ数の = を挟む ] ] が最初に現れる所まで）の中身を、出てきた順に返す。
+// 生成した CMakeLists.txt では、角括弧はパスを書く引数にしか使わないので、全体をそのまま読む。
+std::vector<std::string> bracket_arguments(std::string_view text) {
+  std::vector<std::string> found;
+  std::size_t at = 0;
+  while ((at = text.find('[', at)) != std::string_view::npos) {
+    std::size_t open = at + 1;
+    while (open < text.size() && text[open] == '=') ++open;
+    if (open >= text.size() || text[open] != '[') {
+      ++at;
+      continue;
+    }
+    const std::string close = "]" + std::string(open - at - 1, '=') + "]";
+    const std::size_t end = text.find(close, open + 1);
+    if (end == std::string_view::npos) {
+      found.emplace_back("<unclosed>");
+      break;
+    }
+    found.emplace_back(text.substr(open + 1, end - open - 1));
+    at = end + close.size();
+  }
+  return found;
+}
+
+// レビュー 2026-11-20 の H-29。CMakeLists.txt は mosac のディレクトリを角括弧の引数で書く。閉じの括弧が名前の中に
+// あっても、名前の終わりとまたがっても（]== で終わる名前の後ろの ]==]）、引数は名前のとおりに閉じる。普通の名前は前と
+// 同じ [==[ のまま。本物の CMake で configure するのは tests/mosac/bracket_path_test.cmake。
+void cmake_bracket_paths() {
+  const auto dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests/tmp/codegen_bracket";
+  std::filesystem::create_directories(dir);
+  write_file(dir / "hello.pl", "a.\n");
+  const std::string source = mosa::utf8_from_path(dir / "hello.pl");
+  for (const std::string_view runtime : {"/opt/mosa", "/opt/y]==])\nmessage(WARNING INJECTED)\nset(dummy [==[ z",
+                                         "/opt/z]==", "/opt/a]=]b]==]c]===]d"}) {
+    mosa::codegen::ProjectOptions options;
+    options.runtime_dir = std::string{runtime};
+    const auto project = mosa::codegen::translate_program(source, options);
+    const auto* cmake = find_file(project, "CMakeLists.txt");
+    const std::string root{runtime};
+    const std::vector<std::string> expected{root + "/include/mosa/runtime.hpp", root, root + "/../lib/mosa"};
+    check(cmake != nullptr && bracket_arguments(cmake->text) == expected, "the bracket arguments hold " + root);
+    if (runtime == "/opt/mosa") {
+      check(cmake != nullptr && has(cmake->text, "set(mosa_runtime_default [==[/opt/mosa]==])"), "a plain name keeps [==[");
+    }
+  }
+}
+
 int main() {
   project_modules();
   project_opaque();
@@ -445,5 +493,6 @@ int main() {
   check_goal_library_deep();
   check_goal_library_failure();
   nmake_paths();
+  cmake_bracket_paths();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

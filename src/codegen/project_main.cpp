@@ -98,9 +98,17 @@ std::string library_declarations(const Impl& machine, const ProjectPlan& plan) {
   return out.empty() ? out : out + "\n";
 }
 
-// 角括弧の引数は \ も " も $ も展開しない。Windows のパスもそのまま書ける。
+// 角括弧の引数は \ も " も $ も展開しない。Windows のパスもそのまま書ける。引数は同じ数の = を挟む閉じの括弧が最初に
+// 現れた所で終わるので、= の数は、閉じの括弧がパスの中にも、パスの終わりとまたがる所（]== で終わるパスの後ろの ]==]）
+// にも先に現れない物を選ぶ。前は 2 つに決めていたので、mosac のディレクトリの名前に ]==] があると引数が途中で閉じ、
+// 残りが命令として読まれた（レビュー 2026-11-20 の H-29）。普通のパスは今までどおり 2 つで、目録は変わらない。
+// = の数がパスの長さを超えれば、閉じの括弧はパスに収まらず、またがりもしないので、繰り返しは必ず終わる。
 std::string cmake_path(std::string_view path) {
-  return "[==[" + utf8_from_path(path_from_utf8(path)) + "]==]";
+  const std::string text = utf8_from_path(path_from_utf8(path));
+  for (std::size_t equals = 2;; ++equals) {
+    const std::string close = "]" + std::string(equals, '=') + "]";
+    if ((text + close).find(close) == text.size()) return "[" + std::string(equals, '=') + "[" + text + close;
+  }
 }
 
 // MOSA_RUNTIME_DIR の既定。ビルド木（mosac の隣に include/ がある）ならそこ、インストールの形なら
