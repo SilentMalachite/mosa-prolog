@@ -297,6 +297,7 @@ bool Lexer::scout(std::string_view source, const CharConv* conv, bool fullwidth,
   // 引用や注釈の中の失敗はトークンの始まりより後ろなので、頭から読んだときと同じく、外すときに 1 字捨てない。
   lexer.attempt_ = std::string_view::npos;
   std::optional<Scan> scan = lexer.resume(state);
+  if (closed_at_end(lexer, scan, state)) return false;
   while (true) {
     if (lexer.cut_ != Inside::None) {
       state = Scout{lexer.unit_, lexer.cut_, lexer.cut_quote_};
@@ -312,6 +313,26 @@ bool Lexer::scout(std::string_view source, const CharConv* conv, bool fullwidth,
     }
     scan = lexer.next();
   }
+}
+
+// 続きから読んだ引用か注釈が source の最後の字で閉じると、次の next は空白を読まずに終わりを返し、item_ は
+// 読み始めの state.from（中身の所）のままになる。前はそこから外の字句として読み直し、引用の中の % を行注釈と
+// 読んで、本当の終止符で止まらなかった（レビュー H-20）。閉じた引用符は '' の半分のこともあるので、引用は
+// その引用符から中身として読み直す。注釈は最初の */ で閉じ、後ろの字で変わらないので、終わりから読み続ける。
+bool Lexer::closed_at_end(const Lexer& lexer, const std::optional<Scan>& scan, Scout& state) {
+  if (state.inside == Inside::None || lexer.cut_ != Inside::None || lexer.index_ < lexer.source_.size()) {
+    return false;
+  }
+  if (scan && scan->failure) return false;
+  if (state.inside == Inside::Quote) {
+    state = Scout{lexer.unit_, Inside::Quote, state.quote};
+    return true;
+  }
+  if (state.inside == Inside::Block) {
+    state = Scout{lexer.index_};
+    return true;
+  }
+  return false;
 }
 
 std::optional<Scan> Lexer::resume(const Scout& state) {

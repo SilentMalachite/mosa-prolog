@@ -141,6 +141,7 @@ class Lexer {
   [[nodiscard]] bool skip_one();
   [[nodiscard]] std::optional<Scan> resume(const Scout& state);
   [[nodiscard]] bool past_failure(Scout& state);
+  [[nodiscard]] static bool closed_at_end(const Lexer& lexer, const std::optional<Scan>& scan, Scout& state);
   [[nodiscard]] Scan quoted_body(char32_t quote, Place start, const std::string& opener_text);
   [[nodiscard]] std::optional<Scan> block_body(Place start);
   [[nodiscard]] std::optional<Scan> line_body();

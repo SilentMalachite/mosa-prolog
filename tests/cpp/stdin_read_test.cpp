@@ -241,6 +241,25 @@ void check_scouted_ends() {
   check_pulled("f('a\nb. ", "catch(read(_), error(syntax_error(_), _), true).", "newline inside quotes");
 }
 
+// レビュー H-20。続きから読んだ引用か注釈が、足した最後の字で閉じる。引用の中の字は写さないので、写すと空白に
+// なる ' が引用を閉じる。前は下見の続きが閉じた引用か注釈の中身の所へ戻り、. % を行注釈の始まりと読んで、
+// 本当の終止符で止まらなかった（端末では次の終止符か終わりまで待つ）。
+void check_resumed_close() {
+  check_pulled("X = q.%.'. ",
+               "set_prolog_flag(char_conversion, on), char_conversion(q, ''''), char_conversion('''', ' '), "
+               "read(T), T = (_ = A), A == '.%.'.",
+               "a resumed quote closed by the last char");
+  check_pulled("X = a ps.%*/. ",
+               "set_prolog_flag(char_conversion, on), char_conversion(p, '/'), char_conversion(s, '*'), "
+               "char_conversion('*', '.'), char_conversion('/', ' '), read(T), T = (_ = A), A == a.",
+               "a resumed block comment closed by the last char");
+  // 閉じた引用符が '' の半分のこともある。次の字が ' なら、引用は続く。
+  check_pulled("X = q.%.''x'. ",
+               "set_prolog_flag(char_conversion, on), char_conversion(q, ''''), char_conversion('''', ' '), "
+               "read(T), T = (_ = A), A == '.%.''x'.",
+               "a doubled quote after a resumed quote");
+}
+
 }  // namespace
 
 int main() {
@@ -252,5 +271,6 @@ int main() {
   check_end_cleared();
   check_mapped_ends();
   check_scouted_ends();
+  check_resumed_close();
   return mosa_test::failures();
 }
