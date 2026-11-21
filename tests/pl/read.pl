@@ -255,3 +255,14 @@ test(h17_bare_semicolon, h17_read('\\+ ; b', T), solutions([T = ';'(\+, b)])).
 test(h17_spaced_paren, h17_read('- ; (a)', T), solutions([T = ';'(-, a)])).
 test(h17_infix_call, h17_read('a ;(b)', T), solutions([T = ';'(a, b)])).
 test(h17_bracketed, h17_read('\\+ (;)', T), solutions([T = \+(;)])).
+% レビュー H-18 の 3 つ目（持ち主の決定 B、2026-11-21）。関数表記の名前は名前の字句だけで（6.3.3）、裸の | は名前の
+% 字句ではない（6.4）。| を演算子に定めている間も |(a, b) は構文の誤りで、引用した '|'(a, b) と中置の a | b は読める。
+% 前は演算子の間だけ |(a, b) を '|'(a,b) と読んだ。演算子は行の中で定め、cleanup で外す。
+h18_read(Text, T) :- setup_call_cleanup(op(1105, xfy, '|'), h17_read(Text, T), op(0, xfy, '|')).
+test(h18_bar_functional, h18_read('|(a, b)', _), error(syntax_error(_))).
+test(h18_bar_functional_one, h18_read('|(a)', _), error(syntax_error(_))).
+test(h18_bar_functional_operand, h18_read('X = |(a, b)', _), error(syntax_error(_))).
+test(h18_bar_quoted, h18_read('\'|\'(a, b)', T), solutions([T = '|'(a, b)])).
+test(h18_bar_infix, h18_read('a | b', T), solutions([T = '|'(a, b)])).
+test(h18_bar_back, (setup_call_cleanup(op(1105, xfy, '|'), h17_back('|'(a, b, c), A, B), op(0, xfy, '|')),
+                    B == '|'(a, b, c)), solutions([A = '\'|\'(a,b,c)'])).

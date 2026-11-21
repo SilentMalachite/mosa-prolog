@@ -218,8 +218,11 @@ Reader::Parsed Reader::parse_name(int max_priority) {
   const Token token = consume().token;
   const Scan next = peek();
   if (next.failure) return failure_of(next);
-  // 空白を挟まない '(' だけが関数表記。`\+ (true, fail)` は前置の引数である。
-  if (next.token.kind == TokenKind::Solo && next.token.text == "(" && !next.token.after_layout) {
+  // 空白を挟まない '(' だけが関数表記。`\+ (true, fail)` は前置の引数である。関数表記の名前は名前の字句だけで
+  // （6.3.3）、裸の | は名前の字句ではない（6.4）。前は | を演算子に定めている間だけ |(a, b) を '|'(a,b) と読んだ
+  // （レビュー H-18 の 3 つ目、持ち主の決定 B）。引用した '|'(a, b) は名前の字句なので関数表記になる。
+  const bool bare_bar = token.kind == TokenKind::Solo && token.text == "|";
+  if (!bare_bar && next.token.kind == TokenKind::Solo && next.token.text == "(" && !next.token.after_layout) {
     consume();
     return parse_arguments(token.text, max_priority);
   }

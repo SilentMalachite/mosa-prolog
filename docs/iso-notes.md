@@ -775,6 +775,14 @@ A or B?: A: follow 6.3.3 and quote the name when quoted is true (`'[]'(x)`, `'{}
 
 Decision (2026-11-05): B. Nothing changes; `canonical_brace` in `tests/pl/write.pl` pins `{}(a)`.
 
+## 6.3.3 A bare `|` as the name of a compound term
+
+6.3.3 writes a compound term in functional notation as a name token followed by `(`. A bare `|` is not a name token (6.4); it may be an infix operator of priority 1001 or more (6.3.4.3, Cor.3), and then a bracketed `(|)` is the atom `'|'`. While `op(1105, xfy, '|')` was in force, the reader also took `|(a, b)` as `'|'(a,b)` and `|(a)` as `'|'(a)`, as for any other operator atom (review H-18, part 3). Without the operator, both were syntax errors.
+
+A or B? (review H-18, 2026-11-20): A keeps reading `|(a, b)` as `'|'(a,b)` while `|` is an operator; B makes it a syntax error under the operator too, since a bare `|` takes no functional notation.
+
+Decision (2026-11-21): B. The quoted `'|'(a, b)` and the infix `a | b` still read, and `f((|))` is still the atom while `|` is an operator (`read_bar_operator_atom`). writeq already writes the functional form as `'|'(a,b,c)`. Tests: `h18_*` in `tests/pl/read.pl`. Parts 1 and 2 of H-18 do not change: a bare operator atom is still accepted as an operand (`X = - - .` reads `-(-)`).
+
 ## 8.2.2 unify_with_occurs_check/2 of terms that are already cyclic
 
 7.3.2 fails a unification with occurs check when it would bind a variable to a term that contains it; 8.2.2 does not say what happens when an argument is already cyclic (7.3.3 leaves such terms undefined). Mosa unified and then failed when the result was cyclic, so `X = f(X), Y = f(Y), unify_with_occurs_check(X, Y)` failed although it binds nothing (review L3).
