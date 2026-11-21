@@ -52,7 +52,7 @@ class Lexer {
   [[nodiscard]] static bool may_end_before_last(std::string_view source, const CharConv* conv, bool fullwidth);
   // 標準入力の read の下見の続き。from から読めば、頭から読んだときと同じ字句が続く。inside が None でなければ、
   // from は入力の終わりで切れた引用（閉じる引用符は quote）か注釈の中の、最後に読んだ字か escape の始まりで、
-  // そこから中身として読み続ける。最後の字か escape を読み直すのは、\ と \r の行継続が次の \n も取るため。
+  // そこから中身として読み続ける。最後の字で閉じた引用なら from はその閉じる引用符で、'' の半分かを読み直す。最後の字か escape を読み直すのは、\ と \r の行継続が次の \n も取るため。
   enum class Inside : std::uint8_t { None, Quote, Block, Line };
   struct Scout {
     std::size_t from = 0;
