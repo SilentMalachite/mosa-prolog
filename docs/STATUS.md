@@ -7,7 +7,7 @@
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** W9 `heap.cpp`: M-04 (`release` no longer clamps) and N-02 (dead branch to an
   assert), 1a88cdbd; no path reaches either, so no red test; Release and Debug ctest 282/282.
-- **Next:** W9 by file; W8's open items are all owner questions on default A (keep); 0.5.1 on hold.
+- **Next:** W9 by file (W8's open items are owner questions on default A); 0.5.1 after W9 (A).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** none; no code or test file is at 730 lines or more (open-items).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in

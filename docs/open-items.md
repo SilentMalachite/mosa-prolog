@@ -39,8 +39,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}`.
 ## Owner decisions in force
 
-- Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes. After W8
-  the owner asked to hold 0.5.1 (2026-11-22): do not prepare or tag it until they ask.
+- Review plan, release (A, 2026-11-23): 0.5.1 comes after W9, not right after W8. Until then do
+  not prepare or tag it (held since 2026-11-22, when W8 was put before it).
 - The test presets' job count (A, 2026-11-23): a fixed 4 in all five presets, the same on every
   CMake (`"jobs": 0` is unbounded on 3.29 and later, 1 on 3.28; see Unsure). B (the processor
   count through an empty `CTEST_PARALLEL_LEVEL`, CMake 3.29 and later only) was declined.
