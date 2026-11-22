@@ -359,6 +359,38 @@ std::string prompt_text(const Machine& machine) {
   return impl.debug.mode == DebugMode::Creep ? "[trace] ?- " : "[debug] ?- ";
 }
 
+// ためた行から 1 項読む。上限に達したら回復して知らせ、nullopt を返す。
+std::optional<ReadOutcome> read_buffer(Machine& machine, const std::string& buffer, Echo& echo) {
+  try {
+    Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
+                  &engine_impl(machine).char_conv);
+    reader.set_fullwidth(engine_impl(machine).japanese_punct);
+    return reader.next();
+  } catch (...) {
+    if (!is_heap_exhaustion()) throw;
+    recover_heap(machine);
+    warn_resource(machine, echo);
+    return std::nullopt;
+  }
+}
+
+// 読んだ項から、動かすものを文字列で取る。ゴールも指令も文字列から読み直して動かすので、項はもう要らない。
+// help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。
+enum class Entry { Help, Directive, Goal };
+
+Entry entry_of(Machine& machine, const ReadTerm& read, std::string& goal) {
+  const Cell term = read.term;
+  if (term.tag() == Tag::Atom && machine.atoms().name(static_cast<std::uint32_t>(term.raw() >> 3)) == "help") {
+    return Entry::Help;
+  }
+  if (term.tag() == Tag::Str && machine.heap().functor_arity(machine.heap().deref(term)) == 1) {
+    const std::string_view name = machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term)));
+    if (name == ":-" || name == "?-") return Entry::Directive;
+  }
+  goal = goal_text(machine, term, read.names);
+  return Entry::Goal;
+}
+
 void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   std::string buffer;
   echo.say(prompt_text(machine));
@@ -367,43 +399,27 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     if (!cursor.line(line)) return;
     if (buffer.empty() && blank(line)) continue;
     buffer += line;
-    ReadOutcome outcome;
-    try {
-      Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
-                    &engine_impl(machine).char_conv);
-      reader.set_fullwidth(engine_impl(machine).japanese_punct);
-      outcome = reader.next();
-    } catch (...) {
-      if (!is_heap_exhaustion()) throw;
-      recover_heap(machine);
-      warn_resource(machine, echo);
-      buffer.clear();
-      echo.say(prompt_text(machine));
-      continue;
-    }
-    if (outcome.failure && outcome.failure->reason == SyntaxReason::IncompleteTerm) continue;
-    if (outcome.failure) warn_syntax(machine, *outcome.failure, echo);
-    if (outcome.failure || !outcome.term) {
-      buffer.clear();
-      echo.say(prompt_text(machine));
-      continue;
-    }
+    // 読みが作った項は、どの道でもこの高さへ切り詰めて捨てる。前は続きの行ごとにためた入力の全体を読み直して
+    // 項を積み、構文の誤りの項も残したので、--heap-max で止まった（レビュー M-12）。読む間に GC は動かない。
+    const std::size_t mark = machine.heap().size();
+    const std::optional<ReadOutcome> outcome = read_buffer(machine, buffer, echo);
+    std::string goal;
+    const std::optional<Entry> entry =
+        outcome && outcome->term ? std::optional<Entry>{entry_of(machine, *outcome->term, goal)} : std::nullopt;
+    if (machine.heap().size() >= mark) machine.heap().truncate(mark);
+    if (outcome && outcome->failure && outcome->failure->reason == SyntaxReason::IncompleteTerm) continue;
+    if (outcome && outcome->failure) warn_syntax(machine, *outcome->failure, echo);
     const std::string text = buffer;
     buffer.clear();
-    const Cell term = outcome.term->term;
-    // help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。
-    if (term.tag() == Tag::Atom && machine.atoms().name(static_cast<std::uint32_t>(term.raw() >> 3)) == "help") {
-      echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
+    if (!entry) {
       echo.say(prompt_text(machine));
       continue;
     }
-    const bool directive = term.tag() == Tag::Str && machine.heap().functor_arity(machine.heap().deref(term)) == 1 &&
-                           (machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == ":-" ||
-                            machine.atoms().name(machine.heap().functor_atom(machine.heap().deref(term))) == "?-");
-    if (directive) {
+    if (*entry == Entry::Help) {
+      echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
+    } else if (*entry == Entry::Directive) {
       if (prompt_directive(machine, text, echo)) return;
     } else {
-      const std::string goal = goal_text(machine, term, outcome.term->names);
       bool halted = false;
       const int code = play_goal(machine, goal, true, true, cursor, echo, halted);
       if (halted) {
