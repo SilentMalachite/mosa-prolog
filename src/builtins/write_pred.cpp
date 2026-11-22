@@ -26,6 +26,7 @@
 #include "mosa/char_class.hpp"
 #include "mosa/writer.hpp"
 
+#include <array>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -439,6 +440,8 @@ struct PortrayHook {
   bool have_scratch = false;
   bool stop = false;
   bool halted = false;
+  // portray が下書きの流れ（print の間の現在出力）を閉じた。print は書かずに誤りで止まる（レビュー M-31）。
+  bool scratch_closed = false;
 
   PortrayHook() = default;
   PortrayHook(const PortrayHook&) = delete;
@@ -527,6 +530,15 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
   const Ran ran = run_goal(machine, make_run_goal(machine.heap, portray_call(hook->name)),
                            make_env(machine.heap, {term}), machine.user_module, Bindings::Undo);
   scope.restore();
+  // 下書きを閉じたら、print を止める。続けると次の portray の write/1 が閉じた流れを名指し、閉じた後の書き出しが
+  // print の字面より先に出た（レビュー M-31）。閉じた流れの中身は読まない。例外と halt は今までどおり止める。
+  if (machine.streams[hook->scratch].closed) {
+    hook->stop = true;
+    hook->halted = ran == Ran::Halted;
+    hook->scratch_closed = ran == Ran::Ok || ran == Ran::Fail;
+    if (hook->scratch_closed) machine.failed = false;
+    return hook->halted ? WriteCut::Last : WriteCut::Stop;
+  }
   // portray の push_back が vector を伸ばすと、呼ぶ前の参照は無効になる。
   Stream& stream = machine.streams[hook->scratch];
   // halt は write/1 の後の halt と同じく、それまでに書いた分を行き先に残す（レビュー L14）。例外は catch で続きが
@@ -545,8 +557,14 @@ WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held) 
 }
 
 // 演算子は呼び手の文脈モジュールの見え方で書く（ADR 0006）。
-bool emit_written(Impl& machine, std::uint32_t module, std::size_t index, Cell term, const WriteOptions& options,
+Cell stream_handle(Impl& machine, std::size_t index) {
+  return machine.heap.structure(machine.atoms.intern("$stream"),
+                                std::array<Cell, 1>{machine.heap.integer(static_cast<std::int64_t>(index))});
+}
+
+bool emit_written(Impl& machine, const Goal& goal, std::size_t index, Cell term, const WriteOptions& options,
                   const std::vector<VarName>& names, Kind kind) {
+  const std::uint32_t module = goal.module;
   // print は portray/1 で Prolog を走らせ、モジュール表が動くことがある。固有層は写してから見る。
   // machine.operators は Impl の中にあり、場所が変わらないので写さない。
   const Module* found = module == machine.user_module ? nullptr : find_module(machine, module);
@@ -559,7 +577,16 @@ bool emit_written(Impl& machine, std::uint32_t module, std::size_t index, Cell t
     hook.name = name;
     const std::string text =
         write_term(machine.heap, view, term, options, names, apply_portray, &hook);
+    if (hook.scratch_closed) {
+      raise_exists(machine, goal, stream_handle(machine, hook.scratch));
+      return false;
+    }
     if (hook.stop && !hook.halted) return false;
+    // portray が行き先の流れを閉じたら、書かずに誤りにする。前は閉じた流れへ黙って書き、何も残らなかった（M-31）。
+    if (machine.streams[index].closed) {
+      raise_exists(machine, goal, stream_handle(machine, index));
+      return false;
+    }
     // halt で止まったときは、portray の分までの字面を書いてから止まる。halt_now が残りのゴールを止める。
     emit_text(machine, index, text);
     return !hook.stop;
@@ -585,7 +612,7 @@ void run_out(Impl& machine, const Goal& call, Kind kind) {
   options.numbervars = chosen.numbervars;
   options.max_depth = chosen.max_depth;
   options.fullwidth = machine.japanese_punct;
-  if (!emit_written(machine, goal.module, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
+  if (!emit_written(machine, goal, index, goal.arg(machine, spec.term_at), options, chosen.names, kind)) return;
   machine.ip = goal.cont;
 }
 

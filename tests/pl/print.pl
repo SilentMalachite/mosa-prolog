@@ -65,3 +65,16 @@ test(h25_bound_undone, (assertz((portray(f(1)) :- write(one))),
 % 束縛の後に GC が走っても、戻す印は GC が直すので、同じく戻る。
 test(h25_undone_after_gc, (assertz((portray(f(X)) :- X = 1, garbage_collect, write(one))),
   with_output_to(atom(A), print(g(f(Y), Y))), retractall(portray(_)), A == 'g(one,_G1)', var(Y)), true).
+% レビュー M-31。portray/1 が print の行き先の流れか、print の間の現在出力（下書き）を閉じたら、print は書かずに
+% existence_error(stream, S) で止まる。前は閉じた流れへ黙って書くか、次の portray の write/1 が誤りになった。
+test(m31_close_destination, (
+  open('tests/tmp/m31_dest.txt', write, S),
+  assertz((portray(m31x) :- close(S))),
+  catch(print(S, f(m31x)), error(E, _), true),
+  retractall(portray(_)),
+  E == existence_error(stream, S)), true).
+test(m31_close_scratch, (
+  assertz((portray(m31y) :- current_output(O), close(O))),
+  catch(with_output_to(atom(A), print(f(m31y))), error(E, _), true),
+  retractall(portray(_)),
+  var(A), E = existence_error(stream, '$stream'(_))), true).
