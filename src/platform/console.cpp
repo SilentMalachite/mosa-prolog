@@ -1,6 +1,7 @@
 // 標準入力とコンソール（SPEC 第4節、計画 Task 14）。Windows のコンソールだけ UTF-16 で読み、Windows の標準の流れは
 // binary にする（レビュー L8）。テスト: tests/cpp/console_test.cpp、tests/cpp/mosa_utf8_pipe_test.cmake、
-// tests/mosac/std_binary_test.cmake、tests/cpp/answer_prompt_test.cpp、tests/cpp/transcript_test.cmake
+// tests/mosac/std_binary_test.cmake、tests/cpp/answer_prompt_test.cpp、tests/cpp/transcript_test.cmake、
+// tests/cpp/windows_process_test.ps1（windows_ctrl_c）
 #include "mosa/console.hpp"
 
 #include <cstdio>
@@ -41,6 +42,13 @@ UINT saved_output_cp = 0;
 void restore_console() {
   if (saved_input_cp != 0) SetConsoleCP(saved_input_cp);
   if (saved_output_cp != 0) SetConsoleOutputCP(saved_output_cp);
+}
+
+// Ctrl+C と Ctrl+Break とコンソールを閉じたときの既定の処理は、atexit を通らない ExitProcess でプロセスを終えるので、
+// その前にコードページを戻す（レビュー M-43）。FALSE を返し、プロセスを終える既定の処理へ続ける。
+BOOL WINAPI restore_on_signal(DWORD signal) {
+  if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT || signal == CTRL_CLOSE_EVENT) restore_console();
+  return FALSE;
 }
 
 ConsoleRead read_console() {
@@ -104,6 +112,7 @@ void prepare_console() {
   SetConsoleCP(CP_UTF8);
   SetConsoleOutputCP(CP_UTF8);
   std::atexit(restore_console);
+  SetConsoleCtrlHandler(restore_on_signal, TRUE);
 #endif
 }
 
