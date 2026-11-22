@@ -1,11 +1,13 @@
 #pragma once
 
-// 8.10 の解の像。solutions.cpp が集め、solutions_answer.cpp が束縛する。
+// 8.10 の解の像。solutions.cpp が集め、solutions_answer.cpp が束縛する。ゴールの検査は solutions_goal.cpp。
 // 1 ファイル 800 行を超えないように分けてある。
 
 #include "../machine/internal.hpp"
 
 #include <cstdint>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -57,6 +59,16 @@ struct Answer {
 void bind_answers(Impl& machine, const Goal& goal, const std::vector<Cell>& witnesses,
                   const std::vector<Answer>& answers);
 void bind_found(Impl& machine, const Goal& goal, const Packet& packet);
+
+// ゴールを動かす前の検査と証人（solutions_goal.cpp）。
+enum class Which { None, Findall, Bagof, Setof };
+Which which_solution(std::string_view name, std::uint16_t arity);
+std::optional<Cell> strip_caret(Impl& machine, Cell& goal, std::vector<Cell>& hidden);
+std::vector<Cell> free_witnesses(Impl& machine, Cell goal, Cell templ, const std::vector<Cell>& hidden);
+bool goal_shape_ok(Impl& machine, const Goal& goal, Cell cell);
+bool goal_body_ok(Impl& machine, const Goal& goal, Cell cell, Compiled& compiled);
+bool bad_list(Impl& machine, const Goal& goal);
+bool bad_tail(Impl& machine, const Goal& goal);
 
 }  // namespace sol
 }  // namespace mosa
