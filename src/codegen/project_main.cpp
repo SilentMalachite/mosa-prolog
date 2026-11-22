@@ -161,9 +161,7 @@ std::string cmake_head(const std::string& name, const std::string& sources, std:
 }
 
 std::string cmake_tail(const std::string& name) {
-  std::string out = "# libmosa の CommandLineToArgvW（src/platform/command_line.cpp）。静的ライブラリからは伝わらない。\n";
-  out += "if(WIN32)\n  target_link_libraries(" + name + " PRIVATE shell32)\nendif()\n";
-  out += "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。/EHsc は mosac build が\n";
+  std::string out = "# 本体と同じ旗。生成コードの日本語の注釈のため MSVC には /utf-8 を渡す。/EHsc は mosac build が\n";
   out += "# CMAKE_CXX_FLAGS を空にしても残るよう、ここに置く（直接の道の旗と同じ）。\n";
   out += "target_compile_options(" + name + " PRIVATE\n";
   out += "  $<$<CXX_COMPILER_ID:MSVC>:/EHsc;/W4;/utf-8;/permissive-;/Zc:__cplusplus>\n";

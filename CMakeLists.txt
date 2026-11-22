@@ -31,10 +31,6 @@ add_library(mosa_lib STATIC src/version.cpp)
 target_include_directories(mosa_lib PUBLIC include)
 set_target_properties(mosa_lib PROPERTIES OUTPUT_NAME mosa)
 target_link_libraries(mosa_lib PUBLIC mosa_warnings)
-# CommandLineToArgvW（src/platform/command_line.cpp）。
-if(WIN32)
-  target_link_libraries(mosa_lib PRIVATE shell32)
-endif()
 
 add_executable(mosa src/main_mosa.cpp)
 target_link_libraries(mosa PRIVATE mosa_lib)

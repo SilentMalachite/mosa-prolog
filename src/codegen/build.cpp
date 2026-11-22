@@ -75,7 +75,6 @@ Args link_flags(const Toolchain& toolchain, const RuntimeLayout& runtime, std::s
   Args flags = is_msvc(toolchain.cxx) ? Args{"/nologo"} : Args{};
   append(flags, unit_archives(toolchain, runtime, libraries));
   flags.push_back(utf8_from_path(runtime.library));
-  if (is_msvc(toolchain.cxx)) flags.emplace_back("shell32.lib");
   if (!is_msvc(toolchain.cxx) && host_os() == HostOs::linux) append(flags, Args{"-static-libstdc++", "-static-libgcc"});
   return flags;
 }
