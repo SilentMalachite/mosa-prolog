@@ -135,20 +135,22 @@ Scan Lexer::scan_number() {
   const Place start = here();
   const SourceChar first = peek_char();
   if (first.code != U'0') return scan_decimal(start);
-  const SourceChar second = peek_char_at(index_ + 1);
+  // 0 と次の字は写した後の字で見て、写す前の字の幅で進む。char_conversion で ０ や ’ や ｘ を写すと、3 バイトの字が
+  // 0 や ' や x になる。前は 1 バイトずつ見て、字の途中を読んだ（レビュー M-05、7.11）。
+  const SourceChar second = peek_char_at(index_ + first.bytes);
   if (!second.valid) return scan_decimal(start);
-  if (second.code == U'\'') return scan_char_code(start);
+  if (second.code == U'\'') return scan_char_code(first, second, start);
   // 0b 0o 0x は小文字だけ。0X10 は十進の 0 と変数 X10 に分かれる。
   int base = 0;
   if (second.code == U'b') base = 2;
   else if (second.code == U'o') base = 8;
   else if (second.code == U'x') base = 16;
-  if (base == 0 || !radix_ready(base)) return scan_decimal(start);
-  return scan_radix(base, static_cast<char>(second.code), start);
+  if (base == 0 || !radix_ready(base, first.bytes + second.bytes)) return scan_decimal(start);
+  return scan_radix(base, first, second, start);
 }
 
-bool Lexer::radix_ready(int base) const {
-  const SourceChar digit = peek_char_at(index_ + 2);
+bool Lexer::radix_ready(int base, std::size_t prefix_bytes) const {
+  const SourceChar digit = peek_char_at(index_ + prefix_bytes);
   return digit.valid && digit_value(digit.code, base) >= 0;
 }
 
@@ -188,13 +190,13 @@ Scan Lexer::integer_token(const Digits& digits, int base, Place start) {
   return scan;
 }
 
-Scan Lexer::scan_radix(int base, char prefix, Place start) {
-  advance(U'0', 1);
-  advance(static_cast<char32_t>(static_cast<unsigned char>(prefix)), 1);
+Scan Lexer::scan_radix(int base, SourceChar zero, SourceChar mark, Place start) {
+  advance(zero.code, zero.bytes);
+  advance(mark.code, mark.bytes);
   const Digits digits = read_digits(base);
   std::string spelling;
   spelling.push_back('0');
-  spelling.push_back(prefix);
+  spelling.push_back(static_cast<char>(mark.code));
   spelling += digits.spelling;
   if (digits.bad_separator || !digits.any) {
     return fail_at(SyntaxReason::UnexpectedToken, std::move(spelling), start);
@@ -202,9 +204,9 @@ Scan Lexer::scan_radix(int base, char prefix, Place start) {
   return integer_token(digits, base, start);
 }
 
-Scan Lexer::scan_char_code(Place start) {
-  advance(U'0', 1);
-  advance(U'\'', 1);
+Scan Lexer::scan_char_code(SourceChar zero, SourceChar mark, Place start) {
+  advance(zero.code, zero.bytes);
+  advance(mark.code, mark.bytes);
   // 0'（ は（の符号位置。引用の一種なので全角記号モードでも半角にしない。
   const FlagScope literal(fullwidth_, false);
   if (index_ >= source_.size()) return fail_at(SyntaxReason::UnexpectedToken, "0'", start);

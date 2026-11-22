@@ -122,9 +122,10 @@ class Lexer {
   [[nodiscard]] Scan scan_number();
   // nullopt は小数点の隣の `_`。false は小数部なし、true は桁が続く。
   [[nodiscard]] std::optional<bool> fraction_follows() const;
-  [[nodiscard]] bool radix_ready(int base) const;
-  [[nodiscard]] Scan scan_char_code(Place start);
-  [[nodiscard]] Scan scan_radix(int base, char prefix, Place start);
+  // zero と mark は先頭の 0 と次の字（' か b、o、x）。写した後の字で、bytes は写す前の字の幅（レビュー M-05）。
+  [[nodiscard]] bool radix_ready(int base, std::size_t prefix_bytes) const;
+  [[nodiscard]] Scan scan_char_code(SourceChar zero, SourceChar mark, Place start);
+  [[nodiscard]] Scan scan_radix(int base, SourceChar zero, SourceChar mark, Place start);
   [[nodiscard]] Scan integer_token(const Digits& digits, int base, Place start);
   [[nodiscard]] Scan scan_decimal(Place start);
   [[nodiscard]] Digits read_digits(int base);

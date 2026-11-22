@@ -34,6 +34,13 @@ test(wq_tokyo_space, (with_output_to(atom(A), writeq('東 京')), A == '''東 �
 test(cop_ha, (op(700, xfx, は), current_op(700, xfx, は), op(0, xfx, は)), true).
 test(conv_ha, (set_prolog_flag(char_conversion, on), char_conversion(あ, い), open_string('あ.', S), read(S, T), T == い, char_conversion(あ, あ), set_prolog_flag(char_conversion, off)), true).
 test(ccc_ha, (\+ current_char_conversion(あ, あ), char_conversion(あ, い), current_char_conversion(あ, い), current_char_conversion(X, い), X == あ, findall(P-Q, current_char_conversion(P, Q), L), L == [あ-い], char_conversion(あ, あ)), true).
+% レビュー M-05（7.11 の char_conversion、6.4.4）。0'c と 0b/0o/0x は写した後の字で読み、写す前のマルチバイトの字の幅で進む。
+test(m05_conv_quote, (set_prolog_flag(char_conversion, on), char_conversion('’', ''''), catch((open_string('f(0’a).', S), read(S, T)), E, true), char_conversion('’', '’'), set_prolog_flag(char_conversion, off), var(E), T == f(97)), true).
+test(m05_conv_zero_code, (set_prolog_flag(char_conversion, on), char_conversion('０', '0'), catch((open_string('f(０''a).', S), read(S, T)), E, true), char_conversion('０', '０'), set_prolog_flag(char_conversion, off), var(E), T == f(97)), true).
+test(m05_conv_x, (set_prolog_flag(char_conversion, on), char_conversion('ｘ', x), catch((open_string('f(0ｘ1F).', S), read(S, T)), E, true), char_conversion('ｘ', 'ｘ'), set_prolog_flag(char_conversion, off), var(E), T == f(31)), true).
+test(m05_conv_zero_x, (set_prolog_flag(char_conversion, on), char_conversion('０', '0'), catch((open_string('f(０x1F).', S), read(S, T)), E, true), char_conversion('０', '０'), set_prolog_flag(char_conversion, off), var(E), T == f(31)), true).
+test(m05_conv_zero_b, (set_prolog_flag(char_conversion, on), char_conversion('０', '0'), char_conversion('ｂ', b), catch((open_string('f(０ｂ101).', S), read(S, T)), E, true), char_conversion('０', '０'), char_conversion('ｂ', 'ｂ'), set_prolog_flag(char_conversion, off), var(E), T == f(5)), true).
+test(m05_conv_zero_o, (set_prolog_flag(char_conversion, on), char_conversion('０', '0'), char_conversion('ｏ', o), catch((open_string('f(０ｏ17, ０).', S), read(S, T)), E, true), char_conversion('０', '０'), char_conversion('ｏ', 'ｏ'), set_prolog_flag(char_conversion, off), var(E), T == f(15, 0)), true).
 
 :- discontiguous(離/1).
 
