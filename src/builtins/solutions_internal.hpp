@@ -6,6 +6,7 @@
 #include "../machine/internal.hpp"
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace mosa {
@@ -40,6 +41,9 @@ struct Group {
 struct Packet {
   std::vector<Group> groups;
   std::vector<std::uint64_t> ext_raw;
+  // 鍵の目印（key_hash）から groups の添字へ。組を探すときは目印の同じ組だけを same_term で確かめる。前はどの答えでも
+  // すべての組を比べ、組の数の 2 乗になった（レビュー M-27）。集めるときだけ使う。
+  std::unordered_multimap<std::uint64_t, std::size_t> index;
 };
 
 struct Answer {

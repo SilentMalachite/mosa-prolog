@@ -5,6 +5,7 @@
 
 #include "mosa/bigint.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -15,16 +16,32 @@ namespace mosa {
 namespace sol {
 namespace {
 
-void sort_cells(Impl& machine, std::vector<Cell>& items) {
-  for (std::size_t index = 1; index < items.size(); ++index) {
-    const Cell current = items[index];
-    std::size_t hole = index;
-    while (hole > 0 && compare_cells(machine, items[hole - 1], current) > 0) {
-      items[hole] = items[hole - 1];
-      --hole;
+// 安定な併合ソート。compare_cells が 0 を返す要素は元の順を保つ（前の挿入ソートと同じ並び）。比較は N log N 回で、
+// 前の挿入ソートは 2 乗だった（レビュー M-27）。std::sort は比較が厳密な弱順序でないと範囲の外を読みうるが、併合は
+// 比較の結果によらず添字を範囲の中で進める。
+template <typename T, typename Key>
+void merge_sort(Impl& machine, std::vector<T>& items, Key key) {
+  std::vector<T> buffer(items.size());
+  for (std::size_t width = 1; width < items.size(); width *= 2) {
+    for (std::size_t left = 0; left < items.size(); left += 2 * width) {
+      const std::size_t mid = std::min(left + width, items.size());
+      const std::size_t right = std::min(left + 2 * width, items.size());
+      std::size_t first = left;
+      std::size_t second = mid;
+      std::size_t out = left;
+      while (first < mid && second < right) {
+        const bool take_second = compare_cells(machine, key(items[second]), key(items[first])) < 0;
+        buffer[out++] = std::move(take_second ? items[second++] : items[first++]);
+      }
+      while (first < mid) buffer[out++] = std::move(items[first++]);
+      while (second < right) buffer[out++] = std::move(items[second++]);
     }
-    items[hole] = current;
+    std::swap(items, buffer);
   }
+}
+
+void sort_cells(Impl& machine, std::vector<Cell>& items) {
+  merge_sort(machine, items, [](const Cell& item) { return item; });
 }
 
 void unique_cells(Impl& machine, std::vector<Cell>& items) {
@@ -37,15 +54,7 @@ void unique_cells(Impl& machine, std::vector<Cell>& items) {
 }
 
 void sort_answers(Impl& machine, std::vector<Answer>& answers) {
-  for (std::size_t index = 1; index < answers.size(); ++index) {
-    Answer current = std::move(answers[index]);
-    std::size_t hole = index;
-    while (hole > 0 && compare_cells(machine, answers[hole - 1].witness, current.witness) > 0) {
-      answers[hole] = std::move(answers[hole - 1]);
-      --hole;
-    }
-    answers[hole] = std::move(current);
-  }
+  merge_sort(machine, answers, [](const Answer& answer) { return answer.witness; });
 }
 
 struct Porter {

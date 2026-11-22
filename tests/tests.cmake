@@ -208,6 +208,10 @@ add_test(NAME sub_atom_scale COMMAND $<TARGET_FILE:sub_atom_scale_test>)
 # 時間の比を測るので、並列の ctest -j でほかのテストと CPU を取り合うと落ちうる。ひとりで走らせる。
 set_tests_properties(sub_atom_scale PROPERTIES RUN_SERIAL TRUE)
 # 全体レビュー推奨4。=../2 のリスト読みと読み書きの変数表が要素数に比例する範囲に収まる。
+add_executable(solutions_scale_test tests/cpp/solutions_scale_test.cpp)
+target_include_directories(solutions_scale_test PRIVATE tests/cpp)
+target_link_libraries(solutions_scale_test PRIVATE mosa_lib)
+add_test(NAME solutions_scale COMMAND $<TARGET_FILE:solutions_scale_test>)
 add_executable(term_scale_test tests/cpp/term_scale_test.cpp)
 target_include_directories(term_scale_test PRIVATE tests/cpp)
 target_link_libraries(term_scale_test PRIVATE mosa_lib)

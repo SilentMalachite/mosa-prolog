@@ -534,9 +534,45 @@ std::size_t pushed(std::vector<T>& items, U&& item) {
 
 std::size_t words_of(std::size_t bytes) { return (bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t); }
 
+// 組の鍵の目印。compare_cells で等しい鍵は同じ値になる。Share は共有した先を辿るので、DAG でも木でも巡回する項でも
+// 同じ順に節点を見る（見るのは前から kKeyHashNodes 個まで）。-0.0 と 0.0、NaN どうしは値で分けず、List は '.'/2 と
+// 同じに数える。値が同じでも鍵が違うことはあり、組は same_term で確かめる（レビュー M-27）。
+std::uint64_t key_hash(const ExportedTerm& term, std::uint32_t dot) {
+  constexpr std::size_t kKeyHashNodes = 128;
+  std::uint64_t hash = 1469598103934665603ULL;
+  const auto mix = [&hash](std::uint64_t value) { hash = (hash ^ value) * 1099511628211ULL; };
+  std::vector<int> pending;
+  if (term.root >= 0) pending.push_back(term.root);
+  for (std::size_t seen = 0; !pending.empty() && seen < kKeyHashNodes; ++seen) {
+    const ExportedTerm::Node* node = &term.nodes[static_cast<std::size_t>(pending.back())];
+    pending.pop_back();
+    if (node->kind == ExportedTerm::Kind::Share) node = &term.nodes[static_cast<std::size_t>(node->share)];
+    const bool list = node->kind == ExportedTerm::Kind::List;
+    mix(list ? static_cast<std::uint64_t>(ExportedTerm::Kind::Str) : static_cast<std::uint64_t>(node->kind));
+    if (list || node->kind == ExportedTerm::Kind::Str) {
+      mix(list ? dot : node->atom);
+      mix(list ? 2 : node->arity);
+    } else if (node->kind == ExportedTerm::Kind::Atom) {
+      mix(node->atom);
+    } else if (node->kind == ExportedTerm::Kind::Int || node->kind == ExportedTerm::Kind::Big) {
+      mix(std::bit_cast<std::uint64_t>(node->integer));
+    } else if (node->kind == ExportedTerm::Kind::Float) {
+      const double value = node->floating;
+      mix(value == 0 || value != value ? 0 : std::bit_cast<std::uint64_t>(value));
+    }
+    // 前順に辿るので、子は後ろから積む。
+    for (auto kid = node->kids.rbegin(); kid != node->kids.rend(); ++kid) pending.push_back(*kid);
+  }
+  return hash;
+}
+
+// 組の目印の表の 1 項目のおおよその大きさ（節点の対と次の節点へのポインタと目印、それに桶）。
+constexpr std::size_t kIndexEntryBytes = 4 * sizeof(std::uint64_t);
+
 // 返り値は新しく持ったバイト数。同じ鍵の組へ足すときは鍵の写しを捨てるので、答えの分だけ。
-std::size_t remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, VarIds& ids,
-                     std::vector<Group>& groups, bool share) {
+std::size_t remember(Impl& machine, Cell templ, const std::vector<Cell>& witnesses, VarIds& ids, Packet& packet,
+                     bool share) {
+  std::vector<Group>& groups = packet.groups;
   ids.reset_local();
   note_alias(machine, ids);
   const ExportedTerm key_copy = export_term(machine, coded_key(machine, witnesses, ids));
@@ -545,7 +581,10 @@ std::size_t remember(Impl& machine, Cell templ, const std::vector<Cell>& witness
   if (share) image = snapshot(machine, witnesses, templ, ids);
   else templ_copy = export_term(machine, templ);
   const std::size_t answer = share ? footprint(image) : footprint(templ_copy);
-  for (Group& group : groups) {
+  const std::uint64_t hash = key_hash(key_copy, machine.atoms.intern("."));
+  const auto [first, last] = packet.index.equal_range(hash);
+  for (auto found = first; found != last; ++found) {
+    Group& group = groups[found->second];
     if (!same_term(machine, group.key, key_copy)) continue;
     if (share) return answer + pushed(group.shots, std::move(image));
     return answer + pushed(group.templs, std::move(templ_copy));
@@ -555,7 +594,10 @@ std::size_t remember(Impl& machine, Cell templ, const std::vector<Cell>& witness
   created.key = key_copy;
   const std::size_t key = footprint(created.key);
   const std::size_t inner = share ? pushed(created.shots, std::move(image)) : pushed(created.templs, std::move(templ_copy));
-  return answer + inner + key + pushed(groups, std::move(created));
+  // 目印は組を足し終えてから表に入れる。先に入れると、足す途中で投げたとき表が無い組を指す。
+  const std::size_t grown = pushed(groups, std::move(created));
+  packet.index.emplace(hash, groups.size() - 1);
+  return answer + inner + key + kIndexEntryBytes + grown;
 }
 
 // base は「呼ぶ前からあったセル」の境の水位なので、語の生死ではなく heap_mark として写す。
@@ -639,7 +681,7 @@ Collecting& collecting(Entry& entry) { return static_cast<Collecting&>(*entry.co
 void collect_step(Impl& machine, std::size_t entry) {
   Collecting& state = collecting(machine.stack[entry]);
   const std::size_t bytes =
-      remember(machine, state.templ, state.witnesses, state.ids, state.packet.groups, state.which != Which::Findall);
+      remember(machine, state.templ, state.witnesses, state.ids, state.packet, state.which != Which::Findall);
   // 先に数えてから上限を確かめる。投げても、Collecting の破棄が同じ語数を返す。
   const std::size_t words = words_of(bytes);
   state.held += words;
