@@ -44,9 +44,11 @@ jobs:
           sed -n 's/.*"message":"\([^"]*\)".*/mosatest --diff: \1/p' docs/agreement.json | head -n 1 >> "$GITHUB_STEP_SUMMARY"
       # README のバッジは main の conformance.json、conformance-library.json、agreement.json を読む。
       # 照合を macOS だけにするのは、開発者が生成してコミットする環境に合わせ、OS ごとの差でバッジの値が揺れないようにするため。
+      # conformance.md の不合格の一覧も照らす。合格率が同じままの入れ替わりは率だけでは見えない（レビュー N-10）。
+      # 一覧は名前の順に並べて書き、時間もパスも含まない。
       - name: Check badges
         shell: bash
-        run: git diff --exit-code -- docs/conformance.json docs/conformance-library.json docs/agreement.json
+        run: git diff --exit-code -- docs/conformance.json docs/conformance-library.json docs/agreement.json docs/conformance.md
       # 計画 Task 13。bench/ の 7 本を docs/bench.json と同じ N で測り、プログラムごとの比（インタプリタ / 翻訳）が
       # コミット済みの比より 20% 以上下がれば警告にする。ランナーは表を測った機械（docs/bench.md）と違い、ミリ秒の
       # 絶対値どうしを比べると毎回 22-78% 遅いと出た（最終レビュー）。比は両側が同じ機械で測るので機械の速さが消える。
