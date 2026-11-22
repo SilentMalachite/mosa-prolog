@@ -46,7 +46,7 @@ const std::string& port_name(Impl& machine, DebugPort port) {
 // 開いている（まだ抜けていない）箱の数。番兵が開いたときに決めて持つ（debug_box.cpp の open_depth）。
 std::size_t box_depth(const Impl& machine, std::size_t box_index) { return machine.stack[box_index].cursor; }
 
-// 枠の引数を今の束縛のまま項にする。項はヒープの上の捨て物で、次の GC か巻き戻しで消える。
+// 枠の引数を今の束縛のまま項にする。項はヒープの上の捨て物で、goal_text が書いた後に切り詰める。
 Cell goal_term(Impl& machine, const Goal& goal) {
   if (goal.arity == 0) return machine.heap.atom(goal.name);
   std::vector<Cell> args;
@@ -68,9 +68,13 @@ std::string goal_text(Impl& machine, std::size_t box_index, const Cell* ball, in
   const Module* found = goal.module == machine.user_module ? nullptr : find_module(machine, goal.module);
   const OperatorTable local = found == nullptr ? OperatorTable{} : found->ops;
   const OperatorView view = found == nullptr ? OperatorView{machine.operators} : OperatorView{machine.operators, &local};
+  // ゴールの項は書くためだけに作り、書いたら捨てる。ポートで待つ間は GC が動かないので、w や g や行の書き直しの
+  // たびに項が積もり、ヒープの上限で問い合わせが止まった（レビュー M-13）。投げられた項は mark より下にある。
+  const std::size_t mark = machine.heap.size();
   std::vector<Cell> terms{goal_term(machine, goal)};
   if (ball != nullptr) terms.push_back(*ball);
   const std::vector<std::string> texts = write_terms(machine.heap, view, terms, options, {});
+  if (machine.heap.size() >= mark) machine.heap.truncate(mark);
   std::string text = texts.front();
   if (texts.size() > 1) text += " " + texts[1];
   return text;

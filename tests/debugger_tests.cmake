@@ -50,6 +50,9 @@ add_test(NAME transcript_debug_abort_heap_limit COMMAND ${CMAKE_COMMAND} -DMOSA=
   -DDATA=${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger -DCASE=debug_abort_heap_limit -DLANG_VALUE=en_US.UTF-8
   "-DARGS=--heap-max 16"
   -P ${CMAKE_SOURCE_DIR}/tests/cpp/transcript_test.cmake WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+# レビュー M-13。ポートの w と g は、書いたゴールの項をヒープに残さない（1 MiB のヒープで止まらない）。
+add_test(NAME debug_port_heap COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/debug_port_heap_test.cmake)
 # data/debugger の debug_*.in はどれも上で登録し、.out を持つ。一覧に足し忘れた組は黙って走らないので、構成で止める
 # （Muse のレビュー）。
 set(debug_data ${CMAKE_SOURCE_DIR}/tests/cpp/data/debugger)
