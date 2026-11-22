@@ -220,7 +220,9 @@ jobs:
 
   # Debug + ASan/UBSan のジョブ（全体レビュー推奨5）。Release だけだと assert が効かず、メモリ誤りと未定義動作の検査も無い。
   # mosac build と差分テストは、生成した実行ファイルを ASan 無しでリンクする（libmosa が ASan の記号を引く）ので外す。
-  # manual と package と mosa_std_binary もその経路を含む。scale は時間の比を測るので、Debug と ASan のもとでは意味が無い。
+  # manual_en_ja と package_layout と mosa_std_binary もその経路を含む。scale は時間の比を測るので、Debug と ASan のもとでは意味が無い。
+  # 名前は頭と尾を固定して並べる。部分一致だと、生成コードを作らない manual_* の 15 本と mosac_version、mosac_cli、
+  # mosac_library_clean、mosac_bracket_path、diff_module_test まで外れていた（レビュー M-57、手元の ASan で 20 本とも通る）。
   # stack_deep* と machine_deep は深さ 100 万の項で C++ のスタックを見るテストで、Debug + ASan では制限時間に収まらない
   # （手元の macOS 同構成で stack_deep_read と stack_deep_builtins が 600 秒の内側の制限を超えた）。
   # bigint_limit も Release 前提の TIMEOUT 300 を超えた。どちらもメモリの正しさは残りのテストが見る。
@@ -239,7 +241,7 @@ jobs:
       - name: Build
         run: cmake --build --preset linux-clang-asan
       - name: Test
-        run: ctest --preset linux-clang-asan -E "mosac|standalone|diff|package|install|mosatest_bench|manual|scale|stack_deep|machine_deep|bigint_limit|mosa_std_binary|repl_heap" --no-tests=error
+        run: ctest --preset linux-clang-asan -E "^(mosac_(emit|build|run|dist|long|deep)_.*|mosac_(cache_reuse|internal_error|debug_trace|module_names|catalog_names)(_direct)?|mosac_(embed_root|heap_limit|installed_layout|interactive)|standalone_.*|diff_(tests_pl|conformance)|package_layout|mosatest_bench|manual_en_ja|mosa_std_binary|.*_scale|stack_deep_.*|machine_deep|bigint_limit|repl_heap)$" --no-tests=error
       - name: Conformance suite
         run: ./build-asan/mosatest --suite tests/conformance
 
