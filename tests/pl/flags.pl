@@ -54,3 +54,5 @@ test(ml_values, set_prolog_flag(message_language, fr), error(domain_error(flag_v
 % レビュー M-10（7.11.2.5）。ゴールの指令と include したテキストで変えた double_quotes を、次の節から読み手が使う。
 test(m10_goal_quotes, (consult('tests/pl/fixtures/m10_goal_quotes.pl'), m10_goal_quotes(X), X == abc, current_prolog_flag(double_quotes, codes)), true).
 test(m10_include_quotes, (consult('tests/pl/fixtures/m10_include_quotes.pl'), m10_include_quotes(X), X == abc, current_prolog_flag(double_quotes, codes)), true).
+% レビュー M-11（ADR 0017）。失敗した読み込みは trace_gc と message_language も読む前の値へ戻す。unknown は前から戻る。
+test(m11_rollback, (current_prolog_flag(message_language, L0), set_prolog_flag(message_language, ja), (catch(consult('tests/pl/fixtures/m11_flags.pl'), _, true) -> true ; true), current_prolog_flag(trace_gc, G), current_prolog_flag(message_language, L), current_prolog_flag(unknown, U), set_prolog_flag(message_language, L0), set_prolog_flag(trace_gc, false), set_prolog_flag(unknown, error), G == false, L == ja, U == error), true).

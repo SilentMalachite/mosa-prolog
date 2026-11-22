@@ -18,6 +18,8 @@ SavedFlags save_flags(const Impl& machine) {
                     machine.debug.skip_box,
                     machine.debug.leashed,
                     machine.japanese_punct,
+                    machine.message_lang,
+                    machine.trace_gc,
                     machine.char_conv.map,
                     machine.main_goal};
 }
@@ -40,6 +42,8 @@ void restore_flags(Impl& machine, const SavedFlags& saved) {
   machine.debug.skip_box = saved.debug_skip_box;
   machine.debug.leashed = saved.debug_leashed;
   machine.japanese_punct = saved.japanese_punct;
+  machine.message_lang = saved.message_lang;
+  machine.trace_gc = saved.trace_gc;
   machine.char_conv.map = saved.char_map;
   machine.main_goal = saved.main_goal;
 }

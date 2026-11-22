@@ -248,6 +248,9 @@ struct SavedFlags {
   std::uint64_t debug_skip_box = 0;  // skip の箱。進み方と組で戻す
   std::uint8_t debug_leashed = kAllPorts;
   bool japanese_punct = false;
+  // 書き換えられる旗はどれも退避する。この 2 つは抜けていた（レビュー M-11）。
+  MessageLanguage message_lang = MessageLanguage::En;
+  bool trace_gc = false;
   std::vector<std::pair<char32_t, char32_t>> char_map;
   // 旗ではないが同じく、失敗した読み込みの initialization(G, main) を残さない。残すと取り消したファイルの G が動く。
   std::optional<ExportedTerm> main_goal;
