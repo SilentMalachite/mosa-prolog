@@ -6,6 +6,8 @@
 #include "diff.hpp"
 #include "percent.hpp"
 
+#include "mosa/path_text.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -264,7 +266,8 @@ void count_shape(DiffStats& stats, std::string_view shape) {
 }
 
 std::string diff_label(const std::filesystem::path& dir) {
-  std::string label = dir.lexically_normal().generic_string();
+  // generic_string は Windows で ANSI コードページへ写すので、日本語の名前を写せずに投げる（L7、レビュー L-40）。
+  std::string label = utf8_from_path(dir.lexically_normal());
   while (label.size() > 1 && label.back() == '/') label.pop_back();
   return label;
 }

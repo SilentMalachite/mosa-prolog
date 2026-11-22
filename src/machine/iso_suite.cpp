@@ -63,7 +63,8 @@ void consider_directory(const std::filesystem::path& dir, const std::filesystem:
   std::error_code error;
   const auto relative = std::filesystem::relative(dir, root, error);
   if (error) return;
-  const std::string posix = relative.generic_string();
+  // 範囲の外のディレクトリの名前も UTF-8 で書く（generic_string は Windows で ANSI へ写す、レビュー L-40）。
+  const std::string posix = utf8_from_path(relative);
   if (posix.empty() || posix == ".") return;
   const auto tests = dir / "tests.lgt";
   if (!std::filesystem::is_regular_file(tests, error) || error) return;

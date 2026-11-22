@@ -268,7 +268,7 @@ std::vector<DiffLine> lgt_results(const std::filesystem::path& file, const std::
   std::vector<DiffLine> lines;
   StdCapture capture;
   try {
-    const LgtRun run = execute_lgt(source.file, utf8_from_path(file), error ? std::string{} : folder.generic_string(), loader);
+    const LgtRun run = execute_lgt(source.file, utf8_from_path(file), error ? std::string{} : utf8_from_path(folder), loader);
     for (const std::string& line : run.results) lines.push_back(split_label(line));
     for (const std::string& line : run.failures) lines.push_back(DiffLine{"failure", line});
     lines.push_back(DiffLine{"summary", "passed " + std::to_string(run.passed) + " failed " + std::to_string(run.failed)});
