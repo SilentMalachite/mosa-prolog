@@ -51,3 +51,6 @@ test(flag_iso_value, set_prolog_flag(iso, foo), error(domain_error(flag_value, i
 test(ml_current, (current_prolog_flag(message_language, V), (V == ja ; V == en)), true).
 test(ml_set, (current_prolog_flag(message_language, Old), set_prolog_flag(message_language, en), current_prolog_flag(message_language, V), set_prolog_flag(message_language, Old)), solutions([V = en])).
 test(ml_values, set_prolog_flag(message_language, fr), error(domain_error(flag_value, message_language+fr))).
+% レビュー M-10（7.11.2.5）。ゴールの指令と include したテキストで変えた double_quotes を、次の節から読み手が使う。
+test(m10_goal_quotes, (consult('tests/pl/fixtures/m10_goal_quotes.pl'), m10_goal_quotes(X), X == abc, current_prolog_flag(double_quotes, codes)), true).
+test(m10_include_quotes, (consult('tests/pl/fixtures/m10_include_quotes.pl'), m10_include_quotes(X), X == abc, current_prolog_flag(double_quotes, codes)), true).

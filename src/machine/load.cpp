@@ -128,7 +128,7 @@ bool enter_file(Impl& machine, std::string_view origin, LoadScan& scan, CycleGua
   return true;
 }
 
-bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_view directory,
+bool take_term(Impl& machine, const ReadTerm& read, std::string_view directory,
                std::string_view origin, bool first, LoadScan& scan) {
   // mosatest の test/3 は節にせず横取りする（suite.cpp）。指示より先に見るので、横取りした項は何も変えない。
   if (machine.term_hook && machine.term_hook(read, origin)) return true;
@@ -150,7 +150,7 @@ bool take_term(Impl& machine, Reader& reader, const ReadTerm& read, std::string_
   const int listed = apply_file_list(machine, term, directory, scan.opening);
   if (listed != 0) return listed > 0;
   const int directed =
-      consume_directive(machine, reader, term, scan.snapshots, scan.apart, scan.inits, first, origin);
+      consume_directive(machine, term, scan.snapshots, scan.apart, scan.inits, first, origin);
   if (directed != 0) return directed > 0;
   std::uint32_t module = machine.load_module;
   if (const auto formal = strip_clause(machine, term, module)) return fail_formal(machine, *formal) > 0;
@@ -232,11 +232,14 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
   // if と endif の対はテキストごとに閉じる（ADR 0027）。include したテキストも自分の積みを持つ。
   CondFrames cond{machine};
   Reader reader(source, machine.heap, machine.operators, current_double_quotes(machine), &machine.char_conv);
-  reader.set_fullwidth(machine.japanese_punct);
   bool first = true;
   while (true) {
     // module/2 と op/3 が見え方を替える。項ごとに、今のモジュールの見え方で読む。
     reader.set_operators(op_view(machine, machine.load_module));
+    // 旗も項ごとに今の値で読む。set_prolog_flag の指令だけでなく、ゴールの指令と include したテキストも旗を変え、
+    // 次の項から効く（レビュー M-10、7.11.2.5）。前は旗の指令の後にしか読み手へ渡さなかった。
+    reader.set_quotes(current_double_quotes(machine));
+    reader.set_fullwidth(machine.japanese_punct);
     const std::size_t before = reader.consumed();
     const ReadOutcome outcome = reader.next();
     // 読み飛ばし中の構文の誤りは、診断を出さずに下の読み飛ばしの道へ進む（問い 3 の A）。tolerate_syntax より先に
@@ -265,7 +268,7 @@ bool read_terms(Impl& machine, std::string_view source, std::string_view directo
       // 開いたファイルの数は、その項の指令がファイルを開く前に取る。
       const auto tolerable = cond.tolerable();
       const bool clause = !is_directive(machine.heap, outcome.term->term);
-      if (!take_term(machine, reader, *outcome.term, directory, origin, first, scan) &&
+      if (!take_term(machine, *outcome.term, directory, origin, first, scan) &&
           !cond.tolerate(tolerable, clause)) {
         return false;
       }

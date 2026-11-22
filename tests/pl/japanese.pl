@@ -246,3 +246,6 @@ test(assoc_ja, (list_to_assoc([りんご-1, みかん-2], J), assoc_to_keys(J, K
 test(ja_spy_pi, (spy(デバッグ用/1), nodebug, nospyall), true).
 test(ja_spy_name, (spy(デバッグ用), nodebug, nospyall), true).
 test(ja_spy_bad, spy(デバッグ用/あ), error(type_error(integer, あ))).
+% レビュー M-10（SPEC 第4節）。ゴールの指令と include したテキストで変えた japanese_punctuation を、次の節から読み手が使う。
+test(m10_goal_punct, (consult('tests/pl/fixtures/m10_goal_punct.pl'), m10_goal_punct(a, b), current_prolog_flag(japanese_punctuation, false)), true).
+test(m10_include_punct, (consult('tests/pl/fixtures/m10_include_punct.pl'), m10_include_punct(a, b), current_prolog_flag(japanese_punctuation, false)), true).

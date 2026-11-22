@@ -137,7 +137,7 @@ void note_defined(const Impl& machine, LoadSnapshots& snapshots, const Predicate
 // Impl::db_generation。
 void apply_file_notes(Impl& machine, FileNotes& notes, std::uint64_t started_at);
 // first は、この項がファイルの最初の項であること。module/2 はそこでしか受けない。
-[[nodiscard]] int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& snapshots,
+[[nodiscard]] int consume_directive(Impl& machine, Cell term, LoadSnapshots& snapshots,
                                     std::vector<Apart>& apart, std::vector<Cell>& inits, bool first,
                                     std::string_view origin);
 

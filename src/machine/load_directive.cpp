@@ -595,18 +595,14 @@ bool run_inits(Impl& machine, const std::vector<Cell>& goals) {
   return true;
 }
 
-int consume_directive(Impl& machine, Reader& reader, Cell term, LoadSnapshots& snapshots,
+int consume_directive(Impl& machine, Cell term, LoadSnapshots& snapshots,
                       std::vector<Apart>& apart, std::vector<Cell>& inits, bool first, std::string_view origin) {
   if (!is_directive(machine.heap, term)) return 0;
   const int module_directive = apply_module_directive(machine, term, first, origin);
   if (module_directive != 0) return module_directive;
   const int flag_directive = apply_flag_directive(machine, term);
   if (flag_directive < 0) return -1;
-  if (flag_directive > 0) {
-    reader.set_quotes(current_double_quotes(machine));
-    reader.set_fullwidth(machine.japanese_punct);
-    return 1;
-  }
+  if (flag_directive > 0) return 1;
   const int dynamic_directive = apply_dynamic_directive(machine, term, snapshots);
   if (dynamic_directive < 0) return -1;
   if (dynamic_directive > 0) return 1;
