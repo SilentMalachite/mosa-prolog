@@ -66,7 +66,7 @@ bool declare_meta(Impl& machine, LoadSnapshots& snapshots, Cell head) {
   else if (spec.tag() == Tag::Lis) key.name = machine.atoms.intern(".");
   else key.name = machine.heap.functor_atom(spec);
   key.arity = static_cast<std::uint16_t>(args.size());
-  if (is_builtin_procedure(machine, key.name, key.arity)) {
+  if (is_builtin_procedure(machine, key.name, key.arity) || neck_static(machine, key.name, key.arity)) {
     return fail_with(machine, formal_permission(machine, "modify", "static_procedure",
                                                 cell_functor(machine, key.name, key.arity)));
   }

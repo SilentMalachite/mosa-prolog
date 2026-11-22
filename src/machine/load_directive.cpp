@@ -161,11 +161,21 @@ bool collect_indicators(Impl& machine, Cell cell, std::vector<PredKey>& out, std
   return cell.tag() == Tag::Atom && static_cast<std::uint32_t>(cell.raw() >> 3) == nil;
 }
 
+// dynamic、discontiguous、multifile の並び。(:-)/1 と (:-)/2 はどれも断る。前は組込だけを見て、assertz/1 が静的として
+// 断る :- を動的な手続きにした（レビュー M-14、iso-notes 7.4）。組込の扱いは宣言ごとに前のまま。
 bool read_declared(Impl& machine, Cell arg, std::vector<PredKey>& indicators) {
   std::optional<Cell> formal;
-  if (collect_indicators(machine, arg, indicators, formal)) return true;
-  fail_load(machine, formal ? write_term(machine.heap, machine.operators, *formal, {}, {}) : message_text(machine, "not_predicate_indicator"));
-  return false;
+  if (!collect_indicators(machine, arg, indicators, formal)) {
+    fail_load(machine, formal ? write_term(machine.heap, machine.operators, *formal, {}, {}) : message_text(machine, "not_predicate_indicator"));
+    return false;
+  }
+  for (const PredKey& key : indicators) {
+    if (!neck_static(machine, key.name, key.arity)) continue;
+    const Cell refused = formal_permission(machine, "modify", "static_procedure", cell_functor(machine, key.name, key.arity));
+    fail_load(machine, write_term(machine.heap, machine.operators, refused, {}, {}));
+    return false;
+  }
+  return true;
 }
 
 bool mark_dynamic(Impl& machine, LoadSnapshots& snapshots, PredKey key) {

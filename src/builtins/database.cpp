@@ -145,13 +145,6 @@ bool refuse_builtin(Impl& machine, const Goal& goal, std::uint32_t name, std::ui
   return true;
 }
 
-bool neck_static(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
-  // :-/1 は指示、:-/2 は節の首。組込表に無いが assert では静的。
-  // 表へ足すと retract と clause の誤り種別まで変わる。
-  if (machine.atoms.name(name) != ":-") return false;
-  return arity == 1 || arity == 2;
-}
-
 
 
 ClauseView clause_view(Impl& machine, Cell term) {

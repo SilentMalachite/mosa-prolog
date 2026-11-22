@@ -524,6 +524,13 @@ void launch(Impl& machine, GoalRef goal, std::uint64_t cont, std::size_t cut, co
   }
 }
 
+bool neck_static(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
+  // :-/1 は指示、:-/2 は節の首。組込表に無いが assert では静的。
+  // 表へ足すと retract と clause の誤り種別まで変わる。
+  if (machine.atoms.name(name) != ":-") return false;
+  return arity == 1 || arity == 2;
+}
+
 bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity) {
   const auto text = machine.atoms.name(name);
   if (text == "call" && arity >= 1 && arity <= kCallArityMax) return true;

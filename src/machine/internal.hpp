@@ -712,6 +712,8 @@ void exit_box(Impl& machine, std::size_t extra_index);
 [[nodiscard]] bool shown_differs(const IrTerm& term, bool as_goal);
 // run_builtin が引き受ける手続きだけ。述語は実行しない。
 [[nodiscard]] bool is_builtin_procedure(const Impl& machine, std::uint32_t name, std::uint16_t arity);
+// :-/1 と :-/2。組込ではないが静的な手続きとして、assertz/1 も宣言も断る（iso-notes 7.4、レビュー M-14）。
+[[nodiscard]] bool neck_static(const Impl& machine, std::uint32_t name, std::uint16_t arity);
 struct BuiltinPi {
   std::string_view name;
   std::uint16_t arity;

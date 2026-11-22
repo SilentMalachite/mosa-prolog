@@ -68,8 +68,7 @@ std::optional<Cell> refused_clause(Impl& machine, Cell term, const Clause& claus
   const auto name = head_name(clause);
   const auto arity = head_arity(clause);
   // :-/1 は指示、:-/2 は節の首。組込の表に無いが、assertz/1 と同じく静的として断る。
-  const bool neck = machine.atoms.name(name) == ":-" && (arity == 1 || arity == 2);
-  if (!neck && !is_builtin_procedure(machine, name, arity)) return std::nullopt;
+  if (!neck_static(machine, name, arity) && !is_builtin_procedure(machine, name, arity)) return std::nullopt;
   return formal_permission(machine, "modify", "static_procedure", cell_functor(machine, name, arity));
 }
 
