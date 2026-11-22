@@ -20,9 +20,6 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
-- Review M-44, parallel builds of one program in one directory. A: build in a private directory and
-  rename it into place (a finished entry already there wins); B: a lock file next to the entry, with
-  waiting and a stale-lock rule. Not fixed yet; Windows may hold the new executable open during a rename.
 - `spy/1` and `debugging/0`. Default A: no spy point on a goal with no ports (`debug_has_ports`),
   the debugger turned on only when one is set, names quoted, and `M:` where `user` would reach
   another predicate. `transcript_debug_spy_forms` and the `dbg_spy_*_off` rows pin it.
@@ -39,8 +36,11 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `transcript_debug_spy_after_warning` and `_ja`).
 ## Owner decisions in force
 
-- Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes; ask
-  again after W8.
+- Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes. After W8
+  the owner asked to hold 0.5.1 (2026-11-22): do not prepare or tag it until they ask.
+- Review M-44 (A, 2026-11-22): each build works in a private directory and a finished one is put in
+  place without a lock; B (a lock file with a stale-lock rule) was declined. Carried out with a
+  `<hash>/current` pointer file instead of a renamed directory (review entry, 3616a8b1).
 - Review H-30 (A, 2026-11-22): the cap of 2^20 variable cells in a clause's resume frames stays
   (ADR 0011 amendment 5, added while implementing); a clause past it runs as IR. B (a higher cap)
   and C (no cap) were declined.
@@ -333,6 +333,13 @@ General:
   0030 keeps the form). MSVC tells identifiers apart by their first 2,048 characters only, about
   227 Japanese characters of a name, so such a predicate and its `_run` and `_c1` functions may
   clash there. Not checked (CI only, found during H-31); changing the form needs an ADR.
+- The build cache (M-44): a killed build's `.mosac-cache/<hash>/w-*` stays until a build of the
+  same key a day later, or `--clean`; a build that runs longer than a day can be removed by another
+  build of its key. A killed publish leaves `<hash>/current.tmp-*`, and a killed copy leaves
+  `<out>.tmp-*` next to `-o`. On a file system without hard links (exFAT), two builds that finish
+  together both publish, and the first one's `w-*` stays unnamed. `publish_dir` checks that
+  `current` exists before it reads it; reversing that order opens a window of microseconds that
+  `cache_place` does not catch (seen by mutation).
 - Only Release is installed.
 - The REPL writes prompts and answers past `user_output`, so its line position stays where the
   query left it. After a query whose output has no final newline, the next query's leading `~N`
