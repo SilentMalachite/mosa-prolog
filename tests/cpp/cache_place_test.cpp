@@ -88,21 +88,33 @@ void first_and_later(const fs::path& entry) {
   expect_entries(entry, 1, "later");
 }
 
-// private_dir は、current が指さない w-* のうち失敗の印がある物と 1 日より古い物を消し、current の指す物と
-// 新しい作りかけ（同時に走っているビルド）は残す。
+// private_dir は、current が指さない w-* のうち失敗の印がある物と 1 日より古い物を消し、current の指す物（古くても）と
+// 新しい作りかけ（同時に走っているビルド）は残す。当たりのときに呼ぶ sweep_stale は、1 日より古い current.tmp-* も消す。
 void sweep(const fs::path& entry) {
+  const auto two_days_ago = fs::file_time_type::clock::now() - std::chrono::hours{48};
   const fs::path good = make_work(entry, "good", true);
   static_cast<void>(publish(entry, good));
+  fs::last_write_time(good, two_days_ago);
   const fs::path failed = make_work(entry, "failed", false);
   mosa::codegen::mark_failed(failed);
   const fs::path old = make_work(entry, "old", false);
-  fs::last_write_time(old, fs::file_time_type::clock::now() - std::chrono::hours{48});
+  fs::last_write_time(old, two_days_ago);
   const fs::path live = make_work(entry, "live", false);
   const fs::path fresh = make_work(entry, "fresh", false);
   mosa_test::check(!fs::exists(failed), "sweep: a failed build's directory is removed");
   mosa_test::check(!fs::exists(old), "sweep: a directory older than a day is removed");
   mosa_test::check(fs::exists(live / "mark") && fs::exists(fresh / "mark"), "sweep: a build in progress is kept");
   mosa_test::check(current_mark(entry) == "good" && fs::exists(good / "mark"), "sweep: the published entry is kept");
+  const fs::path stale_temp = entry / "current.tmp-0000aaaa";
+  const fs::path new_temp = entry / "current.tmp-0000bbbb";
+  write_file(stale_temp, "w-00000000");
+  write_file(new_temp, "w-00000000");
+  fs::last_write_time(stale_temp, two_days_ago);
+  const fs::path killed = make_work(entry, "killed", false);
+  fs::last_write_time(killed, two_days_ago);
+  mosa::codegen::sweep_stale(entry);
+  mosa_test::check(!fs::exists(stale_temp) && fs::exists(new_temp), "sweep: only an old current.tmp-* is removed");
+  mosa_test::check(!fs::exists(killed) && current_mark(entry) == "good", "sweep on a hit: an old build is removed");
 }
 
 // 同じ entry へ 4 つのビルドが同時に置く。どれも同じ 1 つを返し、current はそれを指し、負けた 3 つは消える。

@@ -156,6 +156,7 @@ std::optional<std::filesystem::path> make_runtime(const BuildRequest& request, c
   if (dir) std::filesystem::create_directories(*dir / "logs", error);
   if (!dir || error) {
     report_write_error(entry, error);
+    if (dir) mark_failed(*dir);
     return std::nullopt;
   }
   const RuntimeJob job{request, toolchain, *dir};
@@ -194,6 +195,7 @@ std::optional<RuntimeLayout> runtime_from_source(const BuildRequest& request, co
   const std::filesystem::path entry = cache_root() / "runtime" / hex16(fnv1a(key.text, kFnvBasis));
   if (!runtime_cache_plain(entry)) return std::nullopt;
   if (const auto dir = current_dir(entry); dir && runtime_ready(*dir, key, toolchain)) {
+    sweep_stale(entry);
     if (request.verbose) std::cerr << mosac_message("mosac_runtime_cached", {utf8_from_path(key.root(*dir))}) << '\n';
     return layout_at(key.root(*dir), toolchain);
   }

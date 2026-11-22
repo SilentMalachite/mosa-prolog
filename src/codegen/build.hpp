@@ -45,7 +45,7 @@ struct Built {
 
 // 実行時ライブラリの場所（計画 Task 10）。root に libmosa（library）、include/、翻訳済みの lib/*.pl の単位 pl/（units_dir）
 // がある。runtime_layout.cpp がビルド木の形（mosac の隣）、インストールの形（<prefix>/lib/mosa/<OS>-<arch>-<compiler>/）、
-// --runtime-source が同梱の源から作った物（.mosac-cache/runtime/<hash>/prefix/）の順に見る。
+// --runtime-source が同梱の源から作った物（.mosac-cache/runtime/<hash>/w-*/prefix/）の順に見る。
 struct RuntimeLayout {
   std::filesystem::path root;
   std::filesystem::path include_dir;
@@ -101,7 +101,7 @@ struct CacheKeyInputs {
 };
 
 struct CacheKey {
-  std::string text;  // .mosac-cache/<hash>/key.txt に書く全文。当たりの判定はこれの一致で見る
+  std::string text;  // .mosac-cache/<hash>/w-*/key.txt に書く全文。当たりの判定はこれの一致で見る
   std::string hash;  // text の FNV-1a 64 の 16 桁
 };
 
@@ -125,8 +125,11 @@ struct CacheKey {
 [[nodiscard]] std::optional<std::filesystem::path> fresh_temp_dir(std::error_code& error);
 // 16 進 8 桁の推し量れない名前の部分。
 [[nodiscard]] std::string unique_suffix();
-// 失敗したビルドの作業用のディレクトリに印を付ける。次に同じ鍵で作るとき private_dir がそれを消す。
+// 失敗したビルドの作業用のディレクトリに印を付ける。次に同じ鍵で作るとき sweep_stale がそれを消す。
 void mark_failed(const std::filesystem::path& dir);
+// entry の中の前のビルドの残り（current が指さない w-* のうち、失敗の印がある物と 1 日より古い物、1 日より古い
+// current.tmp-*）を消す。private_dir と、当たりのときの呼び手が呼ぶ。
+void sweep_stale(const std::filesystem::path& entry);
 // entry の中の作業用のディレクトリ <entry>/w-<16 進 8 桁>。既にあれば別の名前で作り直す（排他的に作る）。前の
 // ビルドの残り（current が指さない w-* のうち、失敗の印がある物と 1 日より古い物）は先に消す。
 [[nodiscard]] std::optional<std::filesystem::path> private_dir(const std::filesystem::path& entry, std::error_code& error);

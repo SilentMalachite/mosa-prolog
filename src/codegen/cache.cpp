@@ -78,25 +78,10 @@ bool work_name(std::string_view name) {
   return name.size() == 10 && name.starts_with("w-") && std::ranges::all_of(name.substr(2), hex);
 }
 
-// 前のビルドの残りを消す（レビュー M-44）。前は外れのたびに置き場所ごと消したので、残りは鍵ごとに 1 組だった。
-// 消すのは current が指さない w-* のうち、失敗の印 failed がある物（終わった物で、ログは次のビルドまで残る）と、
-// 1 日より古い物（止められたビルド）だけ。同時に走っている作りかけは新しいので残る。
-void sweep_stale(const std::filesystem::path& entry) {
-  constexpr auto kStale = std::chrono::hours{24};
-  const auto keep = current_dir(entry);
+bool older_than_a_day(const std::filesystem::path& path) {
   std::error_code error;
-  std::vector<std::filesystem::path> stale;
-  for (std::filesystem::directory_iterator it{entry, error}, end; !error && it != end; it.increment(error)) {
-    const std::filesystem::path dir = it->path();
-    if (!work_name(utf8_from_path(dir.filename())) || (keep && *keep == dir)) continue;
-    if (!plain(dir, std::filesystem::file_type::directory)) continue;
-    std::error_code time_error;
-    const auto written = std::filesystem::last_write_time(dir, time_error);
-    const bool old = !time_error && std::filesystem::file_time_type::clock::now() - written > kStale;
-    if (old || plain(dir / "failed", std::filesystem::file_type::regular)) stale.push_back(dir);
-  }
-  std::error_code ignored;
-  for (const std::filesystem::path& dir : stale) std::filesystem::remove_all(dir, ignored);
+  const auto written = std::filesystem::last_write_time(path, error);
+  return !error && std::filesystem::file_time_type::clock::now() - written > std::chrono::hours{24};
 }
 
 }  // namespace
@@ -248,6 +233,28 @@ std::optional<std::filesystem::path> fresh_temp_dir(std::error_code& error) {
   return std::nullopt;
 }
 
+// 前のビルドの残りを消す（レビュー M-44）。前は外れのたびに置き場所ごと消したので、残りは鍵ごとに 1 組だった。
+// 消すのは current が指さない w-* のうち、失敗の印 failed がある物（終わった物で、ログは次のビルドまで残る）と、
+// 1 日より古い物（止められたビルド）、それに 1 日より古い current.tmp-*（止められた publish）だけ。同時に走っている
+// 作りかけは新しいので残る。外れのときだけでなく当たりのときも呼ぶので、当たりが続いても残りは 1 日で消える。
+void sweep_stale(const std::filesystem::path& entry) {
+  const auto keep = current_dir(entry);
+  std::error_code error;
+  std::vector<std::filesystem::path> stale;
+  for (std::filesystem::directory_iterator it{entry, error}, end; !error && it != end; it.increment(error)) {
+    const std::filesystem::path path = it->path();
+    const std::string name = utf8_from_path(path.filename());
+    if (name.starts_with("current.tmp-") && plain(path, std::filesystem::file_type::regular)) {
+      if (older_than_a_day(path)) stale.push_back(path);
+      continue;
+    }
+    if (!work_name(name) || (keep && *keep == path) || !plain(path, std::filesystem::file_type::directory)) continue;
+    if (older_than_a_day(path) || plain(path / "failed", std::filesystem::file_type::regular)) stale.push_back(path);
+  }
+  std::error_code ignored;
+  for (const std::filesystem::path& path : stale) std::filesystem::remove_all(path, ignored);
+}
+
 void mark_failed(const std::filesystem::path& dir) {
   // 印を書けなくても失敗の知らせは変えない。残った物は 1 日たてば sweep_stale が消す。
   static_cast<void>(write_text(dir / "failed", ""));
@@ -283,13 +290,19 @@ std::optional<std::filesystem::path> publish_dir(const std::filesystem::path& en
     return std::nullopt;
   }
   std::error_code ignored;
+  bool doubted = false;
   for (int attempt = 0; attempt < kPublishAttempts; ++attempt) {
     // あるかを先に見てから読む。current は硬いリンクか名前替えでしか置かないので、あると見た後に読んだ中身は
     // 書きかけではない。逆の順では、読んだ後に置かれた当たりを、無いと見て置き換えてしまう。
     const bool existed = present(pointer);
     if (const auto theirs = current_dir(entry); theirs && finished(*theirs)) {
       std::filesystem::remove(temp, ignored);
-      if (*theirs != work) std::filesystem::remove_all(work, ignored);
+      if (*theirs != work) {
+        // 消し切れない（Windows でほかのプロセスが中のファイルを開いている）ときは印を付け、次のビルドに消させる。
+        std::error_code removed;
+        std::filesystem::remove_all(work, removed);
+        if (removed) mark_failed(work);
+      }
       return theirs;
     }
     if (!existed) {
@@ -303,7 +316,14 @@ std::optional<std::filesystem::path> publish_dir(const std::filesystem::path& en
       // 誰も指さずに残る（呼び手が写しているので消さない）。
     } else if (!plain(pointer, std::filesystem::file_type::regular)) {
       // ディレクトリの current には名前替えで置けない。mosac が置いた物ではないので消す（記号リンクはリンクだけ）。
-      std::filesystem::remove_all(pointer, ignored);
+      std::filesystem::remove_all(pointer, error);
+      if (error) back_off(attempt);
+      continue;
+    } else if (!doubted) {
+      // 当たりを指さない current は、もう 1 度読んでから置き換える。Windows では、勝ったビルドが一時のファイル（current と
+      // 同じファイルの硬いリンク）を消す間、current を開けずに読みが空になることがある。
+      doubted = true;
+      back_off(attempt);
       continue;
     }
     std::filesystem::rename(temp, pointer, error);

@@ -54,23 +54,60 @@ foreach(round RANGE 1 3)
   endif()
 endforeach()
 
+# exe が動いて「こんにちは」を出すこと。
+function(expect_runs exe what)
+  execute_process(COMMAND "${exe}" WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err
+                  RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
+  string(REPLACE "\r\n" "\n" out "${out}")
+  if(NOT code EQUAL 0 OR NOT out STREQUAL "こんにちは\n")
+    fail("${what}")
+  endif()
+endfunction()
+macro(build_to out_name)
+  execute_process(COMMAND ${build} -o "${out_name}" WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE code
+                  OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 600 ENCODING UTF-8)
+endmacro()
+
+# 名前に .tmp-* を足すと名前の上限（255 バイト）を超える -o も、前と同じく上書きで書ける。Windows はパス全体の長さで
+# 別に止まりうるので見ない。
+if(NOT CMAKE_HOST_WIN32)
+  string(REPEAT "x" 250 long_name)
+  build_to("${long_name}")
+  if(NOT code EQUAL 0)
+    fail("a 250-byte -o must be written")
+  endif()
+  expect_runs("${WORK}/${long_name}" "the 250-byte -o must run")
+endif()
+
+# 記号リンクと、ファイルでない -o。Windows は記号リンクを作るのに権限が要り、FIFO が無いので見ない。
+if(NOT CMAKE_HOST_WIN32)
+  # -o が記号リンクなら、前（上書きの写しがリンクを辿った）と同じく、リンクは残してその先を新しい実行ファイルに替える。
+  file(WRITE "${WORK}/target" "not an executable\n")
+  file(CREATE_LINK "target" "${WORK}/link" SYMBOLIC)
+  build_to(link)
+  if(NOT code EQUAL 0 OR NOT IS_SYMLINK "${WORK}/link")
+    fail("a symlinked -o must stay a link")
+  endif()
+  expect_runs("${WORK}/target" "the link's target must be the new executable")
+  # 先の無いリンクは、リンクの中身のパス（相対ならリンクのディレクトリから）に書く。
+  file(CREATE_LINK "made" "${WORK}/dangling" SYMBOLIC)
+  build_to(dangling)
+  if(NOT code EQUAL 0 OR NOT IS_SYMLINK "${WORK}/dangling")
+    fail("a dangling symlinked -o must stay a link")
+  endif()
+  expect_runs("${WORK}/made" "the dangling link's target must be made")
+  # FIFO の -o は置き換えず、前と同じく書けないとして止まる。
+  execute_process(COMMAND mkfifo "${WORK}/fifo" RESULT_VARIABLE made_fifo)
+  if(made_fifo EQUAL 0)
+    build_to(fifo)
+    execute_process(COMMAND sh -c "test -p fifo" WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE still_fifo)
+    if(code EQUAL 0 OR NOT still_fifo EQUAL 0)
+      fail("a FIFO -o must be refused and kept")
+    endif()
+  endif()
+endif()
 # -o の隣に一時のファイル（<out>.tmp-*）が残らない。
 file(GLOB temps "${WORK}/*.tmp-*")
 if(temps)
   fail("no temporary file may be left next to -o, found [${temps}]")
-endif()
-# -o が記号リンクなら、前（上書きの写しがリンクを辿った）と同じく、リンクは残してその先を新しい実行ファイルに替える。
-# Windows は記号リンクを作るのに権限が要るので見ない。
-if(NOT CMAKE_HOST_WIN32)
-  file(CREATE_LINK "${WORK}/a" "${WORK}/link" SYMBOLIC)
-  execute_process(COMMAND ${build} -o link WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE code OUTPUT_VARIABLE out
-                  ERROR_VARIABLE err TIMEOUT 600 ENCODING UTF-8)
-  if(NOT code EQUAL 0 OR NOT IS_SYMLINK "${WORK}/link")
-    fail("a symlinked -o must stay a link")
-  endif()
-  execute_process(COMMAND "${WORK}/a" WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err
-                  RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
-  if(NOT code EQUAL 0 OR NOT out STREQUAL "こんにちは\n")
-    fail("the link's target must be the new executable")
-  endif()
 endif()

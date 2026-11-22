@@ -321,6 +321,7 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
   const std::filesystem::path entry = cache_root() / key->hash;
   const std::filesystem::path exe_name = path_from_utf8(target + exe_suffix());
   if (const auto hit = cache_hit(entry, *key, exe_name)) {
+    sweep_stale(entry);
     if (request.verbose) std::cerr << mosac_message("mosac_cache_hit", {utf8_from_path(*hit)}) << '\n';
     return Built{0, *hit / exe_name};
   }

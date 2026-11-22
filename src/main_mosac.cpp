@@ -203,22 +203,24 @@ std::filesystem::path install_place(const std::filesystem::path& target) {
 
 // -o へは隣に写してから名前を替え、いつも新しいファイルにする（レビュー M-44）。前は上書きで写したので inode が同じまま
 // 中身が替わり、macOS は一度動かした実行ファイルを、作り直した後に SIGKILL（Code Signature Invalid）で殺した（同時に
-// 作ったときに出た）。ディレクトリに書けず -o のファイルにだけ書ける（隣に一時のファイルを作れない）ときは、前と同じく
+// 作ったときに出た）。ファイルでない -o（FIFO、デバイス、ディレクトリ）は置き換えず、前と同じく copy_file に誤りに
+// させる。隣に一時のファイルを置けない（ディレクトリに書けない、名前に .tmp-* を足すと長すぎる）ときも前と同じく
 // 上書きで写す。
 bool install_exe(const std::filesystem::path& built, const std::filesystem::path& target) {
   const std::filesystem::path place = install_place(target);
-  std::filesystem::path temp = place;
-  temp += ".tmp-" + mosa::codegen::unique_suffix();
   std::error_code error;
   std::error_code ignored;
-  std::filesystem::copy_file(built, temp, error);
-  if (!error) std::filesystem::rename(temp, place, error);
-  if (!error) return true;
-  std::filesystem::remove(temp, ignored);
-  if (error == std::errc::permission_denied && std::filesystem::exists(place, ignored)) {
+  const std::filesystem::file_status status = std::filesystem::symlink_status(place, ignored);
+  if (!std::filesystem::exists(status) || std::filesystem::is_regular_file(status)) {
+    std::filesystem::path temp = place;
+    temp += ".tmp-" + mosa::codegen::unique_suffix();
+    std::filesystem::copy_file(built, temp, error);
+    if (!error) std::filesystem::rename(temp, place, error);
+    if (!error) return true;
+    std::filesystem::remove(temp, ignored);
     error.clear();
-    std::filesystem::copy_file(built, place, std::filesystem::copy_options::overwrite_existing, error);
   }
+  std::filesystem::copy_file(built, place, std::filesystem::copy_options::overwrite_existing, error);
   if (error) mosa::codegen::report_write_error(target, error);
   return !error;
 }

@@ -95,7 +95,7 @@ foreach(route cmake direct)
     # mosac は生のコンパイラの出力を --verbose のときしか出さない。CI の機械では .mosac-cache が残らないので、
     # 失敗したビルドの記録（configure 以外）の末尾をここで見せる。
     file(GLOB_RECURSE logs LIST_DIRECTORIES false "${WORK}/work-${route}/*.log")
-    list(FILTER logs INCLUDE REGEX "/\\.mosac-cache/[^/]+/logs/[^/]+\\.log$")
+    list(FILTER logs INCLUDE REGEX "/\\.mosac-cache/[^/]+/w-[0-9a-f]+/logs/[^/]+\\.log$")
     list(FILTER logs EXCLUDE REGEX "/configure\\.log$")
     set(shown "")
     foreach(log IN LISTS logs)
