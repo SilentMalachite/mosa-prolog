@@ -6,7 +6,7 @@
 - **In progress:** none, on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** W9 `load_directive.cpp`: L-17 (`reexport` reserved, red first) and L-23 (two
-  comments), 22e565c8; L-16 became a question (its fix broke the `'.'/2` meta rows); ctest 282/282.
+  comments), 22e565c8; L-16 kept by the owner's A (`'.'/2` meta rows); ctest 282/282.
 - **Next:** W9 by file (W8's open items are owner questions on default A); 0.5.1 after W9 (A).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** none; no code or test file is at 730 lines or more (open-items).

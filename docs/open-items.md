@@ -7,8 +7,8 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 18 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06,
-  M-08, M-16 and M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-16, L-20, L-25, L-27, L-33. Each entry
+- The 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06,
+  M-08, M-16 and M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry
   gives its A or B; default A, which keeps the current behaviour (H-09, H-12, H-18: owner's B).
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
@@ -41,6 +41,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 - Review plan, release (A, 2026-11-23): 0.5.1 comes after W9, not right after W8. Until then do
   not prepare or tag it (held since 2026-11-22, when W8 was put before it).
+- Review L-16 (A, 2026-11-23): `meta_predicate` keeps reading a list that is not proper as the
+  spec of `'.'/2` (the `m28_dot_*` rows of `tests/pl/modules.pl`), and `[]` as that of `'[]'/0`.
 - The test presets' job count (A, 2026-11-23): a fixed 4 in all five presets, the same on every
   CMake (`"jobs": 0` is unbounded on 3.29 and later, 1 on 3.28; see Unsure). B (the processor
   count through an empty `CTEST_PARALLEL_LEVEL`, CMake 3.29 and later only) was declined.
