@@ -97,7 +97,7 @@ target_compile_definitions(conformance_report_test PRIVATE MOSA_SOURCE_DIR="${CM
 target_link_libraries(conformance_report_test PRIVATE mosa_lib)
 add_test(NAME conformance_report_test COMMAND $<TARGET_FILE:conformance_report_test>)
 
-add_executable(conformance_io_test tests/cpp/conformance_io_test.cpp)
+add_executable(conformance_io_test tests/cpp/conformance_io_test.cpp tests/cpp/conformance_read_test.cpp)
 target_include_directories(conformance_io_test PRIVATE tests/cpp)
 target_compile_definitions(conformance_io_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(conformance_io_test PRIVATE mosa_lib)
