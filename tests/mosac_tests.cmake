@@ -176,6 +176,14 @@ add_test(NAME mosac_long_list COMMAND ${CMAKE_COMMAND}
 set_tests_properties(mosac_long_list PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
+# 64 KiB を超えるアトムの名前を字面にせず、MOSA_WERROR=1 の mosac run が mosa と同じ答えを出す（レビュー H-31）。
+add_test(NAME mosac_long_atom COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_long_atom
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/long_atom_test.cmake)
+set_tests_properties(mosac_long_atom PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # mosac build で作った実行ファイルが、データのファイルの 100,000 段の項を 1 MiB のスタックで読む（ADR 0011 改訂 4）。
 add_test(NAME mosac_deep_file COMMAND ${CMAKE_COMMAND}
   -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_deep_file

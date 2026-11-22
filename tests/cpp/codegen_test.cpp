@@ -290,6 +290,38 @@ void trigraph_literal() {
   check(mosa::codegen::comment_safe("a?/") == "a?/", "comment_safe keeps a single ? before /");
 }
 
+// レビュー H-31。2048 バイトを超えるアトムの名前は字面にせず char の配列に置き、表はその配列を指す。MSVC は 1 つの
+// 字面の長さに上限があり、64 KiB を超える字面は Clang が -Woverlength-strings を出す（MOSA_WERROR では誤り）。
+// 2048 バイトちょうどは今までどおり字面にする。同じ名前は表の行をまたいで 1 つの配列を使う。
+std::size_t count_of(const std::string& text, std::string_view part) {
+  std::size_t count = 0;
+  for (std::size_t at = text.find(part); at != std::string::npos; at = text.find(part, at + part.size())) ++count;
+  return count;
+}
+
+void long_atom_text() {
+  const std::string edge(2048, 'e');
+  const std::string callee(3000, 'b');
+  std::string japanese;
+  for (int index = 0; index < 700; ++index) japanese += "あ";
+  // 原文の 'a…a''\\??' は a が 2045 個と ' と \ と ? と ? の 2049 バイトのアトム。C++ の字面では ?\? と書く（-Wtrigraphs）。
+  const std::string source = ":- dynamic('" + callee + "'/1).\n:- dynamic('" + callee + "'/2).\n" + "p('" + edge +
+                             "').\np('" + std::string(2045, 'a') + "''\\\\?\?').\np('" + japanese + "').\nq :- '" +
+                             callee + "'(1), '" + callee + "'(1, 2).\n";
+  const EmitResult result = emit_user(source);
+  check(has(result.source, "std::string_view{\"" + edge + "\", 2048}"), "an atom of 2048 bytes stays a literal");
+  check(!has(result.source, "\"" + std::string(2045, 'a')), "an atom of 2049 bytes is not a literal");
+  check(!has(result.source, "{\"" + callee), "a long callee name is not a literal");
+  check(count_of(result.source, "constexpr std::array<char, ") == 3, "one array per long name");
+  check(has(result.source, "constexpr std::array<char, 2049> kText"), "array of the 2049-byte atom");
+  check(has(result.source, "'a', '\\'', '\\\\', '?', '?'"), "quote, backslash and ? as char literals");
+  check(has(result.source, "constexpr std::array<char, 2100> kText"), "array of the Japanese atom");
+  check(has(result.source, "'\\343', '\\201', '\\202'"), "UTF-8 bytes as octal char literals");
+  check(count_of(result.source, "constexpr std::array<char, 3000> kText") == 1, "the callee name has one array");
+  check(count_of(result.source, ".data(), 3000}") == 2, "both callee rows point at the array");
+  check(has(result.source, ".data(), 2049},\n"), "the atom table points at the array");
+}
+
 // レビュー L2（iso-notes 7.2.2 の決定 A）。-0.0 と 0.0 は別の鍵で、生成コードの same_float はビット列で比べる。
 // 同じ鍵にまとめると、鍵の分かれ目の行が 1 つになる（L2 の敵対的レビュー A1）。
 void signed_zero_keys() {
@@ -351,6 +383,7 @@ int main() {
   japanese_unit();
   octal_before_digit();
   trigraph_literal();
+  long_atom_text();
   signed_zero_keys();
   comment_backslash();
   return mosa_test::failures() == 0 ? 0 : 1;

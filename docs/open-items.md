@@ -321,6 +321,12 @@ General:
 - A newline in mosac's own directory name no longer breaks the generated CMakeLists.txt (H-29),
   but CMake cuts cache values at a newline. The first configure of a build tree finds the runtime;
   a later configure of the same tree reads the cut `MOSA_RUNTIME_DIR` and `MOSA_RUNTIME_LIBRARY`.
+- A name over 2,048 bytes in mosac's tables of atoms, callees and entries is a `char` array, not a
+  string literal (H-31). A translated predicate's name is still a C++ identifier as long as
+  `p<mangle(name)>_<arity>`, three characters a byte for a byte that is no letter or digit (ADR
+  0030 keeps the form). MSVC tells identifiers apart by their first 2,048 characters only, about
+  227 Japanese characters of a name, so such a predicate and its `_run` and `_c1` functions may
+  clash there. Not checked (CI only, found during H-31); changing the form needs an ADR.
 - Only Release is installed.
 - The REPL writes prompts and answers past `user_output`, so its line position stays where the
   query left it. After a query whose output has no final newline, the next query's leading `~N`

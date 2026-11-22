@@ -244,16 +244,53 @@ std::string run_text(const std::string& proc, const std::vector<std::pair<std::u
   return out + "    default: return rt::fail(m);\n  }\n}\n\n";
 }
 
-// 追跡の文の式。MSVC は 1 つの字面に長さの上限があり、つないだ後も 64 KiB を超えると Clang が
-// -Woverlength-strings を出す（2 万要素のリストの節で 128 KB になった）。長い文は切った字面を実行時につなぐ。
+// 1 つの字面に入れるバイトの上限。MSVC は 1 つの字面に長さの上限があり、隣の字面とつないだ後も 64 KiB を超えると
+// Clang が -Woverlength-strings を出す。8 進のエスケープでも 4 倍の 8,192 文字に収まる。
+constexpr std::size_t kLiteralChunk = 2048;
+
+// 追跡の文の式。長い文は切った字面を実行時につなぐ（2 万要素のリストの節で 128 KB になった）。
 std::string trace_text(std::string_view text) {
-  constexpr std::size_t kTraceChunk = 2048;
-  if (text.size() <= kTraceChunk) return string_literal(text);
-  std::string out = "std::string{" + string_literal(text.substr(0, kTraceChunk)) + "}";
-  for (std::size_t at = kTraceChunk; at < text.size(); at += kTraceChunk) {
-    out += ".append(" + string_literal(text.substr(at, kTraceChunk)) + ")";
+  if (text.size() <= kLiteralChunk) return string_literal(text);
+  std::string out = "std::string{" + string_literal(text.substr(0, kLiteralChunk)) + "}";
+  for (std::size_t at = kLiteralChunk; at < text.size(); at += kLiteralChunk) {
+    out += ".append(" + string_literal(text.substr(at, kLiteralChunk)) + ")";
   }
   return out;
+}
+
+// 長い名前の置き場（レビュー H-31）。アトムと呼び先と NativeEntry の表は constexpr の string_view なので、追跡の文の
+// ように実行時につなげず、隣の字面に分けても 1 つの字面になる。kLiteralChunk を超える名前は char の配列にし、表は
+// その配列を指す。同じ名前は 1 つの配列を使う（呼び先の名前はアリティごとの行に出る）。
+struct TextPool {
+  std::vector<std::string> texts;
+
+  [[nodiscard]] std::string view(std::string_view text) {
+    if (text.size() <= kLiteralChunk) return string_literal(text);
+    std::size_t index = 0;
+    while (index < texts.size() && texts[index] != text) ++index;
+    if (index == texts.size()) texts.emplace_back(text);
+    return "std::string_view{kText" + std::to_string(index) + ".data(), " + std::to_string(text.size()) + "}";
+  }
+};
+
+// string_literal と同じく、表示できる ASCII のほかは 3 桁の 8 進にする。字面ではないので ? はそのまま置ける。
+std::string char_literal(char unit) {
+  const auto byte = static_cast<unsigned char>(unit);
+  if (unit == '\'' || unit == '\\') return std::string{"'\\"} + unit + "'";
+  if (byte >= 0x20 && byte < 0x7F) return std::string{"'"} + unit + "'";
+  return std::string{"'\\"} + static_cast<char>('0' + (byte >> 6)) + static_cast<char>('0' + ((byte >> 3) & 7)) +
+         static_cast<char>('0' + (byte & 7)) + "'";
+}
+
+std::string pool_text(const TextPool& pool) {
+  std::string out;
+  for (std::size_t index = 0; index < pool.texts.size(); ++index) {
+    const std::string& text = pool.texts[index];
+    out += "constexpr std::array<char, " + std::to_string(text.size()) + "> kText" + std::to_string(index) + "{";
+    for (std::size_t at = 0; at < text.size(); ++at) out += (at == 0 ? "" : ", ") + char_literal(text[at]);
+    out += "};\n";
+  }
+  return out.empty() ? out : out + "\n";
 }
 
 // 節に入る状態（goal 0）の case の前に追跡を置く。kTrace は単位の constexpr bool で、偽なら if constexpr が
@@ -273,6 +310,7 @@ struct UnitText {
   std::string procs;
   std::string entries;
   std::size_t entry_count = 0;
+  TextPool texts;
 };
 
 std::string proc_signature(const std::string& proc) {
@@ -345,8 +383,8 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   text.helpers += dispatch_text(tables, predicate, proc) + run_text(proc, cases);
   text.forward += proc_signature(proc) + ";\n";
   text.procs += proc_signature(proc) + " {\n  " + proc + "_run(m, rt::regs(m, kUnit), frame, state);\n}\n\n";
-  text.entries += "    rt::NativeEntry{" + string_literal(machine.atoms.name(predicate.module)) + ", " +
-                  string_literal(machine.atoms.name(predicate.name)) + ", " + std::to_string(predicate.arity) +
+  text.entries += "    rt::NativeEntry{" + text.texts.view(machine.atoms.name(predicate.module)) + ", " +
+                  text.texts.view(machine.atoms.name(predicate.name)) + ", " + std::to_string(predicate.arity) +
                   ", std::uint64_t{" + hex64(clause_fingerprint(machine.atoms, predicate)) + "}, &" + proc + "},\n";
 }
 
@@ -355,15 +393,17 @@ std::string table_text(std::string_view type, std::string_view name, std::size_t
          "{\n" + items + "};\n";
 }
 
-std::string unit_tables(const Impl& machine, const UnitTables& tables) {
+// 長い名前の配列は表より前に置く。pool には述語の行（emit_predicate）の名前がもう入っている。
+std::string unit_tables(const Impl& machine, const UnitTables& tables, TextPool& pool) {
   std::string atoms;
-  for (const std::uint32_t atom : tables.atoms) atoms += "    " + string_literal(machine.atoms.name(atom)) + ",\n";
+  for (const std::uint32_t atom : tables.atoms) atoms += "    " + pool.view(machine.atoms.name(atom)) + ",\n";
   std::string calls;
   for (const CalleeRef& key : tables.calls) {
-    calls += "    rt::NativeCallee{" + string_literal(machine.atoms.name(key.module)) + ", " +
-             string_literal(key.name) + ", " + std::to_string(key.arity) + "},\n";
+    calls += "    rt::NativeCallee{" + pool.view(machine.atoms.name(key.module)) + ", " + pool.view(key.name) + ", " +
+             std::to_string(key.arity) + "},\n";
   }
-  return "constinit rt::UnitTag kUnit{};\n" + table_text("std::string_view", "kAtoms", tables.atoms.size(), atoms) +
+  return pool_text(pool) + "constinit rt::UnitTag kUnit{};\n" +
+         table_text("std::string_view", "kAtoms", tables.atoms.size(), atoms) +
          table_text("rt::NativeCallee", "kCalls", tables.calls.size(), calls) + "\n";
 }
 
@@ -379,10 +419,10 @@ std::string unit_space(const Impl& machine, std::uint32_t module, std::string_vi
 }
 
 std::string source_text(const Impl& machine, std::uint32_t module, std::string_view unit_name,
-                        const UnitTables& tables, const UnitText& text, bool trace, std::string_view space_name) {
+                        const UnitTables& tables, UnitText& text, bool trace, std::string_view space_name) {
   const std::string space = unit_space(machine, module, space_name);
   std::string out = banner(machine, module, unit_name) + "\n#include \"mosa/runtime.hpp\"\n\nnamespace " + space + " {\n\n";
-  out += text.forward + "\nnamespace {\n\n" + std::string{kUsings} + unit_tables(machine, tables);
+  out += text.forward + "\nnamespace {\n\n" + std::string{kUsings} + unit_tables(machine, tables, text.texts);
   if (text.entry_count > 0) {
     // mosac build --debug の節の追跡（計画 Task 9）。マクロを使わず、この値で生成コードが切り替わる。
     out += std::string{"constexpr bool kTrace = "} + (trace ? "true" : "false") + ";\n\n" + std::string{kHelpers};
