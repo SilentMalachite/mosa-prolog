@@ -243,7 +243,8 @@ std::optional<std::filesystem::path> scratch_file(std::string_view extension) {
 // run_process は出力をファイルにしか向けられない。そこへ書かせて読み、消す。
 std::optional<Captured> capture(std::span<const std::string> argv) {
   const auto scratch = scratch_file(".log");
-  if (!scratch) return std::nullopt;
+  // 名前を先に自分のファイルとして取る。同じ名前のファイルか記号リンクが置かれていれば諦める（レビュー M-41）。
+  if (!scratch || !create_private_file(*scratch)) return std::nullopt;
   const std::filesystem::path& log = *scratch;
   const std::optional<int> code = run_process(argv, log);
   Captured captured;
@@ -365,8 +366,10 @@ std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvar
   // 書けないパスなら一時のパスと同じく諦め、呼び手は今の PATH を見る。
   if (!is_file(vcvarsall) || !cmd_quotable_path(vcvarsall)) return std::nullopt;
   const auto scratch = scratch_file(".bat");
-  // cmd /c は引数の中の & ^ ( ) % ! < > | を命令として読む。そういうパスなら諦め、呼び手は今の PATH を見る。
-  if (!scratch || utf8_from_path(*scratch).find_first_of("&^()%!<>|") != std::string::npos) return std::nullopt;
+  // cmd /c は引数の中の & ^ ( ) % ! < > | を命令として読み、; , = を区切りとして読む（レビュー M-41）。そういうパスなら
+  // 諦め、呼び手は今の PATH を見る。名前は capture と同じく先に自分のファイルとして取る。
+  if (!scratch || utf8_from_path(*scratch).find_first_of("&^()%!<>|;,=") != std::string::npos) return std::nullopt;
+  if (!create_private_file(*scratch)) return std::nullopt;
   const std::filesystem::path& script = *scratch;
   const auto shell = command_shell();
   if (!shell) return std::nullopt;

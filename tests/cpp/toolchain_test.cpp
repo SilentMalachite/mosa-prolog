@@ -2,6 +2,7 @@
 // 探索は find_toolchain_in に PATH と環境を引数で渡して引く。起動しないので、版と Windows の環境はここでは見ない。
 #include "harness.hpp"
 #include "mosa/path_text.hpp"
+#include "mosa/process.hpp"
 #include "mosa/toolchain.hpp"
 
 #include <filesystem>
@@ -196,7 +197,29 @@ void windows_msvc_env() {
 
 }  // namespace
 
+// レビュー M-41。一時のログと .bat は、名前を先に新しいファイルとして取る。既にあるファイルにも、記号リンクにも書かない。
+void private_file() {
+  std::filesystem::create_directories(kTmp);
+  const std::filesystem::path path = kTmp / "private.log";
+  const std::filesystem::path link = kTmp / "private_link.log";
+  const std::filesystem::path target = kTmp / "private_target.log";
+  std::error_code error;
+  std::filesystem::remove(path, error);
+  std::filesystem::remove(link, error);
+  std::filesystem::remove(target, error);
+  mosa_test::check(mosa::create_private_file(path), "a fresh name is taken");
+  mosa_test::check(std::filesystem::is_regular_file(path) && std::filesystem::file_size(path) == 0, "the file is empty");
+  mosa_test::check(!mosa::create_private_file(path), "an existing file is not taken again");
+  // 記号リンクを作れない環境（権限の無い Windows）では、この 2 つだけを見ない。
+  std::filesystem::create_symlink(target, link, error);
+  if (!error) {
+    mosa_test::check(!mosa::create_private_file(link), "a symbolic link is not taken");
+    mosa_test::check(!std::filesystem::exists(target), "nothing is created through the link");
+  }
+}
+
 int main() {
+  private_file();
   cxx_flag_wins();
   mosa_cxx_before_cxx();
   default_order_linux();

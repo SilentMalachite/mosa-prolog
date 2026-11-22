@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <spawn.h>
 #include <sys/wait.h>
+#include <unistd.h>
 extern "C" char** environ;
 #endif
 
@@ -205,6 +206,13 @@ std::optional<int> run_process(std::span<const std::string> argv, const std::fil
 // wait_for は DWORD の終了コードをそのまま int にするので、NTSTATUS のエラーは負の値で来る。
 bool exited_abnormally(int code) { return static_cast<std::uint32_t>(code) >= 0xC0000000U; }
 
+bool create_private_file(const std::filesystem::path& path) {
+  const HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return false;
+  CloseHandle(handle);
+  return true;
+}
+
 #else
 
 namespace {
@@ -219,9 +227,12 @@ std::vector<Entry> parent_environment() {
   return entries;
 }
 
-// 標準出力をログに開き、標準エラーもそこへ重ねる。
+// 標準出力をログに開き、標準エラーもそこへ重ねる。記号リンクは辿らず、作るなら本人だけが読み書きできる形にする
+// （レビュー M-41）。一時のログは capture が create_private_file で先に作る。
 bool redirect(posix_spawn_file_actions_t& actions, const std::filesystem::path& log) {
-  if (posix_spawn_file_actions_addopen(&actions, 1, log.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644) != 0) return false;
+  if (posix_spawn_file_actions_addopen(&actions, 1, log.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0600) != 0) {
+    return false;
+  }
   return posix_spawn_file_actions_adddup2(&actions, 1, 2) == 0;
 }
 
@@ -270,6 +281,13 @@ std::optional<int> run_process(std::span<const std::string> argv, const std::fil
 }
 
 bool exited_abnormally(int code) { return code > 128; }
+
+bool create_private_file(const std::filesystem::path& path) {
+  const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (fd < 0) return false;
+  close(fd);
+  return true;
+}
 
 #endif
 

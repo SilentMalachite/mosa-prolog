@@ -19,6 +19,10 @@ namespace mosa {
                                              std::span<const std::pair<std::string, std::string>> env = {},
                                              const std::filesystem::path& input = {});
 
+// path に新しい空のファイルを作る。既にあれば（記号リンクでも）作らずに偽。POSIX では本人だけが読み書きできる 0600 で
+// 作る。一時のパスの名前を先に取り、置かれたファイルや記号リンクへ書かないため（レビュー M-41）。
+[[nodiscard]] bool create_private_file(const std::filesystem::path& path);
+
 // run_process の終了コードが、子が自分で終わったのでなく落ちたことを示すか。POSIX はシグナル（run_process は
 // シェルと同じく 128 + 番号を返すので、128 より大きい値。exit(129) 以上と区別できないのはシェルと同じ）、
 // Windows は NTSTATUS のエラー（0xC0000000 以上。アクセス違反など）。
