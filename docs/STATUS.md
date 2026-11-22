@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W8 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-01 (4f2dc56e: a failed `AtomTable::intern` changes nothing); W7 (CI green);
-  W6–W2; W1 but H-39. Triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** M-05 (W8: `0'c` and `0b`/`0o`/`0x` read byte by byte break on multibyte characters).
+- **Last done:** M-05 (cc602a17); M-01 (4f2dc56e); W7 (CI green); W6–W2; W1 but H-39.
+  Triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** M-07 (W8: an octal escape takes at most 3 digits); M-06 waits on its question.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
