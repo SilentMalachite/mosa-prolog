@@ -118,6 +118,12 @@ std::optional<Cell> add_import(Impl& machine, std::uint32_t into, const Import& 
   // 別の名前で、その名前で定義に着く道はこの取り込みしか無いので表に入れる。その名前に into が節を持てば、それは
   // ADR 0026 の「別の述語」なので、ほかの取り込みと同じく衝突にする。
   if (item.from == into && item.name == item.alias) return std::nullopt;
+  // system の述語の名前の別名は、system を先に引く（SPEC 第5節の規則 1）ので、どの呼び出しも届かない。ほかの取り込みの
+  // 衝突と同じ誤りで断る（レビュー M-17。誤りの形は持ち主への問いで、既定 A）。別名の無い取り込みは、system の名前の
+  // 節を取り込み元が持てないので届かない。
+  if (item.alias != item.name && is_builtin_procedure(machine, item.alias, item.arity)) {
+    return conflict(machine, item.from, item.name, item.arity);
+  }
   if (find_pred(machine, PredKey{into, item.alias, item.arity}) != nullptr) {
     return conflict(machine, item.from, item.name, item.arity);
   }

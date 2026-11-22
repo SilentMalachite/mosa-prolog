@@ -158,6 +158,11 @@ test(m4_local_backtrack, ((演算:op(300, xfx, 戻演), fail ; true), 演算:cur
 test(m15_user_postfix_after_local, (演算:op(700, xfx, m15a), catch(op(200, xf, m15a), error(E, _), true), op(0, xf, m15a), 演算:op(0, xfx, m15a), E == permission_error(create, operator, m15a)), true).
 test(m15_user_infix_after_local, (演算:op(200, xf, m15b), catch(op(700, xfx, m15b), error(E, _), true), op(0, xfx, m15b), 演算:op(0, xf, m15b), E == permission_error(create, operator, m15b)), true).
 test(m15_local_infix_after_user, (op(200, xf, m15c), catch(演算:op(700, xfx, m15c), error(E, _), true), 演算:op(0, xfx, m15c), op(0, xf, m15c), E == permission_error(create, operator, m15c)), true).
+% レビュー M-17（SPEC 第5節の規則 1）。system の述語の名前の別名は届かないので、ほかの取り込みの衝突と同じく
+% permission_error(import_into, procedure, From:N/A) で断る（問いの既定 A）。ゴールの use_module は衝突で失敗する。
+test(m17_alias_builtin, use_module(library(lists), [reverse/2 as atom_length]), fail).
+test(m17_alias_control, use_module(library(lists), [reverse/2 as (=)]), fail).
+test(m17_builtin_kept, (\+ use_module(library(lists), [reverse/2 as atom_length]), atom_length(abc, N), N == 3), true).
 :- consult('modules/旗.pl').
 test(flag_dq_inside_file, 旗の中の文字列(X), solutions([X = ab])).
 test(flag_dq_per_file, current_prolog_flag(double_quotes, codes), true).
