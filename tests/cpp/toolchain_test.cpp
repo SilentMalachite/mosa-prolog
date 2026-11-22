@@ -24,8 +24,13 @@ std::filesystem::path fresh_dir(std::string_view name) {
   return dir;
 }
 
+// 見つけてよいコンパイラは実行できるファイルにする（レビュー M-45 から、実行できないファイルは飛ばす）。
 void touch(const std::filesystem::path& dir, std::string_view name) {
-  std::ofstream{dir / std::filesystem::path{name}, std::ios::binary} << "";
+  const std::filesystem::path file = dir / std::filesystem::path{name};
+  std::ofstream{file, std::ios::binary} << "";
+  std::error_code error;
+  std::filesystem::permissions(file, std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec,
+                               std::filesystem::perm_options::add, error);
 }
 
 bool picks(const mosa::ToolchainSearch& search, const std::filesystem::path& expected) {
@@ -218,8 +223,26 @@ void private_file() {
   }
 }
 
+// レビュー M-45。PATH の前にある実行できない同名のファイルは飛ばし、次の項目の実行できるものを選ぶ（シェルと同じ）。
+// 実行の印を持てないファイルシステム（Windows）では、作った 0644 のファイルも実行できると見えるので、この行を見ない。
+void skips_non_executable() {
+  const auto plain = fresh_dir("plain_bin");
+  const auto real = fresh_dir("real_bin");
+  std::ofstream{plain / "clang++", std::ios::binary} << "";
+  touch(real, "clang++");
+  const auto perms = std::filesystem::status(plain / "clang++").permissions();
+  if ((perms & std::filesystem::perms::owner_exec) != std::filesystem::perms::none) return;
+  mosa::ToolchainSearch search;
+  search.path = {plain, real};
+  search.os = mosa::HostOs::macos;
+  mosa_test::check(picks(search, real / "clang++"), "skips_non_executable: the executable one later on PATH");
+  search.cxx_flag = mosa::utf8_from_path(plain / "clang++");
+  mosa_test::check(!mosa::find_toolchain_in(search), "skips_non_executable: a non-executable --cxx path");
+}
+
 int main() {
   private_file();
+  skips_non_executable();
   cxx_flag_wins();
   mosa_cxx_before_cxx();
   default_order_linux();

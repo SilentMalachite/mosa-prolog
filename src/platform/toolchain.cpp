@@ -16,6 +16,10 @@
 #include <random>
 #include <system_error>
 
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 namespace mosa {
 
 #if defined(_WIN32)
@@ -45,12 +49,23 @@ bool is_file(const std::filesystem::path& path) {
   return std::filesystem::is_regular_file(path, error) && !error;
 }
 
+// POSIX のシェルと同じく、実行できない同名のファイルは選ばず、PATH の次の項目を見る（レビュー M-45）。前は 0644 の
+// clang++ が PATH の前にあると、そこで探すのをやめた。Windows は .exe の拡張子で決まるので見ない。
+bool executable(const std::filesystem::path& path, HostOs os) {
+  if (os == HostOs::windows) return true;
+#if defined(_WIN32)
+  return true;
+#else
+  return access(path.c_str(), X_OK) == 0;
+#endif
+}
+
 // Windows は拡張子の無い名前に .exe を補う（cl と書いても cl.exe を見つける）。CreateProcessW と同じく、
 // 拡張子の無いファイルそのものは起こせないので選ばない。PATHEXT の他の拡張子はコンパイラに要らない。
 std::optional<std::filesystem::path> existing(const std::filesystem::path& path, HostOs os) {
   std::filesystem::path found = path;
   if (os == HostOs::windows && !path.has_extension()) found += ".exe";
-  if (!is_file(found)) return std::nullopt;
+  if (!is_file(found) || !executable(found, os)) return std::nullopt;
   // 相対の PATH の項目や --cxx bin/g++ で見つけたものも、作業場所を移して起こすビルドで同じものを指すよう絶対にする。
   std::error_code error;
   const std::filesystem::path absolute = std::filesystem::absolute(found, error);
