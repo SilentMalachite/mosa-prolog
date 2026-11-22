@@ -33,6 +33,7 @@ message(mosac_usage, 'mosac: 使い方: mosac build <ファイル> [-o <ファ�
 message(mosac_cannot_write, 'mosac: 書き出せません: ~w').
 message(mosac_cannot_read, 'mosac: 読めません: ~w').
 message(mosac_output_is_source, 'mosac: 出力 ~w は原文のファイルそのもので、ビルドすると原文を上書きします~n-o で別の出力名を与えてください').
+message(mosac_stem_dot, 'mosac: 原文 ~w の語幹 ~w は出力のファイルの名前になりません~n原文のファイルの名前を変えてください').
 message(mosac_undefined_call, '警告: ~w を呼んでいるが、どこにも定義が無い（assertz/1 で実行時に作るなら :- dynamic(~w). と宣言する）').
 message(mosac_export_undefined, '~w を export したが定義が無い').
 

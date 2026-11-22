@@ -182,6 +182,14 @@ bool same_file(const std::filesystem::path& left, const std::filesystem::path& r
   return !error && same;
 }
 
+// 語幹が . か ..（..pl、...pl）なら、どの出力の名前にもならない。build はディレクトリへ写そうとして失敗し、dist は
+// 書庫に . と .. の項目を作った。作る前に止める（レビュー M-39）。
+bool dot_stem(const std::string& source, const std::string& stem) {
+  if (stem != "." && stem != "..") return false;
+  std::cerr << message("mosac_stem_dot", {source, stem}) << '\n';
+  return true;
+}
+
 // mosac build app.pl [-o app] [--interactive]。-o が無ければ原文の語幹を今の場所に作る。中間物はいつも .mosac-cache に
 // 残すので --keep は run だけが受ける。--interactive は build だけが受け（作った物を利用者が動かす）、run は受けない。
 int run_build(const std::vector<std::string>& args) {
@@ -190,8 +198,9 @@ int run_build(const std::vector<std::string>& args) {
     std::cerr << message("mosac_usage") << '\n';
     return 1;
   }
-  const std::string out = parsed->out.empty() ? mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem())
-                                              : parsed->out;
+  const std::string stem = mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem());
+  if (parsed->out.empty() && dot_stem(parsed->request.source, stem)) return 1;
+  const std::string out = parsed->out.empty() ? stem : parsed->out;
   const std::filesystem::path target = mosa::codegen::with_exe_suffix(mosa::path_from_utf8(out));
   // 翻訳とコンパイルの前に止める。拡張子の無い原文 hello の語幹は hello そのもので、写すと原文が消える。
   if (same_file(target, mosa::path_from_utf8(parsed->request.source))) {
@@ -256,7 +265,7 @@ int run_dist(const std::vector<std::string>& args) {
     return 1;
   }
   const std::string stem = mosa::utf8_from_path(mosa::path_from_utf8(parsed->request.source).stem());
-  if (!mosa::codegen::dist_name_ok(stem)) return 1;
+  if (dot_stem(parsed->request.source, stem) || !mosa::codegen::dist_name_ok(stem)) return 1;
   const mosa::codegen::Built built = mosa::codegen::build_cached(parsed->request);
   if (built.code != 0) return built.code;
   const std::string out = parsed->out.empty() ? std::string{"dist"} : parsed->out;

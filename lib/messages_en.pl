@@ -33,6 +33,7 @@ message(mosac_usage, 'mosac: usage: mosac build <file> [-o <file>] [--interactiv
 message(mosac_cannot_write, 'mosac: cannot write: ~w').
 message(mosac_cannot_read, 'mosac: cannot read: ~w').
 message(mosac_output_is_source, 'mosac: the output ~w is the source file itself, and building would overwrite it~nGive another output name with -o').
+message(mosac_stem_dot, 'mosac: the source ~w has the stem ~w, which cannot name an output file~nRename the source file').
 message(mosac_undefined_call, 'Warning: call to undefined procedure ~w (if it is created at run time with assertz/1, declare it with :- dynamic(~w).)').
 message(mosac_export_undefined, 'exported procedure ~w is not defined').
 

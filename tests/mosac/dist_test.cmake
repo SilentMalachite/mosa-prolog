@@ -1,6 +1,6 @@
 # ADR 0023。mosac dist が書いた書庫を cmake -E tar で展開し、中の実行ファイルを動かし、LICENSE、NOTICE、README.txt を
 # 確かめる。展開を CMake に任せるのは、mosac が書いた形を mosac と別の実装（libarchive）で読むため。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|build_fails>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|dot_stem|build_fails>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -DROOT=<リポジトリの根> -DOS_ARCH=<macos-arm64 など> -DARCHIVE_EXT=<.tar.gz か .zip>
 #   -DVERSION=<project VERSION> -P dist_test.cmake
@@ -138,6 +138,24 @@ elseif(CASE STREQUAL "name_clash")
          OR EXISTS "${WORK}/out")
     fail("an executable named like LICENSE must stop before building and write no out/")
   endif()
+elseif(CASE STREQUAL "dot_stem")
+  # 語幹が . か ..（..pl、...pl）なら、build（-o 無し）も dist も作る前に止める（レビュー M-39）。前の build はコンパイルの後で
+  # ディレクトリへ写せずに止まり、dist は書庫に . と .. の項目を作った。.mosac-cache が無いことで、作る前と分かる。
+  file(COPY_FILE "${SRC}/hello.pl" "${WORK}/..pl")
+  file(COPY_FILE "${SRC}/hello.pl" "${WORK}/...pl")
+  foreach(source ..pl ...pl)
+    foreach(command build dist)
+      if(command STREQUAL "dist")
+        mosac(dist ${source} -o out)
+      else()
+        mosac(build ${source})
+      endif()
+      if(NOT code EQUAL 1 OR NOT err MATCHES "mosac: (原文 |the source )" OR EXISTS "${WORK}/out"
+         OR EXISTS "${WORK}/.mosac-cache")
+        fail("${command} ${source} must stop before building")
+      endif()
+    endforeach()
+  endforeach()
 elseif(CASE STREQUAL "build_fails")
   mosac(build "${SRC}/broken.pl" -o broken)
   set(build_code "${code}")
