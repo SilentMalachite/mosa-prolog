@@ -34,6 +34,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   on a fresh `render_only` machine, with the arguments, the operators and `japanese_punctuation`
   copied; the warnings keep their text (checked against the text before, in ja and en, and pinned by
   `transcript_debug_spy_after_warning` and `_ja`).
+- Review M-59, the base of the links in release notes. Default A: `release_notes.sh` keeps the
+  upstream URL, so a fork's notes link to the upstream tag. B: take it from
+  `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}`.
 ## Owner decisions in force
 
 - Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes. After W8
@@ -254,9 +257,9 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 - Debugger: a goal whose context module is `system` gets no box, since that context means a goal a
   builtin runs for itself (findall/3's answer unification and the like). So `system:Goal` written
   by a user is not traced either.
-- Debugger on Windows: `_isatty` is true for the NUL device (`src/platform/terminal.cpp:15`), so
-  `mosa < NUL` is taken for a terminal and stops at the first port. The manual's recording line uses
-  a pipe (`type nul | mosa ...`). Not run on Windows yet: the quoted `-DARGS` of the transcript tests.
+- Debugger on Windows: not run there yet, the quoted `-DARGS` of the transcript tests. The manual's
+  recording line uses a pipe (`type nul | mosa ...`); `mosa < NUL` is no longer a terminal (M-42),
+  but the debugger's record through it has not been run on Windows.
 - Debugger: notices (`% Spy point on ...`, abort) and port lines do not start on a fresh line after
   partial output.
 - Debugger: a stopping port reads what `get_char/1` and the like left of a line as its command, as
@@ -283,10 +286,15 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 - NMake `--runtime-source`, also under a non-ASCII path.
 - aarch64 Linux.
 - The TextEdit and About This Mac labels of manual chapters 2 and 4 on a real Mac.
+- release.yml's dependency checks of all three executables (review N-10, a1f2a5c3): `otool` and
+  `minos`, the bare container and `dumpbin` now loop over `mosa`, `mosac` and `mosatest`. They
+  run on a `workflow_dispatch` (no tag, no Release), which waits for the owner.
 
 ## Known limits
 
 General:
+- `walk_suite` (`iso_suite.cpp`) stops without a note when a directory step fails, so the suite's
+  denominator would shrink silently (review L-40). Such a failure was not caused on any OS here.
 
 - Two cyclic terms with coprime periods still unify or compare in time quadratic in the periods,
   until the pairs pass the heap limit (ADR 0010 amendment 4, review H-02). Union-find over compound

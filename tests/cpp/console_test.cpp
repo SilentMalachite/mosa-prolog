@@ -20,7 +20,7 @@ void check_console_line_text() {
   mosa_test::check(mosa::console_line_text(bare_cr) == std::optional<std::string>{"a\rb"}, "lone cr kept");
 }
 
-// Windows の引数（CommandLineToArgvW）も UTF-16。行の扱いを持たない素の変換（計画 Task 15b）。
+// Windows の引数（GetCommandLineW を split_command_line で分けた物）も UTF-16。行の扱いを持たない素の変換（計画 Task 15b）。
 void check_utf8_from_utf16() {
   mosa_test::check(mosa::utf8_from_utf16(u"日本語の引数.pl") == "日本語の引数.pl", "bmp");
   mosa_test::check(mosa::utf8_from_utf16(u"𠮷") == "\xF0\xA0\xAE\xB7", "surrogate pair");

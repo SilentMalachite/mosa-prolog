@@ -453,7 +453,7 @@ true.
 ## 知っておくこと
 
 - 入力が端末でない `mosa` は、コマンドを読みません。ポートの行を書いて先へ進むので、実行の記録が取れます。`mosa len.pl -g 'trace, len([a], N)' -t halt < /dev/null 2> trace.log` のようにします。入力が端末だと、最初のポートで待ちます。
-- Windows では、コマンドプロンプト（cmd.exe）で、パイプを使った次の行を実行してください。Mosa は `NUL` デバイスを端末と見なすので、`< NUL` のリダイレクトでは最初のポートで止まってしまいます。`type nul | mosa len.pl -g "trace, len([a], N)" -t halt 2> trace.log` のようにします。
+- Windows では、コマンドプロンプト（cmd.exe）で、パイプを使った次の行を実行してください。`type nul | mosa len.pl -g "trace, len([a], N)" -t halt 2> trace.log` のようにします。
 - デバッガの述語 `trace/0`、`notrace/0`、`debug/0`、`nodebug/0`、`spy/1`、`nospy/1`、`nospyall/0`、`leash/1`、`debugging/0` は Mosa のものなので、自分のファイルでは同じ名前と引数の数の述語を定義できません。
 - `mosac build` で作ったプログラムには、ポートは出ません。第 13 章を見てください。
 - ほかの制限は、第 14 章の「既知の制限」にあります。
