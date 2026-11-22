@@ -193,7 +193,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | M-28 | W8 |  | done (b5999109) ✔ | term_to_atom/2 が、自分で足した終止符にも char_conversion をかける |
 | M-29 | W8 |  | done (d340f1fe) ✔ | 列挙の途中で閉じた流れの性質を stream_property/2 が返し続ける |
 | M-30 |  |  | 誤りではない  | eof_action(reset) で終わりを過ぎた流れへの peek_* がリセットを行う |
-| M-31 | W8 |  | 未着手 ✔ | print の出力先か下書きの流れを閉じる portray/1 で、出力が黙って消えるか後の portray が誤りになる |
+| M-31 | W8 |  | done (3d0902a9) ✔ | print の出力先か下書きの流れを閉じる portray/1 で、出力が黙って消えるか後の portray が誤りになる |
 | M-32 | W8 |  | 未着手 ✔ | invalid_utf8=replace の read/1 が流れのバイトに U+FFFD を残す |
 | M-33 | W8 |  | 未着手 ✔ | ありえない位置への set_stream_position/2 が、先に流れを全部読む |
 | M-34 | W8 |  | 未着手 ✔ | 3 つとも束縛された atom_concat/3 がすべての分け方を試し、アトムを作り、選択点を残す |
