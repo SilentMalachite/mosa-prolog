@@ -1,6 +1,6 @@
 // mosatest --manual が述語の表と比べる処理系の一覧（リリース 0.1.0 Task 5）。組込の一覧、library の公開リスト、
 // 表に書けるライブラリ、--mosa の版の突き合わせ、引数を確かめる。ライブラリは組み上げで写した隣の lib/ と、読めない
-// ライブラリの見本 tests/manual/bad-lib/lib（MOSA_SOURCE_DIR）を読む。表の読み取りは manual_parse_test.cpp
+// ライブラリの見本 tests/manual/bad-lib/lib（MOSA_SOURCE_DIR）を読む。表の読み取りは manual_table_test.cpp
 // （修正 4 でファイルが 800 行を超えるので分けた）。
 
 #include "harness.hpp"

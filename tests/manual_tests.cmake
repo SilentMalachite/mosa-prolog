@@ -2,7 +2,7 @@
 # 確かめる。見本ごとに --work を分け、マニュアル本体の検査（Task 6 の manual_en_ja、tests/tmp/manual）とも重ねない。
 # LANG は manual_fixture_test.cmake が見本ごとに決めるので、tests.cmake は LANG=ja_JP.UTF-8 の一括の設定より後ろでこれを読む。
 # 見本の good は --mosa を省き、既定（mosatest の隣の mosa）を通す。展開したパッケージで動かすのと同じ形（Task 9）。
-add_executable(manual_parse_test tests/cpp/manual_parse_test.cpp)
+add_executable(manual_parse_test tests/cpp/manual_parse_test.cpp tests/cpp/manual_table_test.cpp)
 target_include_directories(manual_parse_test PRIVATE tests/cpp)
 target_link_libraries(manual_parse_test PRIVATE mosa_lib)
 add_test(NAME manual_parse COMMAND $<TARGET_FILE:manual_parse_test>)
