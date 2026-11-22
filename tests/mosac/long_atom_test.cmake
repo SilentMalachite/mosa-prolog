@@ -1,7 +1,8 @@
 # レビュー H-31。64 KiB を超えるアトムの名前が C++ の 1 つの文字列の字面になり、MOSA_WERROR=1 の mosac build が
-# -Woverlength-strings で落ちていた。kAtoms（データのアトム）、kCalls（翻訳しない動的述語の名前）、kEntries（モジュールの名前）
-# のそれぞれに 70,000 バイトの名前を置き、mosa と mosac run の出力を比べる。日本語 2,000 字（6,000 バイト）のアトムは、
-# 64 KiB より短いがエスケープで 24,000 文字の字面になっていた。手元の Clang は通すが、MSVC の字面の上限は CI でしか見られない。
+# -Woverlength-strings で落ちていた。kAtoms（データのアトム）、kCalls（翻訳しない動的述語の名前と、モジュールの中の
+# 呼び先のモジュールの名前）、kEntries（モジュールの名前）のそれぞれに 70,000 バイトの名前を置き、mosa と mosac run の
+# 出力を比べる。日本語 2,000 字（6,000 バイト）のアトムは、64 KiB より短いがエスケープで 24,000 文字の字面になっていた。
+# 手元の Clang は通すが、MSVC の字面の上限は CI でしか見られない。
 # 長い述語の名前は C++ の識別子にもなり、MSVC は 2048 文字までしか区別しない（open-items）ので、ここでは使わない。
 # 原文はここで作り、tests/mosac には 200 KB の原文を置かない。
 # 使い方: cmake -DMOSA=<mosa> -DMOSAC=<mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定>
@@ -27,7 +28,7 @@ string(REPEAT "c" 70000 callee)
 string(REPEAT "m" 70000 module)
 string(REPEAT "日" 2000 japanese)
 
-file(WRITE "${WORK}/long_module.pl" ":- module('${module}', [q/1]).\nq(ok).\n")
+file(WRITE "${WORK}/long_module.pl" ":- module('${module}', [q/1]).\nq(X) :- q2(X).\nq2(ok).\n")
 file(WRITE "${WORK}/long_atom.pl" ":- initialization(main, main).\n"
   ":- use_module(long_module).\n"
   ":- dynamic('${callee}'/1).\n"

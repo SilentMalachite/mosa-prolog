@@ -322,6 +322,26 @@ void long_atom_text() {
   check(has(result.source, ".data(), 2049},\n"), "the atom table points at the array");
 }
 
+// 訳す述語の長い名前とモジュールの名前は、kEntries の行と、呼ぶ節の kCalls の行の両方に出る。述語の行は表より先に
+// pool に入るので、2 つの表が同じ配列を指すこと。訳した述語の長い名前は C++ の識別子にもなり、MSVC は先頭の 2,048 文字
+// でしか区別しない（open-items）ので、ここは emit だけを見てビルドしない。
+void long_entry_text() {
+  const std::string name(3000, 'n');
+  const std::string module(2500, 'm');
+  auto machine = Machine::create();
+  check(machine->load_program(":- module('" + module + "', [q/0]).\n'" + name + "'(1).\nq :- '" + name + "'(_).\n").ok,
+        "load a module with long names");
+  const EmitResult result = emit_module(*machine, machine->atoms().intern(module), "t");
+  check(count_of(result.source, "constexpr std::array<char, 3000> kText") == 1, "one array for the predicate name");
+  check(count_of(result.source, "constexpr std::array<char, 2500> kText") == 1, "one array for the module name");
+  const std::string names = "std::string_view{kText0.data(), 2500}, std::string_view{kText1.data(), 3000}";
+  check(has(result.source, "rt::NativeEntry{" + names + ", 1, "), "the entry row points at the arrays");
+  check(has(result.source, "rt::NativeCallee{" + names + ", 1}"), "the callee row points at the same arrays");
+  // 追跡の文は 2,048 バイトずつの字面を実行時につなぐので、名前の全体は 1 つの字面に入らない。
+  check(!has(result.source, "\"" + name), "the predicate name is not one literal");
+  check(!has(result.source, "\"" + module), "the module name is not one literal");
+}
+
 // レビュー L2（iso-notes 7.2.2 の決定 A）。-0.0 と 0.0 は別の鍵で、生成コードの same_float はビット列で比べる。
 // 同じ鍵にまとめると、鍵の分かれ目の行が 1 つになる（L2 の敵対的レビュー A1）。
 void signed_zero_keys() {
@@ -384,6 +404,7 @@ int main() {
   octal_before_digit();
   trigraph_literal();
   long_atom_text();
+  long_entry_text();
   signed_zero_keys();
   comment_backslash();
   return mosa_test::failures() == 0 ? 0 : 1;
