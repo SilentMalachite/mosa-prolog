@@ -481,6 +481,18 @@ add_executable(console_test tests/cpp/console_test.cpp)
 target_include_directories(console_test PRIVATE tests/cpp)
 target_link_libraries(console_test PRIVATE mosa_lib)
 add_test(NAME console COMMAND $<TARGET_FILE:console_test> plain --flag 42)
+# Windows だけ。CMake では作れない起こし方で mosa を動かす（tests/cpp/windows_process_test.ps1）。標準入力の取っ手が
+# 無い（レビュー M-42）、生のコマンドライン（L-38 の 5）、Ctrl+C を受ける自分だけのコンソール（M-43）。
+if(WIN32)
+  foreach(windows_case no_stdin argv_quotes ctrl_c)
+    add_test(NAME windows_${windows_case} COMMAND powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass
+      -File ${CMAKE_SOURCE_DIR}/tests/cpp/windows_process_test.ps1 -Case ${windows_case} -Mosa $<TARGET_FILE:mosa>
+      -Work ${CMAKE_SOURCE_DIR}/tests/tmp/windows_process)
+    set_tests_properties(windows_${windows_case} PROPERTIES TIMEOUT 300)
+  endforeach()
+  # Ctrl+C は自分だけのコンソールに送るが、念のためほかのテストと並べない。
+  set_tests_properties(windows_ctrl_c PROPERTIES RUN_SERIAL TRUE)
+endif()
 
 add_executable(message_language_test tests/cpp/message_language_test.cpp)
 target_include_directories(message_language_test PRIVATE tests/cpp)
