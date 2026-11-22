@@ -60,6 +60,13 @@ std::optional<UserOpFailure> define_user_ops(Impl& machine, std::span<const OpDe
       const OpResult result = trial.define(ops[index].priority, ops[index].specifier, ops[index].name);
       if (result != OpResult::Ok) return UserOpFailure{index, result};
     }
+    // user の演算子はどのモジュールからも見える。モジュールの局所の中置と同じ名前の後置（と逆）も、局所の側から置いた
+    // ときと同じく断る。前は局所の層を見ず、置く順で結果が変わった（レビュー M-15、8.14.3.3）。
+    for (const Module& module : machine.modules) {
+      const OpResult result =
+          OperatorView{trials.front(), &module.ops}.admits(ops[index].priority, ops[index].specifier, ops[index].name);
+      if (result != OpResult::Ok) return UserOpFailure{index, result};
+    }
   }
   machine.operators = std::move(trials.front());
   for (std::size_t index = 0; index < machine.set_aside_ops.size(); ++index) {

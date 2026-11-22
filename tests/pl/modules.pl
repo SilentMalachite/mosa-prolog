@@ -154,6 +154,10 @@ test(op_runtime_local, (演算:op(300, xfx, 実演), \+ current_op(_, _, 実演)
 % モジュール固有の層への op/3 も、失敗で戻らない（レビュー M4、iso-notes 8.14.3 の決定 A）。
 % 固有層の優先度 0 は消去ではなく印として残り、user の 戻演 を 演算 の中で隠す。戻演 はこのテストだけで使う。
 test(m4_local_backtrack, ((演算:op(300, xfx, 戻演), fail ; true), 演算:current_op(300, xfx, 戻演), \+ current_op(_, _, 戻演), 演算:op(0, xfx, 戻演)), true).
+% レビュー M-15（8.14.3.3）。同じ名前の中置と後置は、モジュールの局所の層と user の層にまたがっても置けない。置く順によらない。
+test(m15_user_postfix_after_local, (演算:op(700, xfx, m15a), catch(op(200, xf, m15a), error(E, _), true), op(0, xf, m15a), 演算:op(0, xfx, m15a), E == permission_error(create, operator, m15a)), true).
+test(m15_user_infix_after_local, (演算:op(200, xf, m15b), catch(op(700, xfx, m15b), error(E, _), true), op(0, xfx, m15b), 演算:op(0, xf, m15b), E == permission_error(create, operator, m15b)), true).
+test(m15_local_infix_after_user, (op(200, xf, m15c), catch(演算:op(700, xfx, m15c), error(E, _), true), 演算:op(0, xfx, m15c), op(0, xf, m15c), E == permission_error(create, operator, m15c)), true).
 :- consult('modules/旗.pl').
 test(flag_dq_inside_file, 旗の中の文字列(X), solutions([X = ab])).
 test(flag_dq_per_file, current_prolog_flag(double_quotes, codes), true).
