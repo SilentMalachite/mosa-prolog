@@ -7,8 +7,8 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 16 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06,
-  M-08, M-17 (fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry
+- The 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06,
+  M-08, M-16 and M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry
   gives its A or B; default A, which keeps the current behaviour (H-09, H-12, H-18: owner's B).
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
@@ -20,6 +20,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Bindings of a cleanup that a cut runs (iso-notes "Section 7 Stage G `setup_call_cleanup/3`",
   phase 11 Task 1). Default A: ADR 0016 is kept, and `lgt_setup_call_cleanup_3_26` stays failing.
 - Ask the owner before an I2 fix round 5 (see "Unsure points from phase 13").
+- Review M-44, parallel builds of one program in one directory. A: build in a private directory and
+  rename it into place (a finished entry already there wins); B: a lock file next to the entry, with
+  waiting and a stale-lock rule. Not fixed yet; Windows may hold the new executable open during a rename.
 - `spy/1` and `debugging/0`. Default A: no spy point on a goal with no ports (`debug_has_ports`),
   the debugger turned on only when one is set, names quoted, and `M:` where `user` would reach
   another predicate. `transcript_debug_spy_forms` and the `dbg_spy_*_off` rows pin it.
@@ -209,12 +212,16 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Files to split before their next edit
 
-Code and test files at 730 lines or more (`wc -l`, 2026-11-19; generated files and docs aside):
+Code and test files at 730 lines or more (`wc -l`, 2026-11-22; generated files and docs aside):
 
 - `tests/cpp/session_test.cpp` (796), `tests/cpp/stream_test.cpp` (785),
-  `tests/cpp/conformance_io_test.cpp` (781), `tests/cpp/machine_test.cpp` (779),
-  `tests/cpp/gc_test.cpp` (751), `tests/cpp/manual_parse_test.cpp` (748)
-- `src/machine/internal.hpp` (732)
+  `tests/cpp/machine_test.cpp` (782), `tests/cpp/conformance_io_test.cpp` (781),
+  `tests/cpp/manual_parse_test.cpp` (758), `tests/cpp/gc_test.cpp` (751)
+- `src/builtins/write_pred.cpp` (750), `src/builtins/solutions.cpp` (740), `src/machine/internal.hpp` (734)
+
+W8 of the 2026-11-20 review edited three listed files without splitting them first, against this
+rule: `machine_test.cpp` (M-16), `manual_parse_test.cpp` (M-55) and `internal.hpp` (M-14). It also
+pushed `write_pred.cpp` (M-31) and `solutions.cpp` (M-27) past 730. Split these first.
 
 Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 
