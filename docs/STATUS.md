@@ -9,7 +9,7 @@
   CI 45015884771 green on 3 OSes (macOS on a rerun: the runner lost contact). Commits: review doc, plan.
 - **Next:** 0.5.1 is on hold until the owner asks; meanwhile split first, then the CI-only items.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** 1 test file at 730 lines or more, listed in open-items; then `tests/pl/database.pl`.
+- **Split first:** `tests/pl/database.pl` (856, the only file over 800); no code file at 730 or more.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).

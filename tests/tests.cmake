@@ -154,7 +154,7 @@ add_test(NAME bigint_limit COMMAND $<TARGET_FILE:bigint_limit_test>)
 set_tests_properties(bigint_limit PROPERTIES RUN_SERIAL TRUE TIMEOUT 900)
 
 # mark-and-compact の GC（ADR 0010）。ヒープ・extras・トレイルの頭打ちと、生きた項が保たれること。
-add_executable(gc_test tests/cpp/gc_test.cpp)
+add_executable(gc_test tests/cpp/gc_test.cpp tests/cpp/gc_policy_test.cpp)
 target_include_directories(gc_test PRIVATE tests/cpp src)
 target_compile_definitions(gc_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(gc_test PRIVATE mosa_lib)

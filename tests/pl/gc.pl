@@ -17,7 +17,7 @@ gc_runtime :- statistics(runtime, [T, D]), integer(T), integer(D).
 gc_walltime :- statistics(walltime, [T, _]), T >= 0.
 gc_cputime :- statistics(cputime, S), float(S).
 % 旗を true にした間は GC のたびに標準エラーへ 1 行出る。ストレス 1 では次の安全点で必ず GC が回り、行の数値（KiB と ms）が
-% インタプリタと翻訳で食い違うので、true にする往復はここでは試さない。true にして 1 行出ることは tests/cpp/gc_test.cpp。
+% インタプリタと翻訳で食い違うので、true にする往復はここでは試さない。true にして 1 行出ることは tests/cpp/gc_policy_test.cpp。
 gc_flag_roundtrip :- current_prolog_flag(trace_gc, false), set_prolog_flag(trace_gc, false), current_prolog_flag(trace_gc, false).
 
 test(gc_collect, garbage_collect, true).

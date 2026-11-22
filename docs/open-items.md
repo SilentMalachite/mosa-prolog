@@ -212,11 +212,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Files to split before their next edit
 
-Code and test files at 730 lines or more (`wc -l`, 2026-11-22; generated files and docs aside):
-
-- `tests/cpp/gc_test.cpp` (751)
-
-Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
+No other code or test file is at 730 lines or more (`wc -l`, 2026-11-22; generated files and docs
+aside; the next is `src/machine/lgt_io.cpp` at 711). Over the limit already (older than phase 14):
+`tests/pl/database.pl` (856).
 
 ## Unsure
 
