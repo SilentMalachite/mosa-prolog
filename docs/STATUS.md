@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W8 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-20 (7181654d); M-17 (question, A in force); M-16 to M-10; M-07; M-05; M-01.
-  W7 (CI); W6–W2; W1 but H-39. Triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** M-21 (W8: negative float base and huge integral exponents); M-18, M-06, M-08 ask.
+- **Last done:** M-21 (9c1ed6ad); M-20; M-17 (question, A in force); M-16 to M-10; M-07; M-05.
+  M-01; W7 (CI); W6–W2; W1 but H-39. Triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** M-22 (W8: float_fractional_part/1 of an infinity gives NaN); M-18, M-06, M-08 ask.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
