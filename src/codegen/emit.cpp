@@ -383,8 +383,10 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   text.helpers += dispatch_text(tables, predicate, proc) + run_text(proc, cases);
   text.forward += proc_signature(proc) + ";\n";
   text.procs += proc_signature(proc) + " {\n  " + proc + "_run(m, rt::regs(m, kUnit), frame, state);\n}\n\n";
-  text.entries += "    rt::NativeEntry{" + text.texts.view(machine.atoms.name(predicate.module)) + ", " +
-                  text.texts.view(machine.atoms.name(predicate.name)) + ", " + std::to_string(predicate.arity) +
+  // 2 つの view は別の文で呼ぶ。+ の被演算子の評価の順は決まっておらず、配列の番号がコンパイラで変わる（GCC で見た）。
+  const std::string module_text = text.texts.view(machine.atoms.name(predicate.module));
+  const std::string name_text = text.texts.view(machine.atoms.name(predicate.name));
+  text.entries += "    rt::NativeEntry{" + module_text + ", " + name_text + ", " + std::to_string(predicate.arity) +
                   ", std::uint64_t{" + hex64(clause_fingerprint(machine.atoms, predicate)) + "}, &" + proc + "},\n";
 }
 
@@ -399,8 +401,9 @@ std::string unit_tables(const Impl& machine, const UnitTables& tables, TextPool&
   for (const std::uint32_t atom : tables.atoms) atoms += "    " + pool.view(machine.atoms.name(atom)) + ",\n";
   std::string calls;
   for (const CalleeRef& key : tables.calls) {
-    calls += "    rt::NativeCallee{" + pool.view(machine.atoms.name(key.module)) + ", " + pool.view(key.name) + ", " +
-             std::to_string(key.arity) + "},\n";
+    const std::string module_text = pool.view(machine.atoms.name(key.module));
+    const std::string name_text = pool.view(key.name);
+    calls += "    rt::NativeCallee{" + module_text + ", " + name_text + ", " + std::to_string(key.arity) + "},\n";
   }
   return pool_text(pool) + "constinit rt::UnitTag kUnit{};\n" +
          table_text("std::string_view", "kAtoms", tables.atoms.size(), atoms) +
