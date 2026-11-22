@@ -212,6 +212,8 @@ add_executable(solutions_scale_test tests/cpp/solutions_scale_test.cpp)
 target_include_directories(solutions_scale_test PRIVATE tests/cpp)
 target_link_libraries(solutions_scale_test PRIVATE mosa_lib)
 add_test(NAME solutions_scale COMMAND $<TARGET_FILE:solutions_scale_test>)
+# 時間の比を測るので、ほかの *_scale と同じく 1 本だけで流す。並べて流すと CI の windows で比が 12〜24 に揺れた。
+set_tests_properties(solutions_scale PROPERTIES RUN_SERIAL TRUE)
 add_executable(term_scale_test tests/cpp/term_scale_test.cpp)
 target_include_directories(term_scale_test PRIVATE tests/cpp)
 target_link_libraries(term_scale_test PRIVATE mosa_lib)

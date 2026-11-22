@@ -206,8 +206,11 @@ std::optional<int> run_process(std::span<const std::string> argv, const std::fil
 // wait_for は DWORD の終了コードをそのまま int にするので、NTSTATUS のエラーは負の値で来る。
 bool exited_abnormally(int code) { return static_cast<std::uint32_t>(code) >= 0xC0000000U; }
 
+// FILE_FLAG_OPEN_REPARSE_POINT は記号リンクを辿らずリンクそのものを開く（POSIX の O_NOFOLLOW）。付けないと CREATE_NEW は
+// 先の無いリンクを辿って先にファイルを作った（CI の windows で見た）。
 bool create_private_file(const std::filesystem::path& path) {
-  const HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+  const HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
   if (handle == INVALID_HANDLE_VALUE) return false;
   CloseHandle(handle);
   return true;

@@ -221,6 +221,8 @@ jobs:
   # stack_deep* と machine_deep は深さ 100 万の項で C++ のスタックを見るテストで、Debug + ASan では制限時間に収まらない
   # （手元の macOS 同構成で stack_deep_read と stack_deep_builtins が 600 秒の内側の制限を超えた）。
   # bigint_limit も Release 前提の TIMEOUT 300 を超えた。どちらもメモリの正しさは残りのテストが見る。
+  # repl_heap（レビュー M-12）は REPL が続きの行ごとに入力を読み直すヒープの伸びを見るテストで、Debug + ASan では 3,000 行の
+  # 構文の誤りの読み直しが 300 秒の内側の制限を超えた（run 44983025478）。ヒープを切り詰めるメモリの正しさは debug_port_heap が見る。
   linux-asan:
     runs-on: ubuntu-24.04
     steps:
@@ -234,7 +236,7 @@ jobs:
       - name: Build
         run: cmake --build --preset linux-clang-asan
       - name: Test
-        run: ctest --preset linux-clang-asan -E "mosac|standalone|diff|package|install|mosatest_bench|manual|scale|stack_deep|machine_deep|bigint_limit|mosa_std_binary" --no-tests=error
+        run: ctest --preset linux-clang-asan -E "mosac|standalone|diff|package|install|mosatest_bench|manual|scale|stack_deep|machine_deep|bigint_limit|mosa_std_binary|repl_heap" --no-tests=error
       - name: Conformance suite
         run: ./build-asan/mosatest --suite tests/conformance
 
