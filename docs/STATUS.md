@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W8 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-12 (49e52959); M-11; M-10; M-07; M-05; M-01; W7 (CI green); W6–W2; W1 but H-39.
-  Triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** M-13 (W8: repeated commands at one debugger port pile up heap); M-06, M-08 ask.
+- **Last done:** M-13 (d91f2497); M-12; M-11; M-10; M-07; M-05; M-01; W7 (CI green); W6–W2.
+  Triage: [review-2026-11-20.md](review-2026-11-20.md). W1 is done but H-39.
+- **Next:** M-14 (W8: `dynamic/1` and `meta_predicate/1` accept `(:-)/1`, `(:-)/2`); M-06, M-08 ask.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
