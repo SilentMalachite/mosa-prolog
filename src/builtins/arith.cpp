@@ -83,41 +83,21 @@ bool float_bad(Impl& machine, const Goal& goal, double value, bool inputs_finite
   return false;
 }
 
-bool integer_exponent(Num right, std::int64_t& exp) {
-  if (!right.flt) {
-    exp = right.ival;
-    return true;
-  }
-  if (!std::isfinite(right.fval) || right.fval != std::trunc(right.fval)) return false;
-  if (right.fval < static_cast<double>(std::numeric_limits<std::int64_t>::min()) || right.fval >= 0x1p63) {
-    return false;
-  }
-  exp = static_cast<std::int64_t>(right.fval);
-  return true;
-}
-
-// 負の底の整数乗は、絶対値のべきに符号を付けてから、負の指数は逆数にする。奇偶は指数の整数の値から取る
-// （mag は double なので、2^53 を越えるとどれも偶数に見える）。
-double negative_base_pow(double base, double mag, bool odd, bool invert) {
-  const double raised = std::pow(std::fabs(base), mag);
-  const double signed_value = odd ? -raised : raised;
-  if (!invert) return signed_value;
-  if (signed_value == 0) return std::copysign(std::numeric_limits<double>::infinity(), signed_value);
-  return 1.0 / signed_value;
-}
-
 // 負の底 a の冪で、指数が整数値のとき。整数値でない指数は偽で、呼び手が undefined にする。b は right の double。
+// 値は正の底と同じく pow(|a|, b) で求め、指数が奇数なら符号を付ける。奇偶は整数の指数ならその値から取り（2^53 を越える
+// int64 と Big は double にすると偶数に見える）、浮動小数の指数なら double の値から取る（2^53 以上の double はどれも
+// 偶数の整数）。前は浮動小数の指数を int64 に直して 2^63 以上を undefined にし、負の指数を 1 / pow(|a|, |b|) にして
+// 2^-1024 より小さい値を早く 0 にした（レビュー M-21、9.3.1、9.3.10）。
 bool negative_base_value(const Impl& machine, double a, Num right, double b, double& value) {
-  if (right.big) {
-    value = negative_base_pow(a, std::fabs(b), int_odd(machine, right), b < 0);
-    return true;
+  bool odd = false;
+  if (!right.flt) {
+    odd = int_odd(machine, right);
+  } else {
+    if (!std::isfinite(right.fval) || right.fval != std::trunc(right.fval)) return false;
+    odd = std::fabs(right.fval) < 0x1p53 && std::fmod(right.fval, 2.0) != 0.0;
   }
-  std::int64_t exp = 0;
-  if (!integer_exponent(right, exp)) return false;
-  const bool invert = exp < 0;
-  const auto mag = invert ? static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(exp)
-                          : static_cast<std::uint64_t>(exp);
-  value = negative_base_pow(a, static_cast<double>(mag), (mag % 2U) != 0U, invert);
+  const double raised = std::pow(std::fabs(a), b);
+  value = odd ? -raised : raised;
   return true;
 }
 

@@ -122,6 +122,16 @@ test(m20_list_is, (X is [1]), error(type_error(evaluable, '.'/2))).
 test(m20_list_compare, (1 < [1]), error(type_error(evaluable, '.'/2))).
 test(m20_list_nested, (X is 1 + [a, b]), error(type_error(evaluable, '.'/2))).
 test(m20_codes_is, (atom_codes(a, L), X is L), error(type_error(evaluable, '.'/2))).
+% レビュー M-21（9.3.1、9.3.10）。負の底の整数値の冪は、正の底と同じ pow(|a|, b) に、奇数の指数なら符号を付ける。
+% 2^53 以上の double の指数はどれも偶数。整数の指数の奇偶はその値から取る。
+test(m21_huge_float_exp, (X is (-1.0) ** 9223372036854775808.0, X =:= 1.0), true).
+test(m21_float_exp_1e19, (X is (-1.0) ** 1.0e19, X =:= 1.0), true).
+test(m21_float_exp_1e300, (X is (-1.0) ** 1.0e300, X =:= 1.0), true).
+test(m21_neg_exp_1024, (X is (-2.0) ** (-1024), X =:= 2.0 ** (-1024), X > 0), true).
+test(m21_hat_neg_exp_1024, (X is (-2.0) ^ (-1024), X =:= 2.0 ** (-1024), X > 0), true).
+test(m21_neg_exp_1074, (X is (-2.0) ** (-1074), X =:= 2.0 ** (-1074), X > 0), true).
+test(m21_odd_int_exp, (X is (-1.0) ** 9007199254740993, X =:= -1.0), true).
+test(m21_odd_big_exp, (E is 2^70 + 1, X is (-1.0) ** E, X =:= -1.0), true).
 test(eval_functor_cmp, (foo(bar) =:= 1), error(type_error(evaluable, foo/1))).
 test(eval_functor_arity, (X is sqrt(bar, 1)), error(type_error(evaluable, sqrt/2))).
 test(eval_arg_atom, (X is 1 + bar), error(type_error(evaluable, bar/0))).
