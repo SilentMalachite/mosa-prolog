@@ -34,13 +34,13 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   on a fresh `render_only` machine, with the arguments, the operators and `japanese_punctuation`
   copied; the warnings keep their text (checked against the text before, in ja and en, and pinned by
   `transcript_debug_spy_after_warning` and `_ja`).
-- The test presets' job count (2026-11-22). Default A: a fixed 4 in all five presets, the same on
-  every CMake (`"jobs": 0` is unbounded on 3.29 and later, 1 on 3.28; see Unsure). B: the processor
-  count, through an empty `CTEST_PARALLEL_LEVEL`, which needs CMake 3.29 and is serial before it.
 ## Owner decisions in force
 
 - Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes. After W8
   the owner asked to hold 0.5.1 (2026-11-22): do not prepare or tag it until they ask.
+- The test presets' job count (A, 2026-11-23): a fixed 4 in all five presets, the same on every
+  CMake (`"jobs": 0` is unbounded on 3.29 and later, 1 on 3.28; see Unsure). B (the processor
+  count through an empty `CTEST_PARALLEL_LEVEL`, CMake 3.29 and later only) was declined.
 - Review M-44 (A, 2026-11-22): each build works in a private directory and a finished one is put in
   place without a lock; B (a lock file with a stale-lock rule) was declined. Carried out with a
   `<hash>/current` pointer file instead of a renamed directory (review entry, 3616a8b1).
