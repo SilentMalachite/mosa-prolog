@@ -113,7 +113,7 @@
       "configurePreset": "macos-clang",
       "configuration": "Release",
       "execution": {
-        "jobs": 0,
+        "jobs": 4,
         "timeout": 600
       },
       "output": {
@@ -126,7 +126,7 @@
       "configurePreset": "linux-gcc",
       "configuration": "Release",
       "execution": {
-        "jobs": 0,
+        "jobs": 4,
         "timeout": 600
       },
       "output": {
@@ -139,7 +139,7 @@
       "configurePreset": "linux-clang",
       "configuration": "Release",
       "execution": {
-        "jobs": 0,
+        "jobs": 4,
         "timeout": 600
       },
       "output": {
@@ -152,7 +152,7 @@
       "configurePreset": "linux-clang-asan",
       "configuration": "Debug",
       "execution": {
-        "jobs": 0,
+        "jobs": 4,
         "timeout": 3600
       },
       "output": {
@@ -165,7 +165,7 @@
       "configurePreset": "windows-msvc",
       "configuration": "Release",
       "execution": {
-        "jobs": 0,
+        "jobs": 4,
         "timeout": 600
       },
       "output": {

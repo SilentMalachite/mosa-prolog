@@ -34,6 +34,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   on a fresh `render_only` machine, with the arguments, the operators and `japanese_punctuation`
   copied; the warnings keep their text (checked against the text before, in ja and en, and pinned by
   `transcript_debug_spy_after_warning` and `_ja`).
+- The test presets' job count (2026-11-22). Default A: a fixed 4 in all five presets, the same on
+  every CMake (`"jobs": 0` is unbounded on 3.29 and later, 1 on 3.28; see Unsure). B: the processor
+  count, through an empty `CTEST_PARALLEL_LEVEL`, which needs CMake 3.29 and is serial before it.
 ## Owner decisions in force
 
 - Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes. After W8
@@ -217,13 +220,14 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 
 ## Unsure
 
-- Two unexplained events around the M-44 tests (2026-11-22), not yet tied to them or ruled out:
-  CI run 45015884771's first macOS attempt ran its Test step 44 minutes (10 is usual) until the
-  runner lost contact, with no log kept; and `mosac_build_parallel_direct` failed once in a full
-  local `ctest` during the file splits, its output lost to `| tail` and `--rerun-failed`. It then
-  passed in 4 more full runs, with every test repeated 6 times, and with the 56 `mosac_` tests
-  repeated 5 times at `-j 12` (`--output-on-failure`). Many tests allow 1800 s or more, so the
-  stall does not point at one test. If either comes back, keep the full `ctest` log.
+- The CI stalls and timeouts of 2026-11-22. The test presets had `"jobs": 0`, which CMake 3.29
+  and later run unbounded (ctest(1) `--parallel`; 3.28 runs it as 1): the CI jobs started 139 to
+  253 tests before the first one ended. readme-windows then timed out `mosac_run_exit_code`, its
+  `_direct` and `manual_en_ja` together (runs 44986701989, 45023566371), and the macOS runner lost
+  contact during Test with no log kept (runs 44983025478 on 685ff53c, before M-44; 45015884771;
+  45028714188). The presets now run 4 at a time. That the macOS stalls share this cause (3 vCPU,
+  7 GB) is inferred only, and the one local `mosac_build_parallel_direct` failure (output lost)
+  fits it but is not proven. If either comes back at 4 jobs, keep the full `ctest` log.
 - Translated `queens` is 8.1% slower than v0.1.4 with a byte-identical generated unit
   (5.4% more instructions, inside libmosa's evaluator; cause not found, bench.md).
   The final review's unmeasured candidate: `eval_int_bin` moved from an anonymous namespace of
