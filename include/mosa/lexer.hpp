@@ -46,6 +46,8 @@ class Lexer {
   bool release_failure();
   // 旗 japanese_punctuation。読み込みでは指令の次の節から効く。
   void set_fullwidth(bool on) { fullwidth_ = on; }
+  // この位置から後ろの字には char_conversion をかけない。term_to_atom/2 が足した終止符を写さないため（レビュー M-28）。
+  void set_conversion_end(std::size_t byte) { conv_end_ = byte; }
   // source の最後の字が終止符の後ろの字（layout char か %）で、その前の字が終止符になりうるとき真。写像は next と
   // 同じく conv と全角の旗で決める。標準入力の read が、足した字ごとでなく、ここが真のときだけ読み直すために使う
   // （ファイルの塊の中では next_mark が、ここが真になる長さを探す）。
@@ -167,6 +169,7 @@ class Lexer {
   bool raw_ = false;
   bool fullwidth_ = false;
   const CharConv* conv_ = nullptr;
+  std::size_t conv_end_ = std::string_view::npos;
   std::optional<Scan> failure_;
   std::size_t attempt_ = 0;
   bool failure_stuck_ = false;

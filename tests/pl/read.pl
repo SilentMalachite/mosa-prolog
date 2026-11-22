@@ -100,6 +100,11 @@ test(m07_octal_over, (open_string('''\\4200000\\''.', S), read(S, _)), error(syn
 test(m07_octal_huge, (open_string('''\\777777777777777777777\\''.', S), read(S, _)), error(syntax_error(bad_escape))).
 test(m07_octal_surrogate, (open_string('''\\154000\\''.', S), read(S, _)), error(syntax_error(bad_escape))).
 test(m07_octal_unclosed, (open_string('''\\0101''.', S), read(S, _)), error(syntax_error(bad_escape))).
+% レビュー M-28。term_to_atom/2 が足した改行と終止符には char_conversion をかけない。利用者の字面にはかける。
+test(m28_newline, (set_prolog_flag(char_conversion, on), char_conversion('\n', b), catch(term_to_atom(T, a), E, true), char_conversion('\n', '\n'), set_prolog_flag(char_conversion, off), var(E), T == a), true).
+test(m28_dot, (set_prolog_flag(char_conversion, on), char_conversion('.', x), catch(term_to_atom(T, a), E, true), char_conversion('.', '.'), set_prolog_flag(char_conversion, off), var(E), T == a), true).
+test(m28_space, (set_prolog_flag(char_conversion, on), char_conversion(' ', '('), catch(term_to_atom(T, a), E, true), char_conversion(' ', ' '), set_prolog_flag(char_conversion, off), var(E), T == a), true).
+test(m28_user_text, (set_prolog_flag(char_conversion, on), char_conversion(a, b), catch(term_to_atom(T, a), E, true), char_conversion(a, a), set_prolog_flag(char_conversion, off), var(E), T == b), true).
 % 0' の文字が引用符のときは二つ書いて 1 文字にする。値は 39。
 test(read_quote_code, (open_string('0\'\'\'.', S), read(S, T), T == 39), true).
 % 引用符が一つの 0''. も 39。次が引用符のときだけ二つ消費する。

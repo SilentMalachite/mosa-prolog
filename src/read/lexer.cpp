@@ -131,7 +131,7 @@ Lexer::SourceChar Lexer::peek_char_at(std::size_t byte) const {
   // 引用と注釈の中は元の文字。外は写像した符号点で分類する。
   // バイト数は元の文字のままにして、消費位置をソースに合わせる。
   if (!ch.valid || raw_) return ch;
-  if (conv_ != nullptr) ch.code = conv_->apply(ch.code);
+  if (conv_ != nullptr && byte < conv_end_) ch.code = conv_->apply(ch.code);
   if (!fullwidth_) return ch;
   if (const std::optional<char32_t> half = halfwidth_punctuation(ch.code)) ch.code = *half;
   return ch;

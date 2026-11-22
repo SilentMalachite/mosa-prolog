@@ -87,6 +87,9 @@ void read_text(Impl& machine, const Goal& goal, std::string_view text) {
   Reader reader(source, machine.heap, op_view(machine, goal.module), current_double_quotes(machine),
                 &machine.char_conv);
   reader.set_fullwidth(machine.japanese_punct);
+  // 足した改行と終止符は利用者の字面ではないので、char_conversion をかけない。前は改行や . や空白の写しが足した
+  // 字を変え、項に字が付くか incomplete_term になった（レビュー M-28）。利用者の字面には今までどおりかける。
+  reader.set_conversion_end(text.size());
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) {
     const auto lines = static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n')) + 1;
