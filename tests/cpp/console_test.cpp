@@ -45,10 +45,28 @@ void check_command_line(int argc, char** argv) {
   mosa_test::check(same, "command line matches argv");
 }
 
+// レビュー L-38 の 5。Windows のコマンドラインは CRT（2008 以降）と同じ規則で分ける。例は Microsoft の文書
+// 「Parsing C++ command-line arguments」の表から取った。分け方は OS に依らないので、どの OS でも試す。
+void check_split_command_line() {
+  using Args = std::vector<std::u16string>;
+  mosa_test::check(mosa::split_command_line(u"prog \"abc\" d e") == Args{u"prog", u"abc", u"d", u"e"}, "quoted");
+  mosa_test::check(mosa::split_command_line(u"prog a\\\\b d\"e f\"g h") == Args{u"prog", u"a\\\\b", u"de fg", u"h"},
+                   "backslashes before a letter");
+  mosa_test::check(mosa::split_command_line(u"prog a\\\\\\\"b c d") == Args{u"prog", u"a\\\"b", u"c", u"d"},
+                   "odd backslashes and a quote");
+  mosa_test::check(mosa::split_command_line(u"prog a\\\\\\\\\"b c\" d e") == Args{u"prog", u"a\\\\b c", u"d", u"e"},
+                   "even backslashes and a quote");
+  mosa_test::check(mosa::split_command_line(u"prog a\"b\"\" c d") == Args{u"prog", u"ab\" c d"}, "doubled quote inside quotes");
+  mosa_test::check(mosa::split_command_line(u"\"C:\\a b\\p.exe\" x") == Args{u"C:\\a b\\p.exe", u"x"},
+                   "program name keeps backslashes");
+  mosa_test::check(mosa::split_command_line(u"prog  \"\"  x ") == Args{u"prog", u"", u"x"}, "empty argument");
+}
+
 int main(int argc, char** argv) {
   check_command_line(argc, argv);
   check_console_line_text();
   check_utf8_from_utf16();
   check_not_console();
+  check_split_command_line();
   return mosa_test::failures();
 }
