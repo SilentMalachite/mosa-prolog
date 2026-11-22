@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W8 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-48 (d4e6faf4); M-47; M-46; M-45; M-41 (Windows on CI); M-39; M-36; M-34; M-33.
-  M-32; M-31; M-29; M-28; M-27; M-22–M-20; M-17 (A); M-16–M-10; M-07; M-05; M-01. [Triage](review-2026-11-20.md).
-- **Next:** M-55 (W8: the manual checker reads a fence in an HTML comment); M-44 waits on a choice.
+- **Last done:** W8 but M-44, the CI-only items and the questions (M-55 6e497ddc last); W7–W2; W1 but H-39.
+  Each item's commit is in [review-2026-11-20.md](review-2026-11-20.md) and the plan's table.
+- **Next:** CI for W8 (M-41 has a Windows part); M-44 needs a choice (private dir + rename, or a lock).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
