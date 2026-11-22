@@ -1,6 +1,6 @@
 # 計画 Task 5。mosac emit の出した目録を、本体と同じ生成器、コンパイラ、構成で configure、build、実行する。
 # 生成した C++ が 3 OS の CI でコンパイルできること（SPEC 第6節の不変条件）も、この build が確かめる。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_quoted|undefined_handled|refused|duplicate|silent|newop|refused_op|halt|trigraph|bigint> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|broken|undefined|undefined_catch|undefined_qualified|undefined_quoted|undefined_handled|refused|duplicate|silent|newop|refused_op|halt|trigraph|bigint> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ>
 #   -DGENERATOR=<生成器> -DPLATFORM=<-A の値> -DCXX=<コンパイラ> -DBUILD_TYPE=<構成> -DCONFIG=<--config の値>
 #   -DCXX_FLAGS=<CMAKE_CXX_FLAGS> -DLINKER_FLAGS=<CMAKE_EXE_LINKER_FLAGS> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P emit_test.cmake
@@ -58,6 +58,16 @@ if(CASE STREQUAL "undefined_catch")
   foreach(want "undefined_catch\\.pl:3: ${warning_head}[^\n]*nosuch_goal/0" "undefined_catch\\.pl:4: ${warning_head}[^\n]*nosuch_recovery/0")
     if(NOT emit_err MATCHES "${want}")
       message(FATAL_ERROR "undefined_catch: ${want}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
+    endif()
+  endforeach()
+endif()
+
+# レビュー M-46。M:(G1, G2) など修飾した制御構造の中も、修飾しないゴールと同じく未定義の呼び出しを知らせる。
+if(CASE STREQUAL "undefined_qualified")
+  foreach(want "undefined_qualified\\.pl:3: ${warning_head}[^\n]*nosuch_conj/0" "undefined_qualified\\.pl:4: ${warning_head}[^\n]*nosuch_then/0"
+               "undefined_qualified\\.pl:5: ${warning_head}[^\n]*nosuch_not/0" "undefined_qualified\\.pl:6: ${warning_head}[^\n]*nosuch_plain/0")
+    if(NOT emit_err MATCHES "${want}")
+      message(FATAL_ERROR "undefined_qualified: ${want}: code=${emit_code} out=[${emit_out}] err=[${emit_err}]")
     endif()
   endforeach()
 endif()
@@ -207,7 +217,7 @@ elseif(CASE STREQUAL "undefined" OR CASE STREQUAL "undefined_quoted")
   if(CASE STREQUAL "undefined_quoted")
     set(expected_err "existence_error\\(procedure,'Foo'/1\\)")
   endif()
-elseif(CASE STREQUAL "undefined_catch")
+elseif(CASE STREQUAL "undefined_catch" OR CASE STREQUAL "undefined_qualified")
   set(expected "hello")
 elseif(CASE STREQUAL "undefined_handled")
   set(expected "caught\nfailed\n")

@@ -93,8 +93,10 @@ void collect_goals(const Impl& machine, const IrTerm& root, std::uint32_t root_m
         continue;
       case IrTag::Atom: out.push_back(PredKey{item.module, goal.atom, 0}); continue;
       case IrTag::Fun:
+        // M:G の G は項のまま（データの形）で残るので、, ; -> などを構文として読む。前はデータの ','/2 を 1 つの呼び出しと
+        // 見て中を辿らず、M:(undef, true) を知らせなかった（レビュー M-46）。ゴールの形の G は data でも変わらない。
         if (machine.atoms.name(goal.atom) == ":" && goal.args.size() == 2 && goal.args[0].tag == IrTag::Atom) {
-          push(goal.args[1], goal.args[0].atom, false);
+          push(goal.args[1], goal.args[0].atom, true);
           continue;
         }
         if (is_name(machine, goal, "\\+", 1) && (goal.args[0].tag == IrTag::Atom || goal.args[0].tag == IrTag::Fun)) {
