@@ -227,8 +227,10 @@ std::size_t pack_hit(std::size_t stream, int prop) {
 bool bind_hit(Impl& machine, const Goal& goal, std::size_t packed) {
   const auto stream = packed / static_cast<std::size_t>(Count);
   const auto prop = static_cast<int>(packed % static_cast<std::size_t>(Count));
-  // 集めた後で閉じ、別名を新しい流れに譲った流れは、やり直しで別名を返さない（レビュー 2026-11-20 の H-21）。
-  // 別名の無い流れの alias は nullopt なので、確かめずに prop_cell が読んではいけない。
+  // 集めた後で閉じた流れは、やり直しでどの性質も返さない（8.11.8、レビュー M-29）。前は閉じた流れを読み、
+  // end_of_stream(at) などを返し続けた。流れの番号は使い回さないので、閉じた印だけを見ればよい。
+  if (machine.streams[stream].closed) return false;
+  // 別名の無い流れの alias は nullopt なので、確かめずに prop_cell が読んではいけない（H-21）。
   if (!has_prop(machine.streams[stream], prop)) return false;
   const Cell spec = machine.heap.deref(goal.arg(machine, 0));
   // 別名は照合済み。変数のときだけ '$stream'(N) を束縛する。

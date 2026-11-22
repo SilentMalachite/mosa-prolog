@@ -28,3 +28,6 @@ test(close_std_keeps_other_current, (with_output_to(atom(A), (close(user_output)
 test(close_std_file_still_closes, (open('tests/tmp/close_std.txt', write, S), set_output(S), close(user_output), close(S), current_output(C), stream_property(C, alias(user_output)), write(C, '')), true).
 % 現在入力の流れを閉じたら user_input へ戻る（8.11.6.1、mark_closed）。
 test(close_current_input_falls_back, (open_string(ab, S), set_input(S), close(S), current_input(C), stream_property(C, alias(user_input))), true).
+% レビュー M-29（8.11.8）。列挙の途中で閉じた流れは、それより後の解を返さない。mode(read) が最初の性質。
+test(m29_closed_during, (open_string(ab, S), findall(P, (stream_property(T, P), T == S, (P = mode(_) -> close(S) ; true)), Ps), Ps == [mode(read)]), true).
+test(m29_others_go_on, (open_string(ab, S), open_string(cd, S2), findall(P, (stream_property(T, P), (T == S, P = mode(_) -> close(S) ; T == S2, P = mode(M) -> P = mode(M) ; fail)), Ps), close(S2), Ps == [mode(read), mode(read)]), true).
