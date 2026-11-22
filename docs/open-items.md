@@ -155,7 +155,7 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - codegen's per-clause 16-bit resume limit and the close failures of `mosac emit` have no test.
 - H-05 (f4c48d4a), read from code only: `hold_native_scans` on the live stack and through
   `abolish_stale` and `retire_older` (files written at run time are never native, so no test file
-  reaches them). `run_goal` (`write_pred.cpp`) restores the stack from a copy, so a reload inside a
+  reaches them). `run_goal` (`write_portray.cpp`) restores the stack from a copy, so a reload inside a
   portray hook drops the marks, and the old clause can be swept before the redo.
 - Debugger test gaps from the 2026-11-18 review (next test task, one at a time): a leap transcript
   for each `spy/1` form other than `Name/Arity` (bare name, list, qualified; `check_spy_and_leash_state`
@@ -216,13 +216,13 @@ Code and test files at 730 lines or more (`wc -l`, 2026-11-22; generated files a
 
 - `tests/cpp/session_test.cpp` (796), `tests/cpp/stream_test.cpp` (785),
   `tests/cpp/conformance_io_test.cpp` (781), `tests/cpp/gc_test.cpp` (751)
-- `src/builtins/write_pred.cpp` (750), `src/builtins/solutions.cpp` (740)
+- `src/builtins/solutions.cpp` (740)
 
 W8 of the 2026-11-20 review edited three listed files without splitting them first, against this
 rule: `machine_test.cpp` (M-16, split since into `machine_load_test.cpp`), `manual_parse_test.cpp`
 (M-55, split since into `manual_table_test.cpp`) and `internal.hpp` (M-14, split since into
-`frames.hpp`). It also pushed `write_pred.cpp` (M-31) and `solutions.cpp` (M-27) past 730. Split
-these first.
+`frames.hpp`). It also pushed `write_pred.cpp` (M-31, split since into `write_portray.cpp`) and
+`solutions.cpp` (M-27) past 730. Split these first.
 
 Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 

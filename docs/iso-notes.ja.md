@@ -39,9 +39,9 @@
 
 レビュー L14（2026-11-05。持ち主の決定ではない）: `portray` の中で halt したときは、項のそれまでの字面と `portray` が現在出力へ書いた分を、halt の前に流れへ書く。`write/1` の後の `halt` と同じである。今までどおり `print` は項を書き終えてから字面を一度に書くので、`portray` が名指しで別の流れへ書いた分の方が先に出る。例外のときは、`catch` の後で続きが書かれうるので、今までどおりその `print` の分は何も書かない。
 
-レビュー H-24（2026-11-21。持ち主の決定ではない）: 上の決定の「`portray/1` に節がある」は、`user` から `portray(T)` を呼んで届く `portray/1`、つまり `user` で定義したか `user` に取り込んだものを指す。print/1 はいつも `user` から掛け金を呼ぶ。`user` が取り込まない別のモジュールの `portray/1` は掛け金ではなく、print/1 は `portray/1` に節が無いときと同じく書く。前はどのモジュールの `portray/1` でも、print/1 と `~p` が `user` から `portray/1` を呼び、`existence_error(procedure, portray/1)` になった（`src/builtins/write_pred.cpp` の `portray_ready`、`tests/pl/print_module.pl`）。
+レビュー H-24（2026-11-21。持ち主の決定ではない）: 上の決定の「`portray/1` に節がある」は、`user` から `portray(T)` を呼んで届く `portray/1`、つまり `user` で定義したか `user` に取り込んだものを指す。print/1 はいつも `user` から掛け金を呼ぶ。`user` が取り込まない別のモジュールの `portray/1` は掛け金ではなく、print/1 は `portray/1` に節が無いときと同じく書く。前はどのモジュールの `portray/1` でも、print/1 と `~p` が `user` から `portray/1` を呼び、`existence_error(procedure, portray/1)` になった（`src/builtins/write_portray.cpp` の `portray_ready`、`tests/pl/print_module.pl`）。
 
-レビュー H-25（2026-11-21。持ち主の決定ではない）: print/1 は、モードの `@term` のとおり何も束縛しない。束縛の無い変数には `portray/1` を呼ばず、`write/1` と同じく書く。成功した `portray/1` の束縛は、その字面を取った後に戻すので、項の残りと呼び手には変数が束縛の無いまま見える。前は変数にも `portray/1` を呼び、束縛済みの項に合った節の束縛も呼び手に残した（`src/builtins/write_pred.cpp` の `apply_portray` と `run_goal`、`tests/pl/print.pl` の `h25_` の行）。`m7_print_portray_cycles` の行は同じコミットで変える。その `portray` が作る巡回するリストは項の残りから見えなくなり、`[hh,g|_G1]` と書く。
+レビュー H-25（2026-11-21。持ち主の決定ではない）: print/1 は、モードの `@term` のとおり何も束縛しない。束縛の無い変数には `portray/1` を呼ばず、`write/1` と同じく書く。成功した `portray/1` の束縛は、その字面を取った後に戻すので、項の残りと呼び手には変数が束縛の無いまま見える。前は変数にも `portray/1` を呼び、束縛済みの項に合った節の束縛も呼び手に残した（`src/builtins/write_portray.cpp` の `apply_portray` と `run_goal`、`tests/pl/print.pl` の `h25_` の行）。`m7_print_portray_cycles` の行は同じコミットで変える。その `portray` が作る巡回するリストは項の残りから見えなくなり、`[hh,g|_G1]` と書く。
 
 ## 8.14 書き出しオプション
 

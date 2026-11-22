@@ -1,11 +1,16 @@
 #pragma once
-// write_pred.cpp と write_capture.cpp が分け合う内部の宣言。with_output_to/2 を別のファイルへ出した（800 行の上限と、
-// フェーズ 14 の追加のため）ので、portray/1 の道（run_goal、OutputScope）と流れの検査を両方から使えるようにする。
-// 本体は write_pred.cpp にある。移しただけで、振る舞いは変えない。
+// write_pred.cpp、write_capture.cpp、write_portray.cpp が分け合う内部の宣言。with_output_to/2 を別のファイルへ出した
+// （800 行の上限と、フェーズ 14 の追加のため）ので、portray/1 の道（run_goal、OutputScope）と流れの検査を両方から
+// 使えるようにする。portray/1 の道と run_goal の本体は write_portray.cpp、ほかの本体は write_pred.cpp にある。
+// 移しただけで、振る舞いは変えない。
 
 #include "../machine/internal.hpp"
 
+#include "mosa/writer.hpp"
+
+#include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace mosa::write_internal {
@@ -64,5 +69,34 @@ enum class Bindings : std::uint8_t { Keep, Undo };
 Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_t module, Bindings bindings);
 // 流れの番号へ書き、位置と字数を進める。標準の流れは OS にも出す（write_pred.cpp の emit_text）。
 void emit_to_stream(Impl& machine, std::size_t index, std::string_view text);
+
+// print/1 が writer の掛け金 apply_portray に渡す状態。emit_written（write_pred.cpp）が作り、apply_portray
+// （write_portray.cpp）が書き換える。
+struct PortrayHook {
+  Impl* machine = nullptr;
+  std::uint32_t name = 0;
+  std::size_t scratch = 0;
+  bool have_scratch = false;
+  bool stop = false;
+  bool halted = false;
+  // portray が下書きの流れ（print の間の現在出力）を閉じた。print は書かずに誤りで止まる（レビュー M-31）。
+  bool scratch_closed = false;
+
+  PortrayHook() = default;
+  PortrayHook(const PortrayHook&) = delete;
+  PortrayHook& operator=(const PortrayHook&) = delete;
+
+  ~PortrayHook() {
+    if (have_scratch && machine != nullptr) {
+      machine->streams[scratch].closed = true;
+      std::string{}.swap(machine->streams[scratch].bytes);
+    }
+  }
+};
+
+// user から見える portray/1 に節があれば、その名を name に置いて真（write_portray.cpp）。
+bool portray_ready(Impl& machine, std::uint32_t& name);
+// writer の掛け金。raw は PortrayHook（write_portray.cpp）。
+WriteCut apply_portray(void* raw, Cell term, std::string& out, WriteHeld& held);
 
 }  // namespace mosa::write_internal
