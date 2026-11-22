@@ -269,6 +269,14 @@ ParsedManual Parser::run() {
       continue;
     }
     const std::string_view line = lines_[index];
+    // 複数行の注釈の中は、囲いの開きより先に見る。GFM は注釈を --> まで 1 つの HTML のブロックとして読み、中の
+    // ``` を囲いにしない。前は囲いを先に見て、注釈の中の例を印の無い囲いの誤りにした（レビュー M-55）。
+    // 注釈の中では pending_ は空のまま（注釈を開く行は table_line まで進み、その前に pending_ を消している）。
+    if (in_comment_ && !comment_line(index)) {
+      tags_.line(index, line);
+      ++index;
+      continue;
+    }
     if (const auto fence = opening_fence(line)) {
       index = fence->indent == 0 ? read_block(index, *fence) : skip_unreadable(index, *fence);
       continue;
@@ -282,11 +290,6 @@ ParsedManual Parser::run() {
     if (pending_) {
       error(pending_->line, "manual_marker_alone");
       pending_.reset();
-    }
-    if (in_comment_ && !comment_line(index)) {
-      tags_.line(index, line);
-      ++index;
-      continue;
     }
     if (const auto head = marker_head(line)) {
       const std::size_t next = read_marker(index, *head);

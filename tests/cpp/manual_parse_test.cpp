@@ -134,6 +134,15 @@ void manual_parse_unmarked() {
   check(parsed.examples.empty(), "unmarked: no examples");
 }
 
+// レビュー M-55。複数行の <!-- … --> の中のコードの囲いは、GFM と同じく注釈の一部で、例にも印の無い囲いにもしない。
+// 注釈の外の印のある例は前と同じに読む。
+void manual_parse_fence_in_comment() {
+  const std::string text = "<!--\n```text\n?- hidden.\n```\n-->\n\n<!-- check: a -->\n```text\n?- a.\n```\n";
+  const mosa::ParsedManual parsed = mosa::parse_manual(text, "c.md");
+  check(parsed.errors.empty(), "fence in comment: no errors");
+  check(parsed.examples.size() == 1, "fence in comment: only the marked example");
+}
+
 // 印の置き場所と種類の誤り。どれも file:line: で始まる。
 void manual_parse_misplaced() {
   check(has_error(mosa::parse_manual("<!-- check: a -->\n\n```text\n?- a.\n```\n", "m.md"), "m.md:1: "),
@@ -725,6 +734,7 @@ int main() {
   manual_parse_override();
   manual_parse_crlf();
   manual_parse_unmarked();
+  manual_parse_fence_in_comment();
   manual_parse_misplaced();
   manual_parse_kind_sequence();
   manual_parse_unreadable();
