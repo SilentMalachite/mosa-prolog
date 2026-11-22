@@ -48,12 +48,14 @@ void Heap::grow(std::size_t need) {
   reset_ceiling();
 }
 
-// 外に持つ語も上限に数える（ADR 0010 の改訂 2）。持った分だけ伸ばせる語が減る。天井で来ただけなら commit しない。
+// 外に持つ語も上限に数える（ADR 0010 の改訂 2）。持った分だけ伸ばせる語が減る。
+// 呼ぶのは allocate が天井を越えたときだけで、天井は reset_ceiling が commit した語と残りの小さい方に保つ。だから
+// 残りの確かめを通れば、いつも commit を伸ばす。伸ばさずに天井だけ決め直す枝は通らなかった（レビュー N-02）。
 void Heap::grow_for(std::size_t count) {
   const std::size_t room = held_ < limit_ ? limit_ - held_ : 0;
   if (count > room || used_ > room - count) throw ResourceLimit("heap_limit");
-  if (used_ + count > committed_words_) grow(used_ + count);
-  else reset_ceiling();
+  assert(used_ + count > committed_words_);
+  grow(used_ + count);
 }
 
 void Heap::reset_ceiling() {
@@ -67,9 +69,11 @@ void Heap::hold(std::size_t words) {
 }
 
 // 返すのは足した収集だけで、足した分を超えない。超えれば別の収集の分まで消えるので、黙って 0 にしない。
+// 前は 0 で切り詰め、注釈と食い違っていた（レビュー M-04）。切り詰めなければ、対が崩れたときに held が上限を
+// 超えて次の確保が heap_limit で止まり、collect_limit_test の held() == 0 も落ちる。drop_state も切り詰めない。
 void Heap::release(std::size_t words) {
   assert(words <= held_);
-  held_ -= std::min(words, held_);
+  held_ -= words;
   reset_ceiling();
 }
 
