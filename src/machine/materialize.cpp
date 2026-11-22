@@ -1,6 +1,6 @@
 // 節の IR から項を組む（materialize）。ADR 0011（深い項は手で積む）と ADR 0022（assert した節の共有の項は、1 つの頭か
 // 1 つのゴールを組む間に 1 度だけ組む、レビュー M30）。
-// テスト: tests/pl/database.pl の m30_*、tests/cpp/assert_shared_test.cpp、tests/cpp/machine_deep_test.cpp、
+// テスト: tests/pl/database_store.pl の m30_*、tests/cpp/assert_shared_test.cpp、tests/cpp/machine_deep_test.cpp、
 // tests/cpp/bigint_copy_test.cpp（Big）
 #include "internal.hpp"
 

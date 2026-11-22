@@ -1,7 +1,7 @@
 // 項をデータとして IR に写す Build の半分（compile.cpp から 800 行を超えないよう分けた）。読み込んだ節は木に写し
 // （copy_data）、assert の節は 2 度目に出会った部分項を共有の項にし（share_data、ADR 0022）、実行時のゴールは束縛済みの
 // 複合項を元の項のまま指す（place、レビュー M28）。
-// テスト: tests/pl/database.pl の m30_*、tests/cpp/assert_shared_test.cpp、tests/cpp/goal_shared_test.cpp、
+// テスト: tests/pl/database_store.pl の m30_*、tests/cpp/assert_shared_test.cpp、tests/cpp/goal_shared_test.cpp、
 // tests/cpp/bigint_copy_test.cpp（Big の葉）
 
 #include "compile_build.hpp"

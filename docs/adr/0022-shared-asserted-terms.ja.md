@@ -23,4 +23,4 @@ assert が組む IR は `compile_goal` と同じくヒープの上限に数え�
 
 節を assert する時間とメモリ、その頭や 1 つのゴールを組む時間とメモリは、木ではなく共有を含めた項の大きさで決まる。読み込んだ節と、そういう部分項の無い節は前とまったく同じに訳す。
 mosac は共有の項を持つ述語のコードを生成しない（`native_eligible`）。それを持つのは assert した、つまり動的な節だけである。
-テスト: tests/pl/database.pl の `m30_*`、tests/cpp/assert_shared_test.cpp。
+テスト: tests/pl/database_store.pl の `m30_*`、tests/cpp/assert_shared_test.cpp。

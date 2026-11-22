@@ -79,7 +79,7 @@ A か B か: A は `domain_error(write_option, LaterTerm)` のまま（今の決
 
 A か B か: A は 7.6.2 に従う。節は本体が `call(X)` であるかのように振る舞う。`clause(p, B)` は `B = call(_)` を返し、`retract((p :- B))` は `B` を `call(_)` と単一化する（したがって `retract(p)` と `retract((p :- true))` はこの節を消さない）。`X` が未束縛のまま呼ぶと `call/1` から `instantiation_error` になる。B は誤りを残し、意図した逸脱として記す。
 
-決定（2026-11-01）: A（所有者が H5 の計画と実装を一度に依頼した）。retract/1 は格納した IR の変数そのものと単一化していたので、どの本体とも合っていた。H5 より前から `p(X) :- true, X` や consult した節でも起きていた。今は clause/2 と同じ形に本体を戻す（`retract((h :- halt))` も一致するようになり、本体の `false` は、このファイルの 8.8 clause/2 に記したとおり `fail` に見える）。`catch/3` の引数は 7.6.2 c のとおり書いたままにする。clause/2 は以前そこの変数を `call(X)` と見せていた。`p(X) :- X` に対する `retract((p(Y) :- Y))` は `Y` を `call(Y)` と単一化する。これは出現検査の対象外（7.3.3）なので、`Y` は循環項になる。テスト: `tests/pl/database.pl` の `assert_body_var_*`。
+決定（2026-11-01）: A（所有者が H5 の計画と実装を一度に依頼した）。retract/1 は格納した IR の変数そのものと単一化していたので、どの本体とも合っていた。H5 より前から `p(X) :- true, X` や consult した節でも起きていた。今は clause/2 と同じ形に本体を戻す（`retract((h :- halt))` も一致するようになり、本体の `false` は、このファイルの 8.8 clause/2 に記したとおり `fail` に見える）。`catch/3` の引数は 7.6.2 c のとおり書いたままにする。clause/2 は以前そこの変数を `call(X)` と見せていた。`p(X) :- X` に対する `retract((p(Y) :- Y))` は `Y` を `call(Y)` と単一化する。これは出現検査の対象外（7.3.3）なので、`Y` は循環項になる。テスト: `tests/pl/database_store.pl` の `assert_body_var_*`。
 
 ## 7.8.9 変数を含む catch/3 のゴール
 
@@ -103,7 +103,7 @@ A か B か（レビュー H-09、2026-11-20）: ゴールの位置に変数か�
 
 節には戻り先として指せる環境がないので、assertz/1 や asserta/1 に渡した巡回する本体は際限なく膨らんでいた（レビュー M7: `--heap-max 16` で `X = (a, X), assertz((p :- X))` が 11.6 GB）。巡回する頭や引数は、前から戻る所で匿名変数に切っていた（`X = f(X), assertz(p(X))` は `p(f(_))` を足す）。A か B か: A は、訳している途中の制御構造に戻る所を同じように新しい変数のゴールに切る。節は有限になり、そこまで来ると `instantiation_error` になる。B は、巡回する本体なら assertz/1 が誤りを投げる。
 
-決定（2026-11-03）: A（レビュー M7）。`X = (a, X), assertz((p :- X))` は `p :- a, call(_)` を足し（clause/2 はその本体を返す）、`X = (Y = 1 ; X)` を本体にした `p(Y)` は `Y = 1` の後に `instantiation_error` になる。戻る所ごとに別の変数になり、制御構造を含むデータの引数はデータとして写してその中の巡回を切る（`X = (q(X), true)` は `q((q(_), true)), true` を足す）。テスト: `tests/pl/database.pl` の `m7_assert_*`。
+決定（2026-11-03）: A（レビュー M7）。`X = (a, X), assertz((p :- X))` は `p :- a, call(_)` を足し（clause/2 はその本体を返す）、`X = (Y = 1 ; X)` を本体にした `p(Y)` は `Y = 1` の後に `instantiation_error` になる。戻る所ごとに別の変数になり、制御構造を含むデータの引数はデータとして写してその中の巡回を切る（`X = (q(X), true)` は `q((q(_), true)), true` を足す）。テスト: `tests/pl/database_store.pl` の `m7_assert_*`。
 
 下の 2026-11-17 の決定まで、`strip_module/3`（フェーズ 12 のタスク 7）にも巡回の検査は無かった。`X = a:X` は出現検査の対象（STO）で、巡回する項を作る。その項への `strip_module(X, _, _)` は終わらなかった。この繰り返しは何も割り当てないので、`--heap-max` でも止まらなかった。節操作の C++ の `skip_module`（`src/module/target.cpp`）も、そのような項を受ければ同じように回り続ける。同じファイルの C++ の `strip_module` が回り続けたのは、巡回の中の原子が今あるモジュールを名指すとき（`X = user:X, assertz(X)`）だけで、そうでなければ `existence_error(module, M)` を投げた（`X = nomod:X, assertz(X)`）。2026-11-15 に 3 秒の上限を付けて手で確かめた。`import/1`（フェーズ 12 のタスク 8）も同じように回り続けた。`import_source`（`src/builtins/module_goal.cpp`）が巡回の検査なしに `M:` の層を外したので、`X = a:X, import(X)` は終わらず、`--heap-max` でも止まらなかった（フェーズ 12 の Muse レビューで見つけ、2026-11-15 に 5 秒の上限を付けて手で確かめた）。
 

@@ -11,7 +11,7 @@
 // 8.9.5 retractall/1 (@callable)（Cor.2）
 //   instantiation_error, type_error(callable), permission_error(modify, static_procedure, PI)
 // 7.4.2 dynamic/1 は指示だけ。読み込み側で受ける。
-// テスト: tests/pl/database.pl, tests/pl/clause.pl, tests/pl/bigint.pl
+// テスト: tests/pl/database.pl, tests/pl/database_store.pl, tests/pl/clause.pl, tests/pl/bigint.pl
 
 #include "database_internal.hpp"
 

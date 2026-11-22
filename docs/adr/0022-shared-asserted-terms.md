@@ -23,4 +23,4 @@ Share loaded clauses too. They are trees as read, and mosac's generated code rea
 
 Asserting a clause, and building its head or one of its goals, cost time and memory in the size of the term with its sharing, not of its tree. Loaded clauses and clauses without such a subterm are compiled exactly as before.
 mosac does not generate code for a predicate with shared terms (`native_eligible`); only asserted, so dynamic, clauses have them.
-Tests: `m30_*` in tests/pl/database.pl, tests/cpp/assert_shared_test.cpp.
+Tests: `m30_*` in tests/pl/database_store.pl, tests/cpp/assert_shared_test.cpp.

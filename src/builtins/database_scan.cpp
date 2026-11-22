@@ -4,7 +4,7 @@
 //   type_error(predicate_indicator), type_error(atom), type_error(integer),
 //   domain_error(not_less_than_zero)。項数の Big（フェーズ10）は負なら定義域の誤り、正なら表に無いので失敗。
 // 節と述語を読むだけの組込。節を変える組込は database.cpp にある。
-// テスト: tests/pl/database.pl, tests/pl/clause.pl, tests/pl/bigint.pl
+// テスト: tests/pl/database.pl, tests/pl/database_store.pl, tests/pl/clause.pl, tests/pl/bigint.pl
 
 #include "database_internal.hpp"
 

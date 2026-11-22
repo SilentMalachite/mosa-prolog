@@ -1,6 +1,6 @@
 // ADR 0022（レビュー M30）。assert した節の共有の項（Clause::shared）のスロットを付け直して表を作る。共有の項を作るのは
 // compile.cpp の Build::share_data、組むのは engine.cpp の materialize（SharedMemo）。
-// テスト: tests/pl/database.pl の m30_*、tests/cpp/assert_shared_test.cpp
+// テスト: tests/pl/database_store.pl の m30_*、tests/cpp/assert_shared_test.cpp
 #include "internal.hpp"
 
 #include <cstdint>

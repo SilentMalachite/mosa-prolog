@@ -1,7 +1,7 @@
 // ADR 0015 とその改訂、レビュー M19。消した節の寿命。開いた走査（脇に置いたスタックの走査も）がまだ試す節は死んだ
 // 節で残し、届かなくなった節を端から、または半分を超えたらまとめて消す。assert・retract・abolish（database.cpp）と
 // 読み込みの置き換え（load_clauses.cpp）がここを呼ぶ。
-// テスト: tests/pl/database.pl, tests/pl/directives.pl, tests/cpp/clause_scan_test.cpp
+// テスト: tests/pl/database.pl, tests/pl/database_store.pl, tests/pl/directives.pl, tests/cpp/clause_scan_test.cpp
 
 #include "database_internal.hpp"
 
