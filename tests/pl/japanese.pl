@@ -249,3 +249,6 @@ test(ja_spy_bad, spy(デバッグ用/あ), error(type_error(integer, あ))).
 % レビュー M-10（SPEC 第4節）。ゴールの指令と include したテキストで変えた japanese_punctuation を、次の節から読み手が使う。
 test(m10_goal_punct, (consult('tests/pl/fixtures/m10_goal_punct.pl'), m10_goal_punct(a, b), current_prolog_flag(japanese_punctuation, false)), true).
 test(m10_include_punct, (consult('tests/pl/fixtures/m10_include_punct.pl'), m10_include_punct(a, b), current_prolog_flag(japanese_punctuation, false)), true).
+% レビュー M-34。マルチバイトの字でも、束縛済みの片側との比べで 1 回で決める。
+test(m34_ja_left, (setup_call_cleanup(true, atom_concat(あい, X, あいう), D = yes), D == yes, X == う), true).
+test(m34_ja_right, (setup_call_cleanup(true, atom_concat(X, う, あいう), D = yes), D == yes, X == あい), true).

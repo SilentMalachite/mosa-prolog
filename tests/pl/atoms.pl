@@ -218,3 +218,11 @@ test(m32_long_match, (m32_as(12, A0), atom_concat(A0, b, A), sub_atom(A, B, _, _
 test(m32_long_absent, (m32_as(12, A), m32_as(11, P0), atom_concat(P0, b, P), \+ sub_atom(A, _, _, _, P)), true).
 test(m32_long_alias_sub, (m32_as(12, A), m32_as(11, P), sub_atom(A, X, _, X, P)), solutions([X = 1024])).
 test(m32_long_count, (m32_as(10, A), findall(B, sub_atom(A, B, _, _, a), Bs), length(Bs, N)), solutions([N = 1024])).
+% レビュー M-34（8.16.2）。Whole と、Left か Right の一方が束縛済みなら、1 回の比べで決め、選択点を残さない。
+test(m34_both_bound_det, (setup_call_cleanup(true, atom_concat(ab, c, abc), D = yes), D == yes), true).
+test(m34_left_bound_det, (setup_call_cleanup(true, atom_concat(ab, X, abc), D = yes), D == yes, X == c), true).
+test(m34_right_bound_det, (setup_call_cleanup(true, atom_concat(X, c, abc), D = yes), D == yes, X == ab), true).
+test(m34_left_mismatch, atom_concat(b, _, abc), fail).
+test(m34_right_mismatch, atom_concat(_, b, abc), fail).
+test(m34_both_mismatch, atom_concat(a, b, abc), fail).
+test(m34_empty_parts, (atom_concat('', X, abc), atom_concat(Y, '', abc), X == abc, Y == abc), true).

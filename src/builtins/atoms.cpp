@@ -224,6 +224,30 @@ void run_atom_length(Impl& machine, const Goal& goal) {
   else succeed(machine, goal);
 }
 
+// Whole と、Left か Right の少なくとも一方が束縛済みなら、分け方は高々 1 つ。すべての分け方を試さず、選択点も残さない。
+// 両方とも束縛済みなら、新しいアトムも作らない。UTF-8 は字の境でしか前後が一致しないので、バイトで比べる（8.16.2、
+// レビュー M-34）。前は分け方ごとに Whole を読み直し、半分ずつのアトムを作って表に残した。
+void concat_known(Impl& machine, const Goal& goal, Cell left, Cell right, Cell whole) {
+  const bool left_var = machine.heap.unbound(left);
+  const bool right_var = machine.heap.unbound(right);
+  const std::string_view text = machine.atoms.name(atom_id(whole));
+  const std::string_view head = left_var ? std::string_view{} : machine.atoms.name(atom_id(left));
+  const std::string_view tail = right_var ? std::string_view{} : machine.atoms.name(atom_id(right));
+  bool ok = false;
+  if (!left_var && !right_var) {
+    ok = text.size() == head.size() + tail.size() && text.starts_with(head) && text.ends_with(tail);
+  } else if (!left_var) {
+    ok = text.starts_with(head) &&
+         do_unify(machine, goal.arg(machine, 1), machine.heap.atom(machine.atoms.intern(text.substr(head.size()))));
+  } else {
+    ok = text.ends_with(tail) &&
+         do_unify(machine, goal.arg(machine, 0),
+                  machine.heap.atom(machine.atoms.intern(text.substr(0, text.size() - tail.size()))));
+  }
+  if (ok) succeed(machine, goal);
+  else machine.failed = true;
+}
+
 void run_atom_concat(Impl& machine, const Goal& goal) {
   const Cell left = machine.heap.deref(goal.arg(machine, 0));
   const Cell right = machine.heap.deref(goal.arg(machine, 1));
@@ -257,6 +281,7 @@ void run_atom_concat(Impl& machine, const Goal& goal) {
     else succeed(machine, goal);
     return;
   }
+  if (!left_var || !right_var) return concat_known(machine, goal, left, right, whole);
   if (!prove_concat(machine, goal, 0, concat_total(machine, goal))) machine.failed = true;
 }
 
