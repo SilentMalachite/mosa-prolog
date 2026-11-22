@@ -333,13 +333,14 @@ General:
   0030 keeps the form). MSVC tells identifiers apart by their first 2,048 characters only, about
   227 Japanese characters of a name, so such a predicate and its `_run` and `_c1` functions may
   clash there. Not checked (CI only, found during H-31); changing the form needs an ADR.
-- The build cache (M-44): a killed build's `.mosac-cache/<hash>/w-*` stays until a build of the
-  same key a day later, or `--clean`; a build that runs longer than a day can be removed by another
-  build of its key. A killed publish leaves `<hash>/current.tmp-*`, and a killed copy leaves
-  `<out>.tmp-*` next to `-o`. On a file system without hard links (exFAT), two builds that finish
-  together both publish, and the first one's `w-*` stays unnamed. `publish_dir` checks that
-  `current` exists before it reads it; reversing that order opens a window of microseconds that
-  `cache_place` does not catch (seen by mutation).
+- The build cache (M-44): a killed build's `.mosac-cache/<hash>/w-*` and a killed publish's
+  `current.tmp-*` stay until a build of the same key (hit or miss) a day later, or `--clean`; a
+  build that runs longer than a day can be removed by another build of its key. A killed copy
+  leaves `<out>.tmp-*` next to `-o`. On a file system without hard links (exFAT), two builds that
+  finish together both publish, and the first one's `w-*` stays unnamed until a day later; that path
+  has no test. `publish_dir` checks that `current` exists before it reads it; reversing that order
+  opens a window of microseconds that `cache_place` does not catch (seen by mutation). Windows
+  sharing modes (a reader of `current`, a loser's `remove_all`) are seen by CI only.
 - Only Release is installed.
 - The REPL writes prompts and answers past `user_output`, so its line position stays where the
   query left it. After a query whose output has no final newline, the next query's leading `~N`
