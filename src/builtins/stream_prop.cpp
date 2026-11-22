@@ -348,11 +348,16 @@ PosKind read_position(Impl& machine, Cell cell, Triple& triple) {
 bool locate(const Impl& machine, Stream& stream, const Triple& want, std::size_t& cursor) {
   if (want.beyond) return false;
   Triple spot;
+  // 2 進の流れは行を数えないので、行と行の位置は 1 のまま。ほかの行の位置は、読まずに領域の外にする（レビュー M-33）。
+  if (stream.data == Stream::Data::Binary && (want.line != spot.line || want.line_pos != spot.line_pos)) return false;
   while (true) {
     if (spot.char_no == want.char_no && spot.line == want.line && spot.line_pos == want.line_pos) {
       cursor = spot.cursor;
       return true;
     }
+    // 文字の数は 1 字ごとに 1 つ増えるので、着いても行か行の位置が合わなければ、先にも同じ位置は無い。前は終わりまで
+    // 読み足してから断り、大きなファイルではヒープの上限で止まった（レビュー M-33、8.11.9.3）。
+    if (spot.char_no >= want.char_no) return false;
     // まだ読んでいない先の位置は、届くまで読み足して探す。終わりまで足しても無ければ領域の外。
     if (spot.cursor >= stream.bytes.size() && !pull_stream(machine, stream)) return false;
     // 塊の境目で字が切れていたら、幅を決める前に足してから数え直す（Claude のレビューの L5）。

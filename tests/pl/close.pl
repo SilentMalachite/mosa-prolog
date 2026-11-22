@@ -31,3 +31,5 @@ test(close_current_input_falls_back, (open_string(ab, S), set_input(S), close(S)
 % レビュー M-29（8.11.8）。列挙の途中で閉じた流れは、それより後の解を返さない。mode(read) が最初の性質。
 test(m29_closed_during, (open_string(ab, S), findall(P, (stream_property(T, P), T == S, (P = mode(_) -> close(S) ; true)), Ps), Ps == [mode(read)]), true).
 test(m29_others_go_on, (open_string(ab, S), open_string(cd, S2), findall(P, (stream_property(T, P), (T == S, P = mode(_) -> close(S) ; T == S2, P = mode(M) -> P = mode(M) ; fail)), Ps), close(S2), Ps == [mode(read), mode(read)]), true).
+% レビュー M-33（8.11.9.3）。2 進の流れは行を数えないので、行が 1 でない位置は読まずに断る。
+test(m33_binary_line, (F = 'tests/tmp/m33_binary.bin', open(F, write, W, [type(binary)]), put_byte(W, 1), put_byte(W, 2), close(W), open(F, read, S, [type(binary), reposition(true)]), catch(set_stream_position(S, stream_position(1, 2, 1)), error(E, _), true), set_stream_position(S, stream_position(1, 1, 1)), get_byte(S, B), close(S), E = domain_error(stream_position, _), B == 2), true).

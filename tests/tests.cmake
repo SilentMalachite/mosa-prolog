@@ -493,6 +493,10 @@ add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mo
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa> -DVERSION=${PROJECT_VERSION}
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
 
+# レビュー M-33。ありえない位置への set_stream_position/2 は流れを読み足さずに断る（1 MiB のヒープで止まらない）。
+add_test(NAME stream_position COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/stream_position -P ${CMAKE_SOURCE_DIR}/tests/cpp/stream_position_test.cmake)
+
 # レビュー M-16。呼べない部分を含む問い合わせ、指令、初期化のゴールは、どの部分も動かす前に止まる。
 add_test(NAME callable_goal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/callable_goal -P ${CMAKE_SOURCE_DIR}/tests/cpp/callable_goal_test.cmake)
