@@ -286,9 +286,6 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 - NMake `--runtime-source`, also under a non-ASCII path.
 - aarch64 Linux.
 - The TextEdit and About This Mac labels of manual chapters 2 and 4 on a real Mac.
-- release.yml's dependency checks of all three executables (review N-10, a1f2a5c3): `otool` and
-  `minos`, the bare container and `dumpbin` now loop over `mosa`, `mosac` and `mosatest`. They
-  run on a `workflow_dispatch` (no tag, no Release), which waits for the owner.
 
 ## Known limits
 
