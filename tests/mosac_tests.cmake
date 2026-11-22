@@ -128,7 +128,7 @@ if(WIN32)
 endif()
 foreach(dist_case hello default_dir japanese replace out_is_file tmp_link name_clash dot_stem parallel build_fails)
   add_test(NAME mosac_dist_${dist_case} COMMAND ${CMAKE_COMMAND}
-    -DMOSAC=$<TARGET_FILE:mosac> -DCASE=${dist_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
+    -DMOSAC=$<TARGET_FILE:mosac> -DMOSA=$<TARGET_FILE:mosa> -DCASE=${dist_case} -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac
     -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_dist_${dist_case} "-DCXX=${mosac_build_cxx}"
     "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib -DROOT=${CMAKE_SOURCE_DIR}
     -DOS_ARCH=${mosac_dist_os_arch} -DARCHIVE_EXT=${mosac_dist_ext} -DVERSION=${PROJECT_VERSION}

@@ -1,6 +1,6 @@
 # ADR 0023。mosac dist が書いた書庫を cmake -E tar で展開し、中の実行ファイルを動かし、LICENSE、NOTICE、README.txt を
 # 確かめる。展開を CMake に任せるのは、mosac が書いた形を mosac と別の実装（libarchive）で読むため。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|dot_stem|parallel|build_fails>
+# 使い方: cmake -DMOSAC=<mosac> -DMOSA=<mosa。parallel だけが使う> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|dot_stem|parallel|build_fails>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -DROOT=<リポジトリの根> -DOS_ARCH=<macos-arm64 など> -DARCHIVE_EXT=<.tar.gz か .zip>
 #   -DVERSION=<project VERSION> -P dist_test.cmake
@@ -159,16 +159,23 @@ elseif(CASE STREQUAL "dot_stem")
 elseif(CASE STREQUAL "parallel")
   # 同じディレクトリへ同じプログラムの dist を 2 つ同時に書いても、どちらも通り、書庫は壊れない（レビュー M-47）。前は
   # 一時ファイルの名前が決まっていて、互いの一時ファイルを消し合い、30 回に 20 回は片方が書き出せませんで止まった。
-  # 作るのは 1 回目で済ませ、残りはキャッシュから書庫だけを書く。execute_process の COMMAND を 2 つ並べると同時に動く。
+  # 作るのは 1 回目で済ませ、残りはキャッシュから書庫だけを書く。execute_process の COMMAND を並べると同時に動く。
+  # 並べた COMMAND は管でつながるので、mosac の出力を mosa（入力を終わりまで読むだけ）に読ませる。読まないと、先の
+  # mosac が終わりに書庫のパスを書くとき後ろが既に終わっていて、SIGPIPE で落ちる。見るのは 2 つの mosac の値だけ。
   file(COPY_FILE "${SRC}/hello.pl" "${WORK}/hello.pl")
   mosac(dist hello.pl -o out)
   expect_archive("out/hello-${OS_ARCH}${ARCHIVE_EXT}")
+  set(drain "${MOSA}" -g "repeat, get_char(C), C == end_of_file, !" -t halt)
   foreach(round RANGE 1 10)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" dist hello.pl -o out
+                    COMMAND ${drain}
                     COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" dist hello.pl -o out
+                    COMMAND ${drain}
                     WORKING_DIRECTORY "${WORK}" RESULTS_VARIABLE codes OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 600)
+    list(GET codes 0 first)
+    list(GET codes 2 second)
     set(code "${codes}")
-    if(NOT codes STREQUAL "0;0")
+    if(NOT first STREQUAL "0" OR NOT second STREQUAL "0")
       fail("round ${round}: two dist runs at once must both succeed")
     endif()
   endforeach()
