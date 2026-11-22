@@ -184,6 +184,14 @@ add_test(NAME mosac_long_atom COMMAND ${CMAKE_COMMAND}
 set_tests_properties(mosac_long_atom PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
 
+# 主のディレクトリの外の原文を include した実行ファイルを、どの作業場所から動かしても同じ答えになる（レビュー M-48）。
+add_test(NAME mosac_embed_root COMMAND ${CMAKE_COMMAND}
+  -DMOSA=$<TARGET_FILE:mosa> -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_embed_root
+  "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+  -P ${CMAKE_SOURCE_DIR}/tests/mosac/embed_root_test.cmake)
+set_tests_properties(mosac_embed_root PROPERTIES TIMEOUT 1800
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
 # mosac build で作った実行ファイルが、データのファイルの 100,000 段の項を 1 MiB のスタックで読む（ADR 0011 改訂 4）。
 add_test(NAME mosac_deep_file COMMAND ${CMAKE_COMMAND}
   -DMOSAC=$<TARGET_FILE:mosac> -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosac_deep_file

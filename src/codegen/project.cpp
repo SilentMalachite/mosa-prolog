@@ -95,8 +95,26 @@ std::string relative_or_same(const std::filesystem::path& file, const std::files
 // プログラムのファイルは根のディレクトリからの相対、ライブラリのファイル（モジュールも include した物も）はそのライブラリの
 // 根からの相対を擬似ディレクトリ library/ の下に置く。下のディレクトリも残すので、ライブラリの中の素のパス 'sub/util' が
 // 実行時に library/sub/util.pl に解決して同じ鍵を引く。相対にできないパス（Windows の別のドライブなど）だけは絶対のまま残す。
+// 根のディレクトリは、主のファイルとプログラムのファイルすべての共通の祖先にする。主のファイルのディレクトリからの
+// 相対だと '../x.pl' の鍵ができ、実行ファイルは鍵を今の作業場所から絶対にするので、浅い場所（/）から動かすと
+// ../x.pl と ../../x.pl が同じパスになり、違うファイルを読んだ（レビュー M-48）。すべてが主のディレクトリの下にある
+// ふつうのプログラムでは、根は前と同じ主のディレクトリである。
+std::filesystem::path common_root(const TranslationLog& log) {
+  std::filesystem::path root = path_from_utf8(log.files.front().key).parent_path();
+  for (const TranslationLog::File& file : log.files) {
+    if (file.library) continue;
+    const std::filesystem::path dir = path_from_utf8(file.key).parent_path();
+    while (root != root.parent_path()) {
+      const std::filesystem::path relative = dir.lexically_relative(root);
+      if (!relative.empty() && *relative.begin() != "..") break;
+      root = root.parent_path();
+    }
+  }
+  return root;
+}
+
 std::vector<std::string> embed_keys(const TranslationLog& log) {
-  const std::filesystem::path root_dir = path_from_utf8(log.files.front().key).parent_path();
+  const std::filesystem::path root_dir = common_root(log);
   std::vector<std::string> keys;
   for (const TranslationLog::File& file : log.files) {
     const std::filesystem::path path = path_from_utf8(file.key);
