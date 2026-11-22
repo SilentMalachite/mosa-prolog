@@ -190,7 +190,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | M-25 | W8 | 問い | 未着手、問い ✔ | Term が束縛済みで List がリストでない `=..` が失敗する |
 | M-26 | W8 | 問い | 未着手、問い ✔ | 本体が callable でない retract/1 が type_error(callable, Body) を出す |
 | M-27 | W8 |  | done (dc9c1967) ✔ | setof/3 は挿入ソートで、bagof/3 は群を線形に探すので、どちらも 2 乗になる |
-| M-28 | W8 |  | 未着手 ✔ | term_to_atom/2 が、自分で足した終止符にも char_conversion をかける |
+| M-28 | W8 |  | done (b5999109) ✔ | term_to_atom/2 が、自分で足した終止符にも char_conversion をかける |
 | M-29 | W8 |  | 未着手 ✔ | 列挙の途中で閉じた流れの性質を stream_property/2 が返し続ける |
 | M-30 |  |  | 誤りではない  | eof_action(reset) で終わりを過ぎた流れへの peek_* がリセットを行う |
 | M-31 | W8 |  | 未着手 ✔ | print の出力先か下書きの流れを閉じる portray/1 で、出力が黙って消えるか後の portray が誤りになる |
