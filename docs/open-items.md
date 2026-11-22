@@ -36,6 +36,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   `transcript_debug_spy_after_warning` and `_ja`).
 ## Owner decisions in force
 
+- Review plan, release (2026-11-22): W8 comes before a 0.5.1 release of the W1–W7 fixes; ask
+  again after W8.
 - Review H-30 (A, 2026-11-22): the cap of 2^20 variable cells in a clause's resume frames stays
   (ADR 0011 amendment 5, added while implementing); a clause past it runs as IR. B (a higher cap)
   and C (no cap) were declined.

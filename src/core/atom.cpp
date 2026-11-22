@@ -57,9 +57,18 @@ std::uint32_t AtomTable::intern(std::string_view text) {
   // 2^32 個目で番号が巻き戻ると別の原子と同じ番号になる。slot_number と同じく止める（全体レビュー推奨4）。
   if (names_.size() > std::numeric_limits<std::uint32_t>::max()) throw ResourceLimit("heap_limit");
   const auto id = static_cast<std::uint32_t>(names_.size());
+  // 3 つの入れ物は一緒に伸びるか、どれも伸びない（レビュー M-01）。どの push_back と emplace も確保で投げうるが、
+  // 投げたものは何も変えない（強い保証）ので、先に伸びたものだけを戻す。片方だけ長いと、番号が飛び、ascii(id) が
+  // ascii_ の終わりの先を読む。テスト: tests/cpp/atom_alloc_test.cpp。
   names_.push_back(owned);
-  ascii_.push_back(all_ascii(owned) ? 1 : 0);
-  ids_.emplace(owned, id);
+  try {
+    ascii_.push_back(all_ascii(owned) ? 1 : 0);
+    ids_.emplace(owned, id);
+  } catch (...) {
+    if (ascii_.size() == names_.size()) ascii_.pop_back();
+    names_.pop_back();
+    throw;
+  }
   return id;
 }
 
