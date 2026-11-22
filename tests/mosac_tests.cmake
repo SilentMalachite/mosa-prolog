@@ -37,6 +37,14 @@ target_compile_definitions(catalog_isolation_test PRIVATE MOSA_SOURCE_DIR="${CMA
 target_link_libraries(catalog_isolation_test PRIVATE mosa_lib)
 add_test(NAME catalog_isolation COMMAND $<TARGET_FILE:catalog_isolation_test>)
 
+# レビュー M-44。<hash>/current を置く publish_dir の、current が既にある道と同時に置く道（同時に流す mosac build の確かめは
+# ほぼ通らない）、private_dir が前のビルドの残りを消す道。
+add_executable(cache_place_test tests/cpp/cache_place_test.cpp)
+target_include_directories(cache_place_test PRIVATE tests/cpp src)
+target_compile_definitions(cache_place_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(cache_place_test PRIVATE mosa_lib)
+add_test(NAME cache_place COMMAND $<TARGET_FILE:cache_place_test>)
+
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
 foreach(emit_case hello broken undefined undefined_catch undefined_qualified undefined_quoted undefined_handled refused duplicate silent newop refused_op halt
   trigraph bigint)
@@ -191,6 +199,25 @@ add_test(NAME mosac_embed_root COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_SOURCE_DIR}/tests/mosac/embed_root_test.cmake)
 set_tests_properties(mosac_embed_root PROPERTIES TIMEOUT 1800
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+
+# 1 つの作業場所で同じプログラムの mosac build を 3 つ同時に流しても、どれも通る（レビュー M-44）。build_test と同じく
+# CMake の道と直接の道で流す。
+foreach(path_kind cmake direct)
+  set(parallel_test mosac_build_parallel)
+  if(path_kind STREQUAL "direct")
+    set(parallel_test mosac_build_parallel_direct)
+  endif()
+  add_test(NAME ${parallel_test} COMMAND ${CMAKE_COMMAND}
+    -DMOSAC=$<TARGET_FILE:mosac> -DSRC=${CMAKE_SOURCE_DIR}/tests/mosac -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/${parallel_test}
+    "-DCXX=${mosac_build_cxx}" -DMOSA_LIB=${CMAKE_SOURCE_DIR}/lib "-DEXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+    -DPATH_KIND=${path_kind} -P ${CMAKE_SOURCE_DIR}/tests/mosac/build_parallel_test.cmake)
+  if(path_kind STREQUAL "direct")
+    set_tests_properties(${parallel_test} PROPERTIES TIMEOUT 1800 ENVIRONMENT "MOSA_NO_CMAKE=1")
+  else()
+    set_tests_properties(${parallel_test} PROPERTIES TIMEOUT 1800 ENVIRONMENT "MOSA_NO_CMAKE=0"
+      ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${mosac_cmake_dir}")
+  endif()
+endforeach()
 
 # mosac build で作った実行ファイルが、データのファイルの 100,000 段の項を 1 MiB のスタックで読む（ADR 0011 改訂 4）。
 add_test(NAME mosac_deep_file COMMAND ${CMAKE_COMMAND}

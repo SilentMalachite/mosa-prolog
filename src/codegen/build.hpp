@@ -1,10 +1,11 @@
 #pragma once
 
 // mosac build と mosac run（SPEC 第6節「build and run pipeline」、計画 Task 9）。build.cpp が翻訳、コンパイル、リンクを
-// 組み、cache.cpp が .mosac-cache/<hash>/ の鍵と置き場所を受け持つ。実行時ライブラリの場所は runtime_layout.cpp
-// （計画 Task 10）。文面は lib/messages_*.pl の鍵（ADR 0007）。
+// 組み、cache.cpp が .mosac-cache/<hash>/ の鍵と置き場所（各ビルドの w-*/ と、当たりを指す current）を受け持つ。
+// 実行時ライブラリの場所は runtime_layout.cpp（計画 Task 10）。文面は lib/messages_*.pl の鍵（ADR 0007）。
 // テスト: tests/mosac/build_test.cmake（CTest の mosac_build_hello など 6 件と、その _direct の 6 件）、
-// tests/mosac/standalone_test.cmake、tests/mosac/installed_layout_test.cmake
+// tests/mosac/standalone_test.cmake、tests/mosac/installed_layout_test.cmake、tests/mosac/build_parallel_test.cmake、
+// tests/cpp/cache_place_test.cpp
 
 #include "codegen.hpp"
 
@@ -14,6 +15,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -109,11 +111,29 @@ struct CacheKey {
 [[nodiscard]] std::filesystem::path cache_root();
 // .mosac-cache が記号リンクなら診断を出して偽（中身の入れ替えを防ぐため使わない）。
 [[nodiscard]] bool cache_root_usable();
+// entry/current の指す作業用のディレクトリ。current も指す先も記号リンクでなく、中身が w-<16 進 8 桁> のときだけ。
+[[nodiscard]] std::optional<std::filesystem::path> current_dir(const std::filesystem::path& entry);
 // dir/key.txt が key.text と同じで、dir/exe_name があれば真。
-[[nodiscard]] bool cache_hit(const std::filesystem::path& dir, const CacheKey& key, const std::filesystem::path& exe_name);
+[[nodiscard]] bool build_finished(const std::filesystem::path& dir, const CacheKey& key,
+                                  const std::filesystem::path& exe_name);
+// entry/current の指す物が build_finished なら、そのディレクトリ。
+[[nodiscard]] std::optional<std::filesystem::path> cache_hit(const std::filesystem::path& entry, const CacheKey& key,
+                                                             const std::filesystem::path& exe_name);
 // 内容を path に書く。失敗したら理由を返す。
 [[nodiscard]] std::optional<std::error_code> write_text(const std::filesystem::path& path, std::string_view text);
 // mosac run の一時ディレクトリ。名前は推し量れず、既にあれば別の名前で作り直す（排他的に作る）。
 [[nodiscard]] std::optional<std::filesystem::path> fresh_temp_dir(std::error_code& error);
+// 16 進 8 桁の推し量れない名前の部分。
+[[nodiscard]] std::string unique_suffix();
+// 失敗したビルドの作業用のディレクトリに印を付ける。次に同じ鍵で作るとき private_dir がそれを消す。
+void mark_failed(const std::filesystem::path& dir);
+// entry の中の作業用のディレクトリ <entry>/w-<16 進 8 桁>。既にあれば別の名前で作り直す（排他的に作る）。前の
+// ビルドの残り（current が指さない w-* のうち、失敗の印がある物と 1 日より古い物）は先に消す。
+[[nodiscard]] std::optional<std::filesystem::path> private_dir(const std::filesystem::path& entry, std::error_code& error);
+// できた work を entry/current で指す。current が既に finished な物を指せば（先に終えた同じ鍵のビルド）それを残して
+// work を消し、そのパスを返す。置けなければ nullopt と error で、work は残す。
+[[nodiscard]] std::optional<std::filesystem::path> publish_dir(
+    const std::filesystem::path& entry, const std::filesystem::path& work,
+    const std::function<bool(const std::filesystem::path&)>& finished, std::error_code& error);
 
 }  // namespace mosa::codegen

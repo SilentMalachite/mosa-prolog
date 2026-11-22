@@ -190,6 +190,39 @@ bool dot_stem(const std::string& source, const std::string& stem) {
   return true;
 }
 
+// -o が記号リンクなら、前（上書きの写しがリンクを辿った）と同じくリンクの先を替える。先が無ければリンクの中身の
+// パス（相対ならリンクのディレクトリから）を先とする。
+std::filesystem::path install_place(const std::filesystem::path& target) {
+  std::error_code error;
+  if (!std::filesystem::is_symlink(std::filesystem::symlink_status(target, error))) return target;
+  if (const auto resolved = std::filesystem::canonical(target, error); !error) return resolved;
+  const std::filesystem::path link = std::filesystem::read_symlink(target, error);
+  if (error) return target;
+  return link.is_absolute() ? link : target.parent_path() / link;
+}
+
+// -o へは隣に写してから名前を替え、いつも新しいファイルにする（レビュー M-44）。前は上書きで写したので inode が同じまま
+// 中身が替わり、macOS は一度動かした実行ファイルを、作り直した後に SIGKILL（Code Signature Invalid）で殺した（同時に
+// 作ったときに出た）。ディレクトリに書けず -o のファイルにだけ書ける（隣に一時のファイルを作れない）ときは、前と同じく
+// 上書きで写す。
+bool install_exe(const std::filesystem::path& built, const std::filesystem::path& target) {
+  const std::filesystem::path place = install_place(target);
+  std::filesystem::path temp = place;
+  temp += ".tmp-" + mosa::codegen::unique_suffix();
+  std::error_code error;
+  std::error_code ignored;
+  std::filesystem::copy_file(built, temp, error);
+  if (!error) std::filesystem::rename(temp, place, error);
+  if (!error) return true;
+  std::filesystem::remove(temp, ignored);
+  if (error == std::errc::permission_denied && std::filesystem::exists(place, ignored)) {
+    error.clear();
+    std::filesystem::copy_file(built, place, std::filesystem::copy_options::overwrite_existing, error);
+  }
+  if (error) mosa::codegen::report_write_error(target, error);
+  return !error;
+}
+
 // mosac build app.pl [-o app] [--interactive]。-o が無ければ原文の語幹を今の場所に作る。中間物はいつも .mosac-cache に
 // 残すので --keep は run だけが受ける。--interactive は build だけが受け（作った物を利用者が動かす）、run は受けない。
 int run_build(const std::vector<std::string>& args) {
@@ -209,13 +242,7 @@ int run_build(const std::vector<std::string>& args) {
   }
   const mosa::codegen::Built built = mosa::codegen::build_cached(parsed->request);
   if (built.code != 0) return built.code;
-  std::error_code error;
-  std::filesystem::copy_file(built.exe, target, std::filesystem::copy_options::overwrite_existing, error);
-  if (error) {
-    mosa::codegen::report_write_error(target, error);
-    return 1;
-  }
-  return 0;
+  return install_exe(built.exe, target) ? 0 : 1;
 }
 
 // mosac run app.pl -- 引数...。実行ファイルを一時ディレクトリに写して起こし、終了コードをそのまま返す。

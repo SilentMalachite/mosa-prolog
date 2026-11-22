@@ -131,7 +131,7 @@ struct Job {
   const Toolchain& toolchain;
   const RuntimeLayout& runtime;
   std::span<const std::string> libraries;  // 結ぶ翻訳済みのライブラリの名前（Project::libraries）
-  std::filesystem::path dir;
+  std::filesystem::path dir;  // このビルドの作業用のディレクトリ .mosac-cache/<hash>/w-*/（stage が作り、動かさない）
   std::string hash;
   std::filesystem::path exe_name;
 };
@@ -211,36 +211,55 @@ std::optional<std::filesystem::path> build_cmake(const Job& job) {
   return std::nullopt;
 }
 
-// 目録と key.txt を書く。外れのときはハッシュのディレクトリを消して作り直し、前に失敗した中間物も、
-// 中に置かれた記号リンクも辿らない。.mosac-cache そのものが記号リンクなら使わない。
-bool stage(const Job& job, const CacheKey& key, std::span<const ProjectFile> files) {
-  if (!cache_root_usable()) return false;
-  std::error_code removed;
-  std::filesystem::remove_all(job.dir, removed);
-  if (removed) {
-    report_write_error(job.dir, removed);
-    return false;
-  }
+bool fill(const std::filesystem::path& dir, const CacheKey& key, std::span<const ProjectFile> files) {
   for (const char* sub : {"src", "logs", "obj", "build"}) {
     std::error_code error;
-    std::filesystem::create_directories(job.dir / sub, error);
+    std::filesystem::create_directories(dir / sub, error);
     if (error) {
-      report_write_error(job.dir / sub, error);
+      report_write_error(dir / sub, error);
       return false;
     }
   }
-  if (const auto error = write_text(job.dir / "key.txt", key.text)) {
-    report_write_error(job.dir / "key.txt", *error);
+  if (const auto error = write_text(dir / "key.txt", key.text)) {
+    report_write_error(dir / "key.txt", *error);
     return false;
   }
   for (const ProjectFile& file : files) {
-    const std::filesystem::path target = job.dir / "src" / path_from_utf8(file.name);
+    const std::filesystem::path target = dir / "src" / path_from_utf8(file.name);
     if (const auto error = write_text(target, file.text)) {
       report_write_error(target, *error);
       return false;
     }
   }
   return true;
+}
+
+// 外れのときは置き場所の中の新しい作業用のディレクトリに目録と key.txt を書き、そこで作る（レビュー M-44）。前は
+// 置き場所を消して作り直したので、同じプログラムを同時に作るとほかのビルドの作りかけを消した。.mosac-cache そのものが
+// 記号リンクなら使わない。
+std::optional<std::filesystem::path> stage(const std::filesystem::path& entry, const CacheKey& key,
+                                           std::span<const ProjectFile> files) {
+  if (!cache_root_usable()) return std::nullopt;
+  std::error_code error;
+  const auto dir = private_dir(entry, error);
+  if (!dir) {
+    report_write_error(entry, error);
+    return std::nullopt;
+  }
+  if (fill(*dir, key, files)) return dir;
+  std::error_code ignored;
+  std::filesystem::remove_all(*dir, ignored);
+  return std::nullopt;
+}
+
+// できた作業用のディレクトリを current で指す。先に終えた同じ鍵のビルドがあればそちらを使う。失敗したビルドは
+// 指さず、ログはその作業用のディレクトリに残る（知らせに出したパスのまま）。
+std::optional<std::filesystem::path> settle(const Job& job, const std::filesystem::path& entry, const CacheKey& key) {
+  std::error_code error;
+  const auto placed = publish_dir(
+      entry, job.dir, [&](const std::filesystem::path& dir) { return build_finished(dir, key, job.exe_name); }, error);
+  if (!placed) report_write_error(entry / "current", error);
+  return placed;
 }
 
 // できあがりは .part に写してから名前を替える。途中で止まった写しを当たりと取り違えない。
@@ -299,16 +318,22 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
     std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(runtime.library)}) << '\n';
     return {};
   }
-  const Job job{request, toolchain, runtime, project.libraries, cache_root() / key->hash, key->hash,
-                path_from_utf8(target + exe_suffix())};
-  if (cache_hit(job.dir, *key, job.exe_name)) {
-    if (request.verbose) std::cerr << mosac_message("mosac_cache_hit", {utf8_from_path(job.dir)}) << '\n';
-    return Built{0, job.dir / job.exe_name};
+  const std::filesystem::path entry = cache_root() / key->hash;
+  const std::filesystem::path exe_name = path_from_utf8(target + exe_suffix());
+  if (const auto hit = cache_hit(entry, *key, exe_name)) {
+    if (request.verbose) std::cerr << mosac_message("mosac_cache_hit", {utf8_from_path(*hit)}) << '\n';
+    return Built{0, *hit / exe_name};
   }
-  if (!stage(job, *key, project.files)) return {};
+  const auto work = stage(entry, *key, project.files);
+  if (!work) return {};
+  const Job job{request, toolchain, runtime, project.libraries, *work, key->hash, exe_name};
   const auto built = cmake ? build_cmake(job) : build_direct(job, project.files);
-  if (!built || !publish(job, *built)) return {};
-  return Built{0, job.dir / job.exe_name};
+  const auto placed = built && publish(job, *built) ? settle(job, entry, *key) : std::nullopt;
+  if (!placed) {
+    mark_failed(job.dir);
+    return {};
+  }
+  return Built{0, *placed / exe_name};
 }
 
 std::string_view install_hint(HostOs os) {

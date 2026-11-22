@@ -191,6 +191,11 @@ elseif(CASE STREQUAL "internal_error")
     if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: CMake の構成に失敗しました" OR err MATCHES "内部エラー")
       fail("configure failure")
     endif()
+    # 知らせに出したログがその場所にある（レビュー M-44。失敗したビルドの作業用のディレクトリは動かさない）。
+    string(REGEX MATCH "（ログ: ([^）]+)）" shown "${err}")
+    if(NOT EXISTS "${CMAKE_MATCH_1}")
+      fail("the configure log named in the message must exist")
+    endif()
   endif()
 elseif(CASE STREQUAL "module_names")
   # レビュー 2026-11-20 の H-27（ADR 0030）。単位の名前をモジュール名から作るとビルドが壊れる 6 つのモジュール

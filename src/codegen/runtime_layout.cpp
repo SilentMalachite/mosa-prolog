@@ -4,9 +4,9 @@
 // 鍵 <OS>-<arch>-<compiler> は見つけたコンパイラの族（clang、gcc、msvc）で作る。mosac を作ったコンパイラと違う族を
 // --cxx で指せば、その族のディレクトリが無いので ABI の不一致として止め、--runtime-source を案内する。
 // --runtime-source は同梱の源（<prefix>/lib/mosa/source/、ビルド木ならリポジトリの根）を CMake で作り、
-// .mosac-cache/runtime/<hash>/prefix/ に install して、そこをインストールの形として使う。鍵はコンパイラと、源のうち
-// install の source の部品（CMakeLists.txt、src/、include/、lib/）の中身。ビルド木の根を木ごと鍵にすると .git や
-// build/ や .mosac-cache 自身が入って当たらない。
+// .mosac-cache/runtime/<hash>/w-<16 進 8 桁>/prefix/ に install して（<hash>/current がその w-* を指す）、そこを
+// インストールの形として使う。鍵はコンパイラと、源のうち install の source の部品（CMakeLists.txt、src/、include/、
+// lib/）の中身。ビルド木の根を木ごと鍵にすると .git や build/ や .mosac-cache 自身が入って当たらない。
 // テスト: tests/mosac/installed_layout_test.cmake（インストールの形）、tests/mosac/build_test.cmake（ビルド木の形）、
 // tests/mosac/runtime_source_test.cmake（--runtime-source を 2 回。libmosa を作るので MOSA_SLOW_TESTS=ON のときだけ）。
 
@@ -74,7 +74,7 @@ std::optional<std::filesystem::path> bundled_source_dir(const Toolchain& toolcha
 struct RuntimeJob {
   const BuildRequest& request;
   const Toolchain& toolchain;
-  std::filesystem::path dir;
+  std::filesystem::path dir;  // このビルドの作業用のディレクトリ runtime/<hash>/w-*/（動かさない）
 };
 
 bool run_runtime_step(const RuntimeJob& job, const std::vector<std::string>& argv, std::string_view log_name) {
@@ -118,18 +118,10 @@ bool build_runtime(const RuntimeJob& job, const std::filesystem::path& source, c
                           "install");
 }
 
-bool prepare_dir(const std::filesystem::path& dir) {
-  std::error_code error;
-  std::filesystem::remove_all(dir, error);
-  if (!error) std::filesystem::create_directories(dir / "logs", error);
-  if (error) report_write_error(dir, error);
-  return !error;
-}
-
-// Task 9 の cache_hit と同じ守り。runtime/、<hash>/、その key.txt のどれかが記号リンクなら、当たりにも作り直し
-// （remove_all）の対象にもしない。中身を差し替えた物を結ばせないためである。
+// Task 9 の cache_hit と同じ守り。runtime/、<hash>/、その current のどれかが記号リンクなら、当たりにも作り直しの
+// 対象にもしない。中身を差し替えた物を結ばせないためである。
 bool runtime_cache_plain(const std::filesystem::path& dir) {
-  for (const std::filesystem::path& path : {dir.parent_path(), dir, dir / "key.txt"}) {
+  for (const std::filesystem::path& path : {dir.parent_path(), dir, dir / "current"}) {
     std::error_code error;
     if (!std::filesystem::is_symlink(std::filesystem::symlink_status(path, error))) continue;
     std::cerr << mosac_message("mosac_cache_symlink", {utf8_from_path(path)}) << '\n';
@@ -140,6 +132,46 @@ bool runtime_cache_plain(const std::filesystem::path& dir) {
 
 bool runtime_cached(const std::filesystem::path& dir, std::string_view key) {
   return plain(dir / "key.txt", std::filesystem::file_type::regular) && read_text(dir / "key.txt") == key;
+}
+
+// 鍵と、入れた実行時ライブラリの場所 <dir>/prefix/lib/mosa/<abi>/。
+struct RuntimeKey {
+  std::string text;
+  std::string abi;
+  std::filesystem::path root(const std::filesystem::path& dir) const { return dir / "prefix" / "lib" / "mosa" / abi; }
+};
+
+bool runtime_ready(const std::filesystem::path& dir, const RuntimeKey& key, const Toolchain& toolchain) {
+  return runtime_cached(dir, key.text) && layout_at(key.root(dir), toolchain).has_value();
+}
+
+// 新しい作業用のディレクトリで作り、鍵は最後に書く（途中で止まった物を当たりにしない）。できたら current で指す
+// （レビュー M-44。前は置き場所を消して作り直したので、同じ鍵で同時に作るとほかのビルドの作りかけを消した）。
+// 失敗した物は指さず、ログは知らせに出したパスに残る。返すのは current の指す物で、先に終えたビルドの物でもある。
+std::optional<std::filesystem::path> make_runtime(const BuildRequest& request, const Toolchain& toolchain,
+                                                  const std::filesystem::path& source, const std::filesystem::path& entry,
+                                                  const RuntimeKey& key) {
+  std::error_code error;
+  const auto dir = private_dir(entry, error);
+  if (dir) std::filesystem::create_directories(*dir / "logs", error);
+  if (!dir || error) {
+    report_write_error(entry, error);
+    return std::nullopt;
+  }
+  const RuntimeJob job{request, toolchain, *dir};
+  bool built = build_runtime(job, source, *dir / "prefix");
+  if (const auto failed = built ? write_text(*dir / "key.txt", key.text) : std::nullopt) {
+    report_write_error(*dir / "key.txt", *failed);
+    built = false;
+  }
+  const auto placed = built ? publish_dir(
+                                  entry, *dir,
+                                  [&](const std::filesystem::path& work) { return runtime_ready(work, key, toolchain); },
+                                  error)
+                            : std::nullopt;
+  if (built && !placed) report_write_error(entry / "current", error);
+  if (!placed) mark_failed(*dir);
+  return placed;
 }
 
 std::optional<RuntimeLayout> runtime_from_source(const BuildRequest& request, const Toolchain& toolchain) {
@@ -155,28 +187,22 @@ std::optional<RuntimeLayout> runtime_from_source(const BuildRequest& request, co
     return std::nullopt;
   }
   const std::string abi = runtime_abi(toolchain);
-  const std::string key = "mosac-runtime 2\ncxx " + utf8_from_path(toolchain.cxx) + "\nversion " + toolchain.cxx_version +
-                          "\nabi " + abi + "\nsource " + hex16(*digest) + "\n";
+  const RuntimeKey key{"mosac-runtime 3\ncxx " + utf8_from_path(toolchain.cxx) + "\nversion " + toolchain.cxx_version +
+                           "\nabi " + abi + "\nsource " + hex16(*digest) + "\n",
+                       abi};
   if (!cache_root_usable()) return std::nullopt;
-  const RuntimeJob job{request, toolchain, cache_root() / "runtime" / hex16(fnv1a(key, kFnvBasis))};
-  if (!runtime_cache_plain(job.dir)) return std::nullopt;
-  const std::filesystem::path prefix = job.dir / "prefix";
-  const std::filesystem::path root = prefix / "lib" / "mosa" / abi;
-  if (runtime_cached(job.dir, key)) {
-    if (const auto layout = layout_at(root, toolchain)) {
-      if (request.verbose) std::cerr << mosac_message("mosac_runtime_cached", {utf8_from_path(root)}) << '\n';
-      return layout;
-    }
+  const std::filesystem::path entry = cache_root() / "runtime" / hex16(fnv1a(key.text, kFnvBasis));
+  if (!runtime_cache_plain(entry)) return std::nullopt;
+  if (const auto dir = current_dir(entry); dir && runtime_ready(*dir, key, toolchain)) {
+    if (request.verbose) std::cerr << mosac_message("mosac_runtime_cached", {utf8_from_path(key.root(*dir))}) << '\n';
+    return layout_at(key.root(*dir), toolchain);
   }
-  if (request.verbose) std::cerr << mosac_message("mosac_runtime_building", {utf8_from_path(job.dir)}) << '\n';
-  if (!prepare_dir(job.dir) || !build_runtime(job, *source, prefix)) return std::nullopt;
-  // 鍵は最後に書く。途中で止まった物を当たりにしない。
-  if (const auto error = write_text(job.dir / "key.txt", key)) {
-    report_write_error(job.dir / "key.txt", *error);
-    return std::nullopt;
-  }
-  const auto layout = layout_at(root, toolchain);
-  if (!layout) std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(root)}) << '\n';
+  if (request.verbose) std::cerr << mosac_message("mosac_runtime_building", {utf8_from_path(entry)}) << '\n';
+  const auto placed = make_runtime(request, toolchain, *source, entry, key);
+  if (!placed) return std::nullopt;
+  // current の指す物から作る。プログラムの鍵は実行時ライブラリのパスを含み、そのディレクトリは動かないので当たり続ける。
+  const auto layout = layout_at(key.root(*placed), toolchain);
+  if (!layout) std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(key.root(*placed))}) << '\n';
   return layout;
 }
 
