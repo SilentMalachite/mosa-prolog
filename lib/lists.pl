@@ -39,10 +39,12 @@ last([X|Xs], Last) :- last_(Xs, X, Last).
 last_([], Last, Last).
 last_([X|Xs], _, Last) :- last_(Xs, X, Last).
 
-reverse(L, R) :- reverse_(L, [], R).
+% 4 つ目の引数は R と同じリストを 1 歩ずつ減らし、歩みの数を R の長さで抑える。1 つ目のリストだけで歩むと、L が
+% 未束縛のとき後戻りで限りなく長いリストを作り、reverse(L, [1,2,3]) も reverse(L, foo) も止まらなかった（レビュー M-36）。
+reverse(L, R) :- reverse_(L, [], R, R).
 
-reverse_([], R, R).
-reverse_([X|Xs], A, R) :- reverse_(Xs, [X|A], R).
+reverse_([], R, R, []).
+reverse_([X|Xs], A, R, [_|Bound]) :- reverse_(Xs, [X|A], R, Bound).
 
 % 計画の Task 12 により keysort/2 に頼らない。並べた後で単一化するので、Sorted が
 % 部分リストでも、合わない要素があっても、sort/2 と同じく失敗で済む。

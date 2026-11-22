@@ -58,6 +58,11 @@ test(nth1_zero, nth1(0, [a], _), fail).
 test(last_elem, last([a, b, c], X), solutions([X = c])).
 test(last_empty, last([], _), fail).
 test(reverse_list, reverse([a, b, c], L), solutions([L = [c, b, a]])).
+% レビュー M-36。2 つ目のリストだけを与えても、答えは 1 つで、その後は失敗して止まる。リストでなければ失敗する。
+test(m36_reverse_second, findall(L, reverse(L, [1, 2, 3]), Ls), solutions([Ls = [[3, 2, 1]]])).
+test(m36_reverse_not_list, reverse(_, foo), fail).
+test(m36_reverse_partial, (reverse([a|T], [c, b, a]), T == [b, c]), true).
+test(m36_reverse_empty, findall(L, reverse(L, []), Ls), solutions([Ls = [[]]])).
 test(msort_dups, msort([b, a, c, a], L), solutions([L = [a, a, b, c]])).
 test(msort_order, (msort([1+Y, z, a, V, 1, 2, V, 1, 7.0, 8.0, 1+Y, 1+2, 8.0, -a, -X, a], S), S == [V, V, 7.0, 8.0, 8.0, 1, 1, 2, a, a, z, -X, -a, 1+Y, 1+Y, 1+2]), true).
 test(msort_inst, msort(_, _), error(instantiation_error)).
