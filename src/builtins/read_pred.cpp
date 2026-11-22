@@ -269,8 +269,9 @@ bool splice_fffd(Stream& stream, std::size_t index, std::vector<Splice>& splices
   return true;
 }
 
-// error のときの置き換えを元のバイトに戻す。後ろから戻すので、前の置き換えの位置はずれない。U+FFFD も壊れた並びも
+// 読むための置き換えを元のバイトに戻す。後ろから戻すので、前の置き換えの位置はずれない。U+FFFD も壊れた並びも
 // 1 文字に数えるので、行と列はそのまま。戻さないと、位置を戻して読み直したとき誤りでなく U+FFFD が返る。
+// error のときだけでなく replace のときも戻す。流れはファイルのバイトを持ち、読むたびに今の旗で決める（レビュー M-32）。
 void restore_splices(Stream& stream, const std::vector<Splice>& splices) {
   for (auto splice = splices.rbegin(); splice != splices.rend(); ++splice) {
     stream.bytes.replace(splice->at, 3, splice->bytes);
@@ -487,13 +488,14 @@ void deliver(Impl& machine, const Goal& goal, Stream& stream, std::size_t heap_m
   const bool refused = !machine.utf8_replace && !splices.empty();
   if (intake.outcome.failure && !refused) {
     raise_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit);
+    restore_splices(stream, splices);
     return;
   }
   const std::string_view slice = rest(stream);
   const std::size_t take = intake.consumed > slice.size() ? slice.size() : intake.consumed;
   advance_slice(stream, slice.substr(0, take));
+  restore_splices(stream, splices);
   if (refused) {
-    restore_splices(stream, splices);
     raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
     return;
   }

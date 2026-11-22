@@ -280,3 +280,29 @@ test(h18_bar_quoted, h18_read('\'|\'(a, b)', T), solutions([T = '|'(a, b)])).
 test(h18_bar_infix, h18_read('a | b', T), solutions([T = '|'(a, b)])).
 test(h18_bar_back, (setup_call_cleanup(op(1105, xfy, '|'), h17_back('|'(a, b, c), A, B), op(0, xfy, '|')),
                     B == '|'(a, b, c)), solutions([A = '\'|\'(a,b,c)'])).
+% レビュー M-32。invalid_utf8=replace で読んでも、流れは元のバイトを持つ。位置を戻して error で読み直すと誤りになる。
+test(m32_reread_error, (
+  F = 'tests/tmp/m32_bytes.pl',
+  open(F, write, W, [type(binary)]),
+  put_byte(W, 0''), put_byte(W, 0'a), put_byte(W, 255), put_byte(W, 0'b), put_byte(W, 0''), put_byte(W, 0'.),
+  close(W),
+  open(F, read, S, [reposition(true)]),
+  stream_property(S, position(P)),
+  set_prolog_flag(invalid_utf8, replace),
+  read(S, T1),
+  set_stream_position(S, P),
+  set_prolog_flag(invalid_utf8, error),
+  catch(read(S, _), error(E, _), true),
+  close(S),
+  atom_codes(T1, C1), C1 == [97, 65533, 98], E == representation_error(character)), true).
+test(m32_next_term, (
+  F = 'tests/tmp/m32_next.pl',
+  open(F, write, W, [type(binary)]),
+  put_byte(W, 0''), put_byte(W, 255), put_byte(W, 0''), put_byte(W, 0'.), put_byte(W, 0' ), put_byte(W, 0'c), put_byte(W, 0'.),
+  close(W),
+  open(F, read, S),
+  set_prolog_flag(invalid_utf8, replace),
+  read(S, T1), read(S, T2), read(S, T3),
+  set_prolog_flag(invalid_utf8, error),
+  close(S),
+  atom_codes(T1, [65533]), T2 == c, T3 == end_of_file), true).
