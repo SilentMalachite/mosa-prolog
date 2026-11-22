@@ -1,5 +1,5 @@
 # レビュー M-12。REPL は続きの行ごとにためた入力の全体を読み直す。前はそのたびに読んだ項をヒープに残し、構文の誤りの
-# 項も残したので、1 MiB のヒープで 200 行のゴールや 3,000 行の誤りが上限の知らせで止まった。今はどちらも知らせを出さず、
+# 項も残したので、1 MiB のヒープで 200 行のゴールや 400 行の大きな誤りが上限の知らせで止まった。今はどちらも知らせを出さず、
 # 後の問い合わせの答えを出す。
 # 使い方: cmake -DMOSA=<mosa> -DWORK=<一時ディレクトリ> -P repl_heap_test.cmake
 
@@ -27,9 +27,12 @@ endforeach()
 file(WRITE "${input}" "${goal}true.\nY = ok.\n")
 expect_answer("a goal of 200 lines" "X199 = f\\(a,b,c,d,e,f,g,h,i,j\\)\\.[^\n]*\n.*Y = ok\\.")
 
-# 3,000 行の構文の誤り。どの行も 52 引数の項を読んでから誤る。
-set(bad "X = f(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z) )).\n")
-string(REPEAT "${bad}" 3000 errors)
+# 400 行の構文の誤り。どの行も 520 引数の項を読んでから誤る。誤りの文面を作るのは 1 行に数 ms かかり、CI の macOS では
+# 3,000 行の 52 引数が 300 秒を超えた（run 44986701989）。項を大きくして行を減らしても、古い実装は 1 MiB で止まる。
+set(letters "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z")
+string(REPEAT "${letters}," 19 args)
+set(bad "X = f(${args}${letters}) )).\n")
+string(REPEAT "${bad}" 400 errors)
 file(WRITE "${input}" "${errors}Y = ok.\n")
-expect_answer("3000 syntax errors" "Y = ok\\.")
+expect_answer("400 syntax errors" "Y = ok\\.")
 file(REMOVE "${input}")
