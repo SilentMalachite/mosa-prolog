@@ -217,6 +217,10 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 
 ## Unsure
 
+- `mosac_build_parallel_direct` (M-44) failed once in a full local `ctest` on 2026-11-22, during
+  the file splits (the output was not kept). It passed on the rerun, in 4 more full runs and when
+  every test ran 6 times under `--repeat until-fail:6`; cause not found. Run with
+  `--output-on-failure` so the next failure keeps its codes and output.
 - Translated `queens` is 8.1% slower than v0.1.4 with a byte-identical generated unit
   (5.4% more instructions, inside libmosa's evaluator; cause not found, bench.md).
   The final review's unmeasured candidate: `eval_int_bin` moved from an anonymous namespace of
