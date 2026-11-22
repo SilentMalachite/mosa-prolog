@@ -244,6 +244,12 @@ std::optional<Ev> eval_leaf(Impl& machine, const Goal& goal, Cell cell) {
     fail_evaluable(machine, goal, indicator(machine, static_cast<std::uint32_t>(cell.raw() >> 3), 0));
     return Ev{};
   }
+  // リスト [H|T] は '.'/2 の複合項である。ほかの複合項と同じく、罪人は項ではなく述語指示子 '.'/2 にする（7.9.1、
+  // 7.12.2、レビュー M-20）。前はリストそのものを罪人にした。
+  if (cell.tag() == Tag::Lis) {
+    fail_evaluable(machine, goal, indicator(machine, machine.atoms.intern("."), 2));
+    return Ev{};
+  }
   if (cell.tag() != Tag::Str) {
     fail_evaluable(machine, goal, cell);
     return Ev{};

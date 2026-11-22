@@ -117,6 +117,11 @@ test(log2_inst, (X is log(_, 10)), error(instantiation_error)).
 test(eval_functor_first, (X is foo(bar)), error(type_error(evaluable, foo/1))).
 test(eval_functor_before_var, (X is foo(_)), error(type_error(evaluable, foo/1))).
 test(eval_functor_nested, (X is 1 + foo(bar)), error(type_error(evaluable, foo/1))).
+% レビュー M-20（7.9.1、7.12.2）。リストは '.'/2 の複合項で、evaluable の罪人は述語指示子 '.'/2。
+test(m20_list_is, (X is [1]), error(type_error(evaluable, '.'/2))).
+test(m20_list_compare, (1 < [1]), error(type_error(evaluable, '.'/2))).
+test(m20_list_nested, (X is 1 + [a, b]), error(type_error(evaluable, '.'/2))).
+test(m20_codes_is, (atom_codes(a, L), X is L), error(type_error(evaluable, '.'/2))).
 test(eval_functor_cmp, (foo(bar) =:= 1), error(type_error(evaluable, foo/1))).
 test(eval_functor_arity, (X is sqrt(bar, 1)), error(type_error(evaluable, sqrt/2))).
 test(eval_arg_atom, (X is 1 + bar), error(type_error(evaluable, bar/0))).
