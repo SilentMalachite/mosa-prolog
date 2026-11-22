@@ -73,6 +73,8 @@ struct DiffStats {
 };
 
 void count_shape(DiffStats& stats, std::string_view shape);
+// 報告の欄の名前。ディレクトリを / で区切った字面にし、末尾の / は落とす（レビュー L-40）。
+[[nodiscard]] std::string diff_label(const std::filesystem::path& dir);
 // json の既存の内容に label の欄を足し（同じ label は置き換え）、json と、拡張子を .md に替えた報告を書く。
 [[nodiscard]] bool write_agreement(const std::filesystem::path& json, std::string_view label, const DiffStats& stats);
 

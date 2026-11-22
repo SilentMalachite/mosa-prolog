@@ -5,7 +5,9 @@
 #include "harness.hpp"
 
 #include "machine/diff.hpp"
+#include "mosa/path_text.hpp"
 
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -38,6 +40,18 @@ void check_broken(const std::filesystem::path& json, std::string_view label, std
   mosa_test::check(text.find("\"x\"") == std::string::npos, std::string{label} + ": broken section dropped, got " + text);
 }
 
+// レビュー L-40。欄の名前は、日本語のディレクトリでもどの OS でも UTF-8 の字面になる。Windows の generic_string は
+// ANSI コードページへ写すので、前は日本語の名前を写せずに投げるか、別の字に替えた。
+void check_label() {
+  std::string label;
+  try {
+    label = mosa::diff_label(mosa::path_from_utf8("tests/日本語/"));
+  } catch (const std::exception& error) {
+    label = std::string{"threw: "} + error.what();
+  }
+  mosa_test::check(label == "tests/日本語", "UTF-8 label, got " + label);
+}
+
 }  // namespace
 
 int main() {
@@ -50,6 +64,7 @@ int main() {
   check_broken(json, "dash only", R"({"directories":{"x":{"files":-}}})");
   check_broken(json, "too many digits", R"({"directories":{"x":{"files":123456789012345678901}}})");
   check_broken(json, "negative", R"({"directories":{"x":{"files":-1}}})");
+  check_label();
   std::filesystem::remove_all(root, error);
   return mosa_test::failures();
 }

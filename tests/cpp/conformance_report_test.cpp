@@ -3,10 +3,12 @@
 
 #include "harness.hpp"
 #include "lgt_suite.hpp"
+#include "mosa/path_text.hpp"
 #include "mosa/suite.hpp"
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -187,6 +189,28 @@ void check_side_only(const std::filesystem::path& root) {
   mosa_test::check(body.find("encodings") == std::string::npos, "no tests.lgt name");
   mosa_test::check(body.find("bomb") == std::string::npos, "body not copied");
   mosa_test::check(body.find("OLD") == std::string::npos, "overwritten");
+}
+
+// レビュー L-40。範囲の外のディレクトリの名前は、日本語でもどの OS でも UTF-8 のまま別欄に書く。Windows の
+// generic_string は ANSI コードページへ写すので、前は日本語の名前を写せずに投げるか、別の字に替えた。
+void check_side_utf8(const std::filesystem::path& root) {
+  const auto suite = root / "tree-utf8";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "report-utf8.md";
+  mosa_test::check(write_text(prolog / "predicates" / mosa::path_from_utf8("述語_2") / "tests.lgt",
+                              "test(a, true).\ntest(b, true).\n"),
+                   "write utf8 side");
+  mosa_test::check(write_text(prolog / "predicates" / "atom_length_2" / "tests.lgt", "test(live, true) :- {true}.\n"),
+                   "write utf8 in scope");
+  std::string side;
+  try {
+    const int code = mosa::run_iso_suite(suite.string(), report.string());
+    mosa_test::check(code == 0, "utf8 side returns 0");
+    side = after_heading(read_text(report), "別欄:");
+  } catch (const std::exception& error) {
+    side = std::string{"threw: "} + error.what();
+  }
+  mosa_test::check(report_has(side, "predicates/述語_2", "2"), "utf8 side name, got " + side);
 }
 
 // 指示と {ゴール} を含む。halt の件は不合格で、その後も setup の事実と演算子が残ることをこの 12 件で見る。
@@ -622,6 +646,7 @@ int main() {
     Fixture fixture(root);
     check_absent(root);
     check_side_only(root);
+    check_side_utf8(root);
     check_zero_rate(root);
     check_executes(root);
     check_rate(root);

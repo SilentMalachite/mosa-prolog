@@ -217,12 +217,6 @@ void run_file(const std::filesystem::path& file, const std::filesystem::path& di
   note_file(stats, *entry, count, shown);
 }
 
-std::string label_of(const std::filesystem::path& dir) {
-  std::string label = dir.lexically_normal().generic_string();
-  while (label.size() > 1 && label.back() == '/') label.pop_back();
-  return label;
-}
-
 }  // namespace
 
 int diff_main(int argc, char** argv, std::span<const DiffLibrary> libraries, std::span<const DiffEntry> entries) {
@@ -249,7 +243,7 @@ int diff_main(int argc, char** argv, std::span<const DiffLibrary> libraries, std
                                       percent_text(stats.translated_predicates, stats.predicates),
                                       std::to_string(stats.differences)})
             << '\n';
-  if (!parsed.report.empty() && !write_agreement(path_from_utf8(parsed.report), label_of(dir), stats)) {
+  if (!parsed.report.empty() && !write_agreement(path_from_utf8(parsed.report), diff_label(dir), stats)) {
     std::cerr << message("bench_cannot_write", {parsed.report}) << '\n';
     return 1;
   }

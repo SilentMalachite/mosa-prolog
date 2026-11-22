@@ -263,6 +263,12 @@ void count_shape(DiffStats& stats, std::string_view shape) {
   stats.untranslated.push_back(DiffShape{std::string{shape}, 1});
 }
 
+std::string diff_label(const std::filesystem::path& dir) {
+  std::string label = dir.lexically_normal().generic_string();
+  while (label.size() > 1 && label.back() == '/') label.pop_back();
+  return label;
+}
+
 bool write_agreement(const std::filesystem::path& json, std::string_view label, const DiffStats& stats) {
   std::vector<Section> sections;
   if (std::ifstream in{json, std::ios::binary}) {
