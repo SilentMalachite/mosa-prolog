@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none; W8 of the 2026-11-20 review on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** M-22 (b99f8ff4); M-21; M-20; M-17 (question, A in force); M-16 to M-10; M-07.
-  M-05; M-01; W7 (CI); W6–W2; W1 but H-39. Triage: [review-2026-11-20.md](review-2026-11-20.md).
-- **Next:** M-27 (W8: setof/3 and bagof/3 are quadratic); M-23 to M-26, M-18, M-06, M-08 ask.
+- **Last done:** M-27 (dc9c1967); M-22; M-21; M-20; M-17 (question, A in force); M-16 to M-10.
+  M-07; M-05; M-01; W7 (CI); W6–W2; W1 but H-39. Triage: [review-2026-11-20.md](review-2026-11-20.md).
+- **Next:** M-28 (W8: term_to_atom/2 converts the full stop it adds); M-23 to M-26, M-18, M-06, M-08 ask.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** 8 code and test files at 730 lines or more, listed in open-items.
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
