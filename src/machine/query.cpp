@@ -5,6 +5,7 @@
 
 #include "mosa/reader.hpp"
 
+#include <array>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -33,6 +34,13 @@ Stop start_goal(Impl& machine, Cell goal) {
   cleanup.extras_mark = machine.extras.size();
   machine.stack.push_back(std::move(cleanup));
   count_vectors(machine);
+  // 呼べない部分を含むゴールは、どの部分も動かす前に、ゴール全体の type_error(callable, Goal) で止める。call/1 と
+  // 同じ検査と誤りにするため、そのときだけ call(Goal) として動かす。前は前半を動かしてから、その葉だけを名指した
+  // （レビュー M-16、7.6.2、7.8.3.3）。
+  if (!body_callable(*compile_goal(machine.heap, goal).term)) {
+    const std::array<Cell, 1> parts{goal};
+    goal = machine.heap.structure(machine.atoms.intern("call"), parts);
+  }
   const Compiled compiled = compile_goal(machine.heap, goal);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   return run_loop(machine);

@@ -613,11 +613,14 @@ void check_initialization_args() {
   auto open = mosa::Machine::create();
   const auto open_status = open->load_program(":- initialization(X).");
   mosa_test::check(!open_status.ok && open->diagnostic() == "instantiation_error", "var formal");
+  // 本体に数を含むゴールも呼べない。call/1 と同じくゴール全体を名指し、動かさずに読み込みを戻す（iso-notes 7.4.2 の
+  // initialization/1 の決定、レビュー M-16）。前はこの行が、前半を動かして葉の 1 を名指し節を残す形を固定していた。
   auto late = mosa::Machine::create();
-  const auto late_status = late->load_program("kept(1). :- initialization((true, 1)).");
+  const auto late_status = late->load_program("kept(1). :- initialization((assertz(ran), 1)).");
   mosa_test::check(!late_status.ok, "body number fails");
-  mosa_test::check(late->diagnostic() == "type_error(callable,1)", "body number formal");
-  mosa_test::check(late->query("kept(1).").kind == mosa::StopKind::Success, "body number keeps clause");
+  mosa_test::check(late->diagnostic() == "type_error(callable,(assertz(ran),1))", "body number formal");
+  mosa_test::check(late->query("current_predicate(kept/1).").kind == mosa::StopKind::Failure, "body number rolls back");
+  mosa_test::check(late->query("current_predicate(ran/0).").kind == mosa::StopKind::Failure, "body number does not run");
   auto two = mosa::Machine::create();
   const auto two_status = two->load_program(":- initialization(true, now).");
   mosa_test::check(!two_status.ok, "arity two rejected");

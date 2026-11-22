@@ -489,6 +489,10 @@ add_test(NAME mosa_japanese_arg COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mo
 add_test(NAME mosa_stdin COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa> -DVERSION=${PROJECT_VERSION}
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosa_stdin_test.cmake)
 
+# レビュー M-16。呼べない部分を含む問い合わせ、指令、初期化のゴールは、どの部分も動かす前に止まる。
+add_test(NAME callable_goal COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/callable_goal -P ${CMAKE_SOURCE_DIR}/tests/cpp/callable_goal_test.cmake)
+
 # レビュー M-12。REPL の続きの行と構文の誤りは、読んだ項をヒープに残さない（1 MiB のヒープで止まらない）。
 add_test(NAME repl_heap COMMAND ${CMAKE_COMMAND} -DMOSA=$<TARGET_FILE:mosa>
   -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp -P ${CMAKE_SOURCE_DIR}/tests/cpp/repl_heap_test.cmake)

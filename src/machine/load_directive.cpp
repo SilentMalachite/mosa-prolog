@@ -403,6 +403,15 @@ bool initialization_argument(Impl& machine, Cell directive, Cell& arg) {
   return true;
 }
 
+// 呼べない部分を含むゴール（(write(x), 1) など）は動かさず、ゴール全体の type_error(callable, Goal) で読み込みを
+// 失敗させて戻す（iso-notes 7.4.2 の initialization/1 の決定、レビュー M-16）。前は前半を動かしてから葉で止まり、
+// initialization/1 では節も前半の副作用も残った。呼べれば 0。
+int refuse_uncallable(Impl& machine, Cell goal) {
+  if (body_callable(*compile_goal(machine.heap, goal).term)) return 0;
+  fail_load(machine, write_term(machine.heap, machine.operators, formal_type(machine, "callable", goal), {}, {}));
+  return -1;
+}
+
 int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals) {
   Cell arg;
   if (!initialization_argument(machine, directive, arg)) return 0;
@@ -416,6 +425,7 @@ int apply_initialization(Impl& machine, Cell directive, std::vector<Cell>& goals
     fail_load(machine, write_term(machine.heap, machine.operators, formal, {}, {}));
     return -1;
   }
+  if (const int refused = refuse_uncallable(machine, arg)) return refused;
   // モジュールのファイルの初期化は、そのモジュールの文脈で動かす。
   if (machine.load_module != machine.user_module) {
     const std::array<Cell, 2> parts{machine.heap.atom(machine.load_module), arg};
@@ -574,6 +584,7 @@ int run_directive_goal(Impl& machine, Cell term) {
     if (log->current < log->files.size()) log->files[log->current].skipped_goal = true;
     return 1;
   }
+  if (const int refused = refuse_uncallable(machine, goal)) return refused;
   const StopKind kind = run_parked(machine, in_load_module(machine, goal));
   if (kind == StopKind::Exception) return -1;
   // halt/0,1 は読み込みをその場で止める。halt_now は残り、mosa と実行ファイルがその値で終わる。
