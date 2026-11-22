@@ -184,7 +184,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | M-19 |  | ADR | 設計どおり ✔ | 文法本体の `{!}` は `{}` の中しか切らない |
 | M-20 | W8 |  | done (7181654d) ✔ | 算術式の中のリストが type_error(evaluable, リスト) になる |
 | M-21 | W8 |  | done (9c1ed6ad) ✔ | 負の浮動小数の底で、2^63 以上の整数値の指数が undefined になり、負の指数では早く 0 に落ちる |
-| M-22 | W8 |  | 未着手 ✔ | 無限大の float_fractional_part/1 が undefined を出さずに NaN を返す |
+| M-22 | W8 |  | done (b99f8ff4) ✔ | 無限大の float_fractional_part/1 が undefined を出さずに NaN を返す |
 | M-23 | W8 | 問い | 未着手、問い ✔ | call/2..8 が max_arity を超えるゴールを作り、existence_error を出す |
 | M-24 | W8 | 問い | 未着手、問い ✔ | Term が束縛済みで Arity が整数でない functor/3 が type_error(integer, A) を出す |
 | M-25 | W8 | 問い | 未着手、問い ✔ | Term が束縛済みで List がリストでない `=..` が失敗する |
