@@ -51,7 +51,7 @@ bool is_file(const std::filesystem::path& path) {
 
 // POSIX のシェルと同じく、実行できない同名のファイルは選ばず、PATH の次の項目を見る（レビュー M-45）。前は 0644 の
 // clang++ が PATH の前にあると、そこで探すのをやめた。Windows は .exe の拡張子で決まるので見ない。
-bool executable(const std::filesystem::path& path, HostOs os) {
+bool executable([[maybe_unused]] const std::filesystem::path& path, HostOs os) {
   if (os == HostOs::windows) return true;
 #if defined(_WIN32)
   return true;
