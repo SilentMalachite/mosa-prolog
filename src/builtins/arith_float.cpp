@@ -137,8 +137,14 @@ int float_op(Impl& machine, const Goal& goal, std::string_view name, std::span<c
     return 1;
   }
   if (name == "float_fractional_part") {
-    out = in[0] - std::trunc(in[0]);
-    return 1;
+    // 9.1 の定義は X - float_integer_part(X) で、無限大なら inf - inf の NaN になる。NaN でない引数から NaN を作るので、
+    // inf - inf と同じく undefined にする（レビュー M-22）。NaN の引数は sign/1 や abs/1 と同じく通す（iso-notes 9.1.4）。
+    const double value = in[0] - std::trunc(in[0]);
+    if (std::isnan(in[0])) {
+      out = value;
+      return 1;
+    }
+    return checked(machine, goal, value, std::isfinite(in[0]), out);
   }
   if (name == "integer" || name == "truncate" || name == "floor" || name == "ceiling" || name == "round") {
     return float_round(machine, goal, name, in[0], out, as_int);

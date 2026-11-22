@@ -132,6 +132,11 @@ test(m21_hat_neg_exp_1024, (X is (-2.0) ^ (-1024), X =:= 2.0 ** (-1024), X > 0),
 test(m21_neg_exp_1074, (X is (-2.0) ** (-1074), X =:= 2.0 ** (-1074), X > 0), true).
 test(m21_odd_int_exp, (X is (-1.0) ** 9007199254740993, X =:= -1.0), true).
 test(m21_odd_big_exp, (E is 2^70 + 1, X is (-1.0) ** E, X =:= -1.0), true).
+% レビュー M-22（9.1）。無限大の float_fractional_part は inf - inf と同じく undefined。NaN の引数は通す（iso-notes 9.1.4）。
+test(m22_inf, (X is float_fractional_part(inf)), error(evaluation_error(undefined))).
+test(m22_neg_inf, (X is float_fractional_part(-inf)), error(evaluation_error(undefined))).
+test(m22_nan_kept, (X is float_fractional_part(nan), float(X)), true).
+test(m22_finite, (X is float_fractional_part(-2.5), X =:= -0.5), true).
 test(eval_functor_cmp, (foo(bar) =:= 1), error(type_error(evaluable, foo/1))).
 test(eval_functor_arity, (X is sqrt(bar, 1)), error(type_error(evaluable, sqrt/2))).
 test(eval_arg_atom, (X is 1 + bar), error(type_error(evaluable, bar/0))).
