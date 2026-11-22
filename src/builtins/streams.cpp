@@ -11,7 +11,8 @@
 // 読みのファイルは開くときに全体を読まず、読み取り口から必要な分だけ足す（全体レビュー推奨2、持ち主の選択 B）。
 // 追記は位置と保存の仕組みが元の中身を要するので、通常ファイルだけをヒープ上限のバイト予算の中で読む。
 // '$stream'(N) の N が Big なら、流れの数を越える int64 と同じく existence_error(stream)（stream_number）。
-// テスト: tests/pl/streams.pl, tests/pl/japanese.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp
+// テスト: tests/pl/streams.pl, tests/pl/japanese.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp,
+//   tests/cpp/stream_read_test.cpp
 
 #include "stream_internal.hpp"
 #include "mosa/console.hpp"

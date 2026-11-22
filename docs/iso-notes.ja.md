@@ -219,7 +219,7 @@ SPEC 第4節は、`invalid_utf8` が `error` のとき壊れた UTF-8 の並び�
 
 A か B か: A は並びを 1 文字として進めてから誤りを出す。位置は `replace` のときと同じになる。peek_char/1,2 は進めない。B は位置を並びの前のままにする。
 
-決定（2026-11-05）: A。どちらの旗の値でも、並びはその maximal subpart とする（Unicode 15.0 の 3.9 節、表 3-7。正しい並びの頭として通る最長の部分で、1 バイト以上）。`E3 81` は 1 文字、`ED A0 80` は 3 文字になる。read/1 は、並びを U+FFFD に置き換えた `replace` と同じく項の終わりまで（構文の誤りなら、ほかの構文の誤りと同じく読み飛ばした後まで）読み、元のバイトに戻してから誤りを出す。その項は捨てる。`foo(<E3>).` の後に `bar.` があれば、`representation_error(character)` の次に `bar` を返す。注釈の中の並びは後ろの項の読みに属するので、その項も捨てる（`% <E9>` の後に `r.` と `ok.` があれば、誤りの次は `ok`）。並びの位置を求めるときは、字句解析と同じく先頭の BOM を飛ばす。テスト: `tests/pl/chars.pl` の `l6_*`、`tests/cpp/stream_test.cpp`（`check_invalid_utf8` の「utf flag advances」と「utf error advances」、`check_read_term` の「read utf advances」、`check_get_code` の「peek code stays on bad utf」。最後のものはファイルを壊れたバイト 2 つにした。前はどれも、流れが壊れたバイトの前に留まることを期待していた）。
+決定（2026-11-05）: A。どちらの旗の値でも、並びはその maximal subpart とする（Unicode 15.0 の 3.9 節、表 3-7。正しい並びの頭として通る最長の部分で、1 バイト以上）。`E3 81` は 1 文字、`ED A0 80` は 3 文字になる。read/1 は、並びを U+FFFD に置き換えた `replace` と同じく項の終わりまで（構文の誤りなら、ほかの構文の誤りと同じく読み飛ばした後まで）読み、元のバイトに戻してから誤りを出す。その項は捨てる。`foo(<E3>).` の後に `bar.` があれば、`representation_error(character)` の次に `bar` を返す。注釈の中の並びは後ろの項の読みに属するので、その項も捨てる（`% <E9>` の後に `r.` と `ok.` があれば、誤りの次は `ok`）。並びの位置を求めるときは、字句解析と同じく先頭の BOM を飛ばす。テスト: `tests/pl/chars.pl` の `l6_*`、`tests/cpp/stream_read_test.cpp`（`check_invalid_utf8` の「utf flag advances」と「utf error advances」、`check_read_term` の「read utf advances」、`check_get_code` の「peek code stays on bad utf」。最後のものはファイルを壊れたバイト 2 つにした。前はどれも、流れが壊れたバイトの前に留まることを期待していた）。
 
 ## 第4節 旗 japanese_punctuation
 
@@ -729,7 +729,7 @@ A か B か: A は標準ストリームの close/1,2 で吐き出しだけして
 
 ## 8.11 開くと consult の全体読み
 
-`open(File, read, S)` は成功する前にファイル全体をメモリへ読んでいて、`consult` も原文で同じことをしていた。そのため `open('/dev/zero', read, S)` だけで限りなく膨らんだ（全体レビュー項目2）。持ち主は提示した方式のうち B を選んだ（2026-11-13）。読みで開いたファイルは、読む述語が必要な分だけ塊で読む（`src/builtins/streams.cpp` の `pull_stream`）。読んだ分は保持するので `set_stream_position/2` と `eof_action(reset)` は今までどおりで、保持したバイトは `--heap-max` のバイト予算に数え（`include/mosa/heap.hpp` の `heap_byte_budget`）、超えるとヒープ上限で止まる。後からほかのプログラムが足した分も読めるようになる（前は開いた時点の写ししか見えなかった）。`consult` などの読み込みは通常ファイルだけを同じバイト予算の中で読み（`src/machine/load_path.cpp` の `read_source`）、装置やパイプは開けないファイルになる。追記で開くときは位置と保存の仕組みが元の中身を要するので今までどおり読むが、consult と同じ規則にする。通常ファイルだけ、予算の中、それ以外は `permission_error(open, source_sink, File)` である。テストは `tests/cpp/stream_test.cpp` の `check_lazy_read` と `check_consult_source_limit`。
+`open(File, read, S)` は成功する前にファイル全体をメモリへ読んでいて、`consult` も原文で同じことをしていた。そのため `open('/dev/zero', read, S)` だけで限りなく膨らんだ（全体レビュー項目2）。持ち主は提示した方式のうち B を選んだ（2026-11-13）。読みで開いたファイルは、読む述語が必要な分だけ塊で読む（`src/builtins/streams.cpp` の `pull_stream`）。読んだ分は保持するので `set_stream_position/2` と `eof_action(reset)` は今までどおりで、保持したバイトは `--heap-max` のバイト予算に数え（`include/mosa/heap.hpp` の `heap_byte_budget`）、超えるとヒープ上限で止まる。後からほかのプログラムが足した分も読めるようになる（前は開いた時点の写ししか見えなかった）。`consult` などの読み込みは通常ファイルだけを同じバイト予算の中で読み（`src/machine/load_path.cpp` の `read_source`）、装置やパイプは開けないファイルになる。追記で開くときは位置と保存の仕組みが元の中身を要するので今までどおり読むが、consult と同じ規則にする。通常ファイルだけ、予算の中、それ以外は `permission_error(open, source_sink, File)` である。テストは `tests/cpp/stream_read_test.cpp` の `check_lazy_read` と `tests/cpp/stream_test.cpp` の `check_consult_source_limit`。
 
 ## 6.4.5 範囲を超えた浮動小数点数リテラル
 

@@ -357,7 +357,7 @@ set_tests_properties(session_messages_missing PROPERTIES
 add_test(NAME session_english COMMAND $<TARGET_FILE:session_test> english)
 set_tests_properties(session_english PROPERTIES ENVIRONMENT "LANG=C")
 
-add_executable(stream_test tests/cpp/stream_test.cpp)
+add_executable(stream_test tests/cpp/stream_test.cpp tests/cpp/stream_read_test.cpp)
 target_include_directories(stream_test PRIVATE tests/cpp)
 target_compile_definitions(stream_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(stream_test PRIVATE mosa_lib)

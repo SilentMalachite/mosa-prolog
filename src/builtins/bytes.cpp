@@ -11,7 +11,7 @@
 // 終端の印は -1。テキストのストリームでは読まない。
 // Big（フェーズ10、設計の 8）: バイトの Big は範囲の外の int64 と同じく type_error(in_byte) か type_error(byte)、
 // '$stream'(N) の N が Big なら existence_error(stream)（stream_number）。
-// テスト: tests/pl/bytes.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp
+// テスト: tests/pl/bytes.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp, tests/cpp/stream_read_test.cpp
 
 #include "../machine/internal.hpp"
 

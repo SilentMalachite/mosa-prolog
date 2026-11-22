@@ -17,8 +17,9 @@
 //   permission_error(input, past_end_of_stream),
 //   representation_error(character), syntax_error(Key)
 // 構文エラーの Key と Extra syntax(stream(S, Line, LinePos, CharNo), Token) は ADR 0007。テストは Formal を比べる。
-// テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp, tests/cpp/stdin_read_test.cpp,
-//   tests/cpp/stdin_scale_test.cpp, tests/cpp/stream_budget_test.cpp, tests/cpp/lexer_test.cpp, tests/pl/bigint.pl
+// テスト: tests/pl/read.pl, tests/pl/japanese.pl, tests/cpp/stream_test.cpp, tests/cpp/stream_read_test.cpp,
+//   tests/cpp/stdin_read_test.cpp, tests/cpp/stdin_scale_test.cpp, tests/cpp/stream_budget_test.cpp, tests/cpp/lexer_test.cpp,
+//   tests/pl/bigint.pl
 
 #include "../machine/internal.hpp"
 

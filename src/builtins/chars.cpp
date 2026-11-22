@@ -26,7 +26,8 @@
 //   N が Big（フェーズ10、設計の 8）なら、負は何も書かず、正は int64 の大きな数と同じく書き終わらない。
 // コードの Big は範囲の外の int64 と同じく representation_error(in_character_code) か
 // representation_error(character_code)、'$stream'(N) の N が Big なら existence_error(stream)（stream_number）。
-// テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp
+// テスト: tests/pl/chars.pl, tests/pl/japanese.pl, tests/pl/utilities.pl, tests/pl/bigint.pl, tests/cpp/stream_test.cpp,
+//   tests/cpp/stream_read_test.cpp
 
 #include "../machine/internal.hpp"
 
