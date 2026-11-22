@@ -504,19 +504,23 @@ std::optional<Scan> Lexer::escape_hex_run(std::string* text, char32_t* code, Pla
   return fail_at(SyntaxReason::BadEscape, "\\", start);
 }
 
+// 6.4.2.1 の 8 進のエスケープは \ で閉じるまでの桁をいくつでも取る（\x...\ と同じ）。前は 3 桁で止め、'\0101\' と
+// あ の '\30102\' を bad_escape にした（レビュー M-07）。U+10FFFF を超える値は桁を足す前に断り、巻き戻さない。
 std::optional<Scan> Lexer::escape_octal(std::string* text, char32_t* code, Place start) {
   char32_t value = 0;
-  int count = 0;
-  while (count < 3 && index_ < source_.size()) {
+  bool any = false;
+  while (index_ < source_.size()) {
     const SourceChar ch = peek_char();
     if (!ch.valid) return fail_at(SyntaxReason::InvalidUtf8, {}, here());
     const int digit = digit_value(ch.code, 8);
     if (digit < 0) break;
-    value = static_cast<char32_t>(value * 8 + static_cast<char32_t>(digit));
+    const auto unit = static_cast<char32_t>(digit);
+    if (value > (char32_t{0x10FFFF} - unit) / 8) return fail_at(SyntaxReason::BadEscape, "\\", start);
+    value = static_cast<char32_t>(value * 8 + unit);
     advance(ch.code, ch.bytes);
-    ++count;
+    any = true;
   }
-  if (count == 0 || index_ >= source_.size()) return fail_at(SyntaxReason::BadEscape, "\\", start);
+  if (!any || index_ >= source_.size() || !code_point_ok(value)) return fail_at(SyntaxReason::BadEscape, "\\", start);
   const SourceChar tail = peek_char();
   if (!tail.valid || tail.code != U'\\') return fail_at(SyntaxReason::BadEscape, "\\", start);
   advance(tail.code, tail.bytes);
