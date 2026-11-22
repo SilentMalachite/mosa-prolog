@@ -284,6 +284,16 @@ void check_meta_declarations() {
 }
 
 // 公開の演算子は use_module/1 と except で取り込み側へ入り、PI のリストでは入らない（Task 10）。
+// reexport は指示だけの名前（SPEC 第5節）。形の合わない物はゴールとして呼ばず、use_module と同じく受けない（レビュー L-17）。
+void check_reexport_shape() {
+  for (const std::string_view text : {":- use_module.", ":- reexport.", ":- reexport(a, b, c)."}) {
+    auto machine = mosa::Machine::create();
+    mosa_test::check(!machine->load_program(std::string{text} + "\n").ok, std::string{text} + ": fails");
+    mosa_test::check(!mentions(*machine, "existence_error"), std::string{text} + ": not called as a goal");
+    mosa_test::check(!machine->diagnostic().empty(), std::string{text} + ": noted");
+  }
+}
+
 void check_exported_operators() {
   const auto file = temp_file("演算公開.pl", ":- module(演算公開, [op(700, xfx, 公演), p/1]).\np(a 公演 b).\n");
   auto all = mosa::Machine::create();
@@ -372,6 +382,7 @@ int main() {
   check_qualified_clauses();
   check_qualified_declarations();
   check_meta_declarations();
+  check_reexport_shape();
   check_exported_operators();
   check_print_while_portray_loads();
   check_flags_per_file();

@@ -464,7 +464,8 @@ int apply_initialization_main(Impl& machine, Cell directive) {
 }
 
 // 入れ子の実行の間だけ、脇に置いた外のスタックを Impl::parked に載せる（レビュー M19）。外の走査はまだ開いて
-// いるので、指示が消した節をそれが試せるように残し、指示の中の consult はその選択点を数えて置き換えを断る。
+// いるので、指示が消した節や指示の中の consult が置き換えた節を、それが試せるように世代で残す。断るのは今の
+// スタックの選択点だけで（take_over）、脇に置いた選択点は数えない（前の注釈は数えて断ると書いていた、レビュー L-23）。
 // C++ の例外で抜けても外す。
 class ParkedScope {
  public:
@@ -560,10 +561,11 @@ bool run_init_goal(Impl& machine, Cell goal) {
 }
 
 // 読み込みの指示の名前。ここまで来たものは形が合わない（include(a, b) など）ので、ゴールとして呼ばず今までどおり受けない。
+// reexport も指示だけの名前（SPEC 第5節）。前は抜けていて、:- reexport. が existence_error になった（レビュー L-17）。
 bool reserved_directive(std::string_view name) {
-  static constexpr std::array<std::string_view, 14> names{
-      "include", "ensure_loaded", "use_module", "module", "export", "dynamic", "discontiguous", "multifile",
-      "meta_predicate", "initialization", "char_conversion", "set_prolog_flag", "op", "consult"};
+  static constexpr std::array<std::string_view, 15> names{
+      "include", "ensure_loaded", "use_module", "reexport", "module", "export", "dynamic", "discontiguous",
+      "multifile", "meta_predicate", "initialization", "char_conversion", "set_prolog_flag", "op", "consult"};
   return std::find(names.begin(), names.end(), name) != names.end();
 }
 
