@@ -1,8 +1,11 @@
-# Windows だけ。CMake では作れない起こし方で mosa を動かす。標準入力の取っ手が無い（レビュー M-42）、生のコマンドライン
-# （レビュー L-38 の 5）、Ctrl+C を受ける自分だけのコンソール（レビュー M-43）。OS に依る C++ は src/platform/ にしか
-# 置かないので、Win32 は C# の P/Invoke で呼ぶ。字面は ASCII だけにする。Windows PowerShell 5.1 は BOM の無いファイルを
-# ANSI のコードページで読むので、日本語の字は符号位置から作る（化けるのは注釈だけで、動きは変わらない）。
-# 使い方: powershell -NoProfile -ExecutionPolicy Bypass -File windows_process_test.ps1 -Case <名前> -Mosa <mosa.exe> -Work <dir>
+# Windows only. Starts mosa the way CMake cannot: with no standard input (review M-42), with a raw command line
+# (review L-38 point 5) and in a console of its own that gets Ctrl+C (review M-43). Win32 calls go through C# P/Invoke,
+# because OS-dependent C++ is kept to src/platform/.
+# This file is ASCII only, comments included, as an exception to the Japanese-comment rule (open-items): Windows
+# PowerShell 5.1 reads a file without a BOM in the ANSI code page, and under 932 a UTF-8 byte at the end of a comment
+# can be read as a lead byte that takes the newline, so the next line of code would join the comment. The Japanese
+# text the tests need is built from code points.
+# Usage: powershell -NoProfile -ExecutionPolicy Bypass -File windows_process_test.ps1 -Case <name> -Mosa <mosa.exe> -Work <dir>
 param(
   [Parameter(Mandatory = $true)][string]$Case,
   [Parameter(Mandatory = $true)][string]$Mosa,
@@ -60,7 +63,7 @@ public static class MosaProcessProbe {
   const int StdInput = -10, StdOutput = -11, StdError = -12;
   static readonly IntPtr Invalid = new IntPtr(-1);
 
-  // milliseconds まで待ち、終わらなければ落とす。"exit N" か "timeout" を返す。
+  // Waits up to milliseconds, then kills the child. Returns "exit N" or "timeout".
   static string Finish(ProcessInformation process, uint milliseconds) {
     string result;
     if (WaitForSingleObject(process.hProcess, milliseconds) != 0) {
@@ -84,8 +87,8 @@ public static class MosaProcessProbe {
     return CreateFileW(path, access, ShareRead | ShareWrite, ref attributes, disposition, NormalFile, IntPtr.Zero);
   }
 
-  // コンソールを持たせない（DETACHED_PROCESS）。標準出力と標準エラーは log へ。標準入力は withInput なら NUL、
-  // そうでなければ取っ手そのものを渡さない（NULL）。GUI から起こしたプログラムと同じ形。
+  // No console (DETACHED_PROCESS). Standard output and error go to log. Standard input is NUL when withInput,
+  // and no handle at all (NULL) otherwise, as for a program started from a GUI.
   public static string RunDetached(string commandLine, string log, bool withInput) {
     IntPtr output = Inheritable(log, GenericWrite, CreateAlways);
     if (output == Invalid) return "cannot open the log: " + Marshal.GetLastWin32Error().ToString();
@@ -110,9 +113,10 @@ public static class MosaProcessProbe {
     return Finish(process, 120000);
   }
 
-  // 自分を 437 の新しいコンソールへ移し、そこで子を起こし、子がコンソールを 65001 にしてから、そのコンソールにだけ
-  // Ctrl+C を送る。子の終わり方と、その後のコードページを返す。AllocConsole は自分の標準の取っ手を新しいコンソールへ
-  // 替えるので元へ戻し、この台本の文面が ctest に届くようにする。子には新しいコンソールの CONIN$ と CONOUT$ を渡す。
+  // Moves this process to a new console at code page 437, starts the child in it, waits until the child has set the
+  // console to 65001, and sends Ctrl+C to that console only. Returns how the child ended and the code pages after it.
+  // AllocConsole points this process's standard handles at the new console; they are put back so that what this script
+  // writes still reaches ctest. The child gets the new console's CONIN$ and CONOUT$.
   public static string CtrlC(string commandLine) {
     IntPtr savedInput = GetStdHandle(StdInput), savedOutput = GetStdHandle(StdOutput), savedError = GetStdHandle(StdError);
     FreeConsole();
@@ -126,7 +130,7 @@ public static class MosaProcessProbe {
     IntPtr consoleInput = Inheritable("CONIN$", GenericRead | GenericWrite, OpenExisting);
     IntPtr consoleOutput = Inheritable("CONOUT$", GenericRead | GenericWrite, OpenExisting);
     if (consoleInput == Invalid || consoleOutput == Invalid) return "cannot open CONIN$ or CONOUT$";
-    // Ctrl+C を無視するかは子が継ぐので、子を起こす前に通す側にする。
+    // The child inherits whether Ctrl+C is ignored, so let it through before the child starts.
     SetConsoleCtrlHandler(IntPtr.Zero, false);
     StartupInfo startup = new StartupInfo();
     startup.cb = Marshal.SizeOf(typeof(StartupInfo));
@@ -143,7 +147,7 @@ public static class MosaProcessProbe {
     if (!started) return "cannot start: " + startError.ToString();
     for (int tries = 0; tries < 600 && GetConsoleOutputCP() != 65001; ++tries) Thread.Sleep(100);
     if (GetConsoleOutputCP() != 65001) return "mosa did not set 65001 (" + Finish(process, 0) + ")";
-    // Ctrl+C はコンソールのすべてのプロセスに届く。自分と子だけのコンソールのときにだけ送る。
+    // Ctrl+C reaches every process on the console. Send it only if the console holds just this process and the child.
     uint[] attached = new uint[8];
     uint count = GetConsoleProcessList(attached, (uint)attached.Length);
     if (count != 2) return "the console has " + count.ToString() + " processes (" + Finish(process, 0) + ")";
@@ -166,21 +170,21 @@ function Read-Log([string]$path) {
 }
 
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
-# $<TARGET_FILE> は / で区切る。コマンドラインの先頭のプログラムの名前は \ にそろえる。
+# $<TARGET_FILE> uses /. The program name at the head of the command line gets \.
 $Mosa = $Mosa -replace '/', '\'
 $log = Join-Path $Work "$Case.log"
 $quoted = '"' + $Mosa + '"'
 
 switch ($Case) {
   'no_stdin' {
-    # M-42。標準入力が無いと _fileno(stdin) は負になる。端末かの確かめがそれを CRT に渡して落ちてはならない。
+    # M-42: with no standard input, _fileno(stdin) is negative. The terminal check must not hand it to the CRT.
     $ended = [MosaProcessProbe]::RunDetached("$quoted -g ""write(ok), nl, halt""", $log, $false)
     $text = Read-Log $log
     if ($ended -ne 'exit 0' -or $text -ne "ok`n") { Fail "got [$ended], output [$text]" }
   }
   'argv_quotes' {
-    # L-38 の 5。引用符の中の "" は CRT では 1 つの " で、CommandLineToArgvW は引数の数を違えて数える。それでも -- の
-    # 後の引数は、ANSI の argv を通らずに UTF-8 のまま argv の旗に届く。
+    # L-38 point 5: "" inside quotes is one quote for the CRT, and CommandLineToArgvW counts the arguments
+    # differently. The argument after -- must still reach the argv flag as UTF-8, not through the ANSI argv.
     $word = [string][char]0x65E5 + [char]0x672C
     $tail = [string][char]0x8A9E
     $goal = 'current_prolog_flag(argv, A), write(A), nl, halt'
@@ -190,7 +194,7 @@ switch ($Case) {
     if ($ended -ne 'exit 0' -or $text -ne $expected) { Fail "got [$ended], output [$text], expected [$expected]" }
   }
   'ctrl_c' {
-    # M-43。Ctrl+C は atexit を通らずに mosa を終える。それでもコンソールのコードページは元に戻る。
+    # M-43: Ctrl+C ends mosa without its atexit functions. The console code pages must still be put back.
     $ended = [MosaProcessProbe]::CtrlC("$quoted -g ""repeat, fail""")
     if (-not $ended.EndsWith('code pages 437 437')) { Fail "got [$ended]" }
   }

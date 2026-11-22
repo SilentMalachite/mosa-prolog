@@ -384,7 +384,11 @@ Phase 13: see CHANGELOG 0.4.0, Known limits.
 
 ## Tests
 
-- `ctest --preset` runs in parallel (review item 5).
+- `ctest --preset` runs in parallel (review item 5), 4 at a time (owner's A, 2026-11-23).
+- `tests/cpp/windows_process_test.ps1` is ASCII only, comments included, against the rule of
+  Japanese comments: Windows PowerShell 5.1 reads a file without a BOM in the ANSI code page, and
+  under 932 a UTF-8 byte at the end of a comment can take the newline. Its Japanese text is built
+  from code points.
 - On macOS runners `stack_deep_builtins` takes 250–510 s. Two push runs on ae22e43
   (43912835169, and the first attempt of 43912873254) went over the 600 s default `TIME_LIMIT`
   of `small_stack.cmake` at different items, while its PR run passed in 492 s and the rerun in
