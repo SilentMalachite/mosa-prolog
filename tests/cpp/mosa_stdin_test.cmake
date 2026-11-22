@@ -36,4 +36,20 @@ expect_output("float from stdin" "T = \\(_[A-Za-z0-9]*=1\\.5\\), U = foo\\(2\\.2
 # 終わりにまとめて書くと a、b の後に答えが並ぶ（敵対的レビュー A1）。
 expect_output("goals in order" "^a\r?\ntrue\\.\r?\nX = 1\\.\r?\nb\r?\ntrue\\.\r?\n$"
   -g "write(a), nl" -g "X = 1" -g "write(b), nl" -t halt)
+# レビュー M-42。空の装置（Windows の NUL、POSIX の /dev/null）は端末ではない。Windows の _isatty は文字の装置の NUL も
+# 端末とするので、前は引数の無い mosa が REPL の ?- を出して 0 で終わった。端末でない入力と同じく使い方を出して 1 で終わる。
+if(CMAKE_HOST_WIN32)
+  set(null_device "NUL")
+else()
+  set(null_device "/dev/null")
+endif()
+execute_process(COMMAND "${MOSA}"
+  INPUT_FILE "${null_device}"
+  OUTPUT_VARIABLE out
+  ERROR_VARIABLE err
+  RESULT_VARIABLE code
+  TIMEOUT 180 ENCODING UTF-8)
+if(NOT code EQUAL 1 OR out MATCHES "\\?- ")
+  message(FATAL_ERROR "the null device is not a terminal: code=${code} out=[${out}] err=[${err}]")
+endif()
 file(REMOVE "${input}")
