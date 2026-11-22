@@ -16,12 +16,14 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <random>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -109,21 +111,20 @@ bool prepare_out_dir(const std::filesystem::path& out_dir) {
   return true;
 }
 
+// 一時ファイルの名前は書くたびに変える。同じディレクトリへ同じプログラムの dist を 2 つ同時に書くと、決まった
+// 名前では互いの一時ファイルを消し合って片方が失敗した（レビュー M-47）。書き込みは write_text（記号リンクへは書かず、
+// 失敗の理由を errno から取る）に任せ、空きの無いディスクは mosac_disk_full で知らせる。
 bool write_replacing(const std::filesystem::path& archive, std::string_view bytes) {
+  static std::atomic<std::uint32_t> counter{0};
+  const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
   std::filesystem::path temp = archive;
-  temp += ".tmp";
+  temp += ".tmp-" + std::to_string(ticks) + "-" + std::to_string(std::random_device{}()) + "-" +
+          std::to_string(counter++);
   std::error_code ignored;
-  // 前に残った一時ファイルを先に消す。それがリンクなら、開くとリンクの先を切り詰めてしまう（remove はリンクそのものを消す）。
-  std::filesystem::remove(temp, ignored);
-  {
-    std::ofstream out{temp, std::ios::binary | std::ios::trunc};
-    out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
-    out.close();
-    if (!out) {
-      std::filesystem::remove(temp, ignored);
-      report_write_error(archive, std::make_error_code(std::errc::io_error));
-      return false;
-    }
+  if (const auto error = write_text(temp, bytes)) {
+    std::filesystem::remove(temp, ignored);
+    report_write_error(archive, *error);
+    return false;
   }
   std::error_code error;
   std::filesystem::rename(temp, archive, error);
@@ -171,6 +172,11 @@ int write_dist(const std::filesystem::path& exe, std::string_view stem, const st
     return 1;
   }
   std::string exe_bytes{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+  // 読む途中の誤りは istreambuf_iterator が終わりと同じに見せる。欠けた実行ファイルを書庫に入れない（M-47）。
+  if (in.bad()) {
+    std::cerr << mosac_message("mosac_cannot_read", {utf8_from_path(exe)}) << '\n';
+    return 1;
+  }
   if (!prepare_out_dir(out_dir)) return 1;
   const std::vector<ArchiveEntry> entries = dist_entries(std::move(exe_bytes), stem);
   const bool zip = host_os() == HostOs::windows;

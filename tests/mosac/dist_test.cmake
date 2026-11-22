@@ -1,6 +1,6 @@
 # ADR 0023。mosac dist が書いた書庫を cmake -E tar で展開し、中の実行ファイルを動かし、LICENSE、NOTICE、README.txt を
 # 確かめる。展開を CMake に任せるのは、mosac が書いた形を mosac と別の実装（libarchive）で読むため。
-# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|dot_stem|build_fails>
+# 使い方: cmake -DMOSAC=<mosac> -DCASE=<hello|default_dir|japanese|replace|out_is_file|tmp_link|name_clash|dot_stem|parallel|build_fails>
 #   -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DCXX=<コンパイラ。空なら mosac の既定> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -DROOT=<リポジトリの根> -DOS_ARCH=<macos-arm64 など> -DARCHIVE_EXT=<.tar.gz か .zip>
 #   -DVERSION=<project VERSION> -P dist_test.cmake
@@ -156,6 +156,27 @@ elseif(CASE STREQUAL "dot_stem")
       endif()
     endforeach()
   endforeach()
+elseif(CASE STREQUAL "parallel")
+  # 同じディレクトリへ同じプログラムの dist を 2 つ同時に書いても、どちらも通り、書庫は壊れない（レビュー M-47）。前は
+  # 一時ファイルの名前が決まっていて、互いの一時ファイルを消し合い、30 回に 20 回は片方が書き出せませんで止まった。
+  # 作るのは 1 回目で済ませ、残りはキャッシュから書庫だけを書く。execute_process の COMMAND を 2 つ並べると同時に動く。
+  file(COPY_FILE "${SRC}/hello.pl" "${WORK}/hello.pl")
+  mosac(dist hello.pl -o out)
+  expect_archive("out/hello-${OS_ARCH}${ARCHIVE_EXT}")
+  foreach(round RANGE 1 10)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" dist hello.pl -o out
+                    COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" dist hello.pl -o out
+                    WORKING_DIRECTORY "${WORK}" RESULTS_VARIABLE codes OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 600)
+    set(code "${codes}")
+    if(NOT codes STREQUAL "0;0")
+      fail("round ${round}: two dist runs at once must both succeed")
+    endif()
+  endforeach()
+  expect_unpacked("out/hello-${OS_ARCH}${ARCHIVE_EXT}" hello)
+  file(GLOB leftovers "${WORK}/out/*.tmp*")
+  if(leftovers)
+    fail("no temporary file is left: ${leftovers}")
+  endif()
 elseif(CASE STREQUAL "build_fails")
   mosac(build "${SRC}/broken.pl" -o broken)
   set(build_code "${code}")
