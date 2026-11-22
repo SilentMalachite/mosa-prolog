@@ -21,7 +21,7 @@
 namespace mosa {
 namespace {
 
-// internal.hpp の Entry::gen_kind の 2。
+// frames.hpp の Entry::gen_kind の 2。
 constexpr std::uint8_t kSubGen = 2;
 
 std::uint32_t atom_id(Cell cell) { return static_cast<std::uint32_t>(cell.raw() >> 3); }
