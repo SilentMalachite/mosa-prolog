@@ -122,7 +122,7 @@ test(init_goal, initialization(true), error(existence_error(procedure, initializ
 
 % 7.4.2 に無い指示 :- G（iso-notes 7.4.2 の一般の指示）。その位置で一度呼ぶので、後の指示は前の指示の効果を見る。
 % gd_base/1 は指示より上の節で、指示はそれを呼べる。retractall をしないので、2 回動けば L は 4 要素になる。
-% 失敗と例外が読み込みを戻すことは tests/cpp/machine_test.cpp の check_general_directive。
+% 失敗と例外が読み込みを戻すことは tests/cpp/machine_load_test.cpp の check_general_directive。
 
 :- dynamic(gd_seen/1).
 gd_base(first).
@@ -153,7 +153,7 @@ test(empty_files, true, true).
 test(argv_readonly, set_prolog_flag(argv, []), error(permission_error(modify, flag, argv))).
 
 % レビュー M10（iso-notes 7.4 の決定 A、SPEC 第5節の system モジュール）。組込述語と制御構造の節、本体が呼べない節は
-% assertz/1 と同じ誤りで読み込みを失敗させ、その読み込みの節を戻す。誤りの Formal は tests/cpp/machine_test.cpp で見る。
+% assertz/1 と同じ誤りで読み込みを失敗させ、その読み込みの節を戻す。誤りの Formal は tests/cpp/machine_load_test.cpp で見る。
 % 前の consult で読んだファイルを同じパスで読み直さないよう、試験ごとにファイルを分ける。
 m10_path(Name, Path) :- atom_concat('tests/tmp/m10_', Name, Stem), atom_concat(Stem, '.pl', Path).
 m10_write(Path, Text) :- open(Path, write, S), write(S, Text), close(S).

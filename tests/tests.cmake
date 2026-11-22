@@ -383,7 +383,7 @@ add_test(NAME stdin_scale COMMAND $<TARGET_FILE:stdin_scale_test>)
 # 時間の比を測るので、ほかの試験と並べて走らせない（pred_scale と同じ）。
 set_tests_properties(stdin_scale PROPERTIES RUN_SERIAL TRUE)
 
-add_executable(machine_test tests/cpp/machine_test.cpp)
+add_executable(machine_test tests/cpp/machine_test.cpp tests/cpp/machine_load_test.cpp)
 target_include_directories(machine_test PRIVATE tests/cpp)
 target_link_libraries(machine_test PRIVATE mosa_lib)
 add_test(NAME machine COMMAND $<TARGET_FILE:machine_test>)

@@ -183,7 +183,7 @@ A か B か: A は決定のまま（指示子かリストだけ。5 行は不合
 
 ISO（5.5）は 7.4.2 のほかの指示を処理系固有の機能として扱う。厳密に規格に合う動作の切り替えを設けるなら、それは受けてはならない。その切り替えは作らない。
 
-決定（2026-10-29、フェーズ6 Task 5、持ち主が 2026-10-29 に A と決定）: ゴールがアトムか複合項の指示は、読み込み器が受け持つ名前（`include`、`ensure_loaded`、`use_module`、`module`、`export`、`dynamic`、`discontiguous`、`multifile`、`meta_predicate`、`initialization`、`char_conversion`、`set_prolog_flag`、`op`、`consult`。形が合わないときは `directive_unsupported` のまま）を除き、テキストのその位置で、読み込み中のモジュールの文脈で、それまでに読んだ節のもとで 1 回呼ぶ。成功なら読み込みを続ける。失敗は鍵 `directive_failed` で、捕捉されない例外はその Formal で読み込みを失敗させ、どちらも受けない指示と同じく節と旗を戻す。変数と数は今までどおり `directive_unsupported`。テストは `tests/pl/directives.pl` の `general_directive_order` と `tests/cpp/machine_test.cpp` の `check_general_directive`。
+決定（2026-10-29、フェーズ6 Task 5、持ち主が 2026-10-29 に A と決定）: ゴールがアトムか複合項の指示は、読み込み器が受け持つ名前（`include`、`ensure_loaded`、`use_module`、`module`、`export`、`dynamic`、`discontiguous`、`multifile`、`meta_predicate`、`initialization`、`char_conversion`、`set_prolog_flag`、`op`、`consult`。形が合わないときは `directive_unsupported` のまま）を除き、テキストのその位置で、読み込み中のモジュールの文脈で、それまでに読んだ節のもとで 1 回呼ぶ。成功なら読み込みを続ける。失敗は鍵 `directive_failed` で、捕捉されない例外はその Formal で読み込みを失敗させ、どちらも受けない指示と同じく節と旗を戻す。変数と数は今までどおり `directive_unsupported`。テストは `tests/pl/directives.pl` の `general_directive_order` と `tests/cpp/machine_load_test.cpp` の `check_general_directive`。
 
 指示（この指示か `initialization/1`）の中の `halt/0` と `halt/1` は読み込みをその場で止め、`mosa` も `mosac` の実行ファイルもその値で終わる。後の指示、`initialization(_, main)`、`-g` は動かない（`tests/cpp/session_test.cpp` の `check_directive_halt`、`mosac_emit_halt`）。mosatest が指示ごとに先に読む断片ではこれらのゴールを呼ばず、ファイルの最後の読み込みが 1 回だけ呼ぶ。
 
@@ -195,7 +195,7 @@ ISO（5.5）は 7.4.2 のほかの指示を処理系固有の機能として扱�
 
 A か B か: A: このような節は、assertz/1 がその節に出すのと同じ Formal（本体が呼べなければ `type_error(callable, Body)`、そうでなく組込述語か制御構造なら `permission_error(modify, static_procedure, PI)`）で読み込みを失敗させ、ほかの読み込みの誤りと同じく、その読み込みの節と旗を戻す。B: SWI-Prolog と同じく、その誤りを警告として出し、その節を飛ばして読み続ける。確かめるまで実装しない。
 
-決定（2026-11-03）: A（レビュー M10）。読み込み器は各節を訳した後、足す前に確かめる（`src/machine/load_clauses.cpp` の `refused_clause`、`take_term` から呼ぶ）。順は assertz/1 と同じで、ゴールの位置に数のある本体は `type_error(callable, Body)`、その次に、頭が組込述語、制御構造、`:-/1`、`:-/2` なら `permission_error(modify, static_procedure, Name/Arity)` になる。SPEC 第5節は組込述語と制御構造を `system` に置くので、どのモジュールでも、`user:` で修飾しても同じ。読み込みはその Formal を診断として失敗し、その読み込みの節と旗は戻る。実行中に呼んだ consult/1 は失敗し、`mosac emit` と `mosac build` は C++ を書かずに止まる。翻訳の読み込みは一般の指示を呼ばないので、その後ろ（その op/3 が後の項の読みを変えうる）で断った節は、構文エラーと同じく扱う。その節を外し、そのファイルを IR のまま動かし、実行ファイルの起動時の読み込みが mosa と同じ診断で判定する（Codex レビュー）。テストは `tests/pl/directives.pl` の `m10_*`、`tests/cpp/machine_test.cpp` の `check_refused_clauses`、ctest の `mosac_emit_refused` と `mosac_emit_refused_op`。
+決定（2026-11-03）: A（レビュー M10）。読み込み器は各節を訳した後、足す前に確かめる（`src/machine/load_clauses.cpp` の `refused_clause`、`take_term` から呼ぶ）。順は assertz/1 と同じで、ゴールの位置に数のある本体は `type_error(callable, Body)`、その次に、頭が組込述語、制御構造、`:-/1`、`:-/2` なら `permission_error(modify, static_procedure, Name/Arity)` になる。SPEC 第5節は組込述語と制御構造を `system` に置くので、どのモジュールでも、`user:` で修飾しても同じ。読み込みはその Formal を診断として失敗し、その読み込みの節と旗は戻る。実行中に呼んだ consult/1 は失敗し、`mosac emit` と `mosac build` は C++ を書かずに止まる。翻訳の読み込みは一般の指示を呼ばないので、その後ろ（その op/3 が後の項の読みを変えうる）で断った節は、構文エラーと同じく扱う。その節を外し、そのファイルを IR のまま動かし、実行ファイルの起動時の読み込みが mosa と同じ診断で判定する（Codex レビュー）。テストは `tests/pl/directives.pl` の `m10_*`、`tests/cpp/machine_load_test.cpp` の `check_refused_clauses`、ctest の `mosac_emit_refused` と `mosac_emit_refused_op`。
 
 ## 7.11 旗 debug
 

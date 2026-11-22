@@ -215,13 +215,14 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 Code and test files at 730 lines or more (`wc -l`, 2026-11-22; generated files and docs aside):
 
 - `tests/cpp/session_test.cpp` (796), `tests/cpp/stream_test.cpp` (785),
-  `tests/cpp/machine_test.cpp` (782), `tests/cpp/conformance_io_test.cpp` (781),
-  `tests/cpp/manual_parse_test.cpp` (758), `tests/cpp/gc_test.cpp` (751)
+  `tests/cpp/conformance_io_test.cpp` (781), `tests/cpp/manual_parse_test.cpp` (758),
+  `tests/cpp/gc_test.cpp` (751)
 - `src/builtins/write_pred.cpp` (750), `src/builtins/solutions.cpp` (740), `src/machine/internal.hpp` (734)
 
 W8 of the 2026-11-20 review edited three listed files without splitting them first, against this
-rule: `machine_test.cpp` (M-16), `manual_parse_test.cpp` (M-55) and `internal.hpp` (M-14). It also
-pushed `write_pred.cpp` (M-31) and `solutions.cpp` (M-27) past 730. Split these first.
+rule: `machine_test.cpp` (M-16, split since into `machine_load_test.cpp`), `manual_parse_test.cpp`
+(M-55) and `internal.hpp` (M-14). It also pushed `write_pred.cpp` (M-31) and `solutions.cpp` (M-27)
+past 730. Split these first.
 
 Over the limit already (older than phase 14): `tests/pl/database.pl` (856).
 
