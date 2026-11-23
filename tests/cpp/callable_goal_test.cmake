@@ -22,22 +22,23 @@ function(fail label)
   message(FATAL_ERROR "callable_goal: ${label}: code=${code} out=[${out}] err=[${err}]")
 endfunction()
 
+# 終了コードも見る（レビュー R-L22）。例外で終わる -g は 2（README の -g の段落）、ゴールが包んで成功すれば 0。
 # -g の問い合わせ。write(ran) を動かさず、ゴール全体を名指す。
 run_mosa("query" -g "(write(ran), nl, 1)" -t halt)
-if(out MATCHES "ran" OR NOT err MATCHES "callable,\\(write\\(ran\\),nl,1\\)")
+if(NOT code EQUAL 2 OR out MATCHES "ran" OR NOT err MATCHES "callable,\\(write\\(ran\\),nl,1\\)")
   fail("a non-callable query")
 endif()
 
 # 指令。前半の write を動かさず、読み込みを失敗させる。
 # -g の中に ; を書かない。CMake の引数の ; は並びの区切りになる。読み込みの成否によらず続けるため forall/2 で包む。
 run_mosa("directive" -g "forall(catch(consult('callable_goal_directive.pl'), _, true), true)" -t halt)
-if(out MATCHES "dir_ran" OR NOT err MATCHES "callable,\\(write\\(dir_ran\\),nl,1\\)")
+if(NOT code EQUAL 0 OR out MATCHES "dir_ran" OR NOT err MATCHES "callable,\\(write\\(dir_ran\\),nl,1\\)")
   fail("a non-callable directive")
 endif()
 
 # 初期化。ゴールを動かさず、読み込みを戻す（p/1 も xx も残らない）。
 run_mosa("initialization" -g "forall(catch(consult('callable_goal_init.pl'), _, true), true), forall(catch(p(1), _, fail), write(kept)), forall(catch(xx, _, fail), write(asserted)), write(done), nl" -t halt)
-if(out MATCHES "init_ran|kept|asserted" OR NOT out MATCHES "done" OR NOT err MATCHES "callable,\\(assertz\\(xx\\),")
+if(NOT code EQUAL 0 OR out MATCHES "init_ran|kept|asserted" OR NOT out MATCHES "done" OR NOT err MATCHES "callable,\\(assertz\\(xx\\),")
   fail("a non-callable initialization goal")
 endif()
 file(REMOVE "${directive}" "${init}")
