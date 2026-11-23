@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 namespace {
 
@@ -239,6 +240,15 @@ void check_strict_baseline(const std::filesystem::path& root) {
                              "  \"message\": \"100.0% (9/9)\",\n  \"color\": \"brightgreen\"\n}\n";
   mosa_test::check(write_text(root / "pretty.json", pretty), "write pretty badge");
   mosa_test::check(run_code(root, "pretty", 9, 0) == 1, "a pretty-printed badge is refused (default A)");
+  // レビュー RV-m05。欄の名前、率の字面と色も write_badge が書くとおりのときだけ読む。前は本欄の場所のライブラリ欄の
+  // バッジと、率の字面の壊れたバッジを 1/2 の物差しとして読み、上書きした。
+  for (const auto& [name, text] : {std::pair{"wronglabel", library_badge("50.0% (1/2)", "red")},
+                                   std::pair{"wrongrate", badge("zz% (1/2)", "red")},
+                                   std::pair{"wrongcolor", badge("50.0% (1/2)", "brightgreen")}}) {
+    mosa_test::check(write_text(root / (std::string{name} + ".json"), text), std::string{"write "} + name);
+    mosa_test::check(run_code(root, name, 9, 0) == 1, std::string{name} + " is not a baseline");
+    mosa_test::check(read_text(root / (std::string{name} + ".json")) == text, std::string{name} + " is kept");
+  }
   std::error_code error;
   std::filesystem::create_symlink(root / "missing-target.json", root / "dangle.json", error);
   if (error) return;  // シンボリックリンクを作れない環境（権限の無い Windows）では見ない。

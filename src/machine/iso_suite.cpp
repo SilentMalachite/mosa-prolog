@@ -138,6 +138,28 @@ std::optional<Baseline> rate_in(std::string_view message) {
   return Baseline{*passed, *denominator};
 }
 
+// README のバッジは shields.io の endpoint 形式でこの JSON を読む。色の閾値 90 は SPEC 第9節の
+// フェーズ3完了条件に合わせ、それ未満を黄と赤に分ける。比較は percentage と同じく整数で行う。
+std::string badge_color(int passed, int denominator) {
+  const auto left = static_cast<long long>(passed) * 100;
+  const auto right = static_cast<long long>(denominator);
+  if (left >= right * 90) return "brightgreen";
+  if (left >= right * 75) return "yellow";
+  return "red";
+}
+
+// バッジの 1 行（改行は付けない）。分母 0 は no tests。write_badge が書き、read_badge が読んだ行と比べる。
+std::string badge_line(std::string_view label, int passed, int denominator) {
+  std::string message = "no tests";
+  std::string color = "lightgrey";
+  if (denominator > 0) {
+    message = rate_text(passed, denominator);
+    color = badge_color(passed, denominator);
+  }
+  return R"({"schemaVersion":1,"label":")" + std::string{label} + R"(","message":")" + message +
+         R"(","color":")" + color + "\"}";
+}
+
 enum class BadgeRead { Rate, NoTests, Unreadable };
 
 struct BadgeText {
@@ -147,28 +169,30 @@ struct BadgeText {
 
 // 前回のバッジ JSON は write_badge が書く 1 行の形のときだけ読む。前は 1 行目の ( / ) だけを拾い、no tests は部分
 // 文字列で探したので、garbage (0/1) や壊れた no tests が関門を素通りした（レビュー R-M14）。整形した複数行の JSON は
-// 持ち主の問いで、既定の A のまま読まない。checkout が CRLF にしたときのために、行末の CR は許す。
-BadgeText read_badge(const std::filesystem::path& badge) {
+// 持ち主の問いで、既定の A のまま読まない。checkout が CRLF にしたときのために、行末の CR は許す。読んだ率から
+// write_badge が書く行を作り直し、一字ずつ同じときだけ物差しにする。前は欄の名前、率の字面と色を見なかったので、
+// 本欄の場所に置いたライブラリ欄のバッジや zz% (1/2) を 1/2 の物差しとして読んだ（レビュー RV-m05）。
+BadgeText read_badge(const std::filesystem::path& badge, std::string_view label) {
   std::ifstream input(badge, std::ios::binary);
   if (!input) return {};
   const std::string text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
   std::string_view line = text;
   if (line.ends_with('\n')) line.remove_suffix(1);
   if (line.ends_with('\r')) line.remove_suffix(1);
-  constexpr std::string_view head = R"({"schemaVersion":1,"label":")";
-  constexpr std::string_view mid = R"(","message":")";
+  const std::string head = R"({"schemaVersion":1,"label":")" + std::string{label} + R"(","message":")";
   constexpr std::string_view tail = R"(","color":")";
-  if (!line.starts_with(head) || !line.ends_with("\"}") || line.find('\n') != std::string_view::npos) return {};
-  const auto message_at = line.find(mid, head.size());
-  if (message_at == std::string_view::npos) return {};
-  const auto from = message_at + mid.size();
-  const auto color_at = line.find(tail, from);
+  if (!line.starts_with(head)) return {};
+  const auto color_at = line.find(tail, head.size());
   if (color_at == std::string_view::npos) return {};
-  const std::string_view message = line.substr(from, color_at - from);
-  if (message == "no tests") return {BadgeRead::NoTests, {}};
-  const auto rate = rate_in(message);
-  if (!rate) return {};
-  return {BadgeRead::Rate, *rate};
+  const std::string_view message = line.substr(head.size(), color_at - head.size());
+  BadgeText read{BadgeRead::NoTests, {}};
+  if (message != "no tests") {
+    const auto rate = rate_in(message);
+    if (!rate) return {};
+    read = {BadgeRead::Rate, *rate};
+  }
+  if (line != badge_line(label, read.rate.passed, read.rate.denominator)) return {};
+  return read;
 }
 
 // 合格率が物差しより下か。表示の丸めで比べると 1 件の後退を見逃すので、分数のまま掛け比べて比べる。
@@ -243,27 +267,10 @@ bool write_report(const std::filesystem::path& path, const Tally& iso, const Tal
   return static_cast<bool>(output);
 }
 
-// README のバッジは shields.io の endpoint 形式でこの JSON を読む。色の閾値 90 は SPEC 第9節の
-// フェーズ3完了条件に合わせ、それ未満を黄と赤に分ける。比較は percentage と同じく整数で行う。
-std::string badge_color(int passed, int denominator) {
-  const auto left = static_cast<long long>(passed) * 100;
-  const auto right = static_cast<long long>(denominator);
-  if (left >= right * 90) return "brightgreen";
-  if (left >= right * 75) return "yellow";
-  return "red";
-}
-
 bool write_badge(const std::filesystem::path& path, std::string_view label, int passed, int denominator) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   if (!output) return false;
-  std::string message = "no tests";
-  std::string color = "lightgrey";
-  if (denominator > 0) {
-    message = rate_text(passed, denominator);
-    color = badge_color(passed, denominator);
-  }
-  output << R"({"schemaVersion":1,"label":")" << label << R"(","message":")" << message << R"(","color":")"
-         << color << "\"}\n";
+  output << badge_line(label, passed, denominator) << '\n';
   output.close();
   return static_cast<bool>(output);
 }
@@ -291,7 +298,7 @@ BadgeGate open_gate(std::filesystem::path path, std::string_view label, std::str
   // 通してリンクの先へ書いた（レビュー R-M14）。
   std::error_code error;
   const bool absent = std::filesystem::symlink_status(path, error).type() == std::filesystem::file_type::not_found;
-  const BadgeText read = absent ? BadgeText{} : read_badge(path);
+  const BadgeText read = absent ? BadgeText{} : read_badge(path, label);
   std::optional<Baseline> baseline;
   if (read.kind == BadgeRead::Rate) baseline = read.rate;
   const bool corrupt = !absent && read.kind == BadgeRead::Unreadable;
