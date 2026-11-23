@@ -185,7 +185,7 @@ void step_spot(Spot& spot, char32_t code) {
 
 // 壊れた並びは get_char と同じく 1 字に数えて進む。構文の誤りの読み飛ばしは、置き換えていない壊れた並びを含みうる。
 // そこで止めると項の途中に残り、次の read が注釈の中を項として読んだ（L6 の Codex レビュー）。
-void advance_slice(Stream& stream, std::string_view slice) {
+Spot walk_slice(const Stream& stream, std::string_view slice) {
   Spot spot{stream.line, stream.line_pos, stream.char_no};
   std::size_t index = 0;
   while (index < slice.size()) {
@@ -195,7 +195,12 @@ void advance_slice(Stream& stream, std::string_view slice) {
     index += width;
     step_spot(spot, code);
   }
-  stream.cursor += index;
+  return spot;
+}
+
+void advance_slice(Stream& stream, std::string_view slice) {
+  const Spot spot = walk_slice(stream, slice);
+  stream.cursor += slice.size();
   stream.line = spot.line;
   stream.line_pos = spot.line_pos;
   stream.char_no = spot.char_no;
@@ -206,27 +211,11 @@ void advance_slice(Stream& stream, std::string_view slice) {
 // 残りの頭なので、前は途中の U+FEFF も読みの始まりなら飛ばし、項の中なら illegal_character にした（レビュー L-13）。
 bool at_stream_start(const Stream& stream) { return stream.char_no == 0; }
 
-// 字句解析は流れの頭の BOM を飛ばし、列に数えない（Lexer::skip_bom）。行と列から位置を戻すときも同じに飛ばす。
-// 数えると 1 行目の位置が 1 字ずれ、replace が正しい字を U+FFFD に置き換え続けて止まらなかった（L6 の敵対的レビュー A4）。
-std::size_t bom_width(const Stream& stream, std::string_view slice) {
-  return at_stream_start(stream) && slice.starts_with("\xEF\xBB\xBF") ? 3 : 0;
-}
-
-Spot at_token(const Stream& stream, std::string_view slice, std::size_t line, std::size_t column) {
-  Spot rel{1, 1, 0};
-  Spot abs{stream.line, stream.line_pos, stream.char_no};
-  const std::size_t bom = bom_width(stream, slice);
-  if (bom > 0) step_spot(abs, U'\uFEFF');
-  std::size_t index = bom;
-  while (rel.line < line || (rel.line == line && rel.line_pos < column)) {
-    char32_t code = 0;
-    std::size_t width = 0;
-    if (!decode_scalar(slice, index, code, width)) break;
-    index += width;
-    step_spot(rel, code);
-    step_spot(abs, code);
-  }
-  return abs;
+// 誤りの位置は失敗した所のバイト位置まで流れの数え方で進めて求める。字句解析器の行と列から戻すと、CR だけの改行を
+// 解析器は数えて流れは数えないので行に届かず、切り出しの終わりまで進んだ（レビュー L-30）。バイト位置は BOM と
+// char_conversion にも左右されない。流れの頭の BOM は get_char と同じく 1 字に数える。
+Spot at_token(const Stream& stream, std::string_view slice, std::size_t byte) {
+  return walk_slice(stream, slice.substr(0, std::min(byte, slice.size())));
 }
 
 // ADR 0007 の syntax(stream(S, Line, LinePos, CharNo), Token)。入力の終わりでは Token が ''。
@@ -295,7 +284,7 @@ void raise_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxF
     return;
   }
   const std::string_view slice = rest(stream);
-  const Spot spot = at_token(stream, slice, failure.line, failure.column);
+  const Spot spot = at_token(stream, slice, failure.byte);
   const std::size_t take = consumed > slice.size() ? slice.size() : consumed;
   advance_slice(stream, slice.substr(0, take));
   const Cell key = machine.heap.atom(machine.atoms.intern(syntax_key(failure.reason)));

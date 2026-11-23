@@ -315,3 +315,7 @@ test(bom_stream_start, (open_string([65279, 0'f, 0'o, 0'o, 0'., 0' ], S), read(S
 test(bom_after_get_char, (open_string([0'x, 65279, 0'f, 0'o, 0'o, 0'., 0' , 0'b, 0'., 0' ], S), get_char(S, x), catch(read(S, _), error(syntax_error(K), _), true), read(S, B), close(S), K == illegal_character, B == b), true).
 test(bom_second_read, (open_string([0'a, 0'., 0' , 65279, 0'b, 0'., 0' ], S), read(S, a), catch(read(S, _), error(syntax_error(K), _), true), close(S), K == illegal_character), true).
 test(bom_in_term, (open_string([0'f, 0'(, 65279, 0'a, 0'), 0'., 0' ], S), catch(read(S, _), error(syntax_error(K), _), true), close(S), K == illegal_character), true).
+% 構文の誤りの位置は流れの数え方（LF だけが改行）で、CR だけの改行の後でも誤った字を指す（レビュー L-30）。
+test(syntax_spot_lf, (open_string([0'x, 0'., 10, 0'f, 0'(, 0',, 0'), 0'., 10, 0'o, 0'k, 0'., 10], S), read(S, x), catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true), read(S, R), close(S), [L, P, C, R] == [2, 3, 5, ok]), true).
+test(syntax_spot_cr, (open_string([0'x, 0'., 13, 0'f, 0'(, 0',, 0'), 0'., 13, 0'o, 0'k, 0'., 13], S), read(S, x), catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true), read(S, R), close(S), [L, P, C, R] == [1, 6, 5, ok]), true).
+test(syntax_spot_crlf, (open_string([0'x, 0'., 13, 10, 0'f, 0'(, 0',, 0'), 0'., 13, 10, 0'o, 0'k, 0'., 13, 10], S), read(S, x), catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true), read(S, R), close(S), [L, P, C, R] == [2, 3, 6, ok]), true).
