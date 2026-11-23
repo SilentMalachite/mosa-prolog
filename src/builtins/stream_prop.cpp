@@ -350,11 +350,20 @@ bool locate(const Impl& machine, Stream& stream, const Triple& want, std::size_t
   Triple spot;
   // 2 進の流れは行を数えないので、行と行の位置は 1 のまま。ほかの行の位置は、読まずに領域の外にする（レビュー M-33）。
   if (stream.data == Stream::Data::Binary && (want.line != spot.line || want.line_pos != spot.line_pos)) return false;
+  // 文字の数は前の行の字（改行を含めて 1 行に 1 字以上）と今の行の字の和なので、C >= (L - 1) + (P - 1) で、1 行目なら
+  // C = P - 1。着けないと分かる位置は読み足さずに断る（レビュー R-L11）。前は 1 行目の (3000000,1,1) で 300 万字目
+  // まで読み足した。行と行の位置は 1 以上で、どれも int64 に収まるので足しても溢れない。2 進の流れは行を数えない。
+  const bool text = stream.data != Stream::Data::Binary;
+  if (text && (want.line == 1 ? want.char_no + 1 != want.line_pos : want.char_no + 2 < want.line + want.line_pos)) {
+    return false;
+  }
   while (true) {
     if (spot.char_no == want.char_no && spot.line == want.line && spot.line_pos == want.line_pos) {
       cursor = spot.cursor;
       return true;
     }
+    // 行と行の中の位置は増えるだけなので、越えたら先にも同じ位置は無い（レビュー R-L11）。
+    if (spot.line > want.line || (spot.line == want.line && spot.line_pos > want.line_pos)) return false;
     // 文字の数は 1 字ごとに 1 つ増えるので、着いても行か行の位置が合わなければ、先にも同じ位置は無い。前は終わりまで
     // 読み足してから断り、大きなファイルではヒープの上限で止まった（レビュー M-33、8.11.9.3）。
     if (spot.char_no >= want.char_no) return false;

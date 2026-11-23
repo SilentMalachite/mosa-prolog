@@ -19,4 +19,13 @@ if(NOT code EQUAL 0 OR "${out}${err}" MATCHES "1 MiB"
    OR NOT out MATCHES "^domain_error\\(stream_position,stream_position\\(1,1,1\\)\\)\r?\nb\r?\n")
   message(FATAL_ERROR "stream_position: code=${code} out=[${out}] err=[${err}]")
 endif()
+# レビュー R-L11。1 行目の位置 (C,1,P) は C = P - 1 のときだけありうる。行と行の位置から着けないと分かる位置は、文字の
+# 数まで読み足さずに断る。前は 300 万字目まで読み足し、1 MiB のヒープの上限で止まった。
+set(goal "open('stream_position_data.txt', read, S, [reposition(true)]), catch(set_stream_position(S, stream_position(3000000,1,1)), error(E, _), true), write(E), nl, close(S)")
+execute_process(COMMAND "${MOSA}" --heap-max 1 -g "${goal}" -t halt WORKING_DIRECTORY "${WORK}"
+  OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 120 ENCODING UTF-8)
+if(NOT code EQUAL 0 OR "${out}${err}" MATCHES "1 MiB"
+   OR NOT out MATCHES "^domain_error\\(stream_position,stream_position\\(3000000,1,1\\)\\)\r?\n")
+  message(FATAL_ERROR "stream_position first line: code=${code} out=[${out}] err=[${err}]")
+endif()
 file(REMOVE "${data}")
