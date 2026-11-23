@@ -21,6 +21,12 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   writing), R-M14 (B: also read a pretty-printed badge), R-L05 (B: refuse `system:import/1` and
   `system:use_module`), R-N03 (B: allow the infix `user:op/3` of a name a module hides at
   priority 0).
+- Re-review RV-I01 (88bdeb90). A: under an open query, a then that only judges runs in scratch and
+  keeps the open query, so `member(X,[1,2]), (X > 0 -> assertion(true)), X == 2` passes; but an
+  assertion goal there that calls a library predicate fails with `existence_error`
+  (`(X > 0 -> assertion(append([a],[b],[a,b])))`), which `701dff6e` passed. B: run every then on
+  the main machine as `701dff6e` did, so that shape passes again and the `assertion(true)` shape
+  fails again. Default A.
 - Branch review R-L17. A: keep not counting the old lgtunit forms (`succeeds/1`, `fails/1`,
   `throws/2`; 36 suite files, 358 tests, phase 9), so a file holding only them still hides a load
   failure (5 bundled files). B: count them, which moves the ISO denominator, and also count a load
@@ -217,6 +223,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   more solution, which may fail, while lgtunit checks for a choice point at exit. For example,
   `test(x, deterministic) :- member(X, [1,2]), X == 1, ^^variant(X, 1).` passes
   (no suite case has this shape).
+- The scratch machine gets the user's clauses (`plant_user_clauses`) but no library module, so a
+  goal run there that calls `append/3`, `member/2` and the like fails with `existence_error`.
 - After a goal that leaves a choice point, the runner runs later plain goals in a scratch machine.
   Their exceptions and halts come back (the ball as text, read again); a heap stop there aborts
   the test, as in the main machine (review H-36). Their bindings do not come back: in
@@ -261,8 +269,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Files to split before their next edit
 
-No code or test file is at 730 lines or more (`wc -l`, 2026-11-24; generated files and docs aside;
-the largest is `src/machine/lgt_exec.cpp` at 724).
+- `src/machine/lgt_exec.cpp`, 749 lines (`wc -l`, 2026-11-24, after 88bdeb90): split before its next
+  edit, for example the Pick node and the branch helpers into their own file. No other code or test
+  file is at 730 lines or more (generated files and docs aside).
 
 ## Unsure
 

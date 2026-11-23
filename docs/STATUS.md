@@ -9,7 +9,7 @@
   re-review's 4 regressions and 10 minor items fixed ([review-2026-11-24](review-2026-11-24.md)).
 - **Next:** push and CI; the owner's R-L17 (count the old lgtunit forms?); then 0.5.1 (owner).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
-- **Split first:** none; no code or test file is at 730 lines or more (open-items).
+- **Split first:** `src/machine/lgt_exec.cpp` (749 lines) before its next edit (open-items).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
   [open-items.md](open-items.md). Write new ones there, not here.
 - **History:** `git log` (also for older forms of this file), CHANGELOG, ADRs, [bench.md](bench.md).
