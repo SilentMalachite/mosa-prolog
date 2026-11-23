@@ -11,9 +11,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
-#include <utility>
 #include <new>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -110,8 +110,30 @@ void copy_keeps_own_keys() {
   mosa_test::check(moved.intern("gamma") == gamma && moved.intern("alpha") == alpha, "a moved table finds its names");
 }
 
+// 自分への移しは別の関数を通す。同じ式に書くと -Wself-move が止める。
+void move_assign(mosa::AtomTable& to, mosa::AtomTable& from) { to = std::move(from); }
+
+// レビュー R-M02。移した後の元の表も、番号 0 を欠番にした空の表として使える。自分への移しは何も変えない。前は
+// 既定の移しで、元の names_ が空になって次の intern が番号 0 を返し、自分への移しは表を空にした。移しは空の表を
+// 作ってから入れ替えるので、確保が投げても元の表と ids_ の view は前のまま残る。
+void move_keeps_invariants() {
+  mosa::AtomTable source;
+  const auto alpha = source.intern("alpha");
+  mosa::AtomTable moved(std::move(source));
+  mosa_test::check(moved.intern("alpha") == alpha, "the moved table keeps its names");
+  mosa_test::check(!source.valid(0) && source.intern("again") != 0, "the moved-from table keeps number 0 unused");
+  mosa::AtomTable assigned;
+  assigned = std::move(moved);
+  mosa_test::check(assigned.intern("alpha") == alpha && assigned.name(alpha) == "alpha", "move assignment keeps names");
+  mosa_test::check(!moved.valid(0) && moved.intern("next") != 0, "the assigned-from table keeps number 0 unused");
+  move_assign(assigned, assigned);
+  mosa_test::check(assigned.valid(alpha) && assigned.name(alpha) == "alpha" && assigned.intern("alpha") == alpha,
+                   "a self move changes nothing");
+}
+
 int main() {
   failed_intern_changes_nothing();
   copy_keeps_own_keys();
+  move_keeps_invariants();
   return mosa_test::failures();
 }

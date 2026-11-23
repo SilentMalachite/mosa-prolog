@@ -60,10 +60,22 @@ AtomTable::AtomTable(const AtomTable& other) : names_(other.names_), ascii_(othe
 AtomTable& AtomTable::operator=(const AtomTable& other) {
   if (this == &other) return *this;
   AtomTable copy(other);
-  names_.swap(copy.names_);
-  ascii_.swap(copy.ascii_);
-  ids_.swap(copy.ids_);
+  swap(copy);
   return *this;
+}
+
+AtomTable::AtomTable(AtomTable&& other) : AtomTable() { swap(other); }
+
+// 元には自分の前の表が残る。どちらも番号 0 を欠番にした表のまま。
+AtomTable& AtomTable::operator=(AtomTable&& other) noexcept {
+  if (this != &other) swap(other);
+  return *this;
+}
+
+void AtomTable::swap(AtomTable& other) noexcept {
+  names_.swap(other.names_);
+  ascii_.swap(other.ascii_);
+  ids_.swap(other.ids_);
 }
 
 std::uint32_t AtomTable::intern(std::string_view text) {
