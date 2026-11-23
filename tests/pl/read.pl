@@ -319,3 +319,17 @@ test(bom_in_term, (open_string([0'f, 0'(, 65279, 0'a, 0'), 0'., 0' ], S), catch(
 test(syntax_spot_lf, (open_string([0'x, 0'., 10, 0'f, 0'(, 0',, 0'), 0'., 10, 0'o, 0'k, 0'., 10], S), read(S, x), catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true), read(S, R), close(S), [L, P, C, R] == [2, 3, 5, ok]), true).
 test(syntax_spot_cr, (open_string([0'x, 0'., 13, 0'f, 0'(, 0',, 0'), 0'., 13, 0'o, 0'k, 0'., 13], S), read(S, x), catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true), read(S, R), close(S), [L, P, C, R] == [1, 6, 5, ok]), true).
 test(syntax_spot_crlf, (open_string([0'x, 0'., 13, 10, 0'f, 0'(, 0',, 0'), 0'., 13, 10, 0'o, 0'k, 0'., 13, 10], S), read(S, x), catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true), read(S, R), close(S), [L, P, C, R] == [2, 3, 6, ok]), true).
+% 置き換えた壊れた並びの後でも位置は流れの数え方（壊れた並びは 1 字）。置き換えを戻す前に位置を求める（L-30）。
+test(syntax_spot_after_fffd, (
+  F = 'tests/tmp/l30_fffd.pl',
+  open(F, write, W, [type(binary)]),
+  put_byte(W, 0'%), put_byte(W, 255), put_byte(W, 10), put_byte(W, 0'f), put_byte(W, 0'(), put_byte(W, 0',),
+  put_byte(W, 0')), put_byte(W, 0'.), put_byte(W, 10), put_byte(W, 0'o), put_byte(W, 0'k), put_byte(W, 0'.), put_byte(W, 10),
+  close(W),
+  open(F, read, S),
+  set_prolog_flag(invalid_utf8, replace),
+  catch(read(S, _), error(syntax_error(_), context(_, syntax(stream(_, L, P, C), _))), true),
+  read(S, R),
+  set_prolog_flag(invalid_utf8, error),
+  close(S),
+  [L, P, C, R] == [2, 3, 5, ok]), true).
