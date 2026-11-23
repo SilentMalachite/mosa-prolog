@@ -292,6 +292,12 @@ bool too_deep(Impl& machine, std::size_t depth) {
   return true;
 }
 
+// 次の読み込み（load_once）が上限を超えるか。ファイルを探す前に確かめる道が使う。ゴールの consult/1 と指示の [F] は
+// ファイルを先に読んだので、上限の段の無いファイルを「開けません」と言った（レビュー R-N02）。
+bool next_load_too_deep(Impl& machine) {
+  return too_deep(machine, machine.load_snapshots == nullptr ? 0 : machine.load_snapshots->depth() + 1);
+}
+
 namespace {
 
 // 読み込みの間だけ Impl::load_snapshots をこの読み込みの写しにし、抜けるときに親のものへ戻す。[File] と

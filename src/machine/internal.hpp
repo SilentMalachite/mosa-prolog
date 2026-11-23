@@ -377,6 +377,8 @@ inline constexpr std::uint16_t kCallArityMax = 8;
 // 動かす前に呼ぶ。呼ばない呼び手でも、戻り辺の葉が動くと
 // 変数ゴール（launch_var）がここを通るので、巡回は回り続けずに誤りになる。
 [[nodiscard]] bool raise_cyclic_goal(Impl& machine, const Compiled& compiled, std::uint32_t name, std::uint16_t arity);
+// 次の読み込みが同時に開ける 64 を超えるなら、診断を書いて真を返す（定義は load.cpp、iso-notes 7.1、レビュー R-N02）。
+[[nodiscard]] bool next_load_too_deep(Impl& machine);
 [[nodiscard]] bool compile_clause(Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
 // ADR 0022（レビュー M30）。asserta/1 と assertz/1 の節。繰り返す部分項を Clause::shared にし、組む IR は
 // compile_goal と同じくヒープの上限で止める（ResourceLimit）。

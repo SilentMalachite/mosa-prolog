@@ -240,6 +240,23 @@ void check_chain(const std::filesystem::path& dir, int files, bool loads, std::s
   }
 }
 
+// レビュー R-N02。上限の段で無いファイルを consult しても、ほかの道と同じくファイルを探す前に上限の誤りで止まる。前は
+// ゴールの consult/1 と指示の [F] がファイルを先に読み、無いファイルを「開けません」と言った。
+void check_missing_at_limit(const std::filesystem::path& dir) {
+  for (const bool directive : {false, true}) {
+    const std::string stem = std::string{"missing"} + (directive ? "d" : "") + "_";
+    for (int index = 1; index <= 64; ++index) {
+      const auto next = dir / (stem + std::to_string(index + 1) + ".pl");
+      const std::string text = directive ? ":- [" + prolog_path(next) + "].\n"
+                                         : chain_text(stem, index, 65, "consult", false, next);
+      mosa_test::check(write_text(dir / (stem + std::to_string(index) + ".pl"), text), "write " + stem);
+    }
+    auto machine = mosa::Machine::create();
+    const Asked asked = ask(*machine, consult_of(dir / (stem + "1.pl")));
+    mosa_test::check(has_deep(asked), "missing " + stem + ": the depth error first [" + asked.err.substr(0, 300) + "]");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -267,6 +284,7 @@ int main() {
   check_chain(dir, 65, false, "reexport", true);
   check_chain(dir, 64, true, "mixed");
   check_chain(dir, 65, false, "mixed");
+  check_missing_at_limit(dir);
   check_self_init(dir);
   std::filesystem::remove_all(dir, error);
   return mosa_test::failures();

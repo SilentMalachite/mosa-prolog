@@ -200,6 +200,11 @@ int collect_files(Impl& machine, Cell term, std::vector<Cell>& items) {
 }
 
 int consult_one(Impl& machine, const std::filesystem::path& file, std::vector<std::string>& opening) {
+  // 上限はファイルを探す前に見る。ほかの道と同じ誤りにする（レビュー R-N02）。
+  if (next_load_too_deep(machine)) {
+    prefix_consult_diagnostic(machine, utf8_from_path(file));
+    return -1;
+  }
   const auto text = read_source(machine, file);
   if (!text) {
     note_failure(machine, message_text(machine, "cannot_open_file", {utf8_from_path(file)}));
@@ -327,6 +332,13 @@ bool run_consult(Impl& machine, const Goal& call) {
   // Machine::consult と同じく、read_source の例外の前に、前のゴールの読み込みの字面を消す（Opus 再レビュー A2）。
   machine.diagnostic.clear();
   machine.syntax_diag = false;
+  // 上限はファイルを探す前に見る。ほかの道と同じ誤りにする（レビュー R-N02）。
+  if (next_load_too_deep(machine)) {
+    return load_from_goal(machine, call, nullptr, [&machine, &text] {
+      prefix_consult_diagnostic(machine, text);
+      return false;
+    });
+  }
   const auto source = read_source(machine, path_from_utf8(text));
   if (!source) {
     machine.diagnostic = message_text(machine, "cannot_open_file", {text});
