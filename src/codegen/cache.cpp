@@ -52,12 +52,15 @@ std::uint64_t mix_word(std::uint64_t word, std::uint64_t hash) {
 std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, std::uint64_t seed) {
   std::error_code error;
   std::vector<std::filesystem::path> files;
+  // 種類を調べた誤りは、次の increment が消す前に見る。前は消され、行き先の無いシンボリックリンクを黙って飛ばした
+  // 指紋を返した（レビュー R-L13）。
   for (std::filesystem::recursive_directory_iterator it{dir, error}, end; !error && it != end; it.increment(error)) {
     if (!utf8_from_path(it->path().filename()).starts_with('.')) {
       if (it->is_regular_file(error)) files.push_back(it->path());
     } else if (it->is_directory(error)) {
       it.disable_recursion_pending();
     }
+    if (error) return std::nullopt;
   }
   if (error) return std::nullopt;
   // 並びは辿る順に依らせない。

@@ -11,6 +11,7 @@
 #include <initializer_list>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 
 namespace {
@@ -59,6 +60,17 @@ void boundaries(const fs::path& root) {
   mosa_test::check(changed && changed != two, "a changed content changes the digest");
 }
 
+// レビュー R-L13。種類を調べられない項目（行き先の無いシンボリックリンク）があれば、指紋を作らない。前は
+// is_regular_file の誤りを次の increment が消し、その項目を黙って飛ばした指紋を返した。
+void unreadable_entry(const fs::path& root) {
+  const fs::path dir = root / "dangling";
+  write_file(dir / "a.hpp", "A");
+  std::error_code error;
+  fs::create_symlink(dir / "missing.hpp", dir / "b.hpp", error);
+  if (error) return;  // シンボリックリンクを作れない環境（権限の無い Windows）では見ない。
+  mosa_test::check(!mosa::codegen::tree_digest(dir).has_value(), "an entry whose type cannot be read stops the digest");
+}
+
 }  // namespace
 
 int main() {
@@ -67,6 +79,7 @@ int main() {
   fs::create_directories(root);
   hidden_entries(root);
   boundaries(root);
+  unreadable_entry(root);
   fs::remove_all(root);
   return mosa_test::failures();
 }
