@@ -48,7 +48,7 @@ if(NOT code EQUAL 0 OR NOT out STREQUAL want_out OR NOT err STREQUAL want_err)
 endif()
 
 # 以下は実行ファイル側だけを見る（基準と一致するとは限らない）。
-# 1. initialization(main, main) の main は動かさない（暫定。owner 未決。docs/STATUS.md）。argv は引数、halt(3) の値が終了コード。
+# 1. initialization(main, main) の main は動かさない（持ち主の決定、2026-10-30、SPEC 第 6 節）。argv は引数、halt(3) の値が終了コード。
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env ${compiler_env} "${MOSAC}" build --interactive interactive_main.pl -o imain
   WORKING_DIRECTORY "${WORK}" OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
 if(NOT code EQUAL 0)

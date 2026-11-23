@@ -1,6 +1,6 @@
 % library(apply)（SPEC 第5節のライブラリ表）。テストは tests/pl/lib_apply.pl。
 % 閉包は meta_predicate で呼び手のモジュールに限定されるので、呼び手の非公開述語も渡せる。
-% 宣言は 1 つずつ書く。meta_predicate/1 はカンマで繋いだ並びを受けない。
+% 宣言は述語ごとに 1 行ずつ書く。meta_predicate/1 はカンマで繋いだ並びも受けるが、1 行ずつのほうが探しやすい。
 :- module(apply, [maplist/2, maplist/3, maplist/4, maplist/5,
                   foldl/4, foldl/5, foldl/6, include/3, exclude/3]).
 

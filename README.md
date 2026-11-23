@@ -161,6 +161,7 @@ mosac build app.pl -o app          # translate, compile, link (app.exe on Window
 mosac run app.pl -- arg...         # build in ./.mosac-cache, run a copy from a temp dir, return the exit code
 mosac emit app.pl -o out/          # only the C++ source and CMakeLists.txt
 mosac build app.pl --interactive   # the executable starts a REPL with app.pl loaded
+mosac dist app.pl -o dist/         # build, then pack the executable, README.txt, LICENSE and NOTICE into one archive
 mosac toolchain                    # show the compiler, CMake and bundled runtime, with remedies
 ```
 

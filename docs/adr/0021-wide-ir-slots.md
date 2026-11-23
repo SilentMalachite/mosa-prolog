@@ -17,8 +17,7 @@ A goal or clause that would need 2^32 slots stops at the heap limit (`ResourceLi
 
 B: stop a goal or clause that needs more than 65,536 slots with a resource error. `length(L, 70000), assertz(p(L))` would fail although it fits in memory, and the M28 stages that compile again would stay.
 Keep the stages that compile again. They would never run, and their code would only look as if it guards something.
-Drop the deferral too. `\+ call((fail, G))` with 240,000 goals in G would build the IR of all of them, about four times the term, and stop at a 32 MiB limit (the Codex adversarial review of M31).
-64-bit slots. `IrTerm` would grow by 8 bytes, and no goal that fits under a heap limit of today's machines needs 2^32 slots.
+Drop the deferral too. `\+ call((fail, G))` with 240,000 goals in G would build the IR of all of them, about four times the term, and stop at a 32 MiB limit (the Codex adversarial review of M31). 64-bit slots. `IrTerm` would grow by 8 bytes, and no goal that fits under a heap limit of today's machines needs 2^32 slots.
 
 ## Consequences
 

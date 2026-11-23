@@ -304,7 +304,7 @@ void check_initialization_args() {
   auto two = mosa::Machine::create();
   const auto two_status = two->load_program(":- initialization(true, now).");
   mosa_test::check(!two_status.ok, "arity two rejected");
-  mosa_test::check(two->diagnostic().find("この指示はフェーズ2では使えない") != std::string_view::npos,
+  mosa_test::check(two->diagnostic().find("この指示には対応していません") != std::string_view::npos,
                    "arity two phrase");
 }
 

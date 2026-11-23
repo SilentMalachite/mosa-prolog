@@ -82,7 +82,7 @@ message(file_cycle, '~w: ファイルが循環しています').
 message(load_too_deep, '読み込みの入れ子が深すぎます（~w 段まで）').
 message(clauses_apart, '述語 ~w の節が離れている').
 message(predicate_running, '実行中の述語は置き換えられない').
-message(directive_unsupported, 'この指示はフェーズ2では使えない: ~w').
+message(directive_unsupported, 'この指示には対応していません: ~w').
 message(directive_failed, 'この指示のゴールは失敗した: ~w').
 message(cond_unmatched, '対応する if が無い: ~w').
 message(cond_after_else, 'else の後ろには置けない: ~w').

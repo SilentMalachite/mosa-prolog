@@ -219,7 +219,7 @@ void check_ensure_args(const std::filesystem::path& dir) {
 
   auto two = mosa::Machine::create();
   const auto arity = two->load_program(":- ensure_loaded(true, now).");
-  mosa_test::check(!arity.ok && two->diagnostic().find("この指示はフェーズ2では使えない") != std::string_view::npos,
+  mosa_test::check(!arity.ok && two->diagnostic().find("この指示には対応していません") != std::string_view::npos,
                    "arity two");
 
   auto empty = mosa::Machine::create();

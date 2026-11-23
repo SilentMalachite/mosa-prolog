@@ -195,7 +195,7 @@ void check_file_args(const std::filesystem::path& dir) {
 
   auto bare = mosa::Machine::create();
   const auto other = bare->load_program(":- X.");
-  mosa_test::check(!other.ok && bare->diagnostic().find("この指示はフェーズ2では使えない") != std::string_view::npos,
+  mosa_test::check(!other.ok && bare->diagnostic().find("この指示には対応していません") != std::string_view::npos,
                    "bare variable is not a list");
 
   auto empty = mosa::Machine::create();
