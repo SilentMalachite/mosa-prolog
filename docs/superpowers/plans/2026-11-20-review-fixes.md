@@ -271,10 +271,10 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | L-46 | W1 |  | done (c9905a0a) ✔ | 版のテストは終了コードを見ず、版は 3 つのテストのファイルに直書きされている |
 | L-47 | なし（してもよいなら W9） |  | 誤りではない (read) | 9 つのテストのファイルが `rdbuf()` を手で差し替える |
 | L-48 | W9 |  | done (79c316d9) ✔ | 文書と文面の細かな食い違い |
-| N-01 | W9 |  | done (fe3856eb) (read) | AtomTable::intern が呼ぶたびに std::string を作り、名前を 2 度持つ |
+| N-01 | W9 |  | done (f2f1fd28) (read) | AtomTable::intern が呼ぶたびに std::string を作り、名前を 2 度持つ |
 | N-02 | W9 |  | done (1a88cdbd) (read) | Heap::grow_for の else の枝には届かない |
-| N-03 | W9 |  | done (f2f1fd28) (read) | big_key が正規形の語を要ることが、宣言に書かれていない |
-| N-04 | W9 |  | done (f2f1fd28) (read) | terms.cpp と types.cpp の頭のコメントに引数のモードと誤りが無い |
+| N-03 | W9 |  | done (fe3856eb) (read) | big_key が正規形の語を要ることが、宣言に書かれていない |
+| N-04 | W9 |  | done (fe3856eb) (read) | terms.cpp と types.cpp の頭のコメントに引数のモードと誤りが無い |
 | N-05 |  |  | 設計どおり ✔ | `multifile` か `discontiguous` の宣言しかない述語に性質が無い |
 | N-06 | W9 |  | done (c6103c37) ✔ | `with_output_to/2` が `meta_predicate` の性質を返さない |
 | N-07 | W9 | 問い | 既知の限界、持ち主の B（2026-11-23） ✔ | 訳した述語は第 1 引数で節を選ぶのに `if` を一列に並べる |
