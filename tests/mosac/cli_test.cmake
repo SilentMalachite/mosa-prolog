@@ -2,6 +2,7 @@
 # - 引数無し、知らない副命令は使い方を標準エラーに出して 1、--help は標準出力に出して 0。原文の無い dist も使い方の誤りで 1（ADR 0023）。使い方は mosac dist の行を持つ。
 # - -o の無い build で出力が原文そのものになる（拡張子の無い原文 hello、Windows では hello.exe）なら、何も作らず
 #   -o を促して 1 で止まり、原文はそのまま残る。
+# - 空の -o は build、dist、emit のどれでも使い方の誤りで 1 になり、何も作らない（レビュー L-37）。
 # 使い方: cmake -DMOSAC=<mosac> -DSRC=<tests/mosac> -DWORK=<一時ディレクトリ> -DEXE_SUFFIX=<.exe など>
 #   -DMOSA_LIB=<lib/> -P cli_test.cmake
 
@@ -59,4 +60,23 @@ endif()
 mosac(build "${source}" -o "./${source}")
 if(NOT code EQUAL 1 OR NOT err MATCHES "^mosac: 出力 ")
   fail("-o naming the source must be refused too")
+endif()
+
+# レビュー L-37。前の build と dist は空の -o を「-o 無し」と取り、./hello と dist/ の書庫を作った。emit は使い方の誤り
+# だった。マクロの ARGN は空の要素を落とすので、空の引数は COMMAND に直に書く。
+set(empty_out "${WORK}/empty_out")
+file(MAKE_DIRECTORY "${empty_out}")
+file(COPY_FILE "${SRC}/hello.pl" "${empty_out}/hello.pl")
+foreach(sub build dist emit)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -E env "MOSA_LIB=${MOSA_LIB}" "${MOSAC}" ${sub} hello.pl -o ""
+    WORKING_DIRECTORY "${empty_out}"
+    OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE code TIMEOUT 600 ENCODING UTF-8)
+  string(REPLACE "\r\n" "\n" err "${err}")
+  if(NOT code EQUAL 1 OR NOT err MATCHES "${usage}")
+    fail("${sub} with an empty -o must print the usage and exit 1")
+  endif()
+endforeach()
+file(GLOB made LIST_DIRECTORIES true RELATIVE "${empty_out}" "${empty_out}/*" "${empty_out}/.*")
+if(NOT made STREQUAL "hello.pl")
+  fail("an empty -o must make nothing, but the directory holds [${made}]")
 endif()

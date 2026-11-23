@@ -153,6 +153,8 @@ std::optional<BuildArgs> parse_build(const std::vector<std::string>& args, bool 
       break;
     }
     if (!run && arg == "-o" && has_value) {
+      // 空の -o は「-o 無し」ではなく使い方の誤りにする。emit と同じ（レビュー L-37）。
+      if (args[index + 1].empty()) return std::nullopt;
       parsed.out = args[++index];
     } else if (arg == "--cxx" && has_value) {
       parsed.request.cxx = args[++index];
