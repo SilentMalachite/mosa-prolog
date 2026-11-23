@@ -49,7 +49,13 @@ std::uint64_t mix_word(std::uint64_t word, std::uint64_t hash) {
 // 隠しファイル（.DS_Store、編集器の退避ファイル）と隠しディレクトリの中は入れない。install は .DS_Store を除くので、
 // 同梱の源の鍵がビルド木（リポジトリの根）とインストールの lib/mosa/source/ で同じになる。1 つのファイルは
 // パスの長さ、パス、中身だけの指紋の順に混ぜる。境目が無いと z の中身 zQ と zz の中身 Q が同じ指紋になる（レビュー L-36）。
-std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, std::uint64_t seed) {
+// 読めなかった項目は failed に返す。mosac build がその名を挙げて知らせる（レビュー RV-m11）。
+std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, std::uint64_t seed,
+                                              std::filesystem::path* failed = nullptr) {
+  const auto fail = [failed](const std::filesystem::path& path) -> std::optional<std::uint64_t> {
+    if (failed != nullptr) *failed = path;
+    return std::nullopt;
+  };
   std::error_code error;
   std::vector<std::filesystem::path> files;
   // 種類を調べた誤りは、次の increment が消す前に見る。前は消され、行き先の無いシンボリックリンクを黙って飛ばした
@@ -57,13 +63,13 @@ std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, 
   for (std::filesystem::recursive_directory_iterator it{dir, error}, end; !error && it != end; it.increment(error)) {
     if (!utf8_from_path(it->path().filename()).starts_with('.')) {
       if (it->is_regular_file(error)) files.push_back(it->path());
-      if (error) return std::nullopt;
+      if (error) return fail(it->path());
       continue;
     }
     std::error_code hidden;
     if (it->is_directory(hidden)) it.disable_recursion_pending();
   }
-  if (error) return std::nullopt;
+  if (error) return fail(dir);
   // 並びは辿る順に依らせない。
   std::sort(files.begin(), files.end());
   std::uint64_t hash = seed;
@@ -71,7 +77,7 @@ std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, 
     const std::string name = utf8_from_path(file.lexically_relative(dir));
     hash = fnv1a(name, mix_word(name.size(), hash));
     const auto digest = file_digest_from(file, kFnvBasis);
-    if (!digest) return std::nullopt;
+    if (!digest) return fail(file);
     hash = mix_word(*digest, hash);
   }
   return hash;
@@ -133,7 +139,9 @@ std::string hex16(std::uint64_t value) {
 
 std::optional<std::uint64_t> file_digest(const std::filesystem::path& path) { return file_digest_from(path, kFnvBasis); }
 
-std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir) { return tree_digest_from(dir, kFnvBasis); }
+std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir, std::filesystem::path* failed) {
+  return tree_digest_from(dir, kFnvBasis, failed);
+}
 
 // --runtime-source の鍵（計画 Task 10）。源の 4 か所だけを見る。ビルド木の形では dir がリポジトリの根なので、木ごと
 // 読むと .git、build/、tests/tmp/ と .mosac-cache 自身（作るたびに変わる）が入り、いつまでも当たらない。
@@ -153,10 +161,14 @@ std::optional<std::uint64_t> source_digest(const std::filesystem::path& dir) {
 // 目録の全文を鍵にする。main.cpp が読んだファイルの原文を埋め込むので原文の変化を拾い、翻訳器が変わって
 // 出すコードが変わったときも拾う。--debug（旗と kTrace）と --cxx（パスと版）も鍵に入り、別の物を使い回さない。
 // 結ぶ翻訳済みのライブラリも中身で鍵にする（計画 Task 10）。
-std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs) {
+std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs, std::filesystem::path* failed) {
   const auto library = file_digest(inputs.runtime->library);
-  const auto headers = tree_digest(inputs.runtime->include_dir);
-  if (!library || !headers) return std::nullopt;
+  if (!library) {
+    if (failed != nullptr) *failed = inputs.runtime->library;
+    return std::nullopt;
+  }
+  const auto headers = tree_digest(inputs.runtime->include_dir, failed);
+  if (!headers) return std::nullopt;
   std::string text = "mosac-cache 3\nmode " + inputs.mode + "\n";
   text += "cxx " + utf8_from_path(inputs.toolchain->cxx) + "\nversion " + inputs.toolchain->cxx_version + "\n";
   for (const std::string& flag : inputs.flags) text += "flag " + flag + "\n";
@@ -164,7 +176,10 @@ std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs) {
   text += "include " + utf8_from_path(inputs.runtime->include_dir) + " " + hex16(*headers) + "\n";
   for (const std::filesystem::path& unit : inputs.units) {
     const auto digest = file_digest(unit);
-    if (!digest) return std::nullopt;
+    if (!digest) {
+      if (failed != nullptr) *failed = unit;
+      return std::nullopt;
+    }
     text += "unit " + utf8_from_path(unit) + " " + hex16(*digest) + "\n";
   }
   text += "target " + inputs.target + "\n";

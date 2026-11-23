@@ -312,9 +312,16 @@ Built build_translated(const BuildRequest& request, const Project& project, cons
                         target};
   for (const std::string& name : project.libraries) inputs.units.push_back(unit_archive(toolchain, runtime, name));
   if (!cmake) append(inputs.flags, link_flags(toolchain, runtime, project.libraries));
-  const auto key = cache_key(inputs);
+  std::filesystem::path failed;
+  const auto key = cache_key(inputs, &failed);
   if (!key) {
-    std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(runtime.library)}) << '\n';
+    // 読めなかった項目を挙げる。前は見出しの木の行き先の無いリンクでも、ある libmosa.a を「見つからない」と言った
+    // （レビュー RV-m11）。
+    if (failed.empty() || failed == runtime.library) {
+      std::cerr << mosac_message("mosac_runtime_missing", {utf8_from_path(runtime.library)}) << '\n';
+    } else {
+      std::cerr << mosac_message("mosac_runtime_unreadable", {utf8_from_path(failed)}) << '\n';
+    }
     return {};
   }
   const std::filesystem::path entry = cache_root() / key->hash;

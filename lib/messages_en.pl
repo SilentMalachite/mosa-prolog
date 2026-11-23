@@ -56,6 +56,7 @@ message(mosac_internal_error, 'internal error: the generated code cannot be comp
 message(mosac_disk_full, 'mosac: not enough disk space to write ~w~nFree some space and try again. mosac build --clean removes old intermediate files in .mosac-cache').
 message(mosac_no_permission, 'mosac: no permission to write ~w~nRun mosac in a directory you can write to, or give a writable place with -o').
 message(mosac_runtime_missing, 'mosac: the runtime library was not found: ~w~nCheck its location with mosac toolchain').
+message(mosac_runtime_unreadable, 'mosac: a file of the runtime library cannot be read: ~w').
 message(mosac_cannot_start, 'mosac: cannot start ~w').
 message(mosac_verbose_run, 'mosac: running: ~w').
 message(mosac_cache_hit, 'mosac: using the cache: ~w').

@@ -56,6 +56,7 @@ message(mosac_internal_error, '内部エラー: 生成コードがコンパイ�
 message(mosac_disk_full, 'mosac: ディスクの空きが足りず ~w に書けません~n空きを作ってからもう一度動かしてください。.mosac-cache の古い中間物は mosac build --clean で消せます').
 message(mosac_no_permission, 'mosac: ~w に書く権限がありません~n書き込めるディレクトリで動かすか、-o で書き込める場所を指してください').
 message(mosac_runtime_missing, 'mosac: 実行時ライブラリが見つかりません: ~w~nmosac toolchain で場所を確かめてください').
+message(mosac_runtime_unreadable, 'mosac: 実行時ライブラリの部品を読めません: ~w').
 message(mosac_cannot_start, 'mosac: 起動できません: ~w').
 message(mosac_verbose_run, 'mosac: 実行: ~w').
 message(mosac_cache_hit, 'mosac: キャッシュを使います: ~w').

@@ -69,6 +69,10 @@ void unreadable_entry(const fs::path& root) {
   fs::create_symlink(dir / "missing.hpp", dir / "b.hpp", error);
   if (error) return;  // シンボリックリンクを作れない環境（権限の無い Windows）では見ない。
   mosa_test::check(!mosa::codegen::tree_digest(dir).has_value(), "an entry whose type cannot be read stops the digest");
+  // 読めなかった項目を呼び手へ返す（レビュー RV-m11）。前は mosac build がある libmosa.a を「見つからない」と言った。
+  fs::path failed;
+  mosa_test::check(!mosa::codegen::tree_digest(dir, &failed).has_value() && failed == dir / "b.hpp",
+                   "the digest names the entry it could not read: " + failed.string());
   // 隠しの項目は入れないので、行き先の無い隠しのリンク（Emacs のロックの .#a.hpp）では止めない（L-36 と同じ）。
   const fs::path hidden = root / "dangling_hidden";
   write_file(hidden / "a.hpp", "A");

@@ -81,8 +81,10 @@ void report_missing_toolchain(const ToolchainQuery& query);
 [[nodiscard]] std::string hex16(std::uint64_t value);
 // ファイルの中身の FNV-1a。読めなければ nullopt。
 [[nodiscard]] std::optional<std::uint64_t> file_digest(const std::filesystem::path& path);
-// ディレクトリの下の全ファイル（隠しファイルを除く）の相対名と中身の FNV-1a（並びは名前順）。読めなければ nullopt。
-[[nodiscard]] std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir);
+// ディレクトリの下の全ファイル（隠しファイルを除く）の相対名と中身の FNV-1a（並びは名前順）。読めなければ nullopt で、
+// failed があれば読めなかった項目を置く。
+[[nodiscard]] std::optional<std::uint64_t> tree_digest(const std::filesystem::path& dir,
+                                                       std::filesystem::path* failed = nullptr);
 // 同梱の源の鍵。dir の CMakeLists.txt、src/、include/、lib/（install の source の部品）だけを見る。
 [[nodiscard]] std::optional<std::uint64_t> source_digest(const std::filesystem::path& dir);
 // ファイルの全文（読めなければ空）。鍵の比較と、失敗したログの表示に使う。
@@ -105,8 +107,8 @@ struct CacheKey {
   std::string hash;  // text の FNV-1a 64 の 16 桁
 };
 
-// 実行時ライブラリか翻訳済みのライブラリが読めなければ nullopt。
-[[nodiscard]] std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs);
+// 実行時ライブラリ、その見出しか翻訳済みのライブラリが読めなければ nullopt で、failed があれば読めなかった項目を置く。
+[[nodiscard]] std::optional<CacheKey> cache_key(const CacheKeyInputs& inputs, std::filesystem::path* failed = nullptr);
 // 今の作業場所の .mosac-cache。
 [[nodiscard]] std::filesystem::path cache_root();
 // .mosac-cache が記号リンクなら診断を出して偽（中身の入れ替えを防ぐため使わない）。
