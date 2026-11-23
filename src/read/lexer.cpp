@@ -290,20 +290,23 @@ bool Lexer::may_end_before_last(std::string_view source, const CharConv* conv, b
          lexer.ends_clause(end);
 }
 
-// ファイルの塊は終止符の後ろの字の所で切れるとは限らないので、足した所の 1 字前から各字を終止符として試す。
-// 後ろの字が届いていない終止符は数えない（may_end_before_last と同じ判定）。
+// ファイルの塊は終止符の後ろの字の所で切れるとは限らないので、足した所の 2 字前から各字を終止符として試す。
+// 後ろの字が届いていない終止符は数えない（may_end_before_last と同じ判定）。1 字前だけでは、終止符の後ろの多バイトの
+// 字（U+3000）が切れ目を跨ぐと、その字の頭から試して終止符を飛ばした（レビュー R-M07）。from までの印は返し済みか
+// 印になれないので、from より後ろの印だけを返す。返した印から呼び直すと、同じ終止符を試し直して同じ印を返し続ける。
 std::optional<std::size_t> Lexer::next_mark(std::string_view source, std::size_t from, const CharConv* conv,
                                             bool fullwidth) {
   Lexer lexer(source, conv);
   lexer.fullwidth_ = fullwidth;
   std::size_t at = scalar_start(source, std::min(from, source.size()));
+  if (at > 0) at = scalar_start(source, at);
   while (at < source.size()) {
     lexer.index_ = at;
     const SourceChar end = lexer.peek_char();
     const std::size_t next = at + std::max<std::size_t>(end.bytes, 1);
     if (end.valid && next < source.size()) {
       const SourceChar follower = lexer.peek_char_at(next);
-      if (follower.valid && lexer.ends_clause(end)) return next + follower.bytes;
+      if (follower.valid && next + follower.bytes > from && lexer.ends_clause(end)) return next + follower.bytes;
     }
     at = next;
   }
