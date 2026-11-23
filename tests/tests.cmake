@@ -118,6 +118,9 @@ target_link_libraries(answer_text_test PRIVATE mosa_lib)
 add_test(NAME answer_text COMMAND $<TARGET_FILE:answer_text_test>)
 
 add_test(NAME roundtrip COMMAND $<TARGET_FILE:mosatest> --roundtrip ${CMAKE_SOURCE_DIR}/tests/pl/syntax.pl)
+# レビュー L-42。mosatest の入口（--version、--help、一つきりの副命令、--roundtrip のディレクトリ）。
+add_test(NAME mosatest_cli COMMAND ${CMAKE_COMMAND} -DMOSATEST=$<TARGET_FILE:mosatest>
+  -DWORK=${CMAKE_SOURCE_DIR}/tests/tmp/mosatest_cli -P ${CMAKE_SOURCE_DIR}/tests/cpp/mosatest_cli_test.cmake)
 # テストのパスはリポジトリの根から書く。build の場所に左右されない（計画 Task 15）。
 add_test(NAME prolog_tests COMMAND $<TARGET_FILE:mosatest> ${CMAKE_SOURCE_DIR}/tests/pl
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

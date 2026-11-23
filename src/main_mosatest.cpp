@@ -9,10 +9,14 @@
 #include "mosa/suite.hpp"
 #include "mosa/version.hpp"
 
+#include <array>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace {
@@ -20,6 +24,23 @@ namespace {
 int usage(int code = 1) {
   std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "mosatest_usage") << '\n';
   return code;
+}
+
+// ディレクトリも ifstream で開けてしまい、空の原文として黙って 0 で通った（レビュー L-42）。開けないファイルと同じく
+// 「開けません」で 1 にする。
+int roundtrip_file(std::string_view name) {
+  const std::filesystem::path path = mosa::path_from_utf8(name);
+  std::error_code error;
+  std::ifstream input(path, std::ios::binary);
+  if (!input || std::filesystem::is_directory(path, error)) {
+    std::cerr << mosa::render_message_fresh(mosa::default_message_language(), "cannot_open_file",
+                                            std::array{std::string{name}})
+              << '\n';
+    return 1;
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return mosa::run_roundtrip(buffer.str());
 }
 
 }  // namespace
@@ -31,20 +52,18 @@ int main(int argc, char** argv) {
   // パスは UTF-8 で受け、path_from_utf8 で作る。リポジトリの場所に日本語があっても、どの OS でも同じに読む。
   const std::vector<std::string> owned = mosa::command_line_utf8(argc, argv);
   const std::vector<std::string_view> args(owned.begin(), owned.end());
-  for (std::size_t index = 1; index < args.size(); ++index) {
-    if (args[index] == "--version") {
-      std::cout << mosa::version_line() << '\n';
-      return 0;
-    }
+  // --version と --help は先頭の位置だけで見る（mosac と同じ）。後ろの --version は副命令の引数であり、前はどこに
+  // あっても版を出して 0 で終えた（レビュー L-42）。--help は頼まれた出力なので標準出力へ出して 0。
+  if (args.size() >= 2 && args[1] == "--version") {
+    std::cout << mosa::version_line() << '\n';
+    return 0;
   }
-  if (args.size() == 3 && args[1] == "--roundtrip") {
-    std::ifstream input(mosa::path_from_utf8(args[2]), std::ios::binary);
-    if (!input) return usage();
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    return mosa::run_roundtrip(buffer.str());
+  if (args.size() >= 2 && args[1] == "--help") {
+    std::cout << mosa::render_message_fresh(mosa::default_message_language(), "mosatest_usage") << '\n';
+    return 0;
   }
-  if (args.size() >= 3 && args[1] == "--suite") {
+  if (args.size() >= 2 && args[1] == "--roundtrip") return args.size() == 3 ? roundtrip_file(args[2]) : usage();
+  if (args.size() >= 2 && args[1] == "--suite") {
     const std::vector<std::string_view> rest(args.begin() + 2, args.end());
     const mosa::SuiteArgs parsed = mosa::parse_suite_args(rest);
     if (!parsed.ok) return usage();
@@ -69,6 +88,7 @@ int main(int argc, char** argv) {
     if (!parsed.ok) return usage(2);
     return mosa::run_manual(parsed);
   }
-  if (args.size() == 2) return mosa::run_suite(args[1]);
+  // 試験のファイルとディレクトリの名前は - で始まらない。前は一つきりの --suite や知らない旗をファイルの名前と取った。
+  if (args.size() == 2 && !args[1].empty() && args[1].front() != '-') return mosa::run_suite(args[1]);
   return usage();
 }
