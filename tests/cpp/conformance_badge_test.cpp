@@ -223,6 +223,29 @@ void check_corrupt_baseline(const std::filesystem::path& root) {
   mosa_test::check(read_text(root / "notests.json") == badge("100.0% (9/9)", "brightgreen"), "no-tests badge replaced");
 }
 
+// レビュー R-M14。物差しは write_badge が書く 1 行の形のときだけ読む。前は 1 行目の ( / ) だけを拾い、no tests は
+// 部分文字列で探し、行き先の無いシンボリックリンクは無いファイルとみなしたので、どれも関門を素通りした。
+// 整形した複数行の JSON は持ち主の問いで、既定の A のまま断る（badge_unreadable）。
+void check_strict_baseline(const std::filesystem::path& root) {
+  const std::string garbage = "garbage (0/1)\n";
+  mosa_test::check(write_text(root / "paren.json", garbage), "write paren badge");
+  mosa_test::check(run_code(root, "paren", 9, 0) == 1, "text with (0/1) is not a baseline");
+  mosa_test::check(read_text(root / "paren.json") == garbage, "the paren badge is kept");
+  const std::string broken = "garbage \"message\":\"no tests\" garbage\n";
+  mosa_test::check(write_text(root / "broken.json", broken), "write broken no-tests badge");
+  mosa_test::check(run_code(root, "broken", 9, 0) == 1, "a broken no-tests badge is not no baseline");
+  mosa_test::check(read_text(root / "broken.json") == broken, "the broken badge is kept");
+  const std::string pretty = "{\n  \"schemaVersion\": 1,\n  \"label\": \"ISO conformance\",\n"
+                             "  \"message\": \"100.0% (9/9)\",\n  \"color\": \"brightgreen\"\n}\n";
+  mosa_test::check(write_text(root / "pretty.json", pretty), "write pretty badge");
+  mosa_test::check(run_code(root, "pretty", 9, 0) == 1, "a pretty-printed badge is refused (default A)");
+  std::error_code error;
+  std::filesystem::create_symlink(root / "missing-target.json", root / "dangle.json", error);
+  if (error) return;  // シンボリックリンクを作れない環境（権限の無い Windows）では見ない。
+  mosa_test::check(run_code(root, "dangle", 9, 0) == 1, "a dangling symlink is not a missing badge");
+  mosa_test::check(!path_exists(root / "missing-target.json"), "nothing written through the dangling symlink");
+}
+
 // レビュー L-39。--report が .json なら本欄のバッジと同じファイルになるので、流す前に断って 1 で終える。前はバッジが
 // 報告書を黙って上書きし、0 で終えた。拡張子の大小は区別しない（macOS と Windows では同じファイル）。
 void check_report_clash(const std::filesystem::path& root) {
@@ -251,6 +274,7 @@ int main() {
   check_unwritable(root);
   check_report_clash(root);
   check_corrupt_baseline(root);
+  check_strict_baseline(root);
   std::filesystem::remove_all(root, error);
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

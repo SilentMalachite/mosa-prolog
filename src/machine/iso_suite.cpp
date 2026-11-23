@@ -124,20 +124,51 @@ std::optional<int> count_in(std::string_view text) {
   return value;
 }
 
-// 前回のバッジ JSON（write_badge が書く 1 行）から合格数と分母を読む。無い・読めない・形が違うときは nullopt。
-std::optional<Baseline> read_baseline(const std::filesystem::path& badge) {
-  std::ifstream input(badge, std::ios::binary);
-  std::string line;
-  if (!input || !std::getline(input, line)) return std::nullopt;
-  const std::string_view text = line;
-  const auto open = text.find('(');
-  const auto slash = open == std::string_view::npos ? open : text.find('/', open);
-  const auto close = slash == std::string_view::npos ? slash : text.find(')', slash);
-  if (close == std::string_view::npos) return std::nullopt;
-  const auto passed = count_in(text.substr(open + 1, slash - open - 1));
-  const auto denominator = count_in(text.substr(slash + 1, close - slash - 1));
+// バッジの message の「98.4% (2295/2333)」から合格数と分母を読む。形が違えば nullopt。
+std::optional<Baseline> rate_in(std::string_view message) {
+  const auto open = message.find(" (");
+  if (open == std::string_view::npos || !message.substr(0, open).ends_with('%') || !message.ends_with(')')) {
+    return std::nullopt;
+  }
+  const auto slash = message.find('/', open);
+  if (slash == std::string_view::npos) return std::nullopt;
+  const auto passed = count_in(message.substr(open + 2, slash - open - 2));
+  const auto denominator = count_in(message.substr(slash + 1, message.size() - slash - 2));
   if (!passed || !denominator || *passed < 0 || *denominator <= 0 || *passed > *denominator) return std::nullopt;
   return Baseline{*passed, *denominator};
+}
+
+enum class BadgeRead { Rate, NoTests, Unreadable };
+
+struct BadgeText {
+  BadgeRead kind = BadgeRead::Unreadable;
+  Baseline rate;
+};
+
+// 前回のバッジ JSON は write_badge が書く 1 行の形のときだけ読む。前は 1 行目の ( / ) だけを拾い、no tests は部分
+// 文字列で探したので、garbage (0/1) や壊れた no tests が関門を素通りした（レビュー R-M14）。整形した複数行の JSON は
+// 持ち主の問いで、既定の A のまま読まない。checkout が CRLF にしたときのために、行末の CR は許す。
+BadgeText read_badge(const std::filesystem::path& badge) {
+  std::ifstream input(badge, std::ios::binary);
+  if (!input) return {};
+  const std::string text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+  std::string_view line = text;
+  if (line.ends_with('\n')) line.remove_suffix(1);
+  if (line.ends_with('\r')) line.remove_suffix(1);
+  constexpr std::string_view head = R"({"schemaVersion":1,"label":")";
+  constexpr std::string_view mid = R"(","message":")";
+  constexpr std::string_view tail = R"(","color":")";
+  if (!line.starts_with(head) || !line.ends_with("\"}") || line.find('\n') != std::string_view::npos) return {};
+  const auto message_at = line.find(mid, head.size());
+  if (message_at == std::string_view::npos) return {};
+  const auto from = message_at + mid.size();
+  const auto color_at = line.find(tail, from);
+  if (color_at == std::string_view::npos) return {};
+  const std::string_view message = line.substr(from, color_at - from);
+  if (message == "no tests") return {BadgeRead::NoTests, {}};
+  const auto rate = rate_in(message);
+  if (!rate) return {};
+  return {BadgeRead::Rate, *rate};
 }
 
 // 合格率が物差しより下か。表示の丸めで比べると 1 件の後退を見逃すので、分数のまま掛け比べて比べる。
@@ -256,14 +287,14 @@ struct BadgeGate {
 // 書き換える前の JSON が物差し。報告書の名前によっては同じファイルを指しうるので、報告書を書く前に読む。物差しなしで
 // 通すのは、ファイルが無いときと、分母 0 の回に write_badge が書いた no tests のときだけ。
 BadgeGate open_gate(std::filesystem::path path, std::string_view label, std::string_view regressed_key) {
-  const std::optional<Baseline> baseline = read_baseline(path);
-  bool corrupt = false;
+  // 行き先の無いシンボリックリンクと、状態を調べられないパスも「ある」とみなす。前は exists が偽を返し、物差しなしで
+  // 通してリンクの先へ書いた（レビュー R-M14）。
   std::error_code error;
-  if (!baseline && std::filesystem::exists(path, error)) {
-    std::ifstream input(path, std::ios::binary);
-    const std::string text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
-    corrupt = text.find("\"message\":\"no tests\"") == std::string::npos;
-  }
+  const bool absent = std::filesystem::symlink_status(path, error).type() == std::filesystem::file_type::not_found;
+  const BadgeText read = absent ? BadgeText{} : read_badge(path);
+  std::optional<Baseline> baseline;
+  if (read.kind == BadgeRead::Rate) baseline = read.rate;
+  const bool corrupt = !absent && read.kind == BadgeRead::Unreadable;
   return BadgeGate{std::move(path), label, regressed_key, baseline, corrupt};
 }
 
