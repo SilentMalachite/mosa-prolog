@@ -389,7 +389,8 @@ std::vector<std::filesystem::path> lgt_suite_files(const std::filesystem::path& 
 
 SuiteArgs parse_suite_args(std::span<const std::string_view> args) {
   SuiteArgs parsed;
-  if (args.empty() || args.front().empty()) return parsed;
+  // - で始まる名前は旗の書き損じとみる。前は -x をディレクトリと取り、何も言わずに 1 で終えた（レビュー R-N08）。
+  if (args.empty() || args.front().empty() || args.front().front() == '-') return parsed;
   parsed.dir = std::string{args.front()};
   if (args.size() == 3 && args[1] == "--report" && !args[2].empty()) {
     parsed.report = std::string{args[2]};

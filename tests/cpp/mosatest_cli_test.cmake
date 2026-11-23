@@ -57,4 +57,10 @@ mosatest(--roundtrip n08.pl)
 if(code EQUAL 0)
   fail("--roundtrip must reject an op/3 priority above 1200")
 endif()
+# レビュー R-N08。--suite のディレクトリも - で始まれば旗の書き損じとして使い方の誤りにする（--roundtrip のファイルと
+# 同じ）。前は -x をディレクトリと取り、何も言わずに 1 で終えた。
+mosatest(--suite -x --report r.md)
+if(NOT code EQUAL 1 OR NOT err MATCHES "${usage}" OR EXISTS "${WORK}/r.md")
+  fail("--suite with a directory that starts with - must be a usage error")
+endif()
 file(REMOVE_RECURSE "${WORK}")
