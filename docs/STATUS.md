@@ -3,7 +3,7 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** none, on branch `fix/review-2026-11-20`;
+- **In progress:** W9 `src/machine/session.cpp` (L-19), on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** W9 L-09, L-31, L-30, L-12 (owner's A) and L-18 (a cyclic uncaught exception is
   written as writeq does, 717cabe5); all red first; ctest 282/282.
