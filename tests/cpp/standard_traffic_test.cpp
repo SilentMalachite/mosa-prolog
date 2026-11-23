@@ -4,6 +4,7 @@
 // （reposition(false)）ので、残した字を見る道は無い。std::cin、std::cout、std::cerr の行き先を差し替えて流す。
 // 予算は Machine::create(16384) の 128 KiB で、流す量はその 2 倍から 8 倍にする。
 #include "harness.hpp"
+#include "mosa/path_text.hpp"
 
 #include "machine/internal.hpp"
 #include "mosa/machine.hpp"
@@ -80,12 +81,25 @@ Run run(std::string input, std::string_view program, std::string_view goal) {
   return result;
 }
 
+// パスは Prolog の引用の原子にして埋める。' と \ を含むパスでも読める（レビュー R-L23、ほかのテストの prolog_path と
+// 同じ）。Windows の generic_string は ANSI のコードページなので、UTF-8 で書く。
+std::string prolog_path(const std::filesystem::path& path) {
+  std::string out = "'";
+  for (char unit : mosa::utf8_from_path(path)) {
+    if (unit == '\'') out += "''";
+    else if (unit == '\\') out += "\\\\";
+    else out.push_back(unit);
+  }
+  out.push_back('\'');
+  return out;
+}
+
 std::string tiny_read(const std::filesystem::path& path) {
   {
     std::ofstream file(path, std::ios::binary | std::ios::trunc);
     file << "a.\n";
   }
-  return "open('" + path.generic_string() + "', read, S), read(S, T), close(S), T == a";
+  return "open(" + prolog_path(path) + ", read, S), read(S, T), close(S), T == a";
 }
 
 // forall/2 と between/3 はライブラリにあるので、回しは手で書く。
