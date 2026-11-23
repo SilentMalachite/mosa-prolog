@@ -3,10 +3,10 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** W9 L-41 (stop when the old out directory cannot be removed), on the branch;
+- **In progress:** none, on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W9 L-06 (newer variable bound to the older; A by default, ADR 0019 amendment 1,
-  fac56275), L-08, L-15, L-28 and L-32 (c9b9d1e1); ctest 284/284. Earlier W9 items: review file.
+- **Last done:** W9 L-03, L-06 (A by default, ADR 0019 amendment 1, fac56275), L-08, L-15, L-28,
+  L-32 and L-41 (bb3064e9); ctest 284/284. Earlier W9 items: review file.
 - **Next:** W9 by file (W8's open items are owner questions on default A); 0.5.1 after W9 (A).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** none; no code or test file is at 730 lines or more (open-items).
