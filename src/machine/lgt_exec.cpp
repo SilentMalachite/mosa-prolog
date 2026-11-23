@@ -310,15 +310,39 @@ void exec_disj(Machine& machine, const Prog& prog, int index, Env& env) {
   take_else(machine, prog, right, first, env);
 }
 
+// 節点の下に、束縛を作るか利用者とライブラリの述語を呼ぶ節点（query の字面、^^、forall/2 の生成側）があるか。
+// assertion/1,2 と variant/2 などの判定は、結果の成否だけを見る。
+bool may_bind(const Prog& prog, int index) {
+  if (index < 0 || static_cast<std::size_t>(index) >= prog.nodes.size()) return false;
+  const Node& node = prog.nodes[static_cast<std::size_t>(index)];
+  switch (node.kind) {
+    case NodeKind::Assert:
+    case NodeKind::Variant:
+    case NodeKind::Subsumes:
+    case NodeKind::Approx: return false;
+    case NodeKind::Conj:
+    case NodeKind::Disj:
+    case NodeKind::If:
+    case NodeKind::Soft:
+      return may_bind(prog, node.left) || may_bind(prog, node.right) || may_bind(prog, node.other);
+    default: return true;
+  }
+}
+
+// 選択点を残すと then の失敗で親が条件をやり直す。成功した解だけで then を実行する。then が判定だけなら、外の
+// 開いた query（前の member/2 や forall/2 の生成側）を切らない。前は切ったので、後のゴールが失敗しても外へ戻らず、
+// forall/2 は残りの解を試さなかった（レビュー RV-I01）。then が束縛しうるときは前と同じく主の機械で動かし、外の
+// query は切れる。開いたままだと then はスクラッチで動き、束縛も持ち帰らず、ライブラリの述語も無い（open-items）。
+void after_condition(const Prog& prog, int then, bool live, Env& env) {
+  env.live = live && env.live && !may_bind(prog, then);
+}
+
 void exec_if(Machine& machine, const Prog& prog, int index, Env& env) {
   const Node& node = prog.nodes[static_cast<std::size_t>(index)];
   const bool live = env.live;
   exec_at(machine, prog, node.left, env);
   if (env.tri != Tri::Ok) return;
-  // 選択点を残すと then の失敗で親が条件をやり直す。成功した解だけで then を実行する。外の開いた query（前の
-  // member/2 や forall/2 の生成側）は切らない。前は live を偽にしたので、then が主の機械で query を開いて外の query を
-  // 置き換え、後のゴールが失敗しても外へ戻らず、forall/2 は残りの解を試さなかった（レビュー RV-I01）。
-  env.live = live && env.live;
+  after_condition(prog, node.right, live, env);
   exec_at(machine, prog, node.right, env);
 }
 
@@ -327,9 +351,8 @@ void exec_soft(Machine& machine, const Prog& prog, int index, Env& env) {
   const bool live = env.live;
   exec_at(machine, prog, node.left, env);
   if (env.tri == Tri::Ok) {
-    // 条件の成功で else を切る。then が失敗しても、この節点は else を持ったまま返さない。外の開いた query は
-    // exec_if と同じく残す（レビュー RV-I01）。
-    env.live = live && env.live;
+    // 条件の成功で else を切る。then が失敗しても、この節点は else を持ったまま返さない。
+    after_condition(prog, node.right, live, env);
     exec_at(machine, prog, node.right, env);
     return;
   }
@@ -705,6 +728,8 @@ LgtEnd lgt_judge_mixed(Machine& machine, std::string_view body, const LgtWant& w
   Env env;
   env.io = io;
   exec_at(machine, prog, root, env);
+  // 印の query をやり直すと（retry_right）、印がまた束縛と写しに入る。結果の判定と cleanup に渡さない。
+  for (const std::string& marker : prog.markers) forget_marker(env, marker);
   return from_env(machine, want, env);
 }
 

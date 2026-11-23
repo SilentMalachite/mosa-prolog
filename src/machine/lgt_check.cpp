@@ -86,9 +86,14 @@ bool check_subsumes(Machine& machine, Cell cell, const std::vector<VarName>& nam
 
 // ランナーが判定しないゴールは、解の束縛でスクラッチの機械に問う。前は偽にしたので、true((X == 1, atom(a),
 // variant(X, 1))) のような表明が落ちた（レビュー M-51）。
-bool plain_holds(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Binding>& bindings) {
+LgtScratchKind plain_run(Machine& machine, Cell cell, const std::vector<VarName>& names,
+                         const std::vector<Binding>& bindings) {
   const std::string text = write_term(machine.heap(), machine.operators(), cell, lgt_write_options(), names);
-  return lgt_scratch_run(machine, text, bindings).kind == LgtScratchKind::Ok;
+  return lgt_scratch_run(machine, text, bindings).kind;
+}
+
+bool plain_holds(Machine& machine, Cell cell, const std::vector<VarName>& names, const std::vector<Binding>& bindings) {
+  return plain_run(machine, cell, names, bindings) == LgtScratchKind::Ok;
 }
 
 bool if_then(const Heap& heap, Cell cell) {
@@ -104,9 +109,11 @@ bool check_branch(Machine& machine, Cell arrow, std::optional<Cell> other, const
                   const std::vector<Binding>& bindings, std::string& note) {
   const Heap& heap = machine.heap();
   std::string ignored;
+  // 条件の例外と halt は、else へ進まずに表明の失敗にする。前は失敗と同じに扱い、E を判定した。
   if (!lgt_has_special(heap, arrow)) {
-    if (plain_holds(machine, arrow, names, bindings)) return true;
-    if (!other || plain_holds(machine, heap.arg(arrow, 0), names, bindings)) return false;
+    const LgtScratchKind whole = plain_run(machine, arrow, names, bindings);
+    if (whole != LgtScratchKind::No) return whole == LgtScratchKind::Ok;
+    if (!other || plain_run(machine, heap.arg(arrow, 0), names, bindings) != LgtScratchKind::No) return false;
     return check_goal(machine, *other, names, bindings, note);
   }
   if (check_goal(machine, heap.arg(arrow, 0), names, bindings, ignored)) {

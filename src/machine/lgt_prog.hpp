@@ -29,6 +29,8 @@ struct LgtNode {
 
 struct LgtProg {
   std::vector<LgtNode> nodes;
+  // Pick の印の変数の名前。節点ごとに違う。本体を流し終えたら束縛と写しから消す（lgt_exec.cpp）。
+  std::vector<std::string> markers;
 };
 
 // 本体の項を、ランナーが判定する目標で分けた木にし、根の添字を返す（lgt_build.cpp）。

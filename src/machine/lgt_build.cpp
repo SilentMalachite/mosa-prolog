@@ -170,10 +170,12 @@ int build_runner_if(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell
   return add_node(prog, std::move(node));
 }
 
-// 本体の変数と重ならない印の変数の名前。節点ごとに変え、別の節点の印の写しが貼られないようにする。
-std::string marker_name(const Prog& prog, const std::vector<VarName>& names) {
-  std::string name = "LgtBranch" + std::to_string(prog.nodes.size());
+// 本体の変数と重ならない印の変数の名前。節点ごとに変え、別の節点の印の写しが貼られないようにする。前は節点の数で
+// 名付け、else の頭の Pick が外の Pick と同じ名前になった（RV-I02 の直しの後の確かめ）。
+std::string marker_name(Prog& prog, const std::vector<VarName>& names) {
+  std::string name = "LgtBranch" + std::to_string(prog.markers.size());
   while (std::any_of(names.begin(), names.end(), [&](const VarName& var) { return var.name == name; })) name += "_";
+  prog.markers.push_back(name);
   return name;
 }
 
