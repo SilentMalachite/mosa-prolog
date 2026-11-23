@@ -46,6 +46,8 @@ class Lexer {
   bool release_failure();
   // 旗 japanese_punctuation。読み込みでは指令の次の節から効く。
   void set_fullwidth(bool on) { fullwidth_ = on; }
+  // 偽なら頭の U+FEFF を飛ばさない。字面の頭でない所から読むとき（流れの途中の read）に使う。
+  void set_skip_bom(bool on) { bom_checked_ = !on; }
   // この位置から後ろの字には char_conversion をかけない。term_to_atom/2 が足した終止符を写さないため（レビュー M-28）。
   void set_conversion_end(std::size_t byte) { conv_end_ = byte; }
   // source の最後の字が終止符の後ろの字（layout char か %）で、その前の字が終止符になりうるとき真。写像は next と

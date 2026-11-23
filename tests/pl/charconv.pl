@@ -18,3 +18,7 @@ test(conv_in_int, char_conversion(1, a), error(type_error(character, 1))).
 test(conv_in_empty, char_conversion('', a), error(type_error(character, ''))).
 test(conv_in_fun, char_conversion(f(1), a), error(type_error(character, f(1)))).
 test(conv_clear, (char_conversion(a, a), char_conversion(b, b), set_prolog_flag(char_conversion, off)), true).
+% CR LF の LF も、LF だけのときと同じく写す。前は CR の後の LF を改行の半分として写さずに飲んだ（レビュー L-10）。
+test(conv_newline_lf, (set_prolog_flag(char_conversion, on), char_conversion('\n', x), open_string('X = [a,\nb]. ', S), read(S, T), char_conversion('\n', '\n'), set_prolog_flag(char_conversion, off), T = (V = L), var(V), L == [a, xb]), true).
+test(conv_newline_crlf, (set_prolog_flag(char_conversion, on), char_conversion('\n', x), open_string('X = [a,\r\nb]. ', S), read(S, T), char_conversion('\n', '\n'), set_prolog_flag(char_conversion, off), T = (V = L), var(V), L == [a, xb]), true).
+test(conv_crlf_plain, (open_string('X = [a,\r\nb]. ', S), read(S, T), T = (V = L), var(V), L == [a, b]), true).

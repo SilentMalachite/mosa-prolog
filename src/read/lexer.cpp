@@ -139,9 +139,12 @@ Lexer::SourceChar Lexer::peek_char_at(std::size_t byte) const {
 
 void Lexer::advance(char32_t code, std::size_t bytes) {
   index_ += bytes;
-  // CR LF は 2 バイトでも改行 1 つ。列は表示幅ではなくスカラー値の個数。
+  // CR LF は 2 バイトでも改行 1 つ。列は表示幅ではなくスカラー値の個数。LF は写した字で見る。char_conversion が
+  // LF を別の字にするなら、それは改行の半分でなく、LF だけのときと同じく次の字として読む。前は生のバイトで見て
+  // 写さずに飲み、[a,\r\nb] が [a,b] になった（LF だけなら [a,xb]、レビュー L-10）。
   if (code == U'\r') {
-    if (index_ < source_.size() && source_[index_] == '\n') ++index_;
+    const SourceChar next = peek_char_at(index_);
+    if (next.valid && next.code == U'\n') index_ += next.bytes;
     ++line_;
     column_ = 1;
     return;
@@ -179,6 +182,7 @@ void Lexer::append_code(std::string& text, char32_t code) const {
   push(0x80U | static_cast<unsigned int>(code & 0x3FU));
 }
 
+// 流れの途中から読む read は set_skip_bom(false) で切り、U+FEFF を項の中と同じく illegal_character にする（レビュー L-13）。
 void Lexer::skip_bom() {
   if (bom_checked_) return;
   bom_checked_ = true;

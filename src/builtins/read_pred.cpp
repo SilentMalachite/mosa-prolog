@@ -202,14 +202,20 @@ void advance_slice(Stream& stream, std::string_view slice) {
   stream.past_end = false;
 }
 
-// 字句解析は切り出しの先頭の BOM を飛ばし、列に数えない（Lexer::skip_bom）。行と列から位置を戻すときも同じに飛ばす。
+// BOM は流れの頭（まだ 1 字も読んでいない所、eof_action(reset) で戻った所も）でだけ飛ばす。切り出しはどの read でも
+// 残りの頭なので、前は途中の U+FEFF も読みの始まりなら飛ばし、項の中なら illegal_character にした（レビュー L-13）。
+bool at_stream_start(const Stream& stream) { return stream.char_no == 0; }
+
+// 字句解析は流れの頭の BOM を飛ばし、列に数えない（Lexer::skip_bom）。行と列から位置を戻すときも同じに飛ばす。
 // 数えると 1 行目の位置が 1 字ずれ、replace が正しい字を U+FFFD に置き換え続けて止まらなかった（L6 の敵対的レビュー A4）。
-std::size_t bom_width(std::string_view slice) { return slice.starts_with("\xEF\xBB\xBF") ? 3 : 0; }
+std::size_t bom_width(const Stream& stream, std::string_view slice) {
+  return at_stream_start(stream) && slice.starts_with("\xEF\xBB\xBF") ? 3 : 0;
+}
 
 Spot at_token(const Stream& stream, std::string_view slice, std::size_t line, std::size_t column) {
   Spot rel{1, 1, 0};
   Spot abs{stream.line, stream.line_pos, stream.char_no};
-  const std::size_t bom = bom_width(slice);
+  const std::size_t bom = bom_width(stream, slice);
   if (bom > 0) step_spot(abs, U'\uFEFF');
   std::size_t index = bom;
   while (rel.line < line || (rel.line == line && rel.line_pos < column)) {
@@ -453,6 +459,7 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
     Reader reader(slice, machine.heap, op_view(machine, module), current_double_quotes(machine),
                   &machine.char_conv);
     reader.set_fullwidth(machine.japanese_punct);
+    reader.set_skip_bom(at_stream_start(stream));
     ReadOutcome outcome = reader.next();
     const std::size_t consumed = reader.consumed();
     // 標準入力は、読んだ先に字が残るか本当の終端まで足す。項が閉じても終止符が切れ目の最後の字なら、
