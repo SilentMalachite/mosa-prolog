@@ -41,6 +41,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 - Review plan, release (A, 2026-11-23): 0.5.1 comes after W9, not right after W8. Until then do
   not prepare or tag it (held since 2026-11-22, when W8 was put before it).
+- Review L-12 (A, 2026-11-23): an atom holding invalid UTF-8 (from argv) is written with each bad
+  byte as the character of that code, as `atom_codes/2` sees it (`FF` as U+00FF); the output is
+  well-formed UTF-8, but its bytes differ from the atom's. B (raw bytes, `\xFF\` in writeq) declined.
 - Review L-16 (A, 2026-11-23): `meta_predicate` keeps reading a list that is not proper as the
   spec of `'.'/2` (the `m28_dot_*` rows of `tests/pl/modules.pl`), and `[]` as that of `'[]'/0`.
 - The test presets' job count (A, 2026-11-23): a fixed 4 in all five presets, the same on every
