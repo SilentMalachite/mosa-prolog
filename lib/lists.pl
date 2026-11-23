@@ -41,7 +41,13 @@ last_([X|Xs], _, Last) :- last_(Xs, X, Last).
 
 % 4 つ目の引数は R と同じリストを 1 歩ずつ減らし、歩みの数を R の長さで抑える。1 つ目のリストだけで歩むと、L が
 % 未束縛のとき後戻りで限りなく長いリストを作り、reverse(L, [1,2,3]) も reverse(L, foo) も止まらなかった（レビュー M-36）。
-reverse(L, R) :- reverse_(L, [], R, R).
+% 逆にする関係は対称なので、L が未束縛で R が束縛されていれば R の側から歩む。1 つ目の引数で節が決まり、選択点を
+% 残さない。前は L の側から歩み、最後の解の後に選択点が 1 つ残った（レビュー R-L08）。
+reverse(L, R) :-
+    (   var(L), nonvar(R)
+    ->  reverse_(R, [], L, L)
+    ;   reverse_(L, [], R, R)
+    ).
 
 reverse_([], R, R, []).
 reverse_([X|Xs], A, R, [_|Bound]) :- reverse_(Xs, [X|A], R, Bound).

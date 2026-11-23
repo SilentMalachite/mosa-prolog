@@ -63,6 +63,11 @@ test(m36_reverse_second, findall(L, reverse(L, [1, 2, 3]), Ls), solutions([Ls = 
 test(m36_reverse_not_list, reverse(_, foo), fail).
 test(m36_reverse_partial, (reverse([a|T], [c, b, a]), T == [b, c]), true).
 test(m36_reverse_empty, findall(L, reverse(L, []), Ls), solutions([Ls = [[]]])).
+% 第 2 引数だけが束縛されていても選択点を残さない（レビュー R-L08）。後始末がその場で動けば、選択点は残っていない。
+% 前は第 1 引数の索引が効かず、最後の解の後に 1 つ残った。第 1 引数が束縛されている形は前と同じ。
+test(rl08_reverse_det, (setup_call_cleanup(true, reverse(L, [1, 2, 3]), Det = true), Det == true, L == [3, 2, 1]), true).
+test(rl08_reverse_det_empty, (setup_call_cleanup(true, reverse(L, []), Det = true), Det == true, L == []), true).
+test(rl08_reverse_det_first, (setup_call_cleanup(true, reverse([1, 2, 3], L), Det = true), Det == true, L == [3, 2, 1]), true).
 test(msort_dups, msort([b, a, c, a], L), solutions([L = [a, a, b, c]])).
 test(msort_order, (msort([1+Y, z, a, V, 1, 2, V, 1, 7.0, 8.0, 1+Y, 1+2, 8.0, -a, -X, a], S), S == [V, V, 7.0, 8.0, 8.0, 1, 1, 2, a, a, z, -X, -a, 1+Y, 1+Y, 1+2]), true).
 test(msort_inst, msort(_, _), error(instantiation_error)).
