@@ -156,7 +156,12 @@ int use_file(Impl& machine, const Cell& arg, const std::filesystem::path& file,
     // 改訂 1）。利用者が -> や :- を変えた後でも、ライブラリの節を別の項に読まない。
     std::optional<CoreOperatorScope> core;
     if (names_library(machine, arg)) core.emplace(machine);
-    if (open_prolog_file(machine, file, scan, TextRole{nested, false, true}) < 0) return -1;
+    if (open_prolog_file(machine, file, scan, TextRole{nested, false, true}) < 0) {
+      // 節を残した失敗（入れ子の初期化の例外、load_kept）は、退けた user の表の op/3 も残す。前は範囲が抜けるとき
+      // 戻し、モジュールと節は残るのに user の演算子だけが消えた（レビュー L-22）。断られた読み込みは戻す。
+      if (core && machine.load_kept) core->finish();
+      return -1;
+    }
     if (core) core->finish();
     // 同梱ライブラリの翻訳済みの単位は、原文を読み終えてから付ける（ADR 0009）。
     if (bundled) attach_bundled_library(machine, *bundled);

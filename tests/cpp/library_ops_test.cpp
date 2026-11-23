@@ -31,7 +31,7 @@ void check_session(const Session& item) {
 int main() {
   const std::string plain = std::string(MOSA_SOURCE_DIR) + "/tests/cpp/data/library_ops/plain.pl";
   const std::string consult = "op(700, xfx, ===).\nconsult('" + plain + "').\nq(X), X = (a === b).\n";
-  const std::array<Session, 14> cases{{
+  const std::array<Session, 15> cases{{
       // user の -> を変えてからライブラリを読む。前は uselib.pl の節が読めなかった。
       {"op(700, xfx, ->).\n:- use_module(library(uselib)).\nop(1050, xfy, ->).\npick(1, Y).\n", "Y = pos.", ""},
       // :- を消しても、ライブラリの :- module(…) は読める。利用者の指令は ?- で書く。
@@ -65,6 +65,9 @@ int main() {
       {":- use_module(library(rejectops)).\ncurrent_op(P, T, ===).\n", "false.", ""},
       {":- use_module(library(nestops)).\ncurrent_op(P, T, ===).\n", "false.",
        "badops.pl: permission_error(modify,static_procedure,atom_length/2)"},
+      // 節を残して失敗した読み込みは、user:op/3 も残す。前は核の表の範囲が抜けるとき戻し、演算子だけが消えた
+      // （レビュー L-22）。パスで読むときは前から残った。
+      {":- use_module(library(keptops)).\nkeptops:kept, X = (a ===> b), write(X), nl.\n", "a===>b", ""},
   }};
   for (const Session& item : cases) check_session(item);
   return mosa_test::failures();
