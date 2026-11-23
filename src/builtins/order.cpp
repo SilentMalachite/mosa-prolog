@@ -315,6 +315,9 @@ int compare_wide(const Impl& machine, Cell left, Cell right, std::size_t limit =
     int order = 0;
     const std::uint16_t arity = compare_head(machine, a, b, order);
     if (order != 0) return order;
+    // 深さ limit の段の子は比べないので積まない。前は積んでから段の境で捨て、その段の子の数だけ待ち行列と組の表が
+    // 伸びた（レビュー R-L03）。
+    if (depth == limit) continue;
     for (std::uint16_t index = 0; index < arity; ++index) {
       const Cell x = machine.heap.deref(child_of(machine, a, index));
       const Cell y = machine.heap.deref(child_of(machine, b, index));
