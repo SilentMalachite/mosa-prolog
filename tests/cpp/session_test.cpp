@@ -605,6 +605,7 @@ void check_directive_halt();
 void check_prompt_directive_halt();
 void check_argv_after_dashes();
 void check_argv_bad_utf8();
+void check_argv_bad_variable_name();
 void check_repl_line_terms();
 void check_load_then_exit();
 void check_repeated_goals();
@@ -660,6 +661,7 @@ int main(int argc, char** argv) {
   check_prompt_directive_halt();
   check_argv_after_dashes();
   check_argv_bad_utf8();
+  check_argv_bad_variable_name();
   check_repl_line_terms();
   check_load_then_exit();
   check_repeated_goals();

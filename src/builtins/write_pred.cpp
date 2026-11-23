@@ -337,7 +337,10 @@ bool take_pair(Impl& machine, const Goal& goal, Cell item, std::vector<VarName>&
   }
   // 束縛済みは Cor.3 で無視する。未束縛だけ名前を付ける。
   if (!machine.heap.unbound(var)) return false;
-  names.push_back(VarName{std::string{atom_text(machine, name)}, var});
+  // 壊れた UTF-8 は原子と同じく値の同じ字にして持つ（L-12）。生のバイトのままでは名前の頭と終わりの字が分からず、
+  // 書き手が演算子との間の空白を落とした（レビュー R-M10）。
+  const std::string_view text = atom_text(machine, name);
+  names.push_back(VarName{well_formed(text) ? std::string{text} : spelling::same_code_text(text), var});
   return false;
 }
 

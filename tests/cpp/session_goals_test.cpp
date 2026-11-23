@@ -650,6 +650,30 @@ void check_argv_bad_utf8() {
   mosa_test::check(has("same_codes\n"), "memory stream and writeq keep the codes");
 }
 
+// レビュー R-M10。variable_names/1 の名前の壊れた UTF-8 も、各バイトを値の同じ字にしてから空白を決める。前は生の
+// バイトのまま持ったので、名前の頭と終わりの字が分からず、演算子との間の空白を落として Aÿis a と書いた。
+void check_argv_bad_variable_name() {
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal = "current_prolog_flag(argv, [N]), write_term(X is a, [variable_names([N = X])]), nl, "
+                           "write_term(a is Y, [variable_names([N = Y])]), nl.";
+  const std::string arg_t = "-t";
+  const std::string halt = "halt";
+  const std::string dashes = "--";
+  const std::string name = "A\xFF";
+  std::vector<std::string_view> args{arg0, arg_g, goal, arg_t, halt, dashes, name};
+  mosa::SessionResult result;
+  std::string out;
+  {
+    const mosa::StdCapture capture;
+    result = mosa::run_session(args, "", false);
+    out = capture.text();
+  }
+  mosa_test::check(result.code == 0, "bad utf8 variable name: goal succeeds, got [" + result.out + "]");
+  mosa_test::check(out.find("A\xC3\xBF is a\n") != std::string::npos, "bad utf8 name before is, got [" + out + "]");
+  mosa_test::check(out.find("a is A\xC3\xBF\n") != std::string::npos, "bad utf8 name after is, got [" + out + "]");
+}
+
 // REPL は 1 行の項を指令でもゴールでも 1 つずつ動かす。前はゴールの後の残りを捨て、指令の行だけ全部を動かした。
 // 閉じない /* と、行末の継続の \ を持つ引用は、次の行を待つ（レビュー L-19、6.4.2.1）。
 void check_repl_line_terms() {
