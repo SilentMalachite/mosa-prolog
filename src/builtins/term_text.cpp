@@ -92,9 +92,11 @@ void read_text(Impl& machine, const Goal& goal, std::string_view text) {
   reader.set_conversion_end(text.size());
   const ReadOutcome outcome = reader.next();
   if (!outcome.term) {
-    const auto lines = static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n')) + 1;
+    // 誤りが利用者の字面の中ならその理由、足した改行と終止符の所なら incomplete_term。行でなくバイトの位置で比べる。
+    // 行で比べると、CR だけの改行と char_conversion で改行になる字で読み手の行がずれ、字面の中の誤りを
+    // incomplete_term にした（レビュー R-L09）。
     SyntaxReason reason = SyntaxReason::IncompleteTerm;
-    if (outcome.failure && outcome.failure->line <= lines) reason = outcome.failure->reason;
+    if (outcome.failure && outcome.failure->byte < text.size()) reason = outcome.failure->reason;
     return raise(machine, goal, formal_syntax(machine, machine.heap.atom(machine.atoms.intern(syntax_key(reason)))));
   }
   if (do_unify(machine, goal.arg(machine, 0), outcome.term->term)) machine.ip = goal.cont;

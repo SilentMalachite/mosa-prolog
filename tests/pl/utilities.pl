@@ -110,6 +110,11 @@ test(term_to_atom_empty, term_to_atom(_, ''), error(syntax_error(incomplete_term
 test(term_to_atom_blank, term_to_atom(_, '  '), error(syntax_error(incomplete_term))).
 test(term_to_atom_open, term_to_atom(_, 'f('), error(syntax_error(incomplete_term))).
 test(term_to_atom_bad, term_to_atom(_, 'f(a b)'), error(syntax_error(_))).
+% 誤りが利用者の字面の中なら incomplete_term にしない。行でなくバイトの位置で決めるので、CR だけの改行と、
+% char_conversion で改行になる字でもずれない（レビュー R-L09）。字面の終わりで切れた項は前と同じ incomplete_term。
+test(rl09_cr, (atom_codes(A, [0'f, 0'(, 0'a, 13, 0'), 0'b]), catch(term_to_atom(_, A), error(syntax_error(R), _), true), R \== incomplete_term), true).
+test(rl09_cr_open, (atom_codes(A, [0'f, 0'(, 13]), term_to_atom(_, A)), error(syntax_error(incomplete_term))).
+test(rl09_conv, (set_prolog_flag(char_conversion, on), char_conversion(x, '\n'), catch(term_to_atom(_, 'axb)'), error(syntax_error(R), _), true), char_conversion(x, x), set_prolog_flag(char_conversion, off), R \== incomplete_term), true).
 test(term_to_atom_partial, term_to_atom(_, [0'a|_]), error(instantiation_error)).
 test(term_to_atom_element_var, term_to_atom(_, [0'a, _]), error(instantiation_error)).
 test(term_to_atom_compound, term_to_atom(_, f(x)), error(type_error(string, f(x)))).
