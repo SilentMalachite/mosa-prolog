@@ -52,11 +52,17 @@ std::string catalog_module(Machine& machine) {
 }
 
 // 目録のゴール catch((M:message(Key, MosaFormat), with_output_to(atom(MosaText), format:format(MosaFormat, Args))),
-// _, fail) を項で作り、利用者の表で書く。query は同じ表で読み直すので、利用者が : や = を変えても同じ項に戻る（レビュー
-// L19）。字面を手で書くと、op(0, xfy, :) の後は M:message が読めなかった。問い合わせはヒープを捨てるので、項ではなく
-// 字面で渡す。numbervars は偽にする。'$VAR'(1) を B と書くと、読み直したときに変数になる。旗 japanese_punctuation も
-// 同じ旗で書く。偽で書くと、旗が真のとき '：' は : に化け、'、' は読めずに鍵の文面に落ちる（レビュー M8）。
-std::string goal_text(Machine& machine, std::string_view key, std::span<const Cell> args) {
+// _, fail) を項で作り、字面を経ずに写す。前は字面にして読み直したので、巡回は writeq と同じ _ と書かれて新しい変数に
+// なり、~q が _G1 と書いた（レビュー L-18）。字面を経ないので、利用者が : や = を変えても（レビュー L19）、旗
+// japanese_punctuation が何でも（レビュー M8）、ゴールは作った項のまま。写しはヒープに依らないので、読み込みの指示が
+// GC を起こしても引数の古い番地を読まない（L19 の Codex レビュー）。'$message'(MosaText, Goal) を写して根を Goal に
+// 付け替える。先に辿る MosaText は Var の節点なので、その添字を答えの名前にできる。
+struct MessageGoal {
+  ExportedTerm goal;
+  std::array<ExportedName, 1> names;
+};
+
+MessageGoal message_goal(Machine& machine, std::string_view key, std::span<const Cell> args) {
   Impl& impl = engine_impl(machine);
   const auto atom = [&impl](std::string_view name) { return impl.heap.atom(impl.atoms.intern(name)); };
   const auto term = [&impl](std::string_view name, std::initializer_list<Cell> parts) {
@@ -70,14 +76,15 @@ std::string goal_text(Machine& machine, std::string_view key, std::span<const Ce
   const Cell render =
       term("with_output_to", {term("atom", {text}), term(":", {atom("format"), term("format", {format, list})})});
   const Cell goal = term("catch", {term(",", {lookup, render}), impl.heap.fresh_ref(), atom("fail")});
-  WriteOptions options;
-  options.fullwidth = impl.japanese_punct;
-  const std::array<VarName, 2> names{VarName{"MosaFormat", format}, VarName{"MosaText", text}};
-  const std::string written = write_term(impl.heap, impl.operators, goal, options, names);
-  return written + full_stop_after(written);
+  MessageGoal out;
+  out.goal = export_term(impl, term("$message", {text, goal}));
+  const ExportedTerm::Node& wrapper = out.goal.nodes[static_cast<std::size_t>(out.goal.root)];
+  out.names[0] = ExportedName{"MosaText", wrapper.kids[0]};
+  out.goal.root = wrapper.kids[1];
+  return out;
 }
 
-// 文面を作る間は char_conversion を止め、抜けるとき戻す。目録の指示とゴールは Mosa が書いた字面で、カタログも Mosa の
+// 文面を作る間は char_conversion を止め、抜けるとき戻す。目録を読む指示は Mosa が書いた字面で、カタログも Mosa の
 // 文書だからである（レビュー L17 の続き。止めないと a を b に写す変換の下で library が librbry に化け、鍵の形に落ちた）。
 // render_message は問い合わせの外でしか呼ばれないので、止めた旗を利用者のゴールが見ることは無い。
 class ConversionPause {
@@ -147,9 +154,9 @@ std::string render_here(Machine& machine, std::string_view key, std::span<const 
   const ConversionPause pause(engine_impl(machine).char_conv);
   const DebugPause quiet(engine_impl(machine));
   try {
-    // ゴールは読み込みより先に、利用者の表で字面にする。args は GC の根に無いので、読み込みの指示が GC を起こすと
-    // 動いた後の番地を指す（L19 の Codex レビュー）。ヒープに項を作るので、溢れたときは下の catch が受ける。
-    const std::string goal = goal_text(machine, key, args);
+    // ゴールは読み込みより先に写す。args は GC の根に無いので、読み込みの指示が GC を起こすと動いた後の番地を指す
+    // （L19 の Codex レビュー）。ヒープに項を作るので、溢れたときは下の catch が受ける。
+    const MessageGoal goal = message_goal(machine, key, args);
     // 読み込みは指示でしか書けないので、問い合わせの前に済ませる。machine は文面のための新しい機械なので、表と
     // library(format) と library(lists) はここに読み、利用者の機械には読まない（ADR 0007 の改訂 3）。
     // 指示の字面も Mosa のものなので、ISO の核で読む。カタログと library(format) は、use_module が library(...) の
@@ -159,7 +166,7 @@ std::string render_here(Machine& machine, std::string_view key, std::span<const 
       if (!machine.load_program(":- use_module(library(" + catalog_module(machine) + ")).\n").ok) return fallback;
       core.finish();
     }
-    const Stop stop = machine.query(goal);
+    const Stop stop = query_exported(machine, goal.goal, goal.names);
     if (stop.kind != StopKind::Success) return fallback;
     for (const Binding& binding : stop.bindings) {
       if (binding.name != "MosaText") continue;
@@ -194,7 +201,7 @@ std::string render_message(Machine& machine, std::string_view key, std::span<con
     other.render_only = true;
     other.operators = impl.operators;
     other.japanese_punct = impl.japanese_punct;
-    // 写した項は GC の根に無い。render_here は読み込みの前に字面にするので、その間に GC は起きない。
+    // 写した項は GC の根に無い。render_here は読み込みの前にゴールへ写すので、その間に GC は起きない。
     std::vector<Cell> cells;
     cells.reserve(args.size());
     for (const Cell arg : args) cells.push_back(carry_term(impl, other, arg));

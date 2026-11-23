@@ -57,13 +57,14 @@ void check_gc_during_load() {
 
 // 文面を作る機械へ写した引数も、利用者の機械で書いたときと同じ字面になる（ADR 0007 の改訂 3、Muse のレビュー）。
 // 共有する部分、浮動小数点数、大きな整数、符号、引用、深い項、部分リスト。字面は写す前の版で書いたものと同じ。
-// 巡回の行は、写すときに巡回で止まらなくならないことを見る。目録のゴールは字面にして読み直すので、巡回は _ と書かれて
-// 新しい変数になり、字面は巡回の無い f(A, B, B) と同じになる。巡回を新しい変数に替えて写す形とは字面で区別できない。
+// 巡回の行は、写すときに巡回で止まらなくならないことと、巡回の所を writeq と同じく _ と書くことを見る。前は目録の
+// ゴールを字面にして読み直したので、巡回は新しい変数になり _G1 と書かれた（レビュー L-18）。
 void check_carried() {
-  const std::array<Shown, 8> cases{{
+  const std::array<Shown, 9> cases{{
       {"true.", "Y = h(Z), throw(k(Y, Y, Z, \"ab\", [1,2|T])).",
        "Warning: goal raised exception: k(h(_G1),h(_G1),_G1,[97,98],[1,2|_G2])\n"},
-      {"true.", "X = f(X, Y, Y), throw(X).", "Warning: goal raised exception: f(_G1,_G2,_G2)\n"},
+      {"true.", "X = f(X, Y, Y), throw(X).", "Warning: goal raised exception: f(_,_G1,_G1)\n"},
+      {"true.", "X = f(X), throw(X).", "Warning: goal raised exception: f(_)\n"},
       {"true.", "throw(g(1.5, -0.0, 1.0e300)).", "Warning: goal raised exception: g(1.5,-0.0,1.0e+300)\n"},
       {"true.", "throw(123456789012345678901234567890).",
        "Warning: goal raised exception: 123456789012345678901234567890\n"},
