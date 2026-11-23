@@ -122,6 +122,14 @@ void check_option_forms(const std::filesystem::path& root) {
                      "\ttest(e1, exists(X == 2), [cleanup(assertz(r16_seen(X)))]) :- member(X, [1, 2]).\n"
                      "\ttest(e2, true) :- r16_seen(2).\n",
                      2, 2, {}});
+  // ランナー目標のある本体の道も、成り立った解の束縛で cleanup を動かす（レビュー RV-m03）。前は本体の最初の解の
+  // 写しで上書きし、r16_mixed(1) を入れた。
+  check_suite(root, {"option_exists_mixed",
+                     "\t:- dynamic(r16_mixed/1).\n"
+                     "\ttest(e3, exists(X == 2), [cleanup(assertz(r16_mixed(X)))]) :- member(X, [1, 2]), assertion(true).\n"
+                     "\ttest(e4, true) :- r16_mixed(2).\n"
+                     "\ttest(e5, true) :- \\+ r16_mixed(1).\n",
+                     3, 3, {}});
 }
 
 // cleanup は本体の後に、本体の束縛で動く。ストリームは字面で写しても同じものを指すので、同じ別名を次の試験が開ける。

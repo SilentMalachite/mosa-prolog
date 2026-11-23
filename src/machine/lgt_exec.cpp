@@ -680,8 +680,14 @@ LgtEnd from_env(Machine& machine, LgtWant want, Env& env) {
   synthetic.kind = StopKind::Success;
   synthetic.bindings = env.bindings;
   end = lgt_finish(machine, want, synthetic);
-  // 本体の束縛は字面の写しにある。cleanup(Goal) に貼る（レビュー M-50）。
-  if (want.keep) end.kept = env.saved;
+  // 本体の束縛は字面の写しにある。cleanup(Goal) に貼る（レビュー M-50）。exists が後の解で成り立ったなら、lgt_finish は
+  // その解の束縛を kept に写してある。その写しは最後の query の変数だけなので、本体の写しに重ねる。前は本体の最初の
+  // 解の写しで上書きし、cleanup が成り立たなかった解を見た（レビュー RV-m03）。
+  if (want.keep) {
+    std::vector<Saved> kept = env.saved;
+    for (const Saved& slot : end.kept) remember_saved(kept, slot.name, slot.term);
+    end.kept = std::move(kept);
+  }
   return end;
 }
 
