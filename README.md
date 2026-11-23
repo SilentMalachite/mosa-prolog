@@ -180,7 +180,7 @@ mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # I
 mosatest --manual docs/manual         # The examples of the manual, in English and Japanese
 ```
 
-`--report` may be omitted only when you pass the bundled `tests/conformance` (for `--diff`, also `tests/pl`) from the repository root. `--diff` also takes `--work`, `--cmake` and `--config`; see [`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md) for `--bench`. This keeps another suite from overwriting the report and badge data in `docs/`.
+`--report` may be omitted only when you pass the bundled `tests/conformance` (for `--diff`, also `tests/pl`) from the repository root. `--diff` also takes `--work`, `--cmake` and `--config`; see [`docs/bench.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.md) for `--bench`. This keeps another suite from overwriting the report and badge data in `docs/`. A `--report` name that would be the same file as the one written beside it is refused: `.json` for `--suite` (the badge) and `.md` for `--diff` (the table).
 
 ## Japanese variables
 

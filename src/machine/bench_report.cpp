@@ -3,6 +3,7 @@
 // CI の比べる手順（.github/workflows/ci.yml）も同じ行を sed で読む。生成物で、手で直さない（.ja.md も置かない）。
 
 #include "bench_report.hpp"
+#include "report_text.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -15,17 +16,8 @@ namespace {
 
 constexpr std::string_view kEntryPrefix = "{\"file\":";
 
-std::string quote(std::string_view text) {
-  std::string out = "\"";
-  for (const char unit : text) {
-    if (unit == '"' || unit == '\\') out.push_back('\\');
-    out.push_back(unit);
-  }
-  return out + "\"";
-}
-
 std::string entry_text(const BenchResult& result) {
-  return std::string{kEntryPrefix} + quote(result.file) + ",\"count\":" + std::to_string(result.count) +
+  return std::string{kEntryPrefix} + json_quote(result.file) + ",\"count\":" + std::to_string(result.count) +
          ",\"interpreter_ms\":" + std::to_string(result.interpreter_ms) +
          ",\"translated_ms\":" + std::to_string(result.translated_ms) + ",\"ratio\":" + result.ratio + "}";
 }
@@ -53,7 +45,7 @@ std::vector<std::string> read_entries(const std::filesystem::path& json) {
 bool write_bench_report(const std::filesystem::path& json, const BenchResult& result) {
   std::vector<std::string> entries = read_entries(json);
   // 鍵は行の頭の {"file":"…", までで比べる。ほかのファイルの名がこの名で始まっても、閉じの " と , で分かれる。
-  const std::string key = std::string{kEntryPrefix} + quote(result.file) + ",";
+  const std::string key = std::string{kEntryPrefix} + json_quote(result.file) + ",";
   std::erase_if(entries, [&](const std::string& entry) { return entry.starts_with(key); });
   entries.push_back(entry_text(result));
   std::sort(entries.begin(), entries.end());
@@ -66,6 +58,8 @@ bool write_bench_report(const std::filesystem::path& json, const BenchResult& re
     out << "  " << entries[index] << (index + 1 < entries.size() ? ",\n" : "\n");
   }
   out << " ]\n}\n";
+  // 書けないことが close で初めて分かることがある。デストラクタの close は結果を返さない（レビュー L-39）。
+  out.close();
   return static_cast<bool>(out);
 }
 

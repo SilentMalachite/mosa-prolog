@@ -182,7 +182,7 @@ mosatest --bench bench/nrev.pl --count 20000 --report tests/tmp/bench.json   # �
 mosatest --manual docs/manual         # マニュアルの例を、英語版と日本語版で動かす
 ```
 
-`--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance`（`--diff` では `tests/pl` も）を渡したときだけです。`--diff` は `--work`、`--cmake`、`--config` も取ります。`--bench` は [`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md) を見てください。別のスイートで `docs/` の報告書とバッジを上書きしないためです。
+`--report` を省けるのは、リポジトリ直下で同梱の `tests/conformance`（`--diff` では `tests/pl` も）を渡したときだけです。`--diff` は `--work`、`--cmake`、`--config` も取ります。`--bench` は [`docs/bench.ja.md`](https://github.com/SilentMalachite/mosa-prolog/blob/main/docs/bench.ja.md) を見てください。別のスイートで `docs/` の報告書とバッジを上書きしないためです。隣に書くファイルと同じになる `--report` の名前は断ります。`--suite` では `.json`（バッジ）、`--diff` では `.md`（表）です。
 
 ## 日本語の変数
 

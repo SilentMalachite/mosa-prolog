@@ -3,6 +3,7 @@
 
 #include "lgt_suite.hpp"
 #include "percent.hpp"
+#include "report_text.hpp"
 
 #include "mosa/heap.hpp"
 #include "mosa/messages.hpp"
@@ -360,6 +361,15 @@ SuiteArgs parse_suite_args(std::span<const std::string_view> args) {
 }
 
 int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
+  const std::filesystem::path report = path_from_utf8(report_path);
+  const std::filesystem::path badge = std::filesystem::path{report}.replace_extension(".json");
+  // 本欄のバッジは報告書の拡張子を .json に替えた名前なので、.json の報告書はバッジに黙って上書きされた（レビュー L-39）。
+  if (extension_is(report, ".json")) {
+    std::cerr << render_message_fresh(default_message_language(), "report_same_name",
+                                      std::array{utf8_from_path(report), utf8_from_path(badge)})
+              << '\n';
+    return 1;
+  }
   const std::filesystem::path prolog = path_from_utf8(suite_dir) / "logtalk" / "prolog";
   std::error_code error;
   if (!std::filesystem::is_directory(prolog, error) || error) return 1;
@@ -374,9 +384,8 @@ int run_iso_suite(std::string_view suite_dir, std::string_view report_path) {
     if (left.path != right.path) return left.path < right.path;
     return left.detail < right.detail;
   });
-  const std::filesystem::path report = path_from_utf8(report_path);
   const BadgeGate iso_gate =
-      open_gate(std::filesystem::path{report}.replace_extension(".json"), "ISO conformance", "conformance_regressed");
+      open_gate(badge, "ISO conformance", "conformance_regressed");
   const BadgeGate library_gate =
       open_gate(library_badge_path(report), "library conformance", "library_conformance_regressed");
   // 書けなかった報告書は合格率がいくつでも失敗にする。黙って 0 で終えると、古い報告書とバッジが残る（Muse のレビューの中）。

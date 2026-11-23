@@ -80,8 +80,8 @@ A = [一,二].
 | コマンド | すること |
 | --- | --- |
 | `mosatest ファイル` | ファイルの事実 `test(Name, Goal, Expected)` を読み込み、ゴールを 1 つずつ実行します。`Expected` は `true`、`fail`、`error(Formal)`、`ball(Ball)`、`solutions(List)` のどれかで、`List` には解をすべて順に並べます。リストは `[]` で閉じ、解はそれぞれ `Name = Value` を `,` でつないで書きます。ほかの形は不合格になります。`error(Formal)` は、投げた項が `error(F, _)` で、`F` が `Formal` の具体例であることを求めます。`ball(Ball)` は、投げた項が何であれ `Ball` の具体例であることを求めます。期待どおりにならなかったゴールを出し、1 つでもあれば 1 で終わります。フォルダを渡せば、その中の `.pl` のファイルをどれも実行します。テストの無いファイルと、`.pl` ファイルの無いフォルダも 1 で終わります。 |
-| `mosatest --suite フォルダ --report ファイル` | ソースの木にある適合性のテストを実行し、2 つの欄を報告します。ISO の欄と、Mosa が ISO の外で提供するライブラリ述語のライブラリ欄です。報告はそのファイルに書き、各欄のバッジの元データをその隣に書きます。同梱のスイートなら、ISO の欄は `docs/conformance.json`、ライブラリ欄は `docs/conformance-library.json` です。 |
-| `mosatest --diff フォルダ --report ファイル` | テストを `mosa` と `mosac` の両方で実行し、結果を比べます。 |
+| `mosatest --suite フォルダ --report ファイル` | ソースの木にある適合性のテストを実行し、2 つの欄を報告します。ISO の欄と、Mosa が ISO の外で提供するライブラリ述語のライブラリ欄です。報告はそのファイルに書き、各欄のバッジの元データをその隣に書きます。同梱のスイートなら、ISO の欄は `docs/conformance.json`、ライブラリ欄は `docs/conformance-library.json` です。`.json` で終わる報告のファイルは、ISO の欄のバッジと同じになるので断ります。 |
+| `mosatest --diff フォルダ --report ファイル` | テストを `mosa` と `mosac` の両方で実行し、結果を比べます。`.md` で終わる報告のファイルは、隣にその名前で表を書くので断ります。 |
 | `mosatest --bench ファイル --count 回数` | プログラムにかかる時間を、`mosa` と `mosac` で測ります。 |
 | `mosatest --roundtrip ファイル` | ファイルの項を 1 つずつ書き出し、読み戻します。 |
 | `mosatest --manual フォルダ` | このマニュアルの例を実行します。フォルダには、パッケージの `docs/manual` のように `en` と `ja` があります。`--work フォルダ` は例を動かす場所、`--mosa パス` は確かめる `mosa`、`--all-tables` はすべての述語の表を求めることを指定します。 |

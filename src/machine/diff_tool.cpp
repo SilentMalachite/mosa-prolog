@@ -10,6 +10,8 @@
 #include "mosa/path_text.hpp"
 #include "mosa/process.hpp"
 
+#include "report_text.hpp"
+
 #include <array>
 #include <filesystem>
 #include <iostream>
@@ -109,6 +111,12 @@ DiffArgs parse_diff_args(std::span<const std::string_view> args) {
 }
 
 int run_diff(const DiffArgs& args) {
+  // 表は JSON の拡張子を .md に替えた名前なので、.md の JSON は表に上書きされた。長いビルドの前に断る（レビュー L-39）。
+  if (!args.report.empty() && extension_is(path_from_utf8(args.report), ".md")) {
+    const std::string table = utf8_from_path(path_from_utf8(args.report).replace_extension(".md"));
+    std::cerr << message("report_same_name", {args.report, table}) << '\n';
+    return 1;
+  }
   const auto self = executable_path();
   if (!self) {
     std::cerr << message("diff_no_self") << '\n';

@@ -62,6 +62,21 @@ void check_quote(const std::filesystem::path& json) {
 
 }  // namespace
 
+// レビュー L-39。制御文字は \t、\n、\u0001 のように逃がし、1 行 1 プログラムの形を保つ。前は " と \ だけを逃がし、
+// タブや改行がそのまま入って JSON として読めなかった。
+void check_control(const std::filesystem::path& json) {
+  std::error_code error;
+  std::filesystem::remove(json, error);
+  mosa_test::check(mosa::write_bench_report(json, {"bench/a\tb\nc\x01.pl", 1, 2, 3, "0.7"}), "control write");
+  mosa_test::check(mosa::write_bench_report(json, {"bench/a\tb\nc\x01.pl", 1, 5, 3, "1.7"}), "control replace");
+  const std::string text = read_all(json);
+  mosa_test::check(text.find("{\"file\":\"bench/a\\tb\\nc\\u0001.pl\",\"count\":1,\"interpreter_ms\":5,") !=
+                       std::string::npos,
+                   "tab, newline and U+0001 escaped, got " + text);
+  mosa_test::check(text.find('\t') == std::string::npos && text.find('\x01') == std::string::npos, "no raw control");
+  mosa_test::check(text.find("\"interpreter_ms\":2,") == std::string::npos, "escaped control key replaced");
+}
+
 int main() {
   const std::filesystem::path dir = std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "bench_report_test";
   std::error_code error;
@@ -70,5 +85,6 @@ int main() {
   check_args();
   check_upsert(dir / "bench.json");
   check_quote(dir / "quoted.json");
+  check_control(dir / "control.json");
   return mosa_test::failures();
 }

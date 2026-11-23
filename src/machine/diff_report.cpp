@@ -5,6 +5,7 @@
 
 #include "diff.hpp"
 #include "percent.hpp"
+#include "report_text.hpp"
 
 #include "mosa/path_text.hpp"
 
@@ -24,6 +25,15 @@
 
 namespace mosa {
 namespace {
+
+// \u のほかの逃がしが表す字。
+std::optional<char> plain_escape(char escape) {
+  if (escape == '"' || escape == '\\' || escape == '/') return escape;
+  if (escape == 'n') return '\n';
+  if (escape == 't') return '\t';
+  if (escape == 'r') return '\r';
+  return std::nullopt;
+}
 
 struct Section {
   std::string label;
@@ -60,12 +70,31 @@ class JsonReader {
   std::size_t at_ = 0;
 };
 
+// 逃がしは json_quote が書く形（\" \\ \n \t \r と \u00XX）を戻す。json_quote が \u で書くのは U+001F までなので、
+// ASCII より上の \u は形が違うものとして捨てる。前は \ の次の字をそのまま取り、\t を t と読んだ（レビュー L-39）。
 std::optional<std::string> JsonReader::string() {
   if (!take('"')) return std::nullopt;
   std::string out;
   while (at_ < text_.size() && text_[at_] != '"') {
-    if (text_[at_] == '\\' && at_ + 1 < text_.size()) ++at_;
-    out.push_back(text_[at_++]);
+    if (text_[at_] != '\\') {
+      out.push_back(text_[at_++]);
+      continue;
+    }
+    if (at_ + 1 >= text_.size()) return std::nullopt;
+    const char escape = text_[at_ + 1];
+    at_ += 2;
+    if (const auto plain = plain_escape(escape)) {
+      out.push_back(*plain);
+      continue;
+    }
+    unsigned code = 0;
+    const std::string_view digits = text_.substr(at_, 4);
+    const auto [stop, error] = std::from_chars(digits.data(), digits.data() + digits.size(), code, 16);
+    if (escape != 'u' || digits.size() != 4 || error != std::errc{} || stop != digits.data() + 4 || code > 0x7FU) {
+      return std::nullopt;
+    }
+    out.push_back(static_cast<char>(code));
+    at_ += 4;
   }
   if (!take('"')) return std::nullopt;
   return out;
@@ -140,15 +169,6 @@ bool JsonReader::read(std::vector<Section>& sections) {
   });
 }
 
-std::string quote(std::string_view text) {
-  std::string out = "\"";
-  for (const char unit : text) {
-    if (unit == '"' || unit == '\\') out.push_back('\\');
-    out.push_back(unit);
-  }
-  return out + "\"";
-}
-
 std::string ratio(std::size_t part, std::size_t whole) {
   return std::to_string(part) + "/" + std::to_string(whole) + " (" + percent_text(part, whole) + "%)";
 }
@@ -181,7 +201,8 @@ void write_stats(std::ostream& out, const DiffStats& stats) {
       << ",\"predicates\":" << stats.predicates << ",\"translatedPredicates\":" << stats.translated_predicates
       << ",\"attachedPredicates\":" << stats.attached_predicates << ",\"untranslated\":{";
   for (std::size_t index = 0; index < stats.untranslated.size(); ++index) {
-    out << (index == 0 ? "" : ",") << quote(stats.untranslated[index].shape) << ':' << stats.untranslated[index].count;
+    const DiffShape& shape = stats.untranslated[index];
+    out << (index == 0 ? "" : ",") << json_quote(shape.shape) << ':' << shape.count;
   }
   out << "}}";
 }
@@ -189,11 +210,11 @@ void write_stats(std::ostream& out, const DiffStats& stats) {
 void write_json(std::ostream& out, const std::vector<Section>& sections) {
   const DiffStats total = total_of(sections);
   const std::string message = total.compared == 0 ? std::string{"no tests"} : ratio(total.agreed, total.compared);
-  out << "{\"schemaVersion\":1,\"label\":\"interpreter = translated\",\"message\":" << quote(message)
-      << ",\"color\":" << quote(badge_color(total)) << ",\n";
+  out << "{\"schemaVersion\":1,\"label\":\"interpreter = translated\",\"message\":" << json_quote(message)
+      << ",\"color\":" << json_quote(badge_color(total)) << ",\n";
   out << " \"generated\":\"mosatest --diff writes this file. Do not edit by hand.\",\n \"directories\":{";
   for (std::size_t index = 0; index < sections.size(); ++index) {
-    out << (index == 0 ? "\n  " : ",\n  ") << quote(sections[index].label) << ':';
+    out << (index == 0 ? "\n  " : ",\n  ") << json_quote(sections[index].label) << ':';
     write_stats(out, sections[index].stats);
   }
   out << "\n }\n}\n";

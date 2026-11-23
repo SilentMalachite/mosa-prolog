@@ -211,6 +211,19 @@ void check_unwritable(const std::filesystem::path& root) {
 
 }  // namespace
 
+// レビュー L-39。--report が .json なら本欄のバッジと同じファイルになるので、流す前に断って 1 で終える。前はバッジが
+// 報告書を黙って上書きし、0 で終えた。拡張子の大小は区別しない（macOS と Windows では同じファイル）。
+void check_report_clash(const std::filesystem::path& root) {
+  const auto suite = root / "clash";
+  write_cases(suite, "atom_length_2", 1, 0);
+  for (const char* name : {"clash.json", "clash.JSON"}) {
+    const auto report = root / name;
+    mosa_test::check(mosa::run_iso_suite(suite.string(), report.string()) == 1, std::string{name} + ": refused");
+    mosa_test::check(!path_exists(report), std::string{name} + ": nothing written");
+    mosa_test::check(!path_exists(root / "clash-library.json"), std::string{name} + ": no library badge");
+  }
+}
+
 int main() {
   const std::filesystem::path root =
       std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "badge-fixture";
@@ -224,6 +237,7 @@ int main() {
   check_halt_rows(root);
   check_absent(root);
   check_unwritable(root);
+  check_report_clash(root);
   std::filesystem::remove_all(root, error);
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();
