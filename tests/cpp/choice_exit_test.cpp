@@ -22,7 +22,10 @@ constexpr std::string_view k_program =
     // ADR 0014。ゴール位置に変数があるので、Goal と Recovery は Call の節点として call/1 で動く。
     "lv(0, _) :- !. lv(N, X) :- catch((X, true), _, true), N1 is N - 1, lv(N1, X).\n"
     "lr(0, _) :- !. lr(N, X) :- catch(throw(e), _, (X, true)), N1 is N - 1, lr(N1, X).\n"
-    "p(1). p(2).";
+    "p(1). p(2).\n"
+    // レビュー L-32。portray の中の catch は p/1 の選択点を上に残して抜けるので、無効にした印を catch_log に残す。
+    "portray(l32) :- catch(p(_), _, true), write(px).\n"
+    "lp(N) :- N > 0, print(l32), N1 is N - 1, lp(N1).\nlp(0).";
 
 mosa::Stop ask(mosa::Machine& machine, std::string_view goal, bool& limited) {
   limited = false;
@@ -79,6 +82,24 @@ void check_popped_now() {
 
 }  // namespace
 
+// レビュー L-32。run_goal は入れ子の実行の後でスタックを戻すとき、catch_log も戻したスタックまで削る。前は入れ子の
+// 枠の印が残り、後の切りや抜けまで portray を呼ぶたびに増えた。lp/1 は切りも後戻りもしないので、増えれば残る。
+void check_portray_catch_log() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(k_program).ok, "portray: load");
+  auto& impl = mosa::engine_impl(*machine);
+  bool limited = false;
+  const auto stop = ask(*machine, "with_output_to(atom(_), lp(1000)).", limited);
+  mosa_test::check(!limited && stop.kind == mosa::StopKind::Success, "portray: succeeds");
+  std::size_t above = 0;
+  for (const auto& record : impl.catch_log) {
+    if (record.index >= impl.stack.size()) ++above;
+  }
+  mosa_test::check(impl.catch_log.size() < 16, "portray: catch_log stays flat, got " +
+                                                    std::to_string(impl.catch_log.size()));
+  mosa_test::check(above == 0, "portray: no record above the stack");
+}
+
 int main() {
   check_loop("lw(1000000).");
   check_loop("ls(1000000).");
@@ -88,5 +109,6 @@ int main() {
   check_loop("lr(1000000, true).");
   check_kept_catch();
   check_popped_now();
+  check_portray_catch_log();
   return mosa_test::failures();
 }

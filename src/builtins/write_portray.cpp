@@ -200,6 +200,9 @@ Ran run_goal(Impl& machine, const GoalRef& goal, const EnvRef& env, std::uint32_
     if (closed.kind != StopKind::Success) stop = std::move(closed);
   }
   machine.stack = saved.stack;
+  // 入れ子の枠の catch を無効にした印も、戻したスタックまで削る。前は後の切りや抜けまで残り、portray を呼ぶたびに
+  // 増えた（レビュー L-32）。
+  prune_catch_log(machine);
   count_vectors(machine);
   trim_extras(machine, saved.extras_mark);
   if (stop.kind == StopKind::Exception) {
