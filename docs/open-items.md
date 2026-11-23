@@ -10,6 +10,12 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - The 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06,
   M-08, M-16 and M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry
   gives its A or B; default A, which keeps the current behaviour (H-09, H-12, H-18: owner's B).
+- Review L-06 (fac56275): A, keep binding the newer of two unbound variables to the older (ADR 0019
+  amendment 1; four REPL answer shapes name the older variable, `solutions` writes `X = Y` as `Y = X`),
+  or B, bind left to right again (one revert of fac56275 and its test changes)? Default A.
+- Review N-07: A, write an ADR for constant-time first-argument dispatch in generated code (a key
+  table per unit, keyless clauses not copied into each key), or B, keep the linear `if` chain and list
+  it as a known limit? It changes the native code of ADR 0009, so no code before the answer.
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
@@ -44,9 +50,6 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Review L-12 (A, 2026-11-23): an atom holding invalid UTF-8 (from argv) is written with each bad
   byte as the character of that code, as `atom_codes/2` sees it (`FF` as U+00FF); the output is
   well-formed UTF-8, but its bytes differ from the atom's. B (raw bytes, `\xFF\` in writeq) declined.
-- Review L-06 (A by default, 2026-11-23): unification binds the newer of two unbound variables to the
-  older (ADR 0019 amendment 1). Four REPL answer shapes now name the older variable, and `solutions`
-  writes the alias of `X = Y` as `Y = X`. B (left-to-right binding again) is one revert of the L-06 fix.
 - Review L-16 (A, 2026-11-23): `meta_predicate` keeps reading a list that is not proper as the
   spec of `'.'/2` (the `m28_dot_*` rows of `tests/pl/modules.pl`), and `[]` as that of `'[]'/0`.
 - The test presets' job count (A, 2026-11-23): a fixed 4 in all five presets, the same on every
@@ -160,6 +163,9 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Checked by hand only, or not tested
 
+- The REPL answer form `P = _G1` (a class of one name whose variable is not that name's own, ADR 0019)
+  has no test since L-06: unification never binds a query variable to a newer one, so no REPL query
+  reached here builds it. The code stays for other bindings.
 - `mosatest F` does not catch `ResourceLimit` in `run_exam` or `run_one` (`suite.cpp`), so a heap
   stop in one test would end the run. Its machine has the default 4 GiB heap, so this was not
   reached (review M-53, from code).

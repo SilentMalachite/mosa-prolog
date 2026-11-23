@@ -7,7 +7,7 @@
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** W9 L-03 to L-41 (L-06 on default A, ADR 0019 amendment 1) and N-01 to N-11 except
   N-07 (56c58f39); ctest 284/284. N-07 needs an ADR (generated dispatch). Earlier: review file.
-- **Next:** W9 by file (W8's open items are owner questions on default A); 0.5.1 after W9 (A).
+- **Next:** push and CI (nothing after L-37 has run on Linux or Windows); N-07 needs an ADR or B; 0.5.1.
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** none; no code or test file is at 730 lines or more (open-items).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in
