@@ -243,15 +243,29 @@ std::size_t clause_vars(const ClauseCtx& ctx) { return ctx.predicate.clauses[ctx
 
 // 生きた変数を足していく入れ物。seen で重複を除くので、足す 1 つにつき定数の手間で済む。
 struct LiveAcc {
-  std::vector<char> seen;
+  std::vector<std::uint32_t>* seen = nullptr;
+  std::uint32_t generation = 0;
   std::vector<std::uint32_t> slots;
 
   void add(std::uint32_t slot) {
-    if (slot >= seen.size() || seen[slot] != 0) return;
-    seen[slot] = 1;
+    if (slot >= seen->size() || (*seen)[slot] == generation) return;
+    (*seen)[slot] = generation;
     slots.push_back(slot);
   }
 };
+
+// 新しい世代の LiveAcc。印の配列は節の最初の並びで 1 度だけ確保し、世代の番号が一回りしたときだけ 0 に戻す。
+LiveAcc fresh_acc(ClauseCtx& ctx) {
+  if (ctx.seen_marks.size() != clause_vars(ctx)) ctx.seen_marks.assign(clause_vars(ctx), 0);
+  if (++ctx.seen_generation == 0) {
+    std::fill(ctx.seen_marks.begin(), ctx.seen_marks.end(), 0);
+    ctx.seen_generation = 1;
+  }
+  LiveAcc acc;
+  acc.seen = &ctx.seen_marks;
+  acc.generation = ctx.seen_generation;
+  return acc;
+}
 
 // ref が使う変数を acc に足す。枝の並びの変数は、呼び手（fill_lists）が先に覚えてある。
 void add_goal(ClauseCtx& ctx, const GoalRef& ref, LiveAcc& acc) {
@@ -285,8 +299,7 @@ void remember(ClauseCtx& ctx, const GoalRef* at, const LiveAcc& acc) {
 // 算術はその場で動いて同じ関数で続くので、その後ろの接尾は覚えない（g, X1 is 1, ..., Xn is n のような本体の覚えが
 // n の 2 乗にならないように）。
 void fill_list(ClauseCtx& ctx, std::span<const GoalRef> list) {
-  LiveAcc acc;
-  acc.seen.assign(clause_vars(ctx), 0);
+  LiveAcc acc = fresh_acc(ctx);
   for (std::size_t index = list.size(); index-- > 0;) {
     add_goal(ctx, list[index], acc);
     if (index == 0 || !arith_goal(ctx.machine, *list[index - 1].term)) remember(ctx, &list[index], acc);
@@ -475,8 +488,7 @@ const std::vector<std::uint32_t>& live_of(ClauseCtx& ctx, std::span<const GoalRe
   // 足して覚える。
   std::size_t next = 1;
   while (next < goals.size() && !ctx.live.contains(&goals[next])) ++next;
-  LiveAcc acc;
-  acc.seen.assign(clause_vars(ctx), 0);
+  LiveAcc acc = fresh_acc(ctx);
   if (next < goals.size()) {
     for (const std::uint32_t slot : ctx.live.at(&goals[next])) acc.add(slot);
   }

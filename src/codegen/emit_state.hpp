@@ -160,6 +160,10 @@ struct ClauseCtx {
   std::set<const GoalRef*> filled;
   std::size_t live_cells = 0;
   bool oversized = false;
+  // LiveAcc が見た変数の印。並びごとに節の変数の数だけ確保して 0 にすると、変数の多い節の枝の数だけ掛かった
+  // （レビュー R-M11）。節ごとに 1 本持ち、並びごとに世代の番号を進める。LiveAcc は同時に 2 つ使わない。
+  std::vector<std::uint32_t> seen_marks;
+  std::uint32_t seen_generation = 0;
   // 状態の番号と枠が運ぶ変数。仕様の全体が同じ状態は 1 つにまとめる。
   std::map<const GoalRef*, std::map<StateRest, std::pair<std::uint32_t, std::vector<std::uint32_t>>>> states;
   // まだ関数を出していない状態。emit_clause が空になるまで出す。
