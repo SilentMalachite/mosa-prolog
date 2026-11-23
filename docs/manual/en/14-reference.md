@@ -759,8 +759,6 @@ or removed. Among them:
 - A goal that you write as `system:Goal`, a predicate whose name starts with `$`, the goals that built-ins run for themselves, and the calls that a library predicate makes inside itself are not traced. Your own goals that a library predicate calls, as `maplist/2` does, are traced, and so is a single goal that you write with a library's name, as `lists:append(X, Y, Z)`; the goals of a control construct after `lists:` and a `lists:` goal that a library predicate calls for you are not.
 - A port that stops reads, as its command, what `get_char/1` and the like left of the line, as the `;` prompt does:
   `na` typed for `trace, get_char(C)` aborts at the Exit port. Only the end of the line that `read/1` leaves is dropped.
-- On Windows, a `mosa` whose input is the `NUL` device is taken for a terminal and stops at the first port, so
-  record a run through a pipe (chapter 15).
 - Pressing Enter at a port that Mosa reached in leap mode switches the debugger to creep, and the prompt becomes
   `[trace]`.
 - `a` (abort) in an `initialization/1` goal makes the load fail but keeps the clauses it read, as an error in such a

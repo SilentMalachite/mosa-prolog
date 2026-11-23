@@ -2,6 +2,163 @@ English | [日本語](CHANGELOG.ja.md)
 
 # Changelog
 
+## 0.5.1 (2026-11-24)
+
+A maintenance release after reviews of 0.5.0 (an external review of 2026-11-20 and two reviews of its fixes): a
+file that consults itself through a goal, a deep `:- meta_predicate` directive and a deep clause body under `mosac`
+no longer crash; `bagof/3` and `setof/3` copy each solution as `findall/3` does; cyclic terms and `nb_setval/2` stop
+at the heap limit, and the standard streams no longer keep every byte they pass; more terms that `writeq/1` writes
+read back; and `mosatest` judges tests more strictly. It runs on the same computers as 0.5.0
+([chapter 2](docs/manual/en/02-install.md)), and every example of the [manual](docs/manual/en/README.md) is checked
+against it.
+
+### Changed
+
+- When two unbound variables are unified, the newer one is now bound to the older one (Mosa 0.5.0 bound the left
+  one to the right one), so long chains of linked variables no longer slow down later reads. Some answers at the
+  prompt now name the older variable: `findall(f(X)-X, true, [Y-P]).` answers `X = X, Y = f(P).`, where 0.5.0
+  answered `X = X, Y = f(_G1), P = _G1.` (ADR 0019 amendment 1), and in a `solutions` expectation of `mosatest` the
+  alias that `X = Y` makes is written `Y = X`.
+- At most 64 loads can now be open at once, counting each file that `consult/1`, `[F]`, `use_module/1,2`,
+  `ensure_loaded/1`, `include/1` or `reexport/1,2` reads; a deeper one fails with
+  `loads are nested too deep (at most 64)`, and so does the whole outermost load (iso-notes 7.1). Mosa 0.5.0 had no
+  bound, and a file that consulted itself through a goal, as in `:- (true, consult('self.pl')).`, crashed; it now
+  gives `files load each other in a cycle`.
+- `:- module(user, Exports)` and `:- module(system, Exports)` now raise `permission_error(create, module, Name)` and
+  fail the load. Mosa 0.5.0 cleared the module as for a reconsult, so every import of `user` was lost.
+- Some declarations that Mosa 0.5.0 took are now refused with a `permission_error`: `(:-)/1` and `(:-)/2` in
+  `dynamic/1`, `discontiguous/1`, `multifile/1` and `meta_predicate/1`; a new predicate in `system`, from `assertz/1`
+  and the like or from a file; an import alias that names a `system` predicate, as in `[reverse/2 as atom_length]`;
+  and an `op/3` in `user` that puts a postfix operator next to a module's own infix operator of the same name, or the
+  reverse, which 0.5.0 refused only when the module came second.
+- A query, a `-g` goal, a directive or an `initialization/1` goal with a part that cannot be called now raises
+  `type_error(callable, Goal)` before any part of it runs, as `call/1` does, and such a directive or
+  `initialization/1` goal fails the load. In Mosa 0.5.0, `?- (write(x), 1).` wrote `x` first.
+- While `|` is an infix operator, as after `op(1105, xfy, '|')`, `|(a, b)` is a syntax error, as it is when `|` is
+  no operator; Mosa 0.5.0 then read it as `'|'(a,b)`. `'|'(a, b)`, `a | b` and `f((|))` still read (iso-notes
+  "6.3.3 A bare `|` as the name of a compound term").
+- In a goal built at run time such as `G = catch((X, G), C, true), catch(call(G), E, true)`, the cycle through the
+  inner `catch/3` now raises `resource_error(cyclic_term)` from the outer `call/1`, so `E` receives it, as when `X`
+  is bound first; Mosa 0.5.0 let the inner `catch/3` catch it.
+- An atom that holds bytes that are not UTF-8, which the flag `argv` can give on POSIX, is now written in full, each
+  such byte as the character of that code, as `atom_codes/2` sees it (FF as `ÿ`), so the bytes written differ from
+  the atom's. Mosa 0.5.0 cut `writeq/1` at the first such byte and wrote nothing with `write/1` on `user_output`
+  (iso-notes "Section 4 Writing an atom that holds invalid UTF-8").
+- `mosac` now names the C++ unit of each module of a program by its position (`u0.cpp`, `u0.hpp` and
+  `mosa_gen::u0` for the main file's module, then `u1` and so on; ADR 0030), not after the module (`muser.cpp`,
+  `mosa_gen::muser`), so a module such as `utable` (giving `mutable`) or `ain` (giving `main`), or two whose names
+  differ only in case, no longer breaks the build.
+- In `mosatest F`, `error(Formal)` passes only for a thrown `error(F, _)` whose `F` is an instance of `Formal`, and
+  any other thrown term is expected with the new `ball(Ball)`; `solutions(List)` passes only for a list closed by
+  `[]` of `Name = Value` pairs joined by `,`. Mosa 0.5.0 matched `error(...)` by unification, so `error(foo)` passed
+  for `throw(foo)`, and took a partial list or a non-list in `solutions`.
+- For developers, `mosatest --suite` counts the lgtunit tests written as `test/1`, which moves the ISO column from
+  2291 of 2326 to 2295 of 2333 (98.4%), while the library column stays at 600 of 605; a file with a term it cannot
+  read fails each test it can read; an object's `setup/0` and `cleanup/0` run once around all its tests, as in
+  lgtunit, not around each test as in 0.5.0; the `setup(...)` and `cleanup(...)` options of `test/3`, which 0.5.0
+  ignored, run around their test; a previous badge whose rate cannot be read fails the run instead of being
+  overwritten; and a `--report` that would be the file written beside it is refused.
+
+### Fixed
+
+- `writeq/1` writes more terms so that they read back: an `fy` or `xfy` term on the left of a `yfx` or `yf` operator
+  of the same priority is bracketed (`(1 xfy 2)yfx 3`), and an operator `.` is always quoted (`a'.'=b` after
+  `op(100, xf, '.')`, which Mosa 0.5.0 wrote as `a. =b`). After a prefix operator, `;(` starts its operand, so
+  `\+ ;(a, b)` reads as `\+(;(a,b))`. An uncaught cyclic exception is printed with `_` where it leads back, as
+  `writeq/1` writes it.
+- Reading: after a syntax error at the full stop, as in `f(a.`, the next read starts after it, so such a clause in
+  a part that `:- if` skips no longer stops the load; an octal escape takes digits up to its closing `\`
+  (`'\0101\'` is `'A'`); `0'` followed by a raw tab is a syntax error; U+FEFF is skipped only at the start of a
+  stream; a syntax error after a line that ends in CR alone has the right position; and `number_codes/2` and
+  `atom_number/2` agree with `read/1` on `0'` followed by U+3000 and on a `%` comment that a CR ends.
+- With `char_conversion` on, multibyte characters mapped to `0`, `'`, `x`, `o` or `b` work in `0'c`, `0x…`, `0o…`
+  and `0b…`; the LF of a CR LF pair is converted as a lone LF is; `term_to_atom/2` no longer converts the full stop
+  that it adds; and `read/1` from `user_input` no longer waits for more input after a complete term. The flags
+  `double_quotes` and `japanese_punctuation`, set by a goal directive or in a file that `include/1` reads, take
+  effect from the next clause.
+- Streams: `''` is an alias like any other, and no longer names every stream that has none; `stream_property/2`
+  gives nothing more for a stream closed while it enumerates; a stream flushed before another stream rewrote the
+  same file no longer saves only its tail on top of the other's text; a `read/1` with `invalid_utf8` set to
+  `replace` no longer leaves U+FFFD in the stream; and `set_stream_position/2` to a position that cannot occur
+  raises its error without reading the rest of the stream.
+- Memory: the first `read/1` from a file no longer pulls in the whole file; `user_output`, `user_error` and
+  `user_input` no longer keep every byte they pass; a long multi-line goal at the prompt, many syntax errors and
+  many `w` or `g` commands at a debugger port no longer fill the heap; and `nb_setval/2` over the heap limit stops
+  the query once and keeps the old value, where Mosa 0.5.0 kept the new one and then stopped every later query.
+- `print/1,2` and `~p`: a `portray/1` of another module that `user` does not import is not the hook, and no longer
+  makes them raise `existence_error`; `portray/1` is not called on an unbound variable, and its bindings are undone
+  once its text is taken; a `portray/1` that closes the output stream gives `existence_error(stream, S)` instead of
+  losing the output; and `format/1,2,3` check the stream before `~p` runs `portray/1`, and name themselves in its
+  errors.
+- `bagof/3` and `setof/3` copy each solution as `findall/3` does, so a variable that existed before the call is
+  fresh in each solution unless it is a free variable of the goal: `bagof(f(C, D), (C = a ; D = b), L)` gives
+  `L = [f(a,_),f(_,b)]` whatever `C` and `D` become later, and `bagof(X, true, X)` no longer makes a cyclic term.
+  Solutions that alias the same free variables in opposite directions fall into one group; a meta argument declared
+  `^` works, where Mosa 0.5.0 raised `existence_error(procedure, (^)/2)`; and neither takes quadratic time any more.
+- Cyclic terms: the standard order of terms is a total order on them too, so `sort/2` no longer depends on the
+  order of its input (ADR 0029, [chapter 14](docs/manual/en/14-reference.md)); unifying or comparing them stops at
+  the heap limit, where Mosa 0.5.0 grew past `--heap-max`; and a goal whose control structure leads back to itself
+  is found behind a very long conjunction too.
+- Arithmetic: a list in an expression raises `type_error(evaluable, '.'/2)`, as other compound terms do; a negative
+  float base with a large or negative integral exponent gives the right value (`(-1.0) ** 1.0e19` is `1.0`, and
+  `(-2.0) ** (-1024)` is `5.562684646268003e-309`); and `float_fractional_part/1` of an infinity raises
+  `evaluation_error(undefined)` instead of giving NaN.
+- `reverse/2` with only the second list given gives its one answer and stops, where Mosa 0.5.0 ran on to the heap
+  limit; `atom_concat/3` with the whole atom and one part bound, and `pairs_values/2`, `pairs_keys_values/3`,
+  `maplist/3..5` and `foldl/5,6` with any list proper, leave no choice point; `predicate_property/2` gives
+  `meta_predicate(with_output_to(?, 0))`; and a grammar rule refuses an arity past 1024 with
+  `representation_error(max_arity)`.
+- Loading: a `:- meta_predicate` directive with a very deep conjunction or list no longer crashes under a 1 MiB
+  stack; a failed load also rolls back `message_language` and `trace_gc`; a `library(...)` load that fails but keeps
+  its clauses keeps its `user` operators too; a malformed `reexport` directive gives `directive not supported`; and
+  `:- export(PI).` in a file loaded into `user` no longer makes the predicate `exported`.
+- At the prompt, every term of a line runs in turn (Mosa 0.5.0 answered only the first goal of `X = 1. Y = 2.`),
+  and a `/*` comment or a quoted atom that ends in a continuation `\` goes on over the next line.
+- On Windows, a `mosa` whose input is `NUL` is no longer taken for a terminal; Ctrl+C and closing the console put
+  the console's code pages back; a quoted argument with `""` inside, such as `"日本""語 x"`, arrives as `日本"語 x`;
+  and `mosatest --diff` and `--suite` no longer fail on a path with characters outside the ANSI code page.
+- The debugger: `f` or `r` at a Redo port no longer lets an exception of a cleanup pass the `catch/3` around it; and
+  after `use_module(m, [p/1 as q])`, `spy(q/1)`, `nospy(q/1)` and `debugging/0` act on `m:p/1`, which `q/1` names,
+  so a call by either name stops, also in leap. Mosa 0.5.0 spied `m:q/1`, another predicate, or found none.
+- `mosac`: a long conjunction or deeply nested control constructs in a clause body no longer crash it (800 goals did
+  under a 1 MiB stack), and nested if-then-else no longer takes cubic time; an atom longer than 64 KiB no longer
+  becomes one C++ string literal; a user module named `lists`, `format`, `messages_ja` or `messages_en` is
+  translated; and a call inside `M:(G1, G2)` and other qualified control constructs gets the undefined-call warning.
+- An executable that `mosac build` makes: backtracking into a predicate that `consult/1` replaced while a call to it
+  was open tries the old clauses, as `mosa` does; and one run from `/` no longer loads the wrong one of two included
+  files `../x.pl` and `../../x.pl`.
+- Builds of one program in one folder at the same time no longer remove each other's work in `.mosac-cache`, nor two
+  `mosac dist` each other's archive; a file with the compiler's name that is not executable no longer stops the
+  search along `PATH`; a source whose stem is `.` or `..`, such as `..pl`, is refused where it would name the
+  output, and so is an empty `-o ""`; and the scratch files of `mosac` are created new, never through a link, and
+  readable by their owner only.
+- For developers, the lgtunit judge of `mosatest --suite` follows lgtunit in more cases: a `halt` or an exception in
+  a scratch run fails a `false` or `all(...)` test; a `halt` in a `forall/2` generator no longer crashes
+  `mosatest`; a body that succeeds no longer passes `ball/1` or `error/1`; a top-level `;` in a `true(Assertion)`
+  test stays inside the cut; `;` backtracks into its later branches; and `variant/2`, subsumption, the `:- if`
+  conditions and `^^` helpers behave as in lgtunit. `mosatest --diff` reports a test file that creates a module as
+  one it cannot assemble, where 0.5.0 counted it as agreeing without running its tests.
+- For developers, the other tools of `mosatest`: the JSON reports escape control characters; `--diff` and `--bench`
+  stop when the old output folder cannot be removed; `--roundtrip` refuses an operator priority outside 0 to 1200
+  and a folder; `--version` and `--help` count only as the first argument, and `--help` ends with status 0; and a
+  lone `--suite` is a usage error.
+
+### Known limits
+
+The known limits of 0.5.0 still hold, except the one about `NUL` on Windows, which this release removes. These are
+new, or were measured during the reviews of this release:
+
+- At `halt`, of two streams open on one file, the text of the one opened later stays, even when the other wrote
+  last; `close/1` and `flush_output/1` let the latest write win.
+- A `mosac build` that is killed leaves its folder `.mosac-cache/<hash>/w-*` until a build of the same program a
+  day later or `mosac build --clean` removes it, and a build that runs longer than a day can be removed by another
+  build of the same program.
+- A clause runs as IR, not as generated code, when the frames of its resume points would carry more than 2^20
+  variable cells (ADR 0011 amendment 5).
+- A predicate translated by `mosac` picks its clauses by first argument with a chain of tests, so a call takes time
+  in the position of its key: with 2,000 facts `f(k<i>, i)`, 300,000 calls take 682 ms for the last key and 97 ms
+  for the first, while `mosa` takes about 345 ms for both. Clauses with no key are repeated for every key.
+
 ## 0.5.0 (2026-11-19)
 
 The release of phase 14: a debugger in the `mosa` command, with the ports call, exit, redo, fail and exception,
