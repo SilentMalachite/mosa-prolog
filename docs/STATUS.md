@@ -3,7 +3,7 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** none, on branch `fix/review-2026-11-20`;
+- **In progress:** W9 L-39 (report writers: JSON escapes, report/badge name clash), on `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** W9 L-29, L-34, L-36 and L-37 (build and dist refuse an empty `-o` as emit does,
   4f986958); all red first; ctest 283/283. Earlier W9 items: review file.
