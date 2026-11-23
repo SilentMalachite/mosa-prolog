@@ -3,7 +3,7 @@
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
 - **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
-- **In progress:** none, on branch `fix/review-2026-11-20`;
+- **In progress:** W9 L-44 (stale build-tree copies, `version.hpp` configure dependency), on the branch;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
 - **Last done:** W9 L-39, L-42 and L-43 (`- test` by the term's head; `:- uses` ops only from chosen
   `:- if` arms, 2e4bf711); all red first; ctest 284/284. Earlier W9 items: review file.
