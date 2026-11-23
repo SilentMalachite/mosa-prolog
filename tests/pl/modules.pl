@@ -396,3 +396,6 @@ test(l24_clause_system,
      (\+ h12_load(l24_clause, 'system:l24_baz.\n'), \+ predicate_property(system:l24_baz, defined)), true).
 test(l24_dynamic_system,
      (\+ h12_load(l24_dynamic, ':- dynamic(system:l24_qux/0).\n'), \+ predicate_property(system:l24_qux, defined)), true).
+test(l24_meta_system,
+     (\+ h12_load(l24_meta, ':- meta_predicate(system:l24_m(0)).\n'), \+ predicate_property(system:l24_m(_), defined)),
+     true).
