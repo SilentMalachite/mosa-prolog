@@ -387,17 +387,28 @@ std::optional<Environment> vcvars_environment(const std::filesystem::path& vcvar
   if (!scratch || utf8_from_path(*scratch).find_first_of("&^()%!<>|;,=") != std::string::npos) return std::nullopt;
   if (!create_private_file(*scratch)) return std::nullopt;
   const std::filesystem::path& script = *scratch;
+  // 作った一時の .bat は、どこで諦めても消す。前は cmd が無いときと書けなかったときに残した（レビュー R-L14）。
+  struct RemoveScript {
+    const std::filesystem::path& path;
+    explicit RemoveScript(const std::filesystem::path& file) : path(file) {}
+    RemoveScript(const RemoveScript&) = delete;
+    RemoveScript& operator=(const RemoveScript&) = delete;
+    ~RemoveScript() {
+      std::error_code error;
+      std::filesystem::remove(path, error);
+    }
+  } remove_script{script};
   const auto shell = command_shell();
   if (!shell) return std::nullopt;
   {
     std::ofstream out{script, std::ios::binary};
     out << vcvars_script(vcvarsall);
+    // 閉じるときの書き出しの失敗も見る。前は閉じる前の状態しか見なかった（レビュー R-L14）。
+    out.close();
     if (!out) return std::nullopt;
   }
   const std::vector<std::string> argv{native_path_text(*shell), "/d", "/u", "/c", native_path_text(script)};
   const auto dumped = capture(argv);
-  std::error_code error;
-  std::filesystem::remove(script, error);
   if (!dumped || dumped->code != 0) return std::nullopt;
   Environment env = parse_set_dump(utf8_from_utf16le(dumped->text));
   if (lookup(env, "INCLUDE").empty()) return std::nullopt;
