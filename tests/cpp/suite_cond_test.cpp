@@ -61,6 +61,8 @@ struct Suite {
   int denominator;
   int passed;
   std::vector<std::string_view> failed;
+  // 別欄に出る case の名前（L-43）。
+  std::vector<std::string_view> outside = {};
 };
 
 void check_suite(const std::filesystem::path& root, const Suite& item) {
@@ -82,6 +84,12 @@ void check_suite(const std::filesystem::path& root, const Suite& item) {
   for (const std::string_view line : item.failed) {
     const std::string full = "predicates/atom_1/tests.lgt " + std::string{line} + "\n";
     mosa_test::check(failed.find(full) != std::string::npos, name + ": " + full + shown);
+  }
+  const auto side = body.find("別欄:\n");
+  const std::string notes = side == std::string::npos ? std::string{} : body.substr(side);
+  for (const std::string_view line : item.outside) {
+    const std::string full = "\npredicates/atom_1 " + std::string{line} + "\n";
+    mosa_test::check(notes.find(full) != std::string::npos, name + ": outside " + std::string{line} + shown);
   }
 }
 
@@ -128,6 +136,33 @@ void check_guards(const std::filesystem::path& root) {
                      2, 2, {}});
 }
 
+// レビュー L-43。:- if の枝の :- uses(lgtunit, [op(...)]) の演算子は、その枝が選ばれたときだけ機械に入る。前は枝を
+// 問わず入れたので、選ばれない枝の ===> で書いた t1 が通った。今の t1 は字面を機械が読めず、実行器はそれを fail と
+// 数える。選ばれた枝なら枝の中でも後ろでも使える。
+void check_uses_gate(const std::filesystem::path& root) {
+  check_suite(root, {"uses_not_taken",
+                     ":- if(fail).\n:- uses(lgtunit, [op(700, xfx, ===>)]).\n:- endif.\n"
+                     "\ttest(t1, true) :- X = (a ===> b), X == ===>(a, b).\n\ttest(t0, true).\n",
+                     2, 1, {"t1 true fail"}});
+  check_suite(root, {"uses_taken",
+                     ":- if(true).\n:- uses(lgtunit, [op(700, xfx, ===>)]).\n"
+                     "\ttest(t2, true) :- X = (a ===> b), X == ===>(a, b).\n:- endif.\n"
+                     "\ttest(t3, true) :- X = (a ===> b), X == ===>(a, b).\n",
+                     2, 2, {}});
+}
+
+// レビュー L-43。- を付けた case は、その項が - で始まるときだけ別欄にする。前は行の頭の字で決めたので、同じ行の
+// 後ろの b を別欄にし、行の途中の - test(c, ...) は試験でない節として消えた。行の頭、字下げ、注釈の後は前と同じ。
+void check_minus(const std::filesystem::path& root) {
+  check_suite(root, {"minus_shared_line", "\t- test(a, true). test(b, true) :- fail.\n\ttest(m0, true).\n", 2, 1,
+                     {"b true fail"}, {"a"}});
+  check_suite(root, {"minus_after_term", "\tfoo. - test(c, true) :- fail.\n\ttest(m1, true).\n", 1, 1, {}, {"c"}});
+  check_suite(root, {"minus_kept",
+                     "- test(d, true) :- fail.\n\t- test(e, true) :- fail.\n\t/* x */ - test(f, true) :- fail.\n"
+                     "\t% y\n\t- test(g, true) :- fail.\n\ttest(m2, true).\n",
+                     1, 1, {}, {"d", "e", "f", "g"}});
+}
+
 }  // namespace
 
 int main() {
@@ -137,6 +172,8 @@ int main() {
     check_gates(root);
     check_conditions(root);
     check_guards(root);
+    check_uses_gate(root);
+    check_minus(root);
   }
   return mosa_test::failures();
 }

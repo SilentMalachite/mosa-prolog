@@ -88,40 +88,6 @@ Cell unwrap_curlies(Heap& heap, Cell cell) {
   return heap.structure(heap.functor_atom(cell), args);
 }
 
-bool layout_byte(char ch) {
-  return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == '\v' || ch == '\f';
-}
-
-std::size_t skip_gap(std::string_view source, std::size_t index) {
-  while (index < source.size()) {
-    if (layout_byte(source[index])) {
-      ++index;
-      continue;
-    }
-    if (source[index] == '%') {
-      while (index < source.size() && source[index] != '\n') ++index;
-      continue;
-    }
-    if (source[index] == '/' && index + 1 < source.size() && source[index + 1] == '*') {
-      index += 2;
-      while (index + 1 < source.size() && !(source[index] == '*' && source[index + 1] == '/')) ++index;
-      index = index + 1 < source.size() ? index + 2 : source.size();
-      continue;
-    }
-    break;
-  }
-  return index;
-}
-
-// 前置の - は test の外側ではない。行頭の - だけを別欄にする。
-bool line_minus(std::string_view source, std::size_t begin) {
-  const auto at = skip_gap(source, begin);
-  std::size_t line = at;
-  while (line > 0 && source[line - 1] != '\n') --line;
-  while (line < source.size() && (source[line] == ' ' || source[line] == '\t' || source[line] == '\r')) ++line;
-  return line < source.size() && source[line] == '-';
-}
-
 bool split_clause(const Heap& heap, Cell term, Cell& head, Cell& body) {
   if (!functor_is(heap, term, ":-", 2)) {
     head = heap.deref(term);
@@ -374,17 +340,18 @@ void add_case(Heap& heap, const OperatorTable& operators, Cell looked, bool rule
   file.cases.push_back(std::move(item));
 }
 
-void keep_term(Heap& heap, OperatorTable& operators, std::string_view source, std::size_t begin, const ReadTerm& read,
-               Parse& parse, LgtFile& file) {
+void keep_term(Heap& heap, OperatorTable& operators, const ReadTerm& read, Parse& parse, LgtFile& file) {
   const Cell term = heap.deref(read.term);
-  if (absorb_lgt_uses(heap, operators, term, file.operators)) return;
+  if (absorb_lgt_uses(heap, operators, term, parse.stack, file.operators)) return;
   if (dropped_import_uses(heap, term)) return;
   if (dropped_directive(heap, term)) return;
   if (take_gate(heap, operators, term, read.names, parse, file)) return;
   Cell head;
   Cell body;
   const bool rule = split_clause(heap, term, head, body);
-  const bool outside = line_minus(source, begin);
+  // lgtunit は頭を - で包んだ試験を飛ばす。項そのものの頭で決める。前は項の始まる行の頭の字で決めたので、同じ行の
+  // 後ろの試験を飛ばし、行の途中や注釈の後の - test(...) を試験でない節として消した（レビュー L-43）。
+  const bool outside = functor_is(heap, head, "-", 1);
   const Cell looked = outside ? strip_minus(heap, head) : head;
   int arity = 0;
   if (test_arity(heap, looked, arity)) {
@@ -405,7 +372,7 @@ void wipe_read(LgtFile& file, std::string reason) {
 
 // 読めない項は、読み手が終止符まで進めるので飛ばして先を読む。前はファイルを不合格 1 件にして、試験が 3 件でも
 // 分母が 1 になった（レビュー H-40）。読めた case は呼び手が読めなかった理由で不合格にし、原文は動かさないので捨てる。
-void read_terms(Reader& reader, Heap& heap, OperatorTable& operators, std::string_view source, LgtFile& file) {
+void read_terms(Reader& reader, Heap& heap, OperatorTable& operators, LgtFile& file) {
   Parse parse;
   std::string unread;
   while (true) {
@@ -420,7 +387,7 @@ void read_terms(Reader& reader, Heap& heap, OperatorTable& operators, std::strin
       continue;
     }
     if (!outcome.term) break;
-    keep_term(heap, operators, source, begin, *outcome.term, parse, file);
+    keep_term(heap, operators, *outcome.term, parse, file);
     if (!file.error.empty()) {
       wipe_read(file, file.error);
       return;
@@ -463,7 +430,7 @@ LgtFile read_lgt_file(std::string_view source) {
       return file;
     }
     Reader reader(source, heap, operators);
-    read_terms(reader, heap, operators, source, file);
+    read_terms(reader, heap, operators, file);
     return file;
   } catch (...) {
     if (!is_heap_exhaustion()) throw;

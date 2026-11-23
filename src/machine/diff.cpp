@@ -168,7 +168,7 @@ DiffSource lgt_source(const std::string& bytes) {
       if (out.error.empty()) out.loads = false;
       return out;
     }
-    install_lgt_ops(*scratch, out.file.operators);
+    install_lgt_ops(*scratch, out.file.operators, chosen);
     for (std::size_t index = 0; index < out.file.cases.size(); ++index) {
       LgtCase& item = out.file.cases[index];
       if (!lgt_guard_holds(item.guard, chosen) || item.outside) continue;

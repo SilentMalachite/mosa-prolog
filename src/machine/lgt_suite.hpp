@@ -256,6 +256,8 @@ struct LgtOp {
   int priority = 0;
   Specifier specifier = Specifier::Xfx;
   std::string name;
+  // :- uses を読んだときの :- if の枝。選ばれた枝の演算子だけを機械に入れる（レビュー L-43）。
+  std::vector<LgtGuard> guard;
 };
 
 struct LgtArm {
@@ -358,7 +360,8 @@ struct LgtIo;
 [[nodiscard]] bool lgt_same_shape(const Heap& heap, Cell left, Cell right);
 [[nodiscard]] bool lgt_subsumes(const Heap& heap, Cell general, Cell specific);
 [[nodiscard]] bool lgt_variant(const Heap& heap, Cell left, Cell right);
-bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, std::vector<LgtOp>& ops);
-void install_lgt_ops(Machine& machine, const std::vector<LgtOp>& ops);
+bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, const std::vector<LgtGuard>& guard,
+                     std::vector<LgtOp>& ops);
+void install_lgt_ops(Machine& machine, const std::vector<LgtOp>& ops, const std::vector<int>& chosen);
 
 }  // namespace mosa

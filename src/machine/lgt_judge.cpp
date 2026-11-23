@@ -558,22 +558,27 @@ bool lgt_text_has_special(Machine& machine, std::string_view text) {
   return contains_special(machine.heap(), parsed.term, stack);
 }
 
-// (=~=)/2 は演算子だけを、このファイルの表に足す。述語としては登録しない。
-bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, std::vector<LgtOp>& ops) {
+// (=~=)/2 は演算子だけを、このファイルの表に足す。述語としては登録しない。:- if の枝はまだ選ばれていないので、
+// 読みの表には枝を問わず足し（後ろの項を読むため）、機械に入れるかは枝が選ばれてから決める。
+bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, const std::vector<LgtGuard>& guard,
+                     std::vector<LgtOp>& ops) {
   if (!functor_is(heap, term, ":-", 1)) return false;
   const Cell inner = heap.deref(heap.arg(heap.deref(term), 0));
   if (!functor_is(heap, inner, "uses", 2)) return false;
   if (!atom_is(heap, heap.arg(inner, 0), "lgtunit")) return false;
   Cell list = heap.deref(heap.arg(inner, 1));
   while (list.tag() == Tag::Lis) {
-    take_op(heap, operators, heap.list_head(list), ops);
+    if (take_op(heap, operators, heap.list_head(list), ops)) ops.back().guard = guard;
     list = heap.deref(heap.list_tail(list));
   }
   return true;
 }
 
-void install_lgt_ops(Machine& machine, const std::vector<LgtOp>& ops) {
+// 選ばれなかった枝の演算子は入れない。前は枝を問わず入れたので、選ばれない枝の演算子で書いた試験が通った（レビュー L-43）。
+// その試験の字面は読みの表で書いてあるので、機械が読み直すときに構文の誤りになる。
+void install_lgt_ops(Machine& machine, const std::vector<LgtOp>& ops, const std::vector<int>& chosen) {
   for (const LgtOp& op : ops) {
+    if (!lgt_guard_holds(op.guard, chosen)) continue;
     // 読み込みのときに一度通っている。ここでは機械の表へ写すだけ。
     if (machine.operators().define(op.priority, op.specifier, op.name) != OpResult::Ok) continue;
   }
