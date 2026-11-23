@@ -446,7 +446,14 @@ void exec_forall(Machine& machine, const Prog& prog, int index, Env& env) {
     exec_at(machine, prog, action, env);
     if (env.tri != Tri::Ok) {
       // 失敗した forall に選択点は無い。開いたままだと、連言の retry_right がこの生成側を問い直し続けて止まらない。
-      if (env.tri == Tri::No) env.live = false;
+      // 行動の表明が落ちた（Abort）ときも、選言の else は forall の前の束縛で動く。前は生成側の束縛と live を残し、
+      // else をスクラッチで動かして束縛を失い、生成側の束縛を判定へ漏らした（レビュー R-M13）。
+      if (env.tri == Tri::No || env.tri == Tri::Abort) {
+        env.live = false;
+        env.bundle = bundle;
+        env.bundle_names = names;
+        rehydrate_bindings(machine, env);
+      }
       return;
     }
     step = lgt_again(machine);

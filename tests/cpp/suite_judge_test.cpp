@@ -195,6 +195,16 @@ void check_nested_disjunctions(const std::filesystem::path& root) {
                      "rm12_false false true"});
 }
 
+// forall/2 の行動が表明で落ちても（Abort）、選言の else は forall の前の束縛で動く（レビュー R-M13）。前は生成側の
+// 束縛と開いた query を残したので、else の Y = 2 がスクラッチで動いて束縛を失い、生成側の X = 1 が判定へ漏れた。
+void check_forall_abort(const std::filesystem::path& root) {
+  check_passes(root, "rm13_keeps", "\ttest(rm13_keeps, true(Y == 2)) :- (forall(X = 1, assertion(X == 2)) ; Y = 2).");
+  check_fails(root, {"rm13_leak", "\ttest(rm13_leak, true(X == 1)) :- (forall(X = 1, assertion(X == 2)) ; true).",
+                     "rm13_leak true(X==1) fail"});
+  check_fails(root, {"rm13_no_leak", "\ttest(rm13_no_leak, true(X == 1)) :- (forall(X = 1, X == 2) ; true).",
+                     "rm13_no_leak true(X==1) fail"});
+}
+
 void check_comparisons(const std::filesystem::path& root) {
   check_passes(root, "m51_variant_ok", "\ttest(m51_variant_ok, variant(f(_X, _Y), f(_A, _B))) :- true.");
   check_passes(root, "m51_subsumes_ok", "\ttest(m51_subsumes_ok, subsumes(f(_), f(a))) :- true.");
@@ -229,6 +239,7 @@ int main() {
     check_first_solution_only(root);
     check_disjunctions(root);
     check_nested_disjunctions(root);
+    check_forall_abort(root);
     check_comparisons(root);
   }
   return mosa_test::failures();
