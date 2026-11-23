@@ -138,6 +138,8 @@ test(fmt_W_no_output, with_output_to(atom(A), catch(format("ab~W", [a, foo]), _,
 test(fmt_p, with_output_to(atom(A), format("~p", [42])), solutions([A = '42'])).
 % portray/1 は fmt_portray_me だけに合うので、このファイルのほかの print と ~p の字面は変わらない。
 portray(fmt_portray_me) :- write(seen).
+portray(l29_x) :- assertz(l29_seen), write(px).
+portray(l29_close(S)) :- close(S), write(closed).
 test(fmt_p_portray, with_output_to(atom(A), format("~p", [f(fmt_portray_me)])), solutions([A = 'f(seen)'])).
 test(fmt_N, with_output_to(atom(A), format("~Nbegin~N~Nend", [])), solutions([A = 'begin\nend'])).
 test(fmt_N_count, with_output_to(atom(A), format("~Nbegin~3N~Nend", [])), solutions([A = 'begin\nend'])).
@@ -151,6 +153,16 @@ test(fmt_N_column, with_output_to(atom(A), format("~tab~N~w~t~4|x", [c])), solut
 % 行の頭の ~N は区切りを確定しないので、前の ~t は後の ~| で埋める。
 test(fmt_N_keeps_fill, with_output_to(atom(A), format("~t~N~w~4|", [a])), solutions([A = '   a'])).
 test(fmt3_input_stream, format(user_input, "x", []), error(permission_error(output, stream, user_input))).
+% L-29。format/3 は指示を動かす前に流れを確かめ、流れの誤りの文脈を format/3 にする。前は全部組んでから write/2 に
+% 渡したので、~p の portray が先に動き、文脈は write/2 だった。portray が流れを閉じた後の書き出しも format/3 の名にする。
+:- dynamic(l29_seen/0).
+test(l29_no_portray, (retractall(l29_seen), catch(format(nostream, "~p", [l29_x]), error(_, _), true), l29_seen), fail).
+test(l29_domain, (retractall(l29_seen), catch(format(nostream, "~p", [l29_x]), error(F, context(P, _)), true)), solutions([(F = domain_error(stream_or_alias, nostream), P = format/3)])).
+test(l29_inst, catch(format(_, "~w", [a]), error(F, context(P, _)), true), solutions([(F = instantiation_error, P = format/3)])).
+test(l29_input, (retractall(l29_seen), catch(format(user_input, "~p", [l29_x]), error(F, context(P, _)), true), \+ l29_seen), solutions([(F = permission_error(output, stream, user_input), P = format/3)])).
+test(l29_binary, (retractall(l29_seen), setup_call_cleanup(open('tests/tmp/l29_bin', write, S, [type(binary)]), catch(format(S, "~p", [l29_x]), error(permission_error(O, T, _), context(P, _)), true), close(S)), \+ l29_seen), solutions([(O = output, T = binary_stream, P = format/3)])).
+test(l29_closed, (retractall(l29_seen), open('tests/tmp/l29_text', write, S), close(S), catch(format(S, "~p", [l29_x]), error(existence_error(K, _), context(P, _)), true), \+ l29_seen), solutions([(K = stream, P = format/3)])).
+test(l29_portray_closes, (open('tests/tmp/l29_text', write, S), catch(format(S, "~p", [l29_close(S)]), error(existence_error(K, _), context(P, _)), true)), solutions([(K = stream, P = format/3)])).
 % '$stream_column'/2 は put_char/2 と同じ検査をして、最後の改行から書いた字の数を返す。
 test(stream_column, with_output_to(atom(_), (write(abc), current_output(S), '$stream_column'(S, C))), solutions([C = 3])).
 test(stream_column_line, with_output_to(atom(_), (write('ab\nc'), current_output(S), '$stream_column'(S, C))), solutions([C = 1])).

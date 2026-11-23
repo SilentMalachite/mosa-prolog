@@ -18,9 +18,13 @@ format(Format, Args) :-
     format_atom(Format, Args, Stream, format/2, Text),
     write(Text).
 
+% 流れは指示を動かす前に確かめる。後で確かめると、~p の portray が先に動いてから流れの誤りになる（レビュー L-29）。
+% '$stream_column'/2 は write/2 と同じ順で同じ誤りを出す。portray が流れを閉じることもあるので、書き出しの誤りも
+% format/3 の名にする。
 format(Stream, Format, Args) :-
+    stream_column(Stream, format/3, _),
     format_atom(Format, Args, Stream, format/3, Text),
-    write(Stream, Text).
+    catch(write(Stream, Text), error(Formal, _), throw(error(Formal, context(format/3, _)))).
 
 format_atom(Format, Args, Stream, PI, Text) :-
     text_chars(Format, PI, Chars),
