@@ -109,6 +109,10 @@ test(m28_user_text, (set_prolog_flag(char_conversion, on), char_conversion(a, b)
 test(read_quote_code, (open_string('0\'\'\'.', S), read(S, T), T == 39), true).
 % 引用符が一つの 0''. も 39。次が引用符のときだけ二つ消費する。
 test(read_quote_code_one, (open_string('0\'\'.', S), read(S, T), T == 39), true).
+% 0' の後の生のタブは引用の中と同じく拒む。空白と U+3000 は引用の中で通るので 0' でも通る（レビュー L-09）。
+test(char_code_raw_tab, (open_string([0'X, 0'=, 0'0, 39, 9, 0'.], S), catch(read(S, _), error(syntax_error(K), _), true), close(S), K == unexpected_token), true).
+test(char_code_space, (open_string([0'X, 0'=, 0'0, 39, 32, 0'.], S), read(S, T), close(S), T = (_ = C), C == 32), true).
+test(char_code_ideographic_space, (open_string([0'X, 0'=, 0'0, 39, 0x3000, 0'.], S), read(S, T), close(S), T = (_ = C), C == 12288), true).
 % 槽の先頭のコンマは区切りであり、引用しない原子にはならない。
 test(read_empty_arg, (open_string('f(,,a).', S), read(S, _)), error(syntax_error(_))).
 test(read_empty_elem, (open_string('[a,,|v].', S), read(S, _)), error(syntax_error(_))).

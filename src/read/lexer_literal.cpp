@@ -215,7 +215,9 @@ Scan Lexer::scan_char_code(SourceChar zero, SourceChar mark, Place start) {
   char32_t value = 0;
   if (ch.code == U'\\') {
     if (const std::optional<Scan> error = append_escape(nullptr, &value)) return *error;
-  } else if (ch.code == U'\n' || ch.code == U'\r') {
+  } else if (raw_quote_break(ch.code)) {
+    // 拒む字は引用の中と同じ（6.4.2.1 の single quoted character に空白より外の配置文字は無い）。理由は
+    // number_codes/2 の 0'<TAB> と揃えて unexpected_token にする（レビュー L-09）。
     return fail_at(SyntaxReason::UnexpectedToken, "0'", start);
   } else if (ch.code == U'\'') {
     // 次も引用符なら ISO の二つ。そうでなければ一つ。どちらも 39 で、終止符は引用に入らない。
