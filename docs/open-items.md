@@ -230,6 +230,13 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   runner goal: in `test(t, true(var(X))) :- (X = 1, ^^clean_text_output, fail ; true).` `X` stays
   `1`, so the test fails. `exec_disj` (`lgt_exec.cpp`) does not restore `saved`, while
   `exec_disj_then` does for `(A ; B), C` (found during M-54, older than it; no suite case).
+- Under an open query, an if-then-else whose then may bind (a plain goal, `^^`, `forall/2`) runs the
+  then on the main machine and drops the open query, as before the re-review: `test(t, false) :-
+  member(X, [1,2]), (true -> assertion(true), Y = 1), X == 2.` passes. A then that only judges keeps
+  it (RV-I01). Keeping it for a binding then needs scratch runs that bring their bindings back.
+- `exists`, `all` and `deterministic` ask the last main query again even after an if-then-else
+  committed: `test(t, exists(X == 2)) :- (member(X, [1,2]) -> variant(a, a)).` passes (fix check of
+  the re-review, older than the range; no suite case).
 - `(C *-> T ; E)` with a runner goal in `C` or `T` is still a disjunction, so a failing `T` falls
   to `E` (re-review RV-m01; with a runner goal only in `E` it is one marked query, as `->` is).
 - A disjunction that is not a direct branch of a conjunction's left or of another disjunction is
