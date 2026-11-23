@@ -34,6 +34,22 @@ true.
  Call: (1) w(_G1) ? l
  Exit: (1) w(3) ? l
 X = 3.
+[debug] ?- nospyall.
+true.
+[debug] ?- spy(u/1), spy(alias2_m:w/1), use_module('tests/cpp/data/debugger/alias2_m.pl', [w/1 as u]), spy(u/1), debugging.
+% Spy point on u/1
+% Spy point on alias2_m:w/1
+% Spy point on alias2_m:w/1
+% Debug mode: on (leap)
+% Spy points: alias2_m:w/1
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nospy(u/1), debugging.
+% Spy point removed from alias2_m:w/1
+% Debug mode: on (leap)
+% Spy points: none
+% Leashed ports: call exit redo fail exception
+true.
 [debug] ?- nospyall, nodebug.
 true.
 ?- 

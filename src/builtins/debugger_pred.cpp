@@ -132,8 +132,13 @@ std::string place_key(Impl& machine, const SpyKey& key) {
     static_cast<void>(set_spy(machine, key, true));
   } else if (found->module != key.module || found->name != key.name) {
     // 定義より前に置いた鍵は、今引き当てた鍵に替える。leap の照合（spied_name）は鍵の名前で絞るので、後で別名で取り込んだ
-    // 鍵のままだと、定義の名前の呼び出しで止まらなかった（レビュー R-M04）。
-    *found = key;
+    // 鍵のままだと、定義の名前の呼び出しで止まらなかった（レビュー R-M04）。引き当てた鍵がもう表にあれば、前の鍵を
+    // 消すだけにする。上書きすると同じ鍵が 2 つ並んだ。
+    const bool present = std::any_of(spies.begin(), spies.end(), [&](const SpyKey& placed) {
+      return placed.module == key.module && placed.name == key.name && placed.arity == key.arity;
+    });
+    if (present) spies.erase(found);
+    else *found = key;
   }
   return message_text(machine, "debug_spy_set", {text});
 }
