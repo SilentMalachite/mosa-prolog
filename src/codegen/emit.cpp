@@ -326,6 +326,22 @@ std::pair<std::uint32_t, std::string> interpreted_case(std::uint32_t clause, con
           "return rt::interpret_clause(m, r, " + entry + ", frame, " + std::to_string(clause) + ");"};
 }
 
+// 訳した述語の run 関数、入口、入口の表の行を出す。emit_predicate から分けた（60 行を超えたため、レビュー R-L12）。
+void publish_predicate(const Impl& machine, UnitTables& tables, const Predicate& predicate, const std::string& proc,
+                       std::vector<std::pair<std::uint32_t, std::string>>& cases, const std::vector<std::string>& texts,
+                       UnitText& text) {
+  add_trace(cases, texts);
+  text.helpers += "void " + proc + "_run(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, std::uint32_t state);\n\n";
+  text.helpers += dispatch_text(tables, predicate, proc) + run_text(proc, cases);
+  text.forward += proc_signature(proc) + ";\n";
+  text.procs += proc_signature(proc) + " {\n  " + proc + "_run(m, rt::regs(m, kUnit), frame, state);\n}\n\n";
+  // 2 つの view は別の文で呼ぶ。+ の被演算子の評価の順は決まっておらず、配列の番号がコンパイラで変わる（GCC で見た）。
+  const std::string module_text = text.texts.view(machine.atoms.name(predicate.module));
+  const std::string name_text = text.texts.view(machine.atoms.name(predicate.name));
+  text.entries += "    rt::NativeEntry{" + module_text + ", " + name_text + ", " + std::to_string(predicate.arity) +
+                  ", std::uint64_t{" + hex64(clause_fingerprint(machine.atoms, predicate)) + "}, &" + proc + "},\n";
+}
+
 // 生成関数を 1 つ出す。どの節も IR のままなら出さない（出しても interpret_clause を呼ぶだけになる）。
 void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer, const Predicate& predicate,
                     UnitText& text, EmitResult& result) {
@@ -378,16 +394,7 @@ void emit_predicate(const Impl& machine, UnitTables& tables, ClauseText& writer,
   // 生成コードを捨てた節は IR の数へ入れる。どれも捨てた述語の関数は interpret_clause を呼ぶだけで、訳した数に入れない。
   result.translated += native > 0 ? 1 : 0;
   result.interpreted += predicate.clauses.size() - native;
-  add_trace(cases, texts);
-  text.helpers += "void " + proc + "_run(Machine::Impl& m, const rt::Regs& r, std::uint64_t frame, std::uint32_t state);\n\n";
-  text.helpers += dispatch_text(tables, predicate, proc) + run_text(proc, cases);
-  text.forward += proc_signature(proc) + ";\n";
-  text.procs += proc_signature(proc) + " {\n  " + proc + "_run(m, rt::regs(m, kUnit), frame, state);\n}\n\n";
-  // 2 つの view は別の文で呼ぶ。+ の被演算子の評価の順は決まっておらず、配列の番号がコンパイラで変わる（GCC で見た）。
-  const std::string module_text = text.texts.view(machine.atoms.name(predicate.module));
-  const std::string name_text = text.texts.view(machine.atoms.name(predicate.name));
-  text.entries += "    rt::NativeEntry{" + module_text + ", " + name_text + ", " + std::to_string(predicate.arity) +
-                  ", std::uint64_t{" + hex64(clause_fingerprint(machine.atoms, predicate)) + "}, &" + proc + "},\n";
+  publish_predicate(machine, tables, predicate, proc, cases, texts, text);
 }
 
 std::string table_text(std::string_view type, std::string_view name, std::size_t count, const std::string& items) {
