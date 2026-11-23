@@ -32,6 +32,10 @@ test(numbervars_negative, (numbervars(f(X), -1, E), X == '$VAR'(-1), E == 0), tr
 test(numbervars_end_bound, numbervars(f(_, _), 0, 2), true).
 test(numbervars_end_differs, numbervars(f(_), 0, 5), fail).
 test(numbervars_end_differs_unbound, (\+ numbervars(f(X), 0, 5), var(X)), true).
+% レビュー L-28。End が Term の変数なら束縛する前に失敗する。失敗が束縛を戻すので、外からは前も後も同じに見える守りの行。
+test(l28_end_term_var, (T = f(X, Y), \+ numbervars(T, 0, X), var(X), var(Y)), true).
+test(l28_end_term_var_last, (T = f(X, Y), \+ numbervars(T, 0, Y), var(X), var(Y)), true).
+test(l28_end_term_var_big, (T = f(X), \+ numbervars(T, 1844674407370909797907654848955145546336677616, X), var(X)), true).
 test(numbervars_end_atom, (catch(numbervars(f(X), 0, a), error(type_error(integer, a), _), true), var(X)), true).
 test(numbervars_end_bound_one, numbervars(f(_), 0, 1), true).
 test(numbervars_end_short, numbervars(f(_), 0, 2), fail).

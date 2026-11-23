@@ -357,13 +357,24 @@ void run_variables(Impl& machine, const Goal& goal) {
   else succeed(machine, goal);
 }
 
+// 未束縛の End が Term の変数なら、その変数は '$VAR'(N) に束縛されて End の単一化が必ず失敗する。束縛してから
+// 失敗せず、束縛の前に断る（AGENTS の「引数の確認、本体、束縛」の順、レビュー L-28）。
+bool end_is_term_var(const Impl& machine, Cell end, const std::vector<Cell>& vars) {
+  if (!machine.heap.unbound(end)) return false;
+  for (const Cell var : vars) {
+    if (machine.heap.deref(var).raw() == end.raw()) return true;
+  }
+  return false;
+}
+
 // 番号が int64 に収まる間の道。箱を作らずに数える。
 void number_vars_small(Impl& machine, const Goal& goal, const std::vector<Cell>& vars, std::int64_t first) {
   const auto count = static_cast<std::int64_t>(vars.size());
   // SWI-Prolog は束縛してから End を単一化して失敗する。ここでは同じ答えを、束縛する前に断って出す。
   // first + count は int64 に収まるので、Big の End はそれと等しくならない。
   const Cell end = machine.heap.deref(goal.arg(machine, 2));
-  if (!machine.heap.unbound(end) && (!is_int64(end) || machine.heap.integer_value(end) != first + count)) {
+  if ((!machine.heap.unbound(end) && (!is_int64(end) || machine.heap.integer_value(end) != first + count)) ||
+      end_is_term_var(machine, end, vars)) {
     machine.failed = true;
     return;
   }
@@ -382,7 +393,8 @@ void number_vars_small(Impl& machine, const Goal& goal, const std::vector<Cell>&
 void number_vars_big(Impl& machine, const Goal& goal, const std::vector<Cell>& vars, const BigInt& first) {
   const BigInt last = first + BigInt(static_cast<std::int64_t>(vars.size()));
   const Cell end = machine.heap.deref(goal.arg(machine, 2));
-  if (!machine.heap.unbound(end) && (!is_integer_tag(end.tag()) || machine.heap.big_value(end) != last)) {
+  if ((!machine.heap.unbound(end) && (!is_integer_tag(end.tag()) || machine.heap.big_value(end) != last)) ||
+      end_is_term_var(machine, end, vars)) {
     machine.failed = true;
     return;
   }
