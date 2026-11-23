@@ -64,9 +64,20 @@ class PairSeen {
   void finish() { path_.pop_back(); }
 
   // 2 つの項が共有する（同じセルの）複合項を、等しいとして飛ばした。違いで決めたときに、巡回しないかを確かめる。
+  // 同じセルは組の子の欄ごとに来る（f(S, …, S, p(1)) と f(S, …, S, p(2)) の 1 組で S がアリティ − 1 回）。続けて来た
+  // 同じセルは足さず、長さが倍になるたびに並べて重なりを捨てる。違う共有のセルはヒープのセルより多くないので、集めた
+  // 列はヒープの語の数の程度に収まる（レビュー RV-m12）。any_cyclic は列の順に依らない。
   void share(Cell cell) {
     shared_ = true;
-    if (collect_ != nullptr) collect_->push_back(cell);
+    if (collect_ == nullptr) return;
+    if (!collect_->empty() && collect_->back().raw() == cell.raw()) return;
+    collect_->push_back(cell);
+    if (collect_->size() < compact_at_) return;
+    std::sort(collect_->begin(), collect_->end(), [](Cell left, Cell right) { return left.raw() < right.raw(); });
+    const auto last = std::unique(collect_->begin(), collect_->end(),
+                                  [](Cell left, Cell right) { return left.raw() == right.raw(); });
+    collect_->erase(last, collect_->end());
+    compact_at_ = std::max(compact_at_, collect_->size() * 2);
   }
   [[nodiscard]] bool shared() const { return shared_; }
   // 違いで決めた節点の深さ（根が 0）。
@@ -97,6 +108,8 @@ class PairSeen {
 
   const Heap& heap_;
   std::vector<Cell>* collect_;
+  // collect_ をこの長さで詰める。
+  std::size_t compact_at_ = 1024;
   // 小さい比較はヒープの外に確保しない。
   std::array<Entry, kFewPairs> few_;
   std::size_t few_count_ = 0;
