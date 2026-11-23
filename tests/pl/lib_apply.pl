@@ -4,6 +4,10 @@
 plus3(X, V0, V) :- V is X + V0.
 sum4(A, B, C, D) :- D is A + B + C.
 sum5(A, B, C, V0, V) :- V is A + B + C + V0.
+l34_pair(X, Y, X-Y).
+l34_triple(A, B, C, f(A, B, C)).
+l34_same(X, X, V0, V) :- V is V0 + X.
+l34_same3(X, X, X, V0, V) :- V is V0 + X.
 % maplist/2..5。
 test(maplist2_all, maplist(integer, [1, 2]), true).
 test(maplist2_one_fails, maplist(integer, [1, a]), fail).
@@ -31,3 +35,16 @@ test(include_once, include(member(a), [[a, a], [b], [a]], L), solutions([L = [[a
 % 宣言した meta_predicate が取り込み側から見える。
 test(pp_maplist_meta, predicate_property(maplist(_, _), meta_predicate(M)), solutions([M = maplist(1, ?)])).
 test(pp_foldl_meta, predicate_property(foldl(_, _, _, _), meta_predicate(M)), solutions([M = foldl(3, ?, ?, ?)])).
+% L-34。どれかのリストが真のリストなら、それで絞って選択点を残さない。前は第1のリストで絞ったので、後ろのリスト
+% だけが決まった向きと、第1のリストが部分リストの向きでは選択点が残った。atoms.pl の m32_det と同じ見方をする。
+ap_det(Goal) :- setup_call_cleanup(true, Goal, Det = yes), Det == yes.
+test(l34_maplist3_second, (ap_det(maplist(=, L, [1, 2])), L == [1, 2]), true).
+test(l34_maplist3_partial, (ap_det(maplist(=, [1|T], [1, 2])), T == [2]), true).
+test(l34_maplist3_first, (ap_det(maplist(=, [1, 2], L)), L == [1, 2]), true).
+test(l34_maplist4_second, (ap_det(maplist(l34_pair, L1, [1, 2], L3)), L3 = [A-1, B-2], L1 == [A, B]), true).
+test(l34_maplist4_third, (ap_det(maplist(l34_pair, L1, L2, [a-1, b-2])), L1 == [a, b], L2 == [1, 2]), true).
+test(l34_maplist5_fourth, (ap_det(maplist(l34_triple, A, B, C, [f(1, 2, 3)])), A == [1], B == [2], C == [3]), true).
+test(l34_maplist5_second, (ap_det(maplist(l34_triple, A, [2], C, D)), D = [f(X, 2, Y)], A == [X], C == [Y]), true).
+test(l34_foldl5_second, (ap_det(foldl(l34_same, L, [1, 2], 0, S)), L == [1, 2], S == 3), true).
+test(l34_foldl6_third, (ap_det(foldl(l34_same3, A, B, [1, 2], 0, S)), A == [1, 2], B == [1, 2], S == 3), true).
+test(l34_maplist3_not_list, maplist(=, foo, [1]), fail).

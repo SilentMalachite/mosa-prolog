@@ -22,3 +22,11 @@ test(pv_values_det, (pr_det(pairs_values([a-1, b-2], V)), V == [1, 2]), true).
 test(tp_det, (pr_det(transpose_pairs([a-2, b-1, c-2], T)), T == [1-b, 2-a, 2-c]), true).
 test(gpk_det, (pr_det(group_pairs_by_key([a-2, a-1, b-4, a-3], G)), G == [a-[2, 1], b-[4], a-[3]]), true).
 test(mlp_det, (pr_det(map_list_to_pairs(atom_length, [abc, d], P)), P == [3-abc, 1-d]), true).
+% L-34。どれかのリストが真のリストなら、それで絞って選択点を残さない。前は組のリストが決まっていなければ鍵のリストで
+% 絞ったので、値のリストだけが決まった向きと、組や鍵のリストが部分リストの向きでは選択点が残った。
+test(l34_pv_values_only, (pr_det(pairs_values(P, [1, 2])), P = [_-1, _-2]), true).
+test(l34_pkv_values_only, (pr_det(pairs_keys_values(P, K, [1, 2])), P = [K1-1, K2-2], K == [K1, K2]), true).
+test(l34_pkv_partial_pairs, (pr_det(pairs_keys_values([a-1|T], K, [1, 2])), T = [_-2], K = [a, _]), true).
+test(l34_pkv_partial_keys, (pr_det(pairs_keys_values(P, [a|K], [1, 2])), P = [a-1, _-2], K = [_]), true).
+test(l34_pk_keys_only, (pr_det(pairs_keys(P, [a, b])), P = [a-_, b-_]), true).
+test(l34_pkv_not_list, pairs_keys_values(foo, _, [1]), fail).

@@ -6,10 +6,16 @@
 
 :- meta_predicate map_list_to_pairs(2, ?, ?).
 
-% 組のリストが決まっていれば組を先頭にして分け、そうでなければ鍵のリストを先頭にして組み立てる。
-% どちらも先頭の引数で絞れるので、決まった側の向きでは選択点を残さない。
+% 初めの真のリストを先頭の引数にして絞る。真のリストで絞れば、どの向きでも選択点を残さない（レビュー L-34）。
+% どれも真のリストでなければ、前と同じく組のリストが決まっていれば組を、そうでなければ鍵のリストを先頭にする。
 pairs_keys_values(Pairs, Keys, Values) :-
-    (   nonvar(Pairs)
+    (   is_list(Pairs)
+    ->  split_pairs(Pairs, Keys, Values)
+    ;   is_list(Keys)
+    ->  walk_triple(Keys, Values, Pairs)
+    ;   is_list(Values)
+    ->  walk_values(Values, Keys, Pairs)
+    ;   nonvar(Pairs)
     ->  split_pairs(Pairs, Keys, Values)
     ;   walk_triple(Keys, Values, Pairs)
     ).
@@ -21,6 +27,10 @@ split_pairs([Key-Value|Pairs], [Key|Keys], [Value|Values]) :-
 walk_triple([], [], []).
 walk_triple([Key|Keys], [Value|Values], [Key-Value|Pairs]) :-
     walk_triple(Keys, Values, Pairs).
+
+walk_values([], [], []).
+walk_values([Value|Values], [Key|Keys], [Key-Value|Pairs]) :-
+    walk_values(Values, Keys, Pairs).
 
 pairs_keys(Pairs, Keys) :-
     pairs_keys_values(Pairs, Keys, _).
