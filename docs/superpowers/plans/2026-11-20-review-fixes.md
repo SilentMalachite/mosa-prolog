@@ -251,7 +251,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | L-26 |  |  | 誤りではない  | 結果が無限大か 0 に決まっていても、quotient_magnitude がずらして割る |
 | L-27 | W9 | 問い | 未着手、問い ✔ | current_predicate/1 は ISO の type_error(predicate_indicator, PI) ではなく広く使われる形の誤りを出し、iso-notes にそれが無い |
 | L-28 | W9 |  | 未着手 (read) | numbervars/3 が、End が Term の変数で合いえないと分かる前に Term の変数を束縛する |
-| L-29 | W9 |  | 未着手 ✔ | format/3 が流れを確かめる前に ~p の portray を走らせ、流れの誤りが write/2 の名になる |
+| L-29 | W9 |  | done (cd1a0406) ✔ | format/3 が流れを確かめる前に ~p の portray を走らせ、流れの誤りが write/2 の名になる |
 | L-30 | W9 |  | done (4796c716) ✔ | CR だけの改行の後で、構文の誤りの位置を誤る |
 | L-31 | W9 |  | done (e984f8dd) ✔ | number_codes/2 と atom_number/2 は、`0'　` と CR で終わる `%` 注釈で read/1 と食い違う |
 | L-32 | W9 |  | 未着手 (read) | run_goal が入れ子の実行の catch_log の記録を残す |
