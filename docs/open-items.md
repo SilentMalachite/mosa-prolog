@@ -16,10 +16,11 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   or B, bind left to right again (one revert of fac56275 and its test changes)? Default A.
 - Branch review 2026-11-23 ([review-2026-11-23.md](review-2026-11-23.md)), default A keeps the
   current behaviour: R-M01 (count `passed` of `settle_shared` against the heap limit; B needs an ADR
-  0029 amendment), R-M09 (B: read a lone `;` after a prefix operator once `;` is no operator, or
-  bracket it when writing), R-M14 (B: also read a pretty-printed badge), R-L05 (B: refuse
-  `system:import/1` and `system:use_module`), R-N03 (B: allow the infix `user:op/3` of a name a
-  module hides at priority 0).
+  0029 amendment; since RV-m12 it drops repeats, so it holds one entry per distinct shared cell),
+  R-M09 (B: read a lone `;` after a prefix operator once `;` is no operator, or bracket it when
+  writing), R-M14 (B: also read a pretty-printed badge), R-L05 (B: refuse `system:import/1` and
+  `system:use_module`), R-N03 (B: allow the infix `user:op/3` of a name a module hides at
+  priority 0).
 - Branch review R-L17. A: keep not counting the old lgtunit forms (`succeeds/1`, `fails/1`,
   `throws/2`; 36 suite files, 358 tests, phase 9), so a file holding only them still hides a load
   failure (5 bundled files). B: count them, which moves the ISO denominator, and also count a load
@@ -229,6 +230,16 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
   runner goal: in `test(t, true(var(X))) :- (X = 1, ^^clean_text_output, fail ; true).` `X` stays
   `1`, so the test fails. `exec_disj` (`lgt_exec.cpp`) does not restore `saved`, while
   `exec_disj_then` does for `(A ; B), C` (found during M-54, older than it; no suite case).
+- `(C *-> T ; E)` with a runner goal in `C` or `T` is still a disjunction, so a failing `T` falls
+  to `E` (re-review RV-m01; with a runner goal only in `E` it is one marked query, as `->` is).
+- A disjunction that is not a direct branch of a conjunction's left or of another disjunction is
+  not entered again when later goals fail: `(fail -> true ; (X = 1 ; assertion(true), X = 2)),
+  X == 2` fails (re-review RV-m02, older than the range). It needs continuations through every
+  node.
+- `restore_saved` reads each saved value alone, so two values that shared a variable lose it:
+  `X = f(A), Y = g(A), assertion(true), Z = 1, variant(X-Y, f(B)-g(B))` fails (re-review RV-m04,
+  older). Values saved at different times may reuse a `_G` name, so they cannot be read as one
+  term.
 - A gate or case condition decides `predicate_property/2` from the term as read, before the query
   runs, so a callable bound by an earlier goal is not seen: `(P = atom_length(_, _),
   predicate_property(P, built_in))` is false (`lgt_cond.cpp`; seen in a probe run; older than
@@ -243,8 +254,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Files to split before their next edit
 
-No code or test file is at 730 lines or more (`wc -l`, 2026-11-22; generated files and docs aside;
-the largest is `src/machine/lgt_io.cpp` at 711).
+No code or test file is at 730 lines or more (`wc -l`, 2026-11-24; generated files and docs aside;
+the largest is `src/machine/lgt_exec.cpp` at 724).
 
 ## Unsure
 
@@ -321,6 +332,9 @@ General:
   the outer load (branch review R-L06): the load cannot tell that failure from `:- consult(F).`,
   whose failure is the consult's own. Open; it needs a way to see that a goal ran after the failed
   consult.
+- At `halt`, of two streams on one file the text of the one opened later stays, even when the other
+  wrote last (R-M08, re-review RV-m10); `close/1` and `flush_output/1` let the latest act win. ISO
+  leaves several streams on one file implementation dependent; a write counter would be needed.
 - Reconsult (review L11 A7 and A9, review N-11): the import of a predicate that a module file stopped
   exporting stays in the importer after the file is consulted again; and a reload that makes a static
   predicate dynamic (`p(1).`, then `:- dynamic(p/1). p(2).`) fails with `static_to_dynamic` and keeps
@@ -357,8 +371,9 @@ General:
 - A translated predicate picks its clauses by first argument with a linear chain of `if` (review
   N-07, owner's B), so a call takes time in the position of its key, and each `kKey` array repeats
   every keyless clause. 2,000 facts `f(k<i>, i)`, 300,000 calls: the last key 682 ms, the first 97 ms
-  (mosa 343 and 345 ms). 100 keyless clauses before 4,000 keyed ones make the generated unit 12.2 MB, not
-  3.8 MB. Constant-time dispatch would change the generated code of ADR 0009, so it needs an ADR.
+  (mosa 343 and 345 ms). 100 keyless clauses before 4,000 keyed ones make the generated unit
+  12.2 MB, not 3.8 MB. Constant-time dispatch would change the generated code of ADR 0009, so it
+  needs an ADR.
 - Undefined-call warnings show the clause line, not the goal line, and can name another file
   after a nested consult replaces that predicate's clauses (M23 A2).
 - Library units are not traced under `--debug`.

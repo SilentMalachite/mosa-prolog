@@ -34,15 +34,15 @@ V1 の後は V8 の R-M19 のような文書だけの物を先に片付けても
 
 | ID | 波 | 状態 |
 | --- | --- | --- |
-| R-H01 | V1 | done (5a1b7945) |
+| R-H01 | V1 | done (5a1b7945)。再レビューで見つかった退行 RV-I01〜RV-I03 は e84c5197 |
 | R-M12 | V1 | done (0c71bba4) |
 | R-M13 | V1 | done (ef85cfb8) |
-| R-M14 | V1 | done (be81eaf4)。整形した複数行の JSON を断るのは持ち主の問い（既定の A で断る、`pretty` の行が固定） |
+| R-M14 | V1 | done (be81eaf4。欄の名前、率と色も見るのは b741691d、RV-m05)。整形した複数行の JSON を断るのは持ち主の問い（既定の A で断る、`pretty` の行が固定） |
 | R-M15 | V1 | done (62e44f05) |
 | R-M16 | V1 | done (fba3795c)。旗 debug は前と同じく写さない |
 | R-M17 | V1 | done (e3de6dcf) |
 | R-L15 | V1 | done (d54d3a8c) |
-| R-L16 | V1 | done (273ac112) for `user::` と exists の束縛。setup と cleanup の `^^` は主の機械に lgtunit の述語が無いので変えない（スイートの 88 個の setup/cleanup に `^^` は無い） |
+| R-L16 | V1 | done (273ac112) for `user::` と exists の束縛（ランナー目標のある本体は 2336de43、RV-m03）。setup と cleanup の `^^` は主の機械に lgtunit の述語が無いので変えない（スイートの 88 個の setup/cleanup に `^^` は無い） |
 | R-L17 | V1 | 問い。直すと同梱スイートの 5 ファイル（epsilon_0、at_end_of_stream_1、flush_output_1、number_1、var_1）がファイルの行で不合格になり、ISO 欄が 2295/2333 から 2295/2338（98.2%）に下がって関門が 1 を返す。5 つとも古い形の試験（`succeeds/1`、`fails/1`、`throws/2`）だけのファイルで、離れた節が読み込みを落とす。古い形は 36 ファイル 358 件あり、phase 9 の計画で数えないと決めた（どこにも既知の限界として書かれていない）。古い形を数えるかを持ち主に聞く。変更は scratchpad の `r-l17.patch` にある |
 | R-L18 | V1 | done (8533f715)。L-43 の t1 の理由は新しい規則で `fail` から `syntax` に直した |
 | R-L19 | V1 | done (6cffe93f) |
@@ -56,20 +56,20 @@ V1 の後は V8 の R-M19 のような文書だけの物を先に片付けても
 | R-L09 | V2 | done (b5f9061b) |
 | R-L10 | V2 | done (d0d46f95) |
 | R-L11 | V2 | done (738d5ebd)。2 進の流れは行の条件から外す |
-| R-M03、R-M04 | V3 | done (c01c9027)。同じ書き起こし（transcript_debug_spy_alias_two）で見るので 1 つのコミット |
+| R-M03、R-M04 | V3 | done (c01c9027)。同じ書き起こし（transcript_debug_spy_alias_two）で見るので 1 つのコミット。後の直しは 3b422d3f と 26d742f2（RV-I04、RV-m06） |
 | R-L05 | V3 | 問い（既定の A: 今のまま） |
 | R-L06 | V3 | 未着手、設計が要る。指令の失敗が入れ子の consult の失敗によるものか、その後の別の理由かを今は見分けられない。`load_kept` を消すと `:- consult(F).` の形まで戻してしまう |
 | R-L07 | V3 | done (5a6f1a68)。振る舞いは変わらないので赤いテストは無い |
 | R-N02 | V3 | done (44c51b7e) |
 | R-N03 | V3 | 問い（既定の A: 今のまま） |
-| R-M01 | V4 | 問い。重なりは時間を食わず、上限に数えるには ADR 0029 の改訂が要る |
+| R-M01 | V4 | 問い。上限に数えるには ADR 0029 の改訂が要る。手順 5 の重複を除く部分は 57be0a6a（RV-m12） |
 | R-M02 | V4 | done (79af7835) |
-| R-L01、R-L03、R-L04 | V4 | done (afaa0816、0d2fca2d、164bb60a)。R-L04 のほかの OS は CI |
+| R-L01、R-L03、R-L04 | V4 | done (afaa0816、0d2fca2d、164bb60a。R-L01 を 1 度だけ探すのは 29e10be7、RV-m13)。R-L04 のほかの OS は CI |
 | R-L02 | V4 | 誤りではない（drop はいつも held が数える前の値の語） |
 | R-N01 | V4 | そのまま（drop_run が戻す） |
 | R-N04 | V4 | done (fac64b41) |
 | R-M11 | V5 | done (60243682) |
-| R-L12、R-L13 | V5 | done (0f500c21、736530cb) |
+| R-L12、R-L13 | V5 | done (0f500c21、736530cb)。R-L13 の後の直しは e1d6536f と 5afcc5d8（RV-m11） |
 | R-L14 | V5 | done (9a2530cf)、CI のみ |
 | R-N05、R-N06 | V5 | 1 つ目ずつ done (67409bb6、e5b367e0)、2 つ目は害が無い |
 | R-L08 | V6 | done (31532fc9) |
