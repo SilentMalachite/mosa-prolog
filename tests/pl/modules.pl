@@ -399,3 +399,8 @@ test(l24_dynamic_system,
 test(l24_meta_system,
      (\+ h12_load(l24_meta, ':- meta_predicate(system:l24_m(0)).\n'), \+ predicate_property(system:l24_m(_), defined)),
      true).
+% レビュー L-15。原子の宣言は読み込みを止めず、印を付ける引数が無いので meta_predicate の性質も残さない。
+test(l15_meta_atom,
+     (h12_load(l15_meta, ':- meta_predicate l15_foo.\nl15_foo.\n'), l15_foo,
+      \+ predicate_property(l15_foo, meta_predicate(_))),
+     true).

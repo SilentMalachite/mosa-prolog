@@ -59,8 +59,8 @@ Cell spec_cell(Impl& machine, const MetaArg& arg) {
   return machine.heap.atom(arg.mode);
 }
 
+// args は空でない。meta_head は空の宣言で先に返り、builtin_meta_head は空を渡さない（レビュー L-15）。
 Cell head_of(Impl& machine, std::uint32_t name, const std::vector<MetaArg>& args) {
-  if (args.empty()) return machine.heap.atom(name);
   std::vector<Cell> cells;
   cells.reserve(args.size());
   for (const MetaArg& arg : args) cells.push_back(spec_cell(machine, arg));
@@ -101,6 +101,8 @@ std::vector<MetaArg> parse_specs(Impl& machine, std::string_view specs) {
 std::optional<Cell> read_meta_spec(Impl& machine, Cell head, std::vector<MetaArg>& args) {
   head = machine.heap.deref(head);
   if (machine.heap.unbound(head)) return formal_instantiation(machine);
+  // :- meta_predicate foo. は誤りにしないが、印を付ける引数が無いので何も残さない。predicate_property/2 に
+  // meta_predicate(foo) は出ない（レビュー L-15。tests/pl/modules.pl の l15_meta_atom）。
   if (head.tag() == Tag::Atom) {
     args.clear();
     return std::nullopt;
