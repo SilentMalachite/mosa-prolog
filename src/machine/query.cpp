@@ -36,12 +36,14 @@ Stop start_goal(Impl& machine, Cell goal) {
   count_vectors(machine);
   // 呼べない部分を含むゴールは、どの部分も動かす前に、ゴール全体の type_error(callable, Goal) で止める。call/1 と
   // 同じ検査と誤りにするため、そのときだけ call(Goal) として動かす。前は前半を動かしてから、その葉だけを名指した
-  // （レビュー M-16、7.6.2、7.8.3.3）。
-  if (!body_callable(*compile_goal(machine.heap, goal).term)) {
+  // （レビュー M-16、7.6.2、7.8.3.3）。訳し直すのはそのときだけで、呼べるゴールは 1 度の訳をそのまま使う。前はどの
+  // 問い合わせも 2 度訳した（レビュー R-L07）。
+  Compiled compiled = compile_goal(machine.heap, goal);
+  if (!body_callable(*compiled.term)) {
     const std::array<Cell, 1> parts{goal};
     goal = machine.heap.structure(machine.atoms.intern("call"), parts);
+    compiled = compile_goal(machine.heap, goal);
   }
-  const Compiled compiled = compile_goal(machine.heap, goal);
   launch(machine, compiled.term, kNoFrame, 0, compiled.env, machine.user_module);
   return run_loop(machine);
 }
