@@ -299,7 +299,9 @@ bool run_exam(Machine& machine, const Exam& exam, std::string& error) {
     if (stop.kind != StopKind::Exception) return false;
     return lgt_subsumes(machine.heap(), fold_minus(machine, machine.heap().arg(expect, 0)), stop.exception);
   }
-  if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "solutions") {
+  // solutions も 1 引数だけ。前はアリティを見ず、solutions([X = 1], garbage) の 2 つ目を黙って捨てた（レビュー R-M15）。
+  if (expect.tag() == Tag::Str && machine.atoms().name(machine.heap().functor_atom(expect)) == "solutions" &&
+      machine.heap().functor_arity(expect) == 1) {
     const auto wanted = list_items(machine.heap(), machine.heap().arg(expect, 0));
     if (!wanted) {
       error = exam.expect;

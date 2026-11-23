@@ -56,7 +56,7 @@ void check_exam(const Exam& item) {
 }  // namespace
 
 int main() {
-  const std::array<Exam, 23> exams{{
+  const std::array<Exam, 24> exams{{
       // 投げた Formal が変数か一部が変数なら、期待の Formal を満たしたことにならない。
       {"h41_var", "test(t, throw(error(_, _)), error(type_error(integer, a))).", false},
       {"h41_partial", "test(t, throw(error(type_error(_, _), _)), error(type_error(integer, a))).", false},
@@ -86,6 +86,8 @@ int main() {
       {"m53_two", "test(t, (X = 1 ; X = 2), solutions([X = 1, X = 2])).", true},
       {"m53_pairs", "test(t, (X = 1, Y = 3), solutions([(X = 1, Y = 3)])).", true},
       {"m53_pairs_differ", "test(t, (X = 1, Y = 3), solutions([(X = 1, Y = 2)])).", false},
+      // solutions は 1 引数だけ。前は 2 つ目の引数を見ずに合格にした（レビュー R-M15）。
+      {"rm15_arity", "test(t, X = 1, solutions([X = 1], garbage)).", false},
   }};
   for (const Exam& item : exams) check_exam(item);
   return mosa_test::failures();
