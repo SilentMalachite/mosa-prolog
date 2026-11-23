@@ -275,6 +275,26 @@ void restore_splices(Stream& stream, const std::vector<Splice>& splices) {
   }
 }
 
+// 置き換えは関数を抜けるときに必ず戻す。読み直しや raise_syntax がヒープの上限（ResourceLimit）で抜けると、前は戻す
+// 処理を飛ばし、後の get_char/2 が representation_error でなく U+FFFD を返した（レビュー R-M05）。戻すバイトは 3 バイト
+// 以下で U+FFFD の 3 バイトより長くないので、戻すときに文字列は伸びない。
+class SpliceGuard {
+ public:
+  explicit SpliceGuard(Stream& stream) : stream_(stream) {}
+  SpliceGuard(const SpliceGuard&) = delete;
+  SpliceGuard& operator=(const SpliceGuard&) = delete;
+  ~SpliceGuard() { restore(); }
+  std::vector<Splice>& splices() { return splices_; }
+  void restore() {
+    restore_splices(stream_, splices_);
+    splices_.clear();
+  }
+
+ private:
+  Stream& stream_;
+  std::vector<Splice> splices_;
+};
+
 // 構文の誤りは、その項の終止符まで進めてから出す。
 void raise_syntax(Impl& machine, const Goal& goal, Stream& stream, const SyntaxFailure& failure,
                   std::size_t consumed, Cell culprit) {
@@ -475,7 +495,8 @@ Intake intake_term(Impl& machine, Stream& stream, std::uint32_t module) {
 // catch できる誤りの代わりに --heap-max で止まった（L6 の Codex レビュー）。読む間に GC は動かない。
 void deliver(Impl& machine, const Goal& goal, Stream& stream, std::size_t heap_mark, Intake intake, Cell term_cell,
              const std::vector<Chosen>& chosen, Cell culprit) {
-  std::vector<Splice> splices;
+  SpliceGuard guard(stream);
+  std::vector<Splice>& splices = guard.splices();
   while (intake.outcome.failure) {
     const std::optional<std::size_t> fault = next_fault(stream, intake);
     if (!fault || !splice_fffd(stream, *fault, splices)) break;
@@ -485,13 +506,13 @@ void deliver(Impl& machine, const Goal& goal, Stream& stream, std::size_t heap_m
   const bool refused = !machine.utf8_replace && !splices.empty();
   if (intake.outcome.failure && !refused) {
     raise_syntax(machine, goal, stream, *intake.outcome.failure, intake.consumed, culprit);
-    restore_splices(stream, splices);
+    guard.restore();
     return;
   }
   const std::string_view slice = rest(stream);
   const std::size_t take = intake.consumed > slice.size() ? slice.size() : intake.consumed;
   advance_slice(stream, slice.substr(0, take));
-  restore_splices(stream, splices);
+  guard.restore();
   if (refused) {
     raise_formal(machine, formal_representation(machine, "character"), goal.name, goal.arity);
     return;
