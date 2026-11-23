@@ -13,6 +13,8 @@ list(JOIN mosa_header_version "." mosa_header_version)
 if(NOT mosa_header_version STREQUAL PROJECT_VERSION)
   message(FATAL_ERROR "include/mosa/version.hpp の版 (${mosa_header_version}) が project VERSION (${PROJECT_VERSION}) と違う")
 endif()
+# version.hpp だけを直したビルドでも、この確かめを構成し直して流す（レビュー L-44）。
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS include/mosa/version.hpp)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,7 +46,10 @@ target_link_libraries(mosatest PRIVATE mosa_lib)
 # library(...) は実行ファイルの隣の lib/ を探す（SPEC 第5節）。POST_BUILD は再リンクのときしか動かず、
 # lib/*.pl だけを直したビルドで古い写しが残るので、ビルドのたびに写す目標にする。
 # include/ も写す。mosac はビルド木の形では自分の隣で libmosa と include/ と pl/ を引く（計画 Task 5、Task 10）。
+# copy_directory は写し先の余分なファイルを消さないので、先に写し先を消す。前は源から消した見出しが残り、生成コードの
+# ビルドに渡った（レビュー L-44）。写すたびに時刻が新しくなるのは前の copy_directory と同じ。
 add_custom_target(mosa_lib_dir ALL
+  COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:mosa>/lib $<TARGET_FILE_DIR:mosac>/include
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lib $<TARGET_FILE_DIR:mosa>/lib
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/include $<TARGET_FILE_DIR:mosac>/include)
 foreach(command mosa mosac mosatest)
