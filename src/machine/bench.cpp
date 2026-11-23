@@ -96,7 +96,11 @@ bool step(const std::vector<std::string>& argv, const std::filesystem::path& log
 bool build_translated(const BenchArgs& args, const std::filesystem::path& work, const std::filesystem::path& mosac) {
   std::error_code error;
   std::filesystem::remove_all(work / kOutDir, error);
-  error.clear();
+  // 消せなければ止める。前は誤りを捨てて続け、古い目録の上で動いて失敗した emit を隠しえた（レビュー L-41）。
+  if (error) {
+    std::cerr << message("bench_cannot_write", {utf8_from_path(work / kOutDir)}) << '\n';
+    return false;
+  }
   std::filesystem::create_directories(work, error);
   if (error) {
     std::cerr << message("bench_cannot_write", {utf8_from_path(work)}) << '\n';
