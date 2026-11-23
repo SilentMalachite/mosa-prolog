@@ -454,8 +454,10 @@ bool emit_written(Impl& machine, const Goal& goal, std::size_t index, Cell term,
     }
     if (hook.stop && !hook.halted) return false;
     // portray が行き先の流れを閉じたら、書かずに誤りにする。前は閉じた流れへ黙って書き、何も残らなかった（M-31）。
+    // halt と a で止まったときは誤りにせず、書かずに止まる。投げると外の setup_call_cleanup/3 の枠が外れ、a の後始末が
+    // 動かなかった（レビュー R-M06、ADR 0028 の決定 A）。halt_now と abort_now が残りを止める。
     if (machine.streams[index].closed) {
-      raise_exists(machine, goal, stream_handle(machine, index));
+      if (!hook.halted) raise_exists(machine, goal, stream_handle(machine, index));
       return false;
     }
     // halt で止まったときは、portray の分までの字面を書いてから止まる。halt_now が残りのゴールを止める。

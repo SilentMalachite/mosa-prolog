@@ -8,8 +8,10 @@
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace {
 
@@ -293,6 +295,34 @@ void check_abort_init() {
 
 }  // namespace
 
+// レビュー R-M06。portray/1 が行き先の流れを閉じた後の a でも、外の setup_call_cleanup/3 の後始末は 1 回動く
+// （ADR 0028 の決定 A）。前は閉じた流れを existence_error で投げ、その枠を外したので後始末が消えた。
+void check_abort_portray_closed() {
+  const std::filesystem::path file =
+      std::filesystem::path{MOSA_SOURCE_DIR} / "tests" / "tmp" / "debugger-abort-portray.txt";
+  std::error_code error;
+  std::filesystem::create_directories(file.parent_path(), error);
+  auto machine = mosa::Machine::create();
+  auto& impl = mosa::engine_impl(*machine);
+  const std::string program = ":- dynamic(log/1).\n:- dynamic(s/1).\nt.\n"
+                              "portray(x) :- s(S), close(S), t.\n"
+                              "p :- open('" + file.generic_string() + "', write, S), assertz(s(S)),\n"
+                              "    setup_call_cleanup(true, print(S, x), assertz(log(outer))).\n";
+  mosa_test::check(machine->load_program(program).ok, "abort_portray_closed: load the program");
+  impl.message_lang = mosa::MessageLanguage::En;
+  Scripted script{" Call: (5) t ? ", "a", {}, {}, false};
+  give_script(*machine, script);
+  const mosa::Stop stop = machine->query("trace, p.");
+  mosa_test::check(script.used, "abort_portray_closed: the a was given, ports [" + script.text + "]");
+  mosa_test::check(stop.kind == mosa::StopKind::Abort,
+                   "abort_portray_closed: Abort, got [" + stop_text(*machine, stop) + "], ports [" + script.text + "]");
+  const mosa::Stop logged = machine->query("nodebug, findall(X, log(X), L).");
+  const std::string text = stop_text(*machine, logged);
+  mosa_test::check(text.find("L = [outer]") != std::string::npos,
+                   "abort_portray_closed: the outer cleanup ran once, got [" + text + "]");
+  std::filesystem::remove(file, error);
+}
+
 int main() {
   check_abort_stop();
   check_abort_cleanup();
@@ -306,5 +336,6 @@ int main() {
   check_abort_cleanup_heap_full();
   check_abort_pending_cleanup();
   check_abort_init();
+  check_abort_portray_closed();
   return mosa_test::failures() == 0 ? 0 : 1;
 }

@@ -75,6 +75,7 @@ add_test(NAME debugger COMMAND $<TARGET_FILE:debugger_test>)
 # デバッガの a が問い合わせを止め、後始末を動かす（ADR 0028）。debugger_test から分けた。
 add_executable(debugger_abort_test tests/cpp/debugger_abort_test.cpp)
 target_include_directories(debugger_abort_test PRIVATE tests/cpp src)
+target_compile_definitions(debugger_abort_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(debugger_abort_test PRIVATE mosa_lib)
 add_test(NAME debugger_abort COMMAND $<TARGET_FILE:debugger_abort_test>)
 # PR #4 の敵対的レビュー。トレースの時間が回数に比例する範囲に収まる。ほかの scale と同じくひとりで走らせる。
