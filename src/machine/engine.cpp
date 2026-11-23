@@ -656,6 +656,7 @@ std::unique_ptr<Machine> Machine::create(std::size_t heap_limit) {
 }
 
 AtomTable& Machine::atoms() { return impl_->atoms; }
+const AtomTable& Machine::atoms() const { return impl_->atoms; }
 
 Heap& Machine::heap() { return impl_->heap; }
 

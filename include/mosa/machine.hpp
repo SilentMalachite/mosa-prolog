@@ -49,6 +49,7 @@ class Machine {
   Machine& operator=(const Machine&) = delete;
 
   [[nodiscard]] AtomTable& atoms();
+  [[nodiscard]] const AtomTable& atoms() const;
   [[nodiscard]] Heap& heap();
   [[nodiscard]] const Heap& heap() const;
   [[nodiscard]] OperatorTable& operators();

@@ -377,10 +377,10 @@ inline constexpr std::uint16_t kCallArityMax = 8;
 // 動かす前に呼ぶ。呼ばない呼び手でも、戻り辺の葉が動くと
 // 変数ゴール（launch_var）がここを通るので、巡回は回り続けずに誤りになる。
 [[nodiscard]] bool raise_cyclic_goal(Impl& machine, const Compiled& compiled, std::uint32_t name, std::uint16_t arity);
-[[nodiscard]] bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
+[[nodiscard]] bool compile_clause(Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names = {});
 // ADR 0022（レビュー M30）。asserta/1 と assertz/1 の節。繰り返す部分項を Clause::shared にし、組む IR は
 // compile_goal と同じくヒープの上限で止める（ResourceLimit）。
-[[nodiscard]] bool compile_asserted(const Heap& heap, Cell cell, Clause& clause);
+[[nodiscard]] bool compile_asserted(Heap& heap, Cell cell, Clause& clause);
 // compile_asserted が集めた共有の項の表。terms[i] のスロットは base + i。共有の項が無ければ空のポインタ。
 [[nodiscard]] std::shared_ptr<const SharedTable> make_shared_table(std::vector<SharedTerm> terms, std::uint32_t base);
 // 訳す間の共有の項の仮のスロット。i 番目は kProvisionalShared - i で、変数のスロットとは重ならない。

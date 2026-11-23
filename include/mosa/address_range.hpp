@@ -22,7 +22,9 @@ class AddressRange {
   // 予約を超えるか OS が断れば false。
   [[nodiscard]] bool commit(std::size_t bytes);
   // 全ての語の読み書きが通るので、呼び出しにならないよう header で定義する（bench の nrev で差が出た）。
-  [[nodiscard]] std::uint64_t* words() const { return static_cast<std::uint64_t*>(base_); }
+  // const の範囲からは語を書き換えられない（レビュー L-03）。
+  [[nodiscard]] std::uint64_t* words() { return static_cast<std::uint64_t*>(base_); }
+  [[nodiscard]] const std::uint64_t* words() const { return static_cast<const std::uint64_t*>(base_); }
   [[nodiscard]] std::size_t reserved_bytes() const;
   [[nodiscard]] std::size_t committed_bytes() const;
 

@@ -30,13 +30,13 @@ struct Held {
     term = std::move(*outcome.term);
     ok = true;
   }
-  [[nodiscard]] std::string text(mosa::Cell cell) const { return mosa::answer_text(heap, ops, cell); }
+  [[nodiscard]] std::string text(mosa::Cell cell) { return mosa::answer_text(heap, ops, cell); }
 };
 
 void sharing_and_leaves() {
-  const Held shared("'$a'(f(X, Y, X), Y, _).");
+  Held shared("'$a'(f(X, Y, X), Y, _).");
   check(shared.ok && shared.text(shared.term.term) == "'$a'(f(_G1,_G2,_G1),_G2,_G3)", "sharing by first occurrence");
-  const Held leaves("'$a'('A', -1, -(1), {x}, a+b, [], [a|T], \"ab\", 1.5).");
+  Held leaves("'$a'('A', -1, -(1), {x}, a+b, [], [a|T], \"ab\", 1.5).");
   check(leaves.ok, "leaves read");
   if (!leaves.ok) return;
   const std::string text = leaves.text(leaves.term.term);

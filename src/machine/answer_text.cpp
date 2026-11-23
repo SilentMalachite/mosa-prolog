@@ -25,7 +25,8 @@ struct Step {
 
 class AnswerWriter {
  public:
-  AnswerWriter(const Heap& heap, OperatorView operators)
+  // [] を原子の表から引くので Heap は const にしない（レビュー L-03）。
+  AnswerWriter(Heap& heap, OperatorView operators)
       : heap_(heap), operators_(operators), nil_(heap.atom(heap.atoms().intern("[]"))) {}
   [[nodiscard]] std::string run(Cell root);
 
@@ -135,7 +136,7 @@ void AnswerWriter::tail(Cell cell) {
 
 }  // namespace
 
-std::string answer_text(const Heap& heap, OperatorView operators, Cell term) {
+std::string answer_text(Heap& heap, OperatorView operators, Cell term) {
   AnswerWriter writer(heap, operators);
   return writer.run(term);
 }

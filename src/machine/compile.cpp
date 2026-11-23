@@ -560,10 +560,10 @@ bool dot_head(const Heap& heap, Cell head, Cell& left, Cell& right) {
   return false;
 }
 
-void set_dot_head(Build& build, const Heap& heap, Clause& clause, Cell left, Cell right) {
+void set_dot_head(Build& build, Clause& clause, Cell left, Cell right) {
   // 頭の '.'/2 はデータとしてのリストではなく、述語 '.'/2 である。
   clause.head.tag = IrTag::Fun;
-  clause.head.atom = heap.atoms().intern(".");
+  clause.head.atom = build.heap->atoms().intern(".");
   clause.head.arity = 2;
   clause.head.args.push_back(build.data(left));
   clause.head.args.push_back(build.data(right));
@@ -591,7 +591,7 @@ bool compile_into(Build& build, const Heap& heap, Cell cell, Clause& clause, std
   Cell left;
   Cell right;
   if (dot_head(heap, head, left, right)) {
-    set_dot_head(build, heap, clause, left, right);
+    set_dot_head(build, clause, left, right);
   } else if (heap.unbound(head) || is_integer_tag(head.tag()) || head.tag() == Tag::Float) {
     return false;
   } else {
@@ -613,14 +613,14 @@ bool compile_into(Build& build, const Heap& heap, Cell cell, Clause& clause, std
 
 }  // namespace
 
-bool compile_clause(const Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
+bool compile_clause(Heap& heap, Cell cell, Clause& clause, std::span<const VarName> names) {
   Build build;
   build.heap = &heap;
   return compile_into(build, heap, cell, clause, names);
 }
 
 // 節はヒープの外のデータベースに残るが、組む IR が上限の語数を超えるなら、それはヒープに収まらない項を木に広げている。
-bool compile_asserted(const Heap& heap, Cell cell, Clause& clause) {
+bool compile_asserted(Heap& heap, Cell cell, Clause& clause) {
   Build build;
   build.heap = &heap;
   build.share = true;

@@ -1,11 +1,22 @@
 #include "harness.hpp"
 #include "mosa/address_range.hpp"
+#include "mosa/heap.hpp"
+#include "mosa/machine.hpp"
 
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 namespace {
+
+// レビュー L-03。公開ヘッダの const の関数は、書き換えられる参照やポインタを返さない。前は const の Heap から
+// AtomTable& が、const の AddressRange から std::uint64_t* が取れ、const の Machine からは atoms() が呼べなかった。
+static_assert(std::is_same_v<decltype(std::declval<const mosa::Heap&>().atoms()), const mosa::AtomTable&>);
+static_assert(std::is_same_v<decltype(std::declval<mosa::Heap&>().atoms()), mosa::AtomTable&>);
+static_assert(std::is_same_v<decltype(std::declval<const mosa::AddressRange&>().words()), const std::uint64_t*>);
+static_assert(std::is_same_v<decltype(std::declval<mosa::AddressRange&>().words()), std::uint64_t*>);
+static_assert(std::is_same_v<decltype(std::declval<const mosa::Machine&>().atoms()), const mosa::AtomTable&>);
 
 constexpr std::size_t kWordsInMiB = (std::size_t{1} << 20) / sizeof(std::uint64_t);
 

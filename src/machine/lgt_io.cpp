@@ -494,7 +494,7 @@ LgtSuper clean_dir(Machine& machine, const LgtIo& io, Cell goal) {
 }
 
 LgtSuper file_path_obs(Machine& machine, const LgtIo& io, Cell goal) {
-  const Heap& heap = machine.heap();
+  Heap& heap = machine.heap();
   const Cell file = heap.deref(heap.arg(goal, 0));
   if (file.tag() != Tag::Atom) return bound_no();
   const auto name = atom_text(heap, file);

@@ -12,6 +12,6 @@
 
 namespace mosa {
 
-[[nodiscard]] std::string answer_text(const Heap& heap, OperatorView operators, Cell term);
+[[nodiscard]] std::string answer_text(Heap& heap, OperatorView operators, Cell term);
 
 }  // namespace mosa

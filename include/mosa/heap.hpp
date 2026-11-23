@@ -53,7 +53,9 @@ class Heap {
   Heap(const Heap&) = delete;
   Heap& operator=(const Heap&) = delete;
 
-  [[nodiscard]] AtomTable& atoms() const { return atoms_; }
+  // const の Heap からは原子を足せない（レビュー L-03）。
+  [[nodiscard]] AtomTable& atoms() { return atoms_; }
+  [[nodiscard]] const AtomTable& atoms() const { return atoms_; }
   [[nodiscard]] std::size_t limit() const { return limit_; }
   [[nodiscard]] std::size_t size() const { return used_; }
   // 今 commit してある語数。上限（limit）までの途中の段階であり、allocate が足りなければ伸ばす。

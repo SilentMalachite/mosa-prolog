@@ -32,7 +32,8 @@ struct Seen {
 };
 
 struct Build {
-  const Heap* heap = nullptr;
+  // 呼び出しの名前（call、'.'）を原子の表に足すので const にしない。前は const の Heap から足していた（レビュー L-03）。
+  Heap* heap = nullptr;
   std::vector<std::uint64_t> refs;
   // 今たどっている複合項。節のデータの循環を匿名に切る。
   std::unordered_set<std::uint64_t> open;
