@@ -285,6 +285,18 @@ void check_meta_declarations() {
 
 // 公開の演算子は use_module/1 と except で取り込み側へ入り、PI のリストでは入らない（Task 10）。
 // reexport は指示だけの名前（SPEC 第5節）。形の合わない物はゴールとして呼ばず、use_module と同じく受けない（レビュー L-17）。
+// user には公開の一覧が無い（SPEC 第5節）。モジュールでないテキストの export/1 は reexport と同じく何も足さない。
+// 前は user の公開の一覧に入り、predicate_property(p(_), exported) が成り立った（レビュー L-21）。引数の誤りは今までどおり。
+void check_user_export() {
+  auto machine = mosa::Machine::create();
+  mosa_test::check(machine->load_program(":- export(p/1).\np(1).\n").ok, "export in user loads");
+  mosa_test::check(succeeds(*machine, "p(1)."), "the clause is loaded");
+  mosa_test::check(!succeeds(*machine, "predicate_property(p(_), exported)."), "user has no export list");
+  auto bad = mosa::Machine::create();
+  mosa_test::check(!bad->load_program(":- export(foo).\n").ok, "bad export in user fails");
+  mosa_test::check(mentions(*bad, "type_error(predicate_indicator,foo)"), "bad export in user: type_error");
+}
+
 void check_reexport_shape() {
   for (const std::string_view text : {":- use_module.", ":- reexport.", ":- reexport(a, b, c)."}) {
     auto machine = mosa::Machine::create();
@@ -383,6 +395,7 @@ int main() {
   check_qualified_declarations();
   check_meta_declarations();
   check_reexport_shape();
+  check_user_export();
   check_exported_operators();
   check_print_while_portray_loads();
   check_flags_per_file();

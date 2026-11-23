@@ -212,6 +212,9 @@ std::optional<Cell> declare_module(Impl& machine, Cell name, Cell exports, bool 
 std::optional<Cell> add_exports(Impl& machine, Cell indicators) {
   std::vector<PredKey> keys;
   if (const auto formal = read_indicators(machine, indicators, machine.load_module, keys)) return formal;
+  // user には公開の一覧が無い。モジュールでないテキストの export/1 は、引数だけ確かめて何も足さない（SPEC 第5節、
+  // reexport と同じ）。前は user の一覧に入り、predicate_property/2 が exported を返した（レビュー L-21）。
+  if (machine.load_module == machine.user_module) return std::nullopt;
   Module* module = find_module(machine, machine.load_module);
   if (module != nullptr) add_keys(*module, keys);
   return std::nullopt;
