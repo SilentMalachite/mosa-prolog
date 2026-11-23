@@ -24,5 +24,10 @@ Swapping only the `cont` of `Goal`: it does not reach `DebugExit` on the paths t
 
 With the debugger off, or with no `DebugConsole`, `step` costs one branch; in leap only spied calls get a box, so a run up to a spy point is near normal speed (owner question 2, decision A; the bench must stay within 1.2 times).
 While tracing, a tail call keeps its box and a deep recursion uses memory in proportion to its depth; the depth and `g` count only open boxes, and inside a directive only those opened in it; a box keeps the depth it had when it opened, since the open boxes outside it cannot change while it is open, and a new box reads its depth from a table of the open boxes (kept like a stack, set aside with the frames in a directive), so no port scans the stack even under many choice points.
-Fixed later (review H-14): a spy point is kept under the defining module and the defining name, so a predicate imported with `as` is spied under its alias, under its own name and under `M:Name`, and `spy(Alias)` finds it; leap's cheap name check also lets a call through when its context imports the name as an alias, and a per-module flag (`Module::aliased`) keeps that look at the imports away from modules without aliases.
 Tests: transcripts under `tests/cpp/data/` (`transcript_test.cmake`), `tests/pl/debugger.pl`, the `check_*` functions in the C++ tests, `MOSA_GC_STRESS`, the `mosac` standalone ctest; phase 14 plan Tasks 2 to 10.
+
+## Later fixes
+
+Fixes made after the decision, kept apart so that each section above stays within three lines (review R-L24).
+Fixed later (review H-14): a spy point is kept under the defining module and the defining name, so a predicate imported with `as` is spied under its alias, under its own name and under `M:Name`, and `spy(Alias)` finds it; leap's cheap name check also lets a call through when its context imports the name as an alias, and a per-module flag (`Module::aliased`) keeps that look at the imports away from modules without aliases.
+Fixed later (reviews R-M03 and R-M04): a spy point is shown by the name placed when that name still reaches the same predicate from `user`, and otherwise by the defining name, with the module when `user` reaches another predicate by it; a later spy/1 of the predicate that an earlier key now reaches replaces that key, so leap stops at calls by the defining name.
