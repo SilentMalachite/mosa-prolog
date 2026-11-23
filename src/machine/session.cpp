@@ -421,8 +421,9 @@ SyntaxFailure shifted(SyntaxFailure failure, TypedSpot base) {
 }
 
 // 読んだ項から、動かすものを文字列で取る。ゴールも指令も文字列から読み直して動かすので、項はもう要らない。
-// help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。
-enum class Entry { Help, Directive, Goal };
+// help は REPL の命令で、述語ではない。user の名前を増やさない（SPEC 第4節）。None は項が読めなかったとき。
+// std::optional<Entry> にすると、GCC の -Wmaybe-uninitialized が run_entry へ畳み込んだ所で誤って警告した。
+enum class Entry { None, Help, Directive, Goal };
 
 Entry entry_of(Machine& machine, const ReadTerm& read, std::string& goal) {
   const Cell term = read.term;
@@ -472,9 +473,8 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     const std::size_t mark = machine.heap().size();
     const BufferRead read = read_buffer(machine, buffer, echo);
     std::string goal;
-    const std::optional<Entry> entry = read.outcome && read.outcome->term
-                                           ? std::optional<Entry>{entry_of(machine, *read.outcome->term, goal)}
-                                           : std::nullopt;
+    const Entry entry =
+        read.outcome && read.outcome->term ? entry_of(machine, *read.outcome->term, goal) : Entry::None;
     if (machine.heap().size() >= mark) machine.heap().truncate(mark);
     if (needs_more(read)) continue;
     if (read.outcome && read.outcome->failure) warn_syntax(machine, shifted(*read.outcome->failure, base), echo);
@@ -484,7 +484,7 @@ void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
     if (blank(buffer)) buffer.clear();
     pending = !buffer.empty();
     base = pending ? spot_after(text, base) : TypedSpot{};
-    if (entry && run_entry(machine, *entry, text, goal, cursor, echo)) return;
+    if (entry != Entry::None && run_entry(machine, entry, text, goal, cursor, echo)) return;
     if (!pending) echo.say(prompt_text(machine));
   }
 }
