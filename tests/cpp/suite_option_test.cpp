@@ -108,6 +108,22 @@ void check_unbound_setup(const std::filesystem::path& root) {
                      5, 5, {}});
 }
 
+// setup と cleanup も本体と同じく user:: を外して読む。exists の cleanup は、成り立った解の束縛で動く（レビュー
+// R-L16）。前は user:: を残して構文エラーにし、exists には最初の解の束縛を渡した。
+void check_option_forms(const std::filesystem::path& root) {
+  check_suite(root, {"option_user",
+                     "\t:- dynamic(r16_flag/0).\n\t:- dynamic(r16_left/0).\n"
+                     "\ttest(u1, true, [setup(user::assertz(r16_flag))]) :- r16_flag.\n"
+                     "\ttest(u2, true, [cleanup(user::retract(r16_left))]) :- assertz(r16_left).\n"
+                     "\ttest(u3, false) :- r16_left.\n",
+                     3, 3, {}});
+  check_suite(root, {"option_exists",
+                     "\t:- dynamic(r16_seen/1).\n"
+                     "\ttest(e1, exists(X == 2), [cleanup(assertz(r16_seen(X)))]) :- member(X, [1, 2]).\n"
+                     "\ttest(e2, true) :- r16_seen(2).\n",
+                     2, 2, {}});
+}
+
 // cleanup は本体の後に、本体の束縛で動く。ストリームは字面で写しても同じものを指すので、同じ別名を次の試験が開ける。
 // 本体が失敗しても動き、cleanup 自体の失敗と例外は結果を変えない。
 void check_cleanup(const std::filesystem::path& root) {
@@ -166,6 +182,7 @@ int main() {
     Fixture fixture(root);
     check_setup(root);
     check_unbound_setup(root);
+    check_option_forms(root);
     check_cleanup(root);
     check_curly_helpers(root);
     check_object_hooks(root);

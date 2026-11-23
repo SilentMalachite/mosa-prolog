@@ -231,19 +231,6 @@ std::string condition_of(Heap& heap, const OperatorTable& operators, Cell list, 
   return text;
 }
 
-// setup(Goal) と cleanup(Goal) は最初の 1 つだけを取る。lgtunit の parse_test_options は 2 つ目を同じ補助述語の
-// 頭に単一化しようとして失敗する（レビュー M-50）。前は condition/1 しか読まず、この 2 つを黙って捨てた。
-std::string option_goal(Heap& heap, const OperatorTable& operators, Cell list, const std::vector<VarName>& names,
-                        std::string_view name) {
-  list = heap.deref(list);
-  while (list.tag() == Tag::Lis) {
-    const Cell item = heap.deref(heap.list_head(list));
-    if (functor_is(heap, item, name, 1)) return written_goal(heap, operators, heap.arg(item, 0), names);
-    list = heap.deref(heap.list_tail(list));
-  }
-  return {};
-}
-
 // test/1 は lgtunit で test(Name, true) と同じ。前は読まずに節として捨て、分母にも不合格にも出なかった（レビュー H-40）。
 bool test_arity(const Heap& heap, Cell head, int& arity) {
   if (functor_is(heap, head, "test", 1)) {
@@ -292,6 +279,24 @@ std::string machine_text(Heap& heap, OperatorTable operators, Cell term, const s
     return write_term(heap, operators, term, lgt_write_options(), names);
   }
   return write_term(heap, operators, term, lgt_write_options(), names);
+}
+
+// setup(Goal) と cleanup(Goal) は最初の 1 つだけを取る。lgtunit の parse_test_options は 2 つ目を同じ補助述語の
+// 頭に単一化しようとして失敗する（レビュー M-50）。前は condition/1 しか読まず、この 2 つを黙って捨てた。
+std::string option_goal(Heap& heap, const OperatorTable& operators, Cell list, const std::vector<VarName>& names,
+                        std::string_view name) {
+  list = heap.deref(list);
+  while (list.tag() == Tag::Lis) {
+    const Cell item = heap.deref(heap.list_head(list));
+    // 本体と同じく user:: を外し、: と :: を機械の読める形で書く。前は書いたままにして、主の機械で構文エラーに
+    // なった（レビュー R-L16）。
+    if (functor_is(heap, item, name, 1)) {
+      const Cell goal = strip_user_scope(heap, unwrap_curlies(heap, heap.arg(item, 0)));
+      return machine_text(heap, operators, goal, names, false);
+    }
+    list = heap.deref(heap.list_tail(list));
+  }
+  return {};
 }
 
 bool dropped_import_uses(const Heap& heap, Cell term) {

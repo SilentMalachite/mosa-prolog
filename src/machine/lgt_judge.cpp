@@ -346,6 +346,8 @@ LgtEnd scan_exists(Machine& machine, const LgtWant& want) {
     if (holds(machine, want, step.stop)) {
       LgtEnd end;
       end.pass = true;
+      // 成り立った解の束縛を cleanup(Goal) に貼る。次の解へ巻き戻す前に字面にする（レビュー R-L16）。
+      if (want.keep) end.kept = lgt_values_of(machine, step.stop.bindings);
       return end;
     }
   }
@@ -424,7 +426,9 @@ LgtEnd judge_query(Machine& machine, std::string_view body, const LgtWant& want)
   // 次の解を求めて巻き戻す前に、本体の束縛を字面にする。cleanup(Goal) に貼る（レビュー M-50）。
   std::vector<LgtValue> kept = want.keep ? lgt_values_of(machine, step.stop.bindings) : std::vector<LgtValue>{};
   LgtEnd end = finish_success(machine, want, step.stop);
-  end.kept = std::move(kept);
+  // exists が後の解で成り立ったなら、scan_exists がその解の束縛を写してある。名前の変数の組はどの解でも同じなので、
+  // 空なのは写していないときか、名前の変数が無いときだけ。
+  if (end.kept.empty()) end.kept = std::move(kept);
   return end;
 }
 
