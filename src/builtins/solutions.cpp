@@ -126,11 +126,11 @@ void note_homes(const Impl& machine, const std::vector<Cell>& witnesses, VarIds&
 
 // 呼び手のセルのまま返すのは、呼ぶ前から未束縛だった証人だけ。8.10.2.1 は反復するゴールを findall/3 で写すので、
 // 呼ぶ前からあった Template の変数も ^ の変数も、解ごとに新しい（レビュー C-02）。証人が指す未束縛セルは、
-// 結び付いた先が証人のセルでも、そこを指す証人の番号で数える。(=)/2 は左を右へ結ぶので、Y = Z の後は両方が Z の
-// セルを、Z = Y の後は両方が Y のセルを指す。指す先のセルで数えると、変種の w(V, V) が 2 つの組に分かれた
-// （レビュー C-03）。証人の並びで決めれば、どの証人を選んでも束縛の向きに依らず、組み分けは同じになる。
-// 選んだ証人のセルが答えでその組を表す。並びで最後の証人にすると、今あるテストの答えは前と変わらない。
-// 最初の証人にすると bagof_rename の X = Z が Z = X に変わり、wg17_setof_3_47 の setof の組の並びが変わった。
+// 結び付いた先が証人のセルでも、そこを指す証人の番号で数える。(=)/2 が結ぶ向きは 2 つの変数の古さで決まる
+// （ADR 0019 の改訂 1、レビュー L-06）ので、同じ形の解でも、どちらのセルを指すかは変数の作られ方で変わる。指す先の
+// セルで数えると、変種の w(V, V) が 2 つの組に分かれた（レビュー C-03）。証人の並びで決めれば、束縛の向きに依らず
+// 組み分けは同じになる。選んだ証人のセルが答えでその組を表し、並びで最後の証人にする（C-03 のときに、今あった
+// テストの答えを変えない方を選んだ）。
 void note_alias(const Impl& machine, VarIds& ids) {
   ids.alias.clear();
   for (int index = static_cast<int>(ids.homes.size()) - 1; index >= 0; --index) {
@@ -497,7 +497,7 @@ void visit_ids(GcVisitor& visitor, VarIds& ids) {
 }
 
 // 動いている収集の状態（ADR 0013）。Pick::Collect の Entry が持ち、GC は Entry を通して辿る。
-// goal は findall などの呼び出しの枠で、終わりに引数と継続を読む。templ・witnesses・hidden は呼ぶ前からあった項。
+// goal は findall などの呼び出しの枠で、終わりに引数と継続を読む。templ と witnesses は呼ぶ前からあった項。
 // 持った語は、終わり・例外・問い合わせの破棄のどれで壊れても Heap へ返す（ADR 0010 の改訂 2）。
 // Impl の中ではヒープがスタックより先に宣言されているので、スタックの片付けの間もヒープは生きている。
 struct Collecting final : Collector {
@@ -507,7 +507,6 @@ struct Collecting final : Collector {
   Goal goal;
   Cell templ{};
   std::vector<Cell> witnesses;
-  std::vector<Cell> hidden;
   VarIds ids;
   Packet packet;
 
@@ -516,7 +515,6 @@ struct Collecting final : Collector {
     visitor.frame(goal.cont);
     visitor.cell(templ);
     for (Cell& cell : witnesses) visitor.cell(cell);
-    for (Cell& cell : hidden) visitor.cell(cell);
     visit_ids(visitor, ids);
   }
 
@@ -606,7 +604,6 @@ bool run_solutions(Impl& machine, const Goal& call) {
   state->goal = call;
   state->templ = call.arg(machine, 0);
   if (which != Which::Findall) state->witnesses = free_witnesses(machine, runnable, state->templ, hidden);
-  state->hidden = std::move(hidden);
   start_collect(machine, compiled, std::move(state));
   return true;
 }
