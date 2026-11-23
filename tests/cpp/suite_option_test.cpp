@@ -96,6 +96,18 @@ void check_setup(const std::filesystem::path& root) {
                      3, 1, {"s3 false setup", "s4 true setup"}});
 }
 
+// setup の後も未束縛の変数は、本体と期待で同じ変数のまま（レビュー R-M17）。前は _ と写して (_) を貼ったので、
+// 本体の S = 1 が別の変数を束縛した。setup で別名にした 2 つの変数は、写しでも同じ変数を指す。
+void check_unbound_setup(const std::filesystem::path& root) {
+  check_suite(root, {"setup_unbound",
+                     "\ttest(sv1, true(S == 1), [setup(var(S))]) :- S = 1.\n"
+                     "\ttest(sv2, true, [setup(var(S))]) :- S = 1, S == 1.\n"
+                     "\ttest(sv3, true, [setup(var(S))]) :- assertion(true), S = 1, S == 1.\n"
+                     "\ttest(sv4, true(S == T), [setup(S = T)]) :- true.\n"
+                     "\ttest(sv5, true, [setup(S = T)]) :- S = 1, T == 1.\n",
+                     5, 5, {}});
+}
+
 // cleanup は本体の後に、本体の束縛で動く。ストリームは字面で写しても同じものを指すので、同じ別名を次の試験が開ける。
 // 本体が失敗しても動き、cleanup 自体の失敗と例外は結果を変えない。
 void check_cleanup(const std::filesystem::path& root) {
@@ -153,6 +165,7 @@ int main() {
   {
     Fixture fixture(root);
     check_setup(root);
+    check_unbound_setup(root);
     check_cleanup(root);
     check_curly_helpers(root);
     check_object_hooks(root);

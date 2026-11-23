@@ -139,6 +139,9 @@ WriteCut paste_saved(void* context, Cell term, std::string& out, WriteHeld& /*he
     if (var.cell.raw() != term.raw()) continue;
     const Saved* slot = find_saved(*text->saved, var.name);
     if (slot == nullptr) return WriteCut::Keep;
+    // 未束縛のまま 1 度しか出ない変数は _ と写る。(_) を貼ると名前の変数と別の変数になり、後のゴールの束縛が名前の
+    // 変数に届かない（レビュー R-M17）。名前のまま残す。別名にした変数は _A のような名前で写るので、ここに来ない。
+    if (slot->term == "_") return WriteCut::Keep;
     bool ok = false;
     parse_saved(*text->machine, slot->term, ok);
     if (!ok) return WriteCut::Keep;
