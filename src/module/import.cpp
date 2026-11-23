@@ -184,6 +184,9 @@ std::optional<Cell> apply_imports(Impl& machine, std::uint32_t from, std::uint32
   std::vector<Import> items;
   if (const auto formal = spec_items(machine, *source, spec, items)) return formal;
   if (const auto formal = add_all(machine, into, items)) return formal;
+  // 別名の取り込みは、前に置いたスパイポイントが指す述語を別の名前に替えうる（レビュー RV-I04）。
+  const bool aliased = std::any_of(items.begin(), items.end(), [](const Import& item) { return item.alias != item.name; });
+  if (aliased && !machine.debug.spies.empty()) respell_spies(machine);
   if (spec.kind == ImportSpec::Kind::Only) return std::nullopt;
   // 公開の演算子は use_module/1、except、consult で入る。PI のリストでは入らない（iso-notes の決定 A）。
   return import_ops(machine, from, into);

@@ -29,9 +29,9 @@ struct SpyKey {
   std::uint32_t module = 0;
   std::uint32_t name = 0;
   std::uint16_t arity = 0;
-  // 置いたときに定義が見えなかった鍵（debugger_pred.cpp の key_for）。後で別名で取り込むと、定義の名前の呼び出しは
-  // 鍵の名前と合わないので、leap の名前の絞り込み（spied_name）を通す（レビュー RV-I04）。
-  bool deferred = false;
+  // 置いた後に as の別名で取り込まれ、今は別の名前の述語を指す鍵の、その定義の名前（respell_spies）。leap の名前の
+  // 絞り込み（spied_name）は鍵の名前とこの名前で見る。前は定義の名前の呼び出しで止まらなかった（レビュー RV-I04）。
+  std::optional<std::uint32_t> via;
 };
 
 struct DebugConsole {

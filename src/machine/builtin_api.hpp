@@ -97,6 +97,8 @@ void set_debug(Impl& machine, bool on, DebugMode mode);
 // 同じ名前と引数の数のスパイポイントがあるか、context から name/arity が as の別名として見えるか。述語を引き当てない。
 // leap が spied_call の前に安く外すために使う。
 [[nodiscard]] bool spied_name(const Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity);
+// as の別名の取り込みの後、置いた鍵が今指す述語の名前を引き直して SpyKey::via に置く（レビュー RV-I04）。
+void respell_spies(Impl& machine);
 // スパイポイントを 1 つ置く（on）か外す。変わったときだけ真。spy/1、nospy/1 と、コマンドの + と - が使う。
 [[nodiscard]] bool set_spy(Impl& machine, const SpyKey& key, bool on);
 // ポートのコマンドの + と -。文脈 context から見た name/arity に、spy/1 と nospy/1 の Name/Arity と同じ引き当てで

@@ -61,10 +61,10 @@ void say(Impl& machine, std::string_view key, std::initializer_list<std::string_
 // 組込は system、定義がある述語は定義したモジュールとそこでの名前、無ければ文脈のモジュールに置く。as の別名で
 // 取り込んだ述語も定義の名前で持つ（レビュー H-14）。前は別名の名前で持ち、定義したモジュールの同じ名前の別の述語を指した。
 SpyKey key_for(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
-  if (is_builtin_procedure(machine, name, arity)) return SpyKey{machine.system_module, name, arity, false};
+  if (is_builtin_procedure(machine, name, arity)) return SpyKey{machine.system_module, name, arity, std::nullopt};
   const Predicate* found = resolve_pred(machine, context, name, arity);
-  if (found != nullptr && !found->abolished) return SpyKey{found->module, found->name, arity, false};
-  return SpyKey{context, name, arity, true};
+  if (found != nullptr && !found->abolished) return SpyKey{found->module, found->name, arity, std::nullopt};
+  return SpyKey{context, name, arity, std::nullopt};
 }
 
 std::string name_text(const Impl& machine, std::uint32_t name) {
@@ -441,35 +441,27 @@ bool alias_call(const Impl& machine, std::uint32_t context, std::uint32_t name, 
 // 定義の前に置いたスパイポイントも、同じモジュールに定義されるか、後で取り込めば合う（same_spy）。名前と引数の数が
 // 合う鍵が無ければ述語を引き当てずに返す。leap は見せるゴールのたびにここを通る（ADR 0028 の 1.2 倍）。鍵は定義の
 // 名前なので、別名で呼ぶ述語は名前が合わない。そのときだけ文脈の取り込みの別名を見る（レビュー H-14）。
-// 定義より前に置いた鍵（SpyKey::deferred）は名前で絞らない。後で w/1 as t と取り込むと、置いた t/1 の鍵は
-// alias2_m:w(X) の呼び出しと名前が合わず、spy/1 を呼び直さない限り止まらなかった（レビュー RV-I04）。照合は
-// spied_call の same_spy が行う。
+// 定義より前に置いた鍵が後で w/1 as t と取り込まれると、置いた t/1 の鍵は alias2_m:w(X) の呼び出しと名前が合わない。
+// 取り込みのときに引き直した定義の名前（SpyKey::via）でも見る。前は spy/1 を呼び直さない限り止まらなかった（レビュー
+// RV-I04）。呼び出しごとに引き直すと、leap は同じ引数の数の呼び出しのたびに述語を引き、ADR 0028 の 1.2 倍を越えた。
 bool spied_name(const Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
   const auto& spies = machine.debug.spies;
   if (spies.empty()) return false;
   const bool named = std::any_of(spies.begin(), spies.end(), [&](const SpyKey& key) {
-    return key.arity == arity && (key.name == name || key.deferred);
+    return key.arity == arity && (key.name == name || key.via == name);
   });
   return named || alias_call(machine, context, name, arity);
 }
 
-namespace {
-
-// 後回しの鍵が、置いたモジュールに同じ名前で定義されたら、名前で絞れる。印を外し、同じ引数の数の呼び出しを
-// 毎回引き当てないようにする（ADR 0028 の leap の 1.2 倍）。別名で取り込んだ鍵は名前が違うので印を残す。
-void settle_deferred(Impl& machine) {
+void respell_spies(Impl& machine) {
   for (SpyKey& placed : machine.debug.spies) {
-    if (!placed.deferred) continue;
     const SpyKey now = key_for(machine, placed.module, placed.name, placed.arity);
-    if (!now.deferred && now.module == placed.module && now.name == placed.name) placed.deferred = false;
+    placed.via = now.name == placed.name ? std::nullopt : std::optional<std::uint32_t>{now.name};
   }
 }
 
-}  // namespace
-
 bool spied_call(Impl& machine, std::uint32_t context, std::uint32_t name, std::uint16_t arity) {
   if (!spied_name(machine, context, name, arity)) return false;
-  settle_deferred(machine);
   const auto& spies = machine.debug.spies;
   const SpyKey key = key_for(machine, context, name, arity);
   if (spied(machine, key.module, key.name, key.arity)) return true;
