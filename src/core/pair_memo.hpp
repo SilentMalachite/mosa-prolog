@@ -83,10 +83,15 @@ class PairNumbers {
   static constexpr std::size_t kWalkBytes = 32;
 
   // 新しい組なら number で覚えて空を返す。前に入った組なら、その番号を返す。
+  // 前に入った組は表を伸ばさずに返す。前は先に伸ばしたので、表が半分に届いた所で前の組を引くだけでも伸ばし、ヒープの
+  // 上限の判定を 1 組早く通った（レビュー R-L01）。
   std::optional<std::uint64_t> enter(const Heap& heap, std::uint64_t left, std::uint64_t right, std::uint64_t number) {
+    if (!slots_.empty()) {
+      const Slot& known = find(slots_, left, right);
+      if (known.mark != 0) return known.mark - 1;
+    }
     if ((count_ + 1) * 2 > slots_.size()) grow(heap);
     Slot& slot = find(slots_, left, right);
-    if (slot.mark != 0) return slot.mark - 1;
     slot = {left, right, number + 1};
     ++count_;
     charge(heap, slots_.size());
