@@ -308,6 +308,6 @@ test(m32_next_term, (
   atom_codes(T1, [65533]), T2 == c, T3 == end_of_file), true).
 % U+FEFF を飛ばすのは流れの頭だけ。途中では、読みの始まりでも項の中と同じく illegal_character（レビュー L-13）。
 test(bom_stream_start, (open_string([65279, 0'f, 0'o, 0'o, 0'., 0' ], S), read(S, T), close(S)), solutions([T = foo])).
-test(bom_after_get_char, (open_string([0'x, 65279, 0'f, 0'o, 0'o, 0'., 0' ], S), get_char(S, x), catch(read(S, _), error(syntax_error(K), _), true), close(S), K == illegal_character), true).
+test(bom_after_get_char, (open_string([0'x, 65279, 0'f, 0'o, 0'o, 0'., 0' , 0'b, 0'., 0' ], S), get_char(S, x), catch(read(S, _), error(syntax_error(K), _), true), read(S, B), close(S), K == illegal_character, B == b), true).
 test(bom_second_read, (open_string([0'a, 0'., 0' , 65279, 0'b, 0'., 0' ], S), read(S, a), catch(read(S, _), error(syntax_error(K), _), true), close(S), K == illegal_character), true).
 test(bom_in_term, (open_string([0'f, 0'(, 65279, 0'a, 0'), 0'., 0' ], S), catch(read(S, _), error(syntax_error(K), _), true), close(S), K == illegal_character), true).

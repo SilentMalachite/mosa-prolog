@@ -633,7 +633,7 @@ A or B?: A: keep SPEC as it is (the name `utf8` only, every stream reports `enco
 
 Decision (2026-10-28): A. These options, properties, and names are outside the standard, and SPEC already fixes the encoding to `utf8` on every stream. The 21 rows stay failing as a difference in interpretation. Skipping a BOM on text input may be asked separately in Task 15.
 
-Where a BOM is skipped (2026-11-23, review L-13): a text is read from its start without a leading U+FEFF. `consult/1` skips it only at the start of the file, and `read/1,2` and `read_term/2,3` only at the start of the stream, before any character is read or after `eof_action(reset)`. Anywhere else U+FEFF is `illegal_character`, also where a read starts. Before, every read skipped one at the start of what was left of the stream. Tests: the `bom_*` rows of `tests/pl/read.pl`.
+Where a BOM is skipped (2026-11-23, review L-13): a text is read from its start without a leading U+FEFF. `consult/1` skips it only at the start of the file, and `read/1,2` and `read_term/2,3` only at the start of the stream, before any character is read or after `eof_action(reset)`. Anywhere else in a file or a stream U+FEFF is `illegal_character`, also where a read starts. Before, every read skipped one at the start of what was left of the stream. A text that is not a stream (a `-g` goal, the atom of `term_to_atom/2`, a query typed at the terminal) is read on its own from its start, so a leading U+FEFF there is still skipped. Tests: the `bom_*` rows of `tests/pl/read.pl`.
 
 ## 9.3.10.3 (^)/2 with a negative integer exponent
 
