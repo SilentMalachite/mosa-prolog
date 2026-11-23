@@ -256,7 +256,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | L-31 | W9 |  | done (e984f8dd) ✔ | number_codes/2 と atom_number/2 は、`0'　` と CR で終わる `%` 注釈で read/1 と食い違う |
 | L-32 | W9 |  | 未着手 (read) | run_goal が入れ子の実行の catch_log の記録を残す |
 | L-33 | W9 | 問い | 未着手、問い ✔ | with_output_to(codes(L), G) が部分リストの L に instantiation_error を出す |
-| L-34 | W9 |  | 未着手 ✔ | 後ろのリストだけが束縛された pairs_values/2、pairs_keys_values/3、maplist/3..5、foldl/5,6 が選択点を残す |
+| L-34 | W9 |  | done (c5f132d9) ✔ | 後ろのリストだけが束縛された pairs_values/2、pairs_keys_values/3、maplist/3..5、foldl/5,6 が選択点を残す |
 | L-35 |  |  | 誤りではない  | 要素 1 つのリストの max_list/2 が要素を評価せずに返す |
 | L-36 | W9 |  | 未着手 ✔ | 実行時ライブラリの木の指紋が隠しディレクトリを辿り、パスと中身の間に区切りが無い |
 | L-37 | W9 |  | 未着手 ✔ | build と dist が `-o ""` を「-o 無し」と取る |
