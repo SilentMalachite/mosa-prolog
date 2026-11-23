@@ -8,6 +8,7 @@
 #include "harness.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/machine.hpp"
+#include "mosa/path_text.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -43,6 +44,18 @@ bool write_straddle_file(const std::filesystem::path& path) {
   return static_cast<bool>(output) && text.find('.') == 65534;
 }
 
+// パスは Prolog の引用の原子にして埋める。' と \ を含むパスでも読める（R-L23 と同じ形）。
+std::string prolog_path(const std::filesystem::path& path) {
+  std::string out = "'";
+  for (char unit : mosa::utf8_from_path(path)) {
+    if (unit == '\'') out += "''";
+    else if (unit == '\\') out += "\\\\";
+    else out.push_back(unit);
+  }
+  out.push_back('\'');
+  return out;
+}
+
 bool stops_at_limit(mosa::Machine& machine, std::string_view goal) {
   try {
     static_cast<void>(machine.query(goal));
@@ -60,7 +73,7 @@ int main() {
   mosa_test::check(write_bad_file(file), "write the file");
   {
     auto machine = mosa::Machine::create(k_limit);
-    const std::string open = "open('" + file.generic_string() + "', read, _, [alias(rsl)]).";
+    const std::string open = "open(" + prolog_path(file) + ", read, _, [alias(rsl)]).";
     mosa_test::check(machine->query(open).kind == mosa::StopKind::Success, "open the file");
     mosa_test::check(stops_at_limit(*machine, "read(rsl, _)."), "read stops at the heap limit");
     // a と ( の次は壊れたバイト。元に戻っていれば representation_error になる。
@@ -73,7 +86,7 @@ int main() {
     const std::filesystem::path straddle = root / "straddle.txt";
     mosa_test::check(write_straddle_file(straddle), "write the straddle file");
     auto machine = mosa::Machine::create(k_limit);
-    const std::string goal = "open('" + straddle.generic_string() + "', read, S), read(S, T), close(S), functor(T, a, 1).";
+    const std::string goal = "open(" + prolog_path(straddle) + ", read, S), read(S, T), close(S), functor(T, a, 1).";
     bool read = false;
     try {
       read = machine->query(goal).kind == mosa::StopKind::Success;

@@ -5,6 +5,7 @@
 #include "debugger_support.hpp"
 
 #include "machine/builtin_api.hpp"
+#include "mosa/path_text.hpp"
 
 #include <array>
 #include <cstddef>
@@ -295,6 +296,18 @@ void check_abort_init() {
 
 }  // namespace
 
+// パスは Prolog の引用の原子にして埋める。' と \ を含むパスでも読める（R-L23 と同じ形）。
+std::string prolog_path(const std::filesystem::path& path) {
+  std::string out = "'";
+  for (char unit : mosa::utf8_from_path(path)) {
+    if (unit == '\'') out += "''";
+    else if (unit == '\\') out += "\\\\";
+    else out.push_back(unit);
+  }
+  out.push_back('\'');
+  return out;
+}
+
 // レビュー R-M06。portray/1 が行き先の流れを閉じた後の a でも、外の setup_call_cleanup/3 の後始末は 1 回動く
 // （ADR 0028 の決定 A）。前は閉じた流れを existence_error で投げ、その枠を外したので後始末が消えた。
 void check_abort_portray_closed() {
@@ -306,7 +319,7 @@ void check_abort_portray_closed() {
   auto& impl = mosa::engine_impl(*machine);
   const std::string program = ":- dynamic(log/1).\n:- dynamic(s/1).\nt.\n"
                               "portray(x) :- s(S), close(S), t.\n"
-                              "p :- open('" + file.generic_string() + "', write, S), assertz(s(S)),\n"
+                              "p :- open(" + prolog_path(file) + ", write, S), assertz(s(S)),\n"
                               "    setup_call_cleanup(true, print(S, x), assertz(log(outer))).\n";
   mosa_test::check(machine->load_program(program).ok, "abort_portray_closed: load the program");
   impl.message_lang = mosa::MessageLanguage::En;
