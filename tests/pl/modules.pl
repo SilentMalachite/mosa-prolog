@@ -385,3 +385,14 @@ test(h12_user,
 test(h12_system,
      (\+ h12_load(system, ':- module(system, [h12_q/0]).\nh12_q.\n'),
       catch(h12_q, error(existence_error(procedure, _), _), true)), true).
+
+% レビュー L-24。system には利用者の述語を作らない。assert も、ファイルの system: の節も、system: の dynamic 宣言も
+% permission_error(modify, static_procedure, system:Name/Arity) で断る。前は作り、既定の鎖（user → system）で
+% どのモジュールからも呼べた。
+test(l24_assertz_system, assertz(system:l24_foo), error(permission_error(modify, static_procedure, system:l24_foo/0))).
+test(l24_asserta_system, asserta(system:(l24_foo :- true)), error(permission_error(modify, static_procedure, system:l24_foo/0))).
+test(l24_not_created, (catch(assertz(system:l24_bar), _, true), \+ predicate_property(system:l24_bar, defined)), true).
+test(l24_clause_system,
+     (\+ h12_load(l24_clause, 'system:l24_baz.\n'), \+ predicate_property(system:l24_baz, defined)), true).
+test(l24_dynamic_system,
+     (\+ h12_load(l24_dynamic, ':- dynamic(system:l24_qux/0).\n'), \+ predicate_property(system:l24_qux, defined)), true).

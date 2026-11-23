@@ -290,6 +290,12 @@ void run_assert(Impl& machine, const Goal& goal, bool at_front) {
     return;
   }
   if (refuse_builtin(machine, goal, head.name, head.arity)) return;
+  if (existing == nullptr) {
+    if (const auto formal = refuse_system(machine, module, source_name, head.arity)) {
+      raise_formal(machine, *formal, goal.name, goal.arity);
+      return;
+    }
+  }
   // 無い :- をこの後で動的に作ると、節の首へ足せてしまう。宣言済みでも静的のまま。
   if (neck_static(machine, head.name, head.arity)) {
     raise_permission(machine, goal, machine.user_module, head.name, head.arity);

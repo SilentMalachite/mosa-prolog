@@ -211,7 +211,16 @@ std::optional<Cell> add_reexports(Impl& machine, std::uint32_t from, std::uint32
   return std::nullopt;
 }
 
+// 組込は述語表に無いので、system の表の述語はどれも利用者が足したものになる。前は assert、ファイルの system: の節、
+// system: の dynamic 宣言で作れ、既定の鎖（user → system）でどのモジュールからも呼べ、デバッガの箱も built_in も
+// 持たなかった（レビュー L-24、H-12 の system の半分）。
+std::optional<Cell> refuse_system(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
+  if (module != machine.system_module) return std::nullopt;
+  return formal_permission(machine, "modify", "static_procedure", module_indicator(machine, module, name, arity));
+}
+
 std::optional<Cell> check_local(Impl& machine, std::uint32_t module, std::uint32_t name, std::uint16_t arity) {
+  if (const auto formal = refuse_system(machine, module, name, arity)) return formal;
   const Module* target = find_module(machine, module);
   if (target == nullptr) return std::nullopt;
   for (const Import& item : target->imports) {

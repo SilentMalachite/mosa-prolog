@@ -118,9 +118,13 @@ struct ImportSpec {
 // All と Except では from の公開の演算子も into の公開に足す（重ねない）。into が user なら何もしない。
 [[nodiscard]] std::optional<Cell> add_reexports(Machine::Impl& machine, std::uint32_t from, std::uint32_t into,
                                                 const ImportSpec& spec);
-// 局所の述語を作る前に呼ぶ。同じ名前を取り込み済みなら permission_error(import_into, ...) を返す。
+// 局所の述語を作る前に呼ぶ。system なら refuse_system の誤り、同じ名前を取り込み済みなら
+// permission_error(import_into, ...) を返す。
 [[nodiscard]] std::optional<Cell> check_local(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
                                               std::uint16_t arity);
+// system には利用者の述語を作らない。作るなら permission_error(modify, static_procedure, system:Name/Arity) を返す。
+[[nodiscard]] std::optional<Cell> refuse_system(Machine::Impl& machine, std::uint32_t module, std::uint32_t name,
+                                                std::uint16_t arity);
 
 // 層（M:、bagof/setof の先頭の ^、葉の中のゴール）を外側からたどるときの巡回の見張り（iso-notes 7.3.3）。次の層は今の層だけで
 // 決まるので、前に見た層に戻れば巡回で、巡回しない連なりでは戻らない。見張る層を 1、2、4、… 歩みごとに先へ移す
