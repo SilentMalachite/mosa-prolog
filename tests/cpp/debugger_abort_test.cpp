@@ -294,8 +294,6 @@ void check_abort_init() {
                    "abort_init: clauses kept, no later init, got [" + stop_text(*machine, kept) + "]");
 }
 
-}  // namespace
-
 // パスは Prolog の引用の原子にして埋める。' と \ を含むパスでも読める（R-L23 と同じ形）。
 std::string prolog_path(const std::filesystem::path& path) {
   std::string out = "'";
@@ -335,6 +333,8 @@ void check_abort_portray_closed() {
                    "abort_portray_closed: the outer cleanup ran once, got [" + text + "]");
   std::filesystem::remove(file, error);
 }
+
+}  // namespace
 
 int main() {
   check_abort_stop();

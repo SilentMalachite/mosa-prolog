@@ -164,9 +164,10 @@ test(l29_binary, (retractall(l29_seen), setup_call_cleanup(open('tests/tmp/l29_b
 test(l29_closed, (retractall(l29_seen), open('tests/tmp/l29_text', write, S), close(S), catch(format(S, "~p", [l29_x]), error(existence_error(K, _), context(P, _)), true), \+ l29_seen), solutions([(K = stream, P = format/3)])).
 test(l29_portray_closes, (open('tests/tmp/l29_text', write, S), catch(format(S, "~p", [l29_close(S)]), error(existence_error(K, _), context(P, _)), true)), solutions([(K = stream, P = format/3)])).
 % format/1,2 も現在出力を指示より先に確かめ、書き出しの誤りも format の名にする（レビュー R-L10）。前はバイナリの
-% 現在出力で ~p の portray が先に動き、誤りの文脈が write/1 になった。
-test(rl10_binary2, (retractall(l29_seen), open('tests/tmp/rl10_bin', write, S, [type(binary)]), current_output(Old), set_output(S), catch(format("~p", [l29_x]), error(permission_error(O, T, _), context(P, _)), true), set_output(Old), close(S), \+ l29_seen), solutions([(O = output, T = binary_stream, P = format/2)])).
-test(rl10_binary1, (open('tests/tmp/rl10_bin', write, S, [type(binary)]), current_output(Old), set_output(S), catch(format("x"), error(permission_error(O, T, _), context(P, _)), true), set_output(Old), close(S)), solutions([(O = output, T = binary_stream, P = format/1)])).
+% 現在出力で ~p の portray が先に動き、誤りの文脈が write/1 になった。出力は setup_call_cleanup/3 の後始末で戻す。
+% catch の外へ思わぬ誤りが出ても、後の試験の出力がバイナリの流れのまま残らない（レビュー RV-m08）。
+test(rl10_binary2, (retractall(l29_seen), open('tests/tmp/rl10_bin', write, S, [type(binary)]), current_output(Old), setup_call_cleanup(set_output(S), catch(format("~p", [l29_x]), error(permission_error(O, T, _), context(P, _)), true), (set_output(Old), close(S))), \+ l29_seen), solutions([(O = output, T = binary_stream, P = format/2)])).
+test(rl10_binary1, (open('tests/tmp/rl10_bin', write, S, [type(binary)]), current_output(Old), setup_call_cleanup(set_output(S), catch(format("x"), error(permission_error(O, T, _), context(P, _)), true), (set_output(Old), close(S)))), solutions([(O = output, T = binary_stream, P = format/1)])).
 % '$stream_column'/2 は put_char/2 と同じ検査をして、最後の改行から書いた字の数を返す。
 test(stream_column, with_output_to(atom(_), (write(abc), current_output(S), '$stream_column'(S, C))), solutions([C = 3])).
 test(stream_column_line, with_output_to(atom(_), (write('ab\nc'), current_output(S), '$stream_column'(S, C))), solutions([C = 1])).
