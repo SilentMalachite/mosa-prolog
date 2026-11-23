@@ -7,9 +7,10 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- The 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06,
-  M-08, M-16 and M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33. Each entry
-  gives its A or B; default A, which keeps the current behaviour (H-09, H-12, H-18: owner's B).
+- 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06, M-08, M-16 and
+  M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33; with L-06
+  and M-59 below, 19. Each entry gives its A or B; default A keeps the current behaviour (H-09, H-12, H-18:
+  owner's B).
 - Review L-06 (fac56275): A, keep binding the newer of two unbound variables to the older (ADR 0019
   amendment 1; four REPL answer shapes name the older variable, `solutions` writes `X = Y` as `Y = X`),
   or B, bind left to right again (one revert of fac56275 and its test changes)? Default A.
@@ -40,6 +41,7 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Review M-59, the base of the links in release notes. Default A: `release_notes.sh` keeps the
   upstream URL, so a fork's notes link to the upstream tag. B: take it from
   `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}`.
+
 ## Owner decisions in force
 
 - Review plan, release (A, 2026-11-23): 0.5.1 comes after W9 and after the fixes of the 2026-11-23
