@@ -246,7 +246,7 @@ W0 の結果である。各項目の中身はレビュー文書にある。
 | L-21 | W9 |  | done (bc0dc80e) ✔ | モジュールでないファイルの `:- export(PI).` が `user` の公開の一覧に入る |
 | L-22 | W9 |  | done (fb3238eb) ✔ | 節を残した `library(...)` の読み込みが、`user:op/3` の変更だけを失う |
 | L-23 | W9 |  | done (22e565c8) ✔ | コードと食い違う注釈が二つある |
-| L-24 | W9 |  | 未着手 ✔ | `assertz/1` で `system` に利用者の述語を足せる |
+| L-24 | W9 |  | done (248bf45f) ✔ | `assertz/1` で `system` に利用者の述語を足せる |
 | L-25 | W9 | 問い | 未着手、問い ✔ | set_prolog_flag(max_arity, V) がどの整数も許される値として扱い、flag_accepts に使われない整数の場合がある |
 | L-26 |  |  | 誤りではない  | 結果が無限大か 0 に決まっていても、quotient_magnitude がずらして割る |
 | L-27 | W9 | 問い | 未着手、問い ✔ | current_predicate/1 は ISO の type_error(predicate_indicator, PI) ではなく広く使われる形の誤りを出し、iso-notes にそれが無い |
