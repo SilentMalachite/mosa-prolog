@@ -351,6 +351,18 @@ void run_then(Machine& machine, const Prog& prog, int first, int rest, bool owne
   retry_right(machine, prog, rest, env);
 }
 
+void exec_disj_then(Machine& machine, const Prog& prog, int disj, int rest, Env& env);
+
+// 枝がまた選言なら、その枝も後ろと組にして試す。(A ; B ; C) は A ; (B ; C) で、(B ; C) を run_then に渡すと B の
+// 成功で exec_disj が返り、後ろが失敗しても C を試さなかった（レビュー R-M12）。左の (A ; B) ; C も同じ。
+void run_branch(Machine& machine, const Prog& prog, int branch, int rest, bool owner, Env& env) {
+  if (prog.nodes[static_cast<std::size_t>(branch)].kind == NodeKind::Disj) {
+    exec_disj_then(machine, prog, branch, rest, env);
+    return;
+  }
+  run_then(machine, prog, branch, rest, owner, env);
+}
+
 // (A ; B), C は、A の解で C を動かし、尽きたら B の解で C を動かす。前は exec_disj が A の成功で返り、C が失敗しても
 // B へ戻らなかった（レビュー M-49）。B の前に、A の前の束縛を字面の写しから読み直す（exec_forall と同じ）。
 // A の表明の失敗の後も B を試すのは、exec_disj の take_else と同じ。
@@ -361,7 +373,7 @@ void exec_disj_then(Machine& machine, const Prog& prog, int disj, int rest, Env&
   const std::string bundle = env.bundle;
   const std::vector<std::string> names = env.bundle_names;
   const std::vector<Saved> saved = env.saved;
-  run_then(machine, prog, node.left, rest, !live, env);
+  run_branch(machine, prog, node.left, rest, !live, env);
   const Tri first = env.tri;
   if (first == Tri::Ok || first == Tri::Dead || first == Tri::Throw) return;
   const std::string note = env.note;
@@ -372,7 +384,7 @@ void exec_disj_then(Machine& machine, const Prog& prog, int disj, int rest, Env&
   env.saved = saved;
   rehydrate_bindings(machine, env);
   if (env.tri == Tri::Dead) return;
-  run_then(machine, prog, node.right, rest, !live, env);
+  run_branch(machine, prog, node.right, rest, !live, env);
   if (env.tri == Tri::Ok || env.tri == Tri::Dead || env.tri == Tri::Throw) return;
   if (first == Tri::Abort || env.tri == Tri::Abort) {
     if (env.tri != Tri::Abort) env.note = note;

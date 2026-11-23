@@ -186,6 +186,15 @@ void check_disjunctions(const std::filesystem::path& root) {
   for (const Case& item : cases) check_fails(root, item);
 }
 
+// 3 枝以上の選言と入れ子の選言も、後ろが失敗すれば残りの枝をすべて試す（レビュー R-M12）。前は右の (B ; C) と左の
+// (A ; B) の中の選言で、後ろの失敗の後に枝へ戻らなかった。
+void check_nested_disjunctions(const std::filesystem::path& root) {
+  check_passes(root, "rm12_right", "\ttest(rm12_right, true) :- (X = 1 ; assertion(true), X = 2 ; X = 3), X == 3.");
+  check_passes(root, "rm12_left", "\ttest(rm12_left, true) :- ((X = 1 ; assertion(true), X = 2) ; X = 3), X == 2.");
+  check_fails(root, {"rm12_false", "\ttest(rm12_false, false) :- (X = 1 ; assertion(true), X = 2 ; X = 3), X == 3.",
+                     "rm12_false false true"});
+}
+
 void check_comparisons(const std::filesystem::path& root) {
   check_passes(root, "m51_variant_ok", "\ttest(m51_variant_ok, variant(f(_X, _Y), f(_A, _B))) :- true.");
   check_passes(root, "m51_subsumes_ok", "\ttest(m51_subsumes_ok, subsumes(f(_), f(a))) :- true.");
@@ -219,6 +228,7 @@ int main() {
     check_thrown_outcomes(root);
     check_first_solution_only(root);
     check_disjunctions(root);
+    check_nested_disjunctions(root);
     check_comparisons(root);
   }
   return mosa_test::failures();
