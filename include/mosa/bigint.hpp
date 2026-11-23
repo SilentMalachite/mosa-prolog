@@ -74,6 +74,8 @@ struct BigQuotient {
 [[nodiscard]] std::optional<BigInt> parse_magnitude(std::string_view digits, unsigned radix);
 [[nodiscard]] std::optional<double> to_double(const BigInt& value);  // 最近接偶数。範囲外は nullopt
 [[nodiscard]] BigInt from_integral_double(double value);             // 前提: 有限で整数値
-[[nodiscard]] std::uint64_t big_key(bool negative, std::span<const std::uint64_t> magnitude);  // src/core/fnv.hpp の式
+// src/core/fnv.hpp の式。magnitude は正規形（最後の語が 0 でない、ADR 0025 の Box）でなければならない。同じ値でも
+// 0 の語を後ろに持つと別の鍵になる。呼び手はヒープか IR の語を渡し、どちらも正規形を保つ（レビュー N-03）。
+[[nodiscard]] std::uint64_t big_key(bool negative, std::span<const std::uint64_t> magnitude);
 
 }  // namespace mosa

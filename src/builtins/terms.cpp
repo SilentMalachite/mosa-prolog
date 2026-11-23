@@ -1,4 +1,10 @@
 // 規格 8.5.1 functor/3、8.5.2 arg/3、8.5.3 =../2、8.5.4 copy_term/2、8.5.5 term_variables/2（Cor.2）。
+//   functor(?term, ?atomic, ?integer): instantiation_error、type_error(atomic, Name)、type_error(atom, Name)、
+//     type_error(integer, Arity)、domain_error(not_less_than_zero, Arity)、representation_error(max_arity)。
+//   arg(+integer, +compound_term, ?term): instantiation_error、type_error(integer, N)、type_error(compound, Term)、
+//     domain_error(not_less_than_zero, N)。=..(?term, ?list): instantiation_error、type_error(list, List)、
+//     domain_error(non_empty_list, [])、type_error(atom, Name)、type_error(atomic, Name)、representation_error(max_arity)。
+//   copy_term(?term, ?term): 誤りは無い。term_variables(?term, ?list): type_error(list, Vars)（レビュー N-04）。
 // numbervars(?term, +integer, ?integer)。非 ISO（SPEC 第7節の段階 G、レビュー M11）で、SWI-Prolog に合わせる（違いは下）。
 //   Term の変数を左からの前順に '$VAR'(Start)、'$VAR'(Start+1)… に束縛し、End を次の番号と単一化する。
 //   instantiation_error（Start が変数）、type_error(integer, Start)、type_error(integer, End)。番号に上限は無く、int64 を越えれば Big になる

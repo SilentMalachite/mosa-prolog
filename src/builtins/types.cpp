@@ -1,4 +1,6 @@
 // 型検査（8.3）と unify_with_occurs_check/2（8.2.2）、is_list/1。Big の型検査は tests/cpp/bigint_heap_test.cpp。
+// var/1、atom/1、integer/1、float/1、atomic/1、compound/1、nonvar/1、number/1、callable/1、is_list/1 は (@term)、
+// unify_with_occurs_check(?term, ?term)。どれも誤りを投げない（レビュー N-04）。
 // ground/1 は Cor.2 の 8.3.10。ground(?term)。エラーは投げない。テストは tests/pl/types.pl、tests/pl/unify.pl、
 // tests/stack/deep_builtins.pl。
 // acyclic_term/1 は Cor.2 の 8.3.11。acyclic_term(@term)。エラーは投げない。テストは tests/pl/types.pl。
