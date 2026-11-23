@@ -266,10 +266,12 @@ bool Printer::left_allows_equal(const OpDef& op, Cell left) const {
          (inner->specifier != Specifier::Fy && inner->specifier != Specifier::Xfy);
 }
 
-std::string Printer::spell(std::string_view name) const {
+std::string Printer::spell(std::string_view raw) const {
+  // 壊れた UTF-8 は値の同じ字にしてから引用を決める。読み戻した原子と同じ字面になる（レビュー L-12、持ち主の A）。
+  std::string name = spelling::same_code_text(raw);
   // 深さで切った字面 ... と原子 '...' を分ける。max_depth は ISO に無いので、制限が無ければ writeq のまま。
   if (options_.quoted && options_.max_depth > 0 && name == "...") return quote_atom(name);
-  if (!options_.quoted || bare_atom(name, options_.fullwidth)) return std::string{name};
+  if (!options_.quoted || bare_atom(name, options_.fullwidth)) return name;
   return quote_atom(name);
 }
 

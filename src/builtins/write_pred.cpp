@@ -23,6 +23,7 @@
 #include "write_internal.hpp"
 
 #include "../machine/internal.hpp"
+#include "../write/spelling.hpp"
 
 #include "mosa/char_class.hpp"
 #include "mosa/writer.hpp"
@@ -222,7 +223,19 @@ void advance_out(Stream& stream, char32_t code, std::size_t width) {
   stream.line_pos += 1;
 }
 
-void emit_text(Impl& machine, std::size_t index, std::string_view text) {
+bool well_formed(std::string_view text) {
+  Scalar scalar;
+  for (std::size_t at = 0; at < text.size(); at += scalar.width) {
+    if (!scalar_at(text, at, scalar)) return false;
+  }
+  return true;
+}
+
+// 壊れた並びは 1 バイトずつ値の同じ字にして書く（atom_codes/2 と同じ、レビュー L-12、持ち主の A）。前はそこで黙って
+// 止まり、標準の流れには何も出さなかった。流れの記録と std::cout には同じ字面を渡す。
+void emit_text(Impl& machine, std::size_t index, std::string_view raw) {
+  const std::string fixed = well_formed(raw) ? std::string{} : spelling::same_code_text(raw);
+  const std::string_view text = fixed.empty() ? raw : std::string_view{fixed};
   Stream& stream = machine.streams[index];
   for (std::size_t at = 0; at < text.size();) {
     Scalar scalar;

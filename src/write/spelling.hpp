@@ -17,6 +17,9 @@ namespace mosa::spelling {
 // 引用しなくてもその原子として読み戻せるか（7.10.5 h）。fullwidth は旗 japanese_punctuation の値。
 [[nodiscard]] bool bare_atom(std::string_view name, bool fullwidth);
 [[nodiscard]] std::string quote_atom(std::string_view text);
+// 壊れた UTF-8 の各バイトを、atom_codes/2 と同じく値の同じ字（FF は U+00FF）にした字面。正しい字面はそのまま。
+// 書く側はこれを通してから判断するので、writeq の字面を読み戻すと atom_codes が元と同じになる（レビュー L-12、持ち主の A）。
+[[nodiscard]] std::string same_code_text(std::string_view text);
 [[nodiscard]] std::string format_float(double value);
 
 }  // namespace mosa::spelling

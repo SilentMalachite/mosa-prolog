@@ -221,6 +221,14 @@ A か B か: A は並びを 1 文字として進めてから誤りを出す。�
 
 決定（2026-11-05）: A。どちらの旗の値でも、並びはその maximal subpart とする（Unicode 15.0 の 3.9 節、表 3-7。正しい並びの頭として通る最長の部分で、1 バイト以上）。`E3 81` は 1 文字、`ED A0 80` は 3 文字になる。read/1 は、並びを U+FFFD に置き換えた `replace` と同じく項の終わりまで（構文の誤りなら、ほかの構文の誤りと同じく読み飛ばした後まで）読み、元のバイトに戻してから誤りを出す。その項は捨てる。`foo(<E3>).` の後に `bar.` があれば、`representation_error(character)` の次に `bar` を返す。注釈の中の並びは後ろの項の読みに属するので、その項も捨てる（`% <E9>` の後に `r.` と `ok.` があれば、誤りの次は `ok`）。並びの位置を求めるときは、字句解析と同じく先頭の BOM を飛ばす。テスト: `tests/pl/chars.pl` の `l6_*`、`tests/cpp/stream_read_test.cpp`（`check_invalid_utf8` の「utf flag advances」と「utf error advances」、`check_read_term` の「read utf advances」、`check_get_code` の「peek code stays on bad utf」。最後のものはファイルを壊れたバイト 2 つにした。前はどれも、流れが壊れたバイトの前に留まることを期待していた）。
 
+## 第4節 壊れた UTF-8 を含む原子を書く
+
+SPEC 第4節は、テキストの流れが壊れた UTF-8 の並びをどう読むかを決めているが、どう書くかは決めていない。そのようなバイトを持つ原子は、POSIX の旗 `argv` のように読み手の外から来るときだけ作られ、13211-1 にはそのような原子は無い。Mosa は writeq を最初の壊れたバイトで切り、write/1 は `user_output` に何も書かなかった（レビュー L-12）。
+
+A か B か: A は、壊れた各バイトを、`atom_codes/2`、`atom_length/2`、`sub_atom/5` が既に見ているとおり値の同じ字として書く（`FF` は U+00FF、切れた `E3 81` は 2 字）。出力は正しい UTF-8 になり、writeq の字面を読み戻すと同じ文字コードの原子になる。B は、write/1 で生のバイトを書き、writeq で `\xFF\` と書く。
+
+決定（2026-11-23）: A（持ち主の選択）。代わりに、出力のバイトは原子のバイトと変わる。`with_output_to(atom(A), write(X))` は `A \== X` になり、argv のファイル名をパイプへ書くとバイトが変わる。1 バイトずつの規則は、上の読む側の maximal subpart と違う。原子自身の字に従うからである。テスト: `tests/cpp/session_goals_test.cpp` の `check_argv_bad_utf8`。
+
 ## 第4節 旗 japanese_punctuation
 
 決定（2026-10-25）: 未決 13 は A。`set_prolog_flag(japanese_punctuation, true)` は値として `true` を保存する。字句解析は変えない。

@@ -146,7 +146,29 @@ bool bare_atom(std::string_view name, bool fullwidth) {
   return name == "!" || name == ";";
 }
 
-std::string quote_atom(std::string_view text) {
+std::string same_code_text(std::string_view text) {
+  std::string out;
+  out.reserve(text.size());
+  for (std::size_t index = 0; index < text.size();) {
+    const Decoded decoded = decode_at(text, index);
+    if (decoded.valid) {
+      out.append(text.substr(index, decoded.bytes));
+      index += decoded.bytes;
+      continue;
+    }
+    // 壊れたバイトは 0x80 以上なので、U+0080..U+00FF の 2 バイトの列になる。切れた列（E3 81）も 1 バイトずつで、
+    // atom_length/2 の数え方と同じ。
+    const auto byte = static_cast<unsigned char>(text[index]);
+    out.push_back(static_cast<char>(0xC0U | (byte >> 6U)));
+    out.push_back(static_cast<char>(0x80U | (byte & 0x3FU)));
+    ++index;
+  }
+  return out;
+}
+
+std::string quote_atom(std::string_view raw) {
+  // 前は最初の壊れたバイトで止まり、writeq は名前の頭しか書かなかった（レビュー L-12）。
+  const std::string text = same_code_text(raw);
   std::string out = "'";
   for (std::size_t index = 0; index < text.size();) {
     const Decoded decoded = decode_at(text, index);

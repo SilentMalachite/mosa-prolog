@@ -219,6 +219,14 @@ A or B?: A: advance past the sequence as one character, then raise, so the posit
 
 Decision (2026-11-05): A. In both modes the sequence is its maximal subpart (Unicode 15.0, Section 3.9, Table 3-7: the longest prefix of a well-formed sequence, at least one byte), so `E3 81` is one character and `ED A0 80` is three. read/1 reads on as `replace` would, with U+FFFD in place of each sequence, to the end of the term (or past a syntax error, as for any syntax error), then puts the original bytes back and raises; the term is dropped, so `foo(<E3>).` followed by `bar.` gives `representation_error(character)` and then `bar`. A sequence in a comment belongs to the read of the term after it, which is dropped too (`% <E9>` then `r.` and `ok.` gives the error and then `ok`). A leading byte order mark is skipped when the position of the sequence is worked out, as the lexer skips it. Tests: `l6_*` in `tests/pl/chars.pl`, `tests/cpp/stream_read_test.cpp` ("utf flag advances" and "utf error advances" in `check_invalid_utf8`, "read utf advances" in `check_read_term`, and "peek code stays on bad utf" in `check_get_code`, whose file now has two bad bytes; before, they expected the stream to stay before the bad byte).
 
+## Section 4 Writing an atom that holds invalid UTF-8
+
+SPEC Section 4 says how a text stream reads an invalid UTF-8 sequence, but not how one is written. An atom can hold such bytes only when it comes from outside the reader, as the flag `argv` does on POSIX, and 13211-1 has no such atom. Mosa cut writeq at the first bad byte and wrote nothing at all with write/1 on `user_output` (review L-12).
+
+A or B?: A: write each bad byte as the character of that code, as `atom_codes/2`, `atom_length/2` and `sub_atom/5` already see it (`FF` as U+00FF, a cut-short `E3 81` as two characters), so the output is well-formed UTF-8 and writeq's text reads back to an atom with the same codes. B: write the raw bytes with write/1 and `\xFF\` with writeq.
+
+Decision (2026-11-23): A (owner's choice). The cost: the output's bytes differ from the atom's, so `with_output_to(atom(A), write(X))` gives `A \== X`, and an argv file name written to a pipe changes its bytes. The byte-by-byte rule differs from the maximal subpart of the reading side above, since it follows the atom's own characters. Test: `check_argv_bad_utf8` in `tests/cpp/session_goals_test.cpp`.
+
 ## Section 4 Flag japanese_punctuation
 
 Decision (2026-10-25): Open question 13: A. `set_prolog_flag(japanese_punctuation, true)` stores `true` as the value. Lexical analysis is not changed.

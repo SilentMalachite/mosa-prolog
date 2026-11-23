@@ -68,8 +68,8 @@ SpyKey key_for(Impl& machine, std::uint32_t context, std::uint32_t name, std::ui
 }
 
 std::string name_text(const Impl& machine, std::uint32_t name) {
-  const std::string_view text = machine.atoms.name(name);
-  return spelling::bare_atom(text, machine.japanese_punct) ? std::string{text} : spelling::quote_atom(text);
+  std::string text = spelling::same_code_text(machine.atoms.name(name));
+  return spelling::bare_atom(text, machine.japanese_punct) ? text : spelling::quote_atom(text);
 }
 
 // 知らせと debugging/0 の字面。名前は writeq と同じく引用し、user から Name/Arity で引くと別の述語になる鍵には

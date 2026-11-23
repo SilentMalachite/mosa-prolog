@@ -615,3 +615,37 @@ void check_argv_after_dashes() {
   const auto none = mosa::run_session(bare, "", false);
   mosa_test::check(none.out.find("X = [].") != std::string::npos, "argv without dashes is empty");
 }
+
+// argv の壊れた UTF-8 は、atom_codes/2 と同じく各バイトを値の同じ字として書く（レビュー L-12、持ち主の A）。
+// 前は writeq が最初の壊れたバイトで切れ、write は user_output に何も出さなかった。
+void check_argv_bad_utf8() {
+  const std::string path = std::string(MOSA_SOURCE_DIR) + "/tests/tmp/session_p.pl";
+  const std::string arg0 = "mosa";
+  const std::string arg_g = "-g";
+  const std::string goal =
+      "current_prolog_flag(argv, [X, Y, Z]), writeq(X), nl, write('<'), write(X), write('>'), nl, "
+      "writeq(Y), nl, writeq(Z), nl, with_output_to(atom(A), write(X)), atom_codes(A, C), atom_codes(X, C), "
+      "with_output_to(atom(Q), writeq(X)), term_to_atom(T, Q), atom_codes(T, C), write(same_codes), nl.";
+  const std::string arg_t = "-t";
+  const std::string halt = "halt";
+  const std::string dashes = "--";
+  const std::string spaced = "ab\xFF" "cd e";
+  const std::string cut = "x\xE3\x81y";
+  const std::string bare = "ab\xFF";
+  std::vector<std::string_view> args{arg0, path, arg_g, goal, arg_t, halt, dashes, spaced, cut, bare};
+  // user_output は std::cout へ直に書く（emit_text）ので、その道を受けて見る。
+  mosa::SessionResult result;
+  std::string out;
+  {
+    const mosa::StdCapture capture;
+    result = mosa::run_session(args, "", false);
+    out = capture.text();
+  }
+  const auto has = [&out](std::string_view text) { return out.find(text) != std::string::npos; };
+  mosa_test::check(result.code == 0, "bad utf8 goal succeeds, got [" + result.out + "]");
+  mosa_test::check(has("'ab\xC3\xBF" "cd e'\n"), "bad utf8 writeq whole atom, got [" + out + "]");
+  mosa_test::check(has("<ab\xC3\xBF" "cd e>\n"), "bad utf8 write on user_output");
+  mosa_test::check(has("'x\xC3\xA3\\x81\\y'\n"), "cut-short sequence is one character per byte");
+  mosa_test::check(has("\nab\xC3\xBF\n"), "bad utf8 small name stays bare");
+  mosa_test::check(has("same_codes\n"), "memory stream and writeq keep the codes");
+}

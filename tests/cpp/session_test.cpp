@@ -600,6 +600,7 @@ void check_answer_runs_cleanup();
 void check_directive_halt();
 void check_prompt_directive_halt();
 void check_argv_after_dashes();
+void check_argv_bad_utf8();
 void check_load_then_exit();
 void check_repeated_goals();
 void check_goal_load_reports();
@@ -653,6 +654,7 @@ int main(int argc, char** argv) {
   check_directive_halt();
   check_prompt_directive_halt();
   check_argv_after_dashes();
+  check_argv_bad_utf8();
   check_load_then_exit();
   check_repeated_goals();
   return mosa_test::failures();
