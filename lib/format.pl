@@ -8,23 +8,26 @@
 :- use_module(library(lists)).
 
 
+% format/1,2 も呼んだときの現在出力を format/3 と同じく確かめてから組み、その流れへ書く。前はバイナリの現在出力で
+% ~p の portray が先に動き、誤りの文脈が write/1 になった（レビュー R-L10）。
 format(Format) :-
     current_output(Stream),
-    format_atom(Format, [], Stream, format/1, Text),
-    write(Text).
+    format_to(Stream, Format, [], format/1).
 
 format(Format, Args) :-
     current_output(Stream),
-    format_atom(Format, Args, Stream, format/2, Text),
-    write(Text).
+    format_to(Stream, Format, Args, format/2).
+
+format(Stream, Format, Args) :-
+    format_to(Stream, Format, Args, format/3).
 
 % 流れは指示を動かす前に確かめる。後で確かめると、~p の portray が先に動いてから流れの誤りになる（レビュー L-29）。
 % '$stream_column'/2 は write/2 と同じ順で同じ誤りを出す。portray が流れを閉じることもあるので、書き出しの誤りも
-% format/3 の名にする。
-format(Stream, Format, Args) :-
-    stream_column(Stream, format/3, _),
-    format_atom(Format, Args, Stream, format/3, Text),
-    catch(write(Stream, Text), error(Formal, _), throw(error(Formal, context(format/3, _)))).
+% format の名にする。
+format_to(Stream, Format, Args, PI) :-
+    stream_column(Stream, PI, _),
+    format_atom(Format, Args, Stream, PI, Text),
+    catch(write(Stream, Text), error(Formal, _), throw(error(Formal, context(PI, _)))).
 
 format_atom(Format, Args, Stream, PI, Text) :-
     text_chars(Format, PI, Chars),
@@ -267,8 +270,8 @@ fresh_line(Stream, PI, St0, St) :-
         flush(St1, St)
     ).
 
-% 組んだ出力の最後の字が改行なら行の頭。何も組んでいなければ、流れの始まりの桁が 0 かで決める。流れの桁は
-% 何も組んでいないときにだけ読むので、~N の無い書式で流れの誤りが書式の誤りより先に出ることは無い。
+% 組んだ出力の最後の字が改行なら行の頭。何も組んでいなければ、流れの始まりの桁が 0 かで決める。流れの誤りは
+% format_to が指示より先に出すので、ここで桁を読むときにはもう出ない（レビュー L-29、R-L10）。
 line_start(st(_, Seg, Out), Stream, PI) :-
     (   last_text_char(Seg, C)
     ->  C == '\n'
