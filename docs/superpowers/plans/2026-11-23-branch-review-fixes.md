@@ -34,9 +34,19 @@ V1 の後は V8 の R-M19 のような文書だけの物を先に片付けても
 
 | ID | 波 | 状態 |
 | --- | --- | --- |
-| R-H01 | V1 | 未着手 |
-| R-M12〜R-M17 | V1 | 未着手 |
-| R-L15〜R-L19、R-N08 | V1 | 未着手 |
+| R-H01 | V1 | done (5a1b7945) |
+| R-M12 | V1 | done (0c71bba4) |
+| R-M13 | V1 | done (ef85cfb8) |
+| R-M14 | V1 | done (be81eaf4)。整形した複数行の JSON を断るのは持ち主の問い（既定の A で断る、`pretty` の行が固定） |
+| R-M15 | V1 | done (62e44f05) |
+| R-M16 | V1 | done (fba3795c)。旗 debug は前と同じく写さない |
+| R-M17 | V1 | done (e3de6dcf) |
+| R-L15 | V1 | done (d54d3a8c) |
+| R-L16 | V1 | done (273ac112) for `user::` と exists の束縛。setup と cleanup の `^^` は主の機械に lgtunit の述語が無いので変えない（スイートの 88 個の setup/cleanup に `^^` は無い） |
+| R-L17 | V1 | 問い。直すと同梱スイートの 5 ファイル（epsilon_0、at_end_of_stream_1、flush_output_1、number_1、var_1）がファイルの行で不合格になり、ISO 欄が 2295/2333 から 2295/2338（98.2%）に下がって関門が 1 を返す。5 つとも古い形の試験（`succeeds/1`、`fails/1`、`throws/2`）だけのファイルで、離れた節が読み込みを落とす。古い形は 36 ファイル 358 件あり、phase 9 の計画で数えないと決めた（どこにも既知の限界として書かれていない）。古い形を数えるかを持ち主に聞く。変更は scratchpad の `r-l17.patch` にある |
+| R-L18 | V1 | done (8533f715)。L-43 の t1 の理由は新しい規則で `fail` から `syntax` に直した |
+| R-L19 | V1 | done (6cffe93f) |
+| R-N08 | V1 | done (3137c938) |
 | R-M05〜R-M10、R-L09〜R-L11 | V2 | 未着手（R-M09 は問い） |
 | R-M03、R-M04、R-L05〜R-L07、R-N02、R-N03 | V3 | 未着手（R-L05、R-N03 は問い） |
 | R-M01、R-M02、R-L01〜R-L04、R-N01、R-N04 | V4 | 未着手（R-M01 は ADR の改訂が先） |
