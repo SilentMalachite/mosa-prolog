@@ -1,7 +1,7 @@
 # Status
 
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
-- **Release:** `mosa 0.5.0`, released 2026-11-19 (latest). Earlier releases are in CHANGELOG.
+- **Release:** `mosa 0.5.1` in progress (owner, 2026-11-24); 0.5.0 (2026-11-19) is the latest.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library 600/605 (99.2%).
 - **In progress:** the 2026-11-23 branch review (56 items) on `fix/review-2026-11-20`; see the
   [plan](superpowers/plans/2026-11-23-branch-review-fixes.md).
