@@ -8,7 +8,8 @@
 //   （iso-notes 8.16 の決定 A）
 // 数の字句はフェーズ1のリーダを使う。新しい数の構文は足さない。
 // 8.16.7 は数の前のレイアウト文だけを読み飛ばす。数の中の空白は字句のまま拒否する。
-// 0' の直後の空白だけは文字コードの本体なので、レイアウト文に数えない。
+// 0' の直後の配置文字は文字コードの本体なので、レイアウト文に数えず字句解析器に任せる（引用の中と同じく
+//   改行とタブは unexpected_token、空白と U+3000 は通る。レビュー L-09、L-31）。
 // 文字コードのリストの Big は、範囲の外の int64 と同じく representation_error(character_code)（フェーズ10、設計の 8）。
 // テスト: tests/pl/atoms.pl（atom_number は atom_number_*）、int64 を越える数は tests/pl/bigint.pl（nc_big、
 // atom_number_big、number_codes_big）と tests/pl/read.pl（m1_number_codes_*）
@@ -110,12 +111,13 @@ SignedText strip_sign(std::string_view text) {
   return out;
 }
 
-// 符号は has_layout のあとで外す。0' の本体の空白は、先頭の '-' のうしろでも文字である。
+// 符号は has_layout のあとで外す。0' の本体の配置文字は、先頭の '-' のうしろでも文字である。どの配置文字を
+// 拒むかは read/1 と同じ答えにするため字句解析器の scan_char_code が決める（レビュー L-31）。
 bool char_code_space(const std::vector<char32_t>& codes, std::size_t index) {
   std::size_t origin = 0;
   if (!codes.empty() && codes[0] == U'-') origin = 1;
   if (index != origin + 2 || origin + 1 >= codes.size()) return false;
-  return codes[origin] == U'0' && codes[origin + 1] == U'\'' && codes[index] == U' ';
+  return codes[origin] == U'0' && codes[origin + 1] == U'\'';
 }
 
 bool has_layout(std::string_view text) {
@@ -142,7 +144,8 @@ std::optional<std::string_view> skip_layout_text(std::string_view text) {
     }
     if (code == U'%') {
       ++index;
-      while (index < count && codes.codes[index] != U'\n') ++index;
+      // 字句解析器と同じく CR だけの改行でも注釈を閉じる（レビュー L-31）。
+      while (index < count && codes.codes[index] != U'\n' && codes.codes[index] != U'\r') ++index;
       continue;
     }
     if (code == U'/' && index + 1 < count && codes.codes[index + 1] == U'*') {

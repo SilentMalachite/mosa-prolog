@@ -88,6 +88,14 @@ test(number_key_inner_space, number_chars(N, [-, ' ', '1']), error(syntax_error(
 test(number_chars_beyond_int64, number_chars(N, ['9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9', '9']), solutions([N = 99999999999999999999])).
 test(number_key_bad_escape, number_chars(N, ['0', '''', '\\', z]), error(syntax_error(bad_escape))).
 test(number_key_open_comment, number_codes(N, [47, 42, 32, 49]), error(syntax_error(unterminated_comment))).
+% 数の字面は read/1 と同じ答えにする（レビュー L-31）。0' の後は引用の中と同じく U+3000 が通りタブを拒む。
+% % の注釈は字句解析器と同じく CR でも終わる。
+test(l31_number_codes_ideographic_space, number_codes(X, [48, 39, 0x3000]), solutions([X = 12288])).
+test(l31_number_codes_ideographic_space_neg, number_codes(X, [45, 48, 39, 0x3000]), solutions([X = -12288])).
+test(l31_atom_number_ideographic_space, atom_number('0''\x3000\', X), solutions([X = 12288])).
+test(l31_number_codes_raw_tab, number_codes(_, [48, 39, 9]), error(syntax_error(unexpected_token))).
+test(l31_number_codes_comment_cr, number_codes(X, [37, 99, 13, 49, 50]), solutions([X = 12])).
+test(l31_number_codes_comment_lf, number_codes(X, [37, 99, 10, 49, 50]), solutions([X = 12])).
 % atom_number/2（非 ISO、iso-notes 8.16 の決定 A）。規格の Examples は無いので、決定文の振る舞いを 1 行ずつ。
 test(atom_number_to_number, atom_number('12', N), solutions([N = 12])).
 test(atom_number_to_float, atom_number('1.5', N), solutions([N = 1.5])).
