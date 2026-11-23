@@ -300,6 +300,10 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 General:
 - `walk_suite` (`iso_suite.cpp`) stops without a note when a directory step fails, so the suite's
   denominator would shrink silently (review L-40). Such a failure was not caused on any OS here.
+- Reconsult (review L11 A7 and A9, review N-11): the import of a predicate that a module file stopped
+  exporting stays in the importer after the file is consulted again; and a reload that makes a static
+  predicate dynamic (`p(1).`, then `:- dynamic(p/1). p(2).`) fails with `static_to_dynamic` and keeps
+  `p(1)`. Both are older than L11 and left; the record was only in docs/review-2026-10-31.md.
 
 - Two cyclic terms with coprime periods still unify or compare in time quadratic in the periods,
   until the pairs pass the heap limit (ADR 0010 amendment 4, review H-02). Union-find over compound
