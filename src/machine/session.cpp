@@ -12,6 +12,7 @@
 #include "mosa/version.hpp"
 #include "mosa/writer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <iostream>
@@ -359,19 +360,64 @@ std::string prompt_text(const Machine& machine) {
   return impl.debug.mode == DebugMode::Creep ? "[trace] ?- " : "[debug] ?- ";
 }
 
-// ためた行から 1 項読む。上限に達したら回復して知らせ、nullopt を返す。
-std::optional<ReadOutcome> read_buffer(Machine& machine, const std::string& buffer, Echo& echo) {
+// ためた行から読んだ 1 項。consumed は終止符まで（構文の誤りなら読み飛ばした所まで）のバイト数で、残りは同じ行の
+// 次の項になる。上限に達したら回復して知らせ、outcome を空にして全部を使ったことにする。
+struct BufferRead {
+  std::optional<ReadOutcome> outcome;
+  std::size_t consumed = 0;
+};
+
+BufferRead read_buffer(Machine& machine, const std::string& buffer, Echo& echo) {
   try {
     Reader reader(buffer, machine.heap(), machine.operators(), current_double_quotes(engine_impl(machine)),
                   &engine_impl(machine).char_conv);
     reader.set_fullwidth(engine_impl(machine).japanese_punct);
-    return reader.next();
+    BufferRead read;
+    read.outcome = reader.next();
+    read.consumed = reader.consumed();
+    return read;
   } catch (...) {
     if (!is_heap_exhaustion()) throw;
     recover_heap(machine);
     warn_resource(machine, echo);
-    return std::nullopt;
+    return BufferRead{std::nullopt, buffer.size()};
   }
+}
+
+// 次の行を待つ失敗。閉じない /* と、行末の継続の \ で終わる引用も、項が閉じていないのと同じく続きの行で閉じうる
+// （レビュー L-19、6.4.2.1）。生の改行は引用の中で illegal_character なので、引用が閉じないのは継続の後か入力の終わり。
+bool needs_more(const BufferRead& read) {
+  if (!read.outcome || !read.outcome->failure) return false;
+  const SyntaxReason reason = read.outcome->failure->reason;
+  return reason == SyntaxReason::IncompleteTerm || reason == SyntaxReason::UnterminatedComment ||
+         reason == SyntaxReason::UnterminatedQuote;
+}
+
+// 促しの後に打った字面の中の位置（行と列は 1 から、列は字の数で、字句解析器と同じく CR と CR LF も改行）。同じ行の
+// 残りを読んだ誤りの位置を、促しの後の頭からに戻すために、前の項が使った字面の後ろへ進める。
+struct TypedSpot {
+  std::size_t line = 1;
+  std::size_t column = 1;
+};
+
+TypedSpot spot_after(std::string_view text, TypedSpot spot) {
+  for (std::size_t index = 0; index < text.size(); ++index) {
+    const auto byte = static_cast<unsigned char>(text[index]);
+    if (byte == '\r' || byte == '\n') {
+      if (byte == '\r' && index + 1 < text.size() && text[index + 1] == '\n') ++index;
+      ++spot.line;
+      spot.column = 1;
+    } else if ((byte & 0xC0U) != 0x80U) {
+      ++spot.column;
+    }
+  }
+  return spot;
+}
+
+SyntaxFailure shifted(SyntaxFailure failure, TypedSpot base) {
+  if (failure.line == 1) failure.column += base.column - 1;
+  failure.line += base.line - 1;
+  return failure;
 }
 
 // 読んだ項から、動かすものを文字列で取る。ゴールも指令も文字列から読み直して動かすので、項はもう要らない。
@@ -391,43 +437,55 @@ Entry entry_of(Machine& machine, const ReadTerm& read, std::string& goal) {
   return Entry::Goal;
 }
 
+// 読んだ 1 項を動かす。halt で終わるなら真。指令は自分の字面だけを読み込む。前は行の全体を読み込んだので、
+// 指令の後のゴールも節になった（レビュー L-19）。
+bool run_entry(Machine& machine, Entry entry, const std::string& text, const std::string& goal, Cursor& cursor,
+               Echo& echo) {
+  if (entry == Entry::Help) {
+    echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
+    return false;
+  }
+  if (entry == Entry::Directive) return prompt_directive(machine, text, echo);
+  bool halted = false;
+  const int code = play_goal(machine, goal, true, true, cursor, echo, halted);
+  if (halted) echo.result->code = code;
+  return halted;
+}
+
+// 1 行の項は、指令でもゴールでも左から 1 つずつ動かす。前はゴールの後の残りを捨てた（レビュー L-19）。残りがあれば
+// 次の行を読まずに続けて読み、促しは出さない。
 void prompt_loop(Machine& machine, Cursor& cursor, Echo& echo) {
   std::string buffer;
+  bool pending = false;
+  TypedSpot base;
   echo.say(prompt_text(machine));
   while (true) {
-    std::string line;
-    if (!cursor.line(line)) return;
-    if (buffer.empty() && blank(line)) continue;
-    buffer += line;
+    if (!pending) {
+      std::string line;
+      if (!cursor.line(line)) return;
+      if (buffer.empty() && blank(line)) continue;
+      buffer += line;
+    }
+    pending = false;
     // 読みが作った項は、どの道でもこの高さへ切り詰めて捨てる。前は続きの行ごとにためた入力の全体を読み直して
     // 項を積み、構文の誤りの項も残したので、--heap-max で止まった（レビュー M-12）。読む間に GC は動かない。
     const std::size_t mark = machine.heap().size();
-    const std::optional<ReadOutcome> outcome = read_buffer(machine, buffer, echo);
+    const BufferRead read = read_buffer(machine, buffer, echo);
     std::string goal;
-    const std::optional<Entry> entry =
-        outcome && outcome->term ? std::optional<Entry>{entry_of(machine, *outcome->term, goal)} : std::nullopt;
+    const std::optional<Entry> entry = read.outcome && read.outcome->term
+                                           ? std::optional<Entry>{entry_of(machine, *read.outcome->term, goal)}
+                                           : std::nullopt;
     if (machine.heap().size() >= mark) machine.heap().truncate(mark);
-    if (outcome && outcome->failure && outcome->failure->reason == SyntaxReason::IncompleteTerm) continue;
-    if (outcome && outcome->failure) warn_syntax(machine, *outcome->failure, echo);
-    const std::string text = buffer;
-    buffer.clear();
-    if (!entry) {
-      echo.say(prompt_text(machine));
-      continue;
-    }
-    if (*entry == Entry::Help) {
-      echo.say(render_message(machine, "help_japanese_variables", {}) + "\n");
-    } else if (*entry == Entry::Directive) {
-      if (prompt_directive(machine, text, echo)) return;
-    } else {
-      bool halted = false;
-      const int code = play_goal(machine, goal, true, true, cursor, echo, halted);
-      if (halted) {
-        echo.result->code = code;
-        return;
-      }
-    }
-    echo.say(prompt_text(machine));
+    if (needs_more(read)) continue;
+    if (read.outcome && read.outcome->failure) warn_syntax(machine, shifted(*read.outcome->failure, base), echo);
+    const std::size_t used = read.consumed == 0 ? buffer.size() : std::min(read.consumed, buffer.size());
+    const std::string text = buffer.substr(0, used);
+    buffer.erase(0, used);
+    if (blank(buffer)) buffer.clear();
+    pending = !buffer.empty();
+    base = pending ? spot_after(text, base) : TypedSpot{};
+    if (entry && run_entry(machine, *entry, text, goal, cursor, echo)) return;
+    if (!pending) echo.say(prompt_text(machine));
   }
 }
 

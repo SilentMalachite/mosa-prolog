@@ -649,3 +649,35 @@ void check_argv_bad_utf8() {
   mosa_test::check(has("\nab\xC3\xBF\n"), "bad utf8 small name stays bare");
   mosa_test::check(has("same_codes\n"), "memory stream and writeq keep the codes");
 }
+
+// REPL は 1 行の項を指令でもゴールでも 1 つずつ動かす。前はゴールの後の残りを捨て、指令の行だけ全部を動かした。
+// 閉じない /* と、行末の継続の \ を持つ引用は、次の行を待つ（レビュー L-19、6.4.2.1）。
+void check_repl_line_terms() {
+  const std::string arg0 = "mosa";
+  std::vector<std::string_view> args{arg0};
+  const auto run = [&args](std::string_view input) { return mosa::run_session(args, input, true); };
+  const auto two = run("X = 1. Y = 2.\n");
+  mosa_test::check(two.out.find("X = 1.") != std::string::npos && two.out.find("Y = 2.") != std::string::npos,
+                   "two goals on a line, got [" + two.out + "]");
+  // 指令の出力は std::cout へ直に行くので、指令は assertz にして後のゴールの答えで見る。
+  const auto mixed = run("X = 1. :- assertz(q(1)).\nq(Y).\n");
+  mosa_test::check(mixed.out.find("X = 1.") != std::string::npos && mixed.out.find("Y = 1.") != std::string::npos,
+                   "goal then directive on a line, got [" + mixed.out + "]");
+  const auto directives = run(":- assertz(p(1)). :- assertz(p(2)).\nfindall(X, p(X), L).\n");
+  mosa_test::check(directives.out.find("L = [1,2].") != std::string::npos,
+                   "two directives on a line, got [" + directives.out + "]");
+  const auto comment = run("/* a comment\nstill comment */ X = 3.\n");
+  mosa_test::check(comment.out.find("X = 3.") != std::string::npos && comment.err.empty(),
+                   "block comment over lines, got [" + comment.out + "][" + comment.err + "]");
+  const auto quoted = run("X = 'abc\\\ndef'.\n");
+  mosa_test::check(quoted.out.find("X = abcdef.") != std::string::npos && quoted.err.empty(),
+                   "continuation escape over lines, got [" + quoted.out + "][" + quoted.err + "]");
+  const auto after_error = run("foo(. X = 4.\n");
+  mosa_test::check(!after_error.err.empty() && after_error.out.find("X = 4.") != std::string::npos,
+                   "goal after a syntax error on a line, got [" + after_error.out + "]");
+  // 同じ行の 2 つ目の項の誤りの位置は、行の頭から数える。同じ所に空白で置いた誤りと同じ文面になる。
+  const auto second = run("X = 1. foo(.\n");
+  const auto spaced = run("       foo(.\n");
+  mosa_test::check(!second.err.empty() && second.err == spaced.err,
+                   "error position after a goal on a line, got [" + second.err + "] and [" + spaced.err + "]");
+}
