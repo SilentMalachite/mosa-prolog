@@ -69,6 +69,13 @@ void unreadable_entry(const fs::path& root) {
   fs::create_symlink(dir / "missing.hpp", dir / "b.hpp", error);
   if (error) return;  // シンボリックリンクを作れない環境（権限の無い Windows）では見ない。
   mosa_test::check(!mosa::codegen::tree_digest(dir).has_value(), "an entry whose type cannot be read stops the digest");
+  // 隠しの項目は入れないので、行き先の無い隠しのリンク（Emacs のロックの .#a.hpp）では止めない（L-36 と同じ）。
+  const fs::path hidden = root / "dangling_hidden";
+  write_file(hidden / "a.hpp", "A");
+  const auto plain = mosa::codegen::tree_digest(hidden);
+  fs::create_symlink(hidden / "gone", hidden / ".#a.hpp", error);
+  mosa_test::check(plain.has_value() && mosa::codegen::tree_digest(hidden) == plain,
+                   "a dangling hidden link is still left out");
 }
 
 }  // namespace
