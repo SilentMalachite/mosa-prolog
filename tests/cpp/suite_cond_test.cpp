@@ -144,18 +144,24 @@ void check_guards(const std::filesystem::path& root) {
 }
 
 // レビュー L-43。:- if の枝の :- uses(lgtunit, [op(...)]) の演算子は、その枝が選ばれたときだけ機械に入る。前は枝を
-// 問わず入れたので、選ばれない枝の ===> で書いた t1 が通った。今の t1 は字面を機械が読めず、実行器はそれを fail と
-// 数える。選ばれた枝なら枝の中でも後ろでも使える。
+// 問わず入れたので、選ばれない枝の ===> で書いた t1 が通った。今の t1 は字面を機械が読めず、実行器は流す前に
+// syntax で不合格にする（R-L18 の前は fail と数えた）。選ばれた枝なら枝の中でも後ろでも使える。
 void check_uses_gate(const std::filesystem::path& root) {
   check_suite(root, {"uses_not_taken",
                      ":- if(fail).\n:- uses(lgtunit, [op(700, xfx, ===>)]).\n:- endif.\n"
                      "\ttest(t1, true) :- X = (a ===> b), X == ===>(a, b).\n\ttest(t0, true).\n",
-                     2, 1, {"t1 true fail"}});
+                     2, 1, {"t1 true syntax"}});
   check_suite(root, {"uses_taken",
                      ":- if(true).\n:- uses(lgtunit, [op(700, xfx, ===>)]).\n"
                      "\ttest(t2, true) :- X = (a ===> b), X == ===>(a, b).\n:- endif.\n"
                      "\ttest(t3, true) :- X = (a ===> b), X == ===>(a, b).\n",
                      2, 2, {}});
+  // 選ばれない枝の演算子で書いた本体は、機械が読めない。false と all の試験もそれで合格にしない（レビュー R-L18）。
+  check_suite(root, {"uses_not_taken_false",
+                     ":- if(fail).\n:- uses(lgtunit, [op(700, xfx, ===>)]).\n:- endif.\n"
+                     "\ttest(f1, false) :- a ===> b.\n\ttest(a1, all(true)) :- member(_, [a ===> b]).\n"
+                     "\ttest(f0, true).\n",
+                     3, 1, {"f1 false syntax", "a1 all(true) syntax"}});
 }
 
 // レビュー L-43。- を付けた case は、その項が - で始まるときだけ別欄にする。前は行の頭の字で決めたので、同じ行の

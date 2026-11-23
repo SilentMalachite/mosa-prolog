@@ -180,6 +180,10 @@ CaseEnd run_one(Machine& machine, const LgtCase& original, const LgtIo* io) {
     want.keep = !item.cleanup.empty();
     if (want.kind == LgtKind::Other) {
       end.actual = "unsupported";
+    } else if (!lgt_parse_term(machine, item.body).ok) {
+      // 選ばれない枝の演算子で書いた本体は、機械が読めない。読めない問いは失敗と同じ印で返るので、false と all の
+      // 試験が通った（レビュー R-L18）。流す前に読めるかを見て、syntax で不合格にする。
+      end.actual = "syntax";
     } else {
       end = run_body(machine, item, want, io);
       if (!keeps_bindings(want.kind, end.pass)) end.kept.clear();
