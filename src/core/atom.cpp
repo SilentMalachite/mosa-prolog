@@ -50,9 +50,24 @@ AtomTable::AtomTable() {
   ascii_.push_back(0);
 }
 
+AtomTable::AtomTable(const AtomTable& other) : names_(other.names_), ascii_(other.ascii_) {
+  ids_.reserve(names_.size());
+  for (std::size_t id = 1; id < names_.size(); ++id) {
+    ids_.emplace(std::string_view{names_[id]}, static_cast<std::uint32_t>(id));
+  }
+}
+
+AtomTable& AtomTable::operator=(const AtomTable& other) {
+  if (this == &other) return *this;
+  AtomTable copy(other);
+  names_.swap(copy.names_);
+  ascii_.swap(copy.ascii_);
+  ids_.swap(copy.ids_);
+  return *this;
+}
+
 std::uint32_t AtomTable::intern(std::string_view text) {
-  const std::string owned{text};
-  const auto found = ids_.find(owned);
+  const auto found = ids_.find(text);
   if (found != ids_.end()) return found->second;
   // 2^32 個目で番号が巻き戻ると別の原子と同じ番号になる。slot_number と同じく止める（全体レビュー推奨4）。
   if (names_.size() > std::numeric_limits<std::uint32_t>::max()) throw ResourceLimit("heap_limit");
@@ -60,10 +75,10 @@ std::uint32_t AtomTable::intern(std::string_view text) {
   // 3 つの入れ物は一緒に伸びるか、どれも伸びない（レビュー M-01）。どの push_back と emplace も確保で投げうるが、
   // 投げたものは何も変えない（強い保証）ので、先に伸びたものだけを戻す。片方だけ長いと、番号が飛び、ascii(id) が
   // ascii_ の終わりの先を読む。テスト: tests/cpp/atom_alloc_test.cpp。
-  names_.push_back(owned);
+  names_.emplace_back(text);
   try {
-    ascii_.push_back(all_ascii(owned) ? 1 : 0);
-    ids_.emplace(owned, id);
+    ascii_.push_back(all_ascii(text) ? 1 : 0);
+    ids_.emplace(std::string_view{names_.back()}, id);
   } catch (...) {
     if (ascii_.size() == names_.size()) ascii_.pop_back();
     names_.pop_back();

@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
+#include <utility>
 #include <new>
 #include <string>
 
@@ -89,7 +91,27 @@ void failed_intern_changes_nothing() {
 
 }  // namespace
 
+// レビュー N-01。ids_ の鍵は names_ の要素を指す view になった。写しは自分の要素から ids_ を作り直すので、写し元を
+// 壊した後も同じ番号で引け、移した表も引ける。前は鍵に名前の写しを持っていた。
+void copy_keeps_own_keys() {
+  std::optional<mosa::AtomTable> source(std::in_place);
+  const auto alpha = source->intern("alpha");
+  const auto beta = source->intern("ベータ");
+  mosa::AtomTable copy(*source);
+  mosa::AtomTable assigned;
+  assigned = *source;
+  source.reset();
+  mosa_test::check(copy.intern("alpha") == alpha && copy.intern("ベータ") == beta && copy.name(beta) == "ベータ",
+                   "a copy finds the names after its source is gone");
+  mosa_test::check(assigned.intern("alpha") == alpha && assigned.name(alpha) == "alpha", "an assigned copy too");
+  const auto gamma = copy.intern("gamma");
+  mosa_test::check(gamma == beta + 1 && assigned.intern("gamma") == gamma, "both copies go on from the same number");
+  mosa::AtomTable moved(std::move(copy));
+  mosa_test::check(moved.intern("gamma") == gamma && moved.intern("alpha") == alpha, "a moved table finds its names");
+}
+
 int main() {
   failed_intern_changes_nothing();
+  copy_keeps_own_keys();
   return mosa_test::failures();
 }
