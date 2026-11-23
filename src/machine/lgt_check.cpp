@@ -100,11 +100,26 @@ bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& nam
     return check_goal(machine, heap.arg(cell, 0), names, bindings, note) &&
            check_goal(machine, heap.arg(cell, 1), names, bindings, note);
   }
+  // (C -> T ; E) は C の成否で T か E の一方だけを判定する。前は (C -> T) を選言の左として試し、T が偽なら E を
+  // 判定した（7.8.8、レビュー R-H01）。
+  if (name == ";" && arity == 2 && lgt_functor_is(heap, heap.arg(cell, 0), "->", 2)) {
+    const Cell arrow = heap.deref(heap.arg(cell, 0));
+    std::string ignored;
+    if (check_goal(machine, heap.arg(arrow, 0), names, bindings, ignored)) {
+      return check_goal(machine, heap.arg(arrow, 1), names, bindings, note);
+    }
+    return check_goal(machine, heap.arg(cell, 1), names, bindings, note);
+  }
   // 選言の左右は同じ判定。左が失敗しても、その説明で右を不合格にしない。
   if (name == ";" && arity == 2) {
     std::string ignored;
     if (check_goal(machine, heap.arg(cell, 0), names, bindings, ignored)) return true;
     return check_goal(machine, heap.arg(cell, 1), names, bindings, note);
+  }
+  if (name == "->" && arity == 2) {
+    std::string ignored;
+    return check_goal(machine, heap.arg(cell, 0), names, bindings, ignored) &&
+           check_goal(machine, heap.arg(cell, 1), names, bindings, note);
   }
   if (name == "assertion" && arity == 1) return check_goal(machine, heap.arg(cell, 0), names, bindings, note);
   if (name == "assertion" && arity == 2) {

@@ -93,7 +93,7 @@ bool one_activation(const Heap& heap, Cell cell) {
 // ランナー目標が無い -> は -1。機械の if-then に残し、条件のカットを移さない。
 int build_runner_if(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell,
                     const std::vector<VarName>& names);
-// 左がランナーの -> でない ; は -1。else を同じ節点に置き、成功した条件が切れるようにする。
+// 左が -> でないか、ランナー目標の無い ; は -1。else を同じ節点に置き、成功した条件が切れるようにする。
 int build_runner_soft(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell,
                       const std::vector<VarName>& names);
 // ランナー目標を含む連言。隣り合うランナー目標の無い項は 1 つの query にまとめる。
@@ -175,8 +175,9 @@ int build_runner_soft(Prog& prog, const Heap& heap, const OperatorTable& ops, Ce
   if (arrow.tag() != Tag::Str || heap.functor_arity(arrow) != 2) return -1;
   if (heap.atoms().name(heap.functor_atom(arrow)) != "->") return -1;
   std::vector<std::uint64_t> seen;
-  // 機械だけの -> は選言の左の query のままにする。カットをランナーへ移さない。
-  if (mix_of(heap, arrow, seen) != GoalMix::Runner) return -1;
+  // ランナー目標の無い選言は機械の query のままにする（one_activation）。else にだけランナー目標がある形も同じ節点に
+  // する。前は (C -> T) を選言の左の query にしたので、T が失敗すると E へ進んだ（7.8.8、レビュー R-H01）。
+  if (mix_of(heap, cell, seen) != GoalMix::Runner) return -1;
   Node node;
   node.kind = NodeKind::Soft;
   node.left = build_node(prog, heap, ops, heap.arg(arrow, 0), names);

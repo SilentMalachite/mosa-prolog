@@ -118,6 +118,40 @@ void check_if(const std::filesystem::path& root) {
   mosa_test::check(failed.find("if_cuts_else") == std::string::npos, "successful if cuts else");
 }
 
+// else にだけランナー目標がある if-then-else（レビュー R-H01）。条件が成功したら then が失敗しても else を動かさない。
+// 表明の中の (C -> T ; E) も同じ。前は (C -> T) を 1 つのゴールとして試し、失敗すると E を判定した。
+std::string else_runner_text() {
+  return "test(ite_true_fp, true) :- (true -> fail ; assertion(true)).\n"
+         "test(ite_false_fn, false) :- (true -> fail ; assertion(true)).\n"
+         "test(ite_check_fp, true((true -> fail ; variant(X, 1)))) :- X = 1.\n"
+         "test(ite_check_then, true((X == 1 -> variant(X, 1) ; fail))) :- X = 1.\n"
+         "test(ite_else_taken, true) :- (fail -> true ; assertion(true)).\n"
+         "test(ite_then_taken, true) :- (true -> true ; assertion(fail)).\n"
+         "test(ite_check_else, true((fail -> fail ; variant(X, 1)))) :- X = 1.\n";
+}
+
+void check_else_runner(const std::filesystem::path& root) {
+  const auto suite = root / "else";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "else-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_1" / "tests.lgt", else_runner_text()), "write else");
+  static_cast<void>(mosa::run_iso_suite(suite.string(), report.string()));
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  const bool fp = failed.find("ite_true_fp") != std::string::npos;
+  const bool check_fp = failed.find("ite_check_fp") != std::string::npos;
+  if (!fp || !check_fp || !has_exact_line(body, "合格数: 5")) show("else report", body);
+  mosa_test::check(has_exact_line(body, "分母: 7"), "else denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 5"), "else passed");
+  mosa_test::check(fp, "then that fails does not fall to an else assertion");
+  mosa_test::check(failed.find("ite_false_fn") == std::string::npos, "false test passes when then fails");
+  mosa_test::check(check_fp, "check (C -> T ; E) does not judge E after C");
+  mosa_test::check(failed.find("ite_check_then") == std::string::npos, "check judges T after C");
+  mosa_test::check(failed.find("ite_else_taken") == std::string::npos, "failed condition runs else");
+  mosa_test::check(failed.find("ite_then_taken") == std::string::npos, "successful then skips else");
+  mosa_test::check(failed.find("ite_check_else") == std::string::npos, "check judges E after a failed C");
+}
+
 }  // namespace
 
 int main() {
@@ -125,6 +159,10 @@ int main() {
   {
     Fixture fixture(root);
     check_if(root);
+  }
+  {
+    Fixture fixture(root);
+    check_else_runner(root);
   }
   return mosa_test::failures();
 }
