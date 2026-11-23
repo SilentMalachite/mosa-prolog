@@ -100,7 +100,14 @@ bool unify_cells(Heap& heap, Cell left, Cell right, Attempt& attempt, int depth)
   // NaN は自分自身とも一致しない。浮動小数は番地が同じでも == に回す。
   if (left.raw() == right.raw() && left.tag() != Tag::Float) return true;
   if (heap.unbound(left)) {
-    bind_var(heap, left, right, attempt);
+    // 両方が未束縛なら、新しい（番地の大きい）変数を古い変数へ束縛する（WAM の規則）。前はいつも左を右へ束縛したので、
+    // 古い変数から新しい変数への長い鎖ができて後の deref が辿り直し、選択点より古い変数をトレイルにも積んだ（レビュー
+    // L-06）。変数はどれもヒープの語で、GC は語の並びを保つので、番地の順は作った順である。native.cpp の unify も同じ。
+    if (heap.unbound(right) && heap.word(right) > heap.word(left)) {
+      bind_var(heap, right, left, attempt);
+    } else {
+      bind_var(heap, left, right, attempt);
+    }
     return true;
   }
   if (heap.unbound(right)) {

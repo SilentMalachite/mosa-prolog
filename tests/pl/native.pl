@@ -249,9 +249,10 @@ test(native_deep_recursion, deep_len(N), solutions([N = 32768])).
 
 test(native_var_order, (mk(L), msort(L, S), S == L), true).
 test(native_var_order_head, (mk_head(L), msort(L, S), S == L), fail).
-% 頭部の 2 つ目の H は節の側（第1引数から得た X）が左なので、X が Y を指す。
-% 代表は Y で、間にある W より新しい。向きが逆なら代表は X になり W より古い
-test(native_var_head, (T = t(X, W, Y), app([X], [], [Y]), X @> W, T = t(_, _, _)), true).
+% 両方が未束縛なら、どちらが左でも新しい変数を古い変数へ束縛する（レビュー L-06）。代表は X で、間にある W より古い。
+% 前は頭部の 2 つ目の H で節の側（第1引数から得た X）が左なので X が Y を指し、代表は Y で W より新しかった。
+test(native_var_head, (T = t(X, W, Y), app([X], [], [Y]), X @< W, T = t(_, _, _)), true).
+test(native_var_head_back, (T = t(X, W, Y), app([Y], [], [X]), X @< W, T = t(_, _, _)), true).
 test(native_l20_is_cyclic, (X = X+1, l20_eval(X, _)), error(resource_error(cyclic_term))).
 test(native_l20_compare_cyclic, (X = 1+X, l20_less(X)), error(resource_error(cyclic_term))).
 test(native_l20_is_plain, l20_eval(1+2, Y), solutions([Y = 3])).

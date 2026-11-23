@@ -292,19 +292,23 @@ void check_answer_aliases() {
   mosa_test::check(has("X = Y, Y = Z."), "chain of three names: " + result.out);
   mosa_test::check(has("Y = Z, Z = X."), "chain in binding order");
   mosa_test::check(has("X = X, P = Q, Y = g(Q)."), "fresh variable with two names");
-  mosa_test::check(has("X = X, Y = f(_G1), P = _G1."), "one name shown after its variable");
+  // レビュー L-06。単一化は新しい変数を古い変数へ束縛するので、写しの変数は問い合わせの変数を指し、その名前で書く。
+  // 前の向きでは P が写しの変数を指し、P = _G1 と示した。今はどの問い合わせの変数も写しより古いので、名前が 1 つで
+  // 自分の変数でない組（P = _G1 の形）は単一化からは生まれない（ADR 0019 の改訂）。
+  mosa_test::check(has("X = X, Y = f(P)."), "a copy aliased to a query variable is written by its name");
   mosa_test::check(has("X = f(Y), Y = Z."), "alias after a value that shows it");
   mosa_test::check(has("A = A, P = Q."), "copied shared variable");
-  mosa_test::check(has("X = X, P = Q, Y = f(Q)."), "fresh variable written as the last name");
+  mosa_test::check(has("X = X, P = Q, Y = f(P)."), "the shared copy is written by the oldest name");
   mosa_test::check(has("X = X, P = Q, Q = R, Y = f(P)."), "chain of a fresh variable");
-  mosa_test::check(has("X = Y, L = [Y]."), "a plain alias stays");
+  mosa_test::check(has("X = Y, L = [X]."), "a plain alias stays, and the list holds the oldest name");
   // REPL は読んだゴールを書いて読み直す。_ を _ のまま書くので、名前の無い変数は答えに出ない（レビュー L18）。
   mosa_test::check(has("X = b."), "anonymous variable not shown");
   mosa_test::check(has("T = f(_G1,_G2)."), "anonymous argument not shown");
   mosa_test::check(has("X = Y."), "alias through an anonymous variable");
   mosa_test::check(has("X = X, Y = f(_G1)."), "anonymous copy not shown");
-  // 名前が 1 つで問い合わせの変数そのものでない変数は、前の値に出ても示す。前は A が消えた。
-  mosa_test::check(has("T = f(_G1,_G2), A = _G1."), "one name of a fresh variable kept");
+  // 引数の変数は新しいので A を指し、T の中で A と書く（レビュー L-06）。前の向きでは A が引数の変数を指し、
+  // A = _G1 と示した（その前は A が消えた）。
+  mosa_test::check(has("T = f(A,_G1)."), "the argument is written by the name bound to it");
   mosa_test::check(has("X = Y, Y = Z"), "chain in the first alternative");
   mosa_test::check(has("X = a, Y = Z."), "chain gone in the second alternative");
 }

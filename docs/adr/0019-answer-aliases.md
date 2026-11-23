@@ -1,6 +1,6 @@
 English | [日本語](0019-answer-aliases.ja.md)
 
-Status: Approved (2026-11-04; the owner chose A for review M26 and asked for it to be implemented, which counts as approval)
+Status: Approved (2026-11-04; the owner chose A for review M26 and asked for it to be implemented, which counts as approval). Amendment 1 (2026-11-23, review L-06; approved by the owner's request to implement L-06): unification binds the newer variable to the older, so some example answers change.
 
 ## Context
 
@@ -25,3 +25,9 @@ Writing the fresh variable as N1: as correct, since the chain shows the names eq
 `X = Y, Y = Z.` answers `X = Y, Y = Z.`, `Y = Z, X = Y.` answers `Y = Z, Z = X.`, `findall(X-X, true, [P-Q]), Y = g(Q).` answers `X = X, P = Q, Y = g(Q).`, and `findall(f(X)-X, true, [Y-P]).` answers `X = X, Y = f(_G1), P = _G1.` Pasting an answer back gives the same sharing.
 Only answers that left a name out change: `functor(T, f, 2), arg(1, T, A).` now also shows `A = _G1`, while `X = Y`, `X = f(Y)` and `Y = _G1, Z = [E|_G1]` stay. The translated code prints its answers with the same `format_answer`.
 The REPL writes the goal it read with `_` kept as `_` unless `char_conversion` converts `_` (review L18), so anonymous variables are no names of the answer and add no `_G1 = _G2`: `f(_, X) = f(a, b).` answers `X = b.` mosatest's `solutions` is not changed. Tests: `check_answer_aliases` in tests/cpp/session_test.cpp.
+
+## Amendment 1 (2026-11-23, review L-06; approved by the owner's request to implement L-06)
+
+Context: unification now binds the newer of two unbound variables to the older (review L-06), so the variable of a class is the cell of its oldest member, and query variables are older than every variable the query makes.
+Decision: the rules above stay; only the variable a name points to changes. `findall(f(X)-X, true, [Y-P]).` answers `X = X, Y = f(P).`, `findall(X-X-f(X), true, [P-Q-Y]).` answers `X = X, P = Q, Y = f(P).`, `X = Y, length(L, 1), L = [Y].` answers `X = Y, L = [X].`, `functor(T, f, 2), arg(1, T, A).` answers `T = f(A,_G1).`, and `app(X, Y, Z), X = [E]` shows `Y = Y, Z = [E|Y]`; the other answers in Consequences stay. A class of one name whose variable is not that name's own (`P = _G1`) no longer comes from unification; the rule stays for other bindings.
+Rejected: keeping left-to-right binding, which makes chains that later dereferences walk again (1.9 s against 0.03 s for 100,000 linked variables) and trails more. Consequences: mosatest's `solutions` compares written texts, so the expected alias of `X = Y` is written `solutions([Y = X])`, which both orders of the goal give; tests: `check_answer_aliases` in tests/cpp/session_test.cpp, `check_bind_direction` in tests/cpp/native_test.cpp.

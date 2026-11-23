@@ -25,7 +25,12 @@ void check_atoms_vars_and_cycle() {
   const auto y = heap.fresh_ref();
   mosa_test::check(unify_marked(heap, a, a), "atom");
   mosa_test::check(!unify_marked(heap, a, b) && heap.unbound(x), "atom mismatch");
-  mosa_test::check(unify_marked(heap, x, y) && !heap.unbound(x), "var var");
+  // レビュー L-06。両方が未束縛なら、どちらが左でも新しい y を古い x へ束縛する。前は左を右へ束縛した。
+  mosa_test::check(unify_marked(heap, x, y) && heap.unbound(x) && heap.deref(y).raw() == x.raw(), "var var");
+  const auto older = heap.fresh_ref();
+  const auto newer = heap.fresh_ref();
+  mosa_test::check(unify_marked(heap, newer, older) && heap.unbound(older) && heap.deref(newer).raw() == older.raw(),
+                   "var var, newer on the left");
   const auto f = atoms.intern("f");
   const auto cycle_var = heap.fresh_ref();
   const auto cycle = heap.structure(f, std::array<mosa::Cell, 1>{cycle_var});

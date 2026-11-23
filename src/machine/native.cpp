@@ -314,13 +314,18 @@ void bind(Machine::Impl& machine, Cell variable, Cell value) {
   if (slot < mark) machine.trail.slots.push_back(slot);
 }
 
-// 変数と同じセルは do_unify の Attempt を作らずに済ませる。束ねる向きは unify_cells と同じく左から。
+// 変数と同じセルは do_unify の Attempt を作らずに済ませる。束ねる向きは unify_cells と同じで、両方が未束縛なら
+// 新しい変数を古い変数へ束縛する（レビュー L-06）。向きが違うと、インタプリタと翻訳で答えの変数の名前が変わる。
 bool unify(Machine::Impl& machine, Cell left, Cell right) {
   left = deref(left);
   right = deref(right);
   if (left.raw() == right.raw() && left.tag() != Tag::Float) return true;
   if (unbound(left)) {
-    bind(machine, left, right);
+    if (unbound(right) && cell_words(right) > cell_words(left)) {
+      bind(machine, right, left);
+    } else {
+      bind(machine, left, right);
+    }
     return true;
   }
   if (unbound(right)) {

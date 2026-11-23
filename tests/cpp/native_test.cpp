@@ -97,12 +97,16 @@ void check_app_solutions(Machine& native, Machine& interp) {
   same_answers(native, interp, "app([a|T], Y, [b]).", "false");
 }
 
-// 節の変数の向き。X と Y が両方未束縛のとき、節の側（X）が Y を指す。W は X と Y の間に作った変数。
+// 変数の向き。両方が未束縛なら、翻訳でもインタプリタでも新しい変数を古い変数へ束縛する（レビュー L-06）。W は X と Y の
+// 間に作った変数なので、代表の X は W より古い。前は節の側（X）が Y を指し、代表の Y が W より新しかった（O = gt）。
+// 2 つ目は節の新しい変数が問い合わせの Y を指すので、Z の尾も Y と書く（前は _G1）。
 void check_bind_direction(Machine& native, Machine& interp) {
   same_answers(native, interp, "g(X, W, Y) = g(X, W, Y), app([X], [], [Y]), (X @< W -> O = lt ; O = gt).",
-               "X = Y, W = W, O = gt.");
+               "X = Y, W = W, O = lt.");
+  same_answers(native, interp, "g(X, W, Y) = g(X, W, Y), app([Y], [], [X]), (X @< W -> O = lt ; O = gt).",
+               "X = Y, W = W, O = lt.");
   same_answers(native, interp, "app(X, Y, Z), X = [E], !, (Y @< E -> O = lt ; O = gt).",
-               "X = [E], Y = _G1, Z = [E|_G1], O = gt.");
+               "X = [E], Y = Y, Z = [E|Y], O = lt.");
 }
 
 void check_nrev_and_cut(Machine& native, Machine& interp) {

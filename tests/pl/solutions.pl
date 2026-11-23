@@ -61,7 +61,8 @@ r(3).
 
 test(bagof_share, (bagof(f(X), (X = Y; X = Z), S), Y = a, S == [f(a), f(Z)]), true).
 test(setof_same_var, (setof(X, (X = Y; X = Y), L), L == [Y]), true).
-test(bagof_rename, bagof(none, q(X, Y, Z), L), solutions([(X = Z, L = [none, none]), (Y = Z, L = [none])])).
+% 群の中で同じになった変数は、新しい Z の値が古い X（または Y）になる（レビュー L-06 の束縛の向き）。
+test(bagof_rename, bagof(none, q(X, Y, Z), L), solutions([(Z = X, L = [none, none]), (Z = Y, L = [none])])).
 % 証人の鍵の印と同じ形の利用者の項は、ゴールが作った変数と別の組になる（8.10.2.1）。
 pm(1, f('$rename'(0))).
 pm(2, f(_)).

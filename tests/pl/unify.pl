@@ -1,6 +1,9 @@
 test(unify_same, (1 = 1), true).
 test(unify_bind, (X = 1), solutions([X = 1])).
-test(unify_alias, (X = Y), solutions([X = Y])).
+% レビュー L-06。新しい Y を古い X へ束縛するので、Y の値が X になる。どちらが左でも同じ。前の向きでは X の値が Y だった。
+% 変数の古さはゴールの中で先に出た順なので、2 つ目は var(X) で X を先に出してから Y を左に置く。
+test(unify_alias, (X = Y), solutions([Y = X])).
+test(unify_alias_back, (var(X), Y = X), solutions([Y = X])).
 test(unify_anon, (_ = _), true).
 test(unify_share, ((X = Y, X = abc)), solutions([(X = abc, Y = abc)])).
 test(unify_struct, (f(X, def) = f(def, Y)), solutions([(X = def, Y = def)])).
@@ -59,6 +62,15 @@ test(subsumes_no_binding_general, (subsumes_term(X, a), var(X)), true).
 % 変数が最後の選択点より新しい場合も、成功して束縛を残してはならない。
 test(subsumes_no_binding_fresh, (copy_term(_, X), subsumes_term(X, a), var(X)), true).
 test(subsumes_no_binding_fresh_pair, (copy_term(_-_, X-Y), subsumes_term(X, Y), X \== Y), true).
+% レビュー L-06。単一化は新しい変数を古い変数へ束縛するので、General の変数が Specific の変数より古くても新しくても
+% 答えは同じでなければならない。copy_term/2 で作る順を決める。
+test(l06_subsumes_general_older, (copy_term(_, G), copy_term(_, S), subsumes_term(G, S), var(S)), true).
+test(l06_subsumes_general_newer, (copy_term(_, S), copy_term(_, G), subsumes_term(G, S), var(S)), true).
+test(l06_subsumes_query_order, subsumes_term(f(Z), f(X)), true).
+test(l06_subsumes_shared_older, (copy_term(_, Z), copy_term(_-_, X-Y), subsumes_term(f(Z, Z), f(X, Y))), fail).
+test(l06_subsumes_shared_newer, (copy_term(_-_, X-Y), copy_term(_, Z), subsumes_term(f(Z, Z), f(X, Y))), fail).
+test(l06_subsumes_general_pair_older, (copy_term(_-_, X-Y), copy_term(_, Z), subsumes_term(f(X, Y), f(Z, Z))), true).
+test(l06_subsumes_general_pair_newer, (copy_term(_, Z), copy_term(_-_, X-Y), subsumes_term(f(X, Y), f(Z, Z))), true).
 % 循環した項は iso-notes 8.2.4 の決定 B（既定の単一化で判る）。
 test(subsumes_cyclic_specific, (X = f(X), subsumes_term(_, X)), true).
 test(subsumes_cyclic_in_arg, (X = f(X), subsumes_term(f(_), f(X))), true).
