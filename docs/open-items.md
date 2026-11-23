@@ -7,13 +7,23 @@ English only, like STATUS.md. Keep lines near 100 characters, and delete an item
 
 The repository has no text of 13211-1, so these wait for the owner. The default A is in force.
 
-- 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06, M-08, M-16 and
-  M-17 (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33; with L-06
-  and M-59 below, 19. Each entry gives its A or B; default A keeps the current behaviour (H-09, H-12, H-18:
-  owner's B).
+- 17 open questions of [review-2026-11-20.md](review-2026-11-20.md): H-39, M-06, M-08, M-16 and M-17
+  (both fixed on A), M-18, M-23, M-24, M-25, M-26, M-56, M-60, L-07, L-20, L-25, L-27, L-33; with
+  L-06 and M-59 below, 19. Each entry gives its A or B; default A keeps the current behaviour (H-09,
+  H-12, H-18: owner's B).
 - Review L-06 (fac56275): A, keep binding the newer of two unbound variables to the older (ADR 0019
   amendment 1; four REPL answer shapes name the older variable, `solutions` writes `X = Y` as `Y = X`),
   or B, bind left to right again (one revert of fac56275 and its test changes)? Default A.
+- Branch review 2026-11-23 ([review-2026-11-23.md](review-2026-11-23.md)), default A keeps the
+  current behaviour: R-M01 (count `passed` of `settle_shared` against the heap limit; B needs an ADR
+  0029 amendment), R-M09 (B: read a lone `;` after a prefix operator once `;` is no operator, or
+  bracket it when writing), R-M14 (B: also read a pretty-printed badge), R-L05 (B: refuse
+  `system:import/1` and `system:use_module`), R-N03 (B: allow the infix `user:op/3` of a name a
+  module hides at priority 0).
+- Branch review R-L17. A: keep not counting the old lgtunit forms (`succeeds/1`, `fails/1`,
+  `throws/2`; 36 suite files, 358 tests, phase 9), so a file holding only them still hides a load
+  failure (5 bundled files). B: count them, which moves the ISO denominator, and also count a load
+  failure with no failing test as one file row. The file-row change alone gives 2295/2338. Default A.
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
@@ -307,6 +317,10 @@ the largest is `src/machine/lgt_io.cpp` at 711).
 General:
 - `walk_suite` (`iso_suite.cpp`) stops without a note when a directory step fails, so the suite's
   denominator would shrink silently (review L-40). Such a failure was not caused on any OS here.
+- A directive goal that recovers from a kept consult failure and then fails for another reason keeps
+  the outer load (branch review R-L06): the load cannot tell that failure from `:- consult(F).`,
+  whose failure is the consult's own. Open; it needs a way to see that a goal ran after the failed
+  consult.
 - Reconsult (review L11 A7 and A9, review N-11): the import of a predicate that a module file stopped
   exporting stays in the importer after the file is consulted again; and a reload that makes a static
   predicate dynamic (`p(1).`, then `:- dynamic(p/1). p(2).`) fails with `static_to_dynamic` and keeps
