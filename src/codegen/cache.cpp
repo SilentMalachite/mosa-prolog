@@ -302,6 +302,9 @@ std::optional<std::filesystem::path> publish_dir(const std::filesystem::path& en
   const std::filesystem::path pointer = entry / "current";
   const std::filesystem::path temp = entry / ("current.tmp-" + unique_suffix());
   if (const auto failed = write_text(temp, utf8_from_path(work.filename()))) {
+    // 書きかけの一時のファイルも消す。前は残し、同じ鍵の次のビルドまで残った（レビュー R-N05）。
+    std::error_code removed;
+    std::filesystem::remove(temp, removed);
     error = *failed;
     return std::nullopt;
   }
