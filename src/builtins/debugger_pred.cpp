@@ -81,14 +81,22 @@ std::string name_text(const Impl& machine, std::uint32_t name) {
 // 引用して / を足すと =/2 になり、知らせの字面を nospy/1 に貼り直すと構文エラーになった（PR #4 の 2 度目の敵対的レビュー）。
 // 項は書いたら要らないので、作る前の大きさへヒープを戻す。組込の中では GC が動かないので、spy/1 のリストの鍵の数だけ
 // 項が積もり、リストはヒープに収まるのに知らせの項だけで上限に当たった（敵対的レビュー、2026-11-19）。束縛はしない。
+// 鍵が今指す述語に user から置いた名前で届けばその名前、届かなければ定義の名前で書き、user からその名前で届かなければ
+// モジュールを付ける。比べるのはモジュールと名前の両方。前はモジュールだけを比べたので、user の p/1 が同じモジュールの
+// 別の述語の別名なら m:p/1 を p/1 と書いて nospy(p/1) で外せず、置いた名前に引き直したモジュールを付けたので、後で
+// 定義された別名の述語を無い m2:q/1 と書いた（レビュー R-M03）。
+bool same_key(const SpyKey& left, const SpyKey& right) { return left.module == right.module && left.name == right.name; }
+
 std::string indicator_text(Impl& machine, const SpyKey& key) {
   Heap& heap = machine.heap;
   const std::size_t mark = heap.size();
-  const std::array<Cell, 2> parts{heap.atom(key.name), heap.integer(key.arity)};
+  const SpyKey now = key_for(machine, key.module, key.name, key.arity);
+  const bool placed_name = same_key(key_for(machine, machine.user_module, key.name, key.arity), now);
+  const std::uint32_t name = placed_name ? key.name : now.name;
+  const std::array<Cell, 2> parts{heap.atom(name), heap.integer(key.arity)};
   Cell term = heap.structure(machine.atoms.intern("/"), parts);
-  const std::uint32_t module = key_for(machine, key.module, key.name, key.arity).module;
-  if (key_for(machine, machine.user_module, key.name, key.arity).module != module) {
-    const std::array<Cell, 2> qualified{heap.atom(module), term};
+  if (!placed_name && !same_key(key_for(machine, machine.user_module, now.name, key.arity), now)) {
+    const std::array<Cell, 2> qualified{heap.atom(now.module), term};
     term = heap.structure(machine.atoms.intern(":"), qualified);
   }
   WriteOptions options;
@@ -117,9 +125,16 @@ bool same_spy(Impl& machine, const SpyKey& placed, const SpyKey& key) {
 std::string place_key(Impl& machine, const SpyKey& key) {
   const std::string text = indicator_text(machine, key);
   // spy(append/3)、use_module(library(lists))、spy(append/3) で同じ述語の鍵が二つ入らないよう、引き直して同じなら足さない。
-  const bool already = std::any_of(machine.debug.spies.begin(), machine.debug.spies.end(),
-                                   [&](const SpyKey& placed) { return same_spy(machine, placed, key); });
-  if (!already) static_cast<void>(set_spy(machine, key, true));
+  auto& spies = machine.debug.spies;
+  const auto found =
+      std::find_if(spies.begin(), spies.end(), [&](const SpyKey& placed) { return same_spy(machine, placed, key); });
+  if (found == spies.end()) {
+    static_cast<void>(set_spy(machine, key, true));
+  } else if (found->module != key.module || found->name != key.name) {
+    // 定義より前に置いた鍵は、今引き当てた鍵に替える。leap の照合（spied_name）は鍵の名前で絞るので、後で別名で取り込んだ
+    // 鍵のままだと、定義の名前の呼び出しで止まらなかった（レビュー R-M04）。
+    *found = key;
+  }
   return message_text(machine, "debug_spy_set", {text});
 }
 

@@ -1,0 +1,39 @@
+?- spy(q/1).
+% Spy point on alias2_m:p/1
+true.
+[debug] ?- debugging.
+% Debug mode: on (leap)
+% Spy points: alias2_m:p/1
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nospy(p/1).
+true.
+[debug] ?- debugging.
+% Debug mode: on (leap)
+% Spy points: alias2_m:p/1
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nospyall.
+true.
+[debug] ?- spy(alias2_c:q/1), alias2_m2:assertz(p(1)), debugging.
+% Spy point on alias2_c:q/1
+% Debug mode: on (leap)
+% Spy points: alias2_m2:p/1
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- nospyall.
+true.
+[debug] ?- spy(t/1), use_module('tests/cpp/data/debugger/alias2_m.pl', [w/1 as t]), spy(alias2_m:w/1), debugging.
+% Spy point on t/1
+% Spy point on alias2_m:w/1
+% Debug mode: on (leap)
+% Spy points: alias2_m:w/1
+% Leashed ports: call exit redo fail exception
+true.
+[debug] ?- debug, alias2_m:w(X).
+ Call: (1) w(_G1) ? l
+ Exit: (1) w(3) ? l
+X = 3.
+[debug] ?- nospyall, nodebug.
+true.
+?- 

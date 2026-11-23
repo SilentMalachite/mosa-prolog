@@ -1,0 +1,12 @@
+spy(q/1).
+debugging.
+nospy(p/1).
+debugging.
+nospyall.
+spy(alias2_c:q/1), alias2_m2:assertz(p(1)), debugging.
+nospyall.
+spy(t/1), use_module('tests/cpp/data/debugger/alias2_m.pl', [w/1 as t]), spy(alias2_m:w/1), debugging.
+debug, alias2_m:w(X).
+l
+l
+nospyall, nodebug.

@@ -9,12 +9,14 @@
 # ことを見る（レビュー 2026-11-20 の H-07）。期待値は同じ入力の r と f を creep にした出力で、そこだけ違う。
 # redo_inner_catch は、再試行のポートが箱の中で抜けた catch/3 を戻さず、やり直しの後の例外を外の catch/3 が受けることを見る。
 # spy_alias は alias.pl を読み、as の別名で取り込んだ述語のスパイポイントが定義の述語に付くことを見る（レビュー H-14）。
+# spy_alias_two は alias2.pl を読み、別名の述語の知らせと debugging/0 の字面、定義より前に置いた鍵の leap を見る（レビュー
+# R-M03、R-M04）。
 # 根で動かすのは、.in の中の相対パスをリポジトリの根から開くため。
 set(debug_cases creep creep_ja more fail library reload redo_nested builtin_inner exception skip leap retry
     force_fail nodebug leash leap_library leap_late retry_catch exception_retry exception_fail fail_retry
     abort abort_load abort_catch abort_nested_list abort_nested_goal goals write spy_toggle spy_forms spy_after_warning
     spy_after_warning_ja directive_depth spy_ja help eof read_line skip_rollback redo_r_catch redo_f_catch
-    redo_inner_catch spy_alias)
+    redo_inner_catch spy_alias spy_alias_two)
 foreach(debug_case ${debug_cases})
   set(debug_lang en_US.UTF-8)
   set(debug_program dbg.pl)
@@ -25,6 +27,8 @@ foreach(debug_case ${debug_cases})
     set(debug_program nested.pl)
   elseif(debug_case STREQUAL "spy_alias")
     set(debug_program alias.pl)
+  elseif(debug_case STREQUAL "spy_alias_two")
+    set(debug_program alias2.pl)
   elseif(debug_case STREQUAL "spy_after_warning" OR debug_case STREQUAL "spy_after_warning_ja")
     # 警告の文面を作っても library(lists) が読まれないことを見るので、ライブラリを読まない plain.pl にする（ADR 0007 の改訂 3）。
     # _ja は日本語の表で同じことを見る（Muse のレビュー）。
