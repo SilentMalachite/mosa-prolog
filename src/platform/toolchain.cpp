@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <random>
+#include <span>
 #include <system_error>
 
 #if !defined(_WIN32)
