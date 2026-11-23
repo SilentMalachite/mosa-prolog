@@ -177,8 +177,10 @@ LgtCond publish_cond(Verdict verdict) {
   return LgtCond::No;
 }
 
+// ^^ も lgt_load.cpp と同じ前置の演算子にする。前は読めず、通らない枝の ^^ でも条件ごと未対応にした（レビュー R-L15）。
 bool condition_ops(OperatorTable& ops) {
   if (ops.define(600, Specifier::Xfy, ":") != OpResult::Ok) return false;
+  if (ops.define(600, Specifier::Fy, "^^") != OpResult::Ok) return false;
   return ops.define(600, Specifier::Xfy, "::") == OpResult::Ok;
 }
 

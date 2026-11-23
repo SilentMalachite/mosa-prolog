@@ -127,6 +127,13 @@ void check_guards(const std::filesystem::path& root) {
                      "\ttest(u3, true, [condition((fail, foo::bar))]).\n"
                      "\ttest(u4, true, [condition(((\\+ current_logtalk_flag(a, b) ; foo::bar), true))]).\n",
                      3, 1, {"u1 true unsupported", "u2 true unsupported"}});
+  // ^^ も :: と同じく通ったときだけ未対応（レビュー R-L15）。前は ^^ を前置の演算子として読めず、通らない枝の ^^ も
+  // 条件ごと未対応にした。
+  check_suite(root, {"condition_super",
+                     "\ttest(p1, true, [condition((fail, ^^foo))]).\n"
+                     "\ttest(p2, true, [condition((true ; ^^foo))]).\n"
+                     "\ttest(p3, true, [condition(^^foo)]).\n",
+                     2, 1, {"p3 true unsupported"}});
   check_suite(root, {"condition_catch",
                      "\ttest(k1, true, [condition(catch((\\+ current_logtalk_flag(a, b), throw(e)), e, true))]).\n"
                      "\ttest(k2, true, [condition(catch((\\+ current_logtalk_flag(a, b), throw(e)), f, true))]).\n"
