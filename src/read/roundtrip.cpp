@@ -3,6 +3,7 @@
 #include "mosa/reader.hpp"
 #include "mosa/writer.hpp"
 
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -98,8 +99,10 @@ int apply_directive(const Example& example, Heap& heap, OperatorTable& operators
   const auto parsed = specifier_of(heap.atoms().name(static_cast<std::uint32_t>(spec.raw() >> 3)));
   if (!parsed) return fail(example, "op specifier");
   const auto atom = heap.atoms().name(static_cast<std::uint32_t>(name.raw() >> 3));
-  if (operators.define(static_cast<int>(heap.integer_value(priority)), *parsed, std::string{atom}) !=
-      OpResult::Ok) {
+  // op/3 と同じく 0〜1200 の外は断る（8.14.3）。前は int に切り詰め、4294967496 を 200 と取った（レビュー N-08）。
+  const std::int64_t value = heap.integer_value(priority);
+  if (value < 0 || value > 1200) return fail(example, "op priority");
+  if (operators.define(static_cast<int>(value), *parsed, std::string{atom}) != OpResult::Ok) {
     return fail(example, "op rejected");
   }
   return 0;

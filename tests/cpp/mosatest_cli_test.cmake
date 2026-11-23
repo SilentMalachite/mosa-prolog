@@ -50,4 +50,11 @@ mosatest(--roundtrip missing.pl)
 if(NOT code EQUAL 1 OR NOT err MATCHES "missing.pl: cannot open file")
   fail("--roundtrip on a missing file must say it cannot open it and exit 1")
 endif()
+# レビュー N-08。--roundtrip の op/3 の優先度は op/3 と同じく 0〜1200 に限る。前は int に切り詰め、4294967496 を
+# 200 と取って 0 で終えた。
+file(WRITE "${WORK}/n08.pl" "% case: big_priority\n:- op(4294967496, xfx, foo).\na foo b.\n")
+mosatest(--roundtrip n08.pl)
+if(code EQUAL 0)
+  fail("--roundtrip must reject an op/3 priority above 1200")
+endif()
 file(REMOVE_RECURSE "${WORK}")

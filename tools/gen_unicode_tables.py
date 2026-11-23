@@ -265,7 +265,8 @@ def ensure_wide(ranges: list[tuple[int, int]]) -> None:
 def ensure_upper(pairs: list[tuple[int, int]]) -> None:
     previous = -1
     for code_point, upper in pairs:
-        if code_point <= previous or upper > MAX_CODE_POINT or upper == code_point:
+        # 負の値は 16 進の欄が壊れているときだけ出る（-41 など）。emit が 0x-041 と書く前に止める（レビュー N-08）。
+        if code_point <= previous or upper < 0 or upper > MAX_CODE_POINT or upper == code_point:
             raise RuntimeError(f"大文字の対が不正です: U+{code_point:04X} -> U+{upper:04X}")
         previous = code_point
     if len(pairs) < 1000:
