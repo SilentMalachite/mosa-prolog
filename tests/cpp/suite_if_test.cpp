@@ -127,7 +127,9 @@ std::string else_runner_text() {
          "test(ite_check_then, true((X == 1 -> variant(X, 1) ; fail))) :- X = 1.\n"
          "test(ite_else_taken, true) :- (fail -> true ; assertion(true)).\n"
          "test(ite_then_taken, true) :- (true -> true ; assertion(fail)).\n"
-         "test(ite_check_else, true((fail -> fail ; variant(X, 1)))) :- X = 1.\n";
+         "test(ite_check_else, true((fail -> fail ; variant(X, 1)))) :- X = 1.\n"
+         "test(ite_check_bind, true((Y = 1 -> Y == 1 ; fail))) :- true.\n"
+         "test(ite_check_bind_then, true((Y = 1 -> Y == 1))) :- true.\n";
 }
 
 void check_else_runner(const std::filesystem::path& root) {
@@ -140,9 +142,9 @@ void check_else_runner(const std::filesystem::path& root) {
   const std::string failed = between_headings(body, "不合格:", "別欄:");
   const bool fp = failed.find("ite_true_fp") != std::string::npos;
   const bool check_fp = failed.find("ite_check_fp") != std::string::npos;
-  if (!fp || !check_fp || !has_exact_line(body, "合格数: 5")) show("else report", body);
-  mosa_test::check(has_exact_line(body, "分母: 7"), "else denominator");
-  mosa_test::check(has_exact_line(body, "合格数: 5"), "else passed");
+  if (!fp || !check_fp || !has_exact_line(body, "合格数: 7")) show("else report", body);
+  mosa_test::check(has_exact_line(body, "分母: 9"), "else denominator");
+  mosa_test::check(has_exact_line(body, "合格数: 7"), "else passed");
   mosa_test::check(fp, "then that fails does not fall to an else assertion");
   mosa_test::check(failed.find("ite_false_fn") == std::string::npos, "false test passes when then fails");
   mosa_test::check(check_fp, "check (C -> T ; E) does not judge E after C");
@@ -150,6 +152,8 @@ void check_else_runner(const std::filesystem::path& root) {
   mosa_test::check(failed.find("ite_else_taken") == std::string::npos, "failed condition runs else");
   mosa_test::check(failed.find("ite_then_taken") == std::string::npos, "successful then skips else");
   mosa_test::check(failed.find("ite_check_else") == std::string::npos, "check judges E after a failed C");
+  // ランナーだけが判定するゴールの無い if-then-else は、1 つの問いのまま C の束縛を T へ渡す（R-H01 の直しの後の見直し）。
+  mosa_test::check(failed.find("ite_check_bind") == std::string::npos, "check passes C's bindings to T");
 }
 
 }  // namespace
