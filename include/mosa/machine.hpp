@@ -6,10 +6,8 @@
 #include "mosa/cell.hpp"
 #include "mosa/heap.hpp"
 #include "mosa/operator_table.hpp"
-#include "mosa/unify.hpp"
 
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>

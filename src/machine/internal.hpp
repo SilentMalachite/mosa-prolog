@@ -7,6 +7,7 @@
 #include "mosa/messages.hpp"
 #include "mosa/reader.hpp"
 #include "mosa/runtime.hpp"
+#include "mosa/unify.hpp"
 
 #include "../module/module.hpp"
 #include "clause_index.hpp"
