@@ -5,9 +5,9 @@
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library column 600/605 (99.2%).
 - **In progress:** none, on branch `fix/review-2026-11-20`;
   plan in [plans/2026-11-20-review-fixes.md](superpowers/plans/2026-11-20-review-fixes.md).
-- **Last done:** W9 L-03 to L-41 (L-06 on default A, ADR 0019 amendment 1) and N-01 to N-11 except
-  N-07 (56c58f39); ctest 284/284. N-07 needs an ADR (generated dispatch). Earlier: review file.
-- **Next:** push and CI (nothing after L-37 has run on Linux or Windows); N-07 needs an ADR or B; 0.5.1.
+- **Last done:** W9 (L-06 on default A, ADR 0019 amendment 1; N-07 owner's B, a known limit);
+  CI green on all three OSes at eb5129a4 (run 45168548713); ctest 284/284. Earlier: review file.
+- **Next:** release 0.5.1 (owner's A: after W9).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** none; no code or test file is at 730 lines or more (open-items).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in

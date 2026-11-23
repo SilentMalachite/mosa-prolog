@@ -13,9 +13,6 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 - Review L-06 (fac56275): A, keep binding the newer of two unbound variables to the older (ADR 0019
   amendment 1; four REPL answer shapes name the older variable, `solutions` writes `X = Y` as `Y = X`),
   or B, bind left to right again (one revert of fac56275 and its test changes)? Default A.
-- Review N-07: A, write an ADR for constant-time first-argument dispatch in generated code (a key
-  table per unit, keyless clauses not copied into each key), or B, keep the linear `if` chain and list
-  it as a known limit? It changes the native code of ADR 0009, so no code before the answer.
 - Review H-40, the regression gate. Default A: it compares rates only, as SPEC section 8 says
   (B: it also refuses a smaller pass count or denominator).
 - `max_integer`/`min_integer` under `bounded=false` (iso-notes 7.11.1.2).
@@ -47,6 +44,8 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 - Review plan, release (A, 2026-11-23): 0.5.1 comes after W9, not right after W8. Until then do
   not prepare or tag it (held since 2026-11-22, when W8 was put before it).
+- Review N-07 (B, 2026-11-23): generated code keeps picking clauses by first argument with a linear
+  `if` chain (see Known limits); A, an ADR for constant-time dispatch, was not taken.
 - Review L-12 (A, 2026-11-23): an atom holding invalid UTF-8 (from argv) is written with each bad
   byte as the character of that code, as `atom_codes/2` sees it (`FF` as U+00FF); the output is
   well-formed UTF-8, but its bytes differ from the atom's. B (raw bytes, `\xFF\` in writeq) declined.
@@ -339,6 +338,11 @@ General:
 - Grammar rules given to assertz/1 are translated only through `expand_term/2` of
   `library(dcg)`; `term_expansion/2` and `goal_expansion/2` do not exist.
 - A Debug (/MTd) libmosa does not link with `mosac build` on MSVC.
+- A translated predicate picks its clauses by first argument with a linear chain of `if` (review
+  N-07, owner's B), so a call takes time in the position of its key, and each `kKey` array repeats
+  every keyless clause. 2,000 facts `f(k<i>, i)`, 300,000 calls: the last key 682 ms, the first 97 ms
+  (mosa 343 and 345 ms). 100 keyless clauses before 4,000 keyed ones make `muser.cpp` 12.2 MB, not
+  3.8 MB. Constant-time dispatch would change the generated code of ADR 0009, so it needs an ADR.
 - Undefined-call warnings show the clause line, not the goal line, and can name another file
   after a nested consult replaces that predicate's clauses (M23 A2).
 - Library units are not traced under `--debug`.
