@@ -227,6 +227,18 @@ void check_comparisons(const std::filesystem::path& root) {
   for (const Case& item : cases) check_fails(root, item);
 }
 
+// ランナー目標の後の問いは、前の問いの束縛を字面で貼って流す。その後の判定と、解を開いたままの問いも前の束縛を
+// 見る（レビュー R-L19）。前は後の問いの束縛だけを残し、X = 1 の X が後の variant/2 と == から消えた。
+void check_bindings_after_runner(const std::filesystem::path& root) {
+  check_passes(root, "rl19_check", "\ttest(rl19_check, true) :- X = 1, assertion(true), Y = 2, variant(X, 1), Y == 2.");
+  check_passes(root, "rl19_assert",
+               "\ttest(rl19_assert, true) :- X = 1, assertion(true), member(_, [a, b]), assertion(X == 1).");
+  check_passes(root, "rl19_live",
+               "\ttest(rl19_live, true) :- X = 1, assertion(true), member(_, [a, b]), assertion(true), X == 1.");
+  check_fails(root, {"rl19_false", "\ttest(rl19_false, false) :- X = 1, assertion(true), Y = 2, variant(X, 1), Y == 2.",
+                     "rl19_false false true"});
+}
+
 // 書ける旗はスクラッチの機械にも写す（レビュー R-M16）。前は char_conversion、message_language、trace_gc を写さず、
 // 既定の値で判定した。message_language は既定が環境で変わるので、ja と en の両方を見る。
 void check_scratch_flags(const std::filesystem::path& root) {
@@ -259,6 +271,7 @@ int main() {
     check_forall_abort(root);
     check_comparisons(root);
     check_scratch_flags(root);
+    check_bindings_after_runner(root);
   }
   return mosa_test::failures();
 }

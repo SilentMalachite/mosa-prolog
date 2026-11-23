@@ -198,6 +198,13 @@ void remember_stop(Machine& machine, const Stop& stop, Env& env) {
   }
 }
 
+// 後の問いの束縛は、その問いに出た変数だけ。前の問いで束縛した変数は字面で貼ったので出てこない。後の判定と、解を
+// 開いたままスクラッチで流す問いが見るよう、写しから足す（レビュー R-L19）。前は X = 1 の X が後の variant/2 から消えた。
+void remember_all(Machine& machine, const Stop& stop, Env& env) {
+  remember_stop(machine, stop, env);
+  restore_saved(machine, env);
+}
+
 void exec_at(Machine& machine, const Prog& prog, int index, Env& env);
 
 // 別々に書くと、束縛をまたぐ同じ自由変数が _ になり、読み戻すと別セルになる。
@@ -258,7 +265,7 @@ void exec_plain(Machine& machine, const Node& node, Env& env) {
     return;
   }
   if (step.stop.kind == StopKind::Success) {
-    remember_stop(machine, step.stop, env);
+    remember_all(machine, step.stop, env);
     env.tri = Tri::Ok;
     return;
   }
@@ -339,7 +346,7 @@ void retry_right(Machine& machine, const Prog& prog, int right, Env& env) {
       return;
     }
     // 次の解で束縛の写しと live も書き直す。前は束縛だけを替え、字面の写しが最初の解のまま残った（レビュー M-49）。
-    remember_stop(machine, step.stop, env);
+    remember_all(machine, step.stop, env);
     exec_at(machine, prog, right, env);
   }
 }
