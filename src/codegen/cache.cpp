@@ -38,24 +38,37 @@ std::optional<std::uint64_t> file_digest_from(const std::filesystem::path& path,
   return hash;
 }
 
+// 8 バイトの固定幅で混ぜる。長さの決まらない欄の境目にする。
+std::uint64_t mix_word(std::uint64_t word, std::uint64_t hash) {
+  std::array<char, 8> bytes{};
+  for (std::size_t at = 0; at < bytes.size(); ++at) bytes[at] = static_cast<char>((word >> (8 * at)) & 0xFFU);
+  return fnv1a(std::string_view{bytes.data(), bytes.size()}, hash);
+}
+
 // 生成コードが include する見出しも鍵に入れる。inline の関数だけを変えた版はライブラリのバイトが同じでありうる。
-// 隠しファイル（.DS_Store、編集器の退避ファイル）は入れない。install は .DS_Store を除くので、同梱の源の鍵が
-// ビルド木（リポジトリの根）とインストールの lib/mosa/source/ で同じになる。
+// 隠しファイル（.DS_Store、編集器の退避ファイル）と隠しディレクトリの中は入れない。install は .DS_Store を除くので、
+// 同梱の源の鍵がビルド木（リポジトリの根）とインストールの lib/mosa/source/ で同じになる。1 つのファイルは
+// パスの長さ、パス、中身だけの指紋の順に混ぜる。境目が無いと z の中身 zQ と zz の中身 Q が同じ指紋になる（レビュー L-36）。
 std::optional<std::uint64_t> tree_digest_from(const std::filesystem::path& dir, std::uint64_t seed) {
   std::error_code error;
   std::vector<std::filesystem::path> files;
   for (std::filesystem::recursive_directory_iterator it{dir, error}, end; !error && it != end; it.increment(error)) {
-    if (it->is_regular_file(error) && !utf8_from_path(it->path().filename()).starts_with('.')) files.push_back(it->path());
+    if (!utf8_from_path(it->path().filename()).starts_with('.')) {
+      if (it->is_regular_file(error)) files.push_back(it->path());
+    } else if (it->is_directory(error)) {
+      it.disable_recursion_pending();
+    }
   }
   if (error) return std::nullopt;
   // 並びは辿る順に依らせない。
   std::sort(files.begin(), files.end());
   std::uint64_t hash = seed;
   for (const std::filesystem::path& file : files) {
-    hash = fnv1a(utf8_from_path(file.lexically_relative(dir)), hash);
-    const auto digest = file_digest_from(file, hash);
+    const std::string name = utf8_from_path(file.lexically_relative(dir));
+    hash = fnv1a(name, mix_word(name.size(), hash));
+    const auto digest = file_digest_from(file, kFnvBasis);
     if (!digest) return std::nullopt;
-    hash = *digest;
+    hash = mix_word(*digest, hash);
   }
   return hash;
 }

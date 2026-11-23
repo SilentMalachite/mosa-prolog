@@ -44,6 +44,12 @@ target_include_directories(cache_place_test PRIVATE tests/cpp src)
 target_compile_definitions(cache_place_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(cache_place_test PRIVATE mosa_lib)
 add_test(NAME cache_place COMMAND $<TARGET_FILE:cache_place_test>)
+# レビュー L-36。見出しの木の指紋が隠しディレクトリを入れず、パスと中身の間とファイルの間に境目を持つこと。
+add_executable(cache_digest_test tests/cpp/cache_digest_test.cpp)
+target_include_directories(cache_digest_test PRIVATE tests/cpp src)
+target_compile_definitions(cache_digest_test PRIVATE MOSA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(cache_digest_test PRIVATE mosa_lib)
+add_test(NAME cache_digest COMMAND $<TARGET_FILE:cache_digest_test>)
 
 # mosac emit の目録を本体と同じ生成器、コンパイラ、構成で作る。libmosa は作り直さず、このビルド木のものを使う。
 foreach(emit_case hello broken undefined undefined_catch undefined_qualified undefined_quoted undefined_handled refused duplicate silent newop refused_op halt
