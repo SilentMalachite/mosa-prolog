@@ -252,7 +252,8 @@ bool contains_special(const Heap& heap, Cell cell, std::vector<std::uint64_t>& s
 }
 
 // 試験が変えた Prolog の旗をスクラッチの機械にも写す。前は既定の旗で始め、set_prolog_flag(unknown, fail) の後の
-// all(current_prolog_flag(unknown, error)) が通った（レビュー M-51）。デバッガの状態は写さない。
+// all(current_prolog_flag(unknown, error)) が通った（レビュー M-51）。char_conversion（表ごと）、message_language、
+// trace_gc も写す（レビュー R-M16）。旗 debug とデバッガの状態は前と同じく写さない。
 void copy_prolog_flags(const Machine& main, Machine& scratch) {
   const Impl& from = engine_impl(main);
   Impl& to = engine_impl(scratch);
@@ -263,6 +264,9 @@ void copy_prolog_flags(const Machine& main, Machine& scratch) {
   to.float_zero_div_error = from.float_zero_div_error;
   to.float_undefined_error = from.float_undefined_error;
   to.japanese_punct = from.japanese_punct;
+  to.char_conv = from.char_conv;
+  to.message_lang = from.message_lang;
+  to.trace_gc = from.trace_gc;
 }
 
 // 開いている query を潰さない。ゴールは字面を通さずセルで写すので、Big も字にせず箱のまま渡る（lgt_copy.cpp）。

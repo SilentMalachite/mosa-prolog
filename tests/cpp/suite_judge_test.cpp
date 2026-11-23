@@ -227,6 +227,23 @@ void check_comparisons(const std::filesystem::path& root) {
   for (const Case& item : cases) check_fails(root, item);
 }
 
+// 書ける旗はスクラッチの機械にも写す（レビュー R-M16）。前は char_conversion、message_language、trace_gc を写さず、
+// 既定の値で判定した。message_language は既定が環境で変わるので、ja と en の両方を見る。
+void check_scratch_flags(const std::filesystem::path& root) {
+  check_fails(root, {"rm16_char_conv",
+                     "\ttest(rm16_char_conv, all(current_prolog_flag(char_conversion, off))) :- "
+                     "set_prolog_flag(char_conversion, on).",
+                     "rm16_char_conv all(current_prolog_flag(char_conversion,off)) fail"});
+  check_passes(root, "rm16_lang_ja",
+               "\ttest(rm16_lang_ja, all(current_prolog_flag(message_language, ja))) :- "
+               "set_prolog_flag(message_language, ja).");
+  check_passes(root, "rm16_lang_en",
+               "\ttest(rm16_lang_en, all(current_prolog_flag(message_language, en))) :- "
+               "set_prolog_flag(message_language, en).");
+  check_passes(root, "rm16_trace_gc",
+               "\ttest(rm16_trace_gc, all(current_prolog_flag(trace_gc, true))) :- set_prolog_flag(trace_gc, true).");
+}
+
 }  // namespace
 
 int main() {
@@ -241,6 +258,7 @@ int main() {
     check_nested_disjunctions(root);
     check_forall_abort(root);
     check_comparisons(root);
+    check_scratch_flags(root);
   }
   return mosa_test::failures();
 }
