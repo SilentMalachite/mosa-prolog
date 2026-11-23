@@ -130,6 +130,8 @@ test(forall_basic, forall(mod_fact(X), integer(X)), true).
 test(forall_fail, forall(mod_fact(X), X == 1), fail).
 test(forall_ctx, 家系:forall(内部(X), X == 秘密), true).
 test(forall_meta, predicate_property(forall(_, _), meta_predicate(M)), solutions([M = forall(0, 0)])).
+% レビュー N-06。with_output_to/2 もゴールを受ける組込なので、meta_predicate の性質を返す（iso-notes 13211-2 7.2.2）。
+test(n06_with_output_to_meta, predicate_property(with_output_to(_, _), meta_predicate(M)), solutions([M = with_output_to(?, 0)])).
 test(forall_lazy_action, forall(fail, 1), true).
 test(forall_lazy_var, forall(fail, _), true).
 test(forall_action_type, forall(true, 1), error(type_error(callable, 1))).

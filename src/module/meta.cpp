@@ -82,6 +82,8 @@ constexpr auto kBuiltinMeta = std::to_array<BuiltinMeta>({
     {"once", 1, "0"},   {"catch", 3, "0?0"}, {"findall", 3, "?0-"}, {"findall", 4, "?0-?"},
     {"bagof", 3, "?^-"}, {"setof", 3, "?^-"}, {"forall", 2, "00"}, {"if", 3, "000"},
     {"setup_call_cleanup", 3, "000"}, {"phrase", 2, "2?"}, {"phrase", 3, "2??"},
+    // レビュー N-06。表は predicate_property/2 だけが読む。ゴールは前から呼び手の文脈で動く（iso-notes 8 with_output_to/2）。
+    {"with_output_to", 2, "?0"},
 });
 
 std::vector<MetaArg> parse_specs(Impl& machine, std::string_view specs) {
