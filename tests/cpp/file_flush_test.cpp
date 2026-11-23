@@ -382,6 +382,16 @@ void check_save_writes_only_the_rest() {
 
 }  // namespace
 
+// レビュー R-M08。halt で保存する流れも close と同じく、同じファイルを保存したら他の流れに全体を書き直させる。前は
+// 先に開いた B の BBBBBB の上に、flush 済みの A が続きの cc だけを足して BBBBcc にした。
+void check_halt_settles_same_file() {
+  const auto file = tmp_path("rm08_halt.txt");
+  fresh(file);
+  const auto run = batch({"-g", "open('" + file + "', write, B), open('" + file + "', write, A), write(A, aaaa), "
+                                "flush_output(A), write(B, 'BBBBBB'), write(A, cc), halt."});
+  mosa_test::check(run.code == 0 && holds(file, "aaaacc"), "rm08: halt rewrites whole, got " + shown(file));
+}
+
 int main() {
   check_review_repro();
   check_halt_code_and_modes();
@@ -399,5 +409,6 @@ int main() {
   check_flushed_stream_rewrites_whole();
   check_reader_close_keeps_edits();
   check_save_writes_only_the_rest();
+  check_halt_settles_same_file();
   return mosa_test::failures();
 }
