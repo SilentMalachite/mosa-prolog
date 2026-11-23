@@ -12,4 +12,12 @@ l
 nospyall.
 spy(u/1), spy(alias2_m:w/1), use_module('tests/cpp/data/debugger/alias2_m.pl', [w/1 as u]), spy(u/1), debugging.
 nospy(u/1), debugging.
+nospyall.
+spy(v/1), use_module('tests/cpp/data/debugger/alias2_m.pl', [w/1 as v]), debugging.
+debug, alias2_m:w(X).
+l
+l
+nospyall.
+spy(s/1), spy(alias2_m:w/1), use_module('tests/cpp/data/debugger/alias2_m.pl', [w/1 as s]), debugging.
+nospy(s/1), debugging.
 nospyall, nodebug.
