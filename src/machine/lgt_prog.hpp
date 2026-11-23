@@ -10,7 +10,7 @@
 
 namespace mosa {
 
-enum class LgtNodeKind { Plain, Conj, Disj, If, Soft, Assert, Variant, Subsumes, Approx, Forall, Super };
+enum class LgtNodeKind { Plain, Conj, Disj, If, Soft, Pick, Assert, Variant, Subsumes, Approx, Forall, Super };
 
 struct LgtNode {
   LgtNodeKind kind = LgtNodeKind::Plain;
@@ -18,8 +18,13 @@ struct LgtNode {
   std::string note;
   int left = -1;
   int right = -1;
-  // Soft の else。If だけでは else を持たない。
+  // Soft と Pick の else。If だけでは else を持たない。
   int other = -1;
+  // Pick（else にだけランナー目標がある (C -> T ; E)）。text は印の変数 marker を付けた (C -> (T, M = then) ; M = else)、
+  // arrow は (C -> T)、cond は C の字面。開いた query があるときは arrow と cond をスクラッチで試す（lgt_exec.cpp）。
+  std::string marker;
+  std::string arrow;
+  std::string cond;
 };
 
 struct LgtProg {

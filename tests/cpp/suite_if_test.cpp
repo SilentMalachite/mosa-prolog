@@ -156,6 +156,55 @@ void check_else_runner(const std::filesystem::path& root) {
   mosa_test::check(failed.find("ite_check_bind") == std::string::npos, "check passes C's bindings to T");
 }
 
+// R-H01 の直しの後の見直し（RV-I01〜I03）。701dff6e はどれも正しく判定し、R-H01 の直しの後は 10 件を誤った。
+// 名前の末尾が _ok は合格、_ng は不合格が正しい。a5、a6、f5 と軟らかいカットの行は前から誤っていた。
+std::string branch_text() {
+  return "test(rv_open_ok, true) :- member(X,[1,2]), (X == 1 -> fail ; assertion(true)), X == 2.\n"
+         "test(rv_open_ng, false) :- member(X,[1,2]), (X == 1 -> fail ; assertion(true)), X == 2.\n"
+         "test(rv_forall_ng, true) :- forall(member(X,[2,0]), (X > 1 -> true ; assertion(X == 1))).\n"
+         "test(rv_then_open_ok, true) :- member(X, [1,2]), (X > 0 -> assertion(true)), X == 2.\n"
+         "test(rv_then_else_ok, true) :- member(X, [1,2]), (X > 0 -> assertion(true) ; true), X == 2.\n"
+         "test(rv_forall_then_ng, true) :- forall(member(X, [2, 0]), (X > 1 -> assertion(true) ; X == 1)).\n"
+         "test(rv_bind_ok, true) :- (X = f(Y) -> Y = 1 ; assertion(true)), X == f(1).\n"
+         "test(rv_bind_ng, false) :- (X = f(Y) -> Y = 1 ; assertion(true)), X == f(1).\n"
+         "test(rv_twice_ok, true) :- (fail -> true ; assertion(true)), (fail -> true ; assertion(true)).\n"
+         "test(rv_retry_ok, true) :- (true -> member(X,[1,2]) ; assertion(true)), X == 2.\n"
+         "test(rv_else_ng, true) :- (fail -> true ; assertion(fail)).\n"
+         "test(rv_else_bind_ok, true) :- (fail -> true ; X = 1, assertion(X == 1)), X == 1.\n"
+         "test(rv_soft_ng, true) :- (true *-> fail ; assertion(true)).\n"
+         "test(rv_soft_false_ok, false) :- (true *-> fail ; assertion(true)).\n"
+         "test(rv_soft_else_ok, true) :- (fail *-> true ; assertion(true)).\n"
+         "test(rv_check_arrow_ok, true(((Y = 1 -> Y == 1), variant(a, a)))) :- true.\n"
+         "test(rv_check_ite_ok, true(((Y = 1 -> Y == 1 ; fail), variant(a, a)))) :- true.\n"
+         "test(rv_check_else_ok, true((Y = 1 -> Y == 1 ; variant(a, b)))) :- true.\n"
+         "test(rv_check_ite_ng, true(((Y = 1 -> Y \\== 1 ; fail), variant(a, a)))) :- true.\n"
+         "test(rv_check_arrow_ng, true(((Y = 1 -> Y \\== 1), variant(a, a)))) :- true.\n"
+         "test(rv_check_soft_ng, true((true *-> fail ; variant(a, a)))) :- true.\n";
+}
+
+void check_branch_shapes(const std::filesystem::path& root) {
+  const auto suite = root / "branch";
+  const auto prolog = suite / "logtalk" / "prolog";
+  const auto report = root / "branch-report.md";
+  mosa_test::check(write_text(prolog / "predicates" / "atom_1" / "tests.lgt", branch_text()), "write branch");
+  static_cast<void>(mosa::run_iso_suite(suite.string(), report.string()));
+  const std::string body = read_text(report);
+  const std::string failed = between_headings(body, "不合格:", "別欄:");
+  const std::string text = branch_text();
+  bool right = has_exact_line(body, "分母: 21") && has_exact_line(body, "合格数: 12");
+  mosa_test::check(right, "branch counts");
+  std::size_t at = 0;
+  while ((at = text.find("test(", at)) != std::string::npos) {
+    at += 5;
+    const std::string name = text.substr(at, text.find(',', at) - at);
+    const bool listed = failed.find(" " + name + " ") != std::string::npos;
+    const bool want_fail = name.ends_with("_ng");
+    if (listed != want_fail) right = false;
+    mosa_test::check(listed == want_fail, name);
+  }
+  if (!right) show("branch report", body);
+}
+
 }  // namespace
 
 int main() {
@@ -167,6 +216,10 @@ int main() {
   {
     Fixture fixture(root);
     check_else_runner(root);
+  }
+  {
+    Fixture fixture(root);
+    check_branch_shapes(root);
   }
   return mosa_test::failures();
 }

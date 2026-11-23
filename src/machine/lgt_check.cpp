@@ -91,6 +91,30 @@ bool plain_holds(Machine& machine, Cell cell, const std::vector<VarName>& names,
   return lgt_scratch_run(machine, text, bindings).kind == LgtScratchKind::Ok;
 }
 
+bool if_then(const Heap& heap, Cell cell) {
+  return lgt_functor_is(heap, cell, "->", 2) || lgt_functor_is(heap, cell, "*->", 2);
+}
+
+// (C -> T ; E)、(C *-> T ; E) と else の無い (C -> T)。C の成否で T か E の一方だけを判定する。前は (C -> T) を選言の
+// 左として試し、T が偽なら E を判定した（7.8.8、レビュー R-H01）。(C -> T) にランナーの判定するゴールが無ければ、
+// 丸ごと 1 つのゴールとしてスクラッチで試す。分けると C の束縛が T に届かない（レビュー RV-I03）。成り立たなければ
+// C だけを試し、C が成り立てば T が偽なので else へ進まない。スクラッチの機械は毎回新しいので、C を 2 度動かしても
+// 前の副作用は残らない。
+bool check_branch(Machine& machine, Cell arrow, std::optional<Cell> other, const std::vector<VarName>& names,
+                  const std::vector<Binding>& bindings, std::string& note) {
+  const Heap& heap = machine.heap();
+  std::string ignored;
+  if (!lgt_has_special(heap, arrow)) {
+    if (plain_holds(machine, arrow, names, bindings)) return true;
+    if (!other || plain_holds(machine, heap.arg(arrow, 0), names, bindings)) return false;
+    return check_goal(machine, *other, names, bindings, note);
+  }
+  if (check_goal(machine, heap.arg(arrow, 0), names, bindings, ignored)) {
+    return check_goal(machine, heap.arg(arrow, 1), names, bindings, note);
+  }
+  return other && check_goal(machine, *other, names, bindings, note);
+}
+
 bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& names,
                     const std::vector<Binding>& bindings, std::string& note) {
   const Heap& heap = machine.heap();
@@ -100,15 +124,8 @@ bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& nam
     return check_goal(machine, heap.arg(cell, 0), names, bindings, note) &&
            check_goal(machine, heap.arg(cell, 1), names, bindings, note);
   }
-  // (C -> T ; E) は C の成否で T か E の一方だけを判定する。前は (C -> T) を選言の左として試し、T が偽なら E を
-  // 判定した（7.8.8、レビュー R-H01）。
-  if (name == ";" && arity == 2 && lgt_functor_is(heap, heap.arg(cell, 0), "->", 2)) {
-    const Cell arrow = heap.deref(heap.arg(cell, 0));
-    std::string ignored;
-    if (check_goal(machine, heap.arg(arrow, 0), names, bindings, ignored)) {
-      return check_goal(machine, heap.arg(arrow, 1), names, bindings, note);
-    }
-    return check_goal(machine, heap.arg(cell, 1), names, bindings, note);
+  if (name == ";" && arity == 2 && if_then(heap, heap.arg(cell, 0))) {
+    return check_branch(machine, heap.deref(heap.arg(cell, 0)), heap.arg(cell, 1), names, bindings, note);
   }
   // 選言の左右は同じ判定。左が失敗しても、その説明で右を不合格にしない。
   if (name == ";" && arity == 2) {
@@ -116,11 +133,7 @@ bool check_compound(Machine& machine, Cell cell, const std::vector<VarName>& nam
     if (check_goal(machine, heap.arg(cell, 0), names, bindings, ignored)) return true;
     return check_goal(machine, heap.arg(cell, 1), names, bindings, note);
   }
-  if (name == "->" && arity == 2) {
-    std::string ignored;
-    return check_goal(machine, heap.arg(cell, 0), names, bindings, ignored) &&
-           check_goal(machine, heap.arg(cell, 1), names, bindings, note);
-  }
+  if (if_then(heap, cell)) return check_branch(machine, cell, std::nullopt, names, bindings, note);
   if (name == "assertion" && arity == 1) return check_goal(machine, heap.arg(cell, 0), names, bindings, note);
   if (name == "assertion" && arity == 2) {
     if (check_goal(machine, heap.arg(cell, 1), names, bindings, note)) return true;

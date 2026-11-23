@@ -34,6 +34,8 @@ struct LgtStep {
                                     const std::vector<Binding>& bindings);
 [[nodiscard]] bool lgt_check_text(Machine& machine, std::string_view text, const std::vector<Binding>& bindings,
                                   std::string& note);
+// 項がランナーの判定するゴール（assertion、variant、subsumes、=~=、forall、^^）を含むか（lgt_judge.cpp）。
+[[nodiscard]] bool lgt_has_special(const Heap& heap, Cell cell);
 // スクラッチの機械で動かした結果。Stopped は例外か halt で止まったことで、どちらかは stop が持つ。例外の項は
 // 元の機械のヒープに読み直してある。例外と halt を失敗に潰すと false と all の試験が通る（レビュー H-36）。
 // Dead は結果を持ち帰れなかった（ヒープの上限、読み直せない項）。主の機械の上限と同じく打ち切りにする。

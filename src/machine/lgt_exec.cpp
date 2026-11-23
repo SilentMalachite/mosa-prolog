@@ -312,24 +312,82 @@ void exec_disj(Machine& machine, const Prog& prog, int index, Env& env) {
 
 void exec_if(Machine& machine, const Prog& prog, int index, Env& env) {
   const Node& node = prog.nodes[static_cast<std::size_t>(index)];
+  const bool live = env.live;
   exec_at(machine, prog, node.left, env);
   if (env.tri != Tri::Ok) return;
-  // 選択点を残すと then の失敗で親が条件をやり直す。成功した解だけで then を実行する。
-  env.live = false;
+  // 選択点を残すと then の失敗で親が条件をやり直す。成功した解だけで then を実行する。外の開いた query（前の
+  // member/2 や forall/2 の生成側）は切らない。前は live を偽にしたので、then が主の機械で query を開いて外の query を
+  // 置き換え、後のゴールが失敗しても外へ戻らず、forall/2 は残りの解を試さなかった（レビュー RV-I01）。
+  env.live = live && env.live;
   exec_at(machine, prog, node.right, env);
 }
 
 void exec_soft(Machine& machine, const Prog& prog, int index, Env& env) {
   const Node& node = prog.nodes[static_cast<std::size_t>(index)];
+  const bool live = env.live;
   exec_at(machine, prog, node.left, env);
   if (env.tri == Tri::Ok) {
-    // 条件の成功で else を切る。then が失敗しても、この節点は else を持ったまま返さない。
-    env.live = false;
+    // 条件の成功で else を切る。then が失敗しても、この節点は else を持ったまま返さない。外の開いた query は
+    // exec_if と同じく残す（レビュー RV-I01）。
+    env.live = live && env.live;
     exec_at(machine, prog, node.right, env);
     return;
   }
   if (env.tri == Tri::Dead || env.tri == Tri::Throw) return;
   take_else(machine, prog, node.other, env.tri, env);
+}
+
+// 印の変数を束縛と写しから消す。写しに残ると、同じ節点を次に動かすときに goal_with_saved が前の値を貼り、
+// (else) = then のような query になる（レビュー RV-I02）。
+void forget_marker(Env& env, const std::string& marker) {
+  std::erase_if(env.saved, [&](const Saved& slot) { return slot.name == marker; });
+  std::erase_if(env.bindings, [&](const Binding& binding) { return binding.name == marker; });
+}
+
+bool marker_says_else(const Machine& machine, const Env& env, const std::string& marker) {
+  const Heap& heap = machine.heap();
+  for (const Binding& binding : env.bindings) {
+    if (binding.name != marker) continue;
+    const Cell value = heap.deref(binding.variable);
+    return value.tag() == Tag::Atom && heap.atoms().name(static_cast<std::uint32_t>(value.raw() >> 3)) == "else";
+  }
+  return false;
+}
+
+// 開いた query があると、主の機械で問うとその query を置き換え、スクラッチは束縛を持ち帰らないので印を読めない。
+// (C -> T) を試し、成り立たなければ C だけを試して、C も成り立たないときだけ else へ進む。スクラッチは毎回新しい
+// 機械なので、C を 2 度動かしても前の副作用は残らない。
+void scratch_end(const LgtScratch& ran, Env& env) {
+  env.tri = scratch_tri(ran.kind);
+  if (ran.kind == LgtScratchKind::Stopped) env.stop = ran.stop;
+}
+
+void pick_scratch(Machine& machine, const Prog& prog, const Node& node, Env& env) {
+  const LgtScratch whole = lgt_scratch_run(machine, node.arrow, env.bindings);
+  if (whole.kind != LgtScratchKind::No) return scratch_end(whole, env);
+  const LgtScratch cond = lgt_scratch_run(machine, node.cond, env.bindings);
+  if (cond.kind == LgtScratchKind::Ok) {
+    env.tri = Tri::No;
+    return;
+  }
+  if (cond.kind != LgtScratchKind::No) return scratch_end(cond, env);
+  take_else(machine, prog, node.other, Tri::No, env);
+}
+
+// else にだけランナー目標がある (C -> T ; E)（lgt_build.cpp の build_pick）。印の付いた 1 つの query が成功し、印が
+// else なら E を動かす。query が失敗したのは C が成り立って T が失敗したときなので、E へ進まない。
+void exec_pick(Machine& machine, const Prog& prog, int index, Env& env) {
+  const Node& node = prog.nodes[static_cast<std::size_t>(index)];
+  if (env.live) {
+    pick_scratch(machine, prog, node, env);
+    return;
+  }
+  forget_marker(env, node.marker);
+  exec_plain(machine, node, env);
+  if (env.tri != Tri::Ok) return;
+  const bool otherwise = marker_says_else(machine, env, node.marker);
+  forget_marker(env, node.marker);
+  if (otherwise) take_else(machine, prog, node.other, Tri::No, env);
 }
 
 void retry_right(Machine& machine, const Prog& prog, int right, Env& env) {
@@ -526,6 +584,7 @@ void exec_at(Machine& machine, const Prog& prog, int index, Env& env) {
     case NodeKind::Disj: exec_disj(machine, prog, index, env); return;
     case NodeKind::If: exec_if(machine, prog, index, env); return;
     case NodeKind::Soft: exec_soft(machine, prog, index, env); return;
+    case NodeKind::Pick: exec_pick(machine, prog, index, env); return;
     case NodeKind::Assert: exec_assert(machine, prog, index, env); return;
     case NodeKind::Forall: exec_forall(machine, prog, index, env); return;
     case NodeKind::Super: exec_super(machine, prog.nodes[static_cast<std::size_t>(index)], env); return;

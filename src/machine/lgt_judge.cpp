@@ -566,6 +566,11 @@ bool lgt_text_has_special(Machine& machine, std::string_view text) {
   return contains_special(machine.heap(), parsed.term, stack);
 }
 
+bool lgt_has_special(const Heap& heap, Cell cell) {
+  std::vector<std::uint64_t> stack;
+  return contains_special(heap, cell, stack);
+}
+
 // (=~=)/2 は演算子だけを、このファイルの表に足す。述語としては登録しない。:- if の枝はまだ選ばれていないので、
 // 読みの表には枝を問わず足し（後ろの項を読むため）、機械に入れるかは枝が選ばれてから決める。
 bool absorb_lgt_uses(Heap& heap, OperatorTable& operators, Cell term, const std::vector<LgtGuard>& guard,

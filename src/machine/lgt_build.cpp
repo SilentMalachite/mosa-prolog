@@ -5,6 +5,7 @@
 
 #include "mosa/writer.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -169,15 +170,45 @@ int build_runner_if(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell
   return add_node(prog, std::move(node));
 }
 
+// 本体の変数と重ならない印の変数の名前。節点ごとに変え、別の節点の印の写しが貼られないようにする。
+std::string marker_name(const Prog& prog, const std::vector<VarName>& names) {
+  std::string name = "LgtBranch" + std::to_string(prog.nodes.size());
+  while (std::any_of(names.begin(), names.end(), [&](const VarName& var) { return var.name == name; })) name += "_";
+  return name;
+}
+
+// else にだけランナー目標がある (C -> T ; E) と (C *-> T ; E)。(C -> T) を印付きの 1 つの query にし、印が else の
+// ときだけ E を動かす。C と T を別の query にすると、C が項の中に作った変数を T が束縛しても後へ残らない（レビュー
+// RV-I02）。(C -> T) を選言の左にすると、T が失敗したとき E へ進む（R-H01）。
+int build_pick(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell, std::string_view op,
+               const std::vector<VarName>& names) {
+  const Cell arrow = heap.deref(heap.arg(cell, 0));
+  const std::string cond = write_term(heap, ops, heap.arg(arrow, 0), lgt_write_options(), names);
+  const std::string then = write_term(heap, ops, heap.arg(arrow, 1), lgt_write_options(), names);
+  Node node;
+  node.kind = NodeKind::Pick;
+  node.marker = marker_name(prog, names);
+  // 印は then の後に付ける。((C -> T), M = then ; M = else) は if-then-else でなく選言になる。
+  node.text = "((" + cond + ") " + std::string{op} + " ((" + then + "), " + node.marker + " = then) ; " +
+              node.marker + " = else)";
+  node.arrow = "((" + cond + ") " + std::string{op} + " (" + then + "))";
+  node.cond = cond;
+  node.other = build_node(prog, heap, ops, heap.arg(cell, 1), names);
+  return add_node(prog, std::move(node));
+}
+
 int build_runner_soft(Prog& prog, const Heap& heap, const OperatorTable& ops, Cell cell,
                       const std::vector<VarName>& names) {
   const Cell arrow = heap.deref(heap.arg(cell, 0));
   if (arrow.tag() != Tag::Str || heap.functor_arity(arrow) != 2) return -1;
-  if (heap.atoms().name(heap.functor_atom(arrow)) != "->") return -1;
+  const auto op = heap.atoms().name(heap.functor_atom(arrow));
+  if (op != "->" && op != "*->") return -1;
   std::vector<std::uint64_t> seen;
-  // ランナー目標の無い選言は機械の query のままにする（one_activation）。else にだけランナー目標がある形も同じ節点に
-  // する。前は (C -> T) を選言の左の query にしたので、T が失敗すると E へ進んだ（7.8.8、レビュー R-H01）。
+  // ランナー目標の無い選言は機械の query のままにする（one_activation）。
   if (mix_of(heap, cell, seen) != GoalMix::Runner) return -1;
+  if (mix_of(heap, arrow, seen) != GoalMix::Runner) return build_pick(prog, heap, ops, cell, op, names);
+  // 条件か then にランナー目標がある *-> は、条件をやり直す節点が無い。前と同じく選言にする（open-items）。
+  if (op != "->") return -1;
   Node node;
   node.kind = NodeKind::Soft;
   node.left = build_node(prog, heap, ops, heap.arg(arrow, 0), names);
