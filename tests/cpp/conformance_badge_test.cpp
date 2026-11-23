@@ -101,9 +101,10 @@ void check_regression(const std::filesystem::path& root) {
   mosa_test::check(read_text(root / "gate.json") == badge("100.0% (20/20)", "brightgreen"), "baseline raised");
   mosa_test::check(run_code(root, "gate", 10, 0) == 0, "equal rate passes");
   mosa_test::check(read_text(root / "gate.json") == badge("100.0% (10/10)", "brightgreen"), "equal rate rewrites");
+  // レビュー N-09。読めない物差しは関門を外さない。前は 90% の下限だけで通し、壊れたバッジを上書きした。
   mosa_test::check(write_text(root / "broken.json", "not a badge\n"), "seed broken badge");
-  mosa_test::check(run_code(root, "broken", 9, 1) == 0, "unreadable baseline only keeps the 90 floor");
-  mosa_test::check(read_text(root / "broken.json") == badge("90.0% (9/10)", "brightgreen"), "broken badge replaced");
+  mosa_test::check(run_code(root, "broken", 9, 1) == 1, "an unreadable baseline fails the run");
+  mosa_test::check(read_text(root / "broken.json") == "not a badge\n", "broken badge kept");
 }
 
 // ライブラリ欄は本欄と混ぜず、<報告書>-library.json に書く。90% の下限は掛けないが、後退の判定は本欄と同じ形で掛ける
@@ -211,6 +212,17 @@ void check_unwritable(const std::filesystem::path& root) {
 
 }  // namespace
 
+// レビュー N-09。前のバッジがあるのに合格率が読めなければ、関門を外さずに 1 で終え、バッジを書き換えない。前は物差し
+// なしとして 0 で終え、壊れたバッジを新しい値で上書きした。分母 0 の回に書いた no tests は物差しなしのまま通す。
+void check_corrupt_baseline(const std::filesystem::path& root) {
+  mosa_test::check(write_text(root / "corrupt.json", "{\"message\":\"garbage\"}\n"), "write corrupt badge");
+  mosa_test::check(run_code(root, "corrupt", 9, 0) == 1, "a corrupt baseline fails the run");
+  mosa_test::check(read_text(root / "corrupt.json") == "{\"message\":\"garbage\"}\n", "the corrupt badge is kept");
+  mosa_test::check(write_text(root / "notests.json", badge("no tests", "lightgrey")), "write no-tests badge");
+  mosa_test::check(run_code(root, "notests", 9, 0) == 0, "a no-tests badge is no baseline");
+  mosa_test::check(read_text(root / "notests.json") == badge("100.0% (9/9)", "brightgreen"), "no-tests badge replaced");
+}
+
 // レビュー L-39。--report が .json なら本欄のバッジと同じファイルになるので、流す前に断って 1 で終える。前はバッジが
 // 報告書を黙って上書きし、0 で終えた。拡張子の大小は区別しない（macOS と Windows では同じファイル）。
 void check_report_clash(const std::filesystem::path& root) {
@@ -238,6 +250,7 @@ int main() {
   check_absent(root);
   check_unwritable(root);
   check_report_clash(root);
+  check_corrupt_baseline(root);
   std::filesystem::remove_all(root, error);
   mosa_test::check(!path_exists(root), "fixture removed");
   return mosa_test::failures();

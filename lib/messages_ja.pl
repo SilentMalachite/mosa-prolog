@@ -110,6 +110,7 @@ message(bench_step_failed, 'mosatest: ~w が終了コード ~w で失敗しま�
 message(bench_cannot_write, 'mosatest: ~w に書けません').
 message(report_same_name, 'mosatest: 報告書 ~w は隣に書く ~w と同じファイルになります。--report には別の拡張子を渡してください').
 message(conformance_regressed, 'mosatest: 準拠の合格率が下がりました: ~w -> ~w').
+message(badge_unreadable, 'mosatest: 前のバッジ ~w の合格率が読めません。直すか消してから流してください').
 message(library_conformance_regressed, 'mosatest: ライブラリ欄の合格率が下がりました: ~w -> ~w').
 message(diff_usage, '使い方: ~w <ディレクトリ> [--report <ファイル>]').
 message(diff_no_files, 'mosatest: ~w に試験のファイルがありません').

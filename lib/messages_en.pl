@@ -110,6 +110,7 @@ message(bench_step_failed, 'mosatest: ~w failed with code ~w (output in ~w)').
 message(bench_cannot_write, 'mosatest: cannot write ~w').
 message(report_same_name, 'mosatest: the report ~w would be the same file as ~w, which is written beside it; give --report another extension').
 message(conformance_regressed, 'mosatest: conformance pass rate went down: ~w -> ~w').
+message(badge_unreadable, 'mosatest: cannot read the pass rate in the previous badge ~w; fix or remove it before the run').
 message(library_conformance_regressed, 'mosatest: library conformance pass rate went down: ~w -> ~w').
 message(diff_usage, 'usage: ~w <directory> [--report <file>]').
 message(diff_no_files, 'mosatest: no test files in ~w').

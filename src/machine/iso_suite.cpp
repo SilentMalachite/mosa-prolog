@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <sstream>
@@ -123,8 +124,7 @@ std::optional<int> count_in(std::string_view text) {
   return value;
 }
 
-// 前回のバッジ JSON（write_badge が書く 1 行）から合格数と分母を読む。無い・読めない・形が違うときは
-// 物差しなしで、90% の下限だけが残る。
+// 前回のバッジ JSON（write_badge が書く 1 行）から合格数と分母を読む。無い・読めない・形が違うときは nullopt。
 std::optional<Baseline> read_baseline(const std::filesystem::path& badge) {
   std::ifstream input(badge, std::ios::binary);
   std::string line;
@@ -248,12 +248,23 @@ struct BadgeGate {
   std::string_view label;
   std::string_view regressed_key;
   std::optional<Baseline> baseline;
+  // ファイルはあるのに合格率が読めない。物差しなしとして通すと関門が外れ、壊れた値が上書きされて消える（レビュー N-09、
+  // SPEC 第8節）。
+  bool corrupt = false;
 };
 
-// 書き換える前の JSON が物差し。報告書の名前によっては同じファイルを指しうるので、報告書を書く前に読む。
+// 書き換える前の JSON が物差し。報告書の名前によっては同じファイルを指しうるので、報告書を書く前に読む。物差しなしで
+// 通すのは、ファイルが無いときと、分母 0 の回に write_badge が書いた no tests のときだけ。
 BadgeGate open_gate(std::filesystem::path path, std::string_view label, std::string_view regressed_key) {
   const std::optional<Baseline> baseline = read_baseline(path);
-  return BadgeGate{std::move(path), label, regressed_key, baseline};
+  bool corrupt = false;
+  std::error_code error;
+  if (!baseline && std::filesystem::exists(path, error)) {
+    std::ifstream input(path, std::ios::binary);
+    const std::string text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+    corrupt = text.find("\"message\":\"no tests\"") == std::string::npos;
+  }
+  return BadgeGate{std::move(path), label, regressed_key, baseline, corrupt};
 }
 
 // 後退した回は報告書（不合格の一覧）だけ書いて JSON を残すので、直すまで何度流しても失敗し、
@@ -261,6 +272,11 @@ BadgeGate open_gate(std::filesystem::path path, std::string_view label, std::str
 // no tests のバッジを書く（物差しを失うものが無い）。
 bool close_gate(const BadgeGate& gate, const Tally& tally, bool& written) {
   const int denominator = tally.denominator();
+  if (gate.corrupt) {
+    std::cerr << render_message_fresh(default_message_language(), "badge_unreadable", std::array{utf8_from_path(gate.path)})
+              << '\n';
+    return true;
+  }
   if (gate.baseline && regressed(tally.passed, denominator, *gate.baseline)) {
     std::cerr << render_message_fresh(default_message_language(), gate.regressed_key,
                                       std::array{rate_text(gate.baseline->passed, gate.baseline->denominator),
