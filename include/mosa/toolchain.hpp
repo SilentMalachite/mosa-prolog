@@ -4,7 +4,6 @@
 // テスト: tests/cpp/toolchain_test.cpp
 #include <filesystem>
 #include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>

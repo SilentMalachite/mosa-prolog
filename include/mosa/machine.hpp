@@ -8,6 +8,7 @@
 #include "mosa/operator_table.hpp"
 #include "mosa/unify.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
