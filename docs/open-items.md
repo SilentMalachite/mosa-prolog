@@ -343,7 +343,7 @@ General:
 - A translated predicate picks its clauses by first argument with a linear chain of `if` (review
   N-07, owner's B), so a call takes time in the position of its key, and each `kKey` array repeats
   every keyless clause. 2,000 facts `f(k<i>, i)`, 300,000 calls: the last key 682 ms, the first 97 ms
-  (mosa 343 and 345 ms). 100 keyless clauses before 4,000 keyed ones make `muser.cpp` 12.2 MB, not
+  (mosa 343 and 345 ms). 100 keyless clauses before 4,000 keyed ones make the generated unit 12.2 MB, not
   3.8 MB. Constant-time dispatch would change the generated code of ADR 0009, so it needs an ADR.
 - Undefined-call warnings show the clause line, not the goal line, and can name another file
   after a nested consult replaces that predicate's clauses (M23 A2).
@@ -399,8 +399,8 @@ Phase 12 (CHANGELOG 0.3.0, Known limits):
 - A failed goal load's diagnostic bypasses the `user_error` stream, so its column does not move.
 - In a `mosac build` executable, `module_property(M, file(F))` gives the file's embed key
   resolved against the working directory (`library/Name.pl` for a bundled library, the path
-  relative to the main file's directory for the program's own module files), which can differ
-  from the interpreter's path.
+  relative to the common ancestor of the main file and the program's own files for those files,
+  as SPEC section 5 says), which can differ from the interpreter's path.
 - `mosac` still warns that an unqualified `maplist/3` after a goal `use_module(library(apply))`
   is undefined, though the executable runs (goal libraries are read as
   `use_module(library(N), [])`).
@@ -462,8 +462,8 @@ its Low findings):
 
 - Deferred, real: 25, `writeq_minus_postfix` in `tests/pl/write.pl` leaks `op(200, xf, '~~')` if
   the read-back throws (phase 7 test); 34, ADR 0007 amendment 2 has no Context/Decision labels
-  (phase 10 text); 35, a comment in `load_directive.cpp` that says what, not why (file on the split
-  list).
+  (phase 10 text); 35, a comment in `load_directive.cpp` that says what, not why (the file was split
+  by bb97f7b8 and is off the split list).
 - Not reproduced: 9, a skip left after a heap stop in a directive; the failed load restores the
   debugger's on/off and mode (owner B), with the debugger off or on before the directive.
 - By design or already covered: 5, a shared (DAG) term written in full is exponential in any
