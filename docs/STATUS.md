@@ -1,13 +1,12 @@
 # Status
 
 - **Phase:** 0–14 done. Phase 14 (debugger) closed 2026-11-19; PR #4 merged into `main`.
-- **Release:** `mosa 0.5.1` in progress (owner, 2026-11-24); 0.5.0 (2026-11-19) is the latest.
+- **Release:** `mosa 0.5.1`, released 2026-11-24 (latest). Earlier releases are in CHANGELOG.
 - **Conformance:** ISO column 2295/2333 (98.4%, test/1 counted: H-40), library 600/605 (99.2%).
-- **In progress:** the 2026-11-23 branch review (56 items) on `fix/review-2026-11-20`; see the
-  [plan](superpowers/plans/2026-11-23-branch-review-fixes.md).
-- **Last done:** review V1–V8 (45 done, 5 questions, R-L06 open), CI green at f257855c; then the
-  re-review's 4 regressions and 10 minor items fixed ([review-2026-11-24](review-2026-11-24.md)).
-- **Next:** push and CI; the owner's R-L17 (count the old lgtunit forms?); then 0.5.1 (owner).
+- **In progress:** none. `main` is at 6ce0c769, fast-forwarded from `fix/review-2026-11-20`.
+- **Last done:** 0.5.1 published: main CI 45294375578 and tag release run 45294359951 passed; the
+  macOS package, unpacked in a path with spaces and Japanese, matched the build; gh-pages b2681ed2.
+- **Next:** the owner's questions (R-L17, the re-review's RV-I01 A or B, and the rest in open-items).
 - **Questions to the owner:** A-or-B questions run on default A (open-items).
 - **Split first:** `src/machine/lgt_exec.cpp` (749 lines) before its next edit (open-items).
 - **Open items:** unsure points, decisions in force, known limits and doubts are in

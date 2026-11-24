@@ -61,8 +61,6 @@ The repository has no text of 13211-1, so these wait for the owner. The default 
 
 ## Owner decisions in force
 
-- Review plan, release (A, 2026-11-23): 0.5.1 comes after W9 and after the fixes of the 2026-11-23
-  branch review (the owner made it depend on that review). Until then do not prepare or tag it.
 - Review N-07 (B, 2026-11-23): generated code keeps picking clauses by first argument with a linear
   `if` chain (see Known limits); A, an ADR for constant-time dispatch, was not taken.
 - Review L-12 (A, 2026-11-23): an atom holding invalid UTF-8 (from argv) is written with each bad
